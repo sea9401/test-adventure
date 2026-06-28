@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { PageShell } from "@/components/ui/PageShell";
+import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   effectiveCultivateProfile,
@@ -139,6 +143,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 성장 상태 fetch
     refresh();
   }, [refresh]);
 
@@ -202,7 +207,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     : [];
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell spacing="tight">
       <SubViewHeader title="성장의 신전" onBack={onBack} />
 
       <HeaderPanel className="py-2">
@@ -258,105 +263,99 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       {tab === "cultivate" && (
         <>
           <Card padding="md">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">
-            {disciplineName ? `${disciplineName} 수행` : "수행"}
-          </h2>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            숙달 포인트{" "}
-            <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
-              {usable}
-            </strong>
-          </div>
-        </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
-        </p>
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                {disciplineName ? `${disciplineName} 수행` : "수행"}
+              </h2>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                숙달 포인트{" "}
+                <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                  {usable}
+                </strong>
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
+            </p>
 
-        {loading ? (
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-            불러오는 중…
-          </p>
-        ) : !profile ? (
-          <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
-            직업이 없어 수행할 수 없어요. 먼저 직업을 선택하세요.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-1.5">
-            {profileStats.map((k) => {
-              const cap = caps[k] ?? V2_STAT_CAP_BASE;
-              const cur = stats[k] ?? 0;
-              const gain = profile[k] ?? 0;
-              return (
-                <li
-                  key={k}
-                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+            {loading ? (
+              <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                불러오는 중…
+              </p>
+            ) : !profile ? (
+              <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+                직업이 없어 수행할 수 없어요. 먼저 직업을 선택하세요.
+              </p>
+            ) : (
+              <ul className="mt-3 space-y-1.5">
+                {profileStats.map((k) => {
+                  const cap = caps[k] ?? V2_STAT_CAP_BASE;
+                  const cur = stats[k] ?? 0;
+                  const gain = profile[k] ?? 0;
+                  return (
+                    <li
+                      key={k}
+                      className={`${SURFACE_INSET} flex min-h-11 items-center justify-between gap-3 px-3 py-2`}
+                    >
+                      <div className="flex min-w-0 items-baseline gap-2">
+                        <span className="text-sm font-semibold uppercase">
+                          {k.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {V2_STAT_LABELS[k]}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline gap-2 tabular-nums text-sm">
+                        {/* 현스탯(한계) — 예 200(300). 수행은 한계만 올림. */}
+                        <span className="font-semibold">
+                          {cur}
+                          <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                            ({cap})
+                          </span>
+                        </span>
+                        <span className="text-emerald-600 dark:text-emerald-400">
+                          한계 +{gain}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {profile && (
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  수행 {cultivations}회 · 다음 비용{" "}
+                  <strong
+                    className={`tabular-nums ${
+                      usable >= nextCost
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {nextCost}
+                  </strong>
+                </span>
+                <Button
+                  onClick={cultivate}
+                  disabled={!canCultivate}
+                  variant="success"
+                  size="md"
                 >
-                  <div className="flex min-w-0 items-baseline gap-2">
-                    <span className="text-sm font-semibold uppercase">
-                      {k.toUpperCase()}
-                    </span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {V2_STAT_LABELS[k]}
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-2 tabular-nums text-sm">
-                    {/* 현스탯(한계) — 예 200(300). 수행은 한계만 올림. */}
-                    <span className="font-semibold">
-                      {cur}
-                      <span className="font-normal text-zinc-500 dark:text-zinc-400">
-                        ({cap})
-                      </span>
-                    </span>
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      한계 +{gain}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {profile && (
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              수행 {cultivations}회 · 다음 비용{" "}
-              <strong
-                className={`tabular-nums ${
-                  usable >= nextCost
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : "text-rose-600 dark:text-rose-400"
-                }`}
-              >
-                {nextCost}
-              </strong>
-            </span>
-            <button
-              type="button"
-              onClick={cultivate}
-              disabled={!canCultivate}
-              className="rounded-md border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {busy ? "수행 중…" : "수행"}
-            </button>
-          </div>
-        )}
-      </Card>
+                  {busy ? "수행 중…" : "수행"}
+                </Button>
+              </div>
+            )}
+          </Card>
 
           {msg && (
-            <div
-              className={`rounded-md border px-3 py-1.5 text-xs ${
-                msg.startsWith("✓")
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                  : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-              }`}
-            >
+            <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
               {msg}
-            </div>
+            </StatusBanner>
           )}
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

@@ -11,6 +11,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Hammer } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { ChoiceButton } from "@/components/ui/ChoiceButton";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { Pagination } from "@/components/ui/Pagination";
@@ -65,6 +68,12 @@ const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
   { key: "ring", label: "반지" },
   { key: "necklace", label: "목걸이" },
 ];
+
+function statusToneOf(
+  kind: "success" | "fail" | "error",
+): "success" | "error" | "warning" {
+  return kind === "success" ? "success" : kind === "fail" ? "error" : "warning";
+}
 
 type EnhanceResponse = {
   ok?: boolean;
@@ -509,23 +518,18 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     const disabled = s === "none" && stoneRequired;
                     const row = enhanceOutcomeRow(level, s);
                     return (
-                      <button
+                      <ChoiceButton
                         key={s}
-                        type="button"
                         disabled={disabled}
                         onClick={() => {
                           setStone(s);
                           if (s === "none") setFeedIid(null);
                         }}
-                        className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition disabled:opacity-40 ${
-                          stone === s
-                            ? s === "red"
-                              ? "border-rose-400 bg-rose-50 dark:border-rose-600 dark:bg-rose-950"
-                              : s === "blue"
-                                ? "border-sky-400 bg-sky-50 dark:border-sky-600 dark:bg-sky-950"
-                                : "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-950"
-                            : "border-zinc-200 dark:border-zinc-700"
-                        }`}
+                        selected={stone === s}
+                        tone={
+                          s === "red" ? "danger" : s === "blue" ? "info" : "warning"
+                        }
+                        className="flex-1"
                       >
                         <div className="font-medium">
                           {s === "none"
@@ -540,7 +544,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                           성공 {row[0]}%
                           {row[3] > 0 ? ` · 파괴 ${row[3]}%` : ""}
                         </div>
-                      </button>
+                      </ChoiceButton>
                     );
                   })}
                 </div>
@@ -603,11 +607,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     </span>
                   )}
                 </div>
-                <button
-                  type="button"
+                <Button
                   onClick={() => void doEnhance()}
                   disabled={busy || stoneShort || goldOnlyBlocked}
-                  className="w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
+                  variant="warning"
+                  size="md"
+                  fullWidth
                 >
                   {busy
                     ? "강화 중…"
@@ -616,21 +621,13 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       : stoneShort
                         ? "강화석 부족"
                         : `강화 (성공 ${successPct}%)`}
-                </button>
+                </Button>
               </>
             )}
             {msg && (
-              <div
-                className={`rounded-md border px-3 py-1.5 text-xs ${
-                  msg.kind === "success"
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                    : msg.kind === "fail"
-                      ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                }`}
-              >
+              <StatusBanner tone={statusToneOf(msg.kind)}>
                 {msg.text}
-              </div>
+              </StatusBanner>
             )}
           </div>
         </Card>
@@ -677,17 +674,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 {/* 재련석 선택 — 일반(현 굴림) / 상급(고품질 확률↑) */}
                 <div className="flex gap-2">
                   {(["basic", "high"] as const).map((s) => (
-                    <button
+                    <ChoiceButton
                       key={s}
-                      type="button"
                       onClick={() => setReforgeStone(s)}
-                      className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition ${
-                        reforgeStone === s
-                          ? s === "high"
-                            ? "border-indigo-400 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950"
-                            : "border-zinc-400 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-800"
-                          : "border-zinc-200 dark:border-zinc-700"
-                      }`}
+                      selected={reforgeStone === s}
+                      tone={s === "high" ? "primary" : "neutral"}
+                      className="flex-1"
                     >
                       <div className="font-medium">
                         {s === "high" ? "✨ 상급 재련석" : "🔧 재련석"}
@@ -696,7 +688,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                         {s === "high" ? "고품질 확률↑" : "기본"} · 보유{" "}
                         {reforgeStones[s]}
                       </div>
-                    </button>
+                    </ChoiceButton>
                   ))}
                 </div>
                 <div className="flex items-baseline justify-between text-xs text-zinc-500 dark:text-zinc-400">
@@ -709,32 +701,25 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     ⚠️ 더 나빠질 수 있음
                   </span>
                 </div>
-                <button
-                  type="button"
+                <Button
                   onClick={() => void doReforge()}
                   disabled={busy || reforgeStoneShort}
-                  className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                  variant="primary"
+                  size="md"
+                  fullWidth
                 >
                   {busy
                     ? "재련 중…"
                     : reforgeStoneShort
                       ? `${REFORGE_STONES[reforgeStone].name} 부족`
                       : `재련 (${reforgeCost.toLocaleString()} G + 재련석 1)`}
-                </button>
+                </Button>
               </>
             )}
             {msg && (
-              <div
-                className={`rounded-md border px-3 py-1.5 text-xs ${
-                  msg.kind === "success"
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                    : msg.kind === "fail"
-                      ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                }`}
-              >
+              <StatusBanner tone={statusToneOf(msg.kind)}>
                 {msg.text}
-              </div>
+              </StatusBanner>
             )}
           </div>
         </Card>
@@ -813,30 +798,23 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       );
                     })}
                   </div>
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => void r.onCombine()}
                     disabled={busy || short}
-                    className="shrink-0 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                    variant="primary"
+                    size="md"
+                    className="shrink-0"
                   >
                     {busy ? "…" : "조합 →"}
-                  </button>
+                  </Button>
                 </div>
               </Card>
             );
           })}
           {msg && (
-            <div
-              className={`rounded-md border px-3 py-1.5 text-xs ${
-                msg.kind === "success"
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                  : msg.kind === "fail"
-                    ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                    : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-              }`}
-            >
+            <StatusBanner tone={statusToneOf(msg.kind)}>
               {msg.text}
-            </div>
+            </StatusBanner>
           )}
         </section>
       )}

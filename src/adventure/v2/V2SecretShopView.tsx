@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Coins } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { PageShell } from "@/components/ui/PageShell";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
 
@@ -56,6 +61,7 @@ export function V2SecretShopView({
   }, [mapIid, syncCtxBanked]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/지도 변경 시 비밀상점 fetch
     refresh();
   }, [refresh]);
 
@@ -108,14 +114,21 @@ export function V2SecretShopView({
   // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 구매).
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="비밀 상점" onBack={onBack} />
-      {/* 보유 골드 — 헤더 우측에 두면 큰 숫자에서 가운데 타이틀과 겹쳐 별도 줄로(모바일 겹침 수정). */}
-      {gold != null && (
-        <div className="-mt-2 flex justify-end text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
-          💰 보유 골드 {spendable.toLocaleString()} G
-        </div>
-      )}
+    <PageShell>
+      <SubViewHeader
+        title="비밀 상점"
+        onBack={onBack}
+        right={
+          gold != null ? (
+            <span className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+              <Coins size={16} weight="fill" className="text-yellow-500" />
+              <span className="font-semibold tabular-nums">
+                {spendable.toLocaleString()}G
+              </span>
+            </span>
+          ) : null
+        }
+      />
       {gold != null && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
           품목당 1회 구매 · 지도가 닳기 전까지 재방문 가능
@@ -130,50 +143,43 @@ export function V2SecretShopView({
           </p>
         </Card>
       ) : stock === null ? (
-        <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          불러오는 중…
+        <div className="space-y-2">
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
         </div>
       ) : (
         <div className="space-y-2">
           {msg && (
-            <div
-              className={`rounded-md border px-3 py-1.5 text-xs ${
-                msg.startsWith("✓")
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                  : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-              }`}
-            >
+            <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
               {msg}
-            </div>
+            </StatusBanner>
           )}
           {stock.map((item) => (
             <Card key={item.id} padding="sm">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex min-h-14 items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-medium">{item.name}</div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-0.5 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {item.desc}
                   </div>
                 </div>
-                <button
-                  type="button"
+                <Button
                   onClick={() => buy(item)}
                   disabled={busy || item.bought || spendable < item.price}
-                  className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
-                    item.bought
-                      ? "cursor-not-allowed border border-zinc-300 text-zinc-400 dark:border-zinc-700 dark:text-zinc-500"
-                      : "border border-sky-700 bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
-                  }`}
+                  variant={item.bought ? "secondary" : "info"}
+                  size="xs"
+                  className="shrink-0"
                 >
                   {item.bought
                     ? "구매함"
                     : `${item.price.toLocaleString()} G`}
-                </button>
+                </Button>
               </div>
             </Card>
           ))}
         </div>
       )}
-    </main>
+    </PageShell>
   );
 }

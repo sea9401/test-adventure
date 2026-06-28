@@ -144,6 +144,7 @@ export function OutpostView({
   //   영주명·세금을 공개(스카우팅 정보). 세금도 이 응답값을 써 모든 거점에 표기. 설전 off 면 404 → null.
   useEffect(() => {
     if (!occupation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 점령 해제/미점령 상태는 영주 요약 clear
       setLordInfo(null);
       return;
     }

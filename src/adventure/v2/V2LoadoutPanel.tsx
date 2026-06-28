@@ -38,6 +38,7 @@ export function V2LoadoutPanel({
   //   토글은 같은 prop 참조라 effect 미발화 → 낙관적 로컬 상태 유지. 학습 등 refresh 시에만 리셋.
   const equippedKey = loadout.equipped.join(",");
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 서버 loadout prop 이 바뀔 때 로컬 편집 순서 재시드
     setOrder(loadout.equipped);
     setMsg(null);
     // equippedKey 로 내용 비교(refresh 마다 새 배열 ref 라도 내용 같으면 미발화).

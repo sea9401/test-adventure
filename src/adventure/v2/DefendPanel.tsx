@@ -31,6 +31,7 @@ export default function DefendPanel({ outpostId }: { outpostId: string }) {
   }, [outpostId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/거점 변경 시 수비 큐 fetch
     void load();
   }, [load]);
 

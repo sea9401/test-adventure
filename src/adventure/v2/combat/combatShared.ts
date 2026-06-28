@@ -573,6 +573,7 @@ export type V2SkillCastInput = {
     // PR2-B — execute(처단 처형 임계)·스택 payoff(참절/중독폭발/비전작렬). 미지정=폴백.
     currentHp?: number;
     maxHp?: number;
+    executeHpThresholdFloorPct?: number;
     bleedStacks?: number;
     poisonStacks?: number;
     magicVulnStacks?: number;
@@ -864,7 +865,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       // 처단 — 적 HP 임계 이하면 ×bonusMult.
       const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
-      dealDamage(frac <= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
+      const thresholdPct = Math.max(
+        effect.hpThresholdPct,
+        input.target.executeHpThresholdFloorPct ?? 0,
+      );
+      dealDamage(frac <= thresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
     } else if (effect.kind === "ambushDamage") {
       // 기습 — 처형의 역. 적 HP 임계 "이상"(풀피)이면 ×bonusMult (오프너 알파), 아니면 낮은 기본딜.
       const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);

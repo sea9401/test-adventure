@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { StatBar } from "@/components/ui/StatBar";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import type { WarVigor } from "@/adventure/data/v2/warVigor";
@@ -87,7 +88,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
     } catch {
       setLoadError(true);
     }
-  }, []);
+  }, [syncCtxBanked]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
@@ -296,15 +297,9 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
       </Card>
 
       {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
+        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
           {msg}
-        </div>
+        </StatusBanner>
       )}
     </main>
   );

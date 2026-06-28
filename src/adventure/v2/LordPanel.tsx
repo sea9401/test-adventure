@@ -58,6 +58,7 @@ export default function LordPanel({
   }, [outpostId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/거점 변경 시 영주 정보 fetch
     void load();
   }, [load]);
 

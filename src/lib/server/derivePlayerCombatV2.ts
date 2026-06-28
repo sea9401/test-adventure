@@ -9,8 +9,8 @@
 //   str → atk 주력 (atk += str×0.15)
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
-//   spd → 다중공격 확률 (extra += spd×0.5%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
-//   luk → 치명 확률(crit += luk×0.15) + 치명 데미지(critMult 점감곡선 bonus += luk×0.007) + atk 보조(×0.04). 항상 작동
+//   spd → 다중공격 확률 (extra += spd×0.5%p, 100%↑ 정수확정) + 선공권
+//   luk → 치명 확률(crit += luk×0.12) + 치명 데미지(critMult 점감곡선 bonus += luk×0.007). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
 // 장비(PR-4a 위력/무게/옵션 모델):

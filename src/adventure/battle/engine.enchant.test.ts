@@ -601,6 +601,56 @@ describe("execute — 적 HP 25% 이하 추가 피해", () => {
     state = advanceTurn(state, player, "용사", { kind: "attack" });
     expect(state.log.some((e) => e.text.includes("별빛 처형"))).toBe(true);
   });
+
+  it("일반 몬스터는 별빛 처형 임계가 35%까지 확장된다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+  accuracyPct: 100,
+      ...BASE_PLAYER,
+      atk: 100,
+      enchantExecuteBonusPct: 40,
+    };
+    const e = enemy({ hp: 100, def: 0 });
+    let state = initialBattleState(player, e, "용사");
+    state = { ...state, enemyHp: 34 };
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.log.some((e) => e.text.includes("별빛 처형"))).toBe(true);
+  });
+
+  it("보스는 별빛 처형 기존 25% 임계를 유지한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+  accuracyPct: 100,
+      ...BASE_PLAYER,
+      atk: 100,
+      enchantExecuteBonusPct: 40,
+    };
+    const e = enemy({ hp: 100, def: 0 });
+    let state = initialBattleState(player, e, "용사");
+    state = { ...state, isBoss: true, enemyHp: 34 };
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.log.every((e) => !e.text.includes("별빛 처형"))).toBe(true);
+  });
+
+  it("보스 전투는 시작 현재 HP와 최대 HP를 분리해 처형 비율을 계산한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+  accuracyPct: 100,
+      ...BASE_PLAYER,
+      atk: 100,
+      enchantExecuteBonusPct: 40,
+    };
+    const boss = enemy({ hp: 30000, def: 0 });
+    const result = resolveBattle(player, boss, "용사", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      isBoss: true,
+      initialEnemyHp: 7000,
+      maxTurns: 1,
+    });
+    expect(result.finalState.enemy.hp).toBe(30000);
+    expect(result.finalState.log.some((e) => e.text.includes("별빛 처형"))).toBe(true);
+  });
 });
 
 describe("berserk — 자기 HP 30% 이하 ATK +%", () => {

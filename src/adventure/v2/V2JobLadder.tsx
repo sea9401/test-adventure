@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 
 // 직업 시스템 v2 전직 화면(cumLevel 점진 공개).
@@ -138,15 +139,9 @@ export function V2JobLadder({
       </Card>
 
       {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
+        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
           {msg}
-        </div>
+        </StatusBanner>
       )}
 
       {/* 전직 확인 모달 — 레벨 1 리셋은 되돌릴 수 없어 명시 확인. */}

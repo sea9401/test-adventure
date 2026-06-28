@@ -229,7 +229,13 @@ export function resolveBattleAtb(
   const atbPlayer: PlayerCombat = { ...player, extraAttackChancePct: 0 };
   // 몬스터 SPD 깊이 보정 — 깊이는 전투 내내 불변이라 1회 계산. 비-던전 전투(depth 미지정)=0.
   const depthCorr = depthSpdCorrection(ctx.depth ?? 1);
-  let state = initialBattleState(atbPlayer, enemy, playerName, ctx.v2Skills);
+  let state = initialBattleState(
+    atbPlayer,
+    enemy,
+    playerName,
+    ctx.v2Skills,
+    ctx.initialEnemyHp,
+  );
   if (ctx.isBoss) state = { ...state, isBoss: true };
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import { SkillEffectChips } from "./SkillEffectChips";
@@ -66,6 +68,7 @@ export function V2SkillLearnView({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 스킬/로드아웃 fetch
     refresh();
   }, [refresh]);
 
@@ -175,14 +178,15 @@ export function V2SkillLearnView({
                     <SkillEffectChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => learn(s.skillId, s.cost)}
                       disabled={busy != null || !affordable}
-                      className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      variant="success"
+                      size="xs"
+                      className="shrink-0"
                     >
                       {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
-                    </button>
+                    </Button>
                   ) : (
                     <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
                       보유
@@ -196,15 +200,9 @@ export function V2SkillLearnView({
       )}
 
       {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
+        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
           {msg}
-        </div>
+        </StatusBanner>
       )}
     </Wrapper>
   );

@@ -134,9 +134,27 @@ export async function POST(req: Request) {
       contrib.damage / Math.max(1, session.maxHp),
     );
     if (!tier) {
+      await tx
+        .update(coopBossContributors)
+        .set({
+          claimedAt: new Date(now),
+          claimedTier: null,
+          claimedRewardSnapshot: null,
+        })
+        .where(
+          and(
+            eq(coopBossContributors.sessionId, sessionId),
+            eq(coopBossContributors.userId, userId),
+          ),
+        );
       return {
-        status: 409,
-        body: { ok: false as const, error: "below_bronze" as const },
+        status: 200,
+        body: {
+          ok: true as const,
+          alreadyClaimed: false,
+          belowThreshold: true,
+          reward: null,
+        },
       };
     }
 

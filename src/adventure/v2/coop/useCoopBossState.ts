@@ -105,6 +105,7 @@ export type CoopSessionDetail = {
 async function postClaim(sessionId: string): Promise<{
   reward: CoopClaimReward | null;
   error: string | null;
+  belowThreshold: boolean;
 }> {
   const res = await fetch("/api/v2/coop/claim", {
     method: "POST",
@@ -115,9 +116,19 @@ async function postClaim(sessionId: string): Promise<{
     ok?: boolean;
     error?: string;
     reward?: CoopClaimReward | null;
+    belowThreshold?: boolean;
   };
-  if (j.ok && j.reward) return { reward: j.reward, error: null };
-  return { reward: null, error: j.error ?? "unknown" };
+  if (j.ok && j.reward) {
+    return { reward: j.reward, error: null, belowThreshold: false };
+  }
+  if (j.ok) {
+    return {
+      reward: null,
+      error: null,
+      belowThreshold: j.belowThreshold === true,
+    };
+  }
+  return { reward: null, error: j.error ?? "unknown", belowThreshold: false };
 }
 
 function claimErrorLabel(error: string): string {
@@ -218,8 +229,9 @@ export function useCoopListState() {
       setBusy(true);
       setNotice(null);
       try {
-        const { reward, error } = await postClaim(sessionId);
+        const { reward, error, belowThreshold } = await postClaim(sessionId);
         if (reward) setLastReward(reward);
+        else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
         else if (error) setNotice(claimErrorLabel(error));
       } catch {
         setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
@@ -364,8 +376,9 @@ export function useCoopSessionState({
     setBusy(true);
     setNotice(null);
     try {
-      const { reward, error } = await postClaim(sessionId);
+      const { reward, error, belowThreshold } = await postClaim(sessionId);
       if (reward) setLastReward(reward);
+      else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
       else if (error) setNotice(claimErrorLabel(error));
     } catch {
       setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");

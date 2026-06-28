@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 // 거점 정책·세율 편집기 — OutpostView(점령자 본인)와 길드 관리탭(마스터/관리자)이 공유.
 // 서버(/api/v2/outpost/policy)가 점령자 본인 또는 점령 길드 마스터/관리자를 허용.
@@ -35,16 +35,41 @@ export function OutpostPolicyEditor({
   onToggle: () => void;
   onSaved: () => void;
 }) {
+  return (
+    <OutpostPolicyEditorInner
+      key={`${currentPolicy}:${currentTaxRate}`}
+      outpostId={outpostId}
+      title={title}
+      currentPolicy={currentPolicy}
+      currentTaxRate={currentTaxRate}
+      open={open}
+      onToggle={onToggle}
+      onSaved={onSaved}
+    />
+  );
+}
+
+function OutpostPolicyEditorInner({
+  outpostId,
+  title,
+  currentPolicy,
+  currentTaxRate,
+  open,
+  onToggle,
+  onSaved,
+}: {
+  outpostId: string;
+  title: string;
+  currentPolicy: string;
+  currentTaxRate: number;
+  open: boolean;
+  onToggle: () => void;
+  onSaved: () => void;
+}) {
   const [policy, setPolicy] = useState(currentPolicy);
   const [taxPct, setTaxPct] = useState(() => toTaxPct(currentTaxRate));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-
-  // props 가 외부에서 갱신되면(다른 탭에서 정책 변경 등) local state 동기화.
-  useEffect(() => {
-    setPolicy(currentPolicy);
-    setTaxPct(toTaxPct(currentTaxRate));
-  }, [currentPolicy, currentTaxRate]);
 
   const dirty =
     policy !== currentPolicy || taxPct !== toTaxPct(currentTaxRate);

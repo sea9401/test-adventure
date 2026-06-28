@@ -1133,6 +1133,7 @@ export function initialBattleState(
   enemy: Monster,
   playerName: string,
   v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  initialEnemyHp?: number,
 ): BattleState {
   const playerFirst = player.spd >= enemy.spd;
   const initiator = playerFirst ? playerName : enemy.name;
@@ -1180,7 +1181,10 @@ export function initialBattleState(
   );
   return {
     enemy,
-    enemyHp: enemy.hp,
+    enemyHp:
+      initialEnemyHp == null
+        ? enemy.hp
+        : Math.max(1, Math.min(enemy.hp, Math.floor(initialEnemyHp))),
     playerHp: player.hp,
     playerMaxHp: player.maxHp,
     playerMp: playerMpStart,
@@ -1405,11 +1409,16 @@ export type ResolveContext = {
   // 던전 깊이 — ATB(코어루프) 전용. 몬스터 SPD 깊이 보정(depthSpdCorrection)에 쓴다. 미지정/
   // 비-던전 전투(토벌·협동보스 등)면 보정 0. 레거시 엔진은 무시(flag-off byte-identical).
   depth?: number;
+  // 공유 HP 보스처럼 최대 HP(enemy.hp)와 전투 시작 현재 HP가 다른 경우 사용.
+  // 미지정이면 enemy.hp에서 시작한다.
+  initialEnemyHp?: number;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
 // 50턴 도달은 데미지 부족 / 무한 회피 스톨로 간주, 패배 처리.
 export const BOSS_TURN_CAP = 50;
+export const NORMAL_MONSTER_EXECUTION_HP_FRACTION = 0.35;
+export const NORMAL_MONSTER_EXECUTION_HP_PCT = 35;
 
 export type BattleResolution = {
   outcome: BattleOutcome;
@@ -1638,6 +1647,8 @@ export function applyPlayerV2SkillCast(
       // PR2-B — 처단(처형 임계)·스택 payoff(참절/중독폭발/비전작렬).
       currentHp: state.enemyHp,
       maxHp: state.enemy.hp,
+      executeHpThresholdFloorPct:
+        state.isBoss === true ? 0 : NORMAL_MONSTER_EXECUTION_HP_PCT,
       bleedStacks: state.enemyV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
       poisonStacks: state.enemyV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
       magicVulnStacks: state.stacks.enemyMagicVulnStacks,
@@ -1917,7 +1928,13 @@ function resolveBattleLegacy(
 ): BattleResolution {
   const potions: Partial<Record<PotionId, number>> = { ...ctx.potions };
   const consumed: Partial<Record<PotionId, number>> = {};
-  let state = initialBattleState(player, enemy, playerName, ctx.v2Skills);
+  let state = initialBattleState(
+    player,
+    enemy,
+    playerName,
+    ctx.v2Skills,
+    ctx.initialEnemyHp,
+  );
   // 보스 전투 여부 — 충돌파/천명 같은 %HP 효과 감산 (BOSS_PCT_HP_DAMAGE_MULT) 에 사용.
   if (ctx.isBoss) state = { ...state, isBoss: true };
   // v2 마법 (PR-7b) — 매 player turn 시작 시 cast. 전투 시작 시 sweep 폐기.

@@ -30,6 +30,7 @@ export default function HonorShopPanel() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 명성상점 fetch
     void load();
   }, [load]);
 

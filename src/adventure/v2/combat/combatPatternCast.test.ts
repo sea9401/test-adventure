@@ -284,3 +284,39 @@ describe("resolveV2SkillCast — 기습(ambushDamage · 암살자 오프너)", (
     expect(cond).toEqual({ kind: "turn", op: "atMost", value: 1 });
   });
 });
+
+describe("resolveV2SkillCast — 일반 PvE 처단 임계 보정", () => {
+  it("executeHpThresholdFloorPct가 있으면 15% 처단도 일반 몬스터 35% 구간에서 보너스를 받는다", () => {
+    const base = resolveV2SkillCast(castInput(["v2c_assassin_ambush"], {
+      attacker: {
+        ...castInput(["v2c_assassin_ambush"]).attacker,
+        atk: 10,
+        luk: 300,
+      },
+      target: {
+        def: 10,
+        maxHp: 1000,
+        currentHp: 340,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    }));
+    const normalMonster = resolveV2SkillCast(castInput(["v2c_assassin_ambush"], {
+      attacker: {
+        ...castInput(["v2c_assassin_ambush"]).attacker,
+        atk: 10,
+        luk: 300,
+      },
+      target: {
+        def: 10,
+        maxHp: 1000,
+        currentHp: 340,
+        executeHpThresholdFloorPct: 35,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    }));
+
+    expect(normalMonster.enemyDamage).toBeGreaterThan(base.enemyDamage);
+  });
+});

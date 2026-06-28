@@ -1,6 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Diamond } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   RARE_MAP_KINDS,
   type RareMapInstance,
@@ -114,18 +119,15 @@ function SpFruitSection({
                     ×{held}
                   </span>
                 </span>
-                <button
-                  type="button"
+                <Button
                   disabled={atCap || isBusy}
                   onClick={() => onUse(t)}
-                  className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
-                    atCap || isBusy
-                      ? "cursor-not-allowed border border-zinc-300 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500"
-                      : "border border-amber-700 bg-amber-600 text-white hover:bg-amber-700"
-                  }`}
+                  variant="warning"
+                  size="xs"
+                  className="shrink-0"
                 >
                   {atCap ? "한도 도달" : isBusy ? "사용 중…" : "사용"}
-                </button>
+                </Button>
               </div>
               <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                 사용 {usedCount}/{def.useCap}
@@ -155,18 +157,20 @@ function ConsumableList({
 }) {
   if (maps === null) {
     return (
-      <div className="text-sm text-zinc-500 dark:text-zinc-400">
-        불러오는 중…
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
       </div>
     );
   }
   if (maps.length === 0) {
     if (suppressEmpty) return null;
     return (
-      <div className="text-sm text-zinc-500 dark:text-zinc-400">
-        보유한 소모품이 없습니다. 레어맵은 사냥 중 아주 낮은 확률로
-        발견됩니다.
-      </div>
+      <EmptyState
+        icon={<Diamond size={40} weight="duotone" />}
+        title="보유한 소모품이 없습니다"
+        message="레어맵은 사냥 중 낮은 확률로 발견됩니다."
+      />
     );
   }
   return (
@@ -177,20 +181,21 @@ function ConsumableList({
         return (
           <li
             key={m.iid}
-            className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+            className={`${SURFACE_CARD} px-3 py-2`}
           >
             <div className="flex items-center justify-between gap-2">
               <span className="truncate text-sm font-medium">
                 🗺 {def?.name ?? m.kind}
               </span>
               {isUtility ? (
-                <button
-                  type="button"
+                <Button
                   onClick={() => onUse?.(m)}
-                  className="shrink-0 rounded-md border border-sky-700 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-700"
+                  variant="info"
+                  size="xs"
+                  className="shrink-0"
                 >
                   사용
-                </button>
+                </Button>
               ) : (
                 <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                   깊이 {m.depth}

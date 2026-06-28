@@ -78,6 +78,7 @@ export function OutpostAttackLog({
   }, [outpostId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/reloadKey 변경 시 공격 로그 fetch
     refresh();
     // reloadKey 변화 = 부모의 공격 시도 후 갱신 신호 → 같은 outpost 라도 재조회.
   }, [refresh, reloadKey]);

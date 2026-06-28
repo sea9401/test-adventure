@@ -1,6 +1,7 @@
 import {
   BOSS_PCT_HP_DAMAGE_MULT,
   COMBO_FINISHER_PERIOD,
+  NORMAL_MONSTER_EXECUTION_HP_FRACTION,
   appendLog,
   applyPhaseTriggerIfAny,
   applyPlayerOnHitDots,
@@ -225,16 +226,24 @@ function computeAttackDamage(
   // 강공격/분쇄 후 데미지에 곱하고, 크리티컬은 그 위에 다시 곱한다 (다단 누적).
   const exMult = player.executionDamageMult ?? 1;
   const exFraction = player.executionHpFraction ?? 0;
+  const effectiveExFraction =
+    state.isBoss === true
+      ? exFraction
+      : Math.max(exFraction, NORMAL_MONSTER_EXECUTION_HP_FRACTION);
   const enemyMaxHp = state.enemy.hp;
   const executionActive =
-    exMult > 1 && exFraction > 0 && state.enemyHp / enemyMaxHp < exFraction;
+    exMult > 1 &&
+    exFraction > 0 &&
+    state.enemyHp / enemyMaxHp < effectiveExFraction;
   const dmgAfterExecution = executionActive
     ? Math.max(1, Math.floor(baseDmg * exMult))
     : baseDmg;
   // 별빛 처형(enchant execute) — 적 HP 25% 이하일 때 추가 피해(%). 기존 처형 위에 곱연산.
   const enchantExePct = player.enchantExecuteBonusPct ?? 0;
+  const enchantExeFraction =
+    state.isBoss === true ? 0.25 : NORMAL_MONSTER_EXECUTION_HP_FRACTION;
   const enchantExeActive =
-    enchantExePct > 0 && state.enemyHp / enemyMaxHp <= 0.25;
+    enchantExePct > 0 && state.enemyHp / enemyMaxHp <= enchantExeFraction;
   const dmgAfterEnchantExe = enchantExeActive
     ? Math.max(1, Math.floor(dmgAfterExecution * (1 + enchantExePct / 100)))
     : dmgAfterExecution;

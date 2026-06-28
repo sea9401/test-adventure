@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SURFACE_INSET } from "./surfaces";
 
 export function EmptyState({
   icon,
@@ -10,7 +11,7 @@ export function EmptyState({
   message: string;
 }) {
   return (
-    <section className="rounded-lg border border-dashed border-zinc-300 bg-white/90 p-8 text-center dark:border-zinc-700 dark:bg-zinc-950/90">
+    <section className={`${SURFACE_INSET} border-dashed p-8 text-center`}>
       <div className="mx-auto inline-flex text-zinc-400 dark:text-zinc-500">
         {icon}
       </div>

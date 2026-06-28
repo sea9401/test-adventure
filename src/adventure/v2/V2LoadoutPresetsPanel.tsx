@@ -39,6 +39,7 @@ export function V2LoadoutPresetsPanel({
     }
   }, []);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 프리셋 fetch
     load();
   }, [load]);
 

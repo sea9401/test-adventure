@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Diamond, Package } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   V2_MATERIALS,
@@ -70,7 +71,7 @@ function MaterialCardGrid({
       {materials.map(({ id, material, count }) => (
         <div
           key={id}
-          className="flex flex-col gap-1 rounded-lg border border-zinc-200 bg-white p-3 text-left dark:border-zinc-800 dark:bg-zinc-900"
+          className={`${SURFACE_CARD} flex min-h-[7rem] flex-col gap-1 p-3 text-left`}
         >
           <div className="flex items-start justify-between gap-1">
             <Package size={20} weight="duotone" className="text-amber-500" />

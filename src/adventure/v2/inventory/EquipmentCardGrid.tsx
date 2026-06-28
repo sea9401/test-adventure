@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   V2_EQUIPMENT,
   effectiveStats,
@@ -107,10 +108,10 @@ export function EquipmentCardGrid({
             type="button"
             onClick={(e) => onOpenCard(inst, anchorOf(e.currentTarget))}
             aria-label={`${item.name} 정보`}
-            className={`relative flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
+            className={`relative flex min-h-[7.5rem] flex-col gap-1 p-3 text-left transition ${
               highlighted
                 ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600/70 dark:bg-emerald-950"
-                : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
             }`}
           >
             <div className="flex items-start justify-between gap-1">
@@ -146,7 +147,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
               <span
-                className={`truncate text-sm font-semibold ${powerNameClass(item, inst.roll)}`}
+                className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll)}`}
               >
                 {item.name}
                 {inst.enhance && inst.enhance.level > 0 ? (
@@ -157,7 +158,7 @@ export function EquipmentCardGrid({
               </span>
               <ItemTypeChip item={item} />
             </div>
-            <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll, inst.enhance)}
             </div>
           </button>

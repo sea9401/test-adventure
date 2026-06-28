@@ -234,11 +234,20 @@ export async function POST(req: Request) {
     );
     const basicAttackElement: V2Element =
       player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
-    // 전역 잔여 HP 에서 시작하는 시뮬 — 발악 스테이지(전역 비율)도 여기서 구워진다.
-    const { monster: bossMonster, enrageNotes } = coopBossForBattle(
+    // 전역 잔여 HP 기준으로 발악 스테이지를 굽되, 전투 maxHp 는 공유 최대 HP로 유지한다.
+    // 그래야 처형/HP비율 스킬이 "남은 HP를 최대 HP로 오인"하지 않는다.
+    const { monster: bossMonsterForCurrentHp, enrageNotes } = coopBossForBattle(
       kind,
       sessionPeek.hp,
     );
+    const bossStartHp = Math.max(
+      1,
+      Math.min(Math.floor(sessionPeek.hp), kind.sharedMaxHp),
+    );
+    const bossMonster = {
+      ...bossMonsterForCurrentHp,
+      hp: kind.sharedMaxHp,
+    };
     const playerElemMult = elementDamageMult(
       basicAttackElement,
       bossMonster.element ?? "neutral",
@@ -278,10 +287,11 @@ export async function POST(req: Request) {
       // 레거시 페이즈 보정(*2)을 적용하면 코어루프에서 공격권이 두 배 길어진다.
       // 도달 시 종료(타임아웃 lose 는 협동에선 정상 흐름 — 데미지만 누적).
       maxTurns: COOP_ATTACK_TURNS,
+      initialEnemyHp: bossStartHp,
     });
     const damageDealt = Math.max(
       0,
-      bossMonster.hp - battleResult.finalState.enemyHp,
+      bossStartHp - battleResult.finalState.enemyHp,
     );
     const damageTaken = Math.max(
       0,

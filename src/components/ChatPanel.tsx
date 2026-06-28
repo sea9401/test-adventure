@@ -80,6 +80,7 @@ export function ChatPanel({
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 640px)");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저 전용 media query 초기 동기화
     setIsDesktop(mq.matches);
     const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
     mq.addEventListener("change", onChange);

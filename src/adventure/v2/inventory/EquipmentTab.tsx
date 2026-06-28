@@ -2,6 +2,7 @@
 
 import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Pagination } from "@/components/ui/Pagination";
+import { Button } from "@/components/ui/Button";
 import { usePagination } from "@/lib/usePagination";
 import {
   type V2EquipInstance,
@@ -91,8 +92,7 @@ export function EquipmentTab({
               />
               %
             </label>
-            <button
-              type="button"
+            <Button
               onClick={() =>
                 onBulkSell(
                   { slot, belowPct: sellQualityPct },
@@ -100,28 +100,32 @@ export function EquipmentTab({
                 )
               }
               disabled={busy !== null}
-              className="rounded border border-amber-300 px-2 py-0.5 text-[11px] text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/40"
+              variant="warning"
+              size="xs"
+              className="min-h-0 px-2 py-0.5 text-[11px]"
             >
               이하 판매
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
               onClick={() => onBulkSell({ slot }, `${tabLabel} 미장착 전부`)}
               disabled={busy !== null}
-              className="rounded border border-rose-300 px-2 py-0.5 text-[11px] text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40"
+              variant="danger"
+              size="xs"
+              className="min-h-0 px-2 py-0.5 text-[11px]"
             >
               미장착 전부 판매
-            </button>
+            </Button>
           </div>
           {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
-          <button
-            type="button"
+          <Button
             title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
             onClick={() => setSortMode((m) => nextSortMode(m))}
-            className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            variant="secondary"
+            size="xs"
+            className="min-h-0 px-2.5 py-0.5 text-[11px]"
           >
             정렬 ⇅ {sortModeLabel(sortMode)}
-          </button>
+          </Button>
         </div>
       )}
       <EquipmentCardGrid

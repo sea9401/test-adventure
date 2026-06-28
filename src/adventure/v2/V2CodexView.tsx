@@ -234,6 +234,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (tab !== "job" || jobCodex) return;
     let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 직업 탭 최초 진입 시 도감 lazy fetch
     setJobCodexLoading(true);
     fetch("/api/v2/me/job-codex")
       .then((r) => (r.ok ? r.json() : null))

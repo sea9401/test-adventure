@@ -8,6 +8,7 @@ const ironSword = { item: V2_EQUIPMENT.v2_iron_sword };
 const greatSword = { item: V2_EQUIPMENT.v2_greatsword };
 const hornBow = { item: V2_EQUIPMENT.v2_horn_bow };
 const woodenBow = { item: V2_EQUIPMENT.v2_wooden_bow };
+const oakStaff = { item: V2_EQUIPMENT.v2_oak_staff };
 
 function row(rows: ReturnType<typeof v2EquipCompareRows>, label: string) {
   const r = rows.find((x) => x.label === label);
@@ -16,9 +17,9 @@ function row(rows: ReturnType<typeof v2EquipCompareRows>, label: string) {
 }
 
 describe("v2EquipCompareRows", () => {
-  it("위력 증가는 이득(better=1), 값/증감 포맷이 v2EquipStatRows 와 일치", () => {
+  it("공격력 증가는 이득(better=1), 값/증감 포맷이 v2EquipStatRows 와 일치", () => {
     const rows = v2EquipCompareRows(greatSword, ironSword);
-    const power = row(rows, "위력");
+    const power = row(rows, "공격력");
     expect(power.value).toBe("+19");
     expect(power.deltaText).toBe("+14"); // 5 → 19
     expect(power.better).toBe(1);
@@ -40,6 +41,16 @@ describe("v2EquipCompareRows", () => {
     expect(crit.better).toBe(1);
   });
 
+  it("검과 지팡이 비교는 공격력과 마법 공격력을 분리한다", () => {
+    const rows = v2EquipCompareRows(oakStaff, ironSword);
+    expect(row(rows, "공격력").value).toBe("—");
+    expect(row(rows, "공격력").better).toBe(-1);
+    expect(row(rows, "마법 공격력").value).toBe(
+      `+${V2_EQUIPMENT.v2_oak_staff.power}`,
+    );
+    expect(row(rows, "마법 공격력").better).toBe(1);
+  });
+
   it("후보엔 없고 장착엔 있는 옵션은 '—' + 손해(better=-1)", () => {
     const rows = v2EquipCompareRows(woodenBow, hornBow);
     const crit = row(rows, "치명");
@@ -57,7 +68,7 @@ describe("v2EquipCompareRows", () => {
 
   it("양쪽 모두 0 인 스탯은 행을 만들지 않는다", () => {
     const rows = v2EquipCompareRows(greatSword, ironSword);
-    // 옵션 없는 두 검 — 위력/무게만, 옵션 행 없음.
-    expect(rows.map((r) => r.label)).toEqual(["위력", "무게"]);
+    // 옵션 없는 두 검 — 공격력/무게만, 옵션 행 없음.
+    expect(rows.map((r) => r.label)).toEqual(["공격력", "무게"]);
   });
 });

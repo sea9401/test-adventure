@@ -74,6 +74,13 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.crit).toBe(0);
   });
 
+  it("지팡이 T1 (위력 → 마공) → magicAtk=무기위력, atk=0", () => {
+    const staffPow = V2_EQUIPMENT.v2_oak_staff.power;
+    const a = aggregateV2Equipment({ weapon: "v2_oak_staff" });
+    expect(a.atk).toBe(0);
+    expect(a.magicAtk).toBe(staffPow);
+  });
+
   it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
     // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 5 × 무기4 = 20.
     const sword = aggregateV2Equipment(
@@ -255,8 +262,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     );
   });
 
-  it("지팡이 위력 → magicAtk + 물리 atk 1/3 (int token 없음)", () => {
-    // 별빛 지팡이: 무기 위력 → magicAtk, 물리 atk 는 위력의 1/3 보조.
+  it("지팡이 위력 → magicAtk 만 증가, 물리 atk 보정 없음 (int token 없음)", () => {
+    // 별빛 지팡이: 무기 위력 → magicAtk. 일반 공격은 여전히 물리 atk 를 사용한다.
     const staffPow = V2_EQUIPMENT.v2_starlit_staff.power;
     const d = derivePlayerCombatV2Pure({
       level: 50,
@@ -267,9 +274,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) +
-        Math.floor(staffPow / 3) +
-        V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -482,16 +487,24 @@ describe("P4 — 구 직업 패시브 은퇴 + 차수 앵커 보정", () => {
   const STATS = { str: 40, dex: 40, vit: 40, int: 40, spi: 40, luk: 40 };
 
   it("구 직업 패시브 필드는 (스킬 학습해도) 미설정 — 은퇴", () => {
-    const d = derivePlayerCombatV2Pure({
+    const warrior = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "warrior",
       learnedSkillIds: ["v2_skill_strike"],
     }).player;
-    expect(d.passiveTurnHealPctMaxHp).toBeUndefined();
-    expect(d.passiveDefPenetrationPct).toBeUndefined();
-    expect(d.passiveCounterChancePct).toBeUndefined();
-    expect(d.passiveMagicBasicAttack).toBeUndefined();
+    expect(warrior.passiveTurnHealPctMaxHp).toBeUndefined();
+    expect(warrior.passiveDefPenetrationPct).toBeUndefined();
+    expect(warrior.passiveCounterChancePct).toBeUndefined();
+    expect(warrior.passiveMagicBasicAttack).toBeUndefined();
+
+    const mage = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "mage",
+      learnedSkillIds: ["v2c_mage_boltcast"],
+    }).player;
+    expect(mage.passiveMagicBasicAttack).toBeUndefined();
   });
 
   it("차수 앵커 보정 — 전사 STR: 1차 +10%, 4차 +35% (차수가 prof.tier 에서 옴)", () => {

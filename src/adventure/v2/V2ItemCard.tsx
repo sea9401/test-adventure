@@ -14,6 +14,7 @@ import {
   powerBandOf,
   signatureLabel,
   v2EquipCompareRows,
+  v2EquipPowerLabel,
   v2EquipStatRows,
   type V2Equipment,
   type V2EquipmentId,
@@ -161,14 +162,15 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  // 기본 스탯(위력·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다(품질 아래 선과 동일).
-  //   기본/옵션 구분은 인벤·거래소와 같은 라벨 기준(위력/무게). 강화 수치는 이름 옆 "+N" 으로만 표기.
+  // 기본 스탯(공격력/방어력 계열·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다.
+  //   강화 수치는 이름 옆 "+N" 으로만 표기.
   const statRows = v2EquipStatRows(item, roll, enhance);
+  const powerLabel = v2EquipPowerLabel(item);
   const baseRows = statRows.filter(
-    (r) => r.label === "위력" || r.label === "무게",
+    (r) => r.label === powerLabel || r.label === "무게",
   );
   const optionRows = statRows.filter(
-    (r) => r.label !== "위력" && r.label !== "무게",
+    (r) => r.label !== powerLabel && r.label !== "무게",
   );
   const pct = rollQualityPct(item, roll);
   const set = item.setId

@@ -8,7 +8,7 @@ import {
 import type { Monster } from "../data/monsters";
 
 // v2 직업 패시브 엔진훅 단위 검증 (2026-06-03 재설계):
-//   마법사 — 평타 마공화, 궁수 — 평타 방어관통, 무도가 — 피격 반격.
+//   명시적 마법 평타 훅, 궁수 — 평타 방어관통, 무도가 — 피격 반격.
 
 const BASE: PlayerCombat = {
   accuracyPct: 100,
@@ -46,7 +46,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("마법사 — 평타 마공화 (passiveMagicBasicAttack)", () => {
+describe("명시적 마법 평타 훅 (passiveMagicBasicAttack)", () => {
   it("평타가 magicAtk 로 스케일 (물리 atk 무시)", () => {
     const e = enemy({ def: 0, hp: 1000 });
     const physical = basicHitDamage({ ...BASE, atk: 1, magicAtk: 50 }, e);

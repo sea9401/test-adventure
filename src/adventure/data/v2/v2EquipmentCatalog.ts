@@ -19,8 +19,8 @@ import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 //   - **계파 무기 noDrop 제거 (2026-06-07)** — 상점=T1만(#523) 후 계파 무기 T2/T3 10종이 비매+
 //     noDrop=획득불가였던 구멍 해소. 정규 드랍 풀 합류 → 8무기타입 균일("T1 스타터 + T2/T3 드랍").
 export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
-  // ── 무기-힘 (위력 = 물공+마공, 중간 무게, 옵션 없음) ──────────────────
-  // 검은 물리 무기지만 위력은 물/마 둘 다 먹인다(빌드 안 가림). str 정체성은 훈련 분배.
+  // ── 무기-힘 (위력 = 물리 공격력, 중간 무게, 옵션 없음) ──────────────────
+  // 검은 물리 무기다. str 정체성은 훈련 분배.
   v2_iron_sword: {
     id: "v2_iron_sword",
     weaponType: "greatsword",
@@ -55,7 +55,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
   },
 
-  // ── 무기-민 (위력 = 물공+마공, 가벼움, 옵션 crit) ─────────────────────
+  // ── 무기-민 (위력 = 물리 공격력, 가벼움, 옵션 crit) ─────────────────────
   // 활은 가벼운 원거리 무기 — 무게 낮고 궁수 특유 치명 flavor.
   v2_wooden_bow: {
     id: "v2_wooden_bow",
@@ -93,8 +93,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { crit: 2 },
   },
 
-  // ── 무기-지 (위력 = 물공+마공, 가벼움, 옵션 mp) ───────────────────────
-  // 지팡이도 위력으로 물/마 둘 다 먹인다. 마법사 정체성은 INT 분배 + 마법 스킬.
+  // ── 무기-지 (위력 = 마법 공격력, 가벼움, 옵션 mp) ───────────────────────
+  // 지팡이는 마법 공격력만 준다. 일반 공격은 물리, 마법 피해는 마력탄 같은 마법 스킬로 낸다.
   // mp(자원 풀)는 마법 빌드 정체성이라 옵션으로 유지.
   v2_oak_staff: {
     id: "v2_oak_staff",

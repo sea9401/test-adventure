@@ -192,7 +192,7 @@ function computeAttackDamage(
     nextBuffsTimed.playerAtkBuffTurnsLeft > 0 && nextBuffsTimed.playerAtkBuffPct > 0
       ? Math.floor((player.atk * nextBuffsTimed.playerAtkBuffPct) / 100)
       : 0;
-  // 마법사 패시브 — 평타를 마법공격력 기반으로 전환. PvE 적(몬스터)은 magicDef 가 없어
+  // 명시적 마법 평타 훅 — 평타를 마법공격력 기반으로 전환. PvE 적(몬스터)은 magicDef 가 없어
   // targetDef(물방)로 경감된다(의도 — "마공 vs 물방"). PvP(아레나)는 engine-pvp 별도.
   const basicAttackPower = player.passiveMagicBasicAttack
     ? (player.magicAtk ?? player.atk)

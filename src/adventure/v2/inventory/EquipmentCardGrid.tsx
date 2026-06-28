@@ -17,6 +17,7 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   V2_EQUIPMENT,
   effectiveStats,
+  v2EquipPowerLabel,
   v2EquipStatRows,
   type V2Equipment,
   type V2EquipInstance,
@@ -46,20 +47,21 @@ const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
   necklace: { Icon: Diamond, color: "text-pink-500" },
 };
 
-// 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
-//   치명피해). 티어 숫자 표기는 제거(이름·위력·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
+// 카드 스탯줄 — 개체 굴림 반영 기본 전투 스탯 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
+//   치명피해). 티어 숫자 표기는 제거(이름·전투 스탯·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
 function cardStatLine(
   item: V2Equipment,
   roll?: V2EquipRoll,
   enhance?: V2EnhanceState,
 ): string {
   const eff = effectiveStats(item, roll);
-  const parts = [`위력 ${enhancedPower(eff.power, enhance)}`];
+  const powerLabel = v2EquipPowerLabel(item);
+  const parts = [`${powerLabel} ${enhancedPower(eff.power, enhance)}`];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }
   for (const row of v2EquipStatRows(item, roll)) {
-    if (row.label === "위력" || row.label === "무게") continue;
+    if (row.label === powerLabel || row.label === "무게") continue;
     parts.push(`${row.label} ${row.value}`);
   }
   return parts.join(" · ");

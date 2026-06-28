@@ -919,7 +919,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const scaledEnemyDamage = ((): number => {
     if (!viaPattern || enemyDamage <= 0 || ambushOpener) return enemyDamage;
     // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
-    //   하나라도 있으면 마법 평타로(마법사 평타 등가), 아니면 물리 평타로 바닥을 잡는다.
+    //   하나라도 있으면 마법 공격력 기준, 아니면 물리 공격력 기준으로 바닥을 잡는다.
     //   (물리+마법 혼합 효과 스킬은 전체 바닥을 마법으로 잡게 되나, 현 데이터엔 혼합 스킬 없음.)
     const magic = castEffects.some(
       (e) =>

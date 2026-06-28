@@ -19,7 +19,11 @@ export function V2SecretShopView({
   onBack: () => void;
 }) {
   // 지불 게이트 — flag on 이면 보유+은행. 은행 잔액은 로컬(GET·구매 응답)로 추적 + 컨텍스트 동기화.
-  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
+  const {
+    coreLoopOn,
+    refreshGameState,
+    setBankedGold: syncCtxBanked,
+  } = useGameState();
   const [stock, setStock] = useState<StockRow[] | null>(null);
   const [gold, setGold] = useState<number | null>(null);
   const [bankedGold, setBankedGold] = useState(0);
@@ -82,6 +86,9 @@ export function V2SecretShopView({
           syncCtxBanked(j.bankedGold);
         }
         await refresh();
+        if (item.id === "stamina_potion" || item.id === "stamina_cap_tonic") {
+          await refreshGameState();
+        }
       } else {
         const label =
           j?.error === "insufficient_gold"

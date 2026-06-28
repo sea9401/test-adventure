@@ -9,6 +9,7 @@ import {
   UserCircle,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
@@ -28,7 +29,7 @@ export function V2CharacterMenu({
   onAction: (action: CharacterAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell spacing="tight">
       <SubViewHeader title="캐릭터" />
       <div className="space-y-2">
         <EntryCard
@@ -74,6 +75,6 @@ export function V2CharacterMenu({
           onClick={() => onAction({ kind: "open-codex" })}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

@@ -2,6 +2,7 @@
 
 import { Envelope, Megaphone, Note, Storefront, Trophy } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 광장 탭 default — 커뮤니티(게시판/랭킹/전체 소식/우편함/거래소). 마을(시설)에서 분리.
@@ -18,7 +19,7 @@ export function V2PlazaHome({
   onAction: (action: PlazaAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell spacing="tight">
       <SubViewHeader title="광장" />
       <div className="space-y-2">
         <EntryCard
@@ -53,6 +54,6 @@ export function V2PlazaHome({
           onClick={() => onAction({ kind: "open-inbox" })}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

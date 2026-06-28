@@ -1,5 +1,6 @@
 import { CaretRight } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
+import { SURFACE_CARD } from "./surfaces";
 
 export function EntryCard({
   icon,
@@ -16,7 +17,7 @@ export function EntryCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-left shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+      className={`${SURFACE_CARD} flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800`}
     >
       <span
         aria-hidden

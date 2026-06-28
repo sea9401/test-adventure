@@ -9,6 +9,7 @@ import {
   Trophy,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/아레나/훈련장 진입.
@@ -28,7 +29,7 @@ export function V2BattleHome({
   onAction: (action: BattleAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell spacing="tight">
       <SubViewHeader title="전투" />
       <div className="space-y-2">
         <EntryCard
@@ -82,6 +83,6 @@ export function V2BattleHome({
           onClick={() => onAction({ kind: "open-map" })}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

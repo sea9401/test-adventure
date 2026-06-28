@@ -177,8 +177,21 @@ describe("마일스톤 번들", () => {
   });
 
   it("주간 3개 이상 완료 → claimable·5포션", () => {
-    const b = deriveRepeatBundle(baseZero(), SIG(), "weekly");
-    expect(b.completed).toBe(4); // battles·siege·treasury·fish
+    const start = periodStartMs("2026-06-08");
+    const b = deriveRepeatBundle(
+      baseZero(),
+      SIG({
+        arenaTimes: [
+          start + 1000,
+          start + 2000,
+          start + 3000,
+          start + 4000,
+          start + 5000,
+        ],
+      }),
+      "weekly",
+    );
+    expect(b.completed).toBe(4); // battles·enhance·arena·fish
     expect(b.potions).toBe(5);
     expect(b.claimable).toBe(true);
   });

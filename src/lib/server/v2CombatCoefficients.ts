@@ -8,11 +8,10 @@ export const MP_PER_INT = 2; // 옛 10. 5×INT × 2 = 10 MP (동등)
 export const HP_PER_VIT = 1; // 옛 5.  5×VIT × 1 = 5 HP (동등)
 
 export const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
-// PR-T3: 0.1 → 0.15 (×1.5 버프). sim-v2-progression 측정에서 LUK 가 Lv75 wr 2%·
-// hpL% 80% (crit-only axis 라 atk 부족 + Lv100 도 crit 48% 로 cap 도달 못 함). LUK
-// 빌드 정체성 유지하면서 crit 도달 속도를 빠르게. STR/BAL 같이 LUK 부 투자 빌드도
-// 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
-export const CRIT_PER_LUK = 0.15;
+// 초반부 템포 완화(2026-06-28): LUK 의 치명 도달 속도가 장비 flat crit·패시브와 합쳐져
+// 초반부터 높게 체감되어 0.15 → 0.12 로 소폭 하향. 치명피해(CRIT_DMG_PER_LUK)는 유지해
+// LUK 빌드 정체성은 확률보다 누적 투자 보상 쪽에 남긴다.
+export const CRIT_PER_LUK = 0.12;
 export const ATK_PER_STR = 0.15; // 무기 위력 ×0.8 하향과 함께 스탯 비중 상대적↑(계수는 불변 — 올리면 엔드 폭증).
 // VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게. lever-1(비대칭
 //   감산)으로 생존은 살았으나 VIT 는 공격력 0 라 못 죽였음(sim). STR 0.15 의 ⅔ = 탱의 보조 딜(천천히 범·
@@ -29,8 +28,9 @@ export const ROGUE_ATK_PER_DEX = 0.08;
 // 순수 STR/INT 는 정확히 중립(winT 불변), off-STR(DEX/LUK/SPI)·중반 골짜기는 상향(격차 압축).
 // sim-v2-progression --skills + sim-v2-pvp-weapon 검증: 천장 빌드 불변, 신규 지배자 없음.
 
-// 속도 = 민첩 파생 (1차 아님). 옛 base spd 30 ≈ dex 15 × 2.0.
-export const SPD_PER_DEX = 2.0;
+// 속도 = 민첩 파생 (1차 아님). 초반부 템포 완화(2026-06-28): 2.0 → 1.5.
+// EXTRA_ATTACK_PCT_PER_SPD=0.5 유지 시 DEX 1 = 추가공격 +0.75%p 로 낮아진다.
+export const SPD_PER_DEX = 1.5;
 // 무게 → 속도 페널티 (선형). 표시 무게(effectiveStats=scaledEquipWeight) 1 = 속도 −WEIGHT_SPD_PENALTY.
 // 1.0→2.0 (2026-06-08): 전 장비 위력 ×2 됐는데 무게는 그대로라 "무게당 위력"이 2배 = 무거운
 //   장비의 속도 대가가 상대적으로 절반으로 약해짐. 페널티 2.0 으로 ×2 위력에 맞춰 트레이드오프 복원.

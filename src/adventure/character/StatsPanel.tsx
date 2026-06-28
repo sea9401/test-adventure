@@ -18,8 +18,7 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   "치명타 확률": "공격이 치명타로 터질 확률. 행운이 높을수록 커집니다.",
   "치명타 배율":
     "치명타가 터졌을 때 피해 배수. 행운·힘이 높을수록 커집니다.",
-  속도: "행동 순서와 추가 공격을 좌우합니다. 민첩에서 파생되고 장비 무게로 줄어듭니다.",
-  "추가 공격 확률": "한 턴에 추가로 공격할 확률. 속도가 높을수록 커집니다.",
+  속도: "행동 빈도를 좌우합니다. 민첩에서 파생되고 장비 무게로 줄어듭니다.",
 };
 
 type CombatStats = {
@@ -34,7 +33,6 @@ type CombatStats = {
   accRating?: number;
   critChancePct?: number;
   critMult?: number;
-  extraAttackChancePct?: number;
 };
 
 type CombatItem = { label: string; value: string | number; accent: string };
@@ -88,11 +86,6 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
         label: "속도",
         value: Math.round(combat.spd ?? 0),
         accent: "text-emerald-600 dark:text-emerald-400",
-      },
-      {
-        label: "추가 공격 확률",
-        value: `${Math.round(combat.extraAttackChancePct ?? 0)}%`,
-        accent: "text-violet-600 dark:text-violet-400",
       },
     );
   }

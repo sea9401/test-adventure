@@ -5,10 +5,14 @@
 // 순수 모듈 — 클라(도감 UI)·서버 공용. fishingCodex(어보) 패턴을 따른다.
 
 import {
+  ANTIQUES,
   ANTIQUE_IDS,
+  ANTIQUE_TIERS,
+  ANTIQUE_TIER_ORDER,
   isAntiqueId,
   MIN_CONDITION,
   type AntiqueId,
+  type AntiqueTier,
 } from "@/adventure/data/v2/antique";
 
 export const TREASURE_CODEX_KEY = "treasure-codex.v1";
@@ -112,4 +116,36 @@ export function discoveredAntiqueIds(codex: TreasureCodex): AntiqueId[] {
 
 export function countDiscoveredAntiques(codex: TreasureCodex): number {
   return discoveredAntiqueIds(codex).length;
+}
+
+export type AntiqueTierCompletion = {
+  tier: AntiqueTier;
+  label: string;
+  discovered: number;
+  total: number;
+  complete: boolean;
+  sp: number;
+};
+
+export function antiqueTierCompletions(
+  codex: TreasureCodex,
+): AntiqueTierCompletion[] {
+  const discovered = new Set(discoveredAntiqueIds(codex));
+  return ANTIQUE_TIER_ORDER.map((tier) => {
+    const ids = ANTIQUE_IDS.filter((id) => ANTIQUES[id].tier === tier);
+    const count = ids.filter((id) => discovered.has(id)).length;
+    const complete = ids.length > 0 && count === ids.length;
+    return {
+      tier,
+      label: ANTIQUE_TIERS[tier].label,
+      discovered: count,
+      total: ids.length,
+      complete,
+      sp: complete ? 1 : 0,
+    };
+  });
+}
+
+export function treasureCodexSpBonus(codex: TreasureCodex): number {
+  return antiqueTierCompletions(codex).reduce((sum, t) => sum + t.sp, 0);
 }

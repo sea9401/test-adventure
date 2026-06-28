@@ -276,6 +276,10 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
   it("소프트캡 40", () => {
     expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } })).toBe(40);
   });
+  it("도감 완성 SP 는 소프트캡 위에 더한다", () => {
+    expect(calcSpBudget({}, 0, 2)).toBe(14);
+    expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } }, 0, 10)).toBe(50);
+  });
   it("손상 입력 방어", () => {
     expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(12);
   });

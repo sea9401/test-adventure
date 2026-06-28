@@ -24,6 +24,7 @@ import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import {
   RESPEC_COOLDOWN_MS,
   isClassChange,
@@ -270,6 +271,9 @@ export async function POST(req: Request) {
       }
     }
 
+    const codexBonus = V2_CORE_LOOP_V2
+      ? await readCodexSpBonus(tx, userId)
+      : null;
     const equipped = V2_CORE_LOOP_V2
       ? sanitizeLoadout(
           skills.equipped,
@@ -279,6 +283,7 @@ export async function POST(req: Request) {
             spCapBonusFromRaw(
               (charSave as { spFruitUsed?: unknown }).spFruitUsed,
             ),
+            codexBonus?.total ?? 0,
           ),
         )
       : (() => {

@@ -4,7 +4,15 @@
 // 저장 키 fishing-codex.v1 (savesKv). 서버 권위로 캐스팅 성공 시 갱신(PR-2).
 // 순수 모듈 — 클라(도감 UI)·서버 공용. AdventureLog(log/storage.ts) 패턴을 따른다.
 
-import { FISH_IDS, isFishId, type FishId } from "@/adventure/data/v2/fish";
+import {
+  FISH,
+  FISH_IDS,
+  FISH_TIERS,
+  FISH_TIER_ORDER,
+  isFishId,
+  type FishId,
+  type FishTier,
+} from "@/adventure/data/v2/fish";
 
 export const FISHING_CODEX_KEY = "fishing-codex.v1";
 
@@ -97,4 +105,34 @@ export function discoveredFishIds(codex: FishCodex): FishId[] {
 
 export function countDiscoveredFish(codex: FishCodex): number {
   return discoveredFishIds(codex).length;
+}
+
+export type FishTierCompletion = {
+  tier: FishTier;
+  label: string;
+  discovered: number;
+  total: number;
+  complete: boolean;
+  sp: number;
+};
+
+export function fishTierCompletions(codex: FishCodex): FishTierCompletion[] {
+  const discovered = new Set(discoveredFishIds(codex));
+  return FISH_TIER_ORDER.map((tier) => {
+    const ids = FISH_IDS.filter((id) => FISH[id].tier === tier);
+    const count = ids.filter((id) => discovered.has(id)).length;
+    const complete = ids.length > 0 && count === ids.length;
+    return {
+      tier,
+      label: FISH_TIERS[tier].label,
+      discovered: count,
+      total: ids.length,
+      complete,
+      sp: complete ? 1 : 0,
+    };
+  });
+}
+
+export function fishCodexSpBonus(codex: FishCodex): number {
+  return fishTierCompletions(codex).reduce((sum, t) => sum + t.sp, 0);
 }

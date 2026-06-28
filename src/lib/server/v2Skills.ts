@@ -18,6 +18,7 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
+import { readCodexSpBonus } from "./codexSpBonus";
 import { lockSaveForUpdate, upsertSave, type DbExecutor } from "./savesKv";
 
 // 전투 입력용 — 저장된 equipped 를 SP 예산/학습 상태에 맞게 in-memory sanitize(코어루프). DB 미기록.
@@ -28,6 +29,7 @@ export function sanitizeCombatLoadout(
   skills: V2SkillsState,
   charSave: unknown,
   proficiencyRaw: unknown,
+  collectionBonusSp = 0,
 ): V2SkillsState {
   if (!V2_CORE_LOOP_V2) return skills;
   const cs = (charSave ?? {}) as {
@@ -42,7 +44,11 @@ export function sanitizeCombatLoadout(
     equipped: sanitizeLoadout(
       skills.equipped,
       skills.learned,
-      calcSpBudget(prof.groups, spCapBonusFromRaw(cs.spFruitUsed)),
+      calcSpBudget(
+        prof.groups,
+        spCapBonusFromRaw(cs.spFruitUsed),
+        collectionBonusSp,
+      ),
     ),
   };
 }
@@ -84,11 +90,18 @@ export async function reconcileV2EquippedSkills(
   // 코어루프: equipped 는 플레이어가 고른 로드아웃 → 강제 재산출 금지. sanitize 만(보존 +
   //   무효분/예산 초과 정리). SP 예산 강제·환생 마이그가 여기서 일어난다(state 로드마다 호출).
   const equipped = V2_CORE_LOOP_V2
-    ? sanitizeLoadout(
-        current.equipped,
-        current.learned,
-        calcSpBudget(prof.groups, spCapBonusFromRaw(charSave.spFruitUsed)),
-      )
+    ? await (async () => {
+        const codexBonus = await readCodexSpBonus(executor, userId);
+        return sanitizeLoadout(
+          current.equipped,
+          current.learned,
+          calcSpBudget(
+            prof.groups,
+            spCapBonusFromRaw(charSave.spFruitUsed),
+            codexBonus.total,
+          ),
+        );
+      })()
     : (() => {
         const cls = parseV2Class(charSave.class);
         const specChoice =

@@ -6,6 +6,10 @@ import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import {
+  codexSpBonusFromRaw,
+  readCodexSpBonus,
+} from "@/lib/server/codexSpBonus";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   emptyProficiency,
@@ -340,7 +344,12 @@ export async function POST() {
         "proficiency.v2",
         emptyProficiency(),
       );
-      mySkills = sanitizeCombatLoadout(mySkills, charSave, myProfRaw);
+      mySkills = sanitizeCombatLoadout(
+        mySkills,
+        charSave,
+        myProfRaw,
+        (await readCodexSpBonus(tx, userId)).total,
+      );
       const oppRows = await tx
         .select({ key: savesKv.key, value: savesKv.value })
         .from(savesKv)
@@ -351,6 +360,8 @@ export async function POST() {
               "skills.v2",
               "character.v2",
               "proficiency.v2",
+              "fishing-codex.v1",
+              "treasure-codex.v1",
             ]),
           ),
         );
@@ -359,6 +370,10 @@ export async function POST() {
         parseV2SkillsState(oppRow("skills.v2")),
         oppRow("character.v2") ?? {},
         oppRow("proficiency.v2"),
+        codexSpBonusFromRaw(
+          oppRow("fishing-codex.v1"),
+          oppRow("treasure-codex.v1"),
+        ).total,
       );
     } else {
       const oppSkillsRow = await tx

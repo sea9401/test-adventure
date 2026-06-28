@@ -1,10 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { ANTIQUES, ANTIQUE_IDS } from "@/adventure/data/v2/antique";
 import {
+  antiqueTierCompletions,
   countDiscoveredAntiques,
   discoveredAntiqueIds,
   emptyTreasureCodex,
   parseTreasureCodex,
   recordFind,
+  treasureCodexSpBonus,
 } from "./treasureCodex";
 
 describe("parseTreasureCodex", () => {
@@ -93,5 +96,31 @@ describe("discovered 헬퍼", () => {
     // 카탈로그 순서(clay_shard 가 gold_coin 보다 앞)대로.
     expect(discoveredAntiqueIds(c)).toEqual(["clay_shard", "gold_coin"]);
     expect(countDiscoveredAntiques(c)).toBe(2);
+  });
+});
+
+describe("유물 도감 — 등급 완성 SP", () => {
+  it("등급별 전종 발견 시 1 SP, 일부 발견은 0 SP", () => {
+    const commonIds = ANTIQUE_IDS.filter(
+      (id) => ANTIQUES[id].tier === "common",
+    );
+    let codex = emptyTreasureCodex();
+    for (const [i, id] of commonIds.entries()) {
+      codex = recordFind(codex, id, 30 + i, 1000 + i);
+    }
+    expect(treasureCodexSpBonus(codex)).toBe(1);
+    expect(
+      antiqueTierCompletions(codex).find((tier) => tier.tier === "common"),
+    ).toMatchObject({
+      discovered: commonIds.length,
+      total: commonIds.length,
+      complete: true,
+      sp: 1,
+    });
+
+    const firstCommon = commonIds[0];
+    expect(firstCommon).toBeDefined();
+    const partial = recordFind(emptyTreasureCodex(), firstCommon!, 30, 1);
+    expect(treasureCodexSpBonus(partial)).toBe(0);
   });
 });

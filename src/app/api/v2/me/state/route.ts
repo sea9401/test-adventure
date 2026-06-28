@@ -95,6 +95,7 @@ import {
   parseTreasureCodex,
 } from "@/adventure/v2/treasureCodex";
 import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
+import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import {
   isIntruderActive,
@@ -822,11 +823,16 @@ export async function GET() {
             const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
             const skillsState = parseV2SkillsState(skillsRow?.value);
             const equippedSet = new Set<string>(skillsState.equipped);
-            const spBudget = calcSpBudget(
-              prof.groups,
-              spCapBonusFromRaw(charSave.spFruitUsed),
+            const collectionBonus = codexSpBonusFromRaw(
+              fishingCodexRow?.value,
+              treasureCodexRow?.value,
             );
             const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
+            const spBudget = calcSpBudget(
+              prof.groups,
+              spFruitBonus,
+              collectionBonus.total,
+            );
             const groups = Object.entries(prof.groups ?? {}).map(([id, g]) => {
               const progress = spMasteryProgressForCumLevel(
                 Number(g?.cumLevel) || 0,
@@ -876,6 +882,11 @@ export async function GET() {
                 milestoneSp,
                 masteryBonusSp,
                 spFruitBonus,
+                collectionBonusSp: collectionBonus.total,
+                collectionBonus: {
+                  fishSp: collectionBonus.fishSp,
+                  treasureSp: collectionBonus.treasureSp,
+                },
                 groups,
               },
             };
@@ -899,7 +910,15 @@ export async function GET() {
       const ids = discoveredFishIds(codex);
       const best: Record<string, number> = {};
       for (const id of ids) best[id] = codex.fish[id].bestSize;
-      return { discoveredIds: ids, total: FISH_TOTAL, best };
+      return {
+        discoveredIds: ids,
+        total: FISH_TOTAL,
+        best,
+        tierCompletions: codexSpBonusFromRaw(
+          fishingCodexRow?.value,
+          treasureCodexRow?.value,
+        ).fishTiers,
+      };
     })(),
     // 유물 도감 진척 — V2CodexView 유물 탭 표시용. 종별 개인 최고 보존상태 동봉.
     treasureCodex: (() => {
@@ -907,7 +926,15 @@ export async function GET() {
       const ids = discoveredAntiqueIds(codex);
       const best: Record<string, number> = {};
       for (const id of ids) best[id] = codex.antiques[id].bestCondition;
-      return { discoveredIds: ids, total: ANTIQUE_TOTAL, best };
+      return {
+        discoveredIds: ids,
+        total: ANTIQUE_TOTAL,
+        best,
+        tierCompletions: codexSpBonusFromRaw(
+          fishingCodexRow?.value,
+          treasureCodexRow?.value,
+        ).treasureTiers,
+      };
     })(),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,

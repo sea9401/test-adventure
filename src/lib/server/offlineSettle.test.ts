@@ -1,4 +1,4 @@
-// 오프라인 정산(코어루프 flag-on) 통합 — huntCooldown.test.ts 와 같은 in-memory savesKv +
+// 오프라인 정산(코어루프) 통합 — huntCooldown.test.ts 와 같은 in-memory savesKv +
 // coreLoopConfig importOriginal(flag만 on). offline-settle 가 runOneHunt 를 재사용해 누적
 // 판수를 정산하고, lastBattleAt 을 realNow 로 전진(멱등)하는지 검증.
 
@@ -58,6 +58,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/me/offline-settle/route";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
+import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 
 function seedStrongWarrior(lastBattleAt: number, offlineSession = true) {
   store.clear();
@@ -117,6 +118,8 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
       wins: number;
       totalGold: number;
       totalExp: number;
+      totalProficiency: number;
+      totalMastery: number;
       depth: number;
     };
     expect(json.ok).toBe(true);
@@ -126,10 +129,20 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     expect(json.depth).toBe(1);
     expect(json.totalGold).toBeGreaterThan(0);
     expect(json.totalExp).toBeGreaterThan(0);
+    expect(json.totalProficiency).toBe(12 * proficiencyPerKillAtDepth(1));
+    expect(json.totalMastery).toBe(12);
 
-    // 세이브 권위 — 골드/EXP 실제 누적.
+    // 세이브 권위 — 골드/EXP/숙련도 실제 누적.
     expect(char().gold).toBe(goldBefore + json.totalGold);
     expect(char().exp).toBeGreaterThan(0);
+    const prof = store.get("proficiency.v2") as {
+      points: number;
+      groups: { warrior?: { cumLevel?: number } };
+      jobCumLevel?: Record<string, number>;
+    };
+    expect(prof.points).toBe(json.totalProficiency);
+    expect(prof.groups.warrior?.cumLevel).toBe(30 + json.totalMastery);
+    expect(prof.jobCumLevel?.warrior).toBe(json.totalMastery);
     // lastBattleAt 가 realNow(±) 로 전진.
     expect(char().lastBattleAt!).toBeGreaterThanOrEqual(now);
   });

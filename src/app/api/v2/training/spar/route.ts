@@ -52,7 +52,7 @@ export async function POST() {
   }
 
   // 이름(전투 로그 표기) + v2 스킬(자동 발동) read — lock 불필요(read-only).
-  //   코어루프: 로드아웃 sanitize(예산/직업고정)에 class/proficiency 도 필요 → flag-on 만 추가 read.
+  //   코어루프: 로드아웃 sanitize(학습 여부/SP 예산)에 class/proficiency 도 필요 → flag-on 만 추가 read.
   const readKeys = V2_CORE_LOOP_V2
     ? ["character-profile.v2", "skills.v2", "character.v2", "proficiency.v2"]
     : ["character-profile.v2", "skills.v2"];

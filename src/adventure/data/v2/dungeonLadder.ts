@@ -106,7 +106,7 @@ export function floorAccuracy(depth: number): number {
   return MOB_ACC_BASE * floorStatMult(depth);
 }
 // 권장파워 = statMult^GATE_DAMP × 110. 옛 모델(statMult 선형 비례)은 후반에서 과대 —
-// 플레이어 파워(누적레벨 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
+// 플레이어 파워(숙련도 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
 // 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀, 깊이 48 권장 2915 vs 실측
 // 파워 ~1,370 빌드가 풀 승률 90%+ 라는 괴리가 났다(2026-06-11). def 댐핑과 같은 패턴으로
 // 지수 감쇠 — sim-v2-power-gate(풀 승률 90% 달성 빌드의 파워 실측, 깊이 7~60 함의 지수

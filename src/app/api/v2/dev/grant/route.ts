@@ -11,9 +11,13 @@ import {
   parseProficiencyForChar,
   emptyProficiency,
   addPoints,
+  addCumLevel,
+  addJobCumLevel,
+  groupCumLevel,
   usablePoints,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import {
   V2_MATERIALS,
   mergeDrops,
@@ -28,8 +32,9 @@ import {
 //
 // 본문(전부 선택, 들어온 것만 적용):
 //   { exp?, gold?, hpCharges?, mpCharges?, setLevel?,
-//     materials?: { [V2MaterialId]: number }, proficiency? }
-//   - proficiency: 현 직업군(tier1)의 숙달 포인트 += 값. 수행/학습 QA 시드용.
+//     materials?: { [V2MaterialId]: number }, proficiency?, mastery? }
+//   - proficiency: 공용 숙달 포인트 += 값. 수행/학습 QA 시드용.
+//   - mastery: 현재 직업의 직군/직업별 숙련도 += 값. 해금/SP/랭킹 QA 시드용.
 //
 // 본인(로그인 user)의 character.v2 / inventory.v2 / proficiency.v2 갱신.
 // 라이브 prod 에선 IS_STAGING 게이트 (staging 외 → 404). grant-equipment 와 동일.
@@ -66,6 +71,7 @@ export async function POST(req: Request) {
     setLevel?: unknown;
     materials?: unknown;
     proficiency?: unknown;
+    mastery?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -81,6 +87,7 @@ export async function POST(req: Request) {
   const setLevel =
     body.setLevel == null ? null : clampInt(body.setLevel, 1, MAX_LEVEL);
   const proficiencyGain = clampInt(body.proficiency, 0, MAX_GRANT);
+  const masteryGain = clampInt(body.mastery, 0, MAX_GRANT);
 
   // 재료 정리 — 유효 V2MaterialId + 양수만 통과.
   const matGrant: DropResult = {};
@@ -139,20 +146,17 @@ export async function POST(req: Request) {
       ...charSave,
       level,
       exp,
-      // 평생 누적 레벨 — 오른 레벨만큼 누적(모험가 포함). 없으면 직전 레벨로 시드. (dev 시드용)
-      totalLevels:
-        (typeof charSave.totalLevels === "number"
-          ? charSave.totalLevels
-          : (charSave.level ?? 1)) + levelsGained,
       gold,
       materials,
     });
 
-    // 숙달 포인트 지급 — 현 직업군(tier1) points += 값. 수행/학습 QA 시드용.
+    // 숙달 포인트/직업 숙련도 지급 — QA 시드용.
     // (옛 training.v2 단련 포인트 지급은 수동분배 폐지로 제거 — docs 숙련도 재설계.)
     let proficiencyEarned: number | null = null;
-    if (proficiencyGain > 0) {
-      const group = tier1ClassOf(parseV2Class(charSave.class));
+    let masteryEarned: number | null = null;
+    if (proficiencyGain > 0 || masteryGain > 0) {
+      const cls = parseV2Class(charSave.class);
+      const group = tier1ClassOf(cls);
       if (group !== "none") {
         const profSave = await lockSaveForUpdate<V2ProficiencyState>(
           tx,
@@ -166,8 +170,22 @@ export async function POST(req: Request) {
           group,
           proficiencyGain,
         );
-        await upsertSave(tx, userId, "proficiency.v2", nextProf);
-        proficiencyEarned = usablePoints(nextProf);
+        const withMastery =
+          masteryGain > 0
+            ? addJobCumLevel(
+                addCumLevel(nextProf, group, masteryGain),
+                jobIdFromLegacy(
+                  cls,
+                  typeof charSave.specChoice === "string"
+                    ? charSave.specChoice
+                    : null,
+                ),
+                masteryGain,
+              )
+            : nextProf;
+        await upsertSave(tx, userId, "proficiency.v2", withMastery);
+        if (proficiencyGain > 0) proficiencyEarned = usablePoints(withMastery);
+        if (masteryGain > 0) masteryEarned = groupCumLevel(withMastery, group);
       }
     }
 
@@ -207,6 +225,7 @@ export async function POST(req: Request) {
       levelsGained,
       materials,
       ...(proficiencyEarned != null ? { proficiencyEarned } : {}),
+      ...(masteryEarned != null ? { masteryEarned } : {}),
       ...charges,
       ...(staminaPotions != null ? { staminaPotions } : {}),
     };

@@ -106,6 +106,8 @@ export async function POST() {
     let totalExp = 0;
     let totalGold = 0; // net(세금 차감 후) 합산
     let totalLossTax = 0;
+    let totalProficiency = 0;
+    let totalMastery = 0;
     let levelsGained = 0;
     let spMilestonesGained = 0; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤 합산.
     let stopped: "hp" | "error" | null = null;
@@ -123,7 +125,7 @@ export async function POST() {
         offline: true,
         nowOverride,
       };
-      const r = await runOneHunt(true, ctx);
+      const r = await runOneHunt(false, ctx);
       if (!r.ok) {
         // hp_zero(전투 시작 HP 부족 게이트) = 정상 중단, 그 외 = 에러.
         stopped =
@@ -137,6 +139,8 @@ export async function POST() {
       totalExp += res.expGained;
       totalGold += res.goldGained;
       totalLossTax += res.lossTax ?? 0;
+      totalProficiency += res.proficiencyGained ?? 0;
+      totalMastery += res.masteryGained ?? 0;
       levelsGained += res.levelsGained;
       spMilestonesGained += res.spMilestonesGained ?? 0;
       // HP/포션 소진 — 온라인 배치와 동일 조건으로 중단(누적시간은 아래서 소비).
@@ -170,6 +174,8 @@ export async function POST() {
       totalExp,
       totalGold,
       totalLossTax,
+      totalProficiency,
+      totalMastery,
       levelsGained,
       ...(V2_CORE_LOOP_V2 ? { spMilestonesGained } : {}),
       depth,

@@ -55,25 +55,26 @@ export type V2JobDefinition = {
 };
 
 /**
- * 상위(Tier 2) 해금 임계 — 부모 "기본 직업의 직군 cumLevel"(groups[base].cumLevel). 첫 전직이라
- * 베이스 직군 누적으로 게이트(예: 견습 병사 누적 100 → 방패병/견습 기사). prereq 키 = tier-1 base id.
+ * 상위(Tier 2) 해금 임계 — 부모 "기본 직업의 직군 숙련도"(groups[base].cumLevel). 첫 전직이라
+ * 베이스 직군 숙련도로 게이트(예: 견습 병사 숙련도 600 → 방패병/견습 기사). prereq 키 = tier-1 base id.
+ * 숙련도는 사냥 승리당 +1 이므로, 600은 현재 EXP 페이싱에서 1회 Lv100 루프에 가까운 값이다.
  */
-export const TIER2_UNLOCK_CUMLEVEL = 100;
+export const TIER2_UNLOCK_CUMLEVEL = 600;
 
 /**
- * 고차(Tier 3) 해금 임계 — 🔑 2026-06-21 계보 게이팅 전환: 직군(base) 누적이 아니라 "그 직업의 바로
- *   아래 2차 직업"의 jobCumLevel 을 본다(예: 대사제 ← 사제 누적 200, 마도사 ← 마법사 누적 200).
+ * 고차(Tier 3) 해금 임계 — 🔑 2026-06-21 계보 게이팅 전환: 직군(base) 숙련도가 아니라 "그 직업의 바로
+ *   아래 2차 직업"의 jobCumLevel 을 본다(예: 대사제 ← 사제 숙련도 1200, 마도사 ← 마법사 숙련도 1200).
  *   prereq 키 = tier-2 부모 직업 id → isJobUnlocked 가 jobCumLevel 로 분기. 조건 표시도 계보 직업명으로
- *   자연스러워짐. 값 200 ≈ 그 2차 직업 2 루프(1런=1→100). (옛 직군 게이팅 #925 supersede.)
+ *   자연스러워짐. 값 1200 ≈ 그 2차 직업 2 루프. (옛 직군 게이팅 #925 supersede.)
  */
-export const TIER3_UNLOCK_CUMLEVEL = 200;
+export const TIER3_UNLOCK_CUMLEVEL = 1200;
 
 /**
  * 심화(Tier 4) 해금 임계 — 계보 게이팅(위 참조): "그 직업의 바로 아래 3차 직업"의 jobCumLevel
- *   (예: 정예 기사 ← 기사 누적 300, 대마법사·원소술사 ← 마도사 누적 300). prereq 키 = tier-3 부모 직업
- *   id. 값 300 ≈ 그 3차 직업 3 루프. 계보 체인(2차→3차→4차)이라 직군 단일풀보다 자연스럽고 깊다.
+ *   (예: 정예 기사 ← 기사 숙련도 1800, 대마법사·원소술사 ← 마도사 숙련도 1800). prereq 키 = tier-3 부모 직업
+ *   id. 값 1800 ≈ 그 3차 직업 3 루프. 계보 체인(2차→3차→4차)이라 직군 단일풀보다 자연스럽고 깊다.
  */
-export const TIER4_UNLOCK_CUMLEVEL = 300;
+export const TIER4_UNLOCK_CUMLEVEL = 1800;
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -89,7 +90,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: {} },
   },
 
-  // ─── Tier 1: 기본 직업(견습) — 모험가 Lv50 도달 시 전직 패널에서 4종 노출 ───
+  // ─── Tier 1: 기본 직업(견습) — 모험가가 레벨 한계에 도달하면 전직 패널에서 4종 노출 ───
   warrior: {
     id: "warrior",
     name: "견습 병사",
@@ -123,7 +124,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: {} },
   },
 
-  // ─── Tier 2: 상위 직업(직군당 2종) — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
+  // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
   // 전사 갈래
   shieldman: {
     id: "shieldman",
@@ -192,6 +193,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 12, str: 5 }, // 다단 물량 (← 옛 archery)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
+  venomist: {
+    id: "venomist",
+    name: "독술사",
+    tier: 2,
+    cultivateProfile: { dex: 2, luk: 2 },
+    jobBonus: { luk: 12, dex: 8 }, // 중독 누적·부식 특화
+    unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 3: 고차 직업 — 🔑 계보 게이팅: 바로 아래 2차 직업의 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL ───
   //   (견습 기사→기사·마법사→마도사·사제→대사제 …). 직군 단일풀이 아니라 계보 직업을 키워야 열린다.
@@ -228,7 +237,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 13, luk: 7 }, // 도적 고차 — 민첩 중심
     unlock: { prereqs: { archer: TIER3_UNLOCK_CUMLEVEL } }, // 궁수 계보
   },
-  // 3차 두 번째 갈래 — 방패병/수도승/사제/자객 계보. 각자 자기 2차 부모의 jobCumLevel TIER3(200) 해금,
+  // 3차 두 번째 갈래 — 방패병/수도승/사제/자객 계보. 각자 자기 2차 부모의 jobCumLevel TIER3 해금,
   //   정체성은 형제와 다른 축(받피감/회피/회복/치명피해)으로 차별.
   guardian: {
     id: "guardian",
@@ -262,10 +271,18 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 15, dex: 5 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { assassin: TIER3_UNLOCK_CUMLEVEL } }, // 자객 계보
   },
+  venomancer: {
+    id: "venomancer",
+    name: "맹독술사",
+    tier: 3,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 15, dex: 7 }, // 독술사 계승 — 중독 누적·부식 심화
+    unlock: { prereqs: { venomist: TIER3_UNLOCK_CUMLEVEL } }, // 독술사 계보
+  },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
-  //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL(200) 키워야 열린다. 직업별 누적
+  //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
   //   (jobCumLevel)을 본다 — isJobUnlocked 가 prereq 키의 tier 로 분기(tier1=직군 groups, 상위=
-  //   jobCumLevel). 기사·사제 중 한쪽만 TIER3(200) 채워선 안 열림(둘 다 거쳐야).
+  //   jobCumLevel). 기사·사제 중 한쪽만 TIER3 채워선 안 열림(둘 다 거쳐야).
   //   class 저장은 첫 prereq 의 직군(기사→전사), spec 은 고유 id — jobIdFromLegacy 가 왕복. 정체성=양쪽 결합.
   templar: {
     id: "templar",
@@ -273,7 +290,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 3,
     cultivateProfile: { str: 2, vit: 1, spi: 1 }, // 기사의 힘·활력 + 사제의 정신
     // 이중 내장(기사+사제 결합). 3축으로 분산해 단일 3차(주스탯 8~12)보다 축당 영향은 낮다(파워크립
-    //   차단). 합 18 — 프레스티지 게이트(기사 200 + 사제 200) 보정.
+    //   차단). 합 18 — 프레스티지 게이트(기사 + 사제) 보정.
     jobBonus: { str: 7, vit: 7, spi: 6 },
     unlock: {
       prereqs: {
@@ -283,7 +300,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     },
   },
   // 하이브리드 2호 마검사 — 기사(전사 3차) + 마도사(마법 3차). 검(str)+마법(int) 이중 딜러.
-  //   성기사와 동일 구조(직업별 jobCumLevel 게이트). 둘 다 3차라 기사·마도사를 각각 TIER3(200) 키워야.
+  //   성기사와 동일 구조(직업별 jobCumLevel 게이트). 둘 다 3차라 기사·마도사를 각각 TIER3 키워야.
   spellblade: {
     id: "spellblade",
     name: "마검사",
@@ -301,7 +318,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     },
   },
 
-  // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL(300) ───
+  // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
   //   (기사→정예 기사·마도사→대마법사/원소술사·궁사→신궁 …). 직군당 1종(마법만 2종, 둘 다 마도사 계보).
   //   이중 내장 보너스 + 액티브 1(강) + 패시브. 새 derive 배선 없음 — 기존 효과 어휘 재사용.
   veteran: {
@@ -328,7 +345,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(마도사 라인 정점)
     unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
   },
-  // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 마도사 계보(magus jobCumLevel TIER4=300). 속성 마법 특화.
+  // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 마도사 계보(magus jobCumLevel TIER4). 속성 마법 특화.
   //   액티브가 캐릭터 속성에 따라 효과 분기(속성 마법)·패시브=원소 통달(상성 양방향 강화).
   elementalist: {
     id: "elementalist",
@@ -347,7 +364,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 궁사 계보
   },
   // 전사 직군 4차 두 번째 갈래 — 가디언(전사 3차 두 번째 갈래) 계승. 방어 탱 정점.
-  //   액티브=보호막(생존), 패시브=피격 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4=300 해금.
+  //   액티브=보호막(생존), 패시브=피격 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4 해금.
   warden: {
     id: "warden",
     name: "수호자",
@@ -367,9 +384,17 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 15, dex: 7 }, // 도적 심화(암살 라인 정점) — 행운 중심(신궁의 DEX 거울상)
     unlock: { prereqs: { shadow: TIER4_UNLOCK_CUMLEVEL } }, // 그림자 계보
   },
+  venomlord: {
+    id: "venomlord",
+    name: "독왕",
+    tier: 4,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 15, dex: 7 }, // 도적 심화(독술 라인 정점) — 조건부 부식·중독 폭발
+    unlock: { prereqs: { venomancer: TIER4_UNLOCK_CUMLEVEL } }, // 맹독술사 계보
+  },
   // 무도 직군 4차 두 번째 갈래 — 무승(무도 3차 두 번째 갈래·수도승 계승) 계보. 권룡(격투가 라인)과
   //   같은 무도 4차지만 정체성이 다르다: 권룡=회피·공격(보법·권룡파), 투승=순수 탱(강건·반격·철신).
-  //   무승 jobCumLevel TIER4=300 해금. 옛 절정 탱 킷(반격+철신)을 상속.
+  //   무승 jobCumLevel TIER4 해금. 옛 절정 탱 킷(반격+철신)을 상속.
   battlemonk: {
     id: "battlemonk",
     name: "투승",
@@ -424,8 +449,8 @@ export function isJobUnlocked(
   ctx?: JobUnlockContext,
 ): boolean {
   for (const [prereqJobId, minCumLevel] of Object.entries(job.unlock.prereqs)) {
-    // 직군 키(tier-1 직업 id, 예: warrior)=직군 누적(groups.cumLevel·기존 동작). 특정 상위 직업
-    //   키(예: paladin·acolyte)=직업별 누적(jobCumLevel·하이브리드 게이트). prereq 키의 tier 로 분기.
+    // 직군 키(tier-1 직업 id, 예: warrior)=직군 숙련도(groups.cumLevel). 특정 상위 직업
+    //   키(예: paladin·acolyte)=직업별 숙련도(jobCumLevel·하이브리드 게이트). prereq 키의 tier 로 분기.
     const prereqTier = V2_JOB_CATALOG[prereqJobId]?.tier ?? 1;
     const actual =
       prereqTier === 1
@@ -440,17 +465,17 @@ export function isJobUnlocked(
   return true;
 }
 
-// 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 누적 Lv 임계.
-//   예: "Lv 100 달성" / "사제 누적 Lv 200" / "기사 누적 Lv 200, 사제 누적 Lv 200"(하이브리드).
+// 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.
+//   예: "Lv 100 달성" / "사제 숙련도 1200" / "기사 숙련도 1200, 사제 숙련도 1200"(하이브리드).
 export function jobUnlockConditionText(job: V2JobDefinition): string {
   const prereqs = Object.entries(job.unlock.prereqs);
   if (prereqs.length === 0) return `Lv ${V2_LEVEL_CAP} 달성`;
   return prereqs
-    .map(([pid, lv]) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`)
+    .map(([pid, lv]) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 숙련도 ${lv ?? 0}`)
     .join(", ");
 }
 
-// 그 직업에 쌓은 누적 레벨(표시용) — tier1 직업=직군 누적(groups), tier2+=직업별 누적(jobCumLevel).
+// 그 직업에 쌓은 숙련도(표시용) — tier1 직업=직군 숙련도(groups), tier2+=직업별 숙련도(jobCumLevel).
 //   isJobUnlocked 의 prereq 분기와 같은 기준. 미적립=0.
 export function cumLevelForJob(
   prof: V2ProficiencyState,
@@ -496,6 +521,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   acolyte: { class: "mage", spec: "cleric" },
   assassin: { class: "rogue", spec: "assassin" },
   archer: { class: "rogue", spec: "archery" },
+  venomist: { class: "rogue", spec: "venomist" },
   // tier 3 — 새 spec id(옛 계파 아님, 식별 전용). jobIdFromLegacy 가 (class,spec)→jobId 로 왕복.
   paladin: { class: "warrior", spec: "paladin" },
   brawler: { class: "martial", spec: "brawler" },
@@ -506,6 +532,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   warmonk: { class: "martial", spec: "warmonk" },
   bishop: { class: "mage", spec: "bishop" },
   shadow: { class: "rogue", spec: "shadow" },
+  venomancer: { class: "rogue", spec: "venomancer" },
   // tier 3 하이브리드(전사×마법) — 저장 class=전사(첫 prereq), spec=고유 id. 마법 prereq 은
   //   해금 게이트일 뿐 저장 class 가 아니다(왕복 = jobIdFromLegacy("warrior","templar")→templar).
   templar: { class: "warrior", spec: "templar" },
@@ -520,6 +547,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
   phantom: { class: "rogue", spec: "phantom" }, // 도적 4차 두 번째 갈래(그림자 계보·기습)
+  venomlord: { class: "rogue", spec: "venomlord" }, // 도적 4차 세 번째 갈래(독술 계보·부식)
   battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)
 };
 

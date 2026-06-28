@@ -67,7 +67,7 @@ type StateResponse = {
     caps?: Partial<Record<V2StatKey, number>>;
     current?: {
       group: string;
-      // 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1.
+      // 직업 숙련도 — floor·전직 게이트 입력. 사냥 승리당 +1.
       cumLevel?: number;
       // 숙달 포인트 잔액(사용가능). 옛 누적/사용가능 통합.
       points?: number;

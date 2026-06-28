@@ -8,7 +8,7 @@ import { V2_CLASS_DEFS, type V2Class } from "./classes";
 import {
   capGain,
   V2_CAP_HEADROOM_BASE,
-  totalCumLevel,
+  balanceCumLevel,
   diminishedCumLevel,
   V2_CULTIVATE_PROFILE,
   V2_FLOOR_GLOBAL,
@@ -21,16 +21,22 @@ import {
 // 레벨업당 성장 포인트(옛 5/lv 와 동등 총량, 랜덤 분배). §10 다이얼.
 export const V2_GROWTH_POINTS_PER_LEVEL = 5;
 
-// 스탯 floor(저점) — base + 총 누적레벨(일반) + 직군 누적레벨(프로필·차수 가중). docs §5.
-// 입력 earned → cumLevel 전환(2026-06): 레벨 유한이라 floor 가 천장을 가짐(runaway 해소).
+// 스탯 floor(저점) — base + 총 숙련도(일반) + 직군 숙련도(프로필 가중, off 모드는 차수 보정). docs §5.
+// 해금용 숙련도는 승리 기반 6배 스케일이므로, floor 는 balanceCumLevel 로 기존 성장 체감에 맞춘다.
 // 전직 시 레벨/grown 리셋돼도 스탯은 이 floor 부터 → prestige 루프(cumLevel 은 리셋 안 됨).
 export function computeStatFloors(
   prof: V2ProficiencyState,
 ): Record<V2StatKey, number> {
-  // 환생 누적 완화 — 총 누적레벨 기준 밴드 감쇠율(decayMult)을 global·profile 양쪽에 균일 적용
-  // (천장 없이 증가율↓). 단일 직군은 선형과 동일, 다직군(respec)도 총량 기준이라 일관(차수별
-  // 밴드 리셋로 덜 깎이는 비대칭 제거). rawTotal×decayMult = diminishedCumLevel(rawTotal).
-  const rawTotal = totalCumLevel(prof);
+  // 환생 누적 완화 — 총 숙련도 기준 밴드 감쇠율(decayMult)을 global·profile 양쪽에 균일 적용
+  // (천장 없이 증가율↓). 단일 직군은 선형과 동일, 다직군(respec)도 총량 기준이라 일관.
+  // rawTotal×decayMult = diminishedCumLevel(rawTotal).
+  const balancedByGroup: Record<string, number> = {};
+  let rawTotal = 0;
+  for (const [group, g] of Object.entries(prof.groups)) {
+    const balanced = balanceCumLevel(g.cumLevel);
+    balancedByGroup[group] = balanced;
+    rawTotal += balanced;
+  }
   const decayMult = rawTotal > 0 ? diminishedCumLevel(rawTotal) / rawTotal : 1;
   const floors = {} as Record<V2StatKey, number>;
   for (const stat of V2_STAT_KEYS) {
@@ -38,7 +44,8 @@ export function computeStatFloors(
   }
   for (const [group, g] of Object.entries(prof.groups)) {
     const profile = V2_CULTIVATE_PROFILE[group];
-    if (!profile || g.cumLevel <= 0) continue;
+    const balancedCum = balancedByGroup[group] ?? 0;
+    if (!profile || balancedCum <= 0) continue;
     const tierMult = V2_TIER_FLOOR_MULT[g.tier] ?? 1;
     // 프로필 값 비례 가중 — 최댓값 스탯(직군 주력)=1.0, 나머지는 값 비율. cap(수행)과 동일 규칙.
     // 앵커-이진 폐기: mage {int:2,spi:2} 의 spi 가 int 와 동급 floor 를 받는다(spi/luk 고향 부여).
@@ -47,7 +54,8 @@ export function computeStatFloors(
       const pv = profile[stat] ?? 0;
       if (pv <= 0) continue;
       const weight = (pv / maxVal) * V2_FLOOR_ANCHOR_WEIGHT;
-      floors[stat] += g.cumLevel * decayMult * V2_FLOOR_PER_PROF * tierMult * weight;
+      floors[stat] +=
+        balancedCum * decayMult * V2_FLOOR_PER_PROF * tierMult * weight;
     }
   }
   for (const stat of V2_STAT_KEYS) floors[stat] = Math.floor(floors[stat]);

@@ -56,8 +56,7 @@ import {
   totalCapGains,
   capGain,
   effectiveStatCap,
-  advanceCumLevelReq,
-  V2_ADVANCE_MIN_LEVEL,
+  effectiveLevelCap,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
@@ -128,8 +127,8 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // reconcileV2EquippedSkills 는 idempotent — equipped 만 학습분∩현 체인으로 reconcile
-  // (시그니처는 learn-skill 라우트로 숙련도 학습; 자동부여 폐지). learned 불변.
+  // reconcileV2EquippedSkills 는 idempotent — 코어루프에서는 수동 SP 로드아웃을 보존하고
+  // 학습분/SP예산 기준으로만 정리한다. learned 불변.
   // 길드는 더 이상 자동 생성 X — null 이면 무소속.
   const guildId = await db.transaction(async (tx) => {
     const gid = await getGuildId(tx, userId);
@@ -470,10 +469,10 @@ export async function GET() {
       ? { outpostId: lastHunted.outpostId, at: lastHunted.at }
       : null;
 
-  // 코어루프 직업 스탯게이트 — flag on 일 때만. 효과 스탯(combat.totalStats)으로 해금된
+  // 코어루프 직업 해금 — 코어루프 on 일 때만. 숙련도/카탈로그 조건으로 해금된
   const cls = parseV2Class((charSave as { class?: unknown }).class);
-  // 직업 시스템 v2(cumLevel 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
-  //   해금(cumLevel 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
+  // 직업 시스템 v2(직업 숙련도 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
+  //   해금(숙련도 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
   // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋 로드(현 카탈로그=무쿼리).
   const jobUnlockCtx: JobUnlockContext | undefined =
     V2_CORE_LOOP_V2 && CATALOG_USES_QUEST_CONDITION
@@ -524,7 +523,7 @@ export async function GET() {
                 name: job.name,
                 tier: job.tier,
                 condition,
-                // 그 직업에 쌓은 누적 레벨(직업별/직군 — 전직 화면 표기, 해금 진행 가늠).
+                // 그 직업에 쌓은 숙련도(직업별/직군 — 전직 화면 표기, 해금 진행 가늠).
                 cumLevel: cumLevelForJob(prof, job),
                 bonus,
                 skillsCollected,
@@ -533,7 +532,7 @@ export async function GET() {
           };
         })()
       : null;
-  // flag off 면 null — 클라는 기존 class→이름 매핑 폴백. flag on 일 때만 모험가-인지 라벨.
+  // 코어루프 off 면 null — 클라는 기존 class→이름 매핑 폴백. on 일 때만 모험가-인지 라벨.
   // 직업 표시명 — 캐릭터 카드/전투 부제가 쓴다(jobDisplayName: 직업 시스템이면 견습 병사·방패병
   //   등, 아니면 옛 직군명). core-loop off 면 null(레거시 화면이 자체 처리).
   const classDisplaySpec =
@@ -591,7 +590,7 @@ export async function GET() {
       : { active: false }
     : null;
 
-  // 자유 타일 지도 개척 정착지 — flag on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
+  // 자유 타일 지도 개척 정착지 — 코어루프 on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
   //   정착지의 "길드 귀속"은 점령행 occupiedByGuildId(권위)로 파생 — 영토=길드 소유 모델.
   //   founder 가 길드를 떠나도 길드가 정착지를 유지한다(옛 소유자→길드 소프트링크 폐기).
   //   모험 탭 "현 위치" 카드가 거점 카드와 동일 정보(소속/세율/정책/영주/금고)를 쓰므로
@@ -782,7 +781,7 @@ export async function GET() {
       typeof charSave.tilePos.row === "number"
         ? { col: charSave.tilePos.col, row: charSave.tilePos.row }
         : null,
-    // 자유 타일 지도 개척 정착지(Phase 3) — flag on 일 때만 조회(off=빈 배열·prod 무비용).
+    // 자유 타일 지도 개척 정착지(Phase 3) — 코어루프 on 일 때만 조회(off=빈 배열·prod 무비용).
     tileSettlements: freeformTileSettlements,
     // 발견(안개) — 방문/인접으로 공개된 거점 id 목록. 없으면(신규) 시작 거점+인접 시드.
     discoveredOutpostIds:
@@ -797,14 +796,11 @@ export async function GET() {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
       const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
       const specChoice = typeof rawSpec === "string" ? rawSpec : null;
-      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-      const group = tier1ClassOf(cls);
-      const tier = prof.groups[group]?.tier ?? 1;
-      // 학습 비용은 모든 스킬 고정 단가 1500(learn-skill 과 동일 산식).
+      // 학습 비용은 스킬 티어/오버라이드 기준(learn-skill 과 동일 산식).
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
       const equippedSet = new Set<string>(skillsState.equipped);
-      return elementalSkillsForClass(cls, specChoice, tier).map((skillId) => {
+      return elementalSkillsForClass(cls, specChoice).map((skillId) => {
         const def = V2_SKILLS[skillId];
         return {
           skillId,
@@ -903,15 +899,16 @@ export async function GET() {
         caps: effectiveCaps,
         current: {
           group,
-          // 직군 누적 레벨 — 전직 게이트·floor 입력. UI 전직 진척 표시용.
+          // 직업 숙련도 — 전직 게이트·floor 입력. UI 전직 진척 표시용.
           cumLevel: groupCumLevel(prof, group),
           // 숙달 포인트 잔액(사용가능). 옛 earned/usable 통합.
           points: usablePoints(prof),
           cultivations: cultivationCount(prof, group),
           nextCost: cultivationCost(totalCapGains(prof)),
           // 현 직업군 다음 차수 전직 가능 여부 — 신전 직업 그리드의 "전직 가능" 표시용.
-          // 게이트 3종(Lv50·직군 누적레벨·3·4차 도감)을 advance-class 와 동일 기준으로 산출.
+          // 코어루프 on 에서는 jobsV2/advance-class(targetJobId) 가 권위라 레거시 차수 advance 는 숨긴다.
           advance: (() => {
+            if (V2_CORE_LOOP_V2) return null;
             const cur = parseV2Class((charSave as { class?: unknown }).class);
             if (cur === "none") return null;
             // P4 — 전직 = class 불변, proficiency.tier +1. 다음 차수(2/3/4), 정점이면 null.
@@ -922,7 +919,7 @@ export async function GET() {
               1,
               (charSave as { level?: number }).level ?? 1,
             );
-            const reqCum = advanceCumLevelReq(nextTier);
+            const reqCum = 0;
             const haveCum = groupCumLevel(prof, group);
             const reqCodex = codexRequirement(tierCodexMin(nextTier));
             const haveCodex = discoveredMaterialIds(
@@ -932,15 +929,14 @@ export async function GET() {
               nextClass: cur,
               nextName: V2_CLASS_DEFS[cur].name,
               nextTier,
-              reqLevel: V2_ADVANCE_MIN_LEVEL,
+              reqLevel: effectiveLevelCap(curTier),
               haveLevel,
               reqCum,
               haveCum,
               reqCodex,
               haveCodex,
               canAdvance:
-                haveLevel >= V2_ADVANCE_MIN_LEVEL &&
-                haveCum >= reqCum &&
+                haveLevel >= effectiveLevelCap(curTier) &&
                 haveCodex >= reqCodex,
             };
           })(),

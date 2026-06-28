@@ -43,8 +43,8 @@ export type V2CommonSkillId =
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   // 모험가(무직) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
-  | "v2c_none_diligence" // 수련 (처치당 숙달 +1)
-  // ── 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
+  | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
+  // ── 상위 직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
   // 액티브
   | "v2c_shieldman_bash" // 방패 타격 (방어력 기반 단일)
   | "v2c_squire_cleave" // 돌격 (물리 단일·파고들기)
@@ -54,6 +54,7 @@ export type V2CommonSkillId =
   | "v2c_acolyte_smite" // 치유 (자힐 — heal)
   | "v2c_assassin_ambush" // 처단 (처형 — executeDamage·LUK 비례)
   | "v2c_archer_volley" // 속박 사격 (딜 + 취약 enemyVuln)
+  | "v2c_venomist_toxiccloud" // 독무 (중독 누적 + 중독 스택 비례딜)
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
   | "v2c_shieldman_vitality" // 방벽 (방어 +10%)
   | "v2c_squire_might" // 근력 II (힘 +15%)
@@ -63,6 +64,7 @@ export type V2CommonSkillId =
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
+  | "v2c_venomist_corrosion" // 부식 (중독된 적 방어 감소)
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
   // 액티브(강)
   | "v2c_paladin_cleave" // 심판 (물리 단일 + 무력 디버프)
@@ -80,11 +82,13 @@ export type V2CommonSkillId =
   | "v2c_warmonk_kick" // 연환각 (물리 다단)
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
+  | "v2c_venomancer_miasma" // 맹독 확산 (중독 심화 + 중독 스택 비례딜)
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
   | "v2c_guardian_bulwark3" // 방벽 II (방어 +20%)
   | "v2c_warmonk_evasion3" // 강건 III (활력 +30%·무승)
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
+  | "v2c_venomancer_corrosion3" // 침식 (중독된 적 방어 감소 II)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
   | "v2c_templar_smite" // 성기사: 심판의 빛 (물리 타격 + 자힐)
   | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
@@ -102,6 +106,9 @@ export type V2CommonSkillId =
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
   | "v2c_phantom_ambush" // 기습 (풀피 적에게 큰 오프너 — ambushDamage·LUK 비례)
   | "v2c_phantom_stealth" // 은신 (회피 +16%)
+  // ── 도적 4차 세 번째 갈래(독왕·독술 계보) ──
+  | "v2c_venomlord_plague" // 독왕진 (중독 폭발·LUK 비례)
+  | "v2c_venomlord_sovereign" // 독왕 (중독된 적 방어 감소 III)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
@@ -255,14 +262,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_none_diligence: {
     id: "v2c_none_diligence", name: "수련", stat: "luk", category: "passive", tier: 1,
-    description: "꾸준한 수행. 사냥 처치마다 숙달 포인트를 +1 더 얻는다.", mpCost: 0, cooldown: 0,
+    description: "꾸준한 수행. 사냥에서 승리할 때마다 숙달 포인트를 +1 더 얻는다.", mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 3,
     learnCost: 8000,
     passive: { profPerKillBonus: 1 },
   },
 
-  // ═══ 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ═══
+  // ═══ 상위 직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ═══
   // 액티브는 군더더기 없는 순수 공격(간단 기조). 패시브는 직업마다 서로 다른 축(고유) — 다른
   //   직업을 순회해 다른 패시브를 모으는 메리트. % 가산(여러 패시브 % 는 합산).
   // ── 전사 갈래 ──
@@ -324,8 +331,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "약점을 꿰뚫어 한동안 받는 피해를 키운다.", mpCost: 30, cooldown: 0, procChance: 35,
     effects: [dmg(0.9, 90), { kind: "enemyVuln", pct: 20, turns: 3 }],
   },
+  v2c_venomist_toxiccloud: {
+    // 독술사 = 독 스택 운용. 첫 시전은 중독을 깊게 깔고, 이후 시전은 기존 중독 스택을 직접 피해로 회수한다.
+    //   stackPayoffDamage 는 현재 적 상태의 중독 스택을 읽는다. LUK 비례로 자객과 같은 행운 축을 공유하되
+    //   처형 대신 지속 누적·방어 약화 쪽으로 차별.
+    id: "v2c_venomist_toxiccloud", name: "독무", stat: "luk", category: "attack", tier: 2,
+    description: "독안개를 흩뿌려 중독을 깊게 누적시키고, 이미 중독된 적에게 더 아프게 파고든다.",
+    mpCost: 32, cooldown: 0, procChance: 35,
+    effects: [
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 14, pctMaxHpPerStack: 0, stacks: 3 },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.12, baseFlatByTier: [70, 70, 70], perStackFlat: 18, scaling: "luk" },
+    ],
+  },
 
-  // ── 상위 8직업 고유 패시브 — 학습 + SP 슬롯해야 상시 효과 ──
+  // ── 상위 직업 고유 패시브 — 학습 + SP 슬롯해야 상시 효과 ──
   //   다양성(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 "작동 방식" 사이드그레이드. 직업 테마에 맞춤
   //   (수도승 회피·자객 치명·권사 흡혈·술사 치명피해). id 는 세이브 호환 위해 유지(효과만 리스킨).
   v2c_shieldman_vitality: {
@@ -388,6 +407,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "날랜 몸놀림. 민첩이 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { dex: 10 } },
+  },
+  v2c_venomist_corrosion: {
+    id: "v2c_venomist_corrosion", name: "부식", stat: "luk", category: "passive", tier: 2,
+    description: "독이 스며든 적의 방어를 무르게 한다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { poisonedEnemyDefReductionPct: 12 },
   },
 
   // ── 고차 4직업 액티브(tier 3) — 같은 계열 tier-2 보다 한 단계 강한 공격 ──
@@ -481,6 +507,16 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [210, 210, 210], hpThresholdPct: 15, bonusMult: 2.2, scaling: "luk" },
     ],
   },
+  v2c_venomancer_miasma: {
+    // 맹독술사 = 독술사 위 계보. 중독 스택을 더 깊게 쌓고, 이미 걸린 중독을 LUK 비례 피해로 회수한다.
+    id: "v2c_venomancer_miasma", name: "맹독 확산", stat: "luk", category: "attack", tier: 3,
+    description: "맹독을 퍼뜨려 중독을 깊게 만들고, 쌓인 독을 터뜨린다.",
+    mpCost: 38, cooldown: 0, procChance: 35,
+    effects: [
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 18, pctMaxHpPerStack: 0, stacks: 3 },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.16, baseFlatByTier: [120, 120, 120], perStackFlat: 24, scaling: "luk" },
+    ],
+  },
 
   // ── 고차 두 번째 갈래 고유 패시브(tier 3·형제와 다른 축) ──
   v2c_guardian_bulwark3: {
@@ -512,6 +548,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "급소를 노리는 일격. 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { critDmgPct: 25 }, // 크리축 차수 단조 — 그림자=3차(2차20<3차25<4차30).
+  },
+  v2c_venomancer_corrosion3: {
+    id: "v2c_venomancer_corrosion3", name: "침식", stat: "luk", category: "passive", tier: 3,
+    description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어를 더 크게 낮춘다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { poisonedEnemyDefReductionPct: 20 },
   },
 
   // ── 하이브리드(tier 3·성기사 = 전사×마법) — 딜+자힐 탱 ──
@@ -638,6 +681,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "그림자에 몸을 감춰 적의 공격을 흘려보낸다. 회피가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { evasionPct: 16 },
+  },
+  v2c_venomlord_plague: {
+    // 독왕 = 독술 계보 정점. 4차지만 스킬 tier 는 기존 심화 스킬과 같이 3으로 둔다.
+    //   스택 페이오프가 커서 단독보다 독침/독무/맹독 확산 이후의 누적 상황에서 강하다.
+    id: "v2c_venomlord_plague", name: "독왕진", stat: "luk", category: "attack", tier: 3,
+    description: "독의 진을 펼쳐 중독을 폭발적으로 퍼뜨리고, 쌓인 독을 왕의 권능처럼 터뜨린다.",
+    mpCost: 42, cooldown: 0, procChance: 35,
+    effects: [
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 22, pctMaxHpPerStack: 0, stacks: 4 },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.2, baseFlatByTier: [180, 180, 180], perStackFlat: 32, scaling: "luk" },
+    ],
+  },
+  v2c_venomlord_sovereign: {
+    id: "v2c_venomlord_sovereign", name: "독왕", stat: "luk", category: "passive", tier: 3,
+    description: "독을 다스리는 정점. 중독된 적의 방어를 크게 무너뜨린다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { poisonedEnemyDefReductionPct: 28 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──

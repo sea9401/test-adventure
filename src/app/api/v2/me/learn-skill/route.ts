@@ -27,9 +27,9 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 
-// POST /api/v2/me/learn-skill — 시그니처 1종 학습. 그 차수 도달 + 숙달 포인트 비용 지불.
+// POST /api/v2/me/learn-skill — 현재 직업 시그니처 1종 학습. 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
-// equipped = 학습한 시그니처 ∩ 현 직업 체인(자동 장착, 슬롯 선택 없음 — #270 유지).
+// 코어루프 on 에서는 학습 라이브러리에 보관하고 SP 예산 안에서만 자동 장착한다.
 // lock 순서: character.v2 → skills.v2 → proficiency.v2 (hunt·advance 와 동일).
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -80,11 +80,10 @@ export async function POST(req: Request) {
       ),
       charSave,
     );
-    const tier = prof.groups[group]?.tier ?? 1;
-    // 학습 가능 = 공용(직군) + 선택 전문화(전직)의 차수 해금분(차수당 1개)만. 전문화 미선택이면 공용만.
+    // 학습 가능 = 현재 직업(jobIdFromLegacy(class,specChoice))의 시그니처 킷.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-    const elementalPool = elementalSkillsForClass(cls, specChoice, tier);
+    const elementalPool = elementalSkillsForClass(cls, specChoice);
     if (!elementalPool.includes(skillId as V2SkillId)) {
       return {
         status: 400,
@@ -108,7 +107,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 모든 학습 스킬 고정 단가(v2SkillLearnCost): 1500.
+    // 비용 — 스킬 티어/오버라이드 기준(v2SkillLearnCost).
     const cost = v2SkillLearnCost(sig);
 
     const spent = spendProficiency(prof, cost);
@@ -126,7 +125,7 @@ export async function POST(req: Request) {
 
     // equipped 갱신.
     //   flag off(레거시): 학습한 스킬은 현 체인 유효분 전부 자동 장착(상한 없음).
-    //   코어루프(flag on): 기존 로드아웃(수동 선택) 보존 + 새로 배운 스킬을 뒤에 붙여 SP 예산까지
+    //   코어루프: 기존 로드아웃(수동 선택) 보존 + 새로 배운 스킬을 뒤에 붙여 SP 예산까지
     //     sanitize(맞으면 자동 장착·예산 차면 learned 만·수동 교체는 로드아웃 화면에서). 강제 재산출 X.
     const nextLearned = [...skills.learned, sig];
     const nextEquipped = V2_CORE_LOOP_V2

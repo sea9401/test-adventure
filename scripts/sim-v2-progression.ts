@@ -33,9 +33,6 @@ import {
   type V2SkillsState,
 } from "../src/adventure/data/v2/v2Skills";
 import {
-  V2_TIER2_ADVANCE_LEVEL,
-  V2_TIER3_ADVANCE_LEVEL,
-  V2_TIER4_ADVANCE_LEVEL,
   type V2Class,
 } from "../src/adventure/data/v2/classes";
 import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
@@ -159,8 +156,8 @@ function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
   return a;
 }
 
-// P4 — 아키타입 → 4직군, 레벨로 도달 차수를 산출해 앵커 보정(V2_TIER_STAT_BONUS_PCT)이
-// 실제처럼 반영되게. SPI=마법사(신성), LUK=도적(암살). BAL 은 무직(보정 없음).
+// 아키타입 → 4직군. 코어루프는 차수 보너스를 평탄화했으므로 classTier 는 항상 1.
+// SPI=마법사(신성), LUK=도적(암살). BAL 은 무직(보정 없음).
 const ARCH_CLASS_T1: Record<Arch, V2Class> = {
   STR: "warrior",
   DEX: "rogue",
@@ -171,29 +168,20 @@ const ARCH_CLASS_T1: Record<Arch, V2Class> = {
   BAL: "none",
 };
 
-// 직군 + 레벨 → 도달 차수(차수 게이트 레벨 30/50/70). class 는 불변(차수는 proficiency.tier).
 function classForArchLevel(
   arch: Arch,
   level: number,
 ): { cls: V2Class; tier: number } {
+  void level;
   const cls = ARCH_CLASS_T1[arch];
-  if (cls === "none") return { cls, tier: 1 };
-  const tier =
-    level >= V2_TIER4_ADVANCE_LEVEL
-      ? 4
-      : level >= V2_TIER3_ADVANCE_LEVEL
-        ? 3
-        : level >= V2_TIER2_ADVANCE_LEVEL
-          ? 2
-          : 1;
-  return { cls, tier };
+  return { cls, tier: 1 };
 }
 
 function makePlayer(arch: Arch, level: number) {
   const allocated = allocate(arch, level);
   // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
   // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
-  // P4 — playerClass + classTier 로 차수별 앵커 보정 반영. 구 직업 패시브는 은퇴(learnedSkillIds 무효).
+  // playerClass + classTier=1. 구 차수별 앵커 보정/직업 패시브는 은퇴.
   const { cls, tier } = classForArchLevel(arch, level);
   return derivePlayerCombatV2Pure({
     level,
@@ -238,7 +226,7 @@ function skillsFor(
     if (atkA !== atkB) return atkB - atkA;
     return db.tier - da.tier;
   });
-  // 장착 슬롯 폐지 — 학습한 스킬 전부가 전투 풀(상한 없음).
+  // SP 로드아웃 시뮬레이션 전 단계 — 학습한 스킬 전부를 전투 풀로 둔다.
   return { learned: ids, equipped: ordered };
 }
 
@@ -378,7 +366,7 @@ function expPerBattleAtDepth(
 
 function runPacing() {
   console.log(
-    `v2 코어루프 페이싱 — Lv1→50 실측(목표 ${LOOP_BATTLES_TARGET}판≈100분). XP_RATE_MULT=${XP_RATE_MULT}`,
+    `v2 코어루프 페이싱 — Lv1→${V2_LEVEL_CAP} 실측(목표 ${LOOP_BATTLES_TARGET}판≈100분). XP_RATE_MULT=${XP_RATE_MULT}`,
   );
   console.log(
     "모델: 레벨마다 기대 exp/판 최대 깊이(실전투 sweep, 승률 붕괴 시 조기중단). 100% 가정 아님(승률 반영).",
@@ -475,7 +463,7 @@ console.log(
     : "스킬 모드 OFF: 일반 공격 baseline. INT 마법 측정하려면 --skills.",
 );
 console.log(
-  "P4 — 구 직업 패시브 은퇴(계파 패시브로 대체). 차수별 앵커 보정만 반영.",
+  "코어루프 — 직업 차수 보정은 평탄화(classTier=1), 직업 패시브는 로드아웃/킷 기준.",
 );
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);

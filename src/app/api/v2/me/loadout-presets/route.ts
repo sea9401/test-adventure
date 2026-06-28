@@ -11,7 +11,7 @@ import {
 import { totalPresetSlots } from "@/adventure/data/v2/v2LoadoutPresets";
 
 // 로드아웃 프리셋 — 이름 붙인 장착 스킬 묶음(빠른 빌드 전환·순수 편의). 프리셋 "적용"은 클라가
-//   프리셋 skills 를 POST /me/loadout 으로 보내 처리(예산/직업고정 검증 재사용). 이 라우트는
+//   프리셋 skills 를 POST /me/loadout 으로 보내 처리(학습 여부/SP 예산 검증 재사용). 이 라우트는
 //   (1) 프리셋 라이브러리 저장 (2) 현황 조회 만 담당. 슬롯은 무료 고정(수집 포인트 경제 폐지).
 
 // 현재 프리셋 상태 — 프리셋 목록 + 무료 고정 슬롯 수.

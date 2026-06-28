@@ -37,7 +37,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("상위 8직업 = 액티브 1 + 고유 % 패시브 1", () => {
+  it("상위 9직업 = 액티브 1 + 고유 % 패시브 1", () => {
     const UPPER: Record<string, [V2SkillId, V2SkillId]> = {
       shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"],
       squire: ["v2c_squire_cleave", "v2c_squire_might"],
@@ -47,6 +47,7 @@ describe("직업 킷 — 스킬셋", () => {
       acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"],
       assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"],
       archer: ["v2c_archer_volley", "v2c_archer_agility"],
+      venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"],
     };
     for (const [job, kit] of Object.entries(UPPER)) {
       expect(skillsForJob(job), job).toEqual(kit);
@@ -73,6 +74,13 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_archer_volley.effects.some((e) => e.kind === "enemyVuln"),
     ).toBe(true);
+    expect(
+      V2_SKILLS.v2c_venomist_toxiccloud.effects.some((e) => e.kind === "dot" && e.tag === "poison"),
+    ).toBe(true);
+    expect(
+      V2_SKILLS.v2c_venomist_toxiccloud.effects.some((e) => e.kind === "stackPayoffDamage" && e.tag === "poison"),
+    ).toBe(true);
+    expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(12);
   });
 
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {
@@ -83,13 +91,13 @@ describe("직업 킷 — 스킬셋", () => {
     expect(ranger).toMatchObject({ kind: "damage", scaling: "dex" });
   });
 
-  it("상위 8직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
+  it("상위 9직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
     const passiveIds = [
       "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",
       "v2c_monk_spirit", "v2c_caster_acumen", "v2c_acolyte_mana",
-      "v2c_assassin_fortune", "v2c_archer_agility",
+      "v2c_assassin_fortune", "v2c_archer_agility", "v2c_venomist_corrosion",
     ] as const;
-    // 각 패시브가 건드리는 "축/효과"를 키로 직렬화 → 8개 모두 유일해야 한다.
+    // 각 패시브가 건드리는 "축/효과"를 키로 직렬화 → 9개 모두 유일해야 한다.
     //   다양성 확장(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 비(非)스탯 효과도 포함해 직렬화.
     const axes = passiveIds.map((id) => {
       const p = V2_SKILLS[id].passive!;
@@ -103,6 +111,7 @@ describe("직업 킷 — 스킬셋", () => {
       if (p.lifestealPct) keys.push("lifestealPct");
       if (p.defPct) keys.push("defPct"); // 방패병 방벽(방어%) — 고유 축
       if (p.atkPerDexCoef) keys.push("atkPerDexCoef");
+      if (p.poisonedEnemyDefReductionPct) keys.push("poisonedEnemyDefReductionPct");
       return keys.sort().join(",");
     });
     expect(new Set(axes).size).toBe(passiveIds.length);
@@ -146,6 +155,7 @@ describe("직업 킷 — 스킬셋", () => {
       warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"],
       bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"],
       shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"],
+      venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -158,9 +168,18 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.statPct?.vit).toBe(30);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
     expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(25); // 크리축 차수 단조(3차)
+    expect(
+      V2_SKILLS.v2c_venomancer_corrosion3.passive
+        ?.poisonedEnemyDefReductionPct,
+    ).toBe(20);
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
     expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
     expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
+    expect(
+      V2_SKILLS.v2c_venomancer_miasma.effects.some(
+        (e) => e.kind === "stackPayoffDamage" && e.tag === "poison",
+      ),
+    ).toBe(true);
   });
 
   it("심화 4직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
@@ -170,6 +189,7 @@ describe("직업 킷 — 스킬셋", () => {
       sage: ["v2c_sage_bolt", "v2c_sage_insight"],
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
       phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"],
+      venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -182,6 +202,10 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
     expect(V2_SKILLS.v2c_phantom_stealth.passive?.evasionPct).toBe(16); // 은신 — 회피(암살자·tier4 유일 회피축)
+    expect(
+      V2_SKILLS.v2c_venomlord_sovereign.passive
+        ?.poisonedEnemyDefReductionPct,
+    ).toBe(28); // 독왕 — 중독 적 방어 감소 정점
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
     // 정예 기사 액티브 왕실 검술 = 처형딜, 적 HP 15%↓ 에서 ×2(오너 하향, 옛 30%).
@@ -192,6 +216,17 @@ describe("직업 킷 — 스킬셋", () => {
     });
     // 암살자 액티브 기습 = 처형의 역(풀피 보너스·LUK 비례) 오프너.
     expect(V2_SKILLS.v2c_phantom_ambush.effects[0]).toMatchObject({ kind: "ambushDamage", scaling: "luk" });
+    // 독왕 액티브 독왕진 = 중독 누적 + 중독 스택 페이오프.
+    expect(
+      V2_SKILLS.v2c_venomlord_plague.effects.some(
+        (e) => e.kind === "dot" && e.tag === "poison",
+      ),
+    ).toBe(true);
+    expect(
+      V2_SKILLS.v2c_venomlord_plague.effects.some(
+        (e) => e.kind === "stackPayoffDamage" && e.tag === "poison",
+      ),
+    ).toBe(true);
   });
 
   it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {
@@ -308,7 +343,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
-  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%) 합산", () => {
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식) 합산", () => {
     // 명중(accuracyPct) 축은 신궁 "매의 눈"(tier4)으로, 흡혈(lifesteal)은 보류(무인 재설계 2026-06-22)라
     //   이 케이스엔 미포함. 회피 원천 = 권사 보법(v2c_boxer_fortitude, evasionPct 8).
     const agg = aggregateEquippedPassives([
@@ -316,11 +351,13 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차)
       "v2c_boxer_fortitude", // evasionPct 8 (보법)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
+      "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 12 (중독 적 방어 약화)
     ]);
     expect(agg.critPct).toBe(8);
     expect(agg.critDmgPct).toBe(25);
     expect(agg.evasionPct).toBe(8);
     expect(agg.defPct).toBe(20);
+    expect(agg.poisonedEnemyDefReductionPct).toBe(12);
     // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
   });

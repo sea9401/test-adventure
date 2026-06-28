@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildJobCodex } from "./v2JobCodex";
-import { V2_JOB_LIST } from "./v2JobCatalog";
+import { TIER2_UNLOCK_CUMLEVEL, V2_JOB_LIST } from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 // 직군 cumLevel 을 세팅한 proficiency 생성 헬퍼.
@@ -14,7 +14,10 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 
 describe("buildJobCodex", () => {
   it("해금된 직업만 목록 + totalJobs=전체 + 폐지 필드 없음 + condition 포함", () => {
-    const prof = profWith({ warrior: 250, mage: 100 });
+    const prof = profWith({
+      warrior: TIER2_UNLOCK_CUMLEVEL,
+      mage: TIER2_UNLOCK_CUMLEVEL,
+    });
     const codex = buildJobCodex(prof, [], "warrior", null);
 
     // 폐지된 필드는 codex 에 없다.
@@ -28,16 +31,16 @@ describe("buildJobCodex", () => {
     expect(codex.jobs.length).toBeGreaterThan(0);
     expect(codex.jobs.length).toBeLessThanOrEqual(nonAdventurer);
     expect(codex.jobs.every((j) => j.unlocked)).toBe(true);
-    // 잠긴 직업(tier4 veteran=warrior 450 필요)은 목록에 없다.
+    // 잠긴 직업(tier4 veteran)은 목록에 없다.
     expect(codex.jobs.some((j) => j.id === "veteran")).toBe(false);
     // 각 직업에 해금 조건 텍스트가 붙는다.
     expect(codex.jobs.every((j) => typeof j.condition === "string" && j.condition.length > 0)).toBe(true);
     const shieldman = codex.jobs.find((j) => j.id === "shieldman");
-    expect(shieldman?.condition).toContain("누적 Lv");
+    expect(shieldman?.condition).toContain("숙련도");
   });
 
-  it("해금된 것만 — warrior cum≥100이면 상위 전사 직업 포함, mage 계열(cum 0)은 제외", () => {
-    const prof = profWith({ warrior: 100 });
+  it("해금된 것만 — warrior 숙련도가 임계 이상이면 상위 전사 직업 포함, mage 계열(cum 0)은 제외", () => {
+    const prof = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });
     const codex = buildJobCodex(prof, [], "warrior", null);
     expect(codex.jobs.some((j) => j.id === "shieldman")).toBe(true);
     expect(codex.jobs.some((j) => j.id === "squire")).toBe(true);

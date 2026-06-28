@@ -6,7 +6,7 @@ import { applyExpTomeGrant, EXP_TOME_GRANT } from "@/lib/server/expTomeGrant";
 
 // POST /api/v2/me/use-exp-tome — 「경험치의 비약」(레어맵 utility, 테스트 전용) 1회 소모.
 //   body: { map: <iid> }
-// EXP 100만을 한 판 사냥처럼 적용(레벨 + 직군 누적레벨 + 스탯 성장). 관리자 지급으로
+// EXP 100만으로 레벨업과 스탯 성장을 적용한다. 직업 숙련도는 사냥 승리 보상이라 오르지 않는다. 관리자 지급으로
 // 보유 → 인벤토리 소모품 탭에서 사용. 락 순서는 전 라우트 공통 character.v2 우선.
 
 type CharSave = {
@@ -66,7 +66,6 @@ export async function POST(req: Request) {
         ...charSave,
         level: grant.level,
         exp: grant.exp,
-        totalLevels: grant.totalLevels,
         rareMaps: nextMaps,
       });
       await upsertSave(tx, userId, "proficiency.v2", grant.proficiency);

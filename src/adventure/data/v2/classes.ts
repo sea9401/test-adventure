@@ -46,8 +46,8 @@ export const V2_TIER_STAT_BONUS_PCT: Record<number, number> = {
   4: 35,
 };
 
-// 전직 가능 레벨(차수 공통 최소). 만렙 100 안에 4단계 분산(참고 다이얼 — 실 게이트는
-// proficiency.V2_ADVANCE_MIN_LEVEL + advanceCumLevelReq). 호환 위해 export 유지.
+// 전직 가능 레벨(옛 차수 시뮬레이션 참고값). 현 코어루프 전직 게이트는 v2JobCatalog 해금선과
+// V2_LEVEL_CAP/levelCapFor 쪽이 권위다. 호환 스크립트가 참조하므로 export 유지.
 export const V2_TIER2_ADVANCE_LEVEL = 30;
 export const V2_TIER3_ADVANCE_LEVEL = 50;
 export const V2_TIER4_ADVANCE_LEVEL = 70;

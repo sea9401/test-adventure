@@ -119,6 +119,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         won: boolean;
         expGained: number;
         proficiencyGained: number;
+        masteryGained: number;
         enemyName: string;
       };
     };
@@ -128,38 +129,43 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.result.won).toBe(true);
     expect(json.result.expGained).toBeGreaterThan(0);
     expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(1));
+    expect(json.result.masteryGained).toBe(1);
 
     // 세이브 권위 반영 확인.
     const char = store.get("character.v2") as { exp: number; stamina: { current: number } };
     expect(char.exp).toBeGreaterThan(0);
     expect(char.stamina.current).toBe(4999); // 5000 - HUNT_COST(1)
-    const prof = store.get("proficiency.v2") as { points: number };
+    const prof = store.get("proficiency.v2") as {
+      points: number;
+      groups: { warrior?: { cumLevel?: number } };
+      jobCumLevel?: Record<string, number>;
+    };
     expect(prof.points).toBe(proficiencyPerKillAtDepth(1)); // 전역 잔액
+    expect(prof.groups.warrior?.cumLevel).toBe(31); // 기존 30 + 승리 숙련도 1
+    expect(prof.jobCumLevel?.warrior).toBe(1);
     const log = store.get("adventure-log.v2") as {
       monsters: Record<string, { kills?: number }>;
     };
     expect(log.monsters[json.result.enemyName]?.kills).toBe(1);
   });
 
-  it("레벨업 시 totalLevels(평생 누적 레벨) += 오른 레벨", async () => {
-    // beforeEach 가 강한 전사(Lv30) 시드 — 다음 레벨까지 1 EXP 부족하게 + totalLevels=30 으로 설정.
+  it("레벨업 시 레거시 totalLevels 를 새로 갱신하지 않는다", async () => {
+    // beforeEach 가 강한 전사(Lv30) 시드 — 다음 레벨까지 1 EXP 부족하게 설정.
     const char0 = store.get("character.v2") as Record<string, unknown>;
     store.set("character.v2", {
       ...char0,
       // 30 은 만렙 미만이라 requiredExpToNext 는 항상 숫자(null 폴백은 타입 안전용).
       exp: (requiredExpToNext(30) ?? 1) - 1,
-      totalLevels: 30,
     });
     const res = await POST(huntReq({ floor: 1 }));
     expect(res.status).toBe(200);
     const char = store.get("character.v2") as {
       level: number;
-      totalLevels: number;
+      totalLevels?: number;
     };
     // 한 판 승리(EXP>0)로 최소 1 레벨업 → 31 이상.
     expect(char.level).toBeGreaterThanOrEqual(31);
-    // totalLevels 는 오른 레벨만큼 누적(시작 30=level → 둘 다 +levelsGained 라 항상 일치).
-    expect(char.totalLevels).toBe(char.level);
+    expect(char.totalLevels).toBeUndefined();
   });
 
   it("배치(count=5) — 5회 완료 + 판간 read-your-writes 이월(스태미나·EXP 누적)", async () => {
@@ -174,7 +180,13 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
         losses: number;
         totalExp: number;
         totalProficiency: number;
+        totalMastery: number;
         stoppedReason: string | null;
+        replays: Array<{
+          index: number;
+          enemyName: string;
+          replay: { log: unknown[] };
+        }>;
       };
     };
     expect(json.ok).toBe(true);
@@ -184,6 +196,11 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.losses).toBe(0);
     expect(json.batch.stoppedReason).toBeNull();
     expect(json.batch.totalProficiency).toBe(5 * proficiencyPerKillAtDepth(1));
+    expect(json.batch.totalMastery).toBe(5);
+    expect(json.batch.replays).toHaveLength(5);
+    expect(json.batch.replays[0]?.index).toBe(1);
+    expect(json.batch.replays[0]?.enemyName).toBeTruthy();
+    expect(json.batch.replays[0]?.replay.log.length).toBeGreaterThan(0);
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.
     const char = store.get("character.v2") as {
@@ -195,8 +212,14 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(char.exp).toBe(json.batch.totalExp);
     expect(char.exp).toBeGreaterThan(0);
     // 숙련도도 5판 누적.
-    const prof = store.get("proficiency.v2") as { points: number };
+    const prof = store.get("proficiency.v2") as {
+      points: number;
+      groups: { warrior?: { cumLevel?: number } };
+      jobCumLevel?: Record<string, number>;
+    };
     expect(prof.points).toBe(5 * proficiencyPerKillAtDepth(1)); // 전역 잔액 5판 누적
+    expect(prof.groups.warrior?.cumLevel).toBe(35); // 기존 30 + 5승
+    expect(prof.jobCumLevel?.warrior).toBe(5);
   });
 
   it("거점(미점령) 사냥 — NPC 세금 차감 + 수취 라벨 '거점 금고'", async () => {

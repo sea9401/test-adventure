@@ -20,7 +20,7 @@ import {
 } from "./useRankings";
 
 const TABS: { key: RankingMetric; label: string }[] = [
-  { key: "level", label: "누적 레벨" },
+  { key: "level", label: "총 숙련도" },
   { key: "battleCount", label: "전투 횟수" },
   { key: "guild", label: "길드 랭킹" },
 ];
@@ -70,10 +70,10 @@ function LevelMetricPill() {
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-medium text-violet-700 dark:text-violet-300">
-          누적 레벨
+          총 숙련도
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
-          환생·전직으로 리셋되지 않는 총 누적 레벨 순으로 매깁니다.
+          환생·전직으로 리셋되지 않는 직업 숙련도 합계 순으로 매깁니다.
         </span>
       </div>
     </Card>
@@ -247,7 +247,7 @@ function RankingRow({
       </span>
       <span className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
         {metric === "level" ? (
-          <>누적 Lv. {entry.cumLevel.toLocaleString()}</>
+          <>숙련도 {entry.cumLevel.toLocaleString()}</>
         ) : (
           <>전투 {entry.battleCount}</>
         )}

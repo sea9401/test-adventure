@@ -13,7 +13,13 @@ import {
   parseV2Element,
   type V2Element,
 } from "@/adventure/data/v2/elements";
-import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  V2_CORE_LOOP_V2,
+  calcSpBudget,
+  spendGold,
+} from "@/adventure/data/v2/coreLoopConfig";
+import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
+import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -34,8 +40,8 @@ import {
 
 // POST /api/v2/me/class-element — 직업·속성 선택/변경.
 // PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 레벨비례 골드 + 24h 쿨다운.
-// 시그니처는 숙련도 학습(learn-skill)이라 여기선 자동 학습 안 함 — equipped 만
-// 학습분∩새 직업 체인으로 reconcile(learned 보존, docs §6).
+// 시그니처는 숙련도 학습(learn-skill)이라 여기선 자동 학습 안 함.
+// 코어루프에서는 수동 SP 로드아웃을 보존하고, 레거시만 새 직업 체인으로 equipped 를 재산출한다.
 
 type CharSaveShape = {
   class?: unknown;
@@ -63,7 +69,7 @@ export async function POST(req: Request) {
   const nextElement: V2Element = parseV2Element(body.element);
 
   // 코어루프 — 신규 캐릭은 모험가(none)로 시작. 캐릭 생성의 "첫 선택"은 직업이 아니라 속성만
-  //   고른다(직군은 인게임 스탯게이트 해금·재전직으로). class="none" 요청 = 속성만 설정,
+  //   고른다(직군은 인게임 직업 해금·재전직으로). class="none" 요청 = 속성만 설정,
   //   직업은 none 유지(직업/스킬 로직 미실행). 속성 변경 비활성 게이트는 그대로 적용.
   if (V2_CORE_LOOP_V2 && nextClass === "none") {
     const r = await db.transaction(async (tx) => {
@@ -112,7 +118,7 @@ export async function POST(req: Request) {
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
     const skills = parseV2SkillsState(skillsRaw);
-    // 차수(도달차수 복귀·전문화 스킬 차수 해금)에 사용 — 항상 읽는다(락 순서 character→skills→proficiency).
+    // 숙련도/레거시 차수 검증에 사용 — 항상 읽는다(락 순서 character→skills→proficiency).
     const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
         tx,
@@ -152,13 +158,11 @@ export async function POST(req: Request) {
     // 으로 남아 저장된다(#395 회귀: 신규 캐릭 직업 선택 불가 → 온보딩 게이트 무한 /create).
     // 첫 선택도 nextClass 로 확정해야 함(none → reachedTier 1 → classOfGroupTier=nextClass).
     const isFirstPick = curClass === "none";
-    // 직업군 변경(첫 선택 포함) 시 — 그 직업군의 "도달 차수"로 복귀(1차 추락 X, 2026-06).
-    // 예전에 검호(3차)까지 갔던 직업군으로 돌아오면 다시 검호. 게이트 입력이므로 락 순서
-    // (character→skills→proficiency)대로 미리 잠가 읽는다. 같은 직업군이면 현 직업 유지.
+    // 직업군 변경(첫 선택 포함) 시 class 만 교체한다. 코어루프 on 에서는 직업 차수가 평탄화되어
+    // 같은 직군 안의 jobId/숙련도 해금이 권위이고, off 모드만 proficiency.tier 를 레거시 차수로 쓴다.
     let effectiveClass: V2Class = curClass;
     if (groupChanged || isFirstPick) {
-      // P4 — 4직군에선 class 자체가 직군. 차수는 proficiency.groups[job].tier 에 보존되므로
-      // "도달 차수로 복귀"는 자동(class 만 바꾸면 됨, 별도 매핑 불필요).
+      // P4 — 4직군에선 class 자체가 직군이라 별도 class-id 매핑 없이 교체한다.
       effectiveClass = nextClass;
     }
 
@@ -181,24 +185,12 @@ export async function POST(req: Request) {
         };
       }
     }
-    // 직업군 변경(다른 직업으로 전직) = prestige 리셋 — 레벨 1·exp 0·grown 리셋(advance 와 동일).
-    // 도달 차수로 복귀해도 레벨은 1부터(차수 사이 50까지 재성장). 첫 선택·속성만 변경은 레벨 유지.
-    // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
-    // equipped 는 PRUNE 만 — 장착 가능 = 공용 + 선택 전문화의 차수 해금분.
-    // 새 그룹 풀 밖/미학습 제거 + 슬롯 절단(리셋 후 레벨 기준).
-    // 직업군 변경 시엔 전문화가 비워지므로(아래) 공용만, 유지면 기존 전문화 풀 적용.
-    // 차수 — 새 직군(또는 유지 직군)의 도달 차수로 전문화 스킬 해금분을 게이팅(차수당 1개).
+    // 직업군 변경(다른 직업으로 재전직) = 레벨 1·exp 0·grown 리셋(advance 와 동일).
+    // 첫 선택·속성만 변경은 레벨 유지.
+    // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 코어루프는 learned 불변 + equipped 보존
+    // sanitize 만 수행한다. flag off 레거시는 현 체인 유효분으로 자동 장착.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-    const effectiveTier =
-      prof.groups[tier1ClassOf(effectiveClass)]?.tier ?? 1;
-    const chain = new Set<string>(
-      elementalSkillsForClass(
-        effectiveClass,
-        groupChanged ? null : specChoice,
-        effectiveTier,
-      ),
-    );
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -278,10 +270,30 @@ export async function POST(req: Request) {
       }
     }
 
-    // equipped = 학습한 스킬 중 새 체인 유효분 전부(장착 슬롯 폐지·상한 없음). learned 보존.
+    const equipped = V2_CORE_LOOP_V2
+      ? sanitizeLoadout(
+          skills.equipped,
+          skills.learned,
+          calcSpBudget(
+            prof.groups,
+            spCapBonusFromRaw(
+              (charSave as { spFruitUsed?: unknown }).spFruitUsed,
+            ),
+          ),
+        )
+      : (() => {
+          const chain = new Set<string>(
+            elementalSkillsForClass(
+              effectiveClass,
+              groupChanged ? null : specChoice,
+            ),
+          );
+          return skills.learned.filter((s) => chain.has(s));
+        })();
+    // learned 보존. 코어루프는 수동 로드아웃 보존, 레거시는 새 체인 유효분 자동 장착.
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      equipped: skills.learned.filter((s) => chain.has(s)),
+      equipped,
     });
 
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).

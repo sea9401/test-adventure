@@ -67,7 +67,7 @@ export type QuestCtx = {
   /** 획득한 칭호 수. adventure-log.v2.titles. */
   titleCount: number;
   // ── 확장 신호(2026-06-11, 라인 4종 추가) ─────────────────────────────────
-  /** 총 누적레벨(전 직군 합·환생 보존). proficiency totalCumLevel. */
+  /** 총 직업 숙련도(전 직군 합·환생 보존). proficiency totalCumLevel. */
   cumLevel: number;
   /** 환생(재전직) 횟수 — advance-class 환생마다 +1. proficiency.reincarnations. "다시 태어나다" 판정. */
   reincarnations: number;
@@ -174,10 +174,9 @@ const GROWTH: QuestDef[] = [
     title: "정점",
     desc: `레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
     reward: { staminaPotions: 1 },
-    // 누적레벨 기준(현재 레벨 아님) — 다음 단계 "2차 전직"은 재전직(환생)이 강제이고
-    // 환생은 현재 레벨을 1로 리셋한다. level 기준이면 환생 직후 이 조건이 다시 거짓이 돼
-    // 순차 라인의 뒤 퀘스트(전직)가 재잠금된다. cumLevel 은 환생에도 보존·단조증가.
-    check: (c) => c.cumLevel >= V2_LEVEL_CAP,
+    // 현재 레벨 또는 보존 숙련도 기준. level 만 보면 환생 직후 레벨 1 리셋으로 뒤 퀘스트가
+    // 재잠금되고, cumLevel 만 보면 EXP 묘약 등 레벨 성장 경로와 설명이 어긋난다.
+    check: (c) => c.level >= V2_LEVEL_CAP || c.cumLevel >= V2_LEVEL_CAP,
   },
   {
     id: "g_advance2",
@@ -465,7 +464,7 @@ const WAR: QuestDef[] = [
   },
 ];
 
-// ── 윤회의 길 — 환생·누적레벨 마일스톤(독립) ─────────────────────────────────
+// ── 윤회의 길 — 환생·총 직업 숙련도 마일스톤(독립) ─────────────────────────────
 const REBIRTH: QuestDef[] = [
   {
     id: "r_first",
@@ -474,8 +473,8 @@ const REBIRTH: QuestDef[] = [
     title: "다시 태어나다",
     desc: `레벨 한계(${V2_LEVEL_CAP})에 도달한 뒤 성장의 신전에서 환생하세요. (같은 직업으로 환생해도 됩니다)`,
     reward: { gold: 1000 },
-    // 환생 1회로 판정 — 같은 직업 재전직도 깨진다. 옛 cumLevel≥101 임계는 한 생애 누적(~99)이
-    //   문턱 아래라 환생 직후 안 깨지던 사각지대(다른 직업으로 직군을 늘려야만 넘던 비대칭)를 해소.
+    // 환생 1회로 판정 — 같은 직업 재전직도 깨진다. 숙련도 임계 대신 행동 신호를 봐서
+    //   재전직 직후 현재 레벨 리셋이나 직군 분산과 무관하게 완료된다.
     check: (c) => c.reincarnations >= 1,
   },
   {
@@ -483,7 +482,7 @@ const REBIRTH: QuestDef[] = [
     chain: "rebirth_cum",
     line: "rebirth",
     title: "세 번째 생",
-    desc: "누적레벨 300에 도달하세요.",
+    desc: "총 직업 숙련도 300에 도달하세요.",
     reward: { gold: 1500 },
     check: (c) => c.cumLevel >= 300,
   },
@@ -492,7 +491,7 @@ const REBIRTH: QuestDef[] = [
     chain: "rebirth_cum",
     line: "rebirth",
     title: "윤회의 수레바퀴",
-    desc: "누적레벨 600에 도달하세요.",
+    desc: "총 직업 숙련도 600에 도달하세요.",
     reward: { gold: 2000 },
     check: (c) => c.cumLevel >= 600,
   },
@@ -501,7 +500,7 @@ const REBIRTH: QuestDef[] = [
     chain: "rebirth_cum",
     line: "rebirth",
     title: "천년의 혼",
-    desc: "누적레벨 1,200에 도달하세요.",
+    desc: "총 직업 숙련도 1,200에 도달하세요.",
     reward: { gold: 3000 },
     check: (c) => c.cumLevel >= 1200,
   },
@@ -510,7 +509,7 @@ const REBIRTH: QuestDef[] = [
     chain: "rebirth_cum",
     line: "rebirth",
     title: "윤회의 정점",
-    desc: "누적레벨 2,000에 도달하세요.",
+    desc: "총 직업 숙련도 2,000에 도달하세요.",
     reward: { gold: 5000 },
     check: (c) => c.cumLevel >= 2000,
   },
@@ -742,7 +741,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "rebirth",
     name: "윤회의 길",
-    subtitle: "환생을 거듭하며 누적레벨을 쌓으세요.",
+    subtitle: "환생을 거듭하며 직업 숙련도를 쌓으세요.",
     sequential: false,
   },
   {

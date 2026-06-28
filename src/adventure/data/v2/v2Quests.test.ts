@@ -11,6 +11,7 @@ import {
   type QuestCtx,
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
+import { V2_LEVEL_CAP } from "./coreLoopConfig";
 
 // 신규 캐릭터 기준(전사, 아무것도 안 함). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
@@ -207,14 +208,14 @@ describe("전직 마일스톤 — 차수 숫자 미노출, 내부 tier 판정 �
     const afterReincarnate: QuestCtx = {
       ...ZERO,
       level: 1, // 환생으로 리셋됨(과거 버그의 방아쇠)
-      cumLevel: 100, // 보존 — 정점 조건은 누적레벨 기준이라 유지
+      cumLevel: 100, // 보존 — 정점 조건은 숙련도 기준이라 유지
       tier: 2,
       battleCount: 5,
       equippedCount: 6,
       frontierDepth: 6,
       cultivations: 1,
     };
-    // 정점은 누적레벨 기준이라 환생 후에도 충족(현재 레벨 기준이면 false 였음).
+    // 정점은 숙련도 기준이라 환생 후에도 충족(현재 레벨 기준이면 false 였음).
     expect(questById("g_cap1")!.check(afterReincarnate)).toBe(true);
     // 따라서 전직 퀘스트는 locked 가 아니라 조건이 노출되고 수령 가능해야 한다.
     expect(questStatus(questById("g_advance2")!, afterReincarnate, none)).toBe(
@@ -222,6 +223,16 @@ describe("전직 마일스톤 — 차수 숫자 미노출, 내부 tier 판정 �
     );
     expect(
       isQuestClaimable(questById("g_advance2")!, afterReincarnate, none),
+    ).toBe(true);
+  });
+
+  it("정점 퀘스트는 현재 레벨 만렙도 인정한다", () => {
+    expect(
+      questById("g_cap1")!.check({
+        ...ZERO,
+        level: V2_LEVEL_CAP,
+        cumLevel: 0,
+      }),
     ).toBe(true);
   });
 
@@ -496,8 +507,8 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("locked");
   });
 
-  it("윤회의 길 — 첫 퀘스트는 환생 1회로 판정(누적레벨 무관)", () => {
-    // 한 생애 누적레벨(~99)은 환생 직후 101 문턱 아래라, cumLevel 임계로는 같은 직업
+  it("윤회의 길 — 첫 퀘스트는 환생 1회로 판정(숙련도 무관)", () => {
+    // 한 생애 숙련도(~99)는 환생 직후 101 문턱 아래라, cumLevel 임계로는 같은 직업
     // 재전직만으로 안 깨지던 사각지대가 있었다. 이제 환생 횟수(행동)로 판정한다.
     expect(
       questById("r_first")!.check({ ...ZERO, reincarnations: 0, cumLevel: 100 }),
@@ -507,7 +518,7 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     ).toBe(true);
   });
 
-  it("윤회의 길 — 후속 마일스톤은 누적레벨 경계", () => {
+  it("윤회의 길 — 후속 마일스톤은 숙련도 경계", () => {
     expect(questById("r_300")!.check({ ...ZERO, cumLevel: 299 })).toBe(false);
     expect(questById("r_300")!.check({ ...ZERO, cumLevel: 300 })).toBe(true);
     expect(questById("r_2000")!.check({ ...ZERO, cumLevel: 2000 })).toBe(true);

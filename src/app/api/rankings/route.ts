@@ -39,7 +39,7 @@ type RankRow = {
   userId: string;
   name: string;
   level: number;
-  /** 총 누적 레벨 = 모든 직군 cumLevel 합(환생/전직 누적, 리셋 안 됨). level 탭 정렬·표시. */
+  /** 총 직업 숙련도 = 모든 직군 cumLevel 합(환생/전직 리셋 안 됨). level 탭 정렬·표시. */
   cumLevel: number;
   /** 파라곤 레벨 = 적립 EXP 로 획득한 총 포인트(0~150). 만렙 미만은 0. level 탭 표시·정렬용. */
   paragonLevel: number;
@@ -64,8 +64,8 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
-  // level 탭 = "총 누적 레벨"(cum_level) 순. cumLevel 은 환생으로 리셋되지 않는 직군 누적 레벨이라
-  // 차수 환생/전직 진행이 그대로 반영된다(현재 레벨은 차수 안에서 리셋되므로 랭킹 부적합).
+  // level 탭 = "총 직업 숙련도"(cum_level) 순. API metric 키는 호환을 위해 level 유지.
+  // cumLevel 은 환생으로 리셋되지 않는 직군 숙련도라 차수 환생/전직 진행이 그대로 반영된다.
   // 동률은 현재 레벨 → 갱신시각 순.
   const orderBy =
     metric === "level"
@@ -82,23 +82,15 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::bigint, 0) AS fame,
-        -- 총 누적 레벨 — character.v2.totalLevels(평생 누적 레벨, 모험가 포함·환생/전직 리셋 안 됨)
-        -- 우선. 없는 옛 세이브는 옛 공식(직군 cumLevel 합을 현재레벨로 floor)으로 폴백 — 마이그(0090)가
-        -- totalLevels 를 시드하면 이후엔 항상 totalLevels 사용. regex 가드로 비정수 1행이 쿼리를
-        -- 터뜨리는 것 방지(항상 음 아닌 정수라 ^[0-9]+$ 로 충분).
+        -- 총 직업 숙련도 — proficiency.v2.groups[*].cumLevel 합. 저장 필드명은 호환상 cumLevel 이지만
+        -- 현재 적립 단위는 사냥 승리다. regex 가드로 비정수 1행이 쿼리를 터뜨리는 것 방지.
         COALESCE(
-          CASE
-            WHEN (c.value->>'totalLevels') ~ '^[0-9]+$'
-              THEN (c.value->>'totalLevels')::int
-          END,
-          GREATEST(
-            COALESCE((
-              SELECT SUM((g.value->>'cumLevel')::int)
-              FROM jsonb_each(pr.value->'groups') AS g
-              WHERE (g.value->>'cumLevel') ~ '^[0-9]+$'
-            ), 0),
-            COALESCE((c.value->>'level')::int, 1)
-          )
+          (
+            SELECT SUM((g.value->>'cumLevel')::int)
+            FROM jsonb_each(pr.value->'groups') AS g
+            WHERE (g.value->>'cumLevel') ~ '^[0-9]+$'
+          ),
+          0
         ) AS cum_level,
         -- 파라곤 적립 EXP. 큰 값(만렙 후 누적)이라 bigint. 포인트 환산은 JS(pointsFromExp).
         COALESCE((pg.value->>'paragonExp')::bigint, 0) AS paragon_exp,
@@ -196,7 +188,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
-    cumLevel: 0, // 고탑 탭은 누적레벨 미사용.
+    cumLevel: 0, // 고탑 탭은 숙련도 미사용.
     paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
@@ -246,7 +238,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
-    cumLevel: 0, // 고탑 탭은 누적레벨 미사용.
+    cumLevel: 0, // 고탑 탭은 숙련도 미사용.
     paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,

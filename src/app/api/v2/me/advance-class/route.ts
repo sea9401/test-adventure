@@ -14,8 +14,6 @@ import {
   setGroupTier,
   flattenGroupTiers,
   addReincarnation,
-  addCumLevel,
-  addJobCumLevel,
   emptyProficiency,
   effectiveLevelCap,
   type V2ProficiencyState,
@@ -45,14 +43,11 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 
-// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직군 누적 레벨(cumLevel)
-// 임계(t2=55·t3=110·t4=170) + 최소 Lv50 + (3·4차) 모험의 서 — 골드 X(docs §7, PR-6).
-// earned→cumLevel 전환(2026-06): 전직을 "킬 수"가 아닌 "누적 레벨"로 게이트.
-// 1→2→3→4 어느 단계든 nextTierClassOf 로 바로 위 차수로 승급. respec(직업군 변경,
-// 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 새 차수 시그니처는 자동 학습이
-// 아니라 learn-skill 로 숙련도 학습(전직은 equipped 만 reconcile, docs §6).
-// 3·4차는 재료 도감 등재 종 수(advanceCodexMin)를 추가 요건으로 — 직업 해금을 모험의 서
-// 진척에 묶는다(설계 §11-8).
+// POST /api/v2/me/advance-class.
+// 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 V2_LEVEL_CAP + v2JobCatalog
+// 해금 조건(직업 숙련도/추가 조건)이며, 같은 직업 재전직은 해금 조건을 다시 보지 않는다.
+// 코어루프 off: 옛 차수 승급/환생 경로. 현 차수 레벨캡 + 3·4차 모험의 서 요건만 본다
+// (옛 숙련도 임계 55/110/170은 레벨캡과 충돌해 폐지).
 
 type CharSaveShape = {
   class?: unknown;
@@ -105,8 +100,8 @@ export async function POST(req: Request) {
       charSave,
     );
 
-    // === 코어루프 재전직 (flag on) — 차수 폐지. Lv50 도달 후 스탯게이트 해금된 직군/계파로
-    //     갈아타고 레벨1·exp0·grown 리셋, cumLevel/points/caps 보존. 기존 차수 전직 대체. ===
+    // === 코어루프 재전직 — 차수 폐지. 레벨 한계 도달 후 직업 숙련도/카탈로그 조건으로
+    //     해금된 직업으로 갈아타고 레벨1·exp0·grown 리셋, 숙련도/points/caps 보존. ===
     if (V2_CORE_LOOP_V2) {
       const lvl = Math.max(1, charSave.level ?? 1);
       if (lvl < V2_LEVEL_CAP) {
@@ -120,10 +115,10 @@ export async function POST(req: Request) {
           },
         };
       }
-      // 타겟 직업 = 단일 targetJobId + 카탈로그 cumLevel 게이트(isJobUnlocked). 세이브/스킬
+      // 타겟 직업 = 단일 targetJobId + 카탈로그 숙련도 게이트(isJobUnlocked). 세이브/스킬
       //   체인은 브리지 LEGACY_CLASS_SPEC_BY_JOB 로 옛 class+spec 모델로 변환(저장 호환, 영구).
       // 현재 직업과 동일한 targetJobId(재전직)도 의도적으로 허용 — 같은 직업 환생 루프
-      //   (레벨1 리셋·cumLevel 보존). 별도 same-job 거부 가드를 두지 않는다.
+      //   (레벨1 리셋·숙련도 보존). 별도 same-job 거부 가드를 두지 않는다.
       const targetJobId =
         typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
       const jobDef = V2_JOB_CATALOG[targetJobId];
@@ -143,8 +138,8 @@ export async function POST(req: Request) {
         typeof charSave.specChoice === "string" ? charSave.specChoice : null,
       );
       const isReJobToCurrent = targetJobId === currentJobId;
-      // 해금 게이트 = cumLevel prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
-      //   prereqs 비어 통과(위 Lv50 이 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
+      // 해금 게이트 = 직업 숙련도 prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
+      //   prereqs 비어 통과(위 레벨 한계가 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
       const jobCtx: JobUnlockContext | undefined = CATALOG_USES_QUEST_CONDITION
         ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
         : undefined;
@@ -167,21 +162,12 @@ export async function POST(req: Request) {
         exp: 0,
       });
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
-      //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
+      //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. 숙련도/points/caps 보존.
       //   환생 1회 기록(addReincarnation) — 같은 직업 재전직도 "다시 태어나다" 퀘스트가 깨지도록.
-      // 새 캠페인 진입 = 시작 레벨 1 을 누적레벨에 포함(+1). cumLevel/jobCumLevel 은 레벨업당 +1
-      //   누적이라 시작 레벨 1 이 안 세져 Lv100 도달 시 99 가 된다 → 전직 게이트(100/200/300)에서
-      //   1 모자라 한 번 더 전직해야 하던 문제. 진입 시 +1 로 보정해 "한 캠페인(Lv1→100)=정확히 100".
-      //   addCumLevel/addJobCumLevel 은 none/빈 jobId 무변경(모험가 전직은 누적 미적립).
+      // 직업 숙련도는 사냥 승리에서만 오르므로, 재전직/환생 진입 자체는 숙련도를 더하지 않는다.
       const targetGroup = tier1ClassOf(targetClass);
-      const nextProf = addJobCumLevel(
-        addCumLevel(
-          addReincarnation(flattenGroupTiers(setGrown(prof, {}), targetGroup)),
-          targetGroup,
-          1,
-        ),
-        targetJobId,
-        1,
+      const nextProf = addReincarnation(
+        flattenGroupTiers(setGrown(prof, {}), targetGroup),
       );
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →
       //   타직업 공용/기본기 오픈믹스 수집분 유지). 예산은 tier 1 정규화 기준(정복 보너스 빠짐).
@@ -217,7 +203,7 @@ export async function POST(req: Request) {
       };
     }
     // P4 — 전직 = 그 직군 차수(proficiency.tier) +1. 4직군에선 class 자체가 그룹.
-    // 환생(§3.1·design A) — 4차 정점에서 진행하면 차수→1 리셋(종환생), cumLevel/points/caps 보존.
+    // 환생(§3.1·design A) — 4차 정점에서 진행하면 차수→1 리셋(종환생), 숙련도/points/caps 보존.
     const group = tier1ClassOf(curClass);
     const curTier = prof.groups[group]?.tier ?? 1;
 
@@ -260,7 +246,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // PR-prof — 전직 시 레벨 1 리셋 + 랜덤 성장(grown) 리셋. 스탯은 floor(숙련도 누적)부터
+    // PR-prof — 전직 시 레벨 1 리셋 + 랜덤 성장(grown) 리셋. 스탯은 floor(직업 숙련도)부터
     // 다시 키운다(prestige 루프, docs §2·§5). exp 도 0. 골드 변동 없음(PR-6).
     // P4 — class 는 불변(차수는 proficiency 에). 레벨/exp 만 리셋.
     await upsertSave(tx, userId, "character.v2", {
@@ -272,7 +258,7 @@ export async function POST(req: Request) {
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
     // — 장착 가능 = 공용 + 선택 전문화의 차수 해금분(차수당 1개). 풀 밖/미학습 제거 +
-    // equipped = 학습한 스킬 중 새 체인 유효분 전부(장착 슬롯 폐지·상한 없음). 차수는 전직 후
+    // equipped = 학습한 스킬 중 새 체인 유효분 전부(레거시 자동장착). 차수는 전직 후
     // 값(nextTier) — 환생(→1차)이면 전문화 스킬이 다시 잠겨 빠지고, 재등반하며 자동 복원.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
@@ -285,7 +271,7 @@ export async function POST(req: Request) {
     });
 
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
-    // points/cumLevel/caps 는 보존(전직해도 잔액·누적레벨·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
+    // points/숙련도/caps 는 보존(전직해도 잔액·숙련도·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
     // 환생(4차 정점→1차)일 때만 환생 1회 기록 — 일반 차수 승급은 환생이 아니므로 제외.
     const advancedProf = setGroupTier(setGrown(prof, {}), group, nextTier);
     const nextProf = isReincarnate

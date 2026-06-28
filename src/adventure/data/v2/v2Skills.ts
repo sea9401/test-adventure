@@ -84,13 +84,16 @@ export type V2PassiveSkillEffect = {
   elementAdvPctBonus?: number;
   /** 속성 불리 감소 +%p 가산(원소 통달) — V2_ELEMENT_DIS_PCT 에 더해 전달(받피 추가 경감·딜 추가 손해). */
   elementDisPctBonus?: number;
-  // ── 경제(비전투) — 장착 시 사냥 처치당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
+  /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
+  poisonedEnemyDefReductionPct?: number;
+  // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
 };
 
-// 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 모든 학습 스킬 고정 단가. 스타터(자동 보유)는
-// 학습 경로를 타지 않는다. 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
-// 들판 기준 ~750킬/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+// 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
+// 스타터(자동 보유)는
+// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
+// 들판 기준 ~750승/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
 export const V2_SKILL_LEARN_COST_COMMON = 1500; // tier1(입문) 기본 단가.
 // 학습 비용 tier 스케일(숙달 포인트) — 입문/중급/상급. per-skill learnCost 오버라이드가 우선.
 export const V2_SKILL_LEARN_COST_BY_TIER: Record<1 | 2 | 3, number> = {
@@ -398,6 +401,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.damageTakenReductionPct ?? 0) / 8;
     mag += (p.elementAdvPctBonus ?? 0) / 15;
     mag += (p.elementDisPctBonus ?? 0) / 20;
+    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
     return mag;
   }
   const sumEffects = (effects: readonly V2SkillEffect[]): number => {
@@ -449,7 +453,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_COMMON_SKILLS,
 };
 
-// 장착(로드아웃)된 패시브 스킬들의 상시 효과 합산 — derive 가 flag-on 일 때 호출.
+// 장착(로드아웃)된 패시브 스킬들의 상시 효과 합산 — 코어루프 derive 가 호출.
 //   stat 가산(근력 등) + atkPerDexCoef 합(예기). 패시브 아닌 스킬·미존재 id 는 무시.
 export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   stat: Partial<Record<V2StatKey, number>>;
@@ -469,6 +473,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   damageTakenReductionPct: number;
   elementAdvPctBonus: number;
   elementDisPctBonus: number;
+  poisonedEnemyDefReductionPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -487,6 +492,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let damageTakenReductionPct = 0;
   let elementAdvPctBonus = 0;
   let elementDisPctBonus = 0;
+  let poisonedEnemyDefReductionPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -511,6 +517,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
     elementAdvPctBonus += p.elementAdvPctBonus ?? 0;
     elementDisPctBonus += p.elementDisPctBonus ?? 0;
+    poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
   }
   return {
     stat,
@@ -530,10 +537,11 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     damageTakenReductionPct,
     elementAdvPctBonus,
     elementDisPctBonus,
+    poisonedEnemyDefReductionPct,
   };
 }
 
-// 장착 패시브의 "처치당 숙달 포인트 보너스" 합산(경제 — 전투 aggregate 와 분리). hunt 지급부에서 소비.
+// 장착 패시브의 "승리당 숙달 포인트 보너스" 합산(경제 — 전투 aggregate 와 분리). hunt 지급부에서 소비.
 export function equippedProfPerKillBonus(equipped: readonly V2SkillId[]): number {
   let n = 0;
   for (const id of equipped) n += V2_SKILLS[id]?.passive?.profPerKillBonus ?? 0;
@@ -650,6 +658,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`속성 유리 피해 +${p.elementAdvPctBonus}%`);
   if (p.elementDisPctBonus)
     chips.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
+  if (p.poisonedEnemyDefReductionPct)
+    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
   return chips;
 }
 
@@ -671,7 +681,8 @@ const MP_MARTIAL_JOBS = new Set([
 ]);
 // 도적 ×0.7 — 물리/술수·MP 가벼움.
 const MP_ROGUE_JOBS = new Set([
-  "rogue", "assassin", "archer", "shadow", "ranger", "phantom", "chief",
+  "rogue", "assassin", "archer", "venomist", "shadow", "ranger", "venomancer",
+  "phantom", "chief", "venomlord",
 ]);
 // default 1.0 = 병사 계보(warrior/shieldman/squire/paladin/guardian/veteran/warden)
 //   + 하이브리드(templar/spellblade) + none·스타터(v2_skill_).
@@ -726,9 +737,9 @@ const VALID_SKILL_IDS: ReadonlySet<string> = new Set(Object.keys(V2_SKILLS));
 export type V2SkillsState = {
   /** 학습 보유 스킬 id 목록 (영구, 중복 없음). */
   learned: V2SkillId[];
-  /** 슬롯 장착 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합). */
+  /** SP 로드아웃 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합). */
   equipped: V2SkillId[];
-  /** 전투 패턴(갬빗, C2) — 우선순위 {조건→행동} 블록. 미설정(undefined)이면 엔진이 장착 슬롯에서
+  /** 전투 패턴(갬빗, C2) — 우선순위 {조건→행동} 블록. 미설정(undefined)이면 엔진이 로드아웃에서
    *  기본 패턴 도출(defaultPatternFromEquipped). combat-pattern 라우트만 변경. */
   pattern?: V2CombatPattern;
   /** 전투 패턴 프리셋(C4) — 이름 붙인 패턴 라이브러리(빠른 스왑용). 활성 패턴(pattern)과 별개,
@@ -744,8 +755,8 @@ export function emptyV2SkillsState(): V2SkillsState {
   return { learned: [], equipped: [] };
 }
 
-// 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지하고
-// equipped 길이는 caller (호출자가 슬롯 수 알고 있을 때) 잘라야 한다.
+// 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지한다.
+// SP 예산 클램프는 proficiency/character 컨텍스트가 있는 라우트에서 sanitizeLoadout 으로 처리한다.
 export function parseV2SkillsState(raw: unknown): V2SkillsState {
   if (!raw || typeof raw !== "object") return emptyV2SkillsState();
   const r = raw as { learned?: unknown; equipped?: unknown };

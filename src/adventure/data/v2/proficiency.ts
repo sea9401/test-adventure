@@ -8,11 +8,11 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 //   groups: { [tier1classId]: { cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - points = 숙달 포인트(사용가능 잔액). 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
+//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
 //     수행·스킬학습에 소모. 🔑 caps/grown 처럼 캐릭터 전역(직군 무관) — 전직해도 유지.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 → 단일 잔액. 2026-06-27: 옛 직군별 points 를
 //      전역으로 승격 — 재전직 시 잔액이 0 으로 보이던 문제 해소. parse 가 옛 직군별을 합산 이관.)
-//   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력)은 직군별.
+//   - cultivations(수행 횟수) · tier(레거시 차수/평탄화값) · cumLevel(직군 숙련도, floor·전직 입력)은 직군별.
 //   - cap 미지정 = V2_STAT_CAP_BASE.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
@@ -22,21 +22,22 @@ import { themeIndexForDepth } from "./dungeon";
 export type V2ProficiencyGroup = {
   cultivations: number;
   tier: number; // 그 직업군에서 도달한 최고 차수(1~4). floor tierMult 에 사용.
-  // 직군 누적 레벨 — 레벨업마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(2026-06).
-  // 레벨캡·차수 유한이라 ~200-250 에서 천장.
+  // 직군 숙련도 — 사냥 승리마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(2026-06).
   cumLevel: number;
 };
 export type V2ProficiencyState = {
-  // 숙달 포인트 — 캐릭터 단일 잔액(킬당 적립, 수행·스킬학습에 소모). caps 처럼 전역(전직 무관).
+  // 숙달 포인트 — 캐릭터 단일 잔액(승리당 적립, 수행·스킬학습에 소모). caps 처럼 전역(전직 무관).
   //   옛 직군별 points 는 parse 시 전부 합산해 이관(2026-06-27).
   points: number;
   groups: Record<string, V2ProficiencyGroup>;
   caps: Partial<Record<V2StatKey, number>>;
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
-  // 직업별 누적 레벨 — 특정 직업(예: 기사·사제)에 머문 누적 레벨. groups(직군 누적)와 별개.
-  //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 레벨업당 +1.
+  // 직업별 숙련도 — 특정 직업(예: 기사·사제)으로 쌓은 승리 수. groups(직군 숙련도)와 별개.
+  //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 승리당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
   jobCumLevel?: Record<string, number>;
+  // 숙련도 스케일 마이그레이션 버전. 1 = 레벨 기반 cumLevel → 승리 기반 숙련도 전환 보정(×6) 적용.
+  masteryScaleVersion?: number;
   // 환생(재전직) 횟수 — advance-class 환생(같은/다른 직업 무관)마다 +1. cumLevel 과 별개의 "행동" 신호:
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
   //   판정해, 같은 직업 재전직만으로도 깨지게 한다(한 생애 cumLevel ~99 < 101 사각지대 해소).
@@ -44,7 +45,7 @@ export type V2ProficiencyState = {
 };
 
 // §10 다이얼.
-// 킬당 숙달 포인트 — 깊이 밴드 비례(2026-06-12 성장 페이스업, 옛 전구간 고정 2).
+// 승리당 숙달 포인트 — 깊이 밴드 비례(2026-06-12 성장 페이스업, 옛 전구간 고정 2).
 // 테마 2개당 +1: 들판·마른 협곡 2 / 얼음 호수·심층 동굴 3 / 잊힌 성소·리자드 늪지 4 /
 // 짐승의 소굴·검은 왕도 5. 마지막 테마가 클램프돼 5 가 천장. (깊은 산 삭제 후에도 깊이당 값 불변.)
 export const V2_PROFICIENCY_PER_KILL_BASE = 2;
@@ -107,7 +108,7 @@ export function effectiveCultivateProfile(
 
 // 수행 비용(숙달 포인트) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
 // 크리티컬 다중 수행이 더 많은 cap 을 한 번에 올리면 그만큼 다음 비용도 비싸진다(자연 throttle).
-// PER_CAP 1.5→5(2026-06): earned 가 floor·전직게이트에서 분리(cumLevel 전환)되며 수행 연료로
+// PER_CAP 1.5→5(2026-06): 숙달 포인트가 floor·전직 게이트에서 분리되고 수행 연료로만 남으며
 // 과잉 → cap 인플레(t4 245). 비용계수 상향으로 diminishing 강화 → t4 cap ~169(옛 총cap 복귀).
 export const V2_CULT_COST_BASE = 8;
 export const V2_CULT_COST_PER_CAP = 5;
@@ -143,6 +144,7 @@ export function emptyProficiency(): V2ProficiencyState {
     caps: {},
     grown: {},
     jobCumLevel: {},
+    masteryScaleVersion: 1,
     reincarnations: 0,
   };
 }
@@ -169,8 +171,18 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps?: unknown;
     grown?: unknown;
     jobCumLevel?: unknown;
+    masteryScaleVersion?: unknown;
     reincarnations?: unknown;
   };
+  const hasLegacyScaledFields =
+    (!!obj.groups && typeof obj.groups === "object") ||
+    (!!obj.jobCumLevel && typeof obj.jobCumLevel === "object");
+  const masteryScaleVersion =
+    obj.masteryScaleVersion != null
+      ? posInt(obj.masteryScaleVersion)
+      : hasLegacyScaledFields
+        ? 0
+        : 1;
   // 숙달 포인트(캐릭터 전역 잔액) — 신포맷=top-level points. 옛 포맷=직군별 points 라, 아래 루프에서
   //   각 직군의 points 를 전부 여기 합산해 이관한다(2026-06-27 전역 승격). 신포맷 그룹엔 points 가
   //   없어 posInt→0 이므로 이중계산 없음.
@@ -190,7 +202,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
       // tier 1~4 클램프, 미지정=1.
       const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
-      // cumLevel(직군 누적 레벨) — 모든 writer 가 항상 기록(DB 초기화 후 옛 시드 마이그 불필요).
+      // cumLevel(직군 숙련도) — 저장 필드명은 호환상 유지. 현재 writer 는 사냥 승리당 +1 기록.
       //   필드 없거나 비수면 0. 모험가(none)는 직군 정복/cumLevel 미사용이라 항상 0.
       const rawCum = (v as { cumLevel?: unknown }).cumLevel;
       const cumLevel =
@@ -200,10 +212,10 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
         rawCum >= 0
           ? Math.floor(rawCum)
           : 0;
-      // 의미 있는 데이터(누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
+      // 의미 있는 데이터(숙련도/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
       //   (points 는 전역으로 빠졌으므로 그룹 보존 판정에서 제외 — points 만 있던 그룹은 합산 후 폐기.)
       if (cumLevel > 0 || cultivations > 0 || tier > 1) {
-        // 방어적 머지(같은 key 가 중복 등장할 때): 차수·누적레벨은 max, 수행 횟수는 합.
+        // 방어적 머지(같은 key 가 중복 등장할 때): 차수·숙련도는 max, 수행 횟수는 합.
         const prev = groups[key];
         groups[key] = prev
           ? {
@@ -227,7 +239,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       }
     }
   }
-  // 직업별 누적 레벨(jobCumLevel) — 옛 세이브엔 없음(빈 맵). 양수만 보존(비파괴).
+  // 직업별 숙련도(jobCumLevel) — 옛 세이브엔 없음(빈 맵). 양수만 보존(비파괴).
   const jobCumLevel: Record<string, number> = {};
   if (obj.jobCumLevel && typeof obj.jobCumLevel === "object") {
     for (const [k, v] of Object.entries(
@@ -243,6 +255,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps,
     grown: parseStatMap(obj.grown),
     jobCumLevel,
+    masteryScaleVersion,
     reincarnations: posInt(obj.reincarnations),
   };
 }
@@ -265,7 +278,8 @@ export function setGrown(
   return { ...p, grown };
 }
 
-// 직업군 도달 최고 차수 갱신(전직 시). 기존 tier 와 max. 그룹 없으면 생성. 비파괴.
+// 레거시 차수 전직용 최고 차수 갱신. 코어루프 on 경로는 flattenGroupTiers 로 1차 정규화한다.
+// 기존 tier 와 max. 그룹 없으면 생성. 비파괴.
 export function setGroupTier(
   p: V2ProficiencyState,
   group: string,
@@ -300,13 +314,19 @@ export function flattenGroupTiers(
   return { ...p, groups };
 }
 
-// floor(저점) 다이얼 — docs §5. 입력을 earned(킬 누적) → 직군 누적 레벨(cumLevel)로 전환(2026-06).
-// cumLevel 은 레벨업당 +1 + 레벨캡·차수 유한이라 ~200-250 에서 천장 → 옛 earned 의 무한 선형
-// runaway 가 구조적으로 사라진다(저점이 cap 의 ~30~50%에서 멈춤). 계수는 cumLevel 스케일에 맞춰
-// 상향(earned 대비 ~1/15~1/40). 시작 다이얼 — sim 캘리브 대상.
-export const V2_FLOOR_GLOBAL = 0.015; // 총 누적레벨 → 전 스탯 베이스.
-export const V2_FLOOR_PER_PROF = 0.05; // 직군 누적레벨 → 프로필 스탯 floor.
-// 차수가 높을수록 floor 가 더 오르되(설계 의도), cap 을 넘지 않게 완만히. {1.5,2,3} → {1.15,1.3,1.5}.
+// floor(저점) 다이얼 — docs §5. 입력은 직군 숙련도(cumLevel). 해금용 원본 숙련도는
+// 승리 기반 스케일이고, floor 는 balanceCumLevel 로 정규화한 값을 사용한다.
+export const V2_FLOOR_GLOBAL = 0.015; // 총 밸런스 숙련도 → 전 스탯 베이스.
+export const V2_FLOOR_PER_PROF = 0.05; // 직군 밸런스 숙련도 → 프로필 스탯 floor.
+// 숙련도는 해금 보존을 위해 기존 cumLevel 대비 6배 스케일로 마이그레이션했다.
+// 해금 조건은 원본 값을 쓰지만, 스탯 floor·SP 같은 성장 보너스는 기존 체감을 유지하도록 1/6 정규화한다.
+export const V2_MASTERY_BALANCE_SCALE = 6;
+export function balanceCumLevel(cumLevel: number): number {
+  if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
+  return Math.floor(cumLevel / V2_MASTERY_BALANCE_SCALE);
+}
+// 레거시 차수 floor 보정. 코어루프 on 경로는 tier=1 로 평탄화되어 보너스가 적용되지 않는다.
+// 차수가 높을수록 floor 가 더 오르되 cap 을 넘지 않게 완만히. {1.5,2,3} → {1.15,1.3,1.5}.
 export const V2_TIER_FLOOR_MULT: Record<number, number> = {
   1: 1,
   2: 1.15,
@@ -317,12 +337,12 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
 // 규칙. 옛 앵커-이진(1.0/0.4)은 mage {int:2,spi:2} 의 spi 를 0.4 로 홀대 → 값 비례로 통일.
 export const V2_FLOOR_ANCHOR_WEIGHT = 1.0; // 프로필 최댓값 스탯(직군 주력)의 floor 가중.
 
-// 환생 누적 성장 완화(2026-06-07) — cumLevel floor 가 선형 무한이라 환생할수록 스탯이 끝없이.
+// 환생 누적 성장 완화(2026-06-07) — 숙련도 floor 가 선형 무한이라 환생할수록 스탯이 끝없이.
 // 천장은 두지 않되 증가율을 ~10환생(cumLevel BAND)마다 한 단계씩 낮춘다(밴드 b: ×max(MIN,1−DECAY×b)).
 // MIN 에서 멈춰 무한 유지(천장 X). 첫 밴드(b=0, ~0~10환생)는 ×1.0 = 현행 동일.
-//   diminishedCumLevel = 선형 cumLevel 을 밴드별 감쇠율로 적분한 "유효 누적레벨" — floor 식의
-//   cumLevel/total 자리에 대입하면 piecewise-concave(증가율↓, 천장 없음). EXP·레벨 곡선과 무관.
-export const V2_FLOOR_DECAY_BAND = 3000; // ≈ 10환생(캠페인당 cumLevel ~291 × ~10).
+//   diminishedCumLevel = 선형 밸런스 숙련도를 밴드별 감쇠율로 적분한 "유효 숙련도" — floor 식의
+//   cumLevel/total 자리에 대입하면 piecewise-concave(증가율↓, 천장 없음).
+export const V2_FLOOR_DECAY_BAND = 3000; // 밸런스 숙련도 기준 ≈ 10환생(캠페인당 291 × ~10).
 export const V2_FLOOR_DECAY_PER_BAND = 0.12; // 밴드당 증가율 −12%.
 export const V2_FLOOR_DECAY_MIN = 0.4; // 최소 증가율(천장 방지). 50환생+ 부터 이 비율 무한 유지.
 export function diminishedCumLevel(cumLevel: number): number {
@@ -343,7 +363,7 @@ export function diminishedCumLevel(cumLevel: number): number {
   return eff;
 }
 
-// 시그니처 학습 비용(숙달 포인트) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
+// 레거시 시그니처 학습 비용(숙달 포인트). 현 코어루프 스킬 학습은 v2Skills 의 SP/스킬별 비용이 권위다.
 export const V2_SIGNATURE_LEARN_COST: Record<number, number> = {
   1: 80,
   2: 150,
@@ -354,25 +374,8 @@ export function signatureLearnCost(tier: number): number {
   return V2_SIGNATURE_LEARN_COST[tier] ?? V2_SIGNATURE_LEARN_COST[1];
 }
 
-// 전직(차수 승급) 게이트 — 직군 누적 레벨(cumLevel) 임계. earned → cumLevel 전환(2026-06).
-// key = 목표 차수. cumLevel 은 레벨업당 +1(전직 리셋 불변)이라 킬 기반 earned 보다 쌓기 어렵고
-// EXP 곡선에 감속 → 전직이 "킬 수"가 아닌 "누적 레벨"로 게이트. Lv50 최소레벨과 이중(아래).
-// 시작 다이얼 — sim/실측 캘리브 대상.
-export const V2_ADVANCE_CUMLEVEL_REQ: Record<number, number> = {
-  2: 55,
-  3: 110,
-  4: 170,
-};
-export function advanceCumLevelReq(tier: number): number {
-  return V2_ADVANCE_CUMLEVEL_REQ[tier] ?? Infinity;
-}
-// 전직 최소 레벨 — 차수 승급 시 레벨이 1로 리셋되므로, 매 차수 사이 레벨 50 까지 키워야
-// 다음 승급 가능(누적 레벨 게이트와 이중). 리셋 루프의 레벨 의미 부여(2026-06).
-export const V2_ADVANCE_MIN_LEVEL = 50;
-
-// 차수별 레벨 캡 — 환생(prestige) 설계 §3.1. 각 차수는 이 레벨까지만 오르고(applyExpGain
-// maxLevel), 캡 도달 시에만 다음 차수 전직(4차 캡=환생). 캡 위로는 exp 버림(advance 전까지 정지).
-// 1·2·3차 캡 < 만렙 100 이라 차수마다 레벨 의미 구간이 분리됨.
+// 레거시 차수별 레벨 캡. 코어루프 on 에서는 levelCapFor/effectiveLevelCap 이 단일 V2_LEVEL_CAP 을 반환한다.
+// flag off 에서만 각 차수가 이 레벨까지만 오르고, 캡 도달 시 다음 차수 전직/환생으로 진행한다.
 export const V2_TIER_LEVEL_CAP: Record<number, number> = {
   1: 50,
   2: 65,
@@ -394,7 +397,7 @@ export function effectiveLevelCap(tier: number): number {
   return levelCapFor(tier, V2_CORE_LOOP_V2);
 }
 
-// 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1, 전직 리셋에도 불변.
+// 직군 숙련도 합계 — floor·직업 해금·랭킹 입력. 사냥 승리당 +1, 재전직 리셋에도 불변.
 export function totalCumLevel(p: V2ProficiencyState): number {
   let t = 0;
   for (const v of Object.values(p.groups)) t += v.cumLevel;
@@ -432,7 +435,7 @@ export function totalCapGains(p: V2ProficiencyState): number {
   return t;
 }
 
-// 숙달 포인트 적립 — 캐릭터 전역 points += amount(킬당). 비파괴. 0 이하·빈 group·수행 프로필 없는
+// 숙달 포인트 적립 — 캐릭터 전역 points += amount(승리당). 비파괴. 0 이하·빈 group·수행 프로필 없는
 //   group 은 무변경. 🔑 group 은 적립 "자격" 게이트일 뿐(잔액은 전역) — V2_CULTIVATE_PROFILE 가
 //   있는 직업(4직군 + none 모험가 등)에서 사냥할 때만 적립(일반화, 2026-06-22).
 export function addPoints(
@@ -444,7 +447,7 @@ export function addPoints(
   return { ...p, points: p.points + amount };
 }
 
-// 직군 누적 레벨 적립 — group 의 cumLevel += amount(레벨업 수). 비파괴. none/빈 group/0 이하 무변경.
+// 직군 숙련도 적립 — group 의 cumLevel += amount(사냥 승리 수). 비파괴. none/빈 group/0 이하 무변경.
 export function addCumLevel(
   p: V2ProficiencyState,
   group: string,
@@ -471,8 +474,8 @@ export function addReincarnation(p: V2ProficiencyState): V2ProficiencyState {
   return { ...p, reincarnations: (p.reincarnations ?? 0) + 1 };
 }
 
-// 직업별 누적 레벨 적립 — jobId 의 jobCumLevel += amount(레벨업 수). 비파괴. none/빈 jobId/0이하 무변경.
-//   직군 누적(addCumLevel)과 짝지어 호출 — 같은 레벨업을 직군(groups.cumLevel)과 구체 직업
+// 직업별 숙련도 적립 — jobId 의 jobCumLevel += amount(사냥 승리 수). 비파괴. none/빈 jobId/0이하 무변경.
+//   직군 숙련도(addCumLevel)와 짝지어 호출 — 같은 승리를 직군(groups.cumLevel)과 구체 직업
 //   (jobCumLevel) 양쪽에 적립한다. totalCumLevel/floor 는 groups 만 보므로 이중계산 없음
 //   (jobCumLevel 은 하이브리드 해금 게이트 전용).
 export function addJobCumLevel(
@@ -488,7 +491,7 @@ export function addJobCumLevel(
   };
 }
 
-// 특정 직업의 누적 레벨(하이브리드 해금 게이트 조회). 미적립=0.
+// 특정 직업의 숙련도(하이브리드 해금 게이트 조회). 미적립=0.
 export function jobCumLevelOf(p: V2ProficiencyState, jobId: string): number {
   return p.jobCumLevel?.[jobId] ?? 0;
 }

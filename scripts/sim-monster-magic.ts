@@ -21,12 +21,7 @@ import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/eng
 import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
-import {
-  V2_TIER2_ADVANCE_LEVEL,
-  V2_TIER3_ADVANCE_LEVEL,
-  V2_TIER4_ADVANCE_LEVEL,
-  type V2Class,
-} from "../src/adventure/data/v2/classes";
+import { type V2Class } from "../src/adventure/data/v2/classes";
 import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
 import { enemiesForDepth } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
@@ -111,11 +106,10 @@ function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
 
 const ARCH_CLASS_T1: Record<Arch, V2Class> = { DEX: "rogue", VIT: "martial", INT: "mage", SPI: "mage", BAL: "none" };
 function classForArchLevel(arch: Arch, level: number): { cls: V2Class; tier: number } {
+  void level;
   const cls = ARCH_CLASS_T1[arch];
-  if (cls === "none") return { cls, tier: 1 };
-  const tier =
-    level >= V2_TIER4_ADVANCE_LEVEL ? 4 : level >= V2_TIER3_ADVANCE_LEVEL ? 3 : level >= V2_TIER2_ADVANCE_LEVEL ? 2 : 1;
-  return { cls, tier };
+  // 코어루프는 직업 차수 보정을 평탄화했다. 장비 티어만 레벨 구간을 따르고 classTier 는 1 고정.
+  return { cls, tier: 1 };
 }
 
 function makePlayer(arch: Arch, level: number): PlayerCombat {

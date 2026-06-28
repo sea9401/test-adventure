@@ -2,12 +2,12 @@
 // 현실 빌드의 파워"를 깊이별로 실측해, 게이트 곡선(damping 지수)을 역산한다.
 //
 // 배경(2026-06-11): 옛 게이트 = statMult × 110 (at-level 비례 가정). 그러나 후반 유저의
-// 파워(누적레벨 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형 0.6/깊이)만큼 못 자라는
+// 파워(숙련도 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형 0.6/깊이)만큼 못 자라는
 // 반면, 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀 — 깊이 48 권장 2915 vs
 // 실측 파워 1390 빌드가 승률 93% 라는 큰 괴리가 났다. 게이트는 표시 전용(진입은 frontierDepth)
 // 이라 안전하게 재캘리브 가능.
 //
-// 레퍼런스 빌드(전사 4차, 보통 수행): 누적레벨이 다이얼.
+// 레퍼런스 빌드(전사, 보통 수행): 숙련도가 다이얼.
 //   - 스탯: computeStatFloors(cumLevel) + Lv100 성장(rollLevelGrowth 99회, caps=보통 수행)
 //   - 장비: 그 깊이 밴드의 드랍 BiS(슬롯별 최고 위력, 대검). 깊이<13 = 상점 미스릴 라인.
 //   - 스킬 0(베이스라인 — 스킬 빌드는 더 강하므로 게이트는 보수측).
@@ -97,8 +97,7 @@ function makeRef(depth: number, cumLevel: number) {
   const prof = emptyProficiency();
   const firstLife = cumLevel <= 100;
   const level = firstLife ? Math.max(1, cumLevel) : 100;
-  const tier = firstLife ? (level >= 70 ? 4 : level >= 50 ? 3 : level >= 30 ? 2 : 1) : 4;
-  prof.groups["warrior"] = { tier, points: 0, cumLevel } as never;
+  prof.groups["warrior"] = { tier: 1, points: 0, cumLevel } as never;
   // 보통 수행 — 주력 위주 cap 이득(파밍 동반 가정). 첫 생애엔 비례 축소.
   const capScale = firstLife ? level / 100 : 1;
   (prof as { caps: Partial<Record<V2StatKey, number>> }).caps = {
@@ -117,7 +116,7 @@ function makeRef(depth: number, cumLevel: number) {
     statFloors: computeStatFloors(prof),
     v2Equipped: bandGear(depth),
     playerClass: "warrior",
-    classTier: tier as 1 | 2 | 3 | 4,
+    classTier: 1,
     hp: undefined,
   });
   const p = d.player;
@@ -155,7 +154,7 @@ function poolWr(depth: number, cumLevel: number): number {
   return (w / t) * 100;
 }
 
-// 깊이별 — TARGET_WR 달성 최소 누적레벨 이진 탐색 → 그 빌드의 파워가 "필요 파워".
+// 깊이별 — TARGET_WR 달성 최소 숙련도 이진 탐색 → 그 빌드의 파워가 "필요 파워".
 function requiredPower(depth: number): { cumLevel: number; power: number } {
   let lo = 1;
   let hi = 6000;
@@ -170,7 +169,7 @@ function requiredPower(depth: number): { cumLevel: number; power: number } {
 
 const DEPTHS = [7, 9, 11, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 48, 52, 56, 60];
 
-console.log(`타깃 풀 승률 ${TARGET_WR}% · 전사 4차 보통수행 · 밴드 BiS(굴림 평균) · 스킬 0`);
+console.log(`타깃 풀 승률 ${TARGET_WR}% · 전사 보통수행 · 밴드 BiS(굴림 평균) · 스킬 0`);
 console.log("depth | statMult | 현 게이트 | 필요 파워(실측) | 필요/110 | 함의 γ");
 const points: { m: number; req: number }[] = [];
 for (const depth of DEPTHS) {

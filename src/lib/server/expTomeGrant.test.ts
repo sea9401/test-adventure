@@ -20,9 +20,9 @@ describe("applyExpTomeGrant", () => {
     expect(r.levelsGained).toBe(0);
   });
 
-  it("무직(none)도 레벨업하며 직군 누적레벨은 0 유지(addCumLevel no-op)·totalLevels 는 누적", () => {
+  it("무직(none)도 레벨업하며 직업 숙련도는 0 유지", () => {
     const r = applyExpTomeGrant(
-      { class: undefined, level: 1, exp: 0, totalLevels: 1 },
+      { class: undefined, level: 1, exp: 0 },
       {},
     );
     // 무직은 모든 직군 cumLevel 0 유지(스탯 성장은 hunt 처럼 적용됨).
@@ -30,18 +30,31 @@ describe("applyExpTomeGrant", () => {
       expect(g.cumLevel).toBe(0);
     }
     expect(r.levelsGained).toBeGreaterThan(0);
-    // 🔑 핵심: 직군 누적(cumLevel)엔 안 잡혀도 평생 누적(totalLevels)엔 모험가 레벨이 잡힌다.
-    expect(r.totalLevels).toBe(1 + r.levelsGained);
   });
 
-  it("totalLevels — 없는 옛 세이브는 직전 레벨로 시드 후 누적", () => {
+  it("EXP 묘약은 레벨만 올리고 직업 숙련도는 올리지 않는다", () => {
     const r = applyExpTomeGrant(
-      { class: "warrior", level: 30, exp: 0 },
+      { class: "warrior", level: 1, exp: 0 },
       {},
       EXP_TOME_GRANT,
     );
-    // totalLevels 미보유 → 직전 레벨(30) 시드 + 오른 레벨.
-    expect(r.totalLevels).toBe(30 + r.levelsGained);
+    expect(r.levelsGained).toBeGreaterThan(0);
+    expect(r.proficiency.groups.warrior?.cumLevel ?? 0).toBe(0);
+    expect(r.proficiency.jobCumLevel?.warrior ?? 0).toBe(0);
+  });
+
+  it("레거시 totalLevels 입력이 있어도 결과 모델에는 포함하지 않는다", () => {
+    const r = applyExpTomeGrant(
+      { class: "warrior", level: 30, exp: 0, totalLevels: 999 } as {
+        class: string;
+        level: number;
+        exp: number;
+        totalLevels: number;
+      },
+      {},
+      EXP_TOME_GRANT,
+    );
+    expect("totalLevels" in r).toBe(false);
   });
 
   it("적은 grant 는 큰 grant 보다 레벨을 적게 올린다", () => {

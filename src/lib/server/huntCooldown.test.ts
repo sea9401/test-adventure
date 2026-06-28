@@ -1,7 +1,7 @@
-// 사냥 전투 쿨다운(코어루프 flag-on) 통합 테스트 — huntRoute.test.ts 와 같은 in-memory
+// 사냥 전투 쿨다운(코어루프) 통합 테스트 — huntRoute.test.ts 와 같은 in-memory
 // savesKv 위에서 REAL 핸들러를 돌리되, coreLoopConfig 를 importOriginal 로 받아 V2_CORE_LOOP_V2
 // 만 true 로 덮는다(나머지 다이얼·헬퍼는 실값 유지 → derive/proficiency 정상). 검증:
-//   1) flag-on 첫 사냥 = 200 + lastBattleAt 기록(스태미나 미차감).
+//   1) 코어루프 첫 사냥 = 200 + lastBattleAt 기록(스태미나 미차감).
 //   2) 쿨다운 중(즉시 재요청) = 429 on_cooldown(nextBattleAt/cooldownMs).
 //   3) 쿨다운 경과 후 = 다시 200.
 //   4) count>1 요청도 단판(batch 없음) — 일괄 폐지.

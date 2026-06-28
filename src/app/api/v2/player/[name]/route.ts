@@ -19,7 +19,7 @@ import {
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 
 // GET /api/v2/player/[name] — 다른 모험가의 공개 캐릭터 정보. URL 의 [name] = 닉네임.
-//   "내 정보" 화면과 같은 항목(레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련 차수)을 돌려준다.
+//   "내 정보" 화면과 같은 항목(레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련도)을 돌려준다.
 //   단 골드/HP/EXP 같은 사적·일시 값은 제외(공개 보기). 로그인 필요. read-only.
 //
 // /me/state 의 공개 부분만 추린 경량판 — V2CharacterScreen 이 그대로 렌더(StateResponse 호환).
@@ -109,7 +109,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     ? jobDisplayName(playerClass, playerSpec)
     : null;
 
-  // 숙련도 — 현 직군의 차수/누적레벨/숙달포인트 + 전 스탯 cap(StatsPanel 표기용).
+  // 숙련도 — 현 직군 숙련도/숙달포인트 + 전 스탯 cap(StatsPanel 표기용).
   const prof = parseProficiencyForChar(
     byKey.get("proficiency.v2") as V2ProficiencyState | undefined,
     charSave,

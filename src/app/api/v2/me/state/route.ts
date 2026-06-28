@@ -86,6 +86,7 @@ import {
   discoveredFishIds,
   parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
+import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { ANTIQUE_TOTAL } from "@/adventure/data/v2/antique";
 import {
   discoveredAntiqueIds,
@@ -150,6 +151,7 @@ export async function GET() {
     treasureFragmentsRow,
     adventureLogRow,
     staminaPotionsRow,
+    inventoryRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -236,6 +238,12 @@ export async function GET() {
       .where(
         and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)),
       )
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "inventory.v2")))
       .limit(1)
       .then((rows) => rows[0]),
   ]);
@@ -396,6 +404,18 @@ export async function GET() {
   const level = Math.max(1, charSave.level ?? 1);
   const exp = Math.max(0, charSave.exp ?? 0);
   const expToNext = requiredExpToNext(level);
+  const inventorySave = (inventoryRow?.value ?? {}) as {
+    hpCharges?: number;
+    mpCharges?: number;
+  };
+  const hpCharges = Math.max(
+    0,
+    Math.min(MAX_CHARGE, inventorySave.hpCharges ?? 0),
+  );
+  const mpCharges = Math.max(
+    0,
+    Math.min(MAX_CHARGE, inventorySave.mpCharges ?? 0),
+  );
 
   // V2CharacterScreen 의 StatsPanel 표시용. combat 미생성(캐릭 없음) 시 null.
   const stats = combat
@@ -706,6 +726,8 @@ export async function GET() {
       level,
       exp,
       expToNext,
+      hpCharges,
+      mpCharges,
       hp: hpRegen.hp,
       maxHp,
       // v2 마법 풀 — derive 가 character.v2.mp 시드, 미지정이면 maxMp 풀충. INT 0 이면 둘 다 0.

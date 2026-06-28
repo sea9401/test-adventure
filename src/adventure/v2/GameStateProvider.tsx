@@ -96,6 +96,8 @@ type GameStateValue = {
   viewerLevelCap: number | null;
   viewerClass: string;
   viewerElement: string;
+  viewerExp: number;
+  viewerExpToNext: number;
   playerSubtitle: string;
   // 세계 위치 + 자원
   currentOutpost: { id: string; name: string } | null;
@@ -108,6 +110,8 @@ type GameStateValue = {
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템). me/state 에서 초기화.
   staminaPotions: number;
+  hpCharges: number;
+  mpCharges: number;
   hp: HpBarState | null;
   setHp: React.Dispatch<React.SetStateAction<HpBarState | null>>;
   // 보유 골드(들고 다니는·토벌 압류 대상) + 은행 잔액(입금분·안전). me/state 에서 초기화.
@@ -256,6 +260,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
+  const [viewerExp, setViewerExp] = useState(0);
+  const [viewerExpToNext, setViewerExpToNext] = useState(1);
   // 직업 표시명(서버 산출) — 직업 시스템이면 견습 병사·방패병 등. 전투 부제가 class 직접 환산
   //   대신 이걸 우선 사용(상위 직업 반영). 미동봉이면 null → class 직군명 폴백.
   const [viewerJobName, setViewerJobName] = useState<string | null>(null);
@@ -281,6 +287,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     initialStamina(Date.now()),
   );
   const [staminaPotions, setStaminaPotions] = useState(0);
+  const [hpCharges, setHpCharges] = useState(0);
+  const [mpCharges, setMpCharges] = useState(0);
   // 발견(안개) — 공개된 거점 id 집합. me/state 에서 초기화, 이동 응답마다 확장.
   const [discoveredIds, setDiscoveredIds] = useState<Set<string>>(
     () => new Set(seededDiscovery()),
@@ -355,6 +363,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             name?: string;
             gender?: string;
             level?: number;
+            exp?: number;
+            expToNext?: number;
             class?: string;
             classDisplayName?: string | null;
             element?: string;
@@ -362,6 +372,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             maxHp?: number;
             mp?: number;
             maxMp?: number;
+            hpCharges?: number;
+            mpCharges?: number;
             stamina?: {
               current: number;
               lastUpdatedAt: number;
@@ -408,6 +420,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
         if (typeof j?.character?.level === "number")
           setViewerLevel(j.character.level);
+        if (typeof j?.character?.exp === "number") {
+          setViewerExp(Math.max(0, j.character.exp));
+        }
+        if (typeof j?.character?.expToNext === "number") {
+          setViewerExpToNext(Math.max(1, j.character.expToNext));
+        }
         if (j?.character?.class) setViewerClass(j.character.class);
         setViewerJobName(
           typeof j?.character?.classDisplayName === "string"
@@ -434,6 +452,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         }
         if (typeof j?.character?.staminaPotions === "number") {
           setStaminaPotions(j.character.staminaPotions);
+        }
+        if (typeof j?.character?.hpCharges === "number") {
+          setHpCharges(Math.max(0, j.character.hpCharges));
+        }
+        if (typeof j?.character?.mpCharges === "number") {
+          setMpCharges(Math.max(0, j.character.mpCharges));
         }
         if (typeof j?.character?.gold === "number") setGold(j.character.gold);
         if (typeof j?.character?.bankedGold === "number")
@@ -816,6 +840,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerLevelCap,
     viewerClass,
     viewerElement,
+    viewerExp,
+    viewerExpToNext,
     playerSubtitle,
     currentOutpost,
     setCurrentOutpost,
@@ -823,6 +849,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     staminaMax,
     setStamina,
     staminaPotions,
+    hpCharges,
+    mpCharges,
     hp,
     setHp,
     gold,

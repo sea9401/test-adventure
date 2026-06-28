@@ -14,7 +14,7 @@
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
 // 장비(PR-4a 위력/무게/옵션 모델):
-//   - 위력 → 슬롯별 분기(무기=물공+마공 / 방어구=물방 / 장신구=물방+마방). 결과 후-가산.
+//   - 위력 → 슬롯별 분기(지팡이=마공 / 기타 무기=물공 / 방어구=물방 / 장신구=마방). 결과 후-가산.
 //   - 무게 → 속도 −(선형, weight×WEIGHT_SPD_PENALTY).
 //   - 옵션(crit/mp/eva/hp) → 결과 후-가산. 장비는 6스탯 token 을 안 준다(정체성=훈련 분배).
 //
@@ -161,7 +161,7 @@ export type V2EquipAggregate = {
   // 위력 슬롯별 분기 (derive 결과 후-가산)
   atk: number; // Σ 비지팡이 무기 위력 (물리 공격력)
   magicAtk: number; // Σ 지팡이 무기 위력 (마법 공격력)
-  def: number; // Σ 방어구 위력 + Σ 장신구 위력 (물리 방어력)
+  def: number; // Σ 방어구 위력 (물리 방어력)
   magicDef: number; // Σ 장신구 위력 (마법 방어력)
   // 무게 — 속도 페널티 (derive 에서 −weight×계수)
   weight: number;
@@ -243,7 +243,6 @@ export function aggregateV2Equipment(
     if (slot === "weapon") {
       if (item.weaponType === "staff") {
         acc.magicAtk += power;
-        acc.atk += Math.floor(power / 3);
       } else {
         acc.atk += power;
       }
@@ -755,8 +754,6 @@ export function derivePlayerCombatV2Pure(
       input.passiveCounterChancePct,
       sumOrUndef(undefined, specEff.counterChancePct),
     ), // 절정 반격(장착 패시브·input) + 철벽검류(전문화)
-    // 마력구 — 평타를 마법공격력 기반으로. 모든 마법사 상시(무료 패시브).
-    passiveMagicBasicAttack: playerClass === "mage" ? true : undefined,
     // 직업 효과 패시브 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }

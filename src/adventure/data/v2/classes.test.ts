@@ -46,25 +46,28 @@ describe("v2 직업", () => {
     }
   });
 
-  it("차수별 앵커 보정 % — 1차 10 → 4차 35 (단조 증가)", () => {
+  it("차수별 앵커 보정 % — 1차 10 → 5차 40 (단조 증가)", () => {
     expect(V2_TIER_STAT_BONUS_PCT[1]).toBe(10);
     expect(V2_TIER_STAT_BONUS_PCT[2]).toBeGreaterThan(V2_TIER_STAT_BONUS_PCT[1]);
     expect(V2_TIER_STAT_BONUS_PCT[3]).toBeGreaterThan(V2_TIER_STAT_BONUS_PCT[2]);
     expect(V2_TIER_STAT_BONUS_PCT[4]).toBeGreaterThan(V2_TIER_STAT_BONUS_PCT[3]);
+    expect(V2_TIER_STAT_BONUS_PCT[5]).toBeGreaterThan(V2_TIER_STAT_BONUS_PCT[4]);
   });
 
-  it("nextAdvanceTier — 1→2→3→4, 정점이면 null", () => {
+  it("nextAdvanceTier — 1→2→3→4→5, 정점이면 null", () => {
     expect(nextAdvanceTier(1)).toBe(2);
     expect(nextAdvanceTier(2)).toBe(3);
     expect(nextAdvanceTier(3)).toBe(4);
-    expect(nextAdvanceTier(4)).toBeNull();
+    expect(nextAdvanceTier(4)).toBe(5);
+    expect(nextAdvanceTier(5)).toBeNull();
   });
 
-  it("tierCodexMin — 3차=3·4차=5, 1·2차는 없음", () => {
+  it("tierCodexMin — 3차=3·4차=5·5차=8, 1·2차는 없음", () => {
     expect(tierCodexMin(1)).toBeUndefined();
     expect(tierCodexMin(2)).toBeUndefined();
     expect(tierCodexMin(3)).toBe(3);
     expect(tierCodexMin(4)).toBe(5);
+    expect(tierCodexMin(5)).toBe(8);
   });
 
   it("tier1ClassOf — 선택 직군에선 자기 자신(=그룹키), none 은 none", () => {

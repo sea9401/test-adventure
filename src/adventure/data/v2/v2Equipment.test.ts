@@ -366,21 +366,29 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
 });
 
 describe("v2EquipStatRows (표시 행)", () => {
-  it("위력 → 무게 → 옵션 순, 0 은 생략", () => {
+  it("기본 전투 스탯 → 무게 → 옵션 순, 0 은 생략", () => {
     // 별노래궁(무기): 위력=카탈로그 기준, weight 2 → 표시 ×4=8(WEAPON_WEIGHT_SCALE), crit 2.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
-      { label: "위력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
+      { label: "공격력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
       { label: "무게", value: "8" },
       { label: "치명", value: "+2%" },
     ]);
   });
 
-  it("반지 critMult 옵션 — 위력 + 치명피해 배수 표기(+0.12×)", () => {
+  it("지팡이는 마법 공격력으로 표시한다", () => {
+    const rows = v2EquipStatRows(V2_EQUIPMENT.v2_oak_staff);
+    expect(rows[0]).toEqual({
+      label: "마법 공격력",
+      value: `+${V2_EQUIPMENT.v2_oak_staff.power}`,
+    });
+  });
+
+  it("반지 critMult 옵션 — 마법 방어력 + 치명피해 배수 표기(+0.12×)", () => {
     // 은가락지 T1: 위력 2(×2), weight 0, critMult 12(백분의일) → "+0.12×".
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
     expect(rows).toEqual([
-      { label: "위력", value: "+2" },
+      { label: "마법 방어력", value: "+2" },
       { label: "치명피해", value: "+0.12×" },
     ]);
   });
@@ -389,7 +397,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     // 마나의 정수 T3: 위력 4(×2), weight 0, mp 48 + eva 3 + 회복 8%(SPI gear PR-2).
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
-      { label: "위력", value: "+4" },
+      { label: "마법 방어력", value: "+4" },
       { label: "회피", value: "+3%" },
       { label: "MP", value: "+48" },
       { label: "회복", value: "+8%" },
@@ -415,7 +423,7 @@ describe("v2EquipStatRows (표시 행)", () => {
       options: { crit: 3 },
     });
     expect(rows).toEqual([
-      { label: "위력", value: "+16" },
+      { label: "공격력", value: "+16" },
       { label: "무게", value: "4" },
       { label: "치명", value: "+3%" },
     ]);

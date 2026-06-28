@@ -1,4 +1,4 @@
-// v2 공용 스킬 카탈로그 — 4직군 공용 액티브(직군당 5, 마력구·예기 패시브 제외 = 18종).
+// v2 공용 스킬 카탈로그 — 4직군 공용 액티브(직군당 5, 예기 패시브 제외 = 18종).
 // 스킬 시스템 재설계(docs/v2-skill-system-plan.md). 평타 척추 + 소수 스킬.
 //
 // 데미지 = 플랫강화(스탯×~1.0 + 큰 flat) — 예측·off스탯 floor. 다단 = damage effect N개.
@@ -17,7 +17,7 @@ import type {
 } from "./v2Skills";
 import { V2_DOT_PRESETS, V2_DEBUFF_PRESETS } from "./statusEffects";
 
-// 공용 스킬 id — 직군 prefix(v2c_<job>_<slug>). 마력구/예기는 패시브(derive)라 여기 없음.
+// 공용 스킬 id — 직군 prefix(v2c_<job>_<slug>). 예기는 패시브(derive)라 여기 없음.
 export type V2CommonSkillId =
   // 전사
   | "v2c_warrior_strike" // 강타
@@ -28,7 +28,7 @@ export type V2CommonSkillId =
   | "v2c_martial_combo" // 연환 난타
   | "v2c_martial_chi" // 기공 순환
   | "v2c_martial_steelguard" // 하급 권법 (단일 딜 — 견습 무인 기본기)
-  // 마법사 (마력구 패시브 제외)
+  // 마법사
   | "v2c_mage_fireball" // 화염구
   | "v2c_mage_barrage" // 마력 탄막
   | "v2c_mage_shield" // 마나 보호막
@@ -149,7 +149,18 @@ export type V2CommonSkillId =
   | "v2c_rescueexpert_rescue" // 긴급 구조 (큰 자힐 + 보호막)
   | "v2c_rescueexpert_support" // 생환 지원 (회복 + 최대 HP)
   | "v2c_returner_survive" // 생환 (자힐 + 큰 보호막)
-  | "v2c_returner_undying"; // 불굴 (최대 HP + 받피감)
+  | "v2c_returner_undying" // 불굴 (최대 HP + 받피감)
+  // ── 5차 핵심 5직업 ──
+  | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
+  | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
+  | "v2c_ironknight_guard" // 철벽 태세 (보호막 + 받피감)
+  | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
+  | "v2c_arcanist_burst" // 비전 폭발 (순수 마법 피해)
+  | "v2c_arcanist_theory" // 비전 이론 (지능 + 치명확률)
+  | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
+  | "v2c_marksman_aim" // 조준 (민첩 + 명중)
+  | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
+  | "v2c_nightshade_cloak"; // 밤의 장막 (회피 + 치명피해)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -211,7 +222,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [{ kind: "heal", pctLostHp: 5 }],
   },
 
-  // ═══ 마법사 (INT · 마법) — 캐스터 (마력구 패시브로 평타 마법화) ═══
+  // ═══ 마법사 (INT · 마법) — 캐스터 (마력탄 등 마법 스킬로 마법 공격) ═══
   v2c_mage_fireball: {
     id: "v2c_mage_fireball", name: "화염구", stat: "int", category: "attack", tier: 1,
     description: "불덩이를 던져 태운다.", mpCost: 38, cooldown: 0, procChance: 30,
@@ -1011,6 +1022,82 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { maxHpPct: 25, damageTakenReductionPct: 8 },
+  },
+
+  // ── 5차 핵심 5직업 — 새 엔진 효과 없이 기존 어휘 조합으로 구현 ──
+  v2c_swordmaster_cut: {
+    id: "v2c_swordmaster_cut", name: "검격", stat: "str", category: "attack", tier: 3,
+    description: "흔들림 없이 베어 적의 자세를 무너뜨린다.",
+    mpCost: 50, cooldown: 0, procChance: 35,
+    effects: [dmg(1.55, 300), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
+  },
+  v2c_swordmaster_focus: {
+    id: "v2c_swordmaster_focus", name: "검의 집중", stat: "str", category: "passive", tier: 3,
+    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명 피해가 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { str: 18 }, critDmgPct: 25 },
+  },
+  v2c_ironknight_guard: {
+    id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
+    description: "방패를 고정해 피해를 흡수하고 잠시 받는 피해를 줄인다.",
+    mpCost: 48, cooldown: 0, procChance: 100,
+    effects: [
+      { kind: "shield", pctMaxHp: 14, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
+    ],
+  },
+  v2c_ironknight_wall: {
+    id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
+    description: "단단한 장벽 운용에 익숙해진다. 방어와 반사가 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { defPct: 18, thornsDefPct: 80 },
+  },
+  v2c_arcanist_burst: {
+    id: "v2c_arcanist_burst", name: "비전 폭발", stat: "int", category: "attack", tier: 3,
+    description: "응축한 마력을 폭발시켜 큰 마법 피해를 준다.",
+    mpCost: 54, cooldown: 0, procChance: 30,
+    effects: [dmg(1.7, 340, "magic")],
+  },
+  v2c_arcanist_theory: {
+    id: "v2c_arcanist_theory", name: "비전 이론", stat: "int", category: "passive", tier: 3,
+    description: "마력의 흐름을 계산해 주문의 위력을 끌어올린다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { int: 18 }, critPct: 8 },
+  },
+  v2c_marksman_shot: {
+    id: "v2c_marksman_shot", name: "정밀 사격", stat: "dex", category: "attack", tier: 3,
+    description: "빈틈을 노려 두 발을 연속으로 꿰뚫는다.",
+    mpCost: 50, cooldown: 0, procChance: 35,
+    effects: [
+      { kind: "damage", statCoef: 0.42, baseFlat: 210, scaling: "dex", pierceDamagePct: 18 },
+      { kind: "damage", statCoef: 0.42, baseFlat: 210, scaling: "dex", pierceDamagePct: 18 },
+    ],
+  },
+  v2c_marksman_aim: {
+    id: "v2c_marksman_aim", name: "조준", stat: "dex", category: "passive", tier: 3,
+    description: "흔들림 없는 조준으로 민첩과 명중이 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { dex: 18 }, accuracyPct: 16 },
+  },
+  v2c_nightshade_eclipse: {
+    id: "v2c_nightshade_eclipse", name: "월식", stat: "luk", category: "attack", tier: 3,
+    description: "어둠이 덮이는 순간 파고든다. 첫 일격과 마무리에 모두 강하다.",
+    mpCost: 52, cooldown: 0, procChance: 100,
+    effects: [
+      { kind: "ambushDamage", statCoef: 0.16, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 3.0, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.18, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
+    ],
+  },
+  v2c_nightshade_cloak: {
+    id: "v2c_nightshade_cloak", name: "밤의 장막", stat: "luk", category: "passive", tier: 3,
+    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { evasionPct: 18, critDmgPct: 20 },
   },
 };
 

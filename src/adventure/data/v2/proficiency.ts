@@ -204,8 +204,8 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       // 옛 직군별 points → 전역 잔액으로 합산 이관(2026-06-27). 신포맷 그룹엔 points 없음(→0).
       pointsTotal += posInt((v as { points?: unknown }).points);
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
-      // tier 1~4 클램프, 미지정=1.
-      const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
+      // tier 1~5 클램프, 미지정=1.
+      const tier = Math.min(5, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
       // cumLevel(직군 숙련도) — 저장 필드명은 호환상 유지. 현재 writer 는 사냥 승리당 +1 기록.
       //   필드 없거나 비수면 0. 모험가(none)는 직군 정복/cumLevel 미사용이라 항상 0.
       const rawCum = (v as { cumLevel?: unknown }).cumLevel;
@@ -290,7 +290,7 @@ export function setGroupTier(
   tier: number,
 ): V2ProficiencyState {
   if (!group || group === "none") return p;
-  const t = Math.min(4, Math.max(1, Math.floor(tier)));
+  const t = Math.min(5, Math.max(1, Math.floor(tier)));
   const cur = p.groups[group] ?? {
     cultivations: 0,
     tier: 1,
@@ -385,10 +385,11 @@ export const V2_TIER_LEVEL_CAP: Record<number, number> = {
   2: 65,
   3: 80,
   4: 100,
+  5: 100,
 };
-// 차수 → 레벨 캡. 미정의 차수(클램프)는 4차(100) 취급.
+// 차수 → 레벨 캡. 미정의 차수(클램프)는 5차(100) 취급.
 export function tierLevelCap(tier: number): number {
-  return V2_TIER_LEVEL_CAP[Math.min(4, Math.max(1, Math.floor(tier)))] ?? 100;
+  return V2_TIER_LEVEL_CAP[Math.min(5, Math.max(1, Math.floor(tier)))] ?? 100;
 }
 
 // 코어루프 단일 레벨 캡 — 차수 폐지 시 모든 직업이 단일 V2_LEVEL_CAP(100)까지만 오르고,

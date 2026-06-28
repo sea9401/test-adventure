@@ -5,7 +5,7 @@
 //
 // PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 무게(weight) / 옵션(options)** 으로
 // 통합 (옛 atk/def/matk 직접표기 + 6스탯 token 폐기). 효과는 **슬롯별 분기**(derive):
-//   - 무기: 위력 → 물리 공격력 + 마법 공격력 (둘 다). "무기는 빌드를 안 가린다."
+//   - 무기: 위력 → weaponType 별 공격력. 지팡이=마법 공격력, 그 외=물리 공격력.
 //   - 갑옷/장갑/신발: 위력 → 물리 방어력 (물리 방어선 3슬롯).
 //   - 반지/목걸이: 위력 → 마법 방어력 (장신구선 2슬롯).
 //   - 무게 → 속도 −(선형). 빌드 트레이드오프(중갑 = 느림). 장갑·신발·장신구는 가볍다.
@@ -198,6 +198,19 @@ export type V2EquipmentId =
   | "v2_den_mauler_gloves"
   | "v2_den_ghost_boots"
   | "v2_den_hide_armor"
+  // 검은 왕도 밴드 드랍 (밴드 G, 깊이 43~48) — 태그 세트(2/3단계) 첫 적용.
+  | "v2_throne_greatsword"
+  | "v2_throne_staff"
+  | "v2_throne_bow"
+  | "v2_throne_dagger"
+  | "v2_throne_black_armor"
+  | "v2_throne_void_robe"
+  | "v2_throne_black_gloves"
+  | "v2_throne_hunt_gloves"
+  | "v2_throne_black_boots"
+  | "v2_throne_shadow_boots"
+  | "v2_throne_void_ring"
+  | "v2_throne_royal_necklace"
   // 고유 아이템(Signature Uniques) — 잊힌 성소(25)부터. docs/v2-signature-uniques-plan.md.
   | "v2_sanctum_sig_priest_armor"
   | "v2_sanctum_sig_priest_necklace"
@@ -242,6 +255,8 @@ export type V2EquipOptions = {
   /** 회복량 +%(healPowerPct) — derive healMult 에 패시브 회복강화와 합산해 곱연산. 지원 빌드
    *  itemize(SPI 부활 PR-2). 퍼센트(OPTION_PERCENT_KEYS). */
   healPowerPct?: number;
+  /** 치명저항 +%p — 몬스터/PvP 치명 확률을 직접 차감. 세트 보너스 위주로 사용. */
+  critResist?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -254,6 +269,7 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "def",
   "magicDef",
   "healPowerPct",
+  "critResist",
 ];
 
 export type V2Equipment = {
@@ -263,7 +279,7 @@ export type V2Equipment = {
   tier: V2EquipTier;
   name: string;
   description: string;
-  /** 위력 — 슬롯별 분기(무기=물공+마공 / 방어구=물방 / 장신구=물방+마방). 항상 ≥ 1. */
+  /** 위력 — 슬롯별 분기(무기=weaponType 별 공격력 / 방어구=물방 / 장신구=마방). 항상 ≥ 1. */
   power: number;
   /** 무게 — 속도 −(선형, derive). 0 = 패널티 없음(장신구·경갑). */
   weight: number;
@@ -286,6 +302,8 @@ export type V2Equipment = {
   noDrop?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
+  /** 태그 세트 — 같은 태그 아이템 N개 장착 시 단계 보너스(V2_EQUIP_TAG_SETS). */
+  setTags?: readonly string[];
   /** Phase 2 — 단품 발동형 시그니처 효과(마퀴 단품만; 세트 시그니처는 V2EquipSet.signature). */
   signature?: SignatureEffect;
 };
@@ -433,6 +451,16 @@ export type V2EquipSet = {
   signature?: SignatureEffect;
 };
 
+export type V2EquipTagSet = {
+  id: string;
+  name: string;
+  thresholds: readonly {
+    count: number;
+    bonus: Readonly<V2EquipOptions>;
+    signature?: SignatureEffect;
+  }[];
+};
+
 export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   {
     // 마른 협곡 밴드 드랍 세트(갑주 3종). 드랍 전용 유니크. 3종 다 착용 시 치명·치명피해·HP.
@@ -578,6 +606,33 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   },
 ];
 
+export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
+  {
+    id: "black_iron",
+    name: "흑철",
+    thresholds: [
+      { count: 2, bonus: { hp: 100, magicDef: 10 } },
+      { count: 3, bonus: { hp: 160, magicDef: 18, critResist: 8 } },
+    ],
+  },
+  {
+    id: "void_regalia",
+    name: "공허 예복",
+    thresholds: [
+      { count: 2, bonus: { mp: 120, magicDef: 8 } },
+      { count: 3, bonus: { mp: 180, magicDef: 14, spd: 8 } },
+    ],
+  },
+  {
+    id: "royal_hunt",
+    name: "왕도 사냥꾼",
+    thresholds: [
+      { count: 2, bonus: { crit: 6, spd: 6 } },
+      { count: 3, bonus: { crit: 10, eva: 6, spd: 10 } },
+    ],
+  },
+];
+
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
 export function v2EquipmentBySlot(slot: V2EquipSlot): V2Equipment[] {
   return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[])
@@ -653,12 +708,13 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   def: "방어",
   magicDef: "마법방어",
   healPowerPct: "회복",
+  critResist: "치명저항",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
 const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
->(["crit", "eva", "healPowerPct"]);
+>(["crit", "eva", "healPowerPct", "critResist"]);
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.

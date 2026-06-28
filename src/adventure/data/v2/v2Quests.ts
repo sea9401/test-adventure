@@ -441,9 +441,9 @@ const ASCEND: QuestDef[] = [
     chain: "ascend_depth",
     line: "ascend",
     title: "프론티어의 끝",
-    desc: "사냥터 깊이 42(마지막 테마 밴드)까지 진출하세요.",
+    desc: "사냥터 깊이 48(마지막 테마 밴드)까지 진출하세요.",
     reward: { gold: 4000 },
-    check: (c) => c.frontierDepth >= 42,
+    check: (c) => c.frontierDepth >= 48,
   },
   {
     id: "a_apex",

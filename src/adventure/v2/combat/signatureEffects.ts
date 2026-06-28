@@ -27,7 +27,7 @@ export function lowHpDamageReductionPct(
 
 // on_crit 독(독니 단검) — 크리 + 피해 발생 시 부여할 독 스택 magnitude(maxHp 비율/스택). 기존
 //   poison 다이얼(~0.004) 동급. 시그니처는 발동 여부만, 강도는 이 상수(밸런스 다이얼).
-export const SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK = 0.004;
+export const SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK = 0.005;
 
 // on_crit 속도 버프(군림목걸이) — 크리 + 피해 발생 시 발동할 속도 버프 {배수, 지속행동}.
 //   여러 개면 가장 강한 배수. 미발동/미장착 = null.

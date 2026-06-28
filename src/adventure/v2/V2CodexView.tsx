@@ -28,7 +28,7 @@ import {
 import {
   uniqueIdsForDepthRange,
   bandCommonPoolForDepth,
-  bandCommonChance,
+  bandCommonChanceForDepth,
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
@@ -351,15 +351,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   : [];
               const regularChance = band
                 ? (() => {
-                    const lo = bandCommonChance(
-                      theme.depthStart - band.minDepth + 1,
-                    );
-                    const hi = bandCommonChance(
-                      theme.depthEnd - band.minDepth + 1,
-                    );
+                    const lo = bandCommonChanceForDepth(theme.depthStart);
+                    const hi = bandCommonChanceForDepth(theme.depthEnd);
                     return lo === hi
-                      ? `처치당 ${(lo * 100).toFixed(1)}%`
-                      : `처치당 ${(lo * 100).toFixed(1)}~${(hi * 100).toFixed(1)}%`;
+                      ? `처치당 ${(lo * 100).toFixed(2)}%`
+                      : `처치당 ${(lo * 100).toFixed(2)}~${(hi * 100).toFixed(2)}%`;
                   })()
                 : pool
                   ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`

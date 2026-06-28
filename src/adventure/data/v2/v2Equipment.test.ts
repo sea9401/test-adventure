@@ -5,6 +5,7 @@ import {
   V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
   V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
   signatureLabel,
   isUnique,
   parseEquipmentSave,
@@ -202,7 +203,8 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
     //   전문화 스타터 3 · noDrop 69(밴드 흔한 54 + 강등된 옛 필드 유니크 15) · 유니크 18
     //     (고유 아이템 15 + 보스 3). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
-    //     신규 고유 아이템 15 → unique. 총 119 = 정규 29 + 유니크 18 + 전문화 스타터 3 + noDrop 69.
+    //     신규 고유 아이템 15 → unique. 검은 왕도 noDrop 12종 추가.
+    //     총 131 = 정규 29 + 유니크 21 + 전문화 스타터 3 + noDrop 81.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -213,7 +215,7 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(21);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
-    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(69);
+    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(81);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -253,6 +255,21 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
         const item = V2_EQUIPMENT[id];
         expect(item, `${set.id} → ${id} 실재`).toBeDefined();
         expect(item.setId, `${id} setId`).toBe(set.id);
+      }
+    }
+  });
+
+  it("태그 세트(V2_EQUIP_TAG_SETS)는 실제 아이템 setTags 와 연결되고 단계가 증가", () => {
+    for (const set of V2_EQUIP_TAG_SETS) {
+      const pieces = Object.values(V2_EQUIPMENT).filter((item) =>
+        item.setTags?.includes(set.id),
+      );
+      expect(pieces.length, `${set.id} tagged pieces`).toBeGreaterThanOrEqual(3);
+      let prev = 0;
+      for (const threshold of set.thresholds) {
+        expect(threshold.count, `${set.id} threshold order`).toBeGreaterThan(prev);
+        expect(Object.keys(threshold.bonus).length, `${set.id} bonus`).toBeGreaterThan(0);
+        prev = threshold.count;
       }
     }
   });

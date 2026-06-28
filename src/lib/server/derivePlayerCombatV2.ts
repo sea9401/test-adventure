@@ -68,6 +68,7 @@ import {
 import {
   V2_EQUIPMENT,
   V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
   parseEquipmentSave,
   resolveEquippedForAggregate,
   weaponTypeOf,
@@ -117,13 +118,13 @@ export type DerivedPlayerCombatV2 = {
   classTier: number;
 };
 
-// PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 6개에서 위력을 슬롯별로 분기 누적 +
+// PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 6개에서 위력을 슬롯/무기종류별로 분기 누적 +
 // 무게 합산 + 옵션(crit/mp/eva/hp) 누적. 장비는 더 이상 6스탯 token 을 안 준다(정체성은
 // 훈련 분배). 단위 테스트가 검증할 수 있도록 export.
 export type V2EquipAggregate = {
   // 위력 슬롯별 분기 (derive 결과 후-가산)
-  atk: number; // Σ 무기 위력 (물리 공격력)
-  magicAtk: number; // Σ 무기 위력 (마법 공격력)
+  atk: number; // Σ 비지팡이 무기 위력 (물리 공격력)
+  magicAtk: number; // Σ 지팡이 무기 위력 (마법 공격력)
   def: number; // Σ 방어구 위력 + Σ 장신구 위력 (물리 방어력)
   magicDef: number; // Σ 장신구 위력 (마법 방어력)
   // 무게 — 속도 페널티 (derive 에서 −weight×계수)
@@ -136,6 +137,7 @@ export type V2EquipAggregate = {
   critMult: number; // 백분의 일 정수 합(100=+1.0×). derive 에서 /100 환산.
   spd: number; // flat 속도 합.
   healPowerPct: number; // 회복 +% 옵션 합(SPI PR-2). derive healMult 에 패시브와 합산.
+  critResist: number; // 치명저항 +%p 옵션 합.
 };
 
 const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
@@ -151,7 +153,35 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   critMult: 0,
   spd: 0,
   healPowerPct: 0,
+  critResist: 0,
 });
+
+function addEquipBonus(
+  acc: V2EquipAggregate,
+  b: Readonly<{
+    crit?: number;
+    eva?: number;
+    mp?: number;
+    hp?: number;
+    critMult?: number;
+    spd?: number;
+    def?: number;
+    magicDef?: number;
+    healPowerPct?: number;
+    critResist?: number;
+  }>,
+) {
+  acc.crit += b.crit ?? 0;
+  acc.eva += b.eva ?? 0;
+  acc.mp += b.mp ?? 0;
+  acc.hp += b.hp ?? 0;
+  acc.critMult += b.critMult ?? 0;
+  acc.spd += b.spd ?? 0;
+  acc.def += b.def ?? 0;
+  acc.magicDef += b.magicDef ?? 0;
+  acc.healPowerPct += b.healPowerPct ?? 0;
+  acc.critResist += b.critResist ?? 0;
+}
 
 export function aggregateV2Equipment(
   v2Equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>,
@@ -173,10 +203,14 @@ export function aggregateV2Equipment(
     const item = V2_EQUIPMENT[id];
     const eff = effectiveStats(item, statRolls?.[id]);
     const power = eff.power;
-    // 위력 슬롯별 분기: 무기=물공+마공 / 갑옷·장갑·신발=물방 / 반지·목걸이=마방.
+    // 위력 슬롯별 분기: 무기=weaponType 별 공격력 / 갑옷·장갑·신발=물방 / 반지·목걸이=마방.
     if (slot === "weapon") {
-      acc.atk += power;
-      acc.magicAtk += power;
+      if (item.weaponType === "staff") {
+        acc.magicAtk += power;
+        acc.atk += Math.floor(power / 3);
+      } else {
+        acc.atk += power;
+      }
     } else if (slot === "ring" || slot === "necklace") {
       acc.magicDef += power;
     } else {
@@ -194,6 +228,7 @@ export function aggregateV2Equipment(
     acc.def += o.def ?? 0; // 물방 옵션(신설) — 갑옷 위력 def 와 같은 축에 가산.
     acc.magicDef += o.magicDef ?? 0; // 마방 옵션(SPI PR-2) — 장신구 위력 magicDef 와 같은 축.
     acc.healPowerPct += o.healPowerPct ?? 0; // 회복% 옵션(SPI PR-2) — derive healMult 에 합산.
+    acc.critResist += o.critResist ?? 0; // 치명저항 옵션 — SPI 파생 저항과 합산 후 cap.
   }
   // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
   const equippedIds = new Set<V2EquipmentId>();
@@ -210,16 +245,19 @@ export function aggregateV2Equipment(
   }
   for (const set of V2_EQUIP_SETS) {
     if (!set.pieces.every((p) => equippedIds.has(p))) continue;
-    const b = set.bonus;
-    acc.crit += b.crit ?? 0;
-    acc.eva += b.eva ?? 0;
-    acc.mp += b.mp ?? 0;
-    acc.hp += b.hp ?? 0;
-    acc.critMult += b.critMult ?? 0;
-    acc.spd += b.spd ?? 0;
-    acc.def += b.def ?? 0; // 세트 보너스 def(신설).
-    acc.magicDef += b.magicDef ?? 0; // 세트 보너스 마방(SPI PR-2).
-    acc.healPowerPct += b.healPowerPct ?? 0; // 세트 보너스 회복%(SPI PR-2).
+    addEquipBonus(acc, set.bonus);
+  }
+  const tagCounts = new Map<string, number>();
+  for (const id of equippedIds) {
+    for (const tag of V2_EQUIPMENT[id]?.setTags ?? []) {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+    }
+  }
+  for (const set of V2_EQUIP_TAG_SETS) {
+    const count = tagCounts.get(set.id) ?? 0;
+    for (const threshold of set.thresholds) {
+      if (count >= threshold.count) addEquipBonus(acc, threshold.bonus);
+    }
   }
   return acc;
 }
@@ -630,7 +668,7 @@ export function derivePlayerCombatV2Pure(
   //   치명저항도 50%p 에서 멈춘다(현 플레이어 범위 밖이나 명시).
   const critResistPct = Math.min(
     CRIT_RESIST_PCT_CAP,
-    totalStats.spi * CRIT_RESIST_PER_SPI,
+    totalStats.spi * CRIT_RESIST_PER_SPI + equipAcc.critResist,
   );
   // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보).
   //   evaRating = 캡 없는 raw 합. 회피 대결형(Slice 1 PvE 몹→플레이어 + Slice 2 플레이어→몹·PvP 양방향)이

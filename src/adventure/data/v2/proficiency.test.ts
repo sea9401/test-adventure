@@ -510,10 +510,10 @@ describe("proficiencyPerKillAtDepth (킬당 숙달 — 깊이 밴드 비례)", (
     expect(proficiencyPerKillAtDepth(25)).toBe(4); // 잊힌 성소 1
     expect(proficiencyPerKillAtDepth(36)).toBe(4); // 리자드 늪지 6
     expect(proficiencyPerKillAtDepth(37)).toBe(5); // 짐승의 소굴 1
-    expect(proficiencyPerKillAtDepth(48)).toBe(5); // 짐승의 소굴 12
+    expect(proficiencyPerKillAtDepth(48)).toBe(5); // 검은 왕도 6
   });
 
-  it("마지막 테마(짐승의 소굴) 무한 — 49+ 깊이도 5 로 클램프", () => {
+  it("마지막 테마(검은 왕도) 클램프 — 49+ 깊이도 5 로 클램프", () => {
     expect(proficiencyPerKillAtDepth(49)).toBe(5);
     expect(proficiencyPerKillAtDepth(120)).toBe(5);
   });

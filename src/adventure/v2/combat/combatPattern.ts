@@ -37,8 +37,13 @@ export type V2CombatCondition =
   // 내 공격 차례(턴, 1-based). atMost/atLeast = 이하/이상, every = N 배수(주기).
   | { kind: "turn"; op: "atMost" | "atLeast" | "every"; value: number };
 
-// 행동 — 현재 스킬 사용만(P1). 추후 평타/방어/포션 등 확장.
-export type V2CombatAction = { kind: "skill"; skillId: string };
+// 행동 — 특정 스킬 사용 또는 현재 로드아웃에서 역할에 맞는 스킬 사용.
+// role 은 패턴 블록을 장착 스킬 id 에서 분리하는 QoL 경로다. 실제 발동은 호출부가 현재 equipped
+// 안에서만 resolve 하므로 SP/장착 게이트는 그대로 유지된다.
+export type V2CombatRole = "main_attack" | "heal" | "buff" | "debuff";
+export type V2CombatAction =
+  | { kind: "skill"; skillId: string }
+  | { kind: "role"; role: V2CombatRole };
 
 export type V2CombatBlock = {
   condition: V2CombatCondition;
@@ -115,12 +120,15 @@ export function evaluateCombatPattern(
   pattern: V2CombatPattern,
   ctx: V2PatternCtx,
   isUsable: (skillId: string) => boolean,
+  resolveRole?: (role: V2CombatRole) => string | null,
 ): string | null {
   for (const block of pattern.blocks) {
-    if (block.action.kind !== "skill") continue;
-    const id = block.action.skillId;
-    if (!isUsable(id)) continue;
     if (!conditionPasses(block.condition, ctx)) continue;
+    const id =
+      block.action.kind === "skill"
+        ? block.action.skillId
+        : (resolveRole?.(block.action.role) ?? null);
+    if (!id || !isUsable(id)) continue;
     return id;
   }
   return null;
@@ -210,6 +218,15 @@ function parseAction(raw: unknown): V2CombatAction | null {
   const a = raw as Record<string, unknown>;
   if (a.kind === "skill" && typeof a.skillId === "string" && a.skillId.length > 0) {
     return { kind: "skill", skillId: a.skillId };
+  }
+  if (
+    a.kind === "role" &&
+    (a.role === "main_attack" ||
+      a.role === "heal" ||
+      a.role === "buff" ||
+      a.role === "debuff")
+  ) {
+    return { kind: "role", role: a.role };
   }
   return null;
 }

@@ -126,4 +126,26 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.claimed).toEqual([]); // parse 실패 → 마킹 제외(보존)
     expect(savesStore.get("u1::pvp-wallet.v1")).toBeUndefined();
   });
+
+  it("admin_gift 스태미나 회복약이 전용 세이브 키에 적립된다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: { gold: 0, materials: [], items: [], staminaPotions: 3 },
+      claimedAt: null,
+    });
+    const res = await POST(req([1]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      claimed: number[];
+      staminaPotionsAdded: number;
+      staminaPotions: number;
+    };
+    expect(res.status).toBe(200);
+    expect(j.ok).toBe(true);
+    expect(j.claimed).toEqual([1]);
+    expect(j.staminaPotionsAdded).toBe(3);
+    expect(j.staminaPotions).toBe(3);
+    expect(savesStore.get("u1::stamina-potions.v1")).toEqual({ count: 3 });
+  });
 });

@@ -32,6 +32,7 @@ import {
   V2_PATTERN_DOT_POWER_MULT,
   V2_PATTERN_SKILL_POWER_MULT,
   type V2CombatPattern,
+  type V2CombatRole,
   type V2PatternCtx,
 } from "./combatPattern";
 
@@ -633,17 +634,33 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 패턴 경로도 "장착 스킬만 발동"(옛 pickAutoCastV2Skill 의 equipped 풀 의미 유지) — 커스텀 패턴이
   //   미장착/미학습 스킬 id 를 참조해도 발동 안 함. + 효과 있음·쿨다운·MP 게이트.
   const equippedSet = new Set<string>(input.skills.equipped);
+  const isUsable = (sid: string) => {
+    if (!equippedSet.has(sid)) return false;
+    const d = V2_SKILLS[sid as V2SkillId];
+    return (
+      !!d &&
+      d.effects.length > 0 &&
+      (ticked[sid as V2SkillId] ?? 0) === 0 &&
+      input.attacker.mp >= v2SkillMpCost(d)
+    );
+  };
+  const resolveRole = (role: V2CombatRole): string | null => {
+    for (const sid of input.skills.equipped) {
+      const d = V2_SKILLS[sid as V2SkillId];
+      if (!d) continue;
+      if (role === "main_attack" && d.category !== "attack") continue;
+      if (role !== "main_attack" && d.category !== role) continue;
+      if (isUsable(sid)) return sid;
+    }
+    return null;
+  };
   const id: V2SkillId | null = viaPattern
-    ? (evaluateCombatPattern(input.combatPattern!, buildPatternCtx(input), (sid) => {
-        if (!equippedSet.has(sid)) return false;
-        const d = V2_SKILLS[sid as V2SkillId];
-        return (
-          !!d &&
-          d.effects.length > 0 &&
-          (ticked[sid as V2SkillId] ?? 0) === 0 &&
-          input.attacker.mp >= v2SkillMpCost(d)
-        );
-      }) as V2SkillId | null)
+    ? (evaluateCombatPattern(
+        input.combatPattern!,
+        buildPatternCtx(input),
+        isUsable,
+        resolveRole,
+      ) as V2SkillId | null)
     : pickAutoCastV2Skill({
         equipped: input.skills.equipped,
         cooldowns: ticked,

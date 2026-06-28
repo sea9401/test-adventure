@@ -12,14 +12,17 @@ import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
 import {
   V2_COMBAT_PATTERN_MAX_PRESETS,
   V2_COMBAT_PRESET_NAME_MAXLEN,
+  type V2CombatAction,
   type V2CombatBlock,
   type V2CombatCondition,
   type V2CombatPreset,
+  type V2CombatRole,
 } from "@/adventure/v2/combat/combatPattern";
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
 // 첫 스킬을 발동(procChance 은퇴=확정). 조건 어휘는 1:1 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
-// 행동은 학습한 스킬 사용(캐릭터>스킬 탭에서 학습). 저장 = POST /api/v2/me/combat-pattern.
+// 행동은 학습한 스킬 사용(캐릭터>스킬 탭에서 학습). 저장 버튼은 없다 — 편집하면 짧은 디바운스
+// 뒤 자동으로 POST /api/v2/me/combat-pattern 한다.
 
 const STAT_KEYS: StatKey[] = ["str", "dex", "vit", "spd", "luk", "int"];
 
@@ -33,6 +36,13 @@ const COND_KINDS: { value: CondKind; label: string }[] = [
   { value: "enemy_hp", label: "적 HP" },
   { value: "enemy_status", label: "적 상태" },
   { value: "turn", label: "턴" },
+];
+
+const ROLE_OPTIONS: { value: V2CombatRole; label: string }[] = [
+  { value: "main_attack", label: "주 공격" },
+  { value: "heal", label: "회복" },
+  { value: "buff", label: "버프" },
+  { value: "debuff", label: "디버프" },
 ];
 
 // kind 변경 시 기본 파라미터.
@@ -71,6 +81,10 @@ const sel =
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
+function actionSkillId(action: V2CombatAction): string | null {
+  return action.kind === "skill" ? action.skillId : null;
+}
+
 export function V2CombatPatternView({
   onBack,
   embedded = false,
@@ -86,6 +100,10 @@ export function V2CombatPatternView({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // 자동 저장 상태 — idle(아직 편집 없음) → pending(편집됨, 디바운스 대기) → saving → saved/error.
+  const [saveState, setSaveState] = useState<
+    "idle" | "pending" | "saving" | "saved" | "error"
+  >("idle");
 
   useEffect(() => {
     (async () => {
@@ -112,68 +130,95 @@ export function V2CombatPatternView({
   const castableEquipped = equipped.filter(
     (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
   );
+  const roleCandidate = useCallback(
+    (role: V2CombatRole): string | null => {
+      for (const id of castableEquipped) {
+        const def = V2_SKILLS[id as V2SkillId];
+        if (!def) continue;
+        if (role === "main_attack" && def.category === "attack") return id;
+        if (role !== "main_attack" && def.category === role) return id;
+      }
+      return null;
+    },
+    [castableEquipped],
+  );
 
-  const update = useCallback((i: number, next: Partial<V2CombatBlock>) => {
-    setBlocks((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...next } : b)));
+  // 사용자가 패턴을 편집할 때마다 호출 — 자동 저장 디바운스를 깨운다(아래 useEffect 가 처리).
+  const markEdited = useCallback(() => {
+    setSaveState("pending");
     setMsg(null);
   }, []);
-  const move = useCallback((i: number, dir: -1 | 1) => {
-    setBlocks((prev) => {
-      const j = i + dir;
-      if (j < 0 || j >= prev.length) return prev;
-      const next = [...prev];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
-    setMsg(null);
-  }, []);
-  const remove = useCallback((i: number) => {
-    setBlocks((prev) => prev.filter((_, idx) => idx !== i));
-    setMsg(null);
-  }, []);
+
+  const update = useCallback(
+    (i: number, next: Partial<V2CombatBlock>) => {
+      setBlocks((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...next } : b)));
+      markEdited();
+    },
+    [markEdited],
+  );
+  const move = useCallback(
+    (i: number, dir: -1 | 1) => {
+      setBlocks((prev) => {
+        const j = i + dir;
+        if (j < 0 || j >= prev.length) return prev;
+        const next = [...prev];
+        [next[i], next[j]] = [next[j], next[i]];
+        return next;
+      });
+      markEdited();
+    },
+    [markEdited],
+  );
+  const remove = useCallback(
+    (i: number) => {
+      setBlocks((prev) => prev.filter((_, idx) => idx !== i));
+      markEdited();
+    },
+    [markEdited],
+  );
   const add = useCallback(() => {
     setBlocks((prev) => [
       ...prev,
       {
         condition: { kind: "always" },
-        action: { kind: "skill", skillId: castableEquipped[0] ?? "" },
+        action: { kind: "role", role: "main_attack" },
       },
     ]);
-    setMsg(null);
-  }, [castableEquipped]);
+    markEdited();
+  }, [markEdited]);
 
-  const save = useCallback(async () => {
-    // 스킬 안 고른 빈 블록은 서버가 조용히 버린다(parseCombatPattern) → "저장 완료"인데 사라지는
-    //   데이터 손실. 저장 전에 막아 사용자가 스킬을 고르거나 블록을 지우게 한다.
-    const emptyCount = blocks.filter((b) => !b.action.skillId).length;
-    if (emptyCount > 0) {
-      setMsg(`✗ 스킬을 안 고른 블록이 ${emptyCount}개 있습니다 — 스킬을 고르거나 블록(✕)을 지워주세요`);
-      return;
-    }
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/combat-pattern", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ blocks }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        pattern?: { blocks?: V2CombatBlock[] };
-      } | null;
-      if (j?.ok) {
-        if (j.pattern?.blocks) setBlocks(j.pattern.blocks);
-        setMsg("✓ 저장 완료");
-      } else {
-        setMsg("✗ 저장 실패");
+  // 자동 저장 — 편집(markEdited→saveState="pending") 후 짧은 정적기 뒤 1회 POST.
+  //   디바운스: 편집이 이어지면 blocks 가 바뀌어 이 effect 가 재실행되며 타이머를 리셋한다.
+  //   서버 응답으로 blocks 를 덮어쓰지 않는다(저장 중 들어온 편집을 지우는 클로버 방지).
+  useEffect(() => {
+    if (loading) return; // 최초 로드 시 불러온 값으로는 저장하지 않음
+    if (saveState !== "pending") return; // 편집으로 깨어났을 때만 저장
+    const t = setTimeout(async () => {
+      // 스킬 안 고른 빈 블록은 서버가 조용히 버린다(parseCombatPattern) → 데이터 손실. 저장을
+      //   보류하고 경고만 — 사용자가 스킬을 고르거나 블록(✕)을 지우면 다시 깨어나 재시도한다.
+      const emptyCount = blocks.filter((b) => b.action.kind === "skill" && !b.action.skillId).length;
+      if (emptyCount > 0) {
+        setSaveState("error");
+        setMsg(`✗ 스킬을 안 고른 블록이 ${emptyCount}개 있습니다 — 스킬을 고르거나 블록(✕)을 지워주세요`);
+        return;
       }
-    } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [blocks]);
+      setSaveState("saving");
+      try {
+        const res = await fetch("/api/v2/me/combat-pattern", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ blocks }),
+        });
+        const j = (await res.json().catch(() => null)) as { ok?: boolean } | null;
+        // 저장 중 새 편집이 들어왔으면(saveState 가 다시 "pending") 그 상태를 보존 —
+        //   다음 디바운스가 최신 편집을 마저 저장하도록 둔다.
+        setSaveState((s) => (s === "saving" ? (j?.ok ? "saved" : "error") : s));
+      } catch {
+        setSaveState((s) => (s === "saving" ? "error" : s));
+      }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [saveState, blocks, loading]);
 
   // 프리셋 라이브러리 전체를 서버에 영속(항목 추가/삭제 후 호출). 성공 시 정규화된 결과로 동기화.
   const persistPresets = useCallback(
@@ -234,6 +279,8 @@ export function V2CombatPatternView({
       const next = p.pattern.blocks ?? [];
       setBlocks(next);
       setBusy(true);
+      // 프리셋 적용은 그 자체로 영속(POST)이므로 자동 저장 디바운스를 깨우지 않는다(saving 으로 고정).
+      setSaveState("saving");
       setMsg(null);
       try {
         const res = await fetch("/api/v2/me/combat-pattern", {
@@ -247,11 +294,14 @@ export function V2CombatPatternView({
         } | null;
         if (j?.ok) {
           if (j.pattern?.blocks) setBlocks(j.pattern.blocks);
+          setSaveState("saved");
           setMsg(`✓ '${p.name}' 적용됨`);
         } else {
+          setSaveState("error");
           setMsg("✗ 적용 실패");
         }
       } catch (err) {
+        setSaveState("error");
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
         setBusy(false);
@@ -330,16 +380,16 @@ export function V2CombatPatternView({
             </div>
           </section>
 
-          {castableEquipped.length === 0 ? (
+          {castableEquipped.length === 0 && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              장착한 스킬이 없어 스킬 패턴을 짤 수 없습니다.
+              장착한 스킬이 없어 새 역할 블록은 전투에서 발동하지 않습니다.
               <br />
               <span className="text-amber-600/80 dark:text-amber-400/80">
-                캐릭터 &gt; 스킬에서 스킬을 학습·장착한 뒤 돌아오세요.
+                기존 특정 스킬 블록은 보존되며, 스킬을 다시 장착하면 그대로 발동합니다.
               </span>
             </div>
-          ) : (
-          <>
+          )}
+
           <ul className="space-y-2">
             {blocks.map((b, i) => (
               <li
@@ -381,7 +431,37 @@ export function V2CombatPatternView({
 
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                   <span className="w-8 text-zinc-500 dark:text-zinc-400">행동</span>
-                  <span className="text-zinc-400">스킬 사용</span>
+                  <select
+                    className={sel}
+                    value={b.action.kind}
+                    onChange={(e) => {
+                      const kind = e.target.value as V2CombatAction["kind"];
+                      update(i, {
+                        action:
+                          kind === "role"
+                            ? { kind: "role", role: "main_attack" }
+                            : { kind: "skill", skillId: castableEquipped[0] ?? "" },
+                      });
+                    }}
+                  >
+                    <option value="role">역할 사용</option>
+                    <option value="skill">특정 스킬</option>
+                  </select>
+                  {b.action.kind === "role" ? (
+                    <select
+                      className={sel}
+                      value={b.action.role}
+                      onChange={(e) =>
+                        update(i, {
+                          action: { kind: "role", role: e.target.value as V2CombatRole },
+                        })
+                      }
+                    >
+                      {ROLE_OPTIONS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                  ) : (
                   <select
                     className={sel}
                     value={b.action.skillId}
@@ -390,15 +470,23 @@ export function V2CombatPatternView({
                     }
                   >
                     {castableEquipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
+                    {b.action.skillId && !castableEquipped.includes(b.action.skillId) && (
+                      <option value={b.action.skillId}>
+                        {skillName(b.action.skillId)} (미장착)
+                      </option>
+                    )}
                     {castableEquipped.map((id) => (
                       <option key={id} value={id}>{skillName(id)}</option>
                     ))}
                   </select>
+                  )}
                 </div>
 
                 {/* 선택 스킬 정보 칩(MP·피해·효과) — 무엇을 발동하는지 한눈에. */}
                 {(() => {
-                  const def = V2_SKILLS[b.action.skillId as V2SkillId];
+                  const selectedSkillId =
+                    b.action.kind === "skill" ? b.action.skillId : roleCandidate(b.action.role);
+                  const def = selectedSkillId ? V2_SKILLS[selectedSkillId as V2SkillId] : undefined;
                   if (!def) return null;
                   return (
                     <div className="mt-1.5 flex flex-wrap gap-1 pl-10">
@@ -411,10 +499,15 @@ export function V2CombatPatternView({
                     </div>
                   );
                 })()}
+                {b.action.kind === "role" && (
+                  <p className="mt-1 pl-10 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    현재 장착 기준: {roleCandidate(b.action.role) ? skillName(roleCandidate(b.action.role)!) : "해당 역할 스킬 없음"}
+                  </p>
+                )}
                 {/* 미장착 스킬 경고 — 저장돼도 전투에서 발동 안 함(평타 폴백). */}
-                {b.action.skillId && !equipped.includes(b.action.skillId) && (
+                {actionSkillId(b.action) && !equipped.includes(actionSkillId(b.action)!) && (
                   <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
-                    ⚠ 미장착 스킬 — 이 블록은 전투에서 발동하지 않습니다
+                    미장착 스킬 — 이 블록은 전투에서 발동하지 않습니다
                   </p>
                 )}
               </li>
@@ -426,13 +519,28 @@ export function V2CombatPatternView({
               className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
               + 블록 추가
             </button>
-            <button type="button" onClick={save} disabled={busy}
-              className="rounded-md border border-indigo-500 bg-indigo-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-600 disabled:opacity-50">
-              {busy ? "저장 중…" : "저장"}
-            </button>
+            {/* 저장 버튼 없음 — 편집하면 자동 저장된다. 아래는 그 상태 표시. */}
+            <span
+              role="status"
+              className={`text-xs tabular-nums ${
+                saveState === "saved"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : saveState === "error"
+                    ? "text-rose-600 dark:text-rose-400"
+                    : saveState === "pending" || saveState === "saving"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-zinc-400 dark:text-zinc-500"
+              }`}
+            >
+              {saveState === "saved"
+                ? "✓ 저장됨"
+                : saveState === "error"
+                  ? "✗ 저장 실패"
+                  : saveState === "pending" || saveState === "saving"
+                    ? "저장 중…"
+                    : "변경하면 자동 저장됩니다"}
+            </span>
           </div>
-          </>
-          )}
 
           {msg && (
             <div

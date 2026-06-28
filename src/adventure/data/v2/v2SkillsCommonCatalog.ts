@@ -250,7 +250,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 중독 = 고정 수치(턴당 flat). 최대HP% 가 아니라 flat 으로(직업 킷 재설계 — 도적 시그니처).
     effects: [
       dmg(0.6, 60),
-      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 12, pctMaxHpPerStack: 0, stacks: 2 },
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 18, pctMaxHpPerStack: 0, stacks: 2 },
     ],
   },
 

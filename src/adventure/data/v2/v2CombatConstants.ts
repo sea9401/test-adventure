@@ -54,12 +54,12 @@ export const POISON_MAX_STACKS = 10;
 // 약점 노출(마도사) 마법취약 / 주문 중첩(워메이지) 누적 상한 — 무한 인플레 방지. PvE/PvP 공용.
 export const MAGIC_VULN_STACK_CAP = 10;
 export const SPELL_STACK_CAP = 10;
-export const BLEED_ATK_COEF_PER_STACK = 0.08;
-export const POISON_PCT_PER_POINT = 0.0004;
+export const BLEED_ATK_COEF_PER_STACK = 0.12;
+export const POISON_PCT_PER_POINT = 0.0005;
 // 절초 — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
 // engine.ts 에서 이관(2026-06-12).
 export const COMBO_FINISHER_PERIOD = 4;
-export const POISON_CAP_ATK_COEF = 0.6;
+export const POISON_CAP_ATK_COEF = 0.9;
 export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_START_TURN = 3;
 export const ANALYSIS_PENALTY_CAP_PCT = 0.3;

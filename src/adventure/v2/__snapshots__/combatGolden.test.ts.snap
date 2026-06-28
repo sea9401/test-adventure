@@ -19,7 +19,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "hp": 640,
   "intStat": 15,
   "lukStat": 55,
-  "magicAtk": 50,
+  "magicAtk": 8,
   "magicDef": 7,
   "maxHp": 640,
   "maxMp": 227,
@@ -72,7 +72,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 11.684999999999999,
   "accuracyPct": 4.685,
-  "atk": 19,
+  "atk": 12,
   "attackCount": 1,
   "classTier": undefined,
   "critChancePct": 2.25,
@@ -121,7 +121,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "hp": 640,
   "intStat": 15,
   "lukStat": 135,
-  "magicAtk": 24,
+  "magicAtk": 8,
   "magicDef": 7,
   "maxHp": 640,
   "maxMp": 227,
@@ -189,7 +189,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "hp": 720,
   "intStat": 15,
   "lukStat": 15,
-  "magicAtk": 27,
+  "magicAtk": 8,
   "magicDef": 7,
   "maxHp": 720,
   "maxMp": 227,
@@ -294,7 +294,7 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "397ff228d5759a843575e3fed769a145cdffb944",
+    "logSha": "742c19af284d40737f427a5fa8540c1fd8899c4b",
     "outcome": "p1_win",
     "turns": 61,
   },
@@ -318,11 +318,11 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "enemy_dot_tick",
-    "logSha": "8c3116d48b1a908ff910a87bce1e7fb7b46eb543",
+    "logSha": "a59f805ccddb15aef45b316111a75ee33a9430b1",
     "outcome": "win",
     "playerHp": 717,
     "playerMp": 227,
-    "turns": 17,
+    "turns": 16,
   },
   {
     "enemyHp": 0,

@@ -113,6 +113,23 @@ describe("evaluateCombatPattern", () => {
     expect(evaluateCombatPattern(pattern, ctx({ selfHpPct: 20 }), noHeal)).toBe("strike");
   });
 
+  it("역할 액션은 현재 로드아웃 resolver 가 돌려준 스킬로 평가", () => {
+    const byRole: V2CombatPattern = {
+      blocks: [
+        { condition: { kind: "self_hp", op: "below", pct: 30 }, action: { kind: "role", role: "heal" } },
+        { condition: { kind: "always" }, action: { kind: "role", role: "main_attack" } },
+      ],
+    };
+    const resolveRole = (role: string) =>
+      role === "heal" ? "recover" : role === "main_attack" ? "strike" : null;
+
+    expect(evaluateCombatPattern(byRole, ctx(), all, resolveRole)).toBe("strike");
+    expect(evaluateCombatPattern(byRole, ctx({ selfHpPct: 20 }), all, resolveRole)).toBe("recover");
+    expect(
+      evaluateCombatPattern(byRole, ctx({ selfHpPct: 20 }), (id) => id !== "recover", resolveRole),
+    ).toBe("strike");
+  });
+
   it("아무 블록도 안 맞으면 null(평타 폴백)", () => {
     const noFallback: V2CombatPattern = {
       blocks: [
@@ -129,15 +146,18 @@ describe("parseCombatPattern (저장 검증)", () => {
       blocks: [
         { condition: { kind: "self_hp", op: "below", pct: 30 }, action: { kind: "skill", skillId: "heal" } },
         { condition: { kind: "always" }, action: { kind: "skill", skillId: "strike" } },
+        { condition: { kind: "always" }, action: { kind: "role", role: "main_attack" } },
         { condition: { kind: "bogus" }, action: { kind: "skill", skillId: "x" } }, // 잘못된 조건 → drop
         { condition: { kind: "always" }, action: { kind: "nope" } }, // 잘못된 행동 → drop
+        { condition: { kind: "always" }, action: { kind: "role", role: "unknown" } }, // 잘못된 역할 → drop
         { condition: { kind: "self_hp", op: "below" }, action: { kind: "skill", skillId: "x" } }, // pct 누락 → drop
       ],
     };
     const p = parseCombatPattern(raw);
-    expect(p.blocks).toHaveLength(2);
+    expect(p.blocks).toHaveLength(3);
     expect(p.blocks[0].action).toEqual({ kind: "skill", skillId: "heal" });
     expect(p.blocks[1].condition).toEqual({ kind: "always" });
+    expect(p.blocks[2].action).toEqual({ kind: "role", role: "main_attack" });
   });
 
   it("비객체/blocks 누락 → 빈 패턴", () => {
@@ -168,7 +188,7 @@ describe("defaultPatternFromEquipped", () => {
     const p = defaultPatternFromEquipped(["a", "b", "c"]);
     expect(p.blocks).toHaveLength(3);
     expect(p.blocks[0]).toEqual({ condition: { kind: "always" }, action: { kind: "skill", skillId: "a" } });
-    expect(p.blocks[2].action.skillId).toBe("c");
+    expect(p.blocks[2].action).toEqual({ kind: "skill", skillId: "c" });
     // 평가 시 슬롯 순서대로 첫 사용가능 스킬(옛 동작 재현, proc 없음).
     expect(evaluateCombatPattern(p, ctx(), () => true)).toBe("a");
     expect(evaluateCombatPattern(p, ctx(), (id) => id !== "a")).toBe("b");

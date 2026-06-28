@@ -32,7 +32,7 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
   mage: ["caster", "acolyte"],
-  rogue: ["assassin", "archer"],
+  rogue: ["assassin", "archer", "venomist"],
 };
 // 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
 const TIER3_LINEAGE: Record<string, string> = {
@@ -44,6 +44,7 @@ const TIER3_LINEAGE: Record<string, string> = {
   bishop: "acolyte",
   ranger: "archer",
   shadow: "assassin",
+  venomancer: "venomist",
 };
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
@@ -51,6 +52,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   sage: "magus",
   elementalist: "magus",
   chief: "ranger",
+  venomlord: "venomancer",
   battlemonk: "warmonk", // 무도 4차 두 번째 갈래 — 무승 계보
 };
 
@@ -62,20 +64,20 @@ function profWith(groupCumLevels: Record<string, number>) {
   return prof;
 }
 
-// 직업별 누적(jobCumLevel)로 구성한 숙련도 — 계보 게이팅(tier-3/4)은 부모 직업의 jobCumLevel 을 본다.
+// 직업별 숙련도(jobCumLevel)로 구성한 계보 게이팅(tier-3/4)은 부모 직업의 jobCumLevel 을 본다.
 function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
   return { ...emptyProficiency(), jobCumLevel: { ...jobCumLevels } };
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("31개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 10 + 심화 8)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(31);
+  it("34개 직업(모험가 1 + 기본 4 + 상위 9 + 고차 11 + 심화 9)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(34);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(8);
-    expect(byTier(3)).toBe(10); // 직군당 2(형제 갈래) 8 + 하이브리드 2(성기사·마검사)
-    expect(byTier(4)).toBe(8); // 직군당 1(4) + 마법 2번째(원소술사) + 전사 2번째(수호자) + 도적 2번째(암살자) + 무도 2번째(투승)
+    expect(byTier(2)).toBe(9);
+    expect(byTier(3)).toBe(11); // 기존 고차 10 + 도적 독술 계보 1
+    expect(byTier(4)).toBe(9); // 기존 심화 8 + 도적 독술 계보 정점 1
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -190,7 +192,7 @@ describe("해금 트리", () => {
       expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
       expect(V2_JOB_CATALOG[parent].tier).toBe(3);
     }
-    // 임계 램프: tier2(100) < tier3(200) < tier4(300).
+    // 임계 램프: tier2 < tier3 < tier4.
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
   });
@@ -208,12 +210,12 @@ describe("해금 트리", () => {
       "warrior",
     );
 
-    // 직업별 누적 레벨(jobCumLevel)로 구성한 숙련도.
+    // 직업별 숙련도(jobCumLevel)로 구성한 해금 조건.
     const profJobs = (jobLevels: Record<string, number>): V2ProficiencyState => ({
       ...emptyProficiency(),
       jobCumLevel: { ...jobLevels },
     });
-    // 🔑 회귀 가드 — 직군 누적(전사/마법)만으론 안 열린다. 반드시 기사·사제를 거쳐야(per-job).
+    // 회귀 가드 — 직군 숙련도(전사/마법)만으론 안 열린다. 반드시 기사·사제를 거쳐야(per-job).
     expect(
       isJobUnlocked(templar, profWith({ warrior: 99999, mage: 99999 })),
     ).toBe(false);
@@ -258,7 +260,7 @@ describe("해금 트리", () => {
       ...emptyProficiency(),
       jobCumLevel: { ...jobLevels },
     });
-    // 직군 누적만으론 안 열림(per-job).
+    // 직군 숙련도만으론 안 열림(per-job).
     expect(
       isJobUnlocked(spellblade, profWith({ warrior: 99999, mage: 99999 })),
     ).toBe(false);
@@ -288,12 +290,18 @@ describe("isJobUnlocked / unlockedJobs", () => {
     expect(isJobUnlocked(V2_JOB_CATALOG.squire, empty)).toBe(false);
   });
 
-  it("임계 직전(99)은 잠김, 임계 도달(100)은 해금", () => {
+  it("임계 직전은 잠김, 임계 도달은 해금", () => {
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.squire, profWith({ warrior: 99 })),
+      isJobUnlocked(
+        V2_JOB_CATALOG.squire,
+        profWith({ warrior: TIER2_UNLOCK_CUMLEVEL - 1 }),
+      ),
     ).toBe(false);
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.squire, profWith({ warrior: 100 })),
+      isJobUnlocked(
+        V2_JOB_CATALOG.squire,
+        profWith({ warrior: TIER2_UNLOCK_CUMLEVEL }),
+      ),
     ).toBe(true);
   });
 
@@ -341,7 +349,7 @@ describe("isJobUnlocked / unlockedJobs", () => {
     expect(ids).not.toContain("none");
     expect(ids).not.toContain("squire");
 
-    const ready = profWith({ warrior: 100 });
+    const ready = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });
     const ids2 = unlockedJobs(ready).map((j) => j.id);
     expect(ids2).toEqual(expect.arrayContaining([...BASE_JOBS, "shieldman", "squire"]));
     expect(ids2).not.toContain("caster");
@@ -499,10 +507,13 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("warrior", "gwang")).toBe("squire");
     expect(jobIdFromLegacy("warrior", "knight")).toBe("shieldman");
     expect(jobIdFromLegacy("rogue", "assassin")).toBe("assassin");
+    expect(jobIdFromLegacy("rogue", "venomist")).toBe("venomist");
+    expect(jobIdFromLegacy("rogue", "venomancer")).toBe("venomancer");
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
     expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
     expect(jobIdFromLegacy("warrior", "veteran")).toBe("veteran"); // tier 4
     expect(jobIdFromLegacy("rogue", "chief")).toBe("chief"); // tier 4
+    expect(jobIdFromLegacy("rogue", "venomlord")).toBe("venomlord"); // tier 4
   });
 
   it("알 수 없는 옛 id·모험가는 base class 로 폴백", () => {
@@ -520,6 +531,9 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("mage", "")).toBe("견습 마법사");
     expect(displayName("martial", null)).toBe("견습 무인");
     expect(displayName("rogue", null)).toBe("견습 도적");
+    expect(displayName("rogue", "venomist")).toBe("독술사");
+    expect(displayName("rogue", "venomancer")).toBe("맹독술사");
+    expect(displayName("rogue", "venomlord")).toBe("독왕");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
   });
@@ -567,21 +581,21 @@ describe("jobUnlockConditionText (해금 조건 표기 — 전직 화면·도감
     );
   });
 
-  it("상위 직업은 부모 직업명 + 누적 Lv 임계로 표기", () => {
+  it("상위 직업은 부모 직업명 + 숙련도 임계로 표기", () => {
     const txt = jobUnlockConditionText(V2_JOB_CATALOG.squire);
     expect(txt).toContain(V2_JOB_CATALOG.warrior.name); // 부모 직업명
-    expect(txt).toContain(`누적 Lv ${TIER2_UNLOCK_CUMLEVEL}`);
+    expect(txt).toContain(`숙련도 ${TIER2_UNLOCK_CUMLEVEL}`);
   });
 
   it("하이브리드(성기사)는 두 부모 직업 조건을 모두 표기", () => {
     const txt = jobUnlockConditionText(V2_JOB_CATALOG.templar);
     expect(txt).toContain(V2_JOB_CATALOG.paladin.name);
     expect(txt).toContain(V2_JOB_CATALOG.acolyte.name);
-    expect(txt).toContain(`누적 Lv ${TIER3_UNLOCK_CUMLEVEL}`);
+    expect(txt).toContain(`숙련도 ${TIER3_UNLOCK_CUMLEVEL}`);
   });
 });
 
-describe("cumLevelForJob (직업별 누적 레벨 — 전직 화면 표기)", () => {
+describe("cumLevelForJob (직업별 숙련도 — 전직 화면 표기)", () => {
   it("기본 직업(tier1)은 groups[id].cumLevel 을 읽는다", () => {
     const prof = profWith({ warrior: 42 });
     expect(cumLevelForJob(prof, V2_JOB_CATALOG.warrior)).toBe(42);

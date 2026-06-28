@@ -95,8 +95,10 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
 // 셀 공통 모양 — 버튼 트리거로도 div 로도 쓰는 클래스.
 const COMBAT_CELL =
   "block w-full cursor-help rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:border-zinc-700";
+const STAT_CELL_BASE =
+  "block min-h-[4.5rem] w-full rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center dark:border-zinc-800 dark:bg-zinc-900/50";
 const STAT_CELL =
-  "block w-full cursor-help rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-center transition-colors hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:border-zinc-700";
+  `${STAT_CELL_BASE} cursor-help transition-colors hover:border-zinc-300 dark:hover:border-zinc-700`;
 
 export function StatsPanel({
   stats,
@@ -159,7 +161,7 @@ export function StatsPanel({
         <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           능력치{!showCaps && totalStats ? " (기본 · 장비)" : ""}
         </div>
-        <div className="mt-2 grid grid-cols-6 gap-2">
+        <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
           {statKeys.map((k, idx) => {
             const base = stats[k];
             const finalValue = total[k];
@@ -175,14 +177,14 @@ export function StatsPanel({
                   {statLabels[k]}
                 </span>
                 {/* 큰 글자 = 기본(베이스 + 분배). caps 모드면 옆에 (한계치), 아니면 장비 보너스로 갈라진다. */}
-                <span className="mt-0.5 block text-base font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {base}
-                  {cap !== undefined && (
-                    <span className="ml-0.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                      ({cap})
-                    </span>
-                  )}
+                <span className="mt-0.5 block break-all text-lg font-semibold leading-none tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {base.toLocaleString()}
                 </span>
+                {cap !== undefined && (
+                  <span className="mt-1 block break-all text-[11px] leading-none tabular-nums text-zinc-500 dark:text-zinc-400">
+                    ({cap.toLocaleString()})
+                  </span>
+                )}
                 {hasBonus && (
                   <>
                     <span
@@ -207,7 +209,7 @@ export function StatsPanel({
               return (
                 <div
                   key={k}
-                  className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-center dark:border-zinc-800 dark:bg-zinc-900/50"
+                  className={STAT_CELL_BASE}
                 >
                   {inner}
                 </div>

@@ -15,8 +15,24 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import type { ElementMatchup } from "@/adventure/data/v2/elements";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
+
+export type BatchReplayEntry = {
+  index: number;
+  enemyName: string;
+  won: boolean;
+  turns: number;
+  replay: ReplayPayload;
+  startPlayerHp?: number;
+  expForBar?: number;
+  maxExpForBar?: number;
+  hpCharges?: number;
+  mpCharges?: number;
+  elementMatchup?: ElementMatchup;
+};
 
 export type BatchSummary = {
   attempted: number;
@@ -25,6 +41,7 @@ export type BatchSummary = {
   losses: number;
   totalExp: number;
   totalProficiency: number;
+  totalMastery?: number;
   totalGold: number;
   totalGoldGross?: number; // 세전 합산 — 세금 줄 표기용.
   totalGoldTaxed?: number;
@@ -39,9 +56,16 @@ export type BatchSummary = {
   droppedUniques: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
   stoppedReason?: "stamina" | "death" | "defeat" | "recovery" | "error" | null;
+  replays?: BatchReplayEntry[];
 };
 
-export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
+export function BatchSummaryCard({
+  summary,
+  onSelectReplay,
+}: {
+  summary: BatchSummary;
+  onSelectReplay?: (entry: BatchReplayEntry) => void;
+}) {
   const dropEntries = Object.entries(summary.drops).filter(
     ([, n]) => (n ?? 0) > 0,
   ) as Array<[V2MaterialId, number]>;
@@ -122,6 +146,14 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
             </span>
           </div>
         )}
+        {(summary.totalMastery ?? 0) > 0 && (
+          <div className="flex items-baseline justify-center gap-1.5">
+            <span className="text-zinc-500 dark:text-zinc-400">직업 숙련도</span>
+            <span className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
+              +{(summary.totalMastery ?? 0).toLocaleString()}
+            </span>
+          </div>
+        )}
         <div className="flex items-baseline justify-center gap-1.5">
           <span className="text-zinc-500 dark:text-zinc-400">골드</span>
           <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
@@ -165,6 +197,30 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
                 : "오류로 중단"}{" "}
           ({summary.completed}/{summary.attempted})
         </p>
+      )}
+      {(summary.replays?.length ?? 0) > 0 && onSelectReplay && (
+        <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <div className="mb-2 text-center text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            전투 기록
+          </div>
+          <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
+            {summary.replays!.map((entry) => (
+              <button
+                key={entry.index}
+                type="button"
+                onClick={() => onSelectReplay(entry)}
+                className={`rounded-md border px-2 py-1.5 text-xs font-medium tabular-nums transition ${
+                  entry.won
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                    : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950"
+                }`}
+                title={`${entry.index}회차 · ${entry.enemyName} · ${entry.turns}턴`}
+              >
+                {entry.index}회
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </Card>
   );

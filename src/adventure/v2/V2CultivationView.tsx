@@ -28,7 +28,7 @@ import { useGameState } from "./GameStateProvider";
 // 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
 type ShrineTab = "job" | "cultivate";
 
-// v2 수행(修行) — 직업·속성 선택/전직(상단) + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
+// v2 수행(修行) — 직업 전직/재전직 + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
 // 옛 "성장의 신전"(수동 스탯 분배) 대체. 분배는 레벨업 랜덤 성장이 담당하고, 여기서는
 // 그 성장의 천장(cap)을 직업 프로필대로 끌어올린다. docs/v2-proficiency-redesign.md §4.
 
@@ -50,7 +50,7 @@ type StateShape = {
     base?: Partial<Record<V2StatKey, number>>;
     total?: Partial<Record<V2StatKey, number>>;
   };
-  // 직업 시스템 v2(cumLevel 점진 공개 전직 목록) — 코어루프 on 일 때만(off=null → V2ClassGrid).
+  // 직업 시스템 v2(직업 숙련도 점진 공개 전직 목록) — 코어루프 on 일 때만(off=null → V2ClassGrid).
   jobsV2?: {
     currentJobId: string;
     currentJobName: string;
@@ -81,7 +81,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [nextCost, setNextCost] = useState(0);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
-  // 직업 그리드용 — 캐릭터 + 6직업군 요약(도달차수·누적레벨) + 현 직업군 전직 가능 여부.
+  // 레거시 직업 그리드용 — 캐릭터 + 직군 요약(도달차수·숙련도) + 현 직업군 전직 가능 여부.
   const [picker, setPicker] = useState<{
     cls: V2Class;
     elem: V2Element;
@@ -90,7 +90,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
   } | null>(null);
-  // 직업 시스템 v2(cumLevel 점진 공개) — null(코어루프 off)이면 V2ClassGrid 폴백.
+  // 직업 시스템 v2(직업 숙련도 점진 공개) — null(코어루프 off)이면 V2ClassGrid 폴백.
   const [jobLadder, setJobLadder] = useState<{
     currentJobId: string;
     currentJobName: string;
@@ -125,7 +125,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             advance: cur.advance ?? null,
           });
         }
-        // 코어루프 on(jobsV2 비null)이면 점진 공개 사다리. off 면 null → V2ClassGrid 폴백.
+        // 코어루프 on(jobsV2 비null)이면 점진 공개 사다리. off 면 null → 레거시 V2ClassGrid 폴백.
         setJobLadder(
           j.jobsV2
             ? {
@@ -223,7 +223,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         />
       </HeaderPanel>
 
-      {/* === 직업 탭 — 코어루프 on=스탯게이트 트리/재전직, off=기존 차수 전직 그리드 === */}
+      {/* === 직업 탭 — 코어루프 on=직업 숙련도 전직/재전직, off=기존 차수 전직 그리드 === */}
       {tab === "job" &&
         (picker ? (
           jobLadder ? (

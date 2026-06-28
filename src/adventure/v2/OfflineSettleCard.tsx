@@ -15,6 +15,8 @@ type SettleResult = {
   totalExp: number;
   totalGold: number;
   totalLossTax: number;
+  totalProficiency: number;
+  totalMastery: number;
   levelsGained: number;
   spMilestonesGained?: number; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤(>0 일 때만 표기).
   depth: number;
@@ -52,6 +54,8 @@ export function OfflineSettleCard() {
             totalExp: j.totalExp ?? 0,
             totalGold: j.totalGold ?? 0,
             totalLossTax: j.totalLossTax ?? 0,
+            totalProficiency: j.totalProficiency ?? 0,
+            totalMastery: j.totalMastery ?? 0,
             levelsGained: j.levelsGained ?? 0,
             spMilestonesGained: j.spMilestonesGained ?? 0,
             depth: j.depth ?? 0,
@@ -91,6 +95,20 @@ export function OfflineSettleCard() {
           />
           {result.levelsGained > 0 && (
             <Row label="레벨" value={`+${result.levelsGained}`} positive />
+          )}
+          {result.totalProficiency > 0 && (
+            <Row
+              label="숙달 포인트"
+              value={`+${result.totalProficiency.toLocaleString()}`}
+              positive
+            />
+          )}
+          {result.totalMastery > 0 && (
+            <Row
+              label="직업 숙련도"
+              value={`+${result.totalMastery.toLocaleString()}`}
+              positive
+            />
           )}
           {(result.spMilestonesGained ?? 0) > 0 && (
             <Row

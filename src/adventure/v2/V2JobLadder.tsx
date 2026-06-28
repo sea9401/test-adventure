@@ -6,17 +6,18 @@ import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 
-// 직업 시스템 v2 전직 화면(cumLevel 점진 공개).
-// 해금(cumLevel 조건 충족)된 직업만 한 목록에 나열한다 — 잠긴 직업은 숨김(조건 달성 시 등장).
+// 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
+// 해금(숙련도 조건 충족)된 직업만 한 목록에 나열한다 — 잠긴 직업은 숨김(조건 달성 시 등장).
 // 기본/상위 구분 없이 한곳에. 스킬·패시브는 스킬 화면에서 학습·장착(여긴 직업명+해금조건만).
 
 export type JobLadderEntry = {
   id: string;
   name: string;
+  // 카탈로그 계층(정렬/디버그용). 전직 화면은 차수 UI 대신 직업명·조건·숙련도를 보여준다.
   tier: number;
-  // 해금 조건(공유용 표기). 예: "Lv 50 달성" / "견습 병사 누적 Lv 100".
+  // 해금 조건(공유용 표기). 예: "Lv 100 달성" / "견습 병사 숙련도 100".
   condition: string;
-  // 이 직업에 쌓은 누적 레벨(직업별/직군). 직업별 진행도 확인용.
+  // 이 직업에 쌓은 숙련도(직업별/직군). 직업별 진행도 확인용.
   cumLevel?: number;
   // 직업 내장 스탯 보너스(현재 직업일 때 적용) 표기. 예: "활력 +12 · 힘 +6". 없으면 빈 문자열.
   bonus?: string;
@@ -106,7 +107,7 @@ export function V2JobLadder({
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {atLevelCap
             ? "해금된 직업으로 전직할 수 있어요. 전직하면 레벨이 1로 돌아가고 다시 성장합니다."
-            : `Lv ${V2_LEVEL_CAP}에 도달하면 전직할 수 있어요. 누적 레벨을 쌓으면 새 직업이 해금됩니다.`}
+            : `Lv ${V2_LEVEL_CAP}에 도달하면 전직할 수 있어요. 사냥으로 직업 숙련도를 쌓으면 새 직업이 해금됩니다.`}
         </p>
       </Card>
 
@@ -133,7 +134,9 @@ export function V2JobLadder({
           </ul>
         ) : (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            아직 전직 가능한 직업이 없어요. 누적 레벨을 더 쌓아 보세요.
+            {atLevelCap
+              ? "아직 해금된 전직 후보가 없어요. 사냥으로 직업 숙련도를 더 쌓아 보세요."
+              : `Lv ${V2_LEVEL_CAP}에 도달하면 전직 후보가 표시됩니다.`}
           </p>
         )}
       </Card>
@@ -159,8 +162,8 @@ export function V2JobLadder({
             </h2>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
               {pending.current
-                ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 누적 성장(한계치)은 그대로 유지됩니다."
-                : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 누적 성장(한계치)은 그대로 유지됩니다."}
+                ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 숙련도와 성장 한계치는 그대로 유지됩니다."
+                : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 숙련도와 성장 한계치는 그대로 유지됩니다."}
             </p>
             <div className="mt-5 flex gap-2">
               <button
@@ -222,7 +225,7 @@ function JobRow({
           )}
         </div>
         <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
-          누적 Lv {job.cumLevel ?? 0}
+          숙련도 {job.cumLevel ?? 0}
         </span>
         {job.bonus && (
           <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
@@ -234,7 +237,7 @@ function JobRow({
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {/* 현재 직업도 동일 직업 재전직(레벨1 리셋·누적 성장 유지) 허용 — 환생 루프. */}
+        {/* 현재 직업도 동일 직업 재전직(레벨1 리셋·숙련도/성장 한계 유지) 허용. */}
         <button
           type="button"
           onClick={onPick}

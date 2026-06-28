@@ -638,6 +638,13 @@
       "when": 1782557715091,
       "tag": "0090_backfill_total_levels",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1782600000000,
+      "tag": "0091_scale_v2_mastery",
+      "breakpoints": true
     }
   ]
 }

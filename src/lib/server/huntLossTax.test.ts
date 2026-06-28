@@ -1,4 +1,4 @@
-// 패배 세금 카운터(코어루프 flag-on) 통합 — huntCooldown.test.ts 와 같은 in-memory savesKv +
+// 패배 세금 카운터(코어루프) 통합 — huntCooldown.test.ts 와 같은 in-memory savesKv +
 // coreLoopConfig importOriginal(flag만 on). 승리 시 atRiskGold 가 goldGained 만큼 누적되는
 // 배선을 검증한다(패배 세금 산술은 lossTaxOf 단위 테스트가 커버 — 결정적 패배 유도는 전투
 // 밸런스에 취약해 통합에선 승리 누적만).

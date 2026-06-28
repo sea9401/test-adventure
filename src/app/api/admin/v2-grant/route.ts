@@ -8,9 +8,13 @@ import {
   parseProficiencyForChar,
   emptyProficiency,
   addPoints,
+  addCumLevel,
+  addJobCumLevel,
+  groupCumLevel,
   usablePoints,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import {
   V2_MATERIALS,
   mergeDrops,
@@ -43,7 +47,7 @@ import { TREASURE_WALLET_KEY } from "@/lib/server/treasure/coins";
 // character.v2.materials / inventory.v2 충전약을 한 트랜잭션으로 처리한다.
 //
 // 본문(전부 선택): { userId, materials?: {[V2MaterialId]: number},
-//   hpCharges?, mpCharges?, proficiency?, equipmentId?,
+//   hpCharges?, mpCharges?, proficiency?, mastery?, equipmentId?,
 //   rareMap?: { kind, depth } — 레어맵 1장(캡 무관 append, 관리자 지급),
 //   fishingCoins?, treasureCoins? — 사이드 화폐(fishing/treasure-wallet.v1 적립) }
 
@@ -57,6 +61,7 @@ function clampInt(n: unknown, min: number, max: number): number {
 type CharSave = {
   level?: number;
   class?: unknown;
+  specChoice?: unknown;
   materials?: unknown;
   rareMaps?: unknown;
   [k: string]: unknown;
@@ -72,6 +77,7 @@ export async function POST(req: Request) {
     hpCharges?: unknown;
     mpCharges?: unknown;
     proficiency?: unknown;
+    mastery?: unknown;
     equipmentId?: unknown;
     refillStamina?: unknown;
     rareMap?: unknown;
@@ -92,6 +98,7 @@ export async function POST(req: Request) {
   const hpChargeGain = clampInt(body.hpCharges, 0, MAX_GRANT);
   const mpChargeGain = clampInt(body.mpCharges, 0, MAX_GRANT);
   const proficiencyGain = clampInt(body.proficiency, 0, MAX_GRANT);
+  const masteryGain = clampInt(body.mastery, 0, MAX_GRANT);
   const fishingCoinGain = clampInt(body.fishingCoins, 0, MAX_GRANT);
   const treasureCoinGain = clampInt(body.treasureCoins, 0, MAX_GRANT);
 
@@ -133,6 +140,7 @@ export async function POST(req: Request) {
     !hasMaterials &&
     !hasCharges &&
     proficiencyGain <= 0 &&
+    masteryGain <= 0 &&
     !equipmentId &&
     !refillStamina &&
     !rareMapGrant &&
@@ -149,6 +157,7 @@ export async function POST(req: Request) {
       hpCharges?: number;
       mpCharges?: number;
       proficiencyEarned?: number | null;
+      masteryEarned?: number | null;
       equipmentOwned?: V2EquipInstance[];
       equipmentNoOp?: true;
       staminaRefilled?: number;
@@ -160,7 +169,13 @@ export async function POST(req: Request) {
     // character.v2 — 재료(병합)·스태미나 회복(쓰기) + 숙련도 컨텍스트(class/level, 읽기)에
     //   모두 필요. 한 번만 lock 하고 변경분을 모아 한 번만 upsert(materials↔stamina 덮어쓰기 방지).
     let charSave: CharSave | null = null;
-    if (hasMaterials || proficiencyGain > 0 || refillStamina || rareMapGrant) {
+    if (
+      hasMaterials ||
+      proficiencyGain > 0 ||
+      masteryGain > 0 ||
+      refillStamina ||
+      rareMapGrant
+    ) {
       charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
       let nextChar: CharSave = charSave;
       let charChanged = false;
@@ -198,11 +213,13 @@ export async function POST(req: Request) {
     // 락 순서는 dev grant(/api/v2/dev/grant: character.v2 → proficiency.v2 → inventory.v2)와
     // 동일하게 유지 — 같은 유저에 두 경로가 동시 실행돼도 데드락 안 나게.
 
-    // 숙련도 — 현 직업군(tier1) points += 값. 직업 없으면 미지급(null 신호).
-    if (proficiencyGain > 0 && charSave) {
-      const group = tier1ClassOf(parseV2Class(charSave.class));
+    // 숙달 포인트/직업 숙련도 — 직업 없으면 미지급(null 신호).
+    if ((proficiencyGain > 0 || masteryGain > 0) && charSave) {
+      const cls = parseV2Class(charSave.class);
+      const group = tier1ClassOf(cls);
       if (group === "none") {
-        out.proficiencyEarned = null;
+        if (proficiencyGain > 0) out.proficiencyEarned = null;
+        if (masteryGain > 0) out.masteryEarned = null;
       } else {
         const level = Math.max(1, Math.min(MAX_LEVEL, charSave.level ?? 1));
         const profSave = await lockSaveForUpdate<V2ProficiencyState>(
@@ -216,8 +233,22 @@ export async function POST(req: Request) {
           group,
           proficiencyGain,
         );
-        await upsertSave(tx, userId, "proficiency.v2", nextProf);
-        out.proficiencyEarned = usablePoints(nextProf);
+        const withMastery =
+          masteryGain > 0
+            ? addJobCumLevel(
+                addCumLevel(nextProf, group, masteryGain),
+                jobIdFromLegacy(
+                  cls,
+                  typeof charSave.specChoice === "string"
+                    ? charSave.specChoice
+                    : null,
+                ),
+                masteryGain,
+              )
+            : nextProf;
+        await upsertSave(tx, userId, "proficiency.v2", withMastery);
+        if (proficiencyGain > 0) out.proficiencyEarned = usablePoints(withMastery);
+        if (masteryGain > 0) out.masteryEarned = groupCumLevel(withMastery, group);
       }
     }
 

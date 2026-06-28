@@ -38,7 +38,7 @@ function profWithGroups(groupCumLevels: Record<string, number>): V2ProficiencySt
   }
   return prof;
 }
-// 직업별 누적(jobCumLevel) 로 구성한 숙련도 — 하이브리드(기사·사제) per-job 게이트용.
+// 직업별 숙련도(jobCumLevel)로 구성한 하이브리드(기사·사제) per-job 게이트용.
 function profWithJobs(jobLevels: Record<string, number>): V2ProficiencyState {
   return { ...emptyProficiency(), jobCumLevel: { ...jobLevels } };
 }
@@ -81,7 +81,7 @@ const TIER4_LINEAGE: Record<string, string> = {
 describe("성기사(tier-3 하이브리드) 해금 게이팅", () => {
   const templar = V2_JOB_CATALOG.templar;
 
-  it("부모 둘(기사·사제) 각각 cumLevel ≥ TIER3 을 요구한다 (직업별 누적, 직군 아님)", () => {
+  it("부모 둘(기사·사제) 각각 cumLevel ≥ TIER3 을 요구한다 (직업별 숙련도, 직군 아님)", () => {
     // ⚠️ prereq 키는 직군(warrior/mage)이 아니라 특정 상위 직업(기사 paladin·사제 acolyte) —
     //    isJobUnlocked 가 키의 tier 로 분기(tier1=groups, 상위=jobCumLevel)하므로 게이트가 per-job.
     expect(templar.tier).toBe(3);
@@ -89,26 +89,26 @@ describe("성기사(tier-3 하이브리드) 해금 게이팅", () => {
       paladin: TIER3_UNLOCK_CUMLEVEL,
       acolyte: TIER3_UNLOCK_CUMLEVEL,
     });
-    // 둘 다 tier-3/2 상위 직업이라 jobCumLevel 분기를 타야 한다(직군 누적으론 못 연다).
+    // 둘 다 tier-3/2 상위 직업이라 jobCumLevel 분기를 타야 한다(직군 숙련도론 못 연다).
     expect(V2_JOB_CATALOG.paladin.tier).toBeGreaterThan(1);
     expect(V2_JOB_CATALOG.acolyte.tier).toBeGreaterThan(1);
   });
 
-  it("직군 누적(전사/마법)만으론 안 열린다 — 반드시 기사·사제를 거쳐야(회귀 가드)", () => {
+  it("직군 숙련도(전사/마법)만으론 안 열린다 — 반드시 기사·사제를 거쳐야(회귀 가드)", () => {
     // 방패병/마법사로만 직군 250 채워도 잠김. per-job 게이트의 핵심.
     expect(isJobUnlocked(templar, profWithGroups({ warrior: 9999, mage: 9999 }))).toBe(
       false,
     );
   });
 
-  it("한쪽 부모만 250 → 잠김 (AND — 한 부모 미달이면 실패)", () => {
+  it("한쪽 부모만 충족 → 잠김 (AND — 한 부모 미달이면 실패)", () => {
     expect(isJobUnlocked(templar, profWithJobs({ paladin: TIER3_UNLOCK_CUMLEVEL }))).toBe(
       false,
     );
     expect(isJobUnlocked(templar, profWithJobs({ acolyte: TIER3_UNLOCK_CUMLEVEL }))).toBe(
       false,
     );
-    // 한쪽이 임계 직전(249)이면 다른 쪽이 충족해도 잠김.
+    // 한쪽이 임계 직전이면 다른 쪽이 충족해도 잠김.
     expect(
       isJobUnlocked(
         templar,
@@ -117,7 +117,7 @@ describe("성기사(tier-3 하이브리드) 해금 게이팅", () => {
     ).toBe(false);
   });
 
-  it("두 부모 모두 250 도달 → 해금 (양쪽 충족 시에만 true)", () => {
+  it("두 부모 모두 임계 도달 → 해금 (양쪽 충족 시에만 true)", () => {
     expect(
       isJobUnlocked(
         templar,
@@ -229,7 +229,7 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
     for (const [jobId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[jobId];
       expect(job.tier).toBe(4);
-      // 부모는 tier-3 직업 키 → jobCumLevel 게이트(직군 누적 아님).
+      // 부모는 tier-3 직업 키 → jobCumLevel 게이트(직군 숙련도 아님).
       expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
       expect(V2_JOB_CATALOG[parent].tier).toBe(3);
       // 부모 직업 jobCumLevel TIER4 전엔 잠김, 도달 시 해금. 고차보다 더 깊다.

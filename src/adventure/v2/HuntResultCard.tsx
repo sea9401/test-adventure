@@ -34,7 +34,8 @@ export type HuntResult = {
   enemyName: string;
   won: boolean;
   expGained: number;
-  proficiencyGained?: number; // 직업군 숙달 포인트 획득 (+2/킬).
+  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~5).
+  masteryGained?: number; // 직업 숙련도 획득(승리당 +1).
   goldGained: number;
   goldGross?: number;
   goldTaxed?: number;
@@ -207,6 +208,14 @@ export function HuntResultCard({
             <span className="text-zinc-500 dark:text-zinc-400">숙달 포인트</span>
             <span className="font-medium tabular-nums text-violet-600 dark:text-violet-400">
               +{result.proficiencyGained}
+            </span>
+          </div>
+        )}
+        {(result.masteryGained ?? 0) > 0 && (
+          <div className="flex items-baseline justify-center gap-1.5">
+            <span className="text-zinc-500 dark:text-zinc-400">직업 숙련도</span>
+            <span className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
+              +{result.masteryGained}
             </span>
           </div>
         )}

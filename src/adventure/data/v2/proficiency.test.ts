@@ -15,7 +15,6 @@ import {
   flattenGroupTiers,
   spendProficiency,
   signatureLearnCost,
-  advanceCumLevelReq,
   tierLevelCap,
   levelCapFor,
   addCumLevel,
@@ -115,6 +114,18 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p.groups.mage.cumLevel).toBe(0);
   });
 
+  it("parse — masteryScaleVersion 보존, 레거시 groups row 는 0으로 표시", () => {
+    expect(parseProficiency({}).masteryScaleVersion).toBe(1);
+    expect(parseProficiency({ groups: { warrior: { cumLevel: 1 } } }).masteryScaleVersion).toBe(0);
+    expect(parseProficiency({ jobCumLevel: { paladin: 1 } }).masteryScaleVersion).toBe(0);
+    expect(
+      parseProficiency({
+        masteryScaleVersion: 1,
+        groups: { warrior: { cumLevel: 6 } },
+      }).masteryScaleVersion,
+    ).toBe(1);
+  });
+
   it("parseProficiencyForChar — charSave 무시(시드 마이그 폐지), cumLevel 필드만 반영", () => {
     const raw = {
       groups: {
@@ -168,7 +179,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     });
     // 옛 직군별 points(70+40)는 전역 단일 잔액으로 합산 — 전직해도 유지.
     expect(usablePoints(p)).toBe(110);
-    // points 만 있던 그룹은 합산 후 폐기(누적레벨/수행/차수 없음).
+    // points 만 있던 그룹은 합산 후 폐기(숙련도/수행/차수 없음).
     expect(p.groups.warrior).toBeUndefined();
     expect(p.groups.rogue).toBeUndefined();
   });
@@ -184,7 +195,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(usablePoints(after)).toBe(5000);
     expect(after.groups.rogue).toEqual({ cultivations: 0, tier: 1, cumLevel: 0 });
     expect(after.groups.mage.tier).toBe(1); // 차수 정규화
-    expect(after.groups.mage.cumLevel).toBe(100); // 직군 누적레벨은 보존
+    expect(after.groups.mage.cumLevel).toBe(100); // 직군 숙련도는 보존
   });
 
   it("addPoints — 전역 잔액 += amount, 비파괴, caps/그룹 보존, none 적립·프로필無/0 무변경", () => {
@@ -397,14 +408,6 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(signatureLearnCost(9)).toBe(V2_SIGNATURE_LEARN_COST[1]);
   });
 
-  it("advanceCumLevelReq — 전직 차수별 직군 누적 레벨 임계, 1차/미지정은 Infinity", () => {
-    expect(advanceCumLevelReq(2)).toBe(55);
-    expect(advanceCumLevelReq(3)).toBe(110);
-    expect(advanceCumLevelReq(4)).toBe(170);
-    expect(advanceCumLevelReq(1)).toBe(Infinity);
-    expect(advanceCumLevelReq(5)).toBe(Infinity);
-  });
-
   it("addCumLevel/groupCumLevel/totalCumLevel — 누적, 비파괴, none/0 무변경", () => {
     const p0 = parseProficiency({
       groups: {
@@ -423,7 +426,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(groupCumLevel(p0, "nonexistent")).toBe(0);
   });
 
-  it("addJobCumLevel/jobCumLevelOf — 직업별 누적(groups·floor 와 별개), 비파괴, none/0 무변경", () => {
+  it("addJobCumLevel/jobCumLevelOf — 직업별 숙련도(groups·floor 와 별개), 비파괴, none/0 무변경", () => {
     const p0 = emptyProficiency();
     expect(jobCumLevelOf(p0, "paladin")).toBe(0);
     const p1 = addJobCumLevel(p0, "paladin", 30);
@@ -432,7 +435,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(jobCumLevelOf(p2, "acolyte")).toBe(0);
     // 비파괴.
     expect(jobCumLevelOf(p1, "paladin")).toBe(30);
-    // 🔑 직업별 누적은 groups(직군)·floor 입력에 영향 없음(이중계산 방지).
+    // 직업별 숙련도는 groups(직군)·floor 입력에 영향 없음(이중계산 방지).
     expect(totalCumLevel(p2)).toBe(0);
     expect(p2.groups).toEqual({});
     // none/0 무변경.
@@ -470,14 +473,14 @@ describe("levelCapFor (코어루프 단일 레벨캡)", () => {
     expect(levelCapFor(2, false)).toBe(65);
     expect(levelCapFor(4, false)).toBe(100);
   });
-  it("flag on = 차수 무관 단일 100", () => {
+  it("코어루프 on = 차수 무관 단일 100", () => {
     expect(levelCapFor(1, true)).toBe(100);
     expect(levelCapFor(2, true)).toBe(100);
     expect(levelCapFor(4, true)).toBe(100);
   });
 });
 
-describe("proficiencyPerKillAtDepth (킬당 숙달 — 깊이 밴드 비례)", () => {
+describe("proficiencyPerKillAtDepth (승리당 숙달 — 깊이 밴드 비례)", () => {
   it("테마 2개당 +1 — 들판·협곡 2 / 호수·동굴 3 / 성소·늪지 4 / 소굴 5 (깊은 산 삭제 후)", () => {
     // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값. 깊이당 값은 깊은 산 삭제로 불변(테마 인덱스 동일).
     expect(proficiencyPerKillAtDepth(1)).toBe(2); // 들판 1

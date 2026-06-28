@@ -406,7 +406,7 @@ export type DerivePlayerCombatV2PureInput = {
    */
   jobPassiveEffect?: V2JobPassiveEffect;
   /**
-   * 예기(민첩→공격력) 계수 — 장착 패시브 스킬에서 주입(flag on). 지정 시 도적 직군 하드코딩
+   * 예기(민첩→공격력) 계수 — 장착 패시브 스킬에서 주입(코어루프). 지정 시 도적 직군 하드코딩
    * 베이스라인 대신 이 값 사용(0 = 미장착). 미지정 = 도적 베이스라인 폴백(flag off / sim).
    */
   atkPerDexCoef?: number;
@@ -443,6 +443,8 @@ export type DerivePlayerCombatV2PureInput = {
   /** 속성 유리/불리 +%p(원소 통달 패시브) — player.elementAdvPctBonus/DisPctBonus 로 출력. */
   passiveElementAdvPctBonus?: number;
   passiveElementDisPctBonus?: number;
+  /** 중독된 적 방어 -%(부식 패시브) — poisonedEnemyDefReductionPct 에 가산. */
+  passivePoisonedEnemyDefReductionPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -513,7 +515,7 @@ export function derivePlayerCombatV2Pure(
   // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
   // strict §4 — 물리공격력 = 힘 단독 + 장비 atk(무기 위력). dex/spd/luk atk 보조 없음.
   // 4대 전투 스탯엔 초반 완화용 플랫 보너스(V2_BASE_COMBAT_BONUS)를 가산.
-  // 예기 — DEX 보조 공격력. flag-on(직업 킷)은 장착 패시브 스킬 예기에서 계수 주입
+  // 예기 — DEX 보조 공격력. 코어루프(직업 킷)는 장착 패시브 스킬 예기에서 계수 주입
   //   (atkPerDexCoef, 미장착=0). flag-off/sim 은 도적 직군 하드코딩 베이스라인 폴백.
   const atkPerDexCoef =
     input.atkPerDexCoef ?? (playerClass === "rogue" ? ROGUE_ATK_PER_DEX : 0);
@@ -561,7 +563,7 @@ export function derivePlayerCombatV2Pure(
       totalStats.vit * HEAL_MULT_PER_VIT +
       totalStats.spi * HEAL_MULT_PER_SPI) *
     (1 + ((input.passiveHealPowerPct ?? 0) + equipAcc.healPowerPct) / 100);
-  // 코어루프 모험가 HP 패시브 — flag on + 무직(=모험가)일 때만 ×1.1. flag off = ×1.0(무변경).
+  // 코어루프 모험가 HP 패시브 — on + 무직(=모험가)일 때만 ×1.1. off = ×1.0(무변경).
   // 직업 시스템 v2 — 최대 HP/MP % 패시브(체력/마나). 미지정(flag off/sim) = ×1(무변경).
   const maxHp = Math.floor(
     (V2_BASE_HP +
@@ -697,6 +699,9 @@ export function derivePlayerCombatV2Pure(
   const totalLifestealPct =
     (specEff.lifestealPct ?? 0) +
     (input.passiveLifestealPct ?? 0); // 장착 패시브(포식) — 저수치.
+  const totalPoisonedEnemyDefReductionPct =
+    (specEff.poisonedEnemyDefReductionPct ?? 0) +
+    (input.passivePoisonedEnemyDefReductionPct ?? 0);
 
   const player: PlayerCombat = {
     hp,
@@ -797,8 +802,8 @@ export function derivePlayerCombatV2Pure(
       ? { extraHitDmgPct: specEff.extraHitDmgPct }
       : {}),
     // 부식 — 엔진이 중독된 적의 DEF 를 % 감산(playerFacingEnemyDef).
-    ...(specEff.poisonedEnemyDefReductionPct
-      ? { poisonedEnemyDefReductionPct: specEff.poisonedEnemyDefReductionPct }
+    ...(totalPoisonedEnemyDefReductionPct
+      ? { poisonedEnemyDefReductionPct: totalPoisonedEnemyDefReductionPct }
       : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
     ...(specEff.extraAttackChancePctWhileEnemyBleeding
@@ -935,6 +940,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
     passiveElementAdvPctBonus: passiveAgg.elementAdvPctBonus,
     passiveElementDisPctBonus: passiveAgg.elementDisPctBonus,
+    passivePoisonedEnemyDefReductionPct:
+      passiveAgg.poisonedEnemyDefReductionPct,
   });
 }
 

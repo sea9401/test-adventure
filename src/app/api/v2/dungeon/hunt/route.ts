@@ -40,6 +40,7 @@ import {
   parseV2Element,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
+  type ElementMatchup,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
@@ -95,6 +96,7 @@ import {
 import {
   toReplayPayload,
   toReplayPayloadLite,
+  type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
@@ -152,7 +154,6 @@ type CharSave = {
   hpRegenSince?: number;
   level?: number;
   exp?: number;
-  totalLevels?: number; // 평생 누적 레벨(모험가 포함·리셋 안 됨). 누적 레벨 랭킹용.
   gold?: number;
   materials?: unknown;
   lastHuntedOutpost?: unknown;
@@ -185,8 +186,9 @@ export type RunOneHuntCtx = {
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
 //   루프로 N회 호출한다. 매 호출이 character.v2/equipment 등을 재-락·재-read 하므로 직전
 //   사냥의 레벨/HP/스태미나/드랍이 DB 재read 로 자동 이월된다(수동 스레딩 불필요).
-//   forBatch=true 면 replay 를 경량 payload 로(배치 집계는 playerMaxMp 만 읽음 — 무거운 log 회피).
-export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
+//   fullReplay=true 면 BattleScene 용 log 를 보존한다. 온라인 단판/5·10·50회 사냥은 기록 확인이
+//   필요하므로 full, 오프라인 정산은 결과 집계만 쓰므로 lite 로 둔다.
+export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const { tx, userId, depth, dropFloor, outpostId, rareMapIid } = ctx;
   // === 1. outpost 점령 조회 (FOR UPDATE) ===
   // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
@@ -694,7 +696,7 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     goldRaw: charSave.gold,
   });
 
-  // 차수별 레벨 캡(환생 §3.1) — 현 직군 차수의 캡까지만 성장. none = 만렙(4차 캡 100).
+  // 유효 레벨 캡 — 코어루프 on 은 단일 만렙, off 는 현 직군 차수 캡. none = 만렙(4차 캡 100).
   // PR-perf: 차수(player.classTier)는 위 derive 가 같은 tx 에서 읽은 proficiency 에서 산출한
   //   값(prof.groups[현직군].tier ?? 1)이라, 캡 산출용 proficiency 재select(판당 1회) 불필요.
   //   (none 은 derive classTier=1 로 떨어지므로 분기 유지 — 권위 cumLevel 쓰기는 아래 락.)
@@ -782,12 +784,6 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     hpRegenSince: now,
     level: expResult.level,
     exp: expResult.exp,
-    // 평생 누적 레벨 — 오른 레벨 수만큼 누적(모험가 포함·전직/환생 리셋 무관). 옛 세이브(totalLevels
-    //   없음)는 직전 레벨로 시드 → 첫 등반은 현재 레벨과 일치. 기존 유저 권위 시드는 마이그 0090.
-    totalLevels:
-      (typeof charSave.totalLevels === "number"
-        ? charSave.totalLevels
-        : (charSave.level ?? 1)) + expResult.levelsGained,
     gold: newGold,
     materials: nextMaterials,
     rareMaps,
@@ -849,18 +845,23 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
   // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
   let proficiencyGained = 0; // 전투 결과 표시용.
+  let masteryGained = 0; // 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력.
   let spMilestonesGained = 0; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤 수(flag off=항상 0).
   const statGains: Partial<Record<V2StatKey, number>> = {}; // 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용.
   if (won || expResult.levelsGained > 0) {
     const playerClass = parseV2Class(charSave.class);
     const group = tier1ClassOf(playerClass);
+    const v2JobId = jobIdFromLegacy(
+      playerClass,
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+    );
     // PR-perf — 위에서 upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷, 중간
     //   proficiency 쓰기 없음 → 새 lock 과 동일 base). 중복 lock-read 제거.
     let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립(숙달 포인트) — 승리 시. 깊이 밴드 비례(2~5). none(모험가)도 적립(수행 프로필 보유 →
-    //   addPoints 가 V2_CULTIVATE_PROFILE 존재로 자체 게이트). cumLevel/정복(아래)은 none 제외 유지.
+    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~5), 직업 숙련도는 승리당 +1.
+    //   none(모험가)은 숙달 포인트만 적립하고, 직업 숙련도/정복 게이트는 제외한다.
     if (won) {
-      // 처치당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
+      // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
       const perKill =
         proficiencyPerKillAtDepth(depth) +
         equippedProfPerKillBonus(v2Skills.equipped);
@@ -869,27 +870,21 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         prof = nextProf;
         proficiencyGained = perKill;
       }
-    }
-    // 레벨업 시 — 직군 누적 레벨 적립(floor·전직 게이트 입력) + 랜덤 스탯 성장.
-    if (expResult.levelsGained > 0) {
-      // 직군 누적 레벨 += 오른 레벨 수(전직 리셋에도 불변, none 은 무변경). floor·전직 게이트 입력.
-      // 코어루프 — cumLevel 증가로 새로 넘은 SP 마일스톤 수 산출(단조 증가라 1회만 발화·영속불필요).
-      //   none 은 addCumLevel no-op 이라 마일스톤도 0. flag off 면 아예 계산 안 함(=0).
-      if (V2_CORE_LOOP_V2 && group !== "none") {
-        const oldCum = prof.groups[group]?.cumLevel ?? 0;
-        spMilestonesGained = spMilestonesCrossed(
-          oldCum,
-          oldCum + expResult.levelsGained,
-        );
+      if (group !== "none") {
+        const oldMastery = prof.groups[group]?.cumLevel ?? 0;
+        prof = addCumLevel(prof, group, 1);
+        prof = addJobCumLevel(prof, v2JobId, 1);
+        masteryGained = 1;
+        if (V2_CORE_LOOP_V2) {
+          spMilestonesGained = spMilestonesCrossed(
+            oldMastery,
+            oldMastery + 1,
+          );
+        }
       }
-      prof = addCumLevel(prof, group, expResult.levelsGained);
-      // 직업별 누적 레벨도 적립(하이브리드 해금 게이트 입력) — 현재 구체 직업(class+spec)에.
-      //   addJobCumLevel 은 none 자기 가드. groups(직군)와 별개라 floor/totalCumLevel 무영향.
-      const v2JobId = jobIdFromLegacy(
-        playerClass,
-        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-      );
-      prof = addJobCumLevel(prof, v2JobId, expResult.levelsGained);
+    }
+    // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.
+    if (expResult.levelsGained > 0) {
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;
@@ -1020,7 +1015,8 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         enemyName,
         won,
         expGained,
-        proficiencyGained, // 직업군 숙련도 획득 (승리·직업 보유 시 +2).
+        proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~5).
+        masteryGained, // 직업 숙련도 획득(승리·직업 보유 시 +1).
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
         goldGross,
         goldTaxed,
@@ -1059,9 +1055,9 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
         // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
         // 로 BattleState 형태로 재구성. log 는 마지막 200 cap.
-        replay: forBatch
-          ? toReplayPayloadLite(battleResult.finalState)
-          : toReplayPayload(battleResult.finalState, 200),
+        replay: fullReplay
+          ? toReplayPayload(battleResult.finalState, 200)
+          : toReplayPayloadLite(battleResult.finalState),
         // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
         startPlayerHp: regenResult.hp,
         // 이 사냥의 시작 EXP/maxExp — replay UI 의 EXP 바 표시용
@@ -1169,7 +1165,7 @@ export async function POST(req: Request) {
     // === 일괄(batch) 루프 ===
     // count===1 은 기존 단판 응답 그대로(full 리플레이 포함, 무변경).
     if (count === 1) {
-      return await runOneHunt(false, ctx);
+      return await runOneHunt(true, ctx);
     }
     // count>1 — 한 트랜잭션에서 N회. 스태미나 부족·HP 부족·사망이면 중단(완료분은 커밋).
     let completed = 0;
@@ -1180,6 +1176,7 @@ export async function POST(req: Request) {
     let totalGold = 0;
     let totalGoldGross = 0; // 세전 합산 — 결과 카드 세금 줄 표기용.
     let totalGoldTaxed = 0;
+    let totalMastery = 0;
     let levelsGained = 0;
     let spMilestonesGained = 0; // 코어루프 — 일괄 동안 새로 넘은 SP 마일스톤 합산(flag off=0).
     const statGains: Partial<Record<V2StatKey, number>> = {};
@@ -1209,6 +1206,19 @@ export async function POST(req: Request) {
     let playerMaxMp: number | null = null;
     let finalMpAfter: number | null = null;
     let ejected: EjectedFrom | null = null;
+    const replays: Array<{
+      index: number;
+      enemyName: string;
+      won: boolean;
+      turns: number;
+      replay: ReplayPayload;
+      startPlayerHp: number;
+      expForBar: number;
+      maxExpForBar: number;
+      hpCharges: number;
+      mpCharges: number;
+      elementMatchup: ElementMatchup;
+    }> = [];
 
     for (let i = 0; i < count; i++) {
       const r = await runOneHunt(true, ctx);
@@ -1230,6 +1240,7 @@ export async function POST(req: Request) {
       else losses++;
       totalExp += res.expGained;
       totalProficiency += res.proficiencyGained;
+      totalMastery += res.masteryGained ?? 0;
       totalGold += res.goldGained;
       totalGoldGross += res.goldGross ?? res.goldGained;
       totalGoldTaxed += res.goldTaxed ?? 0;
@@ -1250,6 +1261,19 @@ export async function POST(req: Request) {
       if (res.rareMapDrop) rareMapDrops.push(res.rareMapDrop);
       rareMapRunsLeft = res.rareMapRunsLeft ?? rareMapRunsLeft;
       if (res.ejected && !ejected) ejected = res.ejected;
+      replays.push({
+        index: completed,
+        enemyName: res.enemyName,
+        won: res.won,
+        turns: res.turns,
+        replay: res.replay,
+        startPlayerHp: res.startPlayerHp,
+        expForBar: res.expForBar,
+        maxExpForBar: res.maxExpForBar,
+        hpCharges: res.hpCharges,
+        mpCharges: res.mpCharges,
+        elementMatchup: res.elementMatchup,
+      });
       lastStamina = r.body.stamina;
       finalHpAfter = res.hpAfter;
       finalMpAfter = res.mpAfter ?? finalMpAfter;
@@ -1295,6 +1319,7 @@ export async function POST(req: Request) {
           losses,
           totalExp,
           totalProficiency,
+          totalMastery,
           totalGold,
           totalGoldGross,
           totalGoldTaxed,
@@ -1318,6 +1343,7 @@ export async function POST(req: Request) {
           hpCharges,
           mpCharges,
           playerMaxMp,
+          replays,
           ejected,
         },
       },

@@ -140,7 +140,7 @@ export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
     { uses: 1, dropPct: 0.005 },
   ),
   // 테스트 전용 — 사냥 드랍 안 됨(dropPct 0 → 관리자 지급 전용). 사용 시 EXP 100만을
-  //   한 판 사냥처럼 적용(레벨 + 직군 누적레벨 + 스탯 성장).
+  //   EXP 레벨업과 스탯 성장을 적용한다. 직업 숙련도는 사냥 승리 보상이라 오르지 않는다.
   exp_tome: utilityKind(
     "exp_tome",
     "경험치의 비약 (테스트)",

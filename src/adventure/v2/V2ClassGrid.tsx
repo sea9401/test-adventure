@@ -20,8 +20,9 @@ import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
 import { useGameState } from "./GameStateProvider";
 
-// 성장의 신전 "직업" 탭 — 4직군(전사/무도가/마법사/도적) 아이콘 그리드.
-//  · 각 아이콘 = 직군. 도달 차수(N차) + 직군 누적레벨(cumLevel) 표시, 현 직업은 하이라이트.
+// 성장의 신전 "직업" 탭 레거시 폴백 — 4직군(전사/무도가/마법사/도적) 아이콘 그리드.
+// 코어루프 on 에서는 V2JobLadder 가 렌더되고, 이 컴포넌트는 jobsV2 가 없는 off 모드에서만 쓴다.
+//  · 각 아이콘 = 직군. 레거시 도달 차수(N차) + 직업 숙련도(cumLevel) 표시, 현 직업은 하이라이트.
 //  · 현 직업 클릭 = 다음 차수 전직(무료, 게이트 충족 시 "전직" 배지). class 는 불변, 차수만 +1.
 //  · 다른 직업 클릭 = 갈아타기(무료·쿨다운 없음, 레벨1 리셋, "도달 차수로 복귀").
 //  · 속성은 여기서 변경하지 않음 — 읽기 전용 표기만(변경은 별도 경로).
@@ -108,7 +109,7 @@ export function V2ClassGrid({
           j?.error === "level_too_low"
             ? `레벨 부족 (Lv ${j.have ?? "?"} / ${j.required ?? activeCap})`
             : j?.error === "insufficient_cum_level"
-              ? `직군 누적 레벨 부족 (${j.have ?? "?"}/${j.required ?? "?"})`
+              ? `직업 숙련도 부족 (${j.have ?? "?"}/${j.required ?? "?"})`
               : j?.error === "codex_incomplete"
                 ? `모험의 서 부족 (재료 ${j.have ?? "?"}/${j.required ?? "?"})`
                 : j?.error === "no_advance"
@@ -138,7 +139,7 @@ export function V2ClassGrid({
         const res = await fetch("/api/v2/me/class-element", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          // 직군(job)만 보냄 — 속성은 현재 값 유지(여기선 안 바꿈). 서버가 도달 차수로 해석.
+          // 직군(job)만 보냄 — 속성은 현재 값 유지(여기선 안 바꿈). off 모드 서버가 레거시 차수로 해석.
           body: JSON.stringify({ class: job, element: currentElement }),
         });
         const j = (await res.json().catch(() => null)) as {
@@ -215,7 +216,7 @@ export function V2ClassGrid({
             jobAtCap &&
             (jobTier >= 4 || codexOk);
           const badgeLabel = jobTier >= 4 ? "환생" : "전직";
-          // 도달 차수 — 전직 가능하면 다음 차수를 미리 보여줌.
+          // 레거시 도달 차수 — 전직 가능하면 다음 차수를 미리 보여줌.
           const showTier = ready && jobTier < 4 ? jobTier + 1 : reached;
           const IconCmp = ICON_BY_JOB[job] ?? Sword;
           const isSel = job === selected;
@@ -272,7 +273,7 @@ export function V2ClassGrid({
           <span className="text-sm font-semibold">
             {V2_CLASS_DEFS[selected].name}
             <span className="ml-1 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-              {selReached}차 · 누적레벨 {selCum.toLocaleString()}
+              {selReached}차 · 숙련도 {selCum.toLocaleString()}
             </span>
           </span>
           {isActiveSel && (
@@ -319,7 +320,7 @@ export function V2ClassGrid({
               {isReincarnationReady && (
                 <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
                   환생 시 권능(성장치·트레이트·초과 키트픽)이 리셋되고 1차 Lv1로 돌아갑니다.
-                  누적 레벨, 숙련도 한계치, 프론티어 층은 보존됩니다.
+                  직업 숙련도, 성장 한계치, 프론티어 층은 보존됩니다.
                 </p>
               )}
               <button

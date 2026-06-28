@@ -1,8 +1,8 @@
-// v2 코어 루프 재설계 — 다이얼/플래그/스탯게이트 데이터. (docs/v2-core-loop-redesign.md PR-1)
+// v2 코어 루프 재설계 — 다이얼/플래그/직업 해금 데이터. (docs/v2-core-loop-redesign.md PR-1)
 //
 // ⚠️ 이 모듈은 PR-1 단계에서 "정의만" 한다 — 런타임 로직 불변. 마스터 플래그
 //    V2_CORE_LOOP_V2 가 off 인 동안 이 상수/데이터를 참조하는 코드는 없다(inert).
-//    후속 PR(스태미나 폐지·직업 스탯게이트 트리·재전직·사냥 쿨다운·오프라인·ATB·SP
+//    후속 PR(스태미나 폐지·직업 해금 트리·재전직·사냥 쿨다운·오프라인·ATB·SP
 //    스킬 로드아웃)이 플래그 게이트 뒤에서 단계적으로 배선하고, 전 시스템 완성 후 flip 한다.
 //
 // 전 시스템 = V1식 한판한판 사냥(스태미나 폐지·전투당 딜레이·오프라인 자동전투) + 평탄
@@ -202,30 +202,35 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 
 // === 스킬포인트(SP) 로드아웃 예산 (직업군 마일스톤 파생) =======================
 // 레벨 슬롯(스킬 1개씩) 폐지 → "배운 스킬 중 합(spCost) ≤ SP예산"으로 자유 장착. SP 는
-// 직업군별 누적레벨 마일스톤 보상으로 쌓인다(성장 체감 — "스킬포인트 획득!"). 베테랑일수록
+// 직업군별 숙련도 마일스톤 보상으로 쌓인다(성장 체감 — "스킬포인트 획득!"). 베테랑일수록
 // 큰 로드아웃. 여러 직업군 환생 누적 = 더 큰 예산. (전 V2_CORE_LOOP_V2 뒤·미배선이면 inert.)
 //
 // 🔑 마일스톤 간격은 cumLevel 이 깊어질수록 "넓어진다"(점감) — flat 간격은 선형 무한증가라
-//    베테랑이 결국 전 카탈로그 장착 가능(제약 붕괴). 운영 실측(prod RDS 10인): 1환생 ≈ 291
-//    cumLevel, top 베테랑 1062. flat 45 면 top 43 SP(≈12스킬), 점감(a45 d25)이면 top ~32(≈9스킬)
-//    로 천장이 굳어 "전부 장착"이 영영 안 됨. n번째 SP 의 간격 = BASE + (n-1)*WIDEN 으로 벌어짐.
-//    (n번째 SP 누적 임계 cumLevel: SP1@45 2@115 3@210 4@330 5@475 6@645 7@840 8@1060.)
+//    베테랑이 결국 전 카탈로그 장착 가능(제약 붕괴). SP 계산은 해금용 숙련도를 1/6 정규화한
+//    밸런스 입력을 쓴다. 운영 실측(prod RDS 10인)의 예전 1환생≈291 은 마이그 후 1746이지만
+//    밸런스 입력은 그대로 291 이라 예산 충격이 없다. n번째 SP 간격 = BASE + (n-1)*WIDEN.
+//    (밸런스 입력 임계: SP1@45 2@115 3@210 4@330 5@475 6@645 7@840 8@1060.)
 export const SP_BASE = 12; // 시작 SP.
-export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 cumLevel(≈ 새 시스템 한 루프 Lv1→50).
+export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 밸런스 숙련도(원본 숙련도 270).
 export const SP_MILESTONE_WIDEN = 25; // 다음 SP 마다 간격이 이만큼씩 더 벌어진다(점감 강도).
 export const SP_MASTERED_JOB_BONUS = 3; // 직업군 "정복" 1회당 +SP.
-// "정복" 기준 = cumLevel 임계(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
+// "정복" 기준 = 밸런스 숙련도 임계(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
 //   리셋이라 tier≥4 기준은 거의 휴면(현 직업군이 4차 도달~환생 전에만 +3). cumLevel 은 환생에도
 //   보존 → "여러 직업 정복 누적"이 실제로 쌓인다(오픈믹스 수집 보상). 임계 250 은 운영 RDS 검증:
 //   10인 전원에서 tier≥4 정복 수를 그대로 재현(flip 시 예산 충격 0) + 이후 영속. (튜닝 다이얼.)
 export const SP_MASTERED_CUMLEVEL = 250;
 export const SP_MAX_SOFT_CAP = 40; // 절대 천장(점감 곡선상 단일직 ~7·broad 베테랑 ~32, 캡은 안전망).
+const SP_MASTERY_BALANCE_SCALE = 6;
+function spBalanceCumLevel(cumLevel: number): number {
+  if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
+  return Math.floor(cumLevel / SP_MASTERY_BALANCE_SCALE);
+}
 
 // 한 직업군 cumLevel → 마일스톤 SP 개수(점감). 간격이 SP 마다 +WIDEN 벌어지는 등차 임계의 역.
 //   임계 T(n) = BASE·n + WIDEN·n(n-1)/2 ≤ cum 인 최대 n. 근의공식 닫힌형(루프 불필요).
 //   cum ≤ 0 → 0. (역수식 floor 경계 부동소수 안정용 +1e-9.)
 export function spMilestonesForCumLevel(cumLevel: number): number {
-  const raw = Number(cumLevel);
+  const raw = spBalanceCumLevel(Number(cumLevel));
   const cum = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
   if (cum < SP_MILESTONE_BASE) return 0;
   const a = SP_MILESTONE_BASE;
@@ -235,10 +240,10 @@ export function spMilestonesForCumLevel(cumLevel: number): number {
   return Math.max(0, Math.floor(n));
 }
 
-// SP 예산 계산 — 각 직업군 cumLevel 점감 마일스톤 합 + 정복(cumLevel 임계) 보너스 + 기본. 소프트캡.
+// SP 예산 계산 — 각 직업군 밸런스 숙련도 점감 마일스톤 합 + 정복 보너스 + 기본. 소프트캡.
 //   groups = proficiency.groups (직업군별 { cumLevel }). 구조적 인자(순환 import 회피).
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
-//   정복 = cumLevel≥SP_MASTERED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
+//   정복 = balance(cumLevel)≥SP_MASTERED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
 //   spCapBonus — SP 열매(협동 보스 보상) 사용분. 소프트캡(40) 위에 더해 천장을 올린다(영구
 //   빌드폭). 🔑 기본 0 → 기존 모든 콜러/플레이어 예산 byte-identical(SP 열매 미사용 시 무변).
 export function calcSpBudget(
@@ -250,7 +255,9 @@ export function calcSpBudget(
   for (const g of Object.values(groups ?? {})) {
     const cum = Number(g?.cumLevel) || 0;
     milestoneSp += spMilestonesForCumLevel(cum);
-    if (cum >= SP_MASTERED_CUMLEVEL) masteredBonus += SP_MASTERED_JOB_BONUS;
+    if (spBalanceCumLevel(cum) >= SP_MASTERED_CUMLEVEL) {
+      masteredBonus += SP_MASTERED_JOB_BONUS;
+    }
   }
   const bonus = Math.max(0, Math.floor(Number(spCapBonus) || 0));
   return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus) + bonus;

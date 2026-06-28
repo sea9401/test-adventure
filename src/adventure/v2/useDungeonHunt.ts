@@ -11,6 +11,7 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { RareMapKindId } from "@/adventure/data/v2/rareMaps";
+import type { BatchReplayEntry } from "@/adventure/v2/BatchSummaryCard";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
@@ -53,6 +54,7 @@ export type BatchHuntPayload = {
   losses: number;
   totalExp: number;
   totalProficiency: number;
+  totalMastery?: number;
   totalGold: number;
   totalGoldGross: number; // 세전 합산 — 결과 카드 세금 줄 표기용.
   totalGoldTaxed: number;
@@ -78,6 +80,7 @@ export type BatchHuntPayload = {
   hpCharges: number | null;
   mpCharges: number | null;
   playerMaxMp: number | null;
+  replays?: BatchReplayEntry[];
 };
 
 type BatchHuntResponse = {
@@ -171,9 +174,13 @@ export function useDungeonHunt({
               (r.proficiencyGained ?? 0) > 0
                 ? ` · 숙달 포인트 +${r.proficiencyGained}`
                 : "";
+            const mastery =
+              (r.masteryGained ?? 0) > 0
+                ? ` · 직업 숙련도 +${r.masteryGained}`
+                : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
             pushLog(
-              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감${r.taxOwnerLabel ? ` → ${r.taxOwnerLabel}` : ""}, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof}${mastery} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감${r.taxOwnerLabel ? ` → ${r.taxOwnerLabel}` : ""}, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
             return r;
           }
@@ -228,8 +235,12 @@ export function useDungeonHunt({
         if (json.ok === true && json.batch) {
           const b = json.batch;
           const cur = json.stamina?.current ?? "?";
+          const mastery =
+            (b.totalMastery ?? 0) > 0
+              ? ` · 직업 숙련도 +${b.totalMastery}`
+              : "";
           pushLog(
-            `✓ 일괄 ${b.completed}/${b.attempted}회 · 승 ${b.wins}/패 ${b.losses} · EXP +${b.totalExp} · GOLD +${b.totalGold}${b.totalGoldTaxed ? ` (세금 ${b.totalGoldTaxed} 차감${b.taxOwnerLabel ? ` → ${b.taxOwnerLabel}` : ""})` : ""}${b.levelsGained ? ` · 레벨 +${b.levelsGained}` : ""}${formatDrops(b.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+            `✓ 일괄 ${b.completed}/${b.attempted}회 · 승 ${b.wins}/패 ${b.losses} · EXP +${b.totalExp}${mastery} · GOLD +${b.totalGold}${b.totalGoldTaxed ? ` (세금 ${b.totalGoldTaxed} 차감${b.taxOwnerLabel ? ` → ${b.taxOwnerLabel}` : ""})` : ""}${b.levelsGained ? ` · 레벨 +${b.levelsGained}` : ""}${formatDrops(b.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
           );
           return b;
         }

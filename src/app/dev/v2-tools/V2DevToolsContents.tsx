@@ -31,6 +31,7 @@ export function V2DevToolsContents() {
   const [level, setLevel] = useState("");
   const [gold, setGold] = useState("100000");
   const [proficiency, setProficiency] = useState("300");
+  const [mastery, setMastery] = useState("600");
   const [hpCharges, setHpCharges] = useState("1000");
   const [mpCharges, setMpCharges] = useState("1000");
   const [matId, setMatId] = useState<V2MaterialId>(MATERIAL_IDS[0]);
@@ -171,7 +172,22 @@ export function V2DevToolsContents() {
               post(
                 "/api/v2/dev/grant",
                 { proficiency: num(proficiency) },
-                "숙달 포인트 부여(현 직업군)",
+                "숙달 포인트 부여",
+              )
+            }
+          >
+            부여
+          </Btn>
+        </Row>
+        <Row label="직업 숙련도">
+          <NumInput value={mastery} onChange={setMastery} />
+          <Btn
+            disabled={busy}
+            onClick={() =>
+              post(
+                "/api/v2/dev/grant",
+                { mastery: num(mastery) },
+                "직업 숙련도 부여",
               )
             }
           >

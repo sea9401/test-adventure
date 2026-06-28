@@ -10,6 +10,7 @@ import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
 import { type HpBarState } from "@/adventure/v2/HpBar";
 import {
   BatchSummaryCard,
+  type BatchReplayEntry,
   type BatchSummary,
 } from "@/adventure/v2/BatchSummaryCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
@@ -75,6 +76,10 @@ export function V2DungeonFloorView({
   outpostName,
   playerName,
   playerGender,
+  initialExp = 0,
+  initialMaxExp = 1,
+  initialHpCharges = 0,
+  initialMpCharges = 0,
   stamina,
   setStamina,
   hp,
@@ -101,6 +106,11 @@ export function V2DungeonFloorView({
   outpostName: string;
   playerName: string;
   playerGender: Gender;
+  // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
+  initialExp?: number;
+  initialMaxExp?: number;
+  initialHpCharges?: number;
+  initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
   stamina: StaminaState;
   setStamina: (s: StaminaState) => void;
@@ -165,6 +175,8 @@ export function V2DungeonFloorView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  const [selectedBatchReplay, setSelectedBatchReplay] =
+    useState<BatchReplayEntry | null>(null);
   // 연패 카운터 — 단판 사냥 결과마다 갱신(승=0 리셋·패=+1). 넛지 배너 격상 조건에 사용.
   const [lossStreak, setLossStreak] = useState(0);
   // 일괄 사냥 후 캐릭터 정보 카드용 — 서버 일괄 처리는 단판 lastResult 를 세우지 않으므로
@@ -176,6 +188,13 @@ export function V2DungeonFloorView({
     mpCharges?: number;
     hasMp: boolean;
   } | null>(null);
+  const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
+  const statusMaxExp =
+    lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? initialMaxExp;
+  const statusHpCharges =
+    lastResult?.hpCharges ?? batchStatus?.hpCharges ?? initialHpCharges;
+  const statusMpCharges =
+    lastResult?.mpCharges ?? batchStatus?.mpCharges ?? initialMpCharges;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
@@ -228,7 +247,7 @@ export function V2DungeonFloorView({
   const [autoHunt, setAutoHunt] = useState(false);
   useEffect(() => {
     if (!autoHunt) return;
-    const id = setInterval(() => triggerHuntRef.current(), 1200);
+    const id = setInterval(() => triggerHuntRef.current(), 1500);
     return () => clearInterval(id);
   }, [autoHunt]);
   // 자동 사냥(오프라인 세션)과 직접 사냥은 상호 배타 — 세션이 켜지면 온라인 루프를 멈춘다.
@@ -277,6 +296,8 @@ export function V2DungeonFloorView({
         battles?: number;
         totalExp?: number;
         totalGold?: number;
+        totalProficiency?: number;
+        totalMastery?: number;
       } | null;
       const stopRes = await fetch("/api/v2/me/offline-hunt", {
         method: "POST",
@@ -290,7 +311,7 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         (j?.battles ?? 0) > 0
-          ? `오프라인 사냥 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
+          ? `오프라인 사냥 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}${(j!.totalProficiency ?? 0) > 0 ? ` · 숙달 포인트 +${(j!.totalProficiency ?? 0).toLocaleString()}` : ""}${(j!.totalMastery ?? 0) > 0 ? ` · 직업 숙련도 +${(j!.totalMastery ?? 0).toLocaleString()}` : ""}`
           : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
@@ -324,6 +345,7 @@ export function V2DungeonFloorView({
   const runBatch = async (count: number) => {
     setSettingsOpen(false);
     setBatchSummary(null);
+    setSelectedBatchReplay(null);
     setBatchStatus(null);
     setBatchRunning(true);
     try {
@@ -346,6 +368,7 @@ export function V2DungeonFloorView({
         droppedUniques: b.droppedUniques,
         rareMapDrops: b.rareMapDrops,
         stoppedReason: b.stoppedReason,
+        replays: b.replays,
       });
       if (b.rareMapRunsLeft != null) setRareMapRunsLeft(b.rareMapRunsLeft);
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
@@ -417,6 +440,7 @@ export function V2DungeonFloorView({
       return;
     }
     setBatchSummary(null);
+    setSelectedBatchReplay(null);
     // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). off = huntCount 반영.
     if (coreLoopOn || huntCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
@@ -483,7 +507,7 @@ export function V2DungeonFloorView({
     //   자동전투(#840 우려)와 무관하고, 스태미나·체력으로 자연 제한된다(소진 시 triggerHunt 정지).
     if (offlineLocked || autoHunt) return;
     setAutoHunt(true);
-    triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시.
+    triggerHunt(); // 1.5초 인터벌을 기다리지 않고 첫 판 즉시.
   };
   // 탭(짧게) — 자동 중이면 정지, 아니면 단판/일괄(huntCount). 두 모드 공용.
   const tapHunt = () => {
@@ -583,8 +607,8 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. HP(라이브)·MP 바를 카드 안에 포함하고,
-          최근 사냥의 EXP 진행도·회복약을 함께 보여준다(사냥 전엔 EXP 바 생략). */}
+      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
+          클릭 때 카드 높이가 바뀌지 않게 한다. */}
       {hp && (
         <PlayerStatusCard
           gender={playerGender}
@@ -592,10 +616,10 @@ export function V2DungeonFloorView({
           subtitle={playerSubtitle}
           hp={hp}
           mp={mp}
-          exp={lastResult?.expAfter ?? batchStatus?.exp}
-          maxExp={lastResult?.maxExpAfter ?? batchStatus?.maxExp}
-          hpCharges={lastResult?.hpCharges ?? batchStatus?.hpCharges}
-          mpCharges={lastResult?.mpCharges ?? batchStatus?.mpCharges}
+          exp={statusExp}
+          maxExp={statusMaxExp}
+          hpCharges={statusHpCharges}
+          mpCharges={statusMpCharges}
           hasMp={(mp?.maxMp ?? 0) > 0}
           combat={playerCombat}
         />
@@ -783,7 +807,10 @@ export function V2DungeonFloorView({
       {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
       {/* 캐릭터 정보(HP/MP/EXP)는 위 PlayerStatusCard 로 상시 노출 — 결과는 요약/리플레이만. */}
       {batchSummary ? (
-        <BatchSummaryCard summary={batchSummary} />
+        <BatchSummaryCard
+          summary={batchSummary}
+          onSelectReplay={setSelectedBatchReplay}
+        />
       ) : (
         lastResult && (
           <HuntResultCard
@@ -793,6 +820,26 @@ export function V2DungeonFloorView({
             hasMp={(mp?.maxMp ?? 0) > 0}
           />
         )
+      )}
+
+      {batchSummary && selectedBatchReplay?.replay && (
+        <ReplayBattleScene
+          key={selectedBatchReplay.index}
+          payload={selectedBatchReplay.replay}
+          startPlayerHp={selectedBatchReplay.startPlayerHp}
+          playerName={playerName}
+          gender={playerGender}
+          exp={selectedBatchReplay.expForBar ?? 0}
+          maxExp={selectedBatchReplay.maxExpForBar ?? 1}
+          hpCharges={selectedBatchReplay.hpCharges}
+          mpCharges={selectedBatchReplay.mpCharges}
+          playerSubtitle={playerSubtitle}
+          elementMatchup={selectedBatchReplay.elementMatchup}
+          outcome={selectedBatchReplay.won ? undefined : "lose"}
+          playerCombat={
+            playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
+          }
+        />
       )}
 
       {showLevelupModal && (

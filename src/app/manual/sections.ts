@@ -64,7 +64,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "skills",
     title: "스킬",
-    summary: "액티브 스킬 습득·장착 슬롯, 직업 전용 스킬.",
+    summary: "액티브 스킬 습득, SP 로드아웃, 직업 전용 스킬.",
     group: "growth",
   },
   {

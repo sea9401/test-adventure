@@ -184,7 +184,7 @@ export function buildQuestCtx(args: {
     ? skillsSave.learned.filter((s) => typeof s === "string").length
     : 0;
 
-  // 확장 신호(2026-06-11) — 누적레벨·몬스터 종 수·전쟁 카운터.
+  // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수·전쟁 카운터.
   const cumLevel = totalCumLevel(prof);
   // 환생(재전직) 횟수 — 윤회의 길 첫 퀘스트("다시 태어나다") 판정. cumLevel 임계 대신 행동 신호.
   const reincarnations = prof.reincarnations ?? 0;

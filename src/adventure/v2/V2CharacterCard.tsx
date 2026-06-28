@@ -167,7 +167,7 @@ export function V2CharacterCard({
           </div>
           {isAtCap && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              레벨이 한계에 도달했어요. 성장의 신전에서 환생해 누적 레벨을 쌓으면 더 강해지고 새 직업이 열려요.
+              레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.
             </p>
           )}
           <div className="space-y-1.5">
@@ -212,15 +212,17 @@ export function V2CharacterCard({
                   {label}
                 </div>
                 <div
-                  className={`truncate text-xs font-medium ${
+                  className={`flex min-h-[2rem] w-full min-w-0 items-start justify-center gap-0.5 text-xs font-medium leading-tight ${
                     item
                       ? powerNameClass(item, inst?.roll)
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >
-                  {item?.name ?? "—"}
+                  <span className="min-w-0 break-keep line-clamp-2">
+                    {item?.name ?? "—"}
+                  </span>
                   {inst?.enhance && inst.enhance.level > 0 ? (
-                    <span className="ml-0.5 font-semibold text-amber-500">
+                    <span className="shrink-0 font-semibold text-amber-500">
                       +{inst.enhance.level}
                     </span>
                   ) : null}

@@ -24,9 +24,13 @@ export default function DungeonFloorPage() {
     currentOutpost,
     viewerName,
     viewerGender,
+    viewerExp,
+    viewerExpToNext,
     playerSubtitle,
     stamina,
     setStamina,
+    hpCharges,
+    mpCharges,
     hp,
     setHp,
     mp,
@@ -64,6 +68,10 @@ export default function DungeonFloorPage() {
       outpostName={currentOutpost.name}
       playerName={viewerName}
       playerGender={viewerGender}
+      initialExp={viewerExp}
+      initialMaxExp={viewerExpToNext}
+      initialHpCharges={hpCharges}
+      initialMpCharges={mpCharges}
       playerSubtitle={playerSubtitle}
       stamina={stamina}
       setStamina={setStamina}

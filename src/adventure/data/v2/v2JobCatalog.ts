@@ -558,14 +558,6 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 18, spi: 8 },
     unlock: { prereqs: { sage: TIER5_UNLOCK_CUMLEVEL } },
   },
-  elementweaver: {
-    id: "elementweaver",
-    name: "원소도사",
-    tier: 5,
-    cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 17, spi: 9 },
-    unlock: { prereqs: { elementalist: TIER5_UNLOCK_CUMLEVEL } },
-  },
   marksman: {
     id: "marksman",
     name: "명궁",
@@ -742,11 +734,10 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)
   rescueexpert: { class: "survivor", spec: "rescueexpert" },
   returner: { class: "survivor", spec: "returner" },
-  // tier 5 — 핵심 6개 상급 심화 직업.
+  // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
   ironknight: { class: "warrior", spec: "ironknight" },
   arcanist: { class: "mage", spec: "arcanist" },
-  elementweaver: { class: "mage", spec: "elementweaver" },
   marksman: { class: "rogue", spec: "marksman" },
   nightshade: { class: "rogue", spec: "nightshade" },
 };

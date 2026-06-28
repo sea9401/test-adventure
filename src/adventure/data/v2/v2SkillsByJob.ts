@@ -69,11 +69,10 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   battlemonk: ["v2c_battlemonk_counter", "v2c_battlemonk_ironbody"], // 반격(피격 카운터) + 철신(최대HP+20%) — 둘 다 패시브
   rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"], // 긴급 구조 + 생환 지원
   returner: ["v2c_returner_survive", "v2c_returner_undying"], // 생환 + 불굴
-  // ── 5차 핵심 6직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
+  // ── 5차 핵심 5직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
   swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"], // 검호: 검격 + 검의 집중
   ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 철벽 태세 + 장벽술
   arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"], // 비전술사: 비전 폭발 + 비전 이론
-  elementweaver: ["v2c_elementweaver_spell", "v2c_elementweaver_attunement"], // 원소도사: 원소술 + 원소 조율
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
   nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"], // 밤그림자: 월식 + 밤의 장막
 };

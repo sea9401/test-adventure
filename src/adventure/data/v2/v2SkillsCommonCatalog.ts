@@ -150,15 +150,13 @@ export type V2CommonSkillId =
   | "v2c_rescueexpert_support" // 생환 지원 (회복 + 최대 HP)
   | "v2c_returner_survive" // 생환 (자힐 + 큰 보호막)
   | "v2c_returner_undying" // 불굴 (최대 HP + 받피감)
-  // ── 5차 핵심 6직업 ──
+  // ── 5차 핵심 5직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
   | "v2c_ironknight_guard" // 철벽 태세 (보호막 + 받피감)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
   | "v2c_arcanist_burst" // 비전 폭발 (순수 마법 피해)
   | "v2c_arcanist_theory" // 비전 이론 (지능 + 치명확률)
-  | "v2c_elementweaver_spell" // 원소술 (속성 마법 심화)
-  | "v2c_elementweaver_attunement" // 원소 조율 (상성 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
@@ -1026,7 +1024,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxHpPct: 25, damageTakenReductionPct: 8 },
   },
 
-  // ── 5차 핵심 6직업 — 새 엔진 효과 없이 기존 어휘 조합으로 구현 ──
+  // ── 5차 핵심 5직업 — 새 엔진 효과 없이 기존 어휘 조합으로 구현 ──
   v2c_swordmaster_cut: {
     id: "v2c_swordmaster_cut", name: "검격", stat: "str", category: "attack", tier: 3,
     description: "흔들림 없이 베어 적의 자세를 무너뜨린다.",
@@ -1068,32 +1066,6 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { int: 18 }, critPct: 8 },
-  },
-  v2c_elementweaver_spell: {
-    id: "v2c_elementweaver_spell", name: "원소술", stat: "int", category: "attack", tier: 3,
-    description: "원소를 엮어 상황에 맞는 주문으로 풀어낸다.",
-    mpCost: 54, cooldown: 0, procChance: 30,
-    elementNamed: true,
-    effects: [dmg(1.45, 300, "magic")],
-    elementEffects: {
-      fire: [
-        dmg(1.45, 300, "magic"),
-        { kind: "dot", ...V2_DOT_PRESETS.연소, flatPerStack: 26, stacks: 3 },
-      ],
-      water: [{ kind: "shield", pctMaxHp: 15, pctMaxMp: 0, turns: 3 }],
-      wind: [dmg(1.45, 300, "magic"), { kind: "selfHaste", pct: 55 }],
-      earth: [dmg(1.45, 300, "magic"), { kind: "enemyDelay", pct: 55 }],
-      lightning: [dmg(1.45, 300, "magic"), { kind: "enemyVuln", pct: 24, turns: 3 }],
-      starlight: [dmg(1.45, 300, "magic"), { kind: "enemyEvasionDown", pct: 24, turns: 3 }],
-      void: [dmg(1.45, 300, "magic"), { kind: "enemyAccuracyDown", pct: 24, turns: 3 }],
-    },
-  },
-  v2c_elementweaver_attunement: {
-    id: "v2c_elementweaver_attunement", name: "원소 조율", stat: "int", category: "passive", tier: 3,
-    description: "원소의 흐름에 몸을 맞춘다. 유리한 상성과 저항이 더 강해진다.",
-    mpCost: 0, cooldown: 0,
-    effects: [],
-    passive: { elementAdvPctBonus: 20, elementDisPctBonus: 20 },
   },
   v2c_marksman_shot: {
     id: "v2c_marksman_shot", name: "정밀 사격", stat: "dex", category: "attack", tier: 3,

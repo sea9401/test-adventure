@@ -59,6 +59,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   sage: "magus",
   elementalist: "magus",
   archshaman: "shaman",
+  archbishop: "bishop",
   chief: "ranger",
   venomlord: "venomancer",
   battlemonk: "warmonk", // 무도 4차 두 번째 갈래 — 무승 계보
@@ -80,14 +81,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("47개 직업(루트 2 + 기본 4 + 상위 11 + 고차 17 + 심화 13)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(47);
+  it("48개 직업(루트 2 + 기본 4 + 상위 11 + 고차 17 + 심화 14)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(48);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(11);
     expect(byTier(3)).toBe(17);
-    expect(byTier(4)).toBe(13);
+    expect(byTier(4)).toBe(14);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {

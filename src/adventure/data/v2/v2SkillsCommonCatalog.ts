@@ -133,6 +133,9 @@ export type V2CommonSkillId =
   // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) ──
   | "v2c_archshaman_rite" // 금단 의식 (마법취약 폭발)
   | "v2c_archshaman_curse" // 금기 주술 (마법취약 심화)
+  // ── 마법 4차 네 번째 갈래(주교·대사제 계승) ──
+  | "v2c_archbishop_sanctuary" // 성역 선포 (낮은 회복 + 받피감)
+  | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
   | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
@@ -350,7 +353,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   pctLostHp=잃은 체력 비례(낮을수록 강·고HP 낭비 없음). 스마트 패턴이 HP<50%에서 자동 발동.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
     description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 30 }],
+    effects: [{ kind: "heal", pctLostHp: 10 }],
   },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {
@@ -577,7 +580,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
     description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 45 }],
+    effects: [{ kind: "heal", pctLostHp: 18 }],
   },
   v2c_shadow_assassinate: {
     // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
@@ -912,6 +915,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 8 },
+  },
+  v2c_archbishop_sanctuary: {
+    id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
+    description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
+    mpCost: 46, cooldown: 0, procChance: 100,
+    effects: [
+      { kind: "heal", pctLostHp: 12 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
+    ],
+  },
+  v2c_archbishop_grace: {
+    id: "v2c_archbishop_grace", name: "성직 권위", stat: "int", category: "passive", tier: 3,
+    description: "성직자의 권위로 회복술을 보조하고 몸을 조금 더 오래 버티게 한다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { healPowerPct: 12, maxHpPct: 8 },
   },
 
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 액티브 보호막 + 반사 패시브 ──

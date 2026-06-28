@@ -102,7 +102,9 @@ export type CoopSessionDetail = {
 };
 
 // 공용 claim 호출 — 목록/상세 양쪽에서 사용.
+// ok=true·reward=null = 기준 미달 dismiss(보상 없이 목록에서 치움) — 에러 아님.
 async function postClaim(sessionId: string): Promise<{
+  ok: boolean;
   reward: CoopClaimReward | null;
   error: string | null;
 }> {
@@ -116,8 +118,8 @@ async function postClaim(sessionId: string): Promise<{
     error?: string;
     reward?: CoopClaimReward | null;
   };
-  if (j.ok && j.reward) return { reward: j.reward, error: null };
-  return { reward: null, error: j.error ?? "unknown" };
+  if (j.ok) return { ok: true, reward: j.reward ?? null, error: null };
+  return { ok: false, reward: null, error: j.error ?? "unknown" };
 }
 
 function claimErrorLabel(error: string): string {
@@ -218,9 +220,9 @@ export function useCoopListState() {
       setBusy(true);
       setNotice(null);
       try {
-        const { reward, error } = await postClaim(sessionId);
+        const { ok, reward, error } = await postClaim(sessionId);
         if (reward) setLastReward(reward);
-        else if (error) setNotice(claimErrorLabel(error));
+        else if (!ok && error) setNotice(claimErrorLabel(error));
       } catch {
         setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
       } finally {
@@ -364,9 +366,9 @@ export function useCoopSessionState({
     setBusy(true);
     setNotice(null);
     try {
-      const { reward, error } = await postClaim(sessionId);
+      const { ok, reward, error } = await postClaim(sessionId);
       if (reward) setLastReward(reward);
-      else if (error) setNotice(claimErrorLabel(error));
+      else if (!ok && error) setNotice(claimErrorLabel(error));
     } catch {
       setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
     } finally {

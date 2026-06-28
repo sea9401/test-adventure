@@ -134,9 +134,21 @@ export async function POST(req: Request) {
       contrib.damage / Math.max(1, session.maxHp),
     );
     if (!tier) {
+      // 기준 미달(BRONZE 미만) — 받을 보상은 없지만, 목록(미수령 토벌 보상)에 영원히
+      // 남아 치울 수 없던 버그 해소: "확인" 으로 dismiss 할 수 있게 claimedAt 만 마킹
+      // (보상·퀘스트 기록 없음). 멱등 — 재호출 시 위 alreadyClaimed 가드로 통과.
+      await tx
+        .update(coopBossContributors)
+        .set({ claimedAt: new Date(now) })
+        .where(
+          and(
+            eq(coopBossContributors.sessionId, sessionId),
+            eq(coopBossContributors.userId, userId),
+          ),
+        );
       return {
-        status: 409,
-        body: { ok: false as const, error: "below_bronze" as const },
+        status: 200,
+        body: { ok: true as const, alreadyClaimed: false, reward: null },
       };
     }
 

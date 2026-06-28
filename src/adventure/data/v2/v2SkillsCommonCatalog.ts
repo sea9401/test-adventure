@@ -79,12 +79,16 @@ export type V2CommonSkillId =
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   // 액티브
   | "v2c_guardian_bash" // 방패 강타 (방어기반 단일)
+  | "v2c_berserker_bloodslash" // 사혈격 (HP 소모 물리 강타)
+  | "v2c_shaman_hex" // 저주 (마법 피해 + 약화)
   | "v2c_warmonk_kick" // 연환각 (물리 다단)
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
   | "v2c_venomancer_miasma" // 맹독 확산 (중독 심화 + 중독 스택 비례딜)
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
   | "v2c_guardian_bulwark3" // 방벽 II (방어 +20%)
+  | "v2c_berserker_madness3" // 광기 (잃은 HP 비례 공격력)
+  | "v2c_shaman_omen3" // 흉조 (마법취약 누적)
   | "v2c_warmonk_evasion3" // 강건 III (활력 +30%·무승)
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
@@ -94,6 +98,10 @@ export type V2CommonSkillId =
   | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
   | "v2c_spellblade_strike" // 마검사: 마검 일섬 (물리 + 마법 이중 타격)
   | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +12% & 지능 +12%)
+  | "v2c_bloodtemplar_stigma" // 혈성기사: 피의 성흔 (HP 소모 피해 + 회복)
+  | "v2c_bloodtemplar_martyr" // 혈성기사: 순교의 광기 (광전 + 회복강화)
+  | "v2c_darkpriest_reap" // 암흑사제: 영혼 수확 (처형 + 회복)
+  | "v2c_darkpriest_blessing" // 암흑사제: 검은 축복 (회복강화 + 치명피해)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
   | "v2c_sensei_combo" // 권룡파 (방깎 단일 — 무력 디버프·권룡)
@@ -112,9 +120,15 @@ export type V2CommonSkillId =
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
+  // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) ──
+  | "v2c_archshaman_rite" // 금단 의식 (마법취약 폭발)
+  | "v2c_archshaman_curse" // 금기 주술 (마법취약 심화)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
   | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
+  // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) ──
+  | "v2c_warlord_bloodbath" // 혈전 (HP 소모 강타)
+  | "v2c_warlord_slaughter" // 살육본능 (광기 상위)
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) ──
   | "v2c_battlemonk_counter" // 반격 (피격 시 확률 반격 — 옛 절정 킷 상속)
   | "v2c_battlemonk_ironbody"; // 철신 (최대 HP +20%)
@@ -485,6 +499,21 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "방패를 앞세워 묵직하게 후려친다. 방어력이 높을수록 강하다.", mpCost: 36, cooldown: 0, procChance: 30,
     effects: [dmg(1.8, 220, "def")],
   },
+  v2c_berserker_bloodslash: {
+    // 광전사 = 견습 기사에서 갈라지는 유리대포 라인. 현재 HP를 일부 태워 그 소모량까지 피해로 돌린다.
+    //   저HP 패시브(광기)와 자연스럽게 맞물리지만, 자동전투 눈덩이를 막기 위해 현재 HP 기준 소모로 둔다.
+    id: "v2c_berserker_bloodslash", name: "사혈격", stat: "str", category: "attack", tier: 3,
+    description: "제 피를 뿌리듯 베어낸다. 현재 체력을 일부 소모해 피해를 키운다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.25, baseFlatByTier: [220, 220, 220], soakRatio: 1.4 },
+    ],
+  },
+  v2c_shaman_hex: {
+    // 주술사 = 마법사 계보의 저주 특화. 직접 피해는 마도사보다 낮지만 약화와 마법취약 패시브로 후속 피해를 키운다.
+    id: "v2c_shaman_hex", name: "저주", stat: "int", category: "attack", tier: 3,
+    description: "불길한 주문으로 적을 옭아매고 약화시킨다.", mpCost: 42, cooldown: 0, procChance: 30,
+    effects: [dmg(1.15, 185, "magic"), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.약화 }],
+  },
   v2c_warmonk_kick: {
     // 무승(warmonk)=vit/spi 빌드인데 액티브가 atk(str) 스케일이라 정체성 불일치(str 안 키움→딜 죽음).
     //   vit 스케일로 교체(나한권 dmgT(1.5,..,"vit") 선례). ⚠️ coef 0.4 = 나한권 단일 1.5 의 4타 등가
@@ -527,6 +556,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "온몸으로 받아낸다. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 20 },
+  },
+  v2c_berserker_madness3: {
+    id: "v2c_berserker_madness3", name: "광기", stat: "str", category: "passive", tier: 3,
+    description: "상처가 깊을수록 더 사납게 몰아친다. 잃은 체력 비율에 따라 공격력이 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { berserkAtkPctPerLostHpPct: 0.45 },
+  },
+  v2c_shaman_omen3: {
+    id: "v2c_shaman_omen3", name: "흉조", stat: "int", category: "passive", tier: 3,
+    description: "주문이 적의 혼을 흐트러뜨린다. 스킬 적중 시 마법취약을 누적시킨다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { enemyMagicVulnPctPerStack: 5 },
   },
   v2c_warmonk_evasion3: {
     // 강건 III(무승) — 무인 재설계(2026-06-22): 옛 허공보(회피)에서 활력%로 전환. 수도승 강건 II(+20%)의
@@ -591,6 +634,39 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "검과 마법을 하나로 다룬다. 힘과 지능이 함께 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { str: 12, int: 12 } }, // 8→12(오너 2026-06-22) — 이중 공격축 분산 세금 보상.
+  },
+  v2c_bloodtemplar_stigma: {
+    id: "v2c_bloodtemplar_stigma", name: "피의 성흔", stat: "str", category: "attack", tier: 3,
+    description: "피를 성흔처럼 새겨 적을 베고, 흘린 만큼 상처를 봉합한다.",
+    mpCost: 44, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.15, baseFlatByTier: [190, 190, 190], soakRatio: 1.2 },
+      { kind: "heal", pctLostHp: 12 },
+    ],
+  },
+  v2c_bloodtemplar_martyr: {
+    id: "v2c_bloodtemplar_martyr", name: "순교의 광기", stat: "str", category: "passive", tier: 3,
+    description: "상처와 신념이 뒤섞인다. 잃은 체력에 따라 공격력이 오르고 회복량도 늘어난다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { berserkAtkPctPerLostHpPct: 0.35, healPowerPct: 12 },
+  },
+  v2c_darkpriest_reap: {
+    id: "v2c_darkpriest_reap", name: "영혼 수확", stat: "luk", category: "attack", tier: 3,
+    description: "약해진 영혼을 거두어 들인다. 적이 위태로울수록 깊게 베고 제 상처를 메운다.",
+    mpCost: 42, cooldown: 0, procChance: 35,
+    effects: [
+      { kind: "damage", statCoef: 0.18, baseFlat: 120, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.24, baseFlatByTier: [210, 210, 210], hpThresholdPct: 20, bonusMult: 2.4, scaling: "luk" },
+      { kind: "heal", pctLostHp: 12 },
+    ],
+  },
+  v2c_darkpriest_blessing: {
+    id: "v2c_darkpriest_blessing", name: "검은 축복", stat: "luk", category: "passive", tier: 3,
+    description: "어두운 축복이 치유와 급소 감각을 함께 날카롭게 한다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { healPowerPct: 18, critDmgPct: 20 },
   },
 
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
@@ -742,6 +818,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { elementAdvPctBonus: 15, elementDisPctBonus: 15 },
   },
 
+  // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
+  v2c_archshaman_rite: {
+    id: "v2c_archshaman_rite", name: "금단 의식", stat: "int", category: "attack", tier: 3,
+    description: "금단의 의식으로 적의 혼을 찢는다. 누적된 마법취약이 많을수록 더 깊게 파고든다.",
+    mpCost: 46, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(1.25, 210, "magic"),
+      { kind: "stackPayoffDamage", tag: "magicVuln", statCoef: 0.28, baseFlatByTier: [120, 120, 120], perStackFlat: 36, scaling: "magic" },
+    ],
+  },
+  v2c_archshaman_curse: {
+    id: "v2c_archshaman_curse", name: "금기 주술", stat: "int", category: "passive", tier: 3,
+    description: "금기를 새긴 주문이 적의 혼을 더 크게 흔든다. 마법취약 효과가 깊어진다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { enemyMagicVulnPctPerStack: 8 },
+  },
+
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 액티브 보호막 + 반사 패시브 ──
   v2c_warden_aegis: {
     // 수호의 방벽 — 최대 HP 10% 보호막(기존 shield effect 재사용·마나 보호막 패턴). 방어 탱의
@@ -758,6 +852,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "방벽에 돋은 가시. 공격을 받을 때마다 방어력만큼 되받아친다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { thornsDefPct: 100 },
+  },
+
+  // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력을 끌어올리는 순수 공격 라인 ──
+  v2c_warlord_bloodbath: {
+    id: "v2c_warlord_bloodbath", name: "혈전", stat: "str", category: "attack", tier: 3,
+    description: "피로 길을 열듯 내리친다. 더 큰 체력을 걸고 더 크게 베어낸다.",
+    mpCost: 42, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.45, baseFlatByTier: [280, 280, 280], soakRatio: 1.8 },
+    ],
+  },
+  v2c_warlord_slaughter: {
+    id: "v2c_warlord_slaughter", name: "살육본능", stat: "str", category: "passive", tier: 3,
+    description: "죽음에 가까울수록 전장이 선명해진다. 광기보다 더 크게 공격력이 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { berserkAtkPctPerLostHpPct: 0.65 },
   },
 
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) 킷 — 반격(피격 카운터) + 철신(최대 HP) ──

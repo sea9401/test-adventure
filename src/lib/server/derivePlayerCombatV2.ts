@@ -445,6 +445,10 @@ export type DerivePlayerCombatV2PureInput = {
   passiveElementDisPctBonus?: number;
   /** 중독된 적 방어 -%(부식 패시브) — poisonedEnemyDefReductionPct 에 가산. */
   passivePoisonedEnemyDefReductionPct?: number;
+  /** 광전 — 잃은 HP 비율만큼 공격력 가산. 엔진 computeBerserkBonus 로 소비. */
+  passiveBerserkAtkPctPerLostHpPct?: number;
+  /** 약점 노출 — 스킬 적중 시 적 마법취약 누적. */
+  passiveEnemyMagicVulnPctPerStack?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -805,6 +809,18 @@ export function derivePlayerCombatV2Pure(
     ...(totalPoisonedEnemyDefReductionPct
       ? { poisonedEnemyDefReductionPct: totalPoisonedEnemyDefReductionPct }
       : {}),
+    ...(input.passiveBerserkAtkPctPerLostHpPct
+      ? {
+          berserkAtkPctPerLostHpPct:
+            input.passiveBerserkAtkPctPerLostHpPct,
+        }
+      : {}),
+    ...(input.passiveEnemyMagicVulnPctPerStack
+      ? {
+          enemyMagicVulnPctPerStack:
+            input.passiveEnemyMagicVulnPctPerStack,
+        }
+      : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
     ...(specEff.extraAttackChancePctWhileEnemyBleeding
       ? {
@@ -942,6 +958,10 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveElementDisPctBonus: passiveAgg.elementDisPctBonus,
     passivePoisonedEnemyDefReductionPct:
       passiveAgg.poisonedEnemyDefReductionPct,
+    passiveBerserkAtkPctPerLostHpPct:
+      passiveAgg.berserkAtkPctPerLostHpPct,
+    passiveEnemyMagicVulnPctPerStack:
+      passiveAgg.enemyMagicVulnPctPerStack,
   });
 }
 

@@ -30,9 +30,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력권(강타) + 보법 II(회피+12%)
   magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마력 작렬 + 총명 III(지능+20%)
+  shaman: ["v2c_shaman_hex", "v2c_shaman_omen3"], // 저주(마법+약화) + 흉조(마법취약 누적)
   ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 연사(DEX 3연사) + 정밀(명중+12)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   guardian: ["v2c_guardian_bash", "v2c_guardian_bulwark3"], // 방패 강타(방어기반) + 방벽(방어+20%)
+  berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"], // 사혈격(HP 소모 강타) + 광기(잃은 HP 비례 공격력)
   warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"], // 연환각(다단) + 강건 III(활력+30%)
   bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"], // 대치유(자힐) + 회복 II(회복+30%)
   shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"], // 암살(처형·LUK) + 그늘(치명피해+30%)
@@ -40,6 +42,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 하이브리드(tier 3·전사×마법) ──
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
+  bloodtemplar: ["v2c_bloodtemplar_stigma", "v2c_bloodtemplar_martyr"], // 혈성기사: 피의 성흔(HP소모+회복) + 순교의 광기
+  darkpriest: ["v2c_darkpriest_reap", "v2c_darkpriest_blessing"], // 암흑사제: 영혼 수확(처형+회복) + 검은 축복
   // ── 심화 4직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
   veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 결전의 일격(처형딜) + 필살(치명피해+25%)
   sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡파(방깎 단일) + 패왕(힘+20%) — 옛 절정·공격형 정점
@@ -49,8 +53,12 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 독왕(부식 심화)
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
   elementalist: ["v2c_elementalist_magic", "v2c_elementalist_mastery"], // 속성 마법(캐릭속성 분기) + 원소 통달(상성 양방향↑)
+  // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
+  archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"], // 금단 의식(취약 폭발) + 금기 주술(취약 심화)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 보호막 액티브 + 반사 패시브 ──
   warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 방벽(보호막·최대HP10%) + 가시 방벽(피격 시 방어력만큼 반사)
+  // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력으로 밀어붙이는 라인 ──
+  warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(HP 소모 강타) + 살육본능(광기 상위)
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) — 옛 절정 킷(반격+철신) 상속 ──
   battlemonk: ["v2c_battlemonk_counter", "v2c_battlemonk_ironbody"], // 반격(피격 카운터) + 철신(최대HP+20%) — 둘 다 패시브
 };

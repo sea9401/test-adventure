@@ -124,12 +124,14 @@ describe("직업 킷 — 스킬셋", () => {
       paladin: "v2c_paladin_cleave",
       brawler: "v2c_brawler_combo",
       magus: "v2c_magus_bolt",
+      shaman: "v2c_shaman_hex",
       ranger: "v2c_ranger_ambush",
     };
     const PASSIVE: Record<string, V2SkillId> = {
       paladin: "v2c_paladin_might3",
       brawler: "v2c_brawler_fortitude3",
       magus: "v2c_magus_acumen3",
+      shaman: "v2c_shaman_omen3",
       ranger: "v2c_ranger_finesse3",
     };
     for (const job of Object.keys(ACTIVES)) {
@@ -142,6 +144,7 @@ describe("직업 킷 — 스킬셋", () => {
     //   brawler 는 무인 재설계로 회피(보법 II)로 전환 — 격투가 회피 갈래.
     expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.evasionPct).toBe(12);
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
+    expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnPctPerStack).toBe(5);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct?.dex).toBe(20);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBeUndefined();
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
@@ -152,6 +155,7 @@ describe("직업 킷 — 스킬셋", () => {
   it("고차 두 번째 갈래(tier 3) = 액티브 1 + 고유 패시브(형제와 다른 축)", () => {
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       guardian: ["v2c_guardian_bash", "v2c_guardian_bulwark3"],
+      berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"],
       warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"],
       bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"],
       shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"],
@@ -165,6 +169,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
     // 형제(기사/격투가/마도사/궁사)와 다른 축: 방어%(순수)·활력(무승 강건 III)·회복강화·치명피해.
     expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.defPct).toBe(20);
+    expect(V2_SKILLS.v2c_berserker_madness3.passive?.berserkAtkPctPerLostHpPct).toBe(0.45);
     expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.statPct?.vit).toBe(30);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
     expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(25); // 크리축 차수 단조(3차)
@@ -175,6 +180,7 @@ describe("직업 킷 — 스킬셋", () => {
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
     expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
     expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
+    expect(V2_SKILLS.v2c_berserker_bloodslash.effects[0].kind).toBe("hpCostDamage");
     expect(
       V2_SKILLS.v2c_venomancer_miasma.effects.some(
         (e) => e.kind === "stackPayoffDamage" && e.tag === "poison",
@@ -186,7 +192,9 @@ describe("직업 킷 — 스킬셋", () => {
     // 절정(sensei)은 예외 — 액티브(난무) 대신 반격 패시브로 교체(둘 다 패시브·액티브 없음). 아래 별도 검증.
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
+      warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"],
       sage: ["v2c_sage_bolt", "v2c_sage_insight"],
+      archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"],
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
       phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"],
       venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"],
@@ -198,8 +206,10 @@ describe("직업 킷 — 스킬셋", () => {
     }
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
     expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
+    expect(V2_SKILLS.v2c_warlord_slaughter.passive?.berserkAtkPctPerLostHpPct).toBe(0.65);
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 패왕(힘%·옛 철신서 전환·무인 재설계)
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
+    expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
     expect(V2_SKILLS.v2c_phantom_stealth.passive?.evasionPct).toBe(16); // 은신 — 회피(암살자·tier4 유일 회피축)
     expect(
@@ -214,6 +224,17 @@ describe("직업 킷 — 스킬셋", () => {
       hpThresholdPct: 15,
       bonusMult: 2.0,
     });
+    // 광왕 액티브 혈전 = HP 소모 강타.
+    expect(V2_SKILLS.v2c_warlord_bloodbath.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      pctCurrentHp: 10,
+    });
+    // 대주술사 액티브 금단 의식 = 마법취약 스택 페이오프.
+    expect(
+      V2_SKILLS.v2c_archshaman_rite.effects.some(
+        (e) => e.kind === "stackPayoffDamage" && e.tag === "magicVuln",
+      ),
+    ).toBe(true);
     // 암살자 액티브 기습 = 처형의 역(풀피 보너스·LUK 비례) 오프너.
     expect(V2_SKILLS.v2c_phantom_ambush.effects[0]).toMatchObject({ kind: "ambushDamage", scaling: "luk" });
     // 독왕 액티브 독왕진 = 중독 누적 + 중독 스택 페이오프.
@@ -254,6 +275,53 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_battlemonk_counter.category).toBe("passive");
     expect(V2_SKILLS.v2c_battlemonk_counter.passive?.counterChancePct).toBe(30);
     expect(V2_SKILLS.v2c_battlemonk_ironbody.passive?.maxHpPct).toBe(20);
+  });
+
+  it("신규 하이브리드 = 혈성기사/암흑사제 킷", () => {
+    expect(skillsForJob("bloodtemplar")).toEqual([
+      "v2c_bloodtemplar_stigma",
+      "v2c_bloodtemplar_martyr",
+    ]);
+    expect(V2_SKILLS.v2c_bloodtemplar_stigma.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      pctCurrentHp: 8,
+    });
+    expect(
+      V2_SKILLS.v2c_bloodtemplar_stigma.effects.some(
+        (e) => e.kind === "heal" && e.pctLostHp === 12,
+      ),
+    ).toBe(true);
+    expect(V2_SKILLS.v2c_bloodtemplar_martyr.passive).toMatchObject({
+      berserkAtkPctPerLostHpPct: 0.35,
+      healPowerPct: 12,
+    });
+
+    expect(skillsForJob("darkpriest")).toEqual([
+      "v2c_darkpriest_reap",
+      "v2c_darkpriest_blessing",
+    ]);
+    expect(V2_SKILLS.v2c_darkpriest_reap.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "luk",
+    });
+    expect(
+      V2_SKILLS.v2c_darkpriest_reap.effects.some(
+        (e) =>
+          e.kind === "executeDamage" &&
+          e.scaling === "luk" &&
+          e.hpThresholdPct === 20 &&
+          e.bonusMult === 2.4,
+      ),
+    ).toBe(true);
+    expect(
+      V2_SKILLS.v2c_darkpriest_reap.effects.some(
+        (e) => e.kind === "heal" && e.pctLostHp === 12,
+      ),
+    ).toBe(true);
+    expect(V2_SKILLS.v2c_darkpriest_blessing.passive).toMatchObject({
+      healPowerPct: 18,
+      critDmgPct: 20,
+    });
   });
 
   it("모험가(none) = 착용형 패시브 2종, 없는 jobId = 빈 배열", () => {
@@ -343,7 +411,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
-  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식) 합산", () => {
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식/광전/마법취약) 합산", () => {
     // 명중(accuracyPct) 축은 신궁 "매의 눈"(tier4)으로, 흡혈(lifesteal)은 보류(무인 재설계 2026-06-22)라
     //   이 케이스엔 미포함. 회피 원천 = 권사 보법(v2c_boxer_fortitude, evasionPct 8).
     const agg = aggregateEquippedPassives([
@@ -352,12 +420,16 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_boxer_fortitude", // evasionPct 8 (보법)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
       "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 12 (중독 적 방어 약화)
+      "v2c_berserker_madness3", // berserkAtkPctPerLostHpPct 0.45
+      "v2c_shaman_omen3", // enemyMagicVulnPctPerStack 5
     ]);
     expect(agg.critPct).toBe(8);
     expect(agg.critDmgPct).toBe(25);
     expect(agg.evasionPct).toBe(8);
     expect(agg.defPct).toBe(20);
     expect(agg.poisonedEnemyDefReductionPct).toBe(12);
+    expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
+    expect(agg.enemyMagicVulnPctPerStack).toBe(5);
     // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
   });

@@ -303,6 +303,19 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(tp!.next.caps.vit).toBe(1);
     expect(tp!.next.caps.spi).toBe(1);
     expect(tp!.next.caps.dex).toBeUndefined();
+    // 혈성기사(bloodtemplar) — 광전사 힘·활력 + 사제 정신.
+    const bt = applyCultivation(p, "warrior", undefined, undefined, "bloodtemplar");
+    expect(bt!.next.caps.str).toBe(2);
+    expect(bt!.next.caps.vit).toBe(1);
+    expect(bt!.next.caps.spi).toBe(1);
+    expect(bt!.next.caps.dex).toBeUndefined();
+    // 암흑사제(darkpriest) — 저장 직군은 도적이지만 행운·정신·지능 축이 오른다.
+    const rogue = parseProficiency({ groups: { rogue: { points: 100 } } });
+    const dp = applyCultivation(rogue, "rogue", undefined, undefined, "darkpriest");
+    expect(dp!.next.caps.luk).toBe(2);
+    expect(dp!.next.caps.spi).toBe(1);
+    expect(dp!.next.caps.int).toBe(1);
+    expect(dp!.next.caps.dex).toBeUndefined();
     // 비하이브리드 jobId 는 직군 프로필 폴백(전사 = str/vit/dex).
     const guardian = applyCultivation(p, "warrior", undefined, undefined, "guardian");
     expect(guardian!.next.caps.str).toBe(2);

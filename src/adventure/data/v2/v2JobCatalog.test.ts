@@ -38,9 +38,11 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
 const TIER3_LINEAGE: Record<string, string> = {
   paladin: "squire",
   guardian: "shieldman",
+  berserker: "squire",
   brawler: "boxer",
   warmonk: "monk",
   magus: "caster",
+  shaman: "caster",
   bishop: "acolyte",
   ranger: "archer",
   shadow: "assassin",
@@ -48,9 +50,11 @@ const TIER3_LINEAGE: Record<string, string> = {
 };
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
+  warlord: "berserker",
   sensei: "brawler",
   sage: "magus",
   elementalist: "magus",
+  archshaman: "shaman",
   chief: "ranger",
   venomlord: "venomancer",
   battlemonk: "warmonk", // 무도 4차 두 번째 갈래 — 무승 계보
@@ -70,14 +74,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("34개 직업(모험가 1 + 기본 4 + 상위 9 + 고차 11 + 심화 9)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(34);
+  it("40개 직업(모험가 1 + 기본 4 + 상위 9 + 고차 15 + 심화 11)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(40);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(9);
-    expect(byTier(3)).toBe(11); // 기존 고차 10 + 도적 독술 계보 1
-    expect(byTier(4)).toBe(9); // 기존 심화 8 + 도적 독술 계보 정점 1
+    expect(byTier(3)).toBe(15); // 기존 고차 11 + 광전사·주술사 + 하이브리드 2종
+    expect(byTier(4)).toBe(11); // 기존 심화 9 + 전사 광왕 + 마법 대주술사
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -280,6 +284,34 @@ describe("해금 트리", () => {
     ).toBe(true);
     // 왕복.
     expect(jobIdFromLegacy("warrior", "spellblade")).toBe("spellblade");
+  });
+
+  it("하이브리드(혈성기사/암흑사제) — 두 부모 직업을 각각 TIER3 키워야 해금된다", () => {
+    const cases = [
+      {
+        id: "bloodtemplar",
+        prereqs: { berserker: TIER3_UNLOCK_CUMLEVEL, acolyte: TIER3_UNLOCK_CUMLEVEL },
+        legacy: { class: "warrior", spec: "bloodtemplar" },
+      },
+      {
+        id: "darkpriest",
+        prereqs: { shadow: TIER3_UNLOCK_CUMLEVEL, acolyte: TIER3_UNLOCK_CUMLEVEL },
+        legacy: { class: "rogue", spec: "darkpriest" },
+      },
+    ] as const;
+    for (const c of cases) {
+      const job = V2_JOB_CATALOG[c.id];
+      expect(job.tier).toBe(3);
+      expect(job.unlock.prereqs).toEqual(c.prereqs);
+      const [a, b] = Object.keys(c.prereqs);
+      expect(isJobUnlocked(job, profJobs({ [a]: TIER3_UNLOCK_CUMLEVEL }))).toBe(false);
+      expect(isJobUnlocked(job, profJobs({ [b]: TIER3_UNLOCK_CUMLEVEL }))).toBe(false);
+      expect(
+        isJobUnlocked(job, profJobs({ [a]: TIER3_UNLOCK_CUMLEVEL, [b]: TIER3_UNLOCK_CUMLEVEL })),
+      ).toBe(true);
+      expect(LEGACY_CLASS_SPEC_BY_JOB[c.id]).toEqual(c.legacy);
+      expect(jobIdFromLegacy(c.legacy.class, c.legacy.spec)).toBe(c.id);
+    }
   });
 });
 

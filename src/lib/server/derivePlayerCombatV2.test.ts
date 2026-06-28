@@ -856,6 +856,26 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     );
   });
 
+  it("광전 패시브는 잃은 HP 비례 공격력 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const berserker = derivePlayerCombatV2Pure({
+      ...base,
+      passiveBerserkAtkPctPerLostHpPct: 0.45,
+    }).player;
+    expect(plain.berserkAtkPctPerLostHpPct).toBeUndefined();
+    expect(berserker.berserkAtkPctPerLostHpPct).toBe(0.45);
+  });
+
+  it("마법취약 패시브는 스킬 적중 취약 누적 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const shaman = derivePlayerCombatV2Pure({
+      ...base,
+      passiveEnemyMagicVulnPctPerStack: 5,
+    }).player;
+    expect(plain.enemyMagicVulnPctPerStack).toBeUndefined();
+    expect(shaman.enemyMagicVulnPctPerStack).toBe(5);
+  });
+
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
     const a = derivePlayerCombatV2Pure({ ...base }).player;
     const b = derivePlayerCombatV2Pure({
@@ -866,6 +886,8 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveLifestealPct: 0,
       passiveDefPct: 0,
       passiveAccuracyPct: 0,
+      passiveBerserkAtkPctPerLostHpPct: 0,
+      passiveEnemyMagicVulnPctPerStack: 0,
     }).player;
     expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
     expect(b.critMult ?? 0).toBe(a.critMult ?? 0);
@@ -873,6 +895,8 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(b.enchantLifestealPct ?? 0).toBe(0);
     expect(b.def).toBe(a.def);
     expect(b.accuracyPct ?? 0).toBe(a.accuracyPct ?? 0);
+    expect(b.berserkAtkPctPerLostHpPct).toBeUndefined();
+    expect(b.enemyMagicVulnPctPerStack).toBeUndefined();
   });
 });
 

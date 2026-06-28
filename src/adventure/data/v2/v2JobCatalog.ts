@@ -657,13 +657,17 @@ export function cumLevelForJob(
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
 
-/** 현재 숙련도로 전직 가능한 비(非)모험가 직업 목록(전직 UI 용). */
+export function isRootJobSelectable(job: V2JobDefinition): boolean {
+  return job.tier > 0 || job.id === "none" || job.id === "survivor";
+}
+
+/** 현재 숙련도로 전직 가능한 직업 목록(전직 UI 용). */
 export function unlockedJobs(
   proficiency: V2ProficiencyState,
   ctx?: JobUnlockContext,
 ): V2JobDefinition[] {
   return V2_JOB_LIST.filter(
-    (job) => job.tier > 0 && isJobUnlocked(job, proficiency, ctx),
+    (job) => isRootJobSelectable(job) && isJobUnlocked(job, proficiency, ctx),
   );
 }
 

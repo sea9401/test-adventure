@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Diamond, Package } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
@@ -10,6 +10,11 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
+import {
+  V2SimpleItemInfoCard,
+  anchorOf,
+  type ItemCardAnchor,
+} from "../V2ItemCard";
 
 // 재료 탭 — 보유 재료(드랍)만 모아 2열 카드 그리드 + 페이지네이션. 보유 0인 재료는 숨김.
 export function MaterialsTab({
@@ -57,6 +62,13 @@ function MaterialCardGrid({
     count: number;
   }>;
 }) {
+  const [infoCard, setInfoCard] = useState<{
+    title: string;
+    description: string;
+    count: number;
+    anchor: ItemCardAnchor;
+  } | null>(null);
+
   if (materials.length === 0) {
     return (
       <EmptyState
@@ -67,26 +79,47 @@ function MaterialCardGrid({
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {materials.map(({ id, material, count }) => (
-        <div
-          key={id}
-          className={`${SURFACE_CARD} flex min-h-[7rem] flex-col gap-1 p-3 text-left`}
-        >
-          <div className="flex items-start justify-between gap-1">
-            <Package size={20} weight="duotone" className="text-amber-500" />
-            <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              ×{count}
-            </span>
-          </div>
-          <div className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            {material.name}
-          </div>
-          <p className="line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-            {material.description}
-          </p>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {materials.map(({ id, material, count }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={(e) =>
+              setInfoCard({
+                title: material.name,
+                description: material.description,
+                count,
+                anchor: anchorOf(e.currentTarget),
+              })
+            }
+            className={`${SURFACE_CARD} flex min-h-[7rem] flex-col gap-1 p-3 text-left transition-colors hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:hover:bg-zinc-900`}
+          >
+            <div className="flex items-start justify-between gap-1">
+              <Package size={20} weight="duotone" className="text-amber-500" />
+              <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                ×{count}
+              </span>
+            </div>
+            <div className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+              {material.name}
+            </div>
+            <p className="line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              {material.description}
+            </p>
+          </button>
+        ))}
+      </div>
+      {infoCard ? (
+        <V2SimpleItemInfoCard
+          title={infoCard.title}
+          subtitle="재료"
+          description={infoCard.description}
+          anchor={infoCard.anchor}
+          onClose={() => setInfoCard(null)}
+          lines={[{ label: "보유", value: `×${infoCard.count}` }]}
+        />
+      ) : null}
+    </>
   );
 }

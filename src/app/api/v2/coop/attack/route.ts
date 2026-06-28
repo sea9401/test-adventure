@@ -274,9 +274,10 @@ export async function POST(req: Request) {
       ...(enrageNotes.length > 0
         ? { openingNote: enrageNotes.join(" ") }
         : {}),
-      // 1회 공격 = 플레이어 N턴 — 엔진 maxTurns 는 페이즈 단위(내+적 각 1)라 ×2.
+      // 1회 공격 = 플레이어 행동 N회. ATB 경로의 maxTurns 는 플레이어 행동 카운터라
+      // 레거시 페이즈 보정(*2)을 적용하면 코어루프에서 공격권이 두 배 길어진다.
       // 도달 시 종료(타임아웃 lose 는 협동에선 정상 흐름 — 데미지만 누적).
-      maxTurns: COOP_ATTACK_TURNS * 2,
+      maxTurns: COOP_ATTACK_TURNS,
     });
     const damageDealt = Math.max(
       0,

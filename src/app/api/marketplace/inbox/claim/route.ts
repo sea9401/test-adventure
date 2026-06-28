@@ -11,6 +11,7 @@ import { upsertSave } from "@/lib/server/savesKv";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 import { TREASURE_WALLET_KEY } from "@/lib/server/treasure/coins";
+import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
 import {
   addGradedEquip,
   addInstance,
@@ -105,6 +106,7 @@ export async function POST(req: Request) {
       const instancesToAdd: EquipmentInstance[] = [];
       const instancesApplied: EquipmentInstance[] = [];
       const recipesToAdd: AddRecipe[] = [];
+      let staminaPotionsTotal = 0;
       // 파싱 실패 row 는 claimedAt 마킹에서 제외 — 인박스에 남겨 운영진이 점검할 수
       // 있게 함. 자동 claim 했다가 사라지면 보상이 영구 손실됨 (#309 후속 보강).
       const parseFailedRowIds: number[] = [];
@@ -175,7 +177,7 @@ export async function POST(req: Request) {
             if (parsed.coins > 0) coinsBySeason[parsed.season] += parsed.coins;
             break;
           case "admin_gift": {
-            // 운영자 대량 우편 — 골드 + 재료/장비 지급(메시지는 message 컬럼).
+            // 운영자 대량 우편 — 골드 + 재료/장비/스태미나 회복약 지급(메시지는 message 컬럼).
             // 장비는 길드 의뢰 보상과 동일하게 항상 base 등급.
             if (parsed.gold > 0) goldTotal += parsed.gold;
             for (const m of parsed.materials) {
@@ -193,6 +195,9 @@ export async function POST(req: Request) {
                 grade: "base",
                 quantity: it.count,
               });
+            }
+            if (parsed.staminaPotions > 0) {
+              staminaPotionsTotal += parsed.staminaPotions;
             }
             break;
           }
@@ -323,6 +328,28 @@ export async function POST(req: Request) {
         coinsAdded.push({ season, coins: add });
       }
 
+      // 스태미나 회복약 — 전용 키(stamina-potions.v1). 다른 세이브 처리 뒤 leaf 로 잠근다.
+      let staminaPotions: number | null = null;
+      if (staminaPotionsTotal > 0) {
+        const prows = await tx
+          .select()
+          .from(savesKv)
+          .where(
+            and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)),
+          )
+          .for("update");
+        const raw = (prows[0]?.value ?? {}) as Record<string, unknown>;
+        const cur =
+          typeof raw.count === "number" && Number.isFinite(raw.count)
+            ? Math.max(0, Math.floor(raw.count))
+            : 0;
+        staminaPotions = cur + staminaPotionsTotal;
+        await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
+          ...raw,
+          count: staminaPotions,
+        });
+      }
+
       // inbox 마킹.
       const now = new Date();
       const failedSet = new Set(parseFailedRowIds);
@@ -351,6 +378,8 @@ export async function POST(req: Request) {
         recipesAdded,
         recipesSkipped,
         coinsAdded,
+        staminaPotionsAdded: staminaPotionsTotal,
+        staminaPotions,
         newGold,
         newInventory,
       };

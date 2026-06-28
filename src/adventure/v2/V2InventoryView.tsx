@@ -397,13 +397,18 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   {label}
                 </div>
                 <div
-                  className={`truncate text-xs font-medium ${
+                  className={`flex max-w-full items-baseline justify-center text-xs font-medium ${
                     item
                       ? powerNameClass(item, inst?.roll)
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >
-                  {item?.name ?? "—"}
+                  <span className="truncate">{item?.name ?? "—"}</span>
+                  {item && inst?.enhance && inst.enhance.level > 0 ? (
+                    <span className="ml-1 shrink-0 text-amber-500">
+                      +{inst.enhance.level}
+                    </span>
+                  ) : null}
                 </div>
               </>
             );

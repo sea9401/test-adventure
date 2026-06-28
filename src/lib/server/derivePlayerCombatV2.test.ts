@@ -39,6 +39,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       critMult: 0,
       spd: 0,
       healPowerPct: 0,
+      critResist: 0,
     });
   });
 
@@ -61,26 +62,26 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(geared.healMult ?? 1).toBeCloseTo((plain.healMult ?? 1) * 1.08, 4);
   });
 
-  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=magicAtk=무기위력, weight=8(원시2×무기4)", () => {
-    // 무기 위력은 atk·magicAtk 둘 다 먹인다. 위력값은 카탈로그 기준(다이얼 변경에 견고).
+  it("철검 T1 (위력 → 물공) → atk=무기위력, magicAtk=0, weight=8(원시2×무기4)", () => {
+    // 지팡이를 제외한 무기 위력은 물리 공격력에만 먹인다. 위력값은 카탈로그 기준(다이얼 변경에 견고).
     // 무게는 effectiveStats 슬롯 스케일 — 무기 ×4(WEAPON_WEIGHT_SCALE) → 원시 2 = 표시 8.
     const swordPow = V2_EQUIPMENT.v2_iron_sword.power;
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
     expect(a.atk).toBe(swordPow);
-    expect(a.magicAtk).toBe(swordPow);
+    expect(a.magicAtk).toBe(0);
     expect(a.weight).toBe(8);
     expect(a.def).toBe(0);
     expect(a.crit).toBe(0);
   });
 
   it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
-    // 철검(무기)에 굴림 {power:10, weight:5} → atk·magicAtk=10, weight 5 × 무기4 = 20.
+    // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 5 × 무기4 = 20.
     const sword = aggregateV2Equipment(
       { weapon: "v2_iron_sword" },
       { v2_iron_sword: { power: 10, weight: 5 } },
     );
     expect(sword.atk).toBe(10);
-    expect(sword.magicAtk).toBe(10);
+    expect(sword.magicAtk).toBe(0);
     expect(sword.weight).toBe(20);
 
     // 별노래궁(무기)에 굴림 {power:18, weight:3, crit:3} → weight 3 × 무기4 = 12.
@@ -103,7 +104,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
-    // 철검: 무기 위력 → atk·magicAtk, weight 원시2 × 무기4 = 8
+    // 철검: 무기 위력 → atk, weight 원시2 × 무기4 = 8
     // 쇠사슬 갑옷: 위력 4(×2) weight 원시2 × 일반2 = 4 (갑옷 → def)
     // 은가락지: 위력 2(×2) weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
@@ -112,7 +113,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       ring: "v2_silver_ring",
     });
     expect(a.atk).toBe(V2_EQUIPMENT.v2_iron_sword.power);
-    expect(a.magicAtk).toBe(V2_EQUIPMENT.v2_iron_sword.power);
+    expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(4); // 갑옷만(반지는 마방)
     expect(a.magicDef).toBe(2); // 반지 위력
     expect(a.weight).toBe(8 + 4 + 0);
@@ -141,7 +142,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       necklace: "v2_mana_essence",
     });
     expect(a.atk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
-    expect(a.magicAtk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
+    expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(6); // 갑옷만
     expect(a.magicDef).toBe(4 + 14); // 목걸이 위력 4 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
     expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
@@ -254,8 +255,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     );
   });
 
-  it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
-    // 별빛 지팡이: 무기 위력 → atk·magicAtk 둘 다. 위력은 카탈로그 기준(다이얼 견고).
+  it("지팡이 위력 → magicAtk + 물리 atk 1/3 (int token 없음)", () => {
+    // 별빛 지팡이: 무기 위력 → magicAtk, 물리 atk 는 위력의 1/3 보조.
     const staffPow = V2_EQUIPMENT.v2_starlit_staff.power;
     const d = derivePlayerCombatV2Pure({
       level: 50,
@@ -266,8 +267,9 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
-      // atk = str×ATK_PER_STR(0.15) + vit×VIT_ATK_COEF(lever-2) + 무기위력. magicAtk 는 vit 미반영.
-      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) +
+        Math.floor(staffPow / 3) +
+        V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -558,6 +560,28 @@ describe("세트 보너스 (aggregateV2Equipment — 전 조각 장착 시 후-�
     const g = aggregateV2Equipment({ gloves: FULL.gloves });
     expect(partial.crit).toBe(a.crit + g.crit);
     expect(partial.hp).toBe(a.hp + g.hp);
+  });
+
+  it("태그 세트 — 같은 setTags 2/3개 장착 시 단계 보너스 누적 적용", () => {
+    const two = aggregateV2Equipment({
+      armor: "v2_throne_black_armor",
+      gloves: "v2_throne_black_gloves",
+    });
+    const armor = aggregateV2Equipment({ armor: "v2_throne_black_armor" });
+    const gloves = aggregateV2Equipment({ gloves: "v2_throne_black_gloves" });
+    expect(two.hp - (armor.hp + gloves.hp)).toBe(100);
+    expect(two.magicDef - (armor.magicDef + gloves.magicDef)).toBe(10);
+    expect(two.critResist).toBe(0);
+
+    const three = aggregateV2Equipment({
+      armor: "v2_throne_black_armor",
+      gloves: "v2_throne_black_gloves",
+      boots: "v2_throne_black_boots",
+    });
+    const boots = aggregateV2Equipment({ boots: "v2_throne_black_boots" });
+    expect(three.hp - (armor.hp + gloves.hp + boots.hp)).toBe(260);
+    expect(three.magicDef - (armor.magicDef + gloves.magicDef + boots.magicDef)).toBe(28);
+    expect(three.critResist).toBe(8);
   });
 });
 

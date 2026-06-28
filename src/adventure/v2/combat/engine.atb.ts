@@ -33,9 +33,6 @@ import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
 export const ATB_TICK_CAP = 50 * 26;
 export const ATB_ACTION_GUARD = 1000;
-// DoT(출혈/중독/연소) 고정 틱 간격 — 대상 행동과 무관하게 이 타임라인 간격마다 1회 적용(속도 독립).
-//   기준 액터(spd 50) 1행동 ≈ 100틱(actionInterval). 지속(turns)은 "이 클락 N회". 다이얼.
-export const DOT_TICK_INTERVAL = 100;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
   return {
@@ -113,8 +110,7 @@ function tagNewLogEntries(
   };
 }
 
-// 플레이어 행동 진입 시 — 버프/디버프 tick + 추가타 큐 반영. ⚠️ DoT 틱은 여기서 제거(2026):
-//   DoT 는 대상 행동이 아니라 고정 클락(applyDotClockTick·DOT_TICK_INTERVAL)에서 적용한다(속도 독립).
+// 플레이어 행동 진입 시 — 버프/디버프 tick + 추가타 큐 반영. DoT 는 별도 helper 에서 먼저 처리한다.
 function tickPlayerBundleEntry(state: BattleState): BattleState {
   return {
     ...state,
@@ -129,7 +125,7 @@ function tickPlayerBundleEntry(state: BattleState): BattleState {
   };
 }
 
-// 적 행동 진입 시 — 적 버프/디버프 tick. ⚠️ DoT 틱은 제거(고정 클락 applyDotClockTick 으로 이전).
+// 적 행동 진입 시 — 적 버프/디버프 tick. DoT 는 별도 helper 에서 먼저 처리한다.
 function tickEnemyBundleEntry(state: BattleState): BattleState {
   return {
     ...state,
@@ -138,76 +134,66 @@ function tickEnemyBundleEntry(state: BattleState): BattleState {
   };
 }
 
-// DoT 고정 클락 1회 — 양쪽(플레이어·적) DoT 을 동시에 1틱(스택×스택당, 잔여 −1, 만료 drop).
-//   대상 행동과 무관(DOT_TICK_INTERVAL 간격마다 루프가 호출). 라벨·어투는 평타와 동일("입혔다").
-//   사망 시 phase ended. 라벨은 tick 전(turns>0) dot 기준.
-function applyDotClockTick(state: BattleState): BattleState {
-  let next = state;
-  // 플레이어한테 걸린 DoT(적이 가함 → 플레이어가 받음). 우측(enemy_attack)·turn player.
-  const pTick = tickV2Dots(next.playerV2Dots, next.playerMaxHp);
-  if (pTick.totalDmg > 0) {
-    const labels = next.playerV2Dots
-      .filter((d) => d.turns > 0)
-      .map((d) => d.label)
-      .join(" + ");
-    next = {
-      ...next,
-      playerV2Dots: pTick.nextDots,
-      playerHp: Math.max(0, next.playerHp - pTick.totalDmg),
-      log: appendLog(next.log, {
-        kind: "enemy_attack",
-        text: `[${labels}] ${pTick.totalDmg} 피해를 입혔다.`,
-        turn: "player",
-      }),
-    };
-    if (next.playerHp <= 0) {
-      return {
-        ...next,
-        log: appendLog(next.log, {
-          kind: "info",
-          text: `플레이어가 쓰러졌다.`,
-          turn: "player",
-        }),
-        phase: "ended",
-        outcome: "lose",
-      };
-    }
-  } else {
-    next = { ...next, playerV2Dots: pTick.nextDots };
-  }
-  // 적한테 걸린 DoT(플레이어가 가함 → 적이 받음). 좌측(player_attack)·turn enemy.
-  const eTick = tickV2Dots(next.enemyV2Dots, next.enemy.hp);
-  if (eTick.totalDmg > 0) {
-    const labels = next.enemyV2Dots
-      .filter((d) => d.turns > 0)
-      .map((d) => d.label)
-      .join(" + ");
-    next = applyPhaseTriggerIfAny({
-      ...next,
-      enemyV2Dots: eTick.nextDots,
-      enemyHp: Math.max(0, next.enemyHp - eTick.totalDmg),
-      log: appendLog(next.log, {
-        kind: "player_attack",
-        text: `[${labels}] ${eTick.totalDmg} 피해를 입혔다.`,
-        turn: "enemy",
-      }),
-    });
-    if (next.enemyHp <= 0) {
-      return {
-        ...next,
-        log: appendLog(next.log, {
-          kind: "info",
-          text: `${next.enemy.name}을(를) 쓰러뜨렸다!`,
-          turn: "enemy",
-        }),
-        phase: "ended",
-        outcome: "win",
-      };
-    }
-  } else {
-    next = { ...next, enemyV2Dots: eTick.nextDots };
-  }
-  return next;
+// 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 먼저 틱한다. 로그는 플레이어 행동 묶음(tick)에 붙인다.
+function tickPlayerDotsOnAction(state: BattleState): BattleState {
+  const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
+  if (pTick.totalDmg <= 0) return { ...state, playerV2Dots: pTick.nextDots };
+  const labels = state.playerV2Dots
+    .filter((d) => d.turns > 0)
+    .map((d) => d.label)
+    .join(" + ");
+  const next: BattleState = {
+    ...state,
+    playerV2Dots: pTick.nextDots,
+    playerHp: Math.max(0, state.playerHp - pTick.totalDmg),
+    log: appendLog(state.log, {
+      kind: "enemy_attack",
+      text: `[${labels}] ${pTick.totalDmg} 피해를 입혔다.`,
+      turn: "player",
+    }),
+  };
+  if (next.playerHp > 0) return next;
+  return {
+    ...next,
+    log: appendLog(next.log, {
+      kind: "info",
+      text: `플레이어가 쓰러졌다.`,
+      turn: "player",
+    }),
+    phase: "ended",
+    outcome: "lose",
+  };
+}
+
+// 적 행동 시작 — 적에게 걸린 DoT 가 먼저 틱한다. 로그는 적 행동 묶음(tick)에 붙인다.
+function tickEnemyDotsOnAction(state: BattleState): BattleState {
+  const eTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
+  if (eTick.totalDmg <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
+  const labels = state.enemyV2Dots
+    .filter((d) => d.turns > 0)
+    .map((d) => d.label)
+    .join(" + ");
+  const next = applyPhaseTriggerIfAny({
+    ...state,
+    enemyV2Dots: eTick.nextDots,
+    enemyHp: Math.max(0, state.enemyHp - eTick.totalDmg),
+    log: appendLog(state.log, {
+      kind: "player_attack",
+      text: `[${labels}] ${eTick.totalDmg} 피해를 입혔다.`,
+      turn: "enemy",
+    }),
+  });
+  if (next.enemyHp > 0) return next;
+  return {
+    ...next,
+    log: appendLog(next.log, {
+      kind: "info",
+      text: `${next.enemy.name}을(를) 쓰러뜨렸다!`,
+      turn: "enemy",
+    }),
+    phase: "ended",
+    outcome: "win",
+  };
 }
 
 function forceAtbLoss(state: BattleState, turns: number, consumed: Partial<Record<PotionId, number>>): BattleResolution {
@@ -264,13 +250,12 @@ export function resolveBattleAtb(
 
   let playerNextTick = 0;
   let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
-  let dotNextTick = DOT_TICK_INTERVAL; // DoT 고정 클락 — 적용 시점이 아니라 다음 클락 경계부터 틱.
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
 
   while (state.phase !== "ended") {
-    const nextTick = Math.min(playerNextTick, enemyNextTick, dotNextTick);
+    const nextTick = Math.min(playerNextTick, enemyNextTick);
     lastTick = nextTick;
     if (
       nextTick > ATB_TICK_CAP ||
@@ -278,19 +263,6 @@ export function resolveBattleAtb(
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
       return forceAtbLoss(state, turns, consumed);
-    }
-
-    // DoT 고정 클락 — 행동(actor)보다 먼저(동률이면 DoT 우선). 양쪽 DoT 1틱 적용 후 hp_bar 1개.
-    //   행동 카운터(actions)는 안 올린다(actor 행동 가드 의미 보존). 사망 시 phase ended → 루프 종료.
-    if (dotNextTick <= playerNextTick && dotNextTick <= enemyNextTick) {
-      const prevLogLen = state.log.length;
-      state = applyDotClockTick(state);
-      state = tagNewLogEntries(state, prevLogLen, "player", dotNextTick);
-      if (state.phase !== "ended" && state.log.length > prevLogLen) {
-        state = { ...state, log: appendLog(state.log, hpBarEntry(state, dotNextTick)) };
-      }
-      dotNextTick += DOT_TICK_INTERVAL;
-      continue;
     }
 
     const actor = nextActor1v1(playerNextTick, enemyNextTick);
@@ -305,9 +277,12 @@ export function resolveBattleAtb(
             : state.playerAttacksLeft,
       };
       const playerBundleStart = state.log.length;
+      state = tickPlayerDotsOnAction(state);
+      state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
+      if (state.phase === "ended") break;
       state = tickPlayerBundleEntry(state);
-      // 번들 틱(DoT/사망)이 전투를 끝내면 아래 행동 루프를 건너뛰어 t 미스탬프 → 최종 hp_bar 만
-      //   t 를 가져 외톨이 박스가 생긴다(Codex). 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
+      // 번들 진입 로그가 t 없이 남으면 최종 hp_bar 만 t 를 가져 외톨이 박스가 생긴다.
+      // 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
       state = stampTick(state, playerBundleStart, nextTick);
       // 바람(원소술사) — 시전 시 내 다음 행동 틱 가속 %. 행동 루프 밖(아래 틱 증가)에서 쓰므로 분기 밖 선언.
       let castSelfHastePct = 0;
@@ -409,8 +384,11 @@ export function resolveBattleAtb(
         },
       };
       const enemyBundleStart = state.log.length;
+      state = tickEnemyDotsOnAction(state);
+      state = tagNewLogEntries(state, enemyBundleStart, "enemy", nextTick);
+      if (state.phase === "ended") break;
       state = tickEnemyBundleEntry(state);
-      // 적 번들 틱(DoT/사망)도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
+      // 적 번들 진입 로그도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
       state = stampTick(state, enemyBundleStart, nextTick);
       if (state.phase !== "ended") {
         // 적 v2 스킬 시전(V2_ATB_SKILLS) — cast 발동이면 이 틱은 시전으로 소진, 평타 생략(player ATB

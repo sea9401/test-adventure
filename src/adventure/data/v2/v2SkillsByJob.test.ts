@@ -10,7 +10,7 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
-  it("기본 4직업 = 액티브 1 + 패시브 스킬 1", () => {
+  it("기본 직업 = 액티브 1 + 패시브 스킬 1", () => {
     expect(skillsForJob("warrior")).toEqual([
       "v2c_warrior_strike",
       "v2c_warrior_might",
@@ -27,6 +27,10 @@ describe("직업 킷 — 스킬셋", () => {
       "v2c_rogue_poison",
       "v2c_rogue_finesse",
     ]); // 독침 + 예기
+    expect(skillsForJob("survivor")).toEqual([
+      "v2c_survivor_firstaid",
+      "v2c_survivor_knowledge",
+    ]); // 응급 처치 + 생존 지식
   });
 
   it("모든 직업 스킬 id 가 전투 카탈로그(V2_SKILLS)에 존재", () => {
@@ -37,7 +41,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("상위 9직업 = 액티브 1 + 고유 % 패시브 1", () => {
+  it("상위 직업 = 액티브 1 + 고유 % 패시브 1", () => {
     const UPPER: Record<string, [V2SkillId, V2SkillId]> = {
       shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"],
       squire: ["v2c_squire_cleave", "v2c_squire_might"],
@@ -48,6 +52,8 @@ describe("직업 킷 — 스킬셋", () => {
       assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"],
       archer: ["v2c_archer_volley", "v2c_archer_agility"],
       venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"],
+      camper: ["v2c_camper_camp", "v2c_camper_ration"],
+      ironman: ["v2c_ironman_brace", "v2c_ironman_body"],
     };
     for (const [job, kit] of Object.entries(UPPER)) {
       expect(skillsForJob(job), job).toEqual(kit);
@@ -81,6 +87,24 @@ describe("직업 킷 — 스킬셋", () => {
       V2_SKILLS.v2c_venomist_toxiccloud.effects.some((e) => e.kind === "stackPayoffDamage" && e.tag === "poison"),
     ).toBe(true);
     expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(12);
+    expect(V2_SKILLS.v2c_survivor_firstaid.effects[0]).toMatchObject({
+      kind: "heal",
+      pctLostHp: 20,
+    });
+    expect(V2_SKILLS.v2c_survivor_knowledge.passive?.maxHpPct).toBe(10);
+    expect(V2_SKILLS.v2c_camper_camp.effects[0]).toMatchObject({
+      kind: "heal",
+      pctLostHp: 25,
+    });
+    expect(V2_SKILLS.v2c_camper_ration.passive).toMatchObject({
+      healPowerPct: 10,
+      maxHpPct: 5,
+    });
+    expect(V2_SKILLS.v2c_ironman_brace.effects[0]).toMatchObject({
+      kind: "shield",
+      pctMaxHp: 10,
+    });
+    expect(V2_SKILLS.v2c_ironman_body.passive?.maxHpPct).toBe(15);
   });
 
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {
@@ -91,11 +115,12 @@ describe("직업 킷 — 스킬셋", () => {
     expect(ranger).toMatchObject({ kind: "damage", scaling: "dex" });
   });
 
-  it("상위 9직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
+  it("상위 직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
     const passiveIds = [
       "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",
       "v2c_monk_spirit", "v2c_caster_acumen", "v2c_acolyte_mana",
       "v2c_assassin_fortune", "v2c_archer_agility", "v2c_venomist_corrosion",
+      "v2c_camper_ration", "v2c_ironman_body",
     ] as const;
     // 각 패시브가 건드리는 "축/효과"를 키로 직렬화 → 9개 모두 유일해야 한다.
     //   다양성 확장(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 비(非)스탯 효과도 포함해 직렬화.
@@ -111,6 +136,7 @@ describe("직업 킷 — 스킬셋", () => {
       if (p.lifestealPct) keys.push("lifestealPct");
       if (p.defPct) keys.push("defPct"); // 방패병 방벽(방어%) — 고유 축
       if (p.atkPerDexCoef) keys.push("atkPerDexCoef");
+      if (p.healPowerPct) keys.push("healPowerPct");
       if (p.poisonedEnemyDefReductionPct) keys.push("poisonedEnemyDefReductionPct");
       return keys.sort().join(",");
     });
@@ -126,6 +152,8 @@ describe("직업 킷 — 스킬셋", () => {
       magus: "v2c_magus_bolt",
       shaman: "v2c_shaman_hex",
       ranger: "v2c_ranger_ambush",
+      fieldmedic: "v2c_fieldmedic_treatment",
+      extremesurvivor: "v2c_extremesurvivor_struggle",
     };
     const PASSIVE: Record<string, V2SkillId> = {
       paladin: "v2c_paladin_might3",
@@ -133,10 +161,12 @@ describe("직업 킷 — 스킬셋", () => {
       magus: "v2c_magus_acumen3",
       shaman: "v2c_shaman_omen3",
       ranger: "v2c_ranger_finesse3",
+      fieldmedic: "v2c_fieldmedic_training",
+      extremesurvivor: "v2c_extremesurvivor_adaptation",
     };
     for (const job of Object.keys(ACTIVES)) {
       expect(skillsForJob(job), job).toEqual([ACTIVES[job], PASSIVE[job]]);
-      expect(V2_SKILLS[ACTIVES[job]].category, ACTIVES[job]).toBe("attack");
+      expect(V2_SKILLS[ACTIVES[job]].category, ACTIVES[job]).not.toBe("passive");
       expect(V2_SKILLS[ACTIVES[job]].tier, ACTIVES[job]).toBe(3);
       expect(V2_SKILLS[PASSIVE[job]].category, PASSIVE[job]).toBe("passive");
     }
@@ -150,6 +180,23 @@ describe("직업 킷 — 스킬셋", () => {
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
     expect(V2_SKILLS.v2c_paladin_might3.passive?.statPct?.str).toBe(10);
     expect(V2_SKILLS.v2c_paladin_might3.passive?.defPct).toBe(10);
+    expect(V2_SKILLS.v2c_fieldmedic_treatment.effects[0]).toMatchObject({
+      kind: "heal",
+      pctLostHp: 35,
+    });
+    expect(V2_SKILLS.v2c_fieldmedic_training.passive).toMatchObject({
+      healPowerPct: 15,
+      maxHpPct: 8,
+    });
+    expect(
+      V2_SKILLS.v2c_extremesurvivor_struggle.effects.some(
+        (e) => e.kind === "shield" && e.pctMaxHp === 8,
+      ),
+    ).toBe(true);
+    expect(V2_SKILLS.v2c_extremesurvivor_adaptation.passive).toMatchObject({
+      maxHpPct: 20,
+      damageTakenReductionPct: 5,
+    });
   });
 
   it("고차 두 번째 갈래(tier 3) = 액티브 1 + 고유 패시브(형제와 다른 축)", () => {
@@ -198,10 +245,12 @@ describe("직업 킷 — 스킬셋", () => {
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
       phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"],
       venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"],
+      rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"],
+      returner: ["v2c_returner_survive", "v2c_returner_undying"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
-      expect(V2_SKILLS[active].category, active).toBe("attack");
+      expect(V2_SKILLS[active].category, active).not.toBe("passive");
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
@@ -216,6 +265,22 @@ describe("직업 킷 — 스킬셋", () => {
       V2_SKILLS.v2c_venomlord_sovereign.passive
         ?.poisonedEnemyDefReductionPct,
     ).toBe(28); // 독왕 — 중독 적 방어 감소 정점
+    expect(V2_SKILLS.v2c_rescueexpert_rescue.effects[0]).toMatchObject({
+      kind: "heal",
+      pctLostHp: 45,
+    });
+    expect(V2_SKILLS.v2c_rescueexpert_support.passive).toMatchObject({
+      healPowerPct: 20,
+      maxHpPct: 10,
+    });
+    expect(V2_SKILLS.v2c_returner_survive.effects[0]).toMatchObject({
+      kind: "heal",
+      pctLostHp: 35,
+    });
+    expect(V2_SKILLS.v2c_returner_undying.passive).toMatchObject({
+      maxHpPct: 25,
+      damageTakenReductionPct: 8,
+    });
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
     // 정예 기사 액티브 왕실 검술 = 처형딜, 적 HP 15%↓ 에서 ×2(오너 하향, 옛 30%).

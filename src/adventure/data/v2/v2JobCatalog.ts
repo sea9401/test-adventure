@@ -89,8 +89,16 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: {}, // HP +10% 패시브는 별도 적용
     unlock: { prereqs: {} },
   },
+  survivor: {
+    id: "survivor",
+    name: "생존자",
+    tier: 0,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: {}, // HP/회복 정체성은 착용형 패시브로 제공
+    unlock: { prereqs: {} },
+  },
 
-  // ─── Tier 1: 기본 직업(견습) — 모험가가 레벨 한계에 도달하면 전직 패널에서 4종 노출 ───
+  // ─── Tier 1: 기본 직업(견습) — 모험가/생존자 루트가 레벨 한계에 도달하면 전직 패널에 노출 ───
   warrior: {
     id: "warrior",
     name: "견습 병사",
@@ -122,6 +130,22 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { dex: 2, luk: 2 },
     jobBonus: { dex: 5 }, // 내장 보너스(소량) — 예기 패시브(DEX→공격력)와 별개
     unlock: { prereqs: {} },
+  },
+  camper: {
+    id: "camper",
+    name: "야영꾼",
+    tier: 2,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { spi: 3, vit: 2 }, // 회복/휴식 루트 입문 — 딜 보너스 없이 생존 보강
+    unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
+  },
+  ironman: {
+    id: "ironman",
+    name: "철인",
+    tier: 2,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { vit: 5 }, // 최대 HP·보호막 루트 입문
+    unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
   },
 
   // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
@@ -295,6 +319,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 15, dex: 7 }, // 독술사 계승 — 중독 누적·부식 심화
     unlock: { prereqs: { venomist: TIER3_UNLOCK_CUMLEVEL } }, // 독술사 계보
   },
+  // 생존자 갈래
+  fieldmedic: {
+    id: "fieldmedic",
+    name: "탐험대 의무병",
+    tier: 3,
+    cultivateProfile: { vit: 2, spi: 1, int: 1 },
+    jobBonus: { spi: 8, vit: 7 },
+    unlock: { prereqs: { camper: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  extremesurvivor: {
+    id: "extremesurvivor",
+    name: "극한 생존가",
+    tier: 3,
+    cultivateProfile: { vit: 2, str: 1, luk: 1 },
+    jobBonus: { vit: 12, str: 3 },
+    unlock: { prereqs: { ironman: TIER3_UNLOCK_CUMLEVEL } },
+  },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
   //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
   //   (jobCumLevel)을 본다 — isJobUnlocked 가 prereq 키의 tier 로 분기(tier1=직군 groups, 상위=
@@ -461,6 +502,22 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 15, spi: 7 }, // 무도 심화(무승 계승) — 탱 라인 정점(권룡과 동급·spi/str 갈래 차이)
     unlock: { prereqs: { warmonk: TIER4_UNLOCK_CUMLEVEL } }, // 무승 계보
   },
+  rescueexpert: {
+    id: "rescueexpert",
+    name: "구조 전문가",
+    tier: 4,
+    cultivateProfile: { vit: 2, spi: 1, int: 1 },
+    jobBonus: { spi: 12, vit: 10 },
+    unlock: { prereqs: { fieldmedic: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  returner: {
+    id: "returner",
+    name: "불굴의 생환자",
+    tier: 4,
+    cultivateProfile: { vit: 2, str: 1, luk: 1 },
+    jobBonus: { vit: 17, str: 5 },
+    unlock: { prereqs: { extremesurvivor: TIER4_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -511,7 +568,7 @@ export function isJobUnlocked(
     //   키(예: paladin·acolyte)=직업별 숙련도(jobCumLevel·하이브리드 게이트). prereq 키의 tier 로 분기.
     const prereqTier = V2_JOB_CATALOG[prereqJobId]?.tier ?? 1;
     const actual =
-      prereqTier === 1
+      prereqTier <= 1
         ? (proficiency.groups[prereqJobId]?.cumLevel ?? 0)
         : (proficiency.jobCumLevel?.[prereqJobId] ?? 0);
     if (actual < (minCumLevel ?? 0)) return false;
@@ -539,7 +596,7 @@ export function cumLevelForJob(
   prof: V2ProficiencyState,
   job: V2JobDefinition,
 ): number {
-  return job.tier === 1
+  return job.tier <= 1
     ? (prof.groups[job.id]?.cumLevel ?? 0)
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
@@ -571,6 +628,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   martial: { class: "martial", spec: null },
   mage: { class: "mage", spec: null },
   rogue: { class: "rogue", spec: null },
+  survivor: { class: "survivor", spec: null },
+  camper: { class: "survivor", spec: "camper" },
+  ironman: { class: "survivor", spec: "ironman" },
+  fieldmedic: { class: "survivor", spec: "fieldmedic" },
+  extremesurvivor: { class: "survivor", spec: "extremesurvivor" },
   shieldman: { class: "warrior", spec: "knight" },
   squire: { class: "warrior", spec: "gwang" },
   boxer: { class: "martial", spec: "gigong" },
@@ -613,6 +675,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   phantom: { class: "rogue", spec: "phantom" }, // 도적 4차 두 번째 갈래(그림자 계보·기습)
   venomlord: { class: "rogue", spec: "venomlord" }, // 도적 4차 세 번째 갈래(독술 계보·부식)
   battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)
+  rescueexpert: { class: "survivor", spec: "rescueexpert" },
+  returner: { class: "survivor", spec: "returner" },
 };
 
 /**

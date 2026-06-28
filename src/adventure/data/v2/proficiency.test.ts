@@ -60,7 +60,7 @@ describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
   });
 });
 
-// P4 — 직군 키는 4직군(warrior/martial/mage/rogue). 프로필: warrior {str2,vit1,dex1}.
+// P4 — 직군 키는 선택 직군(warrior/martial/mage/rogue/survivor). 프로필: warrior {str2,vit1,dex1}.
 describe("v2 직업 숙달 (숙달 포인트)", () => {
   it("parse — 손상/빈 입력은 빈 상태", () => {
     expect(parseProficiency(null)).toEqual(emptyProficiency());
@@ -328,6 +328,9 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(w[0]).toBe("str");
     expect(new Set(w)).toEqual(new Set(["str", "vit", "dex"]));
     expect(recommendedCultivationStats("martial")[0]).toBe("vit");
+    expect(new Set(recommendedCultivationStats("survivor"))).toEqual(
+      new Set(["vit", "spi", "str"]),
+    );
     // none(모험가)도 수행 프로필 보유 → STR/VIT/DEX/INT 추천(2026-06-22).
     expect(new Set(recommendedCultivationStats("none"))).toEqual(
       new Set(["str", "vit", "dex", "int"]),

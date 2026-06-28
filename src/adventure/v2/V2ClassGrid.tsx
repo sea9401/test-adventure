@@ -6,6 +6,7 @@ import {
   HandFist,
   MagicWand,
   Knife,
+  Heartbeat,
   type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -20,7 +21,7 @@ import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
 import { useGameState } from "./GameStateProvider";
 
-// 성장의 신전 "직업" 탭 레거시 폴백 — 4직군(전사/무도가/마법사/도적) 아이콘 그리드.
+// 성장의 신전 "직업" 탭 레거시 폴백 — 직군 아이콘 그리드.
 // 코어루프 on 에서는 V2JobLadder 가 렌더되고, 이 컴포넌트는 jobsV2 가 없는 off 모드에서만 쓴다.
 //  · 각 아이콘 = 직군. 레거시 도달 차수(N차) + 직업 숙련도(cumLevel) 표시, 현 직업은 하이라이트.
 //  · 현 직업 클릭 = 다음 차수 전직(무료, 게이트 충족 시 "전직" 배지). class 는 불변, 차수만 +1.
@@ -32,6 +33,7 @@ const ICON_BY_JOB: Record<string, Icon> = {
   martial: HandFist, // 무도가
   mage: MagicWand, // 마법사
   rogue: Knife, // 도적
+  survivor: Heartbeat, // 생존자
 };
 
 export type V2AdvanceInfo = {

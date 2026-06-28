@@ -70,6 +70,7 @@ const CLASS_LABELS: Record<string, string> = {
   mage: "마법사",
   rogue: "도적",
   martial: "무도가",
+  survivor: "생존자",
   none: "모험가",
 };
 

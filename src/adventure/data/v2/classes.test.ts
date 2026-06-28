@@ -11,21 +11,22 @@ import {
   elementalSkillsForClass,
 } from "./classes";
 
-// P4 — 4직군(전사/무도가/마법사/도적). 차수는 class id 에서 분리(proficiency.tier).
+// P4 — 주요 4직군 + 생존자 보조 루트. 차수는 class id 에서 분리(proficiency.tier).
 const EXPECTED_ANCHOR = {
   warrior: "str",
   martial: "vit",
   mage: "int",
   rogue: "dex",
+  survivor: "vit",
 } as const;
 
-describe("v2 직업 (P4 4직군 압축)", () => {
-  it("none + 4직군 = 5개, 선택가능은 4직군", () => {
-    expect(V2_CLASSES).toHaveLength(5);
-    expect(V2_SELECTABLE_CLASSES).toHaveLength(4);
+describe("v2 직업", () => {
+  it("none + 직군 5개 = 6개, 선택가능은 5직군", () => {
+    expect(V2_CLASSES).toHaveLength(6);
+    expect(V2_SELECTABLE_CLASSES).toHaveLength(5);
     expect(V2_SELECTABLE_CLASSES).not.toContain("none");
     expect([...V2_SELECTABLE_CLASSES].sort()).toEqual(
-      ["martial", "mage", "rogue", "warrior"].sort(),
+      ["martial", "mage", "rogue", "survivor", "warrior"].sort(),
     );
   });
 
@@ -37,7 +38,7 @@ describe("v2 직업 (P4 4직군 압축)", () => {
     }
   });
 
-  it("none 은 무직, 4직군은 표기명/설명 보유", () => {
+  it("none 은 무직, 선택 직군은 표기명/설명 보유", () => {
     expect(V2_CLASS_DEFS.none.name).toBe("무직");
     for (const c of V2_SELECTABLE_CLASSES) {
       expect(V2_CLASS_DEFS[c].name, `${c} name`).toBeTruthy();
@@ -66,14 +67,14 @@ describe("v2 직업 (P4 4직군 압축)", () => {
     expect(tierCodexMin(4)).toBe(5);
   });
 
-  it("tier1ClassOf — 4직군에선 자기 자신(=그룹키), none 은 none", () => {
+  it("tier1ClassOf — 선택 직군에선 자기 자신(=그룹키), none 은 none", () => {
     for (const c of V2_SELECTABLE_CLASSES) expect(tier1ClassOf(c)).toBe(c);
     expect(tier1ClassOf("none")).toBe("none");
   });
 });
 
-describe("parseV2Class — 현재 4직군/none 만 인식(옛 24-class 리매핑 폐지)", () => {
-  it("새 4직군 + none 은 그대로 통과", () => {
+describe("parseV2Class — 현재 직군/none 만 인식(옛 24-class 리매핑 폐지)", () => {
+  it("새 직군 + none 은 그대로 통과", () => {
     for (const c of V2_CLASSES) expect(parseV2Class(c)).toBe(c);
   });
 
@@ -87,7 +88,7 @@ describe("parseV2Class — 현재 4직군/none 만 인식(옛 24-class 리매핑
 });
 
 describe("elementalSkillsForClass", () => {
-  it("none = 모험가 킷 2종, 4직군은 공용 스킬 풀 보유(전문화 미선택)", () => {
+  it("none = 모험가 킷 2종, 선택 직군은 공용 스킬 풀 보유(전문화 미선택)", () => {
     expect(elementalSkillsForClass("none")).toEqual([
       "v2c_none_toughness",
       "v2c_none_diligence",

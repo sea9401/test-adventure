@@ -65,8 +65,9 @@ const LINEAGES: Record<V2Class, string[]> = {
   martial: ["martial", "boxer", "brawler", "sensei"],
   mage: ["mage", "caster", "magus", "sage"],
   rogue: ["rogue", "archer", "ranger", "chief"],
+  survivor: ["survivor", "ironman", "extremesurvivor", "returner"],
 };
-const TIER1: V2Class[] = ["warrior", "martial", "mage", "rogue"];
+const TIER1: V2Class[] = ["warrior", "martial", "mage", "rogue", "survivor"];
 const ADVANCE_MASTERY_REQ: Record<number, number> = {
   2: TIER2_UNLOCK_CUMLEVEL,
   3: TIER3_UNLOCK_CUMLEVEL,

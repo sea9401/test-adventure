@@ -691,7 +691,7 @@ export const MP_BASE_PCT = 0.07;
 const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
-  "mage", "caster", "acolyte", "magus", "bishop", "sage", "elementalist",
+  "mage", "caster", "acolyte", "magus", "bishop", "sage", "elementalist", "archbishop",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([

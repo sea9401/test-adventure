@@ -446,6 +446,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 17, spi: 4, luk: 3 }, // 마법 심화(주술사 계승) — 취약 누적·폭발
     unlock: { prereqs: { shaman: TIER4_UNLOCK_CUMLEVEL } }, // 주술사 계보
   },
+  archbishop: {
+    id: "archbishop",
+    name: "주교",
+    tier: 4,
+    cultivateProfile: { spi: 2, int: 1, vit: 1 },
+    jobBonus: { spi: 15, vit: 5, int: 2 }, // 사제 심화(대사제 계승) — 낮은 회복 + 보호 축
+    unlock: { prereqs: { bishop: TIER4_UNLOCK_CUMLEVEL } }, // 대사제 계보
+  },
   chief: {
     id: "chief",
     name: "신궁",
@@ -669,6 +677,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   sage: { class: "mage", spec: "sage" },
   elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
   archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 세 번째 갈래(주술사 계승·마법취약)
+  archbishop: { class: "mage", spec: "archbishop" }, // 마법 4차 네 번째 갈래(대사제 계승·성직자)
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
   warlord: { class: "warrior", spec: "warlord" }, // 전사 4차 세 번째 갈래(광전사 계승·저HP 딜)

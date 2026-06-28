@@ -206,12 +206,12 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 // 큰 로드아웃. 여러 직업군 환생 누적 = 더 큰 예산. (전 V2_CORE_LOOP_V2 뒤·미배선이면 inert.)
 //
 // 🔑 마일스톤 간격은 cumLevel 이 깊어질수록 "넓어진다"(점감) — flat 간격은 선형 무한증가라
-//    베테랑이 결국 전 카탈로그 장착 가능(제약 붕괴). SP 계산은 해금용 숙련도를 1/6 정규화한
-//    밸런스 입력을 쓴다. 운영 실측(prod RDS 10인)의 예전 1환생≈291 은 마이그 후 1746이지만
+//    베테랑이 결국 전 카탈로그 장착 가능(제약 붕괴). SP 계산은 해금용 숙련도를 1/9 정규화한
+//    밸런스 입력을 쓴다. 운영 실측(prod RDS 10인)의 예전 1환생≈291 은 마이그 후 2619지만
 //    밸런스 입력은 그대로 291 이라 예산 충격이 없다. n번째 SP 간격 = BASE + (n-1)*WIDEN.
 //    (밸런스 입력 임계: SP1@45 2@115 3@210 4@330 5@475 6@645 7@840 8@1060.)
 export const SP_BASE = 12; // 시작 SP.
-export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 밸런스 숙련도(원본 숙련도 270).
+export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 밸런스 숙련도(저장 숙련도 405).
 export const SP_MILESTONE_WIDEN = 25; // 다음 SP 마다 간격이 이만큼씩 더 벌어진다(점감 강도).
 export const SP_MASTERED_JOB_BONUS = 3; // 직업군 "정복" 1회당 +SP.
 // "정복" 기준 = 밸런스 숙련도 임계(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
@@ -220,7 +220,7 @@ export const SP_MASTERED_JOB_BONUS = 3; // 직업군 "정복" 1회당 +SP.
 //   10인 전원에서 tier≥4 정복 수를 그대로 재현(flip 시 예산 충격 0) + 이후 영속. (튜닝 다이얼.)
 export const SP_MASTERED_CUMLEVEL = 250;
 export const SP_MAX_SOFT_CAP = 40; // 절대 천장(점감 곡선상 단일직 ~7·broad 베테랑 ~32, 캡은 안전망).
-const SP_MASTERY_BALANCE_SCALE = 6;
+const SP_MASTERY_BALANCE_SCALE = 9;
 function spBalanceCumLevel(cumLevel: number): number {
   if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
   return Math.floor(cumLevel / SP_MASTERY_BALANCE_SCALE);

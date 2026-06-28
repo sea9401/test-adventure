@@ -19,8 +19,8 @@ const BASE_JOBS: JobLadderEntry[] = [
 ];
 
 const WARRIOR_UPPER: JobLadderEntry[] = [
-  { id: "shieldman", name: "방패병", tier: 2, condition: "견습 병사 숙련도 600", bonus: "활력 +12 · 힘 +6", skillsCollected: true },
-  { id: "squire", name: "견습 기사", tier: 2, condition: "견습 병사 숙련도 600", bonus: "힘 +12 · 민첩 +5" },
+  { id: "shieldman", name: "방패병", tier: 2, condition: "견습 병사 숙련도 900", bonus: "활력 +12 · 힘 +6", skillsCollected: true },
+  { id: "squire", name: "견습 기사", tier: 2, condition: "견습 병사 숙련도 900", bonus: "힘 +12 · 민첩 +5" },
 ];
 
 function Scenario({

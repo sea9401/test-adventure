@@ -49,10 +49,10 @@ describe("learn-skill — 현재 직업 jobId 킷 기준", () => {
     store.set("skills.v2", { learned: [], equipped: [] });
     store.set("proficiency.v2", {
       points: 6000,
-      groups: { warrior: { tier: 1, cultivations: 0, cumLevel: 1800 } },
+      groups: { warrior: { tier: 1, cultivations: 0, cumLevel: 2700 } },
       caps: {},
       grown: {},
-      masteryScaleVersion: 1,
+      masteryScaleVersion: 2,
     });
 
     const res = await POST(req("v2c_veteran_cleave"));

@@ -5,13 +5,13 @@ import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 
 // 직업 도감 프리뷰 — 로그인 없이 V2JobCodexView 렌더 확인(읽기 전용). prod 404 = /dev layout 가드.
-// mock: 전사 직군 600+(2차 해금)·견습 기사 숙련도 1200(→기사 3차 계보 해금)·마법 진행·일부 패시브.
+// mock: 전사 직군 900+(2차 해금)·견습 기사 숙련도 1800(→기사 3차 계보 해금)·마법 진행·일부 패시브.
 //   🔑 계보 게이팅: 3차(기사)는 직군 cumLevel 이 아니라 바로 아래 2차(견습 기사) jobCumLevel 로 열린다.
 const prof = emptyProficiency();
-prof.groups.warrior = { cultivations: 0, tier: 2, cumLevel: 1500 };
-prof.groups.mage = { cultivations: 0, tier: 1, cumLevel: 720 };
-prof.groups.rogue = { cultivations: 0, tier: 1, cumLevel: 240 };
-prof.jobCumLevel = { squire: 1200 }; // 견습 기사 1200 → 기사(3차) 계보 해금 시연
+prof.groups.warrior = { cultivations: 0, tier: 2, cumLevel: 2250 };
+prof.groups.mage = { cultivations: 0, tier: 1, cumLevel: 1080 };
+prof.groups.rogue = { cultivations: 0, tier: 1, cumLevel: 360 };
+prof.jobCumLevel = { squire: 1800 }; // 견습 기사 1800 → 기사(3차) 계보 해금 시연
 
 const learned = [
   "v2c_warrior_might", // 견습 병사 패시브(근력)

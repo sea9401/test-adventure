@@ -115,15 +115,15 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
   });
 
   it("parse — masteryScaleVersion 보존, 레거시 groups row 는 0으로 표시", () => {
-    expect(parseProficiency({}).masteryScaleVersion).toBe(1);
+    expect(parseProficiency({}).masteryScaleVersion).toBe(2);
     expect(parseProficiency({ groups: { warrior: { cumLevel: 1 } } }).masteryScaleVersion).toBe(0);
     expect(parseProficiency({ jobCumLevel: { paladin: 1 } }).masteryScaleVersion).toBe(0);
     expect(
       parseProficiency({
-        masteryScaleVersion: 1,
-        groups: { warrior: { cumLevel: 6 } },
+        masteryScaleVersion: 2,
+        groups: { warrior: { cumLevel: 9 } },
       }).masteryScaleVersion,
-    ).toBe(1);
+    ).toBe(2);
   });
 
   it("parseProficiencyForChar — charSave 무시(시드 마이그 폐지), cumLevel 필드만 반영", () => {

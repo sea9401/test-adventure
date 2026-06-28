@@ -36,7 +36,8 @@ export type V2ProficiencyState = {
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 승리당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
   jobCumLevel?: Record<string, number>;
-  // 숙련도 스케일 마이그레이션 버전. 1 = 레벨 기반 cumLevel → 승리 기반 숙련도 전환 보정(×6) 적용.
+  // 숙련도 스케일 마이그레이션 버전.
+  // 1 = 레벨 기반 cumLevel → 승리 기반 숙련도 전환 보정(×6), 2 = 요구치 1.5배 상향 보정(총 ×9) 적용.
   masteryScaleVersion?: number;
   // 환생(재전직) 횟수 — advance-class 환생(같은/다른 직업 무관)마다 +1. cumLevel 과 별개의 "행동" 신호:
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
@@ -144,7 +145,7 @@ export function emptyProficiency(): V2ProficiencyState {
     caps: {},
     grown: {},
     jobCumLevel: {},
-    masteryScaleVersion: 1,
+    masteryScaleVersion: 2,
     reincarnations: 0,
   };
 }
@@ -182,7 +183,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       ? posInt(obj.masteryScaleVersion)
       : hasLegacyScaledFields
         ? 0
-        : 1;
+        : 2;
   // 숙달 포인트(캐릭터 전역 잔액) — 신포맷=top-level points. 옛 포맷=직군별 points 라, 아래 루프에서
   //   각 직군의 points 를 전부 여기 합산해 이관한다(2026-06-27 전역 승격). 신포맷 그룹엔 points 가
   //   없어 posInt→0 이므로 이중계산 없음.
@@ -318,9 +319,9 @@ export function flattenGroupTiers(
 // 승리 기반 스케일이고, floor 는 balanceCumLevel 로 정규화한 값을 사용한다.
 export const V2_FLOOR_GLOBAL = 0.015; // 총 밸런스 숙련도 → 전 스탯 베이스.
 export const V2_FLOOR_PER_PROF = 0.05; // 직군 밸런스 숙련도 → 프로필 스탯 floor.
-// 숙련도는 해금 보존을 위해 기존 cumLevel 대비 6배 스케일로 마이그레이션했다.
-// 해금 조건은 원본 값을 쓰지만, 스탯 floor·SP 같은 성장 보너스는 기존 체감을 유지하도록 1/6 정규화한다.
-export const V2_MASTERY_BALANCE_SCALE = 6;
+// 숙련도는 해금 보존을 위해 기존 cumLevel 대비 9배 스케일로 마이그레이션했다.
+// 해금 조건은 원본 값을 쓰지만, 스탯 floor·SP 같은 성장 보너스는 기존 체감을 유지하도록 1/9 정규화한다.
+export const V2_MASTERY_BALANCE_SCALE = 9;
 export function balanceCumLevel(cumLevel: number): number {
   if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
   return Math.floor(cumLevel / V2_MASTERY_BALANCE_SCALE);

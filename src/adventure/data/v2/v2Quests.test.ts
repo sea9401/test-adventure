@@ -519,9 +519,9 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
   });
 
   it("윤회의 길 — 후속 마일스톤은 숙련도 경계", () => {
-    expect(questById("r_300")!.check({ ...ZERO, cumLevel: 299 })).toBe(false);
-    expect(questById("r_300")!.check({ ...ZERO, cumLevel: 300 })).toBe(true);
-    expect(questById("r_2000")!.check({ ...ZERO, cumLevel: 2000 })).toBe(true);
+    expect(questById("r_300")!.check({ ...ZERO, cumLevel: 449 })).toBe(false);
+    expect(questById("r_300")!.check({ ...ZERO, cumLevel: 450 })).toBe(true);
+    expect(questById("r_2000")!.check({ ...ZERO, cumLevel: 3000 })).toBe(true);
   });
 
   it("생활의 달인 — 도감 카운트", () => {

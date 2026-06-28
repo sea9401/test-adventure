@@ -22,7 +22,7 @@ import {
 export const V2_GROWTH_POINTS_PER_LEVEL = 5;
 
 // 스탯 floor(저점) — base + 총 숙련도(일반) + 직군 숙련도(프로필 가중, off 모드는 차수 보정). docs §5.
-// 해금용 숙련도는 승리 기반 6배 스케일이므로, floor 는 balanceCumLevel 로 기존 성장 체감에 맞춘다.
+// 해금용 숙련도는 승리 기반 9배 스케일이므로, floor 는 balanceCumLevel 로 기존 성장 체감에 맞춘다.
 // 전직 시 레벨/grown 리셋돼도 스탯은 이 floor 부터 → prestige 루프(cumLevel 은 리셋 안 됨).
 export function computeStatFloors(
   prof: V2ProficiencyState,

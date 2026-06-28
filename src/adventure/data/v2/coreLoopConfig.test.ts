@@ -192,9 +192,9 @@ describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
 });
 
 describe("spMilestonesForCumLevel — 점감(widening) 마일스톤 곡선", () => {
-  it("점감 임계 — n번째 SP 누적 숙련도(a45 d25, 해금 스케일 ×6): 270/690/1260/1980/2850/3870/5040/6360", () => {
+  it("점감 임계 — n번째 SP 누적 숙련도(a45 d25, 해금 스케일 ×9): 405/1035/1890/2970/4275/5805/7560/9540", () => {
     // 임계 직전엔 n-1, 임계 도달 시 n.
-    const T = [270, 690, 1260, 1980, 2850, 3870, 5040, 6360];
+    const T = [405, 1035, 1890, 2970, 4275, 5805, 7560, 9540];
     T.forEach((thresh, i) => {
       expect(spMilestonesForCumLevel(thresh - 1), `${thresh}-1`).toBe(i);
       expect(spMilestonesForCumLevel(thresh), `${thresh}`).toBe(i + 1);
@@ -223,16 +223,16 @@ describe("spMilestonesForCumLevel — 점감(widening) 마일스톤 곡선", () 
 
 describe("spMilestonesCrossed — 레벨업 시 새로 넘은 SP 마일스톤(알림용)", () => {
   it("임계를 넘지 않은 레벨업 = 0", () => {
-    expect(spMilestonesCrossed(270, 300)).toBe(0); // 둘 다 1번째 구간
-    expect(spMilestonesCrossed(1746, 1752)).toBe(0); // 베테랑(이미 3) — 새 임계 없음
+    expect(spMilestonesCrossed(405, 450)).toBe(0); // 둘 다 1번째 구간
+    expect(spMilestonesCrossed(2619, 2628)).toBe(0); // 베테랑(이미 3) — 새 임계 없음
   });
   it("임계 1개 넘기면 1", () => {
-    expect(spMilestonesCrossed(684, 690)).toBe(1); // 2번째 임계 도달
-    expect(spMilestonesCrossed(264, 270)).toBe(1); // 첫 SP
+    expect(spMilestonesCrossed(1026, 1035)).toBe(1); // 2번째 임계 도달
+    expect(spMilestonesCrossed(396, 405)).toBe(1); // 첫 SP
   });
   it("한 번에 여러 임계 넘기면 그 수만큼(다중 레벨업)", () => {
-    // 0 → 1260: 임계 270·690·1260 세 개 통과 = 3.
-    expect(spMilestonesCrossed(0, 1260)).toBe(3);
+    // 0 → 1890: 임계 405·1035·1890 세 개 통과 = 3.
+    expect(spMilestonesCrossed(0, 1890)).toBe(3);
   });
   it("cumLevel 단조 — 역행/동일은 0(음수 방지)", () => {
     expect(spMilestonesCrossed(300, 100)).toBe(0);
@@ -246,26 +246,26 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
     expect(calcSpBudget(null)).toBe(12);
   });
   it("직업군 cumLevel 점감 마일스톤 합산", () => {
-    expect(calcSpBudget({ warrior: { cumLevel: 690 } })).toBe(14); // 12 + 2
+    expect(calcSpBudget({ warrior: { cumLevel: 1035 } })).toBe(14); // 12 + 2
     expect(
-      calcSpBudget({ warrior: { cumLevel: 1260 }, mage: { cumLevel: 270 } }),
+      calcSpBudget({ warrior: { cumLevel: 1890 }, mage: { cumLevel: 405 } }),
     ).toBe(16); // 12 + 3 + 1
   });
   it("정복(balanceCumLevel≥250) 직업군당 +3 — tier 무관(환생 flatten 영향 없음)", () => {
-    // cumLevel 1500 = 정복 → 마일스톤(1500→3) + base12 + 정복3 = 18.
-    expect(calcSpBudget({ warrior: { cumLevel: 1500 } })).toBe(18);
-    // 임계 직전(1499) = 미정복 → 정복 보너스 없음(마일스톤 3 만).
-    expect(calcSpBudget({ warrior: { cumLevel: 1499 } })).toBe(15);
+    // cumLevel 2250 = 정복 → 마일스톤(2250→3) + base12 + 정복3 = 18.
+    expect(calcSpBudget({ warrior: { cumLevel: 2250 } })).toBe(18);
+    // 임계 직전(2249) = 미정복 → 정복 보너스 없음(마일스톤 3 만).
+    expect(calcSpBudget({ warrior: { cumLevel: 2249 } })).toBe(15);
     // tier 4 라도 cumLevel 낮으면 미정복 — 차수 기반 아님(코어루프 flatten 무관).
-    expect(calcSpBudget({ warrior: { cumLevel: 270, tier: 4 } })).toBe(13); // 12+1
+    expect(calcSpBudget({ warrior: { cumLevel: 405, tier: 4 } })).toBe(13); // 12+1
   });
   it("운영 실측 베테랑 — 마이그 후 top(cum6372·4직업·3정복)은 점감으로 ~32, flat43 대비 천장 굳음", () => {
-    // 실제 user8 마이그 후: warrior1746·rogue1746·mage1746·martial1134 / 밸런스 입력 291·291·291·189.
+    // 실제 user8 마이그 후: warrior2619·rogue2619·mage2619·martial1701 / 밸런스 입력 291·291·291·189.
     const sp = calcSpBudget({
-      warrior: { cumLevel: 1746, tier: 4 },
-      rogue: { cumLevel: 1746, tier: 4 },
-      mage: { cumLevel: 1746, tier: 4 },
-      martial: { cumLevel: 1134, tier: 3 },
+      warrior: { cumLevel: 2619, tier: 4 },
+      rogue: { cumLevel: 2619, tier: 4 },
+      mage: { cumLevel: 2619, tier: 4 },
+      martial: { cumLevel: 1701, tier: 3 },
     });
     // balance 291→3 마일스톤 ×3 = 9, 189→2 = 2 → 11 마일스톤 + base12 + 3정복×3=9 → 32.
     expect(sp).toBe(32);

@@ -31,7 +31,7 @@ export function V2DevToolsContents() {
   const [level, setLevel] = useState("");
   const [gold, setGold] = useState("100000");
   const [proficiency, setProficiency] = useState("300");
-  const [mastery, setMastery] = useState("600");
+  const [mastery, setMastery] = useState("900");
   const [hpCharges, setHpCharges] = useState("1000");
   const [mpCharges, setMpCharges] = useState("1000");
   const [matId, setMatId] = useState<V2MaterialId>(MATERIAL_IDS[0]);

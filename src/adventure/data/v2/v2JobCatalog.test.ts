@@ -20,7 +20,10 @@ import {
 } from "./v2JobCatalog";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { jobDisplayName } from "./classes";
-import { V2_CULTIVATE_PROFILE } from "./proficiency";
+import {
+  V2_CULTIVATE_PROFILE,
+  V2_HYBRID_CULTIVATE_PROFILE,
+} from "./proficiency";
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
@@ -127,6 +130,23 @@ describe("스탯 맵 무결성", () => {
       expect(V2_JOB_CATALOG[id].cultivateProfile).toEqual(
         V2_CULTIVATE_PROFILE[id],
       );
+    }
+  });
+
+  it("하이브리드 직업의 cultivateProfile 은 V2_HYBRID_CULTIVATE_PROFILE 과 동일하다(수행 동기화)", () => {
+    // 수행은 V2_HYBRID_CULTIVATE_PROFILE 을 쓰므로 카탈로그(문서·표시)와 드리프트하면 안 된다.
+    const hybridIds = Object.keys(V2_HYBRID_CULTIVATE_PROFILE);
+    expect(hybridIds.length).toBeGreaterThan(0);
+    for (const id of hybridIds) {
+      expect(V2_JOB_CATALOG[id]?.cultivateProfile, id).toEqual(
+        V2_HYBRID_CULTIVATE_PROFILE[id],
+      );
+      // 합 4 고정(비용 곡선·economy 불변) — 직군 프로필과 동일 경제.
+      const sum = Object.values(V2_HYBRID_CULTIVATE_PROFILE[id]).reduce(
+        (s, v) => s + (v ?? 0),
+        0,
+      );
+      expect(sum, `${id} 프로필 합`).toBe(4);
     }
   });
 

@@ -6,7 +6,8 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
-  V2_CULTIVATE_PROFILE,
+  effectiveCultivateProfile,
+  V2_HYBRID_CULTIVATE_PROFILE,
   V2_STAT_CAP_BASE,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -141,9 +142,15 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     refresh();
   }, [refresh]);
 
-  const profile = V2_CULTIVATE_PROFILE[group] ?? null;
-  const disciplineName =
-    group !== "none" ? V2_CLASS_DEFS[group as V2Class]?.group ?? "" : "";
+  // 하이브리드(마검사·성기사)는 직군이 아니라 직업 정체성 프로필로 한계를 올린다(서버와 동일 해석).
+  const jobId = jobLadder?.currentJobId ?? null;
+  const isHybrid = !!(jobId && V2_HYBRID_CULTIVATE_PROFILE[jobId]);
+  const profile = effectiveCultivateProfile(group, jobId) ?? null;
+  const disciplineName = isHybrid
+    ? (jobLadder?.currentJobName ?? "")
+    : group !== "none"
+      ? V2_CLASS_DEFS[group as V2Class]?.group ?? ""
+      : "";
   const canCultivate =
     !!profile && !busy && usable >= nextCost && nextCost > 0;
 

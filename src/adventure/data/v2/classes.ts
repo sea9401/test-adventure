@@ -23,6 +23,7 @@ export const V2_CLASSES = [
   "martial", // 무도가 (구 체술)
   "mage", // 마법사 (구 마술 + 신술)
   "rogue", // 도적 (구 궁술 + 인술)
+  "survivor", // 생존자 (HP·회복 루트)
 ] as const;
 export type V2Class = (typeof V2_CLASSES)[number];
 
@@ -101,6 +102,14 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     anchorStat: "dex",
     description:
       "민첩(DEX)·행운(LUK) 기반. 원거리 궁술(DEX)과 치명 암살(LUK) 갈래로 나뉜다.",
+  },
+  survivor: {
+    id: "survivor",
+    name: "생존자",
+    group: "생존자",
+    anchorStat: "vit",
+    description:
+      "최대 HP와 자기 회복 기반 생존술. 회복기·HP 패시브·보호막을 챙기는 보조 루트다.",
   },
 };
 

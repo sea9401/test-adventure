@@ -41,6 +41,8 @@ export type V2CommonSkillId =
   | "v2c_martial_fortitude" // 강건 (활력 +10%)
   | "v2c_mage_acumen" // 총명 (지능 +10%)
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
+  | "v2c_survivor_firstaid" // 응급 처치 (잃은 HP 회복)
+  | "v2c_survivor_knowledge" // 생존 지식 (최대 HP)
   // 모험가(무직) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -55,6 +57,8 @@ export type V2CommonSkillId =
   | "v2c_assassin_ambush" // 처단 (처형 — executeDamage·LUK 비례)
   | "v2c_archer_volley" // 속박 사격 (딜 + 취약 enemyVuln)
   | "v2c_venomist_toxiccloud" // 독무 (중독 누적 + 중독 스택 비례딜)
+  | "v2c_camper_camp" // 야영 (잃은 HP 회복)
+  | "v2c_ironman_brace" // 버티기 (보호막)
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
   | "v2c_shieldman_vitality" // 방벽 (방어 +10%)
   | "v2c_squire_might" // 근력 II (힘 +15%)
@@ -65,6 +69,8 @@ export type V2CommonSkillId =
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
   | "v2c_venomist_corrosion" // 부식 (중독된 적 방어 감소)
+  | "v2c_camper_ration" // 비상식량 (회복 + 최대 HP)
+  | "v2c_ironman_body" // 단련된 몸 (최대 HP)
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
   // 액티브(강)
   | "v2c_paladin_cleave" // 심판 (물리 단일 + 무력 디버프)
@@ -85,6 +91,8 @@ export type V2CommonSkillId =
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
   | "v2c_venomancer_miasma" // 맹독 확산 (중독 심화 + 중독 스택 비례딜)
+  | "v2c_fieldmedic_treatment" // 현장 처치 (큰 자힐)
+  | "v2c_extremesurvivor_struggle" // 사투 (회복 + 보호막)
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
   | "v2c_guardian_bulwark3" // 방벽 II (방어 +20%)
   | "v2c_berserker_madness3" // 광기 (잃은 HP 비례 공격력)
@@ -93,6 +101,8 @@ export type V2CommonSkillId =
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
   | "v2c_venomancer_corrosion3" // 침식 (중독된 적 방어 감소 II)
+  | "v2c_fieldmedic_training" // 구급 숙련 (회복 + 최대 HP)
+  | "v2c_extremesurvivor_adaptation" // 극한 적응 (최대 HP + 받피감)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
   | "v2c_templar_smite" // 성기사: 심판의 빛 (물리 타격 + 자힐)
   | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
@@ -131,7 +141,12 @@ export type V2CommonSkillId =
   | "v2c_warlord_slaughter" // 살육본능 (광기 상위)
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) ──
   | "v2c_battlemonk_counter" // 반격 (피격 시 확률 반격 — 옛 절정 킷 상속)
-  | "v2c_battlemonk_ironbody"; // 철신 (최대 HP +20%)
+  | "v2c_battlemonk_ironbody" // 철신 (최대 HP +20%)
+  // ── 생존자 4차 갈래(구조 전문가·불굴의 생환자) ──
+  | "v2c_rescueexpert_rescue" // 긴급 구조 (큰 자힐 + 보호막)
+  | "v2c_rescueexpert_support" // 생환 지원 (회복 + 최대 HP)
+  | "v2c_returner_survive" // 생환 (자힐 + 큰 보호막)
+  | "v2c_returner_undying"; // 불굴 (최대 HP + 받피감)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -266,6 +281,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { atkPerDexCoef: 0.08 }, // = derive ROGUE_ATK_PER_DEX
   },
+  v2c_survivor_firstaid: {
+    id: "v2c_survivor_firstaid", name: "응급 처치", stat: "vit", category: "heal", tier: 1,
+    description: "급한 상처부터 막아 잃은 체력을 일부 되찾는다.", mpCost: 24, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 20 }],
+  },
+  v2c_survivor_knowledge: {
+    id: "v2c_survivor_knowledge", name: "생존 지식", stat: "vit", category: "passive", tier: 1,
+    description: "위험한 환경에서 버티는 요령. 최대 체력이 늘어난다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 10 },
+  },
 
   // ── 모험가(무직) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──
   v2c_none_toughness: {
@@ -357,6 +383,18 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.12, baseFlatByTier: [70, 70, 70], perStackFlat: 18, scaling: "luk" },
     ],
   },
+  v2c_camper_camp: {
+    id: "v2c_camper_camp", name: "야영", stat: "vit", category: "heal", tier: 2,
+    description: "짧게 숨을 고르고 몸을 추슬러 잃은 체력을 회복한다.",
+    mpCost: 30, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 25 }],
+  },
+  v2c_ironman_brace: {
+    id: "v2c_ironman_brace", name: "버티기", stat: "vit", category: "buff", tier: 2,
+    description: "몸을 굳혀 한동안 피해를 받아낼 보호막을 만든다.",
+    mpCost: 30, cooldown: 0, procChance: 100,
+    effects: [{ kind: "shield", pctMaxHp: 10, turns: 3 }],
+  },
 
   // ── 상위 직업 고유 패시브 — 학습 + SP 슬롯해야 상시 효과 ──
   //   다양성(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 "작동 방식" 사이드그레이드. 직업 테마에 맞춤
@@ -428,6 +466,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 12 },
+  },
+  v2c_camper_ration: {
+    id: "v2c_camper_ration", name: "비상식량", stat: "vit", category: "passive", tier: 2,
+    description: "아껴둔 보급품과 처치 요령. 회복량과 최대 체력이 함께 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { healPowerPct: 10, maxHpPct: 5 },
+  },
+  v2c_ironman_body: {
+    id: "v2c_ironman_body", name: "단련된 몸", stat: "vit", category: "passive", tier: 2,
+    description: "고된 환경을 견딘 몸. 최대 체력이 크게 늘어난다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 15 },
   },
 
   // ── 고차 4직업 액티브(tier 3) — 같은 계열 tier-2 보다 한 단계 강한 공격 ──
@@ -546,6 +598,18 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.16, baseFlatByTier: [120, 120, 120], perStackFlat: 24, scaling: "luk" },
     ],
   },
+  v2c_fieldmedic_treatment: {
+    id: "v2c_fieldmedic_treatment", name: "현장 처치", stat: "vit", category: "heal", tier: 3,
+    description: "전투 중에도 침착하게 상처를 정리해 잃은 체력을 크게 회복한다.",
+    mpCost: 40, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 35 }],
+  },
+  v2c_extremesurvivor_struggle: {
+    id: "v2c_extremesurvivor_struggle", name: "사투", stat: "vit", category: "heal", tier: 3,
+    description: "숨이 끊기기 직전의 집중으로 상처를 막고 보호막을 세운다.",
+    mpCost: 40, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 25 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
+  },
 
   // ── 고차 두 번째 갈래 고유 패시브(tier 3·형제와 다른 축) ──
   v2c_guardian_bulwark3: {
@@ -598,6 +662,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 20 },
+  },
+  v2c_fieldmedic_training: {
+    id: "v2c_fieldmedic_training", name: "구급 숙련", stat: "vit", category: "passive", tier: 3,
+    description: "현장에서 익힌 처치법. 회복량과 최대 체력이 함께 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { healPowerPct: 15, maxHpPct: 8 },
+  },
+  v2c_extremesurvivor_adaptation: {
+    id: "v2c_extremesurvivor_adaptation", name: "극한 적응", stat: "vit", category: "passive", tier: 3,
+    description: "혹독한 환경에 몸을 맞춘다. 최대 체력이 늘고 받는 피해가 줄어든다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 20, damageTakenReductionPct: 5 },
   },
 
   // ── 하이브리드(tier 3·성기사 = 전사×마법) — 딜+자힐 탱 ──
@@ -888,6 +966,32 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "강철 같은 몸. 최대 체력이 크게 늘어난다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { maxHpPct: 20 },
+  },
+  v2c_rescueexpert_rescue: {
+    id: "v2c_rescueexpert_rescue", name: "긴급 구조", stat: "vit", category: "heal", tier: 3,
+    description: "치명적인 부상을 수습하고 곧바로 보호막을 덧댄다.",
+    mpCost: 46, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 45 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
+  },
+  v2c_rescueexpert_support: {
+    id: "v2c_rescueexpert_support", name: "생환 지원", stat: "vit", category: "passive", tier: 3,
+    description: "살려내는 기술에 익숙해진다. 회복량과 최대 체력이 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { healPowerPct: 20, maxHpPct: 10 },
+  },
+  v2c_returner_survive: {
+    id: "v2c_returner_survive", name: "생환", stat: "vit", category: "heal", tier: 3,
+    description: "끝까지 숨을 붙잡아 잃은 체력을 되찾고 큰 보호막을 만든다.",
+    mpCost: 46, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 35 }, { kind: "shield", pctMaxHp: 12, turns: 3 }],
+  },
+  v2c_returner_undying: {
+    id: "v2c_returner_undying", name: "불굴", stat: "vit", category: "passive", tier: 3,
+    description: "쓰러질 상황에서도 버틴다. 최대 체력이 크게 늘고 받는 피해가 줄어든다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 25, damageTakenReductionPct: 8 },
   },
 };
 

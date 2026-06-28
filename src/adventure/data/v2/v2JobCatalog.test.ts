@@ -28,11 +28,13 @@ import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 const BASE_JOBS = ["warrior", "martial", "mage", "rogue"];
+const LEGACY_CLASSES = [...BASE_JOBS, "survivor"];
 const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
   mage: ["caster", "acolyte"],
   rogue: ["assassin", "archer", "venomist"],
+  survivor: ["camper", "ironman"],
 };
 // 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
 const TIER3_LINEAGE: Record<string, string> = {
@@ -47,6 +49,8 @@ const TIER3_LINEAGE: Record<string, string> = {
   ranger: "archer",
   shadow: "assassin",
   venomancer: "venomist",
+  fieldmedic: "camper",
+  extremesurvivor: "ironman",
 };
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
@@ -58,6 +62,8 @@ const TIER4_LINEAGE: Record<string, string> = {
   chief: "ranger",
   venomlord: "venomancer",
   battlemonk: "warmonk", // 무도 4차 두 번째 갈래 — 무승 계보
+  rescueexpert: "fieldmedic",
+  returner: "extremesurvivor",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -74,14 +80,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("40개 직업(모험가 1 + 기본 4 + 상위 9 + 고차 15 + 심화 11)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(40);
+  it("47개 직업(루트 2 + 기본 4 + 상위 11 + 고차 17 + 심화 13)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(47);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
-    expect(byTier(0)).toBe(1);
+    expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(9);
-    expect(byTier(3)).toBe(15); // 기존 고차 11 + 광전사·주술사 + 하이브리드 2종
-    expect(byTier(4)).toBe(11); // 기존 심화 9 + 전사 광왕 + 마법 대주술사
+    expect(byTier(2)).toBe(11);
+    expect(byTier(3)).toBe(17);
+    expect(byTier(4)).toBe(13);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -95,7 +101,7 @@ describe("v2JobCatalog 구조", () => {
     expect(jobById("nope")).toBeUndefined();
   });
 
-  it("직업 내장 보너스(jobBonus) — 직업(tier≥1)마다 존재, 모험가(none)는 없음", () => {
+  it("직업 내장 보너스(jobBonus) — 직업(tier≥1)마다 존재, 루트(tier0)는 없음", () => {
     // "이 직업에 머무를 이유" = 내장 보너스. 0으로 비면 직업 정체성이 사라지므로 회귀 가드.
     for (const job of V2_JOB_LIST) {
       const total = Object.values(job.jobBonus).reduce(
@@ -103,7 +109,7 @@ describe("v2JobCatalog 구조", () => {
         0,
       );
       if (job.tier === 0) {
-        expect(total, `${job.id}(모험가)`).toBe(0);
+        expect(total, `${job.id}(루트)`).toBe(0);
       } else {
         expect(total, `${job.id} 내장 보너스 합`).toBeGreaterThan(0);
       }
@@ -158,12 +164,14 @@ describe("스탯 맵 무결성", () => {
 
   it("모험가 jobBonus 는 비어 있다(HP% 는 별도 적용)", () => {
     expect(V2_JOB_CATALOG.none.jobBonus).toEqual({});
+    expect(V2_JOB_CATALOG.survivor.jobBonus).toEqual({});
   });
 });
 
 describe("해금 트리", () => {
-  it("모험가·기본 직업은 prereqs 가 비어 있다", () => {
+  it("루트·기본 4직업은 prereqs 가 비어 있다", () => {
     expect(V2_JOB_CATALOG.none.unlock.prereqs).toEqual({});
+    expect(V2_JOB_CATALOG.survivor.unlock.prereqs).toEqual({});
     for (const id of BASE_JOBS) {
       expect(V2_JOB_CATALOG[id].unlock.prereqs).toEqual({});
     }
@@ -520,7 +528,7 @@ describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
 
   it("매핑 class 는 전부 유효한 기본 직업 id", () => {
     for (const { class: cls } of Object.values(LEGACY_CLASS_SPEC_BY_JOB)) {
-      expect(BASE_JOBS).toContain(cls);
+      expect(LEGACY_CLASSES).toContain(cls);
     }
   });
 });

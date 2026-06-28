@@ -75,6 +75,7 @@ export const V2_CULTIVATE_PROFILE: Record<
   martial: { vit: 2, str: 1, spi: 1 }, // 무도가 — 맷집(vit)·흡혈/기공
   mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
   rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
+  survivor: { vit: 2, spi: 1, str: 1 }, // 생존자 — 최대 HP·회복·버티기
   // 모험가(무직) — 전직 전에도 균형 수행 가능(STR/VIT/DEX/INT 각 1, SPI/LUK 제외). cap 은 전역이라
   //   전직 후에도 유지. 전직은 별개(advance-class)·none 은 직군 정복/도감엔 미포함(cumLevel 미적립).
   none: { str: 1, vit: 1, dex: 1, int: 1 },

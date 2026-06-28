@@ -11,11 +11,12 @@ import type { V2SkillId } from "./v2Skills";
 export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 모험가(무직) — 착용형 패시브 2(학습+SP 슬롯). 상위직업과 달리 액티브 없이 패시브 2개. ──
   none: ["v2c_none_toughness", "v2c_none_diligence"],
-  // ── 기본 4직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
+  // ── 기본 직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
   warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10%)
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)
   mage: ["v2c_mage_boltcast", "v2c_mage_acumen"], // 마력탄 + 총명(지능+10%)
   rogue: ["v2c_rogue_poison", "v2c_rogue_finesse"], // 독침 + 예기(민첩→공격력)
+  survivor: ["v2c_survivor_firstaid", "v2c_survivor_knowledge"], // 응급 처치 + 생존 지식(최대 HP)
   // ── 상위 직업 — 액티브 1 + 고유 패시브 1(직업마다 다른 축/효과) ──
   shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"], // 방패 타격(방어력 기반) + 체력(HP+12%)
   squire: ["v2c_squire_cleave", "v2c_squire_might"], // 돌격 + 근력 II(힘+15%)
@@ -26,6 +27,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형·LUK 비례) + 치명(치명확률+8%)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 속박 사격(딜+취약) + 민첩(민첩+10%)
   venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"], // 독무(중독 누적+스택딜) + 부식(중독 적 방어↓)
+  camper: ["v2c_camper_camp", "v2c_camper_ration"], // 야영(자힐) + 비상식량(회복+최대 HP)
+  ironman: ["v2c_ironman_brace", "v2c_ironman_body"], // 버티기(보호막) + 단련된 몸(최대 HP)
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력권(강타) + 보법 II(회피+12%)
@@ -39,6 +42,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"], // 대치유(자힐) + 회복 II(회복+30%)
   shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"], // 암살(처형·LUK) + 그늘(치명피해+30%)
   venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"], // 맹독 확산(중독 심화) + 침식(중독 적 방어↓)
+  fieldmedic: ["v2c_fieldmedic_treatment", "v2c_fieldmedic_training"], // 현장 처치 + 구급 숙련
+  extremesurvivor: ["v2c_extremesurvivor_struggle", "v2c_extremesurvivor_adaptation"], // 사투 + 극한 적응
   // ── 하이브리드(tier 3·전사×마법) ──
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
@@ -61,6 +66,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(HP 소모 강타) + 살육본능(광기 상위)
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) — 옛 절정 킷(반격+철신) 상속 ──
   battlemonk: ["v2c_battlemonk_counter", "v2c_battlemonk_ironbody"], // 반격(피격 카운터) + 철신(최대HP+20%) — 둘 다 패시브
+  rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"], // 긴급 구조 + 생환 지원
+  returner: ["v2c_returner_survive", "v2c_returner_undying"], // 생환 + 불굴
 };
 
 /** 새 직업 id 의 학습 가능 시그니처 스킬셋. 미존재 jobId = 빈 배열(시작 스킬은 별도 자동 보유). */

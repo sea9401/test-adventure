@@ -21,9 +21,15 @@ import {
   staminaCapBonusOf,
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
-import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  HUNT_COOLDOWN_MODE,
+  V2_CORE_LOOP_V2,
+  spendGold,
+} from "@/adventure/data/v2/coreLoopConfig";
 
-// 코어루프 — 스태미나 폐지. 스태미나 관련 상품은 목록/구매에서 제외(flag-on).
+// 스태미나가 실제로 폐지된 모드(쿨다운 모드)일 때만 스태미나 상품을 목록/구매에서 제외한다.
+//   라이브처럼 스태미나를 쓰는 모드면 정상 판매. HUNT_COOLDOWN_MODE = V2_CORE_LOOP_V2 &&
+//   !V2_HUNT_USE_STAMINA (옛 V2_CORE_LOOP_V2 단독 게이트는 스태미나 모드서도 잘못 숨겼음).
 const STAMINA_SHOP_ITEMS = new Set(["stamina_potion", "stamina_cap_tonic"]);
 
 // 비밀 상점 — 「비밀 상점의 지도」 보유자만. 품목당 1회(지도 bought[]), 전 품목
@@ -73,7 +79,7 @@ export async function GET(req: Request) {
       ? { bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)) }
       : {}),
     stock: SECRET_SHOP_STOCK.filter(
-      (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
+      (i) => !(HUNT_COOLDOWN_MODE && STAMINA_SHOP_ITEMS.has(i.id)),
     ).map((i) => ({ ...i, bought: bought.has(i.id) })),
   });
 }
@@ -95,8 +101,8 @@ export async function POST(req: Request) {
   if (!iid || !item) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
-  // 코어루프 — 스태미나 상품 구매 차단(목록서도 빠지지만 직접 호출 방어).
-  if (V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(item.id)) {
+  // 쿨다운 모드(스태미나 폐지)에서만 스태미나 상품 구매 차단(목록서도 빠지지만 직접 호출 방어).
+  if (HUNT_COOLDOWN_MODE && STAMINA_SHOP_ITEMS.has(item.id)) {
     return Response.json(
       { ok: false, error: "item_unavailable" },
       { status: 400 },
@@ -134,10 +140,10 @@ export async function POST(req: Request) {
     }
 
     // 구매 마킹 — 전 품목 구매 시 지도 소진(runsLeft 0 → parse 가 purge).
-    //   코어루프 on 이면 스태미나 상품은 구매 불가라 "전 품목"에서 제외(아니면 영영 소진 안 됨).
+    //   쿨다운 모드면 스태미나 상품은 구매 불가라 "전 품목"에서 제외(아니면 영영 소진 안 됨).
     const nextBought = [...bought, item.id];
     const buyableStock = SECRET_SHOP_STOCK.filter(
-      (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
+      (i) => !(HUNT_COOLDOWN_MODE && STAMINA_SHOP_ITEMS.has(i.id)),
     );
     const allBought = buyableStock.every((i) => nextBought.includes(i.id));
     const nextMaps = maps

@@ -42,6 +42,7 @@ import {
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 V2_LEVEL_CAP + v2JobCatalog
@@ -187,6 +188,7 @@ export async function POST(req: Request) {
       const nextProf = addReincarnation(
         flattenGroupTiers(setGrown(prof, {}), targetGroup),
       );
+      const codexBonus = await readCodexSpBonus(tx, userId);
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →
       //   타직업 공용/기본기 오픈믹스 수집분 유지). 예산은 tier 1 정규화 기준(정복 보너스 빠짐).
       await upsertSave(tx, userId, "skills.v2", {
@@ -197,6 +199,7 @@ export async function POST(req: Request) {
           calcSpBudget(
             nextProf.groups,
             spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
+            codexBonus.total,
           ),
         ),
       });

@@ -26,6 +26,7 @@ import {
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/learn-skill — 현재 직업 시그니처 1종 학습. 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
@@ -128,6 +129,9 @@ export async function POST(req: Request) {
     //   코어루프: 기존 로드아웃(수동 선택) 보존 + 새로 배운 스킬을 뒤에 붙여 SP 예산까지
     //     sanitize(맞으면 자동 장착·예산 차면 learned 만·수동 교체는 로드아웃 화면에서). 강제 재산출 X.
     const nextLearned = [...skills.learned, sig];
+    const codexBonus = V2_CORE_LOOP_V2
+      ? await readCodexSpBonus(tx, userId)
+      : null;
     const nextEquipped = V2_CORE_LOOP_V2
       ? sanitizeLoadout(
           [...skills.equipped, sig],
@@ -135,6 +139,7 @@ export async function POST(req: Request) {
           calcSpBudget(
             spent.groups,
             spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
+            codexBonus?.total ?? 0,
           ),
         )
       : nextLearned.filter((s) => elementalPool.includes(s));

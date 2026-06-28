@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { FISH, FISH_IDS } from "@/adventure/data/v2/fish";
 import {
   countDiscoveredFish,
   discoveredFishIds,
   emptyFishCodex,
+  fishCodexSpBonus,
+  fishTierCompletions,
   parseFishCodex,
   recordCatch,
 } from "./fishingCodex";
@@ -87,5 +90,29 @@ describe("낚시 도감 — parse / count", () => {
     codex = recordCatch(codex, "trout", 40, 2);
     expect(countDiscoveredFish(codex)).toBe(2);
     expect(discoveredFishIds(codex).sort()).toEqual(["carp", "trout"]);
+  });
+});
+
+describe("낚시 도감 — 등급 완성 SP", () => {
+  it("등급별 전종 발견 시 1 SP, 일부 발견은 0 SP", () => {
+    const commonIds = FISH_IDS.filter((id) => FISH[id].tier === "common");
+    let codex = emptyFishCodex();
+    for (const [i, id] of commonIds.entries()) {
+      codex = recordCatch(codex, id, 10 + i, 1000 + i);
+    }
+    expect(fishCodexSpBonus(codex)).toBe(1);
+    expect(
+      fishTierCompletions(codex).find((tier) => tier.tier === "common"),
+    ).toMatchObject({
+      discovered: commonIds.length,
+      total: commonIds.length,
+      complete: true,
+      sp: 1,
+    });
+
+    const firstCommon = commonIds[0];
+    expect(firstCommon).toBeDefined();
+    const partial = recordCatch(emptyFishCodex(), firstCommon!, 10, 1);
+    expect(fishCodexSpBonus(partial)).toBe(0);
   });
 });

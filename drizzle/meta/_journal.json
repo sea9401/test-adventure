@@ -645,6 +645,13 @@
       "when": 1782600000000,
       "tag": "0091_scale_v2_mastery",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1782648000000,
+      "tag": "0092_scale_v2_mastery_unlocks",
+      "breakpoints": true
     }
   ]
 }

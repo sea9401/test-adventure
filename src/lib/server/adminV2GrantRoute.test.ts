@@ -52,7 +52,7 @@ describe("POST /api/admin/v2-grant", () => {
       points: 100,
       groups: { warrior: { tier: 1, cultivations: 0, cumLevel: 30 } },
       jobCumLevel: { warrior: 5 },
-      masteryScaleVersion: 1,
+      masteryScaleVersion: 2,
     });
   });
 

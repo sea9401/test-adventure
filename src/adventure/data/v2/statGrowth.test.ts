@@ -68,11 +68,11 @@ describe("v2 랜덤 레벨 성장", () => {
 
 describe("v2 스탯 floor", () => {
   it("computeStatFloors — 총(전 스탯) + 직군 숙련도(프로필·차수 가중)", () => {
-    // 전사(warrior {str:2,vit:1,dex:1}) 숙련도 1200(밸런스 입력 200), tier1. 총=200×0.015=3.
+    // 전사(warrior {str:2,vit:1,dex:1}) 숙련도 1800(밸런스 입력 200), tier1. 총=200×0.015=3.
     // 프로필 값 비례: str(2/2=1.0)·vit/dex(1/2=0.5). FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
     const prof = parseProficiency({
       groups: {
-        warrior: { points: 10, cultivations: 0, tier: 1, cumLevel: 1200 },
+        warrior: { points: 10, cultivations: 0, tier: 1, cumLevel: 1800 },
       },
     });
     const f = computeStatFloors(prof);
@@ -88,7 +88,7 @@ describe("v2 스탯 floor", () => {
     // 옛 앵커-이진에선 spi/luk 이 0.4 로 홀대됐으나, 값 비례에서 값2는 모두 1.0(주력 동급).
     const mage = computeStatFloors(
       parseProficiency({
-        groups: { mage: { points: 0, cultivations: 0, tier: 1, cumLevel: 1200 } },
+        groups: { mage: { points: 0, cultivations: 0, tier: 1, cumLevel: 1800 } },
       }),
     );
     // mage {int:2, spi:2} — 둘 다 최댓값 → floor 1.0 동급 = base + 3 + 10.
@@ -96,7 +96,7 @@ describe("v2 스탯 floor", () => {
     expect(mage.spi).toBe(mage.int);
     const rogue = computeStatFloors(
       parseProficiency({
-        groups: { rogue: { points: 0, cultivations: 0, tier: 1, cumLevel: 1200 } },
+        groups: { rogue: { points: 0, cultivations: 0, tier: 1, cumLevel: 1800 } },
       }),
     );
     // rogue {dex:2, luk:2} — luk 이 dex 와 동급.
@@ -108,7 +108,7 @@ describe("v2 스탯 floor", () => {
       computeStatFloors(
         parseProficiency({
           groups: {
-            warrior: { points: 10, cultivations: 0, tier, cumLevel: 1200 },
+            warrior: { points: 10, cultivations: 0, tier, cumLevel: 1800 },
           },
         }),
       );

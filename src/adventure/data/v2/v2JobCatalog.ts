@@ -56,25 +56,25 @@ export type V2JobDefinition = {
 
 /**
  * 상위(Tier 2) 해금 임계 — 부모 "기본 직업의 직군 숙련도"(groups[base].cumLevel). 첫 전직이라
- * 베이스 직군 숙련도로 게이트(예: 견습 병사 숙련도 600 → 방패병/견습 기사). prereq 키 = tier-1 base id.
- * 숙련도는 사냥 승리당 +1 이므로, 600은 현재 EXP 페이싱에서 1회 Lv100 루프에 가까운 값이다.
+ * 베이스 직군 숙련도로 게이트(예: 견습 병사 숙련도 900 → 방패병/견습 기사). prereq 키 = tier-1 base id.
+ * 숙련도는 사냥 승리당 +1 이므로, 900은 빠른 전투 기준으로도 최소 성장 시간을 확보하는 값이다.
  */
-export const TIER2_UNLOCK_CUMLEVEL = 600;
+export const TIER2_UNLOCK_CUMLEVEL = 900;
 
 /**
  * 고차(Tier 3) 해금 임계 — 🔑 2026-06-21 계보 게이팅 전환: 직군(base) 숙련도가 아니라 "그 직업의 바로
- *   아래 2차 직업"의 jobCumLevel 을 본다(예: 대사제 ← 사제 숙련도 1200, 마도사 ← 마법사 숙련도 1200).
+ *   아래 2차 직업"의 jobCumLevel 을 본다(예: 대사제 ← 사제 숙련도 1800, 마도사 ← 마법사 숙련도 1800).
  *   prereq 키 = tier-2 부모 직업 id → isJobUnlocked 가 jobCumLevel 로 분기. 조건 표시도 계보 직업명으로
- *   자연스러워짐. 값 1200 ≈ 그 2차 직업 2 루프. (옛 직군 게이팅 #925 supersede.)
+ *   자연스러워짐. 값 1800 ≈ 그 2차 직업 2 루프. (옛 직군 게이팅 #925 supersede.)
  */
-export const TIER3_UNLOCK_CUMLEVEL = 1200;
+export const TIER3_UNLOCK_CUMLEVEL = 1800;
 
 /**
  * 심화(Tier 4) 해금 임계 — 계보 게이팅(위 참조): "그 직업의 바로 아래 3차 직업"의 jobCumLevel
- *   (예: 정예 기사 ← 기사 숙련도 1800, 대마법사·원소술사 ← 마도사 숙련도 1800). prereq 키 = tier-3 부모 직업
- *   id. 값 1800 ≈ 그 3차 직업 3 루프. 계보 체인(2차→3차→4차)이라 직군 단일풀보다 자연스럽고 깊다.
+ *   (예: 정예 기사 ← 기사 숙련도 2700, 대마법사·원소술사 ← 마도사 숙련도 2700). prereq 키 = tier-3 부모 직업
+ *   id. 값 2700 ≈ 그 3차 직업 3 루프. 계보 체인(2차→3차→4차)이라 직군 단일풀보다 자연스럽고 깊다.
  */
-export const TIER4_UNLOCK_CUMLEVEL = 1800;
+export const TIER4_UNLOCK_CUMLEVEL = 2700;
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -466,7 +466,7 @@ export function isJobUnlocked(
 }
 
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.
-//   예: "Lv 100 달성" / "사제 숙련도 1200" / "기사 숙련도 1200, 사제 숙련도 1200"(하이브리드).
+//   예: "Lv 100 달성" / "사제 숙련도 1800" / "기사 숙련도 1800, 사제 숙련도 1800"(하이브리드).
 export function jobUnlockConditionText(job: V2JobDefinition): string {
   const prereqs = Object.entries(job.unlock.prereqs);
   if (prereqs.length === 0) return `Lv ${V2_LEVEL_CAP} 달성`;

@@ -21,6 +21,7 @@ import {
   reconcileV2EquippedSkills,
   sanitizeCombatLoadout,
 } from "@/lib/server/v2Skills";
+import type { DbExecutor } from "@/lib/server/savesKv";
 
 const FRUIT_BUDGET_LOADOUT = [
   "v2c_warrior_strike", // 5
@@ -47,7 +48,7 @@ describe("v2Skills — SP 열매 보너스 예산", () => {
       grown: {},
     });
 
-    const next = await reconcileV2EquippedSkills({}, "u-test");
+    const next = await reconcileV2EquippedSkills({} as DbExecutor, "u-test");
 
     expect(next.equipped).toEqual([...FRUIT_BUDGET_LOADOUT]);
     expect((store.get("skills.v2") as { equipped: string[] }).equipped).toEqual(

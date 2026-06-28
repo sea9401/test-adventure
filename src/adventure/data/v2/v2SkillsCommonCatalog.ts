@@ -1,4 +1,4 @@
-// v2 공용 스킬 카탈로그 — 4직군 공용 액티브(직군당 5, 마력구·예기 패시브 제외 = 18종).
+// v2 공용 스킬 카탈로그 — 4직군 공용 액티브(직군당 5, 예기 패시브 제외 = 18종).
 // 스킬 시스템 재설계(docs/v2-skill-system-plan.md). 평타 척추 + 소수 스킬.
 //
 // 데미지 = 플랫강화(스탯×~1.0 + 큰 flat) — 예측·off스탯 floor. 다단 = damage effect N개.
@@ -17,7 +17,7 @@ import type {
 } from "./v2Skills";
 import { V2_DOT_PRESETS, V2_DEBUFF_PRESETS } from "./statusEffects";
 
-// 공용 스킬 id — 직군 prefix(v2c_<job>_<slug>). 마력구/예기는 패시브(derive)라 여기 없음.
+// 공용 스킬 id — 직군 prefix(v2c_<job>_<slug>). 예기는 패시브(derive)라 여기 없음.
 export type V2CommonSkillId =
   // 전사
   | "v2c_warrior_strike" // 강타
@@ -28,7 +28,7 @@ export type V2CommonSkillId =
   | "v2c_martial_combo" // 연환 난타
   | "v2c_martial_chi" // 기공 순환
   | "v2c_martial_steelguard" // 하급 권법 (단일 딜 — 견습 무인 기본기)
-  // 마법사 (마력구 패시브 제외)
+  // 마법사
   | "v2c_mage_fireball" // 화염구
   | "v2c_mage_barrage" // 마력 탄막
   | "v2c_mage_shield" // 마나 보호막
@@ -211,7 +211,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [{ kind: "heal", pctLostHp: 5 }],
   },
 
-  // ═══ 마법사 (INT · 마법) — 캐스터 (마력구 패시브로 평타 마법화) ═══
+  // ═══ 마법사 (INT · 마법) — 캐스터 (마력탄 등 마법 스킬로 마법 공격) ═══
   v2c_mage_fireball: {
     id: "v2c_mage_fireball", name: "화염구", stat: "int", category: "attack", tier: 1,
     description: "불덩이를 던져 태운다.", mpCost: 38, cooldown: 0, procChance: 30,

@@ -4,6 +4,7 @@
 import {
   V2_EQUIPMENT,
   effectiveStats,
+  v2EquipPowerLabel,
   v2EquipStatRows,
   type V2Equipment,
   type V2EquipRoll,
@@ -41,13 +42,14 @@ export type MarketplacePager<T> = {
   setPage: (n: number) => void;
 };
 
-// 장비 스탯 한 줄(개체 굴림 반영) — 위력 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
+// 장비 스탯 한 줄(개체 굴림 반영) — 기본 전투 스탯 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
 //   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.
 function equipStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
   const eff = effectiveStats(item, roll);
-  const parts = [`위력 ${eff.power}`, `무게 ${eff.weight}`];
+  const powerLabel = v2EquipPowerLabel(item);
+  const parts = [`${powerLabel} ${eff.power}`, `무게 ${eff.weight}`];
   for (const row of v2EquipStatRows(item, roll)) {
-    if (row.label === "위력" || row.label === "무게") continue;
+    if (row.label === powerLabel || row.label === "무게") continue;
     parts.push(`${row.label} ${row.value}`);
   }
   return parts.join(" · ");

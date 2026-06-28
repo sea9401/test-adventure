@@ -132,7 +132,7 @@ export type V2SkillId =
   | "mob_crushing_blow" // 분쇄 일격 — 강한 물리 단일딜
   | "mob_savage_roar" // 포효 — 자버프 ATK↑(3턴)
   | "mob_arcane_nova" // 비전 폭발 — 강한 마법 단일딜
-  // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
+  // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 예기 패시브 제외) ───
   | V2CommonSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).

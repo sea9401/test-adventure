@@ -720,6 +720,14 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
 export type V2EquipStatRow = { label: string; value: string };
 
+export function v2EquipPowerLabel(item: V2Equipment): string {
+  if (item.slot === "weapon") {
+    return item.weaponType === "staff" ? "마법 공격력" : "공격력";
+  }
+  if (item.slot === "ring" || item.slot === "necklace") return "마법 방어력";
+  return "방어력";
+}
+
 // 무게 표시·체감 스케일 — 카탈로그 원시 무게가 SPD(다중공격·템포) 가치에 비해 너무 작아
 //   "옵션이 있긴 한가" 싶을 만큼 미미했다(오너 피드백). 원시 무게를 슬롯별 계수로 키운다:
 //   일반 장비 ×2, 무기는 원시 무게가 과하게 가벼워 ×4(별도·더 무겁게). 속도 페널티는 그대로
@@ -798,7 +806,7 @@ export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
   );
 }
 
-// 장비 → {라벨, 값} 행 배열. 위력 → 무게 → 옵션 순. 0 값은 건너뜀.
+// 장비 → {라벨, 값} 행 배열. 기본 전투 스탯 → 무게 → 옵션 순. 0 값은 건너뜀.
 // roll 주면 개체 굴림값 표시(보유템), 없으면 카탈로그(상점·제작 미리보기). 단일 source.
 export function v2EquipStatRows(
   item: V2Equipment,
@@ -810,7 +818,7 @@ export function v2EquipStatRows(
   const out: V2EquipStatRow[] = [];
   const power = enhancedPower(eff.power, enhance);
   if (power) {
-    out.push({ label: "위력", value: `+${power}` });
+    out.push({ label: v2EquipPowerLabel(item), value: `+${power}` });
   }
   if (eff.weight) {
     out.push({ label: "무게", value: `${eff.weight}` });
@@ -829,7 +837,7 @@ export function v2EquipStatRows(
   return out;
 }
 
-// 표시 문자열 배열 ("위력 +14", "무게 2", "치명 +2%" 등) — 한 줄 인라인용.
+// 표시 문자열 배열 ("공격력 +14", "무게 2", "치명 +2%" 등) — 한 줄 인라인용.
 // rows 를 합쳐 단일 source 유지.
 export function v2EquipStatEntries(item: V2Equipment, roll?: V2EquipRoll): string[] {
   return v2EquipStatRows(item, roll).map((r) => `${r.label} ${r.value}`);
@@ -849,9 +857,12 @@ export type V2EquipCompareRow = {
   better: 0 | 1 | -1;
 };
 
-// 비교 행 순서 + 무게만 "낮을수록 이득" — 위력/옵션은 높을수록 이득.
+// 비교 행 순서 + 무게만 "낮을수록 이득" — 전투 스탯/옵션은 높을수록 이득.
 const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
-  { label: "위력", lowerBetter: false },
+  { label: "공격력", lowerBetter: false },
+  { label: "마법 공격력", lowerBetter: false },
+  { label: "방어력", lowerBetter: false },
+  { label: "마법 방어력", lowerBetter: false },
   { label: "무게", lowerBetter: true },
   ...V2_EQUIP_OPTION_KEYS.map((k) => ({
     label: OPTION_LABELS[k],
@@ -859,7 +870,7 @@ const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
   })),
 ];
 
-// 라벨별 수치(증감 계산용) — effectiveStats 의 위력(강화 반영)·무게·옵션을 평탄화.
+// 라벨별 수치(증감 계산용) — effectiveStats 의 기본 전투 스탯(강화 반영)·무게·옵션을 평탄화.
 function compareNumeric(
   item: V2Equipment,
   roll?: V2EquipRoll,
@@ -867,7 +878,7 @@ function compareNumeric(
 ): Record<string, number> {
   const eff = effectiveStats(item, roll);
   const out: Record<string, number> = {
-    위력: enhancedPower(eff.power, enhance),
+    [v2EquipPowerLabel(item)]: enhancedPower(eff.power, enhance),
     무게: eff.weight,
   };
   const opts = eff.options ?? {};

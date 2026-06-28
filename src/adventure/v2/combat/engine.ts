@@ -511,7 +511,7 @@ export type PlayerCombat = {
   passiveDefPenetrationPct?: number;
   // 무도가 — 피격 생존 시 chancePct% 로 적에게 ATK 반격(반격의 룬과 동일 패턴). 0/undefined=미보유.
   passiveCounterChancePct?: number;
-  // 마법사 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
+  // 명시적 훅 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
   passiveMagicBasicAttack?: boolean;
   // 전문화 패시브(철벽검류 등) — 받는 피해 -pct%(항상 활성, 곱연산). enchantEndurePct 와 동류,
   // 가드/평탄감소 전. derive 가 전문화 aggregate(받피감)로 채움. 0/undefined=미보유.

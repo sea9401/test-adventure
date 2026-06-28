@@ -75,6 +75,10 @@ export function V2DungeonFloorView({
   outpostName,
   playerName,
   playerGender,
+  initialExp = 0,
+  initialMaxExp = 1,
+  initialHpCharges = 0,
+  initialMpCharges = 0,
   stamina,
   setStamina,
   hp,
@@ -101,6 +105,11 @@ export function V2DungeonFloorView({
   outpostName: string;
   playerName: string;
   playerGender: Gender;
+  // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
+  initialExp?: number;
+  initialMaxExp?: number;
+  initialHpCharges?: number;
+  initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
   stamina: StaminaState;
   setStamina: (s: StaminaState) => void;
@@ -176,6 +185,13 @@ export function V2DungeonFloorView({
     mpCharges?: number;
     hasMp: boolean;
   } | null>(null);
+  const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
+  const statusMaxExp =
+    lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? initialMaxExp;
+  const statusHpCharges =
+    lastResult?.hpCharges ?? batchStatus?.hpCharges ?? initialHpCharges;
+  const statusMpCharges =
+    lastResult?.mpCharges ?? batchStatus?.mpCharges ?? initialMpCharges;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
@@ -583,8 +599,8 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. HP(라이브)·MP 바를 카드 안에 포함하고,
-          최근 사냥의 EXP 진행도·회복약을 함께 보여준다(사냥 전엔 EXP 바 생략). */}
+      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
+          클릭 때 카드 높이가 바뀌지 않게 한다. */}
       {hp && (
         <PlayerStatusCard
           gender={playerGender}
@@ -592,10 +608,10 @@ export function V2DungeonFloorView({
           subtitle={playerSubtitle}
           hp={hp}
           mp={mp}
-          exp={lastResult?.expAfter ?? batchStatus?.exp}
-          maxExp={lastResult?.maxExpAfter ?? batchStatus?.maxExp}
-          hpCharges={lastResult?.hpCharges ?? batchStatus?.hpCharges}
-          mpCharges={lastResult?.mpCharges ?? batchStatus?.mpCharges}
+          exp={statusExp}
+          maxExp={statusMaxExp}
+          hpCharges={statusHpCharges}
+          mpCharges={statusMpCharges}
           hasMp={(mp?.maxMp ?? 0) > 0}
           combat={playerCombat}
         />

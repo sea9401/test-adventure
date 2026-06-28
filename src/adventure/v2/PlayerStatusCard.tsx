@@ -61,7 +61,7 @@ export function PlayerStatusCard({
   gender: Gender;
   name: string;
   subtitle?: string;
-  // EXP 바 — 사냥 전엔 미전달(바 생략). 사냥 후 진행도 표기.
+  // EXP 바 — 첫 사냥 전에도 자리를 유지해 카드 높이가 흔들리지 않게 한다.
   exp?: number;
   maxExp?: number;
   // 라이브 HP 바 상태(전역). 미전달이면 HP 바 숨김(dev 하니스 등).
@@ -74,11 +74,12 @@ export function PlayerStatusCard({
   // 유효 전투 스탯 — 공/방/속(+상세). 미전달이면 미표시.
   combat?: PlayerCombatStats | null;
 }) {
-  const hasExp = typeof exp === "number" && typeof maxExp === "number";
+  const expValue = Math.max(0, exp ?? 0);
+  const expMax = maxExp && maxExp > 0 ? maxExp : expValue + 1;
   const playerStatus: BattlePlayerStatus = {
     gender,
-    exp: exp ?? 0,
-    maxExp: maxExp && maxExp > 0 ? maxExp : (exp ?? 0) + 1, // div-by-zero 회피
+    exp: expValue,
+    maxExp: expMax,
     hpPotionCount: 0,
     recoveryCharges: { hp: hpCharges ?? 0, mp: mpCharges ?? 0 },
   };
@@ -99,15 +100,13 @@ export function PlayerStatusCard({
           )}
           {hp && <HpBar state={hp} compact />}
           {mp && <MpBar state={mp} compact />}
-          {hasExp && (
-            <StatBar
-              compact
-              label="EXP"
-              value={playerStatus.exp}
-              max={playerStatus.maxExp}
-              color="bg-amber-400"
-            />
-          )}
+          <StatBar
+            compact
+            label="EXP"
+            value={playerStatus.exp}
+            max={playerStatus.maxExp}
+            color="bg-amber-400"
+          />
           {combat && (
             <BattleStatStrip stats={playerCombatToBattleStats(combat)} />
           )}

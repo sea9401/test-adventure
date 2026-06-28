@@ -5,6 +5,7 @@ import {
   TIER2_UNLOCK_CUMLEVEL,
   TIER3_UNLOCK_CUMLEVEL,
   TIER4_UNLOCK_CUMLEVEL,
+  TIER5_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
@@ -66,6 +67,14 @@ const TIER4_LINEAGE: Record<string, string> = {
   rescueexpert: "fieldmedic",
   returner: "extremesurvivor",
 };
+const TIER5_LINEAGE: Record<string, string> = {
+  swordmaster: "veteran",
+  ironknight: "warden",
+  arcanist: "sage",
+  elementweaver: "elementalist",
+  marksman: "chief",
+  nightshade: "phantom",
+};
 
 function profWith(groupCumLevels: Record<string, number>) {
   const prof = emptyProficiency();
@@ -81,14 +90,15 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("48개 직업(루트 2 + 기본 4 + 상위 11 + 고차 17 + 심화 14)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(48);
+  it("54개 직업(루트 2 + 기본 4 + 상위 11 + 고차 17 + 심화 14 + 5차 6)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(54);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(11);
     expect(byTier(3)).toBe(17);
     expect(byTier(4)).toBe(14);
+    expect(byTier(5)).toBe(6);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -208,6 +218,18 @@ describe("해금 트리", () => {
     // 임계 램프: tier2 < tier3 < tier4.
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
+  });
+
+  it("5차 직업은 계보(바로 아래 4차 부모) jobCumLevel ≥ TIER5 을 요구한다", () => {
+    for (const [childId, parent] of Object.entries(TIER5_LINEAGE)) {
+      const job = V2_JOB_CATALOG[childId];
+      expect(job.tier).toBe(5);
+      expect(job.unlock.prereqs).toEqual({ [parent]: TIER5_UNLOCK_CUMLEVEL });
+      expect(V2_JOB_CATALOG[parent].tier).toBe(4);
+      expect(isJobUnlocked(job, profJobs({ [parent]: TIER5_UNLOCK_CUMLEVEL - 1 }))).toBe(false);
+      expect(isJobUnlocked(job, profJobs({ [parent]: TIER5_UNLOCK_CUMLEVEL }))).toBe(true);
+    }
+    expect(TIER4_UNLOCK_CUMLEVEL).toBeLessThan(TIER5_UNLOCK_CUMLEVEL);
   });
 
   it("하이브리드(성기사) — 기사·사제 두 직업을 각각 TIER3 키워야 해금된다(직업별 cumLevel·AND)", () => {

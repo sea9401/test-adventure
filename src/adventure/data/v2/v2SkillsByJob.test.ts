@@ -324,6 +324,34 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
   });
 
+  it("5차 핵심 6직업 = 액티브 1 + 패시브 1", () => {
+    const KIT: Record<string, [V2SkillId, V2SkillId]> = {
+      swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"],
+      ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"],
+      arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"],
+      elementweaver: ["v2c_elementweaver_spell", "v2c_elementweaver_attunement"],
+      marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
+      nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"],
+    };
+    for (const [job, [active, passive]] of Object.entries(KIT)) {
+      expect(skillsForJob(job), job).toEqual([active, passive]);
+      expect(V2_SKILLS[active].category, active).not.toBe("passive");
+      expect(V2_SKILLS[passive].category, passive).toBe("passive");
+    }
+    expect(V2_SKILLS.v2c_ironknight_wall.passive).toMatchObject({
+      defPct: 18,
+      thornsDefPct: 80,
+    });
+    expect(V2_SKILLS.v2c_elementweaver_attunement.passive).toMatchObject({
+      elementAdvPctBonus: 20,
+      elementDisPctBonus: 20,
+    });
+    expect(V2_SKILLS.v2c_nightshade_eclipse.effects.map((e) => e.kind)).toEqual([
+      "ambushDamage",
+      "executeDamage",
+    ]);
+  });
+
   it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {
     // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡파+패왕)으로.
     //   v2c_sensei_combo/ironbody id 유지(세이브 호환·내용만 교체).

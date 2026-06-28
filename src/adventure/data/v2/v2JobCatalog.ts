@@ -47,8 +47,8 @@ export type V2JobUnlock = {
 export type V2JobDefinition = {
   id: string;
   name: string;
-  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4+=심화(트리 성장). */
-  tier: 0 | 1 | 2 | 3 | 4;
+  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화(엔드 성장). */
+  tier: 0 | 1 | 2 | 3 | 4 | 5;
   cultivateProfile: Partial<Record<V2StatKey, number>>;
   jobBonus: Partial<Record<V2StatKey, number>>;
   unlock: V2JobUnlock;
@@ -75,6 +75,12 @@ export const TIER3_UNLOCK_CUMLEVEL = 1800;
  *   id. 값 2700 ≈ 그 3차 직업 3 루프. 계보 체인(2차→3차→4차)이라 직군 단일풀보다 자연스럽고 깊다.
  */
 export const TIER4_UNLOCK_CUMLEVEL = 2700;
+
+/**
+ * 5차 해금 임계 — 바로 아래 4차 직업의 jobCumLevel. 5차는 빠른 전직 계단이 아니라 장기 엔드
+ * 성장 목표라 4차보다 간격을 크게 둔다.
+ */
+export const TIER5_UNLOCK_CUMLEVEL = 7500;
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -526,6 +532,56 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 17, str: 5 },
     unlock: { prereqs: { extremesurvivor: TIER4_UNLOCK_CUMLEVEL } },
   },
+
+  // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 7500 + 도감 요건으로 여는 장기 목표 ───
+  swordmaster: {
+    id: "swordmaster",
+    name: "검호",
+    tier: 5,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 18, vit: 8 },
+    unlock: { prereqs: { veteran: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  ironknight: {
+    id: "ironknight",
+    name: "철벽기사",
+    tier: 5,
+    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    jobBonus: { vit: 18, str: 8 },
+    unlock: { prereqs: { warden: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  arcanist: {
+    id: "arcanist",
+    name: "비전술사",
+    tier: 5,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 18, spi: 8 },
+    unlock: { prereqs: { sage: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  elementweaver: {
+    id: "elementweaver",
+    name: "원소도사",
+    tier: 5,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 17, spi: 9 },
+    unlock: { prereqs: { elementalist: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  marksman: {
+    id: "marksman",
+    name: "명궁",
+    tier: 5,
+    cultivateProfile: { dex: 2, luk: 2 },
+    jobBonus: { dex: 18, luk: 8 },
+    unlock: { prereqs: { chief: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  nightshade: {
+    id: "nightshade",
+    name: "밤그림자",
+    tier: 5,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 18, dex: 8 },
+    unlock: { prereqs: { phantom: TIER5_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -686,6 +742,13 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)
   rescueexpert: { class: "survivor", spec: "rescueexpert" },
   returner: { class: "survivor", spec: "returner" },
+  // tier 5 — 핵심 6개 상급 심화 직업.
+  swordmaster: { class: "warrior", spec: "swordmaster" },
+  ironknight: { class: "warrior", spec: "ironknight" },
+  arcanist: { class: "mage", spec: "arcanist" },
+  elementweaver: { class: "mage", spec: "elementweaver" },
+  marksman: { class: "rogue", spec: "marksman" },
+  nightshade: { class: "rogue", spec: "nightshade" },
 };
 
 /**

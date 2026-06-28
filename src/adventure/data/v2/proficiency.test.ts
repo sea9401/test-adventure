@@ -275,6 +275,30 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r2!.next.caps.int).toBe(8);
   });
 
+  it("applyCultivation — 하이브리드(jobId)는 직군 아닌 직업 정체성 프로필로 cap 상승", () => {
+    // 마검사·성기사 둘 다 저장 직군은 전사(warrior)지만 jobId 로 정체성 축이 오른다.
+    const p = parseProficiency({ groups: { warrior: { points: 100 } } });
+    // 마검사(spellblade) — 검(str)+마법(int). DEX/VIT 아님.
+    const sb = applyCultivation(p, "warrior", undefined, undefined, "spellblade");
+    expect(sb).not.toBeNull();
+    expect(sb!.cost).toBe(8); // 합 4 → 비용 곡선 직군과 동일(economy 불변)
+    expect(sb!.next.caps.str).toBe(2);
+    expect(sb!.next.caps.int).toBe(2);
+    expect(sb!.next.caps.dex).toBeUndefined();
+    expect(sb!.next.caps.vit).toBeUndefined();
+    // 성기사(templar) — 기사 힘·활력 + 사제 정신(str/vit/spi). DEX 아님.
+    const tp = applyCultivation(p, "warrior", undefined, undefined, "templar");
+    expect(tp!.next.caps.str).toBe(2);
+    expect(tp!.next.caps.vit).toBe(1);
+    expect(tp!.next.caps.spi).toBe(1);
+    expect(tp!.next.caps.dex).toBeUndefined();
+    // 비하이브리드 jobId 는 직군 프로필 폴백(전사 = str/vit/dex).
+    const guardian = applyCultivation(p, "warrior", undefined, undefined, "guardian");
+    expect(guardian!.next.caps.str).toBe(2);
+    expect(guardian!.next.caps.dex).toBe(1);
+    expect(guardian!.next.caps.int).toBeUndefined();
+  });
+
   it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none=균형 4스탯·무효는 빈 배열", () => {
     const w = recommendedCultivationStats("warrior");
     expect(w[0]).toBe("str");

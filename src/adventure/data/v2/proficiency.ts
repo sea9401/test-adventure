@@ -78,6 +78,33 @@ export const V2_CULTIVATE_PROFILE: Record<
   none: { str: 1, vit: 1, dex: 1, int: 1 },
 };
 
+// 하이브리드(교차 직군) 직업의 수행 프로필 — 직업 id 키(직군 아님). 하이브리드는 저장 class 가
+//   첫 prereq 의 직군(예: 마검사·성기사 둘 다 전사)이라, 직군 프로필(V2_CULTIVATE_PROFILE)만 쓰면
+//   정체성 축을 수행으로 못 키운다(마검사는 검+마법인데 전사 프로필이라 INT 가 안 오르고, 성기사는
+//   기사+사제인데 SPI 대신 DEX 가 오름). 직업 id 별 오버라이드로 정체성 축의 cap 을 올린다.
+//   합 4 고정(= 비용 곡선·economy 불변). 값은 V2_JOB_CATALOG[id].cultivateProfile 와 동일해야 하며
+//   v2JobCatalog.test 가 동기화를 보증한다.
+export const V2_HYBRID_CULTIVATE_PROFILE: Record<
+  string,
+  Partial<Record<V2StatKey, number>>
+> = {
+  spellblade: { str: 2, int: 2 }, // 마검사 — 검(str) + 마법(int)
+  templar: { str: 2, vit: 1, spi: 1 }, // 성기사 — 기사 힘·활력 + 사제 정신
+};
+
+// 캐릭터의 실효 수행 프로필 — 하이브리드 직업이면 직업 전용(정체성 축), 아니면 직군 프로필.
+//   jobId 미상/비하이브리드면 직군(group) 폴백. 포인트·횟수 회계는 여전히 직군(group)으로 한다
+//   (cap 만 직업 정체성대로 올린다 — 회계 그룹과 cap 프로필 분리).
+export function effectiveCultivateProfile(
+  group: string,
+  jobId?: string | null,
+): Partial<Record<V2StatKey, number>> | undefined {
+  if (jobId && V2_HYBRID_CULTIVATE_PROFILE[jobId]) {
+    return V2_HYBRID_CULTIVATE_PROFILE[jobId];
+  }
+  return V2_CULTIVATE_PROFILE[group];
+}
+
 // 수행 비용(숙달 포인트) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
 // 크리티컬 다중 수행이 더 많은 cap 을 한 번에 올리면 그만큼 다음 비용도 비싸진다(자연 throttle).
 // PER_CAP 1.5→5(2026-06): earned 가 floor·전직게이트에서 분리(cumLevel 전환)되며 수행 연료로
@@ -477,8 +504,11 @@ export function applyCultivation(
   // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 프로필 분산 대신 선택 스탯
   // 한 곳에 동일 총량(profile 합 × mult) 투입(cap economy·비용 곡선 불변). 미지정 = 현 동작(분산).
   targetStat?: V2StatKey,
+  // 현재 직업 id — 하이브리드(마검사·성기사)는 직군 대신 직업 정체성 프로필로 cap 을 올린다.
+  // 미지정/비하이브리드면 직군(group) 프로필. 회계(group)는 그대로.
+  jobId?: string | null,
 ): { next: V2ProficiencyState; cost: number; mult: number } | null {
-  const profile = V2_CULTIVATE_PROFILE[group];
+  const profile = effectiveCultivateProfile(group, jobId);
   if (!profile) return null; // none/무효 직업군
   const cost = cultivationCost(totalCapGains(p));
   if (usablePoints(p) < cost) return null; // 사용가능 부족(전역 잔액)

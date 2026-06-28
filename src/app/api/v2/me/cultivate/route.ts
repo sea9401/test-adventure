@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import {
   parseProficiencyForChar,
   applyCultivation,
@@ -26,13 +27,17 @@ export async function POST() {
   }
 
   const result = await db.transaction(async (tx) => {
-    const charSave = await lockSaveForUpdate<{ class?: unknown }>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
-    const group = tier1ClassOf(parseV2Class(charSave.class));
+    const charSave = await lockSaveForUpdate<{
+      class?: unknown;
+      specChoice?: unknown;
+    }>(tx, userId, "character.v2", {});
+    const cls = parseV2Class(charSave.class);
+    const group = tier1ClassOf(cls);
+    // 하이브리드(마검사·성기사)는 저장 class 가 직군(전사)이라 직군 프로필만으론 정체성 축을 못 키운다.
+    //   jobId 로 직업 전용 프로필을 적용한다(회계는 group 그대로). spec 미상이면 group 폴백.
+    const spec =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const jobId = jobIdFromLegacy(cls, spec);
     // 수행 프로필이 있는 직군만 수행 가능 — none(모험가)도 프로필 추가로 허용. 프로필 없는 그룹만 거부
     //   (일반화: 향후 직군 밖 직업도 V2_CULTIVATE_PROFILE 에 프로필 있으면 자동 허용).
     if (!V2_CULTIVATE_PROFILE[group]) {
@@ -46,7 +51,7 @@ export async function POST() {
     );
     const prof = parseProficiencyForChar(profSave, charSave);
     // 크리티컬 다중 수행 — Math.random 로 mult 굴림(낮은 확률 ×3/×5).
-    const applied = applyCultivation(prof, group, Math.random);
+    const applied = applyCultivation(prof, group, Math.random, undefined, jobId);
     if (!applied) {
       return {
         status: 400,

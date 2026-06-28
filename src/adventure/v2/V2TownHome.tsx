@@ -9,6 +9,7 @@ import {
   Storefront,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
@@ -30,7 +31,7 @@ export function V2TownHome({
   onAction: (action: TownAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell spacing="tight">
       <SubViewHeader title="마을" />
       <div className="space-y-2">
         <EntryCard
@@ -72,6 +73,6 @@ export function V2TownHome({
           onClick={() => onAction({ kind: "open-treasure" })}
         />
       </div>
-    </main>
+    </PageShell>
   );
 }

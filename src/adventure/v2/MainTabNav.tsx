@@ -23,6 +23,7 @@ import {
   UserCircle,
   type Icon,
 } from "@phosphor-icons/react";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 
 // 메인 내비 — 가로 5탭(모험/전투/마을/캐릭터/길드). 하위 메뉴가 있는 탭(전투·마을·캐릭터)은
@@ -141,7 +142,7 @@ export function MainTabNav({
           <div
             role="menu"
             aria-label={`${openTab.label} 메뉴`}
-            className="absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-zinc-200 bg-white p-2 shadow-2xl sm:mx-6 dark:border-zinc-800 dark:bg-zinc-950"
+            className={`${SURFACE_CARD} absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid grid-cols-2 gap-1 p-2 sm:mx-6`}
           >
             {openTab.sub!.map((s) => (
               <button
@@ -152,7 +153,7 @@ export function MainTabNav({
                   close();
                   onNavigate(s.href);
                 }}
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-800/70 dark:active:bg-zinc-800"
+                className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-800/70 dark:active:bg-zinc-800"
               >
                 <s.Icon
                   size={20}

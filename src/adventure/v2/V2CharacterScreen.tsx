@@ -55,7 +55,6 @@ type StateResponse = {
     accRating?: number; // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. "명중" 표시에 사용(StatsPanel 폴백).
     critChancePct?: number;
     critMult?: number;
-    extraAttackChancePct?: number;
     // 콘텐츠 파워(합성 전투력) — 기본 정보 카드 헤드라인.
     power?: number;
   } | null;

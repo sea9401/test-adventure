@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { Button } from "@/components/ui/Button";
 import {
   Circle,
   Diamond,
@@ -12,7 +13,10 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { PageShell } from "@/components/ui/PageShell";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
@@ -377,7 +381,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   }, [owned]);
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell>
       <SubViewHeader title="인벤토리" onBack={onBack} />
 
       {/* 위쪽 — 장착 슬롯 (해제 버튼 인라인) */}
@@ -415,7 +419,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <div
                 key={slot}
-                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900"
+                className="flex min-h-[6.75rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center dark:border-zinc-800 dark:bg-zinc-950"
               >
                 {inst && item ? (
                   // 장착 아이템 클릭 → 옵션 카드 팝오버.
@@ -424,7 +428,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                     onClick={(e) =>
                       setCard({ inst, anchor: anchorOf(e.currentTarget) })
                     }
-                    className="flex flex-col items-center gap-1 rounded transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    className="flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
                     {slotInner}
                   </button>
@@ -432,14 +436,15 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   slotInner
                 )}
                 {iid ? (
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => applyEquip(slot, null, slot)}
                     disabled={busy !== null}
-                    className="rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    variant="secondary"
+                    size="xs"
+                    className="min-h-0 px-1.5 py-0.5 text-[10px]"
                   >
                     {busy === slot ? "…" : "해제"}
-                  </button>
+                  </Button>
                 ) : (
                   <span className="text-[10px] text-zinc-400 dark:text-zinc-600">
                     비어있음
@@ -463,22 +468,18 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         />
 
         {msg && (
-          <div
-            className={`rounded-md border px-3 py-1.5 text-xs ${
-              msg.startsWith("✓")
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-            }`}
-          >
+          <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
             {msg}
-          </div>
+          </StatusBanner>
         )}
 
         {loadError && <LoadErrorBanner onRetry={refresh} />}
 
         {loading ? (
-          <div className="text-sm text-zinc-500 dark:text-zinc-400">
-            불러오는 중…
+          <div className="space-y-2">
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton rows={3} />
           </div>
         ) : tab === "consumable" ? (
           <RareMapsTab
@@ -581,6 +582,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             />
           );
         })()}
-    </main>
+    </PageShell>
   );
 }

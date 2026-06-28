@@ -3,8 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle, Lock, Circle, Gift } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { PageShell } from "@/components/ui/PageShell";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
 import {
@@ -96,6 +101,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 퀘스트 fetch
     refresh();
   }, [refresh]);
 
@@ -163,7 +169,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   );
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <PageShell spacing="tight">
       <SubViewHeader title="퀘스트" onBack={onBack} />
 
       <TabBar
@@ -180,22 +186,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
       />
 
       {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
+        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
           {msg}
-        </div>
+        </StatusBanner>
       )}
 
       {loading ? (
         <Card padding="md">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            불러오는 중…
-          </p>
+          <Skeleton rows={4} />
         </Card>
       ) : topTab === "tutorial" ? (
         renderGuide(true)
@@ -204,7 +202,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
       ) : (
         renderRepeatTab(topTab)
       )}
-    </main>
+    </PageShell>
   );
 
   function renderRepeatTab(scope: "daily" | "weekly") {
@@ -223,7 +221,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           busy={bundleBusy === scope}
           onClaim={() => claimBundle(scope)}
         />
-        <Card padding="md">
+        <Card padding="md" className="space-y-3">
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">
               {scope === "daily" ? "일일 퀘스트" : "주간 퀘스트"}
@@ -232,7 +230,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
               {completed}/{list.length} 완료 · {resetLabel(resetAt, now)}
             </span>
           </div>
-          <ul className="mt-3 space-y-1.5">
+          <ul className="space-y-1.5">
             {list.map((q) => (
               <RepeatRow key={q.id} quest={q} />
             ))}
@@ -281,17 +279,17 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             const all = scoped.filter((q) => q.line === line.id);
             const done = all.filter(isDone).length;
             return (
-              <Card key={line.id} padding="md">
+              <Card key={line.id} padding="md" className="space-y-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold">{line.name}</h2>
                   <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                     {done}/{all.length}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {line.subtitle}
                 </p>
-                <ul className="mt-3 space-y-1.5">
+                <ul className="space-y-1.5">
                   {lineQuests.map((q) => (
                     <QuestRow
                       key={q.id}
@@ -334,7 +332,7 @@ function BundleCard({
       padding="md"
       className={
         bundle.claimable
-          ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40"
+          ? "border-amber-300 bg-amber-50 dark:border-amber-900/70 dark:bg-amber-950"
           : undefined
       }
     >
@@ -379,14 +377,15 @@ function BundleCard({
             수령 완료
           </span>
         ) : (
-          <button
-            type="button"
+          <Button
             onClick={onClaim}
             disabled={!bundle.claimable || busy}
-            className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+            variant="warning"
+            size="xs"
+            className="shrink-0"
           >
             {busy ? "수령 중…" : "받기"}
-          </button>
+          </Button>
         )}
       </div>
     </Card>
@@ -426,10 +425,10 @@ function QuestRow({
     <li
       className={`flex items-center gap-3 rounded-md border px-3 py-2 ${
         status === "claimable"
-          ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40"
-          : status === "active"
-            ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-800/60 dark:bg-emerald-950/30"
-            : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+          ? "border-amber-300 bg-amber-50 dark:border-amber-900/70 dark:bg-amber-950"
+        : status === "active"
+            ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950"
+            : SURFACE_INSET
       }`}
     >
       {icon}
@@ -454,14 +453,15 @@ function QuestRow({
         )}
       </div>
       {status === "claimable" && (
-        <button
-          type="button"
+        <Button
           onClick={onClaim}
           disabled={busy}
-          className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+          variant="warning"
+          size="xs"
+          className="shrink-0"
         >
           {busy ? "수령 중…" : "받기"}
-        </button>
+        </Button>
       )}
     </li>
   );
@@ -474,8 +474,8 @@ function RepeatRow({ quest }: { quest: RepeatQuestView }) {
     <li
       className={`rounded-md border px-3 py-2 ${
         quest.complete
-          ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-800/60 dark:bg-emerald-950/30"
-          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+          ? "border-emerald-300 bg-emerald-50 dark:border-emerald-900/70 dark:bg-emerald-950"
+          : SURFACE_INSET
       }`}
     >
       <div className="flex items-center gap-3">

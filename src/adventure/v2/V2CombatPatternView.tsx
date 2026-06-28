@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   V2_SKILLS,
@@ -543,13 +544,12 @@ export function V2CombatPatternView({
           </div>
 
           {msg && (
-            <div
+            <StatusBanner
               role={msg.startsWith("✓") ? "status" : "alert"}
-              className={`rounded-md border px-3 py-1.5 text-xs ${
-                msg.startsWith("✓")
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                  : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-              }`}>{msg}</div>
+              tone={msg.startsWith("✓") ? "success" : "error"}
+            >
+              {msg}
+            </StatusBanner>
           )}
         </>
       )}

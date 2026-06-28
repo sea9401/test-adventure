@@ -7,7 +7,9 @@ import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
+import { StatusBanner } from "@/components/ui/StatusBanner";
 import {
   V2_EQUIPMENT,
   effectiveStats,
@@ -166,9 +168,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } catch {
       setLoadError(true);
     }
-  }, []);
+  }, [syncCtxBanked]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
     refresh();
   }, [refresh]);
 
@@ -216,7 +219,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [syncCtxBanked]);
 
   // 판매는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 판다.
   // 장착분만 남은 경우(카드는 locked 라 보통 클릭 불가) 서버가 "equipped" 로 거부(#426).
@@ -394,15 +397,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       />
       {loadError && <LoadErrorBanner onRetry={refresh} />}
       {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
+        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
           {msg}
-        </div>
+        </StatusBanner>
       )}
 
       {/* 탭(구매/판매 + 부위) — 지역 배경 위라 라이트모드 가독성 위해 surface 패널로 감쌈. */}
@@ -674,15 +671,16 @@ function BuyEquipmentRow({
         </span>
       </div>
       <div className="min-w-0 px-1 py-3 text-right sm:px-3" role="cell">
-        <button
-          type="button"
+        <Button
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
           title={`${buyPrice.toLocaleString()} G 에 구매`}
-          className="inline-flex h-7 min-w-[2.75rem] items-center justify-center whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-1.5 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
+          variant="success"
+          size="xs"
+          className="min-w-[2.75rem] whitespace-nowrap px-1.5 leading-none"
         >
           {busy ? "…" : "구매"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -718,8 +716,7 @@ function SellEquipmentRow({
           </span>
         )}
       </div>
-      <button
-        type="button"
+      <Button
         onClick={() => onSell(id)}
         disabled={busy || count <= 0 || locked}
         title={
@@ -727,10 +724,12 @@ function SellEquipmentRow({
             ? "장착 중인 장비는 판매할 수 없습니다"
             : `${sellPrice.toLocaleString()} G 에 판매`
         }
-        className="justify-self-end rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700 transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        variant="secondary"
+        size="xs"
+        className="justify-self-end disabled:opacity-30"
       >
         {busy ? "…" : locked ? "장착 중" : `판매 +${sellPrice.toLocaleString()}`}
-      </button>
+      </Button>
     </li>
   );
 }
@@ -762,15 +761,16 @@ function MaterialRow({
           개당 {unit}G
         </span>
       </div>
-      <button
-        type="button"
+      <Button
         onClick={() => onSell(id)}
         disabled={busy || count <= 0}
         title={`보유 ${count}개 전량 판매 (+${total.toLocaleString()} G)`}
-        className="justify-self-end rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700 transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        variant="secondary"
+        size="xs"
+        className="justify-self-end disabled:opacity-30"
       >
         {busy ? "…" : `전량 판매 +${total.toLocaleString()}`}
-      </button>
+      </Button>
     </li>
   );
 }

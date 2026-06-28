@@ -45,6 +45,7 @@ export const V2_TIER_STAT_BONUS_PCT: Record<number, number> = {
   2: 18,
   3: 26,
   4: 35,
+  5: 40,
 };
 
 // 전직 가능 레벨(옛 차수 시뮬레이션 참고값). 현 코어루프 전직 게이트는 v2JobCatalog 해금선과
@@ -52,12 +53,14 @@ export const V2_TIER_STAT_BONUS_PCT: Record<number, number> = {
 export const V2_TIER2_ADVANCE_LEVEL = 30;
 export const V2_TIER3_ADVANCE_LEVEL = 50;
 export const V2_TIER4_ADVANCE_LEVEL = 70;
+export const V2_TIER5_ADVANCE_LEVEL = 100;
 
 // 차수별 전직 모험의 서 요건(재료 도감 등재 종 수) — 옛 per-class advanceCodexMin(t3=3·t4=5).
 // 그 차수로 전직할 때 요구. 1·2차 = 요건 없음(undefined).
 export const V2_TIER_CODEX_MIN: Record<number, number> = {
   3: 3,
   4: 5,
+  5: 8,
 };
 
 export function tierCodexMin(tier: number): number | undefined {
@@ -147,14 +150,15 @@ export function tier1ClassOf(c: V2Class): V2Class {
   return c === "none" ? "none" : c;
 }
 
-// 현재 차수에서 전직 가능한 다음 차수(2/3/4). 정점(4)·없음이면 null.
+// 현재 차수에서 전직 가능한 다음 차수(2/3/4/5). 정점(5)·없음이면 null.
 // 전직은 class 를 바꾸지 않고 proficiency.groups[job].tier 를 이 값으로 올린다.
-export function nextAdvanceTier(curTier: number): 2 | 3 | 4 | null {
+export function nextAdvanceTier(curTier: number): 2 | 3 | 4 | 5 | null {
   const t = Math.floor(curTier);
   if (t < 1) return 2;
   if (t === 1) return 2;
   if (t === 2) return 3;
   if (t === 3) return 4;
+  if (t === 4) return 5;
   return null;
 }
 

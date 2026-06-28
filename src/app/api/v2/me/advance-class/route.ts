@@ -149,6 +149,24 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "job_locked" as const },
         };
       }
+      if (!isReJobToCurrent && jobDef.tier >= 5) {
+        // 5차는 장기 목표라 제작 재료 보류 플래그(V2_MATERIALS_ENABLED)와 무관하게 도감 8종을 요구한다.
+        const codexReq = tierCodexMin(jobDef.tier) ?? 0;
+        if (codexReq > 0) {
+          const discovered = countDiscoveredMaterials(charSave.materials);
+          if (discovered < codexReq) {
+            return {
+              status: 400,
+              body: {
+                ok: false as const,
+                error: "codex_incomplete" as const,
+                required: codexReq,
+                have: discovered,
+              },
+            };
+          }
+        }
+      }
       const legacy = LEGACY_CLASS_SPEC_BY_JOB[targetJobId];
       const targetClass = parseV2Class(legacy?.class ?? targetJobId);
       const targetSpec: string | null = legacy?.spec ?? null;
@@ -223,8 +241,8 @@ export async function POST(req: Request) {
       };
     }
 
-    // 4차 정점 = 환생(차수→1, cumLevel 보존). 그 외 = 다음 차수 전직.
-    const isReincarnate = curTier >= 4;
+    // 5차 정점 = 환생(차수→1, cumLevel 보존). 그 외 = 다음 차수 전직.
+    const isReincarnate = curTier >= 5;
     const nextTier = isReincarnate ? 1 : (nextAdvanceTier(curTier) ?? 1);
 
     // 게이트 2 — 모험의 서(3·4차 승급만). 환생(→1차)은 면제(이미 등재 보유).

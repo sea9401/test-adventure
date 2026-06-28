@@ -83,7 +83,7 @@ export function V2ClassGrid({
     activeGroup === "none" ? 1 : (groups[activeGroup]?.tier ?? 1);
   const activeCap = tierLevelCap(activeTier);
   const activeAtCap = level >= activeCap;
-  const isReincarnationReady = activeTier >= 4;
+  const isReincarnationReady = activeTier >= 5;
   const advanceCodexRequired = advance?.reqCodex ?? 0;
   const advanceCodexHave = advance?.haveCodex ?? 0;
   const codexOk = advanceCodexHave >= advanceCodexRequired;
@@ -91,7 +91,7 @@ export function V2ClassGrid({
     activeGroup !== "none" &&
     activeAtCap &&
     (isReincarnationReady || codexOk);
-  const canSwitchClass = activeTier >= 4 && level >= tierLevelCap(4);
+  const canSwitchClass = activeTier >= 5 && level >= tierLevelCap(5);
 
   const doAdvance = useCallback(async () => {
     setBusy(true);
@@ -159,7 +159,7 @@ export function V2ClassGrid({
             j?.error === "insufficient_gold"
               ? `골드 부족 (필요 ${(j.required ?? 0).toLocaleString()}G)`
               : j?.error === "not_at_apex"
-                ? `직업 변경은 4차 정점(Lv100)에서만 가능 (현재 ${j.haveTier ?? "?"}차 Lv ${j.haveLevel ?? "?"} / 필요 ${j.requiredTier ?? 4}차 Lv ${j.requiredLevel ?? 100})`
+                ? `직업 변경은 5차 정점(Lv100)에서만 가능 (현재 ${j.haveTier ?? "?"}차 Lv ${j.haveLevel ?? "?"} / 필요 ${j.requiredTier ?? 5}차 Lv ${j.requiredLevel ?? 100})`
               : j?.error === "respec_cooldown"
                 ? `전직 쿨다운 중 — ${
                     j.cooldownUntil
@@ -339,12 +339,12 @@ export function V2ClassGrid({
                       ? `모험의 서 ${advanceCodexRequired}종 필요`
                       : isReincarnationReady
                         ? "환생 — 1차 Lv1로 리셋"
-                        : `${Math.min(4, activeTier + 1)}차 전직 — 레벨 1로 리셋`}
+                        : `${Math.min(5, activeTier + 1)}차 전직 — 레벨 1로 리셋`}
               </button>
             </div>
           ) : (
             <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-              이 직군의 정점(4차)에 도달했습니다.
+              이 직군의 정점(5차)에 도달했습니다.
             </p>
           )
         ) : (
@@ -382,7 +382,7 @@ export function V2ClassGrid({
                 </p>
                 {!canSwitchClass && (
                   <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-                    직업 변경은 4차 정점(Lv100)에서 가능 · 현재 {activeTier}차 Lv{" "}
+                    직업 변경은 5차 정점(Lv100)에서 가능 · 현재 {activeTier}차 Lv{" "}
                     {level}/100
                   </p>
                 )}

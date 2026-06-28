@@ -166,19 +166,19 @@ export async function POST(req: Request) {
       effectiveClass = nextClass;
     }
 
-    // design A(§3.2·§6) — 직업군 변경(횡환생)은 4차 정점(만렙) 전용. 자유 respec 폐기로
+    // design A(§3.2·§6) — 직업군 변경(횡환생)은 5차 정점(만렙) 전용. 자유 respec 폐기로
     // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군·속성변경은 면제.
     // (잘못 고른 초반 캐릭의 탈출구는 신전 초기화 — respec 과 별개.)
     if (groupChanged && !isFirstPick) {
       const curGroupTier = prof.groups[tier1ClassOf(curClass)]?.tier ?? 1;
-      if (curGroupTier !== 4 || level < effectiveLevelCap(4)) {
+      if (curGroupTier !== 5 || level < effectiveLevelCap(5)) {
         return {
           status: 400,
           body: {
             ok: false as const,
             error: "not_at_apex" as const,
-            requiredTier: 4,
-            requiredLevel: effectiveLevelCap(4),
+            requiredTier: 5,
+            requiredLevel: effectiveLevelCap(5),
             haveTier: curGroupTier,
             haveLevel: level,
           },

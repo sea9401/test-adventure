@@ -169,6 +169,26 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(r.castSkillId).toBeNull();
   });
 
+  it("역할 블록은 현재 장착된 같은 역할 스킬로 발동한다", () => {
+    const rolePattern: V2CombatPattern = {
+      blocks: [{ condition: { kind: "always" }, action: { kind: "role", role: "main_attack" } }],
+    };
+    const r = resolveV2SkillCast(
+      castInput(["v2c_warrior_strike", SKILL], { combatPattern: rolePattern }),
+    );
+    expect(r.castSkillId).toBe("v2c_warrior_strike");
+  });
+
+  it("역할 블록도 장착 풀 밖의 스킬은 고르지 않는다", () => {
+    const rolePattern: V2CombatPattern = {
+      blocks: [{ condition: { kind: "always" }, action: { kind: "role", role: "heal" } }],
+    };
+    const r = resolveV2SkillCast(
+      castInput(["v2c_warrior_strike"], { combatPattern: rolePattern }),
+    );
+    expect(r.castSkillId).toBeNull();
+  });
+
   it("빈 패턴(조건 안 맞음) → 미발동(평타 폴백)", () => {
     const none: V2CombatPattern = {
       blocks: [

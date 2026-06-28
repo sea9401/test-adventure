@@ -404,16 +404,17 @@ describe("isJobUnlocked / unlockedJobs", () => {
     ).toBe(false);
   });
 
-  it("unlockedJobs 는 모험가(tier 0)를 제외하고, 충족한 직업만 반환한다", () => {
+  it("unlockedJobs 는 루트 직업과 충족한 직업만 반환한다", () => {
     const empty = emptyProficiency();
     const ids = unlockedJobs(empty).map((j) => j.id);
-    expect(ids).toEqual(expect.arrayContaining(BASE_JOBS));
-    expect(ids).not.toContain("none");
+    expect(ids).toEqual(expect.arrayContaining(["none", "survivor", ...BASE_JOBS]));
     expect(ids).not.toContain("squire");
 
     const ready = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });
     const ids2 = unlockedJobs(ready).map((j) => j.id);
-    expect(ids2).toEqual(expect.arrayContaining([...BASE_JOBS, "shieldman", "squire"]));
+    expect(ids2).toEqual(
+      expect.arrayContaining(["none", "survivor", ...BASE_JOBS, "shieldman", "squire"]),
+    );
     expect(ids2).not.toContain("caster");
   });
 });

@@ -67,6 +67,7 @@ import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
   isJobUnlocked,
+  isRootJobSelectable,
   jobIdFromLegacy,
   jobUnlockConditionText,
   cumLevelForJob,
@@ -502,11 +503,10 @@ export async function GET() {
             currentJobName,
             atLevelCap: level >= V2_LEVEL_CAP,
             jobs: V2_JOB_LIST.filter(
-              // 모험가(none, tier 0)도 전직 대상에 포함 — 전직 후 모험가 킷을 배우려면 되돌아갈
-              //   수 있어야 한다. prereqs 비어 항상 해금. 그 외 tier 0(미래 추가분)은 제외.
+              // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
+              // prereqs 비어 항상 해금. 그 외 tier 0(미래 추가분)은 제외.
               (job) =>
-                (job.tier > 0 || job.id === "none") &&
-                isJobUnlocked(job, prof, jobUnlockCtx),
+                isRootJobSelectable(job) && isJobUnlocked(job, prof, jobUnlockCtx),
             ).map((job) => {
               // 해금 조건(공유용 — 직업 도감과 동일 헬퍼).
               const condition = jobUnlockConditionText(job);

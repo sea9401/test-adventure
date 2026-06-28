@@ -229,6 +229,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 13, spi: 7 }, // 마법 고차 — 지능 중심
     unlock: { prereqs: { caster: TIER3_UNLOCK_CUMLEVEL } }, // 마법사 계보
   },
+  shaman: {
+    id: "shaman",
+    name: "주술사",
+    tier: 3,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 14, spi: 4, luk: 2 }, // 마법 고차(마법사 분기) — 저주·취약 누적
+    unlock: { prereqs: { caster: TIER3_UNLOCK_CUMLEVEL } }, // 마법사 계보의 저주 분기
+  },
   ranger: {
     id: "ranger",
     name: "궁사",
@@ -246,6 +254,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, dex: 1 },
     jobBonus: { vit: 15, str: 5 }, // 전사 고차(방패병 계승) — 활력 탱
     unlock: { prereqs: { shieldman: TIER3_UNLOCK_CUMLEVEL } }, // 방패병 계보
+  },
+  berserker: {
+    id: "berserker",
+    name: "광전사",
+    tier: 3,
+    cultivateProfile: { str: 2, vit: 1, luk: 1 },
+    jobBonus: { str: 16, vit: 4 }, // 전사 고차(견습 기사 분기) — 저HP 화력
+    unlock: { prereqs: { squire: TIER3_UNLOCK_CUMLEVEL } }, // 견습 기사 계보의 공격 분기
   },
   warmonk: {
     id: "warmonk",
@@ -317,6 +333,32 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       },
     },
   },
+  bloodtemplar: {
+    id: "bloodtemplar",
+    name: "혈성기사",
+    tier: 3,
+    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    jobBonus: { str: 9, vit: 6, spi: 5 }, // 광전사+사제 — HP 소모·자힐 탱딜
+    unlock: {
+      prereqs: {
+        berserker: TIER3_UNLOCK_CUMLEVEL, // 광전사(전사 3차) — 첫 키 = 저장 class(전사)
+        acolyte: TIER3_UNLOCK_CUMLEVEL, // 사제(마법 2차)
+      },
+    },
+  },
+  darkpriest: {
+    id: "darkpriest",
+    name: "암흑사제",
+    tier: 3,
+    cultivateProfile: { luk: 2, spi: 1, int: 1 },
+    jobBonus: { luk: 9, spi: 6, int: 5 }, // 그림자+사제 — 처형·흡수·회복 강화
+    unlock: {
+      prereqs: {
+        shadow: TIER3_UNLOCK_CUMLEVEL, // 그림자(도적 3차) — 첫 키 = 저장 class(도적)
+        acolyte: TIER3_UNLOCK_CUMLEVEL, // 사제(마법 2차)
+      },
+    },
+  },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
   //   (기사→정예 기사·마도사→대마법사/원소술사·궁사→신궁 …). 직군당 1종(마법만 2종, 둘 다 마도사 계보).
@@ -355,6 +397,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(속성 라인) — 대마법사와 동급
     unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
   },
+  archshaman: {
+    id: "archshaman",
+    name: "대주술사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 17, spi: 4, luk: 3 }, // 마법 심화(주술사 계승) — 취약 누적·폭발
+    unlock: { prereqs: { shaman: TIER4_UNLOCK_CUMLEVEL } }, // 주술사 계보
+  },
   chief: {
     id: "chief",
     name: "신궁",
@@ -372,6 +422,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, dex: 1 },
     jobBonus: { vit: 15, str: 7 }, // 전사 심화(가디언 계승) — 방어 탱 라인 정점
     unlock: { prereqs: { guardian: TIER4_UNLOCK_CUMLEVEL } }, // 가디언 계보
+  },
+  warlord: {
+    id: "warlord",
+    name: "광왕",
+    tier: 4,
+    cultivateProfile: { str: 2, vit: 1, luk: 1 },
+    jobBonus: { str: 17, vit: 5 }, // 전사 심화(광전사 계승) — HP를 걸고 밀어붙이는 딜 정점
+    unlock: { prereqs: { berserker: TIER4_UNLOCK_CUMLEVEL } }, // 광전사 계보
   },
   // 도적 직군 4차 두 번째 갈래 — 그림자 계보(자객→그림자 행운/크리 라인의 정점). 신궁(궁술·DEX)과
   //   같은 도적 4차지만 축이 다르다: 신궁=DEX 정조준, 암살자=LUK 행운/기습. 액티브 "기습"은 처형의
@@ -526,9 +584,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   paladin: { class: "warrior", spec: "paladin" },
   brawler: { class: "martial", spec: "brawler" },
   magus: { class: "mage", spec: "magus" },
+  shaman: { class: "mage", spec: "shaman" },
   ranger: { class: "rogue", spec: "ranger" },
   // tier 3 두 번째 갈래 — 새 unique spec id(= jobId).
   guardian: { class: "warrior", spec: "guardian" },
+  berserker: { class: "warrior", spec: "berserker" },
   warmonk: { class: "martial", spec: "warmonk" },
   bishop: { class: "mage", spec: "bishop" },
   shadow: { class: "rogue", spec: "shadow" },
@@ -539,13 +599,17 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   // 하이브리드 2호 마검사 — 저장 class=전사(첫 prereq=기사의 직군), spec=고유 id. magus prereq 은
   //   해금 게이트일 뿐 저장 class 아님. 왕복 = jobIdFromLegacy("warrior","spellblade")→spellblade.
   spellblade: { class: "warrior", spec: "spellblade" },
+  bloodtemplar: { class: "warrior", spec: "bloodtemplar" }, // 광전사×사제 하이브리드
+  darkpriest: { class: "rogue", spec: "darkpriest" }, // 그림자×사제 하이브리드
   // tier 4 — 새 unique spec id.
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },
   sage: { class: "mage", spec: "sage" },
   elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
+  archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 세 번째 갈래(주술사 계승·마법취약)
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
+  warlord: { class: "warrior", spec: "warlord" }, // 전사 4차 세 번째 갈래(광전사 계승·저HP 딜)
   phantom: { class: "rogue", spec: "phantom" }, // 도적 4차 두 번째 갈래(그림자 계보·기습)
   venomlord: { class: "rogue", spec: "venomlord" }, // 도적 4차 세 번째 갈래(독술 계보·부식)
   battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)

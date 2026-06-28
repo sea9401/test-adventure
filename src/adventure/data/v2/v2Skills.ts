@@ -86,6 +86,10 @@ export type V2PassiveSkillEffect = {
   elementDisPctBonus?: number;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
+  /** 광전 — 잃은 HP 비율만큼 공격력 가산. 0.45 = HP를 전부 잃은 상태 기준 공격력 +45%. */
+  berserkAtkPctPerLostHpPct?: number;
+  /** 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 스킬피해 +%. */
+  enemyMagicVulnPctPerStack?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
 };
@@ -402,6 +406,8 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.elementAdvPctBonus ?? 0) / 15;
     mag += (p.elementDisPctBonus ?? 0) / 20;
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
+    mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
+    mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
     return mag;
   }
   const sumEffects = (effects: readonly V2SkillEffect[]): number => {
@@ -474,6 +480,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   elementAdvPctBonus: number;
   elementDisPctBonus: number;
   poisonedEnemyDefReductionPct: number;
+  berserkAtkPctPerLostHpPct: number;
+  enemyMagicVulnPctPerStack: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -493,6 +501,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let elementAdvPctBonus = 0;
   let elementDisPctBonus = 0;
   let poisonedEnemyDefReductionPct = 0;
+  let berserkAtkPctPerLostHpPct = 0;
+  let enemyMagicVulnPctPerStack = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -518,6 +528,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     elementAdvPctBonus += p.elementAdvPctBonus ?? 0;
     elementDisPctBonus += p.elementDisPctBonus ?? 0;
     poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
+    berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
+    enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
   }
   return {
     stat,
@@ -538,6 +550,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     elementAdvPctBonus,
     elementDisPctBonus,
     poisonedEnemyDefReductionPct,
+    berserkAtkPctPerLostHpPct,
+    enemyMagicVulnPctPerStack,
   };
 }
 
@@ -660,6 +674,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
+  if (p.berserkAtkPctPerLostHpPct)
+    chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
+  if (p.enemyMagicVulnPctPerStack)
+    chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
   return chips;
 }
 

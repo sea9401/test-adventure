@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Diamond } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +16,15 @@ import {
   SP_FRUIT_TIERS,
   type SpFruitTier,
 } from "@/adventure/data/v2/spFruit";
-import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import {
+  V2_MATERIALS,
+  type V2MaterialId,
+} from "@/adventure/data/v2/dungeonDrops";
+import {
+  V2SimpleItemInfoCard,
+  anchorOf,
+  type ItemCardAnchor,
+} from "../V2ItemCard";
 
 // 유틸맵 사용 — 종류별 전용 화면으로 이동(지도 iid 동봉, 서버가 소유 재검증).
 const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
@@ -89,6 +98,15 @@ function SpFruitSection({
   busy: string | null;
   onUse: (tier: SpFruitTier) => void;
 }) {
+  const [infoCard, setInfoCard] = useState<{
+    title: string;
+    description: string;
+    held: number;
+    usedCount: number;
+    useCap: number;
+    anchor: ItemCardAnchor;
+  } | null>(null);
+
   // 보유분이 하나도 없으면 섹션 자체를 숨긴다(빈 카드 난립 방지). 캡 도달했어도 보유 0이면 숨김.
   const anyHeld = SP_FRUIT_TIERS.some(
     (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
@@ -107,18 +125,36 @@ function SpFruitSection({
           const usedCount = used[t] ?? 0;
           const atCap = usedCount >= def.useCap;
           const isBusy = busy === `sp_fruit_${t}`;
+          const material = V2_MATERIALS[def.materialId];
           return (
             <li
               key={def.materialId}
               className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-medium">
-                  🍂 {def.name}
-                  <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                    ×{held}
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    setInfoCard({
+                      title: material?.name ?? def.name,
+                      description:
+                        material?.description ??
+                        `사용하면 SP 최대치가 영구히 +${def.spPerUse} 오릅니다.`,
+                      held,
+                      usedCount,
+                      useCap: def.useCap,
+                      anchor: anchorOf(e.currentTarget),
+                    })
+                  }
+                  className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  <span className="block truncate text-sm font-medium">
+                    🍂 {def.name}
+                    <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                      ×{held}
+                    </span>
                   </span>
-                </span>
+                </button>
                 <Button
                   disabled={atCap || isBusy}
                   onClick={() => onUse(t)}
@@ -139,6 +175,19 @@ function SpFruitSection({
           );
         })}
       </ul>
+      {infoCard ? (
+        <V2SimpleItemInfoCard
+          title={infoCard.title}
+          subtitle="소모품"
+          description={infoCard.description}
+          anchor={infoCard.anchor}
+          onClose={() => setInfoCard(null)}
+          lines={[
+            { label: "보유", value: `×${infoCard.held}` },
+            { label: "사용", value: `${infoCard.usedCount}/${infoCard.useCap}` },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
@@ -155,6 +204,14 @@ function ConsumableList({
   onUse?: (m: RareMapInstance) => void;
   suppressEmpty?: boolean;
 }) {
+  const [infoCard, setInfoCard] = useState<{
+    title: string;
+    subtitle: string;
+    description: string;
+    lines: { label: string; value: string }[];
+    anchor: ItemCardAnchor;
+  } | null>(null);
+
   if (maps === null) {
     return (
       <div className="space-y-2">
@@ -174,49 +231,91 @@ function ConsumableList({
     );
   }
   return (
-    <ul className="space-y-1.5">
-      {maps.map((m) => {
-        const def = RARE_MAP_KINDS[m.kind];
-        const isUtility = def?.category === "utility";
-        return (
-          <li
-            key={m.iid}
-            className={`${SURFACE_CARD} px-3 py-2`}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium">
-                🗺 {def?.name ?? m.kind}
-              </span>
-              {isUtility ? (
-                <Button
-                  onClick={() => onUse?.(m)}
-                  variant="info"
-                  size="xs"
-                  className="shrink-0"
+    <>
+      <ul className="space-y-1.5">
+        {maps.map((m) => {
+          const def = RARE_MAP_KINDS[m.kind];
+          const isUtility = def?.category === "utility";
+          const lines = [
+            { label: "남은 횟수", value: `${m.runsLeft}` },
+            ...(isUtility ? [] : [{ label: "깊이", value: `${m.depth}` }]),
+          ];
+          return (
+            <li
+              key={m.iid}
+              className={`${SURFACE_CARD} px-3 py-2`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    setInfoCard({
+                      title: def?.name ?? m.kind,
+                      subtitle: isUtility ? "소모품" : "레어맵",
+                      description: def?.desc ?? "",
+                      lines,
+                      anchor: anchorOf(e.currentTarget),
+                    })
+                  }
+                  className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
                 >
-                  사용
-                </Button>
-              ) : (
-                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                  깊이 {m.depth}
-                </span>
-              )}
-            </div>
-            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              {isUtility ? (
-                <>남은 {m.runsLeft}회</>
-              ) : (
-                <>남은 {m.runsLeft}판 · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」</>
-              )}
-            </div>
-            {def?.desc && (
-              <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                {def.desc}
+                  <span className="block truncate text-sm font-medium">
+                    🗺 {def?.name ?? m.kind}
+                  </span>
+                </button>
+                {isUtility ? (
+                  <Button
+                    onClick={() => onUse?.(m)}
+                    variant="info"
+                    size="xs"
+                    className="shrink-0"
+                  >
+                    사용
+                  </Button>
+                ) : (
+                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                    깊이 {m.depth}
+                  </span>
+                )}
               </div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+              <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                {isUtility ? (
+                  <>남은 {m.runsLeft}회</>
+                ) : (
+                  <>남은 {m.runsLeft}판 · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」</>
+                )}
+              </div>
+              {def?.desc && (
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    setInfoCard({
+                      title: def.name,
+                      subtitle: isUtility ? "소모품" : "레어맵",
+                      description: def.desc,
+                      lines,
+                      anchor: anchorOf(e.currentTarget),
+                    })
+                  }
+                  className="mt-1 line-clamp-2 text-left text-[11px] text-zinc-400 focus:outline-none focus:ring-2 focus:ring-sky-400 dark:text-zinc-500"
+                >
+                  {def.desc}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {infoCard ? (
+        <V2SimpleItemInfoCard
+          title={infoCard.title}
+          subtitle={infoCard.subtitle}
+          description={infoCard.description}
+          anchor={infoCard.anchor}
+          onClose={() => setInfoCard(null)}
+          lines={infoCard.lines}
+        />
+      ) : null}
+    </>
   );
 }

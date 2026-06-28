@@ -266,12 +266,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           kind: "success",
           text: `✨ 강화 성공! +${json.enhance?.level} (위력 +${json.enhance?.bonusPct}%)`,
         });
-        if (
-          (json.enhance?.level ?? 0) >= ENHANCE_STONE_REQUIRED_FROM &&
-          stone === "none"
-        ) {
-          setStone("blue");
-        }
       } else if (json.outcome === "demote") {
         setMsg({
           kind: "fail",
@@ -877,13 +871,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 setSelectedIid(inst.iid);
                 setMsg(null);
                 setFeedIid(null);
-                // +8부터 돌 필수 — 골드만 선택 상태면 푸른으로 자동 전환.
-                if (
-                  (inst.enhance?.level ?? 0) >= ENHANCE_STONE_REQUIRED_FROM &&
-                  stone === "none"
-                ) {
-                  setStone("blue");
-                }
               }}
             />
             <Pagination

@@ -121,7 +121,7 @@ export function V2CoopBossDetailView({
   // 코어루프 — 공격 무료(소환권이 비용) → 스태미나 게이트 없음. off — 기존 스태미나 차감.
   const lowStamina =
     !V2_CORE_LOOP_V2 && stamina.current < COOP_ATTACK_STAMINA_COST;
-  const claimable = session.defeated && !my.claimed && my.tier != null;
+  const claimable = session.defeated && !my.claimed && my.damage > 0;
   // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
   const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;
   const showScopeBadge = V2_CORE_LOOP_V2 && !showScopeControl;
@@ -260,7 +260,9 @@ export function V2CoopBossDetailView({
             onClick={() => void claim()}
             className="mx-auto w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            기여 보상 수령 ({my.tier ? COOP_TIER_LABEL[my.tier] : ""})
+            {my.tier
+              ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`
+              : "기준 미달 확인"}
           </button>
         )}
         {my.damage > 0 && (

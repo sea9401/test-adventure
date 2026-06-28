@@ -133,11 +133,11 @@ export function V2CoopBossListView({
               </span>
               <button
                 type="button"
-                disabled={busy || !c.tier}
+                disabled={busy}
                 onClick={() => void claim(c.sessionId)}
                 className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
-                {c.tier ? "보상 수령" : "기준 미달"}
+                {c.tier ? "보상 수령" : "확인"}
               </button>
             </div>
           ))}

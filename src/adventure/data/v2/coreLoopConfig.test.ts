@@ -21,6 +21,9 @@ import {
   calcSpBudget,
   spMilestonesForCumLevel,
   spMilestonesCrossed,
+  spMasteryProgressForCumLevel,
+  SP_MASTERED_REQUIRED_CUMLEVEL,
+  SP_MASTERED_JOB_BONUS,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 describe("coreLoopConfig — 플래그", () => {
@@ -275,6 +278,36 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
   });
   it("손상 입력 방어", () => {
     expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(12);
+  });
+});
+
+describe("spMasteryProgressForCumLevel — 직업군 정복 진행도 표시용", () => {
+  it("정복 기준은 저장 숙련도 2250", () => {
+    expect(SP_MASTERED_REQUIRED_CUMLEVEL).toBe(2250);
+    expect(spMasteryProgressForCumLevel(2249)).toMatchObject({
+      cumLevel: 2249,
+      requiredCumLevel: 2250,
+      mastered: false,
+      remainingCumLevel: 1,
+      masteryBonusSp: 0,
+    });
+    expect(spMasteryProgressForCumLevel(2250)).toMatchObject({
+      cumLevel: 2250,
+      requiredCumLevel: 2250,
+      mastered: true,
+      remainingCumLevel: 0,
+      masteryBonusSp: SP_MASTERED_JOB_BONUS,
+    });
+  });
+
+  it("손상 입력은 0 진행도로 보정한다", () => {
+    expect(spMasteryProgressForCumLevel(Number.NaN)).toMatchObject({
+      cumLevel: 0,
+      mastered: false,
+      remainingCumLevel: 2250,
+      milestoneSp: 0,
+      masteryBonusSp: 0,
+    });
   });
 });
 

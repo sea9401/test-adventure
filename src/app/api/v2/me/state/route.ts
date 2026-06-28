@@ -42,6 +42,8 @@ import {
   combatCooldownRemainingMs,
   offlineBattlesAccrued,
   offlineFarmDepth,
+  spMasteryProgressForCumLevel,
+  SP_BASE,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   parseSpFruitUsed,
@@ -824,6 +826,30 @@ export async function GET() {
               prof.groups,
               spCapBonusFromRaw(charSave.spFruitUsed),
             );
+            const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
+            const groups = Object.entries(prof.groups ?? {}).map(([id, g]) => {
+              const progress = spMasteryProgressForCumLevel(
+                Number(g?.cumLevel) || 0,
+              );
+              const classDef =
+                id in V2_CLASS_DEFS
+                  ? V2_CLASS_DEFS[id as keyof typeof V2_CLASS_DEFS]
+                  : null;
+              const label = classDef?.name ?? id;
+              return {
+                id,
+                label,
+                ...progress,
+              };
+            });
+            const milestoneSp = groups.reduce(
+              (sum, g) => sum + g.milestoneSp,
+              0,
+            );
+            const masteryBonusSp = groups.reduce(
+              (sum, g) => sum + g.masteryBonusSp,
+              0,
+            );
             let spUsed = 0;
             const library = skillsState.learned
               .filter((id) => V2_SKILLS[id])
@@ -840,7 +866,19 @@ export async function GET() {
               });
             // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만. POST /me/loadout 시 재전송용.
             const equipped = skillsState.equipped.filter((id) => V2_SKILLS[id]);
-            return { spBudget, spUsed, equipped, library };
+            return {
+              spBudget,
+              spUsed,
+              equipped,
+              library,
+              spBreakdown: {
+                base: SP_BASE,
+                milestoneSp,
+                masteryBonusSp,
+                spFruitBonus,
+                groups,
+              },
+            };
           })(),
         }
       : {}),

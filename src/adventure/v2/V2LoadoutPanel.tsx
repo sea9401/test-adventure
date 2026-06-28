@@ -15,11 +15,28 @@ export type V2LoadoutSkill = {
   spCost: number;
   equipped: boolean;
 };
+export type V2LoadoutSpBreakdown = {
+  base: number;
+  milestoneSp: number;
+  masteryBonusSp: number;
+  spFruitBonus: number;
+  groups: Array<{
+    id: string;
+    label: string;
+    cumLevel: number;
+    requiredCumLevel: number;
+    mastered: boolean;
+    remainingCumLevel: number;
+    milestoneSp: number;
+    masteryBonusSp: number;
+  }>;
+};
 export type V2LoadoutData = {
   spBudget: number;
   spUsed: number;
   equipped: string[]; // 장착 우선순위 순서(갬빗 fallback).
   library: V2LoadoutSkill[];
+  spBreakdown?: V2LoadoutSpBreakdown;
 };
 
 export function V2LoadoutPanel({
@@ -53,6 +70,7 @@ export function V2LoadoutPanel({
   const spUsed = order.reduce((a, id) => a + (meta.get(id)?.spCost ?? 0), 0);
   const { spBudget } = loadout;
   const pct = spBudget > 0 ? Math.min(100, (spUsed / spBudget) * 100) : 0;
+  const spBreakdown = loadout.spBreakdown;
 
   async function commit(nextOrder: string[]) {
     const prev = order;
@@ -127,6 +145,50 @@ export function V2LoadoutPanel({
         배운 스킬을 스킬포인트 예산 안에서 장착하세요. 공용·기본기는 어느 직업이든,
         시그니처는 그 직업일 때만 장착할 수 있어요.
       </p>
+      {spBreakdown && (
+        <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/80">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+            <span>기본 {spBreakdown.base}</span>
+            <span>숙련도 +{spBreakdown.milestoneSp}</span>
+            <span>직업군 정복 +{spBreakdown.masteryBonusSp}</span>
+            <span>SP 열매 +{spBreakdown.spFruitBonus}</span>
+          </div>
+          {spBreakdown.groups.length > 0 && (
+            <div className="mt-2 grid gap-1 sm:grid-cols-2">
+              {spBreakdown.groups.map((g) => {
+                const masteryPct =
+                  g.requiredCumLevel > 0
+                    ? Math.min(100, (g.cumLevel / g.requiredCumLevel) * 100)
+                    : 0;
+                return (
+                  <div key={g.id} className="min-w-0">
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">
+                        {g.label}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {g.mastered
+                          ? `정복 +${g.masteryBonusSp}`
+                          : `${g.cumLevel.toLocaleString()} / ${g.requiredCumLevel.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div
+                        className={`h-full rounded-full ${
+                          g.mastered
+                            ? "bg-emerald-500 dark:bg-emerald-500"
+                            : "bg-sky-500 dark:bg-sky-500"
+                        }`}
+                        style={{ width: `${masteryPct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <ul className="mt-3 space-y-1.5">
         {loadout.library.map((s) => {

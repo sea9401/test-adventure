@@ -8,6 +8,8 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SendMessageModal } from "@/adventure/marketplace/SendMessageModal";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   fetchInbox,
   fetchInboxHistory,
@@ -19,6 +21,10 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+
+const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
+  Record<string, { name: string } | undefined>
+>;
 
 // v2 우편함 — 받은 쪽지(user_message) + 마켓 정산·선물·길드 보상 등 수령.
 // 백엔드(/api/marketplace/inbox 목록 + /claim)는 이미 v2 호환(claim 이 character.v2 골드/
@@ -49,6 +55,111 @@ function bodyOf(it: InboxItem): string {
       : (it.message ?? KIND_LABEL[it.kind]);
   }
   return it.message ?? KIND_LABEL[it.kind];
+}
+
+function asCount(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v)
+    ? Math.max(0, Math.floor(v))
+    : 0;
+}
+
+function asId(v: unknown): string | null {
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+function materialName(id: string): string {
+  return V2_MATERIALS[id]?.name ?? id;
+}
+
+function equipName(id: string): string {
+  return EQUIPMENT_BY_ID[id]?.name ?? id;
+}
+
+function pushReward(lines: string[], label: string, count: number) {
+  if (count > 0) lines.push(`${label} x${count.toLocaleString()}`);
+}
+
+function pushMaterialRewards(lines: string[], raw: unknown) {
+  if (!Array.isArray(raw)) return;
+  for (const m of raw) {
+    if (typeof m !== "object" || m === null) continue;
+    const row = m as { materialId?: unknown; count?: unknown };
+    const id = asId(row.materialId);
+    const count = asCount(row.count);
+    if (id && count > 0) pushReward(lines, materialName(id), count);
+  }
+}
+
+function pushEquipRewards(lines: string[], raw: unknown) {
+  if (!Array.isArray(raw)) return;
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const row = item as { itemId?: unknown; count?: unknown };
+    const id = asId(row.itemId);
+    const count = asCount(row.count);
+    if (id && count > 0) pushReward(lines, equipName(id), count);
+  }
+}
+
+function rewardLinesOf(it: InboxItem): string[] {
+  const p = it.payload ?? {};
+  const lines: string[] = [];
+
+  switch (it.kind) {
+    case "sale_proceeds":
+      pushReward(lines, "골드", asCount(p.gold));
+      break;
+    case "purchase_item":
+    case "cancel_return":
+    case "listing_expired": {
+      const kind = asId(p.item_kind);
+      const id = asId(p.item_id);
+      const qty = asCount(p.quantity);
+      if (id && qty > 0) {
+        const label =
+          kind === "equip"
+            ? equipName(id)
+            : kind === "material"
+              ? materialName(id)
+              : kind === "recipe"
+                ? `제작서: ${id}`
+                : id;
+        pushReward(lines, label, qty);
+      }
+      break;
+    }
+    case "recipe_gift": {
+      const name = asId(p.recipe_name) ?? asId(p.recipe_id);
+      if (name) lines.push(`제작서: ${name}`);
+      break;
+    }
+    case "guild_quest_reward":
+      pushReward(lines, "골드", asCount(p.gold));
+      pushMaterialRewards(lines, p.materials);
+      pushEquipRewards(lines, p.items);
+      break;
+    case "season_reward": {
+      const coinLabel: Record<string, string> = {
+        pvp: "투기장 코인",
+        fishing: "낚시 코인",
+        treasure: "보물 코인",
+      };
+      const season = asId(p.season) ?? "";
+      pushReward(lines, coinLabel[season] ?? "코인", asCount(p.coins));
+      break;
+    }
+    case "admin_gift":
+      pushReward(lines, "골드", asCount(p.gold));
+      pushMaterialRewards(lines, p.materials);
+      pushEquipRewards(lines, p.items);
+      pushReward(lines, "스태미나 회복약", asCount(p.staminaPotions));
+      break;
+    case "user_message":
+    case "guild_invite":
+      break;
+  }
+
+  return lines;
 }
 
 const KIND_LABEL: Record<InboxItem["kind"], string> = {
@@ -322,59 +433,67 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         </Card>
       ) : (
         <div className="space-y-2">
-          {displayed.map((it) => (
-            <Card key={it.id} padding="sm">
-              <div className="flex items-start justify-between gap-3">
-                {/* 본문 영역 클릭 → 상세 보기 */}
-                <button
-                  type="button"
-                  onClick={() => setSelected(it)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      {KIND_LABEL[it.kind]}
-                    </span>
-                    {it.fromName && <span>· {it.fromName}</span>}
-                    <span>· {timeAgo(it.createdAt)}</span>
-                  </div>
-                  <div className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">
-                    {bodyOf(it)}
-                  </div>
-                </button>
-                {tab === "inbox" &&
-                  (IS_INVITE(it) ? (
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() => respondInvite(it, true)}
-                        disabled={busy}
-                        className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                      >
-                        수락
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => respondInvite(it, false)}
-                        disabled={busy}
-                        className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                      >
-                        거절
-                      </button>
+          {displayed.map((it) => {
+            const rewards = rewardLinesOf(it);
+            return (
+              <Card key={it.id} padding="sm">
+                <div className="flex items-start justify-between gap-3">
+                  {/* 본문 영역 클릭 → 상세 보기 */}
+                  <button
+                    type="button"
+                    onClick={() => setSelected(it)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {KIND_LABEL[it.kind]}
+                      </span>
+                      {it.fromName && <span>· {it.fromName}</span>}
+                      <span>· {timeAgo(it.createdAt)}</span>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => claim([it.id])}
-                      disabled={busy}
-                      className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                    >
-                      {it.kind === "user_message" ? "확인" : "수령"}
-                    </button>
-                  ))}
-              </div>
-            </Card>
-          ))}
+                    <div className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">
+                      {bodyOf(it)}
+                    </div>
+                    {rewards.length > 0 && (
+                      <div className="mt-2 line-clamp-2 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                        {rewards.join(" · ")}
+                      </div>
+                    )}
+                  </button>
+                  {tab === "inbox" &&
+                    (IS_INVITE(it) ? (
+                      <div className="flex shrink-0 flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => respondInvite(it, true)}
+                          disabled={busy}
+                          className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                        >
+                          수락
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => respondInvite(it, false)}
+                          disabled={busy}
+                          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                        >
+                          거절
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => claim([it.id])}
+                        disabled={busy}
+                        className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                      >
+                        {it.kind === "user_message" ? "확인" : "수령"}
+                      </button>
+                    ))}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -438,6 +557,7 @@ function MailDetailModal({
 }) {
   const claimed = item.claimedAt != null;
   const isInvite = IS_INVITE(item);
+  const rewards = rewardLinesOf(item);
   useEscapeKey(onClose);
   const contentRef = useRef<HTMLDivElement>(null);
   useModalA11y(contentRef);
@@ -490,6 +610,19 @@ function MailDetailModal({
         <div className="mt-3 max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-zinc-50 p-3 text-sm text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
           {bodyOf(item)}
         </div>
+
+        {rewards.length > 0 && (
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">
+            <div className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              포함된 보상
+            </div>
+            <div className="mt-2 space-y-1 text-sm text-emerald-950 dark:text-emerald-100">
+              {rewards.map((reward, i) => (
+                <div key={`${reward}-${i}`}>{reward}</div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 flex justify-end gap-2">
           {!claimed && isInvite ? (

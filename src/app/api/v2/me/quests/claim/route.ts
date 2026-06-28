@@ -17,11 +17,12 @@ import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
 // POST /api/v2/me/quests/claim  { questId } — 가이드 퀘스트 보상 수령.
 //   서버가 세이브에서 완료를 재판정(클라 신뢰 안 함) + 미수령 확인 → 보상 지급 + claimed 기록.
-//   락 순서 character.v2 → equipment.v2 → guide-quests.v2 → stamina-potions.v1(leaf, 포션 보상 시만)
-//   (proficiency·adventure-log 은 무락 read). stamina-potions 는 항상 마지막 잠금 = 데드락 회피.
+//   락 순서 character.v2 → equipment.v2 → guide-quests.v2 → adventure-log.v2(칭호 보상 시만)
+//   → stamina-potions.v1(leaf, 포션 보상 시만). stamina-potions 는 항상 마지막 잠금 = 데드락 회피.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -111,6 +112,11 @@ export async function POST(req: Request) {
       });
       grantedEquip = def.reward.equip;
     }
+    let grantedTitle: string | null = null;
+    if (def.reward.titleId) {
+      await grantTitleIfMissingInTx(tx, userId, def.reward.titleId, Date.now());
+      grantedTitle = def.reward.titleId;
+    }
     // 스태미나 회복약(stamina-potions.v1) — 항상 마지막 잠금(leaf). 번들 보상과 동일 소비템.
     let grantedPotions = 0;
     if (def.reward.staminaPotions && def.reward.staminaPotions > 0) {
@@ -137,6 +143,7 @@ export async function POST(req: Request) {
           gold: goldGain,
           equip: grantedEquip,
           staminaPotions: grantedPotions,
+          titleId: grantedTitle,
         },
         gold: Math.max(0, (charSave.gold ?? 0) + goldGain),
       },

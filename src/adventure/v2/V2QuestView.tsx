@@ -18,6 +18,7 @@ import {
   type QuestReward,
   isTutorialLine,
 } from "@/adventure/data/v2/v2Quests";
+import { TITLES } from "@/adventure/data/titles";
 import type {
   RepeatBundleView,
   RepeatQuestView,
@@ -62,6 +63,9 @@ function rewardText(reward: QuestReward): string {
   }
   if (reward.staminaPotions) {
     parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
+  }
+  if (reward.titleId) {
+    parts.push(`칭호: ${TITLES[reward.titleId]?.name ?? reward.titleId}`);
   }
   return parts.join(" · ");
 }

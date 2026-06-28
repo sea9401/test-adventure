@@ -422,7 +422,6 @@ export async function GET() {
         accRating: combat.player.accRating,
         critChancePct: combat.player.critChancePct,
         critMult: combat.player.critMult,
-        extraAttackChancePct: combat.player.extraAttackChancePct,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore({
           atk: combat.player.atk,

@@ -185,7 +185,6 @@ export async function GET(_req: Request, ctx: Ctx) {
       accuracyPct: combat.player.accuracyPct,
       critChancePct: combat.player.critChancePct,
       critMult: combat.player.critMult,
-      extraAttackChancePct: combat.player.extraAttackChancePct,
       power: derivePowerScore({
         atk: combat.player.atk,
         magicAtk: combat.player.magicAtk ?? 0,

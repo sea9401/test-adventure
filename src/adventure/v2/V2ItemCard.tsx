@@ -6,6 +6,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
   powerBandOf,
@@ -59,6 +60,7 @@ const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   def: "방어",
   magicDef: "마법방어",
   healPowerPct: "회복",
+  critResist: "치명저항",
 };
 function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
@@ -67,7 +69,10 @@ function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
       // critMult 은 백분의 일 정수(30=+0.30×). crit/eva/healPowerPct = %, 그 외 flat.
       if (k === "critMult")
         return `${SET_BONUS_LABEL[k]} +${((bonus[k] ?? 0) / 100).toFixed(2)}×`;
-      const unit = k === "crit" || k === "eva" || k === "healPowerPct" ? "%" : "";
+      const unit =
+        k === "crit" || k === "eva" || k === "healPowerPct" || k === "critResist"
+          ? "%"
+          : "";
       return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
     })
     .join(", ");
@@ -167,6 +172,17 @@ export function V2ItemCard({
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
     : undefined;
+  const tagSets = (item.setTags ?? [])
+    .map((tag) => V2_EQUIP_TAG_SETS.find((s) => s.id === tag))
+    .filter((s): s is (typeof V2_EQUIP_TAG_SETS)[number] => Boolean(s));
+  const equippedTagCounts = new Map<string, number>();
+  if (equippedIds) {
+    for (const id of equippedIds) {
+      for (const tag of V2_EQUIPMENT[id]?.setTags ?? []) {
+        equippedTagCounts.set(tag, (equippedTagCounts.get(tag) ?? 0) + 1);
+      }
+    }
+  }
   // 세트 발동 = 세트의 전 조각을 현재 착용 중(서버 aggregateV2Equipment 와 동일 기준).
   const equippedSetCount = set
     ? set.pieces.filter((p) => equippedIds?.has(p)).length
@@ -367,6 +383,40 @@ export function V2ItemCard({
             )}
           </div>
         )}
+
+        {tagSets.map((tagSet) => {
+          const count = equippedTagCounts.get(tagSet.id) ?? 0;
+          return (
+            <div
+              key={tagSet.id}
+              className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800"
+            >
+              <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                {tagSet.name} 태그 세트 ({count}개 착용)
+              </div>
+              <div className="mt-1 space-y-px">
+                {tagSet.thresholds.map((threshold) => {
+                  const active = count >= threshold.count;
+                  return (
+                    <div
+                      key={threshold.count}
+                      className={`flex items-baseline justify-between gap-2 text-[11px] ${
+                        active
+                          ? "font-medium text-amber-600 dark:text-amber-400"
+                          : "text-zinc-400 dark:text-zinc-500"
+                      }`}
+                    >
+                      <span>{threshold.count}세트</span>
+                      <span className="tabular-nums">
+                        {formatSetBonus(threshold.bonus)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
 
         {item.description && (
           <p className="mt-2 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">

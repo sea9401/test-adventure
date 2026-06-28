@@ -13,10 +13,11 @@ const SELECT_CLS =
 
 type AttachMaterial = { materialId: string; count: number };
 type AttachItem = { itemId: string; count: number };
+type AttachConsumable = { itemId: "stamina_potion"; count: number };
 
 // 공지/방송 + 대량 우편.
 //   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 3000자.
-//   우편: POST /api/admin/mail — 골드 + 재료/장비 + 메시지를 한 유저/전체 유저에게 우편함으로 발송.
+//   우편: POST /api/admin/mail — 골드 + 재료/장비/소비템 + 메시지를 한 유저/전체 유저에게 우편함으로 발송.
 export function BroadcastTab() {
   const { readOnly, showToast } = useAdmin();
 
@@ -32,9 +33,12 @@ export function BroadcastTab() {
   const [mailMsg, setMailMsg] = useState("");
   const [sending, setSending] = useState(false);
 
-  // 우편 첨부 — 재료/장비 목록 + 추가 컨트롤.
+  // 우편 첨부 — 재료/장비/소비템 목록 + 추가 컨트롤.
   const [attachMaterials, setAttachMaterials] = useState<AttachMaterial[]>([]);
   const [attachItems, setAttachItems] = useState<AttachItem[]>([]);
+  const [attachConsumables, setAttachConsumables] = useState<
+    AttachConsumable[]
+  >([]);
 
   // 카탈로그 옵션 (V2GrantSection 과 동일 소스).
   const materialOptions = useMemo(
@@ -48,6 +52,10 @@ export function BroadcastTab() {
         .sort((a, b) => a.tier - b.tier || a.slot.localeCompare(b.slot)),
     [],
   );
+  const consumableOptions = useMemo(
+    () => [{ id: "stamina_potion" as const, name: "스태미나 회복약" }],
+    [],
+  );
   const materialNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const o of materialOptions) m.set(o.id, o.name);
@@ -58,16 +66,27 @@ export function BroadcastTab() {
     for (const o of equipOptions) m.set(o.id, o.name);
     return m;
   }, [equipOptions]);
+  const consumableNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of consumableOptions) m.set(o.id, o.name);
+    return m;
+  }, [consumableOptions]);
 
   const [matSel, setMatSel] = useState<string>(materialOptions[0]?.id ?? "");
   const [matQty, setMatQty] = useState(1);
   const [eqSel, setEqSel] = useState<string>(equipOptions[0]?.id ?? "");
   const [eqQty, setEqQty] = useState(1);
+  const [consumableSel, setConsumableSel] =
+    useState<AttachConsumable["itemId"]>("stamina_potion");
+  const [consumableQty, setConsumableQty] = useState(1);
 
   const noticeDisabled = readOnly || posting;
   const mailDisabled = readOnly || sending;
   const hasReward =
-    gold > 0 || attachMaterials.length > 0 || attachItems.length > 0;
+    gold > 0 ||
+    attachMaterials.length > 0 ||
+    attachItems.length > 0 ||
+    attachConsumables.length > 0;
 
   const addMaterial = () => {
     if (!matSel || matQty <= 0) return;
@@ -91,6 +110,21 @@ export function BroadcastTab() {
         return next;
       }
       return [...prev, { itemId: eqSel, count: eqQty }];
+    });
+  };
+  const addConsumable = () => {
+    if (!consumableSel || consumableQty <= 0) return;
+    setAttachConsumables((prev) => {
+      const i = prev.findIndex((it) => it.itemId === consumableSel);
+      if (i >= 0) {
+        const next = [...prev];
+        next[i] = {
+          itemId: consumableSel,
+          count: next[i].count + consumableQty,
+        };
+        return next;
+      }
+      return [...prev, { itemId: consumableSel, count: consumableQty }];
     });
   };
 
@@ -129,6 +163,9 @@ export function BroadcastTab() {
           gold,
           materials: attachMaterials,
           items: attachItems,
+          staminaPotions:
+            attachConsumables.find((it) => it.itemId === "stamina_potion")
+              ?.count ?? 0,
           message: mailMsg,
         }),
       });
@@ -137,6 +174,7 @@ export function BroadcastTab() {
         recipients?: number;
         materials?: AttachMaterial[];
         items?: AttachItem[];
+        staminaPotions?: number;
         error?: string;
       };
       if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
@@ -146,12 +184,16 @@ export function BroadcastTab() {
       const itemCount = j.items?.length ?? 0;
       if (matCount > 0) parts.push(`재료 ${matCount}종`);
       if (itemCount > 0) parts.push(`장비 ${itemCount}종`);
+      if ((j.staminaPotions ?? 0) > 0) {
+        parts.push(`스태미나 회복약 ${j.staminaPotions}개`);
+      }
       showToast(
         `우편 발송 완료 — ${j.recipients ?? 0}명에게 ${parts.join(" · ") || "(빈 우편)"}`,
       );
       setMailMsg("");
       setAttachMaterials([]);
       setAttachItems([]);
+      setAttachConsumables([]);
     } catch (e) {
       showToast(`우편 실패: ${e instanceof Error ? e.message : "오류"}`);
     } finally {
@@ -211,9 +253,9 @@ export function BroadcastTab() {
 
       {/* 대량 우편 */}
       <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-sm font-semibold">대량 우편 (골드·재료·장비)</h3>
+        <h3 className="text-sm font-semibold">대량 우편 (골드·재료·장비·소비템)</h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          골드 + 재료/장비 + 메시지를 우편함으로 발송합니다(수신자가 수령). 보정금·이벤트
+          골드 + 재료/장비/소비템 + 메시지를 우편함으로 발송합니다(수신자가 수령). 보정금·이벤트
           보상용. 장비는 base 등급으로 지급됩니다.
           <strong> 전체 발송</strong>은 모든 유저에게 자원을 지급하는 강력한 작업입니다.
         </p>
@@ -359,6 +401,63 @@ export function BroadcastTab() {
           </div>
         )}
 
+        {/* 소비 아이템 첨부 */}
+        <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
+          <Field label="소비 아이템 첨부">
+            <select
+              value={consumableSel}
+              disabled={mailDisabled || consumableOptions.length === 0}
+              onChange={(e) =>
+                setConsumableSel(e.target.value as AttachConsumable["itemId"])
+              }
+              className={SELECT_CLS}
+            >
+              {consumableOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name} ({o.id})
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="수량">
+            <NumberInput
+              value={consumableQty}
+              min={1}
+              disabled={mailDisabled}
+              onChange={(n) => setConsumableQty(Math.max(1, Math.floor(n)))}
+            />
+          </Field>
+          <Button
+            disabled={mailDisabled || !consumableSel || consumableQty <= 0}
+            onClick={addConsumable}
+          >
+            + 추가
+          </Button>
+        </div>
+        {attachConsumables.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {attachConsumables.map((it, i) => (
+              <span
+                key={it.itemId}
+                className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+              >
+                {consumableNameById.get(it.itemId) ?? it.itemId} ×{it.count}
+                <button
+                  type="button"
+                  disabled={mailDisabled}
+                  onClick={() =>
+                    setAttachConsumables((prev) => prev.filter((_, j) => j !== i))
+                  }
+                  className="ml-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-50"
+                  aria-label="제거"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="mt-3">
           <Field label="메시지 (선택)">
             <TextInput
@@ -380,6 +479,10 @@ export function BroadcastTab() {
                   : ""
               }${
                 attachItems.length > 0 ? ` · 장비 ${attachItems.length}종` : ""
+              }${
+                attachConsumables.length > 0
+                  ? ` · 소비템 ${attachConsumables.length}종`
+                  : ""
               }을 우편으로 발송합니다. 되돌릴 수 없습니다(수령 전 우편 회수 불가).`}
               confirmText="SEND ALL"
               disabled={mailDisabled || !hasReward}

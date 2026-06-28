@@ -36,6 +36,13 @@ export const ONBOARDING_MAX_STAT_MULT = 1.3; // 들판 6 스탯 배율 상한(�
 //   사냥터 난이도 곡선 하향(중간 완화·깊을수록 완화폭↑: d12 -10%·d24 -12%). 들판(1~6)은 불변.
 export const LADDER_STAT_STEP = 0.52; // 깊이당 statMult 증가(들판 0.06 대비 완만 램프)
 
+// 엔드 확장 램프(43+) — 1~42 는 기존 곡선을 유지하고, 새 사냥터부터 권장 전투력을
+// 1500 전후로 끌어올린다. 기존 후반 평가는 "성장 대비 너무 쉬움"이라 43에서 의도적으로 한 번
+// 단차를 만들고, 이후 깊이당 증가 폭도 기존 0.52보다 높게 둔다.
+export const END_EXTENSION_START_DEPTH = 43;
+export const END_EXTENSION_START_STAT_MULT = 30;
+export const END_EXTENSION_STAT_STEP = 1.0;
+
 // 엔드게임 난이도 완화(2026-06-18, 밸런스) — 깊을수록 몬스터 hp+atk 을 점감(scaleMonsterForFloor
 // 에서 sMult 에 곱). 🔑 floorPowerGate(권장파워/레벨)에는 안 들어가 진척·exp 곡선과 **분리** —
 // "권장 레벨로 맞춘 빌드"가 엔드에서 DEX 외엔 다 못 깨던 문제(sim: d50 STR51·INT33·VIT0·DEX100)를,
@@ -118,6 +125,12 @@ export function floorStatMult(depth: number): number {
   if (depth <= ONBOARDING_END_DEPTH) {
     return 1 + onboardingT(depth) * (ONBOARDING_MAX_STAT_MULT - 1);
   }
+  if (depth >= END_EXTENSION_START_DEPTH) {
+    return (
+      END_EXTENSION_START_STAT_MULT +
+      (depth - END_EXTENSION_START_DEPTH) * END_EXTENSION_STAT_STEP
+    );
+  }
   return (
     ONBOARDING_MAX_STAT_MULT + (depth - ONBOARDING_END_DEPTH) * LADDER_STAT_STEP
   );
@@ -157,8 +170,23 @@ export const LADDER_EXP_SOFTCAP = 13;
 // 이라 깊이당 ≈ +(POST_SLOPE×0.6) exp배율. 0 이면 옛 플래토(평평)와 동일, 키우면 깊이 보상 가팔라짐.
 // gold = 몹 exp×4 라 이 다이얼이 깊이별 골드 곡선도 함께 결정. ⚠️프론티어 cadence 다이얼 — 라이브/sim 재캘리브.
 export const LADDER_EXP_POST_SLOPE = 1.0;
+// 리자드 늪지(31+)부터 EXP/골드 증가폭을 낮춘다. gold 는 monster.exp 기반이라 이 곡선이 골드도
+// 함께 누른다. 난이도는 43+에서 크게 올리되 보상은 별도 완만 램프로 분리해 무한 인플레를 막는다.
+// 당분간 엔드 보상 배율은 30 을 넘기지 않는다. 이 상한을 올릴 때는 신규 사냥터 보상 페이싱을
+// 별도로 다시 캘리브해야 한다.
+export const REWARD_SLOWDOWN_START_DEPTH = 31;
+export const REWARD_SLOWDOWN_ANCHOR_DEPTH = REWARD_SLOWDOWN_START_DEPTH - 1;
+export const REWARD_SLOWDOWN_EXP_STEP = 0.15;
+export const REWARD_EXP_MULT_CAP = 30;
 export function floorExpMult(depth: number): number {
   if (depth <= 1) return 1;
+  if (depth >= REWARD_SLOWDOWN_START_DEPTH) {
+    return Math.min(
+      REWARD_EXP_MULT_CAP,
+      floorExpMult(REWARD_SLOWDOWN_ANCHOR_DEPTH) +
+        (depth - REWARD_SLOWDOWN_ANCHOR_DEPTH) * REWARD_SLOWDOWN_EXP_STEP,
+    );
+  }
   const sMult = floorStatMult(depth);
   const convex = Math.pow(sMult, LADDER_EXP_EXP);
   if (convex <= LADDER_EXP_SOFTCAP) return convex; // 소프트캡 전 — 기존과 동일(byte-exact)

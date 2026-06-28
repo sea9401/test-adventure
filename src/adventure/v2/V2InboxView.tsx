@@ -159,6 +159,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           ok?: boolean;
           goldAdded?: number;
           coinsAdded?: { season: string; coins: number }[];
+          staminaPotionsAdded?: number;
           itemsAdded?: { quantity: number }[];
           instancesAdded?: unknown[];
           error?: string;
@@ -182,6 +183,9 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
               `+${c.coins.toLocaleString()} ${coinLabel[c.season] ?? "코인"}`,
             );
           }
+        }
+        if ((j.staminaPotionsAdded ?? 0) > 0) {
+          parts.push(`+스태미나 회복약 ${j.staminaPotionsAdded}개`);
         }
         // 재료/장비(운영자 우편·길드 보상 등) — 총 수량으로 요약.
         const itemQty = (j.itemsAdded ?? []).reduce(

@@ -7,6 +7,7 @@ import {
   bandUniquePoolForDepth,
   bandCommonPoolForDepth,
   bandCommonChance,
+  bandCommonChanceForDepth,
   rollBandUniqueDrop,
   rollBandCommonDrop,
   rollUniqueDrop,
@@ -34,7 +35,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   it("밴드당 흔한 ≥9종(기본 9 + 강등된 옛 필드 유니크) — 전부 noDrop·비유니크", () => {
     // 2026-06-26 유니크 재정의: 옛 필드 유니크가 일반(noDrop)으로 강등돼 흔한 풀에 합류 →
     //   밴드별 9 + 강등분(canyon/lake+2·cave+4·sanctum/swamp+2·den+3).
-    expect(BAND_COMMON_POOLS).toHaveLength(6);
+    expect(BAND_COMMON_POOLS).toHaveLength(7);
     for (const p of BAND_COMMON_POOLS) {
       expect(p.ids.length, `밴드 ${p.minDepth}`).toBeGreaterThanOrEqual(9);
       for (const id of p.ids) {
@@ -47,26 +48,38 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
 
   it("흔한/유니크 풀이 겹치지 않음(같은 밴드 내 분리)", () => {
     for (const cp of BAND_COMMON_POOLS) {
-      const up = BAND_UNIQUE_POOLS.find((u) => u.minDepth === cp.minDepth)!;
+      const up = BAND_UNIQUE_POOLS.find((u) => u.minDepth === cp.minDepth);
+      if (!up) continue;
       const overlap = cp.ids.filter((id) => up.ids.includes(id));
       expect(overlap, `밴드 ${cp.minDepth} 겹침`).toEqual([]);
     }
   });
 
-  it("드랍률 램프(2026-06-13 ÷5) — 밴드 로컬 깊이 1·2=0.1% / 3·4=0.14% / 5·6=0.18%", () => {
-    expect(bandCommonChance(1)).toBe(0.001);
-    expect(bandCommonChance(2)).toBe(0.001);
-    expect(bandCommonChance(3)).toBe(0.0014);
-    expect(bandCommonChance(4)).toBe(0.0014);
-    expect(bandCommonChance(5)).toBe(0.0018);
-    expect(bandCommonChance(6)).toBe(0.0018);
+  it("드랍률 램프 — 모든 테마 로컬 깊이 1·2=0.03% / 3·4=0.045% / 5·6=0.06%", () => {
+    expect(bandCommonChance(1)).toBe(0.0003);
+    expect(bandCommonChance(2)).toBe(0.0003);
+    expect(bandCommonChance(3)).toBe(0.00045);
+    expect(bandCommonChance(4)).toBe(0.00045);
+    expect(bandCommonChance(5)).toBe(0.0006);
+    expect(bandCommonChance(6)).toBe(0.0006);
+  });
+
+  it("테마가 깊어져도 로컬 깊이별 일반 장비 드랍률은 동일", () => {
+    expect(bandCommonChanceForDepth(25)).toBe(0.0003); // 성소 로컬1
+    expect(bandCommonChanceForDepth(30)).toBe(0.0006); // 성소 로컬6
+    expect(bandCommonChanceForDepth(31)).toBe(0.0003); // 늪지 로컬1
+    expect(bandCommonChanceForDepth(36)).toBe(0.0006); // 늪지 로컬6
+    expect(bandCommonChanceForDepth(37)).toBe(0.0003); // 소굴 로컬1
+    expect(bandCommonChanceForDepth(42)).toBe(0.0006); // 소굴 로컬6
+    expect(bandCommonChanceForDepth(43)).toBe(0.0003); // 검은 왕도 로컬1
+    expect(bandCommonChanceForDepth(48)).toBe(0.0006); // 검은 왕도 로컬6
   });
 
   it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
     const canyon = bandCommonPoolForDepth(7)!;
-    expect(rollBandCommonDrop(7, seqRng([0.0005, 0]))).toBe(canyon.ids[0]); // 로컬1 0.001 통과
-    expect(rollBandCommonDrop(7, () => 0.03)).toBeNull(); // 0.03≥0.001 실패
-    expect(rollBandCommonDrop(11, seqRng([0.0015, 0]))).toBe(canyon.ids[0]); // 로컬5 0.0018 통과
+    expect(rollBandCommonDrop(7, seqRng([0.0002, 0]))).toBe(canyon.ids[0]); // 로컬1 0.0003 통과
+    expect(rollBandCommonDrop(7, () => 0.03)).toBeNull(); // 0.03≥0.0003 실패
+    expect(rollBandCommonDrop(11, seqRng([0.0005, 0]))).toBe(canyon.ids[0]); // 로컬5 0.0006 통과
   });
 
   it("밴드 밖 깊이 → rng 미소비하고 null (rollEquipDrop 결과와 ?? 합성 안전)", () => {
@@ -75,17 +88,22 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
       calls++;
       return 0;
     };
-    // 밴드 = 7~42(들판 1~6 전·마지막 소굴 밴드 42에서 끝=프론티어 캡).
+    // 밴드 = 7~48(들판 1~6 전·마지막 검은 왕도 밴드 48에서 끝=프론티어 캡).
     expect(rollBandCommonDrop(6, rng)).toBeNull(); // 들판(밴드 전)
-    expect(rollBandCommonDrop(43, rng)).toBeNull(); // 마지막 밴드(42) 너머 = 프론티어 끝
+    expect(rollBandCommonDrop(49, rng)).toBeNull(); // 마지막 밴드(48) 너머 = 프론티어 끝
     expect(calls).toBe(0);
   });
 
-  it("마지막 밴드(소굴)는 깊이 37~42 — 42 가 프론티어 끝(43+ 없음)", () => {
+  it("소굴은 깊이 37~42, 검은 왕도는 43~48 — 48 이 프론티어 끝", () => {
     const den = bandCommonPoolForDepth(37)!;
     expect(bandCommonPoolForDepth(42)).toBe(den);
-    expect(bandCommonPoolForDepth(43)).toBeNull(); // 캡 너머 = 콘텐츠 없음
-    expect(rollBandCommonDrop(40, seqRng([0.0005, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
+    const throne = bandCommonPoolForDepth(43)!;
+    expect(throne).not.toBe(den);
+    expect(bandCommonPoolForDepth(48)).toBe(throne);
+    expect(bandCommonPoolForDepth(49)).toBeNull(); // 캡 너머 = 콘텐츠 없음
+    expect(rollBandCommonDrop(40, seqRng([0.0004, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
+    expect(rollBandCommonDrop(46, seqRng([0.0004, 0]))).toBe(throne.ids[0]); // 신규 밴드 내 드랍
+    expect(rollBandCommonDrop(46, seqRng([0.0005, 0]))).toBeNull(); // 로컬4 0.00045 이상이라 실패
   });
 });
 
@@ -175,7 +193,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~42)
     }
   });
 
-  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴, 43+ null(프론티어 끝)", () => {
+  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴, 43+ 시그니처 유니크 없음", () => {
     expect(bandUniquePoolForDepth(24)!.ids).toEqual([]); // 심층 동굴(빈 풀)
     expect(bandUniquePoolForDepth(25)).toBe(sanctum);
     expect(bandUniquePoolForDepth(30)).toBe(sanctum);
@@ -268,8 +286,8 @@ describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
     }
   });
 
-  it("마지막 밴드(42) 너머 — 빈 배열 (프론티어 끝, 새 테마 추가 전까지 콘텐츠 없음)", () => {
-    // 마지막 밴드는 maxDepth 42 에서 끝(MAX_FRONTIER_DEPTH). 그 너머는 도달 불가·콘텐츠 없음.
+  it("시그니처 유니크 밴드(42) 너머 — 빈 배열", () => {
+    // 검은 왕도는 신규 시그니처 유니크 추가 전까지 소굴 일반 장비 풀만 이어 쓴다.
     const beyond =
       Math.max(8, ...BAND_UNIQUE_POOLS.map((p) => p.maxDepth)) + 1;
     expect(uniqueIdsForDepthRange(beyond, beyond + 5)).toEqual([]);

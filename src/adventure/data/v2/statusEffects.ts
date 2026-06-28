@@ -25,7 +25,7 @@ export const V2_DOT_PRESETS = {
     stacks: 1,
     maxStacks: BLEED_MAX_STACKS,
     turns: 3,
-    flatPerStack: 6,
+    flatPerStack: 10,
     atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
     pctMaxHpPerStack: 0,
   },
@@ -37,8 +37,8 @@ export const V2_DOT_PRESETS = {
     turns: 5,
     flatPerStack: 0,
     atkCoefPerStack: 0,
-    // 잡몹 체감 버프(2026): 스택당 4→6 POINT (HP 0.16%→0.24%). 보스는 ATK×0.6 상한이 그대로 캡.
-    pctMaxHpPerStack: 6 * POISON_PCT_PER_POINT,
+    // 잡몹 체감 버프(2026): 스택당 8 POINT (HP 0.4%). 보스는 ATK 상한으로 과녹임 차단.
+    pctMaxHpPerStack: 8 * POISON_PCT_PER_POINT,
   },
   연소: {
     tag: "burn" as const,

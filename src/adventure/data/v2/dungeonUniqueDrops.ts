@@ -186,7 +186,6 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
   },
   {
     // 짐승의 소굴(밴드 F, 37~42) 흔한 9: 무기 4 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
-    //   마지막 테마 = 프론티어 끝(MAX_FRONTIER_DEPTH). 42 너머는 도달 불가(게이트 캡).
     minDepth: 37,
     maxDepth: 42,
     ids: [
@@ -205,14 +204,47 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_den_hide_armor",
     ],
   },
+  {
+    // 검은 왕도(밴드 G, 43~48) — 태그 세트(흑철/공허 예복/왕도 사냥꾼) 첫 적용.
+    // 난이도는 dungeonLadder 43+ 엔드 확장 램프가 담당하고, EXP/골드는 31+ 보상 완화 곡선으로 억제.
+    minDepth: 43,
+    maxDepth: 48,
+    ids: [
+      "v2_throne_greatsword",
+      "v2_throne_staff",
+      "v2_throne_bow",
+      "v2_throne_dagger",
+      "v2_throne_black_armor",
+      "v2_throne_void_robe",
+      "v2_throne_black_gloves",
+      "v2_throne_hunt_gloves",
+      "v2_throne_black_boots",
+      "v2_throne_shadow_boots",
+      "v2_throne_void_ring",
+      "v2_throne_royal_necklace",
+    ],
+  },
 ];
 
-// 흔한 밴드 장비 드랍률 — 밴드 내 로컬 깊이(1~6)로 램프. 깊을수록 잘 나옴. ⚠️ 캘리브 다이얼.
-// 2026-06-13 ÷5(0.005/0.007/0.009 → ) — 자급이 너무 쉬우면 거래소가 죽는다(사용자 결정).
+// 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
+// 2026-06-28: 좋은 장비일수록 확률을 계속 올리지 않고, 테마별 1~2번 0.03% / 3~4번 0.045% /
+//   5~6번 0.06% 정도로 고정. 구간이 깊어져도 "더 좋은 장비라 더 잘 나옴"이 되지 않게 한다.
 export function bandCommonChance(localDepth: number): number {
-  if (localDepth <= 2) return 0.001;
-  if (localDepth <= 4) return 0.0014;
-  return 0.0018;
+  if (localDepth <= 2) return 0.0003;
+  if (localDepth <= 4) return 0.00045;
+  return 0.0006;
+}
+
+export function bandCommonDepthMult(depth: number): number {
+  void depth;
+  return 1;
+}
+
+export function bandCommonChanceForDepth(depth: number): number {
+  const pool = bandCommonPoolForDepth(depth);
+  if (!pool) return 0;
+  const localDepth = depth - pool.minDepth + 1;
+  return bandCommonChance(localDepth) * bandCommonDepthMult(depth);
 }
 
 export function bandCommonPoolForDepth(depth: number): BandPool | null {
@@ -273,7 +305,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 짐승의 소굴(37~42) 고유 5종 — 폭딜·글래스캐넌(포식자 세트 2 + 단품 3). 마지막 밴드=프론티어 끝.
+    // 짐승의 소굴(37~42) 고유 5종 — 폭딜·글래스캐넌(포식자 세트 2 + 단품 3).
     minDepth: 37,
     maxDepth: 42,
     chance: SIGNATURE_UNIQUE_CHANCE,
@@ -315,7 +347,7 @@ export function rollBandUniqueDrop(
   return pool.ids[Math.floor(rng() * pool.ids.length)];
 }
 
-// 흔한 밴드 장비 드랍 굴림(순수) — 밴드 내 로컬 깊이로 램프한 확률(bandCommonChance). 통과 시 전 종류
+// 흔한 밴드 장비 드랍 굴림(순수) — 밴드/깊이별 확률(bandCommonChanceForDepth). 통과 시 전 종류
 //   균등 pick(중복 드랍 허용). 밴드 밖 깊이 → null(rng 미소비, rollEquipDrop 결과와 ?? 합성 안전).
 //   정규 장비 슬롯(droppedEquipment)로 드랍 — 스타터 정규 풀(rollEquipDrop)이 7+ 에서 null 이라 그 자리 채움.
 export function rollBandCommonDrop(
@@ -326,8 +358,7 @@ export function rollBandCommonDrop(
 ): V2EquipmentId | null {
   const pool = bandCommonPoolForDepth(depth);
   if (!pool || pool.ids.length === 0) return null;
-  const localDepth = depth - pool.minDepth + 1;
-  const chance = bandCommonChance(localDepth);
+  const chance = bandCommonChanceForDepth(depth);
   if (rng() >= Math.min(1, chance * chanceMult)) return null;
   return pool.ids[Math.floor(rng() * pool.ids.length)];
 }

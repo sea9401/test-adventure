@@ -164,6 +164,31 @@ describe("resolveBattle ATB invariants", () => {
     expect(result.finalState.outcome).toBe("lose");
   });
 
+  it("maxTurns caps player action bundles, not player+enemy phase pairs", () => {
+    const player: PlayerCombat = {
+      ...basePlayer,
+      hp: 1_000_000,
+      maxHp: 1_000_000,
+      atk: 1,
+      def: 100,
+      spd: 30,
+    };
+    const enemy: Monster = {
+      ...baseEnemy,
+      hp: 1_000_000,
+      atk: 1,
+      def: 100,
+      spd: 6,
+    };
+
+    const result = run(player, enemy, 17, 5);
+    const counts = actionCounts(result);
+
+    expect(result.outcome).toBe("lose");
+    expect(result.turns).toBe(5);
+    expect(counts.player).toBe(5);
+  });
+
   it("normal outcome: standard fixtures resolve to win or loss", () => {
     const result = run(basePlayer, baseEnemy, 5);
     expect(["win", "lose"]).toContain(result.outcome);

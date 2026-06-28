@@ -10,6 +10,12 @@ import {
   LADDER_EXP_SOFTCAP,
   ENDGAME_SOFTEN_START_DEPTH,
   ENDGAME_SOFTEN_MIN,
+  END_EXTENSION_START_DEPTH,
+  END_EXTENSION_START_STAT_MULT,
+  END_EXTENSION_STAT_STEP,
+  REWARD_SLOWDOWN_START_DEPTH,
+  REWARD_SLOWDOWN_EXP_STEP,
+  REWARD_EXP_MULT_CAP,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
 
@@ -62,9 +68,18 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     // 절벽 가드 — 들판→마른 협곡 경계(6→7) 배율 점프가 옛 2.17× 보다 훨씬 작아야.
     expect(floorStatMult(7) / floorStatMult(6)).toBeLessThan(1.7);
     // 전 구간 단조 증가
-    for (const d of [2, 3, 4, 5, 6, 7, 8, 12, 20]) {
+    for (const d of [2, 3, 4, 5, 6, 7, 8, 12, 20, 43, 44]) {
       expect(floorStatMult(d)).toBeGreaterThan(floorStatMult(d - 1));
     }
+  });
+
+  it("43+ 엔드 확장 램프 — 새 사냥터는 권장 전투력 1500대에서 시작하고 증가폭이 더 큼", () => {
+    expect(floorStatMult(END_EXTENSION_START_DEPTH)).toBe(END_EXTENSION_START_STAT_MULT);
+    expect(floorPowerGate(END_EXTENSION_START_DEPTH)).toBe(1509);
+    expect(floorPowerGate(42)).toBeLessThan(1200);
+    expect(floorPowerGate(43)).toBeGreaterThanOrEqual(1500);
+    expect(floorStatMult(44) - floorStatMult(43)).toBe(END_EXTENSION_STAT_STEP);
+    expect(END_EXTENSION_STAT_STEP).toBeGreaterThan(LADDER_STAT_STEP);
   });
 
   it("def 배율은 hp/atk 보다 천천히 (관통 0 절벽 회피) — 2+ 에서 1 < def < stat", () => {
@@ -86,9 +101,19 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorExpMult(30)).toBeGreaterThan(LADDER_EXP_SOFTCAP);
     expect(floorExpMult(48)).toBeGreaterThan(floorExpMult(30));
     expect(floorExpMult(30)).toBeGreaterThan(floorExpMult(20));
+    // 리자드 늪지(31+)부터는 보상 증가폭을 낮춘 별도 램프를 탄다. 난이도 43+ 단차가 EXP/골드에
+    // 그대로 전이되지 않아야 한다.
+    expect(floorExpMult(REWARD_SLOWDOWN_START_DEPTH) - floorExpMult(30)).toBeCloseTo(
+      REWARD_SLOWDOWN_EXP_STEP,
+      5,
+    );
+    expect(floorExpMult(43) - floorExpMult(42)).toBeCloseTo(REWARD_SLOWDOWN_EXP_STEP, 5);
+    expect(floorExpMult(43)).toBeLessThan(26);
+    expect(floorExpMult(999)).toBe(REWARD_EXP_MULT_CAP);
+    expect(REWARD_EXP_MULT_CAP).toBe(30);
     // 전 구간 단조 증가(절벽 없음) — 소프트캡 경계 포함.
     for (let d = 2; d <= 60; d++) {
-      expect(floorExpMult(d)).toBeGreaterThan(floorExpMult(d - 1));
+      expect(floorExpMult(d)).toBeGreaterThanOrEqual(floorExpMult(d - 1));
     }
     // 소프트캡 경계 연속성 — 기울기는 꺾이되 점프(절벽) 없음.
     expect(floorExpMult(10) / floorExpMult(9)).toBeLessThan(1.5);

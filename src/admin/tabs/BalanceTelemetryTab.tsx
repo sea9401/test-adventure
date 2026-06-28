@@ -104,7 +104,10 @@ export function BalanceTelemetryTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(load 가 state 시드)
+    load();
+  }, [load]);
 
   const depthMax = Math.max(1, ...(data?.depthBands ?? []).map((b) => b.players));
   const levelMax = Math.max(1, ...(data?.levelBands ?? []).map((b) => b.players));

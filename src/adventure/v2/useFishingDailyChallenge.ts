@@ -50,6 +50,7 @@ export function useFishingDailyChallenge() {
 
   useEffect(() => {
     mounted.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 낚시 일일 도전 fetch
     void load();
     return () => {
       mounted.current = false;

@@ -126,6 +126,7 @@ export function V2VillagePanel({
     }
   }, [outpostId]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/거점 변경 시 마을 정보 fetch
     void load();
   }, [load]);
 
@@ -143,6 +144,7 @@ export function V2VillagePanel({
     }
   }, []);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 재료 보유량 fetch
     void loadInv();
   }, [loadInv]);
 

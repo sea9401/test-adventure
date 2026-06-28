@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
 import { useSavedValue } from "@/lib/storage/SaveProvider";
 import { useRemotePatch } from "@/lib/storage/useRemotePatch";
@@ -125,8 +125,10 @@ function readInitial(raw: unknown): CharacterDynamicState {
   if (!feats && parsed.equippedFeat) {
     feats = [parsed.equippedFeat];
   }
+  const migrations = parsed.migrations;
+  const needsHpLift = !migrations?.[HP_LIFT_V1];
   return {
-    hp: parsed.hp ?? initialCharacterState.hp,
+    hp: (parsed.hp ?? initialCharacterState.hp) + (needsHpLift ? 50 : 0),
     level: Math.min(
       MAX_LEVEL,
       Math.max(1, parsed.level ?? initialCharacterState.level),
@@ -146,7 +148,7 @@ function readInitial(raw: unknown): CharacterDynamicState {
       : undefined,
     apSkillConditions: parseAPSkillConditions(parsed.apSkillConditions),
     selectedStance: normalizeStance(parsed.selectedStance),
-    migrations: parsed.migrations,
+    migrations: { ...(migrations ?? {}), [HP_LIFT_V1]: true },
     stamina: parseStaminaFromSave(parsed.stamina),
   };
 }
@@ -191,21 +193,6 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
     readInitial(initial),
   );
   useRemotePatch("character.v2", state);
-
-  // 일회성 hp +50 마이그레이션 (PR #140 — Lv1 베이스 maxHp 47 → 97 일률 보정).
-  // 보정 전 캐릭터는 maxHp 가 +50 되었지만 저장된 hp 는 그대로라 새 maxHp 보다 영구히
-  // 50 부족한 상태가 됨. 첫 마운트 후 한 번만 hp+=50 + 플래그 set → useRemotePatch 가
-  // 변경을 감지해 서버로 patch. derivePlayerCombat 가 maxHp 로 클램프하므로 초과 무해.
-  useEffect(() => {
-    setState((prev) => {
-      if (prev.migrations?.[HP_LIFT_V1]) return prev;
-      return {
-        ...prev,
-        hp: prev.hp + 50,
-        migrations: { ...(prev.migrations ?? {}), [HP_LIFT_V1]: true },
-      };
-    });
-  }, []);
 
   const equippedSlots = state.equipped ?? baseCharacter.equipped;
 

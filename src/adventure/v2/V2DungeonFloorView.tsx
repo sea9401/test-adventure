@@ -234,6 +234,7 @@ export function V2DungeonFloorView({
   // 자동 사냥(오프라인 세션)과 직접 사냥은 상호 배타 — 세션이 켜지면 온라인 루프를 멈춘다.
   const offlineSessionActive = !!offlineHunt?.active;
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 오프라인 사냥 세션 시작 시 온라인 자동사냥 중단
     if (offlineSessionActive) setAutoHunt(false);
   }, [offlineSessionActive]);
   // 오프라인 사냥 세션 시작/정지 진행 중 플래그 + 정지 정산 결과 한 줄.

@@ -886,6 +886,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       // 패턴 경로 DoT throttle — 확정 발동으로 자주 적용되는 DoT 틱 위력을 깎는다(평타 바닥 보호로
       //   직타는 안 깎이므로 DoT 만 줄여도 빌드가 평타 이하로 안 떨어짐). off/몹 cast 는 미적용.
       const dm = viaPattern ? V2_PATTERN_DOT_POWER_MULT : 1;
+      const dotSourceAtk =
+        effect.tag === "poison"
+          ? Math.max(input.attacker.atk, input.attacker.luk ?? 0)
+          : input.attacker.atk;
       dotsToApplyToTarget.push({
         tag: effect.tag,
         label: effect.label,
@@ -895,7 +899,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         flatPerStack: effect.flatPerStack * dm,
         atkCoefPerStack: effect.atkCoefPerStack * dm,
         pctMaxHpPerStack: effect.pctMaxHpPerStack * dm,
-        sourceAtk: input.attacker.atk,
+        sourceAtk: dotSourceAtk,
       });
     }
   }

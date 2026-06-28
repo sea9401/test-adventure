@@ -461,12 +461,12 @@ describe("직업 킷 — 액티브 스킬", () => {
     expect(s.effects[0]).toMatchObject({ kind: "damage", scaling: "magic" });
   });
 
-  it("독침 = 고정 수치 중독(% 아님)", () => {
+  it("독침 = 정액 + HP비례 중독", () => {
     const dot = V2_SKILLS.v2c_rogue_poison.effects.find((e) => e.kind === "dot");
     expect(dot).toBeTruthy();
     if (dot && dot.kind === "dot") {
       expect(dot.flatPerStack).toBeGreaterThan(0);
-      expect(dot.pctMaxHpPerStack).toBe(0);
+      expect(dot.pctMaxHpPerStack).toBeGreaterThan(0);
     }
   });
 });

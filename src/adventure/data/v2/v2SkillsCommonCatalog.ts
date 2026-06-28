@@ -248,10 +248,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_rogue_poison: {
     id: "v2c_rogue_poison", name: "독침", stat: "str", category: "attack", tier: 2,
     description: "독을 바른 침으로 찔러 중독시킨다.", mpCost: 26, cooldown: 0, procChance: 30,
-    // 중독 = 고정 수치(턴당 flat). 최대HP% 가 아니라 flat 으로(직업 킷 재설계 — 도적 시그니처).
     effects: [
       dmg(0.6, 60),
-      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 18, pctMaxHpPerStack: 0, stacks: 2 },
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 18, stacks: 2 },
     ],
   },
 
@@ -393,7 +392,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독안개를 흩뿌려 중독을 깊게 누적시키고, 이미 중독된 적에게 더 아프게 파고든다.",
     mpCost: 32, cooldown: 0, procChance: 35,
     effects: [
-      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 14, pctMaxHpPerStack: 0, stacks: 3 },
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 14, stacks: 3 },
       { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.12, baseFlatByTier: [70, 70, 70], perStackFlat: 18, scaling: "luk" },
     ],
   },
@@ -608,7 +607,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "맹독을 퍼뜨려 중독을 깊게 만들고, 쌓인 독을 터뜨린다.",
     mpCost: 38, cooldown: 0, procChance: 35,
     effects: [
-      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 18, pctMaxHpPerStack: 0, stacks: 3 },
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 18, stacks: 3 },
       { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.16, baseFlatByTier: [120, 120, 120], perStackFlat: 24, scaling: "luk" },
     ],
   },
@@ -857,7 +856,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "독의 진을 펼쳐 중독을 폭발적으로 퍼뜨리고, 쌓인 독을 왕의 권능처럼 터뜨린다.",
     mpCost: 42, cooldown: 0, procChance: 35,
     effects: [
-      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 22, pctMaxHpPerStack: 0, stacks: 4 },
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 22, stacks: 4 },
       { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.2, baseFlatByTier: [180, 180, 180], perStackFlat: 32, scaling: "luk" },
     ],
   },
@@ -1028,20 +1027,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_swordmaster_cut: {
     id: "v2c_swordmaster_cut", name: "검격", stat: "str", category: "attack", tier: 3,
     description: "흔들림 없이 베어 적의 자세를 무너뜨린다.",
-    mpCost: 50, cooldown: 0, procChance: 35,
+    mpCost: 50, cooldown: 0, procChance: 35, learnCost: 8000,
     effects: [dmg(1.55, 300), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
   v2c_swordmaster_focus: {
     id: "v2c_swordmaster_focus", name: "검의 집중", stat: "str", category: "passive", tier: 3,
     description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명 피해가 오른다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { str: 18 }, critDmgPct: 25 },
   },
   v2c_ironknight_guard: {
     id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
     description: "방패를 고정해 피해를 흡수하고 잠시 받는 피해를 줄인다.",
-    mpCost: 48, cooldown: 0, procChance: 100,
+    mpCost: 48, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
       { kind: "shield", pctMaxHp: 14, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
@@ -1050,27 +1049,27 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_ironknight_wall: {
     id: "v2c_ironknight_wall", name: "장벽술", stat: "vit", category: "passive", tier: 3,
     description: "단단한 장벽 운용에 익숙해진다. 방어와 반사가 오른다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { defPct: 18, thornsDefPct: 80 },
   },
   v2c_arcanist_burst: {
     id: "v2c_arcanist_burst", name: "비전 폭발", stat: "int", category: "attack", tier: 3,
     description: "응축한 마력을 폭발시켜 큰 마법 피해를 준다.",
-    mpCost: 54, cooldown: 0, procChance: 30,
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [dmg(1.7, 340, "magic")],
   },
   v2c_arcanist_theory: {
     id: "v2c_arcanist_theory", name: "비전 이론", stat: "int", category: "passive", tier: 3,
     description: "마력의 흐름을 계산해 주문의 위력을 끌어올린다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { int: 18 }, critPct: 8 },
   },
   v2c_marksman_shot: {
     id: "v2c_marksman_shot", name: "정밀 사격", stat: "dex", category: "attack", tier: 3,
     description: "빈틈을 노려 두 발을 연속으로 꿰뚫는다.",
-    mpCost: 50, cooldown: 0, procChance: 35,
+    mpCost: 50, cooldown: 0, procChance: 35, learnCost: 8000,
     effects: [
       { kind: "damage", statCoef: 0.42, baseFlat: 210, scaling: "dex", pierceDamagePct: 18 },
       { kind: "damage", statCoef: 0.42, baseFlat: 210, scaling: "dex", pierceDamagePct: 18 },
@@ -1079,14 +1078,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_marksman_aim: {
     id: "v2c_marksman_aim", name: "조준", stat: "dex", category: "passive", tier: 3,
     description: "흔들림 없는 조준으로 민첩과 명중이 오른다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { dex: 18 }, accuracyPct: 16 },
   },
   v2c_nightshade_eclipse: {
     id: "v2c_nightshade_eclipse", name: "월식", stat: "luk", category: "attack", tier: 3,
     description: "어둠이 덮이는 순간 파고든다. 첫 일격과 마무리에 모두 강하다.",
-    mpCost: 52, cooldown: 0, procChance: 100,
+    mpCost: 52, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
       { kind: "ambushDamage", statCoef: 0.16, baseFlatByTier: [180, 180, 180], hpThresholdPct: 90, bonusMult: 3.0, scaling: "luk" },
       { kind: "executeDamage", statCoef: 0.18, baseFlatByTier: [180, 180, 180], hpThresholdPct: 35, bonusMult: 2.0, scaling: "luk" },
@@ -1095,7 +1094,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_nightshade_cloak: {
     id: "v2c_nightshade_cloak", name: "밤의 장막", stat: "luk", category: "passive", tier: 3,
     description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다.",
-    mpCost: 0, cooldown: 0,
+    mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { evasionPct: 18, critDmgPct: 20 },
   },

@@ -15,14 +15,14 @@ export function MpBar({ state, compact }: { state: MpBarState; compact?: boolean
 
   if (compact) {
     return (
-      <div>
-        <div className="flex items-baseline justify-between text-[11px]">
-          <span className="text-zinc-500 dark:text-zinc-400">MP</span>
-          <span className="font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
-            {mp} / {maxMp}
+      <div className="space-y-0.5">
+        <div className="flex items-baseline justify-between gap-1.5 text-[12px]">
+          <span className="text-zinc-600 dark:text-zinc-400">MP</span>
+          <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+            {mp}/{maxMp}
           </span>
         </div>
-        <div className="mt-0.5 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div className="h-2.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div
             className="h-full bg-sky-500 transition-[width] duration-500"
             style={{ width: `${pct}%` }}

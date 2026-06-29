@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { guildMembers, savesKv } from "@/db/schema";
+import type { Monster } from "@/adventure/data/monsters/types";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
@@ -282,6 +283,113 @@ const GRID_DUNGEON_COMBAT_BASE_LOSS: Partial<Record<GridDungeonTileKind, number>
   boss: 4,
 };
 
+type GridDungeonPartyActor = {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  atk: number;
+  def: number;
+  spd: number;
+  isMain: boolean;
+};
+
+type GridDungeonPartyCombatResult = {
+  outcome: "win" | "lose";
+  turns: number;
+  playerMaxHp: number;
+  playerHpAfter: number;
+  enemyHp: number;
+  enemyMaxHp: number;
+  log: string[];
+};
+
+function partyActionInterval(spd: number): number {
+  return 100 / Math.max(1, spd);
+}
+
+function partyDamage(atk: number, def: number): number {
+  return Math.max(1, Math.round(atk - def * 0.45));
+}
+
+function resolveGridDungeonPartyCombat({
+  main,
+  supporters,
+  enemy,
+}: {
+  main: GridDungeonPartyActor;
+  supporters: GridDungeonSupporterSnapshot[];
+  enemy: Monster;
+}): GridDungeonPartyCombatResult {
+  const party: GridDungeonPartyActor[] = [
+    main,
+    ...supporters.map((supporter) => ({
+      id: supporter.userId,
+      name: supporter.name,
+      hp: supporter.maxHp,
+      maxHp: supporter.maxHp,
+      atk: supporter.atk,
+      def: supporter.def,
+      spd: supporter.spd,
+      isMain: false,
+    })),
+  ];
+  const enemyMaxHp = Math.max(
+    1,
+    Math.round(enemy.hp * (1 + supporters.length * 0.55)),
+  );
+  let enemyHp = enemyMaxHp;
+  const enemyAtk = Math.max(1, Math.round(enemy.atk * (1 + supporters.length * 0.22)));
+  const enemyDef = Math.max(0, enemy.def);
+  const ticks = new Map<string, number>();
+  for (const actor of party) ticks.set(actor.id, 0);
+  ticks.set("enemy", partyActionInterval(enemy.spd));
+  const log: string[] = [];
+  let actions = 0;
+  let turns = 0;
+  let enemyActions = 0;
+
+  while (actions < 400 && enemyHp > 0 && party[0].hp > 0) {
+    const aliveParty = party.filter((actor) => actor.hp > 0);
+    if (aliveParty.length === 0) break;
+    const next = [...aliveParty.map((actor) => actor.id), "enemy"]
+      .map((id) => ({ id, tick: ticks.get(id) ?? 0 }))
+      .sort((a, b) => a.tick - b.tick || (a.id === "enemy" ? 1 : -1))[0];
+    actions += 1;
+    if (next.id === "enemy") {
+      enemyActions += 1;
+      const livingSupporters = party.filter((actor) => !actor.isMain && actor.hp > 0);
+      const target =
+        enemyActions % 2 === 1 || livingSupporters.length === 0
+          ? party[0]
+          : livingSupporters.sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0];
+      const damage = partyDamage(enemyAtk, target.def);
+      target.hp = Math.max(0, target.hp - damage);
+      log.push(`${enemy.name}이(가) ${target.name}에게 ${damage.toLocaleString()} 피해`);
+      ticks.set("enemy", (ticks.get("enemy") ?? 0) + partyActionInterval(enemy.spd));
+      continue;
+    }
+
+    const actor = party.find((candidate) => candidate.id === next.id);
+    if (!actor || actor.hp <= 0) continue;
+    const damage = partyDamage(actor.atk, enemyDef);
+    enemyHp = Math.max(0, enemyHp - damage);
+    log.push(`${actor.name}이(가) ${enemy.name}에게 ${damage.toLocaleString()} 피해`);
+    ticks.set(actor.id, (ticks.get(actor.id) ?? 0) + partyActionInterval(actor.spd));
+    turns += 1;
+  }
+
+  return {
+    outcome: enemyHp <= 0 ? "win" : "lose",
+    turns,
+    playerMaxHp: main.maxHp,
+    playerHpAfter: party[0].hp,
+    enemyHp,
+    enemyMaxHp,
+    log: log.slice(-6),
+  };
+}
+
 function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
   const delta: Record<GridDungeonMoveDir, { x: number; y: number }> = {
     up: { x: 0, y: -1 },
@@ -332,12 +440,14 @@ async function resolveGridDungeonCombat({
   tx,
   userId,
   charSave,
+  supporters,
   tile,
   runHp,
 }: {
   tx: DbExecutor;
   userId: string;
   charSave: CharSave;
+  supporters: GridDungeonSupporterSnapshot[];
   tile: GridDungeonTileKind;
   runHp: number;
 }): Promise<GridDungeonResolvedCombat | null> {
@@ -394,7 +504,7 @@ async function resolveGridDungeonCombat({
     picked.enemy.castSkill,
   ].filter((s): s is NonNullable<typeof s> => s != null);
   const scaledEnemy = scaleMonsterForFloor(baseMonster, picked.depth);
-  const enemyMonster: import("@/adventure/data/monsters/types").Monster = {
+  const enemyMonster: Monster = {
     ...scaledEnemy,
     name:
       tile === "boss"
@@ -426,17 +536,52 @@ async function resolveGridDungeonCombat({
     attackElement: basicAttackElement,
     characterElement: playerElement,
   };
-  const result = resolveBattle(playerForBattle, enemyMonster, "모험가", {
-    pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
-    potions: {},
-    v2Skills,
-    depth: picked.depth,
-    isBoss: tile === "boss",
-  });
-  const won = result.outcome === "win";
+  const partyResult =
+    supporters.length > 0
+      ? resolveGridDungeonPartyCombat({
+          main: {
+            id: userId,
+            name: "나",
+            hp: playerMaxHp,
+            maxHp: playerMaxHp,
+            atk: Math.max(1, playerForBattle.atk),
+            def: Math.max(0, playerForBattle.def),
+            spd: Math.max(1, playerForBattle.spd),
+            isMain: true,
+          },
+          supporters,
+          enemy: enemyMonster,
+        })
+      : null;
+  const soloResult = partyResult
+    ? null
+    : resolveBattle(playerForBattle, enemyMonster, "모험가", {
+      pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills,
+      depth: picked.depth,
+      isBoss: tile === "boss",
+    });
+  const won = partyResult
+    ? partyResult.outcome === "win"
+    : soloResult?.outcome === "win";
   const rewardGold = won ? (GRID_DUNGEON_COMBAT_REWARD[tile] ?? 0) : 0;
   const drops = won ? rollGridDungeonDrops(tile) : {};
-  const damageTaken = Math.max(0, playerMaxHp - result.finalState.playerHp);
+  const playerHpAfter = partyResult
+    ? partyResult.playerHpAfter
+    : (soloResult?.finalState.playerHp ?? 0);
+  const enemyHpAfter = partyResult
+    ? partyResult.enemyHp
+    : (soloResult?.finalState.enemyHp ?? 0);
+  const enemyMaxHp = partyResult ? partyResult.enemyMaxHp : enemyMonster.hp;
+  const combatLog = partyResult
+    ? partyResult.log
+    : (soloResult?.finalState.log ?? [])
+        .filter((entry) => entry.kind !== "hp_bar")
+        .map((entry) => entry.text)
+        .filter(Boolean)
+        .slice(-4);
+  const damageTaken = Math.max(0, playerMaxHp - playerHpAfter);
   const hpLost = dungeonHpLoss({
     won,
     baseLoss: GRID_DUNGEON_COMBAT_BASE_LOSS[tile] ?? 2,
@@ -460,19 +605,15 @@ async function resolveGridDungeonCombat({
     summary: {
       enemyName,
       outcome: won ? "win" : "lose",
-      turns: result.turns,
+      turns: partyResult?.turns ?? soloResult?.turns ?? 0,
       hpLost,
       playerHpBefore: playerMaxHp,
-      playerHpAfter: Math.max(0, result.finalState.playerHp),
+      playerHpAfter: Math.max(0, playerHpAfter),
       playerMaxHp,
-      enemyHp: Math.max(0, result.finalState.enemyHp),
-      enemyMaxHp: Math.max(1, enemyMonster.hp),
+      enemyHp: Math.max(0, enemyHpAfter),
+      enemyMaxHp: Math.max(1, enemyMaxHp),
       rewardGold,
-      log: result.finalState.log
-        .filter((entry) => entry.kind !== "hp_bar")
-        .map((entry) => entry.text)
-        .filter(Boolean)
-        .slice(-4),
+      log: combatLog,
     },
   };
 }
@@ -576,6 +717,7 @@ export async function POST(req: Request) {
               tx,
               userId,
               charSave,
+              supporters: run.supporters,
               tile: target.tile,
               runHp: run.hp,
             })

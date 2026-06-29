@@ -1,3 +1,12 @@
+import {
+  mergeDrops,
+  type DropResult,
+} from "@/adventure/data/v2/dungeonDrops";
+import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
+import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
+import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+
 export const GRID_DUNGEON_SAVE_KEY = "grid-dungeon.v2" as const;
 export const GRID_DUNGEON_DAILY_REWARDS_KEY =
   "grid-dungeon-daily-rewards.v2" as const;
@@ -49,6 +58,7 @@ export type GridDungeonResolvedCombat = {
   outcome: GridDungeonCombatOutcome;
   hpLost: number;
   rewardGold: number;
+  drops?: DropResult;
   message: string;
   summary: GridDungeonCombatSummary;
 };
@@ -59,6 +69,7 @@ export type GridDungeonRun = {
   pos: { x: number; y: number };
   hp: number;
   pendingGold: number;
+  pendingDrops?: DropResult;
   bossDefeated: boolean;
   visited: string[];
   revealed: string[];
@@ -93,6 +104,7 @@ export type GridDungeonHistoryEntry = {
   outcome: GridDungeonHistoryOutcome;
   at: number;
   rewardGold: number;
+  drops?: DropResult;
   exploredTiles: number;
   hp: number;
   message: string;
@@ -112,12 +124,64 @@ export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
 
 export const GRID_DUNGEON_START = { x: 2, y: 4 } as const;
 
+type GridDungeonDropEvent = "monster" | "elite" | "boss" | "treasure";
+
+type GridDungeonDropRule = {
+  id: string;
+  chance: number;
+  amountMin: number;
+  amountMax: number;
+};
+
+const GRID_DUNGEON_DROP_TABLE: Record<
+  GridDungeonDropEvent,
+  GridDungeonDropRule[]
+> = {
+  monster: [
+    { id: ENHANCE_STONE_MATERIAL_ID.red, chance: 0.12, amountMin: 1, amountMax: 1 },
+    { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.08, amountMin: 1, amountMax: 1 },
+  ],
+  elite: [
+    { id: ENHANCE_STONE_MATERIAL_ID.red, chance: 0.24, amountMin: 1, amountMax: 1 },
+    { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.18, amountMin: 1, amountMax: 1 },
+    { id: REFORGE_STONE_MATERIAL_ID.basic, chance: 0.08, amountMin: 1, amountMax: 1 },
+  ],
+  boss: [
+    { id: ENHANCE_STONE_MATERIAL_ID.red, chance: 0.45, amountMin: 1, amountMax: 2 },
+    { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.35, amountMin: 1, amountMax: 2 },
+    { id: REFORGE_STONE_MATERIAL_ID.basic, chance: 0.18, amountMin: 1, amountMax: 1 },
+    { id: REFORGE_STONE_MATERIAL_ID.high, chance: 0.04, amountMin: 1, amountMax: 1 },
+    { id: SUMMON_SCROLL_MATERIAL_ID, chance: 0.08, amountMin: 1, amountMax: 1 },
+  ],
+  treasure: [
+    { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.35, amountMin: 1, amountMax: 1 },
+    { id: REFORGE_STONE_MATERIAL_ID.basic, chance: 0.08, amountMin: 1, amountMax: 1 },
+    { id: SETTLEMENT_MATERIAL_ID.timber, chance: 0.12, amountMin: 1, amountMax: 2 },
+    { id: SETTLEMENT_MATERIAL_ID.ironOre, chance: 0.12, amountMin: 1, amountMax: 2 },
+  ],
+};
+
 export function gridDungeonKey(x: number, y: number): string {
   return `${x},${y}`;
 }
 
 export function gridDungeonDayKey(now = Date.now()): string {
   return new Date(now + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+export function rollGridDungeonDrops(
+  event: GridDungeonDropEvent,
+  rng: () => number = Math.random,
+): DropResult {
+  const drops: DropResult = {};
+  for (const rule of GRID_DUNGEON_DROP_TABLE[event]) {
+    if (rng() >= rule.chance) continue;
+    const span = rule.amountMax - rule.amountMin + 1;
+    const amount = rule.amountMin + Math.floor(rng() * span);
+    if (amount <= 0) continue;
+    drops[rule.id] = (drops[rule.id] ?? 0) + amount;
+  }
+  return drops;
 }
 
 export function parseGridDungeonDailyRewards(
@@ -170,6 +234,7 @@ export function parseGridDungeonHistory(raw: unknown): GridDungeonHistory {
         outcome,
         at,
         rewardGold: Math.max(0, Math.floor(Number(e.rewardGold) || 0)),
+        drops: sanitizeGridDungeonDrops(e.drops),
         exploredTiles: Math.max(0, Math.floor(Number(e.exploredTiles) || 0)),
         hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(e.hp) || 0))),
         message: typeof e.message === "string" ? e.message : "",
@@ -220,7 +285,9 @@ export function gridDungeonTileAt(
   return GRID_DUNGEON_LAYOUT[y]?.[x] ?? null;
 }
 
-export function isGridDungeonCombatTile(tile: GridDungeonTileKind): boolean {
+export function isGridDungeonCombatTile(
+  tile: GridDungeonTileKind,
+): tile is "monster" | "elite" | "boss" {
   return tile === "monster" || tile === "elite" || tile === "boss";
 }
 
@@ -288,6 +355,7 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     pos: { x, y },
     hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(run.hp) || 0))),
     pendingGold: Math.max(0, Math.floor(Number(run.pendingGold) || 0)),
+    pendingDrops: sanitizeGridDungeonDrops(run.pendingDrops),
     bossDefeated: run.bossDefeated === true,
     visited: Array.isArray(run.visited)
       ? run.visited.filter((v): v is string => typeof v === "string")
@@ -305,6 +373,7 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     ...(typeof run.claimedAt === "number" ? { claimedAt: run.claimedAt } : {}),
   };
   const lastCombat = parseGridDungeonCombatSummary(run.lastCombat);
+  if (!hasGridDungeonDrops(parsed.pendingDrops)) delete parsed.pendingDrops;
   return lastCombat ? { ...parsed, lastCombat } : parsed;
 }
 
@@ -339,6 +408,20 @@ function parseGridDungeonCombatSummary(
   };
 }
 
+function sanitizeGridDungeonDrops(raw: unknown): DropResult {
+  if (!raw || typeof raw !== "object") return {};
+  const drops: DropResult = {};
+  for (const [id, amountRaw] of Object.entries(raw as Record<string, unknown>)) {
+    const amount = Math.max(0, Math.floor(Number(amountRaw) || 0));
+    if (amount > 0) drops[id] = amount;
+  }
+  return drops;
+}
+
+function hasGridDungeonDrops(drops: DropResult | undefined): boolean {
+  return Object.values(drops ?? {}).some((amount) => (amount ?? 0) > 0);
+}
+
 export type GridDungeonMoveDir = "up" | "down" | "left" | "right";
 
 export function moveGridDungeonRun(
@@ -346,6 +429,7 @@ export function moveGridDungeonRun(
   dir: GridDungeonMoveDir,
   now = Date.now(),
   combat: GridDungeonResolvedCombat | null = null,
+  eventDrops: DropResult = {},
 ):
   | { ok: true; run: GridDungeonRun }
   | { ok: false; error: "not_active" | "blocked" | "bad_direction" } {
@@ -369,6 +453,7 @@ export function moveGridDungeonRun(
 
   let hp = run.hp;
   let pendingGold = run.pendingGold;
+  let pendingDrops = sanitizeGridDungeonDrops(run.pendingDrops);
   let bossDefeated = run.bossDefeated;
   let status: GridDungeonStatus = run.status;
   let message = "어둠 속으로 한 칸 더 나아갔습니다.";
@@ -382,6 +467,7 @@ export function moveGridDungeonRun(
         fallbackGridDungeonCombat("유적 경비병", 2, 700, run.hp);
       hp = Math.max(0, hp - resolved.hpLost);
       pendingGold += resolved.rewardGold;
+      pendingDrops = mergeDrops(pendingDrops, resolved.drops ?? {});
       message = resolved.message;
       lastCombat = resolved.summary;
     } else if (tile === "elite") {
@@ -390,10 +476,12 @@ export function moveGridDungeonRun(
         fallbackGridDungeonCombat("정예 수문장", 3, 1_500, run.hp);
       hp = Math.max(0, hp - resolved.hpLost);
       pendingGold += resolved.rewardGold;
+      pendingDrops = mergeDrops(pendingDrops, resolved.drops ?? {});
       message = resolved.message;
       lastCombat = resolved.summary;
     } else if (tile === "treasure") {
       pendingGold += 1_000;
+      pendingDrops = mergeDrops(pendingDrops, eventDrops);
       message = "오래된 보물상자에서 1,000G를 발견했습니다.";
     } else if (tile === "fountain") {
       hp = Math.min(GRID_DUNGEON_MAX_HP, hp + 4);
@@ -404,6 +492,7 @@ export function moveGridDungeonRun(
         fallbackGridDungeonCombat("유적의 파수꾼", 4, 4_000, run.hp);
       hp = Math.max(0, hp - resolved.hpLost);
       pendingGold += resolved.rewardGold;
+      pendingDrops = mergeDrops(pendingDrops, resolved.drops ?? {});
       bossDefeated = resolved.outcome === "win";
       message = resolved.message;
       lastCombat = resolved.summary;
@@ -420,6 +509,7 @@ export function moveGridDungeonRun(
   if (hp <= 0) {
     status = "failed";
     pendingGold = 0;
+    pendingDrops = {};
     message = "탐험 중 쓰러졌습니다. 이번 탐험 보상은 잃었습니다.";
   }
 
@@ -429,6 +519,7 @@ export function moveGridDungeonRun(
     pos: next,
     hp,
     pendingGold,
+    ...(hasGridDungeonDrops(pendingDrops) ? { pendingDrops } : {}),
     bossDefeated,
     visited: [...visited].sort(),
     revealed: revealAround(next.x, next.y, run.revealed),
@@ -438,6 +529,7 @@ export function moveGridDungeonRun(
   };
   if (lastCombat) nextRun.lastCombat = lastCombat;
   else delete nextRun.lastCombat;
+  if (!hasGridDungeonDrops(nextRun.pendingDrops)) delete nextRun.pendingDrops;
 
   return {
     ok: true,

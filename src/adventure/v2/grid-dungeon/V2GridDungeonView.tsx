@@ -20,6 +20,7 @@ import {
   type GridDungeonPublicRun,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 
 type GridDungeonState = {
   ok: boolean;
@@ -37,6 +38,7 @@ type GridDungeonState = {
       outcome: "cleared" | "failed" | "abandoned";
       at: number;
       rewardGold: number;
+      drops?: Record<string, number>;
       exploredTiles: number;
       hp: number;
       message: string;
@@ -421,6 +423,10 @@ export function V2GridDungeonView({
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
             {run.lastCombat && <DungeonCombatSummary combat={run.lastCombat} />}
+            <DropSummary
+              drops={run.pendingDrops ?? {}}
+              emptyLabel="아직 확보한 재료가 없습니다."
+            />
             {rewardQuota && rewardQuota.remaining <= 0 && (
               <div className="rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-xs text-zinc-400">
                 오늘 던전 보상 횟수를 모두 사용했습니다. 탐험은 계속할 수 있지만 정산 골드는
@@ -523,6 +529,42 @@ function DungeonCombatSummary({
   );
 }
 
+function dropEntries(drops: Partial<Record<string, number>> | undefined) {
+  return Object.entries(drops ?? {})
+    .filter(([, amount]) => (amount ?? 0) > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
+function DropSummary({
+  drops,
+  emptyLabel,
+}: {
+  drops: Partial<Record<string, number>> | undefined;
+  emptyLabel?: string;
+}) {
+  const entries = dropEntries(drops);
+  if (entries.length === 0) {
+    if (!emptyLabel) return null;
+    return (
+      <div className="rounded-md border border-zinc-800 bg-black/20 px-3 py-2 text-xs text-zinc-500">
+        {emptyLabel}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5 text-xs">
+      {entries.map(([id, amount]) => (
+        <span
+          key={id}
+          className="rounded border border-yellow-800/70 bg-yellow-950/35 px-2 py-1 text-yellow-200"
+        >
+          {(V2_MATERIALS[id]?.name ?? id)} x{amount}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CombatMeter({
   label,
   value,
@@ -586,6 +628,11 @@ function DungeonHistory({
                 {entry.rewardGold.toLocaleString()}G
               </span>
             </div>
+            {dropEntries(entry.drops).length > 0 && (
+              <div className="basis-full">
+                <DropSummary drops={entry.drops} />
+              </div>
+            )}
           </div>
         ))}
       </div>

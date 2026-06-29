@@ -12,7 +12,10 @@ import {
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
+  rollGridDungeonDrops,
 } from "@/adventure/data/v2/gridDungeon";
+import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
+import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
 
 describe("gridDungeon", () => {
   it("anchors the first entrance on world tile 3,2", () => {
@@ -62,6 +65,7 @@ describe("gridDungeon", () => {
       outcome: "win",
       hpLost: 1,
       rewardGold: 900,
+      drops: { [ENHANCE_STONE_MATERIAL_ID.red]: 1 },
       message: "들개를 쓰러뜨리고 900G를 챙겼습니다.",
       summary: {
         enemyName: "들개",
@@ -81,6 +85,9 @@ describe("gridDungeon", () => {
     if (!moved.ok) return;
     expect(moved.run.hp).toBe(9);
     expect(moved.run.pendingGold).toBe(900);
+    expect(moved.run.pendingDrops).toEqual({
+      [ENHANCE_STONE_MATERIAL_ID.red]: 1,
+    });
     expect(moved.run.lastMessage).toBe("들개를 쓰러뜨리고 900G를 챙겼습니다.");
     expect(moved.run.lastCombat).toMatchObject({
       enemyName: "들개",
@@ -88,6 +95,15 @@ describe("gridDungeon", () => {
       hpLost: 1,
       rewardGold: 900,
     });
+  });
+
+  it("rolls grid dungeon drops from the event table", () => {
+    expect(rollGridDungeonDrops("elite", () => 0)).toEqual({
+      [ENHANCE_STONE_MATERIAL_ID.red]: 1,
+      [ENHANCE_STONE_MATERIAL_ID.blue]: 1,
+      [REFORGE_STONE_MATERIAL_ID.basic]: 1,
+    });
+    expect(rollGridDungeonDrops("boss", () => 0.99)).toEqual({});
   });
 
   it("resets daily reward claims on the KST day boundary", () => {

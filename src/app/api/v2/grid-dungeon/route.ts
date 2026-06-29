@@ -16,6 +16,7 @@ import {
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -42,6 +43,7 @@ import {
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
   parseGridDungeonRun,
+  rollGridDungeonDrops,
   withGridDungeonLayout,
   type GridDungeonMoveDir,
   type GridDungeonResolvedCombat,
@@ -56,6 +58,7 @@ type CharSave = {
   hp?: number;
   mp?: number;
   element?: unknown;
+  materials?: unknown;
   [k: string]: unknown;
 };
 
@@ -86,11 +89,13 @@ function historyEntryFromRun({
   run,
   outcome,
   rewardGold = 0,
+  drops = {},
   at = Date.now(),
 }: {
   run: GridDungeonRun;
   outcome: "cleared" | "failed" | "abandoned";
   rewardGold?: number;
+  drops?: DropResult;
   at?: number;
 }) {
   const outcomeLabel =
@@ -100,6 +105,7 @@ function historyEntryFromRun({
     outcome,
     at,
     rewardGold,
+    drops,
     exploredTiles: new Set(run.visited).size,
     hp: run.hp,
     message: `${GRID_DUNGEON_ENTRANCE.name} ${outcomeLabel}`,
@@ -277,6 +283,7 @@ async function resolveGridDungeonCombat({
   });
   const won = result.outcome === "win";
   const rewardGold = won ? (GRID_DUNGEON_COMBAT_REWARD[tile] ?? 0) : 0;
+  const drops = won ? rollGridDungeonDrops(tile) : {};
   const damageTaken = Math.max(0, playerMaxHp - result.finalState.playerHp);
   const hpLost = dungeonHpLoss({
     won,
@@ -296,6 +303,7 @@ async function resolveGridDungeonCombat({
     outcome: won ? "win" : "lose",
     hpLost,
     rewardGold,
+    drops,
     message,
     summary: {
       enemyName,
@@ -407,7 +415,11 @@ export async function POST(req: Request) {
               runHp: run.hp,
             })
           : null;
-      const moved = moveGridDungeonRun(run, dir, Date.now(), combat);
+      const eventDrops =
+        target.tile === "treasure" && !run.clearedEvents.includes(target.key)
+          ? rollGridDungeonDrops("treasure")
+          : {};
+      const moved = moveGridDungeonRun(run, dir, Date.now(), combat, eventDrops);
       if (!moved.ok) return moved;
       let nextHistory: unknown = null;
       if (moved.run.status === "failed") {
@@ -472,13 +484,20 @@ export async function POST(req: Request) {
       const quota = gridDungeonRewardQuota(daily, now);
       const baseRewardGold = Math.max(0, Math.floor(run.pendingGold));
       const rewardGold = quota.remaining > 0 ? baseRewardGold : 0;
+      const rewardDrops = quota.remaining > 0 ? (run.pendingDrops ?? {}) : {};
+      const hasRewardDrops = Object.values(rewardDrops).some(
+        (amount) => (amount ?? 0) > 0,
+      );
       const gold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
       const nextClaimed =
-        rewardGold > 0 ? Math.min(quota.limit, daily.claimed + 1) : daily.claimed;
+        rewardGold > 0 || hasRewardDrops
+          ? Math.min(quota.limit, daily.claimed + 1)
+          : daily.claimed;
       const claimed = {
         ...run,
         status: "claimed" as const,
         pendingGold: 0,
+        pendingDrops: {},
         claimedAt: now,
         updatedAt: now,
         lastMessage:
@@ -498,13 +517,18 @@ export async function POST(req: Request) {
           run: claimed,
           outcome: "cleared",
           rewardGold,
+          drops: rewardDrops,
           at: now,
         }),
       );
-      await upsertSave(tx, userId, "character.v2", {
+      const nextCharSave = {
         ...charSave,
         gold: gold + rewardGold,
-      });
+        ...(hasRewardDrops
+          ? { materials: mergeDrops(charSave.materials, rewardDrops) }
+          : {}),
+      };
+      await upsertSave(tx, userId, "character.v2", nextCharSave);
       await upsertSave(tx, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, {
         dayKey: daily.dayKey,
         claimed: nextClaimed,

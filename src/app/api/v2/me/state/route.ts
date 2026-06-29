@@ -50,6 +50,10 @@ import {
   spCapBonusFromRaw,
 } from "@/adventure/data/v2/spFruit";
 import {
+  EQUIPMENT_CODEX_KEY,
+  equipmentCodexSummary,
+} from "@/adventure/data/v2/equipmentCodex";
+import {
   parseProficiencyForChar,
   groupCumLevel,
   usablePoints,
@@ -154,6 +158,7 @@ export async function GET() {
     adventureLogRow,
     staminaPotionsRow,
     inventoryRow,
+    equipmentCodexRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -246,6 +251,14 @@ export async function GET() {
       .select({ value: savesKv.value })
       .from(savesKv)
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "inventory.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, EQUIPMENT_CODEX_KEY)),
+      )
       .limit(1)
       .then((rows) => rows[0]),
   ]);
@@ -703,6 +716,7 @@ export async function GET() {
         });
       })()
     : [];
+  const equipmentCodex = equipmentCodexSummary(equipmentCodexRow?.value);
 
   return Response.json({
     ok: true,
@@ -822,11 +836,12 @@ export async function GET() {
             const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
             const skillsState = parseV2SkillsState(skillsRow?.value);
             const equippedSet = new Set<string>(skillsState.equipped);
+            const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
+            const equipmentCodexBonus = equipmentCodex.spBonus;
             const spBudget = calcSpBudget(
               prof.groups,
-              spCapBonusFromRaw(charSave.spFruitUsed),
+              spFruitBonus + equipmentCodexBonus,
             );
-            const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
             const groups = Object.entries(prof.groups ?? {}).map(([id, g]) => {
               const progress = spMasteryProgressForCumLevel(
                 Number(g?.cumLevel) || 0,
@@ -876,6 +891,7 @@ export async function GET() {
                 milestoneSp,
                 masteryBonusSp,
                 spFruitBonus,
+                equipmentCodexBonus,
                 groups,
               },
             };
@@ -888,6 +904,7 @@ export async function GET() {
       const used = parseSpFruitUsed(charSave.spFruitUsed);
       return { used, capBonus: spCapBonusFromRaw(charSave.spFruitUsed) };
     })(),
+    equipmentCodex,
     // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
     codex: (() => {
       const ids = discoveredMaterialIds(charSave.materials);

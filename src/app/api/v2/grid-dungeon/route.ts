@@ -482,6 +482,7 @@ type GridDungeonPartyActor = {
   skills: string[];
   pattern?: V2CombatPattern;
   cooldowns: Partial<Record<V2SkillId, number>>;
+  usedOnceSkills: Set<V2SkillId>;
   damageDealt: number;
   damageTaken: number;
 };
@@ -581,6 +582,10 @@ function choosePartySkill({
       !!def &&
       def.category !== "passive" &&
       def.effects.some((effect) => effect.kind === "damage" || effect.kind === "heal") &&
+      !(
+        def.effects.some((effect) => effect.kind === "heal" && effect.oncePerCombat) &&
+        actor.usedOnceSkills.has(skillId as V2SkillId)
+      ) &&
       (actor.cooldowns[skillId as V2SkillId] ?? 0) <= 0 &&
       actor.mp >= cost
     );
@@ -636,6 +641,29 @@ function partySkillHeal(
   return Math.max(0, Math.floor(total * actor.healMult));
 }
 
+function partySkillHealTarget(
+  actor: GridDungeonPartyActor,
+  party: GridDungeonPartyActor[],
+  skillId: V2SkillId,
+): GridDungeonPartyActor {
+  const def = V2_SKILLS[skillId];
+  const canHealAlly = def?.effects.some(
+    (effect) => effect.kind === "heal" && effect.target === "ally",
+  );
+  if (!canHealAlly) return actor;
+  return party
+    .filter((member) => member.hp > 0)
+    .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0] ?? actor;
+}
+
+function partySkillCooldownAfterCast(skillId: V2SkillId): number {
+  const def = V2_SKILLS[skillId];
+  if (!def) return 0;
+  return def.effects.some((effect) => effect.kind === "heal" && effect.oncePerCombat)
+    ? 9999
+    : def.cooldown;
+}
+
 function resolveGridDungeonPartyCombat({
   main,
   supporters,
@@ -665,6 +693,7 @@ function resolveGridDungeonPartyCombat({
       skills: supporter.skills,
       pattern: supporter.pattern,
       cooldowns: {},
+      usedOnceSkills: new Set<V2SkillId>(),
       damageDealt: 0,
       damageTaken: 0,
     })),
@@ -721,13 +750,15 @@ function resolveGridDungeonPartyCombat({
     });
     const skill = skillId ? V2_SKILLS[skillId] : null;
     if (skill?.category === "heal" && skillId) {
-      const target = aliveParty.sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      const target = partySkillHealTarget(actor, aliveParty, skillId);
       const heal = partySkillHeal(actor, target, skillId);
       if (heal > 0) {
         const before = target.hp;
         target.hp = Math.min(target.maxHp, target.hp + heal);
         actor.mp = Math.max(0, actor.mp - v2SkillMpCostValue(skill));
-        if (skill.cooldown > 0) actor.cooldowns[skillId] = skill.cooldown;
+        actor.usedOnceSkills.add(skillId);
+        const cooldown = partySkillCooldownAfterCast(skillId);
+        if (cooldown > 0) actor.cooldowns[skillId] = cooldown;
         log.push(
           `${actor.name}이(가) ${skill.name}(으)로 ${target.name} HP +${(target.hp - before).toLocaleString()}`,
         );
@@ -745,7 +776,8 @@ function resolveGridDungeonPartyCombat({
     actor.damageDealt += damage;
     if (skillDamage > 0 && skillId && skill) {
       actor.mp = Math.max(0, actor.mp - v2SkillMpCostValue(skill));
-      if (skill.cooldown > 0) actor.cooldowns[skillId] = skill.cooldown;
+      const cooldown = partySkillCooldownAfterCast(skillId);
+      if (cooldown > 0) actor.cooldowns[skillId] = cooldown;
       log.push(
         `${actor.name}이(가) ${skill.name}(으)로 ${enemy.name}에게 ${damage.toLocaleString()} 피해`,
       );
@@ -940,6 +972,7 @@ async function resolveGridDungeonCombat({
             isMain: true,
             skills: [],
             cooldowns: {},
+            usedOnceSkills: new Set<V2SkillId>(),
             damageDealt: 0,
             damageTaken: 0,
           },

@@ -219,8 +219,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_martial_chi: {
     id: "v2c_martial_chi", name: "기공 순환", stat: "vit", category: "heal", tier: 2,
-    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 5 }],
+    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 24, cooldown: 4, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 8, target: "self", oncePerCombat: true }],
   },
 
   // ═══ 마법사 (INT · 마법) — 캐스터 (마력탄 등 마법 스킬로 마법 공격) ═══
@@ -241,8 +241,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_mage_meditate: {
     id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 2,
-    description: "정신을 가다듬어 마나를 회복한다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [{ kind: "manaRestore", pctMaxMp: 7 }],
+    description: "정신을 가다듬어 마나를 회복한다.", mpCost: 0, cooldown: 5, procChance: 100,
+    effects: [{ kind: "manaRestore", pctMaxMp: 5 }],
   },
 
   // ═══ 도적 (STR 딜 · DEX 앵커 보조) — 정밀/크리/독 (예기 패시브로 DEX 보조) ═══
@@ -266,7 +266,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
-    description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 100,
+    description: "마력을 뭉쳐 쏜다.", mpCost: 18, cooldown: 0, procChance: 100,
     effects: [dmg(1.0, 120, "magic")],
   },
 
@@ -297,8 +297,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_survivor_firstaid: {
     id: "v2c_survivor_firstaid", name: "응급 처치", stat: "vit", category: "heal", tier: 1,
-    description: "급한 상처부터 막아 잃은 체력을 일부 되찾는다.", mpCost: 24, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 20 }],
+    description: "급한 상처부터 막아 잃은 체력을 일부 되찾는다.", mpCost: 24, cooldown: 4, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 18, target: "self", oncePerCombat: true }],
   },
   v2c_survivor_knowledge: {
     id: "v2c_survivor_knowledge", name: "생존 지식", stat: "vit", category: "passive", tier: 1,
@@ -360,11 +360,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.2, 175, "magic")],
   },
   v2c_acolyte_smite: {
-    // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
+    // 사제 = 파티 힐러 — 자가 생존기와 구분되는 아군 대상 회복. 솔로 전투에서는 자기 자신에게 적용된다.
     //   pctLostHp=잃은 체력 비례(낮을수록 강·고HP 낭비 없음). 스마트 패턴이 HP<50%에서 자동 발동.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
     description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 10 }],
+    effects: [{ kind: "heal", pctLostHp: 12, target: "ally" }],
   },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {
@@ -400,8 +400,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_camper_camp: {
     id: "v2c_camper_camp", name: "야영", stat: "vit", category: "heal", tier: 2,
     description: "짧게 숨을 고르고 몸을 추슬러 잃은 체력을 회복한다.",
-    mpCost: 30, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 25 }],
+    mpCost: 30, cooldown: 4, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 22, target: "self", oncePerCombat: true }],
   },
   v2c_ironman_brace: {
     id: "v2c_ironman_brace", name: "버티기", stat: "vit", category: "buff", tier: 2,
@@ -591,7 +591,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
     description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 18 }],
+    effects: [{ kind: "heal", pctLostHp: 20, target: "ally" }],
   },
   v2c_shadow_assassinate: {
     // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
@@ -615,14 +615,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_fieldmedic_treatment: {
     id: "v2c_fieldmedic_treatment", name: "현장 처치", stat: "vit", category: "heal", tier: 3,
     description: "전투 중에도 침착하게 상처를 정리해 잃은 체력을 크게 회복한다.",
-    mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 35 }],
+    mpCost: 40, cooldown: 5, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 28, target: "self", oncePerCombat: true }],
   },
   v2c_extremesurvivor_struggle: {
     id: "v2c_extremesurvivor_struggle", name: "사투", stat: "vit", category: "heal", tier: 3,
     description: "숨이 끊기기 직전의 집중으로 상처를 막고 보호막을 세운다.",
-    mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 25 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
+    mpCost: 40, cooldown: 5, procChance: 100,
+    effects: [
+      { kind: "heal", pctLostHp: 22, target: "self", oncePerCombat: true },
+      { kind: "shield", pctMaxHp: 8, turns: 3 },
+    ],
   },
 
   // ── 고차 두 번째 갈래 고유 패시브(tier 3·형제와 다른 축) ──
@@ -700,7 +703,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_templar_smite", name: "심판의 빛", stat: "str", category: "attack", tier: 3,
     description: "성스러운 빛을 검에 실어 내리친다. 그 빛이 제 상처마저 어루만진다.", mpCost: 42, cooldown: 0, procChance: 30,
     // 자힐 = 잃은 HP 의 10%(옛 20% 는 과해 하향, 오너 2026-06-22). 가호 healPowerPct 와 곱연산.
-    effects: [dmg(1.1, 190), { kind: "heal", pctLostHp: 10 }],
+    effects: [dmg(1.1, 190), { kind: "heal", pctLostHp: 8, target: "self" }],
   },
   v2c_templar_aegis: {
     // 어느 단일 직업도 안 가진 조합(방어%+회복강화%) — 순회 수집 메리트. 탱(방어)과 자힐(가호) 결합.
@@ -733,7 +736,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 44, cooldown: 0, procChance: 30,
     effects: [
       { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.15, baseFlatByTier: [190, 190, 190], soakRatio: 1.2 },
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "heal", pctLostHp: 8, target: "self" },
     ],
   },
   v2c_bloodtemplar_martyr: {
@@ -750,7 +753,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [
       { kind: "damage", statCoef: 0.18, baseFlat: 120, scaling: "luk" },
       { kind: "executeDamage", statCoef: 0.24, baseFlatByTier: [210, 210, 210], hpThresholdPct: 20, bonusMult: 2.4, scaling: "luk" },
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "heal", pctLostHp: 8, target: "self" },
     ],
   },
   v2c_darkpriest_blessing: {
@@ -932,7 +935,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
     mpCost: 46, cooldown: 0, procChance: 100,
     effects: [
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "heal", pctLostHp: 14, target: "ally" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1001,7 +1004,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_rescueexpert_rescue", name: "긴급 구조", stat: "vit", category: "heal", tier: 3,
     description: "치명적인 부상을 수습하고 곧바로 보호막을 덧댄다.",
     mpCost: 46, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 45 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
+    effects: [{ kind: "heal", pctLostHp: 32, target: "ally" }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
   },
   v2c_rescueexpert_support: {
     id: "v2c_rescueexpert_support", name: "생환 지원", stat: "vit", category: "passive", tier: 3,
@@ -1013,8 +1016,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_returner_survive: {
     id: "v2c_returner_survive", name: "생환", stat: "vit", category: "heal", tier: 3,
     description: "끝까지 숨을 붙잡아 잃은 체력을 되찾고 큰 보호막을 만든다.",
-    mpCost: 46, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 35 }, { kind: "shield", pctMaxHp: 12, turns: 3 }],
+    mpCost: 46, cooldown: 5, procChance: 100,
+    effects: [
+      { kind: "heal", pctLostHp: 28, target: "self", oncePerCombat: true },
+      { kind: "shield", pctMaxHp: 12, turns: 3 },
+    ],
   },
   v2c_returner_undying: {
     id: "v2c_returner_undying", name: "불굴", stat: "vit", category: "passive", tier: 3,

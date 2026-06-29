@@ -249,6 +249,20 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
     });
   });
 
+  it("전투당 1회 회복기는 긴 쿨다운으로 재시전을 막는다", () => {
+    const recover = V2_SKILLS["v2_skill_recover"];
+    const result = castFrameworkOnly({
+      skills: {
+        learned: ["v2_skill_recover"],
+        equipped: ["v2_skill_recover"],
+      },
+      cooldowns: {},
+      mp: v2SkillMpCost(recover) * 2,
+    });
+    expect(result.castSkillId).toBe("v2_skill_recover");
+    expect(result.nextCooldowns.v2_skill_recover).toBe(9999);
+  });
+
   it("발동 불가 — 그래도 cd tick 만 진행 (MP/log 그대로)", () => {
     const result = castFrameworkOnly({
       skills: { learned: [], equipped: [] },
@@ -413,7 +427,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
   });
 
   it("heal effect — pctMaxHp 비례", () => {
-    // recover: heal pctMaxHp=10. maxHp=200 → 20.
+    // recover: heal pctMaxHp=8. maxHp=200 → 16.
     const result = resolveV2SkillCast({
       skills: {
         learned: ["v2_skill_recover"],
@@ -429,7 +443,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.selfHeal).toBe(20);
+    expect(result.selfHeal).toBe(16);
     expect(result.enemyDamage).toBe(0);
   });
 

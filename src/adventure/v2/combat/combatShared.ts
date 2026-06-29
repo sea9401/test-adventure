@@ -953,9 +953,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
     return Math.round(basicFloor + surplus * skillMult);
   })();
+  const cooldownAfterCast = def.effects.some(
+    (effect) => effect.kind === "heal" && effect.oncePerCombat,
+  )
+    ? 9999
+    : def.cooldown + 1;
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
-    nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
+    nextCooldowns: { ...ticked, [id]: cooldownAfterCast },
     castSkillId: id,
     // 원소술사 "속성 마법" → 로그에 시전자 속성으로 동적 표기("불 마법" 등). 그 외=정적 def.name.
     castSkillName: def.elementNamed

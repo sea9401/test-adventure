@@ -89,12 +89,16 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_venomist_corrosion.passive?.poisonedEnemyDefReductionPct).toBe(12);
     expect(V2_SKILLS.v2c_survivor_firstaid.effects[0]).toMatchObject({
       kind: "heal",
-      pctLostHp: 20,
+      pctLostHp: 18,
+      target: "self",
+      oncePerCombat: true,
     });
     expect(V2_SKILLS.v2c_survivor_knowledge.passive?.maxHpPct).toBe(10);
     expect(V2_SKILLS.v2c_camper_camp.effects[0]).toMatchObject({
       kind: "heal",
-      pctLostHp: 25,
+      pctLostHp: 22,
+      target: "self",
+      oncePerCombat: true,
     });
     expect(V2_SKILLS.v2c_camper_ration.passive).toMatchObject({
       healPowerPct: 10,
@@ -182,7 +186,9 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_paladin_might3.passive?.defPct).toBe(10);
     expect(V2_SKILLS.v2c_fieldmedic_treatment.effects[0]).toMatchObject({
       kind: "heal",
-      pctLostHp: 35,
+      pctLostHp: 28,
+      target: "self",
+      oncePerCombat: true,
     });
     expect(V2_SKILLS.v2c_fieldmedic_training.passive).toMatchObject({
       healPowerPct: 15,
@@ -261,7 +267,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "heal", pctLostHp: 14, target: "ally" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({
@@ -276,7 +282,8 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(28); // 독왕 — 중독 적 방어 감소 정점
     expect(V2_SKILLS.v2c_rescueexpert_rescue.effects[0]).toMatchObject({
       kind: "heal",
-      pctLostHp: 45,
+      pctLostHp: 32,
+      target: "ally",
     });
     expect(V2_SKILLS.v2c_rescueexpert_support.passive).toMatchObject({
       healPowerPct: 20,
@@ -284,7 +291,9 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_returner_survive.effects[0]).toMatchObject({
       kind: "heal",
-      pctLostHp: 35,
+      pctLostHp: 28,
+      target: "self",
+      oncePerCombat: true,
     });
     expect(V2_SKILLS.v2c_returner_undying.passive).toMatchObject({
       maxHpPct: 25,
@@ -385,7 +394,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(
       V2_SKILLS.v2c_bloodtemplar_stigma.effects.some(
-        (e) => e.kind === "heal" && e.pctLostHp === 12,
+        (e) => e.kind === "heal" && e.pctLostHp === 8 && e.target === "self",
       ),
     ).toBe(true);
     expect(V2_SKILLS.v2c_bloodtemplar_martyr.passive).toMatchObject({
@@ -412,7 +421,7 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
     expect(
       V2_SKILLS.v2c_darkpriest_reap.effects.some(
-        (e) => e.kind === "heal" && e.pctLostHp === 12,
+        (e) => e.kind === "heal" && e.pctLostHp === 8 && e.target === "self",
       ),
     ).toBe(true);
     expect(V2_SKILLS.v2c_darkpriest_blessing.passive).toMatchObject({
@@ -455,9 +464,9 @@ describe("직업 킷 — 액티브 스킬", () => {
     expect(eff).toMatchObject({ kind: "damage" });
   });
 
-  it("마력탄 = 0코스트 100% 발동 마법 단일타", () => {
+  it("마력탄 = 100% 발동 마법 단일타지만 무료는 아님", () => {
     const s = V2_SKILLS.v2c_mage_boltcast;
-    expect(s.mpCost).toBe(0);
+    expect(s.mpCost).toBeGreaterThan(0);
     expect(s.procChance).toBe(100);
     expect(s.effects[0]).toMatchObject({ kind: "damage", scaling: "magic" });
   });

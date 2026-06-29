@@ -183,7 +183,16 @@ export type V2SkillEffect =
       pierceDamagePct?: number;
     }
   // pctLostHp: 잃은 체력 비례 회복(기공 순환).
-  | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }
+  // target 생략 = self(기존 세이브/카탈로그 호환). ally 는 파티 전투에서만 아군 대상 회복으로 해석된다.
+  // oncePerCombat 는 생존자 계열 자기 생존기처럼 전투당 1회만 허용하는 강한 게이트다.
+  | {
+      kind: "heal";
+      pctMaxHp?: number;
+      flat?: number;
+      pctLostHp?: number;
+      target?: "self" | "ally";
+      oncePerCombat?: boolean;
+    }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
   | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction"; pct: number; turns: number }
@@ -604,8 +613,16 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "damage":
       return `피해 공격력×${e.statCoef}${flatChip(e.baseFlat, e.baseFlatByTier)}${scalingChip(e.scaling)}`;
     case "heal":
-      if (e.pctLostHp != null) return `회복 잃은 체력 ${e.pctLostHp}%`;
-      return e.pctMaxHp != null ? `회복 최대HP ${e.pctMaxHp}%` : `회복 +${e.flat ?? 0}`;
+      {
+        const scope = e.target === "ally" ? "아군 " : "";
+        const limit = e.oncePerCombat ? " (전투당 1회)" : "";
+        if (e.pctLostHp != null) {
+          return `${scope}회복 잃은 체력 ${e.pctLostHp}%${limit}`;
+        }
+        return e.pctMaxHp != null
+          ? `${scope}회복 최대HP ${e.pctMaxHp}%${limit}`
+          : `${scope}회복 +${e.flat ?? 0}${limit}`;
+      }
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${e.turns}턴)`;
     case "selfBuffPct":
@@ -700,20 +717,20 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
 // ── MP 비용 루브릭 (P5 — 고정 절대값 모델) ──────────────────────────────────
 // 정적·직업무차별 mpCost(풀 대비 과소 → MP 가 죽은 자원) 를 "기준 풀 × % × 계열 × 차수" 로
 // 산정한 고정 절대값으로 대체. 풀 성장(INT)과 무관한 고정값 → 예측 가능(지속형 MP 자원: 전투 중
-// 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬: 패시브·기본기·명상)·몬스터(monsterOnly)는
+// 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬: 패시브·일부 자원기)·몬스터(monsterOnly)는
 // 그 literal 그대로. MP_REFERENCE_POOL·MP_BASE_PCT 가 튜닝 다이얼. 표시·차감 동일 산식 공유.
 export const MP_REFERENCE_POOL = 600; // 산정 기준 풀(~중간 캐스터). 올리면 전체 비용↑·엔드 타이트.
-export const MP_BASE_PCT = 0.07;
-const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
+export const MP_BASE_PCT = 0.11;
+const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.55, 3: 2.15 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "magus", "bishop", "sage", "elementalist", "archbishop",
 ]);
-// 무인 ×0.85 — 기 기반·작은 풀.
+// 무인 ×1.0 — 예전 할인은 스킬 반복을 너무 쉽게 만들어 제거.
 const MP_MARTIAL_JOBS = new Set([
   "martial", "boxer", "monk", "brawler", "warmonk", "sensei", "battlemonk",
 ]);
-// 도적 ×0.7 — 물리/술수·MP 가벼움.
+// 도적 ×0.9 — 물리/술수 계열이지만 액티브 효율이 높아 할인폭을 축소.
 const MP_ROGUE_JOBS = new Set([
   "rogue", "assassin", "archer", "venomist", "shadow", "ranger", "venomancer",
   "phantom", "chief", "venomlord",
@@ -723,8 +740,8 @@ const MP_ROGUE_JOBS = new Set([
 function mpArchetypeMult(id: string): number {
   const job = id.split("_")[1] ?? ""; // v2c_<직업>_… / v2_skill_… 접두에서 계열 추출
   if (MP_CASTER_JOBS.has(job)) return 1.3;
-  if (MP_MARTIAL_JOBS.has(job)) return 0.85;
-  if (MP_ROGUE_JOBS.has(job)) return 0.7;
+  if (MP_MARTIAL_JOBS.has(job)) return 1.0;
+  if (MP_ROGUE_JOBS.has(job)) return 0.9;
   return 1.0;
 }
 // 플레이어 학습 스킬 1회 시전 MP 비용(고정 절대값). 무료·몬스터 스킬은 그 literal 그대로.

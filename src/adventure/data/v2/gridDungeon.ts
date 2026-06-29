@@ -464,7 +464,7 @@ export function moveGridDungeonRun(
     if (tile === "monster") {
       const resolved =
         combat ??
-        fallbackGridDungeonCombat("유적 경비병", 2, 700, run.hp);
+        fallbackGridDungeonCombat("유적 경비병", 2, 0, run.hp);
       hp = Math.max(0, hp - resolved.hpLost);
       pendingGold += resolved.rewardGold;
       pendingDrops = mergeDrops(pendingDrops, resolved.drops ?? {});
@@ -473,23 +473,22 @@ export function moveGridDungeonRun(
     } else if (tile === "elite") {
       const resolved =
         combat ??
-        fallbackGridDungeonCombat("정예 수문장", 3, 1_500, run.hp);
+        fallbackGridDungeonCombat("정예 수문장", 3, 0, run.hp);
       hp = Math.max(0, hp - resolved.hpLost);
       pendingGold += resolved.rewardGold;
       pendingDrops = mergeDrops(pendingDrops, resolved.drops ?? {});
       message = resolved.message;
       lastCombat = resolved.summary;
     } else if (tile === "treasure") {
-      pendingGold += 1_000;
       pendingDrops = mergeDrops(pendingDrops, eventDrops);
-      message = "오래된 보물상자에서 1,000G를 발견했습니다.";
+      message = "오래된 보물상자에서 재료를 발견했습니다.";
     } else if (tile === "fountain") {
       hp = Math.min(GRID_DUNGEON_MAX_HP, hp + 4);
       message = "맑은 샘물을 마셔 체력을 회복했습니다.";
     } else if (tile === "boss") {
       const resolved =
         combat ??
-        fallbackGridDungeonCombat("유적의 파수꾼", 4, 4_000, run.hp);
+        fallbackGridDungeonCombat("유적의 파수꾼", 4, 0, run.hp);
       hp = Math.max(0, hp - resolved.hpLost);
       pendingGold += resolved.rewardGold;
       pendingDrops = mergeDrops(pendingDrops, resolved.drops ?? {});
@@ -550,7 +549,7 @@ function fallbackGridDungeonCombat(
     message:
       enemyName === "유적의 파수꾼"
         ? "유적의 파수꾼을 쓰러뜨렸습니다. 출구가 열렸습니다."
-        : `${enemyName}을(를) 쓰러뜨리고 ${rewardGold.toLocaleString()}G를 챙겼습니다.`,
+        : `${enemyName}을(를) 쓰러뜨렸습니다.`,
     summary: {
       enemyName,
       outcome: "win",

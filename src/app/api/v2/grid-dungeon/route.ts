@@ -113,9 +113,9 @@ function historyEntryFromRun({
 }
 
 const GRID_DUNGEON_COMBAT_REWARD: Partial<Record<GridDungeonTileKind, number>> = {
-  monster: 700,
-  elite: 1_500,
-  boss: 4_000,
+  monster: 0,
+  elite: 0,
+  boss: 0,
 };
 
 const GRID_DUNGEON_COMBAT_DEPTH: Partial<Record<GridDungeonTileKind, number>> = {
@@ -296,7 +296,7 @@ async function resolveGridDungeonCombat({
   const message = won
     ? tile === "boss"
       ? `${enemyName}을(를) 쓰러뜨렸습니다. 출구가 열렸습니다.`
-      : `${enemyName}을(를) 쓰러뜨리고 ${rewardGold.toLocaleString()}G를 챙겼습니다.`
+      : `${enemyName}을(를) 쓰러뜨렸습니다.`
     : `${enemyName}과의 전투에서 밀려 탐험을 이어갈 수 없습니다.`;
 
   return {
@@ -482,15 +482,13 @@ export async function POST(req: Request) {
       );
       const daily = parseGridDungeonDailyRewards(dailyRaw, now);
       const quota = gridDungeonRewardQuota(daily, now);
-      const baseRewardGold = Math.max(0, Math.floor(run.pendingGold));
-      const rewardGold = quota.remaining > 0 ? baseRewardGold : 0;
+      const rewardGold = 0;
       const rewardDrops = quota.remaining > 0 ? (run.pendingDrops ?? {}) : {};
       const hasRewardDrops = Object.values(rewardDrops).some(
         (amount) => (amount ?? 0) > 0,
       );
-      const gold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
       const nextClaimed =
-        rewardGold > 0 || hasRewardDrops
+        quota.remaining > 0
           ? Math.min(quota.limit, daily.claimed + 1)
           : daily.claimed;
       const claimed = {
@@ -501,9 +499,11 @@ export async function POST(req: Request) {
         claimedAt: now,
         updatedAt: now,
         lastMessage:
-          rewardGold > 0
-            ? `${rewardGold.toLocaleString()}G를 정산했습니다.`
-            : "오늘 던전 보상 횟수를 모두 사용해 보상 없이 정산했습니다.",
+          quota.remaining <= 0
+            ? "오늘 던전 보상 횟수를 모두 사용해 보상 없이 정산했습니다."
+            : hasRewardDrops
+              ? "던전 재료 보상을 정산했습니다."
+              : "이번 탐험에서 획득한 재료가 없습니다.",
       };
       const historyRaw = await lockSaveForUpdate(
         tx,
@@ -523,7 +523,6 @@ export async function POST(req: Request) {
       );
       const nextCharSave = {
         ...charSave,
-        gold: gold + rewardGold,
         ...(hasRewardDrops
           ? { materials: mergeDrops(charSave.materials, rewardDrops) }
           : {}),

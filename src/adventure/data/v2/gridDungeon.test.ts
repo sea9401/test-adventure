@@ -44,7 +44,7 @@ describe("gridDungeon", () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     expect(first.run.hp).toBe(8);
-    expect(first.run.pendingGold).toBe(700);
+    expect(first.run.pendingGold).toBe(0);
 
     const wall = moveGridDungeonRun(first.run, "left", 300);
     expect(wall).toEqual({ ok: false, error: "blocked" });
@@ -56,7 +56,7 @@ describe("gridDungeon", () => {
     expect(again.ok).toBe(true);
     if (!again.ok) return;
     expect(again.run.hp).toBe(8);
-    expect(again.run.pendingGold).toBe(700);
+    expect(again.run.pendingGold).toBe(0);
   });
 
   it("applies resolved combat to a combat room", () => {
@@ -64,9 +64,9 @@ describe("gridDungeon", () => {
     const moved = moveGridDungeonRun(start, "up", 200, {
       outcome: "win",
       hpLost: 1,
-      rewardGold: 900,
+      rewardGold: 0,
       drops: { [ENHANCE_STONE_MATERIAL_ID.red]: 1 },
-      message: "들개를 쓰러뜨리고 900G를 챙겼습니다.",
+      message: "들개를 쓰러뜨렸습니다.",
       summary: {
         enemyName: "들개",
         outcome: "win",
@@ -77,23 +77,23 @@ describe("gridDungeon", () => {
         playerMaxHp: 100,
         enemyHp: 0,
         enemyMaxHp: 38,
-        rewardGold: 900,
+        rewardGold: 0,
         log: ["공격", "승리"],
       },
     });
     expect(moved.ok).toBe(true);
     if (!moved.ok) return;
     expect(moved.run.hp).toBe(9);
-    expect(moved.run.pendingGold).toBe(900);
+    expect(moved.run.pendingGold).toBe(0);
     expect(moved.run.pendingDrops).toEqual({
       [ENHANCE_STONE_MATERIAL_ID.red]: 1,
     });
-    expect(moved.run.lastMessage).toBe("들개를 쓰러뜨리고 900G를 챙겼습니다.");
+    expect(moved.run.lastMessage).toBe("들개를 쓰러뜨렸습니다.");
     expect(moved.run.lastCombat).toMatchObject({
       enemyName: "들개",
       turns: 3,
       hpLost: 1,
-      rewardGold: 900,
+      rewardGold: 0,
     });
   });
 

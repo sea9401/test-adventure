@@ -257,6 +257,14 @@ export function V2GridDungeonView({
   const history = state?.history.entries ?? [];
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
   const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
+  const pendingDropCount = useMemo(
+    () =>
+      dropEntries(run?.pendingDrops).reduce(
+        (sum, [, amount]) => sum + (amount ?? 0),
+        0,
+      ),
+    [run?.pendingDrops],
+  );
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 text-zinc-200">
@@ -329,9 +337,9 @@ export function V2GridDungeonView({
               </div>
             </div>
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
-              <div className="text-zinc-500">확보 골드</div>
+              <div className="text-zinc-500">확보 재료</div>
               <div className="mt-1 text-base font-bold text-yellow-300">
-                {run.pendingGold.toLocaleString()}G
+                {pendingDropCount.toLocaleString()}개
               </div>
             </div>
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
@@ -429,7 +437,7 @@ export function V2GridDungeonView({
             />
             {rewardQuota && rewardQuota.remaining <= 0 && (
               <div className="rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-xs text-zinc-400">
-                오늘 던전 보상 횟수를 모두 사용했습니다. 탐험은 계속할 수 있지만 정산 골드는
+                오늘 던전 보상 횟수를 모두 사용했습니다. 탐험은 계속할 수 있지만 재료 보상은
                 지급되지 않습니다.
               </div>
             )}
@@ -445,7 +453,7 @@ export function V2GridDungeonView({
                 }`}
               >
                 {hasRewardClaim
-                  ? `${run.pendingGold.toLocaleString()}G 정산`
+                  ? "재료 정산"
                   : "보상 없이 정산"}
               </button>
             ) : (
@@ -495,11 +503,6 @@ function DungeonCombatSummary({
         <div className="flex items-center gap-2 text-zinc-500">
           <span>{combat.turns}턴</span>
           <span>던전 HP -{combat.hpLost}</span>
-          {combat.rewardGold > 0 && (
-            <span className="text-yellow-300">
-              +{combat.rewardGold.toLocaleString()}G
-            </span>
-          )}
         </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -624,9 +627,6 @@ function DungeonHistory({
             <div className="flex items-center gap-2 text-zinc-500">
               <span>탐험 {entry.exploredTiles}칸</span>
               <span>HP {entry.hp}</span>
-              <span className={entry.rewardGold > 0 ? "text-yellow-300" : ""}>
-                {entry.rewardGold.toLocaleString()}G
-              </span>
             </div>
             {dropEntries(entry.drops).length > 0 && (
               <div className="basis-full">

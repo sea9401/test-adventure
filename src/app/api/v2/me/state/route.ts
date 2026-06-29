@@ -765,7 +765,7 @@ export async function GET() {
         : null,
       // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
       class: cls,
-      // 코어루프 on 이면 무직→"모험가" 표기. off 면 기존 직군명.
+      // 코어루프 on 이면 none→"모험가" 표기. off 면 기존 직군명.
       classDisplayName,
       // 코어루프 직업 트리 — 현재 계파(재전직 화면 "현재" 표시용). off 면 null.
       spec: V2_CORE_LOOP_V2

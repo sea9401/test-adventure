@@ -371,12 +371,12 @@ describe("coreLoopConfig — 거점 행동 골드 비용 (스태미나 대체)",
 });
 
 describe("coreLoopMaxHpMult — 모험가 HP 패시브 (flag-gated)", () => {
-  it("코어루프 on + 무직(모험가)만 ×(1+보너스)", () => {
+  it("코어루프 on + 모험가(none)만 ×(1+보너스)", () => {
     expect(coreLoopMaxHpMult("none", true)).toBeCloseTo(
       1 + ADVENTURER_MAXHP_BONUS_PCT / 100,
     );
   });
-  it("flag off 면 무직이어도 ×1.0 (전투 무변경)", () => {
+  it("flag off 면 모험가(none)여도 ×1.0 (전투 무변경)", () => {
     expect(coreLoopMaxHpMult("none", false)).toBe(1);
   });
   it("다른 직업은 flag 무관 ×1.0", () => {

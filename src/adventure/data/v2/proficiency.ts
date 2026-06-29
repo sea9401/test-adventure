@@ -2,7 +2,7 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 
 // v2 직업 숙련도 + 수행(스탯 cap). 설계: docs/v2-proficiency-redesign.md §3·§4.
 //
-// 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). none(무직) 적립 없음.
+// 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: warrior). none(모험가) 숙련도 적립 없음.
 // 저장: proficiency.v2 = {
 //   points: number,                                                // 숙달 포인트(캐릭터 단일 잔액)
 //   groups: { [tier1classId]: { cultivations, tier, cumLevel } },
@@ -76,7 +76,7 @@ export const V2_CULTIVATE_PROFILE: Record<
   mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
   rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
   survivor: { vit: 2, spi: 1, str: 1 }, // 생존자 — 최대 HP·회복·버티기
-  // 모험가(무직) — 전직 전에도 균형 수행 가능(STR/VIT/DEX/INT 각 1, SPI/LUK 제외). cap 은 전역이라
+  // 모험가(none) — 전직 전에도 균형 수행 가능(STR/VIT/DEX/INT 각 1, SPI/LUK 제외). cap 은 전역이라
   //   전직 후에도 유지. 전직은 별개(advance-class)·none 은 직군 정복/도감엔 미포함(cumLevel 미적립).
   none: { str: 1, vit: 1, dex: 1, int: 1 },
 };

@@ -266,7 +266,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r!.next.caps.dex).toBe(1 * 5);
   });
 
-  it("applyCultivation — 잔액 부족/무직 직업군은 null", () => {
+  it("applyCultivation — 잔액 부족/모험가(none) 직업군은 null", () => {
     const poor = parseProficiency({ groups: { warrior: { points: 5 } } });
     expect(applyCultivation(poor, "warrior")).toBeNull();
     expect(applyCultivation(poor, "none")).toBeNull();

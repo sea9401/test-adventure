@@ -315,11 +315,11 @@ export const CLAIM_GOLD_COST_BY_TIER: Record<number, number> = {
   4: 9000,
 }; // 점령 골드 sink(선택 — 전투 쿨다운과 병행)
 
-// === 모험가(무직) HP 패시브 =================================================
-// 코어루프 on + 무직(=모험가)일 때만 적용(coreLoopMaxHpMult). 그 외/flag off = 1.0.
+// === 모험가(none) HP 패시브 =================================================
+// 코어루프 on + none(=모험가)일 때만 적용(coreLoopMaxHpMult). 그 외/flag off = 1.0.
 export const ADVENTURER_MAXHP_BONUS_PCT = 10;
 
-// 모험가 maxHp 배수 (순수). 코어루프 on + 무직(=모험가)일 때만 HP 패시브(+ADVENTURER_MAXHP_BONUS_PCT%).
+// 모험가 maxHp 배수 (순수). 코어루프 on + none(=모험가)일 때만 HP 패시브(+ADVENTURER_MAXHP_BONUS_PCT%).
 // 그 외(다른 직업·flag off)는 1.0 — flag off 면 전투/골든 byte-identical.
 export function coreLoopMaxHpMult(
   playerClass: string,

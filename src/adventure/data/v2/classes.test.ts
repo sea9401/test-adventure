@@ -38,8 +38,9 @@ describe("v2 직업", () => {
     }
   });
 
-  it("none 은 무직, 선택 직군은 표기명/설명 보유", () => {
-    expect(V2_CLASS_DEFS.none.name).toBe("무직");
+  it("none 은 모험가 시작 상태, 선택 직군은 표기명/설명 보유", () => {
+    expect(V2_CLASS_DEFS.none.name).toBe("모험가");
+    expect(V2_CLASS_DEFS.none.description).toContain("직업 숙련도");
     for (const c of V2_SELECTABLE_CLASSES) {
       expect(V2_CLASS_DEFS[c].name, `${c} name`).toBeTruthy();
       expect(V2_CLASS_DEFS[c].description, `${c} desc`).toBeTruthy();

@@ -29,7 +29,7 @@ import {
 import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
 import {
-  evaluateCombatPattern,
+  evaluateCombatPatternCandidates,
   V2_PATTERN_DOT_POWER_MULT,
   V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
   type V2CombatPattern,
@@ -656,18 +656,46 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     }
     return null;
   };
-  const id: V2SkillId | null = viaPattern
-    ? (evaluateCombatPattern(
+  const candidateIds: V2SkillId[] = viaPattern
+    ? (evaluateCombatPatternCandidates(
         input.combatPattern!,
         buildPatternCtx(input),
         isUsable,
         resolveRole,
-      ) as V2SkillId | null)
-    : pickAutoCastV2Skill({
-        equipped: input.skills.equipped,
-        cooldowns: ticked,
-        mp: input.attacker.mp,
-      });
+      ) as V2SkillId[])
+    : ([
+        pickAutoCastV2Skill({
+          equipped: input.skills.equipped,
+          cooldowns: ticked,
+          mp: input.attacker.mp,
+        }),
+      ].filter(Boolean) as V2SkillId[]);
+  let id: V2SkillId | null = null;
+  for (const candidateId of candidateIds) {
+    const candidateDef = V2_SKILLS[candidateId];
+    if (!candidateDef) continue;
+    // 발동 확률 — 옛 경로(viaPattern=false)는 항상 procChance 롤. 패턴 경로는 기본적으로 procChance
+    // 은퇴(조건 충족 = 확정 발동)지만, applyProcInPattern(V2_SKILL_PROC_IN_PATTERN) 가 켜지면 패턴이
+    // 고른 스킬도 procChance 게이트를 통과해야 발동(확정 발동 → 확률 발동, 부활).
+    // 패턴 후보가 procChance 에 실패하면 다음 우선순위 후보를 시도한다. 모든 후보가 실패해야 평타 폴백.
+    // 비패턴 경로는 후보가 하나라 기존처럼 실패 시 평타 폴백한다. MP·쿨다운은 소모하지 않는다.
+    const rollProc = !viaPattern || (input.applyProcInPattern ?? false);
+    if (rollProc) {
+      const procChance = Math.min(
+        100,
+        (candidateDef.procChance ?? 100) + (input.procChanceBonus ?? 0),
+      );
+      if (
+        procChance < 100 &&
+        input.procRoll !== undefined &&
+        input.procRoll >= procChance
+      ) {
+        continue;
+      }
+    }
+    id = candidateId;
+    break;
+  }
   if (!id) {
     return {
       ...EMPTY_CAST_RESULT_BASE,
@@ -678,31 +706,6 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
-  // 발동 확률 — 옛 경로(viaPattern=false)는 항상 procChance 롤. 패턴 경로는 기본적으로 procChance
-  // 은퇴(조건 충족 = 확정 발동)지만, applyProcInPattern(V2_SKILL_PROC_IN_PATTERN) 가 켜지면 패턴이
-  // 고른 스킬도 procChance 게이트를 통과해야 발동(확정 발동 → 확률 발동, 부활).
-  // procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
-  // (쿨다운은 위에서 이미 tick 됨. procRoll 미지정이면 항상 발동 — 구 호출·테스트 호환.)
-  const rollProc = !viaPattern || (input.applyProcInPattern ?? false);
-  if (rollProc) {
-    const procChance = Math.min(
-      100,
-      (def.procChance ?? 100) + (input.procChanceBonus ?? 0),
-    );
-    if (
-      procChance < 100 &&
-      input.procRoll !== undefined &&
-      input.procRoll >= procChance
-    ) {
-      return {
-        ...EMPTY_CAST_RESULT_BASE,
-        nextMp: input.attacker.mp,
-        nextCooldowns: ticked,
-        castSkillId: null,
-        castSkillName: null,
-      };
-    }
-  }
   // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
   // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.
   const attackEl = input.attacker.attackElement ?? "neutral";

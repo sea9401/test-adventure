@@ -35,6 +35,7 @@ function supporter(
     name: partial.name,
     level: partial.level ?? 30,
     job: partial.job ?? "모험가",
+    supportRole: partial.supportRole ?? null,
     maxHp: partial.maxHp ?? 420,
     maxMp: partial.maxMp ?? 420,
     mp: partial.mp ?? partial.maxMp ?? 420,

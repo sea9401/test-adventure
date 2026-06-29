@@ -166,6 +166,14 @@ const SUPPORT_ROLE_TONE: Record<GridDungeonSupportRole, string> = {
   support: "border-violet-800 bg-violet-950/45 text-violet-200",
 };
 
+type SupportRoleFilter = GridDungeonSupportRole | "all" | "unset";
+
+const SUPPORT_ROLE_FILTERS: SupportRoleFilter[] = [
+  "all",
+  ...GRID_DUNGEON_SUPPORT_ROLES,
+  "unset",
+];
+
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (!visible) return null;
   if (kind === "treasure") return <TreasureChest size={20} weight="fill" />;
@@ -233,6 +241,8 @@ export function V2GridDungeonView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSupporterIds, setSelectedSupporterIds] = useState<string[]>([]);
+  const [supportRoleFilter, setSupportRoleFilter] =
+    useState<SupportRoleFilter>("all");
 
   const load = useCallback(async () => {
     setError(null);
@@ -307,6 +317,33 @@ export function V2GridDungeonView({
       ),
     [validSelectedSupporterIds, supportCandidates],
   );
+  const supportRoleCounts = useMemo(() => {
+    const counts: Record<SupportRoleFilter, number> = {
+      all: supportCandidates.length,
+      dealer: 0,
+      healer: 0,
+      tank: 0,
+      support: 0,
+      unset: 0,
+    };
+    for (const candidate of supportCandidates) {
+      if (candidate.supportRole) {
+        counts[candidate.supportRole] += 1;
+      } else {
+        counts.unset += 1;
+      }
+    }
+    return counts;
+  }, [supportCandidates]);
+  const displayedSupportCandidates = useMemo(
+    () =>
+      supportCandidates.filter((candidate) => {
+        if (supportRoleFilter === "all") return true;
+        if (supportRoleFilter === "unset") return candidate.supportRole == null;
+        return candidate.supportRole === supportRoleFilter;
+      }),
+    [supportCandidates, supportRoleFilter],
+  );
   const selectedRoles = useMemo(
     () =>
       selectedSupporters
@@ -315,7 +352,9 @@ export function V2GridDungeonView({
     [selectedSupporters],
   );
   const partyWarning =
-    selectedSupporters.length < 2
+    selectedSupporters.length === 0
+      ? null
+      : selectedSupporters.length < 2
       ? "보스전은 지원자 2명을 권장합니다."
       : !selectedRoles.includes("dealer") || !selectedRoles.includes("healer")
         ? "첫 보스는 공격형 1명 + 회복형 1명 조합을 권장합니다."
@@ -463,8 +502,55 @@ export function V2GridDungeonView({
                     {selectedSupporters.length} / 2
                   </div>
                 </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUPPORT_ROLE_FILTERS.map((filter) => {
+                    const label =
+                      filter === "all"
+                        ? "전체"
+                        : filter === "unset"
+                          ? "미설정"
+                          : GRID_DUNGEON_SUPPORT_ROLE_LABEL[filter];
+                    const selected = supportRoleFilter === filter;
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setSupportRoleFilter(filter)}
+                        className={`rounded border px-2 py-1 text-[10px] transition disabled:opacity-40 ${
+                          selected
+                            ? "border-zinc-500 bg-zinc-800 text-zinc-100"
+                            : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:bg-zinc-900"
+                        }`}
+                      >
+                        {label} {supportRoleCounts[filter]}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedSupporters.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {selectedSupporters.map((supporter) => (
+                      <span
+                        key={supporter.userId}
+                        className={`rounded border px-1.5 py-0.5 ${
+                          supporter.supportRole
+                            ? SUPPORT_ROLE_TONE[supporter.supportRole]
+                            : "border-zinc-800 bg-zinc-950 text-zinc-500"
+                        }`}
+                      >
+                        {supporter.name} ·{" "}
+                        {supporter.supportRole
+                          ? GRID_DUNGEON_SUPPORT_ROLE_LABEL[
+                              supporter.supportRole
+                            ]
+                          : "역할 미설정"}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {supportCandidates.map((candidate) => {
+                  {displayedSupportCandidates.map((candidate) => {
                     const selected = validSelectedSupporterIds.includes(
                       candidate.userId,
                     );
@@ -497,7 +583,7 @@ export function V2GridDungeonView({
                               }
                             </span>
                           ) : (
-                            <span className="inline-flex rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 text-[10px] text-zinc-500">
+                            <span className="text-[10px] text-zinc-600">
                               역할 미설정
                             </span>
                           )}
@@ -510,6 +596,11 @@ export function V2GridDungeonView({
                     );
                   })}
                 </div>
+                {displayedSupportCandidates.length === 0 && (
+                  <div className="rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-500">
+                    이 필터에 해당하는 길드 동료가 없습니다.
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -636,6 +727,19 @@ export function V2GridDungeonView({
                       </div>
                       <div className="mt-0.5 text-[11px] text-zinc-500">
                         Lv.{supporter.level.toLocaleString()} · {supporter.job}
+                      </div>
+                      <div className="mt-1">
+                        {supporter.supportRole ? (
+                          <span
+                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] ${SUPPORT_ROLE_TONE[supporter.supportRole]}`}
+                          >
+                            {GRID_DUNGEON_SUPPORT_ROLE_LABEL[supporter.supportRole]}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-zinc-600">
+                            역할 미설정
+                          </span>
+                        )}
                       </div>
                       <div className="mt-1 text-[11px] text-zinc-400">
                         HP {supporter.maxHp.toLocaleString()} · ATK{" "}

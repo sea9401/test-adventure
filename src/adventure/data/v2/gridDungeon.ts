@@ -113,6 +113,7 @@ export type GridDungeonSupporterSnapshot = {
   name: string;
   level: number;
   job: string;
+  supportRole: GridDungeonSupportRole | null;
   maxHp: number;
   maxMp: number;
   mp: number;
@@ -195,6 +196,7 @@ function sanitizeGridDungeonSupporters(
       name: typeof e.name === "string" && e.name.trim() ? e.name.trim() : "모험가",
       level: Math.max(1, Math.floor(Number(e.level) || 1)),
       job: typeof e.job === "string" && e.job.trim() ? e.job.trim() : "모험가",
+      supportRole: parseGridDungeonSupportRole(e.supportRole),
       maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),
       maxMp: Math.max(0, Math.floor(Number(e.maxMp) || 0)),
       mp: Math.max(0, Math.floor(Number(e.mp) || Number(e.maxMp) || 0)),

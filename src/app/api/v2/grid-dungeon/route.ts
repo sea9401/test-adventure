@@ -405,6 +405,7 @@ async function gridDungeonSupportSnapshots({
       name: candidate.name,
       level: candidate.level,
       job: candidate.job,
+      supportRole: candidate.supportRole,
       maxHp: derived.player.maxHp,
       maxMp: derived.player.maxMp ?? 0,
       mp: derived.player.mp ?? derived.player.maxMp ?? 0,

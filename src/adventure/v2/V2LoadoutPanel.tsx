@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowsDownUp, CaretDown, CaretUp } from "@phosphor-icons/react";
+import { ArrowsDownUp, DotsSixVertical, Star } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SkillEffectChips } from "./SkillEffectChips";
 
@@ -15,6 +15,7 @@ export type V2LoadoutSkill = {
   name: string;
   spCost: number;
   equipped: boolean;
+  favorite?: boolean;
 };
 export type V2LoadoutSpBreakdown = {
   base: number;
@@ -59,6 +60,11 @@ export function V2LoadoutPanel({
   const [libraryOrder, setLibraryOrder] = useState<string[]>(
     loadout.library.map((s) => s.skillId),
   );
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(
+    loadout.library.filter((s) => s.favorite).map((s) => s.skillId),
+  );
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -73,10 +79,15 @@ export function V2LoadoutPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equippedKey]);
 
-  const libraryKey = loadout.library.map((s) => s.skillId).join(",");
+  const libraryKey = loadout.library
+    .map((s) => `${s.skillId}:${s.favorite ? "1" : "0"}`)
+    .join(",");
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 서버 library prop 이 바뀔 때 표시 순서 재시드
     setLibraryOrder(loadout.library.map((s) => s.skillId));
+    setFavoriteIds(
+      loadout.library.filter((s) => s.favorite).map((s) => s.skillId),
+    );
     // libraryKey 로 내용 비교(refresh 마다 새 배열 ref 라도 내용 같으면 미발화).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryKey]);
@@ -86,6 +97,7 @@ export function V2LoadoutPanel({
     [loadout.library],
   );
   const equippedSet = useMemo(() => new Set(order), [order]);
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const orderedLibrary = useMemo(() => {
     const byId = new Map(loadout.library.map((s) => [s.skillId, s]));
     const seen = new Set<string>();
@@ -139,29 +151,35 @@ export function V2LoadoutPanel({
     }
   }
 
-  async function commitSkillOrder(nextOrder: string[]) {
+  async function commitSkillPrefs(nextOrder: string[], nextFavorites: string[]) {
     const prev = libraryOrder;
+    const prevFavorites = favoriteIds;
     setLibraryOrder(nextOrder);
+    setFavoriteIds(nextFavorites);
     setBusy(true);
     setMsg(null);
     try {
       const res = await fetch("/api/v2/me/skill-order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ order: nextOrder }),
+        body: JSON.stringify({ order: nextOrder, favorites: nextFavorites }),
       });
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         skillOrder?: string[];
+        favoriteSkills?: string[];
       } | null;
       if (!j?.ok) {
         setLibraryOrder(prev);
-        setMsg("스킬 순서를 저장할 수 없어요");
+        setFavoriteIds(prevFavorites);
+        setMsg("스킬 정리를 저장할 수 없어요");
       } else if (Array.isArray(j.skillOrder)) {
         setLibraryOrder(j.skillOrder);
+        setFavoriteIds(Array.isArray(j.favoriteSkills) ? j.favoriteSkills : []);
       }
     } catch {
       setLibraryOrder(prev);
+      setFavoriteIds(prevFavorites);
       setMsg("오류가 발생했어요");
     } finally {
       setBusy(false);
@@ -176,21 +194,38 @@ export function V2LoadoutPanel({
     }
   }
 
-  function moveSkill(skillId: string, delta: -1 | 1) {
+  function reorderSkill(activeId: string, overId: string) {
+    if (activeId === overId) return;
     const current = orderedLibrary.map((s) => s.skillId);
-    const idx = current.indexOf(skillId);
-    const nextIdx = idx + delta;
-    if (idx < 0 || nextIdx < 0 || nextIdx >= current.length) return;
+    const from = current.indexOf(activeId);
+    const to = current.indexOf(overId);
+    if (from < 0 || to < 0) return;
     const next = [...current];
-    [next[idx], next[nextIdx]] = [next[nextIdx], next[idx]];
-    commitSkillOrder(next);
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    commitSkillPrefs(next, favoriteIds);
   }
 
-  function sortEquippedFirst() {
+  function toggleFavorite(skillId: string) {
+    const nextFavorites = favoriteSet.has(skillId)
+      ? favoriteIds.filter((id) => id !== skillId)
+      : [...favoriteIds, skillId];
+    commitSkillPrefs(
+      orderedLibrary.map((s) => s.skillId),
+      nextFavorites,
+    );
+  }
+
+  function sortPinnedFirst() {
     const ids = orderedLibrary.map((s) => s.skillId);
     const idSet = new Set(ids);
     const seen = new Set<string>();
     const next: string[] = [];
+    for (const id of favoriteIds) {
+      if (!idSet.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      next.push(id);
+    }
     for (const id of order) {
       if (!idSet.has(id) || seen.has(id)) continue;
       seen.add(id);
@@ -201,7 +236,7 @@ export function V2LoadoutPanel({
       seen.add(id);
       next.push(id);
     }
-    commitSkillOrder(next);
+    commitSkillPrefs(next, favoriteIds);
   }
 
   if (loadout.library.length === 0) {
@@ -244,12 +279,12 @@ export function V2LoadoutPanel({
         </span>
         <button
           type="button"
-          onClick={sortEquippedFirst}
-          disabled={busy || order.length === 0}
+          onClick={sortPinnedFirst}
+          disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           <ArrowsDownUp size={14} weight="bold" />
-          장착 우선
+          즐겨찾기 우선
         </button>
       </div>
       {spBreakdown && (
@@ -303,42 +338,72 @@ export function V2LoadoutPanel({
       )}
 
       <ul className="mt-3 space-y-1.5">
-        {orderedLibrary.map((s, idx) => {
+        {orderedLibrary.map((s) => {
           const equipped = equippedSet.has(s.skillId);
+          const favorite = favoriteSet.has(s.skillId);
           const wouldFit = spUsed + s.spCost <= spBudget;
           return (
             <li
               key={s.skillId}
-              className={`flex items-start gap-2 rounded-md border px-2 py-2 sm:px-3 ${
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (draggingId && draggingId !== s.skillId) {
+                  setDragOverId(s.skillId);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const activeId =
+                  e.dataTransfer.getData("text/plain") || draggingId;
+                if (activeId) reorderSkill(activeId, s.skillId);
+                setDraggingId(null);
+                setDragOverId(null);
+              }}
+              onDragLeave={() => {
+                if (dragOverId === s.skillId) setDragOverId(null);
+              }}
+              className={`flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+              } ${
+                dragOverId === s.skillId
+                  ? "ring-2 ring-sky-400 dark:ring-sky-500"
+                  : ""
+              } ${
+                draggingId === s.skillId ? "opacity-55" : ""
               }`}
             >
-              <div className="flex w-8 shrink-0 flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => moveSkill(s.skillId, -1)}
-                  disabled={busy || idx === 0}
-                  aria-label={`${s.name} 위로 이동`}
-                  title="위로 이동"
-                  className="flex h-6 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  <CaretUp size={14} weight="bold" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveSkill(s.skillId, 1)}
-                  disabled={busy || idx === orderedLibrary.length - 1}
-                  aria-label={`${s.name} 아래로 이동`}
-                  title="아래로 이동"
-                  className="flex h-6 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  <CaretDown size={14} weight="bold" />
-                </button>
-              </div>
+              <span
+                role="button"
+                tabIndex={0}
+                draggable={!busy}
+                aria-label={`${s.name} 순서 이동`}
+                title="드래그해서 순서 변경"
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", s.skillId);
+                  setDraggingId(s.skillId);
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setDragOverId(null);
+                }}
+                className={`flex h-9 w-8 shrink-0 cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+                  busy ? "pointer-events-none opacity-40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <DotsSixVertical size={18} weight="bold" />
+              </span>
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex items-center gap-2">
+                  {favorite && (
+                    <Star
+                      size={14}
+                      weight="fill"
+                      className="shrink-0 text-amber-500"
+                    />
+                  )}
                   <span className="min-w-0 truncate text-sm font-semibold">
                     {s.name}
                   </span>
@@ -349,7 +414,23 @@ export function V2LoadoutPanel({
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 <SkillEffectChips skillId={s.skillId} />
               </div>
-              <div className="shrink-0">
+              <div className="flex shrink-0 items-start gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => toggleFavorite(s.skillId)}
+                  disabled={busy}
+                  aria-label={
+                    favorite ? `${s.name} 즐겨찾기 해제` : `${s.name} 즐겨찾기`
+                  }
+                  title={favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+                  className={`flex h-8 w-8 items-center justify-center rounded-md border disabled:cursor-not-allowed disabled:opacity-50 ${
+                    favorite
+                      ? "border-amber-400 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300"
+                      : "border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  <Star size={15} weight={favorite ? "fill" : "regular"} />
+                </button>
                 {equipped ? (
                   <button
                     type="button"

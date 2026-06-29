@@ -115,21 +115,21 @@ export async function POST(req: Request) {
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const staminaMax =
       MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
-    // 코어루프 — 스태미나 폐지(소환권이 비용). 무료 공격, 180s 쿨다운이 throttle. off — 기존 차감.
-    let afterStamina = applyRegen(stamina, now, staminaMax);
-    if (!V2_CORE_LOOP_V2) {
-      const after = tryConsume(stamina, COOP_ATTACK_STAMINA_COST, now, staminaMax);
-      if (!after) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "out_of_stamina" as const,
-            stamina: applyRegen(stamina, now, staminaMax),
-          },
-        };
-      }
-      afterStamina = after;
+    const afterStamina = tryConsume(
+      stamina,
+      COOP_ATTACK_STAMINA_COST,
+      now,
+      staminaMax,
+    );
+    if (!afterStamina) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "out_of_stamina" as const,
+          stamina: applyRegen(stamina, now, staminaMax),
+        },
+      };
     }
 
     // === 2. derive preload (hunt 와 동일 락 순서: character→equipment→skills→proficiency) ===

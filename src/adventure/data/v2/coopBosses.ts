@@ -136,20 +136,19 @@ export function rollCoopUnique(
 // 보스를 통째 못 가져가게 하는 1차 가드(2차는 티어 캡·쿨다운).
 export const COOP_ATTACK_TURNS = 20;
 
-// 공격 스태미너 비용 — 일반 사냥(HUNT_COST=1)의 20배. ⚠️ 캘리브 다이얼. (코어루프 on 이면
-// 스태미나 폐지 → 무료, 소환권이 비용. coopAttackCooldownMs 의 180초가 throttle.)
-export const COOP_ATTACK_STAMINA_COST = 20;
+// 공격 스태미너 비용 — 짧은 10초 쿨다운 대신 공격마다 큰 스태미나를 소모한다.
+export const COOP_ATTACK_STAMINA_COST = 50;
 
 // 재공격 쿨다운(ms) — 유저별(lastAttackAt). 매크로/원맨 클리어 견제. ⚠️ 캘리브 다이얼.
-export const COOP_ATTACK_COOLDOWN_MS = 2 * 60 * 1000; // 120s — flag off(스태미나 모델)
-export const COOP_ATTACK_COOLDOWN_MS_V2 = 180 * 1000; // 180s — 코어루프(무료 공격 throttle, 유저 확정)
-// 코어루프 on 이면 180s, off 면 120s.
+export const COOP_ATTACK_COOLDOWN_MS = 10 * 1000;
+export const COOP_ATTACK_COOLDOWN_MS_V2 = 10 * 1000;
+// 코어루프 on/off 모두 10초. 분기 함수는 기존 호출부 호환을 위해 유지한다.
 export function coopAttackCooldownMs(): number {
   return V2_CORE_LOOP_V2 ? COOP_ATTACK_COOLDOWN_MS_V2 : COOP_ATTACK_COOLDOWN_MS;
 }
 
 // === 가시성/공격 권한 — 코어루프 협동보스 리워크 ===========================
-// 소환권이 비용이라 권한자는 무료 공격. 소환 시 소환자가 공개 범위를 고른다.
+// 소환 시 소환자가 공개 범위를 고른다. 공격 비용은 스태미나가 담당한다.
 export type CoopVisibility = "public" | "guild_only" | "summoner_only";
 export const COOP_VISIBILITY_VALUES: readonly CoopVisibility[] = [
   "public",
@@ -195,7 +194,7 @@ export function canAccessCoopBoss(
 
 // 같은 종류 동시 소환 상한 — 소환서 비용이 1차 게이트라 느슨한 안전캡(목록/쿼리 비대화 방지).
 // ⚠️ 캘리브 다이얼.
-export const MAX_ACTIVE_PER_KIND = 5;
+export const MAX_ACTIVE_PER_KIND = 20;
 
 // === 보스 정의 =========================================================
 
@@ -352,7 +351,7 @@ export function coopBossDurationLabel(kind: CoopBossKind): string {
   return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
 }
 
-// 3단 사다리 — 소환서 5/10/20장, 시뮬 스탯은 깊이 12/24/42 스케일(상위 보스일수록
+// 3단 사다리 — 소환서 10/15/20장, 시뮬 스탯은 깊이 12/24/42 스케일(상위 보스일수록
 // 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·보상은 ⚠️ 라이브 캘리브.
 // 보상 = SP 열매뿐(COOP_SP_FRUIT_CHANCE·티어별 확률 굴림). 골드·유니크·칭호 보상 폐지(2026-06-26).
 export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
@@ -360,7 +359,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     id: "mountain_chief",
     name: "산군",
     desc: "산을 틀어쥔 채 군림하는 자. 분노하면 바위도 갈라지는 강타를 휘두른다.",
-    scrollCost: 5,
+    scrollCost: 10,
     sharedMaxHp: 30_000,
     anchorDepth: 12,
     base: MOUNTAIN_CHIEF_BASE,
@@ -398,7 +397,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     id: "canyon_predator",
     name: "스콜피온 킹",
     desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 전갈. 절벽조차 집게로 꿰뚫는다.",
-    scrollCost: 10,
+    scrollCost: 15,
     sharedMaxHp: 80_000,
     anchorDepth: 24,
     base: CANYON_PREDATOR_BASE,

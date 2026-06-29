@@ -80,7 +80,7 @@ export function V2CoopBossListView({
         사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
       </p>
 
-      {/* 코어루프 — 소환 공개 범위(권한자는 무료 공격). flag off 면 미표시(항상 공개). */}
+      {/* 코어루프 — 소환 공개 범위. flag off 면 미표시(항상 공개). */}
       {V2_CORE_LOOP_V2 && (
         <Card padding="sm">
           <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">

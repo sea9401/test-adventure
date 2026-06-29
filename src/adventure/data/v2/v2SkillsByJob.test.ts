@@ -455,9 +455,10 @@ describe("직업 킷 — 액티브 스킬", () => {
     expect(eff).toMatchObject({ kind: "damage" });
   });
 
-  it("마력탄 = 0코스트 마법 단일타", () => {
+  it("마력탄 = 0코스트 100% 발동 마법 단일타", () => {
     const s = V2_SKILLS.v2c_mage_boltcast;
     expect(s.mpCost).toBe(0);
+    expect(s.procChance).toBe(100);
     expect(s.effects[0]).toMatchObject({ kind: "damage", scaling: "magic" });
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
@@ -10,13 +10,14 @@ import { OutpostAttackLog } from "../OutpostAttackLog";
 import { V2VillagePanel } from "../V2VillagePanel";
 import DefendPanel from "../DefendPanel";
 
-// 내 거점 활동 탭 — 생산 / 대장간 / (수비) / 최근 공격 기록 / (마스터·부마스터) 관리.
+// 내 거점 활동 탭 — 관리 / 대장간 / (수비) / 최근 공격 기록.
 export type ActivityTab =
-  | "produce"
   | "smithy"
   | "attacks"
   | "manage"
   | "defend";
+
+type ActivityTabDef = { key: ActivityTab; label: string };
 
 type VillageSummary = {
   outpostId: string;
@@ -62,27 +63,33 @@ export function OutpostActivityTabs({
     };
   }, [outpostId]);
 
+  const tabs = useMemo<ActivityTabDef[]>(
+    () => [
+      ...(canManageSettlement
+        ? [{ key: "manage" as const, label: "관리" }]
+        : []),
+      ...(hasLocalSmithy
+        ? [{ key: "smithy" as const, label: "대장간" }]
+        : []),
+      ...(V2_SETTLEMENT_WARFARE
+        ? [{ key: "defend" as const, label: "수비" }]
+        : []),
+      { key: "attacks", label: "최근 공격 기록" },
+    ],
+    [canManageSettlement, hasLocalSmithy],
+  );
+
   useEffect(() => {
-    if (activityTab === "smithy" && !hasLocalSmithy) {
-      onTabChange("produce");
+    if (!tabs.some((tab) => tab.key === activityTab)) {
+      onTabChange(tabs[0]?.key ?? "attacks");
     }
-  }, [activityTab, hasLocalSmithy, onTabChange]);
+  }, [activityTab, onTabChange, tabs]);
 
   return (
     <>
       <HeaderPanel className="py-2">
         <TabBar
-          tabs={[
-            { key: "produce", label: "생산" },
-            ...(hasLocalSmithy ? [{ key: "smithy", label: "대장간" }] : []),
-            ...(V2_SETTLEMENT_WARFARE
-              ? [{ key: "defend", label: "수비" }]
-              : []),
-            { key: "attacks", label: "최근 공격 기록" },
-            ...(canManageSettlement
-              ? [{ key: "manage", label: "관리" }]
-              : []),
-          ]}
+          tabs={tabs}
           active={activityTab}
           onChange={(k) => onTabChange(k as ActivityTab)}
           ariaLabel="거점 활동 탭"
@@ -90,9 +97,6 @@ export function OutpostActivityTabs({
           variant="highlight"
         />
       </HeaderPanel>
-      {activityTab === "produce" && (
-        <V2VillagePanel outpostId={outpostId} mode="produce" />
-      )}
       {activityTab === "smithy" && hasLocalSmithy && (
         <GuildWorkshopPanel info={null} localSmithy />
       )}
@@ -102,9 +106,8 @@ export function OutpostActivityTabs({
       {activityTab === "attacks" && (
         <OutpostAttackLog outpostId={outpostId} reloadKey={attackLogReload} />
       )}
-      {/* 정책·세율·영주 관리는 길드 홈 "관리 > 거점 정책" 탭으로 이전(일원화). */}
       {activityTab === "manage" && canManageSettlement && (
-        <V2VillagePanel outpostId={outpostId} mode="manage" />
+        <V2VillagePanel outpostId={outpostId} />
       )}
     </>
   );

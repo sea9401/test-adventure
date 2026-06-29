@@ -43,9 +43,8 @@ import {
   SETTLEMENT_MATERIALS,
 } from "@/adventure/data/v2/settlementMaterials";
 
-// 길드 마을 패널 — 점령 거점 상세(OutpostView)에 노출. mode 로 두 화면을 분리:
-//   - produce(탭, 길드원 전원): 정착지 재화 풀 + 재료 기부 + 건축물 슬롯 보기.
-//   - manage(관리 탭, 마스터/부마스터): 마을 건설(이름)·이름 변경·건축물 슬롯 해금·배치·단계 업그레이드.
+// 길드 마을 관리 패널 — 점령 거점 상세(OutpostView)에 노출.
+//   마스터/부마스터: 마을 건설(이름)·이름 변경·건축물 슬롯 해금·배치·단계 업그레이드.
 //   [PR-3] 슬롯 생산 폐지 — 슬롯은 영지 건축물 자리. crop/ore 는 사냥 드랍→기부+업글로만.
 
 type Village = {
@@ -89,10 +88,8 @@ function buildingAt(village: Village, slot: number): SettlementBuildingSlot | nu
 
 export function V2VillagePanel({
   outpostId,
-  mode = "produce",
 }: {
   outpostId: string;
-  mode?: "produce" | "manage";
 }) {
   // 거점 표시 이름(헤더·지도)은 GameState occupations.villageName 에서 옴 — 건설/개명 후
   //   동기화해야 같은 화면 헤더가 즉시 새 이름으로 갱신된다.
@@ -422,38 +419,7 @@ export function V2VillagePanel({
     </div>
   ) : null;
 
-  // ── 생산 탭 ── 건축물 슬롯 그리드(전원). 미건설/미해금이면 관리 탭 안내. ───────────
-  if (mode === "produce") {
-    return (
-      <section className={`${SURFACE_CARD} space-y-2 p-3`}>
-        {header}
-        {!built ? (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            아직 마을이 없어요. 관리 탭에서 마을을 건설하세요.
-          </p>
-        ) : (
-          <>
-            {resourcePool}
-            {donateBox}
-            {village!.unlockedSlots === 0 ? (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                아직 해금된 건축물 슬롯이 없어요. 관리 탭에서 슬롯을 해금할 수 있어요.
-              </p>
-            ) : (
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                해금한 슬롯에는 영지 건축물을 배치할 수 있습니다. 통나무·철광석은 사냥에서
-                얻어 위 풀에 기부하세요.
-              </p>
-            )}
-            {renderGrid()}
-          </>
-        )}
-        {errBox}
-      </section>
-    );
-  }
-
-  // ── 관리 탭 ── 건설(이름)·이름 변경·건축물 슬롯 해금·건물 배치·단계 업그레이드. ─────
+  // ── 관리 ── 건설(이름)·이름 변경·재료 기부·건축물 슬롯 해금·건물 배치·단계 업그레이드.
   const next = village ? nextTier(village.tier) : null;
   // 리베라(중앙) 거리 비용 배수 — 타일이면 거리 스케일, 카탈로그 거점이면 기본(불변). 서버 과금과 일치.
   const tilePos = parseTileOutpostId(outpostId);
@@ -587,6 +553,7 @@ export function V2VillagePanel({
       ) : (
         <>
           {resourcePool}
+          {donateBox}
           <div className="text-xs text-zinc-600 dark:text-zinc-300">
             {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드

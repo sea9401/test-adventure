@@ -31,7 +31,7 @@ describe("v2 랜덤 레벨 성장", () => {
     expect(total).toBe(60 - base + V2_GROWTH_POINTS_PER_LEVEL); // 5점 다른 스탯
   });
 
-  it("none(무직) = 균등 가중, 비파괴", () => {
+  it("none(모험가) = 균등 가중, 비파괴", () => {
     const grown0 = { str: 2 };
     const grown = rollLevelGrowth(grown0, "none", emptyProficiency(), () => 0.99);
     const total = Object.values(grown).reduce((a, b) => a + (b ?? 0), 0);

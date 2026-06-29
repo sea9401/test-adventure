@@ -45,7 +45,7 @@ export type V2CharacterCardData = {
   mp?: number;
   maxMp?: number;
   gold: number;
-  /** 직업 id (raw V2Class). 없으면 "무직"으로 표시. */
+  /** 직업 id (raw V2Class). 없으면 "모험가"로 표시. */
   class?: string;
   /**
    * 서버가 산출한 직업 표시명 — 직업 시스템 on 이면 직업 카탈로그 이름(견습 병사·방패병 등),

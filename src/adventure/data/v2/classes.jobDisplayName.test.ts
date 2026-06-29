@@ -25,7 +25,7 @@ describe("jobDisplayName", () => {
     expect(jobDisplayName("rogue", "assassin")).toBe("자객");
   });
 
-  it("무직 = 모험가", () => {
+  it("none = 모험가", () => {
     expect(jobDisplayName("none", null)).toBe("모험가");
   });
 });

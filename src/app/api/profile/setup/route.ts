@@ -140,7 +140,7 @@ export async function POST(req: Request) {
 
       const profile = { name, gender: submittedGender };
       await upsertSave(tx, uid, PROFILE_STORAGE_KEY, profile);
-      // v2 스킬 키트 = 숙련도로 학습한 시그니처뿐 (자동부여 폐지). 신규 캐는 무직(none)·
+      // v2 스킬 키트 = 숙련도로 학습한 시그니처뿐 (자동부여 폐지). 신규 캐는 모험가(none)·
       // 미학습이라 시드할 스킬 없음 — 학습/전직 시 reconcileV2EquippedSkills 가 equipped reconcile.
       // 장비 시드보다 먼저 호출 — reconcile 이 character.v2 → skills.v2 를 잠그므로 character-first
       // 락 순서(다른 경로의 character→equipment 와 prefix 일치)를 지켜 데드락을 막는다.

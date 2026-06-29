@@ -44,7 +44,7 @@ export type V2CommonSkillId =
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   | "v2c_survivor_firstaid" // 응급 처치 (잃은 HP 회복)
   | "v2c_survivor_knowledge" // 생존 지식 (최대 HP)
-  // 모험가(무직) 킷 — 착용형 패시브 2종
+  // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
   // ── 상위 직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
@@ -307,7 +307,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxHpPct: 10 },
   },
 
-  // ── 모험가(무직) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──
+  // ── 모험가(none) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──
   v2c_none_toughness: {
     id: "v2c_none_toughness", name: "강인함", stat: "vit", category: "passive", tier: 1,
     description: "모험으로 단련된 몸. 최대 체력이 늘어난다.", mpCost: 0, cooldown: 0,

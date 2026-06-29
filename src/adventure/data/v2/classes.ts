@@ -70,10 +70,11 @@ export function tierCodexMin(tier: number): number | undefined {
 export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   none: {
     id: "none",
-    name: "무직",
-    group: "-",
+    name: "모험가",
+    group: "시작 상태",
     anchorStat: "str",
-    description: "직업 미선택.",
+    description:
+      "모든 캐릭터의 시작 상태. 직업 숙련도와 정복 보상은 쌓이지 않지만 기본 킷을 배울 수 있다.",
   },
   warrior: {
     id: "warrior",
@@ -171,7 +172,7 @@ export function elementalSkillsForClass(
   specId?: string | null,
   _specTier?: number,
 ): V2SkillId[] {
-  // 모험가(무직)도 자기 킷(착용형 패시브 2종)을 학습/장착할 수 있다 — 차수 게이트 없이 둘 다.
+  // 모험가(none)도 자기 킷(착용형 패시브 2종)을 학습/장착할 수 있다 — 차수 게이트 없이 둘 다.
   if (c === "none") return [...skillsForJob("none")];
   return [...skillsForJob(jobIdFromLegacy(c, specId ?? null))];
 }

@@ -714,7 +714,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   //   값(prof.groups[현직군].tier ?? 1)이라, 캡 산출용 proficiency 재select(판당 1회) 불필요.
   //   (none 은 derive classTier=1 로 떨어지므로 분기 유지 — 권위 cumLevel 쓰기는 아래 락.)
   const capGroup = tier1ClassOf(parseV2Class(charSave.class));
-  // 코어루프 on = 단일 캡(V2_LEVEL_CAP 100)·차수 무관. off = 기존 차수 캡(무직은 4차 캡으로 미상한).
+  // 코어루프 on = 단일 캡(V2_LEVEL_CAP 100)·차수 무관. off = 기존 차수 캡(none 은 4차 캡으로 미상한).
   const levelCap =
     capGroup === "none"
       ? effectiveLevelCap(4)

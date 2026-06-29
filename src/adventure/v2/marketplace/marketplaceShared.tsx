@@ -4,6 +4,7 @@
 import {
   V2_EQUIPMENT,
   effectiveStats,
+  parseEquipRoll,
   v2EquipPowerLabel,
   v2EquipStatRows,
   type V2Equipment,
@@ -41,6 +42,12 @@ export type MarketplacePager<T> = {
   pageItems: T[];
   setPage: (n: number) => void;
 };
+
+// 매물 payload 는 옛 raw roll 또는 { power, weight, options, enhance, craftedBy } 혼합형이다.
+// craftedBy/enhance 만 있는 제작품은 roll 이 없으므로 undefined 로 정규화해야 카탈로그 스탯을 쓴다.
+export function listingEquipRoll(payload: unknown): V2EquipRoll | undefined {
+  return parseEquipRoll(payload);
+}
 
 // 장비 스탯 한 줄(개체 굴림 반영) — 기본 전투 스탯 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
 //   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.

@@ -17,8 +17,8 @@ import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { tileUnlockSlot } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/unlock-slot — body { outpostId }
-// 판의 다음 칸을 길드 금고 골드로 연다. [PR-3] 슬롯 생산 폐지 — 종류 선택 없음(자리표시 칸).
-//   마스터/부마스터 전용. 칸마다 누진 골드(5천만/1억). 판이 꽉 차면 at_max(단계 업그레이드로).
+// 다음 건축물 슬롯을 길드 금고 골드로 연다. [PR-3] 슬롯 생산 폐지 — 종류 선택 없음.
+//   마스터/부마스터 전용. 슬롯마다 누진 골드(현재 1슬롯 정책이라 첫 슬롯만 사용). 가득 차면 at_max.
 // lock 순서: 점령행 → 마을 → 길드 자원(골드 풀). 타 라우트 공통(단일 길드 자원 row).
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      // 칸 해금 = 마스터/부마스터 전용(관리 탭).
+      // 건축물 슬롯 해금 = 마스터/부마스터 전용(관리 탭).
       if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
         return {
           status: 403,
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
           },
         };
       }
-      // 다음 칸을 열고 길드 골드 차감. [PR-3] 종류 선택 없음(슬롯=자리표시).
+      // 다음 건축물 슬롯을 열고 길드 골드 차감.
       village.unlockedSlots += 1;
       const remaining = res.gold - check.cost;
       await upsertVillage(tx, village);

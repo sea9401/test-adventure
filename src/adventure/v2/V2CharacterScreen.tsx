@@ -75,6 +75,26 @@ type StateResponse = {
     };
     groups?: Record<string, { tier?: number }>;
   };
+  artisan?: {
+    blacksmith?: {
+      level: number;
+      xp: number;
+      crafts: number;
+      xpIntoLevel: number;
+      xpForNext: number;
+      totalCrafts: number;
+      qualityCrafts: number;
+      equippedSelfCrafts?: number;
+      signatureCraft?: {
+        iid: string;
+        id: string;
+        name: string;
+        slot: string;
+        tier: number;
+        enhanceLevel: number;
+      } | null;
+    };
+  };
 };
 
 type EquipmentResponse = {
@@ -186,6 +206,66 @@ export function V2CharacterScreen({
           battleCount={state?.battleCount ?? 0}
           power={combat?.power ?? 0}
         />
+      )}
+
+      {character && state?.artisan?.blacksmith && (
+        <Card padding="md">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  장인
+                </div>
+                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  대장장이 Lv {state.artisan.blacksmith.level} · 숙련도{" "}
+                  {state.artisan.blacksmith.xpIntoLevel.toLocaleString()}/
+                  {state.artisan.blacksmith.xpForNext.toLocaleString()}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-right text-xs">
+                <div>
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {state.artisan.blacksmith.totalCrafts.toLocaleString()}회
+                  </div>
+                  <div className="text-zinc-500 dark:text-zinc-400">제작</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {state.artisan.blacksmith.qualityCrafts.toLocaleString()}회
+                  </div>
+                  <div className="text-zinc-500 dark:text-zinc-400">
+                    품질 제작
+                  </div>
+                </div>
+              </div>
+            </div>
+            {state.artisan.blacksmith.signatureCraft ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="text-emerald-700 dark:text-emerald-300">
+                  대표 제작품
+                </div>
+                <div className="mt-1 font-semibold text-emerald-950 dark:text-emerald-50">
+                  {state.artisan.blacksmith.signatureCraft.name}
+                  {state.artisan.blacksmith.signatureCraft.enhanceLevel > 0
+                    ? ` +${state.artisan.blacksmith.signatureCraft.enhanceLevel}`
+                    : ""}
+                </div>
+                <div className="mt-0.5 text-emerald-700 dark:text-emerald-300">
+                  T{state.artisan.blacksmith.signatureCraft.tier} · 장착 중인
+                  본인 제작품{" "}
+                  {(
+                    state.artisan.blacksmith.equippedSelfCrafts ?? 0
+                  ).toLocaleString()}
+                  개
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                장착 중인 본인 제작품이 없습니다.
+              </div>
+            )}
+          </div>
+        </Card>
       )}
 
       {stats && combat && (

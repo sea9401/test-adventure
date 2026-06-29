@@ -113,12 +113,13 @@ export async function POST(req: Request) {
           quantity: 1,
           price,
           // roll 스냅샷(iid 제외) — 구매 시 새 개체로 복원. roll 없으면 null.
-          // 굴림 + 강화를 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
+          // 굴림 + 강화 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
           instancePayload:
-            inst.roll || inst.enhance
+            inst.roll || inst.enhance || inst.craftedBy
               ? {
                   ...(inst.roll ?? {}),
                   ...(inst.enhance ? { enhance: inst.enhance } : {}),
+                  ...(inst.craftedBy ? { craftedBy: inst.craftedBy } : {}),
                 }
               : null,
         })

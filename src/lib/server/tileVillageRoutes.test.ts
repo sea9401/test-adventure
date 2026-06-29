@@ -124,6 +124,7 @@ function village(over: Partial<VillageRow>): Record<string, unknown> {
     productionKind: null,
     unlockedSlots: MAX_SLOTS_BY_TIER.village,
     slotKinds: {},
+    buildings: {},
     jobs: {},
     ...over,
   };

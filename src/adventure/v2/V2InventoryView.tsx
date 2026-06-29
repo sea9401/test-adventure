@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Button } from "@/components/ui/Button";
 import {
@@ -78,8 +79,21 @@ const INVENTORY_PAGE_SIZE = 20;
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
+function itemTabFromParam(value: string | null): V2ItemTabKey {
+  return V2_ITEM_TABS.some((tab) => tab.key === value)
+    ? (value as V2ItemTabKey)
+    : "weapon";
+}
+
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<V2ItemTabKey>("weapon");
+  const tabParam = useSearchParams().get("tab");
+  const itemParam = useSearchParams().get("item");
+  const [tab, setTab] = useState<V2ItemTabKey>(() =>
+    itemTabFromParam(tabParam),
+  );
+  useEffect(() => {
+    setTab(itemTabFromParam(tabParam));
+  }, [tabParam]);
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모는 서버 권위. 만료 없음).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
@@ -380,6 +394,23 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     return groups;
   }, [owned]);
 
+  useEffect(() => {
+    if (!itemParam || loading) return;
+    const inst = owned.find((item) => item.iid === itemParam);
+    if (!inst) return;
+    const item = V2_EQUIPMENT[inst.id];
+    if (!item) return;
+    setTab(item.slot);
+    setCard({
+      inst,
+      anchor: {
+        top: Math.max(80, Math.floor(window.innerHeight * 0.28)),
+        bottom: Math.max(120, Math.floor(window.innerHeight * 0.28) + 32),
+        left: Math.max(24, Math.floor(window.innerWidth * 0.5) - 128),
+      },
+    });
+  }, [itemParam, loading, owned]);
+
   return (
     <PageShell>
       <SubViewHeader title="인벤토리" onBack={onBack} />
@@ -569,6 +600,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               item={candItem}
               roll={card.inst.roll}
               enhance={card.inst.enhance}
+              craftedBy={card.inst.craftedBy}
               anchor={card.anchor}
               onClose={() => setCard(null)}
               equippedIds={equippedItemIds}

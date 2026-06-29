@@ -1,4 +1,5 @@
 import type { OutpostType } from "@/adventure/data/v2/types";
+import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
 import {
   TILE_TIER_LABEL,
   isTileSettlementTier,
@@ -75,6 +76,17 @@ export type GuildInfoResponse = {
     job: string;
     lastSeenAt: string | null;
     honorEarned: number;
+    artisan?: {
+      blacksmith?: {
+        level: number;
+        xp: number;
+        crafts: number;
+        xpIntoLevel: number;
+        xpForNext: number;
+        totalCrafts: number;
+        qualityCrafts: number;
+      };
+    };
   }[];
   isMaster?: boolean;
   isManager?: boolean;
@@ -85,6 +97,9 @@ export type GuildInfoResponse = {
   canDeclareNation?: boolean;
   // 길드 공용 골드 풀 보유량.
   guildGold?: number;
+  // 길드 소유 마을에 배치된 영지 건축물 수.
+  settlementBuildings?: Partial<Record<SettlementBuildingId, number>>;
+  hasGuildSmithy?: boolean;
   // 다른 활성 길드가 이미 쓰는 색(선착순) — 색 picker 비활성용.
   takenColors?: string[];
   // 무소속일 때만 — 재가입 쿨다운 만료 시각(ISO). 활성 아니면 null/부재.
@@ -104,7 +119,13 @@ export function settleTierLabel(t: string): string {
   return isTileSettlementTier(t) ? TILE_TIER_LABEL[t] : t;
 }
 
-export type GuildSubTab = "info" | "members" | "manage" | "outposts" | "honor_shop";
+export type GuildSubTab =
+  | "info"
+  | "members"
+  | "manage"
+  | "outposts"
+  | "workshop"
+  | "honor_shop";
 // 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·거점 정책·길드 설정(엠블럼·색·국가·해산).
 export type GuildManageTab = "members" | "territory" | "settings";
 

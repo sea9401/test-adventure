@@ -22,9 +22,12 @@ import {
   INITIAL_UNLOCKED_SLOTS,
   MAX_SLOTS_BY_TIER,
   clampUnlockedSlots,
+  isSettlementBuildingId,
+  settlementBuildingSlot,
   type VillageTier,
   type ProductionJob,
   type ProductionKind,
+  type SettlementBuildings,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 
@@ -45,6 +48,8 @@ export type VillageRow = {
   unlockedSlots: number;
   /** 칸 인덱스 → 생산 종류(해금 시 선택, 영구). 슬롯 i 는 slotKinds[i] 만 생산. */
   slotKinds: Record<number, ProductionKind>;
+  /** 건축물 슬롯 인덱스 → 건축물 id. */
+  buildings: SettlementBuildings;
   /** 슬롯(문자열 인덱스) → 진행 중 작업. 빈 슬롯은 키 없음. */
   jobs: Record<string, ProductionJob>;
 };
@@ -133,6 +138,31 @@ function parseSlotKinds(
   return out;
 }
 
+function parseBuildings(
+  v: unknown,
+  unlockedSlots: number,
+): SettlementBuildings {
+  const out: SettlementBuildings = {};
+  if (typeof v !== "object" || v === null) return out;
+  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+    const idx = Number(k);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= unlockedSlots || String(idx) !== k) {
+      continue;
+    }
+    if (isSettlementBuildingId(raw)) {
+      out[idx] = settlementBuildingSlot(raw, 1);
+      continue;
+    }
+    if (typeof raw === "object" && raw !== null && !Array.isArray(raw)) {
+      const obj = raw as Record<string, unknown>;
+      if (isSettlementBuildingId(obj.id)) {
+        out[idx] = settlementBuildingSlot(obj.id, obj.level);
+      }
+    }
+  }
+  return out;
+}
+
 // 점령 이관 정규화 — village row 가 현 소유 길드와 다르면(빼앗긴 거점) 현 길드 소유로 갱신하고
 //   진행 중 작업을 비운다(이전 길드의 작물은 승계 안 함). tier/name(점령한 구조물)은 유지.
 //   → GET 목록의 "내 마을" 귀속·수확 재화 귀속이 항상 현 소유자 기준이 되도록.
@@ -171,6 +201,7 @@ export async function lockVillage(
     productionKind,
     unlockedSlots,
     slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
+    buildings: parseBuildings(row.buildings, unlockedSlots),
     jobs,
   };
 }
@@ -201,6 +232,7 @@ export async function readVillage(
     productionKind,
     unlockedSlots,
     slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
+    buildings: parseBuildings(row.buildings, unlockedSlots),
     jobs,
   };
 }
@@ -228,6 +260,7 @@ export async function readVillagesOfGuild(
       productionKind,
       unlockedSlots,
       slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
+      buildings: parseBuildings(row.buildings, unlockedSlots),
       jobs,
     };
   });
@@ -245,6 +278,7 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
       productionKind: row.productionKind,
       unlockedSlots: row.unlockedSlots,
       slotKinds: row.slotKinds,
+      buildings: row.buildings,
       jobs: row.jobs,
     })
     .onConflictDoUpdate({
@@ -257,6 +291,7 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
         productionKind: row.productionKind,
         unlockedSlots: row.unlockedSlots,
         slotKinds: row.slotKinds,
+        buildings: row.buildings,
         jobs: row.jobs,
       },
     });

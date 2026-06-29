@@ -8,7 +8,20 @@ export type GuildActivity = {
   type: string;
   actorName: string | null;
   targetName: string | null;
-  meta: { amount?: number; role?: string; nationName?: string } | null;
+  meta: {
+    amount?: number;
+    role?: string;
+    nationName?: string;
+    questTitle?: string;
+    deliveryTitle?: string;
+    itemName?: string;
+    smithyLevel?: number;
+    artisanXp?: number;
+    artisanRank?: number;
+    titleName?: string;
+    rewardGold?: number;
+    rewardFame?: number;
+  } | null;
   createdAt: string;
 };
 
@@ -47,6 +60,18 @@ function describe(a: GuildActivity): string {
     }
     case "gold_deposit":
       return `${actor} 님이 금고에 ${(a.meta?.amount ?? 0).toLocaleString()} G 입금했어요`;
+    case "workshop_weekly_claim":
+      return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
+    case "workshop_delivery":
+      return `${actor} 님이 ${a.meta?.deliveryTitle ?? "제작품 납품"}을 완료했어요`;
+    case "workshop_craft_only":
+      return `${actor} 님이 ${a.meta?.itemName ?? "제작 전용 장비"} 제작에 성공했어요`;
+    case "artisan_rank_reward":
+      return `${actor} 님이 장인 랭킹 ${a.meta?.artisanRank ?? "?"}위 보상${a.meta?.titleName ? ` (${a.meta.titleName})` : ""}을 수령했어요${
+        a.meta?.rewardFame ? ` · 명성 +${a.meta.rewardFame.toLocaleString()}` : ""
+      }`;
+    case "smithy_upgrade":
+      return `${actor} 님이 길드 대장간을 Lv ${a.meta?.smithyLevel ?? "?"}로 업그레이드했어요`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -60,6 +85,11 @@ const DOT_CLASS: Record<string, string> = {
   member_join: "bg-emerald-500",
   role_change: "bg-sky-500",
   gold_deposit: "bg-yellow-500",
+  workshop_weekly_claim: "bg-emerald-500",
+  workshop_delivery: "bg-teal-500",
+  workshop_craft_only: "bg-emerald-500",
+  artisan_rank_reward: "bg-amber-500",
+  smithy_upgrade: "bg-orange-500",
   nation_declare: "bg-indigo-500",
 };
 

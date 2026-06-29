@@ -37,6 +37,7 @@ export async function GET() {
     advLogRaw,
     equipmentRaw,
     skillsRaw,
+    craftingRaw,
     guideRaw,
     repeatRaw,
     extras,
@@ -46,6 +47,7 @@ export async function GET() {
     readSave(db, userId, "adventure-log.v2", {}),
     readSave(db, userId, "equipment.v2", {}),
     readSave(db, userId, "skills.v2", {}),
+    readSave(db, userId, "crafting.v2", {}),
     readSave(db, userId, GUIDE_QUESTS_KEY, {}),
     readSave(db, userId, REPEAT_QUESTS_KEY, {}),
     assembleQuestExtras(db, userId),
@@ -57,6 +59,7 @@ export async function GET() {
     advLogRaw,
     equipmentRaw,
     skillsRaw,
+    craftingRaw,
     extras,
   });
   const claimed = parseClaimed(guideRaw);

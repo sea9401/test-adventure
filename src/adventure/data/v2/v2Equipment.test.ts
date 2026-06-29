@@ -6,6 +6,7 @@ import {
   V2_EQUIP_OPTION_KEYS,
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
+  effectiveStats,
   signatureLabel,
   isUnique,
   parseEquipmentSave,
@@ -196,15 +197,35 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 18 + 전문화 스타터 3 (제작전용 0; 장갑/신발 중갑 폐기 후)", () => {
+function optionBudget(item: V2Equipment): number {
+  const options = item.options ?? {};
+  return (
+    (options.crit ?? 0) * 4 +
+    (options.eva ?? 0) * 4 +
+    (options.mp ?? 0) * 0.12 +
+    (options.hp ?? 0) * 0.1 +
+    (options.critMult ?? 0) * 0.5 +
+    (options.spd ?? 0) * 2 +
+    (options.def ?? 0) * 1.5 +
+    (options.magicDef ?? 0) * 1.5 +
+    (options.healPowerPct ?? 0) * 2 +
+    (options.critResist ?? 0) * 2
+  );
+}
+
+function combatBudget(item: V2Equipment): number {
+  return effectiveStats(item, undefined).power + optionBudget(item);
+}
+
+describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
+  it("정규 그리드 29종 + 유니크 26 + 제작전용 10 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 104:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
     //   전문화 스타터 3 · noDrop 81(밴드 흔한 풀 81, 강등된 옛 필드 유니크 포함) · 유니크 26
     //     (고유 아이템 15 + 보스 3). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 15 → unique. 검은 왕도 noDrop 12종 + 고유 5종 추가.
-    //     총 136 = 정규 29 + 유니크 26 + 전문화 스타터 3 + noDrop 81.
+    //     총 146 = 정규 29 + 유니크 26 + 제작전용 10 + 전문화 스타터 3 + noDrop 81.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -213,7 +234,7 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(26);
-    expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(10);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(81);
   });
@@ -231,6 +252,26 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
       }
       // 정규 그리드는 티어 무관 전부 판매 가능(드랍 장비 환금).
       expect(shopPriceForSell(it), `${it.id} 판매가능`).toBeGreaterThan(0);
+    }
+  });
+
+  it("제작 전용 장비는 상점 구매 불가지만 판매가는 가진다", () => {
+    const crafted = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
+    expect(crafted.map((i) => i.id).sort()).toEqual([
+      "v2_crafted_aether_necklace",
+      "v2_crafted_aurora_crown",
+      "v2_crafted_gale_bow",
+      "v2_crafted_master_ring",
+      "v2_crafted_oathblade",
+      "v2_crafted_runic_staff",
+      "v2_crafted_spark_gloves",
+      "v2_crafted_sunforge_blade",
+      "v2_crafted_ward_plate",
+      "v2_crafted_windstep_boots",
+    ]);
+    for (const item of crafted) {
+      expect(shopPriceOf(item), `${item.id} 구매불가`).toBeUndefined();
+      expect(sellPriceOf(item), `${item.id} 판매가`).toBeGreaterThan(0);
     }
   });
 
@@ -271,6 +312,63 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
         expect(Object.keys(threshold.bonus).length, `${set.id} bonus`).toBeGreaterThan(0);
         prev = threshold.count;
       }
+    }
+  });
+
+  it("제작 전용 장비는 장인표 태그 세트 8종을 구성한다", () => {
+    const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
+    expect(crafted).toHaveLength(10);
+    expect(crafted.every((item) => item.setTags?.includes("artisan_crafted"))).toBe(
+      true,
+    );
+    const set = V2_EQUIP_TAG_SETS.find((s) => s.id === "artisan_crafted");
+    expect(set?.thresholds.map((t) => t.count)).toEqual([2, 4, 6, 8, 10]);
+  });
+
+  it("제작 전용 장비는 정규 T3 사이드그레이드 위력 범위에 머문다", () => {
+    const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
+    for (const item of crafted) {
+      expect(item.tier, `${item.id} tier`).toBe(3);
+      const regularT3 = v2EquipmentBySlot(item.slot).filter(
+        (candidate) =>
+          candidate.tier === 3 &&
+          !isUnique(candidate) &&
+          !candidate.craftOnly &&
+          !candidate.starterOnly &&
+          !candidate.noDrop,
+      );
+      expect(regularT3.length, `${item.id} regular T3 peers`).toBeGreaterThan(0);
+      const powers = regularT3.map((candidate) => effectiveStats(candidate, undefined).power);
+      const minRegular = Math.min(...powers);
+      const maxRegular = Math.max(...powers);
+      const craftedPower = effectiveStats(item, undefined).power;
+      expect(craftedPower, `${item.id} below regular T3 floor`).toBeGreaterThanOrEqual(
+        minRegular,
+      );
+      expect(craftedPower, `${item.id} above sidegrade ceiling`).toBeLessThanOrEqual(
+        Math.ceil(maxRegular * 1.35) + 2,
+      );
+    }
+  });
+
+  it("제작 전용 장비는 정규 T3 옵션 포함 전투 예산을 과하게 넘지 않는다", () => {
+    const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
+    for (const item of crafted) {
+      const regularT3 = v2EquipmentBySlot(item.slot).filter(
+        (candidate) =>
+          candidate.tier === 3 &&
+          !isUnique(candidate) &&
+          !candidate.craftOnly &&
+          !candidate.starterOnly &&
+          !candidate.noDrop,
+      );
+      const regularBudgets = regularT3.map(combatBudget);
+      const maxRegular = Math.max(...regularBudgets);
+      const craftedBudget = combatBudget(item);
+      expect(
+        craftedBudget,
+        `${item.id} option/power budget above sidegrade ceiling`,
+      ).toBeLessThanOrEqual(Math.ceil(maxRegular * 1.6));
     }
   });
 
@@ -538,6 +636,37 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.find((i) => i.iid === "b2")).not.toHaveProperty("locked");
     expect(r.owned.find((i) => i.iid === "c3")).not.toHaveProperty("locked");
     expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("locked");
+  });
+
+  it("craftedBy 제작자 표식을 보존하고 정규화", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "a1",
+          id: "v2_iron_sword",
+          craftedBy: {
+            userId: "u1",
+            name: "  장인  ",
+            profession: "blacksmith",
+            level: 2.9,
+            craftedAt: "2026-06-29T00:00:00.000Z",
+          },
+        },
+        {
+          iid: "b2",
+          id: "v2_iron_sword",
+          craftedBy: { userId: "u2", profession: "alchemy", level: 9 },
+        },
+      ],
+    });
+    expect(r.owned[0].craftedBy).toEqual({
+      userId: "u1",
+      name: "장인",
+      profession: "blacksmith",
+      level: 2,
+      craftedAt: "2026-06-29T00:00:00.000Z",
+    });
+    expect(r.owned[1].craftedBy).toBeUndefined();
   });
 
 });

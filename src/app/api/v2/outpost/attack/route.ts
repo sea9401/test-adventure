@@ -722,11 +722,16 @@ export async function POST(req: Request) {
             for (const [k, v] of Object.entries(transferred.slotKinds)) {
               if (Number(k) < newUnlocked) newSlotKinds[Number(k)] = v;
             }
+            const newBuildings: typeof transferred.buildings = {};
+            for (const [k, v] of Object.entries(transferred.buildings)) {
+              if (Number(k) < newUnlocked) newBuildings[Number(k)] = v;
+            }
             await upsertVillage(tx, {
               ...transferred,
               tier: downTier,
               unlockedSlots: newUnlocked,
               slotKinds: newSlotKinds,
+              buildings: newBuildings,
             });
             downgradedTo = down ? VILLAGE_TIER_NAME[downTier] : null;
           }

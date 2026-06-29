@@ -32,6 +32,7 @@ import {
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   anchorOf,
+  CraftOnlyBadge,
   powerNameClass,
   rollPctClass,
   type ItemCardAnchor,
@@ -159,6 +160,7 @@ export function EquipmentCardGrid({
                 ) : null}
               </span>
               <ItemTypeChip item={item} />
+              {item.craftOnly ? <CraftOnlyBadge /> : null}
             </div>
             <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll, inst.enhance)}

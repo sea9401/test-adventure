@@ -659,6 +659,27 @@
       "when": 1782762318138,
       "tag": "0093_feedback_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1782691200000,
+      "tag": "0094_settlement_buildings",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1782734400000,
+      "tag": "0095_guild_workshop_weekly",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1782777600000,
+      "tag": "0096_artisan_leaderboard_snapshots",
+      "breakpoints": true
     }
   ]
 }

@@ -117,6 +117,7 @@ export async function tileBuild(
           productionKind: null,
           unlockedSlots: INITIAL_UNLOCKED_SLOTS,
           slotKinds: {},
+          buildings: {},
           jobs: {},
         };
         await upsertVillage(tx, village);
@@ -236,7 +237,7 @@ export async function tileUpgrade(
         }
         const nextResources = applyUpgradeCost(village.tier, resources, mult);
         village.tier = check.next;
-        // 도시/대도시 달성 보상 = 슬롯 +1칸(무료·골드 불요). 판 최대까지만.
+        // 단계 상승 후 슬롯 수는 새 단계 상한으로 보정한다. 현재 정책은 전 단계 1칸 유지.
         village.unlockedSlots = Math.min(
           MAX_SLOTS_BY_TIER[village.tier],
           village.unlockedSlots + 1,

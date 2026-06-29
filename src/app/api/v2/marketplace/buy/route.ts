@@ -8,6 +8,7 @@ import {
   genEquipIid,
   parseEquipmentSave,
   parseEquipRoll,
+  parseCraftedBy,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
@@ -107,10 +108,11 @@ export async function POST(req: Request) {
       const { owned, equipped } = parseEquipmentSave(equipSave);
       // payload = 굴림(+강화) — 옛 행은 raw roll. 방어 파스로 양형 흡수(강화 승계).
       const payloadRaw = listing.instancePayload as
-        | (Record<string, unknown> & { enhance?: unknown })
+        | (Record<string, unknown> & { craftedBy?: unknown; enhance?: unknown })
         | null;
       const roll = parseEquipRoll(payloadRaw ?? undefined);
       const enhance = parseEnhance(payloadRaw?.enhance);
+      const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
       const nextOwned = [
         ...owned,
         {
@@ -118,6 +120,7 @@ export async function POST(req: Request) {
           id: listing.itemId as V2EquipmentId,
           ...(roll ? { roll } : {}),
           ...(enhance ? { enhance } : {}),
+          ...(craftedBy ? { craftedBy } : {}),
         },
       ];
       await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });

@@ -19,8 +19,8 @@ import {
   parseTileOutpostId,
 } from "@/adventure/data/v2/tileWarfare";
 
-// 마을 행 → UI DTO. [PR-3] 슬롯 생산 폐지 — 슬롯=자리표시라 작업(jobs)/종류(slotKinds) 미노출.
-//   해금 칸 수 + 이 단계 해금 상한(maxSlots)만. 화면 판은 2×2(UI 상수).
+// 마을 행 → UI DTO. [PR-3] 슬롯 생산 폐지 — 작업(jobs)/생산 종류(slotKinds) 미노출.
+//   해금 슬롯 수 + 이 단계 해금 상한(maxSlots) + 건축물 배치만 노출.
 function villageDto(v: VillageRow) {
   return {
     outpostId: v.outpostId,
@@ -29,6 +29,7 @@ function villageDto(v: VillageRow) {
     trait: terrainTraitOf(v.outpostId),
     unlockedSlots: v.unlockedSlots,
     maxSlots: MAX_SLOTS_BY_TIER[v.tier],
+    buildings: v.buildings,
   };
 }
 
@@ -40,7 +41,7 @@ function playerGold(save: Record<string, unknown>): number {
 }
 
 // GET /api/v2/outpost/village — 내 길드의 마을 목록(슬롯 상태) + 정착지 재화 풀 + 길드 금고 골드.
-//   gold = 칸 해금 비용·resources = 단계 업그레이드 비용(생산 재화). 읽기 전용 스냅샷(서버 시각 동봉).
+//   gold = 건축물 슬롯 해금 비용·resources = 단계 업그레이드 비용(생산 재화). 읽기 전용 스냅샷.
 // ?outpostId=tile:col,row (V2_TILE_PRODUCTION) — 그 타일 정착지 1개 + 소유(길드/솔로)별 자원·골드 풀.
 //   소유는 점령행 있으면 길드, 없으면 founder=솔로(마을 행이 아직 없어도 해석 — 건설 비용 표시용).
 export async function GET(req?: Request) {

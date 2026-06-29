@@ -5,6 +5,7 @@ import { Lock, LockOpen, X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { Button } from "@/components/ui/Button";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   V2_EQUIP_SETS,
@@ -21,6 +22,7 @@ import {
   type V2EquipOptions,
   type V2EquipRoll,
   type V2EquipStatRow,
+  type V2CraftedBy,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
@@ -50,6 +52,16 @@ const POWER_BAND_CLASS = [
 ] as const;
 export function powerNameClass(item: V2Equipment, roll?: V2EquipRoll): string {
   return POWER_BAND_CLASS[powerBandOf(item, roll)] ?? POWER_BAND_CLASS[0];
+}
+
+export function CraftOnlyBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`shrink-0 rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ${className}`}
+    >
+      제작전용
+    </span>
+  );
 }
 
 // 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
@@ -130,6 +142,7 @@ export function V2ItemCard({
   onClose,
   roll,
   enhance,
+  craftedBy,
   equip,
   lock,
   equippedIds,
@@ -141,6 +154,8 @@ export function V2ItemCard({
   roll?: V2EquipRoll;
   // 강화 상태 — 주면 제목 +N + 위력 강화 반영(v2EquipStatRows).
   enhance?: V2EnhanceState;
+  // 제작자 표식 — 길드 대장간 제작품에만 표시.
+  craftedBy?: V2CraftedBy;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
   // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
@@ -226,12 +241,30 @@ export function V2ItemCard({
             </h2>
             <div className="flex items-center gap-1.5">
               <ItemTypeChip item={item} />
+              {item.craftOnly ? <CraftOnlyBadge /> : null}
               {pct != null && (
                 <span className={`text-xs font-semibold tabular-nums ${rollPctClass(pct)}`}>
                   품질 {pct}%
                 </span>
               )}
             </div>
+            {craftedBy ? (
+              <div className="text-xs text-emerald-700 dark:text-emerald-300">
+                제작자{" "}
+                <PlayerNameLink
+                  name={craftedBy.name}
+                  className="font-medium"
+                  fallback="모험가"
+                />{" "}
+                · 대장장이 Lv{" "}
+                {craftedBy.level.toLocaleString()}
+              </div>
+            ) : null}
+            {item.craftOnly ? (
+              <div className="text-xs text-emerald-700 dark:text-emerald-300">
+                획득: 길드 영지 → 대장간 → 레시피 제작
+              </div>
+            ) : null}
           </div>
           <div className="-mr-1.5 -mt-1 flex shrink-0 items-center">
             {lock && (

@@ -12,6 +12,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import type {
   GridDungeonCombatPartyMember,
+  GridDungeonSupportRole,
   GridDungeonSupporterSnapshot,
   GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
@@ -27,6 +28,7 @@ export const GRID_DUNGEON_PARTY_SCALING: Partial<
 export type GridDungeonPartyActor = {
   id: string;
   name: string;
+  supportRole: GridDungeonSupportRole | null;
   hp: number;
   maxHp: number;
   mp: number;
@@ -231,6 +233,7 @@ function recordPartySkillUse(actor: GridDungeonPartyActor, skillName: string) {
 export function makeGridDungeonPartyActor({
   id,
   name,
+  supportRole = null,
   maxHp,
   mp = 0,
   maxMp = 0,
@@ -245,6 +248,7 @@ export function makeGridDungeonPartyActor({
 }: {
   id: string;
   name: string;
+  supportRole?: GridDungeonSupportRole | null;
   maxHp: number;
   mp?: number;
   maxMp?: number;
@@ -260,6 +264,7 @@ export function makeGridDungeonPartyActor({
   return {
     id,
     name,
+    supportRole,
     hp: maxHp,
     maxHp,
     mp,
@@ -298,6 +303,7 @@ export function resolveGridDungeonPartyCombat({
       makeGridDungeonPartyActor({
         id: supporter.userId,
         name: supporter.name,
+        supportRole: supporter.supportRole,
         maxHp: supporter.maxHp,
         mp: supporter.mp,
         maxMp: supporter.maxMp,
@@ -417,6 +423,7 @@ export function resolveGridDungeonPartyCombat({
       id: actor.id,
       name: actor.name,
       role: actor.isMain ? "main" : "supporter",
+      supportRole: actor.supportRole,
       hpAfter: actor.hp,
       maxHp: actor.maxHp,
       damageDealt: actor.damageDealt,

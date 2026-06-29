@@ -76,6 +76,7 @@ export type GridDungeonCombatPartyMember = {
   id: string;
   name: string;
   role: "main" | "supporter";
+  supportRole: GridDungeonSupportRole | null;
   hpAfter: number;
   maxHp: number;
   damageDealt: number;
@@ -624,6 +625,7 @@ function parseGridDungeonCombatParty(raw: unknown): GridDungeonCombatPartyMember
         id,
         name,
         role,
+        supportRole: parseGridDungeonSupportRole(e.supportRole),
         hpAfter: Math.max(0, Math.floor(Number(e.hpAfter) || 0)),
         maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),
         damageDealt: Math.max(0, Math.floor(Number(e.damageDealt) || 0)),

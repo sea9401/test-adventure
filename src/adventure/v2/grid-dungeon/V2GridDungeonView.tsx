@@ -814,6 +814,9 @@ function DungeonCombatSummary({
     combat.enemyMaxHp > 0
       ? Math.max(0, Math.min(100, (combat.enemyHp / combat.enemyMaxHp) * 100))
       : 0;
+  const topDamage = topPartyMember(combat.party, "damageDealt");
+  const topHealing = topPartyMember(combat.party, "healingDone");
+  const topTaken = topPartyMember(combat.party, "damageTaken");
   return (
     <div className="space-y-2 rounded-md border border-zinc-800 bg-black/25 p-3 text-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -845,9 +848,45 @@ function DungeonCombatSummary({
             <div className="text-[11px] font-semibold text-zinc-300">
               파티 기여도
             </div>
-            <div className="text-[10px] text-zinc-500">딜량 기준</div>
+            <div className="text-[10px] text-zinc-500">피해 · 회복 · 피격</div>
           </div>
-          <PartyDamageChart party={combat.party} />
+          <div className="grid gap-2 sm:grid-cols-3">
+            <PartyHighlight
+              label="최고 피해"
+              member={topDamage}
+              value={topDamage?.damageDealt ?? 0}
+            />
+            <PartyHighlight
+              label="최고 회복"
+              member={topHealing}
+              value={topHealing?.healingDone ?? 0}
+            />
+            <PartyHighlight
+              label="최다 피격"
+              member={topTaken}
+              value={topTaken?.damageTaken ?? 0}
+            />
+          </div>
+          <div className="grid gap-2">
+            <PartyMetricChart
+              party={combat.party}
+              metric="damageDealt"
+              label="피해량"
+              tone="bg-red-400"
+            />
+            <PartyMetricChart
+              party={combat.party}
+              metric="healingDone"
+              label="회복량"
+              tone="bg-emerald-400"
+            />
+            <PartyMetricChart
+              party={combat.party}
+              metric="damageTaken"
+              label="피격량"
+              tone="bg-sky-400"
+            />
+          </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {combat.party.map((member) => {
               const memberPct =
@@ -863,9 +902,7 @@ function DungeonCombatSummary({
                     <div className="min-w-0 truncate font-semibold text-zinc-200">
                       {member.name}
                     </div>
-                    <div className="text-[10px] text-zinc-500">
-                      {member.role === "main" ? "본인" : "동료"}
-                    </div>
+                    <PartyRoleBadge member={member} />
                   </div>
                   <CombatMeter
                     label="HP"
@@ -913,26 +950,101 @@ function DungeonCombatSummary({
   );
 }
 
-function PartyDamageChart({
-  party,
+type PartyMemberMetric = "damageDealt" | "healingDone" | "damageTaken";
+type CombatParty = NonNullable<
+  NonNullable<GridDungeonPublicRun["lastCombat"]>["party"]
+>;
+type CombatPartyMember = CombatParty[number];
+
+function topPartyMember(
+  party: CombatParty | undefined,
+  metric: PartyMemberMetric,
+) {
+  if (!party || party.length === 0) return null;
+  return [...party].sort((a, b) => b[metric] - a[metric])[0] ?? null;
+}
+
+function PartyHighlight({
+  label,
+  member,
+  value,
 }: {
-  party: NonNullable<GridDungeonPublicRun["lastCombat"]>["party"];
+  label: string;
+  member: CombatPartyMember | null;
+  value: number;
+}) {
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-950/70 p-2">
+      <div className="text-[10px] text-zinc-500">{label}</div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate font-semibold text-zinc-200">
+          {member ? member.name : "-"}
+        </div>
+        <div className="shrink-0 text-[11px] font-medium text-zinc-100">
+          {value.toLocaleString()}
+        </div>
+      </div>
+      {member && (
+        <div className="mt-1">
+          <PartyRoleBadge member={member} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PartyRoleBadge({
+  member,
+}: {
+  member: CombatPartyMember;
+}) {
+  if (member.role === "main") {
+    return <span className="text-[10px] text-zinc-500">본인</span>;
+  }
+  if (!member.supportRole) {
+    return <span className="text-[10px] text-zinc-600">역할 미설정</span>;
+  }
+  return (
+    <span
+      className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${SUPPORT_ROLE_TONE[member.supportRole]}`}
+    >
+      {GRID_DUNGEON_SUPPORT_ROLE_LABEL[member.supportRole]}
+    </span>
+  );
+}
+
+function PartyMetricChart({
+  party,
+  metric,
+  label,
+  tone,
+}: {
+  party: CombatParty | undefined;
+  metric: PartyMemberMetric;
+  label: string;
+  tone: string;
 }) {
   if (!party || party.length === 0) return null;
-  const maxDamage = Math.max(1, ...party.map((member) => member.damageDealt));
+  const maxValue = Math.max(1, ...party.map((member) => member[metric]));
   return (
     <div className="space-y-1.5 rounded border border-zinc-800 bg-zinc-950/70 p-2">
+      <div className="text-[10px] font-semibold text-zinc-400">{label}</div>
       {party.map((member) => {
-        const pct = Math.max(4, Math.min(100, (member.damageDealt / maxDamage) * 100));
-        const tone = member.role === "main" ? "bg-emerald-400" : "bg-cyan-400";
+        const value = member[metric];
+        const pct = value > 0 ? Math.max(4, Math.min(100, (value / maxValue) * 100)) : 0;
         return (
-          <div key={member.id} className="grid grid-cols-[72px_1fr_64px] items-center gap-2 text-[11px]">
-            <div className="truncate text-zinc-300">{member.name}</div>
+          <div key={member.id} className="grid grid-cols-[86px_1fr_64px] items-center gap-2 text-[11px]">
+            <div className="min-w-0">
+              <div className="truncate text-zinc-300">{member.name}</div>
+              <div className="mt-0.5">
+                <PartyRoleBadge member={member} />
+              </div>
+            </div>
             <div className="h-2 overflow-hidden rounded bg-zinc-900">
               <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
             </div>
             <div className="text-right font-medium text-zinc-200">
-              {member.damageDealt.toLocaleString()}
+              {value.toLocaleString()}
             </div>
           </div>
         );

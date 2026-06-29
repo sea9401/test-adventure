@@ -18,6 +18,7 @@ import {
   spCapBonusFromFruits,
   type SpFruitTier,
 } from "@/adventure/data/v2/spFruit";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/use-sp-fruit — SP 열매(협동 보스 드랍 소모품) 1개 사용 → SP 최대치 +1(영구).
 //   body { tier } — 1|2|3. 보유(character.v2.materials[materialId]) + 사용 캡(spFruitUsed[tier] <
@@ -114,7 +115,11 @@ export async function POST(req: Request) {
       charSave,
     );
     const capBonus = spCapBonusFromFruits(nextUsed);
-    const spBudget = calcSpBudget(prof.groups, capBonus);
+    const spBudget = calcSpBudget(
+      prof.groups,
+      capBonus,
+      (await readCodexSpBonus(tx, userId)).total,
+    );
 
     return {
       status: 200,

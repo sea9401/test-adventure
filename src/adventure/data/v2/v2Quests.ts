@@ -21,6 +21,7 @@
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
+import type { TitleId } from "../titles";
 
 export type QuestLineId = string;
 
@@ -31,6 +32,8 @@ export type QuestReward = {
   equip?: V2EquipmentId;
   /** 스태미나 회복약 N개 지급(stamina-potions.v1 — 번들 보상과 동일 소비템). */
   staminaPotions?: number;
+  /** 칭호 1개 지급(adventure-log.v2.titles — 이미 보유 중이면 no-op). */
+  titleId?: TitleId;
 };
 
 // 퀘스트 완료 판정에 쓰는 플레이어 진행 상태. 전부 세이브/DB 에서 파생(서버 집계).
@@ -141,7 +144,11 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "첫 발걸음",
     desc: "사냥터에서 첫 전투를 치러보세요.",
-    reward: { staminaPotions: 1, equip: "v2_chain_mail" },
+    reward: {
+      staminaPotions: 1,
+      equip: "v2_chain_mail",
+      titleId: "first_blood",
+    },
     check: (c) => c.battleCount >= 1,
   },
   {
@@ -308,7 +315,7 @@ const COLLECT: QuestDef[] = [
     line: "collect",
     title: "완전 무장",
     desc: "장비 6부위를 모두 장착하세요.",
-    reward: { gold: 400 },
+    reward: { gold: 400, titleId: "ach_full_gear" },
     check: (c) => c.equippedCount >= 6,
   },
   {
@@ -316,7 +323,7 @@ const COLLECT: QuestDef[] = [
     line: "collect",
     title: "거점 탐험가",
     desc: "거점 10곳을 발견하세요.",
-    reward: { gold: 600 },
+    reward: { gold: 600, titleId: "ach_outpost_scout" },
     check: (c) => c.outpostsDiscovered >= 10,
   },
   {
@@ -324,7 +331,7 @@ const COLLECT: QuestDef[] = [
     line: "collect",
     title: "재력가",
     desc: "골드 10,000을 보유하세요.",
-    reward: { gold: 800 },
+    reward: { gold: 800, titleId: "ach_gold_keeper" },
     check: (c) => c.gold >= 10000,
   },
   {
@@ -381,7 +388,7 @@ const ASCEND: QuestDef[] = [
     line: "ascend",
     title: "보스 마스터",
     desc: "협동 보스 3종을 모두 토벌하세요.",
-    reward: { gold: 3000 },
+    reward: { gold: 3000, titleId: "ach_boss_master" },
     check: (c) => c.bossKills >= 3,
   },
   {
@@ -399,7 +406,7 @@ const ASCEND: QuestDef[] = [
     line: "ascend",
     title: "프론티어의 끝",
     desc: "사냥터 깊이 48(마지막 테마 밴드)까지 진출하세요.",
-    reward: { gold: 4000 },
+    reward: { gold: 4000, titleId: "ach_frontier_end" },
     check: (c) => c.frontierDepth >= 48,
   },
   {
@@ -472,7 +479,7 @@ const REBIRTH: QuestDef[] = [
     line: "rebirth",
     title: "다시 태어나다",
     desc: `레벨 한계(${V2_LEVEL_CAP})에 도달한 뒤 성장의 신전에서 환생하세요. (같은 직업으로 환생해도 됩니다)`,
-    reward: { gold: 1000 },
+    reward: { gold: 1000, titleId: "ach_reborn" },
     // 환생 1회로 판정 — 같은 직업 재전직도 깨진다. 숙련도 임계 대신 행동 신호를 봐서
     //   재전직 직후 현재 레벨 리셋이나 직군 분산과 무관하게 완료된다.
     check: (c) => c.reincarnations >= 1,
@@ -510,7 +517,7 @@ const REBIRTH: QuestDef[] = [
     line: "rebirth",
     title: "윤회의 정점",
     desc: "총 직업 숙련도 3,000에 도달하세요.",
-    reward: { gold: 5000 },
+    reward: { gold: 5000, titleId: "ach_rebirth_apex" },
     check: (c) => c.cumLevel >= 3000,
   },
 ];
@@ -541,7 +548,7 @@ const LIFE: QuestDef[] = [
     line: "life",
     title: "강태공",
     desc: "어종 도감 25종을 채우세요 (전체 34종).",
-    reward: { gold: 1200 },
+    reward: { gold: 1200, titleId: "ach_codex_angler" },
     check: (c) => c.fishSpecies >= 25,
   },
   {
@@ -568,7 +575,7 @@ const LIFE: QuestDef[] = [
     line: "life",
     title: "고고학자",
     desc: "골동품 도감 20종을 채우세요 (전체 24종).",
-    reward: { gold: 1200 },
+    reward: { gold: 1200, titleId: "ach_field_archaeologist" },
     check: (c) => c.antiquesFound >= 20,
   },
 ];
@@ -590,7 +597,7 @@ const BESTIARY: QuestDef[] = [
     line: "bestiary",
     title: "토벌 도감의 주인",
     desc: "서로 다른 몬스터 35종을 처치하세요 (전체 41종).",
-    reward: { gold: 1200 },
+    reward: { gold: 1200, titleId: "ach_bestiary_master" },
     check: (c) => c.speciesKilled >= 35,
   },
   {
@@ -635,7 +642,7 @@ const BESTIARY: QuestDef[] = [
     line: "bestiary",
     title: "전장의 화신",
     desc: "누적 전투 5,000회를 달성하세요.",
-    reward: { gold: 2000 },
+    reward: { gold: 2000, titleId: "ach_war_avatar" },
     check: (c) => c.battleCount >= 5000,
   },
 ];
@@ -692,7 +699,7 @@ const ENHANCE: QuestDef[] = [
     line: "enhance",
     title: "전설의 +10",
     desc: "장비 하나를 +10(최대)까지 강화하세요.",
-    reward: { gold: 5000 },
+    reward: { gold: 5000, titleId: "ach_plus_ten" },
     check: (c) => c.maxEnhanceLevel >= 10,
   },
 ];

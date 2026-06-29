@@ -876,6 +876,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           {FISH_TIER_ORDER.map((tier) => {
             const meta = FISH_TIERS[tier];
             const species = FISH_IDS.filter((id) => FISH[id].tier === tier);
+            const discoveredCount = species.filter((id) =>
+              fishDiscovered.has(id),
+            ).length;
+            const complete =
+              species.length > 0 && discoveredCount === species.length;
             return (
               <Card key={tier} padding="none" className="overflow-hidden">
                 <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -884,9 +889,21 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   >
                     {meta.label}
                   </span>
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    1등 보상 {meta.recordCoins.rank1}코인
-                  </span>
+                  <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span>
+                      {discoveredCount}/{species.length}
+                    </span>
+                    <span
+                      className={
+                        complete
+                          ? "font-semibold text-emerald-600 dark:text-emerald-400"
+                          : ""
+                      }
+                    >
+                      {complete ? "SP +1 획득" : "완성 시 SP +1"}
+                    </span>
+                    <span>1등 보상 {meta.recordCoins.rank1}코인</span>
+                  </div>
                 </div>
                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {species.map((id) => {
@@ -936,6 +953,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           {ANTIQUE_TIER_ORDER.map((tier) => {
             const meta = ANTIQUE_TIERS[tier];
             const kinds = ANTIQUE_IDS.filter((id) => ANTIQUES[id].tier === tier);
+            const discoveredCount = kinds.filter((id) =>
+              antiqueDiscovered.has(id),
+            ).length;
+            const complete =
+              kinds.length > 0 && discoveredCount === kinds.length;
             return (
               <Card key={tier} padding="none" className="overflow-hidden">
                 <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -944,7 +966,20 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   >
                     {meta.label}
                   </span>
-
+                  <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span>
+                      {discoveredCount}/{kinds.length}
+                    </span>
+                    <span
+                      className={
+                        complete
+                          ? "font-semibold text-emerald-600 dark:text-emerald-400"
+                          : ""
+                      }
+                    >
+                      {complete ? "SP +1 획득" : "완성 시 SP +1"}
+                    </span>
+                  </div>
                 </div>
                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {kinds.map((id) => {

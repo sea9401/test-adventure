@@ -12,6 +12,7 @@ import {
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_LEVEL_CAP } from "./coreLoopConfig";
+import { TITLES } from "../titles";
 
 // 신규 캐릭터 기준(전사, 아무것도 안 함). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
@@ -69,6 +70,14 @@ describe("v2Quests 카탈로그 무결성", () => {
       if (q.reward.equip) {
         expect(V2_EQUIPMENT[q.reward.equip], q.reward.equip).toBeDefined();
       }
+    }
+  });
+
+  it("보상 칭호는 카탈로그에 존재", () => {
+    const titleRewards = V2_QUESTS.filter((q) => q.reward.titleId);
+    expect(titleRewards.length).toBeGreaterThan(0);
+    for (const q of titleRewards) {
+      expect(TITLES[q.reward.titleId!], `${q.id} title`).toBeDefined();
     }
   });
 

@@ -52,6 +52,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import type { EquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
@@ -152,8 +153,16 @@ export async function POST(req: Request) {
     );
     // 코어루프 — 전투 직전 로드아웃 sanitize(SP 예산/직업고정 강제). flag off=원본 그대로(추가 작업 0).
     const v2SkillsParsed = parseV2SkillsState(skillsRaw);
+    const codexBonus = V2_CORE_LOOP_V2
+      ? await readCodexSpBonus(tx, userId)
+      : null;
     const v2Skills = V2_CORE_LOOP_V2
-      ? sanitizeCombatLoadout(v2SkillsParsed, charSave, proficiencyRaw)
+      ? sanitizeCombatLoadout(
+          v2SkillsParsed,
+          charSave,
+          proficiencyRaw,
+          codexBonus?.total ?? 0,
+        )
       : v2SkillsParsed;
     const player = await derivePlayerCombatV2(userId, tx, {
       character: charSave,

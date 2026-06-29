@@ -22,6 +22,9 @@ vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
+  readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
+    store.has(key) ? store.get(key) : fallback,
+  ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
     store.set(key, value);
   }),

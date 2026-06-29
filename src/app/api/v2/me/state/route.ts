@@ -877,6 +877,7 @@ export async function GET() {
               0,
             );
             let spUsed = 0;
+            const favoriteSet = new Set<string>(skillsState.favoriteSkills ?? []);
             const library = orderedLearnedSkills(
               skillsState.learned,
               skillsState.skillOrder,
@@ -891,6 +892,7 @@ export async function GET() {
                   name: def.name,
                   spCost: spCostOf(def),
                   equipped,
+                  favorite: favoriteSet.has(id),
                 };
               });
             // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만. POST /me/loadout 시 재전송용.

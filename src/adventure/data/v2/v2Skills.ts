@@ -776,6 +776,8 @@ export type V2SkillsState = {
   equipped: V2SkillId[];
   /** 학습 라이브러리 표시 순서. 전투/소유 판정과 무관한 UI 정렬값. */
   skillOrder?: V2SkillId[];
+  /** 학습 라이브러리 즐겨찾기. 전투/소유 판정과 무관한 UI 표시값. */
+  favoriteSkills?: V2SkillId[];
   /** 전투 패턴(갬빗, C2) — 우선순위 {조건→행동} 블록. 미설정(undefined)이면 엔진이 로드아웃에서
    *  기본 패턴 도출(defaultPatternFromEquipped). combat-pattern 라우트만 변경. */
   pattern?: V2CombatPattern;
@@ -832,6 +834,25 @@ export function orderedLearnedSkills(
   return out;
 }
 
+export function normalizeFavoriteSkills(
+  rawFavorites: unknown,
+  learned: readonly V2SkillId[],
+): V2SkillId[] {
+  if (!Array.isArray(rawFavorites)) return [];
+  const learnedSet = new Set<string>(learned);
+  const seen = new Set<string>();
+  const out: V2SkillId[] = [];
+  for (const id of rawFavorites.slice(0, MAX_SKILL_ORDER_INPUT)) {
+    if (typeof id !== "string") continue;
+    if (!VALID_SKILL_IDS.has(id) || !learnedSet.has(id) || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    out.push(id as V2SkillId);
+  }
+  return out;
+}
+
 // 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지한다.
 // SP 예산 클램프는 proficiency/character 컨텍스트가 있는 라우트에서 sanitizeLoadout 으로 처리한다.
 export function parseV2SkillsState(raw: unknown): V2SkillsState {
@@ -876,10 +897,15 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     (raw as { skillOrder?: unknown }).skillOrder,
     learned,
   );
+  const favoriteSkills = normalizeFavoriteSkills(
+    (raw as { favoriteSkills?: unknown }).favoriteSkills,
+    learned,
+  );
   let base: V2SkillsState = pattern
     ? { learned, equipped, pattern }
     : { learned, equipped };
   if (skillOrder.length > 0) base = { ...base, skillOrder };
+  if (favoriteSkills.length > 0) base = { ...base, favoriteSkills };
   if (presets.length > 0) base = { ...base, presets };
   if (loadoutPresets.length > 0) base = { ...base, loadoutPresets };
   return base;

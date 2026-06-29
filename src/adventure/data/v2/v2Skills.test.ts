@@ -137,6 +137,21 @@ describe("parseV2SkillsState", () => {
     expect(r.skillOrder).toEqual(["v2_skill_dash", "v2_skill_recover"]);
   });
 
+  it("favoriteSkills 는 학습한 유효 id 만 즐겨찾기로 보존", () => {
+    const r = parseV2SkillsState({
+      learned: ["v2_skill_strike", "v2_skill_dash", "v2_skill_recover"],
+      equipped: ["v2_skill_strike"],
+      favoriteSkills: [
+        "v2_skill_recover",
+        "v2_skill_flurry",
+        "v2_skill_recover",
+        "unknown_id",
+        "v2_skill_dash",
+      ],
+    });
+    expect(r.favoriteSkills).toEqual(["v2_skill_recover", "v2_skill_dash"]);
+  });
+
   it("orderedLearnedSkills 는 커스텀 순서 뒤에 누락 학습분을 붙인다", () => {
     const learned: V2SkillId[] = [
       "v2_skill_strike",

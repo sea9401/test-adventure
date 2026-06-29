@@ -352,7 +352,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   angler: {
     id: "angler",
-    name: "강태공",
+    name: "명인 낚시꾼",
     tier: 3,
     cultivateProfile: { luk: 2, spi: 1, vit: 1 },
     jobBonus: { luk: 10, spi: 5 },
@@ -550,7 +550,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   masterangler: {
     id: "masterangler",
-    name: "명인 낚시꾼",
+    name: "강태공",
     tier: 4,
     cultivateProfile: { luk: 2, spi: 1, vit: 1 },
     jobBonus: { luk: 15, spi: 7 },

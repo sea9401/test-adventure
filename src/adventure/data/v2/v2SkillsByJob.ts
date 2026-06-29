@@ -27,9 +27,9 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형·LUK 비례) + 치명(치명확률+8%)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 속박 사격(딜+취약) + 민첩(민첩+10%)
   venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"], // 독무(중독 누적+스택딜) + 부식(중독 적 방어↓)
-  camper: ["v2c_camper_camp", "v2c_camper_ration", "v2c_camper_tidereading"], // 야영(자힐) + 비상식량 + 물때 읽기
+  camper: ["v2c_camper_camp", "v2c_camper_ration"], // 야영(자힐) + 비상식량(회복+최대 HP)
   ironman: ["v2c_ironman_brace", "v2c_ironman_body"], // 버티기(보호막) + 단련된 몸(최대 HP)
-  fisher: ["v2c_survivor_baitcraft", "v2c_camper_tidereading"], // 낚시꾼 — 미끼 고르기 + 물때 읽기
+  fisher: ["v2c_camper_tidereading"], // 낚시꾼 — 물때 읽기
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력권(강타) + 보법 II(회피+12%)
@@ -45,7 +45,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"], // 맹독 확산(중독 심화) + 침식(중독 적 방어↓)
   fieldmedic: ["v2c_fieldmedic_treatment", "v2c_fieldmedic_training"], // 현장 처치 + 구급 숙련
   extremesurvivor: ["v2c_extremesurvivor_struggle", "v2c_extremesurvivor_adaptation"], // 사투 + 극한 적응
-  angler: ["v2c_angler_pointreading"], // 강태공 — 포인트 짚기
+  angler: ["v2c_angler_pointreading"], // 명인 낚시꾼 — 포인트 짚기
   // ── 하이브리드(tier 3·전사×마법) ──
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
@@ -71,7 +71,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   battlemonk: ["v2c_battlemonk_counter", "v2c_battlemonk_ironbody"], // 반격(피격 카운터) + 철신(최대HP+20%) — 둘 다 패시브
   rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"], // 긴급 구조 + 생환 지원
   returner: ["v2c_returner_survive", "v2c_returner_undying"], // 생환 + 불굴
-  masterangler: ["v2c_masterangler_bigcatchsense"], // 명인 낚시꾼 — 대물 감각
+  masterangler: ["v2c_masterangler_bigcatchsense"], // 강태공 — 대물 감각
   // ── 5차 핵심 5직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
   swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"], // 검호: 검격 + 검의 집중
   ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 철벽 태세 + 장벽술

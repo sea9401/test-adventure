@@ -603,8 +603,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("rogue", "venomancer")).toBe("맹독술사");
     expect(displayName("rogue", "venomlord")).toBe("독왕");
     expect(displayName("survivor", "fisher")).toBe("낚시꾼");
-    expect(displayName("survivor", "angler")).toBe("강태공");
-    expect(displayName("survivor", "masterangler")).toBe("명인 낚시꾼");
+    expect(displayName("survivor", "angler")).toBe("명인 낚시꾼");
+    expect(displayName("survivor", "masterangler")).toBe("강태공");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
   });

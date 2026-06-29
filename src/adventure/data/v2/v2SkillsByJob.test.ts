@@ -42,7 +42,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("상위 직업 = 핵심 액티브 1 + 고유 % 패시브 1, 야영꾼은 생활 패시브 추가", () => {
+  it("상위 직업 = 핵심 액티브 1 + 고유 % 패시브 1", () => {
     const UPPER: Record<string, readonly V2SkillId[]> = {
       shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"],
       squire: ["v2c_squire_cleave", "v2c_squire_might"],
@@ -53,7 +53,7 @@ describe("직업 킷 — 스킬셋", () => {
       assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"],
       archer: ["v2c_archer_volley", "v2c_archer_agility"],
       venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"],
-      camper: ["v2c_camper_camp", "v2c_camper_ration", "v2c_camper_tidereading"],
+      camper: ["v2c_camper_camp", "v2c_camper_ration"],
       ironman: ["v2c_ironman_brace", "v2c_ironman_body"],
     };
     for (const [job, kit] of Object.entries(UPPER)) {
@@ -102,7 +102,6 @@ describe("직업 킷 — 스킬셋", () => {
       healPowerPct: 10,
       maxHpPct: 5,
     });
-    expect(V2_SKILLS.v2c_camper_tidereading.passive?.fishingSpecialWeightPct).toBe(25);
     expect(V2_SKILLS.v2c_ironman_brace.effects[0]).toMatchObject({
       kind: "shield",
       pctMaxHp: 10,
@@ -111,10 +110,7 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("낚시 생활 직업 라인은 장착형 낚시 패시브만 배운다", () => {
-    expect(skillsForJob("fisher")).toEqual([
-      "v2c_survivor_baitcraft",
-      "v2c_camper_tidereading",
-    ]);
+    expect(skillsForJob("fisher")).toEqual(["v2c_camper_tidereading"]);
     expect(skillsForJob("angler")).toEqual(["v2c_angler_pointreading"]);
     expect(skillsForJob("masterangler")).toEqual([
       "v2c_masterangler_bigcatchsense",
@@ -124,6 +120,7 @@ describe("직업 킷 — 스킬셋", () => {
         expect(V2_SKILLS[id].category, id).toBe("passive");
       }
     }
+    expect(V2_SKILLS.v2c_camper_tidereading.passive?.fishingSpecialWeightPct).toBe(25);
     expect(V2_SKILLS.v2c_angler_pointreading.passive?.fishingRareSizeBonusPct).toBe(3);
     expect(
       V2_SKILLS.v2c_masterangler_bigcatchsense.passive?.fishingBigCatchSizeBonusPct,

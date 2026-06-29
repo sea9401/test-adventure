@@ -26,7 +26,6 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import {
-  ELEMENT_CHANGE_COOLDOWN_MS,
   RESPEC_COOLDOWN_MS,
   elementChangeGoldCost,
   isClassChange,
@@ -43,7 +42,7 @@ import {
 } from "@/adventure/data/v2/proficiency";
 
 // POST /api/v2/me/class-element — 직업·속성 선택/변경.
-// PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 레벨비례 골드 + 24h 쿨다운.
+// PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 골드 비용.
 // 시그니처는 숙련도 학습(learn-skill)이라 여기선 자동 학습 안 함.
 // 코어루프에서는 수동 SP 로드아웃을 보존하고, 레거시만 새 직업 체인으로 equipped 를 재산출한다.
 
@@ -54,7 +53,6 @@ type CharSaveShape = {
   gold?: number;
   bankedGold?: number;
   lastRespecAt?: number;
-  lastElementChangeAt?: number;
   [k: string]: unknown;
 };
 
@@ -87,40 +85,16 @@ export async function POST(req: Request) {
       );
       const curElement = parseV2Element(charSave.element);
       const elementChanged = isElementChange(curElement, nextElement);
-      const level = Math.max(1, charSave.level ?? 1);
       const gold = Math.max(0, charSave.gold ?? 0);
       const bankedGold = Math.max(
         0,
         Math.floor(Number(charSave.bankedGold) || 0),
       );
-      const lastElementChangeAt =
-        typeof charSave.lastElementChangeAt === "number"
-          ? charSave.lastElementChangeAt
-          : 0;
       let spent = 0;
       let nextGold = gold;
       let nextBankedGold = bankedGold;
-      let cooldownUntil =
-        lastElementChangeAt > 0
-          ? lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS
-          : 0;
-
-      if (
-        elementChanged &&
-        lastElementChangeAt > 0 &&
-        Date.now() < lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS
-      ) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "element_respec_cooldown" as const,
-            cooldownUntil: lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS,
-          },
-        };
-      }
       if (elementChanged) {
-        const cost = elementChangeGoldCost(level);
+        const cost = elementChangeGoldCost(charSave.level ?? 1);
         const spend = spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
         if (!spend.ok) {
           return {
@@ -136,14 +110,12 @@ export async function POST(req: Request) {
         spent = cost;
         nextGold = spend.gold;
         nextBankedGold = spend.bankedGold;
-        cooldownUntil = Date.now() + ELEMENT_CHANGE_COOLDOWN_MS;
       }
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         element: nextElement,
         gold: nextGold,
         bankedGold: nextBankedGold,
-        ...(elementChanged ? { lastElementChangeAt: Date.now() } : {}),
       });
       return {
         status: 200,
@@ -154,7 +126,6 @@ export async function POST(req: Request) {
           gold: nextGold,
           bankedGold: nextBankedGold,
           spent,
-          cooldownUntil,
         },
       };
     });
@@ -194,16 +165,11 @@ export async function POST(req: Request) {
 
     const curClass = parseV2Class(charSave.class);
     const curElement = parseV2Element(charSave.element);
-    const elementChanged = isElementChange(curElement, nextElement);
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
     const lastRespecAt =
       typeof charSave.lastRespecAt === "number" ? charSave.lastRespecAt : 0;
-    const lastElementChangeAt =
-      typeof charSave.lastElementChangeAt === "number"
-        ? charSave.lastElementChangeAt
-        : 0;
 
     // PR-7 — respec 은 직업군 단위. 같은 직업군의 1차를 골라도(2차 캐릭이 자기 군 1차 선택 등)
     // 현 직업을 유지(다운그레이드 X).
@@ -247,7 +213,7 @@ export async function POST(req: Request) {
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
 
-    // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
+    // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드 비용.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
     let spent = 0;
     let nextGold = gold;
@@ -257,20 +223,6 @@ export async function POST(req: Request) {
       lastRespecAt > 0 ? lastRespecAt + RESPEC_COOLDOWN_MS : 0;
 
     if (paid) {
-      if (
-        elementChanged &&
-        lastElementChangeAt > 0 &&
-        now < lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS
-      ) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "element_respec_cooldown" as const,
-            cooldownUntil: lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS,
-          },
-        };
-      }
       if (lastRespecAt > 0 && now < lastRespecAt + RESPEC_COOLDOWN_MS) {
         return {
           status: 409,
@@ -314,7 +266,6 @@ export async function POST(req: Request) {
       gold: nextGold,
       bankedGold: nextBankedGold,
       lastRespecAt: nextLastRespecAt,
-      ...(elementChanged ? { lastElementChangeAt: now } : {}),
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
     };

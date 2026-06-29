@@ -5,13 +5,12 @@
 import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
 import type { V2Element } from "@/adventure/data/v2/elements";
 
-// 변경 골드 = 레벨 × 계수. sim/체감 다이얼.
+// 변경 골드 다이얼.
 // 2026-06-03 사용자 결정 — 자유로운 전직 우선. 직업군 변경 골드 무료(0) + 쿨다운 0.
 // 남는 억제책 = 레벨1 리셋(전직 prestige) — 갈아탈 때마다 레벨 초기화라 남용 자체가 손해.
-// 속성 변경 골드(200/lv)는 그대로.
+// 2026-06-29 사용자 결정 — 속성 변경은 고정 500,000G, 쿨타임 없음.
 export const CLASS_CHANGE_GOLD_PER_LEVEL = 0;
-export const ELEMENT_CHANGE_GOLD_PER_LEVEL = 200;
-export const ELEMENT_CHANGE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+export const ELEMENT_CHANGE_GOLD_COST = 500_000;
 // 변경 후 쿨다운 — 0(제거). 자유 전직. (레벨1 리셋이 남용을 막는 commitment.)
 export const RESPEC_COOLDOWN_MS = 0;
 // PR-7 — 2차 전직(advance) 골드 = 레벨 × 계수. respec 과 별개(쿨다운 없음 = 진척).
@@ -21,8 +20,8 @@ export function advanceGoldCost(level: number): number {
   return Math.max(1, Math.floor(level)) * ADVANCE_GOLD_PER_LEVEL;
 }
 
-export function elementChangeGoldCost(level: number): number {
-  return Math.max(1, Math.floor(level)) * ELEMENT_CHANGE_GOLD_PER_LEVEL;
+export function elementChangeGoldCost(_level: number): number {
+  return ELEMENT_CHANGE_GOLD_COST;
 }
 
 // 직업군 변경 여부 — none 에서의 첫 선택은 무료. 같은 직업군 내(차수 이동)는 변경 아님

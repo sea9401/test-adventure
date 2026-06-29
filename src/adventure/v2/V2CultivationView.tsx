@@ -235,17 +235,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         spent?: number;
         required?: number;
         have?: number;
-        cooldownUntil?: number;
       } | null;
       if (!j?.ok) {
         const label =
           j?.error === "insufficient_gold"
             ? `골드 부족 (필요 ${(j.required ?? elementCost).toLocaleString()}G, 보유 ${(j.have ?? spendableGold).toLocaleString()}G)`
-            : j?.error === "element_respec_cooldown"
-              ? "속성 재조율은 24시간에 한 번만 가능해요"
-              : j?.error === "bad_class"
-                ? "현재 직업 상태를 확인하지 못했어요"
-                : (j?.error ?? `http ${res.status}`);
+            : j?.error === "bad_class"
+              ? "현재 직업 상태를 확인하지 못했어요"
+              : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
         return;
       }
@@ -361,7 +358,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                     {elementCost.toLocaleString()}G
                   </strong>
                 </div>
-                <div>24시간 1회</div>
+                <div>쿨타임 없음</div>
               </div>
             </div>
 

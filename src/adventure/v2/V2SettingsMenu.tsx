@@ -31,19 +31,11 @@ const DeleteAccountModal = dynamic(
     })),
   { ssr: false },
 );
-const FeedbackModal = dynamic(
-  () =>
-    import("@/components/FeedbackModal").then((m) => ({
-      default: m.FeedbackModal,
-    })),
-  { ssr: false },
-);
 
 export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -85,11 +77,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const handleOpenDeleteAccount = () => {
     setOpen(false);
     setDeleteAccountOpen(true);
-  };
-
-  const handleOpenFeedback = () => {
-    setOpen(false);
-    setFeedbackOpen(true);
   };
 
   const isDark = theme === "dark";
@@ -152,14 +139,14 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </button>
             </li>
             <li>
-              <button
-                type="button"
-                onClick={handleOpenFeedback}
+              <Link
+                href="/feedback"
+                onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
                 <ChatCenteredText size={18} weight="duotone" />
                 건의사항
-              </button>
+              </Link>
             </li>
             <li>
               <Link
@@ -202,7 +189,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
           onClose={() => setDeleteAccountOpen(false)}
         />
       )}
-      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }

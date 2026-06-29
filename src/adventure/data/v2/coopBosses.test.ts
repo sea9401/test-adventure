@@ -317,12 +317,12 @@ describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
     expect(canAccessCoopBoss(s, { userId: "u2", guildId: null })).toBe(true);
   });
 
-  it("협동 보스 공격 다이얼 — 10초 쿨다운, 공격당 스태미너 50, 종류별 20마리", () => {
+  it("협동 보스 공격 다이얼 — 10초 쿨다운, 공격당 스태미너 20, 종류별 20마리", () => {
     // 테스트 환경은 V2_CORE_LOOP_V2=false → 기본 쿨다운 상수 반환.
     expect(coopAttackCooldownMs()).toBe(COOP_ATTACK_COOLDOWN_MS);
     expect(COOP_ATTACK_COOLDOWN_MS).toBe(10_000);
     expect(COOP_ATTACK_COOLDOWN_MS_V2).toBe(10_000);
-    expect(COOP_ATTACK_STAMINA_COST).toBe(50);
+    expect(COOP_ATTACK_STAMINA_COST).toBe(20);
     expect(MAX_ACTIVE_PER_KIND).toBe(20);
   });
 });

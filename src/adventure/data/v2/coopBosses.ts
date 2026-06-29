@@ -136,8 +136,8 @@ export function rollCoopUnique(
 // 보스를 통째 못 가져가게 하는 1차 가드(2차는 티어 캡·쿨다운).
 export const COOP_ATTACK_TURNS = 20;
 
-// 공격 스태미너 비용 — 짧은 10초 쿨다운 대신 공격마다 큰 스태미나를 소모한다.
-export const COOP_ATTACK_STAMINA_COST = 50;
+// 공격 스태미너 비용 — 짧은 10초 쿨다운 대신 공격마다 스태미나를 소모한다.
+export const COOP_ATTACK_STAMINA_COST = 20;
 
 // 재공격 쿨다운(ms) — 유저별(lastAttackAt). 매크로/원맨 클리어 견제. ⚠️ 캘리브 다이얼.
 export const COOP_ATTACK_COOLDOWN_MS = 10 * 1000;

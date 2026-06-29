@@ -2,11 +2,14 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
+  GRID_DUNGEON_DAILY_REWARDS_KEY,
   GRID_DUNGEON_ENTRANCE,
   GRID_DUNGEON_SAVE_KEY,
   createGridDungeonRun,
+  gridDungeonRewardQuota,
   isAtGridDungeonEntrance,
   moveGridDungeonRun,
+  parseGridDungeonDailyRewards,
   parseGridDungeonRun,
   withGridDungeonLayout,
   type GridDungeonMoveDir,
@@ -25,12 +28,17 @@ type GridDungeonAction =
   | { action?: "claim" }
   | { action?: "abandon" };
 
-function publicState(run: unknown, charSave: CharSave | null = null) {
+function publicState(
+  run: unknown,
+  charSave: CharSave | null = null,
+  dailyRewards: unknown = null,
+) {
   const parsed = parseGridDungeonRun(run);
   return {
     ok: true,
     entrance: GRID_DUNGEON_ENTRANCE,
     atEntrance: isAtGridDungeonEntrance(charSave?.tilePos ?? null),
+    rewardQuota: gridDungeonRewardQuota(dailyRewards),
     run: withGridDungeonLayout(parsed),
   };
 }
@@ -40,11 +48,12 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [run, charSave] = await Promise.all([
+  const [run, charSave, dailyRewards] = await Promise.all([
     readSave(db, userId, GRID_DUNGEON_SAVE_KEY, null),
     readSave<CharSave>(db, userId, "character.v2", {}),
+    readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
   ]);
-  return Response.json(publicState(run, charSave));
+  return Response.json(publicState(run, charSave, dailyRewards));
 }
 
 export async function POST(req: Request) {
@@ -81,7 +90,13 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
-    return Response.json(publicState(result.run, result.charSave));
+    const dailyRewards = await readSave(
+      db,
+      userId,
+      GRID_DUNGEON_DAILY_REWARDS_KEY,
+      null,
+    );
+    return Response.json(publicState(result.run, result.charSave, dailyRewards));
   }
 
   if (body.action === "move") {
@@ -106,7 +121,13 @@ export async function POST(req: Request) {
     if (!result.ok) {
       return Response.json({ ok: false, error: result.error }, { status: 409 });
     }
-    return Response.json(publicState(result.run));
+    const dailyRewards = await readSave(
+      db,
+      userId,
+      GRID_DUNGEON_DAILY_REWARDS_KEY,
+      null,
+    );
+    return Response.json(publicState(result.run, null, dailyRewards));
   }
 
   if (body.action === "claim") {
@@ -128,27 +149,53 @@ export async function POST(req: Request) {
       if (run.status !== "cleared") {
         return { ok: false as const, error: "not_cleared" as const };
       }
-      const rewardGold = Math.max(0, Math.floor(run.pendingGold));
+      const now = Date.now();
+      const dailyRaw = await lockSaveForUpdate(
+        tx,
+        userId,
+        GRID_DUNGEON_DAILY_REWARDS_KEY,
+        null,
+      );
+      const daily = parseGridDungeonDailyRewards(dailyRaw, now);
+      const quota = gridDungeonRewardQuota(daily, now);
+      const baseRewardGold = Math.max(0, Math.floor(run.pendingGold));
+      const rewardGold = quota.remaining > 0 ? baseRewardGold : 0;
       const gold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
+      const nextClaimed =
+        rewardGold > 0 ? Math.min(quota.limit, daily.claimed + 1) : daily.claimed;
       const claimed = {
         ...run,
         status: "claimed" as const,
         pendingGold: 0,
-        claimedAt: Date.now(),
-        updatedAt: Date.now(),
-        lastMessage: `${rewardGold.toLocaleString()}G를 정산했습니다.`,
+        claimedAt: now,
+        updatedAt: now,
+        lastMessage:
+          rewardGold > 0
+            ? `${rewardGold.toLocaleString()}G를 정산했습니다.`
+            : "오늘 던전 보상 횟수를 모두 사용해 보상 없이 정산했습니다.",
       };
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         gold: gold + rewardGold,
       });
+      await upsertSave(tx, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, {
+        dayKey: daily.dayKey,
+        claimed: nextClaimed,
+      });
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, claimed);
-      return { ok: true as const, run: claimed, charSave };
+      return {
+        ok: true as const,
+        run: claimed,
+        charSave,
+        dailyRewards: { dayKey: daily.dayKey, claimed: nextClaimed },
+      };
     });
     if (!result.ok) {
       return Response.json({ ok: false, error: result.error }, { status: 409 });
     }
-    return Response.json(publicState(result.run, result.charSave));
+    return Response.json(
+      publicState(result.run, result.charSave, result.dailyRewards),
+    );
   }
 
   if (body.action === "abandon") {
@@ -160,8 +207,11 @@ export async function POST(req: Request) {
       pendingGold: 0,
       lastMessage: "탐험을 포기했습니다.",
     });
-    const charSave = await readSave<CharSave>(db, userId, "character.v2", {});
-    return Response.json(publicState(null, charSave));
+    const [charSave, dailyRewards] = await Promise.all([
+      readSave<CharSave>(db, userId, "character.v2", {}),
+      readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
+    ]);
+    return Response.json(publicState(null, charSave, dailyRewards));
   }
 
   return Response.json({ ok: false, error: "bad_action" }, { status: 400 });

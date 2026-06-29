@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   GRID_DUNGEON_ENTRANCE,
+  GRID_DUNGEON_DAILY_REWARD_LIMIT,
   createGridDungeonRun,
+  gridDungeonDayKey,
   gridDungeonKey,
+  gridDungeonRewardQuota,
   isAtGridDungeonEntrance,
   moveGridDungeonRun,
+  parseGridDungeonDailyRewards,
 } from "@/adventure/data/v2/gridDungeon";
 
 describe("gridDungeon", () => {
@@ -47,5 +51,30 @@ describe("gridDungeon", () => {
     if (!again.ok) return;
     expect(again.run.hp).toBe(8);
     expect(again.run.pendingGold).toBe(700);
+  });
+
+  it("resets daily reward claims on the KST day boundary", () => {
+    const beforeReset = Date.parse("2026-06-28T14:59:59.000Z");
+    const afterReset = Date.parse("2026-06-28T15:00:00.000Z");
+    expect(gridDungeonDayKey(beforeReset)).toBe("2026-06-28");
+    expect(gridDungeonDayKey(afterReset)).toBe("2026-06-29");
+
+    const yesterday = parseGridDungeonDailyRewards(
+      { dayKey: "2026-06-28", claimed: 2 },
+      afterReset,
+    );
+    expect(yesterday).toEqual({ dayKey: "2026-06-29", claimed: 0 });
+  });
+
+  it("caps daily reward quota at the configured limit", () => {
+    const now = Date.parse("2026-06-29T00:00:00.000Z");
+    expect(
+      gridDungeonRewardQuota({ dayKey: gridDungeonDayKey(now), claimed: 999 }, now),
+    ).toEqual({
+      dayKey: "2026-06-29",
+      limit: GRID_DUNGEON_DAILY_REWARD_LIMIT,
+      claimed: GRID_DUNGEON_DAILY_REWARD_LIMIT,
+      remaining: 0,
+    });
   });
 });

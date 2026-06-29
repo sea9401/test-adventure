@@ -1,4 +1,8 @@
 export const GRID_DUNGEON_SAVE_KEY = "grid-dungeon.v2" as const;
+export const GRID_DUNGEON_DAILY_REWARDS_KEY =
+  "grid-dungeon-daily-rewards.v2" as const;
+export const GRID_DUNGEON_DAILY_REWARD_LIMIT = 3;
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 export const GRID_DUNGEON_ENTRANCE = {
   id: "old_ruins",
@@ -43,6 +47,18 @@ export type GridDungeonPublicRun = GridDungeonRun & {
   layout: GridDungeonTileKind[][];
 };
 
+export type GridDungeonDailyRewards = {
+  dayKey: string;
+  claimed: number;
+};
+
+export type GridDungeonRewardQuota = {
+  dayKey: string;
+  limit: number;
+  claimed: number;
+  remaining: number;
+};
+
 export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
   ["treasure", "empty", "boss", "exit", "treasure"],
   ["wall", "empty", "wall", "empty", "wall"],
@@ -55,6 +71,37 @@ export const GRID_DUNGEON_START = { x: 2, y: 4 } as const;
 
 export function gridDungeonKey(x: number, y: number): string {
   return `${x},${y}`;
+}
+
+export function gridDungeonDayKey(now = Date.now()): string {
+  return new Date(now + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+export function parseGridDungeonDailyRewards(
+  raw: unknown,
+  now = Date.now(),
+): GridDungeonDailyRewards {
+  const today = gridDungeonDayKey(now);
+  if (!raw || typeof raw !== "object") return { dayKey: today, claimed: 0 };
+  const save = raw as Partial<GridDungeonDailyRewards>;
+  const dayKey = typeof save.dayKey === "string" ? save.dayKey : today;
+  if (dayKey !== today) return { dayKey: today, claimed: 0 };
+  const claimed = Math.max(0, Math.floor(Number(save.claimed) || 0));
+  return { dayKey, claimed };
+}
+
+export function gridDungeonRewardQuota(
+  raw: unknown,
+  now = Date.now(),
+): GridDungeonRewardQuota {
+  const daily = parseGridDungeonDailyRewards(raw, now);
+  const claimed = Math.min(GRID_DUNGEON_DAILY_REWARD_LIMIT, daily.claimed);
+  return {
+    dayKey: daily.dayKey,
+    limit: GRID_DUNGEON_DAILY_REWARD_LIMIT,
+    claimed,
+    remaining: Math.max(0, GRID_DUNGEON_DAILY_REWARD_LIMIT - claimed),
+  };
 }
 
 export function isAtGridDungeonEntrance(pos?: {

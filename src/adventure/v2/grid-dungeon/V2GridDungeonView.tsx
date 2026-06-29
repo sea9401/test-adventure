@@ -25,6 +25,12 @@ type GridDungeonState = {
   ok: boolean;
   entrance: typeof GRID_DUNGEON_ENTRANCE;
   atEntrance: boolean;
+  rewardQuota: {
+    dayKey: string;
+    limit: number;
+    claimed: number;
+    remaining: number;
+  };
   run: GridDungeonPublicRun | null;
   error?: string;
 };
@@ -206,6 +212,8 @@ export function V2GridDungeonView({
   );
 
   const run = state?.run ?? null;
+  const rewardQuota = state?.rewardQuota ?? null;
+  const hasRewardClaim = (rewardQuota?.remaining ?? 0) > 0;
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
   const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
 
@@ -251,6 +259,11 @@ export function V2GridDungeonView({
                 ? "입구 앞에 서 있습니다. 바로 탐험을 시작할 수 있습니다."
                 : "지도에서 입구 칸으로 이동해야 탐험을 시작할 수 있습니다."}
             </div>
+            {rewardQuota && (
+              <div className="mt-1 text-xs text-yellow-300/80">
+                오늘 보상 {rewardQuota.remaining} / {rewardQuota.limit}회 남음
+              </div>
+            )}
           </div>
           <button
             type="button"
@@ -264,7 +277,7 @@ export function V2GridDungeonView({
         </section>
       ) : (
         <>
-          <section className="grid grid-cols-3 gap-2 text-xs">
+          <section className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
               <div className="text-zinc-500">체력</div>
               <div className="mt-1 text-base font-bold text-emerald-300">
@@ -281,6 +294,16 @@ export function V2GridDungeonView({
               <div className="text-zinc-500">상태</div>
               <div className="mt-1 text-base font-bold text-zinc-100">
                 {run.status === "cleared" ? "정산 가능" : "탐험 중"}
+              </div>
+            </div>
+            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+              <div className="text-zinc-500">오늘 보상</div>
+              <div
+                className={`mt-1 text-base font-bold ${
+                  hasRewardClaim ? "text-yellow-300" : "text-zinc-500"
+                }`}
+              >
+                {rewardQuota ? `${rewardQuota.remaining} / ${rewardQuota.limit}` : "-"}
               </div>
             </div>
           </section>
@@ -355,14 +378,26 @@ export function V2GridDungeonView({
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
+            {rewardQuota && rewardQuota.remaining <= 0 && (
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-xs text-zinc-400">
+                오늘 던전 보상 횟수를 모두 사용했습니다. 탐험은 계속할 수 있지만 정산 골드는
+                지급되지 않습니다.
+              </div>
+            )}
             {run.status === "cleared" ? (
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => postAction({ action: "claim" })}
-                className="rounded-md bg-yellow-500 px-3 py-2 text-xs font-bold text-zinc-950 hover:bg-yellow-400 disabled:opacity-40"
+                className={`rounded-md px-3 py-2 text-xs font-bold disabled:opacity-40 ${
+                  hasRewardClaim
+                    ? "bg-yellow-500 text-zinc-950 hover:bg-yellow-400"
+                    : "border border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                }`}
               >
-                {run.pendingGold.toLocaleString()}G 정산
+                {hasRewardClaim
+                  ? `${run.pendingGold.toLocaleString()}G 정산`
+                  : "보상 없이 정산"}
               </button>
             ) : (
               <div className="grid grid-cols-4 gap-2">

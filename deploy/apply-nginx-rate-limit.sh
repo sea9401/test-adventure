@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 운영 nginx 설정에 느슨한 rate limit 을 적용한다.
+# 운영 nginx 설정에 느슨한 rate limit 과 스캐너 URL 차단을 적용한다.
 # EC2 에서 실행: cd ~/adventure-rpg && bash deploy/apply-nginx-rate-limit.sh
 set -euo pipefail
 
@@ -13,7 +13,17 @@ perl -0pi -e '
             . "limit_req_zone \$binary_remote_addr zone=page_per_ip:10m rate=60r/s;\n\n";
   $_ = $zones . $_ unless /zone=api_per_ip:10m/;
 
+  my $scanner = q{
+    location ~* ^/(?:\.env(?:\..*)?|\.git(?:/|$)|wp-login\.php|xmlrpc\.php|phpmyadmin(?:/|$)|wp-admin(?:/|$)|wp-content(?:/|$)|vendor/phpunit(?:/|$)) {
+        return 444;
+    }
+};
+
   my $api = q{
+    location ~* ^/(?:\.env(?:\..*)?|\.git(?:/|$)|wp-login\.php|xmlrpc\.php|phpmyadmin(?:/|$)|wp-admin(?:/|$)|wp-content(?:/|$)|vendor/phpunit(?:/|$)) {
+        return 444;
+    }
+
     location /api/auth/ {
         limit_req zone=api_per_ip burst=200 nodelay;
         limit_req_status 429;
@@ -38,6 +48,9 @@ perl -0pi -e '
         proxy_read_timeout 300s;
     }
 };
+  s/(\n\s*location\s+\/api\/auth\/\s*\{)/
+    (index($`, "return 444;") >= 0) ? $1 : "\n$scanner$1"/se;
+
   s/(\n\s*location\s+\/\s*\{\s*\n\s*proxy_pass\s+http:\/\/127\.0\.0\.1:3000;)/
     ($` =~ m{location\s+\/api\/}) ? $1 : "\n$api$1"/se;
 
@@ -50,7 +63,7 @@ perl -0pi -e '
 
 if sudo cmp -s "$TMP" "$DEST"; then
   rm -f "$TMP"
-  echo "nginx rate limit already applied"
+  echo "nginx protection already applied"
   exit 0
 fi
 
@@ -68,5 +81,5 @@ fi
 
 sudo systemctl reload nginx
 
-echo "nginx rate limit applied"
+echo "nginx protection applied"
 echo "backup: $BACKUP"

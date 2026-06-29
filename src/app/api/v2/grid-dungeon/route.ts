@@ -1,4 +1,6 @@
 import { db } from "@/db";
+import { and, eq, inArray, ne } from "drizzle-orm";
+import { guildMembers, savesKv } from "@/db/schema";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
@@ -14,6 +16,11 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
+import {
+  V2_CLASS_DEFS,
+  jobDisplayName,
+  parseV2Class,
+} from "@/adventure/data/v2/classes";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
@@ -48,6 +55,7 @@ import {
   type GridDungeonMoveDir,
   type GridDungeonResolvedCombat,
   type GridDungeonRun,
+  type GridDungeonSupporterSnapshot,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
 
@@ -63,16 +71,159 @@ type CharSave = {
 };
 
 type GridDungeonAction =
-  | { action?: "start" }
+  | { action?: "start"; supporterIds?: unknown }
   | { action?: "move"; dir?: GridDungeonMoveDir }
   | { action?: "claim" }
   | { action?: "abandon" };
+
+type GridDungeonSupportCandidate = {
+  userId: string;
+  name: string;
+  level: number;
+  job: string;
+};
+
+function parseSupporterIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const id of raw) {
+    if (typeof id !== "string" || !id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+    if (ids.length >= 2) break;
+  }
+  return ids;
+}
+
+function displayJobFromCharacter(raw: unknown): string {
+  const char = raw as { class?: unknown; specChoice?: unknown } | null;
+  const cls = parseV2Class(char?.class);
+  const spec = typeof char?.specChoice === "string" ? char.specChoice : null;
+  return V2_CORE_LOOP_V2
+    ? jobDisplayName(cls, spec)
+    : cls === "none"
+      ? "모험가"
+      : (V2_CLASS_DEFS[cls]?.name ?? "모험가");
+}
+
+async function guildSupportCandidateRows(
+  executor: DbExecutor,
+  userId: string,
+): Promise<GridDungeonSupportCandidate[]> {
+  const mem = (
+    await executor
+      .select({ guildId: guildMembers.guildId })
+      .from(guildMembers)
+      .where(eq(guildMembers.userId, userId))
+      .limit(1)
+  )[0];
+  if (!mem) return [];
+  const members = await executor
+    .select({ userId: guildMembers.userId })
+    .from(guildMembers)
+    .where(and(eq(guildMembers.guildId, mem.guildId), ne(guildMembers.userId, userId)));
+  const ids = members.map((m) => m.userId);
+  if (ids.length === 0) return [];
+  const rows = await executor
+    .select({ userId: savesKv.userId, key: savesKv.key, value: savesKv.value })
+    .from(savesKv)
+    .where(
+      and(
+        inArray(savesKv.userId, ids),
+        inArray(savesKv.key, ["character-profile.v2", "character.v2"]),
+      ),
+    );
+  const nameByUser = new Map<string, string>();
+  const charByUser = new Map<string, unknown>();
+  for (const row of rows) {
+    if (row.key === "character-profile.v2") {
+      const profile = row.value as { name?: string } | null;
+      const name = profile?.name?.trim();
+      if (name) nameByUser.set(row.userId, name);
+    } else if (row.key === "character.v2") {
+      charByUser.set(row.userId, row.value);
+    }
+  }
+  return ids
+    .map((id) => {
+      const char = charByUser.get(id) as { level?: number } | undefined;
+      return {
+        userId: id,
+        name: nameByUser.get(id) ?? "모험가",
+        level: Math.max(1, Math.floor(Number(char?.level) || 1)),
+        job: displayJobFromCharacter(char),
+      };
+    })
+    .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, "ko-KR"));
+}
+
+async function gridDungeonSupportSnapshots({
+  tx,
+  userId,
+  supporterIds,
+  now,
+}: {
+  tx: DbExecutor;
+  userId: string;
+  supporterIds: string[];
+  now: number;
+}): Promise<
+  | { ok: true; supporters: GridDungeonSupporterSnapshot[] }
+  | { ok: false; error: "not_in_guild" | "invalid_supporter" }
+> {
+  if (supporterIds.length === 0) return { ok: true, supporters: [] };
+  const mem = (
+    await tx
+      .select({ guildId: guildMembers.guildId })
+      .from(guildMembers)
+      .where(eq(guildMembers.userId, userId))
+      .limit(1)
+  )[0];
+  if (!mem) return { ok: false, error: "not_in_guild" };
+  const validRows = await tx
+    .select({ userId: guildMembers.userId })
+    .from(guildMembers)
+    .where(
+      and(
+        eq(guildMembers.guildId, mem.guildId),
+        inArray(guildMembers.userId, supporterIds),
+        ne(guildMembers.userId, userId),
+      ),
+    );
+  const valid = new Set(validRows.map((row) => row.userId));
+  if (valid.size !== supporterIds.length) {
+    return { ok: false, error: "invalid_supporter" };
+  }
+  const candidates = await guildSupportCandidateRows(tx, userId);
+  const candidateById = new Map(candidates.map((candidate) => [candidate.userId, candidate]));
+  const supporters: GridDungeonSupporterSnapshot[] = [];
+  for (const supporterId of supporterIds) {
+    const derived = await derivePlayerCombatV2(supporterId, tx);
+    const candidate = candidateById.get(supporterId);
+    if (!derived || !candidate) return { ok: false, error: "invalid_supporter" };
+    supporters.push({
+      userId: supporterId,
+      name: candidate.name,
+      level: candidate.level,
+      job: candidate.job,
+      maxHp: derived.player.maxHp,
+      atk: derived.player.atk,
+      def: derived.player.def,
+      spd: derived.player.spd,
+      element: derived.player.characterElement ?? "neutral",
+      capturedAt: now,
+    });
+  }
+  return { ok: true, supporters };
+}
 
 function publicState(
   run: unknown,
   charSave: CharSave | null = null,
   dailyRewards: unknown = null,
   historyRaw: unknown = null,
+  supportCandidates: GridDungeonSupportCandidate[] = [],
 ) {
   const parsed = parseGridDungeonRun(run);
   return {
@@ -81,6 +232,7 @@ function publicState(
     atEntrance: isAtGridDungeonEntrance(charSave?.tilePos ?? null),
     rewardQuota: gridDungeonRewardQuota(dailyRewards),
     history: parseGridDungeonHistory(historyRaw),
+    supportCandidates,
     run: withGridDungeonLayout(parsed),
   };
 }
@@ -330,13 +482,16 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [run, charSave, dailyRewards, history] = await Promise.all([
+  const [run, charSave, dailyRewards, history, supportCandidates] = await Promise.all([
     readSave(db, userId, GRID_DUNGEON_SAVE_KEY, null),
     readSave<CharSave>(db, userId, "character.v2", {}),
     readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
     readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, null),
+    guildSupportCandidateRows(db, userId),
   ]);
-  return Response.json(publicState(run, charSave, dailyRewards, history));
+  return Response.json(
+    publicState(run, charSave, dailyRewards, history, supportCandidates),
+  );
 }
 
 export async function POST(req: Request) {
@@ -353,6 +508,7 @@ export async function POST(req: Request) {
   }
 
   if (body.action === "start") {
+    const supporterIds = parseSupporterIds(body.supporterIds);
     const result = await db.transaction(async (tx) => {
       const charSave = await lockSaveForUpdate<CharSave>(
         tx,
@@ -363,7 +519,15 @@ export async function POST(req: Request) {
       if (!isAtGridDungeonEntrance(charSave.tilePos ?? null)) {
         return { ok: false as const, error: "not_at_entrance" as const };
       }
-      const run = createGridDungeonRun();
+      const now = Date.now();
+      const support = await gridDungeonSupportSnapshots({
+        tx,
+        userId,
+        supporterIds,
+        now,
+      });
+      if (!support.ok) return { ok: false as const, error: support.error };
+      const run = createGridDungeonRun(now, Math.random, support.supporters);
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, run);
       return { ok: true as const, run, charSave };
     });
@@ -373,12 +537,13 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
-    const [dailyRewards, history] = await Promise.all([
+    const [dailyRewards, history, supportCandidates] = await Promise.all([
       readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
       readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, null),
+      guildSupportCandidateRows(db, userId),
     ]);
     return Response.json(
-      publicState(result.run, result.charSave, dailyRewards, history),
+      publicState(result.run, result.charSave, dailyRewards, history, supportCandidates),
     );
   }
 

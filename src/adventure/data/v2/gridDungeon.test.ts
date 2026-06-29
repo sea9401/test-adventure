@@ -13,6 +13,7 @@ import {
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
+  parseGridDungeonRun,
   rollGridDungeonDrops,
 } from "@/adventure/data/v2/gridDungeon";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
@@ -120,6 +121,54 @@ describe("gridDungeon", () => {
     );
     expect(last.layout).not.toEqual(first.layout);
     expect(last.pos).toEqual({ x: 2, y: 4 });
+  });
+
+  it("stores up to two guild supporter snapshots on a run", () => {
+    const run = createGridDungeonRun(100, firstTemplate, [
+      {
+        userId: "u1",
+        name: "검사",
+        level: 12,
+        job: "전사",
+        maxHp: 120,
+        atk: 34,
+        def: 18,
+        spd: 7,
+        element: "fire",
+        capturedAt: 100,
+      },
+      {
+        userId: "u2",
+        name: "도적",
+        level: 10,
+        job: "도적",
+        maxHp: 96,
+        atk: 31,
+        def: 12,
+        spd: 15,
+        element: "wind",
+        capturedAt: 100,
+      },
+      {
+        userId: "u3",
+        name: "초과",
+        level: 1,
+        job: "모험가",
+        maxHp: 1,
+        atk: 1,
+        def: 1,
+        spd: 1,
+        element: "neutral",
+        capturedAt: 100,
+      },
+    ]);
+    const parsed = parseGridDungeonRun(run);
+
+    expect(parsed?.supporters).toHaveLength(2);
+    expect(parsed?.supporters.map((supporter) => supporter.userId)).toEqual([
+      "u1",
+      "u2",
+    ]);
   });
 
   it("resets daily reward claims on the KST day boundary", () => {

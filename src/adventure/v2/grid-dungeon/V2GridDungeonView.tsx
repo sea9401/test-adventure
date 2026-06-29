@@ -12,6 +12,7 @@ import {
   Skull,
   Sparkle,
   TreasureChest,
+  UsersThree,
 } from "@phosphor-icons/react";
 import {
   GRID_DUNGEON_ENTRANCE,
@@ -44,6 +45,12 @@ type GridDungeonState = {
       message: string;
     }>;
   };
+  supportCandidates: Array<{
+    userId: string;
+    name: string;
+    level: number;
+    job: string;
+  }>;
   run: GridDungeonPublicRun | null;
   error?: string;
 };
@@ -211,6 +218,7 @@ export function V2GridDungeonView({
   const [state, setState] = useState<GridDungeonState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSupporterIds, setSelectedSupporterIds] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -252,6 +260,10 @@ export function V2GridDungeonView({
   );
 
   const run = state?.run ?? null;
+  const supportCandidates = useMemo(
+    () => state?.supportCandidates ?? [],
+    [state?.supportCandidates],
+  );
   const rewardQuota = state?.rewardQuota ?? null;
   const hasRewardClaim = (rewardQuota?.remaining ?? 0) > 0;
   const history = state?.history.entries ?? [];
@@ -265,6 +277,24 @@ export function V2GridDungeonView({
       ),
     [run?.pendingDrops],
   );
+  const validSelectedSupporterIds = useMemo(() => {
+    const valid = new Set(supportCandidates.map((candidate) => candidate.userId));
+    return selectedSupporterIds.filter((id) => valid.has(id)).slice(0, 2);
+  }, [selectedSupporterIds, supportCandidates]);
+  const selectedSupporters = useMemo(
+    () =>
+      supportCandidates.filter((candidate) =>
+        validSelectedSupporterIds.includes(candidate.userId),
+      ),
+    [validSelectedSupporterIds, supportCandidates],
+  );
+
+  const toggleSupporter = useCallback((userId: string) => {
+    setSelectedSupporterIds((prev) => {
+      if (prev.includes(userId)) return prev.filter((id) => id !== userId);
+      return [...prev, userId].slice(-2);
+    });
+  }, []);
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 text-zinc-200">
@@ -318,12 +348,52 @@ export function V2GridDungeonView({
             <button
               type="button"
               disabled={!state.atEntrance || busy}
-              onClick={() => postAction({ action: "start" })}
+              onClick={() =>
+                postAction({ action: "start", supporterIds: validSelectedSupporterIds })
+              }
               className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <DoorOpen size={16} weight="fill" />
               탐험 시작
             </button>
+            {supportCandidates.length > 0 && (
+              <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                    <UsersThree size={16} weight="fill" />
+                    길드 동료
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    {selectedSupporters.length} / 2
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {supportCandidates.map((candidate) => {
+                    const selected = validSelectedSupporterIds.includes(
+                      candidate.userId,
+                    );
+                    return (
+                      <button
+                        key={candidate.userId}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => toggleSupporter(candidate.userId)}
+                        className={`rounded-md border px-3 py-2 text-left text-xs transition disabled:opacity-40 ${
+                          selected
+                            ? "border-emerald-500 bg-emerald-950/60 text-emerald-100"
+                            : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:bg-zinc-900"
+                        }`}
+                      >
+                        <div className="font-semibold">{candidate.name}</div>
+                        <div className="mt-0.5 text-[11px] text-zinc-500">
+                          Lv.{candidate.level.toLocaleString()} · {candidate.job}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </section>
           <DungeonHistory entries={history} />
         </>
@@ -431,6 +501,34 @@ export function V2GridDungeonView({
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
             {run.lastCombat && <DungeonCombatSummary combat={run.lastCombat} />}
+            {run.supporters.length > 0 && (
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+                <div className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+                  <UsersThree size={15} weight="fill" />
+                  동행 길드원
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {run.supporters.map((supporter) => (
+                    <div
+                      key={supporter.userId}
+                      className="rounded border border-zinc-800 bg-black/20 px-2.5 py-2 text-xs"
+                    >
+                      <div className="font-semibold text-zinc-100">
+                        {supporter.name}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-zinc-500">
+                        Lv.{supporter.level.toLocaleString()} · {supporter.job}
+                      </div>
+                      <div className="mt-1 text-[11px] text-zinc-400">
+                        HP {supporter.maxHp.toLocaleString()} · ATK{" "}
+                        {supporter.atk.toLocaleString()} · SPD{" "}
+                        {supporter.spd.toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <DropSummary
               drops={run.pendingDrops ?? {}}
               emptyLabel="아직 확보한 재료가 없습니다."

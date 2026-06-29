@@ -63,10 +63,24 @@ export type GridDungeonResolvedCombat = {
   summary: GridDungeonCombatSummary;
 };
 
+export type GridDungeonSupporterSnapshot = {
+  userId: string;
+  name: string;
+  level: number;
+  job: string;
+  maxHp: number;
+  atk: number;
+  def: number;
+  spd: number;
+  element: string;
+  capturedAt: number;
+};
+
 export type GridDungeonRun = {
   id: string;
   status: GridDungeonStatus;
   layout: GridDungeonTileKind[][];
+  supporters: GridDungeonSupporterSnapshot[];
   pos: { x: number; y: number };
   hp: number;
   pendingGold: number;
@@ -112,6 +126,38 @@ export type GridDungeonHistoryEntry = {
 export type GridDungeonHistory = {
   entries: GridDungeonHistoryEntry[];
 };
+
+function sanitizeGridDungeonSupporters(
+  raw: unknown,
+): GridDungeonSupporterSnapshot[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const supporters: GridDungeonSupporterSnapshot[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Partial<GridDungeonSupporterSnapshot>;
+    const userId = typeof e.userId === "string" ? e.userId : "";
+    if (!userId || seen.has(userId)) continue;
+    seen.add(userId);
+    supporters.push({
+      userId,
+      name: typeof e.name === "string" && e.name.trim() ? e.name.trim() : "모험가",
+      level: Math.max(1, Math.floor(Number(e.level) || 1)),
+      job: typeof e.job === "string" && e.job.trim() ? e.job.trim() : "모험가",
+      maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),
+      atk: Math.max(0, Math.floor(Number(e.atk) || 0)),
+      def: Math.max(0, Math.floor(Number(e.def) || 0)),
+      spd: Math.max(0, Math.floor(Number(e.spd) || 0)),
+      element:
+        typeof e.element === "string" && e.element.trim()
+          ? e.element.trim()
+          : "neutral",
+      capturedAt: Math.max(0, Math.floor(Number(e.capturedAt) || 0)),
+    });
+    if (supporters.length >= 2) break;
+  }
+  return supporters;
+}
 
 export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
   ["treasure", "empty", "boss", "exit", "treasure"],
@@ -390,6 +436,7 @@ export function revealAround(
 export function createGridDungeonRun(
   now = Date.now(),
   rng: () => number = Math.random,
+  supporters: GridDungeonSupporterSnapshot[] = [],
 ): GridDungeonRun {
   const layout = randomGridDungeonLayout(rng);
   const startKey = gridDungeonKey(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y);
@@ -397,6 +444,7 @@ export function createGridDungeonRun(
     id: GRID_DUNGEON_ENTRANCE.id,
     status: "active",
     layout,
+    supporters: sanitizeGridDungeonSupporters(supporters),
     pos: { ...GRID_DUNGEON_START },
     hp: GRID_DUNGEON_MAX_HP,
     pendingGold: 0,
@@ -439,6 +487,7 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     id: typeof run.id === "string" ? run.id : GRID_DUNGEON_ENTRANCE.id,
     status,
     layout,
+    supporters: sanitizeGridDungeonSupporters(run.supporters),
     pos: { x, y },
     hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(run.hp) || 0))),
     pendingGold: Math.max(0, Math.floor(Number(run.pendingGold) || 0)),

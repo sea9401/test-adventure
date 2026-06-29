@@ -8,7 +8,7 @@ import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 // mock: 전사 직군 900+(2차 해금)·견습 기사 숙련도 1800(→기사 3차 계보 해금)·마법 진행·일부 패시브.
 //   🔑 계보 게이팅: 3차(기사)는 직군 cumLevel 이 아니라 바로 아래 2차(견습 기사) jobCumLevel 로 열린다.
 const prof = emptyProficiency();
-prof.groups.warrior = { cultivations: 0, tier: 2, cumLevel: 2250 };
+prof.groups.warrior = { cultivations: 0, tier: 2, cumLevel: 10000 };
 prof.groups.mage = { cultivations: 0, tier: 1, cumLevel: 1080 };
 prof.groups.rogue = { cultivations: 0, tier: 1, cumLevel: 360 };
 prof.jobCumLevel = { squire: 1800 }; // 견습 기사 1800 → 기사(3차) 계보 해금 시연

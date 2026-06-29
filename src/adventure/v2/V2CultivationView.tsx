@@ -1,6 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  Circle,
+  Drop,
+  Fire,
+  Lightning,
+  Moon,
+  Mountains,
+  Sun,
+  Wind,
+  type Icon,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -33,6 +44,68 @@ import { useGameState } from "./GameStateProvider";
 
 // 성장의 신전 내부 탭 — 직업(전직), 속성 재조율, 수행(스탯 한계↑)을 분리.
 type ShrineTab = "job" | "element" | "cultivate";
+
+const ELEMENT_STYLE: Record<
+  V2Element,
+  { Icon: Icon; dot: string; active: string; icon: string }
+> = {
+  neutral: {
+    Icon: Circle,
+    dot: "bg-zinc-400",
+    active:
+      "border-zinc-500 bg-zinc-100 text-zinc-900 dark:border-zinc-400 dark:bg-zinc-800 dark:text-zinc-100",
+    icon: "text-zinc-500 dark:text-zinc-300",
+  },
+  water: {
+    Icon: Drop,
+    dot: "bg-sky-500",
+    active:
+      "border-sky-500 bg-sky-50 text-sky-900 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-100",
+    icon: "text-sky-500 dark:text-sky-300",
+  },
+  fire: {
+    Icon: Fire,
+    dot: "bg-rose-500",
+    active:
+      "border-rose-500 bg-rose-50 text-rose-900 dark:border-rose-400 dark:bg-rose-950/50 dark:text-rose-100",
+    icon: "text-rose-500 dark:text-rose-300",
+  },
+  wind: {
+    Icon: Wind,
+    dot: "bg-teal-500",
+    active:
+      "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/50 dark:text-teal-100",
+    icon: "text-teal-500 dark:text-teal-300",
+  },
+  starlight: {
+    Icon: Sun,
+    dot: "bg-amber-400",
+    active:
+      "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-300 dark:bg-amber-950/50 dark:text-amber-100",
+    icon: "text-amber-500 dark:text-amber-300",
+  },
+  void: {
+    Icon: Moon,
+    dot: "bg-violet-500",
+    active:
+      "border-violet-500 bg-violet-50 text-violet-900 dark:border-violet-400 dark:bg-violet-950/50 dark:text-violet-100",
+    icon: "text-violet-500 dark:text-violet-300",
+  },
+  earth: {
+    Icon: Mountains,
+    dot: "bg-lime-600",
+    active:
+      "border-lime-600 bg-lime-50 text-lime-950 dark:border-lime-400 dark:bg-lime-950/50 dark:text-lime-100",
+    icon: "text-lime-600 dark:text-lime-300",
+  },
+  lightning: {
+    Icon: Lightning,
+    dot: "bg-yellow-400",
+    active:
+      "border-yellow-500 bg-yellow-50 text-yellow-950 dark:border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-100",
+    icon: "text-yellow-500 dark:text-yellow-300",
+  },
+};
 
 // v2 수행(修行) — 직업 전직/재전직 + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
 // 옛 "성장의 신전"(수동 스탯 분배) 대체. 분배는 레벨업 랜덤 성장이 담당하고, 여기서는
@@ -358,7 +431,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                     {elementCost.toLocaleString()}G
                   </strong>
                 </div>
-                <div>쿨타임 없음</div>
               </div>
             </div>
 
@@ -371,18 +443,39 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {V2_PLAYER_ELEMENTS.map((elem) => {
                     const active = selectedElement === elem;
+                    const style = ELEMENT_STYLE[elem];
+                    const Icon = style.Icon;
                     return (
                       <button
                         key={elem}
                         type="button"
                         onClick={() => setSelectedElement(elem)}
-                        className={`min-h-11 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                        className={`flex min-h-14 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-semibold transition ${
                           active
-                            ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200"
+                            ? style.active
                             : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-700"
                         }`}
                       >
-                        {V2_ELEMENT_LABEL[elem]}
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
+                            active
+                              ? "bg-white/70 dark:bg-black/20"
+                              : "bg-zinc-100 dark:bg-zinc-900"
+                          }`}
+                        >
+                          <Icon
+                            size={20}
+                            weight={active ? "fill" : "duotone"}
+                            className={style.icon}
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">
+                          {V2_ELEMENT_LABEL[elem]}
+                        </span>
+                        <span
+                          aria-hidden="true"
+                          className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`}
+                        />
                       </button>
                     );
                   })}

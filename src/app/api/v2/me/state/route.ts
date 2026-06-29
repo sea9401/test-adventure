@@ -844,13 +844,19 @@ export async function GET() {
             );
             const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
             const equipmentCodexBonus = equipmentCodex.spBonus;
+            const spBudgetGroups = Object.fromEntries(
+              V2_SELECTABLE_CLASSES.map((id) => [
+                id,
+                prof.groups?.[id] ?? { cumLevel: 0 },
+              ]),
+            );
             const spBudget = calcSpBudget(
-              prof.groups,
+              spBudgetGroups,
               spFruitBonus,
               collectionBonus.total + equipmentCodexBonus,
             );
             const groups = V2_SELECTABLE_CLASSES.map((id) => {
-              const g = prof.groups?.[id];
+              const g = spBudgetGroups[id];
               const progress = spMasteryProgressForCumLevel(
                 Number(g?.cumLevel) || 0,
               );

@@ -44,6 +44,7 @@ import {
 } from "./v2ItemListShared";
 import {
   equipDetail,
+  listingEquipRoll,
   PriceRefLine,
   type Listing,
   type PriceStat,
@@ -376,7 +377,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   };
   const rollPctOfListing = (l: Listing): number =>
     l.kind === "equip"
-      ? (equipDetail(l.itemId, (l.instancePayload as V2EquipRoll | null) ?? undefined)?.pct ?? -1)
+      ? (equipDetail(l.itemId, listingEquipRoll(l.instancePayload))?.pct ?? -1)
       : -1;
   const isCraftedListing = (l: Listing): boolean =>
     l.kind === "equip" && listingCraftedBy(l.instancePayload) != null;
@@ -754,7 +755,7 @@ function BuyConfirm({
     listing.kind === "equip"
       ? equipDetail(
           listing.itemId,
-          (listing.instancePayload as V2EquipRoll | null) ?? undefined,
+          listingEquipRoll(listing.instancePayload),
           listingEnhance(listing.instancePayload),
         )
       : null;
@@ -956,7 +957,7 @@ function ListingList({
       {rows.map((l) => {
         const roll =
           l.kind === "equip"
-            ? ((l.instancePayload as V2EquipRoll | null) ?? undefined)
+            ? listingEquipRoll(l.instancePayload)
             : undefined;
         const detail =
           l.kind === "equip"

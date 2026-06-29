@@ -116,6 +116,24 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(pass.castSkillId).toBe(SKILL);
   });
 
+  it("applyProcInPattern=true 에서 1순위 proc 실패 시 다음 패턴 후보를 시도한다", () => {
+    const fallback = "v2c_warrior_warcry"; // procChance 100
+    const pattern: V2CombatPattern = {
+      blocks: [
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: SKILL } },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: fallback } },
+      ],
+    };
+    const r = resolveV2SkillCast(
+      castInput([SKILL, fallback], {
+        procRoll: 99,
+        combatPattern: pattern,
+        applyProcInPattern: true,
+      }),
+    );
+    expect(r.castSkillId).toBe(fallback);
+  });
+
   it("applyProcInPattern=true 라도 procChanceBonus 합산이 게이트를 넘기면 발동(워메이지 주문연사)", () => {
     // procChance 40 + 보너스 60 = 100 클램프 → procRoll 99 여도 발동(100 미만 게이트 자체 미적용).
     const boosted = resolveV2SkillCast(

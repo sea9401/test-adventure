@@ -138,6 +138,7 @@ describe("gridDungeon party combat simulations", () => {
     ["monster + dps/healer", "monster", [dps(), healer()]],
     ["elite + dps", "elite", [dps()]],
     ["elite + dps/healer", "elite", [dps(), healer()]],
+    ["boss + dps/healer", "boss", [dps(), healer()]],
   ] as const)("%s clears", (_label, kind, supporters) => {
     const result = runRoom(kind, supporters);
     expect(result.outcome).toBe("win");
@@ -146,7 +147,8 @@ describe("gridDungeon party combat simulations", () => {
   });
 
   it.each([
-    ["boss + dps/healer", [dps(), healer()]],
+    ["boss solo", []],
+    ["boss + healer", [healer()]],
     ["boss + tank/healer", [tank(), healer()]],
   ] as const)("%s keeps boss pressure visible", (_label, supporters) => {
     const result = runRoom("boss", supporters);

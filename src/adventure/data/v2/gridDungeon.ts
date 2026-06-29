@@ -40,6 +40,16 @@ export type GridDungeonStatus = "active" | "cleared" | "claimed" | "failed";
 
 export type GridDungeonCombatOutcome = "win" | "lose";
 
+export type GridDungeonCombatPartyMember = {
+  id: string;
+  name: string;
+  role: "main" | "supporter";
+  hpAfter: number;
+  maxHp: number;
+  damageDealt: number;
+  damageTaken: number;
+};
+
 export type GridDungeonCombatSummary = {
   enemyName: string;
   outcome: GridDungeonCombatOutcome;
@@ -51,6 +61,7 @@ export type GridDungeonCombatSummary = {
   enemyHp: number;
   enemyMaxHp: number;
   rewardGold: number;
+  party?: GridDungeonCombatPartyMember[];
   log: string[];
 };
 
@@ -529,6 +540,7 @@ function parseGridDungeonCombatSummary(
   const log = Array.isArray(r.log)
     ? r.log.filter((line): line is string => typeof line === "string").slice(-6)
     : [];
+  const party = parseGridDungeonCombatParty(r.party);
   return {
     enemyName,
     outcome,
@@ -540,8 +552,33 @@ function parseGridDungeonCombatSummary(
     enemyHp: Math.max(0, Math.floor(Number(r.enemyHp) || 0)),
     enemyMaxHp: Math.max(0, Math.floor(Number(r.enemyMaxHp) || 0)),
     rewardGold: Math.max(0, Math.floor(Number(r.rewardGold) || 0)),
+    ...(party.length > 0 ? { party } : {}),
     log,
   };
+}
+
+function parseGridDungeonCombatParty(raw: unknown): GridDungeonCombatPartyMember[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry): GridDungeonCombatPartyMember | null => {
+      if (!entry || typeof entry !== "object") return null;
+      const e = entry as Partial<GridDungeonCombatPartyMember>;
+      const id = typeof e.id === "string" ? e.id : "";
+      const name = typeof e.name === "string" && e.name.trim() ? e.name.trim() : "";
+      const role = e.role === "main" || e.role === "supporter" ? e.role : null;
+      if (!id || !name || !role) return null;
+      return {
+        id,
+        name,
+        role,
+        hpAfter: Math.max(0, Math.floor(Number(e.hpAfter) || 0)),
+        maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),
+        damageDealt: Math.max(0, Math.floor(Number(e.damageDealt) || 0)),
+        damageTaken: Math.max(0, Math.floor(Number(e.damageTaken) || 0)),
+      };
+    })
+    .filter((entry): entry is GridDungeonCombatPartyMember => entry != null)
+    .slice(0, 3);
 }
 
 function sanitizeGridDungeonDrops(raw: unknown): DropResult {

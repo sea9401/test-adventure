@@ -617,6 +617,56 @@ function DungeonCombatSummary({
           tone="bg-red-400"
         />
       </div>
+      {combat.party && combat.party.length > 0 && (
+        <div className="space-y-2 border-t border-zinc-800 pt-2">
+          <div className="text-[11px] font-semibold text-zinc-300">
+            파티 전투 결과
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {combat.party.map((member) => {
+              const memberPct =
+                member.maxHp > 0
+                  ? Math.max(0, Math.min(100, (member.hpAfter / member.maxHp) * 100))
+                  : 0;
+              return (
+                <div
+                  key={member.id}
+                  className="rounded border border-zinc-800 bg-zinc-950/70 p-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 truncate font-semibold text-zinc-200">
+                      {member.name}
+                    </div>
+                    <div className="text-[10px] text-zinc-500">
+                      {member.role === "main" ? "본인" : "동료"}
+                    </div>
+                  </div>
+                  <CombatMeter
+                    label="HP"
+                    value={`${member.hpAfter.toLocaleString()} / ${member.maxHp.toLocaleString()}`}
+                    pct={memberPct}
+                    tone={member.role === "main" ? "bg-emerald-400" : "bg-cyan-400"}
+                  />
+                  <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-zinc-500">
+                    <div>
+                      피해량{" "}
+                      <span className="text-zinc-300">
+                        {member.damageDealt.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      피격{" "}
+                      <span className="text-zinc-300">
+                        {member.damageTaken.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {combat.log.length > 0 && (
         <div className="space-y-1 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
           {combat.log.map((line, idx) => (

@@ -54,6 +54,7 @@ import {
   rollGridDungeonDrops,
   withGridDungeonLayout,
   type GridDungeonMoveDir,
+  type GridDungeonCombatPartyMember,
   type GridDungeonResolvedCombat,
   type GridDungeonRun,
   type GridDungeonSupporterSnapshot,
@@ -292,6 +293,8 @@ type GridDungeonPartyActor = {
   def: number;
   spd: number;
   isMain: boolean;
+  damageDealt: number;
+  damageTaken: number;
 };
 
 type GridDungeonPartyCombatResult = {
@@ -301,6 +304,7 @@ type GridDungeonPartyCombatResult = {
   playerHpAfter: number;
   enemyHp: number;
   enemyMaxHp: number;
+  party: GridDungeonCombatPartyMember[];
   log: string[];
 };
 
@@ -328,11 +332,13 @@ function resolveGridDungeonPartyCombat({
       name: supporter.name,
       hp: supporter.maxHp,
       maxHp: supporter.maxHp,
-      atk: supporter.atk,
-      def: supporter.def,
-      spd: supporter.spd,
-      isMain: false,
-    })),
+          atk: supporter.atk,
+          def: supporter.def,
+          spd: supporter.spd,
+          isMain: false,
+          damageDealt: 0,
+          damageTaken: 0,
+        })),
   ];
   const enemyMaxHp = Math.max(
     1,
@@ -365,6 +371,7 @@ function resolveGridDungeonPartyCombat({
           : livingSupporters.sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0];
       const damage = partyDamage(enemyAtk, target.def);
       target.hp = Math.max(0, target.hp - damage);
+      target.damageTaken += damage;
       log.push(`${enemy.name}이(가) ${target.name}에게 ${damage.toLocaleString()} 피해`);
       ticks.set("enemy", (ticks.get("enemy") ?? 0) + partyActionInterval(enemy.spd));
       continue;
@@ -374,6 +381,7 @@ function resolveGridDungeonPartyCombat({
     if (!actor || actor.hp <= 0) continue;
     const damage = partyDamage(actor.atk, enemyDef);
     enemyHp = Math.max(0, enemyHp - damage);
+    actor.damageDealt += damage;
     log.push(`${actor.name}이(가) ${enemy.name}에게 ${damage.toLocaleString()} 피해`);
     ticks.set(actor.id, (ticks.get(actor.id) ?? 0) + partyActionInterval(actor.spd));
     turns += 1;
@@ -386,6 +394,15 @@ function resolveGridDungeonPartyCombat({
     playerHpAfter: party[0].hp,
     enemyHp,
     enemyMaxHp,
+    party: party.map((actor) => ({
+      id: actor.id,
+      name: actor.name,
+      role: actor.isMain ? "main" : "supporter",
+      hpAfter: actor.hp,
+      maxHp: actor.maxHp,
+      damageDealt: actor.damageDealt,
+      damageTaken: actor.damageTaken,
+    })),
     log: log.slice(-6),
   };
 }
@@ -548,6 +565,8 @@ async function resolveGridDungeonCombat({
             def: Math.max(0, playerForBattle.def),
             spd: Math.max(1, playerForBattle.spd),
             isMain: true,
+            damageDealt: 0,
+            damageTaken: 0,
           },
           supporters,
           enemy: enemyMonster,
@@ -613,6 +632,7 @@ async function resolveGridDungeonCombat({
       enemyHp: Math.max(0, enemyHpAfter),
       enemyMaxHp: Math.max(1, enemyMaxHp),
       rewardGold,
+      ...(partyResult ? { party: partyResult.party } : {}),
       log: combatLog,
     },
   };

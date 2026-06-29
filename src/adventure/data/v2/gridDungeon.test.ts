@@ -84,6 +84,26 @@ describe("gridDungeon", () => {
         enemyMaxHp: 38,
         rewardGold: 0,
         log: ["공격", "승리"],
+        party: [
+          {
+            id: "me",
+            name: "나",
+            role: "main",
+            hpAfter: 88,
+            maxHp: 100,
+            damageDealt: 40,
+            damageTaken: 12,
+          },
+          {
+            id: "u1",
+            name: "검사",
+            role: "supporter",
+            hpAfter: 70,
+            maxHp: 80,
+            damageDealt: 31,
+            damageTaken: 10,
+          },
+        ],
       },
     });
     expect(moved.ok).toBe(true);
@@ -99,6 +119,20 @@ describe("gridDungeon", () => {
       turns: 3,
       hpLost: 1,
       rewardGold: 0,
+      party: [
+        {
+          id: "me",
+          role: "main",
+          damageDealt: 40,
+          damageTaken: 12,
+        },
+        {
+          id: "u1",
+          role: "supporter",
+          damageDealt: 31,
+          damageTaken: 10,
+        },
+      ],
     });
   });
 

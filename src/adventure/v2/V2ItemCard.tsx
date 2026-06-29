@@ -423,7 +423,7 @@ export function V2ItemCard({
               className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800"
             >
               <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                {tagSet.name} 태그 세트 ({count}개 착용)
+                {tagSet.name} 세트
               </div>
               <div className="mt-1 space-y-px">
                 {tagSet.thresholds.map((threshold) => {

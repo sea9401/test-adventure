@@ -519,16 +519,65 @@ export function V2LoadoutPanel({
           style={{ width: `${pct}%` }}
         />
       </div>
+      {spBreakdown && showSpDetails && (
+        <div className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/80">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+            <span>기본 {spBreakdown.base}</span>
+            <span>숙련도 +{spBreakdown.milestoneSp}</span>
+            <span>직업군 정복 +{spBreakdown.masteryBonusSp}</span>
+            {(spBreakdown.softCapReduction ?? 0) > 0 && (
+              <span>상한 조정 -{spBreakdown.softCapReduction}</span>
+            )}
+            <span>SP 열매 +{spBreakdown.spFruitBonus}</span>
+            <span>도감 +{spBreakdown.collectionBonusSp}</span>
+            <span>장비 도감 +{spBreakdown.equipmentCodexBonus ?? 0}</span>
+          </div>
+          {spBreakdown.groups.length > 0 && (
+            <div className="mt-2 grid gap-1 sm:grid-cols-2">
+              {spBreakdown.groups.map((g) => {
+                const masteryPct =
+                  g.requiredCumLevel > 0
+                    ? Math.min(100, (g.cumLevel / g.requiredCumLevel) * 100)
+                    : 0;
+                return (
+                  <div key={g.id} className="min-w-0">
+                    <div className="flex items-center justify-between gap-2 text-[11px]">
+                      <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">
+                        {g.label}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {g.mastered
+                          ? `정복 +${g.masteryBonusSp}`
+                          : `${g.cumLevel.toLocaleString()} / ${g.requiredCumLevel.toLocaleString()}`}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div
+                        className={`h-full rounded-full ${
+                          g.mastered
+                            ? "bg-emerald-500 dark:bg-emerald-500"
+                            : "bg-sky-500 dark:bg-sky-500"
+                        }`}
+                        style={{ width: `${masteryPct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
         배운 스킬을 스킬포인트 예산 안에서 장착하세요. 공용·기본기는 어느 직업이든,
         시그니처는 그 직업일 때만 장착할 수 있어요.
       </p>
       {equippedSkills.length > 0 && (
-        <div className="mt-3 border-y border-zinc-200 py-2 dark:border-zinc-800">
-          <div className="mb-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+        <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
             장착 중
           </div>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
             {equippedSkills.map((s, idx) => (
               <div
                 key={s.skillId}
@@ -600,127 +649,82 @@ export function V2LoadoutPanel({
           </div>
         </div>
       )}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <label className="relative min-w-52 flex-1 sm:max-w-xs">
-          <MagnifyingGlass
-            size={14}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
-          />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="스킬 검색"
-            className="h-8 w-full rounded-md border border-zinc-300 bg-white py-1 pl-8 pr-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          />
-        </label>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setCompact((v) => !v)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            {compact ? (
-              <Rows size={14} weight="bold" />
-            ) : (
-              <SquaresFour size={14} weight="bold" />
-            )}
-            {compact ? "상세" : "간략"}
-          </button>
-          <button
-            type="button"
-            onClick={sortPinnedFirst}
-            disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <ArrowsDownUp size={14} weight="bold" />
-            즐겨찾기 우선
-          </button>
+      <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+        <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+          스킬 목록
         </div>
-      </div>
-      <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
-        {filterDefs.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => setFilter(f.id)}
-            className={`h-7 shrink-0 rounded-md border px-2 text-[11px] font-medium ${
-              filter === f.id
-                ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
-                : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-        <span>
-          표시 {visibleLibrary.length} / {orderedLibrary.length}
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            setQuery("");
-            setFilter("all");
-          }}
-          disabled={query.length === 0 && filter === "all"}
-          className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          초기화
-        </button>
-      </div>
-      {spBreakdown && showSpDetails && (
-        <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/80">
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
-            <span>기본 {spBreakdown.base}</span>
-            <span>숙련도 +{spBreakdown.milestoneSp}</span>
-            <span>직업군 정복 +{spBreakdown.masteryBonusSp}</span>
-            {(spBreakdown.softCapReduction ?? 0) > 0 && (
-              <span>상한 조정 -{spBreakdown.softCapReduction}</span>
-            )}
-            <span>SP 열매 +{spBreakdown.spFruitBonus}</span>
-            <span>도감 +{spBreakdown.collectionBonusSp}</span>
-            <span>장비 도감 +{spBreakdown.equipmentCodexBonus ?? 0}</span>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <label className="relative min-w-52 flex-1 sm:max-w-xs">
+            <MagnifyingGlass
+              size={14}
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
+            />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="스킬 검색"
+              className="h-8 w-full rounded-md border border-zinc-300 bg-white py-1 pl-8 pr-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+          </label>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCompact((v) => !v)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {compact ? (
+                <Rows size={14} weight="bold" />
+              ) : (
+                <SquaresFour size={14} weight="bold" />
+              )}
+              {compact ? "상세" : "간략"}
+            </button>
+            <button
+              type="button"
+              onClick={sortPinnedFirst}
+              disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <ArrowsDownUp size={14} weight="bold" />
+              즐겨찾기 우선
+            </button>
           </div>
-          {spBreakdown.groups.length > 0 && (
-            <div className="mt-2 grid gap-1 sm:grid-cols-2">
-              {spBreakdown.groups.map((g) => {
-                const masteryPct =
-                  g.requiredCumLevel > 0
-                    ? Math.min(100, (g.cumLevel / g.requiredCumLevel) * 100)
-                    : 0;
-                return (
-                  <div key={g.id} className="min-w-0">
-                    <div className="flex items-center justify-between gap-2 text-[11px]">
-                      <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">
-                        {g.label}
-                      </span>
-                      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
-                        {g.mastered
-                          ? `정복 +${g.masteryBonusSp}`
-                          : `${g.cumLevel.toLocaleString()} / ${g.requiredCumLevel.toLocaleString()}`}
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                      <div
-                        className={`h-full rounded-full ${
-                          g.mastered
-                            ? "bg-emerald-500 dark:bg-emerald-500"
-                            : "bg-sky-500 dark:bg-sky-500"
-                        }`}
-                        style={{ width: `${masteryPct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
-      )}
+        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+          {filterDefs.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={`h-7 shrink-0 rounded-md border px-2 text-[11px] font-medium ${
+                filter === f.id
+                  ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                  : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span>
+            표시 {visibleLibrary.length} / {orderedLibrary.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setFilter("all");
+            }}
+            disabled={query.length === 0 && filter === "all"}
+            className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            초기화
+          </button>
+        </div>
 
-      <ul className="mt-3 space-y-1.5">
-        {visibleLibrary.map((s) => {
+        <ul className="mt-3 space-y-1.5">
+          {visibleLibrary.map((s) => {
           const equipped = equippedSet.has(s.skillId);
           const favorite = favoriteSet.has(s.skillId);
           const wouldFit = spUsed + s.spCost <= spBudget;
@@ -848,13 +852,14 @@ export function V2LoadoutPanel({
               </div>
             </li>
           );
-        })}
-        {visibleLibrary.length === 0 && (
-          <li className="rounded-md border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-            조건에 맞는 스킬이 없어요.
-          </li>
-        )}
-      </ul>
+          })}
+          {visibleLibrary.length === 0 && (
+            <li className="rounded-md border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+              조건에 맞는 스킬이 없어요.
+            </li>
+          )}
+        </ul>
+      </div>
 
       {msg && (
         <div

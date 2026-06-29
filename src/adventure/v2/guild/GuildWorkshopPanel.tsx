@@ -207,15 +207,18 @@ function titleGoalLine(state: WorkshopState): string {
   return "장인 칭호 목표를 모두 달성했습니다.";
 }
 
-// 길드 제작 탭 — 길드 대장간을 실제 제작 기능 게이트로 사용한다.
+// 대장간 제작 패널 — 길드 대장간을 실제 제작 기능 게이트로 사용한다.
 export function GuildWorkshopPanel({
   info,
+  localSmithy = false,
 }: {
   info: GuildInfoResponse | null;
+  localSmithy?: boolean;
 }) {
   const smithy = SETTLEMENT_BUILDINGS.guild_smithy;
   const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
-  const hasSmithy = info?.hasGuildSmithy === true || smithyCount > 0;
+  const hasSmithy =
+    localSmithy || info?.hasGuildSmithy === true || smithyCount > 0;
   const [state, setState] = useState<WorkshopState | null>(null);
   const [loading, setLoading] = useState(false);
   const [craftingId, setCraftingId] = useState<GuildWorkshopRecipeId | null>(
@@ -840,7 +843,7 @@ export function GuildWorkshopPanel({
                 길드 대장간 필요
               </h3>
               <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                보유 마을의 건축물 슬롯에 {smithy.name}을 배치하면 길드 제작을
+                보유 마을의 건축물 슬롯에 {smithy.name}을 배치하면 제작을
                 사용할 수 있습니다.
               </p>
             </div>
@@ -872,8 +875,9 @@ export function GuildWorkshopPanel({
             {smithy.name} 가동 중
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-            보유 수 {smithyCount.toLocaleString()}개. 길드 영지 재화를 사용해
-            기본 장비를 제작합니다.
+            {localSmithy
+              ? "이 거점의 대장간에서 길드 영지 재화를 사용해 장비를 제작합니다."
+              : `보유 수 ${smithyCount.toLocaleString()}개. 길드 영지 재화를 사용해 장비를 제작합니다.`}
           </p>
         </div>
         <button

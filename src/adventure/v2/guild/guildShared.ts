@@ -124,7 +124,6 @@ export type GuildSubTab =
   | "members"
   | "manage"
   | "outposts"
-  | "workshop"
   | "honor_shop";
 // 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·거점 정책·길드 설정(엠블럼·색·국가·해산).
 export type GuildManageTab = "members" | "territory" | "settings";

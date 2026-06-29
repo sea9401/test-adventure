@@ -71,7 +71,7 @@ export function OutpostView({
   const { coreLoopOn, currentOutpost, tilePos, tileSettlements } =
     useGameState();
   const [busy, setBusy] = useState(false);
-  // 내 거점 활동 탭 — 관리 / 대장간 / 수비 / 최근 공격 기록.
+  // 내 거점 활동 탭 — 마을 / 대장간 / 수비 / 최근 공격 기록.
   const [activityTab, setActivityTab] = useState<ActivityTab>("manage");
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
@@ -571,7 +571,7 @@ export function OutpostView({
         )}
 
         {ownSettlement ? (
-          // 내 거점/정착지 — 관리 / 대장간 / 최근 공격 기록 탭.
+          // 내 거점/정착지 — 마을 / 대장간 / 최근 공격 기록 탭.
           <OutpostActivityTabs
             outpostId={outpost.id}
             activityTab={activityTab}

@@ -21,6 +21,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import type { GuildInfoResponse } from "./guildShared";
 import { ArtisanLeaderboardPanel } from "./ArtisanLeaderboardPanel";
+import { GuildArtisanContributionPanel } from "./GuildArtisanContributionPanel";
 import { CraftOnlyBadge } from "../V2ItemCard";
 
 type WorkshopRecipeView = {
@@ -264,9 +265,35 @@ export function GuildWorkshopPanel({
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryBusyId, setDeliveryBusyId] = useState<string | null>(null);
   const [deliveryMessage, setDeliveryMessage] = useState<string | null>(null);
+  const [contributionInfo, setContributionInfo] =
+    useState<GuildInfoResponse | null>(null);
   const [selectedDeliveryIids, setSelectedDeliveryIids] = useState<
     Record<string, string>
   >({});
+
+  const loadContributionInfo = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/guild/info");
+      const json = (await res.json().catch(() => null)) as GuildInfoResponse | null;
+      if (res.ok && json?.guild) {
+        setContributionInfo(json);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (info) return;
+    let alive = true;
+    fetch("/api/v2/me/guild/info")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: GuildInfoResponse | null) => {
+        if (alive && json?.guild) setContributionInfo(json);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [info]);
 
   const loadWeekly = useCallback(async () => {
     setWeeklyLoading(true);
@@ -539,6 +566,7 @@ export function GuildWorkshopPanel({
         grantedTitleNames,
       });
       void loadWeekly();
+      void loadContributionInfo();
     } catch {
       setMessage("제작 요청을 처리하지 못했습니다.");
       setCraftResult(null);
@@ -911,6 +939,8 @@ export function GuildWorkshopPanel({
           </button>
         ))}
       </div>
+
+      <GuildArtisanContributionPanel info={info ?? contributionInfo} />
 
       {workshopMode === "delivery" ? (
         <>

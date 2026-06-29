@@ -79,9 +79,8 @@ type Trade = {
   closedAt: string | null;
 };
 
-// 판매 탭 한 페이지에 보여줄 아이템 수 — 인벤토리와 동일.
-const SELL_PAGE_SIZE = 20;
-const BROWSE_PAGE_SIZE = 20;
+// 거래소 목록 한 페이지에 보여줄 아이템 수.
+const MARKETPLACE_PAGE_SIZE = 10;
 
 // 서버 에러 코드 → 사용자 안내.
 const ERR_LABEL: Record<string, string> = {
@@ -349,13 +348,22 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           sellableEquip.filter((i) => V2_EQUIPMENT[i.id]?.slot === sellTab),
           sellSort,
         );
-  // 한 페이지 20개. 탭/정렬 바뀌면 1페이지로(resetKey).
+  // 탭/정렬 바뀌면 1페이지로(resetKey).
   const sellEquipPager = usePagination(
     sellTabEquip,
-    SELL_PAGE_SIZE,
+    MARKETPLACE_PAGE_SIZE,
     `${sellTab}:${sellSort}`,
   );
-  const sellMatPager = usePagination(sellableMats, SELL_PAGE_SIZE, sellTab);
+  const sellMatPager = usePagination(
+    sellableMats,
+    MARKETPLACE_PAGE_SIZE,
+    sellTab,
+  );
+  const sellRareMapPager = usePagination(
+    rareMaps,
+    MARKETPLACE_PAGE_SIZE,
+    sellTab,
+  );
 
   // 둘러보기 표시 매물 — 하위 탭(6부위/재료/소모품) + 검색/정렬. 반환된 활성 매물 위에서만.
   const matchesBrowseTab = (l: Listing, activeTab: V2ItemTabKey): boolean => {
@@ -427,9 +435,15 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     });
   const browsePager = usePagination(
     displayedListings,
-    BROWSE_PAGE_SIZE,
+    MARKETPLACE_PAGE_SIZE,
     `browse:${browseTab}:${q}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
   );
+  const historyPager = usePagination(
+    history ?? [],
+    MARKETPLACE_PAGE_SIZE,
+    "history",
+  );
+  const minePager = usePagination(mine ?? [], MARKETPLACE_PAGE_SIZE, "mine");
 
   // 구매 확인 모달에서 확정.
   const confirmedBuy = () => {
@@ -584,39 +598,57 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       )}
 
       {tab === "history" && (
-        <ListingList
-          rows={history}
-          emptyText="아직 체결된 거래가 없어요."
-          priceRef={{}}
-          onOpenCard={openCardFor}
-          action={(l) => (
-            <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
-              {l.sellerName}
-              <br />
-              {timeAgo(l.createdAt)}
-            </span>
+        <>
+          <ListingList
+            rows={history === null ? null : historyPager.pageItems}
+            emptyText="아직 체결된 거래가 없어요."
+            priceRef={{}}
+            onOpenCard={openCardFor}
+            action={(l) => (
+              <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+                {l.sellerName}
+                <br />
+                {timeAgo(l.createdAt)}
+              </span>
+            )}
+          />
+          {history !== null && history.length > 0 && (
+            <Pagination
+              page={historyPager.page}
+              pageCount={historyPager.pageCount}
+              setPage={historyPager.setPage}
+            />
           )}
-        />
+        </>
       )}
 
       {tab === "mine" && (
-        <ListingList
-          rows={mine}
-          emptyText="등록한 매물이 없어요."
-          priceRef={priceRef}
-          expiryDays={ttlDays ?? undefined}
-          onOpenCard={openCardFor}
-          action={(l) => (
-            <button
-              type="button"
-              onClick={() => cancel(l)}
-              disabled={busy}
-              className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-            >
-              취소
-            </button>
+        <>
+          <ListingList
+            rows={mine === null ? null : minePager.pageItems}
+            emptyText="등록한 매물이 없어요."
+            priceRef={priceRef}
+            expiryDays={ttlDays ?? undefined}
+            onOpenCard={openCardFor}
+            action={(l) => (
+              <button
+                type="button"
+                onClick={() => cancel(l)}
+                disabled={busy}
+                className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+              >
+                취소
+              </button>
+            )}
+          />
+          {mine !== null && mine.length > 0 && (
+            <Pagination
+              page={minePager.page}
+              pageCount={minePager.pageCount}
+              setPage={minePager.setPage}
+            />
           )}
-        />
+        </>
       )}
 
       {tab === "sell" && (
@@ -636,6 +668,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           {sellTab === "consumable" ? (
             <MarketplaceRareMapTab
               rareMaps={rareMaps}
+              pager={sellRareMapPager}
               prices={prices}
               setPrices={setPrices}
               priceRef={priceRef}

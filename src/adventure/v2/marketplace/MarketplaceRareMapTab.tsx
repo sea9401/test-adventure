@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { Card } from "@/components/ui/Card";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   RARE_MAP_KINDS,
   type RareMapInstance,
@@ -9,12 +10,14 @@ import {
 import {
   PriceInput,
   PriceRefLine,
+  type MarketplacePager,
   type PriceStat,
 } from "./marketplaceShared";
 
 // 판매 탭 — 소모품(레어맵). 빈 목록 안내 / 개체 단위 가격 입력 카드 목록.
 export function MarketplaceRareMapTab({
   rareMaps,
+  pager,
   prices,
   setPrices,
   priceRef,
@@ -22,6 +25,7 @@ export function MarketplaceRareMapTab({
   onListConsumable,
 }: {
   rareMaps: RareMapInstance[];
+  pager: MarketplacePager<RareMapInstance>;
   prices: Record<string, string>;
   setPrices: Dispatch<SetStateAction<Record<string, string>>>;
   priceRef: Record<string, PriceStat>;
@@ -40,7 +44,7 @@ export function MarketplaceRareMapTab({
   }
   return (
     <div className="space-y-2">
-      {rareMaps.map((m) => {
+      {pager.pageItems.map((m) => {
         const def = RARE_MAP_KINDS[m.kind];
         return (
           <Card key={m.iid} padding="sm">
@@ -74,6 +78,11 @@ export function MarketplaceRareMapTab({
           </Card>
         );
       })}
+      <Pagination
+        page={pager.page}
+        pageCount={pager.pageCount}
+        setPage={pager.setPage}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Storefront } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
+import { Pagination } from "@/components/ui/Pagination";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { parseAmount } from "@/components/ui/NumberInput";
 import {
@@ -80,6 +81,7 @@ type Trade = {
 
 // 판매 탭 한 페이지에 보여줄 아이템 수 — 인벤토리와 동일.
 const SELL_PAGE_SIZE = 20;
+const BROWSE_PAGE_SIZE = 20;
 
 // 서버 에러 코드 → 사용자 안내.
 const ERR_LABEL: Record<string, string> = {
@@ -101,6 +103,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
   const { coreLoopOn, bankedGold, refreshGameState } = useGameState();
   const [tab, setTab] = useState<Tab>("browse");
+  // 둘러보기 — 인벤토리/판매 탭과 같은 6부위 + 재료 + 소모품 하위 탭.
+  const [browseTab, setBrowseTab] = useState<V2ItemTabKey>("weapon");
   // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
   const [sellTab, setSellTab] = useState<V2ItemTabKey>("weapon");
   const [sellSort, setSellSort] = useState<SortMode>("default");
@@ -123,10 +127,6 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
   const [confirmBuy, setConfirmBuy] = useState<Listing | null>(null);
   const [search, setSearch] = useState("");
-  const [kindFilter, setKindFilter] = useState<
-    "all" | "equip" | "material" | "consumable"
-  >("all");
-  const [slotFilter, setSlotFilter] = useState<"all" | V2EquipSlot>("all");
   const [craftedOnly, setCraftedOnly] = useState(false);
   const [craftedQualityFilter, setCraftedQualityFilter] = useState<
     "all" | "plus1"
@@ -134,12 +134,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [craftedLevelFilter, setCraftedLevelFilter] = useState<
     "all" | "2" | "3" | "4" | "5"
   >("all");
-  const [tierFilter, setTierFilter] = useState<"all" | "1" | "2" | "3">(
-    "all",
-  );
   const [sort, setSort] = useState<
-    "new" | "price_asc" | "price_desc" | "roll_desc" | "crafter_desc"
-  >("new");
+    "price_asc" | "price_desc" | "roll_desc" | "crafter_desc"
+  >("price_asc");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>({});
   const [ttlDays, setTtlDays] = useState<number | null>(null); // 매물 만료 일수(서버 다이얼).
@@ -246,6 +243,15 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     }
   }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory]);
 
+  useEffect(() => {
+    if (
+      (browseTab === "material" || browseTab === "consumable") &&
+      (sort === "roll_desc" || sort === "crafter_desc")
+    ) {
+      setSort("price_asc");
+    }
+  }, [browseTab, sort]);
+
   const act = useCallback(
     async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
       if (busy) return;
@@ -351,9 +357,15 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   );
   const sellMatPager = usePagination(sellableMats, SELL_PAGE_SIZE, sellTab);
 
-  // 둘러보기 표시 매물 — 클라이언트측 필터(종류/슬롯/검색) + 정렬. 반환된 활성 매물 위에서만.
-  const slotOf = (l: Listing): V2EquipSlot | null =>
-    l.kind === "equip" ? (V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]?.slot ?? null) : null;
+  // 둘러보기 표시 매물 — 하위 탭(6부위/재료/소모품) + 검색/정렬. 반환된 활성 매물 위에서만.
+  const matchesBrowseTab = (l: Listing, activeTab: V2ItemTabKey): boolean => {
+    if (activeTab === "material") return l.kind === "material";
+    if (activeTab === "consumable") return l.kind === "consumable";
+    return (
+      l.kind === "equip" &&
+      V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]?.slot === activeTab
+    );
+  };
   const rollPctOfListing = (l: Listing): number =>
     l.kind === "equip"
       ? (equipDetail(l.itemId, (l.instancePayload as V2EquipRoll | null) ?? undefined)?.pct ?? -1)
@@ -367,14 +379,6 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     const craftedBy = listingCraftedBy(l.instancePayload);
     return (craftedBy?.level ?? 0) >= Number(minLevel);
   };
-  const meetsTier = (l: Listing, tier: string): boolean => {
-    if (tier === "all") return true;
-    if (l.kind !== "equip") return false;
-    return (
-      V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]?.tier ===
-      Number(tier)
-    );
-  };
   const crafterLevelOfListing = (l: Listing): number =>
     l.kind === "equip" ? (listingCraftedBy(l.instancePayload)?.level ?? 0) : 0;
   const matchesSearch = (l: Listing, query: string): boolean => {
@@ -384,16 +388,32 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     return (craftedBy?.name ?? "").toLowerCase().includes(query);
   };
   const q = search.trim().toLowerCase();
+  const browseEquipmentTab =
+    browseTab !== "material" && browseTab !== "consumable";
+  const browseSortOptions: [string, string][] = browseEquipmentTab
+    ? [
+        ["price_asc", "가격 낮은순"],
+        ["price_desc", "가격 높은순"],
+        ["roll_desc", "품질 높은순"],
+        ["crafter_desc", "제작자 Lv 높은순"],
+      ]
+    : [
+        ["price_asc", "가격 낮은순"],
+        ["price_desc", "가격 높은순"],
+      ];
   const displayedListings = (listings ?? [])
-    .filter((l) => kindFilter === "all" || l.kind === kindFilter)
-    .filter((l) => slotFilter === "all" || slotOf(l) === slotFilter)
-    .filter((l) => meetsTier(l, tierFilter))
-    .filter((l) => !craftedOnly || isCraftedListing(l))
+    .filter((l) => matchesBrowseTab(l, browseTab))
+    .filter((l) => !browseEquipmentTab || !craftedOnly || isCraftedListing(l))
     .filter(
       (l) =>
-        craftedQualityFilter === "all" || isPlusOneCraftedListing(l),
+        !browseEquipmentTab ||
+        craftedQualityFilter === "all" ||
+        isPlusOneCraftedListing(l),
     )
-    .filter((l) => meetsCrafterLevel(l, craftedLevelFilter))
+    .filter(
+      (l) =>
+        !browseEquipmentTab || meetsCrafterLevel(l, craftedLevelFilter),
+    )
     .filter((l) => matchesSearch(l, q))
     .slice()
     .sort((a, b) => {
@@ -403,8 +423,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       if (sort === "crafter_desc") {
         return crafterLevelOfListing(b) - crafterLevelOfListing(a);
       }
-      return 0; // new — 서버 최신순 유지
+      return 0;
     });
+  const browsePager = usePagination(
+    displayedListings,
+    BROWSE_PAGE_SIZE,
+    `browse:${browseTab}:${q}:${craftedOnly}:${craftedQualityFilter}:${craftedLevelFilter}:${sort}`,
+  );
 
   // 구매 확인 모달에서 확정.
   const confirmedBuy = () => {
@@ -463,6 +488,16 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
       {tab === "browse" && (
         <>
+          <HeaderPanel className="py-2">
+            <TabBar
+              tabs={V2_ITEM_TABS}
+              active={browseTab}
+              onChange={setBrowseTab}
+              ariaLabel="거래소 목록 분류"
+              size="sm"
+              scrollable
+            />
+          </HeaderPanel>
           <div className="flex flex-wrap items-center gap-1.5">
             <input
               type="text"
@@ -471,88 +506,55 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               onChange={(e) => setSearch(e.target.value)}
               className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
             />
-            <SelectControl
-              value={kindFilter}
-              onChange={(v) => setKindFilter(v as typeof kindFilter)}
-              options={[
-                ["all", "전체 종류"],
-                ["equip", "장비"],
-                ["material", "재료"],
-                ["consumable", "소모품"],
-              ]}
-            />
-            <SelectControl
-              value={slotFilter}
-              onChange={(v) => setSlotFilter(v as typeof slotFilter)}
-              options={[
-                ["all", "전체 부위"],
-                ["weapon", "무기"],
-                ["armor", "갑옷"],
-                ["gloves", "장갑"],
-                ["boots", "신발"],
-                ["ring", "반지"],
-                ["necklace", "목걸이"],
-              ]}
-            />
-            <SelectControl
-              value={tierFilter}
-              onChange={(v) => setTierFilter(v as typeof tierFilter)}
-              options={[
-                ["all", "전체 티어"],
-                ["1", "T1"],
-                ["2", "T2"],
-                ["3", "T3"],
-              ]}
-            />
-            <SelectControl
-              value={craftedQualityFilter}
-              onChange={(v) =>
-                setCraftedQualityFilter(v as typeof craftedQualityFilter)
-              }
-              options={[
-                ["all", "전체 품질"],
-                ["plus1", "+1 제작품"],
-              ]}
-            />
-            <SelectControl
-              value={craftedLevelFilter}
-              onChange={(v) =>
-                setCraftedLevelFilter(v as typeof craftedLevelFilter)
-              }
-              options={[
-                ["all", "제작자 Lv"],
-                ["2", "Lv2+"],
-                ["3", "Lv3+"],
-                ["4", "Lv4+"],
-                ["5", "Lv5+"],
-              ]}
-            />
+            {browseEquipmentTab && (
+              <>
+                <SelectControl
+                  value={craftedQualityFilter}
+                  onChange={(v) =>
+                    setCraftedQualityFilter(v as typeof craftedQualityFilter)
+                  }
+                  options={[
+                    ["all", "전체 품질"],
+                    ["plus1", "+1 제작품"],
+                  ]}
+                />
+                <SelectControl
+                  value={craftedLevelFilter}
+                  onChange={(v) =>
+                    setCraftedLevelFilter(v as typeof craftedLevelFilter)
+                  }
+                  options={[
+                    ["all", "제작자 Lv"],
+                    ["2", "Lv2+"],
+                    ["3", "Lv3+"],
+                    ["4", "Lv4+"],
+                    ["5", "Lv5+"],
+                  ]}
+                />
+              </>
+            )}
             <SelectControl
               value={sort}
               onChange={(v) => setSort(v as typeof sort)}
-              options={[
-                ["new", "최신순"],
-                ["price_asc", "가격↑"],
-                ["price_desc", "가격↓"],
-                ["roll_desc", "품질%↓"],
-                ["crafter_desc", "제작자Lv↓"],
-              ]}
+              options={browseSortOptions}
             />
-            <button
-              type="button"
-              aria-pressed={craftedOnly}
-              onClick={() => setCraftedOnly((v) => !v)}
-              className={`rounded border px-2.5 py-1 text-xs font-medium transition ${
-                craftedOnly
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              }`}
-            >
-              제작품만
-            </button>
+            {browseEquipmentTab && (
+              <button
+                type="button"
+                aria-pressed={craftedOnly}
+                onClick={() => setCraftedOnly((v) => !v)}
+                className={`rounded border px-2.5 py-1 text-xs font-medium transition ${
+                  craftedOnly
+                    ? "border-emerald-600 bg-emerald-600 text-white"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                제작품만
+              </button>
+            )}
           </div>
           <ListingList
-            rows={listings === null ? null : displayedListings}
+            rows={listings === null ? null : browsePager.pageItems}
             emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
             action={(l) =>
               l.sellerId === viewerId ? (
@@ -571,6 +573,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             priceRef={priceRef}
             onOpenCard={openCardFor}
           />
+          {listings !== null && displayedListings.length > 0 && (
+            <Pagination
+              page={browsePager.page}
+              pageCount={browsePager.pageCount}
+              setPage={browsePager.setPage}
+            />
+          )}
         </>
       )}
 

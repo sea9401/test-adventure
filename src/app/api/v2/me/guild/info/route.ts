@@ -308,10 +308,15 @@ export async function GET() {
 
   // 국가 선포 — 길드 정원(국가 시 상향) + 선포 게이트 충족 여부(대도시 마을 보유).
   const memberCap = guildMemberCap(guildRow.nationName != null);
-  const villageRows = await db
-    .select({ tier: outpostVillages.tier, buildings: outpostVillages.buildings })
-    .from(outpostVillages)
-    .where(eq(outpostVillages.guildId, guildId));
+  let villageRows: Array<{ tier: string; buildings: unknown }> = [];
+  try {
+    villageRows = await db
+      .select({ tier: outpostVillages.tier, buildings: outpostVillages.buildings })
+      .from(outpostVillages)
+      .where(eq(outpostVillages.guildId, guildId));
+  } catch (err) {
+    console.error("[guild.info] settlement building summary failed", err);
+  }
   const hasMetropolis = villageRows.some((v) =>
     tierMeetsNation(v.tier as VillageTier),
   );

@@ -148,4 +148,68 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.staminaPotions).toBe(3);
     expect(savesStore.get("u1::stamina-potions.v1")).toEqual({ count: 3 });
   });
+
+  it("admin_gift 장비는 inventory.v2 가 아니라 equipment.v2 개체로 들어간다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: {
+        gold: 0,
+        materials: [],
+        items: [{ itemId: "v2_iron_sword", count: 2 }],
+        staminaPotions: 0,
+      },
+      claimedAt: null,
+    });
+    const res = await POST(req([1]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      claimed: number[];
+      equipV2Added: { id: string; count: number }[];
+    };
+    expect(res.status).toBe(200);
+    expect(j.ok).toBe(true);
+    expect(j.claimed).toEqual([1]);
+    expect(j.equipV2Added).toEqual([{ id: "v2_iron_sword", count: 2 }]);
+    // 핵심: equipment.v2 에 개체 2개로 합류 (V2 UI 가 읽는 키). inventory.v2 에는 안 씀.
+    const eq = savesStore.get("u1::equipment.v2") as {
+      owned: { iid: string; id: string }[];
+    };
+    expect(eq.owned).toHaveLength(2);
+    expect(eq.owned.every((o) => o.id === "v2_iron_sword")).toBe(true);
+    expect(new Set(eq.owned.map((o) => o.iid)).size).toBe(2); // iid 고유
+    expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
+  });
+
+  it("admin_gift 재료는 inventory.v2 가 아니라 character.v2.materials 로 들어간다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: {
+        gold: 0,
+        materials: [{ materialId: "v2_red_enhance_stone", count: 5 }],
+        items: [],
+        staminaPotions: 0,
+      },
+      claimedAt: null,
+    });
+    const res = await POST(req([1]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      claimed: number[];
+      materialsV2Added: { id: string; count: number }[];
+    };
+    expect(res.status).toBe(200);
+    expect(j.ok).toBe(true);
+    expect(j.claimed).toEqual([1]);
+    expect(j.materialsV2Added).toEqual([
+      { id: "v2_red_enhance_stone", count: 5 },
+    ]);
+    // 핵심: character.v2.materials 에 누적 (V2 인벤토리 UI 가 읽는 곳). inventory.v2 엔 안 씀.
+    const ch = savesStore.get("u1::character.v2") as {
+      materials: Record<string, number>;
+    };
+    expect(ch.materials).toEqual({ v2_red_enhance_stone: 5 });
+    expect(savesStore.get("u1::inventory.v2")).toBeUndefined();
+  });
 });

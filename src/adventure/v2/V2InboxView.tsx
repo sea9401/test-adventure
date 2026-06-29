@@ -272,6 +272,8 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           coinsAdded?: { season: string; coins: number }[];
           staminaPotionsAdded?: number;
           itemsAdded?: { quantity: number }[];
+          equipV2Added?: { count: number }[];
+          materialsV2Added?: { count: number }[];
           instancesAdded?: unknown[];
           error?: string;
         } | null;
@@ -303,7 +305,16 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           (s, it) => s + (it.quantity ?? 0),
           0,
         );
-        const totalItems = itemQty + (j.instancesAdded?.length ?? 0);
+        const equipV2Qty = (j.equipV2Added ?? []).reduce(
+          (s, e) => s + (e.count ?? 0),
+          0,
+        );
+        const materialsV2Qty = (j.materialsV2Added ?? []).reduce(
+          (s, m) => s + (m.count ?? 0),
+          0,
+        );
+        const totalItems =
+          itemQty + equipV2Qty + materialsV2Qty + (j.instancesAdded?.length ?? 0);
         if (totalItems > 0) parts.push(`+아이템 ${totalItems}개`);
         setMsg(
           parts.length > 0 ? `✓ 수령 완료 — ${parts.join(" · ")}` : "✓ 수령 완료",

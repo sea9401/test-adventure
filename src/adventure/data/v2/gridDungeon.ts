@@ -4,7 +4,6 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
-import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
 import {
   parseCombatPattern,
@@ -295,13 +294,13 @@ const GRID_DUNGEON_DROP_TABLE: Record<
     { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.35, amountMin: 1, amountMax: 2 },
     { id: REFORGE_STONE_MATERIAL_ID.basic, chance: 0.18, amountMin: 1, amountMax: 1 },
     { id: REFORGE_STONE_MATERIAL_ID.high, chance: 0.04, amountMin: 1, amountMax: 1 },
-    { id: SUMMON_SCROLL_MATERIAL_ID, chance: 0.08, amountMin: 1, amountMax: 1 },
+    { id: SUMMON_SCROLL_MATERIAL_ID, chance: 0.1, amountMin: 1, amountMax: 1 },
   ],
   treasure: [
-    { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.35, amountMin: 1, amountMax: 1 },
-    { id: REFORGE_STONE_MATERIAL_ID.basic, chance: 0.08, amountMin: 1, amountMax: 1 },
-    { id: SETTLEMENT_MATERIAL_ID.timber, chance: 0.12, amountMin: 1, amountMax: 2 },
-    { id: SETTLEMENT_MATERIAL_ID.ironOre, chance: 0.12, amountMin: 1, amountMax: 2 },
+    { id: ENHANCE_STONE_MATERIAL_ID.blue, chance: 0.45, amountMin: 1, amountMax: 1 },
+    { id: REFORGE_STONE_MATERIAL_ID.basic, chance: 0.18, amountMin: 1, amountMax: 1 },
+    { id: REFORGE_STONE_MATERIAL_ID.high, chance: 0.03, amountMin: 1, amountMax: 1 },
+    { id: SUMMON_SCROLL_MATERIAL_ID, chance: 0.04, amountMin: 1, amountMax: 1 },
   ],
 };
 

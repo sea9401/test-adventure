@@ -18,6 +18,7 @@ import {
 } from "@/adventure/data/v2/gridDungeon";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
+import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
 
 describe("gridDungeon", () => {
   const firstTemplate = () => 0;
@@ -153,6 +154,12 @@ describe("gridDungeon", () => {
       [ENHANCE_STONE_MATERIAL_ID.red]: 1,
       [ENHANCE_STONE_MATERIAL_ID.blue]: 1,
       [REFORGE_STONE_MATERIAL_ID.basic]: 1,
+    });
+    expect(rollGridDungeonDrops("treasure", () => 0)).toEqual({
+      [ENHANCE_STONE_MATERIAL_ID.blue]: 1,
+      [REFORGE_STONE_MATERIAL_ID.basic]: 1,
+      [REFORGE_STONE_MATERIAL_ID.high]: 1,
+      [SUMMON_SCROLL_MATERIAL_ID]: 1,
     });
     expect(rollGridDungeonDrops("boss", () => 0.99)).toEqual({});
   });

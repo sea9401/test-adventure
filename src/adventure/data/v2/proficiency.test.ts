@@ -497,7 +497,7 @@ describe("levelCapFor (코어루프 단일 레벨캡)", () => {
 });
 
 describe("proficiencyPerKillAtDepth (승리당 숙달 — 깊이 밴드 비례)", () => {
-  it("테마 2개당 +1 — 들판·협곡 2 / 호수·동굴 3 / 성소·늪지 4 / 소굴 5 (깊은 산 삭제 후)", () => {
+  it("테마 2개당 +1, 신규 엔드 사냥터도 5에서 클램프", () => {
     // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값. 깊이당 값은 깊은 산 삭제로 불변(테마 인덱스 동일).
     expect(proficiencyPerKillAtDepth(1)).toBe(2); // 들판 1
     expect(proficiencyPerKillAtDepth(6)).toBe(2); // 들판 6
@@ -508,10 +508,11 @@ describe("proficiencyPerKillAtDepth (승리당 숙달 — 깊이 밴드 비례)"
     expect(proficiencyPerKillAtDepth(36)).toBe(4); // 리자드 늪지 6
     expect(proficiencyPerKillAtDepth(37)).toBe(5); // 짐승의 소굴 1
     expect(proficiencyPerKillAtDepth(48)).toBe(5); // 검은 왕도 6
+    expect(proficiencyPerKillAtDepth(49)).toBe(5); // 붉은 벌판 1
+    expect(proficiencyPerKillAtDepth(60)).toBe(5); // 백골 고원 6
   });
 
-  it("마지막 테마(검은 왕도) 클램프 — 49+ 깊이도 5 로 클램프", () => {
-    expect(proficiencyPerKillAtDepth(49)).toBe(5);
+  it("프론티어 밖 방어 입력도 5 로 클램프", () => {
     expect(proficiencyPerKillAtDepth(120)).toBe(5);
   });
 

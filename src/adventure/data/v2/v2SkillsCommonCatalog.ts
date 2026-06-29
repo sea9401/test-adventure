@@ -3,8 +3,9 @@
 //
 // 데미지 = 플랫강화(스탯×~1.0 + 큰 flat) — 예측·off스탯 floor. 다단 = damage effect N개.
 // DoT/디버프는 통합 프리셋(V2_DOT_PRESETS/V2_DEBUFF_PRESETS) spread — 다이얼 일관.
-// procChance: 공격=30/40(저-proc·평타 위주, proc 가 게이트). 유틸/힐/버프=100(조건이 게이트 —
-//   HP<50·MP<40·버프 비활성 등. 2026-06-21 유저: 조건이 이미 throttle이라 proc 이중게이트 제거).
+// procChance: 공격=30/40(저-proc·평타 위주, proc 가 게이트). 단, 마력탄은 마법 공격력 직군의
+//   일반 공격 대체라 100%. 유틸/힐/버프=100(조건이 게이트 — HP<50·MP<40·버프 비활성 등.
+//   2026-06-21 유저: 조건이 이미 throttle이라 proc 이중게이트 제거).
 // mpCost = 설계 문서값. cooldown 0.
 // 엔진 핸들러(shield/manaRestore/selfRegen/selfBuffPct/heal pctLostHp)는 PR2-B 배선.
 //
@@ -265,7 +266,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
-    description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 30,
+    description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 100,
     effects: [dmg(1.0, 120, "magic")],
   },
 

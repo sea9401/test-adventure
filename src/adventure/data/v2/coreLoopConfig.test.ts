@@ -254,15 +254,17 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
       calcSpBudget({ warrior: { cumLevel: 1890 }, mage: { cumLevel: 405 } }),
     ).toBe(16); // 12 + 3 + 1
   });
-  it("정복(balanceCumLevel≥250) 직업군당 +3 — tier 무관(환생 flatten 영향 없음)", () => {
-    // cumLevel 2250 = 정복 → 마일스톤(2250→3) + base12 + 정복3 = 18.
-    expect(calcSpBudget({ warrior: { cumLevel: 2250 } })).toBe(18);
-    // 임계 직전(2249) = 미정복 → 정복 보너스 없음(마일스톤 3 만).
-    expect(calcSpBudget({ warrior: { cumLevel: 2249 } })).toBe(15);
+  it("정복(cumLevel≥10000) 직업군당 +3 — tier 무관(환생 flatten 영향 없음)", () => {
+    // cumLevel 2250 은 이제 장기 정복 전 단계 → 마일스톤(2250→3) + base12 = 15.
+    expect(calcSpBudget({ warrior: { cumLevel: 2250 } })).toBe(15);
+    // 임계 직전(9999) = 미정복 → 정복 보너스 없음(마일스톤 8 만).
+    expect(calcSpBudget({ warrior: { cumLevel: 9999 } })).toBe(20);
+    // cumLevel 10000 = 정복 → 마일스톤(10000→8) + base12 + 정복3 = 23.
+    expect(calcSpBudget({ warrior: { cumLevel: 10000 } })).toBe(23);
     // tier 4 라도 cumLevel 낮으면 미정복 — 차수 기반 아님(코어루프 flatten 무관).
     expect(calcSpBudget({ warrior: { cumLevel: 405, tier: 4 } })).toBe(13); // 12+1
   });
-  it("운영 실측 베테랑 — 마이그 후 top(cum6372·4직업·3정복)은 점감으로 ~32, flat43 대비 천장 굳음", () => {
+  it("운영 실측 베테랑 — 10000 정복 전에는 마일스톤만 반영되어 예산이 낮게 유지된다", () => {
     // 실제 user8 마이그 후: warrior2619·rogue2619·mage2619·martial1701 / 밸런스 입력 291·291·291·189.
     const sp = calcSpBudget({
       warrior: { cumLevel: 2619, tier: 4 },
@@ -270,8 +272,8 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
       mage: { cumLevel: 2619, tier: 4 },
       martial: { cumLevel: 1701, tier: 3 },
     });
-    // balance 291→3 마일스톤 ×3 = 9, 189→2 = 2 → 11 마일스톤 + base12 + 3정복×3=9 → 32.
-    expect(sp).toBe(32);
+    // balance 291→3 마일스톤 ×3 = 9, 189→2 = 2 → 11 마일스톤 + base12 = 23.
+    expect(sp).toBe(23);
   });
   it("소프트캡 40", () => {
     expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } })).toBe(40);
@@ -286,18 +288,18 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
 });
 
 describe("spMasteryProgressForCumLevel — 직업군 정복 진행도 표시용", () => {
-  it("정복 기준은 저장 숙련도 2250", () => {
-    expect(SP_MASTERED_REQUIRED_CUMLEVEL).toBe(2250);
-    expect(spMasteryProgressForCumLevel(2249)).toMatchObject({
-      cumLevel: 2249,
-      requiredCumLevel: 2250,
+  it("정복 기준은 저장 숙련도 10000", () => {
+    expect(SP_MASTERED_REQUIRED_CUMLEVEL).toBe(10000);
+    expect(spMasteryProgressForCumLevel(9999)).toMatchObject({
+      cumLevel: 9999,
+      requiredCumLevel: 10000,
       mastered: false,
       remainingCumLevel: 1,
       masteryBonusSp: 0,
     });
-    expect(spMasteryProgressForCumLevel(2250)).toMatchObject({
-      cumLevel: 2250,
-      requiredCumLevel: 2250,
+    expect(spMasteryProgressForCumLevel(10000)).toMatchObject({
+      cumLevel: 10000,
+      requiredCumLevel: 10000,
       mastered: true,
       remainingCumLevel: 0,
       masteryBonusSp: SP_MASTERED_JOB_BONUS,
@@ -308,7 +310,7 @@ describe("spMasteryProgressForCumLevel — 직업군 정복 진행도 표시용"
     expect(spMasteryProgressForCumLevel(Number.NaN)).toMatchObject({
       cumLevel: 0,
       mastered: false,
-      remainingCumLevel: 2250,
+      remainingCumLevel: 10000,
       milestoneSp: 0,
       masteryBonusSp: 0,
     });

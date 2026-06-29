@@ -214,20 +214,17 @@ export const SP_BASE = 12; // 시작 SP.
 export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 밸런스 숙련도(저장 숙련도 405).
 export const SP_MILESTONE_WIDEN = 25; // 다음 SP 마다 간격이 이만큼씩 더 벌어진다(점감 강도).
 export const SP_MASTERED_JOB_BONUS = 3; // 직업군 "정복" 1회당 +SP.
-// "정복" 기준 = 밸런스 숙련도 임계(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
+// "정복" 기준 = 저장 숙련도 10,000(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
 //   리셋이라 tier≥4 기준은 거의 휴면(현 직업군이 4차 도달~환생 전에만 +3). cumLevel 은 환생에도
-//   보존 → "여러 직업 정복 누적"이 실제로 쌓인다(오픈믹스 수집 보상). 임계 250 은 운영 RDS 검증:
-//   10인 전원에서 tier≥4 정복 수를 그대로 재현(flip 시 예산 충격 0) + 이후 영속. (튜닝 다이얼.)
-export const SP_MASTERED_CUMLEVEL = 250;
+//   보존 → "여러 직업 정복 누적"이 실제로 쌓인다(오픈믹스 수집 보상). 마일스톤 SP 는 1/9 밸런스
+//   입력을 계속 쓰지만, 정복 보상은 충분히 장기 목표가 되도록 저장 숙련도 기준을 직접 본다.
+export const SP_MASTERED_REQUIRED_CUMLEVEL = 10_000;
 export const SP_MAX_SOFT_CAP = 40; // 절대 천장(점감 곡선상 단일직 ~7·broad 베테랑 ~32, 캡은 안전망).
 const SP_MASTERY_BALANCE_SCALE = 9;
 function spBalanceCumLevel(cumLevel: number): number {
   if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
   return Math.floor(cumLevel / SP_MASTERY_BALANCE_SCALE);
 }
-
-export const SP_MASTERED_REQUIRED_CUMLEVEL =
-  SP_MASTERED_CUMLEVEL * SP_MASTERY_BALANCE_SCALE;
 
 export function spMasteryProgressForCumLevel(cumLevel: number): {
   cumLevel: number;
@@ -240,7 +237,7 @@ export function spMasteryProgressForCumLevel(cumLevel: number): {
   const current = Number.isFinite(cumLevel)
     ? Math.max(0, Math.floor(cumLevel))
     : 0;
-  const mastered = spBalanceCumLevel(current) >= SP_MASTERED_CUMLEVEL;
+  const mastered = current >= SP_MASTERED_REQUIRED_CUMLEVEL;
   return {
     cumLevel: current,
     requiredCumLevel: SP_MASTERED_REQUIRED_CUMLEVEL,
@@ -270,7 +267,7 @@ export function spMilestonesForCumLevel(cumLevel: number): number {
 // SP 예산 계산 — 각 직업군 밸런스 숙련도 점감 마일스톤 합 + 정복 보너스 + 기본. 소프트캡.
 //   groups = proficiency.groups (직업군별 { cumLevel }). 구조적 인자(순환 import 회피).
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
-//   정복 = balance(cumLevel)≥SP_MASTERED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
+//   정복 = cumLevel≥SP_MASTERED_REQUIRED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
 //   spCapBonus — SP 열매(협동 보스 보상) 사용분. 소프트캡(40) 위에 더해 천장을 올린다(영구
 //   빌드폭). collectionBonus — 어보/유물 등급 완성 파생 보너스. 둘 다 기본 0 → 기존 콜러 무변.
 export function calcSpBudget(
@@ -283,7 +280,7 @@ export function calcSpBudget(
   for (const g of Object.values(groups ?? {})) {
     const cum = Number(g?.cumLevel) || 0;
     milestoneSp += spMilestonesForCumLevel(cum);
-    if (spBalanceCumLevel(cum) >= SP_MASTERED_CUMLEVEL) {
+    if (cum >= SP_MASTERED_REQUIRED_CUMLEVEL) {
       masteredBonus += SP_MASTERED_JOB_BONUS;
     }
   }

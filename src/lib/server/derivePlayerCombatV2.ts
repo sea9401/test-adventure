@@ -119,6 +119,8 @@ import {
   MIN_DMG_PER_VIT,
   MP_PER_INT,
   ROGUE_ATK_PER_DEX,
+  SPD_OVERFLOW_SCALE,
+  SPD_OVERFLOW_THRESHOLD,
   SPD_PER_DEX,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
@@ -687,6 +689,14 @@ export function derivePlayerCombatV2Pure(
     const excessAccuracy = Math.max(0, rawAccuracyPct - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
   }
+  // 5차 물리 캡스톤(검호·명궁) — 행동빈도 데드존(SPD>292) 초과 속도를 공격력 %로. SPD 무한 →
+  //   점근(재폭주 방지). 상한 수렴·절대 도달X = 속도 죽은 스탯 X. %라 무기/레벨로 큰 atk 풀에 비례.
+  if (specEff.spdOverflowToAtkPct) {
+    const excessSpd = Math.max(0, specSpd - SPD_OVERFLOW_THRESHOLD);
+    const pct =
+      specEff.spdOverflowToAtkPct * (1 - Math.exp(-excessSpd / SPD_OVERFLOW_SCALE));
+    specAtk += Math.floor(specAtk * (pct / 100));
+  }
   // accRating = 캡 없는 raw + 기본 명중(회피 대결형 Slice 2 — 명중이 방어자 회피 대결을 누르는
   //   레이팅·evaRating 대칭). ACC_BASE_RATING 는 대결 퇴화(acc0→75%) 방지·회피몹 옛 느낌 보존용.
   //   finalAccuracyPct(캡 35)는 이제 표시 전용. 궁사 활 잉여 딜 환원은 위 raw 기준이라 영향 없음.
@@ -721,6 +731,8 @@ export function derivePlayerCombatV2Pure(
     // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →
     //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
+    // 밤그림자 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
+    ...(specEff.skillCritOverflow ? { skillCritOverflow: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
     def: specDef,

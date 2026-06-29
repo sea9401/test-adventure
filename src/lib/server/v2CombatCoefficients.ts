@@ -112,6 +112,10 @@ export const ACCURACY_PCT_CAP = 35;
 //   (의도된 이중 활용; 다른 빌드는 hit 한 번만). coef·임계는 sim 캘리브 대상.
 export const BOW_HIT_THRESHOLD = 10;
 export const BOW_ACCURACY_TO_ATK_COEF = 3;
+// 5차 물리 캡스톤 — 명궁 "초월 사격": 행동빈도 포화 데드존(combatTimeline: spd≳292 부터 actionRate
+//   거의 불변) 초과 속도를 점근 곡선으로 공격력 환원. 활 명중→딜의 속도판. 점근=죽은 투자 없음.
+export const SPD_OVERFLOW_THRESHOLD = 292;
+export const SPD_OVERFLOW_SCALE = 200; // 점근 완만도(클수록 천천히 상한 접근).
 
 // v2 SPD → 다중공격. SPD 1 당 +0.5%p 추가공격 확률 (옛 2 — 전 빌드 타수 과다로 0.5 하향).
 // SPD = DEX×2 라 추가확률 = DEX×1 %p. DEX 100 → 100%(확정 +1타) · DEX 200 → 200%(확정 +2타).

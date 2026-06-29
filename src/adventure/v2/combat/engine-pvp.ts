@@ -81,6 +81,7 @@ import {
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
+import { computeCritOverflowBonus } from "./engine.damageHelpers";
 export { advanceTurnPvP }; // 공개 API 보존 (resolveBattlePvP 가 로컬 호출도 함 → import+export 둘 다)
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -1422,7 +1423,13 @@ export function castV2SkillOnAttackerTurnPvP(
       spellStackMult *
       magicVulnMult *
       vulnMult *
-      (skillCritFired ? SKILL_CRIT_MULT : 1),
+      // 밤그림자(skillCritOverflow) — PvE 미러. 스킬 크리에도 크리 오버플로 가산. 전역=flat.
+      (skillCritFired
+        ? side.player.skillCritOverflow
+          ? SKILL_CRIT_MULT +
+            computeCritOverflowBonus(side.player.critChancePct ?? 0)
+          : SKILL_CRIT_MULT
+        : 1),
   );
   const skillDamage = singleSkillDamage * skillHitCount;
   // damage: 일반 공격 player_attack kind 미러.

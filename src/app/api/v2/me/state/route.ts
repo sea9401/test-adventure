@@ -39,12 +39,11 @@ import {
   V2_LEVEL_CAP,
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
-  calcSpBudget,
+  calcSpBudgetBreakdown,
   combatCooldownRemainingMs,
   offlineBattlesAccrued,
   offlineFarmDepth,
   spMasteryProgressForCumLevel,
-  SP_BASE,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   parseSpFruitUsed,
@@ -850,11 +849,12 @@ export async function GET() {
                 prof.groups?.[id] ?? { cumLevel: 0 },
               ]),
             );
-            const spBudget = calcSpBudget(
+            const spBreakdownBase = calcSpBudgetBreakdown(
               spBudgetGroups,
               spFruitBonus,
               collectionBonus.total + equipmentCodexBonus,
             );
+            const spBudget = spBreakdownBase.budget;
             const groups = V2_SELECTABLE_CLASSES.map((id) => {
               const g = spBudgetGroups[id];
               const progress = spMasteryProgressForCumLevel(
@@ -897,10 +897,11 @@ export async function GET() {
               equipped,
               library,
               spBreakdown: {
-                base: SP_BASE,
+                base: spBreakdownBase.base,
                 milestoneSp,
                 masteryBonusSp,
-                spFruitBonus,
+                softCapReduction: spBreakdownBase.softCapReduction,
+                spFruitBonus: spBreakdownBase.spFruitBonus,
                 equipmentCodexBonus,
                 collectionBonusSp: collectionBonus.total,
                 collectionBonus: {

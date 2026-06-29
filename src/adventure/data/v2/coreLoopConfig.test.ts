@@ -19,6 +19,7 @@ import {
   spendableGold,
   spendableGoldWith,
   calcSpBudget,
+  calcSpBudgetBreakdown,
   spMilestonesForCumLevel,
   spMilestonesCrossed,
   spMasteryProgressForCumLevel,
@@ -281,6 +282,23 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
   it("도감 완성 SP 는 소프트캡 위에 더한다", () => {
     expect(calcSpBudget({}, 0, 2)).toBe(14);
     expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } }, 0, 10)).toBe(50);
+  });
+  it("breakdown 은 소프트캡 조정까지 포함해 실제 예산과 합계가 일치한다", () => {
+    const groups = {
+      warrior: { cumLevel: 100_000, tier: 4 },
+      mage: { cumLevel: 10_000, tier: 4 },
+    };
+    const breakdown = calcSpBudgetBreakdown(groups, 5, 7);
+    const visibleSum =
+      breakdown.base +
+      breakdown.milestoneSp +
+      breakdown.masteryBonusSp -
+      breakdown.softCapReduction +
+      breakdown.spFruitBonus +
+      breakdown.collectionBonusSp;
+    expect(visibleSum).toBe(breakdown.budget);
+    expect(breakdown.budget).toBe(calcSpBudget(groups, 5, 7));
+    expect(breakdown.softCapReduction).toBeGreaterThan(0);
   });
   it("손상 입력 방어", () => {
     expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(12);

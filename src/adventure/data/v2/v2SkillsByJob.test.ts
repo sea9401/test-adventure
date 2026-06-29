@@ -110,6 +110,26 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_ironman_body.passive?.maxHpPct).toBe(15);
   });
 
+  it("낚시 생활 직업 라인은 장착형 낚시 패시브만 배운다", () => {
+    expect(skillsForJob("fisher")).toEqual([
+      "v2c_survivor_baitcraft",
+      "v2c_camper_tidereading",
+    ]);
+    expect(skillsForJob("angler")).toEqual(["v2c_angler_pointreading"]);
+    expect(skillsForJob("masterangler")).toEqual([
+      "v2c_masterangler_bigcatchsense",
+    ]);
+    for (const jobId of ["fisher", "angler", "masterangler"]) {
+      for (const id of skillsForJob(jobId)) {
+        expect(V2_SKILLS[id].category, id).toBe("passive");
+      }
+    }
+    expect(V2_SKILLS.v2c_angler_pointreading.passive?.fishingRareSizeBonusPct).toBe(3);
+    expect(
+      V2_SKILLS.v2c_masterangler_bigcatchsense.passive?.fishingBigCatchSizeBonusPct,
+    ).toBe(2);
+  });
+
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {
     // 도적 정체성 — 데미지가 str-atk 가 아니라 행운/민첩 직접 비례(scaling). 원시스탯이 커서 계수 작음.
     const assassin = V2_SKILLS.v2c_assassin_ambush.effects[0];

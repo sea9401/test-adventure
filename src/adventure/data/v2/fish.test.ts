@@ -5,6 +5,7 @@ import {
   FISH_TIERS,
   FISH_TIER_ORDER,
   FISH_TOTAL,
+  BIG_CATCH_BONUS_ROLL_FRACTION,
   isFishId,
   pickFishId,
   recordCoinForRank,
@@ -113,6 +114,35 @@ describe("사이즈 굴림 (heavy-tail)", () => {
     const boosted = rollFishSize(id, () => 0.5, { sizeBonusPct: 4 });
     expect(boosted).toBeGreaterThan(base);
     expect(boosted).toBeLessThanOrEqual(FISH[id].maxSize);
+  });
+
+  it("희귀 이상 크기 보정은 rare 이상 어종에만 적용된다", () => {
+    const common = rollFishSize("crucian_carp", () => 0.5, {
+      rareSizeBonusPct: 3,
+    });
+    expect(common).toBe(rollFishSize("crucian_carp", () => 0.5));
+
+    const rareBase = rollFishSize("trout", () => 0.5);
+    const rareBoosted = rollFishSize("trout", () => 0.5, {
+      rareSizeBonusPct: 3,
+    });
+    expect(rareBoosted).toBeGreaterThan(rareBase);
+    expect(rareBoosted).toBeLessThanOrEqual(FISH.trout.maxSize);
+  });
+
+  it("대물권 크기 보정은 상위 20% 굴림에서만 적용된다", () => {
+    const belowRoll = Math.pow(BIG_CATCH_BONUS_ROLL_FRACTION - 0.01, 1 / 3);
+    const aboveRoll = Math.pow(BIG_CATCH_BONUS_ROLL_FRACTION + 0.01, 1 / 3);
+    expect(
+      rollFishSize("crucian_carp", () => belowRoll, {
+        bigCatchSizeBonusPct: 2,
+      }),
+    ).toBe(rollFishSize("crucian_carp", () => belowRoll));
+    expect(
+      rollFishSize("crucian_carp", () => aboveRoll, {
+        bigCatchSizeBonusPct: 2,
+      }),
+    ).toBeGreaterThan(rollFishSize("crucian_carp", () => aboveRoll));
   });
 });
 

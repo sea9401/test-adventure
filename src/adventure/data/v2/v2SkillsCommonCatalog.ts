@@ -45,6 +45,8 @@ export type V2CommonSkillId =
   | "v2c_survivor_firstaid" // 응급 처치 (잃은 HP 회복)
   | "v2c_survivor_knowledge" // 생존 지식 (최대 HP)
   | "v2c_survivor_baitcraft" // 미끼 고르기 (낚시 크기 보정)
+  | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 낚시 크기 보정)
+  | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물권 낚시 크기 보정)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -314,6 +316,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { fishingSizeBonusPct: 4 },
+  },
+  v2c_angler_pointreading: {
+    id: "v2c_angler_pointreading", name: "포인트 짚기", stat: "luk", category: "passive", tier: 3,
+    description: "흐름과 수심을 읽어 좋은 자리에 미끼를 넣는다. 희귀 이상 어종의 씨알이 조금 좋아진다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { fishingRareSizeBonusPct: 3 },
+  },
+  v2c_masterangler_bigcatchsense: {
+    id: "v2c_masterangler_bigcatchsense", name: "대물 감각", stat: "luk", category: "passive", tier: 3,
+    description: "묵직한 입질을 놓치지 않는다. 큰 물고기가 걸렸을 때 마지막 한 끗을 더 끌어낸다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { fishingBigCatchSizeBonusPct: 2 },
   },
 
   // ── 모험가(none) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──

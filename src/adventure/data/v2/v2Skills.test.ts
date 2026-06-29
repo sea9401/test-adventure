@@ -54,11 +54,20 @@ describe("낚시 생활 패시브", () => {
       equippedFishingBonuses([
         "v2c_survivor_baitcraft",
         "v2c_camper_tidereading",
+        "v2c_angler_pointreading",
+        "v2c_masterangler_bigcatchsense",
       ]),
-    ).toEqual({ sizeBonusPct: 4, specialWeightPct: 25 });
+    ).toEqual({
+      sizeBonusPct: 4,
+      specialWeightPct: 25,
+      rareSizeBonusPct: 3,
+      bigCatchSizeBonusPct: 2,
+    });
     expect(equippedFishingBonuses([])).toEqual({
       sizeBonusPct: 0,
       specialWeightPct: 0,
+      rareSizeBonusPct: 0,
+      bigCatchSizeBonusPct: 0,
     });
   });
 
@@ -68,6 +77,12 @@ describe("낚시 생활 패시브", () => {
     );
     expect(describeV2Skill(V2_SKILLS.v2c_camper_tidereading)).toContain(
       "물때 한정 어종 가중치 +25%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_angler_pointreading)).toContain(
+      "희귀 이상 낚시 크기 보정 +3%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_masterangler_bigcatchsense)).toContain(
+      "대물권 낚시 크기 보정 +2%",
     );
   });
 });

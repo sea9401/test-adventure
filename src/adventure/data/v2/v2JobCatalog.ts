@@ -153,6 +153,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 5 }, // 최대 HP·보호막 루트 입문
     unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
   },
+  fisher: {
+    id: "fisher",
+    name: "낚시꾼",
+    tier: 2,
+    cultivateProfile: { luk: 2, spi: 1, vit: 1 },
+    jobBonus: { luk: 3, spi: 2 }, // 생활 루트 입문 — 낚시 보너스는 장착 패시브가 담당
+    unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
   // 전사 갈래
@@ -341,6 +349,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, luk: 1 },
     jobBonus: { vit: 12, str: 3 },
     unlock: { prereqs: { ironman: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  angler: {
+    id: "angler",
+    name: "강태공",
+    tier: 3,
+    cultivateProfile: { luk: 2, spi: 1, vit: 1 },
+    jobBonus: { luk: 10, spi: 5 },
+    unlock: { prereqs: { fisher: TIER3_UNLOCK_CUMLEVEL } },
   },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
   //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
@@ -532,6 +548,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 17, str: 5 },
     unlock: { prereqs: { extremesurvivor: TIER4_UNLOCK_CUMLEVEL } },
   },
+  masterangler: {
+    id: "masterangler",
+    name: "명인 낚시꾼",
+    tier: 4,
+    cultivateProfile: { luk: 2, spi: 1, vit: 1 },
+    jobBonus: { luk: 15, spi: 7 },
+    unlock: { prereqs: { angler: TIER4_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 7500 + 도감 요건으로 여는 장기 목표 ───
   swordmaster: {
@@ -691,8 +715,10 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   survivor: { class: "survivor", spec: null },
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
+  fisher: { class: "survivor", spec: "fisher" },
   fieldmedic: { class: "survivor", spec: "fieldmedic" },
   extremesurvivor: { class: "survivor", spec: "extremesurvivor" },
+  angler: { class: "survivor", spec: "angler" },
   shieldman: { class: "warrior", spec: "knight" },
   squire: { class: "warrior", spec: "gwang" },
   boxer: { class: "martial", spec: "gigong" },
@@ -738,6 +764,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)
   rescueexpert: { class: "survivor", spec: "rescueexpert" },
   returner: { class: "survivor", spec: "returner" },
+  masterangler: { class: "survivor", spec: "masterangler" },
   // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
   ironknight: { class: "warrior", spec: "ironknight" },

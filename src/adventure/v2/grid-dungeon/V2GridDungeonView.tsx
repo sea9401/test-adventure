@@ -49,6 +49,14 @@ type GridDungeonState = {
     }>;
   };
   mySupportRole: GridDungeonSupportRole | null;
+  mySupportDaily: {
+    dayKey: string;
+    used: number;
+    useLimit: number;
+    rewarded: number;
+    rewardLimit: number;
+    honorPerReward: number;
+  };
   supportCandidates: Array<{
     userId: string;
     name: string;
@@ -290,6 +298,7 @@ export function V2GridDungeonView({
     [state?.supportCandidates],
   );
   const mySupportRole = state?.mySupportRole ?? null;
+  const mySupportDaily = state?.mySupportDaily ?? null;
   const rewardQuota = state?.rewardQuota ?? null;
   const hasRewardClaim = (rewardQuota?.remaining ?? 0) > 0;
   const history = state?.history.entries ?? [];
@@ -460,6 +469,22 @@ export function V2GridDungeonView({
                 다른 길드원이 나를 데려갈 때 보이는 역할입니다. 실제 전투는 현재 장착
                 스킬과 전투 패턴 스냅샷을 사용합니다.
               </div>
+              {mySupportDaily && (
+                <div className="grid grid-cols-3 gap-2">
+                  <SupportDailyStat
+                    label="오늘 지원됨"
+                    value={`${mySupportDaily.used} / ${mySupportDaily.useLimit}`}
+                  />
+                  <SupportDailyStat
+                    label="보상 수령"
+                    value={`${mySupportDaily.rewarded} / ${mySupportDaily.rewardLimit}`}
+                  />
+                  <SupportDailyStat
+                    label="명예 보상"
+                    value={`+${mySupportDaily.honorPerReward}`}
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {GRID_DUNGEON_SUPPORT_ROLES.map((role) => {
                   const selected = mySupportRole === role;
@@ -852,6 +877,15 @@ export function V2GridDungeonView({
         </>
       )}
     </main>
+  );
+}
+
+function SupportDailyStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5">
+      <div className="text-[10px] text-zinc-500">{label}</div>
+      <div className="mt-0.5 text-xs font-semibold text-zinc-200">{value}</div>
+    </div>
   );
 }
 

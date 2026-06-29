@@ -29,6 +29,7 @@ export type GridDungeonPartyActor = {
   id: string;
   name: string;
   supportRole: GridDungeonSupportRole | null;
+  formation: "front" | "back";
   hp: number;
   maxHp: number;
   mp: number;
@@ -230,10 +231,33 @@ function recordPartySkillUse(actor: GridDungeonPartyActor, skillName: string) {
   actor.skillUses[skillName] = (actor.skillUses[skillName] ?? 0) + 1;
 }
 
+function chooseEnemyTarget(
+  party: GridDungeonPartyActor[],
+  enemyActions: number,
+  useFormation: boolean,
+): GridDungeonPartyActor {
+  if (!useFormation) {
+    const livingSupporters = party.filter((actor) => !actor.isMain && actor.hp > 0);
+    return enemyActions % 2 === 1 || livingSupporters.length === 0
+      ? party[0]
+      : livingSupporters.sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0];
+  }
+  const alive = party.filter((actor) => actor.hp > 0);
+  const fronts = alive.filter((actor) => actor.formation === "front");
+  const backs = alive.filter((actor) => actor.formation !== "front");
+  if (alive.length === 0) return party[0];
+  if (fronts.length === 0) return alive[(enemyActions - 1) % alive.length];
+  if (backs.length === 0) return fronts[(enemyActions - 1) % fronts.length];
+  const cycle = (enemyActions - 1) % 10;
+  if (cycle < 6) return fronts[cycle % fronts.length];
+  return backs[(cycle - 6) % backs.length];
+}
+
 export function makeGridDungeonPartyActor({
   id,
   name,
   supportRole = null,
+  formation = "back",
   maxHp,
   mp = 0,
   maxMp = 0,
@@ -249,6 +273,7 @@ export function makeGridDungeonPartyActor({
   id: string;
   name: string;
   supportRole?: GridDungeonSupportRole | null;
+  formation?: "front" | "back";
   maxHp: number;
   mp?: number;
   maxMp?: number;
@@ -265,6 +290,7 @@ export function makeGridDungeonPartyActor({
     id,
     name,
     supportRole,
+    formation,
     hp: maxHp,
     maxHp,
     mp,
@@ -291,19 +317,25 @@ export function resolveGridDungeonPartyCombat({
   supporters,
   enemy,
   scaling,
+  frontlineId,
 }: {
   main: GridDungeonPartyActor;
   supporters: GridDungeonSupporterSnapshot[];
   enemy: Monster;
   scaling: { hpPerSupporter: number; atkPerSupporter: number };
+  frontlineId?: string;
 }): GridDungeonPartyCombatResult {
   const party: GridDungeonPartyActor[] = [
-    main,
+    {
+      ...main,
+      formation: main.id === frontlineId ? "front" : "back",
+    },
     ...supporters.map((supporter) =>
       makeGridDungeonPartyActor({
         id: supporter.userId,
         name: supporter.name,
         supportRole: supporter.supportRole,
+        formation: supporter.userId === frontlineId ? "front" : "back",
         maxHp: supporter.maxHp,
         mp: supporter.mp,
         maxMp: supporter.maxMp,
@@ -345,12 +377,12 @@ export function resolveGridDungeonPartyCombat({
     actions += 1;
     if (next.id === "enemy") {
       enemyActions += 1;
-      const livingSupporters = party.filter((actor) => !actor.isMain && actor.hp > 0);
-      const target =
-        enemyActions % 2 === 1 || livingSupporters.length === 0
-          ? party[0]
-          : livingSupporters.sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0];
-      const damage = partyDamage(enemyAtk, target.def);
+      const target = chooseEnemyTarget(party, enemyActions, !!frontlineId);
+      const rawDamage = partyDamage(enemyAtk, target.def);
+      const damage =
+        target.formation === "front"
+          ? Math.max(1, Math.round(rawDamage * 0.85))
+          : rawDamage;
       target.hp = Math.max(0, target.hp - damage);
       target.damageTaken += damage;
       log.push(`${enemy.name}이(가) ${target.name}에게 ${damage.toLocaleString()} 피해`);
@@ -423,6 +455,7 @@ export function resolveGridDungeonPartyCombat({
       id: actor.id,
       name: actor.name,
       role: actor.isMain ? "main" : "supporter",
+      formation: actor.formation,
       supportRole: actor.supportRole,
       hpAfter: actor.hp,
       maxHp: actor.maxHp,

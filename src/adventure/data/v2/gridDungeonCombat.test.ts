@@ -113,7 +113,11 @@ const tank = () =>
     skills: ["v2c_guardian_bash"],
   });
 
-function runRoom(kind: GridDungeonTileKind, supporters: readonly GridDungeonSupporterSnapshot[]) {
+function runRoom(
+  kind: GridDungeonTileKind,
+  supporters: readonly GridDungeonSupporterSnapshot[],
+  frontlineId?: string,
+) {
   const enemies: Partial<Record<GridDungeonTileKind, Monster>> = {
     monster: monster("일반 방", 420, 55, 20, 8),
     elite: monster("정예 방", 760, 82, 32, 9),
@@ -129,6 +133,7 @@ function runRoom(kind: GridDungeonTileKind, supporters: readonly GridDungeonSupp
       hpPerSupporter: 0.45,
       atkPerSupporter: 0.16,
     },
+    frontlineId,
   });
 }
 
@@ -168,5 +173,14 @@ describe("gridDungeon party combat simulations", () => {
   it("supporter selection order is preserved for future formation rules", () => {
     const result = runRoom("elite", [tank(), dps()]);
     expect(result.party.map((member) => member.id)).toEqual(["me", "tank", "dps"]);
+  });
+
+  it("frontline formation draws more enemy attacks when assigned", () => {
+    const result = runRoom("boss", [tank(), dps()], "tank");
+    const tankResult = result.party.find((member) => member.id === "tank");
+    const dpsResult = result.party.find((member) => member.id === "dps");
+    expect(tankResult?.formation).toBe("front");
+    expect(dpsResult?.formation).toBe("back");
+    expect(tankResult?.damageTaken ?? 0).toBeGreaterThan(dpsResult?.damageTaken ?? 0);
   });
 });

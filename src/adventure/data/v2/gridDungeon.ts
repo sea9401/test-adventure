@@ -76,6 +76,7 @@ export type GridDungeonCombatPartyMember = {
   id: string;
   name: string;
   role: "main" | "supporter";
+  formation: "front" | "back";
   supportRole: GridDungeonSupportRole | null;
   hpAfter: number;
   maxHp: number;
@@ -134,6 +135,7 @@ export type GridDungeonRun = {
   status: GridDungeonStatus;
   layout: GridDungeonTileKind[][];
   supporters: GridDungeonSupporterSnapshot[];
+  frontlineId: string;
   pos: { x: number; y: number };
   hp: number;
   pendingGold: number;
@@ -502,6 +504,7 @@ export function createGridDungeonRun(
   now = Date.now(),
   rng: () => number = Math.random,
   supporters: GridDungeonSupporterSnapshot[] = [],
+  frontlineId = "main",
 ): GridDungeonRun {
   const layout = randomGridDungeonLayout(rng);
   const startKey = gridDungeonKey(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y);
@@ -510,6 +513,7 @@ export function createGridDungeonRun(
     status: "active",
     layout,
     supporters: sanitizeGridDungeonSupporters(supporters),
+    frontlineId,
     pos: { ...GRID_DUNGEON_START },
     hp: GRID_DUNGEON_MAX_HP,
     pendingGold: 0,
@@ -553,6 +557,10 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     status,
     layout,
     supporters: sanitizeGridDungeonSupporters(run.supporters),
+    frontlineId:
+      typeof run.frontlineId === "string" && run.frontlineId.trim()
+        ? run.frontlineId.trim()
+        : "main",
     pos: { x, y },
     hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(run.hp) || 0))),
     pendingGold: Math.max(0, Math.floor(Number(run.pendingGold) || 0)),
@@ -625,6 +633,7 @@ function parseGridDungeonCombatParty(raw: unknown): GridDungeonCombatPartyMember
         id,
         name,
         role,
+        formation: e.formation === "back" ? "back" : "front",
         supportRole: parseGridDungeonSupportRole(e.supportRole),
         hpAfter: Math.max(0, Math.floor(Number(e.hpAfter) || 0)),
         maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),

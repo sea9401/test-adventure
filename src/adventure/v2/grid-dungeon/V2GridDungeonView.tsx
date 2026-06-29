@@ -243,6 +243,7 @@ export function V2GridDungeonView({
   const [selectedSupporterIds, setSelectedSupporterIds] = useState<string[]>([]);
   const [supportRoleFilter, setSupportRoleFilter] =
     useState<SupportRoleFilter>("all");
+  const [selectedFrontlineId, setSelectedFrontlineId] = useState("main");
 
   const load = useCallback(async () => {
     setError(null);
@@ -317,6 +318,11 @@ export function V2GridDungeonView({
       ),
     [validSelectedSupporterIds, supportCandidates],
   );
+  const effectiveFrontlineId =
+    selectedFrontlineId === "main" ||
+    validSelectedSupporterIds.includes(selectedFrontlineId)
+      ? selectedFrontlineId
+      : "main";
   const supportRoleCounts = useMemo(() => {
     const counts: Record<SupportRoleFilter, number> = {
       all: supportCandidates.length,
@@ -362,7 +368,10 @@ export function V2GridDungeonView({
 
   const toggleSupporter = useCallback((userId: string) => {
     setSelectedSupporterIds((prev) => {
-      if (prev.includes(userId)) return prev.filter((id) => id !== userId);
+      if (prev.includes(userId)) {
+        setSelectedFrontlineId((current) => (current === userId ? "main" : current));
+        return prev.filter((id) => id !== userId);
+      }
       return [...prev, userId].slice(-2);
     });
   }, []);
@@ -420,7 +429,11 @@ export function V2GridDungeonView({
               type="button"
               disabled={!state.atEntrance || busy}
               onClick={() =>
-                postAction({ action: "start", supporterIds: validSelectedSupporterIds })
+                postAction({
+                  action: "start",
+                  supporterIds: validSelectedSupporterIds,
+                  frontlineId: effectiveFrontlineId,
+                })
               }
               className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -529,24 +542,62 @@ export function V2GridDungeonView({
                   })}
                 </div>
                 {selectedSupporters.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 text-[10px]">
-                    {selectedSupporters.map((supporter) => (
-                      <span
-                        key={supporter.userId}
-                        className={`rounded border px-1.5 py-0.5 ${
-                          supporter.supportRole
-                            ? SUPPORT_ROLE_TONE[supporter.supportRole]
-                            : "border-zinc-800 bg-zinc-950 text-zinc-500"
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-semibold text-zinc-500">
+                      전열 지정
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 text-[10px]">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => setSelectedFrontlineId("main")}
+                        className={`rounded border px-1.5 py-0.5 transition disabled:opacity-40 ${
+                          effectiveFrontlineId === "main"
+                            ? "border-amber-700 bg-amber-950/45 text-amber-200"
+                            : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:bg-zinc-900"
                         }`}
                       >
-                        {supporter.name} ·{" "}
-                        {supporter.supportRole
-                          ? GRID_DUNGEON_SUPPORT_ROLE_LABEL[
-                              supporter.supportRole
-                            ]
-                          : "역할 미설정"}
-                      </span>
-                    ))}
+                        나 · 전열
+                      </button>
+                      {selectedSupporters.map((supporter) => (
+                        <button
+                          key={supporter.userId}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => setSelectedFrontlineId(supporter.userId)}
+                          className={`rounded border px-1.5 py-0.5 transition disabled:opacity-40 ${
+                            effectiveFrontlineId === supporter.userId
+                              ? "border-amber-700 bg-amber-950/45 text-amber-200"
+                              : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:bg-zinc-900"
+                          }`}
+                        >
+                          {supporter.name} · 전열
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 text-[10px]">
+                      {selectedSupporters.map((supporter) => (
+                        <span
+                          key={supporter.userId}
+                          className={`rounded border px-1.5 py-0.5 ${
+                            supporter.supportRole
+                              ? SUPPORT_ROLE_TONE[supporter.supportRole]
+                              : "border-zinc-800 bg-zinc-950 text-zinc-500"
+                          }`}
+                        >
+                          {supporter.name} ·{" "}
+                          {effectiveFrontlineId === supporter.userId
+                            ? "전열"
+                            : "후열"}{" "}
+                          ·{" "}
+                          {supporter.supportRole
+                            ? GRID_DUNGEON_SUPPORT_ROLE_LABEL[
+                                supporter.supportRole
+                              ]
+                            : "역할 미설정"}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -740,6 +791,9 @@ export function V2GridDungeonView({
                             역할 미설정
                           </span>
                         )}
+                      </div>
+                      <div className="mt-1 text-[10px] text-amber-300/80">
+                        {run.frontlineId === supporter.userId ? "전열" : "후열"}
                       </div>
                       <div className="mt-1 text-[11px] text-zinc-400">
                         HP {supporter.maxHp.toLocaleString()} · ATK{" "}
@@ -998,17 +1052,26 @@ function PartyRoleBadge({
 }: {
   member: CombatPartyMember;
 }) {
+  const formationLabel = member.formation === "front" ? "전열" : "후열";
   if (member.role === "main") {
-    return <span className="text-[10px] text-zinc-500">본인</span>;
+    return (
+      <span className="text-[10px] text-zinc-500">
+        본인 · {formationLabel}
+      </span>
+    );
   }
   if (!member.supportRole) {
-    return <span className="text-[10px] text-zinc-600">역할 미설정</span>;
+    return (
+      <span className="text-[10px] text-zinc-600">
+        {formationLabel} · 역할 미설정
+      </span>
+    );
   }
   return (
     <span
       className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${SUPPORT_ROLE_TONE[member.supportRole]}`}
     >
-      {GRID_DUNGEON_SUPPORT_ROLE_LABEL[member.supportRole]}
+      {formationLabel} · {GRID_DUNGEON_SUPPORT_ROLE_LABEL[member.supportRole]}
     </span>
   );
 }

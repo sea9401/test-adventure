@@ -82,7 +82,7 @@ type CharSave = {
 };
 
 type GridDungeonAction =
-  | { action?: "start"; supporterIds?: unknown }
+  | { action?: "start"; supporterIds?: unknown; frontlineId?: unknown }
   | { action?: "move"; dir?: GridDungeonMoveDir }
   | { action?: "claim" }
   | { action?: "abandon" }
@@ -128,6 +128,19 @@ function parseSupporterIds(raw: unknown): string[] {
     if (ids.length >= 2) break;
   }
   return ids;
+}
+
+function normalizeGridDungeonFrontlineId({
+  raw,
+  userId,
+  supporterIds,
+}: {
+  raw: unknown;
+  userId: string;
+  supporterIds: string[];
+}) {
+  if (raw === "main" || raw === userId) return userId;
+  return typeof raw === "string" && supporterIds.includes(raw) ? raw : userId;
 }
 
 function displayJobFromCharacter(raw: unknown): string {
@@ -540,6 +553,7 @@ async function resolveGridDungeonCombat({
   userId,
   charSave,
   supporters,
+  frontlineId,
   tile,
   runHp,
 }: {
@@ -547,6 +561,7 @@ async function resolveGridDungeonCombat({
   userId: string;
   charSave: CharSave;
   supporters: GridDungeonSupporterSnapshot[];
+  frontlineId: string;
   tile: GridDungeonTileKind;
   runHp: number;
 }): Promise<GridDungeonResolvedCombat | null> {
@@ -651,6 +666,7 @@ async function resolveGridDungeonCombat({
           }),
           supporters,
           enemy: enemyMonster,
+          frontlineId,
           scaling: GRID_DUNGEON_PARTY_SCALING[tile] ?? {
             hpPerSupporter: 0.45,
             atkPerSupporter: 0.16,
@@ -802,6 +818,11 @@ export async function POST(req: Request) {
 
   if (body.action === "start") {
     const supporterIds = parseSupporterIds(body.supporterIds);
+    const frontlineId = normalizeGridDungeonFrontlineId({
+      raw: body.frontlineId,
+      userId,
+      supporterIds,
+    });
     const result = await db.transaction(async (tx) => {
       const charSave = await lockSaveForUpdate<CharSave>(
         tx,
@@ -826,7 +847,12 @@ export async function POST(req: Request) {
         now,
       });
       if (!reserved.ok) return { ok: false as const, error: reserved.error };
-      const run = createGridDungeonRun(now, Math.random, support.supporters);
+      const run = createGridDungeonRun(
+        now,
+        Math.random,
+        support.supporters,
+        frontlineId,
+      );
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, run);
       return { ok: true as const, run, charSave };
     });
@@ -884,6 +910,10 @@ export async function POST(req: Request) {
               userId,
               charSave,
               supporters: run.supporters,
+              frontlineId:
+                run.frontlineId === "main" || !run.frontlineId
+                  ? userId
+                  : run.frontlineId,
               tile: target.tile,
               runHp: run.hp,
             })

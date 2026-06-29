@@ -23,6 +23,10 @@ import {
   rollEnhanceOutcome,
   type EnhanceChoice,
 } from "@/adventure/data/v2/v2Enhance";
+import {
+  checkUserRateLimit,
+  userRateLimitResponse,
+} from "@/lib/server/userRateLimit";
 
 // POST /api/v2/me/enhance — 장비 개체 강화 1회 시도. 설계: docs/v2-equipment-enhance-plan.md
 //
@@ -47,6 +51,15 @@ export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const rateLimit = checkUserRateLimit({
+    userId,
+    action: "v2:me:enhance",
+    limit: 120,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.ok) {
+    return userRateLimitResponse(rateLimit.retryAfterSec);
   }
 
   let body: { iid?: unknown; stone?: unknown; feedIid?: unknown };

@@ -145,10 +145,10 @@ export const ENHANCE_STONE_MATERIAL_ID: Record<EnhanceStoneId, string> = {
 
 // 승리당 드랍 확률(%) — 의도적으로 매우 희소(사용자 결정: "훨씬 귀하게").
 // NPC 판매 없음 — 환금/수급은 거래소 유저 거래 전용(시세는 수요가 결정).
-// 푸른 1개 ≈ 333승, 붉은 1개 ≈ 1,000승. +10 1부위 ≈ 돌 ~27개(성공률 반영 기대값).
+// 푸른 1개 ≈ 500승, 붉은 1개 ≈ 1,000승. +10 1부위 ≈ 돌 ~27개(성공률 반영 기대값).
 export const ENHANCE_STONE_DROP_PCT: Record<EnhanceStoneId, number> = {
   red: 0.1,
-  blue: 0.3,
+  blue: 0.2,
 };
 
 // hunt 승리 보상 롤 — 색별 독립 굴림, 통과 시 1개. rng() ∈ [0,1).

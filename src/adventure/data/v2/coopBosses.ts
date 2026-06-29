@@ -22,9 +22,9 @@ import type { V2MonsterStatusSkillId } from "./v2Skills";
 
 export const SUMMON_SCROLL_MATERIAL_ID = "v2_boss_summon_scroll";
 
-// 사냥 승리당 소환서 드랍 확률(%). ⚠️ 라이브 캘리브 다이얼 — 헤비 유저 기준 일 수~십수 장
-// 페이스를 의도(스태미나 일 회복 ~2880 × 0.5% ≈ 14장). 레어맵 배수 미적용(별도 축).
-export const SUMMON_SCROLL_DROP_PCT = 0.5;
+// 사냥 승리당 소환서 드랍 확률(%). ⚠️ 라이브 캘리브 다이얼 — 헤비 유저 기준 하루 몇 장
+// 페이스를 의도(스태미나 일 회복 ~2880 × 0.2% ≈ 6장). 레어맵 배수 미적용(별도 축).
+export const SUMMON_SCROLL_DROP_PCT = 0.2;
 
 // 사냥 승리 시 소환서 드랍 굴림(순수). rng() ∈ [0,1). 통과 시 1장.
 export function rollSummonScrollDrop(rng: () => number): number {

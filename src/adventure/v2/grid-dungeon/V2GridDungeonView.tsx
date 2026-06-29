@@ -31,6 +31,17 @@ type GridDungeonState = {
     claimed: number;
     remaining: number;
   };
+  history: {
+    entries: Array<{
+      id: string;
+      outcome: "cleared" | "failed" | "abandoned";
+      at: number;
+      rewardGold: number;
+      exploredTiles: number;
+      hp: number;
+      message: string;
+    }>;
+  };
   run: GridDungeonPublicRun | null;
   error?: string;
 };
@@ -114,6 +125,24 @@ const DIR_BUTTONS: Array<{
   { dir: "down", label: "아래", Icon: ArrowDown },
 ];
 
+const HISTORY_OUTCOME_LABEL: Record<
+  GridDungeonState["history"]["entries"][number]["outcome"],
+  string
+> = {
+  cleared: "클리어",
+  failed: "실패",
+  abandoned: "포기",
+};
+
+const HISTORY_OUTCOME_CLASS: Record<
+  GridDungeonState["history"]["entries"][number]["outcome"],
+  string
+> = {
+  cleared: "border-emerald-800 bg-emerald-950/50 text-emerald-300",
+  failed: "border-red-900 bg-red-950/50 text-red-300",
+  abandoned: "border-zinc-700 bg-zinc-900 text-zinc-300",
+};
+
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (!visible) return null;
   if (kind === "treasure") return <TreasureChest size={20} weight="fill" />;
@@ -159,6 +188,15 @@ function tileBackgroundStyle(isRevealed: boolean, isCurrent: boolean) {
     };
   }
   return undefined;
+}
+
+function formatHistoryTime(at: number) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(at));
 }
 
 export function V2GridDungeonView({
@@ -214,6 +252,7 @@ export function V2GridDungeonView({
   const run = state?.run ?? null;
   const rewardQuota = state?.rewardQuota ?? null;
   const hasRewardClaim = (rewardQuota?.remaining ?? 0) > 0;
+  const history = state?.history.entries ?? [];
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
   const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
 
@@ -249,32 +288,35 @@ export function V2GridDungeonView({
           불러오는 중...
         </div>
       ) : !run || run.status === "claimed" || run.status === "failed" ? (
-        <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-4">
-          <div>
-            <div className="text-sm font-semibold text-zinc-100">
-              입구 상태
-            </div>
-            <div className="mt-1 text-xs text-zinc-500">
-              {state.atEntrance
-                ? "입구 앞에 서 있습니다. 바로 탐험을 시작할 수 있습니다."
-                : "지도에서 입구 칸으로 이동해야 탐험을 시작할 수 있습니다."}
-            </div>
-            {rewardQuota && (
-              <div className="mt-1 text-xs text-yellow-300/80">
-                오늘 보상 {rewardQuota.remaining} / {rewardQuota.limit}회 남음
+        <>
+          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-4">
+            <div>
+              <div className="text-sm font-semibold text-zinc-100">
+                입구 상태
               </div>
-            )}
-          </div>
-          <button
-            type="button"
-            disabled={!state.atEntrance || busy}
-            onClick={() => postAction({ action: "start" })}
-            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <DoorOpen size={16} weight="fill" />
-            탐험 시작
-          </button>
-        </section>
+              <div className="mt-1 text-xs text-zinc-500">
+                {state.atEntrance
+                  ? "입구 앞에 서 있습니다. 바로 탐험을 시작할 수 있습니다."
+                  : "지도에서 입구 칸으로 이동해야 탐험을 시작할 수 있습니다."}
+              </div>
+              {rewardQuota && (
+                <div className="mt-1 text-xs text-yellow-300/80">
+                  오늘 보상 {rewardQuota.remaining} / {rewardQuota.limit}회 남음
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={!state.atEntrance || busy}
+              onClick={() => postAction({ action: "start" })}
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <DoorOpen size={16} weight="fill" />
+              탐험 시작
+            </button>
+          </section>
+          <DungeonHistory entries={history} />
+        </>
       ) : (
         <>
           <section className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
@@ -416,8 +458,56 @@ export function V2GridDungeonView({
               </div>
             )}
           </section>
+
+          <DungeonHistory entries={history} />
         </>
       )}
     </main>
+  );
+}
+
+function DungeonHistory({
+  entries,
+}: {
+  entries: GridDungeonState["history"]["entries"];
+}) {
+  if (entries.length === 0) {
+    return (
+      <section className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+        <div className="text-xs font-semibold text-zinc-300">최근 탐험 기록</div>
+        <div className="mt-1 text-xs text-zinc-500">아직 기록이 없습니다.</div>
+      </section>
+    );
+  }
+  return (
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="text-xs font-semibold text-zinc-300">최근 탐험 기록</div>
+      <div className="space-y-1.5">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5 text-xs"
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${HISTORY_OUTCOME_CLASS[entry.outcome]}`}
+              >
+                {HISTORY_OUTCOME_LABEL[entry.outcome]}
+              </span>
+              <span className="min-w-0 truncate text-zinc-300">
+                {formatHistoryTime(entry.at)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-zinc-500">
+              <span>탐험 {entry.exploredTiles}칸</span>
+              <span>HP {entry.hp}</span>
+              <span className={entry.rewardGold > 0 ? "text-yellow-300" : ""}>
+                {entry.rewardGold.toLocaleString()}G
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

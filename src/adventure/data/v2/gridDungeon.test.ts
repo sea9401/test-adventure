@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   GRID_DUNGEON_ENTRANCE,
   GRID_DUNGEON_DAILY_REWARD_LIMIT,
+  GRID_DUNGEON_HISTORY_LIMIT,
+  appendGridDungeonHistory,
   createGridDungeonRun,
   gridDungeonDayKey,
   gridDungeonKey,
@@ -9,6 +11,7 @@ import {
   isAtGridDungeonEntrance,
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
+  parseGridDungeonHistory,
 } from "@/adventure/data/v2/gridDungeon";
 
 describe("gridDungeon", () => {
@@ -76,5 +79,23 @@ describe("gridDungeon", () => {
       claimed: GRID_DUNGEON_DAILY_REWARD_LIMIT,
       remaining: 0,
     });
+  });
+
+  it("keeps grid dungeon history sorted and capped", () => {
+    let history = parseGridDungeonHistory(null);
+    for (let i = 0; i < GRID_DUNGEON_HISTORY_LIMIT + 3; i += 1) {
+      history = appendGridDungeonHistory(history, {
+        id: `run-${i}`,
+        outcome: i % 2 === 0 ? "cleared" : "failed",
+        at: 1_000 + i,
+        rewardGold: i * 100,
+        exploredTiles: i,
+        hp: 10 - (i % 10),
+        message: `record ${i}`,
+      });
+    }
+    expect(history.entries).toHaveLength(GRID_DUNGEON_HISTORY_LIMIT);
+    expect(history.entries[0]?.id).toBe(`run-${GRID_DUNGEON_HISTORY_LIMIT + 2}`);
+    expect(history.entries.at(-1)?.id).toBe("run-3");
   });
 });

@@ -1,7 +1,9 @@
 export const GRID_DUNGEON_SAVE_KEY = "grid-dungeon.v2" as const;
 export const GRID_DUNGEON_DAILY_REWARDS_KEY =
   "grid-dungeon-daily-rewards.v2" as const;
+export const GRID_DUNGEON_HISTORY_KEY = "grid-dungeon-history.v2" as const;
 export const GRID_DUNGEON_DAILY_REWARD_LIMIT = 3;
+export const GRID_DUNGEON_HISTORY_LIMIT = 10;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 export const GRID_DUNGEON_ENTRANCE = {
@@ -59,6 +61,22 @@ export type GridDungeonRewardQuota = {
   remaining: number;
 };
 
+export type GridDungeonHistoryOutcome = "cleared" | "failed" | "abandoned";
+
+export type GridDungeonHistoryEntry = {
+  id: string;
+  outcome: GridDungeonHistoryOutcome;
+  at: number;
+  rewardGold: number;
+  exploredTiles: number;
+  hp: number;
+  message: string;
+};
+
+export type GridDungeonHistory = {
+  entries: GridDungeonHistoryEntry[];
+};
+
 export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
   ["treasure", "empty", "boss", "exit", "treasure"],
   ["wall", "empty", "wall", "empty", "wall"],
@@ -101,6 +119,52 @@ export function gridDungeonRewardQuota(
     limit: GRID_DUNGEON_DAILY_REWARD_LIMIT,
     claimed,
     remaining: Math.max(0, GRID_DUNGEON_DAILY_REWARD_LIMIT - claimed),
+  };
+}
+
+function parseHistoryOutcome(raw: unknown): GridDungeonHistoryOutcome | null {
+  return raw === "cleared" || raw === "failed" || raw === "abandoned"
+    ? raw
+    : null;
+}
+
+export function parseGridDungeonHistory(raw: unknown): GridDungeonHistory {
+  if (!raw || typeof raw !== "object") return { entries: [] };
+  const entriesRaw = (raw as Partial<GridDungeonHistory>).entries;
+  if (!Array.isArray(entriesRaw)) return { entries: [] };
+  const entries = entriesRaw
+    .map((entry): GridDungeonHistoryEntry | null => {
+      if (!entry || typeof entry !== "object") return null;
+      const e = entry as Partial<GridDungeonHistoryEntry>;
+      const outcome = parseHistoryOutcome(e.outcome);
+      if (!outcome) return null;
+      const at = Math.max(0, Math.floor(Number(e.at) || 0));
+      if (at <= 0) return null;
+      return {
+        id: typeof e.id === "string" ? e.id : `${outcome}:${at}`,
+        outcome,
+        at,
+        rewardGold: Math.max(0, Math.floor(Number(e.rewardGold) || 0)),
+        exploredTiles: Math.max(0, Math.floor(Number(e.exploredTiles) || 0)),
+        hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(e.hp) || 0))),
+        message: typeof e.message === "string" ? e.message : "",
+      };
+    })
+    .filter((entry): entry is GridDungeonHistoryEntry => entry != null)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, GRID_DUNGEON_HISTORY_LIMIT);
+  return { entries };
+}
+
+export function appendGridDungeonHistory(
+  raw: unknown,
+  entry: GridDungeonHistoryEntry,
+): GridDungeonHistory {
+  const history = parseGridDungeonHistory(raw);
+  return {
+    entries: [entry, ...history.entries]
+      .sort((a, b) => b.at - a.at)
+      .slice(0, GRID_DUNGEON_HISTORY_LIMIT),
   };
 }
 

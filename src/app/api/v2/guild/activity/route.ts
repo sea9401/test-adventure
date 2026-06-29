@@ -81,6 +81,15 @@ export async function GET() {
         amount?: number;
         role?: string;
         nationName?: string;
+        questTitle?: string;
+        deliveryTitle?: string;
+        itemName?: string;
+        smithyLevel?: number;
+        artisanXp?: number;
+        artisanRank?: number;
+        titleName?: string;
+        rewardGold?: number;
+        rewardFame?: number;
       } | null,
       createdAt: r.createdAt,
     })),

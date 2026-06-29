@@ -85,11 +85,11 @@ const BAND_F_DEN_ENEMIES: DungeonEnemy[] = [
 
 // 검은 왕도 — starlight·void 엔드 정예. 43+ 엔드 확장 램프와 짝: 높은 권장 전투력, 마법/치명/관통 혼합.
 const BAND_G_BLACK_THRONE_ENEMIES: DungeonEnemy[] = [
-  { key: "왕도 척후병", name: "왕도 척후병", image: "/images/monster/v2/field-highwayman.webp", element: "lightning", statusSkill: "mob_rending_claw" },
-  { key: "철갑 수문장", name: "철갑 수문장", image: "/images/monster/v2/throne-gatekeeper.webp", element: "earth" },
-  { key: "공허 기사", name: "공허 기사", image: "/images/monster/v2/throne-guardian.webp", element: "void", statusSkill: "mob_rending_claw" },
-  { key: "별사냥 까마귀", name: "별사냥 까마귀", image: "/images/monster/v2/snow-blizzard-hunter.webp", element: "starlight", castSkill: "mob_arcane_bolt" },
-  { key: "심연 집행자", name: "심연 집행자", image: "/images/monster/v2/ruins-wraith.webp", element: "void", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
+  { key: "왕도 척후병", name: "왕도 척후병", image: "/images/monster/v2/throne-scout.webp", element: "lightning", statusSkill: "mob_rending_claw" },
+  { key: "철갑 수문장", name: "철갑 수문장", image: "/images/monster/v2/throne-armored-warden.webp", element: "earth" },
+  { key: "공허 기사", name: "공허 기사", image: "/images/monster/v2/throne-void-knight.webp", element: "void", statusSkill: "mob_rending_claw" },
+  { key: "별사냥 까마귀", name: "별사냥 까마귀", image: "/images/monster/v2/throne-star-hunter-crow.webp", element: "starlight", castSkill: "mob_arcane_bolt" },
+  { key: "심연 집행자", name: "심연 집행자", image: "/images/monster/v2/throne-abyss-executor.webp", element: "void", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
 // 붉은 벌판 — 전쟁터·화염·쇳가루. 49~54 권장 전투력 2000~2300, 물리 압박+화염/출혈.

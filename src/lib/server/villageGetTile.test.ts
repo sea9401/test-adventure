@@ -59,6 +59,7 @@ function villageRow(over: Record<string, unknown>) {
     productionKind: null,
     unlockedSlots: 1,
     slotKinds: {},
+    buildings: {},
     jobs: {},
     ...over,
   };

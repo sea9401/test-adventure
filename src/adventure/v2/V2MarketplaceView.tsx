@@ -5,13 +5,16 @@ import { Storefront } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { parseAmount } from "@/components/ui/NumberInput";
 import {
   V2_EQUIPMENT,
+  parseCraftedBy,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
+  type V2CraftedBy,
 } from "@/adventure/data/v2/v2Equipment";
 import {
   parseEnhance,
@@ -23,7 +26,12 @@ import {
   parseRareMaps,
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  CraftOnlyBadge,
+  V2ItemCard,
+  anchorOf,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 import { useGameState } from "./GameStateProvider";
 import { TabBar } from "@/components/ui/TabBar";
 import { usePagination } from "@/lib/usePagination";
@@ -47,9 +55,12 @@ import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   타입·시세 헬퍼·시세줄/가격입력 leaf 컴포넌트는 marketplace/marketplaceShared 공용.
 
-// 리스팅 payload — 굴림(+강화) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
+// 리스팅 payload — 굴림(+강화+제작자) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
 function listingEnhance(payload: unknown): V2EnhanceState | undefined {
   return parseEnhance((payload as { enhance?: unknown } | null)?.enhance);
+}
+function listingCraftedBy(payload: unknown): V2CraftedBy | undefined {
+  return parseCraftedBy((payload as { craftedBy?: unknown } | null)?.craftedBy);
 }
 
 type Tab = "browse" | "history" | "mine" | "sell";
@@ -116,7 +127,19 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     "all" | "equip" | "material" | "consumable"
   >("all");
   const [slotFilter, setSlotFilter] = useState<"all" | V2EquipSlot>("all");
-  const [sort, setSort] = useState<"new" | "price_asc" | "price_desc" | "roll_desc">("new");
+  const [craftedOnly, setCraftedOnly] = useState(false);
+  const [craftedQualityFilter, setCraftedQualityFilter] = useState<
+    "all" | "plus1"
+  >("all");
+  const [craftedLevelFilter, setCraftedLevelFilter] = useState<
+    "all" | "2" | "3" | "4" | "5"
+  >("all");
+  const [tierFilter, setTierFilter] = useState<"all" | "1" | "2" | "3">(
+    "all",
+  );
+  const [sort, setSort] = useState<
+    "new" | "price_asc" | "price_desc" | "roll_desc" | "crafter_desc"
+  >("new");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>({});
   const [ttlDays, setTtlDays] = useState<number | null>(null); // 매물 만료 일수(서버 다이얼).
@@ -124,6 +147,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [card, setCard] = useState<{
     item: V2Equipment;
     roll?: V2EquipRoll;
+    enhance?: V2EnhanceState;
+    craftedBy?: V2CraftedBy;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -333,16 +358,51 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     l.kind === "equip"
       ? (equipDetail(l.itemId, (l.instancePayload as V2EquipRoll | null) ?? undefined)?.pct ?? -1)
       : -1;
+  const isCraftedListing = (l: Listing): boolean =>
+    l.kind === "equip" && listingCraftedBy(l.instancePayload) != null;
+  const isPlusOneCraftedListing = (l: Listing): boolean =>
+    l.kind === "equip" && (listingEnhance(l.instancePayload)?.level ?? 0) > 0;
+  const meetsCrafterLevel = (l: Listing, minLevel: string): boolean => {
+    if (minLevel === "all") return true;
+    const craftedBy = listingCraftedBy(l.instancePayload);
+    return (craftedBy?.level ?? 0) >= Number(minLevel);
+  };
+  const meetsTier = (l: Listing, tier: string): boolean => {
+    if (tier === "all") return true;
+    if (l.kind !== "equip") return false;
+    return (
+      V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]?.tier ===
+      Number(tier)
+    );
+  };
+  const crafterLevelOfListing = (l: Listing): number =>
+    l.kind === "equip" ? (listingCraftedBy(l.instancePayload)?.level ?? 0) : 0;
+  const matchesSearch = (l: Listing, query: string): boolean => {
+    if (!query) return true;
+    if (l.itemName.toLowerCase().includes(query)) return true;
+    const craftedBy = listingCraftedBy(l.instancePayload);
+    return (craftedBy?.name ?? "").toLowerCase().includes(query);
+  };
   const q = search.trim().toLowerCase();
   const displayedListings = (listings ?? [])
     .filter((l) => kindFilter === "all" || l.kind === kindFilter)
     .filter((l) => slotFilter === "all" || slotOf(l) === slotFilter)
-    .filter((l) => !q || l.itemName.toLowerCase().includes(q))
+    .filter((l) => meetsTier(l, tierFilter))
+    .filter((l) => !craftedOnly || isCraftedListing(l))
+    .filter(
+      (l) =>
+        craftedQualityFilter === "all" || isPlusOneCraftedListing(l),
+    )
+    .filter((l) => meetsCrafterLevel(l, craftedLevelFilter))
+    .filter((l) => matchesSearch(l, q))
     .slice()
     .sort((a, b) => {
       if (sort === "price_asc") return a.price - b.price;
       if (sort === "price_desc") return b.price - a.price;
       if (sort === "roll_desc") return rollPctOfListing(b) - rollPctOfListing(a);
+      if (sort === "crafter_desc") {
+        return crafterLevelOfListing(b) - crafterLevelOfListing(a);
+      }
       return 0; // new — 서버 최신순 유지
     });
 
@@ -358,10 +418,12 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const openCardFor = (
     itemId: string,
     roll: V2EquipRoll | undefined,
+    enhance: V2EnhanceState | undefined,
+    craftedBy: V2CraftedBy | undefined,
     el: HTMLElement,
   ) => {
     const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
-    if (item) setCard({ item, roll, anchor: anchorOf(el) });
+    if (item) setCard({ item, roll, enhance, craftedBy, anchor: anchorOf(el) });
   };
 
   return (
@@ -404,7 +466,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           <div className="flex flex-wrap items-center gap-1.5">
             <input
               type="text"
-              placeholder="이름 검색"
+              placeholder="아이템·제작자 검색"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
@@ -433,6 +495,39 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               ]}
             />
             <SelectControl
+              value={tierFilter}
+              onChange={(v) => setTierFilter(v as typeof tierFilter)}
+              options={[
+                ["all", "전체 티어"],
+                ["1", "T1"],
+                ["2", "T2"],
+                ["3", "T3"],
+              ]}
+            />
+            <SelectControl
+              value={craftedQualityFilter}
+              onChange={(v) =>
+                setCraftedQualityFilter(v as typeof craftedQualityFilter)
+              }
+              options={[
+                ["all", "전체 품질"],
+                ["plus1", "+1 제작품"],
+              ]}
+            />
+            <SelectControl
+              value={craftedLevelFilter}
+              onChange={(v) =>
+                setCraftedLevelFilter(v as typeof craftedLevelFilter)
+              }
+              options={[
+                ["all", "제작자 Lv"],
+                ["2", "Lv2+"],
+                ["3", "Lv3+"],
+                ["4", "Lv4+"],
+                ["5", "Lv5+"],
+              ]}
+            />
+            <SelectControl
               value={sort}
               onChange={(v) => setSort(v as typeof sort)}
               options={[
@@ -440,8 +535,21 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                 ["price_asc", "가격↑"],
                 ["price_desc", "가격↓"],
                 ["roll_desc", "품질%↓"],
+                ["crafter_desc", "제작자Lv↓"],
               ]}
             />
+            <button
+              type="button"
+              aria-pressed={craftedOnly}
+              onClick={() => setCraftedOnly((v) => !v)}
+              className={`rounded border px-2.5 py-1 text-xs font-medium transition ${
+                craftedOnly
+                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+            >
+              제작품만
+            </button>
           </div>
           <ListingList
             rows={listings === null ? null : displayedListings}
@@ -571,6 +679,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
         <V2ItemCard
           item={card.item}
           roll={card.roll}
+          enhance={card.enhance}
+          craftedBy={card.craftedBy}
           anchor={card.anchor}
           onClose={() => setCard(null)}
         />
@@ -774,7 +884,13 @@ function ListingList({
   priceRef: Record<string, PriceStat>;
   expiryDays?: number;
   // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
-  onOpenCard?: (itemId: string, roll: V2EquipRoll | undefined, el: HTMLElement) => void;
+  onOpenCard?: (
+    itemId: string,
+    roll: V2EquipRoll | undefined,
+    enhance: V2EnhanceState | undefined,
+    craftedBy: V2CraftedBy | undefined,
+    el: HTMLElement,
+  ) => void;
 }) {
   if (rows === null) {
     return (
@@ -804,6 +920,14 @@ function ListingList({
           l.kind === "equip"
             ? equipDetail(l.itemId, roll, listingEnhance(l.instancePayload))
             : null;
+        const item =
+          l.kind === "equip"
+            ? V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]
+            : null;
+        const enhance =
+          l.kind === "equip" ? listingEnhance(l.instancePayload) : undefined;
+        const craftedBy =
+          l.kind === "equip" ? listingCraftedBy(l.instancePayload) : undefined;
         const clickable = l.kind === "equip" && !!onOpenCard;
         const info = (
           <>
@@ -820,6 +944,7 @@ function ListingList({
               {detail?.pct != null && (
                 <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
               )}
+              {item?.craftOnly ? <CraftOnlyBadge /> : null}
             </div>
             {l.kind === "consumable" &&
               (() => {
@@ -857,17 +982,38 @@ function ListingList({
         return (
           <Card key={l.id} padding="sm">
             <div className="flex items-center justify-between gap-3">
-              {clickable ? (
-                <button
-                  type="button"
-                  onClick={(e) => onOpenCard!(l.itemId, roll, e.currentTarget)}
-                  className="group min-w-0 text-left"
-                >
-                  {info}
-                </button>
-              ) : (
-                <div className="min-w-0">{info}</div>
-              )}
+              <div className="min-w-0">
+                {clickable ? (
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      onOpenCard!(
+                        l.itemId,
+                        roll,
+                        enhance,
+                        craftedBy,
+                        e.currentTarget,
+                      )
+                    }
+                    className="group min-w-0 text-left"
+                  >
+                    {info}
+                  </button>
+                ) : (
+                  <div className="min-w-0">{info}</div>
+                )}
+                {craftedBy ? (
+                  <div className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
+                    제작:{" "}
+                    <PlayerNameLink
+                      name={craftedBy.name}
+                      className="font-medium"
+                      fallback="모험가"
+                    />{" "}
+                    · 대장장이 Lv {craftedBy.level.toLocaleString()}
+                  </div>
+                ) : null}
+              </div>
               {action(l)}
             </div>
           </Card>

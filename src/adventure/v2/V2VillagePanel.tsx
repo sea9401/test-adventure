@@ -23,11 +23,17 @@ import {
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
   VILLAGE_BUILD_GOLD_COST,
-  GRID_DISPLAY_COLS,
-  GRID_DISPLAY_SLOTS,
   nextTier,
   slotUnlockGoldCost,
   terrainTraitDesc,
+  SETTLEMENT_BUILDINGS,
+  PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  nextGuildSmithyUpgrade,
+  settlementBuildingIdOf,
+  settlementBuildingLevelOf,
+  settlementBuildingUpgradeCostText,
+  type SettlementBuildingId,
+  type SettlementBuildingSlot,
   type VillageTier,
   type ProductionKind,
   type TerrainTrait,
@@ -38,9 +44,9 @@ import {
 } from "@/adventure/data/v2/settlementMaterials";
 
 // 길드 마을 패널 — 점령 거점 상세(OutpostView)에 노출. mode 로 두 화면을 분리:
-//   - produce(탭, 길드원 전원): 정착지 재화 풀 + 재료 기부 + 슬롯 판(자리표시) 보기.
-//   - manage(관리 탭, 마스터/부마스터): 마을 건설(이름)·이름 변경·칸 해금(골드)·단계 업그레이드.
-//   [PR-3] 슬롯 생산 폐지 — 슬롯은 "미래 영지 건물" 자리표시. crop/ore 는 사냥 드랍→기부+업글로만.
+//   - produce(탭, 길드원 전원): 정착지 재화 풀 + 재료 기부 + 건축물 슬롯 보기.
+//   - manage(관리 탭, 마스터/부마스터): 마을 건설(이름)·이름 변경·건축물 슬롯 해금·배치·단계 업그레이드.
+//   [PR-3] 슬롯 생산 폐지 — 슬롯은 영지 건축물 자리. crop/ore 는 사냥 드랍→기부+업글로만.
 
 type Village = {
   outpostId: string;
@@ -48,7 +54,8 @@ type Village = {
   tier: VillageTier;
   trait: TerrainTrait;
   unlockedSlots: number;
-  maxSlots: number; // 이 단계 해금 상한(마을 2·도시 3·대도시 4). 화면 판은 2×2(4).
+  maxSlots: number; // 이 단계 해금 상한. 현재 정책은 마을별 1칸.
+  buildings?: Record<string, SettlementBuildingId | SettlementBuildingSlot>;
 };
 type Resources = Partial<Record<ProductionKind, number>>;
 
@@ -73,6 +80,13 @@ function costLabel(cost: Resources): string {
     .join(" · ");
 }
 
+function buildingAt(village: Village, slot: number): SettlementBuildingSlot | null {
+  const raw = village.buildings?.[String(slot)] ?? village.buildings?.[slot];
+  const id = settlementBuildingIdOf(raw);
+  if (!id) return null;
+  return { id, level: settlementBuildingLevelOf(raw) };
+}
+
 export function V2VillagePanel({
   outpostId,
   mode = "produce",
@@ -88,7 +102,7 @@ export function V2VillagePanel({
   const isTile = isTileOutpostId(outpostId);
   const [village, setVillage] = useState<Village | null>(null);
   const [resources, setResources] = useState<Resources>({});
-  const [gold, setGold] = useState(0); // 길드 금고 골드(칸 해금 비용)
+  const [gold, setGold] = useState(0); // 길드 금고 골드(건축물 슬롯 해금 비용)
   const [exists, setExists] = useState<boolean | null>(null); // null=로딩
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -209,22 +223,26 @@ export function V2VillagePanel({
     );
   }
 
-  // 슬롯 판 그리드 — [PR-3] 생산 폐지. 칸 상태만: 상위단계 필요(흐림)·잠김(🔒)·해금=자리표시(건물 예정).
+  // 건축물 슬롯 그리드 — 잠김(🔒)·빈 부지·배치된 건축물.
   function renderGrid() {
     if (!village || !built) return null;
+    const displaySlots = Math.max(1, village.maxSlots);
     return (
       <div
         className="grid w-fit gap-1.5"
         style={{
-          // 칸은 작게 고정 — 자리표시라 화면 폭을 채울 필요 없음(풀폭 1fr → 5rem 상한).
-          gridTemplateColumns: `repeat(${GRID_DISPLAY_COLS}, minmax(0, 5rem))`,
+          // 슬롯은 작게 고정 — 서버가 내려준 현 단계 슬롯 상한만큼만 표시한다.
+          gridTemplateColumns: `repeat(${displaySlots}, minmax(0, 5rem))`,
         }}
       >
-        {Array.from({ length: GRID_DISPLAY_SLOTS }, (_, slot) => {
-          // 판은 2×2. 이 단계 상한(maxSlots) 너머 = 상위 단계 필요(tierLocked, 흐리게).
-          //   그 안에서 아직 안 연 칸 = 지금 해금 가능(locked, 🔒). 해금된 칸 = 자리표시.
+        {Array.from({ length: displaySlots }, (_, slot) => {
+          // 아직 안 연 슬롯 = 지금 해금 가능(locked, 🔒). 해금된 슬롯 = 빈 부지 또는 건축물.
           const tierLocked = slot >= village.maxSlots;
           const locked = !tierLocked && slot >= village.unlockedSlots;
+          const buildingSlot = buildingAt(village, slot);
+          const building = buildingSlot
+            ? SETTLEMENT_BUILDINGS[buildingSlot.id]
+            : null;
           const base =
             "flex aspect-square flex-col items-center justify-center rounded-md border px-1 text-center";
           if (tierLocked) {
@@ -249,15 +267,30 @@ export function V2VillagePanel({
               </div>
             );
           }
-          // 해금된 칸 — 자리표시(미래 영지 건물용·현재 비어 있음).
+          if (building) {
+            return (
+              <div
+                key={slot}
+                title={building.desc}
+                className={`${base} border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200`}
+              >
+                <span className="text-base leading-none">{building.icon}</span>
+                <span className="mt-0.5 text-[10px]">{building.name}</span>
+                <span className="mt-0.5 text-[10px] font-semibold">
+                  Lv {buildingSlot?.level ?? 1}
+                </span>
+              </div>
+            );
+          }
+          // 해금된 슬롯 — 건축물 배치 가능.
           return (
             <div
               key={slot}
-              title="미래 영지 건물용 자리 (준비 중)"
+              title="비어 있는 건축물 슬롯"
               className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500`}
             >
               <span className="text-base leading-none opacity-60">🏗️</span>
-              <span className="mt-0.5 text-[10px]">건물 예정</span>
+              <span className="mt-0.5 text-[10px]">빈 부지</span>
             </div>
           );
         })}
@@ -383,7 +416,7 @@ export function V2VillagePanel({
     </div>
   ) : null;
 
-  // ── 생산 탭 ── 슬롯 판 그리드(전원). 미건설/미해금이면 관리 탭 안내. ──────────────
+  // ── 생산 탭 ── 건축물 슬롯 그리드(전원). 미건설/미해금이면 관리 탭 안내. ───────────
   if (mode === "produce") {
     return (
       <section className={`${SURFACE_CARD} space-y-2 p-3`}>
@@ -398,13 +431,12 @@ export function V2VillagePanel({
             {donateBox}
             {village!.unlockedSlots === 0 ? (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                아직 해금된 칸이 없어요. 관리 탭에서 칸을 해금할 수 있어요(추후
-                영지 건물용 자리).
+                아직 해금된 건축물 슬롯이 없어요. 관리 탭에서 슬롯을 해금할 수 있어요.
               </p>
             ) : (
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                해금한 칸은 추후 영지 건물용 자리입니다(현재 비어 있음). 통나무·철광석은
-                사냥에서 얻어 위 풀에 기부하세요.
+                해금한 슬롯에는 영지 건축물을 배치할 수 있습니다. 통나무·철광석은 사냥에서
+                얻어 위 풀에 기부하세요.
               </p>
             )}
             {renderGrid()}
@@ -415,7 +447,7 @@ export function V2VillagePanel({
     );
   }
 
-  // ── 관리 탭 ── 건설(이름)·이름 변경·칸 해금(골드+종류)·단계 업그레이드. ──────────
+  // ── 관리 탭 ── 건설(이름)·이름 변경·건축물 슬롯 해금·건물 배치·단계 업그레이드. ─────
   const next = village ? nextTier(village.tier) : null;
   // 리베라(중앙) 거리 비용 배수 — 타일이면 거리 스케일, 카탈로그 거점이면 기본(불변). 서버 과금과 일치.
   const tilePos = parseTileOutpostId(outpostId);
@@ -430,12 +462,12 @@ export function V2VillagePanel({
         ? (UPGRADE_COST[village.tier] ?? {})
         : {};
   const atMaxSlots = !!village && village.unlockedSlots >= village.maxSlots;
-  const needSlots = !!village && !atMaxSlots; // 단계 업그레이드 전 판을 다 채워야
+  const needSlots = !!village && !atMaxSlots; // 단계 업그레이드 전 슬롯을 다 열어야
   const canAffordUpgrade =
     !!next &&
     !needSlots &&
     PRODUCTION_KINDS.every((k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0));
-  // 칸 해금비 — 타일은 고정 누진(거리 무관·5천만/1억/2억/3억), 카탈로그 거점은 옛 누진.
+  // 건축물 슬롯 해금비 — 타일은 고정 누진(거리 무관), 카탈로그 거점은 옛 누진.
   const unlockGold = village
     ? tilePos
       ? tileSlotUnlockGoldCost(village.unlockedSlots)
@@ -499,7 +531,7 @@ export function V2VillagePanel({
       )}
 
       {!built ? (
-        // 빈 공터 — 마을을 세운다(종류는 칸 해금 때 고른다). 건설에 길드 골드 1천만.
+        // 빈 공터 — 마을을 세운다. 건설에 길드 골드 1천만.
         //   타일 개척마을: 이름은 개척 때 정한 이름을 그대로 쓴다(재입력 없음). 카탈로그: 이름 입력.
         <div className="space-y-2">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -553,26 +585,25 @@ export function V2VillagePanel({
             {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
           </div>
-          {/* 슬롯 판 미리보기(읽기 전용) — 잠김/해금/자리표시. */}
+          {/* 건축물 슬롯 미리보기(읽기 전용) — 잠김/빈 부지/배치됨. */}
           {renderGrid()}
 
-          {/* 칸 해금 — 길드 골드(자리표시 칸·추후 영지 건물용) */}
+          {/* 건축물 슬롯 해금 — 길드 골드 */}
           <div className="space-y-1.5">
             <div className="text-xs text-zinc-600 dark:text-zinc-300">
-              해금된 칸{" "}
+              해금된 건축물 슬롯{" "}
               <span className="font-medium tabular-nums">
                 {village!.unlockedSlots} / {village!.maxSlots}
               </span>
             </div>
             {atMaxSlots ? (
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                이 단계의 판을 모두 열었어요. 다음 단계로 업그레이드하면 판이
-                넓어져요.
+                이 마을에서 사용할 수 있는 건축물 슬롯을 모두 열었어요.
               </p>
             ) : (
               <>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  칸을 열어 두면 추후 영지 건물용 자리로 쓰입니다(현재 비어 있음).
+                  슬롯을 열면 영지 건축물을 배치할 수 있습니다.
                 </div>
                 <button
                   type="button"
@@ -580,7 +611,7 @@ export function V2VillagePanel({
                   onClick={() => void act("unlock-slot", {})}
                   className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  칸 해금 · {fmtGold(unlockGold)} 골드
+                  건축물 슬롯 해금 · {fmtGold(unlockGold)} 골드
                 </button>
                 {!canAffordUnlock && (
                   <p className="text-[11px] text-rose-500 dark:text-rose-400">
@@ -590,6 +621,93 @@ export function V2VillagePanel({
               </>
             )}
           </div>
+
+          {village!.unlockedSlots > 0 && (
+            <div className="space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+              <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                건축물 배치
+              </div>
+              {PLACEABLE_SETTLEMENT_BUILDING_IDS.map((id) => {
+                const def = SETTLEMENT_BUILDINGS[id];
+                const placed = buildingAt(village!, 0);
+                const occupied = placed != null;
+                const nextUpgrade =
+                  placed?.id === "guild_smithy"
+                    ? nextGuildSmithyUpgrade(placed.level)
+                    : null;
+                const canAffordBuildingUpgrade =
+                  nextUpgrade != null &&
+                  PRODUCTION_KINDS.every(
+                    (kind) =>
+                      (resources[kind] ?? 0) >= (nextUpgrade.cost[kind] ?? 0),
+                  );
+                return (
+                  <div
+                    key={id}
+                    className="rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                  >
+                    <button
+                      type="button"
+                      disabled={busy || occupied}
+                      onClick={() =>
+                        void act("building/place", { slot: 0, buildingId: id })
+                      }
+                      className="flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="text-base leading-none">{def.icon}</span>
+                        <span className="min-w-0">
+                          <span className="block font-medium">
+                            {def.name}
+                            {placed?.id === id ? ` Lv ${placed.level}` : ""}
+                          </span>
+                          <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {def.desc}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-[11px] text-zinc-500">
+                        {occupied ? "배치됨" : "배치"}
+                      </span>
+                    </button>
+                    {placed?.id === "guild_smithy" ? (
+                      <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                        {nextUpgrade ? (
+                          <>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-medium">
+                                다음: Lv {nextUpgrade.level} · {nextUpgrade.label}
+                              </span>
+                              <span className="text-[11px] text-emerald-600 dark:text-emerald-300">
+                                품질 +{nextUpgrade.qualityChanceBonusPct}%p
+                              </span>
+                            </div>
+                            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              비용 {settlementBuildingUpgradeCostText(nextUpgrade.cost)}
+                            </div>
+                            <button
+                              type="button"
+                              disabled={busy || !canAffordBuildingUpgrade}
+                              onClick={() =>
+                                void act("building/upgrade", { slot: 0 })
+                              }
+                              className="mt-2 w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              대장간 업그레이드
+                            </button>
+                          </>
+                        ) : (
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            대장간 최고 레벨입니다.
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* 단계 업그레이드 */}
           {next && (
@@ -605,7 +723,7 @@ export function V2VillagePanel({
               </button>
               {needSlots && (
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  먼저 이 단계의 칸을 모두 해금해야 업그레이드할 수 있어요.
+                  먼저 이 단계의 건축물 슬롯을 모두 해금해야 업그레이드할 수 있어요.
                 </p>
               )}
             </div>
@@ -628,7 +746,13 @@ const ERR_MESSAGES: Record<string, string> = {
   not_built: "먼저 마을을 건설해야 해요.",
   already_built: "이미 세워진 마을이에요.",
   invalid_name: "이름은 1~16자로 지어주세요.",
-  need_slots: "먼저 이 단계의 칸을 모두 해금해야 해요.",
-  at_max: "판이 가득 찼어요 — 다음 단계로 업그레이드하세요.",
+  need_slots: "먼저 이 단계의 건축물 슬롯을 모두 해금해야 해요.",
+  at_max: "건축물 슬롯이 모두 열려 있어요.",
   max_tier: "이미 최고 단계예요.",
+  slot_locked: "먼저 건축물 슬롯을 해금해야 해요.",
+  already_occupied: "이미 건축물이 배치된 슬롯이에요.",
+  building_unavailable: "아직 배치할 수 없는 건축물이에요.",
+  smithy_required: "길드 대장간이 필요해요.",
+  max_level: "이미 최고 레벨이에요.",
+  insufficient_resources: "정착지 재화가 부족해요.",
 };

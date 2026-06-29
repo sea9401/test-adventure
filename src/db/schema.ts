@@ -951,6 +951,38 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 길드 대장간 주간 의뢰 진행도. 주차가 바뀌면 lazy reset 으로 같은 row 를 새 weekKey 로 덮는다.
+export const guildWorkshopWeekly = pgTable("guild_workshop_weekly", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  weekKey: text("week_key").notNull(),
+  craftCount: integer("craft_count").notNull().default(0),
+  qualityCount: integer("quality_count").notNull().default(0),
+  claimed: jsonb("claimed").notNull().default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const artisanLeaderboardSnapshots = pgTable(
+  "artisan_leaderboard_snapshots",
+  {
+    weekKey: text("week_key").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rank: integer("rank").notNull(),
+    totalCrafts: integer("total_crafts").notNull().default(0),
+    qualityCrafts: integer("quality_crafts").notNull().default(0),
+    weeklyXp: integer("weekly_xp").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    rewardClaimedAt: timestamp("reward_claimed_at"),
+  },
+  (t) => [
+    primaryKey({ columns: [t.weekKey, t.userId] }),
+    index("artisan_leaderboard_snapshots_week_rank_idx").on(t.weekKey, t.rank),
+  ],
+);
+
 // 솔로(무길드) 정착지 생산 재화 풀 — 길드 풀(v2_guild_resources.settlement)의 1인 버전.
 //   { crop, ore, fish }. 솔로 마을 수확물이 누적되고 솔로 마을 업그레이드에 소비된다.
 //   골드는 별도 풀 없이 플레이어 본인 골드(character.v2.gold)를 쓴다(슬롯 해금). 종류 추가=jsonb.
@@ -962,10 +994,10 @@ export const userSettlementResources = pgTable("user_settlement_resources", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// v2 정착지 — 길드가 점령한 거점에 세운 "마을"(단계·이름·생산 슬롯 상태).
+// v2 정착지 — 길드가 점령한 거점에 세운 "마을"(단계·이름·건축물 슬롯 상태).
 //   outpostId = data/v2/outposts.ts 의 Outpost.id (정적 데이터라 FK X).
 //   소유 길드가 사라지면 마을도 제거(cascade). jobs = 슬롯(문자열 인덱스) → ProductionJob.
-//   단계별 판 크기는 data/v2/settlement MAX_SLOTS_BY_TIER(마을 2×2·도시 3×3). 명명(name)=건설 흐름.
+//   단계별 슬롯 수는 data/v2/settlement MAX_SLOTS_BY_TIER. 명명(name)=건설 흐름.
 export const outpostVillages = pgTable("outpost_villages", {
   outpostId: text("outpost_id").primaryKey(),
   // 소유 — 길드 마을이면 guildId, 솔로(무길드) 타일 정착지면 ownerUserId. 정확히 하나만 set.
@@ -981,12 +1013,13 @@ export const outpostVillages = pgTable("outpost_villages", {
   // [레거시] 옛 마을 특화 종류(crop|ore|fish) — 한 마을 한 종류 모델의 잔재. 신규 마을은 NULL.
   //   이제 종류는 칸마다 해금 시 선택(slotKinds). 옛 마을은 parse 가 이 값으로 slotKinds 를 소급.
   productionKind: text("production_kind"),
-  // 해금된 칸 수 — 건설 직후 0, 길드 골드로 한 칸씩 해금(MAX_SLOTS_BY_TIER 범위). 단계 업그레이드가
-  //   판을 넓혀도(2×2→3×3) 해금 수는 유지(이어서 채움).
+  // 해금된 건축물 슬롯 수 — 건설 직후 0, 길드 골드로 한 칸씩 해금(MAX_SLOTS_BY_TIER 범위).
   unlockedSlots: integer("unlocked_slots").notNull().default(1),
   // 칸별 생산 종류 — { "0":"crop", "1":"ore", … }. 해금 시 그 칸에서 키울 종류를 고른다(영구).
   //   생산은 슬롯의 종류만 — 옛 마을은 parse 가 productionKind 로 소급.
   slotKinds: jsonb("slot_kinds").notNull().default({}),
+  // 건축물 슬롯 — { "0":"guild_smithy" }. 1슬롯 정책의 실제 선택지를 저장한다.
+  buildings: jsonb("buildings").notNull().default({}),
   jobs: jsonb("jobs").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

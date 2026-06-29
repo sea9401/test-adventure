@@ -51,6 +51,9 @@ const ZERO: QuestCtx = {
   hasHealed: false,
   hasShopped: false,
   hasMoved: false,
+  workshopCrafts: 0,
+  workshopQualityCrafts: 0,
+  blacksmithLevel: 1,
 };
 
 const none = new Set<string>();
@@ -453,6 +456,9 @@ describe("currentGuideQuest (홈 배너)", () => {
       hasHealed: true,
       hasShopped: true,
       hasMoved: true,
+      workshopCrafts: 9,
+      workshopQualityCrafts: 1,
+      blacksmithLevel: 3,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -553,5 +559,25 @@ describe("강화의 길 판정", () => {
     expect(questById("e_stone")!.check({ ...ZERO, enhanceStones: 1 })).toBe(true);
     expect(questById("e_plus7")!.check({ ...ZERO, maxEnhanceLevel: 6 })).toBe(false);
     expect(questById("e_plus10")!.check({ ...ZERO, maxEnhanceLevel: 10 })).toBe(true);
+  });
+});
+
+describe("장인의 길 판정", () => {
+  it("제작 횟수/대장장이 레벨/품질 제작", () => {
+    expect(questById("a_first_craft")!.check(ZERO)).toBe(false);
+    expect(
+      questById("a_first_craft")!.check({ ...ZERO, workshopCrafts: 1 }),
+    ).toBe(true);
+    expect(questById("a_blacksmith_lv2")!.check(ZERO)).toBe(false);
+    expect(
+      questById("a_blacksmith_lv2")!.check({ ...ZERO, blacksmithLevel: 2 }),
+    ).toBe(true);
+    expect(questById("a_quality_plus1")!.check(ZERO)).toBe(false);
+    expect(
+      questById("a_quality_plus1")!.check({
+        ...ZERO,
+        workshopQualityCrafts: 1,
+      }),
+    ).toBe(true);
   });
 });

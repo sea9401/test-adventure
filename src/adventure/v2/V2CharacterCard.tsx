@@ -15,12 +15,14 @@ import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
 import {
+  V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
+  type V2CraftedBy,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
 import {
@@ -134,12 +136,26 @@ export function V2CharacterCard({
     }
     return ids;
   }, [equipped, byIid]);
+  const artisanSetProgress = useMemo(() => {
+    const set = V2_EQUIP_TAG_SETS.find((s) => s.id === "artisan_crafted");
+    if (!set) return null;
+    let count = 0;
+    for (const id of equippedItemIds) {
+      if (V2_EQUIPMENT[id]?.setTags?.includes(set.id)) count += 1;
+    }
+    const active = [...set.thresholds]
+      .reverse()
+      .find((threshold) => count >= threshold.count);
+    const next = set.thresholds.find((threshold) => count < threshold.count);
+    return { set, count, active, next };
+  }, [equippedItemIds]);
 
   // 장착 슬롯 클릭 시 띄울 아이템 + 개체 굴림 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
   const [selected, setSelected] = useState<{
     item: V2Equipment;
     roll?: V2EquipRoll;
     enhance?: V2EnhanceState;
+    craftedBy?: V2CraftedBy;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -239,6 +255,7 @@ export function V2CharacterCard({
                     item,
                     roll: inst?.roll,
                     enhance: inst?.enhance,
+                    craftedBy: inst?.craftedBy,
                     anchor: anchorOf(e.currentTarget),
                   })
                 }
@@ -254,11 +271,45 @@ export function V2CharacterCard({
           })}
         </div>
       )}
+      {equipped && artisanSetProgress && artisanSetProgress.count > 0 && (
+        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+              장인표 {artisanSetProgress.count}세트
+            </span>
+            <span className="text-emerald-700 dark:text-emerald-300">
+              {artisanSetProgress.active
+                ? `${artisanSetProgress.active.count}세트 발동`
+                : "보너스 대기"}
+            </span>
+          </div>
+          <div className="mt-1 text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
+            {artisanSetProgress.next
+              ? `다음 ${artisanSetProgress.next.count}세트까지 ${artisanSetProgress.next.count - artisanSetProgress.count}개`
+              : "장인표 세트 목표를 모두 채웠습니다."}
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {artisanSetProgress.set.thresholds.map((threshold) => (
+              <span
+                key={threshold.count}
+                className={`rounded px-1.5 py-px text-[10px] font-medium ${
+                  artisanSetProgress.count >= threshold.count
+                    ? "bg-emerald-700 text-white dark:bg-emerald-400 dark:text-emerald-950"
+                    : "bg-white/80 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                }`}
+              >
+                {threshold.count}세트
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {selected && (
         <V2ItemCard
           item={selected.item}
           roll={selected.roll}
           enhance={selected.enhance}
+          craftedBy={selected.craftedBy}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}
           equippedIds={equippedItemIds}

@@ -62,6 +62,175 @@ export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
 };
 export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 
+// ── 영지 건축물 ───────────────────────────────────────────────────────────
+// 현재는 "마을별 1슬롯에 무엇을 둘지"를 저장/표시하는 골격만 둔다. 실제 제작/연구 효과는 후속 PR.
+export type SettlementBuildingId =
+  | "guild_smithy"
+  | "alchemy_workshop"
+  | "woodworks";
+
+export type SettlementBuildingDef = {
+  id: SettlementBuildingId;
+  name: string;
+  icon: string;
+  desc: string;
+};
+
+export type SettlementBuildingSlot = {
+  id: SettlementBuildingId;
+  level: number;
+};
+
+export type SettlementBuildings = Record<number, SettlementBuildingSlot>;
+
+export const SETTLEMENT_BUILDINGS: Record<
+  SettlementBuildingId,
+  SettlementBuildingDef
+> = {
+  guild_smithy: {
+    id: "guild_smithy",
+    name: "길드 대장간",
+    icon: "⚒️",
+    desc: "장비 제작과 장인 배치를 위한 영지 시설입니다. 효과는 후속 업데이트에서 연결됩니다.",
+  },
+  alchemy_workshop: {
+    id: "alchemy_workshop",
+    name: "연금 공방",
+    icon: "⚗️",
+    desc: "포션과 특수 소모품 제작을 위한 영지 시설입니다. 아직 배치할 수 없습니다.",
+  },
+  woodworks: {
+    id: "woodworks",
+    name: "목공소",
+    icon: "🪚",
+    desc: "건축과 슬롯 확장을 위한 영지 시설입니다. 아직 배치할 수 없습니다.",
+  },
+};
+export const SETTLEMENT_BUILDING_IDS = Object.keys(
+  SETTLEMENT_BUILDINGS,
+) as SettlementBuildingId[];
+export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
+  "guild_smithy",
+];
+
+export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
+
+export type SettlementBuildingUpgradeDef = {
+  level: number;
+  cost: Partial<Record<ProductionKind, number>>;
+  qualityChanceBonusPct: number;
+  weeklyProgressBonusPct: number;
+  label: string;
+};
+
+export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    qualityChanceBonusPct: 0,
+    weeklyProgressBonusPct: 0,
+    label: "기본 제작",
+  },
+  {
+    level: 2,
+    cost: { crop: 600, ore: 900 },
+    qualityChanceBonusPct: 1,
+    weeklyProgressBonusPct: 10,
+    label: "담금질 설비",
+  },
+  {
+    level: 3,
+    cost: { crop: 1600, ore: 2400 },
+    qualityChanceBonusPct: 2,
+    weeklyProgressBonusPct: 20,
+    label: "명장 화로",
+  },
+  {
+    level: 4,
+    cost: { crop: 3600, ore: 5200 },
+    qualityChanceBonusPct: 4,
+    weeklyProgressBonusPct: 30,
+    label: "장인 조합 설비",
+  },
+  {
+    level: 5,
+    cost: { crop: 7200, ore: 9800 },
+    qualityChanceBonusPct: 6,
+    weeklyProgressBonusPct: 40,
+    label: "대장장이 전당",
+  },
+];
+
+export function clampSettlementBuildingLevel(level: unknown): number {
+  const n = Math.floor(Number(level) || 1);
+  return Math.min(MAX_SETTLEMENT_BUILDING_LEVEL, Math.max(1, n));
+}
+
+export function settlementBuildingSlot(
+  id: SettlementBuildingId,
+  level: unknown = 1,
+): SettlementBuildingSlot {
+  return { id, level: clampSettlementBuildingLevel(level) };
+}
+
+export function settlementBuildingIdOf(
+  raw: unknown,
+): SettlementBuildingId | null {
+  if (isSettlementBuildingId(raw)) return raw;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const id = (raw as Record<string, unknown>).id;
+  return isSettlementBuildingId(id) ? id : null;
+}
+
+export function settlementBuildingLevelOf(raw: unknown): number {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return 1;
+  return clampSettlementBuildingLevel((raw as Record<string, unknown>).level);
+}
+
+export function guildSmithyUpgradeForLevel(
+  level: number,
+): SettlementBuildingUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    GUILD_SMITHY_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    GUILD_SMITHY_UPGRADES[0]
+  );
+}
+
+export function nextGuildSmithyUpgrade(
+  level: number,
+): SettlementBuildingUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    GUILD_SMITHY_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ?? null
+  );
+}
+
+export function settlementBuildingUpgradeCostText(
+  cost: Partial<Record<ProductionKind, number>>,
+): string {
+  const parts = PRODUCTION_KINDS.filter((kind) => (cost[kind] ?? 0) > 0).map(
+    (kind) =>
+      `${PRODUCTION_KIND_ICON[kind]} ${PRODUCTION_KIND_NAME[kind]} ${(
+        cost[kind] ?? 0
+      ).toLocaleString()}`,
+  );
+  return parts.length > 0 ? parts.join(" · ") : "무료";
+}
+
+export function isSettlementBuildingId(v: unknown): v is SettlementBuildingId {
+  return (
+    typeof v === "string" &&
+    Object.prototype.hasOwnProperty.call(SETTLEMENT_BUILDINGS, v)
+  );
+}
+
+export function canPlaceSettlementBuilding(
+  buildingId: SettlementBuildingId,
+): boolean {
+  return PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(buildingId);
+}
+
 // 특성 → 보너스 받는 생산 종류(없으면 null). farmland=통나무 / mine=철광석 / lake=보너스 없음.
 export const TRAIT_BONUS_KIND: Record<TerrainTrait, ProductionKind | null> = {
   plain: null,
@@ -78,30 +247,29 @@ export function terrainTraitDesc(_trait: TerrainTrait): string {
 }
 
 // [폐지·PR-3] 슬롯 12h 생산(produce/harvest)은 제거됨 — 통나무/철광석은 사냥 드랍으로 수급
-//   (settlementMaterials). 슬롯은 칸 해금(골드 sink)만 남고 "미래 영지 건물" 자리표시.
+//   (settlementMaterials). 슬롯은 건축물 슬롯 해금(골드 sink)과 건물 배치만 담당.
 //   생산 소요시간/수확량/수확 다이얼·헬퍼 삭제. crop/ore 풀은 기부(donate)+업글 소비로만 변동.
-// ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
-// 2×2 고정 판(최대 4칸). 마을=골드로 2칸 해금(5천만/1억), 도시/대도시 달성 시 +1칸씩 무료 부여
-//   → 총 4칸. 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩 해금(unlockedSlots). [PR-3] 슬롯은
-//   생산 없는 "건물 예정" 자리표시(종류 선택 없음).
+// ── 건축물 슬롯 ───────────────────────────────────────────────────────────
+// 마을별 건물 슬롯은 1칸으로 압축한다. 장인/영지 건물 콘텐츠가 늘어나기 전까지 선택 압박을 유지하고,
+//   슬롯 확장은 후속 건축가/연구/상위 영지 보상으로 다시 열 수 있게 상수 경계만 남긴다.
+//   건설 직후엔 빈 상태(0슬롯)이고 골드로 건축물 슬롯을 해금한다.
 export const MAX_SLOTS_BY_TIER: Record<VillageTier, number> = {
-  village: 2, // 2×2 판·골드 해금(5천만/1억)
-  city: 3, // 도시 달성 시 +1칸(무료)
-  metropolis: 4, // 대도시 달성 시 +1칸 → 총 4
+  village: 1,
+  city: 1,
+  metropolis: 1,
 };
 export const GRID_COLS_BY_TIER: Record<VillageTier, number> = {
-  village: 2,
-  city: 2,
-  metropolis: 2,
+  village: 1,
+  city: 1,
+  metropolis: 1,
 };
-// 화면에 항상 보여주는 판 크기 = 가장 큰 단계(대도시) 기준 2×2(4칸). 단계가 낮아도 그 단계 최대
-//   (MAX_SLOTS_BY_TIER) 너머의 칸을 흐리게(상위 단계 필요) 함께 보여줘 잠재 판을 미리 보게 한다.
-export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 2
-export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 4 (2×2)
-// 건설 직후 열려 있는 칸 수 — 0(첫 칸도 골드로 해금하며 종류를 고른다).
+// 화면에 항상 보여주는 슬롯 수 = 가장 큰 단계(대도시) 기준. 현재는 전 단계 1슬롯.
+export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 1
+export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 1
+// 건설 직후 열려 있는 건축물 슬롯 수 — 0(첫 슬롯도 골드로 해금한다).
 export const INITIAL_UNLOCKED_SLOTS = 0;
 
-// 해금 수를 단계 판 범위로 보정 — [0, 최대]. 손상/과거 데이터 방어.
+// 해금 수를 단계별 건축물 슬롯 범위로 보정 — [0, 최대]. 손상/과거 데이터 방어.
 export function clampUnlockedSlots(tier: VillageTier, n: number): number {
   if (!Number.isInteger(n) || n < 0) return 0;
   return Math.min(MAX_SLOTS_BY_TIER[tier], n);
@@ -127,8 +295,8 @@ export type ProductionJob = {
 // 길드 재화 풀(기부 적립·업그레이드 소비). 종류별 정수 누적.
 export type SettlementResources = Partial<Record<ProductionKind, number>>;
 
-// 업그레이드 가능?(다음 단계 존재 + 현 판 모두 해금 + 재화 충분). 부족 종류 목록도 함께.
-//   needSlots = 현 단계 판을 다 안 채움(칸 해금 → 단계 확장 순서 강제: 마을 4칸 다 열어야 도시).
+// 업그레이드 가능?(다음 단계 존재 + 현 건축물 슬롯 모두 해금 + 재화 충분). 부족 종류 목록도 함께.
+//   needSlots = 현 단계 슬롯을 다 안 열었음.
 //   costMultiplier = 자원 비용 배수(타일 정착지의 리베라 거리 스케일용·기본 1=옛 거점 경로 불변).
 export function canUpgrade(
   tier: VillageTier,
@@ -172,17 +340,16 @@ export function applyUpgradeCost(
 // ── 마을 건설 비용 ── 빈 공터에 마을을 세울 때 드는 길드 금고 골드(1회). ──────────
 export const VILLAGE_BUILD_GOLD_COST = 10_000_000; // 마을 건설 1천만
 
-// ── 칸 해금 ── 판 안의 다음 칸을 길드 골드로 열고, 그때 키울 종류를 고른다(단계 업그레이드와 별개).
-// 비용 = 길드 금고 골드(거점 세금/입금 풀). 첫 칸 5천만 / 칸마다 +5천만 → 5천만·1억(마을 판 2칸).
-//   도시/대도시 달성 칸은 upgrade 가 무료로 부여(여기 골드 해금은 마을 2칸에만). 큰 골드 sink.
+// ── 건축물 슬롯 해금 ── 다음 슬롯을 길드 골드로 연다(단계 업그레이드와 별개).
+// 비용 = 길드 금고 골드(거점 세금/입금 풀). 현재 마을별 1슬롯이므로 첫 슬롯 5천만만 사용된다.
 export const SLOT_UNLOCK_GOLD_BASE = 50_000_000; // 첫 칸 5천만
-export const SLOT_UNLOCK_GOLD_STEP = 50_000_000; // 칸마다 +5천만 → 5천만·1억
+export const SLOT_UNLOCK_GOLD_STEP = 50_000_000; // 후속 슬롯 확장용 다이얼
 export function slotUnlockGoldCost(currentUnlocked: number): number {
   if (currentUnlocked < 0) return 0;
   return SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP * currentUnlocked;
 }
 
-// 칸 해금 가능?(판에 여유 + 길드 골드 충분). atMax = 현 단계 판을 다 채움(다음은 단계 업그레이드).
+// 건축물 슬롯 해금 가능?(여유 + 길드 골드 충분). atMax = 현 단계 슬롯을 다 열었음.
 export function canUnlockSlot(
   tier: VillageTier,
   unlockedSlots: number,

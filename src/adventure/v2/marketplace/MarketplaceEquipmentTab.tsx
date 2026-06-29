@@ -6,7 +6,9 @@ import { Pagination } from "@/components/ui/Pagination";
 import {
   type V2EquipInstance,
   type V2EquipRoll,
+  type V2CraftedBy,
 } from "@/adventure/data/v2/v2Equipment";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
   nextSortMode,
   sortModeLabel,
@@ -37,7 +39,13 @@ export function MarketplaceEquipmentTab({
   priceRef: Record<string, PriceStat>;
   busy: boolean;
   onListEquip: (inst: V2EquipInstance) => void;
-  onOpenCard: (itemId: string, roll: V2EquipRoll | undefined, el: HTMLElement) => void;
+  onOpenCard: (
+    itemId: string,
+    roll: V2EquipRoll | undefined,
+    enhance: V2EnhanceState | undefined,
+    craftedBy: V2CraftedBy | undefined,
+    el: HTMLElement,
+  ) => void;
 }) {
   if (items.length === 0) {
     return (

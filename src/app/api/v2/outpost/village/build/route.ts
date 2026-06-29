@@ -22,9 +22,9 @@ import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { tileBuild } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/build — body { outpostId, name }
-// 점령한 빈 공터에 마을을 세운다 — 이름만 정한다(생산 종류는 칸을 해금할 때 칸마다 고른다).
-//   마스터/부마스터 전용. 건설에 길드 금고 골드 1천만 소모. 건설 직후엔 빈 판(0칸) — 첫 칸은
-//   무료로 해금(기본 제공), 이후 칸은 골드 누진(unlock-slot).
+// 점령한 빈 공터에 마을을 세운다 — 이름만 정한다.
+//   마스터/부마스터 전용. 건설에 길드 금고 골드 1천만 소모. 건설 직후엔 빈 판(0칸) — 현재
+//   마을별 1칸을 골드로 해금(unlock-slot)한다.
 //   - 마을 없음 → 새로 건설(이름만, 1천만 골드 차감).
 //   - 마을 있고 이름 없음(옛 lazy 생성분) → 이름만 채워 건설(무료, 기존 판 보존).
 //   - 이미 이름 있음 → 409 already_built (개명은 /rename).
@@ -104,6 +104,7 @@ export async function POST(req: Request) {
         productionKind: null,
         unlockedSlots: INITIAL_UNLOCKED_SLOTS,
         slotKinds: {},
+        buildings: {},
         jobs: {},
       } satisfies VillageRow;
       await upsertVillage(tx, village);

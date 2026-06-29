@@ -111,6 +111,17 @@ export type V2EquipmentId =
   | "v2_jade_amulet"
   | "v2_crystal_amulet"
   | "v2_mana_essence"
+  // 길드 대장간 제작 전용 고유 장비(craftOnly) — 드랍/상점 제외, 레시피로만 획득.
+  | "v2_crafted_oathblade"
+  | "v2_crafted_gale_bow"
+  | "v2_crafted_runic_staff"
+  | "v2_crafted_master_ring"
+  | "v2_crafted_ward_plate"
+  | "v2_crafted_spark_gloves"
+  | "v2_crafted_windstep_boots"
+  | "v2_crafted_aether_necklace"
+  | "v2_crafted_sunforge_blade"
+  | "v2_crafted_aurora_crown"
   // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리).
   // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses. 보스당 2종.
   | "v2_boss_mountain_axe"
@@ -625,6 +636,17 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
 
 export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
+    id: "artisan_crafted",
+    name: "장인표 장비",
+    thresholds: [
+      { count: 2, bonus: { hp: 50, mp: 30 } },
+      { count: 4, bonus: { crit: 3, eva: 3, critResist: 3 } },
+      { count: 6, bonus: { spd: 5, critMult: 24, healPowerPct: 4 } },
+      { count: 8, bonus: { hp: 120, mp: 80, crit: 4, eva: 4 } },
+      { count: 10, bonus: { hp: 180, mp: 120, crit: 6, eva: 6, spd: 4 } },
+    ],
+  },
+  {
     id: "black_iron",
     name: "흑철",
     thresholds: [
@@ -969,6 +991,14 @@ export type EquipmentSave = {
   equipped?: unknown;
 };
 
+export type V2CraftedBy = {
+  userId: string;
+  name?: string;
+  profession: "blacksmith";
+  level: number;
+  craftedAt: string;
+};
+
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
 //   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
@@ -979,6 +1009,8 @@ export type V2EquipInstance = {
   locked?: boolean;
   /** 강화 상태(+레벨·누적 위력 보너스 %p) — 미강화는 부재. v2Enhance 참고. */
   enhance?: V2EnhanceState;
+  /** 제작자 표식 — 길드 대장간 제작품에만 붙는 표시용 메타. */
+  craftedBy?: V2CraftedBy;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -1043,6 +1075,31 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
   return roll;
 }
 
+export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
+  if (!val || typeof val !== "object" || Array.isArray(val)) return undefined;
+  const raw = val as Record<string, unknown>;
+  if (typeof raw.userId !== "string" || raw.userId.length <= 0) {
+    return undefined;
+  }
+  if (raw.profession !== "blacksmith") return undefined;
+  const level = Math.max(1, Math.floor(Number(raw.level) || 1));
+  const craftedAt =
+    typeof raw.craftedAt === "string" && Number.isFinite(Date.parse(raw.craftedAt))
+      ? raw.craftedAt
+      : new Date(0).toISOString();
+  const name =
+    typeof raw.name === "string" && raw.name.trim().length > 0
+      ? raw.name.trim()
+      : undefined;
+  return {
+    userId: raw.userId,
+    ...(name ? { name } : {}),
+    profession: "blacksmith",
+    level,
+    craftedAt,
+  };
+}
+
 // equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
 // 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신). equipped = 슬롯→iid. 옛 24-class·티어
 // 리매핑(LEGACY_ID_REMAP)·옛 {owned:id[], statRolls} 마이그는 폐지(DB 초기화 전제) — 알 수 없는
@@ -1065,6 +1122,7 @@ export function parseEquipmentSave(raw: unknown): {
       roll?: unknown;
       locked?: unknown;
       enhance?: unknown;
+      craftedBy?: unknown;
     };
     if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
     const id = e.id as V2EquipmentId;
@@ -1086,6 +1144,8 @@ export function parseEquipmentSave(raw: unknown): {
     if (e.locked === true) inst.locked = true;
     const enhance = parseEnhance(e.enhance);
     if (enhance) inst.enhance = enhance;
+    const craftedBy = parseCraftedBy(e.craftedBy);
+    if (craftedBy) inst.craftedBy = craftedBy;
     owned.push(inst);
     byIid.set(iid, inst);
   }

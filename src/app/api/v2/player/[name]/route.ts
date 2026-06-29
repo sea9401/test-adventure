@@ -16,7 +16,17 @@ import {
   parseProficiencyForChar,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_EQUIPMENT,
+  parseEquipmentSave,
+} from "@/adventure/data/v2/v2Equipment";
+import {
+  ARTISAN_XP_PER_LEVEL,
+  artisanLevel,
+  artisanXpIntoLevel,
+  parseArtisanState,
+} from "@/adventure/data/v2/artisan";
+import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 
 // GET /api/v2/player/[name] — 다른 모험가의 공개 캐릭터 정보. URL 의 [name] = 닉네임.
 //   "내 정보" 화면과 같은 항목(레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련도)을 돌려준다.
@@ -70,6 +80,7 @@ export async function GET(_req: Request, ctx: Ctx) {
           "proficiency.v2",
           "adventure-log.v2",
           "equipment.v2",
+          "crafting.v2",
         ]),
       ),
     );
@@ -151,9 +162,45 @@ export async function GET(_req: Request, ctx: Ctx) {
   const equippedIids = new Set(Object.values(equipped));
   const ownedPublic = owned
     .filter((o) => equippedIids.has(o.iid))
-    // 카드 표시에 필요한 것만(iid·id·굴림·강화) — locked(즐겨찾기) 등 사적 플래그 제거.
+    // 카드 표시에 필요한 것만(iid·id·굴림·강화·제작자) — locked(즐겨찾기) 등 사적 플래그 제거.
     // 강화(+N)는 뽐내기 목적 그 자체라 공개(2026-06-12 사용자).
-    .map(({ iid, id, roll, enhance }) => ({ iid, id, roll, enhance }));
+    .map(({ iid, id, roll, enhance, craftedBy }) => ({
+      iid,
+      id,
+      roll,
+      enhance,
+      craftedBy,
+    }));
+  const selfCraftedEquipped = ownedPublic
+    .filter((item) => item.craftedBy?.userId === targetId)
+    .map((item) => {
+      const def = V2_EQUIPMENT[item.id];
+      return def
+        ? {
+            iid: item.iid,
+            id: item.id,
+            name: def.name,
+            slot: def.slot,
+            tier: def.tier,
+            enhanceLevel: item.enhance?.level ?? 0,
+          }
+        : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item != null)
+    .sort((a, b) => {
+      if (b.enhanceLevel !== a.enhanceLevel) {
+        return b.enhanceLevel - a.enhanceLevel;
+      }
+      return b.tier - a.tier;
+    });
+  const signatureCraft = selfCraftedEquipped[0] ?? null;
+
+  const craftingRaw = byKey.get("crafting.v2") as
+    | Record<string, unknown>
+    | undefined;
+  const artisan = parseArtisanState(craftingRaw?.artisan);
+  const blacksmith = artisan.blacksmith ?? { xp: 0, crafts: 0 };
+  const workshopStats = parseGuildWorkshopStats(craftingRaw?.workshopStats);
 
   return Response.json({
     ok: true,
@@ -206,6 +253,19 @@ export async function GET(_req: Request, ctx: Ctx) {
       groups: Object.fromEntries(
         Object.entries(prof.groups).map(([g, v]) => [g, { tier: v.tier }]),
       ),
+    },
+    artisan: {
+      blacksmith: {
+        level: artisanLevel(blacksmith),
+        xp: blacksmith.xp,
+        crafts: blacksmith.crafts,
+        xpIntoLevel: artisanXpIntoLevel(blacksmith),
+        xpForNext: ARTISAN_XP_PER_LEVEL,
+        totalCrafts: workshopStats.totalCrafts,
+        qualityCrafts: workshopStats.qualityCrafts,
+        signatureCraft,
+        equippedSelfCrafts: selfCraftedEquipped.length,
+      },
     },
     equipment: { owned: ownedPublic, equipped },
   });

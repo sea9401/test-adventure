@@ -13,7 +13,11 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildMemberCap } from "@/adventure/data/guild";
 import {
+  SETTLEMENT_BUILDING_IDS,
   tierMeetsNation,
+  isSettlementBuildingId,
+  settlementBuildingIdOf,
+  type SettlementBuildingId,
   type VillageTier,
 } from "@/adventure/data/v2/settlement";
 import {
@@ -23,6 +27,13 @@ import {
 } from "@/adventure/data/v2/classes";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
+import {
+  ARTISAN_XP_PER_LEVEL,
+  artisanLevel,
+  artisanXpIntoLevel,
+  parseArtisanState,
+} from "@/adventure/data/v2/artisan";
+import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 
 // GET /api/v2/me/guild/info — 길드 정보 + 멤버 list (V2GuildHome).
 //
@@ -139,7 +150,7 @@ export async function GET() {
   const lookupIds = Array.from(
     new Set([...memberIds, ...pendingRows.map((r) => r.userId)]),
   );
-  const [profileRows, charRows] = await Promise.all([
+  const [profileRows, charRows, craftingRows] = await Promise.all([
     lookupIds.length === 0
       ? Promise.resolve([])
       : db
@@ -160,6 +171,17 @@ export async function GET() {
             and(
               inArray(savesKv.userId, lookupIds),
               eq(savesKv.key, "character.v2"),
+            ),
+          ),
+    memberIds.length === 0
+      ? Promise.resolve([])
+      : db
+          .select({ userId: savesKv.userId, value: savesKv.value })
+          .from(savesKv)
+          .where(
+            and(
+              inArray(savesKv.userId, memberIds),
+              eq(savesKv.key, "crafting.v2"),
             ),
           ),
   ]);
@@ -197,6 +219,40 @@ export async function GET() {
       parseHonorEarned(v?.honorEarned, parseHonor(v?.honor)),
     );
   }
+  const artisanByUser = new Map<
+    string,
+    {
+      blacksmith: {
+        level: number;
+        xp: number;
+        crafts: number;
+        xpIntoLevel: number;
+        xpForNext: number;
+        totalCrafts: number;
+        qualityCrafts: number;
+      };
+    }
+  >();
+  for (const r of craftingRows) {
+    const v = (r.value ?? null) as {
+      artisan?: unknown;
+      workshopStats?: unknown;
+    } | null;
+    const artisan = parseArtisanState(v?.artisan);
+    const blacksmith = artisan.blacksmith ?? { xp: 0, crafts: 0 };
+    const workshopStats = parseGuildWorkshopStats(v?.workshopStats);
+    artisanByUser.set(r.userId, {
+      blacksmith: {
+        level: artisanLevel(blacksmith),
+        xp: blacksmith.xp,
+        crafts: blacksmith.crafts,
+        xpIntoLevel: artisanXpIntoLevel(blacksmith),
+        xpForNext: ARTISAN_XP_PER_LEVEL,
+        totalCrafts: workshopStats.totalCrafts,
+        qualityCrafts: workshopStats.qualityCrafts,
+      },
+    });
+  }
 
   // 최근 접속 — presence.lastSeenAt(30초 하트비트). 한 번도 접속 없으면 키 없음 → null.
   const presenceRows =
@@ -221,6 +277,19 @@ export async function GET() {
     job: jobByUser.get(m.userId) ?? "모험가",
     lastSeenAt: lastSeenByUser.get(m.userId) ?? null,
     honorEarned: honorEarnedByUser.get(m.userId) ?? 0,
+    artisan:
+      artisanByUser.get(m.userId) ??
+      {
+        blacksmith: {
+          level: 1,
+          xp: 0,
+          crafts: 0,
+          xpIntoLevel: 0,
+          xpForNext: ARTISAN_XP_PER_LEVEL,
+          totalCrafts: 0,
+          qualityCrafts: 0,
+        },
+      },
   }));
   // master 먼저, 그 다음 joinedAt 오름차순.
   members.sort((a, b) => {
@@ -239,13 +308,28 @@ export async function GET() {
 
   // 국가 선포 — 길드 정원(국가 시 상향) + 선포 게이트 충족 여부(대도시 마을 보유).
   const memberCap = guildMemberCap(guildRow.nationName != null);
-  const villageTiers = await db
-    .select({ tier: outpostVillages.tier })
+  const villageRows = await db
+    .select({ tier: outpostVillages.tier, buildings: outpostVillages.buildings })
     .from(outpostVillages)
     .where(eq(outpostVillages.guildId, guildId));
-  const hasMetropolis = villageTiers.some((v) =>
+  const hasMetropolis = villageRows.some((v) =>
     tierMeetsNation(v.tier as VillageTier),
   );
+  const settlementBuildings = Object.fromEntries(
+    SETTLEMENT_BUILDING_IDS.map((id) => [id, 0]),
+  ) as Record<SettlementBuildingId, number>;
+  for (const village of villageRows) {
+    if (typeof village.buildings !== "object" || village.buildings === null) {
+      continue;
+    }
+    for (const rawBuilding of Object.values(village.buildings)) {
+      const buildingId = settlementBuildingIdOf(rawBuilding);
+      if (isSettlementBuildingId(buildingId)) {
+        settlementBuildings[buildingId] += 1;
+      }
+    }
+  }
+  const hasGuildSmithy = settlementBuildings.guild_smithy > 0;
   // 마스터만, 미선포 상태에서, 대도시 보유 시 선포 버튼 노출.
   const canDeclareNation =
     isMaster && guildRow.nationName == null && hasMetropolis;
@@ -285,6 +369,8 @@ export async function GET() {
     memberCap,
     hasMetropolis,
     canDeclareNation,
+    settlementBuildings,
+    hasGuildSmithy,
     guildGold,
     takenColors,
   });

@@ -17,6 +17,7 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildOutpostsPanel } from "./guild/GuildOutpostsPanel";
+import { GuildWorkshopPanel } from "./guild/GuildWorkshopPanel";
 import {
   TYPE_LABEL,
   settleTierLabel,
@@ -38,6 +39,7 @@ const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
   { key: "members", label: "길드원" },
   { key: "outposts", label: "보유 거점" },
+  { key: "workshop", label: "제작" },
 ];
 
 export function V2GuildHome({
@@ -227,6 +229,8 @@ export function V2GuildHome({
           onGuildChanged={onGuildChanged}
         />
       )}
+
+      {activeTab === "workshop" && <GuildWorkshopPanel info={info} />}
 
       {activeTab === "manage" && canManage && (
         <GuildManagePanel

@@ -40,6 +40,8 @@ import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
 import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
+import { artisanLevel, parseArtisanState } from "@/adventure/data/v2/artisan";
+import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 
 type CharSave = {
   class?: unknown;
@@ -91,6 +93,7 @@ export function buildQuestCtx(args: {
   advLogRaw: unknown;
   equipmentRaw: unknown;
   skillsRaw: unknown;
+  craftingRaw: unknown;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -173,6 +176,15 @@ export function buildQuestCtx(args: {
   const hasShopped = Boolean(charSave.hasShopped);
   // 타일 이동 경험 — move-tile 라우트가 tilePos.at 을 찍는다. 신규 캐릭터는 tilePos 미설정.
   const hasMoved = charSave.tilePos?.at != null;
+  const craftingSave =
+    args.craftingRaw != null &&
+    typeof args.craftingRaw === "object" &&
+    !Array.isArray(args.craftingRaw)
+      ? (args.craftingRaw as Record<string, unknown>)
+      : {};
+  const workshopStats = parseGuildWorkshopStats(craftingSave.workshopStats);
+  const artisan = parseArtisanState(craftingSave.artisan);
+  const blacksmithLevel = artisanLevel(artisan.blacksmith);
   const skillsSave = (args.skillsRaw ?? {}) as {
     equipped?: unknown;
     learned?: unknown;
@@ -231,6 +243,9 @@ export function buildQuestCtx(args: {
     hasHealed,
     hasShopped,
     hasMoved,
+    workshopCrafts: workshopStats.totalCrafts,
+    workshopQualityCrafts: workshopStats.qualityCrafts,
+    blacksmithLevel,
   };
 }
 

@@ -71,6 +71,7 @@ export async function POST(req: Request) {
     const proficiencyRaw = await readSave(tx, userId, "proficiency.v2", {});
     const advLogRaw = await readSave(tx, userId, "adventure-log.v2", {});
     const skillsRaw = await readSave(tx, userId, "skills.v2", {});
+    const craftingRaw = await readSave(tx, userId, "crafting.v2", {});
     const extras = await assembleQuestExtras(tx, userId);
 
     const ctx = buildQuestCtx({
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
       advLogRaw,
       equipmentRaw: equipSave,
       skillsRaw,
+      craftingRaw,
       extras,
     });
     const claimed = parseClaimed(guideSave);

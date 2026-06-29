@@ -108,6 +108,12 @@ export type QuestCtx = {
   hasShopped: boolean;
   /** 지도에서 한 번이라도 이동했는가. character.v2.tilePos.at(이동 시각)이 찍혔으면 true(신규는 미설정). */
   hasMoved: boolean;
+  /** 길드 대장간 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
+  workshopCrafts: number;
+  /** 길드 대장간 +1 품질 제작 성공 횟수. crafting.v2.workshopStats.qualityCrafts. */
+  workshopQualityCrafts: number;
+  /** 대장장이 장인 레벨. crafting.v2.artisan.blacksmith. */
+  blacksmithLevel: number;
 };
 
 export type QuestDef = {
@@ -704,6 +710,34 @@ const ENHANCE: QuestDef[] = [
   },
 ];
 
+// ── 장인의 길 — 길드 대장간 제작/대장장이 성장 마일스톤(독립) ────────────────
+const ARTISAN: QuestDef[] = [
+  {
+    id: "a_first_craft",
+    line: "artisan",
+    title: "첫 제작 의뢰",
+    desc: "길드 대장간에서 장비를 1회 제작하세요.",
+    reward: { gold: 300 },
+    check: (c) => c.workshopCrafts >= 1,
+  },
+  {
+    id: "a_blacksmith_lv2",
+    line: "artisan",
+    title: "대장장이의 손",
+    desc: "대장장이 Lv 2에 도달하세요.",
+    reward: { gold: 500 },
+    check: (c) => c.blacksmithLevel >= 2,
+  },
+  {
+    id: "a_quality_plus1",
+    line: "artisan",
+    title: "고품질 단조",
+    desc: "길드 대장간에서 +1 품질 장비를 제작하세요.",
+    reward: { gold: 800 },
+    check: (c) => c.workshopQualityCrafts >= 1,
+  },
+];
+
 // 라인 순서 = 퀘스트 화면의 라인 섹션 표시 순서(튜토리얼/업적 탭). 튜토리얼 탭은 기초 → 성장.
 // (배너 "현재 목표" 우선순위는 이 순서가 아니라 V2_QUESTS 정의 순서를 따른다 — 성장이 먼저.)
 export const QUEST_LINES: readonly QuestLine[] = [
@@ -769,6 +803,12 @@ export const QUEST_LINES: readonly QuestLine[] = [
     subtitle: "대장간에서 장비를 단련하세요 — +10 전설까지.",
     sequential: false,
   },
+  {
+    id: "artisan",
+    name: "장인의 길",
+    subtitle: "길드 대장간 제작과 대장장이 숙련도를 쌓으세요.",
+    sequential: false,
+  },
 ];
 
 export const V2_QUESTS: readonly QuestDef[] = [
@@ -782,6 +822,7 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...LIFE,
   ...BESTIARY,
   ...ENHANCE,
+  ...ARTISAN,
 ];
 
 const QUEST_BY_ID = new Map(V2_QUESTS.map((q) => [q.id, q]));

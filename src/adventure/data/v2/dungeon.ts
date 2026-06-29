@@ -94,20 +94,20 @@ const BAND_G_BLACK_THRONE_ENEMIES: DungeonEnemy[] = [
 
 // 붉은 벌판 — 전쟁터·화염·쇳가루. 49~54 권장 전투력 2000~2300, 물리 압박+화염/출혈.
 const BAND_H_RED_FIELD_ENEMIES: DungeonEnemy[] = [
-  { key: "잿빛 창병", name: "잿빛 창병", image: "/images/monster/v2/mountain-brigand.webp", element: "earth", statusSkill: "mob_rending_claw" },
-  { key: "화약 투척병", name: "화약 투척병", image: "/images/monster/v2/field-highwayman.webp", element: "fire", castSkill: "mob_arcane_bolt" },
-  { key: "붉은 갈기 늑대", name: "붉은 갈기 늑대", image: "/images/monster/v2/mountain-cliff-wolf.webp", element: "fire", statusSkill: "mob_rending_claw" },
-  { key: "전장 철갑소", name: "전장 철갑소", image: "/images/monster/v2/mountain-bison.webp", element: "earth" },
-  { key: "폭풍 깃발수", name: "폭풍 깃발수", image: "/images/monster/v2/canyon-bandit.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
+  { key: "잿빛 창병", name: "잿빛 창병", image: "/images/monster/v2/ash-spearman.webp", element: "earth", statusSkill: "mob_rending_claw" },
+  { key: "화약 투척병", name: "화약 투척병", image: "/images/monster/v2/powder-thrower.webp", element: "fire", castSkill: "mob_arcane_bolt" },
+  { key: "붉은 갈기 늑대", name: "붉은 갈기 늑대", image: "/images/monster/v2/red-mane-wolf.webp", element: "fire", statusSkill: "mob_rending_claw" },
+  { key: "전장 철갑소", name: "전장 철갑소", image: "/images/monster/v2/war-armored-bison.webp", element: "earth" },
+  { key: "폭풍 깃발수", name: "폭풍 깃발수", image: "/images/monster/v2/storm-standard-bearer.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
 ];
 
 // 백골 고원 — 오래된 전쟁의 고지대. 55~60 권장 전투력 2800~3300, 고피해·출혈·치명·탱커 혼합.
 const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
-  { key: "해골 기수", name: "해골 기수", image: "/images/monster/v2/mountain-alpha-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
-  { key: "고원 학살자", name: "고원 학살자", image: "/images/monster/v2/field-highwayman.webp", element: "fire", statusSkill: "mob_rending_claw" },
-  { key: "뼈갑옷 들소", name: "뼈갑옷 들소", image: "/images/monster/v2/forest-boar.webp", element: "earth" },
-  { key: "까마귀 주술사", name: "까마귀 주술사", image: "/images/monster/v2/snow-blizzard-hunter.webp", element: "starlight", castSkill: "mob_arcane_burst" },
-  { key: "백골 군주", name: "백골 군주", image: "/images/monster/v2/throne-gatekeeper.webp", element: "earth", statusSkill: "mob_rending_claw" },
+  { key: "해골 기수", name: "해골 기수", image: "/images/monster/v2/skeleton-rider.webp", element: "wind", statusSkill: "mob_rending_claw" },
+  { key: "고원 학살자", name: "고원 학살자", image: "/images/monster/v2/plateau-slayer.webp", element: "fire", statusSkill: "mob_rending_claw" },
+  { key: "뼈갑옷 들소", name: "뼈갑옷 들소", image: "/images/monster/v2/bone-armored-bison.webp", element: "earth" },
+  { key: "까마귀 주술사", name: "까마귀 주술사", image: "/images/monster/v2/crow-shaman.webp", element: "starlight", castSkill: "mob_arcane_burst" },
+  { key: "백골 군주", name: "백골 군주", image: "/images/monster/v2/bone-lord.webp", element: "earth", statusSkill: "mob_rending_claw" },
 ];
 
 // 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.

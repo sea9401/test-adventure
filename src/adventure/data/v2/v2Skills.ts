@@ -97,6 +97,10 @@ export type V2PassiveSkillEffect = {
   fishingSizeBonusPct?: number;
   /** 현재 물때 한정 어종의 티어 내 추첨 가중치 +%. */
   fishingSpecialWeightPct?: number;
+  /** 희귀 이상 어종을 낚았을 때 크기 굴림을 상한 쪽으로 추가 보정. */
+  fishingRareSizeBonusPct?: number;
+  /** 상위 대물권 크기 굴림일 때 크기를 상한 쪽으로 추가 보정. */
+  fishingBigCatchSizeBonusPct?: number;
   /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
@@ -583,15 +587,26 @@ export function equippedProfPerKillBonus(equipped: readonly V2SkillId[]): number
 export function equippedFishingBonuses(equipped: readonly V2SkillId[]): {
   sizeBonusPct: number;
   specialWeightPct: number;
+  rareSizeBonusPct: number;
+  bigCatchSizeBonusPct: number;
 } {
   let sizeBonusPct = 0;
   let specialWeightPct = 0;
+  let rareSizeBonusPct = 0;
+  let bigCatchSizeBonusPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     sizeBonusPct += p?.fishingSizeBonusPct ?? 0;
     specialWeightPct += p?.fishingSpecialWeightPct ?? 0;
+    rareSizeBonusPct += p?.fishingRareSizeBonusPct ?? 0;
+    bigCatchSizeBonusPct += p?.fishingBigCatchSizeBonusPct ?? 0;
   }
-  return { sizeBonusPct, specialWeightPct };
+  return {
+    sizeBonusPct,
+    specialWeightPct,
+    rareSizeBonusPct,
+    bigCatchSizeBonusPct,
+  };
 }
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
@@ -715,6 +730,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`낚시 크기 보정 +${p.fishingSizeBonusPct}%`);
   if (p.fishingSpecialWeightPct)
     chips.push(`물때 한정 어종 가중치 +${p.fishingSpecialWeightPct}%`);
+  if (p.fishingRareSizeBonusPct)
+    chips.push(`희귀 이상 낚시 크기 보정 +${p.fishingRareSizeBonusPct}%`);
+  if (p.fishingBigCatchSizeBonusPct)
+    chips.push(`대물권 낚시 크기 보정 +${p.fishingBigCatchSizeBonusPct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
   if (p.skillCritOverflow)

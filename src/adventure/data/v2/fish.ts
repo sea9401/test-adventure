@@ -420,7 +420,23 @@ export function isFishId(id: string): id is FishId {
 export type FishSizeRollOptions = {
   /** 굴린 크기를 상한 쪽으로 보정한다. 4 = 남은 크기 폭의 4%만큼 추가. */
   sizeBonusPct?: number;
+  /** 희귀 이상 어종이면 상한 쪽으로 추가 보정한다. */
+  rareSizeBonusPct?: number;
+  /** 상위 대물권 굴림이면 상한 쪽으로 추가 보정한다. */
+  bigCatchSizeBonusPct?: number;
 };
+
+const RARE_OR_BETTER_TIERS: ReadonlySet<FishTier> = new Set([
+  "rare",
+  "epic",
+  "legendary",
+]);
+export const BIG_CATCH_BONUS_ROLL_FRACTION = 0.8;
+
+function applySizeBonus(p: number, bonusPct?: number): number {
+  const bonus = Math.max(0, Math.min(100, bonusPct ?? 0)) / 100;
+  return bonus > 0 ? p + (1 - p) * bonus : p;
+}
 
 // 사이즈(cm) 굴림 — heavy-tail. rng() ∈ [0, 1). 소수 첫째 자리까지.
 export function rollFishSize(
@@ -431,8 +447,13 @@ export function rollFishSize(
   const f = FISH[fishId];
   const k = FISH_TIERS[f.tier].sizeExponent;
   const p = Math.pow(rng(), k);
-  const bonus = Math.max(0, Math.min(100, options.sizeBonusPct ?? 0)) / 100;
-  const boosted = bonus > 0 ? p + (1 - p) * bonus : p;
+  let boosted = applySizeBonus(p, options.sizeBonusPct);
+  if (RARE_OR_BETTER_TIERS.has(f.tier)) {
+    boosted = applySizeBonus(boosted, options.rareSizeBonusPct);
+  }
+  if (boosted >= BIG_CATCH_BONUS_ROLL_FRACTION) {
+    boosted = applySizeBonus(boosted, options.bigCatchSizeBonusPct);
+  }
   const size = f.minSize + (f.maxSize - f.minSize) * boosted;
   return Math.round(size * 10) / 10;
 }

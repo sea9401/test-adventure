@@ -41,6 +41,8 @@ export async function POST() {
   });
   const size = rollFishSize(fishId, Math.random, {
     sizeBonusPct: fishingBonuses.sizeBonusPct,
+    rareSizeBonusPct: fishingBonuses.rareSizeBonusPct,
+    bigCatchSizeBonusPct: fishingBonuses.bigCatchSizeBonusPct,
   });
   const castId = randomUUID();
 

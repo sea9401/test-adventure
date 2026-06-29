@@ -9,7 +9,6 @@ import {
   CastleTurret,
   Coins,
   Crown,
-  DoorOpen,
   Flag,
   FlowerLotus,
   Hammer,
@@ -17,6 +16,7 @@ import {
   Mountains,
   Path,
   Trash,
+  Wall,
   Waves,
   type Icon,
 } from "@phosphor-icons/react";
@@ -377,7 +377,7 @@ export function TileMap({
                   }`}
                 >
                   {isDungeonEntrance && (
-                    <DoorOpen
+                    <Wall
                       className="h-2/5 w-2/5 text-amber-300"
                       weight="fill"
                     />
@@ -607,7 +607,7 @@ export function TileMap({
                     onClick={onOpenGridDungeon}
                     className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-amber-400"
                   >
-                    <DoorOpen size={14} weight="fill" />
+                    <Wall size={14} weight="fill" />
                     던전 입장
                   </button>
                 ) : (

@@ -553,8 +553,18 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     ).toBe(0);
   });
 
-  it("효과 패시브 맵(V2_JOB_PASSIVES)은 비어 있음 — 기본은 패시브 스킬로 이관", () => {
-    expect(V2_JOB_PASSIVES).toEqual({});
+  it("효과 패시브 맵(V2_JOB_PASSIVES) — 기본직업은 비고, 5차 캡스톤만 등재", () => {
+    // 기본 직업은 효과 패시브 없음(근력·강건 등 패시브 스킬로 이관).
     expect(jobPassive("warrior")).toEqual({});
+    expect(jobPassive("rogue")).toEqual({});
+    // 5차 물리/LUK 캡스톤만 등재 (속도 오버플로→atk% · 스킬 치명 오버플로).
+    expect(V2_JOB_PASSIVES.swordmaster).toEqual({ spdOverflowToAtkPct: 25 });
+    expect(V2_JOB_PASSIVES.marksman).toEqual({ spdOverflowToAtkPct: 25 });
+    expect(V2_JOB_PASSIVES.nightshade).toEqual({ skillCritOverflow: true });
+    expect(Object.keys(V2_JOB_PASSIVES).sort()).toEqual([
+      "marksman",
+      "nightshade",
+      "swordmaster",
+    ]);
   });
 });

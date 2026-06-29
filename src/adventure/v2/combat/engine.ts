@@ -47,6 +47,7 @@ import {
 } from "@/adventure/character/apSkills";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
+import { computeCritOverflowBonus } from "./engine.damageHelpers";
 import {
   V2_CORE_LOOP_V2,
   V2_SKILL_PROC_IN_PATTERN,
@@ -545,6 +546,8 @@ export type PlayerCombat = {
   // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──
   // 미장착/없음 = undefined → 엔진 훅 미발화(골든 byte-identical). derive 가 활성분만 채운다.
   equipSignatures?: SignatureEffect[];
+  // 밤그림자(5차 LUK 캡스톤) — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 미보유 = undefined.
+  skillCritOverflow?: boolean;
 };
 
 // AP 스킬 발동 슬롯 형태 — v2 미장착이라 런타임 비활성이나, apSel no-op scaffolding 의
@@ -1709,7 +1712,12 @@ export function applyPlayerV2SkillCast(
       spellStackMult *
       magicVulnMult *
       vulnMult *
-      (skillCritFired ? SKILL_CRIT_MULT : 1),
+      // 밤그림자(skillCritOverflow) — 스킬 크리에도 크리 오버플로(75% 초과분 크리뎀) 가산. 전역=flat.
+      (skillCritFired
+        ? player.skillCritOverflow
+          ? SKILL_CRIT_MULT + computeCritOverflowBonus(player.critChancePct ?? 0)
+          : SKILL_CRIT_MULT
+        : 1),
   );
   const boostedSkillDamage = singleSkillDamage * skillHitCount;
   // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.

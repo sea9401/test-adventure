@@ -57,6 +57,7 @@ export function PlayerStatusCard({
   mpCharges,
   hasMp = false,
   combat,
+  proficiency = null,
 }: {
   gender: Gender;
   name: string;
@@ -73,6 +74,8 @@ export function PlayerStatusCard({
   hasMp?: boolean;
   // 유효 전투 스탯 — 공/방/속(+상세). 미전달이면 미표시.
   combat?: PlayerCombatStats | null;
+  // 현재 직군 누적 숙련도("직업 숙련도"). null/미전달 = 모험가(무직업) → 줄 생략.
+  proficiency?: number | null;
 }) {
   const expValue = Math.max(0, exp ?? 0);
   const expMax = maxExp && maxExp > 0 ? maxExp : expValue + 1;
@@ -96,6 +99,14 @@ export function PlayerStatusCard({
           {subtitle && (
             <div className="-mt-1 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
               {subtitle}
+            </div>
+          )}
+          {proficiency != null && (
+            <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+              직업 숙련도{" "}
+              <span className="font-medium tabular-nums text-sky-600 dark:text-sky-400">
+                {proficiency.toLocaleString()}
+              </span>
             </div>
           )}
           {hp && <HpBar state={hp} compact />}

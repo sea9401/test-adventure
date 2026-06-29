@@ -173,7 +173,7 @@ export function PlayerStatusCard({
   hasMp?: boolean;
   // 유효 전투 스탯 — 공/방/속(+상세). 미전달이면 미표시.
   combat?: PlayerCombatStats | null;
-  // 현재 직군 누적 숙련도("현재 직업의 숙련도"). null/미전달 = 모험가(무직업) → 줄 생략.
+  // 현재 전직 중인 구체 직업의 숙련도. null/미전달 = 모험가(무직업) → 줄 생략.
   proficiency?: number | null;
 }) {
   const expValue = Math.max(0, exp ?? 0);
@@ -202,7 +202,7 @@ export function PlayerStatusCard({
           )}
           {proficiency != null && (
             <div className="text-[12px] leading-tight text-zinc-500 dark:text-zinc-400">
-              현재 직업의 숙련도{" "}
+              직업 숙련도{" "}
               <span className="font-semibold tabular-nums text-sky-500">
                 {proficiency.toLocaleString()}
               </span>

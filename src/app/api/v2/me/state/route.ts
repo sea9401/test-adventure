@@ -972,9 +972,14 @@ export async function GET() {
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-      const group = tier1ClassOf(
-        parseV2Class((charSave as { class?: unknown }).class),
-      );
+      const curClass = parseV2Class((charSave as { class?: unknown }).class);
+      const group = tier1ClassOf(curClass);
+      const specChoice =
+        typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+          ? ((charSave as { specChoice?: string }).specChoice ?? null)
+          : null;
+      const currentJobId = jobIdFromLegacy(curClass, specChoice);
+      const currentJob = V2_JOB_CATALOG[currentJobId];
       // caps 는 유효 cap(= floor + 헤드룸 + 수행이득)으로 노출 — UI "한계" 표시용.
       const floors = computeStatFloors(prof);
       const effectiveCaps: Partial<Record<string, number>> = {};
@@ -986,8 +991,10 @@ export async function GET() {
         caps: effectiveCaps,
         current: {
           group,
-          // 직업 숙련도 — 전직 게이트·floor 입력. UI 전직 진척 표시용.
-          cumLevel: groupCumLevel(prof, group),
+          // 직업 숙련도 — 현재 전직 중인 구체 직업의 숙련도. tier1 은 직군 숙련도, tier2+ 는 jobCumLevel.
+          cumLevel: currentJob
+            ? cumLevelForJob(prof, currentJob)
+            : groupCumLevel(prof, group),
           // 숙달 포인트 잔액(사용가능). 옛 earned/usable 통합.
           points: usablePoints(prof),
           cultivations: cultivationCount(prof, group),

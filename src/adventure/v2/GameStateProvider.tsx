@@ -99,7 +99,7 @@ type GameStateValue = {
   viewerExp: number;
   viewerExpToNext: number;
   playerSubtitle: string;
-  // 현재 직군 누적 숙련도("직업 숙련도") — 사냥 화면 캐릭터 카드 readout 용. none(모험가)=null.
+  // 현재 전직 중인 구체 직업의 숙련도("직업 숙련도") — 사냥 화면 캐릭터 카드 readout 용. none(모험가)=null.
   viewerProficiency: number | null;
   // 세계 위치 + 자원
   currentOutpost: { id: string; name: string } | null;
@@ -267,7 +267,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 직업 표시명(서버 산출) — 직업 시스템이면 견습 병사·방패병 등. 전투 부제가 class 직접 환산
   //   대신 이걸 우선 사용(상위 직업 반영). 미동봉이면 null → class 직군명 폴백.
   const [viewerJobName, setViewerJobName] = useState<string | null>(null);
-  // 현재 직군 누적 숙련도("직업 숙련도") — me/state proficiency.current.cumLevel. none=null.
+  // 현재 전직 중인 구체 직업의 숙련도("직업 숙련도") — me/state proficiency.current.cumLevel. none=null.
   const [viewerProficiency, setViewerProficiency] = useState<number | null>(
     null,
   );

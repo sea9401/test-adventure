@@ -32,7 +32,11 @@ import {
   proficiencyPerKillAtDepth,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  V2_JOB_CATALOG,
+  cumLevelForJob,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
@@ -860,7 +864,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
   let proficiencyGained = 0; // 전투 결과 표시용.
   let masteryGained = 0; // 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력.
-  let masteryAfter: number | null = null; // 상시 카드 readout — 이 사냥 후 현재 직군 누적 숙련도(none=null).
+  let masteryAfter: number | null = null; // 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null).
   let spMilestonesGained = 0; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤 수(flag off=항상 0).
   const statGains: Partial<Record<V2StatKey, number>> = {}; // 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용.
   if (won || expResult.levelsGained > 0) {
@@ -913,17 +917,29 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         if (d > 0) statGains[k] = d;
       }
     }
-    // 직업 숙련도(상시 카드 readout) — 이 사냥 적립 후 현재 직군 누적 숙련도. none=숙련도 없음.
-    masteryAfter = group !== "none" ? groupCumLevel(prof, group) : null;
+    // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.
+    const currentJob = V2_JOB_CATALOG[v2JobId];
+    masteryAfter =
+      group !== "none"
+        ? currentJob
+          ? cumLevelForJob(prof, currentJob)
+          : groupCumLevel(prof, group)
+        : null;
     await upsertSave(tx, userId, "proficiency.v2", prof);
   } else {
     // 패배(승리·레벨업 없음) — 숙련도 불변. 상시 카드 readout 용 현재값만 산출(쓰기 없음).
-    const lossGroup = tier1ClassOf(parseV2Class(charSave.class));
+    const lossClass = parseV2Class(charSave.class);
+    const lossGroup = tier1ClassOf(lossClass);
     if (lossGroup !== "none") {
-      masteryAfter = groupCumLevel(
-        parseProficiencyForChar(proficiencyRaw, charSave),
-        lossGroup,
+      const lossJobId = jobIdFromLegacy(
+        lossClass,
+        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
       );
+      const lossJob = V2_JOB_CATALOG[lossJobId];
+      const lossProf = parseProficiencyForChar(proficiencyRaw, charSave);
+      masteryAfter = lossJob
+        ? cumLevelForJob(lossProf, lossJob)
+        : groupCumLevel(lossProf, lossGroup);
     }
   }
   // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 VIT·INT). 파생식과 동일 계수.
@@ -1043,7 +1059,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         expGained,
         proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~5).
         masteryGained, // 직업 숙련도 획득(승리·직업 보유 시 +1).
-        masteryAfter, // 상시 카드 readout — 사냥 후 현재 직군 누적 숙련도(none=null).
+        masteryAfter, // 상시 카드 readout — 사냥 후 현재 직업 숙련도(none=null).
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
         goldGross,
         goldTaxed,

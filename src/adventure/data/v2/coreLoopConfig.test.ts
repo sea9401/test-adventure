@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   V2_CORE_LOOP_V2,
+  V2_ATB_SKILLS,
   HUNT_COOLDOWN_MS,
   LOOP_BATTLES_TARGET,
   V2_LEVEL_CAP,
@@ -27,9 +28,31 @@ import {
   SP_MASTERED_JOB_BONUS,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("coreLoopConfig — 플래그", () => {
   it("플래그는 기본 off (테스트 env 미설정 — 운영은 .env.production 으로 on)", () => {
     expect(V2_CORE_LOOP_V2).toBe(false);
+    expect(V2_ATB_SKILLS).toBe(false);
+  });
+
+  it("ATB 스킬은 코어루프 on 에 기본 동행하고, 명시 false 로만 끈다", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_V2_CORE_LOOP_V2", "true");
+    vi.stubEnv("NEXT_PUBLIC_V2_ATB_SKILLS", undefined);
+    const on = await import("./coreLoopConfig");
+    expect(on.V2_CORE_LOOP_V2).toBe(true);
+    expect(on.V2_ATB_SKILLS).toBe(true);
+
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_V2_CORE_LOOP_V2", "true");
+    vi.stubEnv("NEXT_PUBLIC_V2_ATB_SKILLS", "false");
+    const off = await import("./coreLoopConfig");
+    expect(off.V2_CORE_LOOP_V2).toBe(true);
+    expect(off.V2_ATB_SKILLS).toBe(false);
   });
 });
 

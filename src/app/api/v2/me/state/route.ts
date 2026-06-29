@@ -856,7 +856,7 @@ export async function GET() {
                 id in V2_CLASS_DEFS
                   ? V2_CLASS_DEFS[id as keyof typeof V2_CLASS_DEFS]
                   : null;
-              const label = classDef?.name ?? id;
+              const label = id === "none" ? "모험가" : (classDef?.name ?? id);
               return {
                 id,
                 label,

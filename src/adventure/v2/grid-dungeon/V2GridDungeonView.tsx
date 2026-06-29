@@ -301,9 +301,6 @@ export function V2GridDungeonView({
   const mySupportDaily = state?.mySupportDaily ?? null;
   const rewardQuota = state?.rewardQuota ?? null;
   const hasRewardClaim = (rewardQuota?.remaining ?? 0) > 0;
-  const history = state?.history.entries ?? [];
-  const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
-  const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
   const pendingDropCount = useMemo(
     () =>
       dropEntries(run?.pendingDrops).reduce(
@@ -312,6 +309,13 @@ export function V2GridDungeonView({
       ),
     [run?.pendingDrops],
   );
+  const runCanClaimMaterialReward =
+    !!run && run.status === "cleared" && hasRewardClaim;
+  const claimableDropCount =
+    runCanClaimMaterialReward ? pendingDropCount : 0;
+  const history = state?.history.entries ?? [];
+  const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
+  const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
   const validSelectedSupporterIds = useMemo(() => {
     const valid = new Set(
       supportCandidates
@@ -434,6 +438,11 @@ export function V2GridDungeonView({
                 </div>
               )}
             </div>
+            <RewardStatusNotice
+              rewardQuota={rewardQuota}
+              pendingDropCount={0}
+              mode="entrance"
+            />
             <button
               type="button"
               disabled={!state.atEntrance || busy}
@@ -714,6 +723,11 @@ export function V2GridDungeonView({
               </div>
             </div>
           </section>
+          <RewardStatusNotice
+            rewardQuota={rewardQuota}
+            pendingDropCount={claimableDropCount}
+            mode={run.status === "cleared" ? "claim" : "run"}
+          />
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
@@ -834,12 +848,6 @@ export function V2GridDungeonView({
               drops={run.pendingDrops ?? {}}
               emptyLabel="아직 확보한 재료가 없습니다."
             />
-            {rewardQuota && rewardQuota.remaining <= 0 && (
-              <div className="rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-xs text-zinc-400">
-                오늘 던전 보상 횟수를 모두 사용했습니다. 탐험은 계속할 수 있지만 재료 보상은
-                지급되지 않습니다.
-              </div>
-            )}
             {run.status === "cleared" ? (
               <button
                 type="button"
@@ -852,7 +860,9 @@ export function V2GridDungeonView({
                 }`}
               >
                 {hasRewardClaim
-                  ? "재료 정산"
+                  ? pendingDropCount > 0
+                    ? `재료 ${pendingDropCount.toLocaleString()}개 정산`
+                    : "보상 가능 정산"
                   : "보상 없이 정산"}
               </button>
             ) : (
@@ -885,6 +895,47 @@ function SupportDailyStat({ label, value }: { label: string; value: string }) {
     <div className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5">
       <div className="text-[10px] text-zinc-500">{label}</div>
       <div className="mt-0.5 text-xs font-semibold text-zinc-200">{value}</div>
+    </div>
+  );
+}
+
+function RewardStatusNotice({
+  rewardQuota,
+  pendingDropCount,
+  mode,
+}: {
+  rewardQuota: GridDungeonState["rewardQuota"] | null;
+  pendingDropCount: number;
+  mode: "entrance" | "run" | "claim";
+}) {
+  if (!rewardQuota) return null;
+  const canReward = rewardQuota.remaining > 0;
+  const title =
+    mode === "claim"
+      ? canReward
+        ? "정산 시 재료 보상 지급"
+        : "정산 시 재료 보상 없음"
+      : canReward
+        ? "이번 탐험 보상 가능"
+        : "이번 탐험 보상 없음";
+  const detail =
+    mode === "claim"
+      ? canReward
+        ? `확보한 재료 ${pendingDropCount.toLocaleString()}개를 정산합니다.`
+        : "오늘 보상 횟수를 모두 사용해 확보 재료가 지급되지 않습니다."
+      : canReward
+        ? `오늘 재료 보상 ${rewardQuota.remaining} / ${rewardQuota.limit}회 남음`
+        : "탐험은 가능하지만 오늘 재료 보상은 더 받을 수 없습니다.";
+  return (
+    <div
+      className={`rounded-md border px-3 py-2 text-xs ${
+        canReward
+          ? "border-yellow-800/70 bg-yellow-950/35 text-yellow-200"
+          : "border-zinc-800 bg-zinc-950/70 text-zinc-400"
+      }`}
+    >
+      <div className="font-semibold">{title}</div>
+      <div className="mt-0.5 text-[11px] opacity-80">{detail}</div>
     </div>
   );
 }

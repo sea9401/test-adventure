@@ -23,6 +23,8 @@ export type HuntResultPayload = HuntResult & {
   // (expForBar 는 사냥 "전" 값이라 마지막 1회분이 빠진다 — 여기로 현재 진행도 표기).
   expAfter?: number;
   maxExpAfter?: number;
+  // 사냥 후 현재 직군 누적 숙련도 — 상시 캐릭터 카드의 "직업 숙련도" readout 용(none/패배 무직업=null).
+  masteryAfter?: number | null;
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
   hpCharges?: number;
   mpCharges?: number;
@@ -55,6 +57,8 @@ export type BatchHuntPayload = {
   totalExp: number;
   totalProficiency: number;
   totalMastery?: number;
+  // 일괄 사냥 후 현재 직군 누적 숙련도 — 상시 카드 readout 용(가장 최근 사냥 기준, none=null).
+  proficiencyAfter?: number | null;
   totalGold: number;
   totalGoldGross: number; // 세전 합산 — 결과 카드 세금 줄 표기용.
   totalGoldTaxed: number;

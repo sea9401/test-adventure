@@ -90,6 +90,7 @@ export function V2DungeonFloorView({
   onSeekHealing,
   onBack,
   playerSubtitle,
+  playerProficiency = null,
   frontierDepth = 2,
   onFrontierUnlocked,
   onLevelUp,
@@ -128,6 +129,9 @@ export function V2DungeonFloorView({
   onBack: () => void;
   // 전투 장면 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성").
   playerSubtitle?: string;
+  // 현재 직군 누적 숙련도("직업 숙련도") — 캐릭터 카드 상시 readout 의 시작값(화면 진입 시점).
+  //   사냥 응답(masteryAfter/일괄 proficiencyAfter)이 들어오면 그 최신값이 우선. null=모험가(무직업).
+  playerProficiency?: number | null;
   // 무한 프론티어 — 현재 최고 도달 깊이. floorId 가 이를 초과하면 도전(미정복) 구역.
   frontierDepth?: number;
   // 도전 성공 시 최고 깊이 갱신 콜백.
@@ -187,6 +191,7 @@ export function V2DungeonFloorView({
     hpCharges?: number;
     mpCharges?: number;
     hasMp: boolean;
+    proficiency?: number | null;
   } | null>(null);
   const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
   const statusMaxExp =
@@ -195,6 +200,10 @@ export function V2DungeonFloorView({
     lastResult?.hpCharges ?? batchStatus?.hpCharges ?? initialHpCharges;
   const statusMpCharges =
     lastResult?.mpCharges ?? batchStatus?.mpCharges ?? initialMpCharges;
+  // "직업 숙련도" 상시 readout — 최신 사냥값(단판 masteryAfter / 일괄 proficiencyAfter) 우선,
+  //   없으면 화면 진입 시점 값(playerProficiency). null = 모험가(무직업) → 카드에서 줄 생략.
+  const statusProficiency =
+    lastResult?.masteryAfter ?? batchStatus?.proficiency ?? playerProficiency;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
@@ -378,6 +387,7 @@ export function V2DungeonFloorView({
         hpCharges: b.hpCharges ?? undefined,
         mpCharges: b.mpCharges ?? undefined,
         hasMp: (b.playerMaxMp ?? 0) > 0,
+        proficiency: b.proficiencyAfter ?? null,
       });
       // 부수효과 — 서버가 합산해 준 마지막 상태로 한 번만.
       if (b.finalHpAfter != null && b.finalMaxHp != null) {
@@ -622,6 +632,7 @@ export function V2DungeonFloorView({
           mpCharges={statusMpCharges}
           hasMp={(mp?.maxMp ?? 0) > 0}
           combat={playerCombat}
+          proficiency={statusProficiency}
         />
       )}
 

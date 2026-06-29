@@ -2,6 +2,16 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  addCumLevel,
+  addJobCumLevel,
+  parseProficiencyForChar,
+} from "@/adventure/data/v2/proficiency";
+import {
+  isFishingJobId,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import { MULTTAE_BY_ID } from "@/adventure/data/v2/multtae";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
@@ -83,6 +93,32 @@ export async function POST(req: Request) {
       return { caught: false as const, reason: judgment.reason };
     }
 
+    // 낚시 계열 직업 숙련도 — 성공한 챔질 1회당 +1. 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
+    // 락 순서: 세션 → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
+    const charSave = await lockSaveForUpdate<{
+      class?: unknown;
+      specChoice?: unknown;
+    }>(tx, userId, "character.v2", {});
+    const playerClass = parseV2Class(charSave.class);
+    const group = tier1ClassOf(playerClass);
+    const jobId = jobIdFromLegacy(
+      playerClass,
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+    );
+    let masteryGained = 0;
+    let masteryAfter: number | null = null;
+    if (group !== "none" && isFishingJobId(jobId)) {
+      let prof = parseProficiencyForChar(
+        await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
+        charSave,
+      );
+      prof = addCumLevel(prof, group, 1);
+      prof = addJobCumLevel(prof, jobId, 1);
+      masteryGained = 1;
+      masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
+      await upsertSave(tx, userId, "proficiency.v2", prof);
+    }
+
     // 도감 등록 — 같은 트랜잭션에서 코덱스 키를 잠그고 갱신.
     const codex = parseFishCodex(
       await lockSaveForUpdate(tx, userId, FISHING_CODEX_KEY, {}),
@@ -148,6 +184,8 @@ export async function POST(req: Request) {
       codexCount: countDiscoveredFish(next),
       coinsGained: coinResult.awarded,
       coins: coinResult.next.coins,
+      masteryGained,
+      masteryAfter,
       fragmentDrop,
       fragmentsTotal,
     };
@@ -181,6 +219,8 @@ export async function POST(req: Request) {
     // 챔질당 코인 — 이번 마리 지급액(일일 상한 도달 시 0) + 누적 잔액.
     coinsGained: result.coinsGained,
     coins: result.coins,
+    masteryGained: result.masteryGained,
+    masteryAfter: result.masteryAfter,
     special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,
     // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
     fragmentDrop: result.fragmentDrop,

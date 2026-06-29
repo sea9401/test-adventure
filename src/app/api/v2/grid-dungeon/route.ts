@@ -284,6 +284,14 @@ const GRID_DUNGEON_COMBAT_BASE_LOSS: Partial<Record<GridDungeonTileKind, number>
   boss: 4,
 };
 
+const GRID_DUNGEON_PARTY_SCALING: Partial<
+  Record<GridDungeonTileKind, { hpPerSupporter: number; atkPerSupporter: number }>
+> = {
+  monster: { hpPerSupporter: 0.35, atkPerSupporter: 0.12 },
+  elite: { hpPerSupporter: 0.55, atkPerSupporter: 0.2 },
+  boss: { hpPerSupporter: 0.8, atkPerSupporter: 0.3 },
+};
+
 type GridDungeonPartyActor = {
   id: string;
   name: string;
@@ -320,10 +328,12 @@ function resolveGridDungeonPartyCombat({
   main,
   supporters,
   enemy,
+  scaling,
 }: {
   main: GridDungeonPartyActor;
   supporters: GridDungeonSupporterSnapshot[];
   enemy: Monster;
+  scaling: { hpPerSupporter: number; atkPerSupporter: number };
 }): GridDungeonPartyCombatResult {
   const party: GridDungeonPartyActor[] = [
     main,
@@ -332,20 +342,23 @@ function resolveGridDungeonPartyCombat({
       name: supporter.name,
       hp: supporter.maxHp,
       maxHp: supporter.maxHp,
-          atk: supporter.atk,
-          def: supporter.def,
-          spd: supporter.spd,
-          isMain: false,
-          damageDealt: 0,
-          damageTaken: 0,
-        })),
+      atk: supporter.atk,
+      def: supporter.def,
+      spd: supporter.spd,
+      isMain: false,
+      damageDealt: 0,
+      damageTaken: 0,
+    })),
   ];
   const enemyMaxHp = Math.max(
     1,
-    Math.round(enemy.hp * (1 + supporters.length * 0.55)),
+    Math.round(enemy.hp * (1 + supporters.length * scaling.hpPerSupporter)),
   );
   let enemyHp = enemyMaxHp;
-  const enemyAtk = Math.max(1, Math.round(enemy.atk * (1 + supporters.length * 0.22)));
+  const enemyAtk = Math.max(
+    1,
+    Math.round(enemy.atk * (1 + supporters.length * scaling.atkPerSupporter)),
+  );
   const enemyDef = Math.max(0, enemy.def);
   const ticks = new Map<string, number>();
   for (const actor of party) ticks.set(actor.id, 0);
@@ -570,6 +583,10 @@ async function resolveGridDungeonCombat({
           },
           supporters,
           enemy: enemyMonster,
+          scaling: GRID_DUNGEON_PARTY_SCALING[tile] ?? {
+            hpPerSupporter: 0.45,
+            atkPerSupporter: 0.16,
+          },
         })
       : null;
   const soloResult = partyResult

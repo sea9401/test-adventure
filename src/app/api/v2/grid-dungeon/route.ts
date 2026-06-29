@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { and, eq, inArray, ne } from "drizzle-orm";
-import { guildMembers, savesKv } from "@/db/schema";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { guildMembers, guilds, savesKv } from "@/db/schema";
 import type { Monster } from "@/adventure/data/monsters/types";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
@@ -24,6 +24,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -42,6 +43,7 @@ import {
   GRID_DUNGEON_SAVE_KEY,
   appendGridDungeonHistory,
   createGridDungeonRun,
+  gridDungeonDayKey,
   gridDungeonKey,
   gridDungeonRewardQuota,
   gridDungeonTileAt,
@@ -83,7 +85,21 @@ type GridDungeonSupportCandidate = {
   name: string;
   level: number;
   job: string;
+  supportLimit: number;
+  supportRemaining: number;
 };
+
+type GridDungeonSupportDaily = {
+  dayKey: string;
+  used: number;
+  rewarded: number;
+};
+
+const GRID_DUNGEON_SUPPORT_DAILY_KEY =
+  "grid-dungeon-support-daily.v2" as const;
+const GRID_DUNGEON_SUPPORT_DAILY_USE_LIMIT = 5;
+const GRID_DUNGEON_SUPPORT_DAILY_REWARD_LIMIT = 5;
+const GRID_DUNGEON_SUPPORT_HONOR_REWARD = 5;
 
 function parseSupporterIds(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -109,9 +125,132 @@ function displayJobFromCharacter(raw: unknown): string {
       : (V2_CLASS_DEFS[cls]?.name ?? "모험가");
 }
 
+function parseGridDungeonSupportDaily(
+  raw: unknown,
+  now = Date.now(),
+): GridDungeonSupportDaily {
+  const today = gridDungeonDayKey(now);
+  if (!raw || typeof raw !== "object") {
+    return { dayKey: today, used: 0, rewarded: 0 };
+  }
+  const save = raw as Partial<GridDungeonSupportDaily>;
+  if (save.dayKey !== today) return { dayKey: today, used: 0, rewarded: 0 };
+  return {
+    dayKey: today,
+    used: Math.max(0, Math.floor(Number(save.used) || 0)),
+    rewarded: Math.max(0, Math.floor(Number(save.rewarded) || 0)),
+  };
+}
+
+async function readSupportDailyByUser(
+  executor: DbExecutor,
+  userIds: string[],
+  now = Date.now(),
+): Promise<Map<string, GridDungeonSupportDaily>> {
+  const result = new Map<string, GridDungeonSupportDaily>();
+  if (userIds.length === 0) return result;
+  const rows = await executor
+    .select({ userId: savesKv.userId, value: savesKv.value })
+    .from(savesKv)
+    .where(
+      and(
+        inArray(savesKv.userId, userIds),
+        eq(savesKv.key, GRID_DUNGEON_SUPPORT_DAILY_KEY),
+      ),
+    );
+  for (const row of rows) {
+    result.set(row.userId, parseGridDungeonSupportDaily(row.value, now));
+  }
+  return result;
+}
+
+async function reserveGridDungeonSupportUses({
+  tx,
+  supporterIds,
+  now,
+}: {
+  tx: DbExecutor;
+  supporterIds: string[];
+  now: number;
+}): Promise<{ ok: true } | { ok: false; error: "support_limit_reached" }> {
+  for (const supporterId of supporterIds) {
+    const raw = await lockSaveForUpdate(
+      tx,
+      supporterId,
+      GRID_DUNGEON_SUPPORT_DAILY_KEY,
+      null,
+    );
+    const daily = parseGridDungeonSupportDaily(raw, now);
+    if (daily.used >= GRID_DUNGEON_SUPPORT_DAILY_USE_LIMIT) {
+      return { ok: false, error: "support_limit_reached" };
+    }
+    await upsertSave(tx, supporterId, GRID_DUNGEON_SUPPORT_DAILY_KEY, {
+      ...daily,
+      used: daily.used + 1,
+    });
+  }
+  return { ok: true };
+}
+
+async function rewardGridDungeonSupporters({
+  tx,
+  supporters,
+  now,
+}: {
+  tx: DbExecutor;
+  supporters: GridDungeonSupporterSnapshot[];
+  now: number;
+}) {
+  for (const supporter of supporters) {
+    const raw = await lockSaveForUpdate(
+      tx,
+      supporter.userId,
+      GRID_DUNGEON_SUPPORT_DAILY_KEY,
+      null,
+    );
+    const daily = parseGridDungeonSupportDaily(raw, now);
+    if (daily.rewarded >= GRID_DUNGEON_SUPPORT_DAILY_REWARD_LIMIT) continue;
+    const charSave = await lockSaveForUpdate<CharSave>(
+      tx,
+      supporter.userId,
+      "character.v2",
+      {},
+    );
+    const honorBefore = parseHonor(charSave.honor);
+    await upsertSave(tx, supporter.userId, "character.v2", {
+      ...charSave,
+      honor: honorBefore + GRID_DUNGEON_SUPPORT_HONOR_REWARD,
+      honorEarned:
+        parseHonorEarned(charSave.honorEarned, honorBefore) +
+        GRID_DUNGEON_SUPPORT_HONOR_REWARD,
+    });
+    const member = (
+      await tx
+        .select({ guildId: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, supporter.userId))
+        .limit(1)
+    )[0];
+    if (member) {
+      await tx
+        .update(guilds)
+        .set({
+          fameTotal: sql`${guilds.fameTotal} + ${GRID_DUNGEON_SUPPORT_HONOR_REWARD}`,
+          fameAvailable: sql`${guilds.fameAvailable} + ${GRID_DUNGEON_SUPPORT_HONOR_REWARD}`,
+        })
+        .where(eq(guilds.id, member.guildId));
+    }
+    await upsertSave(tx, supporter.userId, GRID_DUNGEON_SUPPORT_DAILY_KEY, {
+      ...daily,
+      rewarded: daily.rewarded + 1,
+    });
+  }
+}
+
 async function guildSupportCandidateRows(
   executor: DbExecutor,
   userId: string,
+  now = Date.now(),
 ): Promise<GridDungeonSupportCandidate[]> {
   const mem = (
     await executor
@@ -138,6 +277,7 @@ async function guildSupportCandidateRows(
     );
   const nameByUser = new Map<string, string>();
   const charByUser = new Map<string, unknown>();
+  const dailyByUser = await readSupportDailyByUser(executor, ids, now);
   for (const row of rows) {
     if (row.key === "character-profile.v2") {
       const profile = row.value as { name?: string } | null;
@@ -155,6 +295,12 @@ async function guildSupportCandidateRows(
         name: nameByUser.get(id) ?? "모험가",
         level: Math.max(1, Math.floor(Number(char?.level) || 1)),
         job: displayJobFromCharacter(char),
+        supportLimit: GRID_DUNGEON_SUPPORT_DAILY_USE_LIMIT,
+        supportRemaining: Math.max(
+          0,
+          GRID_DUNGEON_SUPPORT_DAILY_USE_LIMIT -
+            (dailyByUser.get(id)?.used ?? 0),
+        ),
       };
     })
     .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, "ko-KR"));
@@ -705,6 +851,12 @@ export async function POST(req: Request) {
         now,
       });
       if (!support.ok) return { ok: false as const, error: support.error };
+      const reserved = await reserveGridDungeonSupportUses({
+        tx,
+        supporterIds: support.supporters.map((supporter) => supporter.userId),
+        now,
+      });
+      if (!reserved.ok) return { ok: false as const, error: reserved.error };
       const run = createGridDungeonRun(now, Math.random, support.supporters);
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, run);
       return { ok: true as const, run, charSave };
@@ -872,6 +1024,11 @@ export async function POST(req: Request) {
           : {}),
       };
       await upsertSave(tx, userId, "character.v2", nextCharSave);
+      await rewardGridDungeonSupporters({
+        tx,
+        supporters: run.supporters,
+        now,
+      });
       await upsertSave(tx, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, {
         dayKey: daily.dayKey,
         claimed: nextClaimed,

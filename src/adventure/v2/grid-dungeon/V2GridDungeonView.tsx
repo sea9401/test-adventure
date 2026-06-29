@@ -50,6 +50,8 @@ type GridDungeonState = {
     name: string;
     level: number;
     job: string;
+    supportLimit: number;
+    supportRemaining: number;
   }>;
   run: GridDungeonPublicRun | null;
   error?: string;
@@ -278,7 +280,11 @@ export function V2GridDungeonView({
     [run?.pendingDrops],
   );
   const validSelectedSupporterIds = useMemo(() => {
-    const valid = new Set(supportCandidates.map((candidate) => candidate.userId));
+    const valid = new Set(
+      supportCandidates
+        .filter((candidate) => candidate.supportRemaining > 0)
+        .map((candidate) => candidate.userId),
+    );
     return selectedSupporterIds.filter((id) => valid.has(id)).slice(0, 2);
   }, [selectedSupporterIds, supportCandidates]);
   const selectedSupporters = useMemo(
@@ -372,11 +378,12 @@ export function V2GridDungeonView({
                     const selected = validSelectedSupporterIds.includes(
                       candidate.userId,
                     );
+                    const exhausted = candidate.supportRemaining <= 0;
                     return (
                       <button
                         key={candidate.userId}
                         type="button"
-                        disabled={busy}
+                        disabled={busy || (exhausted && !selected)}
                         onClick={() => toggleSupporter(candidate.userId)}
                         className={`rounded-md border px-3 py-2 text-left text-xs transition disabled:opacity-40 ${
                           selected
@@ -387,6 +394,10 @@ export function V2GridDungeonView({
                         <div className="font-semibold">{candidate.name}</div>
                         <div className="mt-0.5 text-[11px] text-zinc-500">
                           Lv.{candidate.level.toLocaleString()} · {candidate.job}
+                        </div>
+                        <div className="mt-1 text-[11px] text-zinc-500">
+                          지원 가능 {candidate.supportRemaining} /{" "}
+                          {candidate.supportLimit}
                         </div>
                       </button>
                     );

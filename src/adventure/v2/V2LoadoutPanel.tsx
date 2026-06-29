@@ -103,6 +103,7 @@ export function V2LoadoutPanel({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<SkillFilter>("all");
   const [compact, setCompact] = useState(false);
+  const [showSpDetails, setShowSpDetails] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const dragSessionRef = useRef<DragSession | null>(null);
@@ -491,13 +492,25 @@ export function V2LoadoutPanel({
     <Card padding="md">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold">스킬</h2>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          스킬포인트{" "}
-          <strong className="tabular-nums text-violet-700 dark:text-violet-400">
-            {spUsed}
-          </strong>{" "}
-          / {spBudget}
-        </span>
+        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          <span>
+            스킬포인트{" "}
+            <strong className="tabular-nums text-violet-700 dark:text-violet-400">
+              {spUsed}
+            </strong>{" "}
+            / {spBudget}
+          </span>
+          {spBreakdown && (
+            <button
+              type="button"
+              onClick={() => setShowSpDetails((v) => !v)}
+              className="rounded border border-zinc-300 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              aria-expanded={showSpDetails}
+            >
+              {showSpDetails ? "상세 접기" : "상세"}
+            </button>
+          )}
+        </div>
       </div>
       {/* SP 예산 바 */}
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
@@ -656,7 +669,7 @@ export function V2LoadoutPanel({
           초기화
         </button>
       </div>
-      {spBreakdown && (
+      {spBreakdown && showSpDetails && (
         <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/80">
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
             <span>기본 {spBreakdown.base}</span>

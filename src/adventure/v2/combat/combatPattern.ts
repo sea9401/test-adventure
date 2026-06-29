@@ -122,6 +122,24 @@ export function evaluateCombatPattern(
   isUsable: (skillId: string) => boolean,
   resolveRole?: (role: V2CombatRole) => string | null,
 ): string | null {
+  return evaluateCombatPatternCandidates(
+    pattern,
+    ctx,
+    isUsable,
+    resolveRole,
+  )[0] ?? null;
+}
+
+// 패턴 평가 후보 목록 — 우선순위 순서대로 조건 충족 + 실행 가능(isUsable)한 스킬 id 를 반환한다.
+// 발동확률(procChance)처럼 "선택 후 실패"할 수 있는 게이트는 호출부가 이 목록을 순회해 다음 순위로
+// 넘어갈 수 있다. MP/쿨다운/효과 없음은 isUsable 단계에서 이미 걸러져 다음 블록으로 이동한다.
+export function evaluateCombatPatternCandidates(
+  pattern: V2CombatPattern,
+  ctx: V2PatternCtx,
+  isUsable: (skillId: string) => boolean,
+  resolveRole?: (role: V2CombatRole) => string | null,
+): string[] {
+  const out: string[] = [];
   for (const block of pattern.blocks) {
     if (!conditionPasses(block.condition, ctx)) continue;
     const id =
@@ -129,9 +147,9 @@ export function evaluateCombatPattern(
         ? block.action.skillId
         : (resolveRole?.(block.action.role) ?? null);
     if (!id || !isUsable(id)) continue;
-    return id;
+    out.push(id);
   }
-  return null;
+  return out;
 }
 
 // 패턴 경로 스킬 "평타 기준 보너스" 배율 (C3 — proc 은퇴 재밸런스, "위력 중립"). 패턴은 proc 없이

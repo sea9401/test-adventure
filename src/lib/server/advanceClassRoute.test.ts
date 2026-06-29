@@ -58,7 +58,6 @@ import {
   usablePoints,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Class } from "@/adventure/data/v2/classes";
-import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 
 function advanceReq(targetJobId: string): Request {
   return new Request("http://t/api/v2/me/advance-class", {
@@ -86,14 +85,6 @@ function seed(activeClass: string, group: string, points: number): void {
 
 function storedUsable(): number {
   return usablePoints(parseProficiency(store.get("proficiency.v2")));
-}
-
-function materialCodex(count: number): Record<string, number> {
-  return Object.fromEntries(
-    Object.keys(V2_MATERIALS)
-      .slice(0, count)
-      .map((id) => [id, 1]),
-  );
 }
 
 describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 회귀 가드)", () => {
@@ -206,14 +197,14 @@ describe("advance-class — 재전직/환생 진입 자체는 직업 숙련도�
   });
 });
 
-describe("advance-class — 5차 도감 요건", () => {
-  function seedTier5Candidate(materialCount: number): void {
+describe("advance-class — 5차 전직 조건", () => {
+  function seedTier5Candidate(): void {
     store.clear();
     store.set("character.v2", {
       class: "warrior",
       specChoice: "veteran",
       level: 100,
-      materials: materialCodex(materialCount),
+      materials: {},
     });
     store.set("proficiency.v2", {
       points: 0,
@@ -225,22 +216,8 @@ describe("advance-class — 5차 도감 요건", () => {
     store.set("skills.v2", { learned: [], equipped: [] });
   }
 
-  it("5차 신규 전직은 도감 8종을 요구한다", async () => {
-    seedTier5Candidate(7);
-    const blocked = await POST(advanceReq("swordmaster"));
-    const blockedJson = (await blocked.json()) as {
-      error?: string;
-      required?: number;
-      have?: number;
-    };
-    expect(blocked.status).toBe(400);
-    expect(blockedJson).toMatchObject({
-      error: "codex_incomplete",
-      required: 8,
-      have: 7,
-    });
-
-    seedTier5Candidate(8);
+  it("5차 신규 전직은 숙련도만 충족하면 도감 없이 통과한다", async () => {
+    seedTier5Candidate();
     const passed = await POST(advanceReq("swordmaster"));
     const passedJson = (await passed.json()) as { ok?: boolean };
     expect(passed.status).toBe(200);

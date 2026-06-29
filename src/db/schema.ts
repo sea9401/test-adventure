@@ -240,6 +240,30 @@ export const messages = pgTable(
   ],
 );
 
+// 유저 건의사항/불편 신고 — 설정 메뉴의 "건의사항" 창구에서 접수한다.
+// 운영 처리는 DB/Admin 조회로 이어가며, 유저가 보낸 원문과 당시 표시 이름을 보존한다.
+export const feedbackReports = pgTable(
+  "feedback_reports",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorName: text("actor_name").notNull(),
+    category: text("category").notNull().default("suggestion"),
+    content: text("content").notNull(),
+    path: text("path"),
+    status: text("status").notNull().default("open"),
+    adminNote: text("admin_note"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    resolvedAt: timestamp("resolved_at"),
+  },
+  (t) => [
+    index("feedback_reports_user_created_idx").on(t.userId, t.createdAt),
+    index("feedback_reports_status_created_idx").on(t.status, sql`${t.id} DESC`),
+  ],
+);
+
 // 전체 소식 (서버 피드) — 서버 전체에 흘러가는 "자랑거리" 한 줄 (유실된 명품 획득, 걸작 제작 성공 등).
 // 글로벌 채팅과 분리 — 대화용 vs 전광판용. 모험탭 하단 패널에서 최근 N개만 노출.
 // append-only — insert 시 보관기간(FEED_RETENTION_MS=3개월) 지난 행을 잘라낸다 (cron 없음).

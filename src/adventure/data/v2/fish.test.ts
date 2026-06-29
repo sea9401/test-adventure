@@ -24,6 +24,11 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+function sequence(values: readonly number[]): () => number {
+  let i = 0;
+  return () => values[Math.min(i++, values.length - 1)];
+}
+
 const TIER_COUNTS: Record<FishTier, number> = {
   common: 6,
   uncommon: 7,
@@ -101,6 +106,14 @@ describe("사이즈 굴림 (heavy-tail)", () => {
     const big = samples.filter((s) => s >= f.minSize + 0.9 * (f.maxSize - f.minSize));
     expect(big.length / samples.length).toBeLessThan(0.05);
   });
+
+  it("크기 보정은 같은 굴림에서 씨알을 상한 쪽으로만 올린다", () => {
+    const id = "crucian_carp";
+    const base = rollFishSize(id, () => 0.5);
+    const boosted = rollFishSize(id, () => 0.5, { sizeBonusPct: 4 });
+    expect(boosted).toBeGreaterThan(base);
+    expect(boosted).toBeLessThanOrEqual(FISH[id].maxSize);
+  });
 });
 
 describe("종 추첨 (encounter)", () => {
@@ -149,6 +162,16 @@ describe("물때 한정 특별 손님 추첨 게이트 (공정성 청정)", () =
     expect(seen.has("mist_koi")).toBe(false); // mist 손님 불가
     expect(seen.has("stormrider")).toBe(false); // tempest 손님 불가
     expect(seen.has("crucian_carp")).toBe(true); // 항상풀은 그대로
+  });
+
+  it("물때 보정은 현재 물때 한정 손님의 티어 내 가중치를 높인다", () => {
+    // 0.70 = rare 티어, 0.86 = 균등 추첨이면 마지막 전 일반 희귀종, 25% 보정이면 dawn 손님(goldeye).
+    expect(pickFishId(sequence([0.7, 0.86]), "dawn")).toBe("rainbow_trout");
+    expect(
+      pickFishId(sequence([0.7, 0.86]), "dawn", {
+        specialWeightBonusPct: 25,
+      }),
+    ).toBe("goldeye");
   });
 
   it("특별 손님 없는 물때(still)면 항상풀만", () => {

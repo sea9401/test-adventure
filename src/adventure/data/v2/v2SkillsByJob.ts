@@ -16,7 +16,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)
   mage: ["v2c_mage_boltcast", "v2c_mage_acumen"], // 마력탄 + 총명(지능+10%)
   rogue: ["v2c_rogue_poison", "v2c_rogue_finesse"], // 독침 + 예기(민첩→공격력)
-  survivor: ["v2c_survivor_firstaid", "v2c_survivor_knowledge"], // 응급 처치 + 생존 지식(최대 HP)
+  survivor: ["v2c_survivor_firstaid", "v2c_survivor_knowledge", "v2c_survivor_baitcraft"], // 응급 처치 + 생존 지식 + 미끼 고르기
   // ── 상위 직업 — 액티브 1 + 고유 패시브 1(직업마다 다른 축/효과) ──
   shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"], // 방패 타격(방어력 기반) + 체력(HP+12%)
   squire: ["v2c_squire_cleave", "v2c_squire_might"], // 돌격 + 근력 II(힘+15%)
@@ -27,7 +27,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형·LUK 비례) + 치명(치명확률+8%)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 속박 사격(딜+취약) + 민첩(민첩+10%)
   venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"], // 독무(중독 누적+스택딜) + 부식(중독 적 방어↓)
-  camper: ["v2c_camper_camp", "v2c_camper_ration"], // 야영(자힐) + 비상식량(회복+최대 HP)
+  camper: ["v2c_camper_camp", "v2c_camper_ration", "v2c_camper_tidereading"], // 야영(자힐) + 비상식량 + 물때 읽기
   ironman: ["v2c_ironman_brace", "v2c_ironman_body"], // 버티기(보호막) + 단련된 몸(최대 HP)
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)

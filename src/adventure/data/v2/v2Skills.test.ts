@@ -9,6 +9,7 @@ import {
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
   aggregateEquippedPassives,
+  equippedFishingBonuses,
   spCostOf,
   rubricSpCost,
   type V2SkillId,
@@ -44,6 +45,30 @@ describe("원소 통달 패시브 칩 (속성 상성 양방향 — 로드아웃 
     const chips = describeV2Skill(V2_SKILLS.v2c_elementalist_mastery);
     expect(chips.some((c) => c.includes("속성 유리 피해 +15%"))).toBe(true);
     expect(chips.some((c) => c.includes("속성 불리 받피 -15%"))).toBe(true);
+  });
+});
+
+describe("낚시 생활 패시브", () => {
+  it("미끼 고르기와 물때 읽기는 장착형 낚시 보너스로 합산된다", () => {
+    expect(
+      equippedFishingBonuses([
+        "v2c_survivor_baitcraft",
+        "v2c_camper_tidereading",
+      ]),
+    ).toEqual({ sizeBonusPct: 4, specialWeightPct: 25 });
+    expect(equippedFishingBonuses([])).toEqual({
+      sizeBonusPct: 0,
+      specialWeightPct: 0,
+    });
+  });
+
+  it("describeV2Skill 가 낚시 효과 칩을 낸다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_survivor_baitcraft)).toContain(
+      "낚시 크기 보정 +4%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_camper_tidereading)).toContain(
+      "물때 한정 어종 가중치 +25%",
+    );
   });
 });
 

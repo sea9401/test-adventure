@@ -92,6 +92,11 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnPctPerStack?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
+  // ── 낚시(비전투) — 캐스팅 시 서버 권위 판정에서만 소비. 전투 derive 와 무관.
+  /** 낚은 물고기 크기 굴림을 상한 쪽으로 보정. 4 = 남은 크기 폭의 4%만큼 추가. */
+  fishingSizeBonusPct?: number;
+  /** 현재 물때 한정 어종의 티어 내 추첨 가중치 +%. */
+  fishingSpecialWeightPct?: number;
   /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
@@ -574,6 +579,21 @@ export function equippedProfPerKillBonus(equipped: readonly V2SkillId[]): number
   return n;
 }
 
+// 장착 패시브의 낚시 보너스 합산. 캐스팅 서버 판정에서만 소비한다.
+export function equippedFishingBonuses(equipped: readonly V2SkillId[]): {
+  sizeBonusPct: number;
+  specialWeightPct: number;
+} {
+  let sizeBonusPct = 0;
+  let specialWeightPct = 0;
+  for (const id of equipped) {
+    const p = V2_SKILLS[id]?.passive;
+    sizeBonusPct += p?.fishingSizeBonusPct ?? 0;
+    specialWeightPct += p?.fishingSpecialWeightPct ?? 0;
+  }
+  return { sizeBonusPct, specialWeightPct };
+}
+
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
 const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction", string> = {
   evasion: "회피",
@@ -690,6 +710,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
   if (p.enemyMagicVulnPctPerStack)
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
+  if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
+  if (p.fishingSizeBonusPct)
+    chips.push(`낚시 크기 보정 +${p.fishingSizeBonusPct}%`);
+  if (p.fishingSpecialWeightPct)
+    chips.push(`물때 한정 어종 가중치 +${p.fishingSpecialWeightPct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
   if (p.skillCritOverflow)

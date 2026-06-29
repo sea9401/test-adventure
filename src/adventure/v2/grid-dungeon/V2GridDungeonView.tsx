@@ -41,6 +41,62 @@ const TILE_LABEL: Record<GridDungeonTileKind, string> = {
   exit: "출구",
 };
 
+const TILE_TONE: Record<
+  GridDungeonTileKind,
+  {
+    cell: string;
+    icon: string;
+    visited: string;
+  }
+> = {
+  start: {
+    cell: "border-emerald-800/80 bg-emerald-950/45 text-emerald-200",
+    icon: "text-emerald-300",
+    visited: "bg-emerald-300",
+  },
+  empty: {
+    cell: "border-zinc-700/80 bg-zinc-900 text-zinc-400",
+    icon: "text-zinc-500",
+    visited: "bg-zinc-500",
+  },
+  wall: {
+    cell:
+      "border-zinc-950 bg-zinc-950 text-zinc-700 shadow-inner shadow-black/70",
+    icon: "text-zinc-700",
+    visited: "bg-zinc-700",
+  },
+  monster: {
+    cell: "border-red-900/70 bg-red-950/45 text-red-200",
+    icon: "text-red-300",
+    visited: "bg-red-400",
+  },
+  elite: {
+    cell: "border-fuchsia-900/70 bg-fuchsia-950/45 text-fuchsia-200",
+    icon: "text-fuchsia-300",
+    visited: "bg-fuchsia-300",
+  },
+  treasure: {
+    cell: "border-yellow-700/80 bg-yellow-950/45 text-yellow-200",
+    icon: "text-yellow-300",
+    visited: "bg-yellow-300",
+  },
+  fountain: {
+    cell: "border-cyan-800/80 bg-cyan-950/45 text-cyan-200",
+    icon: "text-cyan-300",
+    visited: "bg-cyan-300",
+  },
+  boss: {
+    cell: "border-rose-700/80 bg-rose-950/55 text-rose-100",
+    icon: "text-rose-300",
+    visited: "bg-rose-300",
+  },
+  exit: {
+    cell: "border-indigo-700/80 bg-indigo-950/45 text-indigo-200",
+    icon: "text-indigo-300",
+    visited: "bg-indigo-300",
+  },
+};
+
 const DIR_BUTTONS: Array<{
   dir: GridDungeonMoveDir;
   label: string;
@@ -61,6 +117,42 @@ function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (kind === "exit") return <DoorOpen size={20} weight="fill" />;
   if (kind === "start") return <Sparkle size={20} weight="fill" />;
   return null;
+}
+
+function tileClassName({
+  kind,
+  isCurrent,
+  isRevealed,
+}: {
+  kind: GridDungeonTileKind;
+  isCurrent: boolean;
+  isRevealed: boolean;
+}) {
+  const base =
+    "relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded border text-[10px] transition";
+  if (isCurrent) {
+    return `${base} border-emerald-300 bg-emerald-900/75 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.45),0_0_24px_rgba(16,185,129,0.28)]`;
+  }
+  if (!isRevealed) {
+    return `${base} border-zinc-950 bg-black text-zinc-700`;
+  }
+  return `${base} ${TILE_TONE[kind].cell}`;
+}
+
+function tileBackgroundStyle(isRevealed: boolean, isCurrent: boolean) {
+  if (isCurrent) {
+    return {
+      backgroundImage:
+        "radial-gradient(circle at 50% 42%, rgba(52,211,153,0.35), transparent 46%), linear-gradient(135deg, rgba(16,185,129,0.20), transparent 58%)",
+    };
+  }
+  if (!isRevealed) {
+    return {
+      backgroundImage:
+        "radial-gradient(circle at 50% 50%, rgba(39,39,42,0.42), transparent 48%), repeating-linear-gradient(135deg, rgba(63,63,70,0.22) 0 2px, transparent 2px 7px)",
+    };
+  }
+  return undefined;
 }
 
 export function V2GridDungeonView({
@@ -193,36 +285,66 @@ export function V2GridDungeonView({
             </div>
           </section>
 
-          <section className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
-            <div className="grid aspect-square w-full grid-cols-5 grid-rows-5 gap-1">
+          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+            <div className="flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
+              {[
+                "monster",
+                "elite",
+                "treasure",
+                "fountain",
+                "boss",
+                "exit",
+              ].map((kind) => {
+                const k = kind as GridDungeonTileKind;
+                return (
+                  <span
+                    key={kind}
+                    className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${TILE_TONE[k].cell}`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${TILE_TONE[k].visited}`}
+                    />
+                    {TILE_LABEL[k]}
+                  </span>
+                );
+              })}
+            </div>
+            <div className="grid aspect-square w-full grid-cols-5 grid-rows-5 gap-1 rounded bg-black/40 p-1 ring-1 ring-zinc-900">
               {run.layout.flatMap((row, y) =>
                 row.map((kind, x) => {
                   const key = gridDungeonKey(x, y);
                   const isCurrent = run.pos.x === x && run.pos.y === y;
                   const isRevealed = revealed.has(key);
                   const isVisited = visited.has(key);
-                  const wall = isRevealed && kind === "wall";
                   return (
                     <div
                       key={key}
                       title={isRevealed ? TILE_LABEL[kind] : "미탐험"}
-                      className={`relative flex min-h-0 min-w-0 items-center justify-center rounded border text-[10px] transition ${
-                        isCurrent
-                          ? "border-emerald-300 bg-emerald-900/70 text-emerald-100"
-                          : wall
-                            ? "border-zinc-900 bg-zinc-950 text-zinc-700"
-                            : isRevealed
-                              ? "border-zinc-700 bg-zinc-900 text-zinc-300"
-                              : "border-zinc-900 bg-black text-zinc-800"
-                      }`}
+                      className={tileClassName({ kind, isCurrent, isRevealed })}
+                      style={tileBackgroundStyle(isRevealed, isCurrent)}
                     >
+                      {!isRevealed && (
+                        <span className="absolute inset-0 bg-gradient-to-b from-zinc-900/20 via-transparent to-black/60" />
+                      )}
                       {isCurrent ? (
-                        <span className="h-3 w-3 rounded-full bg-emerald-300" />
+                        <>
+                          <span className="absolute inset-1 rounded border border-emerald-300/45" />
+                          <span className="h-3.5 w-3.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.75)]" />
+                        </>
                       ) : (
-                        tileIcon(kind, isRevealed)
+                        <span className={TILE_TONE[kind].icon}>
+                          {tileIcon(kind, isRevealed)}
+                        </span>
+                      )}
+                      {isRevealed && !isCurrent && kind !== "empty" && kind !== "wall" && (
+                        <span className="absolute bottom-1 left-1 right-1 truncate text-center text-[9px] leading-none opacity-80">
+                          {TILE_LABEL[kind]}
+                        </span>
                       )}
                       {isVisited && !isCurrent && (
-                        <span className="absolute bottom-1 h-1 w-1 rounded-full bg-zinc-500" />
+                        <span
+                          className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${TILE_TONE[kind].visited}`}
+                        />
                       )}
                     </div>
                   );

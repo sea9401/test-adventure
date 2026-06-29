@@ -53,6 +53,10 @@ import {
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import {
+  checkUserRateLimit,
+  userRateLimitResponse,
+} from "@/lib/server/userRateLimit";
 import type { EquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
@@ -86,6 +90,15 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const userId: string = maybeUserId;
+  const rateLimit = checkUserRateLimit({
+    userId,
+    action: "v2:coop:attack",
+    limit: 90,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.ok) {
+    return userRateLimitResponse(rateLimit.retryAfterSec);
+  }
 
   let body: { sessionId?: unknown };
   try {

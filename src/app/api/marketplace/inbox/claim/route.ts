@@ -24,10 +24,20 @@ import {
   normalizeInstance,
   type EquipmentInstance,
 } from "@/adventure/inventory/equipmentInstances";
+import {
+  V2_EQUIPMENT,
+  parseEquipmentSave,
+  genEquipIid,
+  type EquipmentSave,
+  type V2EquipInstance,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { randomUUID } from "node:crypto";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
+const SAVES_EQUIPMENT = "equipment.v2";
 const SAVES_CRAFTING = "crafting.v2";
 
 type AddItem = {
@@ -105,8 +115,39 @@ export async function POST(req: Request) {
       const itemsToAdd: AddItem[] = [];
       const instancesToAdd: EquipmentInstance[] = [];
       const instancesApplied: EquipmentInstance[] = [];
+      // V2 장비 보상(운영자 우편·길드 의뢰) — 스택형 inventory.v2 가 아니라 개체 모델인
+      // equipment.v2.owned 에 들어가야 인벤토리에 보인다. count 만큼 개별 개체로 발급.
+      const v2EquipToAdd: { id: V2EquipmentId; count: number }[] = [];
+      // V2 재료 보상 — character.v2.materials 가 SSOT(인벤토리 UI 가 읽는 곳).
+      // inventory.v2.materials 는 V1 잔재라 V2 에 안 보인다.
+      const v2MaterialsToAdd: { id: string; count: number }[] = [];
       const recipesToAdd: AddRecipe[] = [];
       let staminaPotionsTotal = 0;
+      // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
+      // 기존대로 inventory.v2 스택으로. base 등급 가정(등급 사본 보상 없음).
+      const pushEquip = (itemId: string, count: number) => {
+        if (count <= 0) return;
+        if (Object.prototype.hasOwnProperty.call(V2_EQUIPMENT, itemId)) {
+          v2EquipToAdd.push({ id: itemId as V2EquipmentId, count });
+        } else {
+          itemsToAdd.push({ kind: "equip", id: itemId, grade: "base", quantity: count });
+        }
+      };
+      // 재료 보상 라우팅 — id 가 V2 재료면 character.v2.materials 로, 그 외(레거시)는
+      // 기존대로 inventory.v2 스택으로.
+      const pushMaterial = (materialId: string, count: number) => {
+        if (count <= 0) return;
+        if (Object.prototype.hasOwnProperty.call(V2_MATERIALS, materialId)) {
+          v2MaterialsToAdd.push({ id: materialId, count });
+        } else {
+          itemsToAdd.push({
+            kind: "material",
+            id: materialId,
+            grade: "base",
+            quantity: count,
+          });
+        }
+      };
       // 파싱 실패 row 는 claimedAt 마킹에서 제외 — 인박스에 남겨 운영진이 점검할 수
       // 있게 함. 자동 claim 했다가 사라지면 보상이 영구 손실됨 (#309 후속 보강).
       const parseFailedRowIds: number[] = [];
@@ -155,21 +196,11 @@ export async function POST(req: Request) {
             // 길드 의뢰 보상 — 골드 + 멤버당 재료/아이템.
             if (parsed.gold > 0) goldTotal += parsed.gold;
             for (const m of parsed.materials) {
-              itemsToAdd.push({
-                kind: "material",
-                id: m.materialId,
-                grade: "base",
-                quantity: m.count,
-              });
+              pushMaterial(m.materialId, m.count);
             }
             for (const it of parsed.items) {
               // 길드 보상 장비는 항상 base 등급 (등급 사본 보상은 현재 없음).
-              itemsToAdd.push({
-                kind: "equip",
-                id: it.itemId,
-                grade: "base",
-                quantity: it.count,
-              });
+              pushEquip(it.itemId, it.count);
             }
             break;
           }
@@ -181,20 +212,10 @@ export async function POST(req: Request) {
             // 장비는 길드 의뢰 보상과 동일하게 항상 base 등급.
             if (parsed.gold > 0) goldTotal += parsed.gold;
             for (const m of parsed.materials) {
-              itemsToAdd.push({
-                kind: "material",
-                id: m.materialId,
-                grade: "base",
-                quantity: m.count,
-              });
+              pushMaterial(m.materialId, m.count);
             }
             for (const it of parsed.items) {
-              itemsToAdd.push({
-                kind: "equip",
-                id: it.itemId,
-                grade: "base",
-                quantity: it.count,
-              });
+              pushEquip(it.itemId, it.count);
             }
             if (parsed.staminaPotions > 0) {
               staminaPotionsTotal += parsed.staminaPotions;
@@ -204,9 +225,10 @@ export async function POST(req: Request) {
         }
       }
 
-      // 캐릭터 골드 갱신 (있을 때만).
+      // 캐릭터 갱신 — 골드 + V2 재료(둘 다 character.v2 가 SSOT). 한 번만 잠그고 합쳐 upsert.
       let newGold: number | null = null;
-      if (goldTotal > 0) {
+      const materialsV2Added: { id: string; count: number }[] = [];
+      if (goldTotal > 0 || v2MaterialsToAdd.length > 0) {
         const charRows = await tx
           .select()
           .from(savesKv)
@@ -214,18 +236,36 @@ export async function POST(req: Request) {
             and(eq(savesKv.userId, userId), eq(savesKv.key, SAVES_CHARACTER)),
           )
           .for("update");
-        if (charRows.length === 0) {
+        // 골드 지급은 캐릭터가 반드시 있어야 함(기존 동작 보존). 재료만이면 없을 때 빈 캐릭터로 시작.
+        if (goldTotal > 0 && charRows.length === 0) {
           return { error: "no_character", status: 400 as const };
         }
-        const character = charRows[0].value as Record<string, unknown>;
-        const cur = Number((character as { gold?: unknown }).gold ?? 0);
-        newGold = cur + goldTotal;
-        const nextChar = { ...character, gold: newGold };
+        const character = (charRows[0]?.value ?? {}) as Record<string, unknown>;
+        let nextChar: Record<string, unknown> = { ...character };
+        if (goldTotal > 0) {
+          const cur = Number((character as { gold?: unknown }).gold ?? 0);
+          newGold = cur + goldTotal;
+          nextChar = { ...nextChar, gold: newGold };
+        }
+        if (v2MaterialsToAdd.length > 0) {
+          const mats: Record<string, number> = {
+            ...((character as { materials?: Record<string, number> }).materials ??
+              {}),
+          };
+          for (const m of v2MaterialsToAdd) {
+            mats[m.id] = Math.max(0, Math.floor(mats[m.id] ?? 0)) + m.count;
+            materialsV2Added.push({ id: m.id, count: m.count });
+          }
+          nextChar = { ...nextChar, materials: mats };
+        }
         await upsertSave(tx, userId, SAVES_CHARACTER, nextChar);
       }
 
       // 인벤토리 갱신 (스택 아이템 또는 인스턴스 있을 때만).
       let newInventory: InventoryShape | null = null;
+      // V2 장비 갱신 (equipment.v2). 운영자 우편/길드 보상 장비가 여기로 합류.
+      let newEquipmentOwned: V2EquipInstance[] | null = null;
+      const equipV2Added: { id: string; count: number }[] = [];
       if (itemsToAdd.length > 0 || instancesToAdd.length > 0) {
         const invRows = await tx
           .select()
@@ -262,6 +302,30 @@ export async function POST(req: Request) {
         }
         await upsertSave(tx, userId, SAVES_INVENTORY, next);
         newInventory = next;
+      }
+
+      // V2 장비 갱신 — equipment.v2.owned 에 개체(iid)로 추가. V2 장비는 스택이 아니라
+      // 개체 모델이라 count 만큼 개별 개체를 발급한다(roll 없는 기본 개체 = 지급 굴림 없음).
+      // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
+      if (v2EquipToAdd.length > 0) {
+        const eqRows = await tx
+          .select()
+          .from(savesKv)
+          .where(
+            and(eq(savesKv.userId, userId), eq(savesKv.key, SAVES_EQUIPMENT)),
+          )
+          .for("update");
+        const eqSave = (eqRows[0]?.value ?? {}) as EquipmentSave;
+        const { owned, equipped } = parseEquipmentSave(eqSave);
+        const nextOwned: V2EquipInstance[] = [...owned];
+        for (const e of v2EquipToAdd) {
+          for (let i = 0; i < e.count; i++) {
+            nextOwned.push({ iid: genEquipIid(), id: e.id });
+          }
+          equipV2Added.push({ id: e.id, count: e.count });
+        }
+        await upsertSave(tx, userId, SAVES_EQUIPMENT, { owned: nextOwned, equipped });
+        newEquipmentOwned = nextOwned;
       }
 
       // 레시피 학습 (있을 때만).
@@ -374,6 +438,8 @@ export async function POST(req: Request) {
         claimed: idsToMark,
         goldAdded: goldTotal,
         itemsAdded: itemsToAdd,
+        equipV2Added,
+        materialsV2Added,
         instancesAdded: instancesApplied,
         recipesAdded,
         recipesSkipped,
@@ -382,6 +448,7 @@ export async function POST(req: Request) {
         staminaPotions,
         newGold,
         newInventory,
+        newEquipmentOwned,
       };
     });
 

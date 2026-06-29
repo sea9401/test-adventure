@@ -35,6 +35,7 @@ import {
 import {
   V2_JOB_CATALOG,
   cumLevelForJob,
+  isFishingJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
@@ -889,7 +890,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         prof = nextProf;
         proficiencyGained = perKill;
       }
-      if (group !== "none") {
+      if (group !== "none" && !isFishingJobId(v2JobId)) {
         const oldMastery = prof.groups[group]?.cumLevel ?? 0;
         prof = addCumLevel(prof, group, 1);
         prof = addJobCumLevel(prof, v2JobId, 1);

@@ -681,6 +681,12 @@ export function cumLevelForJob(
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
 
+const V2_FISHING_JOB_IDS = new Set(["fisher", "angler", "masterangler"]);
+
+export function isFishingJobId(jobId: string): boolean {
+  return V2_FISHING_JOB_IDS.has(jobId);
+}
+
 export function isRootJobSelectable(job: V2JobDefinition): boolean {
   return job.tier > 0 || job.id === "none" || job.id === "survivor";
 }

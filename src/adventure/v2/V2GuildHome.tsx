@@ -202,6 +202,7 @@ export function V2GuildHome({
           ariaLabel="길드 하위 탭"
           size="sm"
           variant="highlight"
+          scrollable
         />
       </HeaderPanel>
 

@@ -6,6 +6,10 @@ import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import {
+  parseCombatPattern,
+  type V2CombatPattern,
+} from "@/adventure/v2/combat/combatPattern";
 
 export const GRID_DUNGEON_SAVE_KEY = "grid-dungeon.v2" as const;
 export const GRID_DUNGEON_DAILY_REWARDS_KEY =
@@ -80,10 +84,16 @@ export type GridDungeonSupporterSnapshot = {
   level: number;
   job: string;
   maxHp: number;
+  maxMp: number;
+  mp: number;
   atk: number;
+  magicAtk: number;
   def: number;
   spd: number;
+  healMult: number;
   element: string;
+  skills: string[];
+  pattern: V2CombatPattern;
   capturedAt: number;
 };
 
@@ -156,13 +166,24 @@ function sanitizeGridDungeonSupporters(
       level: Math.max(1, Math.floor(Number(e.level) || 1)),
       job: typeof e.job === "string" && e.job.trim() ? e.job.trim() : "모험가",
       maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),
+      maxMp: Math.max(0, Math.floor(Number(e.maxMp) || 0)),
+      mp: Math.max(0, Math.floor(Number(e.mp) || Number(e.maxMp) || 0)),
       atk: Math.max(0, Math.floor(Number(e.atk) || 0)),
+      magicAtk: Math.max(0, Math.floor(Number(e.magicAtk) || 0)),
       def: Math.max(0, Math.floor(Number(e.def) || 0)),
       spd: Math.max(0, Math.floor(Number(e.spd) || 0)),
+      healMult:
+        typeof e.healMult === "number" && Number.isFinite(e.healMult)
+          ? Math.max(0, e.healMult)
+          : 1,
       element:
         typeof e.element === "string" && e.element.trim()
           ? e.element.trim()
           : "neutral",
+      skills: Array.isArray(e.skills)
+        ? e.skills.filter((id): id is string => typeof id === "string").slice(0, 16)
+        : [],
+      pattern: parseCombatPattern(e.pattern),
       capturedAt: Math.max(0, Math.floor(Number(e.capturedAt) || 0)),
     });
     if (supporters.length >= 2) break;

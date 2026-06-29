@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { guildMembers, guilds, savesKv } from "@/db/schema";
 import type { Monster } from "@/adventure/data/monsters/types";
+import type { StatKey } from "@/adventure/data/stats";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
@@ -15,7 +16,16 @@ import {
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
+  smartDefaultPatternFromEquipped,
+  V2_SKILLS,
+  v2SkillMpCostValue,
+  type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  evaluateCombatPattern,
+  type V2CombatPattern,
+  type V2CombatRole,
+} from "@/adventure/v2/combat/combatPattern";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import {
   V2_CLASS_DEFS,
@@ -347,19 +357,37 @@ async function gridDungeonSupportSnapshots({
   const candidateById = new Map(candidates.map((candidate) => [candidate.userId, candidate]));
   const supporters: GridDungeonSupporterSnapshot[] = [];
   for (const supporterId of supporterIds) {
-    const derived = await derivePlayerCombatV2(supporterId, tx);
+    const skillsRaw = await lockSaveForUpdate(
+      tx,
+      supporterId,
+      "skills.v2",
+      emptyV2SkillsState(),
+    );
+    const skills = parseV2SkillsState(skillsRaw);
+    const derived = await derivePlayerCombatV2(supporterId, tx, { skillsRaw: skills });
     const candidate = candidateById.get(supporterId);
     if (!derived || !candidate) return { ok: false, error: "invalid_supporter" };
+    const savedPattern = skills.pattern ?? { blocks: [] };
+    const pattern =
+      savedPattern.blocks.length > 0
+        ? savedPattern
+        : smartDefaultPatternFromEquipped(skills.equipped);
     supporters.push({
       userId: supporterId,
       name: candidate.name,
       level: candidate.level,
       job: candidate.job,
       maxHp: derived.player.maxHp,
+      maxMp: derived.player.maxMp ?? 0,
+      mp: derived.player.mp ?? derived.player.maxMp ?? 0,
       atk: derived.player.atk,
+      magicAtk: derived.player.magicAtk ?? 0,
       def: derived.player.def,
       spd: derived.player.spd,
+      healMult: derived.player.healMult ?? 1,
       element: derived.player.characterElement ?? "neutral",
+      skills: skills.equipped,
+      pattern,
       capturedAt: now,
     });
   }
@@ -443,10 +471,17 @@ type GridDungeonPartyActor = {
   name: string;
   hp: number;
   maxHp: number;
+  mp: number;
+  maxMp: number;
   atk: number;
+  magicAtk: number;
   def: number;
   spd: number;
+  healMult: number;
   isMain: boolean;
+  skills: string[];
+  pattern?: V2CombatPattern;
+  cooldowns: Partial<Record<V2SkillId, number>>;
   damageDealt: number;
   damageTaken: number;
 };
@@ -470,6 +505,137 @@ function partyDamage(atk: number, def: number): number {
   return Math.max(1, Math.round(atk - def * 0.45));
 }
 
+function tickPartyCooldowns(actor: GridDungeonPartyActor) {
+  const next: Partial<Record<V2SkillId, number>> = {};
+  for (const [skillId, turns] of Object.entries(actor.cooldowns)) {
+    const left = Math.max(0, Math.floor(Number(turns) || 0) - 1);
+    if (left > 0) next[skillId as V2SkillId] = left;
+  }
+  actor.cooldowns = next;
+}
+
+function partySkillRole(role: V2CombatRole, actor: GridDungeonPartyActor): string | null {
+  for (const skillId of actor.skills) {
+    const def = V2_SKILLS[skillId as V2SkillId];
+    if (!def || def.category === "passive") continue;
+    if (role === "main_attack" && def.category !== "attack") continue;
+    if (role !== "main_attack" && def.category !== role) continue;
+    return skillId;
+  }
+  return null;
+}
+
+function partyPatternCtx({
+  actor,
+  party,
+  enemyHp,
+  enemyMaxHp,
+  turn,
+}: {
+  actor: GridDungeonPartyActor;
+  party: GridDungeonPartyActor[];
+  enemyHp: number;
+  enemyMaxHp: number;
+  turn: number;
+}) {
+  const lowestHpPct = Math.min(
+    ...party
+      .filter((member) => member.hp > 0)
+      .map((member) => (member.hp / member.maxHp) * 100),
+    (actor.hp / actor.maxHp) * 100,
+  );
+  return {
+    selfHpPct: lowestHpPct,
+    selfMpPct: actor.maxMp > 0 ? (actor.mp / actor.maxMp) * 100 : 100,
+    selfBuffStats: new Set<StatKey>(),
+    selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction">(),
+    enemyHpPct: (enemyHp / enemyMaxHp) * 100,
+    enemyBleed: 0,
+    enemyPoison: 0,
+    enemyVuln: 0,
+    turn,
+  };
+}
+
+function choosePartySkill({
+  actor,
+  party,
+  enemyHp,
+  enemyMaxHp,
+  turn,
+}: {
+  actor: GridDungeonPartyActor;
+  party: GridDungeonPartyActor[];
+  enemyHp: number;
+  enemyMaxHp: number;
+  turn: number;
+}): V2SkillId | null {
+  const pattern = actor.pattern;
+  if (!pattern || pattern.blocks.length === 0) return null;
+  const equipped = new Set(actor.skills);
+  const isUsable = (skillId: string) => {
+    const def = V2_SKILLS[skillId as V2SkillId];
+    const cost = def ? v2SkillMpCostValue(def) : 0;
+    return (
+      equipped.has(skillId) &&
+      !!def &&
+      def.category !== "passive" &&
+      def.effects.some((effect) => effect.kind === "damage" || effect.kind === "heal") &&
+      (actor.cooldowns[skillId as V2SkillId] ?? 0) <= 0 &&
+      actor.mp >= cost
+    );
+  };
+  return evaluateCombatPattern(
+    pattern,
+    partyPatternCtx({ actor, party, enemyHp, enemyMaxHp, turn }),
+    isUsable,
+    (role) => partySkillRole(role, actor),
+  ) as V2SkillId | null;
+}
+
+function partySkillDamage(
+  actor: GridDungeonPartyActor,
+  enemyDef: number,
+  skillId: V2SkillId,
+): number {
+  const def = V2_SKILLS[skillId];
+  if (!def) return 0;
+  let total = 0;
+  for (const effect of def.effects) {
+    if (effect.kind !== "damage") continue;
+    const base =
+      effect.scaling === "magic"
+        ? actor.magicAtk
+        : effect.scaling === "def"
+          ? actor.def
+          : actor.atk;
+    const flat =
+      effect.baseFlat ??
+      (effect.baseFlatByTier ? effect.baseFlatByTier[0] : 0);
+    total += partyDamage(Math.round(base * effect.statCoef + flat), enemyDef);
+  }
+  return total;
+}
+
+function partySkillHeal(
+  actor: GridDungeonPartyActor,
+  target: GridDungeonPartyActor,
+  skillId: V2SkillId,
+): number {
+  const def = V2_SKILLS[skillId];
+  if (!def) return 0;
+  let total = 0;
+  for (const effect of def.effects) {
+    if (effect.kind !== "heal") continue;
+    const missing = Math.max(0, target.maxHp - target.hp);
+    total +=
+      Math.floor(target.maxHp * ((effect.pctMaxHp ?? 0) / 100)) +
+      Math.floor(missing * ((effect.pctLostHp ?? 0) / 100)) +
+      (effect.flat ?? 0);
+  }
+  return Math.max(0, Math.floor(total * actor.healMult));
+}
+
 function resolveGridDungeonPartyCombat({
   main,
   supporters,
@@ -488,10 +654,17 @@ function resolveGridDungeonPartyCombat({
       name: supporter.name,
       hp: supporter.maxHp,
       maxHp: supporter.maxHp,
+      mp: supporter.mp,
+      maxMp: supporter.maxMp,
       atk: supporter.atk,
+      magicAtk: supporter.magicAtk,
       def: supporter.def,
       spd: supporter.spd,
+      healMult: supporter.healMult,
       isMain: false,
+      skills: supporter.skills,
+      pattern: supporter.pattern,
+      cooldowns: {},
       damageDealt: 0,
       damageTaken: 0,
     })),
@@ -538,10 +711,47 @@ function resolveGridDungeonPartyCombat({
 
     const actor = party.find((candidate) => candidate.id === next.id);
     if (!actor || actor.hp <= 0) continue;
-    const damage = partyDamage(actor.atk, enemyDef);
+    tickPartyCooldowns(actor);
+    const skillId = choosePartySkill({
+      actor,
+      party,
+      enemyHp,
+      enemyMaxHp,
+      turn: turns + 1,
+    });
+    const skill = skillId ? V2_SKILLS[skillId] : null;
+    if (skill?.category === "heal" && skillId) {
+      const target = aliveParty.sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      const heal = partySkillHeal(actor, target, skillId);
+      if (heal > 0) {
+        const before = target.hp;
+        target.hp = Math.min(target.maxHp, target.hp + heal);
+        actor.mp = Math.max(0, actor.mp - v2SkillMpCostValue(skill));
+        if (skill.cooldown > 0) actor.cooldowns[skillId] = skill.cooldown;
+        log.push(
+          `${actor.name}이(가) ${skill.name}(으)로 ${target.name} HP +${(target.hp - before).toLocaleString()}`,
+        );
+        ticks.set(actor.id, (ticks.get(actor.id) ?? 0) + partyActionInterval(actor.spd));
+        turns += 1;
+        continue;
+      }
+    }
+    const skillDamage =
+      skill?.category === "attack" && skillId
+        ? partySkillDamage(actor, enemyDef, skillId)
+        : 0;
+    const damage = skillDamage > 0 ? skillDamage : partyDamage(actor.atk, enemyDef);
     enemyHp = Math.max(0, enemyHp - damage);
     actor.damageDealt += damage;
-    log.push(`${actor.name}이(가) ${enemy.name}에게 ${damage.toLocaleString()} 피해`);
+    if (skillDamage > 0 && skillId && skill) {
+      actor.mp = Math.max(0, actor.mp - v2SkillMpCostValue(skill));
+      if (skill.cooldown > 0) actor.cooldowns[skillId] = skill.cooldown;
+      log.push(
+        `${actor.name}이(가) ${skill.name}(으)로 ${enemy.name}에게 ${damage.toLocaleString()} 피해`,
+      );
+    } else {
+      log.push(`${actor.name}이(가) ${enemy.name}에게 ${damage.toLocaleString()} 피해`);
+    }
     ticks.set(actor.id, (ticks.get(actor.id) ?? 0) + partyActionInterval(actor.spd));
     turns += 1;
   }
@@ -720,10 +930,16 @@ async function resolveGridDungeonCombat({
             name: "나",
             hp: playerMaxHp,
             maxHp: playerMaxHp,
+            mp: 0,
+            maxMp: 0,
             atk: Math.max(1, playerForBattle.atk),
+            magicAtk: Math.max(0, playerForBattle.magicAtk ?? 0),
             def: Math.max(0, playerForBattle.def),
             spd: Math.max(1, playerForBattle.spd),
+            healMult: playerForBattle.healMult ?? 1,
             isMain: true,
+            skills: [],
+            cooldowns: {},
             damageDealt: 0,
             damageTaken: 0,
           },

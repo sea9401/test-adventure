@@ -1,5 +1,8 @@
 "use client";
 
+import { Pagination } from "@/components/ui/Pagination";
+import { usePagination } from "@/lib/usePagination";
+
 // 길드원 활동 내역 — 최근 가입·임명·금고 입금·국가 선포·창단. 길드 정보 탭 하단.
 //   서버(/api/v2/guild/activity)가 type·actorName·targetName·meta·createdAt 을 내려준다.
 
@@ -93,6 +96,8 @@ const DOT_CLASS: Record<string, string> = {
   nation_declare: "bg-indigo-500",
 };
 
+const ACTIVITY_PAGE_SIZE = 10;
+
 export function GuildActivityList({
   activity,
   loading,
@@ -100,6 +105,12 @@ export function GuildActivityList({
   activity: GuildActivity[];
   loading?: boolean;
 }) {
+  const pager = usePagination(
+    activity,
+    ACTIVITY_PAGE_SIZE,
+    activity[0]?.id ?? "empty",
+  );
+
   return (
     <div className="rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="border-b border-zinc-200 px-3 py-2 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -110,24 +121,32 @@ export function GuildActivityList({
           {loading ? "불러오는 중…" : "아직 활동 내역이 없어요."}
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          {activity.map((a) => (
-            <li
-              key={a.id}
-              className="flex items-center gap-2 px-3 py-2 text-xs"
-            >
-              <span
-                className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_CLASS[a.type] ?? "bg-zinc-400"}`}
-              />
-              <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
-                {describe(a)}
-              </span>
-              <span className="shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">
-                {relTime(a.createdAt)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            {pager.pageItems.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center gap-2 px-3 py-2 text-xs"
+              >
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_CLASS[a.type] ?? "bg-zinc-400"}`}
+                />
+                <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-200">
+                  {describe(a)}
+                </span>
+                <span className="shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">
+                  {relTime(a.createdAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Pagination
+            page={pager.page}
+            pageCount={pager.pageCount}
+            setPage={pager.setPage}
+            className="px-3 pb-3"
+          />
+        </>
       )}
     </div>
   );

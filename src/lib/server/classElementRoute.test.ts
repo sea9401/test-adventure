@@ -53,9 +53,8 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       level: 10,
       exp: 123,
       gold: 500,
-      bankedGold: 2_000,
+      bankedGold: 500_000,
       lastRespecAt: 0,
-      lastElementChangeAt: 0,
     });
 
     const res = await POST(req("none", "water"));
@@ -72,7 +71,7 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
     expect(json.ok).toBe(true);
     expect(json.class).toBe("none");
     expect(json.element).toBe("water");
-    expect(json.spent).toBe(2_000);
+    expect(json.spent).toBe(500_000);
     expect(json.gold).toBe(500);
     expect(json.bankedGold).toBe(0);
 
@@ -80,39 +79,36 @@ describe("class-element — 코어루프 수동 로드아웃 보존", () => {
       element?: string;
       gold?: number;
       bankedGold?: number;
-      lastElementChangeAt?: number;
     };
     expect(char.element).toBe("water");
     expect(char.gold).toBe(500);
     expect(char.bankedGold).toBe(0);
-    expect(typeof char.lastElementChangeAt).toBe("number");
   });
 
-  it("속성 재조율은 24시간 쿨다운 중 다시 변경할 수 없다", async () => {
+  it("속성 재조율은 쿨타임 없이 다시 변경할 수 있다", async () => {
     store.clear();
-    const lastElementChangeAt = Date.now();
     store.set("character.v2", {
       class: "none",
       element: "fire",
       level: 10,
       exp: 123,
-      gold: 10_000,
+      gold: 500_000,
       bankedGold: 0,
       lastRespecAt: 0,
-      lastElementChangeAt,
+      lastElementChangeAt: Date.now(),
     });
 
     const res = await POST(req("none", "water"));
     const json = (await res.json()) as {
       ok?: boolean;
-      error?: string;
-      cooldownUntil?: number;
+      element?: string;
+      spent?: number;
     };
 
-    expect(res.status).toBe(409);
-    expect(json.ok).toBe(false);
-    expect(json.error).toBe("element_respec_cooldown");
-    expect(json.cooldownUntil).toBe(lastElementChangeAt + 24 * 60 * 60 * 1000);
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.element).toBe("water");
+    expect(json.spent).toBe(500_000);
   });
 
   it("직업군 변경 시 learned 는 보존하고 equipped 를 새 직업 체인으로 재산출하지 않는다", async () => {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ADVANCE_GOLD_PER_LEVEL,
   CLASS_CHANGE_GOLD_PER_LEVEL,
-  ELEMENT_CHANGE_GOLD_PER_LEVEL,
+  ELEMENT_CHANGE_GOLD_COST,
   advanceGoldCost,
   isClassChange,
   isElementChange,
@@ -23,20 +23,20 @@ describe("v2 비용 전직 (PR-6)", () => {
     expect(isElementChange("fire", "fire")).toBe(false);
   });
 
-  it("respecGoldCost — 첫 선택 0, 변경된 축만 레벨비례 합산", () => {
+  it("respecGoldCost — 첫 선택 0, 변경된 축만 합산", () => {
     // 첫 선택(none/neutral) = 무료.
     expect(respecGoldCost("none", "warrior", "neutral", "fire", 50)).toBe(0);
     // 직업만 변경 = level × CLASS.
     expect(respecGoldCost("warrior", "mage", "fire", "fire", 50)).toBe(
       50 * CLASS_CHANGE_GOLD_PER_LEVEL,
     );
-    // 속성만 변경 = level × ELEMENT.
+    // 속성만 변경 = 고정 비용.
     expect(respecGoldCost("mage", "mage", "fire", "water", 50)).toBe(
-      50 * ELEMENT_CHANGE_GOLD_PER_LEVEL,
+      ELEMENT_CHANGE_GOLD_COST,
     );
     // 둘 다 변경 = 합산.
     expect(respecGoldCost("warrior", "mage", "fire", "water", 10)).toBe(
-      10 * CLASS_CHANGE_GOLD_PER_LEVEL + 10 * ELEMENT_CHANGE_GOLD_PER_LEVEL,
+      10 * CLASS_CHANGE_GOLD_PER_LEVEL + ELEMENT_CHANGE_GOLD_COST,
     );
   });
 

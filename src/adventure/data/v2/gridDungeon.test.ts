@@ -10,6 +10,7 @@ import {
   gridDungeonKey,
   gridDungeonRewardQuota,
   isAtGridDungeonEntrance,
+  isGridDungeonLayoutPlayable,
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
@@ -22,6 +23,10 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
 
 describe("gridDungeon", () => {
   const firstTemplate = () => 0;
+  const templateRun = () => ({
+    ...createGridDungeonRun(100, firstTemplate),
+    layout: GRID_DUNGEON_LAYOUT_TEMPLATES[0],
+  });
 
   it("anchors the first entrance on world tile 3,2", () => {
     expect(GRID_DUNGEON_ENTRANCE).toMatchObject({ col: 3, row: 2 });
@@ -32,7 +37,7 @@ describe("gridDungeon", () => {
   it("starts at the lower center and reveals adjacent tiles", () => {
     const run = createGridDungeonRun(100, firstTemplate);
     expect(run.pos).toEqual({ x: 2, y: 4 });
-    expect(run.layout).toEqual(GRID_DUNGEON_LAYOUT_TEMPLATES[0]);
+    expect(isGridDungeonLayoutPlayable(run.layout)).toBe(true);
     expect(run.visited).toContain(gridDungeonKey(2, 4));
     expect(run.revealed).toEqual(
       expect.arrayContaining([
@@ -45,7 +50,7 @@ describe("gridDungeon", () => {
   });
 
   it("blocks walls and clears a monster room once", () => {
-    const start = createGridDungeonRun(100, firstTemplate);
+    const start = templateRun();
     const first = moveGridDungeonRun(start, "up", 200);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
@@ -66,7 +71,7 @@ describe("gridDungeon", () => {
   });
 
   it("applies resolved combat to a combat room", () => {
-    const start = createGridDungeonRun(100, firstTemplate);
+    const start = templateRun();
     const moved = moveGridDungeonRun(start, "up", 200, {
       outcome: "win",
       hpLost: 1,
@@ -164,16 +169,23 @@ describe("gridDungeon", () => {
     expect(rollGridDungeonDrops("boss", () => 0.99)).toEqual({});
   });
 
-  it("selects a dungeon layout template when starting a run", () => {
+  it("generates playable dungeon layouts when starting a run", () => {
     const first = createGridDungeonRun(100, () => 0);
     const last = createGridDungeonRun(100, () => 0.999);
 
-    expect(first.layout).toEqual(GRID_DUNGEON_LAYOUT_TEMPLATES[0]);
-    expect(last.layout).toEqual(
-      GRID_DUNGEON_LAYOUT_TEMPLATES[GRID_DUNGEON_LAYOUT_TEMPLATES.length - 1],
-    );
-    expect(last.layout).not.toEqual(first.layout);
+    expect(isGridDungeonLayoutPlayable(first.layout)).toBe(true);
+    expect(isGridDungeonLayoutPlayable(last.layout)).toBe(true);
     expect(last.pos).toEqual({ x: 2, y: 4 });
+  });
+
+  it("keeps bundled dungeon templates playable as fallback layouts", () => {
+    for (const layout of GRID_DUNGEON_LAYOUT_TEMPLATES) {
+      expect(isGridDungeonLayoutPlayable(layout)).toBe(true);
+    }
+  });
+
+  it("rejects malformed dungeon layouts as unplayable", () => {
+    expect(isGridDungeonLayoutPlayable([["start"]] as never)).toBe(false);
   });
 
   it("stores up to two guild supporter snapshots on a run", () => {

@@ -236,13 +236,6 @@ export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
 export const GRID_DUNGEON_LAYOUT_TEMPLATES: GridDungeonTileKind[][][] = [
   GRID_DUNGEON_LAYOUT,
   [
-    ["treasure", "empty", "elite", "empty", "treasure"],
-    ["wall", "empty", "wall", "empty", "wall"],
-    ["monster", "empty", "fountain", "empty", "boss"],
-    ["empty", "wall", "monster", "wall", "exit"],
-    ["treasure", "empty", "start", "empty", "monster"],
-  ],
-  [
     ["treasure", "wall", "boss", "exit", "treasure"],
     ["empty", "empty", "empty", "wall", "empty"],
     ["monster", "wall", "fountain", "empty", "elite"],
@@ -266,6 +259,10 @@ export const GRID_DUNGEON_LAYOUT_TEMPLATES: GridDungeonTileKind[][][] = [
 ];
 
 export const GRID_DUNGEON_START = { x: 2, y: 4 } as const;
+const GRID_DUNGEON_MIN_REACHABLE_TILES = 14;
+const GRID_DUNGEON_MIN_BOSS_DISTANCE = 4;
+const GRID_DUNGEON_MIN_EXIT_DISTANCE = 5;
+const GRID_DUNGEON_GENERATE_ATTEMPTS = 24;
 
 type GridDungeonDropEvent = "monster" | "elite" | "boss" | "treasure";
 
@@ -446,7 +443,160 @@ function sanitizeGridDungeonLayout(raw: unknown): GridDungeonTileKind[][] {
   return layout;
 }
 
+function emptyGridDungeonLayout(): GridDungeonTileKind[][] {
+  return Array.from({ length: GRID_DUNGEON_SIZE }, () =>
+    Array.from({ length: GRID_DUNGEON_SIZE }, () => "empty" as GridDungeonTileKind),
+  );
+}
+
+function shuffleGridDungeonPoints<T>(items: T[], rng: () => number): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function reachableGridDungeonDistances(layout: GridDungeonTileKind[][]) {
+  const start = GRID_DUNGEON_START;
+  const queue: Array<{ x: number; y: number; dist: number }> = [
+    { x: start.x, y: start.y, dist: 0 },
+  ];
+  const distances = new Map<string, number>([[gridDungeonKey(start.x, start.y), 0]]);
+  for (let head = 0; head < queue.length; head += 1) {
+    const cur = queue[head];
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const x = cur.x + dx;
+      const y = cur.y + dy;
+      const tile = gridDungeonTileAt(x, y, layout);
+      const key = gridDungeonKey(x, y);
+      if (!tile || tile === "wall" || distances.has(key)) continue;
+      distances.set(key, cur.dist + 1);
+      queue.push({ x, y, dist: cur.dist + 1 });
+    }
+  }
+  return distances;
+}
+
+function gridDungeonTileCounts(layout: GridDungeonTileKind[][]) {
+  const counts: Partial<Record<GridDungeonTileKind, number>> = {};
+  for (const row of layout) {
+    for (const tile of row) counts[tile] = (counts[tile] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export function isGridDungeonLayoutPlayable(
+  layout: GridDungeonTileKind[][],
+): boolean {
+  const validKinds = new Set<GridDungeonTileKind>([
+    "start",
+    "empty",
+    "wall",
+    "monster",
+    "elite",
+    "treasure",
+    "fountain",
+    "boss",
+    "exit",
+  ]);
+  if (!Array.isArray(layout) || layout.length !== GRID_DUNGEON_SIZE) return false;
+  if (
+    layout.some(
+      (row) =>
+        !Array.isArray(row) ||
+        row.length !== GRID_DUNGEON_SIZE ||
+        row.some((tile) => !validKinds.has(tile)),
+    )
+  ) {
+    return false;
+  }
+  if (layout[GRID_DUNGEON_START.y]?.[GRID_DUNGEON_START.x] !== "start") {
+    return false;
+  }
+  const counts = gridDungeonTileCounts(layout);
+  if ((counts.boss ?? 0) !== 1 || (counts.exit ?? 0) !== 1) return false;
+  if ((counts.fountain ?? 0) !== 1) return false;
+  if ((counts.elite ?? 0) < 1) return false;
+  if ((counts.monster ?? 0) < 2) return false;
+  if ((counts.treasure ?? 0) < 2) return false;
+  const distances = reachableGridDungeonDistances(layout);
+  if (distances.size < GRID_DUNGEON_MIN_REACHABLE_TILES) return false;
+  let bossDistance = -1;
+  let exitDistance = -1;
+  for (let y = 0; y < GRID_DUNGEON_SIZE; y += 1) {
+    for (let x = 0; x < GRID_DUNGEON_SIZE; x += 1) {
+      const tile = layout[y]?.[x];
+      const dist = distances.get(gridDungeonKey(x, y)) ?? -1;
+      if (tile !== "wall" && dist < 0) return false;
+      if (tile === "boss") bossDistance = dist;
+      if (tile === "exit") exitDistance = dist;
+    }
+  }
+  return (
+    bossDistance >= GRID_DUNGEON_MIN_BOSS_DISTANCE &&
+    exitDistance >= GRID_DUNGEON_MIN_EXIT_DISTANCE
+  );
+}
+
+function generateGridDungeonLayout(rng: () => number): GridDungeonTileKind[][] {
+  const layout = emptyGridDungeonLayout();
+  layout[GRID_DUNGEON_START.y][GRID_DUNGEON_START.x] = "start";
+  const points = shuffleGridDungeonPoints(
+    Array.from({ length: GRID_DUNGEON_SIZE * GRID_DUNGEON_SIZE }, (_, idx) => ({
+      x: idx % GRID_DUNGEON_SIZE,
+      y: Math.floor(idx / GRID_DUNGEON_SIZE),
+    })).filter((point) => point.x !== GRID_DUNGEON_START.x || point.y !== GRID_DUNGEON_START.y),
+    rng,
+  );
+  const far = points.filter(
+    (point) =>
+      Math.abs(point.x - GRID_DUNGEON_START.x) +
+        Math.abs(point.y - GRID_DUNGEON_START.y) >=
+      GRID_DUNGEON_MIN_BOSS_DISTANCE,
+  );
+  const boss = far[0] ?? points[0];
+  const exit =
+    far.find((point) => point.x !== boss.x || point.y !== boss.y) ?? points[1];
+  if (boss) layout[boss.y][boss.x] = "boss";
+  if (exit) layout[exit.y][exit.x] = "exit";
+  const remaining = points.filter(
+    (point) =>
+      layout[point.y][point.x] === "empty" &&
+      !(point.x === GRID_DUNGEON_START.x && point.y === GRID_DUNGEON_START.y),
+  );
+  const placements: GridDungeonTileKind[] = [
+    "fountain",
+    "elite",
+    "monster",
+    "monster",
+    "monster",
+    "treasure",
+    "treasure",
+    "treasure",
+    "wall",
+    "wall",
+    "wall",
+    "wall",
+  ];
+  for (let i = 0; i < placements.length && i < remaining.length; i += 1) {
+    const point = remaining[i];
+    layout[point.y][point.x] = placements[i];
+  }
+  return layout;
+}
+
 function randomGridDungeonLayout(rng: () => number): GridDungeonTileKind[][] {
+  for (let attempt = 0; attempt < GRID_DUNGEON_GENERATE_ATTEMPTS; attempt += 1) {
+    const generated = generateGridDungeonLayout(rng);
+    if (isGridDungeonLayoutPlayable(generated)) return generated;
+  }
   const index = Math.min(
     GRID_DUNGEON_LAYOUT_TEMPLATES.length - 1,
     Math.max(0, Math.floor(rng() * GRID_DUNGEON_LAYOUT_TEMPLATES.length)),

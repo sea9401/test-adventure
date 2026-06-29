@@ -142,7 +142,7 @@ function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
   return {
     next,
     key: gridDungeonKey(next.x, next.y),
-    tile: gridDungeonTileAt(next.x, next.y),
+    tile: gridDungeonTileAt(next.x, next.y, run.layout),
   };
 }
 

@@ -66,6 +66,7 @@ export type GridDungeonResolvedCombat = {
 export type GridDungeonRun = {
   id: string;
   status: GridDungeonStatus;
+  layout: GridDungeonTileKind[][];
   pos: { x: number; y: number };
   hp: number;
   pendingGold: number;
@@ -81,9 +82,7 @@ export type GridDungeonRun = {
   claimedAt?: number;
 };
 
-export type GridDungeonPublicRun = GridDungeonRun & {
-  layout: GridDungeonTileKind[][];
-};
+export type GridDungeonPublicRun = GridDungeonRun;
 
 export type GridDungeonDailyRewards = {
   dayKey: string;
@@ -120,6 +119,38 @@ export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
   ["monster", "empty", "fountain", "empty", "elite"],
   ["empty", "wall", "monster", "wall", "empty"],
   ["treasure", "empty", "start", "empty", "monster"],
+];
+
+export const GRID_DUNGEON_LAYOUT_TEMPLATES: GridDungeonTileKind[][][] = [
+  GRID_DUNGEON_LAYOUT,
+  [
+    ["treasure", "empty", "elite", "empty", "treasure"],
+    ["wall", "empty", "wall", "empty", "wall"],
+    ["monster", "empty", "fountain", "empty", "boss"],
+    ["empty", "wall", "monster", "wall", "exit"],
+    ["treasure", "empty", "start", "empty", "monster"],
+  ],
+  [
+    ["treasure", "wall", "boss", "exit", "treasure"],
+    ["empty", "empty", "empty", "wall", "empty"],
+    ["monster", "wall", "fountain", "empty", "elite"],
+    ["empty", "wall", "monster", "wall", "empty"],
+    ["treasure", "empty", "start", "empty", "monster"],
+  ],
+  [
+    ["treasure", "empty", "elite", "empty", "exit"],
+    ["wall", "empty", "wall", "empty", "boss"],
+    ["monster", "empty", "fountain", "empty", "treasure"],
+    ["empty", "wall", "monster", "wall", "empty"],
+    ["monster", "empty", "start", "empty", "treasure"],
+  ],
+  [
+    ["exit", "empty", "boss", "empty", "treasure"],
+    ["empty", "wall", "empty", "wall", "empty"],
+    ["elite", "empty", "fountain", "empty", "monster"],
+    ["wall", "empty", "monster", "wall", "empty"],
+    ["treasure", "empty", "start", "empty", "treasure"],
+  ],
 ];
 
 export const GRID_DUNGEON_START = { x: 2, y: 4 } as const;
@@ -268,9 +299,53 @@ export function isAtGridDungeonEntrance(pos?: {
   );
 }
 
+function sanitizeGridDungeonLayout(raw: unknown): GridDungeonTileKind[][] {
+  if (!Array.isArray(raw) || raw.length !== GRID_DUNGEON_SIZE) {
+    return GRID_DUNGEON_LAYOUT;
+  }
+  const validKinds = new Set<GridDungeonTileKind>([
+    "start",
+    "empty",
+    "wall",
+    "monster",
+    "elite",
+    "treasure",
+    "fountain",
+    "boss",
+    "exit",
+  ]);
+  const layout: GridDungeonTileKind[][] = [];
+  for (const row of raw) {
+    if (!Array.isArray(row) || row.length !== GRID_DUNGEON_SIZE) {
+      return GRID_DUNGEON_LAYOUT;
+    }
+    const nextRow: GridDungeonTileKind[] = [];
+    for (const cell of row) {
+      if (typeof cell !== "string" || !validKinds.has(cell as GridDungeonTileKind)) {
+        return GRID_DUNGEON_LAYOUT;
+      }
+      nextRow.push(cell as GridDungeonTileKind);
+    }
+    layout.push(nextRow);
+  }
+  if (layout[GRID_DUNGEON_START.y]?.[GRID_DUNGEON_START.x] !== "start") {
+    return GRID_DUNGEON_LAYOUT;
+  }
+  return layout;
+}
+
+function randomGridDungeonLayout(rng: () => number): GridDungeonTileKind[][] {
+  const index = Math.min(
+    GRID_DUNGEON_LAYOUT_TEMPLATES.length - 1,
+    Math.max(0, Math.floor(rng() * GRID_DUNGEON_LAYOUT_TEMPLATES.length)),
+  );
+  return GRID_DUNGEON_LAYOUT_TEMPLATES[index]?.map((row) => [...row]) ?? GRID_DUNGEON_LAYOUT;
+}
+
 export function gridDungeonTileAt(
   x: number,
   y: number,
+  layout: GridDungeonTileKind[][] = GRID_DUNGEON_LAYOUT,
 ): GridDungeonTileKind | null {
   if (
     !Number.isInteger(x) ||
@@ -282,7 +357,7 @@ export function gridDungeonTileAt(
   ) {
     return null;
   }
-  return GRID_DUNGEON_LAYOUT[y]?.[x] ?? null;
+  return layout[y]?.[x] ?? null;
 }
 
 export function isGridDungeonCombatTile(
@@ -291,7 +366,12 @@ export function isGridDungeonCombatTile(
   return tile === "monster" || tile === "elite" || tile === "boss";
 }
 
-export function revealAround(x: number, y: number, prev: string[] = []): string[] {
+export function revealAround(
+  x: number,
+  y: number,
+  prev: string[] = [],
+  layout: GridDungeonTileKind[][] = GRID_DUNGEON_LAYOUT,
+): string[] {
   const revealed = new Set(prev);
   for (const [dx, dy] of [
     [0, 0],
@@ -302,22 +382,27 @@ export function revealAround(x: number, y: number, prev: string[] = []): string[
   ]) {
     const nx = x + dx;
     const ny = y + dy;
-    if (gridDungeonTileAt(nx, ny)) revealed.add(gridDungeonKey(nx, ny));
+    if (gridDungeonTileAt(nx, ny, layout)) revealed.add(gridDungeonKey(nx, ny));
   }
   return [...revealed].sort();
 }
 
-export function createGridDungeonRun(now = Date.now()): GridDungeonRun {
+export function createGridDungeonRun(
+  now = Date.now(),
+  rng: () => number = Math.random,
+): GridDungeonRun {
+  const layout = randomGridDungeonLayout(rng);
   const startKey = gridDungeonKey(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y);
   return {
     id: GRID_DUNGEON_ENTRANCE.id,
     status: "active",
+    layout,
     pos: { ...GRID_DUNGEON_START },
     hp: GRID_DUNGEON_MAX_HP,
     pendingGold: 0,
     bossDefeated: false,
     visited: [startKey],
-    revealed: revealAround(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y),
+    revealed: revealAround(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y, [], layout),
     clearedEvents: [startKey],
     lastMessage: "낡은 지하 유적에 들어섰습니다.",
     startedAt: now,
@@ -328,12 +413,13 @@ export function createGridDungeonRun(now = Date.now()): GridDungeonRun {
 export function withGridDungeonLayout(
   run: GridDungeonRun | null,
 ): GridDungeonPublicRun | null {
-  return run ? { ...run, layout: GRID_DUNGEON_LAYOUT } : null;
+  return run ? { ...run, layout: sanitizeGridDungeonLayout(run.layout) } : null;
 }
 
 export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
   if (!raw || typeof raw !== "object") return null;
   const run = raw as Partial<GridDungeonRun>;
+  const layout = sanitizeGridDungeonLayout(run.layout);
   const status = run.status;
   if (
     status !== "active" &&
@@ -345,13 +431,14 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
   }
   const x = Number(run.pos?.x);
   const y = Number(run.pos?.y);
-  if (!Number.isInteger(x) || !Number.isInteger(y) || !gridDungeonTileAt(x, y)) {
+  if (!Number.isInteger(x) || !Number.isInteger(y) || !gridDungeonTileAt(x, y, layout)) {
     return null;
   }
   const now = Date.now();
   const parsed: GridDungeonRun = {
     id: typeof run.id === "string" ? run.id : GRID_DUNGEON_ENTRANCE.id,
     status,
+    layout,
     pos: { x, y },
     hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(run.hp) || 0))),
     pendingGold: Math.max(0, Math.floor(Number(run.pendingGold) || 0)),
@@ -362,7 +449,7 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
       : [],
     revealed: Array.isArray(run.revealed)
       ? run.revealed.filter((v): v is string => typeof v === "string")
-      : revealAround(x, y),
+      : revealAround(x, y, [], layout),
     clearedEvents: Array.isArray(run.clearedEvents)
       ? run.clearedEvents.filter((v): v is string => typeof v === "string")
       : [],
@@ -442,8 +529,9 @@ export function moveGridDungeonRun(
   };
   const d = delta[dir];
   if (!d) return { ok: false, error: "bad_direction" };
+  const layout = sanitizeGridDungeonLayout(run.layout);
   const next = { x: run.pos.x + d.x, y: run.pos.y + d.y };
-  const tile = gridDungeonTileAt(next.x, next.y);
+  const tile = gridDungeonTileAt(next.x, next.y, layout);
   if (!tile || tile === "wall") return { ok: false, error: "blocked" };
 
   const key = gridDungeonKey(next.x, next.y);
@@ -514,6 +602,7 @@ export function moveGridDungeonRun(
 
   const nextRun: GridDungeonRun = {
     ...run,
+    layout,
     status,
     pos: next,
     hp,
@@ -521,7 +610,7 @@ export function moveGridDungeonRun(
     ...(hasGridDungeonDrops(pendingDrops) ? { pendingDrops } : {}),
     bossDefeated,
     visited: [...visited].sort(),
-    revealed: revealAround(next.x, next.y, run.revealed),
+    revealed: revealAround(next.x, next.y, run.revealed, layout),
     clearedEvents: [...clearedEvents].sort(),
     lastMessage: message,
     updatedAt: now,

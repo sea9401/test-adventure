@@ -3,6 +3,7 @@ import {
   GRID_DUNGEON_ENTRANCE,
   GRID_DUNGEON_DAILY_REWARD_LIMIT,
   GRID_DUNGEON_HISTORY_LIMIT,
+  GRID_DUNGEON_LAYOUT_TEMPLATES,
   appendGridDungeonHistory,
   createGridDungeonRun,
   gridDungeonDayKey,
@@ -18,6 +19,8 @@ import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
 
 describe("gridDungeon", () => {
+  const firstTemplate = () => 0;
+
   it("anchors the first entrance on world tile 3,2", () => {
     expect(GRID_DUNGEON_ENTRANCE).toMatchObject({ col: 3, row: 2 });
     expect(isAtGridDungeonEntrance({ col: 3, row: 2 })).toBe(true);
@@ -25,8 +28,9 @@ describe("gridDungeon", () => {
   });
 
   it("starts at the lower center and reveals adjacent tiles", () => {
-    const run = createGridDungeonRun(100);
+    const run = createGridDungeonRun(100, firstTemplate);
     expect(run.pos).toEqual({ x: 2, y: 4 });
+    expect(run.layout).toEqual(GRID_DUNGEON_LAYOUT_TEMPLATES[0]);
     expect(run.visited).toContain(gridDungeonKey(2, 4));
     expect(run.revealed).toEqual(
       expect.arrayContaining([
@@ -39,7 +43,7 @@ describe("gridDungeon", () => {
   });
 
   it("blocks walls and clears a monster room once", () => {
-    const start = createGridDungeonRun(100);
+    const start = createGridDungeonRun(100, firstTemplate);
     const first = moveGridDungeonRun(start, "up", 200);
     expect(first.ok).toBe(true);
     if (!first.ok) return;
@@ -60,7 +64,7 @@ describe("gridDungeon", () => {
   });
 
   it("applies resolved combat to a combat room", () => {
-    const start = createGridDungeonRun(100);
+    const start = createGridDungeonRun(100, firstTemplate);
     const moved = moveGridDungeonRun(start, "up", 200, {
       outcome: "win",
       hpLost: 1,
@@ -104,6 +108,18 @@ describe("gridDungeon", () => {
       [REFORGE_STONE_MATERIAL_ID.basic]: 1,
     });
     expect(rollGridDungeonDrops("boss", () => 0.99)).toEqual({});
+  });
+
+  it("selects a dungeon layout template when starting a run", () => {
+    const first = createGridDungeonRun(100, () => 0);
+    const last = createGridDungeonRun(100, () => 0.999);
+
+    expect(first.layout).toEqual(GRID_DUNGEON_LAYOUT_TEMPLATES[0]);
+    expect(last.layout).toEqual(
+      GRID_DUNGEON_LAYOUT_TEMPLATES[GRID_DUNGEON_LAYOUT_TEMPLATES.length - 1],
+    );
+    expect(last.layout).not.toEqual(first.layout);
+    expect(last.pos).toEqual({ x: 2, y: 4 });
   });
 
   it("resets daily reward claims on the KST day boundary", () => {

@@ -48,6 +48,8 @@ jobs:
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout main
             git reset --hard origin/main
+            echo "▶ [prod] nginx rate limit"
+            bash deploy/apply-nginx-rate-limit.sh
             echo "▶ [prod] deps"
             bash deploy/install-deps.sh
             echo "▶ [prod] db migrate"

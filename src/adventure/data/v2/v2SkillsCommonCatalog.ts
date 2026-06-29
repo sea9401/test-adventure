@@ -44,6 +44,7 @@ export type V2CommonSkillId =
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   | "v2c_survivor_firstaid" // 응급 처치 (잃은 HP 회복)
   | "v2c_survivor_knowledge" // 생존 지식 (최대 HP)
+  | "v2c_survivor_baitcraft" // 미끼 고르기 (낚시 크기 보정)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -71,6 +72,7 @@ export type V2CommonSkillId =
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
   | "v2c_venomist_corrosion" // 부식 (중독된 적 방어 감소)
   | "v2c_camper_ration" // 비상식량 (회복 + 최대 HP)
+  | "v2c_camper_tidereading" // 물때 읽기 (물때 한정 어종 가중치)
   | "v2c_ironman_body" // 단련된 몸 (최대 HP)
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
   // 액티브(강)
@@ -306,6 +308,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { maxHpPct: 10 },
   },
+  v2c_survivor_baitcraft: {
+    id: "v2c_survivor_baitcraft", name: "미끼 고르기", stat: "luk", category: "passive", tier: 1,
+    description: "상황에 맞는 미끼를 골라 낚은 물고기의 씨알을 조금 좋게 만든다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { fishingSizeBonusPct: 4 },
+  },
 
   // ── 모험가(none) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──
   v2c_none_toughness: {
@@ -487,6 +496,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { healPowerPct: 10, maxHpPct: 5 },
+  },
+  v2c_camper_tidereading: {
+    id: "v2c_camper_tidereading", name: "물때 읽기", stat: "luk", category: "passive", tier: 2,
+    description: "물살과 시간대를 읽어 현재 물때에 찾아오는 특별한 어종을 노리기 쉬워진다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { fishingSpecialWeightPct: 25 },
   },
   v2c_ironman_body: {
     id: "v2c_ironman_body", name: "단련된 몸", stat: "vit", category: "passive", tier: 2,

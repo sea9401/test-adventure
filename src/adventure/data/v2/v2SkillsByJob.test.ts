@@ -10,7 +10,7 @@ import {
 } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
-  it("기본 직업 = 액티브 1 + 패시브 스킬 1", () => {
+  it("기본 직업 = 핵심 액티브 1 + 패시브 스킬 1, 생존자는 생활 패시브 추가", () => {
     expect(skillsForJob("warrior")).toEqual([
       "v2c_warrior_strike",
       "v2c_warrior_might",
@@ -30,7 +30,8 @@ describe("직업 킷 — 스킬셋", () => {
     expect(skillsForJob("survivor")).toEqual([
       "v2c_survivor_firstaid",
       "v2c_survivor_knowledge",
-    ]); // 응급 처치 + 생존 지식
+      "v2c_survivor_baitcraft",
+    ]); // 응급 처치 + 생존 지식 + 미끼 고르기
   });
 
   it("모든 직업 스킬 id 가 전투 카탈로그(V2_SKILLS)에 존재", () => {
@@ -41,8 +42,8 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("상위 직업 = 액티브 1 + 고유 % 패시브 1", () => {
-    const UPPER: Record<string, [V2SkillId, V2SkillId]> = {
+  it("상위 직업 = 핵심 액티브 1 + 고유 % 패시브 1, 야영꾼은 생활 패시브 추가", () => {
+    const UPPER: Record<string, readonly V2SkillId[]> = {
       shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"],
       squire: ["v2c_squire_cleave", "v2c_squire_might"],
       boxer: ["v2c_boxer_combo", "v2c_boxer_fortitude"],
@@ -52,7 +53,7 @@ describe("직업 킷 — 스킬셋", () => {
       assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"],
       archer: ["v2c_archer_volley", "v2c_archer_agility"],
       venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"],
-      camper: ["v2c_camper_camp", "v2c_camper_ration"],
+      camper: ["v2c_camper_camp", "v2c_camper_ration", "v2c_camper_tidereading"],
       ironman: ["v2c_ironman_brace", "v2c_ironman_body"],
     };
     for (const [job, kit] of Object.entries(UPPER)) {
@@ -92,6 +93,7 @@ describe("직업 킷 — 스킬셋", () => {
       pctLostHp: 20,
     });
     expect(V2_SKILLS.v2c_survivor_knowledge.passive?.maxHpPct).toBe(10);
+    expect(V2_SKILLS.v2c_survivor_baitcraft.passive?.fishingSizeBonusPct).toBe(4);
     expect(V2_SKILLS.v2c_camper_camp.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 25,
@@ -100,6 +102,7 @@ describe("직업 킷 — 스킬셋", () => {
       healPowerPct: 10,
       maxHpPct: 5,
     });
+    expect(V2_SKILLS.v2c_camper_tidereading.passive?.fishingSpecialWeightPct).toBe(25);
     expect(V2_SKILLS.v2c_ironman_brace.effects[0]).toMatchObject({
       kind: "shield",
       pctMaxHp: 10,

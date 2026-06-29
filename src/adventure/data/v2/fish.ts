@@ -417,14 +417,30 @@ export function isFishId(id: string): id is FishId {
   return Object.prototype.hasOwnProperty.call(FISH, id);
 }
 
+export type FishSizeRollOptions = {
+  /** 굴린 크기를 상한 쪽으로 보정한다. 4 = 남은 크기 폭의 4%만큼 추가. */
+  sizeBonusPct?: number;
+};
+
 // 사이즈(cm) 굴림 — heavy-tail. rng() ∈ [0, 1). 소수 첫째 자리까지.
-export function rollFishSize(fishId: FishId, rng: () => number): number {
+export function rollFishSize(
+  fishId: FishId,
+  rng: () => number,
+  options: FishSizeRollOptions = {},
+): number {
   const f = FISH[fishId];
   const k = FISH_TIERS[f.tier].sizeExponent;
   const p = Math.pow(rng(), k);
-  const size = f.minSize + (f.maxSize - f.minSize) * p;
+  const bonus = Math.max(0, Math.min(100, options.sizeBonusPct ?? 0)) / 100;
+  const boosted = bonus > 0 ? p + (1 - p) * bonus : p;
+  const size = f.minSize + (f.maxSize - f.minSize) * boosted;
   return Math.round(size * 10) / 10;
 }
+
+export type FishPickOptions = {
+  /** 현재 물때 한정 어종의 티어 내 추첨 가중치 보정. 25 = 해당 손님 가중치 1.25배. */
+  specialWeightBonusPct?: number;
+};
 
 // 어떤 종이 걸리나 — 티어 가중치로 티어를 뽑고, 티어 안에서 종을 균등 추첨.
 // rng() ∈ [0, 1).
@@ -433,6 +449,7 @@ export function rollFishSize(fishId: FishId, rng: () => number): number {
 export function pickFishId(
   rng: () => number,
   activeCondition?: MulttaeConditionId,
+  options: FishPickOptions = {},
 ): FishId {
   const totalWeight = FISH_TIER_ORDER.reduce(
     (sum, t) => sum + FISH_TIERS[t].encounterWeight,
@@ -453,6 +470,20 @@ export function pickFishId(
       (FISH[id].condition === undefined ||
         FISH[id].condition === activeCondition),
   );
+  const specialBonus =
+    Math.max(0, Math.min(500, options.specialWeightBonusPct ?? 0)) / 100;
+  if (activeCondition && specialBonus > 0) {
+    const weights = species.map((id) =>
+      FISH[id].condition === activeCondition ? 1 + specialBonus : 1,
+    );
+    const speciesWeight = weights.reduce((sum, n) => sum + n, 0);
+    let speciesRoll = rng() * speciesWeight;
+    for (let i = 0; i < species.length; i += 1) {
+      if (speciesRoll < weights[i]) return species[i];
+      speciesRoll -= weights[i];
+    }
+    return species[species.length - 1];
+  }
   const idx = Math.min(species.length - 1, Math.floor(rng() * species.length));
   return species[idx];
 }

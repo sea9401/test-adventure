@@ -47,6 +47,7 @@ import {
 import {
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
+  effectiveStats,
   isUnique,
   v2ItemTypeLabel,
   type V2EquipInstance,
@@ -54,6 +55,8 @@ import {
   type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
+import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 import {
   FISH,
@@ -176,6 +179,28 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
+
+function compareEquipmentCodexCandidate(
+  a: V2EquipInstance,
+  b: V2EquipInstance,
+): number {
+  const ia = V2_EQUIPMENT[a.id];
+  const ib = V2_EQUIPMENT[b.id];
+  const enhanceA = a.enhance?.level ?? 0;
+  const enhanceB = b.enhance?.level ?? 0;
+  if (enhanceA !== enhanceB) return enhanceA - enhanceB;
+  const qualityA = ia ? (rollQualityPct(ia, a.roll) ?? 50) : 50;
+  const qualityB = ib ? (rollQualityPct(ib, b.roll) ?? 50) : 50;
+  if (qualityA !== qualityB) return qualityA - qualityB;
+  const powerA = ia
+    ? enhancedPower(effectiveStats(ia, a.roll).power, a.enhance)
+    : 0;
+  const powerB = ib
+    ? enhancedPower(effectiveStats(ib, b.roll).power, b.enhance)
+    : 0;
+  if (powerA !== powerB) return powerA - powerB;
+  return a.iid.localeCompare(b.iid);
+}
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -539,6 +564,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         arr.push(inst);
         eligible.set(inst.id, arr);
       }
+    }
+    for (const arr of eligible.values()) {
+      arr.sort(compareEquipmentCodexCandidate);
     }
     return { owned, eligible };
   })();

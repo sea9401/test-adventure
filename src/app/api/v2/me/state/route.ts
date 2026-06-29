@@ -891,6 +891,7 @@ export async function GET() {
                   skillId: id,
                   name: def.name,
                   spCost: spCostOf(def),
+                  category: def.category,
                   equipped,
                   favorite: favoriteSet.has(id),
                 };

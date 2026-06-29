@@ -88,8 +88,10 @@ function buildingAt(village: Village, slot: number): SettlementBuildingSlot | nu
 
 export function V2VillagePanel({
   outpostId,
+  canManageActions = true,
 }: {
   outpostId: string;
+  canManageActions?: boolean;
 }) {
   // 거점 표시 이름(헤더·지도)은 GameState occupations.villageName 에서 옴 — 건설/개명 후
   //   동기화해야 같은 화면 헤더가 즉시 새 이름으로 갱신된다.
@@ -217,6 +219,7 @@ export function V2VillagePanel({
   const goldNoun = isTileOutpostId(outpostId) ? "보유" : "길드 금고";
   // 건설됨 = 이름.
   const built = !!village && village.name != null;
+  const manageDisabledText = "마스터·부마스터만 변경할 수 있어요.";
 
   if (exists === null) {
     return (
@@ -457,12 +460,13 @@ export function V2VillagePanel({
       {built && village && !isTile && (
         <button
           type="button"
+          disabled={!canManageActions}
           onClick={() => {
             setRenameName(village.name ?? "");
             setErr(null);
             setRenaming((v) => !v);
           }}
-          className="rounded px-1 text-[11px] font-normal text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="rounded px-1 text-[11px] font-normal text-zinc-500 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
           이름 변경
         </button>
@@ -482,7 +486,7 @@ export function V2VillagePanel({
           />
           <button
             type="button"
-            disabled={busy || renameName.trim().length === 0}
+            disabled={busy || !canManageActions || renameName.trim().length === 0}
             onClick={() => {
               void act("rename", { name: renameName.trim() }, true);
               setRenaming(false);
@@ -515,6 +519,11 @@ export function V2VillagePanel({
             {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
           </div>
+          {!canManageActions && (
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              {manageDisabledText}
+            </p>
+          )}
           {!isTile && (
             <input
               type="text"
@@ -522,7 +531,7 @@ export function V2VillagePanel({
               onChange={(e) => setBuildName(e.target.value)}
               maxLength={VILLAGE_NAME_MAX}
               placeholder="마을 이름"
-              disabled={busy}
+              disabled={busy || !canManageActions}
               className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
           )}
@@ -530,6 +539,7 @@ export function V2VillagePanel({
             type="button"
             disabled={
               busy ||
+              !canManageActions ||
               (!isTile && buildName.trim().length === 0) ||
               gold < buildGold
             }
@@ -580,7 +590,7 @@ export function V2VillagePanel({
                 </div>
                 <button
                   type="button"
-                  disabled={busy || !canAffordUnlock}
+                  disabled={busy || !canManageActions || !canAffordUnlock}
                   onClick={() => void act("unlock-slot", {})}
                   className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -589,6 +599,11 @@ export function V2VillagePanel({
                 {!canAffordUnlock && (
                   <p className="text-[11px] text-rose-500 dark:text-rose-400">
                     {goldNoun} 골드가 부족해요 (보유 {fmtGold(gold)}).
+                  </p>
+                )}
+                {!canManageActions && (
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {manageDisabledText}
                   </p>
                 )}
               </>
@@ -621,7 +636,7 @@ export function V2VillagePanel({
                   >
                     <button
                       type="button"
-                      disabled={busy || occupied}
+                      disabled={busy || !canManageActions || occupied}
                       onClick={() =>
                         void act("building/place", { slot: 0, buildingId: id })
                       }
@@ -660,7 +675,11 @@ export function V2VillagePanel({
                             </div>
                             <button
                               type="button"
-                              disabled={busy || !canAffordBuildingUpgrade}
+                              disabled={
+                                busy ||
+                                !canManageActions ||
+                                !canAffordBuildingUpgrade
+                              }
                               onClick={() =>
                                 void act("building/upgrade", { slot: 0 })
                               }
@@ -687,7 +706,7 @@ export function V2VillagePanel({
             <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-800">
               <button
                 type="button"
-                disabled={busy || !canAffordUpgrade}
+                disabled={busy || !canManageActions || !canAffordUpgrade}
                 onClick={() => void act("upgrade", {})}
                 className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -697,6 +716,11 @@ export function V2VillagePanel({
               {needSlots && (
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   먼저 이 단계의 건축물 슬롯을 모두 해금해야 업그레이드할 수 있어요.
+                </p>
+              )}
+              {!canManageActions && (
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {manageDisabledText}
                 </p>
               )}
             </div>

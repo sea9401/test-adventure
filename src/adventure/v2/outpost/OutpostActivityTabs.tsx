@@ -10,7 +10,7 @@ import { OutpostAttackLog } from "../OutpostAttackLog";
 import { V2VillagePanel } from "../V2VillagePanel";
 import DefendPanel from "../DefendPanel";
 
-// 내 거점 활동 탭 — 관리 / 대장간 / (수비) / 최근 공격 기록.
+// 내 거점 활동 탭 — 마을 / 대장간 / (수비) / 최근 공격 기록.
 export type ActivityTab =
   | "smithy"
   | "attacks"
@@ -65,9 +65,7 @@ export function OutpostActivityTabs({
 
   const tabs = useMemo<ActivityTabDef[]>(
     () => [
-      ...(canManageSettlement
-        ? [{ key: "manage" as const, label: "관리" }]
-        : []),
+      { key: "manage", label: "마을" },
       ...(hasLocalSmithy
         ? [{ key: "smithy" as const, label: "대장간" }]
         : []),
@@ -76,7 +74,7 @@ export function OutpostActivityTabs({
         : []),
       { key: "attacks", label: "최근 공격 기록" },
     ],
-    [canManageSettlement, hasLocalSmithy],
+    [hasLocalSmithy],
   );
 
   useEffect(() => {
@@ -106,8 +104,11 @@ export function OutpostActivityTabs({
       {activityTab === "attacks" && (
         <OutpostAttackLog outpostId={outpostId} reloadKey={attackLogReload} />
       )}
-      {activityTab === "manage" && canManageSettlement && (
-        <V2VillagePanel outpostId={outpostId} />
+      {activityTab === "manage" && (
+        <V2VillagePanel
+          outpostId={outpostId}
+          canManageActions={canManageSettlement}
+        />
       )}
     </>
   );

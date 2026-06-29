@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowsDownUp, DotsSixVertical, Star } from "@phosphor-icons/react";
+import {
+  ArrowsDownUp,
+  DotsSixVertical,
+  MagnifyingGlass,
+  Rows,
+  SquaresFour,
+  Star,
+} from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SkillEffectChips } from "./SkillEffectChips";
 
@@ -16,6 +23,7 @@ export type V2LoadoutSkill = {
   spCost: number;
   equipped: boolean;
   favorite?: boolean;
+  category?: V2LoadoutSkillCategory;
 };
 export type V2LoadoutSpBreakdown = {
   base: number;
@@ -49,9 +57,28 @@ export type V2LoadoutData = {
 };
 
 type DropTarget = {
+  kind: "library" | "equipped";
   skillId: string;
   edge: "before" | "after";
 };
+type DragSession = {
+  kind: "library" | "equipped";
+  activeId: string;
+  pointerId: number;
+};
+type V2LoadoutSkillCategory =
+  | "attack"
+  | "heal"
+  | "buff"
+  | "debuff"
+  | "passive";
+type SkillFilter =
+  | "all"
+  | "favorite"
+  | "equipped"
+  | "available"
+  | "overBudget"
+  | V2LoadoutSkillCategory;
 
 const AUTO_SCROLL_EDGE_PX = 80;
 const AUTO_SCROLL_MAX_STEP = 18;
@@ -73,11 +100,12 @@ export function V2LoadoutPanel({
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<SkillFilter>("all");
+  const [compact, setCompact] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const dragSessionRef = useRef<{ activeId: string; pointerId: number } | null>(
-    null,
-  );
+  const dragSessionRef = useRef<DragSession | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
 
@@ -136,6 +164,47 @@ export function V2LoadoutPanel({
     () => order.map((id) => meta.get(id)).filter((s): s is V2LoadoutSkill => !!s),
     [meta, order],
   );
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleLibrary = useMemo(
+    () =>
+      orderedLibrary.filter((s) => {
+        const equipped = equippedSet.has(s.skillId);
+        const favorite = favoriteSet.has(s.skillId);
+        const wouldFit = spUsed + s.spCost <= spBudget;
+        const matchesQuery =
+          normalizedQuery.length === 0 ||
+          s.name.toLowerCase().includes(normalizedQuery) ||
+          s.skillId.toLowerCase().includes(normalizedQuery);
+        if (!matchesQuery) return false;
+        if (filter === "favorite") return favorite;
+        if (filter === "equipped") return equipped;
+        if (filter === "available") return !equipped && wouldFit;
+        if (filter === "overBudget") return !equipped && !wouldFit;
+        if (filter === "all") return true;
+        return s.category === filter;
+      }),
+    [
+      equippedSet,
+      favoriteSet,
+      filter,
+      normalizedQuery,
+      orderedLibrary,
+      spBudget,
+      spUsed,
+    ],
+  );
+  const filterDefs: Array<{ id: SkillFilter; label: string }> = [
+    { id: "all", label: "전체" },
+    { id: "favorite", label: "즐겨찾기" },
+    { id: "equipped", label: "장착 중" },
+    { id: "available", label: "장착 가능" },
+    { id: "overBudget", label: "SP 부족" },
+    { id: "passive", label: "패시브" },
+    { id: "attack", label: "공격" },
+    { id: "heal", label: "회복" },
+    { id: "buff", label: "버프" },
+    { id: "debuff", label: "디버프" },
+  ];
 
   useEffect(() => {
     return () => {
@@ -235,20 +304,50 @@ export function V2LoadoutPanel({
     commitSkillPrefs(next, favoriteIds);
   }
 
+  function reorderEquipped(
+    activeId: string,
+    overId: string,
+    edge: "before" | "after",
+  ) {
+    if (activeId === overId) return;
+    if (!order.includes(activeId)) return;
+    const next = order.filter((id) => id !== activeId);
+    const overIdx = next.indexOf(overId);
+    if (overIdx < 0) return;
+    next.splice(edge === "after" ? overIdx + 1 : overIdx, 0, activeId);
+    if (next.join(",") === order.join(",")) return;
+    commit(next);
+  }
+
   function dropEdgeForClientY(target: HTMLElement, clientY: number) {
     const rect = target.getBoundingClientRect();
     return clientY < rect.top + rect.height / 2 ? "before" : "after";
   }
 
+  function dropEdgeForClientX(target: HTMLElement, clientX: number) {
+    const rect = target.getBoundingClientRect();
+    return clientX < rect.left + rect.width / 2 ? "before" : "after";
+  }
+
   function dropTargetAtPoint(x: number, y: number): DropTarget | null {
-    const activeId = dragSessionRef.current?.activeId;
-    if (!activeId) return null;
+    const session = dragSessionRef.current;
+    if (!session) return null;
     for (const el of document.elementsFromPoint(x, y)) {
       if (!(el instanceof HTMLElement)) continue;
+      if (session.kind === "equipped") {
+        const chip = el.closest<HTMLElement>("[data-equipped-drop-id]");
+        const skillId = chip?.dataset.equippedDropId;
+        if (!chip || !skillId || skillId === session.activeId) return null;
+        return {
+          kind: "equipped",
+          skillId,
+          edge: dropEdgeForClientX(chip, x),
+        };
+      }
       const row = el.closest<HTMLElement>("[data-skill-drop-id]");
       const skillId = row?.dataset.skillDropId;
-      if (!row || !skillId || skillId === activeId) return null;
-      return { skillId, edge: dropEdgeForClientY(row, y) };
+      if (!row || !skillId || skillId === session.activeId) return null;
+      return { kind: "library", skillId, edge: dropEdgeForClientY(row, y) };
     }
     return null;
   }
@@ -308,10 +407,14 @@ export function V2LoadoutPanel({
   }
 
   function finishPointerDrag(x: number, y: number) {
-    const activeId = dragSessionRef.current?.activeId;
+    const session = dragSessionRef.current;
     const target = dropTargetAtPoint(x, y) ?? dropTarget;
-    if (activeId && target) {
-      reorderSkill(activeId, target.skillId, target.edge);
+    if (session && target && session.kind === target.kind) {
+      if (session.kind === "equipped") {
+        reorderEquipped(session.activeId, target.skillId, target.edge);
+      } else {
+        reorderSkill(session.activeId, target.skillId, target.edge);
+      }
     }
     dragSessionRef.current = null;
     setDraggingId(null);
@@ -350,6 +453,27 @@ export function V2LoadoutPanel({
       next.push(id);
     }
     commitSkillPrefs(next, favoriteIds);
+  }
+
+  function startPointerDrag(
+    kind: "library" | "equipped",
+    skillId: string,
+    pointerId: number,
+    x: number,
+    y: number,
+  ) {
+    dragSessionRef.current = { kind, activeId: skillId, pointerId };
+    setDraggingId(skillId);
+    setDropTarget(null);
+    updatePointerDrag(x, y);
+  }
+
+  function cancelPointerDrag(pointerId: number) {
+    if (dragSessionRef.current?.pointerId !== pointerId) return;
+    dragSessionRef.current = null;
+    setDraggingId(null);
+    setDropTarget(null);
+    stopAutoScroll();
   }
 
   if (loadout.library.length === 0) {
@@ -393,35 +517,143 @@ export function V2LoadoutPanel({
           </div>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             {equippedSkills.map((s, idx) => (
-              <button
+              <div
                 key={s.skillId}
-                type="button"
-                onClick={() => toggle(s.skillId)}
-                disabled={busy}
-                title={`${s.name} 해제`}
-                className="inline-flex h-8 max-w-36 shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 text-xs font-medium text-violet-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+                data-equipped-drop-id={s.skillId}
+                className={`relative inline-flex h-8 max-w-44 shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200 ${
+                  draggingId === s.skillId ? "opacity-55" : ""
+                }`}
               >
+                {dropTarget?.kind === "equipped" &&
+                  dropTarget.skillId === s.skillId && (
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute bottom-1 top-1 w-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
+                        dropTarget.edge === "before" ? "-left-1" : "-right-1"
+                      }`}
+                    />
+                  )}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${s.name} 장착 순서 이동`}
+                  title="드래그해서 장착 순서 변경"
+                  onPointerDown={(e) => {
+                    if (busy || e.button !== 0) return;
+                    e.preventDefault();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    startPointerDrag(
+                      "equipped",
+                      s.skillId,
+                      e.pointerId,
+                      e.clientX,
+                      e.clientY,
+                    );
+                  }}
+                  onPointerMove={(e) => {
+                    if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                    e.preventDefault();
+                    updatePointerDrag(e.clientX, e.clientY);
+                  }}
+                  onPointerUp={(e) => {
+                    if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                    e.preventDefault();
+                    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                    }
+                    finishPointerDrag(e.clientX, e.clientY);
+                  }}
+                  onPointerCancel={(e) => cancelPointerDrag(e.pointerId)}
+                  className={`flex h-6 w-5 touch-none cursor-grab items-center justify-center rounded text-violet-500 active:cursor-grabbing dark:text-violet-300 ${
+                    busy ? "pointer-events-none opacity-40" : "hover:bg-violet-100 dark:hover:bg-violet-900"
+                  }`}
+                >
+                  <DotsSixVertical size={14} weight="bold" />
+                </span>
                 <span className="tabular-nums text-violet-500 dark:text-violet-400">
                   {idx + 1}
                 </span>
-                <span className="truncate">{s.name}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => toggle(s.skillId)}
+                  disabled={busy}
+                  title={`${s.name} 해제`}
+                  className="min-w-0 truncate rounded px-1 py-0.5 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {s.name}
+                </button>
+              </div>
             ))}
           </div>
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-          라이브러리 순서
+        <label className="relative min-w-52 flex-1 sm:max-w-xs">
+          <MagnifyingGlass
+            size={14}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
+          />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="스킬 검색"
+            className="h-8 w-full rounded-md border border-zinc-300 bg-white py-1 pl-8 pr-2 text-xs text-zinc-800 outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+        </label>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCompact((v) => !v)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            {compact ? (
+              <Rows size={14} weight="bold" />
+            ) : (
+              <SquaresFour size={14} weight="bold" />
+            )}
+            {compact ? "상세" : "간략"}
+          </button>
+          <button
+            type="button"
+            onClick={sortPinnedFirst}
+            disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ArrowsDownUp size={14} weight="bold" />
+            즐겨찾기 우선
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+        {filterDefs.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setFilter(f.id)}
+            className={`h-7 shrink-0 rounded-md border px-2 text-[11px] font-medium ${
+              filter === f.id
+                ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-950/50 dark:text-sky-300"
+                : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span>
+          표시 {visibleLibrary.length} / {orderedLibrary.length}
         </span>
         <button
           type="button"
-          onClick={sortPinnedFirst}
-          disabled={busy || (order.length === 0 && favoriteIds.length === 0)}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          onClick={() => {
+            setQuery("");
+            setFilter("all");
+          }}
+          disabled={query.length === 0 && filter === "all"}
+          className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
         >
-          <ArrowsDownUp size={14} weight="bold" />
-          즐겨찾기 우선
+          초기화
         </button>
       </div>
       {spBreakdown && (
@@ -475,7 +707,7 @@ export function V2LoadoutPanel({
       )}
 
       <ul className="mt-3 space-y-1.5">
-        {orderedLibrary.map((s) => {
+        {visibleLibrary.map((s) => {
           const equipped = equippedSet.has(s.skillId);
           const favorite = favoriteSet.has(s.skillId);
           const wouldFit = spUsed + s.spCost <= spBudget;
@@ -491,7 +723,8 @@ export function V2LoadoutPanel({
                 draggingId === s.skillId ? "opacity-55" : ""
               }`}
             >
-              {dropTarget?.skillId === s.skillId && (
+              {dropTarget?.kind === "library" &&
+                dropTarget.skillId === s.skillId && (
                 <span
                   aria-hidden="true"
                   className={`pointer-events-none absolute left-3 right-3 h-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
@@ -508,13 +741,13 @@ export function V2LoadoutPanel({
                   if (busy || e.button !== 0) return;
                   e.preventDefault();
                   e.currentTarget.setPointerCapture(e.pointerId);
-                  dragSessionRef.current = {
-                    activeId: s.skillId,
-                    pointerId: e.pointerId,
-                  };
-                  setDraggingId(s.skillId);
-                  setDropTarget(null);
-                  updatePointerDrag(e.clientX, e.clientY);
+                  startPointerDrag(
+                    "library",
+                    s.skillId,
+                    e.pointerId,
+                    e.clientX,
+                    e.clientY,
+                  );
                 }}
                 onPointerMove={(e) => {
                   if (dragSessionRef.current?.pointerId !== e.pointerId) return;
@@ -559,7 +792,7 @@ export function V2LoadoutPanel({
                   </span>
                 </div>
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
-                <SkillEffectChips skillId={s.skillId} />
+                {!compact && <SkillEffectChips skillId={s.skillId} />}
               </div>
               <div className="flex shrink-0 items-start gap-1.5">
                 <button
@@ -603,6 +836,11 @@ export function V2LoadoutPanel({
             </li>
           );
         })}
+        {visibleLibrary.length === 0 && (
+          <li className="rounded-md border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+            조건에 맞는 스킬이 없어요.
+          </li>
+        )}
       </ul>
 
       {msg && (

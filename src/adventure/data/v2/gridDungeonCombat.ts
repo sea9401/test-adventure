@@ -25,6 +25,10 @@ export const GRID_DUNGEON_PARTY_SCALING: Partial<
   boss: { hpPerSupporter: 0.35, atkPerSupporter: 0.18 },
 };
 
+const FORMATION_TARGET_CYCLE = 10;
+const FRONTLINE_TARGET_SLOTS = 5;
+const FRONTLINE_DAMAGE_MULT = 0.75;
+
 export type GridDungeonPartyActor = {
   id: string;
   name: string;
@@ -248,9 +252,9 @@ function chooseEnemyTarget(
   if (alive.length === 0) return party[0];
   if (fronts.length === 0) return alive[(enemyActions - 1) % alive.length];
   if (backs.length === 0) return fronts[(enemyActions - 1) % fronts.length];
-  const cycle = (enemyActions - 1) % 10;
-  if (cycle < 6) return fronts[cycle % fronts.length];
-  return backs[(cycle - 6) % backs.length];
+  const cycle = (enemyActions - 1) % FORMATION_TARGET_CYCLE;
+  if (cycle < FRONTLINE_TARGET_SLOTS) return fronts[cycle % fronts.length];
+  return backs[(cycle - FRONTLINE_TARGET_SLOTS) % backs.length];
 }
 
 export function makeGridDungeonPartyActor({
@@ -381,7 +385,7 @@ export function resolveGridDungeonPartyCombat({
       const rawDamage = partyDamage(enemyAtk, target.def);
       const damage =
         target.formation === "front"
-          ? Math.max(1, Math.round(rawDamage * 0.85))
+          ? Math.max(1, Math.round(rawDamage * FRONTLINE_DAMAGE_MULT))
           : rawDamage;
       target.hp = Math.max(0, target.hp - damage);
       target.damageTaken += damage;

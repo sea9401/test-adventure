@@ -183,4 +183,23 @@ describe("gridDungeon party combat simulations", () => {
     expect(dpsResult?.formation).toBe("back");
     expect(tankResult?.damageTaken ?? 0).toBeGreaterThan(dpsResult?.damageTaken ?? 0);
   });
+
+  it("recommended dps and healer party still clears with main in front", () => {
+    const result = runRoom("boss", [dps(), healer()], "me");
+    expect(result.outcome).toBe("win");
+    expect(result.party.find((member) => member.id === "me")?.formation).toBe("front");
+    expect(result.playerHpAfter).toBeGreaterThan(0);
+  });
+
+  it("defensive frontline makes tank and healer party viable", () => {
+    const mainFront = runRoom("boss", [tank(), healer()], "me");
+    const tankFront = runRoom("boss", [tank(), healer()], "tank");
+    expect(mainFront.outcome).toBe("lose");
+    expect(tankFront.outcome).toBe("win");
+    expect(
+      tankFront.party.find((member) => member.id === "tank")?.damageTaken ?? 0,
+    ).toBeGreaterThan(
+      tankFront.party.find((member) => member.id === "healer")?.damageTaken ?? 0,
+    );
+  });
 });

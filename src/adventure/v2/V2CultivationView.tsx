@@ -19,14 +19,20 @@ import {
   parseV2Class,
   type V2Class,
 } from "@/adventure/data/v2/classes";
-import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
+import {
+  V2_ELEMENT_LABEL,
+  V2_PLAYER_ELEMENTS,
+  parseV2Element,
+  type V2Element,
+} from "@/adventure/data/v2/elements";
+import { elementChangeGoldCost } from "@/adventure/data/v2/respec";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
 
-// 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
-type ShrineTab = "job" | "cultivate";
+// 성장의 신전 내부 탭 — 직업(전직), 속성 재조율, 수행(스탯 한계↑)을 분리.
+type ShrineTab = "job" | "element" | "cultivate";
 
 // v2 수행(修行) — 직업 전직/재전직 + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
 // 옛 "성장의 신전"(수동 스탯 분배) 대체. 분배는 레벨업 랜덤 성장이 담당하고, 여기서는
@@ -72,7 +78,7 @@ type StateShape = {
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
-  const { refreshGameState } = useGameState();
+  const { refreshGameState, coreLoopOn, bankedGold } = useGameState();
   // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
@@ -90,6 +96,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
   } | null>(null);
+  const [selectedElement, setSelectedElement] = useState<V2Element>("neutral");
   // 직업 시스템 v2(직업 숙련도 점진 공개) — null(코어루프 off)이면 V2ClassGrid 폴백.
   const [jobLadder, setJobLadder] = useState<{
     currentJobId: string;
@@ -116,14 +123,16 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
         if (j.character) {
+          const elem = parseV2Element(j.character.element);
           setPicker({
             cls: parseV2Class(j.character.class),
-            elem: parseV2Element(j.character.element),
+            elem,
             level: j.character.level ?? 1,
             gold: j.character.gold ?? 0,
             groups: j.proficiency?.groups ?? {},
             advance: cur.advance ?? null,
           });
+          setSelectedElement(elem);
         }
         // 코어루프 on(jobsV2 비null)이면 점진 공개 사다리. off 면 null → 레거시 V2ClassGrid 폴백.
         setJobLadder(
@@ -158,6 +167,17 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       : "";
   const canCultivate =
     !!profile && !busy && usable >= nextCost && nextCost > 0;
+  const currentElement = picker?.elem ?? "neutral";
+  const elementChanged = selectedElement !== currentElement;
+  const elementCost =
+    picker && elementChanged ? elementChangeGoldCost(picker.level) : 0;
+  const spendableGold = picker
+    ? coreLoopOn
+      ? picker.gold + bankedGold
+      : picker.gold
+    : 0;
+  const canChangeElement =
+    !!picker && elementChanged && !busy && spendableGold >= elementCost;
 
   const cultivate = useCallback(async () => {
     setBusy(true);
@@ -199,6 +219,58 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     }
   }, [caps, cultivations, usable, nextCost]);
 
+  const changeElement = useCallback(async () => {
+    if (!picker || !elementChanged) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/class-element", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ class: picker.cls, element: selectedElement }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        spent?: number;
+        required?: number;
+        have?: number;
+        cooldownUntil?: number;
+      } | null;
+      if (!j?.ok) {
+        const label =
+          j?.error === "insufficient_gold"
+            ? `골드 부족 (필요 ${(j.required ?? elementCost).toLocaleString()}G, 보유 ${(j.have ?? spendableGold).toLocaleString()}G)`
+            : j?.error === "element_respec_cooldown"
+              ? "속성 재조율은 24시간에 한 번만 가능해요"
+              : j?.error === "bad_class"
+                ? "현재 직업 상태를 확인하지 못했어요"
+                : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
+        return;
+      }
+      const spent = j.spent ?? elementCost;
+      setMsg(
+        spent > 0
+          ? `✓ 속성 재조율 완료 (${spent.toLocaleString()}G 사용)`
+          : "✓ 속성 설정 완료",
+      );
+      await Promise.all([refresh(), refreshGameState()]);
+    } catch (err) {
+      setMsg(`✗ ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    elementChanged,
+    elementCost,
+    picker,
+    refresh,
+    refreshGameState,
+    selectedElement,
+    spendableGold,
+  ]);
+
   // 프로필 스탯(앵커 + 관련 2) 을 상승치 큰 순으로.
   const profileStats: V2StatKey[] = profile
     ? (Object.keys(profile) as V2StatKey[]).sort(
@@ -214,10 +286,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         <TabBar
           tabs={[
             { key: "job", label: "직업" },
+            { key: "element", label: "속성" },
             { key: "cultivate", label: "수행" },
           ]}
           active={tab}
-          onChange={setTab}
+          onChange={(next) => {
+            setTab(next);
+            setMsg(null);
+          }}
           ariaLabel="성장의 신전 탭"
           size="md"
         />
@@ -258,6 +334,87 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             </p>
           </Card>
         ))}
+
+      {tab === "element" && (
+        <>
+          <Card padding="md">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">속성 재조율</h2>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  현재 속성{" "}
+                  <strong className="text-zinc-900 dark:text-zinc-100">
+                    {V2_ELEMENT_LABEL[currentElement]}
+                  </strong>
+                </p>
+              </div>
+              <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
+                <div>
+                  비용{" "}
+                  <strong
+                    className={
+                      spendableGold >= elementCost
+                        ? "tabular-nums text-emerald-700 dark:text-emerald-400"
+                        : "tabular-nums text-rose-600 dark:text-rose-400"
+                    }
+                  >
+                    {elementCost.toLocaleString()}G
+                  </strong>
+                </div>
+                <div>24시간 1회</div>
+              </div>
+            </div>
+
+            {loading || !picker ? (
+              <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                {loading ? "불러오는 중…" : "속성 정보를 불러오지 못했어요."}
+              </p>
+            ) : (
+              <>
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {V2_PLAYER_ELEMENTS.map((elem) => {
+                    const active = selectedElement === elem;
+                    return (
+                      <button
+                        key={elem}
+                        type="button"
+                        onClick={() => setSelectedElement(elem)}
+                        className={`min-h-11 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                          active
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-800 dark:border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200"
+                            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-700"
+                        }`}
+                      >
+                        {V2_ELEMENT_LABEL[elem]}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    보유 가능 골드 {spendableGold.toLocaleString()}G
+                  </span>
+                  <Button
+                    onClick={changeElement}
+                    disabled={!canChangeElement}
+                    variant="success"
+                    size="md"
+                  >
+                    {busy ? "재조율 중…" : "속성 변경"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </Card>
+
+          {msg && (
+            <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
+              {msg}
+            </StatusBanner>
+          )}
+        </>
+      )}
 
       {/* === 수행 탭 — 숙달 포인트로 스탯 한계치↑ === */}
       {tab === "cultivate" && (

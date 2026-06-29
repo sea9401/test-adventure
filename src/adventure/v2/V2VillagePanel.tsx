@@ -116,27 +116,33 @@ export function V2VillagePanel({
   const [donateIronOre, setDonateIronOre] = useState("");
 
   const load = useCallback(async () => {
+    setErr(null);
     try {
       const r = await fetch(
-        isTileOutpostId(outpostId)
-          ? `/api/v2/outpost/village?outpostId=${encodeURIComponent(outpostId)}`
-          : "/api/v2/outpost/village",
+        `/api/v2/outpost/village?outpostId=${encodeURIComponent(outpostId)}`,
       );
       const j = (await r.json().catch(() => null)) as {
         ok?: boolean;
         villages?: Village[];
         resources?: Resources;
         gold?: number;
+        error?: string;
       } | null;
-      if (j?.ok) {
-        const v = (j.villages ?? []).find((x) => x.outpostId === outpostId);
-        setVillage(v ?? null);
-        setExists(!!v);
-        setResources(j.resources ?? {});
-        setGold(j.gold ?? 0);
+      if (!r.ok || !j?.ok) {
+        setErr(j?.error ? `load_failed:${j.error}` : `load_failed:${r.status}`);
+        setVillage(null);
+        setExists(false);
+        return;
       }
+      const v = (j.villages ?? []).find((x) => x.outpostId === outpostId);
+      setVillage(v ?? null);
+      setExists(!!v);
+      setResources(j.resources ?? {});
+      setGold(j.gold ?? 0);
     } catch {
-      // 무시 — 패널은 비치명
+      setErr("load_failed:network");
+      setVillage(null);
+      setExists(false);
     }
   }, [outpostId]);
   useEffect(() => {
@@ -755,4 +761,7 @@ const ERR_MESSAGES: Record<string, string> = {
   smithy_required: "길드 대장간이 필요해요.",
   max_level: "이미 최고 레벨이에요.",
   insufficient_resources: "정착지 재화가 부족해요.",
+  "load_failed:401": "로그인이 필요해요. 새로고침 후 다시 시도해주세요.",
+  "load_failed:500": "마을 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
+  "load_failed:network": "네트워크 오류로 마을 정보를 불러오지 못했어요.",
 };

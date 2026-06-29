@@ -54,8 +54,28 @@ export async function GET(req?: Request) {
     ? new URL(req.url).searchParams.get("outpostId")
     : null;
 
-  // ── 타일 정착지 단건(소유별 풀) ──────────────────────────────────────────
-  if (V2_TILE_PRODUCTION && qOutpost && isTileOutpostId(qOutpost)) {
+  // ── 거점 단건(현재 화면용) ────────────────────────────────────────────────
+  // 단건 조회를 지원해 한 마을 데이터 문제가 전체 생산 관리 탭 로딩을 막지 않게 한다.
+  if (qOutpost && (!isTileOutpostId(qOutpost) || V2_TILE_PRODUCTION)) {
+    if (!isTileOutpostId(qOutpost)) {
+      const out = await db.transaction(async (tx) => {
+        const guildId = await getGuildId(tx, userId);
+        if (guildId == null) return { villages: [], resources: {}, gold: 0 };
+        const [village, resources, guildRes] = await Promise.all([
+          readVillage(tx, qOutpost),
+          readGuildSettlement(tx, guildId),
+          readGuildResources(tx, guildId),
+        ]);
+        return {
+          villages:
+            village && village.guildId === guildId ? [villageDto(village)] : [],
+          resources,
+          gold: guildRes.gold,
+        };
+      });
+      return Response.json({ ok: true, serverNow: now, ...out });
+    }
+
     const pos = parseTileOutpostId(qOutpost);
     if (!pos) {
       return Response.json({ ok: true, serverNow: now, villages: [], resources: {}, gold: 0 });

@@ -2,9 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { Crown, Package, Sword } from "@phosphor-icons/react";
+import {
+  CheckCircle,
+  Circle,
+  Crown,
+  Diamond,
+  HandFist,
+  Package,
+  Shield,
+  Sneaker,
+  Sword,
+  type Icon,
+} from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/Button";
+import { Pagination } from "@/components/ui/Pagination";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { usePagination } from "@/lib/usePagination";
 import {
   V2_MATERIALS,
   V2_MATERIAL_SELL_PRICE,
@@ -32,11 +47,21 @@ import {
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
+  V2_SLOT_LABEL,
+  effectiveStats,
   isUnique,
+  v2EquipPowerLabel,
+  v2EquipStatRows,
   type V2Equipment,
   type V2EquipmentId,
+  type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 import {
   FISH,
   FISH_IDS,
@@ -104,8 +129,182 @@ type CodexTab =
   | "materials"
   | "fish"
   | "treasure"
+  | "equipment"
   | "title"
   | "job";
+
+const EQUIPMENT_PAGE_SIZE = 20;
+const EQUIPMENT_SLOTS: V2EquipSlot[] = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+];
+
+const EQUIPMENT_SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
+  weapon: { Icon: Sword, color: "text-rose-500" },
+  armor: { Icon: Shield, color: "text-sky-500" },
+  gloves: { Icon: HandFist, color: "text-amber-500" },
+  boots: { Icon: Sneaker, color: "text-emerald-500" },
+  ring: { Icon: Circle, color: "text-violet-500" },
+  necklace: { Icon: Diamond, color: "text-pink-500" },
+};
+
+function equipmentStatLine(item: V2Equipment): string {
+  const powerLabel = v2EquipPowerLabel(item);
+  const parts = [`${powerLabel} ${effectiveStats(item, undefined).power}`];
+  for (const row of v2EquipStatRows(item)) {
+    if (row.label === powerLabel || row.label === "무게") continue;
+    parts.push(`${row.label} ${row.value}`);
+  }
+  return parts.join(" · ");
+}
+
+function EquipmentCodexPanel({
+  ownedIds,
+  registeredIds,
+  busyId,
+  onOpenCard,
+  onRegister,
+  onRegisterAll,
+}: {
+  ownedIds: Set<string>;
+  registeredIds: Set<string>;
+  busyId: string | null;
+  onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
+  onRegister: (id: V2EquipmentId) => void;
+  onRegisterAll: (slot: V2EquipSlot) => void;
+}) {
+  const [slot, setSlot] = useState<V2EquipSlot>("weapon");
+  const entries = (Object.keys(V2_EQUIPMENT) as V2EquipmentId[])
+    .map((id) => V2_EQUIPMENT[id])
+    .filter((item) => item.slot === slot)
+    .sort(
+      (a, b) =>
+        a.name.localeCompare(b.name, "ko") ||
+        a.id.localeCompare(b.id),
+    );
+  const pager = usePagination(entries, EQUIPMENT_PAGE_SIZE, slot);
+  const registeredInSlot = entries.filter((item) =>
+    registeredIds.has(item.id),
+  ).length;
+  const registerableInSlot = entries.filter(
+    (item) => ownedIds.has(item.id) && !registeredIds.has(item.id),
+  ).length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5">
+        {EQUIPMENT_SLOTS.map((s) => {
+          const total = (Object.keys(V2_EQUIPMENT) as V2EquipmentId[]).filter(
+            (id) => V2_EQUIPMENT[id].slot === s,
+          ).length;
+          const count = (Object.keys(V2_EQUIPMENT) as V2EquipmentId[]).filter(
+            (id) => V2_EQUIPMENT[id].slot === s && registeredIds.has(id),
+          ).length;
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSlot(s)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                slot === s
+                  ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              }`}
+            >
+              {V2_SLOT_LABEL[s]} {count}/{total}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+          {V2_SLOT_LABEL[slot]} {registeredInSlot}/{entries.length}종 등록
+        </div>
+        <Button
+          onClick={() => onRegisterAll(slot)}
+          disabled={busyId !== null || registerableInSlot === 0}
+          variant="success"
+          size="xs"
+          className="min-h-0 px-2.5 py-1 text-[11px]"
+        >
+          보유 장비 일괄 등록
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {pager.pageItems.map((item) => {
+          const registered = registeredIds.has(item.id);
+          const owned = ownedIds.has(item.id);
+          const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
+          return (
+            <div
+              key={item.id}
+              className={`relative flex min-h-[6.75rem] flex-col gap-1 p-3 text-left transition ${
+                registered
+                  ? "rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-emerald-950 dark:ring-emerald-900"
+                  : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
+              }`}
+            >
+              <button
+                type="button"
+                onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+                className="flex flex-1 flex-col gap-1 text-left"
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <Icon size={20} weight="duotone" className={color} />
+                  {registered ? (
+                    <span className="inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
+                      <CheckCircle size={12} weight="fill" />
+                      등록
+                    </span>
+                  ) : owned ? (
+                    <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                      등록 가능
+                    </span>
+                  ) : (
+                    <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                      미등록
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item)}`}
+                >
+                  {item.name}
+                </div>
+                <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                  {equipmentStatLine(item)}
+                </div>
+              </button>
+              {owned && !registered && (
+                <button
+                  type="button"
+                  onClick={() => onRegister(item.id)}
+                  disabled={busyId === item.id}
+                  className={`mt-auto inline-flex h-6 items-center justify-center rounded border border-emerald-500 px-2 text-[11px] font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950 ${
+                    busyId === item.id ? "opacity-50" : ""
+                  }`}
+                >
+                  등록
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <Pagination
+        page={pager.page}
+        pageCount={pager.pageCount}
+        setPage={pager.setPage}
+      />
+    </div>
+  );
+}
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -181,6 +380,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
   const [antiqueDiscovered, setAntiqueDiscovered] = useState<Set<string>>(new Set());
   const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
+  const [equipmentOwnedIds, setEquipmentOwnedIds] = useState<Set<string>>(new Set());
+  const [equipmentRegisteredIds, setEquipmentRegisteredIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [equipmentCodexLoaded, setEquipmentCodexLoaded] = useState(false);
+  const [equipmentBusyId, setEquipmentBusyId] = useState<string | null>(null);
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
   const [frontierDepth, setFrontierDepth] = useState(0);
   // 칭호 — 보유 목록(획득한 것만)·현재 장착. 장착은 /api/v2/me/equip-title POST.
@@ -250,6 +455,71 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     };
   }, [tab, jobCodex]);
 
+  useEffect(() => {
+    if (tab !== "equipment" || equipmentCodexLoaded) return;
+    let alive = true;
+    fetch("/api/v2/me/equipment-codex")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j?.ok) return;
+        setEquipmentOwnedIds(
+          new Set(Array.isArray(j.ownedIds) ? (j.ownedIds as string[]) : []),
+        );
+        setEquipmentRegisteredIds(
+          new Set(
+            Array.isArray(j.registeredIds)
+              ? (j.registeredIds as string[])
+              : [],
+          ),
+        );
+        setEquipmentCodexLoaded(true);
+      })
+      .catch(() => null);
+    return () => {
+      alive = false;
+    };
+  }, [tab, equipmentCodexLoaded]);
+
+  const registerEquipment = async (id: V2EquipmentId) => {
+    if (equipmentBusyId) return;
+    setEquipmentBusyId(id);
+    try {
+      const res = await fetch("/api/v2/me/equipment-codex", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.ok) throw new Error();
+      setEquipmentOwnedIds(new Set(j.ownedIds as string[]));
+      setEquipmentRegisteredIds(new Set(j.registeredIds as string[]));
+    } catch {
+      // 등록 실패는 서버 권위 상태를 유지한다.
+    } finally {
+      setEquipmentBusyId(null);
+    }
+  };
+
+  const registerAllEquipment = async (slot: V2EquipSlot) => {
+    if (equipmentBusyId) return;
+    setEquipmentBusyId(`all:${slot}`);
+    try {
+      const res = await fetch("/api/v2/me/equipment-codex", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ allOwned: true, slot }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok || !j?.ok) throw new Error();
+      setEquipmentOwnedIds(new Set(j.ownedIds as string[]));
+      setEquipmentRegisteredIds(new Set(j.registeredIds as string[]));
+    } catch {
+      // 등록 실패는 서버 권위 상태를 유지한다.
+    } finally {
+      setEquipmentBusyId(null);
+    }
+  };
+
   // 칭호 장착/해제 — 낙관적 갱신 후 서버 확정(실패 시 롤백). titleId=null 이면 해제.
   const equipTitle = async (titleId: string | null) => {
     if (titleBusy || titleId === equippedTitleId) return;
@@ -309,6 +579,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ["huntground", "사냥터"],
             ["fish", "어보"],
             ["treasure", "유물"],
+            ["equipment", "장비"],
             ["title", "칭호"],
             ["job", "직업"],
           ] as const
@@ -686,6 +957,23 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           })}
         </div>
       )}
+      {tab === "equipment" &&
+        (equipmentCodexLoaded ? (
+          <EquipmentCodexPanel
+            ownedIds={equipmentOwnedIds}
+            registeredIds={equipmentRegisteredIds}
+            busyId={equipmentBusyId}
+            onOpenCard={(item, anchor) => setCard({ item, anchor })}
+            onRegister={(id) => void registerEquipment(id)}
+            onRegisterAll={(slot) => void registerAllEquipment(slot)}
+          />
+        ) : (
+          <Card padding="md">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              장비 도감을 불러오는 중…
+            </p>
+          </Card>
+        ))}
       {tab === "title" &&
         (ownedTitleCount === 0 ? (
           <EmptyState

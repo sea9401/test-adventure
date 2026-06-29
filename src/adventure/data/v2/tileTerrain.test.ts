@@ -51,7 +51,7 @@ describe("TILE_TERRAIN — 배치 데이터", () => {
     }
   });
 
-  it("배치 종류는 산맥/협곡/호수/온천/요새터/교역로", () => {
+  it("배치 종류는 산맥/협곡/호수/온천/요새터/교역로/던전", () => {
     const kinds = new Set(Object.values(TILE_TERRAIN).map((f) => f.kind));
     for (const kind of kinds) {
       expect([
@@ -61,6 +61,7 @@ describe("TILE_TERRAIN — 배치 데이터", () => {
         "hotspring",
         "stronghold",
         "trade_route",
+        "dungeon",
       ]).toContain(kind);
     }
   });
@@ -78,10 +79,11 @@ describe("tileFeatureAt / isTileSettleable — 헬퍼", () => {
     expect(tileFeatureAt(2, 4)?.kind).toBe("canyon");
     expect(tileFeatureAt(6, 6)?.kind).toBe("lake");
     expect(tileFeatureAt(1, 1)?.kind).toBe("hotspring");
+    expect(tileFeatureAt(3, 2)?.kind).toBe("dungeon");
     expect(tileFeatureAt(0, 0)).toBeNull();
   });
 
-  it("빈 칸·협곡·요새터·교역로는 settleable, 산맥·호수·온천은 not", () => {
+  it("빈 칸·협곡·요새터·교역로는 settleable, 산맥·호수·온천·던전은 not", () => {
     expect(isTileSettleable(0, 0)).toBe(true); // 빈 땅
     expect(isTileSettleable(2, 4)).toBe(true); // 협곡(길목)
     expect(isTileSettleable(8, 4)).toBe(true); // 요새터(ON-tile)
@@ -89,6 +91,7 @@ describe("tileFeatureAt / isTileSettleable — 헬퍼", () => {
     expect(isTileSettleable(2, 1)).toBe(false); // 산맥
     expect(isTileSettleable(6, 6)).toBe(false); // 호수
     expect(isTileSettleable(1, 1)).toBe(false); // 온천(아우라 타일)
+    expect(isTileSettleable(3, 2)).toBe(false); // 던전 입구(진입형 콘텐츠)
   });
 });
 
@@ -126,6 +129,7 @@ describe("TILE_TERRAIN_LABEL — 라벨", () => {
       "hotspring",
       "stronghold",
       "trade_route",
+      "dungeon",
     ];
     for (const kind of kinds) {
       expect(TILE_TERRAIN_LABEL[kind]).toBeTruthy();
@@ -184,10 +188,12 @@ describe("온천(hotspring) 수혜 zone — HOTSPRING_BENEFIT_COORDS (P2)", () =
 });
 
 describe("배치 — 통행 가능 칸은 단일 연결 성분(영구 고립 없음)", () => {
-  // 산맥·호수(settleable=false)를 벽으로 두고, 통행 가능 칸 전체를 4-인접 BFS 로 잇는다.
+  // 산맥·호수(settleable=false)를 벽으로 두되, 던전 입구는 진입형 콘텐츠라 통행 가능 예외로
+  // 두고 4-인접 BFS 로 잇는다.
   //   리베라(4,4)에서 모든 통행 가능 칸에 도달 가능해야 한다(어떤 구역도 영원히 갇히지 않음).
   it("리베라에서 모든 통행 가능 칸 도달 가능", () => {
-    const passable = (c: number, r: number) => isTileSettleable(c, r);
+    const passable = (c: number, r: number) =>
+      isTileSettleable(c, r) || tileFeatureAt(c, r)?.kind === "dungeon";
     const start: [number, number] = [TILE_BOARD_CENTER, TILE_BOARD_CENTER];
     expect(passable(start[0], start[1])).toBe(true);
 

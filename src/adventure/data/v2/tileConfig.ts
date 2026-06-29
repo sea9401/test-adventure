@@ -81,8 +81,8 @@ export type TileFeatureKind =
   | "lake" // 수공(水攻) 방어 — 통행/정착 불가(settleable=false). 인접 방어보너스는 후속 PR.
   | "hotspring" // 건강도(전쟁HP) 회복 가속 — P2(아우라 타일·settleable=false).
   | "stronghold" // 그 칸 정착지 fortMaxHp ×1.15 — P3(settleable=true·ON-tile).
-  | "trade_route"; // 그 칸 정착지 세금 +15%·약탈 손실 +10% — P3(settleable=true·ON-tile).
-// 미래(진입형 던전): | "dungeon" — settleable=false + interaction(§7 자리 예약).
+  | "trade_route" // 그 칸 정착지 세금 +15%·약탈 손실 +10% — P3(settleable=true·ON-tile).
+  | "dungeon"; // 진입형 던전 — 정착 불가지만 이동/입장 가능.
 
 export type TileFeature = {
   kind: TileFeatureKind;
@@ -120,6 +120,12 @@ export const TILE_TERRAIN: Record<string, TileFeature> = {
   [tileKey(7, 7)]: { kind: "stronghold", settleable: true },
   // 교역로(P3) — ON-tile(settleable=true). 그 칸 정착지 세금 발생 ×1.15 + 약탈 손실 ×1.10(양날).
   [tileKey(1, 6)]: { kind: "trade_route", settleable: true },
+  // 첫 격자 던전 입구 — 정착/점령은 막고, move-tile 에서 진입형 목적지 예외로 통행 허용.
+  [tileKey(3, 2)]: {
+    kind: "dungeon",
+    settleable: false,
+    interaction: { kind: "grid_dungeon", routeId: "old_ruins", access: "neutral" },
+  },
 };
 
 // 좌표 → 피처(미배치 = null). 서버·클라 공용 순수함수.
@@ -138,6 +144,7 @@ export const TILE_TERRAIN_LABEL: Record<TileFeatureKind, string> = {
   hotspring: "온천",
   stronghold: "요새터",
   trade_route: "교역로",
+  dungeon: "던전 입구",
 };
 
 // === 온천(hotspring) 수혜 zone (P2) ===============================================

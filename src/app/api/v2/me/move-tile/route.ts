@@ -20,6 +20,7 @@ import {
   tileKey,
   isTileSettleable,
 } from "@/adventure/data/v2/tileConfig";
+import { isAtGridDungeonEntrance } from "@/adventure/data/v2/gridDungeon";
 
 // POST /api/v2/me/move-tile — 거점 없는 빈 칸으로 자유 이동. (자유 타일 지도 Phase 2)
 //
@@ -74,7 +75,8 @@ export async function POST(req: Request) {
   }
   // 산맥·호수 등 통행 불가 지형(settleable=false)은 빈 칸이라도 이동할 수 없다 — 정복 인접
   //   사슬의 디딤돌이 될 수 없는 "벽"(docs/v2-map-terrain-plan.md §2.1/2.6).
-  if (!isTileSettleable(col, row)) {
+  //   던전 입구는 정착 불가여도 진입형 콘텐츠 목적지라 통행 가능 예외로 둔다.
+  if (!isTileSettleable(col, row) && !isAtGridDungeonEntrance({ col, row })) {
     return Response.json(
       { ok: false, error: "impassable_terrain" },
       { status: 400 },

@@ -544,7 +544,7 @@ export function TileMap({
               </div>
             );
           })()
-        ) : selFeature && !selFeature.settleable ? (
+        ) : selFeature && !selFeature.settleable && !selectedDungeonEntrance ? (
           // 통행 불가 지형(산맥·호수) — 이동/개척 불가. 정보만 표시.
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
             <div className="min-w-0">

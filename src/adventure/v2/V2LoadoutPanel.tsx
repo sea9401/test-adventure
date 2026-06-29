@@ -20,6 +20,7 @@ export type V2LoadoutSpBreakdown = {
   milestoneSp: number;
   masteryBonusSp: number;
   spFruitBonus: number;
+  equipmentCodexBonus?: number;
   collectionBonusSp: number;
   collectionBonus?: {
     fishSp: number;
@@ -158,6 +159,7 @@ export function V2LoadoutPanel({
             <span>직업군 정복 +{spBreakdown.masteryBonusSp}</span>
             <span>SP 열매 +{spBreakdown.spFruitBonus}</span>
             <span>도감 +{spBreakdown.collectionBonusSp}</span>
+            <span>장비 도감 +{spBreakdown.equipmentCodexBonus ?? 0}</span>
           </div>
           {spBreakdown.groups.length > 0 && (
             <div className="mt-2 grid gap-1 sm:grid-cols-2">

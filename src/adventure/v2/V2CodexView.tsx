@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Crown, Package, Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -32,7 +32,11 @@ import {
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
+  V2_SLOT_LABEL,
   isUnique,
+  v2ItemTypeLabel,
+  type V2EquipInstance,
+  type V2EquipSlot,
   type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -102,10 +106,43 @@ const TIER_BADGE: Record<FishTier, string> = {
 type CodexTab =
   | "huntground"
   | "materials"
+  | "equipment"
   | "fish"
   | "treasure"
   | "title"
   | "job";
+
+type EquipmentCodexMeta = {
+  registeredCount: number;
+  total: number;
+  spBonus: number;
+  milestones: number[];
+  nextMilestone: number | null;
+};
+
+type EquipmentCodexResponse = Partial<EquipmentCodexMeta> & {
+  ok?: boolean;
+  registeredIds?: unknown;
+  owned?: unknown;
+  equipped?: unknown;
+};
+
+const EQUIPMENT_IDS = Object.keys(V2_EQUIPMENT) as V2EquipmentId[];
+const EQUIPMENT_SLOT_ORDER: V2EquipSlot[] = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+];
+const DEFAULT_EQUIPMENT_CODEX_META: EquipmentCodexMeta = {
+  registeredCount: 0,
+  total: EQUIPMENT_IDS.length,
+  spBonus: 0,
+  milestones: [],
+  nextMilestone: null,
+};
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -250,6 +287,118 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     };
   }, [tab, jobCodex]);
 
+  const [equipmentRegisteredIds, setEquipmentRegisteredIds] = useState<
+    Set<string>
+  >(new Set());
+  const [equipmentCodexMeta, setEquipmentCodexMeta] =
+    useState<EquipmentCodexMeta>(DEFAULT_EQUIPMENT_CODEX_META);
+  const [ownedEquipment, setOwnedEquipment] = useState<V2EquipInstance[]>([]);
+  const [equippedEquipment, setEquippedEquipment] = useState<
+    Partial<Record<V2EquipSlot, string>>
+  >({});
+  const [equipmentCodexLoading, setEquipmentCodexLoading] = useState(false);
+  const [equipmentCodexBusy, setEquipmentCodexBusy] = useState<string | null>(
+    null,
+  );
+  const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab !== "equipment") return;
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 장비 탭 진입 시 도감/보유 장비 lazy fetch
+    setEquipmentCodexLoading(true);
+    setEquipmentCodexMsg(null);
+    Promise.all([
+      fetch("/api/v2/me/equipment-codex").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([codex, equipment]) => {
+        if (!alive) return;
+        applyEquipmentCodexPayload(codex as EquipmentCodexResponse | null);
+        if (equipment && Array.isArray(equipment.owned)) {
+          setOwnedEquipment(equipment.owned as V2EquipInstance[]);
+        }
+        if (equipment?.equipped && typeof equipment.equipped === "object") {
+          setEquippedEquipment(
+            equipment.equipped as Partial<Record<V2EquipSlot, string>>,
+          );
+        }
+      })
+      .catch(() => {
+        if (alive) setEquipmentCodexMsg("장비 도감을 불러오지 못했어요");
+      })
+      .finally(() => {
+        if (alive) setEquipmentCodexLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tab]);
+
+  function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
+    if (!j) return;
+    const ids = Array.isArray(j.registeredIds)
+      ? j.registeredIds.filter((id): id is string => typeof id === "string")
+      : [];
+    setEquipmentRegisteredIds(new Set(ids));
+    setEquipmentCodexMeta({
+      registeredCount:
+        typeof j.registeredCount === "number" ? j.registeredCount : ids.length,
+      total: typeof j.total === "number" ? j.total : EQUIPMENT_IDS.length,
+      spBonus: typeof j.spBonus === "number" ? j.spBonus : 0,
+      milestones: Array.isArray(j.milestones)
+        ? j.milestones.filter((n): n is number => typeof n === "number")
+        : [],
+      nextMilestone:
+        typeof j.nextMilestone === "number" ? j.nextMilestone : null,
+    });
+  }
+
+  async function registerEquipment(inst: V2EquipInstance) {
+    const item = V2_EQUIPMENT[inst.id];
+    if (!item || equipmentCodexBusy) return;
+    if (!window.confirm(`${item.name} 1개를 장비 도감에 등록할까요?`)) return;
+    setEquipmentCodexBusy(inst.iid);
+    setEquipmentCodexMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/equipment-codex", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iid: inst.iid }),
+      });
+      const j = (await res.json().catch(() => null)) as
+        | (EquipmentCodexResponse & {
+            ok?: boolean;
+            error?: string;
+            owned?: V2EquipInstance[];
+            equipped?: Partial<Record<V2EquipSlot, string>>;
+          })
+        | null;
+      if (!res.ok || !j?.ok) {
+        const reason =
+          j?.error === "locked"
+            ? "잠긴 장비는 등록할 수 없어요"
+            : j?.error === "equipped"
+              ? "장착 중인 장비는 등록할 수 없어요"
+              : j?.error === "already_registered"
+                ? "이미 등록된 장비예요"
+                : "장비를 등록할 수 없어요";
+        setEquipmentCodexMsg(reason);
+        return;
+      }
+      applyEquipmentCodexPayload(j);
+      if (Array.isArray(j.owned)) setOwnedEquipment(j.owned);
+      if (j.equipped && typeof j.equipped === "object") {
+        setEquippedEquipment(j.equipped);
+      }
+      setEquipmentCodexMsg(`${item.name} 등록 완료`);
+    } catch {
+      setEquipmentCodexMsg("오류가 발생했어요");
+    } finally {
+      setEquipmentCodexBusy(null);
+    }
+  }
+
   // 칭호 장착/해제 — 낙관적 갱신 후 서버 확정(실패 시 롤백). titleId=null 이면 해제.
   const equipTitle = async (titleId: string | null) => {
     if (titleBusy || titleId === equippedTitleId) return;
@@ -296,6 +445,37 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     }))
     .filter((e) => e.sources.length > 0)
     .sort((a, b) => a.material.name.localeCompare(b.material.name));
+  const equipmentEntries = useMemo(
+    () =>
+      [...EQUIPMENT_IDS].sort((a, b) => {
+        const ia = V2_EQUIPMENT[a];
+        const ib = V2_EQUIPMENT[b];
+        return (
+          EQUIPMENT_SLOT_ORDER.indexOf(ia.slot) -
+            EQUIPMENT_SLOT_ORDER.indexOf(ib.slot) ||
+          ia.tier - ib.tier ||
+          ia.name.localeCompare(ib.name, "ko")
+        );
+      }),
+    [],
+  );
+  const equippedIids = useMemo(
+    () => new Set(Object.values(equippedEquipment).filter(Boolean)),
+    [equippedEquipment],
+  );
+  const equipmentCounts = useMemo(() => {
+    const owned = new Map<string, number>();
+    const eligible = new Map<string, V2EquipInstance[]>();
+    for (const inst of ownedEquipment) {
+      owned.set(inst.id, (owned.get(inst.id) ?? 0) + 1);
+      if (!inst.locked && !equippedIids.has(inst.iid)) {
+        const arr = eligible.get(inst.id) ?? [];
+        arr.push(inst);
+        eligible.set(inst.id, arr);
+      }
+    }
+    return { owned, eligible };
+  }, [ownedEquipment, equippedIids]);
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
@@ -307,6 +487,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         {(
           [
             ["huntground", "사냥터"],
+            ["equipment", "장비"],
             ["fish", "어보"],
             ["treasure", "유물"],
             ["title", "칭호"],
@@ -494,6 +675,134 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             })}
           </div>
         ))}
+
+      {tab === "equipment" && (
+        <div className="space-y-3">
+          <Card padding="md">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold">장비 도감</h2>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  등록 {equipmentCodexMeta.registeredCount} /{" "}
+                  {equipmentCodexMeta.total}종 · SP +{equipmentCodexMeta.spBonus}
+                </p>
+              </div>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                다음 보상{" "}
+                {equipmentCodexMeta.nextMilestone
+                  ? `${equipmentCodexMeta.nextMilestone}종`
+                  : "신규 장비 추가 시 확장"}
+              </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-[width]"
+                style={{
+                  width: `${
+                    equipmentCodexMeta.total > 0
+                      ? Math.min(
+                          100,
+                          (equipmentCodexMeta.registeredCount /
+                            equipmentCodexMeta.total) *
+                            100,
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+            {equipmentCodexMeta.milestones.length > 0 && (
+              <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                SP 보상: {equipmentCodexMeta.milestones.join(" / ")}종
+              </p>
+            )}
+            {equipmentCodexMsg && (
+              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+                {equipmentCodexMsg}
+              </p>
+            )}
+          </Card>
+
+          {equipmentCodexLoading ? (
+            <Card padding="md">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                장비 도감을 불러오는 중입니다.
+              </p>
+            </Card>
+          ) : (
+            <Card padding="none" className="overflow-hidden">
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {equipmentEntries.map((id) => {
+                  const item = V2_EQUIPMENT[id];
+                  const registered = equipmentRegisteredIds.has(id);
+                  const ownedCount = equipmentCounts.owned.get(id) ?? 0;
+                  const eligible = equipmentCounts.eligible.get(id) ?? [];
+                  const inst = eligible[0] ?? null;
+                  const disabled =
+                    registered || !inst || equipmentCodexBusy !== null;
+                  const buttonLabel = registered
+                    ? "등록됨"
+                    : inst
+                      ? "등록"
+                      : ownedCount > 0
+                        ? "장착·잠금"
+                        : "보유 없음";
+                  return (
+                    <li
+                      key={id}
+                      className={`px-3 py-2.5 ${registered ? "" : "opacity-80"}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                              {item.name}
+                            </span>
+                            <span className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
+                              {V2_SLOT_LABEL[item.slot]}
+                            </span>
+                            <span className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
+                              {v2ItemTypeLabel(item)}
+                            </span>
+                            {registered && (
+                              <span className="rounded bg-emerald-200/70 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                                등재
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                            T{item.tier} · 위력 {item.power} · 무게 {item.weight} ·
+                            보유 {ownedCount} · 등록 가능 {eligible.length}
+                          </p>
+                          {item.description && (
+                            <p className="mt-1 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-400">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => inst && registerEquipment(inst)}
+                          className={`shrink-0 rounded px-2.5 py-1 text-xs font-medium transition ${
+                            disabled
+                              ? "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
+                              : "bg-zinc-900 text-zinc-50 hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                          }`}
+                        >
+                          {equipmentCodexBusy === inst?.iid
+                            ? "등록 중"
+                            : buttonLabel}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
 
       {tab === "materials" && (
         materialEntries.length === 0 ? (

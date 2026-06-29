@@ -16,9 +16,12 @@ import {
 } from "@phosphor-icons/react";
 import {
   GRID_DUNGEON_ENTRANCE,
+  GRID_DUNGEON_SUPPORT_ROLES,
+  GRID_DUNGEON_SUPPORT_ROLE_LABEL,
   gridDungeonKey,
   type GridDungeonMoveDir,
   type GridDungeonPublicRun,
+  type GridDungeonSupportRole,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
@@ -45,6 +48,7 @@ type GridDungeonState = {
       message: string;
     }>;
   };
+  mySupportRole: GridDungeonSupportRole | null;
   supportCandidates: Array<{
     userId: string;
     name: string;
@@ -52,6 +56,7 @@ type GridDungeonState = {
     job: string;
     supportLimit: number;
     supportRemaining: number;
+    supportRole: GridDungeonSupportRole | null;
   }>;
   run: GridDungeonPublicRun | null;
   error?: string;
@@ -152,6 +157,13 @@ const HISTORY_OUTCOME_CLASS: Record<
   cleared: "border-emerald-800 bg-emerald-950/50 text-emerald-300",
   failed: "border-red-900 bg-red-950/50 text-red-300",
   abandoned: "border-zinc-700 bg-zinc-900 text-zinc-300",
+};
+
+const SUPPORT_ROLE_TONE: Record<GridDungeonSupportRole, string> = {
+  dealer: "border-red-800 bg-red-950/45 text-red-200",
+  healer: "border-emerald-800 bg-emerald-950/45 text-emerald-200",
+  tank: "border-sky-800 bg-sky-950/45 text-sky-200",
+  support: "border-violet-800 bg-violet-950/45 text-violet-200",
 };
 
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
@@ -266,6 +278,7 @@ export function V2GridDungeonView({
     () => state?.supportCandidates ?? [],
     [state?.supportCandidates],
   );
+  const mySupportRole = state?.mySupportRole ?? null;
   const rewardQuota = state?.rewardQuota ?? null;
   const hasRewardClaim = (rewardQuota?.remaining ?? 0) > 0;
   const history = state?.history.entries ?? [];
@@ -294,6 +307,19 @@ export function V2GridDungeonView({
       ),
     [validSelectedSupporterIds, supportCandidates],
   );
+  const selectedRoles = useMemo(
+    () =>
+      selectedSupporters
+        .map((supporter) => supporter.supportRole)
+        .filter((role): role is GridDungeonSupportRole => role != null),
+    [selectedSupporters],
+  );
+  const partyWarning =
+    selectedSupporters.length < 2
+      ? "보스전은 지원자 2명을 권장합니다."
+      : !selectedRoles.includes("dealer") || !selectedRoles.includes("healer")
+        ? "첫 보스는 공격형 1명 + 회복형 1명 조합을 권장합니다."
+        : null;
 
   const toggleSupporter = useCallback((userId: string) => {
     setSelectedSupporterIds((prev) => {
@@ -362,6 +388,70 @@ export function V2GridDungeonView({
               <DoorOpen size={16} weight="fill" />
               탐험 시작
             </button>
+            {partyWarning && (
+              <div className="rounded-md border border-yellow-800/70 bg-yellow-950/35 px-3 py-2 text-xs text-yellow-200">
+                {partyWarning}
+              </div>
+            )}
+            <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-semibold text-zinc-200">
+                  내 지원 카드
+                </div>
+                <div className="text-[11px] text-zinc-500">
+                  {mySupportRole
+                    ? GRID_DUNGEON_SUPPORT_ROLE_LABEL[mySupportRole]
+                    : "미설정"}
+                </div>
+              </div>
+              <div className="text-[11px] leading-relaxed text-zinc-500">
+                다른 길드원이 나를 데려갈 때 보이는 역할입니다. 실제 전투는 현재 장착
+                스킬과 전투 패턴 스냅샷을 사용합니다.
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {GRID_DUNGEON_SUPPORT_ROLES.map((role) => {
+                  const selected = mySupportRole === role;
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        postAction({ action: "support-profile", role })
+                      }
+                      className={`rounded-md border px-2.5 py-2 text-xs font-semibold transition disabled:opacity-40 ${
+                        selected
+                          ? SUPPORT_ROLE_TONE[role]
+                          : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:bg-zinc-900"
+                      }`}
+                    >
+                      {GRID_DUNGEON_SUPPORT_ROLE_LABEL[role]}
+                    </button>
+                  );
+                })}
+              </div>
+              {mySupportRole && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    postAction({ action: "support-profile", role: null })
+                  }
+                  className="text-left text-[11px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline disabled:opacity-40"
+                >
+                  역할 해제
+                </button>
+              )}
+            </div>
+            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3 text-xs">
+              <div className="font-semibold text-zinc-200">권장 구성</div>
+              <div className="mt-1 text-zinc-500">
+                보스 권장: 지원자 2명 · 공격형 1 + 회복형 1
+              </div>
+              <div className="mt-0.5 text-[11px] text-zinc-600">
+                솔로, 회복형만, 방어형+회복형 조합은 보스전이 어려울 수 있습니다.
+              </div>
+            </div>
             {supportCandidates.length > 0 && (
               <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
                 <div className="flex items-center justify-between gap-3">
@@ -394,6 +484,23 @@ export function V2GridDungeonView({
                         <div className="font-semibold">{candidate.name}</div>
                         <div className="mt-0.5 text-[11px] text-zinc-500">
                           Lv.{candidate.level.toLocaleString()} · {candidate.job}
+                        </div>
+                        <div className="mt-1">
+                          {candidate.supportRole ? (
+                            <span
+                              className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] ${SUPPORT_ROLE_TONE[candidate.supportRole]}`}
+                            >
+                              {
+                                GRID_DUNGEON_SUPPORT_ROLE_LABEL[
+                                  candidate.supportRole
+                                ]
+                              }
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 text-[10px] text-zinc-500">
+                              역할 미설정
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1 text-[11px] text-zinc-500">
                           지원 가능 {candidate.supportRemaining} /{" "}

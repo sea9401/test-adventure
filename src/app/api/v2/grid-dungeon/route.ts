@@ -54,11 +54,13 @@ import {
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
   parseGridDungeonRun,
+  parseGridDungeonSupportRole,
   rollGridDungeonDrops,
   withGridDungeonLayout,
   type GridDungeonMoveDir,
   type GridDungeonResolvedCombat,
   type GridDungeonRun,
+  type GridDungeonSupportRole,
   type GridDungeonSupporterSnapshot,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
@@ -83,7 +85,8 @@ type GridDungeonAction =
   | { action?: "start"; supporterIds?: unknown }
   | { action?: "move"; dir?: GridDungeonMoveDir }
   | { action?: "claim" }
-  | { action?: "abandon" };
+  | { action?: "abandon" }
+  | { action?: "support-profile"; role?: unknown };
 
 type GridDungeonSupportCandidate = {
   userId: string;
@@ -92,6 +95,7 @@ type GridDungeonSupportCandidate = {
   job: string;
   supportLimit: number;
   supportRemaining: number;
+  supportRole: GridDungeonSupportRole | null;
 };
 
 type GridDungeonSupportDaily = {
@@ -100,8 +104,15 @@ type GridDungeonSupportDaily = {
   rewarded: number;
 };
 
+type GridDungeonSupportProfile = {
+  role: GridDungeonSupportRole | null;
+  updatedAt: number;
+};
+
 const GRID_DUNGEON_SUPPORT_DAILY_KEY =
   "grid-dungeon-support-daily.v2" as const;
+const GRID_DUNGEON_SUPPORT_PROFILE_KEY =
+  "grid-dungeon-support-profile.v2" as const;
 const GRID_DUNGEON_SUPPORT_DAILY_USE_LIMIT = 5;
 const GRID_DUNGEON_SUPPORT_DAILY_REWARD_LIMIT = 5;
 const GRID_DUNGEON_SUPPORT_HONOR_REWARD = 5;
@@ -144,6 +155,17 @@ function parseGridDungeonSupportDaily(
     dayKey: today,
     used: Math.max(0, Math.floor(Number(save.used) || 0)),
     rewarded: Math.max(0, Math.floor(Number(save.rewarded) || 0)),
+  };
+}
+
+function parseGridDungeonSupportProfile(
+  raw: unknown,
+): GridDungeonSupportProfile {
+  if (!raw || typeof raw !== "object") return { role: null, updatedAt: 0 };
+  const save = raw as Partial<GridDungeonSupportProfile>;
+  return {
+    role: parseGridDungeonSupportRole(save.role),
+    updatedAt: Math.max(0, Math.floor(Number(save.updatedAt) || 0)),
   };
 }
 
@@ -277,11 +299,16 @@ async function guildSupportCandidateRows(
     .where(
       and(
         inArray(savesKv.userId, ids),
-        inArray(savesKv.key, ["character-profile.v2", "character.v2"]),
+        inArray(savesKv.key, [
+          "character-profile.v2",
+          "character.v2",
+          GRID_DUNGEON_SUPPORT_PROFILE_KEY,
+        ]),
       ),
     );
   const nameByUser = new Map<string, string>();
   const charByUser = new Map<string, unknown>();
+  const supportProfileByUser = new Map<string, GridDungeonSupportProfile>();
   const dailyByUser = await readSupportDailyByUser(executor, ids, now);
   for (const row of rows) {
     if (row.key === "character-profile.v2") {
@@ -290,6 +317,11 @@ async function guildSupportCandidateRows(
       if (name) nameByUser.set(row.userId, name);
     } else if (row.key === "character.v2") {
       charByUser.set(row.userId, row.value);
+    } else if (row.key === GRID_DUNGEON_SUPPORT_PROFILE_KEY) {
+      supportProfileByUser.set(
+        row.userId,
+        parseGridDungeonSupportProfile(row.value),
+      );
     }
   }
   return ids
@@ -306,6 +338,7 @@ async function guildSupportCandidateRows(
           GRID_DUNGEON_SUPPORT_DAILY_USE_LIMIT -
             (dailyByUser.get(id)?.used ?? 0),
         ),
+        supportRole: supportProfileByUser.get(id)?.role ?? null,
       };
     })
     .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, "ko-KR"));
@@ -395,6 +428,7 @@ function publicState(
   dailyRewards: unknown = null,
   historyRaw: unknown = null,
   supportCandidates: GridDungeonSupportCandidate[] = [],
+  supportProfileRaw: unknown = null,
 ) {
   const parsed = parseGridDungeonRun(run);
   return {
@@ -403,6 +437,7 @@ function publicState(
     atEntrance: isAtGridDungeonEntrance(charSave?.tilePos ?? null),
     rewardQuota: gridDungeonRewardQuota(dailyRewards),
     history: parseGridDungeonHistory(historyRaw),
+    mySupportRole: parseGridDungeonSupportProfile(supportProfileRaw).role,
     supportCandidates,
     run: withGridDungeonLayout(parsed),
   };
@@ -692,15 +727,30 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [run, charSave, dailyRewards, history, supportCandidates] = await Promise.all([
+  const [
+    run,
+    charSave,
+    dailyRewards,
+    history,
+    supportCandidates,
+    supportProfile,
+  ] = await Promise.all([
     readSave(db, userId, GRID_DUNGEON_SAVE_KEY, null),
     readSave<CharSave>(db, userId, "character.v2", {}),
     readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
     readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, null),
     guildSupportCandidateRows(db, userId),
+    readSave(db, userId, GRID_DUNGEON_SUPPORT_PROFILE_KEY, null),
   ]);
   return Response.json(
-    publicState(run, charSave, dailyRewards, history, supportCandidates),
+    publicState(
+      run,
+      charSave,
+      dailyRewards,
+      history,
+      supportCandidates,
+      supportProfile,
+    ),
   );
 }
 
@@ -715,6 +765,38 @@ export async function POST(req: Request) {
     body = (await req.json()) as GridDungeonAction;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  if (body.action === "support-profile") {
+    const now = Date.now();
+    const supportProfile: GridDungeonSupportProfile = {
+      role: parseGridDungeonSupportRole(body.role),
+      updatedAt: now,
+    };
+    await upsertSave(
+      db,
+      userId,
+      GRID_DUNGEON_SUPPORT_PROFILE_KEY,
+      supportProfile,
+    );
+    const [run, charSave, dailyRewards, history, supportCandidates] =
+      await Promise.all([
+        readSave(db, userId, GRID_DUNGEON_SAVE_KEY, null),
+        readSave<CharSave>(db, userId, "character.v2", {}),
+        readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
+        readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, null),
+        guildSupportCandidateRows(db, userId, now),
+      ]);
+    return Response.json(
+      publicState(
+        run,
+        charSave,
+        dailyRewards,
+        history,
+        supportCandidates,
+        supportProfile,
+      ),
+    );
   }
 
   if (body.action === "start") {
@@ -753,13 +835,21 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
-    const [dailyRewards, history, supportCandidates] = await Promise.all([
+    const [dailyRewards, history, supportCandidates, supportProfile] = await Promise.all([
       readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
       readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, null),
       guildSupportCandidateRows(db, userId),
+      readSave(db, userId, GRID_DUNGEON_SUPPORT_PROFILE_KEY, null),
     ]);
     return Response.json(
-      publicState(result.run, result.charSave, dailyRewards, history, supportCandidates),
+      publicState(
+        result.run,
+        result.charSave,
+        dailyRewards,
+        history,
+        supportCandidates,
+        supportProfile,
+      ),
     );
   }
 
@@ -827,13 +917,16 @@ export async function POST(req: Request) {
     if (!result.ok) {
       return Response.json({ ok: false, error: result.error }, { status: 409 });
     }
-    const [dailyRewards, history] = await Promise.all([
+    const [dailyRewards, history, supportProfile] = await Promise.all([
       readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
       result.history != null
         ? Promise.resolve(result.history)
         : readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, null),
+      readSave(db, userId, GRID_DUNGEON_SUPPORT_PROFILE_KEY, null),
     ]);
-    return Response.json(publicState(result.run, null, dailyRewards, history));
+    return Response.json(
+      publicState(result.run, null, dailyRewards, history, [], supportProfile),
+    );
   }
 
   if (body.action === "claim") {
@@ -932,8 +1025,21 @@ export async function POST(req: Request) {
     if (!result.ok) {
       return Response.json({ ok: false, error: result.error }, { status: 409 });
     }
+    const supportProfile = await readSave(
+      db,
+      userId,
+      GRID_DUNGEON_SUPPORT_PROFILE_KEY,
+      null,
+    );
     return Response.json(
-      publicState(result.run, result.charSave, result.dailyRewards, result.history),
+      publicState(
+        result.run,
+        result.charSave,
+        result.dailyRewards,
+        result.history,
+        [],
+        supportProfile,
+      ),
     );
   }
 
@@ -977,12 +1083,13 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, GRID_DUNGEON_HISTORY_KEY, history);
       return { history };
     });
-    const [charSave, dailyRewards] = await Promise.all([
+    const [charSave, dailyRewards, supportProfile] = await Promise.all([
       readSave<CharSave>(db, userId, "character.v2", {}),
       readSave(db, userId, GRID_DUNGEON_DAILY_REWARDS_KEY, null),
+      readSave(db, userId, GRID_DUNGEON_SUPPORT_PROFILE_KEY, null),
     ]);
     return Response.json(
-      publicState(null, charSave, dailyRewards, abandoned.history),
+      publicState(null, charSave, dailyRewards, abandoned.history, [], supportProfile),
     );
   }
 

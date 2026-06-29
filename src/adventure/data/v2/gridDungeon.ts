@@ -29,6 +29,34 @@ export const GRID_DUNGEON_ENTRANCE = {
 export const GRID_DUNGEON_SIZE = 5;
 export const GRID_DUNGEON_MAX_HP = 10;
 
+export const GRID_DUNGEON_SUPPORT_ROLES = [
+  "dealer",
+  "healer",
+  "tank",
+  "support",
+] as const;
+
+export type GridDungeonSupportRole =
+  (typeof GRID_DUNGEON_SUPPORT_ROLES)[number];
+
+export const GRID_DUNGEON_SUPPORT_ROLE_LABEL: Record<
+  GridDungeonSupportRole,
+  string
+> = {
+  dealer: "공격형",
+  healer: "회복형",
+  tank: "방어형",
+  support: "보조형",
+};
+
+export function parseGridDungeonSupportRole(
+  raw: unknown,
+): GridDungeonSupportRole | null {
+  return GRID_DUNGEON_SUPPORT_ROLES.includes(raw as GridDungeonSupportRole)
+    ? (raw as GridDungeonSupportRole)
+    : null;
+}
+
 export type GridDungeonTileKind =
   | "start"
   | "empty"

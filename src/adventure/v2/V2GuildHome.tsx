@@ -37,7 +37,7 @@ import {
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
   { key: "members", label: "길드원" },
-  { key: "outposts", label: "보유 거점" },
+  { key: "outposts", label: "영지" },
 ];
 
 export function V2GuildHome({

@@ -71,8 +71,8 @@ export function OutpostView({
   const { coreLoopOn, currentOutpost, tilePos, tileSettlements } =
     useGameState();
   const [busy, setBusy] = useState(false);
-  // 내 거점 활동 탭 — 생산 / 최근 공격 기록 / (마스터·부마스터) 관리.
-  const [activityTab, setActivityTab] = useState<ActivityTab>("produce");
+  // 내 거점 활동 탭 — 관리 / 대장간 / 수비 / 최근 공격 기록.
+  const [activityTab, setActivityTab] = useState<ActivityTab>("manage");
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
@@ -228,7 +228,7 @@ export function OutpostView({
     !!occupation &&
     occupation.occupiedByGuildId != null &&
     viewerGuildId === occupation.occupiedByGuildId;
-  // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨기고 생산/공격기록 탭.
+  // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨기고 영지 활동 탭.
   const ownByMyGuild = isOwner || isGuildMember;
   // 정착지/거점 활동 탭 노출 = 우리 길드 소유(점령). 영토=길드 소유라 솔로 소유 경로는 폐기.
   const ownSettlement = ownByMyGuild;
@@ -571,7 +571,7 @@ export function OutpostView({
         )}
 
         {ownSettlement ? (
-          // 내 거점/정착지 — 생산 / 최근 공격 기록 (+ 관리) 탭.
+          // 내 거점/정착지 — 관리 / 대장간 / 최근 공격 기록 탭.
           <OutpostActivityTabs
             outpostId={outpost.id}
             activityTab={activityTab}

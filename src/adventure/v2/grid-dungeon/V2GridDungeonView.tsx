@@ -420,6 +420,7 @@ export function V2GridDungeonView({
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
+            {run.lastCombat && <DungeonCombatSummary combat={run.lastCombat} />}
             {rewardQuota && rewardQuota.remaining <= 0 && (
               <div className="rounded-md border border-zinc-800 bg-zinc-950/70 px-3 py-2 text-xs text-zinc-400">
                 오늘 던전 보상 횟수를 모두 사용했습니다. 탐험은 계속할 수 있지만 정산 골드는
@@ -463,6 +464,86 @@ export function V2GridDungeonView({
         </>
       )}
     </main>
+  );
+}
+
+function DungeonCombatSummary({
+  combat,
+}: {
+  combat: NonNullable<GridDungeonPublicRun["lastCombat"]>;
+}) {
+  const hpPct =
+    combat.playerMaxHp > 0
+      ? Math.max(0, Math.min(100, (combat.playerHpAfter / combat.playerMaxHp) * 100))
+      : 0;
+  const enemyPct =
+    combat.enemyMaxHp > 0
+      ? Math.max(0, Math.min(100, (combat.enemyHp / combat.enemyMaxHp) * 100))
+      : 0;
+  return (
+    <div className="space-y-2 rounded-md border border-zinc-800 bg-black/25 p-3 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 font-semibold text-zinc-200">
+          {combat.enemyName}
+        </div>
+        <div className="flex items-center gap-2 text-zinc-500">
+          <span>{combat.turns}턴</span>
+          <span>던전 HP -{combat.hpLost}</span>
+          {combat.rewardGold > 0 && (
+            <span className="text-yellow-300">
+              +{combat.rewardGold.toLocaleString()}G
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <CombatMeter
+          label="내 HP"
+          value={`${combat.playerHpAfter.toLocaleString()} / ${combat.playerMaxHp.toLocaleString()}`}
+          pct={hpPct}
+          tone="bg-emerald-400"
+        />
+        <CombatMeter
+          label="적 HP"
+          value={`${combat.enemyHp.toLocaleString()} / ${combat.enemyMaxHp.toLocaleString()}`}
+          pct={enemyPct}
+          tone="bg-red-400"
+        />
+      </div>
+      {combat.log.length > 0 && (
+        <div className="space-y-1 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
+          {combat.log.map((line, idx) => (
+            <div key={`${idx}:${line}`} className="truncate">
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CombatMeter({
+  label,
+  value,
+  pct,
+  tone,
+}: {
+  label: string;
+  value: string;
+  pct: number;
+  tone: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-zinc-500">{label}</span>
+        <span className="text-zinc-300">{value}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded bg-zinc-900">
+        <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
   );
 }
 

@@ -1,6 +1,31 @@
 import { db } from "@/db";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
+import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
+import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import {
+  V2_ELEMENT_ADV_PCT,
+  V2_ELEMENT_DIS_PCT,
+  elementDamageMult,
+  parseV2Element,
+} from "@/adventure/data/v2/elements";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
+import { emptyProficiency } from "@/adventure/data/v2/proficiency";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  type DbExecutor,
+} from "@/lib/server/savesKv";
+import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import {
   GRID_DUNGEON_DAILY_REWARDS_KEY,
   GRID_DUNGEON_ENTRANCE,
@@ -8,7 +33,10 @@ import {
   GRID_DUNGEON_SAVE_KEY,
   appendGridDungeonHistory,
   createGridDungeonRun,
+  gridDungeonKey,
   gridDungeonRewardQuota,
+  gridDungeonTileAt,
+  isGridDungeonCombatTile,
   isAtGridDungeonEntrance,
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
@@ -16,13 +44,18 @@ import {
   parseGridDungeonRun,
   withGridDungeonLayout,
   type GridDungeonMoveDir,
+  type GridDungeonResolvedCombat,
   type GridDungeonRun,
+  type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
 
 type CharSave = {
   gold?: number;
   bankedGold?: number;
   tilePos?: { col?: number; row?: number; at?: number };
+  hp?: number;
+  mp?: number;
+  element?: unknown;
   [k: string]: unknown;
 };
 
@@ -70,6 +103,217 @@ function historyEntryFromRun({
     exploredTiles: new Set(run.visited).size,
     hp: run.hp,
     message: `${GRID_DUNGEON_ENTRANCE.name} ${outcomeLabel}`,
+  };
+}
+
+const GRID_DUNGEON_COMBAT_REWARD: Partial<Record<GridDungeonTileKind, number>> = {
+  monster: 700,
+  elite: 1_500,
+  boss: 4_000,
+};
+
+const GRID_DUNGEON_COMBAT_DEPTH: Partial<Record<GridDungeonTileKind, number>> = {
+  monster: 2,
+  elite: 4,
+  boss: 6,
+};
+
+const GRID_DUNGEON_COMBAT_BASE_LOSS: Partial<Record<GridDungeonTileKind, number>> = {
+  monster: 2,
+  elite: 3,
+  boss: 4,
+};
+
+function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
+  const delta: Record<GridDungeonMoveDir, { x: number; y: number }> = {
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 },
+  };
+  const d = delta[dir];
+  const next = { x: run.pos.x + d.x, y: run.pos.y + d.y };
+  return {
+    next,
+    key: gridDungeonKey(next.x, next.y),
+    tile: gridDungeonTileAt(next.x, next.y),
+  };
+}
+
+function pickGridDungeonEnemy(tile: GridDungeonTileKind) {
+  const depth = GRID_DUNGEON_COMBAT_DEPTH[tile] ?? 1;
+  const pool = enemiesForDepth(depth);
+  if (pool.length === 0) return null;
+  const index = tile === "boss" ? pool.length - 1 : tile === "elite" ? 2 : 0;
+  return { depth, enemy: pool[Math.min(index, pool.length - 1)] };
+}
+
+function dungeonHpLoss({
+  won,
+  baseLoss,
+  damageTaken,
+  playerMaxHp,
+  runHp,
+}: {
+  won: boolean;
+  baseLoss: number;
+  damageTaken: number;
+  playerMaxHp: number;
+  runHp: number;
+}) {
+  if (!won) return Math.max(1, runHp);
+  if (playerMaxHp <= 0) return baseLoss;
+  const damageRatio = Math.max(0, damageTaken / playerMaxHp);
+  return Math.max(
+    0,
+    Math.min(baseLoss + 2, Math.ceil(baseLoss * (0.35 + damageRatio))),
+  );
+}
+
+async function resolveGridDungeonCombat({
+  tx,
+  userId,
+  charSave,
+  tile,
+  runHp,
+}: {
+  tx: DbExecutor;
+  userId: string;
+  charSave: CharSave;
+  tile: GridDungeonTileKind;
+  runHp: number;
+}): Promise<GridDungeonResolvedCombat | null> {
+  if (!isGridDungeonCombatTile(tile)) return null;
+  const picked = pickGridDungeonEnemy(tile);
+  if (!picked) return null;
+  const baseMonster = V2_MONSTERS[picked.enemy.key];
+  if (!baseMonster) return null;
+
+  const equipmentSave = await lockSaveForUpdate(tx, userId, "equipment.v2", {});
+  const skillsRaw = await lockSaveForUpdate(
+    tx,
+    userId,
+    "skills.v2",
+    emptyV2SkillsState() as unknown as Record<string, unknown>,
+  );
+  const proficiencyRaw = await lockSaveForUpdate(
+    tx,
+    userId,
+    "proficiency.v2",
+    emptyProficiency(),
+  );
+  const parsedSkills = parseV2SkillsState(skillsRaw);
+  const codexBonus = V2_CORE_LOOP_V2 ? await readCodexSpBonus(tx, userId) : null;
+  const v2Skills = V2_CORE_LOOP_V2
+    ? sanitizeCombatLoadout(
+        parsedSkills,
+        charSave,
+        proficiencyRaw,
+        codexBonus?.total ?? 0,
+    )
+    : parsedSkills;
+  const combatSkillsRaw = { ...parsedSkills, equipped: v2Skills.equipped };
+  const player = await derivePlayerCombatV2(userId, tx, {
+    character: charSave,
+    equipmentSave,
+    proficiencyRaw,
+    skillsRaw: combatSkillsRaw,
+  });
+  if (!player) return null;
+
+  const playerElement = parseV2Element(charSave.element);
+  const basicAttackElement =
+    player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
+  const monsterElement = picked.enemy.element ?? "neutral";
+  const elemMult = elementDamageMult(
+    basicAttackElement,
+    monsterElement,
+    V2_ELEMENT_ADV_PCT + (player.player.elementAdvPctBonus ?? 0),
+    V2_ELEMENT_DIS_PCT + (player.player.elementDisPctBonus ?? 0),
+  );
+  const seededMonsterSkills = [
+    picked.enemy.statusSkill,
+    picked.enemy.castSkill,
+  ].filter((s): s is NonNullable<typeof s> => s != null);
+  const scaledEnemy = scaleMonsterForFloor(baseMonster, picked.depth);
+  const enemyMonster: import("@/adventure/data/monsters/types").Monster = {
+    ...scaledEnemy,
+    name:
+      tile === "boss"
+        ? "유적의 파수꾼"
+        : tile === "elite"
+          ? "정예 수문장"
+          : picked.enemy.name,
+    image: picked.enemy.image ?? baseMonster.image,
+    element: monsterElement,
+    ...(seededMonsterSkills.length
+      ? {
+          v2Skills: {
+            learned: seededMonsterSkills,
+            equipped: seededMonsterSkills,
+          },
+        }
+      : {}),
+  };
+  const playerMaxHp = Math.max(1, player.maxHp);
+  const playerForBattle = {
+    ...player.player,
+    hp: playerMaxHp,
+    mp: player.player.maxMp ?? player.player.mp,
+    atk: Math.max(1, Math.round(player.player.atk * elemMult)),
+    magicAtk: Math.max(
+      0,
+      Math.round((player.player.magicAtk ?? 0) * elemMult),
+    ),
+    attackElement: basicAttackElement,
+    characterElement: playerElement,
+  };
+  const result = resolveBattle(playerForBattle, enemyMonster, "모험가", {
+    pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
+    potions: {},
+    v2Skills,
+    depth: picked.depth,
+    isBoss: tile === "boss",
+  });
+  const won = result.outcome === "win";
+  const rewardGold = won ? (GRID_DUNGEON_COMBAT_REWARD[tile] ?? 0) : 0;
+  const damageTaken = Math.max(0, playerMaxHp - result.finalState.playerHp);
+  const hpLost = dungeonHpLoss({
+    won,
+    baseLoss: GRID_DUNGEON_COMBAT_BASE_LOSS[tile] ?? 2,
+    damageTaken,
+    playerMaxHp,
+    runHp,
+  });
+  const enemyName = enemyMonster.name;
+  const message = won
+    ? tile === "boss"
+      ? `${enemyName}을(를) 쓰러뜨렸습니다. 출구가 열렸습니다.`
+      : `${enemyName}을(를) 쓰러뜨리고 ${rewardGold.toLocaleString()}G를 챙겼습니다.`
+    : `${enemyName}과의 전투에서 밀려 탐험을 이어갈 수 없습니다.`;
+
+  return {
+    outcome: won ? "win" : "lose",
+    hpLost,
+    rewardGold,
+    message,
+    summary: {
+      enemyName,
+      outcome: won ? "win" : "lose",
+      turns: result.turns,
+      hpLost,
+      playerHpBefore: playerMaxHp,
+      playerHpAfter: Math.max(0, result.finalState.playerHp),
+      playerMaxHp,
+      enemyHp: Math.max(0, result.finalState.enemyHp),
+      enemyMaxHp: Math.max(1, enemyMonster.hp),
+      rewardGold,
+      log: result.finalState.log
+        .filter((entry) => entry.kind !== "hp_bar")
+        .map((entry) => entry.text)
+        .filter(Boolean)
+        .slice(-4),
+    },
   };
 }
 
@@ -136,6 +380,12 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, error: "bad_direction" }, { status: 400 });
     }
     const result = await db.transaction(async (tx) => {
+      const charSave = await lockSaveForUpdate<CharSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
       const raw = await lockSaveForUpdate(
         tx,
         userId,
@@ -144,7 +394,20 @@ export async function POST(req: Request) {
       );
       const run = parseGridDungeonRun(raw);
       if (!run) return { ok: false as const, error: "no_run" as const };
-      const moved = moveGridDungeonRun(run, dir);
+      const target = targetTileForMove(run, dir);
+      const combat =
+        target.tile &&
+        isGridDungeonCombatTile(target.tile) &&
+        !run.clearedEvents.includes(target.key)
+          ? await resolveGridDungeonCombat({
+              tx,
+              userId,
+              charSave,
+              tile: target.tile,
+              runHp: run.hp,
+            })
+          : null;
+      const moved = moveGridDungeonRun(run, dir, Date.now(), combat);
       if (!moved.ok) return moved;
       let nextHistory: unknown = null;
       if (moved.run.status === "failed") {

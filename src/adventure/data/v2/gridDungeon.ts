@@ -29,6 +29,30 @@ export type GridDungeonTileKind =
 
 export type GridDungeonStatus = "active" | "cleared" | "claimed" | "failed";
 
+export type GridDungeonCombatOutcome = "win" | "lose";
+
+export type GridDungeonCombatSummary = {
+  enemyName: string;
+  outcome: GridDungeonCombatOutcome;
+  turns: number;
+  hpLost: number;
+  playerHpBefore: number;
+  playerHpAfter: number;
+  playerMaxHp: number;
+  enemyHp: number;
+  enemyMaxHp: number;
+  rewardGold: number;
+  log: string[];
+};
+
+export type GridDungeonResolvedCombat = {
+  outcome: GridDungeonCombatOutcome;
+  hpLost: number;
+  rewardGold: number;
+  message: string;
+  summary: GridDungeonCombatSummary;
+};
+
 export type GridDungeonRun = {
   id: string;
   status: GridDungeonStatus;
@@ -40,6 +64,7 @@ export type GridDungeonRun = {
   revealed: string[];
   clearedEvents: string[];
   lastMessage: string;
+  lastCombat?: GridDungeonCombatSummary;
   startedAt: number;
   updatedAt: number;
   claimedAt?: number;
@@ -195,6 +220,10 @@ export function gridDungeonTileAt(
   return GRID_DUNGEON_LAYOUT[y]?.[x] ?? null;
 }
 
+export function isGridDungeonCombatTile(tile: GridDungeonTileKind): boolean {
+  return tile === "monster" || tile === "elite" || tile === "boss";
+}
+
 export function revealAround(x: number, y: number, prev: string[] = []): string[] {
   const revealed = new Set(prev);
   for (const [dx, dy] of [
@@ -253,7 +282,7 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     return null;
   }
   const now = Date.now();
-  return {
+  const parsed: GridDungeonRun = {
     id: typeof run.id === "string" ? run.id : GRID_DUNGEON_ENTRANCE.id,
     status,
     pos: { x, y },
@@ -275,6 +304,39 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     updatedAt: Math.max(0, Math.floor(Number(run.updatedAt) || now)),
     ...(typeof run.claimedAt === "number" ? { claimedAt: run.claimedAt } : {}),
   };
+  const lastCombat = parseGridDungeonCombatSummary(run.lastCombat);
+  return lastCombat ? { ...parsed, lastCombat } : parsed;
+}
+
+function parseCombatOutcome(raw: unknown): GridDungeonCombatOutcome | null {
+  return raw === "win" || raw === "lose" ? raw : null;
+}
+
+function parseGridDungeonCombatSummary(
+  raw: unknown,
+): GridDungeonCombatSummary | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Partial<GridDungeonCombatSummary>;
+  const outcome = parseCombatOutcome(r.outcome);
+  if (!outcome) return null;
+  const enemyName = typeof r.enemyName === "string" ? r.enemyName : "";
+  if (!enemyName) return null;
+  const log = Array.isArray(r.log)
+    ? r.log.filter((line): line is string => typeof line === "string").slice(-6)
+    : [];
+  return {
+    enemyName,
+    outcome,
+    turns: Math.max(0, Math.floor(Number(r.turns) || 0)),
+    hpLost: Math.max(0, Math.floor(Number(r.hpLost) || 0)),
+    playerHpBefore: Math.max(0, Math.floor(Number(r.playerHpBefore) || 0)),
+    playerHpAfter: Math.max(0, Math.floor(Number(r.playerHpAfter) || 0)),
+    playerMaxHp: Math.max(0, Math.floor(Number(r.playerMaxHp) || 0)),
+    enemyHp: Math.max(0, Math.floor(Number(r.enemyHp) || 0)),
+    enemyMaxHp: Math.max(0, Math.floor(Number(r.enemyMaxHp) || 0)),
+    rewardGold: Math.max(0, Math.floor(Number(r.rewardGold) || 0)),
+    log,
+  };
 }
 
 export type GridDungeonMoveDir = "up" | "down" | "left" | "right";
@@ -283,6 +345,7 @@ export function moveGridDungeonRun(
   run: GridDungeonRun,
   dir: GridDungeonMoveDir,
   now = Date.now(),
+  combat: GridDungeonResolvedCombat | null = null,
 ):
   | { ok: true; run: GridDungeonRun }
   | { ok: false; error: "not_active" | "blocked" | "bad_direction" } {
@@ -309,17 +372,26 @@ export function moveGridDungeonRun(
   let bossDefeated = run.bossDefeated;
   let status: GridDungeonStatus = run.status;
   let message = "어둠 속으로 한 칸 더 나아갔습니다.";
+  let lastCombat: GridDungeonCombatSummary | undefined;
 
   if (!clearedEvents.has(key)) {
     clearedEvents.add(key);
     if (tile === "monster") {
-      hp = Math.max(0, hp - 2);
-      pendingGold += 700;
-      message = "유적 경비병을 쓰러뜨리고 700G를 챙겼습니다.";
+      const resolved =
+        combat ??
+        fallbackGridDungeonCombat("유적 경비병", 2, 700, run.hp);
+      hp = Math.max(0, hp - resolved.hpLost);
+      pendingGold += resolved.rewardGold;
+      message = resolved.message;
+      lastCombat = resolved.summary;
     } else if (tile === "elite") {
-      hp = Math.max(0, hp - 3);
-      pendingGold += 1_500;
-      message = "정예 수문장을 돌파하고 1,500G를 확보했습니다.";
+      const resolved =
+        combat ??
+        fallbackGridDungeonCombat("정예 수문장", 3, 1_500, run.hp);
+      hp = Math.max(0, hp - resolved.hpLost);
+      pendingGold += resolved.rewardGold;
+      message = resolved.message;
+      lastCombat = resolved.summary;
     } else if (tile === "treasure") {
       pendingGold += 1_000;
       message = "오래된 보물상자에서 1,000G를 발견했습니다.";
@@ -327,10 +399,14 @@ export function moveGridDungeonRun(
       hp = Math.min(GRID_DUNGEON_MAX_HP, hp + 4);
       message = "맑은 샘물을 마셔 체력을 회복했습니다.";
     } else if (tile === "boss") {
-      hp = Math.max(0, hp - 4);
-      pendingGold += 4_000;
-      bossDefeated = true;
-      message = "유적의 파수꾼을 쓰러뜨렸습니다. 출구가 열렸습니다.";
+      const resolved =
+        combat ??
+        fallbackGridDungeonCombat("유적의 파수꾼", 4, 4_000, run.hp);
+      hp = Math.max(0, hp - resolved.hpLost);
+      pendingGold += resolved.rewardGold;
+      bossDefeated = resolved.outcome === "win";
+      message = resolved.message;
+      lastCombat = resolved.summary;
     }
   } else if (tile === "exit" && bossDefeated) {
     status = "cleared";
@@ -347,20 +423,54 @@ export function moveGridDungeonRun(
     message = "탐험 중 쓰러졌습니다. 이번 탐험 보상은 잃었습니다.";
   }
 
+  const nextRun: GridDungeonRun = {
+    ...run,
+    status,
+    pos: next,
+    hp,
+    pendingGold,
+    bossDefeated,
+    visited: [...visited].sort(),
+    revealed: revealAround(next.x, next.y, run.revealed),
+    clearedEvents: [...clearedEvents].sort(),
+    lastMessage: message,
+    updatedAt: now,
+  };
+  if (lastCombat) nextRun.lastCombat = lastCombat;
+  else delete nextRun.lastCombat;
+
   return {
     ok: true,
-    run: {
-      ...run,
-      status,
-      pos: next,
-      hp,
-      pendingGold,
-      bossDefeated,
-      visited: [...visited].sort(),
-      revealed: revealAround(next.x, next.y, run.revealed),
-      clearedEvents: [...clearedEvents].sort(),
-      lastMessage: message,
-      updatedAt: now,
+    run: nextRun,
+  };
+}
+
+function fallbackGridDungeonCombat(
+  enemyName: string,
+  hpLost: number,
+  rewardGold: number,
+  playerHpBefore: number,
+): GridDungeonResolvedCombat {
+  return {
+    outcome: "win",
+    hpLost,
+    rewardGold,
+    message:
+      enemyName === "유적의 파수꾼"
+        ? "유적의 파수꾼을 쓰러뜨렸습니다. 출구가 열렸습니다."
+        : `${enemyName}을(를) 쓰러뜨리고 ${rewardGold.toLocaleString()}G를 챙겼습니다.`,
+    summary: {
+      enemyName,
+      outcome: "win",
+      turns: 1,
+      hpLost,
+      playerHpBefore,
+      playerHpAfter: Math.max(0, playerHpBefore - hpLost),
+      playerMaxHp: GRID_DUNGEON_MAX_HP,
+      enemyHp: 0,
+      enemyMaxHp: 1,
+      rewardGold,
+      log: [],
     },
   };
 }

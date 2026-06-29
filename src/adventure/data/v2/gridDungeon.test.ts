@@ -56,6 +56,40 @@ describe("gridDungeon", () => {
     expect(again.run.pendingGold).toBe(700);
   });
 
+  it("applies resolved combat to a combat room", () => {
+    const start = createGridDungeonRun(100);
+    const moved = moveGridDungeonRun(start, "up", 200, {
+      outcome: "win",
+      hpLost: 1,
+      rewardGold: 900,
+      message: "들개를 쓰러뜨리고 900G를 챙겼습니다.",
+      summary: {
+        enemyName: "들개",
+        outcome: "win",
+        turns: 3,
+        hpLost: 1,
+        playerHpBefore: 100,
+        playerHpAfter: 88,
+        playerMaxHp: 100,
+        enemyHp: 0,
+        enemyMaxHp: 38,
+        rewardGold: 900,
+        log: ["공격", "승리"],
+      },
+    });
+    expect(moved.ok).toBe(true);
+    if (!moved.ok) return;
+    expect(moved.run.hp).toBe(9);
+    expect(moved.run.pendingGold).toBe(900);
+    expect(moved.run.lastMessage).toBe("들개를 쓰러뜨리고 900G를 챙겼습니다.");
+    expect(moved.run.lastCombat).toMatchObject({
+      enemyName: "들개",
+      turns: 3,
+      hpLost: 1,
+      rewardGold: 900,
+    });
+  });
+
   it("resets daily reward claims on the KST day boundary", () => {
     const beforeReset = Date.parse("2026-06-28T14:59:59.000Z");
     const afterReset = Date.parse("2026-06-28T15:00:00.000Z");

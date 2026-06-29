@@ -52,6 +52,8 @@ export type GridDungeonCombatPartyMember = {
   maxHp: number;
   damageDealt: number;
   damageTaken: number;
+  healingDone: number;
+  skillUses: Record<string, number>;
 };
 
 export type GridDungeonCombatSummary = {
@@ -596,10 +598,23 @@ function parseGridDungeonCombatParty(raw: unknown): GridDungeonCombatPartyMember
         maxHp: Math.max(1, Math.floor(Number(e.maxHp) || 1)),
         damageDealt: Math.max(0, Math.floor(Number(e.damageDealt) || 0)),
         damageTaken: Math.max(0, Math.floor(Number(e.damageTaken) || 0)),
+        healingDone: Math.max(0, Math.floor(Number(e.healingDone) || 0)),
+        skillUses: sanitizeGridDungeonSkillUses(e.skillUses),
       };
     })
     .filter((entry): entry is GridDungeonCombatPartyMember => entry != null)
     .slice(0, 3);
+}
+
+function sanitizeGridDungeonSkillUses(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [name, countRaw] of Object.entries(raw as Record<string, unknown>)) {
+    const trimmed = name.trim();
+    const count = Math.max(0, Math.floor(Number(countRaw) || 0));
+    if (trimmed && count > 0) out[trimmed] = count;
+  }
+  return out;
 }
 
 function sanitizeGridDungeonDrops(raw: unknown): DropResult {

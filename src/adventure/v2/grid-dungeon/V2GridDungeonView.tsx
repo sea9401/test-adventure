@@ -630,9 +630,13 @@ function DungeonCombatSummary({
       </div>
       {combat.party && combat.party.length > 0 && (
         <div className="space-y-2 border-t border-zinc-800 pt-2">
-          <div className="text-[11px] font-semibold text-zinc-300">
-            파티 전투 결과
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-semibold text-zinc-300">
+              파티 기여도
+            </div>
+            <div className="text-[10px] text-zinc-500">딜량 기준</div>
           </div>
+          <PartyDamageChart party={combat.party} />
           <div className="grid gap-2 sm:grid-cols-3">
             {combat.party.map((member) => {
               const memberPct =
@@ -671,7 +675,14 @@ function DungeonCombatSummary({
                         {member.damageTaken.toLocaleString()}
                       </span>
                     </div>
+                    <div>
+                      회복{" "}
+                      <span className="text-zinc-300">
+                        {member.healingDone.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
+                  <SkillUseSummary uses={member.skillUses} />
                 </div>
               );
             })}
@@ -687,6 +698,54 @@ function DungeonCombatSummary({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function PartyDamageChart({
+  party,
+}: {
+  party: NonNullable<GridDungeonPublicRun["lastCombat"]>["party"];
+}) {
+  if (!party || party.length === 0) return null;
+  const maxDamage = Math.max(1, ...party.map((member) => member.damageDealt));
+  return (
+    <div className="space-y-1.5 rounded border border-zinc-800 bg-zinc-950/70 p-2">
+      {party.map((member) => {
+        const pct = Math.max(4, Math.min(100, (member.damageDealt / maxDamage) * 100));
+        const tone = member.role === "main" ? "bg-emerald-400" : "bg-cyan-400";
+        return (
+          <div key={member.id} className="grid grid-cols-[72px_1fr_64px] items-center gap-2 text-[11px]">
+            <div className="truncate text-zinc-300">{member.name}</div>
+            <div className="h-2 overflow-hidden rounded bg-zinc-900">
+              <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="text-right font-medium text-zinc-200">
+              {member.damageDealt.toLocaleString()}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SkillUseSummary({ uses }: { uses: Record<string, number> }) {
+  const entries = Object.entries(uses)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko-KR"))
+    .slice(0, 2);
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {entries.map(([name, count]) => (
+        <span
+          key={name}
+          className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-400"
+        >
+          {name} x{count}
+        </span>
+      ))}
     </div>
   );
 }

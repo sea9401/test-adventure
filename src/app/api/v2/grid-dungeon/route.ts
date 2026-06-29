@@ -485,6 +485,8 @@ type GridDungeonPartyActor = {
   usedOnceSkills: Set<V2SkillId>;
   damageDealt: number;
   damageTaken: number;
+  healingDone: number;
+  skillUses: Record<string, number>;
 };
 
 type GridDungeonPartyCombatResult = {
@@ -664,6 +666,10 @@ function partySkillCooldownAfterCast(skillId: V2SkillId): number {
     : def.cooldown;
 }
 
+function recordPartySkillUse(actor: GridDungeonPartyActor, skillName: string) {
+  actor.skillUses[skillName] = (actor.skillUses[skillName] ?? 0) + 1;
+}
+
 function resolveGridDungeonPartyCombat({
   main,
   supporters,
@@ -696,6 +702,8 @@ function resolveGridDungeonPartyCombat({
       usedOnceSkills: new Set<V2SkillId>(),
       damageDealt: 0,
       damageTaken: 0,
+      healingDone: 0,
+      skillUses: {},
     })),
   ];
   const enemyMaxHp = Math.max(
@@ -755,12 +763,15 @@ function resolveGridDungeonPartyCombat({
       if (heal > 0) {
         const before = target.hp;
         target.hp = Math.min(target.maxHp, target.hp + heal);
+        const healed = target.hp - before;
         actor.mp = Math.max(0, actor.mp - v2SkillMpCostValue(skill));
         actor.usedOnceSkills.add(skillId);
+        actor.healingDone += healed;
+        recordPartySkillUse(actor, skill.name);
         const cooldown = partySkillCooldownAfterCast(skillId);
         if (cooldown > 0) actor.cooldowns[skillId] = cooldown;
         log.push(
-          `${actor.name}이(가) ${skill.name}(으)로 ${target.name} HP +${(target.hp - before).toLocaleString()}`,
+          `${actor.name}이(가) ${skill.name}(으)로 ${target.name} HP +${healed.toLocaleString()}`,
         );
         ticks.set(actor.id, (ticks.get(actor.id) ?? 0) + partyActionInterval(actor.spd));
         turns += 1;
@@ -776,6 +787,7 @@ function resolveGridDungeonPartyCombat({
     actor.damageDealt += damage;
     if (skillDamage > 0 && skillId && skill) {
       actor.mp = Math.max(0, actor.mp - v2SkillMpCostValue(skill));
+      recordPartySkillUse(actor, skill.name);
       const cooldown = partySkillCooldownAfterCast(skillId);
       if (cooldown > 0) actor.cooldowns[skillId] = cooldown;
       log.push(
@@ -803,6 +815,8 @@ function resolveGridDungeonPartyCombat({
       maxHp: actor.maxHp,
       damageDealt: actor.damageDealt,
       damageTaken: actor.damageTaken,
+      healingDone: actor.healingDone,
+      skillUses: actor.skillUses,
     })),
     log: log.slice(-6),
   };
@@ -975,6 +989,8 @@ async function resolveGridDungeonCombat({
             usedOnceSkills: new Set<V2SkillId>(),
             damageDealt: 0,
             damageTaken: 0,
+            healingDone: 0,
+            skillUses: {},
           },
           supporters,
           enemy: enemyMonster,

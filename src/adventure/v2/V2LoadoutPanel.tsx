@@ -64,7 +64,10 @@ export function V2LoadoutPanel({
     loadout.library.filter((s) => s.favorite).map((s) => s.skillId),
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    skillId: string;
+    edge: "before" | "after";
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -194,16 +197,25 @@ export function V2LoadoutPanel({
     }
   }
 
-  function reorderSkill(activeId: string, overId: string) {
+  function reorderSkill(
+    activeId: string,
+    overId: string,
+    edge: "before" | "after",
+  ) {
     if (activeId === overId) return;
     const current = orderedLibrary.map((s) => s.skillId);
-    const from = current.indexOf(activeId);
-    const to = current.indexOf(overId);
-    if (from < 0 || to < 0) return;
-    const next = [...current];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
+    if (!current.includes(activeId)) return;
+    const next = current.filter((id) => id !== activeId);
+    const overIdx = next.indexOf(overId);
+    if (overIdx < 0) return;
+    next.splice(edge === "after" ? overIdx + 1 : overIdx, 0, activeId);
+    if (next.join(",") === current.join(",")) return;
     commitSkillPrefs(next, favoriteIds);
+  }
+
+  function dropEdgeForClientY(target: HTMLElement, clientY: number) {
+    const rect = target.getBoundingClientRect();
+    return clientY < rect.top + rect.height / 2 ? "before" : "after";
   }
 
   function toggleFavorite(skillId: string) {
@@ -347,33 +359,57 @@ export function V2LoadoutPanel({
               key={s.skillId}
               onDragOver={(e) => {
                 e.preventDefault();
-                if (draggingId && draggingId !== s.skillId) {
-                  setDragOverId(s.skillId);
+                if (!draggingId || draggingId === s.skillId) {
+                  setDropTarget(null);
+                  return;
                 }
+                setDropTarget({
+                  skillId: s.skillId,
+                  edge: dropEdgeForClientY(e.currentTarget, e.clientY),
+                });
               }}
               onDrop={(e) => {
                 e.preventDefault();
                 const activeId =
                   e.dataTransfer.getData("text/plain") || draggingId;
-                if (activeId) reorderSkill(activeId, s.skillId);
+                if (activeId) {
+                  reorderSkill(
+                    activeId,
+                    s.skillId,
+                    dropTarget?.skillId === s.skillId
+                      ? dropTarget.edge
+                      : dropEdgeForClientY(e.currentTarget, e.clientY),
+                  );
+                }
                 setDraggingId(null);
-                setDragOverId(null);
+                setDropTarget(null);
               }}
-              onDragLeave={() => {
-                if (dragOverId === s.skillId) setDragOverId(null);
+              onDragLeave={(e) => {
+                const nextTarget = e.relatedTarget;
+                if (
+                  nextTarget instanceof Node &&
+                  e.currentTarget.contains(nextTarget)
+                ) {
+                  return;
+                }
+                if (dropTarget?.skillId === s.skillId) setDropTarget(null);
               }}
-              className={`flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
+              className={`relative flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
               } ${
-                dragOverId === s.skillId
-                  ? "ring-2 ring-sky-400 dark:ring-sky-500"
-                  : ""
-              } ${
                 draggingId === s.skillId ? "opacity-55" : ""
               }`}
             >
+              {dropTarget?.skillId === s.skillId && (
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute left-3 right-3 h-1 rounded-full bg-sky-400 shadow-[0_0_0_2px_rgba(14,165,233,0.16)] dark:bg-sky-500 ${
+                    dropTarget.edge === "before" ? "-top-1" : "-bottom-1"
+                  }`}
+                />
+              )}
               <span
                 role="button"
                 tabIndex={0}
@@ -387,7 +423,7 @@ export function V2LoadoutPanel({
                 }}
                 onDragEnd={() => {
                   setDraggingId(null);
-                  setDragOverId(null);
+                  setDropTarget(null);
                 }}
                 className={`flex h-9 w-8 shrink-0 cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
                   busy ? "pointer-events-none opacity-40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"

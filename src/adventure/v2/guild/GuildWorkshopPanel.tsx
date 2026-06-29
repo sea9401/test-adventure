@@ -859,19 +859,19 @@ export function GuildWorkshopPanel({
   }
 
   return (
-    <section className="space-y-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+    <section className="space-y-3 rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex items-start gap-3">
         <Hammer
           size={24}
           weight="duotone"
-          className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-300"
+          className="mt-0.5 shrink-0 text-zinc-700 dark:text-zinc-300"
           aria-hidden
         />
         <div className="min-w-0">
-          <h3 className="font-semibold text-emerald-900 dark:text-emerald-100">
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
             {smithy.name} 가동 중
           </h3>
-          <p className="mt-1 text-xs leading-relaxed text-emerald-800/80 dark:text-emerald-200/80">
+          <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
             보유 수 {smithyCount.toLocaleString()}개. 길드 영지 재화를 사용해
             기본 장비를 제작합니다.
           </p>
@@ -879,13 +879,13 @@ export function GuildWorkshopPanel({
         <button
           type="button"
           onClick={() => setMode("ranking")}
-          className="ml-auto shrink-0 rounded border border-emerald-700 bg-white/80 px-2.5 py-1 text-xs font-medium text-emerald-800 hover:bg-white dark:border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-100 dark:hover:bg-emerald-900"
+          className="ml-auto shrink-0 rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           랭킹
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 rounded border border-emerald-200 bg-white/60 p-1 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
+      <div className="grid grid-cols-3 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
         {(
           [
             ["craft", "제작"],
@@ -900,7 +900,7 @@ export function GuildWorkshopPanel({
             className={`rounded px-2 py-1.5 font-semibold transition ${
               workshopMode === value
                 ? "bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950"
-                : "text-emerald-800 hover:bg-emerald-100 dark:text-emerald-200 dark:hover:bg-emerald-900/60"
+                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             }`}
           >
             {label}
@@ -915,10 +915,10 @@ export function GuildWorkshopPanel({
         </>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-emerald-200 py-2 text-xs text-emerald-900 dark:border-emerald-900 dark:text-emerald-100">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-zinc-200 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
         <span>{resourceText}</span>
         {loading ? (
-          <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+          <span className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
             <SpinnerGap size={14} className="animate-spin" aria-hidden />
             불러오는 중
           </span>
@@ -926,16 +926,16 @@ export function GuildWorkshopPanel({
       </div>
 
       {state?.artisan.blacksmith ? (
-        <div className="grid gap-2 rounded border border-emerald-200 bg-white/70 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 sm:grid-cols-[1fr_auto] sm:items-center">
           <div className="min-w-0">
             <strong>{state.artisan.blacksmith.name}</strong>
-            <span className="ml-2 text-emerald-700 dark:text-emerald-300">
+            <span className="ml-2 text-zinc-500 dark:text-zinc-400">
               Lv {state.artisan.blacksmith.level.toLocaleString()} · 제작{" "}
               {state.artisan.blacksmith.crafts.toLocaleString()}회
             </span>
           </div>
           <div className="min-w-32">
-            <div className="h-1.5 overflow-hidden rounded bg-emerald-100 dark:bg-emerald-900">
+            <div className="h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
               <div
                 className="h-full rounded bg-emerald-600 dark:bg-emerald-400"
                 style={{
@@ -951,7 +951,7 @@ export function GuildWorkshopPanel({
                 }}
               />
             </div>
-            <div className="mt-1 text-right text-[11px] text-emerald-700 dark:text-emerald-300">
+            <div className="mt-1 text-right text-[11px] text-zinc-500 dark:text-zinc-400">
               {state.artisan.blacksmith.xpIntoLevel}/
               {state.artisan.blacksmith.xpForNext}
             </div>
@@ -960,29 +960,29 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "growth" && state ? (
-        <div className="grid gap-2 border-b border-emerald-200 pb-3 text-xs text-emerald-900 dark:border-emerald-900 dark:text-emerald-100 md:grid-cols-2">
+        <div className="grid gap-2 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-800 dark:text-zinc-100 md:grid-cols-2">
           <div>
             <div className="font-semibold">다음 목표</div>
-            <div className="mt-1 text-emerald-800/80 dark:text-emerald-200/80">
+            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               {nextWorkshopGoal(state)}
             </div>
-            <div className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
               총 제작 {state.workshopStats.totalCrafts.toLocaleString()}회 ·
               품질 제작 {state.workshopStats.qualityCrafts.toLocaleString()}회
             </div>
           </div>
           <div>
             <div className="font-semibold">대장장이 효과</div>
-            <div className="mt-1 text-emerald-800/80 dark:text-emerald-200/80">
+            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               {nextBlacksmithReward
                 ? `다음 해금: Lv ${nextBlacksmithReward.level} ${nextBlacksmithReward.title}`
                 : "모든 대장장이 보상을 해금했습니다."}
             </div>
-            <div className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
               +1 품질 확률은 Lv1 3%, 이후 레벨당 +2%p, 길드 보너스 합산
               최대 25%
             </div>
-            <div className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
               대장간 Lv {(state.smithyLevel ?? 1).toLocaleString()} ·{" "}
               {state.smithyBonus?.label ?? "기본 제작"} · 품질 보너스 +
               {state.smithyBonus?.qualityChanceBonusPct ?? 0}%p
@@ -995,8 +995,8 @@ export function GuildWorkshopPanel({
                     key={milestone.level}
                     className={`rounded border px-2 py-1 ${
                       unlocked
-                        ? "border-emerald-300 bg-emerald-100/70 dark:border-emerald-800 dark:bg-emerald-900/30"
-                        : "border-zinc-200 bg-white/70 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-400"
+                        ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
+                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -1015,11 +1015,11 @@ export function GuildWorkshopPanel({
               })}
             </div>
             <div className="mt-2 font-semibold">제작 품질 보너스</div>
-            <div className="mt-1 text-emerald-800/80 dark:text-emerald-200/80">
+            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               제작 {state.guildBonus.totalCrafts.toLocaleString()}회 · 품질
               확률 +{state.guildBonus.qualityChanceBonusPct.toLocaleString()}%
             </div>
-            <div className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
               {state.guildBonus.nextTotalCrafts == null
                 ? "최대 보너스 단계입니다."
                 : `다음 보너스까지 ${Math.max(
@@ -1029,7 +1029,7 @@ export function GuildWorkshopPanel({
                   ).toLocaleString()}회 남음`}
             </div>
             <div className="mt-2 font-semibold">칭호 목표</div>
-            <div className="mt-1 text-emerald-800/80 dark:text-emerald-200/80">
+            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               {titleGoalLine(state)}
             </div>
             <div className="mt-2 font-semibold">다음 대장간 Lv 해금</div>
@@ -1038,28 +1038,28 @@ export function GuildWorkshopPanel({
                 {nextSmithyUnlockRecipes.slice(0, 4).map((recipe) => (
                   <div
                     key={recipe.id}
-                    className="rounded border border-emerald-200 bg-white/70 px-2 py-1 dark:border-emerald-900 dark:bg-emerald-950/30"
+                    className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{recipe.itemName}</span>
-                      <span className="text-[10px] text-emerald-700 dark:text-emerald-300">
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
                         대장간 Lv {recipe.requiredSmithyLevel}
                       </span>
                     </div>
-                    <div className="mt-0.5 text-[11px] text-emerald-800/80 dark:text-emerald-200/80">
+                    <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                       대장장이 Lv {recipe.requiredArtisanLevel} ·{" "}
                       {recipe.costText}
                     </div>
                   </div>
                 ))}
                 {nextSmithyUnlockRecipes.length > 4 ? (
-                  <div className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     외 {nextSmithyUnlockRecipes.length - 4}종 추가 해금
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div className="mt-1 text-emerald-800/80 dark:text-emerald-200/80">
+              <div className="mt-1 text-zinc-600 dark:text-zinc-400">
                 다음 대장간 레벨에 새 제작품이 없습니다.
               </div>
             )}
@@ -1068,7 +1068,7 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {message ? (
-        <div className="rounded border border-emerald-200 bg-white/70 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+        <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           {message}
         </div>
       ) : null}
@@ -1134,22 +1134,22 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {!hasApiSmithy ? (
-        <div className="rounded border border-zinc-200 bg-white/80 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-300">
+        <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           서버 기준으로는 아직 길드 대장간이 확인되지 않았습니다.
         </div>
       ) : null}
 
       {workshopMode === "craft" ? (
-      <div className="space-y-2 rounded border border-emerald-200 bg-white/70 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/40">
-        <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 dark:border-emerald-900 dark:bg-emerald-950/50">
-          <div className="font-semibold text-emerald-900 dark:text-emerald-100">
+      <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
             장인표 세트 목표
           </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {artisanCraftedSet?.thresholds.map((threshold) => (
               <span
                 key={threshold.count}
-                className="rounded bg-white px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
               >
                 {threshold.count}세트 보너스
               </span>
@@ -1175,7 +1175,7 @@ export function GuildWorkshopPanel({
               className={`rounded-full px-2.5 py-1 font-medium transition ${
                 recipeSlotFilter === value
                   ? "bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950"
-                  : "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-200 dark:hover:bg-emerald-900"
+                  : "bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               }`}
             >
               {label}
@@ -1190,7 +1190,7 @@ export function GuildWorkshopPanel({
                 e.target.value as "all" | "craftOnly" | "craftable",
               )
             }
-            className="rounded border border-emerald-200 bg-white px-2 py-1 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           >
             <option value="all">모든 레시피</option>
             <option value="craftable">제작 가능</option>
@@ -1201,7 +1201,7 @@ export function GuildWorkshopPanel({
             onChange={(e) =>
               setRecipeSort(e.target.value as "level" | "tier" | "chance")
             }
-            className="rounded border border-emerald-200 bg-white px-2 py-1 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           >
             <option value="level">해금 레벨순</option>
             <option value="tier">티어 높은순</option>
@@ -1212,7 +1212,7 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "craft" ? (
-      <div className="divide-y divide-emerald-200 overflow-hidden rounded border border-emerald-200 bg-white/80 dark:divide-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40">
+      <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
         {filteredRecipes.map((recipe) => {
           const busy = craftingId === recipe.id;
           return (
@@ -1222,11 +1222,11 @@ export function GuildWorkshopPanel({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <strong className="text-emerald-950 dark:text-emerald-50">
+                  <strong className="text-zinc-950 dark:text-zinc-50">
                     {recipe.itemName}
                   </strong>
                   {recipe.craftOnly ? <CraftOnlyBadge /> : null}
-                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     T{recipe.tier} · {recipe.note} · Lv{" "}
                     {recipe.requiredArtisanLevel} · 숙련도 +{recipe.artisanXp}
                     {recipe.requiredSmithyLevel > 1
@@ -1234,7 +1234,7 @@ export function GuildWorkshopPanel({
                       : ""}
                   </span>
                 </div>
-                <div className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-200/80">
+                <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                   {recipe.costText} · +1 확률 {recipe.qualityChancePct}%
                   {recipe.craftOnly ? " · 획득 경로: 이 대장간 제작" : ""}
                 </div>
@@ -1261,7 +1261,7 @@ export function GuildWorkshopPanel({
           );
         })}
         {!loading && filteredRecipes.length === 0 ? (
-          <div className="px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200">
+          <div className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
             조건에 맞는 제작 의뢰가 없습니다.
           </div>
         ) : null}

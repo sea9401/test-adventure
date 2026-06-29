@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ArrowsDownUp, CaretDown, CaretUp } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SkillEffectChips } from "./SkillEffectChips";
 
@@ -55,6 +56,9 @@ export function V2LoadoutPanel({
 }) {
   // 단일 진실원천 = order(장착된 id 우선순위 리스트). 메타(코스트/잠금/시그)는 library 에서.
   const [order, setOrder] = useState<string[]>(loadout.equipped);
+  const [libraryOrder, setLibraryOrder] = useState<string[]>(
+    loadout.library.map((s) => s.skillId),
+  );
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -69,11 +73,36 @@ export function V2LoadoutPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equippedKey]);
 
+  const libraryKey = loadout.library.map((s) => s.skillId).join(",");
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 서버 library prop 이 바뀔 때 표시 순서 재시드
+    setLibraryOrder(loadout.library.map((s) => s.skillId));
+    // libraryKey 로 내용 비교(refresh 마다 새 배열 ref 라도 내용 같으면 미발화).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryKey]);
+
   const meta = useMemo(
     () => new Map(loadout.library.map((s) => [s.skillId, s])),
     [loadout.library],
   );
   const equippedSet = useMemo(() => new Set(order), [order]);
+  const orderedLibrary = useMemo(() => {
+    const byId = new Map(loadout.library.map((s) => [s.skillId, s]));
+    const seen = new Set<string>();
+    const out: V2LoadoutSkill[] = [];
+    for (const id of libraryOrder) {
+      const skill = byId.get(id);
+      if (!skill || seen.has(id)) continue;
+      seen.add(id);
+      out.push(skill);
+    }
+    for (const skill of loadout.library) {
+      if (seen.has(skill.skillId)) continue;
+      seen.add(skill.skillId);
+      out.push(skill);
+    }
+    return out;
+  }, [libraryOrder, loadout.library]);
   const spUsed = order.reduce((a, id) => a + (meta.get(id)?.spCost ?? 0), 0);
   const { spBudget } = loadout;
   const pct = spBudget > 0 ? Math.min(100, (spUsed / spBudget) * 100) : 0;
@@ -110,12 +139,69 @@ export function V2LoadoutPanel({
     }
   }
 
+  async function commitSkillOrder(nextOrder: string[]) {
+    const prev = libraryOrder;
+    setLibraryOrder(nextOrder);
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/skill-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ order: nextOrder }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        skillOrder?: string[];
+      } | null;
+      if (!j?.ok) {
+        setLibraryOrder(prev);
+        setMsg("스킬 순서를 저장할 수 없어요");
+      } else if (Array.isArray(j.skillOrder)) {
+        setLibraryOrder(j.skillOrder);
+      }
+    } catch {
+      setLibraryOrder(prev);
+      setMsg("오류가 발생했어요");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function toggle(skillId: string) {
     if (equippedSet.has(skillId)) {
       commit(order.filter((x) => x !== skillId));
     } else {
       commit([...order, skillId]);
     }
+  }
+
+  function moveSkill(skillId: string, delta: -1 | 1) {
+    const current = orderedLibrary.map((s) => s.skillId);
+    const idx = current.indexOf(skillId);
+    const nextIdx = idx + delta;
+    if (idx < 0 || nextIdx < 0 || nextIdx >= current.length) return;
+    const next = [...current];
+    [next[idx], next[nextIdx]] = [next[nextIdx], next[idx]];
+    commitSkillOrder(next);
+  }
+
+  function sortEquippedFirst() {
+    const ids = orderedLibrary.map((s) => s.skillId);
+    const idSet = new Set(ids);
+    const seen = new Set<string>();
+    const next: string[] = [];
+    for (const id of order) {
+      if (!idSet.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      next.push(id);
+    }
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      next.push(id);
+    }
+    commitSkillOrder(next);
   }
 
   if (loadout.library.length === 0) {
@@ -152,6 +238,20 @@ export function V2LoadoutPanel({
         배운 스킬을 스킬포인트 예산 안에서 장착하세요. 공용·기본기는 어느 직업이든,
         시그니처는 그 직업일 때만 장착할 수 있어요.
       </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+          라이브러리 순서
+        </span>
+        <button
+          type="button"
+          onClick={sortEquippedFirst}
+          disabled={busy || order.length === 0}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          <ArrowsDownUp size={14} weight="bold" />
+          장착 우선
+        </button>
+      </div>
       {spBreakdown && (
         <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/80">
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
@@ -203,18 +303,40 @@ export function V2LoadoutPanel({
       )}
 
       <ul className="mt-3 space-y-1.5">
-        {loadout.library.map((s) => {
+        {orderedLibrary.map((s, idx) => {
           const equipped = equippedSet.has(s.skillId);
           const wouldFit = spUsed + s.spCost <= spBudget;
           return (
             <li
               key={s.skillId}
-              className={`flex flex-wrap items-start justify-between gap-2 rounded-md border px-3 py-2 ${
+              className={`flex items-start gap-2 rounded-md border px-2 py-2 sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
               }`}
             >
+              <div className="flex w-8 shrink-0 flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => moveSkill(s.skillId, -1)}
+                  disabled={busy || idx === 0}
+                  aria-label={`${s.name} 위로 이동`}
+                  title="위로 이동"
+                  className="flex h-6 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  <CaretUp size={14} weight="bold" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveSkill(s.skillId, 1)}
+                  disabled={busy || idx === orderedLibrary.length - 1}
+                  aria-label={`${s.name} 아래로 이동`}
+                  title="아래로 이동"
+                  className="flex h-6 w-8 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-35 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  <CaretDown size={14} weight="bold" />
+                </button>
+              </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 truncate text-sm font-semibold">
@@ -227,27 +349,29 @@ export function V2LoadoutPanel({
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 <SkillEffectChips skillId={s.skillId} />
               </div>
-              {equipped ? (
-                <button
-                  type="button"
-                  onClick={() => toggle(s.skillId)}
-                  disabled={busy}
-                  aria-label={`${s.name} 해제`}
-                  className="shrink-0 rounded-md border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-300"
-                >
-                  해제
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => toggle(s.skillId)}
-                  disabled={busy || !wouldFit}
-                  aria-label={`${s.name} 장착`}
-                  className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {!wouldFit ? "SP 부족" : "장착"}
-                </button>
-              )}
+              <div className="shrink-0">
+                {equipped ? (
+                  <button
+                    type="button"
+                    onClick={() => toggle(s.skillId)}
+                    disabled={busy}
+                    aria-label={`${s.name} 해제`}
+                    className="rounded-md border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:text-violet-300"
+                  >
+                    해제
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => toggle(s.skillId)}
+                    disabled={busy || !wouldFit}
+                    aria-label={`${s.name} 장착`}
+                    className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {!wouldFit ? "SP 부족" : "장착"}
+                  </button>
+                )}
+              </div>
             </li>
           );
         })}

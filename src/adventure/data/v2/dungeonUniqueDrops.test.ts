@@ -35,7 +35,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   it("밴드당 흔한 ≥9종(기본 9 + 강등된 옛 필드 유니크) — 전부 noDrop·비유니크", () => {
     // 2026-06-26 유니크 재정의: 옛 필드 유니크가 일반(noDrop)으로 강등돼 흔한 풀에 합류 →
     //   밴드별 9 + 강등분(canyon/lake+2·cave+4·sanctum/swamp+2·den+3).
-    expect(BAND_COMMON_POOLS).toHaveLength(7);
+    expect(BAND_COMMON_POOLS).toHaveLength(9);
     for (const p of BAND_COMMON_POOLS) {
       expect(p.ids.length, `밴드 ${p.minDepth}`).toBeGreaterThanOrEqual(9);
       for (const id of p.ids) {
@@ -73,6 +73,10 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(bandCommonChanceForDepth(42)).toBe(0.0006); // 소굴 로컬6
     expect(bandCommonChanceForDepth(43)).toBe(0.0003); // 검은 왕도 로컬1
     expect(bandCommonChanceForDepth(48)).toBe(0.0006); // 검은 왕도 로컬6
+    expect(bandCommonChanceForDepth(49)).toBe(0.0003); // 붉은 벌판 로컬1
+    expect(bandCommonChanceForDepth(54)).toBe(0.0006); // 붉은 벌판 로컬6
+    expect(bandCommonChanceForDepth(55)).toBe(0.0003); // 백골 고원 로컬1
+    expect(bandCommonChanceForDepth(60)).toBe(0.0006); // 백골 고원 로컬6
   });
 
   it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
@@ -88,22 +92,30 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
       calls++;
       return 0;
     };
-    // 밴드 = 7~48(들판 1~6 전·마지막 검은 왕도 밴드 48에서 끝=프론티어 캡).
+    // 밴드 = 7~60(들판 1~6 전·마지막 백골 고원 밴드 60에서 끝=프론티어 캡).
     expect(rollBandCommonDrop(6, rng)).toBeNull(); // 들판(밴드 전)
-    expect(rollBandCommonDrop(49, rng)).toBeNull(); // 마지막 밴드(48) 너머 = 프론티어 끝
+    expect(rollBandCommonDrop(61, rng)).toBeNull(); // 마지막 밴드(60) 너머 = 프론티어 끝
     expect(calls).toBe(0);
   });
 
-  it("소굴은 깊이 37~42, 검은 왕도는 43~48 — 48 이 프론티어 끝", () => {
+  it("소굴→검은 왕도→붉은 벌판→백골 고원 밴드가 6깊이씩 이어짐", () => {
     const den = bandCommonPoolForDepth(37)!;
     expect(bandCommonPoolForDepth(42)).toBe(den);
     const throne = bandCommonPoolForDepth(43)!;
     expect(throne).not.toBe(den);
     expect(bandCommonPoolForDepth(48)).toBe(throne);
-    expect(bandCommonPoolForDepth(49)).toBeNull(); // 캡 너머 = 콘텐츠 없음
+    const redField = bandCommonPoolForDepth(49)!;
+    expect(redField).not.toBe(throne);
+    expect(bandCommonPoolForDepth(54)).toBe(redField);
+    const plateau = bandCommonPoolForDepth(55)!;
+    expect(plateau).not.toBe(redField);
+    expect(bandCommonPoolForDepth(60)).toBe(plateau);
+    expect(bandCommonPoolForDepth(61)).toBeNull(); // 캡 너머 = 콘텐츠 없음
     expect(rollBandCommonDrop(40, seqRng([0.0004, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.0004, 0]))).toBe(throne.ids[0]); // 신규 밴드 내 드랍
     expect(rollBandCommonDrop(46, seqRng([0.0005, 0]))).toBeNull(); // 로컬4 0.00045 이상이라 실패
+    expect(rollBandCommonDrop(49, seqRng([0.0002, 0]))).toBe(redField.ids[0]);
+    expect(rollBandCommonDrop(55, seqRng([0.0002, 0]))).toBe(plateau.ids[0]);
   });
 });
 
@@ -171,19 +183,23 @@ describe("BAND_UNIQUE_POOLS — 게이트 전(7~24) 유니크 풀 비었음(유�
   });
 });
 
-describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~48)", () => {
+describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~60)", () => {
   const empty = new Set<V2EquipmentId>();
   const sanctum = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
   const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
   const den = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 37)!;
   const throne = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 43)!;
+  const redField = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 49)!;
+  const plateau = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 55)!;
 
-  it("성소(25~30)·늪지(31~36)·소굴(37~42)·왕도(43~48) = 각 고유 5종, chance 0.0002, 전부 유니크", () => {
+  it("성소부터 백골 고원까지 6깊이별 고유 5종, chance 0.0002, 전부 유니크", () => {
     for (const [pool, min, max] of [
       [sanctum, 25, 30],
       [swamp, 31, 36],
       [den, 37, 42],
       [throne, 43, 48],
+      [redField, 49, 54],
+      [plateau, 55, 60],
     ] as const) {
       expect(pool.minDepth).toBe(min);
       expect(pool.maxDepth).toBe(max);
@@ -195,7 +211,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~48)
     }
   });
 
-  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴→왕도, 49+ 시그니처 유니크 없음", () => {
+  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴→왕도→붉은 벌판→백골 고원", () => {
     expect(bandUniquePoolForDepth(24)!.ids).toEqual([]); // 심층 동굴(빈 풀)
     expect(bandUniquePoolForDepth(25)).toBe(sanctum);
     expect(bandUniquePoolForDepth(30)).toBe(sanctum);
@@ -205,7 +221,11 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~48)
     expect(bandUniquePoolForDepth(42)).toBe(den);
     expect(bandUniquePoolForDepth(43)).toBe(throne);
     expect(bandUniquePoolForDepth(48)).toBe(throne);
-    expect(bandUniquePoolForDepth(49)).toBeNull();
+    expect(bandUniquePoolForDepth(49)).toBe(redField);
+    expect(bandUniquePoolForDepth(54)).toBe(redField);
+    expect(bandUniquePoolForDepth(55)).toBe(plateau);
+    expect(bandUniquePoolForDepth(60)).toBe(plateau);
+    expect(bandUniquePoolForDepth(61)).toBeNull();
   });
 
   it("통과 굴림(rng<chance) → 그 밴드 고유 반환(pick 0 → 첫 id)", () => {
@@ -213,6 +233,8 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~48)
     expect(rollBandUniqueDrop(31, empty, seqRng([0, 0]))).toBe(swamp.ids[0]);
     expect(rollBandUniqueDrop(42, empty, seqRng([0, 0]))).toBe(den.ids[0]);
     expect(rollBandUniqueDrop(43, empty, seqRng([0, 0]))).toBe(throne.ids[0]);
+    expect(rollBandUniqueDrop(49, empty, seqRng([0, 0]))).toBe(redField.ids[0]);
+    expect(rollBandUniqueDrop(55, empty, seqRng([0, 0]))).toBe(plateau.ids[0]);
   });
 
   it("굴림 실패(rng≥chance) → null", () => {
@@ -224,7 +246,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~48)
     expect(rollBandUniqueDrop(37, owned, seqRng([0, 0]))).toBe(den.ids[0]);
   });
 
-  it("밴드 간 후보 풀이 겹치지 않음", () => {
+  it("기존 고유 밴드는 후보 풀이 겹치지 않고, 신규 엔드 밴드는 왕도 풀을 재사용", () => {
     const all = [sanctum, swamp, den, throne];
     for (const a of all) {
       const others = all.filter((p) => p !== a).flatMap((p) => p.ids);
@@ -233,6 +255,8 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~48)
         `밴드 ${a.minDepth}`,
       ).toEqual([]);
     }
+    expect(new Set(redField.ids)).toEqual(new Set(throne.ids));
+    expect(new Set(plateau.ids)).toEqual(new Set(throne.ids));
   });
 });
 
@@ -291,7 +315,7 @@ describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
     }
   });
 
-  it("시그니처 유니크 밴드(48) 너머 — 빈 배열", () => {
+  it("시그니처 유니크 밴드(60) 너머 — 빈 배열", () => {
     const beyond =
       Math.max(8, ...BAND_UNIQUE_POOLS.map((p) => p.maxDepth)) + 1;
     expect(uniqueIdsForDepthRange(beyond, beyond + 5)).toEqual([]);

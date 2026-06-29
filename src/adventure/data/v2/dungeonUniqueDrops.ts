@@ -224,6 +224,44 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_throne_royal_necklace",
     ],
   },
+  {
+    // 붉은 벌판(49~54) — 신규 장비는 후속으로 분리하고, 현 엔드 장비 풀을 이어 쓴다.
+    minDepth: 49,
+    maxDepth: 54,
+    ids: [
+      "v2_throne_greatsword",
+      "v2_throne_staff",
+      "v2_throne_bow",
+      "v2_throne_dagger",
+      "v2_throne_black_armor",
+      "v2_throne_void_robe",
+      "v2_throne_black_gloves",
+      "v2_throne_hunt_gloves",
+      "v2_throne_black_boots",
+      "v2_throne_shadow_boots",
+      "v2_throne_void_ring",
+      "v2_throne_royal_necklace",
+    ],
+  },
+  {
+    // 백골 고원(55~60) — 붉은 벌판과 동일하게 기존 엔드 장비 풀 유지.
+    minDepth: 55,
+    maxDepth: 60,
+    ids: [
+      "v2_throne_greatsword",
+      "v2_throne_staff",
+      "v2_throne_bow",
+      "v2_throne_dagger",
+      "v2_throne_black_armor",
+      "v2_throne_void_robe",
+      "v2_throne_black_gloves",
+      "v2_throne_hunt_gloves",
+      "v2_throne_black_boots",
+      "v2_throne_shadow_boots",
+      "v2_throne_void_ring",
+      "v2_throne_royal_necklace",
+    ],
+  },
 ];
 
 // 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
@@ -270,7 +308,7 @@ export type BandUniquePool = {
 // 🔑 유니크 재정의(2026-06-26·docs/v2-signature-uniques-plan.md): 옛 필드 유니크(굴림 사이드그레이드)는
 //   특별하지 않아 `common`(일반)으로 강등 → BAND_COMMON_POOLS 로 이동. 유니크 풀엔 **이름 있는
 //   고유 아이템(Signature)** 만 남아 "유니크 = 정말 특별한 것"이 됨. 게이트 = **잊힌 성소(25)부터** —
-//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~48 = 밴드당 고유 5종, chance 0.0002(밴드유니크보다
+//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~60 = 밴드당 고유 5종, chance 0.0002(밴드유니크보다
 //   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
 export const SIGNATURE_UNIQUE_CHANCE = 0.0002; // 고유 아이템 총 드랍률(밴드당)·다이얼. 0.0005→0.0002(더 귀하게).
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
@@ -321,6 +359,32 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 검은 왕도(43~48) 고유 5종 — 마법 저항·치명 대응·엔드 추격(검은 왕좌 세트 2 + 단품 3).
     minDepth: 43,
     maxDepth: 48,
+    chance: SIGNATURE_UNIQUE_CHANCE,
+    ids: [
+      "v2_throne_sig_eclipse_staff",
+      "v2_throne_sig_starfall_bow",
+      "v2_throne_sig_black_plate",
+      "v2_throne_sig_void_crown",
+      "v2_throne_sig_shadow_ring",
+    ],
+  },
+  {
+    // 붉은 벌판(49~54) — 신규 고유 장비 없이 현 엔드 시그니처 풀 유지.
+    minDepth: 49,
+    maxDepth: 54,
+    chance: SIGNATURE_UNIQUE_CHANCE,
+    ids: [
+      "v2_throne_sig_eclipse_staff",
+      "v2_throne_sig_starfall_bow",
+      "v2_throne_sig_black_plate",
+      "v2_throne_sig_void_crown",
+      "v2_throne_sig_shadow_ring",
+    ],
+  },
+  {
+    // 백골 고원(55~60) — 현 엔드 시그니처 풀 유지.
+    minDepth: 55,
+    maxDepth: 60,
     chance: SIGNATURE_UNIQUE_CHANCE,
     ids: [
       "v2_throne_sig_eclipse_staff",

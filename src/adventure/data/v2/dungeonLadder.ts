@@ -43,6 +43,28 @@ export const END_EXTENSION_START_DEPTH = 43;
 export const END_EXTENSION_START_STAT_MULT = 30;
 export const END_EXTENSION_STAT_STEP = 1.0;
 
+// 검은 왕도 이후 신규 사냥터 권장 전투력 앵커(2026-06-30).
+// 43~48(검은 왕도)은 기존 1500대 엔드 램프를 유지하고, 49~54(붉은 벌판)는 2000~2300,
+// 55~60(백골 고원)은 2800~3300으로 한 단계 더 큰 단차를 둔다.
+function endExtensionPowerGate(depth: number): number {
+  const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
+  if (d < 49) {
+    return Math.round(
+      Math.pow(
+        END_EXTENSION_START_STAT_MULT +
+          (d - END_EXTENSION_START_DEPTH) * END_EXTENSION_STAT_STEP,
+        LADDER_GATE_DAMP,
+      ) * POWER_PER_STAT,
+    );
+  }
+  if (d <= 54) return 2000 + (d - 49) * 60;
+  return 2800 + (d - 55) * 100;
+}
+
+function statMultForPowerGate(power: number): number {
+  return Math.pow(power / POWER_PER_STAT, 1 / LADDER_GATE_DAMP);
+}
+
 // 엔드게임 난이도 완화(2026-06-18, 밸런스) — 깊을수록 몬스터 hp+atk 을 점감(scaleMonsterForFloor
 // 에서 sMult 에 곱). 🔑 floorPowerGate(권장파워/레벨)에는 안 들어가 진척·exp 곡선과 **분리** —
 // "권장 레벨로 맞춘 빌드"가 엔드에서 DEX 외엔 다 못 깨던 문제(sim: d50 STR51·INT33·VIT0·DEX100)를,
@@ -126,6 +148,9 @@ export function floorStatMult(depth: number): number {
     return 1 + onboardingT(depth) * (ONBOARDING_MAX_STAT_MULT - 1);
   }
   if (depth >= END_EXTENSION_START_DEPTH) {
+    if (depth >= 49) {
+      return statMultForPowerGate(endExtensionPowerGate(depth));
+    }
     return (
       END_EXTENSION_START_STAT_MULT +
       (depth - END_EXTENSION_START_DEPTH) * END_EXTENSION_STAT_STEP
@@ -144,6 +169,9 @@ export function floorPowerGate(depth: number): number {
     return Math.round(
       FLOOR1_POWER + onboardingT(depth) * (ONBOARDING_MAX_POWER - FLOOR1_POWER),
     );
+  }
+  if (depth >= END_EXTENSION_START_DEPTH) {
+    return endExtensionPowerGate(depth);
   }
   return Math.round(
     Math.pow(floorStatMult(depth), LADDER_GATE_DAMP) * POWER_PER_STAT,

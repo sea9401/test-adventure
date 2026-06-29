@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowsDownUp, DotsSixVertical, Star } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SkillEffectChips } from "./SkillEffectChips";
@@ -48,6 +48,14 @@ export type V2LoadoutData = {
   spBreakdown?: V2LoadoutSpBreakdown;
 };
 
+type DropTarget = {
+  skillId: string;
+  edge: "before" | "after";
+};
+
+const AUTO_SCROLL_EDGE_PX = 80;
+const AUTO_SCROLL_MAX_STEP = 18;
+
 export function V2LoadoutPanel({
   loadout,
   onChanged,
@@ -64,12 +72,14 @@ export function V2LoadoutPanel({
     loadout.library.filter((s) => s.favorite).map((s) => s.skillId),
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{
-    skillId: string;
-    edge: "before" | "after";
-  } | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const dragSessionRef = useRef<{ activeId: string; pointerId: number } | null>(
+    null,
+  );
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
 
   // 부모가 /me/state 를 다시 불러(예: 스킬 학습 후) loadout 이 갱신되면 서버 진실로 동기화.
   //   토글은 같은 prop 참조라 effect 미발화 → 낙관적 로컬 상태 유지. 학습 등 refresh 시에만 리셋.
@@ -122,6 +132,18 @@ export function V2LoadoutPanel({
   const { spBudget } = loadout;
   const pct = spBudget > 0 ? Math.min(100, (spUsed / spBudget) * 100) : 0;
   const spBreakdown = loadout.spBreakdown;
+  const equippedSkills = useMemo(
+    () => order.map((id) => meta.get(id)).filter((s): s is V2LoadoutSkill => !!s),
+    [meta, order],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (autoScrollFrameRef.current != null) {
+        cancelAnimationFrame(autoScrollFrameRef.current);
+      }
+    };
+  }, []);
 
   async function commit(nextOrder: string[]) {
     const prev = order;
@@ -218,6 +240,85 @@ export function V2LoadoutPanel({
     return clientY < rect.top + rect.height / 2 ? "before" : "after";
   }
 
+  function dropTargetAtPoint(x: number, y: number): DropTarget | null {
+    const activeId = dragSessionRef.current?.activeId;
+    if (!activeId) return null;
+    for (const el of document.elementsFromPoint(x, y)) {
+      if (!(el instanceof HTMLElement)) continue;
+      const row = el.closest<HTMLElement>("[data-skill-drop-id]");
+      const skillId = row?.dataset.skillDropId;
+      if (!row || !skillId || skillId === activeId) return null;
+      return { skillId, edge: dropEdgeForClientY(row, y) };
+    }
+    return null;
+  }
+
+  function updateDropTargetAtPoint(x: number, y: number) {
+    setDropTarget(dropTargetAtPoint(x, y));
+  }
+
+  function stopAutoScroll() {
+    if (autoScrollFrameRef.current != null) {
+      cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+    pointerRef.current = null;
+  }
+
+  function autoScrollStep() {
+    const pointer = pointerRef.current;
+    if (!pointer || !dragSessionRef.current) {
+      autoScrollFrameRef.current = null;
+      return;
+    }
+
+    const viewportH = window.innerHeight;
+    const topDist = pointer.y;
+    const bottomDist = viewportH - pointer.y;
+    let delta = 0;
+    if (topDist < AUTO_SCROLL_EDGE_PX) {
+      delta = -Math.ceil(
+        ((AUTO_SCROLL_EDGE_PX - topDist) / AUTO_SCROLL_EDGE_PX) *
+          AUTO_SCROLL_MAX_STEP,
+      );
+    } else if (bottomDist < AUTO_SCROLL_EDGE_PX) {
+      delta = Math.ceil(
+        ((AUTO_SCROLL_EDGE_PX - bottomDist) / AUTO_SCROLL_EDGE_PX) *
+          AUTO_SCROLL_MAX_STEP,
+      );
+    }
+
+    if (delta !== 0) {
+      window.scrollBy({ top: delta });
+      updateDropTargetAtPoint(pointer.x, pointer.y);
+    }
+    autoScrollFrameRef.current = requestAnimationFrame(autoScrollStep);
+  }
+
+  function ensureAutoScroll() {
+    if (autoScrollFrameRef.current == null) {
+      autoScrollFrameRef.current = requestAnimationFrame(autoScrollStep);
+    }
+  }
+
+  function updatePointerDrag(x: number, y: number) {
+    pointerRef.current = { x, y };
+    updateDropTargetAtPoint(x, y);
+    ensureAutoScroll();
+  }
+
+  function finishPointerDrag(x: number, y: number) {
+    const activeId = dragSessionRef.current?.activeId;
+    const target = dropTargetAtPoint(x, y) ?? dropTarget;
+    if (activeId && target) {
+      reorderSkill(activeId, target.skillId, target.edge);
+    }
+    dragSessionRef.current = null;
+    setDraggingId(null);
+    setDropTarget(null);
+    stopAutoScroll();
+  }
+
   function toggleFavorite(skillId: string) {
     const nextFavorites = favoriteSet.has(skillId)
       ? favoriteIds.filter((id) => id !== skillId)
@@ -285,6 +386,30 @@ export function V2LoadoutPanel({
         배운 스킬을 스킬포인트 예산 안에서 장착하세요. 공용·기본기는 어느 직업이든,
         시그니처는 그 직업일 때만 장착할 수 있어요.
       </p>
+      {equippedSkills.length > 0 && (
+        <div className="mt-3 border-y border-zinc-200 py-2 dark:border-zinc-800">
+          <div className="mb-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            장착 중
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {equippedSkills.map((s, idx) => (
+              <button
+                key={s.skillId}
+                type="button"
+                onClick={() => toggle(s.skillId)}
+                disabled={busy}
+                title={`${s.name} 해제`}
+                className="inline-flex h-8 max-w-36 shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-2 text-xs font-medium text-violet-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200"
+              >
+                <span className="tabular-nums text-violet-500 dark:text-violet-400">
+                  {idx + 1}
+                </span>
+                <span className="truncate">{s.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
           라이브러리 순서
@@ -357,43 +482,7 @@ export function V2LoadoutPanel({
           return (
             <li
               key={s.skillId}
-              onDragOver={(e) => {
-                e.preventDefault();
-                if (!draggingId || draggingId === s.skillId) {
-                  setDropTarget(null);
-                  return;
-                }
-                setDropTarget({
-                  skillId: s.skillId,
-                  edge: dropEdgeForClientY(e.currentTarget, e.clientY),
-                });
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const activeId =
-                  e.dataTransfer.getData("text/plain") || draggingId;
-                if (activeId) {
-                  reorderSkill(
-                    activeId,
-                    s.skillId,
-                    dropTarget?.skillId === s.skillId
-                      ? dropTarget.edge
-                      : dropEdgeForClientY(e.currentTarget, e.clientY),
-                  );
-                }
-                setDraggingId(null);
-                setDropTarget(null);
-              }}
-              onDragLeave={(e) => {
-                const nextTarget = e.relatedTarget;
-                if (
-                  nextTarget instanceof Node &&
-                  e.currentTarget.contains(nextTarget)
-                ) {
-                  return;
-                }
-                if (dropTarget?.skillId === s.skillId) setDropTarget(null);
-              }}
+              data-skill-drop-id={s.skillId}
               className={`relative flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40"
@@ -413,19 +502,41 @@ export function V2LoadoutPanel({
               <span
                 role="button"
                 tabIndex={0}
-                draggable={!busy}
                 aria-label={`${s.name} 순서 이동`}
                 title="드래그해서 순서 변경"
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", s.skillId);
+                onPointerDown={(e) => {
+                  if (busy || e.button !== 0) return;
+                  e.preventDefault();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  dragSessionRef.current = {
+                    activeId: s.skillId,
+                    pointerId: e.pointerId,
+                  };
                   setDraggingId(s.skillId);
+                  setDropTarget(null);
+                  updatePointerDrag(e.clientX, e.clientY);
                 }}
-                onDragEnd={() => {
+                onPointerMove={(e) => {
+                  if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                  e.preventDefault();
+                  updatePointerDrag(e.clientX, e.clientY);
+                }}
+                onPointerUp={(e) => {
+                  if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                  e.preventDefault();
+                  if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                  }
+                  finishPointerDrag(e.clientX, e.clientY);
+                }}
+                onPointerCancel={(e) => {
+                  if (dragSessionRef.current?.pointerId !== e.pointerId) return;
+                  dragSessionRef.current = null;
                   setDraggingId(null);
                   setDropTarget(null);
+                  stopAutoScroll();
                 }}
-                className={`flex h-9 w-8 shrink-0 cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
+                className={`flex h-9 w-8 shrink-0 touch-none cursor-grab items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${
                   busy ? "pointer-events-none opacity-40" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
                 }`}
               >

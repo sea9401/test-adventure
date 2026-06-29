@@ -15,6 +15,7 @@ import {
   floorCritHpComp,
   frontierOnsetSoften,
   floorAccuracy,
+  floorPowerGate,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
@@ -38,7 +39,7 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
   });
 
   it("블록 이름은 테마 순서대로, 캡 밖 마지막 테마는 6깊이씩 블록 분할", () => {
-    const groups = dungeonThemeGroups(50);
+    const groups = dungeonThemeGroups(62);
     expect(groups[0].name).toBe("들판"); // 1~6
     expect(groups[0].depths).toEqual([1, 2, 3, 4, 5, 6]);
     expect(groups[1].name).toBe("마른 협곡"); // 7~12 (깊은 산 삭제 후)
@@ -46,9 +47,15 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
     expect(den.length).toBe(1);
     expect(den[0].depths).toEqual([37, 38, 39, 40, 41, 42]);
     const throne = groups.filter((g) => g.name === "검은 왕도");
-    expect(throne.length).toBe(2);
+    expect(throne.length).toBe(1);
     expect(throne[0].depths).toEqual([43, 44, 45, 46, 47, 48]);
-    expect(throne[1].depths).toEqual([49, 50]);
+    const redField = groups.filter((g) => g.name === "붉은 벌판");
+    expect(redField.length).toBe(1);
+    expect(redField[0].depths).toEqual([49, 50, 51, 52, 53, 54]);
+    const plateau = groups.filter((g) => g.name === "백골 고원");
+    expect(plateau.length).toBe(2);
+    expect(plateau[0].depths).toEqual([55, 56, 57, 58, 59, 60]);
+    expect(plateau[1].depths).toEqual([61, 62]);
   });
 });
 
@@ -84,7 +91,8 @@ describe("v2 dungeon", () => {
 
   it("enemiesForDepth / depthName — 테마당 6깊이, 테마 내 로컬 번호 표시", () => {
     // 들판(1~6)·마른협곡(7~12)·얼음호수(13~18)·심층동굴(19~24)·
-    // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42)·검은왕도(43~48=프론티어 끝).
+    // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42)·검은왕도(43~48)·
+    // 붉은벌판(49~54)·백골고원(55~60=프론티어 끝).
     expect(depthName(1)).toBe("들판 1");
     expect(depthName(6)).toBe("들판 6");
     expect(depthName(7)).toBe("마른 협곡 1");
@@ -94,7 +102,11 @@ describe("v2 dungeon", () => {
     expect(depthName(42)).toBe("짐승의 소굴 6");
     expect(depthName(43)).toBe("검은 왕도 1");
     expect(depthName(48)).toBe("검은 왕도 6");
-    expect(depthName(50)).toBe("검은 왕도 8"); // 캡(48) 밖=도달 불가, 방어적 클램프 표시만
+    expect(depthName(49)).toBe("붉은 벌판 1");
+    expect(depthName(54)).toBe("붉은 벌판 6");
+    expect(depthName(55)).toBe("백골 고원 1");
+    expect(depthName(60)).toBe("백골 고원 6");
+    expect(depthName(62)).toBe("백골 고원 8"); // 캡(60) 밖=도달 불가, 방어적 클램프 표시만
 
     // 풀: 들판 = authored(MAIN_DUNGEON), 나머지 = 밴드(마른 협곡부터).
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies); // 들판
@@ -104,11 +116,13 @@ describe("v2 dungeon", () => {
     expect(enemiesForDepth(13)).not.toBe(enemiesForDepth(12)); // 마른협곡→얼음호수 전환
     expect(enemiesForDepth(42)).toBe(enemiesForDepth(37)); // 짐승의 소굴 상한
     expect(enemiesForDepth(43)).not.toBe(enemiesForDepth(37)); // 짐승의 소굴→검은 왕도 전환
-    expect(enemiesForDepth(999)).toBe(enemiesForDepth(43)); // 캡 밖도 방어적 클램프(도달 불가)
+    expect(enemiesForDepth(49)).not.toBe(enemiesForDepth(43)); // 검은 왕도→붉은 벌판 전환
+    expect(enemiesForDepth(55)).not.toBe(enemiesForDepth(49)); // 붉은 벌판→백골 고원 전환
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(55)); // 캡 밖도 방어적 클램프(도달 불가)
 
-    // 8테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
-    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43];
-    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴", "검은 왕도"];
+    // 10테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
+    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43, 49, 55];
+    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴", "검은 왕도", "붉은 벌판", "백골 고원"];
     for (let i = 0; i < themeReps.length; i++) {
       const pool = enemiesForDepth(themeReps[i]);
       expect(pool.length, `${themeNames[i]} 5종`).toBe(5);
@@ -133,9 +147,28 @@ describe("v2 dungeon", () => {
   });
 
   it("MAX_FRONTIER_DEPTH = 마지막 테마 끝(테마수 × 6) — 무한 반복 안 함, 새 테마 추가 시 자동 확장", () => {
-    // 8테마 × 6깊이 = 48. 검은 왕도 6(깊이 48)이 프론티어의 끝.
-    expect(MAX_FRONTIER_DEPTH).toBe(48);
-    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("검은 왕도 6");
+    // 10테마 × 6깊이 = 60. 백골 고원 6(깊이 60)이 프론티어의 끝.
+    expect(MAX_FRONTIER_DEPTH).toBe(60);
+    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("백골 고원 6");
+  });
+
+  it("신규 엔드 사냥터 권장 전투력 — 붉은 벌판 2000~2300, 백골 고원 2800~3300", () => {
+    expect([49, 50, 51, 52, 53, 54].map(floorPowerGate)).toEqual([
+      2000,
+      2060,
+      2120,
+      2180,
+      2240,
+      2300,
+    ]);
+    expect([55, 56, 57, 58, 59, 60].map(floorPowerGate)).toEqual([
+      2800,
+      2900,
+      3000,
+      3100,
+      3200,
+      3300,
+    ]);
   });
 
   it("전 층 파워 requirement(단조 증가)", () => {
@@ -277,13 +310,13 @@ describe("dungeonThemeCatalog (코덱스 사냥터 도감)", () => {
     expect(c[1].depthEnd).toBe(8); // 도달 8
   });
 
-  it("캡 밖 마지막 테마(검은 왕도) — 중복 카드 없이 한 장으로 합침", () => {
-    const c = dungeonThemeCatalog(50);
-    expect(c).toHaveLength(8); // 8 테마(깊은 산 삭제 후 + 검은 왕도), 중복 없음
+  it("캡 밖 마지막 테마(백골 고원) — 중복 카드 없이 한 장으로 합침", () => {
+    const c = dungeonThemeCatalog(62);
+    expect(c).toHaveLength(10); // 10 테마(깊은 산 삭제 후 + 신규 2개), 중복 없음
     const last = c[c.length - 1];
-    expect(last.name).toBe("검은 왕도");
-    expect(last.depthStart).toBe(43);
-    expect(last.depthEnd).toBe(50); // 캡 밖 방어 입력도 마지막 테마 한 카드
+    expect(last.name).toBe("백골 고원");
+    expect(last.depthStart).toBe(55);
+    expect(last.depthEnd).toBe(62); // 캡 밖 방어 입력도 마지막 테마 한 카드
     // 테마명 중복 없음
     expect(new Set(c.map((t) => t.name)).size).toBe(c.length);
   });

@@ -226,7 +226,12 @@ export type V2EquipmentId =
   | "v2_den_sig_beasthide_armor"
   | "v2_den_sig_claw_gloves"
   | "v2_den_sig_tracker_boots"
-  | "v2_den_sig_alpha_necklace";
+  | "v2_den_sig_alpha_necklace"
+  | "v2_throne_sig_eclipse_staff"
+  | "v2_throne_sig_starfall_bow"
+  | "v2_throne_sig_black_plate"
+  | "v2_throne_sig_void_crown"
+  | "v2_throne_sig_shadow_ring";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -603,6 +608,18 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { critMult: 40, hp: 60 },
     // 3타마다 추가타 1회 — 폭딜 정체성(Phase 2).
     signature: { trigger: "every_n_hits", label: "포식자", everyNHits: 3 },
+  },
+  {
+    id: "sig_black_throne",
+    name: "검은 왕좌",
+    pieces: ["v2_throne_sig_black_plate", "v2_throne_sig_void_crown"],
+    bonus: { hp: 180, magicDef: 18, critResist: 8 },
+    signature: {
+      trigger: "low_hp",
+      label: "검은 왕좌",
+      hpThresholdPct: 35,
+      damageTakenReductionPct: 20,
+    },
   },
 ];
 

@@ -29,6 +29,7 @@ import {
   tierCodexMin,
   elementalSkillsForClass,
   V2_CLASS_DEFS,
+  V2_SELECTABLE_CLASSES,
   jobDisplayName,
 } from "@/adventure/data/v2/classes";
 import {
@@ -848,15 +849,12 @@ export async function GET() {
               spFruitBonus,
               collectionBonus.total + equipmentCodexBonus,
             );
-            const groups = Object.entries(prof.groups ?? {}).map(([id, g]) => {
+            const groups = V2_SELECTABLE_CLASSES.map((id) => {
+              const g = prof.groups?.[id];
               const progress = spMasteryProgressForCumLevel(
                 Number(g?.cumLevel) || 0,
               );
-              const classDef =
-                id in V2_CLASS_DEFS
-                  ? V2_CLASS_DEFS[id as keyof typeof V2_CLASS_DEFS]
-                  : null;
-              const label = classDef?.name ?? id;
+              const label = V2_CLASS_DEFS[id].name;
               return {
                 id,
                 label,

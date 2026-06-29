@@ -38,6 +38,7 @@ export default function MapPage() {
       viewerGuildId={viewerGuildId}
       currentOutpostId={currentOutpost?.id ?? null}
       onOpenOutpost={(id) => router.push(`/outpost/${id}`)}
+      onOpenGridDungeon={() => router.push("/battle/grid-dungeon")}
       actionError={tileActionError}
       onDismissActionError={clearTileActionError}
     />

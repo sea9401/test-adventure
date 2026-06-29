@@ -9,6 +9,7 @@ import {
   CastleTurret,
   Coins,
   Crown,
+  DoorOpen,
   Flag,
   FlowerLotus,
   Hammer,
@@ -47,6 +48,10 @@ import {
   type TileFeatureKind,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
+import {
+  GRID_DUNGEON_ENTRANCE,
+  isAtGridDungeonEntrance,
+} from "@/adventure/data/v2/gridDungeon";
 import { VILLAGE_NAME_MAX } from "@/adventure/data/v2/settlement";
 import type { Outpost } from "@/adventure/data/v2/types";
 
@@ -140,6 +145,7 @@ export function TileMap({
   viewerGuildId,
   currentOutpostId,
   onOpenOutpost,
+  onOpenGridDungeon,
   actionError,
   onDismissActionError,
 }: {
@@ -158,6 +164,7 @@ export function TileMap({
   currentOutpostId?: string | null;
   // 거점/타일 전쟁 화면 진입 — /outpost/[id] 딥링크(부모가 router.push 주입).
   onOpenOutpost?: (id: string) => void;
+  onOpenGridDungeon?: () => void;
   // 개척/승격/철거/개명 실패 사유(한 줄). 있으면 빈 땅 패널에 안내 배너로 표시.
   actionError?: string | null;
   onDismissActionError?: () => void;
@@ -202,6 +209,10 @@ export function TileMap({
   const [selCol, selRow] = selected ? selected.split(",").map(Number) : [-1, -1];
   // 선택 칸 지형(미배치 = null). 통행 불가 지형(산맥/호수)은 이동/개척 패널 대신 정보 패널.
   const selFeature = selected ? tileFeatureAt(selCol, selRow) : null;
+  const selectedDungeonEntrance = isAtGridDungeonEntrance({
+    col: selCol,
+    row: selRow,
+  });
 
   // 플레이어 마커 칸 — tilePos 우선, 없으면 현재 거점 칸에서 파생(보드 밖이면 마커 없음).
   const playerPos =
@@ -244,6 +255,7 @@ export function TileMap({
               const o = oid ? OUTPOST_BY_ID.get(oid) : undefined;
               const occ = oid ? occByOutpost.get(oid) : undefined;
               const settlement = settlementByKey.get(k);
+              const isDungeonEntrance = isAtGridDungeonEntrance({ col, row });
               const isSel = selected === k;
               const isPlayer = k === playerTileKey;
               const ring = isPlayer ? (
@@ -359,11 +371,17 @@ export function TileMap({
                   key={k}
                   type="button"
                   onClick={() => setSelected(k)}
-                  title="빈 땅"
-                  className={`relative h-full w-full bg-zinc-900/60 transition hover:bg-zinc-800 ${
+                  title={isDungeonEntrance ? GRID_DUNGEON_ENTRANCE.name : "빈 땅"}
+                  className={`relative flex h-full w-full items-center justify-center bg-zinc-900/60 transition hover:bg-zinc-800 ${
                     isSel ? "outline outline-2 outline-indigo-400" : ""
                   }`}
                 >
+                  {isDungeonEntrance && (
+                    <DoorOpen
+                      className="h-2/5 w-2/5 text-amber-300"
+                      weight="fill"
+                    />
+                  )}
                   {ring}
                 </button>
               );
@@ -547,9 +565,18 @@ export function TileMap({
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
             <div className="min-w-0">
               <div className="text-xs text-zinc-400">
-                {selFeature ? `${TILE_TERRAIN_LABEL[selFeature.kind]} ` : "빈 땅 "}(
-                {selCol}, {selRow})
+                {selectedDungeonEntrance
+                  ? `${GRID_DUNGEON_ENTRANCE.name} `
+                  : selFeature
+                    ? `${TILE_TERRAIN_LABEL[selFeature.kind]} `
+                    : "빈 땅 "}
+                ({selCol}, {selRow})
               </div>
+              {selectedDungeonEntrance && (
+                <div className="mt-0.5 text-xs text-amber-300/80">
+                  오래된 격자 던전 입구 · 이 칸은 개척할 수 없습니다
+                </div>
+              )}
               {selFeature && TERRAIN_SETTLE_HINT[selFeature.kind] && (
                 <div className="mt-0.5 text-xs text-amber-300/80">
                   {TERRAIN_SETTLE_HINT[selFeature.kind]}
@@ -572,7 +599,24 @@ export function TileMap({
                   </button>
                 )
               )}
+              {selectedDungeonEntrance &&
+                onOpenGridDungeon &&
+                (playerTileKey === selected ? (
+                  <button
+                    type="button"
+                    onClick={onOpenGridDungeon}
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-amber-400"
+                  >
+                    <DoorOpen size={14} weight="fill" />
+                    던전 입장
+                  </button>
+                ) : (
+                  <span className="text-xs text-zinc-500">
+                    이 칸으로 이동하면 던전에 입장할 수 있습니다
+                  </span>
+                ))}
               {onFoundTile &&
+                !selectedDungeonEntrance &&
                 (viewerGuildId == null ? (
                   // 영토=길드 소유 — 무소속은 개척 불가(길드 생성/가입 안내).
                   <span className="text-xs text-amber-400">

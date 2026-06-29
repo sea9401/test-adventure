@@ -579,6 +579,7 @@ export type V2CompareSide = {
   item: V2Equipment;
   roll?: V2EquipRoll;
   enhance?: V2EnhanceState;
+  craftedBy?: V2CraftedBy;
 };
 
 // 증감 색 — 이득(초록)/손해(빨강)/동일(회색). 무게는 낮을수록 이득이라 방향이 아닌 better 로 색 결정.
@@ -640,6 +641,7 @@ function CompareHeader({
           ) : null}
         </h3>
         <ItemTypeChip item={side.item} />
+        {side.item.craftOnly ? <CraftOnlyBadge /> : null}
       </div>
       {pct != null && (
         <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
@@ -649,6 +651,17 @@ function CompareHeader({
           </span>
         </div>
       )}
+      {side.craftedBy ? (
+        <div className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+          제작자{" "}
+          <PlayerNameLink
+            name={side.craftedBy.name}
+            className="font-medium"
+            fallback="모험가"
+          />{" "}
+          · Lv {side.craftedBy.level.toLocaleString()}
+        </div>
+      ) : null}
     </div>
   );
 }

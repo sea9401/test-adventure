@@ -450,6 +450,10 @@ export type DerivePlayerCombatV2PureInput = {
   passiveBerserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 누적. */
   passiveEnemyMagicVulnPctPerStack?: number;
+  /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
+  passiveSpdOverflowToAtkPct?: number;
+  /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
+  passiveSkillCritOverflow?: boolean;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -691,10 +695,10 @@ export function derivePlayerCombatV2Pure(
   }
   // 5차 물리 캡스톤(검호·명궁) — 행동빈도 데드존(SPD>292) 초과 속도를 공격력 %로. SPD 무한 →
   //   점근(재폭주 방지). 상한 수렴·절대 도달X = 속도 죽은 스탯 X. %라 무기/레벨로 큰 atk 풀에 비례.
-  if (specEff.spdOverflowToAtkPct) {
+  if (input.passiveSpdOverflowToAtkPct) {
     const excessSpd = Math.max(0, specSpd - SPD_OVERFLOW_THRESHOLD);
     const pct =
-      specEff.spdOverflowToAtkPct * (1 - Math.exp(-excessSpd / SPD_OVERFLOW_SCALE));
+      input.passiveSpdOverflowToAtkPct * (1 - Math.exp(-excessSpd / SPD_OVERFLOW_SCALE));
     specAtk += Math.floor(specAtk * (pct / 100));
   }
   // accRating = 캡 없는 raw + 기본 명중(회피 대결형 Slice 2 — 명중이 방어자 회피 대결을 누르는
@@ -732,7 +736,7 @@ export function derivePlayerCombatV2Pure(
     //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     // 밤그림자 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
-    ...(specEff.skillCritOverflow ? { skillCritOverflow: true as const } : {}),
+    ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
     def: specDef,
@@ -971,6 +975,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.berserkAtkPctPerLostHpPct,
     passiveEnemyMagicVulnPctPerStack:
       passiveAgg.enemyMagicVulnPctPerStack,
+    passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
+    passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
   });
 }
 

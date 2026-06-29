@@ -272,6 +272,8 @@ function passiveLines(p) {
   if (p.berserkAtkPctPerLostHpPct) out.push(`잃은 HP 1%당 공격력 +${p.berserkAtkPctPerLostHpPct}%`);
   if (p.enemyMagicVulnPctPerStack) out.push(`스킬 적중 시 마법취약 스택당 +${p.enemyMagicVulnPctPerStack}%`);
   if (p.profPerKillBonus) out.push(`처치당 숙달 포인트 +${p.profPerKillBonus}`);
+  if (p.spdOverflowToAtkPct) out.push(`속도 한계 초과분 → 공격력 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
+  if (p.skillCritOverflow) out.push(`치명 한계(75%) 초과 보너스를 스킬에도 적용`);
   return out;
 }
 

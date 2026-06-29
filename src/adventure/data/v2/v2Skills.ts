@@ -92,6 +92,10 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnPctPerStack?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
+  /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
+  spdOverflowToAtkPct?: number;
+  /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
+  skillCritOverflow?: boolean;
 };
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
@@ -482,6 +486,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   poisonedEnemyDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
+  spdOverflowToAtkPct: number;
+  skillCritOverflow: boolean;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -503,6 +509,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let poisonedEnemyDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
+  let spdOverflowToAtkPct = 0;
+  let skillCritOverflow = false;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -530,6 +538,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
     berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
+    spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
+    if (p.skillCritOverflow) skillCritOverflow = true;
   }
   return {
     stat,
@@ -552,6 +562,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     poisonedEnemyDefReductionPct,
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
+    spdOverflowToAtkPct,
+    skillCritOverflow,
   };
 }
 
@@ -678,6 +690,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
   if (p.enemyMagicVulnPctPerStack)
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
+  if (p.spdOverflowToAtkPct)
+    chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
+  if (p.skillCritOverflow)
+    chips.push(`치명 한계(75%) 초과 보너스를 스킬에도 적용`);
   return chips;
 }
 

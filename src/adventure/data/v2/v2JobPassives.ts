@@ -67,21 +67,9 @@ export type V2JobPassiveEffect = {
   critChancePctAdd?: number;
   /** 부식 — 중독된 적 방어력 % 감소(디버프). */
   poisonedEnemyDefReductionPct?: number;
-  /** 5차 물리 캡스톤(검호·명궁) — 행동빈도 데드존(SPD>SPD_OVERFLOW_THRESHOLD) 초과 속도를 공격력 %로
-   *  환산(점근, 값=상한%). 플랫 아닌 %라 무기위력·레벨로 커진 atk 풀에 비례 유지(플랫은 600 atk 에 묻힘). */
-  spdOverflowToAtkPct?: number;
-  /** 밤그림자 — 치명 확률 오버플로(75% 초과분 크리뎀)를 스킬에도 적용(전역=평타 전용). */
-  skillCritOverflow?: boolean;
 };
 
-export const V2_JOB_PASSIVES: Record<string, V2JobPassiveEffect> = {
-  // 5차 물리 캡스톤 — 초과 속도(데드존 >292)를 공격력 %로. 둘 다 물리 딜러라 속도 투자 시 보상.
-  //   명궁=native DEX·검호=DEX 직군 순회로 속도 확보(스탯 캐릭터 전역). 점근 상한 = 최대 +25% atk.
-  swordmaster: { spdOverflowToAtkPct: 25 }, // 검호
-  marksman: { spdOverflowToAtkPct: 25 }, // 명궁
-  // 5차 LUK 캡스톤 — 스킬 치명에도 크리 오버플로(75% 초과분 크리뎀) 적용. 전역은 평타 전용.
-  nightshade: { skillCritOverflow: true }, // 밤그림자 — 스킬에도 치명 오버플로
-};
+export const V2_JOB_PASSIVES: Record<string, V2JobPassiveEffect> = {};
 
 /** jobId 의 효과 패시브. 미정의 = {} (효과 없음). */
 export function jobPassive(jobId: string): V2JobPassiveEffect {

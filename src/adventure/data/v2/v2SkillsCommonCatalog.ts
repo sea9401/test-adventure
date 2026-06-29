@@ -1033,10 +1033,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_swordmaster_focus: {
     id: "v2c_swordmaster_focus", name: "검의 집중", stat: "str", category: "passive", tier: 3,
-    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명 피해가 오른다.",
+    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명 피해가 오르고, 한계를 넘어선 속도가 공격력이 된다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { statPct: { str: 18 }, critDmgPct: 25 },
+    passive: { statPct: { str: 18 }, critDmgPct: 25, spdOverflowToAtkPct: 25 },
   },
   v2c_ironknight_guard: {
     id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
@@ -1094,10 +1094,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_nightshade_cloak: {
     id: "v2c_nightshade_cloak", name: "밤의 장막", stat: "luk", category: "passive", tier: 3,
-    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다.",
+    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다. 치명 한계 초과분이 스킬에도 실린다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
-    passive: { evasionPct: 18, critDmgPct: 20 },
+    passive: { evasionPct: 18, critDmgPct: 20, skillCritOverflow: true },
   },
 };
 

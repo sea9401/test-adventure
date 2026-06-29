@@ -763,6 +763,7 @@ export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [
 ] as const;
 
 const VALID_SKILL_IDS: ReadonlySet<string> = new Set(Object.keys(V2_SKILLS));
+const MAX_SKILL_ORDER_INPUT = Object.keys(V2_SKILLS).length;
 
 // === 저장 형태 ───────────────────────────────────────────────────────
 // saves_kv 키 "skills.v2" — 서버 권위 (equipment.v2 와 동일 패턴, SYNCED_KEYS 외).
@@ -773,6 +774,8 @@ export type V2SkillsState = {
   learned: V2SkillId[];
   /** SP 로드아웃 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합). */
   equipped: V2SkillId[];
+  /** 학습 라이브러리 표시 순서. 전투/소유 판정과 무관한 UI 정렬값. */
+  skillOrder?: V2SkillId[];
   /** 전투 패턴(갬빗, C2) — 우선순위 {조건→행동} 블록. 미설정(undefined)이면 엔진이 로드아웃에서
    *  기본 패턴 도출(defaultPatternFromEquipped). combat-pattern 라우트만 변경. */
   pattern?: V2CombatPattern;
@@ -787,6 +790,46 @@ export type V2SkillsState = {
 
 export function emptyV2SkillsState(): V2SkillsState {
   return { learned: [], equipped: [] };
+}
+
+export function normalizeSkillOrder(
+  rawOrder: unknown,
+  learned: readonly V2SkillId[],
+): V2SkillId[] {
+  if (!Array.isArray(rawOrder)) return [];
+  const learnedSet = new Set<string>(learned);
+  const seen = new Set<string>();
+  const out: V2SkillId[] = [];
+  for (const id of rawOrder.slice(0, MAX_SKILL_ORDER_INPUT)) {
+    if (typeof id !== "string") continue;
+    if (!VALID_SKILL_IDS.has(id) || !learnedSet.has(id) || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    out.push(id as V2SkillId);
+  }
+  return out;
+}
+
+export function orderedLearnedSkills(
+  learned: readonly V2SkillId[],
+  skillOrder: readonly V2SkillId[] | undefined,
+): V2SkillId[] {
+  if (!skillOrder || skillOrder.length === 0) return [...learned];
+  const learnedSet = new Set<string>(learned);
+  const seen = new Set<string>();
+  const out: V2SkillId[] = [];
+  for (const id of skillOrder) {
+    if (!learnedSet.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  for (const id of learned) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
 }
 
 // 손상/누락 raw 도 안전하게 정규화. learned 의 부분집합인 equipped 만 유지한다.
@@ -829,9 +872,14 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     rawLoadoutPresets,
     totalPresetSlots(),
   );
+  const skillOrder = normalizeSkillOrder(
+    (raw as { skillOrder?: unknown }).skillOrder,
+    learned,
+  );
   let base: V2SkillsState = pattern
     ? { learned, equipped, pattern }
     : { learned, equipped };
+  if (skillOrder.length > 0) base = { ...base, skillOrder };
   if (presets.length > 0) base = { ...base, presets };
   if (loadoutPresets.length > 0) base = { ...base, loadoutPresets };
   return base;

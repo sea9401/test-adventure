@@ -4,6 +4,7 @@ import {
   V2_STARTER_SKILL_IDS,
   parseV2SkillsState,
   emptyV2SkillsState,
+  orderedLearnedSkills,
   describeV2Skill,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
@@ -119,6 +120,34 @@ describe("parseV2SkillsState", () => {
     ];
     const r = parseV2SkillsState({ learned: ids, equipped: ids });
     expect(r.equipped).toEqual(ids);
+  });
+
+  it("skillOrder 는 학습한 유효 id 만 표시 순서로 보존", () => {
+    const r = parseV2SkillsState({
+      learned: ["v2_skill_strike", "v2_skill_dash", "v2_skill_recover"],
+      equipped: ["v2_skill_strike"],
+      skillOrder: [
+        "v2_skill_dash",
+        "unknown_id",
+        "v2_skill_dash",
+        "v2_skill_recover",
+        "v2_skill_flurry",
+      ],
+    });
+    expect(r.skillOrder).toEqual(["v2_skill_dash", "v2_skill_recover"]);
+  });
+
+  it("orderedLearnedSkills 는 커스텀 순서 뒤에 누락 학습분을 붙인다", () => {
+    const learned: V2SkillId[] = [
+      "v2_skill_strike",
+      "v2_skill_dash",
+      "v2_skill_recover",
+    ];
+    expect(orderedLearnedSkills(learned, ["v2_skill_dash"])).toEqual([
+      "v2_skill_dash",
+      "v2_skill_strike",
+      "v2_skill_recover",
+    ]);
   });
 
   it("프리셋(C4) 라운드트립 — 검증 파싱 후 보존, 빈 라이브러리는 키 생략", () => {

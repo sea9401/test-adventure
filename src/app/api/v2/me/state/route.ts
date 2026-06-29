@@ -21,6 +21,7 @@ import {
   V2_SKILLS,
   v2SkillLearnCost,
   spCostOf,
+  orderedLearnedSkills,
 } from "@/adventure/data/v2/v2Skills";
 import {
   parseV2Class,
@@ -876,7 +877,10 @@ export async function GET() {
               0,
             );
             let spUsed = 0;
-            const library = skillsState.learned
+            const library = orderedLearnedSkills(
+              skillsState.learned,
+              skillsState.skillOrder,
+            )
               .filter((id) => V2_SKILLS[id])
               .map((id) => {
                 const def = V2_SKILLS[id];

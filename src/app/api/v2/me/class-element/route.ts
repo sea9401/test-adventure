@@ -16,7 +16,7 @@ import {
 import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
-  spendGold,
+  spendGoldWith,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
@@ -26,8 +26,11 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import {
+  ELEMENT_CHANGE_COOLDOWN_MS,
   RESPEC_COOLDOWN_MS,
+  elementChangeGoldCost,
   isClassChange,
+  isElementChange,
   isPaidRespec,
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
@@ -49,7 +52,9 @@ type CharSaveShape = {
   element?: unknown;
   level?: number;
   gold?: number;
+  bankedGold?: number;
   lastRespecAt?: number;
+  lastElementChangeAt?: number;
   [k: string]: unknown;
 };
 
@@ -71,7 +76,7 @@ export async function POST(req: Request) {
 
   // 코어루프 — 신규 캐릭은 모험가(none)로 시작. 캐릭 생성의 "첫 선택"은 직업이 아니라 속성만
   //   고른다(직군은 인게임 직업 해금·재전직으로). class="none" 요청 = 속성만 설정,
-  //   직업은 none 유지(직업/스킬 로직 미실행). 속성 변경 비활성 게이트는 그대로 적용.
+  //   직업은 none 유지(직업/스킬 로직 미실행).
   if (V2_CORE_LOOP_V2 && nextClass === "none") {
     const r = await db.transaction(async (tx) => {
       const charSave = await lockSaveForUpdate<CharSaveShape>(
@@ -81,19 +86,76 @@ export async function POST(req: Request) {
         {},
       );
       const curElement = parseV2Element(charSave.element);
-      if (curElement !== "neutral" && nextElement !== curElement) {
+      const elementChanged = isElementChange(curElement, nextElement);
+      const level = Math.max(1, charSave.level ?? 1);
+      const gold = Math.max(0, charSave.gold ?? 0);
+      const bankedGold = Math.max(
+        0,
+        Math.floor(Number(charSave.bankedGold) || 0),
+      );
+      const lastElementChangeAt =
+        typeof charSave.lastElementChangeAt === "number"
+          ? charSave.lastElementChangeAt
+          : 0;
+      let spent = 0;
+      let nextGold = gold;
+      let nextBankedGold = bankedGold;
+      let cooldownUntil =
+        lastElementChangeAt > 0
+          ? lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS
+          : 0;
+
+      if (
+        elementChanged &&
+        lastElementChangeAt > 0 &&
+        Date.now() < lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS
+      ) {
         return {
-          status: 400,
-          body: { ok: false as const, error: "element_change_disabled" as const },
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "element_respec_cooldown" as const,
+            cooldownUntil: lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS,
+          },
         };
+      }
+      if (elementChanged) {
+        const cost = elementChangeGoldCost(level);
+        const spend = spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
+        if (!spend.ok) {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "insufficient_gold" as const,
+              required: cost,
+              have: gold + bankedGold,
+            },
+          };
+        }
+        spent = cost;
+        nextGold = spend.gold;
+        nextBankedGold = spend.bankedGold;
+        cooldownUntil = Date.now() + ELEMENT_CHANGE_COOLDOWN_MS;
       }
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         element: nextElement,
+        gold: nextGold,
+        bankedGold: nextBankedGold,
+        ...(elementChanged ? { lastElementChangeAt: Date.now() } : {}),
       });
       return {
         status: 200,
-        body: { ok: true as const, class: "none" as const, element: nextElement },
+        body: {
+          ok: true as const,
+          class: "none" as const,
+          element: nextElement,
+          gold: nextGold,
+          bankedGold: nextBankedGold,
+          spent,
+          cooldownUntil,
+        },
       };
     });
     return Response.json(r.body, { status: r.status });
@@ -132,24 +194,16 @@ export async function POST(req: Request) {
 
     const curClass = parseV2Class(charSave.class);
     const curElement = parseV2Element(charSave.element);
-
-    // 속성 변경 비활성(2026-06-12, 사용자 결정) — 최초 선택(현재 neutral)만 허용.
-    // 변경 수단은 추후 별도 시스템으로 재도입 예정. respec.ts 의 element 비용 경로는
-    // 이 게이트 때문에 현재 도달 불가(헬퍼·테스트는 보존).
-    if (curElement !== "neutral" && nextElement !== curElement) {
-      return {
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "element_change_disabled" as const,
-        },
-      };
-    }
+    const elementChanged = isElementChange(curElement, nextElement);
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
     const lastRespecAt =
       typeof charSave.lastRespecAt === "number" ? charSave.lastRespecAt : 0;
+    const lastElementChangeAt =
+      typeof charSave.lastElementChangeAt === "number"
+        ? charSave.lastElementChangeAt
+        : 0;
 
     // PR-7 — respec 은 직업군 단위. 같은 직업군의 1차를 골라도(2차 캐릭이 자기 군 1차 선택 등)
     // 현 직업을 유지(다운그레이드 X).
@@ -203,6 +257,20 @@ export async function POST(req: Request) {
       lastRespecAt > 0 ? lastRespecAt + RESPEC_COOLDOWN_MS : 0;
 
     if (paid) {
+      if (
+        elementChanged &&
+        lastElementChangeAt > 0 &&
+        now < lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS
+      ) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "element_respec_cooldown" as const,
+            cooldownUntil: lastElementChangeAt + ELEMENT_CHANGE_COOLDOWN_MS,
+          },
+        };
+      }
       if (lastRespecAt > 0 && now < lastRespecAt + RESPEC_COOLDOWN_MS) {
         return {
           status: 409,
@@ -220,7 +288,7 @@ export async function POST(req: Request) {
         nextElement,
         level,
       );
-      const spend = spendGold(gold, bankedGold, cost);
+      const spend = spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
       if (!spend.ok) {
         return {
           status: 400,
@@ -228,7 +296,7 @@ export async function POST(req: Request) {
             ok: false as const,
             error: "insufficient_gold" as const,
             required: cost,
-            have: gold,
+            have: gold + bankedGold,
           },
         };
       }
@@ -246,6 +314,7 @@ export async function POST(req: Request) {
       gold: nextGold,
       bankedGold: nextBankedGold,
       lastRespecAt: nextLastRespecAt,
+      ...(elementChanged ? { lastElementChangeAt: now } : {}),
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
     };

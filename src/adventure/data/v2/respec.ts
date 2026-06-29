@@ -11,6 +11,7 @@ import type { V2Element } from "@/adventure/data/v2/elements";
 // 속성 변경 골드(200/lv)는 그대로.
 export const CLASS_CHANGE_GOLD_PER_LEVEL = 0;
 export const ELEMENT_CHANGE_GOLD_PER_LEVEL = 200;
+export const ELEMENT_CHANGE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 // 변경 후 쿨다운 — 0(제거). 자유 전직. (레벨1 리셋이 남용을 막는 commitment.)
 export const RESPEC_COOLDOWN_MS = 0;
 // PR-7 — 2차 전직(advance) 골드 = 레벨 × 계수. respec 과 별개(쿨다운 없음 = 진척).
@@ -18,6 +19,10 @@ export const ADVANCE_GOLD_PER_LEVEL = 300;
 
 export function advanceGoldCost(level: number): number {
   return Math.max(1, Math.floor(level)) * ADVANCE_GOLD_PER_LEVEL;
+}
+
+export function elementChangeGoldCost(level: number): number {
+  return Math.max(1, Math.floor(level)) * ELEMENT_CHANGE_GOLD_PER_LEVEL;
 }
 
 // 직업군 변경 여부 — none 에서의 첫 선택은 무료. 같은 직업군 내(차수 이동)는 변경 아님
@@ -47,7 +52,7 @@ export function respecGoldCost(
     cost += lv * CLASS_CHANGE_GOLD_PER_LEVEL;
   }
   if (isElementChange(curElement, nextElement)) {
-    cost += lv * ELEMENT_CHANGE_GOLD_PER_LEVEL;
+    cost += elementChangeGoldCost(level);
   }
   return cost;
 }

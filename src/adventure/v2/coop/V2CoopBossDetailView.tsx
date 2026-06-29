@@ -118,9 +118,7 @@ export function V2CoopBossDetailView({
       ? my.lastAttackAt + coopAttackCooldownMs() - now
       : 0;
   const onCooldown = active && cooldownLeft > 0;
-  // 코어루프 — 공격 무료(소환권이 비용) → 스태미나 게이트 없음. off — 기존 스태미나 차감.
-  const lowStamina =
-    !V2_CORE_LOOP_V2 && stamina.current < COOP_ATTACK_STAMINA_COST;
+  const lowStamina = stamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.damage > 0;
   // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
   const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;
@@ -238,9 +236,7 @@ export function V2CoopBossDetailView({
                 ? `재공격 ${Math.ceil(cooldownLeft / 1000)}초 후`
                 : lowStamina
                   ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
-                  : V2_CORE_LOOP_V2
-                    ? "공격"
-                    : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
+                  : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
           </button>
         )}
         {session.defeated && (

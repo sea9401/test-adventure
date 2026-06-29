@@ -22,6 +22,9 @@ import {
   parseCoopVisibility,
   coopAttackCooldownMs,
   COOP_ATTACK_COOLDOWN_MS,
+  COOP_ATTACK_COOLDOWN_MS_V2,
+  COOP_ATTACK_STAMINA_COST,
+  MAX_ACTIVE_PER_KIND,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -42,6 +45,9 @@ describe("coopBosses 카탈로그", () => {
       prevCost = b.scrollCost;
       prevHp = b.sharedMaxHp;
     }
+    expect(COOP_BOSSES.mountain_chief.scrollCost).toBe(10);
+    expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
+    expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
   });
 
   it("유니크/칭호 카탈로그 — 휴면 id 도 장비·칭호 카탈로그에 실재(기보유분 호환)", () => {
@@ -311,9 +317,12 @@ describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
     expect(canAccessCoopBoss(s, { userId: "u2", guildId: null })).toBe(true);
   });
 
-  it("coopAttackCooldownMs — flag off 면 기존 120s", () => {
-    // 테스트 환경은 V2_CORE_LOOP_V2=false → 120s.
+  it("협동 보스 공격 다이얼 — 10초 쿨다운, 공격당 스태미너 50, 종류별 20마리", () => {
+    // 테스트 환경은 V2_CORE_LOOP_V2=false → 기본 쿨다운 상수 반환.
     expect(coopAttackCooldownMs()).toBe(COOP_ATTACK_COOLDOWN_MS);
-    expect(COOP_ATTACK_COOLDOWN_MS).toBe(120_000);
+    expect(COOP_ATTACK_COOLDOWN_MS).toBe(10_000);
+    expect(COOP_ATTACK_COOLDOWN_MS_V2).toBe(10_000);
+    expect(COOP_ATTACK_STAMINA_COST).toBe(50);
+    expect(MAX_ACTIVE_PER_KIND).toBe(20);
   });
 });

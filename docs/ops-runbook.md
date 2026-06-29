@@ -53,6 +53,18 @@ gh run watch $(gh run list --workflow=deploy.yml --limit 1 --json databaseId -q 
 curl -s https://msmsge.com/api/health   # {"ok":true,"db":"ok",...}
 ```
 
+### nginx rate limit
+느슨한 비용 보호용 앞단 제한. 정상 플레이를 거의 막지 않는 값으로 시작한다:
+`/api/` = 20r/s + burst 100, `/api/auth/` = burst 200, 페이지 = 60r/s + burst 180.
+
+```bash
+cd ~/adventure-rpg
+bash deploy/apply-nginx-rate-limit.sh
+```
+
+스크립트는 `/etc/nginx/conf.d/msmsge.conf` 를 백업하고 기존 certbot/SSL 설정을 보존한 채
+rate limit 블록만 삽입한다. `nginx -t` 실패 시 백업을 복구하고 중단한다.
+
 ### 롤백 (나쁜 배포 되돌리기)
 나쁜 배포(크래시·깨진 페이지)가 나갔을 때. **직전 정상 커밋 = 마지막으로 성공한 배포 Action 의 커밋**(`gh run list --workflow=deploy.yml` / GitHub Actions 히스토리).
 

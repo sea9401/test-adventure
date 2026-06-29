@@ -19,6 +19,7 @@ export type V2LoadoutSpBreakdown = {
   base: number;
   milestoneSp: number;
   masteryBonusSp: number;
+  softCapReduction?: number;
   spFruitBonus: number;
   equipmentCodexBonus?: number;
   collectionBonusSp: number;
@@ -157,6 +158,9 @@ export function V2LoadoutPanel({
             <span>기본 {spBreakdown.base}</span>
             <span>숙련도 +{spBreakdown.milestoneSp}</span>
             <span>직업군 정복 +{spBreakdown.masteryBonusSp}</span>
+            {(spBreakdown.softCapReduction ?? 0) > 0 && (
+              <span>상한 조정 -{spBreakdown.softCapReduction}</span>
+            )}
             <span>SP 열매 +{spBreakdown.spFruitBonus}</span>
             <span>도감 +{spBreakdown.collectionBonusSp}</span>
             <span>장비 도감 +{spBreakdown.equipmentCodexBonus ?? 0}</span>

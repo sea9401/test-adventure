@@ -275,6 +275,24 @@ export function calcSpBudget(
   spCapBonus = 0,
   collectionBonus = 0,
 ): number {
+  return calcSpBudgetBreakdown(groups, spCapBonus, collectionBonus).budget;
+}
+
+export function calcSpBudgetBreakdown(
+  groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
+  spCapBonus = 0,
+  collectionBonus = 0,
+): {
+  budget: number;
+  base: number;
+  milestoneSp: number;
+  masteryBonusSp: number;
+  rawCoreSp: number;
+  cappedCoreSp: number;
+  softCapReduction: number;
+  spFruitBonus: number;
+  collectionBonusSp: number;
+} {
   let milestoneSp = 0;
   let masteredBonus = 0;
   for (const g of Object.values(groups ?? {})) {
@@ -286,11 +304,19 @@ export function calcSpBudget(
   }
   const bonus = Math.max(0, Math.floor(Number(spCapBonus) || 0));
   const collection = Math.max(0, Math.floor(Number(collectionBonus) || 0));
-  return (
-    Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus) +
-    bonus +
-    collection
-  );
+  const rawCoreSp = SP_BASE + milestoneSp + masteredBonus;
+  const cappedCoreSp = Math.min(SP_MAX_SOFT_CAP, rawCoreSp);
+  return {
+    budget: cappedCoreSp + bonus + collection,
+    base: SP_BASE,
+    milestoneSp,
+    masteryBonusSp: masteredBonus,
+    rawCoreSp,
+    cappedCoreSp,
+    softCapReduction: Math.max(0, rawCoreSp - cappedCoreSp),
+    spFruitBonus: bonus,
+    collectionBonusSp: collection,
+  };
 }
 
 // 두 cumLevel 사이에 새로 넘은 SP 마일스톤 수("스킬포인트 +N 획득!" 알림용).

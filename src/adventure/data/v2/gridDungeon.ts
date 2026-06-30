@@ -20,6 +20,14 @@ export const GRID_DUNGEON_SIZE = 5;
 export const GRID_DUNGEON_MAX_HP = 10;
 export const GRID_DUNGEON_FOUNTAIN_HEAL = 5;
 
+export const GRID_DUNGEON_ROUTE_IDS = [
+  "balanced",
+  "guardian",
+  "vault",
+] as const;
+
+export type GridDungeonRouteId = (typeof GRID_DUNGEON_ROUTE_IDS)[number];
+
 export type GridDungeonTileKind =
   | "start"
   | "empty"
@@ -27,6 +35,8 @@ export type GridDungeonTileKind =
   | "monster"
   | "elite"
   | "treasure"
+  | "trap"
+  | "relic"
   | "fountain"
   | "boss"
   | "exit";
@@ -128,11 +138,14 @@ export const GRID_DUNGEON_ROOM_REWARDS = {
   monster: { hpLoss: 2, gold: 850 },
   elite: { hpLoss: 3, gold: 1_800 },
   treasure: { gold: 1_200 },
+  trap: { hpLoss: 2 },
+  relic: { gold: 500 },
   boss: { hpLoss: 5, gold: 5_000 },
 } as const;
 
 export type GridDungeonRun = {
   id: string;
+  routeId: GridDungeonRouteId;
   status: GridDungeonStatus;
   pos: { x: number; y: number };
   hp: number;
@@ -155,13 +168,72 @@ export type GridDungeonPublicRun = GridDungeonRun & {
   layout: GridDungeonTileKind[][];
 };
 
-export const GRID_DUNGEON_LAYOUT: GridDungeonTileKind[][] = [
+const GRID_DUNGEON_BALANCED_LAYOUT: GridDungeonTileKind[][] = [
   ["treasure", "empty", "boss", "exit", "treasure"],
   ["wall", "empty", "wall", "empty", "wall"],
   ["monster", "empty", "fountain", "empty", "elite"],
   ["empty", "wall", "monster", "wall", "empty"],
   ["treasure", "empty", "start", "empty", "monster"],
 ];
+
+const GRID_DUNGEON_GUARDIAN_LAYOUT: GridDungeonTileKind[][] = [
+  ["treasure", "monster", "boss", "exit", "relic"],
+  ["empty", "wall", "elite", "wall", "empty"],
+  ["monster", "empty", "fountain", "empty", "monster"],
+  ["trap", "wall", "elite", "empty", "trap"],
+  ["relic", "empty", "start", "empty", "treasure"],
+];
+
+const GRID_DUNGEON_VAULT_LAYOUT: GridDungeonTileKind[][] = [
+  ["treasure", "empty", "boss", "exit", "treasure"],
+  ["relic", "wall", "monster", "empty", "trap"],
+  ["treasure", "empty", "fountain", "empty", "treasure"],
+  ["empty", "wall", "trap", "wall", "empty"],
+  ["relic", "empty", "start", "empty", "treasure"],
+];
+
+export const GRID_DUNGEON_ROUTES: Record<
+  GridDungeonRouteId,
+  {
+    id: GridDungeonRouteId;
+    name: string;
+    shortName: string;
+    risk: string;
+    description: string;
+    layout: GridDungeonTileKind[][];
+  }
+> = {
+  balanced: {
+    id: "balanced",
+    name: "균형 수색로",
+    shortName: "균형",
+    risk: "표준",
+    description: "전투, 샘, 보상이 고르게 섞인 기본 경로입니다.",
+    layout: GRID_DUNGEON_BALANCED_LAYOUT,
+  },
+  guardian: {
+    id: "guardian",
+    name: "수문장 회랑",
+    shortName: "전투",
+    risk: "높음",
+    description: "정예 방과 함정이 많지만 유물 보상을 노릴 수 있습니다.",
+    layout: GRID_DUNGEON_GUARDIAN_LAYOUT,
+  },
+  vault: {
+    id: "vault",
+    name: "보물고 우회로",
+    shortName: "보물",
+    risk: "중간",
+    description: "보물방이 많고 초반 함정을 지나야 하는 보상 중심 경로입니다.",
+    layout: GRID_DUNGEON_VAULT_LAYOUT,
+  },
+};
+
+export const GRID_DUNGEON_ROUTE_OPTIONS = GRID_DUNGEON_ROUTE_IDS.map(
+  (id) => GRID_DUNGEON_ROUTES[id],
+);
+
+export const GRID_DUNGEON_LAYOUT = GRID_DUNGEON_ROUTES.balanced.layout;
 
 export const GRID_DUNGEON_START = { x: 2, y: 4 } as const;
 
@@ -205,6 +277,19 @@ export function parseGridDungeonSupportRole(
   raw: unknown,
 ): GridDungeonSupportRole | null {
   return raw === "dps" || raw === "healer" || raw === "tank" ? raw : null;
+}
+
+export function parseGridDungeonRouteId(raw: unknown): GridDungeonRouteId {
+  return typeof raw === "string" &&
+    GRID_DUNGEON_ROUTE_IDS.includes(raw as GridDungeonRouteId)
+    ? (raw as GridDungeonRouteId)
+    : "balanced";
+}
+
+export function gridDungeonLayoutForRoute(
+  routeId: unknown,
+): GridDungeonTileKind[][] {
+  return GRID_DUNGEON_ROUTES[parseGridDungeonRouteId(routeId)].layout;
 }
 
 export function isGridDungeonCombatTile(
@@ -339,12 +424,22 @@ export function rollGridDungeonDrops(
   rng: () => number = Math.random,
 ): DropResult {
   const depth =
-    tile === "treasure" ? 43 : tile === "boss" ? 55 : tile === "elite" ? 30 : 12;
+    tile === "treasure"
+      ? 43
+      : tile === "relic"
+        ? 36
+        : tile === "boss"
+          ? 55
+          : tile === "elite"
+            ? 30
+            : 12;
   return rollGuildWorkshopMaterialDrops(depth, rng);
 }
 
 export function gridDungeonMovePreview(
-  run: Pick<GridDungeonRun, "pos" | "clearedEvents">,
+  run: Pick<GridDungeonRun, "pos" | "clearedEvents"> & {
+    routeId?: GridDungeonRouteId;
+  },
   dir: GridDungeonMoveDir,
 ):
   | {
@@ -366,7 +461,11 @@ export function gridDungeonMovePreview(
   const delta = GRID_DUNGEON_MOVE_DELTAS[dir];
   const next = { x: run.pos.x + delta.x, y: run.pos.y + delta.y };
   const key = gridDungeonKey(next.x, next.y);
-  const tile = gridDungeonTileAt(next.x, next.y);
+  const tile = gridDungeonTileAt(
+    next.x,
+    next.y,
+    gridDungeonLayoutForRoute(run.routeId),
+  );
   if (!tile) return { dir, available: false, next, key, tile, reason: "outside" };
   if (tile === "wall") {
     return { dir, available: false, next, key, tile, reason: "wall" };
@@ -381,7 +480,12 @@ export function gridDungeonMovePreview(
   };
 }
 
-export function revealAround(x: number, y: number, prev: string[] = []): string[] {
+export function revealAround(
+  x: number,
+  y: number,
+  prev: string[] = [],
+  layout: GridDungeonTileKind[][] = GRID_DUNGEON_LAYOUT,
+): string[] {
   const revealed = new Set(prev);
   for (const [dx, dy] of [
     [0, 0],
@@ -392,7 +496,7 @@ export function revealAround(x: number, y: number, prev: string[] = []): string[
   ]) {
     const nx = x + dx;
     const ny = y + dy;
-    if (gridDungeonTileAt(nx, ny)) revealed.add(gridDungeonKey(nx, ny));
+    if (gridDungeonTileAt(nx, ny, layout)) revealed.add(gridDungeonKey(nx, ny));
   }
   return [...revealed].sort();
 }
@@ -402,10 +506,13 @@ export function createGridDungeonRun(
   _rng: () => number = Math.random,
   supporters: GridDungeonSupporterSnapshot[] = [],
   frontlineId?: string,
+  routeId: GridDungeonRouteId = "balanced",
 ): GridDungeonRun {
+  const layout = gridDungeonLayoutForRoute(routeId);
   const startKey = gridDungeonKey(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y);
   return {
     id: GRID_DUNGEON_ENTRANCE.id,
+    routeId,
     status: "active",
     pos: { ...GRID_DUNGEON_START },
     hp: GRID_DUNGEON_MAX_HP,
@@ -415,7 +522,12 @@ export function createGridDungeonRun(
     supporters,
     ...(frontlineId ? { frontlineId } : {}),
     visited: [startKey],
-    revealed: revealAround(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y),
+    revealed: revealAround(
+      GRID_DUNGEON_START.x,
+      GRID_DUNGEON_START.y,
+      [],
+      layout,
+    ),
     clearedEvents: [startKey],
     lastMessage: "낡은 지하 유적에 들어섰습니다.",
     startedAt: now,
@@ -426,7 +538,7 @@ export function createGridDungeonRun(
 export function withGridDungeonLayout(
   run: GridDungeonRun | null,
 ): GridDungeonPublicRun | null {
-  return run ? { ...run, layout: GRID_DUNGEON_LAYOUT } : null;
+  return run ? { ...run, layout: gridDungeonLayoutForRoute(run.routeId) } : null;
 }
 
 export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
@@ -441,14 +553,20 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
   ) {
     return null;
   }
+  const routeId = parseGridDungeonRouteId(run.routeId);
   const x = Number(run.pos?.x);
   const y = Number(run.pos?.y);
-  if (!Number.isInteger(x) || !Number.isInteger(y) || !gridDungeonTileAt(x, y)) {
+  if (
+    !Number.isInteger(x) ||
+    !Number.isInteger(y) ||
+    !gridDungeonTileAt(x, y, gridDungeonLayoutForRoute(routeId))
+  ) {
     return null;
   }
   const now = Date.now();
   return {
     id: typeof run.id === "string" ? run.id : GRID_DUNGEON_ENTRANCE.id,
+    routeId,
     status,
     pos: { x, y },
     hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(run.hp) || 0))),
@@ -466,7 +584,7 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
       : [],
     revealed: Array.isArray(run.revealed)
       ? run.revealed.filter((v): v is string => typeof v === "string")
-      : revealAround(x, y),
+      : revealAround(x, y, [], gridDungeonLayoutForRoute(routeId)),
     clearedEvents: Array.isArray(run.clearedEvents)
       ? run.clearedEvents.filter((v): v is string => typeof v === "string")
       : [],
@@ -494,7 +612,8 @@ export function moveGridDungeonRun(
   const d = GRID_DUNGEON_MOVE_DELTAS[dir];
   if (!d) return { ok: false, error: "bad_direction" };
   const next = { x: run.pos.x + d.x, y: run.pos.y + d.y };
-  const tile = gridDungeonTileAt(next.x, next.y);
+  const layout = gridDungeonLayoutForRoute(run.routeId);
+  const tile = gridDungeonTileAt(next.x, next.y, layout);
   if (!tile || tile === "wall") return { ok: false, error: "blocked" };
 
   const key = gridDungeonKey(next.x, next.y);
@@ -537,6 +656,13 @@ export function moveGridDungeonRun(
       pendingGold += GRID_DUNGEON_ROOM_REWARDS.treasure.gold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
       message = `오래된 보물상자에서 ${GRID_DUNGEON_ROOM_REWARDS.treasure.gold.toLocaleString()}G를 발견했습니다.`;
+    } else if (tile === "trap") {
+      hp = Math.max(0, hp - GRID_DUNGEON_ROOM_REWARDS.trap.hpLoss);
+      message = `숨은 함정을 밟아 체력 ${GRID_DUNGEON_ROOM_REWARDS.trap.hpLoss}을 잃었습니다.`;
+    } else if (tile === "relic") {
+      pendingGold += GRID_DUNGEON_ROOM_REWARDS.relic.gold;
+      pendingDrops = mergeDropResults(pendingDrops, eventDrops);
+      message = `고대 유물에서 ${GRID_DUNGEON_ROOM_REWARDS.relic.gold.toLocaleString()}G와 재료 흔적을 확보했습니다.`;
     } else if (tile === "fountain") {
       hp = Math.min(GRID_DUNGEON_MAX_HP, hp + GRID_DUNGEON_FOUNTAIN_HEAL);
       message = "맑은 샘물을 마셔 체력을 회복했습니다.";
@@ -572,7 +698,7 @@ export function moveGridDungeonRun(
       pendingDrops: status === "failed" ? {} : pendingDrops,
       bossDefeated,
       visited: [...visited].sort(),
-      revealed: revealAround(next.x, next.y, run.revealed),
+      revealed: revealAround(next.x, next.y, run.revealed, layout),
       clearedEvents: [...clearedEvents].sort(),
       ...(lastCombat ? { lastCombat } : {}),
       lastMessage: message,

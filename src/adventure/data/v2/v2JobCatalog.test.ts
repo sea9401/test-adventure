@@ -70,10 +70,12 @@ const TIER4_LINEAGE: Record<string, string> = {
   masterangler: "angler",
   crusader: "templar",
   runeknight: "spellblade",
+  crimsontemplar: "bloodtemplar",
 };
 const TIER5_LINEAGE: Record<string, string> = {
   swordmaster: "veteran",
   ironknight: "warden",
+  overlord: "warlord",
   arcanist: "sage",
   marksman: "chief",
   nightshade: "phantom",
@@ -81,6 +83,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   plaguebringer: "venomlord",
   adamantmonk: "battlemonk",
   immortal: "returner",
+  bloodlord: "crimsontemplar",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -97,15 +100,15 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("63개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 17 + 5차 10)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(63);
+  it("66개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 18 + 5차 12)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(66);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(12);
     expect(byTier(3)).toBe(18);
-    expect(byTier(4)).toBe(17);
-    expect(byTier(5)).toBe(10);
+    expect(byTier(4)).toBe(18);
+    expect(byTier(5)).toBe(12);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {

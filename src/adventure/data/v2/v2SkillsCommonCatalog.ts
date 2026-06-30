@@ -121,6 +121,8 @@ export type V2CommonSkillId =
   | "v2c_crusader_oath" // 성전사: 불굴의 맹세 (방어 + 회복강화 + 받피감)
   | "v2c_runeknight_carve" // 룬 기사: 룬 검격 (물리 + 마법 이중 타격 + 취약)
   | "v2c_runeknight_inscription" // 룬 기사: 룬 각인 (힘 + 지능 + 치명확률)
+  | "v2c_crimsontemplar_judgment" // 진홍성기사: 진홍 심판 (HP 소모 + 회복)
+  | "v2c_crimsontemplar_oath" // 진홍성기사: 피의 서약 (광전 + 회복강화 + 받피감)
   // ── 심화 직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
   | "v2c_sensei_combo" // 권룡파 (방깎 단일 — 무력 디버프·권룡)
@@ -164,6 +166,8 @@ export type V2CommonSkillId =
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
   | "v2c_ironknight_guard" // 철벽 태세 (보호막 + 받피감)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
+  | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
+  | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
   | "v2c_arcanist_burst" // 비전 폭발 (순수 마법 피해)
   | "v2c_arcanist_theory" // 비전 이론 (지능 + 치명확률)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
@@ -179,7 +183,9 @@ export type V2CommonSkillId =
   | "v2c_immortal_lifestrike" // 생명 강타 (최대 HP 비례)
   | "v2c_immortal_heart" // 불멸의 심장 (최대 HP + 받피감)
   | "v2c_transcendent_mandala" // 만상검 (올스탯 비례)
-  | "v2c_transcendent_harmony"; // 초월 조화 (올스탯 패시브)
+  | "v2c_transcendent_harmony" // 초월 조화 (올스탯 패시브)
+  | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형 + 회복)
+  | "v2c_bloodlord_martyrdom"; // 불사의 순교 (최대 HP + 광전 + 회복강화)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -792,6 +798,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { berserkAtkPctPerLostHpPct: 0.35, healPowerPct: 12 },
   },
+  v2c_crimsontemplar_judgment: {
+    id: "v2c_crimsontemplar_judgment", name: "진홍 심판", stat: "str", category: "attack", tier: 3,
+    description: "피를 성화처럼 태워 적을 짓누르고, 상처를 다시 힘으로 붙든다.",
+    mpCost: 48, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 9, statCoef: 1.35, baseFlatByTier: [280, 280, 280], soakRatio: 1.6 },
+      { kind: "heal", pctLostHp: 14 },
+    ],
+  },
+  v2c_crimsontemplar_oath: {
+    id: "v2c_crimsontemplar_oath", name: "피의 서약", stat: "str", category: "passive", tier: 3,
+    description: "흘린 피가 맹세가 된다. 상처가 깊을수록 강해지고 회복도 더 크게 돈다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { berserkAtkPctPerLostHpPct: 0.45, healPowerPct: 16, damageTakenReductionPct: 5 },
+  },
   v2c_darkpriest_reap: {
     id: "v2c_darkpriest_reap", name: "영혼 수확", stat: "luk", category: "attack", tier: 3,
     description: "약해진 영혼을 거두어 들인다. 적이 위태로울수록 깊게 베고 제 상처를 메운다.",
@@ -1137,6 +1159,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { defPct: 18, thornsDefPct: 80 },
   },
+  v2c_overlord_ruin: {
+    id: "v2c_overlord_ruin", name: "파멸 난무", stat: "str", category: "attack", tier: 3,
+    description: "체력을 깎아 광폭한 연격을 퍼붓는다. 위태로운 적은 그대로 무너진다.",
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 12, statCoef: 1.75, baseFlatByTier: [360, 360, 360], soakRatio: 2.4 },
+      { kind: "executeDamage", statCoef: 0.35, baseFlatByTier: [180, 180, 180], hpThresholdPct: 25, bonusMult: 2.3 },
+    ],
+  },
+  v2c_overlord_throne: {
+    id: "v2c_overlord_throne", name: "광기의 왕좌", stat: "str", category: "passive", tier: 3,
+    description: "피가 마를수록 전장이 선명해진다. 낮은 체력에서 공격성과 치명성이 크게 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { berserkAtkPctPerLostHpPct: 0.8, critDmgPct: 30, maxHpPct: 8 },
+  },
   v2c_arcanist_burst: {
     id: "v2c_arcanist_burst", name: "비전 폭발", stat: "int", category: "attack", tier: 3,
     description: "응축한 마력을 폭발시켜 큰 마법 피해를 준다.",
@@ -1259,6 +1297,28 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       statPct: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
       maxHpPct: 8,
       maxMpPct: 8,
+    },
+  },
+  v2c_bloodlord_brand: {
+    id: "v2c_bloodlord_brand", name: "왕혈 낙인", stat: "str", category: "attack", tier: 3,
+    description: "군주의 피로 낙인을 찍는다. 상처를 대가로 적을 몰아붙이고 다시 피를 되찾는다.",
+    mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.55, baseFlatByTier: [330, 330, 330], soakRatio: 2.0 },
+      { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [160, 160, 160], hpThresholdPct: 30, bonusMult: 2.2 },
+      { kind: "heal", pctLostHp: 16 },
+    ],
+  },
+  v2c_bloodlord_martyrdom: {
+    id: "v2c_bloodlord_martyrdom", name: "불사의 순교", stat: "vit", category: "passive", tier: 3,
+    description: "순교는 끝나지 않는다. 더 오래 버티고, 상처가 깊을수록 더 세게 되받는다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: {
+      maxHpPct: 20,
+      berserkAtkPctPerLostHpPct: 0.55,
+      healPowerPct: 20,
+      damageTakenReductionPct: 6,
     },
   },
 };

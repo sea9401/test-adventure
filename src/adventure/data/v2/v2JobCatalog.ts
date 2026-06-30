@@ -572,6 +572,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 12, int: 12 }, // 마검사 심화 — 검+마법 이중 공격축 강화
     unlock: { prereqs: { spellblade: TIER4_UNLOCK_CUMLEVEL } },
   },
+  crimsontemplar: {
+    id: "crimsontemplar",
+    name: "진홍성기사",
+    tier: 4,
+    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    jobBonus: { str: 10, vit: 9, spi: 5 }, // 혈성기사 심화 — 피를 쓰고 회복으로 버티는 탱딜
+    unlock: { prereqs: { bloodtemplar: TIER4_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 7500 + 도감 요건으로 여는 장기 목표 ───
   swordmaster: {
@@ -589,6 +597,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, dex: 1 },
     jobBonus: { vit: 18, str: 8 },
     unlock: { prereqs: { warden: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  overlord: {
+    id: "overlord",
+    name: "패왕",
+    tier: 5,
+    cultivateProfile: { str: 2, vit: 1, luk: 1 },
+    jobBonus: { str: 22, vit: 4 },
+    unlock: { prereqs: { warlord: TIER5_UNLOCK_CUMLEVEL } },
   },
   arcanist: {
     id: "arcanist",
@@ -658,6 +674,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
         runeknight: TIER5_UNLOCK_CUMLEVEL,
       },
     },
+  },
+  bloodlord: {
+    id: "bloodlord",
+    name: "혈성군주",
+    tier: 5,
+    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    jobBonus: { str: 13, vit: 9, spi: 4 },
+    unlock: { prereqs: { crimsontemplar: TIER5_UNLOCK_CUMLEVEL } },
   },
 };
 
@@ -834,9 +858,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   masterangler: { class: "survivor", spec: "masterangler" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
+  crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 피와 회복의 탱딜
   // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
   ironknight: { class: "warrior", spec: "ironknight" },
+  overlord: { class: "warrior", spec: "overlord" },
   arcanist: { class: "mage", spec: "arcanist" },
   marksman: { class: "rogue", spec: "marksman" },
   nightshade: { class: "rogue", spec: "nightshade" },
@@ -845,6 +871,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   adamantmonk: { class: "martial", spec: "adamantmonk" },
   immortal: { class: "survivor", spec: "immortal" },
   transcendent: { class: "warrior", spec: "transcendent" },
+  bloodlord: { class: "warrior", spec: "bloodlord" },
 };
 
 /**

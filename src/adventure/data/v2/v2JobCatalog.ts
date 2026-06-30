@@ -556,6 +556,22 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 15, spi: 7 },
     unlock: { prereqs: { angler: TIER4_UNLOCK_CUMLEVEL } },
   },
+  crusader: {
+    id: "crusader",
+    name: "성전사",
+    tier: 4,
+    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    jobBonus: { str: 8, vit: 8, spi: 7 }, // 성기사 심화 — 방어·회복 축을 유지한 탱딜
+    unlock: { prereqs: { templar: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  runeknight: {
+    id: "runeknight",
+    name: "룬 기사",
+    tier: 4,
+    cultivateProfile: { str: 2, int: 2 },
+    jobBonus: { str: 12, int: 12 }, // 마검사 심화 — 검+마법 이중 공격축 강화
+    unlock: { prereqs: { spellblade: TIER4_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 5: 상급 심화 직업 — 4차 직업 숙련도 7500 + 도감 요건으로 여는 장기 목표 ───
   swordmaster: {
@@ -795,6 +811,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   rescueexpert: { class: "survivor", spec: "rescueexpert" },
   returner: { class: "survivor", spec: "returner" },
   masterangler: { class: "survivor", spec: "masterangler" },
+  crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
+  runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
   ironknight: { class: "warrior", spec: "ironknight" },

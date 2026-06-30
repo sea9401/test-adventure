@@ -4,7 +4,7 @@
 //     1) 하이브리드(성기사) 해금 게이팅 — 부모 둘(기사·사제) 직업별 cumLevel AND.
 //     2) 스펙 체인 — jobIdFromLegacy 왕복 + skillsForJob/elementalSkillsForClass 킷 + 킷 id 실재.
 //     3) 하이브리드 derive — 물리(전사)·마법(사제 회복강화) 양쪽 정체성이 derive 에 흐른다.
-//     4) tier-4 4직업 — 해금 구조 + "축당 1개 고유 % 패시브"(서로 안 겹침) + 킷 id 실재.
+//     4) 주요 tier-4 직업 — 해금 구조 + "축당 1개 고유 % 패시브"(서로 안 겹침) + 킷 id 실재.
 //     5) tier-4 패시브 derive — 고유 % 가 derivePlayerCombatV2Pure 의 그 레버에 실제로 적용.
 //
 //   🔑 derive 검증은 라이브 FromSaves 경로(derivePlayerCombatV2.ts §882~942)가 하는 것과
@@ -68,7 +68,15 @@ function deriveWithEquippedKit(
   });
 }
 
-const TIER4_JOB_IDS = ["veteran", "sensei", "sage", "chief", "phantom"] as const;
+const TIER4_JOB_IDS = [
+  "veteran",
+  "sensei",
+  "sage",
+  "chief",
+  "phantom",
+  "crusader",
+  "runeknight",
+] as const;
 // 🔑 계보 게이팅: tier-4 child → 바로 아래 tier-3 부모 직업(원소술사는 별도 테스트라 제외).
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
@@ -77,6 +85,8 @@ const TIER4_LINEAGE: Record<string, string> = {
   archbishop: "bishop",
   chief: "ranger",
   phantom: "shadow", // 도적 4차 두 번째 갈래 — 그림자 계보
+  crusader: "templar",
+  runeknight: "spellblade",
 };
 
 describe("성기사(tier-3 하이브리드) 해금 게이팅", () => {
@@ -225,8 +235,8 @@ describe("성기사 하이브리드 derive — 전사측·마법(회복)측 양�
   });
 });
 
-describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
-  it("네 직업 모두 tier 4 이고 계보(3차 부모) jobCumLevel ≥ TIER4 게이트", () => {
+describe("심화(tier-4) 주요 직업 — 해금 구조 + 킷 id 실재", () => {
+  it("주요 심화 직업 모두 tier 4 이고 계보(3차 부모) jobCumLevel ≥ TIER4 게이트", () => {
     for (const [jobId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[jobId];
       expect(job.tier).toBe(4);
@@ -273,7 +283,7 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
     }
   });
 
-  it('"축당 1개 고유 % 패시브" — tier-4 패시브 5종이 서로 다른 효과 축 (겹치는 쌍 없음)', () => {
+  it('"축당 1개 고유 % 패시브" — 주요 tier-4 패시브가 서로 다른 효과 축 (겹치는 쌍 없음)', () => {
     // 각 패시브가 건드리는 효과 축을 직렬화 → 전부 유일해야(설계: 축당 1개 고유 % 패시브).
     //   스탯% 든 비스탯 효과(치명/치명피해/회피/최대HP)든 같은 키로 정규화.
     const passiveOf = (jobId: string) => {

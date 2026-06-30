@@ -155,7 +155,7 @@ export type V2CommonSkillId =
   | "v2c_rescueexpert_support" // 생환 지원 (회복 + 최대 HP)
   | "v2c_returner_survive" // 생환 (자힐 + 큰 보호막)
   | "v2c_returner_undying" // 불굴 (최대 HP + 받피감)
-  // ── 5차 핵심 5직업 ──
+  // ── 5차 직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
   | "v2c_ironknight_guard" // 철벽 태세 (보호막 + 받피감)
@@ -165,7 +165,13 @@ export type V2CommonSkillId =
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
-  | "v2c_nightshade_cloak"; // 밤의 장막 (회피 + 치명피해)
+  | "v2c_nightshade_cloak" // 밤의 장막 (회피 + 치명피해)
+  | "v2c_saint_miracle" // 기적 (회복 + 방벽)
+  | "v2c_saint_benediction" // 축복 (회복 + 내구)
+  | "v2c_plaguebringer_outbreak" // 역병 창궐 (중독 폭발)
+  | "v2c_plaguebringer_decay" // 붕괴 (부식 심화)
+  | "v2c_adamantmonk_stance" // 금강 자세 (피해 감소 + 반격)
+  | "v2c_adamantmonk_body"; // 금강불괴 (최대 HP + 반격)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -1059,7 +1065,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxHpPct: 25, damageTakenReductionPct: 8 },
   },
 
-  // ── 5차 핵심 5직업 — 새 엔진 효과 없이 기존 어휘 조합으로 구현 ──
+  // ── 5차 직업 — 새 엔진 효과 없이 기존 어휘 조합으로 구현 ──
   v2c_swordmaster_cut: {
     id: "v2c_swordmaster_cut", name: "검격", stat: "str", category: "attack", tier: 3,
     description: "흔들림 없이 베어 적의 자세를 무너뜨린다.",
@@ -1133,6 +1139,55 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { evasionPct: 18, critDmgPct: 20, skillCritOverflow: true },
+  },
+  v2c_saint_miracle: {
+    id: "v2c_saint_miracle", name: "기적", stat: "int", category: "heal", tier: 3,
+    description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
+    mpCost: 54, cooldown: 0, procChance: 100, learnCost: 8000,
+    effects: [
+      { kind: "heal", pctLostHp: 18 },
+      { kind: "shield", pctMaxHp: 10, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
+    ],
+  },
+  v2c_saint_benediction: {
+    id: "v2c_saint_benediction", name: "축복", stat: "int", category: "passive", tier: 3,
+    description: "축복이 치유와 생존을 함께 끌어올린다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { healPowerPct: 25, maxHpPct: 12, damageTakenReductionPct: 5 },
+  },
+  v2c_plaguebringer_outbreak: {
+    id: "v2c_plaguebringer_outbreak", name: "역병 창궐", stat: "luk", category: "attack", tier: 3,
+    description: "역병을 퍼뜨려 중독을 깊게 쌓고 한꺼번에 터뜨린다.",
+    mpCost: 52, cooldown: 0, procChance: 35, learnCost: 8000,
+    effects: [
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 26, stacks: 5 },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.24, baseFlatByTier: [220, 220, 220], perStackFlat: 40, scaling: "luk" },
+    ],
+  },
+  v2c_plaguebringer_decay: {
+    id: "v2c_plaguebringer_decay", name: "붕괴", stat: "luk", category: "passive", tier: 3,
+    description: "독이 갑옷과 살을 함께 무너뜨린다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { poisonedEnemyDefReductionPct: 35, critDmgPct: 10 },
+  },
+  v2c_adamantmonk_stance: {
+    id: "v2c_adamantmonk_stance", name: "금강 자세", stat: "vit", category: "buff", tier: 3,
+    description: "금강처럼 버티는 막을 세우고 공격을 받아칠 태세를 갖춘다.",
+    mpCost: 48, cooldown: 0, procChance: 100, learnCost: 8000,
+    effects: [
+      { kind: "shield", pctMaxHp: 14, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
+    ],
+  },
+  v2c_adamantmonk_body: {
+    id: "v2c_adamantmonk_body", name: "금강불괴", stat: "vit", category: "passive", tier: 3,
+    description: "무너지지 않는 몸. 최대 체력과 반격 확률이 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { maxHpPct: 25, counterChancePct: 35 },
   },
 };
 

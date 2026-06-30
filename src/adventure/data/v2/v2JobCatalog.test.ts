@@ -75,6 +75,9 @@ const TIER5_LINEAGE: Record<string, string> = {
   arcanist: "sage",
   marksman: "chief",
   nightshade: "phantom",
+  saint: "archbishop",
+  plaguebringer: "venomlord",
+  adamantmonk: "battlemonk",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -91,15 +94,15 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("56개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 15 + 5차 5)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(56);
+  it("59개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 15 + 5차 8)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(59);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(12);
     expect(byTier(3)).toBe(18);
     expect(byTier(4)).toBe(15);
-    expect(byTier(5)).toBe(5);
+    expect(byTier(5)).toBe(8);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {

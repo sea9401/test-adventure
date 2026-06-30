@@ -48,6 +48,9 @@ describe("aggregateGridDungeonAnalytics", () => {
     expect(data.routes).toHaveLength(3);
     expect(data.routes.every((r) => r.runs === 0)).toBe(true);
     expect(data.partySizes).toEqual([]);
+    expect(data.routeParties).toHaveLength(9);
+    expect(data.balanceFlags).toEqual([]);
+    expect(data.tuningCandidates).toEqual([]);
     expect(data.recentRuns).toEqual([]);
   });
 
@@ -64,6 +67,7 @@ describe("aggregateGridDungeonAnalytics", () => {
             at: 3_000,
             rewardGold: 10_000,
             drops: { stone: 2, iron: 1 },
+            hp: 72,
             supporterCount: 2,
             bossReached: true,
             combatCount: 4,
@@ -92,6 +96,7 @@ describe("aggregateGridDungeonAnalytics", () => {
             outcome: "abandoned",
             routeId: "vault",
             at: 1_000,
+            hp: 14,
             supporterCount: 1,
             bossReached: true,
             totalCombatTurns: 3,
@@ -111,6 +116,7 @@ describe("aggregateGridDungeonAnalytics", () => {
       clearRatePct: 33,
       bossReachRatePct: 67,
       avgCombatTurns: 11,
+      avgRemainingHp: 29,
       avgPartySize: 2,
       avgRewardGold: 3333,
       avgMaterials: 1,
@@ -123,10 +129,23 @@ describe("aggregateGridDungeonAnalytics", () => {
       cleared: 1,
       failed: 1,
       clearRatePct: 50,
+      failureRatePct: 50,
       bossReachRatePct: 50,
+      avgRemainingHp: 36,
       avgCombatTurns: 15,
       avgRewardGold: 5000,
       avgMaterials: 2,
+      riskLevel: "low_sample",
+      riskLabel: "표본 부족",
+    });
+
+    const guardianTrio = data.routeParties.find(
+      (r) => r.routeId === "guardian" && r.partySize === 3,
+    );
+    expect(guardianTrio).toMatchObject({
+      runs: 1,
+      cleared: 1,
+      avgRemainingHp: 72,
     });
 
     expect(data.recentRuns.map((r) => r.id)).toEqual(["a", "b", "c"]);
@@ -155,8 +174,93 @@ describe("aggregateGridDungeonAnalytics", () => {
 
     expect(data.partySizes.map((p) => p.partySize)).toEqual([1, 2, 3]);
     expect(data.partySizes.find((p) => p.partySize === 1)?.clearRatePct).toBe(0);
+    expect(data.partySizes.find((p) => p.partySize === 1)?.failureRatePct).toBe(
+      100,
+    );
     expect(data.partySizes.find((p) => p.partySize === 2)?.clearRatePct).toBe(100);
     expect(data.partySizes.find((p) => p.partySize === 3)?.avgRewardGold).toBe(200);
+  });
+
+  it("builds route-party risk flags and tuning candidates", () => {
+    const hardRuns = Array.from({ length: 5 }, (_, index) =>
+      entry({
+        id: `hard-${index}`,
+        outcome: "failed",
+        routeId: "balanced",
+        hp: 0,
+        supporterCount: 0,
+        bossReached: false,
+        combatCount: 3,
+        totalCombatTurns: 18,
+        durationMs: 45_000,
+      }),
+    );
+    const easyRuns = Array.from({ length: 5 }, (_, index) =>
+      entry({
+        id: `easy-${index}`,
+        outcome: "cleared",
+        routeId: "vault",
+        hp: 80,
+        supporterCount: 2,
+        bossReached: true,
+        rewardGold: 1_000,
+        combatCount: 2,
+        totalCombatTurns: 8,
+        durationMs: 30_000,
+      }),
+    );
+
+    const data = aggregateGridDungeonAnalytics([
+      user({ userId: "hard", history: hardRuns }),
+      user({ userId: "easy", history: easyRuns }),
+    ]);
+
+    expect(data.routeParties).toHaveLength(9);
+    expect(
+      data.routeParties.find(
+        (r) => r.routeId === "balanced" && r.partySize === 1,
+      ),
+    ).toMatchObject({
+      runs: 5,
+      failed: 5,
+      clearRatePct: 0,
+      failureRatePct: 100,
+      riskLevel: "too_hard",
+    });
+    expect(
+      data.routeParties.find((r) => r.routeId === "vault" && r.partySize === 3),
+    ).toMatchObject({
+      runs: 5,
+      cleared: 5,
+      clearRatePct: 100,
+      bossReachRatePct: 100,
+      avgRemainingHp: 80,
+      riskLevel: "too_easy",
+    });
+    expect(data.balanceFlags).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "route:balanced:hard",
+          severity: "danger",
+        }),
+        expect.objectContaining({
+          id: "route:vault:easy",
+          severity: "warning",
+        }),
+      ]),
+    );
+    expect(data.tuningCandidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "route:balanced:soften",
+          priority: "high",
+        }),
+        expect.objectContaining({
+          id: "route:vault:tighten",
+          priority: "medium",
+        }),
+      ]),
+    );
   });
 
   it("filters users and histories by query and date", () => {

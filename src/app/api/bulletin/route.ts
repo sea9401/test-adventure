@@ -1,4 +1,14 @@
-import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { db } from "@/db";
 import {
   bulletinComments,
@@ -36,10 +46,20 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const categoryParam = url.searchParams.get("category");
+  const scopeParam = url.searchParams.get("scope");
   const q = (url.searchParams.get("q") ?? "").trim();
   const viewerGuild = await getViewerGuild(db, userId);
 
-  const filters: SQL[] = [visibleBulletinWhere(viewerGuild?.guildId ?? null)];
+  if (scopeParam === "guild" && viewerGuild == null) {
+    return Response.json([]);
+  }
+
+  const filters: SQL[] =
+    scopeParam === "guild" && viewerGuild != null
+      ? [eq(bulletinPosts.guildId, viewerGuild.guildId)]
+      : scopeParam === "public"
+        ? [isNull(bulletinPosts.guildId)]
+        : [visibleBulletinWhere(viewerGuild?.guildId ?? null)];
   if (categoryParam && isBulletinCategory(categoryParam)) {
     filters.push(eq(bulletinPosts.category, categoryParam));
   }

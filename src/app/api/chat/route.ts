@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { messages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordUserChatMessageInTx } from "@/lib/server/chatProgress";
 import { resolveActor } from "@/lib/server/resolveActor";
 import {
   CHAT_FETCH_LIMIT,
@@ -75,13 +76,17 @@ export async function POST(req: Request) {
     return new Response("rate limited", { status: 429 });
   }
 
-  const [inserted] = await db
-    .insert(messages)
-    .values({ userId, name, className, title, content })
-    .returning({
-      id: messages.id,
-      createdAt: messages.createdAt,
-    });
+  const inserted = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(messages)
+      .values({ userId, name, className, title, content })
+      .returning({
+        id: messages.id,
+        createdAt: messages.createdAt,
+      });
+    await recordUserChatMessageInTx(tx, userId, row.createdAt.getTime());
+    return row;
+  });
 
   return Response.json({
     id: inserted.id,

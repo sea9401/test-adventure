@@ -453,7 +453,7 @@ describe("guild workshop recipes", () => {
     });
   });
 
-  it("does not recover more of a material than the source recipe spent", () => {
+  it("caps source recipe material recovery around half of the craft cost", () => {
     const item = V2_EQUIPMENT.v2_crafted_gale_bow;
     expect(
       guildWorkshopDismantlePlan(
@@ -467,9 +467,11 @@ describe("guild workshop recipes", () => {
           },
         },
         6,
-      ).materials,
-    ).toEqual({
-      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1,
+      ),
+    ).toMatchObject({
+      materials: {},
+      artisanXp: 0,
+      blockedReason: "no_material",
     });
     expect(
       guildWorkshopDismantlePlan(
@@ -487,8 +489,28 @@ describe("guild workshop recipes", () => {
         9,
       ).materials,
     ).toEqual({
-      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2,
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1,
     });
+  });
+
+  it("recovers half of same-tier material costs on craft-only dismantle", () => {
+    const item = V2_EQUIPMENT.v2_crafted_sunforge_blade;
+    const plan = guildWorkshopDismantlePlan(
+      item,
+      {
+        craftedBy: {
+          userId: "u1",
+          profession: "blacksmith",
+          level: 8,
+          craftedAt: new Date(0).toISOString(),
+        },
+      },
+      8,
+    );
+    expect(plan.materials).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 1,
+    });
+    expect(plan.artisanXp).toBe(4);
   });
 
   it("returns extra dismantle materials for craft-only quality masterworks", () => {

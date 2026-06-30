@@ -669,22 +669,12 @@ export function V2DungeonFloorView({
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">
           <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
             {lossStreak >= 2
-              ? `${lossStreak}연패 중입니다 — 이 사냥터가 버겁습니다.`
-              : "이번 전투에서 졌습니다."}
+              ? `${lossStreak}연패로 사냥이 멈췄습니다.`
+              : "패배로 사냥이 멈췄습니다."}
           </p>
           <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
-            권장 전투력 {powerGate}에 못 미치거나 체력이 낮을 수 있어요. 치료소에서
-            회복하거나 더 쉬운 사냥터를 고르세요.
+            다시 시도할 수 있지만, 같은 사냥터에서 패배가 반복될 수 있습니다.
           </p>
-          {onSeekHealing && (
-            <button
-              type="button"
-              onClick={onSeekHealing}
-              className="ui-game-button mt-2.5 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
-            >
-              치료소로 가기
-            </button>
-          )}
         </div>
       )}
 

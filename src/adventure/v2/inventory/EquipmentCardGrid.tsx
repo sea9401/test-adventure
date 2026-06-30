@@ -35,7 +35,6 @@ import {
   CraftQualityBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
-  PerfectQualityBadge,
   powerNameClass,
   QualityPctText,
   type ItemCardAnchor,
@@ -140,7 +139,6 @@ export function EquipmentCardGrid({
                     title="품질"
                   >
                     <QualityPctText pct={pct} />
-                    {pct >= 100 ? <PerfectQualityBadge /> : null}
                   </span>
                 )}
                 {isEquipped && selectable ? (

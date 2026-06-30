@@ -34,7 +34,6 @@ import {
   CraftQualityBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
-  PerfectQualityBadge,
   QualityPctText,
   V2ItemCard,
   anchorOf,
@@ -830,7 +829,6 @@ function BuyConfirm({
               <span className="inline-flex items-center gap-1 text-[11px] tabular-nums">
                 <span className="text-zinc-500 dark:text-zinc-400">품질</span>
                 <QualityPctText pct={detail.pct} className="font-semibold" />
-                {detail.pct >= 100 ? <PerfectQualityBadge /> : null}
               </span>
             )}
           </div>
@@ -1057,7 +1055,6 @@ function ListingList({
                 <span className="inline-flex items-center gap-1 text-[11px] tabular-nums">
                   <span className="text-zinc-500 dark:text-zinc-400">품질</span>
                   <QualityPctText pct={detail.pct} className="font-semibold" />
-                  {detail.pct >= 100 ? <PerfectQualityBadge /> : null}
                 </span>
               )}
               {item?.craftOnly ? <CraftOnlyBadge /> : null}

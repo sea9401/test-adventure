@@ -55,7 +55,6 @@ import {
   type EquipmentCard,
 } from "@/adventure/v2/V2InventoryView";
 import {
-  PerfectQualityBadge,
   QualityPctText,
   CraftQualityStars,
 } from "@/adventure/v2/V2ItemCard";
@@ -679,7 +678,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   {curQuality != null ? (
                     <span className="inline-flex items-center gap-1">
                       <QualityPctText pct={curQuality} className="font-semibold" />
-                      {curQuality >= 100 ? <PerfectQualityBadge /> : null}
                     </span>
                   ) : (
                     <span className="font-semibold text-zinc-500 dark:text-zinc-400">

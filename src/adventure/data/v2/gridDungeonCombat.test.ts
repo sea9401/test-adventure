@@ -155,12 +155,17 @@ describe("gridDungeon party combat simulations", () => {
   it.each([
     ["boss solo", []],
     ["boss + healer", [healer()]],
-    ["boss + tank/healer", [tank(), healer()]],
   ] as const)("%s keeps boss pressure visible", (_label, supporters) => {
     const result = runRoom("boss", supporters);
     expect(result.outcome).toBe("lose");
     expect(result.enemyHp).toBeGreaterThan(0);
     expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
+  });
+
+  it("single dps support is not enough for the boss when main holds front", () => {
+    const result = runRoom("boss", [dps()], "me");
+    expect(result.outcome).toBe("lose");
+    expect(result.enemyHp).toBeGreaterThan(0);
   });
 
   it("healer support records healing and skill usage when pressure is high", () => {

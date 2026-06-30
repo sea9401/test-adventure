@@ -8,6 +8,7 @@ import {
   gridDungeonKey,
   gridDungeonMovePreview,
   gridDungeonRewardQuota,
+  gridDungeonRoomGold,
   isAtGridDungeonEntrance,
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
@@ -138,6 +139,12 @@ describe("gridDungeon", () => {
       tile: "elite",
     });
     expect(withGridDungeonLayout(vault)?.layout[3]?.[2]).toBe("trap");
+    expect(withGridDungeonLayout(guardian)?.layout[1]?.[2]).toBe("empty");
+    expect(gridDungeonRoomGold("balanced", "elite")).toBe(
+      GRID_DUNGEON_ROOM_REWARDS.elite.gold,
+    );
+    expect(gridDungeonRoomGold("guardian", "elite")).toBe(3_000);
+    expect(gridDungeonRoomGold("guardian", "relic")).toBe(1_800);
   });
 
   it("resolves trap and relic rooms once per run", () => {
@@ -171,7 +178,7 @@ describe("gridDungeon", () => {
     });
     expect(relic.ok).toBe(true);
     if (!relic.ok) return;
-    expect(relic.run.pendingGold).toBe(GRID_DUNGEON_ROOM_REWARDS.relic.gold);
+    expect(relic.run.pendingGold).toBe(gridDungeonRoomGold("guardian", "relic"));
     expect(relic.run.pendingDrops).toEqual({ stone: 2 });
   });
 

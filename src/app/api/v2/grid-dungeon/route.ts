@@ -49,6 +49,7 @@ import {
   gridDungeonDayKey,
   gridDungeonKey,
   gridDungeonLayoutForRoute,
+  gridDungeonRoomGold,
   gridDungeonRewardQuota,
   gridDungeonTileAt,
   isGridDungeonCombatTile,
@@ -63,6 +64,7 @@ import {
   withGridDungeonLayout,
   type GridDungeonMoveDir,
   type GridDungeonResolvedCombat,
+  type GridDungeonRouteId,
   type GridDungeonRun,
   type GridDungeonSupportRole,
   type GridDungeonSupporterSnapshot,
@@ -504,12 +506,6 @@ function historyEntryFromRun({
   };
 }
 
-const GRID_DUNGEON_COMBAT_REWARD: Partial<Record<GridDungeonTileKind, number>> = {
-  monster: 0,
-  elite: 0,
-  boss: 0,
-};
-
 const GRID_DUNGEON_COMBAT_DEPTH: Partial<Record<GridDungeonTileKind, number>> = {
   monster: 2,
   elite: 4,
@@ -551,6 +547,7 @@ async function resolveGridDungeonCombat({
   supporters,
   frontlineId,
   tile,
+  routeId,
   runHp,
   runMaxHp,
 }: {
@@ -560,6 +557,7 @@ async function resolveGridDungeonCombat({
   supporters: GridDungeonSupporterSnapshot[];
   frontlineId: string;
   tile: GridDungeonTileKind;
+  routeId: GridDungeonRouteId;
   runHp: number;
   runMaxHp: number;
 }): Promise<GridDungeonResolvedCombat | null> {
@@ -689,7 +687,7 @@ async function resolveGridDungeonCombat({
   const won = partyResult
     ? partyResult.outcome === "win"
     : soloResult?.outcome === "win";
-  const rewardGold = won ? (GRID_DUNGEON_COMBAT_REWARD[tile] ?? 0) : 0;
+  const rewardGold = won ? gridDungeonRoomGold(routeId, tile) : 0;
   const drops = won ? rollGridDungeonDrops(tile) : {};
   const playerHpAfter = partyResult
     ? partyResult.playerHpAfter
@@ -953,6 +951,7 @@ export async function POST(req: Request) {
                   ? userId
                   : run.frontlineId,
               tile: target.tile,
+              routeId: run.routeId,
               runHp: run.hp,
               runMaxHp: run.maxHp,
             })

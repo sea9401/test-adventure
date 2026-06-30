@@ -2615,10 +2615,20 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
 //   줄어 자동으로). 카탈로그 power 자체를 스케일하므로 표시 위력과 전투 효과가 동일(불투명 배수
 //   없음). 🔑 derive 의 스탯→atk 계수(ATK_PER_STR/INT 0.15)는 불변 — 올리면 엔드(거대 스탯)서
 //   위력이 되레 폭증(sim 확인). 시작값 — sim 으로 튜닝.
-//   ※ 방어구·장신구(def/magicDef) 위력은 불변. 무기만 대상(정규+밴드 유니크 균일).
+// PR-엔드위력완화(2026-07-01) — T10+ 장비 기본 위력 ×0.9. 강화/굴림/품질로 색이 오르는 재미는
+//   유지하되, 이후 장비가 숫자 인플레로만 올라가지 않도록 엔드 카탈로그 기준선을 한 번 낮춘다.
 export const WEAPON_POWER_SCALE = 0.8;
+export const ENDGAME_POWER_SCALE_FROM_TIER = 10;
+export const ENDGAME_POWER_SCALE = 0.9;
 for (const item of Object.values(V2_EQUIPMENT)) {
+  let scale = 1;
   if (item.slot === "weapon") {
-    item.power = Math.max(1, Math.round(item.power * WEAPON_POWER_SCALE));
+    scale *= WEAPON_POWER_SCALE;
+  }
+  if (item.tier >= ENDGAME_POWER_SCALE_FROM_TIER) {
+    scale *= ENDGAME_POWER_SCALE;
+  }
+  if (scale !== 1) {
+    item.power = Math.max(1, Math.round(item.power * scale));
   }
 }

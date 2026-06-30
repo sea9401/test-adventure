@@ -345,7 +345,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(12);
     expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(12);
     expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
-    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(45);
+    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(41);
   });
 
   it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T3, 무기는 weaponType별 T1~T3", () => {

@@ -240,7 +240,8 @@ const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   not_owned: "보유 중인 장비가 아닙니다.",
   equipped: "장착 중인 장비는 해체할 수 없습니다.",
   locked: "잠금 장비는 해체할 수 없습니다.",
-  not_crafted: "대장장이 제작품만 제작 재료로 해체할 수 있습니다.",
+  not_crafted:
+    "필드/상점 장비는 해체 재료 회수 대상이 아닙니다. 대장장이 제작품이나 제작 전용 장비만 해체할 수 있습니다.",
   low_tier: "T4 미만 장비는 제작 재료를 회수할 수 없습니다.",
   no_material: "회수할 제작 재료가 없습니다.",
 };
@@ -376,7 +377,7 @@ function dismantleBlockedText(reason?: string): string {
     case "locked":
       return "잠금";
     case "not_crafted":
-      return "제작품 아님";
+      return "필드 장비";
     default:
       return "불가";
   }
@@ -1267,7 +1268,7 @@ export function GuildWorkshopPanel({
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             대장장이 Lv {dismantle?.requiredBlacksmithLevel ?? 6}부터 T4 이상
-            장비를 제작 재료로 회수합니다.
+            대장장이 제작품을 제작 재료로 회수합니다.
           </div>
         </div>
         {dismantleLoading ? (
@@ -1277,6 +1278,16 @@ export function GuildWorkshopPanel({
             aria-hidden
           />
         ) : null}
+      </div>
+      <div className="mb-2 grid gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 sm:grid-cols-2">
+        <div>
+          <span className="font-semibold">해체 가능</span> · 대장장이 제작자
+          각인이 있는 장비, 제작 전용 장비
+        </div>
+        <div>
+          <span className="font-semibold">해체 불가</span> · 필드/상점 장비,
+          장착 중인 장비, 잠금 장비, T4 미만 장비
+        </div>
       </div>
       <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
         보유 제작 재료 ·{" "}
@@ -1302,7 +1313,7 @@ export function GuildWorkshopPanel({
           <option value="quality">★ 품질만</option>
           <option value="craftOnly">제작 전용만</option>
           <option value="masterwork">명장만</option>
-          <option value="all">전체</option>
+          <option value="all">전체 장비</option>
         </select>
         <select
           value={dismantleTierFilter}

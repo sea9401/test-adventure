@@ -7,6 +7,7 @@
 
 import {
   V2_JOB_LIST,
+  cumLevelForJob,
   isJobUnlocked,
   jobIdFromLegacy,
   jobUnlockConditionText,
@@ -21,6 +22,8 @@ export type JobCodexJob = {
   tier: number;
   unlocked: boolean;
   isCurrent: boolean;
+  // 해당 직업의 내 숙련도. tier1 은 직군 숙련도(groups), tier2+ 는 구체 직업 숙련도(jobCumLevel).
+  mastery: number;
   // 해금 조건 텍스트(전직 화면과 동일 헬퍼). 잠긴 직업도 어떤 조건이 필요한지 보여준다.
   condition: string;
   // 스킬 수집 현황 — 그 직업의 시그니처 스킬(액티브+패시브) 중 학습한 개수 / 전체. 둘 다 배우면
@@ -58,6 +61,7 @@ export function buildJobCodex(
       tier: job.tier,
       unlocked,
       isCurrent: job.id === currentJobId,
+      mastery: cumLevelForJob(prof, job),
       condition: jobUnlockConditionText(job),
       skillsTotal: signature.length,
       skillsLearned: signature.filter((id) => learned.has(id)).length,

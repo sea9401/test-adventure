@@ -139,6 +139,8 @@ export type GridDungeonHistoryEntry = {
 export type GridDungeonRouteSummary = {
   routeId: GridDungeonRouteId;
   expectedGold: number;
+  combatDepth: number;
+  avgCombatDepth: number;
   combatRooms: number;
   eliteRooms: number;
   trapRooms: number;
@@ -210,6 +212,27 @@ const GRID_DUNGEON_ROUTE_DROP_DEPTH_OVERRIDES: Partial<
     elite: 38,
     relic: 45,
     boss: 70,
+  },
+};
+
+export const GRID_DUNGEON_COMBAT_DEPTH: Record<
+  GridDungeonRouteId,
+  Partial<Record<GridDungeonTileKind, number>>
+> = {
+  balanced: {
+    monster: 7,
+    elite: 9,
+    boss: 11,
+  },
+  guardian: {
+    monster: 11,
+    elite: 14,
+    boss: 17,
+  },
+  vault: {
+    monster: 9,
+    elite: 11,
+    boss: 13,
   },
 };
 
@@ -372,6 +395,8 @@ export function gridDungeonRouteSummary(
   const summary: GridDungeonRouteSummary = {
     routeId: route,
     expectedGold: 0,
+    combatDepth: 0,
+    avgCombatDepth: 0,
     combatRooms: 0,
     eliteRooms: 0,
     trapRooms: 0,
@@ -398,6 +423,7 @@ export function gridDungeonRouteSummary(
       }
       if (tile === "monster" || tile === "elite" || tile === "boss") {
         summary.combatRooms += 1;
+        summary.combatDepth += gridDungeonCombatDepth(route, tile);
       }
       if (tile === "elite") summary.eliteRooms += 1;
       else if (tile === "trap") summary.trapRooms += 1;
@@ -409,6 +435,10 @@ export function gridDungeonRouteSummary(
   summary.avgMaterialDepth =
     summary.materialRooms > 0
       ? Math.round(summary.materialDepth / summary.materialRooms)
+      : 0;
+  summary.avgCombatDepth =
+    summary.combatRooms > 0
+      ? Math.round(summary.combatDepth / summary.combatRooms)
       : 0;
   return summary;
 }
@@ -786,6 +816,14 @@ export function gridDungeonDropDepth(
     GRID_DUNGEON_BASE_DROP_DEPTH[tile] ??
     0
   );
+}
+
+export function gridDungeonCombatDepth(
+  routeId: unknown,
+  tile: GridDungeonTileKind,
+): number {
+  const route = parseGridDungeonRouteId(routeId);
+  return GRID_DUNGEON_COMBAT_DEPTH[route][tile] ?? 1;
 }
 
 export function gridDungeonBossReached(

@@ -591,7 +591,7 @@ function RouteSelector({
               />
               <RouteMetric
                 label="전투"
-                value={`${summary.combatRooms.toLocaleString()}방`}
+                value={`${summary.combatRooms.toLocaleString()}방 · ${summary.avgCombatDepth}`}
               />
               <RouteMetric
                 label="함정"

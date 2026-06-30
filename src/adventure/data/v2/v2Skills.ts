@@ -197,7 +197,7 @@ export type V2SkillEffect =
   | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
-  | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction"; pct: number; turns: number }
+  | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction" | "reflectDamage"; pct: number; turns: number }
   // 매턴 HP 리젠(운기).
   | { kind: "selfRegen"; pctMaxHpPerTurn: number; turns: number }
   // 보호막 — maxHP·maxMP 비례 흡수(마나 보호막).
@@ -612,10 +612,11 @@ export function equippedFishingBonuses(equipped: readonly V2SkillId[]): {
 }
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
-const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction", string> = {
+const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction" | "reflectDamage", string> = {
   evasion: "회피",
   crit: "치명률",
   damageReduction: "받는 피해 감소",
+  reflectDamage: "반사 피해",
 };
 const STACK_TAG_LABEL: Record<"bleed" | "poison" | "magicVuln", string> = {
   bleed: "출혈",

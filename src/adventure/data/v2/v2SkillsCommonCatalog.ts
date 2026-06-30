@@ -164,7 +164,7 @@ export type V2CommonSkillId =
   // ── 5차 직업 ──
   | "v2c_swordmaster_cut" // 검격 (안정 물리 피해 + 방깎)
   | "v2c_swordmaster_focus" // 검의 집중 (힘 + 치명피해)
-  | "v2c_ironknight_guard" // 철벽 태세 (보호막 + 받피감)
+  | "v2c_ironknight_guard" // 반사 태세 (보호막 + 반사 증폭)
   | "v2c_ironknight_wall" // 장벽술 (방어 + 반사)
   | "v2c_overlord_ruin" // 파멸 난무 (HP 소모 + 처형)
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
@@ -1144,12 +1144,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 18 }, critDmgPct: 25, spdOverflowToAtkPct: 25 },
   },
   v2c_ironknight_guard: {
-    id: "v2c_ironknight_guard", name: "철벽 태세", stat: "vit", category: "buff", tier: 3,
-    description: "방패를 고정해 피해를 흡수하고 잠시 받는 피해를 줄인다.",
+    id: "v2c_ironknight_guard", name: "반사 태세", stat: "vit", category: "buff", tier: 3,
+    description: "방패를 고정해 보호막을 세우고, 잠시 모든 반사 피해를 증폭한다.",
     mpCost: 48, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "shield", pctMaxHp: 14, turns: 3 },
-      { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
+      { kind: "shield", pctMaxHp: 10, turns: 3 },
+      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
     ],
   },
   v2c_ironknight_wall: {

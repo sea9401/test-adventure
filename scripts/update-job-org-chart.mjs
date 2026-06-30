@@ -240,6 +240,7 @@ function targetLabel(target) {
     evasion: "회피",
     crit: "치명타 확률",
     damageReduction: "받는 피해 감소",
+    reflectDamage: "반사 피해",
   }[target] ?? target;
 }
 

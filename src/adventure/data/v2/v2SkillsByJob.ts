@@ -77,7 +77,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판 + 피의 서약
   // ── 5차 직업 — 기존 효과 어휘만 재사용한 상급 심화 킷 ──
   swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"], // 검호: 검격 + 검의 집중
-  ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 철벽 태세 + 장벽술
+  ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"], // 철벽기사: 반사 태세 + 장벽술
   overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸 난무 + 광기의 왕좌
   arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"], // 비전술사: 비전 폭발 + 비전 이론
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준

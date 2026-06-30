@@ -766,12 +766,18 @@ export function resolveEnemyPhase(
     (player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeReduction > 0
       ? player.thornsFlatFromDef!
       : 0;
-  const reflectDmg =
+  const baseReflectDmg =
     thornsDmg +
     brambleDmg +
     infiniteThornsDmg +
     enchantReflectDmg +
     wardenReflectDmg;
+  const reflectBoostPct =
+    state.stacks.skillReflectBoostTurns > 0 ? state.stacks.skillReflectBoostPct : 0;
+  const reflectDmg =
+    reflectBoostPct > 0
+      ? Math.floor(baseReflectDmg * (1 + reflectBoostPct / 100))
+      : baseReflectDmg;
   const enemyHpAfterThorns = Math.max(0, state.enemyHp - reflectDmg);
   if (reflectDmg > 0) {
     const reflectLabels: string[] = [];
@@ -780,6 +786,7 @@ export function resolveEnemyPhase(
     if (infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
     if (enchantReflectDmg > 0) reflectLabels.push("별빛 반사");
     if (wardenReflectDmg > 0) reflectLabels.push("수호 반사");
+    if (reflectBoostPct > 0) reflectLabels.push("반사 증폭");
     log = appendLog(log, {
       kind: "player_attack",
       text: `[${reflectLabels.join(" + ")}] ${state.enemy.name}에게 ${reflectDmg} 반사 피해.`,

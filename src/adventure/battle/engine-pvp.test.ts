@@ -796,6 +796,31 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("가시 갑옷"))).toBe(true);
   });
 
+  it("반사 태세 버프가 PvP 반사 피해도 증폭한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 100, def: 0, hp: 500, maxHp: 500 }),
+      makePlayer({ spd: 5, atk: 1, def: 0, thornsPct: 20, hp: 500, maxHp: 500 }),
+      "P1",
+      "P2",
+    );
+    const boosted = {
+      ...s0,
+      p2: {
+        ...s0.p2,
+        stacks: {
+          ...s0.p2.stacks,
+          skillReflectBoostPct: 50,
+          skillReflectBoostTurns: 2,
+        },
+      },
+    };
+    const s1 = advanceTurnPvP(boosted);
+    // p2 takes 100 dmg → thorns 20% = 20. 반사 증폭 50% = 30.
+    expect(s1.p1.hp).toBe(470);
+    expect(s1.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
+  });
+
   it("무한 가시 (on-hit 분기) — 공격자 ATK 의 N% 반사", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(

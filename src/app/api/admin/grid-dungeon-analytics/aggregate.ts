@@ -13,6 +13,11 @@ export type GridDungeonAnalyticsUser = {
   history: GridDungeonHistoryEntry[];
 };
 
+export type GridDungeonAnalyticsFilters = {
+  sinceAt?: number;
+  query?: string;
+};
+
 export type GridDungeonAnalyticsRun = {
   id: string;
   userId: string;
@@ -60,6 +65,10 @@ export type GridDungeonPartyAnalytics = {
 };
 
 export type GridDungeonAnalytics = {
+  filters: {
+    sinceAt: number | null;
+    query: string;
+  };
   summary: {
     users: number;
     usersWithHistory: number;
@@ -140,6 +149,32 @@ function add(acc: Acc, run: GridDungeonAnalyticsRun) {
   acc.durationMs += run.durationMs;
 }
 
+function normalizeSearch(raw: string | undefined): string {
+  return (raw ?? "").trim().toLowerCase();
+}
+
+export function filterGridDungeonAnalyticsUsers(
+  users: GridDungeonAnalyticsUser[],
+  filters: GridDungeonAnalyticsFilters = {},
+): GridDungeonAnalyticsUser[] {
+  const query = normalizeSearch(filters.query);
+  return users
+    .filter((user) => {
+      if (!query) return true;
+      return (
+        user.userId.toLowerCase().includes(query) ||
+        user.name.toLowerCase().includes(query)
+      );
+    })
+    .map((user) => ({
+      ...user,
+      history: user.history.filter((entry) => {
+        if (filters.sinceAt != null && entry.at < filters.sinceAt) return false;
+        return true;
+      }),
+    }));
+}
+
 function routeOutput(
   routeId: GridDungeonRouteId,
   acc: Acc,
@@ -180,9 +215,11 @@ function partyOutput(
 export function aggregateGridDungeonAnalytics(
   users: GridDungeonAnalyticsUser[],
   meta: { adminExcluded: number } = { adminExcluded: 0 },
+  filters: GridDungeonAnalyticsFilters = {},
 ): GridDungeonAnalytics {
+  const filteredUsers = filterGridDungeonAnalyticsUsers(users, filters);
   const runs: GridDungeonAnalyticsRun[] = [];
-  for (const user of users) {
+  for (const user of filteredUsers) {
     for (const entry of user.history) {
       const route = GRID_DUNGEON_ROUTES[entry.routeId];
       runs.push({
@@ -223,9 +260,13 @@ export function aggregateGridDungeonAnalytics(
   }
 
   return {
+    filters: {
+      sinceAt: filters.sinceAt ?? null,
+      query: normalizeSearch(filters.query),
+    },
     summary: {
-      users: users.length,
-      usersWithHistory: users.filter((u) => u.history.length > 0).length,
+      users: filteredUsers.length,
+      usersWithHistory: filteredUsers.filter((u) => u.history.length > 0).length,
       runs: total.runs,
       cleared: total.cleared,
       failed: total.failed,

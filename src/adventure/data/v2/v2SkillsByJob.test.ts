@@ -344,13 +344,16 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
   });
 
-  it("5차 핵심 5직업 = 액티브 1 + 패시브 1", () => {
+  it("5차 직업 = 액티브 1 + 패시브 1", () => {
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"],
       ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"],
       arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"],
       marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
       nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"],
+      saint: ["v2c_saint_miracle", "v2c_saint_benediction"],
+      plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"],
+      adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -365,6 +368,20 @@ describe("직업 킷 — 스킬셋", () => {
       "ambushDamage",
       "executeDamage",
     ]);
+    expect(V2_SKILLS.v2c_saint_miracle.effects.map((e) => e.kind)).toEqual([
+      "heal",
+      "shield",
+      "selfBuffPct",
+    ]);
+    expect(V2_SKILLS.v2c_plaguebringer_decay.passive?.poisonedEnemyDefReductionPct).toBe(35);
+    expect(V2_SKILLS.v2c_adamantmonk_stance.effects).toEqual([
+      { kind: "shield", pctMaxHp: 14, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_adamantmonk_body.passive).toMatchObject({
+      maxHpPct: 25,
+      counterChancePct: 35,
+    });
   });
 
   it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {

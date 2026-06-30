@@ -80,6 +80,7 @@ export const TITLES: Record<TitleId, Title> = {
     description: "광장에 말을 자주 얹는 자.",
     condition: "글로벌 채팅 100회 발화",
     category: "town",
+    hidden: true,
   },
   patient: {
     id: "patient",

@@ -2413,12 +2413,17 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "heavy",
     tier: 10,
     name: "검은 왕좌",
-    description: "무너진 왕좌의 흑철판을 이어 만든 판갑. 치명적인 일격과 주문을 함께 버티게 한다.",
+    description: "무너진 왕좌의 흑철판을 이어 만든 판갑. 전투가 시작되면 검은 방벽이 먼저 일어선다.",
     power: 154,
     weight: 12,
     options: { hp: 320, magicDef: 18, critResist: 6 },
     rarity: "unique",
     setId: "sig_black_throne",
+    signature: {
+      trigger: "battle_start",
+      label: "검은 왕좌",
+      battleStartShieldPctMaxHp: 12,
+    },
   },
   v2_throne_sig_void_crown: {
     id: "v2_throne_sig_void_crown",
@@ -2594,12 +2599,12 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "mana",
     tier: 12,
     name: "왕릉성",
-    description: "돌무덤 위에 뜨는 별빛을 깎아 걸었다. 죽은 왕의 침묵이 마력을 붙잡는다.",
+    description: "돌무덤 위에 뜨는 별빛을 깎아 걸었다. 주문을 펼친 뒤에도 죽은 왕의 침묵이 마력을 붙잡는다.",
     power: 58,
     weight: 0,
     options: { mp: 190, crit: 7, healPowerPct: 8, magicDef: 18 },
     rarity: "unique",
-    signature: { trigger: "on_crit", label: "왕릉성", spdBuffPct: 18, buffActions: 2 },
+    signature: { trigger: "on_skill_cast", label: "왕릉성", mpRefundPctOfCost: 25 },
   },
 };
 

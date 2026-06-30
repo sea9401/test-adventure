@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  battleStartShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
   onCritEnemyChill,
@@ -7,9 +8,10 @@ import {
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
+  onSkillCastMpRefund,
   everyNHitsValue,
 } from "./signatureEffects";
-import { resolveBattle } from "./engine";
+import { initialBattleState, resolveBattle } from "./engine";
 import { pickAutoAction } from "./pickAutoAction";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
@@ -46,6 +48,18 @@ const BONE_THRONE: SignatureEffect = {
   trigger: "on_hit_taken",
   label: "백왕좌",
   defGainOnHitPct: 35,
+};
+
+const BLACK_THRONE: SignatureEffect = {
+  trigger: "battle_start",
+  label: "검은 왕좌",
+  battleStartShieldPctMaxHp: 12,
+};
+
+const CAIRN_STAR: SignatureEffect = {
+  trigger: "on_skill_cast",
+  label: "왕릉성",
+  mpRefundPctOfCost: 25,
 };
 
 describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)", () => {
@@ -131,6 +145,26 @@ describe("lowHpDamageReductionPct (성물 저체력 받피감)", () => {
   });
 });
 
+describe("battleStartShield (검은 왕좌 전투 시작 보호막)", () => {
+  it("시그니처 없음/다른 트리거/maxHp 0 → null", () => {
+    expect(battleStartShield(undefined, 100)).toBeNull();
+    expect(battleStartShield([RELIC], 100)).toBeNull();
+    expect(battleStartShield([BLACK_THRONE], 0)).toBeNull();
+  });
+
+  it("maxHp 비율 보호막을 합산하고 라벨을 보존", () => {
+    const other: SignatureEffect = {
+      trigger: "battle_start",
+      label: "성벽",
+      battleStartShieldPctMaxHp: 8,
+    };
+    expect(battleStartShield([BLACK_THRONE, other], 200)).toEqual({
+      amount: 40,
+      label: "검은 왕좌 + 성벽",
+    });
+  });
+});
+
 describe("onHitTakenDefGain (백왕좌 피격 방어 누적)", () => {
   it("시그니처 없음/다른 트리거 → null", () => {
     expect(onHitTakenDefGain(undefined)).toBeNull();
@@ -147,6 +181,26 @@ describe("onHitTakenDefGain (백왕좌 피격 방어 누적)", () => {
     expect(onHitTakenDefGain([BONE_THRONE, other])).toEqual({
       pct: 50,
       label: "백왕좌 + 흑철",
+    });
+  });
+});
+
+describe("onSkillCastMpRefund (왕릉성 스킬 MP 환급)", () => {
+  it("시그니처 없음/다른 트리거 → null", () => {
+    expect(onSkillCastMpRefund(undefined)).toBeNull();
+    expect(onSkillCastMpRefund([])).toBeNull();
+    expect(onSkillCastMpRefund([CROWN])).toBeNull();
+  });
+
+  it("on_skill_cast mpRefundPctOfCost 를 합산하고 라벨을 보존", () => {
+    const other: SignatureEffect = {
+      trigger: "on_skill_cast",
+      label: "순환",
+      mpRefundPctOfCost: 10,
+    };
+    expect(onSkillCastMpRefund([CAIRN_STAR, other])).toEqual({
+      pct: 35,
+      label: "왕릉성 + 순환",
     });
   });
 });
@@ -303,6 +357,29 @@ describe("엔진 통합 — 포식자 every-N 카운터가 적중 시 증가한�
   });
 });
 
+describe("엔진 통합 — battle_start 보호막이 전투 시작 시 적용된다 (PvE)", () => {
+  it("검은 왕좌 장착 → initialBattleState 에 보호막과 로그가 생긴다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const player = {
+      ...base,
+      hp: 200,
+      maxHp: 200,
+      equipSignatures: [BLACK_THRONE],
+    };
+    const state = initialBattleState(
+      player,
+      V2_MONSTERS["훈련용 허수아비"],
+      "용사",
+    );
+    expect(state.stacks.playerShield).toBe(24);
+    expect(
+      state.log.some(
+        (e) => typeof e.text === "string" && e.text.includes("[검은 왕좌]"),
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("엔진 통합 — on-hit-taken 방어 누적이 피격 시 증가한다 (PvE)", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -354,6 +431,56 @@ describe("엔진 통합 — on-hit-taken 방어 누적이 피격 시 증가한�
       v2Skills: emptyV2SkillsState(),
     });
     expect(res.finalState.stacks.braceDefBonus).toBe(0);
+  });
+});
+
+describe("엔진 통합 — on-skill-cast MP 환급이 스킬 시전 후 적용된다 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function skillCaster(equipSignatures?: SignatureEffect[]) {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    return {
+      ...base,
+      hp: 200,
+      maxHp: 200,
+      atk: 100,
+      spd: 100,
+      maxMp: 1000,
+      mp: 1000,
+      attackCount: 1,
+      accuracyPct: 100,
+      accRating: 100,
+      ...(equipSignatures ? { equipSignatures } : {}),
+    };
+  }
+
+  function runSkillRefund(equipSignatures?: SignatureEffect[]) {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    return resolveBattle(
+      skillCaster(equipSignatures),
+      { ...V2_MONSTERS["훈련용 허수아비"], hp: 50, def: 0, spd: 1 },
+      "용사",
+      {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      },
+    ).finalState;
+  }
+
+  it("왕릉성 장착 → 같은 스킬 시전 후 MP 가 더 남고 환급 로그가 생긴다", () => {
+    const plain = runSkillRefund();
+    vi.restoreAllMocks();
+    const refunded = runSkillRefund([CAIRN_STAR]);
+    expect(refunded.playerMp).toBeGreaterThan(plain.playerMp);
+    expect(
+      refunded.log.some(
+        (e) => typeof e.text === "string" && e.text.includes("[왕릉성]"),
+      ),
+    ).toBe(true);
   });
 });
 

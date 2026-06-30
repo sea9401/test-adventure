@@ -65,8 +65,10 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
+  battleStartShield,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
+  onSkillCastMpRefund,
 } from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
@@ -340,7 +342,8 @@ function buildSide(
   name: string,
   v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): PvPSide {
-  const startShield = player.bulwarkShield ?? 0;
+  const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
+  const startShield = (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0);
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
   return {
     player,
@@ -1491,6 +1494,19 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
+  const sigMpRefund = onSkillCastMpRefund(side.player.equipSignatures);
+  const costPaid = side.mp - result.nextMp;
+  const sigMpRefundAmount =
+    sigMpRefund && costPaid > 0
+      ? Math.floor((costPaid * sigMpRefund.pct) / 100)
+      : 0;
+  if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigMpRefund.label}] ${side.name} 마나 ${sigMpRefundAmount} 환급`,
+      side: who,
+    });
+  }
   // PR2-B 사혈격(PvP) — 시전자 HP 소모(자살 방지 최소 1).
   if (result.selfHpCost > 0) {
     nextSideHp = Math.max(1, nextSideHp - result.selfHpCost);
@@ -1601,7 +1617,7 @@ export function castV2SkillOnAttackerTurnPvP(
   const nextSide: PvPSide = {
     ...side,
     hp: nextSideHp,
-    mp: result.nextMp,
+    mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
     v2SelfDebuffs: tickedSelfDebuffs,

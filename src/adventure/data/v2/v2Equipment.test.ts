@@ -738,7 +738,14 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
-  it("트리거별 한국어 한 줄 — 7 효과", () => {
+  it("트리거별 한국어 한 줄 — 9 효과", () => {
+    expect(
+      signatureLabel({
+        trigger: "battle_start",
+        label: "검은 왕좌",
+        battleStartShieldPctMaxHp: 12,
+      }),
+    ).toBe("전투 시작 시 최대 HP의 12% 보호막");
     expect(
       signatureLabel({
         trigger: "low_hp",
@@ -779,6 +786,13 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         defGainOnHitPct: 35,
       }),
     ).toBe("피격 시 받은 HP 피해의 35%만큼 방어 상승");
+    expect(
+      signatureLabel({
+        trigger: "on_skill_cast",
+        label: "왕릉성",
+        mpRefundPctOfCost: 25,
+      }),
+    ).toBe("스킬 사용 시 소모 MP의 25% 환급");
   });
 
   it("세트/단품 카탈로그 시그니처 전부 비어있지 않은 표기", () => {

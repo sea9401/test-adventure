@@ -27,6 +27,10 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import {
+  battleStartShield,
+  onSkillCastMpRefund,
+} from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   CRIT_PCT_CAP,
@@ -1215,12 +1219,20 @@ export function initialBattleState(
   const barrierPct = player.enchantBarrierPctMaxHp ?? 0;
   const barrierStart =
     barrierPct > 0 ? Math.floor((player.maxHp * barrierPct) / 100) : 0;
-  const startShield = bulwarkStart + barrierStart;
+  const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
+  const startShield =
+    bulwarkStart + barrierStart + (sigStartShield?.amount ?? 0);
   if (bulwarkStart > 0) {
     log.push({ kind: "info", text: `[철벽] 보호막 ${bulwarkStart} 전개` });
   }
   if (barrierStart > 0) {
     log.push({ kind: "info", text: `[보호막] 별빛이 ${barrierStart} 둘렀다` });
+  }
+  if (sigStartShield) {
+    log.push({
+      kind: "info",
+      text: `[${sigStartShield.label}] 보호막 ${sigStartShield.amount} 전개`,
+    });
   }
   // 전투 시작 시 MP 시드 — character.v2.mp 가 있으면 그 값, 없으면 maxMp (옛 단판 모델 fallback).
   // PR-potion-auto-restore 이후 단판 풀충전 폐기 — mp 가 사냥 사이 보존되고 포션으로 회복.
@@ -1813,9 +1825,14 @@ export function applyPlayerV2SkillCast(
     mpCostReduction > 0 && costPaid > 0
       ? Math.floor((costPaid * mpCostReduction) / 100)
       : 0;
+  const sigMpRefund = onSkillCastMpRefund(player.equipSignatures);
+  const sigMpRefundAmount =
+    sigMpRefund && costPaid > 0
+      ? Math.floor((costPaid * sigMpRefund.pct) / 100)
+      : 0;
   const adjustedNextMp = Math.min(
     state.playerMaxMp,
-    result.nextMp + mpRefund,
+    result.nextMp + mpRefund + sigMpRefundAmount,
   );
   // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
   let nextEnemyHp = state.enemyHp;
@@ -1865,6 +1882,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
+    });
+  }
+  if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigMpRefund.label}] 마나 ${sigMpRefundAmount} 환급`,
+      turn: "player",
     });
   }
   // PR2-B 사혈격 — 현재 HP 소모(자살 방지 최소 1).

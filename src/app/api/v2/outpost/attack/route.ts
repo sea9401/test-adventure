@@ -65,7 +65,8 @@ import {
   MAX_SLOTS_BY_TIER,
 } from "@/adventure/data/v2/settlement";
 import {
-  RAID_TREASURY_STEAL_FRAC,
+  RAID_TREASURY_STEAL_FRAC_DEFENDED,
+  RAID_TREASURY_STEAL_FRAC_UNDEFENDED,
   TRADE_ROUTE_RAID_LOSS_MULT,
   LAKE_ATTACKER_PENALTY_MULT,
   HONOR_PER_DEFENSE_WIN,
@@ -78,7 +79,7 @@ import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 
 // POST /api/v2/outpost/attack — 정착지 전쟁 공격(약탈/정복). 설계: docs/v2-settlement-warfare-plan.md.
 //   body: { outpostId, mode: "raid" | "conquest" }
-//   raid    = 수비 큐 1번을 "건강도(전쟁 전용 HP 이월)" 결투로 격파 → 거점 금고 50% 탈취(마을 유지).
+//   raid    = 수비 큐 1번을 "건강도(전쟁 전용 HP 이월)" 결투로 격파 → 거점 금고 일부 탈취(마을 유지).
 //   conquest= 수비 큐 전원 격파(건틀릿) + 성벽(fortHp) 누적 공성 완파 → 함락(마을 tier 1↓·소유 이관,
 //             금고는 그대로). 성벽 데미지 = 수비 격파 시 siegeDamage(전투력 비율), 무방비(큐 0명)면
 //             undefendedSiegeDamage(전투력÷4·캡 50%HP) → 여러 차례 공격으로 함락.
@@ -265,7 +266,7 @@ export async function POST(req: Request) {
     const aMaxMp = attacker.player.maxMp ?? 0;
 
     // === 위치/인접 게이트 (타일 정착지 대상만 — 옛 카탈로그 거점은 오프보드·inert 라 현행 유지) ===
-    //   약탈 = 대상 정착지 칸에 "30분 이상 체류"해야(tilePos 일치+at 경과). 멀리서 약탈 불가.
+    //   약탈 = 대상 정착지 칸에 "1시간 이상 체류"해야(tilePos 일치+at 경과). 멀리서 약탈 불가.
     //   정복 = 내 길드 영지에 4방향 인접한 칸만(연속 확장). 땅 없는 길드는 중립 거점 인접에서 발판.
     //   전투/건강도 소모 전(여기서) 거부해 무효 시도에 비용이 들지 않게 한다.
     if (isTileOutpostId(outpost.id)) {
@@ -318,7 +319,7 @@ export async function POST(req: Request) {
 
     // ===================== 약탈(raid) =====================
     if (mode === "raid") {
-      // 약탈 = 거점 금고 50% 탈취 — 길드 금고가 있는 길드↔길드 전용. 솔로(금고 없음)는 정복만.
+      // 약탈 = 거점 금고 일부 탈취 — 길드 금고가 있는 길드↔길드 전용. 솔로(금고 없음)는 정복만.
       if (defenderGuildId == null) {
         return {
           status: 400,
@@ -336,7 +337,7 @@ export async function POST(req: Request) {
       let raidBattled = false; // 실제 전투(수비자 존재)면 true → 공격 기록 INSERT.
       // 수비 성공 시 점령 길드(수비자 소속)에 누적할 명성 — tx 끝에서 단일 UPDATE.
       let defenderFameDelta = 0;
-      // 약탈은 "30분 체류 후 1회"다. 유효한 약탈 시도 후 같은 칸 체류 시작시각을 리셋해
+      // 약탈은 "1시간 체류 후 1회"다. 유효한 약탈 시도 후 같은 칸 체류 시작시각을 리셋해
       // 조건 충족 뒤 연속 클릭으로 금고를 비우는 일을 막는다.
       const nextTilePos =
         isTileOutpostId(outpost.id) && attackerSave.tilePos
@@ -463,7 +464,10 @@ export async function POST(req: Request) {
             .limit(1)
         )[0];
         const treasury = Math.max(0, tRow?.gold ?? 0);
-        stolenGold = Math.floor(treasury * RAID_TREASURY_STEAL_FRAC);
+        const stealFrac = raidBattled
+          ? RAID_TREASURY_STEAL_FRAC_DEFENDED
+          : RAID_TREASURY_STEAL_FRAC_UNDEFENDED;
+        stolenGold = Math.floor(treasury * stealFrac);
         // 지형 보정(P3) — 방어 정착지가 교역로면 탈취 ×1.10(양날), 호수 인접이면 ×0.90(공격자
         //   약화). 합성곱. 비-타일/비-해당지형은 무변경. 금고 잔액 초과 클램프.
         const raidDefPos = parseTileOutpostId(outpost.id);

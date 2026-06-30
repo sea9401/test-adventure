@@ -34,6 +34,7 @@ export type GridDungeonPartyActor = {
   name: string;
   supportRole: GridDungeonSupportRole | null;
   formation: "front" | "back";
+  hpBefore: number;
   hp: number;
   maxHp: number;
   mp: number;
@@ -252,6 +253,7 @@ export function makeGridDungeonPartyActor({
   supportRole = null,
   formation = "back",
   maxHp,
+  hp,
   mp = 0,
   maxMp = 0,
   atk,
@@ -268,6 +270,7 @@ export function makeGridDungeonPartyActor({
   supportRole?: GridDungeonSupportRole | null;
   formation?: "front" | "back";
   maxHp: number;
+  hp?: number;
   mp?: number;
   maxMp?: number;
   atk: number;
@@ -279,12 +282,14 @@ export function makeGridDungeonPartyActor({
   skills?: string[];
   pattern?: V2CombatPattern;
 }): GridDungeonPartyActor {
+  const currentHp = Math.max(0, Math.min(maxHp, hp ?? maxHp));
   return {
     id,
     name,
     supportRole,
     formation,
-    hp: maxHp,
+    hpBefore: currentHp,
+    hp: currentHp,
     maxHp,
     mp,
     maxMp,
@@ -450,6 +455,7 @@ export function resolveGridDungeonPartyCombat({
       role: actor.isMain ? "main" : "supporter",
       formation: actor.formation,
       supportRole: actor.supportRole,
+      hpBefore: actor.hpBefore,
       hpAfter: actor.hp,
       maxHp: actor.maxHp,
       damageDealt: actor.damageDealt,

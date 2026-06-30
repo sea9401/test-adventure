@@ -11,13 +11,18 @@ import {
   tileSettlementName,
 } from "@/adventure/data/v2/tileConfig";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import {
+  GRID_DUNGEON_ENTRANCE,
+  isAtGridDungeonEntrance,
+} from "@/adventure/data/v2/gridDungeon";
 
 // 서 있는 타일이 무엇인지 — 좌상단 라벨과 모험 탭 "현 위치" 카드가 공유하는 분류.
-// 우선순위: 거점 칸(리베라) → 그 칸의 개척 정착지 → 빈 땅 → 보드 밖(tilePos 없음).
+// 우선순위: 거점 칸(리베라) → 던전 입구 → 그 칸의 개척 정착지 → 빈 땅 → 보드 밖(tilePos 없음).
 export type StandingTile<
   S extends { col: number; row: number } = { col: number; row: number },
 > =
   | { kind: "outpost"; outpostId: string }
+  | { kind: "dungeon"; name: string; col: number; row: number }
   | { kind: "settlement"; settlement: S }
   | { kind: "empty"; col: number; row: number }
   | { kind: "offboard" };
@@ -35,6 +40,9 @@ export function standingTileLocation<S extends { col: number; row: number }>({
   const { col, row } = tilePos;
   const oid = TILE_OUTPOST_AT.get(tileKey(col, row));
   if (oid) return { kind: "outpost", outpostId: oid };
+  if (isAtGridDungeonEntrance({ col, row })) {
+    return { kind: "dungeon", name: GRID_DUNGEON_ENTRANCE.name, col, row };
+  }
   const s = tileSettlements.find((t) => t.col === col && t.row === row);
   if (s) return { kind: "settlement", settlement: s };
   return { kind: "empty", col, row };
@@ -49,7 +57,7 @@ export type LocationLabelArgs = {
   currentOutpostName: string | null;
 };
 
-// 우선순위: 거점 칸(리베라) → 그 칸의 정착지(마을명) → 빈 땅(좌표) → 보드 밖 폴백(currentOutpost).
+// 우선순위: 거점 칸(리베라) → 던전 입구 → 그 칸의 정착지(마을명) → 빈 땅(좌표) → 보드 밖 폴백(currentOutpost).
 export function currentLocationLabel({
   tilePos,
   tileSettlements,
@@ -62,6 +70,8 @@ export function currentLocationLabel({
     // 보드 고정 거점 칸(현재 리베라 하나) — 거점명.
     case "outpost":
       return OUTPOST_BY_ID.get(loc.outpostId)?.name ?? currentOutpostName;
+    case "dungeon":
+      return loc.name;
     // 개척 정착지 — 그 마을 이름(빈 이름이면 좌표 결정 이름으로 폴백).
     case "settlement":
       return (

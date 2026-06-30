@@ -273,6 +273,34 @@ export function V2AdventureHome({
           </section>
         )}
 
+        {/* 던전 입구 칸 — 정착지가 없더라도 빈 땅 대신 던전 이름으로 표시. */}
+        {!onOutpostTile && loc.kind === "dungeon" && (
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex items-baseline gap-2">
+              <MapPin
+                size={16}
+                weight="fill"
+                className="shrink-0 text-amber-500"
+              />
+              <h2 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                {loc.name}
+              </h2>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                던전
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              오래된 격자 던전 입구입니다. 지도에서 던전으로 진입할 수 있어요.
+            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <dt className="text-zinc-500 dark:text-zinc-400">위치</dt>
+              <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
+                ({loc.col}, {loc.row})
+              </dd>
+            </dl>
+          </section>
+        )}
+
         {/* 개척 정착지 칸 — 정착지 요약(상세 관리는 지도/거점 화면). */}
         {!onOutpostTile && loc.kind === "settlement" && (
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

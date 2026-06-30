@@ -6,6 +6,8 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  CaretDown,
+  CaretUp,
   Crown,
   Diamond,
   DoorOpen,
@@ -173,6 +175,8 @@ const EVENT_TILE_KINDS = new Set<GridDungeonTileKind>([
   "boss",
 ]);
 
+const GRID_DUNGEON_COMBAT_PLAYBACK_MS = 1_500;
+
 const ERROR_LABEL: Record<string, string> = {
   blocked: "막힌 방향입니다. 다른 통로를 선택하세요.",
   bad_direction: "이동 방향이 올바르지 않습니다.",
@@ -180,6 +184,7 @@ const ERROR_LABEL: Record<string, string> = {
   not_active: "진행 중인 탐험에서만 이동할 수 있습니다.",
   not_cleared: "출구에 도착한 뒤 정산할 수 있습니다.",
   not_at_entrance: "지도에서 던전 입구 칸으로 이동해야 시작할 수 있습니다.",
+  need_heal: "HP가 부족합니다. 치료소에서 회복한 뒤 다시 시작하세요.",
   not_in_guild: "길드에 가입해야 길드 동료 지원을 사용할 수 있습니다.",
   invalid_supporter: "선택한 지원자를 사용할 수 없습니다.",
   support_limit_reached: "선택한 지원자의 오늘 지원 가능 횟수가 모두 소진되었습니다.",
@@ -748,7 +753,13 @@ function CombatMeter({
         <span className="text-zinc-300">{value}</span>
       </div>
       <div className="h-1.5 overflow-hidden rounded bg-zinc-900">
-        <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full transition-[width] ease-out ${tone}`}
+          style={{
+            width: `${pct}%`,
+            transitionDuration: `${GRID_DUNGEON_COMBAT_PLAYBACK_MS}ms`,
+          }}
+        />
       </div>
     </div>
   );
@@ -865,34 +876,106 @@ function combatLogLabel(kind: CombatLogKind): string {
 function CombatLogList({
   lines,
   enemyName,
+  isPlaying,
+  summaryLine,
 }: {
   lines: string[];
   enemyName: string;
+  isPlaying: boolean;
+  summaryLine: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const visibleLines = lines.slice(-8);
   if (visibleLines.length === 0) return null;
+  const headline = isPlaying ? "전투 진행 중..." : summaryLine;
+  const headlineKind = classifyCombatLogLine(headline, enemyName);
   return (
     <div className="space-y-1.5 border-t border-zinc-800 pt-2 text-[11px]">
-      <div className="font-semibold text-zinc-300">전투 로그</div>
-      <div className="space-y-1">
-        {visibleLines.map((line, idx) => {
-          const kind = classifyCombatLogLine(line, enemyName);
-          return (
-            <div
-              key={`${idx}:${line}`}
-              className="grid grid-cols-[42px_1fr] items-center gap-2"
-            >
-              <span
-                className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
-              >
-                {combatLogLabel(kind)}
-              </span>
-              <span className="min-w-0 truncate text-zinc-400">{line}</span>
-            </div>
-          );
-        })}
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-semibold text-zinc-300">전투 로그</div>
+        {visibleLines.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => !prev)}
+            className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800"
+          >
+            {expanded ? <CaretUp size={12} /> : <CaretDown size={12} />}
+            상세
+          </button>
+        )}
       </div>
+      <div className="grid grid-cols-[42px_1fr] items-center gap-2 rounded border border-zinc-800 bg-zinc-950/70 px-2 py-1.5">
+        <span
+          className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[headlineKind]}`}
+        >
+          {isPlaying ? "진행" : combatLogLabel(headlineKind)}
+        </span>
+        <span className="min-w-0 truncate text-zinc-300">{headline}</span>
+      </div>
+      {expanded && (
+        <div className="space-y-1">
+          {visibleLines.map((line, idx) => {
+            const kind = classifyCombatLogLine(line, enemyName);
+            return (
+              <div
+                key={`${idx}:${line}`}
+                className="grid grid-cols-[42px_1fr] items-center gap-2"
+              >
+                <span
+                  className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
+                >
+                  {combatLogLabel(kind)}
+                </span>
+                <span className="min-w-0 truncate text-zinc-400">{line}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+function combatSummaryKey(combat: NonNullable<GridDungeonPublicRun["lastCombat"]>) {
+  return [
+    combat.enemyName,
+    combat.turns,
+    combat.hpLost,
+    combat.playerHpBefore,
+    combat.playerHpAfter,
+    combat.enemyHp,
+    combat.enemyMaxHp,
+    combat.log.join("\n"),
+  ].join("|");
+}
+
+function combatSummaryLine(
+  combat: NonNullable<GridDungeonPublicRun["lastCombat"]>,
+): string {
+  const hpPart =
+    combat.hpLost > 0
+      ? `내 HP ${combat.hpLost.toLocaleString()} 감소`
+      : "피해 없이 돌파";
+  const rewardPart =
+    combat.rewardGold > 0
+      ? ` · ${combat.rewardGold.toLocaleString()}G 확보`
+      : "";
+  return combat.outcome === "win"
+    ? `${combat.enemyName} 전투 승리 · ${hpPart}${rewardPart}`
+    : `${combat.enemyName} 전투 패배 · 탐험 불가`;
+}
+
+function CombatPlaybackBadge({ isPlaying }: { isPlaying: boolean }) {
+  return (
+    <span
+      className={`rounded border px-2 py-0.5 text-[10px] font-semibold ${
+        isPlaying
+          ? "border-yellow-600/60 bg-yellow-950/40 text-yellow-200"
+          : "border-emerald-700/60 bg-emerald-950/30 text-emerald-300"
+      }`}
+    >
+      {isPlaying ? "전투 중" : "전투 종료"}
+    </span>
   );
 }
 
@@ -918,16 +1001,22 @@ function SkillUseSummary({ uses }: { uses: Record<string, number> }) {
 
 function DungeonCombatSummary({
   combat,
+  isPlaying,
 }: {
   combat: NonNullable<GridDungeonPublicRun["lastCombat"]>;
+  isPlaying: boolean;
 }) {
+  const displayedPlayerHp = isPlaying
+    ? combat.playerHpBefore
+    : combat.playerHpAfter;
+  const displayedEnemyHp = isPlaying ? combat.enemyMaxHp : combat.enemyHp;
   const hpPct =
     combat.playerMaxHp > 0
-      ? Math.max(0, Math.min(100, (combat.playerHpAfter / combat.playerMaxHp) * 100))
+      ? Math.max(0, Math.min(100, (displayedPlayerHp / combat.playerMaxHp) * 100))
       : 0;
   const enemyPct =
     combat.enemyMaxHp > 0
-      ? Math.max(0, Math.min(100, (combat.enemyHp / combat.enemyMaxHp) * 100))
+      ? Math.max(0, Math.min(100, (displayedEnemyHp / combat.enemyMaxHp) * 100))
       : 0;
   const topDamage = topPartyMember(combat.party, "damageDealt");
   const topHealing = topPartyMember(combat.party, "healingDone");
@@ -939,20 +1028,21 @@ function DungeonCombatSummary({
           {combat.enemyName}
         </div>
         <div className="flex items-center gap-2 text-zinc-500">
+          <CombatPlaybackBadge isPlaying={isPlaying} />
           <span>{combat.turns}턴</span>
-          <span>던전 HP -{combat.hpLost}</span>
+          <span>내 HP -{combat.hpLost.toLocaleString()}</span>
         </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <CombatMeter
           label="내 HP"
-          value={`${combat.playerHpAfter.toLocaleString()} / ${combat.playerMaxHp.toLocaleString()}`}
+          value={`${displayedPlayerHp.toLocaleString()} / ${combat.playerMaxHp.toLocaleString()}`}
           pct={hpPct}
           tone="bg-emerald-400"
         />
         <CombatMeter
           label="적 HP"
-          value={`${combat.enemyHp.toLocaleString()} / ${combat.enemyMaxHp.toLocaleString()}`}
+          value={`${displayedEnemyHp.toLocaleString()} / ${combat.enemyMaxHp.toLocaleString()}`}
           pct={enemyPct}
           tone="bg-red-400"
         />
@@ -1004,9 +1094,12 @@ function DungeonCombatSummary({
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {combat.party.map((member) => {
+              const displayedMemberHp = isPlaying
+                ? (member.hpBefore ?? member.maxHp)
+                : member.hpAfter;
               const memberPct =
                 member.maxHp > 0
-                  ? Math.max(0, Math.min(100, (member.hpAfter / member.maxHp) * 100))
+                  ? Math.max(0, Math.min(100, (displayedMemberHp / member.maxHp) * 100))
                   : 0;
               return (
                 <div
@@ -1021,7 +1114,7 @@ function DungeonCombatSummary({
                   </div>
                   <CombatMeter
                     label="HP"
-                    value={`${member.hpAfter.toLocaleString()} / ${member.maxHp.toLocaleString()}`}
+                    value={`${displayedMemberHp.toLocaleString()} / ${member.maxHp.toLocaleString()}`}
                     pct={memberPct}
                     tone={member.role === "main" ? "bg-emerald-400" : "bg-cyan-400"}
                   />
@@ -1052,7 +1145,12 @@ function DungeonCombatSummary({
           </div>
         </div>
       )}
-      <CombatLogList lines={combat.log} enemyName={combat.enemyName} />
+      <CombatLogList
+        lines={combat.log}
+        enemyName={combat.enemyName}
+        isPlaying={isPlaying}
+        summaryLine={combatSummaryLine(combat)}
+      />
     </div>
   );
 }
@@ -1073,6 +1171,8 @@ export function V2GridDungeonView({
   const [supportRoleFilter, setSupportRoleFilter] =
     useState<SupportRoleFilter>("all");
   const [selectedFrontlineId, setSelectedFrontlineId] = useState("main");
+  const [combatPlaybackKey, setCombatPlaybackKey] = useState<string | null>(null);
+  const [combatPlaybackActive, setCombatPlaybackActive] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -1088,6 +1188,15 @@ export function V2GridDungeonView({
   useEffect(() => {
     void Promise.resolve().then(load);
   }, [load]);
+
+  useEffect(() => {
+    if (!combatPlaybackActive) return;
+    const timer = window.setTimeout(
+      () => setCombatPlaybackActive(false),
+      GRID_DUNGEON_COMBAT_PLAYBACK_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [combatPlaybackActive, combatPlaybackKey]);
 
   const postAction = useCallback(
     async (body: Record<string, unknown>) => {
@@ -1105,6 +1214,10 @@ export function V2GridDungeonView({
           return;
         }
         setState(json);
+        if (body.action === "move" && json.run?.lastCombat) {
+          setCombatPlaybackKey(combatSummaryKey(json.run.lastCombat));
+          setCombatPlaybackActive(true);
+        }
         if (body.action === "claim") await onRefreshGameState();
       } finally {
         setBusy(false);
@@ -1114,6 +1227,18 @@ export function V2GridDungeonView({
   );
 
   const run = state?.run ?? null;
+  const currentCombatKey = run?.lastCombat
+    ? combatSummaryKey(run.lastCombat)
+    : null;
+  const combatPlaybackPlaying =
+    combatPlaybackActive &&
+    currentCombatKey != null &&
+    currentCombatKey === combatPlaybackKey;
+  const interactionLocked = busy || combatPlaybackPlaying;
+  const displayedRunHp =
+    combatPlaybackPlaying && run?.lastCombat
+      ? run.lastCombat.playerHpBefore
+      : (run?.hp ?? 0);
   const activeRoute = GRID_DUNGEON_ROUTES[run?.routeId ?? selectedRoute];
   const rewardQuota = state?.rewardQuota;
   const history = state?.history ?? [];
@@ -1273,7 +1398,7 @@ export function V2GridDungeonView({
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
               <div className="text-zinc-500">체력</div>
               <div className="mt-1 text-base font-bold text-emerald-300">
-                {run.hp} / 10
+                {displayedRunHp.toLocaleString()} / {run.maxHp.toLocaleString()}
               </div>
             </div>
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
@@ -1404,7 +1529,13 @@ export function V2GridDungeonView({
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
-            {run.lastCombat && <DungeonCombatSummary combat={run.lastCombat} />}
+            {run.lastCombat && (
+              <DungeonCombatSummary
+                key={combatSummaryKey(run.lastCombat)}
+                combat={run.lastCombat}
+                isPlaying={combatPlaybackPlaying}
+              />
+            )}
             <DropSummary
               drops={run.pendingDrops as Record<string, number> | undefined}
               emptyLabel="확보한 재료가 아직 없습니다."
@@ -1412,7 +1543,7 @@ export function V2GridDungeonView({
             {run.status === "cleared" ? (
               <button
                 type="button"
-                disabled={busy}
+                disabled={interactionLocked}
                 onClick={() => postAction({ action: "claim" })}
                 className="rounded-md bg-yellow-500 px-3 py-2 text-xs font-bold text-zinc-950 hover:bg-yellow-400 disabled:opacity-40"
               >
@@ -1429,7 +1560,9 @@ export function V2GridDungeonView({
                       ? "벽"
                       : "끝";
                   const stateLabel = available
-                    ? preview.cleared
+                    ? combatPlaybackPlaying
+                      ? "전투 중"
+                      : preview.cleared
                       ? "완료"
                       : preview.tile === "exit" && !run.bossDefeated
                         ? "봉인"
@@ -1441,7 +1574,7 @@ export function V2GridDungeonView({
                     <button
                       key={dir}
                       type="button"
-                      disabled={busy || !available}
+                      disabled={interactionLocked || !available}
                       onClick={() => postAction({ action: "move", dir })}
                       title={`${label} · ${destination} · ${stateLabel}`}
                       className={`flex min-h-14 items-center justify-center gap-2 rounded-md border px-2 py-2 text-xs transition disabled:cursor-not-allowed ${

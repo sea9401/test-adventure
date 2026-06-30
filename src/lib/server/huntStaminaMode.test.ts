@@ -110,13 +110,13 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
     vi.restoreAllMocks();
   });
 
-  it("첫 사냥 = 200 + 스태미나 HUNT_COST 차감, lastBattleAt 기록(토벌 공유 쿨다운용)", async () => {
+  it("첫 사냥 = 200 + 스태미나 HUNT_COST 차감, lastBattleAt 기록", async () => {
     const res = await POST(huntReq({ floor: 1 }));
     expect(res.status).toBe(200);
     const c = char();
     // 스태미나가 throttle — HUNT_COST 만큼 차감.
     expect(c.stamina.current).toBe(5000 - HUNT_COST);
-    // lastBattleAt 은 기록됨 — 토벌(eject)이 공통 쿨다운으로 읽으므로(사냥은 이 값으로 게이트 안 함).
+    // lastBattleAt 은 기록됨 — 코어루프 사냥/오프라인 정산 기준 시각으로 사용한다.
     expect(typeof c.lastBattleAt).toBe("number");
   });
 

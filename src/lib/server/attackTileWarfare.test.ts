@@ -1,11 +1,12 @@
 // 타일 전쟁 검증(P4-prep) — attack 라우트가 합성 타일 id 에서 약탈/정복을 수행하는 end-to-end.
-//   전투 없는 경로만(무수비 raid·빈 큐 conquest)으로 전투 엔진 모킹 회피. 컬럼 모양으로 테이블 구분.
+//   무수비/수비 raid·빈 큐 conquest 경로를 고정. 컬럼 모양으로 테이블 구분.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   occ: null as Record<string, unknown> | null,
   treasuryGold: 0,
+  defenderQueue: [] as Array<{ userId: string }>,
   upsertGuildRes: [] as Array<{ guildId: number; patch: unknown }>,
   occUpdates: [] as unknown[],
   tileUpdates: [] as unknown[],
@@ -38,7 +39,7 @@ vi.mock("@/lib/server/derivePlayerCombatV2", () => ({
     selectedStance: null,
   })),
 }));
-// 솔로 수비 결투(주인 단독 수비)용 — 결정적 결과. 빈 큐(길드 무수비) 경로는 이 mock 미사용.
+// 수비 결투용 — 결정적 결과. 빈 큐(길드 무수비) 경로는 이 mock 미사용.
 vi.mock("@/adventure/v2/combat/engine-pvp", () => ({
   resolveBattlePvP: vi.fn(() => ({
     outcome: h.pvpAttackerWins ? "p1_win" : "p2_win",
@@ -82,7 +83,7 @@ vi.mock("@/db", () => {
       const c = cols as Record<string, unknown>;
       if ("tier" in c) return Promise.resolve([{ tier: "village", name: "테스트" }]);
       if ("gold" in c) return Promise.resolve([{ gold: h.treasuryGold }]);
-      if ("userId" in c) return Promise.resolve([]); // 수비 큐 비었음
+      if ("userId" in c) return Promise.resolve(h.defenderQueue); // 수비 큐
     }
     return Promise.resolve(h.occ ? [h.occ] : []); // cols 없음 = 점령행(select *)
   }
@@ -153,6 +154,7 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     h.upsertGuildRes = [];
     h.occUpdates = [];
     h.tileUpdates = [];
+    h.defenderQueue = [];
     h.attackerGuildId = 7;
     h.pvpAttackerWins = true;
     h.attackerTilePos = null;
@@ -160,10 +162,10 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
   });
   afterEach(() => vi.clearAllMocks());
 
-  it("무수비 약탈(raid) → 타일 금고 50% 탈취 → 공격 길드 골드", async () => {
+  it("무수비 약탈(raid) → 타일 금고 25% 탈취 → 공격 길드 골드", async () => {
     h.occ = occRow({});
     h.treasuryGold = 1000;
-    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 31 * 60_000 }; // 30분 체류 통과
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 61 * 60_000 }; // 1시간 체류 통과
     const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -175,11 +177,35 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     expect(json.ok).toBe(true);
     expect(json.mode).toBe("raid");
     expect(json.won).toBe(true);
-    expect(json.stolenGold).toBe(500); // 1000 * 0.5
+    expect(json.stolenGold).toBe(250); // 1000 * 0.25
     // 공격 길드(7)에 탈취분 적립.
     expect(h.upsertGuildRes).toContainEqual({
       guildId: 7,
-      patch: { gold: 500 },
+      patch: { gold: 250 },
+    });
+  });
+
+  it("수비대 격파 약탈(raid) → 타일 금고 10% 탈취 → 공격 길드 골드", async () => {
+    h.occ = occRow({});
+    h.treasuryGold = 1000;
+    h.defenderQueue = [{ userId: "u-def" }];
+    h.pvpAttackerWins = true;
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 61 * 60_000 };
+    const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      mode: string;
+      won: boolean;
+      stolenGold: number;
+    };
+    expect(json.ok).toBe(true);
+    expect(json.mode).toBe("raid");
+    expect(json.won).toBe(true);
+    expect(json.stolenGold).toBe(100); // 1000 * 0.1
+    expect(h.upsertGuildRes).toContainEqual({
+      guildId: 7,
+      patch: { gold: 100 },
     });
   });
 
@@ -213,10 +239,10 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     expect(h.upsertGuildRes).toHaveLength(0); // 금고 탈취 없음
   });
 
-  it("약탈(raid) — 대상 칸 30분 체류 전이면 raid_stay_required (전투/탈취 없음)", async () => {
+  it("약탈(raid) — 대상 칸 1시간 체류 전이면 raid_stay_required (전투/탈취 없음)", async () => {
     h.occ = occRow({});
     h.treasuryGold = 1000;
-    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 29 * 60_000 };
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 59 * 60_000 };
     const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe(
@@ -248,6 +274,7 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
     h.upsertGuildRes = [];
     h.occUpdates = [];
     h.tileUpdates = [];
+    h.defenderQueue = [];
     h.attackerGuildId = 7;
     h.pvpAttackerWins = true;
     h.attackerTilePos = null;
@@ -284,7 +311,7 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
 
   it("솔로 타일 약탈(raid) → raid_solo_unsupported (금고 없음)", async () => {
     h.occ = soloOcc({});
-    h.attackerTilePos = { col: 5, row: 7, at: Date.now() - 31 * 60_000 }; // 체류 게이트 통과 후 솔로 거부
+    h.attackerTilePos = { col: 5, row: 7, at: Date.now() - 61 * 60_000 }; // 체류 게이트 통과 후 솔로 거부
     const res = await POST(req({ outpostId: "tile:5,7", mode: "raid" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe(

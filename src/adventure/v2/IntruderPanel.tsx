@@ -198,7 +198,7 @@ export function IntruderPanel({
                     }`}
                   >
                     {it.raidReady
-                      ? "약탈 가능"
+                      ? "약탈 준비 완료"
                       : it.source === "tile"
                         ? "잠입"
                         : "사냥 침입"}

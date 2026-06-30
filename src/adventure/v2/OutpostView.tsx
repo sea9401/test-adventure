@@ -386,7 +386,7 @@ export function OutpostView({
     }
   }
 
-  // 정착지 전쟁 약탈 — 수비 큐 1번과 건강도 결투 → 승리 시 금고 50% 탈취(점령 X). 플래그 on 전용.
+  // 정착지 전쟁 약탈 — 수비 큐 1번과 건강도 결투 → 승리 시 금고 일부 탈취(점령 X). 플래그 on 전용.
   async function attemptRaid() {
     setBusy(true);
     setRaidResult(null);
@@ -651,7 +651,7 @@ export function OutpostView({
             <div className="mt-0.5 text-rose-700 dark:text-rose-200/80">
               {tileIntrusionActive
                 ? tileRaidReady
-                  ? "30분 체류 완료 — 약탈을 시도할 수 있지만 점령 길드가 토벌할 수 있습니다"
+                  ? "1시간 체류 완료 — 약탈을 시도할 수 있지만 점령 길드가 토벌할 수 있습니다"
                   : `${formatRemainingMinutes(
                       RAID_MIN_TILE_STAY_MS - raidStayElapsedMs,
                     )} 더 버티면 약탈 가능 — 점령 길드가 토벌할 수 있습니다`
@@ -714,7 +714,7 @@ function raidErrorMsg(error: string): string {
     case "raid_solo_unsupported":
       return "개인 정착지는 약탈할 수 없습니다 (정복만 가능)";
     case "raid_stay_required":
-      return "해당 정착지 칸에서 30분 이상 체류해야 약탈할 수 있습니다";
+      return "해당 정착지 칸에서 1시간 이상 체류해야 약탈할 수 있습니다";
     case "not_present":
       return "해당 정착지 칸에 있어야 약탈할 수 있어요 — 지도에서 그 칸으로 이동하세요";
     case "no_foothold":
@@ -735,7 +735,13 @@ function raidErrorMsg(error: string): string {
 }
 
 function formatRemainingMinutes(ms: number): string {
-  return `${Math.max(1, Math.ceil(ms / 60_000))}분`;
+  const min = Math.max(1, Math.ceil(ms / 60_000));
+  if (min >= 60) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  }
+  return `${min}분`;
 }
 
 function WarVigorBar({ warVigor }: { warVigor: WarVigor }) {

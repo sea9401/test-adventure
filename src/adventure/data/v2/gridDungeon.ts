@@ -19,6 +19,8 @@ export const GRID_DUNGEON_ENTRANCE = {
 export const GRID_DUNGEON_SIZE = 5;
 export const GRID_DUNGEON_MAX_HP = 10;
 export const GRID_DUNGEON_FOUNTAIN_HEAL = 5;
+const GRID_DUNGEON_TRAP_HP_LOSS_PCT = 0.2;
+const GRID_DUNGEON_FOUNTAIN_HEAL_PCT = 0.5;
 
 export const GRID_DUNGEON_ROUTE_IDS = [
   "balanced",
@@ -71,6 +73,7 @@ export type GridDungeonCombatPartyMember = {
   role: "main" | "supporter";
   formation: "front" | "back";
   supportRole: GridDungeonSupportRole | null;
+  hpBefore?: number;
   hpAfter: number;
   maxHp: number;
   damageDealt: number;
@@ -149,6 +152,7 @@ export type GridDungeonRun = {
   status: GridDungeonStatus;
   pos: { x: number; y: number };
   hp: number;
+  maxHp: number;
   pendingGold: number;
   pendingDrops: DropResult;
   bossDefeated: boolean;
@@ -507,15 +511,20 @@ export function createGridDungeonRun(
   supporters: GridDungeonSupporterSnapshot[] = [],
   frontlineId?: string,
   routeId: GridDungeonRouteId = "balanced",
+  maxHp: number = GRID_DUNGEON_MAX_HP,
+  hp: number = maxHp,
 ): GridDungeonRun {
   const layout = gridDungeonLayoutForRoute(routeId);
   const startKey = gridDungeonKey(GRID_DUNGEON_START.x, GRID_DUNGEON_START.y);
+  const expeditionMaxHp = Math.max(1, Math.floor(maxHp));
+  const initialHp = Number.isFinite(hp) ? hp : expeditionMaxHp;
   return {
     id: GRID_DUNGEON_ENTRANCE.id,
     routeId,
     status: "active",
     pos: { ...GRID_DUNGEON_START },
-    hp: GRID_DUNGEON_MAX_HP,
+    hp: Math.max(0, Math.min(expeditionMaxHp, Math.floor(initialHp))),
+    maxHp: expeditionMaxHp,
     pendingGold: 0,
     pendingDrops: {},
     bossDefeated: false,
@@ -564,12 +573,21 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     return null;
   }
   const now = Date.now();
+  const maxHp = Math.max(
+    1,
+    Math.floor(Number(run.maxHp) || GRID_DUNGEON_MAX_HP),
+  );
+  const hp = Math.max(
+    0,
+    Math.min(maxHp, Math.floor(Number(run.hp) || 0)),
+  );
   return {
     id: typeof run.id === "string" ? run.id : GRID_DUNGEON_ENTRANCE.id,
     routeId,
     status,
     pos: { x, y },
-    hp: Math.max(0, Math.min(GRID_DUNGEON_MAX_HP, Math.floor(Number(run.hp) || 0))),
+    hp,
+    maxHp,
     pendingGold: Math.max(0, Math.floor(Number(run.pendingGold) || 0)),
     pendingDrops: parseDropResult(run.pendingDrops),
     bossDefeated: run.bossDefeated === true,
@@ -597,6 +615,14 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     updatedAt: Math.max(0, Math.floor(Number(run.updatedAt) || now)),
     ...(typeof run.claimedAt === "number" ? { claimedAt: run.claimedAt } : {}),
   };
+}
+
+export function gridDungeonTrapHpLoss(maxHp: number): number {
+  return Math.max(1, Math.ceil(Math.max(1, maxHp) * GRID_DUNGEON_TRAP_HP_LOSS_PCT));
+}
+
+export function gridDungeonFountainHeal(maxHp: number): number {
+  return Math.max(1, Math.ceil(Math.max(1, maxHp) * GRID_DUNGEON_FOUNTAIN_HEAL_PCT));
 }
 
 export function moveGridDungeonRun(
@@ -632,7 +658,7 @@ export function moveGridDungeonRun(
   if (!clearedEvents.has(key)) {
     clearedEvents.add(key);
     if (combat && isGridDungeonCombatTile(tile)) {
-      hp = Math.max(0, hp - combat.hpLost);
+      hp = Math.max(0, Math.min(run.maxHp, combat.summary.playerHpAfter));
       pendingGold += combat.rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, combat.drops);
       lastCombat = combat.summary;
@@ -657,15 +683,20 @@ export function moveGridDungeonRun(
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
       message = `오래된 보물상자에서 ${GRID_DUNGEON_ROOM_REWARDS.treasure.gold.toLocaleString()}G를 발견했습니다.`;
     } else if (tile === "trap") {
-      hp = Math.max(0, hp - GRID_DUNGEON_ROOM_REWARDS.trap.hpLoss);
-      message = `숨은 함정을 밟아 체력 ${GRID_DUNGEON_ROOM_REWARDS.trap.hpLoss}을 잃었습니다.`;
+      const hpLoss = gridDungeonTrapHpLoss(run.maxHp);
+      hp = Math.max(0, hp - hpLoss);
+      message = `숨은 함정을 밟아 HP ${hpLoss.toLocaleString()}을 잃었습니다.`;
     } else if (tile === "relic") {
       pendingGold += GRID_DUNGEON_ROOM_REWARDS.relic.gold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
       message = `고대 유물에서 ${GRID_DUNGEON_ROOM_REWARDS.relic.gold.toLocaleString()}G와 재료 흔적을 확보했습니다.`;
     } else if (tile === "fountain") {
-      hp = Math.min(GRID_DUNGEON_MAX_HP, hp + GRID_DUNGEON_FOUNTAIN_HEAL);
-      message = "맑은 샘물을 마셔 체력을 회복했습니다.";
+      const healed = Math.min(
+        run.maxHp - hp,
+        gridDungeonFountainHeal(run.maxHp),
+      );
+      hp = Math.min(run.maxHp, hp + Math.max(0, healed));
+      message = `맑은 샘물을 마셔 HP ${Math.max(0, healed).toLocaleString()}을 회복했습니다.`;
     } else if (tile === "boss") {
       hp = Math.max(0, hp - GRID_DUNGEON_ROOM_REWARDS.boss.hpLoss);
       pendingGold += GRID_DUNGEON_ROOM_REWARDS.boss.gold;

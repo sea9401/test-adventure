@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { currentLocationLabel, standingTileLocation } from "./currentLocation";
 import { tileSettlementName } from "@/adventure/data/v2/tileConfig";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { GRID_DUNGEON_ENTRANCE } from "@/adventure/data/v2/gridDungeon";
 
 // 리베라(보드 고정 거점)는 (4,4) — TILE_OUTPOSTS.
 const RIVERA_NAME = OUTPOST_BY_ID.get("neutral_haven_central")?.name ?? "리베라";
@@ -60,6 +61,19 @@ describe("currentLocationLabel — 좌상단 위치 라벨(서 있는 타일 기
     ).toBe("빈 땅 (0, 8)");
   });
 
+  it("던전 입구 → 던전 이름", () => {
+    expect(
+      currentLocationLabel({
+        tilePos: {
+          col: GRID_DUNGEON_ENTRANCE.col,
+          row: GRID_DUNGEON_ENTRANCE.row,
+        },
+        tileSettlements: [],
+        currentOutpostName: "리베라",
+      }),
+    ).toBe(GRID_DUNGEON_ENTRANCE.name);
+  });
+
   it("리베라 고정 — 빈 타일로 이동해도 currentOutpostName(리베라)에 묶이지 않음", () => {
     // 회귀 가드: 빈 칸이면 currentOutpostName 을 무시하고 좌표를 보여줘야 한다.
     const label = currentLocationLabel({
@@ -93,6 +107,23 @@ describe("standingTileLocation — 모험 탭 현 위치 카드 분류", () => {
         tileSettlements: [s, { col: 0, row: 0, name: "딴마을", tier: "frontier" }],
       }),
     ).toEqual({ kind: "settlement", settlement: s });
+  });
+
+  it("던전 입구 칸 → dungeon", () => {
+    expect(
+      standingTileLocation({
+        tilePos: {
+          col: GRID_DUNGEON_ENTRANCE.col,
+          row: GRID_DUNGEON_ENTRANCE.row,
+        },
+        tileSettlements: [],
+      }),
+    ).toEqual({
+      kind: "dungeon",
+      name: GRID_DUNGEON_ENTRANCE.name,
+      col: GRID_DUNGEON_ENTRANCE.col,
+      row: GRID_DUNGEON_ENTRANCE.row,
+    });
   });
 
   it("빈 땅(3,4) → empty (리베라 박힘 버그 회귀 가드)", () => {

@@ -78,7 +78,7 @@ export function OutpostAttackPanel({
           loading={busy}
         />
       )}
-      {/* 약탈 — 길드 viewer + 길드 점령 대상만(금고 50% 탈취). 솔로 타일은 금고가 없어 제외.
+      {/* 약탈 — 길드 viewer + 길드 점령 대상만(금고 일부 탈취). 솔로 타일은 금고가 없어 제외.
           플래그 on 전용. */}
       {V2_SETTLEMENT_WARFARE &&
         viewerGuildId != null &&
@@ -86,7 +86,7 @@ export function OutpostAttackPanel({
           <ActionCard
             title="약탈 시도"
             subtitle={
-              "이 정착지 칸에서 30분 이상 버티면 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+              "이 정착지 칸에서 1시간 이상 버티면 약탈 가능 — 수비대 격파 시 거점 금고 10% 탈취, 수비대가 없으면 무혈 약탈로 25% 탈취."
             }
             onClick={onRaid}
             disabled={raidDisabled ?? busy}

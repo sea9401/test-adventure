@@ -17,6 +17,8 @@ function entry(
     at: 1_000,
     rewardGold: 0,
     drops: {},
+    materialCount: 0,
+    rewardLimited: false,
     exploredTiles: 1,
     hp: 0,
     supporterCount: 0,
@@ -25,6 +27,7 @@ function entry(
     totalCombatTurns: 0,
     durationMs: 0,
     message: "",
+    detailReason: "",
     ...p,
   };
 }

@@ -6,6 +6,7 @@ import {
   createGridDungeonRun,
   gridDungeonBossReached,
   gridDungeonDayKey,
+  gridDungeonDropDepth,
   gridDungeonKey,
   gridDungeonMovePreview,
   gridDungeonRouteSummary,
@@ -145,8 +146,11 @@ describe("gridDungeon", () => {
     expect(gridDungeonRoomGold("balanced", "elite")).toBe(
       GRID_DUNGEON_ROOM_REWARDS.elite.gold,
     );
-    expect(gridDungeonRoomGold("guardian", "elite")).toBe(3_000);
-    expect(gridDungeonRoomGold("guardian", "relic")).toBe(1_800);
+    expect(gridDungeonRoomGold("guardian", "elite")).toBe(3_400);
+    expect(gridDungeonRoomGold("guardian", "relic")).toBe(2_000);
+    expect(gridDungeonRoomGold("vault", "treasure")).toBeGreaterThan(
+      gridDungeonRoomGold("balanced", "treasure"),
+    );
   });
 
   it("summarizes route risk and reward for the selection UI", () => {
@@ -160,7 +164,12 @@ describe("gridDungeon", () => {
     );
     expect(vault.treasureRooms).toBeGreaterThan(balanced.treasureRooms);
     expect(vault.trapRooms).toBeGreaterThan(0);
-    expect(guardian.bossGold).toBe(6_500);
+    expect(guardian.bossGold).toBe(7_800);
+    expect(vault.expectedGold).toBeGreaterThan(balanced.expectedGold);
+    expect(vault.avgMaterialDepth).toBeGreaterThan(balanced.avgMaterialDepth);
+    expect(gridDungeonDropDepth("guardian", "boss")).toBeGreaterThan(
+      gridDungeonDropDepth("balanced", "boss"),
+    );
   });
 
   it("resolves trap and relic rooms once per run", () => {
@@ -288,6 +297,8 @@ describe("gridDungeon", () => {
         at: 1_000 + i,
         rewardGold: i * 100,
         drops: {},
+        materialCount: 0,
+        rewardLimited: false,
         exploredTiles: i,
         hp: 10 - (i % 10),
         supporterCount: 0,
@@ -296,6 +307,7 @@ describe("gridDungeon", () => {
         totalCombatTurns: i * 3,
         durationMs: i * 1_000,
         message: `record ${i}`,
+        detailReason: `detail ${i}`,
       });
     }
 
@@ -313,6 +325,8 @@ describe("gridDungeon", () => {
         at: 2_000,
         rewardGold: 10_000,
         drops: { stone: 2 },
+        materialCount: 2,
+        rewardLimited: true,
         exploredTiles: 9,
         hp: 77,
         supporterCount: 2,
@@ -321,6 +335,7 @@ describe("gridDungeon", () => {
         totalCombatTurns: 18,
         durationMs: 61_000,
         message: "ok",
+        detailReason: "출구 도달 후 골드만 정산",
       },
     ]);
 
@@ -331,6 +346,9 @@ describe("gridDungeon", () => {
       combatCount: 4,
       totalCombatTurns: 18,
       durationMs: 61_000,
+      materialCount: 2,
+      rewardLimited: true,
+      detailReason: "출구 도달 후 골드만 정산",
     });
   });
 

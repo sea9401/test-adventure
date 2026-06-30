@@ -27,6 +27,9 @@ import type {
   GuildWorkshopRecipeId,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
+  GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT,
+} from "@/adventure/data/v2/guildWorkshopDelivery";
+import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
@@ -96,6 +99,25 @@ type WorkshopStatsView = {
   craftedByRecipe: Partial<Record<GuildWorkshopRecipeId, number>>;
 };
 
+type WorkshopRecordEntry = {
+  crafts: number;
+  bestQualityLevel: number;
+  masterworkCrafts: number;
+  highestTier?: number;
+  lastCraftedAt?: string;
+};
+
+type WorkshopRecordsView = {
+  totalCrafts: number;
+  qualityCrafts: number;
+  masterworkCrafts: number;
+  craftOnlyCrafts: number;
+  highestTier: number;
+  bestQualityLevel: number;
+  recipes: Partial<Record<GuildWorkshopRecipeId, WorkshopRecordEntry>>;
+  slots: Partial<Record<V2EquipSlot, WorkshopRecordEntry>>;
+};
+
 type GuildWorkshopBonusView = {
   totalCrafts: number;
   qualityChanceBonusPct: number;
@@ -109,6 +131,7 @@ type WorkshopState = {
   materials: Record<string, number>;
   artisan: { blacksmith: ArtisanProfessionView };
   workshopStats: WorkshopStatsView;
+  workshopRecords?: WorkshopRecordsView;
   guildBonus: GuildWorkshopBonusView;
   smithyLevel?: number;
   smithyBonus?: {
@@ -122,7 +145,14 @@ type WorkshopState = {
 type WeeklyQuestView = {
   id: string;
   title: string;
-  metric: "crafts" | "qualityCrafts";
+  metric:
+    | "crafts"
+    | "qualityCrafts"
+    | "weaponCrafts"
+    | "armorCrafts"
+    | "craftOnlyCrafts"
+    | "masterworkCrafts"
+    | "highTierCrafts";
   goal: number;
   rewardGold: number;
   rewardFame: number;
@@ -153,10 +183,12 @@ type DeliveryView = {
     enhanceLevel: number;
     craftQualityLevel: number;
     craftOnly: boolean;
+    masterwork: boolean;
     crafterLevel: number;
     rewardArtisanXp: number;
     rewardGold: number;
     bonusPct: number;
+    masterworkBonusPct: number;
   }[];
 };
 
@@ -254,6 +286,19 @@ function emptyWorkshopStats(): WorkshopStatsView {
   return { totalCrafts: 0, qualityCrafts: 0, craftedByRecipe: {} };
 }
 
+function emptyWorkshopRecords(): WorkshopRecordsView {
+  return {
+    totalCrafts: 0,
+    qualityCrafts: 0,
+    masterworkCrafts: 0,
+    craftOnlyCrafts: 0,
+    highestTier: 0,
+    bestQualityLevel: 0,
+    recipes: {},
+    slots: {},
+  };
+}
+
 function emptyGuildBonus(): GuildWorkshopBonusView {
   return {
     totalCrafts: 0,
@@ -261,6 +306,23 @@ function emptyGuildBonus(): GuildWorkshopBonusView {
     tier: 0,
     nextTotalCrafts: 10,
   };
+}
+
+function weeklyMetricLabel(metric: WeeklyQuestView["metric"]): string {
+  if (metric === "crafts") return "전체 제작";
+  if (metric === "qualityCrafts") return "★ 품질";
+  if (metric === "weaponCrafts") return "무기";
+  if (metric === "armorCrafts") return "방어구";
+  if (metric === "craftOnlyCrafts") return "제작 전용";
+  if (metric === "masterworkCrafts") return "명장";
+  return "T8+";
+}
+
+function workshopRecordQualityText(levelRaw: number): string {
+  const level = Math.max(0, Math.floor(Number(levelRaw) || 0));
+  if (level >= 2) return "★★";
+  if (level >= 1) return "★";
+  return "기본";
 }
 
 function nextWorkshopGoal(state: WorkshopState | null): string {
@@ -297,6 +359,42 @@ function titleGoalLine(state: WorkshopState): string {
     return `${TITLES.artisan_masterwork.name}: 품질 제작 ${state.workshopStats.qualityCrafts.toLocaleString()}/5회`;
   }
   return "장인 칭호 목표를 모두 달성했습니다.";
+}
+
+function recommendedWorkshopAction(
+  state: WorkshopState | null,
+  weekly: WeeklyState | null,
+): string {
+  const claimable = weekly?.quests.find((quest) => quest.canClaim);
+  if (claimable) return `${claimable.title} 보상을 수령하세요.`;
+  const nearWeekly = weekly?.quests
+    .filter((quest) => !quest.claimed)
+    .sort(
+      (a, b) =>
+        b.progress / Math.max(1, b.goal) - a.progress / Math.max(1, a.goal),
+    )[0];
+  if (nearWeekly && nearWeekly.progress > 0) {
+    return `${nearWeekly.title} ${Math.min(
+      nearWeekly.progress,
+      nearWeekly.goal,
+    ).toLocaleString()}/${nearWeekly.goal.toLocaleString()} 진행 중`;
+  }
+  if (!state) return "대장간 정보를 불러오는 중입니다.";
+  const craftableMasterwork = state.recipes.find(
+    (recipe) => recipe.masterwork?.canCraft,
+  );
+  if (craftableMasterwork) {
+    return `${craftableMasterwork.itemName} 명장 제작으로 납품 가치를 노리세요.`;
+  }
+  const craftableCraftOnly = state.recipes.find(
+    (recipe) => recipe.canCraft && recipe.craftOnly,
+  );
+  if (craftableCraftOnly) {
+    return `${craftableCraftOnly.itemName} 제작으로 전용 장비 기록을 채우세요.`;
+  }
+  const craftable = state.recipes.find((recipe) => recipe.canCraft);
+  if (craftable) return `${craftable.itemName} 제작으로 숙련도를 올리세요.`;
+  return nextWorkshopGoal(state);
 }
 
 function craftQualityFromLevel(levelRaw: number): V2CraftQualityState | undefined {
@@ -340,7 +438,7 @@ function craftResultMasterworkSummary(result: CraftResultView): string | null {
       : result.craftQualityLevel >= 1
         ? "★ 품질 성공"
         : "기본 품질";
-  return `명장 각인 적용 · 품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · ${qualityText} · 거래/납품 가치 보존`;
+  return `명장 각인 적용 · 품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · ${qualityText} · 납품 보너스 +${GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT}%`;
 }
 
 function craftResultTone(result: CraftResultView): {
@@ -740,6 +838,7 @@ export function GuildWorkshopPanel({
             },
           },
           workshopStats: json.workshopStats ?? emptyWorkshopStats(),
+          workshopRecords: json.workshopRecords ?? emptyWorkshopRecords(),
           guildBonus: json.guildBonus ?? emptyGuildBonus(),
           smithyLevel: Number(json.smithyLevel ?? 1),
           smithyBonus: json.smithyBonus,
@@ -850,6 +949,35 @@ export function GuildWorkshopPanel({
       plus2Unlocked: blacksmithLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
     };
   }, [blacksmithLevel, state]);
+  const workshopRecords = state?.workshopRecords ?? emptyWorkshopRecords();
+  const recommendedAction = useMemo(
+    () => recommendedWorkshopAction(state, weekly),
+    [state, weekly],
+  );
+  const topRecipeRecords = useMemo(() => {
+    if (!state?.workshopRecords) return [];
+    return Object.entries(state.workshopRecords.recipes)
+      .map(([id, record]) => {
+        const recipe = state.recipes.find((r) => r.id === id);
+        return recipe && record ? { id, recipe, record } : null;
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          id: string;
+          recipe: WorkshopRecipeView;
+          record: WorkshopRecordEntry;
+        } => entry != null,
+      )
+      .sort(
+        (a, b) =>
+          b.record.crafts - a.record.crafts ||
+          b.record.bestQualityLevel - a.record.bestQualityLevel ||
+          b.recipe.tier - a.recipe.tier,
+      )
+      .slice(0, 4);
+  }, [state]);
   const craftResultQuality = craftResult
     ? craftQualityFromLevel(craftResult.craftQualityLevel)
     : undefined;
@@ -920,6 +1048,7 @@ export function GuildWorkshopPanel({
       const nextMaterials = json.materials ?? state?.materials ?? {};
       const nextArtisan = json.artisan ?? state?.artisan;
       const nextWorkshopStats = json.workshopStats ?? state?.workshopStats;
+      const nextWorkshopRecords = json.workshopRecords ?? state?.workshopRecords;
       const nextGuildBonus = json.guildBonus ?? state?.guildBonus;
       const crafted = state?.recipes.find((recipe) => recipe.id === recipeId);
       setState((prev) =>
@@ -931,6 +1060,9 @@ export function GuildWorkshopPanel({
               ...(nextArtisan ? { artisan: nextArtisan } : {}),
               ...(nextWorkshopStats
                 ? { workshopStats: nextWorkshopStats }
+                : {}),
+              ...(nextWorkshopRecords
+                ? { workshopRecords: nextWorkshopRecords }
                 : {}),
               ...(nextGuildBonus ? { guildBonus: nextGuildBonus } : {}),
               recipes: Array.isArray(json.recipes)
@@ -1141,6 +1273,16 @@ export function GuildWorkshopPanel({
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             길드원 제작 기록을 합산합니다.
+            {weekly?.endsAt ? (
+              <>
+                {" "}
+                · 종료{" "}
+                {new Date(weekly.endsAt).toLocaleDateString("ko-KR", {
+                  month: "numeric",
+                  day: "numeric",
+                })}
+              </>
+            ) : null}
           </div>
         </div>
         {weeklyLoading ? (
@@ -1181,6 +1323,9 @@ export function GuildWorkshopPanel({
                       {quest.title}
                     </div>
                     <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        {weeklyMetricLabel(quest.metric)}
+                      </span>{" "}
                       보상 {quest.rewardGold.toLocaleString()} G · 명성{" "}
                       {quest.rewardFame.toLocaleString()}
                     </div>
@@ -1225,7 +1370,7 @@ export function GuildWorkshopPanel({
             일일 제작 납품
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            대장간 Lv와 ★ 품질에 따라 보상이 증가합니다.
+            대장간 Lv, ★ 품질, 명장 각인에 따라 보상이 증가합니다.
           </div>
         </div>
         {deliveryLoading ? (
@@ -1288,6 +1433,7 @@ export function GuildWorkshopPanel({
                               ? ` · ${"★".repeat(item.craftQualityLevel)} 품질`
                               : ""}
                             {item.craftOnly ? " · 제작 전용" : ""}
+                            {item.masterwork ? " · 명장" : ""}
                             {` · 제작자 Lv ${item.crafterLevel}`}
                           </option>
                         ))}
@@ -1296,9 +1442,15 @@ export function GuildWorkshopPanel({
                         <div className="flex flex-wrap gap-1 text-[11px]">
                           <CraftQualityBadge level={selected.craftQualityLevel} />
                           {selected.craftOnly ? <CraftOnlyBadge /> : null}
+                          {selected.masterwork ? <MasterworkBadge /> : null}
                           <span className="rounded bg-zinc-200 px-1.5 py-px text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                             제작자 Lv {selected.crafterLevel}
                           </span>
+                          {selected.masterworkBonusPct > 0 ? (
+                            <span className="rounded bg-rose-100 px-1.5 py-px text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                              명장 +{selected.masterworkBonusPct}%
+                            </span>
+                          ) : null}
                           {selected.bonusPct > 0 ? (
                             <span className="rounded bg-sky-100 px-1.5 py-px text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">
                               보상 +{selected.bonusPct}%
@@ -1624,6 +1776,43 @@ export function GuildWorkshopPanel({
 
       <GuildArtisanContributionPanel info={info ?? contributionInfo} />
 
+      <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 md:grid-cols-[1.4fr_1fr]">
+        <div className="min-w-0">
+          <div className="font-semibold">추천 행동</div>
+          <div className="mt-1 text-zinc-600 dark:text-zinc-300">
+            {recommendedAction}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-1 text-center">
+          <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              최고 티어
+            </div>
+            <div className="font-semibold">
+              {workshopRecords.highestTier > 0
+                ? `T${workshopRecords.highestTier}`
+                : "-"}
+            </div>
+          </div>
+          <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              최고 품질
+            </div>
+            <div className="font-semibold">
+              {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
+            </div>
+          </div>
+          <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              명장 제작
+            </div>
+            <div className="font-semibold">
+              {workshopRecords.masterworkCrafts.toLocaleString()}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {workshopMode === "delivery" ? (
         <>
           {weeklyCard}
@@ -1698,6 +1887,56 @@ export function GuildWorkshopPanel({
               총 제작 {state.workshopStats.totalCrafts.toLocaleString()}회 ·
               품질 제작 {state.workshopStats.qualityCrafts.toLocaleString()}회
             </div>
+            <div className="mt-3 font-semibold">제작 기록</div>
+            <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
+              <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  누적 제작
+                </div>
+                <div className="font-semibold">
+                  {workshopRecords.totalCrafts.toLocaleString()}회
+                </div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  전용 {workshopRecords.craftOnlyCrafts.toLocaleString()} · 명장{" "}
+                  {workshopRecords.masterworkCrafts.toLocaleString()}
+                </div>
+              </div>
+              <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  최고 기록
+                </div>
+                <div className="font-semibold">
+                  {workshopRecords.highestTier > 0
+                    ? `T${workshopRecords.highestTier}`
+                    : "기록 없음"}{" "}
+                  · {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
+                </div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  품질 제작 {workshopRecords.qualityCrafts.toLocaleString()}회
+                </div>
+              </div>
+            </div>
+            {topRecipeRecords.length > 0 ? (
+              <div className="mt-2 grid gap-1">
+                {topRecipeRecords.map(({ id, recipe, record }) => (
+                  <div
+                    key={id}
+                    className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{recipe.itemName}</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {record.crafts.toLocaleString()}회
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      최고 {workshopRecordQualityText(record.bestQualityLevel)} ·
+                      명장 {record.masterworkCrafts.toLocaleString()}회
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div>
             <div className="font-semibold">대장장이 효과</div>

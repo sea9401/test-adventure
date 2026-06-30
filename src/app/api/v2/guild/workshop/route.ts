@@ -23,6 +23,7 @@ import {
 import {
   GUILD_WORKSHOP_RECIPE_IDS,
   GUILD_WORKSHOP_RECIPES,
+  addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   canAffordGuildWorkshopRecipe,
   guildWorkshopBonusFromTotalCrafts,
@@ -32,6 +33,7 @@ import {
   isGuildWorkshopRecipeId,
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopMaterialInventory,
+  parseGuildWorkshopCraftRecords,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
   spendGuildWorkshopRecipeCost,
@@ -157,6 +159,16 @@ function workshopStatsView(rawCrafting: unknown) {
   return parseGuildWorkshopStats(craft.workshopStats);
 }
 
+function workshopRecordsView(rawCrafting: unknown) {
+  const craft =
+    rawCrafting != null &&
+    typeof rawCrafting === "object" &&
+    !Array.isArray(rawCrafting)
+      ? (rawCrafting as Record<string, unknown>)
+      : {};
+  return parseGuildWorkshopCraftRecords(craft.workshopRecords);
+}
+
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
@@ -178,8 +190,14 @@ export async function GET() {
     qualityChanceBonusPct:
       baseGuildBonus.qualityChanceBonusPct + smithyBonus.qualityChanceBonusPct,
   };
-  const { resources, materials, artisan, artisanState, workshopStats } =
-    await db.transaction(async (tx) => {
+  const {
+    resources,
+    materials,
+    artisan,
+    artisanState,
+    workshopStats,
+    workshopRecords,
+  } = await db.transaction(async (tx) => {
     const resources = await readGuildSettlement(tx, guildId);
     const charRaw = await readSave<CharacterSaveWithMaterials>(
       tx,
@@ -199,6 +217,7 @@ export async function GET() {
       artisan: artisanView(craftingRaw),
       artisanState: parseArtisanState(craftingRaw.artisan),
       workshopStats: workshopStatsView(craftingRaw),
+      workshopRecords: workshopRecordsView(craftingRaw),
     };
   });
   return Response.json({
@@ -211,6 +230,7 @@ export async function GET() {
     materials,
     artisan,
     workshopStats,
+    workshopRecords,
     recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
       guildWorkshopRecipeView(
         GUILD_WORKSHOP_RECIPES[id],
@@ -410,30 +430,31 @@ export async function POST(req: Request) {
         xp: recipe.artisanXp,
       },
     );
-    const nextWeekly = await incrementGuildWorkshopWeeklyProgress(
-      tx,
-      guildId,
-      Boolean(craftQuality),
-    );
+    const item = V2_EQUIPMENT[recipe.equipmentId];
+    const craftedAt = new Date().toISOString();
+    const nextWeekly = await incrementGuildWorkshopWeeklyProgress(tx, guildId, {
+      qualityCrafted: Boolean(craftQuality),
+      slot: item.slot,
+      craftOnly: item.craftOnly === true,
+      masterwork: craftMode === "masterwork",
+      tier: item.tier,
+    });
     const crafterName = profile?.name?.trim() || undefined;
     const craftedItem = {
       iid: genEquipIid(),
       id: recipe.equipmentId,
-      roll: rollItemStats(V2_EQUIPMENT[recipe.equipmentId], Math.random),
+      roll: rollItemStats(item, Math.random),
       ...(craftQuality ? { craftQuality } : {}),
       craftedBy: {
         userId,
         ...(crafterName ? { name: crafterName } : {}),
         profession: recipe.profession,
         level: currentBlacksmithLevel,
-        craftedAt: new Date().toISOString(),
+        craftedAt,
         ...(craftMode === "masterwork" ? { masterwork: true } : {}),
       },
     };
-    const nextOwned = [
-      ...parsed.owned,
-      craftedItem,
-    ];
+    const nextOwned = [...parsed.owned, craftedItem];
 
     await upsertGuildSettlement(tx, guildId, nextResources);
     await upsertSave(tx, userId, "character.v2", {
@@ -444,19 +465,31 @@ export async function POST(req: Request) {
       owned: nextOwned,
       equipped: parsed.equipped,
     });
+    const nextWorkshopRecords = addGuildWorkshopCraftRecord(
+      parseGuildWorkshopCraftRecords(craftingRaw.workshopRecords),
+      {
+        recipeId: recipe.id,
+        item,
+        craftQualityLevel: craftQuality?.level ?? 0,
+        masterwork: craftMode === "masterwork",
+        craftedAt,
+      },
+    );
+
     await upsertSave(tx, userId, "crafting.v2", {
       ...craftingRaw,
       artisan: nextArtisan,
       workshopStats: nextWorkshopStats,
+      workshopRecords: nextWorkshopRecords,
       weeklyWorkshopStats: nextWeeklyWorkshopStats,
     });
-    if (V2_EQUIPMENT[recipe.equipmentId]?.craftOnly) {
+    if (item.craftOnly) {
       await logGuildActivity(tx, {
         guildId,
         type: "workshop_craft_only",
         actorUserId: userId,
         meta: {
-          itemName: V2_EQUIPMENT[recipe.equipmentId]?.name,
+          itemName: item.name,
         },
       });
     }
@@ -521,6 +554,7 @@ export async function POST(req: Request) {
         artisanXpGained: recipe.artisanXp,
         artisan: artisanView({ ...craftingRaw, artisan: nextArtisan }),
         workshopStats: nextWorkshopStats,
+        workshopRecords: nextWorkshopRecords,
         weeklyState: nextWeekly,
         smithyLevel,
         smithyBonus,

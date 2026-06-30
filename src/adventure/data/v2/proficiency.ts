@@ -102,6 +102,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
   transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 초월자 — 모든 능력 균형
+  fortressknight: { vit: 2, str: 1, dex: 1 }, // 성채기사 — 철벽기사 최종형, 방어 중심
 };
 
 // 캐릭터의 실효 수행 프로필 — 하이브리드 직업이면 직업 전용(정체성 축), 아니면 직군 프로필.

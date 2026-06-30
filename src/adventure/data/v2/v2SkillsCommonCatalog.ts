@@ -185,7 +185,10 @@ export type V2CommonSkillId =
   | "v2c_transcendent_mandala" // 만상검 (올스탯 비례)
   | "v2c_transcendent_harmony" // 초월 조화 (올스탯 패시브)
   | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형 + 회복)
-  | "v2c_bloodlord_martyrdom"; // 불사의 순교 (최대 HP + 광전 + 회복강화)
+  | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 광전 + 회복강화)
+  // ── 6차 직업 ──
+  | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + ATB 지연)
+  | "v2c_fortressknight_citadel"; // 움직이는 성채 (방어 + 받피감 + 반사)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -1320,6 +1323,21 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       healPowerPct: 20,
       damageTakenReductionPct: 6,
     },
+  },
+
+  // ── 6차 직업 — 직업 숙련도 기반 엔드 성장 ──
+  v2c_fortressknight_ram: {
+    id: "v2c_fortressknight_ram", name: "성채 충각", stat: "vit", category: "attack", tier: 3,
+    description: "성채처럼 밀고 들어가 방어력으로 적을 짓누르고 다음 행동을 늦춘다.",
+    mpCost: 58, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [dmg(1.8, 420, "def"), { kind: "enemyDelay", pct: 60 }],
+  },
+  v2c_fortressknight_citadel: {
+    id: "v2c_fortressknight_citadel", name: "움직이는 성채", stat: "vit", category: "passive", tier: 3,
+    description: "갑옷과 방패가 하나의 성채가 된다. 방어와 피해 저항, 방어력 기반 반사가 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 120 },
   },
 };
 

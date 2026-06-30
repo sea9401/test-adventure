@@ -480,6 +480,24 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
+  it("6차 철벽기사 계열 = 방어력 딜링기 + 방어 패시브", () => {
+    expect(skillsForJob("fortressknight")).toEqual([
+      "v2c_fortressknight_ram",
+      "v2c_fortressknight_citadel",
+    ]);
+    expect(V2_SKILLS.v2c_fortressknight_ram.category).toBe("attack");
+    expect(V2_SKILLS.v2c_fortressknight_ram.effects).toEqual([
+      { kind: "damage", statCoef: 1.8, baseFlat: 420, scaling: "def" },
+      { kind: "enemyDelay", pct: 60 },
+    ]);
+    expect(V2_SKILLS.v2c_fortressknight_citadel.category).toBe("passive");
+    expect(V2_SKILLS.v2c_fortressknight_citadel.passive).toMatchObject({
+      defPct: 30,
+      damageTakenReductionPct: 8,
+      thornsDefPct: 120,
+    });
+  });
+
   it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {
     // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡파+패왕)으로.
     //   v2c_sensei_combo/ironbody id 유지(세이브 호환·내용만 교체).

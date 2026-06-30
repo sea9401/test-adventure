@@ -450,7 +450,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <div
                 key={slot}
-                className="flex min-h-[6.75rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center dark:border-zinc-800 dark:bg-zinc-950"
+                className="flex min-h-[6.75rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center dark:border-zinc-700 dark:bg-zinc-900"
               >
                 {inst && item ? (
                   // 장착 아이템 클릭 → 옵션 카드 팝오버.

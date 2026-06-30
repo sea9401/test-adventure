@@ -60,6 +60,39 @@ function saveHuntCount(n: HuntCount): void {
   } catch {}
 }
 
+type RecoveryChargesSnapshot = {
+  baseHpCharges: number;
+  baseMpCharges: number;
+  hpCharges: number;
+  mpCharges: number;
+};
+
+function nextRecoveryChargesSnapshot({
+  prev,
+  initialHpCharges,
+  initialMpCharges,
+  hpCharges,
+  mpCharges,
+}: {
+  prev: RecoveryChargesSnapshot;
+  initialHpCharges: number;
+  initialMpCharges: number;
+  hpCharges?: number | null;
+  mpCharges?: number | null;
+}): RecoveryChargesSnapshot {
+  const prevStillCurrent =
+    prev.baseHpCharges === initialHpCharges &&
+    prev.baseMpCharges === initialMpCharges;
+  return {
+    baseHpCharges: initialHpCharges,
+    baseMpCharges: initialMpCharges,
+    hpCharges:
+      hpCharges ?? (prevStillCurrent ? prev.hpCharges : initialHpCharges),
+    mpCharges:
+      mpCharges ?? (prevStillCurrent ? prev.mpCharges : initialMpCharges),
+  };
+}
+
 // 오프라인 사냥 남은 시간 표기(ms → "1시간 23분"/"23분"/"45초").
 function fmtOfflineRemain(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -206,13 +239,30 @@ export function V2DungeonFloorView({
     latestProficiencyState.base === playerProficiency
       ? latestProficiencyState.value
       : playerProficiency;
+  const [latestRecoveryChargesState, setLatestRecoveryChargesState] =
+    useState<RecoveryChargesSnapshot>(() => ({
+      baseHpCharges: initialHpCharges,
+      baseMpCharges: initialMpCharges,
+      hpCharges: initialHpCharges,
+      mpCharges: initialMpCharges,
+    }));
+  const latestHpCharges =
+    latestRecoveryChargesState.baseHpCharges === initialHpCharges &&
+    latestRecoveryChargesState.baseMpCharges === initialMpCharges
+      ? latestRecoveryChargesState.hpCharges
+      : initialHpCharges;
+  const latestMpCharges =
+    latestRecoveryChargesState.baseHpCharges === initialHpCharges &&
+    latestRecoveryChargesState.baseMpCharges === initialMpCharges
+      ? latestRecoveryChargesState.mpCharges
+      : initialMpCharges;
   const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
   const statusMaxExp =
     lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? initialMaxExp;
   const statusHpCharges =
-    lastResult?.hpCharges ?? batchStatus?.hpCharges ?? initialHpCharges;
+    lastResult?.hpCharges ?? batchStatus?.hpCharges ?? latestHpCharges;
   const statusMpCharges =
-    lastResult?.mpCharges ?? batchStatus?.mpCharges ?? initialMpCharges;
+    lastResult?.mpCharges ?? batchStatus?.mpCharges ?? latestMpCharges;
   // "직업 숙련도" 상시 readout — 최신 사냥값(단판 masteryAfter / 일괄 proficiencyAfter) 우선,
   //   없으면 화면 진입 시점 값(playerProficiency). null = 모험가(무직업) → 카드에서 줄 생략.
   const statusProficiency =
@@ -401,6 +451,17 @@ export function V2DungeonFloorView({
         });
         onProficiencyChange?.(b.proficiencyAfter);
       }
+      if (b.hpCharges != null || b.mpCharges != null) {
+        setLatestRecoveryChargesState((prev) =>
+          nextRecoveryChargesSnapshot({
+            prev,
+            initialHpCharges,
+            initialMpCharges,
+            hpCharges: b.hpCharges,
+            mpCharges: b.mpCharges,
+          }),
+        );
+      }
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
       setBatchStatus({
         exp: b.expAfter ?? 0,
@@ -493,6 +554,17 @@ export function V2DungeonFloorView({
               value: r.masteryAfter,
             });
             onProficiencyChange?.(r.masteryAfter);
+          }
+          if (r.hpCharges != null || r.mpCharges != null) {
+            setLatestRecoveryChargesState((prev) =>
+              nextRecoveryChargesSnapshot({
+                prev,
+                initialHpCharges,
+                initialMpCharges,
+                hpCharges: r.hpCharges,
+                mpCharges: r.mpCharges,
+              }),
+            );
           }
           if (r.levelsGained > 0) onLevelUp?.();
           if (

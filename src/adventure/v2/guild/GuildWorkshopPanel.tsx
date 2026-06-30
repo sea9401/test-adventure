@@ -14,7 +14,9 @@ import {
   BLACKSMITH_MASTERWORK_LEVEL,
   BLACKSMITH_PLUS2_QUALITY_LEVEL,
   BLACKSMITH_REWARD_MILESTONES,
+  blacksmithJobForLevel,
   nextArtisanMilestone,
+  unlockedBlacksmithSkills,
 } from "@/adventure/data/v2/artisan";
 import {
   GUILD_WORKSHOP_MATERIALS,
@@ -166,6 +168,14 @@ type WeeklyState = {
   weekKey: string;
   endsAt: string;
   quests: WeeklyQuestView[];
+};
+
+type WorkshopRecommendation = {
+  title: string;
+  detail: string;
+  recipeId?: GuildWorkshopRecipeId;
+  craftMode?: GuildWorkshopCraftMode;
+  tone: "weekly" | "codex" | "masterwork" | "craft" | "goal";
 };
 
 type DeliveryView = {
@@ -361,40 +371,157 @@ function titleGoalLine(state: WorkshopState): string {
   return "장인 칭호 목표를 모두 달성했습니다.";
 }
 
-function recommendedWorkshopAction(
+function weeklyQuestMatchesRecipe(
+  quest: WeeklyQuestView,
+  recipe: WorkshopRecipeView,
+): boolean {
+  if (quest.metric === "crafts") return true;
+  if (quest.metric === "qualityCrafts") return true;
+  if (quest.metric === "weaponCrafts") return recipe.slot === "weapon";
+  if (quest.metric === "armorCrafts") {
+    return (
+      recipe.slot === "armor" ||
+      recipe.slot === "gloves" ||
+      recipe.slot === "boots"
+    );
+  }
+  if (quest.metric === "craftOnlyCrafts") return recipe.craftOnly === true;
+  if (quest.metric === "masterworkCrafts") return recipe.masterwork != null;
+  return recipe.tier >= 8;
+}
+
+function recipePriority(a: WorkshopRecipeView, b: WorkshopRecipeView): number {
+  return (
+    Number(b.craftOnly === true) - Number(a.craftOnly === true) ||
+    b.tier - a.tier ||
+    b.artisanXp - a.artisanXp ||
+    a.requiredArtisanLevel - b.requiredArtisanLevel ||
+    a.itemName.localeCompare(b.itemName, "ko")
+  );
+}
+
+function bestCraftableRecipe(
+  recipes: readonly WorkshopRecipeView[],
+  predicate: (recipe: WorkshopRecipeView) => boolean,
+): WorkshopRecipeView | undefined {
+  return recipes
+    .filter((recipe) => recipe.canCraft && predicate(recipe))
+    .sort(recipePriority)[0];
+}
+
+function bestCraftableMasterworkRecipe(
+  recipes: readonly WorkshopRecipeView[],
+  predicate: (recipe: WorkshopRecipeView) => boolean,
+): WorkshopRecipeView | undefined {
+  return recipes
+    .filter((recipe) => recipe.masterwork?.canCraft && predicate(recipe))
+    .sort(recipePriority)[0];
+}
+
+function buildWorkshopRecommendation(
   state: WorkshopState | null,
   weekly: WeeklyState | null,
-): string {
+  registeredEquipmentIds: ReadonlySet<string>,
+  equipmentCodexReady: boolean,
+): WorkshopRecommendation {
   const claimable = weekly?.quests.find((quest) => quest.canClaim);
-  if (claimable) return `${claimable.title} 보상을 수령하세요.`;
-  const nearWeekly = weekly?.quests
-    .filter((quest) => !quest.claimed)
+  if (claimable) {
+    return {
+      title: `${claimable.title} 보상 수령`,
+      detail: `길드 자금 ${claimable.rewardGold.toLocaleString()} G · 명성 ${claimable.rewardFame.toLocaleString()}`,
+      tone: "weekly",
+    };
+  }
+  if (!state) {
+    return {
+      title: "대장간 정보 로딩",
+      detail: "제작 정보를 불러오는 중입니다.",
+      tone: "goal",
+    };
+  }
+  const weeklyTarget = weekly?.quests
+    .filter((quest) => !quest.claimed && !quest.complete)
     .sort(
       (a, b) =>
         b.progress / Math.max(1, b.goal) - a.progress / Math.max(1, a.goal),
     )[0];
-  if (nearWeekly && nearWeekly.progress > 0) {
-    return `${nearWeekly.title} ${Math.min(
-      nearWeekly.progress,
-      nearWeekly.goal,
-    ).toLocaleString()}/${nearWeekly.goal.toLocaleString()} 진행 중`;
+  if (weeklyTarget) {
+    const preferMasterwork =
+      weeklyTarget.metric === "masterworkCrafts" ||
+      weeklyTarget.metric === "qualityCrafts";
+    const masterworkRecipe = preferMasterwork
+      ? bestCraftableMasterworkRecipe(state.recipes, (recipe) =>
+          weeklyQuestMatchesRecipe(weeklyTarget, recipe),
+        )
+      : undefined;
+    const normalRecipe =
+      masterworkRecipe ??
+      bestCraftableRecipe(state.recipes, (recipe) =>
+        weeklyQuestMatchesRecipe(weeklyTarget, recipe),
+      );
+    if (normalRecipe) {
+      const progress = `${Math.min(
+        weeklyTarget.progress,
+        weeklyTarget.goal,
+      ).toLocaleString()}/${weeklyTarget.goal.toLocaleString()}`;
+      return {
+        title: `${normalRecipe.itemName} ${
+          masterworkRecipe ? "명장 제작" : "제작"
+        }`,
+        detail: `${weeklyTarget.title} ${progress} · ${weeklyMetricLabel(
+          weeklyTarget.metric,
+        )} 목표에 반영`,
+        recipeId: normalRecipe.id,
+        craftMode: masterworkRecipe ? "masterwork" : "normal",
+        tone: "weekly",
+      };
+    }
   }
-  if (!state) return "대장간 정보를 불러오는 중입니다.";
-  const craftableMasterwork = state.recipes.find(
-    (recipe) => recipe.masterwork?.canCraft,
+  const craftOnlyCodexRecipe = equipmentCodexReady
+    ? bestCraftableRecipe(
+        state.recipes,
+        (recipe) =>
+          recipe.craftOnly === true &&
+          !registeredEquipmentIds.has(recipe.equipmentId),
+      )
+    : undefined;
+  if (craftOnlyCodexRecipe) {
+    return {
+      title: `${craftOnlyCodexRecipe.itemName} 제작`,
+      detail: "제작 전용 장비 도감 미등록 · 장인표 수집 보상 진행",
+      recipeId: craftOnlyCodexRecipe.id,
+      craftMode: "normal",
+      tone: "codex",
+    };
+  }
+  const craftableMasterwork = bestCraftableMasterworkRecipe(
+    state.recipes,
+    () => true,
   );
   if (craftableMasterwork) {
-    return `${craftableMasterwork.itemName} 명장 제작으로 납품 가치를 노리세요.`;
+    return {
+      title: `${craftableMasterwork.itemName} 명장 제작`,
+      detail: `품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 납품 가치 강화`,
+      recipeId: craftableMasterwork.id,
+      craftMode: "masterwork",
+      tone: "masterwork",
+    };
   }
-  const craftableCraftOnly = state.recipes.find(
-    (recipe) => recipe.canCraft && recipe.craftOnly,
-  );
-  if (craftableCraftOnly) {
-    return `${craftableCraftOnly.itemName} 제작으로 전용 장비 기록을 채우세요.`;
+  const craftable = bestCraftableRecipe(state.recipes, () => true);
+  if (craftable) {
+    return {
+      title: `${craftable.itemName} 제작`,
+      detail: `바로 제작 가능 · 숙련도 +${craftable.artisanXp.toLocaleString()}`,
+      recipeId: craftable.id,
+      craftMode: "normal",
+      tone: "craft",
+    };
   }
-  const craftable = state.recipes.find((recipe) => recipe.canCraft);
-  if (craftable) return `${craftable.itemName} 제작으로 숙련도를 올리세요.`;
-  return nextWorkshopGoal(state);
+  return {
+    title: "다음 성장 목표",
+    detail: nextWorkshopGoal(state),
+    tone: "goal",
+  };
 }
 
 function weeklyRecipeHints(
@@ -706,6 +833,32 @@ export function GuildWorkshopPanel({
   const [selectedDeliveryIids, setSelectedDeliveryIids] = useState<
     Record<string, string>
   >({});
+  const [registeredEquipmentIds, setRegisteredEquipmentIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const [equipmentCodexReady, setEquipmentCodexReady] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/v2/me/equipment-codex")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { registeredIds?: unknown } | null) => {
+        if (!alive) return;
+        const ids = Array.isArray(json?.registeredIds)
+          ? json.registeredIds.filter(
+              (id): id is string => typeof id === "string",
+            )
+          : [];
+        setRegisteredEquipmentIds(new Set(ids));
+        setEquipmentCodexReady(true);
+      })
+      .catch(() => {
+        if (alive) setEquipmentCodexReady(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const loadContributionInfo = useCallback(async () => {
     try {
@@ -911,9 +1064,28 @@ export function GuildWorkshopPanel({
     [materials],
   );
   const blacksmithLevel = state?.artisan.blacksmith.level ?? 1;
+  const currentBlacksmithJob = blacksmithJobForLevel(blacksmithLevel);
+  const nextBlacksmithJob =
+    BLACKSMITH_ARTISAN_JOBS.find(
+      (job) => job.requiredLevel > blacksmithLevel,
+    ) ?? null;
+  const activeBlacksmithSkills = unlockedBlacksmithSkills(blacksmithLevel);
+  const nextBlacksmithSkill =
+    BLACKSMITH_ARTISAN_SKILLS.find((skill) => skill.level > blacksmithLevel) ??
+    null;
   const nextBlacksmithReward = nextArtisanMilestone(
     BLACKSMITH_REWARD_MILESTONES,
     blacksmithLevel,
+  );
+  const workshopRecommendation = useMemo(
+    () =>
+      buildWorkshopRecommendation(
+        state,
+        weekly,
+        registeredEquipmentIds,
+        equipmentCodexReady,
+      ),
+    [equipmentCodexReady, registeredEquipmentIds, state, weekly],
   );
   const filteredRecipes = useMemo(() => {
     const recipes = [...(state?.recipes ?? [])].filter((recipe) => {
@@ -925,6 +1097,11 @@ export function GuildWorkshopPanel({
       return true;
     });
     recipes.sort((a, b) => {
+      if (workshopRecommendation.recipeId) {
+        const ar = a.id === workshopRecommendation.recipeId ? 1 : 0;
+        const br = b.id === workshopRecommendation.recipeId ? 1 : 0;
+        if (ar !== br) return br - ar;
+      }
       if (recipeSort === "tier") {
         return b.tier - a.tier || a.requiredArtisanLevel - b.requiredArtisanLevel;
       }
@@ -941,7 +1118,13 @@ export function GuildWorkshopPanel({
       );
     });
     return recipes;
-  }, [recipeScopeFilter, recipeSlotFilter, recipeSort, state?.recipes]);
+  }, [
+    recipeScopeFilter,
+    recipeSlotFilter,
+    recipeSort,
+    state?.recipes,
+    workshopRecommendation.recipeId,
+  ]);
   const artisanCraftedSet = V2_EQUIP_TAG_SETS.find(
     (set) => set.id === "artisan_crafted",
   );
@@ -984,10 +1167,6 @@ export function GuildWorkshopPanel({
     };
   }, [blacksmithLevel, state]);
   const workshopRecords = state?.workshopRecords ?? emptyWorkshopRecords();
-  const recommendedAction = useMemo(
-    () => recommendedWorkshopAction(state, weekly),
-    [state, weekly],
-  );
   const topRecipeRecords = useMemo(() => {
     if (!state?.workshopRecords) return [];
     return Object.entries(state.workshopRecords.recipes)
@@ -1813,9 +1992,54 @@ export function GuildWorkshopPanel({
       <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 md:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0">
           <div className="font-semibold">추천 행동</div>
-          <div className="mt-1 text-zinc-600 dark:text-zinc-300">
-            {recommendedAction}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span
+              className={`rounded px-1.5 py-px text-[10px] font-semibold ${
+                workshopRecommendation.tone === "weekly"
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                  : workshopRecommendation.tone === "codex"
+                    ? "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+                    : workshopRecommendation.tone === "masterwork"
+                      ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
+                      : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+              }`}
+            >
+              {workshopRecommendation.tone === "weekly"
+                ? "주간"
+                : workshopRecommendation.tone === "codex"
+                  ? "도감"
+                  : workshopRecommendation.tone === "masterwork"
+                    ? "명장"
+                    : workshopRecommendation.tone === "craft"
+                      ? "제작"
+                      : "성장"}
+            </span>
+            <span className="font-medium text-zinc-800 dark:text-zinc-100">
+              {workshopRecommendation.title}
+            </span>
           </div>
+          <div className="mt-1 text-zinc-600 dark:text-zinc-300">
+            {workshopRecommendation.detail}
+          </div>
+          {workshopRecommendation.recipeId ? (
+            <button
+              type="button"
+              disabled={craftingId != null || loading}
+              onClick={() =>
+                void craft(
+                  workshopRecommendation.recipeId as GuildWorkshopRecipeId,
+                  workshopRecommendation.craftMode ?? "normal",
+                )
+              }
+              className="mt-2 rounded border border-emerald-700 bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+            >
+              {craftingId === workshopRecommendation.recipeId
+                ? "처리 중"
+                : workshopRecommendation.craftMode === "masterwork"
+                  ? "추천 명장 제작"
+                  : "추천 제작"}
+            </button>
+          ) : null}
         </div>
         <div className="grid grid-cols-3 gap-1 text-center">
           <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
@@ -1881,7 +2105,8 @@ export function GuildWorkshopPanel({
           <div className="min-w-0">
             <strong>{state.artisan.blacksmith.name}</strong>
             <span className="ml-2 text-zinc-500 dark:text-zinc-400">
-              Lv {state.artisan.blacksmith.level.toLocaleString()} · 제작{" "}
+              {currentBlacksmithJob.name} · Lv{" "}
+              {state.artisan.blacksmith.level.toLocaleString()} · 제작{" "}
               {state.artisan.blacksmith.crafts.toLocaleString()}회
             </span>
           </div>
@@ -1913,7 +2138,64 @@ export function GuildWorkshopPanel({
       {workshopMode === "growth" && state ? (
         <div className="grid gap-2 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-800 dark:text-zinc-100 md:grid-cols-2">
           <div>
-            <div className="font-semibold">다음 목표</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  현재 차수
+                </div>
+                <div className="mt-0.5 font-semibold text-emerald-950 dark:text-emerald-100">
+                  {currentBlacksmithJob.tier}차 · {currentBlacksmithJob.name}
+                </div>
+                <div className="mt-0.5 text-[11px] text-emerald-800 dark:text-emerald-200">
+                  {currentBlacksmithJob.role}
+                </div>
+              </div>
+              <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  다음 차수
+                </div>
+                <div className="mt-0.5 font-semibold text-zinc-950 dark:text-zinc-100">
+                  {nextBlacksmithJob
+                    ? `${nextBlacksmithJob.tier}차 · ${nextBlacksmithJob.name}`
+                    : "최종 차수"}
+                </div>
+                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {nextBlacksmithJob
+                    ? `Lv ${nextBlacksmithJob.requiredLevel} · ${nextBlacksmithJob.role}`
+                    : "모든 생산직 차수 해금"}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5 dark:border-sky-900 dark:bg-sky-950/30">
+                <div className="text-[10px] font-semibold text-sky-700 dark:text-sky-300">
+                  현재 적용
+                </div>
+                <div className="mt-0.5 font-semibold text-sky-950 dark:text-sky-100">
+                  스킬 {activeBlacksmithSkills.length.toLocaleString()}개
+                </div>
+                <div className="mt-0.5 text-[11px] text-sky-800 dark:text-sky-200">
+                  {activeBlacksmithSkills
+                    .slice(-2)
+                    .map((skill) => skill.name)
+                    .join(" · ") || "기본 제작"}
+                </div>
+              </div>
+              <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-900 dark:bg-amber-950/30">
+                <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                  다음 스킬
+                </div>
+                <div className="mt-0.5 font-semibold text-amber-950 dark:text-amber-100">
+                  {nextBlacksmithSkill
+                    ? `Lv ${nextBlacksmithSkill.level} · ${nextBlacksmithSkill.name}`
+                    : "전부 적용"}
+                </div>
+                <div className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
+                  {nextBlacksmithSkill?.description ?? "대장장이 패시브 완료"}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 font-semibold">다음 목표</div>
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               {nextWorkshopGoal(state)}
             </div>
@@ -2068,7 +2350,11 @@ export function GuildWorkshopPanel({
                         {job.tier}차 · {job.name}
                       </span>
                       <span className="text-[10px]">
-                        {unlocked ? "해금" : job.unlockText}
+                        {job.id === currentBlacksmithJob.id
+                          ? "현재"
+                          : unlocked
+                            ? "해금"
+                            : job.unlockText}
                       </span>
                     </div>
                     <div className="mt-0.5 text-[11px] opacity-80">
@@ -2096,11 +2382,23 @@ export function GuildWorkshopPanel({
                         Lv {skill.level} · {skill.name}
                       </span>
                       <span className="text-[10px]">
-                        {skill.implemented ? "적용" : "예정"}
+                        {unlocked
+                          ? "적용 중"
+                          : skill.implemented
+                            ? `Lv ${skill.level}`
+                            : "예정"}
                       </span>
                     </div>
-                    <div className="mt-0.5 text-[11px] opacity-80">
-                      {skill.description}
+                    <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] opacity-80">
+                      <span>
+                        {skill.kind === "passive"
+                          ? "패시브"
+                          : skill.kind === "craftMode"
+                            ? "제작 모드"
+                            : "제작 행동"}
+                      </span>
+                      <span>·</span>
+                      <span>{skill.description}</span>
                     </div>
                   </div>
                 );
@@ -2345,16 +2643,26 @@ export function GuildWorkshopPanel({
           const busy = craftingId === recipe.id;
           const masterwork = recipe.masterwork;
           const weeklyHints = weeklyRecipeHints(recipe, weekly);
+          const recommended = workshopRecommendation.recipeId === recipe.id;
           return (
             <div
               key={recipe.id}
-              className="ui-recipe-row grid gap-2 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
+              className={`ui-recipe-row grid gap-2 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center ${
+                recommended
+                  ? "bg-emerald-50/70 dark:bg-emerald-950/20"
+                  : ""
+              }`}
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
                   <strong className="text-sm text-zinc-950 dark:text-zinc-50">
                     {recipe.itemName}
                   </strong>
+                  {recommended ? (
+                    <span className="rounded bg-emerald-700 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
+                      추천
+                    </span>
+                  ) : null}
                   <span className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                     T{recipe.tier} · {V2_SLOT_LABEL[recipe.slot]}
                   </span>

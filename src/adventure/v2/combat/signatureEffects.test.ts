@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   battleStartShield,
+  formatChillSlowLog,
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
@@ -109,6 +110,12 @@ describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)",
     };
     const r = onCritEnemyChill([FROST, strong], true, true);
     expect(r!.mult).toBeCloseTo(0.6); // 40% 슬로우가 더 강함
+  });
+
+  it("전투 로그는 둔화량과 지속 턴을 쉽게 표시", () => {
+    expect(formatChillSlowLog("허수아비", { mult: 0.75, turns: 2 })).toBe(
+      "[한기] 허수아비이(가) 얼어붙어 느려진다. (속도 25% 감소, 2턴)",
+    );
   });
 });
 
@@ -665,7 +672,7 @@ describe("엔진 통합 — on-crit 독(독니)이 실제 적에게 부여된다
     );
   });
 
-  it("한기(동결의 갑주) 장착 + 크리 → 적 둔화 로그 발화", () => {
+  it("한기(동결의 갑주) 장착 + 크리 → 적 둔화 로그에 감소율 표시", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 미스 회피·크리 강제(100%)
     const res = resolveBattle(
       dummyPlayer([FROST]),
@@ -677,11 +684,12 @@ describe("엔진 통합 — on-crit 독(독니)이 실제 적에게 부여된다
         v2Skills: emptyV2SkillsState(),
       },
     );
-    expect(
-      res.finalState.log.some(
-        (e) => typeof e.text === "string" && e.text.includes("[한기]"),
-      ),
-    ).toBe(true);
+    const chillLog = res.finalState.log.find(
+      (e) => typeof e.text === "string" && e.text.includes("[한기]"),
+    )?.text;
+    expect(chillLog).toContain("느려진다");
+    expect(chillLog).toContain("속도 25% 감소");
+    expect(chillLog).not.toContain("굼떠");
   });
 
   it("대조군 — 한기 미장착이면 둔화 로그 없음(누수 가드)", () => {

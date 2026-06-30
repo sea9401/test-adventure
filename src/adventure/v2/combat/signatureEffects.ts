@@ -146,6 +146,14 @@ export function onCritEnemyChill(
   return best;
 }
 
+export function formatChillSlowLog(
+  targetName: string,
+  chill: { mult: number; turns: number },
+): string {
+  const slowPct = Math.max(0, Math.round((1 - chill.mult) * 100));
+  return `[한기] ${targetName}이(가) 얼어붙어 느려진다. (속도 ${slowPct}% 감소, ${chill.turns}턴)`;
+}
+
 // on_crit 독 부여 여부(독니 단검) — 크리 + 피해 발생 시 poisonOnCrit 시그니처가 하나라도 있으면 true.
 export function firesOnCritPoison(
   signatures: SignatureEffect[] | undefined,

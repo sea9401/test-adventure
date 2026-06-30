@@ -175,7 +175,11 @@ export type V2CommonSkillId =
   | "v2c_plaguebringer_outbreak" // 역병 창궐 (중독 폭발)
   | "v2c_plaguebringer_decay" // 붕괴 (부식 심화)
   | "v2c_adamantmonk_stance" // 금강 자세 (피해 감소 + 반격)
-  | "v2c_adamantmonk_body"; // 금강불괴 (최대 HP + 반격)
+  | "v2c_adamantmonk_body" // 금강불괴 (최대 HP + 반격)
+  | "v2c_immortal_lifestrike" // 생명 강타 (최대 HP 비례)
+  | "v2c_immortal_heart" // 불멸의 심장 (최대 HP + 받피감)
+  | "v2c_transcendent_mandala" // 만상검 (올스탯 비례)
+  | "v2c_transcendent_harmony"; // 초월 조화 (올스탯 패시브)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -1226,6 +1230,36 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { maxHpPct: 25, counterChancePct: 35 },
+  },
+  v2c_immortal_lifestrike: {
+    id: "v2c_immortal_lifestrike", name: "생명 강타", stat: "vit", category: "attack", tier: 3,
+    description: "불멸의 생명력을 힘으로 바꾸어 적을 짓누른다.",
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(0.035, 260, "maxHp")],
+  },
+  v2c_immortal_heart: {
+    id: "v2c_immortal_heart", name: "불멸의 심장", stat: "vit", category: "passive", tier: 3,
+    description: "꺼지지 않는 심장이 육체를 붙든다. 최대 체력과 피해 저항이 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { maxHpPct: 30, damageTakenReductionPct: 6 },
+  },
+  v2c_transcendent_mandala: {
+    id: "v2c_transcendent_mandala", name: "만상검", stat: "str", category: "attack", tier: 3,
+    description: "쌓아온 모든 능력을 한 검로에 모아 베어낸다.",
+    mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(0.16, 260, "all")],
+  },
+  v2c_transcendent_harmony: {
+    id: "v2c_transcendent_harmony", name: "초월 조화", stat: "int", category: "passive", tier: 3,
+    description: "모든 능력의 균형이 한계를 밀어 올린다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: {
+      statPct: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
+      maxHpPct: 8,
+      maxMpPct: 8,
+    },
   },
 };
 

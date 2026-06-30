@@ -731,6 +731,7 @@ export function derivePlayerCombatV2Pure(
     // scaling:"dex"/"luk" 비례 딜(도적 직군 스킬)용 total. % 패시브/내장보너스 반영된 최종값.
     dexStat: totalStats.dex,
     lukStat: totalStats.luk,
+    allStatTotal: V2_STAT_KEYS.reduce((sum, stat) => sum + totalStats[stat], 0),
     classTier: input.classTier,
     // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →
     //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).

@@ -170,15 +170,17 @@ export type V2MonsterCastSkillId = "mob_arcane_bolt" | "mob_arcane_burst";
 //   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
 // scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
 // scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.
-//   def/vit/dex/luk 은 시전자 그 스탯 값이 필요 → 엔진(combatShared.damageWith) 배선(미배선 스탯은
-//   physical 대체). dex/luk = 도적 직군 직접 비례딜(원시 스탯이 크므로 계수는 작게 — str→atk 0.15급).
+//   def/vit/dex/luk/all/maxHp 은 시전자 그 스탯 값이 필요 → 엔진(combatShared.damageWith) 배선(미배선
+//   스탯은 physical 대체). dex/luk/all = 직접 비례딜(원시 스탯이 크므로 계수는 작게 — str→atk 0.15급).
 export type V2DamageScaling =
   | "physical"
   | "magic"
   | "def"
   | "vit"
   | "dex"
-  | "luk";
+  | "luk"
+  | "all"
+  | "maxHp";
 export type V2SkillEffect =
   | {
       kind: "damage";
@@ -631,6 +633,8 @@ function scalingChip(scaling?: V2DamageScaling): string {
   if (scaling === "vit") return " (활력비례)";
   if (scaling === "dex") return " (민첩비례)";
   if (scaling === "luk") return " (행운비례)";
+  if (scaling === "all") return " (올스탯비례)";
+  if (scaling === "maxHp") return " (최대HP비례)";
   return "";
 }
 

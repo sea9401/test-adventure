@@ -379,6 +379,8 @@ describe("직업 킷 — 스킬셋", () => {
       saint: ["v2c_saint_miracle", "v2c_saint_benediction"],
       plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"],
       adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"],
+      immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"],
+      transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -406,6 +408,23 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_adamantmonk_body.passive).toMatchObject({
       maxHpPct: 25,
       counterChancePct: 35,
+    });
+    expect(V2_SKILLS.v2c_immortal_lifestrike.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "maxHp",
+    });
+    expect(V2_SKILLS.v2c_immortal_heart.passive).toMatchObject({
+      maxHpPct: 30,
+      damageTakenReductionPct: 6,
+    });
+    expect(V2_SKILLS.v2c_transcendent_mandala.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "all",
+    });
+    expect(V2_SKILLS.v2c_transcendent_harmony.passive).toMatchObject({
+      statPct: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
+      maxHpPct: 8,
+      maxMpPct: 8,
     });
   });
 

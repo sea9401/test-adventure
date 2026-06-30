@@ -638,6 +638,27 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 20, spi: 6 },
     unlock: { prereqs: { battlemonk: TIER5_UNLOCK_CUMLEVEL } },
   },
+  immortal: {
+    id: "immortal",
+    name: "불멸자",
+    tier: 5,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 22, str: 4 },
+    unlock: { prereqs: { returner: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  transcendent: {
+    id: "transcendent",
+    name: "초월자",
+    tier: 5,
+    cultivateProfile: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 },
+    jobBonus: { str: 4, vit: 4, dex: 4, int: 4, spi: 4, luk: 4 },
+    unlock: {
+      prereqs: {
+        crusader: TIER5_UNLOCK_CUMLEVEL,
+        runeknight: TIER5_UNLOCK_CUMLEVEL,
+      },
+    },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -822,6 +843,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   saint: { class: "mage", spec: "saint" },
   plaguebringer: { class: "rogue", spec: "plaguebringer" },
   adamantmonk: { class: "martial", spec: "adamantmonk" },
+  immortal: { class: "survivor", spec: "immortal" },
+  transcendent: { class: "warrior", spec: "transcendent" },
 };
 
 /**

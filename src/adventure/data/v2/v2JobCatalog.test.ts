@@ -80,6 +80,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   saint: "archbishop",
   plaguebringer: "venomlord",
   adamantmonk: "battlemonk",
+  immortal: "returner",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -96,15 +97,15 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("61개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 17 + 5차 8)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(61);
+  it("63개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 17 + 5차 10)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(63);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(12);
     expect(byTier(3)).toBe(18);
     expect(byTier(4)).toBe(17);
-    expect(byTier(5)).toBe(8);
+    expect(byTier(5)).toBe(10);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -170,12 +171,12 @@ describe("스탯 맵 무결성", () => {
       expect(V2_JOB_CATALOG[id]?.cultivateProfile, id).toEqual(
         V2_HYBRID_CULTIVATE_PROFILE[id],
       );
-      // 합 4 고정(비용 곡선·economy 불변) — 직군 프로필과 동일 경제.
+      // 합 4 고정(비용 곡선·economy 불변) — 초월자는 올스탯 정체성 때문에 예외적으로 6.
       const sum = Object.values(V2_HYBRID_CULTIVATE_PROFILE[id]).reduce(
         (s, v) => s + (v ?? 0),
         0,
       );
-      expect(sum, `${id} 프로필 합`).toBe(4);
+      expect(sum, `${id} 프로필 합`).toBe(id === "transcendent" ? 6 : 4);
     }
   });
 
@@ -236,6 +237,29 @@ describe("해금 트리", () => {
       expect(isJobUnlocked(job, profJobs({ [parent]: TIER5_UNLOCK_CUMLEVEL }))).toBe(true);
     }
     expect(TIER4_UNLOCK_CUMLEVEL).toBeLessThan(TIER5_UNLOCK_CUMLEVEL);
+  });
+
+  it("5차 하이브리드(초월자) — 성전사·룬 기사를 각각 TIER5 키워야 해금된다", () => {
+    const transcendent = V2_JOB_CATALOG.transcendent;
+    expect(transcendent.tier).toBe(5);
+    expect(transcendent.unlock.prereqs).toEqual({
+      crusader: TIER5_UNLOCK_CUMLEVEL,
+      runeknight: TIER5_UNLOCK_CUMLEVEL,
+    });
+    expect(isJobUnlocked(transcendent, profWith({ warrior: 99999, mage: 99999 }))).toBe(false);
+    expect(isJobUnlocked(transcendent, profJobs({ crusader: TIER5_UNLOCK_CUMLEVEL }))).toBe(false);
+    expect(isJobUnlocked(transcendent, profJobs({ runeknight: TIER5_UNLOCK_CUMLEVEL }))).toBe(false);
+    expect(
+      isJobUnlocked(transcendent, profJobs({
+        crusader: TIER5_UNLOCK_CUMLEVEL,
+        runeknight: TIER5_UNLOCK_CUMLEVEL,
+      })),
+    ).toBe(true);
+    expect(LEGACY_CLASS_SPEC_BY_JOB.transcendent).toEqual({
+      class: "warrior",
+      spec: "transcendent",
+    });
+    expect(jobIdFromLegacy("warrior", "transcendent")).toBe("transcendent");
   });
 
   it("하이브리드(성기사) — 기사·사제 두 직업을 각각 TIER3 키워야 해금된다(직업별 cumLevel·AND)", () => {

@@ -216,6 +216,8 @@ function scaleName(scaling) {
     vit: "활력",
     dex: "민첩",
     luk: "행운",
+    all: "올스탯",
+    maxHp: "최대HP",
     undefined: "공격력",
   }[String(scaling)] ?? "공격력";
 }

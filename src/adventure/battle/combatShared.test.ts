@@ -773,6 +773,41 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     expect(result.enemyDamage).toBe(260);
   });
 
+  it("resolveV2SkillCast — 생명 강타(scaling maxHp)는 최대 HP 로 스케일", () => {
+    const result = resolveV2SkillCast({
+      skills: { learned: ["v2c_immortal_lifestrike"], equipped: ["v2c_immortal_lifestrike"] },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        maxHp: 2000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(result.castSkillName).toBe("생명 강타");
+    expect(result.enemyDamage).toBe(330);
+  });
+
+  it("resolveV2SkillCast — 만상검(scaling all)은 올스탯 합계로 스케일", () => {
+    const result = resolveV2SkillCast({
+      skills: { learned: ["v2c_transcendent_mandala"], equipped: ["v2c_transcendent_mandala"] },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        maxHp: 1000,
+        allStatTotal: 700,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(result.castSkillName).toBe("만상검");
+    expect(result.enemyDamage).toBe(372);
+  });
+
   it("resolveV2SkillCast — dot 효과 스킬은 dotsToApplyToTarget 에 적재(출혈)", () => {
     // mob_rending_claw(살점 뜯기): kind:"dot" 출혈만. sourceAtk 은 시전자 atk 로 채워진다.
     const result = resolveV2SkillCast({

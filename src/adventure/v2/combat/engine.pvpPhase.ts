@@ -27,6 +27,7 @@ import {
 import {
   everyNHitsValue,
   firesOnCritPoison,
+  formatChillSlowLog,
   healToShield,
   onCritEnemyChill,
   lowHpDamageReductionPct,
@@ -923,7 +924,7 @@ export function advanceTurnPvP(
   if (sigCritChill) {
     log = appendLog(log, {
       kind: "info",
-      text: `[한기] ${defender.name}이(가) 얼어붙어 굼떠진다!`,
+      text: formatChillSlowLog(defender.name, sigCritChill),
     });
   }
   const sigSpdActiveMult =

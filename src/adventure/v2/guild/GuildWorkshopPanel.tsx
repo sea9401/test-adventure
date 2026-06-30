@@ -392,6 +392,41 @@ function masterworkCanPayText(recipe: WorkshopRecipeView): string {
   return "비용 충족";
 }
 
+function masterworkBlockedText(recipe: WorkshopRecipeView): string | null {
+  const masterwork = recipe.masterwork;
+  if (!masterwork) return "명장 정보 없음";
+  if (!recipe.levelOk) return `레시피 Lv ${recipe.requiredArtisanLevel} 필요`;
+  if (!masterwork.levelOk) {
+    return `대장장이 Lv ${masterwork.requiredArtisanLevel}에 명장 제작 해금`;
+  }
+  if (!recipe.smithyLevelOk) return `대장간 Lv ${recipe.requiredSmithyLevel} 필요`;
+  if (!masterwork.resourceOk || !masterwork.materialOk) {
+    return masterworkCanPayText(recipe);
+  }
+  return null;
+}
+
+function masterworkButtonText(recipe: WorkshopRecipeView): string {
+  const blocked = masterworkBlockedText(recipe);
+  if (blocked == null) return "명장 제작";
+  const masterwork = recipe.masterwork;
+  if (!masterwork) return "명장 정보 없음";
+  if (!recipe.levelOk) return `Lv ${recipe.requiredArtisanLevel}`;
+  if (!masterwork.levelOk) return `명장 Lv ${masterwork.requiredArtisanLevel}`;
+  if (!recipe.smithyLevelOk) return `대장간 Lv ${recipe.requiredSmithyLevel}`;
+  return blocked;
+}
+
+function masterworkStatusText(recipe: WorkshopRecipeView): string {
+  const blocked = masterworkBlockedText(recipe);
+  if (blocked != null) return `잠금/준비: ${blocked}`;
+  const masterwork = recipe.masterwork;
+  const plus2Text = masterwork?.plus2Unlocked
+    ? `★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
+    : "★★ Lv9 해금";
+  return `사용 가능: 품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 명장 각인 · ${plus2Text}`;
+}
+
 function dismantleBlockedText(reason?: string): string {
   switch (reason) {
     case "locked_level":
@@ -2151,6 +2186,15 @@ export function GuildWorkshopPanel({
                           ? ` · ★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
                           : " · ★★ Lv9 해금"}
                       </div>
+                      <div
+                        className={`mt-1 rounded px-1.5 py-1 text-[10px] font-medium ${
+                          masterwork.canCraft
+                            ? "bg-rose-100 text-rose-900 dark:bg-rose-950/70 dark:text-rose-100"
+                            : "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+                        }`}
+                      >
+                        {masterworkStatusText(recipe)}
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -2174,26 +2218,28 @@ export function GuildWorkshopPanel({
                     "부족"
                   )}
                 </button>
-                <button
-                  type="button"
-                  disabled={
-                    !masterwork?.canCraft || busy || craftingId != null
-                  }
-                  onClick={() => void craft(recipe.id, "masterwork")}
-                  className="inline-flex h-8 min-w-24 items-center justify-center rounded border border-rose-700 bg-rose-700 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-                >
-                  {busy ? (
-                    <SpinnerGap size={14} className="animate-spin" aria-hidden />
-                  ) : !masterwork?.levelOk ? (
-                    `명장 Lv ${masterwork?.requiredArtisanLevel ?? 8}`
-                  ) : !recipe.smithyLevelOk ? (
-                    `대장간 Lv ${recipe.requiredSmithyLevel}`
-                  ) : masterwork.canCraft ? (
-                    "명장 제작"
-                  ) : (
-                    "재료 부족"
-                  )}
-                </button>
+                <div className="flex max-w-40 flex-col items-stretch gap-1">
+                  <button
+                    type="button"
+                    disabled={
+                      !masterwork?.canCraft || busy || craftingId != null
+                    }
+                    onClick={() => void craft(recipe.id, "masterwork")}
+                    className="inline-flex h-8 min-w-24 items-center justify-center rounded border border-rose-700 bg-rose-700 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                  >
+                    {busy ? (
+                      <SpinnerGap size={14} className="animate-spin" aria-hidden />
+                    ) : (
+                      masterworkButtonText(recipe)
+                    )}
+                  </button>
+                  {masterwork ? (
+                    <span className="text-[10px] leading-snug text-rose-700 dark:text-rose-300 sm:text-right">
+                      상한 {GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 명장
+                      각인
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
           );

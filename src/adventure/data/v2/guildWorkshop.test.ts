@@ -3,6 +3,8 @@ import {
   GUILD_WORKSHOP_RECIPES,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
+  guildWorkshopCraftRecordTitleIds,
+  guildWorkshopEquipmentRecordViews,
   addGuildWorkshopMaterials,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopDismantleArtisanXpForTier,
@@ -423,6 +425,7 @@ describe("guild workshop recipes", () => {
       qualityCrafts: 1,
       masterworkCrafts: 1,
       craftOnlyCrafts: 1,
+      craftOnlySlots: { weapon: 1 },
       highestTier: 8,
       bestQualityLevel: 2,
     });
@@ -437,6 +440,41 @@ describe("guild workshop recipes", () => {
       masterworkCrafts: 1,
       highestTier: 8,
     });
+    expect(guildWorkshopCraftRecordTitleIds(records)).toContain(
+      "artisan_double_star_smith",
+    );
+    expect(guildWorkshopEquipmentRecordViews(records)).toMatchObject({
+      v2_crafted_sunforge_blade: {
+        recipeId: "crafted_sunforge_blade",
+        crafts: 1,
+        bestQualityLevel: 2,
+      },
+    });
+  });
+
+  it("grants craft record titles for long-term blacksmith milestones", () => {
+    const full = parseGuildWorkshopCraftRecords({
+      totalCrafts: 40,
+      qualityCrafts: 1,
+      masterworkCrafts: 10,
+      craftOnlyCrafts: 6,
+      craftOnlySlots: {
+        weapon: 1,
+        armor: 1,
+        gloves: 1,
+        boots: 1,
+        ring: 1,
+        necklace: 1,
+      },
+      highestTier: 10,
+      bestQualityLevel: 2,
+    });
+    expect(guildWorkshopCraftRecordTitleIds(full)).toEqual([
+      "artisan_double_star_smith",
+      "artisan_masterwork_smith",
+      "artisan_high_tier_smith",
+      "artisan_full_kit_smith",
+    ]);
   });
 
   it("maps dismantle materials by equipment tier", () => {

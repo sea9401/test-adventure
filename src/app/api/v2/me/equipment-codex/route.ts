@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
   lockSaveForUpdate,
   readSave,
@@ -13,9 +14,12 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   EQUIPMENT_CODEX_KEY,
+  countCraftOnlyEquipmentCodex,
+  craftOnlyCodexRewardTitleIds,
   equipmentCodexSummary,
   withRegisteredEquipmentId,
 } from "@/adventure/data/v2/equipmentCodex";
+import { guildWorkshopEquipmentRecordViews } from "@/adventure/data/v2/guildWorkshop";
 
 export async function GET() {
   const userId = await ensureUser();
@@ -23,8 +27,15 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const codexRaw = await readSave(db, userId, EQUIPMENT_CODEX_KEY, {});
-  return Response.json({ ok: true, ...equipmentCodexSummary(codexRaw) });
+  const [codexRaw, craftingRaw] = await Promise.all([
+    readSave(db, userId, EQUIPMENT_CODEX_KEY, {}),
+    readSave<Record<string, unknown>>(db, userId, "crafting.v2", {}),
+  ]);
+  return Response.json({
+    ok: true,
+    ...equipmentCodexSummary(codexRaw),
+    craftRecords: guildWorkshopEquipmentRecordViews(craftingRaw.workshopRecords),
+  });
 }
 
 export async function POST(req: Request) {
@@ -93,6 +104,14 @@ export async function POST(req: Request) {
     }
 
     const nextOwned = owned.filter((item) => item.iid !== iid);
+    const craftOnlyCount = countCraftOnlyEquipmentCodex(codex.registeredIds);
+    const obtainedAt = Date.now();
+    const grantedTitles: string[] = [];
+    for (const titleId of craftOnlyCodexRewardTitleIds(craftOnlyCount)) {
+      if (await grantTitleIfMissingInTx(tx, userId, titleId, obtainedAt)) {
+        grantedTitles.push(titleId);
+      }
+    }
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped,
@@ -107,6 +126,7 @@ export async function POST(req: Request) {
         consumedItemId: inst.id,
         owned: nextOwned,
         equipped,
+        grantedTitles,
       },
     };
   });

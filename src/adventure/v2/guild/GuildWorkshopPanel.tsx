@@ -397,6 +397,40 @@ function recommendedWorkshopAction(
   return nextWorkshopGoal(state);
 }
 
+function weeklyRecipeHints(
+  recipe: WorkshopRecipeView,
+  weekly: WeeklyState | null,
+): string[] {
+  const active = (weekly?.quests ?? []).filter(
+    (quest) => !quest.claimed && !quest.complete,
+  );
+  const hints: string[] = [];
+  for (const quest of active) {
+    if (quest.metric === "weaponCrafts" && recipe.slot === "weapon") {
+      hints.push("주간 무기");
+    } else if (
+      quest.metric === "armorCrafts" &&
+      (recipe.slot === "armor" ||
+        recipe.slot === "gloves" ||
+        recipe.slot === "boots")
+    ) {
+      hints.push("주간 방어구");
+    } else if (quest.metric === "craftOnlyCrafts" && recipe.craftOnly) {
+      hints.push("주간 전용");
+    } else if (quest.metric === "masterworkCrafts" && recipe.masterwork) {
+      hints.push("주간 명장");
+    } else if (quest.metric === "highTierCrafts" && recipe.tier >= 8) {
+      hints.push("주간 T8+");
+    } else if (quest.metric === "qualityCrafts") {
+      hints.push("품질 목표");
+    } else if (quest.metric === "crafts") {
+      hints.push("제작 목표");
+    }
+    if (hints.length >= 3) break;
+  }
+  return hints;
+}
+
 function craftQualityFromLevel(levelRaw: number): V2CraftQualityState | undefined {
   const level = levelRaw >= 2 ? 2 : levelRaw >= 1 ? 1 : 0;
   if (level === 0) return undefined;
@@ -2310,6 +2344,7 @@ export function GuildWorkshopPanel({
         {filteredRecipes.map((recipe) => {
           const busy = craftingId === recipe.id;
           const masterwork = recipe.masterwork;
+          const weeklyHints = weeklyRecipeHints(recipe, weekly);
           return (
             <div
               key={recipe.id}
@@ -2324,6 +2359,14 @@ export function GuildWorkshopPanel({
                     T{recipe.tier} · {V2_SLOT_LABEL[recipe.slot]}
                   </span>
                   {recipe.craftOnly ? <CraftOnlyBadge /> : null}
+                  {weeklyHints.map((hint) => (
+                    <span
+                      key={hint}
+                      className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    >
+                      {hint}
+                    </span>
+                  ))}
                   <span className="min-w-0 text-[11px] text-zinc-500 dark:text-zinc-400">
                     {recipe.note}
                   </span>

@@ -26,6 +26,7 @@ import {
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   canAffordGuildWorkshopRecipe,
+  guildWorkshopCraftRecordTitleIds,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopRecipeView,
   hasGuildWorkshopRecipeMaterials,
@@ -530,6 +531,11 @@ export async function POST(req: Request) {
         )
       ) {
         grantedTitles.push("artisan_masterwork");
+      }
+    }
+    for (const titleId of guildWorkshopCraftRecordTitleIds(nextWorkshopRecords)) {
+      if (await grantTitleIfMissingInTx(tx, userId, titleId, obtainedAt)) {
+        grantedTitles.push(titleId);
       }
     }
     const baseNextGuildBonus = guildWorkshopBonusFromTotalCrafts(

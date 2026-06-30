@@ -129,6 +129,11 @@ export const GUILD_WORKSHOP_WEEKLY_QUEST_IDS = Object.keys(
   GUILD_WORKSHOP_WEEKLY_QUESTS,
 ) as GuildWorkshopWeeklyQuestId[];
 
+export const GUILD_WORKSHOP_WEEKLY_REWARD_CAP = {
+  gold: 7_000_000,
+  fame: 2_500,
+} as const;
+
 export function isGuildWorkshopWeeklyQuestId(
   v: unknown,
 ): v is GuildWorkshopWeeklyQuestId {
@@ -260,6 +265,22 @@ export function guildWorkshopWeeklyQuestViews(
       canClaim: complete && !claimed,
     };
   });
+}
+
+export function guildWorkshopWeeklyRewardTotals(): {
+  gold: number;
+  fame: number;
+} {
+  return GUILD_WORKSHOP_WEEKLY_QUEST_IDS.reduce(
+    (sum, id) => {
+      const quest = GUILD_WORKSHOP_WEEKLY_QUESTS[id];
+      return {
+        gold: sum.gold + quest.rewardGold,
+        fame: sum.fame + quest.rewardFame,
+      };
+    },
+    { gold: 0, fame: 0 },
+  );
 }
 
 export function addGuildWorkshopWeeklyProgress(

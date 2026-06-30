@@ -143,6 +143,15 @@ type EquipmentCodexResponse = Partial<EquipmentCodexMeta> & {
   registeredIds?: unknown;
   owned?: unknown;
   equipped?: unknown;
+  craftRecords?: unknown;
+};
+
+type EquipmentCraftRecordView = {
+  recipeId?: string;
+  crafts: number;
+  bestQualityLevel: number;
+  masterworkCrafts: number;
+  lastCraftedAt?: string;
 };
 
 const EQUIPMENT_IDS = Object.keys(V2_EQUIPMENT) as V2EquipmentId[];
@@ -201,6 +210,51 @@ function compareEquipmentCodexCandidate(
     : 0;
   if (powerA !== powerB) return powerA - powerB;
   return a.iid.localeCompare(b.iid);
+}
+
+function parseEquipmentCraftRecord(raw: unknown): EquipmentCraftRecordView | null {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const crafts = Math.max(0, Math.floor(Number(obj.crafts) || 0));
+  const bestQualityLevel = Math.max(
+    0,
+    Math.min(2, Math.floor(Number(obj.bestQualityLevel) || 0)),
+  );
+  const masterworkCrafts = Math.max(
+    0,
+    Math.floor(Number(obj.masterworkCrafts) || 0),
+  );
+  if (crafts <= 0 && bestQualityLevel <= 0 && masterworkCrafts <= 0) {
+    return null;
+  }
+  return {
+    recipeId: typeof obj.recipeId === "string" ? obj.recipeId : undefined,
+    crafts,
+    bestQualityLevel,
+    masterworkCrafts,
+    lastCraftedAt:
+      typeof obj.lastCraftedAt === "string" ? obj.lastCraftedAt : undefined,
+  };
+}
+
+function parseEquipmentCraftRecords(
+  raw: unknown,
+): Partial<Record<V2EquipmentId, EquipmentCraftRecordView>> {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Partial<Record<V2EquipmentId, EquipmentCraftRecordView>> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!V2_EQUIPMENT[id as V2EquipmentId]) continue;
+    const record = parseEquipmentCraftRecord(value);
+    if (record) out[id as V2EquipmentId] = record;
+  }
+  return out;
+}
+
+function craftRecordQualityText(levelRaw: number): string {
+  const level = Math.max(0, Math.floor(Number(levelRaw) || 0));
+  if (level >= 2) return "★★";
+  if (level >= 1) return "★";
+  return "기본";
 }
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
@@ -352,6 +406,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [equipmentCodexMeta, setEquipmentCodexMeta] =
     useState<EquipmentCodexMeta>(DEFAULT_EQUIPMENT_CODEX_META);
   const [ownedEquipment, setOwnedEquipment] = useState<V2EquipInstance[]>([]);
+  const [equipmentCraftRecords, setEquipmentCraftRecords] = useState<
+    Partial<Record<V2EquipmentId, EquipmentCraftRecordView>>
+  >({});
   const [equippedEquipment, setEquippedEquipment] = useState<
     Partial<Record<V2EquipSlot, string>>
   >({});
@@ -380,6 +437,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       nextMilestone:
         typeof j.nextMilestone === "number" ? j.nextMilestone : null,
     });
+    setEquipmentCraftRecords(parseEquipmentCraftRecords(j.craftRecords));
   }
 
   useEffect(() => {
@@ -894,6 +952,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   const ownedCount = equipmentCounts.owned.get(id) ?? 0;
                   const eligible = equipmentCounts.eligible.get(id) ?? [];
                   const inst = eligible[0] ?? null;
+                  const craftRecord = equipmentCraftRecords[id];
                   const disabled =
                     registered || !inst || equipmentCodexBusy !== null;
                   const buttonLabel = registered
@@ -943,6 +1002,26 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                           {item.weight} · 보유 {ownedCount} · 등록 가능{" "}
                           {eligible.length}
                         </div>
+                        {craftRecord ? (
+                          <div className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
+                            <span className="rounded bg-amber-100 px-1.5 py-px font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                              제작 {craftRecord.crafts.toLocaleString()}회
+                            </span>
+                            <span className="rounded bg-zinc-200 px-1.5 py-px font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                              최고{" "}
+                              {craftRecordQualityText(
+                                craftRecord.bestQualityLevel,
+                              )}
+                            </span>
+                            {craftRecord.masterworkCrafts > 0 ? (
+                              <span className="rounded bg-rose-100 px-1.5 py-px font-medium text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                                명장{" "}
+                                {craftRecord.masterworkCrafts.toLocaleString()}
+                                회
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </button>
                       {!registered && (
                         <button

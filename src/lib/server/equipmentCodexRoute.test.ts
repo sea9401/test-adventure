@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { grantTitleIfMissingInTx, store } = vi.hoisted(() => ({
+  grantTitleIfMissingInTx: vi.fn(async () => true),
+  store: new Map<string, unknown>(),
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
+}));
+
+vi.mock("@/lib/server/grantTitle", () => ({
+  grantTitleIfMissingInTx,
 }));
 
 vi.mock("@/db", () => ({
@@ -49,6 +56,7 @@ function seed() {
 describe("POST /api/v2/me/equipment-codex", () => {
   beforeEach(() => {
     seed();
+    grantTitleIfMissingInTx.mockClear();
   });
 
   it("보유한 미장착/미잠금 장비 1개를 소비하고 카탈로그 id를 등록한다", async () => {
@@ -98,5 +106,42 @@ describe("POST /api/v2/me/equipment-codex", () => {
       owned: Array<{ iid: string }>;
     };
     expect(equipment.owned.map((item) => item.iid)).toEqual(["first", "second"]);
+  });
+
+  it("제작 전용 장비 도감 단계 달성 시 칭호를 지급한다", async () => {
+    store.set("equipment.v2", {
+      owned: [{ iid: "craft-only", id: "v2_crafted_master_ring" }],
+      equipped: {},
+    });
+    store.set("equipment-codex.v1", {
+      registeredIds: [
+        "v2_crafted_oathblade",
+        "v2_crafted_gale_bow",
+        "v2_crafted_runic_staff",
+      ],
+    });
+
+    const res = await POST(req({ iid: "craft-only" }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      grantedTitles: string[];
+      registeredIds: string[];
+    };
+    expect(json.registeredIds).toHaveLength(4);
+    expect(json.registeredIds).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_oathblade",
+        "v2_crafted_gale_bow",
+        "v2_crafted_runic_staff",
+        "v2_crafted_master_ring",
+      ]),
+    );
+    expect(json.grantedTitles).toEqual(["artisan_codex_collector"]);
+    expect(grantTitleIfMissingInTx).toHaveBeenCalledWith(
+      {},
+      "u-test",
+      "artisan_codex_collector",
+      expect.any(Number),
+    );
   });
 });

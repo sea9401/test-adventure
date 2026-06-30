@@ -82,6 +82,10 @@ describe("tile intruder presence", () => {
     expect(isTileIntruderPresent({ col: 3, row: 4 }, 3, 4)).toBe(true);
   });
 
+  it("좌표가 문자열 숫자로 저장된 예전 값도 침입자로 본다", () => {
+    expect(isTileIntruderPresent({ col: "3", row: "4" }, 3, 4)).toBe(true);
+  });
+
   it("좌표가 다르면 침입자가 아니다", () => {
     expect(isTileIntruderPresent({ col: 3, row: 4, at: 1000 }, 3, 5)).toBe(
       false,

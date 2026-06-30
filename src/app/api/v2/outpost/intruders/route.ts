@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -69,19 +69,19 @@ export async function GET(req: Request) {
       return { error: "not_owner_guild" as const };
     }
 
-    // JSON path 쿼리 — 사냥 침입(lastHuntedOutpost) 또는 타일 위 체류(tilePos)가 이 거점인 saves.
-    // 인덱스 없어 풀스캔이지만 saves_kv 의 character.v2 row 수가 작은 v2 staging
-    // 부하 수준에선 충분. 부하 측정 후 별도 인덱스/테이블 분리는 후속.
+    // JSON path 쿼리 — 카탈로그 거점은 사냥 침입(lastHuntedOutpost) 후보만 좁히고,
+    // 타일 정착지는 tilePos 저장 모양(숫자/문자열/at 누락)이 섞일 수 있어 TS 판정으로 통일한다.
+    // saves_kv 의 character.v2 row 수가 작은 v2 staging 부하 수준에선 충분.
     const candidateRows = await tx
       .select({ userId: savesKv.userId, value: savesKv.value })
       .from(savesKv)
       .where(
-        and(
-          eq(savesKv.key, "character.v2"),
-          tilePos
-            ? sql`(${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId' = ${outpostId} OR ((${savesKv.value} -> 'tilePos' ->> 'col')::int = ${tilePos.col} AND (${savesKv.value} -> 'tilePos' ->> 'row')::int = ${tilePos.row}))`
-            : sql`${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId' = ${outpostId}`,
-        ),
+        tilePos
+          ? eq(savesKv.key, "character.v2")
+          : and(
+              eq(savesKv.key, "character.v2"),
+              sql`${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId' = ${outpostId}`,
+            ),
       );
 
     // 자기 길드 멤버 set — 자기 자신 + 같은 길드원은 침입자 아님.
@@ -158,7 +158,7 @@ export async function GET(req: Request) {
     .where(
       and(
         eq(savesKv.key, "character-profile.v2"),
-        sql`${savesKv.userId} = ANY(${candidateUserIds})`,
+        inArray(savesKv.userId, candidateUserIds),
       ),
     );
   const nameByUser = new Map<string, string>();

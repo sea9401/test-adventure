@@ -26,6 +26,21 @@ export type TileIntruderPosition = {
   at?: unknown;
 };
 
+function parseTileCoordPart(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isInteger(raw)) return raw;
+  if (typeof raw === "string" && /^-?\d+$/.test(raw)) return Number(raw);
+  return null;
+}
+
+export function parseTileIntruderPosition(
+  raw: TileIntruderPosition | null | undefined,
+): { col: number; row: number; at?: unknown } | null {
+  const col = parseTileCoordPart(raw?.col);
+  const row = parseTileCoordPart(raw?.row);
+  if (col == null || row == null) return null;
+  return { col, row, at: raw?.at };
+}
+
 // raw JSON → LastHuntedOutpost. 모양 어긋나면 null.
 export function parseLastHuntedOutpost(raw: unknown): LastHuntedOutpost | null {
   if (!raw || typeof raw !== "object") return null;
@@ -81,7 +96,8 @@ export function isTileIntruderPresent(
   col: number,
   row: number,
 ): boolean {
-  return tilePos?.col === col && tilePos.row === row;
+  const parsed = parseTileIntruderPosition(tilePos);
+  return parsed?.col === col && parsed.row === row;
 }
 
 export function tileIntruderEnteredAt(

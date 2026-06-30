@@ -18,6 +18,7 @@ import {
 } from "@/adventure/data/v2/outpostSiege";
 import {
   isIntruderActive,
+  parseTileIntruderPosition,
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
 import {
@@ -179,7 +180,9 @@ export async function GET() {
   }
 
   // 교전 중 = 점령됐고 (재생 반영 성벽 < 최대 OR 윈도 내 공성 시도 있음).
-  const occupied = occRows.filter((r) => r.occupiedByUserId != null);
+  const occupied = occRows.filter(
+    (r) => r.occupiedByUserId != null || r.occupiedByGuildId != null,
+  );
   const sieges = occupied
     .map((r) => ({
       row: r,
@@ -260,12 +263,10 @@ export async function GET() {
         const rawTilePos = (row.value as {
           tilePos?: { col?: unknown; row?: unknown };
         } | null)?.tilePos;
-        const tileIntruderOutpostId =
-          typeof rawTilePos?.col === "number" &&
-          typeof rawTilePos.row === "number"
-            ? (tileOutpostByKey.get(tileKey(rawTilePos.col, rawTilePos.row)) ??
-              null)
-            : null;
+        const tilePos = parseTileIntruderPosition(rawTilePos);
+        const tileIntruderOutpostId = tilePos
+          ? (tileOutpostByKey.get(tileKey(tilePos.col, tilePos.row)) ?? null)
+          : null;
         const intruderOutpostId =
           tileIntruderOutpostId ??
           (last && ids.has(last.outpostId) && isIntruderActive(last, last.outpostId, nowMs)

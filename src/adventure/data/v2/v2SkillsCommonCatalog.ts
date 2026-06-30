@@ -117,7 +117,11 @@ export type V2CommonSkillId =
   | "v2c_bloodtemplar_martyr" // 혈성기사: 순교의 광기 (광전 + 회복강화)
   | "v2c_darkpriest_reap" // 암흑사제: 영혼 수확 (처형 + 회복)
   | "v2c_darkpriest_blessing" // 암흑사제: 검은 축복 (회복강화 + 치명피해)
-  // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
+  | "v2c_crusader_judgment" // 성전사: 성전의 심판 (물리 타격 + 자힐 + 받피감)
+  | "v2c_crusader_oath" // 성전사: 불굴의 맹세 (방어 + 회복강화 + 받피감)
+  | "v2c_runeknight_carve" // 룬 기사: 룬 검격 (물리 + 마법 이중 타격 + 취약)
+  | "v2c_runeknight_inscription" // 룬 기사: 룬 각인 (힘 + 지능 + 치명확률)
+  // ── 심화 직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
   | "v2c_sensei_combo" // 권룡파 (방깎 단일 — 무력 디버프·권룡)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
@@ -801,8 +805,42 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { healPowerPct: 18, critDmgPct: 20 },
   },
+  v2c_crusader_judgment: {
+    id: "v2c_crusader_judgment", name: "성전의 심판", stat: "str", category: "attack", tier: 3,
+    description: "성전의 맹세를 담아 내리친다. 빛이 상처를 메우고 몸을 단단히 붙든다.",
+    mpCost: 46, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(1.2, 230),
+      { kind: "heal", pctLostHp: 12 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 6, turns: 3 },
+    ],
+  },
+  v2c_crusader_oath: {
+    id: "v2c_crusader_oath", name: "불굴의 맹세", stat: "vit", category: "passive", tier: 3,
+    description: "성전사의 맹세가 방어와 회복을 함께 끌어올리고 피해를 조금 누른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { defPct: 14, healPowerPct: 14, damageTakenReductionPct: 4 },
+  },
+  v2c_runeknight_carve: {
+    id: "v2c_runeknight_carve", name: "룬 검격", stat: "str", category: "attack", tier: 3,
+    description: "검로에 룬을 새겨 베는 순간, 물리와 마법의 균열을 동시에 터뜨린다.",
+    mpCost: 48, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(0.85, 150),
+      dmg(0.85, 150, "magic"),
+      { kind: "enemyVuln", pct: 12, turns: 3 },
+    ],
+  },
+  v2c_runeknight_inscription: {
+    id: "v2c_runeknight_inscription", name: "룬 각인", stat: "str", category: "passive", tier: 3,
+    description: "몸과 검에 룬을 새긴다. 힘과 지능이 함께 오르고 치명적인 빈틈을 더 잘 읽는다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { str: 14, int: 14 }, critPct: 5 },
+  },
 
-  // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
+  // ── 심화 직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
   //   rubricSpCost 가 클램프) — 직업은 4차지만 스킬 파워버킷은 상급. ──
   v2c_veteran_cleave: {
     // 정예 기사 = 기사 라인 정점. 참격→왕실 검술 리스킨(id 유지). 처형 딜(공격력 기반·scaling 생략=
@@ -837,7 +875,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [{ kind: "damage", statCoef: 0.35, baseFlat: 250, scaling: "dex", pierceDamagePct: 20 }],
   },
 
-  // ── 심화 4직업 패시브(tier 4) — 직군마다 다른 효과(라인 비포화·기존 어휘, PvP-안전) ──
+  // ── 심화 직업 패시브(tier 4) — 직군마다 다른 효과(라인 비포화·기존 어휘, PvP-안전) ──
   v2c_veteran_lethal: {
     // 전사 심화 — 치명 피해(중장갑 라인의 딜 마무리). str% 는 견습기사·방어%는 기사가 유지.
     id: "v2c_veteran_lethal", name: "필살", stat: "str", category: "passive", tier: 3,

@@ -68,6 +68,8 @@ const TIER4_LINEAGE: Record<string, string> = {
   rescueexpert: "fieldmedic",
   returner: "extremesurvivor",
   masterangler: "angler",
+  crusader: "templar",
+  runeknight: "spellblade",
 };
 const TIER5_LINEAGE: Record<string, string> = {
   swordmaster: "veteran",
@@ -94,14 +96,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("59개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 15 + 5차 8)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(59);
+  it("61개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 17 + 5차 8)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(61);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(12);
     expect(byTier(3)).toBe(18);
-    expect(byTier(4)).toBe(15);
+    expect(byTier(4)).toBe(17);
     expect(byTier(5)).toBe(8);
   });
 
@@ -583,6 +585,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
     expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
     expect(jobIdFromLegacy("warrior", "veteran")).toBe("veteran"); // tier 4
+    expect(jobIdFromLegacy("warrior", "crusader")).toBe("crusader"); // 성기사 4차
+    expect(jobIdFromLegacy("warrior", "runeknight")).toBe("runeknight"); // 마검사 4차
     expect(jobIdFromLegacy("rogue", "chief")).toBe("chief"); // tier 4
     expect(jobIdFromLegacy("rogue", "venomlord")).toBe("venomlord"); // tier 4
   });

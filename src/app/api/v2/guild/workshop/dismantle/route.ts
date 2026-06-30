@@ -16,7 +16,7 @@ import {
 import {
   ARTISAN_PROFESSION_NAME,
   BLACKSMITH_DISMANTLE_LEVEL,
-  addArtisanXp,
+  addArtisanXpOnly,
   artisanLevel,
   artisanXpForNextLevel,
   artisanXpIntoLevel,
@@ -245,7 +245,7 @@ export async function POST(req: Request) {
       parseGuildWorkshopMaterialInventory(charRaw.materials),
       plan.materials,
     );
-    const nextArtisan = addArtisanXp(
+    const nextArtisan = addArtisanXpOnly(
       currentArtisan,
       "blacksmith",
       plan.artisanXp,

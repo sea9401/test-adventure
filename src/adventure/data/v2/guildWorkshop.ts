@@ -107,6 +107,7 @@ export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 3;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
 export const GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT = 50;
+export const GUILD_WORKSHOP_DISMANTLE_MAX_ARTISAN_XP = 3;
 
 export const GUILD_WORKSHOP_BONUS_TIERS: {
   tier: number;
@@ -735,6 +736,15 @@ export function guildWorkshopDismantleMaterialForTier(
   return undefined;
 }
 
+export function guildWorkshopDismantleArtisanXpForTier(tierRaw: number): number {
+  const tier = Math.max(1, Math.floor(tierRaw));
+  if (tier < 4) return 0;
+  return Math.max(
+    1,
+    Math.min(GUILD_WORKSHOP_DISMANTLE_MAX_ARTISAN_XP, Math.floor(tier / 4)),
+  );
+}
+
 export function guildWorkshopDismantlePlan(
   item: V2Equipment,
   inst: Pick<V2EquipInstance, "craftQuality" | "craftedBy"> = {},
@@ -778,7 +788,7 @@ export function guildWorkshopDismantlePlan(
   }
   return {
     materials: { [materialId]: amount },
-    artisanXp: Math.max(2, Math.min(10, Math.floor(item.tier / 2))),
+    artisanXp: guildWorkshopDismantleArtisanXpForTier(item.tier),
   };
 }
 

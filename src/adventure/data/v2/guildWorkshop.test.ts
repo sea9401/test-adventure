@@ -4,6 +4,7 @@ import {
   addGuildWorkshopCraftStat,
   addGuildWorkshopMaterials,
   guildWorkshopBonusFromTotalCrafts,
+  guildWorkshopDismantleArtisanXpForTier,
   guildWorkshopDismantleMaterialForTier,
   guildWorkshopDismantlePlan,
   guildWorkshopQualityChancePct,
@@ -418,6 +419,16 @@ describe("guild workshop recipes", () => {
     );
   });
 
+  it("keeps dismantle artisan xp as a low auxiliary reward", () => {
+    expect(guildWorkshopDismantleArtisanXpForTier(3)).toBe(0);
+    expect(guildWorkshopDismantleArtisanXpForTier(4)).toBe(1);
+    expect(guildWorkshopDismantleArtisanXpForTier(7)).toBe(1);
+    expect(guildWorkshopDismantleArtisanXpForTier(8)).toBe(2);
+    expect(guildWorkshopDismantleArtisanXpForTier(11)).toBe(2);
+    expect(guildWorkshopDismantleArtisanXpForTier(12)).toBe(3);
+    expect(guildWorkshopDismantleArtisanXpForTier(20)).toBe(3);
+  });
+
   it("locks dismantle before blacksmith level 6", () => {
     const item = V2_EQUIPMENT.v2_greatsword;
     expect(guildWorkshopDismantlePlan(item, {}, 5)).toEqual({
@@ -449,7 +460,7 @@ describe("guild workshop recipes", () => {
       ),
     ).toMatchObject({
       materials: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
-      artisanXp: 2,
+      artisanXp: 1,
     });
   });
 
@@ -510,7 +521,7 @@ describe("guild workshop recipes", () => {
     expect(plan.materials).toEqual({
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 1,
     });
-    expect(plan.artisanXp).toBe(4);
+    expect(plan.artisanXp).toBe(2);
   });
 
   it("returns extra dismantle materials for craft-only quality masterworks", () => {
@@ -532,7 +543,7 @@ describe("guild workshop recipes", () => {
     expect(plan.materials).toEqual({
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
     });
-    expect(plan.artisanXp).toBe(4);
+    expect(plan.artisanXp).toBe(2);
   });
 
   it("adds dismantled materials into inventory", () => {

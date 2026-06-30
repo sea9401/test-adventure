@@ -18,6 +18,8 @@ export type InboxItem = {
   message: string | null;
   listingId: number | null;
   fromName: string | null;
+  recipientName: string | null;
+  direction?: "received" | "sent";
   createdAt: string;
   // 읽은(수령한) 시각. 미수령 우편은 null, 기록(history) 우편은 ISO 문자열.
   claimedAt?: string | null;
@@ -38,6 +40,13 @@ export async function fetchInbox(): Promise<InboxResponse> {
 export async function fetchInboxHistory(): Promise<InboxResponse> {
   const r = await fetch("/api/marketplace/inbox?history=1");
   if (!r.ok) throw new Error(`우편 기록 로드 실패 (${r.status})`);
+  return (await r.json()) as InboxResponse;
+}
+
+// 보낸 우편 기록 — 내가 발송한 쪽지/선물 최근분. claimedAt 으로 상대 확인 여부를 표시한다.
+export async function fetchInboxSent(): Promise<InboxResponse> {
+  const r = await fetch("/api/marketplace/inbox?sent=1");
+  if (!r.ok) throw new Error(`보낸 우편 기록 로드 실패 (${r.status})`);
   return (await r.json()) as InboxResponse;
 }
 

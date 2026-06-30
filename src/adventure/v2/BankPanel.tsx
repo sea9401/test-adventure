@@ -28,8 +28,7 @@ const BANK_ERROR_TEXT: Record<string, string> = {
 };
 
 export function BankPanel() {
-  const { gold, bankedGold, setGold, setBankedGold, coreLoopOn } =
-    useGameState();
+  const { gold, bankedGold, applyResourcePatch, coreLoopOn } = useGameState();
   // 코어루프 — 출금 폐지(입금만). 골드 소비 시 은행이 우선 쓰이므로 은행은 패배 세금 완충 + 자동 지갑.
   const depositOnly = coreLoopOn;
   const [amountText, setAmountText] = useState("");
@@ -66,8 +65,7 @@ export function BankPanel() {
         setMessage(BANK_ERROR_TEXT[j?.error ?? ""] ?? "알 수 없는 오류입니다");
         return;
       }
-      setGold(j.gold);
-      setBankedGold(j.bankedGold);
+      applyResourcePatch({ gold: j.gold, bankedGold: j.bankedGold });
       setAmountText("");
       setMessage(
         `${action === "deposit" ? "입금" : "출금"} ${j.moved.toLocaleString()}G 완료`,

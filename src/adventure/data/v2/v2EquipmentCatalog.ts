@@ -18,7 +18,7 @@ import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 //     다이얼=×2(베이스 ×2 baked). ※밴드 드랍 유니크는 이 감산 대상 아님(프리미엄, 자체 위력).
 //   - **계파 무기 noDrop 제거 (2026-06-07)** — 상점=T1만(#523) 후 계파 무기 T2/T3 10종이 비매+
 //     noDrop=획득불가였던 구멍 해소. 정규 드랍 풀 합류 → 8무기타입 균일("T1 스타터 + T2/T3 드랍").
-export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
+const V2_EQUIPMENT_BASE: Record<V2EquipmentId, V2Equipment> = {
   // ── 무기-힘 (위력 = 물리 공격력, 중간 무게, 옵션 없음) ──────────────────
   // 검은 물리 무기다. str 정체성은 훈련 분배.
   v2_iron_sword: {
@@ -2655,15 +2655,34 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
 export const WEAPON_POWER_SCALE = 0.8;
 export const ENDGAME_POWER_SCALE_FROM_TIER = 10;
 export const ENDGAME_POWER_SCALE = 0.9;
-for (const item of Object.values(V2_EQUIPMENT)) {
+
+function equipmentPowerScale(item: V2Equipment): number {
   let scale = 1;
-  if (item.slot === "weapon") {
-    scale *= WEAPON_POWER_SCALE;
-  }
+  if (item.slot === "weapon") scale *= WEAPON_POWER_SCALE;
   if (item.tier >= ENDGAME_POWER_SCALE_FROM_TIER) {
     scale *= ENDGAME_POWER_SCALE;
   }
-  if (scale !== 1) {
-    item.power = Math.max(1, Math.round(item.power * scale));
-  }
+  return scale;
 }
+
+function applyEquipmentCatalogScales(
+  catalog: Record<V2EquipmentId, V2Equipment>,
+): Record<V2EquipmentId, V2Equipment> {
+  return Object.fromEntries(
+    Object.entries(catalog).map(([id, item]) => {
+      const scale = equipmentPowerScale(item);
+      return [
+        id,
+        {
+          ...item,
+          power:
+            scale === 1
+              ? item.power
+              : Math.max(1, Math.round(item.power * scale)),
+        },
+      ];
+    }),
+  ) as Record<V2EquipmentId, V2Equipment>;
+}
+
+export const V2_EQUIPMENT = applyEquipmentCatalogScales(V2_EQUIPMENT_BASE);

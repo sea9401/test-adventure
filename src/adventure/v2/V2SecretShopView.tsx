@@ -27,7 +27,7 @@ export function V2SecretShopView({
   const {
     coreLoopOn,
     refreshGameState,
-    setBankedGold: syncCtxBanked,
+    applyResourcePatch,
   } = useGameState();
   const [stock, setStock] = useState<StockRow[] | null>(null);
   const [gold, setGold] = useState<number | null>(null);
@@ -54,11 +54,14 @@ export function V2SecretShopView({
       setStock(j.stock ?? []);
       setGold(j.gold ?? 0);
       setBankedGold(j.bankedGold ?? 0);
-      syncCtxBanked(j.bankedGold ?? 0);
+      applyResourcePatch({
+        gold: j.gold ?? 0,
+        bankedGold: j.bankedGold ?? 0,
+      });
     } catch {
       setDenied(true);
     }
-  }, [mapIid, syncCtxBanked]);
+  }, [mapIid, applyResourcePatch]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트/지도 변경 시 비밀상점 fetch
@@ -89,8 +92,12 @@ export function V2SecretShopView({
         if (typeof j.gold === "number") setGold(j.gold);
         if (typeof j.bankedGold === "number") {
           setBankedGold(j.bankedGold);
-          syncCtxBanked(j.bankedGold);
         }
+        applyResourcePatch({
+          gold: typeof j.gold === "number" ? j.gold : undefined,
+          bankedGold:
+            typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+        });
         await refresh();
         if (item.id === "stamina_potion" || item.id === "stamina_cap_tonic") {
           await refreshGameState();

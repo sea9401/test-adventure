@@ -738,7 +738,7 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
-  it("트리거별 한국어 한 줄 — 9 효과", () => {
+  it("트리거별 한국어 한 줄 — 11 효과", () => {
     expect(
       signatureLabel({
         trigger: "battle_start",
@@ -754,6 +754,9 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         damageTakenReductionPct: 25,
       }),
     ).toBe("체력 30% 이하일 때 받는 피해 −25%");
+    expect(
+      signatureLabel({ trigger: "on_heal", label: "묵주", healToShieldPct: 25 }),
+    ).toBe("회복 시 회복량의 25% 보호막");
     expect(
       signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
     ).toBe("3타마다 추가타 1회");
@@ -793,6 +796,13 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         mpRefundPctOfCost: 25,
       }),
     ).toBe("스킬 사용 시 소모 MP의 25% 환급");
+    expect(
+      signatureLabel({
+        trigger: "status_block_once",
+        label: "공허왕관",
+        statusBlockOnce: true,
+      }),
+    ).toBe("전투당 1회 상태이상 무효");
   });
 
   it("세트/단품 카탈로그 시그니처 전부 비어있지 않은 표기", () => {

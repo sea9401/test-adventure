@@ -15,9 +15,11 @@ import {
 } from "./combatShared";
 import {
   lowHpDamageReductionPct,
+  healToShield,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
+  statusBlockOnce,
 } from "./signatureEffects";
 import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
 import {
@@ -516,11 +518,15 @@ export function resolveEnemyPhase(
         ? skill.perHit * 2
         : skill.perHit
       : 0;
+  const sigStatusBlock = statusBlockOnce(player.equipSignatures);
+  const statusBlockChill =
+    chillAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
+  const effectiveChillAdd = statusBlockChill ? 0 : chillAdd;
   // maxStacks 지정 시 상한 클램프 — 무한 누적 폭주 방지.
   const chillStacksNext =
     skill?.kind === "chill" && skill.maxStacks !== undefined
-      ? Math.min(skill.maxStacks, state.stacks.chillStacks + chillAdd)
-      : state.stacks.chillStacks + chillAdd;
+      ? Math.min(skill.maxStacks, state.stacks.chillStacks + effectiveChillAdd)
+      : state.stacks.chillStacks + effectiveChillAdd;
   // 격노 — 적 HP 가 maxHp×hpFraction 미만으로 떨어지는 순간 1회 발동, ATK +atkBonus (전투 종료까지 유지).
   const enrageReady =
     skill?.kind === "enrage" &&
@@ -679,7 +685,14 @@ export function resolveEnemyPhase(
     bloodfeastHeal > 0
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
       : playerHpAfterDmg;
+  const bloodfeastActualHeal = playerHp - playerHpAfterDmg;
+  const sigHealShield = healToShield(
+    player.equipSignatures,
+    bloodfeastActualHeal,
+  );
+  const nextPlayerShield = newShield + (sigHealShield?.amount ?? 0);
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
+  const statusBlockUsed = state.flags.statusBlockUsed || statusBlockChill;
   // 강체 (금강 시그니처) + 장비 on_hit_taken — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적
   // (상한 = 기본 DEF). 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
   const sigDefGain = onHitTakenDefGain(player.equipSignatures);
@@ -699,6 +712,12 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[${skill.name}] ${state.enemy.name}이(가) 격앙되어 공격력이 +${skill.atkBonus}!`,
+    });
+  }
+  if (statusBlockChill && sigStatusBlock) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
     });
   }
   if (enduredApplied) {
@@ -744,6 +763,12 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[흡혈 갑옷] ${playerName}의 HP +${bloodfeastHeal}`,
+    });
+  }
+  if (sigHealShield) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigHealShield.label}] 보호막 +${sigHealShield.amount}`,
     });
   }
   if (sigDefGain && braceDefDelta > 0) {
@@ -849,6 +874,7 @@ export function resolveEnemyPhase(
         ...state.flags,
         enduranceTriggered,
         enrageTriggered,
+        statusBlockUsed,
       },
       buffs: {
         ...state.buffs,
@@ -856,7 +882,7 @@ export function resolveEnemyPhase(
       },
       stacks: {
         ...state.stacks,
-        playerShield: newShield,
+        playerShield: nextPlayerShield,
         chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
         braceDefBonus: nextBraceDefBonus,
@@ -883,6 +909,7 @@ export function resolveEnemyPhase(
         ...state.flags,
         enduranceTriggered,
         enrageTriggered,
+        statusBlockUsed,
       },
       buffs: {
         ...state.buffs,
@@ -890,7 +917,7 @@ export function resolveEnemyPhase(
       },
       stacks: {
         ...state.stacks,
-        playerShield: newShield,
+        playerShield: nextPlayerShield,
         chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
         braceDefBonus: nextBraceDefBonus,
@@ -915,6 +942,7 @@ export function resolveEnemyPhase(
       ...state.flags,
       enduranceTriggered,
       enrageTriggered,
+      statusBlockUsed,
     },
     buffs: {
       ...state.buffs,
@@ -922,7 +950,7 @@ export function resolveEnemyPhase(
     },
     stacks: {
       ...state.stacks,
-      playerShield: newShield,
+      playerShield: nextPlayerShield,
       chillStacks: chillStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
       braceDefBonus: nextBraceDefBonus,

@@ -452,17 +452,20 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(전투시작/저체력/회피/크리/피격/스킬시전/N타마다). docs/v2-signature-uniques-plan.md §10.
+//   트리거가 있다(전투시작/저체력/회복/회피/크리/피격/스킬시전/상태방어/N타마다).
+//   docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
 //   미장착(undefined)=엔진 훅 미발화 → 골든 byte-identical.
 export type SignatureTrigger =
   | "battle_start"
   | "low_hp"
+  | "on_heal"
   | "on_dodge"
   | "on_crit"
   | "on_hit_taken"
   | "on_skill_cast"
+  | "status_block_once"
   | "every_n_hits";
 export type SignatureEffect = {
   trigger: SignatureTrigger;
@@ -488,6 +491,10 @@ export type SignatureEffect = {
   battleStartShieldPctMaxHp?: number;
   /** on_skill_cast: 실제로 낸 스킬 MP 비용의 이 % 만큼 환급. */
   mpRefundPctOfCost?: number;
+  /** on_heal: 실제 HP 회복량의 이 % 만큼 보호막 생성. */
+  healToShieldPct?: number;
+  /** status_block_once: 전투당 1회 DoT/한기 등 상태이상 부여를 막는다. */
+  statusBlockOnce?: boolean;
   /** every_n_hits: 이 횟수마다 1회 추가타. */
   everyNHits?: number;
 };
@@ -499,6 +506,8 @@ export function signatureLabel(sig: SignatureEffect): string {
       return `전투 시작 시 최대 HP의 ${sig.battleStartShieldPctMaxHp ?? 0}% 보호막`;
     case "low_hp":
       return `체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
+    case "on_heal":
+      return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
     case "on_dodge":
       if (sig.healPct) return `회피 시 HP +${sig.healPct}% 회복`;
       if (sig.spdBuffPct)
@@ -515,6 +524,8 @@ export function signatureLabel(sig: SignatureEffect): string {
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
     case "on_skill_cast":
       return `스킬 사용 시 소모 MP의 ${sig.mpRefundPctOfCost ?? 0}% 환급`;
+    case "status_block_once":
+      return "전투당 1회 상태이상 무효";
     case "every_n_hits":
       return `${sig.everyNHits ?? 0}타마다 추가타 1회`;
   }

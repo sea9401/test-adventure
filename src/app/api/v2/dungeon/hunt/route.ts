@@ -3,10 +3,8 @@ import { db } from "@/db";
 import { guilds, outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
-import {
-  derivePlayerCombatV2,
-  v2LevelGrowthHpMp,
-} from "@/lib/server/derivePlayerCombatV2";
+import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
@@ -27,10 +25,8 @@ import {
   addCumLevel,
   addJobCumLevel,
   setGrown,
-  emptyProficiency,
   effectiveLevelCap,
   proficiencyPerKillAtDepth,
-  type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
   V2_JOB_CATALOG,
@@ -43,16 +39,13 @@ import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   elementDamageMult,
   elementMatchup,
-  parseV2Element,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
   type ElementMatchup,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
-  emptyV2SkillsState,
   equippedProfPerKillBonus,
-  parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
@@ -112,8 +105,6 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
-import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import {
   insertFeedEntry,
   resolveUserDisplayName,
@@ -440,39 +431,13 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   //   skills→proficiency. 모든 라우트가 character.v2 를 가장 먼저 잠그므로 같은 유저 동시 tx 는
   //   character.v2 에서 직렬화 → 이후 같은-유저 키 락 순서는 데드락과 무관(dev/admin grant 도
   //   이미 proficiency→inventory 순이라 이 순서가 외려 더 일관).
-  const skillsRaw = await lockSaveForUpdate(
+  const preparedActor = await prepareV2BattleActor({
     tx,
     userId,
-    "skills.v2",
-    emptyV2SkillsState() as unknown as Record<string, unknown>,
-  );
-  const proficiencyRaw = await lockSaveForUpdate<V2ProficiencyState>(
-    tx,
-    userId,
-    "proficiency.v2",
-    emptyProficiency(),
-  );
-  // 코어루프 — 전투 직전 로드아웃 sanitize(SP 예산/직업고정 강제). flag off=원본 그대로(추가 작업 0).
-  //   reconcile 는 state 로드마다 영속 정리하지만, state 없이 곧장 사냥 오는 경로도 막는다(전투 입력 한정).
-  const v2SkillsParsed = parseV2SkillsState(skillsRaw);
-  const codexBonus = V2_CORE_LOOP_V2
-    ? await readCodexSpBonus(tx, userId)
-    : null;
-  const v2Skills = V2_CORE_LOOP_V2
-    ? sanitizeCombatLoadout(
-        v2SkillsParsed,
-        charSave,
-        proficiencyRaw,
-        codexBonus?.total ?? 0,
-      )
-    : v2SkillsParsed;
-  const player = await derivePlayerCombatV2(userId, tx, {
-    character: charSave,
+    charSave,
     equipmentSave,
-    proficiencyRaw,
-    skillsRaw,
   });
-  if (!player) {
+  if (!preparedActor) {
     return {
       ok: false as const,
       status: 400,
@@ -483,18 +448,18 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       },
     };
   }
+  const {
+    player,
+    skills: v2Skills,
+    proficiencyRaw,
+    playerElement,
+    basicAttackElement,
+  } = preparedActor;
 
   // PR-1/5b 속성 상성 — 양방향 데미지 ±%.
   //   캐릭 속성(playerElement) = 방어(피격) 속성 + 스킬 기본 속성.
   //   평타/공격 속성(basicAttackElement) = 무기 속성 ?? 캐릭 속성 (PR-5b 무기 속성 우선).
   //   atk 엔 basicAttackElement 를 baked, 스킬은 combatShared 가 스킬속성으로 재정규화.
-  const playerElement = parseV2Element(
-    (charSave as { element?: unknown }).element,
-  );
-  const basicAttackElement: V2Element =
-    player.weaponElement !== "neutral"
-      ? player.weaponElement
-      : playerElement;
 
   // 적 — 깊이 풀에서 랜덤 픽 후 깊이 스케일(이름·초상화는 사냥터 고유 값으로 덮어씀).
   //   spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.

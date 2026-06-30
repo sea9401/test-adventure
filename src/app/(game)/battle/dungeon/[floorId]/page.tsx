@@ -28,7 +28,6 @@ export default function DungeonFloorPage() {
     viewerExpToNext,
     playerSubtitle,
     viewerProficiency,
-    setViewerProficiency,
     stamina,
     setStamina,
     hpCharges,
@@ -41,10 +40,9 @@ export default function DungeonFloorPage() {
     frontierDepth,
     setFrontierDepth,
     refreshGameState,
+    applyResourcePatch,
     combatCooldown,
     setCombatCooldown,
-    setAtRiskGold,
-    setGold,
     offlineHunt,
   } = useGameState();
 
@@ -96,9 +94,11 @@ export default function DungeonFloorPage() {
       rareMapIid={rareMapIid}
       combatCooldown={combatCooldown}
       setCombatCooldown={setCombatCooldown}
-      setAtRiskGold={setAtRiskGold}
-      onGoldChange={setGold}
-      onProficiencyChange={setViewerProficiency}
+      setAtRiskGold={(n) => applyResourcePatch({ atRiskGold: n })}
+      onGoldChange={(n) => applyResourcePatch({ gold: n })}
+      onProficiencyChange={(n) =>
+        applyResourcePatch({ viewerProficiency: n })
+      }
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

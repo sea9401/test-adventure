@@ -5,10 +5,12 @@
 //   - grantTitleIfMissingInTx(tx, userId, titleId, obtainedAt) — 호출자가 잡은 트랜잭션 안에서.
 //     도전 모드/일반 탑 apply.ts 처럼 이미 tx 안에 있는 곳에서 사용.
 
-import { sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { TITLES } from "@/adventure/data/titles";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
+import { savesKv, v2Notifications } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
+import { NOTIF_MAX_PER_USER } from "@/lib/v2-notification-config";
 
 type AdventureLogShape = {
   titles?: Record<string, { obtainedAt: number }>;
@@ -49,7 +51,40 @@ export async function grantTitleIfMissingInTx(
     titles: { ...titles, [titleId]: { obtainedAt } },
   };
   await upsertSave(tx, userId, "adventure-log.v2", next);
+  await insertTitleUnlockedNotificationInTx(tx, userId, titleId);
   return true;
+}
+
+async function insertTitleUnlockedNotificationInTx(
+  tx: DbExecutor,
+  userId: string,
+  titleId: string,
+): Promise<void> {
+  const title = TITLES[titleId];
+  await tx.insert(v2Notifications).values({
+    userId,
+    type: "title_unlocked",
+    payload: {
+      titleId,
+      titleName: title?.name ?? titleId,
+      ...(title?.hidden ? { hidden: true } : {}),
+    },
+  });
+
+  const [cut] = await tx
+    .select({ id: v2Notifications.id })
+    .from(v2Notifications)
+    .where(eq(v2Notifications.userId, userId))
+    .orderBy(desc(v2Notifications.id))
+    .offset(NOTIF_MAX_PER_USER - 1)
+    .limit(1);
+  if (cut) {
+    await tx
+      .delete(v2Notifications)
+      .where(
+        and(eq(v2Notifications.userId, userId), lt(v2Notifications.id, cut.id)),
+      );
+  }
 }
 
 export async function grantTitleIfMissing(

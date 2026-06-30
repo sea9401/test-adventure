@@ -5,7 +5,9 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   isIntruderActive,
+  isTileIntruderPresent,
   parseLastHuntedOutpost,
+  tileIntruderEnteredAt,
 } from "@/adventure/data/v2/intruderTracking";
 import { RAID_MIN_TILE_STAY_MS } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
@@ -127,11 +129,11 @@ export async function GET(req: Request) {
     const last = parseLastHuntedOutpost(v.lastHuntedOutpost);
     const tileIntruder =
       tilePos != null &&
-      v.tilePos?.col === tilePos.col &&
-      v.tilePos?.row === tilePos.row &&
-      typeof v.tilePos.at === "number";
+      isTileIntruderPresent(v.tilePos, tilePos.col, tilePos.row);
     if (!tileIntruder && !isIntruderActive(last, outpostId, now)) continue;
-    const huntedAt = tileIntruder ? (v.tilePos!.at as number) : last!.at;
+    const huntedAt = tileIntruder
+      ? tileIntruderEnteredAt(v.tilePos, now)
+      : last!.at;
     const stayMs = tileIntruder ? Math.max(0, now - huntedAt) : 0;
     const warVigor = parseWarVigor(v.warVigor);
     candidateUserIds.push(row.userId);

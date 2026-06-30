@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   INTRUDER_TTL_MS,
   isIntruderActive,
+  isTileIntruderPresent,
   parseEjectedFrom,
   parseLastHuntedOutpost,
+  tileIntruderEnteredAt,
 } from "./intruderTracking";
 
 describe("parseLastHuntedOutpost", () => {
@@ -72,5 +74,27 @@ describe("isIntruderActive", () => {
         now,
       ),
     ).toBe(false);
+  });
+});
+
+describe("tile intruder presence", () => {
+  it("좌표가 같으면 at 누락 저장값도 침입자로 본다", () => {
+    expect(isTileIntruderPresent({ col: 3, row: 4 }, 3, 4)).toBe(true);
+  });
+
+  it("좌표가 다르면 침입자가 아니다", () => {
+    expect(isTileIntruderPresent({ col: 3, row: 4, at: 1000 }, 3, 5)).toBe(
+      false,
+    );
+  });
+
+  it("체류 시작 시각은 정상 at 우선, 없거나 비정상이면 fallback", () => {
+    expect(tileIntruderEnteredAt({ col: 3, row: 4, at: 1000 }, 5000)).toBe(
+      1000,
+    );
+    expect(tileIntruderEnteredAt({ col: 3, row: 4 }, 5000)).toBe(5000);
+    expect(tileIntruderEnteredAt({ col: 3, row: 4, at: NaN }, 5000)).toBe(
+      5000,
+    );
   });
 });

@@ -57,7 +57,7 @@ function resetLabel(at: number, nowMs: number): string {
 
 function rewardText(reward: QuestReward): string {
   const parts: string[] = [];
-  if (reward.gold) parts.push(`${reward.gold.toLocaleString()} 골드`);
+  if (reward.gold) parts.push(`${reward.gold.toLocaleString()} 골드(은행 입금)`);
   if (reward.equip) {
     parts.push(V2_EQUIPMENT[reward.equip]?.name ?? reward.equip);
   }

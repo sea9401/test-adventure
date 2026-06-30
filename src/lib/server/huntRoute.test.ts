@@ -328,6 +328,35 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.error).toBe("out_of_stamina");
   });
 
+  it("저체력이어도 HP 충전량이 있으면 전투 전 자동 회복 후 사냥한다", async () => {
+    store.set("character.v2", {
+      ...(store.get("character.v2") as object),
+      hp: 0,
+      hpRegenSince: Date.now(),
+    });
+    store.set("inventory.v2", { hpCharges: 999_999, mpCharges: 0 });
+
+    const res = await POST(huntReq({ floor: 1 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      result: {
+        hpBefore: number;
+        hpAfter: number;
+        hpCharges: number;
+        maxHp: number;
+      };
+    };
+    expect(json.ok).toBe(true);
+    expect(json.result.hpBefore).toBeGreaterThan(0);
+    expect(json.result.hpBefore).toBe(json.result.maxHp);
+    expect(json.result.hpAfter).toBeGreaterThan(0);
+    expect(json.result.hpCharges).toBeLessThan(999_999);
+
+    const inv = store.get("inventory.v2") as { hpCharges: number };
+    expect(inv.hpCharges).toBe(json.result.hpCharges);
+  });
+
   it("깊이 잠금 — frontierDepth+1 초과 깊이는 403", async () => {
     // frontierDepth 2 → 최대 진입 3. depth 5 는 잠김.
     const res = await POST(huntReq({ floor: 5 }));

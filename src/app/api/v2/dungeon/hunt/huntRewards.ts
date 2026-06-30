@@ -39,7 +39,7 @@ export function applyChargeRestore(params: {
   let { afterHp, afterMp, hpCharges, mpCharges } = params;
   const { maxHp, maxMp } = params;
   // HP 부족분 만큼 hpCharges 차감.
-  if (afterHp > 0 && afterHp < maxHp && hpCharges > 0) {
+  if (afterHp < maxHp && hpCharges > 0) {
     const need = maxHp - afterHp;
     const restore = Math.min(need, hpCharges);
     afterHp += restore;

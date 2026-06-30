@@ -576,9 +576,29 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     hpBefore,
     now,
   );
+
+  const invSave = await lockSaveForUpdate<{
+    hpCharges?: number;
+    mpCharges?: number;
+    [k: string]: unknown;
+  }>(tx, userId, "inventory.v2", {});
+  let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
+  let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
+
+  let startPlayerHp = regenResult.hp;
+  let usedPreBattleHpCharge = false;
+  if (!canHuntWithHp(startPlayerHp, player.maxHp) && hpCharges > 0) {
+    const restore = Math.min(player.maxHp - startPlayerHp, hpCharges);
+    if (restore > 0) {
+      startPlayerHp += restore;
+      hpCharges -= restore;
+      usedPreBattleHpCharge = true;
+    }
+  }
+
   const playerForBattle = {
     ...player.player,
-    hp: regenResult.hp,
+    hp: startPlayerHp,
     // MP 실자원화 — 보존된 MP 로 전투 시작(derive 가 character.v2.mp 시드). 전투 후 mpCharges 가
     // 부족분을 채우므로 충전약이 남는 한 사실상 풀로 시작하고, 떨어지면 줄어 마법 위력이 빠진다.
     mp: player.player.mp,
@@ -595,7 +615,19 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 체력 부족(최대치 5% 미만) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로
   // 회복 대기. 0 에서 시간 재생이 0→1 을 금방 넘겨 doomed 전투가 새던 문제를 안정적으로 차단.
   // 시간 경과(또는 치료소)로 회복되면 다시 사냥 가능. 일괄사냥의 death-stop 가드와 같은 의도.
-  if (!canHuntWithHp(regenResult.hp, player.maxHp)) {
+  if (!canHuntWithHp(startPlayerHp, player.maxHp)) {
+    if (usedPreBattleHpCharge) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        hp: startPlayerHp,
+        hpRegenSince: now,
+      });
+      await upsertSave(tx, userId, "inventory.v2", {
+        ...invSave,
+        hpCharges,
+        mpCharges,
+      });
+    }
     return {
       ok: false as const,
       status: 409,
@@ -742,14 +774,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     0,
     Math.min(maxMp, battleResult.finalState.playerMp),
   );
-
-  const invSave = await lockSaveForUpdate<{
-    hpCharges?: number;
-    mpCharges?: number;
-    [k: string]: unknown;
-  }>(tx, userId, "inventory.v2", {});
-  let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
-  let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
 
   // 충전식 회복약 소모 — 전투 후 HP/MP 부족분을 보유 충전량으로 채운다(순수 헬퍼·huntRewards).
   ({ afterHp, afterMp, hpCharges, mpCharges } = applyChargeRestore({
@@ -1075,7 +1099,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         hpGain, // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
         mpGain, // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
         turns: battleResult.turns,
-        hpBefore: regenResult.hp,
+        hpBefore: startPlayerHp,
         hpAfter: afterHp,
         maxHp: player.maxHp,
         mpAfter: afterMp,
@@ -1104,7 +1128,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
           ? toReplayPayload(battleResult.finalState, 200)
           : toReplayPayloadLite(battleResult.finalState),
         // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
-        startPlayerHp: regenResult.hp,
+        startPlayerHp,
         // 이 사냥의 시작 EXP/maxExp — replay UI 의 EXP 바 표시용
         // (사냥 후 변동은 결과 카드로 분리).
         expForBar: curExp,

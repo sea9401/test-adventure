@@ -104,8 +104,12 @@ export function tryConsume(
 // === 다음 회복까지 남은 시간 (UI 카운트다운) =========================
 
 // 다음 1포인트 회복까지 남은 ms. 만피거나 lastUpdatedAt 이 미래면 0.
-export function msUntilNextRegen(state: StaminaState, nowMs: number): number {
-  if (state.current >= MAX_STAMINA) return 0;
+export function msUntilNextRegen(
+  state: StaminaState,
+  nowMs: number,
+  maxStamina: number = MAX_STAMINA,
+): number {
+  if (state.current >= maxStamina) return 0;
   const regenMs = REGEN_SECONDS_PER_POINT * 1000;
   const elapsedMs = Math.max(0, nowMs - state.lastUpdatedAt);
   const remainder = elapsedMs % regenMs;

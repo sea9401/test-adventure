@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   MAX_STAMINA,
+  REGEN_SECONDS_PER_POINT,
   applyRegen,
+  msUntilNextRegen,
   staminaOverchargeCap,
   type StaminaState,
 } from "./stamina";
@@ -37,6 +39,14 @@ export function StaminaBar({
   const display = applyRegen(state, now, max);
   const pct = Math.max(0, Math.min(100, (display.current / max) * 100));
   const overcharged = display.current > max; // 포션 초과 비축 상태
+  const nextRegenMs = msUntilNextRegen(display, now, max);
+  const fullRegenMs =
+    display.current >= max
+      ? 0
+      : nextRegenMs +
+        Math.max(0, max - display.current - 1) *
+          REGEN_SECONDS_PER_POINT *
+          1000;
 
   const showPotionButton = potions > 0 && !!onUsePotion;
 
@@ -77,6 +87,16 @@ export function StaminaBar({
           </button>
         )}
       </div>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span>1 회복 {REGEN_SECONDS_PER_POINT}초</span>
+        <span className="tabular-nums">
+          {overcharged
+            ? "초과 비축 중"
+            : display.current >= max
+              ? "회복 완료"
+              : `다음 +1 ${formatRegenTime(nextRegenMs)} · 만피 ${formatRegenTime(fullRegenMs)}`}
+        </span>
+      </div>
       {modalOpen && onUsePotion && (
         <StaminaPotionModal
           potions={potions}
@@ -88,6 +108,17 @@ export function StaminaBar({
       )}
     </div>
   );
+}
+
+function formatRegenTime(ms: number): string {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  if (seconds <= 0) return "곧";
+  if (seconds < 60) return `${seconds}초`;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes > 0 ? `${hours}시간 ${restMinutes}분` : `${hours}시간`;
 }
 
 // 스태미나 포션 사용 모달 — 보유 수·포션당 회복·현재 스태미나 + 개수 스테퍼.

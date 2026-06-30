@@ -51,6 +51,14 @@ export function rollItemStats(
   return roll;
 }
 
+export function catalogItemStats(item: V2Equipment): V2EquipRoll {
+  return {
+    power: item.power,
+    weight: item.weight,
+    ...(item.options ? { options: { ...item.options } } : {}),
+  };
+}
+
 // 한 스탯의 굴림 범위 [lo, hi] — rollStat 과 동일. 변동 없으면(spread 0) null.
 function statRange(
   value: number,
@@ -128,8 +136,11 @@ export function reforgeGoldCost(item: V2Equipment): number {
 export function canReforge(
   item: V2Equipment,
   roll: V2EquipRoll | undefined,
+  inst?: Pick<V2EquipInstance, "craftedBy">,
 ): boolean {
-  return roll != null && rollQualityPct(item, roll) !== null;
+  const effectiveRoll =
+    roll ?? (item.craftOnly || inst?.craftedBy ? catalogItemStats(item) : undefined);
+  return effectiveRoll != null && rollQualityPct(item, effectiveRoll) !== null;
 }
 
 // ── 재련석(Reforge Stone) — 재련 소모 재료 2종 ─────────────────────────────

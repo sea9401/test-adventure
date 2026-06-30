@@ -237,6 +237,21 @@ describe("canReforge", () => {
   it("굴림 없으면(상점 정가템) → false", () => {
     expect(canReforge(bow, undefined)).toBe(false);
   });
+
+  it("기존 제작품이 굴림 없이 저장됐어도 카탈로그 기준에서 재련 가능", () => {
+    const crafted = V2_EQUIPMENT.v2_crafted_aurora_crown;
+    expect(canReforge(crafted, undefined)).toBe(true);
+    expect(
+      canReforge(bow, undefined, {
+        craftedBy: {
+          userId: "u1",
+          profession: "blacksmith",
+          level: 9,
+          craftedAt: "2026-06-30T00:00:00.000Z",
+        },
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("selectBulkSell", () => {

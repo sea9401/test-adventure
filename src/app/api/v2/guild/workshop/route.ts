@@ -56,6 +56,7 @@ import {
   genEquipIid,
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -418,6 +419,7 @@ export async function POST(req: Request) {
     const craftedItem = {
       iid: genEquipIid(),
       id: recipe.equipmentId,
+      roll: rollItemStats(V2_EQUIPMENT[recipe.equipmentId], Math.random),
       ...(craftedEnhance ? { enhance: craftedEnhance } : {}),
       craftedBy: {
         userId,

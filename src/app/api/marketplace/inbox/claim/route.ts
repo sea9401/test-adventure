@@ -32,6 +32,7 @@ import {
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { randomUUID } from "node:crypto";
 
@@ -305,7 +306,7 @@ export async function POST(req: Request) {
       }
 
       // V2 장비 갱신 — equipment.v2.owned 에 개체(iid)로 추가. V2 장비는 스택이 아니라
-      // 개체 모델이라 count 만큼 개별 개체를 발급한다(roll 없는 기본 개체 = 지급 굴림 없음).
+      // 개체 모델이라 count 만큼 굴림이 붙은 개별 개체를 발급한다.
       // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
       if (v2EquipToAdd.length > 0) {
         const eqRows = await tx
@@ -320,7 +321,11 @@ export async function POST(req: Request) {
         const nextOwned: V2EquipInstance[] = [...owned];
         for (const e of v2EquipToAdd) {
           for (let i = 0; i < e.count; i++) {
-            nextOwned.push({ iid: genEquipIid(), id: e.id });
+            nextOwned.push({
+              iid: genEquipIid(),
+              id: e.id,
+              roll: rollItemStats(V2_EQUIPMENT[e.id], Math.random),
+            });
           }
           equipV2Added.push({ id: e.id, count: e.count });
         }

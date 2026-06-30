@@ -8,6 +8,7 @@ import {
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   REFORGE_STONE_MATERIAL_ID,
+  catalogItemStats,
   type ReforgeStoneId,
   canReforge,
   reforgeGoldCost,
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
       };
     }
     // 굴림 없는 상점 정가템·변동 0 아이템은 재련 불가(골드만 날림 방지).
-    if (!canReforge(item, inst.roll)) {
+    if (!canReforge(item, inst.roll, inst)) {
       return {
         status: 400,
         body: { ok: false as const, error: "not_reforgeable" as const },
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
     else delete mats[stoneId];
 
     // 굴림 재생성 — 드랍과 동일 분포. 일반=1회·상급=max-of-N(품질 최고 채택). 서버 권위. 항상 적용.
-    const oldRoll = inst.roll;
+    const oldRoll = inst.roll ?? catalogItemStats(item);
     const oldQuality = rollQualityPct(item, oldRoll);
     const newRoll = rollItemStatsBest(item, Math.random, reforgeRollCount(stone));
     const newQuality = rollQualityPct(item, newRoll);

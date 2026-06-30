@@ -8,11 +8,12 @@ import {
   type EquipmentSave,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 
 // POST /api/v2/dev/grant-equipment — 테스트용 보유 추가.
 //
 // 본문: { equipmentId: V2EquipmentId }
-// 이미 보유 중이면 no-op. 정식 드랍 시스템 전 dev 단계에서 장착 UI 검증용.
+// 매 호출마다 굴림이 붙은 새 개체를 지급한다. 정식 드랍 시스템 전 dev 단계에서 장착 UI 검증용.
 // 라이브 prod 에선 IS_STAGING 게이트 — staging 외에서 호출 시 404.
 
 export async function POST(req: Request) {
@@ -53,11 +54,14 @@ export async function POST(req: Request) {
       {},
     );
     const { owned, equipped } = parseEquipmentSave(save);
-    if (owned.some((i) => i.id === equipmentId)) {
-      return { status: 200, body: { ok: true as const, owned, noOp: true } };
-    }
-    // 지급은 굴림 없음(기본값 고정) — roll 없는 개체.
-    const nextOwned = [...owned, { iid: genEquipIid(), id: equipmentId }];
+    const nextOwned = [
+      ...owned,
+      {
+        iid: genEquipIid(),
+        id: equipmentId,
+        roll: rollItemStats(V2_EQUIPMENT[equipmentId], Math.random),
+      },
+    ];
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped,

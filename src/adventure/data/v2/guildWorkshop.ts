@@ -756,6 +756,16 @@ export function guildWorkshopDismantlePlan(
   if ((inst.craftQuality?.level ?? 0) >= 2) amount += 1;
   if (inst.craftedBy?.masterwork === true) amount += 1;
   amount = Math.min(GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS, amount);
+  const sourceRecipe = Object.values(GUILD_WORKSHOP_RECIPES).find(
+    (recipe) => recipe.equipmentId === item.id,
+  );
+  if (sourceRecipe) {
+    const sourceMaterialCost = guildWorkshopRecipeMaterialCost(
+      sourceRecipe,
+      inst.craftedBy?.masterwork === true ? "masterwork" : "normal",
+    );
+    amount = Math.min(amount, Math.max(0, sourceMaterialCost[materialId] ?? 0));
+  }
 
   if (amount <= 0) {
     return { materials: {}, artisanXp: 0, blockedReason: "no_material" };

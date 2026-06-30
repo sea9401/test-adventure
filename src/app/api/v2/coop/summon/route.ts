@@ -168,7 +168,7 @@ export async function POST(req: Request) {
   if (summoned && visibility === "public") {
     await insertFeedEntry(userId, "coop_summon", { kind: kindId });
     await broadcastCoopNotice(
-      `${summonerName} 님이 「${kind.name}」을(를) 소환했다 — 모두 토벌에 참여할 수 있다! (전투 → 협동 보스)`,
+      `${summonerName} 님이 「${kind.name}」을(를) 소환했다`,
     );
   }
 

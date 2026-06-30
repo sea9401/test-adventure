@@ -8,19 +8,20 @@ export type SortKey =
   | "createdAt"
   | "lastSeenAt"
   | "level"
+  | "frontierDepth"
   | "battleCount"
-  | "battlesPerHour";
+  | "totalMastery"
+  | "currentMastery"
+  | "reincarnations"
+  | "spBudget"
+  | "fishCaught";
 
 export type SortDir = "asc" | "desc";
 
 export type EnrichedRow = AdminStatsRow & {
   hoursSinceJoin: number;
   hoursSinceLastSeen: number | null;
-  battlesPerHour: number;
 };
-
-// 진척 심사 — battlesPerHour 가 30 이상이면 "켜두고 자기" 강한 의심 (1전 평균 1~2분 가정).
-export const SUSPECT_BPH_THRESHOLD = 30;
 
 function hoursSince(iso: string | null | undefined): number | null {
   if (!iso) return null;
@@ -33,8 +34,13 @@ function sortValue(r: EnrichedRow, k: SortKey): number | null {
   if (k === "createdAt") return r.hoursSinceJoin;
   if (k === "lastSeenAt") return r.hoursSinceLastSeen;
   if (k === "level") return r.level ?? null;
+  if (k === "frontierDepth") return r.frontierDepth;
   if (k === "battleCount") return r.battleCount;
-  return r.battlesPerHour;
+  if (k === "totalMastery") return r.totalMastery;
+  if (k === "currentMastery") return r.currentMastery;
+  if (k === "reincarnations") return r.reincarnations;
+  if (k === "spBudget") return r.spBudget;
+  return r.fishCaught;
 }
 
 async function fetchStats(signal: AbortSignal): Promise<AdminStatsRow[]> {
@@ -51,18 +57,16 @@ export function useAdminStats() {
   );
   const rows = useMemo(() => data ?? [], [data]);
 
-  const [sortKey, setSortKey] = useState<SortKey>("battlesPerHour");
+  const [sortKey, setSortKey] = useState<SortKey>("frontierDepth");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [hideEmpty, setHideEmpty] = useState(true);
 
-  // 클라이언트에서 derive 컬럼 계산.
+  // 클라이언트에서 시간 표시용 컬럼 계산.
   const enriched = useMemo<EnrichedRow[]>(() => {
     return rows.map((r) => {
       const hoursSinceJoin = hoursSince(r.createdAt) ?? 0;
       const hoursSinceLastSeen = hoursSince(r.lastSeenAt);
-      const battlesPerHour =
-        hoursSinceJoin > 0 ? r.battleCount / hoursSinceJoin : 0;
-      return { ...r, hoursSinceJoin, hoursSinceLastSeen, battlesPerHour };
+      return { ...r, hoursSinceJoin, hoursSinceLastSeen };
     });
   }, [rows]);
 

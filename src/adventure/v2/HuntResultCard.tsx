@@ -144,18 +144,18 @@ export function HuntResultCard({
       className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
     >
       {result.rareMapDrop && (
-        <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+        <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
           🗺 「{RARE_MAP_KINDS[result.rareMapDrop].name}」 발견! — 인벤토리
           소모품에서 확인
         </div>
       )}
       {droppedUniq && (
-        <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
+        <div className="ui-reward-flash mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           ✨ 유니크 「{droppedUniq.name}」 획득!
         </div>
       )}
       {dropBannerText && (
-        <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+        <div className="ui-reward-flash mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
           {dropBannerText}
         </div>
       )}
@@ -238,7 +238,7 @@ export function HuntResultCard({
       </div>
 
       {result.levelsGained > 0 && (
-        <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
+        <div className="ui-reward-flash mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
             레벨 업! +{result.levelsGained}
           </span>
@@ -256,7 +256,7 @@ export function HuntResultCard({
       )}
 
       {(result.spMilestonesGained ?? 0) > 0 && (
-        <div className="mt-2 rounded-md border border-violet-300 bg-violet-50 px-2 py-1.5 text-center dark:border-violet-700 dark:bg-violet-950">
+        <div className="ui-reward-flash mt-2 rounded-md border border-violet-300 bg-violet-50 px-2 py-1.5 text-center dark:border-violet-700 dark:bg-violet-950">
           <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
             스킬포인트 +{result.spMilestonesGained} 획득!
           </span>

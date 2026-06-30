@@ -31,7 +31,9 @@ export function Card<T extends ElementType = "div">({
   ...rest
 }: CardProps<T>) {
   const Tag = (as ?? "div") as ElementType;
-  const cls = [SURFACE, PAD[padding], className].filter(Boolean).join(" ");
+  const cls = [SURFACE, "ui-game-card", PAD[padding], className]
+    .filter(Boolean)
+    .join(" ");
   return (
     <Tag className={cls} {...rest}>
       {children}

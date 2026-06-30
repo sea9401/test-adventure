@@ -228,7 +228,7 @@ export function V2CoopBossDetailView({
             type="button"
             disabled={busy || onCooldown || lowStamina}
             onClick={() => void attack()}
-            className="ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            className="ui-game-button ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
           >
             {busy
               ? "전투 중…"
@@ -254,7 +254,7 @@ export function V2CoopBossDetailView({
             type="button"
             disabled={busy}
             onClick={() => void claim()}
-            className="ui-quest-card is-claimable mx-auto min-h-11 w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="ui-game-button ui-quest-card is-claimable mx-auto min-h-11 w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {my.tier
               ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`
@@ -367,7 +367,7 @@ export function V2CoopBossDetailView({
 
       {lastReward &&
         (lastReward.spFruitCount > 0 || lastReward.uniqueId ? (
-          <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+          <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
               {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
             </p>

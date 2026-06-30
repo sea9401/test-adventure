@@ -5,6 +5,7 @@ import {
   bulletinLikes,
   bulletinPosts,
   bulletinViews,
+  guilds,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
@@ -19,6 +20,11 @@ import {
   USER_WRITABLE_CATEGORIES,
   type BulletinCategory,
 } from "@/lib/bulletin-config";
+import {
+  getViewerGuild,
+  visibleBulletinWhere,
+  type BulletinScope,
+} from "@/lib/server/bulletinAccess";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -31,8 +37,9 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const categoryParam = url.searchParams.get("category");
   const q = (url.searchParams.get("q") ?? "").trim();
+  const viewerGuild = await getViewerGuild(db, userId);
 
-  const filters: SQL[] = [];
+  const filters: SQL[] = [visibleBulletinWhere(viewerGuild?.guildId ?? null)];
   if (categoryParam && isBulletinCategory(categoryParam)) {
     filters.push(eq(bulletinPosts.category, categoryParam));
   }
@@ -67,9 +74,12 @@ export async function GET(req: Request) {
       content: bulletinPosts.content,
       createdAt: bulletinPosts.createdAt,
       updatedAt: bulletinPosts.updatedAt,
+      guildId: bulletinPosts.guildId,
+      guildName: guilds.name,
       mine: bulletinPosts.userId,
     })
     .from(bulletinPosts)
+    .leftJoin(guilds, eq(guilds.id, bulletinPosts.guildId))
     .where(where)
     .orderBy(desc(bulletinPosts.createdAt))
     .limit(BULLETIN_FETCH_LIMIT);
@@ -133,6 +143,8 @@ export async function GET(req: Request) {
     content: r.content,
     createdAt: r.createdAt.getTime(),
     updatedAt: r.updatedAt?.getTime() ?? null,
+    scope: r.guildId == null ? "public" : "guild",
+    guildName: r.guildId == null ? null : (r.guildName ?? viewerGuild?.guildName ?? null),
     mine: r.mine === userId,
     likeCount: likeCountMap.get(r.id) ?? 0,
     commentCount: commentCountMap.get(r.id) ?? 0,
@@ -149,7 +161,12 @@ export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
 
-  let body: { category?: unknown; title?: unknown; content?: unknown };
+  let body: {
+    category?: unknown;
+    title?: unknown;
+    content?: unknown;
+    scope?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -160,6 +177,7 @@ export async function POST(req: Request) {
     return new Response("invalid category", { status: 400 });
   }
   const category: BulletinCategory = body.category;
+  const scope: BulletinScope = body.scope === "guild" ? "guild" : "public";
 
   if (category === "notice") {
     const admin = await isCurrentUserAdmin();
@@ -193,6 +211,10 @@ export async function POST(req: Request) {
   const title = rawTitle;
 
   const { name, className } = await resolveActor(userId);
+  const viewerGuild = scope === "guild" ? await getViewerGuild(db, userId) : null;
+  if (scope === "guild" && viewerGuild == null) {
+    return new Response("not in guild", { status: 403 });
+  }
 
   // rate limit — 본인 마지막 글 시각 기준 X ms 이내면 차단.
   const since = new Date(Date.now() - BULLETIN_RATE_LIMIT_MS);
@@ -208,7 +230,15 @@ export async function POST(req: Request) {
 
   const [inserted] = await db
     .insert(bulletinPosts)
-    .values({ userId, name, className, category, title, content })
+    .values({
+      userId,
+      guildId: viewerGuild?.guildId ?? null,
+      name,
+      className,
+      category,
+      title,
+      content,
+    })
     .returning({
       id: bulletinPosts.id,
       createdAt: bulletinPosts.createdAt,
@@ -223,6 +253,8 @@ export async function POST(req: Request) {
     content,
     createdAt: inserted.createdAt.getTime(),
     updatedAt: null,
+    scope,
+    guildName: viewerGuild?.guildName ?? null,
     mine: true,
     likeCount: 0,
     commentCount: 0,

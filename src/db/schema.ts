@@ -129,6 +129,7 @@ export const savesKv = pgTable(
 );
 
 // 광장 게시판 글. 영구 보관 — cleanup cron 없음 (자동 삭제 정책 제거됨).
+// guildId NULL = 공개 글, 값 있음 = 해당 길드원만 볼 수 있는 길드 전용 글.
 // category — "notice" | "free" | "guide". 작성 시 BULLETIN_CATEGORIES 로 검증.
 //   - notice: admin 만 작성 가능 (서버에서 검증)
 //   - free/guide: 일반 유저도 작성 가능
@@ -140,6 +141,9 @@ export const bulletinPosts = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id").references(() => guilds.id, {
+      onDelete: "cascade",
+    }),
     name: text("name").notNull(),
     className: text("class_name").notNull(),
     category: text("category").notNull().default("free"),
@@ -155,6 +159,8 @@ export const bulletinPosts = pgTable(
     index("bulletin_posts_user_created_at_idx").on(t.userId, t.createdAt),
     // 카테고리 탭별 최신순 조회 — (category, createdAt DESC).
     index("bulletin_posts_category_created_at_idx").on(t.category, t.createdAt),
+    // 길드 전용 게시판 최신순 조회.
+    index("bulletin_posts_guild_created_at_idx").on(t.guildId, t.createdAt),
   ],
 );
 

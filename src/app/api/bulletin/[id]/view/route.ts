@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { bulletinPosts, bulletinViews } from "@/db/schema";
+import { bulletinViews } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { canAccessBulletinPost } from "@/lib/server/bulletinAccess";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -18,13 +19,10 @@ export async function POST(_req: Request, ctx: Ctx) {
     return new Response("invalid id", { status: 400 });
   }
 
-  // 글 존재 확인 — INSERT FK 에러 메시지가 클라에 새는 걸 막기 위해 명시적으로.
-  const [post] = await db
-    .select({ id: bulletinPosts.id })
-    .from(bulletinPosts)
-    .where(eq(bulletinPosts.id, postId))
-    .limit(1);
-  if (!post) return new Response("not found", { status: 404 });
+  // 글 존재 + 접근권 확인 — 길드 전용 글은 같은 길드원만 조회 가능.
+  if (!(await canAccessBulletinPost(db, postId, userId))) {
+    return new Response("not found", { status: 404 });
+  }
 
   await db
     .insert(bulletinViews)

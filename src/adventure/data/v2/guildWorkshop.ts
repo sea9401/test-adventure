@@ -713,6 +713,7 @@ export function addGuildWorkshopMaterials(
 
 export type GuildWorkshopDismantleBlockedReason =
   | "locked_level"
+  | "not_crafted"
   | "low_tier"
   | "no_material";
 
@@ -741,6 +742,9 @@ export function guildWorkshopDismantlePlan(
   const blacksmithLevel = Math.max(1, Math.floor(blacksmithLevelRaw));
   if (blacksmithLevel < BLACKSMITH_DISMANTLE_LEVEL) {
     return { materials: {}, artisanXp: 0, blockedReason: "locked_level" };
+  }
+  if (inst.craftedBy?.profession !== "blacksmith" && !item.craftOnly) {
+    return { materials: {}, artisanXp: 0, blockedReason: "not_crafted" };
   }
   const materialId = guildWorkshopDismantleMaterialForTier(item.tier);
   if (!materialId) {

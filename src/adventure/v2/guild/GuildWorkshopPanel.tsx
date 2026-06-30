@@ -240,6 +240,7 @@ const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   not_owned: "보유 중인 장비가 아닙니다.",
   equipped: "장착 중인 장비는 해체할 수 없습니다.",
   locked: "잠금 장비는 해체할 수 없습니다.",
+  not_crafted: "대장장이 제작품만 제작 재료로 해체할 수 있습니다.",
   low_tier: "T4 미만 장비는 제작 재료를 회수할 수 없습니다.",
   no_material: "회수할 제작 재료가 없습니다.",
 };
@@ -374,6 +375,8 @@ function dismantleBlockedText(reason?: string): string {
       return "장착 중";
     case "locked":
       return "잠금";
+    case "not_crafted":
+      return "제작품 아님";
     default:
       return "불가";
   }

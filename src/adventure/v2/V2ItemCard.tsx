@@ -23,6 +23,7 @@ import {
   type V2EquipmentId,
   type V2EquipOptions,
   type V2EquipRoll,
+  type V2EquipSlot,
   type V2EquipStatRow,
   type V2CraftedBy,
   type V2CraftQualityState,
@@ -48,6 +49,28 @@ export function rollPctClass(pct: number): string {
   return "text-zinc-500 dark:text-zinc-400";
 }
 
+type ItemNamePowerThresholds = readonly [
+  sky: number,
+  violet: number,
+  amber: number,
+  orange: number,
+  rose: number,
+  red: number,
+];
+
+// 장비명 색상표 — 무기 200/400/600/800/1000/1200 기준을 부위별 최대 위력 비율로 환산.
+const ITEM_NAME_POWER_THRESHOLDS: Record<
+  V2EquipSlot,
+  ItemNamePowerThresholds
+> = {
+  weapon: [200, 400, 600, 800, 1000, 1200],
+  armor: [70, 140, 210, 280, 350, 420],
+  gloves: [20, 40, 60, 80, 100, 120],
+  boots: [20, 40, 60, 80, 100, 120],
+  ring: [20, 40, 55, 75, 90, 110],
+  necklace: [20, 40, 60, 80, 100, 120],
+};
+
 // 장비명 색 → 현재 표시 위력 기준. 품질% 색은 QualityPctText 쪽에만 남긴다.
 // 시그니처 효과 장비는 위력대와 무관하게 무지개로 고정한다.
 export function itemNameClass(
@@ -62,12 +85,14 @@ export function itemNameClass(
     enhance,
     craftQuality,
   );
-  if (displayPower >= 1200) return "text-red-600 dark:text-red-400";
-  if (displayPower >= 1000) return "text-rose-600 dark:text-rose-400";
-  if (displayPower >= 800) return "text-orange-600 dark:text-orange-400";
-  if (displayPower >= 600) return "text-amber-600 dark:text-amber-400";
-  if (displayPower >= 400) return "text-violet-600 dark:text-violet-400";
-  if (displayPower >= 200) return "text-sky-600 dark:text-sky-400";
+  const [sky, violet, amber, orange, rose, red] =
+    ITEM_NAME_POWER_THRESHOLDS[item.slot];
+  if (displayPower >= red) return "text-red-600 dark:text-red-400";
+  if (displayPower >= rose) return "text-rose-600 dark:text-rose-400";
+  if (displayPower >= orange) return "text-orange-600 dark:text-orange-400";
+  if (displayPower >= amber) return "text-amber-600 dark:text-amber-400";
+  if (displayPower >= violet) return "text-violet-600 dark:text-violet-400";
+  if (displayPower >= sky) return "text-sky-600 dark:text-sky-400";
   return "text-zinc-900 dark:text-zinc-100";
 }
 

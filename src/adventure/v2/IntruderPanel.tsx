@@ -36,6 +36,8 @@ type EjectResult = {
   defenderHpAfter?: number;
   defenderMaxHp?: number;
   bountyGold?: number;
+  heldBountyGold?: number;
+  bankBountyGold?: number;
   exiledTo?: string;
   error?: string;
   requiredStamina?: number;
@@ -242,8 +244,18 @@ export function IntruderPanel({
                 ✓ {lastResult.attackerName} → {lastResult.defenderName} 토벌 성공 (
                 {lastResult.turns}턴)
                 {lastResult.bountyGold && lastResult.bountyGold > 0
-                  ? ` · 보유 골드 ${lastResult.bountyGold.toLocaleString()} 전액 압류`
+                  ? ` · 길드 금고로 ${lastResult.bountyGold.toLocaleString()}G 압류`
                   : " · 침입자 무일푼"}
+                {lastResult.heldBountyGold && lastResult.heldBountyGold > 0
+                  ? ` (보유 ${lastResult.heldBountyGold.toLocaleString()}G`
+                  : ""}
+                {lastResult.bankBountyGold && lastResult.bankBountyGold > 0
+                  ? `${lastResult.heldBountyGold && lastResult.heldBountyGold > 0 ? " + " : " ("}은행 ${lastResult.bankBountyGold.toLocaleString()}G`
+                  : ""}
+                {(lastResult.heldBountyGold && lastResult.heldBountyGold > 0) ||
+                (lastResult.bankBountyGold && lastResult.bankBountyGold > 0)
+                  ? ")"
+                  : ""}
                 {lastResult.exiledTo
                   ? ` · ${outpostDisplayName(lastResult.exiledTo)}로 추방`
                   : ""}

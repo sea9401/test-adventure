@@ -84,6 +84,8 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
     outpostId: string;
     byName: string;
     gold?: number;
+    heldGold?: number;
+    bankGold?: number;
     exiledTo?: string;
   };
   return (
@@ -94,8 +96,14 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       {p.gold && p.gold > 0 ? (
         <>
           {" "}
-          · 보유 골드{" "}
-          <span className="font-medium">{p.gold.toLocaleString()}</span> 압류
+          · <span className="font-medium">{p.gold.toLocaleString()}</span>G 압류
+          {p.heldGold || p.bankGold ? (
+            <>
+              {" "}
+              (보유 {(p.heldGold ?? 0).toLocaleString()}G
+              {p.bankGold ? ` + 은행 ${p.bankGold.toLocaleString()}G` : ""})
+            </>
+          ) : null}
         </>
       ) : null}
       {p.exiledTo ? (

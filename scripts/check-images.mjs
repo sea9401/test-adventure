@@ -13,6 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SRC = path.join(ROOT, "src");
 const IMAGES = path.join(ROOT, "public", "images");
+const FISH_DATA = path.join(SRC, "adventure", "data", "v2", "fish.ts");
 
 const STRICT = process.argv.includes("--strict");
 
@@ -70,6 +71,14 @@ async function collectRefs(files) {
         "$";
       templates.push({ raw, regex: new RegExp(pattern) });
     }
+  }
+  try {
+    const fishText = await fs.readFile(FISH_DATA, "utf8");
+    for (const m of fishText.matchAll(/\bid:\s*"([a-z0-9_]+)"/g)) {
+      literals.add(`/images/fish/${m[1]}.webp`);
+    }
+  } catch {
+    // fish.ts 가 없는 빌드 컨텍스트에서는 일반 이미지 참조 검사만 수행한다.
   }
   return { literals, templates };
 }

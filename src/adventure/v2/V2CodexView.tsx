@@ -58,6 +58,7 @@ import {
 import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import { FishIcon } from "@/adventure/v2/FishIcon";
 import {
   FISH,
   FISH_IDS,
@@ -1086,7 +1087,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            🐟 {found ? fish.name : "???"}
+                            <FishIcon
+                              fishId={id}
+                              name={found ? fish.name : undefined}
+                              decorative={!found}
+                              className={`h-6 w-6 ${found ? "" : "grayscale"}`}
+                            />
+                            {found ? fish.name : "???"}
                             {found ? (
                               <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                                 등재

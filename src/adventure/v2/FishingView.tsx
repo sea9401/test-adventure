@@ -11,6 +11,7 @@ import {
 import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
 import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
 import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
+import { FishIcon } from "@/adventure/v2/FishIcon";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -196,12 +197,12 @@ function reactionGrade(ms: number): { label: string; cls: string } {
 }
 
 // 티어별 "잡는 순간" 강조 — 희귀·대물일수록 크게 등장 + 발광.
-const TIER_REVEAL: Record<FishTier, { sizeCls: string; glow: boolean }> = {
-  common: { sizeCls: "text-3xl", glow: false },
-  uncommon: { sizeCls: "text-4xl", glow: false },
-  rare: { sizeCls: "text-5xl", glow: true },
-  epic: { sizeCls: "text-6xl", glow: true },
-  legendary: { sizeCls: "text-7xl", glow: true },
+const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
+  common: { iconCls: "h-12 w-12", glow: false },
+  uncommon: { iconCls: "h-14 w-14", glow: false },
+  rare: { iconCls: "h-16 w-16", glow: true },
+  epic: { iconCls: "h-[4.5rem] w-[4.5rem]", glow: true },
+  legendary: { iconCls: "h-20 w-20", glow: true },
 };
 
 export function FishingView({
@@ -397,11 +398,11 @@ export function FishingView({
                 {TIER_REVEAL[result.tier].glow && (
                   <span className="fish-glow absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/40 blur-md" />
                 )}
-                <div
-                  className={`fish-reveal relative ${TIER_REVEAL[result.tier].sizeCls}`}
-                >
-                  🐟
-                </div>
+                <FishIcon
+                  fishId={result.fishId}
+                  name={result.name}
+                  className={`fish-reveal ${TIER_REVEAL[result.tier].iconCls}`}
+                />
               </div>
               <div className="text-base font-bold">
                 {result.name}{" "}
@@ -452,9 +453,11 @@ export function FishingView({
             <div className="space-y-1">
               {/* 놓침 — 물고기가 휙 달아난다 */}
               <div className="relative mx-auto h-8 w-full overflow-hidden">
-                <span className="fish-dart-away absolute bottom-0 left-1/2 text-2xl">
-                  🐟
-                </span>
+                <FishIcon
+                  fishId="minnow"
+                  decorative
+                  className="fish-dart-away absolute bottom-0 left-1/2 h-8 w-8"
+                />
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 {missMessage(result?.reason ?? "")}

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import { FishingSubTabs } from "./FishingSubTabs";
+import { FishIcon } from "./FishIcon";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import {
   FISH,
@@ -116,8 +117,13 @@ export function FishingHallOfFameView({
                 const entries = data?.byFish[id] ?? [];
                 return (
                   <li key={id} className="px-3 py-2.5">
-                    <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      🐟 {FISH[id].name}
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      <FishIcon
+                        fishId={id}
+                        name={FISH[id].name}
+                        className="h-7 w-7"
+                      />
+                      <span>{FISH[id].name}</span>
                     </div>
                     {entries.length === 0 ? (
                       <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">

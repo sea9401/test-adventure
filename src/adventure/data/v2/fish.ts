@@ -417,6 +417,10 @@ export function isFishId(id: string): id is FishId {
   return Object.prototype.hasOwnProperty.call(FISH, id);
 }
 
+export function fishImagePath(id: FishId): string {
+  return `/images/fish/${id}.webp`;
+}
+
 export type FishSizeRollOptions = {
   /** 굴린 크기를 상한 쪽으로 보정한다. 4 = 남은 크기 폭의 4%만큼 추가. */
   sizeBonusPct?: number;

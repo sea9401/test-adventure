@@ -119,12 +119,31 @@ export type GridDungeonRewardQuota = {
 export type GridDungeonHistoryEntry = {
   id: string;
   outcome: "cleared" | "failed" | "abandoned";
+  routeId: GridDungeonRouteId;
   at: number;
   rewardGold: number;
   drops: DropResult;
   exploredTiles: number;
   hp: number;
+  supporterCount: number;
+  bossReached: boolean;
+  combatCount: number;
+  totalCombatTurns: number;
+  durationMs: number;
   message: string;
+};
+
+export type GridDungeonRouteSummary = {
+  routeId: GridDungeonRouteId;
+  expectedGold: number;
+  combatRooms: number;
+  eliteRooms: number;
+  trapRooms: number;
+  treasureRooms: number;
+  relicRooms: number;
+  fountainRooms: number;
+  materialRooms: number;
+  bossGold: number;
 };
 
 export const GRID_DUNGEON_MOVE_DELTAS: Record<
@@ -172,6 +191,8 @@ export type GridDungeonRun = {
   visited: string[];
   revealed: string[];
   clearedEvents: string[];
+  combatCount: number;
+  totalCombatTurns: number;
   lastCombat?: GridDungeonResolvedCombat["summary"];
   lastMessage: string;
   startedAt: number;
@@ -307,6 +328,47 @@ export function gridDungeonLayoutForRoute(
   return GRID_DUNGEON_ROUTES[parseGridDungeonRouteId(routeId)].layout;
 }
 
+export function gridDungeonRouteSummary(
+  routeId: unknown,
+): GridDungeonRouteSummary {
+  const route = parseGridDungeonRouteId(routeId);
+  const summary: GridDungeonRouteSummary = {
+    routeId: route,
+    expectedGold: 0,
+    combatRooms: 0,
+    eliteRooms: 0,
+    trapRooms: 0,
+    treasureRooms: 0,
+    relicRooms: 0,
+    fountainRooms: 0,
+    materialRooms: 0,
+    bossGold: gridDungeonRoomGold(route, "boss"),
+  };
+  for (const row of gridDungeonLayoutForRoute(route)) {
+    for (const tile of row) {
+      if (
+        tile === "monster" ||
+        tile === "elite" ||
+        tile === "treasure" ||
+        tile === "relic" ||
+        tile === "boss"
+      ) {
+        summary.expectedGold += gridDungeonRoomGold(route, tile);
+        summary.materialRooms += 1;
+      }
+      if (tile === "monster" || tile === "elite" || tile === "boss") {
+        summary.combatRooms += 1;
+      }
+      if (tile === "elite") summary.eliteRooms += 1;
+      else if (tile === "trap") summary.trapRooms += 1;
+      else if (tile === "treasure") summary.treasureRooms += 1;
+      else if (tile === "relic") summary.relicRooms += 1;
+      else if (tile === "fountain") summary.fountainRooms += 1;
+    }
+  }
+  return summary;
+}
+
 export function isGridDungeonCombatTile(
   tile: GridDungeonTileKind,
 ): tile is "monster" | "elite" | "boss" {
@@ -417,6 +479,12 @@ export function parseGridDungeonHistory(raw: unknown): GridDungeonHistoryEntry[]
         drops: parseDropResult(e.drops),
         exploredTiles: parsePositiveInt(e.exploredTiles, 0),
         hp: parsePositiveInt(e.hp, 0),
+        routeId: parseGridDungeonRouteId(e.routeId),
+        supporterCount: parsePositiveInt(e.supporterCount, 0),
+        bossReached: e.bossReached === true,
+        combatCount: parsePositiveInt(e.combatCount, 0),
+        totalCombatTurns: parsePositiveInt(e.totalCombatTurns, 0),
+        durationMs: parsePositiveInt(e.durationMs, 0),
         message: typeof e.message === "string" ? e.message : "",
       };
     })
@@ -549,6 +617,8 @@ export function createGridDungeonRun(
       layout,
     ),
     clearedEvents: [startKey],
+    combatCount: 0,
+    totalCombatTurns: 0,
     lastMessage: "낡은 지하 유적에 들어섰습니다.",
     startedAt: now,
     updatedAt: now,
@@ -617,6 +687,8 @@ export function parseGridDungeonRun(raw: unknown): GridDungeonRun | null {
     clearedEvents: Array.isArray(run.clearedEvents)
       ? run.clearedEvents.filter((v): v is string => typeof v === "string")
       : [],
+    combatCount: parsePositiveInt(run.combatCount, 0),
+    totalCombatTurns: parsePositiveInt(run.totalCombatTurns, 0),
     ...(run.lastCombat && typeof run.lastCombat === "object"
       ? { lastCombat: run.lastCombat as GridDungeonResolvedCombat["summary"] }
       : {}),
@@ -651,6 +723,22 @@ export function gridDungeonRoomGold(
   return 0;
 }
 
+export function gridDungeonBossReached(
+  run: Pick<GridDungeonRun, "routeId" | "visited" | "clearedEvents" | "bossDefeated">,
+): boolean {
+  if (run.bossDefeated) return true;
+  const reached = new Set([...run.visited, ...run.clearedEvents]);
+  const layout = gridDungeonLayoutForRoute(run.routeId);
+  for (let y = 0; y < layout.length; y += 1) {
+    for (let x = 0; x < (layout[y]?.length ?? 0); x += 1) {
+      if (layout[y]?.[x] === "boss" && reached.has(gridDungeonKey(x, y))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function moveGridDungeonRun(
   run: GridDungeonRun,
   dir: GridDungeonMoveDir,
@@ -680,6 +768,8 @@ export function moveGridDungeonRun(
   let status: GridDungeonStatus = run.status;
   let message = "어둠 속으로 한 칸 더 나아갔습니다.";
   let lastCombat = run.lastCombat;
+  let combatCount = run.combatCount;
+  let totalCombatTurns = run.totalCombatTurns;
 
   if (!clearedEvents.has(key)) {
     clearedEvents.add(key);
@@ -688,6 +778,8 @@ export function moveGridDungeonRun(
       pendingGold += combat.rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, combat.drops);
       lastCombat = combat.summary;
+      combatCount += 1;
+      totalCombatTurns += Math.max(0, Math.floor(combat.summary.turns));
       message = combat.message;
       if (combat.outcome === "lose") {
         hp = 0;
@@ -762,6 +854,8 @@ export function moveGridDungeonRun(
       visited: [...visited].sort(),
       revealed: revealAround(next.x, next.y, run.revealed, layout),
       clearedEvents: [...clearedEvents].sort(),
+      combatCount,
+      totalCombatTurns,
       ...(lastCombat ? { lastCombat } : {}),
       lastMessage: message,
       updatedAt: now,

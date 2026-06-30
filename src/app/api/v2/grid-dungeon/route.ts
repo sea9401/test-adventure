@@ -45,6 +45,7 @@ import {
   GRID_DUNGEON_MAX_HP,
   GRID_DUNGEON_SAVE_KEY,
   appendGridDungeonHistory,
+  gridDungeonBossReached,
   createGridDungeonRun,
   gridDungeonDayKey,
   gridDungeonKey,
@@ -497,11 +498,17 @@ function historyEntryFromRun({
   return {
     id: `${run.id}:${outcome}:${at}`,
     outcome,
+    routeId: run.routeId,
     at,
     rewardGold,
     drops,
     exploredTiles: new Set(run.visited).size,
     hp: run.hp,
+    supporterCount: run.supporters.length,
+    bossReached: gridDungeonBossReached(run),
+    combatCount: run.combatCount,
+    totalCombatTurns: run.totalCombatTurns,
+    durationMs: Math.max(0, at - run.startedAt),
     message: `${GRID_DUNGEON_ENTRANCE.name} ${outcomeLabel}`,
   };
 }

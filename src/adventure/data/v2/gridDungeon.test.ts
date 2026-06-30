@@ -4,9 +4,11 @@ import {
   GRID_DUNGEON_ROOM_REWARDS,
   appendGridDungeonHistory,
   createGridDungeonRun,
+  gridDungeonBossReached,
   gridDungeonDayKey,
   gridDungeonKey,
   gridDungeonMovePreview,
+  gridDungeonRouteSummary,
   gridDungeonRewardQuota,
   gridDungeonRoomGold,
   isAtGridDungeonEntrance,
@@ -147,6 +149,20 @@ describe("gridDungeon", () => {
     expect(gridDungeonRoomGold("guardian", "relic")).toBe(1_800);
   });
 
+  it("summarizes route risk and reward for the selection UI", () => {
+    const balanced = gridDungeonRouteSummary("balanced");
+    const guardian = gridDungeonRouteSummary("guardian");
+    const vault = gridDungeonRouteSummary("vault");
+
+    expect(guardian.expectedGold).toBeGreaterThan(balanced.expectedGold);
+    expect(guardian.combatRooms).toBeGreaterThanOrEqual(
+      balanced.combatRooms,
+    );
+    expect(vault.treasureRooms).toBeGreaterThan(balanced.treasureRooms);
+    expect(vault.trapRooms).toBeGreaterThan(0);
+    expect(guardian.bossGold).toBe(6_500);
+  });
+
   it("resolves trap and relic rooms once per run", () => {
     const start = createGridDungeonRun(100, Math.random, [], undefined, "vault");
     const trap = moveGridDungeonRun(start, "up", 200);
@@ -268,11 +284,17 @@ describe("gridDungeon", () => {
       history = appendGridDungeonHistory(history, {
         id: `run-${i}`,
         outcome: i % 2 === 0 ? "cleared" : "failed",
+        routeId: "balanced",
         at: 1_000 + i,
         rewardGold: i * 100,
         drops: {},
         exploredTiles: i,
         hp: 10 - (i % 10),
+        supporterCount: 0,
+        bossReached: i % 2 === 0,
+        combatCount: i,
+        totalCombatTurns: i * 3,
+        durationMs: i * 1_000,
         message: `record ${i}`,
       });
     }
@@ -280,5 +302,47 @@ describe("gridDungeon", () => {
     expect(history).toHaveLength(10);
     expect(history[0]?.id).toBe("run-12");
     expect(history.at(-1)?.id).toBe("run-3");
+  });
+
+  it("keeps operational metrics in dungeon history", () => {
+    const parsed = parseGridDungeonHistory([
+      {
+        id: "run-op",
+        outcome: "cleared",
+        routeId: "guardian",
+        at: 2_000,
+        rewardGold: 10_000,
+        drops: { stone: 2 },
+        exploredTiles: 9,
+        hp: 77,
+        supporterCount: 2,
+        bossReached: true,
+        combatCount: 4,
+        totalCombatTurns: 18,
+        durationMs: 61_000,
+        message: "ok",
+      },
+    ]);
+
+    expect(parsed[0]).toMatchObject({
+      routeId: "guardian",
+      supporterCount: 2,
+      bossReached: true,
+      combatCount: 4,
+      totalCombatTurns: 18,
+      durationMs: 61_000,
+    });
+  });
+
+  it("detects boss reach for failed boss attempts", () => {
+    const bossAttempt = {
+      ...createGridDungeonRun(100),
+      pos: { x: 2, y: 0 },
+      visited: [gridDungeonKey(2, 4), gridDungeonKey(2, 0)],
+      clearedEvents: [gridDungeonKey(2, 4), gridDungeonKey(2, 0)],
+      bossDefeated: false,
+    };
+
+    expect(gridDungeonBossReached(bossAttempt)).toBe(true);
   });
 });

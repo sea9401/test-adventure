@@ -46,6 +46,7 @@ import {
   createGridDungeonRun,
   gridDungeonDayKey,
   gridDungeonKey,
+  gridDungeonLayoutForRoute,
   gridDungeonRewardQuota,
   gridDungeonTileAt,
   isGridDungeonCombatTile,
@@ -53,6 +54,7 @@ import {
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
+  parseGridDungeonRouteId,
   parseGridDungeonRun,
   parseGridDungeonSupportRole,
   rollGridDungeonDrops,
@@ -82,7 +84,12 @@ type CharSave = {
 };
 
 type GridDungeonAction =
-  | { action?: "start"; supporterIds?: unknown; frontlineId?: unknown }
+  | {
+      action?: "start";
+      supporterIds?: unknown;
+      frontlineId?: unknown;
+      routeId?: unknown;
+    }
   | { action?: "move"; dir?: GridDungeonMoveDir }
   | { action?: "claim" }
   | { action?: "abandon" }
@@ -524,7 +531,11 @@ function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
   return {
     next,
     key: gridDungeonKey(next.x, next.y),
-    tile: gridDungeonTileAt(next.x, next.y),
+    tile: gridDungeonTileAt(
+      next.x,
+      next.y,
+      gridDungeonLayoutForRoute(run.routeId),
+    ),
   };
 }
 
@@ -833,6 +844,7 @@ export async function POST(req: Request) {
 
   if (body.action === "start") {
     const supporterIds = parseSupporterIds(body.supporterIds);
+    const routeId = parseGridDungeonRouteId(body.routeId);
     const frontlineId = normalizeGridDungeonFrontlineId({
       raw: body.frontlineId,
       userId,
@@ -867,6 +879,7 @@ export async function POST(req: Request) {
         Math.random,
         support.supporters,
         frontlineId,
+        routeId,
       );
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, run);
       return { ok: true as const, run, charSave };
@@ -942,8 +955,9 @@ export async function POST(req: Request) {
             })
           : null;
       const eventDrops =
-        target.tile === "treasure" && !run.clearedEvents.includes(target.key)
-          ? rollGridDungeonDrops("treasure")
+        (target.tile === "treasure" || target.tile === "relic") &&
+        !run.clearedEvents.includes(target.key)
+          ? rollGridDungeonDrops(target.tile)
           : {};
       const moved = moveGridDungeonRun(run, dir, Date.now(), combat, eventDrops);
       if (!moved.ok) return moved;

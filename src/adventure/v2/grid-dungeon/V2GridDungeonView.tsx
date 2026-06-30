@@ -7,18 +7,23 @@ import {
   ArrowRight,
   ArrowUp,
   Crown,
+  Diamond,
   DoorOpen,
   FirstAidKit,
   Skull,
   Sparkle,
   TreasureChest,
+  Warning,
 } from "@phosphor-icons/react";
 import {
   GRID_DUNGEON_ENTRANCE,
+  GRID_DUNGEON_ROUTE_OPTIONS,
+  GRID_DUNGEON_ROUTES,
   gridDungeonKey,
   gridDungeonMovePreview,
   type GridDungeonMoveDir,
   type GridDungeonPublicRun,
+  type GridDungeonRouteId,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
@@ -54,6 +59,8 @@ const TILE_LABEL: Record<GridDungeonTileKind, string> = {
   monster: "경비병",
   elite: "수문장",
   treasure: "보물",
+  trap: "함정",
+  relic: "유물",
   fountain: "샘",
   boss: "파수꾼",
   exit: "출구",
@@ -98,6 +105,16 @@ const TILE_TONE: Record<
     icon: "text-yellow-300",
     visited: "bg-yellow-300",
   },
+  trap: {
+    cell: "border-orange-800/80 bg-orange-950/50 text-orange-200",
+    icon: "text-orange-300",
+    visited: "bg-orange-300",
+  },
+  relic: {
+    cell: "border-violet-800/80 bg-violet-950/45 text-violet-200",
+    icon: "text-violet-300",
+    visited: "bg-violet-300",
+  },
   fountain: {
     cell: "border-cyan-800/80 bg-cyan-950/45 text-cyan-200",
     icon: "text-cyan-300",
@@ -130,6 +147,8 @@ const EVENT_TILE_KINDS = new Set<GridDungeonTileKind>([
   "monster",
   "elite",
   "treasure",
+  "trap",
+  "relic",
   "fountain",
   "boss",
 ]);
@@ -287,9 +306,58 @@ function DungeonHistory({
   );
 }
 
+function RouteSelector({
+  selected,
+  disabled,
+  onSelect,
+}: {
+  selected: GridDungeonRouteId;
+  disabled: boolean;
+  onSelect: (routeId: GridDungeonRouteId) => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {GRID_DUNGEON_ROUTE_OPTIONS.map((route) => {
+        const active = route.id === selected;
+        return (
+          <button
+            key={route.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(route.id)}
+            className={`min-h-24 rounded-md border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              active
+                ? "border-emerald-500 bg-emerald-950/45 text-emerald-100"
+                : "border-zinc-800 bg-zinc-950/70 text-zinc-300 hover:border-zinc-600"
+            }`}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="font-semibold">{route.name}</span>
+              <span
+                className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                  active
+                    ? "border-emerald-700 text-emerald-200"
+                    : "border-zinc-700 text-zinc-500"
+                }`}
+              >
+                {route.risk}
+              </span>
+            </span>
+            <span className="mt-2 block leading-relaxed text-zinc-500">
+              {route.description}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (!visible) return null;
   if (kind === "treasure") return <TreasureChest size={20} weight="fill" />;
+  if (kind === "trap") return <Warning size={20} weight="fill" />;
+  if (kind === "relic") return <Diamond size={20} weight="fill" />;
   if (kind === "monster" || kind === "elite") return <Skull size={20} weight="fill" />;
   if (kind === "boss") return <Crown size={20} weight="fill" />;
   if (kind === "fountain") return <FirstAidKit size={20} weight="fill" />;
@@ -351,6 +419,8 @@ export function V2GridDungeonView({
   const [state, setState] = useState<GridDungeonState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedRoute, setSelectedRoute] =
+    useState<GridDungeonRouteId>("balanced");
 
   const load = useCallback(async () => {
     setError(null);
@@ -392,6 +462,7 @@ export function V2GridDungeonView({
   );
 
   const run = state?.run ?? null;
+  const activeRoute = GRID_DUNGEON_ROUTES[run?.routeId ?? selectedRoute];
   const rewardQuota = state?.rewardQuota;
   const history = state?.history ?? [];
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
@@ -415,8 +486,8 @@ export function V2GridDungeonView({
             {GRID_DUNGEON_ENTRANCE.name}
           </h1>
           <p className="mt-0.5 text-xs text-zinc-500">
-            지도 ({GRID_DUNGEON_ENTRANCE.col}, {GRID_DUNGEON_ENTRANCE.row}) 입구에서
-            진입하는 격자 탐험 던전
+            {activeRoute.name} · 지도 ({GRID_DUNGEON_ENTRANCE.col},{" "}
+            {GRID_DUNGEON_ENTRANCE.row}) 입구에서 진입하는 격자 탐험 던전
           </p>
         </div>
         <button
@@ -452,10 +523,17 @@ export function V2GridDungeonView({
               </div>
             </div>
             <RewardQuotaNotice quota={rewardQuota} />
+            <RouteSelector
+              selected={selectedRoute}
+              disabled={!state.atEntrance || busy}
+              onSelect={setSelectedRoute}
+            />
             <button
               type="button"
               disabled={!state.atEntrance || busy}
-              onClick={() => postAction({ action: "start" })}
+              onClick={() =>
+                postAction({ action: "start", routeId: selectedRoute })
+              }
               className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <DoorOpen size={16} weight="fill" />
@@ -466,7 +544,7 @@ export function V2GridDungeonView({
         </>
       ) : (
         <>
-          <section className="grid grid-cols-3 gap-2 text-xs">
+          <section className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
               <div className="text-zinc-500">체력</div>
               <div className="mt-1 text-base font-bold text-emerald-300">
@@ -485,6 +563,12 @@ export function V2GridDungeonView({
                 {run.status === "cleared" ? "정산 가능" : "탐험 중"}
               </div>
             </div>
+            <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+              <div className="text-zinc-500">경로</div>
+              <div className="mt-1 text-base font-bold text-violet-200">
+                {activeRoute.shortName}
+              </div>
+            </div>
           </section>
 
           <RewardQuotaNotice
@@ -498,6 +582,8 @@ export function V2GridDungeonView({
                 "monster",
                 "elite",
                 "treasure",
+                "trap",
+                "relic",
                 "fountain",
                 "boss",
                 "exit",

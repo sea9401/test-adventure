@@ -12,6 +12,7 @@ import {
   moveGridDungeonRun,
   parseGridDungeonDailyRewards,
   parseGridDungeonHistory,
+  withGridDungeonLayout,
 } from "@/adventure/data/v2/gridDungeon";
 
 describe("gridDungeon", () => {
@@ -77,6 +78,63 @@ describe("gridDungeon", () => {
       tile: "wall",
       reason: "wall",
     });
+  });
+
+  it("keeps route-specific layouts on new runs", () => {
+    const vault = createGridDungeonRun(100, Math.random, [], undefined, "vault");
+    const guardian = createGridDungeonRun(
+      100,
+      Math.random,
+      [],
+      undefined,
+      "guardian",
+    );
+
+    expect(vault.routeId).toBe("vault");
+    expect(gridDungeonMovePreview(vault, "up")).toMatchObject({
+      available: true,
+      tile: "trap",
+    });
+    expect(gridDungeonMovePreview(guardian, "up")).toMatchObject({
+      available: true,
+      tile: "elite",
+    });
+    expect(withGridDungeonLayout(vault)?.layout[3]?.[2]).toBe("trap");
+  });
+
+  it("resolves trap and relic rooms once per run", () => {
+    const start = createGridDungeonRun(100, Math.random, [], undefined, "vault");
+    const trap = moveGridDungeonRun(start, "up", 200);
+    expect(trap.ok).toBe(true);
+    if (!trap.ok) return;
+    expect(trap.run.hp).toBe(8);
+    expect(trap.run.pendingGold).toBe(0);
+
+    const back = moveGridDungeonRun(trap.run, "down", 300);
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    const trapAgain = moveGridDungeonRun(back.run, "up", 400);
+    expect(trapAgain.ok).toBe(true);
+    if (!trapAgain.ok) return;
+    expect(trapAgain.run.hp).toBe(8);
+
+    const relicStart = createGridDungeonRun(
+      100,
+      Math.random,
+      [],
+      undefined,
+      "guardian",
+    );
+    const left = moveGridDungeonRun(relicStart, "left", 200);
+    expect(left.ok).toBe(true);
+    if (!left.ok) return;
+    const relic = moveGridDungeonRun(left.run, "left", 300, null, {
+      stone: 2,
+    });
+    expect(relic.ok).toBe(true);
+    if (!relic.ok) return;
+    expect(relic.run.pendingGold).toBe(GRID_DUNGEON_ROOM_REWARDS.relic.gold);
+    expect(relic.run.pendingDrops).toEqual({ stone: 2 });
   });
 
   it("raises boss pressure while keeping the fountain route clearable", () => {

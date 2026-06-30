@@ -80,16 +80,16 @@ export function BankPanel() {
   }
 
   return (
-    <div className="rounded-md border border-zinc-300 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="ui-bank-panel rounded-md border border-zinc-300 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex items-center justify-between gap-3">
         <div className="font-medium text-zinc-800 dark:text-zinc-100">은행</div>
         <div className="grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
           <span>보유 골드</span>
-          <span className="text-right font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
+          <span className="ui-money-value text-right font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
             {gold.toLocaleString()}G
           </span>
           <span>은행 잔액</span>
-          <span className="text-right font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
+          <span className="ui-money-value text-right font-medium tabular-nums text-zinc-800 dark:text-zinc-100">
             {bankedGold.toLocaleString()}G
           </span>
         </div>

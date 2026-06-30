@@ -293,7 +293,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
 
       {tab === "main" && (
         <>
-          <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               <Trophy size={14} /> 점수
             </div>
@@ -306,7 +306,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             type="button"
             disabled={!canChallenge}
             onClick={challenge}
-            className="w-full rounded-lg bg-amber-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
+            className="ui-lift-card w-full rounded-lg bg-amber-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
           >
             {busy
               ? "매치 진행 중..."
@@ -322,7 +322,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           )}
 
           {lastResult && (
-            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>
@@ -394,7 +394,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               아직 전투 기록이 없어요. 메인에서 도전해 보세요.
             </div>
           ) : (
-            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
               <div className="mb-2 text-sm font-semibold">전투 기록 (최근 10판)</div>
               <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {history.map((h) => (
@@ -403,7 +403,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                       type="button"
                       onClick={() => setReplayEntry(h)}
                       className={
-                        "flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
+                        "ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
                         (replayEntry?.id === h.id ? "bg-amber-50 dark:bg-amber-950/30" : "")
                       }
                     >

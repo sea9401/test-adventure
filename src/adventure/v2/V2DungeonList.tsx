@@ -145,56 +145,56 @@ export function V2DungeonList({
             </div>
           )}
           <div className="grid grid-cols-2 gap-2">
-          {groups.map((g) => {
-            const hasChallenge = g.depths.includes(challengeDepth);
-            const from = g.depths[0];
-            const to = g.depths[g.depths.length - 1];
-            return (
-              <button
-                key={from}
-                type="button"
-                onClick={() => setOpenDepth(from)}
-                className="group block h-full text-left"
-              >
-                <Card
-                  padding="sm"
-                  className={`flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
-                    hasChallenge
-                      ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
-                      : "hover:border-rose-300 dark:hover:border-rose-600"
-                  }`}
+            {groups.map((g) => {
+              const hasChallenge = g.depths.includes(challengeDepth);
+              const from = g.depths[0];
+              const to = g.depths[g.depths.length - 1];
+              return (
+                <button
+                  key={from}
+                  type="button"
+                  onClick={() => setOpenDepth(from)}
+                  className="group block h-full text-left"
                 >
-                  <div
-                    className={`truncate text-sm font-medium transition-colors ${
+                  <Card
+                    padding="sm"
+                    className={`ui-dungeon-card flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
                       hasChallenge
-                        ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
-                        : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
+                        ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
+                        : "hover:border-rose-300 dark:hover:border-rose-600"
                     }`}
                   >
-                    {g.name}
-                  </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
-                  </div>
-                  <ThemeElementLine depth={from} compact />
-                  {hasChallenge && (
-                    <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      도전 구역 포함
+                    <div
+                      className={`truncate text-sm font-medium transition-colors ${
+                        hasChallenge
+                          ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
+                          : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
+                      }`}
+                    >
+                      {g.name}
                     </div>
-                  )}
-                  <span
-                    className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
-                      hasChallenge
-                        ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
-                        : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
-                    }`}
-                  >
-                    열기
-                  </span>
-                </Card>
-              </button>
-            );
-          })}
+                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
+                    </div>
+                    <ThemeElementLine depth={from} compact />
+                    {hasChallenge && (
+                      <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        도전 구역 포함
+                      </div>
+                    )}
+                    <span
+                      className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
+                        hasChallenge
+                          ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
+                          : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
+                      }`}
+                    >
+                      열기
+                    </span>
+                  </Card>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
@@ -220,7 +220,7 @@ function DepthCard({
     >
       <Card
         padding="sm"
-        className={`flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
+        className={`ui-dungeon-card flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
           isChallenge
             ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
             : "hover:border-rose-300 dark:hover:border-rose-600"

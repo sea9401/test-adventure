@@ -160,7 +160,7 @@ export function V2CharacterCard({
   } | null>(null);
 
   return (
-    <Card padding="md">
+    <Card padding="md" className="ui-character-card">
       <div className="flex items-stretch gap-4">
         <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
         <div className="min-w-0 flex-1 space-y-2">
@@ -220,7 +220,7 @@ export function V2CharacterCard({
             const inst = iid ? byIid.get(iid) : undefined;
             const item = inst ? V2_EQUIPMENT[inst.id] : null;
             const slotClass =
-              "flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900";
+              "ui-character-slot flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900";
             const inner = (
               <>
                 <Icon size={18} weight="duotone" className={color} />

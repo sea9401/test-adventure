@@ -449,7 +449,7 @@ export function GuildManagePanel({
       {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
       {/* 멤버 초대 — 길드원 탭에서 이동 */}
       {activeManageTab === "members" && guildId != null && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             멤버 초대
           </div>
@@ -502,7 +502,7 @@ export function GuildManagePanel({
                   title={em.label}
                   aria-label={em.label}
                   aria-pressed={selected}
-                  className={`flex aspect-square items-center justify-center rounded-md border transition disabled:opacity-50 ${
+                  className={`ui-guild-swatch flex aspect-square items-center justify-center rounded-md border transition disabled:opacity-50 ${
                     selected
                       ? "border-emerald-600 bg-emerald-600 text-white"
                       : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
@@ -518,7 +518,7 @@ export function GuildManagePanel({
 
       {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). 지도 마커 채움색. */}
       {activeManageTab === "settings" && isMaster && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             길드 색
           </div>
@@ -539,7 +539,7 @@ export function GuildManagePanel({
                   title={taken ? `${c.label} (사용 중)` : c.label}
                   aria-label={c.label}
                   aria-pressed={selected}
-                  className={`aspect-square rounded-md border-2 transition disabled:cursor-not-allowed ${
+                  className={`ui-guild-swatch aspect-square rounded-md border-2 transition disabled:cursor-not-allowed ${
                     selected
                       ? "border-zinc-900 ring-2 ring-zinc-900 dark:border-white dark:ring-white"
                       : "border-transparent hover:border-zinc-400"
@@ -567,7 +567,7 @@ export function GuildManagePanel({
               {pendingRequests.map((r) => (
                 <li
                   key={r.requestId}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                  className="ui-guild-row flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   <div className="min-w-0 flex-1">
                     <span className="truncate text-sm font-medium">
@@ -622,7 +622,7 @@ export function GuildManagePanel({
               {policyTargets.map((t) => (
                 <div
                   key={t.outpostId}
-                  className="overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
+                  className="ui-workshop-card overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <OutpostPolicyEditor
                     outpostId={t.outpostId}
@@ -668,7 +668,7 @@ export function GuildManagePanel({
               .map((m) => (
                 <li
                   key={m.userId}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                  className="ui-guild-row flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   <div className="flex min-w-0 items-center gap-1.5">
                     {m.role === "vice_master" && (

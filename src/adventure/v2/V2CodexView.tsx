@@ -906,11 +906,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   return (
                     <div
                       key={id}
-                      className={`relative flex min-h-[7.25rem] flex-col gap-1 p-3 text-left transition ${
+                      className={`ui-codex-card ui-lift-card relative flex min-h-[7.25rem] flex-col gap-1 p-3 text-left transition ${
                         registered
-                          ? "rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-emerald-950 dark:ring-emerald-900"
+                          ? "is-registered rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-emerald-950 dark:ring-emerald-900"
                           : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
-                      }`}
+                      } ${!registered && inst ? "is-ready" : ""}`}
                     >
                       <button
                         type="button"
@@ -988,7 +988,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 return (
                   <li
                     key={id}
-                    className={`px-3 py-2.5 ${found ? "" : "opacity-50"}`}
+                    className={`ui-codex-card px-3 py-2.5 ${found ? "is-registered" : "opacity-50"}`}
                   >
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">

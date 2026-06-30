@@ -640,7 +640,7 @@ function BuyEquipmentRow({
   const affordable = gold >= buyPrice;
   return (
     <div
-      className={`${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
+      className={`ui-shop-row ${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
       role="row"
     >
       {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. 종류 칩은 별도 열로 빼서
@@ -658,7 +658,7 @@ function BuyEquipmentRow({
         className="min-w-0 whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums text-zinc-900 dark:text-white sm:px-3"
         role="cell"
       >
-        {buyPrice.toLocaleString()}G
+        <span className="ui-price-pill">{buyPrice.toLocaleString()}G</span>
       </div>
       <div
         className="min-w-0 whitespace-nowrap px-2 py-3 text-right tabular-nums text-xs text-zinc-500 dark:text-zinc-400 sm:px-3"
@@ -707,7 +707,7 @@ function SellEquipmentRow({
   // 장착 중인 장비는 마지막 1개를 팔 수 없다 (여분이 있으면 여분만 판매 가능).
   const locked = equipped && count <= 1;
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
+    <li className="ui-shop-row grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
       <div className="flex min-w-0 items-center gap-1.5">
         <EquipmentName item={item} count={count} onOpenCard={onOpenCard} />
         {equipped && (
@@ -749,7 +749,7 @@ function MaterialRow({
   const unit = V2_MATERIAL_SELL_PRICE[id];
   const total = unit * count;
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
+    <li className="ui-shop-row grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
       <div className="flex min-w-0 items-baseline gap-1.5" title={mat.description}>
         <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {mat.name}

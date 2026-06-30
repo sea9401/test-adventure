@@ -141,11 +141,11 @@ export function V2CoopBossDetailView({
       />
 
       {/* 보스 헤더 — 일러스트·이름·HP·플레이버 */}
-      <Card padding="md" className="space-y-3 text-center">
+      <Card padding="md" className="ui-coop-card is-active space-y-3 text-center">
         <img
           src={def.base.image}
           alt={def.name}
-          className={`mx-auto h-28 w-28 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700 ${
+          className={`ui-boss-portrait mx-auto h-28 w-28 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700 ${
             active ? "" : "opacity-50 grayscale"
           }`}
         />
@@ -164,9 +164,9 @@ export function V2CoopBossDetailView({
             {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}
           </p>
         </div>
-        <div className="h-3 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+        <div className="war-meter-track h-3 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
           <div
-            className={`h-full rounded transition-[width] ${
+            className={`war-meter-fill h-full rounded transition-[width] ${
               session.defeated ? "bg-zinc-400" : "bg-rose-500"
             }`}
             style={{ width: `${hpPct}%` }}
@@ -228,7 +228,7 @@ export function V2CoopBossDetailView({
             type="button"
             disabled={busy || onCooldown || lowStamina}
             onClick={() => void attack()}
-            className="mx-auto w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            className="ui-lift-card mx-auto w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
           >
             {busy
               ? "전투 중…"
@@ -254,7 +254,7 @@ export function V2CoopBossDetailView({
             type="button"
             disabled={busy}
             onClick={() => void claim()}
-            className="mx-auto w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="ui-quest-card is-claimable mx-auto w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {my.tier
               ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`

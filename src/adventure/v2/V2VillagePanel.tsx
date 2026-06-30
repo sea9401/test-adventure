@@ -329,7 +329,7 @@ export function V2VillagePanel({
   const resourcePool = (
     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
       {PRODUCTION_KINDS.map((k) => (
-        <span key={k} className="tabular-nums">
+        <span key={k} className="war-resource-pill tabular-nums">
           {PRODUCTION_KIND_ICON[k]} {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
         </span>
       ))}

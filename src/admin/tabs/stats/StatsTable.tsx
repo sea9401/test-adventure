@@ -1,7 +1,6 @@
 "use client";
 
 import type { EnrichedRow, SortDir, SortKey } from "./useAdminStats";
-import { SUSPECT_BPH_THRESHOLD } from "./useAdminStats";
 
 function formatHours(h: number | null): string {
   if (h == null) return "—";
@@ -27,11 +26,10 @@ export function StatsTable({
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
       <h2 className="text-sm font-semibold">유저별 상세</h2>
       <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-        시간당 전투 수가 ≥ {SUSPECT_BPH_THRESHOLD} 이면 &quot;켜두고 자기&quot; 의심 (붉게 표시).
-        1전 평균 1~2분 가정.
+        현재 v2 세이브 기준의 진척입니다. 직업 숙련도는 현재 직업 기준, 총 숙련도는 전 직군 합계입니다.
       </p>
       <div className="mt-2 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-xs">
+        <table className="w-full min-w-[1080px] text-xs">
           <thead className="text-zinc-500">
             <tr className="border-b border-zinc-200 dark:border-zinc-800">
               <th className="py-1 text-left font-medium">유저</th>
@@ -45,6 +43,52 @@ export function StatsTable({
                 Lv
               </SortHeader>
               <SortHeader
+                sortKey="frontierDepth"
+                current={sortKey}
+                dir={sortDir}
+                onClick={onSort}
+                align="right"
+              >
+                프론티어
+              </SortHeader>
+              <th className="py-1 text-left font-medium">직업</th>
+              <SortHeader
+                sortKey="currentMastery"
+                current={sortKey}
+                dir={sortDir}
+                onClick={onSort}
+                align="right"
+              >
+                현 숙련
+              </SortHeader>
+              <SortHeader
+                sortKey="totalMastery"
+                current={sortKey}
+                dir={sortDir}
+                onClick={onSort}
+                align="right"
+              >
+                총 숙련
+              </SortHeader>
+              <SortHeader
+                sortKey="reincarnations"
+                current={sortKey}
+                dir={sortDir}
+                onClick={onSort}
+                align="right"
+              >
+                환생
+              </SortHeader>
+              <SortHeader
+                sortKey="spBudget"
+                current={sortKey}
+                dir={sortDir}
+                onClick={onSort}
+                align="right"
+              >
+                SP
+              </SortHeader>
+              <SortHeader
                 sortKey="battleCount"
                 current={sortKey}
                 dir={sortDir}
@@ -54,14 +98,15 @@ export function StatsTable({
                 전투
               </SortHeader>
               <SortHeader
-                sortKey="battlesPerHour"
+                sortKey="fishCaught"
                 current={sortKey}
                 dir={sortDir}
                 onClick={onSort}
                 align="right"
               >
-                /시간
+                낚시
               </SortHeader>
+              <th className="py-1 text-right font-medium">장비</th>
               <SortHeader
                 sortKey="createdAt"
                 current={sortKey}
@@ -84,16 +129,10 @@ export function StatsTable({
           </thead>
           <tbody>
             {rows.map((r) => {
-              const suspect = r.battlesPerHour >= SUSPECT_BPH_THRESHOLD;
               return (
                 <tr
                   key={r.userId}
-                  className={
-                    "border-b border-zinc-100 dark:border-zinc-900 " +
-                    (suspect
-                      ? "bg-red-50 dark:bg-red-950/30"
-                      : "hover:bg-zinc-50 dark:hover:bg-zinc-800/40")
-                  }
+                  className="border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-800/40"
                 >
                   <td className="py-1">
                     <div className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -107,17 +146,43 @@ export function StatsTable({
                     {r.level ?? "—"}
                   </td>
                   <td className="py-1 text-right tabular-nums">
+                    {r.frontierDepth || "—"}
+                  </td>
+                  <td className="py-1">
+                    <div>{r.jobName ?? "—"}</div>
+                    <div className="text-[10px] text-zinc-500">
+                      {r.jobTier != null ? `T${r.jobTier}` : "미선택"}
+                    </div>
+                  </td>
+                  <td className="py-1 text-right tabular-nums">
+                    {r.currentMastery.toLocaleString()}
+                  </td>
+                  <td className="py-1 text-right tabular-nums">
+                    {r.totalMastery.toLocaleString()}
+                  </td>
+                  <td className="py-1 text-right tabular-nums">
+                    {r.reincarnations}
+                  </td>
+                  <td className="py-1 text-right tabular-nums">
+                    {r.spUsed}/{r.spBudget}
+                    <div className="text-[10px] text-zinc-500">
+                      학습 {r.skillsLearned}
+                    </div>
+                  </td>
+                  <td className="py-1 text-right tabular-nums">
                     {r.battleCount.toLocaleString()}
                   </td>
-                  <td
-                    className={
-                      "py-1 text-right tabular-nums " +
-                      (suspect
-                        ? "font-semibold text-red-700 dark:text-red-400"
-                        : "")
-                    }
-                  >
-                    {r.battlesPerHour.toFixed(1)}
+                  <td className="py-1 text-right tabular-nums">
+                    {r.fishCaught.toLocaleString()}
+                    <div className="text-[10px] text-zinc-500">
+                      종 {r.fishSpecies} · 유물 {r.antiquesFound}
+                    </div>
+                  </td>
+                  <td className="py-1 text-right tabular-nums">
+                    {r.equipmentEquipped}/{r.equipmentOwned}
+                    <div className="text-[10px] text-zinc-500">
+                      최고 +{r.maxEnhanceLevel}
+                    </div>
                   </td>
                   <td className="py-1 text-right tabular-nums text-zinc-600 dark:text-zinc-400">
                     {formatHours(r.hoursSinceJoin)}
@@ -130,7 +195,7 @@ export function StatsTable({
             })}
             {rows.length === 0 && !loading ? (
               <tr>
-                <td colSpan={6} className="py-3 text-center text-zinc-500">
+                <td colSpan={14} className="py-3 text-center text-zinc-500">
                   표시할 유저가 없습니다.
                 </td>
               </tr>

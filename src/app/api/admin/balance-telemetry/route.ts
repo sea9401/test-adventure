@@ -8,6 +8,25 @@ import {
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { parseV2Class } from "@/adventure/data/v2/classes";
+import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  cumLevelForJob,
+  jobIdFromLegacy,
+  V2_JOB_CATALOG,
+} from "@/adventure/data/v2/v2JobCatalog";
+import {
+  groupCumLevel,
+  parseProficiencyForChar,
+  totalCumLevel,
+} from "@/adventure/data/v2/proficiency";
+import {
+  parseV2SkillsState,
+  spCostOf,
+  V2_SKILLS,
+} from "@/adventure/data/v2/v2Skills";
+import { parseFishCodex } from "@/adventure/v2/fishingCodex";
+import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
+import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import {
   aggregateBalanceTelemetry,
   type TelemetryUser,
@@ -32,12 +51,18 @@ export async function GET() {
       c.value AS character,
       e.value AS equipment,
       pr.value AS proficiency,
-      s.value AS skills
+      s.value AS skills,
+      fc.value AS fishing_codex,
+      tc.value AS treasure_codex,
+      ec.value AS equipment_codex
     FROM users u
     JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
     LEFT JOIN saves_kv e ON e.user_id = u.id AND e.key = 'equipment.v2'
     LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
     LEFT JOIN saves_kv s ON s.user_id = u.id AND s.key = 'skills.v2'
+    LEFT JOIN saves_kv fc ON fc.user_id = u.id AND fc.key = 'fishing-codex.v1'
+    LEFT JOIN saves_kv tc ON tc.user_id = u.id AND tc.key = 'treasure-codex.v1'
+    LEFT JOIN saves_kv ec ON ec.user_id = u.id AND ec.key = 'equipment-codex.v1'
   `);
 
   type Row = {
@@ -47,6 +72,9 @@ export async function GET() {
     equipment: unknown;
     proficiency: unknown;
     skills: unknown;
+    fishing_codex: unknown;
+    treasure_codex: unknown;
+    equipment_codex: unknown;
   };
   const rows = result.rows as unknown as Row[];
 
@@ -82,6 +110,32 @@ export async function GET() {
     }
 
     const charAny = r.character as Record<string, unknown>;
+    const classId = parseV2Class(character.class);
+    const specChoice =
+      typeof charAny.specChoice === "string" ? charAny.specChoice : null;
+    const jobId = jobIdFromLegacy(classId, specChoice);
+    const job = V2_JOB_CATALOG[jobId];
+    const prof = parseProficiencyForChar(r.proficiency, character);
+    const currentMastery = job
+      ? cumLevelForJob(prof, job)
+      : groupCumLevel(prof, classId);
+    const skills = parseV2SkillsState(r.skills);
+    const spUsed = skills.equipped.reduce(
+      (sum, id) => sum + spCostOf(V2_SKILLS[id]),
+      0,
+    );
+    const collectionSp = codexSpBonusFromRaw(
+      r.fishing_codex,
+      r.treasure_codex,
+      r.equipment_codex,
+    ).total;
+    const spBudget = calcSpBudget(
+      prof.groups,
+      Number(charAny.spCapBonus) || 0,
+      collectionSp,
+    );
+    const fishCodex = parseFishCodex(r.fishing_codex);
+    const treasureCodex = parseTreasureCodex(r.treasure_codex);
     const power = derivePowerScore({
       atk: derived.player.atk,
       magicAtk: derived.player.magicAtk ?? 0,
@@ -93,8 +147,17 @@ export async function GET() {
 
     // 장착 6슬롯의 장비 id(사용률).
     let equippedIds: string[] = [];
+    let equipmentOwned = 0;
+    let equipmentEquipped = 0;
+    let maxEnhanceLevel = 0;
     try {
       const { owned, equipped } = parseEquipmentSave(r.equipment);
+      equipmentOwned = owned.length;
+      equipmentEquipped = Object.values(equipped).filter(Boolean).length;
+      maxEnhanceLevel = owned.reduce(
+        (max, it) => Math.max(max, it.enhance?.level ?? 0),
+        0,
+      );
       const byIid = new Map<string, string>(
         owned.map((o) => [o.iid, o.id as string]),
       );
@@ -111,8 +174,27 @@ export async function GET() {
       gold: Math.max(0, Math.floor(Number(charAny.gold) || 0)),
       power,
       totalStats: derived.totalStats,
-      classId: parseV2Class(character.class),
+      classId,
       classTier: derived.classTier,
+      jobId,
+      jobName: job?.name ?? jobId,
+      jobTier: job?.tier ?? 0,
+      totalMastery: totalCumLevel(prof),
+      currentMastery,
+      reincarnations: prof.reincarnations ?? 0,
+      spBudget,
+      spUsed,
+      skillsLearned: skills.learned.length,
+      skillsEquipped: skills.equipped.length,
+      equipmentOwned,
+      equipmentEquipped,
+      maxEnhanceLevel,
+      fishCaught: Object.values(fishCodex.fish).reduce(
+        (sum, f) => sum + f.totalCaught,
+        0,
+      ),
+      fishSpecies: Object.keys(fishCodex.fish).length,
+      antiquesFound: Object.keys(treasureCodex.antiques).length,
       equippedIds,
     });
   }

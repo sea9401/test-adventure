@@ -21,6 +21,11 @@ type Telemetry = {
   powerBands: { label: string; players: number }[];
   classDist: { key: string; label: string; count: number }[];
   tierDist: { tier: number; count: number }[];
+  jobDist: { key: string; label: string; tier: number; count: number }[];
+  jobTierDist: { tier: number; count: number }[];
+  masteryBands: { label: string; players: number }[];
+  reincarnationBands: { label: string; players: number }[];
+  spPressureBands: { label: string; players: number }[];
   statAxes: { key: string; label: string; avg: number; dominantCount: number }[];
   economy: {
     label: string;
@@ -30,6 +35,20 @@ type Telemetry = {
     maxGold: number;
   }[];
   equipmentUsage: { id: string; name: string; count: number }[];
+  equipmentSummary: {
+    label: string;
+    players: number;
+    avgEquipped: number;
+    avgOwned: number;
+    avgMaxEnhance: number;
+  }[];
+  lifeProgress: {
+    fishingPlayers: number;
+    avgFishCaught: number;
+    avgFishSpecies: number;
+    treasurePlayers: number;
+    avgAntiquesFound: number;
+  };
 };
 
 function Card({
@@ -118,6 +137,19 @@ export function BalanceTelemetryTab() {
     ...(data?.statAxes ?? []).map((s) => s.dominantCount),
   );
   const classMax = Math.max(1, ...(data?.classDist ?? []).map((c) => c.count));
+  const jobMax = Math.max(1, ...(data?.jobDist ?? []).map((c) => c.count));
+  const masteryMax = Math.max(
+    1,
+    ...(data?.masteryBands ?? []).map((b) => b.players),
+  );
+  const reincarnationMax = Math.max(
+    1,
+    ...(data?.reincarnationBands ?? []).map((b) => b.players),
+  );
+  const spPressureMax = Math.max(
+    1,
+    ...(data?.spPressureBands ?? []).map((b) => b.players),
+  );
   const equipMax = Math.max(
     1,
     ...(data?.equipmentUsage ?? []).map((e) => e.count),
@@ -130,8 +162,7 @@ export function BalanceTelemetryTab() {
           <div>
             <h2 className="text-sm font-semibold">밸런스 텔레메트리</h2>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              읽기 전용 — 기존 세이브 집계(관리자 계정 제외). 최근 밸런스 변경
-              실측용.
+              읽기 전용 — 현재 v2 세이브 집계(관리자 계정 제외). 프론티어·직업 숙련도·SP·장비·생활 진행 실측용.
             </p>
           </div>
           <Button onClick={load} disabled={loading}>
@@ -184,6 +215,74 @@ export function BalanceTelemetryTab() {
                 suffix={b.avgPower ? ` · ⚔${b.avgPower}` : ""}
               />
             ))}
+          </Card>
+
+          <Card
+            title="현재 직업 분포"
+            hint="새 직업 카탈로그 기준 jobId. 상위 20개만 표시합니다."
+          >
+            {data.jobDist.map((j) => (
+              <BarRow
+                key={j.key}
+                label={`${j.label} (T${j.tier})`}
+                value={j.count}
+                max={jobMax}
+                suffix="명"
+              />
+            ))}
+            <div className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+              티어:{" "}
+              {data.jobTierDist.map((t) => `T${t.tier} ${t.count}`).join(" · ") ||
+                "없음"}
+            </div>
+          </Card>
+
+          <Card
+            title="현재 직업 숙련도 구간"
+            hint="전직 게이트와 직접 맞물리는 현재 jobCumLevel/cumLevel 기준입니다."
+          >
+            {data.masteryBands.map((b) => (
+              <BarRow
+                key={b.label}
+                label={b.label}
+                value={b.players}
+                max={masteryMax}
+                suffix="명"
+              />
+            ))}
+          </Card>
+
+          <Card title="환생 / SP 압박">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  환생 횟수
+                </div>
+                {data.reincarnationBands.map((b) => (
+                  <BarRow
+                    key={b.label}
+                    label={b.label}
+                    value={b.players}
+                    max={reincarnationMax}
+                    suffix="명"
+                  />
+                ))}
+              </div>
+              <div>
+                <div className="mb-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  장착 SP / 예산
+                </div>
+                {data.spPressureBands.map((b) => (
+                  <BarRow
+                    key={b.label}
+                    label={b.label}
+                    value={b.players}
+                    max={spPressureMax}
+                    suffix="명"
+                  />
+                ))}
+              </div>
+            </div>
           </Card>
 
           <Card
@@ -241,7 +340,7 @@ export function BalanceTelemetryTab() {
             ))}
           </Card>
 
-          <Card title="직업 분포">
+          <Card title="직군 분포">
             {data.classDist.map((c) => (
               <BarRow
                 key={c.key}
@@ -252,8 +351,8 @@ export function BalanceTelemetryTab() {
               />
             ))}
             <div className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-              차수:{" "}
-              {data.tierDist.map((t) => `${t.tier}차 ${t.count}`).join(" · ") ||
+              파생 classTier:{" "}
+              {data.tierDist.map((t) => `${t.tier} ${t.count}`).join(" · ") ||
                 "없음"}
             </div>
           </Card>
@@ -277,6 +376,63 @@ export function BalanceTelemetryTab() {
                 장착 데이터 없음
               </div>
             )}
+          </Card>
+
+          <Card
+            title="장비 보유/강화 — 레벨대별"
+            hint="avg equipped / owned / max +강화."
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-zinc-500 dark:text-zinc-400">
+                    <th className="py-1 pr-2 font-medium">레벨대</th>
+                    <th className="py-1 pr-2 text-right font-medium">인원</th>
+                    <th className="py-1 pr-2 text-right font-medium">장착</th>
+                    <th className="py-1 pr-2 text-right font-medium">보유</th>
+                    <th className="py-1 text-right font-medium">최고 강화</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono tabular-nums">
+                  {data.equipmentSummary.map((e) => (
+                    <tr
+                      key={e.label}
+                      className="border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      <td className="py-1 pr-2 font-sans">{e.label}</td>
+                      <td className="py-1 pr-2 text-right">{e.players}</td>
+                      <td className="py-1 pr-2 text-right">{e.avgEquipped}</td>
+                      <td className="py-1 pr-2 text-right">{e.avgOwned}</td>
+                      <td className="py-1 text-right">+{e.avgMaxEnhance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card title="생활 콘텐츠 진행">
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+              {[
+                { label: "낚시 참여", value: data.lifeProgress.fishingPlayers },
+                { label: "평균 어획", value: data.lifeProgress.avgFishCaught },
+                { label: "평균 어종", value: data.lifeProgress.avgFishSpecies },
+                { label: "발굴 참여", value: data.lifeProgress.treasurePlayers },
+                { label: "평균 유물", value: data.lifeProgress.avgAntiquesFound },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
+                >
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    {item.label}
+                  </div>
+                  <div className="font-mono text-sm tabular-nums">
+                    {item.value.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
 
           <Card

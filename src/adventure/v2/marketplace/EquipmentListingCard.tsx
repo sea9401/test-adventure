@@ -8,7 +8,6 @@ import {
   CraftQualityBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
-  PerfectQualityBadge,
   powerNameClass,
   QualityPctText,
 } from "@/adventure/v2/V2ItemCard";
@@ -97,7 +96,6 @@ export function EquipmentListingCard({
                 <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] tabular-nums">
                   <span className="text-zinc-500 dark:text-zinc-400">품질</span>
                   <QualityPctText pct={detail.pct} className="font-semibold" />
-                  {detail.pct >= 100 ? <PerfectQualityBadge /> : null}
                 </span>
               )}
             </div>

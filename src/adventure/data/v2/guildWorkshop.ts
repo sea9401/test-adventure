@@ -106,6 +106,7 @@ export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 12;
 export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 3;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
+export const GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT = 50;
 
 export const GUILD_WORKSHOP_BONUS_TIERS: {
   tier: number;
@@ -764,7 +765,12 @@ export function guildWorkshopDismantlePlan(
       sourceRecipe,
       inst.craftedBy?.masterwork === true ? "masterwork" : "normal",
     );
-    amount = Math.min(amount, Math.max(0, sourceMaterialCost[materialId] ?? 0));
+    const recoverableMaterialCost = Math.floor(
+      ((sourceMaterialCost[materialId] ?? 0) *
+        GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT) /
+        100,
+    );
+    amount = Math.min(amount, Math.max(0, recoverableMaterialCost));
   }
 
   if (amount <= 0) {

@@ -158,6 +158,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [card, setCard] = useState<{
     inst: V2EquipInstance;
     anchor: ItemCardAnchor;
+    compare?: boolean;
   } | null>(null);
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
@@ -544,7 +545,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           const slot = candItem.slot;
           const equippedIid = equipped[slot] ?? null;
           const isCandidateEquipped = equippedIid === card.inst.iid;
-          // 같은 슬롯에 다른 장비가 장착돼 있으면(후보가 미장착) 비교 카드를 띄운다.
+          // 같은 슬롯에 다른 장비가 장착돼 있으면 상세 카드에 비교 버튼을 띄우고,
+          // 사용자가 비교를 누른 경우에만 비교 카드를 연다.
           const equippedInst =
             equippedIid && !isCandidateEquipped
               ? owned.find((i) => i.iid === equippedIid)
@@ -558,7 +560,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onToggle: () => applyLock(card.inst.iid, !liveLocked),
           };
 
-          if (equippedInst) {
+          if (equippedInst && card.compare) {
             const equippedItem = V2_EQUIPMENT[equippedInst.id];
             return (
               <V2ItemCompareCard
@@ -612,6 +614,18 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 onEquip: () => applyEquip(slot, card.inst.iid, card.inst.iid),
                 onUnequip: () => applyEquip(slot, null, card.inst.iid),
               }}
+              compare={
+                equippedInst
+                  ? {
+                      onCompare: () =>
+                        setCard((prev) =>
+                          prev?.inst.iid === card.inst.iid
+                            ? { ...prev, compare: true }
+                            : prev,
+                        ),
+                    }
+                  : undefined
+              }
               lock={lockAction}
             />
           );

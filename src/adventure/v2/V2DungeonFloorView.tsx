@@ -680,7 +680,7 @@ export function V2DungeonFloorView({
             <button
               type="button"
               onClick={onSeekHealing}
-              className="mt-2.5 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
+              className="ui-game-button mt-2.5 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
             >
               치료소로 가기
             </button>
@@ -712,7 +712,7 @@ export function V2DungeonFloorView({
                     onCooldown
             }
             aria-pressed={autoHunt}
-            className={`flex-1 select-none touch-manipulation rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
+            className={`ui-game-button flex-1 select-none touch-manipulation rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
               autoHunt && !offlineLocked
                 ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
                 : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
@@ -749,7 +749,7 @@ export function V2DungeonFloorView({
               onClick={() => setSettingsOpen((o) => !o)}
               disabled={batchRunning}
               aria-label="전투 설정"
-              className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
             >
               <Gear size={16} weight="duotone" />
             </button>
@@ -773,7 +773,7 @@ export function V2DungeonFloorView({
                     }}
                     aria-pressed={selected}
                     disabled={batchRunning}
-                    className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-50 ${
+                    className={`ui-game-button flex-1 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-50 ${
                       selected
                         ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
                         : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
@@ -794,7 +794,7 @@ export function V2DungeonFloorView({
                 type="button"
                 onClick={stopOffline}
                 disabled={offlineBusy}
-                className="w-full rounded-md border border-amber-500 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+                className="ui-game-button w-full rounded-md border border-amber-500 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
               >
                 {offlineBusy
                   ? "정지 중…"
@@ -805,7 +805,7 @@ export function V2DungeonFloorView({
                 type="button"
                 onClick={startOffline}
                 disabled={offlineBusy}
-                className="w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
+                className="ui-game-button w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
               >
                 {offlineBusy ? "시작 중…" : "오프라인 사냥"}
               </button>
@@ -836,7 +836,7 @@ export function V2DungeonFloorView({
             <button
               type="button"
               onClick={onSeekHealing}
-              className="mt-2.5 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
+              className="ui-game-button mt-2.5 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
             >
               치료소로 가기
             </button>

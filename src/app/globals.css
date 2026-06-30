@@ -287,6 +287,9 @@ body {
 .war-meter-track {
   position: relative;
   overflow: hidden;
+  box-shadow:
+    inset 0 2px 4px rgba(15, 23, 42, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .war-meter-track::after {
@@ -306,6 +309,9 @@ body {
 .war-meter-fill {
   position: relative;
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14);
 }
 
 .war-resource-line {
@@ -447,6 +453,91 @@ body {
   }
 }
 
+@keyframes ui-reward-flash {
+  0% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      0 0 0 rgba(245, 158, 11, 0);
+    transform: translateY(2px) scale(0.985);
+  }
+  42% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 0 28px rgba(245, 158, 11, 0.36);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 0 rgba(245, 158, 11, 0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ui-game-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.dark .ui-game-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.32),
+    0 12px 28px rgba(0, 0, 0, 0.18);
+}
+
+.ui-game-button {
+  position: relative;
+  touch-action: manipulation;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 0 rgba(15, 23, 42, 0.2),
+    0 8px 16px rgba(15, 23, 42, 0.1);
+}
+
+.dark .ui-game-button {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 rgba(0, 0, 0, 0.38),
+    0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+.ui-game-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.ui-game-button:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 rgba(15, 23, 42, 0),
+    0 3px 8px rgba(15, 23, 42, 0.12);
+}
+
+.ui-game-meter {
+  box-shadow:
+    inset 0 2px 4px rgba(15, 23, 42, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.ui-game-meter-fill {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.14);
+}
+
+.ui-reward-flash {
+  animation: ui-reward-flash 520ms ease-out both;
+}
+
 .ui-lift-card {
   transition:
     transform 140ms ease,
@@ -458,6 +549,10 @@ body {
 .ui-lift-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+}
+
+.ui-lift-card:active {
+  transform: translateY(1px);
 }
 
 .ui-equipment-card {
@@ -484,6 +579,26 @@ body {
 .ui-equipment-card:hover::after,
 .ui-equipment-card.is-active::after {
   opacity: 1;
+}
+
+.ui-equipment-card.ui-item-rarity-t3 {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(14, 165, 233, 0.18);
+}
+
+.ui-equipment-card.ui-item-rarity-t4 {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(245, 158, 11, 0.28),
+    0 0 18px rgba(245, 158, 11, 0.12);
+}
+
+.ui-equipment-card.ui-item-rarity-t5 {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(168, 85, 247, 0.3),
+    0 0 20px rgba(168, 85, 247, 0.16);
 }
 
 .ui-shop-row {
@@ -853,7 +968,8 @@ body {
   .war-result-pop,
   .war-vigor-low,
   .war-threat-row::after,
-  .war-meter-track::after {
+  .war-meter-track::after,
+  .ui-reward-flash {
     animation: none !important;
   }
 
@@ -869,6 +985,10 @@ body {
   .war-defender-row:hover,
   .ui-lift-card,
   .ui-lift-card:hover,
+  .ui-lift-card:active,
+  .ui-game-button,
+  .ui-game-button:not(:disabled):hover,
+  .ui-game-button:not(:disabled):active,
   .ui-skill-card,
   .ui-skill-card:hover,
   .ui-character-slot,
@@ -893,7 +1013,8 @@ body {
   .ui-forge-outcome::after,
   .ui-treasure-cell.is-treasure,
   .ui-treasure-result,
-  .ui-codex-card.is-ready {
+  .ui-codex-card.is-ready,
+  .ui-reward-flash {
     animation: none !important;
   }
 }

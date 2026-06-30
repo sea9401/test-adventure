@@ -115,7 +115,7 @@ export function ClaimResultCard({
       >
         <div className="flex flex-col gap-3">
           {result.treasuryCaptured && result.treasuryCaptured.total > 0 && (
-            <div className="rounded-md border border-yellow-400/60 bg-yellow-400/10 px-3 py-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
+            <div className="ui-reward-flash rounded-md border border-yellow-400/60 bg-yellow-400/10 px-3 py-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
               🪙 거점 금고 {result.treasuryCaptured.total.toLocaleString()} G
               획득! (내 몫 +
               {result.treasuryCaptured.capturerShare.toLocaleString()} G · 길드

@@ -54,6 +54,7 @@ export function Button({
 }: ButtonProps) {
   const cls = [
     BASE,
+    variant !== "ghost" ? "ui-game-button" : "",
     VARIANT[variant],
     SIZE[size],
     fullWidth ? "w-full" : "",

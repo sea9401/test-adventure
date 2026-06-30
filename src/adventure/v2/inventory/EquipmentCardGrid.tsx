@@ -111,7 +111,7 @@ export function EquipmentCardGrid({
             type="button"
             onClick={(e) => onOpenCard(inst, anchorOf(e.currentTarget))}
             aria-label={`${item.name} 정보`}
-            className={`ui-equipment-card ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 p-3 text-left transition ${
+            className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 p-3 text-left transition ${
               highlighted
                 ? "is-active border-emerald-400 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-900"
                 : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`

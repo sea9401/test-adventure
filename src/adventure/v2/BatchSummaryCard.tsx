@@ -94,17 +94,17 @@ export function BatchSummaryCard({
   return (
     <Card padding="sm">
       {rareMapNames.length > 0 && (
-        <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+        <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
           🗺 {rareMapNames.join(", ")} 발견! — 인벤토리 소모품에서 확인
         </div>
       )}
       {uniqueNames.length > 0 && (
-        <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
+        <div className="ui-reward-flash mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           ✨ 유니크 {uniqueNames.join(", ")} 획득!
         </div>
       )}
       {dropParts.length > 0 && (
-        <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+        <div className="ui-reward-flash mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
           ⭐ {dropParts.join(", ")}을(를) 획득했다!
         </div>
       )}
@@ -169,7 +169,7 @@ export function BatchSummaryCard({
       </div>
 
       {summary.levelsGained > 0 && (
-        <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
+        <div className="ui-reward-flash mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
             레벨 업! +{summary.levelsGained}
           </span>
@@ -209,7 +209,7 @@ export function BatchSummaryCard({
                 key={entry.index}
                 type="button"
                 onClick={() => onSelectReplay(entry)}
-                className={`rounded-md border px-2 py-1.5 text-xs font-medium tabular-nums transition ${
+                className={`ui-game-button rounded-md border px-2 py-1.5 text-xs font-medium tabular-nums transition ${
                   entry.won
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950"
                     : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950"

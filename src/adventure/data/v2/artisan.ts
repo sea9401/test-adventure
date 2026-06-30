@@ -73,6 +73,8 @@ export type ArtisanSkillDefinition = {
 
 export const BLACKSMITH_MASTERWORK_LEVEL = 8;
 export const BLACKSMITH_PLUS2_QUALITY_LEVEL = 9;
+export const BLACKSMITH_MATERIAL_SENSE_LEVEL = 4;
+export const BLACKSMITH_DISMANTLE_LEVEL = 6;
 
 export const BLACKSMITH_ARTISAN_JOBS: readonly ArtisanJobDefinition[] = [
   {
@@ -135,11 +137,11 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     id: "blacksmith_material_sense",
     jobId: "apprentice_blacksmith",
     effectScope: "crafting",
-    level: 4,
+    level: BLACKSMITH_MATERIAL_SENSE_LEVEL,
     kind: "passive",
     name: "재료 감각",
-    description: "제작 재료 절약과 회수 계열 확장용 패시브",
-    implemented: false,
+    description: "해체 시 장비 티어와 품질에 맞는 제작 재료 회수량 판정",
+    implemented: true,
   },
   {
     id: "blacksmith_precision_forging",
@@ -155,11 +157,11 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     id: "blacksmith_dismantle",
     jobId: "blacksmith",
     effectScope: "crafting",
-    level: 6,
+    level: BLACKSMITH_DISMANTLE_LEVEL,
     kind: "craftAction",
     name: "해체술",
     description: "장비 분해로 제작 재료 일부 회수",
-    implemented: false,
+    implemented: true,
   },
   {
     id: "blacksmith_signature_craft",

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   GUILD_WORKSHOP_RECIPES,
   addGuildWorkshopCraftStat,
+  addGuildWorkshopMaterials,
   guildWorkshopBonusFromTotalCrafts,
+  guildWorkshopDismantleMaterialForTier,
+  guildWorkshopDismantlePlan,
   guildWorkshopQualityChancePct,
   guildWorkshopRecipeView,
   guildWorkshopRecipeResourceCost,
@@ -396,6 +399,68 @@ describe("guild workshop recipes", () => {
       totalCrafts: 3,
       qualityCrafts: 2,
       craftedByRecipe: { iron_sword: 2, silver_ring: 1 },
+    });
+  });
+
+  it("maps dismantle materials by equipment tier", () => {
+    expect(guildWorkshopDismantleMaterialForTier(3)).toBeUndefined();
+    expect(guildWorkshopDismantleMaterialForTier(4)).toBe(
+      GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
+    );
+    expect(guildWorkshopDismantleMaterialForTier(6)).toBe(
+      GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
+    );
+    expect(guildWorkshopDismantleMaterialForTier(8)).toBe(
+      GUILD_WORKSHOP_MATERIAL_ID.sunstone,
+    );
+    expect(guildWorkshopDismantleMaterialForTier(10)).toBe(
+      GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
+    );
+  });
+
+  it("locks dismantle before blacksmith level 6", () => {
+    const item = V2_EQUIPMENT.v2_greatsword;
+    expect(guildWorkshopDismantlePlan(item, {}, 5)).toEqual({
+      materials: {},
+      artisanXp: 0,
+      blockedReason: "locked_level",
+    });
+  });
+
+  it("returns extra dismantle materials for craft-only quality masterworks", () => {
+    const item = V2_EQUIPMENT.v2_crafted_sunforge_blade;
+    const plan = guildWorkshopDismantlePlan(
+      item,
+      {
+        craftQuality: { level: 2, bonusPct: 10 },
+        craftedBy: {
+          userId: "u1",
+          profession: "blacksmith",
+          level: 9,
+          craftedAt: new Date(0).toISOString(),
+          masterwork: true,
+        },
+      },
+      9,
+    );
+    expect(plan.materials).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+    });
+    expect(plan.artisanXp).toBe(4);
+  });
+
+  it("adds dismantled materials into inventory", () => {
+    expect(
+      addGuildWorkshopMaterials(
+        { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+        {
+          [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1,
+          [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
+        },
+      ),
+    ).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
     });
   });
 });

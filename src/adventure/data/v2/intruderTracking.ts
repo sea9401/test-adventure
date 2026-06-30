@@ -20,6 +20,12 @@ export type EjectedFrom = {
   at: number; // 토벌된 시각
 };
 
+export type TileIntruderPosition = {
+  col?: unknown;
+  row?: unknown;
+  at?: unknown;
+};
+
 // raw JSON → LastHuntedOutpost. 모양 어긋나면 null.
 export function parseLastHuntedOutpost(raw: unknown): LastHuntedOutpost | null {
   if (!raw || typeof raw !== "object") return null;
@@ -66,4 +72,25 @@ export function isIntruderActive(
   if (!last) return false;
   if (last.outpostId !== outpostId) return false;
   return last.at >= nowMs - INTRUDER_TTL_MS;
+}
+
+// 타일 정착지 침입은 현재 좌표가 권위다. at 은 체류시간/약탈 준비 표시용 보조값이라,
+// 예전 저장처럼 누락돼도 토벌 목록에서는 침입자로 보여야 한다(eject 도 같은 좌표 기준).
+export function isTileIntruderPresent(
+  tilePos: TileIntruderPosition | null | undefined,
+  col: number,
+  row: number,
+): boolean {
+  return tilePos?.col === col && tilePos.row === row;
+}
+
+export function tileIntruderEnteredAt(
+  tilePos: TileIntruderPosition | null | undefined,
+  fallbackAt: number,
+): number {
+  return typeof tilePos?.at === "number" &&
+    Number.isFinite(tilePos.at) &&
+    tilePos.at > 0
+    ? tilePos.at
+    : fallbackAt;
 }

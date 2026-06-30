@@ -16,15 +16,33 @@ import {
 import {
   GRID_DUNGEON_ENTRANCE,
   gridDungeonKey,
+  gridDungeonMovePreview,
   type GridDungeonMoveDir,
   type GridDungeonPublicRun,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 
 type GridDungeonState = {
   ok: boolean;
   entrance: typeof GRID_DUNGEON_ENTRANCE;
   atEntrance: boolean;
+  rewardQuota?: {
+    dayKey: string;
+    claimed: number;
+    limit: number;
+    remaining: number;
+  };
+  history?: Array<{
+    id: string;
+    outcome: "cleared" | "failed" | "abandoned";
+    at: number;
+    rewardGold: number;
+    drops?: Record<string, number>;
+    exploredTiles: number;
+    hp: number;
+    message: string;
+  }>;
   run: GridDungeonPublicRun | null;
   error?: string;
 };
@@ -108,6 +126,167 @@ const DIR_BUTTONS: Array<{
   { dir: "down", label: "아래", Icon: ArrowDown },
 ];
 
+const EVENT_TILE_KINDS = new Set<GridDungeonTileKind>([
+  "monster",
+  "elite",
+  "treasure",
+  "fountain",
+  "boss",
+]);
+
+const ERROR_LABEL: Record<string, string> = {
+  blocked: "막힌 방향입니다. 다른 통로를 선택하세요.",
+  bad_direction: "이동 방향이 올바르지 않습니다.",
+  no_run: "진행 중인 탐험이 없습니다.",
+  not_active: "진행 중인 탐험에서만 이동할 수 있습니다.",
+  not_cleared: "출구에 도착한 뒤 정산할 수 있습니다.",
+  not_at_entrance: "지도에서 던전 입구 칸으로 이동해야 시작할 수 있습니다.",
+};
+
+const HISTORY_LABEL: Record<
+  NonNullable<GridDungeonState["history"]>[number]["outcome"],
+  string
+> = {
+  cleared: "클리어",
+  failed: "실패",
+  abandoned: "포기",
+};
+
+const HISTORY_TONE: Record<
+  NonNullable<GridDungeonState["history"]>[number]["outcome"],
+  string
+> = {
+  cleared: "border-emerald-800 bg-emerald-950/45 text-emerald-200",
+  failed: "border-red-900 bg-red-950/45 text-red-200",
+  abandoned: "border-zinc-700 bg-zinc-900 text-zinc-300",
+};
+
+function dropEntries(drops: Record<string, number> | undefined) {
+  return Object.entries(drops ?? {})
+    .filter(([, amount]) => amount > 0)
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
+function dropCount(drops: Record<string, number> | undefined) {
+  return dropEntries(drops).reduce((sum, [, amount]) => sum + amount, 0);
+}
+
+function formatHistoryTime(at: number) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(at));
+}
+
+function DropSummary({
+  drops,
+  emptyLabel,
+}: {
+  drops: Record<string, number> | undefined;
+  emptyLabel?: string;
+}) {
+  const entries = dropEntries(drops);
+  if (entries.length === 0) {
+    return emptyLabel ? (
+      <div className="text-[11px] text-zinc-500">{emptyLabel}</div>
+    ) : null;
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {entries.map(([id, amount]) => (
+        <span
+          key={id}
+          className="rounded border border-yellow-800/70 bg-yellow-950/35 px-2 py-1 text-[11px] text-yellow-200"
+        >
+          {V2_MATERIALS[id]?.name ?? id} x{amount.toLocaleString()}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function RewardQuotaNotice({
+  quota,
+  pendingDrops,
+}: {
+  quota: GridDungeonState["rewardQuota"];
+  pendingDrops?: Record<string, number>;
+}) {
+  if (!quota) return null;
+  const canClaimMaterials = quota.remaining > 0;
+  const pending = dropCount(pendingDrops);
+  return (
+    <div
+      className={`rounded-md border px-3 py-2 text-xs ${
+        canClaimMaterials
+          ? "border-yellow-800/70 bg-yellow-950/35 text-yellow-200"
+          : "border-zinc-800 bg-zinc-950/70 text-zinc-400"
+      }`}
+    >
+      <div className="font-semibold">
+        재료 보상 {quota.remaining} / {quota.limit}회 남음
+      </div>
+      <div className="mt-0.5 text-[11px] opacity-80">
+        {canClaimMaterials
+          ? pending > 0
+            ? `정산 시 확보 재료 ${pending.toLocaleString()}개가 지급됩니다.`
+            : "오늘 재료 보상을 받을 수 있습니다."
+          : "탐험과 골드 정산은 가능하지만 오늘 재료 보상은 더 받을 수 없습니다."}
+      </div>
+    </div>
+  );
+}
+
+function DungeonHistory({
+  entries,
+}: {
+  entries: GridDungeonState["history"];
+}) {
+  const history = entries ?? [];
+  return (
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="text-xs font-semibold text-zinc-300">최근 탐험 기록</div>
+      {history.length === 0 ? (
+        <div className="text-xs text-zinc-500">아직 기록이 없습니다.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {history.slice(0, 5).map((entry) => (
+            <div
+              key={entry.id}
+              className="rounded border border-zinc-800 bg-zinc-950 px-2.5 py-2 text-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${HISTORY_TONE[entry.outcome]}`}
+                  >
+                    {HISTORY_LABEL[entry.outcome]}
+                  </span>
+                  <span className="truncate text-zinc-300">
+                    {formatHistoryTime(entry.at)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-zinc-500">
+                  <span>{entry.rewardGold.toLocaleString()}G</span>
+                  <span>{entry.exploredTiles}칸</span>
+                  <span>HP {entry.hp}</span>
+                </div>
+              </div>
+              {dropEntries(entry.drops).length > 0 && (
+                <div className="mt-2">
+                  <DropSummary drops={entry.drops} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (!visible) return null;
   if (kind === "treasure") return <TreasureChest size={20} weight="fill" />;
@@ -123,10 +302,14 @@ function tileClassName({
   kind,
   isCurrent,
   isRevealed,
+  isClearedEvent,
+  isPendingEvent,
 }: {
   kind: GridDungeonTileKind;
   isCurrent: boolean;
   isRevealed: boolean;
+  isClearedEvent: boolean;
+  isPendingEvent: boolean;
 }) {
   const base =
     "relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded border text-[10px] transition";
@@ -136,7 +319,10 @@ function tileClassName({
   if (!isRevealed) {
     return `${base} border-zinc-950 bg-black text-zinc-700`;
   }
-  return `${base} ${TILE_TONE[kind].cell}`;
+  const tone = `${base} ${TILE_TONE[kind].cell}`;
+  if (isPendingEvent) return `${tone} ring-1 ring-yellow-300/70`;
+  if (isClearedEvent) return `${tone} opacity-75 saturate-50`;
+  return tone;
 }
 
 function tileBackgroundStyle(isRevealed: boolean, isCurrent: boolean) {
@@ -193,7 +379,7 @@ export function V2GridDungeonView({
         });
         const json = (await res.json()) as GridDungeonState;
         if (!res.ok || !json.ok) {
-          setError(json.error ?? "던전 요청에 실패했습니다.");
+          setError(ERROR_LABEL[json.error ?? ""] ?? json.error ?? "던전 요청에 실패했습니다.");
           return;
         }
         setState(json);
@@ -206,8 +392,20 @@ export function V2GridDungeonView({
   );
 
   const run = state?.run ?? null;
+  const rewardQuota = state?.rewardQuota;
+  const history = state?.history ?? [];
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
   const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
+  const clearedEvents = useMemo(
+    () => new Set(run?.clearedEvents ?? []),
+    [run?.clearedEvents],
+  );
+  const movePreviews = useMemo(() => {
+    if (!run || run.status !== "active") return new Map<GridDungeonMoveDir, ReturnType<typeof gridDungeonMovePreview>>();
+    return new Map(
+      DIR_BUTTONS.map(({ dir }) => [dir, gridDungeonMovePreview(run, dir)]),
+    );
+  }, [run]);
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 text-zinc-200">
@@ -241,27 +439,31 @@ export function V2GridDungeonView({
           불러오는 중...
         </div>
       ) : !run || run.status === "claimed" || run.status === "failed" ? (
-        <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-4">
-          <div>
-            <div className="text-sm font-semibold text-zinc-100">
-              입구 상태
+        <>
+          <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-4">
+            <div>
+              <div className="text-sm font-semibold text-zinc-100">
+                입구 상태
+              </div>
+              <div className="mt-1 text-xs text-zinc-500">
+                {state.atEntrance
+                  ? "입구 앞에 서 있습니다. 바로 탐험을 시작할 수 있습니다."
+                  : "지도에서 입구 칸으로 이동해야 탐험을 시작할 수 있습니다."}
+              </div>
             </div>
-            <div className="mt-1 text-xs text-zinc-500">
-              {state.atEntrance
-                ? "입구 앞에 서 있습니다. 바로 탐험을 시작할 수 있습니다."
-                : "지도에서 입구 칸으로 이동해야 탐험을 시작할 수 있습니다."}
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={!state.atEntrance || busy}
-            onClick={() => postAction({ action: "start" })}
-            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <DoorOpen size={16} weight="fill" />
-            탐험 시작
-          </button>
-        </section>
+            <RewardQuotaNotice quota={rewardQuota} />
+            <button
+              type="button"
+              disabled={!state.atEntrance || busy}
+              onClick={() => postAction({ action: "start" })}
+              className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <DoorOpen size={16} weight="fill" />
+              탐험 시작
+            </button>
+          </section>
+          <DungeonHistory entries={history} />
+        </>
       ) : (
         <>
           <section className="grid grid-cols-3 gap-2 text-xs">
@@ -284,6 +486,11 @@ export function V2GridDungeonView({
               </div>
             </div>
           </section>
+
+          <RewardQuotaNotice
+            quota={rewardQuota}
+            pendingDrops={run.pendingDrops as Record<string, number> | undefined}
+          />
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
@@ -316,11 +523,32 @@ export function V2GridDungeonView({
                   const isCurrent = run.pos.x === x && run.pos.y === y;
                   const isRevealed = revealed.has(key);
                   const isVisited = visited.has(key);
+                  const isEventTile = EVENT_TILE_KINDS.has(kind);
+                  const isClearedEvent =
+                    isRevealed && isEventTile && clearedEvents.has(key);
+                  const isPendingEvent =
+                    isRevealed && isEventTile && !clearedEvents.has(key);
                   return (
                     <div
                       key={key}
-                      title={isRevealed ? TILE_LABEL[kind] : "미탐험"}
-                      className={tileClassName({ kind, isCurrent, isRevealed })}
+                      title={
+                        isRevealed
+                          ? `${TILE_LABEL[kind]}${
+                              isClearedEvent
+                                ? " · 처리 완료"
+                                : isPendingEvent
+                                  ? " · 미처리"
+                                  : ""
+                            }`
+                          : "미탐험"
+                      }
+                      className={tileClassName({
+                        kind,
+                        isCurrent,
+                        isRevealed,
+                        isClearedEvent,
+                        isPendingEvent,
+                      })}
                       style={tileBackgroundStyle(isRevealed, isCurrent)}
                     >
                       {!isRevealed && (
@@ -346,6 +574,16 @@ export function V2GridDungeonView({
                           className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${TILE_TONE[kind].visited}`}
                         />
                       )}
+                      {isClearedEvent && !isCurrent && (
+                        <span className="absolute left-1 top-1 rounded border border-zinc-700 bg-zinc-950/80 px-1 text-[8px] leading-3 text-zinc-300">
+                          완료
+                        </span>
+                      )}
+                      {isPendingEvent && !isCurrent && (
+                        <span className="absolute left-1 top-1 rounded border border-yellow-700/80 bg-yellow-950/80 px-1 text-[8px] leading-3 text-yellow-200">
+                          미처리
+                        </span>
+                      )}
                     </div>
                   );
                 }),
@@ -355,6 +593,10 @@ export function V2GridDungeonView({
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
+            <DropSummary
+              drops={run.pendingDrops as Record<string, number> | undefined}
+              emptyLabel="확보한 재료가 아직 없습니다."
+            />
             {run.status === "cleared" ? (
               <button
                 type="button"
@@ -365,19 +607,47 @@ export function V2GridDungeonView({
                 {run.pendingGold.toLocaleString()}G 정산
               </button>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {DIR_BUTTONS.map(({ dir, label, Icon }) => (
-                  <button
-                    key={dir}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => postAction({ action: "move", dir })}
-                    className="inline-flex items-center justify-center gap-1 rounded-md border border-zinc-700 px-2 py-2 text-xs text-zinc-200 hover:bg-zinc-900 disabled:opacity-40"
-                  >
-                    <Icon size={15} weight="bold" />
-                    {label}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {DIR_BUTTONS.map(({ dir, label, Icon }) => {
+                  const preview = movePreviews.get(dir);
+                  const available = preview?.available === true;
+                  const destination = available
+                    ? TILE_LABEL[preview.tile]
+                    : preview?.reason === "wall"
+                      ? "벽"
+                      : "끝";
+                  const stateLabel = available
+                    ? preview.cleared
+                      ? "완료"
+                      : preview.tile === "exit" && !run.bossDefeated
+                        ? "봉인"
+                        : "가능"
+                    : preview?.reason === "wall"
+                      ? "막힘"
+                      : "범위 밖";
+                  return (
+                    <button
+                      key={dir}
+                      type="button"
+                      disabled={busy || !available}
+                      onClick={() => postAction({ action: "move", dir })}
+                      title={`${label} · ${destination} · ${stateLabel}`}
+                      className={`flex min-h-14 items-center justify-center gap-2 rounded-md border px-2 py-2 text-xs transition disabled:cursor-not-allowed ${
+                        available
+                          ? "border-emerald-700/80 bg-emerald-950/35 text-emerald-100 hover:bg-emerald-900/50"
+                          : "border-zinc-800 bg-zinc-950/70 text-zinc-600"
+                      }`}
+                    >
+                      <Icon size={15} weight="bold" />
+                      <span className="min-w-0 text-left leading-tight">
+                        <span className="block font-semibold">{label}</span>
+                        <span className="block truncate text-[10px] opacity-75">
+                          {destination} · {stateLabel}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>

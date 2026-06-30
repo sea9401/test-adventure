@@ -4,6 +4,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 15.225,
   "accuracyPct": 8.225,
+  "allStatTotal": 263,
   "atk": 63,
   "attackCount": 1,
   "classTier": undefined,
@@ -37,6 +38,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 8.775,
   "accuracyPct": 1.775,
+  "allStatTotal": 100,
   "atk": 11,
   "attackCount": 1,
   "classTier": undefined,
@@ -70,6 +72,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 11.684999999999999,
   "accuracyPct": 4.685,
+  "allStatTotal": 253,
   "atk": 9,
   "attackCount": 1,
   "classTier": undefined,
@@ -103,6 +106,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 10.825,
   "accuracyPct": 3.8249999999999997,
+  "allStatTotal": 255,
   "atk": 30,
   "attackCount": 1,
   "classTier": undefined,
@@ -136,6 +140,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 9.175,
   "accuracyPct": 2.175,
+  "allStatTotal": 275,
   "atk": 38,
   "attackCount": 1,
   "classTier": undefined,
@@ -169,6 +174,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 {
   "accRating": 11.235,
   "accuracyPct": 4.234999999999999,
+  "allStatTotal": 263,
   "atk": 55,
   "attackCount": 1,
   "classTier": undefined,

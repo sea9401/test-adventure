@@ -687,6 +687,13 @@
       "when": 1782820800000,
       "tag": "0097_repair_guild_workshop_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1782864000000,
+      "tag": "0098_bulletin_guild_scope",
+      "breakpoints": true
     }
   ]
 }

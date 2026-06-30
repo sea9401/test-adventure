@@ -19,14 +19,18 @@ export async function fetchPosts(
   return res.json();
 }
 
-export async function fetchPermissions(): Promise<{ isAdmin: boolean }> {
+export async function fetchPermissions(): Promise<{
+  isAdmin: boolean;
+  guild: { id: number; name: string } | null;
+}> {
   const res = await fetch("/api/bulletin/permissions", { cache: "no-store" });
-  if (!res.ok) return { isAdmin: false };
+  if (!res.ok) return { isAdmin: false, guild: null };
   return res.json();
 }
 
 export async function postPost(input: {
   category: BulletinCategory;
+  scope: "public" | "guild";
   title: string | null;
   content: string;
 }): Promise<BulletinPost> {

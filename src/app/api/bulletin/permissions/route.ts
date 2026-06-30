@@ -1,4 +1,6 @@
+import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { getViewerGuild } from "@/lib/server/bulletinAccess";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
 
 // GET /api/bulletin/permissions — 클라가 글쓰기 폼에 공지사항 옵션을 노출할지 결정용.
@@ -6,6 +8,12 @@ import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
-  const isAdmin = await isCurrentUserAdmin();
-  return Response.json({ isAdmin });
+  const [isAdmin, guild] = await Promise.all([
+    isCurrentUserAdmin(),
+    getViewerGuild(db, userId),
+  ]);
+  return Response.json({
+    isAdmin,
+    guild: guild == null ? null : { id: guild.guildId, name: guild.guildName },
+  });
 }

@@ -54,6 +54,7 @@ export function BulletinBoardView() {
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [pmTarget, setPmTarget] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [guild, setGuild] = useState<{ id: number; name: string } | null>(null);
 
   // 검색어 debounce — 입력마다 fetch 하지 않고 250ms 멈춤 후 1회.
   useEffect(() => {
@@ -81,12 +82,19 @@ export function BulletinBoardView() {
   // 권한 — 마운트 1회.
   useEffect(() => {
     fetchPermissions()
-      .then((p) => setIsAdmin(p.isAdmin))
-      .catch(() => setIsAdmin(false));
+      .then((p) => {
+        setIsAdmin(p.isAdmin);
+        setGuild(p.guild);
+      })
+      .catch(() => {
+        setIsAdmin(false);
+        setGuild(null);
+      });
   }, []);
 
   const handleSubmit = async (input: {
     category: BulletinCategory;
+    scope: "public" | "guild";
     title: string;
     content: string;
   }) => {
@@ -106,6 +114,9 @@ export function BulletinBoardView() {
       }
       if (msg === "forbidden") {
         throw new Error("이 카테고리에 글을 쓸 권한이 없어요.");
+      }
+      if (msg === "not in guild") {
+        throw new Error("길드에 가입해야 길드 전용 글을 쓸 수 있어요.");
       }
       if (msg === "empty title") {
         throw new Error("제목을 입력해주세요.");
@@ -242,6 +253,7 @@ export function BulletinBoardView() {
             : category
         }
         isAdmin={isAdmin}
+        guild={guild}
         onCancel={() => setMode({ kind: "list" })}
         onSubmit={handleSubmit}
       />
@@ -275,6 +287,7 @@ export function BulletinBoardView() {
         <ComposePage
           initialCategory={post.category}
           isAdmin={isAdmin}
+          guild={guild}
           editing={{ title: post.title ?? "", content: post.content }}
           onCancel={() => setMode({ kind: "detail", postId: post.id })}
           onSubmit={(input) => handleEditSubmit(post.id, input)}

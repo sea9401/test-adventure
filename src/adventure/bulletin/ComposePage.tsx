@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, Globe, UsersThree } from "@phosphor-icons/react";
 import {
   BULLETIN_CATEGORIES,
   BULLETIN_CATEGORY_LABELS,
@@ -17,21 +17,25 @@ import {
 export function ComposePage({
   initialCategory,
   isAdmin,
+  guild,
   editing,
   onCancel,
   onSubmit,
 }: {
   initialCategory: BulletinCategory;
   isAdmin: boolean;
+  guild: { id: number; name: string } | null;
   editing?: { title: string; content: string };
   onCancel: () => void;
   onSubmit: (input: {
     category: BulletinCategory;
+    scope: "public" | "guild";
     title: string;
     content: string;
   }) => Promise<void>;
 }) {
   const [category, setCategory] = useState<BulletinCategory>(initialCategory);
+  const [scope, setScope] = useState<"public" | "guild">("public");
   const [titleDraft, setTitleDraft] = useState(editing?.title ?? "");
   const [draft, setDraft] = useState(editing?.content ?? "");
   const [submitting, setSubmitting] = useState(false);
@@ -57,6 +61,7 @@ export function ComposePage({
     try {
       await onSubmit({
         category,
+        scope: editing ? "public" : scope,
         title: trimmedTitle,
         content: trimmed,
       });
@@ -84,26 +89,64 @@ export function ComposePage({
       </div>
 
       {!editing && (
-        <div className="flex flex-wrap gap-1.5">
-          {selectableCategories.map((c) => {
-            const active = c === category;
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCategory(c)}
-                disabled={submitting}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  active
-                    ? "border-emerald-600 bg-emerald-600 text-white"
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {BULLETIN_CATEGORY_LABELS[c].name}
-              </button>
-            );
-          })}
-        </div>
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {selectableCategories.map((c) => {
+              const active = c === category;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  disabled={submitting}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    active
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {BULLETIN_CATEGORY_LABELS[c].name}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => setScope("public")}
+              disabled={submitting}
+              className={`inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                scope === "public"
+                  ? "border-zinc-800 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <Globe size={16} weight="bold" />
+              전체 공개
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (guild != null) setScope("guild");
+              }}
+              disabled={submitting || guild == null}
+              title={guild == null ? "길드 가입 후 사용할 수 있습니다" : guild.name}
+              className={`inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                scope === "guild"
+                  ? "border-emerald-700 bg-emerald-600 text-white"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <UsersThree size={16} weight="bold" />
+              길드 전용
+            </button>
+          </div>
+          {scope === "guild" && guild != null && (
+            <div className="-mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+              {guild.name} 길드원에게만 보입니다.
+            </div>
+          )}
+        </>
       )}
 
       <input

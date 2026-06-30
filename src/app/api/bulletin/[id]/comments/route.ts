@@ -1,8 +1,9 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { bulletinComments, bulletinPosts } from "@/db/schema";
+import { bulletinComments } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
+import { canAccessBulletinPost } from "@/lib/server/bulletinAccess";
 import {
   BULLETIN_COMMENT_MAX_LENGTH,
   BULLETIN_COMMENT_RATE_LIMIT_MS,
@@ -19,6 +20,9 @@ export async function GET(_req: Request, ctx: Ctx) {
   const postId = Number(idStr);
   if (!Number.isInteger(postId) || postId <= 0) {
     return new Response("invalid id", { status: 400 });
+  }
+  if (!(await canAccessBulletinPost(db, postId, userId))) {
+    return new Response("not found", { status: 404 });
   }
 
   const rows = await db
@@ -72,13 +76,10 @@ export async function POST(req: Request, ctx: Ctx) {
     });
   }
 
-  // 글 존재 확인 — FK 에러 노출 막기.
-  const [post] = await db
-    .select({ id: bulletinPosts.id })
-    .from(bulletinPosts)
-    .where(eq(bulletinPosts.id, postId))
-    .limit(1);
-  if (!post) return new Response("not found", { status: 404 });
+  // 글 존재 + 접근권 확인 — 길드 전용 글은 같은 길드원만 댓글 가능.
+  if (!(await canAccessBulletinPost(db, postId, userId))) {
+    return new Response("not found", { status: 404 });
+  }
 
   // rate limit — 본인 마지막 댓글 시각 기준. 글 작성보다 짧은 10초.
   const since = new Date(Date.now() - BULLETIN_COMMENT_RATE_LIMIT_MS);

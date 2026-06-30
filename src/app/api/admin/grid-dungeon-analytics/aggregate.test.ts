@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateGridDungeonAnalytics,
+  filterGridDungeonAnalyticsUsers,
   type GridDungeonAnalyticsUser,
 } from "./aggregate";
 import type { GridDungeonHistoryEntry } from "@/adventure/data/v2/gridDungeon";
@@ -156,5 +157,41 @@ describe("aggregateGridDungeonAnalytics", () => {
     expect(data.partySizes.find((p) => p.partySize === 1)?.clearRatePct).toBe(0);
     expect(data.partySizes.find((p) => p.partySize === 2)?.clearRatePct).toBe(100);
     expect(data.partySizes.find((p) => p.partySize === 3)?.avgRewardGold).toBe(200);
+  });
+
+  it("filters users and histories by query and date", () => {
+    const users = [
+      user({
+        userId: "u-alpha",
+        name: "알파",
+        history: [
+          entry({ id: "old", outcome: "cleared", at: 1_000 }),
+          entry({ id: "new", outcome: "failed", at: 5_000 }),
+        ],
+      }),
+      user({
+        userId: "u-beta",
+        name: "베타",
+        history: [entry({ id: "beta", outcome: "cleared", at: 5_000 })],
+      }),
+    ];
+
+    const filtered = filterGridDungeonAnalyticsUsers(users, {
+      query: "alpha",
+      sinceAt: 3_000,
+    });
+
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]?.userId).toBe("u-alpha");
+    expect(filtered[0]?.history.map((e) => e.id)).toEqual(["new"]);
+
+    const data = aggregateGridDungeonAnalytics(
+      users,
+      { adminExcluded: 0 },
+      { query: "베타", sinceAt: 3_000 },
+    );
+    expect(data.summary.users).toBe(1);
+    expect(data.summary.runs).toBe(1);
+    expect(data.recentRuns[0]?.id).toBe("beta");
   });
 });

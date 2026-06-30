@@ -7,10 +7,21 @@ import {
 import { getAdminEmailsList, requireAdmin } from "@/lib/server/isAdmin";
 import { aggregateGridDungeonAnalytics } from "./aggregate";
 
-export async function GET() {
+function parseDays(raw: string | null): number | null {
+  if (raw === "all") return null;
+  const days = Math.floor(Number(raw ?? 30));
+  if (!Number.isFinite(days) || days <= 0) return 30;
+  return Math.min(days, 365);
+}
+
+export async function GET(req: Request) {
   const gate = await requireAdmin();
   if (gate) return gate;
 
+  const url = new URL(req.url);
+  const days = parseDays(url.searchParams.get("days"));
+  const query = (url.searchParams.get("q") ?? "").trim();
+  const sinceAt = days == null ? undefined : Date.now() - days * 24 * 60 * 60 * 1000;
   const adminSet = new Set(getAdminEmailsList().map((e) => e.toLowerCase()));
   const result = await db.execute(sql`
     SELECT
@@ -54,6 +65,9 @@ export async function GET() {
   return Response.json(
     aggregateGridDungeonAnalytics(users, {
       adminExcluded,
+    }, {
+      sinceAt,
+      query,
     }),
   );
 }

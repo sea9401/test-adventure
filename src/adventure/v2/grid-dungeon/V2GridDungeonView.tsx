@@ -182,6 +182,8 @@ const EVENT_TILE_KINDS = new Set<GridDungeonTileKind>([
   "boss",
 ]);
 
+type GridDungeonMovePreview = ReturnType<typeof gridDungeonMovePreview>;
+
 const GRID_DUNGEON_COMBAT_PLAYBACK_MS = 1_500;
 
 const ERROR_LABEL: Record<string, string> = {
@@ -793,7 +795,7 @@ function tileClassName({
   isPendingEvent: boolean;
 }) {
   const base =
-    "relative flex min-h-0 min-w-0 items-center justify-center overflow-hidden rounded border text-[10px] transition";
+    "relative flex min-h-0 min-w-0 select-none items-center justify-center overflow-hidden rounded border p-0 text-[10px] transition";
   if (isCurrent) {
     return `${base} border-emerald-300 bg-emerald-900/75 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.45),0_0_24px_rgba(16,185,129,0.28)]`;
   }
@@ -1371,11 +1373,26 @@ export function V2GridDungeonView({
     [run?.clearedEvents],
   );
   const movePreviews = useMemo(() => {
-    if (!run || run.status !== "active") return new Map<GridDungeonMoveDir, ReturnType<typeof gridDungeonMovePreview>>();
+    if (!run || run.status !== "active") {
+      return new Map<GridDungeonMoveDir, GridDungeonMovePreview>();
+    }
     return new Map(
       DIR_BUTTONS.map(({ dir }) => [dir, gridDungeonMovePreview(run, dir)]),
     );
   }, [run]);
+  const moveTargetsByKey = useMemo(() => {
+    const targets = new Map<
+      string,
+      { dir: GridDungeonMoveDir; label: string }
+    >();
+    for (const { dir, label } of DIR_BUTTONS) {
+      const preview = movePreviews.get(dir);
+      if (preview?.available === true) {
+        targets.set(preview.key, { dir, label });
+      }
+    }
+    return targets;
+  }, [movePreviews]);
 
   const toggleSupporter = useCallback((userId: string) => {
     setSelectedSupporterIds((prev) => {
@@ -1551,29 +1568,33 @@ export function V2GridDungeonView({
                     isRevealed && isEventTile && clearedEvents.has(key);
                   const isPendingEvent =
                     isRevealed && isEventTile && !clearedEvents.has(key);
-                  return (
-                    <div
-                      key={key}
-                      title={
-                        isRevealed
-                          ? `${TILE_LABEL[kind]}${
-                              isClearedEvent
-                                ? " · 처리 완료"
-                                : isPendingEvent
-                                  ? " · 미처리"
-                                  : ""
-                            }`
-                          : "미탐험"
-                      }
-                      className={tileClassName({
-                        kind,
-                        isCurrent,
-                        isRevealed,
-                        isClearedEvent,
-                        isPendingEvent,
-                      })}
-                      style={tileBackgroundStyle(isRevealed, isCurrent)}
-                    >
+                  const moveTarget = moveTargetsByKey.get(key);
+                  const tileTitle = isRevealed
+                    ? `${TILE_LABEL[kind]}${
+                        isClearedEvent
+                          ? " · 처리 완료"
+                          : isPendingEvent
+                            ? " · 미처리"
+                            : ""
+                      }`
+                    : "미탐험";
+                  const tileClass = `${tileClassName({
+                    kind,
+                    isCurrent,
+                    isRevealed,
+                    isClearedEvent,
+                    isPendingEvent,
+                  })}${
+                    moveTarget
+                      ? ` appearance-none touch-manipulation ring-2 ring-emerald-300/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 ${
+                          interactionLocked
+                            ? "cursor-not-allowed opacity-80"
+                            : "cursor-pointer hover:border-emerald-300 hover:bg-emerald-900/45 hover:ring-emerald-200"
+                        }`
+                      : ""
+                  }`;
+                  const tileContent = (
+                    <>
                       {!isRevealed && (
                         <span className="absolute inset-0 bg-gradient-to-b from-zinc-900/20 via-transparent to-black/60" />
                       )}
@@ -1607,6 +1628,34 @@ export function V2GridDungeonView({
                           미처리
                         </span>
                       )}
+                    </>
+                  );
+                  if (moveTarget) {
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={interactionLocked}
+                        onClick={() =>
+                          postAction({ action: "move", dir: moveTarget.dir })
+                        }
+                        title={`${tileTitle} · ${moveTarget.label}으로 이동`}
+                        aria-label={`${tileTitle} 칸으로 ${moveTarget.label} 이동`}
+                        className={tileClass}
+                        style={tileBackgroundStyle(isRevealed, isCurrent)}
+                      >
+                        {tileContent}
+                      </button>
+                    );
+                  }
+                  return (
+                    <div
+                      key={key}
+                      title={tileTitle}
+                      className={tileClass}
+                      style={tileBackgroundStyle(isRevealed, isCurrent)}
+                    >
+                      {tileContent}
                     </div>
                   );
                 }),

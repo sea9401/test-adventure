@@ -13,9 +13,16 @@ export function SkillEffectChips({ skillId }: { skillId: string }) {
   if (!def) return null;
   // MP 는 고정 절대값 모델 → describeV2Skill 이 "MP 55" 칩으로 자족 표기(maxMp 주입 불필요).
   const chips = describeV2Skill(def);
-  if (chips.length === 0) return null;
+  const kind = def.category === "passive" || def.passive ? "패시브" : "액티브";
+  const kindClass =
+    kind === "패시브"
+      ? "bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300"
+      : "bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300";
   return (
     <div className="mt-1 flex flex-wrap gap-1">
+      <span className={`rounded px-1.5 py-0.5 text-[10px] ${kindClass}`}>
+        {kind}
+      </span>
       {chips.map((c, i) => (
         <span
           key={i}

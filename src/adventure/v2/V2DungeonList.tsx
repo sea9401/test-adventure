@@ -26,6 +26,7 @@ export function V2DungeonList({
   onBack,
   onOpenMap,
   frontierDepth = 2,
+  playerPower = null,
   onSelectRareMap,
   initialOpenDepth = null,
 }: {
@@ -35,6 +36,7 @@ export function V2DungeonList({
   onBack: () => void;
   onOpenMap: () => void;
   frontierDepth?: number;
+  playerPower?: number | null;
   // 레어맵 입장 — 보유 지도(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
   onSelectRareMap?: (map: RareMapInstance) => void;
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
@@ -101,6 +103,7 @@ export function V2DungeonList({
       ) : openGroup ? (
         // 이너 — 선택한 테마의 깊이 카드 6개.
         <div className="space-y-3">
+          <PowerSummary playerPower={playerPower} />
           <ThemeElementLine depth={openGroup.depths[0]} />
           <div className="grid grid-cols-2 gap-2">
             {openGroup.depths.map((depth) => (
@@ -108,6 +111,7 @@ export function V2DungeonList({
                 key={depth}
                 depth={depth}
                 isChallenge={depth === challengeDepth}
+                playerPower={playerPower}
                 onSelect={onSelectFloor}
               />
             ))}
@@ -116,6 +120,7 @@ export function V2DungeonList({
       ) : (
         // 테마(사냥터) 카드 (+위에 보유 레어맵 섹션).
         <div className="space-y-3">
+          <PowerSummary playerPower={playerPower} />
           {onSelectRareMap && rareMaps.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -206,12 +211,17 @@ export function V2DungeonList({
 function DepthCard({
   depth,
   isChallenge,
+  playerPower,
   onSelect,
 }: {
   depth: number;
   isChallenge: boolean;
+  playerPower?: number | null;
   onSelect: (depth: number) => void;
 }) {
+  const requiredPower = floorPowerGate(depth);
+  const powerGap =
+    playerPower != null ? Math.round(playerPower - requiredPower) : null;
   return (
     <button
       type="button"
@@ -236,8 +246,15 @@ function DepthCard({
           {depthName(depth)}
         </div>
         <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          권장 전투력 {floorPowerGate(depth)}
+          {playerPower != null
+            ? `내 ${Math.round(playerPower).toLocaleString()} · 권장 ${requiredPower.toLocaleString()}`
+            : `권장 전투력 ${requiredPower.toLocaleString()}`}
         </div>
+        {powerGap != null && powerGap < 0 && (
+          <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+            전투력 {Math.abs(powerGap).toLocaleString()} 부족
+          </div>
+        )}
         {isChallenge && (
           <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
             도전 (미정복)
@@ -254,6 +271,20 @@ function DepthCard({
         </span>
       </Card>
     </button>
+  );
+}
+
+function PowerSummary({ playerPower }: { playerPower?: number | null }) {
+  if (playerPower == null) return null;
+  return (
+    <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-zinc-500 dark:text-zinc-400">내 전투력</span>
+        <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+          {Math.round(playerPower).toLocaleString()}
+        </span>
+      </div>
+    </div>
   );
 }
 

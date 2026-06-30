@@ -106,6 +106,12 @@ describe("스태미너 — 다음 회복까지 카운트다운", () => {
     expect(msUntilNextRegen(at(MAX_STAMINA, 0), 0)).toBe(0);
   });
 
+  it("사용자별 최대치가 기본값보다 크면 그 최대치 기준으로 계산", () => {
+    expect(msUntilNextRegen(at(MAX_STAMINA, 0), 0, MAX_STAMINA + 1000)).toBe(
+      REGEN_MS,
+    );
+  });
+
   it("막 회복 직후엔 REGEN_MS 그대로", () => {
     expect(msUntilNextRegen(at(10, 0), 0)).toBe(REGEN_MS);
   });

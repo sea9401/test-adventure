@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       frontierDepth?: unknown;
       specChoice?: unknown;
       gold?: number;
+      bankedGold?: number;
     }>(tx, userId, "character.v2", {});
     const equipSave = await lockSaveForUpdate<EquipmentSave>(
       tx,
@@ -98,11 +99,16 @@ export async function POST(req: Request) {
       };
     }
 
-    // 보상 지급 — 골드(character.v2) + 장비 개체(equipment.v2, 굴림 없이 카탈로그 스탯).
+    // 보상 지급 — 골드는 은행(character.v2.bankedGold)으로 입금, 장비는 equipment.v2 로 지급.
     const goldGain = def.reward.gold ?? 0;
+    const heldGold = Math.max(0, charSave.gold ?? 0);
+    let bankedGold = Math.max(0, charSave.bankedGold ?? 0);
     if (goldGain > 0) {
-      const gold = Math.max(0, (charSave.gold ?? 0) + goldGain);
-      await upsertSave(tx, userId, "character.v2", { ...charSave, gold });
+      bankedGold += goldGain;
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        bankedGold,
+      });
     }
     let grantedEquip: string | null = null;
     if (def.reward.equip) {
@@ -147,7 +153,8 @@ export async function POST(req: Request) {
           staminaPotions: grantedPotions,
           titleId: grantedTitle,
         },
-        gold: Math.max(0, (charSave.gold ?? 0) + goldGain),
+        gold: heldGold,
+        bankedGold,
       },
     };
   });

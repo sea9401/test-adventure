@@ -134,7 +134,7 @@ export function CreateCharacterForm({
             maxLength={NAME_MAX}
             autoFocus
             disabled={submitting}
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
+            className="ui-form-input w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
           />
           <NameCheckIndicator state={check} />
         </div>
@@ -157,7 +157,7 @@ export function CreateCharacterForm({
         <button
           type="submit"
           disabled={!canSubmit}
-          className="w-full rounded-md bg-zinc-900 px-3 py-2 text-base font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+          className="ui-lift-card w-full rounded-md bg-zinc-900 px-3 py-2 text-base font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
           {submitting
             ? retrying
@@ -215,4 +215,3 @@ function NameCheckIndicator({ state }: { state: CheckState }) {
     </p>
   );
 }
-

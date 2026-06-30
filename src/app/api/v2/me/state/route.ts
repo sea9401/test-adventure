@@ -797,7 +797,13 @@ export async function GET() {
       charSave.tilePos &&
       typeof charSave.tilePos.col === "number" &&
       typeof charSave.tilePos.row === "number"
-        ? { col: charSave.tilePos.col, row: charSave.tilePos.row }
+        ? {
+            col: charSave.tilePos.col,
+            row: charSave.tilePos.row,
+            ...(typeof charSave.tilePos.at === "number"
+              ? { at: charSave.tilePos.at }
+              : {}),
+          }
         : null,
     // 자유 타일 지도 개척 정착지(Phase 3) — 코어루프 on 일 때만 조회(off=빈 배열·prod 무비용).
     tileSettlements: freeformTileSettlements,

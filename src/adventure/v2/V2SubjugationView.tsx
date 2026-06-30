@@ -47,6 +47,9 @@ export function V2SubjugationView({ onBack }: { onBack: () => void }) {
   }, []);
 
   const outposts = myGuild?.outposts ?? [];
+  const totalIntruders = outposts.reduce((sum, o) => sum + o.intruderCount, 0);
+  const threatenedOutposts = outposts.filter((o) => o.intruderCount > 0).length;
+  const underAttack = outposts.filter((o) => o.underAttack).length;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -67,6 +70,11 @@ export function V2SubjugationView({ onBack }: { onBack: () => void }) {
         </div>
       ) : (
         <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <SubjugationStat label="침입자" value={totalIntruders} tone="rose" />
+            <SubjugationStat label="위험 거점" value={threatenedOutposts} tone="amber" />
+            <SubjugationStat label="공성 중" value={underAttack} tone="sky" />
+          </div>
           {/* 침입자 있는 거점 상단 (overview 가 위협 거점 우선 정렬을 이미 해주지만,
               토벌 화면에선 침입자 수가 1순위). */}
           {[...outposts]
@@ -85,5 +93,32 @@ export function V2SubjugationView({ onBack }: { onBack: () => void }) {
         </div>
       )}
     </main>
+  );
+}
+
+function SubjugationStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "rose" | "amber" | "sky";
+}) {
+  const cls = {
+    rose: "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200",
+    amber:
+      "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
+    sky: "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200",
+  }[tone];
+  return (
+    <div
+      className={`war-stat-card rounded-md border px-3 py-2 ${value > 0 ? "is-hot" : ""} ${cls} ${
+        value > 0 ? "war-status-hot" : ""
+      }`}
+    >
+      <div className="text-[11px] opacity-70">{label}</div>
+      <div className="mt-0.5 text-lg font-semibold tabular-nums">{value}</div>
+    </div>
   );
 }

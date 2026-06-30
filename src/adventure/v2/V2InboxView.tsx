@@ -447,7 +447,11 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           {displayed.map((it) => {
             const rewards = rewardLinesOf(it);
             return (
-              <Card key={it.id} padding="sm">
+              <Card
+                key={it.id}
+                padding="sm"
+                className={`ui-inbox-card ui-lift-card ${rewards.length > 0 ? "has-reward" : ""}`}
+              >
                 <div className="flex items-start justify-between gap-3">
                   {/* 본문 영역 클릭 → 상세 보기 */}
                   <button

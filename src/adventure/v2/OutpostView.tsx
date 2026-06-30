@@ -27,7 +27,11 @@ import type {
   RaidResult,
   ConquestResult,
 } from "./outpost/types";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  RAID_MIN_TILE_STAY_MS,
+  V2_SETTLEMENT_WARFARE,
+} from "@/adventure/data/v2/settlementWarfareConfig";
+import type { WarVigor } from "@/adventure/data/v2/warVigor";
 import {
   isTileOutpostId,
   parseTileOutpostId,
@@ -38,6 +42,7 @@ import {
   resolveCurrentOutpostId,
 } from "@/adventure/data/v2/outpostGraph";
 import { areTilesAdjacent4 } from "@/adventure/data/v2/tileConfig";
+import { guildColorHex } from "@/adventure/data/guild-colors";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -49,6 +54,17 @@ export type OutpostAction =
   | { kind: "back" }
   | { kind: "claimed" }
   | { kind: "policy-changed" };
+
+function useClientNowMs(refreshMs = 30_000): number | null {
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const id = window.setInterval(tick, refreshMs);
+    return () => window.clearInterval(id);
+  }, [refreshMs]);
+  return nowMs;
+}
 
 export function OutpostView({
   outpost,
@@ -70,6 +86,7 @@ export function OutpostView({
   // currentOutpost/tilePos/tileSettlements = 현재 위치 게이트(점령/약탈/정복)의 클라 입력.
   const { coreLoopOn, currentOutpost, tilePos, tileSettlements } =
     useGameState();
+  const nowMs = useClientNowMs();
   const [busy, setBusy] = useState(false);
   // 내 거점 활동 탭 — 마을 / 대장간 / 수비 / 최근 공격 기록.
   const [activityTab, setActivityTab] = useState<ActivityTab>("manage");
@@ -103,6 +120,7 @@ export function OutpostView({
   const [repairResult, setRepairResult] = useState<string | null>(null);
   // 성벽 수리 키트 보유수 — /me/inventory 로 초기화, 수리 응답으로 갱신. 키트 조합은 대장간(조합소).
   const [repairKits, setRepairKits] = useState(0);
+  const [warVigor, setWarVigor] = useState<WarVigor | null>(null);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/inventory")
@@ -111,6 +129,19 @@ export function OutpostView({
         if (!alive) return;
         const m = (j?.materials ?? {}) as Record<string, number>;
         setRepairKits(Number(m[WALL_REPAIR_KIT_ID]) || 0);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!V2_SETTLEMENT_WARFARE) return;
+    let alive = true;
+    fetch("/api/v2/me/war-vigor/recover", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; warVigor?: WarVigor } | null) => {
+        if (alive && j?.ok && j.warVigor) setWarVigor(j.warVigor);
       })
       .catch(() => {});
     return () => {
@@ -194,6 +225,35 @@ export function OutpostView({
     (tilePos == null ||
       tilePos.col !== targetTilePos.col ||
       tilePos.row !== targetTilePos.row);
+  const raidStayElapsedMs =
+    targetTilePos != null &&
+    tilePos != null &&
+    tilePos.col === targetTilePos.col &&
+    tilePos.row === targetTilePos.row &&
+    typeof tilePos.at === "number" &&
+    nowMs != null
+      ? Math.max(0, nowMs - tilePos.at)
+      : 0;
+  const standingOnTargetTile =
+    targetTilePos != null &&
+    tilePos != null &&
+    tilePos.col === targetTilePos.col &&
+    tilePos.row === targetTilePos.row;
+  const tileIntrusionActive = enemyGuildSiege && standingOnTargetTile;
+  const tileRaidReady =
+    tileIntrusionActive && raidStayElapsedMs >= RAID_MIN_TILE_STAY_MS;
+  const raidDisabled = raidOutOfRange
+    ? {
+        reason:
+          "이 정착지 칸으로 이동해야 약탈할 수 있어요 — 지도에서 해당 칸으로 이동하세요.",
+      }
+    : targetTilePos != null && raidStayElapsedMs < RAID_MIN_TILE_STAY_MS
+      ? {
+          reason: `이 정착지 칸에서 ${formatRemainingMinutes(
+            RAID_MIN_TILE_STAY_MS - raidStayElapsedMs,
+          )} 더 버텨야 약탈할 수 있습니다.`,
+        }
+      : null;
   // 정복(conquest) = 내 길드 영지에 4방향 인접한 칸(연속 확장)·땅 없으면 중립 거점 인접 발판
   //   (attack 라우트 no_foothold 미러 — 서버 guildTileFoothold 를 클라 tileSettlements 로 재구성).
   const myGuildTiles =
@@ -249,6 +309,10 @@ export function OutpostView({
   const conquerRazes = false;
   // 거점 지형 특성 — 옛 type 라벨 대신 헤더에 표기(맞는 생산물 +보너스).
   const trait = terrainTraitOf(outpost.id);
+  const occupationGuildColor =
+    occupation?.occupiedByGuildId != null
+      ? guildColorHex(occupation.occupiedByGuildColor ?? null)
+      : null;
 
   // 정책 게이트 — guild-only 거점에 다른 길드가 들어가려는 경우 던전 입장 막음.
   const entryDecision = occupation
@@ -469,7 +533,7 @@ export function OutpostView({
         onBack={() => onAction({ kind: "back" })}
       />
       {/* 거점 상태(특성·점령·금고·세율·성벽) — 제목은 위 헤더로 빠지고 여기엔 상태만. */}
-      <HeaderPanel className="space-y-2">
+      <HeaderPanel className="war-command-panel space-y-2">
         <div className="flex flex-wrap gap-1 text-xs">
           <Tooltip
             content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}
@@ -486,9 +550,11 @@ export function OutpostView({
           )}
           {occupation && (
             <span
-              className={`rounded px-2 py-0.5 text-white ${
-                ownByMyGuild ? "bg-emerald-500" : "bg-red-500"
-              }`}
+              className="rounded px-2 py-0.5 font-medium text-white"
+              style={{
+                backgroundColor:
+                  occupationGuildColor ?? (ownByMyGuild ? "#10b981" : "#ef4444"),
+              }}
             >
               {occupation.occupiedByGuildName ?? "어느 길드"} 점령
             </span>
@@ -506,7 +572,7 @@ export function OutpostView({
         {occupation && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
             영주 <strong>{lordInfo?.lordName ?? "없음"}</strong>
-            <span className="ml-1 tabular-nums">
+            <span className="war-resource-line ml-1 tabular-nums">
               · 세금 {(lordInfo?.treasury ?? treasuryGold ?? 0).toLocaleString()}{" "}
               G
             </span>
@@ -526,6 +592,9 @@ export function OutpostView({
               protectedUntil={occupation.protectedUntil}
             />
           )}
+        {V2_SETTLEMENT_WARFARE && warVigor && (
+          <WarVigorBar warVigor={warVigor} />
+        )}
         {/* 성벽 수동 수리 — 점령 길드 멤버만. 성벽 수리 키트(통나무3+철광석3 조합) 소비. 능동 방어. */}
         {V2_SETTLEMENT_WARFARE &&
           ownByMyGuild &&
@@ -564,9 +633,21 @@ export function OutpostView({
 
         {/* 침입자 본인 상태 — 다른 길드 점령 거점에서 사냥한 TTL 내. 점령 길드의
             토벌 대상임을 본인도 알게(전쟁의 "당하는 쪽" 가시화, PR-5). */}
-        {intrusionOutpostId === outpost.id && enemyGuildSiege && (
-          <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200">
-            🗡 이 거점에 침입 중 — 점령 길드가 당신을 토벌할 수 있습니다
+        {(intrusionOutpostId === outpost.id || tileIntrusionActive) &&
+          enemyGuildSiege && (
+          <div className="war-raid-ready rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200">
+            <div className="font-semibold">
+              {tileRaidReady ? "약탈 가능 상태" : "침입자 체류 중"}
+            </div>
+            <div className="mt-0.5 text-rose-700 dark:text-rose-200/80">
+              {tileIntrusionActive
+                ? tileRaidReady
+                  ? "30분 체류 완료 — 약탈을 시도할 수 있지만 점령 길드가 토벌할 수 있습니다"
+                  : `${formatRemainingMinutes(
+                      RAID_MIN_TILE_STAY_MS - raidStayElapsedMs,
+                    )} 더 버티면 약탈 가능 — 점령 길드가 토벌할 수 있습니다`
+                : "이 거점에 침입 중 — 점령 길드가 당신을 토벌할 수 있습니다"}
+            </div>
           </div>
         )}
 
@@ -589,7 +670,7 @@ export function OutpostView({
             claimDisabled={claimDisabled}
             coreLoopOn={coreLoopOn}
             busy={busy}
-            raidOutOfRange={raidOutOfRange}
+            raidDisabled={raidDisabled}
             conquerOutOfRange={conquerOutOfRange}
             conquerRazes={conquerRazes}
             attackLogReload={attackLogReload}
@@ -623,6 +704,8 @@ function raidErrorMsg(error: string): string {
       return "점령되지 않은 거점은 약탈할 수 없습니다";
     case "raid_solo_unsupported":
       return "개인 정착지는 약탈할 수 없습니다 (정복만 가능)";
+    case "raid_stay_required":
+      return "해당 정착지 칸에서 30분 이상 체류해야 약탈할 수 있습니다";
     case "not_present":
       return "해당 정착지 칸에 있어야 약탈할 수 있어요 — 지도에서 그 칸으로 이동하세요";
     case "no_foothold":
@@ -640,6 +723,44 @@ function raidErrorMsg(error: string): string {
     default:
       return `약탈 실패 (${error})`;
   }
+}
+
+function formatRemainingMinutes(ms: number): string {
+  return `${Math.max(1, Math.ceil(ms / 60_000))}분`;
+}
+
+function WarVigorBar({ warVigor }: { warVigor: WarVigor }) {
+  const hpPct = Math.round(Math.max(0, Math.min(1, warVigor.hp)) * 100);
+  const mpPct = Math.round(Math.max(0, Math.min(1, warVigor.mp)) * 100);
+  return (
+    <div className="rounded-md border border-rose-200 bg-rose-50/80 px-2.5 py-2 dark:border-rose-900 dark:bg-rose-950/30">
+      <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+        <span className="font-medium text-rose-800 dark:text-rose-200">
+          전쟁 건강도
+        </span>
+        <span className="tabular-nums text-rose-700 dark:text-rose-300">
+          HP {hpPct}% · MP {mpPct}%
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <VigorMeter value={hpPct} tone="hp" />
+        <VigorMeter value={mpPct} tone="mp" />
+      </div>
+    </div>
+  );
+}
+
+function VigorMeter({ value, tone }: { value: number; tone: "hp" | "mp" }) {
+  const fill = tone === "hp" ? "bg-rose-500" : "bg-sky-500";
+  const low = value <= 30;
+  return (
+    <div className="war-meter-track h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div
+        className={`war-meter-fill h-full rounded-full ${fill} ${low ? "war-vigor-low" : ""}`}
+        style={{ width: `${value}%` }}
+      />
+    </div>
+  );
 }
 
 function computeClaimDisabled(
@@ -710,9 +831,9 @@ function FortBar({
           </span>
         )}
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div className="war-meter-track h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div
-          className="h-full rounded-full bg-amber-500 transition-all"
+          className="war-meter-fill h-full rounded-full bg-amber-500 transition-all"
           style={{ width: `${pct}%` }}
         />
       </div>

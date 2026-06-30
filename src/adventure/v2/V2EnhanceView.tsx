@@ -476,7 +476,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
       {/* 강화 패널 — 장비 선택 시 */}
       {mode === "enhance" && selected && item && (
-        <Card padding="sm">
+        <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold">
@@ -529,7 +529,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                         tone={
                           s === "red" ? "danger" : s === "blue" ? "info" : "warning"
                         }
-                        className="flex-1"
+                        className="ui-forge-choice flex-1"
                       >
                         <div className="font-medium">
                           {s === "none"
@@ -550,7 +550,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </div>
                 {/* 결과 확률 — 누적 막대: 파트별 색 꽉 찬 칸 + 칸 내 중앙 라벨.
                     좁은 칸은 %만(7%↑) 또는 생략(7% 미만 — 색으로만 표시). */}
-                <div className="flex h-6 overflow-hidden rounded-md text-[10px] font-semibold tabular-nums text-white">
+                <div className="ui-forge-outcome flex h-6 overflow-hidden rounded-md text-[10px] font-semibold tabular-nums text-white">
                   {[
                     { label: "성공", pct: outcomeRow[0], cls: "bg-emerald-500" },
                     {
@@ -602,7 +602,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
                   {outcomeRow[3] > 0 && stone !== "blue" && (
-                    <span className="font-semibold text-rose-500">
+                    <span className="ui-quest-card is-claimable font-semibold text-rose-500">
                       ⚠️ 파괴 위험 — 푸른 돌이 막아줍니다
                     </span>
                   )}
@@ -635,7 +635,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
       {/* 재련 패널 — 장비 선택 시 */}
       {mode === "reforge" && selected && item && (
-        <Card padding="sm">
+        <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold">
@@ -679,7 +679,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       onClick={() => setReforgeStone(s)}
                       selected={reforgeStone === s}
                       tone={s === "high" ? "primary" : "neutral"}
-                      className="flex-1"
+                      className="ui-forge-choice flex-1"
                     >
                       <div className="font-medium">
                         {s === "high" ? "✨ 상급 재련석" : "🔧 재련석"}
@@ -770,7 +770,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           ].map((r) => {
             const short = r.mats.some((m) => m.have < m.need);
             return (
-              <Card key={r.key} padding="sm">
+              <Card key={r.key} padding="sm" className="ui-lift-card">
                 <div className="flex items-center gap-3">
                   <div className="shrink-0 text-2xl" aria-hidden>
                     {r.icon}

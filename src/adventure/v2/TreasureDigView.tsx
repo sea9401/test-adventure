@@ -241,7 +241,7 @@ export function TreasureDigView({
 
       {/* 발굴 방법 — 아직 발굴 지점을 연 적 없는 첫 화면에서 안내(복원 중엔 깜빡임 방지로 숨김) */}
       {!grid && !restoring && (
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 text-xs leading-relaxed text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="ui-treasure-guide rounded-lg border border-zinc-200 bg-white p-4 text-xs leading-relaxed text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           <p className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             발굴 방법
           </p>
@@ -306,9 +306,9 @@ export function TreasureDigView({
                   type="button"
                   disabled={disabled}
                   onClick={() => handleDig(cell)}
-                  className={`flex aspect-square items-center justify-center rounded-md text-base font-semibold transition ${
+                  className={`ui-treasure-cell flex aspect-square items-center justify-center rounded-md text-base font-semibold transition ${
                     isTreasure
-                      ? "bg-amber-300 text-amber-950 ring-2 ring-amber-500 dark:bg-amber-400"
+                      ? "is-treasure bg-amber-300 text-amber-950 ring-2 ring-amber-500 dark:bg-amber-400"
                       : dug
                         ? CLUE_STYLE[clue]
                         : "bg-zinc-200/70 hover:bg-zinc-300/80 dark:bg-zinc-800 dark:hover:bg-zinc-700"
@@ -325,7 +325,7 @@ export function TreasureDigView({
 
       {/* 결과 카드 */}
       {result?.kind === "hit" && (
-        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
+        <div className="ui-treasure-result rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
           <p className="text-xs text-emerald-700 dark:text-emerald-300">발굴 성공!</p>
           <p className="mt-1 text-lg font-bold">
             🏺 {result.antique.name}{" "}
@@ -344,7 +344,7 @@ export function TreasureDigView({
       )}
 
       {result?.kind === "exhausted" && (
-        <div className="rounded-lg border border-zinc-300 bg-zinc-50 p-4 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
+        <div className="ui-treasure-result rounded-lg border border-zinc-300 bg-zinc-50 p-4 text-center dark:border-zinc-700 dark:bg-zinc-900/40">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">발굴 실패</p>
           <p className="mt-1 text-sm">
             💎 자리에{" "}
@@ -365,7 +365,7 @@ export function TreasureDigView({
           type="button"
           disabled={busy || (fragments !== null && fragments < FRAGMENTS_PER_MAP)}
           onClick={handleOpen}
-          className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-zinc-50 transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          className="ui-lift-card w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-zinc-50 transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
           {busy
             ? "여는 중…"

@@ -513,9 +513,9 @@ export function V2LoadoutPanel({
         </div>
       </div>
       {/* SP 예산 바 */}
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div className="war-meter-track mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div
-          className="h-full rounded-full bg-violet-500 transition-[width] dark:bg-violet-600"
+          className="war-meter-fill h-full rounded-full bg-violet-500 transition-[width] dark:bg-violet-600"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -551,9 +551,9 @@ export function V2LoadoutPanel({
                           : `${g.cumLevel.toLocaleString()} / ${g.requiredCumLevel.toLocaleString()}`}
                       </span>
                     </div>
-                    <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                    <div className="war-meter-track mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
                       <div
-                        className={`h-full rounded-full ${
+                        className={`war-meter-fill h-full rounded-full ${
                           g.mastered
                             ? "bg-emerald-500 dark:bg-emerald-500"
                             : "bg-sky-500 dark:bg-sky-500"
@@ -582,7 +582,7 @@ export function V2LoadoutPanel({
               <div
                 key={s.skillId}
                 data-equipped-drop-id={s.skillId}
-                className={`relative inline-flex h-8 max-w-44 shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200 ${
+                className={`ui-lift-card relative inline-flex h-8 max-w-44 shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200 ${
                   draggingId === s.skillId ? "opacity-55" : ""
                 }`}
               >
@@ -732,7 +732,7 @@ export function V2LoadoutPanel({
             <li
               key={s.skillId}
               data-skill-drop-id={s.skillId}
-              className={`relative flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
+              className={`ui-skill-card relative flex items-start gap-2 rounded-md border px-2 py-2 transition-colors sm:px-3 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"

@@ -93,6 +93,7 @@ export function OutpostActivityTabs({
           ariaLabel="거점 활동 탭"
           size="sm"
           variant="highlight"
+          className="war-tab-rail"
         />
       </HeaderPanel>
       {activityTab === "smithy" && hasLocalSmithy && (

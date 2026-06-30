@@ -4,7 +4,7 @@
 //  - 9×9 보드 + 유지 거점 9개(점령 상태색) + 빈 땅 자유 이동(Phase 2).
 //  - 빈 땅 어디든 개척마을 건설 → 마을→도시→대도시 승격/철거(Phase 3).
 // 라이브 데이터(occupations/treasuries/currentOutpostId)는 표시만, 정착지는 tileSettlements.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CastleTurret,
   Coins,
@@ -27,6 +27,10 @@ import {
 import { CONFLICT_ZONE_IDS } from "@/adventure/data/v2/outpostGraph";
 import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
+  RAID_MIN_TILE_STAY_MS,
+  RAID_TREASURY_STEAL_FRAC,
+  TRADE_ROUTE_RAID_LOSS_MULT,
+  LAKE_ATTACKER_PENALTY_MULT,
   V2_TILE_WARFARE,
   V2_TILE_PRODUCTION,
 } from "@/adventure/data/v2/settlementWarfareConfig";
@@ -44,6 +48,8 @@ import {
   isTileSettlementTier,
   scaledTileGoldCost,
   tileFeatureAt,
+  isLakeAdjacentTile,
+  isTradeRouteTile,
   TILE_TERRAIN_LABEL,
   type TileFeatureKind,
   type TileSettlementTier,
@@ -129,8 +135,71 @@ type TileSettlementLite = {
   guildColor?: string | null;
 };
 
+type WarOverviewLite = {
+  ok?: boolean;
+  myGuild?: {
+    outposts: Array<{
+      outpostId: string;
+      underAttack: boolean;
+      intruderCount: number;
+    }>;
+  } | null;
+};
+
 const tierOf = (t: string): TileSettlementTier =>
   isTileSettlementTier(t) ? t : "frontier";
+
+function WarSummaryChip({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "emerald" | "rose" | "amber" | "sky";
+}) {
+  const toneClass: Record<typeof tone, string> = {
+    emerald: "border-emerald-700/50 bg-emerald-950/35 text-emerald-200",
+    rose: "border-rose-700/50 bg-rose-950/35 text-rose-200",
+    amber: "border-amber-700/50 bg-amber-950/35 text-amber-200",
+    sky: "border-sky-700/50 bg-sky-950/35 text-sky-200",
+  };
+  return (
+    <div
+      className={`war-stat-card rounded-md border px-3 py-2 ${value > 0 ? "is-hot" : ""} ${toneClass[tone]} ${
+        value > 0 ? "war-status-hot" : ""
+      }`}
+    >
+      <div className="text-[11px] text-current/70">{label}</div>
+      <div className="mt-0.5 text-lg font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function formatRemainingMinutes(ms: number): string {
+  return `${Math.max(1, Math.ceil(ms / 60_000))}분`;
+}
+
+function raidPreviewGold(col: number, row: number, treasury: number): number {
+  const safeTreasury = Math.max(0, Math.floor(treasury));
+  let amount = Math.floor(safeTreasury * RAID_TREASURY_STEAL_FRAC);
+  let mult = 1;
+  if (isTradeRouteTile(col, row)) mult *= TRADE_ROUTE_RAID_LOSS_MULT;
+  if (isLakeAdjacentTile(col, row)) mult *= LAKE_ATTACKER_PENALTY_MULT;
+  if (mult !== 1) amount = Math.min(safeTreasury, Math.floor(amount * mult));
+  return Math.max(0, amount);
+}
+
+function useClientNowMs(refreshMs = 30_000): number | null {
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const id = window.setInterval(tick, refreshMs);
+    return () => window.clearInterval(id);
+  }, [refreshMs]);
+  return nowMs;
+}
 
 export function TileMap({
   onTravelToTile,
@@ -151,7 +220,7 @@ export function TileMap({
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
   onTravelToTile?: (col: number, row: number) => void;
-  tilePos?: { col: number; row: number } | null;
+  tilePos?: { col: number; row: number; at?: number } | null;
   // 개척 정착지(Phase 3).
   tileSettlements?: TileSettlementLite[];
   onFoundTile?: (col: number, row: number, name: string) => void | Promise<boolean>;
@@ -171,6 +240,8 @@ export function TileMap({
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
   const [foundName, setFoundName] = useState(""); // 개척마을 건설 폼 이름 입력
+  const [warOverview, setWarOverview] = useState<WarOverviewLite["myGuild"]>(null);
+  const nowMs = useClientNowMs();
 
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) for (const o of occupations) occByOutpost.set(o.outpostId, o);
@@ -179,6 +250,25 @@ export function TileMap({
   const settlementByKey = new Map<string, TileSettlementLite>();
   if (tileSettlements)
     for (const s of tileSettlements) settlementByKey.set(tileKey(s.col, s.row), s);
+
+  useEffect(() => {
+    if (viewerGuildId == null) {
+      setWarOverview(null);
+      return;
+    }
+    let alive = true;
+    fetch("/api/v2/war/overview", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: WarOverviewLite | null) => {
+        if (alive) setWarOverview(j?.ok ? (j.myGuild ?? null) : null);
+      })
+      .catch(() => {
+        if (alive) setWarOverview(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [viewerGuildId]);
 
   const ownerLabelOf = (o: Outpost): string | null => {
     if (o.neutral) return null;
@@ -222,6 +312,31 @@ export function TileMap({
       : null);
   const playerTileKey = playerPos ? tileKey(playerPos.col, playerPos.row) : null;
   const currentOnBoard = playerTileKey != null;
+  const myTileCount =
+    (tileSettlements ?? []).filter((s) => s.guildId === viewerGuildId).length +
+    (occupations ?? []).filter(
+      (o) =>
+        o.occupiedByGuildId != null &&
+        o.occupiedByGuildId === viewerGuildId &&
+        TILE_POS_BY_OUTPOST.has(o.outpostId),
+    ).length;
+  const intruderCount =
+    warOverview?.outposts.reduce((sum, o) => sum + o.intruderCount, 0) ?? 0;
+  const underAttackCount =
+    warOverview?.outposts.filter((o) => o.underAttack).length ?? 0;
+  const standingSettlement = playerTileKey
+    ? settlementByKey.get(playerTileKey)
+    : undefined;
+  const isStandingOnHostileSettlement =
+    standingSettlement?.guildId != null &&
+    viewerGuildId != null &&
+    standingSettlement.guildId !== viewerGuildId;
+  const raidStayMs =
+    isStandingOnHostileSettlement && typeof tilePos?.at === "number" && nowMs != null
+      ? Math.max(0, nowMs - tilePos.at)
+      : 0;
+  const raidPrepCount =
+    isStandingOnHostileSettlement && raidStayMs < RAID_MIN_TILE_STAY_MS ? 1 : 0;
 
   return (
     <main className="mx-auto max-w-2xl space-y-3 p-4 text-zinc-200">
@@ -233,6 +348,13 @@ export function TileMap({
         </p>
       </div>
 
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <WarSummaryChip label="내 영토" value={myTileCount} tone="emerald" />
+        <WarSummaryChip label="침입자" value={intruderCount} tone="rose" />
+        <WarSummaryChip label="약탈 준비" value={raidPrepCount} tone="amber" />
+        <WarSummaryChip label="공성 중" value={underAttackCount} tone="sky" />
+      </div>
+
       {!currentOnBoard && currentOutpostId && (
         <div className="rounded-md border border-amber-700 bg-amber-950/40 p-2 text-xs text-amber-200">
           현재 위치가 새 지도 밖의 거점입니다. 칸을 골라 이동하면 보드로 들어옵니다.
@@ -242,7 +364,7 @@ export function TileMap({
       <div>
         <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
           <div
-            className="grid h-full w-full bg-zinc-800/70 ring-1 ring-zinc-800"
+            className="war-map-grid grid h-full w-full bg-zinc-800/70 ring-1 ring-zinc-800"
             style={{
               gridTemplateColumns: `repeat(${TILE_BOARD_SIZE}, 1fr)`,
               gridTemplateRows: `repeat(${TILE_BOARD_SIZE}, 1fr)`,
@@ -258,12 +380,42 @@ export function TileMap({
               const isDungeonEntrance = isAtGridDungeonEntrance({ col, row });
               const isSel = selected === k;
               const isPlayer = k === playerTileKey;
-              const ring = isPlayer ? (
-                <span className="pointer-events-none absolute inset-0 z-10 rounded-md ring-2 ring-emerald-400" />
-              ) : null;
               const cls = `relative flex h-full w-full items-center justify-center transition ${
                 isSel ? "outline outline-2 outline-indigo-400" : ""
               }`;
+              const tileSettledByMyGuild =
+                settlement?.guildId != null && settlement.guildId === viewerGuildId;
+              const tileSettledByOtherGuild =
+                settlement?.guildId != null &&
+                viewerGuildId != null &&
+                settlement.guildId !== viewerGuildId;
+              const raidStayMs =
+                isPlayer && typeof tilePos?.at === "number" && nowMs != null
+                  ? Math.max(0, nowMs - tilePos.at)
+                  : 0;
+              const raidReady =
+                tileSettledByOtherGuild && raidStayMs >= RAID_MIN_TILE_STAY_MS;
+              const raidArming =
+                tileSettledByOtherGuild &&
+                isPlayer &&
+                raidStayMs < RAID_MIN_TILE_STAY_MS;
+              const warCellClass = [
+                isPlayer ? "war-tile-current" : "",
+                tileSettledByMyGuild ? "war-tile-friendly" : "",
+                tileSettledByOtherGuild ? "war-tile-hostile" : "",
+                raidReady ? "war-raid-ready" : "",
+              ]
+                .filter(Boolean)
+                .join(" ");
+              const raidBadge = raidReady ? (
+                <span className="pointer-events-none absolute bottom-0.5 left-1/2 z-20 -translate-x-1/2 rounded bg-rose-500 px-1 py-px text-[9px] font-semibold leading-none text-white">
+                  약탈
+                </span>
+              ) : raidArming ? (
+                <span className="pointer-events-none absolute bottom-0.5 left-1/2 z-20 -translate-x-1/2 rounded bg-amber-400 px-1 py-px text-[9px] font-semibold leading-none text-zinc-950">
+                  잠입
+                </span>
+              ) : null;
 
               if (o) {
                 const isMine =
@@ -297,7 +449,7 @@ export function TileMap({
                     type="button"
                     onClick={() => setSelected(k)}
                     title={occ?.villageName?.trim() || o.name}
-                    className={cls}
+                    className={`${cls} ${warCellClass}`}
                     style={{ background: `${fill}22` }}
                   >
                     <span
@@ -306,7 +458,7 @@ export function TileMap({
                     >
                       <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
                     </span>
-                    {ring}
+                    {raidBadge}
                   </button>
                 );
               }
@@ -324,7 +476,7 @@ export function TileMap({
                     type="button"
                     onClick={() => setSelected(k)}
                     title={settlement.name ?? "개척 정착지"}
-                    className={cls}
+                    className={`${cls} ${warCellClass}`}
                     style={{ background: `${settleFill}22` }}
                   >
                     <span
@@ -333,7 +485,7 @@ export function TileMap({
                     >
                       <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
                     </span>
-                    {ring}
+                    {raidBadge}
                   </button>
                 );
               }
@@ -360,7 +512,9 @@ export function TileMap({
                       weight="fill"
                       color={TERRAIN_ICON_COLOR[feature.kind] ?? "#71717a"}
                     />
-                    {ring}
+                    {isPlayer && (
+                      <span className="pointer-events-none absolute inset-0 z-10 rounded-md war-tile-current" />
+                    )}
                   </button>
                 );
               }
@@ -382,7 +536,9 @@ export function TileMap({
                       weight="fill"
                     />
                   )}
-                  {ring}
+                  {isPlayer && (
+                    <span className="pointer-events-none absolute inset-0 z-10 rounded-md war-tile-current" />
+                  )}
                 </button>
               );
             })}
@@ -474,8 +630,25 @@ export function TileMap({
             const canManage = V2_TILE_WARFARE && ours;
             // 공격: 우리 소유가 아닌 타일이면 진입(전쟁=길드만 — 서버가 무소속 공격 차단).
             const canAttack = V2_TILE_WARFARE && !ours;
+            const ownerColor =
+              (selSettlement.guildId != null
+                ? guildColorHex(selSettlement.guildColor ?? null)
+                : null) ?? FOUNDED_FILL;
+            const selectedTileId = tileOutpostId(selCol, selRow);
+            const treasury = treasuryByOutpost.get(selectedTileId) ?? 0;
+            const isStandingHere = playerTileKey === selected;
+            const stayMs =
+              isStandingHere && typeof tilePos?.at === "number" && nowMs != null
+                ? Math.max(0, nowMs - tilePos.at)
+                : 0;
+            const raidReady = canAttack && isStandingHere && stayMs >= RAID_MIN_TILE_STAY_MS;
+            const raidRemaining = Math.max(0, RAID_MIN_TILE_STAY_MS - stayMs);
+            const estimatedRaidGold = raidPreviewGold(selCol, selRow, treasury);
             return (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
+              <div
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-zinc-900/80 p-3"
+                style={{ borderColor: `${ownerColor}99` }}
+              >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-baseline gap-1.5">
                     <span className="text-sm font-semibold text-zinc-100">
@@ -488,6 +661,36 @@ export function TileMap({
                   <div className="mt-0.5 text-xs text-zinc-500">
                     {ownerLabel}
                   </div>
+                  {canAttack && (
+                    <div className="mt-2 grid gap-1 text-[11px] text-zinc-400 sm:grid-cols-2">
+                      <span>
+                        위치{" "}
+                        <strong className={isStandingHere ? "text-emerald-300" : "text-zinc-300"}>
+                          {isStandingHere ? "현재 이 칸" : "다른 칸"}
+                        </strong>
+                      </span>
+                      <span>
+                        약탈{" "}
+                        <strong className={raidReady ? "text-rose-300" : "text-amber-300"}>
+                          {raidReady
+                            ? "가능"
+                            : isStandingHere
+                              ? `${formatRemainingMinutes(raidRemaining)} 남음`
+                              : "체류 필요"}
+                        </strong>
+                      </span>
+                      <span>
+                        위험{" "}
+                        <strong className="text-rose-300">토벌 대상</strong>
+                      </span>
+                      <span>
+                        예상 탈취{" "}
+                        <strong className="text-yellow-300">
+                          {estimatedRaidGold.toLocaleString()}G
+                        </strong>
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {playerTileKey === selected ? (

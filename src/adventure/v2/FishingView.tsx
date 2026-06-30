@@ -371,7 +371,7 @@ export function FishingView({
           type="button"
           disabled={!tapActive}
           onClick={onTapZone}
-          className={`relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
+          className={`ui-fishing-zone relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
             biting
               ? "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
               : tapActive
@@ -385,7 +385,7 @@ export function FishingView({
 
       {/* 결과 */}
       {phase === "result" && (
-        <div className="rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-800">
+        <div className="ui-fishing-result rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-800">
           {error ? (
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (

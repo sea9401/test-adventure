@@ -109,7 +109,7 @@ export function WarTickerStrip({
       type="button"
       onClick={onClick}
       aria-label="전쟁 보기"
-      className="group block w-full cursor-pointer overflow-hidden whitespace-nowrap border-b border-zinc-200 bg-zinc-100/80 py-1 text-xs text-zinc-600 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300"
+      className="war-ticker-alert group block w-full cursor-pointer overflow-hidden whitespace-nowrap border-b border-zinc-200 bg-zinc-100/80 py-1 text-xs text-zinc-600 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300"
     >
       <span
         className="war-ticker-pass inline-flex w-max pl-[100vw] group-hover:[animation-play-state:paused]"

@@ -21,8 +21,8 @@ import {
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import {
-  ARTISAN_XP_PER_LEVEL,
   artisanLevel,
+  artisanXpForNextLevel,
   artisanXpIntoLevel,
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
@@ -260,7 +260,7 @@ export async function GET(_req: Request, ctx: Ctx) {
         xp: blacksmith.xp,
         crafts: blacksmith.crafts,
         xpIntoLevel: artisanXpIntoLevel(blacksmith),
-        xpForNext: ARTISAN_XP_PER_LEVEL,
+        xpForNext: artisanXpForNextLevel(blacksmith),
         totalCrafts: workshopStats.totalCrafts,
         qualityCrafts: workshopStats.qualityCrafts,
         signatureCraft,

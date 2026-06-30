@@ -12,7 +12,7 @@ const h = vi.hoisted(() => ({
   attackerGuildId: 7 as number | null, // 공격자 길드(솔로 공격자 테스트는 null)
   pvpAttackerWins: true, // resolveBattlePvP mock 결과 제어(솔로 수비 결투)
   // 공격자 위치 마커(약탈 "현지 위치" 게이트) — 대상 칸 일치 시 통과.
-  attackerTilePos: null as { col: number; row: number } | null,
+  attackerTilePos: null as { col: number; row: number; at?: number } | null,
   // 정복 발판(guildTileFoothold mock) — 기본 허용(인접 영지 보유).
   foothold: { ownsAny: true, adjacentOwned: true },
 }));
@@ -163,7 +163,7 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
   it("무수비 약탈(raid) → 타일 금고 50% 탈취 → 공격 길드 골드", async () => {
     h.occ = occRow({});
     h.treasuryGold = 1000;
-    h.attackerTilePos = { col: 2, row: 3 }; // 대상 칸에 위치(약탈 게이트 통과)
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 31 * 60_000 }; // 30분 체류 통과
     const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -210,6 +210,18 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("not_present");
+    expect(h.upsertGuildRes).toHaveLength(0); // 금고 탈취 없음
+  });
+
+  it("약탈(raid) — 대상 칸 30분 체류 전이면 raid_stay_required (전투/탈취 없음)", async () => {
+    h.occ = occRow({});
+    h.treasuryGold = 1000;
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 29 * 60_000 };
+    const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "raid_stay_required",
+    );
     expect(h.upsertGuildRes).toHaveLength(0); // 금고 탈취 없음
   });
 
@@ -272,7 +284,7 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
 
   it("솔로 타일 약탈(raid) → raid_solo_unsupported (금고 없음)", async () => {
     h.occ = soloOcc({});
-    h.attackerTilePos = { col: 5, row: 7 }; // 대상 칸에 위치(약탈 게이트 통과 후 솔로 거부)
+    h.attackerTilePos = { col: 5, row: 7, at: Date.now() - 31 * 60_000 }; // 체류 게이트 통과 후 솔로 거부
     const res = await POST(req({ outpostId: "tile:5,7", mode: "raid" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe(

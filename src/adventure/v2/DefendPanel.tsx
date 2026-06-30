@@ -72,8 +72,8 @@ export default function DefendPanel({ outpostId }: { outpostId: string }) {
         disabled={busy || queue === null}
         className={
           amRegistered
-            ? "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            : "w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
+            ? "war-action-card w-full rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            : "war-action-card w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-500 disabled:opacity-50"
         }
       >
         {queue === null
@@ -83,7 +83,7 @@ export default function DefendPanel({ outpostId }: { outpostId: string }) {
             : "수비대 등록"}
       </button>
 
-      <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="war-defender-panel rounded-md border border-zinc-300 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900">
         <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
           수비자 목록 {queue ? `(${queue.length})` : ""}
         </div>
@@ -95,8 +95,8 @@ export default function DefendPanel({ outpostId }: { outpostId: string }) {
                   key={d.userId}
                   className={
                     d.isMe
-                      ? "flex items-center gap-2 rounded-md bg-emerald-100 px-2 py-1 text-sm dark:bg-emerald-950/40"
-                      : "flex items-center gap-2 rounded-md px-2 py-1 text-sm"
+                      ? "war-defender-row is-me flex items-center gap-2 rounded-md bg-emerald-100 px-2 py-1 text-sm dark:bg-emerald-950/40"
+                      : "war-defender-row flex items-center gap-2 rounded-md px-2 py-1 text-sm"
                   }
                 >
                   <span className="w-5 text-right text-xs tabular-nums text-zinc-400">

@@ -6,7 +6,6 @@ import {
   V2_EQUIP_OPTION_KEYS,
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
-  effectiveStats,
   signatureLabel,
   isUnique,
   parseEquipmentSave,
@@ -90,7 +89,7 @@ const ALL_CONCEPTS: V2EquipConcept[] = [
   "luck",
   "mana",
 ];
-const ALL_TIERS: V2EquipTier[] = [1, 2, 3];
+const REGULAR_GRID_TIERS: V2EquipTier[] = [1, 2, 3];
 
 describe("V2_EQUIPMENT catalog", () => {
   it("모든 id 는 키와 일치해야 함 (self-id 일관성)", () => {
@@ -153,7 +152,7 @@ describe("V2_EQUIPMENT catalog", () => {
   });
 });
 
-// 한 (슬롯, 컨셉) 라인의 T1~T5 (티어 정렬).
+// 한 (슬롯, 컨셉) 라인의 스타터 정규 티어(T1~T3, 티어 정렬).
 function slotConceptLine(
   slot: V2EquipSlot,
   concept: V2EquipConcept,
@@ -195,26 +194,6 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
       tiers.add(i.tier);
   }
   return [...tiers].sort((a, b) => a - b);
-}
-
-function optionBudget(item: V2Equipment): number {
-  const options = item.options ?? {};
-  return (
-    (options.crit ?? 0) * 4 +
-    (options.eva ?? 0) * 4 +
-    (options.mp ?? 0) * 0.12 +
-    (options.hp ?? 0) * 0.1 +
-    (options.critMult ?? 0) * 0.5 +
-    (options.spd ?? 0) * 2 +
-    (options.def ?? 0) * 1.5 +
-    (options.magicDef ?? 0) * 1.5 +
-    (options.healPowerPct ?? 0) * 2 +
-    (options.critResist ?? 0) * 2
-  );
-}
-
-function combatBudget(item: V2Equipment): number {
-  return effectiveStats(item, undefined).power + optionBudget(item);
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
@@ -315,79 +294,73 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("제작 전용 장비는 장인표 태그 세트 8종을 구성한다", () => {
+  it("제작 전용 장비는 장인표 태그 세트를 6장착 기준으로 구성한다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
     expect(crafted).toHaveLength(10);
     expect(crafted.every((item) => item.setTags?.includes("artisan_crafted"))).toBe(
       true,
     );
     const set = V2_EQUIP_TAG_SETS.find((s) => s.id === "artisan_crafted");
-    expect(set?.thresholds.map((t) => t.count)).toEqual([2, 4, 6, 8, 10]);
+    expect(set?.thresholds.map((t) => t.count)).toEqual([2, 4, 6]);
+    expect(set?.thresholds.at(-1)?.bonus).toMatchObject({
+      hp: 180,
+      mp: 120,
+      crit: 6,
+      eva: 6,
+      spd: 9,
+      critMult: 24,
+      healPowerPct: 4,
+    });
   });
 
-  it("제작 전용 장비는 정규 T3 사이드그레이드 위력 범위에 머문다", () => {
-    const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
-    for (const item of crafted) {
-      expect(item.tier, `${item.id} tier`).toBe(3);
-      const regularT3 = v2EquipmentBySlot(item.slot).filter(
-        (candidate) =>
-          candidate.tier === 3 &&
-          !isUnique(candidate) &&
-          !candidate.craftOnly &&
-          !candidate.starterOnly &&
-          !candidate.noDrop,
-      );
-      expect(regularT3.length, `${item.id} regular T3 peers`).toBeGreaterThan(0);
-      const powers = regularT3.map((candidate) => effectiveStats(candidate, undefined).power);
-      const minRegular = Math.min(...powers);
-      const maxRegular = Math.max(...powers);
-      const craftedPower = effectiveStats(item, undefined).power;
-      expect(craftedPower, `${item.id} below regular T3 floor`).toBeGreaterThanOrEqual(
-        minRegular,
-      );
-      expect(craftedPower, `${item.id} above sidegrade ceiling`).toBeLessThanOrEqual(
-        Math.ceil(maxRegular * 1.35) + 2,
-      );
-    }
+  it("제작 전용 장비는 대장간 진행용 짝수 티어에 배치된다", () => {
+    const tiers = Object.fromEntries(
+      Object.values(V2_EQUIPMENT)
+        .filter((item) => item.craftOnly)
+        .map((item) => [item.id, item.tier]),
+    );
+    expect(tiers).toMatchObject({
+      v2_crafted_oathblade: 4,
+      v2_crafted_gale_bow: 4,
+      v2_crafted_runic_staff: 4,
+      v2_crafted_spark_gloves: 4,
+      v2_crafted_windstep_boots: 4,
+      v2_crafted_master_ring: 6,
+      v2_crafted_ward_plate: 6,
+      v2_crafted_aether_necklace: 6,
+      v2_crafted_sunforge_blade: 8,
+      v2_crafted_aurora_crown: 10,
+    });
   });
 
-  it("제작 전용 장비는 정규 T3 옵션 포함 전투 예산을 과하게 넘지 않는다", () => {
-    const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
-    for (const item of crafted) {
-      const regularT3 = v2EquipmentBySlot(item.slot).filter(
-        (candidate) =>
-          candidate.tier === 3 &&
-          !isUnique(candidate) &&
-          !candidate.craftOnly &&
-          !candidate.starterOnly &&
-          !candidate.noDrop,
-      );
-      const regularBudgets = regularT3.map(combatBudget);
-      const maxRegular = Math.max(...regularBudgets);
-      const craftedBudget = combatBudget(item);
-      expect(
-        craftedBudget,
-        `${item.id} option/power budget above sidegrade ceiling`,
-      ).toBeLessThanOrEqual(Math.ceil(maxRegular * 1.6));
-    }
+  it("제작 전용 장비는 재정립된 티어에 맞는 위력 기준을 가진다", () => {
+    expect(V2_EQUIPMENT.v2_crafted_oathblade.power).toBe(72);
+    expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(68);
+    expect(V2_EQUIPMENT.v2_crafted_runic_staff.power).toBe(76);
+    expect(V2_EQUIPMENT.v2_crafted_ward_plate.power).toBe(64);
+    expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(12);
+    expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(12);
+    expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
+    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(45);
   });
 
-  it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T5, 무기는 weaponType별 T1~T5", () => {
-    // 비무기 슬롯: (슬롯, 컨셉) 라인이 T1~T5 한 종씩.
+  it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T3, 무기는 weaponType별 T1~T3", () => {
+    // 비무기 슬롯: (슬롯, 컨셉) 라인이 스타터 정규 T1~T3 한 종씩.
     for (const slot of ALL_SLOTS) {
       if (slot === "weapon") continue;
       for (const concept of SLOT_CONCEPTS[slot]) {
         expect(slotConceptLine(slot, concept), `${slot}/${concept}`).toEqual(
-          ALL_TIERS,
+          REGULAR_GRID_TIERS,
         );
       }
     }
-    // 무기: 8 전문화타입별 라인. 정규 티어는 중복 없음 + (정규 ∪ 스타터 T1) = T1~T5.
-    // greatsword/bow/staff = 기존 라인 태깅(정규 T1~T5), 5신규타입 = 정규 T2~T5 + 스타터 T1.
+    // 무기: weaponType별 라인. 정규 티어는 중복 없음 + (정규 ∪ 스타터 T1) = T1~T3.
     for (const wt of WEAPON_TYPES) {
       const reg = weaponTypeRegularTiers(wt);
       expect(new Set(reg).size, `${wt} 정규 티어 중복`).toBe(reg.length);
-      expect(weaponTypeTiersWithStarter(wt), `weapon/${wt}`).toEqual(ALL_TIERS);
+      expect(weaponTypeTiersWithStarter(wt), `weapon/${wt}`).toEqual(
+        REGULAR_GRID_TIERS,
+      );
     }
   });
 
@@ -454,11 +427,11 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("tier 값이 1~5 범위 안에 있고 정수", () => {
+  it("tier 값이 1~10 범위 안에 있고 정수", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(Number.isInteger(item.tier)).toBe(true);
       expect(item.tier).toBeGreaterThanOrEqual(1);
-      expect(item.tier).toBeLessThanOrEqual(5);
+      expect(item.tier).toBeLessThanOrEqual(10);
     }
   });
 });

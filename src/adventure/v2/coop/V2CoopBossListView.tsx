@@ -203,12 +203,12 @@ export function V2CoopBossListView({
             >
               <Card
                 padding="md"
-                className="flex items-center gap-3 border-rose-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md active:translate-y-0 dark:border-rose-800 dark:hover:border-rose-600"
+                className="ui-coop-card ui-lift-card is-active flex items-center gap-3 border-rose-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md active:translate-y-0 dark:border-rose-800 dark:hover:border-rose-600"
               >
                 <img
                   src={def.base.image}
                   alt={def.name}
-                  className="h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                  className="ui-boss-portrait h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline justify-between gap-1">
@@ -225,9 +225,9 @@ export function V2CoopBossListView({
                     </span>
                   </span>
                   <span className="mt-1.5 block space-y-1">
-                    <span className="block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                    <span className="war-meter-track block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
                       <span
-                        className="block h-full rounded bg-rose-500 transition-[width]"
+                        className="war-meter-fill block h-full rounded bg-rose-500 transition-[width]"
                         style={{ width: `${hpPct}%` }}
                       />
                     </span>
@@ -272,12 +272,12 @@ export function V2CoopBossListView({
           const short = scrolls < def.scrollCost;
           const open = infoOpen === kindId;
           return (
-            <Card key={kindId} padding="md" className="space-y-2">
+            <Card key={kindId} padding="md" className="ui-coop-card space-y-2">
               <div className="flex items-center gap-3">
                 <img
                   src={def.base.image}
                   alt={def.name}
-                  className="h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover opacity-80 dark:border-zinc-700"
+                  className="ui-boss-portrait h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover opacity-80 dark:border-zinc-700"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">

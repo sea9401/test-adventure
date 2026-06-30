@@ -11,6 +11,11 @@ import {
   type ArtisanProfessionId,
   type ArtisanState,
 } from "./artisan";
+import {
+  GUILD_WORKSHOP_MATERIALS,
+  GUILD_WORKSHOP_MATERIAL_ID,
+  type GuildWorkshopMaterialId,
+} from "./guildWorkshopMaterials";
 
 export type GuildWorkshopRecipeId =
   | "iron_sword"
@@ -55,6 +60,7 @@ export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
   equipmentId: V2EquipmentId;
   cost: Partial<Record<ProductionKind, number>>;
+  materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
   profession: ArtisanProfessionId;
   requiredArtisanLevel: number;
   requiredSmithyLevel?: number;
@@ -81,10 +87,10 @@ export const GUILD_WORKSHOP_BONUS_TIERS: {
   qualityChanceBonusPct: number;
 }[] = [
   { tier: 0, totalCrafts: 0, qualityChanceBonusPct: 0 },
-  { tier: 1, totalCrafts: 10, qualityChanceBonusPct: 1 },
-  { tier: 2, totalCrafts: 30, qualityChanceBonusPct: 2 },
-  { tier: 3, totalCrafts: 60, qualityChanceBonusPct: 3 },
-  { tier: 4, totalCrafts: 100, qualityChanceBonusPct: 5 },
+  { tier: 1, totalCrafts: 50, qualityChanceBonusPct: 1 },
+  { tier: 2, totalCrafts: 150, qualityChanceBonusPct: 2 },
+  { tier: 3, totalCrafts: 300, qualityChanceBonusPct: 3 },
+  { tier: 4, totalCrafts: 600, qualityChanceBonusPct: 5 },
 ];
 
 export const GUILD_WORKSHOP_RECIPES: Record<
@@ -338,6 +344,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_oathblade",
     equipmentId: "v2_crafted_oathblade",
     cost: { crop: 180, ore: 260 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
     requiredSmithyLevel: 2,
@@ -348,6 +355,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_gale_bow",
     equipmentId: "v2_crafted_gale_bow",
     cost: { crop: 260, ore: 150 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
     requiredSmithyLevel: 2,
@@ -358,6 +366,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_runic_staff",
     equipmentId: "v2_crafted_runic_staff",
     cost: { crop: 240, ore: 170 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
     requiredSmithyLevel: 2,
@@ -368,6 +377,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_master_ring",
     equipmentId: "v2_crafted_master_ring",
     cost: { crop: 160, ore: 310 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 7,
     requiredSmithyLevel: 3,
@@ -378,6 +388,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_ward_plate",
     equipmentId: "v2_crafted_ward_plate",
     cost: { crop: 160, ore: 320 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
     profession: "blacksmith",
     requiredArtisanLevel: 7,
     requiredSmithyLevel: 3,
@@ -388,6 +399,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_spark_gloves",
     equipmentId: "v2_crafted_spark_gloves",
     cost: { crop: 210, ore: 190 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
     requiredSmithyLevel: 2,
@@ -398,6 +410,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_windstep_boots",
     equipmentId: "v2_crafted_windstep_boots",
     cost: { crop: 240, ore: 150 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
     requiredSmithyLevel: 2,
@@ -408,6 +421,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_aether_necklace",
     equipmentId: "v2_crafted_aether_necklace",
     cost: { crop: 180, ore: 280 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 7,
     requiredSmithyLevel: 3,
@@ -418,6 +432,10 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_sunforge_blade",
     equipmentId: "v2_crafted_sunforge_blade",
     cost: { crop: 460, ore: 680 },
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+    },
     profession: "blacksmith",
     requiredArtisanLevel: 8,
     requiredSmithyLevel: 4,
@@ -428,6 +446,10 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     id: "crafted_aurora_crown",
     equipmentId: "v2_crafted_aurora_crown",
     cost: { crop: 640, ore: 880 },
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 1,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 3,
+    },
     profession: "blacksmith",
     requiredArtisanLevel: 9,
     requiredSmithyLevel: 5,
@@ -501,6 +523,40 @@ export function canAffordGuildWorkshopRecipe(
   });
 }
 
+export function parseGuildWorkshopMaterialInventory(
+  raw: unknown,
+): Record<string, number> {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [id, amount] of Object.entries(raw as Record<string, unknown>)) {
+    const n = Math.max(0, Math.floor(Number(amount) || 0));
+    if (n > 0) out[id] = n;
+  }
+  return out;
+}
+
+export function hasGuildWorkshopRecipeMaterials(
+  materials: Record<string, number>,
+  recipe: GuildWorkshopRecipe,
+): boolean {
+  return Object.entries(recipe.materialCost ?? {}).every(([id, amount]) => {
+    return Math.max(0, materials[id] ?? 0) >= Math.max(0, amount ?? 0);
+  });
+}
+
+export function spendGuildWorkshopRecipeMaterials(
+  materials: Record<string, number>,
+  recipe: GuildWorkshopRecipe,
+): Record<string, number> {
+  const next: Record<string, number> = { ...materials };
+  for (const [id, amount] of Object.entries(recipe.materialCost ?? {})) {
+    const left = Math.max(0, Math.floor((next[id] ?? 0) - (amount ?? 0)));
+    if (left > 0) next[id] = left;
+    else delete next[id];
+  }
+  return next;
+}
+
 export function meetsGuildWorkshopRecipeLevel(
   artisan: ArtisanState,
   recipe: GuildWorkshopRecipe,
@@ -550,12 +606,14 @@ export function guildWorkshopRecipeView(
   artisan: ArtisanState = {},
   guildBonus: GuildWorkshopBonus | number = 0,
   smithyLevel = 1,
+  materials: Record<string, number> = {},
 ) {
   const item = V2_EQUIPMENT[recipe.equipmentId];
   const levelOk = meetsGuildWorkshopRecipeLevel(artisan, recipe);
   const smithyLevelOk =
     smithyLevel >= Math.max(1, recipe.requiredSmithyLevel ?? 1);
   const resourceOk = canAffordGuildWorkshopRecipe(resources, recipe);
+  const materialOk = hasGuildWorkshopRecipeMaterials(materials, recipe);
   const qualityChancePct = guildWorkshopQualityChancePct(
     artisan,
     recipe,
@@ -570,21 +628,26 @@ export function guildWorkshopRecipeView(
     craftOnly: item.craftOnly === true,
     note: recipe.note,
     cost: recipe.cost,
+    materialCost: recipe.materialCost ?? {},
     profession: recipe.profession,
     requiredArtisanLevel: recipe.requiredArtisanLevel,
     requiredSmithyLevel: recipe.requiredSmithyLevel ?? 1,
     artisanXp: recipe.artisanXp,
     qualityChancePct,
-    costText: Object.entries(recipe.cost)
-      .map(([kind, amount]) => {
+    costText: [
+      ...Object.entries(recipe.cost).map(([kind, amount]) => {
         const k = kind as ProductionKind;
         return `${PRODUCTION_KIND_ICON[k]} ${PRODUCTION_KIND_NAME[k]} ${amount}`;
-      })
-      .join(" · "),
+      }),
+      ...Object.entries(recipe.materialCost ?? {}).map(([id, amount]) => {
+        return `${GUILD_WORKSHOP_MATERIALS[id as GuildWorkshopMaterialId]?.name ?? id} ${amount}`;
+      }),
+    ].join(" · "),
     levelOk,
     smithyLevelOk,
+    materialOk,
     resourceOk,
-    canCraft: levelOk && smithyLevelOk && resourceOk,
+    canCraft: levelOk && smithyLevelOk && resourceOk && materialOk,
   };
 }
 

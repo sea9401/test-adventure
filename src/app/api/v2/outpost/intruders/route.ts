@@ -3,11 +3,16 @@ import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
   isIntruderActive,
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
+import { RAID_MIN_TILE_STAY_MS } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  isKnownOutpostId,
+  parseTileOutpostId,
+} from "@/adventure/data/v2/tileWarfare";
+import { parseWarVigor } from "@/adventure/data/v2/warVigor";
 
 // GET /api/v2/outpost/intruders?outpostId=...
 //
@@ -24,6 +29,11 @@ type IntruderRow = {
   name: string;
   level: number;
   huntedAt: number;
+  source: "tile" | "hunt";
+  stayMs: number;
+  raidReady: boolean;
+  warVigorHp: number;
+  warVigorMp: number;
 };
 
 export async function GET(req: Request) {
@@ -34,9 +44,10 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const outpostId = url.searchParams.get("outpostId");
-  if (!outpostId || !OUTPOSTS.some((o) => o.id === outpostId)) {
+  if (!outpostId || !isKnownOutpostId(outpostId)) {
     return Response.json({ ok: false, error: "bad_outpost" }, { status: 400 });
   }
+  const tilePos = parseTileOutpostId(outpostId);
 
   // 권한 검증 + 침입자 목록 조회 — 같은 tx 로 묶어 점령 변경 직후 stale 권한
   // race 방지.
@@ -56,7 +67,7 @@ export async function GET(req: Request) {
       return { error: "not_owner_guild" as const };
     }
 
-    // JSON path 쿼리 — character.v2.lastHuntedOutpost.outpostId 가 이 거점인 saves 만.
+    // JSON path 쿼리 — 사냥 침입(lastHuntedOutpost) 또는 타일 위 체류(tilePos)가 이 거점인 saves.
     // 인덱스 없어 풀스캔이지만 saves_kv 의 character.v2 row 수가 작은 v2 staging
     // 부하 수준에선 충분. 부하 측정 후 별도 인덱스/테이블 분리는 후속.
     const candidateRows = await tx
@@ -65,7 +76,9 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(savesKv.key, "character.v2"),
-          sql`${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId' = ${outpostId}`,
+          tilePos
+            ? sql`(${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId' = ${outpostId} OR ((${savesKv.value} -> 'tilePos' ->> 'col')::int = ${tilePos.col} AND (${savesKv.value} -> 'tilePos' ->> 'row')::int = ${tilePos.row}))`
+            : sql`${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId' = ${outpostId}`,
         ),
       );
 
@@ -90,20 +103,46 @@ export async function GET(req: Request) {
 
   const now = Date.now();
   const candidateUserIds: string[] = [];
-  const candidateMeta = new Map<string, { huntedAt: number; level: number }>();
+  const candidateMeta = new Map<
+    string,
+    {
+      huntedAt: number;
+      level: number;
+      source: "tile" | "hunt";
+      stayMs: number;
+      raidReady: boolean;
+      warVigorHp: number;
+      warVigorMp: number;
+    }
+  >();
   for (const row of rows) {
     if (ownGuildUserIds.has(row.userId)) continue;
     const v = row.value as {
       lastHuntedOutpost?: unknown;
+      tilePos?: { col?: unknown; row?: unknown; at?: unknown };
       level?: unknown;
+      warVigor?: unknown;
     } | null;
     if (!v) continue;
     const last = parseLastHuntedOutpost(v.lastHuntedOutpost);
-    if (!isIntruderActive(last, outpostId, now)) continue;
+    const tileIntruder =
+      tilePos != null &&
+      v.tilePos?.col === tilePos.col &&
+      v.tilePos?.row === tilePos.row &&
+      typeof v.tilePos.at === "number";
+    if (!tileIntruder && !isIntruderActive(last, outpostId, now)) continue;
+    const huntedAt = tileIntruder ? (v.tilePos!.at as number) : last!.at;
+    const stayMs = tileIntruder ? Math.max(0, now - huntedAt) : 0;
+    const warVigor = parseWarVigor(v.warVigor);
     candidateUserIds.push(row.userId);
     candidateMeta.set(row.userId, {
-      huntedAt: last!.at,
+      huntedAt,
       level: typeof v.level === "number" ? v.level : 1,
+      source: tileIntruder ? "tile" : "hunt",
+      stayMs,
+      raidReady: tileIntruder && stayMs >= RAID_MIN_TILE_STAY_MS,
+      warVigorHp: warVigor.hp,
+      warVigorMp: warVigor.mp,
     });
   }
   if (candidateUserIds.length === 0) {
@@ -134,6 +173,11 @@ export async function GET(req: Request) {
       name: nameByUser.get(uid) ?? "모험가",
       level: meta.level,
       huntedAt: meta.huntedAt,
+      source: meta.source,
+      stayMs: meta.stayMs,
+      raidReady: meta.raidReady,
+      warVigorHp: meta.warVigorHp,
+      warVigorMp: meta.warVigorMp,
     };
   });
   // 최근 사냥 순으로 정렬.

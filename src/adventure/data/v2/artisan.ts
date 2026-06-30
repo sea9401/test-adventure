@@ -13,7 +13,12 @@ export const ARTISAN_PROFESSION_NAME: Record<ArtisanProfessionId, string> = {
   blacksmith: "대장장이",
 };
 
-export const ARTISAN_XP_PER_LEVEL = 100;
+// 누적 XP 기준. 저가 제작(10~14xp) 반복만으로 고레벨이 너무 빨리 열리지 않게
+// 초반은 완만하게, 제작 전용 레시피 구간부터는 길드 단위 장기 목표가 되도록 올린다.
+export const ARTISAN_XP_LEVEL_THRESHOLDS: readonly number[] = [
+  0, 250, 650, 1200, 2000, 3100, 4600, 6600, 9200, 12500,
+];
+export const ARTISAN_XP_AFTER_TABLE_STEP = 5000;
 
 export type ArtisanRewardMilestone = {
   level: number;
@@ -83,14 +88,49 @@ export function parseArtisanState(raw: unknown): ArtisanState {
 
 export function artisanLevel(state: ArtisanProfessionState | undefined): number {
   const xp = Math.max(0, state?.xp ?? 0);
-  return Math.floor(xp / ARTISAN_XP_PER_LEVEL) + 1;
+  let level = 1;
+  for (let i = 1; i < ARTISAN_XP_LEVEL_THRESHOLDS.length; i += 1) {
+    if (xp < ARTISAN_XP_LEVEL_THRESHOLDS[i]) break;
+    level = i + 1;
+  }
+  const lastThreshold =
+    ARTISAN_XP_LEVEL_THRESHOLDS[ARTISAN_XP_LEVEL_THRESHOLDS.length - 1];
+  if (xp >= lastThreshold) {
+    level =
+      ARTISAN_XP_LEVEL_THRESHOLDS.length +
+      Math.floor((xp - lastThreshold) / ARTISAN_XP_AFTER_TABLE_STEP);
+  }
+  return level;
+}
+
+export function artisanXpForLevel(levelRaw: number): number {
+  const level = Math.max(1, Math.floor(levelRaw));
+  const idx = level - 1;
+  if (idx < ARTISAN_XP_LEVEL_THRESHOLDS.length) {
+    return ARTISAN_XP_LEVEL_THRESHOLDS[idx];
+  }
+  const lastThreshold =
+    ARTISAN_XP_LEVEL_THRESHOLDS[ARTISAN_XP_LEVEL_THRESHOLDS.length - 1];
+  return (
+    lastThreshold +
+    (idx - ARTISAN_XP_LEVEL_THRESHOLDS.length + 1) *
+      ARTISAN_XP_AFTER_TABLE_STEP
+  );
 }
 
 export function artisanXpIntoLevel(
   state: ArtisanProfessionState | undefined,
 ): number {
   const xp = Math.max(0, state?.xp ?? 0);
-  return xp % ARTISAN_XP_PER_LEVEL;
+  const level = artisanLevel(state);
+  return xp - artisanXpForLevel(level);
+}
+
+export function artisanXpForNextLevel(
+  state: ArtisanProfessionState | undefined,
+): number {
+  const level = artisanLevel(state);
+  return artisanXpForLevel(level + 1) - artisanXpForLevel(level);
 }
 
 export function unlockedArtisanMilestones(

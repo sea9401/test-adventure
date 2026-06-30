@@ -122,6 +122,10 @@ export type V2EquipmentId =
   | "v2_crafted_aether_necklace"
   | "v2_crafted_sunforge_blade"
   | "v2_crafted_aurora_crown"
+  | "v2_crafted_bulwark_shield"
+  | "v2_crafted_stormlance"
+  | "v2_crafted_kingbreaker_axe"
+  | "v2_crafted_astral_grimoire"
   // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리).
   // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses. 보스당 2종.
   | "v2_boss_mountain_axe"

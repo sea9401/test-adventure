@@ -2,7 +2,7 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 183종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
+// V2_EQUIPMENT — 187종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
 //   (경갑 단일·중갑은 armor 만). 제거분은 LEGACY_ID_REMAP 비파괴 마이그. 무기종류는 직업 늘면 재추가 가능.
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (마방 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
@@ -347,7 +347,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
 
   // ── 길드 대장간 제작 전용 고유 장비(craftOnly) ─────────────────────────
-  // 드랍·상점 제외. 대장간 레벨별 짝수 티어(T4/T6/T8/T10)에 맞춘 장인표 목적형 장비.
+  // 드랍·상점 제외. 대장간 레벨별 짝수 티어(T4/T6/T8/T10)에서 시작해 Lv5 명장 구간은 T12까지 확장.
   v2_crafted_oathblade: {
     id: "v2_crafted_oathblade",
     weaponType: "greatsword",
@@ -479,6 +479,58 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 45,
     weight: 0,
     options: { mp: 170, magicDef: 18, healPowerPct: 14 },
+    craftOnly: true,
+    setTags: ["artisan_crafted"],
+  },
+  v2_crafted_bulwark_shield: {
+    id: "v2_crafted_bulwark_shield",
+    slot: "weapon",
+    concept: "str",
+    tier: 11,
+    name: "성벽 방패",
+    description: "방패 자체를 전투 방식으로 삼도록 만든 명장표 대형 방패.",
+    power: 560,
+    weight: 12,
+    options: { hp: 260, def: 36, critResist: 10 },
+    craftOnly: true,
+    setTags: ["artisan_crafted"],
+  },
+  v2_crafted_stormlance: {
+    id: "v2_crafted_stormlance",
+    slot: "weapon",
+    concept: "dex",
+    tier: 11,
+    name: "폭풍창",
+    description: "찌르는 궤적을 얇게 줄여 속도와 치명을 함께 살린 장인표 창.",
+    power: 575,
+    weight: 6,
+    options: { crit: 9, spd: 12, critMult: 55 },
+    craftOnly: true,
+    setTags: ["artisan_crafted"],
+  },
+  v2_crafted_kingbreaker_axe: {
+    id: "v2_crafted_kingbreaker_axe",
+    slot: "weapon",
+    concept: "str",
+    tier: 12,
+    name: "왕파쇄 도끼",
+    description: "두꺼운 갑주와 방패를 함께 깨기 위해 무게 중심을 끝에 몰아넣은 전투도끼.",
+    power: 700,
+    weight: 11,
+    options: { hp: 220, def: 24, critMult: 115 },
+    craftOnly: true,
+    setTags: ["artisan_crafted"],
+  },
+  v2_crafted_astral_grimoire: {
+    id: "v2_crafted_astral_grimoire",
+    slot: "weapon",
+    concept: "int",
+    tier: 12,
+    name: "성도 마도서",
+    description: "별자리 금속판을 얇게 접어 마력 회로처럼 엮은 명장표 마도서.",
+    power: 680,
+    weight: 2,
+    options: { mp: 240, magicDef: 28, healPowerPct: 12 },
     craftOnly: true,
     setTags: ["artisan_crafted"],
   },

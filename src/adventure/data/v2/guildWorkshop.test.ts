@@ -77,6 +77,16 @@ describe("guild workshop recipes", () => {
       requiredSmithyLevel: 5,
       requiredArtisanLevel: 9,
     });
+    expect(GUILD_WORKSHOP_RECIPES.crafted_bulwark_shield).toMatchObject({
+      equipmentId: "v2_crafted_bulwark_shield",
+      requiredSmithyLevel: 5,
+      requiredArtisanLevel: 10,
+    });
+    expect(GUILD_WORKSHOP_RECIPES.crafted_kingbreaker_axe).toMatchObject({
+      equipmentId: "v2_crafted_kingbreaker_axe",
+      requiredSmithyLevel: 5,
+      requiredArtisanLevel: 11,
+    });
     expect(
       guildWorkshopRecipeView(
         GUILD_WORKSHOP_RECIPES.crafted_oathblade,
@@ -204,19 +214,22 @@ describe("guild workshop recipes", () => {
   });
 
   it("craft-only equipment tiers follow smithy progression", () => {
-    const expectedTierBySmithyLevel = new Map([
-      [2, 4],
-      [3, 6],
-      [4, 8],
-      [5, 10],
+    const expectedTierRangeBySmithyLevel = new Map([
+      [2, [4, 4]],
+      [3, [6, 6]],
+      [4, [8, 8]],
+      [5, [10, 12]],
     ]);
     for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES).filter((r) =>
       r.id.startsWith("crafted_"),
     )) {
       const smithyLevel = recipe.requiredSmithyLevel ?? 1;
-      expect(V2_EQUIPMENT[recipe.equipmentId].tier, recipe.id).toBe(
-        expectedTierBySmithyLevel.get(smithyLevel),
-      );
+      const expectedRange = expectedTierRangeBySmithyLevel.get(smithyLevel);
+      expect(expectedRange, recipe.id).toBeDefined();
+      const [minTier, maxTier] = expectedRange ?? [0, 0];
+      const tier = V2_EQUIPMENT[recipe.equipmentId].tier;
+      expect(tier, recipe.id).toBeGreaterThanOrEqual(minTier);
+      expect(tier, recipe.id).toBeLessThanOrEqual(maxTier);
     }
   });
 

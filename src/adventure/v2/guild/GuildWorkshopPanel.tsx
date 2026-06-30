@@ -184,6 +184,17 @@ type DismantleState = {
   requiredBlacksmithLevel: number;
   candidates: DismantleCandidateView[];
 };
+type DismantleResultView = DismantleCandidateView;
+
+type DismantleScopeFilter =
+  | "can"
+  | "all"
+  | "plain"
+  | "quality"
+  | "craftOnly"
+  | "masterwork";
+type DismantleTierFilter = "all" | "t4" | "t6" | "t8" | "t10";
+type DismantleSortMode = "tier" | "reward" | "name";
 
 type CraftResultView = {
   iid: string | null;
@@ -368,6 +379,43 @@ function dismantleBlockedText(reason?: string): string {
   }
 }
 
+function dismantleRewardTotal(item: DismantleCandidateView): number {
+  return Object.values(item.rewards).reduce(
+    (sum, amount) => sum + Math.max(0, Math.floor(Number(amount) || 0)),
+    0,
+  );
+}
+
+function matchesDismantleTierFilter(
+  item: DismantleCandidateView,
+  filter: DismantleTierFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "t4") return item.tier >= 4 && item.tier <= 5;
+  if (filter === "t6") return item.tier >= 6 && item.tier <= 7;
+  if (filter === "t8") return item.tier >= 8 && item.tier <= 9;
+  return item.tier >= 10;
+}
+
+function matchesDismantleScopeFilter(
+  item: DismantleCandidateView,
+  filter: DismantleScopeFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "can") return item.canDismantle;
+  if (filter === "plain") {
+    return (
+      item.canDismantle &&
+      item.craftQualityLevel <= 0 &&
+      !item.craftOnly &&
+      !item.masterwork
+    );
+  }
+  if (filter === "quality") return item.canDismantle && item.craftQualityLevel > 0;
+  if (filter === "craftOnly") return item.canDismantle && item.craftOnly;
+  return item.canDismantle && item.masterwork;
+}
+
 // 대장간 제작 패널 — 길드 대장간을 실제 제작 기능 게이트로 사용한다.
 export function GuildWorkshopPanel({
   info,
@@ -430,6 +478,13 @@ export function GuildWorkshopPanel({
   const [dismantleLoading, setDismantleLoading] = useState(false);
   const [dismantleBusyIid, setDismantleBusyIid] = useState<string | null>(null);
   const [dismantleMessage, setDismantleMessage] = useState<string | null>(null);
+  const [dismantleResult, setDismantleResult] =
+    useState<DismantleResultView | null>(null);
+  const [dismantleScopeFilter, setDismantleScopeFilter] =
+    useState<DismantleScopeFilter>("can");
+  const [dismantleTierFilter, setDismantleTierFilter] =
+    useState<DismantleTierFilter>("all");
+  const [dismantleSort, setDismantleSort] = useState<DismantleSortMode>("tier");
   const [contributionInfo, setContributionInfo] =
     useState<GuildInfoResponse | null>(null);
   const [selectedDeliveryIids, setSelectedDeliveryIids] = useState<
@@ -715,6 +770,36 @@ export function GuildWorkshopPanel({
     ? craftQualityFromLevel(craftResult.craftQualityLevel)
     : undefined;
   const craftResultVisual = craftResult ? craftResultTone(craftResult) : null;
+  const filteredDismantleCandidates = useMemo(() => {
+    const candidates = [...(dismantle?.candidates ?? [])].filter(
+      (item) =>
+        matchesDismantleScopeFilter(item, dismantleScopeFilter) &&
+        matchesDismantleTierFilter(item, dismantleTierFilter),
+    );
+    candidates.sort((a, b) => {
+      if (dismantleSort === "reward") {
+        return (
+          dismantleRewardTotal(b) - dismantleRewardTotal(a) ||
+          b.tier - a.tier ||
+          a.itemName.localeCompare(b.itemName, "ko")
+        );
+      }
+      if (dismantleSort === "name") {
+        return a.itemName.localeCompare(b.itemName, "ko") || b.tier - a.tier;
+      }
+      return (
+        b.tier - a.tier ||
+        dismantleRewardTotal(b) - dismantleRewardTotal(a) ||
+        a.itemName.localeCompare(b.itemName, "ko")
+      );
+    });
+    return candidates;
+  }, [
+    dismantle?.candidates,
+    dismantleScopeFilter,
+    dismantleSort,
+    dismantleTierFilter,
+  ]);
 
   async function craft(
     recipeId: GuildWorkshopRecipeId,
@@ -911,6 +996,7 @@ export function GuildWorkshopPanel({
   async function dismantleEquipment(iid: string) {
     setDismantleBusyIid(iid);
     setDismantleMessage(null);
+    setDismantleResult(null);
     try {
       const res = await fetch("/api/v2/guild/workshop/dismantle", {
         method: "POST",
@@ -925,6 +1011,7 @@ export function GuildWorkshopPanel({
         return;
       }
       const dismantled = json.dismantled as DismantleCandidateView | undefined;
+      if (dismantled) setDismantleResult(dismantled);
       setDismantleMessage(
         dismantled
           ? `${dismantled.itemName} 해체 완료 · 숙련도 +${Number(
@@ -1199,13 +1286,103 @@ export function GuildWorkshopPanel({
           return `${mat.name} ${amount.toLocaleString()}`;
         }).join(" · ")}
       </div>
+      <div className="mb-2 grid gap-1.5 rounded border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-3">
+        <select
+          value={dismantleScopeFilter}
+          onChange={(e) =>
+            setDismantleScopeFilter(e.target.value as DismantleScopeFilter)
+          }
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+        >
+          <option value="can">해체 가능만</option>
+          <option value="plain">일반 품질만</option>
+          <option value="quality">★ 품질만</option>
+          <option value="craftOnly">제작 전용만</option>
+          <option value="masterwork">명장만</option>
+          <option value="all">전체</option>
+        </select>
+        <select
+          value={dismantleTierFilter}
+          onChange={(e) =>
+            setDismantleTierFilter(e.target.value as DismantleTierFilter)
+          }
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+        >
+          <option value="all">모든 티어</option>
+          <option value="t4">T4-T5</option>
+          <option value="t6">T6-T7</option>
+          <option value="t8">T8-T9</option>
+          <option value="t10">T10+</option>
+        </select>
+        <select
+          value={dismantleSort}
+          onChange={(e) => setDismantleSort(e.target.value as DismantleSortMode)}
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+        >
+          <option value="tier">티어 높은순</option>
+          <option value="reward">회수량 많은순</option>
+          <option value="name">이름순</option>
+        </select>
+      </div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span>
+          표시 {filteredDismantleCandidates.length.toLocaleString()}개 / 전체{" "}
+          {(dismantle?.candidates.length ?? 0).toLocaleString()}개
+        </span>
+        <span>
+          해체 가능{" "}
+          {(dismantle?.candidates.filter((item) => item.canDismantle).length ?? 0).toLocaleString()}개
+        </span>
+      </div>
       {dismantleMessage ? (
         <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           {dismantleMessage}
         </div>
       ) : null}
+      {dismantleResult ? (
+        <div className="mb-2 overflow-hidden rounded border border-rose-200 bg-white text-xs dark:border-rose-900 dark:bg-zinc-950">
+          <div className="border-b border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-900 dark:bg-rose-950/30">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-rose-950 dark:text-rose-100">
+                해체 완료
+              </span>
+              {dismantleResult.craftQualityLevel > 0 ? (
+                <span className="rounded bg-amber-200 px-1.5 py-px font-semibold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
+                  {"★".repeat(dismantleResult.craftQualityLevel)} 품질
+                </span>
+              ) : null}
+              {dismantleResult.craftOnly ? <CraftOnlyBadge /> : null}
+              {dismantleResult.masterwork ? (
+                <span className="rounded bg-rose-200 px-1.5 py-px font-semibold text-rose-900 dark:bg-rose-800 dark:text-rose-50">
+                  명장
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="grid gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 sm:grid-cols-[1fr_auto] sm:items-center">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                {dismantleResult.itemName}
+              </div>
+              <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                {V2_SLOT_LABEL[dismantleResult.slot]} · T{dismantleResult.tier}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1 sm:justify-end">
+              <span className="rounded bg-zinc-100 px-1.5 py-px font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                {workshopMaterialRewardText(dismantleResult.rewards)}
+              </span>
+              {dismantleResult.artisanXp > 0 ? (
+                <span className="rounded bg-emerald-100 px-1.5 py-px font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  숙련도 +{dismantleResult.artisanXp.toLocaleString()}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="space-y-2">
-        {(dismantle?.candidates ?? []).slice(0, 40).map((item) => {
+        {filteredDismantleCandidates.slice(0, 40).map((item) => {
           const busy = dismantleBusyIid === item.iid;
           return (
             <div
@@ -1269,6 +1446,13 @@ export function GuildWorkshopPanel({
         {!dismantleLoading && (dismantle?.candidates.length ?? 0) === 0 ? (
           <div className="py-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
             해체할 장비가 없습니다.
+          </div>
+        ) : null}
+        {!dismantleLoading &&
+        (dismantle?.candidates.length ?? 0) > 0 &&
+        filteredDismantleCandidates.length === 0 ? (
+          <div className="py-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            현재 필터에 맞는 장비가 없습니다.
           </div>
         ) : null}
       </div>

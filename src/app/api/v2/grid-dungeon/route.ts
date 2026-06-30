@@ -37,10 +37,12 @@ import {
   type DbExecutor,
 } from "@/lib/server/savesKv";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
   GRID_DUNGEON_DAILY_REWARDS_KEY,
   GRID_DUNGEON_ENTRANCE,
   GRID_DUNGEON_HISTORY_KEY,
+  GRID_DUNGEON_MAX_HP,
   GRID_DUNGEON_SAVE_KEY,
   appendGridDungeonHistory,
   createGridDungeonRun,
@@ -78,6 +80,7 @@ type CharSave = {
   tilePos?: { col?: number; row?: number; at?: number };
   hp?: number;
   mp?: number;
+  hpRegenSince?: number;
   element?: unknown;
   materials?: unknown;
   [k: string]: unknown;
@@ -513,12 +516,6 @@ const GRID_DUNGEON_COMBAT_DEPTH: Partial<Record<GridDungeonTileKind, number>> = 
   boss: 6,
 };
 
-const GRID_DUNGEON_COMBAT_BASE_LOSS: Partial<Record<GridDungeonTileKind, number>> = {
-  monster: 2,
-  elite: 3,
-  boss: 4,
-};
-
 function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
   const delta: Record<GridDungeonMoveDir, { x: number; y: number }> = {
     up: { x: 0, y: -1 },
@@ -547,28 +544,6 @@ function pickGridDungeonEnemy(tile: GridDungeonTileKind) {
   return { depth, enemy: pool[Math.min(index, pool.length - 1)] };
 }
 
-function dungeonHpLoss({
-  won,
-  baseLoss,
-  damageTaken,
-  playerMaxHp,
-  runHp,
-}: {
-  won: boolean;
-  baseLoss: number;
-  damageTaken: number;
-  playerMaxHp: number;
-  runHp: number;
-}) {
-  if (!won) return Math.max(1, runHp);
-  if (playerMaxHp <= 0) return baseLoss;
-  const damageRatio = Math.max(0, damageTaken / playerMaxHp);
-  return Math.max(
-    0,
-    Math.min(baseLoss + 2, Math.ceil(baseLoss * (0.35 + damageRatio))),
-  );
-}
-
 async function resolveGridDungeonCombat({
   tx,
   userId,
@@ -577,6 +552,7 @@ async function resolveGridDungeonCombat({
   frontlineId,
   tile,
   runHp,
+  runMaxHp,
 }: {
   tx: DbExecutor;
   userId: string;
@@ -585,6 +561,7 @@ async function resolveGridDungeonCombat({
   frontlineId: string;
   tile: GridDungeonTileKind;
   runHp: number;
+  runMaxHp: number;
 }): Promise<GridDungeonResolvedCombat | null> {
   if (!isGridDungeonCombatTile(tile)) return null;
   const picked = pickGridDungeonEnemy(tile);
@@ -658,10 +635,15 @@ async function resolveGridDungeonCombat({
         }
       : {}),
   };
-  const playerMaxHp = Math.max(1, player.maxHp);
+  const playerMaxHp = Math.max(1, Math.floor(runMaxHp || player.maxHp));
+  const playerHpBefore = Math.max(
+    1,
+    Math.min(playerMaxHp, Math.floor(runHp || playerMaxHp)),
+  );
   const playerForBattle = {
     ...player.player,
-    hp: playerMaxHp,
+    hp: playerHpBefore,
+    maxHp: playerMaxHp,
     mp: player.player.maxMp ?? player.player.mp,
     atk: Math.max(1, Math.round(player.player.atk * elemMult)),
     magicAtk: Math.max(
@@ -678,6 +660,7 @@ async function resolveGridDungeonCombat({
             id: userId,
             name: "나",
             maxHp: playerMaxHp,
+            hp: playerHpBefore,
             atk: Math.max(1, playerForBattle.atk),
             magicAtk: Math.max(0, playerForBattle.magicAtk ?? 0),
             def: Math.max(0, playerForBattle.def),
@@ -722,14 +705,9 @@ async function resolveGridDungeonCombat({
         .map((entry) => entry.text)
         .filter(Boolean)
         .slice(-4);
-  const damageTaken = Math.max(0, playerMaxHp - playerHpAfter);
-  const hpLost = dungeonHpLoss({
-    won,
-    baseLoss: GRID_DUNGEON_COMBAT_BASE_LOSS[tile] ?? 2,
-    damageTaken,
-    playerMaxHp,
-    runHp,
-  });
+  const hpLost = won
+    ? Math.max(0, playerHpBefore - playerHpAfter)
+    : playerHpBefore;
   const enemyName = enemyMonster.name;
   const message = won
     ? tile === "boss"
@@ -748,7 +726,7 @@ async function resolveGridDungeonCombat({
       outcome: won ? "win" : "lose",
       turns: partyResult?.turns ?? soloResult?.turns ?? 0,
       hpLost,
-      playerHpBefore: playerMaxHp,
+      playerHpBefore,
       playerHpAfter: Math.max(0, playerHpAfter),
       playerMaxHp,
       enemyHp: Math.max(0, enemyHpAfter),
@@ -861,6 +839,27 @@ export async function POST(req: Request) {
         return { ok: false as const, error: "not_at_entrance" as const };
       }
       const now = Date.now();
+      const player = await derivePlayerCombatV2(userId, tx, {
+        character: charSave,
+      });
+      const expeditionMaxHp = Math.max(
+        1,
+        Math.floor(player?.maxHp ?? GRID_DUNGEON_MAX_HP),
+      );
+      const regen = applyHpRegen(
+        Math.max(0, charSave.hp ?? expeditionMaxHp),
+        expeditionMaxHp,
+        parseHpRegenSince(charSave.hpRegenSince, now),
+        now,
+      );
+      if (regen.hp <= 0) {
+        return { ok: false as const, error: "need_heal" as const };
+      }
+      const characterAtStart = {
+        ...charSave,
+        hp: regen.hp,
+        hpRegenSince: now,
+      };
       const support = await gridDungeonSupportSnapshots({
         tx,
         userId,
@@ -880,9 +879,12 @@ export async function POST(req: Request) {
         support.supporters,
         frontlineId,
         routeId,
+        expeditionMaxHp,
+        regen.hp,
       );
+      await upsertSave(tx, userId, "character.v2", characterAtStart);
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, run);
-      return { ok: true as const, run, charSave };
+      return { ok: true as const, run, charSave: characterAtStart };
     });
     if (!result.ok) {
       return Response.json(
@@ -952,6 +954,7 @@ export async function POST(req: Request) {
                   : run.frontlineId,
               tile: target.tile,
               runHp: run.hp,
+              runMaxHp: run.maxHp,
             })
           : null;
       const eventDrops =
@@ -959,7 +962,8 @@ export async function POST(req: Request) {
         !run.clearedEvents.includes(target.key)
           ? rollGridDungeonDrops(target.tile)
           : {};
-      const moved = moveGridDungeonRun(run, dir, Date.now(), combat, eventDrops);
+      const now = Date.now();
+      const moved = moveGridDungeonRun(run, dir, now, combat, eventDrops);
       if (!moved.ok) return moved;
       let nextHistory: unknown = null;
       if (moved.run.status === "failed") {
@@ -979,6 +983,11 @@ export async function POST(req: Request) {
         );
         await upsertSave(tx, userId, GRID_DUNGEON_HISTORY_KEY, nextHistory);
       }
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        hp: moved.run.hp,
+        hpRegenSince: now,
+      });
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, moved.run);
       return { ok: true as const, run: moved.run, history: nextHistory };
     });

@@ -41,12 +41,12 @@ export const GUILD_WORKSHOP_DELIVERIES: Record<
   daily_quality_any: {
     id: "daily_quality_any",
     title: "품질 제작품 납품",
-    description: "+1 품질 이상 제작 장비 1개 납품",
+    description: "★ 품질 이상 제작 장비 1개 납품",
     rewardArtisanXp: 45,
     rewardGold: 250_000,
     accepts: (inst) =>
       inst.craftedBy?.profession === "blacksmith" &&
-      (inst.enhance?.level ?? 0) >= 1,
+      (inst.craftQuality?.level ?? 0) >= 1,
   },
   daily_craft_only: {
     id: "daily_craft_only",
@@ -123,6 +123,7 @@ export function guildWorkshopDeliveryViews(
           itemId: inst.id,
           itemName: V2_EQUIPMENT[inst.id]?.name ?? inst.id,
           enhanceLevel: inst.enhance?.level ?? 0,
+          craftQualityLevel: inst.craftQuality?.level ?? 0,
           craftOnly: V2_EQUIPMENT[inst.id]?.craftOnly === true,
           crafterLevel: inst.craftedBy?.level ?? 1,
           ...reward,
@@ -147,10 +148,10 @@ export function guildWorkshopDeliveryReward(
   smithyLevel = 1,
 ): GuildWorkshopDeliveryReward {
   const safeSmithyLevel = Math.max(1, Math.floor(Number(smithyLevel) || 1));
-  const enhanceLevel = Math.max(0, Math.floor(inst.enhance?.level ?? 0));
+  const craftQualityLevel = Math.max(0, Math.floor(inst.craftQuality?.level ?? 0));
   const bonusPct = Math.min(
     100,
-    Math.max(0, (safeSmithyLevel - 1) * 5 + enhanceLevel * 10),
+    Math.max(0, (safeSmithyLevel - 1) * 5 + craftQualityLevel * 10),
   );
   const mult = 1 + bonusPct / 100;
   return {

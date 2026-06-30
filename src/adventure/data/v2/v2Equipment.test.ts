@@ -648,7 +648,7 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned[1].craftedBy).toBeUndefined();
   });
 
-  it("crafted quality bonusPct is preserved separately from normal enhancement", () => {
+  it("legacy crafted quality enhance is migrated to craftQuality", () => {
     const r = parseEquipmentSave({
       owned: [
         {
@@ -670,10 +670,11 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       ],
     });
 
-    expect(r.owned.find((i) => i.iid === "crafted")?.enhance).toEqual({
+    expect(r.owned.find((i) => i.iid === "crafted")?.craftQuality).toEqual({
       level: 1,
       bonusPct: 5,
     });
+    expect(r.owned.find((i) => i.iid === "crafted")?.enhance).toBeUndefined();
     expect(r.owned.find((i) => i.iid === "normal")?.enhance).toEqual({
       level: 1,
       bonusPct: 2,

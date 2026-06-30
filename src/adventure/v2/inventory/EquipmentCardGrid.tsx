@@ -17,22 +17,22 @@ import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   V2_EQUIPMENT,
   effectiveStats,
+  powerWithBonuses,
   v2EquipPowerLabel,
   v2EquipStatRows,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
+  type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import {
-  enhancedPower,
-  type V2EnhanceState,
-} from "@/adventure/data/v2/v2Enhance";
+import { type V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   anchorOf,
   CraftOnlyBadge,
+  CraftQualityStars,
   PerfectQualityBadge,
   powerNameClass,
   QualityPctText,
@@ -55,14 +55,15 @@ function cardStatLine(
   item: V2Equipment,
   roll?: V2EquipRoll,
   enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
 ): string {
   const eff = effectiveStats(item, roll);
   const powerLabel = v2EquipPowerLabel(item);
-  const parts = [`${powerLabel} ${enhancedPower(eff.power, enhance)}`];
+  const parts = [`${powerLabel} ${powerWithBonuses(eff.power, enhance, craftQuality)}`];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }
-  for (const row of v2EquipStatRows(item, roll)) {
+  for (const row of v2EquipStatRows(item, roll, enhance, craftQuality)) {
     if (row.label === powerLabel || row.label === "무게") continue;
     parts.push(`${row.label} ${row.value}`);
   }
@@ -158,18 +159,19 @@ export function EquipmentCardGrid({
               <span
                 className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll)}`}
               >
-                {item.name}
                 {inst.enhance && inst.enhance.level > 0 ? (
-                  <span className="ml-1 text-amber-500">
+                  <span className="mr-1 text-amber-500">
                     +{inst.enhance.level}
                   </span>
                 ) : null}
+                <CraftQualityStars craftQuality={inst.craftQuality} className="mr-1" />
+                {item.name}
               </span>
               <ItemTypeChip item={item} />
               {item.craftOnly ? <CraftOnlyBadge /> : null}
             </div>
             <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-              {cardStatLine(item, inst.roll, inst.enhance)}
+              {cardStatLine(item, inst.roll, inst.enhance, inst.craftQuality)}
             </div>
           </button>
         );

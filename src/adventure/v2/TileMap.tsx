@@ -28,7 +28,7 @@ import { CONFLICT_ZONE_IDS } from "@/adventure/data/v2/outpostGraph";
 import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
   RAID_MIN_TILE_STAY_MS,
-  RAID_TREASURY_STEAL_FRAC,
+  RAID_TREASURY_STEAL_FRAC_UNDEFENDED,
   TRADE_ROUTE_RAID_LOSS_MULT,
   LAKE_ATTACKER_PENALTY_MULT,
   V2_TILE_WARFARE,
@@ -177,12 +177,18 @@ function WarSummaryChip({
 }
 
 function formatRemainingMinutes(ms: number): string {
-  return `${Math.max(1, Math.ceil(ms / 60_000))}분`;
+  const min = Math.max(1, Math.ceil(ms / 60_000));
+  if (min >= 60) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+  }
+  return `${min}분`;
 }
 
 function raidPreviewGold(col: number, row: number, treasury: number): number {
   const safeTreasury = Math.max(0, Math.floor(treasury));
-  let amount = Math.floor(safeTreasury * RAID_TREASURY_STEAL_FRAC);
+  let amount = Math.floor(safeTreasury * RAID_TREASURY_STEAL_FRAC_UNDEFENDED);
   let mult = 1;
   if (isTradeRouteTile(col, row)) mult *= TRADE_ROUTE_RAID_LOSS_MULT;
   if (isLakeAdjacentTile(col, row)) mult *= LAKE_ATTACKER_PENALTY_MULT;
@@ -684,7 +690,7 @@ export function TileMap({
                         <strong className="text-rose-300">토벌 대상</strong>
                       </span>
                       <span>
-                        예상 탈취{" "}
+                        무방비 예상{" "}
                         <strong className="text-yellow-300">
                           {estimatedRaidGold.toLocaleString()}G
                         </strong>

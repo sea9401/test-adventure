@@ -67,7 +67,8 @@ export const OFFLINE_SETTLE_BATCH_SIZE = 50; // 복귀 정산 chunk(서버 CPU/D
 // 전투 쿨다운 잔여 ms (순수). 마지막 전투(lastBattleAt) 이후 cooldownMs 경과 전이면 남은 ms,
 // 경과/미전투(0)면 0 = 즉시 가능. 🔑미래 lastBattleAt(손상 세이브·서버 클락 스큐)은 remaining 이
 // cooldownMs 를 초과 → 0 으로 처리(영구 락아웃 방지·다음 전투가 lastBattleAt=now 로 자가치유).
-// 사냥·토벌 공통 게이트(같은 lastBattleAt 필드). >0 이면 쿨다운 중.
+// 사냥 쿨다운 게이트(lastBattleAt 필드). >0 이면 쿨다운 중.
+// 토벌은 자기 영지 방어라 이 게이트를 쓰지 않는다.
 export function combatCooldownRemainingMs(
   lastBattleAt: number,
   now: number,

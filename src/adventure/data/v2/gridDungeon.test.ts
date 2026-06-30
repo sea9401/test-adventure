@@ -25,6 +25,8 @@ describe("gridDungeon", () => {
   it("starts at the lower center and reveals adjacent tiles", () => {
     const run = createGridDungeonRun(100);
     expect(run.pos).toEqual({ x: 2, y: 4 });
+    expect(run.hp).toBe(10);
+    expect(run.maxHp).toBe(10);
     expect(run.visited).toContain(gridDungeonKey(2, 4));
     expect(run.revealed).toEqual(
       expect.arrayContaining([
@@ -55,6 +57,42 @@ describe("gridDungeon", () => {
     if (!again.ok) return;
     expect(again.run.hp).toBe(8);
     expect(again.run.pendingGold).toBe(GRID_DUNGEON_ROOM_REWARDS.monster.gold);
+  });
+
+  it("carries real combat hp into the next dungeon room", () => {
+    const start = createGridDungeonRun(
+      100,
+      Math.random,
+      [],
+      undefined,
+      "balanced",
+      120,
+    );
+    const combat = {
+      outcome: "win" as const,
+      hpLost: 37,
+      rewardGold: 850,
+      drops: {},
+      message: "유적 경비병을 쓰러뜨렸습니다.",
+      summary: {
+        enemyName: "유적 경비병",
+        outcome: "win" as const,
+        turns: 3,
+        hpLost: 37,
+        playerHpBefore: 120,
+        playerHpAfter: 83,
+        playerMaxHp: 120,
+        enemyHp: 0,
+        enemyMaxHp: 100,
+        rewardGold: 850,
+        log: [],
+      },
+    };
+    const first = moveGridDungeonRun(start, "up", 200, combat);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.run.hp).toBe(83);
+    expect(first.run.maxHp).toBe(120);
   });
 
   it("previews available and blocked movement directions", () => {
@@ -135,6 +173,35 @@ describe("gridDungeon", () => {
     if (!relic.ok) return;
     expect(relic.run.pendingGold).toBe(GRID_DUNGEON_ROOM_REWARDS.relic.gold);
     expect(relic.run.pendingDrops).toEqual({ stone: 2 });
+  });
+
+  it("scales traps and fountains from expedition max hp", () => {
+    const start = createGridDungeonRun(
+      100,
+      Math.random,
+      [],
+      undefined,
+      "vault",
+      100,
+    );
+    const trap = moveGridDungeonRun(start, "up", 200);
+    expect(trap.ok).toBe(true);
+    if (!trap.ok) return;
+    expect(trap.run.hp).toBe(80);
+
+    const fountainStart = {
+      ...start,
+      routeId: "balanced" as const,
+      pos: { x: 2, y: 3 },
+      hp: 40,
+      visited: [gridDungeonKey(2, 3)],
+      revealed: [gridDungeonKey(2, 3), gridDungeonKey(2, 2)],
+      clearedEvents: [gridDungeonKey(2, 3)],
+    };
+    const fountain = moveGridDungeonRun(fountainStart, "up", 300);
+    expect(fountain.ok).toBe(true);
+    if (!fountain.ok) return;
+    expect(fountain.run.hp).toBe(90);
   });
 
   it("raises boss pressure while keeping the fountain route clearable", () => {

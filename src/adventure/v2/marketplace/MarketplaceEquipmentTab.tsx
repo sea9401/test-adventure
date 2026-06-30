@@ -7,6 +7,7 @@ import {
   type V2EquipInstance,
   type V2EquipRoll,
   type V2CraftedBy,
+  type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
@@ -43,6 +44,7 @@ export function MarketplaceEquipmentTab({
     itemId: string,
     roll: V2EquipRoll | undefined,
     enhance: V2EnhanceState | undefined,
+    craftQuality: V2CraftQualityState | undefined,
     craftedBy: V2CraftedBy | undefined,
     el: HTMLElement,
   ) => void;

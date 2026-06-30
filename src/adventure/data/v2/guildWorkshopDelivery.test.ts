@@ -38,7 +38,7 @@ describe("guild workshop delivery", () => {
       { dayKey: "2026-06-30", claimed: [] },
       [
         crafted,
-        { ...crafted, iid: "b", enhance: { level: 1, bonusPct: 2 } },
+        { ...crafted, iid: "b", craftQuality: { level: 1, bonusPct: 5 } },
         { ...crafted, iid: "c", id: "v2_crafted_oathblade" },
         {
           ...crafted,
@@ -72,7 +72,7 @@ describe("guild workshop delivery", () => {
   it("scales rewards by smithy level and delivered quality", () => {
     const reward = guildWorkshopDeliveryReward(
       GUILD_WORKSHOP_DELIVERIES.daily_quality_any,
-      { ...crafted, enhance: { level: 1, bonusPct: 2 } },
+      { ...crafted, craftQuality: { level: 1, bonusPct: 5 } },
       5,
     );
     expect(reward).toEqual({

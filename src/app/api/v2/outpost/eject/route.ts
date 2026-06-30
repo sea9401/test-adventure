@@ -14,8 +14,6 @@ import {
 } from "@/adventure/v2/stamina";
 import {
   V2_CORE_LOOP_V2,
-  HUNT_COOLDOWN_MS,
-  combatCooldownRemainingMs,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
@@ -55,7 +53,7 @@ type CharSave = {
   hpRegenSince?: number;
   gold?: number;
   tilePos?: { col?: number; row?: number; at?: number };
-  lastBattleAt?: number; // 코어루프 전투 쿨다운 — 사냥과 공통 게이트.
+  lastBattleAt?: number; // 코어루프 사냥 쿨다운. 토벌은 자기 영지 방어라 쿨다운을 보지 않는다.
   lastVisitedOutpost?: { outpostId?: string; at?: number };
   discoveredOutpostIds?: string[];
   lastHuntedOutpost?: unknown;
@@ -153,26 +151,12 @@ export async function POST(req: Request) {
       };
     }
 
-    // === 5. 도전자 전투 throttle ===
-    // 코어루프 on — 스태미나 폐지·공통 전투 쿨다운(사냥과 같은 lastBattleAt). 마지막 전투 후
-    //   HUNT_COOLDOWN_MS 경과해야 토벌 가능 → 같은 침입자 무비용 재시도(스팸) 차단(PR-6
-    //   flip-gate 해소). off — 기존 스태미나 차감(무변경).
+    // === 5. 도전자 비용 ===
+    // 코어루프 on — 토벌은 자기 영지 방어라 스태미나·전투 쿨다운 없이 즉시 가능.
+    // off — 기존 스태미나 차감(무변경).
     const stamina = parseStaminaFromSave(attackerSave.stamina, now);
     let afterStamina = applyRegen(stamina, now);
-    if (V2_CORE_LOOP_V2) {
-      const lastBattleAt = Number(attackerSave.lastBattleAt) || 0;
-      if (combatCooldownRemainingMs(lastBattleAt, now) > 0) {
-        return {
-          status: 429,
-          body: {
-            ok: false as const,
-            error: "on_cooldown" as const,
-            nextBattleAt: lastBattleAt + HUNT_COOLDOWN_MS,
-            cooldownMs: HUNT_COOLDOWN_MS,
-          },
-        };
-      }
-    } else {
+    if (!V2_CORE_LOOP_V2) {
       const after = tryConsume(stamina, EJECT_STAMINA_COST, now);
       if (!after) {
         return {
@@ -263,8 +247,6 @@ export async function POST(req: Request) {
       hp: attackerHpAfter,
       hpRegenSince: now,
       gold: hunterGold + bountyGold, // 패배면 bountyGold=0 → 변동 없음.
-      // 코어루프 전투 쿨다운 시각 — 승패 무관 갱신(전투 실행=throttle). off 면 키 불변.
-      ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
     });
 
     // === 8. 침입자 저장 — 승리 시 토벌 마킹+송환, 패배 시 전쟁 건강도만 갱신 ===

@@ -170,7 +170,7 @@ type CharSave = {
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
   rareMaps?: unknown;
-  lastBattleAt?: number; // 코어루프 전투 쿨다운 — 마지막 전투 시각(사냥·토벌 공통 게이트).
+  lastBattleAt?: number; // 코어루프 사냥 쿨다운 — 마지막 사냥/오프라인 정산 시각.
   atRiskGold?: number; // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상).
   lastHuntDepth?: number; // 코어루프 오프라인 정산 farm 깊이(마지막 정상 사냥 깊이).
   frontierDepth?: number; // 프론티어 최고 도달 깊이(오프라인 깊이 검증·게이트에 사용).
@@ -838,10 +838,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ),
     // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
-    // 전투 쿨다운 시각 — 코어루프면 기록(off 면 키 불변). 스태미나 모드에서도 기록하는 이유:
-    //   토벌(eject)이 lastBattleAt 를 사냥과 "공통 쿨다운"으로 쓴다 — 안 쓰면 사냥 직후 토벌
-    //   쿨다운이 우회됨(Codex). 사냥 자체는 스태미나로 게이트(이 값을 읽지 않음)라 무해.
-    //   오프라인 정산은 per-battle 기록 생략(정산 루프가 마지막에 lastBattleAt=realNow 한 번).
+    // 사냥 쿨다운 시각 — 코어루프면 기록(off 면 키 불변). 토벌은 자기 영지 방어라
+    //   이 값을 보지 않는다. 오프라인 정산은 per-battle 기록 생략(정산 루프가 마지막에
+    //   lastBattleAt=realNow 한 번).
     ...(V2_CORE_LOOP_V2 && !ctx.offline ? { lastBattleAt: now } : {}),
     // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
     ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),

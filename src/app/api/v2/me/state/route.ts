@@ -560,7 +560,8 @@ export async function GET() {
   const classDisplayName = V2_CORE_LOOP_V2
     ? jobDisplayName(cls, classDisplaySpec)
     : null;
-  // 코어루프 전투 쿨다운 — 다음 전투 가능 시각(사냥·토벌 공통). off 면 null(스태미나 게이트).
+  // 코어루프 사냥 쿨다운 — 다음 사냥 가능 시각. 토벌은 자기 영지 방어라 이 값을 보지 않는다.
+  //   off 면 null(스태미나 게이트).
   //   쿨다운 중이면 nextBattleAt=now+남은ms, 즉시 가능(미전투/경과/미래-손상)이면 now.
   //   클라는 serverNow >= nextBattleAt 로 판정. 라우트 게이트와 동일 helper 라 표시-실제 일치.
   const cooldownRemaining = combatCooldownRemainingMs(
@@ -732,7 +733,7 @@ export async function GET() {
     coreLoopOn: V2_CORE_LOOP_V2,
     // 사냥이 스태미나 모드인가(코어루프 on + 스태미나 다이얼) — 클라가 스태미나 바/UI 표시 판정.
     huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
-    // 전투 쿨다운(사냥·토벌 게이트) — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).
+    // 사냥 쿨다운 — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).
     combatCooldown,
     // 코어루프 오프라인 정산 대기 판수 — flag off 면 null.
     offlinePending,

@@ -23,6 +23,7 @@ import {
   type V2EquipRoll,
   type V2EquipSlot,
   type V2CraftedBy,
+  type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
 import {
@@ -155,6 +156,7 @@ export function V2CharacterCard({
     item: V2Equipment;
     roll?: V2EquipRoll;
     enhance?: V2EnhanceState;
+    craftQuality?: V2CraftQualityState;
     craftedBy?: V2CraftedBy;
     anchor: ItemCardAnchor;
   } | null>(null);
@@ -242,6 +244,11 @@ export function V2CharacterCard({
                       +{inst.enhance.level}
                     </span>
                   ) : null}
+                  {inst?.craftQuality ? (
+                    <span className="shrink-0 font-semibold text-amber-500">
+                      {"★".repeat(inst.craftQuality.level)}
+                    </span>
+                  ) : null}
                 </div>
               </>
             );
@@ -255,6 +262,7 @@ export function V2CharacterCard({
                     item,
                     roll: inst?.roll,
                     enhance: inst?.enhance,
+                    craftQuality: inst?.craftQuality,
                     craftedBy: inst?.craftedBy,
                     anchor: anchorOf(e.currentTarget),
                   })
@@ -309,6 +317,7 @@ export function V2CharacterCard({
           item={selected.item}
           roll={selected.roll}
           enhance={selected.enhance}
+          craftQuality={selected.craftQuality}
           craftedBy={selected.craftedBy}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}

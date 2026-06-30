@@ -5,6 +5,7 @@ import {
   appendGridDungeonHistory,
   createGridDungeonRun,
   gridDungeonBossReached,
+  gridDungeonCombatDepth,
   gridDungeonDayKey,
   gridDungeonDropDepth,
   gridDungeonKey,
@@ -170,6 +171,11 @@ describe("gridDungeon", () => {
     expect(gridDungeonDropDepth("guardian", "boss")).toBeGreaterThan(
       gridDungeonDropDepth("balanced", "boss"),
     );
+    expect(balanced.avgCombatDepth).toBeLessThan(vault.avgCombatDepth);
+    expect(vault.avgCombatDepth).toBeLessThan(guardian.avgCombatDepth);
+    expect(gridDungeonCombatDepth("balanced", "boss")).toBe(11);
+    expect(gridDungeonCombatDepth("vault", "boss")).toBe(13);
+    expect(gridDungeonCombatDepth("guardian", "boss")).toBe(17);
   });
 
   it("resolves trap and relic rooms once per run", () => {

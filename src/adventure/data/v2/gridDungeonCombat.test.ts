@@ -157,6 +157,14 @@ function runRoom(
 }
 
 describe("gridDungeon party combat simulations", () => {
+  it("keeps party scaling moderate for recommended parties", () => {
+    expect(GRID_DUNGEON_PARTY_SCALING).toMatchObject({
+      monster: { hpPerSupporter: 0.22, atkPerSupporter: 0.07 },
+      elite: { hpPerSupporter: 0.34, atkPerSupporter: 0.12 },
+      boss: { hpPerSupporter: 0.12, atkPerSupporter: 0.11 },
+    });
+  });
+
   it.each([
     ["monster solo", "monster", []],
     ["monster + dps", "monster", [dps()]],

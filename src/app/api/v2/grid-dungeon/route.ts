@@ -46,6 +46,7 @@ import {
   GRID_DUNGEON_SAVE_KEY,
   appendGridDungeonHistory,
   gridDungeonBossReached,
+  gridDungeonCombatDepth,
   createGridDungeonRun,
   gridDungeonDayKey,
   gridDungeonKey,
@@ -534,27 +535,6 @@ function historyEntryFromRun({
   };
 }
 
-const GRID_DUNGEON_COMBAT_DEPTH: Record<
-  GridDungeonRouteId,
-  Partial<Record<GridDungeonTileKind, number>>
-> = {
-  balanced: {
-    monster: 8,
-    elite: 10,
-    boss: 12,
-  },
-  guardian: {
-    monster: 12,
-    elite: 14,
-    boss: 18,
-  },
-  vault: {
-    monster: 10,
-    elite: 12,
-    boss: 14,
-  },
-};
-
 function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
   const delta: Record<GridDungeonMoveDir, { x: number; y: number }> = {
     up: { x: 0, y: -1 },
@@ -576,7 +556,7 @@ function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
 }
 
 function pickGridDungeonEnemy(routeId: GridDungeonRouteId, tile: GridDungeonTileKind) {
-  const depth = GRID_DUNGEON_COMBAT_DEPTH[routeId][tile] ?? 1;
+  const depth = gridDungeonCombatDepth(routeId, tile);
   const pool = enemiesForDepth(depth);
   if (pool.length === 0) return null;
   const index = tile === "boss" ? pool.length - 1 : tile === "elite" ? 2 : 0;

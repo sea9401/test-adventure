@@ -110,13 +110,18 @@ describe("v2Quests 카탈로그 무결성", () => {
     expect(tut.indexOf("basics")).toBeLessThan(tut.indexOf("growth"));
   });
 
-  it("직업 차수(class_*) 전용 라인은 제거됨 — 차수 미노출", () => {
+  it("직업 차수(class_*) 전용 라인은 제거됨 — 전직 퀘스트가 목표 차수를 직접 안내", () => {
     expect(QUEST_LINES.some((l) => l.id.startsWith("class_"))).toBe(false);
     expect(V2_QUESTS.some((q) => q.line.startsWith("class_"))).toBe(false);
-    // 유저 노출 문구에 "N차" 가 남아 있지 않다(차수 미노출 정책).
-    for (const q of V2_QUESTS) {
-      expect(/\d차/.test(q.title + q.desc), q.id).toBe(false);
-    }
+    expect(questById("g_advance2")!.title + questById("g_advance2")!.desc).toContain(
+      "2차",
+    );
+    expect(questById("g_passive")!.title + questById("g_passive")!.desc).toContain(
+      "3차",
+    );
+    expect(questById("a_apex")!.title + questById("a_apex")!.desc).toContain(
+      "4차",
+    );
   });
 });
 
@@ -206,12 +211,19 @@ describe("성장의 길 (순차 라인)", () => {
   });
 });
 
-describe("전직 마일스톤 — 차수 숫자 미노출, 내부 tier 판정 유지", () => {
+describe("전직 마일스톤 — 목표 차수 노출, 내부 tier 판정 유지", () => {
   it("성장의 길 전직 단계 — tier 게이트(.check)", () => {
     expect(questById("g_advance2")!.check({ ...ZERO, tier: 1 })).toBe(false);
     expect(questById("g_advance2")!.check({ ...ZERO, tier: 2 })).toBe(true);
     expect(questById("g_passive")!.check({ ...ZERO, tier: 2 })).toBe(false);
     expect(questById("g_passive")!.check({ ...ZERO, tier: 3 })).toBe(true);
+  });
+
+  it("튜토리얼 전직 단계 title/desc 에 2차·3차 전직을 명시", () => {
+    const second = questById("g_advance2")!;
+    const third = questById("g_passive")!;
+    expect(`${second.title} ${second.desc}`).toContain("2차 전직");
+    expect(`${third.title} ${third.desc}`).toContain("3차 전직");
   });
 
   it("재전직 직후 전직 퀘스트가 잠기지 않음 — 환생 레벨 리셋 회귀", () => {

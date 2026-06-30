@@ -11,8 +11,8 @@ import type { SyncedKey } from "@/lib/storage/synced-keys";
 // 서버로 안 박힌다. 그 상태에서 서버 권위 v2 라우트(/api/v2/dungeon/hunt·me/craft 등) 가 호출되면
 // character.v2 → null → gold 0, inventory → null → 빈 인벤으로 보고 insufficient_gold /
 // insufficient_items 로 거절. 첫 진입 시 한 번 시드해서 차단.
-// 신규 캐릭터는 HP/MP 충전약을 50,000 씩 들고 시작 (사냥 중 부족분 자동 회복용 비축).
-const STARTER_CHARGE = 50_000;
+// 신규 캐릭터는 HP/MP 충전약을 100,000 씩 들고 시작 (사냥 중 부족분 자동 회복용 비축).
+const STARTER_CHARGE = 100_000;
 
 export const STARTER_SAVES: Partial<Record<SyncedKey, unknown>> = {
   "character.v2": initialCharacterState,

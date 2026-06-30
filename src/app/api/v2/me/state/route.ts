@@ -519,10 +519,10 @@ export async function GET() {
             atLevelCap: level >= V2_LEVEL_CAP,
             jobs: V2_JOB_LIST.filter(
               // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
-              // prereqs 비어 항상 해금. 그 외 tier 0(미래 추가분)은 제외.
-              (job) =>
-                isRootJobSelectable(job) && isJobUnlocked(job, prof, jobUnlockCtx),
+              // 그 외 tier 0(미래 추가분)은 제외. 잠긴 직업도 조건/목표 표시용으로 내려보낸다.
+              (job) => isRootJobSelectable(job),
             ).map((job) => {
+              const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
               // 해금 조건(공유용 — 직업 도감과 동일 헬퍼).
               const condition = jobUnlockConditionText(job);
               // 직업 내장 보너스(현재 직업에 있을 때 적용되는 플랫 스탯) — "이 직업을 고를 이유"로
@@ -539,6 +539,7 @@ export async function GET() {
                 id: job.id,
                 name: job.name,
                 tier: job.tier,
+                unlocked,
                 condition,
                 // 그 직업에 쌓은 숙련도(직업별/직군 — 전직 화면 표기, 해금 진행 가늠).
                 cumLevel: cumLevelForJob(prof, job),

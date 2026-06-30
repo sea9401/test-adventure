@@ -13,7 +13,7 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
-  it("해금된 직업만 목록 + totalJobs=전체 + 폐지 필드 없음 + condition 포함", () => {
+  it("전체 직업 목록 + unlocked 상태 + totalJobs=전체 + 폐지 필드 없음 + condition 포함", () => {
     const prof = profWith({
       warrior: TIER2_UNLOCK_CUMLEVEL,
       mage: TIER2_UNLOCK_CUMLEVEL,
@@ -25,27 +25,27 @@ describe("buildJobCodex", () => {
     expect("collectionPoints" in codex).toBe(false);
     expect("rank" in codex).toBe(false);
 
-    // totalJobs = 모험가(tier0) 제외 전체. 목록엔 해금된 것만(전체 이하) + 전부 unlocked.
+    // totalJobs = 모험가(tier0) 제외 전체. 목록도 전체를 싣고 unlocked 로 상태를 구분한다.
     const nonAdventurer = V2_JOB_LIST.filter((j) => j.tier > 0).length;
     expect(codex.totalJobs).toBe(nonAdventurer);
-    expect(codex.jobs.length).toBeGreaterThan(0);
-    expect(codex.jobs.length).toBeLessThanOrEqual(nonAdventurer);
-    expect(codex.jobs.every((j) => j.unlocked)).toBe(true);
-    // 잠긴 직업(tier4 veteran)은 목록에 없다.
-    expect(codex.jobs.some((j) => j.id === "veteran")).toBe(false);
+    expect(codex.jobs.length).toBe(nonAdventurer);
+    expect(codex.jobs.some((j) => j.unlocked)).toBe(true);
+    // 잠긴 직업도 목표/조건 확인용으로 목록에 남는다.
+    expect(codex.jobs.find((j) => j.id === "veteran")?.unlocked).toBe(false);
+    expect(codex.jobs.every((j) => typeof j.tier === "number")).toBe(true);
     // 각 직업에 해금 조건 텍스트가 붙는다.
     expect(codex.jobs.every((j) => typeof j.condition === "string" && j.condition.length > 0)).toBe(true);
     const shieldman = codex.jobs.find((j) => j.id === "shieldman");
     expect(shieldman?.condition).toContain("숙련도");
   });
 
-  it("해금된 것만 — warrior 숙련도가 임계 이상이면 상위 전사 직업 포함, mage 계열(cum 0)은 제외", () => {
+  it("warrior 숙련도가 임계 이상이면 상위 전사 직업은 해금, mage 상위 계열은 잠김", () => {
     const prof = profWith({ warrior: TIER2_UNLOCK_CUMLEVEL });
     const codex = buildJobCodex(prof, [], "warrior", null);
-    expect(codex.jobs.some((j) => j.id === "shieldman")).toBe(true);
-    expect(codex.jobs.some((j) => j.id === "squire")).toBe(true);
-    // mage 계열(mage cum 0)은 잠겨서 목록에 없다.
-    expect(codex.jobs.some((j) => j.id === "caster")).toBe(false);
+    expect(codex.jobs.find((j) => j.id === "shieldman")?.unlocked).toBe(true);
+    expect(codex.jobs.find((j) => j.id === "squire")?.unlocked).toBe(true);
+    // mage 상위 계열(mage cum 0)은 목록에는 있지만 잠김 상태다.
+    expect(codex.jobs.find((j) => j.id === "caster")?.unlocked).toBe(false);
   });
 
   it("현재 직업 표시 + 스킬 수집 진행도(시그니처 2개 중 학습 수, 둘 다=수집 완료)", () => {

@@ -782,10 +782,10 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const chips = skill.passive
     ? describePassive(skill.passive)
     : skill.effects.map(describeV2Effect);
-  // 발동 확률 — 100%(미지정) 미만일 때만 표기. 유틸/버프(100%)는 노이즈라 생략. 실패 시
-  //   평타로 폴백(MP·쿨다운 미소모). 패시브는 발동 개념이 없어 제외.
+  // 발동 확률 — 액티브는 100%(미지정)도 명시해 스킬별 발동 정보가 빠져 보이지 않게 한다.
+  //   실패 시 평타로 폴백(MP·쿨다운 미소모). 패시브는 발동 개념이 없어 제외.
   const proc = skill.procChance ?? 100;
-  if (!skill.passive && proc < 100) chips.push(`발동 ${proc}%`);
+  if (!skill.passive) chips.push(`발동 ${proc}%`);
   // MP 비용 = 고정 절대값(기준 풀 기반) → 인게임·매뉴얼 동일 숫자. 무료/몬스터(0)는 칩 생략.
   const mp = v2SkillMpCostValue(skill);
   if (mp > 0) chips.push(`MP ${mp}`);

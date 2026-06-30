@@ -65,6 +65,7 @@ import {
   rollGridDungeonDrops,
   withGridDungeonLayout,
   type GridDungeonMoveDir,
+  type GridDungeonFailureReason,
   type GridDungeonResolvedCombat,
   type GridDungeonRouteId,
   type GridDungeonRun,
@@ -488,6 +489,7 @@ function historyEntryFromRun({
   drops = {},
   rewardLimited = false,
   detailReason,
+  failureReason,
   at = Date.now(),
 }: {
   run: GridDungeonRun;
@@ -496,6 +498,7 @@ function historyEntryFromRun({
   drops?: DropResult;
   rewardLimited?: boolean;
   detailReason?: string;
+  failureReason?: GridDungeonFailureReason;
   at?: number;
 }) {
   const outcomeLabel =
@@ -532,7 +535,45 @@ function historyEntryFromRun({
     durationMs: Math.max(0, at - run.startedAt),
     message: `${GRID_DUNGEON_ENTRANCE.name} ${outcomeLabel}`,
     detailReason: detailReason ?? fallbackReason,
+    ...(outcome === "failed"
+      ? { failureReason: failureReason ?? "unknown" }
+      : {}),
   };
+}
+
+function failureReasonForFailedMove({
+  tile,
+  combat,
+}: {
+  tile: GridDungeonTileKind | null;
+  combat: GridDungeonResolvedCombat | null;
+}): GridDungeonFailureReason {
+  if (combat?.outcome === "lose") {
+    if (tile === "boss") return "combat_boss";
+    if (tile === "elite") return "combat_elite";
+    return "combat_monster";
+  }
+  if (tile === "trap") return "trap";
+  return "hp_depleted";
+}
+
+function failureDetailForFailedMove({
+  reason,
+  combat,
+}: {
+  reason: GridDungeonFailureReason;
+  combat: GridDungeonResolvedCombat | null;
+}): string {
+  if (reason === "combat_boss") return "보스 전투 패배";
+  if (reason === "combat_elite") return "정예 전투 패배";
+  if (reason === "combat_monster") {
+    return combat?.summary.enemyName
+      ? `${combat.summary.enemyName} 전투 패배`
+      : "일반 전투 패배";
+  }
+  if (reason === "trap") return "함정 피해로 HP 소진";
+  if (reason === "hp_depleted") return "HP 소진";
+  return "원인 미상 실패";
 }
 
 function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
@@ -997,6 +1038,10 @@ export async function POST(req: Request) {
       if (!moved.ok) return moved;
       let nextHistory: unknown = null;
       if (moved.run.status === "failed") {
+        const failureReason = failureReasonForFailedMove({
+          tile: target.tile,
+          combat,
+        });
         const historyRaw = await lockSaveForUpdate(
           tx,
           userId,
@@ -1009,10 +1054,11 @@ export async function POST(req: Request) {
             run: moved.run,
             outcome: "failed",
             at: moved.run.updatedAt,
-            detailReason:
-              moved.run.lastCombat?.outcome === "lose"
-                ? `${moved.run.lastCombat.enemyName} 전투 패배`
-                : "HP 소진",
+            detailReason: failureDetailForFailedMove({
+              reason: failureReason,
+              combat,
+            }),
+            failureReason,
           }),
         );
         await upsertSave(tx, userId, GRID_DUNGEON_HISTORY_KEY, nextHistory);

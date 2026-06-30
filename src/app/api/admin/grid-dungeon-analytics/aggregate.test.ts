@@ -52,6 +52,7 @@ describe("aggregateGridDungeonAnalytics", () => {
     expect(data.routes.every((r) => r.runs === 0)).toBe(true);
     expect(data.partySizes).toEqual([]);
     expect(data.routeParties).toHaveLength(9);
+    expect(data.failureReasons).toEqual([]);
     expect(data.balanceFlags).toEqual([]);
     expect(data.tuningCandidates).toEqual([]);
     expect(data.recentRuns).toEqual([]);
@@ -152,6 +153,51 @@ describe("aggregateGridDungeonAnalytics", () => {
     });
 
     expect(data.recentRuns.map((r) => r.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("aggregates failure reasons and exposes recent run detail", () => {
+    const data = aggregateGridDungeonAnalytics([
+      user({
+        history: [
+          entry({
+            id: "boss",
+            outcome: "failed",
+            failureReason: "combat_boss",
+            detailReason: "보스 전투 패배",
+          }),
+          entry({
+            id: "trap",
+            outcome: "failed",
+            failureReason: "trap",
+            detailReason: "함정 피해로 HP 소진",
+          }),
+          entry({
+            id: "clear",
+            outcome: "cleared",
+          }),
+        ],
+      }),
+    ]);
+
+    expect(data.failureReasons).toEqual([
+      {
+        reason: "combat_boss",
+        label: "보스 전투 패배",
+        runs: 1,
+        pctOfFailures: 50,
+      },
+      {
+        reason: "trap",
+        label: "함정 HP 소진",
+        runs: 1,
+        pctOfFailures: 50,
+      },
+    ]);
+    expect(data.recentRuns.find((run) => run.id === "boss")).toMatchObject({
+      failureReason: "combat_boss",
+      failureReasonLabel: "보스 전투 패배",
+      detailReason: "보스 전투 패배",
+    });
   });
 
   it("groups by actual party size", () => {

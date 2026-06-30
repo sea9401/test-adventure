@@ -3,8 +3,9 @@
 //   (derive.collectEquipSignatures 가 활성 세트/마퀴 단품에서 집계). 시그니처 없으면 전부 0/무발화
 //   → 골든 byte-identical.
 //
-// 🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만(low_hp/on_dodge/
-//   on_crit/every_n_hits). PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
+// 🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만(battle_start/
+//   low_hp/on_heal/on_dodge/on_crit/on_hit_taken/on_skill_cast/status_block_once/every_n_hits).
+//   PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
 
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 
@@ -23,6 +24,85 @@ export function lowHpDamageReductionPct(
     if (currentHp <= threshold) pct += s.damageTakenReductionPct;
   }
   return pct;
+}
+
+// battle_start 보호막 — 전투 시작 시 maxHp 의 %만큼 playerShield 에 더한다.
+export function battleStartShield(
+  signatures: SignatureEffect[] | undefined,
+  maxHp: number,
+): { amount: number; label: string } | null {
+  if (!signatures || maxHp <= 0) return null;
+  let amount = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "battle_start" || !s.battleStartShieldPctMaxHp) continue;
+    amount += Math.floor((maxHp * s.battleStartShieldPctMaxHp) / 100);
+    labels.push(s.label);
+  }
+  if (amount <= 0) return null;
+  return { amount, label: labels.join(" + ") };
+}
+
+// on_heal 보호막 전환 — 실제 HP 회복량의 %만큼 playerShield 에 더한다.
+export function healToShield(
+  signatures: SignatureEffect[] | undefined,
+  actualHeal: number,
+): { amount: number; label: string } | null {
+  if (!signatures || actualHeal <= 0) return null;
+  let amount = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_heal" || !s.healToShieldPct) continue;
+    amount += Math.floor((actualHeal * s.healToShieldPct) / 100);
+    labels.push(s.label);
+  }
+  if (amount <= 0) return null;
+  return { amount, label: labels.join(" + ") };
+}
+
+// on_hit_taken 방어 누적(백왕좌) — 받은 HP 피해의 % 만큼 braceDefBonus 에 더할 비율.
+//   실제 누적량/상한은 enemyPhase/pvpPhase 가 dmgToHp 와 기본 DEF 를 알고 계산한다.
+export function onHitTakenDefGain(
+  signatures: SignatureEffect[] | undefined,
+): { pct: number; label: string } | null {
+  if (!signatures) return null;
+  let pct = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_hit_taken" || !s.defGainOnHitPct) continue;
+    pct += s.defGainOnHitPct;
+    labels.push(s.label);
+  }
+  if (pct <= 0) return null;
+  return { pct, label: labels.join(" + ") };
+}
+
+// status_block_once — 전투당 1회 상태이상 부여를 막을 수 있는 시그니처 라벨.
+export function statusBlockOnce(
+  signatures: SignatureEffect[] | undefined,
+): { label: string } | null {
+  if (!signatures) return null;
+  const labels = signatures
+    .filter((s) => s.trigger === "status_block_once" && s.statusBlockOnce)
+    .map((s) => s.label);
+  if (labels.length === 0) return null;
+  return { label: labels.join(" + ") };
+}
+
+// on_skill_cast MP 환급 — 실제로 지불된 스킬 MP 비용의 %만큼 전투 후 MP 에 환급.
+export function onSkillCastMpRefund(
+  signatures: SignatureEffect[] | undefined,
+): { pct: number; label: string } | null {
+  if (!signatures) return null;
+  let pct = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_skill_cast" || !s.mpRefundPctOfCost) continue;
+    pct += s.mpRefundPctOfCost;
+    labels.push(s.label);
+  }
+  if (pct <= 0) return null;
+  return { pct, label: labels.join(" + ") };
 }
 
 // on_crit 독(독니 단검) — 크리 + 피해 발생 시 부여할 독 스택 magnitude(maxHp 비율/스택). 기존

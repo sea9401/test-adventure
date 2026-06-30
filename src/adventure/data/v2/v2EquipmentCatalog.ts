@@ -2185,12 +2185,13 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "mana",
     tier: 7,
     name: "잊힌 사제의 묵주",
-    description: "구슬을 굴릴 때마다 옅은 빛이 돌아 곁의 생명을 보듬는 묵주.",
+    description: "구슬을 굴릴 때마다 옅은 빛이 돌아 곁의 생명을 보듬고 남은 온기를 방벽으로 엮는 묵주.",
     power: 18,
     weight: 0,
     options: { healPowerPct: 10, hp: 70, mp: 40 },
     rarity: "unique",
     setId: "sig_relic",
+    signature: { trigger: "on_heal", label: "묵주", healToShieldPct: 25 },
   },
   v2_sanctum_sig_spire_staff: {
     id: "v2_sanctum_sig_spire_staff",
@@ -2413,12 +2414,17 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "heavy",
     tier: 10,
     name: "검은 왕좌",
-    description: "무너진 왕좌의 흑철판을 이어 만든 판갑. 치명적인 일격과 주문을 함께 버티게 한다.",
+    description: "무너진 왕좌의 흑철판을 이어 만든 판갑. 전투가 시작되면 검은 방벽이 먼저 일어선다.",
     power: 154,
     weight: 12,
     options: { hp: 320, magicDef: 18, critResist: 6 },
     rarity: "unique",
     setId: "sig_black_throne",
+    signature: {
+      trigger: "battle_start",
+      label: "검은 왕좌",
+      battleStartShieldPctMaxHp: 12,
+    },
   },
   v2_throne_sig_void_crown: {
     id: "v2_throne_sig_void_crown",
@@ -2426,12 +2432,13 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "mana",
     tier: 10,
     name: "공허왕관",
-    description: "목에 걸면 왕관처럼 떠오르는 공허의 조각. 무너질 때일수록 검은 방벽이 짙어진다.",
+    description: "목에 걸면 왕관처럼 떠오르는 공허의 조각. 첫 저주와 독기를 빈자리로 흘려보낸다.",
     power: 42,
     weight: 0,
     options: { hp: 120, mp: 150, magicDef: 14 },
     rarity: "unique",
     setId: "sig_black_throne",
+    signature: { trigger: "status_block_once", label: "공허왕관", statusBlockOnce: true },
   },
   v2_throne_sig_shadow_ring: {
     id: "v2_throne_sig_shadow_ring",
@@ -2564,16 +2571,15 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "heavy",
     tier: 12,
     name: "백왕좌",
-    description: "백골 군주의 왕좌 조각을 이어 붙였다. 쓰러질 듯한 순간 더 단단히 잠긴다.",
+    description: "백골 군주의 왕좌 조각을 이어 붙였다. 맞을수록 뼈의 왕좌가 더 단단히 잠긴다.",
     power: 210,
     weight: 14,
     options: { hp: 480, def: 50, magicDef: 22, critResist: 12 },
     rarity: "unique",
     signature: {
-      trigger: "low_hp",
+      trigger: "on_hit_taken",
       label: "백왕좌",
-      hpThresholdPct: 35,
-      damageTakenReductionPct: 22,
+      defGainOnHitPct: 35,
     },
   },
   v2_plateau_sig_rider_boots: {
@@ -2595,12 +2601,12 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "mana",
     tier: 12,
     name: "왕릉성",
-    description: "돌무덤 위에 뜨는 별빛을 깎아 걸었다. 죽은 왕의 침묵이 마력을 붙잡는다.",
+    description: "돌무덤 위에 뜨는 별빛을 깎아 걸었다. 주문을 펼친 뒤에도 죽은 왕의 침묵이 마력을 붙잡는다.",
     power: 58,
     weight: 0,
     options: { mp: 190, crit: 7, healPowerPct: 8, magicDef: 18 },
     rarity: "unique",
-    signature: { trigger: "on_crit", label: "왕릉성", spdBuffPct: 18, buffActions: 2 },
+    signature: { trigger: "on_skill_cast", label: "왕릉성", mpRefundPctOfCost: 25 },
   },
 };
 
@@ -2609,10 +2615,20 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
 //   줄어 자동으로). 카탈로그 power 자체를 스케일하므로 표시 위력과 전투 효과가 동일(불투명 배수
 //   없음). 🔑 derive 의 스탯→atk 계수(ATK_PER_STR/INT 0.15)는 불변 — 올리면 엔드(거대 스탯)서
 //   위력이 되레 폭증(sim 확인). 시작값 — sim 으로 튜닝.
-//   ※ 방어구·장신구(def/magicDef) 위력은 불변. 무기만 대상(정규+밴드 유니크 균일).
+// PR-엔드위력완화(2026-07-01) — T10+ 장비 기본 위력 ×0.9. 강화/굴림/품질로 색이 오르는 재미는
+//   유지하되, 이후 장비가 숫자 인플레로만 올라가지 않도록 엔드 카탈로그 기준선을 한 번 낮춘다.
 export const WEAPON_POWER_SCALE = 0.8;
+export const ENDGAME_POWER_SCALE_FROM_TIER = 10;
+export const ENDGAME_POWER_SCALE = 0.9;
 for (const item of Object.values(V2_EQUIPMENT)) {
+  let scale = 1;
   if (item.slot === "weapon") {
-    item.power = Math.max(1, Math.round(item.power * WEAPON_POWER_SCALE));
+    scale *= WEAPON_POWER_SCALE;
+  }
+  if (item.tier >= ENDGAME_POWER_SCALE_FROM_TIER) {
+    scale *= ENDGAME_POWER_SCALE;
+  }
+  if (scale !== 1) {
+    item.power = Math.max(1, Math.round(item.power * scale));
   }
 }

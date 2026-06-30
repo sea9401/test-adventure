@@ -76,7 +76,7 @@ export type EquipmentCard = {
 };
 
 // 보유 장비 2열 카드 그리드 — 개체(instance) 단위. 슬롯 아이콘 + 장착 배지(✓/잠금) +
-// 등급색 이름 + 굴림 반영 스탯줄. 카드 탭 → 옵션/장착 팝오버(V2ItemCard).
+// 표시 위력색 이름 + 굴림 반영 스탯줄. 카드 탭 → 옵션/장착 팝오버(V2ItemCard).
 export function EquipmentCardGrid({
   cards,
   onOpenCard,
@@ -157,7 +157,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
               <span
-                className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll)}`}
+                className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll, inst.enhance, inst.craftQuality)}`}
               >
                 {inst.enhance && inst.enhance.level > 0 ? (
                   <span className="mr-1 text-amber-500">

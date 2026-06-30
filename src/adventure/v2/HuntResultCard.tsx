@@ -28,6 +28,7 @@ import {
   V2_STAT_LABELS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
+import { itemNameClass } from "@/adventure/v2/V2ItemCard";
 
 export type HuntResult = {
   floor: number;
@@ -151,7 +152,9 @@ export function HuntResultCard({
       )}
       {droppedUniq && (
         <div className="ui-reward-flash mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
-          ✨ 유니크 「{droppedUniq.name}」 획득!
+          ✨ 유니크 「
+          <span className={itemNameClass(droppedUniq)}>{droppedUniq.name}</span>
+          」 획득!
         </div>
       )}
       {dropBannerText && (

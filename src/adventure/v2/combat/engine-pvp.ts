@@ -65,8 +65,12 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
+  battleStartShield,
+  healToShield,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
+  onSkillCastMpRefund,
+  statusBlockOnce,
 } from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
@@ -96,6 +100,7 @@ export type PvPSideFlags = {
   assassinateUsed: boolean;
   luckyBuffActive: boolean;
   fatedChainCritPending: boolean;
+  statusBlockUsed: boolean;
 };
 
 // 각 사이드별 누적 보너스/페널티. PvE 의 BattleBuffs 와 비교해 enemyDefBonus(phase trigger),
@@ -143,6 +148,8 @@ export type PvPSideStacks = {
   evadesRemaining: number;
   damageTakenThisCombat: number;
   weakpointDefIgnoreLeft: number;
+  // 강체/장비 시그니처 — 받은 HP 피해 비례로 누적된 DEF 보너스(전투 내, 상한 = 기본 DEF).
+  braceDefBonus: number;
   // PR2-B 전문화 스킬 temp 버프 — PvE BattleStacks 미러. 전부 0/turns=0 이면 inert(골든 불변).
   skillRegenPct: number; // 운기 — 매 자기 턴 maxHp %
   skillRegenTurns: number;
@@ -217,7 +224,11 @@ export function attackerFacingDef(
   // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 attacker.buffs).
   attackerBuffs: PvPSideBuffs = attacker.buffs,
 ): number {
-  const raw = Math.max(0, defender.player.def - attackerBuffs.opponentDefPenalty);
+  const braceDefBonus = defender.stacks.braceDefBonus ?? 0;
+  const raw = Math.max(
+    0,
+    defender.player.def + braceDefBonus - attackerBuffs.opponentDefPenalty,
+  );
   const frac = attacker.player.armorPierceFraction ?? 0;
   let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
   if (
@@ -308,6 +319,16 @@ export function applyPvPOnHitDots(
     }));
   }
   if (dots.length === 0) return defender;
+  const sigStatusBlock = statusBlockOnce(defender.player.equipSignatures);
+  if (sigStatusBlock && !defender.flags.statusBlockUsed) {
+    return {
+      ...defender,
+      flags: {
+        ...defender.flags,
+        statusBlockUsed: true,
+      },
+    };
+  }
   return {
     ...defender,
     v2Dots: applyV2DotsToTarget(defender.v2Dots, dots),
@@ -336,7 +357,8 @@ function buildSide(
   name: string,
   v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): PvPSide {
-  const startShield = player.bulwarkShield ?? 0;
+  const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
+  const startShield = (player.bulwarkShield ?? 0) + (sigStartShield?.amount ?? 0);
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
   return {
     player,
@@ -373,6 +395,7 @@ function buildSide(
       assassinateUsed: false,
       luckyBuffActive: false,
       fatedChainCritPending: false,
+      statusBlockUsed: false,
     },
     buffs: {
       rampageAtkBonus: 0,
@@ -402,6 +425,7 @@ function buildSide(
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
       weakpointDefIgnoreLeft: 0,
+      braceDefBonus: 0,
       skillRegenPct: 0,
       skillRegenTurns: 0,
       skillCritPct: 0,
@@ -490,7 +514,17 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
   const amount = hr > 0 ? Math.floor(r.amount * (1 - hr / 100)) : r.amount;
   const newHp = Math.min(side.maxHp, side.hp + amount);
   const actual = newHp - side.hp;
-  let next = setSide(state, key, { ...side, hp: newHp });
+  const sigShield = healToShield(side.player.equipSignatures, actual);
+  let next = setSide(state, key, {
+    ...side,
+    hp: newHp,
+    stacks: sigShield
+      ? {
+          ...side.stacks,
+          playerShield: side.stacks.playerShield + sigShield.amount,
+        }
+      : side.stacks,
+  });
   next = {
     ...next,
     log: appendLog(next.log, {
@@ -498,6 +532,15 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
       text: `[재생] ${side.name}의 HP +${actual}`,
     }),
   };
+  if (sigShield) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `[${sigShield.label}] ${side.name} 보호막 +${sigShield.amount}`,
+      }),
+    };
+  }
   return next;
 }
 
@@ -621,7 +664,17 @@ function applyDodgeEffects(
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
     const actual = newHp - defForHeal.hp;
-    st = setSide(st, defKey, { ...defForHeal, hp: newHp });
+    const sigShield = healToShield(defForHeal.player.equipSignatures, actual);
+    st = setSide(st, defKey, {
+      ...defForHeal,
+      hp: newHp,
+      stacks: sigShield
+        ? {
+            ...defForHeal.stacks,
+            playerShield: defForHeal.stacks.playerShield + sigShield.amount,
+          }
+        : defForHeal.stacks,
+    });
     st = {
       ...st,
       log: appendLog(st.log, {
@@ -629,6 +682,15 @@ function applyDodgeEffects(
         text: `[곡예] ${defForHeal.name}의 HP +${actual}`,
       }),
     };
+    if (sigShield) {
+      st = {
+        ...st,
+        log: appendLog(st.log, {
+          kind: "info",
+          text: `[${sigShield.label}] ${defForHeal.name} 보호막 +${sigShield.amount}`,
+        }),
+      };
+    }
   }
   // 독왕 on-dodge 속도 버프(Phase 2) — 회피 성공 시 방어자 속도↑(Math.max 로 기존 버프 미감소).
   //   미발동=불변 → byte-identical.
@@ -1215,7 +1277,17 @@ export function applyPotionTo(
     const heal = potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0);
     const newHp = Math.min(side.maxHp, side.hp + heal);
     const actual = newHp - side.hp;
-    let next = setSide(state, key, { ...side, hp: newHp });
+    const sigShield = healToShield(side.player.equipSignatures, actual);
+    let next = setSide(state, key, {
+      ...side,
+      hp: newHp,
+      stacks: sigShield
+        ? {
+            ...side.stacks,
+            playerShield: side.stacks.playerShield + sigShield.amount,
+          }
+        : side.stacks,
+    });
     next = {
       ...next,
       log: appendLog(next.log, {
@@ -1223,6 +1295,15 @@ export function applyPotionTo(
         text: `${side.name}이(가) ${potion.name}을(를) 마셨다 — HP +${actual} (${side.hp} → ${newHp})`,
       }),
     };
+    if (sigShield) {
+      next = {
+        ...next,
+        log: appendLog(next.log, {
+          kind: "info",
+          text: `[${sigShield.label}] ${side.name} 보호막 +${sigShield.amount}`,
+        }),
+      };
+    }
     return next;
   }
   if (potion.effect.kind === "heal_mp") {
@@ -1402,6 +1483,7 @@ export function castV2SkillOnAttackerTurnPvP(
   let nextLog = st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
+  let healShieldAmount = 0;
   // 스킬 데미지 배수 — 주문중첩(워메이지)·약점노출(마도사 magicVuln)·속박(enemyVuln). 현재 누적
   //   기준, 적용은 이번 시전부터(적중 후 아래에서 스택 증가). 전부 미보유면 배수 1 → 무변(PvE 미러).
   const spellStackMult =
@@ -1488,6 +1570,15 @@ export function castV2SkillOnAttackerTurnPvP(
         text: `${result.castSkillName}! ${side.name} HP ${actual} 회복했다.`,
         side: who,
       });
+      const sigShield = healToShield(side.player.equipSignatures, actual);
+      if (sigShield) {
+        healShieldAmount += sigShield.amount;
+        nextLog = appendLog(nextLog, {
+          kind: "info",
+          text: `[${sigShield.label}] ${side.name} 보호막 +${sigShield.amount}`,
+          side: who,
+        });
+      }
     }
   }
   // 마나 회복(명상 등) — 로그 한 줄(빈 턴 갭 방지). PvE 미러.
@@ -1495,6 +1586,19 @@ export function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! ${side.name} 마나 ${result.manaRestored} 회복했다.`,
+      side: who,
+    });
+  }
+  const sigMpRefund = onSkillCastMpRefund(side.player.equipSignatures);
+  const costPaid = side.mp - result.nextMp;
+  const sigMpRefundAmount =
+    sigMpRefund && costPaid > 0
+      ? Math.floor((costPaid * sigMpRefund.pct) / 100)
+      : 0;
+  if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigMpRefund.label}] ${side.name} 마나 ${sigMpRefundAmount} 환급`,
       side: who,
     });
   }
@@ -1588,7 +1692,14 @@ export function castV2SkillOnAttackerTurnPvP(
     result.enemyDebuffsToApply,
   );
   // PR-8 — dot 결과는 상대 side 의 v2Dots 에 박힌다.
-  const nextOppDots = applyV2DotsToTarget(opp.v2Dots, result.dotsToApplyToTarget);
+  const sigStatusBlock = statusBlockOnce(opp.player.equipSignatures);
+  const statusBlockDots =
+    result.dotsToApplyToTarget.length > 0 &&
+    !!sigStatusBlock &&
+    !opp.flags.statusBlockUsed;
+  const nextOppDots = statusBlockDots
+    ? opp.v2Dots
+    : applyV2DotsToTarget(opp.v2Dots, result.dotsToApplyToTarget);
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1603,7 +1714,14 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  for (const dot of result.dotsToApplyToTarget) {
+  if (statusBlockDots && sigStatusBlock) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigStatusBlock.label}] ${opp.name} 상태이상을 막았다.`,
+      side: who,
+    });
+  }
+  for (const dot of statusBlockDots ? [] : result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -1613,11 +1731,17 @@ export function castV2SkillOnAttackerTurnPvP(
   const nextSide: PvPSide = {
     ...side,
     hp: nextSideHp,
-    mp: result.nextMp,
+    mp: Math.min(side.maxMp, result.nextMp + sigMpRefundAmount),
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
     v2SelfDebuffs: tickedSelfDebuffs,
-    stacks: nextStacks,
+    stacks:
+      healShieldAmount > 0
+        ? {
+            ...nextStacks,
+            playerShield: nextStacks.playerShield + healShieldAmount,
+          }
+        : nextStacks,
   };
   // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 상대 마법취약 +1(상한 클램프, 감쇠 없음).
   const nextOppMagicVuln =
@@ -1629,6 +1753,10 @@ export function castV2SkillOnAttackerTurnPvP(
   const nextOpp: PvPSide = {
     ...opp,
     hp: nextOppHp,
+    flags: {
+      ...opp.flags,
+      statusBlockUsed: opp.flags.statusBlockUsed || statusBlockDots,
+    },
     v2SelfDebuffs: nextOppSelfDebuffs,
     v2Dots: nextOppDots,
     stacks: {

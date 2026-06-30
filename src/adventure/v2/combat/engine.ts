@@ -27,6 +27,12 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import {
+  battleStartShield,
+  healToShield,
+  onSkillCastMpRefund,
+  statusBlockOnce,
+} from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   CRIT_PCT_CAP,
@@ -158,6 +164,8 @@ export type BattleFlags = {
   luckyBuffActive: boolean;
   // 연쇄 운명 — 다음 공격 1회 크리 100% 보장 큐. 트리거 발동 후 true, 다음 공격에서 소비되며 false.
   fatedChainCritPending: boolean;
+  // 장비 시그니처 — 전투당 1회 상태이상 무효 사용 여부.
+  statusBlockUsed: boolean;
 };
 
 // 누적 +/- 보너스/페널티 (수치, 0 기준으로 더해짐).
@@ -582,6 +590,26 @@ export function appendLog(
   return battleLogCollectionEnabled ? [...log, entry] : log;
 }
 
+export function applyHealShieldIfAny(
+  state: BattleState,
+  player: PlayerCombat,
+  actualHeal: number,
+): BattleState {
+  const sig = healToShield(player.equipSignatures, actualHeal);
+  if (!sig) return state;
+  return {
+    ...state,
+    stacks: {
+      ...state.stacks,
+      playerShield: state.stacks.playerShield + sig.amount,
+    },
+    log: appendLog(state.log, {
+      kind: "info",
+      text: `[${sig.label}] 보호막 +${sig.amount}`,
+    }),
+  };
+}
+
 // 데미지 최소 비율(DAMAGE_FLOOR_FRACTION)·평타 데미지(damageBetween)는 combatShared 로 이전
 //   (패턴 "평타 바닥" 모델이 같은 공식을 써야 해서 더 하위 레이어로 내림). 여기선 재노출만.
 export { DAMAGE_FLOOR_FRACTION, damageBetween };
@@ -833,14 +861,14 @@ function applyRegenIfAny(
   if (state.playerHp >= state.playerMaxHp) return state;
   const newHp = Math.min(state.playerMaxHp, state.playerHp + regen.amount);
   const actual = newHp - state.playerHp;
-  return {
+  return applyHealShieldIfAny({
     ...state,
     playerHp: newHp,
     log: appendLog(state.log, {
       kind: "info",
       text: `[재생] ${playerName}의 HP +${actual}`,
     }),
-  };
+  }, player, actual);
 }
 
 // 별빛 재생(regen) — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
@@ -858,14 +886,14 @@ function applyEnchantRegenIfAny(
   if (heal <= 0) return state;
   const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
   const actual = newHp - state.playerHp;
-  return {
+  return applyHealShieldIfAny({
     ...state,
     playerHp: newHp,
     log: appendLog(state.log, {
       kind: "info",
       text: `[재생] ${playerName}의 HP +${actual}`,
     }),
-  };
+  }, player, actual);
 }
 
 // 매 플레이어 턴 종료 시 자가 회복 — 직업 패시브 가호(HP %) + 워메이지 마력 순환(MP flat).
@@ -905,14 +933,14 @@ function applyPassiveTurnHealIfAny(
   if (heal <= 0) return s;
   const newHp = Math.min(s.playerMaxHp, s.playerHp + heal);
   const actual = newHp - s.playerHp;
-  return {
+  return applyHealShieldIfAny({
     ...s,
     playerHp: newHp,
     log: appendLog(s.log, {
       kind: "info",
       text: `[가호] ${playerName}의 HP +${actual}`,
     }),
-  };
+  }, player, actual);
 }
 
 // 부가 공격(분신/난무 등) 1회 — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
@@ -988,12 +1016,14 @@ function dealExtraEnemyDamage(
     });
   }
 
-  let next = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
+  let healedState = {
     ...state,
     enemyHp,
     playerHp: newPlayerHp,
     log,
-  }, player));
+  };
+  healedState = applyHealShieldIfAny(healedState, player, actualHeal);
+  let next = applyPhaseTriggerIfAny(applyPlayerOnHitDots(healedState, player));
   if (enemyHp <= 0) {
     next = {
       ...next,
@@ -1070,6 +1100,7 @@ export function finishPlayerTurn(
             turn: "player",
           }),
         };
+        st = applyHealShieldIfAny(st, player, nextHp - before);
       }
     }
     st = {
@@ -1221,12 +1252,20 @@ export function initialBattleState(
   const barrierPct = player.enchantBarrierPctMaxHp ?? 0;
   const barrierStart =
     barrierPct > 0 ? Math.floor((player.maxHp * barrierPct) / 100) : 0;
-  const startShield = bulwarkStart + barrierStart;
+  const sigStartShield = battleStartShield(player.equipSignatures, player.maxHp);
+  const startShield =
+    bulwarkStart + barrierStart + (sigStartShield?.amount ?? 0);
   if (bulwarkStart > 0) {
     log.push({ kind: "info", text: `[철벽] 보호막 ${bulwarkStart} 전개` });
   }
   if (barrierStart > 0) {
     log.push({ kind: "info", text: `[보호막] 별빛이 ${barrierStart} 둘렀다` });
+  }
+  if (sigStartShield) {
+    log.push({
+      kind: "info",
+      text: `[${sigStartShield.label}] 보호막 ${sigStartShield.amount} 전개`,
+    });
   }
   // 전투 시작 시 MP 시드 — character.v2.mp 가 있으면 그 값, 없으면 maxMp (옛 단판 모델 fallback).
   // PR-potion-auto-restore 이후 단판 풀충전 폐기 — mp 가 사냥 사이 보존되고 포션으로 회복.
@@ -1271,6 +1310,7 @@ export function initialBattleState(
       assassinateUsed: false,
       luckyBuffActive: false,
       fatedChainCritPending: false,
+      statusBlockUsed: false,
     },
     buffs: {
       enemyDefBonus: 0,
@@ -1580,10 +1620,14 @@ export function applyEnemyV2SkillCast(
     state.v2SelfDebuffs,
     result.enemyDebuffsToApply,
   );
-  const nextPlayerDots = applyV2DotsToTarget(
-    state.playerV2Dots,
-    result.dotsToApplyToTarget,
-  );
+  const sigStatusBlock = statusBlockOnce(player.equipSignatures);
+  const statusBlockDots =
+    result.dotsToApplyToTarget.length > 0 &&
+    !!sigStatusBlock &&
+    !state.flags.statusBlockUsed;
+  const nextPlayerDots = statusBlockDots
+    ? state.playerV2Dots
+    : applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1598,7 +1642,14 @@ export function applyEnemyV2SkillCast(
       turn: "enemy",
     });
   }
-  for (const dot of result.dotsToApplyToTarget) {
+  if (statusBlockDots && sigStatusBlock) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
+      turn: "enemy",
+    });
+  }
+  for (const dot of statusBlockDots ? [] : result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -1631,6 +1682,10 @@ export function applyEnemyV2SkillCast(
     enemyV2SelfBuffs: nextEnemySelfBuffs,
     v2SelfDebuffs: nextPlayerDebuffs,
     playerV2Dots: nextPlayerDots,
+    flags: {
+      ...state.flags,
+      statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
+    },
     log: nextLog,
   };
   if (countered?.phase === "ended") {
@@ -1822,14 +1877,20 @@ export function applyPlayerV2SkillCast(
     mpCostReduction > 0 && costPaid > 0
       ? Math.floor((costPaid * mpCostReduction) / 100)
       : 0;
+  const sigMpRefund = onSkillCastMpRefund(player.equipSignatures);
+  const sigMpRefundAmount =
+    sigMpRefund && costPaid > 0
+      ? Math.floor((costPaid * sigMpRefund.pct) / 100)
+      : 0;
   const adjustedNextMp = Math.min(
     state.playerMaxMp,
-    result.nextMp + mpRefund,
+    result.nextMp + mpRefund + sigMpRefundAmount,
   );
   // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
   let nextEnemyHp = state.enemyHp;
   let nextPlayerHp = state.playerHp;
   let nextLog = state.log;
+  let healShieldAmount = 0;
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
@@ -1866,6 +1927,15 @@ export function applyPlayerV2SkillCast(
         kind: "player_attack",
         text: `${result.castSkillName}! HP ${actual} 회복했다.`,
       });
+      const sigHealShield = healToShield(player.equipSignatures, actual);
+      if (sigHealShield) {
+        healShieldAmount += sigHealShield.amount;
+        nextLog = appendLog(nextLog, {
+          kind: "info",
+          text: `[${sigHealShield.label}] 보호막 +${sigHealShield.amount}`,
+          turn: "player",
+        });
+      }
     }
   }
   // 마나 회복(명상 등) — 로그 한 줄(없으면 빈 턴처럼 보이는 갭 방지). 1턴 1행동이라
@@ -1874,6 +1944,13 @@ export function applyPlayerV2SkillCast(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
+    });
+  }
+  if (sigMpRefund && sigMpRefundAmount > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${sigMpRefund.label}] 마나 ${sigMpRefundAmount} 환급`,
+      turn: "player",
     });
   }
   // PR2-B 사혈격 — 현재 HP 소모(자살 방지 최소 1).
@@ -1994,6 +2071,7 @@ export function applyPlayerV2SkillCast(
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
       playerShield:
         state.stacks.playerShield +
+        healShieldAmount +
         (result.shieldToApply
           ? result.shieldToApply.hp + result.shieldToApply.mp
           : 0),
@@ -2271,7 +2349,14 @@ function resolveBattleLegacy(
         // enemyDebuff effect (적이 player 에 거는 약화) → state.v2SelfDebuffs 갱신.
         const nextPlayerDebuffs = applyV2BuffsToMap(tickedPlayerDebuffs, result.enemyDebuffsToApply);
         // PR-8 — enemy cast 의 dot 결과 → state.playerV2Dots 박힘 (target=player).
-        const nextPlayerDots = applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
+        const sigStatusBlock = statusBlockOnce(player.equipSignatures);
+        const statusBlockDots =
+          result.dotsToApplyToTarget.length > 0 &&
+          !!sigStatusBlock &&
+          !state.flags.statusBlockUsed;
+        const nextPlayerDots = statusBlockDots
+          ? state.playerV2Dots
+          : applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
@@ -2286,7 +2371,14 @@ function resolveBattleLegacy(
             turn: "enemy",
           });
         }
-        for (const dot of result.dotsToApplyToTarget) {
+        if (statusBlockDots && sigStatusBlock) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
+            turn: "enemy",
+          });
+        }
+        for (const dot of statusBlockDots ? [] : result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
             text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
@@ -2320,6 +2412,10 @@ function resolveBattleLegacy(
           enemyV2Debuffs: tickedEnemyDebuffsLocal,
           v2SelfDebuffs: nextPlayerDebuffs,
           playerV2Dots: nextPlayerDots,
+          flags: {
+            ...state.flags,
+            statusBlockUsed: state.flags.statusBlockUsed || statusBlockDots,
+          },
           log: nextLog,
         };
         // lethal — enemy v2 damage 로 player 사망 시 outcome=lose.

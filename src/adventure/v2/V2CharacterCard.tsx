@@ -232,7 +232,12 @@ export function V2CharacterCard({
                 <div
                   className={`flex min-h-[2rem] w-full min-w-0 items-start justify-center gap-0.5 text-xs font-medium leading-tight ${
                     item
-                      ? powerNameClass(item, inst?.roll)
+                      ? powerNameClass(
+                          item,
+                          inst?.roll,
+                          inst?.enhance,
+                          inst?.craftQuality,
+                        )
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >

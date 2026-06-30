@@ -452,11 +452,21 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(저체력/회피/크리/N타마다). docs/v2-signature-uniques-plan.md §10.
+//   트리거가 있다(전투시작/저체력/회복/회피/크리/피격/스킬시전/상태방어/N타마다).
+//   docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
 //   미장착(undefined)=엔진 훅 미발화 → 골든 byte-identical.
-export type SignatureTrigger = "low_hp" | "on_dodge" | "on_crit" | "every_n_hits";
+export type SignatureTrigger =
+  | "battle_start"
+  | "low_hp"
+  | "on_heal"
+  | "on_dodge"
+  | "on_crit"
+  | "on_hit_taken"
+  | "on_skill_cast"
+  | "status_block_once"
+  | "every_n_hits";
 export type SignatureEffect = {
   trigger: SignatureTrigger;
   /** 전투로그/UI 표기 이름(예: "성물"). */
@@ -475,6 +485,16 @@ export type SignatureEffect = {
   poisonOnCrit?: boolean;
   /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
   chillSlowPct?: number;
+  /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
+  defGainOnHitPct?: number;
+  /** battle_start: 전투 시작 시 maxHp 의 이 % 만큼 보호막 생성. */
+  battleStartShieldPctMaxHp?: number;
+  /** on_skill_cast: 실제로 낸 스킬 MP 비용의 이 % 만큼 환급. */
+  mpRefundPctOfCost?: number;
+  /** on_heal: 실제 HP 회복량의 이 % 만큼 보호막 생성. */
+  healToShieldPct?: number;
+  /** status_block_once: 전투당 1회 DoT/한기 등 상태이상 부여를 막는다. */
+  statusBlockOnce?: boolean;
   /** every_n_hits: 이 횟수마다 1회 추가타. */
   everyNHits?: number;
 };
@@ -482,8 +502,12 @@ export type SignatureEffect = {
 // 시그니처 효과 → 사람이 읽는 한 줄(아이템/세트 툴팁용). 트리거+파라미터를 한국어로.
 export function signatureLabel(sig: SignatureEffect): string {
   switch (sig.trigger) {
+    case "battle_start":
+      return `전투 시작 시 최대 HP의 ${sig.battleStartShieldPctMaxHp ?? 0}% 보호막`;
     case "low_hp":
       return `체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
+    case "on_heal":
+      return `회복 시 회복량의 ${sig.healToShieldPct ?? 0}% 보호막`;
     case "on_dodge":
       if (sig.healPct) return `회피 시 HP +${sig.healPct}% 회복`;
       if (sig.spdBuffPct)
@@ -496,6 +520,12 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";
+    case "on_hit_taken":
+      return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
+    case "on_skill_cast":
+      return `스킬 사용 시 소모 MP의 ${sig.mpRefundPctOfCost ?? 0}% 환급`;
+    case "status_block_once":
+      return "전투당 1회 상태이상 무효";
     case "every_n_hits":
       return `${sig.everyNHits ?? 0}타마다 추가타 1회`;
   }
@@ -918,13 +948,9 @@ export function effectiveStats(
   };
 }
 
-// ── 위력 색 분류 (등급/희귀도 대신) ──────────────────────────────────────────
-// 사용자 결정(2026-06-08): 아이템을 티어/유니크 등급이 아니라 "절대 위력"으로 색 분류.
-//   **표시되는(실효) 위력 기준** — 굴림으로 오른 개체는 그 굴림 위력으로 색 결정(색이 표시 위력과
-//   일치). "품질 무관"=품질 %(정규화 위치)는 색에 안 쓴다는 뜻이지, 굴림 위력 자체를 무시하는 건
-//   아니다(예: 기본 110 서리방패 검이 166 으로 굴리면 옅은보라가 아니라 보라).
-//   위력 step 마다 색이 한 단계 오른다. 부위마다 위력 스케일이 크게 달라(무기 6~170 · 장신구 2~11)
-//   step 도 부위별로 다르다(사용자: "무기는 75 단위"). 색 매핑은 UI(powerNameClass).
+// ── 레거시 위력 밴드(진단용) ───────────────────────────────────────────────
+// 현재 장비명 색은 UI(itemNameClass)에서 표시 위력 200단위로 결정한다. 이 밴드는 예전
+// 부위별 "절대 위력" 색 분류의 경계값 회귀 테스트와 내부 진단용으로만 유지한다.
 const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
   weapon: 75,
   armor: 25,
@@ -934,11 +960,10 @@ const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
   necklace: 5,
 };
 
-// 위력 색 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). 8단계(회색→에메랄드→약간푸른빛→보라
-//   →노랑→자홍→장미→진홍). 현재 위력대는 0~2 사용, 3~7 은 향후 고위력 콘텐츠 여유분. step·구간수는 다이얼.
+// 위력 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). step·구간수는 레거시 다이얼.
 export const POWER_BAND_COUNT = 8;
 
-// 위력 → 색 구간(0…6). 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
+// 위력 → 구간. 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
 export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
   const step = SLOT_POWER_STEP[item.slot] ?? 1;
   const power = effectiveStats(item, roll).power;

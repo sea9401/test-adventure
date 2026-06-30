@@ -27,9 +27,12 @@ import {
 import {
   everyNHitsValue,
   firesOnCritPoison,
+  healToShield,
   onCritEnemyChill,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
+  onHitTakenDefGain,
+  statusBlockOnce,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import {
@@ -549,6 +552,23 @@ export function advanceTurnPvP(
     bloodfeastHeal > 0
       ? Math.min(defender.maxHp, defenderHpAfterDmg + bloodfeastHeal)
       : defenderHpAfterDmg;
+  const bloodfeastActualHeal = newDefenderHp - defenderHpAfterDmg;
+  const defenderHealShield = healToShield(
+    defender.player.equipSignatures,
+    bloodfeastActualHeal,
+  );
+  const newShieldAfterHeal = newShield + (defenderHealShield?.amount ?? 0);
+  const sigDefGain = onHitTakenDefGain(defender.player.equipSignatures);
+  const braceGainPct = sigDefGain?.pct ?? 0;
+  const prevBraceDefBonus = defender.stacks.braceDefBonus ?? 0;
+  const nextBraceDefBonus =
+    braceGainPct > 0 && dmgToHp > 0
+      ? Math.min(
+          defender.player.def,
+          prevBraceDefBonus + Math.floor((dmgToHp * braceGainPct) / 100),
+        )
+      : prevBraceDefBonus;
+  const braceDefDelta = nextBraceDefBonus - prevBraceDefBonus;
   // ── 로그 — 결의 → 가드 → 굳건한 의지 → 철벽 → 본타 → 불굴 → 흡혈 갑옷 → 이중 행운 → 흡혈 ──
   let log = state.log;
   if (resolveApplied) {
@@ -603,6 +623,18 @@ export function advanceTurnPvP(
       text: `[흡혈 갑옷] ${defender.name}의 HP +${bloodfeastHeal}`,
     });
   }
+  if (defenderHealShield) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${defenderHealShield.label}] ${defender.name} 보호막 +${defenderHealShield.amount}`,
+    });
+  }
+  if (sigDefGain && braceDefDelta > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigDefGain.label}] ${defender.name} 방어 +${braceDefDelta}`,
+    });
+  }
   // 이중 행운 — 첫 크리 발동 순간 활성화.
   const shouldActivateLucky =
     critRoll &&
@@ -649,6 +681,7 @@ export function advanceTurnPvP(
       ? Math.min(attacker.maxHp, attacker.hp + totalLifestealHeal)
       : attacker.hp;
   const actualLifesteal = newAttackerHp - attacker.hp;
+  let attackerHealShieldAmount = 0;
   if (actualLifesteal > 0) {
     const lsLabels: string[] = [];
     if (lifestealHeal > 0) lsLabels.push("흡혈");
@@ -660,6 +693,17 @@ export function advanceTurnPvP(
       kind: "info",
       text: `[${lsLabels.join(" + ")}] ${attacker.name}의 HP +${actualLifesteal}`,
     });
+    const attackerHealShield = healToShield(
+      attacker.player.equipSignatures,
+      actualLifesteal,
+    );
+    if (attackerHealShield) {
+      attackerHealShieldAmount += attackerHealShield.amount;
+      log = appendLog(log, {
+        kind: "info",
+        text: `[${attackerHealShield.label}] ${attacker.name} 보호막 +${attackerHealShield.amount}`,
+      });
+    }
   }
   // 출혈/중독 — 적중 시 defender.v2Dots 에 tagged DoT 로 누적.
   // 약점 적중 — 크리 발동 시 그 턴 1회, DEF 무시 큐 추가 + 추가타.
@@ -713,6 +757,17 @@ export function advanceTurnPvP(
           kind: "info",
           text: `[${skill.name}] ${attacker.name}의 HP +${actual}`,
         });
+        const apHealShield = healToShield(
+          attacker.player.equipSignatures,
+          actual,
+        );
+        if (apHealShield) {
+          attackerHealShieldAmount += apHealShield.amount;
+          log = appendLog(log, {
+            kind: "info",
+            text: `[${apHealShield.label}] ${attacker.name} 보호막 +${apHealShield.amount}`,
+          });
+        }
       }
     } else if (effect.kind === "apply_bleed") {
       apBleedAdd += effect.stacks;
@@ -838,7 +893,15 @@ export function advanceTurnPvP(
     critRoll,
     sigDealtDamage,
   );
-  if (sigCritPoison) {
+  const sigStatusBlock = statusBlockOnce(defender.player.equipSignatures);
+  const statusBlockSigPoison =
+    sigCritPoison && !!sigStatusBlock && !defender.flags.statusBlockUsed;
+  if (statusBlockSigPoison && sigStatusBlock) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigStatusBlock.label}] ${defender.name} 상태이상을 막았다.`,
+    });
+  } else if (sigCritPoison) {
     log = appendLog(log, {
       kind: "info",
       text: `[독니] ${defender.name}을(를) 중독시켰다!`,
@@ -915,6 +978,7 @@ export function advanceTurnPvP(
     buffs: nextBuffsTimed,
     stacks: {
       ...attacker.stacks,
+      playerShield: attacker.stacks.playerShield + attackerHealShieldAmount,
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
       signatureHitCount: nextSigHitCount, // 포식자 every-N 카운터(미장착=불변)
@@ -941,7 +1005,7 @@ export function advanceTurnPvP(
   const newDefender: PvPSide = applyPvPOnHitDots({
     ...defender,
     // 독니 on-crit 독(Phase 2) 합류 — 미발동=defender.v2Dots 그대로.
-    v2Dots: sigCritPoison
+    v2Dots: sigCritPoison && !statusBlockSigPoison
       ? applyV2DotsToTarget(defender.v2Dots, [
           makePoisonDot({
             stacks: 1,
@@ -954,11 +1018,13 @@ export function advanceTurnPvP(
     flags: {
       ...defender.flags,
       enduranceTriggered: defender.flags.enduranceTriggered || enduranceFires,
+      statusBlockUsed: defender.flags.statusBlockUsed || statusBlockSigPoison,
     },
     stacks: {
       ...defender.stacks,
-      playerShield: newShield,
+      playerShield: newShieldAfterHeal,
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
+      braceDefBonus: nextBraceDefBonus,
     },
   }, attacker, { bleedStacks: apBleedAdd });
   let next: PvPBattleState = setSide(

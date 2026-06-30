@@ -35,12 +35,12 @@ describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위�
   });
 });
 
-describe("powerBandOf — 등급 대신 절대 위력 색 구간(부위별 step)", () => {
+describe("powerBandOf — 레거시 절대 위력 구간(부위별 step)", () => {
   // powerBandOf 는 item.slot·item.power 만 읽음 → 최소 객체로 경계 검증.
   const mk = (slot: V2EquipSlot, power: number) =>
     ({ slot, power }) as V2Equipment;
 
-  it("무기는 75 단위로 색 구간 상승", () => {
+  it("무기는 75 단위로 구간 상승", () => {
     expect(powerBandOf(mk("weapon", 0))).toBe(0);
     expect(powerBandOf(mk("weapon", 74))).toBe(0);
     expect(powerBandOf(mk("weapon", 75))).toBe(1);
@@ -54,8 +54,8 @@ describe("powerBandOf — 등급 대신 절대 위력 색 구간(부위별 step)
     expect(powerBandOf(mk("weapon", 11))).toBe(0);
   });
 
-  it("실효 위력 반영 — 굴림으로 오른 위력으로 색 결정(표시 위력과 일치)", () => {
-    // 기본 위력 110(무기 step 75) = 옅은보라(1). 굴림 166 이면 보라(2) — 표시 위력 따라 색 상승.
+  it("실효 위력 반영 — 굴림으로 오른 위력으로 구간 결정", () => {
+    // 기본 위력 110(무기 step 75)=1. 굴림 166이면 2.
     const w = mk("weapon", 110);
     expect(powerBandOf(w)).toBe(1); // roll 없음 → 카탈로그 110
     expect(powerBandOf(w, { power: 166, weight: 0 })).toBe(2); // 굴림 166 → floor(166/75)=2
@@ -345,7 +345,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(12);
     expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(12);
     expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
-    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(45);
+    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(41);
   });
 
   it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T3, 무기는 weaponType별 T1~T3", () => {
@@ -738,7 +738,14 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
-  it("트리거별 한국어 한 줄 — 6 효과", () => {
+  it("트리거별 한국어 한 줄 — 11 효과", () => {
+    expect(
+      signatureLabel({
+        trigger: "battle_start",
+        label: "검은 왕좌",
+        battleStartShieldPctMaxHp: 12,
+      }),
+    ).toBe("전투 시작 시 최대 HP의 12% 보호막");
     expect(
       signatureLabel({
         trigger: "low_hp",
@@ -747,6 +754,9 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         damageTakenReductionPct: 25,
       }),
     ).toBe("체력 30% 이하일 때 받는 피해 −25%");
+    expect(
+      signatureLabel({ trigger: "on_heal", label: "묵주", healToShieldPct: 25 }),
+    ).toBe("회복 시 회복량의 25% 보호막");
     expect(
       signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
     ).toBe("3타마다 추가타 1회");
@@ -772,6 +782,27 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         buffActions: 2,
       }),
     ).toBe("치명타 시 속도 +20% (2행동)");
+    expect(
+      signatureLabel({
+        trigger: "on_hit_taken",
+        label: "백왕좌",
+        defGainOnHitPct: 35,
+      }),
+    ).toBe("피격 시 받은 HP 피해의 35%만큼 방어 상승");
+    expect(
+      signatureLabel({
+        trigger: "on_skill_cast",
+        label: "왕릉성",
+        mpRefundPctOfCost: 25,
+      }),
+    ).toBe("스킬 사용 시 소모 MP의 25% 환급");
+    expect(
+      signatureLabel({
+        trigger: "status_block_once",
+        label: "공허왕관",
+        statusBlockOnce: true,
+      }),
+    ).toBe("전투당 1회 상태이상 무효");
   });
 
   it("세트/단품 카탈로그 시그니처 전부 비어있지 않은 표기", () => {

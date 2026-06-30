@@ -6,6 +6,7 @@ import {
   Megaphone,
   Note,
   PaperPlaneTilt,
+  UsersThree,
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
@@ -22,6 +23,7 @@ import { SendMessageModal } from "@/adventure/marketplace/SendMessageModal";
 import {
   deletePost,
   editPost,
+  type BulletinBoardTab,
   fetchPermissions,
   fetchPosts,
   postPost,
@@ -41,12 +43,9 @@ type Mode =
   | { kind: "detail"; postId: number }
   | { kind: "edit"; postId: number };
 
-// 탭 = 실제 카테고리 + UI 전용 "전체"(DB 카테고리 아님 — category 미지정으로 전체 조회).
-type BoardTab = BulletinCategory | "all";
-
 export function BulletinBoardView() {
   // 입장 시 기본 탭 = 전체(모든 게시판 글 최신순).
-  const [category, setCategory] = useState<BoardTab>("all");
+  const [category, setCategory] = useState<BulletinBoardTab>("all");
   const [search, setSearch] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [posts, setPosts] = useState<BulletinPost[] | null>(null);
@@ -100,8 +99,13 @@ export function BulletinBoardView() {
   }) => {
     try {
       const created = await postPost(input);
-      // 작성한 카테고리가 현재 탭과 같거나 "전체" 탭이면 즉시 반영, 다르면 그 탭으로 이동.
-      if (category === "all" || created.category === category) {
+      if (created.scope === "guild") {
+        if (category === "guild") {
+          setPosts((prev) => (prev ? [created, ...prev] : [created]));
+        } else {
+          setCategory("guild");
+        }
+      } else if (category === "all" || created.category === category) {
         setPosts((prev) => (prev ? [created, ...prev] : [created]));
       } else {
         setCategory(created.category);
@@ -232,26 +236,40 @@ export function BulletinBoardView() {
 
   const pager = usePagination(posts ?? [], 15);
 
-  // 전체 / 공지사항 / 자유게시판 / 공략·팁 순. "전체"는 UI 전용 탭(맨 앞).
+  // 전체 / 공지사항 / 자유게시판 / 공략·팁 / 길드 게시판 순.
+  // "전체"와 "길드"는 UI 전용 탭(DB 카테고리 아님).
   const tabs = useMemo(
-    (): { key: BoardTab; label: string }[] => [
+    (): { key: BulletinBoardTab; label: string }[] => [
       { key: "all", label: "전체" },
       ...BULLETIN_CATEGORIES.map((c) => ({
         key: c,
         label: BULLETIN_CATEGORY_LABELS[c].name,
       })),
+      ...(guild == null
+        ? []
+        : [{ key: "guild" as const, label: `${guild.name} 게시판` }]),
     ],
-    [],
+    [guild],
   );
+
+  const boardDescription =
+    category === "all"
+      ? "공개 게시판의 글을 최신순으로 모아 봅니다."
+      : category === "guild"
+        ? `${guild?.name ?? "길드"} 길드원만 볼 수 있는 게시판입니다.`
+        : BULLETIN_CATEGORY_LABELS[category].description;
 
   if (mode.kind === "compose") {
     return (
       <ComposePage
         initialCategory={
-          category === "all" || (category === "notice" && !isAdmin)
+          category === "all" ||
+          category === "guild" ||
+          (category === "notice" && !isAdmin)
             ? "free"
             : category
         }
+        initialScope={category === "guild" ? "guild" : "public"}
         isAdmin={isAdmin}
         guild={guild}
         onCancel={() => setMode({ kind: "list" })}
@@ -327,9 +345,7 @@ export function BulletinBoardView() {
       />
 
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        {category === "all"
-          ? "모든 게시판의 글을 최신순으로 모아 봅니다."
-          : BULLETIN_CATEGORY_LABELS[category].description}
+        {boardDescription}
       </p>
 
       <div className="flex items-center gap-2">
@@ -379,7 +395,9 @@ export function BulletinBoardView() {
       ) : posts.length === 0 ? (
         <EmptyState
           icon={
-            category === "notice" ? (
+            category === "guild" ? (
+              <UsersThree size={40} weight="duotone" />
+            ) : category === "notice" ? (
               <Megaphone size={40} weight="duotone" />
             ) : (
               <Note size={40} weight="duotone" />
@@ -388,14 +406,18 @@ export function BulletinBoardView() {
           title={
             debouncedQ
               ? "검색 결과가 없습니다"
-              : category === "notice"
+              : category === "guild"
+                ? "길드 게시판이 비어 있습니다"
+                : category === "notice"
                 ? "공지가 없습니다"
                 : "아직 글이 없습니다"
           }
           message={
             debouncedQ
               ? "다른 검색어를 시도해 보세요."
-              : category === "notice"
+              : category === "guild"
+                ? "길드원들과 첫 글을 남겨 보세요."
+                : category === "notice"
                 ? "운영자가 새 공지를 올리면 여기에 표시됩니다."
                 : "첫 글을 남겨 보세요."
           }

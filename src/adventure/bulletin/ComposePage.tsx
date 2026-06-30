@@ -16,6 +16,7 @@ import {
 // editing 을 주면 수정 모드 — 제목/본문 초기값 채움 + 카테고리 변경 불가(픽커 숨김).
 export function ComposePage({
   initialCategory,
+  initialScope = "public",
   isAdmin,
   guild,
   editing,
@@ -23,6 +24,7 @@ export function ComposePage({
   onSubmit,
 }: {
   initialCategory: BulletinCategory;
+  initialScope?: "public" | "guild";
   isAdmin: boolean;
   guild: { id: number; name: string } | null;
   editing?: { title: string; content: string };
@@ -35,7 +37,9 @@ export function ComposePage({
   }) => Promise<void>;
 }) {
   const [category, setCategory] = useState<BulletinCategory>(initialCategory);
-  const [scope, setScope] = useState<"public" | "guild">("public");
+  const [scope, setScope] = useState<"public" | "guild">(
+    initialScope === "guild" && guild != null ? "guild" : "public",
+  );
   const [titleDraft, setTitleDraft] = useState(editing?.title ?? "");
   const [draft, setDraft] = useState(editing?.content ?? "");
   const [submitting, setSubmitting] = useState(false);

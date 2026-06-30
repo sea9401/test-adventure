@@ -80,6 +80,12 @@ function listingCraftQuality(payload: unknown): V2CraftQualityState | undefined 
 }
 
 type Tab = "browse" | "history" | "mine" | "sell";
+type SellCraftFilter =
+  | "all"
+  | "crafted"
+  | "quality"
+  | "masterwork"
+  | "craftOnly";
 
 // 최근 거래(체결 내역) 한 행 — /api/v2/marketplace/history. status='sold' 스냅샷.
 type Trade = {
@@ -122,6 +128,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
   const [sellTab, setSellTab] = useState<V2ItemTabKey>("weapon");
   const [sellSort, setSellSort] = useState<SortMode>("default");
+  const [sellCraftFilter, setSellCraftFilter] =
+    useState<SellCraftFilter>("all");
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [mine, setMine] = useState<Listing[] | null>(null);
@@ -356,19 +364,31 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
     (id) => (materials[id] ?? 0) > 0,
   );
+  const matchesSellCraftFilter = (
+    inst: V2EquipInstance,
+    filter: SellCraftFilter,
+  ): boolean => {
+    if (filter === "all") return true;
+    if (filter === "crafted") return inst.craftedBy != null;
+    if (filter === "quality") return (inst.craftQuality?.level ?? 0) > 0;
+    if (filter === "masterwork") return inst.craftedBy?.masterwork === true;
+    return V2_EQUIPMENT[inst.id]?.craftOnly === true;
+  };
   // 판매 탭(슬롯)에 해당하는 장비만 + 정렬. 재료 탭이면 빈 목록.
   const sellTabEquip =
     sellTab === "material" || sellTab === "consumable"
       ? []
       : sortEquipInstances(
-          sellableEquip.filter((i) => V2_EQUIPMENT[i.id]?.slot === sellTab),
+          sellableEquip
+            .filter((i) => V2_EQUIPMENT[i.id]?.slot === sellTab)
+            .filter((i) => matchesSellCraftFilter(i, sellCraftFilter)),
           sellSort,
         );
   // 탭/정렬 바뀌면 1페이지로(resetKey).
   const sellEquipPager = usePagination(
     sellTabEquip,
     MARKETPLACE_PAGE_SIZE,
-    `${sellTab}:${sellSort}`,
+    `${sellTab}:${sellSort}:${sellCraftFilter}`,
   );
   const sellMatPager = usePagination(
     sellableMats,
@@ -713,6 +733,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               pager={sellEquipPager}
               sellSort={sellSort}
               setSellSort={setSellSort}
+              craftFilter={sellCraftFilter}
+              setCraftFilter={setSellCraftFilter}
               prices={prices}
               setPrices={setPrices}
               priceRef={priceRef}

@@ -15,11 +15,22 @@ import {
 import {
   EQUIPMENT_CODEX_KEY,
   countCraftOnlyEquipmentCodex,
+  craftOnlyCodexRewardViews,
   craftOnlyCodexRewardTitleIds,
   equipmentCodexSummary,
   withRegisteredEquipmentId,
 } from "@/adventure/data/v2/equipmentCodex";
-import { guildWorkshopEquipmentRecordViews } from "@/adventure/data/v2/guildWorkshop";
+import {
+  addGuildWorkshopMaterials,
+  guildWorkshopEquipmentRecordViews,
+  parseGuildWorkshopMaterialInventory,
+} from "@/adventure/data/v2/guildWorkshop";
+import { addArtisanXpOnly, parseArtisanState } from "@/adventure/data/v2/artisan";
+
+type CharacterSaveWithMaterials = {
+  materials?: unknown;
+  [key: string]: unknown;
+};
 
 export async function GET() {
   const userId = await ensureUser();
@@ -112,6 +123,48 @@ export async function POST(req: Request) {
         grantedTitles.push(titleId);
       }
     }
+    const codexRewards = craftOnlyCodexRewardViews(grantedTitles);
+    let nextMaterials: Record<string, number> | null = null;
+    let artisanXpReward = 0;
+    if (codexRewards.length > 0) {
+      const charRaw = await lockSaveForUpdate<CharacterSaveWithMaterials>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const craftingRaw = await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        "crafting.v2",
+        {},
+      );
+      const materialReward = codexRewards.reduce(
+        (sum, reward) => addGuildWorkshopMaterials(sum, reward.materials),
+        parseGuildWorkshopMaterialInventory({}),
+      );
+      artisanXpReward = codexRewards.reduce(
+        (sum, reward) => sum + reward.artisanXp,
+        0,
+      );
+      nextMaterials = addGuildWorkshopMaterials(
+        parseGuildWorkshopMaterialInventory(charRaw.materials),
+        materialReward,
+      );
+      const nextArtisan = addArtisanXpOnly(
+        parseArtisanState(craftingRaw.artisan),
+        "blacksmith",
+        artisanXpReward,
+      );
+      await upsertSave(tx, userId, "character.v2", {
+        ...charRaw,
+        materials: nextMaterials,
+      });
+      await upsertSave(tx, userId, "crafting.v2", {
+        ...craftingRaw,
+        artisan: nextArtisan,
+      });
+    }
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped,
@@ -127,6 +180,9 @@ export async function POST(req: Request) {
         owned: nextOwned,
         equipped,
         grantedTitles,
+        codexRewards,
+        ...(nextMaterials ? { materials: nextMaterials } : {}),
+        artisanXpReward,
       },
     };
   });

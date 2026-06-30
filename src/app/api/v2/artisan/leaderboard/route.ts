@@ -18,6 +18,7 @@ import { TITLES } from "@/adventure/data/titles";
 import {
   artisanLeaderboardRewardViews,
   artisanLeaderboardRewardFame,
+  artisanLeaderboardNextReward,
   artisanLeaderboardRewardTitleIds,
   parseArtisanWeeklyWorkshopStats,
   rankArtisanLeaderboardEntries,
@@ -194,6 +195,9 @@ export async function GET() {
       ownedTitleIds,
       weeklyStats.claimedRewardWeekKey === season.key,
     ),
+    nextReward: artisanLeaderboardNextReward(
+      viewerIndex >= 0 ? viewerIndex + 1 : null,
+    ),
     entries,
   });
 }
@@ -290,6 +294,7 @@ export async function POST() {
     season,
     myRank,
     rewards: rewardViews(myRank, ownedTitleIds, true),
+    nextReward: artisanLeaderboardNextReward(myRank),
     grantedTitles: grantedTitles.granted,
     rewardFame: grantedTitles.rewardFame,
   });

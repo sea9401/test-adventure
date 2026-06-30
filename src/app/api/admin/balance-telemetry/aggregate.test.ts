@@ -42,6 +42,16 @@ function user(p: Partial<TelemetryUser>): TelemetryUser {
     fishSpecies: 0,
     antiquesFound: 0,
     equippedIds: [],
+    blacksmithLevel: 1,
+    blacksmithXp: 0,
+    workshopTotalCrafts: 0,
+    workshopQualityCrafts: 0,
+    workshopMasterworkCrafts: 0,
+    workshopCraftOnlyCrafts: 0,
+    workshopHighestTier: 0,
+    workshopBestQualityLevel: 0,
+    workshopMaterials: {},
+    deliveryClaimsToday: 0,
     ...p,
   };
 }
@@ -162,5 +172,59 @@ describe("aggregateBalanceTelemetry", () => {
     expect(t.equipmentUsage.find((e) => e.id === "v2_leather_armor")?.count).toBe(
       1,
     );
+  });
+
+  it("대장간 경제 스냅샷을 누적 제작과 재료 재고로 집계한다", () => {
+    const users = [
+      user({
+        blacksmithLevel: 8,
+        blacksmithXp: 6600,
+        workshopTotalCrafts: 30,
+        workshopQualityCrafts: 5,
+        workshopMasterworkCrafts: 2,
+        workshopCraftOnlyCrafts: 4,
+        workshopHighestTier: 10,
+        workshopBestQualityLevel: 2,
+        workshopMaterials: {
+          v2_craft_refined_iron: 12,
+          v2_craft_sunstone: 3,
+        },
+        deliveryClaimsToday: 2,
+      }),
+      user({
+        blacksmithLevel: 3,
+        blacksmithXp: 650,
+        workshopTotalCrafts: 10,
+        workshopQualityCrafts: 1,
+        workshopCraftOnlyCrafts: 1,
+        workshopHighestTier: 4,
+        workshopBestQualityLevel: 1,
+        workshopMaterials: {
+          v2_craft_refined_iron: 8,
+        },
+        deliveryClaimsToday: 1,
+      }),
+    ];
+    const t = aggregateBalanceTelemetry(users, {
+      adminExcluded: 0,
+      deriveFailed: 0,
+    });
+    expect(t.workshopEconomy.summary).toMatchObject({
+      activeBlacksmiths: 2,
+      avgBlacksmithLevel: 6,
+      totalCrafts: 40,
+      qualityCrafts: 6,
+      masterworkCrafts: 2,
+      craftOnlyCrafts: 5,
+      maxHighestTier: 10,
+      deliveryClaimsToday: 3,
+      bestQualityStar: 1,
+      bestQualityDoubleStar: 1,
+    });
+    expect(
+      t.workshopEconomy.materials.find(
+        (m) => m.id === "v2_craft_refined_iron",
+      ),
+    ).toMatchObject({ total: 20, holders: 2, avgPerHolder: 10 });
   });
 });

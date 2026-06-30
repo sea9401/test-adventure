@@ -915,6 +915,13 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "제작 전용 장비 6부위 제작",
     category: "guild",
   },
+  artisan_rank_participant: {
+    id: "artisan_rank_participant",
+    name: "시즌 장인",
+    description: "한 시즌의 대장간 경쟁에 이름을 올린 자.",
+    condition: "대장장이 시즌 랭킹 보상 수령",
+    category: "guild",
+  },
   artisan_rank_top10: {
     id: "artisan_rank_top10",
     name: "상위 장인",

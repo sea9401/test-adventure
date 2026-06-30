@@ -126,6 +126,11 @@ describe("POST /api/v2/me/equipment-codex", () => {
     const json = (await res.json()) as {
       grantedTitles: string[];
       registeredIds: string[];
+      codexRewards: Array<{
+        artisanXp: number;
+        materials: Record<string, number>;
+      }>;
+      artisanXpReward: number;
     };
     expect(json.registeredIds).toHaveLength(4);
     expect(json.registeredIds).toEqual(
@@ -137,6 +142,19 @@ describe("POST /api/v2/me/equipment-codex", () => {
       ]),
     );
     expect(json.grantedTitles).toEqual(["artisan_codex_collector"]);
+    expect(json.codexRewards).toMatchObject([
+      {
+        artisanXp: 60,
+        materials: { v2_craft_refined_iron: 4 },
+      },
+    ]);
+    expect(json.artisanXpReward).toBe(60);
+    expect(store.get("character.v2")).toMatchObject({
+      materials: { v2_craft_refined_iron: 4 },
+    });
+    expect(store.get("crafting.v2")).toMatchObject({
+      artisan: { blacksmith: { xp: 60, crafts: 0 } },
+    });
     expect(grantTitleIfMissingInTx).toHaveBeenCalledWith(
       {},
       "u-test",

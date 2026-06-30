@@ -327,6 +327,8 @@ export type PlayerCombat = {
   // v2 스킬 — scaling:"dex"/"luk" 비례 딜(도적 직군) 스케일용 DEX/LUK total. 0/undefined=no-op.
   dexStat?: number;
   lukStat?: number;
+  // v2 스킬 — scaling:"all" 비례 딜용 최종 스탯 합계(STR/VIT/DEX/SPD/INT/SPI/LUK).
+  allStatTotal?: number;
   classTier?: number;
   atk: number;
   // v2 마법 공격력(magicAtk = INT 환산). scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
@@ -1693,6 +1695,7 @@ export function applyPlayerV2SkillCast(
       vit: player.vitStat,
       dex: player.dexStat,
       luk: player.lukStat,
+      allStatTotal: player.allStatTotal,
       currentHp: state.playerHp,
       maxMp: state.playerMaxMp,
       classTier: player.classTier,

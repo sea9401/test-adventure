@@ -87,7 +87,8 @@ export const V2_CULTIVATE_PROFILE: Record<
 //   정체성 축을 수행으로 못 키운다(마검사는 검+마법인데 전사 프로필이라 INT 가 안 오르고, 성기사는
 //   기사+사제인데 SPI 대신 DEX 가 오름). 직업 id 별 오버라이드로 정체성 축의 cap 을 올린다.
 //   합 4 고정(= 비용 곡선·economy 불변). 값은 V2_JOB_CATALOG[id].cultivateProfile 와 동일해야 하며
-//   v2JobCatalog.test 가 동기화를 보증한다.
+//   v2JobCatalog.test 가 동기화를 보증한다. 합 4 고정이 기본이며, 초월자는 올스탯 정체성 때문에
+//   예외적으로 합 6을 허용한다.
 export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
@@ -98,6 +99,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   darkpriest: { luk: 2, spi: 1, int: 1 }, // 암흑사제 — 그림자의 행운 + 사제 정신·지능
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
+  transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 초월자 — 모든 능력 균형
 };
 
 // 캐릭터의 실효 수행 프로필 — 하이브리드 직업이면 직업 전용(정체성 축), 아니면 직군 프로필.

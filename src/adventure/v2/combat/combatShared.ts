@@ -550,6 +550,7 @@ export type V2SkillCastInput = {
     vit?: number;
     dex?: number;
     luk?: number;
+    allStatTotal?: number;
     currentHp?: number;
     maxMp?: number;
     classTier?: number;
@@ -760,7 +761,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const damageWith = (
     statCoef: number,
     baseFlat: number,
-    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | undefined,
+    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "all" | "maxHp" | undefined,
     extraFlat = 0,
     targetDefOverride?: number,
   ): number => {
@@ -771,13 +772,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     else if (scaling === "vit") attackerAtk = input.attacker.vit ?? input.attacker.atk;
     else if (scaling === "dex") attackerAtk = input.attacker.dex ?? input.attacker.atk;
     else if (scaling === "luk") attackerAtk = input.attacker.luk ?? input.attacker.atk;
-    // def/vit/dex/luk 비례딜은 STR 공격버프가 atk 를 부풀리는 v2DamageAmount 의 버프 곱을 받으면
+    else if (scaling === "all") attackerAtk = input.attacker.allStatTotal ?? input.attacker.atk;
+    else if (scaling === "maxHp") attackerAtk = input.attacker.maxHp;
+    // def/vit/dex/luk/all/maxHp 비례딜은 STR 공격버프가 atk 를 부풀리는 v2DamageAmount 의 버프 곱을 받으면
     //   안 됨(Codex 검토). attackerAtk 이 이미 그 스탯 값이라 빈 버프 전달.
     const statScaled =
       scaling === "def" ||
       scaling === "vit" ||
       scaling === "dex" ||
-      scaling === "luk";
+      scaling === "luk" ||
+      scaling === "all" ||
+      scaling === "maxHp";
     return v2DamageAmount({
       attackerAtk,
       attackerMagicAtk: scale === "magic" ? input.attacker.magicAtk : undefined,

@@ -65,6 +65,25 @@ function mainActor() {
   });
 }
 
+function skilledMainActor() {
+  const skills = ["v2c_warrior_strike"];
+  return makeGridDungeonPartyActor({
+    id: "me",
+    name: "나",
+    maxHp: 520,
+    maxMp: 200,
+    mp: 200,
+    atk: 95,
+    magicAtk: 30,
+    def: 35,
+    spd: 10,
+    healMult: 1,
+    isMain: true,
+    skills,
+    pattern: smartDefaultPatternFromEquipped(skills),
+  });
+}
+
 const dps = () =>
   supporter({
     userId: "dps",
@@ -162,10 +181,11 @@ describe("gridDungeon party combat simulations", () => {
     expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
   });
 
-  it("single dps support is not enough for the boss when main holds front", () => {
+  it("single dps support can clear the boss but still takes pressure", () => {
     const result = runRoom("boss", [dps()], "me");
-    expect(result.outcome).toBe("lose");
-    expect(result.enemyHp).toBeGreaterThan(0);
+    expect(result.outcome).toBe("win");
+    expect(result.playerHpAfter).toBeGreaterThan(0);
+    expect(result.party.find((member) => member.id === "me")?.damageTaken).toBeGreaterThan(0);
   });
 
   it("healer support records healing and skill usage when pressure is high", () => {
@@ -196,13 +216,29 @@ describe("gridDungeon party combat simulations", () => {
     expect(result.playerHpAfter).toBeGreaterThan(0);
   });
 
-  it("defensive frontline protects the healer in tank and healer parties", () => {
+  it("main actor can use equipped skills in party combat", () => {
+    const result = resolveGridDungeonPartyCombat({
+      main: skilledMainActor(),
+      supporters: [healer()],
+      enemy: monster("스킬 확인 방", 760, 82, 32, 9),
+      scaling: GRID_DUNGEON_PARTY_SCALING.elite ?? {
+        hpPerSupporter: 0.45,
+        atkPerSupporter: 0.16,
+      },
+      frontlineId: "me",
+    });
+    const main = result.party.find((member) => member.id === "me");
+    expect(main?.skillUses).toMatchObject({ 강타: expect.any(Number) });
+    expect(main?.damageDealt ?? 0).toBeGreaterThan(0);
+  });
+
+  it("defensive frontline draws pressure away from the healer", () => {
     const mainFront = runRoom("boss", [tank(), healer()], "me");
     const tankFront = runRoom("boss", [tank(), healer()], "tank");
     expect(tankFront.outcome).toBe("win");
     expect(
       tankFront.party.find((member) => member.id === "healer")?.hpAfter ?? 0,
-    ).toBeGreaterThan(
+    ).toBeGreaterThanOrEqual(
       mainFront.party.find((member) => member.id === "healer")?.hpAfter ?? 0,
     );
     expect(

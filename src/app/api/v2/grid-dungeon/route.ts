@@ -513,10 +513,25 @@ function historyEntryFromRun({
   };
 }
 
-const GRID_DUNGEON_COMBAT_DEPTH: Partial<Record<GridDungeonTileKind, number>> = {
-  monster: 2,
-  elite: 4,
-  boss: 6,
+const GRID_DUNGEON_COMBAT_DEPTH: Record<
+  GridDungeonRouteId,
+  Partial<Record<GridDungeonTileKind, number>>
+> = {
+  balanced: {
+    monster: 8,
+    elite: 10,
+    boss: 12,
+  },
+  guardian: {
+    monster: 12,
+    elite: 14,
+    boss: 18,
+  },
+  vault: {
+    monster: 10,
+    elite: 12,
+    boss: 14,
+  },
 };
 
 function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
@@ -539,8 +554,8 @@ function targetTileForMove(run: GridDungeonRun, dir: GridDungeonMoveDir) {
   };
 }
 
-function pickGridDungeonEnemy(tile: GridDungeonTileKind) {
-  const depth = GRID_DUNGEON_COMBAT_DEPTH[tile] ?? 1;
+function pickGridDungeonEnemy(routeId: GridDungeonRouteId, tile: GridDungeonTileKind) {
+  const depth = GRID_DUNGEON_COMBAT_DEPTH[routeId][tile] ?? 1;
   const pool = enemiesForDepth(depth);
   if (pool.length === 0) return null;
   const index = tile === "boss" ? pool.length - 1 : tile === "elite" ? 2 : 0;
@@ -569,7 +584,7 @@ async function resolveGridDungeonCombat({
   runMaxHp: number;
 }): Promise<GridDungeonResolvedCombat | null> {
   if (!isGridDungeonCombatTile(tile)) return null;
-  const picked = pickGridDungeonEnemy(tile);
+  const picked = pickGridDungeonEnemy(routeId, tile);
   if (!picked) return null;
   const baseMonster = V2_MONSTERS[picked.enemy.key];
   if (!baseMonster) return null;
@@ -658,6 +673,10 @@ async function resolveGridDungeonCombat({
     attackElement: basicAttackElement,
     characterElement: playerElement,
   };
+  const mainPattern =
+    v2Skills.pattern && v2Skills.pattern.blocks.length > 0
+      ? v2Skills.pattern
+      : smartDefaultPatternFromEquipped(v2Skills.equipped);
   const partyResult =
     supporters.length > 0
       ? resolveGridDungeonPartyCombat({
@@ -666,12 +685,16 @@ async function resolveGridDungeonCombat({
             name: "나",
             maxHp: playerMaxHp,
             hp: playerHpBefore,
+            mp: playerForBattle.mp ?? playerForBattle.maxMp ?? 0,
+            maxMp: playerForBattle.maxMp ?? playerForBattle.mp ?? 0,
             atk: Math.max(1, playerForBattle.atk),
             magicAtk: Math.max(0, playerForBattle.magicAtk ?? 0),
             def: Math.max(0, playerForBattle.def),
             spd: Math.max(1, playerForBattle.spd),
             healMult: playerForBattle.healMult ?? 1,
             isMain: true,
+            skills: v2Skills.equipped,
+            pattern: mainPattern,
           }),
           supporters,
           enemy: enemyMonster,

@@ -20,9 +20,9 @@ import type {
 export const GRID_DUNGEON_PARTY_SCALING: Partial<
   Record<GridDungeonTileKind, { hpPerSupporter: number; atkPerSupporter: number }>
 > = {
-  monster: { hpPerSupporter: 0.35, atkPerSupporter: 0.12 },
-  elite: { hpPerSupporter: 0.55, atkPerSupporter: 0.2 },
-  boss: { hpPerSupporter: 0.25, atkPerSupporter: 0.24 },
+  monster: { hpPerSupporter: 0.25, atkPerSupporter: 0.08 },
+  elite: { hpPerSupporter: 0.38, atkPerSupporter: 0.14 },
+  boss: { hpPerSupporter: 0.16, atkPerSupporter: 0.14 },
 };
 
 const FORMATION_TARGET_CYCLE = 10;

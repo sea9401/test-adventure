@@ -7,6 +7,7 @@ import {
   Skull,
   Sword,
   Trophy,
+  Wall,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
@@ -17,6 +18,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 export type BattleAction =
   | { kind: "open-dungeons" }
+  | { kind: "open-grid-dungeon" }
   | { kind: "open-coop" }
   | { kind: "open-subjugation" }
   | { kind: "open-arena" }
@@ -25,8 +27,10 @@ export type BattleAction =
 
 export function V2BattleHome({
   onAction,
+  showGridDungeonEntry = false,
 }: {
   onAction: (action: BattleAction) => void;
+  showGridDungeonEntry?: boolean;
 }) {
   return (
     <PageShell spacing="tight">
@@ -39,6 +43,16 @@ export function V2BattleHome({
           title="사냥터"
           onClick={() => onAction({ kind: "open-dungeons" })}
         />
+        {showGridDungeonEntry && (
+          <EntryCard
+            icon={
+              <Wall size={28} weight="duotone" className="text-amber-500" />
+            }
+            title="던전"
+            description="현재 위치의 격자 던전으로 입장"
+            onClick={() => onAction({ kind: "open-grid-dungeon" })}
+          />
+        )}
         <EntryCard
           icon={
             <Skull size={28} weight="duotone" className="text-rose-500" />

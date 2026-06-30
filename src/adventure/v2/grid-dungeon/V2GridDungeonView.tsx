@@ -13,6 +13,7 @@ import {
   Skull,
   Sparkle,
   TreasureChest,
+  UsersThree,
   Warning,
 } from "@phosphor-icons/react";
 import {
@@ -24,6 +25,7 @@ import {
   type GridDungeonMoveDir,
   type GridDungeonPublicRun,
   type GridDungeonRouteId,
+  type GridDungeonSupportRole,
   type GridDungeonTileKind,
 } from "@/adventure/data/v2/gridDungeon";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
@@ -38,6 +40,24 @@ type GridDungeonState = {
     limit: number;
     remaining: number;
   };
+  mySupportRole?: GridDungeonSupportRole | null;
+  mySupportDaily?: {
+    dayKey: string;
+    used: number;
+    useLimit: number;
+    rewarded: number;
+    rewardLimit: number;
+    honorPerReward: number;
+  };
+  supportCandidates?: Array<{
+    userId: string;
+    name: string;
+    level: number;
+    job: string;
+    supportLimit: number;
+    supportRemaining: number;
+    supportRole: GridDungeonSupportRole | null;
+  }>;
   history?: Array<{
     id: string;
     outcome: "cleared" | "failed" | "abandoned";
@@ -160,6 +180,9 @@ const ERROR_LABEL: Record<string, string> = {
   not_active: "진행 중인 탐험에서만 이동할 수 있습니다.",
   not_cleared: "출구에 도착한 뒤 정산할 수 있습니다.",
   not_at_entrance: "지도에서 던전 입구 칸으로 이동해야 시작할 수 있습니다.",
+  not_in_guild: "길드에 가입해야 길드 동료 지원을 사용할 수 있습니다.",
+  invalid_supporter: "선택한 지원자를 사용할 수 없습니다.",
+  support_limit_reached: "선택한 지원자의 오늘 지원 가능 횟수가 모두 소진되었습니다.",
 };
 
 const HISTORY_LABEL: Record<
@@ -179,6 +202,35 @@ const HISTORY_TONE: Record<
   failed: "border-red-900 bg-red-950/45 text-red-200",
   abandoned: "border-zinc-700 bg-zinc-900 text-zinc-300",
 };
+
+const SUPPORT_ROLE_LABEL: Record<GridDungeonSupportRole, string> = {
+  dps: "공격",
+  healer: "회복",
+  tank: "방어",
+};
+
+const SUPPORT_ROLE_TONE: Record<GridDungeonSupportRole, string> = {
+  dps: "border-red-800 bg-red-950/45 text-red-200",
+  healer: "border-emerald-800 bg-emerald-950/45 text-emerald-200",
+  tank: "border-sky-800 bg-sky-950/45 text-sky-200",
+};
+
+type SupportRoleFilter = GridDungeonSupportRole | "all" | "unset";
+
+const SUPPORT_ROLE_FILTERS: SupportRoleFilter[] = [
+  "all",
+  "dps",
+  "healer",
+  "tank",
+  "unset",
+];
+
+const COMBAT_LOG_TONE = {
+  attack: "border-red-900/70 bg-red-950/35 text-red-200",
+  heal: "border-emerald-800/70 bg-emerald-950/35 text-emerald-200",
+  hit: "border-sky-900/70 bg-sky-950/35 text-sky-200",
+  etc: "border-zinc-800 bg-zinc-950 text-zinc-400",
+} as const;
 
 function dropEntries(drops: Record<string, number> | undefined) {
   return Object.entries(drops ?? {})
@@ -353,6 +405,275 @@ function RouteSelector({
   );
 }
 
+function SupportRolePill({ role }: { role: GridDungeonSupportRole | null }) {
+  if (!role) {
+    return (
+      <span className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-500">
+        역할 미설정
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`rounded border px-1.5 py-0.5 text-[10px] ${SUPPORT_ROLE_TONE[role]}`}
+    >
+      {SUPPORT_ROLE_LABEL[role]}
+    </span>
+  );
+}
+
+function SupportDailyStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5">
+      <div className="text-[10px] text-zinc-500">{label}</div>
+      <div className="mt-0.5 text-xs font-semibold text-zinc-200">{value}</div>
+    </div>
+  );
+}
+
+function MySupportRolePanel({
+  role,
+  daily,
+  busy,
+  onSetRole,
+}: {
+  role: GridDungeonSupportRole | null;
+  daily: GridDungeonState["mySupportDaily"] | undefined;
+  busy: boolean;
+  onSetRole: (role: GridDungeonSupportRole | null) => void;
+}) {
+  return (
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-xs font-semibold text-zinc-200">내 지원 카드</div>
+        <SupportRolePill role={role} />
+      </div>
+      <div className="text-[11px] leading-relaxed text-zinc-500">
+        다른 길드원이 나를 던전에 데려갈 때 보이는 역할입니다.
+      </div>
+      {daily && (
+        <div className="grid grid-cols-3 gap-2">
+          <SupportDailyStat
+            label="오늘 지원됨"
+            value={`${daily.used} / ${daily.useLimit}`}
+          />
+          <SupportDailyStat
+            label="보상 수령"
+            value={`${daily.rewarded} / ${daily.rewardLimit}`}
+          />
+          <SupportDailyStat
+            label="명예 보상"
+            value={`+${daily.honorPerReward}`}
+          />
+        </div>
+      )}
+      <div className="grid grid-cols-3 gap-2">
+        {(["dps", "healer", "tank"] as const).map((nextRole) => {
+          const selected = role === nextRole;
+          return (
+            <button
+              key={nextRole}
+              type="button"
+              disabled={busy}
+              onClick={() => onSetRole(nextRole)}
+              className={`rounded-md border px-2.5 py-2 text-xs font-semibold transition disabled:opacity-40 ${
+                selected
+                  ? SUPPORT_ROLE_TONE[nextRole]
+                  : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:bg-zinc-900"
+              }`}
+            >
+              {SUPPORT_ROLE_LABEL[nextRole]}
+            </button>
+          );
+        })}
+      </div>
+      {role && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onSetRole(null)}
+          className="text-left text-[11px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline disabled:opacity-40"
+        >
+          역할 해제
+        </button>
+      )}
+    </section>
+  );
+}
+
+function GuildSupportSelector({
+  candidates,
+  selectedIds,
+  frontlineId,
+  filter,
+  busy,
+  onFilterChange,
+  onToggle,
+  onFrontlineChange,
+}: {
+  candidates: NonNullable<GridDungeonState["supportCandidates"]>;
+  selectedIds: string[];
+  frontlineId: string;
+  filter: SupportRoleFilter;
+  busy: boolean;
+  onFilterChange: (filter: SupportRoleFilter) => void;
+  onToggle: (userId: string) => void;
+  onFrontlineChange: (id: string) => void;
+}) {
+  if (candidates.length === 0) return null;
+  const counts: Record<SupportRoleFilter, number> = {
+    all: candidates.length,
+    dps: 0,
+    healer: 0,
+    tank: 0,
+    unset: 0,
+  };
+  for (const candidate of candidates) {
+    if (candidate.supportRole) counts[candidate.supportRole] += 1;
+    else counts.unset += 1;
+  }
+  const displayed = candidates.filter((candidate) => {
+    if (filter === "all") return true;
+    if (filter === "unset") return candidate.supportRole == null;
+    return candidate.supportRole === filter;
+  });
+  const selected = candidates.filter((candidate) =>
+    selectedIds.includes(candidate.userId),
+  );
+  return (
+    <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-200">
+          <UsersThree size={16} weight="fill" />
+          길드 동료 지원
+        </div>
+        <div className="text-[11px] text-zinc-500">{selected.length} / 2</div>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {SUPPORT_ROLE_FILTERS.map((roleFilter) => {
+          const label =
+            roleFilter === "all"
+              ? "전체"
+              : roleFilter === "unset"
+                ? "미설정"
+                : SUPPORT_ROLE_LABEL[roleFilter];
+          const active = filter === roleFilter;
+          return (
+            <button
+              key={roleFilter}
+              type="button"
+              onClick={() => onFilterChange(roleFilter)}
+              className={`rounded border px-2 py-1 text-[11px] ${
+                active
+                  ? "border-emerald-700 bg-emerald-950/45 text-emerald-200"
+                  : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:bg-zinc-900"
+              }`}
+            >
+              {label} {counts[roleFilter]}
+            </button>
+          );
+        })}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {displayed.map((candidate) => {
+          const selectedCandidate = selectedIds.includes(candidate.userId);
+          const unavailable = candidate.supportRemaining <= 0;
+          return (
+            <div
+              key={candidate.userId}
+              className={`min-h-24 rounded-md border px-3 py-2 text-xs transition ${
+                selectedCandidate
+                  ? "border-cyan-600 bg-cyan-950/35 text-cyan-100"
+                  : unavailable
+                    ? "border-zinc-900 bg-zinc-950/50 text-zinc-600"
+                    : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
+              }`}
+            >
+              <span className="flex items-start justify-between gap-2">
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold">
+                    {candidate.name}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-zinc-500">
+                    Lv.{candidate.level} · {candidate.job}
+                  </span>
+                </span>
+                <SupportRolePill role={candidate.supportRole} />
+              </span>
+              <span className="mt-2 block text-[11px] text-zinc-500">
+                오늘 지원 가능 {candidate.supportRemaining} /{" "}
+                {candidate.supportLimit}
+              </span>
+              <button
+                type="button"
+                disabled={busy || unavailable}
+                onClick={() => onToggle(candidate.userId)}
+                className={`mt-2 rounded border px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+                  selectedCandidate
+                    ? "border-cyan-600 bg-cyan-900/45 text-cyan-100"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+                }`}
+              >
+                {selectedCandidate ? "선택 해제" : "지원 선택"}
+              </button>
+              {selectedCandidate && (
+                <span className="mt-2 flex flex-wrap gap-1.5">
+                  <span
+                    className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                      frontlineId === candidate.userId
+                        ? "border-yellow-700 bg-yellow-950/45 text-yellow-200"
+                      : "border-zinc-700 bg-zinc-900 text-zinc-400"
+                    }`}
+                  >
+                    {frontlineId === candidate.userId ? "전열" : "후열"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onFrontlineChange(candidate.userId)}
+                    className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-300"
+                  >
+                    전열 지정
+                  </button>
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <div className="rounded border border-zinc-800 bg-black/20 px-2.5 py-2 text-[11px] text-zinc-500">
+          전열:{" "}
+          <button
+            type="button"
+            onClick={() => onFrontlineChange("main")}
+            className={`rounded px-1.5 py-0.5 ${
+              frontlineId === "main"
+                ? "bg-yellow-950/45 text-yellow-200"
+                : "text-zinc-300 hover:bg-zinc-900"
+            }`}
+          >
+            나
+          </button>
+          {selected.map((candidate) => (
+            <button
+              key={candidate.userId}
+              type="button"
+              onClick={() => onFrontlineChange(candidate.userId)}
+              className={`ml-1 rounded px-1.5 py-0.5 ${
+                frontlineId === candidate.userId
+                  ? "bg-yellow-950/45 text-yellow-200"
+                  : "text-zinc-300 hover:bg-zinc-900"
+              }`}
+            >
+              {candidate.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (!visible) return null;
   if (kind === "treasure") return <TreasureChest size={20} weight="fill" />;
@@ -409,6 +730,333 @@ function tileBackgroundStyle(isRevealed: boolean, isCurrent: boolean) {
   return undefined;
 }
 
+function CombatMeter({
+  label,
+  value,
+  pct,
+  tone,
+}: {
+  label: string;
+  value: string;
+  pct: number;
+  tone: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+        <span className="text-zinc-500">{label}</span>
+        <span className="text-zinc-300">{value}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded bg-zinc-900">
+        <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+type CombatParty = NonNullable<
+  NonNullable<GridDungeonPublicRun["lastCombat"]>["party"]
+>;
+type CombatPartyMember = CombatParty[number];
+type PartyMemberMetric = "damageDealt" | "healingDone" | "damageTaken";
+
+function topPartyMember(
+  party: CombatParty | undefined,
+  metric: PartyMemberMetric,
+) {
+  if (!party || party.length === 0) return null;
+  return [...party].sort((a, b) => b[metric] - a[metric])[0] ?? null;
+}
+
+function PartyRoleBadge({ member }: { member: CombatPartyMember }) {
+  const formationLabel = member.formation === "front" ? "전열" : "후열";
+  if (member.role === "main") {
+    return (
+      <span className="text-[10px] text-zinc-500">본인 · {formationLabel}</span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-[10px] text-zinc-500">{formationLabel}</span>
+      <SupportRolePill role={member.supportRole} />
+    </span>
+  );
+}
+
+function PartyHighlight({
+  label,
+  member,
+  value,
+}: {
+  label: string;
+  member: CombatPartyMember | null;
+  value: number;
+}) {
+  return (
+    <div className="rounded border border-zinc-800 bg-zinc-950/70 p-2">
+      <div className="text-[10px] text-zinc-500">{label}</div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate font-semibold text-zinc-200">
+          {member ? member.name : "-"}
+        </div>
+        <div className="shrink-0 text-[11px] font-medium text-zinc-100">
+          {value.toLocaleString()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PartyMetricChart({
+  party,
+  metric,
+  label,
+  tone,
+}: {
+  party: CombatParty | undefined;
+  metric: PartyMemberMetric;
+  label: string;
+  tone: string;
+}) {
+  if (!party || party.length === 0) return null;
+  const maxValue = Math.max(1, ...party.map((member) => member[metric]));
+  return (
+    <div className="space-y-1.5 rounded border border-zinc-800 bg-zinc-950/70 p-2">
+      <div className="text-[10px] font-semibold text-zinc-400">{label}</div>
+      {party.map((member) => {
+        const value = member[metric];
+        const pct =
+          value > 0 ? Math.max(4, Math.min(100, (value / maxValue) * 100)) : 0;
+        return (
+          <div
+            key={member.id}
+            className="grid grid-cols-[76px_1fr_56px] items-center gap-2 text-[11px]"
+          >
+            <div className="min-w-0 truncate text-zinc-300">{member.name}</div>
+            <div className="h-2 overflow-hidden rounded bg-zinc-900">
+              <div className={`h-full ${tone}`} style={{ width: `${pct}%` }} />
+            </div>
+            <div className="text-right font-medium text-zinc-200">
+              {value.toLocaleString()}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type CombatLogKind = keyof typeof COMBAT_LOG_TONE;
+
+function classifyCombatLogLine(line: string, enemyName: string): CombatLogKind {
+  if (line.includes("HP +")) return "heal";
+  if (line.startsWith(`${enemyName}이(가) `)) return "hit";
+  if (line.includes(" 피해")) return "attack";
+  return "etc";
+}
+
+function combatLogLabel(kind: CombatLogKind): string {
+  if (kind === "heal") return "회복";
+  if (kind === "hit") return "피격";
+  if (kind === "attack") return "공격";
+  return "기타";
+}
+
+function CombatLogList({
+  lines,
+  enemyName,
+}: {
+  lines: string[];
+  enemyName: string;
+}) {
+  const visibleLines = lines.slice(-8);
+  if (visibleLines.length === 0) return null;
+  return (
+    <div className="space-y-1.5 border-t border-zinc-800 pt-2 text-[11px]">
+      <div className="font-semibold text-zinc-300">전투 로그</div>
+      <div className="space-y-1">
+        {visibleLines.map((line, idx) => {
+          const kind = classifyCombatLogLine(line, enemyName);
+          return (
+            <div
+              key={`${idx}:${line}`}
+              className="grid grid-cols-[42px_1fr] items-center gap-2"
+            >
+              <span
+                className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
+              >
+                {combatLogLabel(kind)}
+              </span>
+              <span className="min-w-0 truncate text-zinc-400">{line}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SkillUseSummary({ uses }: { uses: Record<string, number> }) {
+  const entries = Object.entries(uses)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ko-KR"))
+    .slice(0, 2);
+  if (entries.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {entries.map(([name, count]) => (
+        <span
+          key={name}
+          className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-400"
+        >
+          {name} x{count}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DungeonCombatSummary({
+  combat,
+}: {
+  combat: NonNullable<GridDungeonPublicRun["lastCombat"]>;
+}) {
+  const hpPct =
+    combat.playerMaxHp > 0
+      ? Math.max(0, Math.min(100, (combat.playerHpAfter / combat.playerMaxHp) * 100))
+      : 0;
+  const enemyPct =
+    combat.enemyMaxHp > 0
+      ? Math.max(0, Math.min(100, (combat.enemyHp / combat.enemyMaxHp) * 100))
+      : 0;
+  const topDamage = topPartyMember(combat.party, "damageDealt");
+  const topHealing = topPartyMember(combat.party, "healingDone");
+  const topTaken = topPartyMember(combat.party, "damageTaken");
+  return (
+    <div className="space-y-2 rounded-md border border-zinc-800 bg-black/25 p-3 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 font-semibold text-zinc-200">
+          {combat.enemyName}
+        </div>
+        <div className="flex items-center gap-2 text-zinc-500">
+          <span>{combat.turns}턴</span>
+          <span>던전 HP -{combat.hpLost}</span>
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <CombatMeter
+          label="내 HP"
+          value={`${combat.playerHpAfter.toLocaleString()} / ${combat.playerMaxHp.toLocaleString()}`}
+          pct={hpPct}
+          tone="bg-emerald-400"
+        />
+        <CombatMeter
+          label="적 HP"
+          value={`${combat.enemyHp.toLocaleString()} / ${combat.enemyMaxHp.toLocaleString()}`}
+          pct={enemyPct}
+          tone="bg-red-400"
+        />
+      </div>
+      {combat.party && combat.party.length > 0 && (
+        <div className="space-y-2 border-t border-zinc-800 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-semibold text-zinc-300">
+              파티 기여도
+            </div>
+            <div className="text-[10px] text-zinc-500">피해 · 회복 · 피격</div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <PartyHighlight
+              label="최고 피해"
+              member={topDamage}
+              value={topDamage?.damageDealt ?? 0}
+            />
+            <PartyHighlight
+              label="최고 회복"
+              member={topHealing}
+              value={topHealing?.healingDone ?? 0}
+            />
+            <PartyHighlight
+              label="최다 피격"
+              member={topTaken}
+              value={topTaken?.damageTaken ?? 0}
+            />
+          </div>
+          <div className="grid gap-2">
+            <PartyMetricChart
+              party={combat.party}
+              metric="damageDealt"
+              label="피해량"
+              tone="bg-red-400"
+            />
+            <PartyMetricChart
+              party={combat.party}
+              metric="healingDone"
+              label="회복량"
+              tone="bg-emerald-400"
+            />
+            <PartyMetricChart
+              party={combat.party}
+              metric="damageTaken"
+              label="피격량"
+              tone="bg-sky-400"
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {combat.party.map((member) => {
+              const memberPct =
+                member.maxHp > 0
+                  ? Math.max(0, Math.min(100, (member.hpAfter / member.maxHp) * 100))
+                  : 0;
+              return (
+                <div
+                  key={member.id}
+                  className="rounded border border-zinc-800 bg-zinc-950/70 p-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 truncate font-semibold text-zinc-200">
+                      {member.name}
+                    </div>
+                    <PartyRoleBadge member={member} />
+                  </div>
+                  <CombatMeter
+                    label="HP"
+                    value={`${member.hpAfter.toLocaleString()} / ${member.maxHp.toLocaleString()}`}
+                    pct={memberPct}
+                    tone={member.role === "main" ? "bg-emerald-400" : "bg-cyan-400"}
+                  />
+                  <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-zinc-500">
+                    <div>
+                      피해{" "}
+                      <span className="text-zinc-300">
+                        {member.damageDealt.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      피격{" "}
+                      <span className="text-zinc-300">
+                        {member.damageTaken.toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      회복{" "}
+                      <span className="text-zinc-300">
+                        {member.healingDone.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <SkillUseSummary uses={member.skillUses} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      <CombatLogList lines={combat.log} enemyName={combat.enemyName} />
+    </div>
+  );
+}
+
 export function V2GridDungeonView({
   onBackToMap,
   onRefreshGameState,
@@ -421,6 +1069,10 @@ export function V2GridDungeonView({
   const [error, setError] = useState<string | null>(null);
   const [selectedRoute, setSelectedRoute] =
     useState<GridDungeonRouteId>("balanced");
+  const [selectedSupporterIds, setSelectedSupporterIds] = useState<string[]>([]);
+  const [supportRoleFilter, setSupportRoleFilter] =
+    useState<SupportRoleFilter>("all");
+  const [selectedFrontlineId, setSelectedFrontlineId] = useState("main");
 
   const load = useCallback(async () => {
     setError(null);
@@ -465,6 +1117,41 @@ export function V2GridDungeonView({
   const activeRoute = GRID_DUNGEON_ROUTES[run?.routeId ?? selectedRoute];
   const rewardQuota = state?.rewardQuota;
   const history = state?.history ?? [];
+  const supportCandidates = useMemo(
+    () => state?.supportCandidates ?? [],
+    [state?.supportCandidates],
+  );
+  const validSelectedSupporterIds = useMemo(() => {
+    const valid = new Set(
+      supportCandidates
+        .filter((candidate) => candidate.supportRemaining > 0)
+        .map((candidate) => candidate.userId),
+    );
+    return selectedSupporterIds.filter((id) => valid.has(id)).slice(0, 2);
+  }, [selectedSupporterIds, supportCandidates]);
+  const selectedSupporters = useMemo(
+    () =>
+      supportCandidates.filter((candidate) =>
+        validSelectedSupporterIds.includes(candidate.userId),
+      ),
+    [supportCandidates, validSelectedSupporterIds],
+  );
+  const effectiveFrontlineId =
+    selectedFrontlineId === "main" ||
+    validSelectedSupporterIds.includes(selectedFrontlineId)
+      ? selectedFrontlineId
+      : "main";
+  const selectedRoles = selectedSupporters
+    .map((supporter) => supporter.supportRole)
+    .filter((role): role is GridDungeonSupportRole => role != null);
+  const partyWarning =
+    selectedSupporters.length === 0
+      ? null
+      : selectedSupporters.length < 2
+        ? "보스전은 지원자 2명을 권장합니다."
+        : !selectedRoles.includes("dps") || !selectedRoles.includes("healer")
+          ? "보스전은 공격 역할 1명과 회복 역할 1명 조합을 권장합니다."
+          : null;
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
   const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
   const clearedEvents = useMemo(
@@ -477,6 +1164,16 @@ export function V2GridDungeonView({
       DIR_BUTTONS.map(({ dir }) => [dir, gridDungeonMovePreview(run, dir)]),
     );
   }, [run]);
+
+  const toggleSupporter = useCallback((userId: string) => {
+    setSelectedSupporterIds((prev) => {
+      if (prev.includes(userId)) {
+        setSelectedFrontlineId((current) => (current === userId ? "main" : current));
+        return prev.filter((id) => id !== userId);
+      }
+      return [...prev, userId].slice(-2);
+    });
+  }, []);
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-4 text-zinc-200">
@@ -528,11 +1225,39 @@ export function V2GridDungeonView({
               disabled={!state.atEntrance || busy}
               onSelect={setSelectedRoute}
             />
+            <MySupportRolePanel
+              role={state.mySupportRole ?? null}
+              daily={state.mySupportDaily}
+              busy={busy}
+              onSetRole={(role) =>
+                postAction({ action: "support-profile", role })
+              }
+            />
+            <GuildSupportSelector
+              candidates={supportCandidates}
+              selectedIds={validSelectedSupporterIds}
+              frontlineId={effectiveFrontlineId}
+              filter={supportRoleFilter}
+              busy={busy}
+              onFilterChange={setSupportRoleFilter}
+              onToggle={toggleSupporter}
+              onFrontlineChange={setSelectedFrontlineId}
+            />
+            {partyWarning && (
+              <div className="rounded-md border border-yellow-800/70 bg-yellow-950/35 px-3 py-2 text-xs text-yellow-200">
+                {partyWarning}
+              </div>
+            )}
             <button
               type="button"
               disabled={!state.atEntrance || busy}
               onClick={() =>
-                postAction({ action: "start", routeId: selectedRoute })
+                postAction({
+                  action: "start",
+                  routeId: selectedRoute,
+                  supporterIds: validSelectedSupporterIds,
+                  frontlineId: effectiveFrontlineId,
+                })
               }
               className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -679,6 +1404,7 @@ export function V2GridDungeonView({
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
             <div className="text-sm text-zinc-200">{run.lastMessage}</div>
+            {run.lastCombat && <DungeonCombatSummary combat={run.lastCombat} />}
             <DropSummary
               drops={run.pendingDrops as Record<string, number> | undefined}
               emptyLabel="확보한 재료가 아직 없습니다."

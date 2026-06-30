@@ -192,7 +192,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~60)
   const redField = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 49)!;
   const plateau = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 55)!;
 
-  it("성소부터 백골 고원까지 6깊이별 고유 5종, chance 0.0002, 전부 유니크", () => {
+  it("성소부터 백골 고원까지 6깊이별 고유 5종, chance 0.00015, 전부 유니크", () => {
     for (const [pool, min, max] of [
       [sanctum, 25, 30],
       [swamp, 31, 36],
@@ -204,7 +204,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~60)
       expect(pool.minDepth).toBe(min);
       expect(pool.maxDepth).toBe(max);
       expect(pool.ids).toHaveLength(5);
-      expect(pool.chance).toBe(0.0002);
+      expect(pool.chance).toBe(0.00015);
       for (const id of pool.ids) {
         expect(isUnique(V2_EQUIPMENT[id]), `${id} 유니크`).toBe(true);
       }

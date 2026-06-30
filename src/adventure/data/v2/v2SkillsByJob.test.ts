@@ -75,6 +75,10 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "selfBuffPct",
       target: "damageReduction",
     });
+    expect(V2_SKILLS.v2c_ironknight_guard.effects).toEqual([
+      { kind: "shield", pctMaxHp: 10, turns: 3 },
+      { kind: "selfBuffPct", target: "reflectDamage", pct: 60, turns: 3 },
+    ]);
     expect(V2_SKILLS.v2c_assassin_ambush.effects[0]).toMatchObject({
       kind: "executeDamage",
     });

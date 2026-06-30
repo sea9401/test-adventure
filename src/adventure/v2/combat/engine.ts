@@ -241,6 +241,8 @@ export type BattleStacks = {
   skillEvasionTurns: number;
   skillDmgReducePct: number; // 철포 — 받는 피해 -%(받피감 버프, 직업 킷 재설계)
   skillDmgReduceTurns: number;
+  skillReflectBoostPct: number; // 반사 태세 — 모든 반사 피해 +%
+  skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
   enemyVulnTurns: number;
   // 원소술사 — 빛(실명: 적 회피 -%) / 어둠(암흑: 적 명중 -%). enemyVuln 미러(타겟 디버프).
@@ -1021,6 +1023,7 @@ function applySkillTempBuffs(
   const crit = result.selfBuffPctToApply.find((b) => b.target === "crit");
   const eva = result.selfBuffPctToApply.find((b) => b.target === "evasion");
   const dr = result.selfBuffPctToApply.find((b) => b.target === "damageReduction");
+  const reflect = result.selfBuffPctToApply.find((b) => b.target === "reflectDamage");
   return {
     ...prev,
     skillRegenPct: result.selfRegenToApply?.pctMaxHpPerTurn ?? prev.skillRegenPct,
@@ -1031,6 +1034,8 @@ function applySkillTempBuffs(
     skillEvasionTurns: eva ? eva.turns : prev.skillEvasionTurns,
     skillDmgReducePct: dr?.pct ?? prev.skillDmgReducePct,
     skillDmgReduceTurns: dr ? dr.turns : prev.skillDmgReduceTurns,
+    skillReflectBoostPct: reflect?.pct ?? prev.skillReflectBoostPct,
+    skillReflectBoostTurns: reflect ? reflect.turns : prev.skillReflectBoostTurns,
     enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
     enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns : prev.enemyVulnTurns,
     enemyEvasionDownPct: result.enemyEvasionDownToApply?.pct ?? prev.enemyEvasionDownPct,
@@ -1075,6 +1080,7 @@ export function finishPlayerTurn(
         skillCritTurns: Math.max(0, s.skillCritTurns - 1),
         skillEvasionTurns: Math.max(0, s.skillEvasionTurns - 1),
         skillDmgReduceTurns: Math.max(0, s.skillDmgReduceTurns - 1),
+        skillReflectBoostTurns: Math.max(0, s.skillReflectBoostTurns - 1),
         enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
         enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
         enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
@@ -1311,6 +1317,8 @@ export function initialBattleState(
       skillEvasionTurns: 0,
       skillDmgReducePct: 0,
       skillDmgReduceTurns: 0,
+      skillReflectBoostPct: 0,
+      skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
       enemyEvasionDownPct: 0,
@@ -1704,6 +1712,7 @@ export function applyPlayerV2SkillCast(
         evasion: state.stacks.skillEvasionTurns > 0,
         crit: state.stacks.skillCritTurns > 0,
         damageReduction: state.stacks.skillDmgReduceTurns > 0,
+        reflectDamage: state.stacks.skillReflectBoostTurns > 0,
       },
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,

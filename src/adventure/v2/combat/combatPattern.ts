@@ -24,10 +24,10 @@ export type V2CombatCondition =
   | { kind: "self_mp"; op: "below" | "above"; pct: number }
   // 내 상태 — 특정 스탯 버프 활성/미활성(재버프 낭비 방지 등). v2SelfBuffs 키 = StatKey.
   | { kind: "self_buff"; stat: StatKey; active: boolean }
-  // 내 파생 버프(회피/치명/받피감 = selfBuffPct) 활성/미활성 — 만료 시 재시전(선풍각·철포).
+  // 내 파생 버프(회피/치명/받피감/반사피해 = selfBuffPct) 활성/미활성 — 만료 시 재시전.
   | {
       kind: "self_buff_pct";
-      target: "evasion" | "crit" | "damageReduction";
+      target: "evasion" | "crit" | "damageReduction" | "reflectDamage";
       active: boolean;
     }
   // 적 HP 비율.
@@ -57,7 +57,7 @@ export type V2PatternCtx = {
   selfHpPct: number; // 0~100
   selfMpPct: number; // 0~100
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
-  selfBuffPctTargets: ReadonlySet<"evasion" | "crit" | "damageReduction">; // 활성 파생버프(회피/치명/받피감)
+  selfBuffPctTargets: ReadonlySet<"evasion" | "crit" | "damageReduction" | "reflectDamage">; // 활성 파생버프
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
   enemyPoison: number;
@@ -217,7 +217,10 @@ function parseCondition(raw: unknown): V2CombatCondition | null {
     }
     case "self_buff_pct": {
       const target =
-        c.target === "evasion" || c.target === "crit" || c.target === "damageReduction"
+        c.target === "evasion" ||
+        c.target === "crit" ||
+        c.target === "damageReduction" ||
+        c.target === "reflectDamage"
           ? c.target
           : null;
       if (!target || typeof c.active !== "boolean") return null;

@@ -477,7 +477,7 @@ export type V2SkillBuffApply = { stat: StatKey; pct: number; turns: number };
 export type V2SkillDotApply = V2Dot;
 // PR2-B 파생 스탯 버프 — 회피(선풍각)·크리율(연환집중)·받피감 등 StatKey 밖.
 export type V2SkillPctBuffApply = {
-  target: "evasion" | "crit" | "damageReduction";
+  target: "evasion" | "crit" | "damageReduction" | "reflectDamage";
   pct: number;
   turns: number;
 };
@@ -560,6 +560,7 @@ export type V2SkillCastInput = {
       evasion?: boolean;
       crit?: boolean;
       damageReduction?: boolean;
+      reflectDamage?: boolean;
     };
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -615,10 +616,10 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
         .filter(([, e]) => e != null && e.turns > 0)
         .map(([k]) => k),
     ),
-    // 활성 파생버프(회피/치명/받피감) — 엔진이 넘긴 turns>0 플래그. self_buff_pct 조건 평가용.
+    // 활성 파생버프(회피/치명/받피감/반사피해) — 엔진이 넘긴 turns>0 플래그. self_buff_pct 조건 평가용.
     selfBuffPctTargets: new Set(
       (
-        ["evasion", "crit", "damageReduction"] as const
+        ["evasion", "crit", "damageReduction", "reflectDamage"] as const
       ).filter((tg) => a.selfBuffPctActive?.[tg]),
     ),
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,

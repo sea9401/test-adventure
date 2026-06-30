@@ -117,7 +117,7 @@ function partyPatternCtx({
     selfHpPct: lowestHpPct,
     selfMpPct: actor.maxMp > 0 ? (actor.mp / actor.maxMp) * 100 : 100,
     selfBuffStats: new Set<StatKey>(),
-    selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction">(),
+    selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
     enemyHpPct: (enemyHp / enemyMaxHp) * 100,
     enemyBleed: 0,
     enemyPoison: 0,

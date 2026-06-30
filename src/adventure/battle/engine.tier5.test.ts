@@ -112,6 +112,25 @@ describe("5티어 — 가시 갑옷", () => {
     s = advanceTurn(s, p, "용사"); // 적 본타 + 합산 반사
     expect(before - s.enemyHp).toBe(43);
   });
+
+  it("반사 태세 버프가 반사 피해 합산값을 증폭한다", () => {
+    // 적 atk 100, damageToDefender(100,5)=87 → bramble 30% = 26. 반사 증폭 50% → floor(26×1.5)=39.
+    const p: PlayerCombat = { ...PLAYER, bramblePct: 30 };
+    let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
+    s = advanceTurn(s, p, "용사"); // 본타
+    const before = s.enemyHp;
+    s = {
+      ...s,
+      stacks: {
+        ...s.stacks,
+        skillReflectBoostPct: 50,
+        skillReflectBoostTurns: 2,
+      },
+    };
+    s = advanceTurn(s, p, "용사"); // 적 본타 + 증폭 반사
+    expect(before - s.enemyHp).toBe(39);
+    expect(s.log.some((e) => e.text.includes("반사 증폭"))).toBe(true);
+  });
 });
 
 describe("5티어 — 풍사슬", () => {

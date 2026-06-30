@@ -18,7 +18,7 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
     selfHpPct: 100,
     selfMpPct: 100,
     selfBuffStats: new Set<StatKey>(),
-    selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction">(),
+    selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
     enemyHpPct: 100,
     enemyBleed: 0,
     enemyPoison: 0,

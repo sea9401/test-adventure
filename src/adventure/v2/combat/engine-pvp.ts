@@ -150,6 +150,8 @@ export type PvPSideStacks = {
   skillCritTurns: number;
   skillEvasionPct: number; // 선풍각 — 회피 +%p (PvP 는 회피 유효축)
   skillEvasionTurns: number;
+  skillReflectBoostPct: number; // 반사 태세 — 모든 반사 피해 +%
+  skillReflectBoostTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;
   // 화상(원소술사 불) — 이 side 에 걸린 회복 감소 디버프(상대가 부착). 이 side 의 회복(회복 스킬·재생)
@@ -406,6 +408,8 @@ function buildSide(
       skillCritTurns: 0,
       skillEvasionPct: 0,
       skillEvasionTurns: 0,
+      skillReflectBoostPct: 0,
+      skillReflectBoostTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
       healReducePct: 0,
@@ -835,7 +839,15 @@ export function applyOnHitReflect(
     (defender.player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeMitigation > 0
       ? defender.player.thornsFlatFromDef!
       : 0;
-  const total = thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
+  const baseTotal = thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
+  const reflectBoostPct =
+    defender.stacks.skillReflectBoostTurns > 0
+      ? defender.stacks.skillReflectBoostPct
+      : 0;
+  const total =
+    reflectBoostPct > 0
+      ? Math.floor(baseTotal * (1 + reflectBoostPct / 100))
+      : baseTotal;
   if (total <= 0) return { state, attackerKilled: false };
   const newAtkHp = Math.max(0, attacker.hp - total);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
@@ -844,6 +856,7 @@ export function applyOnHitReflect(
   if (brambleDmg > 0) labels.push("가시 갑옷");
   if (infiniteDmg > 0) labels.push("무한 가시");
   if (wardenReflectDmg > 0) labels.push("수호 반사");
+  if (reflectBoostPct > 0) labels.push("반사 증폭");
   st = {
     ...st,
     log: appendLog(st.log, {
@@ -1316,12 +1329,13 @@ export function castV2SkillOnAttackerTurnPvP(
       dex: side.player.dexStat,
       luk: side.player.lukStat,
       allStatTotal: side.player.allStatTotal,
-      // 활성 파생버프 — PvP 는 회피/치명만 추적(받피감은 PvP-inert). 받피감=true 로 둬서 self_buff_pct
+      // 활성 파생버프 — PvP 는 회피/치명/반사 증폭을 추적(받피감은 PvP-inert). 받피감=true 로 둬서 self_buff_pct
       //   (damageReduction, active:false) 조건이 PvP 에서 철포를 매턴 스팸(평타 차단)하지 않게 가드.
       selfBuffPctActive: {
         evasion: side.stacks.skillEvasionTurns > 0,
         crit: side.stacks.skillCritTurns > 0,
         damageReduction: true,
+        reflectDamage: side.stacks.skillReflectBoostTurns > 0,
       },
       currentHp: side.hp,
       maxMp: side.maxMp,
@@ -1496,6 +1510,7 @@ export function castV2SkillOnAttackerTurnPvP(
     : 0;
   const critBuff = result.selfBuffPctToApply.find((b) => b.target === "crit");
   const evaBuff = result.selfBuffPctToApply.find((b) => b.target === "evasion");
+  const reflectBuff = result.selfBuffPctToApply.find((b) => b.target === "reflectDamage");
   // 차수… 아니라 temp 버프 turns 감소는 **자기 턴 시작(여기, cast hook = phase 당 1회)**에서.
   // 새 버프 시전이면 그 turns 로 리셋, 아니면 -1. 턴 시작 감소라 방어용 선풍각(상대 턴에 소비)도
   // 시전 턴 직후 1턴 손실 없이 N 턴 유지(PvE 는 자기 턴에 소비/감소라 turn-end, PvP 는 turn-start).
@@ -1515,6 +1530,10 @@ export function castV2SkillOnAttackerTurnPvP(
     skillEvasionTurns: evaBuff
       ? evaBuff.turns
       : Math.max(0, side.stacks.skillEvasionTurns - 1),
+    skillReflectBoostPct: reflectBuff?.pct ?? side.stacks.skillReflectBoostPct,
+    skillReflectBoostTurns: reflectBuff
+      ? reflectBuff.turns
+      : Math.max(0, side.stacks.skillReflectBoostTurns - 1),
     // 속박 — 위 스킬피해 배수와 동일 값(turn-start 감소/set) 사용 → 같은 턴 스킬·평타 일관.
     enemyVulnPct: nextEnemyVulnPct,
     enemyVulnTurns: nextEnemyVulnTurns,

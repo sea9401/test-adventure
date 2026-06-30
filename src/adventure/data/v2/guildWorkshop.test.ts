@@ -5,9 +5,13 @@ import {
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopQualityChancePct,
   guildWorkshopRecipeView,
+  guildWorkshopRecipeResourceCost,
+  guildWorkshopRecipeMaterialCost,
+  hasGuildWorkshopRecipeMaterials,
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
+  spendGuildWorkshopRecipeCost,
 } from "./guildWorkshop";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { V2_EQUIPMENT } from "./v2Equipment";
@@ -255,13 +259,113 @@ describe("guild workshop recipes", () => {
     ).toBe(25);
   });
 
+  it("raises crafted quality chance cap for masterwork mode", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    const artisan = { blacksmith: { xp: 12500, crafts: 200 } };
+    const bonus = guildWorkshopBonusFromTotalCrafts(600);
+    expect(guildWorkshopQualityChancePct(artisan, recipe, bonus)).toBe(25);
+    expect(
+      guildWorkshopQualityChancePct(artisan, recipe, bonus, "masterwork"),
+    ).toBe(45);
+  });
+
+  it("exposes masterwork craft costs and gates in recipe views", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
+    const artisan = { blacksmith: { xp: 6600, crafts: 60 } };
+    const view = guildWorkshopRecipeView(
+      recipe,
+      { crop: 9999, ore: 9999 },
+      artisan,
+      0,
+      2,
+      ENOUGH_WORKSHOP_MATERIALS,
+    );
+
+    expect(view.masterwork).toMatchObject({
+      requiredArtisanLevel: 8,
+      levelOk: true,
+      canCraft: true,
+      plus2Unlocked: false,
+    });
+    expect(view.masterwork.cost.crop).toBe((recipe.cost.crop ?? 0) * 3);
+    expect(
+      view.masterwork.materialCost[GUILD_WORKSHOP_MATERIAL_ID.refinedIron],
+    ).toBe(4);
+  });
+
+  it("spends increased resources and materials for masterwork craft mode", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
+    expect(guildWorkshopRecipeResourceCost(recipe, "masterwork")).toMatchObject({
+      crop: (recipe.cost.crop ?? 0) * 3,
+      ore: (recipe.cost.ore ?? 0) * 3,
+    });
+    expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject(
+      {
+        [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 4,
+      },
+    );
+    expect(
+      hasGuildWorkshopRecipeMaterials(
+        { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+        recipe,
+        "masterwork",
+      ),
+    ).toBe(false);
+    expect(
+      spendGuildWorkshopRecipeCost(
+        { crop: 9999, ore: 9999 },
+        recipe,
+        "masterwork",
+      ),
+    ).toMatchObject({
+      crop: 9999 - (recipe.cost.crop ?? 0) * 3,
+      ore: 9999 - (recipe.cost.ore ?? 0) * 3,
+    });
+  });
+
   it("rolls +1 crafted quality using the recipe quality chance", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
     expect(rollGuildWorkshopEnhance({}, recipe, () => 0)).toEqual({
       level: 1,
-      bonusPct: 2,
+      bonusPct: 5,
     });
     expect(rollGuildWorkshopEnhance({}, recipe, () => 0.99)).toBeUndefined();
+  });
+
+  it("can roll +2 crafted quality in masterwork mode", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    const rolls = [0, 0];
+    const rng = () => rolls.shift() ?? 0.99;
+    expect(
+      rollGuildWorkshopEnhance(
+        { blacksmith: { xp: 12500, crafts: 200 } },
+        recipe,
+        rng,
+        0,
+        "masterwork",
+      ),
+    ).toEqual({
+      level: 2,
+      bonusPct: 10,
+    });
+  });
+
+  it("does not roll +2 quality before blacksmith Lv9", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    const rolls = [0, 0];
+    const rng = () => rolls.shift() ?? 0.99;
+    expect(
+      rollGuildWorkshopEnhance(
+        { blacksmith: { xp: 6600, crafts: 80 } },
+        recipe,
+        rng,
+        0,
+        "masterwork",
+      ),
+    ).toEqual({
+      level: 1,
+      bonusPct: 5,
+    });
   });
 
   it("parses and increments workshop craft statistics", () => {

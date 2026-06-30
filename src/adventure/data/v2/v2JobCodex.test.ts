@@ -48,6 +48,18 @@ describe("buildJobCodex", () => {
     expect(codex.jobs.find((j) => j.id === "caster")?.unlocked).toBe(false);
   });
 
+  it("각 직업의 내 숙련도를 함께 내려준다", () => {
+    const prof = profWith({ warrior: 42 });
+    prof.jobCumLevel = { squire: 17, paladin: 333 };
+
+    const codex = buildJobCodex(prof, [], "warrior", null);
+
+    expect(codex.jobs.find((j) => j.id === "warrior")?.mastery).toBe(42);
+    expect(codex.jobs.find((j) => j.id === "squire")?.mastery).toBe(17);
+    expect(codex.jobs.find((j) => j.id === "paladin")?.mastery).toBe(333);
+    expect(codex.jobs.find((j) => j.id === "mage")?.mastery).toBe(0);
+  });
+
   it("현재 직업 표시 + 스킬 수집 진행도(시그니처 2개 중 학습 수, 둘 다=수집 완료)", () => {
     const prof = profWith({ warrior: 50 });
     // 견습 병사 액티브만 학습 → 1/2.

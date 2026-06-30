@@ -197,14 +197,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 26 + 제작전용 10 + 전문화 스타터 3", () => {
+  it("정규 그리드 29종 + 유니크 36 + 제작전용 10 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 104:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 81(밴드 흔한 풀 81, 강등된 옛 필드 유니크 포함) · 유니크 26
+    //   전문화 스타터 3 · noDrop 105(밴드 흔한 풀 105, 강등된 옛 필드 유니크 포함) · 유니크 36
     //     (고유 아이템 15 + 보스 3). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 15 → unique. 검은 왕도 noDrop 12종 + 고유 5종 추가.
-    //     총 146 = 정규 29 + 유니크 26 + 제작전용 10 + 전문화 스타터 3 + noDrop 81.
+    //     총 183 = 정규 29 + 유니크 36 + 제작전용 10 + 전문화 스타터 3 + noDrop 105.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -212,10 +212,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(26);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(36);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(10);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
-    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(81);
+    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(105);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -427,11 +427,11 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("tier 값이 1~10 범위 안에 있고 정수", () => {
+  it("tier 값이 1~12 범위 안에 있고 정수", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(Number.isInteger(item.tier)).toBe(true);
       expect(item.tier).toBeGreaterThanOrEqual(1);
-      expect(item.tier).toBeLessThanOrEqual(10);
+      expect(item.tier).toBeLessThanOrEqual(12);
     }
   });
 });
@@ -623,6 +623,7 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
             profession: "blacksmith",
             level: 2.9,
             craftedAt: "2026-06-29T00:00:00.000Z",
+            masterwork: true,
           },
         },
         {
@@ -638,8 +639,41 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       profession: "blacksmith",
       level: 2,
       craftedAt: "2026-06-29T00:00:00.000Z",
+      masterwork: true,
     });
     expect(r.owned[1].craftedBy).toBeUndefined();
+  });
+
+  it("crafted quality bonusPct is preserved separately from normal enhancement", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "crafted",
+          id: "v2_iron_sword",
+          enhance: { level: 1, bonusPct: 5 },
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 8,
+            craftedAt: "2026-06-29T00:00:00.000Z",
+          },
+        },
+        {
+          iid: "normal",
+          id: "v2_iron_sword",
+          enhance: { level: 1, bonusPct: 5 },
+        },
+      ],
+    });
+
+    expect(r.owned.find((i) => i.iid === "crafted")?.enhance).toEqual({
+      level: 1,
+      bonusPct: 5,
+    });
+    expect(r.owned.find((i) => i.iid === "normal")?.enhance).toEqual({
+      level: 1,
+      bonusPct: 2,
+    });
   });
 
 });

@@ -158,6 +158,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [card, setCard] = useState<{
     inst: V2EquipInstance;
     anchor: ItemCardAnchor;
+    compare?: boolean;
   } | null>(null);
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
@@ -420,7 +421,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           장착 중
         </h2>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const iid = equipped[slot] ?? null;
             const inst = iid ? owned.find((i) => i.iid === iid) : undefined;
@@ -450,7 +451,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <div
                 key={slot}
-                className="flex min-h-[6.75rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center dark:border-zinc-700 dark:bg-zinc-900"
+                className="flex min-h-[6.25rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center sm:min-h-[6.75rem] dark:border-zinc-700 dark:bg-zinc-900"
               >
                 {inst && item ? (
                   // 장착 아이템 클릭 → 옵션 카드 팝오버.
@@ -544,7 +545,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           const slot = candItem.slot;
           const equippedIid = equipped[slot] ?? null;
           const isCandidateEquipped = equippedIid === card.inst.iid;
-          // 같은 슬롯에 다른 장비가 장착돼 있으면(후보가 미장착) 비교 카드를 띄운다.
+          // 같은 슬롯에 다른 장비가 장착돼 있으면 상세 카드에 비교 버튼을 띄우고,
+          // 사용자가 비교를 누른 경우에만 비교 카드를 연다.
           const equippedInst =
             equippedIid && !isCandidateEquipped
               ? owned.find((i) => i.iid === equippedIid)
@@ -558,7 +560,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onToggle: () => applyLock(card.inst.iid, !liveLocked),
           };
 
-          if (equippedInst) {
+          if (equippedInst && card.compare) {
             const equippedItem = V2_EQUIPMENT[equippedInst.id];
             return (
               <V2ItemCompareCard
@@ -612,6 +614,18 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 onEquip: () => applyEquip(slot, card.inst.iid, card.inst.iid),
                 onUnequip: () => applyEquip(slot, null, card.inst.iid),
               }}
+              compare={
+                equippedInst
+                  ? {
+                      onCompare: () =>
+                        setCard((prev) =>
+                          prev?.inst.iid === card.inst.iid
+                            ? { ...prev, compare: true }
+                            : prev,
+                        ),
+                    }
+                  : undefined
+              }
               lock={lockAction}
             />
           );

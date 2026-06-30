@@ -13,6 +13,7 @@ import {
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
   powerBandOf,
+  scaledEquipWeight,
   signatureLabel,
   v2EquipCompareRows,
   v2EquipPowerLabel,
@@ -24,8 +25,14 @@ import {
   type V2EquipStatRow,
   type V2CraftedBy,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import {
+  VARIANCE_FRACTION,
+  rollQualityPct,
+} from "@/adventure/data/v2/v2EquipVariance";
+import {
+  enhancedPower,
+  type V2EnhanceState,
+} from "@/adventure/data/v2/v2Enhance";
 
 // 굴림 품질 % → 색. 높을수록 좋은 굴림(emerald)·중간(zinc)·낮음(amber).
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
@@ -96,13 +103,99 @@ function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
 // 스탯 한 줄 — 라벨(좌) + 값(우). 기본 스탯·옵션이 같은 표기를 공유.
 function StatRow({ row }: { row: V2EquipStatRow }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 text-xs">
-      <span className="text-zinc-500 dark:text-zinc-400">{row.label}</span>
-      <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
+    <div className="flex items-start justify-between gap-2 text-xs">
+      <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
+        {row.label}
+      </span>
+      <span className="min-w-0 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
         {row.value}
       </span>
     </div>
   );
+}
+
+const RANGE_OPTION_LABEL_TO_KEY: Partial<Record<string, keyof V2EquipOptions>> =
+  {
+    치명: "crit",
+    회피: "eva",
+    MP: "mp",
+    HP: "hp",
+    속도: "spd",
+    치명피해: "critMult",
+    방어: "def",
+    마법방어: "magicDef",
+    회복: "healPowerPct",
+    치명저항: "critResist",
+  };
+
+function rollRange(
+  value: number,
+  floor: number,
+): { lo: number; hi: number } | null {
+  const spread = Math.round(value * VARIANCE_FRACTION);
+  if (spread <= 0) return null;
+  return { lo: Math.max(floor, value - spread), hi: value + spread };
+}
+
+function formatRangeValue(label: string, value: number): string {
+  if (label === "무게") return `${value}`;
+  if (label === "치명피해") return `+${(value / 100).toFixed(2)}×`;
+  if (
+    label === "치명" ||
+    label === "회피" ||
+    label === "회복" ||
+    label === "치명저항"
+  ) {
+    return `+${value}%`;
+  }
+  return `+${value}`;
+}
+
+function statRowWithRollRange(
+  item: V2Equipment,
+  row: V2EquipStatRow,
+  roll: V2EquipRoll | undefined,
+  enhance: V2EnhanceState | undefined,
+): V2EquipStatRow {
+  if (!roll) return row;
+
+  const powerLabel = v2EquipPowerLabel(item);
+  if (row.label === powerLabel) {
+    const range = rollRange(item.power, 1);
+    if (!range) return row;
+    return {
+      ...row,
+      value: `${row.value} (${formatRangeValue(
+        row.label,
+        enhancedPower(range.lo, enhance),
+      )} - ${formatRangeValue(row.label, enhancedPower(range.hi, enhance))})`,
+    };
+  }
+
+  if (row.label === "무게") {
+    const range = rollRange(item.weight, 0);
+    if (!range) return row;
+    return {
+      ...row,
+      value: `${row.value} (${scaledEquipWeight(
+        item,
+        range.lo,
+      )} - ${scaledEquipWeight(item, range.hi)})`,
+    };
+  }
+
+  const optionKey = RANGE_OPTION_LABEL_TO_KEY[row.label];
+  const base = optionKey ? item.options?.[optionKey] : undefined;
+  if (base == null) return row;
+  const range = rollRange(base, 1);
+  if (!range) return row;
+  return {
+    ...row,
+    value: `${row.value} (${formatRangeValue(
+      row.label,
+      range.lo,
+    )} - ${formatRangeValue(row.label, range.hi)})`,
+  };
 }
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
@@ -129,6 +222,10 @@ export type ItemCardEquipAction = {
   onUnequip: () => void;
 };
 
+export type ItemCardCompareAction = {
+  onCompare: () => void;
+};
+
 // 인벤토리에서만 주입 — 즐겨찾기 잠금 토글(헤더). 잠금 = 일괄/실수 판매 방지.
 export type ItemCardLockAction = {
   locked: boolean;
@@ -144,6 +241,7 @@ export function V2ItemCard({
   enhance,
   craftedBy,
   equip,
+  compare,
   lock,
   equippedIds,
 }: {
@@ -158,6 +256,8 @@ export function V2ItemCard({
   craftedBy?: V2CraftedBy;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
+  // 인벤토리에서만 주입 — 같은 슬롯 장착 장비가 있을 때 사용자가 원할 때 비교 모달로 전환.
+  compare?: ItemCardCompareAction;
   // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
   lock?: ItemCardLockAction;
   // 현재 착용 중인 장비 id 집합 — 세트 발동(전 부위 착용) 판정 + 부위별 착용 하이라이트.
@@ -179,7 +279,9 @@ export function V2ItemCard({
 
   // 기본 스탯(공격력/방어력 계열·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다.
   //   강화 수치는 이름 옆 "+N" 으로만 표기.
-  const statRows = v2EquipStatRows(item, roll, enhance);
+  const statRows = v2EquipStatRows(item, roll, enhance).map((row) =>
+    statRowWithRollRange(item, row, roll, enhance),
+  );
   const powerLabel = v2EquipPowerLabel(item);
   const baseRows = statRows.filter(
     (r) => r.label === powerLabel || r.label === "무게",
@@ -455,17 +557,36 @@ export function V2ItemCard({
           </p>
         )}
 
-        {equip && (
-          <Button
-            onClick={equip.isEquipped ? equip.onUnequip : equip.onEquip}
-            disabled={equip.busy}
-            variant={equip.isEquipped ? "secondary" : "success"}
-            size="md"
-            fullWidth
-            className="mt-3"
+        {(compare || equip) && (
+          <div
+            className={`mt-3 grid gap-2 ${
+              compare && equip ? "grid-cols-2" : "grid-cols-1"
+            }`}
           >
-            {equip.busy ? "처리 중…" : equip.isEquipped ? "해제" : "장착하기"}
-          </Button>
+            {compare && (
+              <Button
+                onClick={compare.onCompare}
+                variant="secondary"
+                size="md"
+              >
+                비교
+              </Button>
+            )}
+            {equip && (
+              <Button
+                onClick={equip.isEquipped ? equip.onUnequip : equip.onEquip}
+                disabled={equip.busy}
+                variant={equip.isEquipped ? "secondary" : "success"}
+                size="md"
+              >
+                {equip.busy
+                  ? "처리 중…"
+                  : equip.isEquipped
+                    ? "해제"
+                    : "장착하기"}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </>

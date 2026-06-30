@@ -5,8 +5,10 @@ import {
   type SettlementResources,
 } from "./settlement";
 import { V2_EQUIPMENT, type V2EquipmentId } from "./v2Equipment";
-import { enhanceBonusPct, type V2EnhanceState } from "./v2Enhance";
+import { type V2EnhanceState } from "./v2Enhance";
 import {
+  BLACKSMITH_MASTERWORK_LEVEL,
+  BLACKSMITH_PLUS2_QUALITY_LEVEL,
   artisanLevel,
   type ArtisanProfessionId,
   type ArtisanState,
@@ -80,6 +82,19 @@ export type GuildWorkshopBonus = {
   tier: number;
   nextTotalCrafts: number | null;
 };
+
+export type GuildWorkshopCraftMode = "normal" | "masterwork";
+
+export const GUILD_WORKSHOP_QUALITY_BONUS_PCT: Record<1 | 2, number> = {
+  1: 5,
+  2: 10,
+};
+export const GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT = 25;
+export const GUILD_WORKSHOP_MASTERWORK_QUALITY_BONUS_PCT = 20;
+export const GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT = 45;
+export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 12;
+export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 3;
+export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
 
 export const GUILD_WORKSHOP_BONUS_TIERS: {
   tier: number;
@@ -513,11 +528,66 @@ export function addGuildWorkshopCraftStat(
   };
 }
 
+export function isGuildWorkshopCraftMode(
+  v: unknown,
+): v is GuildWorkshopCraftMode {
+  return v === "normal" || v === "masterwork";
+}
+
+export function guildWorkshopRecipeResourceCost(
+  recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
+): Partial<Record<ProductionKind, number>> {
+  const mult =
+    mode === "masterwork" ? GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT : 1;
+  const out: Partial<Record<ProductionKind, number>> = {};
+  for (const [kind, amount] of Object.entries(recipe.cost)) {
+    out[kind as ProductionKind] = Math.max(
+      0,
+      Math.ceil((amount ?? 0) * mult),
+    );
+  }
+  return out;
+}
+
+export function guildWorkshopRecipeMaterialCost(
+  recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
+): Partial<Record<GuildWorkshopMaterialId, number>> {
+  const mult =
+    mode === "masterwork" ? GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT : 1;
+  const out: Partial<Record<GuildWorkshopMaterialId, number>> = {};
+  for (const [id, amount] of Object.entries(recipe.materialCost ?? {})) {
+    out[id as GuildWorkshopMaterialId] = Math.max(
+      0,
+      Math.ceil((amount ?? 0) * mult),
+    );
+  }
+  return out;
+}
+
+function guildWorkshopCostText(
+  cost: Partial<Record<ProductionKind, number>>,
+  materialCost: Partial<Record<GuildWorkshopMaterialId, number>>,
+): string {
+  return [
+    ...Object.entries(cost).map(([kind, amount]) => {
+      const k = kind as ProductionKind;
+      return `${PRODUCTION_KIND_ICON[k]} ${PRODUCTION_KIND_NAME[k]} ${amount}`;
+    }),
+    ...Object.entries(materialCost).map(([id, amount]) => {
+      return `${GUILD_WORKSHOP_MATERIALS[id as GuildWorkshopMaterialId]?.name ?? id} ${amount}`;
+    }),
+  ].join(" · ");
+}
+
 export function canAffordGuildWorkshopRecipe(
   resources: SettlementResources,
   recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
 ): boolean {
-  return Object.entries(recipe.cost).every(([kind, amount]) => {
+  const cost = guildWorkshopRecipeResourceCost(recipe, mode);
+  return Object.entries(cost).every(([kind, amount]) => {
     const k = kind as ProductionKind;
     return Math.max(0, resources[k] ?? 0) >= Math.max(0, amount ?? 0);
   });
@@ -538,8 +608,10 @@ export function parseGuildWorkshopMaterialInventory(
 export function hasGuildWorkshopRecipeMaterials(
   materials: Record<string, number>,
   recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
 ): boolean {
-  return Object.entries(recipe.materialCost ?? {}).every(([id, amount]) => {
+  const materialCost = guildWorkshopRecipeMaterialCost(recipe, mode);
+  return Object.entries(materialCost).every(([id, amount]) => {
     return Math.max(0, materials[id] ?? 0) >= Math.max(0, amount ?? 0);
   });
 }
@@ -547,9 +619,11 @@ export function hasGuildWorkshopRecipeMaterials(
 export function spendGuildWorkshopRecipeMaterials(
   materials: Record<string, number>,
   recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
 ): Record<string, number> {
   const next: Record<string, number> = { ...materials };
-  for (const [id, amount] of Object.entries(recipe.materialCost ?? {})) {
+  const materialCost = guildWorkshopRecipeMaterialCost(recipe, mode);
+  for (const [id, amount] of Object.entries(materialCost)) {
     const left = Math.max(0, Math.floor((next[id] ?? 0) - (amount ?? 0)));
     if (left > 0) next[id] = left;
     else delete next[id];
@@ -568,13 +642,21 @@ export function guildWorkshopQualityChancePct(
   artisan: ArtisanState,
   recipe: GuildWorkshopRecipe,
   guildBonus: GuildWorkshopBonus | number = 0,
+  mode: GuildWorkshopCraftMode = "normal",
 ): number {
   const level = artisanLevel(artisan[recipe.profession]);
   const bonusPct =
     typeof guildBonus === "number"
       ? guildBonus
       : guildBonus.qualityChanceBonusPct;
-  return Math.min(25, 3 + Math.max(0, level - 1) * 2 + bonusPct);
+  const basePct = 3 + Math.max(0, level - 1) * 2 + bonusPct;
+  if (mode === "masterwork") {
+    return Math.min(
+      GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
+      basePct + GUILD_WORKSHOP_MASTERWORK_QUALITY_BONUS_PCT,
+    );
+  }
+  return Math.min(GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT, basePct);
 }
 
 export function rollGuildWorkshopEnhance(
@@ -582,18 +664,32 @@ export function rollGuildWorkshopEnhance(
   recipe: GuildWorkshopRecipe,
   rng: () => number,
   guildBonus: GuildWorkshopBonus | number = 0,
+  mode: GuildWorkshopCraftMode = "normal",
 ): V2EnhanceState | undefined {
-  const chancePct = guildWorkshopQualityChancePct(artisan, recipe, guildBonus);
+  const chancePct = guildWorkshopQualityChancePct(
+    artisan,
+    recipe,
+    guildBonus,
+    mode,
+  );
   if (rng() * 100 >= chancePct) return undefined;
-  return { level: 1, bonusPct: enhanceBonusPct(1) };
+  const level = artisanLevel(artisan[recipe.profession]);
+  if (mode === "masterwork" && level >= BLACKSMITH_PLUS2_QUALITY_LEVEL) {
+    if (rng() * 100 < GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT) {
+      return { level: 2, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[2] };
+    }
+  }
+  return { level: 1, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[1] };
 }
 
 export function spendGuildWorkshopRecipeCost(
   resources: SettlementResources,
   recipe: GuildWorkshopRecipe,
+  mode: GuildWorkshopCraftMode = "normal",
 ): SettlementResources {
   const next: SettlementResources = { ...resources };
-  for (const [kind, amount] of Object.entries(recipe.cost)) {
+  const cost = guildWorkshopRecipeResourceCost(recipe, mode);
+  for (const [kind, amount] of Object.entries(cost)) {
     const k = kind as ProductionKind;
     next[k] = Math.max(0, Math.floor((next[k] ?? 0) - (amount ?? 0)));
   }
@@ -610,14 +706,39 @@ export function guildWorkshopRecipeView(
 ) {
   const item = V2_EQUIPMENT[recipe.equipmentId];
   const levelOk = meetsGuildWorkshopRecipeLevel(artisan, recipe);
+  const artisanProfessionLevel = artisanLevel(artisan[recipe.profession]);
   const smithyLevelOk =
     smithyLevel >= Math.max(1, recipe.requiredSmithyLevel ?? 1);
   const resourceOk = canAffordGuildWorkshopRecipe(resources, recipe);
   const materialOk = hasGuildWorkshopRecipeMaterials(materials, recipe);
+  const masterworkResourceOk = canAffordGuildWorkshopRecipe(
+    resources,
+    recipe,
+    "masterwork",
+  );
+  const masterworkMaterialOk = hasGuildWorkshopRecipeMaterials(
+    materials,
+    recipe,
+    "masterwork",
+  );
+  const masterworkLevelOk = artisanProfessionLevel >= BLACKSMITH_MASTERWORK_LEVEL;
   const qualityChancePct = guildWorkshopQualityChancePct(
     artisan,
     recipe,
     guildBonus,
+  );
+  const masterworkQualityChancePct = guildWorkshopQualityChancePct(
+    artisan,
+    recipe,
+    guildBonus,
+    "masterwork",
+  );
+  const normalCost = guildWorkshopRecipeResourceCost(recipe);
+  const normalMaterialCost = guildWorkshopRecipeMaterialCost(recipe);
+  const masterworkCost = guildWorkshopRecipeResourceCost(recipe, "masterwork");
+  const masterworkMaterialCost = guildWorkshopRecipeMaterialCost(
+    recipe,
+    "masterwork",
   );
   return {
     id: recipe.id,
@@ -627,27 +748,36 @@ export function guildWorkshopRecipeView(
     tier: item.tier,
     craftOnly: item.craftOnly === true,
     note: recipe.note,
-    cost: recipe.cost,
-    materialCost: recipe.materialCost ?? {},
+    cost: normalCost,
+    materialCost: normalMaterialCost,
     profession: recipe.profession,
     requiredArtisanLevel: recipe.requiredArtisanLevel,
     requiredSmithyLevel: recipe.requiredSmithyLevel ?? 1,
     artisanXp: recipe.artisanXp,
     qualityChancePct,
-    costText: [
-      ...Object.entries(recipe.cost).map(([kind, amount]) => {
-        const k = kind as ProductionKind;
-        return `${PRODUCTION_KIND_ICON[k]} ${PRODUCTION_KIND_NAME[k]} ${amount}`;
-      }),
-      ...Object.entries(recipe.materialCost ?? {}).map(([id, amount]) => {
-        return `${GUILD_WORKSHOP_MATERIALS[id as GuildWorkshopMaterialId]?.name ?? id} ${amount}`;
-      }),
-    ].join(" · "),
+    costText: guildWorkshopCostText(normalCost, normalMaterialCost),
     levelOk,
     smithyLevelOk,
     materialOk,
     resourceOk,
     canCraft: levelOk && smithyLevelOk && resourceOk && materialOk,
+    masterwork: {
+      requiredArtisanLevel: BLACKSMITH_MASTERWORK_LEVEL,
+      levelOk: masterworkLevelOk,
+      resourceOk: masterworkResourceOk,
+      materialOk: masterworkMaterialOk,
+      canCraft:
+        levelOk &&
+        masterworkLevelOk &&
+        smithyLevelOk &&
+        masterworkResourceOk &&
+        masterworkMaterialOk,
+      qualityChancePct: masterworkQualityChancePct,
+      cost: masterworkCost,
+      materialCost: masterworkMaterialCost,
+      costText: guildWorkshopCostText(masterworkCost, masterworkMaterialCost),
+      plus2Unlocked: artisanProfessionLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
+    },
   };
 }
 

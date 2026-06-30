@@ -591,7 +591,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const themes = dungeonThemeCatalog(frontierDepth);
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader title="모험의 서" onBack={onBack} />
       <div className="flex flex-wrap gap-1.5">
         {(
@@ -654,7 +654,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   : "";
               return (
                 <Card key={theme.name} padding="md">
-                  <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
+                  <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
                     <h2 className="text-sm font-bold">{theme.name}</h2>
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       깊이 {theme.depthStart}~{theme.depthEnd}
@@ -886,7 +886,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {equipmentSlotPager.pageItems.map((id) => {
                   const item = V2_EQUIPMENT[id];
                   const registered = equipmentRegisteredIds.has(id);
@@ -990,7 +990,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     key={id}
                     className={`ui-codex-card px-3 py-2.5 ${found ? "is-registered" : "opacity-50"}`}
                   >
-                    <div className="flex items-baseline justify-between gap-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                         📦 {material.name}
                         {found ? (
@@ -1052,7 +1052,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               species.length > 0 && discoveredCount === species.length;
             return (
               <Card key={tier} padding="none" className="overflow-hidden">
-                <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
                   <span
                     className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TIER_BADGE[tier]}`}
                   >
@@ -1084,7 +1084,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         key={id}
                         className={`px-3 py-2.5 ${found ? "" : "opacity-50"}`}
                       >
-                        <div className="flex items-baseline justify-between gap-2">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                             🐟 {found ? fish.name : "???"}
                             {found ? (
@@ -1129,7 +1129,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               kinds.length > 0 && discoveredCount === kinds.length;
             return (
               <Card key={tier} padding="none" className="overflow-hidden">
-                <div className="flex items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
                   <span
                     className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TIER_BADGE[tier]}`}
                   >
@@ -1160,7 +1160,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         key={id}
                         className={`px-3 py-2.5 ${found ? "" : "opacity-50"}`}
                       >
-                        <div className="flex items-baseline justify-between gap-2">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                             🏺 {found ? antique.name : "???"}
                             {found ? (

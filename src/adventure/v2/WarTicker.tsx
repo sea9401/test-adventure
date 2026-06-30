@@ -3,7 +3,7 @@
 // 전쟁 전광판 — 상단 탭바 바로 아래 전역 한 줄 티커(docs/v2-war-visibility-plan.md PR-4).
 // GameChrome(영속 틀)에 마운트 → 폴링 1곳·전 화면 노출. 최근 WAR_TICKER_WINDOW_MIN 분 안의
 // 전쟁 사건(/api/feed?types=war)을 좌로 흘리고, 0건이면 띠 자체를 숨긴다.
-// 클릭 → 토벌(/battle/subjugation). 모션 축소 환경은 CSS 가 애니메이션을 끔(최신 사건이 맨 앞).
+// 클릭 → 전체 소식(/plaza/feed). 모션 축소 환경은 CSS 가 애니메이션을 끔(최신 사건이 맨 앞).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -108,7 +108,7 @@ export function WarTickerStrip({
     <button
       type="button"
       onClick={onClick}
-      aria-label="전쟁 보기"
+      aria-label="전체 소식 보기"
       className="war-ticker-alert group block w-full cursor-pointer overflow-hidden whitespace-nowrap border-b border-zinc-200 bg-zinc-100/80 py-1 text-xs text-zinc-600 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300"
     >
       <span
@@ -183,7 +183,7 @@ export function WarTicker() {
     <WarTickerStrip
       key={sig} // 묶음 내용이 바뀌면 리마운트 → 애니메이션을 처음부터
       texts={texts}
-      onClick={() => router.push("/battle/subjugation")}
+      onClick={() => router.push("/plaza/feed")}
     />
   );
 }

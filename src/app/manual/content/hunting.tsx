@@ -1,5 +1,45 @@
 import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
+import {
+  RARE_MAP_CAP,
+  RARE_MAP_KINDS,
+  type RareMapKind,
+  type RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
 import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
+
+const HUNT_RARE_MAP_IDS = [
+  "worn_map",
+  "gilded_map",
+  "sage_map",
+  "hunter_map",
+  "relic_map",
+] satisfies RareMapKindId[];
+
+const UTILITY_RARE_MAP_IDS = [
+  "secret_shop_map",
+  "rename_map",
+  "portrait_map",
+] satisfies RareMapKindId[];
+
+function percentText(pct: number) {
+  return `${pct}%`;
+}
+
+function multText(label: string, mult: number) {
+  return mult > 1 ? `${label} x${mult}` : null;
+}
+
+function rareMapRewardText(def: RareMapKind) {
+  return [
+    multText("EXP", def.expMult),
+    multText("골드", def.goldMult),
+    multText("장비·재료", def.equipDropMult),
+    multText("유니크", def.uniqueDropMult),
+    multText("강화석", def.enhanceStoneMult),
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
 export function HuntingContent() {
   return (
@@ -69,6 +109,45 @@ export function HuntingContent() {
           변경 같은 특별한 장소로 데려갑니다. 모두 거래소에서 거래됩니다.
         </li>
       </UL>
+
+      <H2>레어맵 지도</H2>
+      <P>
+        레어맵은 <Em>일반 사냥 승리</Em> 때 낮은 확률로 발견됩니다. 발견된 지도는
+        소모품으로 보관되고, 성장맵은 전투 탭 → 사냥터의 <Em>발견한 지도</Em>에서,
+        유틸맵은 가방의 소모품 탭에서 사용합니다.
+      </P>
+      <Table
+        head={["지도", "열리는 곳", "횟수", "보너스", "승리당 발견률"]}
+        rows={HUNT_RARE_MAP_IDS.map((id) => {
+          const def = RARE_MAP_KINDS[id];
+          return [
+            <Em key={id}>{def.name}</Em>,
+            "발견 깊이의 농축 사냥터",
+            `${def.runs}판`,
+            rareMapRewardText(def),
+            percentText(def.dropPct),
+          ];
+        })}
+        caption="성장맵 사냥은 입장한 지도의 발견 깊이로만 진행됩니다. 판수는 승패와 무관하게 소모되고, 레어맵 안에서는 또 다른 레어맵이 발견되지 않습니다."
+      />
+      <Table
+        head={["지도", "열리는 곳", "횟수", "용도", "승리당 발견률"]}
+        rows={UTILITY_RARE_MAP_IDS.map((id) => {
+          const def = RARE_MAP_KINDS[id];
+          return [
+            <Em key={id}>{def.name}</Em>,
+            id === "secret_shop_map"
+              ? "비밀 상점"
+              : id === "rename_map"
+                ? "개명의 신전"
+                : "화공의 공방",
+            `${def.runs}회`,
+            def.desc,
+            percentText(def.dropPct),
+          ];
+        })}
+        caption={`유틸맵은 사냥터가 아니라 숨겨진 기능 입장권입니다. 보유 레어맵은 최대 ${RARE_MAP_CAP}장까지 들 수 있습니다.`}
+      />
 
       <Note>
         어느 길드가 점령한 영토에서 사냥하면 골드 일부가 <Em>세금</Em>으로 그

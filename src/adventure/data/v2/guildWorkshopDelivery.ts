@@ -3,7 +3,8 @@ import { V2_EQUIPMENT, type V2EquipInstance } from "./v2Equipment";
 export type GuildWorkshopDeliveryId =
   | "daily_crafted_any"
   | "daily_quality_any"
-  | "daily_craft_only";
+  | "daily_craft_only"
+  | "daily_masterwork";
 
 export type GuildWorkshopDelivery = {
   id: GuildWorkshopDeliveryId;
@@ -55,6 +56,17 @@ export const GUILD_WORKSHOP_DELIVERIES: Record<
     rewardGold: 400_000,
     accepts: (inst) =>
       inst.craftedBy?.profession === "blacksmith" &&
+      V2_EQUIPMENT[inst.id]?.craftOnly === true,
+  },
+  daily_masterwork: {
+    id: "daily_masterwork",
+    title: "명장 제작품 납품",
+    description: "명장 제작으로 만든 제작 전용 장비 1개 납품",
+    rewardArtisanXp: 90,
+    rewardGold: 700_000,
+    accepts: (inst) =>
+      inst.craftedBy?.profession === "blacksmith" &&
+      inst.craftedBy.masterwork === true &&
       V2_EQUIPMENT[inst.id]?.craftOnly === true,
   },
 };

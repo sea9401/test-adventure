@@ -47,7 +47,7 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type V2EquipTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
@@ -222,6 +222,32 @@ export type V2EquipmentId =
   | "v2_throne_shadow_boots"
   | "v2_throne_void_ring"
   | "v2_throne_royal_necklace"
+  // 붉은 벌판 밴드 드랍 (밴드 H, 깊이 49~54, T11).
+  | "v2_redfield_greatsword"
+  | "v2_redfield_staff"
+  | "v2_redfield_bow"
+  | "v2_redfield_dagger"
+  | "v2_redfield_war_armor"
+  | "v2_redfield_ember_robe"
+  | "v2_redfield_war_gloves"
+  | "v2_redfield_spark_gloves"
+  | "v2_redfield_war_boots"
+  | "v2_redfield_ash_boots"
+  | "v2_redfield_ember_ring"
+  | "v2_redfield_banner_necklace"
+  // 백골 고원 밴드 드랍 (밴드 I, 깊이 55~60, T12).
+  | "v2_plateau_greatsword"
+  | "v2_plateau_staff"
+  | "v2_plateau_bow"
+  | "v2_plateau_dagger"
+  | "v2_plateau_bone_armor"
+  | "v2_plateau_crow_robe"
+  | "v2_plateau_bone_gloves"
+  | "v2_plateau_slayer_gloves"
+  | "v2_plateau_bone_boots"
+  | "v2_plateau_rider_boots"
+  | "v2_plateau_cairn_ring"
+  | "v2_plateau_lord_necklace"
   // 고유 아이템(Signature Uniques) — 잊힌 성소(25)부터. docs/v2-signature-uniques-plan.md.
   | "v2_sanctum_sig_priest_armor"
   | "v2_sanctum_sig_priest_necklace"
@@ -242,7 +268,17 @@ export type V2EquipmentId =
   | "v2_throne_sig_starfall_bow"
   | "v2_throne_sig_black_plate"
   | "v2_throne_sig_void_crown"
-  | "v2_throne_sig_shadow_ring";
+  | "v2_throne_sig_shadow_ring"
+  | "v2_redfield_sig_ash_spear"
+  | "v2_redfield_sig_powder_staff"
+  | "v2_redfield_sig_redmane_cloak"
+  | "v2_redfield_sig_storm_banner"
+  | "v2_redfield_sig_ember_ring"
+  | "v2_plateau_sig_skeleton_lance"
+  | "v2_plateau_sig_crow_staff"
+  | "v2_plateau_sig_bone_lord_plate"
+  | "v2_plateau_sig_rider_boots"
+  | "v2_plateau_sig_cairn_crown";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -329,7 +365,7 @@ export type V2Equipment = {
 //   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
 //   T3 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
 // 2026-06-07 티어 1/3/5 → 1/2/3 리넘버(표기 숨김 후 연속번호). 곡선·매그니튜드는 불변(키만 리키).
-// 2026-06-30 프론티어 드랍을 T4~T10 으로 재정립. 판매가는 T3 이후 ×2 완만 램프.
+// 2026-06-30 프론티어 드랍을 T4~T12로 재정립. 판매가는 T3 이후 ×2 완만 램프.
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 300,
   2: 10800,
@@ -341,6 +377,8 @@ const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   8: 12441600,
   9: 24883200,
   10: 49766400,
+  11: 99532800,
+  12: 199065600,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -687,6 +725,54 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       { count: 3, bonus: { crit: 10, eva: 6, spd: 10 } },
     ],
   },
+  {
+    id: "ash_line",
+    name: "잿빛 전선",
+    thresholds: [
+      { count: 2, bonus: { hp: 120, critResist: 5 } },
+      { count: 3, bonus: { hp: 200, critMult: 28, magicDef: 12 } },
+    ],
+  },
+  {
+    id: "ember_rite",
+    name: "연소 의식",
+    thresholds: [
+      { count: 2, bonus: { mp: 130, magicDef: 10 } },
+      { count: 3, bonus: { mp: 210, healPowerPct: 6, magicDef: 18 } },
+    ],
+  },
+  {
+    id: "storm_hunt",
+    name: "폭풍 추격",
+    thresholds: [
+      { count: 2, bonus: { crit: 7, spd: 7 } },
+      { count: 3, bonus: { crit: 12, eva: 7, spd: 12 } },
+    ],
+  },
+  {
+    id: "bone_line",
+    name: "백골 장벽",
+    thresholds: [
+      { count: 2, bonus: { hp: 150, critResist: 6 } },
+      { count: 3, bonus: { hp: 260, magicDef: 16, critResist: 10 } },
+    ],
+  },
+  {
+    id: "crow_rite",
+    name: "까마귀 조문",
+    thresholds: [
+      { count: 2, bonus: { mp: 150, magicDef: 12 } },
+      { count: 3, bonus: { mp: 240, crit: 6, magicDef: 22 } },
+    ],
+  },
+  {
+    id: "death_hunt",
+    name: "사혼 추격",
+    thresholds: [
+      { count: 2, bonus: { crit: 8, spd: 8 } },
+      { count: 3, bonus: { crit: 13, eva: 8, spd: 14 } },
+    ],
+  },
 ];
 
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
@@ -1014,6 +1100,8 @@ export type V2CraftedBy = {
   profession: "blacksmith";
   level: number;
   craftedAt: string;
+  /** 명장 제작 모드로 생산된 제작품 표식. 납품·거래 가치 판정에 사용한다. */
+  masterwork?: boolean;
 };
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
@@ -1069,6 +1157,8 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "necklace",
 ]);
 
+const CRAFTED_ENHANCE_BONUS_PCT = new Set([2, 4, 5, 10]);
+
 // 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
 // 거래소 buy/cancel 의 payload 복원에도 쓰여 공개(굴림 방어 파스 단일 출처).
 export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
@@ -1114,7 +1204,31 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
     profession: "blacksmith",
     level,
     craftedAt,
+    ...(raw.masterwork === true ? { masterwork: true } : {}),
   };
+}
+
+function parseInstanceEnhance(
+  val: unknown,
+  craftedBy: V2CraftedBy | undefined,
+): V2EnhanceState | undefined {
+  const parsed = parseEnhance(val);
+  if (!parsed) return undefined;
+  if (!craftedBy || !val || typeof val !== "object" || Array.isArray(val)) {
+    return parsed;
+  }
+  const raw = val as Record<string, unknown>;
+  const level = Math.floor(Number(raw.level));
+  const bonusPct = Math.floor(Number(raw.bonusPct));
+  if (
+    Number.isFinite(level) &&
+    Number.isFinite(bonusPct) &&
+    (level === 1 || level === 2) &&
+    CRAFTED_ENHANCE_BONUS_PCT.has(bonusPct)
+  ) {
+    return { level, bonusPct };
+  }
+  return parsed;
 }
 
 // equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
@@ -1159,9 +1273,9 @@ export function parseEquipmentSave(raw: unknown): {
       roll: parseEquipRoll(e.roll),
     };
     if (e.locked === true) inst.locked = true;
-    const enhance = parseEnhance(e.enhance);
-    if (enhance) inst.enhance = enhance;
     const craftedBy = parseCraftedBy(e.craftedBy);
+    const enhance = parseInstanceEnhance(e.enhance, craftedBy);
+    if (enhance) inst.enhance = enhance;
     if (craftedBy) inst.craftedBy = craftedBy;
     owned.push(inst);
     byIid.set(iid, inst);

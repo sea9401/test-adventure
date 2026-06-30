@@ -26,6 +26,183 @@ export type ArtisanRewardMilestone = {
   description: string;
 };
 
+export type ArtisanJobId =
+  | "apprentice_blacksmith"
+  | "blacksmith"
+  | "master_blacksmith";
+
+export type ArtisanJobTier = 1 | 2 | 3;
+export type ArtisanJobCategory = "lifestyle";
+export type ArtisanEffectScope = "crafting";
+
+export type ArtisanJobDefinition = {
+  id: ArtisanJobId;
+  profession: ArtisanProfessionId;
+  category: ArtisanJobCategory;
+  effectScope: ArtisanEffectScope;
+  tier: ArtisanJobTier;
+  name: string;
+  requiredLevel: number;
+  role: string;
+  unlockText: string;
+};
+
+export type ArtisanSkillId =
+  | "blacksmith_maker_mark"
+  | "blacksmith_basic_forging"
+  | "blacksmith_material_sense"
+  | "blacksmith_precision_forging"
+  | "blacksmith_dismantle"
+  | "blacksmith_signature_craft"
+  | "blacksmith_masterwork"
+  | "blacksmith_high_quality"
+  | "blacksmith_master_mark";
+
+export type ArtisanSkillKind = "passive" | "craftMode" | "craftAction";
+
+export type ArtisanSkillDefinition = {
+  id: ArtisanSkillId;
+  jobId: ArtisanJobId;
+  effectScope: ArtisanEffectScope;
+  level: number;
+  kind: ArtisanSkillKind;
+  name: string;
+  description: string;
+  implemented: boolean;
+};
+
+export const BLACKSMITH_MASTERWORK_LEVEL = 8;
+export const BLACKSMITH_PLUS2_QUALITY_LEVEL = 9;
+
+export const BLACKSMITH_ARTISAN_JOBS: readonly ArtisanJobDefinition[] = [
+  {
+    id: "apprentice_blacksmith",
+    profession: "blacksmith",
+    category: "lifestyle",
+    effectScope: "crafting",
+    tier: 1,
+    name: "견습 대장장이",
+    requiredLevel: 1,
+    role: "제작자 각인과 기본 품질 제작",
+    unlockText: "길드 대장간에서 첫 제작 시작",
+  },
+  {
+    id: "blacksmith",
+    profession: "blacksmith",
+    category: "lifestyle",
+    effectScope: "crafting",
+    tier: 2,
+    name: "대장장이",
+    requiredLevel: 5,
+    role: "상급 제작, 제작 전용 장비, 재료 효율",
+    unlockText: "대장장이 Lv 5",
+  },
+  {
+    id: "master_blacksmith",
+    profession: "blacksmith",
+    category: "lifestyle",
+    effectScope: "crafting",
+    tier: 3,
+    name: "명장 대장장이",
+    requiredLevel: BLACKSMITH_MASTERWORK_LEVEL,
+    role: "명장 제작, +2 품질, 명장 납품 가치",
+    unlockText: `대장장이 Lv ${BLACKSMITH_MASTERWORK_LEVEL}`,
+  },
+];
+
+export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
+  {
+    id: "blacksmith_maker_mark",
+    jobId: "apprentice_blacksmith",
+    effectScope: "crafting",
+    level: 1,
+    kind: "passive",
+    name: "제작자 각인",
+    description: "제작 장비에 제작자 이름, 레벨, 제작 시각을 남김",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_basic_forging",
+    jobId: "apprentice_blacksmith",
+    effectScope: "crafting",
+    level: 2,
+    kind: "passive",
+    name: "기초 단조",
+    description: "대장장이 레벨에 따라 제작 품질 확률 증가",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_material_sense",
+    jobId: "apprentice_blacksmith",
+    effectScope: "crafting",
+    level: 4,
+    kind: "passive",
+    name: "재료 감각",
+    description: "제작 재료 절약과 회수 계열 확장용 패시브",
+    implemented: false,
+  },
+  {
+    id: "blacksmith_precision_forging",
+    jobId: "blacksmith",
+    effectScope: "crafting",
+    level: 5,
+    kind: "craftMode",
+    name: "정밀 단조",
+    description: "고비용 제작 모드와 품질 확률 확장의 기반",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_dismantle",
+    jobId: "blacksmith",
+    effectScope: "crafting",
+    level: 6,
+    kind: "craftAction",
+    name: "해체술",
+    description: "장비 분해로 제작 재료 일부 회수",
+    implemented: false,
+  },
+  {
+    id: "blacksmith_signature_craft",
+    jobId: "blacksmith",
+    effectScope: "crafting",
+    level: 7,
+    kind: "passive",
+    name: "전용 장비 숙련",
+    description: "제작 전용 장비 레시피와 품질 제작 가치 강화",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_masterwork",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: BLACKSMITH_MASTERWORK_LEVEL,
+    kind: "craftMode",
+    name: "명장 제작",
+    description: "비용을 더 들여 품질 확률 상한과 명장 제작품 표식 획득",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_high_quality",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: BLACKSMITH_PLUS2_QUALITY_LEVEL,
+    kind: "passive",
+    name: "고품질 단조",
+    description: "명장 제작 시 낮은 확률로 +2 품질 제작품 생산",
+    implemented: true,
+  },
+  {
+    id: "blacksmith_master_mark",
+    jobId: "master_blacksmith",
+    effectScope: "crafting",
+    level: 10,
+    kind: "passive",
+    name: "명장의 각인",
+    description: "명장 제작품 납품과 거래 가치 확장",
+    implemented: true,
+  },
+];
+
 export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
   {
     level: 1,
@@ -61,6 +238,21 @@ export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
     level: 7,
     title: "명장 장신구",
     description: "제작 전용 명장 반지 레시피 해금",
+  },
+  {
+    level: 8,
+    title: "명장 제작",
+    description: "제작 품질 확률 상한 상승 및 명장 제작품 표식",
+  },
+  {
+    level: 9,
+    title: "고품질 단조",
+    description: "+2 품질 제작품 확률 개방",
+  },
+  {
+    level: 10,
+    title: "왕도 명장",
+    description: "명장 제작품 납품 가치 극대화",
   },
 ];
 
@@ -145,6 +337,29 @@ export function nextArtisanMilestone(
   level: number,
 ): ArtisanRewardMilestone | null {
   return milestones.find((milestone) => milestone.level > level) ?? null;
+}
+
+export function blacksmithJobForLevel(levelRaw: number): ArtisanJobDefinition {
+  const level = Math.max(1, Math.floor(levelRaw));
+  let current = BLACKSMITH_ARTISAN_JOBS[0];
+  for (const job of BLACKSMITH_ARTISAN_JOBS) {
+    if (level >= job.requiredLevel) current = job;
+  }
+  return current;
+}
+
+export function unlockedBlacksmithJobs(
+  levelRaw: number,
+): ArtisanJobDefinition[] {
+  const level = Math.max(1, Math.floor(levelRaw));
+  return BLACKSMITH_ARTISAN_JOBS.filter((job) => level >= job.requiredLevel);
+}
+
+export function unlockedBlacksmithSkills(
+  levelRaw: number,
+): ArtisanSkillDefinition[] {
+  const level = Math.max(1, Math.floor(levelRaw));
+  return BLACKSMITH_ARTISAN_SKILLS.filter((skill) => level >= skill.level);
 }
 
 export function addArtisanXp(

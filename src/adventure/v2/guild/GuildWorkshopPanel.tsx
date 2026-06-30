@@ -9,6 +9,8 @@ import {
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 import {
+  BLACKSMITH_ARTISAN_JOBS,
+  BLACKSMITH_ARTISAN_SKILLS,
   BLACKSMITH_REWARD_MILESTONES,
   nextArtisanMilestone,
 } from "@/adventure/data/v2/artisan";
@@ -18,7 +20,10 @@ import {
   type GuildWorkshopMaterialId,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { TITLES } from "@/adventure/data/titles";
-import type { GuildWorkshopRecipeId } from "@/adventure/data/v2/guildWorkshop";
+import type {
+  GuildWorkshopCraftMode,
+  GuildWorkshopRecipeId,
+} from "@/adventure/data/v2/guildWorkshop";
 import {
   V2_EQUIP_TAG_SETS,
   V2_SLOT_LABEL,
@@ -50,6 +55,16 @@ type WorkshopRecipeView = {
   costText: string;
   canCraft: boolean;
   requiredSmithyLevel: number;
+  masterwork?: {
+    requiredArtisanLevel: number;
+    levelOk: boolean;
+    resourceOk: boolean;
+    materialOk: boolean;
+    canCraft: boolean;
+    qualityChancePct: number;
+    costText: string;
+    plus2Unlocked: boolean;
+  };
 };
 
 type ArtisanProfessionView = {
@@ -142,6 +157,8 @@ type CraftResultView = {
   tier: number;
   craftOnly: boolean;
   enhanceLevel: number;
+  craftMode: GuildWorkshopCraftMode;
+  masterwork: boolean;
   artisanXpGained: number;
   grantedTitleNames: string[];
 };
@@ -156,6 +173,7 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_recipe: "제작할 수 없는 의뢰입니다.",
   insufficient_artisan_level: "대장장이 숙련도가 부족합니다.",
   insufficient_smithy_level: "대장간 레벨이 부족합니다.",
+  masterwork_locked: "명장 제작은 대장장이 Lv 8부터 사용할 수 있습니다.",
   insufficient_resources: "길드 영지 재화가 부족합니다.",
   insufficient_materials: "제작 재료가 부족합니다.",
 };
@@ -498,7 +516,10 @@ export function GuildWorkshopPanel({
       );
   }, [state]);
 
-  async function craft(recipeId: GuildWorkshopRecipeId) {
+  async function craft(
+    recipeId: GuildWorkshopRecipeId,
+    craftMode: GuildWorkshopCraftMode = "normal",
+  ) {
     setCraftingId(recipeId);
     setMessage(null);
     setCraftResult(null);
@@ -506,7 +527,7 @@ export function GuildWorkshopPanel({
       const res = await fetch("/api/v2/guild/workshop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipeId }),
+        body: JSON.stringify({ recipeId, mode: craftMode }),
       });
       const json = await res.json();
       if (!json.ok) {
@@ -592,6 +613,11 @@ export function GuildWorkshopPanel({
         tier: crafted?.tier ?? 1,
         craftOnly: crafted?.craftOnly === true,
         enhanceLevel: Math.max(0, Math.floor(Number(json.enhance?.level ?? 0))),
+        craftMode:
+          json.craftMode === "masterwork" || craftMode === "masterwork"
+            ? "masterwork"
+            : "normal",
+        masterwork: json.craftMode === "masterwork" || craftMode === "masterwork",
         artisanXpGained: Math.max(
           0,
           Math.floor(Number(json.artisanXpGained ?? crafted?.artisanXp ?? 0)),
@@ -1063,6 +1089,66 @@ export function GuildWorkshopPanel({
               {state.smithyBonus?.label ?? "기본 제작"} · 품질 보너스 +
               {state.smithyBonus?.qualityChanceBonusPct ?? 0}%p
             </div>
+            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              대장장이 효과는 현재 전투 직업과 무관하게 대장간 제작 시
+              적용됩니다.
+            </div>
+            <div className="mt-2 font-semibold">생산직 차수</div>
+            <div className="mt-1 grid gap-1">
+              {BLACKSMITH_ARTISAN_JOBS.map((job) => {
+                const unlocked = blacksmithLevel >= job.requiredLevel;
+                return (
+                  <div
+                    key={job.id}
+                    className={`rounded border px-2 py-1 ${
+                      unlocked
+                        ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
+                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">
+                        {job.tier}차 · {job.name}
+                      </span>
+                      <span className="text-[10px]">
+                        {unlocked ? "해금" : job.unlockText}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] opacity-80">
+                      {job.role}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 font-semibold">제작 스킬</div>
+            <div className="mt-1 grid gap-1">
+              {BLACKSMITH_ARTISAN_SKILLS.map((skill) => {
+                const unlocked = blacksmithLevel >= skill.level;
+                return (
+                  <div
+                    key={skill.id}
+                    className={`rounded border px-2 py-1 ${
+                      unlocked
+                        ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">
+                        Lv {skill.level} · {skill.name}
+                      </span>
+                      <span className="text-[10px]">
+                        {skill.implemented ? "적용" : "예정"}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] opacity-80">
+                      {skill.description}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             <div className="mt-2 grid gap-1">
               {BLACKSMITH_REWARD_MILESTONES.map((milestone) => {
                 const unlocked = blacksmithLevel >= milestone.level;
@@ -1154,8 +1240,13 @@ export function GuildWorkshopPanel({
           <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-amber-950 dark:text-amber-100">
-                제작 완료
+                {craftResult.masterwork ? "명장 제작 완료" : "제작 완료"}
               </span>
+              {craftResult.masterwork ? (
+                <span className="rounded bg-rose-200 px-1.5 py-px font-semibold text-rose-900 dark:bg-rose-800 dark:text-rose-50">
+                  명장 제작품
+                </span>
+              ) : null}
               {craftResult.craftOnly ? <CraftOnlyBadge /> : null}
               {craftResult.enhanceLevel > 0 ? (
                 <span className="rounded bg-amber-200 px-1.5 py-px font-semibold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
@@ -1291,6 +1382,7 @@ export function GuildWorkshopPanel({
       <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
         {filteredRecipes.map((recipe) => {
           const busy = craftingId === recipe.id;
+          const masterwork = recipe.masterwork;
           return (
             <div
               key={recipe.id}
@@ -1314,25 +1406,54 @@ export function GuildWorkshopPanel({
                   {recipe.costText} · +1 확률 {recipe.qualityChancePct}%
                   {recipe.craftOnly ? " · 획득 경로: 이 대장간 제작" : ""}
                 </div>
+                {masterwork ? (
+                  <div className="mt-1 text-[11px] text-rose-700 dark:text-rose-300">
+                    명장 제작: {masterwork.costText} · 품질 확률{" "}
+                    {masterwork.qualityChancePct}% ·{" "}
+                    {masterwork.plus2Unlocked ? "+2 가능" : "Lv9부터 +2 가능"}
+                  </div>
+                ) : null}
               </div>
-              <button
-                type="button"
-                disabled={!recipe.canCraft || busy || craftingId != null}
-                onClick={() => void craft(recipe.id)}
-                className="inline-flex h-8 min-w-20 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-              >
-                {busy ? (
-                  <SpinnerGap size={14} className="animate-spin" aria-hidden />
-                ) : !recipe.levelOk ? (
-                  `Lv ${recipe.requiredArtisanLevel}`
-                ) : !recipe.smithyLevelOk ? (
-                  `대장간 Lv ${recipe.requiredSmithyLevel}`
-                ) : recipe.canCraft ? (
-                  "제작"
-                ) : (
-                  "부족"
-                )}
-              </button>
+              <div className="flex flex-wrap gap-1.5 sm:justify-end">
+                <button
+                  type="button"
+                  disabled={!recipe.canCraft || busy || craftingId != null}
+                  onClick={() => void craft(recipe.id)}
+                  className="inline-flex h-8 min-w-20 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                >
+                  {busy ? (
+                    <SpinnerGap size={14} className="animate-spin" aria-hidden />
+                  ) : !recipe.levelOk ? (
+                    `Lv ${recipe.requiredArtisanLevel}`
+                  ) : !recipe.smithyLevelOk ? (
+                    `대장간 Lv ${recipe.requiredSmithyLevel}`
+                  ) : recipe.canCraft ? (
+                    "제작"
+                  ) : (
+                    "부족"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !masterwork?.canCraft || busy || craftingId != null
+                  }
+                  onClick={() => void craft(recipe.id, "masterwork")}
+                  className="inline-flex h-8 min-w-24 items-center justify-center rounded border border-rose-700 bg-rose-700 px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                >
+                  {busy ? (
+                    <SpinnerGap size={14} className="animate-spin" aria-hidden />
+                  ) : !masterwork?.levelOk ? (
+                    `명장 Lv ${masterwork?.requiredArtisanLevel ?? 8}`
+                  ) : !recipe.smithyLevelOk ? (
+                    `대장간 Lv ${recipe.requiredSmithyLevel}`
+                  ) : masterwork.canCraft ? (
+                    "명장 제작"
+                  ) : (
+                    "재료 부족"
+                  )}
+                </button>
+              </div>
             </div>
           );
         })}

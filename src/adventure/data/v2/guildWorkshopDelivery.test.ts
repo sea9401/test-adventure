@@ -40,18 +40,32 @@ describe("guild workshop delivery", () => {
         crafted,
         { ...crafted, iid: "b", enhance: { level: 1, bonusPct: 2 } },
         { ...crafted, iid: "c", id: "v2_crafted_oathblade" },
+        {
+          ...crafted,
+          iid: "d",
+          id: "v2_crafted_sunforge_blade",
+          craftedBy: { ...crafted.craftedBy!, level: 8, masterwork: true },
+        },
       ],
       new Set(),
     );
     expect(views.find((v) => v.id === "daily_crafted_any")?.canClaim).toBe(true);
     expect(views.find((v) => v.id === "daily_quality_any")?.canClaim).toBe(true);
     expect(views.find((v) => v.id === "daily_craft_only")?.canClaim).toBe(true);
+    expect(views.find((v) => v.id === "daily_masterwork")?.canClaim).toBe(true);
     expect(
       views.find((v) => v.id === "daily_craft_only")?.deliverable[0],
     ).toMatchObject({
       itemName: "맹세의 장검",
       craftOnly: true,
       crafterLevel: 3,
+    });
+    expect(
+      views.find((v) => v.id === "daily_masterwork")?.deliverable[0],
+    ).toMatchObject({
+      itemName: "태양담금 검",
+      craftOnly: true,
+      crafterLevel: 8,
     });
   });
 
@@ -66,6 +80,36 @@ describe("guild workshop delivery", () => {
       rewardGold: 325000,
       bonusPct: 30,
     });
+  });
+
+  it("requires craft-only equipment with a masterwork mark for masterwork delivery", () => {
+    const lowLevel: V2EquipInstance = {
+      ...crafted,
+      iid: "low",
+      id: "v2_crafted_sunforge_blade",
+      craftedBy: { ...crafted.craftedBy!, level: 7 },
+    };
+    const masterwork: V2EquipInstance = {
+      ...lowLevel,
+      iid: "master",
+      craftedBy: { ...crafted.craftedBy!, level: 8, masterwork: true },
+    };
+    const regularHighLevel: V2EquipInstance = {
+      ...crafted,
+      id: "v2_crafted_sunforge_blade",
+      iid: "regular",
+      craftedBy: { ...crafted.craftedBy!, level: 9 },
+    };
+
+    expect(GUILD_WORKSHOP_DELIVERIES.daily_masterwork.accepts(lowLevel)).toBe(
+      false,
+    );
+    expect(
+      GUILD_WORKSHOP_DELIVERIES.daily_masterwork.accepts(regularHighLevel),
+    ).toBe(false);
+    expect(GUILD_WORKSHOP_DELIVERIES.daily_masterwork.accepts(masterwork)).toBe(
+      true,
+    );
   });
 
   it("does not offer locked or equipped items and marks claimed deliveries", () => {

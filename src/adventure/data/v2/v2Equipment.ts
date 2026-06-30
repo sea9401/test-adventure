@@ -1100,6 +1100,8 @@ export type V2CraftedBy = {
   profession: "blacksmith";
   level: number;
   craftedAt: string;
+  /** 명장 제작 모드로 생산된 제작품 표식. 납품·거래 가치 판정에 사용한다. */
+  masterwork?: boolean;
 };
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
@@ -1155,6 +1157,8 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "necklace",
 ]);
 
+const CRAFTED_ENHANCE_BONUS_PCT = new Set([2, 4, 5, 10]);
+
 // 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
 // 거래소 buy/cancel 의 payload 복원에도 쓰여 공개(굴림 방어 파스 단일 출처).
 export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
@@ -1200,7 +1204,31 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
     profession: "blacksmith",
     level,
     craftedAt,
+    ...(raw.masterwork === true ? { masterwork: true } : {}),
   };
+}
+
+function parseInstanceEnhance(
+  val: unknown,
+  craftedBy: V2CraftedBy | undefined,
+): V2EnhanceState | undefined {
+  const parsed = parseEnhance(val);
+  if (!parsed) return undefined;
+  if (!craftedBy || !val || typeof val !== "object" || Array.isArray(val)) {
+    return parsed;
+  }
+  const raw = val as Record<string, unknown>;
+  const level = Math.floor(Number(raw.level));
+  const bonusPct = Math.floor(Number(raw.bonusPct));
+  if (
+    Number.isFinite(level) &&
+    Number.isFinite(bonusPct) &&
+    (level === 1 || level === 2) &&
+    CRAFTED_ENHANCE_BONUS_PCT.has(bonusPct)
+  ) {
+    return { level, bonusPct };
+  }
+  return parsed;
 }
 
 // equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
@@ -1245,9 +1273,9 @@ export function parseEquipmentSave(raw: unknown): {
       roll: parseEquipRoll(e.roll),
     };
     if (e.locked === true) inst.locked = true;
-    const enhance = parseEnhance(e.enhance);
-    if (enhance) inst.enhance = enhance;
     const craftedBy = parseCraftedBy(e.craftedBy);
+    const enhance = parseInstanceEnhance(e.enhance, craftedBy);
+    if (enhance) inst.enhance = enhance;
     if (craftedBy) inst.craftedBy = craftedBy;
     owned.push(inst);
     byIid.set(iid, inst);

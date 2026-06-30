@@ -623,6 +623,7 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
             profession: "blacksmith",
             level: 2.9,
             craftedAt: "2026-06-29T00:00:00.000Z",
+            masterwork: true,
           },
         },
         {
@@ -638,8 +639,41 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       profession: "blacksmith",
       level: 2,
       craftedAt: "2026-06-29T00:00:00.000Z",
+      masterwork: true,
     });
     expect(r.owned[1].craftedBy).toBeUndefined();
+  });
+
+  it("crafted quality bonusPct is preserved separately from normal enhancement", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        {
+          iid: "crafted",
+          id: "v2_iron_sword",
+          enhance: { level: 1, bonusPct: 5 },
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 8,
+            craftedAt: "2026-06-29T00:00:00.000Z",
+          },
+        },
+        {
+          iid: "normal",
+          id: "v2_iron_sword",
+          enhance: { level: 1, bonusPct: 5 },
+        },
+      ],
+    });
+
+    expect(r.owned.find((i) => i.iid === "crafted")?.enhance).toEqual({
+      level: 1,
+      bonusPct: 5,
+    });
+    expect(r.owned.find((i) => i.iid === "normal")?.enhance).toEqual({
+      level: 1,
+      bonusPct: 2,
+    });
   });
 
 });

@@ -28,6 +28,7 @@ import {
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopRecipeView,
   hasGuildWorkshopRecipeMaterials,
+  isGuildWorkshopCraftMode,
   isGuildWorkshopRecipeId,
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopMaterialInventory,
@@ -39,6 +40,7 @@ import {
 } from "@/adventure/data/v2/guildWorkshop";
 import {
   ARTISAN_PROFESSION_NAME,
+  BLACKSMITH_MASTERWORK_LEVEL,
   addArtisanXp,
   artisanLevel,
   artisanXpForNextLevel,
@@ -227,7 +229,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { recipeId?: unknown };
+  let body: { recipeId?: unknown; mode?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -240,6 +242,7 @@ export async function POST(req: Request) {
     );
   }
   const recipe = GUILD_WORKSHOP_RECIPES[body.recipeId];
+  const craftMode = isGuildWorkshopCraftMode(body.mode) ? body.mode : "normal";
 
   const guildId = await getGuildIdForUser(userId);
   if (guildId == null) {
@@ -291,6 +294,7 @@ export async function POST(req: Request) {
     );
     const parsed = parseEquipmentSave(equipSave);
     const currentArtisan = parseArtisanState(craftingRaw.artisan);
+    const currentBlacksmithLevel = artisanLevel(currentArtisan.blacksmith);
     if (!meetsGuildWorkshopRecipeLevel(currentArtisan, recipe)) {
       return {
         status: 403,
@@ -298,6 +302,20 @@ export async function POST(req: Request) {
           ok: false as const,
           error: "insufficient_artisan_level" as const,
           requiredArtisanLevel: recipe.requiredArtisanLevel,
+          artisan: artisanView(craftingRaw),
+        },
+      };
+    }
+    if (
+      craftMode === "masterwork" &&
+      currentBlacksmithLevel < BLACKSMITH_MASTERWORK_LEVEL
+    ) {
+      return {
+        status: 403,
+        body: {
+          ok: false as const,
+          error: "masterwork_locked" as const,
+          requiredArtisanLevel: BLACKSMITH_MASTERWORK_LEVEL,
           artisan: artisanView(craftingRaw),
         },
       };
@@ -313,7 +331,7 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (!canAffordGuildWorkshopRecipe(resources, recipe)) {
+    if (!canAffordGuildWorkshopRecipe(resources, recipe, craftMode)) {
       return {
         status: 409,
         body: {
@@ -335,7 +353,7 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (!hasGuildWorkshopRecipeMaterials(materials, recipe)) {
+    if (!hasGuildWorkshopRecipeMaterials(materials, recipe, craftMode)) {
       return {
         status: 409,
         body: {
@@ -362,13 +380,22 @@ export async function POST(req: Request) {
       recipe.profession,
       recipe.artisanXp,
     );
-    const nextResources = spendGuildWorkshopRecipeCost(resources, recipe);
-    const nextMaterials = spendGuildWorkshopRecipeMaterials(materials, recipe);
+    const nextResources = spendGuildWorkshopRecipeCost(
+      resources,
+      recipe,
+      craftMode,
+    );
+    const nextMaterials = spendGuildWorkshopRecipeMaterials(
+      materials,
+      recipe,
+      craftMode,
+    );
     const craftedEnhance = rollGuildWorkshopEnhance(
       currentArtisan,
       recipe,
       Math.random,
       guildBonus,
+      craftMode,
     );
     const nextWorkshopStats = addGuildWorkshopCraftStat(
       parseGuildWorkshopStats(craftingRaw.workshopStats),
@@ -396,8 +423,9 @@ export async function POST(req: Request) {
         userId,
         ...(crafterName ? { name: crafterName } : {}),
         profession: recipe.profession,
-        level: artisanLevel(currentArtisan[recipe.profession]),
+        level: currentBlacksmithLevel,
         craftedAt: new Date().toISOString(),
+        ...(craftMode === "masterwork" ? { masterwork: true } : {}),
       },
     };
     const nextOwned = [
@@ -484,6 +512,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         recipeId: recipe.id,
+        craftMode,
         equipmentId: recipe.equipmentId,
         iid: craftedItem.iid,
         enhance: craftedEnhance ?? null,

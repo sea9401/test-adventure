@@ -98,7 +98,7 @@ export function EquipmentCardGrid({
     );
   }
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       {cards.map(({ inst, isEquipped }) => {
         const item = V2_EQUIPMENT[inst.id];
         const { Icon, color } = SLOT_ICON[item.slot];

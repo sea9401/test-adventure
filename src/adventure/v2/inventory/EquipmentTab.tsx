@@ -65,9 +65,9 @@ export function EquipmentTab({
   return (
     <>
       {tabInstances.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
               정리
             </span>

@@ -168,7 +168,7 @@ export function V2CharacterScreen({
   const levelCap = currentTier == null ? null : effectiveLevelCap(currentTier);
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader
         title={playerName ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
         onBack={onBack}

@@ -39,9 +39,9 @@ const QUALITY_PRISM_GRADIENT =
 // 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
 export function rollPctClass(pct: number): string {
-  if (pct >= 95) return "text-rose-600 dark:text-rose-400";
-  if (pct >= 85) return "text-amber-600 dark:text-amber-400";
-  if (pct >= 70) return "text-violet-600 dark:text-violet-400";
+  if (pct >= 88) return "text-rose-600 dark:text-rose-400";
+  if (pct >= 75) return "text-amber-600 dark:text-amber-400";
+  if (pct >= 60) return "text-violet-600 dark:text-violet-400";
   if (pct >= 40) return "text-sky-600 dark:text-sky-400";
   return "text-zinc-500 dark:text-zinc-400";
 }

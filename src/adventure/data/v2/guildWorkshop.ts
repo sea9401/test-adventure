@@ -7,9 +7,12 @@ import {
 import {
   V2_EQUIPMENT,
   type V2CraftQualityState,
+  type V2EquipInstance,
+  type V2Equipment,
   type V2EquipmentId,
 } from "./v2Equipment";
 import {
+  BLACKSMITH_DISMANTLE_LEVEL,
   BLACKSMITH_MASTERWORK_LEVEL,
   BLACKSMITH_PLUS2_QUALITY_LEVEL,
   artisanLevel,
@@ -102,6 +105,7 @@ export const GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT = 45;
 export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 12;
 export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 3;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
+export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
 
 export const GUILD_WORKSHOP_BONUS_TIERS: {
   tier: number;
@@ -692,6 +696,70 @@ export function spendGuildWorkshopRecipeMaterials(
     else delete next[id];
   }
   return next;
+}
+
+export function addGuildWorkshopMaterials(
+  materials: Record<string, number>,
+  gains: Record<string, number>,
+): Record<string, number> {
+  const next: Record<string, number> = { ...materials };
+  for (const [id, amountRaw] of Object.entries(gains)) {
+    const amount = Math.max(0, Math.floor(Number(amountRaw) || 0));
+    if (amount <= 0) continue;
+    next[id] = Math.max(0, Math.floor(next[id] ?? 0)) + amount;
+  }
+  return next;
+}
+
+export type GuildWorkshopDismantleBlockedReason =
+  | "locked_level"
+  | "low_tier"
+  | "no_material";
+
+export type GuildWorkshopDismantlePlan = {
+  materials: Partial<Record<GuildWorkshopMaterialId, number>>;
+  artisanXp: number;
+  blockedReason?: GuildWorkshopDismantleBlockedReason;
+};
+
+export function guildWorkshopDismantleMaterialForTier(
+  tierRaw: number,
+): GuildWorkshopMaterialId | undefined {
+  const tier = Math.max(1, Math.floor(tierRaw));
+  if (tier >= 10) return GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal;
+  if (tier >= 8) return GUILD_WORKSHOP_MATERIAL_ID.sunstone;
+  if (tier >= 6) return GUILD_WORKSHOP_MATERIAL_ID.mithrilShard;
+  if (tier >= 4) return GUILD_WORKSHOP_MATERIAL_ID.refinedIron;
+  return undefined;
+}
+
+export function guildWorkshopDismantlePlan(
+  item: V2Equipment,
+  inst: Pick<V2EquipInstance, "craftQuality" | "craftedBy"> = {},
+  blacksmithLevelRaw = 1,
+): GuildWorkshopDismantlePlan {
+  const blacksmithLevel = Math.max(1, Math.floor(blacksmithLevelRaw));
+  if (blacksmithLevel < BLACKSMITH_DISMANTLE_LEVEL) {
+    return { materials: {}, artisanXp: 0, blockedReason: "locked_level" };
+  }
+  const materialId = guildWorkshopDismantleMaterialForTier(item.tier);
+  if (!materialId) {
+    return { materials: {}, artisanXp: 0, blockedReason: "low_tier" };
+  }
+
+  let amount = 1;
+  if (item.craftOnly) amount += 1;
+  if ((inst.craftQuality?.level ?? 0) >= 2) amount += 1;
+  if (inst.craftedBy?.masterwork === true) amount += 1;
+  amount = Math.min(GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS, amount);
+
+  if (amount <= 0) {
+    return { materials: {}, artisanXp: 0, blockedReason: "no_material" };
+  }
+  return {
+    materials: { [materialId]: amount },
+    artisanXp: Math.max(2, Math.min(10, Math.floor(item.tier / 2))),
+  };
 }
 
 export function meetsGuildWorkshopRecipeLevel(

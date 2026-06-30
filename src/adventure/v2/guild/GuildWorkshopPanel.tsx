@@ -161,6 +161,30 @@ type DeliveryState = {
   deliveries: DeliveryView[];
 };
 
+type DismantleCandidateView = {
+  iid: string;
+  itemId: string;
+  itemName: string;
+  slot: V2EquipSlot;
+  tier: number;
+  craftOnly: boolean;
+  enhanceLevel: number;
+  craftQualityLevel: number;
+  masterwork: boolean;
+  locked: boolean;
+  equipped: boolean;
+  rewards: Partial<Record<GuildWorkshopMaterialId, number>>;
+  artisanXp: number;
+  canDismantle: boolean;
+  blockedReason?: string;
+};
+
+type DismantleState = {
+  materials: Record<string, number>;
+  requiredBlacksmithLevel: number;
+  candidates: DismantleCandidateView[];
+};
+
 type CraftResultView = {
   iid: string | null;
   itemName: string;
@@ -195,6 +219,18 @@ const WEEKLY_ERROR_TEXT: Record<string, string> = {
   invalid_quest: "수령할 수 없는 의뢰입니다.",
   already_claimed: "이미 수령한 의뢰입니다.",
   not_complete: "아직 달성하지 못한 의뢰입니다.",
+};
+
+const DISMANTLE_ERROR_TEXT: Record<string, string> = {
+  unauthorized: "로그인이 필요합니다.",
+  no_guild: "길드에 가입해야 사용할 수 있습니다.",
+  smithy_required: "길드 대장간이 필요합니다.",
+  insufficient_artisan_level: "대장장이 Lv 6부터 해체술을 사용할 수 있습니다.",
+  not_owned: "보유 중인 장비가 아닙니다.",
+  equipped: "장착 중인 장비는 해체할 수 없습니다.",
+  locked: "잠금 장비는 해체할 수 없습니다.",
+  low_tier: "T4 미만 장비는 제작 재료를 회수할 수 없습니다.",
+  no_material: "회수할 제작 재료가 없습니다.",
 };
 
 function emptyWorkshopStats(): WorkshopStatsView {
@@ -305,6 +341,33 @@ function craftResultTone(result: CraftResultView): {
   };
 }
 
+function workshopMaterialRewardText(
+  rewards: Partial<Record<GuildWorkshopMaterialId, number>>,
+): string {
+  const parts = Object.entries(rewards)
+    .filter(([, amount]) => Math.max(0, Math.floor(Number(amount) || 0)) > 0)
+    .map(([id, amount]) => {
+      const mat = GUILD_WORKSHOP_MATERIALS[id as GuildWorkshopMaterialId];
+      return `${mat?.name ?? id} ${Math.max(0, Math.floor(Number(amount) || 0)).toLocaleString()}`;
+    });
+  return parts.length > 0 ? parts.join(" · ") : "회수 재료 없음";
+}
+
+function dismantleBlockedText(reason?: string): string {
+  switch (reason) {
+    case "locked_level":
+      return "Lv 부족";
+    case "low_tier":
+      return "T4 미만";
+    case "equipped":
+      return "장착 중";
+    case "locked":
+      return "잠금";
+    default:
+      return "불가";
+  }
+}
+
 // 대장간 제작 패널 — 길드 대장간을 실제 제작 기능 게이트로 사용한다.
 export function GuildWorkshopPanel({
   info,
@@ -326,7 +389,7 @@ export function GuildWorkshopPanel({
   const [craftResult, setCraftResult] = useState<CraftResultView | null>(null);
   const [mode, setMode] = useState<"craft" | "ranking">("craft");
   const [workshopMode, setWorkshopMode] = useState<
-    "craft" | "delivery" | "growth"
+    "craft" | "delivery" | "dismantle" | "growth"
   >("craft");
   useEffect(() => {
     try {
@@ -334,6 +397,7 @@ export function GuildWorkshopPanel({
       if (
         stored === "craft" ||
         stored === "delivery" ||
+        stored === "dismantle" ||
         stored === "growth"
       ) {
         queueMicrotask(() => setWorkshopMode(stored));
@@ -362,6 +426,10 @@ export function GuildWorkshopPanel({
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryBusyId, setDeliveryBusyId] = useState<string | null>(null);
   const [deliveryMessage, setDeliveryMessage] = useState<string | null>(null);
+  const [dismantle, setDismantle] = useState<DismantleState | null>(null);
+  const [dismantleLoading, setDismantleLoading] = useState(false);
+  const [dismantleBusyIid, setDismantleBusyIid] = useState<string | null>(null);
+  const [dismantleMessage, setDismantleMessage] = useState<string | null>(null);
   const [contributionInfo, setContributionInfo] =
     useState<GuildInfoResponse | null>(null);
   const [selectedDeliveryIids, setSelectedDeliveryIids] = useState<
@@ -443,6 +511,38 @@ export function GuildWorkshopPanel({
   useEffect(() => {
     queueMicrotask(() => void loadDelivery());
   }, [loadDelivery]);
+
+  const loadDismantle = useCallback(async () => {
+    setDismantleLoading(true);
+    try {
+      const res = await fetch("/api/v2/guild/workshop/dismantle");
+      const json = await res.json();
+      if (json.ok && Array.isArray(json.candidates)) {
+        setDismantle({
+          materials: json.materials ?? {},
+          requiredBlacksmithLevel: Math.max(
+            1,
+            Math.floor(Number(json.requiredBlacksmithLevel ?? 6)),
+          ),
+          candidates: json.candidates,
+        });
+      } else {
+        setDismantleMessage(
+          DISMANTLE_ERROR_TEXT[json.error ?? ""] ??
+            "해체 정보를 불러오지 못했습니다.",
+        );
+      }
+    } catch {
+      setDismantleMessage("해체 정보를 불러오지 못했습니다.");
+    } finally {
+      setDismantleLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (workshopMode !== "dismantle") return;
+    queueMicrotask(() => void loadDismantle());
+  }, [loadDismantle, workshopMode]);
 
   useEffect(() => {
     if (!delivery) return;
@@ -808,6 +908,56 @@ export function GuildWorkshopPanel({
     }
   }
 
+  async function dismantleEquipment(iid: string) {
+    setDismantleBusyIid(iid);
+    setDismantleMessage(null);
+    try {
+      const res = await fetch("/api/v2/guild/workshop/dismantle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ iid }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setDismantleMessage(
+          DISMANTLE_ERROR_TEXT[json.error ?? ""] ?? "해체에 실패했습니다.",
+        );
+        return;
+      }
+      const dismantled = json.dismantled as DismantleCandidateView | undefined;
+      setDismantleMessage(
+        dismantled
+          ? `${dismantled.itemName} 해체 완료 · 숙련도 +${Number(
+              dismantled.artisanXp ?? 0,
+            ).toLocaleString()}`
+          : "해체 완료",
+      );
+      setState((prev) =>
+        prev
+          ? {
+              ...prev,
+              materials: json.materials ?? prev.materials,
+              artisan: json.artisan ?? prev.artisan,
+            }
+          : prev,
+      );
+      setDismantle((prev) =>
+        prev
+          ? {
+              ...prev,
+              materials: json.materials ?? prev.materials,
+              candidates: prev.candidates.filter((item) => item.iid !== iid),
+            }
+          : prev,
+      );
+      void loadDismantle();
+    } catch {
+      setDismantleMessage("해체에 실패했습니다.");
+    } finally {
+      setDismantleBusyIid(null);
+    }
+  }
+
   const weeklyCard = (
     <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -901,7 +1051,7 @@ export function GuildWorkshopPanel({
             일일 제작 납품
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            대장간 Lv와 +품질에 따라 보상이 증가합니다.
+            대장간 Lv와 ★ 품질에 따라 보상이 증가합니다.
           </div>
         </div>
         {deliveryLoading ? (
@@ -1018,6 +1168,113 @@ export function GuildWorkshopPanel({
     </div>
   );
 
+  const dismantleCard = (
+    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
+            장비 해체
+          </h3>
+          <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            대장장이 Lv {dismantle?.requiredBlacksmithLevel ?? 6}부터 T4 이상
+            장비를 제작 재료로 회수합니다.
+          </div>
+        </div>
+        {dismantleLoading ? (
+          <SpinnerGap
+            size={16}
+            className="shrink-0 animate-spin text-zinc-400"
+            aria-hidden
+          />
+        ) : null}
+      </div>
+      <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        보유 제작 재료 ·{" "}
+        {GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
+          const mat = GUILD_WORKSHOP_MATERIALS[id];
+          const amount = Math.max(
+            0,
+            Math.floor(Number(dismantle?.materials[id] ?? materials[id] ?? 0)),
+          );
+          return `${mat.name} ${amount.toLocaleString()}`;
+        }).join(" · ")}
+      </div>
+      {dismantleMessage ? (
+        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          {dismantleMessage}
+        </div>
+      ) : null}
+      <div className="space-y-2">
+        {(dismantle?.candidates ?? []).slice(0, 40).map((item) => {
+          const busy = dismantleBusyIid === item.iid;
+          return (
+            <div
+              key={item.iid}
+              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+                item.canDismantle ? "ui-codex-card is-ready" : ""
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <span className="truncate">{item.itemName}</span>
+                    {item.enhanceLevel > 0 ? (
+                      <span className="text-[11px] text-sky-600 dark:text-sky-300">
+                        +{item.enhanceLevel}
+                      </span>
+                    ) : null}
+                    {item.craftQualityLevel > 0 ? (
+                      <span className="text-[11px] text-amber-600 dark:text-amber-300">
+                        {"★".repeat(item.craftQualityLevel)}
+                      </span>
+                    ) : null}
+                    {item.craftOnly ? <CraftOnlyBadge /> : null}
+                    {item.masterwork ? (
+                      <span className="rounded bg-rose-100 px-1.5 py-px text-[10px] font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                        명장
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {V2_SLOT_LABEL[item.slot]} · T{item.tier} ·{" "}
+                    {workshopMaterialRewardText(item.rewards)}
+                  </div>
+                  {item.artisanXp > 0 ? (
+                    <div className="mt-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
+                      대장장이 숙련도 +{item.artisanXp.toLocaleString()}
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    !item.canDismantle ||
+                    busy ||
+                    dismantleBusyIid != null ||
+                    dismantleLoading
+                  }
+                  onClick={() => void dismantleEquipment(item.iid)}
+                  className="shrink-0 rounded border border-rose-700 bg-rose-700 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+                >
+                  {busy
+                    ? "처리 중"
+                    : item.canDismantle
+                      ? "해체"
+                      : dismantleBlockedText(item.blockedReason)}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+        {!dismantleLoading && (dismantle?.candidates.length ?? 0) === 0 ? (
+          <div className="py-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            해체할 장비가 없습니다.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+
   if (mode === "ranking") {
     return <ArtisanLeaderboardPanel onBack={() => setMode("craft")} />;
   }
@@ -1086,11 +1343,12 @@ export function GuildWorkshopPanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="grid grid-cols-4 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
         {(
           [
             ["craft", "제작"],
             ["delivery", "납품"],
+            ["dismantle", "해체"],
             ["growth", "성장 목표"],
           ] as const
         ).map(([value, label]) => (
@@ -1115,6 +1373,13 @@ export function GuildWorkshopPanel({
         <>
           {weeklyCard}
           {deliveryCard}
+        </>
+      ) : null}
+
+      {workshopMode === "dismantle" ? (
+        <>
+          {weeklyCard}
+          {dismantleCard}
         </>
       ) : null}
 

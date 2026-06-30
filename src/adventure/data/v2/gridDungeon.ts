@@ -146,6 +146,17 @@ export const GRID_DUNGEON_ROOM_REWARDS = {
   boss: { hpLoss: 5, gold: 5_000 },
 } as const;
 
+const GRID_DUNGEON_ROUTE_GOLD_OVERRIDES: Partial<
+  Record<GridDungeonRouteId, Partial<Record<GridDungeonTileKind, number>>>
+> = {
+  guardian: {
+    monster: 1_100,
+    elite: 3_000,
+    relic: 1_800,
+    boss: 6_500,
+  },
+};
+
 export type GridDungeonRun = {
   id: string;
   routeId: GridDungeonRouteId;
@@ -182,7 +193,7 @@ const GRID_DUNGEON_BALANCED_LAYOUT: GridDungeonTileKind[][] = [
 
 const GRID_DUNGEON_GUARDIAN_LAYOUT: GridDungeonTileKind[][] = [
   ["treasure", "monster", "boss", "exit", "relic"],
-  ["empty", "wall", "elite", "wall", "empty"],
+  ["empty", "wall", "empty", "wall", "empty"],
   ["monster", "empty", "fountain", "empty", "monster"],
   ["trap", "wall", "elite", "empty", "trap"],
   ["relic", "empty", "start", "empty", "treasure"],
@@ -220,7 +231,7 @@ export const GRID_DUNGEON_ROUTES: Record<
     name: "수문장 회랑",
     shortName: "전투",
     risk: "높음",
-    description: "정예 방과 함정이 많지만 유물 보상을 노릴 수 있습니다.",
+    description: "정예 전투 압박이 큰 대신 전투 보상과 유물 보상이 높습니다.",
     layout: GRID_DUNGEON_GUARDIAN_LAYOUT,
   },
   vault: {
@@ -625,6 +636,21 @@ export function gridDungeonFountainHeal(maxHp: number): number {
   return Math.max(1, Math.ceil(Math.max(1, maxHp) * GRID_DUNGEON_FOUNTAIN_HEAL_PCT));
 }
 
+export function gridDungeonRoomGold(
+  routeId: unknown,
+  tile: GridDungeonTileKind,
+): number {
+  const route = parseGridDungeonRouteId(routeId);
+  const routeOverride = GRID_DUNGEON_ROUTE_GOLD_OVERRIDES[route]?.[tile];
+  if (routeOverride != null) return routeOverride;
+  if (tile === "monster") return GRID_DUNGEON_ROOM_REWARDS.monster.gold;
+  if (tile === "elite") return GRID_DUNGEON_ROOM_REWARDS.elite.gold;
+  if (tile === "treasure") return GRID_DUNGEON_ROOM_REWARDS.treasure.gold;
+  if (tile === "relic") return GRID_DUNGEON_ROOM_REWARDS.relic.gold;
+  if (tile === "boss") return GRID_DUNGEON_ROOM_REWARDS.boss.gold;
+  return 0;
+}
+
 export function moveGridDungeonRun(
   run: GridDungeonRun,
   dir: GridDungeonMoveDir,
@@ -669,27 +695,31 @@ export function moveGridDungeonRun(
         bossDefeated = true;
       }
     } else if (tile === "monster") {
+      const rewardGold = gridDungeonRoomGold(run.routeId, tile);
       hp = Math.max(0, hp - GRID_DUNGEON_ROOM_REWARDS.monster.hpLoss);
-      pendingGold += GRID_DUNGEON_ROOM_REWARDS.monster.gold;
+      pendingGold += rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
-      message = `유적 경비병을 쓰러뜨리고 ${GRID_DUNGEON_ROOM_REWARDS.monster.gold.toLocaleString()}G를 챙겼습니다.`;
+      message = `유적 경비병을 쓰러뜨리고 ${rewardGold.toLocaleString()}G를 챙겼습니다.`;
     } else if (tile === "elite") {
+      const rewardGold = gridDungeonRoomGold(run.routeId, tile);
       hp = Math.max(0, hp - GRID_DUNGEON_ROOM_REWARDS.elite.hpLoss);
-      pendingGold += GRID_DUNGEON_ROOM_REWARDS.elite.gold;
+      pendingGold += rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
-      message = `정예 수문장을 돌파하고 ${GRID_DUNGEON_ROOM_REWARDS.elite.gold.toLocaleString()}G를 확보했습니다.`;
+      message = `정예 수문장을 돌파하고 ${rewardGold.toLocaleString()}G를 확보했습니다.`;
     } else if (tile === "treasure") {
-      pendingGold += GRID_DUNGEON_ROOM_REWARDS.treasure.gold;
+      const rewardGold = gridDungeonRoomGold(run.routeId, tile);
+      pendingGold += rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
-      message = `오래된 보물상자에서 ${GRID_DUNGEON_ROOM_REWARDS.treasure.gold.toLocaleString()}G를 발견했습니다.`;
+      message = `오래된 보물상자에서 ${rewardGold.toLocaleString()}G를 발견했습니다.`;
     } else if (tile === "trap") {
       const hpLoss = gridDungeonTrapHpLoss(run.maxHp);
       hp = Math.max(0, hp - hpLoss);
       message = `숨은 함정을 밟아 HP ${hpLoss.toLocaleString()}을 잃었습니다.`;
     } else if (tile === "relic") {
-      pendingGold += GRID_DUNGEON_ROOM_REWARDS.relic.gold;
+      const rewardGold = gridDungeonRoomGold(run.routeId, tile);
+      pendingGold += rewardGold;
       pendingDrops = mergeDropResults(pendingDrops, eventDrops);
-      message = `고대 유물에서 ${GRID_DUNGEON_ROOM_REWARDS.relic.gold.toLocaleString()}G와 재료 흔적을 확보했습니다.`;
+      message = `고대 유물에서 ${rewardGold.toLocaleString()}G와 재료 흔적을 확보했습니다.`;
     } else if (tile === "fountain") {
       const healed = Math.min(
         run.maxHp - hp,
@@ -698,8 +728,9 @@ export function moveGridDungeonRun(
       hp = Math.min(run.maxHp, hp + Math.max(0, healed));
       message = `맑은 샘물을 마셔 HP ${Math.max(0, healed).toLocaleString()}을 회복했습니다.`;
     } else if (tile === "boss") {
+      const rewardGold = gridDungeonRoomGold(run.routeId, tile);
       hp = Math.max(0, hp - GRID_DUNGEON_ROOM_REWARDS.boss.hpLoss);
-      pendingGold += GRID_DUNGEON_ROOM_REWARDS.boss.gold;
+      pendingGold += rewardGold;
       bossDefeated = true;
       message = "유적의 파수꾼을 쓰러뜨렸습니다. 출구가 열렸습니다.";
     }

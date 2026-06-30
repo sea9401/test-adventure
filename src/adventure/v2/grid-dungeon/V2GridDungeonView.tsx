@@ -24,6 +24,7 @@ import {
   GRID_DUNGEON_ROUTES,
   gridDungeonKey,
   gridDungeonMovePreview,
+  gridDungeonRouteSummary,
   type GridDungeonMoveDir,
   type GridDungeonPublicRun,
   type GridDungeonRouteId,
@@ -63,11 +64,17 @@ type GridDungeonState = {
   history?: Array<{
     id: string;
     outcome: "cleared" | "failed" | "abandoned";
+    routeId: GridDungeonRouteId;
     at: number;
     rewardGold: number;
     drops?: Record<string, number>;
     exploredTiles: number;
     hp: number;
+    supporterCount: number;
+    bossReached: boolean;
+    combatCount: number;
+    totalCombatTurns: number;
+    durationMs: number;
     message: string;
   }>;
   run: GridDungeonPublicRun | null;
@@ -256,6 +263,14 @@ function formatHistoryTime(at: number) {
   }).format(new Date(at));
 }
 
+function formatDuration(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1_000));
+  if (seconds < 60) return `${seconds}초`;
+  const minutes = Math.floor(seconds / 60);
+  const remain = seconds % 60;
+  return remain > 0 ? `${minutes}분 ${remain}초` : `${minutes}분`;
+}
+
 function DropSummary({
   drops,
   emptyLabel,
@@ -355,11 +370,56 @@ function DungeonHistory({
                   <DropSummary drops={entry.drops} />
                 </div>
               )}
+              <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] text-zinc-500 sm:grid-cols-4">
+                <span>
+                  경로{" "}
+                  <span className="text-zinc-300">
+                    {GRID_DUNGEON_ROUTES[entry.routeId].shortName}
+                  </span>
+                </span>
+                <span>
+                  파티{" "}
+                  <span className="text-zinc-300">
+                    {(entry.supporterCount + 1).toLocaleString()}명
+                  </span>
+                </span>
+                <span>
+                  보스{" "}
+                  <span
+                    className={
+                      entry.bossReached ? "text-emerald-300" : "text-zinc-400"
+                    }
+                  >
+                    {entry.bossReached ? "도달" : "미도달"}
+                  </span>
+                </span>
+                <span>
+                  전투{" "}
+                  <span className="text-zinc-300">
+                    {entry.combatCount.toLocaleString()}회 ·{" "}
+                    {entry.totalCombatTurns.toLocaleString()}턴
+                  </span>
+                </span>
+              </div>
+              {entry.durationMs > 0 && (
+                <div className="mt-1 text-[11px] text-zinc-600">
+                  소요 {formatDuration(entry.durationMs)}
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function RouteMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded border border-zinc-800 bg-black/20 px-2 py-1">
+      <span className="text-zinc-500">{label}</span>{" "}
+      <span className="font-semibold text-zinc-200">{value}</span>
+    </span>
   );
 }
 
@@ -376,13 +436,14 @@ function RouteSelector({
     <div className="grid gap-2 sm:grid-cols-3">
       {GRID_DUNGEON_ROUTE_OPTIONS.map((route) => {
         const active = route.id === selected;
+        const summary = gridDungeonRouteSummary(route.id);
         return (
           <button
             key={route.id}
             type="button"
             disabled={disabled}
             onClick={() => onSelect(route.id)}
-            className={`min-h-24 rounded-md border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`min-h-40 rounded-md border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
               active
                 ? "border-emerald-500 bg-emerald-950/45 text-emerald-100"
                 : "border-zinc-800 bg-zinc-950/70 text-zinc-300 hover:border-zinc-600"
@@ -402,6 +463,32 @@ function RouteSelector({
             </span>
             <span className="mt-2 block leading-relaxed text-zinc-500">
               {route.description}
+            </span>
+            <span className="mt-3 grid grid-cols-2 gap-1.5">
+              <RouteMetric
+                label="골드"
+                value={`${summary.expectedGold.toLocaleString()}G`}
+              />
+              <RouteMetric
+                label="전투"
+                value={`${summary.combatRooms.toLocaleString()}방`}
+              />
+              <RouteMetric
+                label="함정"
+                value={`${summary.trapRooms.toLocaleString()}개`}
+              />
+              <RouteMetric
+                label="샘"
+                value={`${summary.fountainRooms.toLocaleString()}개`}
+              />
+              <RouteMetric
+                label="재료"
+                value={`${summary.materialRooms.toLocaleString()}방`}
+              />
+              <RouteMetric
+                label="보스"
+                value={`${summary.bossGold.toLocaleString()}G`}
+              />
             </span>
           </button>
         );

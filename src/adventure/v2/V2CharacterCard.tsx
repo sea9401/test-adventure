@@ -161,7 +161,7 @@ export function V2CharacterCard({
 
   return (
     <Card padding="md" className="ui-character-card">
-      <div className="flex items-stretch gap-4">
+      <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
         <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-baseline gap-2">
@@ -214,7 +214,7 @@ export function V2CharacterCard({
         </div>
       )}
       {equipped && (
-        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-200 pt-3 sm:grid-cols-3 dark:border-zinc-800">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const iid = equipped?.[slot];
             const inst = iid ? byIid.get(iid) : undefined;

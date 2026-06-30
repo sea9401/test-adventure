@@ -600,7 +600,7 @@ export function V2DungeonFloorView({
   }
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader
         title={
           <>
@@ -688,8 +688,8 @@ export function V2DungeonFloorView({
         </div>
       )}
 
-      <Card padding="md">
-        <div className="flex items-center justify-between gap-3">
+      <Card padding="md" className="sticky bottom-3 z-20 shadow-lg sm:static sm:shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           <button
             type="button"
             onClick={onHuntClick}
@@ -749,7 +749,7 @@ export function V2DungeonFloorView({
               onClick={() => setSettingsOpen((o) => !o)}
               disabled={batchRunning}
               aria-label="전투 설정"
-              className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
             >
               <Gear size={16} weight="duotone" />
             </button>

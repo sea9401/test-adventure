@@ -125,7 +125,7 @@ export function V2CoopBossDetailView({
   const showScopeBadge = V2_CORE_LOOP_V2 && !showScopeControl;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 px-4 py-5 text-zinc-900 sm:p-6 dark:text-zinc-100">
       <SubViewHeader
         title={def.name}
         onBack={onBack}
@@ -145,7 +145,7 @@ export function V2CoopBossDetailView({
         <img
           src={def.base.image}
           alt={def.name}
-          className={`ui-boss-portrait mx-auto h-28 w-28 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700 ${
+          className={`ui-boss-portrait mx-auto h-24 w-24 rounded-lg border border-zinc-200 object-cover sm:h-28 sm:w-28 dark:border-zinc-700 ${
             active ? "" : "opacity-50 grayscale"
           }`}
         />
@@ -228,7 +228,7 @@ export function V2CoopBossDetailView({
             type="button"
             disabled={busy || onCooldown || lowStamina}
             onClick={() => void attack()}
-            className="ui-lift-card mx-auto w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
+            className="ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
           >
             {busy
               ? "전투 중…"
@@ -254,7 +254,7 @@ export function V2CoopBossDetailView({
             type="button"
             disabled={busy}
             onClick={() => void claim()}
-            className="ui-quest-card is-claimable mx-auto w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="ui-quest-card is-claimable mx-auto min-h-11 w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {my.tier
               ? `기여 보상 수령 (${COOP_TIER_LABEL[my.tier]})`
@@ -287,7 +287,7 @@ export function V2CoopBossDetailView({
             기여 보상을 충분히 쌓은 뒤 공개로 바꿔 다른 모험가들과 함께 잡을 수
             있어요.
           </p>
-          <div className="flex gap-1.5">
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
             {COOP_VISIBILITY_OPTIONS.map(([val, label]) => {
               const cur = session.visibility === val;
               return (

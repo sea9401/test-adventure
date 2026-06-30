@@ -134,7 +134,7 @@ export function StatsPanel({
           <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             상세
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {combatItems.map((it, i) => (
               <Tooltip
                 key={it.label}
@@ -161,7 +161,7 @@ export function StatsPanel({
         <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           능력치{!showCaps && totalStats ? " (기본 · 장비)" : ""}
         </div>
-        <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
           {statKeys.map((k, idx) => {
             const base = stats[k];
             const finalValue = total[k];

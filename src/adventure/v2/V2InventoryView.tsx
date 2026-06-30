@@ -421,7 +421,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           장착 중
         </h2>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const iid = equipped[slot] ?? null;
             const inst = iid ? owned.find((i) => i.iid === iid) : undefined;
@@ -451,7 +451,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <div
                 key={slot}
-                className="flex min-h-[6.75rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center dark:border-zinc-700 dark:bg-zinc-900"
+                className="flex min-h-[6.25rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center sm:min-h-[6.75rem] dark:border-zinc-700 dark:bg-zinc-900"
               >
                 {inst && item ? (
                   // 장착 아이템 클릭 → 옵션 카드 팝오버.

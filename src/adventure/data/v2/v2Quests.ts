@@ -1,8 +1,8 @@
 // v2 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 신규 플레이어를 "첫 전투 → 장비 → 전직 →
 // 수행 → 프론티어" 순서로 리드하고, 콘텐츠/사회 시스템 + 엔드 마일스톤을 안내.
 //
-// 표시 정책: 유저에게 직업 "차수(N차)" 구분은 노출하지 않는다 — 안내 문구는 "전직/정점"
-//   처럼 숫자 없이 쓰고, 차수는 내부 판정(QuestCtx.tier)으로만 사용한다.
+// 표시 정책: 전직 퀘스트는 목표 차수를 명시한다. 특히 튜토리얼 배너는 제목만 보일 때가 있어
+//   "2차 전직", "3차 전직" 같은 표현을 title/desc 양쪽에 남긴다.
 //
 // 핵심 설계:
 //   ① 완료 판정은 **세이브 상태에서 자동 감지**(QuestCtx). 별도 "수락/제출" 없음 — 자연스럽게
@@ -194,8 +194,8 @@ const GROWTH: QuestDef[] = [
   {
     id: "g_advance2",
     line: "growth",
-    title: "전직",
-    desc: "성장의 신전에서 더 강한 직업으로 전직하세요.",
+    title: "2차 전직",
+    desc: "성장의 신전에서 더 강한 2차 직업으로 전직하세요.",
     reward: { staminaPotions: 1 },
     check: (c) => c.tier >= 2,
   },
@@ -203,8 +203,8 @@ const GROWTH: QuestDef[] = [
     // id 는 옛 이름(g_passive) 유지 — 바꾸면 기존 수령 기록이 끊긴다.
     id: "g_passive",
     line: "growth",
-    title: "거듭된 전직",
-    desc: "한 번 더 전직해 직업을 더 키우세요.",
+    title: "3차 전직",
+    desc: "성장의 신전에서 한 번 더 전직해 3차 직업에 도달하세요.",
     reward: { staminaPotions: 1 },
     check: (c) => c.tier >= 3,
   },
@@ -275,7 +275,7 @@ const BASICS: QuestDef[] = [
 
 // 직업 전용 "차수 달성" 라인(class_*)은 제거됨(2026-06-26). 차수(N차)를 유저에게 노출하지
 //   않기로 하면서, 직군별로 같은 전직 마일스톤을 반복하던 라인이 의미를 잃었다. 전직 안내는
-//   성장의 길(튜토리얼)과 정점을 향해(ascend) 라인이 숫자 없이 대신한다. 옛 보유 수령 id
+//   성장의 길(튜토리얼)과 정점을 향해(ascend) 라인이 목표 차수를 직접 안내한다. 옛 보유 수령 id
 //   (class_*/c_*_spec·deepen·apex)는 세이브 claimed 집합에 dormant 로 남는다(비파괴).
 
 // ── 모험가의 길(콘텐츠·사회, 마일스톤 독립) ─────────────────────────────────
@@ -418,8 +418,8 @@ const ASCEND: QuestDef[] = [
   {
     id: "a_apex",
     line: "ascend",
-    title: "정점",
-    desc: "직업의 정점에 도달하세요.",
+    title: "4차 전직",
+    desc: "성장의 신전에서 4차 전직을 완료해 직업의 정점에 도달하세요.",
     reward: { gold: 3000 },
     check: (c) => c.tier >= 4,
   },
@@ -751,7 +751,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "growth",
     name: "성장의 길",
-    subtitle: "첫 전투부터 직업 전직까지 — 차례로 따라오세요.",
+    subtitle: "첫 전투부터 2차·3차 전직까지 — 차례로 따라오세요.",
     sequential: true,
     tutorial: true,
   },
@@ -770,7 +770,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "ascend",
     name: "정점을 향해",
-    subtitle: "더 깊은 곳과 직업의 정점을 향한 마일스톤.",
+    subtitle: "더 깊은 곳과 4차 전직을 향한 마일스톤.",
     sequential: false,
   },
   {

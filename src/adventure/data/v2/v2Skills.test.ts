@@ -355,6 +355,11 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips).toContain("MP 59");
   });
 
+  it("액티브 스킬은 100% 발동도 확률 칩으로 표시", () => {
+    const chips = describeV2Skill(V2_SKILLS.v2c_ironknight_guard);
+    expect(chips).toContain("발동 100%");
+  });
+
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
     const chips = describeV2Skill(V2_SKILLS.mob_venom_bite);
     expect(chips.some((c) => c.includes("중독") && c.includes("지속피해"))).toBe(

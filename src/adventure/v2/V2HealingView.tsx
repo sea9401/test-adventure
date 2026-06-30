@@ -322,7 +322,11 @@ function ChargeRow({
 }) {
   const room = MAX_CHARGE - current;
   const full = room <= 0;
-  const amounts = [100, 1000, 10000];
+  const [amountText, setAmountText] = useState("1000");
+  const amount = Number(amountText);
+  const validAmount = Number.isInteger(amount) && amount > 0;
+  const actual = validAmount ? Math.min(amount, room) : 0;
+  const affordable = gold >= actual && actual > 0;
   return (
     <section className="mt-3 space-y-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -331,23 +335,31 @@ function ChargeRow({
           {current.toLocaleString()} / {MAX_CHARGE.toLocaleString()}
         </span>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {amounts.map((amt) => {
-          const actual = Math.min(amt, room);
-          const cost = actual;
-          const affordable = gold >= cost && actual > 0;
-          return (
-            <button
-              key={amt}
-              type="button"
-              onClick={() => onBuy(kind, amt)}
-              disabled={busy || full || !affordable}
-              className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
-            >
-              +{amt.toLocaleString()} ({cost.toLocaleString()}g)
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={room}
+          step={1}
+          value={amountText}
+          onChange={(e) => setAmountText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !busy && !full && affordable) {
+              onBuy(kind, amount);
+            }
+          }}
+          disabled={busy || full}
+          className="min-h-9 w-36 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm tabular-nums text-zinc-900 outline-none transition focus:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        />
+        <button
+          type="button"
+          onClick={() => onBuy(kind, amount)}
+          disabled={busy || full || !affordable}
+          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
+        >
+          충전 ({actual.toLocaleString()}g)
+        </button>
         <button
           type="button"
           onClick={() => onBuy(kind, room)}

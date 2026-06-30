@@ -145,7 +145,32 @@ export function CraftOnlyBadge({ className = "" }: { className?: string }) {
     <span
       className={`shrink-0 rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ${className}`}
     >
-      제작전용
+      제작 전용
+    </span>
+  );
+}
+
+export function EnhanceLevelBadge({
+  enhance,
+  level,
+  className = "",
+}: {
+  enhance?: V2EnhanceState;
+  level?: number;
+  className?: string;
+}) {
+  const safeLevel = Math.max(
+    0,
+    Math.floor(Number(level ?? enhance?.level ?? 0) || 0),
+  );
+  if (safeLevel <= 0) return null;
+  return (
+    <span
+      className={`shrink-0 rounded bg-sky-100 px-1.5 py-px text-[10px] font-semibold text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 ${className}`}
+      title={`강화 +${safeLevel}`}
+      aria-label={`강화 +${safeLevel}`}
+    >
+      강화 +{safeLevel}
     </span>
   );
 }
@@ -166,6 +191,46 @@ export function CraftQualityStars({
       aria-label={`제작 품질 ${craftQuality?.level ?? 0}`}
     >
       {stars}
+    </span>
+  );
+}
+
+export function CraftQualityBadge({
+  craftQuality,
+  level,
+  className = "",
+}: {
+  craftQuality?: V2CraftQualityState;
+  level?: number;
+  className?: string;
+}) {
+  const safeLevel = Math.max(
+    0,
+    Math.floor(Number(level ?? craftQuality?.level ?? 0) || 0),
+  );
+  if (safeLevel <= 0) return null;
+  const stars = "★".repeat(safeLevel);
+  return (
+    <span
+      className={`shrink-0 rounded bg-amber-100 px-1.5 py-px text-[10px] font-semibold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 ${className}`}
+      title={`제작 품질 ${safeLevel}`}
+      aria-label={`제작 품질 ${safeLevel}`}
+    >
+      {stars} 품질
+    </span>
+  );
+}
+
+export function MasterworkBadge({
+  className = "",
+}: {
+  className?: string;
+}) {
+  return (
+    <span
+      className={`shrink-0 rounded bg-rose-100 px-1.5 py-px text-[10px] font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 ${className}`}
+    >
+      명장 제작품
     </span>
   );
 }
@@ -442,14 +507,13 @@ export function V2ItemCard({
             <h2
               className={`truncate text-base font-semibold leading-tight ${powerNameClass(item, roll, enhance, craftQuality)}`}
             >
-              {enhance && enhance.level > 0 ? (
-                <span className="mr-1 text-amber-500">+{enhance.level}</span>
-              ) : null}
-              <CraftQualityStars craftQuality={craftQuality} className="mr-1" />
               {item.name}
             </h2>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <ItemTypeChip item={item} />
+              <EnhanceLevelBadge enhance={enhance} />
+              <CraftQualityBadge craftQuality={craftQuality} />
+              {craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {pct != null && (
                 <span className="inline-flex items-center gap-1 text-xs tabular-nums">
@@ -848,7 +912,7 @@ function CompareStatRow({
   );
 }
 
-// 한쪽(장착/후보) 헤더 — 작은 구분 라벨 + 이름(+강화) + 종류칩 + 품질.
+// 한쪽(장착/후보) 헤더 — 작은 구분 라벨 + 이름 + 종류/강화/제작 품질 배지.
 function CompareHeader({
   tag,
   side,
@@ -866,13 +930,13 @@ function CompareHeader({
         <h3
           className={`truncate text-sm font-semibold ${powerNameClass(side.item, side.roll, side.enhance, side.craftQuality)}`}
         >
-          {side.enhance && side.enhance.level > 0 ? (
-            <span className="mr-1 text-amber-500">+{side.enhance.level}</span>
-          ) : null}
-          <CraftQualityStars craftQuality={side.craftQuality} className="mr-1" />
           {side.item.name}
         </h3>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
         <ItemTypeChip item={side.item} />
+        <EnhanceLevelBadge enhance={side.enhance} />
+        <CraftQualityBadge craftQuality={side.craftQuality} />
         {side.item.craftOnly ? <CraftOnlyBadge /> : null}
       </div>
       {pct != null && (

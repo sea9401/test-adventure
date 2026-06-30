@@ -32,7 +32,9 @@ import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   anchorOf,
   CraftOnlyBadge,
-  CraftQualityStars,
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  MasterworkBadge,
   PerfectQualityBadge,
   powerNameClass,
   QualityPctText,
@@ -159,15 +161,14 @@ export function EquipmentCardGrid({
               <span
                 className={`min-w-0 truncate text-sm font-semibold leading-tight ${powerNameClass(item, inst.roll, inst.enhance, inst.craftQuality)}`}
               >
-                {inst.enhance && inst.enhance.level > 0 ? (
-                  <span className="mr-1 text-amber-500">
-                    +{inst.enhance.level}
-                  </span>
-                ) : null}
-                <CraftQualityStars craftQuality={inst.craftQuality} className="mr-1" />
                 {item.name}
               </span>
               <ItemTypeChip item={item} />
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <EnhanceLevelBadge enhance={inst.enhance} />
+              <CraftQualityBadge craftQuality={inst.craftQuality} />
+              {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
             </div>
             <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">

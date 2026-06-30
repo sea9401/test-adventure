@@ -453,6 +453,44 @@ describe("guild workshop recipes", () => {
     });
   });
 
+  it("does not recover more of a material than the source recipe spent", () => {
+    const item = V2_EQUIPMENT.v2_crafted_gale_bow;
+    expect(
+      guildWorkshopDismantlePlan(
+        item,
+        {
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 6,
+            craftedAt: new Date(0).toISOString(),
+          },
+        },
+        6,
+      ).materials,
+    ).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1,
+    });
+    expect(
+      guildWorkshopDismantlePlan(
+        item,
+        {
+          craftQuality: { level: 2, bonusPct: 10 },
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 9,
+            craftedAt: new Date(0).toISOString(),
+            masterwork: true,
+          },
+        },
+        9,
+      ).materials,
+    ).toEqual({
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2,
+    });
+  });
+
   it("returns extra dismantle materials for craft-only quality masterworks", () => {
     const item = V2_EQUIPMENT.v2_crafted_sunforge_blade;
     const plan = guildWorkshopDismantlePlan(

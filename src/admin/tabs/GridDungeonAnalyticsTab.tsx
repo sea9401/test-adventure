@@ -8,6 +8,9 @@ type Outcome = "cleared" | "failed" | "abandoned";
 type RouteFilter = GridDungeonRouteId | "all";
 type OutcomeFilter = Outcome | "all";
 type PeriodFilter = "1" | "7" | "30" | "90" | "all";
+type BalanceRiskLevel = "ok" | "low_sample" | "too_hard" | "too_easy";
+type BalanceSeverity = "danger" | "warning" | "info";
+type TuningPriority = "high" | "medium" | "low";
 
 type GridDungeonAnalytics = {
   filters: {
@@ -24,6 +27,7 @@ type GridDungeonAnalytics = {
     clearRatePct: number;
     bossReachRatePct: number;
     avgCombatTurns: number;
+    avgRemainingHp: number;
     avgPartySize: number;
     avgRewardGold: number;
     avgMaterials: number;
@@ -38,22 +42,67 @@ type GridDungeonAnalytics = {
     failed: number;
     abandoned: number;
     clearRatePct: number;
+    failureRatePct: number;
     bossReachRatePct: number;
+    avgRemainingHp: number;
     avgCombatTurns: number;
     avgCombatCount: number;
     avgPartySize: number;
     avgRewardGold: number;
     avgMaterials: number;
     avgDurationSec: number;
+    riskLevel: BalanceRiskLevel;
+    riskLabel: string;
+    riskReason: string;
   }>;
   partySizes: Array<{
     partySize: number;
     runs: number;
     cleared: number;
+    failed: number;
     clearRatePct: number;
+    failureRatePct: number;
     bossReachRatePct: number;
+    avgRemainingHp: number;
     avgCombatTurns: number;
     avgRewardGold: number;
+  }>;
+  routeParties: Array<{
+    routeId: GridDungeonRouteId;
+    routeName: string;
+    partySize: number;
+    runs: number;
+    cleared: number;
+    failed: number;
+    abandoned: number;
+    clearRatePct: number;
+    failureRatePct: number;
+    bossReachRatePct: number;
+    avgRemainingHp: number;
+    avgCombatTurns: number;
+    avgRewardGold: number;
+    avgMaterials: number;
+    riskLevel: BalanceRiskLevel;
+    riskLabel: string;
+    riskReason: string;
+  }>;
+  balanceFlags: Array<{
+    id: string;
+    severity: BalanceSeverity;
+    title: string;
+    detail: string;
+    action: string;
+    routeId?: GridDungeonRouteId;
+    partySize?: number;
+  }>;
+  tuningCandidates: Array<{
+    id: string;
+    priority: TuningPriority;
+    title: string;
+    detail: string;
+    action: string;
+    routeId?: GridDungeonRouteId;
+    partySize?: number;
   }>;
   recentRuns: Array<{
     id: string;
@@ -88,6 +137,30 @@ const OUTCOME_TONE: Record<Outcome, string> = {
     "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300",
   abandoned:
     "border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300",
+};
+
+const RISK_TONE: Record<BalanceRiskLevel, string> = {
+  ok: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300",
+  low_sample:
+    "border-zinc-200 bg-zinc-50 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300",
+  too_hard:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300",
+  too_easy:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+};
+
+const SEVERITY_TONE: Record<BalanceSeverity, string> = {
+  danger:
+    "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300",
+  warning:
+    "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+  info: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-300",
+};
+
+const PRIORITY_TONE: Record<TuningPriority, string> = {
+  high: SEVERITY_TONE.danger,
+  medium: SEVERITY_TONE.warning,
+  low: SEVERITY_TONE.info,
 };
 
 const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
@@ -160,6 +233,20 @@ function StatCard({ label, value }: { label: string; value: string }) {
       </div>
       <div className="font-mono text-base tabular-nums">{value}</div>
     </div>
+  );
+}
+
+function Badge({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: string;
+}) {
+  return (
+    <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] ${tone}`}>
+      {children}
+    </span>
   );
 }
 
@@ -332,7 +419,7 @@ export function GridDungeonAnalyticsTab() {
           </div>
         ) : null}
         {data ? (
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-9">
             <StatCard label="탐험 수" value={data.summary.runs.toLocaleString()} />
             <StatCard
               label="클리어율"
@@ -345,6 +432,10 @@ export function GridDungeonAnalyticsTab() {
             <StatCard
               label="평균 턴"
               value={data.summary.avgCombatTurns.toLocaleString()}
+            />
+            <StatCard
+              label="잔여 HP"
+              value={data.summary.avgRemainingHp.toLocaleString()}
             />
             <StatCard
               label="평균 파티"
@@ -375,6 +466,7 @@ export function GridDungeonAnalyticsTab() {
                   <thead>
                     <tr className="text-left text-zinc-500 dark:text-zinc-400">
                       <th className="py-1 pr-2 font-medium">루트</th>
+                      <th className="py-1 pr-2 font-medium">위험</th>
                       <th className="py-1 pr-2 text-right font-medium">탐험</th>
                       <th className="py-1 pr-2 text-right font-medium">클리어</th>
                       <th className="py-1 pr-2 text-right font-medium">실패</th>
@@ -401,6 +493,11 @@ export function GridDungeonAnalyticsTab() {
                           >
                             {route.routeName}
                           </button>
+                        </td>
+                        <td className="py-1 pr-2 font-sans">
+                          <Badge tone={RISK_TONE[route.riskLevel]}>
+                            {route.riskLabel}
+                          </Badge>
                         </td>
                         <td className="py-1 pr-2 text-right">{route.runs}</td>
                         <td className="py-1 pr-2 text-right">
@@ -445,6 +542,10 @@ export function GridDungeonAnalyticsTab() {
                     value={`${expandedRouteData.avgCombatCount.toLocaleString()}회`}
                   />
                   <StatCard
+                    label="위험 판단"
+                    value={expandedRouteData.riskLabel}
+                  />
+                  <StatCard
                     label="평균 파티"
                     value={`${expandedRouteData.avgPartySize.toLocaleString()}명`}
                   />
@@ -455,6 +556,14 @@ export function GridDungeonAnalyticsTab() {
                   <StatCard
                     label="클리어/실패/포기"
                     value={`${expandedRouteData.cleared}/${expandedRouteData.failed}/${expandedRouteData.abandoned}`}
+                  />
+                  <StatCard
+                    label="실패율"
+                    value={`${expandedRouteData.failureRatePct}%`}
+                  />
+                  <StatCard
+                    label="잔여 HP"
+                    value={expandedRouteData.avgRemainingHp.toLocaleString()}
                   />
                   <StatCard
                     label="평균 재료"
@@ -468,6 +577,7 @@ export function GridDungeonAnalyticsTab() {
                     label="클리어율"
                     value={`${expandedRouteData.clearRatePct}%`}
                   />
+                  <StatCard label="사유" value={expandedRouteData.riskReason} />
                 </div>
               ) : null}
             </Card>
@@ -493,7 +603,13 @@ export function GridDungeonAnalyticsTab() {
                           <th className="py-1 pr-2 text-right font-medium">
                             클리어
                           </th>
+                          <th className="py-1 pr-2 text-right font-medium">
+                            실패
+                          </th>
                           <th className="py-1 pr-2 text-right font-medium">보스</th>
+                          <th className="py-1 pr-2 text-right font-medium">
+                            HP
+                          </th>
                           <th className="py-1 pr-2 text-right font-medium">턴</th>
                           <th className="py-1 text-right font-medium">골드</th>
                         </tr>
@@ -512,7 +628,13 @@ export function GridDungeonAnalyticsTab() {
                               {party.clearRatePct}%
                             </td>
                             <td className="py-1 pr-2 text-right">
+                              {party.failureRatePct}%
+                            </td>
+                            <td className="py-1 pr-2 text-right">
                               {party.bossReachRatePct}%
+                            </td>
+                            <td className="py-1 pr-2 text-right">
+                              {party.avgRemainingHp}
                             </td>
                             <td className="py-1 pr-2 text-right">
                               {party.avgCombatTurns}
@@ -529,6 +651,133 @@ export function GridDungeonAnalyticsTab() {
               ) : (
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   파티 집계 없음
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <Card title="루트×파티 규모">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-zinc-500 dark:text-zinc-400">
+                    <th className="py-1 pr-2 font-medium">루트</th>
+                    <th className="py-1 pr-2 text-right font-medium">파티</th>
+                    <th className="py-1 pr-2 text-right font-medium">탐험</th>
+                    <th className="py-1 pr-2 text-right font-medium">클리어</th>
+                    <th className="py-1 pr-2 text-right font-medium">실패</th>
+                    <th className="py-1 pr-2 text-right font-medium">보스</th>
+                    <th className="py-1 pr-2 text-right font-medium">HP</th>
+                    <th className="py-1 pr-2 font-medium">판정</th>
+                    <th className="py-1 font-medium">사유</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono tabular-nums">
+                  {data.routeParties.map((row) => (
+                    <tr
+                      key={`${row.routeId}:${row.partySize}`}
+                      className="border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      <td className="py-1 pr-2 font-sans">{row.routeName}</td>
+                      <td className="py-1 pr-2 text-right">{row.partySize}명</td>
+                      <td className="py-1 pr-2 text-right">{row.runs}</td>
+                      <td className="py-1 pr-2 text-right">
+                        {row.clearRatePct}%
+                      </td>
+                      <td className="py-1 pr-2 text-right">
+                        {row.failureRatePct}%
+                      </td>
+                      <td className="py-1 pr-2 text-right">
+                        {row.bossReachRatePct}%
+                      </td>
+                      <td className="py-1 pr-2 text-right">
+                        {row.avgRemainingHp}
+                      </td>
+                      <td className="py-1 pr-2 font-sans">
+                        <Badge tone={RISK_TONE[row.riskLevel]}>
+                          {row.riskLabel}
+                        </Badge>
+                      </td>
+                      <td className="py-1 font-sans text-zinc-600 dark:text-zinc-300">
+                        {row.riskReason}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card title="위험 표시">
+              {data.balanceFlags.length ? (
+                <div className="space-y-2">
+                  {data.balanceFlags.map((flag) => (
+                    <div
+                      key={flag.id}
+                      className="rounded border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-950"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={SEVERITY_TONE[flag.severity]}>
+                          {flag.severity === "danger"
+                            ? "위험"
+                            : flag.severity === "warning"
+                              ? "주의"
+                              : "확인"}
+                        </Badge>
+                        <span className="font-semibold">{flag.title}</span>
+                        {flag.partySize ? (
+                          <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {flag.partySize}명
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-1 text-zinc-600 dark:text-zinc-300">
+                        {flag.detail}
+                      </div>
+                      <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                        {flag.action}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  과위험/과쉬움 신호 없음
+                </div>
+              )}
+            </Card>
+
+            <Card title="튜닝 후보">
+              {data.tuningCandidates.length ? (
+                <div className="space-y-2">
+                  {data.tuningCandidates.map((candidate) => (
+                    <div
+                      key={candidate.id}
+                      className="rounded border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-950"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={PRIORITY_TONE[candidate.priority]}>
+                          {candidate.priority === "high"
+                            ? "높음"
+                            : candidate.priority === "medium"
+                              ? "중간"
+                              : "낮음"}
+                        </Badge>
+                        <span className="font-semibold">{candidate.title}</span>
+                      </div>
+                      <div className="mt-1 text-zinc-600 dark:text-zinc-300">
+                        {candidate.detail}
+                      </div>
+                      <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                        {candidate.action}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  즉시 조정 후보 없음
                 </div>
               )}
             </Card>

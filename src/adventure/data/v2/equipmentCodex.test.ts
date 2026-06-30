@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  countCraftOnlyEquipmentCodex,
+  craftOnlyCodexRewardTitleIds,
   equipmentCodexSpBonusForCount,
   nextEquipmentCodexMilestone,
   parseEquipmentCodex,
@@ -37,5 +39,25 @@ describe("equipmentCodex", () => {
     const again = withRegisteredEquipmentId(first.codex, "v2_iron_sword");
     expect(again.added).toBe(false);
     expect(again.codex.registeredIds).toEqual(["v2_iron_sword"]);
+  });
+
+  it("제작 전용 도감 등록 수와 칭호 보상 단계를 계산한다", () => {
+    const ids = [
+      "v2_crafted_oathblade",
+      "v2_crafted_gale_bow",
+      "v2_crafted_runic_staff",
+      "v2_crafted_master_ring",
+      "v2_iron_sword",
+    ];
+    expect(countCraftOnlyEquipmentCodex(ids)).toBe(4);
+    expect(craftOnlyCodexRewardTitleIds(3)).toEqual([]);
+    expect(craftOnlyCodexRewardTitleIds(4)).toEqual([
+      "artisan_codex_collector",
+    ]);
+    expect(craftOnlyCodexRewardTitleIds(10)).toEqual([
+      "artisan_codex_collector",
+      "artisan_codex_curator",
+      "artisan_codex_master",
+    ]);
   });
 });

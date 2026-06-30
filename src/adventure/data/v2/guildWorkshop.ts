@@ -106,6 +106,7 @@ export type GuildWorkshopCraftRecords = {
   qualityCrafts: number;
   masterworkCrafts: number;
   craftOnlyCrafts: number;
+  craftOnlySlots: Partial<Record<V2EquipSlot, number>>;
   highestTier: number;
   bestQualityLevel: number;
   recipes: Partial<Record<GuildWorkshopRecipeId, GuildWorkshopRecipeRecord>>;
@@ -119,6 +120,13 @@ export type GuildWorkshopCraftRecordEvent = {
   masterwork?: boolean;
   craftedAt?: string;
 };
+
+export const BLACKSMITH_CRAFT_RECORD_TITLE_THRESHOLDS = {
+  doubleStarQuality: 1,
+  masterworkCrafts: 10,
+  highTier: 10,
+  craftOnlySlotCount: 6,
+} as const;
 
 export type GuildWorkshopBonus = {
   totalCrafts: number;
@@ -637,6 +645,7 @@ function emptyGuildWorkshopCraftRecords(): GuildWorkshopCraftRecords {
     qualityCrafts: 0,
     masterworkCrafts: 0,
     craftOnlyCrafts: 0,
+    craftOnlySlots: {},
     highestTier: 0,
     bestQualityLevel: 0,
     recipes: {},
@@ -735,6 +744,27 @@ export function parseGuildWorkshopCraftRecords(
     const record = parseSlotRecord(rawSlots[slot]);
     if (record) slots[slot] = record;
   }
+  const craftOnlySlots: GuildWorkshopCraftRecords["craftOnlySlots"] = {};
+  const rawCraftOnlySlots =
+    obj.craftOnlySlots != null &&
+    typeof obj.craftOnlySlots === "object" &&
+    !Array.isArray(obj.craftOnlySlots)
+      ? (obj.craftOnlySlots as Record<string, unknown>)
+      : {};
+  for (const slot of [
+    "weapon",
+    "armor",
+    "gloves",
+    "boots",
+    "ring",
+    "necklace",
+  ] as const) {
+    const count = Math.max(
+      0,
+      Math.floor(Number(rawCraftOnlySlots[slot]) || 0),
+    );
+    if (count > 0) craftOnlySlots[slot] = count;
+  }
 
   return {
     totalCrafts: Math.max(0, Math.floor(Number(obj.totalCrafts) || 0)),
@@ -747,6 +777,7 @@ export function parseGuildWorkshopCraftRecords(
       0,
       Math.floor(Number(obj.craftOnlyCrafts) || 0),
     ),
+    craftOnlySlots,
     highestTier: Math.max(0, Math.floor(Number(obj.highestTier) || 0)),
     bestQualityLevel: Math.max(
       0,
@@ -777,11 +808,17 @@ export function addGuildWorkshopCraftRecord(
     masterworkCrafts: 0,
     highestTier: 0,
   };
+  const nextCraftOnlySlots = { ...records.craftOnlySlots };
+  if (event.item.craftOnly) {
+    nextCraftOnlySlots[event.item.slot] =
+      (nextCraftOnlySlots[event.item.slot] ?? 0) + 1;
+  }
   return {
     totalCrafts: records.totalCrafts + 1,
     qualityCrafts: records.qualityCrafts + (qualityLevel > 0 ? 1 : 0),
     masterworkCrafts: records.masterworkCrafts + (event.masterwork ? 1 : 0),
     craftOnlyCrafts: records.craftOnlyCrafts + (event.item.craftOnly ? 1 : 0),
+    craftOnlySlots: nextCraftOnlySlots,
     highestTier: Math.max(records.highestTier, tier),
     bestQualityLevel: Math.max(records.bestQualityLevel, qualityLevel),
     recipes: {
@@ -805,6 +842,73 @@ export function addGuildWorkshopCraftRecord(
       },
     },
   };
+}
+
+export function guildWorkshopRecipeIdForEquipmentId(
+  equipmentId: V2EquipmentId,
+): GuildWorkshopRecipeId | undefined {
+  return GUILD_WORKSHOP_RECIPE_IDS.find(
+    (id) => GUILD_WORKSHOP_RECIPES[id].equipmentId === equipmentId,
+  );
+}
+
+export function guildWorkshopEquipmentRecordViews(
+  raw: unknown,
+): Partial<
+  Record<
+    V2EquipmentId,
+    GuildWorkshopRecipeRecord & {
+      recipeId: GuildWorkshopRecipeId;
+    }
+  >
+> {
+  const records = parseGuildWorkshopCraftRecords(raw);
+  const out: Partial<
+    Record<
+      V2EquipmentId,
+      GuildWorkshopRecipeRecord & {
+        recipeId: GuildWorkshopRecipeId;
+      }
+    >
+  > = {};
+  for (const [recipeId, record] of Object.entries(records.recipes)) {
+    if (!record) continue;
+    const id = recipeId as GuildWorkshopRecipeId;
+    out[GUILD_WORKSHOP_RECIPES[id].equipmentId] = { ...record, recipeId: id };
+  }
+  return out;
+}
+
+export function guildWorkshopCraftRecordTitleIds(
+  records: GuildWorkshopCraftRecords,
+): string[] {
+  const out: string[] = [];
+  if (
+    records.bestQualityLevel >= 2 &&
+    records.qualityCrafts >=
+      BLACKSMITH_CRAFT_RECORD_TITLE_THRESHOLDS.doubleStarQuality
+  ) {
+    out.push("artisan_double_star_smith");
+  }
+  if (
+    records.masterworkCrafts >=
+    BLACKSMITH_CRAFT_RECORD_TITLE_THRESHOLDS.masterworkCrafts
+  ) {
+    out.push("artisan_masterwork_smith");
+  }
+  if (records.highestTier >= BLACKSMITH_CRAFT_RECORD_TITLE_THRESHOLDS.highTier) {
+    out.push("artisan_high_tier_smith");
+  }
+  const craftOnlySlotCount = (
+    ["weapon", "armor", "gloves", "boots", "ring", "necklace"] as const
+  ).filter((slot) => (records.craftOnlySlots[slot] ?? 0) > 0).length;
+  if (
+    craftOnlySlotCount >=
+    BLACKSMITH_CRAFT_RECORD_TITLE_THRESHOLDS.craftOnlySlotCount
+  ) {
+    out.push("artisan_full_kit_smith");
+  }
+  return out;
 }
 
 export function isGuildWorkshopCraftMode(

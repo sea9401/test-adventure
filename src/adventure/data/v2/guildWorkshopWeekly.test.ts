@@ -3,6 +3,8 @@ import {
   addGuildWorkshopWeeklyProgress,
   claimGuildWorkshopWeeklyQuest,
   guildWorkshopWeeklyQuestViews,
+  guildWorkshopWeeklyRewardTotals,
+  GUILD_WORKSHOP_WEEKLY_REWARD_CAP,
   parseGuildWorkshopWeeklyState,
 } from "./guildWorkshopWeekly";
 
@@ -105,5 +107,15 @@ describe("guild workshop weekly quests", () => {
       masterworkCount: 1,
       highTierCount: 1,
     });
+  });
+
+  it("keeps the full weekly reward budget inside the balance cap", () => {
+    const totals = guildWorkshopWeeklyRewardTotals();
+    expect(totals.gold).toBeLessThanOrEqual(
+      GUILD_WORKSHOP_WEEKLY_REWARD_CAP.gold,
+    );
+    expect(totals.fame).toBeLessThanOrEqual(
+      GUILD_WORKSHOP_WEEKLY_REWARD_CAP.fame,
+    );
   });
 });

@@ -15,7 +15,9 @@ import {
   UsersThree,
 } from "@phosphor-icons/react";
 import {
+  GRID_DUNGEON_DEFINITION,
   GRID_DUNGEON_ENTRANCE,
+  GRID_DUNGEON_REWARD_PREVIEW,
   GRID_DUNGEON_SUPPORT_ROLES,
   GRID_DUNGEON_SUPPORT_ROLE_LABEL,
   gridDungeonKey,
@@ -182,6 +184,13 @@ const SUPPORT_ROLE_FILTERS: SupportRoleFilter[] = [
   "unset",
 ];
 
+const COMBAT_LOG_TONE = {
+  attack: "border-red-900/70 bg-red-950/35 text-red-200",
+  heal: "border-emerald-800/70 bg-emerald-950/35 text-emerald-200",
+  hit: "border-sky-900/70 bg-sky-950/35 text-sky-200",
+  etc: "border-zinc-800 bg-zinc-950 text-zinc-400",
+} as const;
+
 function tileIcon(kind: GridDungeonTileKind, visible: boolean) {
   if (!visible) return null;
   if (kind === "treasure") return <TreasureChest size={20} weight="fill" />;
@@ -316,6 +325,7 @@ export function V2GridDungeonView({
   const history = state?.history.entries ?? [];
   const revealed = useMemo(() => new Set(run?.revealed ?? []), [run?.revealed]);
   const visited = useMemo(() => new Set(run?.visited ?? []), [run?.visited]);
+  const mapStats = useMemo(() => (run ? gridDungeonMapStats(run) : null), [run]);
   const validSelectedSupporterIds = useMemo(() => {
     const valid = new Set(
       supportCandidates
@@ -370,6 +380,13 @@ export function V2GridDungeonView({
         .filter((role): role is GridDungeonSupportRole => role != null),
     [selectedSupporters],
   );
+  const selectedFrontlineName =
+    effectiveFrontlineId === "main"
+      ? "나"
+      : selectedSupporters.find(
+          (supporter) => supporter.userId === effectiveFrontlineId,
+        )?.name ?? "나";
+  const supportRewardHonor = mySupportDaily?.honorPerReward ?? 5;
   const partyWarning =
     selectedSupporters.length === 0
       ? null
@@ -394,11 +411,12 @@ export function V2GridDungeonView({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-base font-bold text-zinc-100">
-            {GRID_DUNGEON_ENTRANCE.name}
+            {GRID_DUNGEON_DEFINITION.name}
           </h1>
           <p className="mt-0.5 text-xs text-zinc-500">
-            지도 ({GRID_DUNGEON_ENTRANCE.col}, {GRID_DUNGEON_ENTRANCE.row}) 입구에서
-            진입하는 격자 탐험 던전
+            지도 ({GRID_DUNGEON_DEFINITION.entrance.col},{" "}
+            {GRID_DUNGEON_DEFINITION.entrance.row}) 입구에서 진입하는 격자 탐험
+            던전
           </p>
         </div>
         <button
@@ -443,6 +461,7 @@ export function V2GridDungeonView({
               pendingDropCount={0}
               mode="entrance"
             />
+            <RewardPreview />
             <button
               type="button"
               disabled={!state.atEntrance || busy}
@@ -532,7 +551,10 @@ export function V2GridDungeonView({
             <div className="rounded-md border border-zinc-800 bg-zinc-950/70 p-3 text-xs">
               <div className="font-semibold text-zinc-200">권장 구성</div>
               <div className="mt-1 text-zinc-500">
-                보스 권장: 지원자 2명 · 공격형 1 + 회복형 1
+                보스 권장: 지원자 {GRID_DUNGEON_DEFINITION.recommendedSupporters}명 ·{" "}
+                {GRID_DUNGEON_DEFINITION.recommendedRoles
+                  .map((role) => GRID_DUNGEON_SUPPORT_ROLE_LABEL[role])
+                  .join(" + ")}
               </div>
               <div className="mt-0.5 text-[11px] text-zinc-600">
                 솔로, 회복형만, 방어형+회복형 조합은 보스전이 어려울 수 있습니다.
@@ -574,6 +596,38 @@ export function V2GridDungeonView({
                       </button>
                     );
                   })}
+                </div>
+                <div className="grid gap-2 rounded-md border border-zinc-800 bg-black/20 p-2 text-[11px] sm:grid-cols-3">
+                  <div>
+                    <div className="text-zinc-500">선택 동료</div>
+                    <div className="mt-0.5 font-semibold text-zinc-200">
+                      {selectedSupporters.length} / 2명
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-zinc-500">전열</div>
+                    <div className="mt-0.5 font-semibold text-amber-200">
+                      {selectedFrontlineName}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-zinc-500">동료 보상</div>
+                    <div className="mt-0.5 font-semibold text-yellow-200">
+                      클리어 시 명예 +{supportRewardHonor}
+                    </div>
+                  </div>
+                  {selectedRoles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 sm:col-span-3">
+                      {selectedRoles.map((role, idx) => (
+                        <span
+                          key={`${role}:${idx}`}
+                          className={`rounded border px-1.5 py-0.5 ${SUPPORT_ROLE_TONE[role]}`}
+                        >
+                          {GRID_DUNGEON_SUPPORT_ROLE_LABEL[role]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {selectedSupporters.length > 0 && (
                   <div className="space-y-1.5">
@@ -730,6 +784,7 @@ export function V2GridDungeonView({
           />
 
           <section className="space-y-3 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+            {mapStats && <MapExplorationStats stats={mapStats} />}
             <div className="flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
               {[
                 "monster",
@@ -890,11 +945,119 @@ export function V2GridDungeonView({
   );
 }
 
+function RewardPreview() {
+  return (
+    <div className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold text-zinc-200">주요 보상</div>
+        <div className="text-[10px] text-zinc-500">
+          일 {GRID_DUNGEON_DEFINITION.dailyRewardLimit}회 재료 정산
+        </div>
+      </div>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        {GRID_DUNGEON_REWARD_PREVIEW.map((reward) => (
+          <div
+            key={reward.id}
+            className="rounded border border-yellow-900/50 bg-yellow-950/20 px-2.5 py-2 text-xs"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate font-semibold text-yellow-100">
+                {V2_MATERIALS[reward.id]?.name ?? reward.id}
+              </span>
+              <span
+                className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${
+                  reward.rarity === "희귀"
+                    ? "border-fuchsia-800 bg-fuchsia-950/45 text-fuchsia-200"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-300"
+                }`}
+              >
+                {reward.rarity}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-zinc-500">{reward.source}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SupportDailyStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1.5">
       <div className="text-[10px] text-zinc-500">{label}</div>
       <div className="mt-0.5 text-xs font-semibold text-zinc-200">{value}</div>
+    </div>
+  );
+}
+
+type GridDungeonMapStats = {
+  explored: number;
+  traversable: number;
+  percent: number;
+  bossDiscovered: boolean;
+  exitDiscovered: boolean;
+};
+
+function gridDungeonMapStats(run: GridDungeonPublicRun): GridDungeonMapStats {
+  const visitedKeys = new Set(run.visited);
+  const revealedKeys = new Set(run.revealed);
+  let traversable = 0;
+  let bossKey = "";
+  let exitKey = "";
+  for (let y = 0; y < run.layout.length; y += 1) {
+    const row = run.layout[y] ?? [];
+    for (let x = 0; x < row.length; x += 1) {
+      const tile = row[x];
+      if (tile !== "wall") traversable += 1;
+      if (tile === "boss") bossKey = gridDungeonKey(x, y);
+      if (tile === "exit") exitKey = gridDungeonKey(x, y);
+    }
+  }
+  const explored = [...visitedKeys].filter((key) => {
+    const [xRaw, yRaw] = key.split(",");
+    const x = Number(xRaw);
+    const y = Number(yRaw);
+    return run.layout[y]?.[x] !== "wall";
+  }).length;
+  return {
+    explored,
+    traversable,
+    percent: traversable > 0 ? Math.round((explored / traversable) * 100) : 0,
+    bossDiscovered: !!bossKey && revealedKeys.has(bossKey),
+    exitDiscovered: !!exitKey && revealedKeys.has(exitKey),
+  };
+}
+
+function MapExplorationStats({ stats }: { stats: GridDungeonMapStats }) {
+  return (
+    <div className="grid gap-2 text-xs sm:grid-cols-3">
+      <div className="rounded border border-zinc-800 bg-black/20 px-2.5 py-2">
+        <div className="text-zinc-500">탐험률</div>
+        <div className="mt-0.5 font-semibold text-zinc-100">
+          {stats.percent}% · {stats.explored} / {stats.traversable}칸
+        </div>
+      </div>
+      <div className="rounded border border-zinc-800 bg-black/20 px-2.5 py-2">
+        <div className="text-zinc-500">보스</div>
+        <div
+          className={`mt-0.5 font-semibold ${
+            stats.bossDiscovered ? "text-rose-200" : "text-zinc-500"
+          }`}
+        >
+          {stats.bossDiscovered ? "발견" : "미발견"}
+        </div>
+      </div>
+      <div className="rounded border border-zinc-800 bg-black/20 px-2.5 py-2">
+        <div className="text-zinc-500">출구</div>
+        <div
+          className={`mt-0.5 font-semibold ${
+            stats.exitDiscovered ? "text-indigo-200" : "text-zinc-500"
+          }`}
+        >
+          {stats.exitDiscovered ? "발견" : "미발견"}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1077,13 +1240,7 @@ function DungeonCombatSummary({
         </div>
       )}
       {combat.log.length > 0 && (
-        <div className="space-y-1 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
-          {combat.log.map((line, idx) => (
-            <div key={`${idx}:${line}`} className="truncate">
-              {line}
-            </div>
-          ))}
-        </div>
+        <CombatLogList lines={combat.log} enemyName={combat.enemyName} />
       )}
     </div>
   );
@@ -1197,6 +1354,62 @@ function PartyMetricChart({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+type CombatLogKind = keyof typeof COMBAT_LOG_TONE;
+
+function classifyCombatLogLine(line: string, enemyName: string): CombatLogKind {
+  if (line.includes("HP +")) return "heal";
+  if (line.startsWith(`${enemyName}이(가) `)) return "hit";
+  if (line.includes(" 피해")) return "attack";
+  return "etc";
+}
+
+function combatLogLabel(kind: CombatLogKind): string {
+  if (kind === "heal") return "회복";
+  if (kind === "hit") return "피격";
+  if (kind === "attack") return "공격";
+  return "기타";
+}
+
+function CombatLogList({
+  lines,
+  enemyName,
+}: {
+  lines: string[];
+  enemyName: string;
+}) {
+  const visibleLines = lines.slice(-8);
+  return (
+    <div className="space-y-1.5 border-t border-zinc-800 pt-2 text-[11px]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-semibold text-zinc-300">전투 로그</div>
+        {lines.length > visibleLines.length && (
+          <div className="text-[10px] text-zinc-500">
+            최근 {visibleLines.length}줄
+          </div>
+        )}
+      </div>
+      <div className="space-y-1">
+        {visibleLines.map((line, idx) => {
+          const kind = classifyCombatLogLine(line, enemyName);
+          return (
+            <div
+              key={`${idx}:${line}`}
+              className="grid grid-cols-[42px_1fr] items-center gap-2"
+            >
+              <span
+                className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
+              >
+                {combatLogLabel(kind)}
+              </span>
+              <span className="min-w-0 truncate text-zinc-400">{line}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

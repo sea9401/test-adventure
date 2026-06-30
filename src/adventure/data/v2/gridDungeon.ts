@@ -28,6 +28,46 @@ export const GRID_DUNGEON_ENTRANCE = {
 export const GRID_DUNGEON_SIZE = 5;
 export const GRID_DUNGEON_MAX_HP = 10;
 
+export const GRID_DUNGEON_REWARD_PREVIEW = [
+  {
+    id: ENHANCE_STONE_MATERIAL_ID.red,
+    source: "전투 · 보스",
+    rarity: "주요",
+  },
+  {
+    id: ENHANCE_STONE_MATERIAL_ID.blue,
+    source: "보물 · 보스",
+    rarity: "주요",
+  },
+  {
+    id: REFORGE_STONE_MATERIAL_ID.basic,
+    source: "보물 · 정예",
+    rarity: "보통",
+  },
+  {
+    id: REFORGE_STONE_MATERIAL_ID.high,
+    source: "보스 · 보물",
+    rarity: "희귀",
+  },
+  {
+    id: SUMMON_SCROLL_MATERIAL_ID,
+    source: "보스 · 보물",
+    rarity: "희귀",
+  },
+] as const;
+
+export const GRID_DUNGEON_DEFINITION = {
+  id: GRID_DUNGEON_ENTRANCE.id,
+  name: GRID_DUNGEON_ENTRANCE.name,
+  entrance: GRID_DUNGEON_ENTRANCE,
+  size: GRID_DUNGEON_SIZE,
+  maxHp: GRID_DUNGEON_MAX_HP,
+  dailyRewardLimit: GRID_DUNGEON_DAILY_REWARD_LIMIT,
+  recommendedSupporters: 2,
+  recommendedRoles: ["dealer", "healer"] as const,
+  rewardPreview: GRID_DUNGEON_REWARD_PREVIEW,
+} as const;
+
 export const GRID_DUNGEON_SUPPORT_ROLES = [
   "dealer",
   "healer",

@@ -33,7 +33,6 @@ import {
   GUILD_WORKSHOP_QUALITY_BONUS_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
-  craftQualityStars,
   V2_EQUIP_TAG_SETS,
   V2_SLOT_LABEL,
   type V2CraftQualityState,
@@ -42,7 +41,12 @@ import {
 import type { GuildInfoResponse } from "./guildShared";
 import { ArtisanLeaderboardPanel } from "./ArtisanLeaderboardPanel";
 import { GuildArtisanContributionPanel } from "./GuildArtisanContributionPanel";
-import { CraftOnlyBadge, CraftQualityStars } from "../V2ItemCard";
+import {
+  CraftOnlyBadge,
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  MasterworkBadge,
+} from "../V2ItemCard";
 
 type WorkshopRecipeView = {
   id: GuildWorkshopRecipeId;
@@ -1277,27 +1281,21 @@ export function GuildWorkshopPanel({
                         {d.deliverable.map((item) => (
                           <option key={item.iid} value={item.iid}>
                             {item.itemName}
-                            {item.enhanceLevel > 0 ? ` +${item.enhanceLevel}` : ""}
-                            {item.craftQualityLevel > 0
-                              ? ` ${"★".repeat(item.craftQualityLevel)}`
+                            {item.enhanceLevel > 0
+                              ? ` · 강화 +${item.enhanceLevel}`
                               : ""}
-                            {item.craftOnly ? " · 제작전용" : ""}
+                            {item.craftQualityLevel > 0
+                              ? ` · ${"★".repeat(item.craftQualityLevel)} 품질`
+                              : ""}
+                            {item.craftOnly ? " · 제작 전용" : ""}
                             {` · 제작자 Lv ${item.crafterLevel}`}
                           </option>
                         ))}
                       </select>
                       {selected ? (
                         <div className="flex flex-wrap gap-1 text-[11px]">
-                          {selected.craftQualityLevel > 0 ? (
-                            <span className="rounded bg-amber-100 px-1.5 py-px text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                              {"★".repeat(selected.craftQualityLevel)} 품질
-                            </span>
-                          ) : null}
-                          {selected.craftOnly ? (
-                            <span className="rounded bg-emerald-100 px-1.5 py-px text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                              제작전용
-                            </span>
-                          ) : null}
+                          <CraftQualityBadge level={selected.craftQualityLevel} />
+                          {selected.craftOnly ? <CraftOnlyBadge /> : null}
                           <span className="rounded bg-zinc-200 px-1.5 py-px text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                             제작자 Lv {selected.crafterLevel}
                           </span>
@@ -1439,17 +1437,9 @@ export function GuildWorkshopPanel({
               <span className="font-semibold text-rose-950 dark:text-rose-100">
                 해체 완료
               </span>
-              {dismantleResult.craftQualityLevel > 0 ? (
-                <span className="rounded bg-amber-200 px-1.5 py-px font-semibold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
-                  {"★".repeat(dismantleResult.craftQualityLevel)} 품질
-                </span>
-              ) : null}
+              <CraftQualityBadge level={dismantleResult.craftQualityLevel} />
               {dismantleResult.craftOnly ? <CraftOnlyBadge /> : null}
-              {dismantleResult.masterwork ? (
-                <span className="rounded bg-rose-200 px-1.5 py-px font-semibold text-rose-900 dark:bg-rose-800 dark:text-rose-50">
-                  명장
-                </span>
-              ) : null}
+              {dismantleResult.masterwork ? <MasterworkBadge /> : null}
             </div>
           </div>
           <div className="grid gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -1488,22 +1478,10 @@ export function GuildWorkshopPanel({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                     <span className="truncate">{item.itemName}</span>
-                    {item.enhanceLevel > 0 ? (
-                      <span className="text-[11px] text-sky-600 dark:text-sky-300">
-                        +{item.enhanceLevel}
-                      </span>
-                    ) : null}
-                    {item.craftQualityLevel > 0 ? (
-                      <span className="text-[11px] text-amber-600 dark:text-amber-300">
-                        {"★".repeat(item.craftQualityLevel)}
-                      </span>
-                    ) : null}
+                    <EnhanceLevelBadge level={item.enhanceLevel} />
+                    <CraftQualityBadge level={item.craftQualityLevel} />
                     {item.craftOnly ? <CraftOnlyBadge /> : null}
-                    {item.masterwork ? (
-                      <span className="rounded bg-rose-100 px-1.5 py-px text-[10px] font-semibold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
-                        명장
-                      </span>
-                    ) : null}
+                    {item.masterwork ? <MasterworkBadge /> : null}
                   </div>
                   <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                     {V2_SLOT_LABEL[item.slot]} · T{item.tier} ·{" "}
@@ -1952,21 +1930,9 @@ export function GuildWorkshopPanel({
               <span className={`font-semibold ${craftResultVisual?.title ?? ""}`}>
                 {craftResultHeadline(craftResult)}
               </span>
-              {craftResult.masterwork ? (
-                <span className="rounded bg-rose-200 px-1.5 py-px font-semibold text-rose-900 dark:bg-rose-800 dark:text-rose-50">
-                  명장 제작품
-                </span>
-              ) : null}
+              {craftResult.masterwork ? <MasterworkBadge /> : null}
               {craftResult.craftOnly ? <CraftOnlyBadge /> : null}
-              {craftResultQuality ? (
-                <span className="rounded bg-amber-200 px-1.5 py-px font-semibold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
-                  <CraftQualityStars
-                    craftQuality={craftResultQuality}
-                    className="mr-1"
-                  />
-                  품질
-                </span>
-              ) : null}
+              <CraftQualityBadge craftQuality={craftResultQuality} />
             </div>
             <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
               {craftResultMessage(craftResult)}
@@ -1980,11 +1946,6 @@ export function GuildWorkshopPanel({
           <div className="grid gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                {craftResultQuality ? (
-                  <span className="mr-1 text-amber-600 dark:text-amber-300">
-                    {craftQualityStars(craftResultQuality)}
-                  </span>
-                ) : null}
                 {craftResult.itemName}
               </div>
               <div className="mt-1 text-zinc-500 dark:text-zinc-400">

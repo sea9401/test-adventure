@@ -27,6 +27,9 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
 import {
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  MasterworkBadge,
   V2ItemCard,
   anchorOf,
   powerNameClass,
@@ -244,17 +247,14 @@ export function V2CharacterCard({
                   <span className="min-w-0 break-keep line-clamp-2">
                     {item?.name ?? "—"}
                   </span>
-                  {inst?.enhance && inst.enhance.level > 0 ? (
-                    <span className="shrink-0 font-semibold text-amber-500">
-                      +{inst.enhance.level}
-                    </span>
-                  ) : null}
-                  {inst?.craftQuality ? (
-                    <span className="shrink-0 font-semibold text-amber-500">
-                      {"★".repeat(inst.craftQuality.level)}
-                    </span>
-                  ) : null}
                 </div>
+                {inst ? (
+                  <div className="flex max-w-full flex-wrap justify-center gap-1">
+                    <EnhanceLevelBadge enhance={inst.enhance} />
+                    <CraftQualityBadge craftQuality={inst.craftQuality} />
+                    {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+                  </div>
+                ) : null}
               </>
             );
             // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.

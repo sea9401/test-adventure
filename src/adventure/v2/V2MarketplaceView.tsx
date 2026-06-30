@@ -31,7 +31,9 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   CraftOnlyBadge,
-  CraftQualityStars,
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  MasterworkBadge,
   PerfectQualityBadge,
   QualityPctText,
   V2ItemCard,
@@ -786,6 +788,8 @@ function BuyConfirm({
           listingCraftQuality(listing.instancePayload),
         )
       : null;
+  const craftedBy =
+    listing.kind === "equip" ? listingCraftedBy(listing.instancePayload) : undefined;
   const enough =
     gold === null ||
     (coreLoopOn ? gold + bankedGold : gold) >= listing.price;
@@ -815,11 +819,10 @@ function BuyConfirm({
               }`}
             >
               {listing.itemName}
-              {detail?.enhance ? (
-                <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
-              ) : null}
-              <CraftQualityStars craftQuality={detail?.craftQuality} className="ml-1" />
             </span>
+            <EnhanceLevelBadge enhance={detail?.enhance} />
+            <CraftQualityBadge craftQuality={detail?.craftQuality} />
+            {craftedBy?.masterwork ? <MasterworkBadge /> : null}
             {listing.kind === "material" && listing.quantity > 1 && (
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{listing.quantity}</span>
             )}
@@ -1043,11 +1046,10 @@ function ListingList({
                 }`}
               >
                 {l.itemName}
-                {detail?.enhance ? (
-                  <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
-                ) : null}
-                <CraftQualityStars craftQuality={detail?.craftQuality} className="ml-1" />
               </span>
+              <EnhanceLevelBadge enhance={detail?.enhance} />
+              <CraftQualityBadge craftQuality={detail?.craftQuality} />
+              {craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {l.kind === "material" && l.quantity > 1 && (
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
               )}

@@ -35,6 +35,9 @@ import {
   V2ItemCard,
   V2ItemCompareCard,
   anchorOf,
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  MasterworkBadge,
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
@@ -433,7 +436,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   {label}
                 </div>
                 <div
-                  className={`flex max-w-full items-baseline justify-center text-xs font-medium ${
+                  className={`flex max-w-full justify-center text-xs font-medium ${
                     item
                       ? powerNameClass(
                           item,
@@ -445,12 +448,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   }`}
                 >
                   <span className="truncate">{item?.name ?? "—"}</span>
-                  {item && inst?.enhance && inst.enhance.level > 0 ? (
-                    <span className="ml-1 shrink-0 text-amber-500">
-                      +{inst.enhance.level}
-                    </span>
-                  ) : null}
                 </div>
+                {item && inst ? (
+                  <div className="flex max-w-full flex-wrap justify-center gap-1">
+                    <EnhanceLevelBadge enhance={inst.enhance} />
+                    <CraftQualityBadge craftQuality={inst.craftQuality} />
+                    {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
+                  </div>
+                ) : null}
               </>
             );
             return (

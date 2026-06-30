@@ -5,7 +5,9 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { parseAmount } from "@/components/ui/NumberInput";
 import {
   CraftOnlyBadge,
-  CraftQualityStars,
+  CraftQualityBadge,
+  EnhanceLevelBadge,
+  MasterworkBadge,
   PerfectQualityBadge,
   powerNameClass,
   QualityPctText,
@@ -86,11 +88,10 @@ export function EquipmentListingCard({
                 }`}
               >
                 {V2_EQUIPMENT[inst.id]?.name ?? inst.id}
-                {inst.enhance && inst.enhance.level > 0 ? (
-                  <span className="ml-1 text-amber-500">+{inst.enhance.level}</span>
-                ) : null}
-                <CraftQualityStars craftQuality={inst.craftQuality} className="ml-1" />
               </span>
+              <EnhanceLevelBadge enhance={inst.enhance} className="ml-1.5" />
+              <CraftQualityBadge craftQuality={inst.craftQuality} className="ml-1" />
+              {inst.craftedBy?.masterwork ? <MasterworkBadge className="ml-1" /> : null}
               {item?.craftOnly ? <CraftOnlyBadge className="ml-1.5" /> : null}
               {detail?.pct != null && (
                 <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] tabular-nums">

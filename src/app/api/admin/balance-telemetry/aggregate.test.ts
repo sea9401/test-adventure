@@ -25,6 +25,22 @@ function user(p: Partial<TelemetryUser>): TelemetryUser {
     totalStats: stats("dex"),
     classId: "warrior",
     classTier: 1,
+    jobId: "warrior",
+    jobName: "견습 병사",
+    jobTier: 1,
+    totalMastery: 0,
+    currentMastery: 0,
+    reincarnations: 0,
+    spBudget: 12,
+    spUsed: 0,
+    skillsLearned: 0,
+    skillsEquipped: 0,
+    equipmentOwned: 0,
+    equipmentEquipped: 0,
+    maxEnhanceLevel: 0,
+    fishCaught: 0,
+    fishSpecies: 0,
+    antiquesFound: 0,
     equippedIds: [],
     ...p,
   };
@@ -133,6 +149,8 @@ describe("aggregateBalanceTelemetry", () => {
     });
     expect(t.classDist.find((c) => c.key === "warrior")?.count).toBe(2);
     expect(t.classDist.find((c) => c.key === "mage")?.count).toBe(1);
+    expect(t.jobDist.find((j) => j.key === "warrior")?.count).toBe(3);
+    expect(t.jobTierDist).toEqual([{ tier: 1, count: 3 }]);
     expect(t.classDist[0].count).toBeGreaterThanOrEqual(t.classDist[1].count);
     expect(t.tierDist).toEqual([
       { tier: 1, count: 1 },

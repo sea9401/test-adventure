@@ -17,6 +17,22 @@ export type TelemetryUser = {
   totalStats: Record<V2StatKey, number>;
   classId: string;
   classTier: number;
+  jobId: string;
+  jobName: string;
+  jobTier: number;
+  totalMastery: number;
+  currentMastery: number;
+  reincarnations: number;
+  spBudget: number;
+  spUsed: number;
+  skillsLearned: number;
+  skillsEquipped: number;
+  equipmentOwned: number;
+  equipmentEquipped: number;
+  maxEnhanceLevel: number;
+  fishCaught: number;
+  fishSpecies: number;
+  antiquesFound: number;
   equippedIds: string[];
 };
 
@@ -36,6 +52,11 @@ export type BalanceTelemetry = {
   powerBands: { label: string; players: number }[];
   classDist: { key: string; label: string; count: number }[];
   tierDist: { tier: number; count: number }[];
+  jobDist: { key: string; label: string; tier: number; count: number }[];
+  jobTierDist: { tier: number; count: number }[];
+  masteryBands: { label: string; players: number }[];
+  reincarnationBands: { label: string; players: number }[];
+  spPressureBands: { label: string; players: number }[];
   statAxes: { key: string; label: string; avg: number; dominantCount: number }[];
   economy: {
     label: string;
@@ -45,6 +66,20 @@ export type BalanceTelemetry = {
     maxGold: number;
   }[];
   equipmentUsage: { id: string; name: string; count: number }[];
+  equipmentSummary: {
+    label: string;
+    players: number;
+    avgEquipped: number;
+    avgOwned: number;
+    avgMaxEnhance: number;
+  }[];
+  lifeProgress: {
+    fishingPlayers: number;
+    avgFishCaught: number;
+    avgFishSpecies: number;
+    treasurePlayers: number;
+    avgAntiquesFound: number;
+  };
 };
 
 const LEVEL_BANDS: { label: string; min: number; max: number }[] = [
@@ -63,6 +98,30 @@ const POWER_BANDS: { label: string; min: number; max: number }[] = [
   { label: "700-999", min: 700, max: 999 },
   { label: "1000-1499", min: 1000, max: 1499 },
   { label: "1500+", min: 1500, max: Infinity },
+];
+
+const MASTERY_BANDS: { label: string; min: number; max: number }[] = [
+  { label: "0", min: 0, max: 0 },
+  { label: "1-899", min: 1, max: 899 },
+  { label: "900-1799", min: 900, max: 1799 },
+  { label: "1800-2699", min: 1800, max: 2699 },
+  { label: "2700-7499", min: 2700, max: 7499 },
+  { label: "7500+", min: 7500, max: Infinity },
+];
+
+const REINCARNATION_BANDS: { label: string; min: number; max: number }[] = [
+  { label: "0회", min: 0, max: 0 },
+  { label: "1회", min: 1, max: 1 },
+  { label: "2-4회", min: 2, max: 4 },
+  { label: "5회+", min: 5, max: Infinity },
+];
+
+const SP_PRESSURE_BANDS: { label: string; min: number; max: number }[] = [
+  { label: "0%", min: 0, max: 0 },
+  { label: "1-49%", min: 0.00001, max: 0.49 },
+  { label: "50-79%", min: 0.5, max: 0.79 },
+  { label: "80-99%", min: 0.8, max: 0.99 },
+  { label: "100%+", min: 1, max: Infinity },
 ];
 
 const CLASS_LABELS: Record<string, string> = {
@@ -98,8 +157,13 @@ export function aggregateBalanceTelemetry(
   let legacyDepth = 0;
   const levelAcc = LEVEL_BANDS.map(() => ({ players: 0, powerSum: 0 }));
   const powerAcc = POWER_BANDS.map(() => 0);
+  const masteryAcc = MASTERY_BANDS.map(() => 0);
+  const reincarnationAcc = REINCARNATION_BANDS.map(() => 0);
+  const spPressureAcc = SP_PRESSURE_BANDS.map(() => 0);
   const classAcc: Record<string, number> = {};
   const tierAcc: Record<number, number> = {};
+  const jobAcc: Record<string, { label: string; tier: number; count: number }> = {};
+  const jobTierAcc: Record<number, number> = {};
   const dominantStatAcc: Record<string, number> = {};
   const statSum: Record<string, number> = {};
   for (const k of V2_STAT_KEYS) {
@@ -107,8 +171,20 @@ export function aggregateBalanceTelemetry(
     dominantStatAcc[k] = 0;
   }
   const goldByLevelBand = LEVEL_BANDS.map(() => [] as number[]);
+  const equipmentByLevelBand = LEVEL_BANDS.map(
+    () => [] as {
+      equipped: number;
+      owned: number;
+      maxEnhance: number;
+    }[],
+  );
   const equipUsage: Record<string, number> = {};
   const powerAll: number[] = [];
+  let fishCaughtSum = 0;
+  let fishSpeciesSum = 0;
+  let fishingPlayers = 0;
+  let antiquesFoundSum = 0;
+  let treasurePlayers = 0;
 
   for (const u of users) {
     powerAll.push(u.power);
@@ -130,6 +206,11 @@ export function aggregateBalanceTelemetry(
       levelAcc[li].players++;
       levelAcc[li].powerSum += u.power;
       goldByLevelBand[li].push(u.gold);
+      equipmentByLevelBand[li].push({
+        equipped: u.equipmentEquipped,
+        owned: u.equipmentOwned,
+        maxEnhance: u.maxEnhanceLevel,
+      });
     }
 
     const pi = POWER_BANDS.findIndex(
@@ -137,8 +218,30 @@ export function aggregateBalanceTelemetry(
     );
     if (pi >= 0) powerAcc[pi]++;
 
+    const mi = MASTERY_BANDS.findIndex(
+      (b) => u.currentMastery >= b.min && u.currentMastery <= b.max,
+    );
+    if (mi >= 0) masteryAcc[mi]++;
+
+    const ri = REINCARNATION_BANDS.findIndex(
+      (b) => u.reincarnations >= b.min && u.reincarnations <= b.max,
+    );
+    if (ri >= 0) reincarnationAcc[ri]++;
+
+    const spRatio = u.spBudget > 0 ? u.spUsed / u.spBudget : 0;
+    const si = SP_PRESSURE_BANDS.findIndex(
+      (b) => spRatio >= b.min && spRatio <= b.max,
+    );
+    if (si >= 0) spPressureAcc[si]++;
+
     classAcc[u.classId] = (classAcc[u.classId] ?? 0) + 1;
     tierAcc[u.classTier] = (tierAcc[u.classTier] ?? 0) + 1;
+    jobAcc[u.jobId] = {
+      label: u.jobName,
+      tier: u.jobTier,
+      count: (jobAcc[u.jobId]?.count ?? 0) + 1,
+    };
+    jobTierAcc[u.jobTier] = (jobTierAcc[u.jobTier] ?? 0) + 1;
 
     let domKey: V2StatKey = V2_STAT_KEYS[0];
     let domVal = -Infinity;
@@ -155,6 +258,12 @@ export function aggregateBalanceTelemetry(
     for (const id of u.equippedIds) {
       equipUsage[id] = (equipUsage[id] ?? 0) + 1;
     }
+
+    fishCaughtSum += u.fishCaught;
+    fishSpeciesSum += u.fishSpecies;
+    if (u.fishCaught > 0) fishingPlayers++;
+    antiquesFoundSum += u.antiquesFound;
+    if (u.antiquesFound > 0) treasurePlayers++;
   }
 
   const depthBands: Bucket[] = themeBands.map((b, i) => ({
@@ -193,6 +302,30 @@ export function aggregateBalanceTelemetry(
     .map(([tier, count]) => ({ tier: Number(tier), count }))
     .sort((a, b) => a.tier - b.tier);
 
+  const jobDist = Object.entries(jobAcc)
+    .map(([key, v]) => ({ key, label: v.label, tier: v.tier, count: v.count }))
+    .sort((a, b) => b.count - a.count || b.tier - a.tier)
+    .slice(0, 20);
+
+  const jobTierDist = Object.entries(jobTierAcc)
+    .map(([tier, count]) => ({ tier: Number(tier), count }))
+    .sort((a, b) => a.tier - b.tier);
+
+  const masteryBands = MASTERY_BANDS.map((b, i) => ({
+    label: b.label,
+    players: masteryAcc[i],
+  }));
+
+  const reincarnationBands = REINCARNATION_BANDS.map((b, i) => ({
+    label: b.label,
+    players: reincarnationAcc[i],
+  }));
+
+  const spPressureBands = SP_PRESSURE_BANDS.map((b, i) => ({
+    label: b.label,
+    players: spPressureAcc[i],
+  }));
+
   const statAxes = V2_STAT_KEYS.map((k) => ({
     key: k,
     label: V2_STAT_LABELS[k] ?? k,
@@ -222,6 +355,22 @@ export function aggregateBalanceTelemetry(
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
 
+  const avgOf = <T,>(items: T[], pick: (x: T) => number) =>
+    items.length
+      ? Math.round(items.reduce((sum, x) => sum + pick(x), 0) / items.length)
+      : 0;
+
+  const equipmentSummary = LEVEL_BANDS.map((b, i) => {
+    const list = equipmentByLevelBand[i];
+    return {
+      label: b.label,
+      players: list.length,
+      avgEquipped: avgOf(list, (x) => x.equipped),
+      avgOwned: avgOf(list, (x) => x.owned),
+      avgMaxEnhance: avgOf(list, (x) => x.maxEnhance),
+    };
+  });
+
   return {
     summary: {
       players,
@@ -238,8 +387,21 @@ export function aggregateBalanceTelemetry(
     powerBands,
     classDist,
     tierDist,
+    jobDist,
+    jobTierDist,
+    masteryBands,
+    reincarnationBands,
+    spPressureBands,
     statAxes,
     economy,
     equipmentUsage,
+    equipmentSummary,
+    lifeProgress: {
+      fishingPlayers,
+      avgFishCaught: players ? Math.round(fishCaughtSum / players) : 0,
+      avgFishSpecies: players ? Math.round(fishSpeciesSum / players) : 0,
+      treasurePlayers,
+      avgAntiquesFound: players ? Math.round(antiquesFoundSum / players) : 0,
+    },
   };
 }

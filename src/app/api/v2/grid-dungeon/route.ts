@@ -485,16 +485,34 @@ function historyEntryFromRun({
   outcome,
   rewardGold = 0,
   drops = {},
+  rewardLimited = false,
+  detailReason,
   at = Date.now(),
 }: {
   run: GridDungeonRun;
   outcome: "cleared" | "failed" | "abandoned";
   rewardGold?: number;
   drops?: DropResult;
+  rewardLimited?: boolean;
+  detailReason?: string;
   at?: number;
 }) {
   const outcomeLabel =
     outcome === "cleared" ? "클리어" : outcome === "failed" ? "실패" : "포기";
+  const materialCount = Object.values(drops).reduce<number>(
+    (sum, amount) => sum + Math.max(0, Math.floor(Number(amount) || 0)),
+    0,
+  );
+  const fallbackReason =
+    outcome === "cleared"
+      ? rewardLimited
+        ? "일일 재료 보상 횟수 소진으로 골드만 정산"
+        : "출구 도달 후 보상 정산"
+      : outcome === "failed"
+        ? run.lastCombat?.outcome === "lose"
+          ? `${run.lastCombat.enemyName} 전투 패배`
+          : "HP 소진"
+        : "탐험 직접 포기";
   return {
     id: `${run.id}:${outcome}:${at}`,
     outcome,
@@ -502,6 +520,8 @@ function historyEntryFromRun({
     at,
     rewardGold,
     drops,
+    materialCount,
+    rewardLimited,
     exploredTiles: new Set(run.visited).size,
     hp: run.hp,
     supporterCount: run.supporters.length,
@@ -510,6 +530,7 @@ function historyEntryFromRun({
     totalCombatTurns: run.totalCombatTurns,
     durationMs: Math.max(0, at - run.startedAt),
     message: `${GRID_DUNGEON_ENTRANCE.name} ${outcomeLabel}`,
+    detailReason: detailReason ?? fallbackReason,
   };
 }
 
@@ -718,7 +739,7 @@ async function resolveGridDungeonCombat({
     ? partyResult.outcome === "win"
     : soloResult?.outcome === "win";
   const rewardGold = won ? gridDungeonRoomGold(routeId, tile) : 0;
-  const drops = won ? rollGridDungeonDrops(tile) : {};
+  const drops = won ? rollGridDungeonDrops(tile, Math.random, routeId) : {};
   const playerHpAfter = partyResult
     ? partyResult.playerHpAfter
     : (soloResult?.finalState.playerHp ?? 0);
@@ -989,7 +1010,7 @@ export async function POST(req: Request) {
       const eventDrops =
         (target.tile === "treasure" || target.tile === "relic") &&
         !run.clearedEvents.includes(target.key)
-          ? rollGridDungeonDrops(target.tile)
+          ? rollGridDungeonDrops(target.tile, Math.random, run.routeId)
           : {};
       const now = Date.now();
       const moved = moveGridDungeonRun(run, dir, now, combat, eventDrops);
@@ -1008,6 +1029,10 @@ export async function POST(req: Request) {
             run: moved.run,
             outcome: "failed",
             at: moved.run.updatedAt,
+            detailReason:
+              moved.run.lastCombat?.outcome === "lose"
+                ? `${moved.run.lastCombat.enemyName} 전투 패배`
+                : "HP 소진",
           }),
         );
         await upsertSave(tx, userId, GRID_DUNGEON_HISTORY_KEY, nextHistory);
@@ -1116,6 +1141,13 @@ export async function POST(req: Request) {
           outcome: "cleared",
           rewardGold,
           drops: rewardDrops,
+          rewardLimited: quota.remaining <= 0,
+          detailReason:
+            quota.remaining <= 0
+              ? "일일 재료 보상 횟수 소진으로 골드만 정산"
+              : hasRewardDrops
+                ? "출구 도달 후 골드와 재료 정산"
+                : "출구 도달 후 골드 정산",
           at: now,
         }),
       );
@@ -1199,6 +1231,7 @@ export async function POST(req: Request) {
         historyEntryFromRun({
           run: nextRun,
           outcome: "abandoned",
+          detailReason: "탐험 직접 포기",
           at: now,
         }),
       );

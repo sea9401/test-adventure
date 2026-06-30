@@ -68,6 +68,8 @@ type GridDungeonState = {
     at: number;
     rewardGold: number;
     drops?: Record<string, number>;
+    materialCount?: number;
+    rewardLimited?: boolean;
     exploredTiles: number;
     hp: number;
     supporterCount: number;
@@ -76,6 +78,7 @@ type GridDungeonState = {
     totalCombatTurns: number;
     durationMs: number;
     message: string;
+    detailReason?: string;
   }>;
   run: GridDungeonPublicRun | null;
   error?: string;
@@ -338,6 +341,7 @@ function DungeonHistory({
   entries: GridDungeonState["history"];
 }) {
   const history = entries ?? [];
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   return (
     <section className="space-y-2 rounded-md border border-zinc-800 bg-zinc-950/70 p-3">
       <div className="text-xs font-semibold text-zinc-300">최근 탐험 기록</div>
@@ -363,9 +367,29 @@ function DungeonHistory({
                 </div>
                 <div className="flex items-center gap-2 text-zinc-500">
                   <span>{entry.rewardGold.toLocaleString()}G</span>
+                  <span>재료 {(entry.materialCount ?? dropCount(entry.drops)).toLocaleString()}</span>
                   <span>{entry.exploredTiles}칸</span>
                   <span>HP {entry.hp}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedId((current) =>
+                        current === entry.id ? null : entry.id,
+                      )
+                    }
+                    className="rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-800"
+                  >
+                    {expandedId === entry.id ? "접기" : "상세"}
+                  </button>
                 </div>
+              </div>
+              <div className="mt-2 text-[11px] text-zinc-500">
+                {entry.detailReason || entry.message}
+                {entry.rewardLimited ? (
+                  <span className="ml-2 rounded border border-yellow-800/70 bg-yellow-950/35 px-1.5 py-0.5 text-[10px] text-yellow-200">
+                    재료 제한
+                  </span>
+                ) : null}
               </div>
               {dropEntries(entry.drops).length > 0 && (
                 <div className="mt-2">
@@ -406,6 +430,42 @@ function DungeonHistory({
               {entry.durationMs > 0 && (
                 <div className="mt-1 text-[11px] text-zinc-600">
                   소요 {formatDuration(entry.durationMs)}
+                </div>
+              )}
+              {expandedId === entry.id && (
+                <div className="mt-2 grid gap-1.5 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500 sm:grid-cols-2">
+                  <span>
+                    결과 메시지{" "}
+                    <span className="text-zinc-300">{entry.message}</span>
+                  </span>
+                  <span>
+                    보상 상태{" "}
+                    <span className="text-zinc-300">
+                      {entry.rewardLimited
+                        ? "골드만 정산"
+                        : entry.rewardGold > 0 || dropCount(entry.drops) > 0
+                          ? "정상 정산"
+                          : "정산 없음"}
+                    </span>
+                  </span>
+                  <span>
+                    평균 전투 턴{" "}
+                    <span className="text-zinc-300">
+                      {entry.combatCount > 0
+                        ? Math.round(entry.totalCombatTurns / entry.combatCount)
+                        : 0}
+                    </span>
+                  </span>
+                  <span>
+                    생존 HP{" "}
+                    <span
+                      className={
+                        entry.hp > 0 ? "text-emerald-300" : "text-red-300"
+                      }
+                    >
+                      {entry.hp.toLocaleString()}
+                    </span>
+                  </span>
                 </div>
               )}
             </div>
@@ -543,7 +603,7 @@ function RouteSelector({
               />
               <RouteMetric
                 label="재료"
-                value={`${summary.materialRooms.toLocaleString()}방`}
+                value={`${summary.materialRooms.toLocaleString()}방 · ${summary.avgMaterialDepth}`}
               />
               <RouteMetric
                 label="보스"

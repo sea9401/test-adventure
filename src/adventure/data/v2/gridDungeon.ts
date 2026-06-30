@@ -123,6 +123,8 @@ export type GridDungeonHistoryEntry = {
   at: number;
   rewardGold: number;
   drops: DropResult;
+  materialCount: number;
+  rewardLimited: boolean;
   exploredTiles: number;
   hp: number;
   supporterCount: number;
@@ -131,6 +133,7 @@ export type GridDungeonHistoryEntry = {
   totalCombatTurns: number;
   durationMs: number;
   message: string;
+  detailReason: string;
 };
 
 export type GridDungeonRouteSummary = {
@@ -143,6 +146,8 @@ export type GridDungeonRouteSummary = {
   relicRooms: number;
   fountainRooms: number;
   materialRooms: number;
+  materialDepth: number;
+  avgMaterialDepth: number;
   bossGold: number;
 };
 
@@ -168,11 +173,43 @@ export const GRID_DUNGEON_ROOM_REWARDS = {
 const GRID_DUNGEON_ROUTE_GOLD_OVERRIDES: Partial<
   Record<GridDungeonRouteId, Partial<Record<GridDungeonTileKind, number>>>
 > = {
+  vault: {
+    treasure: 1_850,
+    relic: 1_250,
+    boss: 5_800,
+  },
   guardian: {
-    monster: 1_100,
-    elite: 3_000,
-    relic: 1_800,
-    boss: 6_500,
+    monster: 1_250,
+    elite: 3_400,
+    relic: 2_000,
+    boss: 7_800,
+  },
+};
+
+const GRID_DUNGEON_BASE_DROP_DEPTH: Partial<
+  Record<GridDungeonTileKind, number>
+> = {
+  treasure: 43,
+  relic: 36,
+  boss: 55,
+  elite: 30,
+  monster: 12,
+};
+
+const GRID_DUNGEON_ROUTE_DROP_DEPTH_OVERRIDES: Partial<
+  Record<GridDungeonRouteId, Partial<Record<GridDungeonTileKind, number>>>
+> = {
+  vault: {
+    treasure: 56,
+    relic: 52,
+    boss: 62,
+    monster: 14,
+  },
+  guardian: {
+    monster: 16,
+    elite: 38,
+    relic: 45,
+    boss: 70,
   },
 };
 
@@ -342,6 +379,8 @@ export function gridDungeonRouteSummary(
     relicRooms: 0,
     fountainRooms: 0,
     materialRooms: 0,
+    materialDepth: 0,
+    avgMaterialDepth: 0,
     bossGold: gridDungeonRoomGold(route, "boss"),
   };
   for (const row of gridDungeonLayoutForRoute(route)) {
@@ -355,6 +394,7 @@ export function gridDungeonRouteSummary(
       ) {
         summary.expectedGold += gridDungeonRoomGold(route, tile);
         summary.materialRooms += 1;
+        summary.materialDepth += gridDungeonDropDepth(route, tile);
       }
       if (tile === "monster" || tile === "elite" || tile === "boss") {
         summary.combatRooms += 1;
@@ -366,6 +406,10 @@ export function gridDungeonRouteSummary(
       else if (tile === "fountain") summary.fountainRooms += 1;
     }
   }
+  summary.avgMaterialDepth =
+    summary.materialRooms > 0
+      ? Math.round(summary.materialDepth / summary.materialRooms)
+      : 0;
   return summary;
 }
 
@@ -388,6 +432,13 @@ function parseDropResult(raw: unknown): DropResult {
     if (Number.isFinite(n) && n > 0) out[id] = n;
   }
   return out;
+}
+
+function dropResultCount(drops: DropResult): number {
+  return Object.values(drops).reduce<number>(
+    (sum, amount) => sum + Math.max(0, Math.floor(Number(amount) || 0)),
+    0,
+  );
 }
 
 function mergeDropResults(a: DropResult, b: DropResult): DropResult {
@@ -477,6 +528,11 @@ export function parseGridDungeonHistory(raw: unknown): GridDungeonHistoryEntry[]
         at: parsePositiveInt(e.at, 0),
         rewardGold: parsePositiveInt(e.rewardGold, 0),
         drops: parseDropResult(e.drops),
+        materialCount:
+          e.materialCount != null
+            ? parsePositiveInt(e.materialCount, 0)
+            : dropResultCount(parseDropResult(e.drops)),
+        rewardLimited: e.rewardLimited === true,
         exploredTiles: parsePositiveInt(e.exploredTiles, 0),
         hp: parsePositiveInt(e.hp, 0),
         routeId: parseGridDungeonRouteId(e.routeId),
@@ -486,6 +542,12 @@ export function parseGridDungeonHistory(raw: unknown): GridDungeonHistoryEntry[]
         totalCombatTurns: parsePositiveInt(e.totalCombatTurns, 0),
         durationMs: parsePositiveInt(e.durationMs, 0),
         message: typeof e.message === "string" ? e.message : "",
+        detailReason:
+          typeof e.detailReason === "string" && e.detailReason
+            ? e.detailReason
+            : typeof e.message === "string"
+              ? e.message
+              : "",
       };
     })
     .filter((entry): entry is GridDungeonHistoryEntry => entry != null)
@@ -505,18 +567,9 @@ export function appendGridDungeonHistory(
 export function rollGridDungeonDrops(
   tile: GridDungeonTileKind,
   rng: () => number = Math.random,
+  routeId: unknown = "balanced",
 ): DropResult {
-  const depth =
-    tile === "treasure"
-      ? 43
-      : tile === "relic"
-        ? 36
-        : tile === "boss"
-          ? 55
-          : tile === "elite"
-            ? 30
-            : 12;
-  return rollGuildWorkshopMaterialDrops(depth, rng);
+  return rollGuildWorkshopMaterialDrops(gridDungeonDropDepth(routeId, tile), rng);
 }
 
 export function gridDungeonMovePreview(
@@ -721,6 +774,18 @@ export function gridDungeonRoomGold(
   if (tile === "relic") return GRID_DUNGEON_ROOM_REWARDS.relic.gold;
   if (tile === "boss") return GRID_DUNGEON_ROOM_REWARDS.boss.gold;
   return 0;
+}
+
+export function gridDungeonDropDepth(
+  routeId: unknown,
+  tile: GridDungeonTileKind,
+): number {
+  const route = parseGridDungeonRouteId(routeId);
+  return (
+    GRID_DUNGEON_ROUTE_DROP_DEPTH_OVERRIDES[route]?.[tile] ??
+    GRID_DUNGEON_BASE_DROP_DEPTH[tile] ??
+    0
+  );
 }
 
 export function gridDungeonBossReached(

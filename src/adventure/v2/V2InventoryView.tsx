@@ -568,12 +568,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   item: candItem,
                   roll: card.inst.roll,
                   enhance: card.inst.enhance,
+                  craftQuality: card.inst.craftQuality,
                   craftedBy: card.inst.craftedBy,
                 }}
                 equipped={{
                   item: equippedItem,
                   roll: equippedInst.roll,
                   enhance: equippedInst.enhance,
+                  craftQuality: equippedInst.craftQuality,
                   craftedBy: equippedInst.craftedBy,
                 }}
                 onClose={() => setCard(null)}
@@ -604,6 +606,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               item={candItem}
               roll={card.inst.roll}
               enhance={card.inst.enhance}
+              craftQuality={card.inst.craftQuality}
               craftedBy={card.inst.craftedBy}
               anchor={card.anchor}
               onClose={() => setCard(null)}

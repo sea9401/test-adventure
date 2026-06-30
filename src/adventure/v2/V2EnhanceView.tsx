@@ -21,6 +21,7 @@ import { usePagination } from "@/lib/usePagination";
 import {
   effectiveStats,
   isUnique,
+  powerWithBonuses,
   V2_EQUIPMENT,
   type V2EquipInstance,
   type V2EquipRoll,
@@ -43,7 +44,6 @@ import {
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
   enhanceBonusPct,
-  enhancedPower,
   enhanceGoldCost,
   enhanceOutcomeRow,
   enhanceStoneCost,
@@ -57,6 +57,7 @@ import {
 import {
   PerfectQualityBadge,
   QualityPctText,
+  CraftQualityStars,
 } from "@/adventure/v2/V2ItemCard";
 import {
   SETTLEMENT_MATERIAL_ID,
@@ -215,11 +216,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const uniqueMult = item && isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
   const basePower =
     selected && item ? effectiveStats(item, selected.roll).power : 0;
-  const curPower = enhancedPower(basePower, selected?.enhance);
-  const nextPower = enhancedPower(basePower, {
-    level: level + 1,
-    bonusPct: enhanceBonusPct(level + 1),
-  });
+  const curPower = powerWithBonuses(basePower, selected?.enhance, selected?.craftQuality);
+  const nextPower = powerWithBonuses(
+    basePower,
+    {
+      level: level + 1,
+      bonusPct: enhanceBonusPct(level + 1),
+    },
+    selected?.craftQuality,
+  );
   const stoneRequired = level >= ENHANCE_STONE_REQUIRED_FROM;
   const outcomeRow = enhanceOutcomeRow(level, stone);
   const successPct = outcomeRow[0];
@@ -486,10 +491,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold">
-                {item.name}
                 {level > 0 && (
-                  <span className="ml-1 text-amber-500">+{level}</span>
+                  <span className="mr-1 text-amber-500">+{level}</span>
                 )}
+                <CraftQualityStars craftQuality={selected.craftQuality} className="mr-1" />
+                {item.name}
               </span>
               <button
                 type="button"
@@ -645,10 +651,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold">
-                {item.name}
                 {level > 0 && (
-                  <span className="ml-1 text-amber-500">+{level}</span>
+                  <span className="mr-1 text-amber-500">+{level}</span>
                 )}
+                <CraftQualityStars craftQuality={selected.craftQuality} className="mr-1" />
+                {item.name}
               </span>
               <button
                 type="button"

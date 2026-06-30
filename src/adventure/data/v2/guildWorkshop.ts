@@ -4,8 +4,11 @@ import {
   type ProductionKind,
   type SettlementResources,
 } from "./settlement";
-import { V2_EQUIPMENT, type V2EquipmentId } from "./v2Equipment";
-import { type V2EnhanceState } from "./v2Enhance";
+import {
+  V2_EQUIPMENT,
+  type V2CraftQualityState,
+  type V2EquipmentId,
+} from "./v2Equipment";
 import {
   BLACKSMITH_MASTERWORK_LEVEL,
   BLACKSMITH_PLUS2_QUALITY_LEVEL,
@@ -725,7 +728,7 @@ export function rollGuildWorkshopEnhance(
   rng: () => number,
   guildBonus: GuildWorkshopBonus | number = 0,
   mode: GuildWorkshopCraftMode = "normal",
-): V2EnhanceState | undefined {
+): V2CraftQualityState | undefined {
   const chancePct = guildWorkshopQualityChancePct(
     artisan,
     recipe,

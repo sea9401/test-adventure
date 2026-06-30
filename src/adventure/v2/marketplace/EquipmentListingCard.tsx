@@ -5,6 +5,7 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { parseAmount } from "@/components/ui/NumberInput";
 import {
   CraftOnlyBadge,
+  CraftQualityStars,
   PerfectQualityBadge,
   powerNameClass,
   QualityPctText,
@@ -14,6 +15,7 @@ import {
   type V2EquipInstance,
   type V2EquipRoll,
   type V2CraftedBy,
+  type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
@@ -44,12 +46,13 @@ export function EquipmentListingCard({
     itemId: string,
     roll: V2EquipRoll | undefined,
     enhance: V2EnhanceState | undefined,
+    craftQuality: V2CraftQualityState | undefined,
     craftedBy: V2CraftedBy | undefined,
     el: HTMLElement,
   ) => void;
 }) {
   const item = V2_EQUIPMENT[inst.id];
-  const detail = equipDetail(inst.id, inst.roll);
+  const detail = equipDetail(inst.id, inst.roll, inst.enhance, inst.craftQuality);
   const price = parseAmount(priceValue);
   return (
     <Card padding="sm">
@@ -62,6 +65,7 @@ export function EquipmentListingCard({
                 inst.id,
                 inst.roll,
                 inst.enhance,
+                inst.craftQuality,
                 inst.craftedBy,
                 e.currentTarget,
               )
@@ -78,6 +82,7 @@ export function EquipmentListingCard({
                 {inst.enhance && inst.enhance.level > 0 ? (
                   <span className="ml-1 text-amber-500">+{inst.enhance.level}</span>
                 ) : null}
+                <CraftQualityStars craftQuality={inst.craftQuality} className="ml-1" />
               </span>
               {item?.craftOnly ? <CraftOnlyBadge className="ml-1.5" /> : null}
               {detail?.pct != null && (

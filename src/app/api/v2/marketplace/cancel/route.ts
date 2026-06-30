@@ -9,6 +9,7 @@ import {
   parseEquipmentSave,
   parseEquipRoll,
   parseCraftedBy,
+  parseInstanceCraftQuality,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
@@ -65,13 +66,22 @@ export async function POST(req: Request) {
         {},
       );
       const { owned, equipped } = parseEquipmentSave(equipSave);
-      // payload = 굴림(+강화) — 옛 행은 raw roll. 방어 파스로 양형 흡수(강화 승계).
+      // payload = 굴림(+강화+제작품질) — 옛 행은 raw roll. 방어 파스로 양형 흡수.
       const payloadRaw = listing.instancePayload as
-        | (Record<string, unknown> & { craftedBy?: unknown; enhance?: unknown })
+        | (Record<string, unknown> & {
+            craftedBy?: unknown;
+            craftQuality?: unknown;
+            enhance?: unknown;
+          })
         | null;
       const roll = parseEquipRoll(payloadRaw ?? undefined);
-      const enhance = parseEnhance(payloadRaw?.enhance);
       const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
+      const craftQuality = parseInstanceCraftQuality(
+        payloadRaw?.craftQuality,
+        payloadRaw?.enhance,
+        craftedBy,
+      );
+      const enhance = craftQuality ? undefined : parseEnhance(payloadRaw?.enhance);
       const nextOwned = [
         ...owned,
         {
@@ -79,6 +89,7 @@ export async function POST(req: Request) {
           id: listing.itemId as V2EquipmentId,
           ...(roll ? { roll } : {}),
           ...(enhance ? { enhance } : {}),
+          ...(craftQuality ? { craftQuality } : {}),
           ...(craftedBy ? { craftedBy } : {}),
         },
       ];

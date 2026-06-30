@@ -14,6 +14,8 @@ import {
   V2_SLOT_LABEL,
   scaledEquipWeight,
   signatureLabel,
+  craftQualityStars,
+  powerWithBonuses,
   v2EquipCompareRows,
   v2EquipPowerLabel,
   v2EquipStatRows,
@@ -23,13 +25,13 @@ import {
   type V2EquipRoll,
   type V2EquipStatRow,
   type V2CraftedBy,
+  type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import {
   VARIANCE_FRACTION,
   rollQualityPct,
 } from "@/adventure/data/v2/v2EquipVariance";
 import {
-  enhancedPower,
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 
@@ -92,6 +94,26 @@ export function CraftOnlyBadge({ className = "" }: { className?: string }) {
       className={`shrink-0 rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ${className}`}
     >
       제작전용
+    </span>
+  );
+}
+
+export function CraftQualityStars({
+  craftQuality,
+  className = "",
+}: {
+  craftQuality?: V2CraftQualityState;
+  className?: string;
+}) {
+  const stars = craftQualityStars(craftQuality);
+  if (!stars) return null;
+  return (
+    <span
+      className={`shrink-0 font-semibold tracking-normal text-amber-500 ${className}`}
+      title={`제작 품질 ${craftQuality?.level ?? 0}`}
+      aria-label={`제작 품질 ${craftQuality?.level ?? 0}`}
+    >
+      {stars}
     </span>
   );
 }
@@ -181,6 +203,7 @@ function statRowWithRollRange(
   row: V2EquipStatRow,
   roll: V2EquipRoll | undefined,
   enhance: V2EnhanceState | undefined,
+  craftQuality: V2CraftQualityState | undefined,
 ): V2EquipStatRow {
   if (!roll) return row;
 
@@ -192,8 +215,11 @@ function statRowWithRollRange(
       ...row,
       value: `${row.value} (${formatRangeValue(
         row.label,
-        enhancedPower(range.lo, enhance),
-      )} - ${formatRangeValue(row.label, enhancedPower(range.hi, enhance))})`,
+        powerWithBonuses(range.lo, enhance, craftQuality),
+      )} - ${formatRangeValue(
+        row.label,
+        powerWithBonuses(range.hi, enhance, craftQuality),
+      )})`,
     };
   }
 
@@ -264,6 +290,7 @@ export function V2ItemCard({
   onClose,
   roll,
   enhance,
+  craftQuality,
   craftedBy,
   equip,
   compare,
@@ -277,6 +304,8 @@ export function V2ItemCard({
   roll?: V2EquipRoll;
   // 강화 상태 — 주면 제목 +N + 위력 강화 반영(v2EquipStatRows).
   enhance?: V2EnhanceState;
+  // 제작 품질 — 별 표시 + 위력 보너스 반영.
+  craftQuality?: V2CraftQualityState;
   // 제작자 표식 — 길드 대장간 제작품에만 표시.
   craftedBy?: V2CraftedBy;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
@@ -304,8 +333,8 @@ export function V2ItemCard({
 
   // 기본 스탯(공격력/방어력 계열·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다.
   //   강화 수치는 이름 옆 "+N" 으로만 표기.
-  const statRows = v2EquipStatRows(item, roll, enhance).map((row) =>
-    statRowWithRollRange(item, row, roll, enhance),
+  const statRows = v2EquipStatRows(item, roll, enhance, craftQuality).map((row) =>
+    statRowWithRollRange(item, row, roll, enhance, craftQuality),
   );
   const powerLabel = v2EquipPowerLabel(item);
   const baseRows = statRows.filter(
@@ -361,10 +390,11 @@ export function V2ItemCard({
             <h2
               className={`truncate text-base font-semibold leading-tight ${powerNameClass(item, roll)}`}
             >
-              {item.name}
               {enhance && enhance.level > 0 ? (
-                <span className="ml-1 text-amber-500">+{enhance.level}</span>
+                <span className="mr-1 text-amber-500">+{enhance.level}</span>
               ) : null}
+              <CraftQualityStars craftQuality={craftQuality} className="mr-1" />
+              {item.name}
             </h2>
             <div className="flex items-center gap-1.5">
               <ItemTypeChip item={item} />
@@ -727,6 +757,7 @@ export type V2CompareSide = {
   item: V2Equipment;
   roll?: V2EquipRoll;
   enhance?: V2EnhanceState;
+  craftQuality?: V2CraftQualityState;
   craftedBy?: V2CraftedBy;
 };
 
@@ -783,10 +814,11 @@ function CompareHeader({
         <h3
           className={`truncate text-sm font-semibold ${powerNameClass(side.item, side.roll)}`}
         >
-          {side.item.name}
           {side.enhance && side.enhance.level > 0 ? (
-            <span className="ml-1 text-amber-500">+{side.enhance.level}</span>
+            <span className="mr-1 text-amber-500">+{side.enhance.level}</span>
           ) : null}
+          <CraftQualityStars craftQuality={side.craftQuality} className="mr-1" />
+          {side.item.name}
         </h3>
         <ItemTypeChip item={side.item} />
         {side.item.craftOnly ? <CraftOnlyBadge /> : null}
@@ -874,6 +906,7 @@ export function V2ItemCompareCard({
     equipped.item,
     equipped.roll,
     equipped.enhance,
+    equipped.craftQuality,
   );
   const compareRows = v2EquipCompareRows(candidate, equipped);
   // 어느 한쪽이라도 세트 장비면 세트 줄 노출(둘 다 아니면 숨겨 노이즈 방지).

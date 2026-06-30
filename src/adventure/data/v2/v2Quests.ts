@@ -110,7 +110,7 @@ export type QuestCtx = {
   hasMoved: boolean;
   /** 길드 대장간 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
   workshopCrafts: number;
-  /** 길드 대장간 +1 품질 제작 성공 횟수. crafting.v2.workshopStats.qualityCrafts. */
+  /** 길드 대장간 ★ 품질 제작 성공 횟수. crafting.v2.workshopStats.qualityCrafts. */
   workshopQualityCrafts: number;
   /** 대장장이 장인 레벨. crafting.v2.artisan.blacksmith. */
   blacksmithLevel: number;
@@ -732,7 +732,7 @@ const ARTISAN: QuestDef[] = [
     id: "a_quality_plus1",
     line: "artisan",
     title: "고품질 단조",
-    desc: "길드 대장간에서 +1 품질 장비를 제작하세요.",
+    desc: "길드 대장간에서 ★ 품질 장비를 제작하세요.",
     reward: { gold: 800 },
     check: (c) => c.workshopQualityCrafts >= 1,
   },

@@ -391,7 +391,7 @@ export async function POST(req: Request) {
       recipe,
       craftMode,
     );
-    const craftedEnhance = rollGuildWorkshopEnhance(
+    const craftQuality = rollGuildWorkshopEnhance(
       currentArtisan,
       recipe,
       Math.random,
@@ -401,26 +401,26 @@ export async function POST(req: Request) {
     const nextWorkshopStats = addGuildWorkshopCraftStat(
       parseGuildWorkshopStats(craftingRaw.workshopStats),
       recipe.id,
-      Boolean(craftedEnhance),
+      Boolean(craftQuality),
     );
     const nextWeeklyWorkshopStats = addArtisanWeeklyWorkshopCraft(
       parseArtisanWeeklyWorkshopStats(craftingRaw.weeklyWorkshopStats, week.key),
       {
-        qualityCrafted: Boolean(craftedEnhance),
+        qualityCrafted: Boolean(craftQuality),
         xp: recipe.artisanXp,
       },
     );
     const nextWeekly = await incrementGuildWorkshopWeeklyProgress(
       tx,
       guildId,
-      Boolean(craftedEnhance),
+      Boolean(craftQuality),
     );
     const crafterName = profile?.name?.trim() || undefined;
     const craftedItem = {
       iid: genEquipIid(),
       id: recipe.equipmentId,
       roll: rollItemStats(V2_EQUIPMENT[recipe.equipmentId], Math.random),
-      ...(craftedEnhance ? { enhance: craftedEnhance } : {}),
+      ...(craftQuality ? { craftQuality } : {}),
       craftedBy: {
         userId,
         ...(crafterName ? { name: crafterName } : {}),
@@ -517,7 +517,7 @@ export async function POST(req: Request) {
         craftMode,
         equipmentId: recipe.equipmentId,
         iid: craftedItem.iid,
-        enhance: craftedEnhance ?? null,
+        craftQuality: craftQuality ?? null,
         artisanXpGained: recipe.artisanXp,
         artisan: artisanView({ ...craftingRaw, artisan: nextArtisan }),
         workshopStats: nextWorkshopStats,

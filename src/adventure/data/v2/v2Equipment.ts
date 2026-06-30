@@ -19,11 +19,7 @@
 import type { V2Element } from "@/adventure/data/v2/elements";
 
 import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
-import {
-  enhancedPower,
-  parseEnhance,
-  type V2EnhanceState,
-} from "./v2Enhance";
+import { parseEnhance, type V2EnhanceState } from "./v2Enhance";
 export { V2_EQUIPMENT };
 // 6슬롯(2026-06): 무기 / 갑옷 / 장갑 / 신발 / 반지 / 목걸이.
 //   - 물리 방어선: 갑옷(주) + 장갑(+크리) + 신발(+회피·경량) → 위력=물방.
@@ -959,10 +955,11 @@ export function v2EquipStatRows(
   roll?: V2EquipRoll,
   // 강화 — 위력 행에 반영(enhancedPower). 강화 수치 자체는 이름 옆 "+N" 으로 표기(별도 행 없음).
   enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
 ): V2EquipStatRow[] {
   const eff = effectiveStats(item, roll);
   const out: V2EquipStatRow[] = [];
-  const power = enhancedPower(eff.power, enhance);
+  const power = powerWithBonuses(eff.power, enhance, craftQuality);
   if (power) {
     out.push({ label: v2EquipPowerLabel(item), value: `+${power}` });
   }
@@ -1021,10 +1018,11 @@ function compareNumeric(
   item: V2Equipment,
   roll?: V2EquipRoll,
   enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
 ): Record<string, number> {
   const eff = effectiveStats(item, roll);
   const out: Record<string, number> = {
-    [v2EquipPowerLabel(item)]: enhancedPower(eff.power, enhance),
+    [v2EquipPowerLabel(item)]: powerWithBonuses(eff.power, enhance, craftQuality),
     무게: eff.weight,
   };
   const opts = eff.options ?? {};
@@ -1050,16 +1048,39 @@ function formatCompareDelta(label: string, delta: number): string {
 // 후보 vs 장착 중 — 라벨별 후보값 + 증감/이득방향. 어느 한쪽이라도 값이 있으면 행을 만든다
 //   (후보엔 없고 장착엔 있는 스탯도 "—" + 손해로 노출 → 다운그레이드 가시화).
 export function v2EquipCompareRows(
-  candidate: { item: V2Equipment; roll?: V2EquipRoll; enhance?: V2EnhanceState },
-  equipped: { item: V2Equipment; roll?: V2EquipRoll; enhance?: V2EnhanceState },
+  candidate: {
+    item: V2Equipment;
+    roll?: V2EquipRoll;
+    enhance?: V2EnhanceState;
+    craftQuality?: V2CraftQualityState;
+  },
+  equipped: {
+    item: V2Equipment;
+    roll?: V2EquipRoll;
+    enhance?: V2EnhanceState;
+    craftQuality?: V2CraftQualityState;
+  },
 ): V2EquipCompareRow[] {
   const candDisplay = new Map(
-    v2EquipStatRows(candidate.item, candidate.roll, candidate.enhance).map(
-      (r) => [r.label, r.value] as const,
-    ),
+    v2EquipStatRows(
+      candidate.item,
+      candidate.roll,
+      candidate.enhance,
+      candidate.craftQuality,
+    ).map((r) => [r.label, r.value] as const),
   );
-  const candN = compareNumeric(candidate.item, candidate.roll, candidate.enhance);
-  const eqN = compareNumeric(equipped.item, equipped.roll, equipped.enhance);
+  const candN = compareNumeric(
+    candidate.item,
+    candidate.roll,
+    candidate.enhance,
+    candidate.craftQuality,
+  );
+  const eqN = compareNumeric(
+    equipped.item,
+    equipped.roll,
+    equipped.enhance,
+    equipped.craftQuality,
+  );
   const out: V2EquipCompareRow[] = [];
   for (const { label, lowerBetter } of COMPARE_FIELD_ORDER) {
     const cv = candN[label] ?? 0;
@@ -1108,6 +1129,45 @@ export type V2CraftedBy = {
   masterwork?: boolean;
 };
 
+export type V2CraftQualityLevel = 1 | 2;
+export type V2CraftQualityState = {
+  level: V2CraftQualityLevel;
+  /** 제작 품질 위력 보너스 %p. 강화와 별도 축이며 UI 에서는 별로 표시한다. */
+  bonusPct: number;
+};
+
+export const CRAFT_QUALITY_BONUS_PCT: Record<V2CraftQualityLevel, number> = {
+  1: 5,
+  2: 10,
+};
+
+export function craftQualityBonusPct(level: number): number {
+  return level >= 2 ? CRAFT_QUALITY_BONUS_PCT[2] : CRAFT_QUALITY_BONUS_PCT[1];
+}
+
+export function parseCraftQuality(raw: unknown): V2CraftQualityState | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const level = Math.floor(Number((raw as Record<string, unknown>).level));
+  if (level !== 1 && level !== 2) return undefined;
+  return { level, bonusPct: craftQualityBonusPct(level) };
+}
+
+export function craftQualityStars(
+  craftQuality: V2CraftQualityState | undefined,
+): string {
+  return craftQuality ? "★".repeat(craftQuality.level) : "";
+}
+
+export function powerWithBonuses(
+  basePower: number,
+  enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
+): number {
+  const bonusPct = (enhance?.bonusPct ?? 0) + (craftQuality?.bonusPct ?? 0);
+  if (bonusPct <= 0) return basePower;
+  return Math.floor(basePower * (1 + bonusPct / 100));
+}
+
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
 //   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
@@ -1118,6 +1178,8 @@ export type V2EquipInstance = {
   locked?: boolean;
   /** 강화 상태(+레벨·누적 위력 보너스 %p) — 미강화는 부재. v2Enhance 참고. */
   enhance?: V2EnhanceState;
+  /** 제작 품질(★/★★) — 강화와 별도 표시·보너스 축. */
+  craftQuality?: V2CraftQualityState;
   /** 제작자 표식 — 길드 대장간 제작품에만 붙는 표시용 메타. */
   craftedBy?: V2CraftedBy;
 };
@@ -1160,8 +1222,6 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "ring",
   "necklace",
 ]);
-
-const CRAFTED_ENHANCE_BONUS_PCT = new Set([2, 4, 5, 10]);
 
 // 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
 // 거래소 buy/cancel 의 payload 복원에도 쓰여 공개(굴림 방어 파스 단일 출처).
@@ -1212,14 +1272,12 @@ export function parseCraftedBy(val: unknown): V2CraftedBy | undefined {
   };
 }
 
-function parseInstanceEnhance(
+function parseLegacyCraftQuality(
   val: unknown,
   craftedBy: V2CraftedBy | undefined,
-): V2EnhanceState | undefined {
-  const parsed = parseEnhance(val);
-  if (!parsed) return undefined;
+): V2CraftQualityState | undefined {
   if (!craftedBy || !val || typeof val !== "object" || Array.isArray(val)) {
-    return parsed;
+    return undefined;
   }
   const raw = val as Record<string, unknown>;
   const level = Math.floor(Number(raw.level));
@@ -1228,11 +1286,19 @@ function parseInstanceEnhance(
     Number.isFinite(level) &&
     Number.isFinite(bonusPct) &&
     (level === 1 || level === 2) &&
-    CRAFTED_ENHANCE_BONUS_PCT.has(bonusPct)
+    bonusPct === CRAFT_QUALITY_BONUS_PCT[level]
   ) {
     return { level, bonusPct };
   }
-  return parsed;
+  return undefined;
+}
+
+export function parseInstanceCraftQuality(
+  craftQuality: unknown,
+  legacyEnhance: unknown,
+  craftedBy: V2CraftedBy | undefined,
+): V2CraftQualityState | undefined {
+  return parseCraftQuality(craftQuality) ?? parseLegacyCraftQuality(legacyEnhance, craftedBy);
 }
 
 // equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
@@ -1257,6 +1323,7 @@ export function parseEquipmentSave(raw: unknown): {
       roll?: unknown;
       locked?: unknown;
       enhance?: unknown;
+      craftQuality?: unknown;
       craftedBy?: unknown;
     };
     if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
@@ -1278,8 +1345,10 @@ export function parseEquipmentSave(raw: unknown): {
     };
     if (e.locked === true) inst.locked = true;
     const craftedBy = parseCraftedBy(e.craftedBy);
-    const enhance = parseInstanceEnhance(e.enhance, craftedBy);
+    const craftQuality = parseInstanceCraftQuality(e.craftQuality, e.enhance, craftedBy);
+    const enhance = craftQuality ? undefined : parseEnhance(e.enhance);
     if (enhance) inst.enhance = enhance;
+    if (craftQuality) inst.craftQuality = craftQuality;
     if (craftedBy) inst.craftedBy = craftedBy;
     owned.push(inst);
     byIid.set(iid, inst);
@@ -1344,14 +1413,15 @@ export function resolveEquippedForAggregate(
     const inst = byIid.get(iid);
     if (!inst) continue;
     eq[slot] = inst.id;
-    // 강화 — 위력만 배율(옵션·무게 불변)을 합성 roll 로 내려보냄. aggregate/엔진 무수정.
+    // 강화/제작품질 — 위력만 배율(옵션·무게 불변)을 합성 roll 로 내려보냄. aggregate/엔진 무수정.
     // roll 없는 개체(상점 구매 등)도 카탈로그 위력 기준으로 강화 반영(weight 는 카탈로그,
     // options 미지정 = effectiveStats 가 카탈로그 옵션 사용 — 미강화와 동일 의미).
-    if (inst.enhance && inst.enhance.bonusPct > 0) {
+    const bonusPct = (inst.enhance?.bonusPct ?? 0) + (inst.craftQuality?.bonusPct ?? 0);
+    if (bonusPct > 0) {
       const item = V2_EQUIPMENT[inst.id];
       const basePower = inst.roll?.power ?? item.power;
       rolls[inst.id] = {
-        power: enhancedPower(basePower, inst.enhance),
+        power: Math.floor(basePower * (1 + bonusPct / 100)),
         weight: inst.roll?.weight ?? item.weight,
         ...(inst.roll?.options ? { options: inst.roll.options } : {}),
       };

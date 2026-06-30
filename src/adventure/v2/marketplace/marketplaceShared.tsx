@@ -3,11 +3,10 @@
 
 import {
   V2_EQUIPMENT,
-  effectiveStats,
   parseEquipRoll,
-  v2EquipPowerLabel,
   v2EquipStatRows,
   type V2Equipment,
+  type V2CraftQualityState,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
@@ -43,23 +42,23 @@ export type MarketplacePager<T> = {
   setPage: (n: number) => void;
 };
 
-// 매물 payload 는 옛 raw roll 또는 { power, weight, options, enhance, craftedBy } 혼합형이다.
-// craftedBy/enhance 만 있는 제작품은 roll 이 없으므로 undefined 로 정규화해야 카탈로그 스탯을 쓴다.
+// 매물 payload 는 옛 raw roll 또는 { power, weight, options, enhance, craftQuality, craftedBy } 혼합형이다.
+// craftedBy/enhance/craftQuality 만 있는 제작품은 roll 이 없으므로 undefined 로 정규화해야 카탈로그 스탯을 쓴다.
 export function listingEquipRoll(payload: unknown): V2EquipRoll | undefined {
   return parseEquipRoll(payload);
 }
 
 // 장비 스탯 한 줄(개체 굴림 반영) — 기본 전투 스탯 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
 //   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.
-function equipStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
-  const eff = effectiveStats(item, roll);
-  const powerLabel = v2EquipPowerLabel(item);
-  const parts = [`${powerLabel} ${eff.power}`, `무게 ${eff.weight}`];
-  for (const row of v2EquipStatRows(item, roll)) {
-    if (row.label === powerLabel || row.label === "무게") continue;
-    parts.push(`${row.label} ${row.value}`);
-  }
-  return parts.join(" · ");
+function equipStatLine(
+  item: V2Equipment,
+  roll?: V2EquipRoll,
+  enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
+): string {
+  return v2EquipStatRows(item, roll, enhance, craftQuality)
+    .map((row) => `${row.label} ${row.value}`)
+    .join(" · ");
 }
 
 // 장비 매물/개체의 굴림% + 스탯줄 — itemId(카탈로그) + roll(개체 편차).
@@ -67,13 +66,15 @@ export function equipDetail(
   itemId: string,
   roll: V2EquipRoll | undefined,
   enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
 ) {
   const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
   if (!item) return null;
   return {
     pct: rollQualityPct(item, roll),
-    line: equipStatLine(item, roll),
+    line: equipStatLine(item, roll, enhance, craftQuality),
     enhance,
+    craftQuality,
   };
 }
 

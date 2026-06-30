@@ -11,11 +11,13 @@ import { parseAmount } from "@/components/ui/NumberInput";
 import {
   V2_EQUIPMENT,
   parseCraftedBy,
+  parseInstanceCraftQuality,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
   type V2CraftedBy,
+  type V2CraftQualityState,
 } from "@/adventure/data/v2/v2Equipment";
 import {
   parseEnhance,
@@ -29,6 +31,7 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   CraftOnlyBadge,
+  CraftQualityStars,
   PerfectQualityBadge,
   QualityPctText,
   V2ItemCard,
@@ -60,12 +63,19 @@ import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   타입·시세 헬퍼·시세줄/가격입력 leaf 컴포넌트는 marketplace/marketplaceShared 공용.
 
-// 리스팅 payload — 굴림(+강화+제작자) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
+// 리스팅 payload — 굴림(+강화+제작품질+제작자) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
 function listingEnhance(payload: unknown): V2EnhanceState | undefined {
-  return parseEnhance((payload as { enhance?: unknown } | null)?.enhance);
+  const raw = payload as { craftQuality?: unknown; craftedBy?: unknown; enhance?: unknown } | null;
+  const craftedBy = parseCraftedBy(raw?.craftedBy);
+  const craftQuality = parseInstanceCraftQuality(raw?.craftQuality, raw?.enhance, craftedBy);
+  return craftQuality ? undefined : parseEnhance(raw?.enhance);
 }
 function listingCraftedBy(payload: unknown): V2CraftedBy | undefined {
   return parseCraftedBy((payload as { craftedBy?: unknown } | null)?.craftedBy);
+}
+function listingCraftQuality(payload: unknown): V2CraftQualityState | undefined {
+  const raw = payload as { craftQuality?: unknown; craftedBy?: unknown; enhance?: unknown } | null;
+  return parseInstanceCraftQuality(raw?.craftQuality, raw?.enhance, listingCraftedBy(payload));
 }
 
 type Tab = "browse" | "history" | "mine" | "sell";
@@ -148,6 +158,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     item: V2Equipment;
     roll?: V2EquipRoll;
     enhance?: V2EnhanceState;
+    craftQuality?: V2CraftQualityState;
     craftedBy?: V2CraftedBy;
     anchor: ItemCardAnchor;
   } | null>(null);
@@ -385,7 +396,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const isCraftedListing = (l: Listing): boolean =>
     l.kind === "equip" && listingCraftedBy(l.instancePayload) != null;
   const isPlusOneCraftedListing = (l: Listing): boolean =>
-    l.kind === "equip" && (listingEnhance(l.instancePayload)?.level ?? 0) > 0;
+    l.kind === "equip" && (listingCraftQuality(l.instancePayload)?.level ?? 0) > 0;
   const meetsCrafterLevel = (l: Listing, minLevel: string): boolean => {
     if (minLevel === "all") return true;
     const craftedBy = listingCraftedBy(l.instancePayload);
@@ -462,11 +473,14 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     itemId: string,
     roll: V2EquipRoll | undefined,
     enhance: V2EnhanceState | undefined,
+    craftQuality: V2CraftQualityState | undefined,
     craftedBy: V2CraftedBy | undefined,
     el: HTMLElement,
   ) => {
     const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
-    if (item) setCard({ item, roll, enhance, craftedBy, anchor: anchorOf(el) });
+    if (item) {
+      setCard({ item, roll, enhance, craftQuality, craftedBy, anchor: anchorOf(el) });
+    }
   };
 
   return (
@@ -533,7 +547,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                   }
                   options={[
                     ["all", "전체 품질"],
-                    ["plus1", "+1 제작품"],
+                    ["plus1", "★ 제작품"],
                   ]}
                 />
                 <SelectControl
@@ -726,6 +740,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           item={card.item}
           roll={card.roll}
           enhance={card.enhance}
+          craftQuality={card.craftQuality}
           craftedBy={card.craftedBy}
           anchor={card.anchor}
           onClose={() => setCard(null)}
@@ -768,6 +783,7 @@ function BuyConfirm({
           listing.itemId,
           roll,
           listingEnhance(listing.instancePayload),
+          listingCraftQuality(listing.instancePayload),
         )
       : null;
   const enough =
@@ -795,6 +811,7 @@ function BuyConfirm({
               {detail?.enhance ? (
                 <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
               ) : null}
+              <CraftQualityStars craftQuality={detail?.craftQuality} className="ml-1" />
             </span>
             {listing.kind === "material" && listing.quantity > 1 && (
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{listing.quantity}</span>
@@ -950,6 +967,7 @@ function ListingList({
     itemId: string,
     roll: V2EquipRoll | undefined,
     enhance: V2EnhanceState | undefined,
+    craftQuality: V2CraftQualityState | undefined,
     craftedBy: V2CraftedBy | undefined,
     el: HTMLElement,
   ) => void;
@@ -980,7 +998,12 @@ function ListingList({
             : undefined;
         const detail =
           l.kind === "equip"
-            ? equipDetail(l.itemId, roll, listingEnhance(l.instancePayload))
+            ? equipDetail(
+                l.itemId,
+                roll,
+                listingEnhance(l.instancePayload),
+                listingCraftQuality(l.instancePayload),
+              )
             : null;
         const item =
           l.kind === "equip"
@@ -988,6 +1011,8 @@ function ListingList({
             : null;
         const enhance =
           l.kind === "equip" ? listingEnhance(l.instancePayload) : undefined;
+        const craftQuality =
+          l.kind === "equip" ? listingCraftQuality(l.instancePayload) : undefined;
         const craftedBy =
           l.kind === "equip" ? listingCraftedBy(l.instancePayload) : undefined;
         const clickable = l.kind === "equip" && !!onOpenCard;
@@ -1007,6 +1032,7 @@ function ListingList({
                 {detail?.enhance ? (
                   <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
                 ) : null}
+                <CraftQualityStars craftQuality={detail?.craftQuality} className="ml-1" />
               </span>
               {l.kind === "material" && l.quantity > 1 && (
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
@@ -1065,6 +1091,7 @@ function ListingList({
                         l.itemId,
                         roll,
                         enhance,
+                        craftQuality,
                         craftedBy,
                         e.currentTarget,
                       )

@@ -32,7 +32,7 @@ import {
 import type { GuildInfoResponse } from "./guildShared";
 import { ArtisanLeaderboardPanel } from "./ArtisanLeaderboardPanel";
 import { GuildArtisanContributionPanel } from "./GuildArtisanContributionPanel";
-import { CraftOnlyBadge } from "../V2ItemCard";
+import { CraftOnlyBadge, CraftQualityStars } from "../V2ItemCard";
 
 type WorkshopRecipeView = {
   id: GuildWorkshopRecipeId;
@@ -137,6 +137,7 @@ type DeliveryView = {
     itemId: string;
     itemName: string;
     enhanceLevel: number;
+    craftQualityLevel: number;
     craftOnly: boolean;
     crafterLevel: number;
     rewardArtisanXp: number;
@@ -156,7 +157,7 @@ type CraftResultView = {
   slot: V2EquipSlot;
   tier: number;
   craftOnly: boolean;
-  enhanceLevel: number;
+  craftQualityLevel: number;
   craftMode: GuildWorkshopCraftMode;
   masterwork: boolean;
   artisanXpGained: number;
@@ -213,7 +214,7 @@ function nextWorkshopGoal(state: WorkshopState | null): string {
     return `대장장이 Lv 2까지 숙련도 ${remain.toLocaleString()} 남음`;
   }
   if (state.workshopStats.qualityCrafts <= 0) {
-    return "+1 품질 장비 제작에 도전하세요.";
+    return "★ 품질 장비 제작에 도전하세요.";
   }
   const locked = state.recipes.find((recipe) => !recipe.levelOk);
   if (locked) {
@@ -612,7 +613,10 @@ export function GuildWorkshopPanel({
         slot: crafted?.slot ?? "weapon",
         tier: crafted?.tier ?? 1,
         craftOnly: crafted?.craftOnly === true,
-        enhanceLevel: Math.max(0, Math.floor(Number(json.enhance?.level ?? 0))),
+        craftQualityLevel: Math.max(
+          0,
+          Math.floor(Number(json.craftQuality?.level ?? 0)),
+        ),
         craftMode:
           json.craftMode === "masterwork" || craftMode === "masterwork"
             ? "masterwork"
@@ -855,6 +859,9 @@ export function GuildWorkshopPanel({
                           <option key={item.iid} value={item.iid}>
                             {item.itemName}
                             {item.enhanceLevel > 0 ? ` +${item.enhanceLevel}` : ""}
+                            {item.craftQualityLevel > 0
+                              ? ` ${"★".repeat(item.craftQualityLevel)}`
+                              : ""}
                             {item.craftOnly ? " · 제작전용" : ""}
                             {` · 제작자 Lv ${item.crafterLevel}`}
                           </option>
@@ -862,9 +869,9 @@ export function GuildWorkshopPanel({
                       </select>
                       {selected ? (
                         <div className="flex flex-wrap gap-1 text-[11px]">
-                          {selected.enhanceLevel > 0 ? (
+                          {selected.craftQualityLevel > 0 ? (
                             <span className="rounded bg-amber-100 px-1.5 py-px text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                              +{selected.enhanceLevel} 품질
+                              {"★".repeat(selected.craftQualityLevel)} 품질
                             </span>
                           ) : null}
                           {selected.craftOnly ? (
@@ -1081,7 +1088,7 @@ export function GuildWorkshopPanel({
                 : "모든 대장장이 보상을 해금했습니다."}
             </div>
             <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              +1 품질 확률은 Lv1 3%, 이후 레벨당 +2%p, 길드 보너스 합산
+              ★ 품질 확률은 Lv1 3%, 이후 레벨당 +2%p, 길드 보너스 합산
               최대 25%
             </div>
             <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1248,9 +1255,16 @@ export function GuildWorkshopPanel({
                 </span>
               ) : null}
               {craftResult.craftOnly ? <CraftOnlyBadge /> : null}
-              {craftResult.enhanceLevel > 0 ? (
+              {craftResult.craftQualityLevel > 0 ? (
                 <span className="rounded bg-amber-200 px-1.5 py-px font-semibold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
-                  +{craftResult.enhanceLevel} 품질
+                  <CraftQualityStars
+                    craftQuality={{
+                      level: craftResult.craftQualityLevel >= 2 ? 2 : 1,
+                      bonusPct: craftResult.craftQualityLevel >= 2 ? 10 : 5,
+                    }}
+                    className="mr-1"
+                  />
+                  품질
                 </span>
               ) : null}
             </div>

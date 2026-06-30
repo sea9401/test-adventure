@@ -84,7 +84,7 @@ export function OutpostView({
 }) {
   // 코어루프 on = 스태미나 폐지(점령은 골드 비용). 안내 문구의 "스태미너 소모" 분기.
   // currentOutpost/tilePos/tileSettlements = 현재 위치 게이트(점령/약탈/정복)의 클라 입력.
-  const { coreLoopOn, currentOutpost, tilePos, tileSettlements } =
+  const { coreLoopOn, currentOutpost, tilePos, setTilePos, tileSettlements } =
     useGameState();
   const nowMs = useClientNowMs();
   const [busy, setBusy] = useState(false);
@@ -397,7 +397,13 @@ export function OutpostView({
         body: JSON.stringify({ outpostId: outpost.id, mode: "raid" }),
       });
       const json = (await res.json().catch(() => null)) as
-        | { ok: true; won: boolean; stolenGold: number; defenderName: string | null }
+        | {
+            ok: true;
+            won: boolean;
+            stolenGold: number;
+            defenderName: string | null;
+            tilePos?: { col: number; row: number; at?: number } | null;
+          }
         | { ok: false; error: string }
         | null;
       if (!json) {
@@ -413,6 +419,9 @@ export function OutpostView({
         stolenGold: json.stolenGold,
         defenderName: json.defenderName,
       });
+      if (json.tilePos) {
+        setTilePos(json.tilePos);
+      }
       // 금고 탈취·수비 큐 변동 반영 — 부모 거점 상태(금고/소유) 재조회 + 공격 기록 패널 갱신.
       onAction({ kind: "claimed" });
       setAttackLogReload((n) => n + 1);

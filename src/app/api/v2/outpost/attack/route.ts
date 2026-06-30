@@ -336,6 +336,17 @@ export async function POST(req: Request) {
       let raidBattled = false; // 실제 전투(수비자 존재)면 true → 공격 기록 INSERT.
       // 수비 성공 시 점령 길드(수비자 소속)에 누적할 명성 — tx 끝에서 단일 UPDATE.
       let defenderFameDelta = 0;
+      // 약탈은 "30분 체류 후 1회"다. 유효한 약탈 시도 후 같은 칸 체류 시작시각을 리셋해
+      // 조건 충족 뒤 연속 클릭으로 금고를 비우는 일을 막는다.
+      const nextTilePos =
+        isTileOutpostId(outpost.id) && attackerSave.tilePos
+          ? {
+              col: attackerSave.tilePos.col,
+              row: attackerSave.tilePos.row,
+              at: now,
+            }
+          : null;
+      let attackerSaveUpdated = false;
 
       if (defender1Id == null) {
         won = true; // 무방비 → 무혈 약탈.
@@ -393,6 +404,7 @@ export async function POST(req: Request) {
           const dMaxMp = defender.player.maxMp ?? 0;
           await upsertSave(tx, userId, "character.v2", {
             ...attackerSave,
+            ...(nextTilePos ? { tilePos: nextTilePos } : {}),
             warVigor: vigorAfterBattle(
               pvp.finalState.p1.hp,
               attacker.maxHp,
@@ -401,6 +413,7 @@ export async function POST(req: Request) {
               now,
             ),
           });
+          attackerSaveUpdated = true;
           // 수비 성공(공격자 패배 = 수비자 승리)이면 명성 보상(보유+누적). 진 수비자는 0.
           const honorReward = won ? 0 : HONOR_PER_DEFENSE_WIN;
           defenderFameDelta = honorReward;
@@ -430,6 +443,13 @@ export async function POST(req: Request) {
               );
           }
         }
+      }
+
+      if (nextTilePos && !attackerSaveUpdated) {
+        await upsertSave(tx, userId, "character.v2", {
+          ...attackerSave,
+          tilePos: nextTilePos,
+        });
       }
 
       let stolenGold = 0;
@@ -502,6 +522,10 @@ export async function POST(req: Request) {
           won,
           stolenGold,
           defenderName,
+          tilePos: nextTilePos,
+          raidAvailableAt: nextTilePos
+            ? nextTilePos.at + RAID_MIN_TILE_STAY_MS
+            : null,
           replay,
         },
       };

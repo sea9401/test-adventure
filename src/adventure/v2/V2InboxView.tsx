@@ -13,6 +13,7 @@ import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   fetchInbox,
   fetchInboxHistory,
+  fetchInboxSent,
   type InboxItem,
 } from "@/adventure/marketplace/api";
 import {
@@ -35,6 +36,7 @@ const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
 //   - "쪽지 쓰기" — 우편함에서 바로 글만 보내는 쪽지(SendMessageModal). 게시판에만 있던 진입점 추가.
 //   - "받은 우편" 탭 — 미수령(읽지 않은) 우편. 수령/확인/초대 응답.
 //   - "지난 우편" 탭 — 이미 읽은(수령한) 우편 기록(history). 읽어도 사라지지 않고 남는다.
+//   - "보낸 우편" 탭 — 내가 보낸 쪽지/선물 최근 기록. 상대 확인 여부(claimedAt)도 표시.
 //   - 우편 클릭 — 상세 모달로 내용 전체 확인(받은 우편·지난 우편 공통).
 
 // 길드 초대(guild_invite)는 수령(claim)이 아니라 수락/거절 — payload.invite_id 로 accept/decline.
@@ -198,7 +200,7 @@ function formatFull(iso: string): string {
   });
 }
 
-type Tab = "inbox" | "history";
+type Tab = "inbox" | "history" | "sent";
 
 export function V2InboxView({ onBack }: { onBack: () => void }) {
   // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
@@ -207,6 +209,8 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
   const [items, setItems] = useState<InboxItem[] | null>(null);
   // 지난 우편(기록) — 탭 진입 시 지연 로드. 수령/응답 후엔 null 로 무효화해 재로드.
   const [history, setHistory] = useState<InboxItem[] | null>(null);
+  // 보낸 우편(기록) — 탭 진입 시 지연 로드. 쪽지 전송 후엔 null 로 무효화한다.
+  const [sent, setSent] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -240,6 +244,17 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
+  const loadSent = useCallback(async () => {
+    setError(null);
+    try {
+      const r = await fetchInboxSent();
+      setSent(r.items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "보낸 우편 기록 로드 실패");
+      setSent([]);
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 로드
     void load();
@@ -250,8 +265,9 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
     (t: Tab) => {
       setTab(t);
       if (t === "history" && history === null) void loadHistory();
+      if (t === "sent" && sent === null) void loadSent();
     },
-    [history, loadHistory],
+    [history, loadHistory, loadSent, sent],
   );
 
   const claim = useCallback(
@@ -366,8 +382,14 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
     [busy, load, refreshGuildId],
   );
 
-  const displayed = (tab === "inbox" ? items : history) ?? [];
-  const loading = tab === "inbox" ? items === null : history === null;
+  const displayed =
+    (tab === "inbox" ? items : tab === "history" ? history : sent) ?? [];
+  const loading =
+    tab === "inbox"
+      ? items === null
+      : tab === "history"
+        ? history === null
+        : sent === null;
   // 길드 초대는 수락/거절(전체 수령에서 제외). 나머지가 claim 대상.
   const claimableIds = (items ?? [])
     .filter((it) => !IS_INVITE(it))
@@ -392,7 +414,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         }
       />
 
-      {/* 받은 우편 / 지난 우편(기록) 탭 */}
+      {/* 받은 우편 / 지난 우편(기록) / 보낸 우편 탭 */}
       <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
         <TabButton
           active={tab === "inbox"}
@@ -403,6 +425,11 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           active={tab === "history"}
           onClick={() => switchTab("history")}
           label="지난 우편"
+        />
+        <TabButton
+          active={tab === "sent"}
+          onClick={() => switchTab("sent")}
+          label="보낸 우편"
         />
       </div>
 
@@ -438,7 +465,9 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
             <div className="text-sm">
               {tab === "inbox"
                 ? "받은 우편이 없어요."
-                : "지난 우편 기록이 없어요."}
+                : tab === "history"
+                  ? "지난 우편 기록이 없어요."
+                  : "보낸 우편 기록이 없어요."}
             </div>
           </div>
         </Card>
@@ -463,7 +492,14 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
                       <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                         {KIND_LABEL[it.kind]}
                       </span>
-                      {it.fromName && <span>· {it.fromName}</span>}
+                      {it.direction === "sent" ? (
+                        <>
+                          <span>· 받는이 {it.recipientName ?? "알 수 없음"}</span>
+                          <span>· {it.claimedAt ? "읽음" : "미확인"}</span>
+                        </>
+                      ) : (
+                        it.fromName && <span>· {it.fromName}</span>
+                      )}
                       <span>· {timeAgo(it.createdAt)}</span>
                     </div>
                     <div className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">
@@ -525,7 +561,11 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
       {composeOpen && (
         <SendMessageModal
           onClose={() => setComposeOpen(false)}
-          onSent={(name) => setMsg(`✓ ${name} 님에게 쪽지를 보냈어요.`)}
+          onSent={(name) => {
+            setSent(null);
+            setMsg(`✓ ${name} 님에게 쪽지를 보냈어요.`);
+            if (tab === "sent") void loadSent();
+          }}
         />
       )}
     </main>
@@ -570,6 +610,7 @@ function MailDetailModal({
   onClaim: (id: number) => void;
   onRespondInvite: (it: InboxItem, accept: boolean) => void;
 }) {
+  const sent = item.direction === "sent";
   const claimed = item.claimedAt != null;
   const isInvite = IS_INVITE(item);
   const rewards = rewardLinesOf(item);
@@ -597,9 +638,9 @@ function MailDetailModal({
             <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
               {KIND_LABEL[item.kind]}
             </span>
-            {claimed && (
+            {(sent || claimed) && (
               <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">
-                읽음
+                {sent ? (claimed ? "읽음" : "미확인") : "읽음"}
               </span>
             )}
           </h2>
@@ -614,12 +655,26 @@ function MailDetailModal({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-          {item.fromName && (
+          {sent ? (
             <span>
-              보낸이: <PlayerNameLink name={item.fromName} />
+              받는이:{" "}
+              {item.recipientName ? (
+                <PlayerNameLink name={item.recipientName} />
+              ) : (
+                "알 수 없음"
+              )}
             </span>
+          ) : (
+            item.fromName && (
+              <span>
+                보낸이: <PlayerNameLink name={item.fromName} />
+              </span>
+            )
           )}
-          <span>{item.fromName ? "· " : ""}받은 시각: {formatFull(item.createdAt)}</span>
+          <span>
+            {(sent ? item.recipientName : item.fromName) ? "· " : ""}
+            {sent ? "보낸 시각" : "받은 시각"}: {formatFull(item.createdAt)}
+          </span>
         </div>
 
         <div className="mt-3 max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-zinc-50 p-3 text-sm text-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
@@ -640,7 +695,15 @@ function MailDetailModal({
         )}
 
         <div className="mt-4 flex justify-end gap-2">
-          {!claimed && isInvite ? (
+          {sent ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              닫기
+            </button>
+          ) : !claimed && isInvite ? (
             <>
               <button
                 type="button"

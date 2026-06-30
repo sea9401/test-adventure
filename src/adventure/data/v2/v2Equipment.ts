@@ -729,48 +729,48 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     id: "ash_line",
     name: "잿빛 전선",
     thresholds: [
-      { count: 2, bonus: { hp: 120, critResist: 5 } },
-      { count: 3, bonus: { hp: 200, critMult: 28, magicDef: 12 } },
+      { count: 2, bonus: { hp: 140, def: 18, critResist: 4 } },
+      { count: 3, bonus: { hp: 220, def: 32, magicDef: 12, critResist: 8 } },
     ],
   },
   {
     id: "ember_rite",
     name: "연소 의식",
     thresholds: [
-      { count: 2, bonus: { mp: 130, magicDef: 10 } },
-      { count: 3, bonus: { mp: 210, healPowerPct: 6, magicDef: 18 } },
+      { count: 2, bonus: { mp: 150, healPowerPct: 5, magicDef: 12 } },
+      { count: 3, bonus: { mp: 230, healPowerPct: 10, magicDef: 20, critResist: 4 } },
     ],
   },
   {
     id: "storm_hunt",
     name: "폭풍 추격",
     thresholds: [
-      { count: 2, bonus: { crit: 7, spd: 7 } },
-      { count: 3, bonus: { crit: 12, eva: 7, spd: 12 } },
+      { count: 2, bonus: { crit: 5, eva: 5, spd: 8 } },
+      { count: 3, bonus: { crit: 9, eva: 10, critMult: 35, spd: 14 } },
     ],
   },
   {
     id: "bone_line",
     name: "백골 장벽",
     thresholds: [
-      { count: 2, bonus: { hp: 150, critResist: 6 } },
-      { count: 3, bonus: { hp: 260, magicDef: 16, critResist: 10 } },
+      { count: 2, bonus: { hp: 180, def: 26, critResist: 7 } },
+      { count: 3, bonus: { hp: 320, def: 48, magicDef: 18, critResist: 12 } },
     ],
   },
   {
     id: "crow_rite",
     name: "까마귀 조문",
     thresholds: [
-      { count: 2, bonus: { mp: 150, magicDef: 12 } },
-      { count: 3, bonus: { mp: 240, crit: 6, magicDef: 22 } },
+      { count: 2, bonus: { mp: 170, healPowerPct: 5, magicDef: 16 } },
+      { count: 3, bonus: { mp: 260, healPowerPct: 10, magicDef: 28, critResist: 5 } },
     ],
   },
   {
     id: "death_hunt",
     name: "사혼 추격",
     thresholds: [
-      { count: 2, bonus: { crit: 8, spd: 8 } },
-      { count: 3, bonus: { crit: 13, eva: 8, spd: 14 } },
+      { count: 2, bonus: { crit: 7, critMult: 35, spd: 7 } },
+      { count: 3, bonus: { crit: 11, eva: 9, critMult: 60, spd: 12 } },
     ],
   },
 ];

@@ -178,6 +178,9 @@ type GameStateValue = {
   // 자유 타일 지도(V2_FREEFORM_TILES) — 마커 칸 좌표 + 칸 이동(거점/빈 땅 공통).
   //   거점 칸이면 travelTo 로 위임, 빈 칸이면 move-tile POST(사냥 base 불변·마커만 이동).
   tilePos: { col: number; row: number; at?: number } | null;
+  setTilePos: React.Dispatch<
+    React.SetStateAction<{ col: number; row: number; at?: number } | null>
+  >;
   travelToTile: (col: number, row: number) => void;
   // 개척 정착지(Phase 3) — 보드의 모든 정착지 + 본인 건설/승격/철거.
   tileSettlements: TileSettlement[];
@@ -903,6 +906,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     enterOutpost,
     travelTo,
     tilePos,
+    setTilePos,
     travelToTile,
     tileSettlements,
     foundTile,

@@ -29,8 +29,11 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   CraftOnlyBadge,
+  PerfectQualityBadge,
+  QualityPctText,
   V2ItemCard,
   anchorOf,
+  powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import { useGameState } from "./GameStateProvider";
@@ -751,11 +754,19 @@ function BuyConfirm({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const roll =
+    listing.kind === "equip"
+      ? listingEquipRoll(listing.instancePayload)
+      : undefined;
+  const item =
+    listing.kind === "equip"
+      ? V2_EQUIPMENT[listing.itemId as keyof typeof V2_EQUIPMENT]
+      : null;
   const detail =
     listing.kind === "equip"
       ? equipDetail(
           listing.itemId,
-          listingEquipRoll(listing.instancePayload),
+          roll,
           listingEnhance(listing.instancePayload),
         )
       : null;
@@ -775,7 +786,11 @@ function BuyConfirm({
         <h2 className="text-base font-bold">구매 확인</h2>
         <div className="mt-3 space-y-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium">
+            <span
+              className={`text-sm font-medium ${
+                item ? powerNameClass(item, roll) : ""
+              }`}
+            >
               {listing.itemName}
               {detail?.enhance ? (
                 <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
@@ -785,7 +800,11 @@ function BuyConfirm({
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{listing.quantity}</span>
             )}
             {detail?.pct != null && (
-              <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
+              <span className="inline-flex items-center gap-1 text-[11px] tabular-nums">
+                <span className="text-zinc-500 dark:text-zinc-400">품질</span>
+                <QualityPctText pct={detail.pct} className="font-semibold" />
+                {detail.pct >= 100 ? <PerfectQualityBadge /> : null}
+              </span>
             )}
           </div>
           {detail && (
@@ -975,7 +994,15 @@ function ListingList({
         const info = (
           <>
             <div className="flex items-center gap-1.5">
-              <span className={`text-sm font-medium ${clickable ? "group-hover:underline group-focus-visible:underline" : ""}`}>
+              <span
+                className={`text-sm font-medium ${
+                  item ? powerNameClass(item, roll) : ""
+                } ${
+                  clickable
+                    ? "group-hover:underline group-focus-visible:underline"
+                    : ""
+                }`}
+              >
                 {l.itemName}
                 {detail?.enhance ? (
                   <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
@@ -985,7 +1012,11 @@ function ListingList({
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
               )}
               {detail?.pct != null && (
-                <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
+                <span className="inline-flex items-center gap-1 text-[11px] tabular-nums">
+                  <span className="text-zinc-500 dark:text-zinc-400">품질</span>
+                  <QualityPctText pct={detail.pct} className="font-semibold" />
+                  {detail.pct >= 100 ? <PerfectQualityBadge /> : null}
+                </span>
               )}
               {item?.craftOnly ? <CraftOnlyBadge /> : null}
             </div>

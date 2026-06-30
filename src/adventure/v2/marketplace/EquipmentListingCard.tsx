@@ -3,7 +3,12 @@
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { parseAmount } from "@/components/ui/NumberInput";
-import { CraftOnlyBadge } from "@/adventure/v2/V2ItemCard";
+import {
+  CraftOnlyBadge,
+  PerfectQualityBadge,
+  powerNameClass,
+  QualityPctText,
+} from "@/adventure/v2/V2ItemCard";
 import {
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -64,7 +69,11 @@ export function EquipmentListingCard({
             className="group min-w-0 text-left"
           >
             <div>
-              <span className="text-sm font-medium group-hover:underline group-focus-visible:underline">
+              <span
+                className={`text-sm font-medium group-hover:underline group-focus-visible:underline ${
+                  item ? powerNameClass(item, inst.roll) : ""
+                }`}
+              >
                 {V2_EQUIPMENT[inst.id]?.name ?? inst.id}
                 {inst.enhance && inst.enhance.level > 0 ? (
                   <span className="ml-1 text-amber-500">+{inst.enhance.level}</span>
@@ -72,7 +81,11 @@ export function EquipmentListingCard({
               </span>
               {item?.craftOnly ? <CraftOnlyBadge className="ml-1.5" /> : null}
               {detail?.pct != null && (
-                <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
+                <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] tabular-nums">
+                  <span className="text-zinc-500 dark:text-zinc-400">품질</span>
+                  <QualityPctText pct={detail.pct} className="font-semibold" />
+                  {detail.pct >= 100 ? <PerfectQualityBadge /> : null}
+                </span>
               )}
             </div>
             {detail && (

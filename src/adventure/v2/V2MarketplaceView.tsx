@@ -804,7 +804,14 @@ function BuyConfirm({
           <div className="flex items-center gap-1.5">
             <span
               className={`text-sm font-medium ${
-                item ? powerNameClass(item, roll) : ""
+                item
+                  ? powerNameClass(
+                      item,
+                      roll,
+                      detail?.enhance,
+                      detail?.craftQuality,
+                    )
+                  : ""
               }`}
             >
               {listing.itemName}
@@ -1021,7 +1028,14 @@ function ListingList({
             <div className="flex items-center gap-1.5">
               <span
                 className={`text-sm font-medium ${
-                  item ? powerNameClass(item, roll) : ""
+                  item
+                    ? powerNameClass(
+                        item,
+                        roll,
+                        detail?.enhance,
+                        detail?.craftQuality,
+                      )
+                    : ""
                 } ${
                   clickable
                     ? "group-hover:underline group-focus-visible:underline"

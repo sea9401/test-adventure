@@ -435,7 +435,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 <div
                   className={`flex max-w-full items-baseline justify-center text-xs font-medium ${
                     item
-                      ? powerNameClass(item, inst?.roll)
+                      ? powerNameClass(
+                          item,
+                          inst?.roll,
+                          inst?.enhance,
+                          inst?.craftQuality,
+                        )
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >

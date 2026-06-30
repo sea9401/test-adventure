@@ -949,8 +949,8 @@ export function effectiveStats(
 }
 
 // ── 레거시 위력 밴드(진단용) ───────────────────────────────────────────────
-// 현재 장비명 색은 UI(itemNameClass)에서 희귀도/티어로 결정한다. 이 밴드는 예전 "절대 위력"
-// 색 분류의 경계값 회귀 테스트와 내부 진단용으로만 유지한다.
+// 현재 장비명 색은 UI(itemNameClass)에서 표시 위력 200단위로 결정한다. 이 밴드는 예전
+// 부위별 "절대 위력" 색 분류의 경계값 회귀 테스트와 내부 진단용으로만 유지한다.
 const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
   weapon: 75,
   armor: 25,

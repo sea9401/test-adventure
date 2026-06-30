@@ -75,7 +75,14 @@ export function EquipmentListingCard({
             <div>
               <span
                 className={`text-sm font-medium group-hover:underline group-focus-visible:underline ${
-                  item ? powerNameClass(item, inst.roll) : ""
+                  item
+                    ? powerNameClass(
+                        item,
+                        inst.roll,
+                        inst.enhance,
+                        inst.craftQuality,
+                      )
+                    : ""
                 }`}
               >
                 {V2_EQUIPMENT[inst.id]?.name ?? inst.id}

@@ -48,18 +48,37 @@ export function rollPctClass(pct: number): string {
   return "text-zinc-500 dark:text-zinc-400";
 }
 
-// 장비명 색 → "무슨 장비인가" 기준. 품질% 색은 QualityPctText 쪽에만 남긴다.
-export function itemNameClass(item: V2Equipment): string {
-  if (item.rarity === "unique") return "ui-item-name-unique";
-  if (item.tier >= 10) return "text-amber-600 dark:text-amber-400";
-  if (item.tier >= 7) return "text-violet-600 dark:text-violet-400";
-  if (item.tier >= 4) return "text-sky-600 dark:text-sky-400";
+// 장비명 색 → 현재 표시 위력 기준. 품질% 색은 QualityPctText 쪽에만 남긴다.
+// 시그니처 효과 장비는 위력대와 무관하게 무지개로 고정한다.
+export function itemNameClass(
+  item: V2Equipment,
+  roll?: V2EquipRoll,
+  enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
+): string {
+  if (item.signature) return "ui-item-name-signature";
+  const displayPower = powerWithBonuses(
+    roll?.power ?? item.power,
+    enhance,
+    craftQuality,
+  );
+  if (displayPower >= 1200) return "text-red-600 dark:text-red-400";
+  if (displayPower >= 1000) return "text-rose-600 dark:text-rose-400";
+  if (displayPower >= 800) return "text-orange-600 dark:text-orange-400";
+  if (displayPower >= 600) return "text-amber-600 dark:text-amber-400";
+  if (displayPower >= 400) return "text-violet-600 dark:text-violet-400";
+  if (displayPower >= 200) return "text-sky-600 dark:text-sky-400";
   return "text-zinc-900 dark:text-zinc-100";
 }
 
-// 예전 이름은 import 호환을 위해 유지한다. 이제 roll 은 이름 색 결정에 쓰지 않는다.
-export function powerNameClass(item: V2Equipment, _roll?: V2EquipRoll): string {
-  return itemNameClass(item);
+// 예전 이름은 import 호환을 위해 유지한다.
+export function powerNameClass(
+  item: V2Equipment,
+  roll?: V2EquipRoll,
+  enhance?: V2EnhanceState,
+  craftQuality?: V2CraftQualityState,
+): string {
+  return itemNameClass(item, roll, enhance, craftQuality);
 }
 
 export function QualityPctText({
@@ -396,7 +415,7 @@ export function V2ItemCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
             <h2
-              className={`truncate text-base font-semibold leading-tight ${powerNameClass(item, roll)}`}
+              className={`truncate text-base font-semibold leading-tight ${powerNameClass(item, roll, enhance, craftQuality)}`}
             >
               {enhance && enhance.level > 0 ? (
                 <span className="mr-1 text-amber-500">+{enhance.level}</span>
@@ -820,7 +839,7 @@ function CompareHeader({
       </div>
       <div className="mt-0.5 flex min-w-0 items-center gap-1">
         <h3
-          className={`truncate text-sm font-semibold ${powerNameClass(side.item, side.roll)}`}
+          className={`truncate text-sm font-semibold ${powerNameClass(side.item, side.roll, side.enhance, side.craftQuality)}`}
         >
           {side.enhance && side.enhance.level > 0 ? (
             <span className="mr-1 text-amber-500">+{side.enhance.level}</span>

@@ -28,6 +28,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   canReforge,
+  catalogItemStats,
   reforgeGoldCost,
   COMBINE_GOLD_COST,
   REFORGE_COMBINE_COST,
@@ -304,12 +305,13 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   // ── 재련(reforge) — 골드로 옵션 굴림 재시도(항상 적용 = 도박) ──
   const reforgeCost = item ? reforgeGoldCost(item) : 0;
-  const reforgeable = !!(selected && item && canReforge(item, selected.roll));
+  const reforgeable = !!(selected && item && canReforge(item, selected.roll, selected));
+  const reforgeRoll =
+    selected && item && reforgeable ? (selected.roll ?? catalogItemStats(item)) : undefined;
   const reforgeStoneShort = reforgeStones[reforgeStone] < 1;
-  const curQuality =
-    selected && item ? rollQualityPct(item, selected.roll) : null;
+  const curQuality = selected && item ? rollQualityPct(item, reforgeRoll) : null;
   const curRollPower =
-    selected && item ? effectiveStats(item, selected.roll).power : 0;
+    selected && item ? effectiveStats(item, reforgeRoll).power : 0;
 
   const doReforge = useCallback(async () => {
     if (!selected || !item || busy) return;

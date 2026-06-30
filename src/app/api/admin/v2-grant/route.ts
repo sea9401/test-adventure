@@ -29,6 +29,7 @@ import {
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { initialStamina } from "@/adventure/v2/stamina";
 import {
   RARE_MAP_KINDS,
@@ -266,7 +267,7 @@ export async function POST(req: Request) {
       out.mpCharges = mpCharges;
     }
 
-    // 장비 — equipment.v2.owned 에 추가(이미 보유면 no-op).
+    // 장비 — equipment.v2.owned 에 굴림이 붙은 새 개체를 추가.
     if (equipmentId) {
       const eq = await lockSaveForUpdate<EquipmentSave>(
         tx,
@@ -275,17 +276,19 @@ export async function POST(req: Request) {
         {},
       );
       const { owned, equipped } = parseEquipmentSave(eq);
-      if (owned.some((i) => i.id === equipmentId)) {
-        out.equipmentNoOp = true;
-      } else {
-        // 지급은 굴림 없음(기본값 고정) — roll 없는 개체.
-        const nextOwned = [...owned, { iid: genEquipIid(), id: equipmentId }];
-        await upsertSave(tx, userId, "equipment.v2", {
-          owned: nextOwned,
-          equipped,
-        });
-        out.equipmentOwned = nextOwned;
-      }
+      const nextOwned = [
+        ...owned,
+        {
+          iid: genEquipIid(),
+          id: equipmentId,
+          roll: rollItemStats(V2_EQUIPMENT[equipmentId], Math.random),
+        },
+      ];
+      await upsertSave(tx, userId, "equipment.v2", {
+        owned: nextOwned,
+        equipped,
+      });
+      out.equipmentOwned = nextOwned;
     }
 
     // 사이드 화폐 — 낚시/발굴 코인 지갑({coins}) 적립. character/proficiency/inventory/

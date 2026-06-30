@@ -143,6 +143,8 @@ export type PvPSideStacks = {
   evadesRemaining: number;
   damageTakenThisCombat: number;
   weakpointDefIgnoreLeft: number;
+  // 강체/장비 시그니처 — 받은 HP 피해 비례로 누적된 DEF 보너스(전투 내, 상한 = 기본 DEF).
+  braceDefBonus: number;
   // PR2-B 전문화 스킬 temp 버프 — PvE BattleStacks 미러. 전부 0/turns=0 이면 inert(골든 불변).
   skillRegenPct: number; // 운기 — 매 자기 턴 maxHp %
   skillRegenTurns: number;
@@ -215,7 +217,11 @@ export function attackerFacingDef(
   // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 attacker.buffs).
   attackerBuffs: PvPSideBuffs = attacker.buffs,
 ): number {
-  const raw = Math.max(0, defender.player.def - attackerBuffs.opponentDefPenalty);
+  const braceDefBonus = defender.stacks.braceDefBonus ?? 0;
+  const raw = Math.max(
+    0,
+    defender.player.def + braceDefBonus - attackerBuffs.opponentDefPenalty,
+  );
   const frac = attacker.player.armorPierceFraction ?? 0;
   let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
   if (
@@ -400,6 +406,7 @@ function buildSide(
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
       weakpointDefIgnoreLeft: 0,
+      braceDefBonus: 0,
       skillRegenPct: 0,
       skillRegenTurns: 0,
       skillCritPct: 0,

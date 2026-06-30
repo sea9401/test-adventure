@@ -17,6 +17,7 @@ import {
   lowHpDamageReductionPct,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
+  onHitTakenDefGain,
 } from "./signatureEffects";
 import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
 import {
@@ -679,9 +680,10 @@ export function resolveEnemyPhase(
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
       : playerHpAfterDmg;
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
-  // 강체 (금강 시그니처) — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적(상한 = 기본 DEF).
-  // 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
-  const braceGainPct = player.defGainOnHitPct ?? 0;
+  // 강체 (금강 시그니처) + 장비 on_hit_taken — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적
+  // (상한 = 기본 DEF). 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
+  const sigDefGain = onHitTakenDefGain(player.equipSignatures);
+  const braceGainPct = (player.defGainOnHitPct ?? 0) + (sigDefGain?.pct ?? 0);
   const nextBraceDefBonus =
     braceGainPct > 0 && dmgToHp > 0
       ? Math.min(
@@ -690,6 +692,7 @@ export function resolveEnemyPhase(
             Math.floor((dmgToHp * braceGainPct) / 100),
         )
       : state.stacks.braceDefBonus;
+  const braceDefDelta = nextBraceDefBonus - state.stacks.braceDefBonus;
   // 로그 — 격노 발동 → 가드 → (강타 라벨 포함) 공격 → 불굴 순.
   let log = state.log;
   if (enrageReady && skill?.kind === "enrage") {
@@ -741,6 +744,12 @@ export function resolveEnemyPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[흡혈 갑옷] ${playerName}의 HP +${bloodfeastHeal}`,
+    });
+  }
+  if (sigDefGain && braceDefDelta > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigDefGain.label}] 방어 +${braceDefDelta}`,
     });
   }
   // 반사 갑주 (특기) + 가시 갑옷 (5티어) — 적이 넣은 피해(가드/굳건/철벽 감산 전, heavyBlow 반영)의

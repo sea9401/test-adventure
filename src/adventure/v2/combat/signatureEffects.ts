@@ -4,7 +4,7 @@
 //   → 골든 byte-identical.
 //
 // 🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만(low_hp/on_dodge/
-//   on_crit/every_n_hits). PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
+//   on_crit/on_hit_taken/every_n_hits). PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
 
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 
@@ -23,6 +23,23 @@ export function lowHpDamageReductionPct(
     if (currentHp <= threshold) pct += s.damageTakenReductionPct;
   }
   return pct;
+}
+
+// on_hit_taken 방어 누적(백왕좌) — 받은 HP 피해의 % 만큼 braceDefBonus 에 더할 비율.
+//   실제 누적량/상한은 enemyPhase/pvpPhase 가 dmgToHp 와 기본 DEF 를 알고 계산한다.
+export function onHitTakenDefGain(
+  signatures: SignatureEffect[] | undefined,
+): { pct: number; label: string } | null {
+  if (!signatures) return null;
+  let pct = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_hit_taken" || !s.defGainOnHitPct) continue;
+    pct += s.defGainOnHitPct;
+    labels.push(s.label);
+  }
+  if (pct <= 0) return null;
+  return { pct, label: labels.join(" + ") };
 }
 
 // on_crit 독(독니 단검) — 크리 + 피해 발생 시 부여할 독 스택 magnitude(maxHp 비율/스택). 기존

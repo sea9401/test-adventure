@@ -6,6 +6,7 @@ import {
   firesOnCritPoison,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
+  onHitTakenDefGain,
   everyNHitsValue,
 } from "./signatureEffects";
 import { resolveBattle } from "./engine";
@@ -39,6 +40,12 @@ const FROST: SignatureEffect = {
   label: "한기",
   chillSlowPct: 25,
   buffActions: 2,
+};
+
+const BONE_THRONE: SignatureEffect = {
+  trigger: "on_hit_taken",
+  label: "백왕좌",
+  defGainOnHitPct: 35,
 };
 
 describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)", () => {
@@ -121,6 +128,26 @@ describe("lowHpDamageReductionPct (성물 저체력 받피감)", () => {
       hpThresholdPct: 30,
     };
     expect(lowHpDamageReductionPct([noPct], 5, 100)).toBe(0);
+  });
+});
+
+describe("onHitTakenDefGain (백왕좌 피격 방어 누적)", () => {
+  it("시그니처 없음/다른 트리거 → null", () => {
+    expect(onHitTakenDefGain(undefined)).toBeNull();
+    expect(onHitTakenDefGain([])).toBeNull();
+    expect(onHitTakenDefGain([RELIC])).toBeNull();
+  });
+
+  it("on_hit_taken defGainOnHitPct 를 합산하고 라벨을 보존", () => {
+    const other: SignatureEffect = {
+      trigger: "on_hit_taken",
+      label: "흑철",
+      defGainOnHitPct: 15,
+    };
+    expect(onHitTakenDefGain([BONE_THRONE, other])).toEqual({
+      pct: 50,
+      label: "백왕좌 + 흑철",
+    });
   });
 });
 
@@ -273,6 +300,60 @@ describe("엔진 통합 — 포식자 every-N 카운터가 적중 시 증가한�
       },
     );
     expect(res.finalState.stacks.signatureHitCount).toBe(0);
+  });
+});
+
+describe("엔진 통합 — on-hit-taken 방어 누적이 피격 시 증가한다 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function dummyDefender(equipSignatures?: SignatureEffect[]) {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    return {
+      ...base,
+      hp: 200,
+      maxHp: 200,
+      atk: 1,
+      def: 10,
+      spd: 1,
+      attackCount: 1,
+      evasionPct: 0,
+      evaRating: 0,
+      guaranteedEvades: 0,
+      ...(equipSignatures ? { equipSignatures } : {}),
+    };
+  }
+
+  const hardHitter = {
+    ...V2_MONSTERS["훈련용 허수아비"],
+    hp: 999,
+    atk: 80,
+    def: 0,
+    spd: 999,
+  };
+
+  it("백왕좌 장착 → 피격 후 braceDefBonus 와 로그가 생긴다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const res = resolveBattle(dummyDefender([BONE_THRONE]), hardHitter, "용사", {
+      pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+    });
+    expect(res.finalState.stacks.braceDefBonus).toBeGreaterThan(0);
+    expect(
+      res.finalState.log.some(
+        (e) => typeof e.text === "string" && e.text.includes("[백왕좌]"),
+      ),
+    ).toBe(true);
+  });
+
+  it("대조군 — 미장착이면 braceDefBonus 0 유지", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const res = resolveBattle(dummyDefender(), hardHitter, "용사", {
+      pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills: emptyV2SkillsState(),
+    });
+    expect(res.finalState.stacks.braceDefBonus).toBe(0);
   });
 });
 

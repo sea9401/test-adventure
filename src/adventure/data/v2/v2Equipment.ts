@@ -452,11 +452,16 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(저체력/회피/크리/N타마다). docs/v2-signature-uniques-plan.md §10.
+//   트리거가 있다(저체력/회피/크리/피격/N타마다). docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
 //   미장착(undefined)=엔진 훅 미발화 → 골든 byte-identical.
-export type SignatureTrigger = "low_hp" | "on_dodge" | "on_crit" | "every_n_hits";
+export type SignatureTrigger =
+  | "low_hp"
+  | "on_dodge"
+  | "on_crit"
+  | "on_hit_taken"
+  | "every_n_hits";
 export type SignatureEffect = {
   trigger: SignatureTrigger;
   /** 전투로그/UI 표기 이름(예: "성물"). */
@@ -475,6 +480,8 @@ export type SignatureEffect = {
   poisonOnCrit?: boolean;
   /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
   chillSlowPct?: number;
+  /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
+  defGainOnHitPct?: number;
   /** every_n_hits: 이 횟수마다 1회 추가타. */
   everyNHits?: number;
 };
@@ -496,6 +503,8 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";
+    case "on_hit_taken":
+      return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
     case "every_n_hits":
       return `${sig.everyNHits ?? 0}타마다 추가타 1회`;
   }

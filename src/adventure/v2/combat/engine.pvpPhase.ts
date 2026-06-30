@@ -30,6 +30,7 @@ import {
   onCritEnemyChill,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
+  onHitTakenDefGain,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import {
@@ -549,6 +550,17 @@ export function advanceTurnPvP(
     bloodfeastHeal > 0
       ? Math.min(defender.maxHp, defenderHpAfterDmg + bloodfeastHeal)
       : defenderHpAfterDmg;
+  const sigDefGain = onHitTakenDefGain(defender.player.equipSignatures);
+  const braceGainPct = sigDefGain?.pct ?? 0;
+  const prevBraceDefBonus = defender.stacks.braceDefBonus ?? 0;
+  const nextBraceDefBonus =
+    braceGainPct > 0 && dmgToHp > 0
+      ? Math.min(
+          defender.player.def,
+          prevBraceDefBonus + Math.floor((dmgToHp * braceGainPct) / 100),
+        )
+      : prevBraceDefBonus;
+  const braceDefDelta = nextBraceDefBonus - prevBraceDefBonus;
   // ── 로그 — 결의 → 가드 → 굳건한 의지 → 철벽 → 본타 → 불굴 → 흡혈 갑옷 → 이중 행운 → 흡혈 ──
   let log = state.log;
   if (resolveApplied) {
@@ -601,6 +613,12 @@ export function advanceTurnPvP(
     log = appendLog(log, {
       kind: "info",
       text: `[흡혈 갑옷] ${defender.name}의 HP +${bloodfeastHeal}`,
+    });
+  }
+  if (sigDefGain && braceDefDelta > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigDefGain.label}] ${defender.name} 방어 +${braceDefDelta}`,
     });
   }
   // 이중 행운 — 첫 크리 발동 순간 활성화.
@@ -959,6 +977,7 @@ export function advanceTurnPvP(
       ...defender.stacks,
       playerShield: newShield,
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
+      braceDefBonus: nextBraceDefBonus,
     },
   }, attacker, { bleedStacks: apBleedAdd });
   let next: PvPBattleState = setSide(

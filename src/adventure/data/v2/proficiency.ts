@@ -96,6 +96,8 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   spellblade: { str: 2, int: 2 }, // 마검사 — 검(str) + 마법(int)
   templar: { str: 2, vit: 1, spi: 1 }, // 성기사 — 기사 힘·활력 + 사제 정신
   bloodtemplar: { str: 2, vit: 1, spi: 1 }, // 혈성기사 — 광전사의 힘·활력 + 사제 정신
+  crimsontemplar: { str: 2, vit: 1, spi: 1 }, // 진홍성기사 — 혈성기사 심화
+  bloodlord: { str: 2, vit: 1, spi: 1 }, // 혈성군주 — 혈성기사 최종형
   darkpriest: { luk: 2, spi: 1, int: 1 }, // 암흑사제 — 그림자의 행운 + 사제 정신·지능
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)

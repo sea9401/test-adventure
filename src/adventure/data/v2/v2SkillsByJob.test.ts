@@ -270,6 +270,7 @@ describe("직업 킷 — 스킬셋", () => {
       returner: ["v2c_returner_survive", "v2c_returner_undying"],
       crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"],
       runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"],
+      crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -335,6 +336,19 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { str: 14, int: 14 },
       critPct: 5,
     });
+    expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects.map((e) => e.kind)).toEqual([
+      "hpCostDamage",
+      "heal",
+    ]);
+    expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      pctCurrentHp: 9,
+    });
+    expect(V2_SKILLS.v2c_crimsontemplar_oath.passive).toMatchObject({
+      berserkAtkPctPerLostHpPct: 0.45,
+      healPowerPct: 16,
+      damageTakenReductionPct: 5,
+    });
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
     // 정예 기사 액티브 왕실 검술 = 처형딜, 적 HP 15%↓ 에서 ×2(오너 하향, 옛 30%).
@@ -373,6 +387,7 @@ describe("직업 킷 — 스킬셋", () => {
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       swordmaster: ["v2c_swordmaster_cut", "v2c_swordmaster_focus"],
       ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"],
+      overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"],
       arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"],
       marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
       nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"],
@@ -381,6 +396,7 @@ describe("직업 킷 — 스킬셋", () => {
       adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"],
       immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"],
       transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"],
+      bloodlord: ["v2c_bloodlord_brand", "v2c_bloodlord_martyrdom"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -390,6 +406,19 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_ironknight_wall.passive).toMatchObject({
       defPct: 18,
       thornsDefPct: 80,
+    });
+    expect(V2_SKILLS.v2c_overlord_ruin.effects.map((e) => e.kind)).toEqual([
+      "hpCostDamage",
+      "executeDamage",
+    ]);
+    expect(V2_SKILLS.v2c_overlord_ruin.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      pctCurrentHp: 12,
+    });
+    expect(V2_SKILLS.v2c_overlord_throne.passive).toMatchObject({
+      berserkAtkPctPerLostHpPct: 0.8,
+      critDmgPct: 30,
+      maxHpPct: 8,
     });
     expect(V2_SKILLS.v2c_nightshade_eclipse.effects.map((e) => e.kind)).toEqual([
       "ambushDamage",
@@ -425,6 +454,25 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
       maxHpPct: 8,
       maxMpPct: 8,
+    });
+    expect(V2_SKILLS.v2c_bloodlord_brand.effects.map((e) => e.kind)).toEqual([
+      "hpCostDamage",
+      "executeDamage",
+      "heal",
+    ]);
+    expect(V2_SKILLS.v2c_bloodlord_brand.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      pctCurrentHp: 10,
+    });
+    expect(V2_SKILLS.v2c_bloodlord_brand.effects[1]).toMatchObject({
+      kind: "executeDamage",
+      hpThresholdPct: 30,
+    });
+    expect(V2_SKILLS.v2c_bloodlord_martyrdom.passive).toMatchObject({
+      maxHpPct: 20,
+      berserkAtkPctPerLostHpPct: 0.55,
+      healPowerPct: 20,
+      damageTakenReductionPct: 6,
     });
   });
 

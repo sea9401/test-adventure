@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   GUILD_WORKSHOP_RECIPES,
+  addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   addGuildWorkshopMaterials,
   guildWorkshopBonusFromTotalCrafts,
@@ -14,6 +15,7 @@ import {
   hasGuildWorkshopRecipeMaterials,
   meetsGuildWorkshopRecipeLevel,
   parseGuildWorkshopStats,
+  parseGuildWorkshopCraftRecords,
   rollGuildWorkshopEnhance,
   spendGuildWorkshopRecipeCost,
 } from "./guildWorkshop";
@@ -400,6 +402,40 @@ describe("guild workshop recipes", () => {
       totalCrafts: 3,
       qualityCrafts: 2,
       craftedByRecipe: { iron_sword: 2, silver_ring: 1 },
+    });
+  });
+
+  it("tracks personal craft records by recipe and slot", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_sunforge_blade;
+    const records = addGuildWorkshopCraftRecord(
+      parseGuildWorkshopCraftRecords(null),
+      {
+        recipeId: recipe.id,
+        item: V2_EQUIPMENT[recipe.equipmentId],
+        craftQualityLevel: 2,
+        masterwork: true,
+        craftedAt: "2026-06-30T00:00:00.000Z",
+      },
+    );
+
+    expect(records).toMatchObject({
+      totalCrafts: 1,
+      qualityCrafts: 1,
+      masterworkCrafts: 1,
+      craftOnlyCrafts: 1,
+      highestTier: 8,
+      bestQualityLevel: 2,
+    });
+    expect(records.recipes.crafted_sunforge_blade).toMatchObject({
+      crafts: 1,
+      bestQualityLevel: 2,
+      masterworkCrafts: 1,
+    });
+    expect(records.slots.weapon).toMatchObject({
+      crafts: 1,
+      bestQualityLevel: 2,
+      masterworkCrafts: 1,
+      highestTier: 8,
     });
   });
 

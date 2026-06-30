@@ -19,6 +19,7 @@ export type GuildWorkshopDeliveryReward = {
   rewardArtisanXp: number;
   rewardGold: number;
   bonusPct: number;
+  masterworkBonusPct: number;
 };
 
 export type GuildWorkshopDeliveryState = {
@@ -70,6 +71,8 @@ export const GUILD_WORKSHOP_DELIVERIES: Record<
       V2_EQUIPMENT[inst.id]?.craftOnly === true,
   },
 };
+
+export const GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT = 25;
 
 export const GUILD_WORKSHOP_DELIVERY_IDS = Object.keys(
   GUILD_WORKSHOP_DELIVERIES,
@@ -125,6 +128,7 @@ export function guildWorkshopDeliveryViews(
           enhanceLevel: inst.enhance?.level ?? 0,
           craftQualityLevel: inst.craftQuality?.level ?? 0,
           craftOnly: V2_EQUIPMENT[inst.id]?.craftOnly === true,
+          masterwork: inst.craftedBy?.masterwork === true,
           crafterLevel: inst.craftedBy?.level ?? 1,
           ...reward,
         };
@@ -149,15 +153,23 @@ export function guildWorkshopDeliveryReward(
 ): GuildWorkshopDeliveryReward {
   const safeSmithyLevel = Math.max(1, Math.floor(Number(smithyLevel) || 1));
   const craftQualityLevel = Math.max(0, Math.floor(inst.craftQuality?.level ?? 0));
+  const masterworkBonusPct =
+    inst.craftedBy?.masterwork === true
+      ? GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT
+      : 0;
   const bonusPct = Math.min(
-    100,
-    Math.max(0, (safeSmithyLevel - 1) * 5 + craftQualityLevel * 10),
+    125,
+    Math.max(
+      0,
+      (safeSmithyLevel - 1) * 5 + craftQualityLevel * 10 + masterworkBonusPct,
+    ),
   );
   const mult = 1 + bonusPct / 100;
   return {
     rewardArtisanXp: Math.floor(delivery.rewardArtisanXp * mult),
     rewardGold: Math.floor(delivery.rewardGold * mult),
     bonusPct,
+    masterworkBonusPct,
   };
 }
 

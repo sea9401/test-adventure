@@ -56,7 +56,11 @@ export type GuildWorkshopRecipeId =
   | "crafted_windstep_boots"
   | "crafted_aether_necklace"
   | "crafted_sunforge_blade"
-  | "crafted_aurora_crown";
+  | "crafted_aurora_crown"
+  | "crafted_bulwark_shield"
+  | "crafted_stormlance"
+  | "crafted_kingbreaker_axe"
+  | "crafted_astral_grimoire";
 
 export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
@@ -470,6 +474,62 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredSmithyLevel: 5,
     artisanXp: 155,
     note: "Lv5 대장간 전용 장신구",
+  },
+  crafted_bulwark_shield: {
+    id: "crafted_bulwark_shield",
+    equipmentId: "v2_crafted_bulwark_shield",
+    cost: { crop: 760, ore: 1080 },
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 2,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 10,
+    requiredSmithyLevel: 5,
+    artisanXp: 180,
+    note: "Lv5 대장간 전용 방패",
+  },
+  crafted_stormlance: {
+    id: "crafted_stormlance",
+    equipmentId: "v2_crafted_stormlance",
+    cost: { crop: 920, ore: 880 },
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 3,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 10,
+    requiredSmithyLevel: 5,
+    artisanXp: 182,
+    note: "Lv5 대장간 전용 창",
+  },
+  crafted_kingbreaker_axe: {
+    id: "crafted_kingbreaker_axe",
+    equipmentId: "v2_crafted_kingbreaker_axe",
+    cost: { crop: 980, ore: 1320 },
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 11,
+    requiredSmithyLevel: 5,
+    artisanXp: 210,
+    note: "Lv5 대장간 전용 도끼",
+  },
+  crafted_astral_grimoire: {
+    id: "crafted_astral_grimoire",
+    equipmentId: "v2_crafted_astral_grimoire",
+    cost: { crop: 1180, ore: 1040 },
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 11,
+    requiredSmithyLevel: 5,
+    artisanXp: 215,
+    note: "Lv5 대장간 전용 마도서",
   },
 };
 

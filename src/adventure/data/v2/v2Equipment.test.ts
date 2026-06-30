@@ -197,14 +197,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 36 + 제작전용 10 + 전문화 스타터 3", () => {
+  it("정규 그리드 29종 + 유니크 36 + 제작전용 14 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 104:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
     //   전문화 스타터 3 · noDrop 105(밴드 흔한 풀 105, 강등된 옛 필드 유니크 포함) · 유니크 36
     //     (고유 아이템 15 + 보스 3). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 15 → unique. 검은 왕도 noDrop 12종 + 고유 5종 추가.
-    //     총 183 = 정규 29 + 유니크 36 + 제작전용 10 + 전문화 스타터 3 + noDrop 105.
+    //     총 187 = 정규 29 + 유니크 36 + 제작전용 14 + 전문화 스타터 3 + noDrop 105.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -213,7 +213,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(36);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(10);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(14);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(105);
   });
@@ -238,12 +238,16 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
     expect(crafted.map((i) => i.id).sort()).toEqual([
       "v2_crafted_aether_necklace",
+      "v2_crafted_astral_grimoire",
       "v2_crafted_aurora_crown",
+      "v2_crafted_bulwark_shield",
       "v2_crafted_gale_bow",
+      "v2_crafted_kingbreaker_axe",
       "v2_crafted_master_ring",
       "v2_crafted_oathblade",
       "v2_crafted_runic_staff",
       "v2_crafted_spark_gloves",
+      "v2_crafted_stormlance",
       "v2_crafted_sunforge_blade",
       "v2_crafted_ward_plate",
       "v2_crafted_windstep_boots",
@@ -296,7 +300,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
 
   it("제작 전용 장비는 장인표 태그 세트를 6장착 기준으로 구성한다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
-    expect(crafted).toHaveLength(10);
+    expect(crafted).toHaveLength(14);
     expect(crafted.every((item) => item.setTags?.includes("artisan_crafted"))).toBe(
       true,
     );

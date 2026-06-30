@@ -34,6 +34,8 @@ export type Title = {
   condition: string;
   /** 도감 섹션 그루핑용. */
   category: TitleCategory;
+  /** 보유 전엔 업적/도감 노출에서 제외할 히든 칭호. */
+  hidden?: boolean;
 };
 
 // 도감에서의 섹션 순서 + 한글 라벨. 위에서 아래로 노출.
@@ -78,6 +80,7 @@ export const TITLES: Record<TitleId, Title> = {
     description: "광장에 말을 자주 얹는 자.",
     condition: "글로벌 채팅 100회 발화",
     category: "town",
+    hidden: true,
   },
   patient: {
     id: "patient",

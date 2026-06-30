@@ -109,5 +109,5 @@ function hasText(job: JobExplorerJob, needle: string): boolean {
 }
 
 function isHybridName(job: JobExplorerJob): boolean {
-  return /성기사|마검사|혈성기사|암흑사제/.test(job.name);
+  return /성기사|마검사|혈성기사|암흑사제|성전사|룬 기사/.test(job.name);
 }

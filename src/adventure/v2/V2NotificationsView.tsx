@@ -4,7 +4,7 @@
 // 읽고 끝 채널(첨부 없음) — 우편함과 분리. 거점명 클릭 → 해당 거점 화면.
 
 import { useEffect, useState } from "react";
-import { Bell, Flag, ShieldWarning, Skull } from "@phosphor-icons/react";
+import { Bell, Crown, Flag, ShieldWarning, Skull } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
@@ -34,6 +34,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-zinc-500 dark:text-zinc-400"
+    />
+  ),
+  title_unlocked: (
+    <Crown
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-amber-500 dark:text-amber-400"
     />
   ),
 };
@@ -76,6 +83,22 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
           {p.attackerLabel ?? "적"}
         </span>
         에게 빼앗겼습니다
+      </>
+    );
+  }
+  if (n.type === "title_unlocked") {
+    const p = n.payload as {
+      titleId: string;
+      titleName: string;
+      hidden?: boolean;
+    };
+    return (
+      <>
+        {p.hidden ? "히든 " : ""}칭호{" "}
+        <span className="font-medium text-amber-600 dark:text-amber-300">
+          {p.titleName}
+        </span>
+        을(를) 획득했습니다
       </>
     );
   }

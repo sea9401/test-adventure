@@ -20,6 +20,7 @@ export const V2_NOTIFICATION_TYPES = [
   "outpost_attacked",
   "outpost_lost",
   "ejected",
+  "title_unlocked",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -43,6 +44,12 @@ export type V2NotificationPayload =
       heldGold?: number;
       bankGold?: number;
       exiledTo?: string;
+    }
+  // title_unlocked — 칭호 획득. titleName 은 지급 시점 스냅샷(히든 칭호도 알림에 표시).
+  | {
+      titleId: string;
+      titleName: string;
+      hidden?: boolean;
     };
 
 // 클라/서버가 주고받는 한 항목.

@@ -255,7 +255,7 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
   });
 
-  it("심화 4직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
+  it("심화 직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
     // 절정(sensei)은 예외 — 액티브(난무) 대신 반격 패시브로 교체(둘 다 패시브·액티브 없음). 아래 별도 검증.
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
@@ -268,6 +268,8 @@ describe("직업 킷 — 스킬셋", () => {
       venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"],
       rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"],
       returner: ["v2c_returner_survive", "v2c_returner_undying"],
+      crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"],
+      runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -309,6 +311,29 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_returner_undying.passive).toMatchObject({
       maxHpPct: 25,
       damageTakenReductionPct: 8,
+    });
+    expect(V2_SKILLS.v2c_crusader_judgment.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "heal",
+      "selfBuffPct",
+    ]);
+    expect(V2_SKILLS.v2c_crusader_oath.passive).toMatchObject({
+      defPct: 14,
+      healPowerPct: 14,
+      damageTakenReductionPct: 4,
+    });
+    expect(V2_SKILLS.v2c_runeknight_carve.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "damage",
+      "enemyVuln",
+    ]);
+    expect(V2_SKILLS.v2c_runeknight_carve.effects[1]).toMatchObject({
+      kind: "damage",
+      scaling: "magic",
+    });
+    expect(V2_SKILLS.v2c_runeknight_inscription.passive).toMatchObject({
+      statPct: { str: 14, int: 14 },
+      critPct: 5,
     });
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });

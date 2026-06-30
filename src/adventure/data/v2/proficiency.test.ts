@@ -309,6 +309,18 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(bt!.next.caps.vit).toBe(1);
     expect(bt!.next.caps.spi).toBe(1);
     expect(bt!.next.caps.dex).toBeUndefined();
+    // 성전사(crusader) — 성기사 심화도 같은 정체성 축을 유지한다.
+    const cr = applyCultivation(p, "warrior", undefined, undefined, "crusader");
+    expect(cr!.next.caps.str).toBe(2);
+    expect(cr!.next.caps.vit).toBe(1);
+    expect(cr!.next.caps.spi).toBe(1);
+    expect(cr!.next.caps.dex).toBeUndefined();
+    // 룬 기사(runeknight) — 마검사 심화도 검+마법 축을 유지한다.
+    const rk = applyCultivation(p, "warrior", undefined, undefined, "runeknight");
+    expect(rk!.next.caps.str).toBe(2);
+    expect(rk!.next.caps.int).toBe(2);
+    expect(rk!.next.caps.dex).toBeUndefined();
+    expect(rk!.next.caps.vit).toBeUndefined();
     // 암흑사제(darkpriest) — 저장 직군은 도적이지만 행운·정신·지능 축이 오른다.
     const rogue = parseProficiency({ groups: { rogue: { points: 100 } } });
     const dp = applyCultivation(rogue, "rogue", undefined, undefined, "darkpriest");

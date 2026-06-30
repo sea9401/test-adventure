@@ -20,6 +20,7 @@ export const V2_NOTIFICATION_TYPES = [
   "outpost_attacked",
   "outpost_lost",
   "ejected",
+  "title_unlocked",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -36,7 +37,13 @@ export type V2NotificationPayload =
   | { outpostId: string; byNpc?: boolean; attackerLabel?: string | null }
   // ejected — 침입 중이던 거점에서 토벌당함. gold = 압류된 보유 골드(0 이면 무손실),
   //   exiledTo = 추방된 중립 자유도시 id(클라에서 OUTPOST_BY_ID 해석).
-  | { outpostId: string; byName: string; gold?: number; exiledTo?: string };
+  | { outpostId: string; byName: string; gold?: number; exiledTo?: string }
+  // title_unlocked — 칭호 획득. titleName 은 지급 시점 스냅샷(히든 칭호도 알림에 표시).
+  | {
+      titleId: string;
+      titleName: string;
+      hidden?: boolean;
+    };
 
 // 클라/서버가 주고받는 한 항목.
 export type V2NotificationEntry = {

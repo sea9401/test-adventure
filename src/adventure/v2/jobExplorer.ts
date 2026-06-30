@@ -25,6 +25,7 @@ export const JOB_TAG_FILTERS: JobTagFilter[] = [
   { key: "tier-3", label: "고차", matches: (job) => job.tier === 3 },
   { key: "tier-4", label: "심화", matches: (job) => job.tier === 4 },
   { key: "tier-5", label: "최종", matches: (job) => job.tier === 5 },
+  { key: "tier-6", label: "초월", matches: (job) => job.tier === 6 },
   { key: "str", label: "힘", matches: (job) => hasText(job, "힘") },
   { key: "vit", label: "활력", matches: (job) => hasText(job, "활력") },
   { key: "dex", label: "민첩", matches: (job) => hasText(job, "민첩") },
@@ -64,7 +65,8 @@ export function jobTierLabel(tier?: number): string {
   if (tier === 2) return "상위";
   if (tier === 3) return "고차";
   if (tier === 4) return "심화";
-  return "최종";
+  if (tier === 5) return "최종";
+  return "초월";
 }
 
 export function jobTags(job: JobExplorerJob): string[] {

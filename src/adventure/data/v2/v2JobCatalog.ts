@@ -47,8 +47,8 @@ export type V2JobUnlock = {
 export type V2JobDefinition = {
   id: string;
   name: string;
-  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화(엔드 성장). */
-  tier: 0 | 1 | 2 | 3 | 4 | 5;
+  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4=심화, 5=상급 심화, 6=초월 심화. */
+  tier: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   cultivateProfile: Partial<Record<V2StatKey, number>>;
   jobBonus: Partial<Record<V2StatKey, number>>;
   unlock: V2JobUnlock;
@@ -81,6 +81,12 @@ export const TIER4_UNLOCK_CUMLEVEL = 2700;
  * 성장 목표라 4차보다 간격을 크게 둔다.
  */
 export const TIER5_UNLOCK_CUMLEVEL = 7500;
+
+/**
+ * 6차 해금 임계 — 바로 아래 5차 직업의 jobCumLevel. 아이템 강화가 아니라 직업 숙련도 자체로
+ * 스펙업하는 장기 목표.
+ */
+export const TIER6_UNLOCK_CUMLEVEL = 12000;
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -683,6 +689,16 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 13, vit: 9, spi: 4 },
     unlock: { prereqs: { crimsontemplar: TIER5_UNLOCK_CUMLEVEL } },
   },
+
+  // ─── Tier 6: 초월 심화 직업 — 5차 직업 숙련도 기반 엔드 성장 ───
+  fortressknight: {
+    id: "fortressknight",
+    name: "성채기사",
+    tier: 6,
+    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    jobBonus: { vit: 28, str: 8 },
+    unlock: { prereqs: { ironknight: TIER6_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -872,6 +888,8 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   immortal: { class: "survivor", spec: "immortal" },
   transcendent: { class: "warrior", spec: "transcendent" },
   bloodlord: { class: "warrior", spec: "bloodlord" },
+  // tier 6 — 5차 직업 계승.
+  fortressknight: { class: "warrior", spec: "fortressknight" },
 };
 
 /**

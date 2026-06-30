@@ -601,6 +601,38 @@ body {
     0 0 20px rgba(168, 85, 247, 0.16);
 }
 
+.ui-item-name-unique {
+  background-image: linear-gradient(
+    90deg,
+    #e11d48,
+    #f59e0b,
+    #84cc16,
+    #0ea5e9,
+    #8b5cf6,
+    #ec4899
+  );
+  background-size: 180% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 10px rgba(236, 72, 153, 0.2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ui-item-name-unique {
+    animation: ui-item-name-rainbow 5s linear infinite;
+  }
+}
+
+@keyframes ui-item-name-rainbow {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 180% 50%;
+  }
+}
+
 .ui-shop-row {
   transition:
     background-color 140ms ease,

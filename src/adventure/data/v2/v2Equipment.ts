@@ -948,13 +948,9 @@ export function effectiveStats(
   };
 }
 
-// ── 위력 색 분류 (등급/희귀도 대신) ──────────────────────────────────────────
-// 사용자 결정(2026-06-08): 아이템을 티어/유니크 등급이 아니라 "절대 위력"으로 색 분류.
-//   **표시되는(실효) 위력 기준** — 굴림으로 오른 개체는 그 굴림 위력으로 색 결정(색이 표시 위력과
-//   일치). "품질 무관"=품질 %(정규화 위치)는 색에 안 쓴다는 뜻이지, 굴림 위력 자체를 무시하는 건
-//   아니다(예: 기본 110 서리방패 검이 166 으로 굴리면 옅은보라가 아니라 보라).
-//   위력 step 마다 색이 한 단계 오른다. 부위마다 위력 스케일이 크게 달라(무기 6~170 · 장신구 2~11)
-//   step 도 부위별로 다르다(사용자: "무기는 75 단위"). 색 매핑은 UI(powerNameClass).
+// ── 레거시 위력 밴드(진단용) ───────────────────────────────────────────────
+// 현재 장비명 색은 UI(itemNameClass)에서 희귀도/티어로 결정한다. 이 밴드는 예전 "절대 위력"
+// 색 분류의 경계값 회귀 테스트와 내부 진단용으로만 유지한다.
 const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
   weapon: 75,
   armor: 25,
@@ -964,11 +960,10 @@ const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
   necklace: 5,
 };
 
-// 위력 색 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). 8단계(회색→에메랄드→약간푸른빛→보라
-//   →노랑→자홍→장미→진홍). 현재 위력대는 0~2 사용, 3~7 은 향후 고위력 콘텐츠 여유분. step·구간수는 다이얼.
+// 위력 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). step·구간수는 레거시 다이얼.
 export const POWER_BAND_COUNT = 8;
 
-// 위력 → 색 구간(0…6). 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
+// 위력 → 구간. 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
 export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
   const step = SLOT_POWER_STEP[item.slot] ?? 1;
   const power = effectiveStats(item, roll).power;

@@ -48,10 +48,18 @@ export function rollPctClass(pct: number): string {
   return "text-zinc-500 dark:text-zinc-400";
 }
 
-// 예전 이름은 호환을 위해 유지한다. 현재 장비명 색은 위력대가 아니라 품질% 기준이다.
-export function powerNameClass(item: V2Equipment, roll?: V2EquipRoll): string {
-  const pct = rollQualityPct(item, roll);
-  return pct == null ? "text-zinc-900 dark:text-zinc-100" : rollPctClass(pct);
+// 장비명 색 → "무슨 장비인가" 기준. 품질% 색은 QualityPctText 쪽에만 남긴다.
+export function itemNameClass(item: V2Equipment): string {
+  if (item.rarity === "unique") return "ui-item-name-unique";
+  if (item.tier >= 10) return "text-amber-600 dark:text-amber-400";
+  if (item.tier >= 7) return "text-violet-600 dark:text-violet-400";
+  if (item.tier >= 4) return "text-sky-600 dark:text-sky-400";
+  return "text-zinc-900 dark:text-zinc-100";
+}
+
+// 예전 이름은 import 호환을 위해 유지한다. 이제 roll 은 이름 색 결정에 쓰지 않는다.
+export function powerNameClass(item: V2Equipment, _roll?: V2EquipRoll): string {
+  return itemNameClass(item);
 }
 
 export function QualityPctText({

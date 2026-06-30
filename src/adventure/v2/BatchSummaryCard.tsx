@@ -14,6 +14,7 @@ import {
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
 import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
+import { itemNameClass } from "@/adventure/v2/V2ItemCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { ElementMatchup } from "@/adventure/data/v2/elements";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -72,9 +73,9 @@ export function BatchSummaryCard({
   const eqNames = summary.droppedEquipments
     .map((id) => V2_EQUIPMENT[id]?.name ?? id)
     .filter(Boolean);
-  const uniqueNames = summary.droppedUniques
-    .map((id) => V2_EQUIPMENT[id]?.name ?? id)
-    .filter(Boolean);
+  const uniqueItems = summary.droppedUniques
+    .map((id) => V2_EQUIPMENT[id])
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
   const rareMapNames = (summary.rareMapDrops ?? []).map(
     (k) => RARE_MAP_KINDS[k]?.name ?? k,
   );
@@ -98,9 +99,16 @@ export function BatchSummaryCard({
           🗺 {rareMapNames.join(", ")} 발견! — 인벤토리 소모품에서 확인
         </div>
       )}
-      {uniqueNames.length > 0 && (
+      {uniqueItems.length > 0 && (
         <div className="ui-reward-flash mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
-          ✨ 유니크 {uniqueNames.join(", ")} 획득!
+          ✨ 유니크{" "}
+          {uniqueItems.map((item, idx) => (
+            <span key={`${item.id}-${idx}`}>
+              {idx > 0 ? ", " : ""}
+              <span className={itemNameClass(item)}>{item.name}</span>
+            </span>
+          ))}{" "}
+          획득!
         </div>
       )}
       {dropParts.length > 0 && (

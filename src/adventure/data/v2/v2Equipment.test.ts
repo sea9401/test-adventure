@@ -35,12 +35,12 @@ describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위�
   });
 });
 
-describe("powerBandOf — 등급 대신 절대 위력 색 구간(부위별 step)", () => {
+describe("powerBandOf — 레거시 절대 위력 구간(부위별 step)", () => {
   // powerBandOf 는 item.slot·item.power 만 읽음 → 최소 객체로 경계 검증.
   const mk = (slot: V2EquipSlot, power: number) =>
     ({ slot, power }) as V2Equipment;
 
-  it("무기는 75 단위로 색 구간 상승", () => {
+  it("무기는 75 단위로 구간 상승", () => {
     expect(powerBandOf(mk("weapon", 0))).toBe(0);
     expect(powerBandOf(mk("weapon", 74))).toBe(0);
     expect(powerBandOf(mk("weapon", 75))).toBe(1);
@@ -54,8 +54,8 @@ describe("powerBandOf — 등급 대신 절대 위력 색 구간(부위별 step)
     expect(powerBandOf(mk("weapon", 11))).toBe(0);
   });
 
-  it("실효 위력 반영 — 굴림으로 오른 위력으로 색 결정(표시 위력과 일치)", () => {
-    // 기본 위력 110(무기 step 75) = 옅은보라(1). 굴림 166 이면 보라(2) — 표시 위력 따라 색 상승.
+  it("실효 위력 반영 — 굴림으로 오른 위력으로 구간 결정", () => {
+    // 기본 위력 110(무기 step 75)=1. 굴림 166이면 2.
     const w = mk("weapon", 110);
     expect(powerBandOf(w)).toBe(1); // roll 없음 → 카탈로그 110
     expect(powerBandOf(w, { power: 166, weight: 0 })).toBe(2); // 굴림 166 → floor(166/75)=2

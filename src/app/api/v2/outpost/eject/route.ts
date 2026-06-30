@@ -23,17 +23,23 @@ import {
   parseLastHuntedOutpost,
   type EjectedFrom,
 } from "@/adventure/data/v2/intruderTracking";
-import { OUTPOSTS, nearestNeutralOutpostId } from "@/adventure/data/v2/outposts";
+import { nearestNeutralOutpostId } from "@/adventure/data/v2/outposts";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { insertNotification } from "@/lib/server/v2Notifications";
+import { parseWarVigor, vigorAfterBattle } from "@/adventure/data/v2/warVigor";
+import { TILE_POS_BY_OUTPOST } from "@/adventure/data/v2/tileConfig";
+import {
+  isKnownOutpostId,
+  parseTileOutpostId,
+} from "@/adventure/data/v2/tileWarfare";
 
 // POST /api/v2/outpost/eject — 점령 길드 멤버가 침입자 1v1 토벌.
 //
 // body: { outpostId, targetUserId }
 // 결과:
 //   - 승리: 침입자 lastHuntedOutpost 삭제 + ejectedFrom 마킹. 다음 hunt 응답에 surface.
-//   - 패배: 도전자만 스태미너/HP 소모, 침입자 변동 X.
+//   - 패배: 도전자만 스태미너/HP 소모, 침입자는 위치 유지 + 전쟁 건강도만 감소.
 // 스태미너 비용 = 사냥 1회와 동일 (HUNT_COST). 토벌은 작은 행위라 placeholder 톤.
 //
 // lock 순서 (claim 흐름과 정합):
@@ -48,11 +54,13 @@ type CharSave = {
   hp?: number;
   hpRegenSince?: number;
   gold?: number;
+  tilePos?: { col?: number; row?: number; at?: number };
   lastBattleAt?: number; // 코어루프 전투 쿨다운 — 사냥과 공통 게이트.
   lastVisitedOutpost?: { outpostId?: string; at?: number };
   discoveredOutpostIds?: string[];
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
+  warVigor?: unknown;
   [k: string]: unknown;
 };
 
@@ -70,7 +78,7 @@ export async function POST(req: Request) {
   }
   if (
     typeof body.outpostId !== "string" ||
-    !OUTPOSTS.some((o) => o.id === body.outpostId)
+    !isKnownOutpostId(body.outpostId)
   ) {
     return Response.json({ ok: false, error: "bad_outpost" }, { status: 400 });
   }
@@ -130,10 +138,15 @@ export async function POST(req: Request) {
     const [attackerSave, defenderSave]: [CharSave, CharSave] =
       ids[0] === userId ? [first, second] : [second, first];
 
-    // === 4. 침입자 활성 여부 (TTL) ===
+    // === 4. 침입자 활성 여부 (사냥 TTL 또는 현재 타일 체류) ===
     const now = Date.now();
     const targetLast = parseLastHuntedOutpost(defenderSave.lastHuntedOutpost);
-    if (!isIntruderActive(targetLast, outpostId, now)) {
+    const targetTilePos = parseTileOutpostId(outpostId);
+    const targetIsPresent =
+      targetTilePos != null &&
+      defenderSave.tilePos?.col === targetTilePos.col &&
+      defenderSave.tilePos?.row === targetTilePos.row;
+    if (!targetIsPresent && !isIntruderActive(targetLast, outpostId, now)) {
       return {
         status: 400,
         body: { ok: false as const, error: "intruder_inactive" as const },
@@ -203,13 +216,11 @@ export async function POST(req: Request) {
       attackerHpBefore,
       now,
     );
-    // 침입자 hp 도 회복 적용 — 일기토 진입 시 양측 fair.
-    const defenderHpBefore = parseHpRegenSince(defenderSave.hpRegenSince, now);
-    const defenderRegen = applyHpRegen(
-      Math.max(0, defenderSave.hp ?? defenderCombat.maxHp),
-      defenderCombat.maxHp,
-      defenderHpBefore,
-      now,
+    // 침입자는 일반 HP 대신 전쟁 건강도 기준으로 버틴다. 이기면 추방되지 않고 건강도만 깎인다.
+    const defenderVigor = parseWarVigor(defenderSave.warVigor);
+    const defenderStartHp = Math.max(
+      1,
+      Math.floor(defenderCombat.maxHp * defenderVigor.hp),
     );
 
     const attackerProfile = await readProfile(tx, userId);
@@ -218,7 +229,7 @@ export async function POST(req: Request) {
 
     const battleResult = resolveBattlePvP(
       { ...attackerCombat.player, hp: attackerRegen.hp },
-      { ...defenderCombat.player, hp: defenderRegen.hp },
+      { ...defenderCombat.player, hp: defenderStartHp },
       attackerName,
       defenderName,
       { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
@@ -228,6 +239,14 @@ export async function POST(req: Request) {
     const replay = toPvpReplayPayload(battleResult.finalState, defenderName, 200);
     const attackerHpAfter = Math.max(0, battleResult.finalState.p1.hp);
     const defenderHpAfter = Math.max(0, battleResult.finalState.p2.hp);
+    const defenderMaxMp = defenderCombat.player.maxMp ?? 0;
+    const defenderWarVigorAfter = vigorAfterBattle(
+      defenderHpAfter,
+      defenderCombat.maxHp,
+      battleResult.finalState.p2.mp,
+      defenderMaxMp,
+      now,
+    );
 
     // 토벌 현상금/추방 — 승리 시 침입자 보유(들고 있는) 골드 전액 압류 → 토벌자에게.
     // 입금분(bankedGold)은 안전 — 은행에 넣어두면 안 뺏긴다. 추가로 침입자를 가장 가까운
@@ -248,7 +267,7 @@ export async function POST(req: Request) {
       ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
     });
 
-    // === 8. 침입자 저장 — 승리 시 토벌 마킹, 패배 시 hp 만 갱신 ===
+    // === 8. 침입자 저장 — 승리 시 토벌 마킹+송환, 패배 시 전쟁 건강도만 갱신 ===
     if (won) {
       const ejectedNotice: EjectedFrom = {
         outpostId,
@@ -261,16 +280,19 @@ export async function POST(req: Request) {
       void _dropLast;
       // 추방 — 가장 가까운 중립 자유도시로 강제 이동. 발견 목록에도 보장(미발견 허브 방지).
       const exileTarget = exileToId ?? outpostId;
+      const exileTilePos = TILE_POS_BY_OUTPOST.get(exileTarget);
       const prevDiscovered = defenderSave.discoveredOutpostIds ?? [];
       const nextDiscovered = prevDiscovered.includes(exileTarget)
         ? prevDiscovered
         : [...prevDiscovered, exileTarget];
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSaveWithoutLast,
-        hp: defenderHpAfter,
-        hpRegenSince: now,
+        warVigor: defenderWarVigorAfter,
         gold: 0, // 보유 골드 전액 압류(입금분은 안전).
         lastVisitedOutpost: { outpostId: exileTarget, at: now }, // 추방.
+        tilePos: exileTilePos
+          ? { col: exileTilePos.col, row: exileTilePos.row, at: now }
+          : undefined,
         discoveredOutpostIds: nextDiscovered,
         ejectedFrom: ejectedNotice,
       });
@@ -286,8 +308,7 @@ export async function POST(req: Request) {
     } else {
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSave,
-        hp: defenderHpAfter,
-        hpRegenSince: now,
+        warVigor: defenderWarVigorAfter,
       });
     }
 
@@ -302,7 +323,7 @@ export async function POST(req: Request) {
         attackerHpBefore: attackerRegen.hp,
         attackerHpAfter,
         attackerMaxHp: attackerCombat.maxHp,
-        defenderHpBefore: defenderRegen.hp,
+        defenderHpBefore: defenderStartHp,
         defenderHpAfter,
         defenderMaxHp: defenderCombat.maxHp,
         stamina: afterStamina,

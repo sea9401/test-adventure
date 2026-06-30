@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { StoredReplayEnvelope } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
+import { ShieldCheck, Skull, Sword } from "@phosphor-icons/react";
 
 // 이 거점에 행해진 최근 공격 기록 (공성/NPC 정기 공격, 승패 포함).
 // 소유 탭과 비-소유(공격자 정찰) 탭 양쪽에서 렌더 — API 는 읽기 전용·인증만 게이트.
@@ -160,47 +161,73 @@ export function OutpostAttackLog({
         </div>
       ) : (
         <ul className="mt-3 space-y-2">
-          {visible.map((a) => (
-            <li
-              key={a.id}
-              className="rounded-md border border-zinc-200 dark:border-zinc-800"
-            >
+          {visible.map((a) => {
+            const tone = a.attackerWon
+              ? a.npc
+                ? "zinc"
+                : "rose"
+              : "emerald";
+            const Icon = a.attackerWon ? (a.npc ? Skull : Sword) : ShieldCheck;
+            const cardClass =
+              tone === "rose"
+                ? "border-rose-300 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/25"
+                : tone === "emerald"
+                  ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/25"
+                  : "border-zinc-300 bg-zinc-50/70 dark:border-zinc-800 dark:bg-zinc-900/70";
+            const iconClass =
+              tone === "rose"
+                ? "bg-rose-500 text-white"
+                : tone === "emerald"
+                  ? "bg-emerald-500 text-white"
+                  : "bg-zinc-500 text-white";
+            return (
+              <li
+                key={a.id}
+                className={`war-log-card rounded-md border ${cardClass}`}
+              >
               <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                <div className="min-w-0">
-                  <div className="truncate text-sm text-zinc-700 dark:text-zinc-200">
-                    {a.npc ? (
-                      <>
-                        NPC 정기 공격
-                        {a.attackerName ? ` — ${a.attackerName}` : ""}
-                      </>
-                    ) : (
-                      <>
-                        {a.attackerName ?? "모험가"}
-                        {a.attackerGuildName && (
-                          <span className="text-zinc-500 dark:text-zinc-400">
-                            {" "}
-                            · {a.attackerGuildName}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {fmtAgo(a.at, nowMs)} · {a.turns}턴
-                    {a.hasReplay && (
-                      <>
-                        {" · "}
-                        <button
-                          type="button"
-                          onClick={() => toggleReplay(a.id)}
-                          className="underline decoration-dotted underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
-                        >
-                          {openReplay?.attemptId === a.id
-                            ? "전투 닫기"
-                            : "전투 보기"}
-                        </button>
-                      </>
-                    )}
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded ${iconClass}`}
+                  >
+                    <Icon size={15} weight="fill" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm text-zinc-700 dark:text-zinc-200">
+                      {a.npc ? (
+                        <>
+                          NPC 정기 공격
+                          {a.attackerName ? ` — ${a.attackerName}` : ""}
+                        </>
+                      ) : (
+                        <>
+                          {a.attackerName ?? "모험가"}
+                          {a.attackerGuildName && (
+                            <span className="text-zinc-500 dark:text-zinc-400">
+                              {" "}
+                              · {a.attackerGuildName}
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {fmtAgo(a.at, nowMs)} · {a.turns}턴
+                      {a.hasReplay && (
+                        <>
+                          {" · "}
+                          <button
+                            type="button"
+                            onClick={() => toggleReplay(a.id)}
+                            className="underline decoration-dotted underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                          >
+                            {openReplay?.attemptId === a.id
+                              ? "전투 닫기"
+                              : "전투 보기"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <span
@@ -243,8 +270,9 @@ export function OutpostAttackLog({
                   )}
                 </div>
               )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 

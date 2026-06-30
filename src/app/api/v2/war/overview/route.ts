@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { desc, eq, gt, gte, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
@@ -20,7 +20,12 @@ import {
   isIntruderActive,
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
-import { isKnownOutpostId, tileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import {
+  isKnownOutpostId,
+  parseTileOutpostId,
+  tileOutpostId,
+} from "@/adventure/data/v2/tileWarfare";
+import { tileKey } from "@/adventure/data/v2/tileConfig";
 
 // GET /api/v2/war/overview — 영지 상태 스냅샷 (읽기 전용, 스키마 변경 0).
 // 쟁탈 아레나(시즌 점수·활성 전장) 폐지 후: 내 길드 점령 거점·교전(공성)·최근 함락만 — 토벌
@@ -230,19 +235,16 @@ export async function GET() {
     // 한 번만. (목록이 아니라 카운트만 — 상세는 거점 화면 IntruderPanel.)
     const intruderCountByOutpost = new Map<string, number>();
     if (mine.length > 0) {
-      const ids = mine.map((r) => r.outpostId);
+      const ids = new Set(mine.map((r) => r.outpostId));
+      const tileOutpostByKey = new Map<string, string>();
+      for (const id of ids) {
+        const pos = parseTileOutpostId(id);
+        if (pos) tileOutpostByKey.set(tileKey(pos.col, pos.row), id);
+      }
       const candidateRows = await db
         .select({ userId: savesKv.userId, value: savesKv.value })
         .from(savesKv)
-        .where(
-          and(
-            eq(savesKv.key, "character.v2"),
-            inArray(
-              sql`${savesKv.value} -> 'lastHuntedOutpost' ->> 'outpostId'`,
-              ids,
-            ),
-          ),
-        );
+        .where(eq(savesKv.key, "character.v2"));
       const ownGuildRows = await db
         .select({ userId: guildMembers.userId })
         .from(guildMembers)
@@ -255,11 +257,24 @@ export async function GET() {
           (row.value as { lastHuntedOutpost?: unknown } | null)
             ?.lastHuntedOutpost,
         );
-        if (!last) continue;
-        if (!isIntruderActive(last, last.outpostId, nowMs)) continue;
+        const rawTilePos = (row.value as {
+          tilePos?: { col?: unknown; row?: unknown };
+        } | null)?.tilePos;
+        const tileIntruderOutpostId =
+          typeof rawTilePos?.col === "number" &&
+          typeof rawTilePos.row === "number"
+            ? (tileOutpostByKey.get(tileKey(rawTilePos.col, rawTilePos.row)) ??
+              null)
+            : null;
+        const intruderOutpostId =
+          tileIntruderOutpostId ??
+          (last && ids.has(last.outpostId) && isIntruderActive(last, last.outpostId, nowMs)
+            ? last.outpostId
+            : null);
+        if (!intruderOutpostId) continue;
         intruderCountByOutpost.set(
-          last.outpostId,
-          (intruderCountByOutpost.get(last.outpostId) ?? 0) + 1,
+          intruderOutpostId,
+          (intruderCountByOutpost.get(intruderOutpostId) ?? 0) + 1,
         );
       }
     }

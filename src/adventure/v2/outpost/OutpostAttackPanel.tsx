@@ -16,7 +16,7 @@ export function OutpostAttackPanel({
   claimDisabled,
   coreLoopOn,
   busy,
-  raidOutOfRange,
+  raidDisabled,
   conquerOutOfRange,
   conquerRazes,
   attackLogReload,
@@ -31,7 +31,7 @@ export function OutpostAttackPanel({
   claimDisabled: { reason: string } | null;
   coreLoopOn: boolean;
   busy: boolean;
-  raidOutOfRange: boolean;
+  raidDisabled: { reason: string } | null;
   conquerOutOfRange: boolean;
   conquerRazes: boolean;
   attackLogReload: number;
@@ -86,12 +86,10 @@ export function OutpostAttackPanel({
           <ActionCard
             title="약탈 시도"
             subtitle={
-              raidOutOfRange
-                ? "이 정착지 칸으로 이동해야 약탈할 수 있어요 — 지도에서 해당 칸으로 이동하세요."
-                : "이 정착지 칸에 있어야 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+              "이 정착지 칸에서 30분 이상 버티면 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
             }
             onClick={onRaid}
-            disabled={busy || raidOutOfRange}
+            disabled={raidDisabled ?? busy}
             loading={busy}
           />
         )}
@@ -139,7 +137,7 @@ function ActionCard({
       type="button"
       onClick={onClick}
       disabled={isDisabled}
-      className="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900/50"
+      className="war-action-card block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900/50"
     >
       <div className="font-medium">
         {title}

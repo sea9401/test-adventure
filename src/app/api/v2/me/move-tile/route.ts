@@ -84,7 +84,13 @@ export async function POST(req: Request) {
   type Res =
     | { kind: "out_of_stamina"; stamina: StaminaState }
     | { kind: "out_of_gold"; required: number; gold: number }
-    | { kind: "ok"; stamina: StaminaState; gold: number; bankedGold: number };
+    | {
+        kind: "ok";
+        stamina: StaminaState;
+        gold: number;
+        bankedGold: number;
+        tilePosAt: number;
+      };
 
   const result: Res = await db.transaction(async (tx): Promise<Res> => {
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -95,6 +101,12 @@ export async function POST(req: Request) {
     );
     const now = Date.now();
     const same = charSave.tilePos?.col === col && charSave.tilePos?.row === row;
+    const tilePosAt =
+      same &&
+      typeof charSave.tilePos?.at === "number" &&
+      Number.isFinite(charSave.tilePos.at)
+        ? charSave.tilePos.at
+        : now;
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const gold =
       typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
@@ -124,7 +136,7 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      tilePos: { col, row, at: now },
+      tilePos: { col, row, at: tilePosAt },
       stamina: nextStamina,
       ...(V2_CORE_LOOP_V2 ? { gold: nextGold, bankedGold: nextBankedGold } : {}),
     });
@@ -133,6 +145,7 @@ export async function POST(req: Request) {
       stamina: nextStamina,
       gold: nextGold,
       bankedGold: nextBankedGold,
+      tilePosAt,
     };
   });
 
@@ -150,7 +163,7 @@ export async function POST(req: Request) {
   }
   return Response.json({
     ok: true,
-    tilePos: { col, row },
+    tilePos: { col, row, at: result.tilePosAt },
     stamina: result.stamina,
     ...(V2_CORE_LOOP_V2
       ? { gold: result.gold, bankedGold: result.bankedGold }

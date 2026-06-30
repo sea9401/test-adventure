@@ -7,6 +7,8 @@ export type OccupationLite = {
   occupiedByGuildId: number | null;
   // 점령 길드 이름 — occupations API 가 동봉(배지 "○○ 점령" 표시용).
   occupiedByGuildName?: string | null;
+  occupiedByGuildColor?: string | null;
+  occupiedByGuildEmblem?: string | null;
   policy?: string;
   taxRate?: string;
   nextAttackAt?: string;

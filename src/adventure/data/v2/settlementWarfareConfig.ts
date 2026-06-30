@@ -39,6 +39,8 @@ export const HOTSPRING_VIGOR_RECOVERY_DIVISOR = 2;
 // ── 약탈 / 정복 (PR-3) ────────────────────────────────────────────────────
 // 약탈 = 수비 큐 1번 격파 시 거점 금고의 이 비율을 탈취(마을 유지).
 export const RAID_TREASURY_STEAL_FRAC = 0.5;
+// 약탈 준비 — 대상 타일에 이 시간 이상 머문 뒤에만 약탈 가능. 토벌 측이 대응할 시간을 갖게 한다.
+export const RAID_MIN_TILE_STAY_MS = 30 * 60_000;
 // 정복 = 수비 큐 전원 격파 + 성벽(fortHp) 누적 공성 완파. 성벽 메커닉은 outpostSiege.ts(FORT_*)
 //   재활용. 함락 시 마을 tier 1단계 강등(대도시→도시→마을, 최하=강등 없이 이관), 금고는 그대로.
 

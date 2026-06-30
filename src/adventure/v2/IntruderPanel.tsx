@@ -16,6 +16,11 @@ type Intruder = {
   name: string;
   level: number;
   huntedAt: number;
+  source?: "tile" | "hunt";
+  stayMs?: number;
+  raidReady?: boolean;
+  warVigorHp?: number;
+  warVigorMp?: number;
 };
 
 type EjectResult = {
@@ -44,6 +49,16 @@ function fmtElapsed(huntedAt: number, now: number): string {
   const min = Math.floor(ms / 60_000);
   if (min < 1) return "방금";
   return `${min}분 전`;
+}
+
+function fmtStay(ms: number): string {
+  const min = Math.floor(Math.max(0, ms) / 60_000);
+  if (min < 1) return "방금 진입";
+  return `${min}분 체류`;
+}
+
+function pct(v: number | undefined): number {
+  return Math.round(Math.max(0, Math.min(1, v ?? 1)) * 100);
 }
 
 export function IntruderPanel({
@@ -162,14 +177,40 @@ export function IntruderPanel({
           {intruders.map((it) => (
             <li
               key={it.userId}
-              className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800"
+              className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 ${
+                it.raidReady
+                  ? "war-threat-row border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30"
+                  : "border-zinc-200 dark:border-zinc-800"
+              }`}
             >
               <div className="min-w-0">
-                <div className="truncate text-sm text-zinc-700 dark:text-zinc-200">
-                  {it.name}
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="truncate text-sm text-zinc-700 dark:text-zinc-200">
+                    {it.name}
+                  </span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      it.raidReady
+                        ? "bg-rose-500 text-white"
+                        : it.source === "tile"
+                          ? "bg-amber-400 text-zinc-950"
+                          : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    }`}
+                  >
+                    {it.raidReady
+                      ? "약탈 가능"
+                      : it.source === "tile"
+                        ? "잠입"
+                        : "사냥 침입"}
+                  </span>
                 </div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Lv {it.level} · {fmtElapsed(it.huntedAt, nowMs)}
+                  Lv {it.level} ·{" "}
+                  {it.source === "tile"
+                    ? fmtStay(it.stayMs ?? nowMs - it.huntedAt)
+                    : fmtElapsed(it.huntedAt, nowMs)}
+                  {" · "}건강도 HP {pct(it.warVigorHp)}% / MP{" "}
+                  {pct(it.warVigorMp)}%
                 </div>
               </div>
               <button

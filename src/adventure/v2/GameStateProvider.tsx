@@ -176,7 +176,7 @@ type GameStateValue = {
   travelTo: (target: Outpost) => void;
   // 자유 타일 지도(V2_FREEFORM_TILES) — 마커 칸 좌표 + 칸 이동(거점/빈 땅 공통).
   //   거점 칸이면 travelTo 로 위임, 빈 칸이면 move-tile POST(사냥 base 불변·마커만 이동).
-  tilePos: { col: number; row: number } | null;
+  tilePos: { col: number; row: number; at?: number } | null;
   travelToTile: (col: number, row: number) => void;
   // 개척 정착지(Phase 3) — 보드의 모든 정착지 + 본인 건설/승격/철거.
   tileSettlements: TileSettlement[];
@@ -278,9 +278,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     { id: string; name: string } | null
   >(() => ({ id: START_OUTPOST.id, name: START_OUTPOST.name }));
   // 자유 타일 지도 마커 좌표 — me/state 의 tilePos 또는 현재 거점 칸에서 초기화(없으면 null).
-  const [tilePos, setTilePos] = useState<{ col: number; row: number } | null>(
-    null,
-  );
+  const [tilePos, setTilePos] = useState<{
+    col: number;
+    row: number;
+    at?: number;
+  } | null>(null);
   // 개척 정착지 — me/state 로 초기화, 건설/승격/철거로 낙관적 갱신.
   const [tileSettlements, setTileSettlements] = useState<TileSettlement[]>([]);
   // 개척/승격/철거/개명 실패 사유 — 한 줄 안내(지도에서 표시). 성공 시 null 로 해제.
@@ -392,7 +394,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           };
           currentOutpost?: { id: string; name: string } | null;
           discoveredOutpostIds?: string[];
-          tilePos?: { col: number; row: number } | null;
+          tilePos?: { col: number; row: number; at?: number } | null;
           tileSettlements?: TileSettlement[];
           accountName?: string | null;
           frontierDepth?: number;
@@ -700,7 +702,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           });
           const j = await res.json().catch(() => null);
           applyVisitResult(j);
-          if (res.ok) setTilePos({ col, row });
+          if (res.ok) {
+            const at = typeof j?.tilePos?.at === "number" ? j.tilePos.at : Date.now();
+            setTilePos({ col, row, at });
+          }
         } catch {
           // 네트워크 오류 — 위치 유지.
         } finally {

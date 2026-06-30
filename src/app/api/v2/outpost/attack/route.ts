@@ -69,6 +69,7 @@ import {
   TRADE_ROUTE_RAID_LOSS_MULT,
   LAKE_ATTACKER_PENALTY_MULT,
   HONOR_PER_DEFENSE_WIN,
+  RAID_MIN_TILE_STAY_MS,
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
 } from "@/adventure/data/v2/settlementWarfareConfig";
@@ -90,7 +91,7 @@ import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 type WarVigorSave = {
   warVigor?: unknown;
   // 자유 타일 지도 위치 마커(move-tile 갱신) — 약탈 "현지 위치" 게이트에 사용.
-  tilePos?: { col?: number; row?: number };
+  tilePos?: { col?: number; row?: number; at?: number };
   [k: string]: unknown;
 };
 
@@ -264,7 +265,7 @@ export async function POST(req: Request) {
     const aMaxMp = attacker.player.maxMp ?? 0;
 
     // === 위치/인접 게이트 (타일 정착지 대상만 — 옛 카탈로그 거점은 오프보드·inert 라 현행 유지) ===
-    //   약탈 = 대상 정착지 칸에 "위치"해야(tilePos 일치). 멀리서 약탈 불가.
+    //   약탈 = 대상 정착지 칸에 "30분 이상 체류"해야(tilePos 일치+at 경과). 멀리서 약탈 불가.
     //   정복 = 내 길드 영지에 4방향 인접한 칸만(연속 확장). 땅 없는 길드는 중립 거점 인접에서 발판.
     //   전투/건강도 소모 전(여기서) 거부해 무효 시도에 비용이 들지 않게 한다.
     if (isTileOutpostId(outpost.id)) {
@@ -276,6 +277,21 @@ export async function POST(req: Request) {
             return {
               status: 400,
               body: { ok: false as const, error: "not_present" },
+            };
+          }
+          const arrivedAt =
+            typeof tp.at === "number" && Number.isFinite(tp.at) ? tp.at : 0;
+          const elapsedMs = Math.max(0, now - arrivedAt);
+          if (elapsedMs < RAID_MIN_TILE_STAY_MS) {
+            return {
+              status: 400,
+              body: {
+                ok: false as const,
+                error: "raid_stay_required",
+                requiredMs: RAID_MIN_TILE_STAY_MS,
+                elapsedMs,
+                availableAt: arrivedAt + RAID_MIN_TILE_STAY_MS,
+              },
             };
           }
         } else {
@@ -433,9 +449,15 @@ export async function POST(req: Request) {
         const raidDefPos = parseTileOutpostId(outpost.id);
         if (raidDefPos) {
           let mult = 1;
-          if (isTradeRouteTile(raidDefPos.col, raidDefPos.row)) mult *= TRADE_ROUTE_RAID_LOSS_MULT;
-          if (isLakeAdjacentTile(raidDefPos.col, raidDefPos.row)) mult *= LAKE_ATTACKER_PENALTY_MULT;
-          if (mult !== 1) stolenGold = Math.min(treasury, Math.floor(stolenGold * mult));
+          if (isTradeRouteTile(raidDefPos.col, raidDefPos.row)) {
+            mult *= TRADE_ROUTE_RAID_LOSS_MULT;
+          }
+          if (isLakeAdjacentTile(raidDefPos.col, raidDefPos.row)) {
+            mult *= LAKE_ATTACKER_PENALTY_MULT;
+          }
+          if (mult !== 1) {
+            stolenGold = Math.min(treasury, Math.floor(stolenGold * mult));
+          }
         }
         if (stolenGold > 0) {
           await tx

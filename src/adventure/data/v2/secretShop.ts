@@ -41,13 +41,13 @@ export const SECRET_SHOP_STOCK: SecretShopItem[] = [
     id: "hp_charge_pack",
     name: "HP 충전약 완충",
     desc: "보유 한도까지 가득 채운다.",
-    price: 300_000,
+    price: 2_500_000,
   },
   {
     id: "mp_charge_pack",
     name: "MP 충전약 완충",
     desc: "보유 한도까지 가득 채운다.",
-    price: 300_000,
+    price: 2_500_000,
   },
   {
     id: "stamina_potion",

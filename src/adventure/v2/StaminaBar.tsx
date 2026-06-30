@@ -88,13 +88,13 @@ export function StaminaBar({
         )}
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-        <span>1 회복 {REGEN_SECONDS_PER_POINT}초</span>
+        <span>{REGEN_SECONDS_PER_POINT}초 마다 1 회복</span>
         <span className="tabular-nums">
           {overcharged
             ? "초과 비축 중"
             : display.current >= max
               ? "회복 완료"
-              : `다음 +1 ${formatRegenTime(nextRegenMs)} · 만피 ${formatRegenTime(fullRegenMs)}`}
+              : `최대치까지 ${formatRegenTime(fullRegenMs)}`}
         </span>
       </div>
       {modalOpen && onUsePotion && (

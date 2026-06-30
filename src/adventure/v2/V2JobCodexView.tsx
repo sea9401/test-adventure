@@ -292,6 +292,9 @@ function JobRow({
               </span>
             );
           })()}
+        <span className="text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+          숙련도 {job.mastery.toLocaleString("ko-KR")}
+        </span>
         <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
           해금 · {job.condition}
         </span>

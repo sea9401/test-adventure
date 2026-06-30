@@ -168,6 +168,51 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(char.totalLevels).toBeUndefined();
   });
 
+  it("낚시 계열 직업은 사냥 승리로 직업 숙련도가 오르지 않는다", async () => {
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "fisher",
+      level: 30,
+      exp: 0,
+      gold: 1000,
+      hp: 999999,
+      stamina: { current: 5000, lastUpdatedAt: 1 },
+      frontierDepth: 2,
+    });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: { survivor: { tier: 1, cumLevel: 30, cultivations: 0 } },
+      grown: { str: 50, vit: 50 },
+      jobCumLevel: { fisher: 7 },
+    });
+
+    const res = await POST(huntReq({ floor: 1 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      result: {
+        won: boolean;
+        proficiencyGained: number;
+        masteryGained: number;
+        masteryAfter: number | null;
+      };
+    };
+    expect(json.ok).toBe(true);
+    expect(json.result.won).toBe(true);
+    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(1));
+    expect(json.result.masteryGained).toBe(0);
+    expect(json.result.masteryAfter).toBe(7);
+
+    const prof = store.get("proficiency.v2") as {
+      points: number;
+      groups: { survivor?: { cumLevel?: number } };
+      jobCumLevel?: Record<string, number>;
+    };
+    expect(prof.points).toBe(proficiencyPerKillAtDepth(1));
+    expect(prof.groups.survivor?.cumLevel).toBe(30);
+    expect(prof.jobCumLevel?.fisher).toBe(7);
+  });
+
   it("배치(count=5) — 5회 완료 + 판간 read-your-writes 이월(스태미나·EXP 누적)", async () => {
     const res = await POST(huntReq({ floor: 1, count: 5 }));
     expect(res.status).toBe(200);

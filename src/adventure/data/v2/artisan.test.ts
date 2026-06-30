@@ -4,6 +4,7 @@ import {
   addArtisanXp,
   addArtisanXpOnly,
   artisanLevel,
+  artisanXpForNextLevel,
   artisanXpIntoLevel,
   nextArtisanMilestone,
   parseArtisanState,
@@ -25,10 +26,11 @@ describe("artisan state", () => {
   });
 
   it("adds xp and craft count without touching other artisan professions", () => {
-    const next = addArtisanXp({ blacksmith: { xp: 95, crafts: 2 } }, "blacksmith", 12);
-    expect(next.blacksmith).toEqual({ xp: 107, crafts: 3 });
+    const next = addArtisanXp({ blacksmith: { xp: 245, crafts: 2 } }, "blacksmith", 12);
+    expect(next.blacksmith).toEqual({ xp: 257, crafts: 3 });
     expect(artisanLevel(next.blacksmith)).toBe(2);
     expect(artisanXpIntoLevel(next.blacksmith)).toBe(7);
+    expect(artisanXpForNextLevel(next.blacksmith)).toBe(400);
   });
 
   it("adds xp-only rewards without increasing craft count", () => {

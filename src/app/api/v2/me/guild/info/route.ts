@@ -28,8 +28,8 @@ import {
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 import {
-  ARTISAN_XP_PER_LEVEL,
   artisanLevel,
+  artisanXpForNextLevel,
   artisanXpIntoLevel,
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
@@ -247,7 +247,7 @@ export async function GET() {
         xp: blacksmith.xp,
         crafts: blacksmith.crafts,
         xpIntoLevel: artisanXpIntoLevel(blacksmith),
-        xpForNext: ARTISAN_XP_PER_LEVEL,
+        xpForNext: artisanXpForNextLevel(blacksmith),
         totalCrafts: workshopStats.totalCrafts,
         qualityCrafts: workshopStats.qualityCrafts,
       },
@@ -285,7 +285,7 @@ export async function GET() {
           xp: 0,
           crafts: 0,
           xpIntoLevel: 0,
-          xpForNext: ARTISAN_XP_PER_LEVEL,
+          xpForNext: artisanXpForNextLevel(undefined),
           totalCrafts: 0,
           qualityCrafts: 0,
         },

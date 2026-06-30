@@ -12,6 +12,11 @@ import {
   BLACKSMITH_REWARD_MILESTONES,
   nextArtisanMilestone,
 } from "@/adventure/data/v2/artisan";
+import {
+  GUILD_WORKSHOP_MATERIALS,
+  GUILD_WORKSHOP_MATERIAL_IDS,
+  type GuildWorkshopMaterialId,
+} from "@/adventure/data/v2/guildWorkshopMaterials";
 import { TITLES } from "@/adventure/data/titles";
 import type { GuildWorkshopRecipeId } from "@/adventure/data/v2/guildWorkshop";
 import {
@@ -33,6 +38,7 @@ type WorkshopRecipeView = {
   craftOnly?: boolean;
   note: string;
   cost: Partial<Record<ProductionKind, number>>;
+  materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
   profession: "blacksmith";
   requiredArtisanLevel: number;
   artisanXp: number;
@@ -40,6 +46,7 @@ type WorkshopRecipeView = {
   levelOk: boolean;
   smithyLevelOk: boolean;
   resourceOk: boolean;
+  materialOk?: boolean;
   costText: string;
   canCraft: boolean;
   requiredSmithyLevel: number;
@@ -70,6 +77,7 @@ type GuildWorkshopBonusView = {
 type WorkshopState = {
   hasGuildSmithy: boolean;
   resources: SettlementResources;
+  materials: Record<string, number>;
   artisan: { blacksmith: ArtisanProfessionView };
   workshopStats: WorkshopStatsView;
   guildBonus: GuildWorkshopBonusView;
@@ -149,6 +157,7 @@ const ERROR_TEXT: Record<string, string> = {
   insufficient_artisan_level: "대장장이 숙련도가 부족합니다.",
   insufficient_smithy_level: "대장간 레벨이 부족합니다.",
   insufficient_resources: "길드 영지 재화가 부족합니다.",
+  insufficient_materials: "제작 재료가 부족합니다.",
 };
 
 const WEEKLY_ERROR_TEXT: Record<string, string> = {
@@ -388,6 +397,7 @@ export function GuildWorkshopPanel({
         setState({
           hasGuildSmithy: json.hasGuildSmithy,
           resources: json.resources ?? {},
+          materials: json.materials ?? {},
           artisan: json.artisan ?? {
             blacksmith: {
               name: "대장장이",
@@ -417,6 +427,7 @@ export function GuildWorkshopPanel({
   }, [hasSmithy]);
 
   const resources = state?.resources ?? {};
+  const materials = state?.materials ?? {};
   const hasApiSmithy = state?.hasGuildSmithy ?? hasSmithy;
   const resourceText = useMemo(
     () =>
@@ -425,6 +436,15 @@ export function GuildWorkshopPanel({
         return `${PRODUCTION_KIND_ICON[kind]} ${PRODUCTION_KIND_NAME[kind]} ${amount.toLocaleString()}`;
       }).join(" · "),
     [resources],
+  );
+  const materialText = useMemo(
+    () =>
+      GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
+        const mat = GUILD_WORKSHOP_MATERIALS[id];
+        const amount = Math.max(0, Math.floor(materials[id] ?? 0));
+        return `${mat.name} ${amount.toLocaleString()}`;
+      }).join(" · "),
+    [materials],
   );
   const blacksmithLevel = state?.artisan.blacksmith.level ?? 1;
   const nextBlacksmithReward = nextArtisanMilestone(
@@ -488,16 +508,19 @@ export function GuildWorkshopPanel({
       if (!json.ok) {
         setMessage(ERROR_TEXT[json.error ?? ""] ?? "제작에 실패했습니다.");
         setCraftResult(null);
-        if ((json.resources || json.artisan) && state) {
+        if ((json.resources || json.artisan || json.materials || json.recipes) && state) {
           setState({
             ...state,
             resources: json.resources ?? state.resources,
+            materials: json.materials ?? state.materials,
             ...(json.artisan ? { artisan: json.artisan } : {}),
+            ...(Array.isArray(json.recipes) ? { recipes: json.recipes } : {}),
           });
         }
         return;
       }
       const nextResources = json.resources ?? {};
+      const nextMaterials = json.materials ?? state?.materials ?? {};
       const nextArtisan = json.artisan ?? state?.artisan;
       const nextWorkshopStats = json.workshopStats ?? state?.workshopStats;
       const nextGuildBonus = json.guildBonus ?? state?.guildBonus;
@@ -507,6 +530,7 @@ export function GuildWorkshopPanel({
           ? {
               ...prev,
               resources: nextResources,
+              materials: nextMaterials,
               ...(nextArtisan ? { artisan: nextArtisan } : {}),
               ...(nextWorkshopStats
                 ? { workshopStats: nextWorkshopStats }
@@ -540,6 +564,11 @@ export function GuildWorkshopPanel({
                             0,
                             nextResources[kind as ProductionKind] ?? 0,
                           ) >= Math.max(0, amount ?? 0),
+                      ) &&
+                      Object.entries(recipe.materialCost ?? {}).every(
+                        ([id, amount]) =>
+                          Math.max(0, nextMaterials[id] ?? 0) >=
+                          Math.max(0, amount ?? 0),
                       ),
                   })),
             }
@@ -647,7 +676,7 @@ export function GuildWorkshopPanel({
   }
 
   const weeklyCard = (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -685,7 +714,9 @@ export function GuildWorkshopPanel({
             return (
               <div
                 key={quest.id}
-                className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+                  quest.canClaim ? "ui-quest-card is-claimable" : ""
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -706,9 +737,9 @@ export function GuildWorkshopPanel({
                     {busy ? "처리 중" : quest.claimed ? "완료" : "수령"}
                   </button>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                <div className="war-meter-track mt-2 h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
                   <div
-                    className="h-full rounded bg-emerald-600 dark:bg-emerald-400"
+                    className="war-meter-fill h-full rounded bg-emerald-600 dark:bg-emerald-400"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
@@ -730,7 +761,7 @@ export function GuildWorkshopPanel({
   );
 
   const deliveryCard = (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -761,7 +792,9 @@ export function GuildWorkshopPanel({
           return (
             <div
               key={d.id}
-              className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+                selected ? "ui-codex-card is-ready" : ""
+              }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -890,7 +923,7 @@ export function GuildWorkshopPanel({
   }
 
   return (
-    <section className="space-y-3 rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="ui-workshop-card space-y-3 rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="flex items-start gap-3">
         <Hammer
           size={24}
@@ -950,7 +983,12 @@ export function GuildWorkshopPanel({
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-y border-zinc-200 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-        <span>{resourceText}</span>
+        <div className="grid min-w-0 gap-1">
+          <span>{resourceText}</span>
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            {materialText}
+          </span>
+        </div>
         {loading ? (
           <span className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
             <SpinnerGap size={14} className="animate-spin" aria-hidden />
@@ -969,9 +1007,9 @@ export function GuildWorkshopPanel({
             </span>
           </div>
           <div className="min-w-32">
-            <div className="h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+            <div className="war-meter-track h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
               <div
-                className="h-full rounded bg-emerald-600 dark:bg-emerald-400"
+                className="war-meter-fill h-full rounded bg-emerald-600 dark:bg-emerald-400"
                 style={{
                   width: `${Math.min(
                     100,
@@ -1108,7 +1146,7 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "craft" && craftResult ? (
-        <div className="overflow-hidden rounded border border-amber-300 bg-white text-xs shadow-sm dark:border-amber-800 dark:bg-zinc-950">
+        <div className="ui-treasure-result overflow-hidden rounded border border-amber-300 bg-white text-xs shadow-sm dark:border-amber-800 dark:bg-zinc-950">
           <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-amber-950 dark:text-amber-100">
@@ -1252,7 +1290,7 @@ export function GuildWorkshopPanel({
           return (
             <div
               key={recipe.id}
-              className="grid gap-2 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
+              className="ui-recipe-row grid gap-2 px-3 py-2 sm:grid-cols-[1fr_auto] sm:items-center"
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

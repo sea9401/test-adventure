@@ -47,7 +47,7 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 2 | 3;
+export type V2EquipTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
@@ -130,7 +130,7 @@ export type V2EquipmentId =
   | "v2_boss_canyon_boots"
   | "v2_boss_lake_maul"
   | "v2_boss_lake_gloves"
-  // 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique") — 8 무기타입 1종씩 + 마른땅 갑주 세트 3종.
+  // 마른 협곡 밴드 드랍 (깊이 7~12, T4) — 무기 4종 + 마른땅 갑주 세트.
   | "v2_canyon_greatsword"
   | "v2_canyon_staff"
   | "v2_canyon_bow"
@@ -141,7 +141,7 @@ export type V2EquipmentId =
   // 마른 협곡 추가 세트 — 바위문 수호구(중갑 탱커 3종) + 모래바람 장신구(반지·목걸이 2종).
   | "v2_canyon_sand_ring"
   | "v2_canyon_sand_necklace"
-  // 얼음 호수 밴드 드랍 (밴드 B, 깊이 19~24) — 무기 8종 + 세트 3종(서리 갑주·빙벽 수호구·한기 장신구).
+  // 얼음 호수 밴드 드랍 (밴드 B, 깊이 13~18, T5).
   | "v2_lake_greatsword"
   | "v2_lake_staff"
   | "v2_lake_bow"
@@ -151,7 +151,7 @@ export type V2EquipmentId =
   | "v2_lake_frost_boots"
   | "v2_lake_chill_ring"
   | "v2_lake_chill_necklace"
-  // 심층 동굴 밴드 드랍 (밴드 C, 깊이 25~30) — 무기 8종 + 세트 3종(심연 갑주·흑요 수호구·공허 장신구).
+  // 심층 동굴 밴드 드랍 (밴드 C, 깊이 19~24, T6).
   | "v2_cave_greatsword"
   | "v2_cave_staff"
   | "v2_cave_bow"
@@ -172,7 +172,7 @@ export type V2EquipmentId =
   | "v2_cave_ruin_gloves"
   | "v2_cave_focus_ring"
   // 추가 2피스 세트 (밴드 드랍) — 장신구 외 부위·크로스 조합, 무기 비포함.
-  // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 31~36).
+  // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 25~30, T7).
   | "v2_sanctum_greatsword"
   | "v2_sanctum_staff"
   | "v2_sanctum_bow"
@@ -184,7 +184,7 @@ export type V2EquipmentId =
   | "v2_sanctum_arcana_necklace"
   | "v2_sanctum_anchor_armor"
   | "v2_sanctum_nova_ring"
-  // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 37~42).
+  // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 31~36, T8).
   | "v2_swamp_greatsword"
   | "v2_swamp_staff"
   | "v2_swamp_bow"
@@ -196,7 +196,7 @@ export type V2EquipmentId =
   | "v2_swamp_heart_necklace"
   | "v2_swamp_mire_boots"
   | "v2_swamp_bruiser_armor"
-  // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 43~48).
+  // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 37~42, T9).
   | "v2_den_greatsword"
   | "v2_den_staff"
   | "v2_den_bow"
@@ -209,7 +209,7 @@ export type V2EquipmentId =
   | "v2_den_mauler_gloves"
   | "v2_den_ghost_boots"
   | "v2_den_hide_armor"
-  // 검은 왕도 밴드 드랍 (밴드 G, 깊이 43~48) — 태그 세트(2/3단계) 첫 적용.
+  // 검은 왕도 밴드 드랍 (밴드 G, 깊이 43~48, T10) — 태그 세트(2/3단계) 첫 적용.
   | "v2_throne_greatsword"
   | "v2_throne_staff"
   | "v2_throne_bow"
@@ -324,15 +324,23 @@ export type V2Equipment = {
   signature?: SignatureEffect;
 };
 
-// 마을 상점 판매가 — T1~T3 전부 판매. ×36 가파른 곡선 (각 티어 다음이 36배).
+// 마을 상점 판매가 — T1~T3 는 스타터 곡선, T4+ 는 프론티어 밴드 장비 판매가.
 // 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
 //   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
 //   T3 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
 // 2026-06-07 티어 1/3/5 → 1/2/3 리넘버(표기 숨김 후 연속번호). 곡선·매그니튜드는 불변(키만 리키).
+// 2026-06-30 프론티어 드랍을 T4~T10 으로 재정립. 판매가는 T3 이후 ×2 완만 램프.
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 300,
   2: 10800,
   3: 388800,
+  4: 777600,
+  5: 1555200,
+  6: 3110400,
+  7: 6220800,
+  8: 12441600,
+  9: 24883200,
+  10: 49766400,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -641,9 +649,18 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     thresholds: [
       { count: 2, bonus: { hp: 50, mp: 30 } },
       { count: 4, bonus: { crit: 3, eva: 3, critResist: 3 } },
-      { count: 6, bonus: { spd: 5, critMult: 24, healPowerPct: 4 } },
-      { count: 8, bonus: { hp: 120, mp: 80, crit: 4, eva: 4 } },
-      { count: 10, bonus: { hp: 180, mp: 120, crit: 6, eva: 6, spd: 4 } },
+      {
+        count: 6,
+        bonus: {
+          hp: 180,
+          mp: 120,
+          crit: 6,
+          eva: 6,
+          spd: 9,
+          critMult: 24,
+          healPowerPct: 4,
+        },
+      },
     ],
   },
   {

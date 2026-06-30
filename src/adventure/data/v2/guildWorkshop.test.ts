@@ -9,6 +9,15 @@ import {
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
 } from "./guildWorkshop";
+import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
+import { V2_EQUIPMENT } from "./v2Equipment";
+
+const ENOUGH_WORKSHOP_MATERIALS = {
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 99,
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 99,
+};
 
 describe("guild workshop recipes", () => {
   it("keeps starter smithy recipes open at blacksmith level 1", () => {
@@ -26,7 +35,7 @@ describe("guild workshop recipes", () => {
     );
     expect(
       guildWorkshopRecipeView(recipe, { crop: 999, ore: 999 }, {
-        blacksmith: { xp: 400, crafts: 40 },
+        blacksmith: { xp: 2200, crafts: 40 },
       }).canCraft,
     ).toBe(true);
   });
@@ -68,26 +77,41 @@ describe("guild workshop recipes", () => {
       guildWorkshopRecipeView(
         GUILD_WORKSHOP_RECIPES.crafted_oathblade,
         { crop: 999, ore: 999 },
-        { blacksmith: { xp: 500, crafts: 40 } },
+        { blacksmith: { xp: 3300, crafts: 40 } },
         0,
         2,
+        ENOUGH_WORKSHOP_MATERIALS,
       ).craftOnly,
     ).toBe(true);
   });
 
   it("locks premium recipes behind smithy level", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
-    const artisan = { blacksmith: { xp: 600, crafts: 50 } };
+    const artisan = { blacksmith: { xp: 4700, crafts: 50 } };
     expect(
-      guildWorkshopRecipeView(recipe, { crop: 999, ore: 999 }, artisan, 0, 2),
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 999, ore: 999 },
+        artisan,
+        0,
+        2,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ),
     ).toMatchObject({ smithyLevelOk: false, canCraft: false });
     expect(
-      guildWorkshopRecipeView(recipe, { crop: 999, ore: 999 }, artisan, 0, 3),
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 999, ore: 999 },
+        artisan,
+        0,
+        3,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ),
     ).toMatchObject({ smithyLevelOk: true, canCraft: true });
   });
 
   it("locks late smithy recipes behind Lv4 and Lv5", () => {
-    const artisan = { blacksmith: { xp: 900, crafts: 80 } };
+    const artisan = { blacksmith: { xp: 9300, crafts: 80 } };
     expect(
       guildWorkshopRecipeView(
         GUILD_WORKSHOP_RECIPES.crafted_sunforge_blade,
@@ -95,6 +119,7 @@ describe("guild workshop recipes", () => {
         artisan,
         0,
         3,
+        ENOUGH_WORKSHOP_MATERIALS,
       ),
     ).toMatchObject({ smithyLevelOk: false, canCraft: false });
     expect(
@@ -104,6 +129,7 @@ describe("guild workshop recipes", () => {
         artisan,
         0,
         4,
+        ENOUGH_WORKSHOP_MATERIALS,
       ),
     ).toMatchObject({ smithyLevelOk: true, canCraft: true });
     expect(
@@ -113,8 +139,34 @@ describe("guild workshop recipes", () => {
         artisan,
         0,
         4,
+        ENOUGH_WORKSHOP_MATERIALS,
       ),
     ).toMatchObject({ smithyLevelOk: false, canCraft: false });
+  });
+
+  it("requires tiered personal materials for craft-only equipment", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_sunforge_blade;
+    const artisan = { blacksmith: { xp: 9300, crafts: 80 } };
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 9999, ore: 9999 },
+        artisan,
+        0,
+        4,
+        { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
+      ),
+    ).toMatchObject({ resourceOk: true, materialOk: false, canCraft: false });
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 9999, ore: 9999 },
+        artisan,
+        0,
+        4,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ),
+    ).toMatchObject({ resourceOk: true, materialOk: true, canCraft: true });
   });
 
   it("keeps craft-only recipe costs and xp stepped by smithy tier", () => {
@@ -147,10 +199,27 @@ describe("guild workshop recipes", () => {
     );
   });
 
+  it("craft-only equipment tiers follow smithy progression", () => {
+    const expectedTierBySmithyLevel = new Map([
+      [2, 4],
+      [3, 6],
+      [4, 8],
+      [5, 10],
+    ]);
+    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES).filter((r) =>
+      r.id.startsWith("crafted_"),
+    )) {
+      const smithyLevel = recipe.requiredSmithyLevel ?? 1;
+      expect(V2_EQUIPMENT[recipe.equipmentId].tier, recipe.id).toBe(
+        expectedTierBySmithyLevel.get(smithyLevel),
+      );
+    }
+  });
+
   it("separates level gate from resource gate", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.leather_gloves;
     const view = guildWorkshopRecipeView(recipe, { crop: 0, ore: 0 }, {
-      blacksmith: { xp: 100, crafts: 9 },
+      blacksmith: { xp: 260, crafts: 9 },
     });
     expect(view.levelOk).toBe(true);
     expect(view.resourceOk).toBe(false);
@@ -162,7 +231,7 @@ describe("guild workshop recipes", () => {
     expect(guildWorkshopQualityChancePct({}, recipe)).toBe(3);
     expect(
       guildWorkshopQualityChancePct(
-        { blacksmith: { xp: 200, crafts: 20 } },
+        { blacksmith: { xp: 650, crafts: 20 } },
         recipe,
       ),
     ).toBe(7);
@@ -170,18 +239,18 @@ describe("guild workshop recipes", () => {
 
   it("adds guild workshop bonus tiers to crafted quality chance", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
-    expect(guildWorkshopBonusFromTotalCrafts(9)).toEqual({
-      totalCrafts: 9,
+    expect(guildWorkshopBonusFromTotalCrafts(49)).toEqual({
+      totalCrafts: 49,
       qualityChanceBonusPct: 0,
       tier: 0,
-      nextTotalCrafts: 10,
+      nextTotalCrafts: 50,
     });
-    expect(guildWorkshopBonusFromTotalCrafts(60).qualityChanceBonusPct).toBe(3);
+    expect(guildWorkshopBonusFromTotalCrafts(300).qualityChanceBonusPct).toBe(3);
     expect(
       guildWorkshopQualityChancePct(
-        { blacksmith: { xp: 2000, crafts: 200 } },
+        { blacksmith: { xp: 12500, crafts: 200 } },
         recipe,
-        guildWorkshopBonusFromTotalCrafts(100),
+        guildWorkshopBonusFromTotalCrafts(600),
       ),
     ).toBe(25);
   });

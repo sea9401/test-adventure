@@ -23,8 +23,8 @@ import {
   rankArtisanLeaderboardEntries,
 } from "@/adventure/data/v2/artisanLeaderboard";
 import {
-  ARTISAN_XP_PER_LEVEL,
   artisanLevel,
+  artisanXpForNextLevel,
   artisanXpIntoLevel,
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
@@ -55,7 +55,7 @@ async function loadBlacksmithRankings(weekKey: string) {
         level: artisanLevel(blacksmith),
         xp: blacksmith.xp,
         xpIntoLevel: artisanXpIntoLevel(blacksmith),
-        xpForNext: ARTISAN_XP_PER_LEVEL,
+        xpForNext: artisanXpForNextLevel(blacksmith),
         totalCrafts: weeklyStats.totalCrafts,
         qualityCrafts: weeklyStats.qualityCrafts,
         weeklyXp: weeklyStats.xp,

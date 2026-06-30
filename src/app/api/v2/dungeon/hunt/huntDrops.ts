@@ -19,6 +19,7 @@ import {
   rollReforgeStoneDrops,
 } from "@/adventure/data/v2/v2EquipVariance";
 import { rollSettlementMaterialDrops } from "@/adventure/data/v2/settlementMaterials";
+import { rollGuildWorkshopMaterialDrops } from "@/adventure/data/v2/guildWorkshopMaterials";
 import {
   V2_EQUIPMENT,
   genEquipIid,
@@ -35,7 +36,7 @@ export type HuntDropResult = {
 };
 
 // 승리 시 1회 드랍 굴림. 패배면 빈 결과(원본 보유분 그대로).
-//   - drops: 재료 + 강화석(mapStoneMult) + 소환서 + 재련석 + 정착지 재료(통나무/철광석).
+//   - drops: 재료 + 강화석(mapStoneMult) + 소환서 + 재련석 + 정착지 재료 + 대장간 제작 재료.
 //   - droppedEquipment: 정규 장비(스타터 rollEquipDrop ?? 프론티어 밴드 rollBandCommonDrop).
 //   - droppedUnique: 유니크(밴드 rollBandUniqueDrop ?? 레거시 층 rollUniqueDrop), 정규와 독립.
 //   - nextOwned: ownedEquip + 드랍 개체(새 iid·±편차 굴림). 드랍 없으면 ownedEquip 그대로.
@@ -90,6 +91,13 @@ export function rollHuntDrops(params: {
     // 다이얼 = settlementMaterials SETTLEMENT_MATERIAL_DROP_PCT.
     for (const [id, n] of Object.entries(
       rollSettlementMaterialDrops(Math.random),
+    )) {
+      drops[id] = (drops[id] ?? 0) + n;
+    }
+    // 대장간 제작 재료 — 티어별 병목 재료. 정착지 재료와 같은 개인 재료 인벤토리에 들어가며
+    // 대장간 제작 시 소모된다.
+    for (const [id, n] of Object.entries(
+      rollGuildWorkshopMaterialDrops(depth, Math.random),
     )) {
       drops[id] = (drops[id] ?? 0) + n;
     }

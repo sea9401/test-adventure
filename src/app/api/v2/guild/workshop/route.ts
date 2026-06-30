@@ -27,18 +27,21 @@ import {
   canAffordGuildWorkshopRecipe,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopRecipeView,
+  hasGuildWorkshopRecipeMaterials,
   isGuildWorkshopRecipeId,
   meetsGuildWorkshopRecipeLevel,
+  parseGuildWorkshopMaterialInventory,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
   spendGuildWorkshopRecipeCost,
+  spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
-  ARTISAN_XP_PER_LEVEL,
   ARTISAN_PROFESSION_NAME,
   addArtisanXp,
   artisanLevel,
+  artisanXpForNextLevel,
   artisanXpIntoLevel,
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
@@ -51,6 +54,11 @@ import {
   genEquipIid,
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
+
+type CharacterSaveWithMaterials = {
+  materials?: unknown;
+  [key: string]: unknown;
+};
 
 async function getGuildIdForUser(userId: string): Promise<number | null> {
   const row = (
@@ -131,7 +139,7 @@ function artisanView(rawCrafting: unknown) {
       crafts: blacksmith.crafts,
       level: artisanLevel(blacksmith),
       xpIntoLevel: artisanXpIntoLevel(blacksmith),
-      xpForNext: ARTISAN_XP_PER_LEVEL,
+      xpForNext: artisanXpForNextLevel(blacksmith),
     },
   };
 }
@@ -167,9 +175,15 @@ export async function GET() {
     qualityChanceBonusPct:
       baseGuildBonus.qualityChanceBonusPct + smithyBonus.qualityChanceBonusPct,
   };
-  const { resources, artisan, artisanState, workshopStats } =
+  const { resources, materials, artisan, artisanState, workshopStats } =
     await db.transaction(async (tx) => {
     const resources = await readGuildSettlement(tx, guildId);
+    const charRaw = await readSave<CharacterSaveWithMaterials>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
     const craftingRaw = await readSave<Record<string, unknown>>(
       tx,
       userId,
@@ -178,6 +192,7 @@ export async function GET() {
     );
     return {
       resources,
+      materials: parseGuildWorkshopMaterialInventory(charRaw.materials),
       artisan: artisanView(craftingRaw),
       artisanState: parseArtisanState(craftingRaw.artisan),
       workshopStats: workshopStatsView(craftingRaw),
@@ -190,6 +205,7 @@ export async function GET() {
     smithyBonus,
     guildBonus,
     resources,
+    materials,
     artisan,
     workshopStats,
     recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
@@ -199,6 +215,7 @@ export async function GET() {
         artisanState,
         guildBonus,
         smithyLevel,
+        materials,
       ),
     ),
   });
@@ -246,6 +263,13 @@ export async function POST(req: Request) {
   await snapshotStaleArtisanLeaderboards(week.key);
 
   const result = await db.transaction(async (tx) => {
+    const charRaw = await lockSaveForUpdate<CharacterSaveWithMaterials>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
+    const materials = parseGuildWorkshopMaterialInventory(charRaw.materials);
     const resources = await lockGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
@@ -296,7 +320,40 @@ export async function POST(req: Request) {
           ok: false as const,
           error: "insufficient_resources" as const,
           resources,
+          materials,
           artisan: artisanView(craftingRaw),
+          recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
+            guildWorkshopRecipeView(
+              GUILD_WORKSHOP_RECIPES[id],
+              resources,
+              currentArtisan,
+              guildBonus,
+              smithyLevel,
+              materials,
+            ),
+          ),
+        },
+      };
+    }
+    if (!hasGuildWorkshopRecipeMaterials(materials, recipe)) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "insufficient_materials" as const,
+          resources,
+          materials,
+          artisan: artisanView(craftingRaw),
+          recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
+            guildWorkshopRecipeView(
+              GUILD_WORKSHOP_RECIPES[id],
+              resources,
+              currentArtisan,
+              guildBonus,
+              smithyLevel,
+              materials,
+            ),
+          ),
         },
       };
     }
@@ -306,6 +363,7 @@ export async function POST(req: Request) {
       recipe.artisanXp,
     );
     const nextResources = spendGuildWorkshopRecipeCost(resources, recipe);
+    const nextMaterials = spendGuildWorkshopRecipeMaterials(materials, recipe);
     const craftedEnhance = rollGuildWorkshopEnhance(
       currentArtisan,
       recipe,
@@ -348,6 +406,10 @@ export async function POST(req: Request) {
     ];
 
     await upsertGuildSettlement(tx, guildId, nextResources);
+    await upsertSave(tx, userId, "character.v2", {
+      ...charRaw,
+      materials: nextMaterials,
+    });
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped: parsed.equipped,
@@ -439,10 +501,12 @@ export async function POST(req: Request) {
             nextArtisan,
             nextGuildBonus,
             smithyLevel,
+            nextMaterials,
           ),
         ),
         grantedTitles,
         resources: nextResources,
+        materials: nextMaterials,
         owned: nextOwned,
       },
     };

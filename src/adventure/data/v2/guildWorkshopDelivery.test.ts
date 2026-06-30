@@ -79,7 +79,25 @@ describe("guild workshop delivery", () => {
       rewardArtisanXp: 58,
       rewardGold: 325000,
       bonusPct: 30,
+      masterworkBonusPct: 0,
     });
+  });
+
+  it("adds a separate premium for masterwork marked deliveries", () => {
+    const reward = guildWorkshopDeliveryReward(
+      GUILD_WORKSHOP_DELIVERIES.daily_masterwork,
+      {
+        ...crafted,
+        id: "v2_crafted_sunforge_blade",
+        craftedBy: { ...crafted.craftedBy!, level: 8, masterwork: true },
+      },
+      3,
+    );
+    expect(reward).toMatchObject({
+      bonusPct: 35,
+      masterworkBonusPct: 25,
+    });
+    expect(reward.rewardGold).toBe(945000);
   });
 
   it("requires craft-only equipment with a masterwork mark for masterwork delivery", () => {

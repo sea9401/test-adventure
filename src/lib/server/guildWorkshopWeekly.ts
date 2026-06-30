@@ -3,7 +3,9 @@ import type { db as dbType } from "@/db";
 import { guildWorkshopWeekly } from "@/db/schema";
 import {
   addGuildWorkshopWeeklyProgress,
+  guildWorkshopWeeklyClaimedPayload,
   parseGuildWorkshopWeeklyState,
+  type GuildWorkshopWeeklyProgressInput,
   type GuildWorkshopWeeklyState,
 } from "@/adventure/data/v2/guildWorkshopWeekly";
 import {
@@ -109,7 +111,7 @@ export async function saveGuildWorkshopWeeklyState(
       weekKey: state.weekKey,
       craftCount: state.craftCount,
       qualityCount: state.qualityCount,
-      claimed: state.claimed,
+      claimed: guildWorkshopWeeklyClaimedPayload(state),
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -118,7 +120,7 @@ export async function saveGuildWorkshopWeeklyState(
         weekKey: state.weekKey,
         craftCount: state.craftCount,
         qualityCount: state.qualityCount,
-        claimed: state.claimed,
+        claimed: guildWorkshopWeeklyClaimedPayload(state),
         updatedAt: new Date(),
       },
     });
@@ -127,12 +129,12 @@ export async function saveGuildWorkshopWeeklyState(
 export async function incrementGuildWorkshopWeeklyProgress(
   tx: Tx,
   guildId: number,
-  qualityCrafted: boolean,
+  input: GuildWorkshopWeeklyProgressInput,
   now: Date = new Date(),
 ): Promise<GuildWorkshopWeeklyState> {
   const week = currentGuildWorkshopWeek(now);
   const state = await lockGuildWorkshopWeeklyState(tx, guildId, week.key);
-  const next = addGuildWorkshopWeeklyProgress(state, qualityCrafted);
+  const next = addGuildWorkshopWeeklyProgress(state, input);
   await saveGuildWorkshopWeeklyState(tx, guildId, next);
   return next;
 }

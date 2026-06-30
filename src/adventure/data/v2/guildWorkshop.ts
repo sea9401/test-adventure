@@ -8,6 +8,7 @@ import {
   V2_EQUIPMENT,
   type V2CraftQualityState,
   type V2EquipInstance,
+  type V2EquipSlot,
   type V2Equipment,
   type V2EquipmentId,
 } from "./v2Equipment";
@@ -84,6 +85,39 @@ export type GuildWorkshopStats = {
   totalCrafts: number;
   qualityCrafts: number;
   craftedByRecipe: Partial<Record<GuildWorkshopRecipeId, number>>;
+};
+
+export type GuildWorkshopRecipeRecord = {
+  crafts: number;
+  bestQualityLevel: number;
+  masterworkCrafts: number;
+  lastCraftedAt?: string;
+};
+
+export type GuildWorkshopSlotRecord = {
+  crafts: number;
+  bestQualityLevel: number;
+  masterworkCrafts: number;
+  highestTier: number;
+};
+
+export type GuildWorkshopCraftRecords = {
+  totalCrafts: number;
+  qualityCrafts: number;
+  masterworkCrafts: number;
+  craftOnlyCrafts: number;
+  highestTier: number;
+  bestQualityLevel: number;
+  recipes: Partial<Record<GuildWorkshopRecipeId, GuildWorkshopRecipeRecord>>;
+  slots: Partial<Record<V2EquipSlot, GuildWorkshopSlotRecord>>;
+};
+
+export type GuildWorkshopCraftRecordEvent = {
+  recipeId: GuildWorkshopRecipeId;
+  item: Pick<V2Equipment, "slot" | "tier" | "craftOnly">;
+  craftQualityLevel?: number;
+  masterwork?: boolean;
+  craftedAt?: string;
 };
 
 export type GuildWorkshopBonus = {
@@ -593,6 +627,182 @@ export function addGuildWorkshopCraftStat(
     craftedByRecipe: {
       ...stats.craftedByRecipe,
       [recipeId]: (stats.craftedByRecipe[recipeId] ?? 0) + 1,
+    },
+  };
+}
+
+function emptyGuildWorkshopCraftRecords(): GuildWorkshopCraftRecords {
+  return {
+    totalCrafts: 0,
+    qualityCrafts: 0,
+    masterworkCrafts: 0,
+    craftOnlyCrafts: 0,
+    highestTier: 0,
+    bestQualityLevel: 0,
+    recipes: {},
+    slots: {},
+  };
+}
+
+function parseRecipeRecord(raw: unknown): GuildWorkshopRecipeRecord | undefined {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const obj = raw as Record<string, unknown>;
+  const crafts = Math.max(0, Math.floor(Number(obj.crafts) || 0));
+  const masterworkCrafts = Math.max(
+    0,
+    Math.floor(Number(obj.masterworkCrafts) || 0),
+  );
+  const bestQualityLevel = Math.max(
+    0,
+    Math.min(2, Math.floor(Number(obj.bestQualityLevel) || 0)),
+  );
+  const lastCraftedAt =
+    typeof obj.lastCraftedAt === "string" ? obj.lastCraftedAt : undefined;
+  if (crafts <= 0 && masterworkCrafts <= 0 && bestQualityLevel <= 0) {
+    return undefined;
+  }
+  return {
+    crafts,
+    bestQualityLevel,
+    masterworkCrafts,
+    ...(lastCraftedAt ? { lastCraftedAt } : {}),
+  };
+}
+
+function parseSlotRecord(raw: unknown): GuildWorkshopSlotRecord | undefined {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  const obj = raw as Record<string, unknown>;
+  const crafts = Math.max(0, Math.floor(Number(obj.crafts) || 0));
+  const masterworkCrafts = Math.max(
+    0,
+    Math.floor(Number(obj.masterworkCrafts) || 0),
+  );
+  const bestQualityLevel = Math.max(
+    0,
+    Math.min(2, Math.floor(Number(obj.bestQualityLevel) || 0)),
+  );
+  const highestTier = Math.max(0, Math.floor(Number(obj.highestTier) || 0));
+  if (
+    crafts <= 0 &&
+    masterworkCrafts <= 0 &&
+    bestQualityLevel <= 0 &&
+    highestTier <= 0
+  ) {
+    return undefined;
+  }
+  return { crafts, bestQualityLevel, masterworkCrafts, highestTier };
+}
+
+export function parseGuildWorkshopCraftRecords(
+  raw: unknown,
+): GuildWorkshopCraftRecords {
+  const empty = emptyGuildWorkshopCraftRecords();
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return empty;
+  }
+  const obj = raw as Record<string, unknown>;
+  const recipes: GuildWorkshopCraftRecords["recipes"] = {};
+  const rawRecipes =
+    obj.recipes != null &&
+    typeof obj.recipes === "object" &&
+    !Array.isArray(obj.recipes)
+      ? (obj.recipes as Record<string, unknown>)
+      : {};
+  for (const id of GUILD_WORKSHOP_RECIPE_IDS) {
+    const record = parseRecipeRecord(rawRecipes[id]);
+    if (record) recipes[id] = record;
+  }
+
+  const slots: GuildWorkshopCraftRecords["slots"] = {};
+  const rawSlots =
+    obj.slots != null &&
+    typeof obj.slots === "object" &&
+    !Array.isArray(obj.slots)
+      ? (obj.slots as Record<string, unknown>)
+      : {};
+  for (const slot of [
+    "weapon",
+    "armor",
+    "gloves",
+    "boots",
+    "ring",
+    "necklace",
+  ] as const) {
+    const record = parseSlotRecord(rawSlots[slot]);
+    if (record) slots[slot] = record;
+  }
+
+  return {
+    totalCrafts: Math.max(0, Math.floor(Number(obj.totalCrafts) || 0)),
+    qualityCrafts: Math.max(0, Math.floor(Number(obj.qualityCrafts) || 0)),
+    masterworkCrafts: Math.max(
+      0,
+      Math.floor(Number(obj.masterworkCrafts) || 0),
+    ),
+    craftOnlyCrafts: Math.max(
+      0,
+      Math.floor(Number(obj.craftOnlyCrafts) || 0),
+    ),
+    highestTier: Math.max(0, Math.floor(Number(obj.highestTier) || 0)),
+    bestQualityLevel: Math.max(
+      0,
+      Math.min(2, Math.floor(Number(obj.bestQualityLevel) || 0)),
+    ),
+    recipes,
+    slots,
+  };
+}
+
+export function addGuildWorkshopCraftRecord(
+  records: GuildWorkshopCraftRecords,
+  event: GuildWorkshopCraftRecordEvent,
+): GuildWorkshopCraftRecords {
+  const qualityLevel = Math.max(
+    0,
+    Math.min(2, Math.floor(Number(event.craftQualityLevel) || 0)),
+  );
+  const tier = Math.max(0, Math.floor(Number(event.item.tier) || 0));
+  const recipeRecord = records.recipes[event.recipeId] ?? {
+    crafts: 0,
+    bestQualityLevel: 0,
+    masterworkCrafts: 0,
+  };
+  const slotRecord = records.slots[event.item.slot] ?? {
+    crafts: 0,
+    bestQualityLevel: 0,
+    masterworkCrafts: 0,
+    highestTier: 0,
+  };
+  return {
+    totalCrafts: records.totalCrafts + 1,
+    qualityCrafts: records.qualityCrafts + (qualityLevel > 0 ? 1 : 0),
+    masterworkCrafts: records.masterworkCrafts + (event.masterwork ? 1 : 0),
+    craftOnlyCrafts: records.craftOnlyCrafts + (event.item.craftOnly ? 1 : 0),
+    highestTier: Math.max(records.highestTier, tier),
+    bestQualityLevel: Math.max(records.bestQualityLevel, qualityLevel),
+    recipes: {
+      ...records.recipes,
+      [event.recipeId]: {
+        crafts: recipeRecord.crafts + 1,
+        bestQualityLevel: Math.max(recipeRecord.bestQualityLevel, qualityLevel),
+        masterworkCrafts:
+          recipeRecord.masterworkCrafts + (event.masterwork ? 1 : 0),
+        ...(event.craftedAt ? { lastCraftedAt: event.craftedAt } : {}),
+      },
+    },
+    slots: {
+      ...records.slots,
+      [event.item.slot]: {
+        crafts: slotRecord.crafts + 1,
+        bestQualityLevel: Math.max(slotRecord.bestQualityLevel, qualityLevel),
+        masterworkCrafts:
+          slotRecord.masterworkCrafts + (event.masterwork ? 1 : 0),
+        highestTier: Math.max(slotRecord.highestTier, tier),
+      },
     },
   };
 }

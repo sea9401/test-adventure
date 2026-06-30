@@ -11,6 +11,8 @@ import {
 import {
   BLACKSMITH_ARTISAN_JOBS,
   BLACKSMITH_ARTISAN_SKILLS,
+  BLACKSMITH_MASTERWORK_LEVEL,
+  BLACKSMITH_PLUS2_QUALITY_LEVEL,
   BLACKSMITH_REWARD_MILESTONES,
   nextArtisanMilestone,
 } from "@/adventure/data/v2/artisan";
@@ -25,8 +27,16 @@ import type {
   GuildWorkshopRecipeId,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
+  GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
+  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
+  GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
+  GUILD_WORKSHOP_QUALITY_BONUS_PCT,
+} from "@/adventure/data/v2/guildWorkshop";
+import {
+  craftQualityStars,
   V2_EQUIP_TAG_SETS,
   V2_SLOT_LABEL,
+  type V2CraftQualityState,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import type { GuildInfoResponse } from "./guildShared";
@@ -234,6 +244,65 @@ function titleGoalLine(state: WorkshopState): string {
     return `${TITLES.artisan_masterwork.name}: 품질 제작 ${state.workshopStats.qualityCrafts.toLocaleString()}/5회`;
   }
   return "장인 칭호 목표를 모두 달성했습니다.";
+}
+
+function craftQualityFromLevel(levelRaw: number): V2CraftQualityState | undefined {
+  const level = levelRaw >= 2 ? 2 : levelRaw >= 1 ? 1 : 0;
+  if (level === 0) return undefined;
+  return { level, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[level] };
+}
+
+function craftResultHeadline(result: CraftResultView): string {
+  if (result.craftQualityLevel >= 2) {
+    return result.masterwork ? "명장 ★★ 제작 성공" : "★★ 품질 제작 성공";
+  }
+  if (result.craftQualityLevel >= 1) {
+    return result.masterwork ? "명장 ★ 제작 성공" : "★ 품질 제작 성공";
+  }
+  return result.masterwork ? "명장 제작 완료" : "제작 완료";
+}
+
+function craftResultMessage(result: CraftResultView): string {
+  if (result.craftQualityLevel >= 2) {
+    return "최상급 품질이 붙어 장비 위력이 10% 증가합니다.";
+  }
+  if (result.craftQualityLevel >= 1) {
+    return "고품질 단조가 성공해 장비 위력이 5% 증가합니다.";
+  }
+  if (result.masterwork) {
+    return "명장 제작품으로 각인됐지만 이번 제작에는 품질 보너스가 붙지 않았습니다.";
+  }
+  return "기본 품질로 완성됐습니다. 제작자 각인과 숙련도는 정상 적용됩니다.";
+}
+
+function craftResultTone(result: CraftResultView): {
+  frame: string;
+  header: string;
+  title: string;
+} {
+  if (result.craftQualityLevel >= 2) {
+    return {
+      frame:
+        "border-rose-300 bg-white dark:border-rose-800 dark:bg-zinc-950",
+      header:
+        "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40",
+      title: "text-rose-950 dark:text-rose-100",
+    };
+  }
+  if (result.craftQualityLevel >= 1 || result.masterwork) {
+    return {
+      frame:
+        "border-amber-300 bg-white dark:border-amber-800 dark:bg-zinc-950",
+      header:
+        "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40",
+      title: "text-amber-950 dark:text-amber-100",
+    };
+  }
+  return {
+    frame: "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
+    header: "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
+    title: "text-zinc-950 dark:text-zinc-100",
+  };
 }
 
 // 대장간 제작 패널 — 길드 대장간을 실제 제작 기능 게이트로 사용한다.
@@ -516,6 +585,36 @@ export function GuildWorkshopPanel({
           a.itemName.localeCompare(b.itemName, "ko"),
       );
   }, [state]);
+  const currentEffectSummary = useMemo(() => {
+    if (!state) return null;
+    const sampleRecipe = state.recipes[0];
+    const normalQualityChance = sampleRecipe?.qualityChancePct ?? 0;
+    const masterworkQualityChance = sampleRecipe?.masterwork?.qualityChancePct ?? 0;
+    const unlockedRecipes = state.recipes.filter(
+      (recipe) => recipe.levelOk && recipe.smithyLevelOk,
+    );
+    const craftOnlyUnlocked = unlockedRecipes.filter(
+      (recipe) => recipe.craftOnly,
+    ).length;
+    const maxTier = unlockedRecipes.reduce(
+      (max, recipe) => Math.max(max, recipe.tier),
+      0,
+    );
+    return {
+      normalQualityChance,
+      masterworkQualityChance,
+      maxTier,
+      unlockedRecipeCount: unlockedRecipes.length,
+      totalRecipeCount: state.recipes.length,
+      craftOnlyUnlocked,
+      masterworkUnlocked: blacksmithLevel >= BLACKSMITH_MASTERWORK_LEVEL,
+      plus2Unlocked: blacksmithLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
+    };
+  }, [blacksmithLevel, state]);
+  const craftResultQuality = craftResult
+    ? craftQualityFromLevel(craftResult.craftQualityLevel)
+    : undefined;
+  const craftResultVisual = craftResult ? craftResultTone(craftResult) : null;
 
   async function craft(
     recipeId: GuildWorkshopRecipeId,
@@ -1082,6 +1181,64 @@ export function GuildWorkshopPanel({
           </div>
           <div>
             <div className="font-semibold">대장장이 효과</div>
+            {currentEffectSummary ? (
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-900 dark:bg-amber-950/30">
+                  <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                    ★ 품질
+                  </div>
+                  <div className="mt-0.5 font-semibold text-amber-950 dark:text-amber-100">
+                    {currentEffectSummary.normalQualityChance}%
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
+                    위력 +5% · 일반 최대{" "}
+                    {GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%
+                  </div>
+                </div>
+                <div className="rounded border border-rose-200 bg-rose-50 px-2 py-1.5 dark:border-rose-900 dark:bg-rose-950/30">
+                  <div className="text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                    명장 제작
+                  </div>
+                  <div className="mt-0.5 font-semibold text-rose-950 dark:text-rose-100">
+                    {currentEffectSummary.masterworkUnlocked
+                      ? `${currentEffectSummary.masterworkQualityChance}%`
+                      : `Lv ${BLACKSMITH_MASTERWORK_LEVEL} 필요`}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-rose-800 dark:text-rose-200">
+                    품질 상한 {GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% ·
+                    명장 각인
+                  </div>
+                </div>
+                <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    ★★ 품질
+                  </div>
+                  <div className="mt-0.5 font-semibold text-zinc-950 dark:text-zinc-100">
+                    {currentEffectSummary.plus2Unlocked
+                      ? `명장 품질 중 ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
+                      : `Lv ${BLACKSMITH_PLUS2_QUALITY_LEVEL} 필요`}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    위력 +10% · 명장 제작 전용
+                  </div>
+                </div>
+                <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <div className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                    제작 해금
+                  </div>
+                  <div className="mt-0.5 font-semibold text-emerald-950 dark:text-emerald-100">
+                    {currentEffectSummary.maxTier > 0
+                      ? `T${currentEffectSummary.maxTier}`
+                      : "없음"}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-emerald-800 dark:text-emerald-200">
+                    {currentEffectSummary.unlockedRecipeCount}/
+                    {currentEffectSummary.totalRecipeCount}종 · 전용{" "}
+                    {currentEffectSummary.craftOnlyUnlocked}종
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
               {nextBlacksmithReward
                 ? `다음 해금: Lv ${nextBlacksmithReward.level} ${nextBlacksmithReward.title}`
@@ -1243,11 +1400,15 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "craft" && craftResult ? (
-        <div className="ui-treasure-result overflow-hidden rounded border border-amber-300 bg-white text-xs shadow-sm dark:border-amber-800 dark:bg-zinc-950">
-          <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40">
+        <div
+          className={`ui-treasure-result overflow-hidden rounded border text-xs shadow-sm ${craftResultVisual?.frame ?? ""}`}
+        >
+          <div
+            className={`border-b px-3 py-2 ${craftResultVisual?.header ?? ""}`}
+          >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-amber-950 dark:text-amber-100">
-                {craftResult.masterwork ? "명장 제작 완료" : "제작 완료"}
+              <span className={`font-semibold ${craftResultVisual?.title ?? ""}`}>
+                {craftResultHeadline(craftResult)}
               </span>
               {craftResult.masterwork ? (
                 <span className="rounded bg-rose-200 px-1.5 py-px font-semibold text-rose-900 dark:bg-rose-800 dark:text-rose-50">
@@ -1255,23 +1416,28 @@ export function GuildWorkshopPanel({
                 </span>
               ) : null}
               {craftResult.craftOnly ? <CraftOnlyBadge /> : null}
-              {craftResult.craftQualityLevel > 0 ? (
+              {craftResultQuality ? (
                 <span className="rounded bg-amber-200 px-1.5 py-px font-semibold text-amber-900 dark:bg-amber-800 dark:text-amber-50">
                   <CraftQualityStars
-                    craftQuality={{
-                      level: craftResult.craftQualityLevel >= 2 ? 2 : 1,
-                      bonusPct: craftResult.craftQualityLevel >= 2 ? 10 : 5,
-                    }}
+                    craftQuality={craftResultQuality}
                     className="mr-1"
                   />
                   품질
                 </span>
               ) : null}
             </div>
+            <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
+              {craftResultMessage(craftResult)}
+            </div>
           </div>
           <div className="grid gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                {craftResultQuality ? (
+                  <span className="mr-1 text-amber-600 dark:text-amber-300">
+                    {craftQualityStars(craftResultQuality)}
+                  </span>
+                ) : null}
                 {craftResult.itemName}
               </div>
               <div className="mt-1 text-zinc-500 dark:text-zinc-400">
@@ -1417,14 +1583,14 @@ export function GuildWorkshopPanel({
                   </span>
                 </div>
                 <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  {recipe.costText} · +1 확률 {recipe.qualityChancePct}%
+                  {recipe.costText} · ★ 확률 {recipe.qualityChancePct}%
                   {recipe.craftOnly ? " · 획득 경로: 이 대장간 제작" : ""}
                 </div>
                 {masterwork ? (
                   <div className="mt-1 text-[11px] text-rose-700 dark:text-rose-300">
                     명장 제작: {masterwork.costText} · 품질 확률{" "}
                     {masterwork.qualityChancePct}% ·{" "}
-                    {masterwork.plus2Unlocked ? "+2 가능" : "Lv9부터 +2 가능"}
+                    {masterwork.plus2Unlocked ? "★★ 가능" : "Lv9부터 ★★ 가능"}
                   </div>
                 ) : null}
               </div>

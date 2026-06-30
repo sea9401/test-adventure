@@ -427,6 +427,32 @@ describe("guild workshop recipes", () => {
     });
   });
 
+  it("only recovers workshop materials from blacksmith-crafted equipment", () => {
+    const item = V2_EQUIPMENT.v2_canyon_greatsword;
+    expect(guildWorkshopDismantlePlan(item, {}, 6)).toEqual({
+      materials: {},
+      artisanXp: 0,
+      blockedReason: "not_crafted",
+    });
+    expect(
+      guildWorkshopDismantlePlan(
+        item,
+        {
+          craftedBy: {
+            userId: "u1",
+            profession: "blacksmith",
+            level: 6,
+            craftedAt: new Date(0).toISOString(),
+          },
+        },
+        6,
+      ),
+    ).toMatchObject({
+      materials: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
+      artisanXp: 2,
+    });
+  });
+
   it("returns extra dismantle materials for craft-only quality masterworks", () => {
     const item = V2_EQUIPMENT.v2_crafted_sunforge_blade;
     const plan = guildWorkshopDismantlePlan(

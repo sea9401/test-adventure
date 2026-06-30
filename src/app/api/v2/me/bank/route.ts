@@ -9,7 +9,7 @@ import { resolveCurrentOutpostId } from "@/adventure/data/v2/outpostGraph";
 // POST /api/v2/me/bank — 골드 입금/출금.
 // body: { action: "deposit" | "withdraw", amount: number }
 //
-// 은행 = 토벌 압류로부터 안전한 저축. 입출금은 "안전한 곳"에서만 — 현재 거점이 중립이거나
+// 은행 = 사냥 패배 세금 완충용 저축. 입출금은 "안전한 곳"에서만 — 현재 거점이 중립이거나
 // 내 길드 소유(또는 미점령 NPC)일 때. 다른 길드 점령 거점(침입 중)에선 불가(unsafe_location).
 // → 약탈 나가기 전에 미리 넣어야 하고, 적지에서 위험을 느껴도 숨길 수 없다. 들고 나간 골드가
 //   진짜 리스크가 되는 핵심 게이트.

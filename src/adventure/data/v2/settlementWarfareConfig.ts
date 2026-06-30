@@ -43,6 +43,8 @@ export const RAID_TREASURY_STEAL_FRAC_DEFENDED = 0.1;
 export const RAID_TREASURY_STEAL_FRAC_UNDEFENDED = 0.25;
 // 약탈 준비 — 대상 타일에 이 시간 이상 머문 뒤에만 약탈 가능. 토벌 측이 대응할 시간을 갖게 한다.
 export const RAID_MIN_TILE_STAY_MS = 60 * 60_000;
+// 토벌 성공 — 침입자 보유 골드 전액 + 은행 잔액 일부를 점령 길드 금고로 압류.
+export const EJECT_BANKED_GOLD_STEAL_FRAC = 0.05;
 // 정복 = 수비 큐 전원 격파 + 성벽(fortHp) 누적 공성 완파. 성벽 메커닉은 outpostSiege.ts(FORT_*)
 //   재활용. 함락 시 마을 tier 1단계 강등(대도시→도시→마을, 최하=강등 없이 이관), 금고는 그대로.
 

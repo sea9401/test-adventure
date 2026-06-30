@@ -15,6 +15,7 @@ import {
 import {
   V2_CORE_LOOP_V2,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { EJECT_BANKED_GOLD_STEAL_FRAC } from "@/adventure/data/v2/settlementWarfareConfig";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
   isIntruderActive,
@@ -31,12 +32,16 @@ import {
   isKnownOutpostId,
   parseTileOutpostId,
 } from "@/adventure/data/v2/tileWarfare";
+import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 
 // POST /api/v2/outpost/eject — 점령 길드 멤버가 침입자 1v1 토벌.
 //
 // body: { outpostId, targetUserId }
 // 결과:
-//   - 승리: 침입자 lastHuntedOutpost 삭제 + ejectedFrom 마킹. 다음 hunt 응답에 surface.
+//   - 승리: 침입자 lastHuntedOutpost 삭제 + ejectedFrom 마킹. 보유 전액+은행 일부는 점령 길드 금고로 압류.
 //   - 패배: 도전자만 스태미너/HP 소모, 침입자는 위치 유지 + 전쟁 건강도만 감소.
 // 스태미너 비용 = 사냥 1회와 동일 (HUNT_COST). 토벌은 작은 행위라 placeholder 톤.
 //
@@ -52,6 +57,7 @@ type CharSave = {
   hp?: number;
   hpRegenSince?: number;
   gold?: number;
+  bankedGold?: number;
   tilePos?: { col?: number; row?: number; at?: number };
   lastBattleAt?: number; // 코어루프 사냥 쿨다운. 토벌은 자기 영지 방어라 쿨다운을 보지 않는다.
   lastVisitedOutpost?: { outpostId?: string; at?: number };
@@ -232,22 +238,34 @@ export async function POST(req: Request) {
       now,
     );
 
-    // 토벌 현상금/추방 — 승리 시 침입자 보유(들고 있는) 골드 전액 압류 → 토벌자에게.
-    // 입금분(bankedGold)은 안전 — 은행에 넣어두면 안 뺏긴다. 추가로 침입자를 가장 가까운
-    // 중립 자유도시로 추방(위치 강제 이동). 패배 시 0 / 위치 불변.
+    // 토벌 현상금/추방 — 승리 시 침입자 보유 골드 전액 + 은행 5% 압류 → 점령 길드 금고.
+    // 추가로 침입자를 가장 가까운 중립 자유도시로 추방(위치 강제 이동). 패배 시 0 / 위치 불변.
     const targetGold = Math.max(0, defenderSave.gold ?? 0);
-    const bountyGold = won ? targetGold : 0; // 보유 전액.
-    const hunterGold = Math.max(0, attackerSave.gold ?? 0);
+    const targetBankedGold = Math.max(
+      0,
+      Math.floor(Number(defenderSave.bankedGold) || 0),
+    );
+    const heldBountyGold = won ? targetGold : 0; // 보유 전액.
+    const bankBountyGold = won
+      ? Math.floor(targetBankedGold * EJECT_BANKED_GOLD_STEAL_FRAC)
+      : 0;
+    const bountyGold = heldBountyGold + bankBountyGold;
     const exileToId = won ? nearestNeutralOutpostId(outpostId) : null;
 
-    // === 7. 도전자 저장 (stamina + hp + 현상금) ===
+    // === 7. 도전자 저장 (stamina + hp) ===
     await upsertSave(tx, userId, "character.v2", {
       ...attackerSave,
       stamina: afterStamina,
       hp: attackerHpAfter,
       hpRegenSince: now,
-      gold: hunterGold + bountyGold, // 패배면 bountyGold=0 → 변동 없음.
     });
+
+    if (bountyGold > 0) {
+      const guildResources = await lockGuildResources(tx, occupyingGuildId);
+      await upsertGuildResources(tx, occupyingGuildId, {
+        gold: guildResources.gold + bountyGold,
+      });
+    }
 
     // === 8. 침입자 저장 — 승리 시 토벌 마킹+송환, 패배 시 전쟁 건강도만 갱신 ===
     if (won) {
@@ -270,7 +288,8 @@ export async function POST(req: Request) {
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSaveWithoutLast,
         warVigor: defenderWarVigorAfter,
-        gold: 0, // 보유 골드 전액 압류(입금분은 안전).
+        gold: 0, // 보유 골드 전액 압류.
+        bankedGold: targetBankedGold - bankBountyGold,
         lastVisitedOutpost: { outpostId: exileTarget, at: now }, // 추방.
         tilePos: exileTilePos
           ? { col: exileTilePos.col, row: exileTilePos.row, at: now }
@@ -311,8 +330,10 @@ export async function POST(req: Request) {
         stamina: afterStamina,
         replay,
         attackerGender: attackerProfile.gender,
-        // 토벌 현상금 — 승리 시 침입자 보유 전액 압류분(0이면 침입자 무일푼).
+        // 토벌 현상금 — 승리 시 침입자 보유 전액+은행 일부 압류분.
         bountyGold,
+        heldBountyGold,
+        bankBountyGold,
         // 추방된 중립 자유도시 id (패배 시 null).
         exiledTo: exileToId,
       },
@@ -326,6 +347,8 @@ export async function POST(req: Request) {
     attackerName?: string;
     defenderName?: string;
     bountyGold?: number;
+    heldBountyGold?: number;
+    bankBountyGold?: number;
     exiledTo?: string | null;
   };
   if (fb.ok && fb.won) {
@@ -339,6 +362,8 @@ export async function POST(req: Request) {
       outpostId,
       byName: fb.attackerName ?? "수비대",
       gold: fb.bountyGold ?? 0,
+      heldGold: fb.heldBountyGold ?? 0,
+      bankGold: fb.bankBountyGold ?? 0,
       exiledTo: fb.exiledTo ?? undefined,
     });
   }

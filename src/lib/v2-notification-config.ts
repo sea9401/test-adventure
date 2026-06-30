@@ -35,9 +35,16 @@ export type V2NotificationPayload =
     }
   // outpost_lost — 함락(attackerLabel) 또는 NPC 정기공격에 점령 풀림(byNpc).
   | { outpostId: string; byNpc?: boolean; attackerLabel?: string | null }
-  // ejected — 침입 중이던 거점에서 토벌당함. gold = 압류된 보유 골드(0 이면 무손실),
+  // ejected — 침입 중이던 거점에서 토벌당함. gold = 총 압류 골드(보유 전액+은행 일부),
   //   exiledTo = 추방된 중립 자유도시 id(클라에서 OUTPOST_BY_ID 해석).
-  | { outpostId: string; byName: string; gold?: number; exiledTo?: string }
+  | {
+      outpostId: string;
+      byName: string;
+      gold?: number;
+      heldGold?: number;
+      bankGold?: number;
+      exiledTo?: string;
+    }
   // title_unlocked — 칭호 획득. titleName 은 지급 시점 스냅샷(히든 칭호도 알림에 표시).
   | {
       titleId: string;

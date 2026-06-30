@@ -313,15 +313,30 @@ function craftResultHeadline(result: CraftResultView): string {
 
 function craftResultMessage(result: CraftResultView): string {
   if (result.craftQualityLevel >= 2) {
-    return "최상급 품질이 붙어 장비 위력이 10% 증가합니다.";
+    return result.masterwork
+      ? "최상급 품질과 명장 각인이 함께 붙어 장비 위력이 10% 증가합니다."
+      : "최상급 품질이 붙어 장비 위력이 10% 증가합니다.";
   }
   if (result.craftQualityLevel >= 1) {
-    return "고품질 단조가 성공해 장비 위력이 5% 증가합니다.";
+    return result.masterwork
+      ? "고품질 단조와 명장 각인이 함께 적용되어 장비 위력이 5% 증가합니다."
+      : "고품질 단조가 성공해 장비 위력이 5% 증가합니다.";
   }
   if (result.masterwork) {
-    return "명장 제작품으로 각인됐지만 이번 제작에는 품질 보너스가 붙지 않았습니다.";
+    return "품질은 기본이지만 명장 각인은 남고, 명장 전용 납품/거래 가치는 유지됩니다.";
   }
   return "기본 품질로 완성됐습니다. 제작자 각인과 숙련도는 정상 적용됩니다.";
+}
+
+function craftResultMasterworkSummary(result: CraftResultView): string | null {
+  if (!result.masterwork) return null;
+  const qualityText =
+    result.craftQualityLevel >= 2
+      ? "★★ 품질 성공"
+      : result.craftQualityLevel >= 1
+        ? "★ 품질 성공"
+        : "기본 품질";
+  return `명장 각인 적용 · 품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · ${qualityText} · 거래/납품 가치 보존`;
 }
 
 function craftResultTone(result: CraftResultView): {
@@ -835,6 +850,9 @@ export function GuildWorkshopPanel({
     ? craftQualityFromLevel(craftResult.craftQualityLevel)
     : undefined;
   const craftResultVisual = craftResult ? craftResultTone(craftResult) : null;
+  const craftResultMasterworkLine = craftResult
+    ? craftResultMasterworkSummary(craftResult)
+    : null;
   const filteredDismantleCandidates = useMemo(() => {
     const candidates = [...(dismantle?.candidates ?? [])].filter(
       (item) =>
@@ -1953,6 +1971,11 @@ export function GuildWorkshopPanel({
             <div className="mt-1 text-[11px] text-zinc-600 dark:text-zinc-300">
               {craftResultMessage(craftResult)}
             </div>
+            {craftResultMasterworkLine ? (
+              <div className="mt-1 rounded border border-rose-200 bg-white/70 px-2 py-1 text-[11px] font-medium text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-100">
+                {craftResultMasterworkLine}
+              </div>
+            ) : null}
           </div>
           <div className="grid gap-2 px-3 py-2 text-zinc-700 dark:text-zinc-200 sm:grid-cols-[1fr_auto] sm:items-center">
             <div className="min-w-0">

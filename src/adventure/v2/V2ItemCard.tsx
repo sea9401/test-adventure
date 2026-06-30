@@ -129,6 +129,10 @@ export type ItemCardEquipAction = {
   onUnequip: () => void;
 };
 
+export type ItemCardCompareAction = {
+  onCompare: () => void;
+};
+
 // 인벤토리에서만 주입 — 즐겨찾기 잠금 토글(헤더). 잠금 = 일괄/실수 판매 방지.
 export type ItemCardLockAction = {
   locked: boolean;
@@ -144,6 +148,7 @@ export function V2ItemCard({
   enhance,
   craftedBy,
   equip,
+  compare,
   lock,
   equippedIds,
 }: {
@@ -158,6 +163,8 @@ export function V2ItemCard({
   craftedBy?: V2CraftedBy;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
+  // 인벤토리에서만 주입 — 같은 슬롯 장착 장비가 있을 때 사용자가 원할 때 비교 모달로 전환.
+  compare?: ItemCardCompareAction;
   // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
   lock?: ItemCardLockAction;
   // 현재 착용 중인 장비 id 집합 — 세트 발동(전 부위 착용) 판정 + 부위별 착용 하이라이트.
@@ -455,17 +462,34 @@ export function V2ItemCard({
           </p>
         )}
 
-        {equip && (
-          <Button
-            onClick={equip.isEquipped ? equip.onUnequip : equip.onEquip}
-            disabled={equip.busy}
-            variant={equip.isEquipped ? "secondary" : "success"}
-            size="md"
-            fullWidth
-            className="mt-3"
-          >
-            {equip.busy ? "처리 중…" : equip.isEquipped ? "해제" : "장착하기"}
-          </Button>
+        {(compare || equip) && (
+          <div className="mt-3 space-y-2">
+            {compare && (
+              <Button
+                onClick={compare.onCompare}
+                variant="secondary"
+                size="md"
+                fullWidth
+              >
+                비교
+              </Button>
+            )}
+            {equip && (
+              <Button
+                onClick={equip.isEquipped ? equip.onUnequip : equip.onEquip}
+                disabled={equip.busy}
+                variant={equip.isEquipped ? "secondary" : "success"}
+                size="md"
+                fullWidth
+              >
+                {equip.busy
+                  ? "처리 중…"
+                  : equip.isEquipped
+                    ? "해제"
+                    : "장착하기"}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </>

@@ -28,6 +28,7 @@ export default function DungeonFloorPage() {
     viewerExpToNext,
     playerSubtitle,
     viewerProficiency,
+    setViewerProficiency,
     stamina,
     setStamina,
     hpCharges,
@@ -43,6 +44,7 @@ export default function DungeonFloorPage() {
     combatCooldown,
     setCombatCooldown,
     setAtRiskGold,
+    setGold,
     offlineHunt,
   } = useGameState();
 
@@ -95,6 +97,8 @@ export default function DungeonFloorPage() {
       combatCooldown={combatCooldown}
       setCombatCooldown={setCombatCooldown}
       setAtRiskGold={setAtRiskGold}
+      onGoldChange={setGold}
+      onProficiencyChange={setViewerProficiency}
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

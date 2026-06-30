@@ -98,6 +98,8 @@ export function V2DungeonFloorView({
   combatCooldown,
   setCombatCooldown,
   setAtRiskGold,
+  onGoldChange,
+  onProficiencyChange,
   offlineHunt,
   onRefresh,
 }: {
@@ -147,6 +149,9 @@ export function V2DungeonFloorView({
   setCombatCooldown?: (c: { nextBattleAt: number; cooldownMs: number } | null) => void;
   // 위험 골드 갱신 — 사냥 응답의 atRiskGold 를 전역(V2TopBar 뱃지)으로 반영.
   setAtRiskGold?: (n: number | null) => void;
+  // 사냥으로 변한 공용 자원 readout 동기화 — 같은 layout 내 은행/상단 상태가 stale 해지지 않게 한다.
+  onGoldChange?: (n: number) => void;
+  onProficiencyChange?: (n: number | null) => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
@@ -193,6 +198,14 @@ export function V2DungeonFloorView({
     hasMp: boolean;
     proficiency?: number | null;
   } | null>(null);
+  const [latestProficiencyState, setLatestProficiencyState] = useState<{
+    base: number | null;
+    value: number | null;
+  }>(() => ({ base: playerProficiency, value: playerProficiency }));
+  const latestProficiency =
+    latestProficiencyState.base === playerProficiency
+      ? latestProficiencyState.value
+      : playerProficiency;
   const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
   const statusMaxExp =
     lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? initialMaxExp;
@@ -203,7 +216,7 @@ export function V2DungeonFloorView({
   // "직업 숙련도" 상시 readout — 최신 사냥값(단판 masteryAfter / 일괄 proficiencyAfter) 우선,
   //   없으면 화면 진입 시점 값(playerProficiency). null = 모험가(무직업) → 카드에서 줄 생략.
   const statusProficiency =
-    lastResult?.masteryAfter ?? batchStatus?.proficiency ?? playerProficiency;
+    lastResult?.masteryAfter ?? batchStatus?.proficiency ?? latestProficiency;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
@@ -380,6 +393,14 @@ export function V2DungeonFloorView({
         replays: b.replays,
       });
       if (b.rareMapRunsLeft != null) setRareMapRunsLeft(b.rareMapRunsLeft);
+      if (typeof b.finalGoldAfter === "number") onGoldChange?.(b.finalGoldAfter);
+      if (b.proficiencyAfter !== undefined) {
+        setLatestProficiencyState({
+          base: playerProficiency,
+          value: b.proficiencyAfter,
+        });
+        onProficiencyChange?.(b.proficiencyAfter);
+      }
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
       setBatchStatus({
         exp: b.expAfter ?? 0,
@@ -465,6 +486,14 @@ export function V2DungeonFloorView({
           recordHp(r);
           recordMp(r);
           if (r.rareMapRunsLeft != null) setRareMapRunsLeft(r.rareMapRunsLeft);
+          if (typeof r.goldAfter === "number") onGoldChange?.(r.goldAfter);
+          if (r.masteryAfter !== undefined) {
+            setLatestProficiencyState({
+              base: playerProficiency,
+              value: r.masteryAfter,
+            });
+            onProficiencyChange?.(r.masteryAfter);
+          }
           if (r.levelsGained > 0) onLevelUp?.();
           if (
             isChallenge &&

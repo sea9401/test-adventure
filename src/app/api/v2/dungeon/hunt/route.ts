@@ -1062,6 +1062,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         masteryGained, // 직업 숙련도 획득(승리·직업 보유 시 +1).
         masteryAfter, // 상시 카드 readout — 사냥 후 현재 직업 숙련도(none=null).
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
+        goldAfter: newGold, // 사냥 후 최종 보유 골드 — 클라 공용 상태 즉시 동기화용.
         goldGross,
         goldTaxed,
         // 코어루프 패배 세금 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
@@ -1259,6 +1260,7 @@ export async function POST(req: Request) {
     let mpCharges: number | null = null;
     let playerMaxMp: number | null = null;
     let finalMpAfter: number | null = null;
+    let finalGoldAfter: number | null = null;
     let ejected: EjectedFrom | null = null;
     const replays: Array<{
       index: number;
@@ -1332,6 +1334,7 @@ export async function POST(req: Request) {
       lastStamina = r.body.stamina;
       finalHpAfter = res.hpAfter;
       finalMpAfter = res.mpAfter ?? finalMpAfter;
+      finalGoldAfter = res.goldAfter ?? finalGoldAfter;
       if (res.maxMp != null) playerMaxMp = res.maxMp;
       finalMaxHp = res.maxHp;
       finalMaxDepth = res.maxDepth;
@@ -1393,6 +1396,7 @@ export async function POST(req: Request) {
           finalHpAfter,
           finalMaxHp,
           finalMpAfter,
+          finalGoldAfter,
           finalMaxDepth,
           expAfter,
           maxExpAfter,

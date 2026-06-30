@@ -598,6 +598,30 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 18, dex: 8 },
     unlock: { prereqs: { phantom: TIER5_UNLOCK_CUMLEVEL } },
   },
+  saint: {
+    id: "saint",
+    name: "성자",
+    tier: 5,
+    cultivateProfile: { spi: 2, int: 1, vit: 1 },
+    jobBonus: { spi: 18, vit: 6, int: 2 },
+    unlock: { prereqs: { archbishop: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  plaguebringer: {
+    id: "plaguebringer",
+    name: "역병 군주",
+    tier: 5,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 19, dex: 7 },
+    unlock: { prereqs: { venomlord: TIER5_UNLOCK_CUMLEVEL } },
+  },
+  adamantmonk: {
+    id: "adamantmonk",
+    name: "금강승",
+    tier: 5,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { vit: 20, spi: 6 },
+    unlock: { prereqs: { battlemonk: TIER5_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -777,6 +801,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   arcanist: { class: "mage", spec: "arcanist" },
   marksman: { class: "rogue", spec: "marksman" },
   nightshade: { class: "rogue", spec: "nightshade" },
+  saint: { class: "mage", spec: "saint" },
+  plaguebringer: { class: "rogue", spec: "plaguebringer" },
+  adamantmonk: { class: "martial", spec: "adamantmonk" },
 };
 
 /**

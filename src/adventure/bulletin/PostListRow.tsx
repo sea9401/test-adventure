@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { ChatCircle, Eye, Heart } from "@phosphor-icons/react";
+import { ChatCircle, Eye, Heart, UsersThree } from "@phosphor-icons/react";
 import { formatDate } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
@@ -41,6 +41,15 @@ function PostListRowImpl({ post, onOpen }: Props) {
           <span className={`min-w-0 flex-1 truncate text-sm ${titleClass}`}>
             {displayTitle}
           </span>
+          {post.scope === "guild" && (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+              title={post.guildName ?? "길드 전용"}
+            >
+              <UsersThree size={11} weight="bold" />
+              길드
+            </span>
+          )}
           {post.commentCount > 0 && (
             <span
               className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400"

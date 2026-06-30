@@ -8,6 +8,7 @@ import {
   Heart,
   PencilSimple,
   Trash,
+  UsersThree,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { formatDateTime } from "@/lib/notifications";
@@ -87,6 +88,12 @@ export function PostDetailPage({
             >
               {BULLETIN_CATEGORY_LABELS[post.category].name}
             </span>
+            {post.scope === "guild" && (
+              <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <UsersThree size={11} weight="bold" />
+                {post.guildName == null ? "길드 전용" : `${post.guildName} 전용`}
+              </span>
+            )}
             {post.mine || post.category === "notice" ? (
               // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
               <span className="font-semibold text-zinc-700 dark:text-zinc-200">

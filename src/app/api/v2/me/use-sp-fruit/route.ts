@@ -21,7 +21,7 @@ import {
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/use-sp-fruit — SP 열매(협동 보스 드랍 소모품) 1개 사용 → SP 최대치 +1(영구).
-//   body { tier } — 1|2|3. 보유(character.v2.materials[materialId]) + 사용 캡(spFruitUsed[tier] <
+//   body { tier } — 1|2|3|4. 보유(character.v2.materials[materialId]) + 사용 캡(spFruitUsed[tier] <
 //   useCap) 검증 → 재료 1 소모 + 사용 횟수 +1. 캡 도달분은 사용 차단(거래소 거래만).
 //   락: character.v2(소모/사용기록 쓰기) → proficiency.v2(예산 산정용·비잠금 읽기, 단조 증가라
 //   stale 안전). use-stamina-potion 라우트 패턴 미러.

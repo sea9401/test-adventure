@@ -1676,3 +1676,96 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after.log.some((e) => e.text.includes("얼어붙어"))).toBe(true);
   });
 });
+
+describe("저주 (curse) 스킬 — 협동 보스 공허 기믹", () => {
+  const curseEnemy = (over: Partial<Monster> = {}) =>
+    makeEnemy({
+      hp: 1000,
+      atk: 100,
+      def: 0,
+      spd: 5,
+      skill: {
+        kind: "curse",
+        name: "공허의 저주",
+        perHit: 2,
+        dmgPerStack: 30,
+        threshold: 4,
+        damageTakenPctPerStack: 10,
+        maxDamageTakenPct: 30,
+      },
+      ...over,
+    });
+  const tank: PlayerCombat = {
+    ...PLAYER,
+    hp: 500,
+    maxHp: 500,
+    def: 0,
+    magicDef: 0,
+  };
+
+  it("적 공격이 적중하면 저주가 누적되고, 남은 스택이 받는 피해를 증폭한다", () => {
+    const enemy = curseEnemy();
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, curseStacks: 3 },
+    };
+    const after = advanceTurn(primed, tank, "P");
+    // 시작 저주 3스택 → 받는 피해 +30%. atk100/magicDef0 = 100 → 130, 이후 적중 저주 +2.
+    expect(after.playerHp).toBe(370);
+    expect(after.stacks.curseStacks).toBe(5);
+    expect(
+      after.log.some((e) => e.text.includes("[저주 +30%]")),
+    ).toBe(true);
+  });
+
+  it("threshold 이상이면 적 페이즈 시작에 폭발하고 threshold 만큼 소모된다", () => {
+    const enemy = curseEnemy({
+      atk: 1,
+      skill: {
+        kind: "curse",
+        name: "공허의 저주",
+        perHit: 0,
+        dmgPerStack: 30,
+        threshold: 4,
+        magicDefMitigationFraction: 0.5,
+        damageTakenPctPerStack: 10,
+      },
+    });
+    const warded: PlayerCombat = { ...tank, magicDef: 50 };
+    const s0 = initialBattleState(warded, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, curseStacks: 5 },
+    };
+    const after = advanceTurn(primed, warded, "P");
+    // 폭발: 5×30 - magicDef50×0.5 = 125. 이후 1스택만 남아 평타 바닥 1.
+    expect(after.playerHp).toBe(374);
+    expect(after.stacks.curseStacks).toBe(1);
+    expect(
+      after.log.some((e) => e.text.includes("125 피해") && e.text.includes("5→1")),
+    ).toBe(true);
+  });
+
+  it("status_block_once 가 첫 저주 부여를 막는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const protectedPlayer: PlayerCombat = {
+      ...tank,
+      equipSignatures: [
+        { trigger: "status_block_once", label: "봉인 성물", statusBlockOnce: true },
+      ],
+    };
+    const enemy = curseEnemy({ atk: 1 });
+    const s0 = initialBattleState(protectedPlayer, enemy, "P");
+    const after = advanceTurn(
+      { ...s0, phase: "enemy" as const },
+      protectedPlayer,
+      "P",
+    );
+    expect(after.stacks.curseStacks).toBe(0);
+    expect(after.flags.statusBlockUsed).toBe(true);
+    expect(after.log.some((e) => e.text.includes("[봉인 성물]"))).toBe(true);
+  });
+});

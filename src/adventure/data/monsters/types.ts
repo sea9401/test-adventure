@@ -45,6 +45,9 @@ export type MonsterPhaseTrigger = {
 //                시작 시 스택이 threshold 이상이면 스택당 dmgPerStack 고정 피해 (DEF·보호막 무시).
 //                deepHpFraction 지정 시 적 HP 가 그 비율 미만이면 perHit 가 2배 (깊은 한기).
 //                무한 탱킹을 막는 시간압 기믹 — 「별을 잊은 것」(6막) 의 정체.
+//  - curse:      이 적의 공격이 적중할 때마다 플레이어에 저주 perHit 스택 누적. 적 페이즈
+//                시작 시 threshold 이상이면 스택당 dmgPerStack 피해 후 threshold 만큼 소모된다.
+//                남은 스택은 적에게 받는 피해를 증폭한다. 마법방어·상태이상 1회 방어로 대응.
 // name 은 전투 로그에 [name] 으로 찍힌다.
 export type MonsterSkill =
   | { kind: "heavy_blow"; name: string; everyPhases: number; multiplier: number }
@@ -70,6 +73,25 @@ export type MonsterSkill =
        * 미지정/0 = 효과 없음. 적 공격 회피 굴림 때 stacks×이 값만큼 차감(회피 0 하한).
        */
       evasionPenaltyPerStack?: number;
+    }
+  | {
+      kind: "curse";
+      name: string;
+      perHit: number;
+      dmgPerStack: number;
+      threshold: number;
+      deepHpFraction?: number;
+      /** 저주 스택 상한. 미지정 = 무제한. 보스 다대시와 결합한 폭주 방지용. */
+      maxStacks?: number;
+      /**
+       * 마법방어 부분감산 계수(0~1). 저주 폭발에서 플레이어 magicDef×이 값만큼 피해를 깎는다.
+       * 미지정/0 = 마법방어 무시. 하한 1.
+       */
+      magicDefMitigationFraction?: number;
+      /** 저주 스택당 받는 피해 증가(%). 남은 스택 기준으로 적 평타 피해에 곱연산. */
+      damageTakenPctPerStack?: number;
+      /** 받는 피해 증가 상한(%). 미지정 = 상한 없음. */
+      maxDamageTakenPct?: number;
     };
 
 export type Monster = {
@@ -190,4 +212,3 @@ export const STARLIT_KEEP_RECIPES: readonly string[] = [
   "starlit_twinblades_luk", "starlit_dagger_spd", "starlit_dagger_luk",
   "starlit_armor_luk",
 ];
-

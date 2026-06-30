@@ -850,6 +850,7 @@ export function resolvePlayerPhase(
     stacks: {
       ...state.stacks,
       chillStacks: shouldCleanseDebuffs ? 0 : state.stacks.chillStacks,
+      curseStacks: shouldCleanseDebuffs ? 0 : state.stacks.curseStacks,
       evadesRemaining: state.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
       comboAtkBonus: nextComboAtkBonus,

@@ -21,7 +21,11 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
-import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
+import {
+  SP_FRUIT,
+  parseSpFruitUsed,
+  type SpFruitTier,
+} from "@/adventure/data/v2/spFruit";
 import {
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -147,11 +151,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   // SP 열매 등급별 사용 횟수(캐릭터당 캡 표시·캡 도달 시 사용 차단). /me/inventory 동봉.
-  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>({
-    1: 0,
-    2: 0,
-    3: 0,
-  });
+  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>(
+    () => parseSpFruitUsed(undefined),
+  );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   // busy key = 처리 중인 개체 iid 또는 슬롯(해제). null 이면 유휴.
@@ -181,11 +183,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           spFruitUsed?: Partial<Record<SpFruitTier, number>>;
         };
         setMaterials(j.materials ?? {});
-        setSpFruitUsed({
-          1: j.spFruitUsed?.[1] ?? 0,
-          2: j.spFruitUsed?.[2] ?? 0,
-          3: j.spFruitUsed?.[3] ?? 0,
-        });
+        setSpFruitUsed(parseSpFruitUsed(j.spFruitUsed));
       }
       if (equipRes.ok) {
         const j = (await equipRes.json()) as {

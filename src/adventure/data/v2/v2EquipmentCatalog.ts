@@ -612,7 +612,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 협동 보스 토벌 보상으로만 획득(coopBosses, 일반 사냥 풀·상점·제작 제외). 토벌이 의도적
   // 고스태미나 단판이라 드랍률은 밴드 풀보다 높게(보스당 단일 풀). 위력은 그 밴드 정규 유니크보다
   // 한 끗 위 — "보스 처치 = 그 테마 최고 트로피" 체감. 아트는 보스 이미지와 결만 맞춘 플레이버.
-  // 협동 보스 전용 시그니처 유니크 3종(2026-06-26 재설계) — 보스 토벌 EPIC+ 확률 드랍.
+  // 협동 보스 전용 시그니처 유니크 — 보스 토벌 EPIC+ 확률 드랍.
   //   id 는 옛 휴면 유니크 재활용(보유분 호환). 차별점 = 시그니처 발동 효과 + 슬롯 관습 깨는 개성 옵션.
   v2_boss_mountain_axe: {
     id: "v2_boss_mountain_axe",
@@ -712,6 +712,41 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
       hpThresholdPct: 35,
       damageTakenReductionPct: 25,
     },
+  },
+  // 4단 협동 보스 — 공허의 대사제. 공격 옵션을 거의 빼고 방어/저주 대응에 몰아준 탱커 보상.
+  v2_boss_void_bastion: {
+    id: "v2_boss_void_bastion",
+    slot: "armor",
+    concept: "heavy",
+    tier: 12,
+    name: "공허성벽",
+    description:
+      "공허의 대사제가 두른 봉인 갑주. 맞을수록 균열이 닫히며, 방어 계수를 쓰는 전열에게 특히 묵직하다.",
+    power: 205,
+    weight: 16,
+    options: { hp: 520, def: 64, magicDef: 36, critResist: 16 },
+    rarity: "unique",
+    setId: "void_bastion",
+    signature: {
+      trigger: "on_hit_taken",
+      label: "공허성벽",
+      defGainOnHitPct: 40,
+    },
+  },
+  v2_boss_void_reliquary: {
+    id: "v2_boss_void_reliquary",
+    slot: "necklace",
+    concept: "mana",
+    tier: 12,
+    name: "봉인 성물",
+    description:
+      "저주의 핵을 비워 낸 성물. 첫 저주와 독기를 흘려보내고, 남은 마력은 방벽으로 굳는다.",
+    power: 68,
+    weight: 0,
+    options: { hp: 260, mp: 120, magicDef: 38, healPowerPct: 6, critResist: 14 },
+    rarity: "unique",
+    setId: "void_bastion",
+    signature: { trigger: "status_block_once", label: "봉인 성물", statusBlockOnce: true },
   },
 
   // ── 마른 협곡 밴드 드랍 (깊이 7~12, T4) ───────────────────────────────

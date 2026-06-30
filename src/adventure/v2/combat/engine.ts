@@ -218,6 +218,9 @@ export type BattleStacks = {
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
   chillStacks: number;
+  // 저주 (curse 스킬) — 플레이어에 누적되는 저주 스택. threshold 이상이면 적 페이즈 시작에 폭발하며
+  // threshold 만큼 소모되고, 남은 스택은 적 평타 피해를 증폭한다. 마법방어/상태방어 대응 축.
+  curseStacks: number;
   // 철벽 (4티어) — 남은 보호막. 받는 피해를 먼저 흡수. 회복 안 됨.
   playerShield: number;
   // 회피 강화로 적립된 보장 회피 잔량 — enemy phase 에서 % 회피 판정 전에 우선 소모.
@@ -1339,6 +1342,7 @@ export function initialBattleState(
     },
     stacks: {
       chillStacks: 0,
+      curseStacks: 0,
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,

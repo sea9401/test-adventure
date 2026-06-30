@@ -5,7 +5,7 @@
 //   누적 데미지로 깎음(1회 공격 = COOP_ATTACK_TURNS 턴 시뮬, 보스가 반격) → 처치 시
 //   기여도 비율 5티어 보상(골드 + 보스 전용 유니크 확률 + 첫 처치 칭호).
 //
-// 옛 솔로 "보스 도전"(#622 파일럿, dungeonBosses.ts)은 이 시스템으로 대체 — 보스 3종의
+// 옛 솔로 "보스 도전"(#622 파일럿, dungeonBosses.ts)은 이 시스템으로 대체 — 기존 보스들의
 // 이름/아트/스킬/유니크/칭호 자산은 그대로 협동 보스로 승계(보유 유저 호환).
 // DB 는 v1 협동 인프라(coop_boss_sessions/contributors/attack_log) 재사용 — regionId
 // 컬럼에 CoopBossKindId 를 넣는다(v1 COOP_BOSSES 는 빈 맵이라 cron/respawn 과 충돌 없음).
@@ -74,7 +74,7 @@ export function coopTierForRatio(ratio: number): CoopRewardTier | null {
 // 협동 보스 보상 개편(2026-06-26·오너): 골드·유니크·칭호 보상 폐지. 보상은 **SP 열매**뿐.
 //   도달한 각 보상 티어를 **독립 굴림**한다 — 통과 시 그 보스 등급 열매 1개. BRONZE/SILVER 는
 //   0(GOLD 부터). LEGEND 도달 = GOLD+EPIC+LEGEND 세 번 굴림 = 최대 3개. 전 보스 공통 확률.
-//   ⚠️ 캘리브 다이얼. 열매 등급은 보스 고유(산악→I·협곡→II·호수→III, spFruit.fruitTierForBoss).
+//   ⚠️ 캘리브 다이얼. 열매 등급은 보스 고유(산악→I·협곡→II·호수→III·공허→IV, spFruit.fruitTierForBoss).
 export const COOP_SP_FRUIT_CHANCE: Record<CoopRewardTier, number> = {
   bronze: 0,
   silver: 0,
@@ -201,7 +201,8 @@ export const MAX_ACTIVE_PER_KIND = 20;
 export type CoopBossKindId =
   | "mountain_chief"
   | "canyon_predator"
-  | "lake_sovereign";
+  | "lake_sovereign"
+  | "void_priest";
 
 // 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
 // stateless 라 페이즈를 "현재 상태"로 미리 구워 넣는다 — 토벌이 진행될수록 모두에게
@@ -327,10 +328,46 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   v2MaxMp: 105,
 };
 
+const VOID_PRIEST_BASE: Monster = {
+  name: "공허의 대사제",
+  tags: ["undead", "spirit"],
+  image: "/images/monster/v2/throne-abyss-executor.webp",
+  element: "void",
+  atkType: "magic",
+  hp: 760,
+  atk: 42,
+  def: 18,
+  spd: 14,
+  critPct: 18,
+  critMult: 1.6,
+  exp: 120,
+  // 저주 레이드 기믹 — 맞으면 저주가 쌓이고, 임계 도달 시 폭발한 뒤 남은 스택이 받는 피해를 키운다.
+  // magicDef/critResist/상태방어 장비가 대응축. 35% 이하부터 perHit 2배로 막판 압박을 만든다.
+  skill: {
+    kind: "curse",
+    name: "공허의 저주",
+    perHit: 1,
+    threshold: 4,
+    dmgPerStack: 45,
+    maxStacks: 12,
+    magicDefMitigationFraction: 0.35,
+    damageTakenPctPerStack: 4,
+    maxDamageTakenPct: 32,
+    deepHpFraction: 0.35,
+  },
+  armorVulnerable: 0.18,
+  playerDefVulnerable: 0.2,
+  dropQualityBias: 4,
+  onDefeatTitleId: "v2_boss_void_priest",
+  bonusAttackChancePct: 50,
+  v2Skills: { learned: ["mob_arcane_nova"], equipped: ["mob_arcane_nova"] },
+  v2MaxMp: 140,
+};
+
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현 3종(HP ×2 리워크): 30k→6h · 80k→16h · 200k→24h(캡). HP 2배라 토벌 시간도 비례 확대.
+// 현재 사다리: 30k→6h · 80k→16h · 200k→24h(캡) · 420k→24h(캡).
 export const COOP_DURATION_HP_PER_HOUR = 5_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
@@ -351,7 +388,7 @@ export function coopBossDurationLabel(kind: CoopBossKind): string {
   return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
 }
 
-// 3단 사다리 — 소환서 10/15/20장, 시뮬 스탯은 깊이 12/24/42 스케일(상위 보스일수록
+// 4단 사다리 — 소환서 10/15/20/30장, 시뮬 스탯은 깊이 12/24/42/60 스케일(상위 보스일수록
 // 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·보상은 ⚠️ 라이브 캘리브.
 // 보상 = SP 열매뿐(COOP_SP_FRUIT_CHANCE·티어별 확률 굴림). 골드·유니크·칭호 보상 폐지(2026-06-26).
 export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
@@ -466,6 +503,42 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "얼어붙는 손길 — 한기 누적(맞을수록 고정 피해·회피 감소)",
       "한기 — 둔화",
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(방어력·공격력)",
+    ],
+  },
+  void_priest: {
+    id: "void_priest",
+    name: "공허의 대사제",
+    desc: "검은 왕도의 봉인 아래 남은 대사제. 맞설수록 저주가 깊어지고, 남은 저주는 다음 일격을 더 무겁게 만든다.",
+    scrollCost: 30,
+    sharedMaxHp: 420_000,
+    anchorDepth: 60,
+    base: VOID_PRIEST_BASE,
+    uniqueIds: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
+    titleId: "v2_boss_void_priest",
+    enrageStages: [
+      {
+        hpFraction: 0.75,
+        note: "봉인의 문양이 갈라진다 (방어력 상승)",
+        defBonus: 8,
+      },
+      {
+        hpFraction: 0.5,
+        note: "공허의 저주가 짙어진다! (공격력·방어력 상승)",
+        atkMult: 1.2,
+        defBonus: 10,
+      },
+      {
+        hpFraction: 0.25,
+        note: "대사제가 공허문을 열었다! (공격력·방어력·회피 상승)",
+        atkMult: 1.25,
+        defBonus: 12,
+        evasionBonus: 6,
+      },
+    ],
+    traits: [
+      "공허의 저주 — 적중 시 저주 누적, 임계 도달 시 폭발 후 남은 저주는 받는 피해 증가",
+      "마법 치명 — 마법방어와 치명저항으로 대응",
+      "발악 — HP 75%·50%·25% 단계로 점점 강해짐(방어력·공격력·회피)",
     ],
   },
 };

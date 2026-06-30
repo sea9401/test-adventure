@@ -413,12 +413,19 @@ export function resolveBattleAtb(
           // 시전 = 이 틱의 적 행동. 평타 루프 대신 skipBasicAttack=true 로 한기 틱·페이즈 전환만
           //   (skip 분기가 자체 finishEnemyAttack → 평타 한 번도 안 굴림, 더블어택 방지).
           const prevLogLen = state.log.length;
-          state = resolveEnemyPhase(state, atbPlayer, playerName, false, true);
+          state = resolveEnemyPhase(state, atbPlayer, playerName, true, true);
           state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
         } else if (!enemyCastFired) {
+          let enteringEnemyPhase = true;
           while (state.phase === "enemy") {
             const prevLogLen = state.log.length;
-            state = resolveEnemyPhase(state, atbPlayer, playerName, false);
+            state = resolveEnemyPhase(
+              state,
+              atbPlayer,
+              playerName,
+              enteringEnemyPhase,
+            );
+            enteringEnemyPhase = false;
             state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
             if (state.phase === "ended") break;
             if (state.turn.enemyAttacksLeft <= 0) state = finishEnemyAttack(state);

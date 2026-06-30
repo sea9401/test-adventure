@@ -104,6 +104,69 @@ export function resolveEnemyPhase(
     state = chilled;
   }
 
+  // ── 저주 (curse) — 임계 이상 누적되면 적 페이즈 시작에 폭발 후 일부 소모 ──────
+  // 한기보다 공격적이다. 폭발 피해는 magicDef 로 부분 감산되고, 남은 스택은 아래 평타 피해 증폭에
+  // 사용된다. 오래 맞아 버티는 빌드도 마법방어/상태방어 없이 무한 버티지 못하게 하는 레이드 압박.
+  const curseSkill =
+    state.enemy.skill?.kind === "curse" ? state.enemy.skill : null;
+  if (
+    curseSkill &&
+    enteringEnemyPhase &&
+    curseSkill.dmgPerStack > 0 &&
+    state.stacks.curseStacks >= curseSkill.threshold
+  ) {
+    const curseStacksBefore = state.stacks.curseStacks;
+    const curseMagicDefCut = Math.round(
+      (player.magicDef ?? 0) * (curseSkill.magicDefMitigationFraction ?? 0),
+    );
+    const curseDmgRaw = Math.max(
+      1,
+      curseStacksBefore * curseSkill.dmgPerStack - curseMagicDefCut,
+    );
+    const curseDmgAfterResolve =
+      state.buffs.playerDmgReductionTurnsLeft > 0 &&
+      state.buffs.playerDmgReductionPct > 0
+        ? Math.floor(curseDmgRaw * (1 - state.buffs.playerDmgReductionPct / 100))
+        : curseDmgRaw;
+    const endurePct = player.enchantEndurePct ?? 0;
+    const curseDmgAfterEndure =
+      endurePct > 0
+        ? Math.floor(curseDmgAfterResolve * (1 - endurePct / 100))
+        : curseDmgAfterResolve;
+    const curseDmg = Math.max(1, curseDmgAfterEndure);
+    const afterCurseHp = Math.max(0, state.playerHp - curseDmg);
+    const curseStacksAfter = Math.max(
+      0,
+      curseStacksBefore - curseSkill.threshold,
+    );
+    const cursed: BattleState = {
+      ...state,
+      playerHp: afterCurseHp,
+      stacks: {
+        ...state.stacks,
+        curseStacks: curseStacksAfter,
+        damageTakenThisCombat:
+          state.stacks.damageTakenThisCombat + (state.playerHp - afterCurseHp),
+      },
+      log: appendLog(state.log, {
+        kind: "info",
+        text: `[저주] ${curseSkill.name} — 저주가 폭발해 ${curseDmg} 피해 (스택 ${curseStacksBefore}→${curseStacksAfter})`,
+      }),
+    };
+    if (afterCurseHp <= 0) {
+      return {
+        ...cursed,
+        log: appendLog(cursed.log, {
+          kind: "info",
+          text: `${playerName}이(가) 저주에 삼켜져 쓰러졌다...`,
+        }),
+        phase: "ended",
+        outcome: "lose",
+      };
+    }
+    state = cursed;
+  }
+
   // 몹 스킬 시전 턴 — 평타(다대시 포함) 전체 생략. 스킬이 이 턴의 공격이라 데미지/회피/반사 스킵.
   //   한기는 위에서 이미 틱. enemyAttacksLeft=1 로 두고 finishEnemyAttack → 잔여 평타까지 종료
   //   (스킬이 평타를 대체 = 플레이어와 대칭, 몹 스킬+평타 더블어택 버그 수정). 골든 몹은 스킬 미시전
@@ -518,15 +581,28 @@ export function resolveEnemyPhase(
         ? skill.perHit * 2
         : skill.perHit
       : 0;
+  const curseAdd =
+    skill?.kind === "curse"
+      ? state.enemyHp < state.enemy.hp * (skill.deepHpFraction ?? 0)
+        ? skill.perHit * 2
+        : skill.perHit
+      : 0;
   const sigStatusBlock = statusBlockOnce(player.equipSignatures);
   const statusBlockChill =
     chillAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
+  const statusBlockCurse =
+    curseAdd > 0 && !!sigStatusBlock && !state.flags.statusBlockUsed;
   const effectiveChillAdd = statusBlockChill ? 0 : chillAdd;
+  const effectiveCurseAdd = statusBlockCurse ? 0 : curseAdd;
   // maxStacks 지정 시 상한 클램프 — 무한 누적 폭주 방지.
   const chillStacksNext =
     skill?.kind === "chill" && skill.maxStacks !== undefined
       ? Math.min(skill.maxStacks, state.stacks.chillStacks + effectiveChillAdd)
       : state.stacks.chillStacks + effectiveChillAdd;
+  const curseStacksNext =
+    skill?.kind === "curse" && skill.maxStacks !== undefined
+      ? Math.min(skill.maxStacks, state.stacks.curseStacks + effectiveCurseAdd)
+      : state.stacks.curseStacks + effectiveCurseAdd;
   // 격노 — 적 HP 가 maxHp×hpFraction 미만으로 떨어지는 순간 1회 발동, ATK +atkBonus (전투 종료까지 유지).
   const enrageReady =
     skill?.kind === "enrage" &&
@@ -612,10 +688,25 @@ export function resolveEnemyPhase(
     ? (state.enemy.critMult ?? MONSTER_CRIT_MULT_DEFAULT)
     : 1;
   const preMitMult = heavyBlowMult * monsterCritMult;
-  const rawDmgBeforeReduction =
+  const rawDmgBeforeCurse =
     preMitMult !== 1
       ? Math.max(1, Math.floor(baseEnemyDmg * preMitMult))
       : baseEnemyDmg;
+  const curseDamageTakenPctRaw =
+    skill?.kind === "curse"
+      ? state.stacks.curseStacks * (skill.damageTakenPctPerStack ?? 0)
+      : 0;
+  const curseDamageTakenPct =
+    skill?.kind === "curse" && skill.maxDamageTakenPct !== undefined
+      ? Math.min(skill.maxDamageTakenPct, curseDamageTakenPctRaw)
+      : curseDamageTakenPctRaw;
+  const rawDmgBeforeReduction =
+    curseDamageTakenPct > 0
+      ? Math.max(
+          1,
+          Math.floor(rawDmgBeforeCurse * (1 + curseDamageTakenPct / 100)),
+        )
+      : rawDmgBeforeCurse;
   // 결의 (AP) — 받는 피해 -pct%. 가드/굳건/철벽 전에 곱연산으로 먼저 깎이도록.
   const rawDmg =
     state.buffs.playerDmgReductionTurnsLeft > 0 &&
@@ -692,7 +783,8 @@ export function resolveEnemyPhase(
   );
   const nextPlayerShield = newShield + (sigHealShield?.amount ?? 0);
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
-  const statusBlockUsed = state.flags.statusBlockUsed || statusBlockChill;
+  const statusBlockUsed =
+    state.flags.statusBlockUsed || statusBlockChill || statusBlockCurse;
   // 강체 (금강 시그니처) + 장비 on_hit_taken — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적
   // (상한 = 기본 DEF). 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
   const sigDefGain = onHitTakenDefGain(player.equipSignatures);
@@ -715,6 +807,12 @@ export function resolveEnemyPhase(
     });
   }
   if (statusBlockChill && sigStatusBlock) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
+    });
+  }
+  if (statusBlockCurse && sigStatusBlock) {
     log = appendLog(log, {
       kind: "info",
       text: `[${sigStatusBlock.label}] 상태이상을 막았다.`,
@@ -747,12 +845,19 @@ export function resolveEnemyPhase(
   const atkPrefix =
     (heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "") +
     (magicAttack ? "[마법] " : "") +
-    (monsterCritFired ? "[치명] " : "");
+    (monsterCritFired ? "[치명] " : "") +
+    (curseDamageTakenPct > 0 ? `[저주 +${curseDamageTakenPct}%] ` : "");
   // 항상 "공격! " 접두 → 라벨([강타]·[마법]·[치명] 등)을 인라인(플레이어 공격·스킬과 통일).
   log = appendLog(log, {
     kind: "enemy_attack",
     text: `공격! ${atkPrefix}${dmgToHp} 피해를 입혔다.`,
   });
+  if (effectiveCurseAdd > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${skill?.kind === "curse" ? skill.name : "저주"}] 저주 +${effectiveCurseAdd}스택 (현재 ${curseStacksNext})`,
+    });
+  }
   if (enduranceFires) {
     log = appendLog(log, {
       kind: "info",
@@ -891,6 +996,7 @@ export function resolveEnemyPhase(
         ...state.stacks,
         playerShield: nextPlayerShield,
         chillStacks: chillStacksNext,
+        curseStacks: curseStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
         braceDefBonus: nextBraceDefBonus,
       },
@@ -926,6 +1032,7 @@ export function resolveEnemyPhase(
         ...state.stacks,
         playerShield: nextPlayerShield,
         chillStacks: chillStacksNext,
+        curseStacks: curseStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
         braceDefBonus: nextBraceDefBonus,
       },
@@ -959,6 +1066,7 @@ export function resolveEnemyPhase(
       ...state.stacks,
       playerShield: nextPlayerShield,
       chillStacks: chillStacksNext,
+      curseStacks: curseStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
       braceDefBonus: nextBraceDefBonus,
     },

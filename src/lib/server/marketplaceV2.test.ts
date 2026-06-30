@@ -85,8 +85,8 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(isTradableEquip("constructor")).toBe(false);
   });
 
-  it("재료 = 강화석 2종 + 보스 소환서 + 재련석 2종 + 정착지 재료 2종 + 성벽 수리 키트 + 대장간 재료 4종 + SP 열매 3종 — 등재 재료만 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(15);
+  it("재료 = 강화석 2종 + 보스 소환서 + 재련석 2종 + 정착지 재료 2종 + 성벽 수리 키트 + 대장간 재료 4종 + SP 열매 4종 — 등재 재료만 tradable", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(16);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(true);
     }

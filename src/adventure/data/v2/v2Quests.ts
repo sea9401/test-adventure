@@ -53,7 +53,7 @@ export type QuestCtx = {
   uniqueOwned: number;
   /** 수행 횟수. proficiency.v2 groups[group].cultivations. */
   cultivations: number;
-  /** 처치한 협동 보스 수(BOSS_TITLE_IDS 첫 처치 칭호 보유 수). adventure-log.v2.titles. */
+  /** 처치한 협동 보스 수. adventure-log.v2.coopBossKinds + 레거시 칭호 보유분. */
   bossKills: number;
   /** 길드 소속 여부. guildMembers. */
   hasGuild: boolean;
@@ -393,9 +393,9 @@ const ASCEND: QuestDef[] = [
     chain: "ascend_boss",
     line: "ascend",
     title: "보스 마스터",
-    desc: "협동 보스 3종을 모두 토벌하세요.",
+    desc: "협동 보스 4종을 모두 토벌하세요.",
     reward: { gold: 3000, titleId: "ach_boss_master" },
-    check: (c) => c.bossKills >= 3,
+    check: (c) => c.bossKills >= 4,
   },
   {
     id: "a_unique5",

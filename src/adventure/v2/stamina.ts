@@ -16,7 +16,8 @@
 //   보존되나 시간 회복은 2000 까지만, 신규 캐릭은 2000 만피로 생성.
 // 2026-06-27 사용자 결정 — 회복 30→5 초/1 (6× 가속). 옛 30초/1 은 만피(2000) 회복에 16.7h 라 너무
 //   길었다. 5초/1 = 분당 12 → 2000 회복 ~2h47m·시간당 720.
-export const MAX_STAMINA = 2000;
+// 2026-06-30 사용자 결정 — 모든 유저 기본 최대치 +3000, 신규 캐릭터 기본 만피 5000.
+export const MAX_STAMINA = 5000;
 export const REGEN_SECONDS_PER_POINT = 5; // 1 분 = 12 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·재진입은 무료)
@@ -33,8 +34,8 @@ export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
 }
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
-//   = 2000 * 5 s = 10000 s = ~2.8 시간 (2h47m).
-// 시간당 회복 = 720 (cap 2000 이라 ~2.8h 후 정체).
+//   = 5000 * 5 s = 25000 s = ~6.9 시간 (6h57m).
+// 시간당 회복 = 720 (cap 5000 이라 ~6.9h 후 정체).
 
 // === 상태 ===========================================================
 

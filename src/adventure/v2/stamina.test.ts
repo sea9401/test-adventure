@@ -19,6 +19,12 @@ function at(current: number, lastUpdatedAt: number): StaminaState {
   return { current, lastUpdatedAt };
 }
 
+describe("스태미너 — 기본 최대치", () => {
+  it("신규/기본 최대 스태미나는 5000", () => {
+    expect(MAX_STAMINA).toBe(5000);
+  });
+});
+
 describe("스태미너 — 회복", () => {
   it("만피 상태에서 시간 흘러도 그대로 (lastUpdatedAt 만 nowMs 로 갱신)", () => {
     const s = at(MAX_STAMINA, 0);

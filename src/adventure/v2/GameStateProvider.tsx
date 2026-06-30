@@ -101,6 +101,7 @@ type GameStateValue = {
   playerSubtitle: string;
   // 현재 전직 중인 구체 직업의 숙련도("직업 숙련도") — 사냥 화면 캐릭터 카드 readout 용. none(모험가)=null.
   viewerProficiency: number | null;
+  setViewerProficiency: React.Dispatch<React.SetStateAction<number | null>>;
   // 세계 위치 + 자원
   currentOutpost: { id: string; name: string } | null;
   setCurrentOutpost: React.Dispatch<
@@ -860,6 +861,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerExpToNext,
     playerSubtitle,
     viewerProficiency,
+    setViewerProficiency,
     currentOutpost,
     setCurrentOutpost,
     stamina,

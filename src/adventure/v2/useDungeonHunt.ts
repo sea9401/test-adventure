@@ -38,6 +38,8 @@ export type HuntResultPayload = HuntResult & {
   //   이후 누적 승리분(위험 골드 뱃지 갱신용).
   lossTax?: number;
   atRiskGold?: number;
+  // 사냥 후 최종 보유 골드 — 공용 GameState gold 를 즉시 동기화하는 권위값.
+  goldAfter?: number;
 };
 
 type HuntResponse = {
@@ -77,6 +79,7 @@ export type BatchHuntPayload = {
   finalHpAfter: number | null;
   finalMaxHp: number | null;
   finalMpAfter: number | null;
+  finalGoldAfter: number | null;
   finalMaxDepth: number | null;
   expAfter: number | null;
   maxExpAfter: number | null;

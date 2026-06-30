@@ -129,24 +129,28 @@ export function EquipmentCardGrid({
                   />
                 )}
               </span>
-              {isEquipped && selectable ? (
-                <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                  착용중
-                </span>
-              ) : isEquipped ? (
-                <CheckCircle
-                  size={18}
-                  weight="fill"
-                  className="text-emerald-500"
-                />
-              ) : pct != null ? (
-                <span
-                  className={`shrink-0 text-[11px] font-semibold tabular-nums ${rollPctClass(pct)}`}
-                  title="품질"
-                >
-                  {pct}%
-                </span>
-              ) : null}
+              <span className="flex shrink-0 items-center gap-1">
+                {pct != null && (
+                  <span
+                    className={`text-[11px] font-semibold tabular-nums ${rollPctClass(pct)}`}
+                    title="품질"
+                  >
+                    {pct}%
+                  </span>
+                )}
+                {isEquipped && selectable ? (
+                  <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                    착용중
+                  </span>
+                ) : isEquipped ? (
+                  <CheckCircle
+                    size={18}
+                    weight="fill"
+                    className="text-emerald-500"
+                    aria-label="장착됨"
+                  />
+                ) : null}
+              </span>
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
               <span

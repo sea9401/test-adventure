@@ -335,6 +335,13 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "얼음 호수 보스 처치",
     category: "battle",
   },
+  v2_boss_void_priest: {
+    id: "v2_boss_void_priest",
+    name: "저주를 봉한 자",
+    description: "공허의 대사제가 남긴 저주를 견디고 봉인의 균열을 다시 닫은 자.",
+    condition: "공허의 대사제 보스 처치",
+    category: "battle",
+  },
   // ── 5막 잔영 처치 칭호 3종 + 셋 모두 처치 시 컬렉션 칭호 ────────────────────
   starlit_giant_breaker: {
     id: "starlit_giant_breaker",

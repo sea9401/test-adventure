@@ -32,8 +32,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("3종 — id 일치·소환서 비용/공유 HP 오름차순(사다리)", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(3);
+  it("4종 — id 일치·소환서 비용/공유 HP 오름차순(사다리)", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(4);
     let prevCost = 0;
     let prevHp = 0;
     for (const id of COOP_BOSS_KIND_IDS) {
@@ -48,6 +48,23 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.mountain_chief.scrollCost).toBe(10);
     expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
+    expect(COOP_BOSSES.void_priest.scrollCost).toBe(30);
+    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(420_000);
+  });
+
+  it("공허의 대사제 — 저주 기믹과 방어형 보상", () => {
+    const b = COOP_BOSSES.void_priest;
+    expect(b.base.skill?.kind).toBe("curse");
+    expect(b.base.atkType).toBe("magic");
+    expect(b.base.critPct).toBeGreaterThan(0);
+    expect(b.uniqueIds).toEqual([
+      "v2_boss_void_bastion",
+      "v2_boss_void_reliquary",
+    ]);
+    expect(V2_EQUIPMENT.v2_boss_void_bastion.options?.def).toBeGreaterThan(0);
+    expect(V2_EQUIPMENT.v2_boss_void_reliquary.signature?.statusBlockOnce).toBe(
+      true,
+    );
   });
 
   it("유니크/칭호 카탈로그 — 휴면 id 도 장비·칭호 카탈로그에 실재(기보유분 호환)", () => {
@@ -245,6 +262,7 @@ describe("coopBosses 카탈로그", () => {
 
   it("parseCoopBossKindId — 유효 id 만 통과", () => {
     expect(parseCoopBossKindId("mountain_chief")).toBe("mountain_chief");
+    expect(parseCoopBossKindId("void_priest")).toBe("void_priest");
     expect(parseCoopBossKindId("nope")).toBeNull();
     expect(parseCoopBossKindId(42)).toBeNull();
     expect(parseCoopBossKindId(null)).toBeNull();

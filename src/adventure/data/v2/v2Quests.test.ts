@@ -354,17 +354,17 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(questStatus(questById("a_boss")!, ctx, claimed)).toBe("active");
   });
 
-  it("배치2 정점 — 보스 마스터(3종)·유니크 5(각 체인 앞 단계 수령 후)", () => {
+  it("배치2 정점 — 보스 마스터(4종)·유니크 5(각 체인 앞 단계 수령 후)", () => {
     expect(
       isQuestClaimable(
         questById("a_boss_master")!,
-        { ...ZERO, bossKills: 3 },
+        { ...ZERO, bossKills: 4 },
         new Set(["a_boss"]),
       ),
     ).toBe(true);
-    // 보스 1종만으론 미충족.
+    // 보스 3종만으론 미충족(공허의 대사제 포함 4종 기준).
     expect(
-      questStatus(questById("a_boss_master")!, { ...ZERO, bossKills: 1 }, new Set(["a_boss"])),
+      questStatus(questById("a_boss_master")!, { ...ZERO, bossKills: 3 }, new Set(["a_boss"])),
     ).toBe("active");
     expect(
       isQuestClaimable(
@@ -441,7 +441,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       equippedCount: 6,
       uniqueOwned: 5,
       cultivations: 9,
-      bossKills: 3,
+      bossKills: 4,
       hasGuild: true,
       hasTraded: true,
       arenaPlayed: true,

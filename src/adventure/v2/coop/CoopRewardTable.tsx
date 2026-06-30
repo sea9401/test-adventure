@@ -81,7 +81,7 @@ export function CoopRewardTable({
           (t) => myDamage < COOP_TIER_THRESHOLDS[t] * kind.sharedMaxHp,
         )
       : undefined;
-  // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III).
+  // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III·공허→IV).
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
   return (

@@ -130,6 +130,8 @@ export type V2EquipmentId =
   | "v2_boss_canyon_boots"
   | "v2_boss_lake_maul"
   | "v2_boss_lake_gloves"
+  | "v2_boss_void_bastion"
+  | "v2_boss_void_reliquary"
   // 마른 협곡 밴드 드랍 (깊이 7~12, T4) — 무기 4종 + 마른땅 갑주 세트.
   | "v2_canyon_greatsword"
   | "v2_canyon_staff"
@@ -706,6 +708,17 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       label: "검은 왕좌",
       hpThresholdPct: 35,
       damageTakenReductionPct: 20,
+    },
+  },
+  {
+    id: "void_bastion",
+    name: "공허 성벽",
+    pieces: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
+    bonus: { hp: 240, def: 36, magicDef: 30, critResist: 12 },
+    signature: {
+      trigger: "battle_start",
+      label: "공허 성벽",
+      battleStartShieldPctMaxHp: 10,
     },
   },
 ];

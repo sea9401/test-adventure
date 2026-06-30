@@ -248,7 +248,7 @@ export function GuildWorkshopPanel({
         stored === "delivery" ||
         stored === "growth"
       ) {
-        setWorkshopMode(stored);
+        queueMicrotask(() => setWorkshopMode(stored));
       }
     } catch {}
   }, []);
@@ -329,7 +329,7 @@ export function GuildWorkshopPanel({
   }, []);
 
   useEffect(() => {
-    void loadWeekly();
+    queueMicrotask(() => void loadWeekly());
   }, [loadWeekly]);
 
   const loadDelivery = useCallback(async () => {
@@ -353,36 +353,40 @@ export function GuildWorkshopPanel({
   }, []);
 
   useEffect(() => {
-    void loadDelivery();
+    queueMicrotask(() => void loadDelivery());
   }, [loadDelivery]);
 
   useEffect(() => {
     if (!delivery) return;
-    setSelectedDeliveryIids((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const d of delivery.deliveries) {
-        const valid = d.deliverable.some((item) => item.iid === next[d.id]);
-        if (!valid) {
-          if (d.deliverable[0]) {
-            next[d.id] = d.deliverable[0].iid;
-          } else if (next[d.id]) {
-            delete next[d.id];
+    queueMicrotask(() => {
+      setSelectedDeliveryIids((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const d of delivery.deliveries) {
+          const valid = d.deliverable.some((item) => item.iid === next[d.id]);
+          if (!valid) {
+            if (d.deliverable[0]) {
+              next[d.id] = d.deliverable[0].iid;
+            } else if (next[d.id]) {
+              delete next[d.id];
+            }
+            changed = true;
           }
-          changed = true;
         }
-      }
-      return changed ? next : prev;
+        return changed ? next : prev;
+      });
     });
   }, [delivery]);
 
   useEffect(() => {
     if (!hasSmithy) {
-      setState(null);
+      queueMicrotask(() => setState(null));
       return;
     }
     let alive = true;
-    setLoading(true);
+    queueMicrotask(() => {
+      if (alive) setLoading(true);
+    });
     fetch("/api/v2/guild/workshop")
       .then((res) => res.json())
       .then((json: WorkshopState & { ok?: boolean; error?: string }) => {
@@ -426,8 +430,8 @@ export function GuildWorkshopPanel({
     };
   }, [hasSmithy]);
 
-  const resources = state?.resources ?? {};
-  const materials = state?.materials ?? {};
+  const resources = useMemo(() => state?.resources ?? {}, [state?.resources]);
+  const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
   const hasApiSmithy = state?.hasGuildSmithy ?? hasSmithy;
   const resourceText = useMemo(
     () =>

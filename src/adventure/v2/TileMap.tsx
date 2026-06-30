@@ -190,6 +190,17 @@ function raidPreviewGold(col: number, row: number, treasury: number): number {
   return Math.max(0, amount);
 }
 
+function useClientNowMs(refreshMs = 30_000): number | null {
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const id = window.setInterval(tick, refreshMs);
+    return () => window.clearInterval(id);
+  }, [refreshMs]);
+  return nowMs;
+}
+
 export function TileMap({
   onTravelToTile,
   tilePos,
@@ -230,6 +241,7 @@ export function TileMap({
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
   const [foundName, setFoundName] = useState(""); // 개척마을 건설 폼 이름 입력
   const [warOverview, setWarOverview] = useState<WarOverviewLite["myGuild"]>(null);
+  const nowMs = useClientNowMs();
 
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) for (const o of occupations) occByOutpost.set(o.outpostId, o);
@@ -320,8 +332,8 @@ export function TileMap({
     viewerGuildId != null &&
     standingSettlement.guildId !== viewerGuildId;
   const raidStayMs =
-    isStandingOnHostileSettlement && typeof tilePos?.at === "number"
-      ? Math.max(0, Date.now() - tilePos.at)
+    isStandingOnHostileSettlement && typeof tilePos?.at === "number" && nowMs != null
+      ? Math.max(0, nowMs - tilePos.at)
       : 0;
   const raidPrepCount =
     isStandingOnHostileSettlement && raidStayMs < RAID_MIN_TILE_STAY_MS ? 1 : 0;
@@ -378,8 +390,8 @@ export function TileMap({
                 viewerGuildId != null &&
                 settlement.guildId !== viewerGuildId;
               const raidStayMs =
-                isPlayer && typeof tilePos?.at === "number"
-                  ? Math.max(0, Date.now() - tilePos.at)
+                isPlayer && typeof tilePos?.at === "number" && nowMs != null
+                  ? Math.max(0, nowMs - tilePos.at)
                   : 0;
               const raidReady =
                 tileSettledByOtherGuild && raidStayMs >= RAID_MIN_TILE_STAY_MS;
@@ -626,8 +638,8 @@ export function TileMap({
             const treasury = treasuryByOutpost.get(selectedTileId) ?? 0;
             const isStandingHere = playerTileKey === selected;
             const stayMs =
-              isStandingHere && typeof tilePos?.at === "number"
-                ? Math.max(0, Date.now() - tilePos.at)
+              isStandingHere && typeof tilePos?.at === "number" && nowMs != null
+                ? Math.max(0, nowMs - tilePos.at)
                 : 0;
             const raidReady = canAttack && isStandingHere && stayMs >= RAID_MIN_TILE_STAY_MS;
             const raidRemaining = Math.max(0, RAID_MIN_TILE_STAY_MS - stayMs);

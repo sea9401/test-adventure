@@ -55,6 +55,17 @@ export type OutpostAction =
   | { kind: "claimed" }
   | { kind: "policy-changed" };
 
+function useClientNowMs(refreshMs = 30_000): number | null {
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    tick();
+    const id = window.setInterval(tick, refreshMs);
+    return () => window.clearInterval(id);
+  }, [refreshMs]);
+  return nowMs;
+}
+
 export function OutpostView({
   outpost,
   viewerUserId,
@@ -75,6 +86,7 @@ export function OutpostView({
   // currentOutpost/tilePos/tileSettlements = 현재 위치 게이트(점령/약탈/정복)의 클라 입력.
   const { coreLoopOn, currentOutpost, tilePos, tileSettlements } =
     useGameState();
+  const nowMs = useClientNowMs();
   const [busy, setBusy] = useState(false);
   // 내 거점 활동 탭 — 마을 / 대장간 / 수비 / 최근 공격 기록.
   const [activityTab, setActivityTab] = useState<ActivityTab>("manage");
@@ -218,8 +230,9 @@ export function OutpostView({
     tilePos != null &&
     tilePos.col === targetTilePos.col &&
     tilePos.row === targetTilePos.row &&
-    typeof tilePos.at === "number"
-      ? Math.max(0, Date.now() - tilePos.at)
+    typeof tilePos.at === "number" &&
+    nowMs != null
+      ? Math.max(0, nowMs - tilePos.at)
       : 0;
   const standingOnTargetTile =
     targetTilePos != null &&

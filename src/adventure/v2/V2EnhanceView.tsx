@@ -54,6 +54,10 @@ import {
   type EquipmentCard,
 } from "@/adventure/v2/V2InventoryView";
 import {
+  PerfectQualityBadge,
+  QualityPctText,
+} from "@/adventure/v2/V2ItemCard";
+import {
   SETTLEMENT_MATERIAL_ID,
   WALL_REPAIR_KIT_ID,
   WALL_REPAIR_KIT_COST,
@@ -663,9 +667,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               <>
                 <div className="text-sm tabular-nums">
                   위력 {curRollPower} · 품질{" "}
-                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                    {curQuality ?? "—"}%
-                  </span>
+                  {curQuality != null ? (
+                    <span className="inline-flex items-center gap-1">
+                      <QualityPctText pct={curQuality} className="font-semibold" />
+                      {curQuality >= 100 ? <PerfectQualityBadge /> : null}
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-zinc-500 dark:text-zinc-400">
+                      —%
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   골드와 재련석으로 옵션 굴림을 다시 돌립니다. 결과는 무조건

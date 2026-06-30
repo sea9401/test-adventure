@@ -12,7 +12,6 @@ import {
   V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
-  powerBandOf,
   scaledEquipWeight,
   signatureLabel,
   v2EquipCompareRows,
@@ -34,31 +33,57 @@ import {
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 
-// 굴림 품질 % → 색. 높을수록 좋은 굴림(emerald)·중간(zinc)·낮음(amber).
+const QUALITY_PRISM_GRADIENT =
+  "linear-gradient(90deg,#e11d48,#f59e0b,#84cc16,#0ea5e9,#8b5cf6,#ec4899)";
+
+// 굴림 품질 % → 색. 색 기준은 위력이 아니라 같은 장비 안에서의 개체 굴림 품질이다.
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
 export function rollPctClass(pct: number): string {
-  if (pct >= 75) return "text-emerald-600 dark:text-emerald-400";
-  if (pct >= 40) return "text-zinc-500 dark:text-zinc-400";
-  return "text-amber-600 dark:text-amber-500";
+  if (pct >= 95) return "text-rose-600 dark:text-rose-400";
+  if (pct >= 85) return "text-amber-600 dark:text-amber-400";
+  if (pct >= 70) return "text-violet-600 dark:text-violet-400";
+  if (pct >= 40) return "text-sky-600 dark:text-sky-400";
+  return "text-zinc-500 dark:text-zinc-400";
 }
 
-// 위력 색 구간(powerBandOf, 0…7) → 아이템 이름 색. 등급/유니크 대신 실효(굴림 반영) 위력으로
-// 분류(사용자 결정). 8단계: 회색→에메랄드→약간푸른빛→보라→노랑→자홍→장미→진홍(낮음→높음).
-// 인벤 이름·카드 제목·제작·상점·캐릭터 슬롯 공유. 라이트=진하게(흰 배경 대비)/다크=옅게.
-// 현재 위력대는 0~2(회색/에메랄드/약간푸른빛)까지 도달, 3~7 은 향후 고위력 콘텐츠 여유분
-// (추가 색은 POWER_BAND_COUNT 만 올리면 활성).
-const POWER_BAND_CLASS = [
-  "text-zinc-500 dark:text-zinc-400", // 0 회색 (위력 낮음)
-  "text-emerald-600 dark:text-emerald-400", // 1 에메랄드
-  "text-sky-600 dark:text-sky-400", // 2 약간 푸른빛
-  "text-violet-600 dark:text-violet-400", // 3 보라
-  "text-amber-600 dark:text-amber-400", // 4 노란 계열
-  "text-fuchsia-600 dark:text-fuchsia-400", // 5 자홍
-  "text-rose-600 dark:text-rose-400", // 6 장미
-  "text-red-600 dark:text-red-500", // 7 진홍 — 최상
-] as const;
+// 예전 이름은 호환을 위해 유지한다. 현재 장비명 색은 위력대가 아니라 품질% 기준이다.
 export function powerNameClass(item: V2Equipment, roll?: V2EquipRoll): string {
-  return POWER_BAND_CLASS[powerBandOf(item, roll)] ?? POWER_BAND_CLASS[0];
+  const pct = rollQualityPct(item, roll);
+  return pct == null ? "text-zinc-900 dark:text-zinc-100" : rollPctClass(pct);
+}
+
+export function QualityPctText({
+  pct,
+  className = "",
+}: {
+  pct: number;
+  className?: string;
+}) {
+  const perfect = pct >= 100;
+  return (
+    <span
+      className={`${className} ${
+        perfect ? "bg-clip-text font-bold text-transparent" : rollPctClass(pct)
+      }`}
+      style={perfect ? { backgroundImage: QUALITY_PRISM_GRADIENT } : undefined}
+    >
+      {pct}%
+    </span>
+  );
+}
+
+export function PerfectQualityBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded px-1.5 py-px text-[10px] font-bold text-white shadow-sm ${className}`}
+      style={{
+        backgroundImage: QUALITY_PRISM_GRADIENT,
+        textShadow: "0 1px 1px rgba(0,0,0,0.55)",
+      }}
+    >
+      완벽
+    </span>
+  );
 }
 
 export function CraftOnlyBadge({ className = "" }: { className?: string }) {
@@ -345,8 +370,10 @@ export function V2ItemCard({
               <ItemTypeChip item={item} />
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {pct != null && (
-                <span className={`text-xs font-semibold tabular-nums ${rollPctClass(pct)}`}>
-                  품질 {pct}%
+                <span className="inline-flex items-center gap-1 text-xs tabular-nums">
+                  <span className="text-zinc-500 dark:text-zinc-400">품질</span>
+                  <QualityPctText pct={pct} className="font-semibold" />
+                  {pct >= 100 ? <PerfectQualityBadge /> : null}
                 </span>
               )}
             </div>
@@ -767,8 +794,9 @@ function CompareHeader({
       {pct != null && (
         <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
           <span className="text-zinc-500 dark:text-zinc-400">품질</span>
-          <span className={`font-semibold tabular-nums ${rollPctClass(pct)}`}>
-            {pct}%
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <QualityPctText pct={pct} className="font-semibold" />
+            {pct >= 100 ? <PerfectQualityBadge /> : null}
           </span>
         </div>
       )}

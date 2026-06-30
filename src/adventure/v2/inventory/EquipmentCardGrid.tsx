@@ -33,8 +33,9 @@ import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   anchorOf,
   CraftOnlyBadge,
+  PerfectQualityBadge,
   powerNameClass,
-  rollPctClass,
+  QualityPctText,
   type ItemCardAnchor,
 } from "../V2ItemCard";
 
@@ -132,10 +133,11 @@ export function EquipmentCardGrid({
               <span className="flex shrink-0 items-center gap-1">
                 {pct != null && (
                   <span
-                    className={`text-[11px] font-semibold tabular-nums ${rollPctClass(pct)}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums"
                     title="품질"
                   >
-                    {pct}%
+                    <QualityPctText pct={pct} />
+                    {pct >= 100 ? <PerfectQualityBadge /> : null}
                   </span>
                 )}
                 {isEquipped && selectable ? (

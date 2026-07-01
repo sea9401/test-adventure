@@ -45,6 +45,40 @@ export type V2EquipConcept =
 
 export type V2EquipTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
+export const V2_EQUIP_TIER_ORDER: readonly V2EquipTier[] = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+];
+
+export type V2EquipDisplayTier = 1 | 2 | 3 | 4;
+
+export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
+  V2EquipDisplayTier,
+  string
+> = {
+  1: "들판 I~III",
+  2: "마른 협곡~심층 동굴",
+  3: "잊힌 성소~짐승의 소굴",
+  4: "검은 왕도~백골 고원",
+};
+
+export function v2EquipDisplayTierOf(
+  tier: V2EquipTier,
+): V2EquipDisplayTier {
+  return Math.ceil(tier / 3) as V2EquipDisplayTier;
+}
+
+export function v2EquipTierSourceLabel(tier: V2EquipTier): string {
+  return V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL[v2EquipDisplayTierOf(tier)];
+}
+
+export function v2EquipTierLabel(tier: V2EquipTier): string {
+  return `${v2EquipDisplayTierOf(tier)}티어`;
+}
+
+export function v2EquipTierDisplayLabel(tier: V2EquipTier): string {
+  return `${v2EquipTierLabel(tier)} · ${v2EquipTierSourceLabel(tier)}`;
+}
+
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
 // docs/v2-job-spec-passives-plan.md §4. 12전문화가 쓰는 8종 — 무기 종류를 의도적으로 줄여 통합

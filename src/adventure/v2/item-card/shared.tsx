@@ -4,6 +4,8 @@ import {
   craftQualityStars,
   powerWithBonuses,
   scaledEquipWeight,
+  v2EquipDisplayTierOf,
+  v2EquipTierDisplayLabel,
   v2EquipPowerLabel,
   type V2CraftQualityState,
   type V2Equipment,
@@ -11,6 +13,7 @@ import {
   type V2EquipRoll,
   type V2EquipSlot,
   type V2EquipStatRow,
+  type V2EquipTier,
 } from "@/adventure/data/v2/v2Equipment";
 import { VARIANCE_FRACTION } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
@@ -340,9 +343,29 @@ export function statRowWithRollRange(
   };
 }
 
+export function EquipmentTierBadge({
+  tier,
+  compact = false,
+  className = "",
+}: {
+  tier: V2EquipTier;
+  compact?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`ui-equipment-tier-badge ui-equipment-display-tier-${v2EquipDisplayTierOf(tier)} inline-flex shrink-0 items-center rounded-md border border-zinc-200 bg-white/80 font-semibold tabular-nums text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300 ${
+        compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"
+      } ${className}`}
+    >
+      {v2EquipTierDisplayLabel(tier)}
+    </span>
+  );
+}
+
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
 // 전체화면 모달 아님: 스크림/스크롤락/포커스트랩 없이, 바깥 클릭·Esc 로만 닫힘.
-// 내용은 이름·옵션(스탯 행)·세트·설명만. 티어 숫자·컨셉 태그(힘/민/지 등)는 노출 안 함.
+// 내용은 이름·티어 구간·옵션(스탯 행)·세트·설명을 노출한다. 컨셉 태그(힘/민/지 등)는 노출 안 함.
 
 // 클릭한 슬롯의 화면 좌표 — 이 근처에 카드를 띄운다 (DOMRect 의 필요한 값만).
 export type ItemCardAnchor = { top: number; bottom: number; left: number };
@@ -374,4 +397,3 @@ export type ItemCardLockAction = {
   busy: boolean;
   onToggle: () => void;
 };
-

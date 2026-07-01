@@ -21,6 +21,7 @@ import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
+  EquipmentTierBadge,
   EnhanceLevelBadge,
   QualityPctText,
   powerNameClass,
@@ -97,6 +98,7 @@ function CompareHeader({
         </h3>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1">
+        <EquipmentTierBadge tier={side.item.tier} compact />
         <ItemTypeChip item={side.item} />
         <EnhanceLevelBadge enhance={side.enhance} />
         <CraftQualityBadge craftQuality={side.craftQuality} />

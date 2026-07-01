@@ -13,6 +13,7 @@ export {
   CraftOnlyBadge,
   CraftQualityBadge,
   CraftQualityStars,
+  EquipmentTierBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
   QualityPctText,

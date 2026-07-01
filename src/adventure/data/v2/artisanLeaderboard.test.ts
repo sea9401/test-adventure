@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addArtisanWeeklyWorkshopCraft,
+  artisanLeaderboardNextReward,
   artisanLeaderboardRewardViews,
   artisanLeaderboardRewardFame,
   artisanLeaderboardRewardTitleIds,
@@ -14,6 +15,7 @@ describe("artisanLeaderboardRewardTitleIds", () => {
       "artisan_rank_top1",
       "artisan_rank_top3",
       "artisan_rank_top10",
+      "artisan_rank_participant",
     ]);
   });
 
@@ -21,11 +23,15 @@ describe("artisanLeaderboardRewardTitleIds", () => {
     expect(artisanLeaderboardRewardTitleIds(3)).toEqual([
       "artisan_rank_top3",
       "artisan_rank_top10",
+      "artisan_rank_participant",
     ]);
     expect(artisanLeaderboardRewardTitleIds(10)).toEqual([
       "artisan_rank_top10",
+      "artisan_rank_participant",
     ]);
-    expect(artisanLeaderboardRewardTitleIds(11)).toEqual([]);
+    expect(artisanLeaderboardRewardTitleIds(11)).toEqual([
+      "artisan_rank_participant",
+    ]);
   });
 
   it("ignores missing or invalid ranks", () => {
@@ -38,9 +44,23 @@ describe("artisanLeaderboardRewardTitleIds", () => {
       artisanLeaderboardRewardFame([
         "artisan_rank_top3",
         "artisan_rank_top10",
+        "artisan_rank_participant",
       ]),
-    ).toBe(105);
+    ).toBe(120);
     expect(artisanLeaderboardRewardFame([])).toBe(0);
+  });
+
+  it("shows the next competitive reward target", () => {
+    expect(artisanLeaderboardNextReward(11)).toMatchObject({
+      titleId: "artisan_rank_top10",
+      ranksToGo: 1,
+    });
+    expect(artisanLeaderboardNextReward(4)).toMatchObject({
+      titleId: "artisan_rank_top3",
+      ranksToGo: 1,
+    });
+    expect(artisanLeaderboardNextReward(1)).toBeNull();
+    expect(artisanLeaderboardNextReward(null)).toBeNull();
   });
 
   it("parses and rolls weekly workshop stats by week key", () => {
@@ -95,6 +115,7 @@ describe("artisanLeaderboardRewardTitleIds", () => {
       { titleId: "artisan_rank_top1", claimable: false, owned: false },
       { titleId: "artisan_rank_top3", claimable: true, owned: false },
       { titleId: "artisan_rank_top10", claimable: true, owned: true },
+      { titleId: "artisan_rank_participant", claimable: true, owned: false },
     ]);
     expect(
       artisanLeaderboardRewardViews(3, owned, true).find(

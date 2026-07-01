@@ -1,11 +1,30 @@
 import {
   GRID_DUNGEON_ROUTE_IDS,
   GRID_DUNGEON_ROUTES,
+  type GridDungeonFailureReason,
   type GridDungeonHistoryEntry,
   type GridDungeonRouteId,
 } from "@/adventure/data/v2/gridDungeon";
 
 type Outcome = GridDungeonHistoryEntry["outcome"];
+
+const FAILURE_REASON_IDS: GridDungeonFailureReason[] = [
+  "combat_boss",
+  "combat_elite",
+  "combat_monster",
+  "trap",
+  "hp_depleted",
+  "unknown",
+];
+
+const FAILURE_REASON_LABEL: Record<GridDungeonFailureReason, string> = {
+  combat_boss: "보스 전투 패배",
+  combat_elite: "정예 전투 패배",
+  combat_monster: "일반 전투 패배",
+  trap: "함정 HP 소진",
+  hp_depleted: "HP 소진",
+  unknown: "원인 미상",
+};
 
 export type GridDungeonAnalyticsUser = {
   userId: string;
@@ -35,6 +54,9 @@ export type GridDungeonAnalyticsRun = {
   combatCount: number;
   totalCombatTurns: number;
   durationMs: number;
+  failureReason?: GridDungeonFailureReason;
+  failureReasonLabel?: string;
+  detailReason: string;
 };
 
 export type GridDungeonRouteAnalytics = {
@@ -114,6 +136,13 @@ export type GridDungeonTuningCandidate = {
   partySize?: number;
 };
 
+export type GridDungeonFailureReasonAnalytics = {
+  reason: GridDungeonFailureReason;
+  label: string;
+  runs: number;
+  pctOfFailures: number;
+};
+
 export type GridDungeonAnalytics = {
   filters: {
     sinceAt: number | null;
@@ -139,6 +168,7 @@ export type GridDungeonAnalytics = {
   routes: GridDungeonRouteAnalytics[];
   partySizes: GridDungeonPartyAnalytics[];
   routeParties: GridDungeonRoutePartyAnalytics[];
+  failureReasons: GridDungeonFailureReasonAnalytics[];
   balanceFlags: GridDungeonBalanceFlag[];
   tuningCandidates: GridDungeonTuningCandidate[];
   recentRuns: GridDungeonAnalyticsRun[];
@@ -157,6 +187,7 @@ type Acc = {
   rewardGold: number;
   materials: number;
   durationMs: number;
+  failureReasons: Record<GridDungeonFailureReason, number>;
 };
 
 function emptyAcc(): Acc {
@@ -173,6 +204,14 @@ function emptyAcc(): Acc {
     rewardGold: 0,
     materials: 0,
     durationMs: 0,
+    failureReasons: {
+      combat_boss: 0,
+      combat_elite: 0,
+      combat_monster: 0,
+      trap: 0,
+      hp_depleted: 0,
+      unknown: 0,
+    },
   };
 }
 
@@ -204,6 +243,18 @@ function add(acc: Acc, run: GridDungeonAnalyticsRun) {
   acc.rewardGold += run.rewardGold;
   acc.materials += run.materialCount;
   acc.durationMs += run.durationMs;
+  if (run.outcome === "failed") {
+    acc.failureReasons[run.failureReason ?? "unknown"] += 1;
+  }
+}
+
+function failureReasonOutput(acc: Acc): GridDungeonFailureReasonAnalytics[] {
+  return FAILURE_REASON_IDS.map((reason) => ({
+    reason,
+    label: FAILURE_REASON_LABEL[reason],
+    runs: acc.failureReasons[reason],
+    pctOfFailures: pct(acc.failureReasons[reason], acc.failed),
+  })).filter((row) => row.runs > 0);
 }
 
 function riskFor(acc: Acc): {
@@ -483,6 +534,11 @@ export function aggregateGridDungeonAnalytics(
         combatCount: entry.combatCount,
         totalCombatTurns: entry.totalCombatTurns,
         durationMs: entry.durationMs,
+        failureReason: entry.failureReason,
+        failureReasonLabel: entry.failureReason
+          ? FAILURE_REASON_LABEL[entry.failureReason]
+          : undefined,
+        detailReason: entry.detailReason,
       });
     }
   }
@@ -547,6 +603,7 @@ export function aggregateGridDungeonAnalytics(
       .map(([partySize, acc]) => partyOutput(partySize, acc))
       .sort((a, b) => a.partySize - b.partySize),
     routeParties: routePartyOutputs,
+    failureReasons: failureReasonOutput(total),
     balanceFlags: makeBalanceFlags(routeOutputs, routePartyOutputs),
     tuningCandidates: makeTuningCandidates(routeOutputs, routePartyOutputs),
     recentRuns: [...runs].sort((a, b) => b.at - a.at).slice(0, 50),

@@ -49,6 +49,36 @@ export const GUILD_WORKSHOP_MATERIAL_DROP_PCT: Record<
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 0.001,
 };
 
+export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<
+  GuildWorkshopMaterialId,
+  {
+    source: string;
+    depthText: string;
+    note: string;
+  }
+> = {
+  [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: {
+    source: "필드 사냥",
+    depthText: "프론티어 7-18",
+    note: "T4-T5 제작과 초반 해체 루프의 기본 재료",
+  },
+  [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: {
+    source: "필드 사냥",
+    depthText: "프론티어 19-30",
+    note: "T6-T7 제작 전용 장비의 병목 재료",
+  },
+  [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: {
+    source: "필드 사냥",
+    depthText: "프론티어 31-42",
+    note: "T8-T9 고급 제작과 명장 제작 준비 재료",
+  },
+  [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: {
+    source: "필드 사냥",
+    depthText: "프론티어 43+",
+    note: "T10+ 최상위 제작 전용 장비 재료",
+  },
+};
+
 export function rollGuildWorkshopMaterialDrops(
   depthRaw: number,
   rng: () => number,

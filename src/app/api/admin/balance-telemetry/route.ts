@@ -8,6 +8,7 @@ import {
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { parseV2Class } from "@/adventure/data/v2/classes";
+import { artisanLevel, parseArtisanState } from "@/adventure/data/v2/artisan";
 import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
 import {
   cumLevelForJob,
@@ -27,6 +28,15 @@ import {
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
 import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
+import {
+  parseGuildWorkshopCraftRecords,
+  parseGuildWorkshopMaterialInventory,
+} from "@/adventure/data/v2/guildWorkshop";
+import { GUILD_WORKSHOP_MATERIAL_IDS } from "@/adventure/data/v2/guildWorkshopMaterials";
+import {
+  parseGuildWorkshopDeliveryState,
+  todayDeliveryKey,
+} from "@/adventure/data/v2/guildWorkshopDelivery";
 import {
   aggregateBalanceTelemetry,
   type TelemetryUser,
@@ -54,7 +64,8 @@ export async function GET() {
       s.value AS skills,
       fc.value AS fishing_codex,
       tc.value AS treasure_codex,
-      ec.value AS equipment_codex
+      ec.value AS equipment_codex,
+      cr.value AS crafting
     FROM users u
     JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
     LEFT JOIN saves_kv e ON e.user_id = u.id AND e.key = 'equipment.v2'
@@ -63,6 +74,7 @@ export async function GET() {
     LEFT JOIN saves_kv fc ON fc.user_id = u.id AND fc.key = 'fishing-codex.v1'
     LEFT JOIN saves_kv tc ON tc.user_id = u.id AND tc.key = 'treasure-codex.v1'
     LEFT JOIN saves_kv ec ON ec.user_id = u.id AND ec.key = 'equipment-codex.v1'
+    LEFT JOIN saves_kv cr ON cr.user_id = u.id AND cr.key = 'crafting.v2'
   `);
 
   type Row = {
@@ -75,6 +87,7 @@ export async function GET() {
     fishing_codex: unknown;
     treasure_codex: unknown;
     equipment_codex: unknown;
+    crafting: unknown;
   };
   const rows = result.rows as unknown as Row[];
 
@@ -136,6 +149,22 @@ export async function GET() {
     );
     const fishCodex = parseFishCodex(r.fishing_codex);
     const treasureCodex = parseTreasureCodex(r.treasure_codex);
+    const crafting =
+      r.crafting && typeof r.crafting === "object" && !Array.isArray(r.crafting)
+        ? (r.crafting as Record<string, unknown>)
+        : {};
+    const artisan = parseArtisanState(crafting.artisan);
+    const blacksmith = artisan.blacksmith ?? { xp: 0, crafts: 0 };
+    const workshopRecords = parseGuildWorkshopCraftRecords(
+      crafting.workshopRecords,
+    );
+    const workshopMaterials = parseGuildWorkshopMaterialInventory(
+      charAny.materials,
+    );
+    const delivery = parseGuildWorkshopDeliveryState(
+      crafting.delivery,
+      todayDeliveryKey(),
+    );
     const power = derivePowerScore({
       atk: derived.player.atk,
       magicAtk: derived.player.magicAtk ?? 0,
@@ -196,6 +225,21 @@ export async function GET() {
       fishSpecies: Object.keys(fishCodex.fish).length,
       antiquesFound: Object.keys(treasureCodex.antiques).length,
       equippedIds,
+      blacksmithLevel: artisanLevel(blacksmith),
+      blacksmithXp: blacksmith.xp,
+      workshopTotalCrafts: workshopRecords.totalCrafts,
+      workshopQualityCrafts: workshopRecords.qualityCrafts,
+      workshopMasterworkCrafts: workshopRecords.masterworkCrafts,
+      workshopCraftOnlyCrafts: workshopRecords.craftOnlyCrafts,
+      workshopHighestTier: workshopRecords.highestTier,
+      workshopBestQualityLevel: workshopRecords.bestQualityLevel,
+      workshopMaterials: Object.fromEntries(
+        GUILD_WORKSHOP_MATERIAL_IDS.map((id) => [
+          id,
+          Math.max(0, Math.floor(Number(workshopMaterials[id]) || 0)),
+        ]),
+      ),
+      deliveryClaimsToday: delivery.claimed.length,
     });
   }
 

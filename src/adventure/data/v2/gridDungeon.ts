@@ -46,6 +46,13 @@ export type GridDungeonTileKind =
 export type GridDungeonStatus = "active" | "cleared" | "claimed" | "failed";
 export type GridDungeonMoveDir = "up" | "down" | "left" | "right";
 export type GridDungeonSupportRole = "dps" | "healer" | "tank";
+export type GridDungeonFailureReason =
+  | "combat_boss"
+  | "combat_elite"
+  | "combat_monster"
+  | "trap"
+  | "hp_depleted"
+  | "unknown";
 
 export type GridDungeonSupporterSnapshot = {
   userId: string;
@@ -134,6 +141,7 @@ export type GridDungeonHistoryEntry = {
   durationMs: number;
   message: string;
   detailReason: string;
+  failureReason?: GridDungeonFailureReason;
 };
 
 export type GridDungeonRouteSummary = {
@@ -375,6 +383,36 @@ export function parseGridDungeonSupportRole(
   return raw === "dps" || raw === "healer" || raw === "tank" ? raw : null;
 }
 
+export function parseGridDungeonFailureReason(
+  raw: unknown,
+): GridDungeonFailureReason | undefined {
+  return raw === "combat_boss" ||
+    raw === "combat_elite" ||
+    raw === "combat_monster" ||
+    raw === "trap" ||
+    raw === "hp_depleted" ||
+    raw === "unknown"
+    ? raw
+    : undefined;
+}
+
+function inferGridDungeonFailureReason(
+  entry: Partial<GridDungeonHistoryEntry>,
+): GridDungeonFailureReason | undefined {
+  if (entry.outcome !== "failed") return undefined;
+  const parsed = parseGridDungeonFailureReason(entry.failureReason);
+  if (parsed) return parsed;
+  const text = `${entry.detailReason ?? ""} ${entry.message ?? ""}`;
+  if (text.includes("유적의 파수꾼") || text.includes("보스")) {
+    return "combat_boss";
+  }
+  if (text.includes("정예")) return "combat_elite";
+  if (text.includes("전투 패배")) return "combat_monster";
+  if (text.includes("함정")) return "trap";
+  if (text.includes("HP")) return "hp_depleted";
+  return "unknown";
+}
+
 export function parseGridDungeonRouteId(raw: unknown): GridDungeonRouteId {
   return typeof raw === "string" &&
     GRID_DUNGEON_ROUTE_IDS.includes(raw as GridDungeonRouteId)
@@ -578,6 +616,9 @@ export function parseGridDungeonHistory(raw: unknown): GridDungeonHistoryEntry[]
             : typeof e.message === "string"
               ? e.message
               : "",
+        ...(inferGridDungeonFailureReason(e)
+          ? { failureReason: inferGridDungeonFailureReason(e) }
+          : {}),
       };
     })
     .filter((entry): entry is GridDungeonHistoryEntry => entry != null)

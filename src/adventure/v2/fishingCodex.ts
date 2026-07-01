@@ -34,6 +34,16 @@ export type FishCodex = {
 
 export const emptyFishCodex = (): FishCodex => ({ fish: {} });
 
+// 광장 랭킹용 누적 어획 점수. 마릿수만 세면 흔한 어종 반복이 과하게 유리해져
+// 티어별 어획 점수에 개인 최대어 보너스를 조금 더한다.
+export const FISHING_SCORE_BY_TIER: Record<FishTier, number> = {
+  common: 1,
+  uncommon: 2,
+  rare: 4,
+  epic: 8,
+  legendary: 16,
+};
+
 function parseEntry(raw: unknown): FishCodexEntry | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
@@ -105,6 +115,31 @@ export function discoveredFishIds(codex: FishCodex): FishId[] {
 
 export function countDiscoveredFish(codex: FishCodex): number {
   return discoveredFishIds(codex).length;
+}
+
+export function fishCodexTotalCaught(codex: FishCodex): number {
+  return FISH_IDS.reduce((sum, id) => {
+    const entry = codex.fish[id];
+    if (!entry?.discovered) return sum;
+    return sum + Math.max(1, Math.floor(entry.totalCaught));
+  }, 0);
+}
+
+export function fishBestSizeScoreBonus(fishId: FishId, bestSize: number): number {
+  const fish = FISH[fishId];
+  const span = Math.max(1, fish.maxSize - fish.minSize);
+  const normalized = Math.max(0, Math.min(1, (bestSize - fish.minSize) / span));
+  return Math.round(normalized * FISHING_SCORE_BY_TIER[fish.tier] * 10);
+}
+
+export function fishCodexScore(codex: FishCodex): number {
+  return FISH_IDS.reduce((sum, id) => {
+    const entry = codex.fish[id];
+    if (!entry?.discovered) return sum;
+    const catchCount = Math.max(1, Math.floor(entry.totalCaught));
+    const catchScore = catchCount * FISHING_SCORE_BY_TIER[FISH[id].tier];
+    return sum + catchScore + fishBestSizeScoreBonus(id, entry.bestSize);
+  }, 0);
 }
 
 export type FishTierCompletion = {

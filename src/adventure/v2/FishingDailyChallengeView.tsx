@@ -11,6 +11,7 @@ import type {
   ClaimResult,
   FishingChallengesState,
 } from "./useFishingDailyChallenge";
+import { useRewardToast } from "./RewardToastProvider";
 
 type ChallengeItemView = FishingProgressTaskView & {
   desc: string;
@@ -132,11 +133,13 @@ export function FishingDailyChallengeView({
   onOpenShop?: () => void;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
+  const { notifyReward } = useRewardToast();
 
   const handleClaim = async (id: string) => {
     if (!onClaim) return;
     const r = await onClaim(id);
     setMsg(r.message);
+    if (r.ok) notifyReward("낚시 도전 보상", r.message);
   };
   const claimableCount = state
     ? countClaimableFishingTasks([

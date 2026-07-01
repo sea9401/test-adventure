@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
+import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import type { GuildInfoResponse } from "./guildShared";
 
 type TrainingDrillView = {
@@ -62,6 +63,7 @@ export function GuildTrainingGroundPanel({
   localTrainingGround?: boolean;
   onChanged?: () => void | Promise<void>;
 }) {
+  const { notifyReward } = useRewardToast();
   const training = SETTLEMENT_BUILDINGS.training_ground;
   const trainingCount = info?.settlementBuildings?.training_ground ?? 0;
   const shouldShow =
@@ -130,11 +132,11 @@ export function GuildTrainingGroundPanel({
         setMessage(json?.reason ?? ERROR_TEXT[err] ?? "훈련을 완료하지 못했어요.");
         return;
       }
-      setMessage(
-        `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()} · 골드 +${(
-          json.rewardGold ?? 0
-        ).toLocaleString()}`,
-      );
+      const text = `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()} · 골드 +${(
+        json.rewardGold ?? 0
+      ).toLocaleString()}`;
+      setMessage(text);
+      notifyReward("훈련 완료", text);
       await load();
       await onChanged?.();
     } catch {

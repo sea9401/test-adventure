@@ -23,6 +23,7 @@ import {
   GUILD_WORKSHOP_MATERIAL_SOURCES,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { TITLES } from "@/adventure/data/titles";
+import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import type {
   GuildWorkshopCraftMode,
   GuildWorkshopRecipeId,
@@ -96,6 +97,7 @@ export function GuildWorkshopPanel({
   info: GuildInfoResponse | null;
   localSmithy?: boolean;
 }) {
+  const { notifyReward } = useRewardToast();
   const smithy = SETTLEMENT_BUILDINGS.guild_smithy;
   const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
   const hasSmithy =
@@ -716,13 +718,13 @@ export function GuildWorkshopPanel({
         endsAt: String(json.endsAt ?? weekly?.endsAt ?? ""),
         quests: Array.isArray(json.quests) ? json.quests : [],
       });
-      setWeeklyMessage(
-        `보상 수령 완료 · 길드 자금 +${Number(
-          json.rewardGold ?? 0,
-        ).toLocaleString()} G · 명성 +${Number(
-          json.rewardFame ?? 0,
-        ).toLocaleString()}`,
-      );
+      const text = `길드 자금 +${Number(
+        json.rewardGold ?? 0,
+      ).toLocaleString()} G · 명성 +${Number(
+        json.rewardFame ?? 0,
+      ).toLocaleString()}`;
+      setWeeklyMessage(`보상 수령 완료 · ${text}`);
+      notifyReward("주간 제작 의뢰 보상", text);
     } catch {
       setWeeklyMessage("보상 수령에 실패했습니다.");
     } finally {
@@ -748,13 +750,13 @@ export function GuildWorkshopPanel({
         dayKey: String(json.dayKey ?? delivery?.dayKey ?? ""),
         deliveries: Array.isArray(json.deliveries) ? json.deliveries : [],
       });
-      setDeliveryMessage(
-        `납품 완료 · 길드 자금 +${Number(
-          json.rewardGold ?? 0,
-        ).toLocaleString()} G · 숙련도 +${Number(
-          json.rewardArtisanXp ?? 0,
-        ).toLocaleString()}`,
-      );
+      const text = `길드 자금 +${Number(
+        json.rewardGold ?? 0,
+      ).toLocaleString()} G · 숙련도 +${Number(
+        json.rewardArtisanXp ?? 0,
+      ).toLocaleString()}`;
+      setDeliveryMessage(`납품 완료 · ${text}`);
+      notifyReward("납품 완료", text);
       void loadDelivery();
     } catch {
       setDeliveryMessage("납품에 실패했습니다.");
@@ -782,13 +784,13 @@ export function GuildWorkshopPanel({
       }
       const dismantled = json.dismantled as DismantleCandidateView | undefined;
       if (dismantled) setDismantleResult(dismantled);
-      setDismantleMessage(
-        dismantled
-          ? `${dismantled.itemName} 해체 완료 · 숙련도 +${Number(
-              dismantled.artisanXp ?? 0,
-            ).toLocaleString()}`
-          : "해체 완료",
-      );
+      const text = dismantled
+        ? `${dismantled.itemName} · 숙련도 +${Number(
+            dismantled.artisanXp ?? 0,
+          ).toLocaleString()}`
+        : "";
+      setDismantleMessage(dismantled ? `해체 완료 · ${text}` : "해체 완료");
+      notifyReward("해체 완료", text);
       setState((prev) =>
         prev
           ? {

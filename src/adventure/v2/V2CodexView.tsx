@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
+import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import {
   V2_MATERIALS,
   V2_MATERIAL_SELL_PRICE,
@@ -369,6 +370,7 @@ function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
 }
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
+  const { notifyReward } = useRewardToast();
   const [tab, setTab] = useState<CodexTab>("huntground");
   // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
   const [card, setCard] = useState<{
@@ -580,6 +582,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       setEquipmentCodexMsg(
         rewardText ? `${item.name} 등록 완료 · ${rewardText}` : `${item.name} 등록 완료`,
       );
+      if (rewardText) notifyReward("장비 도감 보상", `${item.name} · ${rewardText}`);
     } catch (err) {
       setEquipmentCodexMsg(
         err instanceof Error ? err.message : "오류가 발생했어요",
@@ -630,6 +633,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           ? `${registered}종 등록 완료 · ${failed}종 실패${rewardText}`
           : `${registered}종 등록 완료${rewardText}`,
       );
+      if (rewardLines.length > 0) {
+        notifyReward("장비 도감 보상", `${registered}종 등록 · ${rewardLines.join(" / ")}`);
+      }
     } finally {
       setEquipmentCodexBusy(null);
     }

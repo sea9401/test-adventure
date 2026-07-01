@@ -1,6 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages } from "@/db/schema";
+import {
+  guildActivityLog,
+  guildMembers,
+  outpostVillages,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
@@ -27,10 +32,10 @@ import {
 } from "@/adventure/data/v2/settlement";
 import {
   claimGuildTrainingDrill,
+  guildTrainingDayWindow,
   guildTrainingDrillViews,
   isGuildTrainingDrillId,
   parseGuildTrainingState,
-  todayGuildTrainingKey,
 } from "@/adventure/data/v2/guildTrainingGround";
 
 const TRAINING_SAVE_KEY = "guild-training.v1";
@@ -41,6 +46,14 @@ type CharacterSave = Record<string, unknown> & {
   level?: unknown;
   gold?: unknown;
 };
+
+type TrainingActivityMetaView = {
+  drillTitle: string | null;
+  rewardMastery: number;
+  rewardGold: number;
+};
+
+type GuildTrainingDayWindow = ReturnType<typeof guildTrainingDayWindow>;
 
 async function getGuildIdForUser(userId: string): Promise<number | null> {
   const row = (
@@ -95,6 +108,138 @@ function currentJobInfo(charSave: CharacterSave, profRaw: unknown) {
   return { cls, group, jobId, job, prof, hasJob, mastery };
 }
 
+function positiveInt(raw: unknown): number {
+  const value =
+    typeof raw === "number"
+      ? raw
+      : typeof raw === "string"
+        ? Number(raw)
+        : 0;
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+function trainingActivityMeta(raw: unknown): TrainingActivityMetaView {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return { drillTitle: null, rewardMastery: 0, rewardGold: 0 };
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    drillTitle:
+      typeof obj.drillTitle === "string" && obj.drillTitle.trim()
+        ? obj.drillTitle.trim()
+        : null,
+    rewardMastery: positiveInt(obj.rewardMastery),
+    rewardGold: positiveInt(obj.rewardGold),
+  };
+}
+
+async function readProfileNames(userIds: string[]): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(userIds.filter((id) => id.length > 0)));
+  const nameByUser = new Map<string, string>();
+  if (ids.length === 0) return nameByUser;
+
+  const rows = await db
+    .select({ userId: savesKv.userId, value: savesKv.value })
+    .from(savesKv)
+    .where(
+      and(
+        inArray(savesKv.userId, ids),
+        eq(savesKv.key, "character-profile.v2"),
+      ),
+    );
+  for (const row of rows) {
+    const value = (row.value ?? null) as { name?: string } | null;
+    const name = value?.name?.trim();
+    if (name) nameByUser.set(row.userId, name);
+  }
+  return nameByUser;
+}
+
+async function readGuildTrainingSummary({
+  guildId,
+  dayWindow,
+  dailyClaimLimit,
+}: {
+  guildId: number;
+  dayWindow: GuildTrainingDayWindow;
+  dailyClaimLimit: number;
+}) {
+  const [memberRows, activityRows] = await Promise.all([
+    db
+      .select({ userId: guildMembers.userId })
+      .from(guildMembers)
+      .where(eq(guildMembers.guildId, guildId)),
+    db
+      .select({
+        id: guildActivityLog.id,
+        actorUserId: guildActivityLog.actorUserId,
+        meta: guildActivityLog.meta,
+        createdAt: guildActivityLog.createdAt,
+      })
+      .from(guildActivityLog)
+      .where(
+        and(
+          eq(guildActivityLog.guildId, guildId),
+          eq(guildActivityLog.type, "training_drill_claim"),
+          gte(guildActivityLog.createdAt, dayWindow.start),
+          lt(guildActivityLog.createdAt, dayWindow.end),
+        ),
+      )
+      .orderBy(desc(guildActivityLog.createdAt)),
+  ]);
+
+  const memberIds = memberRows.map((row) => row.userId);
+  const memberIdSet = new Set(memberIds);
+  const rows = activityRows.flatMap((row) => {
+    if (
+      typeof row.actorUserId !== "string" ||
+      !memberIdSet.has(row.actorUserId)
+    ) {
+      return [];
+    }
+    return [
+      {
+        ...row,
+        actorUserId: row.actorUserId,
+        metaView: trainingActivityMeta(row.meta),
+      },
+    ];
+  });
+  const participatedMemberIds = new Set(rows.map((row) => row.actorUserId));
+  const totalMastery = rows.reduce(
+    (sum, row) => sum + row.metaView.rewardMastery,
+    0,
+  );
+  const totalGold = rows.reduce((sum, row) => sum + row.metaView.rewardGold, 0);
+  const recentRows = rows.slice(0, 5);
+  const nameByUser = await readProfileNames(
+    recentRows.map((row) => row.actorUserId),
+  );
+
+  return {
+    dayKey: dayWindow.dayKey,
+    memberCount: memberIds.length,
+    participatedMemberCount: participatedMemberIds.size,
+    pendingMemberCount: Math.max(
+      0,
+      memberIds.length - participatedMemberIds.size,
+    ),
+    completionCount: rows.length,
+    dailyClaimLimit,
+    maxCompletionCount: memberIds.length * Math.max(1, dailyClaimLimit),
+    totalMastery,
+    totalGold,
+    recent: recentRows.map((row) => ({
+      id: row.id,
+      actorName: nameByUser.get(row.actorUserId) ?? "모험가",
+      drillTitle: row.metaView.drillTitle ?? "훈련",
+      rewardMastery: row.metaView.rewardMastery,
+      rewardGold: row.metaView.rewardGold,
+      createdAt: row.createdAt,
+    })),
+  };
+}
+
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
@@ -106,7 +251,8 @@ export async function GET() {
   }
 
   const trainingGroundLevel = await guildTrainingGroundLevel(guildId);
-  const dayKey = todayGuildTrainingKey();
+  const dayWindow = guildTrainingDayWindow();
+  const dayKey = dayWindow.dayKey;
   const [charSave, profRaw, trainingRaw] = await Promise.all([
     readSave<CharacterSave | null>(db, userId, "character.v2", null),
     readSave<V2ProficiencyState | null>(db, userId, "proficiency.v2", null),
@@ -131,6 +277,11 @@ export async function GET() {
   const availableCount = drills.filter((drill) => drill.available).length;
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const remainingClaims = Math.max(0, dailyClaimLimit - claimedCount);
+  const guildSummary = await readGuildTrainingSummary({
+    guildId,
+    dayWindow,
+    dailyClaimLimit,
+  });
   return Response.json({
     ok: true,
     dayKey,
@@ -141,6 +292,7 @@ export async function GET() {
     availableCount,
     remainingClaims,
     claimableCount: Math.min(availableCount, remainingClaims),
+    guildSummary,
     currentJob: current.job
       ? {
           id: current.job.id,
@@ -182,7 +334,7 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
-    const dayKey = todayGuildTrainingKey();
+    const { dayKey } = guildTrainingDayWindow();
     const charSave = await lockSaveForUpdate<CharacterSave | null>(
       tx,
       userId,

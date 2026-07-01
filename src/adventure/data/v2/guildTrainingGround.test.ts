@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   claimGuildTrainingDrill,
   GUILD_TRAINING_DRILL_IDS,
+  guildTrainingDayWindow,
   guildTrainingDrillViews,
   parseGuildTrainingState,
   todayGuildTrainingKey,
@@ -16,6 +17,16 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     expect(todayGuildTrainingKey(new Date("2026-07-01T15:00:00.000Z"))).toBe(
       "2026-07-02",
     );
+  });
+
+  it("일일 집계 구간도 한국 시간 자정 기준이다", () => {
+    const window = guildTrainingDayWindow(
+      new Date("2026-07-01T15:30:00.000Z"),
+    );
+
+    expect(window.dayKey).toBe("2026-07-02");
+    expect(window.start.toISOString()).toBe("2026-07-01T15:00:00.000Z");
+    expect(window.end.toISOString()).toBe("2026-07-02T15:00:00.000Z");
   });
 
   it("날짜가 바뀌면 완료 상태를 초기화한다", () => {

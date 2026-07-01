@@ -46,7 +46,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(GRID_DISPLAY_SLOTS).toBe(MAX_SLOTS_BY_TIER.metropolis); // 1
   });
 
-  it("훈련장은 배치 가능 건물이며 Lv5에서 일일 과제 3개와 보상 +50%를 연다", () => {
+  it("훈련장은 배치 가능 건물이며 Lv5에서 일일 훈련 3회와 보상 +50%를 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("training_ground");
     expect(nextSettlementBuildingUpgrade("training_ground", 1)).toMatchObject({
       level: 2,

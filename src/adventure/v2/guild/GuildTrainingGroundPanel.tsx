@@ -15,6 +15,10 @@ type TrainingDrillView = {
   id: GuildTrainingDrillId;
   title: string;
   desc: string;
+  focus: string;
+  category: string;
+  focusLabel: string;
+  categoryLabel: string;
   minBuildingLevel: number;
   minCharacterLevel: number;
   claimed: boolean;
@@ -143,9 +147,16 @@ export function GuildTrainingGroundPanel({
   const hasTrainingGround =
     localTrainingGround || state?.hasTrainingGround === true || level > 0;
   const drills = state?.drills ?? [];
+  const dailyClaimLimit = Math.max(1, state?.upgrade?.unlockedDrillCount ?? 1);
+  const completedCount = drills.filter((drill) => drill.claimed).length;
+  const availableCount = drills.filter((drill) => drill.available).length;
+  const progressPct = Math.min(
+    100,
+    Math.max(0, (completedCount / dailyClaimLimit) * 100),
+  );
 
   return (
-    <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm text-zinc-900 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100">
+    <section className="space-y-3 rounded-md border border-sky-200 bg-white p-3 text-sm text-zinc-900 shadow-sm dark:border-sky-900/60 dark:bg-slate-950 dark:text-zinc-100">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -159,61 +170,117 @@ export function GuildTrainingGroundPanel({
           </p>
         </div>
         {hasTrainingGround && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-right text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-right text-[11px] text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-300">
             <div>보상 +{state?.upgrade?.trainingRewardBonusPct ?? 0}%</div>
-            <div>과제 {state?.upgrade?.unlockedDrillCount ?? 1}개</div>
+            <div>일일 {dailyClaimLimit}회</div>
           </div>
         )}
       </div>
 
       {hasTrainingGround && (
-        <div className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-zinc-500 dark:text-zinc-400">현재 직업</span>
-            <span className="font-medium">
-              {state?.currentJob?.name ?? "전직 필요"}
-            </span>
+        <div className="grid gap-2 rounded-md border border-sky-100 bg-sky-50/70 p-3 text-xs dark:border-sky-900/50 dark:bg-slate-900">
+          <div className="grid gap-2 sm:grid-cols-3">
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                현재 직업
+              </div>
+              <div className="mt-0.5 truncate font-semibold">
+                {state?.currentJob?.name ?? "전직 필요"}
+              </div>
+            </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                현재 숙련도
+              </div>
+              <div className="mt-0.5 font-semibold tabular-nums">
+                {(state?.currentJob?.mastery ?? 0).toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  오늘 훈련
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {completedCount}/{dailyClaimLimit}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded bg-sky-600 dark:bg-sky-400"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
           </div>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <span className="text-zinc-500 dark:text-zinc-400">현재 숙련도</span>
-            <span className="tabular-nums">
-              {(state?.currentJob?.mastery ?? 0).toLocaleString()}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span>
+              가능 {availableCount.toLocaleString()}개 · 전체{" "}
+              {drills.length.toLocaleString()}개
             </span>
+            <span>{state?.upgrade?.label ?? "훈련 설비"}</span>
           </div>
         </div>
       )}
 
       {message && (
-        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
           {message}
         </div>
       )}
 
       {loading && !state ? (
-        <div className="mt-3 flex items-center justify-center gap-2 rounded-md border border-zinc-200 px-3 py-6 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <div className="flex items-center justify-center gap-2 rounded-md border border-zinc-200 px-3 py-6 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           <SpinnerGap className="animate-spin" size={16} />
           불러오는 중
         </div>
       ) : hasTrainingGround ? (
-        <div className="mt-3 space-y-2">
+        <div className="space-y-2">
           {drills.map((drill) => {
             const busy = claimingId === drill.id;
             return (
               <div
                 key={drill.id}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                className={`rounded-md border p-3 text-xs transition ${
+                  drill.claimed
+                    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20"
+                    : drill.available
+                      ? "border-sky-200 bg-white dark:border-sky-900/60 dark:bg-slate-900"
+                      : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-slate-900/70"
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-medium text-zinc-800 dark:text-zinc-100">
-                      {drill.title}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {drill.title}
+                      </span>
+                      <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-slate-800 dark:text-zinc-300">
+                        {drill.categoryLabel}
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-px text-[10px] font-medium ${
+                          drill.focus === "common"
+                            ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                            : "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+                        }`}
+                      >
+                        {drill.focusLabel}
+                      </span>
                     </div>
                     <div className="mt-0.5 text-zinc-500 dark:text-zinc-400">
                       {drill.desc}
                     </div>
-                    <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      숙련도 +{drill.rewardMastery.toLocaleString()} · 골드 +
-                      {drill.rewardGold.toLocaleString()}
+                    <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
+                      <span className="rounded bg-emerald-100 px-1.5 py-px font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                        숙련도 +{drill.rewardMastery.toLocaleString()}
+                      </span>
+                      <span className="rounded bg-amber-100 px-1.5 py-px font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                        골드 +{drill.rewardGold.toLocaleString()}
+                      </span>
+                      <span className="rounded bg-zinc-100 px-1.5 py-px text-zinc-500 dark:bg-slate-800 dark:text-zinc-400">
+                        훈련장 Lv {drill.minBuildingLevel}
+                      </span>
                     </div>
                   </div>
                   <button
@@ -235,7 +302,7 @@ export function GuildTrainingGroundPanel({
                   </button>
                 </div>
                 {drill.lockedReason && !drill.claimed && (
-                  <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <div className="mt-2 rounded border border-zinc-200 bg-white/70 px-2 py-1 text-[11px] text-zinc-500 dark:border-slate-700 dark:bg-slate-950/70 dark:text-zinc-400">
                     {drill.lockedReason}
                   </div>
                 )}

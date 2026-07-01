@@ -7,7 +7,15 @@ import type { GuildWorkshopMaterialId } from "./guildWorkshopMaterials";
 export const EQUIPMENT_CODEX_KEY = "equipment-codex.v1";
 
 // 신규 장비가 추가되면 여기에 다음 단계만 이어 붙인다. 기존 보상은 회수하지 않는다.
-export const EQUIPMENT_CODEX_SP_MILESTONES = [15, 35, 65, 100, 130] as const;
+export const EQUIPMENT_CODEX_SP_MILESTONES = [
+  15,
+  35,
+  65,
+  100,
+  130,
+  150,
+  180,
+] as const;
 
 export type EquipmentCodexState = {
   registeredIds: V2EquipmentId[];

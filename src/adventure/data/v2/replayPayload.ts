@@ -27,6 +27,8 @@ export type ReplayPayload = {
     spd?: number;
     accuracy?: number;
     evasionPct?: number;
+    atkType?: Monster["atkType"];
+    critPct?: number;
   };
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
@@ -79,6 +81,8 @@ export function toReplayPayload(
       spd: finalState.enemy.spd,
       accuracy: finalState.enemy.accuracy,
       evasionPct: finalState.enemy.evasionPct,
+      atkType: finalState.enemy.atkType,
+      critPct: finalState.enemy.critPct,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
@@ -141,6 +145,8 @@ export function toReplayPayloadLite(finalState: BattleState): ReplayPayload {
       spd: finalState.enemy.spd,
       accuracy: finalState.enemy.accuracy,
       evasionPct: finalState.enemy.evasionPct,
+      atkType: finalState.enemy.atkType,
+      critPct: finalState.enemy.critPct,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,

@@ -1411,10 +1411,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_celestialdragon_breath: {
     id: "v2c_celestialdragon_breath", name: "천룡의 호흡", stat: "str", category: "passive", tier: 3,
-    description: "호흡과 보법이 하나가 된다. 힘과 민첩, 회피가 크게 오른다.",
+    description: "호흡과 보법이 하나가 된다. 힘과 민첩, 회피가 크게 오르고 네 번째 적중마다 힘을 폭발시킨다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { statPct: { str: 22, dex: 10 }, evasionPct: 20, accuracyPct: 12 },
+    passive: {
+      statPct: { str: 22, dex: 10 },
+      evasionPct: 20,
+      accuracyPct: 12,
+      comboFinisherBonusPct: 30,
+    },
   },
 };
 

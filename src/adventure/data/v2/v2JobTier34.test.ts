@@ -65,6 +65,7 @@ function deriveWithEquippedKit(
     passiveAccuracyPct: agg.accuracyPct,
     passiveHealPowerPct: agg.healPowerPct,
     passiveDamageTakenReductionPct: agg.damageTakenReductionPct,
+    passiveComboFinisherBonusPct: agg.comboFinisherBonusPct,
   });
 }
 
@@ -379,5 +380,17 @@ describe("심화(tier-4) 패시브 derive — 고유 % 가 실제 전투 레버�
     const accPct = V2_SKILLS.v2c_chief_afterimage.passive!.accuracyPct!;
     // accRating 은 캡 없는 raw(passiveAccuracyPct 선형 가산) — 회피 대결형 Slice 2 의 전투 명중 레버.
     expect((ch.accRating ?? 0) - (plain.accRating ?? 0)).toBeCloseTo(accPct, 5);
+  });
+
+  it("천룡권성(celestialdragon) 천룡의 호흡 → 4타째 추가 피해가 전투 레버에 적용", () => {
+    const cd = deriveWithEquippedKit(skillsForJob("celestialdragon")).player;
+    expect(cd.comboFinisherBonusPct).toBe(
+      V2_SKILLS.v2c_celestialdragon_breath.passive!.comboFinisherBonusPct,
+    );
+    expect(cd.comboFinisherBonusPct).toBe(30);
+    expect(
+      derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player
+        .comboFinisherBonusPct,
+    ).toBeUndefined();
   });
 });

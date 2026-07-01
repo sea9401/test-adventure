@@ -105,6 +105,8 @@ export type V2PassiveSkillEffect = {
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
   skillCritOverflow?: boolean;
+  /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 다단 액티브 스킬과 평타가 같은 카운터를 공유. */
+  comboFinisherBonusPct?: number;
 };
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
@@ -429,6 +431,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
+    mag += (p.comboFinisherBonusPct ?? 0) / 25;
     return mag;
   }
   const sumEffects = (effects: readonly V2SkillEffect[]): number => {
@@ -510,6 +513,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   enemyMagicVulnPctPerStack: number;
   spdOverflowToAtkPct: number;
   skillCritOverflow: boolean;
+  comboFinisherBonusPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -533,6 +537,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let enemyMagicVulnPctPerStack = 0;
   let spdOverflowToAtkPct = 0;
   let skillCritOverflow = false;
+  let comboFinisherBonusPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -562,6 +567,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
+    comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
   }
   return {
     stat,
@@ -586,6 +592,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     enemyMagicVulnPctPerStack,
     spdOverflowToAtkPct,
     skillCritOverflow,
+    comboFinisherBonusPct,
   };
 }
 
@@ -754,6 +761,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
   if (p.skillCritOverflow)
     chips.push(`치명 한계(75%) 초과 보너스를 스킬에도 적용`);
+  if (p.comboFinisherBonusPct)
+    chips.push(`4타마다 피해 +${p.comboFinisherBonusPct}%`);
   return chips;
 }
 

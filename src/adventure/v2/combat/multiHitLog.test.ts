@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  applyComboFinisherToHits,
   resolveV2SkillCast,
   distributeBoostedHits,
   v2DamageAmount,
@@ -46,6 +47,29 @@ describe("distributeBoostedHits — 부스트 총합 정수 분배", () => {
     const d = distributeBoostedHits([0, 0, 0], 10);
     expect(d.reduce((a, b) => a + b, 0)).toBe(10);
     expect(d).toHaveLength(3);
+  });
+});
+
+describe("applyComboFinisherToHits — 절초 4타째 보너스", () => {
+  it("보너스가 없으면 피해와 카운터를 그대로 유지", () => {
+    expect(applyComboFinisherToHits([10, 20], 2, 0)).toEqual({
+      hitDamages: [10, 20],
+      nextComboHitCount: 2,
+    });
+  });
+
+  it("4타째 피해만 증폭하고 누적 카운터를 진행", () => {
+    expect(applyComboFinisherToHits([10, 10, 10, 10, 10], 0, 30)).toEqual({
+      hitDamages: [10, 10, 10, 13, 10],
+      nextComboHitCount: 5,
+    });
+  });
+
+  it("이전 타수에서 이어 받아 다음 타격을 마무리 강타로 처리", () => {
+    expect(applyComboFinisherToHits([10, 10], 3, 50)).toEqual({
+      hitDamages: [15, 10],
+      nextComboHitCount: 5,
+    });
   });
 });
 

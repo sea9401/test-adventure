@@ -86,144 +86,320 @@ function missMessage(reason: string): string {
   return MISS_MESSAGE[reason] ?? "물고기를 놓쳤다.";
 }
 
-// 찌 연출 — 상태만 받아 그림을 그린다(판정·타이밍은 부모 그대로).
-// waiting: 잔잔히 까닥 + 수면 잔물결·기포.  biting: 즉시 빨려들며 떨림 + 강한 물결.
-function BobberScene({ phase }: { phase: Phase }) {
+const TAU = Math.PI * 2;
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(value: number): number {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
+}
+
+function lerp(from: number, to: number, amount: number): number {
+  return from + (to - from) * amount;
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, radius);
+  ctx.fill();
+}
+
+function drawWaterLine(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  width: number,
+  phase: number,
+  alpha: number,
+) {
+  ctx.beginPath();
+  for (let x = -20; x <= width + 20; x += 18) {
+    const waveY = y + Math.sin(x * 0.035 + phase) * 2.2;
+    if (x === -20) ctx.moveTo(x, waveY);
+    else ctx.lineTo(x, waveY);
+  }
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function drawReeds(ctx: CanvasRenderingContext2D, x: number, y: number, sway: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = "rgba(35, 98, 61, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  for (let i = 0; i < 7; i += 1) {
+    const offset = i * 7;
+    const height = 24 + (i % 3) * 8;
+    ctx.beginPath();
+    ctx.moveTo(offset, 0);
+    ctx.quadraticCurveTo(offset + sway + i - 4, -height * 0.55, offset + sway, -height);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawBobber(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  color: string,
+) {
+  const r = 7 * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = "rgba(18, 30, 38, 0.72)";
+  ctx.lineWidth = 1.4 * scale;
+  ctx.beginPath();
+  ctx.moveTo(0, -r - 8 * scale);
+  ctx.lineTo(0, -r * 0.2);
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, Math.PI, TAU);
+  ctx.fill();
+  ctx.fillStyle = "#f8fafc";
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+  ctx.strokeRect(-r * 0.6, -1, r * 1.2, 2);
+  ctx.restore();
+}
+
+function drawFishingCanvasScene(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  phase: Phase,
+  elapsedMs: number,
+  reducedMotion: boolean,
+) {
+  const t = reducedMotion ? 0 : elapsedMs / 1000;
+  const waterY = Math.round(height * 0.48);
+  const bobberRestX = Math.round(width * 0.45);
+  const bobberRestY = Math.round(waterY + height * 0.22);
+  const castProgress = phase === "casting" ? smoothstep((elapsedMs % 780) / 780) : 1;
+  const bitePulse = phase === "biting" ? Math.sin(t * 31) : 0;
+  const waitPulse = Math.sin(t * 2.2);
+  const liftPulse = phase === "resolving" ? Math.sin(t * 8) : 0;
   const biting = phase === "biting";
   const waiting = phase === "waiting";
-  const idle = phase === "idle";
-  const casting = phase === "casting";
   const resolving = phase === "resolving";
-  const onWater = waiting || biting;
-  const bobberVisible = idle || onWater || casting || resolving;
-  const phaseClass = `is-${phase}`;
+  const casting = phase === "casting";
+
+  ctx.clearRect(0, 0, width, height);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, waterY);
+  sky.addColorStop(0, "#bae6fd");
+  sky.addColorStop(0.72, "#e0f7ff");
+  sky.addColorStop(1, "#f8fafc");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, waterY);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+  drawRoundedRect(ctx, width * 0.08 + Math.sin(t * 0.25) * 8, height * 0.12, 60, 11, 8);
+  drawRoundedRect(ctx, width * 0.64 - Math.sin(t * 0.18) * 10, height * 0.08, 72, 10, 8);
+
+  ctx.fillStyle = "#4d7c54";
+  ctx.beginPath();
+  ctx.moveTo(0, waterY - 8);
+  for (let x = 0; x <= width; x += 28) {
+    ctx.lineTo(x, waterY - 10 - Math.sin(x * 0.04 + 0.7) * 11);
+  }
+  ctx.lineTo(width, waterY + 9);
+  ctx.lineTo(0, waterY + 9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(36, 84, 60, 0.72)";
+  ctx.fillRect(0, waterY, width, 12);
+
+  const water = ctx.createLinearGradient(0, waterY, 0, height);
+  water.addColorStop(0, biting ? "#38bdf8" : "#67e8f9");
+  water.addColorStop(1, biting ? "#0e7490" : "#0891b2");
+  ctx.fillStyle = water;
+  ctx.fillRect(0, waterY, width, height - waterY);
+  for (let i = 0; i < 6; i += 1) {
+    drawWaterLine(ctx, waterY + 13 + i * 20, width, t * (1.2 + i * 0.12) + i, 0.28 - i * 0.025);
+  }
+
+  const dockY = height - 42;
+  ctx.fillStyle = "#8b5a2b";
+  ctx.save();
+  ctx.translate(width * 0.68, dockY);
+  ctx.transform(1, 0, -0.18, 1, 0, 0);
+  ctx.fillRect(0, 0, width * 0.36, 42);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+  ctx.fillRect(0, 5, width * 0.36, 3);
+  ctx.strokeStyle = "rgba(54, 31, 16, 0.45)";
+  ctx.lineWidth = 2;
+  for (let x = 24; x < width * 0.34; x += 38) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, 42);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  drawReeds(ctx, 12, waterY + 8, Math.sin(t * 2) * 5);
+  drawReeds(ctx, width * 0.76, waterY + 9, -Math.sin(t * 2.4) * 4);
+
+  let bobberX = bobberRestX;
+  let bobberY = bobberRestY + waitPulse * 2;
+  if (phase === "idle") {
+    bobberY = waterY + height * 0.18 + Math.sin(t * 1.6) * 2;
+  }
+  if (casting) {
+    bobberX = lerp(width * 0.86, bobberRestX, castProgress);
+    bobberY =
+      lerp(height * 0.24, bobberRestY, castProgress) -
+      Math.sin(castProgress * Math.PI) * height * 0.22;
+  }
+  if (biting) {
+    bobberX = bobberRestX + bitePulse * 4;
+    bobberY = bobberRestY + 11 + Math.abs(bitePulse) * 5;
+  }
+  if (resolving) {
+    bobberX = bobberRestX + liftPulse * 2;
+    bobberY = bobberRestY - 18 + liftPulse * 5;
+  }
+
+  const rodBaseX = width * 0.88;
+  const rodBaseY = height * 0.19;
+  const rodTipX = bobberX - 18;
+  const rodTipY = bobberY - 38 - (resolving ? 18 : 0);
+  const bend = biting ? 34 + Math.abs(bitePulse) * 16 : waiting ? 12 + waitPulse * 5 : resolving ? -12 : 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#583716";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(rodBaseX, rodBaseY);
+  ctx.bezierCurveTo(width * 0.76, height * 0.26 + bend * 0.15, width * 0.62, rodTipY + bend, rodTipX, rodTipY);
+  ctx.stroke();
+  ctx.strokeStyle = "#d69b4a";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(rodBaseX - 2, rodBaseY - 2);
+  ctx.bezierCurveTo(width * 0.76, height * 0.25 + bend * 0.1, width * 0.62, rodTipY + bend - 3, rodTipX - 1, rodTipY - 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = biting ? "rgba(255, 255, 255, 0.9)" : "rgba(226, 244, 255, 0.82)";
+  ctx.lineWidth = biting ? 1.8 : 1.1;
+  ctx.beginPath();
+  ctx.moveTo(rodTipX, rodTipY);
+  ctx.quadraticCurveTo((rodTipX + bobberX) / 2 + (biting ? bitePulse * 4 : 0), (rodTipY + bobberY) / 2 + (biting ? 2 : 10), bobberX, bobberY - 14);
+  ctx.stroke();
+
+  if (waiting || biting) {
+    const shadowScale = biting ? 1 + Math.abs(bitePulse) * 0.25 : 0.75 + Math.sin(t * 1.4) * 0.08;
+    ctx.fillStyle = biting ? "rgba(4, 47, 46, 0.48)" : "rgba(4, 47, 46, 0.24)";
+    ctx.beginPath();
+    ctx.ellipse(bobberX - 8 + Math.sin(t * 1.5) * 18, bobberY + 15, 44 * shadowScale, 10 * shadowScale, 0, 0, TAU);
+    ctx.fill();
+  }
+
+  if (waiting || biting || phase === "idle") {
+    const rippleCount = biting ? 4 : 2;
+    for (let i = 0; i < rippleCount; i += 1) {
+      const p = reducedMotion ? 0.55 : (t * (biting ? 2.8 : 0.9) + i * 0.33) % 1;
+      ctx.strokeStyle = `rgba(255,255,255,${(1 - p) * (biting ? 0.62 : 0.32)})`;
+      ctx.lineWidth = biting ? 2 : 1.2;
+      ctx.beginPath();
+      ctx.ellipse(bobberX, bobberY + 4, 12 + p * (biting ? 42 : 26), 4 + p * (biting ? 13 : 8), 0, 0, TAU);
+      ctx.stroke();
+    }
+  }
+
+  if (biting) {
+    for (let i = 0; i < 7; i += 1) {
+      const p = reducedMotion ? 0.5 : (t * 3.5 + i * 0.17) % 1;
+      ctx.fillStyle = `rgba(255, 255, 255, ${1 - p})`;
+      ctx.beginPath();
+      ctx.arc(bobberX + Math.cos(i * 1.7) * (10 + p * 20), bobberY - p * 24, 1.8 + (1 - p) * 1.5, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  drawBobber(ctx, bobberX, bobberY, biting ? 1.12 : 1, biting ? "#f59e0b" : phase === "idle" ? "#38bdf8" : "#e11d48");
+}
+
+function FishingSceneCanvas({ phase }: { phase: Phase }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const phaseRef = useRef(phase);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reducedMotion = mediaQuery.matches;
+    let frameId = 0;
+    let start = performance.now();
+
+    const draw = (now: number) => {
+      const rect = wrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+      }
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawFishingCanvasScene(ctx, width, height, phaseRef.current, now - start, reducedMotion);
+      }
+      frameId = requestAnimationFrame(draw);
+    };
+
+    const onMotionChange = () => {
+      reducedMotion = mediaQuery.matches;
+      start = performance.now();
+    };
+    mediaQuery.addEventListener("change", onMotionChange);
+    frameId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      mediaQuery.removeEventListener("change", onMotionChange);
+    };
+  }, []);
+
+  const waiting = phase === "waiting";
+  const biting = phase === "biting";
 
   return (
-    <div
-      className={`fish-flash-scene pointer-events-none relative flex h-full w-full flex-col items-center justify-end overflow-hidden ${phaseClass} ${
-        biting ? "is-biting" : ""
-      } ${waiting ? "is-waiting" : ""}`}
-    >
-      <div className="fish-sky" />
-      <div className="fish-cloud fish-cloud-a" />
-      <div className="fish-cloud fish-cloud-b" />
-      <div className="fish-bank" />
-      <div className="fish-reeds fish-reeds-left" />
-      <div className="fish-reeds fish-reeds-right" />
-      <div className="fish-water">
-        <span className="fish-wave fish-wave-a" />
-        <span className="fish-wave fish-wave-b" />
-        <span className="fish-wave fish-wave-c" />
-        <span className="fish-underwater-shadow" />
-      </div>
-      <div className="fish-dock">
-        <span />
-        <span />
-        <span />
-      </div>
-
-      <svg
-        aria-hidden="true"
-        className="fish-rod"
-        viewBox="0 0 260 160"
-        preserveAspectRatio="none"
-      >
-        <path
-          className="fish-rod-main"
-          d="M226 18 C196 35 169 57 142 87"
-          fill="none"
-          stroke="#6f4d23"
-          strokeWidth="5"
-          strokeLinecap="round"
-        />
-        <path
-          className="fish-rod-highlight"
-          d="M226 18 C196 35 169 57 142 87"
-          fill="none"
-          stroke="#c08a3d"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          opacity="0.75"
-        />
-        <path
-          className="fish-line-path"
-          d="M142 87 C130 99 126 106 120 115"
-          fill="none"
-          stroke="#dce8ef"
-          strokeWidth="0.9"
-          strokeLinecap="round"
-          opacity="0.9"
-        />
-        <path
-          className="fish-line-tension"
-          d="M143 87 C136 101 128 112 119 122"
-          fill="none"
-          stroke="#ffffff"
-          strokeLinecap="round"
-          strokeWidth="1.1"
-        />
-        <circle className="fish-rod-tip" cx="142" cy="87" r="2.4" />
-      </svg>
-
-      {bobberVisible && (
-        <div className="fish-bobber-stage">
-          <span className="fish-fish-shadow absolute left-1/2 rounded-[100%]" />
-          <span className="fish-strike-splash fish-strike-splash-a absolute left-1/2" />
-          <span className="fish-strike-splash fish-strike-splash-b absolute left-1/2" />
-          <span
-            className={`fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border ${
-              biting
-                ? "fish-ripple-bite border-amber-300/80"
-                : "border-cyan-100/45"
-            }`}
-          />
-          <span
-            className="fish-ripple absolute left-1/2 h-6 w-16 rounded-[100%] border border-white/25"
-            style={{ animationDelay: "0.7s" }}
-          />
-          {onWater && (
-            <>
-              <span
-                className="fish-ripple absolute left-1/2 h-6 w-16 rounded-[100%] border border-cyan-100/25"
-                style={{ animationDelay: "1.4s" }}
-              />
-              <span className="fish-bubble absolute left-[42%] h-1.5 w-1.5 rounded-full bg-cyan-100/70" />
-              <span
-                className="fish-bubble absolute left-[56%] h-1 w-1 rounded-full bg-cyan-100/55"
-                style={{ animationDelay: "1.6s" }}
-              />
-            </>
-          )}
-          <span className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/80" />
-          <div
-            className={
-              onWater || casting || resolving
-                ? "fish-cast-arc relative z-10"
-                : "relative z-10"
-            }
-          >
-            <div className={biting ? "fish-bob-bite" : "fish-bob-idle"}>
-              <span className="mx-auto block h-4 w-[2px] rounded bg-zinc-700/80 dark:bg-zinc-300/80" />
-              <span
-                className={`block h-4 w-4 rounded-full border border-white/70 shadow-md ${
-                  biting ? "bg-amber-500" : idle ? "bg-sky-400" : "bg-rose-500"
-                }`}
-              />
-              <span className="mx-auto -mt-1 block h-4 w-3 rounded-b-full rounded-t-sm bg-zinc-100 shadow-sm dark:bg-zinc-200" />
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div ref={wrapRef} className="fish-canvas-scene pointer-events-none relative h-full w-full overflow-hidden">
+      <canvas ref={canvasRef} aria-hidden="true" className="fish-scene-canvas" />
       {phase !== "idle" && (
-        <div className="fish-scene-status relative z-20 mb-3 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-950/70">
+        <div className="fish-scene-status absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-950/70">
           {phase === "casting" && <span className="text-sm">던지는 중…</span>}
           {waiting && (
             <>
               <span className="block text-sm">입질을 기다리는 중…</span>
-              <span className="mt-0.5 block text-[11px] opacity-70">
-                아직 누르지 말 것
-              </span>
+              <span className="mt-0.5 block text-[11px] opacity-70">아직 누르지 말 것</span>
             </>
           )}
           {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
@@ -583,7 +759,7 @@ export function FishingView({
                 : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
           }`}
         >
-          <BobberScene phase={phase} />
+          <FishingSceneCanvas phase={phase} />
         </button>
       )}
 

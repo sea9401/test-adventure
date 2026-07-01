@@ -22,6 +22,7 @@ import {
 const TABS: { key: RankingMetric; label: string }[] = [
   { key: "level", label: "총 숙련도" },
   { key: "battleCount", label: "전투 횟수" },
+  { key: "fishingScore", label: "낚시 점수" },
   { key: "guild", label: "길드 랭킹" },
 ];
 
@@ -52,6 +53,7 @@ export function RankingsView() {
       </Card>
 
       {metric === "level" && <LevelMetricPill />}
+      {metric === "fishingScore" && <FishingMetricPill />}
 
       {metric === "guild" ? (
         <GuildRankingsBody />
@@ -74,6 +76,21 @@ function LevelMetricPill() {
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
           환생·전직으로 리셋되지 않는 직업 숙련도 합계 순으로 매깁니다.
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function FishingMetricPill() {
+  return (
+    <Card as="section" padding="sm">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-medium text-sky-700 dark:text-sky-300">
+          낚시 점수
+        </span>
+        <span className="text-zinc-500 dark:text-zinc-400">
+          어종 등급별 누적 어획과 개인 최대어 보너스를 합산합니다.
         </span>
       </div>
     </Card>
@@ -248,8 +265,10 @@ function RankingRow({
       <span className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
         {metric === "level" ? (
           <>숙련도 {entry.cumLevel.toLocaleString()}</>
+        ) : metric === "fishingScore" ? (
+          <>낚시 {entry.fishingScore.toLocaleString()}점</>
         ) : (
-          <>전투 {entry.battleCount}</>
+          <>전투 {entry.battleCount.toLocaleString()}</>
         )}
       </span>
     </button>

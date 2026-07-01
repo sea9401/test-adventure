@@ -4,7 +4,10 @@ import {
   countDiscoveredFish,
   discoveredFishIds,
   emptyFishCodex,
+  fishBestSizeScoreBonus,
   fishCodexSpBonus,
+  fishCodexScore,
+  fishCodexTotalCaught,
   fishTierCompletions,
   parseFishCodex,
   recordCatch,
@@ -114,5 +117,27 @@ describe("낚시 도감 — 등급 완성 SP", () => {
     expect(firstCommon).toBeDefined();
     const partial = recordCatch(emptyFishCodex(), firstCommon!, 10, 1);
     expect(fishCodexSpBonus(partial)).toBe(0);
+  });
+});
+
+describe("낚시 도감 — 어획 점수", () => {
+  it("티어별 마릿수 점수와 개인 최대어 보너스를 합산", () => {
+    let codex = emptyFishCodex();
+    codex = recordCatch(codex, "crucian_carp", 10, 1);
+    codex = recordCatch(codex, "crucian_carp", 45, 2);
+    codex = recordCatch(codex, "marlin", 600, 3);
+
+    expect(fishCodexTotalCaught(codex)).toBe(3);
+    expect(fishBestSizeScoreBonus("crucian_carp", 45)).toBe(10);
+    expect(fishCodexScore(codex)).toBe(2 + 10 + 8 + fishBestSizeScoreBonus("marlin", 600));
+  });
+
+  it("마릿수 없는 레거시 발견 기록도 최소 1마리로 계산", () => {
+    const codex = parseFishCodex({
+      fish: { carp: { discovered: true, bestSize: 50 } },
+    });
+
+    expect(fishCodexTotalCaught(codex)).toBe(1);
+    expect(fishCodexScore(codex)).toBeGreaterThan(0);
   });
 });

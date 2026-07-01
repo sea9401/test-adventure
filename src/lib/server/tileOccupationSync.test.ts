@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   occRows: [] as Array<{ outpostId: string }>, // 길드 타일 점령행
+  villageRows: [] as Array<{ outpostId: string }>, // 점령행 없이 남을 수 있는 생산 마을
   setValues: [] as Array<Record<string, unknown>>, // update().set(v)
   deletes: 0, // delete 호출 수
 }));
@@ -17,6 +18,7 @@ import {
   neutralizeGuildTiles,
   releaseMemberFromGuildTiles,
 } from "./tileOccupation";
+import { outpostVillages } from "@/db/schema";
 
 type Tx = Parameters<typeof neutralizeGuildTiles>[0];
 
@@ -30,8 +32,9 @@ function makeTx(): Tx {
       }),
     }),
     select: () => ({
-      from: () => ({
-        where: async () => h.occRows,
+      from: (table: unknown) => ({
+        where: async () =>
+          table === outpostVillages ? h.villageRows : h.occRows,
       }),
     }),
     delete: () => ({
@@ -45,6 +48,7 @@ function makeTx(): Tx {
 
 function reset() {
   h.occRows = [];
+  h.villageRows = [];
   h.setValues = [];
   h.deletes = 0;
 }
@@ -75,12 +79,19 @@ describe("releaseMemberFromGuildTiles — 탈퇴/추방", () => {
 });
 
 describe("neutralizeGuildTiles — 해산(중립화)", () => {
-  it("길드 타일 있음 → 금고·수비·영주·점령행·정착지 5행 제거(빈 땅)", async () => {
+  it("길드 타일 있음 → 금고·수비·영주·생산마을·점령행·정착지 6행 제거(빈 땅)", async () => {
     reset();
     h.occRows = [{ outpostId: "tile:3,3" }];
     await neutralizeGuildTiles(makeTx(), 7);
-    // treasury + defenders + lords + occupations + tile_settlements
-    expect(h.deletes).toBe(5);
+    // treasury + defenders + lords + outpost_villages + occupations + tile_settlements
+    expect(h.deletes).toBe(6);
+  });
+
+  it("점령행 없이 생산 마을만 남은 스테일 상태도 제거", async () => {
+    reset();
+    h.villageRows = [{ outpostId: "tile:4,4" }];
+    await neutralizeGuildTiles(makeTx(), 7);
+    expect(h.deletes).toBe(6);
   });
 
   it("대상 타일 없음 → no-op", async () => {

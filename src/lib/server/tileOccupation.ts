@@ -135,13 +135,15 @@ export async function releaseMemberFromGuildTiles(
 }
 
 // 해산 — 그 길드의 전 타일 영토를 중립화(빈 땅). 영토=길드 소유라 길드가 사라지면 영토도 소멸:
-//   점령행/거점 금고/수비큐/영주 + 정착지(tile_settlements) 행까지 제거 → 그 칸은 다시 개척 가능.
+//   점령행/거점 금고/수비큐/영주 + 생산 마을(outpost_villages) + 정착지(tile_settlements)
+//   행까지 제거 → 그 칸은 다시 개척 가능. 점령행이 먼저 사라진 스테일 상태라도
+//   outpost_villages.guildId 로 남은 건물 보드는 반드시 지운다.
 //   (옛 "솔로 복귀"는 솔로 소유 폐기로 무의미.) 무대상이면 no-op.
 export async function neutralizeGuildTiles(
   tx: Tx,
   guildId: number,
 ): Promise<void> {
-  const rows = await tx
+  const occupationRows = await tx
     .select({ outpostId: outpostOccupations.outpostId })
     .from(outpostOccupations)
     .where(
@@ -150,13 +152,23 @@ export async function neutralizeGuildTiles(
         like(outpostOccupations.outpostId, `${TILE_OUTPOST_PREFIX}%`),
       ),
     );
-  if (rows.length === 0) return;
-  const ids = rows.map((r) => r.outpostId);
+  const villageRows = await tx
+    .select({ outpostId: outpostVillages.outpostId })
+    .from(outpostVillages)
+    .where(eq(outpostVillages.guildId, guildId));
+  const ids = Array.from(
+    new Set([
+      ...occupationRows.map((r) => r.outpostId),
+      ...villageRows.map((r) => r.outpostId),
+    ]),
+  );
+  if (ids.length === 0) return;
   await tx.delete(outpostTreasury).where(inArray(outpostTreasury.outpostId, ids));
   await tx
     .delete(outpostDefenders)
     .where(inArray(outpostDefenders.outpostId, ids));
   await tx.delete(outpostLords).where(inArray(outpostLords.outpostId, ids));
+  await tx.delete(outpostVillages).where(inArray(outpostVillages.outpostId, ids));
   await tx
     .delete(outpostOccupations)
     .where(inArray(outpostOccupations.outpostId, ids));

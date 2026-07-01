@@ -1119,6 +1119,14 @@ body {
   color: #dff6ff;
 }
 
+.fish-result-canvas-scene {
+  background: #bae6fd;
+}
+
+.dark .fish-result-canvas-scene {
+  background: #142b4b;
+}
+
 .fish-scene-canvas {
   display: block;
   height: 100%;

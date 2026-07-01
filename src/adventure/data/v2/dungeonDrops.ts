@@ -28,6 +28,7 @@ import {
   WALL_REPAIR_KIT_MATERIAL,
 } from "./settlementMaterials";
 import { GUILD_WORKSHOP_MATERIALS } from "./guildWorkshopMaterials";
+import { COOP_REWARD_MATERIALS } from "./coopRewards";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -97,9 +98,12 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 길드 대장간 제작 재료(guildWorkshopMaterials) — 사냥 독립 드랍. 제작 전용 장비의 개인 병목
   //   재료로 쓰이며, 카탈로그 등재로 인벤 재료 탭·거래소 재료 거래가 동작한다.
   ...GUILD_WORKSHOP_MATERIALS,
-  // SP 열매 4종(spFruit) — 협동 보스 드랍. 카탈로그 등재로 인벤 소모품·거래소 거래(NPC 비매).
+  // SP 열매 3종(spFruit) — 협동 보스 드랍. 카탈로그 등재로 인벤 소모품·거래소 거래(NPC 비매).
   //   사용 시 SP 최대치 +1(/me/use-sp-fruit). 거래용으로도 가치(사용 캡 도달분 판매).
   ...SP_FRUIT_MATERIALS,
+  // 협동 보스 보상 확장(coopRewards) — 협동 주화/보스별 재료/보스별 장비 상자.
+  //   모두 character.v2.materials 에 보관되는 거래 가능 재료형 소모품이다.
+  ...COOP_REWARD_MATERIALS,
 };
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,

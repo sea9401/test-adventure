@@ -13,8 +13,8 @@ import {
 // 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
-  it("등재 재료 = 강화석 2종 + 보스 소환서 + 재련석 2종 + 정착지 재료 2종 + 성벽 수리 키트 + 대장간 재료 4종 + SP 열매 4종 — NPC 판매가는 비등재(유저 거래 전용)", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(16);
+  it("등재 재료 = 기존 17종 + 협동 보스 주화/재료/장비상자 8종 — NPC 판매가는 비등재(유저 거래 전용)", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(25);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -28,6 +28,15 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.sp_fruit_2).toBeDefined();
     expect(V2_MATERIALS.sp_fruit_3).toBeDefined();
     expect(V2_MATERIALS.sp_fruit_4).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_coin).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_mountain_claw).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_canyon_chitin).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_lake_crystal).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_void_relic).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_mountain_equipment_box).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_canyon_equipment_box).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_lake_equipment_box).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_void_equipment_box).toBeDefined();
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
       expect(V2_MATERIAL_SELL_PRICE[id]).toBeUndefined();

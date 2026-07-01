@@ -21,6 +21,10 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  COOP_COIN_MATERIAL_ID,
+  rollCoopExtraRewards,
+} from "@/adventure/data/v2/coopRewards";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -42,6 +46,13 @@ type RewardSnapshot = {
   // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
   uniqueId: V2EquipmentId | null;
   uniqueName: string | null;
+  // 협동 보스 확장 보상 — 확정 주화/보스 재료 + 확률 장비 상자.
+  coopCoin: number;
+  bossMaterialId: string | null;
+  bossMaterialName: string | null;
+  bossMaterialCount: number;
+  equipmentBoxId: string | null;
+  equipmentBoxName: string | null;
 };
 
 type CharSave = { materials?: unknown; [k: string]: unknown };
@@ -158,22 +169,28 @@ export async function POST(req: Request) {
       };
     }
 
-    // === 4. 보상 결정 + 적용 (SP 열매뿐 — 전부 본인 세이브) ===
+    // === 4. 보상 결정 + 적용 (SP 열매 + 협동 주화/보스 재료/상자 — 전부 본인 세이브) ===
     // 도달한 보상 티어를 독립 굴림 → 통과 수 = 이 보스 등급 열매 개수(BRONZE/SILVER=0, LEGEND≤3).
     const fruitTier = fruitTierForBoss(kindId);
     const fruitDef = fruitTier !== null ? SP_FRUIT[fruitTier] : null;
     const fruitCount = fruitDef ? rollCoopSpFruits(tier, Math.random) : 0;
-    const nextMaterials =
-      fruitDef && fruitCount > 0
-        ? mergeDrops(charSave.materials, { [fruitDef.materialId]: fruitCount })
-        : (charSave.materials as Record<string, number> | undefined);
-
+    const extraReward = rollCoopExtraRewards(kindId, tier, Math.random);
+    const materialDrops: Record<string, number> = {
+      [COOP_COIN_MATERIAL_ID]: extraReward.coin,
+      [extraReward.bossMaterialId]: extraReward.bossMaterialCount,
+    };
     if (fruitDef && fruitCount > 0) {
-      await upsertSave(tx, userId, "character.v2", {
-        ...charSave,
-        materials: nextMaterials,
-      });
+      materialDrops[fruitDef.materialId] = fruitCount;
     }
+    if (extraReward.equipmentBoxId) {
+      materialDrops[extraReward.equipmentBoxId] = 1;
+    }
+    const nextMaterials = mergeDrops(charSave.materials, materialDrops);
+
+    await upsertSave(tx, userId, "character.v2", {
+      ...charSave,
+      materials: nextMaterials,
+    });
 
     // 보스 전용 시그니처 유니크 — SP 열매와 별개의 희귀 트로피. EPIC+ 단일 굴림(GOLD 이하 0).
     //   보스가 여러 종 보유 시 보유 풀에서 랜덤 1개(보스당 2종 — 산군/스콜피온/호수 각 2).
@@ -227,6 +244,12 @@ export async function POST(req: Request) {
       spFruitName: fruitCount > 0 && fruitDef ? fruitDef.name : null,
       uniqueId,
       uniqueName: uniqueId ? (V2_EQUIPMENT[uniqueId]?.name ?? null) : null,
+      coopCoin: extraReward.coin,
+      bossMaterialId: extraReward.bossMaterialId,
+      bossMaterialName: extraReward.bossMaterialName,
+      bossMaterialCount: extraReward.bossMaterialCount,
+      equipmentBoxId: extraReward.equipmentBoxId,
+      equipmentBoxName: extraReward.equipmentBoxName,
     };
     await tx
       .update(coopBossContributors)

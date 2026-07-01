@@ -11,12 +11,10 @@ import type { StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
-  COOP_TIER_LABEL,
   type CoopBossKindId,
   type CoopRewardTier,
   type CoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
-import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 
 const POLL_MS = 20_000;
 // 상세(토벌) 화면은 더 자주 폴링 — 공유 HP 가 실시간으로 깎이는 체감(여러 명 동시 공격).
@@ -69,6 +67,10 @@ export type CoopClaimReward = {
   // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
   uniqueId: string | null;
   uniqueName: string | null;
+  coopCoin?: number;
+  bossMaterialName?: string | null;
+  bossMaterialCount?: number;
+  equipmentBoxName?: string | null;
 };
 
 export type CoopSessionDetail = {
@@ -139,21 +141,9 @@ function claimErrorLabel(error: string): string {
     : `수령 실패 (${error})`;
 }
 
-function coopRewardDetail(reward: CoopClaimReward): string {
-  const parts: string[] = [];
-  if (reward.spFruitCount > 0) {
-    parts.push(`${reward.spFruitName ?? "SP 열매"} ${reward.spFruitCount}개`);
-  }
-  if (reward.uniqueName) parts.push(reward.uniqueName);
-  return parts.length > 0
-    ? `${COOP_TIER_LABEL[reward.tier]} · ${parts.join(" · ")}`
-    : `${COOP_TIER_LABEL[reward.tier]} · 이번엔 드랍 없음`;
-}
-
 // === 목록 화면 ========================================================
 
 export function useCoopListState() {
-  const { notifyReward } = useRewardToast();
   const [scrolls, setScrolls] = useState(0);
   const [sessions, setSessions] = useState<CoopSessionSummary[]>([]);
   const [claimables, setClaimables] = useState<CoopClaimable[]>([]);
@@ -244,10 +234,7 @@ export function useCoopListState() {
       setNotice(null);
       try {
         const { reward, error, belowThreshold } = await postClaim(sessionId);
-        if (reward) {
-          setLastReward(reward);
-          notifyReward("기여 보상 획득", coopRewardDetail(reward));
-        }
+        if (reward) setLastReward(reward);
         else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
         else if (error) setNotice(claimErrorLabel(error));
       } catch {
@@ -257,7 +244,7 @@ export function useCoopListState() {
         setBusy(false);
       }
     },
-    [busy, notifyReward, refresh],
+    [busy, refresh],
   );
 
   return {
@@ -286,7 +273,6 @@ export function useCoopSessionState({
   // 공격 응답의 최종 HP 반영 콜백(전역 HP 바) — 미전달이면 무시.
   onHpAfterAttack?: (r: { hpAfter: number; maxHp: number }) => void;
 }) {
-  const { notifyReward } = useRewardToast();
   const [detail, setDetail] = useState<CoopSessionDetail | null>(null);
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -395,10 +381,7 @@ export function useCoopSessionState({
     setNotice(null);
     try {
       const { reward, error, belowThreshold } = await postClaim(sessionId);
-      if (reward) {
-        setLastReward(reward);
-        notifyReward("기여 보상 획득", coopRewardDetail(reward));
-      }
+      if (reward) setLastReward(reward);
       else if (belowThreshold) setNotice("기준 미달 토벌 기록을 정리했습니다.");
       else if (error) setNotice(claimErrorLabel(error));
     } catch {
@@ -407,7 +390,7 @@ export function useCoopSessionState({
       await refresh();
       setBusy(false);
     }
-  }, [busy, notifyReward, refresh, sessionId]);
+  }, [busy, refresh, sessionId]);
 
   // 소환자 전용 — 소환 후 공개 범위 변경(나만/길드원만/공개). 서버가 소유·활성 재검증.
   const setVisibility = useCallback(

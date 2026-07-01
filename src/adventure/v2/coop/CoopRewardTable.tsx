@@ -19,6 +19,11 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  COOP_BOSS_MATERIAL,
+  COOP_EQUIPMENT_BOX,
+  COOP_EXTRA_REWARD_RULES,
+} from "@/adventure/data/v2/coopRewards";
 
 // 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피). 인라인/모달 공용.
 export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
@@ -71,8 +76,18 @@ function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
     .filter((n): n is string => Boolean(n));
   const fruitChance = COOP_SP_FRUIT_CHANCE[tier];
   const uniqueChance = COOP_UNIQUE_CHANCE[tier];
+  const extra = COOP_EXTRA_REWARD_RULES[tier];
+  const bossMaterial = COOP_BOSS_MATERIAL[kind.id];
+  const equipmentBox = COOP_EQUIPMENT_BOX[kind.id];
   const drops: string[] = [];
 
+  drops.push(`협동 주화 x${extra.coin}`);
+  drops.push(`${bossMaterial.name} x${extra.bossMaterial}`);
+  if (extra.equipmentBoxChance > 0) {
+    drops.push(
+      `${equipmentBox.name} (${Math.round(extra.equipmentBoxChance * 100)}%)`,
+    );
+  }
   if (fruitChance > 0) {
     drops.push(`${fruit?.name ?? "SP 열매"} (${pct(fruitChance)})`);
   }
@@ -231,12 +246,11 @@ export function CoopRewardTable({
                     </>
                   )}
                   <td className="border border-zinc-700 px-2 py-1.5 align-middle">
-                    <span className="block font-mono">
-                      {requiredDamage(kind, tier).toLocaleString()}
+                    <span className="block font-semibold">
+                      {COOP_TIER_LABEL[tier]}
                     </span>
                     <span className="text-[10px] text-zinc-400">
-                      {COOP_TIER_LABEL[tier]} · {pct(COOP_TIER_THRESHOLDS[tier])}
-                      +
+                      기여 기준
                     </span>
                     {mine && (
                       <span className="ml-1 rounded bg-amber-400 px-1 text-[10px] font-semibold text-zinc-950">

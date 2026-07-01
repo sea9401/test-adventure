@@ -137,6 +137,7 @@ export async function GET() {
       buildingLevel: trainingGroundLevel,
       characterLevel,
       hasJob: current.hasJob,
+      currentClass: current.group,
     }),
   });
 }
@@ -207,6 +208,7 @@ export async function POST(req: Request) {
       buildingLevel: trainingGroundLevel,
       characterLevel,
       hasJob: current.hasJob,
+      currentClass: current.group,
     }).find((d) => d.id === drillId);
     if (!drill || !drill.available) {
       return {

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   claimGuildTrainingDrill,
+  GUILD_TRAINING_DRILL_IDS,
   guildTrainingDrillViews,
   parseGuildTrainingState,
+  type GuildTrainingState,
 } from "./guildTrainingGround";
 
 describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
@@ -25,15 +27,31 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
       buildingLevel: 3,
       characterLevel: 50,
       hasJob: true,
+      currentClass: "warrior",
     });
 
+    expect(GUILD_TRAINING_DRILL_IDS).toContain("weapon_flow");
+    expect(GUILD_TRAINING_DRILL_IDS).toContain("guard_breathing");
+    expect(GUILD_TRAINING_DRILL_IDS).toContain("arcane_control");
+    expect(GUILD_TRAINING_DRILL_IDS).toContain("shadow_footwork");
+    expect(GUILD_TRAINING_DRILL_IDS).toContain("recovery_camp");
     expect(views.find((v) => v.id === "basic_stance")).toMatchObject({
       available: true,
-      rewardMastery: 3,
+      rewardMastery: 4,
+      focusLabel: "공용",
+    });
+    expect(views.find((v) => v.id === "weapon_flow")).toMatchObject({
+      available: true,
+      rewardMastery: 7,
+      focusLabel: "전사",
+    });
+    expect(views.find((v) => v.id === "guard_breathing")).toMatchObject({
+      available: false,
+      lockedReason: "무도가 계열 전용",
     });
     expect(views.find((v) => v.id === "field_rotation")).toMatchObject({
       available: true,
-      rewardMastery: 7,
+      rewardMastery: 9,
     });
     expect(views.find((v) => v.id === "master_trial")).toMatchObject({
       available: false,
@@ -51,11 +69,31 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
       buildingLevel: 5,
       characterLevel: 100,
       hasJob: true,
+      currentClass: "mage",
     });
     expect(views.find((v) => v.id === "basic_stance")).toMatchObject({
       claimed: true,
       available: false,
       lockedReason: "오늘 완료",
+    });
+  });
+
+  it("훈련장 레벨별 일일 훈련 횟수를 초과하면 남은 훈련을 잠근다", () => {
+    const state: GuildTrainingState = {
+      dayKey: "2026-07-01",
+      claimed: ["basic_stance", "weapon_flow"],
+    };
+    const views = guildTrainingDrillViews({
+      state,
+      buildingLevel: 3,
+      characterLevel: 80,
+      hasJob: true,
+      currentClass: "warrior",
+    });
+
+    expect(views.find((v) => v.id === "field_rotation")).toMatchObject({
+      available: false,
+      lockedReason: "오늘 훈련 횟수 소진",
     });
   });
 });

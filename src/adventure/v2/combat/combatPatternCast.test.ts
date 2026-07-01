@@ -338,3 +338,24 @@ describe("resolveV2SkillCast — 일반 PvE 처단 임계 보정", () => {
     expect(normalMonster.enemyDamage).toBeGreaterThan(base.enemyDamage);
   });
 });
+
+describe("resolveV2SkillCast — 문장술사 장착 시너지", () => {
+  it("대문장 해방은 총명 계열 패시브가 함께 장착되면 추가 효과를 얻는다", () => {
+    const skill = "v2c_runecaster_grandsigil";
+    const base = resolveV2SkillCast(castInput([skill]));
+    const withSigils = resolveV2SkillCast(
+      castInput([
+        skill,
+        "v2c_mage_acumen",
+        "v2c_caster_acumen",
+        "v2c_magus_acumen3",
+      ]),
+    );
+
+    expect(withSigils.castSkillId).toBe(skill);
+    expect(withSigils.hitDamages.length).toBe(base.hitDamages.length + 1);
+    expect(withSigils.enemyDamage).toBeGreaterThan(base.enemyDamage);
+    expect(withSigils.manaRestored).toBe(5);
+    expect(withSigils.enemyVulnToApply).toEqual({ pct: 12, turns: 2 });
+  });
+});

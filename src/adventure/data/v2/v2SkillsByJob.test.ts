@@ -265,6 +265,7 @@ describe("직업 킷 — 스킬셋", () => {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
       warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"],
       sage: ["v2c_sage_bolt", "v2c_sage_insight"],
+      runecaster: ["v2c_runecaster_grandsigil", "v2c_runecaster_circuit"],
       archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"],
       archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"],
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
@@ -286,6 +287,15 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_warlord_slaughter.passive?.berserkAtkPctPerLostHpPct).toBe(0.65);
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 패왕(힘%·옛 철신서 전환·무인 재설계)
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
+    expect(V2_SKILLS.v2c_runecaster_grandsigil.equippedSynergies?.map((s) => s.requiredSkillId)).toEqual([
+      "v2c_mage_acumen",
+      "v2c_caster_acumen",
+      "v2c_magus_acumen3",
+    ]);
+    expect(V2_SKILLS.v2c_runecaster_circuit.passive).toMatchObject({
+      maxMpPct: 12,
+      critPct: 5,
+    });
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
       { kind: "heal", pctLostHp: 12 },

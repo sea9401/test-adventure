@@ -61,6 +61,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   sensei: "brawler",
   sage: "magus",
   elementalist: "magus",
+  runecaster: "magus",
   archshaman: "shaman",
   archbishop: "bishop",
   chief: "ranger",
@@ -104,14 +105,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("67개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 18 + 5차 12 + 6차 1)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(67);
+  it("68개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 19 + 5차 12 + 6차 1)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(68);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(12);
     expect(byTier(3)).toBe(18);
-    expect(byTier(4)).toBe(18);
+    expect(byTier(4)).toBe(19);
     expect(byTier(5)).toBe(12);
     expect(byTier(6)).toBe(1);
   });
@@ -633,6 +634,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("survivor", "masterangler")).toBe("masterangler");
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
     expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
+    expect(jobIdFromLegacy("mage", "runecaster")).toBe("runecaster"); // 문장술사 4차
     expect(jobIdFromLegacy("warrior", "veteran")).toBe("veteran"); // tier 4
     expect(jobIdFromLegacy("warrior", "crusader")).toBe("crusader"); // 성기사 4차
     expect(jobIdFromLegacy("warrior", "runeknight")).toBe("runeknight"); // 마검사 4차

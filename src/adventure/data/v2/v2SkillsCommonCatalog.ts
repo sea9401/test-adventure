@@ -131,6 +131,8 @@ export type V2CommonSkillId =
   | "v2c_veteran_lethal" // 필살 (치명 피해 +30%)
   | "v2c_sensei_ironbody" // 패왕 (힘 +20%·권룡)
   | "v2c_sage_insight" // 간파 (치명 확률 +10%)
+  | "v2c_runecaster_grandsigil" // 대문장 해방 (저차 마법 패시브 장착 시 추가 효과)
+  | "v2c_runecaster_circuit" // 문장 회로 (최대 MP + 치명)
   | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
   | "v2c_phantom_ambush" // 기습 (풀피 적에게 큰 오프너 — ambushDamage·LUK 비례)
@@ -927,6 +929,36 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     // 크리축 차수 단조(2026-06-22): 치명확률 4차 대마법사 > 2차 자객(8). 자객(크리 테마)은 8 유지·sage 8→10.
     passive: { critPct: 10 },
+  },
+  v2c_runecaster_grandsigil: {
+    // 문장술사 — 저차 총명 패시브를 "문장"으로 해석하는 마도사 4차 갈래.
+    //   총명 I/II/III 를 함께 장착하면 각각 추가타·마나 회수·마법취약 부여가 붙는다.
+    //   보유만으로 켜지지 않고 로드아웃을 차지해야 하므로, 고차 화력과 슬롯 압박을 맞교환한다.
+    id: "v2c_runecaster_grandsigil", name: "대문장 해방", stat: "int", category: "attack", tier: 3,
+    description: "새겨 둔 문장을 한꺼번에 해방한다. 총명 계열 패시브를 함께 장착하면 문장이 더 깊게 열린다.",
+    mpCost: 46, cooldown: 0, procChance: 30,
+    effects: [dmg(1.2, 210, "magic")],
+    equippedSynergies: [
+      {
+        requiredSkillId: "v2c_mage_acumen",
+        effects: [dmg(0.22, 45, "magic")],
+      },
+      {
+        requiredSkillId: "v2c_caster_acumen",
+        effects: [{ kind: "manaRestore", pctMaxMp: 5 }],
+      },
+      {
+        requiredSkillId: "v2c_magus_acumen3",
+        effects: [{ kind: "enemyVuln", pct: 12, turns: 2 }],
+      },
+    ],
+  },
+  v2c_runecaster_circuit: {
+    id: "v2c_runecaster_circuit", name: "문장 회로", stat: "int", category: "passive", tier: 3,
+    description: "몸 안의 마력 흐름을 문장처럼 정렬한다. 최대 MP와 치명타 확률이 오른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxMpPct: 12, critPct: 5 },
   },
   v2c_chief_afterimage: {
     // 도적 심화(궁수 라인 정점) — 명중(매의 눈). 궁사가 민첩 II 로 바뀌며 비운 명중 축을

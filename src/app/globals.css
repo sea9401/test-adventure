@@ -653,7 +653,18 @@ body {
 }
 
 .ui-fishing-zone {
-  box-shadow: inset 0 -18px 40px rgba(14, 165, 233, 0.12);
+  box-shadow:
+    inset 0 -28px 48px rgba(14, 165, 233, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 8px 22px rgba(15, 23, 42, 0.08);
+  background: #d8f1ff;
+}
+
+.ui-fishing-zone.is-biting {
+  box-shadow:
+    inset 0 -28px 48px rgba(245, 158, 11, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 10px 26px rgba(180, 83, 9, 0.16);
 }
 
 .ui-fishing-result {
@@ -1083,6 +1094,267 @@ body {
    대기: 잔잔히 까닥 + 수면 잔물결·기포.  입질: windup 없이 즉시 날카롭게 빨려들며
    떨림 + 물결 파동(즉시 시작이라 반응 윈도우 공정성 유지). */
 
+.fish-flash-scene {
+  background:
+    linear-gradient(180deg, rgba(190, 232, 255, 0.96) 0%, rgba(238, 250, 255, 0.9) 43%, transparent 44%),
+    linear-gradient(180deg, transparent 0%, transparent 46%, rgba(14, 116, 144, 0.62) 47%, rgba(8, 145, 178, 0.82) 100%);
+  color: #0f3f4f;
+}
+
+.dark .fish-flash-scene {
+  background:
+    linear-gradient(180deg, rgba(20, 43, 75, 0.96) 0%, rgba(27, 70, 96, 0.9) 43%, transparent 44%),
+    linear-gradient(180deg, transparent 0%, transparent 46%, rgba(12, 74, 110, 0.72) 47%, rgba(8, 47, 73, 0.9) 100%);
+  color: #dff6ff;
+}
+
+.fish-sky {
+  position: absolute;
+  inset: 0 0 45%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent 72%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.14) 0,
+      rgba(255, 255, 255, 0.14) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+}
+
+.fish-cloud {
+  position: absolute;
+  top: 18%;
+  height: 10px;
+  width: 58px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    16px -6px 0 2px rgba(255, 255, 255, 0.58),
+    32px 0 0 -1px rgba(255, 255, 255, 0.55);
+  opacity: 0.68;
+}
+
+.fish-cloud-a {
+  left: 8%;
+  animation: fish-cloud-drift 18s linear infinite;
+}
+
+.fish-cloud-b {
+  left: 62%;
+  top: 12%;
+  transform: scale(0.75);
+  animation: fish-cloud-drift 24s linear infinite reverse;
+}
+
+.fish-bank {
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  bottom: 45%;
+  height: 24px;
+  background:
+    linear-gradient(180deg, rgba(70, 116, 77, 0.82), rgba(41, 91, 67, 0.96)),
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(255, 255, 255, 0.1) 18px 20px);
+  clip-path: polygon(0 48%, 9% 32%, 17% 52%, 26% 26%, 37% 44%, 52% 18%, 64% 45%, 78% 28%, 100% 48%, 100% 100%, 0 100%);
+}
+
+.dark .fish-bank {
+  background: linear-gradient(180deg, rgba(41, 82, 65, 0.86), rgba(22, 58, 56, 0.98));
+}
+
+.fish-water {
+  position: absolute;
+  inset: 46% 0 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(125, 211, 252, 0.62), rgba(8, 145, 178, 0.86)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.16) 0,
+      rgba(255, 255, 255, 0.16) 1px,
+      transparent 1px,
+      transparent 10px
+    );
+}
+
+.dark .fish-water {
+  background:
+    linear-gradient(180deg, rgba(14, 116, 144, 0.54), rgba(8, 47, 73, 0.9)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08) 0,
+      rgba(255, 255, 255, 0.08) 1px,
+      transparent 1px,
+      transparent 10px
+    );
+}
+
+.fish-wave {
+  position: absolute;
+  left: -35%;
+  width: 170%;
+  height: 18px;
+  border-top: 2px solid rgba(255, 255, 255, 0.38);
+  border-radius: 50%;
+  opacity: 0.58;
+  animation: fish-wave-slide 5.5s linear infinite;
+}
+
+.fish-wave-a {
+  top: 18%;
+}
+
+.fish-wave-b {
+  top: 43%;
+  animation-duration: 7.5s;
+  animation-direction: reverse;
+  opacity: 0.38;
+}
+
+.fish-wave-c {
+  top: 70%;
+  animation-duration: 9s;
+  opacity: 0.28;
+}
+
+.fish-dock {
+  position: absolute;
+  right: -12px;
+  bottom: 0;
+  width: 42%;
+  height: 42px;
+  transform: skewX(-12deg);
+  background: linear-gradient(180deg, #9a6a35, #6f4724);
+  box-shadow: inset 0 5px 0 rgba(255, 255, 255, 0.18);
+}
+
+.fish-dock span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(54, 31, 16, 0.45);
+}
+
+.fish-dock span:nth-child(1) {
+  left: 28%;
+}
+
+.fish-dock span:nth-child(2) {
+  left: 58%;
+}
+
+.fish-dock span:nth-child(3) {
+  left: 83%;
+}
+
+.fish-reeds {
+  position: absolute;
+  bottom: 43%;
+  width: 66px;
+  height: 42px;
+  background:
+    linear-gradient(78deg, transparent 42%, rgba(45, 110, 63, 0.95) 43% 46%, transparent 47%),
+    linear-gradient(96deg, transparent 36%, rgba(52, 129, 72, 0.92) 37% 40%, transparent 41%),
+    linear-gradient(112deg, transparent 52%, rgba(34, 94, 66, 0.9) 53% 56%, transparent 57%),
+    linear-gradient(70deg, transparent 62%, rgba(67, 139, 71, 0.9) 63% 66%, transparent 67%);
+  transform-origin: bottom center;
+  animation: fish-reed-sway 3.8s ease-in-out infinite;
+}
+
+.fish-reeds-left {
+  left: 1%;
+}
+
+.fish-reeds-right {
+  right: 18%;
+  transform: scaleX(-1);
+  animation-delay: 0.9s;
+}
+
+.fish-rod {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.45));
+}
+
+.fish-bobber-stage {
+  position: absolute;
+  left: 46%;
+  bottom: 37%;
+  z-index: 10;
+  height: 56px;
+  width: 110px;
+  transform: translateX(-50%);
+}
+
+.fish-bobber-stage .fish-ripple,
+.fish-bobber-stage .fish-ripple-calm {
+  bottom: 7px;
+}
+
+.fish-bobber-stage .fish-bubble {
+  bottom: 9px;
+}
+
+.fish-bobber-stage .fish-line-glint {
+  left: 64%;
+  top: -14px;
+}
+
+.fish-scene-status {
+  min-width: 9rem;
+  border: 1px solid rgba(14, 116, 144, 0.18);
+}
+
+.fish-flash-scene.is-biting .fish-water {
+  filter: saturate(1.2) brightness(1.05);
+}
+
+.fish-flash-scene.is-biting .fish-bobber-stage {
+  animation: fish-stage-hit 0.32s ease-in-out infinite;
+}
+
+@keyframes fish-cloud-drift {
+  0% {
+    transform: translateX(-10px);
+  }
+  100% {
+    transform: translateX(30px);
+  }
+}
+
+@keyframes fish-wave-slide {
+  0% {
+    transform: translateX(-24px);
+  }
+  100% {
+    transform: translateX(24px);
+  }
+}
+
+@keyframes fish-reed-sway {
+  0%,
+  100% {
+    rotate: -2deg;
+  }
+  50% {
+    rotate: 3deg;
+  }
+}
+
+@keyframes fish-stage-hit {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(3px);
+  }
+}
+
 @keyframes fish-bob-idle {
   0%,
   100% {
@@ -1255,7 +1527,12 @@ body {
   .fish-reveal,
   .fish-splash,
   .fish-glow,
-  .fish-dart-away {
+  .fish-dart-away,
+  .fish-cloud-a,
+  .fish-cloud-b,
+  .fish-wave,
+  .fish-reeds,
+  .fish-flash-scene.is-biting .fish-bobber-stage {
     animation: none;
   }
   /* 모션을 끈 사용자도 입질을 인지하도록 찌를 정적으로 살짝 잠긴 위치에 둔다. */

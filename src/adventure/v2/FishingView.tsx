@@ -1033,7 +1033,7 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   return [
-    `씨알 +${progression.levelBonuses.sizeBonusPct}%`,
+    `크기 +${progression.levelBonuses.sizeBonusPct}%`,
     `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
   ];
 }
@@ -1282,7 +1282,7 @@ export function FishingView({
                 />
               </div>
               <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
-                씨알 +{progression.levelBonuses.sizeBonusPct}%
+                크기 +{progression.levelBonuses.sizeBonusPct}%
               </span>
               <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
                 손님 +{progression.levelBonuses.specialWeightPct}%

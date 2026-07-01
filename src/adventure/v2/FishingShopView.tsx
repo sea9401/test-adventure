@@ -28,11 +28,11 @@ const ENTRIES = fishingShopEntries();
 function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
   const labels: string[] = [];
   if (bonuses.waitReductionPct) labels.push(`대기 -${bonuses.waitReductionPct}%`);
-  if (bonuses.sizeBonusPct) labels.push(`씨알 +${bonuses.sizeBonusPct}%`);
+  if (bonuses.sizeBonusPct) labels.push(`크기 +${bonuses.sizeBonusPct}%`);
   if (bonuses.rareSizeBonusPct)
-    labels.push(`희귀 씨알 +${bonuses.rareSizeBonusPct}%`);
+    labels.push(`희귀 이상 크기 +${bonuses.rareSizeBonusPct}%`);
   if (bonuses.bigCatchSizeBonusPct)
-    labels.push(`대물 씨알 +${bonuses.bigCatchSizeBonusPct}%`);
+    labels.push(`대물급 크기 +${bonuses.bigCatchSizeBonusPct}%`);
   if (bonuses.specialWeightPct)
     labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
   return labels.length > 0 ? labels : ["기본"];
@@ -40,7 +40,7 @@ function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   return [
-    `씨알 +${progression.levelBonuses.sizeBonusPct}%`,
+    `크기 +${progression.levelBonuses.sizeBonusPct}%`,
     `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
   ];
 }

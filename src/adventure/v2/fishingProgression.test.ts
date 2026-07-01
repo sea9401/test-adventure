@@ -71,7 +71,7 @@ describe("낚시 진행도", () => {
     expect(fishingLevelForXp(999_999)).toBe(30);
   });
 
-  it("레벨 보너스는 씨알과 특별 손님 가중치만 제공한다", () => {
+  it("레벨 보너스는 물고기 크기와 특별 손님 가중치만 제공한다", () => {
     expect(fishingLevelBonuses(1)).toEqual({
       waitReductionPct: 0,
       sizeBonusPct: 0,

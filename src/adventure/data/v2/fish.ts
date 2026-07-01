@@ -166,7 +166,7 @@ export const FISH: Record<FishId, Fish> = {
     tier: "common",
     minSize: 2,
     maxSize: 11,
-    description: "투명한 몸에 줄무늬가 비친다. 큰 놈은 제법 씨알이 굵다.",
+    description: "투명한 몸에 줄무늬가 비친다. 큰 놈은 제법 몸집이 크다.",
   },
 
   // === 보통 (7) ===

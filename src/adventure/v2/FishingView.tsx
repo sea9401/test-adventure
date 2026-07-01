@@ -284,19 +284,22 @@ function drawRodGrip(
   height: number,
   motion: number,
   image: HTMLImageElement | null,
+  scale = 1,
 ) {
   const baseX = width * 0.86;
   const baseY = height * 0.2;
   ctx.save();
   ctx.translate(baseX, baseY);
-  ctx.rotate(-0.08 + motion * 0.04);
+  ctx.rotate(-0.08 + motion * 0.045);
 
   if (image?.complete) {
+    const imageWidth = image.naturalWidth || image.width;
+    const imageHeight = image.naturalHeight || image.height;
     const sourceX = 0;
-    const sourceY = 280;
-    const sourceWidth = Math.min(1040, image.naturalWidth || image.width);
-    const sourceHeight = Math.min(760, (image.naturalHeight || image.height) - sourceY);
-    const spriteWidth = Math.min(width * 0.38, height * 0.64);
+    const sourceY = Math.min(390, imageHeight * 0.32);
+    const sourceWidth = Math.min(1040, imageWidth);
+    const sourceHeight = Math.min(620, imageHeight - sourceY);
+    const spriteWidth = Math.min(width * 0.36, height * 0.58) * scale;
     const spriteHeight = spriteWidth * (sourceHeight / sourceWidth);
     ctx.imageSmoothingEnabled = true;
     ctx.shadowColor = "rgba(15, 23, 42, 0.26)";
@@ -309,8 +312,8 @@ function drawRodGrip(
       sourceY,
       sourceWidth,
       sourceHeight,
-      -spriteWidth * 0.46,
-      -spriteHeight * 0.42,
+      -spriteWidth * 0.34,
+      -spriteHeight * 0.48,
       spriteWidth,
       spriteHeight,
     );
@@ -362,6 +365,60 @@ function drawRodGrip(
   ctx.restore();
 }
 
+function cubicPoint(
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number,
+  t: number,
+): number {
+  const u = 1 - t;
+  return u ** 3 * p0 + 3 * u ** 2 * t * p1 + 3 * u * t ** 2 * p2 + t ** 3 * p3;
+}
+
+function drawRodShaft(
+  ctx: CanvasRenderingContext2D,
+  baseX: number,
+  baseY: number,
+  control1X: number,
+  control1Y: number,
+  control2X: number,
+  control2Y: number,
+  tipX: number,
+  tipY: number,
+  stress: number,
+) {
+  const pull = clamp01(stress);
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  ctx.strokeStyle = "#2b1a0b";
+  ctx.lineWidth = 7.2 - pull * 1.2;
+  ctx.beginPath();
+  ctx.moveTo(baseX, baseY);
+  ctx.bezierCurveTo(control1X, control1Y, control2X, control2Y, tipX, tipY);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#c58a3f";
+  ctx.lineWidth = 2.1;
+  ctx.beginPath();
+  ctx.moveTo(baseX - 1, baseY - 2);
+  ctx.bezierCurveTo(control1X, control1Y - 2, control2X, control2Y - 2, tipX - 1, tipY - 1);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(15, 23, 42, ${0.35 + pull * 0.18})`;
+  ctx.lineWidth = 1.2;
+  for (const marker of [0.42, 0.68, 0.88]) {
+    const x = cubicPoint(baseX, control1X, control2X, tipX, marker);
+    const y = cubicPoint(baseY, control1Y, control2Y, tipY, marker);
+    ctx.beginPath();
+    ctx.arc(x, y, 2.1 - marker * 0.9, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawFishingLine(
   ctx: CanvasRenderingContext2D,
   rodTipX: number,
@@ -393,6 +450,28 @@ function drawFishingLine(
   ctx.stroke();
 }
 
+function drawFishShadow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  t: number,
+  size: number,
+  alpha: number,
+  urgency: number,
+) {
+  const pulse = 1 + Math.sin(t * 5.4) * 0.05 + urgency * 0.18;
+  ctx.save();
+  ctx.fillStyle = `rgba(4, 47, 46, ${alpha})`;
+  ctx.beginPath();
+  ctx.ellipse(x, y, size * pulse, size * 0.22 * pulse, -0.14 - urgency * 0.12, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = `rgba(4, 47, 46, ${alpha * 0.65})`;
+  ctx.beginPath();
+  ctx.ellipse(x + size * 0.72, y - size * 0.03, size * 0.22, size * 0.13, -0.26, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawPreBiteWake(
   ctx: CanvasRenderingContext2D,
   bobberX: number,
@@ -406,12 +485,9 @@ function drawPreBiteWake(
   const shadowX = bobberX - 58 + approach * 42 + sweep;
   const shadowY = bobberY + 22 + Math.sin(t * 8) * 2;
 
-  ctx.save();
-  ctx.fillStyle = `rgba(4, 47, 46, ${0.2 + progress * 0.22})`;
-  ctx.beginPath();
-  ctx.ellipse(shadowX, shadowY, 26 + progress * 14, 5 + progress * 4, -0.1, 0, TAU);
-  ctx.fill();
+  drawFishShadow(ctx, shadowX, shadowY, t, 26 + progress * 16, 0.18 + progress * 0.24, progress);
 
+  ctx.save();
   ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 + progress * 0.22})`;
   ctx.lineWidth = 1.4;
   for (let i = 0; i < 2; i += 1) {
@@ -567,30 +643,6 @@ function drawFishingCanvasScene(
         : casting
           ? -8 + castWindup * 22
           : 2;
-  drawRodGrip(
-    ctx,
-    width,
-    height,
-    biting ? 1 : resolving ? -0.45 : casting ? 0.35 : cuePulse * 0.25,
-    assets.rodGrip,
-  );
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = "#3f2610";
-  ctx.lineWidth = 9;
-  ctx.beginPath();
-  ctx.moveTo(rodBaseX, rodBaseY);
-  ctx.bezierCurveTo(width * 0.76, height * 0.26 + bend * 0.15, width * 0.62, rodTipY + bend, rodTipX, rodTipY);
-  ctx.stroke();
-  ctx.strokeStyle = "#d69b4a";
-  ctx.lineWidth = 2.6;
-  ctx.beginPath();
-  ctx.moveTo(rodBaseX - 2, rodBaseY - 2);
-  ctx.bezierCurveTo(width * 0.76, height * 0.25 + bend * 0.1, width * 0.62, rodTipY + bend - 3, rodTipX - 1, rodTipY - 2);
-  ctx.stroke();
-  ctx.fillStyle = "#2f1a0b";
-  ctx.fillRect(rodBaseX - 6, rodBaseY - 5, 18, 10);
-
   const lineTension = biting
     ? 0.76 + biteImpact * 0.24
     : resolving
@@ -600,28 +652,46 @@ function drawFishingCanvasScene(
         : tapSnap > 0
           ? 0.72
           : 0.18;
+  const rodControl1X = width * 0.76;
+  const rodControl1Y = height * 0.26 + bend * 0.15;
+  const rodControl2X = width * 0.62;
+  const rodControl2Y = rodTipY + bend;
+  drawRodShaft(
+    ctx,
+    rodBaseX,
+    rodBaseY,
+    rodControl1X,
+    rodControl1Y,
+    rodControl2X,
+    rodControl2Y,
+    rodTipX,
+    rodTipY,
+    lineTension,
+  );
+
   drawFishingLine(ctx, rodTipX, rodTipY, bobberX, bobberY, lineTension, biting ? biteTremor : 0, tapSnap);
+  drawRodGrip(
+    ctx,
+    width,
+    height,
+    biting ? 0.7 : resolving ? -0.55 : casting ? 0.35 : cuePulse * 0.22,
+    assets.rodGrip,
+    biting ? 1.03 : 1,
+  );
 
   if (waiting || biting) {
     const shadowScale = biting
       ? 1 + biteImpact * 0.55 + Math.abs(biteTremor) * 0.18
       : 0.75 + Math.sin(t * 1.4) * 0.08 + cuePulse * 0.3;
-    ctx.fillStyle = biting
-      ? "rgba(4, 47, 46, 0.48)"
-      : preBite
-        ? "rgba(4, 47, 46, 0.38)"
-        : "rgba(4, 47, 46, 0.24)";
-    ctx.beginPath();
-    ctx.ellipse(
+    drawFishShadow(
+      ctx,
       bobberX - 8 + Math.sin(t * 1.5) * (preBite ? 8 : 18) - biteImpact * 12,
       bobberY + 15 + biteImpact * 3 + cuePulse * 3,
-      44 * shadowScale,
-      10 * shadowScale,
-      biteImpact * -0.2,
-      0,
-      TAU,
+      t,
+      42 * shadowScale,
+      biting ? 0.48 : preBite ? 0.38 : 0.24,
+      biteImpact + cuePulse * 0.25,
     );
-    ctx.fill();
   }
 
   if (waiting || biting || phase === "idle") {
@@ -817,15 +887,22 @@ function drawResultCanvasScene(
   const rodBaseY = height * 0.22;
   const rodTipX = centerX + 12;
   const rodTipY = caught ? waterY - 32 - easeOutCubic(p) * 22 : waterY - 15;
-  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25, assets.rodGrip);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = "#3f2610";
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(rodBaseX, rodBaseY);
-  ctx.bezierCurveTo(width * 0.73, rodBaseY + 12, width * 0.62, rodTipY - 12, rodTipX, rodTipY);
-  ctx.stroke();
+  const rodControl1X = width * 0.73;
+  const rodControl1Y = rodBaseY + 12;
+  const rodControl2X = width * 0.62;
+  const rodControl2Y = rodTipY - 12;
+  drawRodShaft(
+    ctx,
+    rodBaseX,
+    rodBaseY,
+    rodControl1X,
+    rodControl1Y,
+    rodControl2X,
+    rodControl2Y,
+    rodTipX,
+    rodTipY,
+    caught ? 0.86 : 0.24,
+  );
   drawFishingLine(
     ctx,
     rodTipX,
@@ -836,8 +913,18 @@ function drawResultCanvasScene(
     caught ? Math.sin(t * 16) * 0.5 : 0,
     0,
   );
+  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25, assets.rodGrip, 0.94);
 
   if (caught) {
+    drawFishShadow(
+      ctx,
+      centerX - 6,
+      waterY + 19 + Math.sin(t * 8) * 2,
+      t,
+      28 * impact,
+      0.28 + Math.min(0.18, impact * 0.05),
+      0.35,
+    );
     drawPixelSplash(ctx, centerX, waterY + 4, Math.min(1, t / 0.55), 0.62 * impact);
     if (impact > 1.3) {
       drawPixelSplash(ctx, centerX - 14, waterY + 8, (t * 2.1 + 0.32) % 1, 0.16 * impact);
@@ -847,10 +934,7 @@ function drawResultCanvasScene(
     const fishX = centerX - dart * width * 0.36;
     const fishY = waterY + 17 + Math.sin(t * 12) * 2;
     drawPixelSplash(ctx, centerX, waterY + 8, Math.min(1, t / 0.45), 0.28);
-    ctx.fillStyle = "rgba(4, 47, 46, 0.42)";
-    ctx.beginPath();
-    ctx.ellipse(fishX, fishY, 32, 7, -0.18, 0, TAU);
-    ctx.fill();
+    drawFishShadow(ctx, fishX, fishY, t, 32, 0.42, 0.15);
   }
 }
 
@@ -945,11 +1029,11 @@ function reactionGrade(ms: number): { label: string; cls: string } {
 
 // 티어별 "잡는 순간" 강조 — 희귀·대물일수록 크게 등장 + 발광.
 const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
-  common: { iconCls: "h-12 w-12", glow: false },
-  uncommon: { iconCls: "h-14 w-14", glow: false },
-  rare: { iconCls: "h-16 w-16", glow: true },
-  epic: { iconCls: "h-[4.5rem] w-[4.5rem]", glow: true },
-  legendary: { iconCls: "h-20 w-20", glow: true },
+  common: { iconCls: "h-14 w-14", glow: false },
+  uncommon: { iconCls: "h-16 w-16", glow: false },
+  rare: { iconCls: "h-[4.5rem] w-[4.5rem]", glow: true },
+  epic: { iconCls: "h-20 w-20", glow: true },
+  legendary: { iconCls: "h-24 w-24", glow: true },
 };
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
@@ -1307,16 +1391,16 @@ export function FishingView({
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (
             <div className="space-y-1">
-              <div className="relative mx-auto flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border border-sky-200 dark:border-sky-900/60">
+              <div className="relative mx-auto flex h-24 w-full items-center justify-center overflow-hidden rounded-lg border border-sky-200 dark:border-sky-900/60">
                 <FishingResultScene result={result} />
                 {/* 희귀·대물 발광 */}
                 {TIER_REVEAL[result.tier].glow && (
-                  <span className="fish-glow absolute left-1/2 top-[44%] h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/35 blur-md" />
+                  <span className="fish-glow absolute left-1/2 top-[46%] h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/35 blur-md" />
                 )}
                 <FishIcon
                   fishId={result.fishId}
                   name={result.name}
-                  className={`fish-reveal relative z-10 -mt-1 drop-shadow-md ${TIER_REVEAL[result.tier].iconCls}`}
+                  className={`fish-reveal relative z-10 -mt-2 drop-shadow-lg ${TIER_REVEAL[result.tier].iconCls}`}
                 />
               </div>
               <div className="text-base font-bold">

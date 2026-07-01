@@ -150,7 +150,7 @@ export function FishingDailyChallengeView({
     : 0;
 
   return (
-    <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
+    <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[720px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
       <SubViewHeader
         title="낚시 의뢰 게시판"
         onBack={onBack}

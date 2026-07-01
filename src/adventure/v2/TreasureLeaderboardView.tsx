@@ -46,7 +46,7 @@ export function TreasureLeaderboardView({
   onOpenShop?: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
         title="주간 발굴가치 대회"
         onBack={onBack}

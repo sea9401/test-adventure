@@ -112,7 +112,7 @@ export function FishingShopView({
   const anyInFlight = buying !== null;
 
   return (
-    <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
         title="낚시 코인 상점"
         onBack={onBack}

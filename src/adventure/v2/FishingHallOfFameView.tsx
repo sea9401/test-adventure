@@ -63,7 +63,7 @@ export function FishingHallOfFameView({
   );
 
   return (
-    <main className="mx-auto max-w-[640px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="역대 최대어 명예의 전당" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         종마다 역대 가장 큰 기록입니다. 시즌이 지나도 사라지지 않아요.

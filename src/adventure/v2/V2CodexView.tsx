@@ -17,7 +17,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import {
@@ -130,6 +130,7 @@ const TIER_BADGE: Record<FishTier, string> = {
   legendary:
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
+const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
 
 type CodexTab =
   | "huntground"
@@ -1005,7 +1006,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         ))}
 
       {tab === "equipment" && (
-        <div className="space-y-3">
+        <div className={`${CODEX_PANEL_SURFACE} space-y-3`}>
           <Card padding="md">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -1267,7 +1268,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       )}
 
       {tab === "spFruit" && (
-        <div className="space-y-3">
+        <div className={`${CODEX_PANEL_SURFACE} space-y-3`}>
           <Card padding="md">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -1590,7 +1591,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             message="낚시·발굴·투기장 상점과 수집 보상으로 칭호를 모으면 여기서 장착할 수 있어요. 장착한 칭호는 채팅과 접속자 목록에 표시됩니다."
           />
         ) : (
-          <div className="space-y-4">
+          <div className={`${CODEX_PANEL_SURFACE} space-y-4`}>
             <Card padding="sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">

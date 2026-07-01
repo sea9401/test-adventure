@@ -93,10 +93,6 @@ function describe(a: GuildActivity): string {
         a.meta?.rewardMastery
           ? ` · 숙련도 +${a.meta.rewardMastery.toLocaleString()}`
           : ""
-      }${
-        a.meta?.rewardGold
-          ? ` · 골드 +${a.meta.rewardGold.toLocaleString()}`
-          : ""
       }`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;

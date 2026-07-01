@@ -14,7 +14,6 @@ export type TrainingDrillView = {
   available: boolean;
   lockedReason: string | null;
   rewardMastery: number;
-  rewardGold: number;
 };
 
 export type TrainingGuildSummary = {
@@ -26,13 +25,11 @@ export type TrainingGuildSummary = {
   dailyClaimLimit: number;
   maxCompletionCount: number;
   totalMastery: number;
-  totalGold: number;
   recent: {
     id: number;
     actorName: string;
     drillTitle: string;
     rewardMastery: number;
-    rewardGold: number;
     createdAt: string;
   }[];
 };

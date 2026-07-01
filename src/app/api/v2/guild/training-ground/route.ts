@@ -44,13 +44,11 @@ type CharacterSave = Record<string, unknown> & {
   class?: unknown;
   specChoice?: unknown;
   level?: unknown;
-  gold?: unknown;
 };
 
 type TrainingActivityMetaView = {
   drillTitle: string | null;
   rewardMastery: number;
-  rewardGold: number;
 };
 
 type GuildTrainingDayWindow = ReturnType<typeof guildTrainingDayWindow>;
@@ -120,7 +118,7 @@ function positiveInt(raw: unknown): number {
 
 function trainingActivityMeta(raw: unknown): TrainingActivityMetaView {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
-    return { drillTitle: null, rewardMastery: 0, rewardGold: 0 };
+    return { drillTitle: null, rewardMastery: 0 };
   }
   const obj = raw as Record<string, unknown>;
   return {
@@ -129,7 +127,6 @@ function trainingActivityMeta(raw: unknown): TrainingActivityMetaView {
         ? obj.drillTitle.trim()
         : null,
     rewardMastery: positiveInt(obj.rewardMastery),
-    rewardGold: positiveInt(obj.rewardGold),
   };
 }
 
@@ -210,7 +207,6 @@ async function readGuildTrainingSummary({
     (sum, row) => sum + row.metaView.rewardMastery,
     0,
   );
-  const totalGold = rows.reduce((sum, row) => sum + row.metaView.rewardGold, 0);
   const recentRows = rows.slice(0, 5);
   const nameByUser = await readProfileNames(
     recentRows.map((row) => row.actorUserId),
@@ -228,13 +224,11 @@ async function readGuildTrainingSummary({
     dailyClaimLimit,
     maxCompletionCount: memberIds.length * Math.max(1, dailyClaimLimit),
     totalMastery,
-    totalGold,
     recent: recentRows.map((row) => ({
       id: row.id,
       actorName: nameByUser.get(row.actorUserId) ?? "모험가",
       drillTitle: row.metaView.drillTitle ?? "훈련",
       rewardMastery: row.metaView.rewardMastery,
-      rewardGold: row.metaView.rewardGold,
       createdAt: row.createdAt,
     })),
   };
@@ -383,8 +377,6 @@ export async function POST(req: Request) {
       };
     }
 
-    const nextGold =
-      Math.max(0, Math.floor(Number(charSave.gold) || 0)) + drill.rewardGold;
     let prof = current.prof;
     prof = addCumLevel(prof, current.group, drill.rewardMastery);
     prof = addJobCumLevel(prof, current.jobId, drill.rewardMastery);
@@ -394,10 +386,6 @@ export async function POST(req: Request) {
         : groupCumLevel(prof, current.group);
     const nextState = claimGuildTrainingDrill(state, drillId);
 
-    await upsertSave(tx, userId, "character.v2", {
-      ...charSave,
-      gold: nextGold,
-    });
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);
     await logGuildActivity(tx, {
@@ -407,7 +395,6 @@ export async function POST(req: Request) {
       meta: {
         drillTitle: drill.title,
         rewardMastery: drill.rewardMastery,
-        rewardGold: drill.rewardGold,
       },
     });
 
@@ -418,9 +405,7 @@ export async function POST(req: Request) {
         dayKey,
         drill,
         rewardMastery: drill.rewardMastery,
-        rewardGold: drill.rewardGold,
         masteryAfter,
-        gold: nextGold,
         claimed: nextState.claimed,
       },
     };

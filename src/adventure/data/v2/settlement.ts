@@ -303,7 +303,7 @@ export function settlementBuildingUpgradeSummary(
 ): string {
   if (buildingId === "training_ground") {
     const training = upgrade as TrainingGroundUpgradeDef;
-    return `훈련 보상 +${training.trainingRewardBonusPct}% · 과제 ${training.unlockedDrillCount}개`;
+    return `훈련 보상 +${training.trainingRewardBonusPct}% · 일일 훈련 ${training.unlockedDrillCount}회`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p`;

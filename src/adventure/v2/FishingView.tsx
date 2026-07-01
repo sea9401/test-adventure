@@ -93,122 +93,118 @@ function BobberScene({ phase }: { phase: Phase }) {
   const waiting = phase === "waiting";
   const idle = phase === "idle";
   const onWater = waiting || biting;
+  const bobberVisible = idle || onWater;
 
   return (
-    <div className="pointer-events-none relative flex h-full w-full flex-col items-center justify-center overflow-hidden">
-      {/* ── 대기(idle) — 낚싯대·줄·찌가 놓인 조용한 수면 장면 ── */}
-      {idle && (
-        <div className="absolute inset-0">
-          {/* 수면 밴드 */}
-          <div className="absolute bottom-0 left-0 right-0 h-[38%] border-t border-blue-200/60 bg-blue-100/50 dark:border-blue-700/40 dark:bg-blue-900/30" />
+    <div
+      className={`fish-flash-scene pointer-events-none relative flex h-full w-full flex-col items-center justify-end overflow-hidden ${
+        biting ? "is-biting" : ""
+      } ${waiting ? "is-waiting" : ""}`}
+    >
+      <div className="fish-sky" />
+      <div className="fish-cloud fish-cloud-a" />
+      <div className="fish-cloud fish-cloud-b" />
+      <div className="fish-bank" />
+      <div className="fish-reeds fish-reeds-left" />
+      <div className="fish-reeds fish-reeds-right" />
+      <div className="fish-water">
+        <span className="fish-wave fish-wave-a" />
+        <span className="fish-wave fish-wave-b" />
+        <span className="fish-wave fish-wave-c" />
+      </div>
+      <div className="fish-dock">
+        <span />
+        <span />
+        <span />
+      </div>
 
-          {/* 낚싯대 + 줄 (inline SVG) */}
-          <svg
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full"
-            viewBox="0 0 200 100"
-            preserveAspectRatio="none"
-          >
-            {/* 낚싯대 팁 — 짧고 굵은 갈색 선 */}
-            <line
-              x1="170" y1="4"
-              x2="148" y2="20"
-              stroke="#8B6914"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            {/* 낚싯줄 — 얇은 회색 사선 */}
-            <line
-              x1="148" y1="20"
-              x2="100" y2="60"
-              stroke="#94a3b8"
-              strokeWidth="0.8"
-              strokeOpacity="0.7"
-            />
-          </svg>
+      <svg
+        aria-hidden="true"
+        className="fish-rod"
+        viewBox="0 0 260 160"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M226 18 C196 35 169 57 142 87"
+          fill="none"
+          stroke="#6f4d23"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M226 18 C196 35 169 57 142 87"
+          fill="none"
+          stroke="#c08a3d"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          opacity="0.75"
+        />
+        <path
+          d="M142 87 C130 99 126 106 120 115"
+          fill="none"
+          stroke="#dce8ef"
+          strokeWidth="0.9"
+          strokeLinecap="round"
+          opacity="0.9"
+        />
+      </svg>
 
-          {/* 잔잔한 수면 잔물결 (느리고 작음 — 입질 신호와 명확히 구분) */}
-          <span className="fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border border-blue-300/40 dark:border-blue-500/30" style={{ bottom: "37%" }} />
+      {bobberVisible && (
+        <div className="fish-bobber-stage">
           <span
-            className="fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border border-blue-300/25 dark:border-blue-500/20"
-            style={{ bottom: "37%", animationDelay: "2.5s" }}
-          />
-
-          {/* 낚싯줄 빛 반사 글린트 */}
-          <span
-            className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/70"
-            style={{ left: "58%", top: "42%" }}
-          />
-
-          {/* 휴식 중인 찌 — 하늘색(=입질 신호인 amber와 색이 다름) */}
-          <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: "calc(38% - 0.5rem)" }}>
-            <div className="fish-bob-idle">
-              <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
-              <span className="block h-4 w-4 rounded-full bg-sky-400 shadow-sm dark:bg-sky-500" />
-              <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── waiting / biting — 기존 동작 그대로 ── */}
-      {onWater && (
-        <div className="relative flex h-20 w-full items-end justify-center">
-          {/* 수면 잔물결 — 대기: 잔잔 다중, 입질: 강한 파동 */}
-          <span
-            className={`absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border ${
+            className={`fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border ${
               biting
-                ? "fish-ripple-bite border-amber-400/70"
-                : "fish-ripple border-sky-400/40"
+                ? "fish-ripple-bite border-amber-300/80"
+                : "border-cyan-100/45"
             }`}
           />
-          {waiting && (
+          <span
+            className="fish-ripple absolute left-1/2 h-6 w-16 rounded-[100%] border border-white/25"
+            style={{ animationDelay: "0.7s" }}
+          />
+          {onWater && (
             <>
               <span
-                className="fish-ripple absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border border-sky-400/30"
-                style={{ animationDelay: "0.7s" }}
-              />
-              <span
-                className="fish-ripple absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border border-sky-400/20"
+                className="fish-ripple absolute left-1/2 h-6 w-16 rounded-[100%] border border-cyan-100/25"
                 style={{ animationDelay: "1.4s" }}
               />
-              {/* 기포 */}
-              <span className="fish-bubble absolute bottom-4 left-[42%] h-1.5 w-1.5 rounded-full bg-sky-300/60" />
+              <span className="fish-bubble absolute left-[42%] h-1.5 w-1.5 rounded-full bg-cyan-100/70" />
               <span
-                className="fish-bubble absolute bottom-4 left-[56%] h-1 w-1 rounded-full bg-sky-300/50"
+                className="fish-bubble absolute left-[56%] h-1 w-1 rounded-full bg-cyan-100/55"
                 style={{ animationDelay: "1.6s" }}
               />
             </>
           )}
-
-          {/* 찌 — 캐스팅 진입 시 포물선으로 날아와 안착(one-shot), 안에서 까닥/입질 */}
-          <div className="fish-cast-arc relative z-10">
+          <span className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/80" />
+          <div className={onWater ? "fish-cast-arc relative z-10" : "relative z-10"}>
             <div className={biting ? "fish-bob-bite" : "fish-bob-idle"}>
-              <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
+              <span className="mx-auto block h-4 w-[2px] rounded bg-zinc-700/80 dark:bg-zinc-300/80" />
               <span
-                className={`block h-4 w-4 rounded-full shadow-sm ${
-                  biting ? "bg-amber-500" : "bg-rose-500"
+                className={`block h-4 w-4 rounded-full border border-white/70 shadow-md ${
+                  biting ? "bg-amber-500" : idle ? "bg-sky-400" : "bg-rose-500"
                 }`}
               />
-              <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
+              <span className="mx-auto -mt-1 block h-4 w-3 rounded-b-full rounded-t-sm bg-zinc-100 shadow-sm dark:bg-zinc-200" />
             </div>
           </div>
         </div>
       )}
 
-      <div className="mt-2">
-        {phase === "casting" && <span className="text-sm">던지는 중…</span>}
-        {waiting && (
-          <>
-            <span className="block text-sm">입질을 기다리는 중…</span>
-            <span className="mt-0.5 block text-[11px] opacity-70">
-              아직 누르지 말 것
-            </span>
-          </>
-        )}
-        {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
-        {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
-      </div>
+      {phase !== "idle" && (
+        <div className="fish-scene-status relative z-20 mb-3 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-950/70">
+          {phase === "casting" && <span className="text-sm">던지는 중…</span>}
+          {waiting && (
+            <>
+              <span className="block text-sm">입질을 기다리는 중…</span>
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                아직 누르지 말 것
+              </span>
+            </>
+          )}
+          {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
+          {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -554,9 +550,9 @@ export function FishingView({
           type="button"
           disabled={!tapActive}
           onClick={onTapZone}
-          className={`ui-fishing-zone relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
+          className={`ui-fishing-zone relative flex h-56 w-full select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-center transition ${
             biting
-              ? "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
+              ? "is-biting border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
               : tapActive
                 ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
                 : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"

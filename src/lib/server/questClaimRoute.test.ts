@@ -86,10 +86,15 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
 }));
 
 vi.mock("@/lib/server/grantTitle", () => ({
-  grantTitleIfMissingInTx: vi.fn(async () => {}),
+  grantTitleIfMissingInTx: vi.fn(async () => false),
+  ownedTitleIdsOf: vi.fn((raw: unknown) => {
+    const titles = (raw as { titles?: Record<string, unknown> } | undefined)?.titles;
+    return titles && typeof titles === "object" ? Object.keys(titles) : [];
+  }),
 }));
 
 import { POST } from "@/app/api/v2/me/quests/claim/route";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
 function claimReq(questId: string): Request {
   return new Request("http://t/api/v2/me/quests/claim", {
@@ -104,6 +109,7 @@ describe("POST /api/v2/me/quests/claim", () => {
     store.set("character.v2", { gold: 10_000, bankedGold: 250 });
     store.set("equipment.v2", { owned: [], equipped: {} });
     store.set("guide-quests.v2", { claimed: [] });
+    vi.mocked(grantTitleIfMissingInTx).mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -131,5 +137,32 @@ describe("POST /api/v2/me/quests/claim", () => {
     };
     expect(char.gold).toBe(10_000);
     expect(char.bankedGold).toBe(1_050);
+  });
+
+  it("이미 수령한 퀘스트에 나중에 붙은 칭호는 칭호만 소급 지급한다", async () => {
+    store.set("guide-quests.v2", { claimed: ["a_depth48"] });
+    vi.mocked(grantTitleIfMissingInTx).mockResolvedValueOnce(true);
+
+    const res = await POST(claimReq("a_depth48"));
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      ok: boolean;
+      retroactive: boolean;
+      reward: { gold: number; titleId: string };
+      bankedGold: number;
+    };
+    expect(json).toMatchObject({
+      ok: true,
+      retroactive: true,
+      reward: { gold: 0, titleId: "ach_frontier_end" },
+      bankedGold: 250,
+    });
+    expect(grantTitleIfMissingInTx).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "ach_frontier_end",
+      expect.any(Number),
+    );
   });
 });

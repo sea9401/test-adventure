@@ -15,6 +15,10 @@ import {
   questLinesFor,
 } from "@/adventure/data/v2/v2Quests";
 import {
+  addTitlesToAdventureLog,
+  backfillClaimedQuestTitleRewards,
+} from "@/lib/server/questTitleBackfill";
+import {
   deriveRepeatBundle,
   deriveRepeatViews,
   nextDailyResetAt,
@@ -53,22 +57,38 @@ export async function GET() {
     assembleQuestExtras(db, userId),
   ]);
 
+  const claimed = parseClaimed(guideRaw);
+  const retroactiveObtainedAt = Date.now();
+  const retroactiveTitleIds = await backfillClaimedQuestTitleRewards(
+    userId,
+    claimed,
+    advLogRaw,
+    retroactiveObtainedAt,
+  );
+  const effectiveAdvLogRaw =
+    retroactiveTitleIds.length > 0
+      ? addTitlesToAdventureLog(
+          advLogRaw,
+          retroactiveTitleIds,
+          retroactiveObtainedAt,
+        )
+      : advLogRaw;
+
   const ctx = buildQuestCtx({
     charRaw,
     proficiencyRaw,
-    advLogRaw,
+    advLogRaw: effectiveAdvLogRaw,
     equipmentRaw,
     skillsRaw,
     craftingRaw,
     extras,
   });
-  const claimed = parseClaimed(guideRaw);
   const quests = deriveQuestViews(ctx, claimed);
   const current = currentGuideQuest(ctx, claimed);
 
   // 반복 퀘스트 — lazy 롤오버(주기 키 변경 시 무락 upsert — 동시 호출도 같은 스냅샷이라 무해).
   const now = new Date();
-  const signals = buildRepeatSignals(advLogRaw, extras);
+  const signals = buildRepeatSignals(effectiveAdvLogRaw, extras);
   const rolled = rolloverRepeatSave(parseRepeatSave(repeatRaw), now, signals);
   if (rolled.changed) {
     await upsertSave(db, userId, REPEAT_QUESTS_KEY, rolled.save);

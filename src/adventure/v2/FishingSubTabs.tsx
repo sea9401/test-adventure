@@ -16,6 +16,7 @@ export type FishingTabKey =
 
 export function FishingSubTabs({
   active,
+  challengeBadgeCount,
   onOpenFishing,
   onOpenChallenges,
   onOpenLeaderboard,
@@ -23,18 +24,25 @@ export function FishingSubTabs({
   onOpenShop,
 }: {
   active: FishingTabKey;
+  challengeBadgeCount?: number;
   onOpenFishing?: () => void;
   onOpenChallenges?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
 }) {
+  const challengeBadge =
+    typeof challengeBadgeCount === "number" && challengeBadgeCount > 0
+      ? challengeBadgeCount > 99
+        ? "99+"
+        : challengeBadgeCount
+      : undefined;
   const tabs = [
     ...(active === "fishing" || onOpenFishing
       ? [{ key: "fishing" as const, label: "낚시" }]
       : []),
     ...(active === "challenges" || onOpenChallenges
-      ? [{ key: "challenges" as const, label: "의뢰" }]
+      ? [{ key: "challenges" as const, label: "의뢰", badge: challengeBadge }]
       : []),
     ...(active === "leaderboard" || onOpenLeaderboard
       ? [{ key: "leaderboard" as const, label: "주간 순위" }]

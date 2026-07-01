@@ -17,6 +17,7 @@ import {
   FISHING_RODS,
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
+import type { FishingProgressNotice } from "@/adventure/v2/fishingChallengeProgress";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -54,6 +55,8 @@ export type ReelOutcome =
         coinBonus: number;
         fragmentChanceBonusPct: number;
       };
+      /** 이번 어획으로 오른 오늘의 의뢰/일일 과제/누적 목표. */
+      challengeProgress?: FishingProgressNotice[];
     }
   | { caught: false; reason: string };
 
@@ -62,6 +65,7 @@ export type FishingHandlers = {
   reel: (castId: string, reactionMs: number) => Promise<ReelOutcome>;
   progression?: FishingProgressionView | null;
   progressionLoading?: boolean;
+  challengeBadgeCount?: number;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
@@ -225,6 +229,12 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
   legendary: { iconCls: "h-20 w-20", glow: true },
 };
 
+const TASK_KIND_LABEL: Record<FishingProgressNotice["kind"], string> = {
+  contract: "오늘의 의뢰",
+  daily: "일일 과제",
+  goal: "누적 목표",
+};
+
 export function FishingView({
   cast,
   reel,
@@ -235,6 +245,7 @@ export function FishingView({
   onOpenHallOfFame,
   progression,
   progressionLoading,
+  challengeBadgeCount,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
@@ -357,6 +368,7 @@ export function FishingView({
 
       <FishingSubTabs
         active="fishing"
+        challengeBadgeCount={challengeBadgeCount}
         onOpenChallenges={onOpenChallenges}
         onOpenLeaderboard={onOpenLeaderboard}
         onOpenHallOfFame={onOpenHallOfFame}
@@ -512,6 +524,31 @@ export function FishingView({
                   {result.fishingLevelUp ? " 상승" : ""}
                 </div>
               )}
+              {result.challengeProgress &&
+                result.challengeProgress.length > 0 && (
+                  <div className="mx-auto mt-2 max-w-sm space-y-1 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2 text-left dark:border-amber-900/60 dark:bg-amber-950/30">
+                    {result.challengeProgress.slice(0, 4).map((p) => (
+                      <div
+                        key={`${p.kind}:${p.id}`}
+                        className="flex items-center justify-between gap-2 text-[11px]"
+                      >
+                        <span className="min-w-0 truncate text-zinc-600 dark:text-zinc-300">
+                          {TASK_KIND_LABEL[p.kind]} · {p.title}
+                        </span>
+                        <span className="shrink-0 font-semibold text-amber-700 dark:text-amber-300">
+                          {p.delta > 0 ? `+${p.delta} ` : ""}
+                          {p.progress}/{p.goal}
+                          {p.justCompleted ? " 완료" : ""}
+                        </span>
+                      </div>
+                    ))}
+                    {result.challengeProgress.length > 4 && (
+                      <div className="text-right text-[11px] text-zinc-400 dark:text-zinc-500">
+                        외 {result.challengeProgress.length - 4}개 진행
+                      </div>
+                    )}
+                  </div>
+                )}
               {lastReactionMs != null && (
                 <div className="text-[11px] font-medium">
                   <span className={reactionGrade(lastReactionMs).cls}>

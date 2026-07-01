@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import {
+  countClaimableFishingTasks,
+  type FishingProgressTaskView,
+} from "./fishingChallengeProgress";
 import { FishingSubTabs } from "./FishingSubTabs";
 import type {
   ClaimResult,
   FishingChallengesState,
 } from "./useFishingDailyChallenge";
-import type { FishingDailyView } from "@/adventure/data/v2/fishingDailyChallenges";
+
+type ChallengeItemView = FishingProgressTaskView & {
+  desc: string;
+  rewardCoins: number;
+};
 
 function fmtRemain(nextResetAt: number): string {
   const ms = nextResetAt - Date.now();
@@ -24,21 +32,33 @@ function ChallengeSection({
   onClaim,
 }: {
   title: string;
-  items: FishingDailyView[];
+  items: ChallengeItemView[];
   claiming?: string | null;
   onClaim: (id: string) => void;
 }) {
   if (items.length === 0) return null;
+  const sortedItems = items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const rank = (item: ChallengeItemView) =>
+        item.claimable ? 0 : item.claimed ? 2 : 1;
+      return rank(a.item) - rank(b.item) || a.index - b.index;
+    })
+    .map(({ item }) => item);
   return (
     <section className="space-y-2">
       <p className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
         {title}
       </p>
       <ul className="space-y-2.5">
-        {items.map((c) => (
+        {sortedItems.map((c) => (
           <li
             key={c.id}
-            className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800"
+            className={`rounded-xl border p-3 ${
+              c.claimable
+                ? "border-amber-300 bg-amber-50/70 dark:border-amber-800/70 dark:bg-amber-950/30"
+                : "border-zinc-200 dark:border-zinc-800"
+            }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -118,6 +138,13 @@ export function FishingDailyChallengeView({
     const r = await onClaim(id);
     setMsg(r.message);
   };
+  const claimableCount = state
+    ? countClaimableFishingTasks([
+        state.contracts,
+        state.challenges,
+        state.goals,
+      ])
+    : 0;
 
   return (
     <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
@@ -135,6 +162,7 @@ export function FishingDailyChallengeView({
 
       <FishingSubTabs
         active="challenges"
+        challengeBadgeCount={claimableCount}
         onOpenFishing={onOpenFishing}
         onOpenLeaderboard={onOpenLeaderboard}
         onOpenHallOfFame={onOpenHallOfFame}

@@ -67,7 +67,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     description: "물안개가 자욱이 깔린다. 안개 속에서 비단결이 어른거린다.",
     specialFishId: "mist_koi",
     effect: {
-      label: "희귀 씨알 +3%",
+      label: "희귀 이상 크기 +3%",
       rareSizeBonusPct: 3,
     },
   },
@@ -78,7 +78,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     description: "거센 물살이 인다. 파도를 가르며 날아오르는 것이 걸린다.",
     specialFishId: "stormrider",
     effect: {
-      label: "대물 씨알 +4% · 코인 +1",
+      label: "대물급 크기 +4% · 코인 +1",
       bigCatchSizeBonusPct: 4,
       coinBonus: 1,
     },

@@ -750,13 +750,13 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
   if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
   if (p.fishingSizeBonusPct)
-    chips.push(`낚시 크기 보정 +${p.fishingSizeBonusPct}%`);
+    chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);
   if (p.fishingSpecialWeightPct)
     chips.push(`물때 한정 어종 가중치 +${p.fishingSpecialWeightPct}%`);
   if (p.fishingRareSizeBonusPct)
-    chips.push(`희귀 이상 낚시 크기 보정 +${p.fishingRareSizeBonusPct}%`);
+    chips.push(`희귀 이상 물고기 크기 +${p.fishingRareSizeBonusPct}%`);
   if (p.fishingBigCatchSizeBonusPct)
-    chips.push(`대물권 낚시 크기 보정 +${p.fishingBigCatchSizeBonusPct}%`);
+    chips.push(`대물급 물고기 크기 +${p.fishingBigCatchSizeBonusPct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
   if (p.skillCritOverflow)

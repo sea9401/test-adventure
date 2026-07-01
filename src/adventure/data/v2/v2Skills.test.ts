@@ -73,16 +73,16 @@ describe("낚시 생활 패시브", () => {
 
   it("describeV2Skill 가 낚시 효과 칩을 낸다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_baitcraft)).toContain(
-      "낚시 크기 보정 +4%",
+      "물고기 크기 +4%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_camper_tidereading)).toContain(
       "물때 한정 어종 가중치 +25%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_angler_pointreading)).toContain(
-      "희귀 이상 낚시 크기 보정 +3%",
+      "희귀 이상 물고기 크기 +3%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_masterangler_bigcatchsense)).toContain(
-      "대물권 낚시 크기 보정 +2%",
+      "대물급 물고기 크기 +2%",
     );
   });
 });

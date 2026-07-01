@@ -44,9 +44,9 @@ export type V2CommonSkillId =
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   | "v2c_survivor_firstaid" // 응급 처치 (잃은 HP 회복)
   | "v2c_survivor_knowledge" // 생존 지식 (최대 HP)
-  | "v2c_survivor_baitcraft" // 미끼 고르기 (낚시 크기 보정)
-  | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 낚시 크기 보정)
-  | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물권 낚시 크기 보정)
+  | "v2c_survivor_baitcraft" // 미끼 고르기 (물고기 크기)
+  | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 물고기 크기)
+  | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물급 물고기 크기)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -341,14 +341,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_survivor_baitcraft: {
     id: "v2c_survivor_baitcraft", name: "미끼 고르기", stat: "luk", category: "passive", tier: 1,
-    description: "상황에 맞는 미끼를 골라 낚은 물고기의 씨알을 조금 좋게 만든다.", mpCost: 0, cooldown: 0,
+    description: "상황에 맞는 미끼를 골라 낚은 물고기가 조금 더 크게 잡히게 한다.", mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
     passive: { fishingSizeBonusPct: 4 },
   },
   v2c_angler_pointreading: {
     id: "v2c_angler_pointreading", name: "포인트 짚기", stat: "luk", category: "passive", tier: 3,
-    description: "흐름과 수심을 읽어 좋은 자리에 미끼를 넣는다. 희귀 이상 어종의 씨알이 조금 좋아진다.",
+    description: "흐름과 수심을 읽어 좋은 자리에 미끼를 넣는다. 희귀 이상 어종이 조금 더 크게 잡힌다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,

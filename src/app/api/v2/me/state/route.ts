@@ -12,7 +12,11 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
-import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import { grantTitleIfMissing, ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import {
+  INSOMNIA_TITLE_ID,
+  isInsomniaTitleWindow,
+} from "@/lib/server/insomniaTitle";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
@@ -253,7 +257,18 @@ export async function GET() {
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
   // "칭호" 탭이 소비. 보유 목록만 노출하므로 옛 V1 칭호(v2 에선 미획득)는 포함되지 않는다.
-  const ownedTitleIds = ownedTitleIdsOf(adventureLogRow?.value);
+  let ownedTitleIds = ownedTitleIdsOf(adventureLogRow?.value);
+  if (
+    !ownedTitleIds.includes(INSOMNIA_TITLE_ID) &&
+    isInsomniaTitleWindow(new Date())
+  ) {
+    const granted = await grantTitleIfMissing(
+      userId,
+      INSOMNIA_TITLE_ID,
+      Date.now(),
+    );
+    if (granted) ownedTitleIds = [...ownedTitleIds, INSOMNIA_TITLE_ID];
+  }
   const equippedTitleId =
     typeof charSave.equippedTitleId === "string" &&
     ownedTitleIds.includes(charSave.equippedTitleId)

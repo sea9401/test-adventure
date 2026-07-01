@@ -96,6 +96,14 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "새벽 3~5시 접속",
     category: "exploration",
   },
+  insomnia: {
+    id: "insomnia",
+    name: "불면증",
+    description: "잠들기 애매한 시간에도 모험을 놓지 못한 자.",
+    condition: "심야 0~4시 접속",
+    category: "exploration",
+    hidden: true,
+  },
   training_apprentice: {
     id: "training_apprentice",
     name: "수련생",

@@ -27,6 +27,15 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_json: "잘못된 요청이에요.",
 };
 
+function shortTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function GuildTrainingGroundPanel({
   info,
   localTrainingGround = false,
@@ -139,6 +148,18 @@ export function GuildTrainingGroundPanel({
     100,
     Math.max(0, (completedCount / dailyClaimLimit) * 100),
   );
+  const guildSummary = state?.guildSummary ?? null;
+  const guildProgressPct = guildSummary
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          (guildSummary.completionCount /
+            Math.max(1, guildSummary.maxCompletionCount)) *
+            100,
+        ),
+      )
+    : 0;
 
   return (
     <section className="space-y-3 rounded-md border border-sky-200 bg-white p-3 text-sm text-zinc-900 shadow-sm dark:border-sky-900/60 dark:bg-slate-950 dark:text-zinc-100">
@@ -215,6 +236,91 @@ export function GuildTrainingGroundPanel({
               {drills.length.toLocaleString()}개
             </span>
             <span>{state?.upgrade?.label ?? "훈련 설비"}</span>
+          </div>
+        </div>
+      )}
+
+      {hasTrainingGround && guildSummary && (
+        <div className="grid gap-2 rounded-md border border-emerald-100 bg-emerald-50/70 p-3 text-xs dark:border-emerald-900/50 dark:bg-slate-900">
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+              길드 현황
+            </div>
+            <div className="rounded bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-slate-950 dark:text-emerald-300">
+              미참여 {guildSummary.pendingMemberCount.toLocaleString()}명
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                참여
+              </div>
+              <div className="mt-0.5 font-semibold tabular-nums">
+                {guildSummary.participatedMemberCount.toLocaleString()}/
+                {guildSummary.memberCount.toLocaleString()}명
+              </div>
+            </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                완료
+              </div>
+              <div className="mt-0.5 font-semibold tabular-nums">
+                {guildSummary.completionCount.toLocaleString()}/
+                {guildSummary.maxCompletionCount.toLocaleString()}회
+              </div>
+            </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                숙련도
+              </div>
+              <div className="mt-0.5 font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                +{guildSummary.totalMastery.toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                골드
+              </div>
+              <div className="mt-0.5 font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                +{guildSummary.totalGold.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded bg-white dark:bg-slate-800">
+            <div
+              className="h-full rounded bg-emerald-600 dark:bg-emerald-400"
+              style={{ width: `${guildProgressPct}%` }}
+            />
+          </div>
+          <div className="space-y-1">
+            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              최근 완료
+            </div>
+            {guildSummary.recent.length > 0 ? (
+              guildSummary.recent.map((row) => (
+                <div
+                  key={row.id}
+                  className="flex items-center justify-between gap-2 rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950"
+                >
+                  <div className="min-w-0 truncate">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {row.actorName}
+                    </span>
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      {" "}
+                      · {row.drillTitle}
+                    </span>
+                  </div>
+                  <div className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {shortTime(row.createdAt)}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded border border-white/70 bg-white px-2 py-2 text-center text-[11px] text-zinc-500 dark:border-slate-700 dark:bg-slate-950 dark:text-zinc-400">
+                오늘 기록 없음
+              </div>
+            )}
           </div>
         </div>
       )}

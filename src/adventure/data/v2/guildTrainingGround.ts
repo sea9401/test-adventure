@@ -179,9 +179,25 @@ export const GUILD_TRAINING_DRILL_IDS: GuildTrainingDrillId[] = [
 ];
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function todayGuildTrainingKey(now = new Date()): string {
   return new Date(now.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+export function guildTrainingDayWindow(now = new Date()): {
+  dayKey: string;
+  start: Date;
+  end: Date;
+} {
+  const dayKey = todayGuildTrainingKey(now);
+  const [year, month, day] = dayKey.split("-").map(Number);
+  const startMs = Date.UTC(year, month - 1, day) - KST_OFFSET_MS;
+  return {
+    dayKey,
+    start: new Date(startMs),
+    end: new Date(startMs + DAY_MS),
+  };
 }
 
 export function isGuildTrainingDrillId(

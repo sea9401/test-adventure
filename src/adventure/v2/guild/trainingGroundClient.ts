@@ -17,6 +17,26 @@ export type TrainingDrillView = {
   rewardGold: number;
 };
 
+export type TrainingGuildSummary = {
+  dayKey: string;
+  memberCount: number;
+  participatedMemberCount: number;
+  pendingMemberCount: number;
+  completionCount: number;
+  dailyClaimLimit: number;
+  maxCompletionCount: number;
+  totalMastery: number;
+  totalGold: number;
+  recent: {
+    id: number;
+    actorName: string;
+    drillTitle: string;
+    rewardMastery: number;
+    rewardGold: number;
+    createdAt: string;
+  }[];
+};
+
 export type TrainingState = {
   ok?: boolean;
   dayKey?: string;
@@ -32,6 +52,7 @@ export type TrainingState = {
   availableCount?: number;
   remainingClaims?: number;
   claimableCount?: number;
+  guildSummary?: TrainingGuildSummary;
   drills?: TrainingDrillView[];
 };
 

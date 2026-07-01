@@ -21,6 +21,7 @@ export type GuildActivityType =
   | "smithy_upgrade"
   | "building_upgrade"
   | "combat_supply_upgrade"
+  | "training_drill_claim"
   | "nation_declare"
   | "guild_create";
 
@@ -37,10 +38,12 @@ export type GuildActivityMeta = {
   supplyName?: string; // combat_supply_upgrade
   supplyLevel?: number; // combat_supply_upgrade
   fameCost?: number; // combat_supply_upgrade
+  drillTitle?: string; // training_drill_claim
+  rewardMastery?: number; // training_drill_claim
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward
-  rewardGold?: number; // workshop_weekly_claim
+  rewardGold?: number; // workshop_weekly_claim | training_drill_claim
   rewardFame?: number; // workshop_weekly_claim
 };
 

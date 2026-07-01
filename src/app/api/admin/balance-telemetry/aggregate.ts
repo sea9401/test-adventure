@@ -108,6 +108,12 @@ export type BalanceTelemetry = {
       bestQualityBasic: number;
       bestQualityStar: number;
       bestQualityDoubleStar: number;
+      qualityCraftRatePct: number;
+      masterworkCraftRatePct: number;
+      craftOnlyCraftRatePct: number;
+      avgCraftsPerActiveBlacksmith: number;
+      avgMaterialsPerActiveBlacksmith: number;
+      materialStockPerCraft: number;
     };
     levelBands: {
       label: string;
@@ -492,6 +498,12 @@ export function aggregateBalanceTelemetry(
         : 0,
     };
   });
+  const totalWorkshopMaterials = workshopMaterials.reduce(
+    (sum, material) => sum + material.total,
+    0,
+  );
+  const ratePct = (part: number, whole: number) =>
+    whole > 0 ? Math.round((part / whole) * 100) : 0;
 
   return {
     summary: {
@@ -538,6 +550,24 @@ export function aggregateBalanceTelemetry(
         bestQualityBasic: bestQualityCounts[0],
         bestQualityStar: bestQualityCounts[1],
         bestQualityDoubleStar: bestQualityCounts[2],
+        qualityCraftRatePct: ratePct(workshopQualityCrafts, workshopTotalCrafts),
+        masterworkCraftRatePct: ratePct(
+          workshopMasterworkCrafts,
+          workshopTotalCrafts,
+        ),
+        craftOnlyCraftRatePct: ratePct(
+          workshopCraftOnlyCrafts,
+          workshopTotalCrafts,
+        ),
+        avgCraftsPerActiveBlacksmith: activeBlacksmiths
+          ? Math.round(workshopTotalCrafts / activeBlacksmiths)
+          : 0,
+        avgMaterialsPerActiveBlacksmith: activeBlacksmiths
+          ? Math.round(totalWorkshopMaterials / activeBlacksmiths)
+          : 0,
+        materialStockPerCraft: workshopTotalCrafts
+          ? Math.round((totalWorkshopMaterials / workshopTotalCrafts) * 10) / 10
+          : totalWorkshopMaterials,
       },
       levelBands: workshopLevelBands,
       materials: workshopMaterials,

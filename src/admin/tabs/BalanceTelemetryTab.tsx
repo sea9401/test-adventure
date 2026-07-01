@@ -62,6 +62,12 @@ type Telemetry = {
       bestQualityBasic: number;
       bestQualityStar: number;
       bestQualityDoubleStar: number;
+      qualityCraftRatePct: number;
+      masterworkCraftRatePct: number;
+      craftOnlyCraftRatePct: number;
+      avgCraftsPerActiveBlacksmith: number;
+      avgMaterialsPerActiveBlacksmith: number;
+      materialStockPerCraft: number;
     };
     levelBands: {
       label: string;
@@ -135,6 +141,29 @@ function BarRow({
   );
 }
 
+function WorkshopEconomySignal({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "ok" | "watch" | "risk";
+}) {
+  const cls =
+    tone === "ok"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
+      : tone === "watch"
+        ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+        : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200";
+  return (
+    <div className={`rounded border px-2 py-1.5 text-xs ${cls}`}>
+      <div className="text-[10px] opacity-75">{label}</div>
+      <div className="mt-0.5 font-semibold tabular-nums">{value}</div>
+    </div>
+  );
+}
+
 export function BalanceTelemetryTab() {
   const [data, setData] = useState<Telemetry | null>(null);
   const [loading, setLoading] = useState(false);
@@ -188,6 +217,32 @@ export function BalanceTelemetryTab() {
     1,
     ...(data?.workshopEconomy.materials ?? []).map((m) => m.total),
   );
+  const workshopSummary = data?.workshopEconomy.summary;
+  const materialStockTone =
+    !workshopSummary || workshopSummary.totalCrafts === 0
+      ? "watch"
+      : workshopSummary.materialStockPerCraft < 1
+        ? "risk"
+        : workshopSummary.materialStockPerCraft < 3
+          ? "watch"
+          : "ok";
+  const qualityTone =
+    !workshopSummary || workshopSummary.totalCrafts < 10
+      ? "watch"
+      : workshopSummary.qualityCraftRatePct < 15
+        ? "risk"
+        : workshopSummary.qualityCraftRatePct > 55
+          ? "watch"
+          : "ok";
+  const deliveryTone =
+    !workshopSummary || workshopSummary.activeBlacksmiths === 0
+      ? "watch"
+      : workshopSummary.deliveryClaimsToday === 0
+        ? "risk"
+        : workshopSummary.deliveryClaimsToday <
+            Math.ceil(workshopSummary.activeBlacksmiths * 0.2)
+          ? "watch"
+          : "ok";
 
   return (
     <div className="space-y-4">
@@ -546,6 +601,25 @@ export function BalanceTelemetryTab() {
                   label: "오늘 납품 수령",
                   value: data.workshopEconomy.summary.deliveryClaimsToday,
                 },
+                {
+                  label: "품질 제작률",
+                  value: data.workshopEconomy.summary.qualityCraftRatePct,
+                  suffix: "%",
+                },
+                {
+                  label: "명장 제작률",
+                  value: data.workshopEconomy.summary.masterworkCraftRatePct,
+                  suffix: "%",
+                },
+                {
+                  label: "전용 제작률",
+                  value: data.workshopEconomy.summary.craftOnlyCraftRatePct,
+                  suffix: "%",
+                },
+                {
+                  label: "재료/제작",
+                  value: data.workshopEconomy.summary.materialStockPerCraft,
+                },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -556,10 +630,52 @@ export function BalanceTelemetryTab() {
                   </div>
                   <div className="font-mono text-sm tabular-nums">
                     {item.value.toLocaleString()}
+                    {"suffix" in item ? item.suffix : ""}
                   </div>
                 </div>
               ))}
             </div>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <WorkshopEconomySignal
+                label="재료 수급"
+                value={
+                  materialStockTone === "ok"
+                    ? "여유"
+                    : materialStockTone === "watch"
+                      ? "관찰"
+                      : "부족 위험"
+                }
+                tone={materialStockTone}
+              />
+              <WorkshopEconomySignal
+                label="품질 제작률"
+                value={
+                  qualityTone === "ok"
+                    ? "정상"
+                    : qualityTone === "watch"
+                      ? "편차 관찰"
+                      : "낮음"
+                }
+                tone={qualityTone}
+              />
+              <WorkshopEconomySignal
+                label="납품 이용"
+                value={
+                  deliveryTone === "ok"
+                    ? "이용 중"
+                    : deliveryTone === "watch"
+                      ? "낮음"
+                      : "미사용"
+                }
+                tone={deliveryTone}
+              />
+            </div>
+            <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              기준: 재료/제작 1 미만은 수급 부족 위험, 품질 제작률 15% 미만은
+              품질 체감 부족, 활성 대장장이 대비 납품 수령이 낮으면 납품 보상
+              또는 접근성을 점검합니다.
+            </p>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>

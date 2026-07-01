@@ -220,6 +220,12 @@ describe("aggregateBalanceTelemetry", () => {
       deliveryClaimsToday: 3,
       bestQualityStar: 1,
       bestQualityDoubleStar: 1,
+      qualityCraftRatePct: 15,
+      masterworkCraftRatePct: 5,
+      craftOnlyCraftRatePct: 13,
+      avgCraftsPerActiveBlacksmith: 20,
+      avgMaterialsPerActiveBlacksmith: 12,
+      materialStockPerCraft: 0.6,
     });
     expect(
       t.workshopEconomy.materials.find(

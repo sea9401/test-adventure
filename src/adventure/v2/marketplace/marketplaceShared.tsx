@@ -11,6 +11,11 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { type V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+export {
+  marketplaceCraftPriceKey,
+  marketplacePriceKeyForEquipInstance,
+  marketplacePriceKeyForPayload,
+} from "@/adventure/data/v2/marketplacePriceKeys";
 import { NumberInput } from "@/components/ui/NumberInput";
 
 // 판매세는 서버 권위 — 여기 0.05 는 순수령 미리보기용(표시 advisory).
@@ -48,6 +53,14 @@ export function listingEquipRoll(payload: unknown): V2EquipRoll | undefined {
   return parseEquipRoll(payload);
 }
 
+export function priceStatForKey(
+  priceRef: Record<string, PriceStat>,
+  itemId: string,
+  preferredKey: string,
+): PriceStat | undefined {
+  return priceRef[preferredKey] ?? priceRef[itemId];
+}
+
 // 장비 스탯 한 줄(개체 굴림 반영) — 기본 전투 스탯 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
 //   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.
 function equipStatLine(
@@ -79,7 +92,13 @@ export function equipDetail(
 }
 
 // 시세 한 줄 — 최근 거래가 참고. 기록 없으면 표시 안 함.
-export function PriceRefLine({ stat }: { stat?: PriceStat }) {
+export function PriceRefLine({
+  stat,
+  scoped,
+}: {
+  stat?: PriceStat;
+  scoped?: boolean;
+}) {
   if (!stat || stat.n <= 0) return null;
   const range =
     stat.min === stat.max
@@ -87,7 +106,8 @@ export function PriceRefLine({ stat }: { stat?: PriceStat }) {
       : ` · ${stat.min.toLocaleString()}~${stat.max.toLocaleString()}`;
   return (
     <span className="text-[11px] text-sky-600 dark:text-sky-400">
-      시세 평균 {stat.avg.toLocaleString()}골드 ({stat.n}건{range})
+      {scoped ? "동급 시세" : "시세"} 평균 {stat.avg.toLocaleString()}골드 (
+      {stat.n}건{range})
     </span>
   );
 }

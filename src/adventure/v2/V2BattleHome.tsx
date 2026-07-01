@@ -48,8 +48,7 @@ export function V2BattleHome({
             icon={
               <Wall size={28} weight="duotone" className="text-amber-500" />
             }
-            title="던전"
-            description="현재 위치의 격자 던전으로 입장"
+            title="던전 입장"
             onClick={() => onAction({ kind: "open-grid-dungeon" })}
           />
         )}

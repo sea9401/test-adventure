@@ -166,12 +166,12 @@ export function spendableGold(gold: number, bankedGold: number): number {
   return spendableGoldWith(gold, bankedGold, V2_CORE_LOOP_V2);
 }
 
-// === 패배 세금 (무리한 사냥 페널티 + 거점 세수) ==============================
-// 사냥 패배 시 "마지막 패배 이후 번 골드(atRiskGold)"의 일부를 그 땅 세금으로 압류한다.
+// === 패배 페널티 (무리한 사냥 페널티) =====================================
+// 사냥 패배 시 "마지막 패배 이후 번 골드(atRiskGold)"의 일부가 소실된다.
 // 원금(이전 stash)이 아니라 최근 승리분만 대상이라 기하급수 전멸이 없다. 은행 입금분은 면제.
 export const LOSS_TAX_RATE = 0.5; // 패배 시 atRiskGold 의 절반.
 
-// 패배 세금 계산 (순수). atRiskGold 의 rate 만큼을 세금으로 — 단 보유 골드(heldGold) 한도로
+// 패배 페널티 계산 (순수). atRiskGold 의 rate 만큼을 소실 — 단 보유 골드(heldGold) 한도로
 // 클램프한다(승리 후 소비/토벌 압류로 보유 < atRiskGold 면 보유까지만 → 마이너스 골드 방지).
 // 이 클램프 하나가 은행·eject·모든 골드 sink 를 자동으로 안전하게 만든다(별도 배선 불요).
 export function lossTaxOf(

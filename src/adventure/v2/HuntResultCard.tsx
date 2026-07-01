@@ -42,7 +42,7 @@ export type HuntResult = {
   goldTaxed?: number;
   // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
   taxOwnerLabel?: string;
-  // 코어루프 패배 압류 — 패배 시 "마지막 패배 이후 번 골드"의 절반을 그 땅 세금으로 압류한 액수.
+  // 코어루프 패배 압류 — 패배 시 "마지막 패배 이후 번 골드"의 절반이 소실된 액수.
   //   서버가 패배 시에만 >0 으로 채운다(승리/flag off = 0/미설정). 점령세금(goldTaxed)과 별개.
   lossTax?: number;
   levelsGained: number;

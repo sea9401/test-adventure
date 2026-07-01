@@ -165,7 +165,7 @@ type CharSave = {
   ejectedFrom?: unknown;
   rareMaps?: unknown;
   lastBattleAt?: number; // 코어루프 사냥 쿨다운 — 마지막 사냥/오프라인 정산 시각.
-  atRiskGold?: number; // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상).
+  atRiskGold?: number; // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(패배 시 절반 소실 대상).
   lastHuntDepth?: number; // 코어루프 오프라인 정산 farm 깊이(마지막 정상 사냥 깊이).
   frontierDepth?: number; // 프론티어 최고 도달 깊이(오프라인 깊이 검증·게이트에 사용).
   [k: string]: unknown;
@@ -181,7 +181,7 @@ export type RunOneHuntCtx = {
   // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
   rareMapIid: string | null;
   // 오프라인 정산 모드 — 전투 쿨다운 게이트·per-battle lastBattleAt 기록을 건너뛴다(정산
-  //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 세금/HP/포션/레벨업은 그대로 적용.
+  //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 페널티/HP/포션/레벨업은 그대로 적용.
   offline?: boolean;
   // 시각 주입(오프라인) — 판별 HP 회복 시각을 lastBattleAt+i×쿨다운 으로 시뮬(5초 간격 회복).
   //   미지정 = Date.now()(온라인).
@@ -705,9 +705,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   });
   const goldNet = goldGross - goldTaxed;
 
-  // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
-  //   절반(보유 한도 클램프)을 압류하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
-  //   off = lossTax 0·atRiskGold 미기록(byte-identical). 행선지는 아래 저장 후 라우팅.
+  // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
+  //   절반(보유 한도 클램프)을 소실하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
+  //   off = lossTax 0·atRiskGold 미기록(byte-identical). 소실 골드는 어디에도 입금하지 않는다.
   const { lossTax, nextAtRisk } = computeLossTax({
     won,
     goldNet,
@@ -810,7 +810,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     //   이 값을 보지 않는다. 오프라인 정산은 per-battle 기록 생략(정산 루프가 마지막에
     //   lastBattleAt=realNow 한 번).
     ...(V2_CORE_LOOP_V2 && !ctx.offline ? { lastBattleAt: now } : {}),
-    // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
+    // 코어루프 패배 페널티 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
     ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),
     // 오프라인 정산 farm 깊이 — 쿨다운 모드의 정상 사냥(레어맵 아님)만 기록(스태미나 모드는 오프라인 폐지).
     ...(HUNT_COOLDOWN_MODE && !ctx.offline && !rareMapIid
@@ -1025,25 +1025,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         },
       });
   }
-  // 코어루프 패배 세금 → 그 땅(거점/타일) 금고. 적/NPC 점령지 또는 영토 타일만 —
-  //   같은 길드·무거점이면 행선지 없이 순수 sink(보유에서 이미 차감, 자기거래 차단).
-  const lossTaxDest = tileTaxOutpostId ?? outpostId;
-  if (
-    lossTax > 0 &&
-    lossTaxDest &&
-    (taxOwnerId || npcTaxOutpostId || tileTaxOutpostId)
-  ) {
-    await tx
-      .insert(outpostTreasury)
-      .values({ outpostId: lossTaxDest, gold: lossTax, updatedAt: new Date(now) })
-      .onConflictDoUpdate({
-        target: outpostTreasury.outpostId,
-        set: {
-          gold: sql`${outpostTreasury.gold} + ${lossTax}`,
-          updatedAt: new Date(now),
-        },
-      });
-  }
+  // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
 
   return {
     ok: true as const,
@@ -1067,8 +1049,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         goldAfter: newGold, // 사냥 후 최종 보유 골드 — 클라 공용 상태 즉시 동기화용.
         goldGross,
         goldTaxed,
-        // 코어루프 패배 세금 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
-        //   lossTax = 이번 판 압류액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.
+        // 코어루프 패배 페널티 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
+        //   lossTax = 이번 판 소실액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.
         ...(V2_CORE_LOOP_V2
           ? { lossTax, atRiskGold: nextAtRisk, spMilestonesGained }
           : {}),

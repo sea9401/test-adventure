@@ -368,6 +368,11 @@ export function FishingView({
 
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
+  const showAction = phase === "idle" || phase === "result";
+  const actionButtonClass =
+    phase === "result"
+      ? "fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99] sm:static sm:w-full sm:shadow-none"
+      : "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
 
   return (
     <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
@@ -622,14 +627,13 @@ export function FishingView({
       )}
 
       {/* 액션 */}
-      {(phase === "idle" || phase === "result") && (
-        <button
-          type="button"
-          onClick={startCast}
-          className="w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]"
-        >
-          {phase === "result" ? "다시 던지기" : "찌 던지기"}
-        </button>
+      {showAction && (
+        <>
+          <button type="button" onClick={startCast} className={actionButtonClass}>
+            {phase === "result" ? "다시 던지기" : "찌 던지기"}
+          </button>
+          {phase === "result" && <div aria-hidden className="h-16 sm:hidden" />}
+        </>
       )}
     </main>
   );

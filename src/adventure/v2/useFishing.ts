@@ -8,12 +8,29 @@ import {
 import type { FishingProgressionView } from "./fishingProgression";
 import type {
   CastOutcome,
+  FishingDailyCatchCoins,
   FishingHandlers,
   ReelOutcome,
 } from "./FishingView";
 
+function parseDailyCatchCoins(value: unknown): FishingDailyCatchCoins | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as { earned?: unknown; cap?: unknown };
+  const earned = Number(v.earned ?? 0);
+  const cap = Number(v.cap ?? 0);
+  if (!Number.isFinite(earned) || !Number.isFinite(cap) || cap <= 0) {
+    return undefined;
+  }
+  return {
+    earned: Math.max(0, Math.floor(earned)),
+    cap: Math.max(0, Math.floor(cap)),
+  };
+}
+
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(): FishingHandlers {
+  const [dailyCatchCoins, setDailyCatchCoins] =
+    useState<FishingDailyCatchCoins | null>(null);
   const [progression, setProgression] =
     useState<FishingProgressionView | null>(null);
   const [progressionLoading, setProgressionLoading] = useState(true);
@@ -48,6 +65,16 @@ export function useFishing(): FishingHandlers {
       .catch(() => {
         // 배지는 보조 정보다. 실패해도 낚시 자체를 막지 않는다.
       });
+    fetch("/api/v2/fishing/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!mounted.current || !j?.ok) return;
+        const next = parseDailyCatchCoins(j.dailyCatchCoins);
+        if (next) setDailyCatchCoins(next);
+      })
+      .catch(() => {
+        // 표시용 상태라 실패해도 낚시 자체는 막지 않는다.
+      });
     return () => {
       mounted.current = false;
     };
@@ -67,7 +94,13 @@ export function useFishing(): FishingHandlers {
     if (j.progression && typeof j.progression === "object") {
       setProgression(j.progression as FishingProgressionView);
     }
-    return { castId: j.castId, biteDelayMs: j.biteDelayMs };
+    const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
+    if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
+    return {
+      castId: j.castId,
+      biteDelayMs: j.biteDelayMs,
+      dailyCatchCoins: nextDailyCatchCoins,
+    };
   }, []);
 
   const reel = useCallback(
@@ -80,6 +113,8 @@ export function useFishing(): FishingHandlers {
       if (!res.ok) throw new Error("reel_failed");
       const j = await res.json();
       if (!j?.ok) throw new Error("reel_failed");
+      const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
+      if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
       if (j.caught) {
         if (j.progression && typeof j.progression === "object") {
           setProgression(j.progression as FishingProgressionView);
@@ -100,6 +135,7 @@ export function useFishing(): FishingHandlers {
           prevBest: Number(j.prevBest ?? 0),
           codexCount: Number(j.codexCount ?? 0),
           coinsGained: Number(j.coinsGained ?? 0),
+          dailyCatchCoins: nextDailyCatchCoins,
           levelRewardCoins: Number(j.levelRewardCoins ?? 0),
           special:
             j.special && typeof j.special === "object"
@@ -138,7 +174,14 @@ export function useFishing(): FishingHandlers {
     [],
   );
 
-  return { cast, reel, progression, progressionLoading, challengeBadgeCount };
+  return {
+    cast,
+    reel,
+    dailyCatchCoins,
+    progression,
+    progressionLoading,
+    challengeBadgeCount,
+  };
 }
 
 function parseFishingProgressNotices(raw: unknown): FishingProgressNotice[] {

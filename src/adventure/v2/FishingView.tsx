@@ -25,7 +25,16 @@ import type { FishingProgressNotice } from "@/adventure/v2/fishingChallengeProgr
 // 표현/상호작용만 담당하고 서버 권위 판정은 주입된 cast/reel 콜백이 한다 —
 // 실게임(useFishing)은 API 를, /dev 하니스는 로컬 mock 을 주입한다(로그인·DB 없이 QA).
 
-export type CastOutcome = { castId: string; biteDelayMs: number };
+export type FishingDailyCatchCoins = {
+  earned: number;
+  cap: number;
+};
+
+export type CastOutcome = {
+  castId: string;
+  biteDelayMs: number;
+  dailyCatchCoins?: FishingDailyCatchCoins;
+};
 
 export type ReelOutcome =
   | {
@@ -40,6 +49,8 @@ export type ReelOutcome =
       codexCount: number;
       /** 이번 챔질로 받은 낚시 코인(티어 소량·일일 상한 도달 시 0). */
       coinsGained?: number;
+      /** 오늘 챔질로 획득한 낚시 코인 진행도. */
+      dailyCatchCoins?: FishingDailyCatchCoins;
       /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
       levelRewardCoins?: number;
       /** 성공한 챔질로 얻은 낚시 숙련도 경험치. */
@@ -67,12 +78,26 @@ type CaughtReelOutcome = Extract<ReelOutcome, { caught: true }>;
 export type FishingHandlers = {
   cast: () => Promise<CastOutcome>;
   reel: (castId: string, reactionMs: number) => Promise<ReelOutcome>;
+  dailyCatchCoins?: FishingDailyCatchCoins | null;
   progression?: FishingProgressionView | null;
   progressionLoading?: boolean;
   challengeBadgeCount?: number;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
+
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return (
+    target.isContentEditable ||
+    tagName === "input" ||
+    tagName === "select" ||
+    tagName === "textarea" ||
+    tagName === "button" ||
+    tagName === "a"
+  );
+}
 
 const MISS_MESSAGE: Record<string, string> = {
   too_early: "너무 일찍 챘다. 물고기가 달아났다.",
@@ -1105,6 +1130,7 @@ function ChallengeProgressSummary({
 export function FishingView({
   cast,
   reel,
+  dailyCatchCoins,
   onBack,
   onOpenLeaderboard,
   onOpenShop,
@@ -1241,8 +1267,33 @@ export function FishingView({
     }
   }, [phase, resolveReel]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || isTextEntryTarget(event.target)) return;
+      if (event.key !== " " && event.key !== "Enter") return;
+
+      if (phase === "idle" || phase === "result") {
+        event.preventDefault();
+        startCast();
+      } else if (phase === "waiting" || phase === "biting") {
+        event.preventDefault();
+        onTapZone();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [phase, startCast, onTapZone]);
+
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
+  const dailyCoinPct =
+    dailyCatchCoins && dailyCatchCoins.cap > 0
+      ? Math.min(
+          100,
+          Math.max(0, (dailyCatchCoins.earned / dailyCatchCoins.cap) * 100),
+        )
+      : 0;
   const idleActionClass =
     "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
   const resultActionClass =
@@ -1263,6 +1314,24 @@ export function FishingView({
         />
 
       <MulttaeBadge />
+
+      {dailyCatchCoins && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium">오늘 챔질 코인</span>
+            <span className="tabular-nums">
+              {dailyCatchCoins.earned.toLocaleString()}/
+              {dailyCatchCoins.cap.toLocaleString()}
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-[width]"
+              style={{ width: `${dailyCoinPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {progression ? (
         <>

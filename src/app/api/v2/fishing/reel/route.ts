@@ -30,6 +30,7 @@ import { upsertFishingRecord } from "@/lib/server/fishing/records";
 import {
   FISHING_WALLET_KEY,
   applyCatchCoin,
+  fishingCatchCoinProgress,
   fishingWalletWithCoins,
 } from "@/lib/server/fishing/coins";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
@@ -291,6 +292,7 @@ export async function POST(req: Request) {
       coinsGained: coinResult.awarded,
       levelRewardCoins,
       coins: walletAfterCoins.coins,
+      dailyCatchCoins: fishingCatchCoinProgress(walletAfterCoins, dayKey),
       fishingXpGained: progressResult.xpGained,
       fishingLevel: progressView.level,
       fishingLevelUp: progressResult.leveledUp,
@@ -336,6 +338,7 @@ export async function POST(req: Request) {
     coinsGained: result.coinsGained,
     levelRewardCoins: result.levelRewardCoins,
     coins: result.coins,
+    dailyCatchCoins: result.dailyCatchCoins,
     fishingXpGained: result.fishingXpGained,
     fishingLevel: result.fishingLevel,
     fishingLevelUp: result.fishingLevelUp,

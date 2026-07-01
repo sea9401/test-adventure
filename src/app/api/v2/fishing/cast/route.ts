@@ -4,6 +4,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
   emptyV2SkillsState,
   equippedFishingBonuses,
@@ -22,6 +23,10 @@ import {
   fishingProgressionView,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
+import {
+  FISHING_WALLET_KEY,
+  fishingCatchCoinProgress,
+} from "@/lib/server/fishing/coins";
 
 // POST /api/v2/fishing/cast — 찌 던지기.
 //
@@ -35,9 +40,10 @@ export async function POST() {
   }
 
   const now = Date.now();
-  const [skillsRaw, progressRaw] = await Promise.all([
+  const [skillsRaw, progressRaw, walletRaw] = await Promise.all([
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()),
+    readSave(db, userId, FISHING_WALLET_KEY, {}),
   ]);
   const skills = parseV2SkillsState(skillsRaw);
   const skillBonuses = equippedFishingBonuses(skills.equipped);
@@ -101,10 +107,15 @@ export async function POST() {
   });
 
   const progression = fishingProgressionView(progress);
+  const dailyCatchCoins = fishingCatchCoinProgress(
+    walletRaw,
+    kstDailyKey(new Date(now)),
+  );
   return Response.json({
     ok: true,
     castId,
     biteDelayMs,
     progression,
+    dailyCatchCoins,
   });
 }

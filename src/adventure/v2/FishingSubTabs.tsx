@@ -34,7 +34,7 @@ export function FishingSubTabs({
       ? [{ key: "fishing" as const, label: "낚시" }]
       : []),
     ...(active === "challenges" || onOpenChallenges
-      ? [{ key: "challenges" as const, label: "일일 과제" }]
+      ? [{ key: "challenges" as const, label: "의뢰" }]
       : []),
     ...(active === "leaderboard" || onOpenLeaderboard
       ? [{ key: "leaderboard" as const, label: "주간 순위" }]

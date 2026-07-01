@@ -12,7 +12,7 @@ import {
   isFishingJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { MULTTAE_BY_ID } from "@/adventure/data/v2/multtae";
+import { MULTTAE_BY_ID, multtaeAt } from "@/adventure/data/v2/multtae";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   FISHING_SESSION_KEY,
@@ -50,6 +50,13 @@ import {
   nextFishingStreak,
   resetFishingStreak,
 } from "@/adventure/v2/fishingStreak";
+import {
+  FISHING_PROGRESS_KEY,
+  addFishingCatchXp,
+  emptyFishingProgression,
+  fishingProgressionView,
+  parseFishingProgression,
+} from "@/adventure/v2/fishingProgression";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -108,9 +115,30 @@ export async function POST(req: Request) {
     );
     await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
     const streakBuff = fishingStreakBuff(streak.current);
+    const multtaeEffect = multtaeAt(now).condition.effect;
+
+    // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
+    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
+    const progressResult = addFishingCatchXp(
+      parseFishingProgression(
+        await lockSaveForUpdate(
+          tx,
+          userId,
+          FISHING_PROGRESS_KEY,
+          emptyFishingProgression(),
+        ),
+      ),
+      session.fishId,
+    );
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_PROGRESS_KEY,
+      progressResult.state,
+    );
+    const progressView = fishingProgressionView(progressResult.state);
 
     // 낚시 계열 직업 숙련도 — 성공한 챔질 1회당 +1. 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
-    // 락 순서: 세션 → streak → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
     const charSave = await lockSaveForUpdate<{
       class?: unknown;
       specChoice?: unknown;
@@ -165,6 +193,7 @@ export async function POST(req: Request) {
       ),
       session.fishId,
       dayKey,
+      session.size,
     );
     await upsertSave(tx, userId, FISHING_DAILY_KEY, daily);
 
@@ -174,7 +203,7 @@ export async function POST(req: Request) {
       await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {}),
       FISH[session.fishId].tier,
       dayKey,
-      streakBuff.coinBonus,
+      streakBuff.coinBonus + (multtaeEffect.coinBonus ?? 0),
     );
     await upsertSave(tx, userId, FISHING_WALLET_KEY, coinResult.next);
 
@@ -182,7 +211,9 @@ export async function POST(req: Request) {
     // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
     const fragmentDrop = rollFragmentDrop(
       Math.random,
-      FISHING_FRAGMENT_DROP_CHANCE + streakBuff.fragmentChanceBonus,
+      FISHING_FRAGMENT_DROP_CHANCE +
+        streakBuff.fragmentChanceBonus +
+        (multtaeEffect.fragmentChanceBonus ?? 0),
     );
     let fragmentsTotal = 0;
     if (fragmentDrop > 0) {
@@ -204,6 +235,11 @@ export async function POST(req: Request) {
       codexCount: countDiscoveredFish(next),
       coinsGained: coinResult.awarded,
       coins: coinResult.next.coins,
+      fishingXpGained: progressResult.xpGained,
+      fishingLevel: progressView.level,
+      fishingLevelUp: progressResult.leveledUp,
+      fishingCatches: progressView.catches,
+      progression: progressView,
       masteryGained,
       masteryAfter,
       fragmentDrop,
@@ -241,6 +277,11 @@ export async function POST(req: Request) {
     // 챔질당 코인 — 이번 마리 지급액(일일 상한 도달 시 0) + 누적 잔액.
     coinsGained: result.coinsGained,
     coins: result.coins,
+    fishingXpGained: result.fishingXpGained,
+    fishingLevel: result.fishingLevel,
+    fishingLevelUp: result.fishingLevelUp,
+    fishingCatches: result.fishingCatches,
+    progression: result.progression,
     masteryGained: result.masteryGained,
     masteryAfter: result.masteryAfter,
     special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,

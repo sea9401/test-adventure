@@ -24,10 +24,18 @@ export type FishingDailyState = {
   caught: number;
   /** 그날 희귀 이상 낚은 수. */
   rarePlus: number;
+  /** 그날 80cm 이상 낚은 수. */
+  big80: number;
+  /** 그날 물때 한정 특별 손님을 낚은 수. */
+  specialGuests: number;
+  /** 그날 어종별 어획 수. */
+  fishCounts: Partial<Record<FishId, number>>;
   /** 그날 낚은 서로 다른 종. */
   species: FishId[];
   /** 그날 수령한 도전 id. */
   claimed: string[];
+  /** 그날 수령한 의뢰 id. */
+  claimedContracts: string[];
 };
 
 export type FishingDailyChallengeDef = {
@@ -75,7 +83,29 @@ export function fishingDailyById(
 }
 
 export function emptyFishingDaily(key: string): FishingDailyState {
-  return { key, caught: 0, rarePlus: 0, species: [], claimed: [] };
+  return {
+    key,
+    caught: 0,
+    rarePlus: 0,
+    big80: 0,
+    specialGuests: 0,
+    fishCounts: {},
+    species: [],
+    claimed: [],
+    claimedContracts: [],
+  };
+}
+
+function parseFishCounts(raw: unknown): Partial<Record<FishId, number>> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Partial<Record<FishId, number>> = {};
+  for (const [id, count] of Object.entries(raw as Record<string, unknown>)) {
+    if (isFishId(id) && typeof count === "number" && Number.isFinite(count)) {
+      const n = Math.max(0, Math.floor(count));
+      if (n > 0) out[id] = n;
+    }
+  }
+  return out;
 }
 
 // 손상/구버전 방어 파싱. 알 수 없으면 key="" 빈 상태(롤오버가 그날로 초기화).
@@ -92,12 +122,19 @@ export function parseFishingDaily(raw: unknown): FishingDailyState {
   const claimed = Array.isArray(r.claimed)
     ? r.claimed.filter((x): x is string => typeof x === "string")
     : [];
+  const claimedContracts = Array.isArray(r.claimedContracts)
+    ? r.claimedContracts.filter((x): x is string => typeof x === "string")
+    : [];
   return {
     key: typeof r.key === "string" ? r.key : "",
     caught: num(r.caught),
     rarePlus: num(r.rarePlus),
+    big80: num(r.big80),
+    specialGuests: num(r.specialGuests),
+    fishCounts: parseFishCounts(r.fishCounts),
     species: [...new Set(species)],
     claimed: [...new Set(claimed)],
+    claimedContracts: [...new Set(claimedContracts)],
   };
 }
 
@@ -114,16 +151,24 @@ export function applyCatch(
   s: FishingDailyState,
   fishId: FishId,
   dayKey: string,
+  size = 0,
 ): FishingDailyState {
   const rolled = rolloverFishingDaily(s, dayKey);
   const isRarePlus = RARE_PLUS.has(FISH[fishId].tier);
   const species = rolled.species.includes(fishId)
     ? rolled.species
     : [...rolled.species, fishId];
+  const fishCounts = {
+    ...rolled.fishCounts,
+    [fishId]: (rolled.fishCounts[fishId] ?? 0) + 1,
+  };
   return {
     ...rolled,
     caught: rolled.caught + 1,
     rarePlus: rolled.rarePlus + (isRarePlus ? 1 : 0),
+    big80: rolled.big80 + (size >= 80 ? 1 : 0),
+    specialGuests: rolled.specialGuests + (FISH[fishId].condition ? 1 : 0),
+    fishCounts,
     species,
   };
 }
@@ -139,6 +184,71 @@ export type FishingDailyView = {
   claimed: boolean;
   claimable: boolean;
 };
+
+export type FishingContractDef = {
+  id: string;
+  title: string;
+  desc: string;
+  goal: number;
+  rewardCoins: number;
+  progress: (s: FishingDailyState) => number;
+};
+
+export type FishingContractView = FishingDailyView;
+
+export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
+  {
+    id: "c_carp5",
+    title: "주막의 잉어 주문",
+    desc: "오늘 잉어 5마리를 낚아 납품하세요.",
+    goal: 5,
+    rewardCoins: 90,
+    progress: (s) => s.fishCounts.carp ?? 0,
+  },
+  {
+    id: "c_big80",
+    title: "큼직한 식재료",
+    desc: "오늘 80cm 이상 물고기 1마리를 낚으세요.",
+    goal: 1,
+    rewardCoins: 120,
+    progress: (s) => s.big80,
+  },
+  {
+    id: "c_special1",
+    title: "물때 연구 표본",
+    desc: "오늘 물때 특별 손님 1마리를 낚으세요.",
+    goal: 1,
+    rewardCoins: 140,
+    progress: (s) => s.specialGuests,
+  },
+];
+
+export function fishingContractById(
+  id: string,
+): FishingContractDef | undefined {
+  return FISHING_CONTRACTS.find((c) => c.id === id);
+}
+
+export function deriveFishingContractViews(
+  s: FishingDailyState,
+): FishingContractView[] {
+  return FISHING_CONTRACTS.map((c) => {
+    const raw = c.progress(s);
+    const complete = raw >= c.goal;
+    const claimed = s.claimedContracts.includes(c.id);
+    return {
+      id: c.id,
+      title: c.title,
+      desc: c.desc,
+      goal: c.goal,
+      rewardCoins: c.rewardCoins,
+      progress: Math.min(c.goal, raw),
+      complete,
+      claimed,
+      claimable: complete && !claimed,
+    };
+  });
+}
 
 export function deriveFishingDailyViews(
   s: FishingDailyState,

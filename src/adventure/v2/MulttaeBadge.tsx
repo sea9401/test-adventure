@@ -44,6 +44,9 @@ export function MulttaeBadge() {
           {c.description}
         </div>
       )}
+      <div className="mt-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+        효과 · {c.effect.label}
+      </div>
     </div>
   );
 }

@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FishingDailyView } from "@/adventure/data/v2/fishingDailyChallenges";
+import type {
+  FishingContractView,
+  FishingDailyView,
+} from "@/adventure/data/v2/fishingDailyChallenges";
+import type { FishingGoalView } from "./fishingProgression";
 
 export type FishingChallengesState = {
   challenges: FishingDailyView[];
+  contracts: FishingContractView[];
+  goals: FishingGoalView[];
   coins: number;
   nextResetAt: number;
 };
@@ -33,7 +39,9 @@ export function useFishingDailyChallenge() {
       if (!mounted.current) return;
       if (j?.ok) {
         setState({
-          challenges: j.challenges,
+          challenges: Array.isArray(j.challenges) ? j.challenges : [],
+          contracts: Array.isArray(j.contracts) ? j.contracts : [],
+          goals: Array.isArray(j.goals) ? j.goals : [],
           coins: j.coins,
           nextResetAt: j.nextResetAt,
         });

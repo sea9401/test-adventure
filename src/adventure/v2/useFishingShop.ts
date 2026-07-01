@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { FishingProgressionView } from "./fishingProgression";
 
 export type FishingShopState = {
   coins: number;
   ownedTitleIds: string[];
   staminaPotions: number;
+  progression: FishingProgressionView | null;
 };
 export type BuyResult = { ok: boolean; message: string };
+export type FishingGearKind = "rod" | "lure";
+export type FishingGearAction = "buy" | "equip";
 
 // 낚시 코인 상점 상태(코인·보유 칭호) fetch + 구매 mutation. FishingShopView 에 주입.
 export function useFishingShop() {
@@ -28,6 +32,10 @@ export function useFishingShop() {
             ownedTitleIds: Array.isArray(j.ownedTitleIds) ? j.ownedTitleIds : [],
             staminaPotions:
               typeof j.staminaPotions === "number" ? j.staminaPotions : 0,
+            progression:
+              j.progression && typeof j.progression === "object"
+                ? (j.progression as FishingProgressionView)
+                : null,
           });
         } else {
           setError("상점을 불러오지 못했다.");
@@ -132,5 +140,68 @@ export function useFishingShop() {
     [],
   );
 
-  return { state, loading, error, buying, buy, buyConsumable };
+  const buyGear = useCallback(
+    async (
+      gearKind: FishingGearKind,
+      gearId: string,
+      action: FishingGearAction,
+    ): Promise<BuyResult> => {
+      const key = `${gearKind}:${gearId}`;
+      setBuying(key);
+      try {
+        const res = await fetch("/api/v2/fishing/shop", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ gearKind, gearId, action }),
+        });
+        const j = await res.json().catch(() => null);
+        if (res.ok && j?.ok) {
+          setState((s) =>
+            s
+              ? {
+                  ...s,
+                  coins: typeof j.coins === "number" ? j.coins : s.coins,
+                  progression:
+                    j.progression && typeof j.progression === "object"
+                      ? (j.progression as FishingProgressionView)
+                      : s.progression,
+                }
+              : s,
+          );
+          return { ok: true, message: "낚시 도구를 장착했다." };
+        }
+        if (j?.error === "insufficient_coins") {
+          setState((s) =>
+            s
+              ? {
+                  ...s,
+                  coins: typeof j.coins === "number" ? j.coins : s.coins,
+                  progression:
+                    j.progression && typeof j.progression === "object"
+                      ? (j.progression as FishingProgressionView)
+                      : s.progression,
+                }
+              : s,
+          );
+          return { ok: false, message: "낚시 코인이 부족하다." };
+        }
+        if (j?.error === "not_owned") {
+          setState((s) =>
+            s && j.progression && typeof j.progression === "object"
+              ? { ...s, progression: j.progression as FishingProgressionView }
+              : s,
+          );
+          return { ok: false, message: "아직 보유하지 않은 도구다." };
+        }
+        return { ok: false, message: "구매하지 못했다." };
+      } catch {
+        return { ok: false, message: "구매 처리 중 문제가 생겼다." };
+      } finally {
+        setBuying(null);
+      }
+    },
+    [],
+  );
+
+  return { state, loading, error, buying, buy, buyConsumable, buyGear };
 }

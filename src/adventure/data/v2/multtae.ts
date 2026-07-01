@@ -14,6 +14,17 @@ export const MULTTAE_WINDOW_MS = WINDOW_4H_MS;
 
 export type MulttaeConditionId = "dawn" | "starlit" | "mist" | "tempest" | "still";
 
+export type MulttaeEffect = {
+  label: string;
+  specialWeightBonusPct?: number;
+  waitReductionPct?: number;
+  sizeBonusPct?: number;
+  rareSizeBonusPct?: number;
+  bigCatchSizeBonusPct?: number;
+  coinBonus?: number;
+  fragmentChanceBonus?: number;
+};
+
 export type MulttaeCondition = {
   id: MulttaeConditionId;
   label: string;
@@ -22,6 +33,8 @@ export type MulttaeCondition = {
   description: string;
   /** 이 물때에만 입질하는 특별 손님. 없으면 평범한 물때(흔한 손님들의 시간). */
   specialFishId?: FishId;
+  /** 작은 시간대 보정. 캐스팅/보상 서버 로직과 배지가 같은 값을 쓴다. */
+  effect: MulttaeEffect;
 };
 
 export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
@@ -31,6 +44,10 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     emoji: "🌅",
     description: "동이 트며 물낯이 금빛으로 물든다. 이 시간에만 비치는 손님이 있다.",
     specialFishId: "goldeye",
+    effect: {
+      label: "특별 손님 가중치 +25%",
+      specialWeightBonusPct: 25,
+    },
   },
   {
     id: "starlit",
@@ -38,6 +55,10 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     emoji: "🌌",
     description: "별빛이 수면에 잠긴 깊은 밤. 어둠을 좋아하는 것이 올라온다.",
     specialFishId: "moonshadow_eel",
+    effect: {
+      label: "지도 조각 확률 +1%p",
+      fragmentChanceBonus: 0.01,
+    },
   },
   {
     id: "mist",
@@ -45,6 +66,10 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     emoji: "🌫",
     description: "물안개가 자욱이 깔린다. 안개 속에서 비단결이 어른거린다.",
     specialFishId: "mist_koi",
+    effect: {
+      label: "희귀 씨알 +3%",
+      rareSizeBonusPct: 3,
+    },
   },
   {
     id: "tempest",
@@ -52,12 +77,21 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     emoji: "⛈",
     description: "거센 물살이 인다. 파도를 가르며 날아오르는 것이 걸린다.",
     specialFishId: "stormrider",
+    effect: {
+      label: "대물 씨알 +4% · 코인 +1",
+      bigCatchSizeBonusPct: 4,
+      coinBonus: 1,
+    },
   },
   {
     id: "still",
     label: "잔잔한 물때",
     emoji: "🪷",
     description: "물낯이 거울처럼 고요하다. 오늘은 흔한 손님들의 시간이다.",
+    effect: {
+      label: "입질 대기 -5%",
+      waitReductionPct: 5,
+    },
   },
 ] as const;
 

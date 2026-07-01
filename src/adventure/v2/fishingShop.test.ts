@@ -4,6 +4,13 @@ import {
   fishingShopEntries,
   fishingShopPriceFor,
 } from "./fishingShop";
+import {
+  FISHING_LURE_IDS,
+  FISHING_LURES,
+  FISHING_ROD_IDS,
+  FISHING_RODS,
+  fishingGearPrice,
+} from "./fishingProgression";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("낚시 코인 상점 카탈로그", () => {
@@ -53,6 +60,19 @@ describe("낚시 코인 상점 카탈로그", () => {
       "fishing_specialguest",
     ]) {
       expect(removed[id], id).toBeUndefined();
+    }
+  });
+
+  it("낚시 도구 가격은 기본 무료, 구매 도구 양수", () => {
+    for (const id of FISHING_ROD_IDS) {
+      expect(fishingGearPrice("rod", id)).toBe(FISHING_RODS[id].price);
+      if (id === "reed_rod") expect(FISHING_RODS[id].price).toBe(0);
+      else expect(FISHING_RODS[id].price).toBeGreaterThan(0);
+    }
+    for (const id of FISHING_LURE_IDS) {
+      expect(fishingGearPrice("lure", id)).toBe(FISHING_LURES[id].price);
+      if (id === "dough_lure") expect(FISHING_LURES[id].price).toBe(0);
+      else expect(FISHING_LURES[id].price).toBeGreaterThan(0);
     }
   });
 });

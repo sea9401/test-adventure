@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { FishingProgressionView } from "./fishingProgression";
 import type {
   CastOutcome,
   FishingHandlers,
@@ -9,12 +10,38 @@ import type {
 
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(): FishingHandlers {
+  const [progression, setProgression] =
+    useState<FishingProgressionView | null>(null);
+  const [progressionLoading, setProgressionLoading] = useState(true);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    fetch("/api/v2/fishing/progression")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!mounted.current) return;
+        if (j?.ok && j.progression && typeof j.progression === "object") {
+          setProgression(j.progression as FishingProgressionView);
+        }
+      })
+      .finally(() => {
+        if (mounted.current) setProgressionLoading(false);
+      });
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const cast = useCallback(async (): Promise<CastOutcome> => {
     const res = await fetch("/api/v2/fishing/cast", { method: "POST" });
     if (!res.ok) throw new Error("cast_failed");
     const j = await res.json();
     if (!j?.ok || typeof j.castId !== "string" || typeof j.biteDelayMs !== "number") {
       throw new Error("cast_failed");
+    }
+    if (j.progression && typeof j.progression === "object") {
+      setProgression(j.progression as FishingProgressionView);
     }
     return { castId: j.castId, biteDelayMs: j.biteDelayMs };
   }, []);
@@ -30,6 +57,9 @@ export function useFishing(): FishingHandlers {
       const j = await res.json();
       if (!j?.ok) throw new Error("reel_failed");
       if (j.caught) {
+        if (j.progression && typeof j.progression === "object") {
+          setProgression(j.progression as FishingProgressionView);
+        }
         return {
           caught: true,
           fishId: String(j.fishId),
@@ -61,6 +91,12 @@ export function useFishing(): FishingHandlers {
                   ),
                 }
               : undefined,
+          fishingXpGained: Number(j.fishingXpGained ?? 0),
+          fishingLevel:
+            typeof j.fishingLevel === "number" ? j.fishingLevel : undefined,
+          fishingLevelUp: Boolean(j.fishingLevelUp),
+          fishingCatches:
+            typeof j.fishingCatches === "number" ? j.fishingCatches : undefined,
         };
       }
       return {
@@ -71,5 +107,5 @@ export function useFishing(): FishingHandlers {
     [],
   );
 
-  return { cast, reel };
+  return { cast, reel, progression, progressionLoading };
 }

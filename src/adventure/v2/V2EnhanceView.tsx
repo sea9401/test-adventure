@@ -430,8 +430,56 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     }
   }, [busy, refresh]);
 
+  const selectedSlotLabel = item
+    ? (SLOT_TABS.find((slot) => slot.key === item.slot)?.label ?? item.slot)
+    : "";
+  const selectedLevelLabel = level > 0 ? `+${level} ` : "";
+  const enhanceCostLabel =
+    stone === "none"
+      ? `${goldCost.toLocaleString()} G`
+      : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "🔴" : "🔵"} ×${stoneCost}`} + ${goldCost.toLocaleString()} G`;
+  const enhanceActionDisabled = busy || stoneShort || goldOnlyBlocked;
+  const enhanceActionLabel = busy
+    ? "강화 중…"
+    : goldOnlyBlocked
+      ? "+8부터는 강화석 필요"
+      : stoneShort
+        ? "강화석 부족"
+        : `강화 (성공 ${successPct}%)`;
+  const reforgeCostLabel = `${reforgeCost.toLocaleString()} G + ${
+    REFORGE_STONES[reforgeStone].name
+  } 1개${uniqueMult > 1 ? " (유니크 ×2)" : ""}`;
+  const reforgeActionDisabled = busy || reforgeStoneShort;
+  const reforgeActionLabel = busy
+    ? "재련 중…"
+    : reforgeStoneShort
+      ? `${REFORGE_STONES[reforgeStone].name} 부족`
+      : `재련 (${reforgeCost.toLocaleString()} G + 재련석 1)`;
+  const mobileAction =
+    mode === "enhance" && selected && item && !maxed
+      ? {
+          title: `${selectedLevelLabel}${item.name}`,
+          subtitle: `위력 ${curPower} → ${nextPower} · ${enhanceCostLabel}`,
+          label: enhanceActionLabel,
+          disabled: enhanceActionDisabled,
+          variant: "warning" as const,
+          onClick: () => void doEnhance(),
+        }
+      : mode === "reforge" && selected && item && reforgeable
+        ? {
+            title: `${selectedLevelLabel}${item.name}`,
+            subtitle: `품질 ${
+              curQuality != null ? `${curQuality}%` : "—%"
+            } · ${reforgeCostLabel}`,
+            label: reforgeActionLabel,
+            disabled: reforgeActionDisabled,
+            variant: "primary" as const,
+            onClick: () => void doReforge(),
+          }
+        : null;
+
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 pb-28 text-zinc-900 dark:text-zinc-100 sm:pb-6">
       <SubViewHeader
         title={
           <>
@@ -488,25 +536,55 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       {mode === "enhance" && selected && item && (
         <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm font-semibold">
-                {level > 0 && (
-                  <span className="mr-1 text-amber-500">+{level}</span>
-                )}
-                <CraftQualityStars craftQuality={selected.craftQuality} className="mr-1" />
-                {item.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedIid(null);
-                  setMsg(null);
-                  setFeedIid(null);
-                }}
-                className="text-xs text-zinc-500 hover:underline"
-              >
-                선택 해제
-              </button>
+            <div className="rounded-md border border-amber-200 bg-amber-50/70 px-3 py-2 dark:border-amber-900/70 dark:bg-amber-950/20">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                    강화 작업대 · {selectedSlotLabel}
+                  </div>
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-sm font-semibold">
+                    {level > 0 && (
+                      <span className="text-amber-600 dark:text-amber-300">
+                        +{level}
+                      </span>
+                    )}
+                    <CraftQualityStars
+                      craftQuality={selected.craftQuality}
+                      className="shrink-0"
+                    />
+                    <span className="truncate">{item.name}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIid(null);
+                    setMsg(null);
+                    setFeedIid(null);
+                  }}
+                  className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                >
+                  선택 해제
+                </button>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
+                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-950/60">
+                  <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
+                  <div className="font-semibold">{curPower}</div>
+                </div>
+                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-950/60">
+                  <div className="text-zinc-500 dark:text-zinc-400">다음 위력</div>
+                  <div className="font-semibold text-emerald-600 dark:text-emerald-400">
+                    {maxed ? curPower : nextPower}
+                  </div>
+                </div>
+                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-950/60">
+                  <div className="text-zinc-500 dark:text-zinc-400">성공률</div>
+                  <div className="font-semibold">
+                    {maxed ? "완료" : `${successPct}%`}
+                  </div>
+                </div>
+              </div>
             </div>
             {maxed ? (
               <p className="text-sm text-amber-600 dark:text-amber-400">
@@ -606,10 +684,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 )}
                 <div className="flex items-baseline justify-between text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="tabular-nums">
-                    비용:{" "}
-                    {stone === "none"
-                      ? `${goldCost.toLocaleString()} G`
-                      : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "🔴" : "🔵"} ×${stoneCost}`} + ${goldCost.toLocaleString()} G`}
+                    비용: {enhanceCostLabel}
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
                   {outcomeRow[3] > 0 && stone !== "blue" && (
@@ -620,18 +695,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </div>
                 <Button
                   onClick={() => void doEnhance()}
-                  disabled={busy || stoneShort || goldOnlyBlocked}
+                  disabled={enhanceActionDisabled}
                   variant="warning"
                   size="md"
                   fullWidth
                 >
-                  {busy
-                    ? "강화 중…"
-                    : goldOnlyBlocked
-                      ? "+8부터는 강화석 필요"
-                      : stoneShort
-                        ? "강화석 부족"
-                        : `강화 (성공 ${successPct}%)`}
+                  {enhanceActionLabel}
                 </Button>
               </>
             )}
@@ -648,24 +717,56 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       {mode === "reforge" && selected && item && (
         <Card padding="sm" className="ui-forge-panel">
           <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-sm font-semibold">
-                {level > 0 && (
-                  <span className="mr-1 text-amber-500">+{level}</span>
-                )}
-                <CraftQualityStars craftQuality={selected.craftQuality} className="mr-1" />
-                {item.name}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedIid(null);
-                  setMsg(null);
-                }}
-                className="text-xs text-zinc-500 hover:underline"
-              >
-                선택 해제
-              </button>
+            <div className="rounded-md border border-indigo-200 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900/70 dark:bg-indigo-950/20">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+                    재련 작업대 · {selectedSlotLabel}
+                  </div>
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-sm font-semibold">
+                    {level > 0 && (
+                      <span className="text-amber-600 dark:text-amber-300">
+                        +{level}
+                      </span>
+                    )}
+                    <CraftQualityStars
+                      craftQuality={selected.craftQuality}
+                      className="shrink-0"
+                    />
+                    <span className="truncate">{item.name}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIid(null);
+                    setMsg(null);
+                  }}
+                  className="shrink-0 text-xs text-zinc-500 hover:underline dark:text-zinc-400"
+                >
+                  선택 해제
+                </button>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5 text-center text-[11px] tabular-nums">
+                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-950/60">
+                  <div className="text-zinc-500 dark:text-zinc-400">현재 위력</div>
+                  <div className="font-semibold">{curRollPower}</div>
+                </div>
+                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-950/60">
+                  <div className="text-zinc-500 dark:text-zinc-400">품질</div>
+                  <div className="font-semibold">
+                    {curQuality != null ? (
+                      <QualityPctText pct={curQuality} />
+                    ) : (
+                      <span className="text-zinc-500 dark:text-zinc-400">—%</span>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-950/60">
+                  <div className="text-zinc-500 dark:text-zinc-400">강화 단계</div>
+                  <div className="font-semibold">+{level}</div>
+                </div>
+              </div>
             </div>
             {!reforgeable ? (
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -711,9 +812,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex items-baseline justify-between text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="tabular-nums">
-                    비용: {reforgeCost.toLocaleString()} G +{" "}
-                    {REFORGE_STONES[reforgeStone].name} 1개
-                    {uniqueMult > 1 && " (유니크 ×2)"}
+                    비용: {reforgeCostLabel}
                   </span>
                   <span className="font-semibold text-amber-500">
                     ⚠️ 더 나빠질 수 있음
@@ -721,16 +820,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </div>
                 <Button
                   onClick={() => void doReforge()}
-                  disabled={busy || reforgeStoneShort}
+                  disabled={reforgeActionDisabled}
                   variant="primary"
                   size="md"
                   fullWidth
                 >
-                  {busy
-                    ? "재련 중…"
-                    : reforgeStoneShort
-                      ? `${REFORGE_STONES[reforgeStone].name} 부족`
-                      : `재련 (${reforgeCost.toLocaleString()} G + 재련석 1)`}
+                  {reforgeActionLabel}
                 </Button>
               </>
             )}
@@ -877,6 +972,29 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           </div>
         </Card>
       )}
+      {mobileAction ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-3 py-2 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] backdrop-blur sm:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
+          <div className="mx-auto flex max-w-[720px] items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">
+                {mobileAction.title}
+              </div>
+              <div className="truncate text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                {mobileAction.subtitle}
+              </div>
+            </div>
+            <Button
+              onClick={mobileAction.onClick}
+              disabled={mobileAction.disabled}
+              variant={mobileAction.variant}
+              size="sm"
+              className="min-w-28 shrink-0"
+            >
+              {mobileAction.label}
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

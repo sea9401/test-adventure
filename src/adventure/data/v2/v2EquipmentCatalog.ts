@@ -1,6 +1,6 @@
 // v2 장비 카탈로그 — V2_EQUIPMENT 정의. 아이템 추가/튜닝 시 이 파일만 만지면 됨.
-// 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
-import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
+// 공개 타입·로직은 v2Equipment.ts 에서 re-export 한다(import 경로 불변).
+import type { V2EquipmentBase } from "./v2EquipmentTypes";
 
 // V2_EQUIPMENT — 187종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
 //   (경갑 단일·중갑은 armor 만). 제거분은 LEGACY_ID_REMAP 비파괴 마이그. 무기종류는 직업 늘면 재추가 가능.
@@ -18,7 +18,7 @@ import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 //     다이얼=×2(베이스 ×2 baked). ※밴드 드랍 유니크는 이 감산 대상 아님(프리미엄, 자체 위력).
 //   - **계파 무기 noDrop 제거 (2026-06-07)** — 상점=T1만(#523) 후 계파 무기 T2/T3 10종이 비매+
 //     noDrop=획득불가였던 구멍 해소. 정규 드랍 풀 합류 → 8무기타입 균일("T1 스타터 + T2/T3 드랍").
-const V2_EQUIPMENT_BASE: Record<V2EquipmentId, V2Equipment> = {
+const V2_EQUIPMENT_BASE = {
   // ── 무기-힘 (위력 = 물리 공격력, 중간 무게, 옵션 없음) ──────────────────
   // 검은 물리 무기다. str 정체성은 훈련 분배.
   v2_iron_sword: {
@@ -2643,7 +2643,10 @@ const V2_EQUIPMENT_BASE: Record<V2EquipmentId, V2Equipment> = {
     rarity: "unique",
     signature: { trigger: "on_skill_cast", label: "왕릉성", mpRefundPctOfCost: 25 },
   },
-};
+} satisfies Record<string, V2EquipmentBase>;
+
+export type V2EquipmentId = keyof typeof V2_EQUIPMENT_BASE;
+export type V2Equipment = V2EquipmentBase<V2EquipmentId>;
 
 // PR-위력하향(2026-06-17) — 무기 위력 일괄 ×0.8. 중반(Lv50~100, 스탯 보통+T3무기)에서 무기가
 //   atk 를 지배(~66%)하던 것을 완화 → 위력 전반↓ + 스탯·직업 비중이 상대적으로↑(장비 경쟁분이
@@ -2685,4 +2688,6 @@ function applyEquipmentCatalogScales(
   ) as Record<V2EquipmentId, V2Equipment>;
 }
 
-export const V2_EQUIPMENT = applyEquipmentCatalogScales(V2_EQUIPMENT_BASE);
+export const V2_EQUIPMENT = applyEquipmentCatalogScales(
+  V2_EQUIPMENT_BASE as Record<V2EquipmentId, V2Equipment>,
+);

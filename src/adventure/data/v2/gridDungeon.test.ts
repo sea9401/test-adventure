@@ -358,6 +358,35 @@ describe("gridDungeon", () => {
     });
   });
 
+  it("parses and infers failed dungeon history reasons", () => {
+    const parsed = parseGridDungeonHistory([
+      {
+        id: "new-reason",
+        outcome: "failed",
+        routeId: "balanced",
+        at: 2_000,
+        detailReason: "함정 피해로 HP 소진",
+        failureReason: "trap",
+      },
+      {
+        id: "old-reason",
+        outcome: "failed",
+        routeId: "balanced",
+        at: 1_000,
+        detailReason: "정예 수문장 전투 패배",
+      },
+    ]);
+
+    expect(parsed[0]).toMatchObject({
+      id: "new-reason",
+      failureReason: "trap",
+    });
+    expect(parsed[1]).toMatchObject({
+      id: "old-reason",
+      failureReason: "combat_elite",
+    });
+  });
+
   it("detects boss reach for failed boss attempts", () => {
     const bossAttempt = {
       ...createGridDungeonRun(100),

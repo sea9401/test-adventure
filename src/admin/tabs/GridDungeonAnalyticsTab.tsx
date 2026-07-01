@@ -11,6 +11,13 @@ type PeriodFilter = "1" | "7" | "30" | "90" | "all";
 type BalanceRiskLevel = "ok" | "low_sample" | "too_hard" | "too_easy";
 type BalanceSeverity = "danger" | "warning" | "info";
 type TuningPriority = "high" | "medium" | "low";
+type FailureReason =
+  | "combat_boss"
+  | "combat_elite"
+  | "combat_monster"
+  | "trap"
+  | "hp_depleted"
+  | "unknown";
 
 type GridDungeonAnalytics = {
   filters: {
@@ -86,6 +93,12 @@ type GridDungeonAnalytics = {
     riskLabel: string;
     riskReason: string;
   }>;
+  failureReasons: Array<{
+    reason: FailureReason;
+    label: string;
+    runs: number;
+    pctOfFailures: number;
+  }>;
   balanceFlags: Array<{
     id: string;
     severity: BalanceSeverity;
@@ -121,6 +134,9 @@ type GridDungeonAnalytics = {
     combatCount: number;
     totalCombatTurns: number;
     durationMs: number;
+    failureReason?: FailureReason;
+    failureReasonLabel?: string;
+    detailReason: string;
   }>;
 };
 
@@ -163,6 +179,15 @@ const PRIORITY_TONE: Record<TuningPriority, string> = {
   low: SEVERITY_TONE.info,
 };
 
+const FAILURE_REASON_TONE: Record<FailureReason, string> = {
+  combat_boss: SEVERITY_TONE.danger,
+  combat_elite: SEVERITY_TONE.warning,
+  combat_monster: SEVERITY_TONE.warning,
+  trap: SEVERITY_TONE.info,
+  hp_depleted: OUTCOME_TONE.failed,
+  unknown: OUTCOME_TONE.abandoned,
+};
+
 const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
   { value: "1", label: "최근 1일" },
   { value: "7", label: "최근 7일" },
@@ -203,6 +228,8 @@ function buildRecentRunsCsv(runs: GridDungeonAnalytics["recentRuns"]): string {
     "bossReached",
     "combatCount",
     "totalCombatTurns",
+    "failureReason",
+    "detailReason",
     "rewardGold",
     "materials",
     "durationSec",
@@ -216,6 +243,8 @@ function buildRecentRunsCsv(runs: GridDungeonAnalytics["recentRuns"]): string {
     run.bossReached ? "Y" : "N",
     run.combatCount,
     run.totalCombatTurns,
+    run.failureReasonLabel ?? "",
+    run.detailReason,
     run.rewardGold,
     run.materialCount,
     Math.round(run.durationMs / 1000),
@@ -656,6 +685,33 @@ export function GridDungeonAnalyticsTab() {
             </Card>
           </div>
 
+          <Card title="실패 원인">
+            {data.failureReasons.length ? (
+              <div className="space-y-2">
+                {data.failureReasons.map((reason) => (
+                  <div
+                    key={reason.reason}
+                    className="flex flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-950"
+                  >
+                    <Badge tone={FAILURE_REASON_TONE[reason.reason]}>
+                      {reason.label}
+                    </Badge>
+                    <span className="font-mono tabular-nums">
+                      {reason.runs.toLocaleString()}건
+                    </span>
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      실패 중 {reason.pctOfFailures.toLocaleString()}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                실패 기록 없음
+              </div>
+            )}
+          </Card>
+
           <Card title="루트×파티 규모">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -840,6 +896,7 @@ export function GridDungeonAnalyticsTab() {
                     <th className="py-1 pr-2 text-right font-medium">파티</th>
                     <th className="py-1 pr-2 text-right font-medium">보스</th>
                     <th className="py-1 pr-2 text-right font-medium">전투</th>
+                    <th className="py-1 pr-2 font-medium">실패 사유</th>
                     <th className="py-1 pr-2 text-right font-medium">보상</th>
                     <th className="py-1 text-right font-medium">소요</th>
                   </tr>
@@ -870,6 +927,30 @@ export function GridDungeonAnalyticsTab() {
                       </td>
                       <td className="py-1 pr-2 text-right font-mono tabular-nums">
                         {run.combatCount}회 · {run.totalCombatTurns}턴
+                      </td>
+                      <td className="py-1 pr-2">
+                        {run.outcome === "failed" ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span
+                              className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                                FAILURE_REASON_TONE[
+                                  run.failureReason ?? "unknown"
+                                ]
+                              }`}
+                            >
+                              {run.failureReasonLabel ?? "원인 미상"}
+                            </span>
+                            {run.detailReason ? (
+                              <span className="text-zinc-500 dark:text-zinc-400">
+                                {run.detailReason}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="text-zinc-400 dark:text-zinc-600">
+                            -
+                          </span>
+                        )}
                       </td>
                       <td className="py-1 pr-2 text-right font-mono tabular-nums">
                         {run.rewardGold.toLocaleString()}G · {run.materialCount}

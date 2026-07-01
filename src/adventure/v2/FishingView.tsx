@@ -92,12 +92,15 @@ function BobberScene({ phase }: { phase: Phase }) {
   const biting = phase === "biting";
   const waiting = phase === "waiting";
   const idle = phase === "idle";
+  const casting = phase === "casting";
+  const resolving = phase === "resolving";
   const onWater = waiting || biting;
-  const bobberVisible = idle || onWater;
+  const bobberVisible = idle || onWater || casting || resolving;
+  const phaseClass = `is-${phase}`;
 
   return (
     <div
-      className={`fish-flash-scene pointer-events-none relative flex h-full w-full flex-col items-center justify-end overflow-hidden ${
+      className={`fish-flash-scene pointer-events-none relative flex h-full w-full flex-col items-center justify-end overflow-hidden ${phaseClass} ${
         biting ? "is-biting" : ""
       } ${waiting ? "is-waiting" : ""}`}
     >
@@ -111,6 +114,7 @@ function BobberScene({ phase }: { phase: Phase }) {
         <span className="fish-wave fish-wave-a" />
         <span className="fish-wave fish-wave-b" />
         <span className="fish-wave fish-wave-c" />
+        <span className="fish-underwater-shadow" />
       </div>
       <div className="fish-dock">
         <span />
@@ -125,6 +129,7 @@ function BobberScene({ phase }: { phase: Phase }) {
         preserveAspectRatio="none"
       >
         <path
+          className="fish-rod-main"
           d="M226 18 C196 35 169 57 142 87"
           fill="none"
           stroke="#6f4d23"
@@ -132,6 +137,7 @@ function BobberScene({ phase }: { phase: Phase }) {
           strokeLinecap="round"
         />
         <path
+          className="fish-rod-highlight"
           d="M226 18 C196 35 169 57 142 87"
           fill="none"
           stroke="#c08a3d"
@@ -140,6 +146,7 @@ function BobberScene({ phase }: { phase: Phase }) {
           opacity="0.75"
         />
         <path
+          className="fish-line-path"
           d="M142 87 C130 99 126 106 120 115"
           fill="none"
           stroke="#dce8ef"
@@ -147,10 +154,22 @@ function BobberScene({ phase }: { phase: Phase }) {
           strokeLinecap="round"
           opacity="0.9"
         />
+        <path
+          className="fish-line-tension"
+          d="M143 87 C136 101 128 112 119 122"
+          fill="none"
+          stroke="#ffffff"
+          strokeLinecap="round"
+          strokeWidth="1.1"
+        />
+        <circle className="fish-rod-tip" cx="142" cy="87" r="2.4" />
       </svg>
 
       {bobberVisible && (
         <div className="fish-bobber-stage">
+          <span className="fish-fish-shadow absolute left-1/2 rounded-[100%]" />
+          <span className="fish-strike-splash fish-strike-splash-a absolute left-1/2" />
+          <span className="fish-strike-splash fish-strike-splash-b absolute left-1/2" />
           <span
             className={`fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border ${
               biting
@@ -176,7 +195,13 @@ function BobberScene({ phase }: { phase: Phase }) {
             </>
           )}
           <span className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/80" />
-          <div className={onWater ? "fish-cast-arc relative z-10" : "relative z-10"}>
+          <div
+            className={
+              onWater || casting || resolving
+                ? "fish-cast-arc relative z-10"
+                : "relative z-10"
+            }
+          >
             <div className={biting ? "fish-bob-bite" : "fish-bob-idle"}>
               <span className="mx-auto block h-4 w-[2px] rounded bg-zinc-700/80 dark:bg-zinc-300/80" />
               <span

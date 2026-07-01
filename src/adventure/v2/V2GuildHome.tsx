@@ -18,6 +18,7 @@ import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildOutpostsPanel } from "./guild/GuildOutpostsPanel";
 import { GuildTrainingGroundPanel } from "./guild/GuildTrainingGroundPanel";
+import { fetchGuildTrainingClaimableCount } from "./guild/trainingGroundClient";
 import {
   TYPE_LABEL,
   settleTierLabel,
@@ -40,6 +41,8 @@ const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "members", label: "길드원" },
   { key: "outposts", label: "영지" },
 ];
+
+type GuildSubTabDef = { key: GuildSubTab; label: string; badge?: string | number };
 
 export function V2GuildHome({
   viewerGuildId,
@@ -64,6 +67,9 @@ export function V2GuildHome({
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
+  const [trainingClaimableCount, setTrainingClaimableCount] = useState<
+    number | null
+  >(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -77,6 +83,13 @@ export function V2GuildHome({
       setInfo(infoRes as GuildInfoResponse | null);
       setActivity(
         (actRes as { activity?: GuildActivity[] } | null)?.activity ?? [],
+      );
+      const infoJson = infoRes as GuildInfoResponse | null;
+      const hasTraining =
+        infoJson?.hasTrainingGround ||
+        (infoJson?.settlementBuildings?.training_ground ?? 0) > 0;
+      setTrainingClaimableCount(
+        hasTraining ? await fetchGuildTrainingClaimableCount() : null,
       );
     } catch {}
     setLoading(false);
@@ -168,15 +181,19 @@ export function V2GuildHome({
   const canManage = isMaster || isManager;
   const pendingRequests: PendingRequest[] = info?.pendingRequests ?? [];
   // 정착지 전쟁 on = 명예상점 탭 추가(개인 명예 소비처). off = 미표시(byte-identical).
-  const withHonor: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
+  const withHonor: GuildSubTabDef[] = V2_SETTLEMENT_WARFARE
     ? [...BASE_SUB_TABS, { key: "honor_shop", label: "명성상점" }]
     : [...BASE_SUB_TABS];
-  const withTraining: { key: GuildSubTab; label: string }[] =
+  const trainingBadge =
+    trainingClaimableCount != null && trainingClaimableCount > 0
+      ? trainingClaimableCount
+      : undefined;
+  const withTraining: GuildSubTabDef[] =
     info?.hasTrainingGround || (info?.settlementBuildings?.training_ground ?? 0) > 0
-      ? [...withHonor, { key: "training", label: "훈련장" }]
+      ? [...withHonor, { key: "training", label: "훈련장", badge: trainingBadge }]
       : withHonor;
   // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
-  const subTabs: { key: GuildSubTab; label: string }[] = canManage
+  const subTabs: GuildSubTabDef[] = canManage
     ? [
         ...withTraining,
         {

@@ -4,10 +4,20 @@ import {
   GUILD_TRAINING_DRILL_IDS,
   guildTrainingDrillViews,
   parseGuildTrainingState,
+  todayGuildTrainingKey,
   type GuildTrainingState,
 } from "./guildTrainingGround";
 
 describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
+  it("일일 키는 한국 시간 자정 기준으로 바뀐다", () => {
+    expect(todayGuildTrainingKey(new Date("2026-07-01T14:59:59.000Z"))).toBe(
+      "2026-07-01",
+    );
+    expect(todayGuildTrainingKey(new Date("2026-07-01T15:00:00.000Z"))).toBe(
+      "2026-07-02",
+    );
+  });
+
   it("날짜가 바뀌면 완료 상태를 초기화한다", () => {
     expect(
       parseGuildTrainingState(

@@ -105,7 +105,6 @@ export function GuildTrainingGroundPanel({
             error?: string;
             reason?: string | null;
             rewardMastery?: number;
-            rewardGold?: number;
             masteryAfter?: number;
           }
         | null;
@@ -114,9 +113,7 @@ export function GuildTrainingGroundPanel({
         setMessage(json?.reason ?? ERROR_TEXT[err] ?? "훈련을 완료하지 못했어요.");
         return;
       }
-      const text = `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()} · 골드 +${(
-        json.rewardGold ?? 0
-      ).toLocaleString()}`;
+      const text = `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()}`;
       setMessage(text);
       notifyReward("훈련 완료", text);
       await load();
@@ -250,7 +247,7 @@ export function GuildTrainingGroundPanel({
               미참여 {guildSummary.pendingMemberCount.toLocaleString()}명
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 참여
@@ -275,14 +272,6 @@ export function GuildTrainingGroundPanel({
               </div>
               <div className="mt-0.5 font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
                 +{guildSummary.totalMastery.toLocaleString()}
-              </div>
-            </div>
-            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
-              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                골드
-              </div>
-              <div className="mt-0.5 font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-                +{guildSummary.totalGold.toLocaleString()}
               </div>
             </div>
           </div>
@@ -376,9 +365,6 @@ export function GuildTrainingGroundPanel({
                     <div className="mt-2 flex flex-wrap gap-1 text-[11px]">
                       <span className="rounded bg-emerald-100 px-1.5 py-px font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
                         숙련도 +{drill.rewardMastery.toLocaleString()}
-                      </span>
-                      <span className="rounded bg-amber-100 px-1.5 py-px font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                        골드 +{drill.rewardGold.toLocaleString()}
                       </span>
                       <span className="rounded bg-zinc-100 px-1.5 py-px text-zinc-500 dark:bg-slate-800 dark:text-zinc-400">
                         훈련장 Lv {drill.minBuildingLevel}

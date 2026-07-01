@@ -58,12 +58,12 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     expect(GUILD_TRAINING_DRILL_IDS).toContain("recovery_camp");
     expect(views.find((v) => v.id === "basic_stance")).toMatchObject({
       available: true,
-      rewardMastery: 4,
+      rewardMastery: 14,
       focusLabel: "공용",
     });
     expect(views.find((v) => v.id === "weapon_flow")).toMatchObject({
       available: true,
-      rewardMastery: 7,
+      rewardMastery: 19,
       focusLabel: "전사",
     });
     expect(views.find((v) => v.id === "guard_breathing")).toMatchObject({
@@ -72,7 +72,7 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
     expect(views.find((v) => v.id === "field_rotation")).toMatchObject({
       available: true,
-      rewardMastery: 9,
+      rewardMastery: 26,
     });
     expect(views.find((v) => v.id === "master_trial")).toMatchObject({
       available: false,
@@ -96,6 +96,30 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
       claimed: true,
       available: false,
       lockedReason: "오늘 완료",
+    });
+  });
+
+  it("최고 훈련장에서는 숙련도 보상이 충분히 커진다", () => {
+    const views = guildTrainingDrillViews({
+      state: { dayKey: "2026-07-01", claimed: [] },
+      buildingLevel: 5,
+      characterLevel: 100,
+      hasJob: true,
+      currentClass: "mage",
+    });
+
+    expect(views.find((v) => v.id === "basic_stance")).toMatchObject({
+      rewardMastery: 18,
+    });
+    expect(views.find((v) => v.id === "arcane_control")).toMatchObject({
+      rewardMastery: 24,
+    });
+    expect(views.find((v) => v.id === "field_rotation")).toMatchObject({
+      rewardMastery: 33,
+    });
+    expect(views.find((v) => v.id === "master_trial")).toMatchObject({
+      available: true,
+      rewardMastery: 45,
     });
   });
 

@@ -43,7 +43,7 @@ export type GuildActivityMeta = {
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward
-  rewardGold?: number; // workshop_weekly_claim | training_drill_claim
+  rewardGold?: number; // workshop_weekly_claim | workshop_delivery
   rewardFame?: number; // workshop_weekly_claim
 };
 

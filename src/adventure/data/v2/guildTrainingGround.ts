@@ -38,7 +38,6 @@ export type GuildTrainingDrillDef = {
   minBuildingLevel: number;
   minCharacterLevel: number;
   baseMasteryReward: number;
-  baseGoldReward: number;
 };
 
 export type GuildTrainingDrillView = GuildTrainingDrillDef & {
@@ -48,7 +47,6 @@ export type GuildTrainingDrillView = GuildTrainingDrillDef & {
   focusLabel: string;
   categoryLabel: string;
   rewardMastery: number;
-  rewardGold: number;
 };
 
 export const GUILD_TRAINING_FOCUS_LABEL: Record<
@@ -85,8 +83,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "basic",
     minBuildingLevel: 1,
     minCharacterLevel: 1,
-    baseMasteryReward: 4,
-    baseGoldReward: 300,
+    baseMasteryReward: 12,
   },
   weapon_flow: {
     id: "weapon_flow",
@@ -96,8 +93,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "specialized",
     minBuildingLevel: 2,
     minCharacterLevel: 20,
-    baseMasteryReward: 6,
-    baseGoldReward: 500,
+    baseMasteryReward: 16,
   },
   guard_breathing: {
     id: "guard_breathing",
@@ -107,8 +103,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "specialized",
     minBuildingLevel: 2,
     minCharacterLevel: 20,
-    baseMasteryReward: 6,
-    baseGoldReward: 500,
+    baseMasteryReward: 16,
   },
   arcane_control: {
     id: "arcane_control",
@@ -118,8 +113,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "specialized",
     minBuildingLevel: 2,
     minCharacterLevel: 20,
-    baseMasteryReward: 6,
-    baseGoldReward: 500,
+    baseMasteryReward: 16,
   },
   shadow_footwork: {
     id: "shadow_footwork",
@@ -129,8 +123,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "specialized",
     minBuildingLevel: 2,
     minCharacterLevel: 20,
-    baseMasteryReward: 6,
-    baseGoldReward: 500,
+    baseMasteryReward: 16,
   },
   recovery_camp: {
     id: "recovery_camp",
@@ -140,8 +133,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "specialized",
     minBuildingLevel: 2,
     minCharacterLevel: 20,
-    baseMasteryReward: 6,
-    baseGoldReward: 500,
+    baseMasteryReward: 16,
   },
   field_rotation: {
     id: "field_rotation",
@@ -151,8 +143,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "field",
     minBuildingLevel: 3,
     minCharacterLevel: 50,
-    baseMasteryReward: 8,
-    baseGoldReward: 800,
+    baseMasteryReward: 22,
   },
   master_trial: {
     id: "master_trial",
@@ -162,8 +153,7 @@ export const GUILD_TRAINING_DRILLS: Record<
     category: "advanced",
     minBuildingLevel: 5,
     minCharacterLevel: 100,
-    baseMasteryReward: 12,
-    baseGoldReward: 1500,
+    baseMasteryReward: 30,
   },
 };
 
@@ -227,11 +217,10 @@ export function parseGuildTrainingState(
 export function guildTrainingReward(
   drill: GuildTrainingDrillDef,
   upgrade: TrainingGroundUpgradeDef,
-): { mastery: number; gold: number } {
+): { mastery: number } {
   const mult = 1 + Math.max(0, upgrade.trainingRewardBonusPct) / 100;
   return {
     mastery: Math.max(1, Math.floor(drill.baseMasteryReward * mult)),
-    gold: Math.max(0, Math.floor(drill.baseGoldReward * mult)),
   };
 }
 
@@ -277,7 +266,6 @@ export function guildTrainingDrillViews({
       focusLabel: GUILD_TRAINING_FOCUS_LABEL[drill.focus],
       categoryLabel: GUILD_TRAINING_CATEGORY_LABEL[drill.category],
       rewardMastery: reward.mastery,
-      rewardGold: reward.gold,
     };
   });
 }

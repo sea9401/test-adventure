@@ -47,7 +47,7 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
     expect(views.find((v) => v.id === "guard_breathing")).toMatchObject({
       available: false,
-      lockedReason: "방어 계열 전용",
+      lockedReason: "무도가 계열 전용",
     });
     expect(views.find((v) => v.id === "field_rotation")).toMatchObject({
       available: true,

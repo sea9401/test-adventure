@@ -211,7 +211,9 @@ export function V2GuildHome({
 
       {activeTab === "honor_shop" && <HonorShopPanel />}
 
-      {activeTab === "training" && <GuildTrainingGroundPanel info={info} />}
+      {activeTab === "training" && (
+        <GuildTrainingGroundPanel info={info} onChanged={refresh} />
+      )}
 
       {activeTab === "info" && (
         <GuildInfoPanel

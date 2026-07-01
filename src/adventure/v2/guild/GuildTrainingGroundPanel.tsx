@@ -56,9 +56,11 @@ const ERROR_TEXT: Record<string, string> = {
 export function GuildTrainingGroundPanel({
   info,
   localTrainingGround = false,
+  onChanged,
 }: {
   info: GuildInfoResponse | null;
   localTrainingGround?: boolean;
+  onChanged?: () => void | Promise<void>;
 }) {
   const training = SETTLEMENT_BUILDINGS.training_ground;
   const trainingCount = info?.settlementBuildings?.training_ground ?? 0;
@@ -134,6 +136,7 @@ export function GuildTrainingGroundPanel({
         ).toLocaleString()}`,
       );
       await load();
+      await onChanged?.();
     } catch {
       setMessage("네트워크 오류로 훈련을 완료하지 못했어요.");
     } finally {

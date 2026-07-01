@@ -57,7 +57,7 @@ export const GUILD_TRAINING_FOCUS_LABEL: Record<
 > = {
   common: "공용",
   warrior: "전사",
-  martial: "방어",
+  martial: "무도가",
   mage: "마법",
   rogue: "민첩",
   survivor: "회복",

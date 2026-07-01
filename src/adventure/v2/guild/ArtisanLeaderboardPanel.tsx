@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 
 type ArtisanLeaderboardEntry = {
   userId: string;
@@ -72,6 +73,7 @@ function rankLabel(rank: number): string {
 }
 
 export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
+  const { notifyReward } = useRewardToast();
   const [data, setData] = useState<ArtisanLeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
@@ -169,13 +171,15 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             })
             .filter((name: unknown): name is string => typeof name === "string")
         : [];
-      setRewardMessage(
+      const rewardFame = Number(json.rewardFame ?? 0);
+      const successMessage =
         grantedNames.length > 0
-          ? `칭호 획득: ${grantedNames.join(", ")} · 길드 명성 +${Number(
-              json.rewardFame ?? 0,
-            ).toLocaleString()}`
-          : "이미 받을 수 있는 랭킹 보상을 모두 수령했습니다.",
-      );
+          ? `칭호 획득: ${grantedNames.join(", ")} · 길드 명성 +${rewardFame.toLocaleString()}`
+          : "이미 받을 수 있는 랭킹 보상을 모두 수령했습니다.";
+      setRewardMessage(successMessage);
+      if (grantedNames.length > 0 || rewardFame > 0) {
+        notifyReward("장인 랭킹 보상", successMessage);
+      }
     } catch {
       setRewardMessage("랭킹 보상 수령에 실패했습니다.");
     } finally {

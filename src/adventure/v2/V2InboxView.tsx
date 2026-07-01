@@ -22,6 +22,7 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
   Record<string, { name: string } | undefined>
@@ -205,6 +206,7 @@ type Tab = "inbox" | "history" | "sent";
 export function V2InboxView({ onBack }: { onBack: () => void }) {
   // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
   const { refreshGuildId } = useGameState();
+  const { notifyReward } = useRewardToast();
   const [tab, setTab] = useState<Tab>("inbox");
   const [items, setItems] = useState<InboxItem[] | null>(null);
   // 지난 우편(기록) — 탭 진입 시 지연 로드. 수령/응답 후엔 null 로 무효화해 재로드.
@@ -332,9 +334,9 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         const totalItems =
           itemQty + equipV2Qty + materialsV2Qty + (j.instancesAdded?.length ?? 0);
         if (totalItems > 0) parts.push(`+아이템 ${totalItems}개`);
-        setMsg(
-          parts.length > 0 ? `✓ 수령 완료 — ${parts.join(" · ")}` : "✓ 수령 완료",
-        );
+        const text = parts.join(" · ");
+        setMsg(parts.length > 0 ? `✓ 수령 완료 — ${text}` : "✓ 수령 완료");
+        notifyReward("우편 수령 완료", text);
         setSelected(null);
         // 수령한 우편은 기록으로 이동 — 지난 우편 캐시 무효화 후 받은 우편 재로드.
         setHistory(null);
@@ -345,7 +347,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         setBusy(false);
       }
     },
-    [busy, load],
+    [busy, load, notifyReward],
   );
 
   const respondInvite = useCallback(

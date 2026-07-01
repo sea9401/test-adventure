@@ -12,6 +12,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
+import { useRewardToast } from "./RewardToastProvider";
 import {
   type QuestLine,
   type QuestView,
@@ -72,6 +73,7 @@ function rewardText(reward: QuestReward): string {
 
 export function V2QuestView({ onBack }: { onBack: () => void }) {
   const { refreshGameState } = useGameState();
+  const { notifyReward } = useRewardToast();
   const [lines, setLines] = useState<QuestLine[]>([]);
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [repeat, setRepeat] = useState<RepeatSection | null>(null);
@@ -128,7 +130,9 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           setMsg(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
-        setMsg(`✓ 보상 수령 — ${rewardText(q.reward)}`);
+        const text = rewardText(q.reward);
+        setMsg(`✓ 보상 수령 — ${text}`);
+        notifyReward("보상 수령", text);
         await Promise.all([refresh(), refreshGameState()]);
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
@@ -136,7 +140,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [refresh, refreshGameState],
+    [notifyReward, refresh, refreshGameState],
   );
 
   // 마일스톤 번들 보상(스태미나 포션) 수령.
@@ -159,9 +163,10 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           setMsg(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
-        setMsg(
-          `✓ ${scope === "daily" ? "일일" : "주간"} 보상 — 스태미나 포션 ${j.potions}개`,
-        );
+        const title = `${scope === "daily" ? "일일" : "주간"} 보상`;
+        const detail = `스태미나 포션 ${j.potions}개`;
+        setMsg(`✓ ${title} — ${detail}`);
+        notifyReward(title, detail);
         await Promise.all([refresh(), refreshGameState()]);
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
@@ -169,7 +174,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setBundleBusy(null);
       }
     },
-    [refresh, refreshGameState],
+    [notifyReward, refresh, refreshGameState],
   );
 
   return (

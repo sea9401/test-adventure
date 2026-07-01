@@ -474,6 +474,17 @@ body {
   }
 }
 
+@keyframes ui-toast-slide-in {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .ui-game-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
@@ -536,6 +547,10 @@ body {
 
 .ui-reward-flash {
   animation: ui-reward-flash 520ms ease-out both;
+}
+
+.ui-reward-toast {
+  animation: ui-toast-slide-in 180ms ease-out both;
 }
 
 .ui-lift-card {
@@ -1039,7 +1054,8 @@ body {
   .war-vigor-low,
   .war-threat-row::after,
   .war-meter-track::after,
-  .ui-reward-flash {
+  .ui-reward-flash,
+  .ui-reward-toast {
     animation: none !important;
   }
 

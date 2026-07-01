@@ -44,7 +44,12 @@ const TAB_STATE: Record<TabVariant, { active: string; inactive: string }> = {
 };
 
 export type TabBarProps<K extends string> = {
-  tabs: ReadonlyArray<{ key: K; label: string; icon?: ReactNode }>;
+  tabs: ReadonlyArray<{
+    key: K;
+    label: string;
+    icon?: ReactNode;
+    badge?: string | number;
+  }>;
   active: K;
   onChange: (next: K) => void;
   ariaLabel: string;
@@ -136,16 +141,19 @@ export function TabBar<K extends string>({
               selected ? state.active : state.inactive
             }`}
           >
-            {t.icon ? (
-              <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5">
+              {t.icon && (
                 <span aria-hidden className="inline-flex shrink-0">
                   {t.icon}
                 </span>
-                {t.label}
-              </span>
-            ) : (
-              t.label
-            )}
+              )}
+              <span>{t.label}</span>
+              {t.badge != null && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-bold leading-none text-white shadow-sm">
+                  {t.badge}
+                </span>
+              )}
+            </span>
           </button>
         );
       })}

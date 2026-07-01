@@ -35,7 +35,10 @@ import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
   FISHING_DAILY_KEY,
   applyCatch as applyDailyCatch,
+  deriveFishingContractViews,
+  deriveFishingDailyViews,
   parseFishingDaily,
+  rolloverFishingDaily,
 } from "@/adventure/data/v2/fishingDailyChallenges";
 import {
   TREASURE_FRAGMENTS_KEY,
@@ -53,10 +56,15 @@ import {
 import {
   FISHING_PROGRESS_KEY,
   addFishingCatchXp,
+  deriveFishingGoalViews,
   emptyFishingProgression,
   fishingProgressionView,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
+import {
+  countClaimableFishingTasks,
+  fishingProgressNotices,
+} from "@/adventure/v2/fishingChallengeProgress";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -119,15 +127,17 @@ export async function POST(req: Request) {
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
     // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
-    const progressResult = addFishingCatchXp(
-      parseFishingProgression(
-        await lockSaveForUpdate(
-          tx,
-          userId,
-          FISHING_PROGRESS_KEY,
-          emptyFishingProgression(),
-        ),
+    const progressBefore = parseFishingProgression(
+      await lockSaveForUpdate(
+        tx,
+        userId,
+        FISHING_PROGRESS_KEY,
+        emptyFishingProgression(),
       ),
+    );
+    const progressGoalViewsBefore = deriveFishingGoalViews(progressBefore);
+    const progressResult = addFishingCatchXp(
+      progressBefore,
       session.fishId,
     );
     await upsertSave(
@@ -187,15 +197,42 @@ export async function POST(req: Request) {
     // 일일 낚시 도전과제 — 그날 카운터를 올린다(일 경계 롤오버는 applyDailyCatch 내부). 같은 tx.
     //   락 순서: 세션 → 코덱스 → 일일트래커 → (조각). claim 라우트는 일일트래커 → 지갑이라 순환 없음.
     const dayKey = kstDailyKey(new Date(now));
-    const daily = applyDailyCatch(
+    const dailyBefore = rolloverFishingDaily(
       parseFishingDaily(
         await lockSaveForUpdate(tx, userId, FISHING_DAILY_KEY, {}),
       ),
+      dayKey,
+    );
+    const contractViewsBefore = deriveFishingContractViews(dailyBefore);
+    const dailyViewsBefore = deriveFishingDailyViews(dailyBefore);
+    const daily = applyDailyCatch(
+      dailyBefore,
       session.fishId,
       dayKey,
       session.size,
     );
     await upsertSave(tx, userId, FISHING_DAILY_KEY, daily);
+    const contractViewsAfter = deriveFishingContractViews(daily);
+    const dailyViewsAfter = deriveFishingDailyViews(daily);
+    const goalViewsAfter = progressView.goals;
+    const challengeProgress = [
+      ...fishingProgressNotices(
+        "contract",
+        contractViewsBefore,
+        contractViewsAfter,
+      ),
+      ...fishingProgressNotices("daily", dailyViewsBefore, dailyViewsAfter),
+      ...fishingProgressNotices(
+        "goal",
+        progressGoalViewsBefore,
+        goalViewsAfter,
+      ),
+    ];
+    const challengeClaimableCount = countClaimableFishingTasks([
+      contractViewsAfter,
+      dailyViewsAfter,
+      goalViewsAfter,
+    ]);
 
     // 챔질당 코인 — 티어 소량(크기 무관) 적립, 일일 상한 클램프. 락 순서: 일일 → 지갑
     //   (= challenges/claim 라우트와 동일 순서라 순환/데드락 없음). 캐스팅·실패엔 미지급(여기는 caught 분기).
@@ -240,6 +277,8 @@ export async function POST(req: Request) {
       fishingLevelUp: progressResult.leveledUp,
       fishingCatches: progressView.catches,
       progression: progressView,
+      challengeProgress,
+      challengeClaimableCount,
       masteryGained,
       masteryAfter,
       fragmentDrop,
@@ -282,6 +321,8 @@ export async function POST(req: Request) {
     fishingLevelUp: result.fishingLevelUp,
     fishingCatches: result.fishingCatches,
     progression: result.progression,
+    challengeProgress: result.challengeProgress,
+    challengeClaimableCount: result.challengeClaimableCount,
     masteryGained: result.masteryGained,
     masteryAfter: result.masteryAfter,
     special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,

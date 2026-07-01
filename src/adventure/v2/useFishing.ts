@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  countClaimableFishingTasks,
+  type FishingProgressNotice,
+} from "./fishingChallengeProgress";
 import type { FishingProgressionView } from "./fishingProgression";
 import type {
   CastOutcome,
@@ -13,6 +17,7 @@ export function useFishing(): FishingHandlers {
   const [progression, setProgression] =
     useState<FishingProgressionView | null>(null);
   const [progressionLoading, setProgressionLoading] = useState(true);
+  const [challengeBadgeCount, setChallengeBadgeCount] = useState(0);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -28,6 +33,21 @@ export function useFishing(): FishingHandlers {
       .finally(() => {
         if (mounted.current) setProgressionLoading(false);
       });
+    fetch("/api/v2/fishing/challenges")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!mounted.current || !j?.ok) return;
+        setChallengeBadgeCount(
+          countClaimableFishingTasks([
+            Array.isArray(j.contracts) ? j.contracts : [],
+            Array.isArray(j.challenges) ? j.challenges : [],
+            Array.isArray(j.goals) ? j.goals : [],
+          ]),
+        );
+      })
+      .catch(() => {
+        // 배지는 보조 정보다. 실패해도 낚시 자체를 막지 않는다.
+      });
     return () => {
       mounted.current = false;
     };
@@ -37,7 +57,11 @@ export function useFishing(): FishingHandlers {
     const res = await fetch("/api/v2/fishing/cast", { method: "POST" });
     if (!res.ok) throw new Error("cast_failed");
     const j = await res.json();
-    if (!j?.ok || typeof j.castId !== "string" || typeof j.biteDelayMs !== "number") {
+    if (
+      !j?.ok ||
+      typeof j.castId !== "string" ||
+      typeof j.biteDelayMs !== "number"
+    ) {
       throw new Error("cast_failed");
     }
     if (j.progression && typeof j.progression === "object") {
@@ -59,6 +83,11 @@ export function useFishing(): FishingHandlers {
       if (j.caught) {
         if (j.progression && typeof j.progression === "object") {
           setProgression(j.progression as FishingProgressionView);
+        }
+        if (typeof j.challengeClaimableCount === "number") {
+          setChallengeBadgeCount(
+            Math.max(0, Math.floor(j.challengeClaimableCount)),
+          );
         }
         return {
           caught: true,
@@ -97,6 +126,7 @@ export function useFishing(): FishingHandlers {
           fishingLevelUp: Boolean(j.fishingLevelUp),
           fishingCatches:
             typeof j.fishingCatches === "number" ? j.fishingCatches : undefined,
+          challengeProgress: parseFishingProgressNotices(j.challengeProgress),
         };
       }
       return {
@@ -107,5 +137,38 @@ export function useFishing(): FishingHandlers {
     [],
   );
 
-  return { cast, reel, progression, progressionLoading };
+  return { cast, reel, progression, progressionLoading, challengeBadgeCount };
+}
+
+function parseFishingProgressNotices(raw: unknown): FishingProgressNotice[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item): FishingProgressNotice[] => {
+    if (!item || typeof item !== "object") return [];
+    const r = item as Record<string, unknown>;
+    const kind = r.kind;
+    if (kind !== "contract" && kind !== "daily" && kind !== "goal") return [];
+    if (typeof r.id !== "string" || typeof r.title !== "string") return [];
+    const progress = Number(r.progress);
+    const goal = Number(r.goal);
+    const delta = Number(r.delta);
+    if (
+      !Number.isFinite(progress) ||
+      !Number.isFinite(goal) ||
+      !Number.isFinite(delta)
+    ) {
+      return [];
+    }
+    return [
+      {
+        kind,
+        id: r.id,
+        title: r.title,
+        progress: Math.max(0, Math.floor(progress)),
+        goal: Math.max(1, Math.floor(goal)),
+        delta: Math.max(0, Math.floor(delta)),
+        justCompleted: Boolean(r.justCompleted),
+        claimable: Boolean(r.claimable),
+      },
+    ];
+  });
 }

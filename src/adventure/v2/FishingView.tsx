@@ -368,24 +368,24 @@ export function FishingView({
 
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
-  const showAction = phase === "idle" || phase === "result";
-  const actionButtonClass =
-    phase === "result"
-      ? "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[520px] -translate-x-1/2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99]"
-      : "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
+  const idleActionClass =
+    "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
+  const resultActionClass =
+    "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[520px] -translate-x-1/2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99]";
 
   return (
-    <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
-      <SubViewHeader title="낚시터" onBack={onBack} />
+    <>
+      <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
+        <SubViewHeader title="낚시터" onBack={onBack} />
 
-      <FishingSubTabs
-        active="fishing"
-        challengeBadgeCount={challengeBadgeCount}
-        onOpenChallenges={onOpenChallenges}
-        onOpenLeaderboard={onOpenLeaderboard}
-        onOpenHallOfFame={onOpenHallOfFame}
-        onOpenShop={onOpenShop}
-      />
+        <FishingSubTabs
+          active="fishing"
+          challengeBadgeCount={challengeBadgeCount}
+          onOpenChallenges={onOpenChallenges}
+          onOpenLeaderboard={onOpenLeaderboard}
+          onOpenHallOfFame={onOpenHallOfFame}
+          onOpenShop={onOpenShop}
+        />
 
       <MulttaeBadge />
 
@@ -626,15 +626,20 @@ export function FishingView({
         </div>
       )}
 
-      {/* 액션 */}
-      {showAction && (
-        <>
-          <button type="button" onClick={startCast} className={actionButtonClass}>
-            {phase === "result" ? "다시 던지기" : "찌 던지기"}
+        {/* 액션 */}
+        {phase === "idle" && (
+          <button type="button" onClick={startCast} className={idleActionClass}>
+            찌 던지기
           </button>
-          {phase === "result" && <div aria-hidden className="h-16" />}
-        </>
+        )}
+        {phase === "result" && <div aria-hidden className="h-16" />}
+      </main>
+
+      {phase === "result" && (
+        <button type="button" onClick={startCast} className={resultActionClass}>
+          다시 던지기
+        </button>
       )}
-    </main>
+    </>
   );
 }

@@ -119,12 +119,27 @@ export async function GET() {
   const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
   const state = parseGuildTrainingState(trainingRaw, dayKey);
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel));
+  const drills = guildTrainingDrillViews({
+    state,
+    buildingLevel: trainingGroundLevel,
+    characterLevel,
+    hasJob: current.hasJob,
+    currentClass: current.group,
+  });
+  const claimedCount = drills.filter((drill) => drill.claimed).length;
+  const availableCount = drills.filter((drill) => drill.available).length;
+  const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
+  const remainingClaims = Math.max(0, dailyClaimLimit - claimedCount);
   return Response.json({
     ok: true,
     dayKey,
     hasTrainingGround: trainingGroundLevel > 0,
     trainingGroundLevel,
     upgrade,
+    claimedCount,
+    availableCount,
+    remainingClaims,
+    claimableCount: Math.min(availableCount, remainingClaims),
     currentJob: current.job
       ? {
           id: current.job.id,
@@ -132,13 +147,7 @@ export async function GET() {
           mastery: current.mastery,
         }
       : null,
-    drills: guildTrainingDrillViews({
-      state,
-      buildingLevel: trainingGroundLevel,
-      characterLevel,
-      hasJob: current.hasJob,
-      currentClass: current.group,
-    }),
+    drills,
   });
 }
 

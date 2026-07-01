@@ -178,8 +178,10 @@ export const GUILD_TRAINING_DRILL_IDS: GuildTrainingDrillId[] = [
   "master_trial",
 ];
 
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
 export function todayGuildTrainingKey(now = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return new Date(now.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 export function isGuildTrainingDrillId(

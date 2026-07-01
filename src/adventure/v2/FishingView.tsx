@@ -108,6 +108,22 @@ function easeOutBack(value: number): number {
   return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
 }
 
+function tierImpact(tier: FishTier): number {
+  switch (tier) {
+    case "legendary":
+      return 1.9;
+    case "epic":
+      return 1.65;
+    case "rare":
+      return 1.35;
+    case "uncommon":
+      return 1.12;
+    case "common":
+    default:
+      return 1;
+  }
+}
+
 function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -153,6 +169,60 @@ function drawReeds(ctx: CanvasRenderingContext2D, x: number, y: number, sway: nu
     ctx.quadraticCurveTo(offset + sway + i - 4, -height * 0.55, offset + sway, -height);
     ctx.stroke();
   }
+  ctx.restore();
+}
+
+function drawRodGrip(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  motion: number,
+) {
+  const baseX = width * 0.86;
+  const baseY = height * 0.2;
+  ctx.save();
+  ctx.translate(baseX, baseY);
+  ctx.rotate(-0.28 + motion * 0.05);
+  ctx.imageSmoothingEnabled = false;
+
+  ctx.fillStyle = "rgba(23, 37, 42, 0.24)";
+  ctx.beginPath();
+  ctx.ellipse(7, 15, 25, 5, 0, 0, TAU);
+  ctx.fill();
+
+  ctx.strokeStyle = "#2f1a0b";
+  ctx.lineWidth = 8;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-8, 7);
+  ctx.lineTo(35, 22);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#7c4a21";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-6, 4);
+  ctx.lineTo(32, 17);
+  ctx.stroke();
+
+  ctx.fillStyle = "#f1c27d";
+  ctx.fillRect(9, 13, 17, 9);
+  ctx.fillStyle = "rgba(120, 53, 15, 0.38)";
+  ctx.fillRect(22, 14, 5, 7);
+
+  ctx.strokeStyle = "#374151";
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.arc(5, 8, 8, 0, TAU);
+  ctx.stroke();
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(3, 6, 4, 4);
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(11, 13);
+  ctx.lineTo(16, 17 + motion * 2);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -220,13 +290,17 @@ function drawFishingCanvasScene(
   sceneElapsedMs: number,
   phaseElapsedMs: number,
   reducedMotion: boolean,
+  preBite: boolean,
+  tapElapsedMs: number,
 ) {
   const t = reducedMotion ? 0 : sceneElapsedMs / 1000;
   const phaseT = reducedMotion ? 0.6 : phaseElapsedMs / 1000;
+  const tapT = reducedMotion ? 1 : tapElapsedMs / 1000;
   const waterY = Math.round(height * 0.48);
   const bobberRestX = Math.round(width * 0.45);
   const bobberRestY = Math.round(waterY + height * 0.22);
   const castProgress = phase === "casting" ? easeOutCubic(phaseElapsedMs / 720) : 1;
+  const cuePulse = preBite && phase === "waiting" ? 0.5 + Math.sin(t * 22) * 0.5 : 0;
   const biteImpact = phase === "biting" ? Math.max(0, 1 - phaseT / 0.18) ** 2 : 0;
   const biteTremor = phase === "biting" ? Math.sin(phaseT * 54) * Math.max(0.18, 1 - phaseT * 0.95) : 0;
   const bitePull = phase === "biting" ? 1 + biteImpact * 1.25 + Math.abs(biteTremor) * 0.35 : 0;
@@ -234,6 +308,7 @@ function drawFishingCanvasScene(
   const waitPulse = Math.sin(t * 2.2);
   const liftProgress = phase === "resolving" ? easeOutCubic(phaseElapsedMs / 520) : 0;
   const liftPulse = phase === "resolving" ? Math.sin(phaseT * 9) * (1 - liftProgress * 0.45) : 0;
+  const tapSnap = tapT < 0.18 ? 1 - tapT / 0.18 : 0;
   const biting = phase === "biting";
   const waiting = phase === "waiting";
   const resolving = phase === "resolving";
@@ -311,6 +386,9 @@ function drawFishingCanvasScene(
   if (biting) {
     bobberX = bobberRestX + biteTremor * 4 - biteImpact * 3;
     bobberY = bobberRestY + 9 * bitePull + biteImpact * 9;
+  } else if (preBite && waiting) {
+    bobberX += Math.sin(t * 16) * 1.5;
+    bobberY += cuePulse * 3;
   }
   if (resolving) {
     bobberX = bobberRestX + liftPulse * 2;
@@ -329,12 +407,13 @@ function drawFishingCanvasScene(
   const bend = biting
     ? 16 + rodCatchup * 38 + Math.abs(biteTremor) * 12
     : waiting
-      ? 12 + waitPulse * 5
+      ? 12 + waitPulse * 5 + cuePulse * 7 + tapSnap * 12
       : resolving
         ? -10 - liftProgress * 18
         : casting
           ? -8 + castWindup * 22
           : 2;
+  drawRodGrip(ctx, width, height, biting ? 1 : resolving ? -0.45 : casting ? 0.35 : cuePulse * 0.25);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#3f2610";
@@ -352,25 +431,34 @@ function drawFishingCanvasScene(
   ctx.fillStyle = "#2f1a0b";
   ctx.fillRect(rodBaseX - 6, rodBaseY - 5, 18, 10);
 
-  ctx.strokeStyle = biting ? "rgba(255, 255, 255, 0.9)" : "rgba(226, 244, 255, 0.82)";
-  ctx.lineWidth = biting ? 2.2 : 1.1;
+  ctx.strokeStyle =
+    biting || tapSnap > 0
+      ? "rgba(255, 255, 255, 0.9)"
+      : "rgba(226, 244, 255, 0.82)";
+  ctx.lineWidth = biting || tapSnap > 0 ? 2.2 : 1.1;
   ctx.beginPath();
   ctx.moveTo(rodTipX, rodTipY);
   ctx.quadraticCurveTo(
-    (rodTipX + bobberX) / 2 + (biting ? biteTremor * 4 : 0),
-    (rodTipY + bobberY) / 2 + (biting ? 1 - biteImpact * 4 : 10),
+    (rodTipX + bobberX) / 2 + (biting ? biteTremor * 4 : 0) + tapSnap * 5,
+    (rodTipY + bobberY) / 2 + (biting ? 1 - biteImpact * 4 : 10) - tapSnap * 7,
     bobberX,
     bobberY - 14,
   );
   ctx.stroke();
 
   if (waiting || biting) {
-    const shadowScale = biting ? 1 + biteImpact * 0.55 + Math.abs(biteTremor) * 0.18 : 0.75 + Math.sin(t * 1.4) * 0.08;
-    ctx.fillStyle = biting ? "rgba(4, 47, 46, 0.48)" : "rgba(4, 47, 46, 0.24)";
+    const shadowScale = biting
+      ? 1 + biteImpact * 0.55 + Math.abs(biteTremor) * 0.18
+      : 0.75 + Math.sin(t * 1.4) * 0.08 + cuePulse * 0.3;
+    ctx.fillStyle = biting
+      ? "rgba(4, 47, 46, 0.48)"
+      : preBite
+        ? "rgba(4, 47, 46, 0.38)"
+        : "rgba(4, 47, 46, 0.24)";
     ctx.beginPath();
     ctx.ellipse(
-      bobberX - 8 + Math.sin(t * 1.5) * 18 - biteImpact * 12,
-      bobberY + 15 + biteImpact * 3,
+      bobberX - 8 + Math.sin(t * 1.5) * (preBite ? 8 : 18) - biteImpact * 12,
+      bobberY + 15 + biteImpact * 3 + cuePulse * 3,
       44 * shadowScale,
       10 * shadowScale,
       biteImpact * -0.2,
@@ -391,6 +479,9 @@ function drawFishingCanvasScene(
       ctx.ellipse(bobberX, bobberY + 4, 12 + p * (biting ? 42 : 26), 4 + p * (biting ? 13 : 8), 0, 0, TAU);
       ctx.stroke();
     }
+  }
+  if (preBite && waiting) {
+    drawPixelSplash(ctx, bobberX, bobberY + 8, (t * 3.2) % 1, 0.28 + cuePulse * 0.18);
   }
 
   if (biting) {
@@ -414,20 +505,42 @@ function drawFishingCanvasScene(
     bobberY,
     biting ? 1.12 : 1,
     biting ? "#f59e0b" : phase === "idle" ? "#38bdf8" : "#e11d48",
-    biting ? biteTremor * 0.08 - biteImpact * 0.18 : waitPulse * 0.025,
+    biting
+      ? biteTremor * 0.08 - biteImpact * 0.18
+      : waitPulse * 0.025 + cuePulse * 0.05 + tapSnap * 0.12,
   );
 }
 
-function FishingSceneCanvas({ phase }: { phase: Phase }) {
+function FishingSceneCanvas({
+  phase,
+  preBite,
+  tapSignal,
+}: {
+  phase: Phase;
+  preBite: boolean;
+  tapSignal: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const phaseRef = useRef(phase);
+  const preBiteRef = useRef(preBite);
   const phaseStartedAtRef = useRef(0);
+  const tapStartedAtRef = useRef(-Infinity);
 
   useEffect(() => {
     phaseRef.current = phase;
     phaseStartedAtRef.current = performance.now();
   }, [phase]);
+
+  useEffect(() => {
+    preBiteRef.current = preBite;
+  }, [preBite]);
+
+  useEffect(() => {
+    if (tapSignal > 0) {
+      tapStartedAtRef.current = performance.now();
+    }
+  }, [tapSignal]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -462,6 +575,8 @@ function FishingSceneCanvas({ phase }: { phase: Phase }) {
           now - start,
           Math.max(0, now - phaseStartedAtRef.current),
           reducedMotion,
+          preBiteRef.current,
+          Math.max(0, now - tapStartedAtRef.current),
         );
       }
       frameId = requestAnimationFrame(draw);
@@ -499,6 +614,132 @@ function FishingSceneCanvas({ phase }: { phase: Phase }) {
           {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+function drawResultCanvasScene(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  result: ReelOutcome | null,
+  elapsedMs: number,
+  reducedMotion: boolean,
+) {
+  const t = reducedMotion ? 0.72 : elapsedMs / 1000;
+  const caughtResult = result?.caught ? result : null;
+  const caught = caughtResult != null;
+  const impact = caughtResult ? tierImpact(caughtResult.tier) : 0.9;
+  const p = clamp01(t / 0.9);
+  const waterY = Math.round(height * 0.58);
+  const centerX = width * 0.48;
+
+  ctx.clearRect(0, 0, width, height);
+  const sky = ctx.createLinearGradient(0, 0, 0, waterY);
+  sky.addColorStop(0, "#bae6fd");
+  sky.addColorStop(1, "#e0f7ff");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, waterY);
+  const water = ctx.createLinearGradient(0, waterY, 0, height);
+  water.addColorStop(0, caught ? "#7dd3fc" : "#93c5fd");
+  water.addColorStop(1, caught ? "#0891b2" : "#2563eb");
+  ctx.fillStyle = water;
+  ctx.fillRect(0, waterY, width, height - waterY);
+  for (let i = 0; i < 4; i += 1) {
+    drawWaterLine(ctx, waterY + 8 + i * 15, width, t * 1.8 + i, 0.24 - i * 0.035);
+  }
+
+  const rodBaseX = width * 0.87;
+  const rodBaseY = height * 0.22;
+  const rodTipX = centerX + 12;
+  const rodTipY = caught ? waterY - 32 - easeOutCubic(p) * 22 : waterY - 15;
+  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#3f2610";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(rodBaseX, rodBaseY);
+  ctx.bezierCurveTo(width * 0.73, rodBaseY + 12, width * 0.62, rodTipY - 12, rodTipX, rodTipY);
+  ctx.stroke();
+  ctx.strokeStyle = caught ? "rgba(255, 255, 255, 0.92)" : "rgba(226, 244, 255, 0.48)";
+  ctx.lineWidth = caught ? 2 : 1.2;
+  ctx.beginPath();
+  ctx.moveTo(rodTipX, rodTipY);
+  ctx.quadraticCurveTo(centerX + 8, waterY - 14, centerX - 4, waterY + (caught ? -8 : 10));
+  ctx.stroke();
+
+  if (caught) {
+    drawPixelSplash(ctx, centerX, waterY + 4, Math.min(1, t / 0.55), 0.62 * impact);
+    if (impact > 1.3) {
+      drawPixelSplash(ctx, centerX - 14, waterY + 8, (t * 2.1 + 0.32) % 1, 0.16 * impact);
+    }
+  } else {
+    const dart = easeOutCubic(p);
+    const fishX = centerX - dart * width * 0.36;
+    const fishY = waterY + 17 + Math.sin(t * 12) * 2;
+    drawPixelSplash(ctx, centerX, waterY + 8, Math.min(1, t / 0.45), 0.28);
+    ctx.fillStyle = "rgba(4, 47, 46, 0.42)";
+    ctx.beginPath();
+    ctx.ellipse(fishX, fishY, 32, 7, -0.18, 0, TAU);
+    ctx.fill();
+  }
+}
+
+function FishingResultScene({ result }: { result: ReelOutcome | null }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const resultRef = useRef(result);
+
+  useEffect(() => {
+    resultRef.current = result;
+  }, [result]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reducedMotion = mediaQuery.matches;
+    let frameId = 0;
+    let start = performance.now();
+
+    const draw = (now: number) => {
+      const rect = wrap.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+      }
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawResultCanvasScene(ctx, width, height, resultRef.current, now - start, reducedMotion);
+      }
+      frameId = requestAnimationFrame(draw);
+    };
+
+    const onMotionChange = () => {
+      reducedMotion = mediaQuery.matches;
+      start = performance.now();
+    };
+    mediaQuery.addEventListener("change", onMotionChange);
+    frameId = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      mediaQuery.removeEventListener("change", onMotionChange);
+    };
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="fish-result-canvas-scene absolute inset-0 overflow-hidden rounded-lg">
+      <canvas ref={canvasRef} aria-hidden="true" className="fish-scene-canvas" />
     </div>
   );
 }
@@ -621,8 +862,11 @@ export function FishingView({
   const [sessionCount, setSessionCount] = useState(0);
   const [sessionBest, setSessionBest] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [preBite, setPreBite] = useState(false);
+  const [tapSignal, setTapSignal] = useState(0);
 
   const biteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const preBiteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const windowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const biteShownAt = useRef<number>(0);
   const castId = useRef<string>("");
@@ -633,8 +877,10 @@ export function FishingView({
 
   const clearTimers = useCallback(() => {
     if (biteTimer.current) clearTimeout(biteTimer.current);
+    if (preBiteTimer.current) clearTimeout(preBiteTimer.current);
     if (windowTimer.current) clearTimeout(windowTimer.current);
     biteTimer.current = null;
+    preBiteTimer.current = null;
     windowTimer.current = null;
   }, []);
 
@@ -651,6 +897,7 @@ export function FishingView({
       if (resolved.current) return;
       resolved.current = true;
       clearTimers();
+      setPreBite(false);
       setPhase("resolving");
       try {
         const outcome = await reel(castId.current, reactionMs);
@@ -675,6 +922,7 @@ export function FishingView({
 
   const onBite = useCallback(() => {
     biteShownAt.current = Date.now();
+    setPreBite(false);
     setPhase("biting");
     // 입질 햅틱 — 모바일에서 진동으로 입질을 알림(시각 신호와 동시 발생, 정보 우위 없음).
     if (typeof navigator !== "undefined" && navigator.vibrate) {
@@ -691,6 +939,7 @@ export function FishingView({
     setError(null);
     setResult(null);
     setLastReactionMs(null);
+    setPreBite(false);
     resolved.current = false;
     setPhase("casting");
     try {
@@ -698,6 +947,12 @@ export function FishingView({
       if (!mounted.current) return;
       castId.current = id;
       setPhase("waiting");
+      preBiteTimer.current = setTimeout(
+        () => {
+          if (mounted.current) setPreBite(true);
+        },
+        Math.max(0, biteDelayMs - 360),
+      );
       biteTimer.current = setTimeout(onBite, biteDelayMs);
     } catch {
       if (!mounted.current) return;
@@ -708,6 +963,7 @@ export function FishingView({
 
   // 큰 탭 존 클릭 — 단계에 따라 의미가 다르다.
   const onTapZone = useCallback(() => {
+    setTapSignal((value) => value + 1);
     if (phase === "waiting") {
       // 입질 전 챔질 = 성급함. 서버가 too_early 로 판정하도록 reel 호출(세션 소비).
       resolveReel(-1);
@@ -852,7 +1108,7 @@ export function FishingView({
                 : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
           }`}
         >
-          <FishingSceneCanvas phase={phase} />
+          <FishingSceneCanvas phase={phase} preBite={preBite} tapSignal={tapSignal} />
         </button>
       )}
 
@@ -863,17 +1119,16 @@ export function FishingView({
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (
             <div className="space-y-1">
-              <div className="relative mx-auto flex h-20 w-full items-center justify-center">
-                {/* 물보라 — 한 번 퍼지고 사라짐 */}
-                <span className="fish-splash absolute bottom-1 left-1/2 h-9 w-20 rounded-[100%] border-2 border-sky-400/50" />
+              <div className="relative mx-auto flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border border-sky-200 dark:border-sky-900/60">
+                <FishingResultScene result={result} />
                 {/* 희귀·대물 발광 */}
                 {TIER_REVEAL[result.tier].glow && (
-                  <span className="fish-glow absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/40 blur-md" />
+                  <span className="fish-glow absolute left-1/2 top-[44%] h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/35 blur-md" />
                 )}
                 <FishIcon
                   fishId={result.fishId}
                   name={result.name}
-                  className={`fish-reveal ${TIER_REVEAL[result.tier].iconCls}`}
+                  className={`fish-reveal relative z-10 -mt-1 drop-shadow-md ${TIER_REVEAL[result.tier].iconCls}`}
                 />
               </div>
               <div className="text-base font-bold">
@@ -927,12 +1182,12 @@ export function FishingView({
             </div>
           ) : (
             <div className="space-y-1">
-              {/* 놓침 — 물고기가 휙 달아난다 */}
-              <div className="relative mx-auto h-8 w-full overflow-hidden">
+              <div className="relative mx-auto h-16 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+                <FishingResultScene result={result} />
                 <FishIcon
                   fishId="minnow"
                   decorative
-                  className="fish-dart-away absolute bottom-0 left-1/2 h-8 w-8"
+                  className="fish-dart-away absolute bottom-2 left-1/2 h-7 w-7"
                 />
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">

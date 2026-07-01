@@ -33,7 +33,13 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 // 색·활성 표기는 기존 탭바(highlight)와 동일한 인디고 언어. 드롭다운 항목은 각 탭 홈 카드와
 // 같은 아이콘·색을 재사용해 일관·깔끔하게 보이도록 한다.
 
-type SubItem = { label: string; href: string; Icon: Icon; color: string };
+type SubItem = {
+  label: string;
+  href: string;
+  Icon: Icon;
+  color: string;
+  requiresDungeonEntrance?: boolean;
+};
 type TabDef = { key: string; label: string; href: string; sub?: SubItem[] };
 
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.
@@ -49,7 +55,7 @@ const TABS: TabDef[] = [
       { label: "아레나", href: "/battle/arena", Icon: Trophy, color: "text-amber-500" },
       { label: "훈련장", href: "/battle/sparring", Icon: Barbell, color: "text-sky-500" },
       { label: "토벌", href: "/battle/subjugation", Icon: Crosshair, color: "text-orange-500" },
-      { label: "던전 입장", href: "/battle/grid-dungeon", Icon: Wall, color: "text-amber-500" },
+      { label: "던전 입장", href: "/battle/grid-dungeon", Icon: Wall, color: "text-amber-500", requiresDungeonEntrance: true },
       { label: "지도", href: "/map", Icon: CompassRose, color: "text-emerald-500" },
     ],
   },
@@ -85,10 +91,12 @@ const TABS: TabDef[] = [
 export function MainTabNav({
   activeKey,
   onNavigate,
+  showGridDungeonEntry = false,
 }: {
   // 현재 활성 탭 key(경로 파생). TABS 에 없는 값(예: plaza)이면 아무 탭도 강조 안 함.
   activeKey: string;
   onNavigate: (href: string) => void;
+  showGridDungeonEntry?: boolean;
 }) {
   // 열린 드롭다운 탭 key — 한 번에 하나만. null=닫힘.
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -96,6 +104,10 @@ export function MainTabNav({
   const close = () => setOpenKey(null);
 
   const openTab = TABS.find((t) => t.key === openKey && t.sub);
+  const openSubItems =
+    openTab?.sub?.filter(
+      (s) => !s.requiresDungeonEntrance || showGridDungeonEntry,
+    ) ?? [];
 
   return (
     <nav className="relative mx-auto w-full max-w-[720px]" aria-label="메인 메뉴">
@@ -146,7 +158,7 @@ export function MainTabNav({
             aria-label={`${openTab.label} 메뉴`}
             className={`${SURFACE_CARD} absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid grid-cols-2 gap-1 p-2 sm:mx-6`}
           >
-            {openTab.sub!.map((s) => (
+            {openSubItems.map((s) => (
               <button
                 key={s.href}
                 type="button"

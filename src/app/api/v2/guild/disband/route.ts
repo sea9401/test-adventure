@@ -12,7 +12,8 @@ import { neutralizeGuildTiles } from "@/lib/server/tileOccupation";
 // 못 건드림) ② guildMembers 즉시 삭제(멤버가 소속에 묶여 재가입 못 하는 것 방지) ③ guilds 를
 // 툼스톤(disbandedAt) 마킹 — 하드 삭제 아님.
 //   · 이름은 30일(GUILD_DISBANDED_NAME_HOLD_DAYS) 보류되고, guilds-cleanup 크론이 그때 하드
-//     삭제하며 FK 캐스케이드로 금고(v2GuildResources)·마을·라인업을 정리하고 점령 거점을 SET NULL.
+//     삭제하며 FK 캐스케이드로 금고(v2GuildResources)·라인업을 정리한다. 타일 영토/마을은
+//     아래 neutralizeGuildTiles 로 즉시 삭제해 해산 후 재개척 시 옛 건물이 되살아나지 않게 한다.
 //   · 금고 골드는 멤버가 없어 회수 불가 = 사실상 즉시 소멸(결정대로 sink). 거점/금고를 tx 에서
 //     직접 안 건드려 claim 라우트와의 reciprocal-siege 데드락을 피한다.
 //   · 모든 read 가 disbandedAt IS NULL 로 필터하므로 툼스톤 즉시 길드는 사실상 사라진다.
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       await clearAffiliationInTx(tx, m.userId);
     }
     // ② 멤버 즉시 해제(소속에 묶여 재가입 못 하는 것 방지) ③ 길드 툼스톤(이름 30일 보류).
-    // 금고/마을/라인업/거점 정리는 guilds-cleanup 크론의 하드 삭제 캐스케이드에 위임.
+    // 금고/라인업 정리는 guilds-cleanup 크론의 하드 삭제 캐스케이드에 위임.
     await tx
       .delete(guildMembers)
       .where(eq(guildMembers.guildId, mem.guildId));

@@ -103,10 +103,10 @@ describe("낚시 진행도", () => {
   });
 
   it("상점 도구 가격 조회는 등재 id만 허용한다", () => {
-    expect(fishingGearPrice("rod", "lacquered_rod")).toBe(350);
-    expect(fishingGearPrice("rod", "storm_rod")).toBe(3200);
-    expect(fishingGearPrice("lure", "trophy_lure")).toBe(500);
-    expect(fishingGearPrice("lure", "prism_lure")).toBe(1400);
+    expect(fishingGearPrice("rod", "lacquered_rod")).toBe(1200);
+    expect(fishingGearPrice("rod", "storm_rod")).toBe(9000);
+    expect(fishingGearPrice("lure", "trophy_lure")).toBe(1800);
+    expect(fishingGearPrice("lure", "prism_lure")).toBe(5000);
     expect(fishingGearPrice("rod", "ghost_rod")).toBeNull();
   });
 });

@@ -302,6 +302,7 @@ function drawRodGrip(
     ctx.shadowColor = "rgba(15, 23, 42, 0.26)";
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 3;
+    ctx.scale(-1, 1);
     ctx.drawImage(
       image,
       sourceX,

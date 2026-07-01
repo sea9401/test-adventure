@@ -11,37 +11,10 @@ import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
 import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import type { GuildInfoResponse } from "./guildShared";
-
-type TrainingDrillView = {
-  id: GuildTrainingDrillId;
-  title: string;
-  desc: string;
-  focus: string;
-  category: string;
-  focusLabel: string;
-  categoryLabel: string;
-  minBuildingLevel: number;
-  minCharacterLevel: number;
-  claimed: boolean;
-  available: boolean;
-  lockedReason: string | null;
-  rewardMastery: number;
-  rewardGold: number;
-};
-
-type TrainingState = {
-  ok?: boolean;
-  dayKey?: string;
-  hasTrainingGround?: boolean;
-  trainingGroundLevel?: number;
-  upgrade?: {
-    label: string;
-    trainingRewardBonusPct: number;
-    unlockedDrillCount: number;
-  };
-  currentJob?: { id: string; name: string; mastery: number | null } | null;
-  drills?: TrainingDrillView[];
-};
+import {
+  trainingClaimableCountOf,
+  type TrainingState,
+} from "./trainingGroundClient";
 
 const ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요해요.",
@@ -154,7 +127,14 @@ export function GuildTrainingGroundPanel({
   const drills = state?.drills ?? [];
   const dailyClaimLimit = Math.max(1, state?.upgrade?.unlockedDrillCount ?? 1);
   const completedCount = drills.filter((drill) => drill.claimed).length;
-  const availableCount = drills.filter((drill) => drill.available).length;
+  const availableChoiceCount =
+    state?.availableCount ?? drills.filter((drill) => drill.available).length;
+  const claimableCount =
+    trainingClaimableCountOf(state) ??
+    Math.min(
+      availableChoiceCount,
+      Math.max(0, dailyClaimLimit - completedCount),
+    );
   const progressPct = Math.min(
     100,
     Math.max(0, (completedCount / dailyClaimLimit) * 100),
@@ -167,6 +147,17 @@ export function GuildTrainingGroundPanel({
           <div className="flex items-center gap-2">
             <span className="text-lg leading-none">{training.icon}</span>
             <h3 className="text-sm font-semibold">{training.name}</h3>
+            {hasTrainingGround && !loading && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  claimableCount > 0
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                    : "bg-zinc-100 text-zinc-500 dark:bg-slate-800 dark:text-zinc-400"
+                }`}
+              >
+                {claimableCount > 0 ? `훈련 가능 ${claimableCount}` : "오늘 완료"}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {hasTrainingGround
@@ -220,7 +211,7 @@ export function GuildTrainingGroundPanel({
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span>
-              가능 {availableCount.toLocaleString()}개 · 전체{" "}
+              가능 {availableChoiceCount.toLocaleString()}개 · 전체{" "}
               {drills.length.toLocaleString()}개
             </span>
             <span>{state?.upgrade?.label ?? "훈련 설비"}</span>

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import { settlementBuildingIdOf } from "@/adventure/data/v2/settlement";
 import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
 import { GuildTrainingGroundPanel } from "../guild/GuildTrainingGroundPanel";
+import { fetchGuildTrainingClaimableCount } from "../guild/trainingGroundClient";
 import { GuildWorkshopPanel } from "../guild/GuildWorkshopPanel";
 import { OutpostAttackLog } from "../OutpostAttackLog";
 import { V2VillagePanel } from "../V2VillagePanel";
@@ -20,7 +21,7 @@ export type ActivityTab =
   | "manage"
   | "defend";
 
-type ActivityTabDef = { key: ActivityTab; label: string };
+type ActivityTabDef = { key: ActivityTab; label: string; badge?: string | number };
 
 type VillageSummary = {
   outpostId: string;
@@ -52,6 +53,13 @@ export function OutpostActivityTabs({
 }) {
   const [hasLocalSmithy, setHasLocalSmithy] = useState(false);
   const [hasLocalTrainingGround, setHasLocalTrainingGround] = useState(false);
+  const [trainingClaimableCount, setTrainingClaimableCount] = useState<
+    number | null
+  >(null);
+
+  const loadTrainingAvailability = useCallback(async () => {
+    setTrainingClaimableCount(await fetchGuildTrainingClaimableCount());
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -74,6 +82,22 @@ export function OutpostActivityTabs({
     };
   }, [outpostId]);
 
+  useEffect(() => {
+    let alive = true;
+    if (!hasLocalTrainingGround) {
+      queueMicrotask(() => {
+        if (alive) setTrainingClaimableCount(null);
+      });
+    } else {
+      queueMicrotask(() => {
+        if (alive) void loadTrainingAvailability();
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [hasLocalTrainingGround, loadTrainingAvailability]);
+
   const tabs = useMemo<ActivityTabDef[]>(
     () => [
       { key: "manage", label: "마을" },
@@ -81,14 +105,23 @@ export function OutpostActivityTabs({
         ? [{ key: "smithy" as const, label: "대장간" }]
         : []),
       ...(hasLocalTrainingGround
-        ? [{ key: "training" as const, label: "훈련장" }]
+        ? [
+            {
+              key: "training" as const,
+              label: "훈련장",
+              badge:
+                trainingClaimableCount != null && trainingClaimableCount > 0
+                  ? trainingClaimableCount
+                  : undefined,
+            },
+          ]
         : []),
       ...(V2_SETTLEMENT_WARFARE
         ? [{ key: "defend" as const, label: "수비" }]
         : []),
       { key: "attacks", label: "최근 공격 기록" },
     ],
-    [hasLocalSmithy, hasLocalTrainingGround],
+    [hasLocalSmithy, hasLocalTrainingGround, trainingClaimableCount],
   );
 
   useEffect(() => {
@@ -114,7 +147,11 @@ export function OutpostActivityTabs({
         <GuildWorkshopPanel info={null} localSmithy />
       )}
       {activityTab === "training" && hasLocalTrainingGround && (
-        <GuildTrainingGroundPanel info={null} localTrainingGround />
+        <GuildTrainingGroundPanel
+          info={null}
+          localTrainingGround
+          onChanged={loadTrainingAvailability}
+        />
       )}
       {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
         <DefendPanel outpostId={outpostId} />

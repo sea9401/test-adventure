@@ -10,6 +10,7 @@ import {
   equipFishingRod,
   fishingBonusesFromProgression,
   fishingGearPrice,
+  fishingLevelBonuses,
   fishingLevelForXp,
   fishingProgressionView,
   parseFishingProgression,
@@ -69,6 +70,20 @@ describe("낚시 진행도", () => {
     expect(fishingLevelForXp(999_999)).toBe(30);
   });
 
+  it("레벨 보너스는 씨알과 특별 손님 가중치만 제공한다", () => {
+    expect(fishingLevelBonuses(1)).toEqual({
+      waitReductionPct: 0,
+      sizeBonusPct: 0,
+      rareSizeBonusPct: 0,
+      bigCatchSizeBonusPct: 0,
+      specialWeightPct: 0,
+    });
+    expect(fishingLevelBonuses(5).sizeBonusPct).toBe(1);
+    expect(fishingLevelBonuses(5).specialWeightPct).toBe(2);
+    expect(fishingLevelBonuses(30).sizeBonusPct).toBe(7);
+    expect(fishingLevelBonuses(30).specialWeightPct).toBe(14);
+  });
+
   it("도구 구매는 보유 목록에 추가하고 즉시 장착한다", () => {
     const withRod = buyFishingRod(emptyFishingProgression(), "lacquered_rod");
     const withLure = buyFishingLure(withRod, "trophy_lure");
@@ -91,6 +106,8 @@ describe("낚시 진행도", () => {
     expect(equipped).not.toBeNull();
 
     const bonuses = fishingBonusesFromProgression(equipped ?? withGear);
+    const view = fishingProgressionView(equipped ?? withGear);
+    expect(view.levelBonuses).toEqual(fishingLevelBonuses(view.level));
     expect(bonuses.waitReductionPct).toBe(
       FISHING_RODS.deepcurrent_rod.bonuses.waitReductionPct,
     );

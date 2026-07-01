@@ -235,6 +235,13 @@ const TASK_KIND_LABEL: Record<FishingProgressNotice["kind"], string> = {
   goal: "누적 목표",
 };
 
+function levelBonusLabels(progression: FishingProgressionView): string[] {
+  return [
+    `씨알 +${progression.levelBonuses.sizeBonusPct}%`,
+    `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
+  ];
+}
+
 export function FishingView({
   cast,
   reel,
@@ -407,6 +414,16 @@ export function FishingView({
                 )}%`,
               }}
             />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {levelBonusLabels(progression).map((label) => (
+              <span
+                key={label}
+                className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200"
+              >
+                숙련도 효과 · {label}
+              </span>
+            ))}
           </div>
         </div>
       ) : progressionLoading ? (

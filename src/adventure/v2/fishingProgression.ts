@@ -153,6 +153,7 @@ export type FishingProgressionView = {
   equippedLureId: FishingLureId;
   ownedRods: FishingRodId[];
   ownedLures: FishingLureId[];
+  levelBonuses: FishingGearBonuses;
   bonuses: FishingGearBonuses;
 };
 
@@ -384,6 +385,17 @@ export function fishingLevelForXp(xp: number): number {
   return Math.min(30, 1 + Math.floor(Math.sqrt(safe / 35)));
 }
 
+export function fishingLevelBonuses(level: number): FishingGearBonuses {
+  const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+  return {
+    waitReductionPct: 0,
+    sizeBonusPct: Math.min(8, Math.floor((safeLevel - 1) / 4)),
+    rareSizeBonusPct: 0,
+    bigCatchSizeBonusPct: 0,
+    specialWeightPct: Math.min(15, Math.floor((safeLevel - 1) / 2)),
+  };
+}
+
 function xpRequiredForLevel(level: number): number {
   const lv = Math.max(1, Math.floor(level));
   return (lv - 1) ** 2 * 35;
@@ -395,12 +407,14 @@ export function fishingProgressionView(
   const level = fishingLevelForXp(state.xp);
   const levelStart = xpRequiredForLevel(level);
   const levelEnd = xpRequiredForLevel(level + 1);
+  const levelBonuses = fishingLevelBonuses(level);
   return {
     ...state,
     level,
     xpIntoLevel: Math.max(0, state.xp - levelStart),
     xpForNext: Math.max(1, levelEnd - levelStart),
     goals: deriveFishingGoalViews(state),
+    levelBonuses,
     bonuses: fishingBonusesFromProgression(state),
   };
 }
@@ -456,13 +470,7 @@ export function fishingBonusesFromProgression(
   state: FishingProgressionState,
 ): FishingGearBonuses {
   const level = fishingLevelForXp(state.xp);
-  const bonuses: FishingGearBonuses = {
-    waitReductionPct: 0,
-    sizeBonusPct: Math.min(8, Math.floor((level - 1) / 4)),
-    rareSizeBonusPct: 0,
-    bigCatchSizeBonusPct: 0,
-    specialWeightPct: Math.min(15, Math.floor((level - 1) / 2)),
-  };
+  const bonuses = fishingLevelBonuses(level);
   addBonuses(bonuses, FISHING_RODS[state.equippedRodId]?.bonuses);
   addBonuses(bonuses, FISHING_LURES[state.equippedLureId]?.bonuses);
   return bonuses;

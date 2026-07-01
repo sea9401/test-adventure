@@ -35,7 +35,10 @@ import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
-import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
+import {
+  FISHING_PROGRESS_KEY,
+  emptyFishingProgression,
+} from "@/adventure/v2/fishingProgression";
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -151,6 +154,37 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(store.get(FISHING_WALLET_KEY)).toMatchObject({
       coins: 4,
       catchDay: { earned: 4 },
+    });
+  });
+
+  it("낚시 레벨업 보상 코인은 챔질 일일 상한과 별도로 지급한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_PROGRESS_KEY, {
+      ...emptyFishingProgression(),
+      xp: 34,
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      caught: boolean;
+      coinsGained: number;
+      levelRewardCoins: number;
+      fishingLevel: number;
+      fishingLevelUp: boolean;
+    };
+
+    expect(json.ok).toBe(true);
+    expect(json.caught).toBe(true);
+    expect(json.fishingLevel).toBe(2);
+    expect(json.fishingLevelUp).toBe(true);
+    expect(json.coinsGained).toBe(3);
+    expect(json.levelRewardCoins).toBe(40);
+    expect(store.get(FISHING_WALLET_KEY)).toMatchObject({
+      coins: 43,
+      catchDay: { earned: 3 },
     });
   });
 

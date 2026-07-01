@@ -385,6 +385,13 @@ export function fishingLevelForXp(xp: number): number {
   return Math.min(30, 1 + Math.floor(Math.sqrt(safe / 35)));
 }
 
+export function fishingLevelRewardCoins(level: number): number {
+  const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+  if (safeLevel <= 1) return 0;
+  const milestoneBonus = safeLevel % 5 === 0 ? safeLevel * 20 : 0;
+  return 40 + milestoneBonus;
+}
+
 export function fishingLevelBonuses(level: number): FishingGearBonuses {
   const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
   return {

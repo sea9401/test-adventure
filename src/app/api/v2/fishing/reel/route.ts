@@ -30,6 +30,7 @@ import { upsertFishingRecord } from "@/lib/server/fishing/records";
 import {
   FISHING_WALLET_KEY,
   applyCatchCoin,
+  fishingWalletWithCoins,
 } from "@/lib/server/fishing/coins";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
@@ -58,6 +59,7 @@ import {
   addFishingCatchXp,
   deriveFishingGoalViews,
   emptyFishingProgression,
+  fishingLevelRewardCoins,
   fishingProgressionView,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
@@ -236,13 +238,29 @@ export async function POST(req: Request) {
 
     // 챔질당 코인 — 티어 소량(크기 무관) 적립, 일일 상한 클램프. 락 순서: 일일 → 지갑
     //   (= challenges/claim 라우트와 동일 순서라 순환/데드락 없음). 캐스팅·실패엔 미지급(여기는 caught 분기).
+    const walletBeforeCoins = await lockSaveForUpdate(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      {},
+    );
     const coinResult = applyCatchCoin(
-      await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {}),
+      walletBeforeCoins,
       FISH[session.fishId].tier,
       dayKey,
       streakBuff.coinBonus + (multtaeEffect.coinBonus ?? 0),
     );
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, coinResult.next);
+    const levelRewardCoins = progressResult.leveledUp
+      ? fishingLevelRewardCoins(progressView.level)
+      : 0;
+    const walletAfterCoins =
+      levelRewardCoins > 0
+        ? fishingWalletWithCoins(
+            coinResult.next,
+            coinResult.next.coins + levelRewardCoins,
+          )
+        : coinResult.next;
+    await upsertSave(tx, userId, FISHING_WALLET_KEY, walletAfterCoins);
 
     // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
     // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
@@ -271,7 +289,8 @@ export async function POST(req: Request) {
       prevBest,
       codexCount: countDiscoveredFish(next),
       coinsGained: coinResult.awarded,
-      coins: coinResult.next.coins,
+      levelRewardCoins,
+      coins: walletAfterCoins.coins,
       fishingXpGained: progressResult.xpGained,
       fishingLevel: progressView.level,
       fishingLevelUp: progressResult.leveledUp,
@@ -315,6 +334,7 @@ export async function POST(req: Request) {
     codexCount: result.codexCount,
     // 챔질당 코인 — 이번 마리 지급액(일일 상한 도달 시 0) + 누적 잔액.
     coinsGained: result.coinsGained,
+    levelRewardCoins: result.levelRewardCoins,
     coins: result.coins,
     fishingXpGained: result.fishingXpGained,
     fishingLevel: result.fishingLevel,

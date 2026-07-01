@@ -268,14 +268,16 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     }
   }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory]);
 
-  useEffect(() => {
-    if (
-      (browseTab === "material" || browseTab === "consumable") &&
-      (sort === "roll_desc" || sort === "crafter_desc")
-    ) {
-      setSort("price_asc");
+  const handleBrowseTabChange = useCallback((nextTab: V2ItemTabKey) => {
+    setBrowseTab(nextTab);
+    if (nextTab === "material" || nextTab === "consumable") {
+      setSort((current) =>
+        current === "roll_desc" || current === "crafter_desc"
+          ? "price_asc"
+          : current,
+      );
     }
-  }, [browseTab, sort]);
+  }, []);
 
   const act = useCallback(
     async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
@@ -547,7 +549,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             <TabBar
               tabs={V2_ITEM_TABS}
               active={browseTab}
-              onChange={setBrowseTab}
+              onChange={handleBrowseTabChange}
               ariaLabel="거래소 목록 분류"
               size="sm"
               scrollable

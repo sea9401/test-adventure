@@ -16,6 +16,7 @@ import {
 import {
   addFishingCatchXp,
   emptyFishingProgression,
+  fishingLevelRewardCoins,
   fishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
 
@@ -72,6 +73,9 @@ export function FishingHarness() {
         fishingXpGained: progressResult.xpGained,
         fishingLevel: progressView.level,
         fishingLevelUp: progressResult.leveledUp,
+        levelRewardCoins: progressResult.leveledUp
+          ? fishingLevelRewardCoins(progressView.level)
+          : 0,
         fishingCatches: progressView.catches,
       };
     },

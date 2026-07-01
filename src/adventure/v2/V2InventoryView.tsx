@@ -99,7 +99,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     itemTabFromParam(tabParam),
   );
   useEffect(() => {
-    setTab(itemTabFromParam(tabParam));
+    let alive = true;
+    const nextTab = itemTabFromParam(tabParam);
+    queueMicrotask(() => {
+      if (alive) setTab(nextTab);
+    });
+    return () => {
+      alive = false;
+    };
   }, [tabParam]);
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모는 서버 권위. 만료 없음).
@@ -406,15 +413,22 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     if (!inst) return;
     const item = V2_EQUIPMENT[inst.id];
     if (!item) return;
-    setTab(item.slot);
-    setCard({
-      inst,
-      anchor: {
-        top: Math.max(80, Math.floor(window.innerHeight * 0.28)),
-        bottom: Math.max(120, Math.floor(window.innerHeight * 0.28) + 32),
-        left: Math.max(24, Math.floor(window.innerWidth * 0.5) - 128),
-      },
+    let alive = true;
+    queueMicrotask(() => {
+      if (!alive) return;
+      setTab(item.slot);
+      setCard({
+        inst,
+        anchor: {
+          top: Math.max(80, Math.floor(window.innerHeight * 0.28)),
+          bottom: Math.max(120, Math.floor(window.innerHeight * 0.28) + 32),
+          left: Math.max(24, Math.floor(window.innerWidth * 0.5) - 128),
+        },
+      });
     });
+    return () => {
+      alive = false;
+    };
   }, [itemParam, loading, owned]);
 
   return (

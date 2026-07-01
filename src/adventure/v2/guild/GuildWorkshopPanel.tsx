@@ -15,7 +15,6 @@ import {
   BLACKSMITH_REWARD_MILESTONES,
   blacksmithJobForLevel,
   nextArtisanMilestone,
-  unlockedBlacksmithSkills,
 } from "@/adventure/data/v2/artisan";
 import {
   GUILD_WORKSHOP_MATERIALS,
@@ -402,7 +401,6 @@ export function GuildWorkshopPanel({
     BLACKSMITH_ARTISAN_JOBS.find(
       (job) => job.requiredLevel > blacksmithLevel,
     ) ?? null;
-  const activeBlacksmithSkills = unlockedBlacksmithSkills(blacksmithLevel);
   const nextBlacksmithSkill =
     BLACKSMITH_ARTISAN_SKILLS.find((skill) => skill.level > blacksmithLevel) ??
     null;
@@ -1465,162 +1463,248 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "growth" && state ? (
-        <div className="grid gap-2 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-800 dark:text-zinc-100 md:grid-cols-2">
-          <div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 dark:border-emerald-900 dark:bg-emerald-950/30">
-                <div className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                  현재 차수
+        <div className="space-y-3 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-800 dark:text-zinc-100">
+          <div className="grid gap-3 lg:grid-cols-[1.05fr_1fr]">
+            <div className="rounded border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                    대장장이 성장
+                  </div>
+                  <div className="mt-1 text-base font-semibold text-zinc-950 dark:text-zinc-50">
+                    Lv {blacksmithLevel.toLocaleString()} ·{" "}
+                    {currentBlacksmithJob.name}
+                  </div>
+                  <div className="mt-1 text-zinc-600 dark:text-zinc-400">
+                    {currentBlacksmithJob.tier}차 · {currentBlacksmithJob.role}
+                  </div>
                 </div>
-                <div className="mt-0.5 font-semibold text-emerald-950 dark:text-emerald-100">
-                  {currentBlacksmithJob.tier}차 · {currentBlacksmithJob.name}
-                </div>
-                <div className="mt-0.5 text-[11px] text-emerald-800 dark:text-emerald-200">
-                  {currentBlacksmithJob.role}
+                <div className="min-w-36 text-right">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    다음 레벨
+                  </div>
+                  <div className="mt-1 font-semibold">
+                    {Math.max(
+                      0,
+                      state.artisan.blacksmith.xpForNext -
+                        state.artisan.blacksmith.xpIntoLevel,
+                    ).toLocaleString()}{" "}
+                    XP 남음
+                  </div>
                 </div>
               </div>
-              <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+              <div className="mt-3">
+                <div className="war-meter-track h-2 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                  <div
+                    className="war-meter-fill h-full rounded bg-emerald-600 dark:bg-emerald-400"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.max(
+                          0,
+                          (state.artisan.blacksmith.xpIntoLevel /
+                            Math.max(1, state.artisan.blacksmith.xpForNext)) *
+                            100,
+                        ),
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <div className="mt-1 flex justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span>
+                    {state.artisan.blacksmith.xpIntoLevel.toLocaleString()}/
+                    {state.artisan.blacksmith.xpForNext.toLocaleString()} XP
+                  </span>
+                  <span>
+                    제작 {state.artisan.blacksmith.crafts.toLocaleString()}회
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  다음에 할 일
+                </div>
+                <div className="mt-1 font-semibold text-emerald-950 dark:text-emerald-100">
+                  {nextWorkshopGoal(state)}
+                </div>
+                <div className="mt-1 text-[11px] text-emerald-800 dark:text-emerald-200">
+                  칭호: {titleGoalLine(state)}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
                   다음 차수
                 </div>
-                <div className="mt-0.5 font-semibold text-zinc-950 dark:text-zinc-100">
+                <div className="mt-1 font-semibold">
                   {nextBlacksmithJob
                     ? `${nextBlacksmithJob.tier}차 · ${nextBlacksmithJob.name}`
                     : "최종 차수"}
                 </div>
-                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                   {nextBlacksmithJob
                     ? `Lv ${nextBlacksmithJob.requiredLevel} · ${nextBlacksmithJob.role}`
                     : "모든 생산직 차수 해금"}
                 </div>
               </div>
+              <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  다음 스킬
+                </div>
+                <div className="mt-1 font-semibold">
+                  {nextBlacksmithSkill
+                    ? `Lv ${nextBlacksmithSkill.level} · ${nextBlacksmithSkill.name}`
+                    : "전부 적용"}
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {nextBlacksmithSkill?.description ?? "대장장이 패시브 완료"}
+                </div>
+              </div>
+              <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  다음 보상
+                </div>
+                <div className="mt-1 font-semibold">
+                  {nextBlacksmithReward
+                    ? `Lv ${nextBlacksmithReward.level} · ${nextBlacksmithReward.title}`
+                    : "전부 해금"}
+                </div>
+                <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {nextBlacksmithReward?.description ??
+                    "모든 대장장이 보상을 해금했습니다."}
+                </div>
+              </div>
             </div>
-            {currentEffectSummary ? (
-              <div className="mt-2 grid gap-2 sm:grid-cols-4">
+          </div>
+
+          {currentEffectSummary ? (
+            <div>
+              <div className="mb-2 font-semibold">현재 적용 효과</div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {[
                   {
-                    label: "현재 제작권",
+                    label: "제작 해금",
                     value:
                       currentEffectSummary.maxTier > 0
                         ? `T${currentEffectSummary.maxTier}`
                         : "없음",
-                    detail: `${currentEffectSummary.unlockedRecipeCount}/${currentEffectSummary.totalRecipeCount}종`,
+                    detail: `${currentEffectSummary.unlockedRecipeCount}/${currentEffectSummary.totalRecipeCount}종 · 전용 ${currentEffectSummary.craftOnlyUnlocked}종`,
                   },
                   {
-                    label: "★ 품질 확률",
+                    label: "★ 품질",
                     value: `${currentEffectSummary.normalQualityChance}%`,
-                    detail: `품질 장비 위력 +${CRAFT_QUALITY_BONUS_PCT[1]}%`,
+                    detail: `위력 +${CRAFT_QUALITY_BONUS_PCT[1]}% · 최대 ${GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%`,
                   },
                   {
                     label: "명장 제작",
                     value: currentEffectSummary.masterworkUnlocked
                       ? `${currentEffectSummary.masterworkQualityChance}%`
-                      : `Lv ${BLACKSMITH_MASTERWORK_LEVEL}`,
-                    detail: currentEffectSummary.plus2Unlocked
-                      ? "★★ 품질 개방"
-                      : "상한 확장/명장 표식",
+                      : `Lv ${BLACKSMITH_MASTERWORK_LEVEL} 필요`,
+                    detail: `품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 명장 각인`,
                   },
                   {
-                    label: "다음 레벨",
-                    value: `${Math.max(
-                      0,
-                      state.artisan.blacksmith.xpForNext -
-                        state.artisan.blacksmith.xpIntoLevel,
-                    ).toLocaleString()} XP`,
-                    detail: nextBlacksmithSkill
-                      ? `Lv ${nextBlacksmithSkill.level} ${nextBlacksmithSkill.name}`
-                      : "스킬 전부 적용",
+                    label: "★★ 품질",
+                    value: currentEffectSummary.plus2Unlocked
+                      ? `${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
+                      : `Lv ${BLACKSMITH_PLUS2_QUALITY_LEVEL} 필요`,
+                    detail: `위력 +${CRAFT_QUALITY_BONUS_PCT[2]}% · 명장 제작 전용`,
                   },
                 ].map((item) => (
                   <div
                     key={item.label}
-                    className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
+                    className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950"
                   >
-                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       {item.label}
                     </div>
-                    <div className="mt-0.5 font-semibold text-zinc-950 dark:text-zinc-100">
-                      {item.value}
-                    </div>
-                    <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="mt-1 font-semibold">{item.value}</div>
+                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                       {item.detail}
                     </div>
                   </div>
                 ))}
               </div>
-            ) : null}
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5 dark:border-sky-900 dark:bg-sky-950/30">
-                <div className="text-[10px] font-semibold text-sky-700 dark:text-sky-300">
-                  현재 적용
+            </div>
+          ) : null}
+
+          <div className="grid gap-2 lg:grid-cols-[1fr_1fr]">
+            <div>
+              <div className="mb-2 font-semibold">제작 기록</div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    누적 제작
+                  </div>
+                  <div className="mt-1 font-semibold">
+                    {workshopRecords.totalCrafts.toLocaleString()}회
+                  </div>
                 </div>
-                <div className="mt-0.5 font-semibold text-sky-950 dark:text-sky-100">
-                  스킬 {activeBlacksmithSkills.length.toLocaleString()}개
+                <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    품질 제작
+                  </div>
+                  <div className="mt-1 font-semibold">
+                    {workshopRecords.qualityCrafts.toLocaleString()}회
+                  </div>
                 </div>
-                <div className="mt-0.5 text-[11px] text-sky-800 dark:text-sky-200">
-                  {activeBlacksmithSkills
-                    .slice(-2)
-                    .map((skill) => skill.name)
-                    .join(" · ") || "기본 제작"}
+                <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    최고 기록
+                  </div>
+                  <div className="mt-1 font-semibold">
+                    {workshopRecords.highestTier > 0
+                      ? `T${workshopRecords.highestTier}`
+                      : "없음"}{" "}
+                    · {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
+                  </div>
                 </div>
               </div>
-              <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-900 dark:bg-amber-950/30">
-                <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                  다음 스킬
+              <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                제작 전용 {workshopRecords.craftOnlyCrafts.toLocaleString()}회 ·
+                명장 {workshopRecords.masterworkCrafts.toLocaleString()}회
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 font-semibold">대장간 보너스</div>
+              <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    대장간 Lv {(state.smithyLevel ?? 1).toLocaleString()} ·{" "}
+                    {state.smithyBonus?.label ?? "기본 제작"}
+                  </span>
+                  <span className="font-semibold">
+                    품질 +{state.smithyBonus?.qualityChanceBonusPct ?? 0}%p
+                  </span>
                 </div>
-                <div className="mt-0.5 font-semibold text-amber-950 dark:text-amber-100">
-                  {nextBlacksmithSkill
-                    ? `Lv ${nextBlacksmithSkill.level} · ${nextBlacksmithSkill.name}`
-                    : "전부 적용"}
-                </div>
-                <div className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
-                  {nextBlacksmithSkill?.description ?? "대장장이 패시브 완료"}
+                <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  길드 제작 {state.guildBonus.totalCrafts.toLocaleString()}회 ·
+                  누적 품질 보너스 +
+                  {state.guildBonus.qualityChanceBonusPct.toLocaleString()}%
+                  {state.guildBonus.nextTotalCrafts == null
+                    ? " · 최대 단계"
+                    : ` · 다음 보너스까지 ${Math.max(
+                        0,
+                        state.guildBonus.nextTotalCrafts -
+                          state.guildBonus.totalCrafts,
+                      ).toLocaleString()}회`}
                 </div>
               </div>
             </div>
-            <div className="mt-3 font-semibold">다음 목표</div>
-            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-              {nextWorkshopGoal(state)}
-            </div>
-            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              총 제작 {state.workshopStats.totalCrafts.toLocaleString()}회 ·
-              품질 제작 {state.workshopStats.qualityCrafts.toLocaleString()}회
-            </div>
-            <div className="mt-3 font-semibold">제작 기록</div>
-            <div className="mt-1 grid gap-1.5 sm:grid-cols-2">
-              <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  누적 제작
-                </div>
-                <div className="font-semibold">
-                  {workshopRecords.totalCrafts.toLocaleString()}회
-                </div>
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  전용 {workshopRecords.craftOnlyCrafts.toLocaleString()} · 명장{" "}
-                  {workshopRecords.masterworkCrafts.toLocaleString()}
-                </div>
-              </div>
-              <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
-                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  최고 기록
-                </div>
-                <div className="font-semibold">
-                  {workshopRecords.highestTier > 0
-                    ? `T${workshopRecords.highestTier}`
-                    : "기록 없음"}{" "}
-                  · {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
-                </div>
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  품질 제작 {workshopRecords.qualityCrafts.toLocaleString()}회
-                </div>
-              </div>
-            </div>
-            {topRecipeRecords.length > 0 ? (
-              <div className="mt-2 grid gap-1">
+          </div>
+
+          {topRecipeRecords.length > 0 ? (
+            <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+              <summary className="cursor-pointer text-sm font-semibold">
+                자주 제작한 장비
+              </summary>
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                 {topRecipeRecords.map(({ id, recipe, record }) => (
                   <div
                     key={id}
-                    className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+                    className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{recipe.itemName}</span>
@@ -1635,159 +1719,84 @@ export function GuildWorkshopPanel({
                   </div>
                 ))}
               </div>
-            ) : null}
-          </div>
-          <div>
-            <div className="font-semibold">대장장이 효과</div>
-            {currentEffectSummary ? (
-              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-                <div className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-900 dark:bg-amber-950/30">
-                  <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                    ★ 품질
-                  </div>
-                  <div className="mt-0.5 font-semibold text-amber-950 dark:text-amber-100">
-                    {currentEffectSummary.normalQualityChance}%
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
-                    위력 +5% · 일반 최대{" "}
-                    {GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%
-                  </div>
-                </div>
-                <div className="rounded border border-rose-200 bg-rose-50 px-2 py-1.5 dark:border-rose-900 dark:bg-rose-950/30">
-                  <div className="text-[10px] font-semibold text-rose-700 dark:text-rose-300">
-                    명장 제작
-                  </div>
-                  <div className="mt-0.5 font-semibold text-rose-950 dark:text-rose-100">
-                    {currentEffectSummary.masterworkUnlocked
-                      ? `${currentEffectSummary.masterworkQualityChance}%`
-                      : `Lv ${BLACKSMITH_MASTERWORK_LEVEL} 필요`}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-rose-800 dark:text-rose-200">
-                    품질 상한 {GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% ·
-                    명장 각인
-                  </div>
-                </div>
-                <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
-                  <div className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
-                    ★★ 품질
-                  </div>
-                  <div className="mt-0.5 font-semibold text-zinc-950 dark:text-zinc-100">
-                    {currentEffectSummary.plus2Unlocked
-                      ? `명장 품질 중 ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
-                      : `Lv ${BLACKSMITH_PLUS2_QUALITY_LEVEL} 필요`}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    위력 +10% · 명장 제작 전용
-                  </div>
-                </div>
-                <div className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 dark:border-emerald-900 dark:bg-emerald-950/30">
-                  <div className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                    제작 해금
-                  </div>
-                  <div className="mt-0.5 font-semibold text-emerald-950 dark:text-emerald-100">
-                    {currentEffectSummary.maxTier > 0
-                      ? `T${currentEffectSummary.maxTier}`
-                      : "없음"}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-emerald-800 dark:text-emerald-200">
-                    {currentEffectSummary.unlockedRecipeCount}/
-                    {currentEffectSummary.totalRecipeCount}종 · 전용{" "}
-                    {currentEffectSummary.craftOnlyUnlocked}종
-                  </div>
+            </details>
+          ) : null}
+
+          <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+            <summary className="cursor-pointer text-sm font-semibold">
+              세부 성장표
+            </summary>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <div>
+                <div className="font-semibold">생산직 차수</div>
+                <div className="mt-2 grid gap-1">
+                  {BLACKSMITH_ARTISAN_JOBS.map((job) => {
+                    const unlocked = blacksmithLevel >= job.requiredLevel;
+                    return (
+                      <div
+                        key={job.id}
+                        className={`rounded border px-2 py-1 ${
+                          unlocked
+                            ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">
+                            {job.tier}차 · {job.name}
+                          </span>
+                          <span className="text-[10px]">
+                            {job.id === currentBlacksmithJob.id
+                              ? "현재"
+                              : unlocked
+                                ? "해금"
+                                : job.unlockText}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] opacity-80">
+                          {job.role}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            ) : null}
-            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-              {nextBlacksmithReward
-                ? `다음 해금: Lv ${nextBlacksmithReward.level} ${nextBlacksmithReward.title}`
-                : "모든 대장장이 보상을 해금했습니다."}
+              <div>
+                <div className="font-semibold">제작 스킬</div>
+                <div className="mt-2 grid gap-1">
+                  {BLACKSMITH_ARTISAN_SKILLS.map((skill) => {
+                    const unlocked = blacksmithLevel >= skill.level;
+                    return (
+                      <div
+                        key={skill.id}
+                        className={`rounded border px-2 py-1 ${
+                          unlocked
+                            ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">
+                            Lv {skill.level} · {skill.name}
+                          </span>
+                          <span className="text-[10px]">
+                            {unlocked
+                              ? "적용 중"
+                              : skill.implemented
+                                ? `Lv ${skill.level}`
+                                : "예정"}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] opacity-80">
+                          {skill.description}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              ★ 품질 확률은 Lv1 3%, 이후 레벨당 +2%p, 길드 보너스 합산
-              최대 25%
-            </div>
-            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              대장간 Lv {(state.smithyLevel ?? 1).toLocaleString()} ·{" "}
-              {state.smithyBonus?.label ?? "기본 제작"} · 품질 보너스 +
-              {state.smithyBonus?.qualityChanceBonusPct ?? 0}%p
-            </div>
-            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              대장장이 효과는 현재 전투 직업과 무관하게 대장간 제작 시
-              적용됩니다.
-            </div>
-            <div className="mt-2 font-semibold">생산직 차수</div>
-            <div className="mt-1 grid gap-1">
-              {BLACKSMITH_ARTISAN_JOBS.map((job) => {
-                const unlocked = blacksmithLevel >= job.requiredLevel;
-                return (
-                  <div
-                    key={job.id}
-                    className={`rounded border px-2 py-1 ${
-                      unlocked
-                        ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
-                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">
-                        {job.tier}차 · {job.name}
-                      </span>
-                      <span className="text-[10px]">
-                        {job.id === currentBlacksmithJob.id
-                          ? "현재"
-                          : unlocked
-                            ? "해금"
-                            : job.unlockText}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-[11px] opacity-80">
-                      {job.role}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 font-semibold">제작 스킬</div>
-            <div className="mt-1 grid gap-1">
-              {BLACKSMITH_ARTISAN_SKILLS.map((skill) => {
-                const unlocked = blacksmithLevel >= skill.level;
-                return (
-                  <div
-                    key={skill.id}
-                    className={`rounded border px-2 py-1 ${
-                      unlocked
-                        ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">
-                        Lv {skill.level} · {skill.name}
-                      </span>
-                      <span className="text-[10px]">
-                        {unlocked
-                          ? "적용 중"
-                          : skill.implemented
-                            ? `Lv ${skill.level}`
-                            : "예정"}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap gap-1 text-[11px] opacity-80">
-                      <span>
-                        {skill.kind === "passive"
-                          ? "패시브"
-                          : skill.kind === "craftMode"
-                            ? "제작 모드"
-                            : "제작 행동"}
-                      </span>
-                      <span>·</span>
-                      <span>{skill.description}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 grid gap-1">
+            <div className="mt-3 grid gap-1 sm:grid-cols-2">
               {BLACKSMITH_REWARD_MILESTONES.map((milestone) => {
                 const unlocked = blacksmithLevel >= milestone.level;
                 return (
@@ -1796,7 +1805,7 @@ export function GuildWorkshopPanel({
                     className={`rounded border px-2 py-1 ${
                       unlocked
                         ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
-                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -1814,31 +1823,23 @@ export function GuildWorkshopPanel({
                 );
               })}
             </div>
-            <div className="mt-2 font-semibold">제작 품질 보너스</div>
-            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-              제작 {state.guildBonus.totalCrafts.toLocaleString()}회 · 품질
-              확률 +{state.guildBonus.qualityChanceBonusPct.toLocaleString()}%
+          </details>
+
+          <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+            <summary className="cursor-pointer text-sm font-semibold">
+              대장간 Lv 해금
+            </summary>
+            <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              ★ 품질 확률은 Lv1 3%, 이후 레벨당 +2%p, 길드 보너스 합산 최대
+              25%입니다. 대장장이 효과는 현재 전투 직업과 무관하게 대장간
+              제작 시 적용됩니다.
             </div>
-            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              {state.guildBonus.nextTotalCrafts == null
-                ? "최대 보너스 단계입니다."
-                : `다음 보너스까지 ${Math.max(
-                    0,
-                    state.guildBonus.nextTotalCrafts -
-                      state.guildBonus.totalCrafts,
-                  ).toLocaleString()}회 남음`}
-            </div>
-            <div className="mt-2 font-semibold">칭호 목표</div>
-            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-              {titleGoalLine(state)}
-            </div>
-            <div className="mt-2 font-semibold">다음 대장간 Lv 해금</div>
             {nextSmithyUnlockRecipes.length > 0 ? (
-              <div className="mt-1 grid gap-1">
+              <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
                 {nextSmithyUnlockRecipes.slice(0, 4).map((recipe) => (
                   <div
                     key={recipe.id}
-                    className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+                    className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{recipe.itemName}</span>
@@ -1859,11 +1860,11 @@ export function GuildWorkshopPanel({
                 ) : null}
               </div>
             ) : (
-              <div className="mt-1 text-zinc-600 dark:text-zinc-400">
+              <div className="mt-2 text-zinc-600 dark:text-zinc-400">
                 다음 대장간 레벨에 새 제작품이 없습니다.
               </div>
             )}
-          </div>
+          </details>
         </div>
       ) : null}
 

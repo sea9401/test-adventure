@@ -620,6 +620,54 @@ body {
     0 0 20px rgba(168, 85, 247, 0.16);
 }
 
+.ui-equipment-tier-badge.ui-equipment-display-tier-1 {
+  border-color: rgba(113, 113, 122, 0.32);
+  background: rgba(244, 244, 245, 0.88);
+  color: rgb(82, 82, 91);
+}
+
+.ui-equipment-tier-badge.ui-equipment-display-tier-2 {
+  border-color: rgba(14, 165, 233, 0.34);
+  background: rgba(224, 242, 254, 0.82);
+  color: rgb(3, 105, 161);
+}
+
+.ui-equipment-tier-badge.ui-equipment-display-tier-3 {
+  border-color: rgba(168, 85, 247, 0.34);
+  background: rgba(243, 232, 255, 0.82);
+  color: rgb(126, 34, 206);
+}
+
+.ui-equipment-tier-badge.ui-equipment-display-tier-4 {
+  border-color: rgba(244, 63, 94, 0.34);
+  background: rgba(255, 228, 230, 0.82);
+  color: rgb(190, 18, 60);
+}
+
+:is(.dark .ui-equipment-tier-badge.ui-equipment-display-tier-1) {
+  border-color: rgba(161, 161, 170, 0.34);
+  background: rgba(39, 39, 42, 0.88);
+  color: rgb(212, 212, 216);
+}
+
+:is(.dark .ui-equipment-tier-badge.ui-equipment-display-tier-2) {
+  border-color: rgba(56, 189, 248, 0.36);
+  background: rgba(8, 47, 73, 0.72);
+  color: rgb(125, 211, 252);
+}
+
+:is(.dark .ui-equipment-tier-badge.ui-equipment-display-tier-3) {
+  border-color: rgba(192, 132, 252, 0.36);
+  background: rgba(59, 7, 100, 0.62);
+  color: rgb(216, 180, 254);
+}
+
+:is(.dark .ui-equipment-tier-badge.ui-equipment-display-tier-4) {
+  border-color: rgba(251, 113, 133, 0.36);
+  background: rgba(76, 5, 25, 0.64);
+  color: rgb(253, 164, 175);
+}
+
 .ui-item-name-signature {
   background-image: linear-gradient(
     90deg,

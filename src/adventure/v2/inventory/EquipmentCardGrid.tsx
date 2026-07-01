@@ -32,6 +32,7 @@ import {
   anchorOf,
   CraftOnlyBadge,
   CraftQualityBadge,
+  EquipmentTierBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
   powerNameClass,
@@ -163,6 +164,7 @@ export function EquipmentCardGrid({
               <ItemTypeChip item={item} />
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <EquipmentTierBadge tier={item.tier} compact />
               <EnhanceLevelBadge enhance={inst.enhance} />
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}

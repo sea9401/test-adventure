@@ -6,6 +6,7 @@ import { parseAmount } from "@/components/ui/NumberInput";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
+  EquipmentTierBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
   powerNameClass,
@@ -90,6 +91,9 @@ export function EquipmentListingCard({
               >
                 {V2_EQUIPMENT[inst.id]?.name ?? inst.id}
               </span>
+              {item ? (
+                <EquipmentTierBadge tier={item.tier} compact className="ml-1.5" />
+              ) : null}
               <EnhanceLevelBadge enhance={inst.enhance} className="ml-1.5" />
               <CraftQualityBadge craftQuality={inst.craftQuality} className="ml-1" />
               {inst.craftedBy?.masterwork ? <MasterworkBadge className="ml-1" /> : null}

@@ -32,6 +32,7 @@ import {
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
+  EquipmentTierBadge,
   EnhanceLevelBadge,
   MasterworkBadge,
   QualityPctText,
@@ -845,6 +846,7 @@ function BuyConfirm({
             >
               {listing.itemName}
             </span>
+            {item ? <EquipmentTierBadge tier={item.tier} compact /> : null}
             <EnhanceLevelBadge enhance={detail?.enhance} />
             <CraftQualityBadge craftQuality={detail?.craftQuality} />
             {craftedBy?.masterwork ? <MasterworkBadge /> : null}
@@ -1075,6 +1077,7 @@ function ListingList({
               >
                 {l.itemName}
               </span>
+              {item ? <EquipmentTierBadge tier={item.tier} compact /> : null}
               <EnhanceLevelBadge enhance={detail?.enhance} />
               <CraftQualityBadge craftQuality={detail?.craftQuality} />
               {craftedBy?.masterwork ? <MasterworkBadge /> : null}

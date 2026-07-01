@@ -26,6 +26,7 @@ import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
+  EquipmentTierBadge,
   EnhanceLevelBadge,
   GAP,
   MARGIN,
@@ -151,6 +152,7 @@ export function V2ItemCard({
               {item.name}
             </h2>
             <div className="flex flex-wrap items-center gap-1.5">
+              <EquipmentTierBadge tier={item.tier} />
               <ItemTypeChip item={item} />
               <EnhanceLevelBadge enhance={enhance} />
               <CraftQualityBadge craftQuality={craftQuality} />
@@ -405,4 +407,3 @@ export function V2ItemCard({
     </>
   );
 }
-

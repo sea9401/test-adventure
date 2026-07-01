@@ -60,7 +60,12 @@ import { CRAFT_ONLY_CODEX_REWARDS } from "@/adventure/data/v2/equipmentCodex";
 import { GUILD_WORKSHOP_MATERIALS } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  EquipmentTierBadge,
+  V2ItemCard,
+  anchorOf,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 import { FishIcon } from "@/adventure/v2/FishIcon";
 import {
   FISH,
@@ -1210,6 +1215,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         </div>
                         <div className="min-w-0 truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-100">
                           {item.name}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <EquipmentTierBadge tier={item.tier} compact />
                         </div>
                         <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
                           {v2ItemTypeLabel(item)} · 위력 {item.power} · 무게{" "}

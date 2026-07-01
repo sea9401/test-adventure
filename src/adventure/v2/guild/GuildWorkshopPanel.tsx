@@ -155,7 +155,7 @@ export function GuildWorkshopPanel({
   const [dismantleResult, setDismantleResult] =
     useState<DismantleResultView | null>(null);
   const [dismantleScopeFilter, setDismantleScopeFilter] =
-    useState<DismantleScopeFilter>("can");
+    useState<DismantleScopeFilter>("all");
   const [dismantleTierFilter, setDismantleTierFilter] =
     useState<DismantleTierFilter>("all");
   const [dismantleSort, setDismantleSort] = useState<DismantleSortMode>("tier");

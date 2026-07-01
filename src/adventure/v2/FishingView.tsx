@@ -88,11 +88,9 @@ function missMessage(reason: string): string {
 
 const TAU = Math.PI * 2;
 const FISHING_POND_SRC = "/images/ui/fishing-pond.webp";
-const FISHING_ROD_GRIP_SRC = "/images/ui/fishing-rod-grip.webp";
 
 type FishingSceneAssets = {
   pond: HTMLImageElement | null;
-  rodGrip: HTMLImageElement | null;
 };
 
 function clamp01(value: number): number {
@@ -280,88 +278,79 @@ function drawPondBackdrop(
 
 function drawRodGrip(
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
+  baseX: number,
+  baseY: number,
+  angle: number,
   motion: number,
-  image: HTMLImageElement | null,
   scale = 1,
 ) {
-  const baseX = width * 0.86;
-  const baseY = height * 0.2;
+  const wobble = motion * 0.035;
+  const handleLength = 44 * scale;
+  const handleWidth = 8.5 * scale;
+  const reelRadius = 10 * scale;
+
   ctx.save();
   ctx.translate(baseX, baseY);
-  ctx.rotate(-0.08 + motion * 0.045);
+  ctx.rotate(angle + wobble);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
-  if (image?.complete) {
-    const imageWidth = image.naturalWidth || image.width;
-    const imageHeight = image.naturalHeight || image.height;
-    const sourceX = 0;
-    const sourceY = Math.min(390, imageHeight * 0.32);
-    const sourceWidth = Math.min(1040, imageWidth);
-    const sourceHeight = Math.min(620, imageHeight - sourceY);
-    const spriteWidth = Math.min(width * 0.36, height * 0.58) * scale;
-    const spriteHeight = spriteWidth * (sourceHeight / sourceWidth);
-    ctx.imageSmoothingEnabled = true;
-    ctx.shadowColor = "rgba(15, 23, 42, 0.26)";
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-    ctx.scale(-1, 1);
-    ctx.drawImage(
-      image,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-      -spriteWidth * 0.34,
-      -spriteHeight * 0.48,
-      spriteWidth,
-      spriteHeight,
-    );
-    ctx.restore();
-    return;
-  }
-
-  ctx.rotate(-0.2 + motion * 0.05);
-  ctx.imageSmoothingEnabled = false;
-
-  ctx.fillStyle = "rgba(23, 37, 42, 0.24)";
+  ctx.fillStyle = "rgba(15, 23, 42, 0.24)";
   ctx.beginPath();
-  ctx.ellipse(7, 15, 25, 5, 0, 0, TAU);
+  ctx.ellipse(-handleLength * 0.36, handleWidth * 1.8, handleLength * 0.48, 4.2 * scale, 0.08, 0, TAU);
   ctx.fill();
 
-  ctx.strokeStyle = "#2f1a0b";
-  ctx.lineWidth = 8;
-  ctx.lineCap = "round";
+  ctx.strokeStyle = "#241407";
+  ctx.lineWidth = handleWidth + 4 * scale;
   ctx.beginPath();
-  ctx.moveTo(-8, 7);
-  ctx.lineTo(35, 22);
+  ctx.moveTo(-handleLength, 0);
+  ctx.lineTo(9 * scale, 0);
   ctx.stroke();
 
-  ctx.strokeStyle = "#7c4a21";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#a9632a";
+  ctx.lineWidth = handleWidth;
   ctx.beginPath();
-  ctx.moveTo(-6, 4);
-  ctx.lineTo(32, 17);
+  ctx.moveTo(-handleLength + 2 * scale, -0.7 * scale);
+  ctx.lineTo(6 * scale, -0.7 * scale);
   ctx.stroke();
 
-  ctx.fillStyle = "#f1c27d";
-  ctx.fillRect(9, 13, 17, 9);
-  ctx.fillStyle = "rgba(120, 53, 15, 0.38)";
-  ctx.fillRect(22, 14, 5, 7);
+  ctx.strokeStyle = "rgba(255, 237, 213, 0.34)";
+  ctx.lineWidth = 1.2 * scale;
+  for (let mark = -handleLength + 8 * scale; mark < 0; mark += 9 * scale) {
+    ctx.beginPath();
+    ctx.moveTo(mark, -handleWidth * 0.42);
+    ctx.lineTo(mark + 3 * scale, handleWidth * 0.36);
+    ctx.stroke();
+  }
 
-  ctx.strokeStyle = "#374151";
-  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = "#0f172a";
+  ctx.lineWidth = 3.2 * scale;
   ctx.beginPath();
-  ctx.arc(5, 8, 8, 0, TAU);
+  ctx.moveTo(-7 * scale, 0);
+  ctx.lineTo(-9 * scale, 11 * scale);
   ctx.stroke();
-  ctx.fillStyle = "#111827";
-  ctx.fillRect(3, 6, 4, 4);
+
+  ctx.fillStyle = "#d1d5db";
   ctx.strokeStyle = "#111827";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.2 * scale;
   ctx.beginPath();
-  ctx.moveTo(11, 13);
-  ctx.lineTo(16, 17 + motion * 2);
+  ctx.arc(-10 * scale, 17 * scale, reelRadius, 0, TAU);
+  ctx.fill();
   ctx.stroke();
+
+  ctx.fillStyle = "#475569";
+  ctx.beginPath();
+  ctx.arc(-10 * scale, 17 * scale, reelRadius * 0.46, 0, TAU);
+  ctx.fill();
+
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath();
+  ctx.moveTo(-18 * scale, 22 * scale);
+  ctx.lineTo(-26 * scale, 29 * scale + motion * 1.5);
+  ctx.lineTo(-30 * scale, 27 * scale + motion * 1.5);
+  ctx.stroke();
+
   ctx.restore();
 }
 
@@ -625,8 +614,8 @@ function drawFishingCanvasScene(
     bobberY = lerp(bobberRestY, waterY + height * 0.1, liftProgress) + liftPulse * 5;
   }
 
-  const rodBaseX = width * 0.88;
-  const rodBaseY = height * 0.19;
+  const rodBaseX = width * 0.84;
+  const rodBaseY = height * 0.55;
   const castWindup = casting ? Math.sin(castProgress * Math.PI) : 0;
   const rodTipX = bobberX - 18 + (casting ? (1 - castProgress) * 34 : 0);
   const rodTipY =
@@ -652,10 +641,11 @@ function drawFishingCanvasScene(
         : tapSnap > 0
           ? 0.72
           : 0.18;
-  const rodControl1X = width * 0.76;
-  const rodControl1Y = height * 0.26 + bend * 0.15;
-  const rodControl2X = width * 0.62;
+  const rodControl1X = lerp(rodBaseX, rodTipX, 0.32);
+  const rodControl1Y = rodBaseY - height * 0.16 + bend * 0.15;
+  const rodControl2X = lerp(rodBaseX, rodTipX, 0.68);
   const rodControl2Y = rodTipY + bend;
+  const rodBaseAngle = Math.atan2(rodControl1Y - rodBaseY, rodControl1X - rodBaseX);
   drawRodShaft(
     ctx,
     rodBaseX,
@@ -672,10 +662,10 @@ function drawFishingCanvasScene(
   drawFishingLine(ctx, rodTipX, rodTipY, bobberX, bobberY, lineTension, biting ? biteTremor : 0, tapSnap);
   drawRodGrip(
     ctx,
-    width,
-    height,
+    rodBaseX,
+    rodBaseY,
+    rodBaseAngle,
     biting ? 0.7 : resolving ? -0.55 : casting ? 0.35 : cuePulse * 0.22,
-    assets.rodGrip,
     biting ? 1.03 : 1,
   );
 
@@ -754,7 +744,7 @@ function FishingSceneCanvas({
   const phaseStartedAtRef = useRef(0);
   const preBiteStartedAtRef = useRef(-Infinity);
   const tapStartedAtRef = useRef(-Infinity);
-  const assetsRef = useRef<FishingSceneAssets>({ pond: null, rodGrip: null });
+  const assetsRef = useRef<FishingSceneAssets>({ pond: null });
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -792,7 +782,6 @@ function FishingSceneCanvas({
       image.src = src;
     };
     loadImage("pond", FISHING_POND_SRC);
-    loadImage("rodGrip", FISHING_ROD_GRIP_SRC);
 
     const draw = (now: number) => {
       const rect = wrap.getBoundingClientRect();
@@ -883,14 +872,15 @@ function drawResultCanvasScene(
   ctx.fillStyle = caught ? "rgba(255, 255, 255, 0.08)" : "rgba(37, 99, 235, 0.08)";
   ctx.fillRect(0, 0, width, height);
 
-  const rodBaseX = width * 0.87;
-  const rodBaseY = height * 0.22;
+  const rodBaseX = width * 0.84;
+  const rodBaseY = height * 0.55;
   const rodTipX = centerX + 12;
   const rodTipY = caught ? waterY - 32 - easeOutCubic(p) * 22 : waterY - 15;
-  const rodControl1X = width * 0.73;
-  const rodControl1Y = rodBaseY + 12;
-  const rodControl2X = width * 0.62;
-  const rodControl2Y = rodTipY - 12;
+  const rodControl1X = lerp(rodBaseX, rodTipX, 0.32);
+  const rodControl1Y = rodBaseY - height * 0.18;
+  const rodControl2X = lerp(rodBaseX, rodTipX, 0.68);
+  const rodControl2Y = rodTipY - (caught ? 16 : 6);
+  const rodBaseAngle = Math.atan2(rodControl1Y - rodBaseY, rodControl1X - rodBaseX);
   drawRodShaft(
     ctx,
     rodBaseX,
@@ -913,7 +903,7 @@ function drawResultCanvasScene(
     caught ? Math.sin(t * 16) * 0.5 : 0,
     0,
   );
-  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25, assets.rodGrip, 0.94);
+  drawRodGrip(ctx, rodBaseX, rodBaseY, rodBaseAngle, caught ? -0.65 : 0.25, 0.94);
 
   if (caught) {
     drawFishShadow(
@@ -942,7 +932,7 @@ function FishingResultScene({ result }: { result: ReelOutcome | null }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const resultRef = useRef(result);
-  const assetsRef = useRef<FishingSceneAssets>({ pond: null, rodGrip: null });
+  const assetsRef = useRef<FishingSceneAssets>({ pond: null });
 
   useEffect(() => {
     resultRef.current = result;
@@ -967,7 +957,6 @@ function FishingResultScene({ result }: { result: ReelOutcome | null }) {
       image.src = src;
     };
     loadImage("pond", FISHING_POND_SRC);
-    loadImage("rodGrip", FISHING_ROD_GRIP_SRC);
 
     const draw = (now: number) => {
       const rect = wrap.getBoundingClientRect();

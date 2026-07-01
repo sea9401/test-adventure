@@ -552,6 +552,7 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { str: 22, dex: 10 },
       evasionPct: 20,
       accuracyPct: 12,
+      comboFinisherBonusPct: 30,
     });
   });
 
@@ -741,6 +742,14 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
     // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
+  });
+
+  it("aggregateEquippedPassives — 천룡의 호흡이 절초 보너스를 합산", () => {
+    expect(
+      aggregateEquippedPassives(["v2c_celestialdragon_breath"])
+        .comboFinisherBonusPct,
+    ).toBe(30);
+    expect(aggregateEquippedPassives([]).comboFinisherBonusPct).toBe(0);
   });
 
   it("수호자(warden) 킷 — 수호의 방벽(보호막) + 가시 방벽(반사)", () => {

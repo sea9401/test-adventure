@@ -284,6 +284,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveSpdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
   passiveSkillCritOverflow?: boolean;
+  /** 절초 — 누적 적중 4타째마다 해당 타격 피해 +%. 장착 패시브에서 주입. */
+  passiveComboFinisherBonusPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -681,8 +683,13 @@ export function derivePlayerCombatV2Pure(
       ? { comboAtkPctPerHit: specEff.comboAtkPctPerHit }
       : {}),
     // 절초 — 엔진이 N타째 본타에 마무리 강타 데미지 가산.
-    ...(specEff.comboFinisherBonusPct
-      ? { comboFinisherBonusPct: specEff.comboFinisherBonusPct }
+    ...((specEff.comboFinisherBonusPct ?? 0) +
+      (input.passiveComboFinisherBonusPct ?? 0)
+      ? {
+          comboFinisherBonusPct:
+            (specEff.comboFinisherBonusPct ?? 0) +
+            (input.passiveComboFinisherBonusPct ?? 0),
+        }
       : {}),
     // 주문 중첩 — 엔진이 스킬 시전 누적당 스킬 데미지 가산.
     ...(specEff.skillDmgPctPerCast
@@ -808,6 +815,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.enemyMagicVulnPctPerStack,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
+    passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,
   });
 }
 

@@ -56,6 +56,7 @@ import {
   makeBleedDot,
   makePoisonDot,
   potionHealAmount,
+  applyComboFinisherToHits,
   resolveV2SkillCast,
   distributeBoostedHits,
   rollAttackCount,
@@ -171,6 +172,8 @@ export type PvPSideStacks = {
   // 주문 중첩(워메이지) — 이 side(시전자)의 누적 스킬 시전 횟수. 스택당 스킬피해 +skillDmgPctPerCast%.
   // 감쇠 없음·SPELL_STACK_CAP 상한.
   spellCastCount: number;
+  // 절초 — 누적 적중 4타째마다 피해 증폭. PvE BattleStacks.comboHitCount 미러.
+  comboHitCount: number;
   // 고유 시그니처(포식자) — 이 side 의 누적 적중 횟수(N타마다 추가타·Phase 2). 미장착=0 고정 → byte-identical.
   signatureHitCount: number;
 };
@@ -440,6 +443,7 @@ function buildSide(
       healReduceTurns: 0,
       magicVulnStacks: 0,
       spellCastCount: 0,
+      comboHitCount: 0,
       signatureHitCount: 0,
     },
   };
@@ -1528,18 +1532,26 @@ export function castV2SkillOnAttackerTurnPvP(
           : SKILL_CRIT_MULT
         : 1),
   );
-  const skillDamage = singleSkillDamage * skillHitCount;
+  let nextComboHitCount = side.stacks.comboHitCount;
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
-    nextOppHp = Math.max(0, nextOppHp - skillDamage);
     // 다단 스킬은 타마다 한 줄(PvE 미러). 부스트는 타당 raw 비율 분배(합 = 1회분 singleSkillDamage).
     // 다단히트(추가 공격)면 1회분 타격 묶음을 skillHitCount 번 반복.
     const singleHits =
       result.hitDamages.length > 1
         ? distributeBoostedHits(result.hitDamages, singleSkillDamage)
         : [singleSkillDamage];
-    const perHit: number[] = [];
-    for (let h = 0; h < skillHitCount; h++) perHit.push(...singleHits);
+    const repeatedHits: number[] = [];
+    for (let h = 0; h < skillHitCount; h++) repeatedHits.push(...singleHits);
+    const comboResult = applyComboFinisherToHits(
+      repeatedHits,
+      side.stacks.comboHitCount,
+      side.player.comboFinisherBonusPct,
+    );
+    const perHit = comboResult.hitDamages;
+    nextComboHitCount = comboResult.nextComboHitCount;
+    const skillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
+    nextOppHp = Math.max(0, nextOppHp - skillDamage);
     for (const hit of perHit) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
@@ -1649,6 +1661,7 @@ export function castV2SkillOnAttackerTurnPvP(
       (side.player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
         ? Math.min(SPELL_STACK_CAP, side.stacks.spellCastCount + 1)
         : side.stacks.spellCastCount,
+    comboHitCount: nextComboHitCount,
   };
   if (shieldGain > 0) {
     nextLog = appendLog(nextLog, {

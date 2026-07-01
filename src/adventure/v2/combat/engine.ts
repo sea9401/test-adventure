@@ -16,6 +16,7 @@ import {
   makeBleedDot,
   makePoisonDot,
   potionHealAmount,
+  applyComboFinisherToHits,
   resolveV2SkillCast,
   type V2SkillCastResult,
   distributeBoostedHits,
@@ -1367,7 +1368,7 @@ export function applyPlayerV2SkillCast(
           : SKILL_CRIT_MULT
         : 1),
   );
-  const boostedSkillDamage = singleSkillDamage * skillHitCount;
+  let nextComboHitCount = state.stacks.comboHitCount;
   // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
   const nextSpellCastCount =
     (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
@@ -1408,15 +1409,23 @@ export function applyPlayerV2SkillCast(
   // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
   //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
   if (result.enemyDamage > 0 && result.castSkillName) {
-    nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
     // 다단 스킬은 타마다 한 줄. 부스트는 타당 raw 비율로 분배(합 = 1회분 singleSkillDamage).
     // 다단히트(추가 공격)면 1회분 타격 묶음을 skillHitCount 번 반복해 보여준다.
     const singleHits =
       result.hitDamages.length > 1
         ? distributeBoostedHits(result.hitDamages, singleSkillDamage)
         : [singleSkillDamage];
-    const perHit: number[] = [];
-    for (let h = 0; h < skillHitCount; h++) perHit.push(...singleHits);
+    const repeatedHits: number[] = [];
+    for (let h = 0; h < skillHitCount; h++) repeatedHits.push(...singleHits);
+    const comboResult = applyComboFinisherToHits(
+      repeatedHits,
+      state.stacks.comboHitCount,
+      player.comboFinisherBonusPct,
+    );
+    const perHit = comboResult.hitDamages;
+    nextComboHitCount = comboResult.nextComboHitCount;
+    const boostedSkillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
+    nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
     for (const hit of perHit) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
@@ -1579,6 +1588,7 @@ export function applyPlayerV2SkillCast(
     stacks: {
       // PR2-B-2c — 운기/연환집중/선풍각/속박 temp 버프 갱신.
       ...applySkillTempBuffs(state.stacks, result),
+      comboHitCount: nextComboHitCount,
       spellCastCount: nextSpellCastCount,
       enemyMagicVulnStacks: nextMagicVulnStacks,
       // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.

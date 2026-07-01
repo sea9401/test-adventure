@@ -23,6 +23,7 @@ import {
 import {
   BLEED_ATK_COEF_PER_STACK,
   BLEED_MAX_STACKS,
+  COMBO_FINISHER_PERIOD,
   POISON_CAP_ATK_COEF,
   POISON_MAX_STACKS,
 } from "@/adventure/data/v2/v2CombatConstants";
@@ -1027,6 +1028,27 @@ export function distributeBoostedHits(
   }
   out.push(boostedTotal - allocated); // 마지막 칸이 나머지 흡수 → 합 정확.
   return out;
+}
+
+// 절초 — 평타와 액티브 다단타가 같은 누적 적중 카운터를 공유한다.
+// 피해가 0 이하인 분배 타격은 로그에도 표시되지 않으므로 카운터에서도 제외한다.
+export function applyComboFinisherToHits(
+  rawHits: readonly number[],
+  comboHitCount: number,
+  bonusPct: number | undefined,
+): { hitDamages: number[]; nextComboHitCount: number } {
+  const pct = bonusPct ?? 0;
+  if (pct <= 0) {
+    return { hitDamages: [...rawHits], nextComboHitCount: comboHitCount };
+  }
+  let nextComboHitCount = comboHitCount;
+  const hitDamages = rawHits.map((hit) => {
+    if (hit <= 0) return hit;
+    nextComboHitCount += 1;
+    if (nextComboHitCount % COMBO_FINISHER_PERIOD !== 0) return hit;
+    return Math.max(1, Math.floor(hit * (1 + pct / 100)));
+  });
+  return { hitDamages, nextComboHitCount };
 }
 
 // V2BuffMap 갱신 — selfBuff/enemyDebuff effect 의 결과를 stat 키에 박는다.

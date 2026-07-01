@@ -11,6 +11,7 @@ import {
   FISHING_ROD_IDS,
   FISHING_RODS,
   type FishingGearBonuses,
+  type FishingProgressionView,
 } from "./fishingProgression";
 import type {
   BuyResult,
@@ -35,6 +36,13 @@ function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
   if (bonuses.specialWeightPct)
     labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
   return labels.length > 0 ? labels : ["기본"];
+}
+
+function levelBonusLabels(progression: FishingProgressionView): string[] {
+  return [
+    `씨알 +${progression.levelBonuses.sizeBonusPct}%`,
+    `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
+  ];
 }
 
 export function FishingShopView({
@@ -167,12 +175,22 @@ export function FishingShopView({
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {bonusLabels(progression.bonuses).map((label) => (
+                  {levelBonusLabels(progression).map((label) => (
                     <span
                       key={label}
                       className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/50 dark:text-sky-200"
                     >
-                      {label}
+                      숙련도 효과 · {label}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {bonusLabels(progression.bonuses).map((label) => (
+                    <span
+                      key={label}
+                      className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    >
+                      장착 총합 · {label}
                     </span>
                   ))}
                 </div>

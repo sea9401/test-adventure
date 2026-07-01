@@ -235,6 +235,13 @@ const TASK_KIND_LABEL: Record<FishingProgressNotice["kind"], string> = {
   goal: "누적 목표",
 };
 
+function levelBonusLabels(progression: FishingProgressionView): string[] {
+  return [
+    `씨알 +${progression.levelBonuses.sizeBonusPct}%`,
+    `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
+  ];
+}
+
 export function FishingView({
   cast,
   reel,
@@ -378,39 +385,75 @@ export function FishingView({
       <MulttaeBadge />
 
       {progression ? (
-        <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-900/60 dark:bg-sky-950/30">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
-                낚시 Lv {progression.level}
+        <>
+          <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-sky-950/30 sm:hidden">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 font-bold text-sky-900 dark:text-sky-100">
+                Lv {progression.level}
+              </span>
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
+                <div
+                  className="h-full rounded-full bg-sky-500 transition-[width]"
+                  style={{
+                    width: `${Math.round(
+                      (progression.xpIntoLevel / progression.xpForNext) * 100,
+                    )}%`,
+                  }}
+                />
               </div>
-              <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {progression.catches.toLocaleString()}마리 ·{" "}
-                {progression.xpIntoLevel}/{progression.xpForNext} XP
-              </div>
-            </div>
-            <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
-              <div className="truncate">
-                {FISHING_RODS[progression.equippedRodId].name}
-              </div>
-              <div className="truncate">
-                {FISHING_LURES[progression.equippedLureId].name}
-              </div>
+              <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
+                씨알 +{progression.levelBonuses.sizeBonusPct}%
+              </span>
+              <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
+                손님 +{progression.levelBonuses.specialWeightPct}%
+              </span>
             </div>
           </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
-            <div
-              className="h-full rounded-full bg-sky-500 transition-[width]"
-              style={{
-                width: `${Math.round(
-                  (progression.xpIntoLevel / progression.xpForNext) * 100,
-                )}%`,
-              }}
-            />
+
+          <div className="hidden rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-900/60 dark:bg-sky-950/30 sm:block">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
+                  낚시 Lv {progression.level}
+                </div>
+                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {progression.catches.toLocaleString()}마리 ·{" "}
+                  {progression.xpIntoLevel}/{progression.xpForNext} XP
+                </div>
+              </div>
+              <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
+                <div className="truncate">
+                  {FISHING_RODS[progression.equippedRodId].name}
+                </div>
+                <div className="truncate">
+                  {FISHING_LURES[progression.equippedLureId].name}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
+              <div
+                className="h-full rounded-full bg-sky-500 transition-[width]"
+                style={{
+                  width: `${Math.round(
+                    (progression.xpIntoLevel / progression.xpForNext) * 100,
+                  )}%`,
+                }}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {levelBonusLabels(progression).map((label) => (
+                <span
+                  key={label}
+                  className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200"
+                >
+                  숙련도 효과 · {label}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       ) : progressionLoading ? (
-        <div className="rounded-xl border border-zinc-200 p-3 text-center text-xs text-zinc-400 dark:border-zinc-800">
+        <div className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-center text-[11px] text-zinc-400 dark:border-zinc-800 sm:rounded-xl sm:p-3 sm:text-xs">
           낚시 숙련도 불러오는 중…
         </div>
       ) : null}

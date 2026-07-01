@@ -161,6 +161,10 @@ function jreq(body: unknown): Request {
   });
 }
 
+function getReq(path = "/api/v2/outpost/village"): Request {
+  return new Request(`http://t${path}`);
+}
+
 type AnyJson = Record<string, unknown>;
 
 function setOwner(outpostId: string, guildId: number | null) {
@@ -227,7 +231,7 @@ afterEach(() => {
 describe("GET /api/v2/outpost/village", () => {
   it("미인증 → 401", async () => {
     vi.mocked(ensureUser).mockResolvedValueOnce(null);
-    const res = await GET();
+    const res = await GET(getReq());
     expect(res.status).toBe(401);
     expect(((await res.json()) as AnyJson).error).toBe("unauthorized");
   });
@@ -242,7 +246,7 @@ describe("GET /api/v2/outpost/village", () => {
     resourcesByGuild.set(MY_GUILD, { crop: 7 });
     guildGold.set(MY_GUILD, 123_456);
 
-    const res = await GET();
+    const res = await GET(getReq());
     expect(res.status).toBe(200);
     const json = (await res.json()) as AnyJson & {
       villages: Array<{
@@ -275,7 +279,7 @@ describe("GET /api/v2/outpost/village", () => {
   it("길드 없음 — 빈 목록/빈 재화/0 골드", async () => {
     const { getGuildId } = await import("@/lib/server/v2EnsureSoloGuild");
     vi.mocked(getGuildId).mockResolvedValueOnce(null);
-    const res = await GET();
+    const res = await GET(getReq());
     const json = (await res.json()) as AnyJson;
     expect(json.ok).toBe(true);
     expect(json.villages).toEqual([]);
@@ -731,7 +735,7 @@ describe("정착지 라이프사이클 end-to-end", () => {
     expect(up.resources).toEqual({ crop: 1, ore: 2 });
 
     // 4) GET — city·해금 칸 1.
-    res = await GET();
+    res = await GET(getReq());
     const after = (await res.json()) as {
       villages: Array<{
         outpostId: string;

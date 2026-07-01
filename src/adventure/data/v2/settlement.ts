@@ -66,6 +66,7 @@ export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 // 현재는 "마을별 1슬롯에 무엇을 둘지"를 저장/표시하는 골격만 둔다. 실제 제작/연구 효과는 후속 PR.
 export type SettlementBuildingId =
   | "guild_smithy"
+  | "training_ground"
   | "alchemy_workshop"
   | "woodworks";
 
@@ -91,7 +92,13 @@ export const SETTLEMENT_BUILDINGS: Record<
     id: "guild_smithy",
     name: "길드 대장간",
     icon: "⚒️",
-    desc: "장비 제작과 장인 배치를 위한 영지 시설입니다. 효과는 후속 업데이트에서 연결됩니다.",
+    desc: "장비 제작과 대장장이 성장을 위한 영지 시설입니다.",
+  },
+  training_ground: {
+    id: "training_ground",
+    name: "훈련장",
+    icon: "🎯",
+    desc: "길드원이 매일 현재 직업 숙련도 훈련을 받을 수 있는 영지 시설입니다.",
   },
   alchemy_workshop: {
     id: "alchemy_workshop",
@@ -111,6 +118,7 @@ export const SETTLEMENT_BUILDING_IDS = Object.keys(
 ) as SettlementBuildingId[];
 export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_smithy",
+  "training_ground",
 ];
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
@@ -161,6 +169,56 @@ export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
   },
 ];
 
+export type TrainingGroundUpgradeDef = {
+  level: number;
+  cost: Partial<Record<ProductionKind, number>>;
+  trainingRewardBonusPct: number;
+  unlockedDrillCount: number;
+  label: string;
+};
+
+export const TRAINING_GROUND_UPGRADES: readonly TrainingGroundUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    trainingRewardBonusPct: 0,
+    unlockedDrillCount: 1,
+    label: "기초 훈련장",
+  },
+  {
+    level: 2,
+    cost: { crop: 700, ore: 700 },
+    trainingRewardBonusPct: 10,
+    unlockedDrillCount: 1,
+    label: "장비 훈련 구역",
+  },
+  {
+    level: 3,
+    cost: { crop: 1800, ore: 1800 },
+    trainingRewardBonusPct: 20,
+    unlockedDrillCount: 2,
+    label: "실전 교관 배치",
+  },
+  {
+    level: 4,
+    cost: { crop: 4200, ore: 4200 },
+    trainingRewardBonusPct: 35,
+    unlockedDrillCount: 2,
+    label: "전술 훈련장",
+  },
+  {
+    level: 5,
+    cost: { crop: 8200, ore: 8200 },
+    trainingRewardBonusPct: 50,
+    unlockedDrillCount: 3,
+    label: "정예 훈련소",
+  },
+];
+
+export type AnySettlementBuildingUpgradeDef =
+  | SettlementBuildingUpgradeDef
+  | TrainingGroundUpgradeDef;
+
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
   return Math.min(MAX_SETTLEMENT_BUILDING_LEVEL, Math.max(1, n));
@@ -204,6 +262,51 @@ export function nextGuildSmithyUpgrade(
   return (
     GUILD_SMITHY_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ?? null
   );
+}
+
+export function trainingGroundUpgradeForLevel(
+  level: number,
+): TrainingGroundUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    TRAINING_GROUND_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    TRAINING_GROUND_UPGRADES[0]
+  );
+}
+
+export function nextTrainingGroundUpgrade(
+  level: number,
+): TrainingGroundUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    TRAINING_GROUND_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ??
+    null
+  );
+}
+
+export function nextSettlementBuildingUpgrade(
+  buildingId: SettlementBuildingId,
+  level: number,
+): AnySettlementBuildingUpgradeDef | null {
+  if (buildingId === "training_ground") {
+    return nextTrainingGroundUpgrade(level);
+  }
+  if (buildingId === "guild_smithy") {
+    return nextGuildSmithyUpgrade(level);
+  }
+  return null;
+}
+
+export function settlementBuildingUpgradeSummary(
+  buildingId: SettlementBuildingId,
+  upgrade: AnySettlementBuildingUpgradeDef,
+): string {
+  if (buildingId === "training_ground") {
+    const training = upgrade as TrainingGroundUpgradeDef;
+    return `훈련 보상 +${training.trainingRewardBonusPct}% · 과제 ${training.unlockedDrillCount}개`;
+  }
+  const smithy = upgrade as SettlementBuildingUpgradeDef;
+  return `품질 +${smithy.qualityChanceBonusPct}%p`;
 }
 
 export function settlementBuildingUpgradeCostText(

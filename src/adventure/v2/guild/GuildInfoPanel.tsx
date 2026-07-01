@@ -20,6 +20,15 @@ export function GuildInfoPanel({
   onRefresh: () => void;
 }) {
   const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
+  const trainingCount = info?.settlementBuildings?.training_ground ?? 0;
+  const facilityLabels = [
+    smithyCount > 0
+      ? `${SETTLEMENT_BUILDINGS.guild_smithy.icon} ${SETTLEMENT_BUILDINGS.guild_smithy.name} ×${smithyCount}`
+      : null,
+    trainingCount > 0
+      ? `${SETTLEMENT_BUILDINGS.training_ground.icon} ${SETTLEMENT_BUILDINGS.training_ground.name} ×${trainingCount}`
+      : null,
+  ].filter((label): label is string => Boolean(label));
 
   return info?.guild ? (
     <div className="space-y-3">
@@ -60,9 +69,7 @@ export function GuildInfoPanel({
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-zinc-500 dark:text-zinc-400">영지 시설</dt>
             <dd className="truncate font-medium">
-              {smithyCount > 0
-                ? `${SETTLEMENT_BUILDINGS.guild_smithy.icon} ${SETTLEMENT_BUILDINGS.guild_smithy.name} ×${smithyCount}`
-                : "없음"}
+              {facilityLabels.length > 0 ? facilityLabels.join(" · ") : "없음"}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">

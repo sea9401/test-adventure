@@ -11,8 +11,9 @@ import {
 } from "@/lib/server/v2Settlement";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import {
-  nextGuildSmithyUpgrade,
   PRODUCTION_KINDS,
+  SETTLEMENT_BUILDINGS,
+  nextSettlementBuildingUpgrade,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
   settlementBuildingSlot,
@@ -43,7 +44,7 @@ function spendCost(
 }
 
 // POST /api/v2/outpost/village/building/upgrade — body { outpostId, slot }
-// 현재는 길드 대장간만 업그레이드한다. 비용은 길드 정착지 재화에서 차감.
+// 영지 건축물 업그레이드. 비용은 길드 정착지 재화에서 차감한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -81,13 +82,15 @@ export async function POST(req: Request) {
       }
       const village = normalizeVillageOwner(loaded, guildId);
       const building = village.buildings[slot];
-      if (settlementBuildingIdOf(building) !== "guild_smithy") {
+      const buildingId = settlementBuildingIdOf(building);
+      if (!buildingId) {
         return {
           status: 409,
-          body: { ok: false as const, error: "smithy_required" },
+          body: { ok: false as const, error: "building_required" },
         };
       }
-      const nextUpgrade = nextGuildSmithyUpgrade(
+      const nextUpgrade = nextSettlementBuildingUpgrade(
+        buildingId,
         settlementBuildingLevelOf(building),
       );
       if (!nextUpgrade) {
@@ -109,15 +112,22 @@ export async function POST(req: Request) {
       const nextResources = spendCost(resources, nextUpgrade.cost);
       village.buildings = {
         ...village.buildings,
-        [slot]: settlementBuildingSlot("guild_smithy", nextUpgrade.level),
+        [slot]: settlementBuildingSlot(buildingId, nextUpgrade.level),
       };
       await upsertVillage(tx, village);
       await upsertGuildSettlement(tx, guildId, nextResources);
       await logGuildActivity(tx, {
         guildId,
-        type: "smithy_upgrade",
+        type:
+          buildingId === "guild_smithy" ? "smithy_upgrade" : "building_upgrade",
         actorUserId: userId,
-        meta: { smithyLevel: nextUpgrade.level },
+        meta:
+          buildingId === "guild_smithy"
+            ? { smithyLevel: nextUpgrade.level }
+            : {
+                buildingName: SETTLEMENT_BUILDINGS[buildingId].name,
+                buildingLevel: nextUpgrade.level,
+              },
       });
       return {
         status: 200,

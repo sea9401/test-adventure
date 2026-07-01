@@ -100,6 +100,7 @@ export type GuildInfoResponse = {
   // 길드 소유 마을에 배치된 영지 건축물 수.
   settlementBuildings?: Partial<Record<SettlementBuildingId, number>>;
   hasGuildSmithy?: boolean;
+  hasTrainingGround?: boolean;
   // 다른 활성 길드가 이미 쓰는 색(선착순) — 색 picker 비활성용.
   takenColors?: string[];
   // 무소속일 때만 — 재가입 쿨다운 만료 시각(ISO). 활성 아니면 null/부재.
@@ -122,6 +123,7 @@ export function settleTierLabel(t: string): string {
 export type GuildSubTab =
   | "info"
   | "members"
+  | "training"
   | "manage"
   | "outposts"
   | "honor_shop";

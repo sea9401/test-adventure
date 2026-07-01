@@ -19,6 +19,7 @@ export type GuildActivityType =
   | "workshop_craft_only"
   | "artisan_rank_reward"
   | "smithy_upgrade"
+  | "building_upgrade"
   | "nation_declare"
   | "guild_create";
 
@@ -30,6 +31,8 @@ export type GuildActivityMeta = {
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only
   smithyLevel?: number; // smithy_upgrade
+  buildingName?: string; // building_upgrade
+  buildingLevel?: number; // building_upgrade
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward

@@ -9,6 +9,10 @@ import {
 describe("applyCatchCoin — 챔질당 코인(티어 소량·일일 상한)", () => {
   const DAY = "2026-06-27";
 
+  it("챔질 코인 일일 상한은 3000", () => {
+    expect(FISHING_CATCH_COIN_DAILY_CAP).toBe(3000);
+  });
+
   it("티어별 지급액 + 같은 날 누적", () => {
     const w = applyCatchCoin({ coins: 100 }, "common", DAY);
     expect(w.awarded).toBe(FISHING_CATCH_COIN_BY_TIER.common); // 3

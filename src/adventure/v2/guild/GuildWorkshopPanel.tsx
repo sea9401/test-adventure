@@ -114,18 +114,21 @@ export function GuildWorkshopPanel({
   const [craftResult, setCraftResult] = useState<CraftResultView | null>(null);
   const [mode, setMode] = useState<"craft" | "ranking">("craft");
   const [workshopMode, setWorkshopMode] = useState<
-    "craft" | "delivery" | "dismantle" | "growth"
-  >("craft");
+    "main" | "craft" | "growth"
+  >("main");
   useEffect(() => {
     try {
       const stored = localStorage.getItem(WORKSHOP_MODE_STORAGE_KEY);
       if (
+        stored === "main" ||
         stored === "craft" ||
-        stored === "delivery" ||
-        stored === "dismantle" ||
         stored === "growth"
       ) {
         queueMicrotask(() => setWorkshopMode(stored));
+      } else if (stored === "delivery") {
+        queueMicrotask(() => setWorkshopMode("main"));
+      } else if (stored === "dismantle") {
+        queueMicrotask(() => setWorkshopMode("craft"));
       }
     } catch {}
   }, []);
@@ -298,7 +301,7 @@ export function GuildWorkshopPanel({
   }, []);
 
   useEffect(() => {
-    if (workshopMode !== "dismantle") return;
+    if (workshopMode !== "craft") return;
     queueMicrotask(() => void loadDismantle());
   }, [loadDismantle, workshopMode]);
 
@@ -1229,6 +1232,91 @@ export function GuildWorkshopPanel({
     </div>
   );
 
+  const recommendationCard = (
+    <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 md:grid-cols-[1.4fr_1fr]">
+      <div className="min-w-0">
+        <div className="font-semibold">추천 행동</div>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span
+            className={`rounded px-1.5 py-px text-[10px] font-semibold ${
+              workshopRecommendation.tone === "weekly"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                : workshopRecommendation.tone === "codex"
+                  ? "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
+                  : workshopRecommendation.tone === "masterwork"
+                    ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
+                    : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+            }`}
+          >
+            {workshopRecommendation.tone === "weekly"
+              ? "주간"
+              : workshopRecommendation.tone === "codex"
+                ? "도감"
+                : workshopRecommendation.tone === "masterwork"
+                  ? "명장"
+                  : workshopRecommendation.tone === "craft"
+                    ? "제작"
+                    : "성장"}
+          </span>
+          <span className="font-medium text-zinc-800 dark:text-zinc-100">
+            {workshopRecommendation.title}
+          </span>
+        </div>
+        <div className="mt-1 text-zinc-600 dark:text-zinc-300">
+          {workshopRecommendation.detail}
+        </div>
+        {workshopRecommendation.recipeId ? (
+          <button
+            type="button"
+            disabled={craftingId != null || loading}
+            onClick={() => {
+              setWorkshopMode("craft");
+              void craft(
+                workshopRecommendation.recipeId as GuildWorkshopRecipeId,
+                workshopRecommendation.craftMode ?? "normal",
+              );
+            }}
+            className="mt-2 rounded border border-emerald-700 bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+          >
+            {craftingId === workshopRecommendation.recipeId
+              ? "처리 중"
+              : workshopRecommendation.craftMode === "masterwork"
+                ? "추천 명장 제작"
+                : "추천 제작"}
+          </button>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-3 gap-1 text-center">
+        <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+            최고 티어
+          </div>
+          <div className="font-semibold">
+            {workshopRecords.highestTier > 0
+              ? `T${workshopRecords.highestTier}`
+              : "-"}
+          </div>
+        </div>
+        <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+            최고 품질
+          </div>
+          <div className="font-semibold">
+            {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
+          </div>
+        </div>
+        <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+            명장 제작
+          </div>
+          <div className="font-semibold">
+            {workshopRecords.masterworkCrafts.toLocaleString()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (mode === "ranking") {
     return <ArtisanLeaderboardPanel onBack={() => setMode("craft")} />;
   }
@@ -1236,34 +1324,33 @@ export function GuildWorkshopPanel({
   if (!hasSmithy) {
     return (
       <section className="space-y-3">
-        {weeklyCard}
         <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <LockKey
-              size={24}
-              weight="duotone"
-              className="mt-0.5 shrink-0 text-zinc-400"
-              aria-hidden
-            />
-            <div className="min-w-0">
-              <h3 className="font-semibold text-zinc-800 dark:text-zinc-100">
-                길드 대장간 필요
-              </h3>
-              <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                보유 마을의 건축물 슬롯에 {smithy.name}을 배치하면 제작을
-                사용할 수 있습니다.
-              </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <LockKey
+                size={24}
+                weight="duotone"
+                className="mt-0.5 shrink-0 text-zinc-400"
+                aria-hidden
+              />
+              <div className="min-w-0">
+                <h3 className="font-semibold text-zinc-800 dark:text-zinc-100">
+                  길드 대장간 필요
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  보유 마을의 건축물 슬롯에 {smithy.name}을 배치하면 제작을
+                  사용할 수 있습니다.
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setMode("ranking")}
+              className="shrink-0 rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              랭킹
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setMode("ranking")}
-            className="shrink-0 rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            랭킹
-          </button>
-        </div>
         </div>
       </section>
     );
@@ -1297,12 +1384,11 @@ export function GuildWorkshopPanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="grid grid-cols-3 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
         {(
           [
+            ["main", "메인"],
             ["craft", "제작"],
-            ["delivery", "납품"],
-            ["dismantle", "해체"],
             ["growth", "성장 목표"],
           ] as const
         ).map(([value, label]) => (
@@ -1321,102 +1407,15 @@ export function GuildWorkshopPanel({
         ))}
       </div>
 
-      <GuildArtisanContributionPanel info={info ?? contributionInfo} />
-
-      <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 md:grid-cols-[1.4fr_1fr]">
-        <div className="min-w-0">
-          <div className="font-semibold">추천 행동</div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span
-              className={`rounded px-1.5 py-px text-[10px] font-semibold ${
-                workshopRecommendation.tone === "weekly"
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                  : workshopRecommendation.tone === "codex"
-                    ? "bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300"
-                    : workshopRecommendation.tone === "masterwork"
-                      ? "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
-                      : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-              }`}
-            >
-              {workshopRecommendation.tone === "weekly"
-                ? "주간"
-                : workshopRecommendation.tone === "codex"
-                  ? "도감"
-                  : workshopRecommendation.tone === "masterwork"
-                    ? "명장"
-                    : workshopRecommendation.tone === "craft"
-                      ? "제작"
-                      : "성장"}
-            </span>
-            <span className="font-medium text-zinc-800 dark:text-zinc-100">
-              {workshopRecommendation.title}
-            </span>
-          </div>
-          <div className="mt-1 text-zinc-600 dark:text-zinc-300">
-            {workshopRecommendation.detail}
-          </div>
-          {workshopRecommendation.recipeId ? (
-            <button
-              type="button"
-              disabled={craftingId != null || loading}
-              onClick={() =>
-                void craft(
-                  workshopRecommendation.recipeId as GuildWorkshopRecipeId,
-                  workshopRecommendation.craftMode ?? "normal",
-                )
-              }
-              className="mt-2 rounded border border-emerald-700 bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-            >
-              {craftingId === workshopRecommendation.recipeId
-                ? "처리 중"
-                : workshopRecommendation.craftMode === "masterwork"
-                  ? "추천 명장 제작"
-                  : "추천 제작"}
-            </button>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-3 gap-1 text-center">
-          <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              최고 티어
-            </div>
-            <div className="font-semibold">
-              {workshopRecords.highestTier > 0
-                ? `T${workshopRecords.highestTier}`
-                : "-"}
-            </div>
-          </div>
-          <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              최고 품질
-            </div>
-            <div className="font-semibold">
-              {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
-            </div>
-          </div>
-          <div className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-              명장 제작
-            </div>
-            <div className="font-semibold">
-              {workshopRecords.masterworkCrafts.toLocaleString()}
-            </div>
+      {workshopMode === "main" ? (
+        <div className="space-y-3">
+          <GuildArtisanContributionPanel info={info ?? contributionInfo} />
+          {recommendationCard}
+          <div className="grid gap-3 lg:grid-cols-2">
+            {weeklyCard}
+            {deliveryCard}
           </div>
         </div>
-      </div>
-
-      {workshopMode === "delivery" ? (
-        <>
-          {weeklyCard}
-          {deliveryCard}
-        </>
-      ) : null}
-
-      {workshopMode === "dismantle" ? (
-        <>
-          {weeklyCard}
-          {dismantleCard}
-        </>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-y border-zinc-200 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
@@ -2251,6 +2250,8 @@ export function GuildWorkshopPanel({
         ) : null}
       </div>
       ) : null}
+
+      {workshopMode === "craft" ? dismantleCard : null}
     </section>
   );
 }

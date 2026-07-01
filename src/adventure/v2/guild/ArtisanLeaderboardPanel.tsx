@@ -32,6 +32,14 @@ type ArtisanLeaderboardReward = {
   claimable: boolean;
 };
 
+type ArtisanLeaderboardNextReward = {
+  rank: number;
+  titleId: string;
+  label: string;
+  rewardFame: number;
+  ranksToGo: number;
+};
+
 type ArtisanLeaderboardSeason = {
   key: string;
   label: string;
@@ -55,6 +63,7 @@ type ArtisanLeaderboardData = {
   totalRanked: number;
   myRank: number | null;
   rewards: ArtisanLeaderboardReward[];
+  nextReward: ArtisanLeaderboardNextReward | null;
   entries: ArtisanLeaderboardEntry[];
 };
 
@@ -91,6 +100,10 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
               typeof json.totalRanked === "number" ? json.totalRanked : 0,
             myRank: typeof json.myRank === "number" ? json.myRank : null,
             rewards: Array.isArray(json.rewards) ? json.rewards : [],
+            nextReward:
+              json.nextReward && typeof json.nextReward === "object"
+                ? (json.nextReward as ArtisanLeaderboardNextReward)
+                : null,
             entries: json.entries as ArtisanLeaderboardEntry[],
           });
         } else {
@@ -130,7 +143,18 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
         return;
       }
       if (Array.isArray(json.rewards)) {
-        setData((prev) => (prev ? { ...prev, rewards: json.rewards } : prev));
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                rewards: json.rewards,
+                nextReward:
+                  json.nextReward && typeof json.nextReward === "object"
+                    ? (json.nextReward as ArtisanLeaderboardNextReward)
+                    : null,
+              }
+            : prev,
+        );
       }
       const rewards = Array.isArray(json.rewards)
         ? (json.rewards as ArtisanLeaderboardReward[])
@@ -242,10 +266,21 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             <div className="min-w-0">
               <div className="font-semibold">랭킹 보상</div>
               <div className="mt-1 text-amber-800/80 dark:text-amber-200/80">
-                현재 순위 기준 칭호 보상과 시즌당 1회 길드 명성 보상입니다.
-                순위가 오른 뒤 다시 수령하면 상위 칭호만 추가로 받을 수
-                있습니다.
+                제작 기록이 있으면 시즌 참여 보상을 받을 수 있고, 상위권은
+                추가 칭호와 명성을 받습니다. 순위가 오른 뒤 다시 수령하면 상위
+                보상만 추가됩니다.
               </div>
+              {data.nextReward ? (
+                <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
+                  다음 목표: {data.nextReward.label}까지{" "}
+                  {data.nextReward.ranksToGo.toLocaleString()}위 상승 · 명성 +
+                  {data.nextReward.rewardFame.toLocaleString()}
+                </div>
+              ) : data.myRank ? (
+                <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
+                  현재 순위에서 받을 수 있는 상위 랭킹 보상을 모두 달성했습니다.
+                </div>
+              ) : null}
               <div className="mt-1 flex flex-wrap gap-1">
                 {data.rewards.map((reward) => (
                   <span

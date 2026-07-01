@@ -22,6 +22,16 @@ export type ArtisanLeaderboardReward = {
   rewardFame: number;
 };
 
+export type ArtisanLeaderboardNextReward = {
+  rank: number;
+  label: string;
+  titleId: TitleId;
+  rewardFame: number;
+  ranksToGo: number;
+};
+
+export const ARTISAN_LEADERBOARD_PARTICIPATION_RANK = Number.MAX_SAFE_INTEGER;
+
 export const ARTISAN_LEADERBOARD_REWARDS: readonly ArtisanLeaderboardReward[] =
   [
     {
@@ -42,7 +52,18 @@ export const ARTISAN_LEADERBOARD_REWARDS: readonly ArtisanLeaderboardReward[] =
       label: "대장장이 랭킹 10위 이내",
       rewardFame: 35,
     },
+    {
+      rank: ARTISAN_LEADERBOARD_PARTICIPATION_RANK,
+      titleId: "artisan_rank_participant",
+      label: "대장장이 시즌 참여",
+      rewardFame: 15,
+    },
   ];
+
+const ARTISAN_LEADERBOARD_COMPETITIVE_REWARDS =
+  ARTISAN_LEADERBOARD_REWARDS.filter(
+    (reward) => reward.rank !== ARTISAN_LEADERBOARD_PARTICIPATION_RANK,
+  );
 
 export function artisanLeaderboardRewardTitleIds(
   rank: number | null | undefined,
@@ -58,6 +79,20 @@ export function artisanLeaderboardRewardFame(titleIds: readonly TitleId[]): numb
   return ARTISAN_LEADERBOARD_REWARDS.filter((reward) =>
     titleSet.has(reward.titleId),
   ).reduce((sum, reward) => sum + reward.rewardFame, 0);
+}
+
+export function artisanLeaderboardNextReward(
+  rank: number | null | undefined,
+): ArtisanLeaderboardNextReward | null {
+  if (!Number.isFinite(rank) || !rank || rank < 1) return null;
+  const next = ARTISAN_LEADERBOARD_COMPETITIVE_REWARDS.slice()
+    .reverse()
+    .find((reward) => rank > reward.rank);
+  if (!next) return null;
+  return {
+    ...next,
+    ranksToGo: rank - next.rank,
+  };
 }
 
 export function rankArtisanLeaderboardEntries<T extends ArtisanLeaderboardRankInput>(

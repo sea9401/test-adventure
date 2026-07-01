@@ -5,6 +5,11 @@ import {
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  GUILD_WORKSHOP_MATERIAL_IDS,
+  GUILD_WORKSHOP_MATERIALS,
+  type GuildWorkshopMaterialId,
+} from "@/adventure/data/v2/guildWorkshopMaterials";
 
 // 밸런스 텔레메트리 순수 집계(Phase 1). 라우트가 per-user derive 한 결과를 받아 분포로 환산.
 //   DB·derive 와 분리 — 밴딩/중앙값/지배스탯 로직을 단위 테스트 가능하게.
@@ -34,6 +39,16 @@ export type TelemetryUser = {
   fishSpecies: number;
   antiquesFound: number;
   equippedIds: string[];
+  blacksmithLevel: number;
+  blacksmithXp: number;
+  workshopTotalCrafts: number;
+  workshopQualityCrafts: number;
+  workshopMasterworkCrafts: number;
+  workshopCraftOnlyCrafts: number;
+  workshopHighestTier: number;
+  workshopBestQualityLevel: number;
+  workshopMaterials: Partial<Record<GuildWorkshopMaterialId, number>>;
+  deliveryClaimsToday: number;
 };
 
 export type Bucket = { label: string; players: number; avgPower: number };
@@ -79,6 +94,36 @@ export type BalanceTelemetry = {
     avgFishSpecies: number;
     treasurePlayers: number;
     avgAntiquesFound: number;
+  };
+  workshopEconomy: {
+    summary: {
+      activeBlacksmiths: number;
+      avgBlacksmithLevel: number;
+      totalCrafts: number;
+      qualityCrafts: number;
+      masterworkCrafts: number;
+      craftOnlyCrafts: number;
+      maxHighestTier: number;
+      deliveryClaimsToday: number;
+      bestQualityBasic: number;
+      bestQualityStar: number;
+      bestQualityDoubleStar: number;
+    };
+    levelBands: {
+      label: string;
+      players: number;
+      avgBlacksmithLevel: number;
+      totalCrafts: number;
+      masterworkCrafts: number;
+      craftOnlyCrafts: number;
+    }[];
+    materials: {
+      id: GuildWorkshopMaterialId;
+      name: string;
+      total: number;
+      holders: number;
+      avgPerHolder: number;
+    }[];
   };
 };
 
@@ -133,6 +178,12 @@ const CLASS_LABELS: Record<string, string> = {
   none: "모험가",
 };
 
+function emptyWorkshopMaterialRecord(): Record<GuildWorkshopMaterialId, number> {
+  return Object.fromEntries(
+    GUILD_WORKSHOP_MATERIAL_IDS.map((id) => [id, 0]),
+  ) as Record<GuildWorkshopMaterialId, number>;
+}
+
 export function median(nums: number[]): number {
   if (nums.length === 0) return 0;
   const s = [...nums].sort((a, b) => a - b);
@@ -179,12 +230,32 @@ export function aggregateBalanceTelemetry(
     }[],
   );
   const equipUsage: Record<string, number> = {};
+  const workshopByLevelBand = LEVEL_BANDS.map(
+    () =>
+      [] as {
+        blacksmithLevel: number;
+        totalCrafts: number;
+        masterworkCrafts: number;
+        craftOnlyCrafts: number;
+      }[],
+  );
+  const workshopMaterialTotals = emptyWorkshopMaterialRecord();
+  const workshopMaterialHolders = emptyWorkshopMaterialRecord();
   const powerAll: number[] = [];
   let fishCaughtSum = 0;
   let fishSpeciesSum = 0;
   let fishingPlayers = 0;
   let antiquesFoundSum = 0;
   let treasurePlayers = 0;
+  let activeBlacksmiths = 0;
+  let blacksmithLevelSum = 0;
+  let workshopTotalCrafts = 0;
+  let workshopQualityCrafts = 0;
+  let workshopMasterworkCrafts = 0;
+  let workshopCraftOnlyCrafts = 0;
+  let workshopMaxHighestTier = 0;
+  let deliveryClaimsToday = 0;
+  const bestQualityCounts = [0, 0, 0];
 
   for (const u of users) {
     powerAll.push(u.power);
@@ -210,6 +281,12 @@ export function aggregateBalanceTelemetry(
         equipped: u.equipmentEquipped,
         owned: u.equipmentOwned,
         maxEnhance: u.maxEnhanceLevel,
+      });
+      workshopByLevelBand[li].push({
+        blacksmithLevel: u.blacksmithLevel,
+        totalCrafts: u.workshopTotalCrafts,
+        masterworkCrafts: u.workshopMasterworkCrafts,
+        craftOnlyCrafts: u.workshopCraftOnlyCrafts,
       });
     }
 
@@ -264,6 +341,28 @@ export function aggregateBalanceTelemetry(
     if (u.fishCaught > 0) fishingPlayers++;
     antiquesFoundSum += u.antiquesFound;
     if (u.antiquesFound > 0) treasurePlayers++;
+
+    if (u.blacksmithXp > 0 || u.workshopTotalCrafts > 0) {
+      activeBlacksmiths++;
+    }
+    blacksmithLevelSum += u.blacksmithLevel;
+    workshopTotalCrafts += u.workshopTotalCrafts;
+    workshopQualityCrafts += u.workshopQualityCrafts;
+    workshopMasterworkCrafts += u.workshopMasterworkCrafts;
+    workshopCraftOnlyCrafts += u.workshopCraftOnlyCrafts;
+    workshopMaxHighestTier = Math.max(
+      workshopMaxHighestTier,
+      u.workshopHighestTier,
+    );
+    deliveryClaimsToday += u.deliveryClaimsToday;
+    bestQualityCounts[
+      Math.max(0, Math.min(2, Math.floor(u.workshopBestQualityLevel)))
+    ]++;
+    for (const id of GUILD_WORKSHOP_MATERIAL_IDS) {
+      const amount = Math.max(0, Math.floor(Number(u.workshopMaterials[id]) || 0));
+      workshopMaterialTotals[id] += amount;
+      if (amount > 0) workshopMaterialHolders[id]++;
+    }
   }
 
   const depthBands: Bucket[] = themeBands.map((b, i) => ({
@@ -370,6 +469,29 @@ export function aggregateBalanceTelemetry(
       avgMaxEnhance: avgOf(list, (x) => x.maxEnhance),
     };
   });
+  const workshopLevelBands = LEVEL_BANDS.map((b, i) => {
+    const list = workshopByLevelBand[i];
+    return {
+      label: b.label,
+      players: list.length,
+      avgBlacksmithLevel: avgOf(list, (x) => x.blacksmithLevel),
+      totalCrafts: list.reduce((sum, x) => sum + x.totalCrafts, 0),
+      masterworkCrafts: list.reduce((sum, x) => sum + x.masterworkCrafts, 0),
+      craftOnlyCrafts: list.reduce((sum, x) => sum + x.craftOnlyCrafts, 0),
+    };
+  });
+  const workshopMaterials = GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
+    const holders = workshopMaterialHolders[id];
+    return {
+      id,
+      name: GUILD_WORKSHOP_MATERIALS[id].name,
+      total: workshopMaterialTotals[id],
+      holders,
+      avgPerHolder: holders
+        ? Math.round(workshopMaterialTotals[id] / holders)
+        : 0,
+    };
+  });
 
   return {
     summary: {
@@ -402,6 +524,23 @@ export function aggregateBalanceTelemetry(
       avgFishSpecies: players ? Math.round(fishSpeciesSum / players) : 0,
       treasurePlayers,
       avgAntiquesFound: players ? Math.round(antiquesFoundSum / players) : 0,
+    },
+    workshopEconomy: {
+      summary: {
+        activeBlacksmiths,
+        avgBlacksmithLevel: players ? Math.round(blacksmithLevelSum / players) : 0,
+        totalCrafts: workshopTotalCrafts,
+        qualityCrafts: workshopQualityCrafts,
+        masterworkCrafts: workshopMasterworkCrafts,
+        craftOnlyCrafts: workshopCraftOnlyCrafts,
+        maxHighestTier: workshopMaxHighestTier,
+        deliveryClaimsToday,
+        bestQualityBasic: bestQualityCounts[0],
+        bestQualityStar: bestQualityCounts[1],
+        bestQualityDoubleStar: bestQualityCounts[2],
+      },
+      levelBands: workshopLevelBands,
+      materials: workshopMaterials,
     },
   };
 }

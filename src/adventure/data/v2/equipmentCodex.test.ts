@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countCraftOnlyEquipmentCodex,
+  craftOnlyCodexRewardViews,
   craftOnlyCodexRewardTitleIds,
   equipmentCodexSpBonusForCount,
   nextEquipmentCodexMilestone,
@@ -58,6 +59,15 @@ describe("equipmentCodex", () => {
       "artisan_codex_collector",
       "artisan_codex_curator",
       "artisan_codex_master",
+    ]);
+    expect(craftOnlyCodexRewardViews(["artisan_codex_collector"])).toEqual([
+      {
+        count: 4,
+        titleId: "artisan_codex_collector",
+        label: "장인표 수집가",
+        artisanXp: 60,
+        materials: { v2_craft_refined_iron: 4 },
+      },
     ]);
   });
 });

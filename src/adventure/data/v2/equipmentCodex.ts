@@ -2,6 +2,7 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import type { GuildWorkshopMaterialId } from "./guildWorkshopMaterials";
 
 export const EQUIPMENT_CODEX_KEY = "equipment-codex.v1";
 
@@ -19,10 +20,36 @@ const VALID_EQUIPMENT_IDS: ReadonlySet<string> = new Set(
 export const EQUIPMENT_CODEX_TOTAL = Object.keys(V2_EQUIPMENT).length;
 
 export const CRAFT_ONLY_CODEX_REWARDS = [
-  { count: 4, titleId: "artisan_codex_collector", label: "장인표 수집가" },
-  { count: 8, titleId: "artisan_codex_curator", label: "장인표 감정가" },
-  { count: 10, titleId: "artisan_codex_master", label: "장인표 전승자" },
+  {
+    count: 4,
+    titleId: "artisan_codex_collector",
+    label: "장인표 수집가",
+    artisanXp: 60,
+    materials: { v2_craft_refined_iron: 4 },
+  },
+  {
+    count: 8,
+    titleId: "artisan_codex_curator",
+    label: "장인표 감정가",
+    artisanXp: 120,
+    materials: { v2_craft_mithril_shard: 3, v2_craft_sunstone: 1 },
+  },
+  {
+    count: 10,
+    titleId: "artisan_codex_master",
+    label: "장인표 전승자",
+    artisanXp: 180,
+    materials: { v2_craft_sunstone: 2, v2_craft_aurora_crystal: 1 },
+  },
 ] as const;
+
+export type CraftOnlyCodexRewardView = {
+  count: number;
+  titleId: string;
+  label: string;
+  artisanXp: number;
+  materials: Partial<Record<GuildWorkshopMaterialId, number>>;
+};
 
 export function parseEquipmentCodex(raw: unknown): EquipmentCodexState {
   const source =
@@ -84,6 +111,21 @@ export function craftOnlyCodexRewardTitleIds(count: number): string[] {
   return CRAFT_ONLY_CODEX_REWARDS.filter((reward) => count >= reward.count).map(
     (reward) => reward.titleId,
   );
+}
+
+export function craftOnlyCodexRewardViews(
+  titleIds: readonly string[],
+): CraftOnlyCodexRewardView[] {
+  const idSet = new Set(titleIds);
+  return CRAFT_ONLY_CODEX_REWARDS.filter((reward) =>
+    idSet.has(reward.titleId),
+  ).map((reward) => ({
+    count: reward.count,
+    titleId: reward.titleId,
+    label: reward.label,
+    artisanXp: reward.artisanXp,
+    materials: { ...reward.materials },
+  }));
 }
 
 export function withRegisteredEquipmentId(

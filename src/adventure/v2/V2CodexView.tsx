@@ -55,6 +55,7 @@ import {
   type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { GUILD_WORKSHOP_MATERIALS } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
@@ -144,6 +145,8 @@ type EquipmentCodexResponse = Partial<EquipmentCodexMeta> & {
   owned?: unknown;
   equipped?: unknown;
   craftRecords?: unknown;
+  codexRewards?: unknown;
+  artisanXpReward?: unknown;
 };
 
 type EquipmentCraftRecordView = {
@@ -255,6 +258,46 @@ function craftRecordQualityText(levelRaw: number): string {
   if (level >= 2) return "★★";
   if (level >= 1) return "★";
   return "기본";
+}
+
+function equipmentCodexRewardText(j: EquipmentCodexResponse | null): string {
+  const rewards = Array.isArray(j?.codexRewards) ? j.codexRewards : [];
+  if (rewards.length === 0) return "";
+  const materialTotals = new Map<string, number>();
+  let artisanXp = Math.max(0, Math.floor(Number(j?.artisanXpReward) || 0));
+  for (const raw of rewards) {
+    if (raw == null || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const obj = raw as { artisanXp?: unknown; materials?: unknown };
+    if (artisanXp <= 0) {
+      artisanXp += Math.max(0, Math.floor(Number(obj.artisanXp) || 0));
+    }
+    if (
+      obj.materials != null &&
+      typeof obj.materials === "object" &&
+      !Array.isArray(obj.materials)
+    ) {
+      for (const [id, amountRaw] of Object.entries(
+        obj.materials as Record<string, unknown>,
+      )) {
+        const amount = Math.max(0, Math.floor(Number(amountRaw) || 0));
+        if (amount > 0) materialTotals.set(id, (materialTotals.get(id) ?? 0) + amount);
+      }
+    }
+  }
+  const materialText = [...materialTotals.entries()]
+    .map(([id, amount]) => {
+      const mat = GUILD_WORKSHOP_MATERIALS[
+        id as keyof typeof GUILD_WORKSHOP_MATERIALS
+      ];
+      return `${mat?.name ?? id} ${amount.toLocaleString()}`;
+    })
+    .join(" · ");
+  return [
+    artisanXp > 0 ? `대장장이 숙련도 +${artisanXp.toLocaleString()}` : "",
+    materialText,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
@@ -513,8 +556,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     setEquipmentCodexBusy(inst.iid);
     setEquipmentCodexMsg(null);
     try {
-      await submitEquipmentCodexRegistration(inst);
-      setEquipmentCodexMsg(`${item.name} 등록 완료`);
+      const result = await submitEquipmentCodexRegistration(inst);
+      const rewardText = equipmentCodexRewardText(result);
+      setEquipmentCodexMsg(
+        rewardText ? `${item.name} 등록 완료 · ${rewardText}` : `${item.name} 등록 완료`,
+      );
     } catch (err) {
       setEquipmentCodexMsg(
         err instanceof Error ? err.message : "오류가 발생했어요",
@@ -546,19 +592,24 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     setEquipmentCodexMsg(null);
     let registered = 0;
     let failed = 0;
+    const rewardLines: string[] = [];
     try {
       for (const inst of candidates) {
         try {
-          await submitEquipmentCodexRegistration(inst);
+          const result = await submitEquipmentCodexRegistration(inst);
+          const rewardText = equipmentCodexRewardText(result);
+          if (rewardText) rewardLines.push(rewardText);
           registered += 1;
         } catch {
           failed += 1;
         }
       }
+      const rewardText =
+        rewardLines.length > 0 ? ` · 보상 ${rewardLines.join(" / ")}` : "";
       setEquipmentCodexMsg(
         failed > 0
-          ? `${registered}종 등록 완료 · ${failed}종 실패`
-          : `${registered}종 등록 완료`,
+          ? `${registered}종 등록 완료 · ${failed}종 실패${rewardText}`
+          : `${registered}종 등록 완료${rewardText}`,
       );
     } finally {
       setEquipmentCodexBusy(null);

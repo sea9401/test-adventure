@@ -21,6 +21,8 @@ import {
 import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_IDS,
+  GUILD_WORKSHOP_MATERIAL_DROP_PCT,
+  GUILD_WORKSHOP_MATERIAL_SOURCES,
   type GuildWorkshopMaterialId,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { TITLES } from "@/adventure/data/titles";
@@ -2567,6 +2569,44 @@ export function GuildWorkshopPanel({
 
       {workshopMode === "craft" ? (
       <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5 dark:border-sky-900 dark:bg-sky-950/30">
+          <div className="font-semibold text-sky-950 dark:text-sky-100">
+            제작 재료 수급처
+          </div>
+          <div className="mt-1 grid gap-1 sm:grid-cols-2">
+            {GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
+              const mat = GUILD_WORKSHOP_MATERIALS[id];
+              const source = GUILD_WORKSHOP_MATERIAL_SOURCES[id];
+              const amount = Math.max(0, Math.floor(Number(materials[id]) || 0));
+              return (
+                <div
+                  key={id}
+                  className="rounded border border-sky-100 bg-white px-2 py-1 dark:border-sky-900 dark:bg-zinc-950"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                      {mat.name}
+                    </span>
+                    <span className="font-mono text-[11px] text-sky-700 dark:text-sky-300">
+                      {amount.toLocaleString()}개
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+                    {source.source} · {source.depthText} · 드랍{" "}
+                    {(GUILD_WORKSHOP_MATERIAL_DROP_PCT[id] * 100).toFixed(1)}%
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-500">
+                    {source.note}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-1 text-[11px] text-sky-800 dark:text-sky-200">
+            해체는 대장장이 Lv 6부터 가능하며, 제작자 각인 장비와 제작 전용
+            장비에서 일부 재료를 회수합니다.
+          </div>
+        </div>
         <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
           <div className="font-semibold text-zinc-900 dark:text-zinc-100">
             장인표 세트 목표

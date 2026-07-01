@@ -49,6 +49,36 @@ type Telemetry = {
     treasurePlayers: number;
     avgAntiquesFound: number;
   };
+  workshopEconomy: {
+    summary: {
+      activeBlacksmiths: number;
+      avgBlacksmithLevel: number;
+      totalCrafts: number;
+      qualityCrafts: number;
+      masterworkCrafts: number;
+      craftOnlyCrafts: number;
+      maxHighestTier: number;
+      deliveryClaimsToday: number;
+      bestQualityBasic: number;
+      bestQualityStar: number;
+      bestQualityDoubleStar: number;
+    };
+    levelBands: {
+      label: string;
+      players: number;
+      avgBlacksmithLevel: number;
+      totalCrafts: number;
+      masterworkCrafts: number;
+      craftOnlyCrafts: number;
+    }[];
+    materials: {
+      id: string;
+      name: string;
+      total: number;
+      holders: number;
+      avgPerHolder: number;
+    }[];
+  };
 };
 
 function Card({
@@ -153,6 +183,10 @@ export function BalanceTelemetryTab() {
   const equipMax = Math.max(
     1,
     ...(data?.equipmentUsage ?? []).map((e) => e.count),
+  );
+  const workshopMaterialMax = Math.max(
+    1,
+    ...(data?.workshopEconomy.materials ?? []).map((m) => m.total),
   );
 
   return (
@@ -466,6 +500,138 @@ export function BalanceTelemetryTab() {
                       </td>
                       <td className="py-1 text-right">
                         {e.maxGold.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <Card
+            title="대장간 경제"
+            hint="현재 세이브 스냅샷 기준 누적 제작, 일일 납품 진행, 제작 재료 재고입니다."
+          >
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+              {[
+                {
+                  label: "참여 대장장이",
+                  value: data.workshopEconomy.summary.activeBlacksmiths,
+                },
+                {
+                  label: "평균 대장장이 Lv",
+                  value: data.workshopEconomy.summary.avgBlacksmithLevel,
+                },
+                {
+                  label: "누적 제작",
+                  value: data.workshopEconomy.summary.totalCrafts,
+                },
+                {
+                  label: "품질 제작",
+                  value: data.workshopEconomy.summary.qualityCrafts,
+                },
+                {
+                  label: "명장 제작",
+                  value: data.workshopEconomy.summary.masterworkCrafts,
+                },
+                {
+                  label: "전용 제작",
+                  value: data.workshopEconomy.summary.craftOnlyCrafts,
+                },
+                {
+                  label: "최고 티어",
+                  value: data.workshopEconomy.summary.maxHighestTier,
+                },
+                {
+                  label: "오늘 납품 수령",
+                  value: data.workshopEconomy.summary.deliveryClaimsToday,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
+                >
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    {item.label}
+                  </div>
+                  <div className="font-mono text-sm tabular-nums">
+                    {item.value.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+                  제작 재료 재고
+                </div>
+                {data.workshopEconomy.materials.map((m) => (
+                  <BarRow
+                    key={m.id}
+                    label={`${m.name} (${m.holders}명)`}
+                    value={m.total}
+                    max={workshopMaterialMax}
+                    suffix={m.avgPerHolder ? ` · 평균 ${m.avgPerHolder}` : ""}
+                  />
+                ))}
+              </div>
+              <div>
+                <div className="mb-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+                  품질 최고 기록
+                </div>
+                {[
+                  ["기본", data.workshopEconomy.summary.bestQualityBasic],
+                  ["★", data.workshopEconomy.summary.bestQualityStar],
+                  ["★★", data.workshopEconomy.summary.bestQualityDoubleStar],
+                ].map(([label, count]) => (
+                  <BarRow
+                    key={label}
+                    label={String(label)}
+                    value={Number(count)}
+                    max={Math.max(
+                      1,
+                      data.workshopEconomy.summary.bestQualityBasic,
+                      data.workshopEconomy.summary.bestQualityStar,
+                      data.workshopEconomy.summary.bestQualityDoubleStar,
+                    )}
+                    suffix="명"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-zinc-500 dark:text-zinc-400">
+                    <th className="py-1 pr-2 font-medium">레벨대</th>
+                    <th className="py-1 pr-2 text-right font-medium">인원</th>
+                    <th className="py-1 pr-2 text-right font-medium">평균 Lv</th>
+                    <th className="py-1 pr-2 text-right font-medium">제작</th>
+                    <th className="py-1 pr-2 text-right font-medium">명장</th>
+                    <th className="py-1 text-right font-medium">전용</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono tabular-nums">
+                  {data.workshopEconomy.levelBands.map((b) => (
+                    <tr
+                      key={b.label}
+                      className="border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      <td className="py-1 pr-2 font-sans">{b.label}</td>
+                      <td className="py-1 pr-2 text-right">{b.players}</td>
+                      <td className="py-1 pr-2 text-right">
+                        {b.avgBlacksmithLevel}
+                      </td>
+                      <td className="py-1 pr-2 text-right">
+                        {b.totalCrafts.toLocaleString()}
+                      </td>
+                      <td className="py-1 pr-2 text-right">
+                        {b.masterworkCrafts.toLocaleString()}
+                      </td>
+                      <td className="py-1 text-right">
+                        {b.craftOnlyCrafts.toLocaleString()}
                       </td>
                     </tr>
                   ))}

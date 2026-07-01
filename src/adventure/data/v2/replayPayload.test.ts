@@ -28,7 +28,12 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(p.playerMaxMp).toBe(120); // 배치 집계가 읽는 유일 필드
     expect(p.playerMaxHp).toBe(500);
     expect(p.playerMp).toBe(80);
-    expect(p.enemy).toEqual({ name: "더미", hp: 300, image: "dummy.webp" });
+    expect(p.enemy).toMatchObject({
+      name: "더미",
+      hp: 300,
+      image: "dummy.webp",
+      actionSpd: 10,
+    });
     expect(p.log).toEqual([]); // log 는 복사 안 함(배치는 미사용)
   });
 
@@ -62,6 +67,29 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(toReplayPayloadLite(fs).enemy).toMatchObject({
       atkType: "magic",
       critPct: 25,
+    });
+  });
+
+  it("몹 행동속도와 연타 보정 전달 — 원시 속도 대신 체감 스탯 표시용", () => {
+    const fs = {
+      ...fixture(3),
+      enemy: {
+        name: "붉은 갈기 늑대",
+        hp: 420,
+        image: "wolf.webp",
+        spd: 6,
+        bonusAttackChancePct: 35,
+      },
+    } as unknown as BattleState;
+    expect(toReplayPayload(fs, 200, { depth: 12 }).enemy).toMatchObject({
+      spd: 6,
+      actionSpd: 57,
+      bonusAttackChancePct: 35,
+    });
+    expect(toReplayPayloadLite(fs, { depth: 12 }).enemy).toMatchObject({
+      spd: 6,
+      actionSpd: 57,
+      bonusAttackChancePct: 35,
     });
   });
 

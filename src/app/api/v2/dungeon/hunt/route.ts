@@ -1103,8 +1103,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
         // 로 BattleState 형태로 재구성. log 는 마지막 200 cap.
         replay: fullReplay
-          ? toReplayPayload(battleResult.finalState, 200)
-          : toReplayPayloadLite(battleResult.finalState),
+          ? toReplayPayload(battleResult.finalState, 200, { depth })
+          : toReplayPayloadLite(battleResult.finalState, { depth }),
         // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
         startPlayerHp,
         // 이 사냥의 시작 EXP/maxExp — replay UI 의 EXP 바 표시용

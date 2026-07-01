@@ -12,6 +12,10 @@ import {
 import { Card } from "@/components/ui/Card";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
+import {
+  attackMissPct,
+  dodgeChance,
+} from "@/adventure/data/v2/v2CombatConstants";
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -171,10 +175,13 @@ export type BattleStats = {
   atk: number;
   def: number;
   spd: number;
+  actionSpd?: number; // 몬스터 ATB 행동속도 — raw spd 를 플레이어 속도 스케일로 환산한 값
   accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
   evasionPct?: number; // 회피 %
+  evaRating?: number; // 플레이어 회피 레이팅(raw). 없으면 evasionPct 폴백.
   critChancePct?: number; // 치명 % (플레이어)
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
+  bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
 };
 
 // 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
@@ -183,27 +190,82 @@ const DETAIL_COLOR: Record<string, string> = {
   회피: "text-cyan-600 dark:text-cyan-400",
   치명: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
+  "내 명중": "text-sky-600 dark:text-sky-400",
+  "적 명중": "text-rose-600 dark:text-rose-400",
+  "연타 보정": "text-orange-600 dark:text-orange-400",
 };
+
+function pct(n: number): string {
+  return `${Math.max(0, Math.min(100, Math.round(n)))}%`;
+}
 
 // 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
 export function BattleStatStrip({
   stats,
   center = false,
+  variant = "player",
+  opponentStats,
 }: {
   stats: BattleStats;
   center?: boolean;
+  variant?: "player" | "enemy";
+  opponentStats?: BattleStats;
 }) {
   const [open, setOpen] = useState(false);
-  // 명중·회피·치명·마공 4종을 항상 표시(값 없으면 0) — 적·플레이어 대칭.
-  const details: { label: string; value: string }[] = [
-    { label: "명중", value: String(Math.round(stats.accuracy ?? 0)) },
-    { label: "회피", value: `${Math.round(stats.evasionPct ?? 0)}%` },
-    { label: "치명", value: `${Math.round(stats.critChancePct ?? 0)}%` },
-    { label: "마공", value: String(Math.round(stats.magicAtk ?? 0)) },
-  ];
+  const details: { label: string; value: string }[] =
+    variant === "enemy" && opponentStats
+      ? [
+          {
+            label: "내 명중",
+            value: pct(
+              100 -
+                attackMissPct(
+                  stats.evasionPct ?? 0,
+                  opponentStats.accuracy ?? 0,
+                ),
+            ),
+          },
+          {
+            label: "적 명중",
+            value: pct(
+              100 -
+                dodgeChance(
+                  opponentStats.evaRating ?? opponentStats.evasionPct ?? 0,
+                  stats.accuracy ?? 0,
+                ),
+            ),
+          },
+          ...(stats.critChancePct && stats.critChancePct > 0
+            ? [{ label: "치명", value: pct(stats.critChancePct) }]
+            : []),
+          ...(stats.magicAtk && stats.magicAtk > 0
+            ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
+            : []),
+          ...(stats.bonusAttackChancePct && stats.bonusAttackChancePct > 0
+            ? [
+                {
+                  label: "연타 보정",
+                  value: `+${Math.round(stats.bonusAttackChancePct)}%`,
+                },
+              ]
+            : []),
+        ]
+      : [
+          { label: "명중", value: String(Math.round(stats.accuracy ?? 0)) },
+          { label: "회피", value: pct(stats.evasionPct ?? 0) },
+          ...(stats.critChancePct && stats.critChancePct > 0
+            ? [{ label: "치명", value: pct(stats.critChancePct) }]
+            : []),
+          ...(stats.magicAtk && stats.magicAtk > 0
+            ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
+            : []),
+        ];
   const hasDetails = details.length > 0;
   const align = center ? " justify-center" : "";
   const dim = "text-zinc-400 dark:text-zinc-500";
+  const speedLabel = variant === "enemy" ? "행동" : "속";
+  const speedValue =
+    variant === "enemy" ? (stats.actionSpd ?? stats.spd) : stats.spd;
   return (
     <div className={center ? "text-center" : ""}>
       <button
@@ -224,7 +286,8 @@ export function BattleStatStrip({
           <span className={dim}>방</span> {(stats.def ?? 0).toLocaleString()}
         </span>
         <span>
-          <span className={dim}>속</span> {(stats.spd ?? 0).toLocaleString()}
+          <span className={dim}>{speedLabel}</span>{" "}
+          {Math.round(speedValue ?? 0).toLocaleString()}
         </span>
         {hasDetails && <span className={dim}>{open ? "▴" : "▾"}</span>}
       </button>
@@ -235,7 +298,7 @@ export function BattleStatStrip({
           {details.map((d) => (
             <span
               key={d.label}
-              className="inline-flex items-baseline gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800/70"
+              className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-md bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800/70"
             >
               <span className={dim}>{d.label}</span>
               <span
@@ -515,24 +578,35 @@ export function BattleScene({
                 )}
                 {/* 공/방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
                     있어(payload 부분 객체) atk 숫자일 때만 렌더 — 없으면 표시 생략(크래시 방지). */}
-                {typeof state.enemy.atk === "number" && (
-                  <BattleStatStrip
-                    center
-                    stats={{
-                      atk: state.enemy.atk,
-                      def: state.enemy.def,
-                      spd: state.enemy.spd,
-                      accuracy: state.enemy.accuracy,
-                      evasionPct: state.enemy.evasionPct,
-                      // 치명형 몹 critPct·마법형 몹 atk(=마공). 미보유는 0 표시(대칭).
-                      critChancePct: state.enemy.critPct,
-                      magicAtk:
-                        state.enemy.atkType === "magic"
-                          ? state.enemy.atk
-                          : undefined,
-                    }}
-                  />
-                )}
+                {typeof state.enemy.atk === "number" &&
+                  (() => {
+                    const enemyDisplay = state.enemy as typeof state.enemy & {
+                      actionSpd?: number;
+                    };
+                    return (
+                      <BattleStatStrip
+                        center
+                        variant="enemy"
+                        opponentStats={playerCombat}
+                        stats={{
+                          atk: state.enemy.atk,
+                          def: state.enemy.def,
+                          spd: state.enemy.spd,
+                          actionSpd: enemyDisplay.actionSpd,
+                          accuracy: state.enemy.accuracy,
+                          evasionPct: state.enemy.evasionPct,
+                          // 치명형 몹 critPct·마법형 몹 atk(=마공).
+                          critChancePct: state.enemy.critPct,
+                          magicAtk:
+                            state.enemy.atkType === "magic"
+                              ? state.enemy.atk
+                              : undefined,
+                          bonusAttackChancePct:
+                            state.enemy.bonusAttackChancePct,
+                        }}
+                      />
+                    );
+                  })()}
               </div>
             </div>
           </div>

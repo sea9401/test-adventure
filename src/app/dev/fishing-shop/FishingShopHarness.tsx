@@ -28,7 +28,7 @@ import type {
 // /dev/fishing-shop — mock 코인/보유로 상점 구매 UI QA(로그인·DB 없이).
 export function FishingShopHarness() {
   const [state, setState] = useState<FishingShopState>({
-    coins: 1800,
+    coins: 7000,
     ownedTitleIds: ["fishing_taegong"],
     staminaPotions: 0,
     progression: fishingProgressionView(emptyFishingProgression()),
@@ -103,7 +103,7 @@ export function FishingShopHarness() {
     <div className="space-y-3">
       <div className="mx-auto max-w-[560px] px-6 pt-4">
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          DEV 하니스 — mock 코인 1800, 강태공 보유. 구매 시 로컬 차감(새로고침 초기화).
+          DEV 하니스 — mock 코인 7000, 강태공 보유. 구매 시 로컬 차감(새로고침 초기화).
         </div>
       </div>
       <FishingShopView

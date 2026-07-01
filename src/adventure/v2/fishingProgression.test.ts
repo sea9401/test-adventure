@@ -12,6 +12,7 @@ import {
   fishingGearPrice,
   fishingLevelBonuses,
   fishingLevelForXp,
+  fishingLevelRewardCoins,
   fishingProgressionView,
   parseFishingProgression,
 } from "./fishingProgression";
@@ -82,6 +83,13 @@ describe("낚시 진행도", () => {
     expect(fishingLevelBonuses(5).specialWeightPct).toBe(2);
     expect(fishingLevelBonuses(30).sizeBonusPct).toBe(7);
     expect(fishingLevelBonuses(30).specialWeightPct).toBe(14);
+  });
+
+  it("레벨업 코인 보상은 2레벨부터 주고 5레벨 단위에서 커진다", () => {
+    expect(fishingLevelRewardCoins(1)).toBe(0);
+    expect(fishingLevelRewardCoins(2)).toBe(40);
+    expect(fishingLevelRewardCoins(5)).toBe(140);
+    expect(fishingLevelRewardCoins(10)).toBe(240);
   });
 
   it("도구 구매는 보유 목록에 추가하고 즉시 장착한다", () => {

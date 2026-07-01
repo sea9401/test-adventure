@@ -258,19 +258,26 @@ export function TileMap({
     for (const s of tileSettlements) settlementByKey.set(tileKey(s.col, s.row), s);
 
   useEffect(() => {
-    if (viewerGuildId == null) {
-      setWarOverview(null);
-      return;
-    }
     let alive = true;
-    fetch("/api/v2/war/overview", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: WarOverviewLite | null) => {
-        if (alive) setWarOverview(j?.ok ? (j.myGuild ?? null) : null);
-      })
-      .catch(() => {
+    if (viewerGuildId == null) {
+      queueMicrotask(() => {
         if (alive) setWarOverview(null);
       });
+      return () => {
+        alive = false;
+      };
+    }
+    queueMicrotask(() => {
+      if (!alive) return;
+      fetch("/api/v2/war/overview", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: WarOverviewLite | null) => {
+          if (alive) setWarOverview(j?.ok ? (j.myGuild ?? null) : null);
+        })
+        .catch(() => {
+          if (alive) setWarOverview(null);
+        });
+    });
     return () => {
       alive = false;
     };

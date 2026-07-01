@@ -40,6 +40,8 @@ export type ReelOutcome =
       codexCount: number;
       /** 이번 챔질로 받은 낚시 코인(티어 소량·일일 상한 도달 시 0). */
       coinsGained?: number;
+      /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
+      levelRewardCoins?: number;
       /** 성공한 챔질로 얻은 낚시 숙련도 경험치. */
       fishingXpGained?: number;
       fishingLevel?: number;
@@ -59,6 +61,8 @@ export type ReelOutcome =
       challengeProgress?: FishingProgressNotice[];
     }
   | { caught: false; reason: string };
+
+type CaughtReelOutcome = Extract<ReelOutcome, { caught: true }>;
 
 export type FishingHandlers = {
   cast: () => Promise<CastOutcome>;
@@ -229,17 +233,75 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
   legendary: { iconCls: "h-20 w-20", glow: true },
 };
 
-const TASK_KIND_LABEL: Record<FishingProgressNotice["kind"], string> = {
-  contract: "오늘의 의뢰",
-  daily: "일일 과제",
-  goal: "누적 목표",
-};
-
 function levelBonusLabels(progression: FishingProgressionView): string[] {
   return [
     `씨알 +${progression.levelBonuses.sizeBonusPct}%`,
     `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
   ];
+}
+
+function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
+  const labels: string[] = [];
+  if (result.coinsGained != null && result.coinsGained > 0) {
+    labels.push(`코인 +${result.coinsGained}`);
+  }
+  if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
+    labels.push(`레벨업 보상 +${result.levelRewardCoins}`);
+  }
+  if (result.fishingXpGained != null && result.fishingXpGained > 0) {
+    labels.push(
+      `숙련도 +${result.fishingXpGained}${
+        result.fishingLevel ? ` · Lv ${result.fishingLevel}` : ""
+      }${result.fishingLevelUp ? " 상승" : ""}`,
+    );
+  }
+  return labels;
+}
+
+function challengeProgressSummary(
+  items: readonly FishingProgressNotice[] | undefined,
+): string | null {
+  if (!items || items.length === 0) return null;
+  const completed = items.filter((item) => item.justCompleted).length;
+  const claimable = items.filter((item) => item.claimable).length;
+  return [
+    `의뢰/목표 ${items.length}개 진행`,
+    completed > 0 ? `${completed}개 완료` : null,
+    claimable > 0 ? `${claimable}개 수령 가능` : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
+}
+
+function CatchRewardSummary({ result }: { result: CaughtReelOutcome }) {
+  const labels = rewardSummaryLabels(result);
+  if (labels.length === 0) return null;
+  return (
+    <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+      {labels.map((label) => (
+        <span
+          key={label}
+          className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+        >
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function ChallengeProgressSummary({
+  items,
+}: {
+  items: readonly FishingProgressNotice[] | undefined;
+}) {
+  const summary = challengeProgressSummary(items);
+  if (!summary) return null;
+  return (
+    <div className="mx-auto mt-2 max-w-sm rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-center text-[11px] font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+      {summary}
+    </div>
+  );
 }
 
 export function FishingView({
@@ -553,11 +615,7 @@ export function FishingView({
               <div className="pt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                 어보 {result.codexCount}/{FISH_TOTAL}종
               </div>
-              {result.coinsGained != null && result.coinsGained > 0 && (
-                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  + {result.coinsGained} 낚시 코인
-                </div>
-              )}
+              <CatchRewardSummary result={result} />
               {result.streak && result.streak.buffTier > 0 && (
                 <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                   연속 {result.streak.current} 버프 · 코인 +
@@ -565,38 +623,7 @@ export function FishingView({
                   {result.streak.fragmentChanceBonusPct}%p
                 </div>
               )}
-              {result.fishingXpGained != null && result.fishingXpGained > 0 && (
-                <div className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                  + {result.fishingXpGained} 낚시 숙련도
-                  {result.fishingLevel ? ` · Lv ${result.fishingLevel}` : ""}
-                  {result.fishingLevelUp ? " 상승" : ""}
-                </div>
-              )}
-              {result.challengeProgress &&
-                result.challengeProgress.length > 0 && (
-                  <div className="mx-auto mt-2 max-w-sm space-y-1 rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-2 text-left dark:border-amber-900/60 dark:bg-amber-950/30">
-                    {result.challengeProgress.slice(0, 4).map((p) => (
-                      <div
-                        key={`${p.kind}:${p.id}`}
-                        className="flex items-center justify-between gap-2 text-[11px]"
-                      >
-                        <span className="min-w-0 truncate text-zinc-600 dark:text-zinc-300">
-                          {TASK_KIND_LABEL[p.kind]} · {p.title}
-                        </span>
-                        <span className="shrink-0 font-semibold text-amber-700 dark:text-amber-300">
-                          {p.delta > 0 ? `+${p.delta} ` : ""}
-                          {p.progress}/{p.goal}
-                          {p.justCompleted ? " 완료" : ""}
-                        </span>
-                      </div>
-                    ))}
-                    {result.challengeProgress.length > 4 && (
-                      <div className="text-right text-[11px] text-zinc-400 dark:text-zinc-500">
-                        외 {result.challengeProgress.length - 4}개 진행
-                      </div>
-                    )}
-                  </div>
-                )}
+              <ChallengeProgressSummary items={result.challengeProgress} />
               {lastReactionMs != null && (
                 <div className="text-[11px] font-medium">
                   <span className={reactionGrade(lastReactionMs).cls}>

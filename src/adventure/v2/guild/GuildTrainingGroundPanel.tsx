@@ -67,11 +67,12 @@ export function GuildTrainingGroundPanel({
   );
   const [message, setMessage] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (alive: () => boolean = () => true) => {
     setLoading(true);
     try {
       const res = await fetch("/api/v2/guild/training-ground");
       const json = (await res.json().catch(() => null)) as TrainingState | null;
+      if (!alive()) return;
       if (!res.ok || !json?.ok) {
         const err = (json as { error?: string } | null)?.error ?? "load_failed";
         setMessage(ERROR_TEXT[err] ?? "훈련장 정보를 불러오지 못했어요.");
@@ -81,14 +82,22 @@ export function GuildTrainingGroundPanel({
         setState(json);
       }
     } catch {
-      setMessage("네트워크 오류로 훈련장 정보를 불러오지 못했어요.");
+      if (alive()) {
+        setMessage("네트워크 오류로 훈련장 정보를 불러오지 못했어요.");
+      }
     } finally {
-      setLoading(false);
+      if (alive()) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    let alive = true;
+    queueMicrotask(() => {
+      if (alive) void load(() => alive);
+    });
+    return () => {
+      alive = false;
+    };
   }, [load]);
 
   const claim = async (drillId: GuildTrainingDrillId) => {

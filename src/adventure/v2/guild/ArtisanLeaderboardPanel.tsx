@@ -120,7 +120,9 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     let alive = true;
-    void load(() => alive);
+    queueMicrotask(() => {
+      if (alive) void load(() => alive);
+    });
     return () => {
       alive = false;
     };

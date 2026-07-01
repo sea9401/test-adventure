@@ -100,6 +100,7 @@ export function useFishing(): FishingHandlers {
           prevBest: Number(j.prevBest ?? 0),
           codexCount: Number(j.codexCount ?? 0),
           coinsGained: Number(j.coinsGained ?? 0),
+          levelRewardCoins: Number(j.levelRewardCoins ?? 0),
           special:
             j.special && typeof j.special === "object"
               ? {

@@ -21,6 +21,7 @@ import {
   Sword,
   Trophy,
   UserCircle,
+  Wall,
   type Icon,
 } from "@phosphor-icons/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -48,6 +49,7 @@ const TABS: TabDef[] = [
       { label: "아레나", href: "/battle/arena", Icon: Trophy, color: "text-amber-500" },
       { label: "훈련장", href: "/battle/sparring", Icon: Barbell, color: "text-sky-500" },
       { label: "토벌", href: "/battle/subjugation", Icon: Crosshair, color: "text-orange-500" },
+      { label: "던전 입장", href: "/battle/grid-dungeon", Icon: Wall, color: "text-amber-500" },
       { label: "지도", href: "/map", Icon: CompassRose, color: "text-emerald-500" },
     ],
   },

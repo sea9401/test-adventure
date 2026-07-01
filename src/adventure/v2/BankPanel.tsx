@@ -29,7 +29,7 @@ const BANK_ERROR_TEXT: Record<string, string> = {
 
 export function BankPanel() {
   const { gold, bankedGold, applyResourcePatch, coreLoopOn } = useGameState();
-  // 코어루프 — 출금 폐지(입금만). 골드 소비 시 은행이 우선 쓰이므로 은행은 패배 세금 완충 + 자동 지갑.
+  // 코어루프 — 출금 폐지(입금만). 골드 소비 시 은행이 우선 쓰이므로 은행은 패배 페널티 완충 + 자동 지갑.
   const depositOnly = coreLoopOn;
   const [amountText, setAmountText] = useState("");
   const [busyAction, setBusyAction] = useState<BankAction | null>(null);
@@ -94,7 +94,7 @@ export function BankPanel() {
       </div>
 
       {depositOnly ? (
-        // 코어루프 — 출금이 없고, 은행 잔액은 패배 세금 완충+우선소비라 '전부 입금'이 기본 선택.
+        // 코어루프 — 출금이 없고, 은행 잔액은 패배 페널티 완충+우선소비라 '전부 입금'이 기본 선택.
         //   금액 입력 없이 원탭으로 보유 골드 전부 입금(사용자 요청).
         <button
           type="button"
@@ -159,7 +159,7 @@ export function BankPanel() {
       )}
       {depositOnly && (
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-          입금한 골드는 사냥 패배 세금에서 안전합니다. 다만 남의 영지에서
+          입금한 골드는 사냥 패배 페널티에서 안전합니다. 다만 남의 영지에서
           토벌당하면 은행 잔액 일부도 압류될 수 있습니다.
         </p>
       )}

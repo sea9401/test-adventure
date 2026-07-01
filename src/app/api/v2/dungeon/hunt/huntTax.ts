@@ -39,9 +39,9 @@ export function computeGoldTax(params: {
   return goldTaxed;
 }
 
-// 코어루프 패배 세금 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
-//   절반(보유 한도 클램프)을 압류하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
-//   off = lossTax 0·atRiskGold 미기록(byte-identical). 행선지 라우팅은 라우트가 한다.
+// 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
+//   절반(보유 한도 클램프)을 소실하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
+//   off = lossTax 0·atRiskGold 미기록(byte-identical). 소실 골드는 어디에도 입금하지 않는다.
 export function computeLossTax(params: {
   won: boolean;
   goldNet: number;

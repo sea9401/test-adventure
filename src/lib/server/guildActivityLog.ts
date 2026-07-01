@@ -20,6 +20,7 @@ export type GuildActivityType =
   | "artisan_rank_reward"
   | "smithy_upgrade"
   | "building_upgrade"
+  | "combat_supply_upgrade"
   | "nation_declare"
   | "guild_create";
 
@@ -33,6 +34,9 @@ export type GuildActivityMeta = {
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade
+  supplyName?: string; // combat_supply_upgrade
+  supplyLevel?: number; // combat_supply_upgrade
+  fameCost?: number; // combat_supply_upgrade
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward

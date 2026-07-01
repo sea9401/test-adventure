@@ -61,6 +61,7 @@ export type GuildInfoResponse = {
     masterId: string;
     createdAt: string;
     fameTotal: number;
+    fameAvailable: number;
     description: string | null;
     emblem: string | null;
     color: string | null;
@@ -123,6 +124,7 @@ export function settleTierLabel(t: string): string {
 export type GuildSubTab =
   | "info"
   | "members"
+  | "research"
   | "training"
   | "manage"
   | "outposts"

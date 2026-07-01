@@ -58,6 +58,9 @@ export function GuildInfoPanel({
             <dt className="text-zinc-500 dark:text-zinc-400">명성</dt>
             <dd className="font-medium tabular-nums">
               {info.guild.fameTotal.toLocaleString()}
+              <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                사용 가능 {(info.guild.fameAvailable ?? 0).toLocaleString()}
+              </span>
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">

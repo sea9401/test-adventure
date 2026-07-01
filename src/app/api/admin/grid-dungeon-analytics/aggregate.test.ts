@@ -53,6 +53,7 @@ describe("aggregateGridDungeonAnalytics", () => {
     expect(data.partySizes).toEqual([]);
     expect(data.routeParties).toHaveLength(9);
     expect(data.failureReasons).toEqual([]);
+    expect(data.routeFailureReasons).toEqual([]);
     expect(data.balanceFlags).toEqual([]);
     expect(data.tuningCandidates).toEqual([]);
     expect(data.recentRuns).toEqual([]);
@@ -198,6 +199,67 @@ describe("aggregateGridDungeonAnalytics", () => {
       failureReasonLabel: "보스 전투 패배",
       detailReason: "보스 전투 패배",
     });
+  });
+
+  it("breaks failure reasons down by route and suggests cause-specific tuning", () => {
+    const bossFails = Array.from({ length: 3 }, (_, index) =>
+      entry({
+        id: `boss-${index}`,
+        outcome: "failed",
+        routeId: "guardian",
+        failureReason: "combat_boss",
+        detailReason: "보스 전투 패배",
+        bossReached: true,
+        combatCount: 4,
+        totalCombatTurns: 24,
+      }),
+    );
+    const trapFails = Array.from({ length: 3 }, (_, index) =>
+      entry({
+        id: `trap-${index}`,
+        outcome: "failed",
+        routeId: "vault",
+        failureReason: "trap",
+        detailReason: "함정 피해로 HP 소진",
+        bossReached: false,
+        combatCount: 0,
+        totalCombatTurns: 0,
+      }),
+    );
+
+    const data = aggregateGridDungeonAnalytics([
+      user({ userId: "u-boss", history: bossFails }),
+      user({ userId: "u-trap", history: trapFails }),
+    ]);
+
+    expect(data.routeFailureReasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          routeId: "guardian",
+          reason: "combat_boss",
+          runs: 3,
+          pctOfRouteFailures: 100,
+        }),
+        expect.objectContaining({
+          routeId: "vault",
+          reason: "trap",
+          runs: 3,
+          pctOfRouteFailures: 100,
+        }),
+      ]),
+    );
+    expect(data.tuningCandidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "route:guardian:boss-fail",
+          priority: "high",
+        }),
+        expect.objectContaining({
+          id: "route:vault:trap-fail",
+          priority: "medium",
+        }),
+      ]),
+    );
   });
 
   it("groups by actual party size", () => {

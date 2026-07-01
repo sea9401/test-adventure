@@ -689,8 +689,8 @@ function drawFishingCanvasScene(
     for (let i = 0; i < rippleCount; i += 1) {
       const rippleClock = biting ? phaseT : t;
       const p = reducedMotion ? 0.55 : (rippleClock * (biting ? 2.8 : 0.9) + i * 0.33) % 1;
-      ctx.strokeStyle = `rgba(255,255,255,${(1 - p) * (biting ? 0.62 : 0.32)})`;
-      ctx.lineWidth = biting ? 2 : 1.2;
+      ctx.strokeStyle = biting ? `rgba(244, 63, 94, ${(1 - p) * 0.9})` : `rgba(255,255,255,${(1 - p) * 0.32})`;
+      ctx.lineWidth = biting ? 2.8 : 1.2;
       ctx.beginPath();
       ctx.ellipse(bobberX, bobberY + 4, 12 + p * (biting ? 42 : 26), 4 + p * (biting ? 13 : 8), 0, 0, TAU);
       ctx.stroke();
@@ -721,7 +721,7 @@ function drawFishingCanvasScene(
     bobberX,
     bobberY,
     biting ? 1.12 : 1,
-    biting ? "#f59e0b" : phase === "idle" ? "#38bdf8" : "#e11d48",
+    biting ? "#f43f5e" : phase === "idle" ? "#38bdf8" : "#e11d48",
     biting
       ? biteTremor * 0.08 - biteImpact * 0.18
       : waitPulse * 0.025 + cuePulse * 0.05 + tapSnap * 0.12,
@@ -834,7 +834,13 @@ function FishingSceneCanvas({
     <div ref={wrapRef} className="fish-canvas-scene pointer-events-none relative h-full w-full overflow-hidden">
       <canvas ref={canvasRef} aria-hidden="true" className="fish-scene-canvas" />
       {phase !== "idle" && (
-        <div className="fish-scene-status absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-950/70">
+        <div
+          className={`fish-scene-status absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded px-3 py-1 text-center backdrop-blur-[1px] ${
+            biting
+              ? "bg-rose-600/95 text-white shadow-lg shadow-rose-950/30 ring-4 ring-white/80 dark:bg-rose-500/95 dark:ring-white/70"
+              : "bg-white/75 shadow-sm dark:bg-zinc-950/70"
+          }`}
+        >
           {phase === "casting" && <span className="text-sm">던지는 중…</span>}
           {waiting && (
             <>
@@ -842,7 +848,7 @@ function FishingSceneCanvas({
               <span className="mt-0.5 block text-[11px] opacity-70">아직 누르지 말 것</span>
             </>
           )}
-          {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
+          {biting && <span className="block text-xl font-extrabold drop-shadow">지금 챔질!</span>}
           {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
         </div>
       )}
@@ -1363,7 +1369,7 @@ export function FishingView({
           onClick={onTapZone}
           className={`ui-fishing-zone relative flex h-56 w-full select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-center transition ${
             biting
-              ? "is-biting border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
+              ? "is-biting border-rose-500 bg-rose-100 text-rose-950 ring-4 ring-rose-400/60 dark:border-rose-300 dark:bg-rose-950/70 dark:text-rose-100 dark:ring-rose-300/45"
               : tapActive
                 ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
                 : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"

@@ -85,6 +85,8 @@ export async function GET() {
         deliveryTitle?: string;
         itemName?: string;
         smithyLevel?: number;
+        drillTitle?: string;
+        rewardMastery?: number;
         artisanXp?: number;
         artisanRank?: number;
         titleName?: string;

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   addCumLevel,
@@ -247,6 +248,16 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);
+    await logGuildActivity(tx, {
+      guildId,
+      type: "training_drill_claim",
+      actorUserId: userId,
+      meta: {
+        drillTitle: drill.title,
+        rewardMastery: drill.rewardMastery,
+        rewardGold: drill.rewardGold,
+      },
+    });
 
     return {
       status: 200,

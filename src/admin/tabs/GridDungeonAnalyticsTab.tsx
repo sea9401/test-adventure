@@ -99,6 +99,14 @@ type GridDungeonAnalytics = {
     runs: number;
     pctOfFailures: number;
   }>;
+  routeFailureReasons: Array<{
+    routeId: GridDungeonRouteId;
+    routeName: string;
+    reason: FailureReason;
+    label: string;
+    runs: number;
+    pctOfRouteFailures: number;
+  }>;
   balanceFlags: Array<{
     id: string;
     severity: BalanceSeverity;
@@ -708,6 +716,48 @@ export function GridDungeonAnalyticsTab() {
             ) : (
               <div className="text-xs text-zinc-500 dark:text-zinc-400">
                 실패 기록 없음
+              </div>
+            )}
+          </Card>
+
+          <Card title="루트별 실패 원인">
+            {data.routeFailureReasons.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-zinc-500 dark:text-zinc-400">
+                      <th className="py-1 pr-2 font-medium">루트</th>
+                      <th className="py-1 pr-2 font-medium">원인</th>
+                      <th className="py-1 pr-2 text-right font-medium">실패</th>
+                      <th className="py-1 text-right font-medium">비중</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.routeFailureReasons.map((reason) => (
+                      <tr
+                        key={`${reason.routeId}:${reason.reason}`}
+                        className="border-t border-zinc-100 dark:border-zinc-800"
+                      >
+                        <td className="py-1 pr-2">{reason.routeName}</td>
+                        <td className="py-1 pr-2">
+                          <Badge tone={FAILURE_REASON_TONE[reason.reason]}>
+                            {reason.label}
+                          </Badge>
+                        </td>
+                        <td className="py-1 pr-2 text-right font-mono tabular-nums">
+                          {reason.runs.toLocaleString()}건
+                        </td>
+                        <td className="py-1 text-right font-mono tabular-nums">
+                          {reason.pctOfRouteFailures.toLocaleString()}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                루트별 실패 원인 없음
               </div>
             )}
           </Card>

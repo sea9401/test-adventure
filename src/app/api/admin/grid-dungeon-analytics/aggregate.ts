@@ -143,6 +143,15 @@ export type GridDungeonFailureReasonAnalytics = {
   pctOfFailures: number;
 };
 
+export type GridDungeonRouteFailureReasonAnalytics = {
+  routeId: GridDungeonRouteId;
+  routeName: string;
+  reason: GridDungeonFailureReason;
+  label: string;
+  runs: number;
+  pctOfRouteFailures: number;
+};
+
 export type GridDungeonAnalytics = {
   filters: {
     sinceAt: number | null;
@@ -169,6 +178,7 @@ export type GridDungeonAnalytics = {
   partySizes: GridDungeonPartyAnalytics[];
   routeParties: GridDungeonRoutePartyAnalytics[];
   failureReasons: GridDungeonFailureReasonAnalytics[];
+  routeFailureReasons: GridDungeonRouteFailureReasonAnalytics[];
   balanceFlags: GridDungeonBalanceFlag[];
   tuningCandidates: GridDungeonTuningCandidate[];
   recentRuns: GridDungeonAnalyticsRun[];
@@ -255,6 +265,24 @@ function failureReasonOutput(acc: Acc): GridDungeonFailureReasonAnalytics[] {
     runs: acc.failureReasons[reason],
     pctOfFailures: pct(acc.failureReasons[reason], acc.failed),
   })).filter((row) => row.runs > 0);
+}
+
+function routeFailureReasonOutput(
+  routeAccs: Record<GridDungeonRouteId, Acc>,
+): GridDungeonRouteFailureReasonAnalytics[] {
+  return GRID_DUNGEON_ROUTE_IDS.flatMap((routeId) =>
+    FAILURE_REASON_IDS.map((reason) => ({
+      routeId,
+      routeName: GRID_DUNGEON_ROUTES[routeId].name,
+      reason,
+      label: FAILURE_REASON_LABEL[reason],
+      runs: routeAccs[routeId].failureReasons[reason],
+      pctOfRouteFailures: pct(
+        routeAccs[routeId].failureReasons[reason],
+        routeAccs[routeId].failed,
+      ),
+    })).filter((row) => row.runs > 0),
+  ).sort((a, b) => b.runs - a.runs);
 }
 
 function riskFor(acc: Acc): {
@@ -460,6 +488,7 @@ function makeBalanceFlags(
 function makeTuningCandidates(
   routes: GridDungeonRouteAnalytics[],
   routeParties: GridDungeonRoutePartyAnalytics[],
+  routeFailureReasons: GridDungeonRouteFailureReasonAnalytics[],
 ): GridDungeonTuningCandidate[] {
   const candidates: GridDungeonTuningCandidate[] = [];
   for (const route of routes) {
@@ -501,6 +530,47 @@ function makeTuningCandidates(
         title: `${GRID_DUNGEON_ROUTES[routeId].name} 파티 의존도 높음`,
         detail: `솔로 ${solo.clearRatePct}% · 3명 ${trio.clearRatePct}%`,
         action: "솔로 권장 경로가 아니라면 UI 문구를 유지하고, 솔로 권장 경로라면 보스 압박 완화를 검토하세요.",
+      });
+    }
+  }
+
+  for (const row of routeFailureReasons) {
+    if (row.runs < 3 || row.pctOfRouteFailures < 50) continue;
+    if (row.reason === "combat_boss") {
+      candidates.push({
+        id: `route:${row.routeId}:boss-fail`,
+        priority: "high",
+        routeId: row.routeId,
+        title: `${row.routeName} 보스 패배 집중`,
+        detail: `${row.label} ${row.runs}건 · 루트 실패 중 ${row.pctOfRouteFailures}%`,
+        action: "보스 깊이 1단계 하향, 보스 공격 스케일링 완화, 또는 보스 전 샘 접근성을 우선 확인하세요.",
+      });
+    } else if (row.reason === "combat_elite") {
+      candidates.push({
+        id: `route:${row.routeId}:elite-fail`,
+        priority: "medium",
+        routeId: row.routeId,
+        title: `${row.routeName} 정예전 압박 집중`,
+        detail: `${row.label} ${row.runs}건 · 루트 실패 중 ${row.pctOfRouteFailures}%`,
+        action: "정예 깊이 또는 정예방 배치를 먼저 확인하세요. 보스보다 중간 전투 압박이 원인일 수 있습니다.",
+      });
+    } else if (row.reason === "trap") {
+      candidates.push({
+        id: `route:${row.routeId}:trap-fail`,
+        priority: "medium",
+        routeId: row.routeId,
+        title: `${row.routeName} 함정 사망 집중`,
+        detail: `${row.label} ${row.runs}건 · 루트 실패 중 ${row.pctOfRouteFailures}%`,
+        action: "함정 피해율, 함정 전후 샘 위치, 초반 함정 배치를 확인하세요.",
+      });
+    } else if (row.reason === "combat_monster") {
+      candidates.push({
+        id: `route:${row.routeId}:monster-fail`,
+        priority: "low",
+        routeId: row.routeId,
+        title: `${row.routeName} 일반전 실패 집중`,
+        detail: `${row.label} ${row.runs}건 · 루트 실패 중 ${row.pctOfRouteFailures}%`,
+        action: "일반 몬스터 깊이와 초반 전투 진입 동선을 확인하세요.",
       });
     }
   }
@@ -566,6 +636,7 @@ export function aggregateGridDungeonAnalytics(
   const routeOutputs = GRID_DUNGEON_ROUTE_IDS.map((id) =>
     routeOutput(id, byRoute[id]),
   );
+  const routeFailureReasonOutputs = routeFailureReasonOutput(byRoute);
   const routePartyOutputs = GRID_DUNGEON_ROUTE_IDS.flatMap((routeId) =>
     [1, 2, 3].map((partySize) =>
       routePartyOutput(
@@ -604,8 +675,13 @@ export function aggregateGridDungeonAnalytics(
       .sort((a, b) => a.partySize - b.partySize),
     routeParties: routePartyOutputs,
     failureReasons: failureReasonOutput(total),
+    routeFailureReasons: routeFailureReasonOutputs,
     balanceFlags: makeBalanceFlags(routeOutputs, routePartyOutputs),
-    tuningCandidates: makeTuningCandidates(routeOutputs, routePartyOutputs),
+    tuningCandidates: makeTuningCandidates(
+      routeOutputs,
+      routePartyOutputs,
+      routeFailureReasonOutputs,
+    ),
     recentRuns: [...runs].sort((a, b) => b.at - a.at).slice(0, 50),
   };
 }

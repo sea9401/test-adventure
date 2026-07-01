@@ -9,6 +9,7 @@ import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { currentLocationLabel } from "@/adventure/v2/currentLocation";
+import { isAtGridDungeonEntrance } from "@/adventure/data/v2/gridDungeon";
 import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
 import type { OutpostType } from "@/adventure/data/v2/types";
 
@@ -97,6 +98,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     tileSettlements,
     currentOutpostName: currentOutpost?.name ?? null,
   });
+  const showGridDungeonEntry = tilePos
+    ? isAtGridDungeonEntrance(tilePos)
+    : false;
 
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
   const usePotion = async (count: number) => {
@@ -177,6 +181,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         <MainTabNav
           activeKey={activeTab}
           onNavigate={(href) => router.push(href)}
+          showGridDungeonEntry={showGridDungeonEntry}
         />
         {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
         <WarTicker />

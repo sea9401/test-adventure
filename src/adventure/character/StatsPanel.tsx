@@ -1,4 +1,10 @@
-import { STAT_KEYS, STAT_LABELS } from "@/adventure/data/stats";
+import {
+  CRIT_OVERFLOW_DMG_CAP,
+  CRIT_OVERFLOW_DMG_PER_PCT,
+  CRIT_PCT_CAP,
+  STAT_KEYS,
+  STAT_LABELS,
+} from "@/adventure/data/stats";
 import { V2_BASE_MISS_PCT } from "@/adventure/data/v2/v2CombatConstants";
 import { Tooltip } from "@/components/ui/Tooltip";
 
@@ -15,9 +21,9 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
     "받는 마법 피해를 줄입니다. 정신·지능이 높을수록 커집니다.",
   회피: "현재 사냥터(최대 깊이) 몹 기준 회피 확률. 적의 명중과 겨뤄 정해져, 더 깊은 곳일수록 몹 명중이 높아 회피가 낮아집니다. 회피에 투자하면(민첩·행운) 계속 올라가며 75%에 점근합니다.",
   명중: "기본 적중 90%에 명중 레이팅을 더한 값. 명중은 빗나감(기본 10%)을 줄여 — 투자하면 일반몹 적중 100% — 100%를 넘는 만큼은 회피몹·PvP 회피와의 대결에서 상대 회피를 깎는 여유입니다. 민첩·힘·지능·정신이 보조합니다.",
-  "치명타 확률": "공격이 치명타로 터질 확률. 행운이 높을수록 커집니다.",
+  "치명타 확률": "공격이 치명타로 터질 확률. 전투에서는 최대 75%까지 적용되고, 초과분은 평타 치명타 피해로 전환됩니다.",
   "치명타 배율":
-    "치명타가 터졌을 때 피해 배수. 행운·힘이 높을수록 커집니다.",
+    "평타 치명타가 터졌을 때 피해 배수. 표시값에는 치명타 확률 75% 초과분이 전환된 보너스가 포함됩니다. 액티브 스킬 치명타는 별도 배율을 사용합니다.",
   속도: "행동 빈도를 좌우합니다. 민첩에서 파생되고 장비 무게로 줄어듭니다.",
 };
 
@@ -36,6 +42,14 @@ type CombatStats = {
 };
 
 type CombatItem = { label: string; value: string | number; accent: string };
+
+function critOverflowMult(critChancePct: number | undefined): number {
+  return Math.min(
+    CRIT_OVERFLOW_DMG_CAP,
+    Math.max(0, (critChancePct ?? 0) - CRIT_PCT_CAP) *
+      CRIT_OVERFLOW_DMG_PER_PCT,
+  );
+}
 
 // 표시할 상세 스탯 목록을 순서대로. magicAtk 은 0(물리 빌드)이면 숨김.
 // v2 전용 필드(magicDef·회피 등)는 v2 caller 만 전달 — 라이브(undefined)는 미표시.
@@ -79,7 +93,9 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
       },
       {
         label: "치명타 배율",
-        value: `×${(combat.critMult ?? 0).toFixed(2)}`,
+        value: `×${(
+          (combat.critMult ?? 0) + critOverflowMult(combat.critChancePct)
+        ).toFixed(2)}`,
         accent: "text-pink-600 dark:text-pink-400",
       },
       {

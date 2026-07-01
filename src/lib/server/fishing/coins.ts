@@ -31,18 +31,37 @@ export function walletCoins(raw: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 0;
 }
 
-// 그 날 이미 챔질로 적립한 코인(일자 다르면 0). 비파괴 read.
-function catchEarnedToday(raw: unknown, dayKey: string): number {
+function walletCatchDay(raw: unknown): FishingWallet["catchDay"] | undefined {
   const cd =
     raw && typeof raw === "object"
       ? ((raw as { catchDay?: unknown }).catchDay as
           | { date?: unknown; earned?: unknown }
           | undefined)
       : undefined;
+  if (!cd || typeof cd.date !== "string") return undefined;
+  if (typeof cd.earned !== "number" || !Number.isFinite(cd.earned)) {
+    return undefined;
+  }
+  return { date: cd.date, earned: Math.max(0, Math.floor(cd.earned)) };
+}
+
+export function fishingWalletWithCoins(raw: unknown, coins: number): FishingWallet {
+  const next: FishingWallet = {
+    coins:
+      typeof coins === "number" && Number.isFinite(coins)
+        ? Math.max(0, Math.floor(coins))
+        : 0,
+  };
+  const catchDay = walletCatchDay(raw);
+  if (catchDay) next.catchDay = catchDay;
+  return next;
+}
+
+// 그 날 이미 챔질로 적립한 코인(일자 다르면 0). 비파괴 read.
+function catchEarnedToday(raw: unknown, dayKey: string): number {
+  const cd = walletCatchDay(raw);
   if (!cd || cd.date !== dayKey) return 0;
-  return typeof cd.earned === "number" && Number.isFinite(cd.earned)
-    ? Math.max(0, Math.floor(cd.earned))
-    : 0;
+  return cd.earned;
 }
 
 // 잡은 물고기 1마리 코인 적립 — 티어값을 일일 상한 내에서 지급. 비파괴.

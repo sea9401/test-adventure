@@ -3,6 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   FISHING_WALLET_KEY,
+  fishingWalletWithCoins,
   walletCoins,
   type FishingWallet,
 } from "@/lib/server/fishing/coins";
@@ -89,7 +90,12 @@ export async function POST(req: Request) {
         { coins: 0 },
       );
       const coins = walletCoins(wallet) + goalDef.rewardCoins;
-      await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins });
+      await upsertSave(
+        tx,
+        userId,
+        FISHING_WALLET_KEY,
+        fishingWalletWithCoins(wallet, coins),
+      );
       await upsertSave(tx, userId, FISHING_PROGRESS_KEY, {
         ...state,
         claimedGoals: [...state.claimedGoals, id],
@@ -144,7 +150,12 @@ export async function POST(req: Request) {
       { coins: 0 },
     );
     const coins = walletCoins(wallet) + def.rewardCoins;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins });
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      fishingWalletWithCoins(wallet, coins),
+    );
     await upsertSave(tx, userId, FISHING_DAILY_KEY, {
       ...state,
       claimed: isContract ? state.claimed : [...state.claimed, id],

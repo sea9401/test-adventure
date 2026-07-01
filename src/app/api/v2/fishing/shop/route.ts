@@ -18,6 +18,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   FISHING_WALLET_KEY,
+  fishingWalletWithCoins,
   walletCoins,
   type FishingWallet,
 } from "@/lib/server/fishing/coins";
@@ -204,7 +205,12 @@ export async function POST(req: Request) {
     const granted = await grantTitleIfMissingInTx(tx, userId, titleId, Date.now());
     if (!granted) return { kind: "owned" as const, coins };
     const coinBalance = coins - price;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins: coinBalance });
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      fishingWalletWithCoins(wallet, coinBalance),
+    );
     return { kind: "ok" as const, coinBalance };
   });
 
@@ -279,7 +285,12 @@ async function buyFishingGear(
     const next = buyGearState(progress, gearKind, gearId);
     await upsertSave(tx, userId, FISHING_PROGRESS_KEY, next);
     const coinBalance = coins - price;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins: coinBalance });
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      fishingWalletWithCoins(wallet, coinBalance),
+    );
     return {
       kind: "ok" as const,
       coins: coinBalance,
@@ -344,7 +355,12 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     const nextCount = staminaPotionCount(potSave) + 1;
     await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: nextCount });
     const coinBalance = coins - price;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins: coinBalance });
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      fishingWalletWithCoins(wallet, coinBalance),
+    );
     return { kind: "ok" as const, coinBalance, staminaPotions: nextCount };
   });
 

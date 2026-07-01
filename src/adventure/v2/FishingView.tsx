@@ -371,7 +371,7 @@ export function FishingView({
   const showAction = phase === "idle" || phase === "result";
   const actionButtonClass =
     phase === "result"
-      ? "fixed inset-x-4 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99] sm:static sm:w-full sm:shadow-none"
+      ? "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[520px] -translate-x-1/2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99]"
       : "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
 
   return (
@@ -632,7 +632,7 @@ export function FishingView({
           <button type="button" onClick={startCast} className={actionButtonClass}>
             {phase === "result" ? "다시 던지기" : "찌 던지기"}
           </button>
-          {phase === "result" && <div aria-hidden className="h-16 sm:hidden" />}
+          {phase === "result" && <div aria-hidden className="h-16" />}
         </>
       )}
     </main>

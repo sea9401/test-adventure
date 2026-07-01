@@ -172,52 +172,56 @@ function drawReeds(ctx: CanvasRenderingContext2D, x: number, y: number, sway: nu
   ctx.restore();
 }
 
-function drawAngler(
+function drawRodGrip(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
   motion: number,
 ) {
-  const baseX = width * 0.83;
-  const baseY = height - 37;
+  const baseX = width * 0.86;
+  const baseY = height * 0.2;
   ctx.save();
   ctx.translate(baseX, baseY);
+  ctx.rotate(-0.28 + motion * 0.05);
   ctx.imageSmoothingEnabled = false;
 
-  ctx.fillStyle = "rgba(23, 37, 42, 0.44)";
+  ctx.fillStyle = "rgba(23, 37, 42, 0.24)";
   ctx.beginPath();
-  ctx.ellipse(-3, 14, 31, 8, 0, 0, TAU);
+  ctx.ellipse(7, 15, 25, 5, 0, 0, TAU);
   ctx.fill();
 
-  ctx.fillStyle = "#263c31";
-  ctx.fillRect(-15, -17, 25, 29);
-  ctx.fillStyle = "#345843";
-  ctx.fillRect(-11, -14, 17, 11);
-  ctx.fillStyle = "#1f3329";
-  ctx.fillRect(-16, 8, 30, 7);
-
-  ctx.fillStyle = "#f1c27d";
-  ctx.fillRect(-9, -34, 15, 13);
-  ctx.fillStyle = "#4b3422";
-  ctx.fillRect(-12, -39, 22, 8);
-  ctx.fillRect(-7, -43, 11, 5);
-
-  ctx.strokeStyle = "#f1c27d";
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = "#2f1a0b";
+  ctx.lineWidth = 8;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(-6, -7);
-  ctx.lineTo(12 + motion * 4, -15 - motion * 7);
-  ctx.lineTo(26 + motion * 5, -18 - motion * 8);
+  ctx.moveTo(-8, 7);
+  ctx.lineTo(35, 22);
   ctx.stroke();
 
-  ctx.strokeStyle = "#1f3329";
-  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#7c4a21";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(-7, 10);
-  ctx.lineTo(-24, 23);
-  ctx.moveTo(7, 10);
-  ctx.lineTo(28, 21);
+  ctx.moveTo(-6, 4);
+  ctx.lineTo(32, 17);
+  ctx.stroke();
+
+  ctx.fillStyle = "#f1c27d";
+  ctx.fillRect(9, 13, 17, 9);
+  ctx.fillStyle = "rgba(120, 53, 15, 0.38)";
+  ctx.fillRect(22, 14, 5, 7);
+
+  ctx.strokeStyle = "#374151";
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.arc(5, 8, 8, 0, TAU);
+  ctx.stroke();
+  ctx.fillStyle = "#111827";
+  ctx.fillRect(3, 6, 4, 4);
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(11, 13);
+  ctx.lineTo(16, 17 + motion * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -409,7 +413,7 @@ function drawFishingCanvasScene(
         : casting
           ? -8 + castWindup * 22
           : 2;
-  drawAngler(ctx, width, height, biting ? 1 : resolving ? -0.45 : casting ? 0.35 : cuePulse * 0.25);
+  drawRodGrip(ctx, width, height, biting ? 1 : resolving ? -0.45 : casting ? 0.35 : cuePulse * 0.25);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#3f2610";
@@ -645,12 +649,11 @@ function drawResultCanvasScene(
     drawWaterLine(ctx, waterY + 8 + i * 15, width, t * 1.8 + i, 0.24 - i * 0.035);
   }
 
-  drawAngler(ctx, width, height + 8, caught ? -0.65 : 0.25);
-
   const rodBaseX = width * 0.87;
   const rodBaseY = height * 0.22;
   const rodTipX = centerX + 12;
   const rodTipY = caught ? waterY - 32 - easeOutCubic(p) * 22 : waterY - 15;
+  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#3f2610";
@@ -667,25 +670,10 @@ function drawResultCanvasScene(
   ctx.stroke();
 
   if (caught) {
-    const jump = Math.sin(clamp01(t / 0.78) * Math.PI);
-    const fishX = centerX - 4 + Math.sin(t * 5) * 8;
-    const fishY = waterY - 8 - jump * (35 + impact * 8);
     drawPixelSplash(ctx, centerX, waterY + 4, Math.min(1, t / 0.55), 0.62 * impact);
-    drawPixelSplash(ctx, centerX - 12, waterY + 8, (t * 2.1 + 0.32) % 1, 0.22 * impact);
-
-    ctx.save();
-    ctx.translate(fishX, fishY);
-    ctx.rotate(-0.2 + Math.sin(t * 7) * 0.12);
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle =
-      caughtResult.tier === "legendary" || caughtResult.tier === "epic"
-        ? "#f59e0b"
-        : "#0f766e";
-    ctx.fillRect(-18 * impact, -6 * impact, 31 * impact, 12 * impact);
-    ctx.fillRect(9 * impact, -11 * impact, 10 * impact, 22 * impact);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
-    ctx.fillRect(-11 * impact, -3 * impact, 8 * impact, 3 * impact);
-    ctx.restore();
+    if (impact > 1.3) {
+      drawPixelSplash(ctx, centerX - 14, waterY + 8, (t * 2.1 + 0.32) % 1, 0.16 * impact);
+    }
   } else {
     const dart = easeOutCubic(p);
     const fishX = centerX - dart * width * 0.36;
@@ -1131,16 +1119,16 @@ export function FishingView({
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (
             <div className="space-y-1">
-              <div className="relative mx-auto flex h-24 w-full items-center justify-center overflow-hidden rounded-lg border border-sky-200 dark:border-sky-900/60">
+              <div className="relative mx-auto flex h-20 w-full items-center justify-center overflow-hidden rounded-lg border border-sky-200 dark:border-sky-900/60">
                 <FishingResultScene result={result} />
                 {/* 희귀·대물 발광 */}
                 {TIER_REVEAL[result.tier].glow && (
-                  <span className="fish-glow absolute left-1/2 top-[42%] h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/40 blur-md" />
+                  <span className="fish-glow absolute left-1/2 top-[44%] h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/35 blur-md" />
                 )}
                 <FishIcon
                   fishId={result.fishId}
                   name={result.name}
-                  className={`fish-reveal relative z-10 mt-1 drop-shadow-md ${TIER_REVEAL[result.tier].iconCls}`}
+                  className={`fish-reveal relative z-10 -mt-1 drop-shadow-md ${TIER_REVEAL[result.tier].iconCls}`}
                 />
               </div>
               <div className="text-base font-bold">
@@ -1194,12 +1182,12 @@ export function FishingView({
             </div>
           ) : (
             <div className="space-y-1">
-              <div className="relative mx-auto h-20 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+              <div className="relative mx-auto h-16 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
                 <FishingResultScene result={result} />
                 <FishIcon
                   fishId="minnow"
                   decorative
-                  className="fish-dart-away absolute bottom-3 left-1/2 h-8 w-8"
+                  className="fish-dart-away absolute bottom-2 left-1/2 h-7 w-7"
                 />
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">

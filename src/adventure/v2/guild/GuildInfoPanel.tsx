@@ -5,6 +5,7 @@ import {
   GuildActivityList,
   type GuildActivity,
 } from "../GuildActivityList";
+import { GuildCombatSupplySummary } from "./GuildCombatSupplyPanel";
 import { fmtDate, type GuildInfoResponse } from "./guildShared";
 
 // 길드 정보 탭 — 정보 카드 · 금고 입금 · 활동 내역. (V2GuildHome 에서 추출, 거동 불변)
@@ -88,6 +89,8 @@ export function GuildInfoPanel({
           </div>
         )}
       </div>
+
+      <GuildCombatSupplySummary />
 
       {/* 길드 금고 입금 — 거점 화면에서 이관. 점령/공성 비용 재원 충원.
           입금 후 refresh 로 정보 카드 '길드 자금'·활동 내역도 갱신. */}

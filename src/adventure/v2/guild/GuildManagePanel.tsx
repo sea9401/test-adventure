@@ -14,6 +14,7 @@ import { GUILD_COLORS } from "@/adventure/data/guild-colors";
 import { OutpostPolicyEditor } from "../OutpostPolicyEditor";
 import LordPanel from "../LordPanel";
 import { NoticeBanner } from "./NoticeBanner";
+import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
 import {
   fmtDate,
   type GuildInfoResponse,
@@ -420,6 +421,7 @@ export function GuildManagePanel({
       label:
         pendingRequests.length > 0 ? `멤버 (${pendingRequests.length})` : "멤버",
     },
+    { key: "research", label: "길드 연구" },
     { key: "territory", label: "거점 정책" },
   ];
   if (isMaster) manageTabs.push({ key: "settings", label: "길드 설정" });
@@ -445,6 +447,8 @@ export function GuildManagePanel({
           variant="highlight"
         />
       </HeaderPanel>
+
+      {activeManageTab === "research" && <GuildCombatSupplyPanel />}
 
       {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
       {/* 멤버 초대 — 길드원 탭에서 이동 */}

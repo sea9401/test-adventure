@@ -92,13 +92,20 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function smoothstep(value: number): number {
-  const t = clamp01(value);
-  return t * t * (3 - 2 * t);
-}
-
 function lerp(from: number, to: number, amount: number): number {
   return from + (to - from) * amount;
+}
+
+function easeOutCubic(value: number): number {
+  const t = clamp01(value);
+  return 1 - (1 - t) ** 3;
+}
+
+function easeOutBack(value: number): number {
+  const t = clamp01(value);
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2;
 }
 
 function drawRoundedRect(
@@ -149,33 +156,59 @@ function drawReeds(ctx: CanvasRenderingContext2D, x: number, y: number, sway: nu
   ctx.restore();
 }
 
-function drawBobber(
+function drawSpriteBobber(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   scale: number,
   color: string,
+  tilt: number,
 ) {
-  const r = 7 * scale;
+  const unit = 3.4 * scale;
   ctx.save();
-  ctx.translate(x, y);
-  ctx.strokeStyle = "rgba(18, 30, 38, 0.72)";
-  ctx.lineWidth = 1.4 * scale;
-  ctx.beginPath();
-  ctx.moveTo(0, -r - 8 * scale);
-  ctx.lineTo(0, -r * 0.2);
-  ctx.stroke();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.rotate(tilt);
+  ctx.imageSmoothingEnabled = false;
 
+  ctx.fillStyle = "rgba(18, 30, 38, 0.72)";
+  ctx.fillRect(-unit * 0.35, -unit * 6, unit * 0.7, unit * 4);
+
+  ctx.fillStyle = "rgba(15, 23, 42, 0.78)";
+  ctx.fillRect(-unit * 2.1, -unit * 1.7, unit * 4.2, unit * 4.2);
   ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(0, 0, r, Math.PI, TAU);
-  ctx.fill();
+  ctx.fillRect(-unit * 1.7, -unit * 1.3, unit * 3.4, unit * 1.7);
   ctx.fillStyle = "#f8fafc";
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-  ctx.strokeRect(-r * 0.6, -1, r * 1.2, 2);
+  ctx.fillRect(-unit * 1.7, unit * 0.25, unit * 3.4, unit * 1.4);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+  ctx.fillRect(-unit * 1.1, -unit * 0.95, unit * 0.8, unit * 0.5);
+  ctx.fillStyle = "rgba(15, 23, 42, 0.34)";
+  ctx.fillRect(unit * 0.9, unit * 0.45, unit * 0.8, unit * 0.85);
+  ctx.restore();
+}
+
+function drawPixelSplash(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  progress: number,
+  strength: number,
+) {
+  const p = clamp01(progress);
+  const alpha = (1 - p) * strength;
+  const spread = 12 + p * 34;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+  for (let i = 0; i < 9; i += 1) {
+    const angle = -Math.PI + (i / 8) * Math.PI;
+    const dotX = x + Math.cos(angle) * spread;
+    const dotY = y + Math.sin(angle) * (spread * 0.42) - p * 14;
+    const size = Math.max(1.6, (1 - p) * (5 - (i % 3)));
+    ctx.fillRect(Math.round(dotX), Math.round(dotY), size, size);
+  }
+  ctx.fillStyle = `rgba(250, 204, 21, ${alpha * 0.5})`;
+  ctx.fillRect(Math.round(x - spread * 0.45), Math.round(y - p * 8), 5, 3);
+  ctx.fillRect(Math.round(x + spread * 0.28), Math.round(y - p * 11), 4, 3);
   ctx.restore();
 }
 
@@ -184,17 +217,23 @@ function drawFishingCanvasScene(
   width: number,
   height: number,
   phase: Phase,
-  elapsedMs: number,
+  sceneElapsedMs: number,
+  phaseElapsedMs: number,
   reducedMotion: boolean,
 ) {
-  const t = reducedMotion ? 0 : elapsedMs / 1000;
+  const t = reducedMotion ? 0 : sceneElapsedMs / 1000;
+  const phaseT = reducedMotion ? 0.6 : phaseElapsedMs / 1000;
   const waterY = Math.round(height * 0.48);
   const bobberRestX = Math.round(width * 0.45);
   const bobberRestY = Math.round(waterY + height * 0.22);
-  const castProgress = phase === "casting" ? smoothstep((elapsedMs % 780) / 780) : 1;
-  const bitePulse = phase === "biting" ? Math.sin(t * 31) : 0;
+  const castProgress = phase === "casting" ? easeOutCubic(phaseElapsedMs / 720) : 1;
+  const biteImpact = phase === "biting" ? Math.max(0, 1 - phaseT / 0.18) ** 2 : 0;
+  const biteTremor = phase === "biting" ? Math.sin(phaseT * 54) * Math.max(0.18, 1 - phaseT * 0.95) : 0;
+  const bitePull = phase === "biting" ? 1 + biteImpact * 1.25 + Math.abs(biteTremor) * 0.35 : 0;
+  const rodCatchup = phase === "biting" ? easeOutBack((phaseElapsedMs - 65) / 260) : 0;
   const waitPulse = Math.sin(t * 2.2);
-  const liftPulse = phase === "resolving" ? Math.sin(t * 8) : 0;
+  const liftProgress = phase === "resolving" ? easeOutCubic(phaseElapsedMs / 520) : 0;
+  const liftPulse = phase === "resolving" ? Math.sin(phaseT * 9) * (1 - liftProgress * 0.45) : 0;
   const biting = phase === "biting";
   const waiting = phase === "waiting";
   const resolving = phase === "resolving";
@@ -262,59 +301,90 @@ function drawFishingCanvasScene(
     bobberY = waterY + height * 0.18 + Math.sin(t * 1.6) * 2;
   }
   if (casting) {
+    const castArc = Math.sin(castProgress * Math.PI);
     bobberX = lerp(width * 0.86, bobberRestX, castProgress);
     bobberY =
       lerp(height * 0.24, bobberRestY, castProgress) -
-      Math.sin(castProgress * Math.PI) * height * 0.22;
+      castArc * height * 0.24 +
+      Math.sin(phaseT * 18) * (1 - castProgress) * 3;
   }
   if (biting) {
-    bobberX = bobberRestX + bitePulse * 4;
-    bobberY = bobberRestY + 11 + Math.abs(bitePulse) * 5;
+    bobberX = bobberRestX + biteTremor * 4 - biteImpact * 3;
+    bobberY = bobberRestY + 9 * bitePull + biteImpact * 9;
   }
   if (resolving) {
     bobberX = bobberRestX + liftPulse * 2;
-    bobberY = bobberRestY - 18 + liftPulse * 5;
+    bobberY = lerp(bobberRestY, waterY + height * 0.1, liftProgress) + liftPulse * 5;
   }
 
   const rodBaseX = width * 0.88;
   const rodBaseY = height * 0.19;
-  const rodTipX = bobberX - 18;
-  const rodTipY = bobberY - 38 - (resolving ? 18 : 0);
-  const bend = biting ? 34 + Math.abs(bitePulse) * 16 : waiting ? 12 + waitPulse * 5 : resolving ? -12 : 2;
+  const castWindup = casting ? Math.sin(castProgress * Math.PI) : 0;
+  const rodTipX = bobberX - 18 + (casting ? (1 - castProgress) * 34 : 0);
+  const rodTipY =
+    bobberY -
+    38 -
+    (resolving ? 18 + liftProgress * 24 : 0) -
+    (casting ? castWindup * 18 : 0);
+  const bend = biting
+    ? 16 + rodCatchup * 38 + Math.abs(biteTremor) * 12
+    : waiting
+      ? 12 + waitPulse * 5
+      : resolving
+        ? -10 - liftProgress * 18
+        : casting
+          ? -8 + castWindup * 22
+          : 2;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = "#583716";
-  ctx.lineWidth = 8;
+  ctx.strokeStyle = "#3f2610";
+  ctx.lineWidth = 9;
   ctx.beginPath();
   ctx.moveTo(rodBaseX, rodBaseY);
   ctx.bezierCurveTo(width * 0.76, height * 0.26 + bend * 0.15, width * 0.62, rodTipY + bend, rodTipX, rodTipY);
   ctx.stroke();
   ctx.strokeStyle = "#d69b4a";
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 2.6;
   ctx.beginPath();
   ctx.moveTo(rodBaseX - 2, rodBaseY - 2);
   ctx.bezierCurveTo(width * 0.76, height * 0.25 + bend * 0.1, width * 0.62, rodTipY + bend - 3, rodTipX - 1, rodTipY - 2);
   ctx.stroke();
+  ctx.fillStyle = "#2f1a0b";
+  ctx.fillRect(rodBaseX - 6, rodBaseY - 5, 18, 10);
 
   ctx.strokeStyle = biting ? "rgba(255, 255, 255, 0.9)" : "rgba(226, 244, 255, 0.82)";
-  ctx.lineWidth = biting ? 1.8 : 1.1;
+  ctx.lineWidth = biting ? 2.2 : 1.1;
   ctx.beginPath();
   ctx.moveTo(rodTipX, rodTipY);
-  ctx.quadraticCurveTo((rodTipX + bobberX) / 2 + (biting ? bitePulse * 4 : 0), (rodTipY + bobberY) / 2 + (biting ? 2 : 10), bobberX, bobberY - 14);
+  ctx.quadraticCurveTo(
+    (rodTipX + bobberX) / 2 + (biting ? biteTremor * 4 : 0),
+    (rodTipY + bobberY) / 2 + (biting ? 1 - biteImpact * 4 : 10),
+    bobberX,
+    bobberY - 14,
+  );
   ctx.stroke();
 
   if (waiting || biting) {
-    const shadowScale = biting ? 1 + Math.abs(bitePulse) * 0.25 : 0.75 + Math.sin(t * 1.4) * 0.08;
+    const shadowScale = biting ? 1 + biteImpact * 0.55 + Math.abs(biteTremor) * 0.18 : 0.75 + Math.sin(t * 1.4) * 0.08;
     ctx.fillStyle = biting ? "rgba(4, 47, 46, 0.48)" : "rgba(4, 47, 46, 0.24)";
     ctx.beginPath();
-    ctx.ellipse(bobberX - 8 + Math.sin(t * 1.5) * 18, bobberY + 15, 44 * shadowScale, 10 * shadowScale, 0, 0, TAU);
+    ctx.ellipse(
+      bobberX - 8 + Math.sin(t * 1.5) * 18 - biteImpact * 12,
+      bobberY + 15 + biteImpact * 3,
+      44 * shadowScale,
+      10 * shadowScale,
+      biteImpact * -0.2,
+      0,
+      TAU,
+    );
     ctx.fill();
   }
 
   if (waiting || biting || phase === "idle") {
     const rippleCount = biting ? 4 : 2;
     for (let i = 0; i < rippleCount; i += 1) {
-      const p = reducedMotion ? 0.55 : (t * (biting ? 2.8 : 0.9) + i * 0.33) % 1;
+      const rippleClock = biting ? phaseT : t;
+      const p = reducedMotion ? 0.55 : (rippleClock * (biting ? 2.8 : 0.9) + i * 0.33) % 1;
       ctx.strokeStyle = `rgba(255,255,255,${(1 - p) * (biting ? 0.62 : 0.32)})`;
       ctx.lineWidth = biting ? 2 : 1.2;
       ctx.beginPath();
@@ -324,25 +394,39 @@ function drawFishingCanvasScene(
   }
 
   if (biting) {
+    drawPixelSplash(ctx, bobberX, bobberY + 7, Math.min(1, phaseT / 0.36), 0.9);
+    drawPixelSplash(ctx, bobberX, bobberY + 7, (phaseT * 2.4 + 0.45) % 1, 0.42);
     for (let i = 0; i < 7; i += 1) {
-      const p = reducedMotion ? 0.5 : (t * 3.5 + i * 0.17) % 1;
+      const p = reducedMotion ? 0.5 : (phaseT * 3.5 + i * 0.17) % 1;
       ctx.fillStyle = `rgba(255, 255, 255, ${1 - p})`;
       ctx.beginPath();
       ctx.arc(bobberX + Math.cos(i * 1.7) * (10 + p * 20), bobberY - p * 24, 1.8 + (1 - p) * 1.5, 0, TAU);
       ctx.fill();
     }
   }
+  if (resolving) {
+    drawPixelSplash(ctx, bobberX, bobberY + 22, Math.min(1, phaseT / 0.42), 0.65);
+  }
 
-  drawBobber(ctx, bobberX, bobberY, biting ? 1.12 : 1, biting ? "#f59e0b" : phase === "idle" ? "#38bdf8" : "#e11d48");
+  drawSpriteBobber(
+    ctx,
+    bobberX,
+    bobberY,
+    biting ? 1.12 : 1,
+    biting ? "#f59e0b" : phase === "idle" ? "#38bdf8" : "#e11d48",
+    biting ? biteTremor * 0.08 - biteImpact * 0.18 : waitPulse * 0.025,
+  );
 }
 
 function FishingSceneCanvas({ phase }: { phase: Phase }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const phaseRef = useRef(phase);
+  const phaseStartedAtRef = useRef(0);
 
   useEffect(() => {
     phaseRef.current = phase;
+    phaseStartedAtRef.current = performance.now();
   }, [phase]);
 
   useEffect(() => {
@@ -354,6 +438,7 @@ function FishingSceneCanvas({ phase }: { phase: Phase }) {
     let reducedMotion = mediaQuery.matches;
     let frameId = 0;
     let start = performance.now();
+    phaseStartedAtRef.current = start;
 
     const draw = (now: number) => {
       const rect = wrap.getBoundingClientRect();
@@ -369,7 +454,15 @@ function FishingSceneCanvas({ phase }: { phase: Phase }) {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawFishingCanvasScene(ctx, width, height, phaseRef.current, now - start, reducedMotion);
+        drawFishingCanvasScene(
+          ctx,
+          width,
+          height,
+          phaseRef.current,
+          now - start,
+          Math.max(0, now - phaseStartedAtRef.current),
+          reducedMotion,
+        );
       }
       frameId = requestAnimationFrame(draw);
     };

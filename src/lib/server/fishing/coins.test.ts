@@ -3,6 +3,7 @@ import {
   applyCatchCoin,
   FISHING_CATCH_COIN_BY_TIER,
   FISHING_CATCH_COIN_DAILY_CAP,
+  fishingWalletWithCoins,
 } from "./coins";
 
 describe("applyCatchCoin — 챔질당 코인(티어 소량·일일 상한)", () => {
@@ -66,5 +67,19 @@ describe("applyCatchCoin — 챔질당 코인(티어 소량·일일 상한)", ()
     const capped = applyCatchCoin(near, "common", DAY, 5);
     expect(capped.awarded).toBe(1);
     expect(capped.next.catchDay?.earned).toBe(FISHING_CATCH_COIN_DAILY_CAP);
+  });
+
+  it("의뢰/상점 같은 외부 코인 증감은 챔질 일일 상한 추적값을 보존한다", () => {
+    const wallet = {
+      coins: 1000,
+      catchDay: { date: DAY, earned: FISHING_CATCH_COIN_DAILY_CAP },
+    };
+    const next = fishingWalletWithCoins(wallet, 1150);
+
+    expect(next).toEqual({
+      coins: 1150,
+      catchDay: { date: DAY, earned: FISHING_CATCH_COIN_DAILY_CAP },
+    });
+    expect(applyCatchCoin(next, "legendary", DAY).awarded).toBe(0);
   });
 });

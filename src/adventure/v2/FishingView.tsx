@@ -36,6 +36,14 @@ export type ReelOutcome =
       coinsGained?: number;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
+      /** 서버 권위 연속 성공 기록과 현재 버프. */
+      streak?: {
+        current: number;
+        best: number;
+        buffTier: number;
+        coinBonus: number;
+        fragmentChanceBonusPct: number;
+      };
     }
   | { caught: false; reason: string };
 
@@ -266,7 +274,7 @@ export function FishingView({
         if (outcome.caught) {
           setSessionCount((c) => c + 1);
           setSessionBest((b) => Math.max(b, outcome.size));
-          setStreak((s) => s + 1);
+          setStreak((s) => outcome.streak?.current ?? s + 1);
         } else {
           setStreak(0);
         }
@@ -436,6 +444,13 @@ export function FishingView({
               {result.coinsGained != null && result.coinsGained > 0 && (
                 <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                   + {result.coinsGained} 낚시 코인
+                </div>
+              )}
+              {result.streak && result.streak.buffTier > 0 && (
+                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                  연속 {result.streak.current} 버프 · 코인 +
+                  {result.streak.coinBonus} · 지도 조각 +
+                  {result.streak.fragmentChanceBonusPct}%p
                 </div>
               )}
               {lastReactionMs != null && (

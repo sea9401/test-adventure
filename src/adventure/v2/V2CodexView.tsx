@@ -84,6 +84,13 @@ import {
 } from "@/adventure/data/titles";
 import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
+import {
+  SP_FRUIT,
+  SP_FRUIT_TIERS,
+  parseSpFruitUsed,
+  type SpFruitTier,
+} from "@/adventure/data/v2/spFruit";
+import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 
 // v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 유물(골동품) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
@@ -127,6 +134,7 @@ type CodexTab =
   | "huntground"
   | "materials"
   | "equipment"
+  | "spFruit"
   | "fish"
   | "treasure"
   | "title"
@@ -377,6 +385,10 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
   const [frontierDepth, setFrontierDepth] = useState(0);
+  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>(
+    () => parseSpFruitUsed(undefined),
+  );
+  const [spFruitCapBonus, setSpFruitCapBonus] = useState(0);
   // 칭호 — 보유 목록(획득한 것만)·현재 장착. 장착은 /api/v2/me/equip-title POST.
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>([]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
@@ -406,6 +418,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
+        }
+        if (j?.spFruit?.used && typeof j.spFruit.used === "object") {
+          setSpFruitUsed(parseSpFruitUsed(j.spFruit.used));
+        }
+        if (typeof j?.spFruit?.capBonus === "number") {
+          setSpFruitCapBonus(j.spFruit.capBonus);
         }
         if (Array.isArray(j?.titles?.ownedTitleIds)) {
           setOwnedTitleIds(j.titles.ownedTitleIds as string[]);
@@ -697,6 +715,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       !equipmentRegisteredIds.has(id) &&
       (equipmentCounts.eligible.get(id)?.length ?? 0) > 0,
   ).length;
+  const spFruitUseCap = SP_FRUIT_TIERS.reduce(
+    (sum, tier) => sum + SP_FRUIT[tier].useCap,
+    0,
+  );
+  const spFruitUsedTotal = SP_FRUIT_TIERS.reduce(
+    (sum, tier) => sum + (spFruitUsed[tier] ?? 0),
+    0,
+  );
   const craftOnlyRegisteredCount = [...equipmentRegisteredIds].filter(
     (id) => V2_EQUIPMENT[id as V2EquipmentId]?.craftOnly,
   ).length;
@@ -783,6 +809,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           [
             ["huntground", "사냥터"],
             ["equipment", "장비"],
+            ["spFruit", "SP 열매"],
             ["fish", "어보"],
             ["treasure", "유물"],
             ["title", "칭호"],
@@ -1230,6 +1257,90 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "spFruit" && (
+        <div className="space-y-3">
+          <Card padding="md">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold">SP 열매 사용 기록</h2>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  사용 {spFruitUsedTotal}/{spFruitUseCap}개 · SP 최대치 +
+                  {spFruitCapBonus}
+                </p>
+              </div>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                협동 보스 보상
+              </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-[width]"
+                style={{
+                  width: `${
+                    spFruitUseCap > 0
+                      ? Math.min(100, (spFruitUsedTotal / spFruitUseCap) * 100)
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+          </Card>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            {SP_FRUIT_TIERS.map((tier) => {
+              const def = SP_FRUIT[tier];
+              const used = spFruitUsed[tier] ?? 0;
+              const source = COOP_BOSSES[def.bossKind]?.name ?? "협동 보스";
+              const complete = used >= def.useCap;
+              return (
+                <Card key={tier} padding="md">
+                  <div className="flex min-h-[8.75rem] flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-bold">
+                          {def.name}
+                        </h3>
+                        <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {source} 보상
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          complete
+                            ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                            : "bg-amber-200/70 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                        }`}
+                      >
+                        {complete ? "완료" : "진행"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {used}
+                      <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                        /{def.useCap}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-amber-500"
+                        style={{
+                          width: `${Math.min(100, (used / def.useCap) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      현재 SP +{used * def.spPerUse} · 1개당 SP +
+                      {def.spPerUse}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -33,6 +33,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { POST } from "@/app/api/v2/fishing/reel/route";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
+import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 
 function reelReq(body: Record<string, unknown>): Request {
@@ -102,5 +103,57 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(prof.jobCumLevel?.fisher).toBe(6);
     expect(store.get(FISHING_SESSION_KEY)).toEqual({});
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
+  });
+
+  it("5연속 성공부터 코인 보너스와 연속 버프를 적용한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_STREAK_KEY, { current: 4, best: 4 });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      caught: boolean;
+      coinsGained: number;
+      streak: {
+        current: number;
+        best: number;
+        buffTier: number;
+        coinBonus: number;
+        fragmentChanceBonusPct: number;
+      };
+    };
+    expect(json.ok).toBe(true);
+    expect(json.caught).toBe(true);
+    expect(json.coinsGained).toBe(4); // 잉어(uncommon) 3 + 5연속 보너스 1
+    expect(json.streak).toMatchObject({
+      current: 5,
+      best: 5,
+      buffTier: 1,
+      coinBonus: 1,
+      fragmentChanceBonusPct: 2,
+    });
+    expect(store.get(FISHING_STREAK_KEY)).toEqual({ current: 5, best: 5 });
+    expect(store.get(FISHING_WALLET_KEY)).toMatchObject({
+      coins: 4,
+      catchDay: { earned: 4 },
+    });
+  });
+
+  it("성공 판정 실패는 연속 기록을 끊는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_STREAK_KEY, { current: 7, best: 9 });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: -1 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      caught: boolean;
+      reason: string;
+    };
+    expect(json).toEqual({ ok: true, caught: false, reason: "too_early" });
+    expect(store.get(FISHING_STREAK_KEY)).toEqual({ current: 0, best: 9 });
   });
 });

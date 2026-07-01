@@ -87,6 +87,13 @@ function missMessage(reason: string): string {
 }
 
 const TAU = Math.PI * 2;
+const FISHING_POND_SRC = "/images/ui/fishing-pond.webp";
+const FISHING_ROD_GRIP_SRC = "/images/ui/fishing-rod-grip.webp";
+
+type FishingSceneAssets = {
+  pond: HTMLImageElement | null;
+  rodGrip: HTMLImageElement | null;
+};
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
@@ -172,17 +179,145 @@ function drawReeds(ctx: CanvasRenderingContext2D, x: number, y: number, sway: nu
   ctx.restore();
 }
 
+function drawCoverImage(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+) {
+  const imageWidth = image.naturalWidth || image.width;
+  const imageHeight = image.naturalHeight || image.height;
+  if (imageWidth <= 0 || imageHeight <= 0) return;
+
+  const scale = Math.max(width / imageWidth, height / imageHeight);
+  const drawWidth = imageWidth * scale;
+  const drawHeight = imageHeight * scale;
+  ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function drawProceduralPondFallback(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  waterY: number,
+  t: number,
+  biting: boolean,
+) {
+  const sky = ctx.createLinearGradient(0, 0, 0, waterY);
+  sky.addColorStop(0, "#bae6fd");
+  sky.addColorStop(0.72, "#e0f7ff");
+  sky.addColorStop(1, "#f8fafc");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, waterY);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
+  drawRoundedRect(ctx, width * 0.08 + Math.sin(t * 0.25) * 8, height * 0.12, 60, 11, 8);
+  drawRoundedRect(ctx, width * 0.64 - Math.sin(t * 0.18) * 10, height * 0.08, 72, 10, 8);
+
+  ctx.fillStyle = "#4d7c54";
+  ctx.beginPath();
+  ctx.moveTo(0, waterY - 8);
+  for (let x = 0; x <= width; x += 28) {
+    ctx.lineTo(x, waterY - 10 - Math.sin(x * 0.04 + 0.7) * 11);
+  }
+  ctx.lineTo(width, waterY + 9);
+  ctx.lineTo(0, waterY + 9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(36, 84, 60, 0.72)";
+  ctx.fillRect(0, waterY, width, 12);
+
+  const water = ctx.createLinearGradient(0, waterY, 0, height);
+  water.addColorStop(0, biting ? "#38bdf8" : "#67e8f9");
+  water.addColorStop(1, biting ? "#0e7490" : "#0891b2");
+  ctx.fillStyle = water;
+  ctx.fillRect(0, waterY, width, height - waterY);
+
+  const dockY = height - 42;
+  ctx.fillStyle = "#8b5a2b";
+  ctx.save();
+  ctx.translate(width * 0.68, dockY);
+  ctx.transform(1, 0, -0.18, 1, 0, 0);
+  ctx.fillRect(0, 0, width * 0.36, 42);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
+  ctx.fillRect(0, 5, width * 0.36, 3);
+  ctx.restore();
+
+  drawReeds(ctx, 12, waterY + 8, Math.sin(t * 2) * 5);
+  drawReeds(ctx, width * 0.76, waterY + 9, -Math.sin(t * 2.4) * 4);
+}
+
+function drawPondBackdrop(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  waterY: number,
+  t: number,
+  biting: boolean,
+  assets: FishingSceneAssets,
+) {
+  if (assets.pond?.complete) {
+    drawCoverImage(ctx, assets.pond, width, height);
+    if (biting) {
+      ctx.fillStyle = "rgba(245, 158, 11, 0.12)";
+      ctx.fillRect(0, 0, width, height);
+    }
+  } else {
+    drawProceduralPondFallback(ctx, width, height, waterY, t, biting);
+  }
+
+  const haze = ctx.createLinearGradient(0, waterY - 18, 0, height);
+  haze.addColorStop(0, "rgba(255, 255, 255, 0.04)");
+  haze.addColorStop(0.42, "rgba(255, 255, 255, 0.11)");
+  haze.addColorStop(1, "rgba(8, 47, 73, 0.12)");
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, waterY - 18, width, height - waterY + 18);
+
+  for (let i = 0; i < 5; i += 1) {
+    drawWaterLine(ctx, waterY + 12 + i * 20, width, t * (1.3 + i * 0.12) + i, 0.2 - i * 0.02);
+  }
+}
+
 function drawRodGrip(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
   motion: number,
+  image: HTMLImageElement | null,
 ) {
   const baseX = width * 0.86;
   const baseY = height * 0.2;
   ctx.save();
   ctx.translate(baseX, baseY);
-  ctx.rotate(-0.28 + motion * 0.05);
+  ctx.rotate(-0.08 + motion * 0.04);
+
+  if (image?.complete) {
+    const sourceX = 0;
+    const sourceY = 280;
+    const sourceWidth = Math.min(1040, image.naturalWidth || image.width);
+    const sourceHeight = Math.min(760, (image.naturalHeight || image.height) - sourceY);
+    const spriteWidth = Math.min(width * 0.38, height * 0.64);
+    const spriteHeight = spriteWidth * (sourceHeight / sourceWidth);
+    ctx.imageSmoothingEnabled = true;
+    ctx.shadowColor = "rgba(15, 23, 42, 0.26)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 3;
+    ctx.drawImage(
+      image,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      -spriteWidth * 0.46,
+      -spriteHeight * 0.42,
+      spriteWidth,
+      spriteHeight,
+    );
+    ctx.restore();
+    return;
+  }
+
+  ctx.rotate(-0.2 + motion * 0.05);
   ctx.imageSmoothingEnabled = false;
 
   ctx.fillStyle = "rgba(23, 37, 42, 0.24)";
@@ -223,6 +358,75 @@ function drawRodGrip(
   ctx.moveTo(11, 13);
   ctx.lineTo(16, 17 + motion * 2);
   ctx.stroke();
+  ctx.restore();
+}
+
+function drawFishingLine(
+  ctx: CanvasRenderingContext2D,
+  rodTipX: number,
+  rodTipY: number,
+  bobberX: number,
+  bobberY: number,
+  tension: number,
+  tremor: number,
+  tapSnap: number,
+) {
+  const tight = clamp01(tension);
+  const controlX = (rodTipX + bobberX) / 2 + tremor * 4 + tapSnap * 5;
+  const slackY = 12 * (1 - tight);
+  const controlY = (rodTipY + bobberY) / 2 + slackY - tight * 10 - tapSnap * 7;
+
+  ctx.lineCap = "round";
+  ctx.strokeStyle = `rgba(15, 23, 42, ${0.1 + tight * 0.16})`;
+  ctx.lineWidth = 3.2 + tight * 0.8;
+  ctx.beginPath();
+  ctx.moveTo(rodTipX, rodTipY);
+  ctx.quadraticCurveTo(controlX, controlY, bobberX, bobberY - 14);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(245, 251, 255, ${0.58 + tight * 0.34})`;
+  ctx.lineWidth = 1.1 + tight * 1.2;
+  ctx.beginPath();
+  ctx.moveTo(rodTipX, rodTipY);
+  ctx.quadraticCurveTo(controlX, controlY, bobberX, bobberY - 14);
+  ctx.stroke();
+}
+
+function drawPreBiteWake(
+  ctx: CanvasRenderingContext2D,
+  bobberX: number,
+  bobberY: number,
+  t: number,
+  preBiteElapsedMs: number,
+) {
+  const progress = clamp01(preBiteElapsedMs / 360);
+  const approach = easeOutCubic(progress);
+  const sweep = Math.sin(t * 14) * 5;
+  const shadowX = bobberX - 58 + approach * 42 + sweep;
+  const shadowY = bobberY + 22 + Math.sin(t * 8) * 2;
+
+  ctx.save();
+  ctx.fillStyle = `rgba(4, 47, 46, ${0.2 + progress * 0.22})`;
+  ctx.beginPath();
+  ctx.ellipse(shadowX, shadowY, 26 + progress * 14, 5 + progress * 4, -0.1, 0, TAU);
+  ctx.fill();
+
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 + progress * 0.22})`;
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 2; i += 1) {
+    const p = (progress + i * 0.34) % 1;
+    ctx.beginPath();
+    ctx.ellipse(
+      bobberX - 12 + sweep * 0.3,
+      bobberY + 8,
+      14 + p * 24,
+      4 + p * 8,
+      0,
+      0,
+      TAU,
+    );
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -291,14 +495,16 @@ function drawFishingCanvasScene(
   phaseElapsedMs: number,
   reducedMotion: boolean,
   preBite: boolean,
+  preBiteElapsedMs: number,
   tapElapsedMs: number,
+  assets: FishingSceneAssets,
 ) {
   const t = reducedMotion ? 0 : sceneElapsedMs / 1000;
   const phaseT = reducedMotion ? 0.6 : phaseElapsedMs / 1000;
   const tapT = reducedMotion ? 1 : tapElapsedMs / 1000;
-  const waterY = Math.round(height * 0.48);
+  const waterY = Math.round(height * 0.52);
   const bobberRestX = Math.round(width * 0.45);
-  const bobberRestY = Math.round(waterY + height * 0.22);
+  const bobberRestY = Math.round(waterY + height * 0.17);
   const castProgress = phase === "casting" ? easeOutCubic(phaseElapsedMs / 720) : 1;
   const cuePulse = preBite && phase === "waiting" ? 0.5 + Math.sin(t * 22) * 0.5 : 0;
   const biteImpact = phase === "biting" ? Math.max(0, 1 - phaseT / 0.18) ** 2 : 0;
@@ -315,60 +521,7 @@ function drawFishingCanvasScene(
   const casting = phase === "casting";
 
   ctx.clearRect(0, 0, width, height);
-
-  const sky = ctx.createLinearGradient(0, 0, 0, waterY);
-  sky.addColorStop(0, "#bae6fd");
-  sky.addColorStop(0.72, "#e0f7ff");
-  sky.addColorStop(1, "#f8fafc");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, waterY);
-
-  ctx.fillStyle = "rgba(255, 255, 255, 0.72)";
-  drawRoundedRect(ctx, width * 0.08 + Math.sin(t * 0.25) * 8, height * 0.12, 60, 11, 8);
-  drawRoundedRect(ctx, width * 0.64 - Math.sin(t * 0.18) * 10, height * 0.08, 72, 10, 8);
-
-  ctx.fillStyle = "#4d7c54";
-  ctx.beginPath();
-  ctx.moveTo(0, waterY - 8);
-  for (let x = 0; x <= width; x += 28) {
-    ctx.lineTo(x, waterY - 10 - Math.sin(x * 0.04 + 0.7) * 11);
-  }
-  ctx.lineTo(width, waterY + 9);
-  ctx.lineTo(0, waterY + 9);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "rgba(36, 84, 60, 0.72)";
-  ctx.fillRect(0, waterY, width, 12);
-
-  const water = ctx.createLinearGradient(0, waterY, 0, height);
-  water.addColorStop(0, biting ? "#38bdf8" : "#67e8f9");
-  water.addColorStop(1, biting ? "#0e7490" : "#0891b2");
-  ctx.fillStyle = water;
-  ctx.fillRect(0, waterY, width, height - waterY);
-  for (let i = 0; i < 6; i += 1) {
-    drawWaterLine(ctx, waterY + 13 + i * 20, width, t * (1.2 + i * 0.12) + i, 0.28 - i * 0.025);
-  }
-
-  const dockY = height - 42;
-  ctx.fillStyle = "#8b5a2b";
-  ctx.save();
-  ctx.translate(width * 0.68, dockY);
-  ctx.transform(1, 0, -0.18, 1, 0, 0);
-  ctx.fillRect(0, 0, width * 0.36, 42);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.14)";
-  ctx.fillRect(0, 5, width * 0.36, 3);
-  ctx.strokeStyle = "rgba(54, 31, 16, 0.45)";
-  ctx.lineWidth = 2;
-  for (let x = 24; x < width * 0.34; x += 38) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, 42);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  drawReeds(ctx, 12, waterY + 8, Math.sin(t * 2) * 5);
-  drawReeds(ctx, width * 0.76, waterY + 9, -Math.sin(t * 2.4) * 4);
+  drawPondBackdrop(ctx, width, height, waterY, t, biting, assets);
 
   let bobberX = bobberRestX;
   let bobberY = bobberRestY + waitPulse * 2;
@@ -413,7 +566,13 @@ function drawFishingCanvasScene(
         : casting
           ? -8 + castWindup * 22
           : 2;
-  drawRodGrip(ctx, width, height, biting ? 1 : resolving ? -0.45 : casting ? 0.35 : cuePulse * 0.25);
+  drawRodGrip(
+    ctx,
+    width,
+    height,
+    biting ? 1 : resolving ? -0.45 : casting ? 0.35 : cuePulse * 0.25,
+    assets.rodGrip,
+  );
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#3f2610";
@@ -431,20 +590,16 @@ function drawFishingCanvasScene(
   ctx.fillStyle = "#2f1a0b";
   ctx.fillRect(rodBaseX - 6, rodBaseY - 5, 18, 10);
 
-  ctx.strokeStyle =
-    biting || tapSnap > 0
-      ? "rgba(255, 255, 255, 0.9)"
-      : "rgba(226, 244, 255, 0.82)";
-  ctx.lineWidth = biting || tapSnap > 0 ? 2.2 : 1.1;
-  ctx.beginPath();
-  ctx.moveTo(rodTipX, rodTipY);
-  ctx.quadraticCurveTo(
-    (rodTipX + bobberX) / 2 + (biting ? biteTremor * 4 : 0) + tapSnap * 5,
-    (rodTipY + bobberY) / 2 + (biting ? 1 - biteImpact * 4 : 10) - tapSnap * 7,
-    bobberX,
-    bobberY - 14,
-  );
-  ctx.stroke();
+  const lineTension = biting
+    ? 0.76 + biteImpact * 0.24
+    : resolving
+      ? 0.9
+      : preBite && waiting
+        ? 0.35 + cuePulse * 0.28
+        : tapSnap > 0
+          ? 0.72
+          : 0.18;
+  drawFishingLine(ctx, rodTipX, rodTipY, bobberX, bobberY, lineTension, biting ? biteTremor : 0, tapSnap);
 
   if (waiting || biting) {
     const shadowScale = biting
@@ -481,6 +636,7 @@ function drawFishingCanvasScene(
     }
   }
   if (preBite && waiting) {
+    drawPreBiteWake(ctx, bobberX, bobberY, t, preBiteElapsedMs);
     drawPixelSplash(ctx, bobberX, bobberY + 8, (t * 3.2) % 1, 0.28 + cuePulse * 0.18);
   }
 
@@ -525,7 +681,9 @@ function FishingSceneCanvas({
   const phaseRef = useRef(phase);
   const preBiteRef = useRef(preBite);
   const phaseStartedAtRef = useRef(0);
+  const preBiteStartedAtRef = useRef(-Infinity);
   const tapStartedAtRef = useRef(-Infinity);
+  const assetsRef = useRef<FishingSceneAssets>({ pond: null, rodGrip: null });
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -534,6 +692,7 @@ function FishingSceneCanvas({
 
   useEffect(() => {
     preBiteRef.current = preBite;
+    preBiteStartedAtRef.current = preBite ? performance.now() : -Infinity;
   }, [preBite]);
 
   useEffect(() => {
@@ -552,6 +711,17 @@ function FishingSceneCanvas({
     let frameId = 0;
     let start = performance.now();
     phaseStartedAtRef.current = start;
+
+    const loadImage = (key: keyof FishingSceneAssets, src: string) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => {
+        assetsRef.current = { ...assetsRef.current, [key]: image };
+      };
+      image.src = src;
+    };
+    loadImage("pond", FISHING_POND_SRC);
+    loadImage("rodGrip", FISHING_ROD_GRIP_SRC);
 
     const draw = (now: number) => {
       const rect = wrap.getBoundingClientRect();
@@ -576,7 +746,9 @@ function FishingSceneCanvas({
           Math.max(0, now - phaseStartedAtRef.current),
           reducedMotion,
           preBiteRef.current,
+          Math.max(0, now - preBiteStartedAtRef.current),
           Math.max(0, now - tapStartedAtRef.current),
+          assetsRef.current,
         );
       }
       frameId = requestAnimationFrame(draw);
@@ -625,6 +797,7 @@ function drawResultCanvasScene(
   result: ReelOutcome | null,
   elapsedMs: number,
   reducedMotion: boolean,
+  assets: FishingSceneAssets,
 ) {
   const t = reducedMotion ? 0.72 : elapsedMs / 1000;
   const caughtResult = result?.caught ? result : null;
@@ -635,25 +808,15 @@ function drawResultCanvasScene(
   const centerX = width * 0.48;
 
   ctx.clearRect(0, 0, width, height);
-  const sky = ctx.createLinearGradient(0, 0, 0, waterY);
-  sky.addColorStop(0, "#bae6fd");
-  sky.addColorStop(1, "#e0f7ff");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, waterY);
-  const water = ctx.createLinearGradient(0, waterY, 0, height);
-  water.addColorStop(0, caught ? "#7dd3fc" : "#93c5fd");
-  water.addColorStop(1, caught ? "#0891b2" : "#2563eb");
-  ctx.fillStyle = water;
-  ctx.fillRect(0, waterY, width, height - waterY);
-  for (let i = 0; i < 4; i += 1) {
-    drawWaterLine(ctx, waterY + 8 + i * 15, width, t * 1.8 + i, 0.24 - i * 0.035);
-  }
+  drawPondBackdrop(ctx, width, height, waterY, t * 0.85, caught, assets);
+  ctx.fillStyle = caught ? "rgba(255, 255, 255, 0.08)" : "rgba(37, 99, 235, 0.08)";
+  ctx.fillRect(0, 0, width, height);
 
   const rodBaseX = width * 0.87;
   const rodBaseY = height * 0.22;
   const rodTipX = centerX + 12;
   const rodTipY = caught ? waterY - 32 - easeOutCubic(p) * 22 : waterY - 15;
-  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25);
+  drawRodGrip(ctx, width, height, caught ? -0.65 : 0.25, assets.rodGrip);
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.strokeStyle = "#3f2610";
@@ -662,12 +825,16 @@ function drawResultCanvasScene(
   ctx.moveTo(rodBaseX, rodBaseY);
   ctx.bezierCurveTo(width * 0.73, rodBaseY + 12, width * 0.62, rodTipY - 12, rodTipX, rodTipY);
   ctx.stroke();
-  ctx.strokeStyle = caught ? "rgba(255, 255, 255, 0.92)" : "rgba(226, 244, 255, 0.48)";
-  ctx.lineWidth = caught ? 2 : 1.2;
-  ctx.beginPath();
-  ctx.moveTo(rodTipX, rodTipY);
-  ctx.quadraticCurveTo(centerX + 8, waterY - 14, centerX - 4, waterY + (caught ? -8 : 10));
-  ctx.stroke();
+  drawFishingLine(
+    ctx,
+    rodTipX,
+    rodTipY,
+    centerX - 4,
+    waterY + (caught ? -8 : 10),
+    caught ? 0.86 : 0.24,
+    caught ? Math.sin(t * 16) * 0.5 : 0,
+    0,
+  );
 
   if (caught) {
     drawPixelSplash(ctx, centerX, waterY + 4, Math.min(1, t / 0.55), 0.62 * impact);
@@ -690,6 +857,7 @@ function FishingResultScene({ result }: { result: ReelOutcome | null }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const resultRef = useRef(result);
+  const assetsRef = useRef<FishingSceneAssets>({ pond: null, rodGrip: null });
 
   useEffect(() => {
     resultRef.current = result;
@@ -705,6 +873,17 @@ function FishingResultScene({ result }: { result: ReelOutcome | null }) {
     let frameId = 0;
     let start = performance.now();
 
+    const loadImage = (key: keyof FishingSceneAssets, src: string) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => {
+        assetsRef.current = { ...assetsRef.current, [key]: image };
+      };
+      image.src = src;
+    };
+    loadImage("pond", FISHING_POND_SRC);
+    loadImage("rodGrip", FISHING_ROD_GRIP_SRC);
+
     const draw = (now: number) => {
       const rect = wrap.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -719,7 +898,15 @@ function FishingResultScene({ result }: { result: ReelOutcome | null }) {
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        drawResultCanvasScene(ctx, width, height, resultRef.current, now - start, reducedMotion);
+        drawResultCanvasScene(
+          ctx,
+          width,
+          height,
+          resultRef.current,
+          now - start,
+          reducedMotion,
+          assetsRef.current,
+        );
       }
       frameId = requestAnimationFrame(draw);
     };

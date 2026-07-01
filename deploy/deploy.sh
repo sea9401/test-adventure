@@ -18,6 +18,9 @@ bash deploy/install-deps.sh
 echo "▶ db migrate"
 node --env-file=.env.production.local src/db/migrate.mjs
 
+echo "▶ clean previous Next build"
+rm -rf .next
+
 echo "▶ build"
 npm run build
 

@@ -109,7 +109,7 @@ export function GuildWorkshopPanel({
   const [craftResult, setCraftResult] = useState<CraftResultView | null>(null);
   const [mode, setMode] = useState<"craft" | "ranking">("craft");
   const [workshopMode, setWorkshopMode] = useState<
-    "main" | "craft" | "growth"
+    "main" | "craft" | "dismantle" | "growth"
   >("main");
   useEffect(() => {
     try {
@@ -117,13 +117,12 @@ export function GuildWorkshopPanel({
       if (
         stored === "main" ||
         stored === "craft" ||
+        stored === "dismantle" ||
         stored === "growth"
       ) {
         queueMicrotask(() => setWorkshopMode(stored));
       } else if (stored === "delivery") {
         queueMicrotask(() => setWorkshopMode("main"));
-      } else if (stored === "dismantle") {
-        queueMicrotask(() => setWorkshopMode("craft"));
       }
     } catch {}
   }, []);
@@ -296,7 +295,7 @@ export function GuildWorkshopPanel({
   }, []);
 
   useEffect(() => {
-    if (workshopMode !== "craft") return;
+    if (workshopMode !== "dismantle") return;
     queueMicrotask(() => void loadDismantle());
   }, [loadDismantle, workshopMode]);
 
@@ -378,21 +377,29 @@ export function GuildWorkshopPanel({
   const resources = useMemo(() => state?.resources ?? {}, [state?.resources]);
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
   const hasApiSmithy = state?.hasGuildSmithy ?? hasSmithy;
-  const resourceText = useMemo(
+  const resourceEntries = useMemo(
     () =>
       RESOURCE_KINDS.map((kind) => {
         const amount = Math.max(0, Math.floor(resources[kind] ?? 0));
-        return `${PRODUCTION_KIND_ICON[kind]} ${PRODUCTION_KIND_NAME[kind]} ${amount.toLocaleString()}`;
-      }).join(" · "),
+        return {
+          key: kind,
+          label: `${PRODUCTION_KIND_ICON[kind]} ${PRODUCTION_KIND_NAME[kind]}`,
+          amount,
+        };
+      }),
     [resources],
   );
-  const materialText = useMemo(
+  const materialEntries = useMemo(
     () =>
       GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
         const mat = GUILD_WORKSHOP_MATERIALS[id];
         const amount = Math.max(0, Math.floor(materials[id] ?? 0));
-        return `${mat.name} ${amount.toLocaleString()}`;
-      }).join(" · "),
+        return {
+          key: id,
+          label: mat.name,
+          amount,
+        };
+      }),
     [materials],
   );
   const blacksmithLevel = state?.artisan.blacksmith.level ?? 1;
@@ -809,7 +816,7 @@ export function GuildWorkshopPanel({
   }
 
   const weeklyCard = (
-    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card ui-smithy-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -907,7 +914,7 @@ export function GuildWorkshopPanel({
   );
 
   const deliveryCard = (
-    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card ui-smithy-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1033,7 +1040,7 @@ export function GuildWorkshopPanel({
   );
 
   const dismantleCard = (
-    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card ui-smithy-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1311,6 +1318,111 @@ export function GuildWorkshopPanel({
     </div>
   );
 
+  const workshopStatusPanel = (
+    <div className="grid gap-3 rounded-md border border-amber-200 bg-amber-50/90 p-3 text-xs text-stone-900 shadow-sm dark:border-amber-800/60 dark:bg-stone-900/95 dark:text-stone-100 lg:grid-cols-[1.05fr_1.4fr]">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+              현재 내 대장장이
+            </div>
+            {state?.artisan.blacksmith ? (
+              <>
+                <div className="mt-1 truncate text-sm font-semibold text-stone-950 dark:text-stone-50">
+                  {state.artisan.blacksmith.name} · {currentBlacksmithJob.name}
+                </div>
+                <div className="mt-1 text-stone-600 dark:text-stone-300">
+                  Lv {state.artisan.blacksmith.level.toLocaleString()} · 제작{" "}
+                  {state.artisan.blacksmith.crafts.toLocaleString()}회
+                </div>
+              </>
+            ) : (
+              <div className="mt-1 text-sm font-medium text-stone-600 dark:text-stone-300">
+                정보를 불러오는 중
+              </div>
+            )}
+          </div>
+          {loading ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-200 bg-white/80 px-2 py-0.5 text-[11px] text-amber-800 dark:border-amber-800/60 dark:bg-stone-800 dark:text-amber-200">
+              <SpinnerGap size={13} className="animate-spin" aria-hidden />
+              갱신 중
+            </span>
+          ) : null}
+        </div>
+        {state?.artisan.blacksmith ? (
+          <div className="mt-3">
+            <div className="war-meter-track h-2 overflow-hidden rounded bg-amber-100 dark:bg-stone-800">
+              <div
+                className="war-meter-fill h-full rounded bg-amber-600 dark:bg-amber-400"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      (state.artisan.blacksmith.xpIntoLevel /
+                        Math.max(1, state.artisan.blacksmith.xpForNext)) *
+                        100,
+                    ),
+                  )}%`,
+                }}
+              />
+            </div>
+            <div className="mt-1 flex justify-between gap-2 text-[11px] text-stone-500 dark:text-stone-400">
+              <span>
+                {state.artisan.blacksmith.xpIntoLevel.toLocaleString()}/
+                {state.artisan.blacksmith.xpForNext.toLocaleString()} XP
+              </span>
+              <span>{currentBlacksmithJob.tier}차</span>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-[0.85fr_1.15fr]">
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+            길드 영지 재화
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-1">
+            {resourceEntries.map((entry) => (
+              <div
+                key={entry.key}
+                className="rounded border border-amber-200 bg-white/85 px-2 py-1 dark:border-stone-700 dark:bg-stone-800/80"
+              >
+                <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
+                  {entry.label}
+                </div>
+                <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
+                  {entry.amount.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+            보유 제작 재료
+          </div>
+          <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-4">
+            {materialEntries.map((entry) => (
+              <div
+                key={entry.key}
+                className="rounded border border-amber-200 bg-white/85 px-2 py-1 dark:border-stone-700 dark:bg-stone-800/80"
+              >
+                <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
+                  {entry.label}
+                </div>
+                <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
+                  {entry.amount.toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (mode === "ranking") {
     return <ArtisanLeaderboardPanel onBack={() => setMode("craft")} />;
   }
@@ -1351,12 +1463,12 @@ export function GuildWorkshopPanel({
   }
 
   return (
-    <section className="ui-workshop-card space-y-3 rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="ui-workshop-card ui-smithy-card space-y-3 rounded-md border border-amber-200 bg-white p-3 text-sm shadow-sm dark:border-amber-900/60 dark:bg-stone-900/95">
       <div className="flex items-start gap-3">
         <Hammer
           size={24}
           weight="duotone"
-          className="mt-0.5 shrink-0 text-zinc-700 dark:text-zinc-300"
+          className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-300"
           aria-hidden
         />
         <div className="min-w-0">
@@ -1378,11 +1490,12 @@ export function GuildWorkshopPanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="grid grid-cols-4 gap-1 rounded border border-amber-200 bg-amber-50 p-1 text-xs dark:border-stone-700 dark:bg-stone-800">
         {(
           [
             ["main", "메인"],
             ["craft", "제작"],
+            ["dismantle", "해체"],
             ["growth", "성장 목표"],
           ] as const
         ).map(([value, label]) => (
@@ -1392,14 +1505,16 @@ export function GuildWorkshopPanel({
             onClick={() => setWorkshopMode(value)}
             className={`rounded px-2 py-1.5 font-semibold transition ${
               workshopMode === value
-                ? "bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950"
-                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                ? "bg-amber-700 text-white dark:bg-amber-400 dark:text-stone-950"
+                : "text-stone-600 hover:bg-white hover:text-stone-950 dark:text-stone-300 dark:hover:bg-stone-700 dark:hover:text-stone-50"
             }`}
           >
             {label}
           </button>
         ))}
       </div>
+
+      {workshopStatusPanel}
 
       {workshopMode === "main" ? (
         <div className="space-y-3">
@@ -1408,56 +1523,6 @@ export function GuildWorkshopPanel({
           <div className="grid gap-3 lg:grid-cols-2">
             {weeklyCard}
             {deliveryCard}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-zinc-200 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
-        <div className="grid min-w-0 gap-1">
-          <span>{resourceText}</span>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            {materialText}
-          </span>
-        </div>
-        {loading ? (
-          <span className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
-            <SpinnerGap size={14} className="animate-spin" aria-hidden />
-            불러오는 중
-          </span>
-        ) : null}
-      </div>
-
-      {state?.artisan.blacksmith ? (
-        <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 sm:grid-cols-[1fr_auto] sm:items-center">
-          <div className="min-w-0">
-            <strong>{state.artisan.blacksmith.name}</strong>
-            <span className="ml-2 text-zinc-500 dark:text-zinc-400">
-              {currentBlacksmithJob.name} · Lv{" "}
-              {state.artisan.blacksmith.level.toLocaleString()} · 제작{" "}
-              {state.artisan.blacksmith.crafts.toLocaleString()}회
-            </span>
-          </div>
-          <div className="min-w-32">
-            <div className="war-meter-track h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-              <div
-                className="war-meter-fill h-full rounded bg-emerald-600 dark:bg-emerald-400"
-                style={{
-                  width: `${Math.min(
-                    100,
-                    Math.max(
-                      0,
-                      (state.artisan.blacksmith.xpIntoLevel /
-                        Math.max(1, state.artisan.blacksmith.xpForNext)) *
-                        100,
-                    ),
-                  )}%`,
-                }}
-              />
-            </div>
-            <div className="mt-1 text-right text-[11px] text-zinc-500 dark:text-zinc-400">
-              {state.artisan.blacksmith.xpIntoLevel}/
-              {state.artisan.blacksmith.xpForNext}
-            </div>
           </div>
         </div>
       ) : null}
@@ -1949,6 +2014,8 @@ export function GuildWorkshopPanel({
         </div>
       ) : null}
 
+      {workshopMode === "dismantle" ? dismantleCard : null}
+
       {workshopMode === "craft" ? (
         <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2207,7 +2274,6 @@ export function GuildWorkshopPanel({
       </div>
       ) : null}
 
-      {workshopMode === "craft" ? dismantleCard : null}
     </section>
   );
 }

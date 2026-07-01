@@ -982,6 +982,24 @@ body {
   pointer-events: none;
 }
 
+.ui-smithy-card {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.dark .ui-smithy-card {
+  background: linear-gradient(
+    180deg,
+    rgba(41, 37, 36, 0.96),
+    rgba(28, 25, 23, 0.96)
+  );
+  border-color: rgba(217, 119, 6, 0.34);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(251, 191, 36, 0.08);
+}
+
 .ui-recipe-row {
   transition:
     background-color 140ms ease,
@@ -991,6 +1009,15 @@ body {
 .ui-recipe-row:hover {
   transform: translateX(2px);
   background: rgba(16, 185, 129, 0.06);
+}
+
+.dark .ui-recipe-row {
+  background: rgba(41, 37, 36, 0.72);
+  border-color: rgba(120, 113, 108, 0.72);
+}
+
+.dark .ui-recipe-row:hover {
+  background: rgba(67, 56, 45, 0.84);
 }
 
 @media (prefers-reduced-motion: reduce) {

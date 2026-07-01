@@ -18,6 +18,7 @@ import {
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import { backfillClaimedQuestTitleRewardsInTx } from "@/lib/server/questTitleBackfill";
 
 // POST /api/v2/me/quests/claim  { questId } — 가이드 퀘스트 보상 수령.
 //   서버가 세이브에서 완료를 재판정(클라 신뢰 안 함) + 미수령 확인 → 보상 지급 + claimed 기록.
@@ -87,6 +88,32 @@ export async function POST(req: Request) {
     const claimed = parseClaimed(guideSave);
 
     if (claimed.has(def.id)) {
+      const retroactiveTitleIds = def.reward.titleId
+        ? await backfillClaimedQuestTitleRewardsInTx(
+            tx,
+            userId,
+            new Set([def.id]),
+            advLogRaw,
+          )
+        : [];
+      if (retroactiveTitleIds.length > 0) {
+        return {
+          status: 200,
+          body: {
+            ok: true as const,
+            questId: def.id,
+            retroactive: true as const,
+            reward: {
+              gold: 0,
+              equip: null,
+              staminaPotions: 0,
+              titleId: retroactiveTitleIds[0],
+            },
+            gold: Math.max(0, charSave.gold ?? 0),
+            bankedGold: Math.max(0, charSave.bankedGold ?? 0),
+          },
+        };
+      }
       return {
         status: 409,
         body: { ok: false as const, error: "already_claimed" as const },

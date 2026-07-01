@@ -697,6 +697,21 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "투기장 상점에서 투기장 코인 2500으로 구매",
     category: "pvp",
   },
+  // ── 협동 교환소 칭호 (협동 주화/보스 재료로 구매) ───────────────────────
+  coop_helping_hand: {
+    id: "coop_helping_hand",
+    name: "협동의 손",
+    description: "토벌 전선에 기꺼이 손을 보탠 자.",
+    condition: "협동 교환소에서 협동 주화 300으로 구매",
+    category: "battle",
+  },
+  coop_raider: {
+    id: "coop_raider",
+    name: "토벌대원",
+    description: "여러 전장의 증표를 모아 꾸준함을 증명한 자.",
+    condition: "협동 교환소에서 협동 주화 800과 보스별 재료 10개씩으로 구매",
+    category: "battle",
+  },
   // ── 낚시 코인 상점 칭호 (낚시 코인으로 구매) ──────────────────────────────
   // 활성 3종 — 가격 오름차순(월척 사냥꾼 → 바다의 전설 → 강태공).
   fishing_trophy: {

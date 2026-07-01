@@ -34,7 +34,10 @@ import {
   isFishingJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
+import {
+  applyPostCapGrowth,
+  rollLevelGrowth,
+} from "@/adventure/data/v2/statGrowth";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   elementDamageMult,
@@ -897,13 +900,24 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;
       for (let i = 0; i < expResult.levelsGained; i++) {
-        grown = rollLevelGrowth(grown, playerClass, prof, Math.random);
+        grown = rollLevelGrowth(grown, playerClass, prof, Math.random, {
+          currentJobId: v2JobId,
+        });
       }
       prof = setGrown(prof, grown);
       // grown 1포인트 = 해당 스탯 +1. 레벨업 전후 delta 가 곧 오른 스탯.
       for (const k of V2_STAT_KEYS) {
         const d = (grown[k] ?? 0) - (grownBefore[k] ?? 0);
         if (d > 0) statGains[k] = d;
+      }
+    } else if (won && expResult.level >= levelCap) {
+      const postCap = applyPostCapGrowth(prof, playerClass, Math.random, {
+        currentJobId: v2JobId,
+      });
+      prof = postCap.proficiency;
+      for (const k of V2_STAT_KEYS) {
+        const d = postCap.statGains[k] ?? 0;
+        if (d > 0) statGains[k] = (statGains[k] ?? 0) + d;
       }
     }
     // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.

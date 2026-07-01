@@ -39,6 +39,11 @@ export type V2ProficiencyState = {
   // 숙련도 스케일 마이그레이션 버전.
   // 1 = 레벨 기반 cumLevel → 승리 기반 숙련도 전환 보정(×6), 2 = 요구치 1.5배 상향 보정(총 ×9) 적용.
   masteryScaleVersion?: number;
+  // 성장 규칙 마이그레이션 버전.
+  // 1 = 레벨업 성장량 5→3 및 기존 grown 75% 압축 적용.
+  growthScaleVersion?: number;
+  // 만렙 이후 cap 미달 스탯을 천천히 따라잡는 전투 누적 게이지.
+  postCapGrowthProgress?: number;
   // 환생(재전직) 횟수 — advance-class 환생(같은/다른 직업 무관)마다 +1. cumLevel 과 별개의 "행동" 신호:
   //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
   //   판정해, 같은 직업 재전직만으로도 깨지게 한다(한 생애 cumLevel ~99 < 101 사각지대 해소).
@@ -157,6 +162,8 @@ export function emptyProficiency(): V2ProficiencyState {
     grown: {},
     jobCumLevel: {},
     masteryScaleVersion: 2,
+    growthScaleVersion: 1,
+    postCapGrowthProgress: 0,
     reincarnations: 0,
   };
 }
@@ -175,6 +182,20 @@ function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
   return out;
 }
 
+export const V2_GROWN_LEGACY_KEEP_PCT = 0.75;
+
+export function compressLegacyGrownStats(
+  grown: Partial<Record<V2StatKey, number>>,
+): Partial<Record<V2StatKey, number>> {
+  const out: Partial<Record<V2StatKey, number>> = {};
+  for (const stat of V2_STAT_KEYS) {
+    const v = grown[stat] ?? 0;
+    const next = Math.floor(v * V2_GROWN_LEGACY_KEEP_PCT);
+    if (next > 0) out[stat] = next;
+  }
+  return out;
+}
+
 export function parseProficiency(raw: unknown): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
   const obj = raw as {
@@ -184,6 +205,8 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     grown?: unknown;
     jobCumLevel?: unknown;
     masteryScaleVersion?: unknown;
+    growthScaleVersion?: unknown;
+    postCapGrowthProgress?: unknown;
     reincarnations?: unknown;
   };
   const hasLegacyScaledFields =
@@ -195,6 +218,8 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       : hasLegacyScaledFields
         ? 0
         : 2;
+  const growthScaleVersion =
+    obj.growthScaleVersion != null ? posInt(obj.growthScaleVersion) : 0;
   // 숙달 포인트(캐릭터 전역 잔액) — 신포맷=top-level points. 옛 포맷=직군별 points 라, 아래 루프에서
   //   각 직군의 points 를 전부 여기 합산해 이관한다(2026-06-27 전역 승격). 신포맷 그룹엔 points 가
   //   없어 posInt→0 이므로 이중계산 없음.
@@ -261,13 +286,21 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       if (n > 0 && k && k !== "none") jobCumLevel[k] = n;
     }
   }
+  const parsedGrown = parseStatMap(obj.grown);
+  const grown =
+    growthScaleVersion >= 1
+      ? parsedGrown
+      : compressLegacyGrownStats(parsedGrown);
   return {
     points: pointsTotal,
     groups,
     caps,
-    grown: parseStatMap(obj.grown),
+    grown,
     jobCumLevel,
     masteryScaleVersion,
+    growthScaleVersion: 1,
+    postCapGrowthProgress:
+      growthScaleVersion >= 1 ? posInt(obj.postCapGrowthProgress) : 0,
     reincarnations: posInt(obj.reincarnations),
   };
 }

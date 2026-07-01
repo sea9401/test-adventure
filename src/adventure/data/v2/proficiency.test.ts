@@ -28,6 +28,7 @@ import {
   V2_FLOOR_DECAY_MIN,
   V2_SIGNATURE_LEARN_COST,
   proficiencyPerKillAtDepth,
+  V2_GROWN_LEGACY_KEEP_PCT,
 } from "./proficiency";
 
 describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
@@ -124,6 +125,24 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
         groups: { warrior: { cumLevel: 9 } },
       }).masteryScaleVersion,
     ).toBe(2);
+  });
+
+  it("parse — growthScaleVersion 없던 기존 grown 은 1회 75% 압축 후 버전 기록", () => {
+    const p = parseProficiency({ grown: { str: 40, dex: 1 } });
+    expect(p.grown.str).toBe(Math.floor(40 * V2_GROWN_LEGACY_KEEP_PCT));
+    expect(p.grown.dex).toBeUndefined();
+    expect(p.growthScaleVersion).toBe(1);
+    expect(p.postCapGrowthProgress).toBe(0);
+  });
+
+  it("parse — growthScaleVersion 1 저장값은 grown 과 만렙 추격 게이지를 그대로 보존", () => {
+    const p = parseProficiency({
+      growthScaleVersion: 1,
+      postCapGrowthProgress: 17,
+      grown: { str: 40 },
+    });
+    expect(p.grown.str).toBe(40);
+    expect(p.postCapGrowthProgress).toBe(17);
   });
 
   it("parseProficiencyForChar — charSave 무시(시드 마이그 폐지), cumLevel 필드만 반영", () => {

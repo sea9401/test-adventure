@@ -191,8 +191,8 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "boxer",
     name: "권사",
     tier: 2,
-    cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { str: 10, vit: 8 }, // 흡혈 브루저 (← 옛 gigong)
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 11, dex: 5, vit: 4 }, // 연격 입문 — 때리고 피하는 권법 라인
     unlock: { prereqs: { martial: TIER2_UNLOCK_CUMLEVEL } },
   },
   monk: {
@@ -261,8 +261,8 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "brawler",
     name: "격투가",
     tier: 3,
-    cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 13, str: 7 }, // 무도 고차 — 활력 중심
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 12, dex: 6, vit: 4 }, // 권사 계승 — 연격·보법 심화
     unlock: { prereqs: { boxer: TIER3_UNLOCK_CUMLEVEL } }, // 권사 계보
   },
   magus: {
@@ -444,8 +444,8 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     id: "sensei",
     name: "권룡",
     tier: 4,
-    cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 15, str: 7 }, // 무도 심화(격투가 회피·공격 라인 정점·옛 절정)
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 15, dex: 7, vit: 4 }, // 권룡 — 회피 연격 딜러 정점
     unlock: { prereqs: { brawler: TIER4_UNLOCK_CUMLEVEL } }, // 격투가 계보
   },
   sage: {
@@ -536,7 +536,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: { venomancer: TIER4_UNLOCK_CUMLEVEL } }, // 맹독술사 계보
   },
   // 무도 직군 4차 두 번째 갈래 — 무승(무도 3차 두 번째 갈래·수도승 계승) 계보. 권룡(격투가 라인)과
-  //   같은 무도 4차지만 정체성이 다르다: 권룡=회피·공격(보법·권룡파), 투승=순수 탱(강건·반격·철신).
+  //   같은 무도 4차지만 정체성이 다르다: 권룡=회피·연격(보법·권룡연파), 투승=순수 탱(강건·반격·철신).
   //   무승 jobCumLevel TIER4 해금. 옛 절정 탱 킷(반격+철신)을 상속.
   battlemonk: {
     id: "battlemonk",
@@ -660,6 +660,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 19, dex: 7 },
     unlock: { prereqs: { venomlord: TIER5_UNLOCK_CUMLEVEL } },
   },
+  dragonfist: {
+    id: "dragonfist",
+    name: "권황",
+    tier: 5,
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 20, dex: 6, vit: 4 },
+    unlock: { prereqs: { sensei: TIER5_UNLOCK_CUMLEVEL } },
+  },
   adamantmonk: {
     id: "adamantmonk",
     name: "금강승",
@@ -706,6 +714,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, dex: 1 },
     jobBonus: { vit: 28, str: 8 },
     unlock: { prereqs: { ironknight: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  celestialdragon: {
+    id: "celestialdragon",
+    name: "천룡권성",
+    tier: 6,
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 27, dex: 9, vit: 4 },
+    unlock: { prereqs: { dragonfist: TIER6_UNLOCK_CUMLEVEL } },
   },
 };
 
@@ -893,12 +909,14 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   nightshade: { class: "rogue", spec: "nightshade" },
   saint: { class: "mage", spec: "saint" },
   plaguebringer: { class: "rogue", spec: "plaguebringer" },
+  dragonfist: { class: "martial", spec: "dragonfist" },
   adamantmonk: { class: "martial", spec: "adamantmonk" },
   immortal: { class: "survivor", spec: "immortal" },
   transcendent: { class: "warrior", spec: "transcendent" },
   bloodlord: { class: "warrior", spec: "bloodlord" },
   // tier 6 — 5차 직업 계승.
   fortressknight: { class: "warrior", spec: "fortressknight" },
+  celestialdragon: { class: "martial", spec: "celestialdragon" },
 };
 
 /**

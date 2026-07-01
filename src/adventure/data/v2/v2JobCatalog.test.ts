@@ -83,12 +83,14 @@ const TIER5_LINEAGE: Record<string, string> = {
   nightshade: "phantom",
   saint: "archbishop",
   plaguebringer: "venomlord",
+  dragonfist: "sensei",
   adamantmonk: "battlemonk",
   immortal: "returner",
   bloodlord: "crimsontemplar",
 };
 const TIER6_LINEAGE: Record<string, string> = {
   fortressknight: "ironknight",
+  celestialdragon: "dragonfist",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -105,16 +107,16 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("68개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 19 + 5차 12 + 6차 1)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(68);
+  it("70개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 19 + 5차 13 + 6차 2)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(70);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(12);
     expect(byTier(3)).toBe(18);
     expect(byTier(4)).toBe(19);
-    expect(byTier(5)).toBe(12);
-    expect(byTier(6)).toBe(1);
+    expect(byTier(5)).toBe(13);
+    expect(byTier(6)).toBe(2);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -263,6 +265,11 @@ describe("해금 트리", () => {
       spec: "fortressknight",
     });
     expect(jobIdFromLegacy("warrior", "fortressknight")).toBe("fortressknight");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.celestialdragon).toEqual({
+      class: "martial",
+      spec: "celestialdragon",
+    });
+    expect(jobIdFromLegacy("martial", "celestialdragon")).toBe("celestialdragon");
   });
 
   it("5차 하이브리드(초월자) — 성전사·룬 기사를 각각 TIER5 키워야 해금된다", () => {

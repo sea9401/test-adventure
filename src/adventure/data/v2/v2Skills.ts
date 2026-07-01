@@ -772,6 +772,7 @@ const MP_CASTER_JOBS = new Set([
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([
   "martial", "boxer", "monk", "brawler", "warmonk", "sensei", "battlemonk",
+  "dragonfist", "adamantmonk", "celestialdragon",
 ]);
 // 도적 ×0.7 — 물리/술수·MP 가벼움.
 const MP_ROGUE_JOBS = new Set([

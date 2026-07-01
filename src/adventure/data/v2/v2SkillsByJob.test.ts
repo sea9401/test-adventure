@@ -260,7 +260,7 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("심화 직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
-    // 절정(sensei)은 예외 — 액티브(난무) 대신 반격 패시브로 교체(둘 다 패시브·액티브 없음). 아래 별도 검증.
+    // 권룡(sensei)은 아래에서 연격형 공격 킷을 별도 검증한다.
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
       warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"],
@@ -407,6 +407,7 @@ describe("직업 킷 — 스킬셋", () => {
       nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"],
       saint: ["v2c_saint_miracle", "v2c_saint_benediction"],
       plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"],
+      dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork"],
       adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"],
       immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"],
       transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"],
@@ -444,6 +445,23 @@ describe("직업 킷 — 스킬셋", () => {
       "selfBuffPct",
     ]);
     expect(V2_SKILLS.v2c_plaguebringer_decay.passive?.poisonedEnemyDefReductionPct).toBe(35);
+    expect(V2_SKILLS.v2c_dragonfist_rupture.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "damage",
+      "damage",
+      "damage",
+      "enemyDebuff",
+      "selfBuffPct",
+    ]);
+    expect(V2_SKILLS.v2c_dragonfist_rupture.effects[0]).toMatchObject({
+      kind: "damage",
+      pierceDamagePct: 10,
+    });
+    expect(V2_SKILLS.v2c_dragonfist_footwork.passive).toMatchObject({
+      statPct: { str: 18 },
+      evasionPct: 16,
+      accuracyPct: 8,
+    });
     expect(V2_SKILLS.v2c_adamantmonk_stance.effects).toEqual([
       { kind: "shield", pctMaxHp: 14, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
@@ -490,7 +508,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
-  it("6차 철벽기사 계열 = 방어력 딜링기 + 방어 패시브", () => {
+  it("6차 직업 = 계열 컨셉을 확장한 액티브 + 패시브", () => {
     expect(skillsForJob("fortressknight")).toEqual([
       "v2c_fortressknight_ram",
       "v2c_fortressknight_citadel",
@@ -506,20 +524,52 @@ describe("직업 킷 — 스킬셋", () => {
       damageTakenReductionPct: 8,
       thornsDefPct: 120,
     });
+    expect(skillsForJob("celestialdragon")).toEqual([
+      "v2c_celestialdragon_combo",
+      "v2c_celestialdragon_breath",
+    ]);
+    expect(V2_SKILLS.v2c_celestialdragon_combo.category).toBe("attack");
+    expect(V2_SKILLS.v2c_celestialdragon_combo.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "damage",
+      "damage",
+      "damage",
+      "damage",
+      "enemyVuln",
+      "selfBuffPct",
+      "enemyDelay",
+    ]);
+    expect(V2_SKILLS.v2c_celestialdragon_combo.effects[5]).toMatchObject({
+      kind: "enemyVuln",
+      pct: 20,
+    });
+    expect(V2_SKILLS.v2c_celestialdragon_combo.effects[7]).toMatchObject({
+      kind: "enemyDelay",
+      pct: 40,
+    });
+    expect(V2_SKILLS.v2c_celestialdragon_breath.category).toBe("passive");
+    expect(V2_SKILLS.v2c_celestialdragon_breath.passive).toMatchObject({
+      statPct: { str: 22, dex: 10 },
+      evasionPct: 20,
+      accuracyPct: 12,
+    });
   });
 
-  it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {
-    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡파+패왕)으로.
+  it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 패왕(힘%) — 연격형 재설계", () => {
+    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡연파+패왕)으로.
     //   v2c_sensei_combo/ironbody id 유지(세이브 호환·내용만 교체).
     expect(skillsForJob("sensei")).toEqual([
       "v2c_sensei_combo",
       "v2c_sensei_ironbody",
     ]);
     expect(V2_SKILLS.v2c_sensei_combo.category).toBe("attack");
-    // 권룡파 = 방깎(무력 디버프 동반).
-    expect(
-      V2_SKILLS.v2c_sensei_combo.effects.some((e) => e.kind === "enemyDebuff"),
-    ).toBe(true);
+    expect(V2_SKILLS.v2c_sensei_combo.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "damage",
+      "damage",
+      "enemyDebuff",
+      "enemyVuln",
+    ]);
     expect(V2_SKILLS.v2c_sensei_ironbody.category).toBe("passive");
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20);
   });

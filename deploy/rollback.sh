@@ -36,6 +36,7 @@ echo "롤백: $FROM → $TO   [$(git log -1 --pretty=%s "$TARGET")]"
 
 git reset --hard "$TARGET"
 bash deploy/install-deps.sh
+rm -rf .next
 npm run build
 sudo systemctl restart adventure-rpg
 sleep 3

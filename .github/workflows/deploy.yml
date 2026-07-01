@@ -54,6 +54,8 @@ jobs:
             bash deploy/install-deps.sh
             echo "▶ [prod] db migrate"
             node --env-file=.env.production.local src/db/migrate.mjs
+            echo "▶ [prod] clean previous Next build"
+            rm -rf .next
             echo "▶ [prod] build"
             NODE_OPTIONS=--max-old-space-size=2048 npm run build
             echo "▶ [prod] restart"

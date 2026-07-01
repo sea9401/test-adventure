@@ -44,15 +44,13 @@ function playerGold(save: Record<string, unknown>): number {
 //   gold = 건축물 슬롯 해금 비용·resources = 단계 업그레이드 비용(생산 재화). 읽기 전용 스냅샷.
 // ?outpostId=tile:col,row (V2_TILE_PRODUCTION) — 그 타일 정착지 1개 + 소유(길드/솔로)별 자원·골드 풀.
 //   소유는 점령행 있으면 길드, 없으면 founder=솔로(마을 행이 아직 없어도 해석 — 건설 비용 표시용).
-export async function GET(req?: Request) {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const now = Date.now();
-  const qOutpost = req
-    ? new URL(req.url).searchParams.get("outpostId")
-    : null;
+  const qOutpost = new URL(req.url).searchParams.get("outpostId");
 
   // ── 거점 단건(현재 화면용) ────────────────────────────────────────────────
   // 단건 조회를 지원해 한 마을 데이터 문제가 전체 생산 관리 탭 로딩을 막지 않게 한다.

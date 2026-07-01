@@ -98,6 +98,15 @@ describe("V2_EQUIPMENT catalog", () => {
     }
   });
 
+  it("카탈로그 모든 키는 저장 파서가 받는 유효 장비 id 여야 함", () => {
+    const ids = Object.keys(V2_EQUIPMENT) as V2EquipmentId[];
+    const parsed = parseEquipmentSave({
+      owned: ids.map((id, index) => ({ iid: `catalog-${index}`, id })),
+    });
+    expect(parsed.owned).toHaveLength(ids.length);
+    expect(new Set(parsed.owned.map((item) => item.id))).toEqual(new Set(ids));
+  });
+
   it("모든 슬롯은 유효한 값이어야 함", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(ALL_SLOTS).toContain(item.slot);
@@ -283,6 +292,16 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
+  it("setId 를 가진 장비는 실제 세트 정의의 pieces 에 역참조되어야 함", () => {
+    const setsById = new Map(V2_EQUIP_SETS.map((set) => [set.id, set]));
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      if (!item.setId) continue;
+      const set = setsById.get(item.setId);
+      expect(set, `${item.id}.setId=${item.setId} 세트 실재`).toBeDefined();
+      expect(set?.pieces, `${item.id} 세트 pieces 역참조`).toContain(item.id);
+    }
+  });
+
   it("태그 세트(V2_EQUIP_TAG_SETS)는 실제 아이템 setTags 와 연결되고 단계가 증가", () => {
     for (const set of V2_EQUIP_TAG_SETS) {
       const pieces = Object.values(V2_EQUIPMENT).filter((item) =>
@@ -292,6 +311,9 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       let prev = 0;
       for (const threshold of set.thresholds) {
         expect(threshold.count, `${set.id} threshold order`).toBeGreaterThan(prev);
+        expect(threshold.count, `${set.id} threshold reachable`).toBeLessThanOrEqual(
+          pieces.length,
+        );
         expect(Object.keys(threshold.bonus).length, `${set.id} bonus`).toBeGreaterThan(0);
         prev = threshold.count;
       }

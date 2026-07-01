@@ -210,7 +210,7 @@ export function TreasureDigView({
   const digsRemaining = grid ? grid.digsAllowed - grid.digsUsed : 0;
 
   return (
-    <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
         title="보물 발굴"
         onBack={onBack}

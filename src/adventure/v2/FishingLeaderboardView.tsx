@@ -74,7 +74,7 @@ export function FishingLeaderboardView({
   );
 
   return (
-    <main className="mx-auto max-w-[640px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
         title="주간 낚시 대회"
         onBack={onBack}

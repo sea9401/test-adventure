@@ -21,11 +21,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
-import {
-  SP_FRUIT,
-  parseSpFruitUsed,
-  type SpFruitTier,
-} from "@/adventure/data/v2/spFruit";
+import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
 import {
   V2_EQUIPMENT,
   type V2EquipInstance,
@@ -39,9 +35,6 @@ import {
   V2ItemCard,
   V2ItemCompareCard,
   anchorOf,
-  CraftQualityBadge,
-  EnhanceLevelBadge,
-  MasterworkBadge,
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
@@ -99,14 +92,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     itemTabFromParam(tabParam),
   );
   useEffect(() => {
-    let alive = true;
-    const nextTab = itemTabFromParam(tabParam);
-    queueMicrotask(() => {
-      if (alive) setTab(nextTab);
-    });
-    return () => {
-      alive = false;
-    };
+    setTab(itemTabFromParam(tabParam));
   }, [tabParam]);
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모는 서버 권위. 만료 없음).
@@ -158,9 +144,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   // SP 열매 등급별 사용 횟수(캐릭터당 캡 표시·캡 도달 시 사용 차단). /me/inventory 동봉.
-  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>(
-    () => parseSpFruitUsed(undefined),
-  );
+  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>({
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   // busy key = 처리 중인 개체 iid 또는 슬롯(해제). null 이면 유휴.
@@ -190,7 +179,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           spFruitUsed?: Partial<Record<SpFruitTier, number>>;
         };
         setMaterials(j.materials ?? {});
-        setSpFruitUsed(parseSpFruitUsed(j.spFruitUsed));
+        setSpFruitUsed({
+          1: j.spFruitUsed?.[1] ?? 0,
+          2: j.spFruitUsed?.[2] ?? 0,
+          3: j.spFruitUsed?.[3] ?? 0,
+          4: j.spFruitUsed?.[4] ?? 0,
+        });
       }
       if (equipRes.ok) {
         const j = (await equipRes.json()) as {
@@ -281,6 +275,41 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           `✓ ${SP_FRUIT[tier].name} 사용 — SP 최대치 +${SP_FRUIT[tier].spPerUse}` +
             (typeof j.spBudget === "number" ? ` (현재 ${j.spBudget})` : ""),
         );
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [refresh],
+  );
+
+  // 협동 보스 장비 상자 사용 — 상자 1개 소모 후 장비 인스턴스 1개 획득.
+  const useCoopEquipmentBox = useCallback(
+    async (boxId: string) => {
+      setBusy(boxId);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/use-coop-equipment-box", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ boxId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          equipment?: { name?: string };
+        } | null;
+        if (!j?.ok) {
+          const label =
+            j?.error === "no_box"
+              ? "보유한 상자가 없습니다"
+              : (j?.error ?? `http ${res.status}`);
+          setMsg(`✗ ${label}`);
+          return;
+        }
+        await refresh();
+        setMsg(`✓ ${j.equipment?.name ?? "장비"} 획득`);
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
@@ -413,22 +442,15 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     if (!inst) return;
     const item = V2_EQUIPMENT[inst.id];
     if (!item) return;
-    let alive = true;
-    queueMicrotask(() => {
-      if (!alive) return;
-      setTab(item.slot);
-      setCard({
-        inst,
-        anchor: {
-          top: Math.max(80, Math.floor(window.innerHeight * 0.28)),
-          bottom: Math.max(120, Math.floor(window.innerHeight * 0.28) + 32),
-          left: Math.max(24, Math.floor(window.innerWidth * 0.5) - 128),
-        },
-      });
+    setTab(item.slot);
+    setCard({
+      inst,
+      anchor: {
+        top: Math.max(80, Math.floor(window.innerHeight * 0.28)),
+        bottom: Math.max(120, Math.floor(window.innerHeight * 0.28) + 32),
+        left: Math.max(24, Math.floor(window.innerWidth * 0.5) - 128),
+      },
     });
-    return () => {
-      alive = false;
-    };
   }, [itemParam, loading, owned]);
 
   return (
@@ -452,26 +474,19 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   {label}
                 </div>
                 <div
-                  className={`flex max-w-full justify-center text-xs font-medium ${
+                  className={`flex max-w-full items-baseline justify-center text-xs font-medium ${
                     item
-                      ? powerNameClass(
-                          item,
-                          inst?.roll,
-                          inst?.enhance,
-                          inst?.craftQuality,
-                        )
+                      ? powerNameClass(item, inst?.roll)
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >
                   <span className="truncate">{item?.name ?? "—"}</span>
+                  {item && inst?.enhance && inst.enhance.level > 0 ? (
+                    <span className="ml-1 shrink-0 text-amber-500">
+                      +{inst.enhance.level}
+                    </span>
+                  ) : null}
                 </div>
-                {item && inst ? (
-                  <div className="flex max-w-full flex-wrap justify-center gap-1">
-                    <EnhanceLevelBadge enhance={inst.enhance} />
-                    <CraftQualityBadge craftQuality={inst.craftQuality} />
-                    {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
-                  </div>
-                ) : null}
               </>
             );
             return (
@@ -545,6 +560,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             spFruitUsed={spFruitUsed}
             busy={busy}
             onUseSpFruit={useSpFruit}
+            onUseEquipmentBox={useCoopEquipmentBox}
             rareMaps={rareMaps}
           />
         ) : tab === "material" ? (

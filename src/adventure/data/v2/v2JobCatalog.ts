@@ -466,6 +466,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(속성 라인) — 대마법사와 동급
     unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
   },
+  runecaster: {
+    id: "runecaster",
+    name: "문장술사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 14, spi: 8 }, // 마법 심화(문장 라인) — 저차 패시브 장착 보상
+    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
+  },
   archshaman: {
     id: "archshaman",
     name: "대주술사",
@@ -861,8 +869,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   sensei: { class: "martial", spec: "sensei" },
   sage: { class: "mage", spec: "sage" },
   elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
-  archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 세 번째 갈래(주술사 계승·마법취약)
-  archbishop: { class: "mage", spec: "archbishop" }, // 마법 4차 네 번째 갈래(대사제 계승·성직자)
+  runecaster: { class: "mage", spec: "runecaster" }, // 마법 4차 세 번째 갈래(문장 시너지)
+  archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 네 번째 갈래(주술사 계승·마법취약)
+  archbishop: { class: "mage", spec: "archbishop" }, // 마법 4차 다섯 번째 갈래(대사제 계승·성직자)
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
   warlord: { class: "warrior", spec: "warlord" }, // 전사 4차 세 번째 갈래(광전사 계승·저HP 딜)

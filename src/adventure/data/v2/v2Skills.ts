@@ -319,6 +319,12 @@ export type V2SkillDefinition = {
   /** 패시브 스킬(category "passive") 의 상시 효과 — 장착 시 derive 가 적용(캐스트 아님).
    *  액티브 스킬은 미지정. 직업 킷 재설계 — 근력/강건/총명/예기 등. */
   passive?: V2PassiveSkillEffect;
+  /** 장착 시너지 — 특정 스킬이 로드아웃에 함께 있을 때 시전 효과를 추가한다.
+   *  문장술사처럼 저차 패시브를 보존하는 빌드에 보상을 주기 위한 액티브 전용 확장. */
+  equippedSynergies?: readonly {
+    requiredSkillId: V2SkillId;
+    effects: readonly V2SkillEffect[];
+  }[];
 };
 
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
@@ -436,6 +442,11 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   if (def.elementEffects) {
     for (const variant of Object.values(def.elementEffects)) {
       if (variant) raw = Math.max(raw, sumEffects(variant));
+    }
+  }
+  if (def.equippedSynergies) {
+    for (const synergy of def.equippedSynergies) {
+      raw += sumEffects(synergy.effects);
     }
   }
   // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.55): 저확률 스킬에

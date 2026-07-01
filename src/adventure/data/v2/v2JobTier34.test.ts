@@ -72,6 +72,7 @@ const TIER4_JOB_IDS = [
   "veteran",
   "sensei",
   "sage",
+  "runecaster",
   "chief",
   "phantom",
   "crusader",
@@ -82,6 +83,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
   sensei: "brawler",
   sage: "magus",
+  runecaster: "magus",
   archbishop: "bishop",
   chief: "ranger",
   phantom: "shadow", // 도적 4차 두 번째 갈래 — 그림자 계보

@@ -803,7 +803,17 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
 
   // 속성 분기(원소술사) — def.elementEffects 가 있으면 시전자 캐릭 속성의 효과 배열을 쓴다(매칭
   //   없으면 effects 폴백=무속성). 기존 스킬은 elementEffects 미정의 → def.effects 그대로(byte-identical).
-  const castEffects = def.elementEffects?.[charEl] ?? def.effects;
+  const baseCastEffects = def.elementEffects?.[charEl] ?? def.effects;
+  // 장착 시너지(문장술사) — 지정된 선행 패시브가 로드아웃에 함께 있으면 시전 효과를 뒤에 덧붙인다.
+  //   learned 전체가 아니라 equipped 기준이다. 기존 패시브 시스템과 같은 "장착해야 효과" 규칙을 따른다.
+  const synergyEffects =
+    def.equippedSynergies?.flatMap((s) =>
+      equippedSet.has(s.requiredSkillId) ? s.effects : [],
+    ) ?? [];
+  const castEffects =
+    synergyEffects.length > 0
+      ? [...baseCastEffects, ...synergyEffects]
+      : baseCastEffects;
   for (const effect of castEffects) {
     if (effect.kind === "damage") {
       const flat = flatOf(effect.baseFlat, effect.baseFlatByTier);

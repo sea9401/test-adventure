@@ -18,6 +18,7 @@ export type PlayerCombatStats = {
   accuracyPct?: number;
   accRating?: number;
   evasionPct?: number;
+  evaRating?: number;
   critChancePct?: number;
   // 콘텐츠 파워(전투력) — me/state 가 derivePowerScore 로 계산해 보낸다(던전 권장 파워와 동일 단위).
   //   서버는 이미 채워 보내나 타입에만 빠져 있었음. 사냥터에서 "내 전투력 vs 권장" 비교에 사용.
@@ -33,6 +34,7 @@ export function playerCombatToBattleStats(c: PlayerCombatStats): BattleStats {
     spd: c.spd,
     accuracy: c.accRating ?? c.accuracyPct,
     evasionPct: c.evasionPct,
+    evaRating: c.evaRating ?? c.evasionPct,
     critChancePct: c.critChancePct,
     magicAtk: c.magicAtk,
   };

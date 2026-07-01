@@ -8,6 +8,10 @@ import type {
   BattleLogEntry,
   BattleState,
 } from "@/adventure/v2/combat/engine";
+import {
+  depthSpdCorrection,
+  effectiveMonsterSpd,
+} from "@/adventure/v2/combat/combatTimeline";
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { V2Element } from "@/adventure/data/v2/elements";
 
@@ -25,10 +29,12 @@ export type ReplayPayload = {
     atk?: number;
     def?: number;
     spd?: number;
+    actionSpd?: number;
     accuracy?: number;
     evasionPct?: number;
     atkType?: Monster["atkType"];
     critPct?: number;
+    bonusAttackChancePct?: number;
   };
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
@@ -65,25 +71,41 @@ export function clampReplayLog(
   return [{ kind: "info", text: "앞선 턴 기록 생략 (긴 전투)" }, ...tail];
 }
 
+type ReplayPayloadOptions = {
+  depth?: number;
+};
+
+function replayEnemy(
+  enemy: BattleState["enemy"],
+  options?: ReplayPayloadOptions,
+): ReplayPayload["enemy"] {
+  const depthCorr =
+    options?.depth != null ? depthSpdCorrection(options.depth) : 0;
+  return {
+    name: enemy.name,
+    hp: enemy.hp,
+    image: enemy.image,
+    element: enemy.element,
+    atk: enemy.atk,
+    def: enemy.def,
+    spd: enemy.spd,
+    actionSpd: effectiveMonsterSpd(enemy.spd, depthCorr),
+    accuracy: enemy.accuracy,
+    evasionPct: enemy.evasionPct,
+    atkType: enemy.atkType,
+    critPct: enemy.critPct,
+    bonusAttackChancePct: enemy.bonusAttackChancePct,
+  };
+}
+
 // 서버 — finalState 에서 필요 필드만 추출.
 export function toReplayPayload(
   finalState: BattleState,
   logCap: number,
+  options?: ReplayPayloadOptions,
 ): ReplayPayload {
   return {
-    enemy: {
-      name: finalState.enemy.name,
-      hp: finalState.enemy.hp,
-      image: finalState.enemy.image,
-      element: finalState.enemy.element,
-      atk: finalState.enemy.atk,
-      def: finalState.enemy.def,
-      spd: finalState.enemy.spd,
-      accuracy: finalState.enemy.accuracy,
-      evasionPct: finalState.enemy.evasionPct,
-      atkType: finalState.enemy.atkType,
-      critPct: finalState.enemy.critPct,
-    },
+    enemy: replayEnemy(finalState.enemy, options),
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
@@ -133,21 +155,12 @@ export function toPvpReplayPayload(
 // 일괄(batch) 사냥용 경량 payload — 클라 배치 집계는 playerMaxMp 만 읽고 log/enemy 는 버린다.
 //   full toReplayPayload 의 clampReplayLog(최대 200 entry slice + scan)을 건너뛰어 판마다 발생하던
 //   로그 복사/할당을 없앤다. log 는 [](미사용). 단판(count===1)은 full payload 그대로 — 무변경.
-export function toReplayPayloadLite(finalState: BattleState): ReplayPayload {
+export function toReplayPayloadLite(
+  finalState: BattleState,
+  options?: ReplayPayloadOptions,
+): ReplayPayload {
   return {
-    enemy: {
-      name: finalState.enemy.name,
-      hp: finalState.enemy.hp,
-      image: finalState.enemy.image,
-      element: finalState.enemy.element,
-      atk: finalState.enemy.atk,
-      def: finalState.enemy.def,
-      spd: finalState.enemy.spd,
-      accuracy: finalState.enemy.accuracy,
-      evasionPct: finalState.enemy.evasionPct,
-      atkType: finalState.enemy.atkType,
-      critPct: finalState.enemy.critPct,
-    },
+    enemy: replayEnemy(finalState.enemy, options),
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,

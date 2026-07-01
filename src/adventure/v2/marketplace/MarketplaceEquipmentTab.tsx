@@ -16,7 +16,12 @@ import {
   type SortMode,
 } from "../v2ItemListShared";
 import { EquipmentListingCard } from "./EquipmentListingCard";
-import { type MarketplacePager, type PriceStat } from "./marketplaceShared";
+import {
+  marketplacePriceKeyForEquipInstance,
+  priceStatForKey,
+  type MarketplacePager,
+  type PriceStat,
+} from "./marketplaceShared";
 
 type SellCraftFilter = "all" | "crafted" | "quality" | "masterwork" | "craftOnly";
 
@@ -107,20 +112,24 @@ export function MarketplaceEquipmentTab({
         </Card>
       ) : (
         <>
-          {pager.pageItems.map((inst) => (
-            <EquipmentListingCard
-              key={inst.iid}
-              inst={inst}
-              priceValue={prices[inst.iid] ?? ""}
-              onPriceChange={(v) =>
-                setPrices((p) => ({ ...p, [inst.iid]: v }))
-              }
-              priceStat={priceRef[inst.id]}
-              busy={busy}
-              onList={() => onListEquip(inst)}
-              onOpenCard={onOpenCard}
-            />
-          ))}
+          {pager.pageItems.map((inst) => {
+            const priceKey = marketplacePriceKeyForEquipInstance(inst);
+            return (
+              <EquipmentListingCard
+                key={inst.iid}
+                inst={inst}
+                priceValue={prices[inst.iid] ?? ""}
+                onPriceChange={(v) =>
+                  setPrices((p) => ({ ...p, [inst.iid]: v }))
+                }
+                priceStat={priceStatForKey(priceRef, inst.id, priceKey)}
+                priceScoped={priceKey !== inst.id && !!priceRef[priceKey]}
+                busy={busy}
+                onList={() => onListEquip(inst)}
+                onOpenCard={onOpenCard}
+              />
+            );
+          })}
           <Pagination
             page={pager.page}
             pageCount={pager.pageCount}

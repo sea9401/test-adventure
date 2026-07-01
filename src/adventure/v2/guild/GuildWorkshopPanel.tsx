@@ -34,6 +34,7 @@ import {
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
+  CRAFT_QUALITY_BONUS_PCT,
   V2_EQUIP_TAG_SETS,
   V2_SLOT_LABEL,
   type V2EquipSlot,
@@ -1499,6 +1500,60 @@ export function GuildWorkshopPanel({
                 </div>
               </div>
             </div>
+            {currentEffectSummary ? (
+              <div className="mt-2 grid gap-2 sm:grid-cols-4">
+                {[
+                  {
+                    label: "현재 제작권",
+                    value:
+                      currentEffectSummary.maxTier > 0
+                        ? `T${currentEffectSummary.maxTier}`
+                        : "없음",
+                    detail: `${currentEffectSummary.unlockedRecipeCount}/${currentEffectSummary.totalRecipeCount}종`,
+                  },
+                  {
+                    label: "★ 품질 확률",
+                    value: `${currentEffectSummary.normalQualityChance}%`,
+                    detail: `품질 장비 위력 +${CRAFT_QUALITY_BONUS_PCT[1]}%`,
+                  },
+                  {
+                    label: "명장 제작",
+                    value: currentEffectSummary.masterworkUnlocked
+                      ? `${currentEffectSummary.masterworkQualityChance}%`
+                      : `Lv ${BLACKSMITH_MASTERWORK_LEVEL}`,
+                    detail: currentEffectSummary.plus2Unlocked
+                      ? "★★ 품질 개방"
+                      : "상한 확장/명장 표식",
+                  },
+                  {
+                    label: "다음 레벨",
+                    value: `${Math.max(
+                      0,
+                      state.artisan.blacksmith.xpForNext -
+                        state.artisan.blacksmith.xpIntoLevel,
+                    ).toLocaleString()} XP`,
+                    detail: nextBlacksmithSkill
+                      ? `Lv ${nextBlacksmithSkill.level} ${nextBlacksmithSkill.name}`
+                      : "스킬 전부 적용",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
+                  >
+                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {item.label}
+                    </div>
+                    <div className="mt-0.5 font-semibold text-zinc-950 dark:text-zinc-100">
+                      {item.value}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {item.detail}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <div className="rounded border border-sky-200 bg-sky-50 px-2 py-1.5 dark:border-sky-900 dark:bg-sky-950/30">
                 <div className="text-[10px] font-semibold text-sky-700 dark:text-sky-300">

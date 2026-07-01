@@ -33,6 +33,7 @@ export function EquipmentListingCard({
   priceValue,
   onPriceChange,
   priceStat,
+  priceScoped,
   busy,
   onList,
   onOpenCard,
@@ -41,6 +42,7 @@ export function EquipmentListingCard({
   priceValue: string;
   onPriceChange: (v: string) => void;
   priceStat?: PriceStat;
+  priceScoped?: boolean;
   busy: boolean;
   onList: () => void;
   onOpenCard: (
@@ -118,7 +120,7 @@ export function EquipmentListingCard({
             </div>
           ) : null}
           <div className="mt-0.5">
-            <PriceRefLine stat={priceStat} />
+            <PriceRefLine stat={priceStat} scoped={priceScoped} />
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

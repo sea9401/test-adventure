@@ -52,7 +52,9 @@ import {
 import {
   equipDetail,
   listingEquipRoll,
+  marketplacePriceKeyForPayload,
   PriceRefLine,
+  priceStatForKey,
   type Listing,
   type PriceStat,
 } from "./marketplace/marketplaceShared";
@@ -1045,6 +1047,10 @@ function ListingList({
           l.kind === "equip" ? listingCraftQuality(l.instancePayload) : undefined;
         const craftedBy =
           l.kind === "equip" ? listingCraftedBy(l.instancePayload) : undefined;
+        const priceKey =
+          l.kind === "equip"
+            ? marketplacePriceKeyForPayload(l.itemId, l.instancePayload)
+            : l.itemId;
         const clickable = l.kind === "equip" && !!onOpenCard;
         const info = (
           <>
@@ -1105,7 +1111,10 @@ function ListingList({
               <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
                 {l.price.toLocaleString()}골드
               </span>
-              <PriceRefLine stat={priceRef[l.itemId]} />
+              <PriceRefLine
+                stat={priceStatForKey(priceRef, l.itemId, priceKey)}
+                scoped={priceKey !== l.itemId && !!priceRef[priceKey]}
+              />
               {expiryLabel(l.createdAt, expiryDays) && (
                 <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
                   {expiryLabel(l.createdAt, expiryDays)}

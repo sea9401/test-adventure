@@ -55,6 +55,7 @@ import {
   type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { CRAFT_ONLY_CODEX_REWARDS } from "@/adventure/data/v2/equipmentCodex";
 import { GUILD_WORKSHOP_MATERIALS } from "@/adventure/data/v2/guildWorkshopMaterials";
 import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
@@ -696,6 +697,80 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       !equipmentRegisteredIds.has(id) &&
       (equipmentCounts.eligible.get(id)?.length ?? 0) > 0,
   ).length;
+  const craftOnlyRegisteredCount = [...equipmentRegisteredIds].filter(
+    (id) => V2_EQUIPMENT[id as V2EquipmentId]?.craftOnly,
+  ).length;
+  const equipmentCraftGoals = (() => {
+    const recordEntries = Object.entries(equipmentCraftRecords)
+      .map(([id, record]) => ({
+        id: id as V2EquipmentId,
+        item: V2_EQUIPMENT[id as V2EquipmentId],
+        record,
+      }))
+      .filter((entry) => entry.item && entry.record);
+    const craftOnlySlots = new Set(
+      recordEntries
+        .filter((entry) => entry.item.craftOnly && (entry.record?.crafts ?? 0) > 0)
+        .map((entry) => entry.item.slot),
+    );
+    const qualityItemCount = recordEntries.filter(
+      (entry) => (entry.record?.bestQualityLevel ?? 0) >= 1,
+    ).length;
+    const doubleStarCount = recordEntries.filter(
+      (entry) => (entry.record?.bestQualityLevel ?? 0) >= 2,
+    ).length;
+    const highTierCount = recordEntries.filter(
+      (entry) => entry.item.tier >= 10 && (entry.record?.crafts ?? 0) > 0,
+    ).length;
+    const masterworkCrafts = recordEntries.reduce(
+      (sum, entry) => sum + (entry.record?.masterworkCrafts ?? 0),
+      0,
+    );
+    return [
+      {
+        label: "제작 전용 등록",
+        progress: craftOnlyRegisteredCount,
+        goal: CRAFT_ONLY_CODEX_REWARDS[0]?.count ?? 4,
+        detail: "장인표 도감 보상 시작",
+        titleId: CRAFT_ONLY_CODEX_REWARDS[0]?.titleId,
+      },
+      {
+        label: "제작 전용 6부위",
+        progress: craftOnlySlots.size,
+        goal: 6,
+        detail: "부위별 제작 전용 장비 기록",
+        titleId: "artisan_full_kit_smith",
+      },
+      {
+        label: "T10+ 제작",
+        progress: highTierCount,
+        goal: 1,
+        detail: "왕도급 제작 기록",
+        titleId: "artisan_high_tier_smith",
+      },
+      {
+        label: "★ 제작품 종류",
+        progress: qualityItemCount,
+        goal: 6,
+        detail: "품질 제작품 폭 확장",
+        titleId: "artisan_masterwork",
+      },
+      {
+        label: "★★ 제작품",
+        progress: doubleStarCount,
+        goal: 1,
+        detail: "최상급 품질 제작 기록",
+        titleId: "artisan_double_star_smith",
+      },
+      {
+        label: "명장 제작 반복",
+        progress: masterworkCrafts,
+        goal: 10,
+        detail: "명장 제작품 누적",
+        titleId: "artisan_masterwork_smith",
+      },
+    ];
+  })();
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
@@ -941,6 +1016,60 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 {equipmentCodexMsg}
               </p>
             )}
+          </Card>
+
+          <Card padding="md">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-bold">제작 장비 목표</h2>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                대장간 제작 기록 + 장비 도감 등록 기준
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {equipmentCraftGoals.map((goal) => {
+                const pct = Math.min(
+                  100,
+                  Math.round((goal.progress / Math.max(1, goal.goal)) * 100),
+                );
+                const complete = goal.progress >= goal.goal;
+                const title = goal.titleId ? TITLES[goal.titleId] : null;
+                return (
+                  <div
+                    key={goal.label}
+                    className={`rounded border px-2.5 py-2 ${
+                      complete
+                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30"
+                        : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold">{goal.label}</span>
+                      <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {Math.min(goal.progress, goal.goal).toLocaleString()}/
+                        {goal.goal.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div
+                        className={`h-full rounded-full ${
+                          complete ? "bg-emerald-500" : "bg-amber-500"
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span>{goal.detail}</span>
+                      {title ? (
+                        <>
+                          <span>·</span>
+                          <span>{title.name}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </Card>
 
           {equipmentCodexLoading ? (

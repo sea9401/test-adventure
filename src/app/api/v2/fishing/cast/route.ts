@@ -15,6 +15,13 @@ import {
   rollBiteDelayMs,
   type FishingSession,
 } from "@/adventure/v2/fishingSession";
+import {
+  FISHING_PROGRESS_KEY,
+  emptyFishingProgression,
+  fishingBonusesFromProgression,
+  fishingProgressionView,
+  parseFishingProgression,
+} from "@/adventure/v2/fishingProgression";
 
 // POST /api/v2/fishing/cast — 찌 던지기.
 //
@@ -28,14 +35,47 @@ export async function POST() {
   }
 
   const now = Date.now();
-  const biteDelayMs = rollBiteDelayMs(Math.random);
-  const biteAt = now + biteDelayMs;
-  const skills = parseV2SkillsState(
-    await readSave(db, userId, "skills.v2", emptyV2SkillsState()),
-  );
-  const fishingBonuses = equippedFishingBonuses(skills.equipped);
-  // 현재 물때(결정론) — 그 시간대 한정 특별 손님을 추첨 풀에 합류시킨다. 사이즈/판정엔 영향 0.
+  const [skillsRaw, progressRaw] = await Promise.all([
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
+    readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()),
+  ]);
+  const skills = parseV2SkillsState(skillsRaw);
+  const skillBonuses = equippedFishingBonuses(skills.equipped);
+  const progress = parseFishingProgression(progressRaw);
+  const progressBonuses = fishingBonusesFromProgression(progress);
+  // 현재 물때(결정론) — 그 시간대 한정 특별 손님과 작은 시간대 보정을 합산한다.
   const mt = multtaeAt(now);
+  const multtaeEffect = mt.condition.effect;
+  const fishingBonuses = {
+    specialWeightPct:
+      skillBonuses.specialWeightPct +
+      progressBonuses.specialWeightPct +
+      (multtaeEffect.specialWeightBonusPct ?? 0),
+    sizeBonusPct:
+      skillBonuses.sizeBonusPct +
+      progressBonuses.sizeBonusPct +
+      (multtaeEffect.sizeBonusPct ?? 0),
+    rareSizeBonusPct:
+      skillBonuses.rareSizeBonusPct +
+      progressBonuses.rareSizeBonusPct +
+      (multtaeEffect.rareSizeBonusPct ?? 0),
+    bigCatchSizeBonusPct:
+      skillBonuses.bigCatchSizeBonusPct +
+      progressBonuses.bigCatchSizeBonusPct +
+      (multtaeEffect.bigCatchSizeBonusPct ?? 0),
+  };
+  const waitReductionPct = Math.min(
+    50,
+    Math.max(
+      0,
+      progressBonuses.waitReductionPct + (multtaeEffect.waitReductionPct ?? 0),
+    ),
+  );
+  const biteDelayMs = Math.max(
+    1_800,
+    Math.round(rollBiteDelayMs(Math.random) * (1 - waitReductionPct / 100)),
+  );
+  const biteAt = now + biteDelayMs;
   const fishId = pickFishId(Math.random, mt.condition.id, {
     specialWeightBonusPct: fishingBonuses.specialWeightPct,
   });
@@ -60,5 +100,11 @@ export async function POST() {
     await upsertSave(tx, userId, FISHING_SESSION_KEY, session);
   });
 
-  return Response.json({ ok: true, castId, biteDelayMs });
+  const progression = fishingProgressionView(progress);
+  return Response.json({
+    ok: true,
+    castId,
+    biteDelayMs,
+    progression,
+  });
 }

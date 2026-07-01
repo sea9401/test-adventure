@@ -35,6 +35,7 @@ import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -87,9 +88,15 @@ describe("POST /api/v2/fishing/reel", () => {
       caught: boolean;
       masteryGained: number;
       masteryAfter: number | null;
+      fishingXpGained: number;
+      fishingLevel: number;
+      fishingCatches: number;
     };
     expect(json.ok).toBe(true);
     expect(json.caught).toBe(true);
+    expect(json.fishingXpGained).toBe(4);
+    expect(json.fishingLevel).toBe(1);
+    expect(json.fishingCatches).toBe(1);
     expect(json.masteryGained).toBe(1);
     expect(json.masteryAfter).toBe(6);
 
@@ -101,6 +108,12 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(prof.points).toBe(123);
     expect(prof.groups.survivor?.cumLevel).toBe(11);
     expect(prof.jobCumLevel?.fisher).toBe(6);
+    expect(store.get(FISHING_PROGRESS_KEY)).toMatchObject({
+      xp: 4,
+      catches: 1,
+      equippedRodId: "reed_rod",
+      equippedLureId: "dough_lure",
+    });
     expect(store.get(FISHING_SESSION_KEY)).toEqual({});
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
   });

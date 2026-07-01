@@ -12,6 +12,11 @@ import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
 import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
 import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 import { FishIcon } from "@/adventure/v2/FishIcon";
+import {
+  FISHING_LURES,
+  FISHING_RODS,
+  type FishingProgressionView,
+} from "@/adventure/v2/fishingProgression";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -34,6 +39,11 @@ export type ReelOutcome =
       codexCount: number;
       /** 이번 챔질로 받은 낚시 코인(티어 소량·일일 상한 도달 시 0). */
       coinsGained?: number;
+      /** 성공한 챔질로 얻은 낚시 숙련도 경험치. */
+      fishingXpGained?: number;
+      fishingLevel?: number;
+      fishingLevelUp?: boolean;
+      fishingCatches?: number;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
       /** 서버 권위 연속 성공 기록과 현재 버프. */
@@ -50,6 +60,8 @@ export type ReelOutcome =
 export type FishingHandlers = {
   cast: () => Promise<CastOutcome>;
   reel: (castId: string, reactionMs: number) => Promise<ReelOutcome>;
+  progression?: FishingProgressionView | null;
+  progressionLoading?: boolean;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
@@ -221,6 +233,8 @@ export function FishingView({
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
+  progression,
+  progressionLoading,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
@@ -351,6 +365,44 @@ export function FishingView({
 
       <MulttaeBadge />
 
+      {progression ? (
+        <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-900/60 dark:bg-sky-950/30">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
+                낚시 Lv {progression.level}
+              </div>
+              <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                {progression.catches.toLocaleString()}마리 ·{" "}
+                {progression.xpIntoLevel}/{progression.xpForNext} XP
+              </div>
+            </div>
+            <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
+              <div className="truncate">
+                {FISHING_RODS[progression.equippedRodId].name}
+              </div>
+              <div className="truncate">
+                {FISHING_LURES[progression.equippedLureId].name}
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
+            <div
+              className="h-full rounded-full bg-sky-500 transition-[width]"
+              style={{
+                width: `${Math.round(
+                  (progression.xpIntoLevel / progression.xpForNext) * 100,
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+      ) : progressionLoading ? (
+        <div className="rounded-xl border border-zinc-200 p-3 text-center text-xs text-zinc-400 dark:border-zinc-800">
+          낚시 숙련도 불러오는 중…
+        </div>
+      ) : null}
+
       {sessionCount > 0 && (
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
           <span>
@@ -451,6 +503,13 @@ export function FishingView({
                   연속 {result.streak.current} 버프 · 코인 +
                   {result.streak.coinBonus} · 지도 조각 +
                   {result.streak.fragmentChanceBonusPct}%p
+                </div>
+              )}
+              {result.fishingXpGained != null && result.fishingXpGained > 0 && (
+                <div className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  + {result.fishingXpGained} 낚시 숙련도
+                  {result.fishingLevel ? ` · Lv ${result.fishingLevel}` : ""}
+                  {result.fishingLevelUp ? " 상승" : ""}
                 </div>
               )}
               {lastReactionMs != null && (

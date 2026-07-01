@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   FishingView,
   type CastOutcome,
@@ -13,6 +13,11 @@ import {
   REACTION_MIN_MS,
   REACTION_WINDOW_MS,
 } from "@/adventure/v2/fishingSession";
+import {
+  addFishingCatchXp,
+  emptyFishingProgression,
+  fishingProgressionView,
+} from "@/adventure/v2/fishingProgression";
 
 // /dev/fishing 하니스 — 서버 권위 로직을 클라에서 흉내(같은 pickFishId/rollFishSize).
 // 로그인·DB 없이 반응 미니게임 UI 만 QA. 서버 시계 envelope 는 생략하고 반응 윈도우만 본다.
@@ -20,6 +25,10 @@ export function FishingHarness() {
   const pending = useRef<Map<string, { fishId: FishId; size: number }>>(new Map());
   const seen = useRef<Set<string>>(new Set());
   const best = useRef<Record<string, number>>({});
+  const progress = useRef(emptyFishingProgression());
+  const [progression, setProgression] = useState(() =>
+    fishingProgressionView(emptyFishingProgression()),
+  );
 
   const cast = useCallback(async (): Promise<CastOutcome> => {
     const biteDelayMs = Math.round(
@@ -46,6 +55,10 @@ export function FishingHarness() {
       if (isNewSpecies) seen.current.add(p.fishId);
       const isPersonalBest = p.size > prevBest;
       if (isPersonalBest) best.current[p.fishId] = p.size;
+      const progressResult = addFishingCatchXp(progress.current, p.fishId);
+      progress.current = progressResult.state;
+      const progressView = fishingProgressionView(progress.current);
+      setProgression(progressView);
       return {
         caught: true,
         fishId: p.fishId,
@@ -56,6 +69,10 @@ export function FishingHarness() {
         isPersonalBest,
         prevBest,
         codexCount: seen.current.size,
+        fishingXpGained: progressResult.xpGained,
+        fishingLevel: progressView.level,
+        fishingLevelUp: progressResult.leveledUp,
+        fishingCatches: progressView.catches,
       };
     },
     [],
@@ -69,7 +86,12 @@ export function FishingHarness() {
           어보 등재/최고기록은 이 페이지 안에서만 누적(새로고침 시 초기화).
         </div>
       </div>
-      <FishingView cast={cast} reel={reel} />
+      <FishingView
+        cast={cast}
+        reel={reel}
+        progression={progression}
+        progressionLoading={false}
+      />
     </div>
   );
 }

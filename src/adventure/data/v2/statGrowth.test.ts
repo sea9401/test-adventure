@@ -3,6 +3,10 @@ import {
   rollLevelGrowth,
   computeStatFloors,
   V2_GROWTH_POINTS_PER_LEVEL,
+  applyPostCapGrowth,
+  statGrowthMasteryTotals,
+  masteryGrowthBonus,
+  V2_POST_CAP_GROWTH_BATTLES_PER_POINT,
 } from "./statGrowth";
 import { emptyProficiency, parseProficiency } from "./proficiency";
 import { V2_BASE_STATS } from "./v2Stats";
@@ -15,7 +19,7 @@ describe("v2 랜덤 레벨 성장", () => {
   });
 
   it("앵커 가중 — rng 가 앵커 구간(작은 값)이면 앵커에 몰림", () => {
-    // 검사(warrior) 앵커=str(가중 3/8). rng=0.1 → 매 포인트 str 선택.
+    // 검사(warrior) 주력=str. rng=0.1 → 매 포인트 str 선택.
     const grown = rollLevelGrowth({}, "warrior", emptyProficiency(), () => 0.1);
     expect(grown.str).toBe(V2_GROWTH_POINTS_PER_LEVEL);
     expect(grown.int).toBeUndefined();
@@ -63,6 +67,62 @@ describe("v2 랜덤 레벨 성장", () => {
     for (let i = 0; i < 11; i++)
       g2 = rollLevelGrowth(g2, "warrior", emptyProficiency(), r2);
     expect(g2.str ?? 0).toBeGreaterThan(g2.spi ?? 0); // 앵커 우세
+  });
+
+  it("직업 숙련도 총합이 해당 스탯 성장 가중치로 남는다", () => {
+    const prof = parseProficiency({
+      growthScaleVersion: 1,
+      groups: {
+        rogue: { tier: 1, cumLevel: 2700 },
+      },
+      jobCumLevel: {
+        archer: 1800,
+      },
+    });
+    const totals = statGrowthMasteryTotals(prof);
+    expect(totals.dex).toBeGreaterThan(totals.str);
+    expect(totals.luk).toBeGreaterThan(totals.str);
+    expect(masteryGrowthBonus(totals.dex)).toBeGreaterThan(0);
+
+    const grown = rollLevelGrowth({}, "warrior", prof, () => 0.2, {
+      currentJobId: "shieldman",
+    });
+    expect(grown.dex ?? 0).toBeGreaterThan(0);
+  });
+
+  it("만렙 이후 추격 성장 — 게이지가 차면 cap 미달 스탯이 1 오른다", () => {
+    const prof = parseProficiency({
+      growthScaleVersion: 1,
+      postCapGrowthProgress: V2_POST_CAP_GROWTH_BATTLES_PER_POINT - 1,
+      caps: { str: 10 },
+      grown: { str: 45 },
+    });
+    const result = applyPostCapGrowth(prof, "warrior", () => 0.1, {
+      currentJobId: "warrior",
+    });
+    expect(result.pointsGained).toBe(1);
+    expect(result.statGains.str).toBe(1);
+    expect(result.proficiency.grown.str).toBe(46);
+    expect(result.proficiency.postCapGrowthProgress).toBe(0);
+  });
+
+  it("만렙 이후 추격 성장 — 전 스탯 cap 이면 게이지를 누적하지 않는다", () => {
+    const prof = parseProficiency({
+      growthScaleVersion: 1,
+      postCapGrowthProgress: V2_POST_CAP_GROWTH_BATTLES_PER_POINT - 1,
+      grown: {
+        str: 45,
+        vit: 45,
+        dex: 45,
+        int: 45,
+        spi: 45,
+        luk: 45,
+      },
+    });
+    const result = applyPostCapGrowth(prof, "warrior", () => 0.1);
+    expect(result.pointsGained).toBe(0);
+    expect(result.statGains).toEqual({});
+    expect(result.proficiency.postCapGrowthProgress).toBe(0);
   });
 });
 

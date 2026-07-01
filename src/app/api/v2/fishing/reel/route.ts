@@ -44,6 +44,12 @@ import {
   parseTreasureFragments,
   rollFragmentDrop,
 } from "@/adventure/v2/treasureFragments";
+import {
+  FISHING_STREAK_KEY,
+  fishingStreakBuff,
+  nextFishingStreak,
+  resetFishingStreak,
+} from "@/adventure/v2/fishingStreak";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -90,11 +96,21 @@ export async function POST(req: Request) {
       expiresAt: session.expiresAt,
     });
     if (!judgment.caught) {
+      const streak = resetFishingStreak(
+        await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
+      );
+      await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
       return { caught: false as const, reason: judgment.reason };
     }
 
+    const streak = nextFishingStreak(
+      await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
+    );
+    await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
+    const streakBuff = fishingStreakBuff(streak.current);
+
     // 낚시 계열 직업 숙련도 — 성공한 챔질 1회당 +1. 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
-    // 락 순서: 세션 → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
+    // 락 순서: 세션 → streak → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
     const charSave = await lockSaveForUpdate<{
       class?: unknown;
       specChoice?: unknown;
@@ -158,12 +174,16 @@ export async function POST(req: Request) {
       await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {}),
       FISH[session.fishId].tier,
       dayKey,
+      streakBuff.coinBonus,
     );
     await upsertSave(tx, userId, FISHING_WALLET_KEY, coinResult.next);
 
     // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
     // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
-    const fragmentDrop = rollFragmentDrop(Math.random, FISHING_FRAGMENT_DROP_CHANCE);
+    const fragmentDrop = rollFragmentDrop(
+      Math.random,
+      FISHING_FRAGMENT_DROP_CHANCE + streakBuff.fragmentChanceBonus,
+    );
     let fragmentsTotal = 0;
     if (fragmentDrop > 0) {
       const frags = parseTreasureFragments(
@@ -188,6 +208,8 @@ export async function POST(req: Request) {
       masteryAfter,
       fragmentDrop,
       fragmentsTotal,
+      streak,
+      streakBuff,
     };
   });
 
@@ -225,5 +247,14 @@ export async function POST(req: Request) {
     // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
     fragmentDrop: result.fragmentDrop,
     fragmentsTotal: result.fragmentsTotal,
+    streak: {
+      current: result.streak.current,
+      best: result.streak.best,
+      buffTier: result.streakBuff.tier,
+      coinBonus: result.streakBuff.coinBonus,
+      fragmentChanceBonusPct: Math.round(
+        result.streakBuff.fragmentChanceBonus * 100,
+      ),
+    },
   });
 }

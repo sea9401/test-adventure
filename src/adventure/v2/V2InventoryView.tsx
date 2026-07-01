@@ -167,7 +167,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
-  const { refreshGameState } = useGameState();
+  const { refreshGameState, setGold } = useGameState();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -343,12 +343,16 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           owned?: V2EquipInstance[];
           soldCount?: number;
           soldGold?: number;
+          gold?: number;
         } | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
         setOwned(j.owned ?? []);
+        if (typeof j.gold === "number") {
+          setGold(j.gold);
+        }
         setMsg(
           `✓ ${j.soldCount ?? 0}개 판매 (+${(j.soldGold ?? 0).toLocaleString()}골드)`,
         );
@@ -358,7 +362,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [owned, equipped],
+    [owned, equipped, setGold],
   );
 
   // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).

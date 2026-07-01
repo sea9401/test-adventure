@@ -52,10 +52,13 @@ export function applyCatchCoin(
   raw: unknown,
   tier: FishTier,
   dayKey: string,
+  bonus: number = 0,
 ): { next: FishingWallet; awarded: number } {
   const coins = walletCoins(raw);
   const earnedToday = catchEarnedToday(raw, dayKey);
-  const tierCoin = FISHING_CATCH_COIN_BY_TIER[tier] ?? 0;
+  const tierCoin =
+    (FISHING_CATCH_COIN_BY_TIER[tier] ?? 0) +
+    Math.max(0, Math.floor(Number(bonus) || 0));
   const awarded = Math.max(
     0,
     Math.min(tierCoin, FISHING_CATCH_COIN_DAILY_CAP - earnedToday),

@@ -41,6 +41,26 @@ export function useFishing(): FishingHandlers {
           prevBest: Number(j.prevBest ?? 0),
           codexCount: Number(j.codexCount ?? 0),
           coinsGained: Number(j.coinsGained ?? 0),
+          special:
+            j.special && typeof j.special === "object"
+              ? {
+                  id: String(j.special.id),
+                  label: String(j.special.label),
+                  emoji: String(j.special.emoji),
+                }
+              : null,
+          streak:
+            j.streak && typeof j.streak === "object"
+              ? {
+                  current: Number(j.streak.current ?? 0),
+                  best: Number(j.streak.best ?? 0),
+                  buffTier: Number(j.streak.buffTier ?? 0),
+                  coinBonus: Number(j.streak.coinBonus ?? 0),
+                  fragmentChanceBonusPct: Number(
+                    j.streak.fragmentChanceBonusPct ?? 0,
+                  ),
+                }
+              : undefined,
         };
       }
       return {

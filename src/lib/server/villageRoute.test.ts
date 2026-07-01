@@ -19,6 +19,7 @@ import {
   VILLAGE_BUILD_GOLD_COST,
   UPGRADE_COST,
   GUILD_SMITHY_UPGRADES,
+  TRAINING_GROUND_UPGRADES,
 } from "@/adventure/data/v2/settlement";
 
 // ── 공유 인메모리 스토어(호이스팅) ───────────────────────────────────────────
@@ -521,6 +522,22 @@ describe("POST /api/v2/outpost/village/building/place", () => {
     expect(((await res.json()) as AnyJson).error).toBe("already_occupied");
   });
 
+  it("훈련장을 배치할 수 있다", async () => {
+    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
+    const res = await placeBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0, buildingId: "training_ground" }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as AnyJson & {
+      buildingId: string;
+      buildings: Record<string, { id: string; level: number }>;
+    };
+    expect(json.buildingId).toBe("training_ground");
+    expect(json.buildings).toEqual({
+      "0": { id: "training_ground", level: 1 },
+    });
+  });
+
   it("아직 미개방 건물 id → 409 building_unavailable", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
     const res = await placeBuildingPOST(
@@ -618,6 +635,28 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       building: { id: string; level: number };
     };
     expect(json.building.level).toBe(5);
+  });
+
+  it("훈련장 Lv1 → Lv2 업그레이드 비용을 정착지 재화에서 차감", async () => {
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      buildings: { "0": { id: "training_ground", level: 1 } },
+    });
+    const cost = TRAINING_GROUND_UPGRADES[1].cost;
+    resourcesByGuild.set(MY_GUILD, {
+      crop: (cost.crop ?? 0) + 3,
+      ore: (cost.ore ?? 0) + 7,
+    });
+
+    const res = await upgradeBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as AnyJson & {
+      building: { id: string; level: number };
+    };
+    expect(json.building).toEqual({ id: "training_ground", level: 2 });
+    expect(resourcesByGuild.get(MY_GUILD)).toEqual({ crop: 3, ore: 7 });
   });
 });
 

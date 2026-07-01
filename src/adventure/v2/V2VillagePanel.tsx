@@ -28,9 +28,10 @@ import {
   terrainTraitDesc,
   SETTLEMENT_BUILDINGS,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
-  nextGuildSmithyUpgrade,
+  nextSettlementBuildingUpgrade,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
+  settlementBuildingUpgradeSummary,
   settlementBuildingUpgradeCostText,
   type SettlementBuildingId,
   type SettlementBuildingSlot,
@@ -620,8 +621,8 @@ export function V2VillagePanel({
                 const placed = buildingAt(village!, 0);
                 const occupied = placed != null;
                 const nextUpgrade =
-                  placed?.id === "guild_smithy"
-                    ? nextGuildSmithyUpgrade(placed.level)
+                  placed?.id === id
+                    ? nextSettlementBuildingUpgrade(placed.id, placed.level)
                     : null;
                 const canAffordBuildingUpgrade =
                   nextUpgrade != null &&
@@ -658,7 +659,7 @@ export function V2VillagePanel({
                         {occupied ? "배치됨" : "배치"}
                       </span>
                     </button>
-                    {placed?.id === "guild_smithy" ? (
+                    {placed?.id === id ? (
                       <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
                         {nextUpgrade ? (
                           <>
@@ -667,7 +668,7 @@ export function V2VillagePanel({
                                 다음: Lv {nextUpgrade.level} · {nextUpgrade.label}
                               </span>
                               <span className="text-[11px] text-emerald-600 dark:text-emerald-300">
-                                품질 +{nextUpgrade.qualityChanceBonusPct}%p
+                                {settlementBuildingUpgradeSummary(id, nextUpgrade)}
                               </span>
                             </div>
                             <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -685,12 +686,12 @@ export function V2VillagePanel({
                               }
                               className="mt-2 w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                             >
-                              대장간 업그레이드
+                              {def.name} 업그레이드
                             </button>
                           </>
                         ) : (
                           <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                            대장간 최고 레벨입니다.
+                            {def.name} 최고 레벨입니다.
                           </div>
                         )}
                       </div>
@@ -749,6 +750,7 @@ const ERR_MESSAGES: Record<string, string> = {
   slot_locked: "먼저 건축물 슬롯을 해금해야 해요.",
   already_occupied: "이미 건축물이 배치된 슬롯이에요.",
   building_unavailable: "아직 배치할 수 없는 건축물이에요.",
+  building_required: "업그레이드할 건축물이 필요해요.",
   smithy_required: "길드 대장간이 필요해요.",
   max_level: "이미 최고 레벨이에요.",
   insufficient_resources: "정착지 재화가 부족해요.",

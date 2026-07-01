@@ -17,6 +17,9 @@ import {
   SLOT_UNLOCK_GOLD_BASE,
   SLOT_UNLOCK_GOLD_STEP,
   UPGRADE_COST,
+  PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  nextSettlementBuildingUpgrade,
+  trainingGroundUpgradeForLevel,
 } from "./settlement";
 import { terrainTraitOf } from "./outposts";
 
@@ -41,6 +44,17 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(MAX_SLOTS_BY_TIER.metropolis).toBe(GRID_COLS_BY_TIER.metropolis ** 2);
     expect(GRID_DISPLAY_COLS).toBe(GRID_COLS_BY_TIER.metropolis); // 1
     expect(GRID_DISPLAY_SLOTS).toBe(MAX_SLOTS_BY_TIER.metropolis); // 1
+  });
+
+  it("훈련장은 배치 가능 건물이며 Lv5에서 일일 과제 3개와 보상 +50%를 연다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("training_ground");
+    expect(nextSettlementBuildingUpgrade("training_ground", 1)).toMatchObject({
+      level: 2,
+    });
+    expect(trainingGroundUpgradeForLevel(5)).toMatchObject({
+      trainingRewardBonusPct: 50,
+      unlockedDrillCount: 3,
+    });
   });
 
   it("INITIAL_UNLOCKED_SLOTS=0 / clampUnlockedSlots — [0, 최대]로 보정", () => {

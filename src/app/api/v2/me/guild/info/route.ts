@@ -335,6 +335,7 @@ export async function GET() {
     }
   }
   const hasGuildSmithy = settlementBuildings.guild_smithy > 0;
+  const hasTrainingGround = settlementBuildings.training_ground > 0;
   // 마스터만, 미선포 상태에서, 대도시 보유 시 선포 버튼 노출.
   const canDeclareNation =
     isMaster && guildRow.nationName == null && hasMetropolis;
@@ -376,6 +377,7 @@ export async function GET() {
     canDeclareNation,
     settlementBuildings,
     hasGuildSmithy,
+    hasTrainingGround,
     guildGold,
     takenColors,
   });

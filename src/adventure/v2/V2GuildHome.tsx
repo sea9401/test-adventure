@@ -17,6 +17,7 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildOutpostsPanel } from "./guild/GuildOutpostsPanel";
+import { GuildTrainingGroundPanel } from "./guild/GuildTrainingGroundPanel";
 import {
   TYPE_LABEL,
   settleTierLabel,
@@ -170,10 +171,14 @@ export function V2GuildHome({
   const withHonor: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
     ? [...BASE_SUB_TABS, { key: "honor_shop", label: "명성상점" }]
     : [...BASE_SUB_TABS];
+  const withTraining: { key: GuildSubTab; label: string }[] =
+    info?.hasTrainingGround || (info?.settlementBuildings?.training_ground ?? 0) > 0
+      ? [...withHonor, { key: "training", label: "훈련장" }]
+      : withHonor;
   // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
   const subTabs: { key: GuildSubTab; label: string }[] = canManage
     ? [
-        ...withHonor,
+        ...withTraining,
         {
           key: "manage",
           label:
@@ -182,7 +187,7 @@ export function V2GuildHome({
               : "관리",
         },
       ]
-    : withHonor;
+    : withTraining;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab
@@ -205,6 +210,8 @@ export function V2GuildHome({
       </HeaderPanel>
 
       {activeTab === "honor_shop" && <HonorShopPanel />}
+
+      {activeTab === "training" && <GuildTrainingGroundPanel info={info} />}
 
       {activeTab === "info" && (
         <GuildInfoPanel

@@ -19,6 +19,8 @@ export type GuildActivity = {
     deliveryTitle?: string;
     itemName?: string;
     smithyLevel?: number;
+    buildingName?: string;
+    buildingLevel?: number;
     artisanXp?: number;
     artisanRank?: number;
     titleName?: string;
@@ -75,6 +77,8 @@ function describe(a: GuildActivity): string {
       }`;
     case "smithy_upgrade":
       return `${actor} 님이 길드 대장간을 Lv ${a.meta?.smithyLevel ?? "?"}로 업그레이드했어요`;
+    case "building_upgrade":
+      return `${actor} 님이 ${a.meta?.buildingName ?? "영지 건물"}을 Lv ${a.meta?.buildingLevel ?? "?"}로 업그레이드했어요`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -93,6 +97,7 @@ const DOT_CLASS: Record<string, string> = {
   workshop_craft_only: "bg-emerald-500",
   artisan_rank_reward: "bg-amber-500",
   smithy_upgrade: "bg-orange-500",
+  building_upgrade: "bg-orange-500",
   nation_declare: "bg-indigo-500",
 };
 

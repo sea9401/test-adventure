@@ -5,6 +5,8 @@ import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import { settlementBuildingIdOf } from "@/adventure/data/v2/settlement";
+import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
+import { GuildTrainingGroundPanel } from "../guild/GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "../guild/GuildWorkshopPanel";
 import { OutpostAttackLog } from "../OutpostAttackLog";
 import { V2VillagePanel } from "../V2VillagePanel";
@@ -13,6 +15,7 @@ import DefendPanel from "../DefendPanel";
 // 내 거점 활동 탭 — 마을 / 대장간 / (수비) / 최근 공격 기록.
 export type ActivityTab =
   | "smithy"
+  | "training"
   | "attacks"
   | "manage"
   | "defend";
@@ -24,9 +27,12 @@ type VillageSummary = {
   buildings?: Record<string, unknown>;
 };
 
-function hasSmithyBuilding(village: VillageSummary | undefined): boolean {
+function hasBuilding(
+  village: VillageSummary | undefined,
+  buildingId: SettlementBuildingId,
+): boolean {
   return Object.values(village?.buildings ?? {}).some(
-    (raw) => settlementBuildingIdOf(raw) === "guild_smithy",
+    (raw) => settlementBuildingIdOf(raw) === buildingId,
   );
 }
 
@@ -45,6 +51,7 @@ export function OutpostActivityTabs({
   attackLogReload: number;
 }) {
   const [hasLocalSmithy, setHasLocalSmithy] = useState(false);
+  const [hasLocalTrainingGround, setHasLocalTrainingGround] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -53,10 +60,14 @@ export function OutpostActivityTabs({
       .then((j: { ok?: boolean; villages?: VillageSummary[] } | null) => {
         if (!alive) return;
         const village = (j?.villages ?? []).find((v) => v.outpostId === outpostId);
-        setHasLocalSmithy(hasSmithyBuilding(village));
+        setHasLocalSmithy(hasBuilding(village, "guild_smithy"));
+        setHasLocalTrainingGround(hasBuilding(village, "training_ground"));
       })
       .catch(() => {
-        if (alive) setHasLocalSmithy(false);
+        if (alive) {
+          setHasLocalSmithy(false);
+          setHasLocalTrainingGround(false);
+        }
       });
     return () => {
       alive = false;
@@ -69,12 +80,15 @@ export function OutpostActivityTabs({
       ...(hasLocalSmithy
         ? [{ key: "smithy" as const, label: "대장간" }]
         : []),
+      ...(hasLocalTrainingGround
+        ? [{ key: "training" as const, label: "훈련장" }]
+        : []),
       ...(V2_SETTLEMENT_WARFARE
         ? [{ key: "defend" as const, label: "수비" }]
         : []),
       { key: "attacks", label: "최근 공격 기록" },
     ],
-    [hasLocalSmithy],
+    [hasLocalSmithy, hasLocalTrainingGround],
   );
 
   useEffect(() => {
@@ -98,6 +112,9 @@ export function OutpostActivityTabs({
       </HeaderPanel>
       {activityTab === "smithy" && hasLocalSmithy && (
         <GuildWorkshopPanel info={null} localSmithy />
+      )}
+      {activityTab === "training" && hasLocalTrainingGround && (
+        <GuildTrainingGroundPanel info={null} localTrainingGround />
       )}
       {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
         <DefendPanel outpostId={outpostId} />

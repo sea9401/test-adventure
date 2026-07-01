@@ -92,6 +92,7 @@ export async function GET() {
         masterId: guilds.masterId,
         createdAt: guilds.createdAt,
         fameTotal: guilds.fameTotal,
+        fameAvailable: guilds.fameAvailable,
         description: guilds.description,
         emblem: guilds.emblem,
         color: guilds.color,

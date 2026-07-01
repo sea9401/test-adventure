@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
+import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
@@ -50,6 +51,11 @@ import {
 import {
   equippedProfPerKillBonus,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  applyGuildCombatRewardBonus,
+  guildCombatSupplyBonuses,
+  rollGuildCombatProficiencyBonus,
+} from "@/adventure/data/v2/guildCombatSupply";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
   V2_SETTLEMENT_WARFARE,
@@ -220,6 +226,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // === 2. 사냥자 길드 확인 (정책 게이트 + 세금 면제 판정용) ===
   // 무소속이면 null — same-guild 세금면제 분기에서 false 로 통과.
   const viewerGuildId = await getGuildId(tx, userId);
+  const guildCombatSupply = guildCombatSupplyBonuses(
+    await readGuildCombatSupplyLevels(tx, viewerGuildId),
+  );
 
   // === 3. 정책 게이트 — 거부 시 즉시 403, stamina 차감/character.v2 lock 전. ===
   if (occRow) {
@@ -638,13 +647,21 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ) + (logVal?.battleLosses ?? 0);
   // EXP = monster.exp → 신참 보너스(전적 ≤ 3만 ×2, EXP 전용) → 전역 배율(staging 기본
   // 2.2/IS_STAGING, 라이브 1.0). 라이브 battleClaim 과 같은 순서(newbie 먼저, 그 다음 배율).
-  const { expGained, goldGross } = computeBattleRewards({
+  const baseRewards = computeBattleRewards({
     won,
     enemyMonster,
     battleCount,
     mapExpMult,
     mapGoldMult,
   });
+  const expGained = applyGuildCombatRewardBonus(
+    baseRewards.expGained,
+    guildCombatSupply.expPct,
+  );
+  const goldGross = applyGuildCombatRewardBonus(
+    baseRewards.goldGross,
+    guildCombatSupply.goldPct,
+  );
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
   const { drops, droppedEquipment, droppedUnique, nextOwned } = rollHuntDrops({
@@ -875,7 +892,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
       const perKill =
         proficiencyPerKillAtDepth(depth) +
-        equippedProfPerKillBonus(v2Skills.equipped);
+        equippedProfPerKillBonus(v2Skills.equipped) +
+        rollGuildCombatProficiencyBonus(
+          guildCombatSupply.proficiencyChancePct,
+          Math.random,
+        );
       const nextProf = addPoints(prof, group, perKill);
       if (nextProf !== prof) {
         prof = nextProf;

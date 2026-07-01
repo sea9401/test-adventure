@@ -17,6 +17,7 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildOutpostsPanel } from "./guild/GuildOutpostsPanel";
+import { GuildCombatSupplyPanel } from "./guild/GuildCombatSupplyPanel";
 import { GuildTrainingGroundPanel } from "./guild/GuildTrainingGroundPanel";
 import {
   TYPE_LABEL,
@@ -37,6 +38,7 @@ import {
 
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
+  { key: "research", label: "연구" },
   { key: "members", label: "길드원" },
   { key: "outposts", label: "영지" },
 ];
@@ -212,6 +214,8 @@ export function V2GuildHome({
       {activeTab === "honor_shop" && <HonorShopPanel />}
 
       {activeTab === "training" && <GuildTrainingGroundPanel info={info} />}
+
+      {activeTab === "research" && <GuildCombatSupplyPanel />}
 
       {activeTab === "info" && (
         <GuildInfoPanel

@@ -21,6 +21,9 @@ export type GuildActivity = {
     smithyLevel?: number;
     buildingName?: string;
     buildingLevel?: number;
+    supplyName?: string;
+    supplyLevel?: number;
+    fameCost?: number;
     artisanXp?: number;
     artisanRank?: number;
     titleName?: string;
@@ -79,6 +82,10 @@ function describe(a: GuildActivity): string {
       return `${actor} 님이 길드 대장간을 Lv ${a.meta?.smithyLevel ?? "?"}로 업그레이드했어요`;
     case "building_upgrade":
       return `${actor} 님이 ${a.meta?.buildingName ?? "영지 건물"}을 Lv ${a.meta?.buildingLevel ?? "?"}로 업그레이드했어요`;
+    case "combat_supply_upgrade":
+      return `${actor} 님이 ${a.meta?.supplyName ?? "전투보급"}을 Lv ${a.meta?.supplyLevel ?? "?"}로 업그레이드했어요${
+        a.meta?.fameCost ? ` · 명성 -${a.meta.fameCost.toLocaleString()}` : ""
+      }`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -98,6 +105,7 @@ const DOT_CLASS: Record<string, string> = {
   artisan_rank_reward: "bg-amber-500",
   smithy_upgrade: "bg-orange-500",
   building_upgrade: "bg-orange-500",
+  combat_supply_upgrade: "bg-rose-500",
   nation_declare: "bg-indigo-500",
 };
 

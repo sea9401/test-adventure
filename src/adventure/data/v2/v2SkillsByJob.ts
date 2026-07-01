@@ -32,7 +32,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   fisher: ["v2c_camper_tidereading"], // 낚시꾼 — 물때 읽기
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
-  brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력권(강타) + 보법 II(회피+12%)
+  brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력연권(연격+취약) + 보법 II(회피+12%)
   magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마력 작렬 + 총명 III(지능+20%)
   shaman: ["v2c_shaman_hex", "v2c_shaman_omen3"], // 저주(마법+약화) + 흉조(마법취약 누적)
   ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 연사(DEX 3연사) + 정밀(명중+12)
@@ -53,7 +53,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   darkpriest: ["v2c_darkpriest_reap", "v2c_darkpriest_blessing"], // 암흑사제: 영혼 수확(처형+회복) + 검은 축복
   // ── 심화 직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
   veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 결전의 일격(처형딜) + 필살(치명피해+25%)
-  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡파(방깎 단일) + 패왕(힘+20%) — 옛 절정·공격형 정점
+  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡연파(연격+방깎+취약) + 패왕(힘+20%) — 공격형 정점
   sage: ["v2c_sage_bolt", "v2c_sage_insight"], // 마력 폭사 + 간파(치명확률+8%)
   chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 잔영(회피+12%)
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"], // 기습(풀피 오프너·LUK) + 은신(회피+16%)
@@ -86,12 +86,14 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"], // 밤그림자: 월식 + 밤의 장막
   saint: ["v2c_saint_miracle", "v2c_saint_benediction"], // 성자: 기적 + 축복
   plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"], // 역병 군주: 역병 창궐 + 붕괴
+  dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork"], // 권황: 용린파쇄 + 무극보법
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
   immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"], // 불멸자: 생명 강타 + 불멸의 심장
   transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"], // 초월자: 만상검 + 초월 조화
   bloodlord: ["v2c_bloodlord_brand", "v2c_bloodlord_martyrdom"], // 혈성군주: 왕혈 낙인 + 불사의 순교
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
+  celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
 };
 
 /** 새 직업 id 의 학습 가능 시그니처 스킬셋. 미존재 jobId = 빈 배열(시작 스킬은 별도 자동 보유). */

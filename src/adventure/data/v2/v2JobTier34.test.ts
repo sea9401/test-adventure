@@ -268,7 +268,7 @@ describe("심화(tier-4) 주요 직업 — 해금 구조 + 킷 id 실재", () =>
         expect(id in V2_SKILLS, `${jobId} 킷 id ${id} 가 전투 카탈로그에 실재해야`).toBe(true);
       }
       const [active, passive] = kit;
-      // 권룡(sensei)도 무인 재설계(2026-06-22)로 액티브(권룡파)를 가짐 — 모든 tier-4 = 액티브 1 + 패시브 1.
+      // 권룡(sensei)도 무인 재설계(2026-06-22)로 액티브(권룡연파)를 가짐 — 모든 tier-4 = 액티브 1 + 패시브 1.
       expect(V2_SKILLS[active].category, active).toBe("attack");
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }

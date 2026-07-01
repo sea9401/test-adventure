@@ -79,7 +79,7 @@ export type V2CommonSkillId =
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
   // 액티브(강)
   | "v2c_paladin_cleave" // 심판 (물리 단일 + 무력 디버프)
-  | "v2c_brawler_combo" // 벽력권 (물리 단일 강)
+  | "v2c_brawler_combo" // 벽력연권 (물리 연격 + 취약)
   | "v2c_magus_bolt" // 마력 작렬 (마법 단일)
   | "v2c_ranger_ambush" // 연사 (DEX 비례 3연사)
   // 고차 패시브(다양성 2차: paladin 만 효과 리스킨[공방], brawler/magus/ranger 는 직군 축 % 유지)
@@ -125,7 +125,7 @@ export type V2CommonSkillId =
   | "v2c_crimsontemplar_oath" // 진홍성기사: 피의 서약 (광전 + 회복강화 + 받피감)
   // ── 심화 직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
-  | "v2c_sensei_combo" // 권룡파 (방깎 단일 — 무력 디버프·권룡)
+  | "v2c_sensei_combo" // 권룡연파 (방깎 연격 — 무력 디버프·권룡)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·관통 20% 방어무시 추가타)
   | "v2c_veteran_lethal" // 필살 (치명 피해 +30%)
@@ -180,6 +180,8 @@ export type V2CommonSkillId =
   | "v2c_saint_benediction" // 축복 (회복 + 내구)
   | "v2c_plaguebringer_outbreak" // 역병 창궐 (중독 폭발)
   | "v2c_plaguebringer_decay" // 붕괴 (부식 심화)
+  | "v2c_dragonfist_rupture" // 용린파쇄 (관통 연격 + 무력 + 보법)
+  | "v2c_dragonfist_footwork" // 무극보법 (힘 + 회피 + 명중)
   | "v2c_adamantmonk_stance" // 금강 자세 (피해 감소 + 반격)
   | "v2c_adamantmonk_body" // 금강불괴 (최대 HP + 반격)
   | "v2c_immortal_lifestrike" // 생명 강타 (최대 HP 비례)
@@ -190,7 +192,9 @@ export type V2CommonSkillId =
   | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 광전 + 회복강화)
   // ── 6차 직업 ──
   | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + ATB 지연)
-  | "v2c_fortressknight_citadel"; // 움직이는 성채 (방어 + 받피감 + 반사)
+  | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 반사)
+  | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
+  | "v2c_celestialdragon_breath"; // 천룡의 호흡 (힘 + 민첩 + 회피)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -564,11 +568,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.3, 230), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
   v2c_brawler_combo: {
-    // 격투가 = 권사(연타) 위 갈래 — 연권→벽력권 리스킨(id 유지). 권사는 연타, 격투가는 한 방 강타로
-    //   메커니즘도 차별(같은 "연권" 이름·다단 중복 해소). "벽력권"은 고아 붕권(martial_burst)과도 비충돌.
-    id: "v2c_brawler_combo", name: "벽력권", stat: "str", category: "attack", tier: 3,
-    description: "온몸의 무게를 실어 단 한 번에 부숴버린다.", mpCost: 32, cooldown: 0, procChance: 40,
-    effects: [dmg(1.4, 250)],
+    // 격투가 = 권사 연타의 심화. 단타 강공격에서 "연격으로 빈틈을 만든다"로 전환해 권사→격투가→권룡
+    //   계열 정체성을 통일한다. 취약은 낮게 짧게, 다음 연격/파티 딜을 살리는 정도.
+    id: "v2c_brawler_combo", name: "벽력연권", stat: "str", category: "attack", tier: 3,
+    description: "벼락처럼 이어지는 연권으로 적의 빈틈을 연다.", mpCost: 36, cooldown: 0, procChance: 35,
+    effects: [...hits(3, 0.42, 105), { kind: "enemyVuln", pct: 10, turns: 2 }],
   },
   v2c_magus_bolt: {
     // 마도사 = 마법사(마탄) 위 갈래 — 마탄→마력 작렬 리스킨(id 유지·같은 "마탄" 이름 중복 해소).
@@ -884,12 +888,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_sensei_combo: {
-    // 권룡파(권룡 4차 액티브) — 무인 재설계(2026-06-22): 옛 반격(패시브)에서 방깎 단일 액티브로 교체.
-    //   격투가 라인(회피·공격) 정점 — 용이 솟구치듯 내지르며 적 방어(무력=vit−15%)를 무너뜨린다.
-    //   계보 파쇄(0.7/90)·심판(1.3/230) 위 t4 강단일(1.5/290)+무력. id 유지(세이브 호환). 반격은 투승으로 이전.
-    id: "v2c_sensei_combo", name: "권룡파", stat: "str", category: "attack", tier: 3,
-    description: "용이 솟구치듯 내지르는 일권. 적의 방어를 무너뜨린다.", mpCost: 42, cooldown: 0, procChance: 30,
-    effects: [dmg(1.5, 290), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
+    // 권룡 4차 액티브 — 방깎 단타에서 방어를 찢는 연격으로 전환. 권룡은 순수 탱(투승)과 달리
+    //   회피 보법으로 버티며 여러 타격을 꽂아 무력·취약을 만든다. id 유지(세이브 호환).
+    id: "v2c_sensei_combo", name: "권룡연파", stat: "str", category: "attack", tier: 3,
+    description: "용이 휘감듯 연속으로 파고들어 적의 방어와 자세를 무너뜨린다.", mpCost: 46, cooldown: 0, procChance: 30,
+    effects: [
+      ...hits(3, 0.48, 120),
+      { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+      { kind: "enemyVuln", pct: 12, turns: 3 },
+    ],
   },
   v2c_sage_bolt: {
     id: "v2c_sage_bolt", name: "마력 폭사", stat: "int", category: "attack", tier: 3,
@@ -1120,7 +1127,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) 킷 — 반격(피격 카운터) + 철신(최대 HP) ──
-  //   무인 재설계(2026-06-22): 옛 절정(sensei) 킷을 그대로 상속. 권룡(sensei)이 공격형(권룡파+패왕)으로
+  //   무인 재설계(2026-06-22): 옛 절정(sensei) 킷을 그대로 상속. 권룡(sensei)이 공격형(권룡연파+패왕)으로
   //   바뀌며 탱 정체성(반격+철신)이 무승 계보 정점 투승으로 이동. 신규 전용 id(직업별 id 컨벤션).
   v2c_battlemonk_counter: {
     // 투승 반격(패시브) — 피격 생존 시 30% 확률로 적에게 ATK 반격(passiveCounterChancePct 훅·PvE
@@ -1288,6 +1295,26 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 35, critDmgPct: 10 },
   },
+  v2c_dragonfist_rupture: {
+    id: "v2c_dragonfist_rupture", name: "용린파쇄", stat: "str", category: "attack", tier: 3,
+    description: "용의 비늘을 깨듯 틈을 만들고, 보법을 되살려 다음 공방을 유리하게 가져간다.",
+    mpCost: 54, cooldown: 0, procChance: 35, learnCost: 8000,
+    effects: [
+      { kind: "damage", statCoef: 0.45, baseFlat: 145, pierceDamagePct: 10 },
+      { kind: "damage", statCoef: 0.45, baseFlat: 145, pierceDamagePct: 10 },
+      { kind: "damage", statCoef: 0.45, baseFlat: 145, pierceDamagePct: 10 },
+      { kind: "damage", statCoef: 0.45, baseFlat: 145, pierceDamagePct: 10 },
+      { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+      { kind: "selfBuffPct", target: "evasion", pct: 8, turns: 3 },
+    ],
+  },
+  v2c_dragonfist_footwork: {
+    id: "v2c_dragonfist_footwork", name: "무극보법", stat: "str", category: "passive", tier: 3,
+    description: "힘을 실으면서도 발이 멈추지 않는다. 힘, 회피, 명중이 함께 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { statPct: { str: 18 }, evasionPct: 16, accuracyPct: 8 },
+  },
   v2c_adamantmonk_stance: {
     id: "v2c_adamantmonk_stance", name: "금강 자세", stat: "vit", category: "buff", tier: 3,
     description: "금강처럼 버티는 막을 세우고 공격을 받아칠 태세를 갖춘다.",
@@ -1370,6 +1397,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 120 },
+  },
+  v2c_celestialdragon_combo: {
+    id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,
+    description: "하늘로 솟구친 뒤 다섯 번 내리꽂아 적의 흐름을 끊고 전장을 장악한다.",
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      ...hits(5, 0.36, 150),
+      { kind: "enemyVuln", pct: 20, turns: 3 },
+      { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
+      { kind: "enemyDelay", pct: 40 },
+    ],
+  },
+  v2c_celestialdragon_breath: {
+    id: "v2c_celestialdragon_breath", name: "천룡의 호흡", stat: "str", category: "passive", tier: 3,
+    description: "호흡과 보법이 하나가 된다. 힘과 민첩, 회피가 크게 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { statPct: { str: 22, dex: 10 }, evasionPct: 20, accuracyPct: 12 },
   },
 };
 

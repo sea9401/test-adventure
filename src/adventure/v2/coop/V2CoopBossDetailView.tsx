@@ -27,7 +27,7 @@ import {
   useCoopSessionState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import {
-  CoopRewardCaptions,
+  CoopContributionCriteria,
   CoopRewardTable,
 } from "@/adventure/v2/coop/CoopRewardTable";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -70,9 +70,9 @@ export function V2CoopBossDetailView({
     },
   });
   const [now, setNow] = useState(() => Date.now());
-  // 기여 보상 상세 모달(보상 캡션 = 무엇을 주나). 헤더 우측 버튼으로 연다.
-  const [rewardInfoOpen, setRewardInfoOpen] = useState(false);
-  useEscapeKey(() => setRewardInfoOpen(false));
+  // 기여도 기준 안내 모달 — 헤더 우측 버튼으로 연다.
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
+  useEscapeKey(() => setCriteriaOpen(false));
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -324,43 +324,43 @@ export function V2CoopBossDetailView({
             <div className="text-sm font-semibold">기여 보상</div>
             <button
               type="button"
-              onClick={() => setRewardInfoOpen(true)}
+              onClick={() => setCriteriaOpen(true)}
               className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
-              보상 보기
+              기여 기준
             </button>
           </div>
           <CoopRewardTable kind={def} myDamage={my.damage} hideCaptions />
         </Card>
       )}
 
-      {/* 기여 보상 상세 모달 — 무엇을 주나(SP 열매·보스 유니크 트로피). 인라인 캡션 대체. */}
-      {rewardInfoOpen && (
+      {/* 기여도 기준 모달 — 요구 딜 산식과 티어별 기준 안내. */}
+      {criteriaOpen && (
         <>
           <div
             className="fixed inset-0 z-40 bg-black/50"
-            onClick={() => setRewardInfoOpen(false)}
+            onClick={() => setCriteriaOpen(false)}
             aria-hidden
           />
           <div
             role="dialog"
-            aria-label="기여 보상 상세"
+            aria-label="기여도 기준"
             className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                기여 보상 — {def.name}
+                기여도 기준 — {def.name}
               </h2>
               <button
                 type="button"
-                onClick={() => setRewardInfoOpen(false)}
+                onClick={() => setCriteriaOpen(false)}
                 className="rounded p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
                 aria-label="닫기"
               >
                 ✕
               </button>
             </div>
-            <CoopRewardCaptions kind={def} />
+            <CoopContributionCriteria kind={def} />
           </div>
         </>
       )}

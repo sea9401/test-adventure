@@ -4,6 +4,10 @@ import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { FishingSubTabs } from "./FishingSubTabs";
+import {
+  CoinConsumableShopList,
+  CoinTitleShopList,
+} from "./CoinShopLists";
 import { fishingShopEntries, FISHING_SHOP_CONSUMABLES } from "./fishingShop";
 import {
   FISHING_LURE_IDS,
@@ -104,7 +108,6 @@ export function FishingShopView({
   };
 
   const coins = state?.coins ?? 0;
-  const owned = new Set(state?.ownedTitleIds ?? []);
   const staminaPotions = state?.staminaPotions ?? 0;
   const progression = state?.progression ?? null;
   const ownedRods = new Set(progression?.ownedRods ?? []);
@@ -352,47 +355,14 @@ export function FishingShopView({
             <p className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
               칭호
             </p>
-            <Card padding="none" className="overflow-hidden">
-              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {ENTRIES.map((e) => {
-                  const isOwned = owned.has(e.titleId);
-                  const affordable = coins >= e.price;
-                  const inFlight = buying === e.titleId;
-                  return (
-                    <li
-                      key={e.titleId}
-                      className="flex items-center justify-between gap-3 px-3 py-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-sm font-semibold">
-                          🏆 {e.name}
-                          {isOwned && (
-                            <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                              보유
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                          {e.description}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={isOwned || !affordable || anyInFlight}
-                        onClick={() => handleBuy(e.titleId)}
-                        className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
-                      >
-                        {isOwned
-                          ? "보유 중"
-                          : inFlight
-                            ? "구매 중…"
-                            : `🪙 ${e.price.toLocaleString()}`}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
+            <CoinTitleShopList
+              entries={ENTRIES}
+              coins={coins}
+              ownedTitleIds={state?.ownedTitleIds ?? []}
+              buying={buying}
+              onBuy={handleBuy}
+              accent="sky"
+            />
           </div>
         </div>
       )}
@@ -402,43 +372,14 @@ export function FishingShopView({
           <p className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             소비품
           </p>
-          <Card padding="none" className="overflow-hidden">
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {FISHING_SHOP_CONSUMABLES.map((c) => {
-                const affordable = coins >= c.price;
-                const inFlight = buying === c.itemId;
-                const anyInFlight = buying !== null;
-                return (
-                  <li
-                    key={c.itemId}
-                    className="flex items-center justify-between gap-3 px-3 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 text-sm font-semibold">
-                        🧪 {c.name}
-                        {c.itemId === "stamina_potion" && staminaPotions > 0 && (
-                          <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
-                            보유 {staminaPotions}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                        {c.description}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!affordable || anyInFlight}
-                      onClick={() => handleBuyConsumable(c.itemId)}
-                      className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
-                    >
-                      {inFlight ? "구매 중…" : `🪙 ${c.price.toLocaleString()}`}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
+          <CoinConsumableShopList
+            consumables={FISHING_SHOP_CONSUMABLES}
+            coins={coins}
+            staminaPotions={staminaPotions}
+            buying={buying}
+            onBuyConsumable={handleBuyConsumable}
+            accent="sky"
+          />
         </div>
       )}
     </main>

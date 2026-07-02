@@ -10,6 +10,7 @@ export default function CoopBossListPage() {
   return (
     <V2CoopBossListView
       onOpenSession={(sessionId) => router.push(`/battle/coop/${sessionId}`)}
+      onOpenShop={() => router.push("/battle/coop/shop")}
       onBack={() => router.push("/battle")}
     />
   );

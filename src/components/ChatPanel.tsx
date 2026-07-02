@@ -271,10 +271,11 @@ export function ChatPanel({
   // 비모달 도킹 — 바깥을 덮는 래퍼는 pointer-events-none(+dim 없음)이라 아래 게임 UI 를
   // 그대로 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto.
   // 바깥 탭으로 닫히지 않으며 닫기는 헤더 X 버튼뿐 — 화면을 옮겨도 떠 있다.
+  // z-[45] — 게임 내 z-40 오버레이/모바일 액션보다 위, 모달 z-50 계층보다 아래.
   return createPortal(
     <div
       ref={overlayRef}
-      className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4"
+      className="pointer-events-none fixed inset-0 z-[45] flex items-end justify-end sm:p-4"
     >
       <div
         className="pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"

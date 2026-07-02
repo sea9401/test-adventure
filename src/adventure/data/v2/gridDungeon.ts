@@ -2,12 +2,12 @@ import type { V2CombatPattern } from "@/adventure/v2/combat/combatPattern";
 import type { DropResult } from "./dungeonDrops";
 import type { V2Element } from "./elements";
 import { rollGuildWorkshopMaterialDrops } from "./guildWorkshopMaterials";
+import { kstDayKey } from "@/lib/kst";
 
 export const GRID_DUNGEON_SAVE_KEY = "grid-dungeon.v2" as const;
 export const GRID_DUNGEON_DAILY_REWARDS_KEY =
   "grid-dungeon-daily-rewards.v2" as const;
 export const GRID_DUNGEON_HISTORY_KEY = "grid-dungeon-history.v2" as const;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 export const GRID_DUNGEON_ENTRANCE = {
   id: "old_ruins",
@@ -373,8 +373,9 @@ export function gridDungeonTileAt(
   return layout[y]?.[x] ?? null;
 }
 
+// KST 일일 키 — 구현은 lib/kst 단일화(키 문자열은 kst.test.ts 가 고정).
 export function gridDungeonDayKey(now = Date.now()): string {
-  return new Date(now + KST_OFFSET_MS).toISOString().slice(0, 10);
+  return kstDayKey(new Date(now));
 }
 
 export function parseGridDungeonSupportRole(

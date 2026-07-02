@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatRemainingMinutes,
   formatRemainingMinutesFloor,
+  seasonEndsInLabel,
   timeAgoKo,
 } from "./timeFormat";
 
@@ -24,6 +25,22 @@ describe("timeAgoKo", () => {
     expect(timeAgoKo(isoAgo(-5 * 60_000), NOW)).toBe("방금");
     expect(timeAgoKo("", NOW)).toBe("");
     expect(timeAgoKo("not-a-date", NOW)).toBe("");
+  });
+});
+
+describe("seasonEndsInLabel (주간 시즌 마감 — 낚시/보물 리더보드 규약)", () => {
+  const isoIn = (ms: number) => new Date(NOW + ms).toISOString();
+
+  it("사다리: 곧 마감 → N시간 → N일 N시간", () => {
+    expect(seasonEndsInLabel(isoIn(0), NOW)).toBe("곧 마감");
+    expect(seasonEndsInLabel(isoIn(-1_000), NOW)).toBe("곧 마감");
+    expect(seasonEndsInLabel(isoIn(30 * 60_000), NOW)).toBe("0시간 남음");
+    expect(seasonEndsInLabel(isoIn(5 * 3600_000), NOW)).toBe("5시간 남음");
+    expect(seasonEndsInLabel(isoIn(26 * 3600_000), NOW)).toBe("1일 2시간 남음");
+  });
+
+  it("불량 입력은 빈 문자열", () => {
+    expect(seasonEndsInLabel("not-a-date", NOW)).toBe("");
   });
 });
 

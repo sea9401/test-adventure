@@ -36,3 +36,21 @@ export function formatRemainingMinutesFloor(ms: number): string {
   const h = Math.floor(m / 60);
   return `${h}시간 ${m % 60}분`;
 }
+
+/**
+ * 주간 시즌 종료까지 라벨 — "곧 마감" | "N일 N시간 남음" | "N시간 남음".
+ * 낚시/보물 리더보드가 같은 구현을 복붙하던 것(불량 입력은 "" 표기 생략).
+ */
+export function seasonEndsInLabel(
+  endsAt: string,
+  now: number = Date.now(),
+): string {
+  const end = new Date(endsAt).getTime();
+  if (!Number.isFinite(end)) return "";
+  const ms = end - now;
+  if (ms <= 0) return "곧 마감";
+  const days = Math.floor(ms / (24 * 3600 * 1000));
+  const hours = Math.floor((ms % (24 * 3600 * 1000)) / (3600 * 1000));
+  if (days > 0) return `${days}일 ${hours}시간 남음`;
+  return `${hours}시간 남음`;
+}

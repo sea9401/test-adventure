@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { guildMembers, guilds, savesKv } from "@/db/schema";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { battleCountOf } from "@/lib/server/battleCount";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -138,16 +139,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   const group = tier1ClassOf(playerClass);
   const currentGroup = prof.groups[group];
 
-  // 누적 전투 횟수(전적) — monster kills 합 + 패배수.
-  const logVal = byKey.get("adventure-log.v2") as {
-    monsters?: Record<string, { kills?: number }>;
-    battleLosses?: number;
-  } | null;
-  const battleCount =
-    Object.values(logVal?.monsters ?? {}).reduce(
-      (sum, m) => sum + (m?.kills ?? 0),
-      0,
-    ) + (logVal?.battleLosses ?? 0);
+  // 누적 전투 횟수(전적) — lib/server/battleCount 단일 정의.
+  const battleCount = battleCountOf(byKey.get("adventure-log.v2"));
 
   // 길드 — guildMembers 직접 조회(getGuildId 는 tx 전용 타입).
   const memberRow = await db

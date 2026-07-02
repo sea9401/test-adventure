@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { guilds, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import { battleCountOf } from "@/lib/server/battleCount";
 import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
@@ -615,15 +616,8 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // v2 는 재전직이 레벨을 1 로 리셋하므로 레벨이 아닌 전적으로 신참을 가린다(베테랑이
   // 재전직할 때마다 보너스가 잘못 되살아나는 것 방지). read-only 스냅샷(게이트용)이라
   // 비잠금 — 권위적 kill 증가는 아래 lock 구간(adventure-log.v2)에서 한다.
-  const logVal = await readSave<{
-    monsters?: Record<string, { kills?: number }>;
-    battleLosses?: number;
-  } | null>(tx, userId, "adventure-log.v2", null);
-  const battleCount =
-    Object.values(logVal?.monsters ?? {}).reduce(
-      (sum, m) => sum + (m?.kills ?? 0),
-      0,
-    ) + (logVal?.battleLosses ?? 0);
+  const logVal = await readSave<unknown>(tx, userId, "adventure-log.v2", null);
+  const battleCount = battleCountOf(logVal);
   // EXP = monster.exp → 신참 보너스(전적 ≤ 3만 ×2, EXP 전용) → 전역 배율(staging 기본
   // 2.2/IS_STAGING, 라이브 1.0). 라이브 battleClaim 과 같은 순서(newbie 먼저, 그 다음 배율).
   const baseRewards = computeBattleRewards({

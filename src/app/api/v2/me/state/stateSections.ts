@@ -95,19 +95,8 @@ type StateCharSave = {
 
 type CombatDerived = ReturnType<typeof derivePlayerCombatV2FromSaves>;
 
-// 전투 횟수(전적) — adventure-log.v2 의 monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의).
-export function battleCountOf(adventureLogRaw: unknown): number {
-  const logVal = (adventureLogRaw ?? null) as {
-    monsters?: Record<string, { kills?: number }>;
-    battleLosses?: number;
-  } | null;
-  return (
-    Object.values(logVal?.monsters ?? {}).reduce(
-      (sum, m) => sum + (m?.kills ?? 0),
-      0,
-    ) + (logVal?.battleLosses ?? 0)
-  );
-}
+// 전투 횟수(전적) — 정의는 lib/server/battleCount 로 단일화(hunt 신참 게이트·player 프로필과 공용).
+export { battleCountOf } from "@/lib/server/battleCount";
 
 // V2CharacterScreen StatsPanel 표시용 전투 스탯 — combat 미생성(캐릭 없음) 시 null.
 export function combatStatsSection(

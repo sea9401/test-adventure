@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { seasonEndsInLabel as endsInLabel } from "@/lib/timeFormat";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
@@ -36,16 +37,6 @@ function rankLabel(rank: number): string {
   return MEDAL[rank] ?? `${rank}위`;
 }
 
-function endsInLabel(endsAt: string): string {
-  const end = new Date(endsAt).getTime();
-  if (!Number.isFinite(end)) return "";
-  const ms = end - Date.now();
-  if (ms <= 0) return "곧 마감";
-  const days = Math.floor(ms / (24 * 3600 * 1000));
-  const hours = Math.floor((ms % (24 * 3600 * 1000)) / (3600 * 1000));
-  if (days > 0) return `${days}일 ${hours}시간 남음`;
-  return `${hours}시간 남음`;
-}
 
 export function FishingLeaderboardView({
   data,

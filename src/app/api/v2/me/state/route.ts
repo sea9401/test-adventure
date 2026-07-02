@@ -1,17 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  guilds,
-  guildMembers,
-  outpostLords,
-  outpostOccupations,
-  outpostTreasury,
-  savesKv,
-  tileSettlements,
-  users,
-} from "@/db/schema";
+import { guilds, guildMembers, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { grantTitleIfMissing, ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import {
   INSOMNIA_TITLE_ID,
@@ -20,91 +10,25 @@ import {
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
-import {
-  parseV2SkillsState,
-  V2_SKILLS,
-  v2SkillLearnCost,
-  spCostOf,
-  orderedLearnedSkills,
-} from "@/adventure/data/v2/v2Skills";
-import {
-  parseV2Class,
-  tier1ClassOf,
-  nextAdvanceTier,
-  tierCodexMin,
-  elementalSkillsForClass,
-  V2_CLASS_DEFS,
-  V2_SELECTABLE_CLASSES,
-  jobDisplayName,
-} from "@/adventure/data/v2/classes";
+import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { parseV2Class, jobDisplayName } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
   V2_FREEFORM_TILES,
   HUNT_COOLDOWN_MODE,
-  V2_LEVEL_CAP,
-  HUNT_COOLDOWN_MS,
-  OFFLINE_MAX_MS,
-  calcSpBudgetBreakdown,
-  combatCooldownRemainingMs,
-  offlineBattlesAccrued,
-  offlineFarmDepth,
-  spMasteryProgressForCumLevel,
 } from "@/adventure/data/v2/coreLoopConfig";
-import {
-  parseSpFruitUsed,
-  spCapBonusFromRaw,
-} from "@/adventure/data/v2/spFruit";
 import {
   EQUIPMENT_CODEX_KEY,
   equipmentCodexSummary,
 } from "@/adventure/data/v2/equipmentCodex";
 import {
-  parseProficiencyForChar,
-  groupCumLevel,
-  usablePoints,
-  cultivationCount,
-  cultivationCost,
-  totalCapGains,
-  capGain,
-  effectiveStatCap,
-  effectiveLevelCap,
-} from "@/adventure/data/v2/proficiency";
-import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
-import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
-import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
-import {
-  V2_JOB_LIST,
-  V2_JOB_CATALOG,
-  isJobUnlocked,
-  isRootJobSelectable,
-  jobIdFromLegacy,
-  jobUnlockConditionText,
-  cumLevelForJob,
   CATALOG_USES_QUEST_CONDITION,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { parseV2Element } from "@/adventure/data/v2/elements";
-import { derivePowerScore } from "@/adventure/data/v2/power";
-import {
-  V2_CODEX_TOTAL,
-  discoveredMaterialIds,
-  codexRequirement,
-} from "@/adventure/data/v2/codex";
-import { FISH_TOTAL } from "@/adventure/data/v2/fish";
-import {
-  discoveredFishIds,
-  parseFishCodex,
-} from "@/adventure/v2/fishingCodex";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
-import { ANTIQUE_TOTAL } from "@/adventure/data/v2/antique";
-import {
-  discoveredAntiqueIds,
-  parseTreasureCodex,
-} from "@/adventure/v2/treasureCodex";
 import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
-import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import {
   derivePlayerCombatV2FromSaves,
   type SavedCharacterV2,
@@ -126,16 +50,33 @@ import {
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
-import {
-  resolveOutpostMeta,
-  tileOutpostId,
-} from "@/adventure/data/v2/tileWarfare";
 import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
+import {
+  battleCountOf,
+  combatStatsSection,
+  elementalSkillsSection,
+  fishingCodexSection,
+  frontierDepthOf,
+  huntGateSections,
+  jobsV2Section,
+  loadoutSection,
+  materialCodexSection,
+  proficiencySection,
+  spFruitSection,
+  tilePosOf,
+  treasureCodexSection,
+} from "./stateSections";
+import {
+  loadCurrentOutpost,
+  loadFreeformTileSettlements,
+} from "./stateOutpost";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
 //
 // 캐릭터(레벨/EXP/HP/스태미너/골드) + 길드(id/name) + 자원풀 한 번에.
 // HP·stamina 는 시간 회복 적용한 현재값으로 surface (다음 사냥 진입 시 동기화).
+// 응답 섹션 계산은 stateSections(순수)·stateOutpost(DB 조회)로 분리 — 여기는
+// 인증/부수효과(reconcile·칭호 지급)와 응답 조립만 담당한다.
 
 const STATE_SAVE_KEYS = [
   "character.v2",
@@ -227,16 +168,8 @@ export async function GET() {
     skillsRaw: skillsRow?.value,
   });
 
-  // 전투 횟수(전적) — adventure-log.v2 의 monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의).
-  const logVal = (adventureLogRow?.value ?? null) as {
-    monsters?: Record<string, { kills?: number }>;
-    battleLosses?: number;
-  } | null;
-  const battleCount =
-    Object.values(logVal?.monsters ?? {}).reduce(
-      (sum, m) => sum + (m?.kills ?? 0),
-      0,
-    ) + (logVal?.battleLosses ?? 0);
+  // 전투 횟수(전적) — 랭킹 battleCount 와 동일 정의(stateSections.battleCountOf).
+  const battleCount = battleCountOf(adventureLogRow?.value);
 
   const charSave = (charRow?.value ?? {}) as {
     level?: number;
@@ -275,94 +208,10 @@ export async function GET() {
       ? charSave.equippedTitleId
       : null;
 
-  // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
-  // null = 아직 거점 방문 안 함 ("이동 중").
-  // PR-outpost-info: V2AdventureHome 의 거점 카드용 occupation (보유 길드/세율/정책/다음 공격)
-  // 동봉. row 없으면 occupation=null (NPC 운영). 점령 길드 name 별도 select.
-  type OccupationInfo = {
-    occupiedByUserId: string | null;
-    occupiedByGuildId: number | null;
-    occupiedByGuildName: string | null;
-    occupiedAt: string;
-    policy: string;
-    taxRate: string;
-    nextAttackAt: string;
-    // 거점 영주 표시명 — 점령 길드가 임명한 영주(없으면 null). 거점 카드 "영주" 행.
-    lordName: string | null;
-  };
-  type CurrentOutpost = {
-    id: string;
-    name: string;
-    occupation: OccupationInfo | null;
-    // 거점 금고 — 점령 길드원이 회수 가능한 누적 세금. 미점령 거점도 누적될 수 있어 별도 노출.
-    treasuryGold: number;
-  };
-  let currentOutpost: CurrentOutpost | null = null;
-  const lastVisitId = charSave.lastVisitedOutpost?.outpostId;
-  if (typeof lastVisitId === "string") {
-    const o = resolveOutpostMeta(lastVisitId);
-    if (o) {
-      const occRow = (
-        await db
-          .select()
-          .from(outpostOccupations)
-          .where(eq(outpostOccupations.outpostId, o.id))
-          .limit(1)
-      )[0];
-      let occupation: OccupationInfo | null = null;
-      if (occRow) {
-        let occGuildName: string | null = null;
-        let lordName: string | null = null;
-        if (occRow.occupiedByGuildId != null) {
-          const g = (
-            await db
-              .select({ name: guilds.name })
-              .from(guilds)
-              .where(eq(guilds.id, occRow.occupiedByGuildId))
-              .limit(1)
-          )[0];
-          occGuildName = g?.name ?? null;
-          // 거점 영주 — 임명 길드가 현재 점령 길드와 같을 때만 유효(거점 양도 시 스테일 무시).
-          const lordRow = (
-            await db
-              .select({
-                userId: outpostLords.userId,
-                guildId: outpostLords.guildId,
-              })
-              .from(outpostLords)
-              .where(eq(outpostLords.outpostId, o.id))
-              .limit(1)
-          )[0];
-          if (lordRow && lordRow.guildId === occRow.occupiedByGuildId) {
-            lordName = await resolveUserDisplayName(lordRow.userId);
-          }
-        }
-        occupation = {
-          occupiedByUserId: occRow.occupiedByUserId,
-          occupiedByGuildId: occRow.occupiedByGuildId,
-          occupiedByGuildName: occGuildName,
-          occupiedAt: occRow.occupiedAt.toISOString(),
-          policy: occRow.policy,
-          taxRate: occRow.taxRate,
-          nextAttackAt: occRow.nextAttackAt.toISOString(),
-          lordName,
-        };
-      }
-      const treasuryRow = (
-        await db
-          .select({ gold: outpostTreasury.gold })
-          .from(outpostTreasury)
-          .where(eq(outpostTreasury.outpostId, o.id))
-          .limit(1)
-      )[0];
-      currentOutpost = {
-        id: o.id,
-        name: o.name,
-        occupation,
-        treasuryGold: Math.max(0, treasuryRow?.gold ?? 0),
-      };
-    }
-  }
+  // 현 거점 카드 — character.v2.lastVisitedOutpost → 점령/영주/금고 동봉(stateOutpost).
+  const currentOutpost = await loadCurrentOutpost(
+    charSave.lastVisitedOutpost?.outpostId,
+  );
   const profile = (profileRow?.value ?? null) as {
     name?: string;
     gender?: string;
@@ -414,35 +263,7 @@ export async function GET() {
         total: combat.totalStats,
       }
     : null;
-  const combatStats = combat
-    ? {
-        atk: combat.player.atk,
-        def: combat.player.def,
-        spd: combat.player.spd,
-        // 마법 공격력 — INT 환산. 0(물리 빌드)이면 StatsPanel 이 숨김.
-        magicAtk: combat.player.magicAtk ?? 0,
-        // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
-        magicDef: combat.player.magicDef ?? 0,
-        // 숨은 전투 축 — 전투엔 반영되나 그동안 내 정보에 미표시. 회피/명중/치명타/다중공격.
-        evasionPct: combat.player.evasionPct,
-        // 회피 대결형(Slice 1b) — 캡 없는 raw 회피레이팅. UI 가 현재 깊이 몹명중과 대결해 실제 PvE dodge% 표시.
-        evaRating: combat.player.evaRating,
-        accuracyPct: combat.player.accuracyPct,
-        // 회피 대결형(Slice 2) — 캡 없는 raw 명중레이팅. "명중" 표시에 사용(accuracyPct 캡 35 대신).
-        accRating: combat.player.accRating,
-        critChancePct: combat.player.critChancePct,
-        critMult: combat.player.critMult,
-        // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
-        power: derivePowerScore({
-          atk: combat.player.atk,
-          magicAtk: combat.player.magicAtk ?? 0,
-          def: combat.player.def,
-          spd: combat.player.spd,
-          maxHp,
-          maxMp,
-        }),
-      }
-    : null;
+  const combatStats = combatStatsSection(combat, maxHp, maxMp);
 
   // 회원 탈퇴 확인용 권위 닉네임(users.gameName). v2 는 이 컬럼을 안 채워 보통 null →
   // DeleteAccountModal 이 "탈퇴" 폴백을 쓰고 /api/account/delete 도 같은 폴백을 기대 → 일치.
@@ -460,70 +281,19 @@ export async function GET() {
       ? { outpostId: lastHunted.outpostId, at: lastHunted.at }
       : null;
 
-  // 코어루프 직업 해금 — 코어루프 on 일 때만. 숙련도/카탈로그 조건으로 해금된
   const cls = parseV2Class((charSave as { class?: unknown }).class);
   // 직업 시스템 v2(직업 숙련도 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
-  //   해금(숙련도 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
   // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋 로드(현 카탈로그=무쿼리).
   const jobUnlockCtx: JobUnlockContext | undefined =
     V2_CORE_LOOP_V2 && CATALOG_USES_QUEST_CONDITION
       ? { completedQuestIds: await loadCompletedQuestIds(db, userId) }
       : undefined;
-  const jobsV2 =
-    V2_CORE_LOOP_V2
-      ? (() => {
-          const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-          const specChoice =
-            typeof (charSave as { specChoice?: unknown }).specChoice === "string"
-              ? ((charSave as { specChoice?: string }).specChoice ?? null)
-              : null;
-          const level = Math.max(1, (charSave as { level?: number }).level ?? 1);
-          const currentJobId = jobIdFromLegacy(cls, specChoice);
-          // 현재 직업 이름은 전체 카탈로그에서 — 필터된 목록에 현재 직업이 없을 수도 있으므로
-          //   (예: 미인식 class 'swordsman' → 모험가 폴백). 카탈로그 미존재면 직군 표시명 폴백.
-          const currentJobName =
-            V2_JOB_CATALOG[currentJobId]?.name ??
-            (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
-          // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
-          const learnedSet = new Set(parseV2SkillsState(skillsRow?.value).learned);
-          return {
-            currentJobId,
-            currentJobName,
-            atLevelCap: level >= V2_LEVEL_CAP,
-            jobs: V2_JOB_LIST.filter(
-              // 루트 직업도 전직 대상에 포함 — 모험가/생존자 킷을 배우려면 되돌아갈 수 있어야 한다.
-              // 그 외 tier 0(미래 추가분)은 제외. 잠긴 직업도 조건/목표 표시용으로 내려보낸다.
-              (job) => isRootJobSelectable(job),
-            ).map((job) => {
-              const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
-              // 해금 조건(공유용 — 직업 도감과 동일 헬퍼).
-              const condition = jobUnlockConditionText(job);
-              // 직업 내장 보너스(현재 직업에 있을 때 적용되는 플랫 스탯) — "이 직업을 고를 이유"로
-              //   전직 화면에 표기. 패시브 스킬(휴대용)과 별개.
-              const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
-                .map((k) => `${V2_STAT_LABELS[k]} +${job.jobBonus[k]}`)
-                .join(" · ");
-              // 스킬 수집 완료 — 그 직업의 시그니처 스킬(액티브+패시브)을 전부 배웠는가(직업 도감과 동일).
-              const signature = skillsForJob(job.id);
-              const skillsCollected =
-                signature.length > 0 &&
-                signature.every((id) => learnedSet.has(id));
-              return {
-                id: job.id,
-                name: job.name,
-                tier: job.tier,
-                unlocked,
-                condition,
-                // 그 직업에 쌓은 숙련도(직업별/직군 — 전직 화면 표기, 해금 진행 가늠).
-                cumLevel: cumLevelForJob(prof, job),
-                bonus,
-                skillsCollected,
-              };
-            }),
-          };
-        })()
-      : null;
-  // 코어루프 off 면 null — 클라는 기존 class→이름 매핑 폴백. on 일 때만 모험가-인지 라벨.
+  const jobsV2 = jobsV2Section({
+    charSave,
+    proficiencyRaw: proficiencyRow?.value,
+    skillsRaw: skillsRow?.value,
+    jobUnlockCtx,
+  });
   // 직업 표시명 — 캐릭터 카드/전투 부제가 쓴다(jobDisplayName: 직업 시스템이면 견습 병사·방패병
   //   등, 아니면 옛 직군명). core-loop off 면 null(레거시 화면이 자체 처리).
   const classDisplaySpec =
@@ -533,165 +303,15 @@ export async function GET() {
   const classDisplayName = V2_CORE_LOOP_V2
     ? jobDisplayName(cls, classDisplaySpec)
     : null;
-  // 코어루프 사냥 쿨다운 — 다음 사냥 가능 시각. 토벌은 자기 영지 방어라 이 값을 보지 않는다.
-  //   off 면 null(스태미나 게이트).
-  //   쿨다운 중이면 nextBattleAt=now+남은ms, 즉시 가능(미전투/경과/미래-손상)이면 now.
-  //   클라는 serverNow >= nextBattleAt 로 판정. 라우트 게이트와 동일 helper 라 표시-실제 일치.
-  const cooldownRemaining = combatCooldownRemainingMs(
-    Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
+  // 코어루프 사냥 게이트 — 쿨다운/오프라인 사냥 세션(스태미나 모드면 null·stateSections).
+  const { combatCooldown, offlinePending, offlineHunt } = huntGateSections(
+    charSave,
     now,
   );
-  // 쿨다운 객체는 쿨다운 모드만 — 스태미나 모드면 null → 클라 사냥 UI 가 스태미나로 폴백.
-  const combatCooldown = HUNT_COOLDOWN_MODE
-    ? {
-        nextBattleAt: now + cooldownRemaining,
-        cooldownMs: HUNT_COOLDOWN_MS,
-        serverNow: now,
-      }
-    : null;
-  // 코어루프 오프라인 사냥 — 명시 세션(offlineHuntStartedAt) 켜진 동안만 누적. 세션 창=시작+2h.
-  //   offlinePending = 세션 창 안에서 lastBattleAt 이후 누적 판수(>0 이면 클라가 offline-settle).
-  //   offlineHunt = 세션 상태(시작/끝 시각) — 클라 "오프라인 사냥 중·정지" 버튼/카운트다운용.
-  const offlineStartedAt =
-    Number((charSave as { offlineHuntStartedAt?: number }).offlineHuntStartedAt) ||
-    0;
-  const offlineActive = HUNT_COOLDOWN_MODE && offlineStartedAt > 0;
-  const offlineEndsAt = offlineStartedAt + OFFLINE_MAX_MS;
-  const offlinePending =
-    !HUNT_COOLDOWN_MODE
-      ? null
-      : offlineActive
-        ? offlineBattlesAccrued(
-            Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
-            Math.min(now, offlineEndsAt),
-          )
-        : 0;
-  const offlineHunt = HUNT_COOLDOWN_MODE
-    ? offlineActive
-      ? {
-          active: true,
-          startedAt: offlineStartedAt,
-          endsAt: offlineEndsAt,
-          serverNow: now,
-          // 자동 사냥이 도는 farm 깊이 — "자동 사냥 중 사냥터 바로 입장" 목적지(정산 깊이와 동일).
-          depth: offlineFarmDepth(
-            Number((charSave as { lastHuntDepth?: number }).lastHuntDepth),
-            Number(charSave.frontierDepth) || 2,
-          ),
-        }
-      : { active: false }
-    : null;
 
   // 자유 타일 지도 개척 정착지 — 코어루프 on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
-  //   정착지의 "길드 귀속"은 점령행 occupiedByGuildId(권위)로 파생 — 영토=길드 소유 모델.
-  //   founder 가 길드를 떠나도 길드가 정착지를 유지한다(옛 소유자→길드 소프트링크 폐기).
-  //   모험 탭 "현 위치" 카드가 거점 카드와 동일 정보(소속/세율/정책/영주/금고)를 쓰므로
-  //   점령행의 정책·세율, 거점 금고, 영주까지 칸별로 동봉(전부 N+1 회피 일괄 조회).
   const freeformTileSettlements = V2_FREEFORM_TILES
-    ? await (async () => {
-        const rows = await db.select().from(tileSettlements);
-        if (rows.length === 0) return [];
-        // 타일 점령행 일괄 조회(N+1 회피) → 칸별 소유 길드/정책/세율.
-        const tileIds = rows.map((r) => tileOutpostId(r.col, r.row));
-        const occRows = await db
-          .select({
-            outpostId: outpostOccupations.outpostId,
-            guildId: outpostOccupations.occupiedByGuildId,
-            policy: outpostOccupations.policy,
-            taxRate: outpostOccupations.taxRate,
-          })
-          .from(outpostOccupations)
-          .where(inArray(outpostOccupations.outpostId, tileIds));
-        const occByTileId = new Map(occRows.map((o) => [o.outpostId, o]));
-        // 거점 금고(타일별 누적 세금) 일괄 조회.
-        const treasuryRows = await db
-          .select({
-            outpostId: outpostTreasury.outpostId,
-            gold: outpostTreasury.gold,
-          })
-          .from(outpostTreasury)
-          .where(inArray(outpostTreasury.outpostId, tileIds));
-        const treasuryByTileId = new Map(
-          treasuryRows.map((t) => [t.outpostId, t.gold]),
-        );
-        // 영주(임명행) 일괄 조회 — 임명 길드 == 현재 점령 길드일 때만 유효(양도 시 스테일 무시).
-        const lordRows = await db
-          .select({
-            outpostId: outpostLords.outpostId,
-            userId: outpostLords.userId,
-            guildId: outpostLords.guildId,
-          })
-          .from(outpostLords)
-          .where(inArray(outpostLords.outpostId, tileIds));
-        const lordByTileId = new Map(lordRows.map((l) => [l.outpostId, l]));
-        // 길드 id → 이름/색 일괄 조회(지도 길드색·길드홈 표시용).
-        const gIds = [
-          ...new Set(
-            occRows.map((o) => o.guildId).filter((g): g is number => g != null),
-          ),
-        ];
-        const guildNameById = new Map<number, string>();
-        const guildColorById = new Map<number, string>();
-        if (gIds.length > 0) {
-          const gs = await db
-            .select({ id: guilds.id, name: guilds.name, color: guilds.color })
-            .from(guilds)
-            .where(inArray(guilds.id, gIds));
-          for (const g of gs) {
-            guildNameById.set(g.id, g.name);
-            if (g.color != null) guildColorById.set(g.id, g.color);
-          }
-        }
-        // 유효 영주 표시명 일괄 resolve(임명 길드 == 점령 길드인 칸만).
-        const lordNameById = new Map<string, string>();
-        await Promise.all(
-          [
-            ...new Set(
-              rows
-                .map((r) => {
-                  const id = tileOutpostId(r.col, r.row);
-                  const occ = occByTileId.get(id);
-                  const lord = lordByTileId.get(id);
-                  return lord &&
-                    occ &&
-                    lord.guildId != null &&
-                    lord.guildId === occ.guildId
-                    ? lord.userId
-                    : null;
-                })
-                .filter((u): u is string => u != null),
-            ),
-          ].map(async (uid) => {
-            lordNameById.set(uid, await resolveUserDisplayName(uid));
-          }),
-        );
-        return rows.map((r) => {
-          const id = tileOutpostId(r.col, r.row);
-          const occ = occByTileId.get(id);
-          const gid = occ?.guildId ?? null;
-          const lord = lordByTileId.get(id);
-          const lordValid =
-            lord != null &&
-            occ != null &&
-            lord.guildId != null &&
-            lord.guildId === occ.guildId;
-          return {
-            col: r.col,
-            row: r.row,
-            userId: r.userId,
-            tier: r.tier,
-            name: r.name,
-            guildId: gid,
-            guildName: gid != null ? (guildNameById.get(gid) ?? null) : null,
-            guildColor: gid != null ? (guildColorById.get(gid) ?? null) : null,
-            // 거점 카드와 동일 정보 — 점령행 없는 고아면 null/0.
-            policy: occ?.policy ?? null,
-            taxRate: occ?.taxRate ?? null,
-            lordName: lordValid ? (lordNameById.get(lord.userId) ?? null) : null,
-            treasuryGold: Math.max(0, treasuryByTileId.get(id) ?? 0),
-          };
-        });
-      })()
+    ? await loadFreeformTileSettlements()
     : [];
   const equipmentCodex = equipmentCodexSummary(equipmentCodexRow?.value);
 
@@ -744,11 +364,7 @@ export async function GET() {
       // 코어루프 on 이면 none→"모험가" 표기. off 면 기존 직군명.
       classDisplayName,
       // 코어루프 직업 트리 — 현재 계파(재전직 화면 "현재" 표시용). off 면 null.
-      spec: V2_CORE_LOOP_V2
-        ? (typeof (charSave as { specChoice?: unknown }).specChoice === "string"
-            ? ((charSave as { specChoice?: string }).specChoice ?? null)
-            : null)
-        : null,
+      spec: V2_CORE_LOOP_V2 ? classDisplaySpec : null,
       element: parseV2Element((charSave as { element?: unknown }).element),
     },
     stats,
@@ -768,18 +384,7 @@ export async function GET() {
     resources,
     currentOutpost,
     // 자유 타일 지도(V2_FREEFORM_TILES) 마커 좌표. 없으면 null → 클라가 현재 거점 칸에서 파생.
-    tilePos:
-      charSave.tilePos &&
-      typeof charSave.tilePos.col === "number" &&
-      typeof charSave.tilePos.row === "number"
-        ? {
-            col: charSave.tilePos.col,
-            row: charSave.tilePos.row,
-            ...(typeof charSave.tilePos.at === "number"
-              ? { at: charSave.tilePos.at }
-              : {}),
-          }
-        : null,
+    tilePos: tilePosOf(charSave.tilePos),
     // 자유 타일 지도 개척 정착지(Phase 3) — 코어루프 on 일 때만 조회(off=빈 배열·prod 무비용).
     tileSettlements: freeformTileSettlements,
     // 발견(안개) — 방문/인접으로 공개된 거점 id 목록. 없으면(신규) 시작 거점+인접 시드.
@@ -788,242 +393,45 @@ export async function GET() {
         ? charSave.discoveredOutpostIds
         : seededDiscovery(),
     skills: parseV2SkillsState(skillsRow?.value),
-    // P4 — 시그니처 직업 패시브 은퇴(전문화 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 전문화 UI 대체).
+    // P4 — 시그니처 직업 패시브 은퇴(전문화 패시브로 대체). 호환 위해 빈 배열 유지.
     signatures: [] as never[],
     // 학습 가능 스킬 풀 — 현 직업(jobId)의 시그니처 킷 + 학습/장착여부(학습 패널용).
-    elementalSkills: (() => {
-      const cls = parseV2Class((charSave as { class?: unknown }).class);
-      const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
-      const specChoice = typeof rawSpec === "string" ? rawSpec : null;
-      // 학습 비용은 스킬 티어/오버라이드 기준(learn-skill 과 동일 산식).
-      const skillsState = parseV2SkillsState(skillsRow?.value);
-      const learnedSet = new Set<string>(skillsState.learned);
-      const equippedSet = new Set<string>(skillsState.equipped);
-      return elementalSkillsForClass(cls, specChoice).map((skillId) => {
-        const def = V2_SKILLS[skillId];
-        return {
-          skillId,
-          name: def.name,
-          cost: v2SkillLearnCost(skillId),
-          learned: learnedSet.has(skillId),
-          equipped: equippedSet.has(skillId),
-        };
-      });
-    })(),
-    // SP 로드아웃(코어루프 전용) — 수동 로드아웃 화면용. flag off 면 키 없음(응답 byte-identical).
-    //   library = 배운 스킬 전부(타직업 수집분 포함) + spCost·장착여부. equipped 는
-    //   reconcile 가 이미 sanitize 한 저장값.
+    elementalSkills: elementalSkillsSection(charSave, skillsRow?.value),
+    // SP 로드아웃(코어루프 전용) — flag off 면 키 없음(응답 byte-identical).
     ...(V2_CORE_LOOP_V2
       ? {
-          loadout: (() => {
-            const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-            const skillsState = parseV2SkillsState(skillsRow?.value);
-            const equippedSet = new Set<string>(skillsState.equipped);
-            const collectionBonus = codexSpBonusFromRaw(
-              fishingCodexRow?.value,
-              treasureCodexRow?.value,
-            );
-            const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
-            const equipmentCodexBonus = equipmentCodex.spBonus;
-            const spBudgetGroups = Object.fromEntries(
-              V2_SELECTABLE_CLASSES.map((id) => [
-                id,
-                prof.groups?.[id] ?? { cumLevel: 0 },
-              ]),
-            );
-            const spBreakdownBase = calcSpBudgetBreakdown(
-              spBudgetGroups,
-              spFruitBonus,
-              collectionBonus.total + equipmentCodexBonus,
-            );
-            const spBudget = spBreakdownBase.budget;
-            const groups = V2_SELECTABLE_CLASSES.map((id) => {
-              const g = spBudgetGroups[id];
-              const progress = spMasteryProgressForCumLevel(
-                Number(g?.cumLevel) || 0,
-              );
-              const label = V2_CLASS_DEFS[id].name;
-              return {
-                id,
-                label,
-                ...progress,
-              };
-            });
-            const milestoneSp = groups.reduce(
-              (sum, g) => sum + g.milestoneSp,
-              0,
-            );
-            const masteryBonusSp = groups.reduce(
-              (sum, g) => sum + g.masteryBonusSp,
-              0,
-            );
-            let spUsed = 0;
-            const favoriteSet = new Set<string>(skillsState.favoriteSkills ?? []);
-            const library = orderedLearnedSkills(
-              skillsState.learned,
-              skillsState.skillOrder,
-            )
-              .filter((id) => V2_SKILLS[id])
-              .map((id) => {
-                const def = V2_SKILLS[id];
-                const equipped = equippedSet.has(id);
-                if (equipped) spUsed += spCostOf(def);
-                return {
-                  skillId: id,
-                  name: def.name,
-                  spCost: spCostOf(def),
-                  category: def.category,
-                  equipped,
-                  favorite: favoriteSet.has(id),
-                };
-              });
-            // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만. POST /me/loadout 시 재전송용.
-            const equipped = skillsState.equipped.filter((id) => V2_SKILLS[id]);
-            return {
-              spBudget,
-              spUsed,
-              equipped,
-              library,
-              spBreakdown: {
-                base: spBreakdownBase.base,
-                milestoneSp,
-                masteryBonusSp,
-                softCapReduction: spBreakdownBase.softCapReduction,
-                spFruitBonus: spBreakdownBase.spFruitBonus,
-                equipmentCodexBonus,
-                collectionBonusSp: collectionBonus.total,
-                collectionBonus: {
-                  fishSp: collectionBonus.fishSp,
-                  treasureSp: collectionBonus.treasureSp,
-                },
-                groups,
-              },
-            };
-          })(),
+          loadout: loadoutSection({
+            charSave,
+            proficiencyRaw: proficiencyRow?.value,
+            skillsRaw: skillsRow?.value,
+            fishingCodexRaw: fishingCodexRow?.value,
+            treasureCodexRaw: treasureCodexRow?.value,
+            equipmentCodexSpBonus: equipmentCodex.spBonus,
+          }),
         }
       : {}),
-    // SP 열매(협동 보스 드랍 소모품) 사용 현황 — 인벤 소모품 탭이 등급별 "사용 N/캡"·
-    //   캡 도달 여부를 그린다. used = 캐릭터당 등급별 사용 횟수, capBonus = 현재 SP 보너스.
-    spFruit: (() => {
-      const used = parseSpFruitUsed(charSave.spFruitUsed);
-      return { used, capBonus: spCapBonusFromRaw(charSave.spFruitUsed) };
-    })(),
+    // SP 열매(협동 보스 드랍 소모품) 사용 현황 — 인벤 소모품 탭 표시용.
+    spFruit: spFruitSection(charSave.spFruitUsed),
     equipmentCodex,
     // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
-    codex: (() => {
-      const ids = discoveredMaterialIds(charSave.materials);
-      return { discovered: ids.length, total: V2_CODEX_TOTAL, discoveredIds: ids };
-    })(),
+    codex: materialCodexSection(charSave.materials),
     // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
-    fishingCodex: (() => {
-      const codex = parseFishCodex(fishingCodexRow?.value);
-      const ids = discoveredFishIds(codex);
-      const best: Record<string, number> = {};
-      for (const id of ids) best[id] = codex.fish[id].bestSize;
-      return {
-        discoveredIds: ids,
-        total: FISH_TOTAL,
-        best,
-        tierCompletions: codexSpBonusFromRaw(
-          fishingCodexRow?.value,
-          treasureCodexRow?.value,
-        ).fishTiers,
-      };
-    })(),
+    fishingCodex: fishingCodexSection(
+      fishingCodexRow?.value,
+      treasureCodexRow?.value,
+    ),
     // 유물 도감 진척 — V2CodexView 유물 탭 표시용. 종별 개인 최고 보존상태 동봉.
-    treasureCodex: (() => {
-      const codex = parseTreasureCodex(treasureCodexRow?.value);
-      const ids = discoveredAntiqueIds(codex);
-      const best: Record<string, number> = {};
-      for (const id of ids) best[id] = codex.antiques[id].bestCondition;
-      return {
-        discoveredIds: ids,
-        total: ANTIQUE_TOTAL,
-        best,
-        tierCompletions: codexSpBonusFromRaw(
-          fishingCodexRow?.value,
-          treasureCodexRow?.value,
-        ).treasureTiers,
-      };
-    })(),
+    treasureCodex: treasureCodexSection(
+      fishingCodexRow?.value,
+      treasureCodexRow?.value,
+    ),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
-    // 칭호 — 모험의 서 "칭호" 탭이 보유 목록 표시 + 장착 토글에 사용. 채팅/접속자엔
-    //   resolveActor 가 같은 보유 검증으로 노출(미보유 변조 차단).
+    // 칭호 — 모험의 서 "칭호" 탭이 보유 목록 표시 + 장착 토글에 사용.
     titles: { ownedTitleIds, equippedTitleId },
-    // 프론티어 최고 도달 깊이 (기본 2 = 들판 초반 해금, 깊이 3까지). MAX 캡으로 정규화
-    //   (레거시 무한기 >42 저장값도 현재 콘텐츠 끝으로 표시 — 클라가 캡 밖 깊이를 들고 다니지 않게).
-    frontierDepth: Math.min(
-      MAX_FRONTIER_DEPTH,
-      Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
-    ),
+    // 프론티어 최고 도달 깊이 — MAX 캡으로 정규화(stateSections.frontierDepthOf).
+    frontierDepth: frontierDepthOf(charSave.frontierDepth),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
-    proficiency: (() => {
-      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-      const curClass = parseV2Class((charSave as { class?: unknown }).class);
-      const group = tier1ClassOf(curClass);
-      const specChoice =
-        typeof (charSave as { specChoice?: unknown }).specChoice === "string"
-          ? ((charSave as { specChoice?: string }).specChoice ?? null)
-          : null;
-      const currentJobId = jobIdFromLegacy(curClass, specChoice);
-      const currentJob = V2_JOB_CATALOG[currentJobId];
-      // caps 는 유효 cap(= floor + 헤드룸 + 수행이득)으로 노출 — UI "한계" 표시용.
-      const floors = computeStatFloors(prof);
-      const effectiveCaps: Partial<Record<string, number>> = {};
-      for (const k of V2_STAT_KEYS) {
-        effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(prof, k));
-      }
-      return {
-        groups: prof.groups,
-        caps: effectiveCaps,
-        current: {
-          group,
-          // 직업 숙련도 — 현재 전직 중인 구체 직업의 숙련도. tier1 은 직군 숙련도, tier2+ 는 jobCumLevel.
-          cumLevel: currentJob
-            ? cumLevelForJob(prof, currentJob)
-            : groupCumLevel(prof, group),
-          // 숙달 포인트 잔액(사용가능). 옛 earned/usable 통합.
-          points: usablePoints(prof),
-          cultivations: cultivationCount(prof, group),
-          nextCost: cultivationCost(totalCapGains(prof)),
-          // 현 직업군 다음 차수 전직 가능 여부 — 신전 직업 그리드의 "전직 가능" 표시용.
-          // 코어루프 on 에서는 jobsV2/advance-class(targetJobId) 가 권위라 레거시 차수 advance 는 숨긴다.
-          advance: (() => {
-            if (V2_CORE_LOOP_V2) return null;
-            const cur = parseV2Class((charSave as { class?: unknown }).class);
-            if (cur === "none") return null;
-            // P4 — 전직 = class 불변, proficiency.tier +1. 다음 차수(2/3/4), 정점이면 null.
-            const curTier = prof.groups[group]?.tier ?? 1;
-            const nextTier = nextAdvanceTier(curTier);
-            if (!nextTier) return null;
-            const haveLevel = Math.max(
-              1,
-              (charSave as { level?: number }).level ?? 1,
-            );
-            const reqCum = 0;
-            const haveCum = groupCumLevel(prof, group);
-            const reqCodex = codexRequirement(tierCodexMin(nextTier));
-            const haveCodex = discoveredMaterialIds(
-              (charSave as { materials?: unknown }).materials,
-            ).length;
-            return {
-              nextClass: cur,
-              nextName: V2_CLASS_DEFS[cur].name,
-              nextTier,
-              reqLevel: effectiveLevelCap(curTier),
-              haveLevel,
-              reqCum,
-              haveCum,
-              reqCodex,
-              haveCodex,
-              canAdvance:
-                haveLevel >= effectiveLevelCap(curTier) &&
-                haveCodex >= reqCodex,
-            };
-          })(),
-        },
-      };
-    })(),
+    proficiency: proficiencySection(proficiencyRow?.value, charSave),
   });
 }

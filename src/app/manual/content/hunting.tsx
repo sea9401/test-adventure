@@ -146,7 +146,7 @@ export function HuntingContent() {
             percentText(def.dropPct),
           ];
         })}
-        caption={`유틸맵은 사냥터가 아니라 숨겨진 기능 입장권입니다. 보유 레어맵은 최대 ${RARE_MAP_CAP}장까지 들 수 있습니다.`}
+        caption={`유틸맵은 사냥터가 아니라 숨겨진 기능 입장권입니다. 비밀 상점의 지도는 발견 후 1시간 동안 유효하며, 보유 레어맵은 최대 ${RARE_MAP_CAP}장까지 들 수 있습니다.`}
       />
 
       <Note>

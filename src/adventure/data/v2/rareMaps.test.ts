@@ -46,6 +46,31 @@ describe("rareMaps", () => {
     expect(parsed.map((m) => m.iid).sort()).toEqual(["rm_ok", "rm_old"]);
   });
 
+  it("parseRareMaps — 비밀 상점의 지도만 발견 후 1시간이 지나면 제거된다", () => {
+    const fresh = newRareMapInstance(
+      "secret_shop_map",
+      5,
+      NOW - 59 * 60 * 1000,
+      "rm_fresh_shop",
+    );
+    const expired = newRareMapInstance(
+      "secret_shop_map",
+      5,
+      NOW - 60 * 60 * 1000,
+      "rm_expired_shop",
+    );
+    const oldHuntMap = newRareMapInstance(
+      "worn_map",
+      5,
+      NOW - 24 * 60 * 60 * 1000,
+      "rm_old_hunt",
+    );
+
+    expect(
+      parseRareMaps([fresh, expired, oldHuntMap], NOW).map((m) => m.iid),
+    ).toEqual(["rm_fresh_shop", "rm_old_hunt"]);
+  });
+
   it("parseRareMaps — 배열 아님/빈 값은 []", () => {
     expect(parseRareMaps(undefined, NOW)).toEqual([]);
     expect(parseRareMaps({}, NOW)).toEqual([]);

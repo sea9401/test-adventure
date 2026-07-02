@@ -6,6 +6,8 @@ import {
   COOP_EQUIPMENT_BOX,
   COOP_EQUIPMENT_BOX_ID,
   COOP_EXTRA_REWARD_RULES,
+  COOP_MASTERY_TOME_GAIN,
+  COOP_MASTERY_TOME_MATERIAL_ID,
   COOP_REWARD_MATERIALS,
   parseCoopEquipmentBoxId,
   rollCoopEquipmentBoxItem,
@@ -21,6 +23,10 @@ describe("coopRewards", () => {
       expect(COOP_REWARD_MATERIALS[COOP_EQUIPMENT_BOX[boss].id]).toBeDefined();
       expect(parseCoopEquipmentBoxId(COOP_EQUIPMENT_BOX_ID[boss])).toBe(boss);
     }
+    expect(COOP_REWARD_MATERIALS[COOP_MASTERY_TOME_MATERIAL_ID]).toMatchObject({
+      name: "상급 숙련 교본",
+    });
+    expect(COOP_MASTERY_TOME_GAIN).toBeGreaterThanOrEqual(50);
     expect(parseCoopEquipmentBoxId("nope")).toBeNull();
   });
 

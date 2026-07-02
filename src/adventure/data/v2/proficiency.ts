@@ -8,7 +8,7 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 //   groups: { [tier1classId]: { cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
+//   - points = 숙달 포인트(사용가능 잔액). 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~3),
 //     수행·스킬학습에 소모. 🔑 caps/grown 처럼 캐릭터 전역(직군 무관) — 전직해도 유지.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 → 단일 잔액. 2026-06-27: 옛 직군별 points 를
 //      전역으로 승격 — 재전직 시 잔액이 0 으로 보이던 문제 해소. parse 가 옛 직군별을 합산 이관.)
@@ -51,14 +51,14 @@ export type V2ProficiencyState = {
 };
 
 // §10 다이얼.
-// 승리당 숙달 포인트 — 깊이 밴드 비례(2026-06-12 성장 페이스업, 옛 전구간 고정 2).
-// 테마 2개당 +1: 들판·마른 협곡 2 / 얼음 호수·심층 동굴 3 / 잊힌 성소·리자드 늪지 4 /
-// 짐승의 소굴·검은 왕도 이후 5. 신규 엔드 사냥터가 늘어도 5 가 천장. (깊은 산 삭제 후에도 깊이당 값 불변.)
+// 승리당 숙달 포인트 — 초반은 유지, 중후반 수행/스킬 경제 인플레는 억제.
+// 들판~심층 동굴 2 / 잊힌 성소 이후 3. 직업 숙련도(+1/승리)는 그대로 두고
+// 수행 재화만 낮춰, 초반 고통 없이 중후반 성장 폭주를 늦춘다.
 export const V2_PROFICIENCY_PER_KILL_BASE = 2;
 export function proficiencyPerKillAtDepth(depth: number): number {
   return Math.min(
-    5,
-    V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 2),
+    3,
+    V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 4),
   );
 }
 // cap 은 floor 상대(저점 위 성장 여유). 유효 cap = floor + V2_CAP_HEADROOM_BASE + 수행이득.

@@ -86,10 +86,10 @@ export function applyHuntProficiency(params: {
       typeof charSave.specChoice === "string" ? charSave.specChoice : null,
     );
     let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~5), 직업 숙련도는 승리당 +1.
+    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~3), 직업 숙련도는 승리당 +1.
     //   none(모험가)은 숙달 포인트만 적립하고, 직업 숙련도/정복 게이트는 제외한다.
     if (won) {
-      // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
+      // 승리당 숙달 포인트 = 깊이 밴드(2~3) + 착용 패시브 보너스(수련 = +1).
       const perKill =
         proficiencyPerKillAtDepth(depth) +
         equippedProfPerKillBonus(equippedSkills) +

@@ -15,6 +15,8 @@ import {
 } from "./v2Equipment";
 
 export const COOP_COIN_MATERIAL_ID = "v2_coop_coin";
+export const COOP_MASTERY_TOME_MATERIAL_ID = "v2_coop_mastery_tome";
+export const COOP_MASTERY_TOME_GAIN = 50;
 
 export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_claw",
@@ -117,6 +119,11 @@ export const COOP_REWARD_MATERIALS: Record<
     name: "협동 주화",
     description:
       "협동 보스 토벌 기여 보상으로 얻는 주화. 향후 협동 보상 교환에 쓰인다.",
+  },
+  [COOP_MASTERY_TOME_MATERIAL_ID]: {
+    id: COOP_MASTERY_TOME_MATERIAL_ID,
+    name: "상급 숙련 교본",
+    description: `사용하면 현재 직업 숙련도가 ${COOP_MASTERY_TOME_GAIN} 오른다. 거래소에서 거래할 수 있다.`,
   },
   ...Object.fromEntries(
     Object.values(COOP_BOSS_MATERIAL).map((m) => [m.id, m]),

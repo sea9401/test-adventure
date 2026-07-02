@@ -111,8 +111,8 @@ export type V2PassiveSkillEffect = {
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
 // 스타터(자동 보유)는
-// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
-// 들판 기준 ~750승/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~3) 포인트 기준 →
+// 들판 기준 ~750승/종, 잊힌 성소 이후 ~500승/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
 export const V2_SKILL_LEARN_COST_COMMON = 1500; // tier1(입문) 기본 단가.
 // 학습 비용 tier 스케일(숙달 포인트) — 입문/중급/상급. per-skill learnCost 오버라이드가 우선.
 export const V2_SKILL_LEARN_COST_BY_TIER: Record<1 | 2 | 3, number> = {

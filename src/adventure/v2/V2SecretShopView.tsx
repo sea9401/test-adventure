@@ -143,7 +143,7 @@ export function V2SecretShopView({
       />
       {gold != null && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          품목당 1회 구매 · 지도는 발견 후 1시간 동안 유효
+          품목당 1회 구매 · 지도는 발견 후 30분 동안 유효
         </p>
       )}
 

@@ -957,8 +957,8 @@ function expiryLabel(createdAt: string, ttlDays?: number): string | null {
   return `만료까지 ${Math.ceil(leftDays)}일`;
 }
 
-// 소모품(레어맵) 매물 상태 — payload 실물 기준 잔여 판수. (만료 폐지 2026-06-22 — 시간
-// 제한 없음.) 실물이 없으면(소진/불량 스냅샷) 구매 불가 경고. expiryLabel(매물 자체 TTL)은 별개.
+// 소모품(레어맵) 매물 상태 — payload 실물 기준 잔여 판수와 30분 지도 만료를 함께 판정.
+// 실물이 없으면(소진/만료/불량 스냅샷) 구매 불가 경고. expiryLabel(매물 자체 TTL)은 별개.
 function consumableStatusLine(payload: unknown): {
   text: string;
   expired: boolean;

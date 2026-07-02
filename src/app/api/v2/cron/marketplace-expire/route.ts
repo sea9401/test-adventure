@@ -2,12 +2,9 @@ import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import {
-  genEquipIid,
-  parseEquipmentSave,
-  type V2EquipmentId,
-  type V2EquipRoll,
-} from "@/adventure/data/v2/v2Equipment";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
+import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { MARKETPLACE_V2_LISTING_TTL_DAYS } from "@/lib/server/marketplaceV2";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 
@@ -56,18 +53,11 @@ export async function POST(req: Request) {
       if (!l || l.status !== "active" || l.createdAt >= cutoff) return false;
 
       if (l.kind === "equip") {
-        const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
-          tx,
-          l.sellerId,
-          "equipment.v2",
-          {},
-        );
-        const { owned, equipped } = parseEquipmentSave(equipSave);
-        const roll = (l.instancePayload as V2EquipRoll | null) ?? undefined;
-        await upsertSave(tx, l.sellerId, "equipment.v2", {
-          owned: [...owned, { iid: genEquipIid(), id: l.itemId as V2EquipmentId, roll }],
-          equipped,
-        });
+        // buy/cancel 과 동일한 payload 복원 — 예전엔 raw roll 만 복원해 만료 회수 시
+        // 강화(+제작품질·제작자 표식)가 소실됐다. mintListedEquipInstance 가 전부 보존.
+        await appendEquipInstances(tx, l.sellerId, [
+          mintListedEquipInstance(l.itemId as V2EquipmentId, l.instancePayload),
+        ]);
       } else if (l.kind === "consumable") {
         // 레어맵 — 실물이 살아 있으면 판매자 반환(캡 무관 — 회수), 만료면 자연 소멸.
         const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});

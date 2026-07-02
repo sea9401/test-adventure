@@ -23,13 +23,11 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import {
   V2_EQUIPMENT,
-  parseEquipmentSave,
-  genEquipIid,
-  type EquipmentSave,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { initialStamina } from "@/adventure/v2/stamina";
 import {
   RARE_MAP_KINDS,
@@ -269,26 +267,9 @@ export async function POST(req: Request) {
 
     // 장비 — equipment.v2.owned 에 굴림이 붙은 새 개체를 추가.
     if (equipmentId) {
-      const eq = await lockSaveForUpdate<EquipmentSave>(
-        tx,
-        userId,
-        "equipment.v2",
-        {},
-      );
-      const { owned, equipped } = parseEquipmentSave(eq);
-      const nextOwned = [
-        ...owned,
-        {
-          iid: genEquipIid(),
-          id: equipmentId,
-          roll: rollItemStats(V2_EQUIPMENT[equipmentId], Math.random),
-        },
-      ];
-      await upsertSave(tx, userId, "equipment.v2", {
-        owned: nextOwned,
-        equipped,
-      });
-      out.equipmentOwned = nextOwned;
+      out.equipmentOwned = await appendEquipInstances(tx, userId, [
+        mintRolledEquipInstance(equipmentId),
+      ]);
     }
 
     // 사이드 화폐 — 낚시/발굴 코인 지갑({coins}) 적립. character/proficiency/inventory/

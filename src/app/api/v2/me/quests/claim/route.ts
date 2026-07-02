@@ -10,9 +10,9 @@ import {
 import { questById, isQuestClaimable } from "@/adventure/data/v2/v2Quests";
 import {
   parseEquipmentSave,
-  genEquipIid,
   type EquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
+import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
@@ -140,9 +140,9 @@ export async function POST(req: Request) {
     let grantedEquip: string | null = null;
     if (def.reward.equip) {
       const { owned, equipped } = parseEquipmentSave(equipSave);
-      const iid = genEquipIid();
+      // 퀘스트 보상은 굴림 없음(카탈로그값 그대로) — 기존 규약 유지.
       await upsertSave(tx, userId, "equipment.v2", {
-        owned: [...owned, { iid, id: def.reward.equip }],
+        owned: [...owned, mintEquipInstance(def.reward.equip)],
         equipped,
       });
       grantedEquip = def.reward.equip;

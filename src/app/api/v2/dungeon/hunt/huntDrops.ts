@@ -14,18 +14,14 @@ import {
   rollSummonScrollDrop,
 } from "@/adventure/data/v2/coopBosses";
 import { rollEnhanceStoneDrops } from "@/adventure/data/v2/v2Enhance";
-import {
-  rollItemStats,
-  rollReforgeStoneDrops,
-} from "@/adventure/data/v2/v2EquipVariance";
+import { rollReforgeStoneDrops } from "@/adventure/data/v2/v2EquipVariance";
 import { rollSettlementMaterialDrops } from "@/adventure/data/v2/settlementMaterials";
 import { rollGuildWorkshopMaterialDrops } from "@/adventure/data/v2/guildWorkshopMaterials";
 import {
-  V2_EQUIPMENT,
-  genEquipIid,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 
 export type HuntDropResult = {
@@ -114,14 +110,7 @@ export function rollHuntDrops(params: {
       rollBandCommonDrop(depth, Math.random, mapDropMult);
     if (droppedEquipment !== null) {
       // 드랍 = 새 개체 + 새 굴림(±편차).
-      nextOwned = [
-        ...nextOwned,
-        {
-          iid: genEquipIid(),
-          id: droppedEquipment,
-          roll: rollItemStats(V2_EQUIPMENT[droppedEquipment], Math.random),
-        },
-      ];
+      nextOwned = [...nextOwned, mintRolledEquipInstance(droppedEquipment)];
       ownedSet.add(droppedEquipment);
     }
     // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 정규 장비와 둘 다 떨어질 수도.
@@ -134,14 +123,7 @@ export function rollHuntDrops(params: {
       rollBandUniqueDrop(depth, ownedSet, Math.random, mapUniqueMult) ??
       rollUniqueDrop(dropFloor, ownedSet, Math.random, mapUniqueMult);
     if (droppedUnique !== null) {
-      nextOwned = [
-        ...nextOwned,
-        {
-          iid: genEquipIid(),
-          id: droppedUnique,
-          roll: rollItemStats(V2_EQUIPMENT[droppedUnique], Math.random),
-        },
-      ];
+      nextOwned = [...nextOwned, mintRolledEquipInstance(droppedUnique)];
     }
   }
 

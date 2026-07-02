@@ -19,6 +19,12 @@ vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async (_tx: unknown, u: string, key: string, v: unknown) => {
     savesStore.set(`${u}::${key}`, v);
   }),
+  // equipGrant.appendEquipInstances(장비 지급 공용 경로)의 잠금 read — 같은 savesStore 를
+  // 보게 해 "쓴 값이 다음 읽기에 보인다"까지 검증.
+  lockSaveForUpdate: vi.fn(
+    async (_tx: unknown, u: string, key: string, fallback: unknown) =>
+      savesStore.get(`${u}::${key}`) ?? fallback,
+  ),
 }));
 vi.mock("@/db", async () => {
   const { marketplaceInbox } = await import("@/db/schema");

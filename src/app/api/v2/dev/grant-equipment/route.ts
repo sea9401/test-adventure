@@ -1,14 +1,8 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import {
-  V2_EQUIPMENT,
-  parseEquipmentSave,
-  genEquipIid,
-  type EquipmentSave,
-  type V2EquipmentId,
-} from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
+import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 
 // POST /api/v2/dev/grant-equipment — 테스트용 보유 추가.
 //
@@ -47,25 +41,9 @@ export async function POST(req: Request) {
   const equipmentId = body.equipmentId as V2EquipmentId;
 
   const result = await db.transaction(async (tx) => {
-    const save = await lockSaveForUpdate<EquipmentSave>(
-      tx,
-      userId,
-      "equipment.v2",
-      {},
-    );
-    const { owned, equipped } = parseEquipmentSave(save);
-    const nextOwned = [
-      ...owned,
-      {
-        iid: genEquipIid(),
-        id: equipmentId,
-        roll: rollItemStats(V2_EQUIPMENT[equipmentId], Math.random),
-      },
-    ];
-    await upsertSave(tx, userId, "equipment.v2", {
-      owned: nextOwned,
-      equipped,
-    });
+    const nextOwned = await appendEquipInstances(tx, userId, [
+      mintRolledEquipInstance(equipmentId),
+    ]);
     return { status: 200, body: { ok: true as const, owned: nextOwned } };
   });
 

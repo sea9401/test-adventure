@@ -56,10 +56,9 @@ import {
 } from "@/adventure/data/v2/artisanLeaderboard";
 import {
   V2_EQUIPMENT,
-  genEquipIid,
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
@@ -442,9 +441,7 @@ export async function POST(req: Request) {
     });
     const crafterName = profile?.name?.trim() || undefined;
     const craftedItem = {
-      iid: genEquipIid(),
-      id: recipe.equipmentId,
-      roll: rollItemStats(item, Math.random),
+      ...mintRolledEquipInstance(recipe.equipmentId),
       ...(craftQuality ? { craftQuality } : {}),
       craftedBy: {
         userId,

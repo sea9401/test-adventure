@@ -4,10 +4,10 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
-  genEquipIid,
   shopPriceOf,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/equipment — 마을 상점에서 T1~T5 장비 구매.
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       };
     }
     // 상점 구매는 굴림 없음(정가 고정) — roll 없는 개체.
-    const nextOwned = [...parsed.owned, { iid: genEquipIid(), id }];
+    const nextOwned = [...parsed.owned, mintEquipInstance(id)];
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped: parsed.equipped,

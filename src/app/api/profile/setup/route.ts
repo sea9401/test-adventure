@@ -6,7 +6,8 @@ import { checkSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
-import { genEquipIid } from "@/adventure/data/v2/v2Equipment";
+import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
 
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
       // 각 부위를 개체(iid)로 만들고 그 iid 를 슬롯에 장착. 시작 장비는 굴림 없음(기본값 고정).
       // equipment.v2 는 SYNCED_KEYS 화이트리스트에 없는 서버 권위 키라 STARTER_SAVES
       // (클라 부트스트랩) 경로로 시드 못 함. 신규 캐릭터 분기에서만 직접 박는다.
-      const starterDefs: Array<[string, string]> = [
+      const starterDefs: Array<[string, V2EquipmentId]> = [
         ["weapon", "v2_iron_sword"],
         ["armor", "v2_leather_armor"],
         ["gloves", "v2_leather_gloves"],
@@ -157,10 +158,8 @@ export async function POST(req: Request) {
         ["ring", "v2_silver_ring"],
         ["necklace", "v2_jade_amulet"],
       ];
-      const starterOwned = starterDefs.map(([, id]) => ({
-        iid: genEquipIid(),
-        id,
-      }));
+      // 시작 장비는 굴림 없음(기본값 고정) — mintEquipInstance 의 무굴림 모드.
+      const starterOwned = starterDefs.map(([, id]) => mintEquipInstance(id));
       const starterEquipped: Record<string, string> = {};
       starterDefs.forEach(([slot], i) => {
         starterEquipped[slot] = starterOwned[i].iid;

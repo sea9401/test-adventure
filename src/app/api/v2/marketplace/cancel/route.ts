@@ -4,15 +4,9 @@ import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import {
-  genEquipIid,
-  parseEquipmentSave,
-  parseEquipRoll,
-  parseCraftedBy,
-  parseInstanceCraftQuality,
-  type V2EquipmentId,
-} from "@/adventure/data/v2/v2Equipment";
-import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
+import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 
 // POST /api/v2/marketplace/cancel — 내 활성 매물 취소(에스크로 반환).
 //   body: { listingId:int }
@@ -59,41 +53,13 @@ export async function POST(req: Request) {
     }
 
     if (listing.kind === "equip") {
-      const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
-        tx,
-        userId,
-        "equipment.v2",
-        {},
-      );
-      const { owned, equipped } = parseEquipmentSave(equipSave);
-      // payload = 굴림(+강화+제작품질) — 옛 행은 raw roll. 방어 파스로 양형 흡수.
-      const payloadRaw = listing.instancePayload as
-        | (Record<string, unknown> & {
-            craftedBy?: unknown;
-            craftQuality?: unknown;
-            enhance?: unknown;
-          })
-        | null;
-      const roll = parseEquipRoll(payloadRaw ?? undefined);
-      const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
-      const craftQuality = parseInstanceCraftQuality(
-        payloadRaw?.craftQuality,
-        payloadRaw?.enhance,
-        craftedBy,
-      );
-      const enhance = craftQuality ? undefined : parseEnhance(payloadRaw?.enhance);
-      const nextOwned = [
-        ...owned,
-        {
-          iid: genEquipIid(),
-          id: listing.itemId as V2EquipmentId,
-          ...(roll ? { roll } : {}),
-          ...(enhance ? { enhance } : {}),
-          ...(craftQuality ? { craftQuality } : {}),
-          ...(craftedBy ? { craftedBy } : {}),
-        },
-      ];
-      await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });
+      // payload = 굴림(+강화+제작품질) — 옛 행은 raw roll. 방어 파스는 mintListedEquipInstance 공용.
+      await appendEquipInstances(tx, userId, [
+        mintListedEquipInstance(
+          listing.itemId as V2EquipmentId,
+          listing.instancePayload,
+        ),
+      ]);
     } else if (listing.kind === "consumable") {
       // 레어맵 반환 — 판수 소진/불량 스냅샷이면 parse 가 걸러 자연 소멸(반환 무의미,
       //   시간 만료는 폐지). 캡 초과 반환 허용(캡은 신규 드랍 롤만 게이트 — 회수는 안 막음).

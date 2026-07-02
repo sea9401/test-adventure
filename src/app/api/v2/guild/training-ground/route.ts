@@ -9,6 +9,7 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import {
   addCumLevel,
   addJobCumLevel,
@@ -53,16 +54,6 @@ type TrainingActivityMetaView = {
 
 type GuildTrainingDayWindow = ReturnType<typeof guildTrainingDayWindow>;
 
-async function getGuildIdForUser(userId: string): Promise<number | null> {
-  const row = (
-    await db
-      .select({ guildId: guildMembers.guildId })
-      .from(guildMembers)
-      .where(eq(guildMembers.userId, userId))
-      .limit(1)
-  )[0];
-  return row?.guildId ?? null;
-}
 
 function trainingGroundLevelFromBuildings(buildings: unknown): number {
   if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
@@ -239,7 +230,7 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
@@ -315,7 +306,7 @@ export async function POST(req: Request) {
   }
   const drillId = body.drillId;
 
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }

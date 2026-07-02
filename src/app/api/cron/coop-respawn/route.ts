@@ -1,5 +1,6 @@
 import { COOP_BOSSES } from "@/adventure/coop/data";
 import { respawnCoopRegion } from "@/lib/server/coopRespawn";
+import { requireCronAuth } from "@/lib/server/cronAuth";
 
 // 매분 실행 — 모든 region 에 대해 만료/처치 정리 + nextSpawnAt 도달한 곳 spawn.
 //
@@ -7,11 +8,8 @@ import { respawnCoopRegion } from "@/lib/server/coopRespawn";
 // 처리 — 같은 함수가 GET /api/coop/[region] 에서도 호출돼 self-healing. 두 경로
 // 모두 partial uniqueIndex 가 동시성 막아줌.
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const expected = process.env.CRON_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return new Response("unauthorized", { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   let expired = 0;
   let spawned = 0;

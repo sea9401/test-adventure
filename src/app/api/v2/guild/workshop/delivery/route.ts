@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages } from "@/db/schema";
+import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -26,17 +26,8 @@ import {
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
 import { V2_EQUIPMENT, parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
+import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 
-async function getGuildIdForUser(userId: string): Promise<number | null> {
-  const row = (
-    await db
-      .select({ guildId: guildMembers.guildId })
-      .from(guildMembers)
-      .where(eq(guildMembers.userId, userId))
-      .limit(1)
-  )[0];
-  return row?.guildId ?? null;
-}
 
 function guildSmithyLevelFromBuildings(buildings: unknown): number {
   if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
@@ -67,7 +58,7 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
@@ -121,7 +112,7 @@ export async function POST(req: Request) {
   }
   const deliveryId = body.deliveryId;
   const iid = body.iid;
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }

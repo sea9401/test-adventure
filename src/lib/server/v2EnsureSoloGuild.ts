@@ -1,9 +1,9 @@
 import { eq, sql } from "drizzle-orm";
-import type { db as dbType } from "@/db";
+import { db } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
 import { convertSoloTilesToGuild } from "./tileOccupation";
 
-type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // 현재 user 의 guildId 조회 (없으면 null = 무소속).
 // v2 는 더 이상 자동 솔로 길드를 만들지 않는다 — 명시적 생성/가입만.
@@ -17,6 +17,18 @@ export async function getGuildId(
     .where(eq(guildMembers.userId, userId))
     .limit(1);
   return existing[0]?.guildId ?? null;
+}
+
+// 위와 동일하되 트랜잭션 밖(db 직접) — 길드 워크숍/훈련장 라우트가 각자 재구현하던 것(2026-07 통합).
+export async function getGuildIdByUser(userId: string): Promise<number | null> {
+  const row = (
+    await db
+      .select({ guildId: guildMembers.guildId })
+      .from(guildMembers)
+      .where(eq(guildMembers.userId, userId))
+      .limit(1)
+  )[0];
+  return row?.guildId ?? null;
 }
 
 // 길드 생성 — POST /api/v2/guild/create 가 호출. 이름 중복 23505 throw → 호출자가

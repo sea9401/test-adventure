@@ -8,6 +8,7 @@ import {
   marketplaceInbox,
 } from "@/db/schema";
 import { GUILD_DISBANDED_NAME_HOLD_DAYS } from "@/adventure/data/guild";
+import { requireCronAuth } from "@/lib/server/cronAuth";
 
 // Phase 1 cron — 매일 1회.
 //   1) 만료된 pending 초대장 → status='expired' (우편함 row 도 같이 claim 처리)
@@ -17,11 +18,8 @@ import { GUILD_DISBANDED_NAME_HOLD_DAYS } from "@/adventure/data/guild";
 //   4) 만료된 leave_cooldown row 정리
 // 30일 미접속 자동 해체/위임은 Phase 2.
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const expected = process.env.CRON_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return new Response("unauthorized", { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const now = new Date();
 

@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages } from "@/db/schema";
+import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import {
   guildSmithyUpgradeForLevel,
   settlementBuildingIdOf,
@@ -34,16 +35,6 @@ type CharacterSaveWithMaterials = {
   [key: string]: unknown;
 };
 
-async function getGuildIdForUser(userId: string): Promise<number | null> {
-  const row = (
-    await db
-      .select({ guildId: guildMembers.guildId })
-      .from(guildMembers)
-      .where(eq(guildMembers.userId, userId))
-      .limit(1)
-  )[0];
-  return row?.guildId ?? null;
-}
 
 function guildSmithyLevelFromBuildings(buildings: unknown): number {
   if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
@@ -131,7 +122,7 @@ export async function GET() {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
 
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) return bad("no_guild", 403);
   const smithyLevel = await guildSmithyLevel(guildId);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
@@ -180,7 +171,7 @@ export async function POST(req: Request) {
     typeof body.iid === "string" && body.iid.length > 0 ? body.iid : null;
   if (!iid) return bad("invalid_iid");
 
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) return bad("no_guild", 403);
   const smithyLevel = await guildSmithyLevel(guildId);
   if (smithyLevel <= 0) return bad("smithy_required", 403);

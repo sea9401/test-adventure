@@ -1,6 +1,4 @@
-import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   lockGuildResources,
@@ -8,6 +6,7 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import {
   currentGuildWorkshopWeek,
   lockGuildWorkshopWeeklyState,
@@ -21,23 +20,13 @@ import {
   isGuildWorkshopWeeklyQuestId,
 } from "@/adventure/data/v2/guildWorkshopWeekly";
 
-async function getGuildIdForUser(userId: string): Promise<number | null> {
-  const row = (
-    await db
-      .select({ guildId: guildMembers.guildId })
-      .from(guildMembers)
-      .where(eq(guildMembers.userId, userId))
-      .limit(1)
-  )[0];
-  return row?.guildId ?? null;
-}
 
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
@@ -74,7 +63,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }

@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -925,15 +926,86 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
   const clearTileActionError = useCallback(() => setTileActionError(null), []);
 
-  // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
-  const playerLevelText = viewerLevelCap
-    ? `Lv ${viewerLevel} / ${viewerLevelCap}`
-    : `Lv.${viewerLevel}`;
-  const playerSubtitle = `${playerLevelText} · ${
-    viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
-  } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
-
-  const value: GameStateValue = {
+  // 컨텍스트 value 메모이제이션 — 상태가 실제로 바뀔 때만 새 객체. 프로바이더가 부모
+  // (레이아웃/라우트 전환 등) 재렌더에 휩쓸릴 때 소비 32개 컴포넌트로 전파되는 것을 차단.
+  // setXxx(React setter)와 useCallback 핸들러들은 참조가 안정적이라 deps 여도 재계산 원인이 안 됨.
+  // ⚠️ 근본 개선(자주 바뀌는 자원 vs 정적 신원 컨텍스트 분리)은 소비처 32곳 수술이라
+  //    실측 병목이 확인되면 후속 — 여기서는 참조 안정화까지만.
+  const value: GameStateValue = useMemo(() => {
+    // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
+    const playerLevelText = viewerLevelCap
+      ? `Lv ${viewerLevel} / ${viewerLevelCap}`
+      : `Lv.${viewerLevel}`;
+    const playerSubtitle = `${playerLevelText} · ${
+      viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
+    } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
+    return {
+      viewerUserId,
+      viewerGuildId,
+      viewerName,
+      accountName,
+      viewerGender,
+      viewerLevel,
+      viewerLevelCap,
+      viewerClass,
+      viewerElement,
+      viewerExp,
+      viewerExpToNext,
+      playerSubtitle,
+      viewerProficiency,
+      setViewerProficiency,
+      currentOutpost,
+      setCurrentOutpost,
+      stamina,
+      staminaMax,
+      setStamina,
+      staminaPotions,
+      hpCharges,
+      mpCharges,
+      hp,
+      setHp,
+      gold,
+      bankedGold,
+      spendableGold: coreLoopOn ? gold + bankedGold : gold,
+      setGold,
+      setBankedGold,
+      coreLoopOn,
+      huntStaminaMode,
+      combatCooldown,
+      setCombatCooldown,
+      offlinePending,
+      setOfflinePending,
+      offlineHunt,
+      setOfflineHunt,
+      atRiskGold,
+      setAtRiskGold,
+      mp,
+      setMp,
+      playerCombat,
+      discoveredIds,
+      setDiscoveredIds,
+      occupations,
+      treasuries,
+      refreshOccupations,
+      refreshGuildId,
+      refreshGameState,
+      applyResourcePatch,
+      gameStateLoaded,
+      frontierDepth,
+      setFrontierDepth,
+      enterOutpost,
+      travelTo,
+      tilePos,
+      setTilePos,
+      travelToTile,
+      tileSettlements,
+      foundTile,
+      promoteTile,
+      demolishTile,
+      tileActionError,
+      clearTileActionError,
+    };
+  }, [
     viewerUserId,
     viewerGuildId,
     viewerName,
@@ -945,7 +1017,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerElement,
     viewerExp,
     viewerExpToNext,
-    playerSubtitle,
+    viewerJobName,
     viewerProficiency,
     setViewerProficiency,
     currentOutpost,
@@ -960,10 +1032,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setHp,
     gold,
     bankedGold,
-    spendableGold: coreLoopOn ? gold + bankedGold : gold,
+    coreLoopOn,
     setGold,
     setBankedGold,
-    coreLoopOn,
     huntStaminaMode,
     combatCooldown,
     setCombatCooldown,
@@ -998,7 +1069,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     demolishTile,
     tileActionError,
     clearTileActionError,
-  };
+  ]);
 
   return (
     <GameStateCtx.Provider value={value}>{children}</GameStateCtx.Provider>

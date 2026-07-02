@@ -18,6 +18,7 @@ import {
 import { recordOutpostAttack } from "@/lib/server/outpostWar";
 import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 import { insertNotification } from "@/lib/server/v2Notifications";
+import { requireCronAuth } from "@/lib/server/cronAuth";
 // PR-7b: 병사 시스템 폐기 — applySoldierBoost / readGuildResources soldiers 보정 제거.
 // 점령자 영웅 단신으로 NPC 챔피언과 단판.
 
@@ -37,12 +38,8 @@ import { insertNotification } from "@/lib/server/v2Notifications";
 //   - 길드 점령 (occupiedByGuildId) 처리 X (현재 솔로 점령만)
 
 export async function POST(req: Request) {
-  // CRON_SECRET 검증
-  const auth = req.headers.get("authorization") ?? "";
-  const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
-  if (!process.env.CRON_SECRET || auth !== expected) {
-    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const now = new Date();
   // 평가 대상 거점들 (점령됨 + nextAttackAt 지남).

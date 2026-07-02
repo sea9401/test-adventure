@@ -6,13 +6,11 @@
 // 중복/재실행해도 두 번 지급되지 않는다.
 
 import { grantPendingSeasonRewards } from "@/lib/server/pvp/seasonRewards";
+import { requireCronAuth } from "@/lib/server/cronAuth";
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const expected = process.env.CRON_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return new Response("unauthorized", { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const { closed, results } = await grantPendingSeasonRewards(new Date());
 

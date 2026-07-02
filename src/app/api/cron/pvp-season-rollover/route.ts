@@ -1,3 +1,4 @@
+import { requireCronAuth } from "@/lib/server/cronAuth";
 // GET /api/cron/pvp-season-rollover — 매주 월요일 00:02 KST (= UTC 일요일 15:02) 실행.
 //
 // 1) 만료된 active 시즌 → closed 로 마킹 (closeExpiredSeasons)
@@ -16,11 +17,8 @@ import {
 } from "@/lib/server/pvp/season";
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const expected = process.env.CRON_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return new Response("unauthorized", { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const now = new Date();
   const closed = await closeExpiredSeasons(now);

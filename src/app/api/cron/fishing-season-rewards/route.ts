@@ -4,13 +4,11 @@
 // rewardsGrantedAt 으로 시즌당 1회 idempotent — 중복/재실행해도 두 번 지급되지 않는다.
 
 import { grantPendingFishingRewards } from "@/lib/server/fishing/seasonRewards";
+import { requireCronAuth } from "@/lib/server/cronAuth";
 
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const expected = process.env.CRON_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return new Response("unauthorized", { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const { results } = await grantPendingFishingRewards(new Date());
 

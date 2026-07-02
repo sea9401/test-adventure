@@ -7,6 +7,7 @@ import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { MARKETPLACE_V2_LISTING_TTL_DAYS } from "@/lib/server/marketplaceV2";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import { requireCronAuth } from "@/lib/server/cronAuth";
 
 // POST /api/v2/cron/marketplace-expire — 만료 매물 sweep (cron 주기 호출, 예: 매시간). CRON_SECRET.
 //   등록 후 TTL(MARKETPLACE_V2_LISTING_TTL_DAYS) 지난 active 매물을 판매자에게 반환(장비=새 개체,
@@ -22,10 +23,8 @@ type CharSave = {
 const BATCH = 200; // 1회 처리 상한(폭주/장기 tx 방지 — 다음 cron 이 나머지 처리).
 
 export async function POST(req: Request) {
-  const auth = req.headers.get("authorization") ?? "";
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
   const cutoff = new Date(Date.now() - MARKETPLACE_V2_LISTING_TTL_DAYS * 24 * 60 * 60 * 1000);
 

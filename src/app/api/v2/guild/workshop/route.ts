@@ -59,22 +59,13 @@ import {
   parseEquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 
 type CharacterSaveWithMaterials = {
   materials?: unknown;
   [key: string]: unknown;
 };
 
-async function getGuildIdForUser(userId: string): Promise<number | null> {
-  const row = (
-    await db
-      .select({ guildId: guildMembers.guildId })
-      .from(guildMembers)
-      .where(eq(guildMembers.userId, userId))
-      .limit(1)
-  )[0];
-  return row?.guildId ?? null;
-}
 
 function guildSmithyLevelFromBuildings(buildings: unknown): number {
   if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
@@ -175,7 +166,7 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
@@ -265,7 +256,7 @@ export async function POST(req: Request) {
   const recipe = GUILD_WORKSHOP_RECIPES[body.recipeId];
   const craftMode = isGuildWorkshopCraftMode(body.mode) ? body.mode : "normal";
 
-  const guildId = await getGuildIdForUser(userId);
+  const guildId = await getGuildIdByUser(userId);
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }

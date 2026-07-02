@@ -14,24 +14,7 @@ export type TrainingDrillView = {
   available: boolean;
   lockedReason: string | null;
   rewardMastery: number;
-};
-
-export type TrainingGuildSummary = {
-  dayKey: string;
-  memberCount: number;
-  participatedMemberCount: number;
-  pendingMemberCount: number;
-  completionCount: number;
-  dailyClaimLimit: number;
-  maxCompletionCount: number;
-  totalMastery: number;
-  recent: {
-    id: number;
-    actorName: string;
-    drillTitle: string;
-    rewardMastery: number;
-    createdAt: string;
-  }[];
+  recommended?: boolean;
 };
 
 export type TrainingState = {
@@ -44,12 +27,42 @@ export type TrainingState = {
     trainingRewardBonusPct: number;
     unlockedDrillCount: number;
   };
+  nextUpgrade?: {
+    level: number;
+    label: string;
+    trainingRewardBonusPct: number;
+    unlockedDrillCount: number;
+    costText: string;
+    summary: string;
+  } | null;
   currentJob?: { id: string; name: string; mastery: number | null } | null;
   claimedCount?: number;
   availableCount?: number;
   remainingClaims?: number;
   claimableCount?: number;
-  guildSummary?: TrainingGuildSummary;
+  recommendedDrillId?: GuildTrainingDrillId | null;
+  weekly?: {
+    weekKey: string;
+    completed: number;
+    target: number;
+    bonusMastery: number;
+    bonusClaimed: boolean;
+  };
+  goals?: {
+    nextSp?: {
+      currentMilestoneSp: number;
+      nextMilestoneSp: number;
+      requiredCumLevel: number;
+      remainingCumLevel: number;
+    } | null;
+    nextJob?: {
+      jobId: string;
+      name: string;
+      requiredMastery: number;
+      currentMastery: number;
+      remainingMastery: number;
+    } | null;
+  };
   drills?: TrainingDrillView[];
 };
 

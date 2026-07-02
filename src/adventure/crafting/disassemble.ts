@@ -13,7 +13,7 @@ import type { MaterialId } from "../data/materials";
 import type { CraftTier } from "../data/craftQuality";
 import type { DropQuality } from "../data/dropQuality";
 import type { EquippedSlots } from "../character/types";
-import type { InventoryState } from "../inventory/useInventory";
+import type { InventoryState } from "../inventory/state";
 
 // ── 수율 테이블 ─────────────────────────────────────────────────────────
 // rarity 미지정 장비(common 으로 취급) 는 1, 그 외 단조 증가. unique 는 "유실된
@@ -212,7 +212,7 @@ export function planDisassemble(
 
 /**
  * 계획을 받아 새 InventoryState 를 산출. 입력은 변경하지 않는다(immutable).
- * 잔량 비면 키를 삭제 — useInventory 의 consume 패턴과 동일.
+ * 잔량 비면 키를 삭제 — 인벤 consume 계열과 동일한 규약.
  */
 export function applyDisassemble(
   plan: DisassemblePlan,

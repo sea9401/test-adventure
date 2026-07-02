@@ -9,8 +9,8 @@ import {
 
 export type { EquipmentSave };
 
-// GET /api/v2/me/equipment — V2EquipmentView 의 자체 fetch.
-// 보유 목록 + 슬롯별 현재 장착.
+// GET /api/v2/me/equipment — 장비 보유/장착 상태 공용 fetch.
+// V2InventoryView·V2ShopView·V2EnhanceView·V2CharacterScreen·V2CodexView·V2MarketplaceView 가 사용.
 //
 // 저장: save key `equipment.v2` = { owned: V2EquipmentId[], equipped: {slot → id} }.
 // 파싱(parseEquipmentSave) 은 v2Equipment.ts 로 옮겨 derive 와 공유한다.

@@ -6,7 +6,7 @@ import {
   parseVaultVariantKey,
   inventoryCountFor,
 } from "./vaultOps";
-import type { InventoryState } from "./useInventory";
+import type { InventoryState } from "./state";
 
 function emptyInv(): InventoryState {
   return {

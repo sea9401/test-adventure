@@ -7,7 +7,7 @@ import {
   RARITY_DUST_YIELD,
   type DisassembleRequest,
 } from "./disassemble";
-import { emptyInventory, type InventoryState } from "../inventory/useInventory";
+import { emptyInventory, type InventoryState } from "../inventory/state";
 import { ITEMS } from "../data/items";
 import type { EquippedSlots } from "../character/types";
 

@@ -53,8 +53,11 @@ export const db = new Proxy({} as ReturnType<typeof drizzle>, {
 // 이 검사는 `Object.getPrototypeOf(value).constructor` 체인을 따라간다 — 위 Proxy 는
 // 타깃이 `{}` 라 체인이 끊겨 "Unsupported database type" 으로 throw 된다.
 // 어댑터에는 실제 drizzle 인스턴스를 넘긴다 (요청 시점에만 호출 → 빌드 타임 DATABASE_URL 불필요).
+// NextAuth 팩토리가 요청마다 호출하므로 여기도 1회 생성 후 재사용 (Pool 은 어차피 공유).
+let cachedRaw: ReturnType<typeof drizzle> | null = null;
 export function rawDb(): ReturnType<typeof drizzle> {
-  return drizzle(getPool(), { schema });
+  if (!cachedRaw) cachedRaw = drizzle(getPool(), { schema });
+  return cachedRaw;
 }
 
 export { schema };

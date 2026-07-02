@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, NumberInput } from "../../ui/Field";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
-import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  v2EquipmentOptions,
+  v2MaterialOptions,
+} from "../../adminCatalogOptions";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import type { V2GrantPayload } from "./types";
 
@@ -20,17 +22,9 @@ export function V2GrantSection({
   readOnly: boolean;
   onGrant: (payload: V2GrantPayload) => void | Promise<void>;
 }) {
-  const materialOptions = useMemo(
-    () => Object.values(V2_MATERIALS).map((m) => ({ id: m.id, name: m.name })),
-    [],
-  );
-  const equipOptions = useMemo(
-    () =>
-      Object.values(V2_EQUIPMENT)
-        .map((e) => ({ id: e.id, name: e.name, tier: e.tier, slot: e.slot }))
-        .sort((a, b) => a.tier - b.tier || a.slot.localeCompare(b.slot)),
-    [],
-  );
+  // 카탈로그 옵션 — BroadcastTab 과 공용(adminCatalogOptions).
+  const materialOptions = useMemo(() => v2MaterialOptions(), []);
+  const equipOptions = useMemo(() => v2EquipmentOptions(), []);
 
   const [materialId, setMaterialId] = useState<string>(
     materialOptions[0]?.id ?? "",
@@ -70,7 +64,7 @@ export function V2GrantSection({
           >
             {materialOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.name} ({o.id})
+                {o.label}
               </option>
             ))}
           </select>
@@ -101,7 +95,7 @@ export function V2GrantSection({
           >
             {equipOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                T{o.tier} · {o.slot} · {o.name} ({o.id})
+                {o.label}
               </option>
             ))}
           </select>

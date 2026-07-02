@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAdmin } from "../AdminContext";
+import { adminPost } from "../api";
 import { Button } from "../ui/Field";
 import { DangerAction } from "../ui/DangerAction";
 
@@ -89,22 +90,10 @@ export function SeasonOpsTab() {
     }
     setRunning(op);
     try {
-      const r = await fetch("/api/admin/season-ops", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op }),
-      });
-      const j = (await r.json()) as {
-        ok?: boolean;
-        summary?: Record<string, unknown>;
-        error?: string;
-      };
-      if (!r.ok || !j.ok) {
-        const msg = j.error ?? `HTTP ${r.status}`;
-        setResults((p) => ({ ...p, [op]: `실패: ${msg}` }));
-        showToast(`${op} 실패: ${msg}`);
-        return;
-      }
+      const j = await adminPost<{ summary?: Record<string, unknown> }>(
+        "/api/admin/season-ops",
+        { op },
+      );
       const text = formatSummary(op, j.summary ?? {});
       const stamped = `${text} — ${new Date().toLocaleTimeString("ko-KR")}`;
       setResults((p) => ({ ...p, [op]: stamped }));

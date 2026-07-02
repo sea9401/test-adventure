@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAdmin } from "../../AdminContext";
+import { adminGet, adminPost } from "../../api";
 import { Button, NumberInput, TextInput } from "../../ui/Field";
 import { DangerAction } from "../../ui/DangerAction";
 
@@ -50,11 +51,11 @@ export function SanctionsSection({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(
-        `/api/admin/sanctions?userId=${encodeURIComponent(userId)}`,
+      setStatus(
+        await adminGet<StatusResponse>(
+          `/api/admin/sanctions?userId=${encodeURIComponent(userId)}`,
+        ),
       );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setStatus((await r.json()) as StatusResponse);
     } catch (e) {
       showToast(`제재 조회 실패: ${e instanceof Error ? e.message : "오류"}`);
     } finally {
@@ -71,13 +72,7 @@ export function SanctionsSection({
   const act = async (action: "ban" | "suspend" | "warn" | "lift") => {
     setBusy(true);
     try {
-      const r = await fetch("/api/admin/sanctions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, action, reason, days }),
-      });
-      const j = (await r.json()) as { ok?: boolean; error?: string };
-      if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      await adminPost("/api/admin/sanctions", { userId, action, reason, days });
       const label =
         action === "lift" ? "제재 해제" : (TYPE_LABELS[action] ?? action);
       showToast(`${label} 적용 완료`);

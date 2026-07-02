@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAdmin } from "../AdminContext";
+import { adminGet, adminPost } from "../api";
 import { Button, TextInput } from "../ui/Field";
 import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
 import type { Profile } from "@/adventure/profile/useProfile";
@@ -40,11 +41,11 @@ export function UsersTab() {
     setSearchLoading(true);
     setSearchError(null);
     try {
-      const r = await fetch(
-        `/api/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+      setUsers(
+        await adminGet<AdminUserRow[]>(
+          `/api/admin/users${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+        ),
       );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setUsers((await r.json()) as AdminUserRow[]);
     } catch (e) {
       setSearchError(e instanceof Error ? e.message : "검색 실패");
       setUsers([]);
@@ -65,11 +66,11 @@ export function UsersTab() {
     setSavesError(null);
     setSaves(null);
     try {
-      const r = await fetch(
-        `/api/admin/saves?userId=${encodeURIComponent(userId)}`,
+      setSaves(
+        await adminGet<SavesMap>(
+          `/api/admin/saves?userId=${encodeURIComponent(userId)}`,
+        ),
       );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setSaves((await r.json()) as SavesMap);
     } catch (e) {
       setSavesError(e instanceof Error ? e.message : "로드 실패");
     } finally {
@@ -130,14 +131,7 @@ export function UsersTab() {
   const grantV2 = async (payload: V2GrantPayload) => {
     if (!selected) return;
     try {
-      const r = await fetch("/api/admin/v2-grant", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId: selected.id, ...payload }),
-      });
-      const j = (await r.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
+      const j = await adminPost<{
         hpCharges?: number;
         mpCharges?: number;
         proficiencyEarned?: number | null;
@@ -145,10 +139,7 @@ export function UsersTab() {
         equipmentNoOp?: boolean;
         materials?: Record<string, number>;
         staminaRefilled?: number;
-      } | null;
-      if (!r.ok || !j?.ok) {
-        throw new Error(j?.error ?? `HTTP ${r.status}`);
-      }
+      }>("/api/admin/v2-grant", { userId: selected.id, ...payload });
       const parts: string[] = [];
       if (j.materials) parts.push("재료");
       if (j.hpCharges != null) parts.push(`HP충전 ${j.hpCharges}`);
@@ -179,25 +170,20 @@ export function UsersTab() {
     );
     if (input == null) return; // 취소
     try {
-      const r = await fetch("/api/admin/reset-character", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId: selected.id, confirm: input }),
-      });
-      const j = (await r.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
+      const j = await adminPost<{
         deletedKeys?: number;
         guildDeleted?: boolean;
         leftGuildOnly?: boolean;
-      } | null;
-      if (!r.ok || !j?.ok) {
-        throw new Error(
-          j?.error === "confirm_mismatch"
-            ? "닉네임 불일치"
-            : (j?.error ?? `HTTP ${r.status}`),
-        );
-      }
+      }>("/api/admin/reset-character", {
+        userId: selected.id,
+        confirm: input,
+      }).catch((e: unknown) => {
+        // 알려진 실패 코드는 사람 보기 좋게 변환.
+        if (e instanceof Error && e.message === "confirm_mismatch") {
+          throw new Error("닉네임 불일치");
+        }
+        throw e;
+      });
       const parts: string[] = [`세이브 ${j.deletedKeys ?? 0}개 삭제`];
       if (j.guildDeleted) parts.push("1인 길드 해체");
       if (j.leftGuildOnly) parts.push("길드 탈퇴");

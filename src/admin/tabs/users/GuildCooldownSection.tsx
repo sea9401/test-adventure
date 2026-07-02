@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAdmin } from "../../AdminContext";
+import { adminGet } from "../../api";
 import { Button } from "../../ui/Field";
 
 // 길드 탈퇴/추방 쿨다운 — 현재 만료 시각 표시 + 즉시 초기화. guild_leave_cooldown 테이블
@@ -21,11 +22,9 @@ export function GuildCooldownSection({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch(
+      const j = await adminGet<{ cooldownUntil: string | null }>(
         `/api/admin/users/guild-cooldown?userId=${encodeURIComponent(userId)}`,
       );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = (await r.json()) as { cooldownUntil: string | null };
       setUntil(j.cooldownUntil);
     } catch (e) {
       showToast(`쿨다운 조회 실패: ${e instanceof Error ? e.message : "오류"}`);

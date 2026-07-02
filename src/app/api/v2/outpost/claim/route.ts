@@ -4,7 +4,6 @@ import {
   guildMembers,
   guilds,
   outpostOccupations,
-  outpostClaimAttempts,
   outpostTreasury,
   savesKv,
 } from "@/db/schema";
@@ -24,6 +23,12 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
+import {
+  captureOutpostOccupation,
+  recordOutpostAttack,
+  replayEnvelope,
+} from "@/lib/server/outpostWar";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -65,7 +70,6 @@ import {
   toReplayPayload,
   toPvpReplayPayload,
   type ReplayPayload,
-  type StoredReplayEnvelope,
 } from "@/adventure/data/v2/replayPayload";
 import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 
@@ -463,10 +467,7 @@ export async function POST(req: Request) {
           defenderStanced,
           playerName,
           defenderLabel,
-          {
-            pickAction: () => ({ kind: "attack" }),
-            potions: { p1: {}, p2: {} },
-          },
+          autoDuelContext(),
         );
         duelWonByAttacker = pvp.outcome === "p1_win";
         turns = pvp.turns;
@@ -502,7 +503,7 @@ export async function POST(req: Request) {
 
     // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷.
     // 보존은 거점당 최신 N 건 (tx 후 trim).
-    await tx.insert(outpostClaimAttempts).values({
+    await recordOutpostAttack(tx, {
       outpostId: outpost.id,
       attackerUserId: userId,
       attackerGuildId,
@@ -510,13 +511,7 @@ export async function POST(req: Request) {
       defenderUserId: defenderUserIdForLog!,
       won: won!,
       turns: turns!,
-      replay: replay
-        ? ({
-            payload: replay,
-            playerName,
-            gender: playerGender,
-          } satisfies StoredReplayEnvelope)
-        : null,
+      replay: replayEnvelope(replay, playerName, playerGender),
     });
 
     // 점령/공성 처리 (docs/v2-outpost-siege-plan.md).
@@ -544,22 +539,17 @@ export async function POST(req: Request) {
         // 공성 — 승리 1회당 성벽 siegeDamage(전투력 비율) 감소.
         const damaged = Math.max(0, fortHpAfter - siegeDamage(myPower, outpostDefense));
         if (damaged <= 0) {
-          // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막.
+          // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막(attack 정복 인수와 공용 규칙).
           captured = true;
-          await tx
-            .update(outpostOccupations)
-            .set({
-              occupiedByUserId: userId,
-              occupiedByGuildId: attackerGuildId,
-              occupiedAt: newOccupiedAt,
-              policy: "open",
-              taxRate: "0.100",
-              nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-              fortHp: fortMaxHp,
-              fortUpdatedAt: newOccupiedAt,
-              protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
-            })
-            .where(eq(outpostOccupations.outpostId, outpost.id));
+          await captureOutpostOccupation(tx, {
+            outpostId: outpost.id,
+            newOwnerUserId: userId,
+            newOwnerGuildId: attackerGuildId,
+            tier: outpost.tier,
+            fortMaxHp,
+            occupiedAt: newOccupiedAt,
+            nowMs: now,
+          });
           occupation = {
             outpostId: outpost.id,
             occupiedByUserId: userId,

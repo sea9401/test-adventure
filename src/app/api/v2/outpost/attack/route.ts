@@ -1,7 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
-  outpostClaimAttempts,
   outpostDefenders,
   outpostOccupations,
   outpostTreasury,
@@ -13,6 +12,12 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
+import {
+  captureOutpostOccupation,
+  recordOutpostAttack,
+  replayEnvelope,
+} from "@/lib/server/outpostWar";
 import { applyStance } from "@/adventure/character/stance";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -25,7 +30,6 @@ import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 import {
   toPvpReplayPayload,
   type ReplayPayload,
-  type StoredReplayEnvelope,
 } from "@/adventure/data/v2/replayPayload";
 import {
   resolveOutpostMeta,
@@ -48,11 +52,9 @@ import {
   tileFortMaxHp,
   siegeDamage,
   undefendedSiegeDamage,
-  POST_CAPTURE_PROTECT_MS,
 } from "@/adventure/data/v2/outpostSiege";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
-import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
   lockVillage,
   upsertVillage,
@@ -393,10 +395,7 @@ export async function POST(req: Request) {
             defenderStanced,
             attackerName,
             defenderName,
-            {
-              pickAction: () => ({ kind: "attack" }),
-              potions: { p1: {}, p2: {} },
-            },
+            autoDuelContext(),
           );
           won = pvp.outcome === "p1_win";
           replay = toPvpReplayPayload(pvp.finalState, defenderName, 200);
@@ -498,9 +497,9 @@ export async function POST(req: Request) {
       // 수비 성공분을 점령 길드 누적 명성에 가산(앞으로만). guild_resources 다음(락 순서).
       await addGuildFame(tx, defenderGuildId, defenderFameDelta);
 
-      // 공격 기록(최근 공격 기록 탭) — 실제 전투가 있었던 약탈만(무혈/스테일 수비자 제외). claim 미러.
+      // 공격 기록(최근 공격 기록 탭) — 실제 전투가 있었던 약탈만(무혈/스테일 수비자 제외).
       if (raidBattled) {
-        await tx.insert(outpostClaimAttempts).values({
+        await recordOutpostAttack(tx, {
           outpostId: outpost.id,
           attackerUserId: userId,
           attackerGuildId,
@@ -508,13 +507,7 @@ export async function POST(req: Request) {
           defenderUserId: defender1Id,
           won,
           turns: raidTurns,
-          replay: replay
-            ? ({
-                payload: replay,
-                playerName: attackerName,
-                gender: attackerGender,
-              } satisfies StoredReplayEnvelope)
-            : null,
+          replay: replayEnvelope(replay, attackerName, attackerGender),
         });
       }
 
@@ -584,7 +577,7 @@ export async function POST(req: Request) {
         defenderStanced,
         attackerName,
         dName,
-        { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
+        autoDuelContext(),
       );
       lastPvp = pvp;
       lastDefenderName = dName;
@@ -706,21 +699,16 @@ export async function POST(req: Request) {
           }
           fortHpAfter = 0;
         } else {
-          // 길드 공격자 = 인수 — 소유 이전 + 성벽 풀충전 + 보호막.
-          await tx
-            .update(outpostOccupations)
-            .set({
-              occupiedByUserId: userId,
-              occupiedByGuildId: attackerGuildId,
-              occupiedAt: newOccupiedAt,
-              policy: "open",
-              taxRate: "0.100",
-              nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-              fortHp: fortMaxHp,
-              fortUpdatedAt: newOccupiedAt,
-              protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
-            })
-            .where(eq(outpostOccupations.outpostId, outpost.id));
+          // 길드 공격자 = 인수 — 소유 이전 + 성벽 풀충전 + 보호막(claim 함락과 공용 규칙).
+          await captureOutpostOccupation(tx, {
+            outpostId: outpost.id,
+            newOwnerUserId: userId,
+            newOwnerGuildId: attackerGuildId,
+            tier: outpost.tier,
+            fortMaxHp,
+            occupiedAt: newOccupiedAt,
+            nowMs: now,
+          });
           fortHpAfter = fortMaxHp;
 
           // 타일 정착지 함락 — tier 1단계 강등(tile_settlements) + 소유자=정복자(userId 갱신).
@@ -811,7 +799,7 @@ export async function POST(req: Request) {
     const conquestReplay = lastPvp
       ? toPvpReplayPayload(lastPvp.finalState, lastDefenderName ?? "수비대", 200)
       : null;
-    await tx.insert(outpostClaimAttempts).values({
+    await recordOutpostAttack(tx, {
       outpostId: outpost.id,
       attackerUserId: userId,
       attackerGuildId,
@@ -819,13 +807,7 @@ export async function POST(req: Request) {
       defenderUserId: lastDefenderId,
       won: clearedQueue,
       turns: lastPvp?.turns ?? 0,
-      replay: conquestReplay
-        ? ({
-            payload: conquestReplay,
-            playerName: attackerName,
-            gender: attackerGender,
-          } satisfies StoredReplayEnvelope)
-        : null,
+      replay: replayEnvelope(conquestReplay, attackerName, attackerGender),
     });
 
     return {

@@ -11,7 +11,7 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
 
-// 비밀 상점 — 「비밀 상점의 지도」로 입장. 품목당 1회 구매, 지도 사용 횟수가 남는 한 재방문 가능.
+// 비밀 상점 — 「비밀 상점의 지도」로 입장. map 생략 시 서버가 유효한 지도를 자동 선택한다.
 // 서버(/api/v2/secret-shop)가 지도 소유/품목 중복을 권위 검증.
 
 type StockRow = SecretShopItem & { bought: boolean };
@@ -32,6 +32,7 @@ export function V2SecretShopView({
   const [stock, setStock] = useState<StockRow[] | null>(null);
   const [gold, setGold] = useState<number | null>(null);
   const [bankedGold, setBankedGold] = useState(0);
+  const [activeMapIid, setActiveMapIid] = useState(mapIid);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);
@@ -43,6 +44,7 @@ export function V2SecretShopView({
       );
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
+        map?: string;
         stock?: StockRow[];
         gold?: number;
         bankedGold?: number;
@@ -51,6 +53,7 @@ export function V2SecretShopView({
         setDenied(true);
         return;
       }
+      setActiveMapIid(j.map ?? mapIid);
       setStock(j.stock ?? []);
       setGold(j.gold ?? 0);
       setBankedGold(j.bankedGold ?? 0);
@@ -76,16 +79,18 @@ export function V2SecretShopView({
       const res = await fetch("/api/v2/secret-shop", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ map: mapIid, itemId: item.id }),
+        body: JSON.stringify({ map: activeMapIid, itemId: item.id }),
       });
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        map?: string;
         gold?: number;
         bankedGold?: number;
         mapConsumed?: boolean;
       } | null;
       if (j?.ok) {
+        if (typeof j.map === "string") setActiveMapIid(j.map);
         setMsg(
           `✓ ${item.name} 구매${j.mapConsumed ? " — 모든 품목을 구매해 지도가 바스러졌다" : ""}`,
         );
@@ -138,7 +143,7 @@ export function V2SecretShopView({
       />
       {gold != null && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          품목당 1회 구매 · 지도가 닳기 전까지 재방문 가능
+          품목당 1회 구매 · 지도는 발견 후 1시간 동안 유효
         </p>
       )}
 

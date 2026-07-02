@@ -155,6 +155,7 @@ export const RARE_MAP_KIND_IDS = Object.keys(
 
 // 보유 캡 — 가득이면 추가 드랍 롤 자체를 건너뛴다(유실 아님 — 롤 미발생).
 export const RARE_MAP_CAP = 5;
+export const SECRET_SHOP_MAP_TTL_MS = 60 * 60 * 1000;
 
 // 보유 개체 — character.v2.rareMaps 배열의 한 항목. 장비 개체(iid)와 같은 모델.
 export type RareMapInstance = {
@@ -190,11 +191,10 @@ export function newRareMapInstance(
   };
 }
 
-// save 값 파싱 — 형식 불량/소진 항목을 비파괴로 걸러낸 새 배열.
-// (소진 purge 는 read 시 lazy — hunt 가 매번 파싱 결과를 다시 저장하므로 자연 정리.)
-// 🔑 만료(시간 제한) 폐지(2026-06-22) — 소모품이라 편할 때 사용. _now 는 호출부 호환용(미사용).
-export function parseRareMaps(v: unknown, _now: number): RareMapInstance[] {
-  void _now; // 시그니처 호환용(만료 폐지로 미사용)
+// save 값 파싱 — 형식 불량/소진/만료 항목을 비파괴로 걸러낸 새 배열.
+// (소진/만료 purge 는 read 시 lazy — hunt/secret-shop 이 파싱 결과를 다시 저장하면 자연 정리.)
+// 전투 지도는 시간 제한 없음. 비밀 상점의 지도만 발견 후 1시간 동안 유효하다.
+export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
   if (!Array.isArray(v)) return [];
   const out: RareMapInstance[] = [];
   for (const raw of v) {
@@ -213,6 +213,12 @@ export function parseRareMaps(v: unknown, _now: number): RareMapInstance[] {
       continue;
     }
     if (m.runsLeft <= 0) continue; // 소진
+    if (
+      m.kind === "secret_shop_map" &&
+      m.foundAt + SECRET_SHOP_MAP_TTL_MS <= now
+    ) {
+      continue;
+    }
     const bought = Array.isArray(m.bought)
       ? m.bought.filter((b): b is string => typeof b === "string")
       : undefined;

@@ -55,7 +55,10 @@ function findShopMap(
   maps: RareMapInstance[],
   iid: string,
 ): RareMapInstance | null {
-  const m = maps.find((x) => x.iid === iid) ?? null;
+  const m =
+    iid.length > 0
+      ? (maps.find((x) => x.iid === iid) ?? null)
+      : (maps.find((x) => x.kind === "secret_shop_map") ?? null);
   return m && m.kind === "secret_shop_map" ? m : null;
 }
 
@@ -74,6 +77,7 @@ export async function GET(req: Request) {
   const bought = new Set(map.bought ?? []);
   return Response.json({
     ok: true,
+    map: map.iid,
     gold: Math.max(0, Math.floor(save?.gold ?? 0)),
     ...(V2_CORE_LOOP_V2
       ? { bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)) }
@@ -216,6 +220,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         itemId: item.id,
+        map: map.iid,
         gold: nextChar.gold as number,
         ...(V2_CORE_LOOP_V2
           ? { bankedGold: nextChar.bankedGold as number }

@@ -29,7 +29,6 @@ import {
 
 // 유틸맵 사용 — 종류별 전용 화면으로 이동(지도 iid 동봉, 서버가 소유 재검증).
 const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
-  secret_shop_map: "/hidden/shop",
   rename_map: "/hidden/rename",
   portrait_map: "/hidden/portrait",
 };
@@ -87,6 +86,10 @@ export function RareMapsTab({
                 if (res.ok) window.location.reload();
               })
               .catch(() => {});
+            return;
+          }
+          if (m.kind === "secret_shop_map") {
+            router.push("/hidden/shop");
             return;
           }
           const base = UTILITY_MAP_ROUTE[m.kind];

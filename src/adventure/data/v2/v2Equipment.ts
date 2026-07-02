@@ -76,7 +76,7 @@ export function v2EquipTierLabel(tier: V2EquipTier): string {
 }
 
 export function v2EquipTierDisplayLabel(tier: V2EquipTier): string {
-  return `${v2EquipTierLabel(tier)} · ${v2EquipTierSourceLabel(tier)}`;
+  return `${v2EquipDisplayTierOf(tier)}T`;
 }
 
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).

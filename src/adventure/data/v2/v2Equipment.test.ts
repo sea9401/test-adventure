@@ -465,17 +465,17 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("표시 티어는 내부 12티어를 3개씩 묶어 4티어로 노출", () => {
+  it("표시 티어는 내부 12티어를 3개씩 묶어 짧게 노출", () => {
     expect(V2_EQUIP_TIER_ORDER.map((tier) => v2EquipDisplayTierOf(tier))).toEqual([
       1, 1, 1,
       2, 2, 2,
       3, 3, 3,
       4, 4, 4,
     ]);
-    expect(v2EquipTierDisplayLabel(1)).toBe("1티어 · 들판 I~III");
-    expect(v2EquipTierDisplayLabel(4)).toBe("2티어 · 마른 협곡~심층 동굴");
-    expect(v2EquipTierDisplayLabel(7)).toBe("3티어 · 잊힌 성소~짐승의 소굴");
-    expect(v2EquipTierDisplayLabel(12)).toBe("4티어 · 검은 왕도~백골 고원");
+    expect(v2EquipTierDisplayLabel(1)).toBe("1T");
+    expect(v2EquipTierDisplayLabel(4)).toBe("2T");
+    expect(v2EquipTierDisplayLabel(7)).toBe("3T");
+    expect(v2EquipTierDisplayLabel(12)).toBe("4T");
     expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(4);
   });
 });

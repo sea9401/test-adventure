@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/Card";
+import { CoinTitleShopList } from "./CoinShopLists";
 import { arenaShopEntries } from "./arenaShop";
 import type { BuyResult, ArenaShopState } from "./useArenaShop";
 
@@ -34,7 +34,6 @@ export function ArenaShopView({
   };
 
   const coins = state?.coins ?? 0;
-  const owned = new Set(state?.ownedTitleIds ?? []);
 
   return (
     <div className="space-y-4">
@@ -68,48 +67,14 @@ export function ArenaShopView({
           {error}
         </p>
       ) : (
-        <Card padding="none" className="overflow-hidden">
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {ENTRIES.map((e) => {
-              const isOwned = owned.has(e.titleId);
-              const affordable = coins >= e.price;
-              const inFlight = buying === e.titleId;
-              const anyInFlight = buying !== null;
-              return (
-                <li
-                  key={e.titleId}
-                  className="flex items-center justify-between gap-3 px-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-sm font-semibold">
-                      🏆 {e.name}
-                      {isOwned && (
-                        <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                          보유
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                      {e.description}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isOwned || !affordable || anyInFlight}
-                    onClick={() => handleBuy(e.titleId)}
-                    className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
-                  >
-                    {isOwned
-                      ? "보유 중"
-                      : inFlight
-                        ? "구매 중…"
-                        : `🪙 ${e.price.toLocaleString()}`}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        <CoinTitleShopList
+          entries={ENTRIES}
+          coins={coins}
+          ownedTitleIds={state?.ownedTitleIds ?? []}
+          buying={buying}
+          onBuy={handleBuy}
+          accent="sky"
+        />
       )}
     </div>
   );

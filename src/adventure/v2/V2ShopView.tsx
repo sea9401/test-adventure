@@ -29,7 +29,6 @@ import {
 import {
   V2ItemCard,
   anchorOf,
-  EquipmentTierBadge,
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
@@ -581,7 +580,6 @@ function EquipmentName({
         >
           {item.name}
         </span>
-        <EquipmentTierBadge tier={item.tier} compact />
         {showTypeChip && <ItemTypeChip item={item} />}
         {(count ?? 0) > 0 && (
           <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">

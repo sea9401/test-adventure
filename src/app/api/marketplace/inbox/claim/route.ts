@@ -26,19 +26,16 @@ import {
 } from "@/adventure/inventory/equipmentInstances";
 import {
   V2_EQUIPMENT,
-  parseEquipmentSave,
-  genEquipIid,
-  type EquipmentSave,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { randomUUID } from "node:crypto";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
-const SAVES_EQUIPMENT = "equipment.v2";
 const SAVES_CRAFTING = "crafting.v2";
 
 type AddItem = {
@@ -309,28 +306,14 @@ export async function POST(req: Request) {
       // 개체 모델이라 count 만큼 굴림이 붙은 개별 개체를 발급한다.
       // 잠금 순서: character.v2 → inventory.v2 → equipment.v2 (buy/v2-grant 라우트와 동일).
       if (v2EquipToAdd.length > 0) {
-        const eqRows = await tx
-          .select()
-          .from(savesKv)
-          .where(
-            and(eq(savesKv.userId, userId), eq(savesKv.key, SAVES_EQUIPMENT)),
-          )
-          .for("update");
-        const eqSave = (eqRows[0]?.value ?? {}) as EquipmentSave;
-        const { owned, equipped } = parseEquipmentSave(eqSave);
-        const nextOwned: V2EquipInstance[] = [...owned];
+        const minted: V2EquipInstance[] = [];
         for (const e of v2EquipToAdd) {
           for (let i = 0; i < e.count; i++) {
-            nextOwned.push({
-              iid: genEquipIid(),
-              id: e.id,
-              roll: rollItemStats(V2_EQUIPMENT[e.id], Math.random),
-            });
+            minted.push(mintRolledEquipInstance(e.id));
           }
           equipV2Added.push({ id: e.id, count: e.count });
         }
-        await upsertSave(tx, userId, SAVES_EQUIPMENT, { owned: nextOwned, equipped });
-        newEquipmentOwned = nextOwned;
+        newEquipmentOwned = await appendEquipInstances(tx, userId, minted);
       }
 
       // 레시피 학습 (있을 때만).

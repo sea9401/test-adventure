@@ -15,12 +15,10 @@ import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
 import {
   V2_EQUIPMENT,
-  genEquipIid,
-  parseEquipmentSave,
-  type EquipmentSave,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
 import {
   COOP_COIN_MATERIAL_ID,
   rollCoopExtraRewards,
@@ -200,24 +198,9 @@ export async function POST(req: Request) {
         ? kind.uniqueIds[Math.floor(Math.random() * kind.uniqueIds.length)]
         : null;
     if (uniqueId) {
-      const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
-        tx,
-        userId,
-        "equipment.v2",
-        {},
-      );
-      const { owned, equipped } = parseEquipmentSave(equipmentSave);
-      await upsertSave(tx, userId, "equipment.v2", {
-        owned: [
-          ...owned,
-          {
-            iid: genEquipIid(),
-            id: uniqueId,
-            roll: rollItemStats(V2_EQUIPMENT[uniqueId], Math.random),
-          },
-        ],
-        equipped,
-      });
+      await appendEquipInstances(tx, userId, [
+        mintRolledEquipInstance(uniqueId),
+      ]);
     }
 
     // 가이드 퀘스트 bossKills 호환 — 격파(기여)한 보스 종류를 멱등 기록(칭호 지급 폐지 대체).

@@ -6,13 +6,9 @@ import {
   parseCoopEquipmentBoxId,
   rollCoopEquipmentBoxItem,
 } from "@/adventure/data/v2/coopRewards";
-import {
-  V2_EQUIPMENT,
-  genEquipIid,
-  parseEquipmentSave,
-  type EquipmentSave,
-} from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import { appendEquipInstances } from "@/lib/server/equipGrant";
 
 type CharSave = { materials?: unknown; [k: string]: unknown };
 
@@ -72,28 +68,15 @@ export async function POST(req: Request) {
     if (held - 1 <= 0) delete nextMaterials[box.id];
     else nextMaterials[box.id] = held - 1;
 
-    const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
-      tx,
-      userId,
-      "equipment.v2",
-      {},
-    );
-    const { owned, equipped } = parseEquipmentSave(equipmentSave);
     const item = V2_EQUIPMENT[equipmentId];
-    const inst = {
-      iid: genEquipIid(),
-      id: equipmentId,
-      roll: rollItemStats(item, Math.random),
-    };
+    const inst = mintRolledEquipInstance(equipmentId);
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       materials: nextMaterials,
     });
-    await upsertSave(tx, userId, "equipment.v2", {
-      owned: [...owned, inst],
-      equipped,
-    });
+    // 잠금 순서 character(위에서 lock)→equipment 유지 — append 헬퍼가 equipment 만 잠근다.
+    await appendEquipInstances(tx, userId, [inst]);
 
     return {
       status: 200,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { timeAgoKo as fmtAgo } from "@/lib/timeFormat";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { StoredReplayEnvelope } from "@/adventure/data/v2/replayPayload";
@@ -24,16 +25,6 @@ type AttackRow = {
 
 // 페이지당 노출 행 수 — 카드가 너무 길어지지 않게 클라 페이지네이션(서버는 최신 20건 캡).
 const PAGE_SIZE = 10;
-
-function fmtAgo(iso: string, now: number): string {
-  const ms = Math.max(0, now - new Date(iso).getTime());
-  const min = Math.floor(ms / 60_000);
-  if (min < 1) return "방금";
-  if (min < 60) return `${min}분 전`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
-}
 
 export function OutpostAttackLog({
   outpostId,

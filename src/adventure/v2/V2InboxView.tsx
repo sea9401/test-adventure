@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Envelope, PaperPlaneTilt, X } from "@phosphor-icons/react";
+import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
@@ -177,17 +178,6 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   season_reward: "순위 보상",
   admin_gift: "운영자 우편",
 };
-
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  const sec = Math.max(0, Math.floor((Date.now() - then) / 1000));
-  if (sec < 60) return "방금";
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  return `${Math.floor(hr / 24)}일 전`;
-}
 
 function formatFull(iso: string): string {
   const d = new Date(iso);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatRemainingMinutesFloor } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   countClaimableFishingTasks,
@@ -19,11 +20,7 @@ type ChallengeItemView = FishingProgressTaskView & {
 };
 
 function fmtRemain(nextResetAt: number): string {
-  const ms = nextResetAt - Date.now();
-  const m = Math.max(0, Math.floor(ms / 60_000));
-  if (m < 60) return `${m}분 뒤 초기화`;
-  const h = Math.floor(m / 60);
-  return `${h}시간 ${m % 60}분 뒤 초기화`;
+  return `${formatRemainingMinutesFloor(nextResetAt - Date.now())} 뒤 초기화`;
 }
 
 function ChallengeSection({

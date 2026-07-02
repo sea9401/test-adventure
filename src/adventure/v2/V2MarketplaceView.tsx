@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Storefront } from "@phosphor-icons/react";
+import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
@@ -944,19 +945,6 @@ function SelectControl({
       ))}
     </select>
   );
-}
-
-// 체결 시각(ISO) → 상대 표기. 최근 거래 내역 "방금 / N분·시간·일 전".
-function timeAgo(iso: string): string {
-  if (!iso) return "";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(ms)) return "";
-  if (ms < 60_000) return "방금";
-  const min = Math.floor(ms / 60_000);
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  return `${Math.floor(hr / 24)}일 전`;
 }
 
 // 등록 후 경과 → 만료까지 남은 일수(올림). expiryDays(TTL) 없으면 null.

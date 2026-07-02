@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatRemainingMinutes } from "@/lib/timeFormat";
+import { useClientNowMs } from "@/lib/useClientNowMs";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -54,17 +56,6 @@ export type OutpostAction =
   | { kind: "back" }
   | { kind: "claimed" }
   | { kind: "policy-changed" };
-
-function useClientNowMs(refreshMs = 30_000): number | null {
-  const [nowMs, setNowMs] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => setNowMs(Date.now());
-    tick();
-    const id = window.setInterval(tick, refreshMs);
-    return () => window.clearInterval(id);
-  }, [refreshMs]);
-  return nowMs;
-}
 
 export function OutpostView({
   outpost,
@@ -732,16 +723,6 @@ function raidErrorMsg(error: string): string {
     default:
       return `약탈 실패 (${error})`;
   }
-}
-
-function formatRemainingMinutes(ms: number): string {
-  const min = Math.max(1, Math.ceil(ms / 60_000));
-  if (min >= 60) {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
-  }
-  return `${min}분`;
 }
 
 function WarVigorBar({ warVigor }: { warVigor: WarVigor }) {

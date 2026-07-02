@@ -4,15 +4,11 @@
 // 결정론(서버와 동일 계산)이라 클라가 직접 multtaeAt 으로 그린다(서버 호출 0). 1초 틱으로 창 전환 자동 반영.
 
 import { useEffect, useState } from "react";
+import { formatRemainingMinutesFloor } from "@/lib/timeFormat";
 import { multtaeForecast } from "@/adventure/data/v2/multtae";
 import { FISH } from "@/adventure/data/v2/fish";
 
-function fmtRemain(ms: number): string {
-  const m = Math.max(0, Math.floor(ms / 60_000));
-  if (m < 60) return `${m}분 뒤`;
-  const h = Math.floor(m / 60);
-  return `${h}시간 ${m % 60}분 뒤`;
-}
+const fmtRemain = (ms: number) => `${formatRemainingMinutesFloor(ms)} 뒤`;
 
 export function MulttaeBadge() {
   const [now, setNow] = useState(() => Date.now());

@@ -1,3 +1,5 @@
+import { KST_OFFSET_MS } from "@/lib/kst";
+
 export type NotificationKind =
   | "battle_win"
   | "battle_lose"
@@ -118,9 +120,8 @@ export function formatRelative(ts: number, now = Date.now()): string {
   return `${Math.floor(diff / 86400_000)}일 전`;
 }
 
-// KST(UTC+9, DST 없음) 고정 오프셋 — 뷰어 기기 시간대와 무관하게 항상 한국 달력
+// KST 고정 오프셋은 lib/kst 공용(상단 import) — 뷰어 기기 시간대와 무관하게 항상 한국 달력
 // 날짜로 표기(ts+9h 후 UTC 게터 = KST 벽시계). 작성일자가 보는 사람마다 안 달라지게.
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 // 절대 날짜 — 게시판 작성일자 등. KST 기준 "YYYY.MM.DD".
 export function formatDate(ts: number): string {

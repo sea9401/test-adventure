@@ -6,6 +6,8 @@
 // 백분위 칭호는 매주 마감 시 cron (`/api/cron/tower-weekly-cycle`) 이
 // lastWeekStart 매칭 기록을 batch 처리해 부여. 클라/실시간 부여 X.
 
+import { kstWeekMondayKey } from "@/lib/kst";
+
 export const TOWER_WEEKLY_STORAGE_KEY = "tower-weekly.v1";
 
 export type TowerWeekly = {
@@ -18,22 +20,8 @@ export type TowerWeekly = {
 /** 자격 최소선 — F30 이상만 백분위 칭호 후보 (보스 3회 클리어). */
 export const TOWER_WEEKLY_MIN_FLOOR = 30;
 
-/** 현재 KST 주 시작일을 "YYYY-MM-DD" 키로. */
-export function kstWeekStartKey(now: Date = new Date()): string {
-  const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-  const kstNow = new Date(now.getTime() + KST_OFFSET_MS);
-  const day = kstNow.getUTCDay();
-  const daysSinceMonday = (day + 6) % 7;
-  const kstMonday = new Date(kstNow);
-  kstMonday.setUTCDate(kstNow.getUTCDate() - daysSinceMonday);
-  kstMonday.setUTCHours(0, 0, 0, 0);
-  // KST 가 아닌 UTC YMD 가 아니라 KST YMD 가 필요 — kstMonday 는 KST 0시이지만
-  // UTC 로 보면 같은 객체가 (KST 월) 00:00 = (UTC 일) 15:00. UTC 좌표로 추출하면
-  // 어느 쪽도 YMD 가 같다 (UTC 일 15:00 → UTC 일 = KST 월 자정의 직전 — 의도와 다름).
-  // 안전하게 +9h 한 좌표에서 ISO date 만 잘라낸다.
-  const kstDate = new Date(kstMonday.getTime() + KST_OFFSET_MS);
-  return kstDate.toISOString().slice(0, 10);
-}
+/** 현재 KST 주 시작일 "YYYY-MM-DD" — 구현은 lib/kst 로 단일화(키 문자열은 kst.test.ts 가 고정). */
+export const kstWeekStartKey = kstWeekMondayKey;
 
 /** 지난 주 시작일 — cron 이 결과 집계 시 사용. */
 export function lastWeekStartKey(now: Date = new Date()): string {

@@ -5,6 +5,8 @@
 //  - 빈 땅 어디든 개척마을 건설 → 마을→도시→대도시 승격/철거(Phase 3).
 // 라이브 데이터(occupations/treasuries/currentOutpostId)는 표시만, 정착지는 tileSettlements.
 import { useEffect, useState } from "react";
+import { formatRemainingMinutes } from "@/lib/timeFormat";
+import { useClientNowMs } from "@/lib/useClientNowMs";
 import {
   CastleTurret,
   Coins,
@@ -176,16 +178,6 @@ function WarSummaryChip({
   );
 }
 
-function formatRemainingMinutes(ms: number): string {
-  const min = Math.max(1, Math.ceil(ms / 60_000));
-  if (min >= 60) {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
-  }
-  return `${min}분`;
-}
-
 function raidPreviewGold(col: number, row: number, treasury: number): number {
   const safeTreasury = Math.max(0, Math.floor(treasury));
   let amount = Math.floor(safeTreasury * RAID_TREASURY_STEAL_FRAC_UNDEFENDED);
@@ -194,17 +186,6 @@ function raidPreviewGold(col: number, row: number, treasury: number): number {
   if (isLakeAdjacentTile(col, row)) mult *= LAKE_ATTACKER_PENALTY_MULT;
   if (mult !== 1) amount = Math.min(safeTreasury, Math.floor(amount * mult));
   return Math.max(0, amount);
-}
-
-function useClientNowMs(refreshMs = 30_000): number | null {
-  const [nowMs, setNowMs] = useState<number | null>(null);
-  useEffect(() => {
-    const tick = () => setNowMs(Date.now());
-    tick();
-    const id = window.setInterval(tick, refreshMs);
-    return () => window.clearInterval(id);
-  }, [refreshMs]);
-  return nowMs;
 }
 
 export function TileMap({

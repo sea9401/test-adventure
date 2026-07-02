@@ -5,23 +5,14 @@
 // 주기 리셋은 크론 없이 lazy — 조회/수령 시 주기 키가 바뀌었으면 그 자리에서
 // 재스냅샷 + claimed 비움 (성벽 재생·시즌 키와 같은 패턴).
 //
-// 주기: 일일 = KST 자정, 주간 = 월요일 00:00 KST (시즌 크론들과 동일 규칙.
-// 순수 모듈이라 자체 구현).
+// 주기: 일일 = KST 자정, 주간 = 월요일 00:00 KST (시즌 크론들과 동일 규칙).
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+import { kstDayKey, kstWeekMondayKey } from "@/lib/kst";
 
-// KST 날짜 키 "YYYY-MM-DD".
-export function kstDailyKey(now: Date): string {
-  return new Date(now.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-// 이번 주 시작(월요일 00:00 KST)의 KST 날짜 키.
-export function kstWeeklyKey(now: Date): string {
-  const kst = new Date(now.getTime() + KST_OFFSET_MS);
-  const daysSinceMonday = (kst.getUTCDay() + 6) % 7;
-  kst.setUTCDate(kst.getUTCDate() - daysSinceMonday);
-  return kst.toISOString().slice(0, 10);
-}
+// KST 날짜/주간 키 — 구현은 lib/kst 로 단일화(키 문자열은 kst.test.ts 가 고정).
+// 기존 호출자(낚시 도전·코옵 상점·랭킹 등) 호환을 위해 이름을 유지한 별칭.
+export const kstDailyKey = kstDayKey;
+export const kstWeeklyKey = kstWeekMondayKey;
 
 // 주기 시작 epoch ms — 아레나 "주기 내 기록" 판정용.
 export function periodStartMs(key: string): number {

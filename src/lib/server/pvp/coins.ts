@@ -4,6 +4,8 @@
 //
 // 상점(코인 사용처)은 후속 PR — 이 PR 은 지급/잔액만.
 
+import { kstDayKey } from "@/lib/kst";
+
 export const PVP_WALLET_KEY = "pvp-wallet.v1";
 
 export type PvpWallet = { coins: number };
@@ -38,13 +40,8 @@ export function coinRewardFor(outcome: PvpDbOutcome, isBot: boolean): number {
   return isBot ? Math.floor(base * PVP_BOT_COIN_MULT) : base;
 }
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-/** KST 기준 YYYY-MM-DD 키 — 일일 캡 경계 비교용(자정 리셋). */
-export function kstDayKey(now: Date = new Date()): string {
-  const kst = new Date(now.getTime() + KST_OFFSET_MS);
-  return kst.toISOString().slice(0, 10);
-}
+// KST 일일 키 — 구현은 lib/kst 로 단일화(상단 import). 기존 호출자·테스트 호환을 위해 재수출.
+export { kstDayKey };
 
 /**
  * 일일 캡 적용 — 순수 함수. dailyResetAt 이 오늘(KST)과 다른 날이면 누적을 0 으로 리셋.

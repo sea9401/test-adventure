@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
@@ -80,18 +81,6 @@ function outcomeColor(outcome: ArenaHistoryEntry["outcome"]): string {
     : outcome === "loss"
       ? "text-rose-600 dark:text-rose-400"
       : "text-zinc-600 dark:text-zinc-400";
-}
-
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-  const diff = Date.now() - then;
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "방금";
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
 }
 
 export function V2ArenaView({ onBack }: { onBack: () => void }) {

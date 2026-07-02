@@ -16,6 +16,7 @@ import {
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
   ARENA_STATE_KEY,
@@ -386,8 +387,7 @@ export async function POST() {
 
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
-      pickAction: () => ({ kind: "attack" }),
-      potions: { p1: {}, p2: {} },
+      ...autoDuelContext(),
       v2Skills: { p1: mySkills, p2: oppSkills },
     });
 

@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   HUNT_COST,
@@ -222,7 +223,7 @@ export async function POST(req: Request) {
       { ...defenderCombat.player, hp: defenderStartHp },
       attackerName,
       defenderName,
-      { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
+      autoDuelContext(),
     );
     const won = battleResult.outcome === "p1_win";
     // 토벌 전투 리플레이 — 토벌자(=나) p1 시점. 결과 카드 아래 BattleScene 표시용.

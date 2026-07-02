@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { outpostClaimAttempts, outpostOccupations } from "@/db/schema";
+import { outpostOccupations } from "@/db/schema";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
@@ -15,6 +15,7 @@ import {
   toReplayPayload,
   type StoredReplayEnvelope,
 } from "@/adventure/data/v2/replayPayload";
+import { recordOutpostAttack } from "@/lib/server/outpostWar";
 import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 import { insertNotification } from "@/lib/server/v2Notifications";
 // PR-7b: 병사 시스템 폐기 — applySoldierBoost / readGuildResources soldiers 보정 제거.
@@ -126,7 +127,7 @@ export async function POST(req: Request) {
         const ownerLabel = await resolveUserDisplayName(ownerId).catch(
           () => "점령자",
         );
-        await tx.insert(outpostClaimAttempts).values({
+        await recordOutpostAttack(tx, {
           outpostId: outpost.id,
           attackerUserId: null,
           attackerGuildId: null,

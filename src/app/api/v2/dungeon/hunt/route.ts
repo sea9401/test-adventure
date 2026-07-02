@@ -1,6 +1,6 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guilds, outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
+import { guilds, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
@@ -19,27 +19,8 @@ import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { enemiesForDepth, MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
-import {
-  parseProficiencyForChar,
-  groupCumLevel,
-  addPoints,
-  addCumLevel,
-  addJobCumLevel,
-  setGrown,
-  effectiveLevelCap,
-  proficiencyPerKillAtDepth,
-} from "@/adventure/data/v2/proficiency";
-import {
-  V2_JOB_CATALOG,
-  cumLevelForJob,
-  isFishingJobId,
-  jobIdFromLegacy,
-} from "@/adventure/data/v2/v2JobCatalog";
-import {
-  applyPostCapGrowth,
-  rollLevelGrowth,
-} from "@/adventure/data/v2/statGrowth";
-import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
+import { type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   elementDamageMult,
   elementMatchup,
@@ -49,12 +30,8 @@ import {
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
-  equippedProfPerKillBonus,
-} from "@/adventure/data/v2/v2Skills";
-import {
   applyGuildCombatRewardBonus,
   guildCombatSupplyBonuses,
-  rollGuildCombatProficiencyBonus,
 } from "@/adventure/data/v2/guildCombatSupply";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
@@ -81,7 +58,6 @@ import {
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
-  spMilestonesCrossed,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   applyHpRegen,
@@ -124,8 +100,11 @@ import {
 } from "@/lib/server/userRateLimit";
 import { rollHuntDrops } from "./huntDrops";
 import { computeGoldTax, computeLossTax } from "./huntTax";
+import { creditOutpostTreasury } from "./huntTreasury";
 import { computeBattleRewards, applyChargeRestore } from "./huntRewards";
 import { updateRareMaps } from "./huntRareMaps";
+import { recordMonsterKill } from "./huntKillLog";
+import { applyHuntProficiency } from "./huntProficiency";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -836,135 +815,35 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   };
   await upsertSave(tx, userId, "character.v2", next);
 
-  // 전투수 랭킹용 — 승리 시 adventure-log.v2 의 monster kill 카운터 누적(서버 권위).
-  // /api/rankings 가 monsters[*].kills 를 SUM 해 battleCount 를 낸다. v2 클라는 이 키를
-  // 안 건드려(hook 없음) 서버 단독 소유 → sync clobber 없음. v1 battleClaim 과 동일 키·키잉
-  // (enemyName). lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피).
+  // 전투수 랭킹용 몬스터 킬 카운터 — huntKillLog(콜로케이트) 로 추출.
+  // lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피)은 이 위치가 보장.
   if (won) {
-    const logSave = await lockSaveForUpdate<{
-      monsters?: Record<
-        string,
-        {
-          encountered?: boolean;
-          kills?: number;
-          firstSeenAt?: number;
-          lastKilledAt?: number;
-        }
-      >;
-      titles?: Record<string, { obtainedAt: number }>;
-      [k: string]: unknown;
-    }>(tx, userId, "adventure-log.v2", {});
-    const monsters = { ...(logSave.monsters ?? {}) };
-    const prevMon = monsters[enemyName];
-    monsters[enemyName] = {
-      ...prevMon,
-      encountered: true,
-      kills: (prevMon?.kills ?? 0) + 1,
-      firstSeenAt: prevMon?.firstSeenAt ?? now,
-      lastKilledAt: now,
-    };
-    await upsertSave(tx, userId, "adventure-log.v2", {
-      ...logSave,
-      monsters,
-    });
+    await recordMonsterKill(tx, userId, enemyName, now);
   }
 
   // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
-  // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
-  let proficiencyGained = 0; // 전투 결과 표시용.
-  let masteryGained = 0; // 승리 시 현재 직업 숙련도(+1). 전직/스킬포인트 게이트 입력.
-  let masteryAfter: number | null = null; // 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null).
-  let spMilestonesGained = 0; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤 수(flag off=항상 0).
-  const statGains: Partial<Record<V2StatKey, number>> = {}; // 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용.
-  if (won || expResult.levelsGained > 0) {
-    const playerClass = parseV2Class(charSave.class);
-    const group = tier1ClassOf(playerClass);
-    const v2JobId = jobIdFromLegacy(
-      playerClass,
-      typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-    );
-    // PR-perf — 위에서 upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷, 중간
-    //   proficiency 쓰기 없음 → 새 lock 과 동일 base). 중복 lock-read 제거.
-    let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~5), 직업 숙련도는 승리당 +1.
-    //   none(모험가)은 숙달 포인트만 적립하고, 직업 숙련도/정복 게이트는 제외한다.
-    if (won) {
-      // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
-      const perKill =
-        proficiencyPerKillAtDepth(depth) +
-        equippedProfPerKillBonus(v2Skills.equipped) +
-        rollGuildCombatProficiencyBonus(
-          guildCombatSupply.proficiencyChancePct,
-          Math.random,
-        );
-      const nextProf = addPoints(prof, group, perKill);
-      if (nextProf !== prof) {
-        prof = nextProf;
-        proficiencyGained = perKill;
-      }
-      if (group !== "none" && !isFishingJobId(v2JobId)) {
-        const oldMastery = prof.groups[group]?.cumLevel ?? 0;
-        prof = addCumLevel(prof, group, 1);
-        prof = addJobCumLevel(prof, v2JobId, 1);
-        masteryGained = 1;
-        if (V2_CORE_LOOP_V2) {
-          spMilestonesGained = spMilestonesCrossed(
-            oldMastery,
-            oldMastery + 1,
-          );
-        }
-      }
-    }
-    // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.
-    if (expResult.levelsGained > 0) {
-      // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
-      const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
-      let grown = grownBefore;
-      for (let i = 0; i < expResult.levelsGained; i++) {
-        grown = rollLevelGrowth(grown, playerClass, prof, Math.random, {
-          currentJobId: v2JobId,
-        });
-      }
-      prof = setGrown(prof, grown);
-      // grown 1포인트 = 해당 스탯 +1. 레벨업 전후 delta 가 곧 오른 스탯.
-      for (const k of V2_STAT_KEYS) {
-        const d = (grown[k] ?? 0) - (grownBefore[k] ?? 0);
-        if (d > 0) statGains[k] = d;
-      }
-    } else if (won && expResult.level >= levelCap) {
-      const postCap = applyPostCapGrowth(prof, playerClass, Math.random, {
-        currentJobId: v2JobId,
-      });
-      prof = postCap.proficiency;
-      for (const k of V2_STAT_KEYS) {
-        const d = postCap.statGains[k] ?? 0;
-        if (d > 0) statGains[k] = (statGains[k] ?? 0) + d;
-      }
-    }
-    // 직업 숙련도(상시 카드 readout) — 현재 전직 중인 구체 직업 기준. none=숙련도 없음.
-    const currentJob = V2_JOB_CATALOG[v2JobId];
-    masteryAfter =
-      group !== "none"
-        ? currentJob
-          ? cumLevelForJob(prof, currentJob)
-          : groupCumLevel(prof, group)
-        : null;
-    await upsertSave(tx, userId, "proficiency.v2", prof);
-  } else {
-    // 패배(승리·레벨업 없음) — 숙련도 불변. 상시 카드 readout 용 현재값만 산출(쓰기 없음).
-    const lossClass = parseV2Class(charSave.class);
-    const lossGroup = tier1ClassOf(lossClass);
-    if (lossGroup !== "none") {
-      const lossJobId = jobIdFromLegacy(
-        lossClass,
-        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-      );
-      const lossJob = V2_JOB_CATALOG[lossJobId];
-      const lossProf = parseProficiencyForChar(proficiencyRaw, charSave);
-      masteryAfter = lossJob
-        ? cumLevelForJob(lossProf, lossJob)
-        : groupCumLevel(lossProf, lossGroup);
-    }
+  // 산출은 huntProficiency(콜로케이트 순수 헬퍼), 쓰기만 여기서. lock 순서: character.v2 다음에
+  // proficiency.v2. PR-perf — upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷).
+  const {
+    nextProficiency,
+    proficiencyGained,
+    masteryGained,
+    masteryAfter,
+    spMilestonesGained,
+    statGains,
+  } = applyHuntProficiency({
+    won,
+    depth,
+    charSave,
+    proficiencyRaw,
+    equippedSkills: v2Skills.equipped,
+    proficiencyChancePct: guildCombatSupply.proficiencyChancePct,
+    levelsGained: expResult.levelsGained,
+    levelAfter: expResult.level,
+    levelCap,
+  });
+  if (nextProficiency) {
+    await upsertSave(tx, userId, "proficiency.v2", nextProficiency);
   }
   // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 VIT·INT). 파생식과 동일 계수.
   const { hp: hpGain, mp: mpGain } =
@@ -995,16 +874,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   //   off = 점령자 개인 골드 직행(현행·byte-identical). 큐/락 순서 불변(ownerSave 는 위에서 lock 유지).
   if (goldTaxed > 0 && taxOwnerId) {
     if (V2_SETTLEMENT_WARFARE && outpostId) {
-      await tx
-        .insert(outpostTreasury)
-        .values({ outpostId, gold: goldTaxed, updatedAt: new Date(now) })
-        .onConflictDoUpdate({
-          target: outpostTreasury.outpostId,
-          set: {
-            gold: sql`${outpostTreasury.gold} + ${goldTaxed}`,
-            updatedAt: new Date(now),
-          },
-        });
+      await creditOutpostTreasury(tx, outpostId, goldTaxed, now);
     } else if (ownerSave) {
       await upsertSave(tx, taxOwnerId, "character.v2", {
         ...ownerSave,
@@ -1014,37 +884,11 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   }
   // NPC 세금 — 미점령 거점 금고에 누적. 추후 점령 전쟁 보상으로 사용.
   if (goldTaxed > 0 && npcTaxOutpostId) {
-    await tx
-      .insert(outpostTreasury)
-      .values({
-        outpostId: npcTaxOutpostId,
-        gold: goldTaxed,
-        updatedAt: new Date(now),
-      })
-      .onConflictDoUpdate({
-        target: outpostTreasury.outpostId,
-        set: {
-          gold: sql`${outpostTreasury.gold} + ${goldTaxed}`,
-          updatedAt: new Date(now),
-        },
-      });
+    await creditOutpostTreasury(tx, npcTaxOutpostId, goldTaxed, now);
   }
   // 타일 전쟁 — 길드 점령 정착지 금고에 누적(영주 수확·약탈 대상). flag off → tileTaxOutpostId null.
   if (goldTaxed > 0 && tileTaxOutpostId) {
-    await tx
-      .insert(outpostTreasury)
-      .values({
-        outpostId: tileTaxOutpostId,
-        gold: goldTaxed,
-        updatedAt: new Date(now),
-      })
-      .onConflictDoUpdate({
-        target: outpostTreasury.outpostId,
-        set: {
-          gold: sql`${outpostTreasury.gold} + ${goldTaxed}`,
-          updatedAt: new Date(now),
-        },
-      });
+    await creditOutpostTreasury(tx, tileTaxOutpostId, goldTaxed, now);
   }
   // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
 

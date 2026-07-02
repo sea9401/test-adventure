@@ -1,91 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { Button } from "../ui/Field";
+import { useAsyncData } from "@/lib/useAsyncData";
+// 응답 타입은 서버 집계 모듈이 단일 소스 — 필드 추가/개명 시 클라 드리프트를 컴파일이 잡는다.
+// (type-only import 라 서버 코드가 클라 번들에 끌려오지 않는다.)
+import type { BalanceTelemetry } from "@/app/api/admin/balance-telemetry/aggregate";
 
 // 읽기 전용 밸런스 텔레메트리(Phase 1) — /api/admin/balance-telemetry 집계 표시.
 //   최근 밸런스 변경(난이도 곡선·아이템 정리·DEX 독주·SPI 부활) 실측 검증용.
 
-type Bucket = { label: string; players: number; avgPower: number };
-type Telemetry = {
-  summary: {
-    players: number;
-    adminExcluded: number;
-    deriveFailed: number;
-    avgPower: number;
-    medianPower: number;
-    maxFrontierDepth: number;
-  };
-  depthBands: Bucket[];
-  levelBands: Bucket[];
-  powerBands: { label: string; players: number }[];
-  classDist: { key: string; label: string; count: number }[];
-  tierDist: { tier: number; count: number }[];
-  jobDist: { key: string; label: string; tier: number; count: number }[];
-  jobTierDist: { tier: number; count: number }[];
-  masteryBands: { label: string; players: number }[];
-  reincarnationBands: { label: string; players: number }[];
-  spPressureBands: { label: string; players: number }[];
-  statAxes: { key: string; label: string; avg: number; dominantCount: number }[];
-  economy: {
-    label: string;
-    players: number;
-    avgGold: number;
-    medianGold: number;
-    maxGold: number;
-  }[];
-  equipmentUsage: { id: string; name: string; count: number }[];
-  equipmentSummary: {
-    label: string;
-    players: number;
-    avgEquipped: number;
-    avgOwned: number;
-    avgMaxEnhance: number;
-  }[];
-  lifeProgress: {
-    fishingPlayers: number;
-    avgFishCaught: number;
-    avgFishSpecies: number;
-    treasurePlayers: number;
-    avgAntiquesFound: number;
-  };
-  workshopEconomy: {
-    summary: {
-      activeBlacksmiths: number;
-      avgBlacksmithLevel: number;
-      totalCrafts: number;
-      qualityCrafts: number;
-      masterworkCrafts: number;
-      craftOnlyCrafts: number;
-      maxHighestTier: number;
-      deliveryClaimsToday: number;
-      bestQualityBasic: number;
-      bestQualityStar: number;
-      bestQualityDoubleStar: number;
-      qualityCraftRatePct: number;
-      masterworkCraftRatePct: number;
-      craftOnlyCraftRatePct: number;
-      avgCraftsPerActiveBlacksmith: number;
-      avgMaterialsPerActiveBlacksmith: number;
-      materialStockPerCraft: number;
-    };
-    levelBands: {
-      label: string;
-      players: number;
-      avgBlacksmithLevel: number;
-      totalCrafts: number;
-      masterworkCrafts: number;
-      craftOnlyCrafts: number;
-    }[];
-    materials: {
-      id: string;
-      name: string;
-      total: number;
-      holders: number;
-      avgPerHolder: number;
-    }[];
-  };
-};
+type Telemetry = BalanceTelemetry;
 
 function Card({
   title,
@@ -165,27 +89,14 @@ function WorkshopEconomySignal({
 }
 
 export function BalanceTelemetryTab() {
-  const [data, setData] = useState<Telemetry | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    setError(null);
-    fetch("/api/admin/balance-telemetry")
-      .then(async (res) => {
+  const { data, loading, error, refetch } = useAsyncData<Telemetry>(
+    (signal) =>
+      fetch("/api/admin/balance-telemetry", { signal }).then(async (res) => {
         if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
         return res.json() as Promise<Telemetry>;
-      })
-      .then(setData)
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(load 가 state 시드)
-    load();
-  }, [load]);
+      }),
+    [],
+  );
 
   const depthMax = Math.max(1, ...(data?.depthBands ?? []).map((b) => b.players));
   const levelMax = Math.max(1, ...(data?.levelBands ?? []).map((b) => b.players));
@@ -254,7 +165,7 @@ export function BalanceTelemetryTab() {
               읽기 전용 — 현재 v2 세이브 집계(관리자 계정 제외). 프론티어·직업 숙련도·SP·장비·생활 진행 실측용.
             </p>
           </div>
-          <Button onClick={load} disabled={loading}>
+          <Button onClick={refetch} disabled={loading}>
             {loading ? "로딩…" : "새로고침"}
           </Button>
         </div>

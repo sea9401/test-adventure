@@ -2,18 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { useAdmin } from "../AdminContext";
+import { adminPost } from "../api";
+import {
+  v2EquipmentOptions,
+  v2MaterialOptions,
+  type CatalogOption,
+} from "../adminCatalogOptions";
 import { Button, Field, NumberInput, Select, TextInput } from "../ui/Field";
+import {
+  AttachmentPicker,
+  type AttachmentEntry,
+} from "../ui/AttachmentPicker";
 import { DangerAction } from "../ui/DangerAction";
 import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
-import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
-
-const SELECT_CLS =
-  "w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
-
-type AttachMaterial = { materialId: string; count: number };
-type AttachItem = { itemId: string; count: number };
-type AttachConsumable = { itemId: "stamina_potion"; count: number };
 
 // 공지/방송 + 대량 우편.
 //   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 3000자.
@@ -33,52 +34,26 @@ export function BroadcastTab() {
   const [mailMsg, setMailMsg] = useState("");
   const [sending, setSending] = useState(false);
 
-  // 우편 첨부 — 재료/장비/소비템 목록 + 추가 컨트롤.
-  const [attachMaterials, setAttachMaterials] = useState<AttachMaterial[]>([]);
-  const [attachItems, setAttachItems] = useState<AttachItem[]>([]);
-  const [attachConsumables, setAttachConsumables] = useState<
-    AttachConsumable[]
-  >([]);
+  // 우편 첨부 — 재료/장비/소비템 목록(선택·수량 UI 는 AttachmentPicker 내부 상태).
+  const [attachMaterials, setAttachMaterials] = useState<AttachmentEntry[]>([]);
+  const [attachItems, setAttachItems] = useState<AttachmentEntry[]>([]);
+  const [attachConsumables, setAttachConsumables] = useState<AttachmentEntry[]>(
+    [],
+  );
 
-  // 카탈로그 옵션 (V2GrantSection 과 동일 소스).
-  const materialOptions = useMemo(
-    () => Object.values(V2_MATERIALS).map((m) => ({ id: m.id, name: m.name })),
+  // 카탈로그 옵션 (V2GrantSection 과 공용 — adminCatalogOptions).
+  const materialOptions = useMemo(() => v2MaterialOptions(), []);
+  const equipOptions = useMemo(() => v2EquipmentOptions(), []);
+  const consumableOptions = useMemo<CatalogOption[]>(
+    () => [
+      {
+        id: "stamina_potion",
+        name: "스태미나 회복약",
+        label: "스태미나 회복약 (stamina_potion)",
+      },
+    ],
     [],
   );
-  const equipOptions = useMemo(
-    () =>
-      Object.values(V2_EQUIPMENT)
-        .map((e) => ({ id: e.id, name: e.name, tier: e.tier, slot: e.slot }))
-        .sort((a, b) => a.tier - b.tier || a.slot.localeCompare(b.slot)),
-    [],
-  );
-  const consumableOptions = useMemo(
-    () => [{ id: "stamina_potion" as const, name: "스태미나 회복약" }],
-    [],
-  );
-  const materialNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of materialOptions) m.set(o.id, o.name);
-    return m;
-  }, [materialOptions]);
-  const equipNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of equipOptions) m.set(o.id, o.name);
-    return m;
-  }, [equipOptions]);
-  const consumableNameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of consumableOptions) m.set(o.id, o.name);
-    return m;
-  }, [consumableOptions]);
-
-  const [matSel, setMatSel] = useState<string>(materialOptions[0]?.id ?? "");
-  const [matQty, setMatQty] = useState(1);
-  const [eqSel, setEqSel] = useState<string>(equipOptions[0]?.id ?? "");
-  const [eqQty, setEqQty] = useState(1);
-  const [consumableSel, setConsumableSel] =
-    useState<AttachConsumable["itemId"]>("stamina_potion");
-  const [consumableQty, setConsumableQty] = useState(1);
 
   const noticeDisabled = readOnly || posting;
   const mailDisabled = readOnly || sending;
@@ -88,46 +63,6 @@ export function BroadcastTab() {
     attachItems.length > 0 ||
     attachConsumables.length > 0;
 
-  const addMaterial = () => {
-    if (!matSel || matQty <= 0) return;
-    setAttachMaterials((prev) => {
-      const i = prev.findIndex((m) => m.materialId === matSel);
-      if (i >= 0) {
-        const next = [...prev];
-        next[i] = { materialId: matSel, count: next[i].count + matQty };
-        return next;
-      }
-      return [...prev, { materialId: matSel, count: matQty }];
-    });
-  };
-  const addItem = () => {
-    if (!eqSel || eqQty <= 0) return;
-    setAttachItems((prev) => {
-      const i = prev.findIndex((it) => it.itemId === eqSel);
-      if (i >= 0) {
-        const next = [...prev];
-        next[i] = { itemId: eqSel, count: next[i].count + eqQty };
-        return next;
-      }
-      return [...prev, { itemId: eqSel, count: eqQty }];
-    });
-  };
-  const addConsumable = () => {
-    if (!consumableSel || consumableQty <= 0) return;
-    setAttachConsumables((prev) => {
-      const i = prev.findIndex((it) => it.itemId === consumableSel);
-      if (i >= 0) {
-        const next = [...prev];
-        next[i] = {
-          itemId: consumableSel,
-          count: next[i].count + consumableQty,
-        };
-        return next;
-      }
-      return [...prev, { itemId: consumableSel, count: consumableQty }];
-    });
-  };
-
   const postNotice = async () => {
     if (readOnly) {
       showToast("보기 전용 모드 — 변경 불가");
@@ -135,6 +70,7 @@ export function BroadcastTab() {
     }
     setPosting(true);
     try {
+      // 게시판 라우트는 admin envelope 이 아니라 text 에러를 반환 — adminPost 미사용.
       const r = await fetch("/api/bulletin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,30 +90,24 @@ export function BroadcastTab() {
   const sendMail = async () => {
     setSending(true);
     try {
-      const r = await fetch("/api/admin/mail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          target,
-          userId,
-          gold,
-          materials: attachMaterials,
-          items: attachItems,
-          staminaPotions:
-            attachConsumables.find((it) => it.itemId === "stamina_potion")
-              ?.count ?? 0,
-          message: mailMsg,
-        }),
-      });
-      const j = (await r.json()) as {
-        ok?: boolean;
+      const j = await adminPost<{
         recipients?: number;
-        materials?: AttachMaterial[];
-        items?: AttachItem[];
+        materials?: unknown[];
+        items?: unknown[];
         staminaPotions?: number;
-        error?: string;
-      };
-      if (!r.ok || !j.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      }>("/api/admin/mail", {
+        target,
+        userId,
+        gold,
+        materials: attachMaterials.map((e) => ({
+          materialId: e.id,
+          count: e.count,
+        })),
+        items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
+        staminaPotions:
+          attachConsumables.find((e) => e.id === "stamina_potion")?.count ?? 0,
+        message: mailMsg,
+      });
       const parts: string[] = [];
       if (gold > 0) parts.push(`${gold.toLocaleString()} 골드`);
       const matCount = j.materials?.length ?? 0;
@@ -291,172 +221,27 @@ export function BroadcastTab() {
           </Field>
         </div>
 
-        {/* 재료 첨부 */}
-        <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
-          <Field label="재료 첨부">
-            <select
-              value={matSel}
-              disabled={mailDisabled || materialOptions.length === 0}
-              onChange={(e) => setMatSel(e.target.value)}
-              className={SELECT_CLS}
-            >
-              {materialOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} ({o.id})
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="수량">
-            <NumberInput
-              value={matQty}
-              min={1}
-              disabled={mailDisabled}
-              onChange={(n) => setMatQty(Math.max(1, Math.floor(n)))}
-            />
-          </Field>
-          <Button
-            disabled={mailDisabled || !matSel || matQty <= 0}
-            onClick={addMaterial}
-          >
-            + 추가
-          </Button>
-        </div>
-        {attachMaterials.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {attachMaterials.map((m, i) => (
-              <span
-                key={m.materialId}
-                className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-              >
-                {materialNameById.get(m.materialId) ?? m.materialId} ×{m.count}
-                <button
-                  type="button"
-                  disabled={mailDisabled}
-                  onClick={() =>
-                    setAttachMaterials((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="ml-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-50"
-                  aria-label="제거"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* 장비 첨부 */}
-        <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
-          <Field label="장비 첨부 (base 등급)">
-            <select
-              value={eqSel}
-              disabled={mailDisabled || equipOptions.length === 0}
-              onChange={(e) => setEqSel(e.target.value)}
-              className={SELECT_CLS}
-            >
-              {equipOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  T{o.tier} · {o.slot} · {o.name} ({o.id})
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="수량">
-            <NumberInput
-              value={eqQty}
-              min={1}
-              disabled={mailDisabled}
-              onChange={(n) => setEqQty(Math.max(1, Math.floor(n)))}
-            />
-          </Field>
-          <Button
-            disabled={mailDisabled || !eqSel || eqQty <= 0}
-            onClick={addItem}
-          >
-            + 추가
-          </Button>
-        </div>
-        {attachItems.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {attachItems.map((it, i) => (
-              <span
-                key={it.itemId}
-                className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-              >
-                {equipNameById.get(it.itemId) ?? it.itemId} ×{it.count}
-                <button
-                  type="button"
-                  disabled={mailDisabled}
-                  onClick={() =>
-                    setAttachItems((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="ml-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-50"
-                  aria-label="제거"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* 소비 아이템 첨부 */}
-        <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
-          <Field label="소비 아이템 첨부">
-            <select
-              value={consumableSel}
-              disabled={mailDisabled || consumableOptions.length === 0}
-              onChange={(e) =>
-                setConsumableSel(e.target.value as AttachConsumable["itemId"])
-              }
-              className={SELECT_CLS}
-            >
-              {consumableOptions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} ({o.id})
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="수량">
-            <NumberInput
-              value={consumableQty}
-              min={1}
-              disabled={mailDisabled}
-              onChange={(n) => setConsumableQty(Math.max(1, Math.floor(n)))}
-            />
-          </Field>
-          <Button
-            disabled={mailDisabled || !consumableSel || consumableQty <= 0}
-            onClick={addConsumable}
-          >
-            + 추가
-          </Button>
-        </div>
-        {attachConsumables.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {attachConsumables.map((it, i) => (
-              <span
-                key={it.itemId}
-                className="inline-flex items-center gap-1 rounded-full border border-zinc-300 bg-zinc-50 px-2 py-0.5 text-[11px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-              >
-                {consumableNameById.get(it.itemId) ?? it.itemId} ×{it.count}
-                <button
-                  type="button"
-                  disabled={mailDisabled}
-                  onClick={() =>
-                    setAttachConsumables((prev) => prev.filter((_, j) => j !== i))
-                  }
-                  className="ml-0.5 text-zinc-400 hover:text-red-500 disabled:opacity-50"
-                  aria-label="제거"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <AttachmentPicker
+          label="재료 첨부"
+          options={materialOptions}
+          entries={attachMaterials}
+          onChange={setAttachMaterials}
+          disabled={mailDisabled}
+        />
+        <AttachmentPicker
+          label="장비 첨부 (base 등급)"
+          options={equipOptions}
+          entries={attachItems}
+          onChange={setAttachItems}
+          disabled={mailDisabled}
+        />
+        <AttachmentPicker
+          label="소비 아이템 첨부"
+          options={consumableOptions}
+          entries={attachConsumables}
+          onChange={setAttachConsumables}
+          disabled={mailDisabled}
+        />
 
         <div className="mt-3">
           <Field label="메시지 (선택)">

@@ -264,6 +264,29 @@ export function spMilestonesForCumLevel(cumLevel: number): number {
   return Math.max(0, Math.floor(n));
 }
 
+export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
+  currentMilestoneSp: number;
+  nextMilestoneSp: number;
+  requiredCumLevel: number;
+  remainingCumLevel: number;
+} {
+  const current = Number.isFinite(cumLevel)
+    ? Math.max(0, Math.floor(cumLevel))
+    : 0;
+  const currentMilestoneSp = spMilestonesForCumLevel(current);
+  const nextMilestoneSp = currentMilestoneSp + 1;
+  const balanceRequired =
+    SP_MILESTONE_BASE * nextMilestoneSp +
+    (SP_MILESTONE_WIDEN * nextMilestoneSp * (nextMilestoneSp - 1)) / 2;
+  const requiredCumLevel = balanceRequired * SP_MASTERY_BALANCE_SCALE;
+  return {
+    currentMilestoneSp,
+    nextMilestoneSp,
+    requiredCumLevel,
+    remainingCumLevel: Math.max(0, requiredCumLevel - current),
+  };
+}
+
 // SP 예산 계산 — 각 직업군 밸런스 숙련도 점감 마일스톤 합 + 정복 보너스 + 기본. 소프트캡.
 //   groups = proficiency.groups (직업군별 { cumLevel }). 구조적 인자(순환 import 회피).
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).

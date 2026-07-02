@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
+import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
 import {
@@ -319,6 +320,43 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [refresh],
   );
 
+  // 상급 숙련 교본 사용 — 거래 가능한 협동 보스 소모품. 현재 직업 숙련도만 서버 권위로 올린다.
+  const useCoopMasteryTome = useCallback(async () => {
+    setBusy("coop_mastery_tome");
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/use-coop-mastery-tome", {
+        method: "POST",
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        gained?: number;
+        jobMastery?: number;
+      } | null;
+      if (!j?.ok) {
+        const label =
+          j?.error === "no_tome"
+            ? "보유한 교본이 없습니다"
+            : j?.error === "no_current_job"
+              ? "현재 직업에는 사용할 수 없습니다"
+              : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
+        return;
+      }
+      await refresh();
+      void refreshGameState();
+      setMsg(
+        `✓ 현재 직업 숙련도 +${j.gained ?? COOP_MASTERY_TOME_GAIN}` +
+          (typeof j.jobMastery === "number" ? ` (현재 ${j.jobMastery})` : ""),
+      );
+    } catch (err) {
+      setMsg(`✗ ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [refresh, refreshGameState]);
+
   // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
   const applyLock = useCallback(
     async (iid: string, locked: boolean) => {
@@ -561,6 +599,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             busy={busy}
             onUseSpFruit={useSpFruit}
             onUseEquipmentBox={useCoopEquipmentBox}
+            onUseMasteryTome={useCoopMasteryTome}
             rareMaps={rareMaps}
           />
         ) : tab === "material" ? (

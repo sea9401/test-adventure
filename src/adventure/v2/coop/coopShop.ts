@@ -4,6 +4,8 @@ import {
   COOP_BOSS_MATERIAL,
   COOP_COIN_MATERIAL_ID,
   COOP_EQUIPMENT_BOX,
+  COOP_MASTERY_TOME_GAIN,
+  COOP_MASTERY_TOME_MATERIAL_ID,
 } from "@/adventure/data/v2/coopRewards";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
@@ -119,6 +121,20 @@ export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
       count: 1,
     },
     limit: { scope: "weekly", count: 3 },
+  },
+  {
+    itemId: "mastery_tome",
+    category: "consumable",
+    name:
+      V2_MATERIALS[COOP_MASTERY_TOME_MATERIAL_ID]?.name ?? "상급 숙련 교본",
+    description: `사용 시 현재 직업 숙련도 +${COOP_MASTERY_TOME_GAIN}. 거래 가능. 주 5개까지 교환한다.`,
+    cost: coinCost(120),
+    output: {
+      kind: "material",
+      materialId: COOP_MASTERY_TOME_MATERIAL_ID,
+      count: 1,
+    },
+    limit: { scope: "weekly", count: 5 },
   },
   {
     itemId: "title_helping_hand",

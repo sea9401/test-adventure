@@ -7,7 +7,10 @@ import {
   parseCoopShopState,
   recordCoopShopPurchase,
 } from "./coopShop";
-import { COOP_COIN_MATERIAL_ID } from "@/adventure/data/v2/coopRewards";
+import {
+  COOP_COIN_MATERIAL_ID,
+  COOP_MASTERY_TOME_MATERIAL_ID,
+} from "@/adventure/data/v2/coopRewards";
 
 describe("coopShop", () => {
   it("v1 상품은 협동 주화를 비용에 포함한다", () => {
@@ -43,5 +46,18 @@ describe("coopShop", () => {
     const ids = coopShopRelevantMaterialIds();
     expect(ids).toContain(COOP_COIN_MATERIAL_ID);
     expect(ids).toContain("v2_boss_summon_scroll");
+    expect(ids).toContain(COOP_MASTERY_TOME_MATERIAL_ID);
+  });
+
+  it("상급 숙련 교본은 주간 제한 거래 소모품으로 제공한다", () => {
+    const tome = COOP_SHOP_ENTRIES.find((e) => e.itemId === "mastery_tome");
+    expect(tome).toBeDefined();
+    expect(tome?.category).toBe("consumable");
+    expect(tome?.limit).toEqual({ scope: "weekly", count: 5 });
+    expect(tome?.output).toEqual({
+      kind: "material",
+      materialId: COOP_MASTERY_TOME_MATERIAL_ID,
+      count: 1,
+    });
   });
 });

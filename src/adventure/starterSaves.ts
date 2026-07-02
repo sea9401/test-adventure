@@ -1,5 +1,5 @@
 import { initialCharacterState } from "@/adventure/character/useCharacterState";
-import { emptyInventory } from "@/adventure/inventory/useInventory";
+import { emptyInventory } from "@/adventure/inventory/state";
 import { TUTORIAL_ENABLED_FLAG } from "@/adventure/tutorial/flags";
 import type { SyncedKey } from "@/lib/storage/synced-keys";
 

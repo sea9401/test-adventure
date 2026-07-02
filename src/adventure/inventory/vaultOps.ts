@@ -1,10 +1,10 @@
-// 도감 보관함 ↔ 인벤토리 이동의 순수 함수. useInventory 의 depositToVault / withdrawFromVault 가
-// 이 함수들을 감싸 setState 한다. 분리한 이유는 (1) 테스트 가능, (2) 한 번의 setState 로 atomic 갱신.
+// 도감 보관함 ↔ 인벤토리 이동의 순수 함수 — InventoryState 를 받아 새 상태를 산출한다
+// (호출자가 한 번의 setState 로 atomic 갱신). 옛 useInventory 훅은 은퇴, 순수 엔진만 남김.
 
 import type { ItemId } from "../data/items";
 import type { CraftTier } from "../data/craftQuality";
 import type { DropQuality } from "../data/dropQuality";
-import type { InventoryState } from "./useInventory";
+import type { InventoryState } from "./state";
 
 // 장비 변형 직렬화 키 — 인벤·도감·보관함·거래소 공통 규약.
 //   "base"       : 기본(craftTier 0, dropQuality 0). 일반 equipment[] 슬롯.

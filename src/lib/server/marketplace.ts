@@ -156,7 +156,7 @@ export function instanceListingGrade(craftTier: number | undefined): EquipVarian
   return "base";
 }
 
-// 장비 등급 variant 키 — vault 변형 키와 동일 규약(useInventory.ts VAULT_VARIANT_KEYS).
+// 장비 등급 variant 키 — vault 변형 키와 동일 규약(inventory/state.ts VaultState 참조).
 //  base: equipment[]                          (일반)
 //  c-2/c-1/c1/c2: craftedEquipment[id][tier]  (불량/하급/고급/걸작)
 //  d1/d2:        droppedEquipment[id][quality] (정교한/빼어난)

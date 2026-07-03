@@ -77,6 +77,15 @@ export const TIER3_UNLOCK_CUMLEVEL = 2700;
 export const TIER4_UNLOCK_CUMLEVEL = 4725;
 
 /**
+ * 낚시 직업 라인 전용 해금 임계 — 낚시 숙련도는 사냥 승리 +1 루프가 아니라
+ * reel 성공으로 오른다. 일반 직업 성장속도 조정의 영향을 그대로 받으면 생활 직업만
+ * 과하게 느려지므로, 2026-07 숙련도 상향 전 수치를 유지한다.
+ */
+export const FISHING_TIER2_UNLOCK_CUMLEVEL = 900;
+export const FISHING_TIER3_UNLOCK_CUMLEVEL = 1800;
+export const FISHING_TIER4_UNLOCK_CUMLEVEL = 2700;
+
+/**
  * 5차 해금 임계 — 바로 아래 4차 직업의 jobCumLevel. 5차는 빠른 전직 계단이 아니라 장기 엔드
  * 성장 목표라 4차보다 간격을 크게 둔다.
  */
@@ -165,7 +174,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 2,
     cultivateProfile: { luk: 2, spi: 1, vit: 1 },
     jobBonus: { luk: 3, spi: 2 }, // 생활 루트 입문 — 낚시 보너스는 장착 패시브가 담당
-    unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
+    unlock: { prereqs: { survivor: FISHING_TIER2_UNLOCK_CUMLEVEL } },
   },
 
   // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
@@ -362,7 +371,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 3,
     cultivateProfile: { luk: 2, spi: 1, vit: 1 },
     jobBonus: { luk: 10, spi: 5 },
-    unlock: { prereqs: { fisher: TIER3_UNLOCK_CUMLEVEL } },
+    unlock: { prereqs: { fisher: FISHING_TIER3_UNLOCK_CUMLEVEL } },
   },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
   //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
@@ -568,7 +577,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 4,
     cultivateProfile: { luk: 2, spi: 1, vit: 1 },
     jobBonus: { luk: 15, spi: 7 },
-    unlock: { prereqs: { angler: TIER4_UNLOCK_CUMLEVEL } },
+    unlock: { prereqs: { angler: FISHING_TIER4_UNLOCK_CUMLEVEL } },
   },
   crusader: {
     id: "crusader",

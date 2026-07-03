@@ -7,6 +7,9 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  FISHING_TIER2_UNLOCK_CUMLEVEL,
+  FISHING_TIER3_UNLOCK_CUMLEVEL,
+  FISHING_TIER4_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
@@ -211,7 +214,11 @@ describe("해금 트리", () => {
       for (const childId of children) {
         const job = V2_JOB_CATALOG[childId];
         expect(job.tier).toBe(2);
-        expect(job.unlock.prereqs).toEqual({ [parent]: TIER2_UNLOCK_CUMLEVEL });
+        const required =
+          childId === "fisher"
+            ? FISHING_TIER2_UNLOCK_CUMLEVEL
+            : TIER2_UNLOCK_CUMLEVEL;
+        expect(job.unlock.prereqs).toEqual({ [parent]: required });
       }
     }
   });
@@ -220,7 +227,11 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER3_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(3);
-      expect(job.unlock.prereqs).toEqual({ [parent]: TIER3_UNLOCK_CUMLEVEL });
+      const required =
+        childId === "angler"
+          ? FISHING_TIER3_UNLOCK_CUMLEVEL
+          : TIER3_UNLOCK_CUMLEVEL;
+      expect(job.unlock.prereqs).toEqual({ [parent]: required });
       // 계보 부모는 tier-2 직업 → isJobUnlocked 가 jobCumLevel 로 분기(직군 cumLevel 아님).
       expect(V2_JOB_CATALOG[parent].tier).toBe(2);
     }
@@ -230,12 +241,28 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(4);
-      expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
+      const required =
+        childId === "masterangler"
+          ? FISHING_TIER4_UNLOCK_CUMLEVEL
+          : TIER4_UNLOCK_CUMLEVEL;
+      expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(3);
     }
     // 임계 램프: tier2 < tier3 < tier4.
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
+  });
+
+  it("낚시 계열은 reel 성공 기반 숙련도라 2026-07 상향 전 요구치를 유지한다", () => {
+    expect(V2_JOB_CATALOG.fisher.unlock.prereqs).toEqual({
+      survivor: 900,
+    });
+    expect(V2_JOB_CATALOG.angler.unlock.prereqs).toEqual({
+      fisher: 1800,
+    });
+    expect(V2_JOB_CATALOG.masterangler.unlock.prereqs).toEqual({
+      angler: 2700,
+    });
   });
 
   it("5차 직업은 계보(바로 아래 4차 부모) jobCumLevel ≥ TIER5 을 요구한다", () => {

@@ -58,6 +58,7 @@ import {
   potionHealAmount,
   applyComboFinisherToHits,
   resolveV2SkillCast,
+  type V2SkillDotApply,
   distributeBoostedHits,
   rollAttackCount,
   tickV2BuffMap,
@@ -292,6 +293,29 @@ function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
   return Math.max(0, Math.round(defender.player.def * (1 - corrodePct / 100)));
 }
 
+function corrosionPoisonDotMult(player: PlayerCombat): number {
+  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  return corrodePct > 0 ? 1 + corrodePct / 100 : 1;
+}
+
+function applyCorrosionToPoisonDots(
+  dots: readonly V2SkillDotApply[],
+  player: PlayerCombat,
+): V2SkillDotApply[] {
+  const mult = corrosionPoisonDotMult(player);
+  if (mult === 1) return [...dots];
+  return dots.map((dot) =>
+    dot.tag === "poison"
+      ? {
+          ...dot,
+          flatPerStack: dot.flatPerStack * mult,
+          atkCoefPerStack: dot.atkCoefPerStack * mult,
+          pctMaxHpPerStack: dot.pctMaxHpPerStack * mult,
+        }
+      : dot,
+  );
+}
+
 export function rollPvPAttackCount(attacker: PvPSide, defender: PvPSide): number {
   const bonus = attacker.player.extraAttackChancePctWhileEnemyBleeding ?? 0;
   if (bonus <= 0 || !sideHasDot(defender, "bleed")) {
@@ -321,9 +345,10 @@ export function applyPvPOnHitDots(
   const poisonStacks =
     (add?.poisonStacks ?? 0) + (attacker.player.poisonOnHit ? 1 : 0);
   if (attacker.player.poisonOnHit && poisonStacks > 0) {
+    const poisonMult = corrosionPoisonDotMult(attacker.player);
     dots.push(makePoisonDot({
       stacks: poisonStacks,
-      pctMaxHpPerStack: attacker.player.poisonOnHit.pctMaxHpPerStack,
+      pctMaxHpPerStack: attacker.player.poisonOnHit.pctMaxHpPerStack * poisonMult,
       sourceAtk: attacker.player.atk,
     }));
   }
@@ -1716,9 +1741,13 @@ export function castV2SkillOnAttackerTurnPvP(
     result.dotsToApplyToTarget.length > 0 &&
     !!sigStatusBlock &&
     !opp.flags.statusBlockUsed;
+  const dotsToApplyToTarget = applyCorrosionToPoisonDots(
+    result.dotsToApplyToTarget,
+    side.player,
+  );
   const nextOppDots = statusBlockDots
     ? opp.v2Dots
-    : applyV2DotsToTarget(opp.v2Dots, result.dotsToApplyToTarget);
+    : applyV2DotsToTarget(opp.v2Dots, dotsToApplyToTarget);
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1740,7 +1769,7 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  for (const dot of statusBlockDots ? [] : result.dotsToApplyToTarget) {
+  for (const dot of statusBlockDots ? [] : dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}회)`,

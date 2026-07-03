@@ -199,6 +199,34 @@ export function UsersTab() {
     }
   };
 
+  const resetMasteryTowerDaily = async () => {
+    if (!selected || readOnly) return;
+    const name = selected.gameName?.trim() || selected.email || selected.id;
+    const ok = window.confirm(
+      `「${name}」 님의 숙련의 탑 오늘 진행을 0층으로 초기화합니다.\n` +
+        "영구 최고층과 최초 돌파 보상 기록은 유지됩니다.\n" +
+        "미수령 보상이 있으면 초기화와 함께 사라집니다.",
+    );
+    if (!ok) return;
+    try {
+      const j = await adminPost<{
+        previous?: { todayBestFloor?: number; claimed?: boolean };
+        tower?: { todayBestFloor?: number; claimed?: boolean };
+        lostPendingReward?: number;
+      }>("/api/admin/mastery-tower/reset", { userId: selected.id });
+      const beforeFloor = j.previous?.todayBestFloor ?? 0;
+      const lost = j.lostPendingReward ?? 0;
+      showToast(
+        `숙련의 탑 초기화 완료: ${beforeFloor}층 → ${
+          j.tower?.todayBestFloor ?? 0
+        }층${lost > 0 ? `, 미수령 증서 ${lost}개 소실` : ""}.`,
+      );
+      await loadSaves(selected.id);
+    } catch (e) {
+      showToast(`숙련의 탑 초기화 실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-[320px_1fr]">
       <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -280,6 +308,7 @@ export function UsersTab() {
             onUpdateCharacter={updateCharacter}
             onGrantV2={grantV2}
             onResetCharacter={resetCharacter}
+            onResetMasteryTowerDaily={resetMasteryTowerDaily}
             onReload={() => loadSaves(selected.id)}
           />
         )}

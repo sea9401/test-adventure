@@ -7,6 +7,7 @@ import {
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
+  resetMasteryTowerDailyProgress,
 } from "./masteryTower";
 
 describe("masteryTower", () => {
@@ -85,6 +86,24 @@ describe("masteryTower", () => {
     expect(guardian.exp).toBe(0);
     expect(guardian.drops).toEqual([]);
     expect(guardian.v2Skills?.equipped.length).toBeGreaterThan(0);
+  });
+
+  it("관리자 일일 초기화는 오늘 진행만 초기화하고 영구 기록은 유지한다", () => {
+    expect(
+      resetMasteryTowerDailyProgress({
+        date: "2026-07-03",
+        todayBestFloor: 18,
+        claimed: true,
+        lifetimeBestFloor: 24,
+        firstClearRewardsClaimed: [10, 20],
+      }),
+    ).toEqual({
+      date: "2026-07-03",
+      todayBestFloor: 0,
+      claimed: false,
+      lifetimeBestFloor: 24,
+      firstClearRewardsClaimed: [10, 20],
+    });
   });
 
   it("도전 로그는 성공 판정과 보상 프리뷰를 포함한다", () => {

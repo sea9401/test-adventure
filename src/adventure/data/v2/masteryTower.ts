@@ -213,6 +213,18 @@ export function clearMasteryTowerFloor(
   };
 }
 
+export function resetMasteryTowerDailyProgress(
+  state: MasteryTowerState,
+  date: string = state.date,
+): MasteryTowerState {
+  return {
+    ...state,
+    date,
+    todayBestFloor: 0,
+    claimed: false,
+  };
+}
+
 export function masteryTowerAttemptLog({
   floor,
   success,

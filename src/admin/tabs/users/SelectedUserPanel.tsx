@@ -27,6 +27,7 @@ export function SelectedUserPanel({
   onUpdateCharacter,
   onGrantV2,
   onResetCharacter,
+  onResetMasteryTowerDaily,
   onReload,
 }: {
   user: AdminUserRow;
@@ -38,6 +39,7 @@ export function SelectedUserPanel({
   onUpdateCharacter: (next: CharacterDynamicState) => void;
   onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
   onResetCharacter: () => void | Promise<void>;
+  onResetMasteryTowerDaily: () => void | Promise<void>;
   onReload: () => void;
 }) {
   const character = saves?.["character.v2"] ?? initialCharacterState;
@@ -84,6 +86,24 @@ export function SelectedUserPanel({
       <OpsUserSummarySection userId={user.id} readOnly={readOnly} />
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
+
+      <section className="rounded-md border border-amber-300 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/30">
+        <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+          숙련의 탑
+        </h2>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          오늘 진행 층수와 수령 상태만 초기화합니다. 영구 최고층과 최초 돌파 보상
+          수령 기록은 유지됩니다.
+        </p>
+        <Button
+          variant="danger"
+          disabled={readOnly || loading}
+          onClick={() => void onResetMasteryTowerDaily()}
+          className="mt-2"
+        >
+          오늘 진행 초기화
+        </Button>
+      </section>
 
       <section className="rounded-md border border-red-300 bg-red-50/50 p-3 dark:border-red-900 dark:bg-red-950/30">
         <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">

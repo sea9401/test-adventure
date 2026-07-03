@@ -3,6 +3,8 @@ import {
   TIER2_UNLOCK_CUMLEVEL,
   TIER3_UNLOCK_CUMLEVEL,
   TIER4_UNLOCK_CUMLEVEL,
+  TIER5_UNLOCK_CUMLEVEL,
+  TIER6_UNLOCK_CUMLEVEL,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
@@ -58,9 +60,10 @@ export function JobsContent() {
       <P>
         상위 직업은 <Em>바로 아래 직업의 숙련도</Em>가 게이트를 넘으면 열립니다.
         계보가 깊어질수록 게이트가 높아져요(숙련도 {TIER2_UNLOCK_CUMLEVEL} →{" "}
-        {TIER3_UNLOCK_CUMLEVEL} → {TIER4_UNLOCK_CUMLEVEL}). 일부 상위 직업은 두
-        계보를 합친 <Em>하이브리드</Em>라 양쪽을 모두 키워야 열립니다(예: 성기사 =
-        기사 + 사제).
+        {TIER3_UNLOCK_CUMLEVEL} → {TIER4_UNLOCK_CUMLEVEL} →{" "}
+        {TIER5_UNLOCK_CUMLEVEL} → {TIER6_UNLOCK_CUMLEVEL}). 일부 상위 직업은
+        두 계보를 합친 <Em>하이브리드</Em>라 양쪽을 모두 키워야 열립니다(예:
+        성기사 = 기사 + 사제).
       </P>
       <UL>
         <li>

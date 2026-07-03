@@ -84,6 +84,8 @@ export const TIER4_UNLOCK_CUMLEVEL = 4500;
 export const FISHING_TIER2_UNLOCK_CUMLEVEL = 900;
 export const FISHING_TIER3_UNLOCK_CUMLEVEL = 1800;
 export const FISHING_TIER4_UNLOCK_CUMLEVEL = 2700;
+export const FISHING_TIER5_UNLOCK_CUMLEVEL = 5400;
+export const FISHING_TIER6_UNLOCK_CUMLEVEL = 9000;
 
 /**
  * 5차 해금 임계 — 바로 아래 4차 직업의 jobCumLevel. 5차는 빠른 전직 계단이 아니라 장기 엔드
@@ -717,6 +719,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 22, str: 4 },
     unlock: { prereqs: { returner: TIER5_UNLOCK_CUMLEVEL } },
   },
+  fullcatchking: {
+    id: "fullcatchking",
+    name: "만선왕",
+    tier: 5,
+    cultivateProfile: { luk: 2, spi: 1, vit: 1 },
+    jobBonus: { luk: 20, spi: 8 },
+    unlock: { prereqs: { masterangler: FISHING_TIER5_UNLOCK_CUMLEVEL } },
+  },
   transcendent: {
     id: "transcendent",
     name: "초월자",
@@ -755,6 +765,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, dex: 1, vit: 1 },
     jobBonus: { str: 27, dex: 9, vit: 4 },
     unlock: { prereqs: { dragonfist: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  seagod: {
+    id: "seagod",
+    name: "해신",
+    tier: 6,
+    cultivateProfile: { luk: 2, spi: 2 },
+    jobBonus: { luk: 28, spi: 12 },
+    unlock: { prereqs: { fullcatchking: FISHING_TIER6_UNLOCK_CUMLEVEL } },
   },
 };
 
@@ -839,7 +857,13 @@ export function cumLevelForJob(
     : (prof.jobCumLevel?.[job.id] ?? 0);
 }
 
-const V2_FISHING_JOB_IDS = new Set(["fisher", "angler", "masterangler"]);
+const V2_FISHING_JOB_IDS = new Set([
+  "fisher",
+  "angler",
+  "masterangler",
+  "fullcatchking",
+  "seagod",
+]);
 
 export function isFishingJobId(jobId: string): boolean {
   return V2_FISHING_JOB_IDS.has(jobId);
@@ -948,11 +972,13 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   dragonfist: { class: "martial", spec: "dragonfist" },
   adamantmonk: { class: "martial", spec: "adamantmonk" },
   immortal: { class: "survivor", spec: "immortal" },
+  fullcatchking: { class: "survivor", spec: "fullcatchking" },
   transcendent: { class: "warrior", spec: "transcendent" },
   bloodlord: { class: "warrior", spec: "bloodlord" },
   // tier 6 — 5차 직업 계승.
   fortressknight: { class: "warrior", spec: "fortressknight" },
   celestialdragon: { class: "martial", spec: "celestialdragon" },
+  seagod: { class: "survivor", spec: "seagod" },
 };
 
 /**

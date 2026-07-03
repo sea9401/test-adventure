@@ -10,6 +10,8 @@ import {
   FISHING_TIER2_UNLOCK_CUMLEVEL,
   FISHING_TIER3_UNLOCK_CUMLEVEL,
   FISHING_TIER4_UNLOCK_CUMLEVEL,
+  FISHING_TIER5_UNLOCK_CUMLEVEL,
+  FISHING_TIER6_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
@@ -92,11 +94,13 @@ const TIER5_LINEAGE: Record<string, string> = {
   dragonfist: "sensei",
   adamantmonk: "battlemonk",
   immortal: "returner",
+  fullcatchking: "masterangler",
   bloodlord: "crimsontemplar",
 };
 const TIER6_LINEAGE: Record<string, string> = {
   fortressknight: "ironknight",
   celestialdragon: "dragonfist",
+  seagod: "fullcatchking",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -113,16 +117,16 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("73개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 13 + 6차 2)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(73);
+  it("75개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 14 + 6차 3)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(75);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(13);
     expect(byTier(3)).toBe(19);
     expect(byTier(4)).toBe(20);
-    expect(byTier(5)).toBe(13);
-    expect(byTier(6)).toBe(2);
+    expect(byTier(5)).toBe(14);
+    expect(byTier(6)).toBe(3);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -274,16 +278,26 @@ describe("해금 트리", () => {
     expect(V2_JOB_CATALOG.masterangler.unlock.prereqs).toEqual({
       angler: 2700,
     });
+    expect(V2_JOB_CATALOG.fullcatchking.unlock.prereqs).toEqual({
+      masterangler: 5400,
+    });
+    expect(V2_JOB_CATALOG.seagod.unlock.prereqs).toEqual({
+      fullcatchking: 9000,
+    });
   });
 
   it("5차 직업은 계보(바로 아래 4차 부모) jobCumLevel ≥ TIER5 을 요구한다", () => {
     for (const [childId, parent] of Object.entries(TIER5_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(5);
-      expect(job.unlock.prereqs).toEqual({ [parent]: TIER5_UNLOCK_CUMLEVEL });
+      const required =
+        childId === "fullcatchking"
+          ? FISHING_TIER5_UNLOCK_CUMLEVEL
+          : TIER5_UNLOCK_CUMLEVEL;
+      expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(4);
-      expect(isJobUnlocked(job, profJobs({ [parent]: TIER5_UNLOCK_CUMLEVEL - 1 }))).toBe(false);
-      expect(isJobUnlocked(job, profJobs({ [parent]: TIER5_UNLOCK_CUMLEVEL }))).toBe(true);
+      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }))).toBe(false);
+      expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
     }
     expect(TIER4_UNLOCK_CUMLEVEL).toBeLessThan(TIER5_UNLOCK_CUMLEVEL);
   });
@@ -292,10 +306,14 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER6_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(6);
-      expect(job.unlock.prereqs).toEqual({ [parent]: TIER6_UNLOCK_CUMLEVEL });
+      const required =
+        childId === "seagod"
+          ? FISHING_TIER6_UNLOCK_CUMLEVEL
+          : TIER6_UNLOCK_CUMLEVEL;
+      expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(5);
-      expect(isJobUnlocked(job, profJobs({ [parent]: TIER6_UNLOCK_CUMLEVEL - 1 }))).toBe(false);
-      expect(isJobUnlocked(job, profJobs({ [parent]: TIER6_UNLOCK_CUMLEVEL }))).toBe(true);
+      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }))).toBe(false);
+      expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
     }
     expect(TIER5_UNLOCK_CUMLEVEL).toBeLessThan(TIER6_UNLOCK_CUMLEVEL);
     expect(LEGACY_CLASS_SPEC_BY_JOB.fortressknight).toEqual({
@@ -308,6 +326,11 @@ describe("해금 트리", () => {
       spec: "celestialdragon",
     });
     expect(jobIdFromLegacy("martial", "celestialdragon")).toBe("celestialdragon");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.seagod).toEqual({
+      class: "survivor",
+      spec: "seagod",
+    });
+    expect(jobIdFromLegacy("survivor", "seagod")).toBe("seagod");
   });
 
   it("5차 하이브리드(초월자) — 성전사·룬 기사를 각각 TIER5 키워야 해금된다", () => {
@@ -679,6 +702,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("survivor", "physicalcoach")).toBe("physicalcoach");
     expect(jobIdFromLegacy("survivor", "angler")).toBe("angler");
     expect(jobIdFromLegacy("survivor", "masterangler")).toBe("masterangler");
+    expect(jobIdFromLegacy("survivor", "fullcatchking")).toBe("fullcatchking");
+    expect(jobIdFromLegacy("survivor", "seagod")).toBe("seagod");
     expect(jobIdFromLegacy("survivor", "mastertrainer")).toBe("mastertrainer");
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
     expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
@@ -713,6 +738,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("survivor", "physicalcoach")).toBe("피지컬 코치");
     expect(displayName("survivor", "angler")).toBe("명인 낚시꾼");
     expect(displayName("survivor", "masterangler")).toBe("강태공");
+    expect(displayName("survivor", "fullcatchking")).toBe("만선왕");
+    expect(displayName("survivor", "seagod")).toBe("해신");
     expect(displayName("survivor", "mastertrainer")).toBe("마스터 트레이너");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
@@ -722,6 +749,10 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
 describe("생활 직업 숙련도 획득 분기", () => {
   it("헬스 트레이너는 낚시 숙련도 예외가 아니므로 사냥 숙련도 대상이다", () => {
     expect(isFishingJobId("fisher")).toBe(true);
+    expect(isFishingJobId("angler")).toBe(true);
+    expect(isFishingJobId("masterangler")).toBe(true);
+    expect(isFishingJobId("fullcatchking")).toBe(true);
+    expect(isFishingJobId("seagod")).toBe(true);
     expect(isFishingJobId("healthtrainer")).toBe(false);
     expect(isFishingJobId("physicalcoach")).toBe(false);
     expect(isFishingJobId("mastertrainer")).toBe(false);

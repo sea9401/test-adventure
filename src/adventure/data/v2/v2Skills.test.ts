@@ -56,12 +56,14 @@ describe("낚시 생활 패시브", () => {
         "v2c_camper_tidereading",
         "v2c_angler_pointreading",
         "v2c_masterangler_bigcatchsense",
+        "v2c_fullcatchking_bountyhaul",
+        "v2c_seagod_deepcurrent",
       ]),
     ).toEqual({
-      sizeBonusPct: 4,
-      specialWeightPct: 25,
-      rareSizeBonusPct: 3,
-      bigCatchSizeBonusPct: 2,
+      sizeBonusPct: 7,
+      specialWeightPct: 45,
+      rareSizeBonusPct: 7,
+      bigCatchSizeBonusPct: 4,
     });
     expect(equippedFishingBonuses([])).toEqual({
       sizeBonusPct: 0,
@@ -83,6 +85,18 @@ describe("낚시 생활 패시브", () => {
     );
     expect(describeV2Skill(V2_SKILLS.v2c_masterangler_bigcatchsense)).toContain(
       "대물급 물고기 크기 +2%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_fullcatchking_bountyhaul)).toContain(
+      "물고기 크기 +3%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_fullcatchking_bountyhaul)).toContain(
+      "대물급 물고기 크기 +2%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_seagod_deepcurrent)).toContain(
+      "물때 한정 어종 가중치 +20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_seagod_deepcurrent)).toContain(
+      "희귀 이상 물고기 크기 +4%",
     );
   });
 });

@@ -47,6 +47,8 @@ export type V2CommonSkillId =
   | "v2c_survivor_baitcraft" // 미끼 고르기 (물고기 크기)
   | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 물고기 크기)
   | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물급 물고기 크기)
+  | "v2c_fullcatchking_bountyhaul" // 만선 조업 (물고기 크기 + 대물급 물고기 크기)
+  | "v2c_seagod_deepcurrent" // 심해 해류 (물때 한정 어종 + 희귀 이상 물고기 크기)
   | "v2c_healthtrainer_routine" // 운동 루틴 (길드 훈련장 보상)
   | "v2c_physicalcoach_conditioning" // 컨디셔닝 프로그램 (길드 훈련장 보상)
   | "v2c_mastertrainer_elitetraining" // 엘리트 트레이닝 (길드 훈련장 보상)
@@ -364,6 +366,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { fishingBigCatchSizeBonusPct: 2 },
+  },
+  v2c_fullcatchking_bountyhaul: {
+    id: "v2c_fullcatchking_bountyhaul", name: "만선 조업", stat: "luk", category: "passive", tier: 3,
+    description: "잔입질을 살려 전체 어획 크기를 끌어올리고, 대물급 입질을 한 번 더 밀어붙인다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { fishingSizeBonusPct: 3, fishingBigCatchSizeBonusPct: 2 },
+  },
+  v2c_seagod_deepcurrent: {
+    id: "v2c_seagod_deepcurrent", name: "심해 해류", stat: "luk", category: "passive", tier: 3,
+    description: "깊은 물길을 읽어 물때 한정 어종과 희귀 어종을 더 유리하게 끌어낸다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { fishingSpecialWeightPct: 20, fishingRareSizeBonusPct: 4 },
   },
 
   // ── 모험가(none) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──

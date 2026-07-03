@@ -116,6 +116,24 @@ export function msUntilNextRegen(
   return Math.max(0, regenMs - remainder);
 }
 
+// 목표 스태미너까지 회복되는 데 남은 ms. 이미 충분하면 0.
+export function msUntilStaminaAtLeast(
+  state: StaminaState,
+  target: number,
+  nowMs: number,
+  maxStamina: number = MAX_STAMINA,
+): number {
+  const required = Math.max(0, Math.ceil(target));
+  if (required <= 0) return 0;
+  const regenned = applyRegen(state, nowMs, maxStamina);
+  if (regenned.current >= required) return 0;
+  if (maxStamina < required) return Number.POSITIVE_INFINITY;
+
+  const nextRegenMs = msUntilNextRegen(regenned, nowMs, maxStamina);
+  const missingAfterNextPoint = Math.max(0, required - regenned.current - 1);
+  return nextRegenMs + missingAfterNextPoint * REGEN_SECONDS_PER_POINT * 1000;
+}
+
 // === saves 파싱 ====================================================
 
 // saves_kv 의 JSON 에서 stamina 필드를 추출. 옛 데이터엔 없음 → 만피로 시드.

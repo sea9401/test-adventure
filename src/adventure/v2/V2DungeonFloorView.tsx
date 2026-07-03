@@ -20,7 +20,11 @@ import {
   type PlayerCombatStats,
 } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
-import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
+import {
+  HUNT_COST,
+  msUntilStaminaAtLeast,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { MAIN_DUNGEON, depthName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
@@ -114,6 +118,7 @@ export function V2DungeonFloorView({
   initialHpCharges = 0,
   initialMpCharges = 0,
   stamina,
+  staminaMax,
   setStamina,
   hp,
   setHp,
@@ -149,6 +154,7 @@ export function V2DungeonFloorView({
   initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
   stamina: StaminaState;
+  staminaMax?: number;
   setStamina: (s: StaminaState) => void;
   // 전역 HP + setter — V2GameFlow. 미로딩(null)이면 클라 게이트 비활성(서버가 최종 권위).
   // dev 하니스(DungeonHunt)에선 미전달 → optional.
@@ -292,6 +298,9 @@ export function V2DungeonFloorView({
   // 단판 사냥 동시 제출 차단 — busy 가 리렌더에 반영되기 전 한 프레임 내 중복 호출 시 사냥이
   //   겹쳐 결과 순서(lastResult·연패 카운터)가 꼬이는 것을 동기적으로 막는다. 결과 수신 시 해제.
   const huntInFlightRef = useRef(false);
+  // 스태미너 회복 시점 서버 재조회 중복 차단 — 버튼은 서버가 돌려준 stamina 로만 다시 활성화한다.
+  const staminaReadyRefreshInFlightRef = useRef(false);
+  const staminaReadyRefreshKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return;
@@ -497,7 +506,46 @@ export function V2DungeonFloorView({
   const cooldownLeftSec = onCooldown
     ? Math.ceil((combatCooldown.nextBattleAt - now) / 1000)
     : 0;
-  const lowStamina = !coreLoopOn && stamina.current < HUNT_COST;
+  const staminaCurrent = stamina.current;
+  const staminaLastUpdatedAt = stamina.lastUpdatedAt;
+  const lowStamina = !coreLoopOn && staminaCurrent < HUNT_COST;
+  useEffect(() => {
+    if (coreLoopOn || !onRefresh || staminaCurrent >= HUNT_COST) {
+      staminaReadyRefreshKeyRef.current = null;
+      return;
+    }
+
+    const waitMs = msUntilStaminaAtLeast(
+      { current: staminaCurrent, lastUpdatedAt: staminaLastUpdatedAt },
+      HUNT_COST,
+      Date.now(),
+      staminaMax,
+    );
+    if (!Number.isFinite(waitMs)) return;
+
+    const id = window.setTimeout(() => {
+      const refreshKey = `${staminaCurrent}:${staminaLastUpdatedAt}:${staminaMax}`;
+      if (
+        staminaReadyRefreshInFlightRef.current ||
+        staminaReadyRefreshKeyRef.current === refreshKey
+      ) {
+        return;
+      }
+      staminaReadyRefreshInFlightRef.current = true;
+      staminaReadyRefreshKeyRef.current = refreshKey;
+      void Promise.resolve(onRefresh()).finally(() => {
+        staminaReadyRefreshInFlightRef.current = false;
+      });
+    }, waitMs + 100);
+
+    return () => window.clearTimeout(id);
+  }, [
+    coreLoopOn,
+    onRefresh,
+    staminaCurrent,
+    staminaLastUpdatedAt,
+    staminaMax,
+  ]);
   const oneActionDisabled = busy || batchRunning;
   // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).
   // hp 미로딩(null)이면 게이트 비활성 — 서버 가드가 최종 차단.

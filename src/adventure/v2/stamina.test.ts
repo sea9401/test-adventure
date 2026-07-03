@@ -7,6 +7,7 @@ import {
   applyRegen,
   tryConsume,
   msUntilNextRegen,
+  msUntilStaminaAtLeast,
   initialStamina,
   parseStaminaFromSave,
   staminaOverchargeCap,
@@ -124,6 +125,29 @@ describe("스태미너 — 다음 회복까지 카운트다운", () => {
     // 막 회복한 직후라고 가정 (lastUpdatedAt 갱신된 상태)
     const s = applyRegen(at(10, 0), REGEN_MS);
     expect(msUntilNextRegen(s, REGEN_MS)).toBe(REGEN_MS);
+  });
+});
+
+describe("스태미너 — 목표치까지 카운트다운", () => {
+  it("이미 목표치 이상이면 0", () => {
+    expect(msUntilStaminaAtLeast(at(1, 0), HUNT_COST, 0)).toBe(0);
+  });
+
+  it("0에서 사냥 가능 목표치까지는 다음 회복 시간", () => {
+    expect(msUntilStaminaAtLeast(at(0, 0), HUNT_COST, 0)).toBe(REGEN_MS);
+    expect(msUntilStaminaAtLeast(at(0, 0), HUNT_COST, REGEN_MS / 2)).toBe(
+      REGEN_MS / 2,
+    );
+  });
+
+  it("목표치가 여러 포인트면 필요한 회복 시간을 합산", () => {
+    expect(msUntilStaminaAtLeast(at(0, 0), 3, 0)).toBe(REGEN_MS * 3);
+  });
+
+  it("사용자별 최대치로는 닿을 수 없는 목표면 Infinity", () => {
+    expect(msUntilStaminaAtLeast(at(0, 0), 3, 0, 2)).toBe(
+      Number.POSITIVE_INFINITY,
+    );
   });
 });
 

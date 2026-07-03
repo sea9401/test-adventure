@@ -44,11 +44,11 @@ export function BankPanel() {
     setMessage(null);
   }
 
-  // amountOverride 를 주면 입력칸 대신 그 값으로 처리(전액 입금 원탭 버튼용). 서버가
-  //   moved=min(amount, 보유)로 클램프하므로 살짝 stale 해도 과입금 에러 없이 보유분만 들어간다.
-  async function submit(action: BankAction, amountOverride?: number) {
+  // amountOverride 를 주면 입력칸 대신 그 값으로 처리. "all" 은 서버가 save lock 이후
+  //   최신 보유/은행 잔액 기준으로 전액 계산한다(클라 gold 가 stale 해도 잔액이 남지 않음).
+  async function submit(action: BankAction, amountOverride?: number | "all") {
     const amt = amountOverride ?? amount;
-    if (amt <= 0 || busyAction !== null) {
+    if ((amt !== "all" && amt <= 0) || busyAction !== null) {
       setMessage("금액을 확인해 주세요");
       return;
     }
@@ -98,7 +98,7 @@ export function BankPanel() {
         //   금액 입력 없이 원탭으로 보유 골드 전부 입금(사용자 요청).
         <button
           type="button"
-          onClick={() => submit("deposit", gold)}
+          onClick={() => submit("deposit", "all")}
           disabled={busyAction !== null || gold <= 0}
           className="mt-3 w-full rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
         >

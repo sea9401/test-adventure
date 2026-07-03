@@ -104,7 +104,7 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
           </button>
         )}
       </div>
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-1.5">
         {JOB_TAG_FILTERS.map((tag) => {
           const active = activeTags.has(tag.key);
           return (
@@ -112,7 +112,7 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
               key={tag.key}
               type="button"
               onClick={() => toggleTag(tag.key)}
-              className={`h-7 shrink-0 rounded-md border px-2 text-[11px] font-medium transition ${
+              className={`h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-[11px] font-medium transition ${
                 active
                   ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300"
                   : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"

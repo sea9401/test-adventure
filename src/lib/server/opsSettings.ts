@@ -6,6 +6,8 @@ export const HOT_TIME_KEY = "hot-time.v1";
 export const HOT_TIME_SCHEDULES_KEY = "hot-time-schedules.v1";
 export const ALERT_THRESHOLDS_KEY = "ops-alert-thresholds.v1";
 export const OPS_ALERT_HISTORY_KEY = "ops-alert-history.v1";
+export const REWARD_FAILURE_STATUS_KEY = "reward-failure-status.v1";
+export const REWARD_COMPENSATION_PRESETS_KEY = "reward-compensation-presets.v1";
 
 export type HotTimeSettings = {
   enabled: boolean;
@@ -55,6 +57,31 @@ export type OpsAlertHistoryEntry = {
   createdAt: string;
 };
 
+export type RewardFailureStatus = "reviewed" | "compensated" | "ignored";
+
+export type RewardFailureStatusEntry = {
+  eventId: number;
+  status: RewardFailureStatus;
+  note: string;
+  adminEmail: string;
+  updatedAt: string;
+};
+
+export type RewardCompensationPreset = {
+  id: string;
+  label: string;
+  itemKind:
+    | "gold"
+    | "fishing_coin"
+    | "treasure_coin"
+    | "mastery_certificate"
+    | "stamina_potion"
+    | "material";
+  itemId: string;
+  quantity: number;
+  reason: string;
+};
+
 export const DEFAULT_HOT_TIME: HotTimeSettings = {
   enabled: false,
   title: "",
@@ -76,6 +103,49 @@ export const DEFAULT_ALERT_THRESHOLDS: AlertThresholdSettings = {
   largeGoldEvents: 3,
   adminAudit: 30,
 };
+
+export const DEFAULT_REWARD_COMPENSATION_PRESETS: RewardCompensationPreset[] = [
+  {
+    id: "fishing-coin-missing",
+    label: "낚시 코인 미지급",
+    itemKind: "fishing_coin",
+    itemId: "",
+    quantity: 100,
+    reason: "낚시 코인 미지급 보정",
+  },
+  {
+    id: "treasure-coin-missing",
+    label: "발굴 코인 미지급",
+    itemKind: "treasure_coin",
+    itemId: "",
+    quantity: 100,
+    reason: "발굴 코인 미지급 보정",
+  },
+  {
+    id: "mastery-certificate-missing",
+    label: "숙련 증서 미지급",
+    itemKind: "mastery_certificate",
+    itemId: "",
+    quantity: 1,
+    reason: "숙련 증서 미지급 보정",
+  },
+  {
+    id: "stamina-potion-missing",
+    label: "스태미나 회복약",
+    itemKind: "stamina_potion",
+    itemId: "",
+    quantity: 1,
+    reason: "스태미나 회복약 미지급 보정",
+  },
+  {
+    id: "material-adjust",
+    label: "재료 보정",
+    itemKind: "material",
+    itemId: "",
+    quantity: 1,
+    reason: "재료 미지급 보정",
+  },
+];
 
 export async function readHotTimeSettings(): Promise<{
   hotTime: HotTimeSettings;
@@ -133,6 +203,57 @@ export async function readAlertThresholdSettings(): Promise<{
 export async function readOpsAlertHistory(): Promise<OpsAlertHistoryEntry[]> {
   const row = await readSettingRow(OPS_ALERT_HISTORY_KEY);
   return parseOpsAlertHistory(row?.value);
+}
+
+export async function readRewardFailureStatuses(): Promise<RewardFailureStatusEntry[]> {
+  const row = await readSettingRow(REWARD_FAILURE_STATUS_KEY);
+  return parseRewardFailureStatuses(row?.value);
+}
+
+export async function writeRewardFailureStatuses(
+  entries: RewardFailureStatusEntry[],
+  adminEmail: string,
+  updatedAt = new Date(),
+) {
+  await upsertOpsSetting(
+    REWARD_FAILURE_STATUS_KEY,
+    entries.slice(0, 500),
+    adminEmail,
+    updatedAt,
+  );
+}
+
+export async function readRewardCompensationPresets(): Promise<{
+  presets: RewardCompensationPreset[];
+  updatedByEmail: string | null;
+  updatedAt: Date | null;
+}> {
+  const row = await readSettingRow(REWARD_COMPENSATION_PRESETS_KEY);
+  return {
+    presets: parseRewardCompensationPresets(row?.value),
+    updatedByEmail: row?.updatedByEmail ?? null,
+    updatedAt: row?.updatedAt ?? null,
+  };
+}
+
+export async function upsertOpsSetting(
+  key: string,
+  value: unknown,
+  updatedByEmail: string,
+  updatedAt = new Date(),
+) {
+  await db
+    .insert(opsSettings)
+    .values({
+      key,
+      value,
+      updatedByEmail,
+      updatedAt,
+    })
+    .onConflictDoUpdate({
+      target: opsSettings.key,
+      set: { value, updatedByEmail, updatedAt },
+    });
 }
 
 async function readSettingRow(key: string): Promise<{
@@ -318,6 +439,65 @@ export function parseOpsAlertHistory(raw: unknown): OpsAlertHistoryEntry[] {
     .slice(0, 100);
 }
 
+export function parseRewardFailureStatuses(raw: unknown): RewardFailureStatusEntry[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { entries?: unknown }).entries)
+      ? (raw as { entries: unknown[] }).entries
+      : [];
+  const byEvent = new Map<number, RewardFailureStatusEntry>();
+  for (const entry of list) {
+    const r =
+      entry && typeof entry === "object" && !Array.isArray(entry)
+        ? (entry as Record<string, unknown>)
+        : {};
+    const eventId = positiveInt(r.eventId, 0, 2_147_483_647);
+    const status = parseRewardFailureStatus(r.status);
+    const updatedAt = dateTextValue(r.updatedAt);
+    if (!eventId || !status || !updatedAt) continue;
+    byEvent.set(eventId, {
+      eventId,
+      status,
+      note: textValue(r.note, 500),
+      adminEmail: textValue(r.adminEmail, 160) || "unknown",
+      updatedAt,
+    });
+  }
+  return [...byEvent.values()]
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .slice(0, 500);
+}
+
+export function parseRewardCompensationPresets(raw: unknown): RewardCompensationPreset[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { presets?: unknown }).presets)
+      ? (raw as { presets: unknown[] }).presets
+      : DEFAULT_REWARD_COMPENSATION_PRESETS;
+  const parsed = list.slice(0, 20).map(parseRewardCompensationPreset).filter((row): row is RewardCompensationPreset => row != null);
+  return parsed.length > 0 ? parsed : DEFAULT_REWARD_COMPENSATION_PRESETS;
+}
+
+function parseRewardCompensationPreset(raw: unknown): RewardCompensationPreset | null {
+  const r =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const itemKind = parseRewardItemKind(r.itemKind);
+  const label = textValue(r.label, 40);
+  const id = textValue(r.id, 80) || label.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+  const quantity = positiveInt(r.quantity, 0, 1_000_000_000);
+  if (!id || !label || !itemKind || quantity <= 0) return null;
+  return {
+    id,
+    label,
+    itemKind,
+    itemId: textValue(r.itemId, 160),
+    quantity,
+    reason: textValue(r.reason, 500),
+  };
+}
+
 function textValue(raw: unknown, max: number): string {
   return typeof raw === "string" ? raw.trim().slice(0, max) : "";
 }
@@ -338,6 +518,29 @@ function pctValue(raw: unknown): number {
   const value = Number(raw ?? 0);
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(500, Math.floor(value)));
+}
+
+function positiveInt(raw: unknown, fallback: number, max: number): number {
+  const value = Number(raw ?? fallback);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(0, Math.min(max, Math.floor(value)));
+}
+
+function parseRewardFailureStatus(raw: unknown): RewardFailureStatus | null {
+  return raw === "reviewed" || raw === "compensated" || raw === "ignored"
+    ? raw
+    : null;
+}
+
+function parseRewardItemKind(raw: unknown): RewardCompensationPreset["itemKind"] | null {
+  return raw === "gold" ||
+    raw === "fishing_coin" ||
+    raw === "treasure_coin" ||
+    raw === "mastery_certificate" ||
+    raw === "stamina_potion" ||
+    raw === "material"
+    ? raw
+    : null;
 }
 
 function thresholdValue(raw: unknown, fallback: number): number {

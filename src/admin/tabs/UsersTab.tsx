@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import { Button, TextInput } from "../ui/Field";
@@ -26,8 +27,10 @@ function formatLastSeen(iso: string | null): string {
 
 export function UsersTab() {
   const { readOnly, showToast } = useAdmin();
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -58,8 +61,8 @@ export function UsersTab() {
     // 초기 1회 — 비동기 fetch 후 setState 라 cascading render 가 아니지만
     // 린트는 호출 그래프만 보고 발화하므로 명시적으로 끈다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void runSearch("");
-  }, [runSearch]);
+    void runSearch(initialQuery);
+  }, [runSearch, initialQuery]);
 
   const loadSaves = useCallback(async (userId: string) => {
     setSavesLoading(true);

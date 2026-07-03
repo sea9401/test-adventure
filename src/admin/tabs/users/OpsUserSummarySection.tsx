@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../../AdminContext";
 import { adminGet, adminPost } from "../../api";
 import { Button } from "../../ui/Field";
@@ -54,6 +55,7 @@ const COMP_KIND_OPTIONS = [
 ] as const;
 
 const COMP_PRESETS: Array<{
+  id: string;
   label: string;
   itemKind: (typeof COMP_KIND_OPTIONS)[number];
   itemId: string;
@@ -61,6 +63,7 @@ const COMP_PRESETS: Array<{
   reason: string;
 }> = [
   {
+    id: "fishing-coin-missing",
     label: "낚시 코인 미지급",
     itemKind: "fishing_coin",
     itemId: "",
@@ -68,6 +71,7 @@ const COMP_PRESETS: Array<{
     reason: "낚시 코인 미지급 보정",
   },
   {
+    id: "treasure-coin-missing",
     label: "발굴 코인 미지급",
     itemKind: "treasure_coin",
     itemId: "",
@@ -75,6 +79,7 @@ const COMP_PRESETS: Array<{
     reason: "발굴 코인 미지급 보정",
   },
   {
+    id: "mastery-certificate-missing",
     label: "숙련 증서 미지급",
     itemKind: "mastery_certificate",
     itemId: "",
@@ -82,6 +87,7 @@ const COMP_PRESETS: Array<{
     reason: "숙련 증서 미지급 보정",
   },
   {
+    id: "stamina-potion-missing",
     label: "스태미나 회복약",
     itemKind: "stamina_potion",
     itemId: "",
@@ -89,6 +95,7 @@ const COMP_PRESETS: Array<{
     reason: "스태미나 회복약 미지급 보정",
   },
   {
+    id: "material-adjust",
     label: "재료 보정",
     itemKind: "material",
     itemId: "",
@@ -105,6 +112,7 @@ export function OpsUserSummarySection({
   readOnly: boolean;
 }) {
   const { showToast, adminMe } = useAdmin();
+  const searchParams = useSearchParams();
   const [itemKind, setItemKind] = useState<(typeof COMP_KIND_OPTIONS)[number]>("gold");
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState(0);
@@ -123,12 +131,28 @@ export function OpsUserSummarySection({
       ),
     [userId],
   );
+  const { data: settings } = useAsyncData<{
+    rewardCompensationPresets: typeof COMP_PRESETS;
+  }>((signal) => adminGet("/api/admin/ops-settings", signal));
+  const presets = settings?.rewardCompensationPresets ?? COMP_PRESETS;
   const canReward = Boolean(adminMe?.capabilities.reward);
   const formDisabled = readOnly || saving || !canReward;
 
   useEffect(() => {
     if (error) console.warn("[admin] ops summary failed", error);
   }, [error]);
+
+  useEffect(() => {
+    const eventId = Math.max(
+      0,
+      Math.floor(Number(searchParams.get("sourceEventId") ?? 0) || 0),
+    );
+    if (eventId > 0) {
+      // 대시보드 보상 실패 후보에서 들어온 경우 원본 event id를 자동 채운다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSourceEventId(eventId);
+    }
+  }, [searchParams]);
 
   const compensate = async () => {
     const confirmLarge = isLargeCompensation(itemKind, quantity)
@@ -194,9 +218,9 @@ export function OpsUserSummarySection({
           <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
             <h3 className="mb-2 text-xs font-semibold">보상 보정 지급</h3>
             <div className="mb-2 flex flex-wrap gap-1">
-              {COMP_PRESETS.map((preset) => (
+              {presets.map((preset) => (
                 <button
-                  key={preset.label}
+                  key={preset.id}
                   type="button"
                   disabled={formDisabled}
                   onClick={() => {

@@ -105,9 +105,11 @@ export async function GET(req: Request) {
       gameName: row.gameName,
       title: row.action,
       subtitle: row.reason,
+      summary: summarizeDetail("abuse", row.detail),
       detail: row.detail,
       createdAt: row.createdAt.toISOString(),
       href: `/admin?tab=abuse&${row.userId ? `userId=${encodeURIComponent(row.userId)}` : `ip=${encodeURIComponent(row.ip ?? "")}`}`,
+      userHref: row.userId ? `/admin?tab=users&q=${encodeURIComponent(row.userId)}` : null,
     })),
     ...economyRows.map((row) => ({
       id: `economy:${row.id}`,
@@ -117,9 +119,11 @@ export async function GET(req: Request) {
       gameName: row.gameName,
       title: row.eventType,
       subtitle: [row.itemKind, row.itemId, row.quantity ?? null].filter(Boolean).join(" · "),
+      summary: summarizeDetail("economy", row.detail),
       detail: row.detail,
       createdAt: row.createdAt.toISOString(),
       href: `/admin?tab=economy&eventType=${encodeURIComponent(row.eventType)}`,
+      userHref: row.userId ? `/admin?tab=users&q=${encodeURIComponent(row.userId)}` : null,
     })),
     ...auditRows.map((row) => ({
       id: `audit:${row.id}`,
@@ -129,13 +133,43 @@ export async function GET(req: Request) {
       gameName: row.gameName,
       title: row.action,
       subtitle: row.adminEmail,
+      summary: summarizeDetail("audit", row.detail),
       detail: row.detail,
       createdAt: row.createdAt.toISOString(),
       href: `/admin?tab=audit&action=${encodeURIComponent(row.action)}`,
+      userHref: row.targetUserId
+        ? `/admin?tab=users&q=${encodeURIComponent(row.targetUserId)}`
+        : null,
     })),
   ]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, limit);
 
   return Response.json({ ok: true, entries });
+}
+
+function summarizeDetail(kind: "abuse" | "economy" | "audit", raw: unknown) {
+  const detail =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  if (kind === "economy") {
+    const sourceEventId = detail.sourceEventId ? `원본 ${detail.sourceEventId}` : null;
+    const before = detail.beforeBalance != null ? `이전 ${detail.beforeBalance}` : null;
+    const after = detail.balance != null ? `이후 ${detail.balance}` : null;
+    return [sourceEventId, before, after, textValue(detail.reason)].filter(Boolean).join(" · ");
+  }
+  if (kind === "audit") {
+    const quantity = detail.quantity != null ? `수량 ${detail.quantity}` : null;
+    const reason = textValue(detail.reason);
+    const adminMemo = textValue(detail.adminMemo);
+    return [quantity, reason, adminMemo].filter(Boolean).join(" · ");
+  }
+  return [textValue(detail.path), textValue(detail.message), textValue(detail.error)]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function textValue(raw: unknown) {
+  return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 160) : null;
 }

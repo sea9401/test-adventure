@@ -1,10 +1,17 @@
-import { desc, gte } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { abuseEvents, adminAuditLog, economyEvents } from "@/db/schema";
+import {
+  abuseEvents,
+  adminAuditLog,
+  economyEvents,
+  users,
+  userSanctions,
+} from "@/db/schema";
 import { requireAdmin } from "@/lib/server/isAdmin";
 import {
   readAlertThresholdSettings,
   readOpsAlertHistory,
+  readRewardFailureStatuses,
 } from "@/lib/server/opsSettings";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -25,6 +32,9 @@ export async function GET(req: Request) {
     auditRows,
     { alertThresholds },
     alertHistory,
+    rewardFailureStatuses,
+    expiringSanctions,
+    recentLiftedSanctions,
   ] = await Promise.all([
     db
       .select({
@@ -61,6 +71,7 @@ export async function GET(req: Request) {
         adminEmail: adminAuditLog.adminEmail,
         action: adminAuditLog.action,
         targetUserId: adminAuditLog.targetUserId,
+        detail: adminAuditLog.detail,
         createdAt: adminAuditLog.createdAt,
       })
       .from(adminAuditLog)
@@ -69,10 +80,52 @@ export async function GET(req: Request) {
       .limit(300),
     readAlertThresholdSettings(),
     readOpsAlertHistory(),
+    readRewardFailureStatuses(),
+    db
+      .select({
+        id: userSanctions.id,
+        userId: userSanctions.userId,
+        gameName: users.gameName,
+        type: userSanctions.type,
+        reason: userSanctions.reason,
+        expiresAt: userSanctions.expiresAt,
+      })
+      .from(userSanctions)
+      .leftJoin(users, eq(users.id, userSanctions.userId))
+      .where(
+        and(
+          isNull(userSanctions.liftedAt),
+          gte(userSanctions.expiresAt, new Date(now)),
+          lte(userSanctions.expiresAt, new Date(now + 24 * HOUR_MS)),
+        ),
+      )
+      .orderBy(userSanctions.expiresAt)
+      .limit(12),
+    db
+      .select({
+        id: userSanctions.id,
+        userId: userSanctions.userId,
+        gameName: users.gameName,
+        type: userSanctions.type,
+        reason: userSanctions.reason,
+        liftedAt: userSanctions.liftedAt,
+        liftedByEmail: userSanctions.liftedByEmail,
+      })
+      .from(userSanctions)
+      .leftJoin(users, eq(users.id, userSanctions.userId))
+      .where(gte(userSanctions.liftedAt, since))
+      .orderBy(desc(userSanctions.liftedAt))
+      .limit(12),
   ]);
 
   const abuse = summarizeAbuse(abuseRows, now);
   const economy = summarizeEconomy(economyRows, now);
+  const rewardFailureStatusById = new Map(
+    rewardFailureStatuses.map((entry) => [entry.eventId, entry]),
+  );
+  const rewardFailures = economyRows.filter((row) =>
+    row.eventType.startsWith("reward.failure."),
+  );
 
   return Response.json({
     ok: true,
@@ -82,7 +135,30 @@ export async function GET(req: Request) {
     abuse,
     economy,
     alertThresholds,
+    suggestedAlertThresholds: suggestAlertThresholds({
+      abuse,
+      economy,
+      auditCount: auditRows.length,
+    }),
     alertHistory: alertHistory.slice(0, 12),
+    dailyReport: buildDailyReport({
+      abuse,
+      economy,
+      auditRows,
+      rewardFailures,
+      rewardFailureStatuses,
+    }),
+    sanctionReport: {
+      expiring24h: expiringSanctions.map((row) => ({
+        ...row,
+        expiresAt: row.expiresAt?.toISOString() ?? null,
+      })),
+      lifted: recentLiftedSanctions.map((row) => ({
+        ...row,
+        liftedAt: row.liftedAt?.toISOString() ?? null,
+      })),
+    },
+    riskEvents: buildRiskEvents(auditRows, economyRows),
     audit: {
       last24h: auditRows.length,
       latest: auditRows.slice(0, 10),
@@ -96,6 +172,7 @@ export async function GET(req: Request) {
     }),
     rewardFailureCandidates: economyRows
       .filter((row) => row.eventType.startsWith("reward.failure."))
+      .filter((row) => !rewardFailureStatusById.has(row.id))
       .slice(0, 12)
       .map((row) => ({
         id: row.id,
@@ -105,6 +182,7 @@ export async function GET(req: Request) {
         detail: row.detail,
         createdAt: row.createdAt,
       })),
+    rewardFailureStatusRecent: rewardFailureStatuses.slice(0, 12),
     suspiciousUsers: scoreSuspiciousUsers(abuseRows),
     connectedIps: scoreConnectedIps(abuseRows),
     slowQueryCandidates: [
@@ -128,6 +206,144 @@ export async function GET(req: Request) {
       },
     ],
   });
+}
+
+function suggestAlertThresholds({
+  abuse,
+  economy,
+  auditCount,
+}: {
+  abuse: ReturnType<typeof summarizeAbuse>;
+  economy: ReturnType<typeof summarizeEconomy>;
+  auditCount: number;
+}) {
+  return {
+    abuseLast5m: suggested(abuse.last5m, DEFAULT_SUGGESTED.abuseLast5m),
+    abuseLast1h: suggested(abuse.last1h, DEFAULT_SUGGESTED.abuseLast1h),
+    rewardFailures: suggested(economy.rewardFailures24h, DEFAULT_SUGGESTED.rewardFailures),
+    largeGoldEvents: suggested(economy.largeGoldEvents24h, DEFAULT_SUGGESTED.largeGoldEvents),
+    adminAudit: suggested(auditCount, DEFAULT_SUGGESTED.adminAudit),
+  };
+}
+
+const DEFAULT_SUGGESTED = {
+  abuseLast5m: 20,
+  abuseLast1h: 50,
+  rewardFailures: 5,
+  largeGoldEvents: 3,
+  adminAudit: 30,
+};
+
+function suggested(current: number, fallback: number) {
+  if (current <= 0) return fallback;
+  return Math.max(fallback, Math.ceil(current * 1.5));
+}
+
+function buildDailyReport({
+  abuse,
+  economy,
+  auditRows,
+  rewardFailures,
+  rewardFailureStatuses,
+}: {
+  abuse: ReturnType<typeof summarizeAbuse>;
+  economy: ReturnType<typeof summarizeEconomy>;
+  auditRows: Array<{ action: string }>;
+  rewardFailures: Array<{ id: number }>;
+  rewardFailureStatuses: Array<{ eventId: number; status: string }>;
+}) {
+  const failureIds = new Set(rewardFailures.map((row) => row.id));
+  const statusRows = rewardFailureStatuses.filter((row) => failureIds.has(row.eventId));
+  return {
+    rewardFailures: rewardFailures.length,
+    rewardFailuresHandled: statusRows.length,
+    rewardCompensated: statusRows.filter((row) => row.status === "compensated").length,
+    sanctionsChanged: auditRows.filter((row) => row.action.startsWith("sanction.")).length,
+    abuseEvents: abuse.last24h,
+    rateLimited: abuse.rateLimited24h,
+    largeGoldEvents: economy.largeGoldEvents24h,
+    adminChanges: auditRows.length,
+    goldNet: economy.goldIn24h - economy.goldOut24h,
+  };
+}
+
+function buildRiskEvents(
+  auditRows: Array<{
+    id: number;
+    adminEmail: string;
+    action: string;
+    targetUserId: string | null;
+    detail: unknown;
+    createdAt: Date;
+  }>,
+  economyRows: Array<{
+    id: number;
+    userId: string | null;
+    eventType: string;
+    goldDelta: number;
+    itemKind: string | null;
+    itemId: string | null;
+    quantity: number | null;
+    createdAt: Date;
+  }>,
+) {
+  const auditRisks = auditRows.flatMap((row) => {
+    const risk = riskForAudit(row);
+    return risk
+      ? [
+          {
+            id: `audit:${row.id}`,
+            level: risk.level,
+            title: risk.title,
+            message: `${row.action} · ${row.adminEmail}`,
+            createdAt: row.createdAt.toISOString(),
+            href: `/admin?tab=audit&action=${encodeURIComponent(row.action)}`,
+          },
+        ]
+      : [];
+  });
+  const economyRisks = economyRows.flatMap((row) => {
+    if (Math.abs(row.goldDelta) < 500_000 && (row.quantity ?? 0) < 5_000) return [];
+    return [
+      {
+        id: `economy:${row.id}`,
+        level: Math.abs(row.goldDelta) >= 1_000_000 ? "danger" : "warning",
+        title: "대량 재화 이동",
+        message: `${row.eventType} · ${row.itemKind ?? "gold"} ${(
+          row.quantity ?? Math.abs(row.goldDelta)
+        ).toLocaleString()}`,
+        createdAt: row.createdAt.toISOString(),
+        href: `/admin?tab=economy&eventType=${encodeURIComponent(row.eventType)}`,
+      },
+    ];
+  });
+  return [...auditRisks, ...economyRisks]
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 12);
+}
+
+function riskForAudit(row: { action: string; detail: unknown }) {
+  const detail =
+    row.detail && typeof row.detail === "object" && !Array.isArray(row.detail)
+      ? (row.detail as Record<string, unknown>)
+      : {};
+  if (row.action === "sanction.ban") {
+    return { level: "danger" as const, title: "영구 정지" };
+  }
+  if (row.action === "reward.compensate") {
+    const quantity = Number(detail.quantity ?? 0);
+    const itemKind = String(detail.itemKind ?? "");
+    if ((itemKind === "gold" && quantity >= 100_000) || quantity >= 1_000) {
+      return { level: "warning" as const, title: "대량 보정 지급" };
+    }
+  }
+  if (row.action === "ops-settings.hot-time.update") {
+    return { level: "info" as const, title: "핫타임 단발 설정 변경" };
+  }
+  if (row.action === "ops-settings.hot-time-schedules.update") {
+    return { level: "info" as const, title: "핫타임 반복 예약 변경" };
+  }
+  return null;
 }
 
 function clampHours(value: number): number {

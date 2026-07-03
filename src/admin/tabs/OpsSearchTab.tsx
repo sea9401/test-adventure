@@ -15,9 +15,11 @@ type OpsSearchEntry = {
   gameName: string | null;
   title: string;
   subtitle: string;
+  summary: string;
   detail: Record<string, unknown> | null;
   createdAt: string;
   href: string;
+  userHref: string | null;
 };
 
 export function OpsSearchTab() {
@@ -79,7 +81,8 @@ export function OpsSearchTab() {
                 <th className="px-2 py-1.5 font-medium">event</th>
                 <th className="px-2 py-1.5 font-medium">대상</th>
                 <th className="px-2 py-1.5 font-medium">내용</th>
-                <th className="px-2 py-1.5 font-medium">상세</th>
+                <th className="px-2 py-1.5 font-medium">요약</th>
+                <th className="px-2 py-1.5 font-medium">바로가기</th>
               </tr>
             </thead>
             <tbody>
@@ -101,7 +104,16 @@ export function OpsSearchTab() {
                     </Link>
                   </td>
                   <td className="px-2 py-1.5">
-                    {entry.gameName ?? entry.userId?.slice(0, 10) ?? "-"}
+                    {entry.userHref ? (
+                      <Link
+                        href={entry.userHref}
+                        className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                      >
+                        {entry.gameName ?? entry.userId?.slice(0, 10) ?? "-"}
+                      </Link>
+                    ) : (
+                      (entry.gameName ?? entry.userId?.slice(0, 10) ?? "-")
+                    )}
                   </td>
                   <td className="px-2 py-1.5">
                     <div className="font-mono text-zinc-800 dark:text-zinc-100">
@@ -113,8 +125,16 @@ export function OpsSearchTab() {
                       </div>
                     ) : null}
                   </td>
-                  <td className="max-w-[260px] truncate px-2 py-1.5 font-mono text-[10px] text-zinc-400">
-                    {entry.detail ? JSON.stringify(entry.detail) : "-"}
+                  <td className="max-w-[300px] truncate px-2 py-1.5 text-[11px] text-zinc-500">
+                    {entry.summary || (entry.detail ? JSON.stringify(entry.detail) : "-")}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Link
+                      href={entry.href}
+                      className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                    >
+                      로그
+                    </Link>
                   </td>
                 </tr>
               ))}

@@ -2,6 +2,10 @@ import { db } from "@/db";
 import { logAdminAction } from "@/lib/server/adminAudit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { currentAdminEmail, requireAdminRole } from "@/lib/server/isAdmin";
+import {
+  readRewardFailureStatuses,
+  writeRewardFailureStatuses,
+} from "@/lib/server/opsSettings";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { FISHING_WALLET_KEY, fishingWalletWithCoins, walletCoins as fishingCoins } from "@/lib/server/fishing/coins";
 import { TREASURE_WALLET_KEY, walletCoins as treasureCoins } from "@/lib/server/treasure/coins";
@@ -147,6 +151,27 @@ export async function POST(req: Request) {
       balance: result.balance,
     },
   });
+  if (sourceEventId > 0) {
+    try {
+      const now = new Date();
+      const previous = await readRewardFailureStatuses();
+      const nextById = new Map(previous.map((entry) => [entry.eventId, entry]));
+      nextById.set(sourceEventId, {
+        eventId: sourceEventId,
+        status: "compensated",
+        note: reason,
+        adminEmail,
+        updatedAt: now.toISOString(),
+      });
+      await writeRewardFailureStatuses(
+        [...nextById.values()].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+        adminEmail,
+        now,
+      );
+    } catch (e) {
+      console.error("[reward-compensate] reward failure status update failed", e);
+    }
+  }
 
   return Response.json({ ok: true, ...result });
 }

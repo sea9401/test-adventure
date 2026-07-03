@@ -1,4 +1,6 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -58,15 +60,33 @@ export async function GET(req: Request) {
     if (!isTileOutpostId(qOutpost)) {
       const out = await db.transaction(async (tx) => {
         const guildId = await getGuildId(tx, userId);
-        if (guildId == null) return { villages: [], resources: {}, gold: 0 };
-        const [village, resources, guildRes] = await Promise.all([
+        const [village, occ] = await Promise.all([
           readVillage(tx, qOutpost),
-          readGuildSettlement(tx, guildId),
-          readGuildResources(tx, guildId),
+          tx
+            .select({
+              guildId: outpostOccupations.occupiedByGuildId,
+              policy: outpostOccupations.policy,
+            })
+            .from(outpostOccupations)
+            .where(eq(outpostOccupations.outpostId, qOutpost))
+            .limit(1)
+            .then((rows) => rows[0] ?? null),
+        ]);
+        if (!village || village.guildId == null || occ?.guildId !== village.guildId) {
+          return { villages: [], resources: {}, gold: 0 };
+        }
+        if (guildId !== village.guildId && occ.policy === "guild-only") {
+          return { villages: [], resources: {}, gold: 0 };
+        }
+        if (guildId !== village.guildId) {
+          return { villages: [villageDto(village)], resources: {}, gold: 0 };
+        }
+        const [resources, guildRes] = await Promise.all([
+          readGuildSettlement(tx, village.guildId),
+          readGuildResources(tx, village.guildId),
         ]);
         return {
-          villages:
-            village && village.guildId === guildId ? [villageDto(village)] : [],
+          villages: [villageDto(village)],
           resources,
           gold: guildRes.gold,
         };

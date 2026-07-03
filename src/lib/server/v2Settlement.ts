@@ -623,7 +623,7 @@ export async function readTileSettlementName(
 }
 
 // 타일 정착지 관리 권한 해석(쓰기 경로) — 점령행/정착지 행을 FOR UPDATE 로 직렬화 + 권한 판정.
-//   guild: 점령 길드 멤버(requireAdmin 면 마스터/부마스터). solo: founder 본인.
+//   영토=길드 소유 모델로 고정한다. 솔로 정착지 성장은 폐기했으므로 guild 점령행이 없으면 관리 불가.
 //   반환 owner 로 자원/골드 풀이 갈린다. flag(V2_TILE_PRODUCTION) 게이트는 호출부(라우트)에서.
 export async function resolveTileVillageManageOwner(
   tx: Tx,
@@ -660,10 +660,7 @@ export async function resolveTileVillageManageOwner(
     .for("update")
     .limit(1);
   if (!ts) return { ok: false, status: 404, error: "no_settlement" };
-  if (ts.userId !== userId) {
-    return { ok: false, status: 403, error: "not_owner" };
-  }
-  return { ok: true, owner: { kind: "solo", userId } };
+  return { ok: false, status: 403, error: "need_guild_territory" };
 }
 
 // ── 소유 가드 ── 유저의 길드가 이 거점을 점령 중이면 guildId, 아니면 null. ────────────

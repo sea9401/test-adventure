@@ -52,6 +52,13 @@ export type TrainingState = {
     rewardBonusPct: number;
     weeklyBonusMastery: number;
   };
+  externalAccess?: {
+    kind: "external";
+    outpostId: string;
+    guildId: number;
+    taxRate: number;
+    useFeeGold: number;
+  } | null;
   goals?: {
     nextJob?: {
       jobId: string;
@@ -87,9 +94,14 @@ export function trainingClaimableCountOf(
   return availableCount;
 }
 
-export async function fetchGuildTrainingClaimableCount(): Promise<number | null> {
+export async function fetchGuildTrainingClaimableCount(
+  outpostId?: string,
+): Promise<number | null> {
   try {
-    const res = await fetch("/api/v2/guild/training-ground");
+    const url = outpostId
+      ? `/api/v2/guild/training-ground?outpostId=${encodeURIComponent(outpostId)}`
+      : "/api/v2/guild/training-ground";
+    const res = await fetch(url);
     const json = (await res.json().catch(() => null)) as TrainingState | null;
     if (!res.ok || !json?.ok) return null;
     return trainingClaimableCountOf(json);

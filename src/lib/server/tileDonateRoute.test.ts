@@ -129,22 +129,20 @@ describe("tileDonate — 개인 재료 → 정착지 풀 기부", () => {
     });
   });
 
-  it("솔로 소유자: 기부 → 개인 풀(user_settlement_resources) crop/ore 적립", async () => {
+  it("솔로 소유자: 기부 차단 → 길드 영토 필요", async () => {
     seedSoloSettlementTile();
     store.set(userSettlementResources, [{ userId: ME, settlement: {} }]);
     soloSave.set(ME, { materials: { v2_timber: 20, v2_iron_ore: 10 } });
 
     const res = await tileDonate(ME, TILE, { v2_timber: 5, v2_iron_ore: 2 });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("need_guild_territory");
 
     expect((soloSave.get(ME)!.materials as Record<string, number>)).toEqual({
-      v2_timber: 15,
-      v2_iron_ore: 8,
+      v2_timber: 20,
+      v2_iron_ore: 10,
     });
-    expect(store.get(userSettlementResources)![0].settlement).toEqual({
-      crop: 5,
-      ore: 2,
-    });
+    expect(store.get(userSettlementResources)![0].settlement).toEqual({});
   });
 
   it("재료 부족 → 409 insufficient_material (차감/적립 없음)", async () => {

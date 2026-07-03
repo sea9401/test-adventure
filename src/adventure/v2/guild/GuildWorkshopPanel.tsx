@@ -54,9 +54,11 @@ import {
 export function GuildWorkshopPanel({
   info,
   localSmithy = false,
+  outpostId,
 }: {
   info: GuildInfoResponse | null;
   localSmithy?: boolean;
+  outpostId?: string;
 }) {
   const { notifyReward } = useRewardToast();
   const smithy = SETTLEMENT_BUILDINGS.guild_smithy;
@@ -114,6 +116,9 @@ export function GuildWorkshopPanel({
     ReadonlySet<string>
   >(() => new Set());
   const [equipmentCodexReady, setEquipmentCodexReady] = useState(false);
+  const workshopEndpoint = outpostId
+    ? `/api/v2/guild/workshop?outpostId=${encodeURIComponent(outpostId)}`
+    : "/api/v2/guild/workshop";
 
   useEffect(() => {
     let alive = true;
@@ -244,7 +249,7 @@ export function GuildWorkshopPanel({
     queueMicrotask(() => {
       if (alive) setLoading(true);
     });
-    fetch("/api/v2/guild/workshop")
+    fetch(workshopEndpoint)
       .then((res) => res.json())
       .then((json: WorkshopState & { ok?: boolean; error?: string }) => {
         if (!alive) return;
@@ -274,6 +279,7 @@ export function GuildWorkshopPanel({
           guildBonus: json.guildBonus ?? emptyGuildBonus(),
           smithyLevel: Number(json.smithyLevel ?? 1),
           smithyBonus: json.smithyBonus,
+          externalAccess: json.externalAccess ?? null,
           recipes: json.recipes ?? [],
         });
       })
@@ -286,7 +292,7 @@ export function GuildWorkshopPanel({
     return () => {
       alive = false;
     };
-  }, [hasSmithy]);
+  }, [hasSmithy, workshopEndpoint]);
 
   const resources = useMemo(() => state?.resources ?? {}, [state?.resources]);
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
@@ -353,6 +359,7 @@ export function GuildWorkshopPanel({
     [equipmentCodexReady, registeredEquipmentIds, state, weekly],
   );
   const workshopRecords = state?.workshopRecords ?? emptyWorkshopRecords();
+  const externalAccess = state?.externalAccess ?? null;
   // 제작 응답 → 워크숍 상태 반영(WorkshopCraftPanel 위임 콜백). 실패 응답도 자원/재료
   // 스냅샷을 동봉할 수 있어(부족 등) 부분 동기화하고, 성공은 레시피 가능 여부 재계산 포함.
   const applyCraftServerState = useCallback(
@@ -391,6 +398,7 @@ export function GuildWorkshopPanel({
                 ? { workshopRecords: nextWorkshopRecords }
                 : {}),
               ...(nextGuildBonus ? { guildBonus: nextGuildBonus } : {}),
+              externalAccess: prev.externalAccess,
               recipes: Array.isArray(json.recipes)
                 ? json.recipes
                 : prev.recipes.map((recipe) => {
@@ -974,7 +982,9 @@ export function GuildWorkshopPanel({
             {smithy.name} 가동 중
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-            {localSmithy
+            {externalAccess
+              ? `이 거점의 대장간을 외부 이용 중입니다. 제작 성공 시 이용료 ${externalAccess.useFeeGold.toLocaleString()} G가 점령 길드 금고로 들어갑니다.`
+              : localSmithy
               ? "이 거점의 대장간에서 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다."
               : `보유 수 ${smithyCount.toLocaleString()}개. 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다.`}
           </p>
@@ -1046,6 +1056,7 @@ export function GuildWorkshopPanel({
           onAfterCraft={afterCraftRefresh}
           autoCraft={pendingCraft}
           onAutoCraftConsumed={() => setPendingCraft(null)}
+          outpostId={outpostId}
         />
       ) : null}
 

@@ -43,12 +43,16 @@ export function OutpostActivityTabs({
   activityTab,
   onTabChange,
   canManageSettlement,
+  showManageTab = true,
+  canDefendSettlement = true,
   attackLogReload,
 }: {
   outpostId: string;
   activityTab: ActivityTab;
   onTabChange: (tab: ActivityTab) => void;
   canManageSettlement: boolean;
+  showManageTab?: boolean;
+  canDefendSettlement?: boolean;
   attackLogReload: number;
 }) {
   const [hasLocalSmithy, setHasLocalSmithy] = useState(false);
@@ -58,8 +62,8 @@ export function OutpostActivityTabs({
   >(null);
 
   const loadTrainingAvailability = useCallback(async () => {
-    setTrainingClaimableCount(await fetchGuildTrainingClaimableCount());
-  }, []);
+    setTrainingClaimableCount(await fetchGuildTrainingClaimableCount(outpostId));
+  }, [outpostId]);
 
   useEffect(() => {
     let alive = true;
@@ -100,7 +104,7 @@ export function OutpostActivityTabs({
 
   const tabs = useMemo<ActivityTabDef[]>(
     () => [
-      { key: "manage", label: "마을" },
+      ...(showManageTab ? [{ key: "manage" as const, label: "마을" }] : []),
       ...(hasLocalSmithy
         ? [{ key: "smithy" as const, label: "대장간" }]
         : []),
@@ -116,12 +120,18 @@ export function OutpostActivityTabs({
             },
           ]
         : []),
-      ...(V2_SETTLEMENT_WARFARE
+      ...(V2_SETTLEMENT_WARFARE && canDefendSettlement
         ? [{ key: "defend" as const, label: "수비" }]
         : []),
       { key: "attacks", label: "최근 공격 기록" },
     ],
-    [hasLocalSmithy, hasLocalTrainingGround, trainingClaimableCount],
+    [
+      hasLocalSmithy,
+      hasLocalTrainingGround,
+      showManageTab,
+      trainingClaimableCount,
+      canDefendSettlement,
+    ],
   );
 
   useEffect(() => {
@@ -144,22 +154,23 @@ export function OutpostActivityTabs({
         />
       </HeaderPanel>
       {activityTab === "smithy" && hasLocalSmithy && (
-        <GuildWorkshopPanel info={null} localSmithy />
+        <GuildWorkshopPanel info={null} localSmithy outpostId={outpostId} />
       )}
       {activityTab === "training" && hasLocalTrainingGround && (
         <GuildTrainingGroundPanel
           info={null}
           localTrainingGround
+          outpostId={outpostId}
           onChanged={loadTrainingAvailability}
         />
       )}
-      {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
-        <DefendPanel outpostId={outpostId} />
-      )}
+      {activityTab === "defend" &&
+        V2_SETTLEMENT_WARFARE &&
+        canDefendSettlement && <DefendPanel outpostId={outpostId} />}
       {activityTab === "attacks" && (
         <OutpostAttackLog outpostId={outpostId} reloadKey={attackLogReload} />
       )}
-      {activityTab === "manage" && (
+      {activityTab === "manage" && showManageTab && (
         <V2VillagePanel
           outpostId={outpostId}
           canManageActions={canManageSettlement}

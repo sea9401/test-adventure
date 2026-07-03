@@ -166,53 +166,22 @@ export async function POST(req: Request) {
       // 개척마을 생성비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(중앙=기본).
       const foundCost = scaledTileGoldCost(TILE_FOUND_COST, col, row);
       // 영토=길드 소유 — 개척마을 생성은 길드 행위(마스터/부마스터만·길드 자금 소모).
-      //   무소속은 개척 불가(길드 생성/가입 필요). V2_TILE_WARFARE off(레거시·전쟁 비활성)면
-      //   길드 타일 개념이 없어 솔로 경로(점령행 없음·플래그 off 환경 호환).
-      const guildId = V2_TILE_WARFARE ? await getGuildId(tx, userId) : null;
-      if (V2_TILE_WARFARE && guildId == null) {
+      //   무소속 솔로 정착지 생성은 폐기. 기존 잔존 솔로 데이터는 가입/창단 훅에서 길드로 편입된다.
+      const guildId = await getGuildId(tx, userId);
+      if (guildId == null) {
         return { kind: "err", status: 403, error: "need_guild" };
       }
-      if (guildId != null) {
-        if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
-          return { kind: "err", status: 403, error: "not_guild_admin" };
-        }
-        const gr = await lockGuildResources(tx, guildId);
-        if (V2_CORE_LOOP_V2 && gr.gold < foundCost) {
-          return {
-            kind: "err",
-            status: 409,
-            error: "out_of_guild_gold",
-            required: foundCost,
-            gold: gr.gold,
-          };
-        }
-        await tx.insert(tileSettlements).values({
-          col,
-          row,
-          userId,
-          tier: "frontier",
-          name,
-        });
-        await createTileOccupation(tx, { userId, col, row, tier: "frontier" });
-        if (V2_CORE_LOOP_V2) {
-          await upsertGuildResources(tx, guildId, {
-            gold: gr.gold - foundCost,
-          });
-        }
-        // 응답 골드 = 개인 골드(길드 자금 차감이라 개인은 불변) — 클라 표시용.
-        const cur = await chargeGold(tx, userId, 0);
-        return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
+      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+        return { kind: "err", status: 403, error: "not_guild_admin" };
       }
-      // V2_TILE_WARFARE off(레거시·전쟁 비활성) — 본인 골드로 개척(점령행 없음).
-      //   warfare on 의 무소속은 위에서 need_guild 로 이미 차단됨.
-      const charge = await chargeGold(tx, userId, foundCost);
-      if (!charge.ok) {
+      const gr = await lockGuildResources(tx, guildId);
+      if (V2_CORE_LOOP_V2 && gr.gold < foundCost) {
         return {
           kind: "err",
           status: 409,
-          error: "out_of_gold",
+          error: "out_of_guild_gold",
           required: foundCost,
-          gold: charge.gold,
+          gold: gr.gold,
         };
       }
       await tx.insert(tileSettlements).values({
@@ -222,7 +191,17 @@ export async function POST(req: Request) {
         tier: "frontier",
         name,
       });
-      return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
+      if (V2_TILE_WARFARE) {
+        await createTileOccupation(tx, { userId, col, row, tier: "frontier" });
+      }
+      if (V2_CORE_LOOP_V2) {
+        await upsertGuildResources(tx, guildId, {
+          gold: gr.gold - foundCost,
+        });
+      }
+      // 응답 골드 = 개인 골드(길드 자금 차감이라 개인은 불변) — 클라 표시용.
+      const cur = await chargeGold(tx, userId, 0);
+      return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
     }
 
     // promote / demolish — 본인 정착지여야.

@@ -51,7 +51,7 @@ describe("createTileOccupation", () => {
     );
   });
 
-  it("길드 미소속 → 솔로 점령행 생성(occupiedByGuildId=null)", async () => {
+  it("길드 미소속 → 솔로 점령행 생성하지 않음", async () => {
     const { tx, inserted } = makeTx([]);
     const r = await createTileOccupation(tx, {
       userId: "solo",
@@ -59,14 +59,8 @@ describe("createTileOccupation", () => {
       row: 0,
       tier: "frontier",
     });
-    expect(r).toEqual({ created: true, guildId: null });
-    expect(inserted).toHaveLength(1);
-    expect((inserted[0] as { occupiedByUserId: string }).occupiedByUserId).toBe(
-      "solo",
-    );
-    expect(
-      (inserted[0] as { occupiedByGuildId: number | null }).occupiedByGuildId,
-    ).toBeNull();
+    expect(r).toEqual({ created: false, guildId: null });
+    expect(inserted).toHaveLength(0);
   });
 });
 

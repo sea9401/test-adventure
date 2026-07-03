@@ -173,25 +173,22 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
     expect(store.get(v2GuildResources)![0].gold).toBe(50_000_000 - BUILD_COST);
   });
 
-  it("솔로 타일: 점령행 없음 → 솔로 마을(ownerUserId) + 본인 골드 차감 + tier 동기화", async () => {
+  it("솔로 타일: 점령행 없음 → 길드 영토 필요로 차단", async () => {
     seedTile();
     soloSave.set(ME, { gold: 50_000_000, bankedGold: 0 });
     const res = await tileBuild(ME, TILE);
-    expect(res.status).toBe(200);
-    const v = store.get(outpostVillages)![0];
-    expect(v.ownerUserId).toBe(ME);
-    expect(v.guildId).toBeNull();
-    expect(v.tier).toBe("village");
-    expect(v.name).toBe("개척이름"); // 개척 이름 재사용
-    expect(store.get(tileSettlements)![0].tier).toBe("village");
-    expect(soloSave.get(ME)!.gold).toBe(50_000_000 - BUILD_COST);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("need_guild_territory");
+    expect(store.get(outpostVillages) ?? []).toHaveLength(0);
+    expect(soloSave.get(ME)!.gold).toBe(50_000_000);
   });
 
-  it("솔로 골드 부족 → 409 insufficient_gold (마을 미생성)", async () => {
+  it("솔로 골드 부족보다 길드 영토 필요를 먼저 반환", async () => {
     seedTile();
     soloSave.set(ME, { gold: BUILD_COST - 1, bankedGold: 0 });
     const res = await tileBuild(ME, TILE);
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("need_guild_territory");
     expect(store.get(outpostVillages) ?? []).toHaveLength(0);
   });
 });
@@ -213,16 +210,20 @@ describe("tileUpgrade — 단계 상승 + tier 동기화 + 소유 자원 소비"
     expect(store.get(v2GuildResources)![0].settlement).toEqual({ crop: 1, ore: 2 });
   });
 
-  it("솔로 타일: village→city, 개인 자원 풀 소비 + tier 동기화", async () => {
+  it("솔로 타일: village→city 승급 차단", async () => {
     seedTile("village");
     store.set(outpostVillages, [village({ ownerUserId: ME, tier: "village" })]);
     store.set(userSettlementResources, [
       { userId: ME, settlement: { crop: cost.crop!, ore: cost.ore! } },
     ]);
     const res = await tileUpgrade(ME, TILE);
-    expect(res.status).toBe(200);
-    expect(store.get(outpostVillages)![0].tier).toBe("city");
-    expect(store.get(tileSettlements)![0].tier).toBe("city");
-    expect(store.get(userSettlementResources)![0].settlement).toEqual({});
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("need_guild_territory");
+    expect(store.get(outpostVillages)![0].tier).toBe("village");
+    expect(store.get(tileSettlements)![0].tier).toBe("village");
+    expect(store.get(userSettlementResources)![0].settlement).toEqual({
+      crop: cost.crop!,
+      ore: cost.ore!,
+    });
   });
 });

@@ -175,6 +175,7 @@ type OpsNote = {
   id: string;
   text: string;
   status: "open" | "resolved";
+  workflowStatus: "needs_review" | "in_progress" | "done";
   createdByEmail: string;
   createdAt: string;
   updatedByEmail: string | null;
@@ -413,8 +414,11 @@ function buildTimeline({
   const noteItems = notes.map((note) => ({
     id: `note:${note.id}`,
     type: "note" as const,
-    tone: note.status === "open" ? ("warning" as const) : ("info" as const),
-    title: note.status === "open" ? "열린 운영 메모" : "처리된 운영 메모",
+    tone:
+      note.workflowStatus === "needs_review"
+        ? ("warning" as const)
+        : ("info" as const),
+    title: `운영 메모 · ${workflowStatusLabel(note.workflowStatus)}`,
     summary: note.text,
     actor: note.createdByEmail,
     createdAt: note.createdAt,
@@ -493,6 +497,12 @@ function parseOpsNotes(raw: unknown): OpsNote[] {
         id: value.id,
         text: value.text.slice(0, 1_000),
         status: value.status === "resolved" ? "resolved" : "open",
+        workflowStatus:
+          value.workflowStatus === "in_progress" || value.workflowStatus === "done"
+            ? value.workflowStatus
+            : value.status === "resolved"
+              ? "done"
+              : "needs_review",
         createdByEmail:
           typeof value.createdByEmail === "string" ? value.createdByEmail : "unknown",
         createdAt:
@@ -503,6 +513,12 @@ function parseOpsNotes(raw: unknown): OpsNote[] {
       },
     ];
   });
+}
+
+function workflowStatusLabel(status: OpsNote["workflowStatus"]) {
+  if (status === "in_progress") return "처리 중";
+  if (status === "done") return "완료";
+  return "확인 필요";
 }
 
 function summarizeAuditDetail(raw: unknown) {

@@ -93,6 +93,16 @@ type OpsSummary = {
 
 type CountRow = { key: string; count: number };
 
+const TIMELINE_FILTERS = [
+  { value: "all", label: "전체" },
+  { value: "note", label: "메모" },
+  { value: "economy", label: "경제·보상" },
+  { value: "audit", label: "감사" },
+  { value: "sanction", label: "제재" },
+] as const;
+
+type TimelineFilter = (typeof TIMELINE_FILTERS)[number]["value"];
+
 const COMP_KIND_OPTIONS = [
   "gold",
   "fishing_coin",
@@ -200,6 +210,19 @@ export function OpsUserSummarySection({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSourceEventId(eventId);
     }
+    const draftKind = searchParams.get("draftItemKind");
+    if (draftKind && COMP_KIND_OPTIONS.includes(draftKind as (typeof COMP_KIND_OPTIONS)[number])) {
+      setItemKind(draftKind as (typeof COMP_KIND_OPTIONS)[number]);
+    }
+    const draftItemId = searchParams.get("draftItemId");
+    if (draftItemId != null) setItemId(draftItemId);
+    const draftQuantity = Math.max(
+      0,
+      Math.floor(Number(searchParams.get("draftQuantity") ?? 0) || 0),
+    );
+    if (draftQuantity > 0) setQuantity(draftQuantity);
+    const draftReason = searchParams.get("draftReason");
+    if (draftReason) setReason(draftReason.slice(0, 500));
   }, [searchParams]);
 
   const compensate = async () => {
@@ -516,14 +539,34 @@ function EconomySnapshotPanel({
 }
 
 function TimelinePanel({ rows }: { rows: OpsSummary["timeline"] }) {
+  const [filter, setFilter] = useState<TimelineFilter>("all");
+  const visibleRows = rows.filter((row) => filter === "all" || row.type === filter);
   return (
     <section>
-      <h3 className="mb-1 text-xs font-semibold">문의 대응 타임라인</h3>
-      {rows.length === 0 ? (
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold">문의 대응 타임라인</h3>
+        <div className="flex flex-wrap gap-1">
+          {TIMELINE_FILTERS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setFilter(option.value)}
+              className={
+                filter === option.value
+                  ? "rounded border border-zinc-900 bg-zinc-900 px-2 py-0.5 text-[11px] text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                  : "rounded border border-zinc-300 px-2 py-0.5 text-[11px] hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {visibleRows.length === 0 ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">기록 없음</p>
       ) : (
         <ol className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
-          {rows.slice(0, 24).map((row) => (
+          {visibleRows.slice(0, 24).map((row) => (
             <li
               key={row.id}
               className={`rounded-md border px-2 py-1.5 text-xs ${timelineClass(row.tone)}`}

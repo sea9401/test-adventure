@@ -1,3 +1,6 @@
+import type { Monster } from "@/adventure/data/monsters/types";
+import type { V2SkillId } from "./v2Skills";
+
 export const MASTERY_TOWER_SAVE_KEY = "mastery-tower.v1";
 export const MASTERY_CERTIFICATE_KEY = "masteryCertificates";
 
@@ -39,6 +42,103 @@ export function masteryTowerRequiredPower(floor: number): number {
   if (f <= 10) return 45 + f * 10;
   if (f <= 20) return 145 + (f - 10) * 24;
   return 385 + (f - 20) * 55;
+}
+
+export type MasteryTowerGuardianPreview = {
+  name: string;
+  hp: number;
+  atk: number;
+  def: number;
+  spd: number;
+  accuracy: number;
+  evasionPct: number;
+  atkType: "physical" | "magic";
+  critPct: number;
+  bonusAttackChancePct: number;
+  skills: string[];
+};
+
+export function masteryTowerGuardianForFloor(floor: number): Monster {
+  const f = clampFloor(floor);
+  const power = masteryTowerRequiredPower(f);
+  const phase =
+    f >= 25 ? "심층" : f >= 17 ? "상층" : f >= 9 ? "중층" : "하층";
+  const magicFloor = f >= 10 && f % 3 === 1;
+  const skills = towerGuardianSkills(f);
+  return {
+    name: `${phase} 수호자`,
+    tags: ["golem", "spirit"],
+    hp: Math.round(260 + power * 7.5 + f * f * 6),
+    atk: Math.round(18 + power * 0.72 + f * 2),
+    def: Math.round(8 + power * 0.42 + f * 1.4),
+    spd: Math.round(55 + f * 7),
+    accuracy: Math.min(85, Math.round(f * 2 + (f >= 16 ? 15 : 0))),
+    evasionPct: f >= 12 ? Math.min(28, Math.round((f - 10) * 1.4)) : 0,
+    element: "neutral",
+    atkType: magicFloor ? "magic" : "physical",
+    critPct: f >= 8 ? Math.min(35, Math.round(f + 2)) : 0,
+    critMult: f >= 8 ? 1.5 + Math.min(0.45, f / 100) : undefined,
+    exp: 0,
+    drops: [],
+    armorVulnerable: f >= 20 ? 0.22 : f >= 10 ? 0.12 : 0,
+    playerDefVulnerable: f >= 15 ? Math.min(0.32, 0.08 + (f - 15) * 0.012) : 0,
+    bonusAttackChancePct:
+      f >= 18 ? Math.min(100, Math.round((f - 17) * 7)) : 0,
+    ...(skills.length
+      ? {
+          v2Skills: {
+            learned: skills,
+            equipped: skills,
+          },
+          v2MaxMp: f >= 24 ? 140 : f >= 16 ? 100 : 60,
+        }
+      : {}),
+  };
+}
+
+export function masteryTowerGuardianPreview(
+  floor: number,
+): MasteryTowerGuardianPreview {
+  const guardian = masteryTowerGuardianForFloor(floor);
+  return {
+    name: guardian.name,
+    hp: guardian.hp,
+    atk: guardian.atk,
+    def: guardian.def,
+    spd: guardian.spd,
+    accuracy: guardian.accuracy ?? 0,
+    evasionPct: guardian.evasionPct ?? 0,
+    atkType: guardian.atkType ?? "physical",
+    critPct: guardian.critPct ?? 0,
+    bonusAttackChancePct: guardian.bonusAttackChancePct ?? 0,
+    skills: guardian.v2Skills?.equipped ?? [],
+  };
+}
+
+function towerGuardianSkills(floor: number): V2SkillId[] {
+  const f = clampFloor(floor);
+  if (f < 8) return [];
+  if (f < 15) {
+    return [statusSkillForFloor(f)];
+  }
+  if (f < 23) {
+    return [
+      f % 2 === 0 ? "mob_crushing_blow" : "mob_arcane_bolt",
+      statusSkillForFloor(f),
+    ];
+  }
+  return [
+    f % 3 === 0 ? "mob_arcane_nova" : "mob_arcane_burst",
+    f % 2 === 0 ? "mob_savage_roar" : "mob_crushing_blow",
+    statusSkillForFloor(f),
+  ];
+}
+
+function statusSkillForFloor(floor: number): V2SkillId {
+  const cycle = floor % 3;
+  if (cycle === 0) return "mob_rending_claw";
+  if (cycle === 1) return "mob_chilling_touch";
+  return "mob_venom_bite";
 }
 
 export function parseMasteryTowerState(
@@ -115,20 +215,26 @@ export function clearMasteryTowerFloor(
 
 export function masteryTowerAttemptLog({
   floor,
-  power,
-  requiredPower,
   success,
   tower,
   claimPreview,
+  turns,
+  playerHp,
+  playerMaxHp,
+  enemyHp,
+  enemyMaxHp,
 }: {
   floor: number | null;
-  power: number;
-  requiredPower: number | null;
   success: boolean;
   tower: MasteryTowerState;
   claimPreview: ReturnType<typeof masteryTowerClaimPreview>;
+  turns?: number;
+  playerHp?: number;
+  playerMaxHp?: number;
+  enemyHp?: number;
+  enemyMaxHp?: number;
 }): MasteryTowerLogEntry[] {
-  if (floor == null || requiredPower == null) {
+  if (floor == null) {
     return [
       {
         kind: "success",
@@ -137,16 +243,19 @@ export function masteryTowerAttemptLog({
     ];
   }
 
-  const gap = power - requiredPower;
-  const pressurePct = Math.max(
-    0,
-    Math.min(999, Math.floor((power / Math.max(1, requiredPower)) * 100)),
-  );
+  const playerHpText =
+    playerHp != null && playerMaxHp != null
+      ? `${fmt(playerHp)} / ${fmt(playerMaxHp)}`
+      : "-";
+  const enemyHpText =
+    enemyHp != null && enemyMaxHp != null
+      ? `${fmt(enemyHp)} / ${fmt(enemyMaxHp)}`
+      : "-";
   const lines: MasteryTowerLogEntry[] = [
-    { kind: "info", text: `[1턴] 숙련의 탑 ${floor}층 문지기 조우` },
+    { kind: "info", text: `숙련의 탑 ${floor}층 수호자와 전투` },
     {
       kind: "player",
-      text: `[2턴] 공격 판정: 내 전투력 ${fmt(power)} / 요구 ${fmt(requiredPower)} (${pressurePct}%)`,
+      text: `전투 종료: ${fmt(turns ?? 0)}턴 · 내 HP ${playerHpText}`,
     },
   ];
 
@@ -154,11 +263,11 @@ export function masteryTowerAttemptLog({
     lines.push(
       {
         kind: "enemy",
-        text: `[3턴] 문지기의 방어를 ${fmt(gap)}만큼 초과했습니다.`,
+        text: `수호자 HP ${enemyHpText}`,
       },
       {
         kind: "success",
-        text: `[결과] ${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
+        text: `${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
       },
     );
     if (claimPreview.total > 0) {
@@ -171,9 +280,9 @@ export function masteryTowerAttemptLog({
     lines.push(
       {
         kind: "enemy",
-        text: `[3턴] 문지기의 방어를 뚫지 못했습니다. 부족 전투력 ${fmt(-gap)}`,
+        text: `수호자 잔여 HP ${enemyHpText}`,
       },
-      { kind: "fail", text: `[결과] ${floor}층 실패` },
+      { kind: "fail", text: `${floor}층 실패` },
     );
   }
 

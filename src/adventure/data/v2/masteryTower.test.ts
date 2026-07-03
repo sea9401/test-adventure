@@ -3,6 +3,8 @@ import {
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
   masteryTowerFloorReward,
+  masteryTowerGuardianForFloor,
+  masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
 } from "./masteryTower";
@@ -64,11 +66,30 @@ describe("masteryTower", () => {
     );
   });
 
+  it("수호자는 층이 오를수록 실제 전투 스탯과 기믹이 강화된다", () => {
+    const low = masteryTowerGuardianPreview(5);
+    const mid = masteryTowerGuardianPreview(15);
+    const high = masteryTowerGuardianPreview(30);
+    expect(low.hp).toBeLessThan(mid.hp);
+    expect(mid.hp).toBeLessThan(high.hp);
+    expect(low.atk).toBeLessThan(mid.atk);
+    expect(mid.atk).toBeLessThan(high.atk);
+    expect(low.skills).toHaveLength(0);
+    expect(mid.skills.length).toBeGreaterThan(0);
+    expect(high.skills.length).toBeGreaterThan(mid.skills.length);
+    expect(high.bonusAttackChancePct).toBeGreaterThan(0);
+  });
+
+  it("수호자 전투 몬스터는 드랍/경험치 없이 생성된다", () => {
+    const guardian = masteryTowerGuardianForFloor(25);
+    expect(guardian.exp).toBe(0);
+    expect(guardian.drops).toEqual([]);
+    expect(guardian.v2Skills?.equipped.length).toBeGreaterThan(0);
+  });
+
   it("도전 로그는 성공 판정과 보상 프리뷰를 포함한다", () => {
     const log = masteryTowerAttemptLog({
       floor: 10,
-      power: 200,
-      requiredPower: 145,
       success: true,
       tower: {
         date: "2026-07-03",
@@ -83,16 +104,19 @@ describe("masteryTower", () => {
         total: 400,
         newlyClaimedMilestones: [10],
       },
+      turns: 7,
+      playerHp: 1200,
+      playerMaxHp: 1500,
+      enemyHp: 0,
+      enemyMaxHp: 3000,
     });
     expect(log.map((entry) => entry.kind)).toContain("success");
     expect(log.at(-1)?.text).toContain("400");
   });
 
-  it("도전 로그는 실패 시 부족 전투력을 표시한다", () => {
+  it("도전 로그는 실패 시 수호자 잔여 HP를 표시한다", () => {
     const log = masteryTowerAttemptLog({
       floor: 20,
-      power: 300,
-      requiredPower: 385,
       success: false,
       tower: {
         date: "2026-07-03",
@@ -107,8 +131,13 @@ describe("masteryTower", () => {
         total: 0,
         newlyClaimedMilestones: [],
       },
+      turns: 12,
+      playerHp: 0,
+      playerMaxHp: 1800,
+      enemyHp: 850,
+      enemyMaxHp: 4200,
     });
     expect(log.map((entry) => entry.kind)).toContain("fail");
-    expect(log.some((entry) => entry.text.includes("85"))).toBe(true);
+    expect(log.some((entry) => entry.text.includes("850"))).toBe(true);
   });
 });

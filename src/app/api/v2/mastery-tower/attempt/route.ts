@@ -1,9 +1,16 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+} from "@/lib/server/savesKv";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
+import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_SAVE_KEY,
@@ -11,6 +18,8 @@ import {
   kstDateKey,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
+  masteryTowerGuardianForFloor,
+  masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
@@ -29,23 +38,34 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  const derived = await derivePlayerCombatV2(userId);
-  if (!derived) {
-    return Response.json(
-      { ok: false, error: "no_character" },
-      { status: 400 },
-    );
-  }
-  const power = derivePowerScore({
-    atk: derived.player.atk,
-    magicAtk: derived.player.magicAtk ?? 0,
-    def: derived.player.def,
-    spd: derived.player.spd,
-    maxHp: derived.maxHp,
-    maxMp: derived.player.maxMp ?? 0,
-  });
-
   const result = await db.transaction(async (tx) => {
+    const charSave = await lockSaveForUpdate<Record<string, unknown>>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
+    const prepared = await prepareV2BattleActor({
+      tx,
+      userId,
+      charSave,
+      deriveSkills: "sanitized",
+    });
+    if (!prepared) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "no_character" as const },
+      };
+    }
+    const { player, skills: v2Skills } = prepared;
+    const power = derivePowerScore({
+      atk: player.player.atk,
+      magicAtk: player.player.magicAtk ?? 0,
+      def: player.player.def,
+      spd: player.player.spd,
+      maxHp: player.maxHp,
+      maxMp: player.player.maxMp ?? 0,
+    });
     const raw = await lockSaveForUpdate<unknown>(
       tx,
       userId,
@@ -66,11 +86,10 @@ export async function POST(req: Request) {
           power,
           floor: null,
           requiredPower: null,
+          guardian: null,
           claimPreview,
           log: masteryTowerAttemptLog({
             floor: null,
-            power,
-            requiredPower: null,
             success: false,
             tower,
             claimPreview,
@@ -80,7 +99,27 @@ export async function POST(req: Request) {
     }
 
     const requiredPower = masteryTowerRequiredPower(floor);
-    const success = power >= requiredPower;
+    const guardian = masteryTowerGuardianForFloor(floor);
+    const profile = await readSave<{ name?: string; gender?: string } | null>(
+      tx,
+      userId,
+      "character-profile.v2",
+      null,
+    );
+    const playerName = profile?.name?.trim() || "모험가";
+    const playerForBattle = {
+      ...player.player,
+      hp: player.maxHp,
+      mp: player.player.maxMp ?? player.player.mp,
+    };
+    const battle = resolveBattle(playerForBattle, guardian, playerName, {
+      pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills,
+      maxTurns: 80,
+      openingNote: `숙련의 탑 ${floor}층 도전`,
+    });
+    const success = battle.outcome === "win";
     if (success) {
       tower = clearMasteryTowerFloor(tower, floor);
       await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
@@ -96,14 +135,23 @@ export async function POST(req: Request) {
         power,
         floor,
         requiredPower,
+        guardian: masteryTowerGuardianPreview(floor),
+        turns: battle.turns,
+        startPlayerHp: player.maxHp,
+        playerName,
+        gender: typeof profile?.gender === "string" ? profile.gender : "male1",
+        replay: toReplayPayload(battle.finalState, 220),
         claimPreview,
         log: masteryTowerAttemptLog({
           floor,
-          power,
-          requiredPower,
           success,
           tower,
           claimPreview,
+          turns: battle.turns,
+          playerHp: battle.finalState.playerHp,
+          playerMaxHp: battle.finalState.playerMaxHp,
+          enemyHp: battle.finalState.enemyHp,
+          enemyMaxHp: battle.finalState.enemy.hp,
         }),
       },
     };

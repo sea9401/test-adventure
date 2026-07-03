@@ -10,6 +10,10 @@ import {
 } from "@/adventure/data/v2/fish";
 import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
 import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
+import {
+  multtaeAt,
+  type MulttaeConditionId,
+} from "@/adventure/data/v2/multtae";
 import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 import { FishIcon } from "@/adventure/v2/FishIcon";
 import {
@@ -218,6 +222,134 @@ function drawCoverImage(
   ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
 }
 
+function drawTideBackdropOverlay(
+  ctx: CanvasRenderingContext2D,
+  tideId: MulttaeConditionId,
+  width: number,
+  height: number,
+  waterY: number,
+  t: number,
+  biting: boolean,
+) {
+  ctx.save();
+  const full = ctx.createLinearGradient(0, 0, 0, height);
+  switch (tideId) {
+    case "dawn":
+      full.addColorStop(0, "rgba(251, 146, 60, 0.28)");
+      full.addColorStop(0.5, "rgba(254, 215, 170, 0.12)");
+      full.addColorStop(1, "rgba(14, 116, 144, 0.06)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      break;
+    case "starlit":
+      full.addColorStop(0, "rgba(15, 23, 42, 0.42)");
+      full.addColorStop(0.55, "rgba(30, 41, 59, 0.22)");
+      full.addColorStop(1, "rgba(8, 47, 73, 0.18)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+      for (let i = 0; i < 18; i += 1) {
+        const x = ((i * 47 + Math.sin(t * 0.4 + i) * 8) % width) + 2;
+        const y = 14 + ((i * 23) % Math.max(24, waterY - 26));
+        ctx.fillRect(x, y, i % 4 === 0 ? 2 : 1, 1);
+      }
+      break;
+    case "mist":
+      ctx.fillStyle = "rgba(226, 232, 240, 0.28)";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
+      ctx.lineWidth = 13;
+      for (let i = 0; i < 4; i += 1) {
+        const y = waterY - 34 + i * 26 + Math.sin(t * 0.7 + i) * 5;
+        ctx.beginPath();
+        ctx.moveTo(-20, y);
+        ctx.bezierCurveTo(width * 0.26, y - 12, width * 0.66, y + 14, width + 20, y);
+        ctx.stroke();
+      }
+      break;
+    case "tempest":
+      full.addColorStop(0, "rgba(30, 41, 59, 0.46)");
+      full.addColorStop(0.55, "rgba(14, 116, 144, 0.18)");
+      full.addColorStop(1, "rgba(15, 23, 42, 0.28)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      if (biting || Math.sin(t * 1.7) > 0.86) {
+        ctx.strokeStyle = "rgba(226, 232, 240, 0.52)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.2, 0);
+        ctx.lineTo(width * 0.34, waterY * 0.32);
+        ctx.lineTo(width * 0.28, waterY * 0.32);
+        ctx.lineTo(width * 0.42, waterY * 0.78);
+        ctx.stroke();
+      }
+      break;
+    case "moonlit":
+      full.addColorStop(0, "rgba(49, 46, 129, 0.34)");
+      full.addColorStop(0.55, "rgba(30, 64, 175, 0.14)");
+      full.addColorStop(1, "rgba(8, 47, 73, 0.12)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(226, 232, 240, 0.5)";
+      ctx.beginPath();
+      ctx.arc(width * 0.76, height * 0.14, 18, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(226, 232, 240, 0.18)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i += 1) {
+        ctx.beginPath();
+        ctx.ellipse(width * 0.72, waterY + 18 + i * 14, 36 + i * 12, 4, 0, 0, TAU);
+        ctx.stroke();
+      }
+      break;
+    case "rapid":
+      ctx.fillStyle = "rgba(240, 253, 250, 0.12)";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.38)";
+      ctx.lineWidth = 2.4;
+      for (let i = 0; i < 8; i += 1) {
+        const y = waterY + 12 + i * 18;
+        ctx.beginPath();
+        ctx.moveTo(-30 + ((t * 36 + i * 24) % 80), y);
+        ctx.lineTo(width + 30, y + 18);
+        ctx.stroke();
+      }
+      break;
+    case "ebb":
+      full.addColorStop(0, "rgba(250, 204, 21, 0.08)");
+      full.addColorStop(0.62, "rgba(180, 83, 9, 0.10)");
+      full.addColorStop(1, "rgba(120, 53, 15, 0.16)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(202, 138, 4, 0.14)";
+      ctx.fillRect(0, waterY - 3, width, 16);
+      break;
+    case "deepcurrent":
+      full.addColorStop(0, "rgba(6, 78, 59, 0.16)");
+      full.addColorStop(0.48, "rgba(12, 74, 110, 0.18)");
+      full.addColorStop(1, "rgba(2, 6, 23, 0.34)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(45, 212, 191, 0.18)";
+      ctx.lineWidth = 1.4;
+      for (let i = 0; i < 4; i += 1) {
+        ctx.beginPath();
+        ctx.ellipse(width * (0.2 + i * 0.18), waterY + 42 + i * 18, 42 + i * 12, 9, t * 0.4, 0, TAU);
+        ctx.stroke();
+      }
+      break;
+    case "still":
+    default:
+      full.addColorStop(0, "rgba(186, 230, 253, 0.10)");
+      full.addColorStop(0.58, "rgba(240, 253, 250, 0.08)");
+      full.addColorStop(1, "rgba(255, 255, 255, 0.10)");
+      ctx.fillStyle = full;
+      ctx.fillRect(0, 0, width, height);
+      break;
+  }
+  ctx.restore();
+}
+
 function drawProceduralPondFallback(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -277,6 +409,7 @@ function drawPondBackdrop(
   waterY: number,
   t: number,
   biting: boolean,
+  tideId: MulttaeConditionId,
   assets: FishingSceneAssets,
 ) {
   if (assets.pond?.complete) {
@@ -288,6 +421,7 @@ function drawPondBackdrop(
   } else {
     drawProceduralPondFallback(ctx, width, height, waterY, t, biting);
   }
+  drawTideBackdropOverlay(ctx, tideId, width, height, waterY, t, biting);
 
   const haze = ctx.createLinearGradient(0, waterY - 18, 0, height);
   haze.addColorStop(0, "rgba(255, 255, 255, 0.04)");
@@ -588,6 +722,7 @@ function drawFishingCanvasScene(
   preBite: boolean,
   preBiteElapsedMs: number,
   tapElapsedMs: number,
+  tideId: MulttaeConditionId,
   assets: FishingSceneAssets,
 ) {
   const t = reducedMotion ? 0 : sceneElapsedMs / 1000;
@@ -612,7 +747,7 @@ function drawFishingCanvasScene(
   const casting = phase === "casting";
 
   ctx.clearRect(0, 0, width, height);
-  drawPondBackdrop(ctx, width, height, waterY, t, biting, assets);
+  drawPondBackdrop(ctx, width, height, waterY, t, biting, tideId, assets);
 
   let bobberX = bobberRestX;
   let bobberY = bobberRestY + waitPulse * 2;
@@ -757,10 +892,12 @@ function FishingSceneCanvas({
   phase,
   preBite,
   tapSignal,
+  tideId,
 }: {
   phase: Phase;
   preBite: boolean;
   tapSignal: number;
+  tideId: MulttaeConditionId;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -769,6 +906,7 @@ function FishingSceneCanvas({
   const phaseStartedAtRef = useRef(0);
   const preBiteStartedAtRef = useRef(-Infinity);
   const tapStartedAtRef = useRef(-Infinity);
+  const tideIdRef = useRef<MulttaeConditionId>(tideId);
   const assetsRef = useRef<FishingSceneAssets>({ pond: null });
 
   useEffect(() => {
@@ -786,6 +924,10 @@ function FishingSceneCanvas({
       tapStartedAtRef.current = performance.now();
     }
   }, [tapSignal]);
+
+  useEffect(() => {
+    tideIdRef.current = tideId;
+  }, [tideId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -833,6 +975,7 @@ function FishingSceneCanvas({
           preBiteRef.current,
           Math.max(0, now - preBiteStartedAtRef.current),
           Math.max(0, now - tapStartedAtRef.current),
+          tideIdRef.current,
           assetsRef.current,
         );
       }
@@ -888,6 +1031,7 @@ function drawResultCanvasScene(
   result: ReelOutcome | null,
   elapsedMs: number,
   reducedMotion: boolean,
+  tideId: MulttaeConditionId,
   assets: FishingSceneAssets,
 ) {
   const t = reducedMotion ? 0.72 : elapsedMs / 1000;
@@ -899,7 +1043,7 @@ function drawResultCanvasScene(
   const centerX = width * 0.48;
 
   ctx.clearRect(0, 0, width, height);
-  drawPondBackdrop(ctx, width, height, waterY, t * 0.85, caught, assets);
+  drawPondBackdrop(ctx, width, height, waterY, t * 0.85, caught, tideId, assets);
   ctx.fillStyle = caught ? "rgba(255, 255, 255, 0.08)" : "rgba(37, 99, 235, 0.08)";
   ctx.fillRect(0, 0, width, height);
 
@@ -959,15 +1103,26 @@ function drawResultCanvasScene(
   }
 }
 
-function FishingResultScene({ result }: { result: ReelOutcome | null }) {
+function FishingResultScene({
+  result,
+  tideId,
+}: {
+  result: ReelOutcome | null;
+  tideId: MulttaeConditionId;
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const resultRef = useRef(result);
+  const tideIdRef = useRef<MulttaeConditionId>(tideId);
   const assetsRef = useRef<FishingSceneAssets>({ pond: null });
 
   useEffect(() => {
     resultRef.current = result;
   }, [result]);
+
+  useEffect(() => {
+    tideIdRef.current = tideId;
+  }, [tideId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1010,6 +1165,7 @@ function FishingResultScene({ result }: { result: ReelOutcome | null }) {
           resultRef.current,
           now - start,
           reducedMotion,
+          tideIdRef.current,
           assetsRef.current,
         );
       }
@@ -1127,6 +1283,15 @@ function ChallengeProgressSummary({
   );
 }
 
+function useCurrentMulttaeConditionId(): MulttaeConditionId {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  return multtaeAt(now).condition.id;
+}
+
 export function FishingView({
   cast,
   reel,
@@ -1157,6 +1322,7 @@ export function FishingView({
   const [streak, setStreak] = useState(0);
   const [preBite, setPreBite] = useState(false);
   const [tapSignal, setTapSignal] = useState(0);
+  const currentTideId = useCurrentMulttaeConditionId();
 
   const biteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preBiteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1444,7 +1610,12 @@ export function FishingView({
                 : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
           }`}
         >
-          <FishingSceneCanvas phase={phase} preBite={preBite} tapSignal={tapSignal} />
+          <FishingSceneCanvas
+            phase={phase}
+            preBite={preBite}
+            tapSignal={tapSignal}
+            tideId={currentTideId}
+          />
         </button>
       )}
 
@@ -1456,7 +1627,7 @@ export function FishingView({
           ) : result?.caught ? (
             <div className="space-y-1">
               <div className="relative mx-auto flex h-24 w-full items-center justify-center overflow-hidden rounded-lg border border-sky-200 dark:border-sky-900/60">
-                <FishingResultScene result={result} />
+                <FishingResultScene result={result} tideId={currentTideId} />
                 {/* 희귀·대물 발광 */}
                 {TIER_REVEAL[result.tier].glow && (
                   <span className="fish-glow absolute left-1/2 top-[46%] h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/35 blur-md" />
@@ -1519,7 +1690,7 @@ export function FishingView({
           ) : (
             <div className="space-y-1">
               <div className="relative mx-auto h-16 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-                <FishingResultScene result={result} />
+                <FishingResultScene result={result} tideId={currentTideId} />
                 <FishIcon
                   fishId="minnow"
                   decorative

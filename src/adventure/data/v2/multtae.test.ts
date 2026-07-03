@@ -45,7 +45,7 @@ describe("물때 결정론 스케줄", () => {
     }
   });
 
-  it("multtaeAt — 창 경계 계산(4시간, epoch 정렬)", () => {
+  it("multtaeAt — 창 경계 계산(2시간, epoch 정렬)", () => {
     const t = 1_700_000_000_000;
     const w = multtaeAt(t);
     expect(w.windowIndex).toBe(Math.floor(t / MULTTAE_WINDOW_MS));

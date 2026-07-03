@@ -1,4 +1,4 @@
-// 낚시 물때(物때) — 4시간 글로벌 결정론 윈도우마다 도는 "물때". 일부 물때엔 그 시간대에만
+// 낚시 물때(物때) — 2시간 글로벌 결정론 윈도우마다 도는 "물때". 일부 물때엔 그 시간대에만
 //   입질하는 특별 손님(한정 어종)이 추가로 걸린다.
 //
 // 핵심 원칙(공정성 청정):
@@ -6,13 +6,22 @@
 //   · 결정론 hash32(공용 hash.ts)를 전용 시드로 쓴다(글로벌 시설이라 권역 무관).
 //     DB 0 / cron 0 / 서버·클라 동일.
 
-import { WINDOW_4H_MS, hash32 } from "./hash";
+import { WINDOW_2H_MS, hash32 } from "./hash";
 import type { FishId } from "./fish";
 
-// 물때 창 = 4시간(UTC epoch 정렬 → 전 유저 동시 전환). 클라가 직접 계산해 배지를 그린다.
-export const MULTTAE_WINDOW_MS = WINDOW_4H_MS;
+// 물때 창 = 2시간(UTC epoch 정렬 → 전 유저 동시 전환). 클라가 직접 계산해 배지를 그린다.
+export const MULTTAE_WINDOW_MS = WINDOW_2H_MS;
 
-export type MulttaeConditionId = "dawn" | "starlit" | "mist" | "tempest" | "still";
+export type MulttaeConditionId =
+  | "dawn"
+  | "starlit"
+  | "mist"
+  | "tempest"
+  | "moonlit"
+  | "rapid"
+  | "ebb"
+  | "deepcurrent"
+  | "still";
 
 export type MulttaeEffect = {
   label: string;
@@ -81,6 +90,53 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
       label: "대물급 크기 +4% · 코인 +1",
       bigCatchSizeBonusPct: 4,
       coinBonus: 1,
+    },
+  },
+  {
+    id: "moonlit",
+    label: "월광 물때",
+    emoji: "🌕",
+    description: "달빛이 길게 번진다. 은은한 빛을 따라 차가운 손님이 오른다.",
+    specialFishId: "moonlit_trout",
+    effect: {
+      label: "크기 +2% · 지도 조각 확률 +0.5%p",
+      sizeBonusPct: 2,
+      fragmentChanceBonus: 0.005,
+    },
+  },
+  {
+    id: "rapid",
+    label: "여울 물때",
+    emoji: "🏞",
+    description: "얕은 물살이 빠르게 흐른다. 거슬러 오르는 물고기가 힘차게 문다.",
+    specialFishId: "waterfall_salmon",
+    effect: {
+      label: "입질 대기 -8%",
+      waitReductionPct: 8,
+    },
+  },
+  {
+    id: "ebb",
+    label: "썰물 물때",
+    emoji: "🌊",
+    description: "물이 빠지며 바닥의 길이 드러난다. 그림자처럼 숨어 있던 것이 움직인다.",
+    specialFishId: "ghost_eel",
+    effect: {
+      label: "희귀 이상 크기 +2% · 코인 +1",
+      rareSizeBonusPct: 2,
+      coinBonus: 1,
+    },
+  },
+  {
+    id: "deepcurrent",
+    label: "심류 물때",
+    emoji: "🌀",
+    description: "깊은 물길이 조용히 뒤틀린다. 바닥의 거대한 수염이 미끼를 찾는다.",
+    specialFishId: "abyss_catfish",
+    effect: {
+      label: "특별 손님 가중치 +15% · 대물급 크기 +2%",
+      specialWeightBonusPct: 15,
+      bigCatchSizeBonusPct: 2,
     },
   },
   {

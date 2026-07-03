@@ -13,14 +13,17 @@ import type { MulttaeConditionId } from "./multtae";
 export type FishTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
 export type FishId =
-  // 흔함 (6)
+  // 흔함 (9)
   | "crucian_carp"
   | "minnow"
   | "killifish"
   | "loach"
   | "goby"
   | "river_shrimp"
-  // 보통 (7)
+  | "bitterling"
+  | "sand_gudgeon"
+  | "pond_smelt"
+  // 보통 (10)
   | "carp"
   | "catfish"
   | "sea_bass"
@@ -28,6 +31,9 @@ export type FishId =
   | "dodari"
   | "flatfish"
   | "gizzard_shad"
+  | "sweetfish"
+  | "chub"
+  | "freshwater_eel"
   // 희귀 (7)
   | "trout"
   | "pike"
@@ -36,23 +42,29 @@ export type FishId =
   | "halibut"
   | "rockfish"
   | "rainbow_trout"
-  // 영웅 (6)
+  // 영웅 (7)
   | "marlin"
   | "bluefin_tuna"
   | "mahimahi"
   | "sturgeon"
   | "giant_octopus"
   | "anglerfish"
-  // 전설 (4)
+  | "golden_koi"
+  // 전설 (5)
   | "platinum_carp"
   | "starlit_ray"
   | "abyssal_leviathan"
   | "dragonscale_fish"
-  // 물때 한정 특별 손님 (4) — 해당 물때 창에만 입질(multtae.ts). 항상풀(위 30종)엔 안 섞임.
+  | "ancient_fish"
+  // 물때 한정 특별 손님 (8) — 해당 물때 창에만 입질(multtae.ts). 항상풀(위 38종)엔 안 섞임.
   | "goldeye"
   | "moonshadow_eel"
   | "mist_koi"
-  | "stormrider";
+  | "stormrider"
+  | "moonlit_trout"
+  | "waterfall_salmon"
+  | "ghost_eel"
+  | "abyss_catfish";
 
 export type Fish = {
   id: FishId;
@@ -119,7 +131,7 @@ export const FISH_TIERS: Record<FishTier, FishTierMeta> = {
 };
 
 export const FISH: Record<FishId, Fish> = {
-  // === 흔함 (6) ===
+  // === 흔함 (9) ===
   crucian_carp: {
     id: "crucian_carp",
     name: "붕어",
@@ -168,8 +180,32 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 11,
     description: "투명한 몸에 줄무늬가 비친다. 큰 놈은 제법 몸집이 크다.",
   },
+  bitterling: {
+    id: "bitterling",
+    name: "납자루",
+    tier: "common",
+    minSize: 4,
+    maxSize: 13,
+    description: "작고 납작한 몸에 은빛이 돈다. 얕은 물가에서 잔물결처럼 모여든다.",
+  },
+  sand_gudgeon: {
+    id: "sand_gudgeon",
+    name: "모래무지",
+    tier: "common",
+    minSize: 8,
+    maxSize: 22,
+    description: "모래 바닥에 붙어 사는 작은 물고기. 입질은 얌전하지만 의외로 힘이 있다.",
+  },
+  pond_smelt: {
+    id: "pond_smelt",
+    name: "빙어",
+    tier: "common",
+    minSize: 5,
+    maxSize: 18,
+    description: "가느다란 은빛 몸이 차가운 물속에서 반짝인다.",
+  },
 
-  // === 보통 (7) ===
+  // === 보통 (10) ===
   carp: {
     id: "carp",
     name: "잉어",
@@ -225,6 +261,30 @@ export const FISH: Record<FishId, Fish> = {
     minSize: 14,
     maxSize: 35,
     description: "가을이면 기름이 차올라 고소한 향을 풍긴다.",
+  },
+  sweetfish: {
+    id: "sweetfish",
+    name: "은어",
+    tier: "uncommon",
+    minSize: 14,
+    maxSize: 35,
+    description: "맑은 여울을 좋아하는 향긋한 물고기. 물살을 타는 몸놀림이 빠르다.",
+  },
+  chub: {
+    id: "chub",
+    name: "갈겨니",
+    tier: "uncommon",
+    minSize: 12,
+    maxSize: 32,
+    description: "여울과 소를 오가는 날랜 물고기. 작은 미끼에도 거칠게 달려든다.",
+  },
+  freshwater_eel: {
+    id: "freshwater_eel",
+    name: "민물장어",
+    tier: "uncommon",
+    minSize: 35,
+    maxSize: 120,
+    description: "진흙과 돌 틈을 누비는 긴 몸의 물고기. 줄을 감아 당기는 힘이 질기다.",
   },
 
   // === 희귀 (7) ===
@@ -285,7 +345,7 @@ export const FISH: Record<FishId, Fish> = {
     description: "옆구리에 무지개빛 띠가 흐른다. 차가운 물살을 거슬러 오른다.",
   },
 
-  // === 영웅 (6) ===
+  // === 영웅 (7) ===
   marlin: {
     id: "marlin",
     name: "청새치",
@@ -334,8 +394,16 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 150,
     description: "이마의 발광 미끼로 먹이를 꾄다. 깊은 어둠에서만 끌려 나온다.",
   },
+  golden_koi: {
+    id: "golden_koi",
+    name: "황금비단잉어",
+    tier: "epic",
+    minSize: 45,
+    maxSize: 150,
+    description: "비늘마다 금빛이 도는 귀한 잉어. 수면 위로 오르면 물가가 환해진다.",
+  },
 
-  // === 전설 (4) ===
+  // === 전설 (5) ===
   platinum_carp: {
     id: "platinum_carp",
     name: "백금 잉어",
@@ -362,15 +430,23 @@ export const FISH: Record<FishId, Fish> = {
   },
   dragonscale_fish: {
     id: "dragonscale_fish",
-    name: "무지개 비늘 용어",
+    name: "용비늘잉어",
     tier: "legendary",
     minSize: 300,
     maxSize: 1000,
     description: "용의 비늘을 닮은 일곱 빛깔 물고기. 잡은 자에게 행운이 따른다는 이야기.",
   },
+  ancient_fish: {
+    id: "ancient_fish",
+    name: "고대어",
+    tier: "legendary",
+    minSize: 180,
+    maxSize: 650,
+    description: "오래된 지층의 기억을 품은 듯한 물고기. 등비늘이 화석처럼 단단하다.",
+  },
 
-  // === 물때 한정 특별 손님 (4) ===
-  // 각자 자기 물때 창에만 입질한다(condition). 항상풀 30종과 섞이지 않아 공정성 청정 —
+  // === 물때 한정 특별 손님 (8) ===
+  // 각자 자기 물때 창에만 입질한다(condition). 항상풀 38종과 섞이지 않아 공정성 청정 —
   // 사이즈는 일반 heavy-tail, 종별 리더보드 칸만 하나씩 더 생긴다.
   goldeye: {
     id: "goldeye",
@@ -407,6 +483,42 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 70,
     description: "거센 물살이 일 때 파도를 가르며 날아오르는 날치. 폭풍을 두려워하지 않는다.",
     condition: "tempest",
+  },
+  moonlit_trout: {
+    id: "moonlit_trout",
+    name: "달빛송어",
+    tier: "rare",
+    minSize: 26,
+    maxSize: 88,
+    description: "달빛이 물 위에 내려앉는 밤에만 은은하게 떠오르는 송어.",
+    condition: "moonlit",
+  },
+  waterfall_salmon: {
+    id: "waterfall_salmon",
+    name: "폭포연어",
+    tier: "rare",
+    minSize: 55,
+    maxSize: 150,
+    description: "거센 여울을 거슬러 오르는 굵은 연어. 낚싯줄을 아래로 강하게 끌고 간다.",
+    condition: "rapid",
+  },
+  ghost_eel: {
+    id: "ghost_eel",
+    name: "유령장어",
+    tier: "rare",
+    minSize: 45,
+    maxSize: 145,
+    description: "물이 빠진 어스름에 흐릿하게 드러나는 흰 장어. 잡히는 순간 차갑게 빛난다.",
+    condition: "ebb",
+  },
+  abyss_catfish: {
+    id: "abyss_catfish",
+    name: "심연메기",
+    tier: "epic",
+    minSize: 80,
+    maxSize: 260,
+    description: "깊은 물길의 바닥을 지키는 거대한 메기. 긴 수염이 어둠 속에서 흔들린다.",
+    condition: "deepcurrent",
   },
 };
 
@@ -470,7 +582,7 @@ export type FishPickOptions = {
 // 어떤 종이 걸리나 — 티어 가중치로 티어를 뽑고, 티어 안에서 종을 균등 추첨.
 // rng() ∈ [0, 1).
 // activeCondition 을 주면 그 물때 한정 특별 손님이 자기 티어 풀에 합류한다. 안 주면(undefined)
-//   물때 종은 전부 제외 → 항상풀 30종만(기존과 바이트 동일). 특별 손님은 자기 창에서만 등장.
+//   물때 종은 전부 제외 → 항상풀 38종만. 특별 손님은 자기 창에서만 등장.
 export function pickFishId(
   rng: () => number,
   activeCondition?: MulttaeConditionId,

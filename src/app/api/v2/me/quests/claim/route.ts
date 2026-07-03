@@ -1,6 +1,9 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  recordEconomyEventSoon,
+  recordRewardFailureSoon,
+} from "@/lib/server/economyLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   buildQuestCtx,
@@ -218,6 +221,13 @@ export async function POST(req: Request) {
         detail: { questId: result.body.questId },
       });
     }
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "quest",
+      error: result.body.error,
+      detail: { questId: questId ?? null, status: result.status },
+    });
   }
 
   return Response.json(result.body, { status: result.status });

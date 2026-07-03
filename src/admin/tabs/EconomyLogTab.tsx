@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
@@ -19,6 +19,20 @@ type EconomyEntry = {
   quantity: number | null;
   detail: Record<string, unknown> | null;
   createdAt: string;
+};
+
+type EconomySummary = {
+  currencies: Array<{ key: string; in: number; out: number; net: number; count: number }>;
+  events: Array<{ key: string; count: number }>;
+  usersByGold: Array<{
+    userId: string;
+    gameName: string | null;
+    goldIn: number;
+    goldOut: number;
+    net: number;
+    count: number;
+  }>;
+  hourly: Array<{ hour: string; count: number; goldIn: number; goldOut: number }>;
 };
 
 export function EconomyLogTab() {
@@ -41,10 +55,10 @@ export function EconomyLogTab() {
     return `/api/admin/economy-log?${sp.toString()}`;
   }, [eventType, itemId, itemKind, since, until, userId]);
 
-  const { data, loading, error, refetch } = useAsyncData<{ entries: EconomyEntry[] }>(
-    (signal) => adminGet(url, signal),
-    [url],
-  );
+  const { data, loading, error, refetch } = useAsyncData<{
+    entries: EconomyEntry[];
+    summary: EconomySummary;
+  }>((signal) => adminGet(url, signal), [url]);
 
   useEffect(() => {
     if (error) showToast(`조회 실패: ${error}`);
@@ -74,6 +88,8 @@ export function EconomyLogTab() {
         <DateFilter label="시작" value={since} onChange={setSince} />
         <DateFilter label="종료" value={until} onChange={setUntil} />
       </div>
+
+      {data?.summary ? <SummaryPanel summary={data.summary} onUser={setUserId} /> : null}
 
       {entries.length === 0 ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -128,6 +144,124 @@ export function EconomyLogTab() {
       )}
     </section>
   );
+}
+
+function SummaryPanel({
+  summary,
+  onUser,
+}: {
+  summary: EconomySummary;
+  onUser: (userId: string) => void;
+}) {
+  const maxHourly = Math.max(1, ...summary.hourly.map((row) => row.count));
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      <Panel title="재화 증감">
+        <div className="space-y-1">
+          {summary.currencies.length === 0 ? (
+            <EmptyText>집계 없음</EmptyText>
+          ) : (
+            summary.currencies.map((row) => (
+              <div key={row.key} className="grid grid-cols-[1fr_auto] gap-2 text-xs">
+                <span className="font-mono">{row.key}</span>
+                <span className="tabular-nums">
+                  {row.net >= 0 ? "+" : ""}
+                  {row.net.toLocaleString()}
+                </span>
+                <div className="col-span-2 text-[10px] text-zinc-500">
+                  in {row.in.toLocaleString()} · out {row.out.toLocaleString()} · {row.count}
+                  건
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Panel>
+
+      <Panel title="시간대별 이벤트">
+        <div className="space-y-1">
+          {summary.hourly.length === 0 ? (
+            <EmptyText>집계 없음</EmptyText>
+          ) : (
+            summary.hourly.slice(-12).map((row) => (
+              <div key={row.hour} className="grid grid-cols-[84px_1fr_48px] items-center gap-2 text-xs">
+                <span className="font-mono text-[10px] text-zinc-500">
+                  {row.hour.slice(5)}
+                </span>
+                <div className="h-2 rounded bg-zinc-100 dark:bg-zinc-800">
+                  <div
+                    className="h-2 rounded bg-emerald-500"
+                    style={{ width: `${Math.max(4, (row.count / maxHourly) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-right tabular-nums">{row.count}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </Panel>
+
+      <Panel title="이벤트 Top">
+        <CountRows rows={summary.events} />
+      </Panel>
+
+      <Panel title="유저별 골드 흐름">
+        <div className="space-y-1">
+          {summary.usersByGold.length === 0 ? (
+            <EmptyText>집계 없음</EmptyText>
+          ) : (
+            summary.usersByGold.map((row) => (
+              <button
+                key={row.userId}
+                type="button"
+                onClick={() => onUser(row.userId)}
+                className="grid w-full grid-cols-[1fr_auto] gap-2 rounded px-1 py-0.5 text-left text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              >
+                <span className="min-w-0 truncate">
+                  {row.gameName ?? row.userId.slice(0, 8)}
+                </span>
+                <span className="tabular-nums">
+                  {row.net >= 0 ? "+" : ""}
+                  {row.net.toLocaleString()}
+                </span>
+                <span className="col-span-2 text-[10px] text-zinc-500">
+                  in {row.goldIn.toLocaleString()} · out {row.goldOut.toLocaleString()} ·{" "}
+                  {row.count}건
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <h4 className="mb-2 text-xs font-semibold">{title}</h4>
+      {children}
+    </section>
+  );
+}
+
+function CountRows({ rows }: { rows: Array<{ key: string; count: number }> }) {
+  if (rows.length === 0) return <EmptyText>집계 없음</EmptyText>;
+  return (
+    <ul className="space-y-1 text-xs">
+      {rows.map((row) => (
+        <li key={row.key} className="flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate font-mono">{row.key}</span>
+          <span className="shrink-0 tabular-nums text-zinc-500">{row.count}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function EmptyText({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-zinc-500 dark:text-zinc-400">{children}</p>;
 }
 
 function Filter({

@@ -151,6 +151,8 @@ bash deploy/maintenance.sh status   # 현재 상태
 ## 5. 헬스 / 모니터링
 - `https://msmsge.com/api/health` → `{ok, db:"ok", ms}` (DB 핑 포함, 실패 시 503). 인증 불필요.
 - `/api/version` = 빌드 정보.
+- 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정 확인.
+- `OPS_ALERT_WEBHOOK_URL` 이 설정되어 있으면 임계치 알림과 일일 운영 리포트가 webhook으로 발송된다.
 - ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
 
 ---
@@ -159,6 +161,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 정기 작업이 EC2 crontab으로 돈다(각 라우트가 `CRON_SECRET` Bearer 검사). 종류:
 - **일일 04:00 UTC**: chat/bulletin/guilds cleanup
 - **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 정리)
+- **일일 04:25 UTC**: ops-daily-report(최근 24시간 운영 지표 webhook 리포트)
 - **일요일 15:0x UTC**: tower-weekly-cycle · pvp-season-rollover · pvp/fishing/treasure **season-rewards** · war-season-rollover(제거 대상이면 해제)
 - TLS: `certbot-renew.timer`(systemd, 하루 2회)
 
@@ -184,6 +187,25 @@ bash deploy/maintenance.sh status   # 현재 상태
 - **옛 Neon URL**: stale 좀비. 진짜 prod = RDS.
 - **main 머지 = 즉시 운영**: 스테이징 없음. CI(`check`) 통과는 런타임 정상을 보장 안 함 → 배포 후 `/api/health` 확인 습관.
 - **점검 모드**: ✅ 구현됨 — `deploy/maintenance.sh on|off` (§4b). 단 앱-레벨이라 완전 stop 시엔 nginx 502(추후 nginx-레벨 점검 페이지 고려).
+
+## 8b. 운영 문의 빠른 확인
+
+### 보상이 안 들어왔다는 문의
+1. 관리자 `유저` 탭에서 대상 유저 선택.
+2. `운영 요약`에서 현재 재화, 최근 보상 수령, 숙련/증서 이벤트 확인.
+3. `경제 로그`에서 `userId` 필터로 `reward.*`와 `reward.failure.*` 확인.
+4. 낚시 코인은 `오늘 챔질 코인` 상한 도달 시 추가 챔질 코인이 미지급된다. 레벨업 보상은 별도 로그(`reward.fishing.level`)로 확인.
+
+### 매크로/부하 의심
+1. `운영 현황` 알림 카드에서 요청 제한 급증 여부 확인.
+2. `이상 행동` 탭에서 action/IP/userId/reason 필터 적용.
+3. 동일 IP 다계정 반복이면 IP 제한 또는 제재 검토. 단일 유저 반복이면 유저 제재 또는 API limit/window 조정 검토.
+4. 정상 유저가 반복적으로 걸리면 해당 콘텐츠의 정상 클릭 속도를 다시 측정하고 제한값을 조정.
+
+### 배포 후 점검
+1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.
+2. `curl -fsS https://msmsge.com/api/health` 와 `/api/version` 확인.
+3. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
 
 ---
 

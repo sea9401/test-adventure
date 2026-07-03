@@ -83,7 +83,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "dexStat": 15,
   "evaRating": 2.7,
   "evasionPct": 2.7,
-  "extraAttackChancePct": 10.25,
+  "extraAttackChancePct": 11.25,
   "healMult": 1.33,
   "hp": 640,
   "intStat": 148,
@@ -97,7 +97,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveCounterChancePct": undefined,
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 20.5,
+  "spd": 22.5,
   "vitStat": 15,
 }
 `;
@@ -107,7 +107,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "accRating": 10.825,
   "accuracyPct": 3.8249999999999997,
   "allStatTotal": 255,
-  "atk": 30,
+  "atk": 29,
   "attackCount": 1,
   "classTier": undefined,
   "critChancePct": 16.2,
@@ -117,7 +117,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "dexStat": 60,
   "evaRating": 16.8,
   "evasionPct": 16.8,
-  "extraAttackChancePct": 44,
+  "extraAttackChancePct": 45,
   "healMult": 1.1500000000000001,
   "hp": 640,
   "intStat": 15,
@@ -131,7 +131,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveCounterChancePct": undefined,
   "passiveDefPenetrationPct": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 88,
+  "spd": 90,
   "vitStat": 15,
 }
 `;
@@ -227,11 +227,11 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "ninja_crit_vs_늑대",
-    "logSha": "08a9a77ed8c2d9d39496b006c74ec2db067222a6",
+    "logSha": "fda37a08aeaa1d05b63fd2319f40ab0e690189d4",
     "outcome": "win",
     "playerHp": 640,
     "playerMp": 227,
-    "turns": 36,
+    "turns": 40,
   },
   {
     "enemyHp": 0,
@@ -300,9 +300,9 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "334293c510de161d67f23ac4c2953a5036ad4d43",
+    "logSha": "dbe3a8df7f69219351a6ee1cd560f25b2d4e2f56",
     "outcome": "p1_win",
-    "turns": 41,
+    "turns": 49,
   },
   {
     "label": "tank_vs_warrior",
@@ -345,11 +345,11 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "evade_reflect",
-    "logSha": "34b03fd83a18af88cfe3e91513dd7ec1766b373c",
+    "logSha": "8473585ac5172aa4f4890c43aceeba7d5e31ca52",
     "outcome": "win",
     "playerHp": 625,
     "playerMp": 227,
-    "turns": 59,
+    "turns": 61,
   },
   {
     "enemyHp": 0,

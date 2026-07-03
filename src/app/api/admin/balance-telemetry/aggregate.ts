@@ -10,6 +10,12 @@ import {
   GUILD_WORKSHOP_MATERIALS,
   type GuildWorkshopMaterialId,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
+import {
+  TIER2_UNLOCK_CUMLEVEL,
+  TIER3_UNLOCK_CUMLEVEL,
+  TIER4_UNLOCK_CUMLEVEL,
+  TIER5_UNLOCK_CUMLEVEL,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 // 밸런스 텔레메트리 순수 집계(Phase 1). 라우트가 per-user derive 한 결과를 받아 분포로 환산.
 //   DB·derive 와 분리 — 밴딩/중앙값/지배스탯 로직을 단위 테스트 가능하게.
@@ -153,11 +159,27 @@ const POWER_BANDS: { label: string; min: number; max: number }[] = [
 
 const MASTERY_BANDS: { label: string; min: number; max: number }[] = [
   { label: "0", min: 0, max: 0 },
-  { label: "1-899", min: 1, max: 899 },
-  { label: "900-1799", min: 900, max: 1799 },
-  { label: "1800-2699", min: 1800, max: 2699 },
-  { label: "2700-7499", min: 2700, max: 7499 },
-  { label: "7500+", min: 7500, max: Infinity },
+  { label: `1-${TIER2_UNLOCK_CUMLEVEL - 1}`, min: 1, max: TIER2_UNLOCK_CUMLEVEL - 1 },
+  {
+    label: `${TIER2_UNLOCK_CUMLEVEL}-${TIER3_UNLOCK_CUMLEVEL - 1}`,
+    min: TIER2_UNLOCK_CUMLEVEL,
+    max: TIER3_UNLOCK_CUMLEVEL - 1,
+  },
+  {
+    label: `${TIER3_UNLOCK_CUMLEVEL}-${TIER4_UNLOCK_CUMLEVEL - 1}`,
+    min: TIER3_UNLOCK_CUMLEVEL,
+    max: TIER4_UNLOCK_CUMLEVEL - 1,
+  },
+  {
+    label: `${TIER4_UNLOCK_CUMLEVEL}-${TIER5_UNLOCK_CUMLEVEL - 1}`,
+    min: TIER4_UNLOCK_CUMLEVEL,
+    max: TIER5_UNLOCK_CUMLEVEL - 1,
+  },
+  {
+    label: `${TIER5_UNLOCK_CUMLEVEL}+`,
+    min: TIER5_UNLOCK_CUMLEVEL,
+    max: Infinity,
+  },
 ];
 
 const REINCARNATION_BANDS: { label: string; min: number; max: number }[] = [

@@ -27,15 +27,6 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_json: "잘못된 요청이에요.",
 };
 
-function shortTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export function GuildTrainingGroundPanel({
   info,
   localTrainingGround = false,
@@ -105,6 +96,7 @@ export function GuildTrainingGroundPanel({
             error?: string;
             reason?: string | null;
             rewardMastery?: number;
+            weeklyBonusMastery?: number;
             masteryAfter?: number;
           }
         | null;
@@ -113,7 +105,10 @@ export function GuildTrainingGroundPanel({
         setMessage(json?.reason ?? ERROR_TEXT[err] ?? "훈련을 완료하지 못했어요.");
         return;
       }
-      const text = `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()}`;
+      const text =
+        (json.weeklyBonusMastery ?? 0) > 0
+          ? `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()} · 주간 보너스 +${(json.weeklyBonusMastery ?? 0).toLocaleString()}`
+          : `숙련도 +${(json.rewardMastery ?? 0).toLocaleString()}`;
       setMessage(text);
       notifyReward("훈련 완료", text);
       await load();
@@ -145,18 +140,25 @@ export function GuildTrainingGroundPanel({
     100,
     Math.max(0, (completedCount / dailyClaimLimit) * 100),
   );
-  const guildSummary = state?.guildSummary ?? null;
-  const guildProgressPct = guildSummary
-    ? Math.min(
-        100,
-        Math.max(
-          0,
-          (guildSummary.completionCount /
-            Math.max(1, guildSummary.maxCompletionCount)) *
-            100,
-        ),
-      )
-    : 0;
+  const recommendedDrill =
+    drills.find((drill) => drill.id === state?.recommendedDrillId) ??
+    drills.find((drill) => drill.recommended) ??
+    null;
+  const weekly = state?.weekly ?? null;
+  const trainingBonuses = state?.trainingBonuses ?? null;
+  const hasPassiveTrainingBonus =
+    (trainingBonuses?.rewardBonusPct ?? 0) > 0 ||
+    (trainingBonuses?.weeklyBonusMastery ?? 0) > 0;
+  const weeklyCompleted = Math.min(
+    weekly?.target ?? 0,
+    Math.max(0, weekly?.completed ?? 0),
+  );
+  const weeklyProgressPct =
+    weekly && weekly.target > 0
+      ? Math.min(100, Math.max(0, (weeklyCompleted / weekly.target) * 100))
+      : 0;
+  const nextSp = state?.goals?.nextSp ?? null;
+  const nextJob = state?.goals?.nextJob ?? null;
 
   return (
     <section className="space-y-3 rounded-md border border-sky-200 bg-white p-3 text-sm text-zinc-900 shadow-sm dark:border-sky-900/60 dark:bg-slate-950 dark:text-zinc-100">
@@ -193,7 +195,7 @@ export function GuildTrainingGroundPanel({
 
       {hasTrainingGround && (
         <div className="grid gap-2 rounded-md border border-sky-100 bg-sky-50/70 p-3 text-xs dark:border-sky-900/50 dark:bg-slate-900">
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-4">
             <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 현재 직업
@@ -226,6 +228,22 @@ export function GuildTrainingGroundPanel({
                 />
               </div>
             </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  주간 보너스
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {weeklyCompleted}/{weekly?.target ?? 0}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded bg-zinc-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded bg-emerald-600 dark:bg-emerald-400"
+                  style={{ width: `${weeklyProgressPct}%` }}
+                />
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span>
@@ -234,83 +252,78 @@ export function GuildTrainingGroundPanel({
             </span>
             <span>{state?.upgrade?.label ?? "훈련 설비"}</span>
           </div>
-        </div>
-      )}
-
-      {hasTrainingGround && guildSummary && (
-        <div className="grid gap-2 rounded-md border border-emerald-100 bg-emerald-50/70 p-3 text-xs dark:border-emerald-900/50 dark:bg-slate-900">
-          <div className="flex items-center justify-between gap-2">
-            <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-              길드 현황
-            </div>
-            <div className="rounded bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-slate-950 dark:text-emerald-300">
-              미참여 {guildSummary.pendingMemberCount.toLocaleString()}명
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                참여
+                다음 성장 목표
               </div>
-              <div className="mt-0.5 font-semibold tabular-nums">
-                {guildSummary.participatedMemberCount.toLocaleString()}/
-                {guildSummary.memberCount.toLocaleString()}명
-              </div>
-            </div>
-            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
-              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                완료
-              </div>
-              <div className="mt-0.5 font-semibold tabular-nums">
-                {guildSummary.completionCount.toLocaleString()}/
-                {guildSummary.maxCompletionCount.toLocaleString()}회
-              </div>
-            </div>
-            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
-              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                숙련도
-              </div>
-              <div className="mt-0.5 font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
-                +{guildSummary.totalMastery.toLocaleString()}
-              </div>
-            </div>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded bg-white dark:bg-slate-800">
-            <div
-              className="h-full rounded bg-emerald-600 dark:bg-emerald-400"
-              style={{ width: `${guildProgressPct}%` }}
-            />
-          </div>
-          <div className="space-y-1">
-            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              최근 완료
-            </div>
-            {guildSummary.recent.length > 0 ? (
-              guildSummary.recent.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex items-center justify-between gap-2 rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950"
-                >
-                  <div className="min-w-0 truncate">
-                    <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {row.actorName}
-                    </span>
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      {" "}
-                      · {row.drillTitle}
+              <div className="mt-0.5 space-y-0.5 font-medium">
+                {nextSp ? (
+                  <div>
+                    SP +1까지 숙련도{" "}
+                    <span className="tabular-nums">
+                      {nextSp.remainingCumLevel.toLocaleString()}
                     </span>
                   </div>
-                  <div className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {shortTime(row.createdAt)}
+                ) : null}
+                {nextJob ? (
+                  <div>
+                    {nextJob.name}까지 숙련도{" "}
+                    <span className="tabular-nums">
+                      {nextJob.remainingMastery.toLocaleString()}
+                    </span>
+                  </div>
+                ) : null}
+                {!nextSp && !nextJob ? <div>현재 표시할 목표 없음</div> : null}
+              </div>
+            </div>
+            <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                다음 시설 레벨
+              </div>
+              {state?.nextUpgrade ? (
+                <div className="mt-0.5 space-y-0.5">
+                  <div className="font-medium">
+                    Lv {state.nextUpgrade.level} · {state.nextUpgrade.summary}
+                  </div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    비용 {state.nextUpgrade.costText}
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className="rounded border border-white/70 bg-white px-2 py-2 text-center text-[11px] text-zinc-500 dark:border-slate-700 dark:bg-slate-950 dark:text-zinc-400">
-                오늘 기록 없음
-              </div>
-            )}
+              ) : (
+                <div className="mt-0.5 font-medium">최고 레벨</div>
+              )}
+            </div>
           </div>
+          {weekly && !weekly.bonusClaimed && (
+            <div className="rounded border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
+              이번 주 {weekly.target.toLocaleString()}회 훈련 완료 시 숙련도 +
+              {weekly.bonusMastery.toLocaleString()}
+            </div>
+          )}
+          {hasPassiveTrainingBonus && (
+            <div className="rounded border border-violet-100 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300">
+              장착 패시브: 훈련장 보상 +
+              {(trainingBonuses?.rewardBonusPct ?? 0).toLocaleString()}% · 주간
+              보너스 +{(trainingBonuses?.weeklyBonusMastery ?? 0).toLocaleString()}
+            </div>
+          )}
+          {recommendedDrill && claimableCount > 0 && (
+            <button
+              type="button"
+              disabled={claimingId != null}
+              onClick={() => void claim(recommendedDrill.id)}
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-md border border-emerald-700 bg-emerald-700 px-3 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {claimingId === recommendedDrill.id ? (
+                <SpinnerGap className="animate-spin" size={15} />
+              ) : (
+                <Barbell size={15} weight="bold" />
+              )}
+              추천 훈련 · {recommendedDrill.title} · 숙련도 +
+              {recommendedDrill.rewardMastery.toLocaleString()}
+            </button>
+          )}
         </div>
       )}
 
@@ -346,6 +359,11 @@ export function GuildTrainingGroundPanel({
                       <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                         {drill.title}
                       </span>
+                      {drill.recommended && drill.available && (
+                        <span className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                          추천
+                        </span>
+                      )}
                       <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-slate-800 dark:text-zinc-300">
                         {drill.categoryLabel}
                       </span>

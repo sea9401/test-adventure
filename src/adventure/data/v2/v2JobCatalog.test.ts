@@ -7,6 +7,9 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  FISHING_TIER2_UNLOCK_CUMLEVEL,
+  FISHING_TIER3_UNLOCK_CUMLEVEL,
+  FISHING_TIER4_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
@@ -16,6 +19,7 @@ import {
   unlockedJobs,
   jobUnlockConditionText,
   cumLevelForJob,
+  isFishingJobId,
   type V2JobDefinition,
   type ExtraJobCondition,
   type JobUnlockContext,
@@ -36,7 +40,7 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   martial: ["boxer", "monk"],
   mage: ["caster", "acolyte"],
   rogue: ["assassin", "archer", "venomist"],
-  survivor: ["camper", "ironman", "fisher"],
+  survivor: ["camper", "ironman", "fisher", "healthtrainer"],
 };
 // 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
 const TIER3_LINEAGE: Record<string, string> = {
@@ -54,6 +58,7 @@ const TIER3_LINEAGE: Record<string, string> = {
   fieldmedic: "camper",
   extremesurvivor: "ironman",
   angler: "fisher",
+  physicalcoach: "healthtrainer",
 };
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
@@ -70,6 +75,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   rescueexpert: "fieldmedic",
   returner: "extremesurvivor",
   masterangler: "angler",
+  mastertrainer: "physicalcoach",
   crusader: "templar",
   runeknight: "spellblade",
   crimsontemplar: "bloodtemplar",
@@ -107,14 +113,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("70개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 19 + 5차 13 + 6차 2)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(70);
+  it("73개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 13 + 6차 2)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(73);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(12);
-    expect(byTier(3)).toBe(18);
-    expect(byTier(4)).toBe(19);
+    expect(byTier(2)).toBe(13);
+    expect(byTier(3)).toBe(19);
+    expect(byTier(4)).toBe(20);
     expect(byTier(5)).toBe(13);
     expect(byTier(6)).toBe(2);
   });
@@ -211,7 +217,11 @@ describe("해금 트리", () => {
       for (const childId of children) {
         const job = V2_JOB_CATALOG[childId];
         expect(job.tier).toBe(2);
-        expect(job.unlock.prereqs).toEqual({ [parent]: TIER2_UNLOCK_CUMLEVEL });
+        const required =
+          childId === "fisher"
+            ? FISHING_TIER2_UNLOCK_CUMLEVEL
+            : TIER2_UNLOCK_CUMLEVEL;
+        expect(job.unlock.prereqs).toEqual({ [parent]: required });
       }
     }
   });
@@ -220,7 +230,11 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER3_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(3);
-      expect(job.unlock.prereqs).toEqual({ [parent]: TIER3_UNLOCK_CUMLEVEL });
+      const required =
+        childId === "angler"
+          ? FISHING_TIER3_UNLOCK_CUMLEVEL
+          : TIER3_UNLOCK_CUMLEVEL;
+      expect(job.unlock.prereqs).toEqual({ [parent]: required });
       // 계보 부모는 tier-2 직업 → isJobUnlocked 가 jobCumLevel 로 분기(직군 cumLevel 아님).
       expect(V2_JOB_CATALOG[parent].tier).toBe(2);
     }
@@ -230,12 +244,28 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(4);
-      expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
+      const required =
+        childId === "masterangler"
+          ? FISHING_TIER4_UNLOCK_CUMLEVEL
+          : TIER4_UNLOCK_CUMLEVEL;
+      expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(3);
     }
     // 임계 램프: tier2 < tier3 < tier4.
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
+  });
+
+  it("낚시 계열은 reel 성공 기반 숙련도라 2026-07 상향 전 요구치를 유지한다", () => {
+    expect(V2_JOB_CATALOG.fisher.unlock.prereqs).toEqual({
+      survivor: 900,
+    });
+    expect(V2_JOB_CATALOG.angler.unlock.prereqs).toEqual({
+      fisher: 1800,
+    });
+    expect(V2_JOB_CATALOG.masterangler.unlock.prereqs).toEqual({
+      angler: 2700,
+    });
   });
 
   it("5차 직업은 계보(바로 아래 4차 부모) jobCumLevel ≥ TIER5 을 요구한다", () => {
@@ -637,8 +667,11 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("rogue", "venomist")).toBe("venomist");
     expect(jobIdFromLegacy("rogue", "venomancer")).toBe("venomancer");
     expect(jobIdFromLegacy("survivor", "fisher")).toBe("fisher");
+    expect(jobIdFromLegacy("survivor", "healthtrainer")).toBe("healthtrainer");
+    expect(jobIdFromLegacy("survivor", "physicalcoach")).toBe("physicalcoach");
     expect(jobIdFromLegacy("survivor", "angler")).toBe("angler");
     expect(jobIdFromLegacy("survivor", "masterangler")).toBe("masterangler");
+    expect(jobIdFromLegacy("survivor", "mastertrainer")).toBe("mastertrainer");
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
     expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
     expect(jobIdFromLegacy("mage", "runecaster")).toBe("runecaster"); // 문장술사 4차
@@ -668,10 +701,22 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("rogue", "venomancer")).toBe("맹독술사");
     expect(displayName("rogue", "venomlord")).toBe("독왕");
     expect(displayName("survivor", "fisher")).toBe("낚시꾼");
+    expect(displayName("survivor", "healthtrainer")).toBe("헬스 트레이너");
+    expect(displayName("survivor", "physicalcoach")).toBe("피지컬 코치");
     expect(displayName("survivor", "angler")).toBe("명인 낚시꾼");
     expect(displayName("survivor", "masterangler")).toBe("강태공");
+    expect(displayName("survivor", "mastertrainer")).toBe("마스터 트레이너");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
+  });
+});
+
+describe("생활 직업 숙련도 획득 분기", () => {
+  it("헬스 트레이너는 낚시 숙련도 예외가 아니므로 사냥 숙련도 대상이다", () => {
+    expect(isFishingJobId("fisher")).toBe(true);
+    expect(isFishingJobId("healthtrainer")).toBe(false);
+    expect(isFishingJobId("physicalcoach")).toBe(false);
+    expect(isFishingJobId("mastertrainer")).toBe(false);
   });
 });
 

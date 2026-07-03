@@ -30,6 +30,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   camper: ["v2c_camper_camp", "v2c_camper_ration"], // 야영(자힐) + 비상식량(회복+최대 HP)
   ironman: ["v2c_ironman_brace", "v2c_ironman_body"], // 버티기(보호막) + 단련된 몸(최대 HP)
   fisher: ["v2c_camper_tidereading"], // 낚시꾼 — 물때 읽기
+  healthtrainer: ["v2c_healthtrainer_routine"], // 헬스 트레이너 — 운동 루틴
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력연권(연격+취약) + 보법 II(회피+12%)
@@ -41,39 +42,41 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"], // 사혈격(HP 소모 강타) + 광기(잃은 HP 비례 공격력)
   warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"], // 연환각(다단) + 강건 III(활력+30%)
   bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"], // 대치유(자힐) + 회복 II(회복+30%)
-  shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"], // 암살(처형·LUK) + 그늘(치명피해+30%)
-  venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"], // 맹독 확산(중독 심화) + 침식(중독 적 방어↓)
+  shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"], // 암살(처형·LUK) + 필살(치명피해)
+  venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"], // 맹독 확산(중독 심화) + 부식 II(중독 적 방어↓)
   fieldmedic: ["v2c_fieldmedic_treatment", "v2c_fieldmedic_training"], // 현장 처치 + 구급 숙련
   extremesurvivor: ["v2c_extremesurvivor_struggle", "v2c_extremesurvivor_adaptation"], // 사투 + 극한 적응
   angler: ["v2c_angler_pointreading"], // 명인 낚시꾼 — 포인트 짚기
+  physicalcoach: ["v2c_physicalcoach_conditioning"], // 피지컬 코치 — 컨디셔닝 프로그램
   // ── 하이브리드(tier 3·전사×마법) ──
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
   bloodtemplar: ["v2c_bloodtemplar_stigma", "v2c_bloodtemplar_martyr"], // 혈성기사: 피의 성흔(HP소모+회복) + 순교의 광기
   darkpriest: ["v2c_darkpriest_reap", "v2c_darkpriest_blessing"], // 암흑사제: 영혼 수확(처형+회복) + 검은 축복
   // ── 심화 직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
-  veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 결전의 일격(처형딜) + 필살(치명피해+25%)
-  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡연파(연격+방깎+취약) + 패왕(힘+20%) — 공격형 정점
-  sage: ["v2c_sage_bolt", "v2c_sage_insight"], // 마력 폭사 + 간파(치명확률+8%)
+  veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 결전의 일격(처형딜) + 필살 II(치명피해)
+  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 권룡: 권룡연파(연격+방깎+취약) + 근력 III(힘+20%) — 공격형 정점
+  sage: ["v2c_sage_bolt", "v2c_sage_insight"], // 마력 폭사 + 치명 II(치명확률)
   chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 잔영(회피+12%)
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"], // 기습(풀피 오프너·LUK) + 은신(회피+16%)
-  venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 독왕(부식 심화)
+  venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 부식 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
   elementalist: ["v2c_elementalist_magic", "v2c_elementalist_mastery"], // 속성 마법(캐릭속성 분기) + 원소 통달(상성 양방향↑)
   // ── 마법 4차 세 번째 갈래(문장술사) — 저차 총명 패시브 장착 시 액티브 추가 효과 ──
   runecaster: ["v2c_runecaster_grandsigil", "v2c_runecaster_circuit"], // 대문장 해방 + 문장 회로
   // ── 마법 4차 네 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
-  archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"], // 금단 의식(취약 폭발) + 금기 주술(취약 심화)
+  archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"], // 금단 의식(취약 폭발) + 흉조 II(취약 심화)
   archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"], // 성역 선포 + 성직 권위
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 보호막 액티브 + 반사 패시브 ──
   warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 방벽(보호막·최대HP10%) + 가시 방벽(피격 시 방어력만큼 반사)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) — HP를 걸고 화력으로 밀어붙이는 라인 ──
-  warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(HP 소모 강타) + 살육본능(광기 상위)
+  warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"], // 혈전(HP 소모 강타) + 광기 II
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) — 옛 절정 킷(반격+철신) 상속 ──
   battlemonk: ["v2c_battlemonk_counter", "v2c_battlemonk_ironbody"], // 반격(피격 카운터) + 철신(최대HP+20%) — 둘 다 패시브
   rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"], // 긴급 구조 + 생환 지원
   returner: ["v2c_returner_survive", "v2c_returner_undying"], // 생환 + 불굴
   masterangler: ["v2c_masterangler_bigcatchsense"], // 강태공 — 대물 감각
+  mastertrainer: ["v2c_mastertrainer_elitetraining"], // 마스터 트레이너 — 엘리트 트레이닝
   crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"], // 성전사: 성전의 심판 + 불굴의 맹세
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판 + 피의 서약
@@ -83,9 +86,9 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"], // 패왕: 파멸 난무 + 광기의 왕좌
   arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"], // 비전술사: 비전 폭발 + 비전 이론
   marksman: ["v2c_marksman_shot", "v2c_marksman_aim"], // 명궁: 정밀 사격 + 조준
-  nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"], // 밤그림자: 월식 + 밤의 장막
+  nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"], // 밤그림자: 월식 + 은신 II
   saint: ["v2c_saint_miracle", "v2c_saint_benediction"], // 성자: 기적 + 축복
-  plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"], // 역병 군주: 역병 창궐 + 붕괴
+  plaguebringer: ["v2c_plaguebringer_outbreak", "v2c_plaguebringer_decay"], // 역병 군주: 역병 창궐 + 부식 IV
   dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork"], // 권황: 용린파쇄 + 무극보법
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
   immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"], // 불멸자: 생명 강타 + 불멸의 심장

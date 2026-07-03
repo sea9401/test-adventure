@@ -365,7 +365,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
 
   it("제작 전용 장비는 재정립된 티어에 맞는 위력 기준을 가진다", () => {
     expect(V2_EQUIPMENT.v2_crafted_oathblade.power).toBe(72);
-    expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(68);
+    expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(65);
     expect(V2_EQUIPMENT.v2_crafted_runic_staff.power).toBe(76);
     expect(V2_EQUIPMENT.v2_crafted_ward_plate.power).toBe(64);
     expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(12);
@@ -481,13 +481,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
 });
 
 describe("v2EquipStatRows (표시 행)", () => {
-  it("기본 전투 스탯 → 무게 → 옵션 순, 0 은 생략", () => {
-    // 별노래궁(무기): 위력=카탈로그 기준, weight 2 → 표시 ×4=8(WEAPON_WEIGHT_SCALE), crit 2.
+  it("기본 전투 스탯 → 옵션 순, 0 은 생략", () => {
+    // 별노래궁(무기): 위력=카탈로그 기준, crit 2, 과거 무게 페널티는 속도-4 옵션.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
       { label: "공격력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
-      { label: "무게", value: "8" },
       { label: "치명", value: "+2%" },
+      { label: "속도", value: "-4" },
     ]);
   });
 
@@ -531,7 +531,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     expect(rows).toContainEqual({ label: "HP", value: "+40" });
   });
 
-  it("굴림(roll) 주면 굴림값 표시 — 별노래궁(무기) 굴림(16/1/crit3), 무게 ×4=4", () => {
+  it("굴림(roll) 주면 굴림값 표시 — 별노래궁(무기) 굴림(16/crit3)", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow, {
       power: 16,
       weight: 1,
@@ -539,8 +539,8 @@ describe("v2EquipStatRows (표시 행)", () => {
     });
     expect(rows).toEqual([
       { label: "공격력", value: "+16" },
-      { label: "무게", value: "4" },
       { label: "치명", value: "+3%" },
+      { label: "속도", value: "-4" },
     ]);
   });
 });

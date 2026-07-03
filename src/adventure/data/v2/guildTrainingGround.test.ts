@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   claimGuildTrainingDrill,
   GUILD_TRAINING_DRILL_IDS,
+  GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
+  GUILD_TRAINING_WEEKLY_BONUS_TARGET,
   guildTrainingDayWindow,
   guildTrainingDrillViews,
   parseGuildTrainingState,
+  recommendedGuildTrainingDrill,
   todayGuildTrainingKey,
+  todayGuildTrainingWeekKey,
   type GuildTrainingState,
 } from "./guildTrainingGround";
 
@@ -29,6 +33,15 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     expect(window.end.toISOString()).toBe("2026-07-02T15:00:00.000Z");
   });
 
+  it("주간 키는 한국 시간 월요일 기준으로 잡는다", () => {
+    expect(todayGuildTrainingWeekKey(new Date("2026-07-05T14:59:59.000Z"))).toBe(
+      "2026-06-29",
+    );
+    expect(todayGuildTrainingWeekKey(new Date("2026-07-05T15:00:00.000Z"))).toBe(
+      "2026-07-06",
+    );
+  });
+
   it("날짜가 바뀌면 완료 상태를 초기화한다", () => {
     expect(
       parseGuildTrainingState(
@@ -36,6 +49,45 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
         "2026-07-01",
       ),
     ).toEqual({ dayKey: "2026-07-01", claimed: [] });
+  });
+
+  it("주가 같으면 주간 완료 수를 보존하고, 주가 바뀌면 초기화한다", () => {
+    expect(
+      parseGuildTrainingState(
+        {
+          dayKey: "2026-07-01",
+          claimed: ["basic_stance"],
+          weekKey: "2026-06-29",
+          weeklyClaims: 3,
+          weeklyBonusClaimed: false,
+        },
+        "2026-07-02",
+        "2026-06-29",
+      ),
+    ).toMatchObject({
+      dayKey: "2026-07-02",
+      claimed: [],
+      weeklyClaims: 3,
+      weeklyBonusClaimed: false,
+    });
+    expect(
+      parseGuildTrainingState(
+        {
+          dayKey: "2026-07-05",
+          claimed: ["basic_stance"],
+          weekKey: "2026-06-29",
+          weeklyClaims: 5,
+          weeklyBonusClaimed: true,
+        },
+        "2026-07-06",
+        "2026-07-06",
+      ),
+    ).toMatchObject({
+      dayKey: "2026-07-06",
+      claimed: [],
+      weeklyClaims: 0,
+      weeklyBonusClaimed: false,
+    });
   });
 
   it("건물 레벨과 캐릭터 레벨에 따라 훈련 과제를 잠근다", () => {
@@ -81,7 +133,7 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
   });
 
   it("수령한 과제는 같은 날 다시 수령할 수 없다", () => {
-    const state = claimGuildTrainingDrill(
+    const { state } = claimGuildTrainingDrill(
       { dayKey: "2026-07-01", claimed: [] },
       "basic_stance",
     );
@@ -123,6 +175,24 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
   });
 
+  it("장착 패시브의 훈련장 보상 보너스를 추가 반영한다", () => {
+    const views = guildTrainingDrillViews({
+      state: { dayKey: "2026-07-01", claimed: [] },
+      buildingLevel: 3,
+      characterLevel: 50,
+      hasJob: true,
+      currentClass: "warrior",
+      rewardBonusPct: 5,
+    });
+
+    expect(views.find((v) => v.id === "basic_stance")).toMatchObject({
+      rewardMastery: 15,
+    });
+    expect(views.find((v) => v.id === "weapon_flow")).toMatchObject({
+      rewardMastery: 20,
+    });
+  });
+
   it("훈련장 레벨별 일일 훈련 횟수를 초과하면 남은 훈련을 잠근다", () => {
     const state: GuildTrainingState = {
       dayKey: "2026-07-01",
@@ -140,5 +210,46 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
       available: false,
       lockedReason: "오늘 훈련 횟수 소진",
     });
+  });
+
+  it("추천 훈련은 가능한 훈련 중 보상이 가장 큰 과제다", () => {
+    const views = guildTrainingDrillViews({
+      state: { dayKey: "2026-07-01", claimed: [] },
+      buildingLevel: 5,
+      characterLevel: 100,
+      hasJob: true,
+      currentClass: "mage",
+    });
+
+    expect(recommendedGuildTrainingDrill(views)).toMatchObject({
+      id: "master_trial",
+      rewardMastery: 45,
+    });
+    expect(views.find((v) => v.id === "master_trial")).toMatchObject({
+      recommended: true,
+    });
+  });
+
+  it("주간 5회째 훈련에서 개인 보너스를 1회 지급한다", () => {
+    const before: GuildTrainingState = {
+      dayKey: "2026-07-03",
+      claimed: [],
+      weekKey: "2026-06-29",
+      weeklyClaims: GUILD_TRAINING_WEEKLY_BONUS_TARGET - 1,
+      weeklyBonusClaimed: false,
+    };
+    const first = claimGuildTrainingDrill(before, "basic_stance");
+
+    expect(first.weeklyBonusMastery).toBe(GUILD_TRAINING_WEEKLY_BONUS_MASTERY);
+    expect(first.state).toMatchObject({
+      weeklyClaims: GUILD_TRAINING_WEEKLY_BONUS_TARGET,
+      weeklyBonusClaimed: true,
+    });
+
+    const second = claimGuildTrainingDrill(
+      { ...first.state, dayKey: "2026-07-04", claimed: [] },
+      "weapon_flow",
+    );
+    expect(second.weeklyBonusMastery).toBe(0);
   });
 });

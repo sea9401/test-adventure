@@ -27,6 +27,9 @@ export type GuildTrainingDrillCategory =
 export type GuildTrainingState = {
   dayKey: string;
   claimed: GuildTrainingDrillId[];
+  weekKey?: string;
+  weeklyClaims?: number;
+  weeklyBonusClaimed?: boolean;
 };
 
 export type GuildTrainingDrillDef = {
@@ -47,7 +50,11 @@ export type GuildTrainingDrillView = GuildTrainingDrillDef & {
   focusLabel: string;
   categoryLabel: string;
   rewardMastery: number;
+  recommended?: boolean;
 };
+
+export const GUILD_TRAINING_WEEKLY_BONUS_TARGET = 5;
+export const GUILD_TRAINING_WEEKLY_BONUS_MASTERY = 30;
 
 export const GUILD_TRAINING_FOCUS_LABEL: Record<
   GuildTrainingDrillFocus,
@@ -190,6 +197,14 @@ export function guildTrainingDayWindow(now = new Date()): {
   };
 }
 
+export function todayGuildTrainingWeekKey(now = new Date()): string {
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
+  const day = kst.getUTCDay();
+  const daysSinceMonday = (day + 6) % 7;
+  const monday = new Date(kst.getTime() - daysSinceMonday * DAY_MS);
+  return monday.toISOString().slice(0, 10);
+}
+
 export function isGuildTrainingDrillId(
   raw: unknown,
 ): raw is GuildTrainingDrillId {
@@ -202,23 +217,57 @@ export function isGuildTrainingDrillId(
 export function parseGuildTrainingState(
   raw: unknown,
   dayKey: string,
+  weekKey?: string,
 ): GuildTrainingState {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return { dayKey, claimed: [] };
+    return weekKey
+      ? {
+          dayKey,
+          claimed: [],
+          weekKey,
+          weeklyClaims: 0,
+          weeklyBonusClaimed: false,
+        }
+      : { dayKey, claimed: [] };
   }
   const obj = raw as { dayKey?: unknown; claimed?: unknown };
-  if (obj.dayKey !== dayKey) return { dayKey, claimed: [] };
+  const saved = raw as {
+    dayKey?: unknown;
+    claimed?: unknown;
+    weekKey?: unknown;
+    weeklyClaims?: unknown;
+    weeklyBonusClaimed?: unknown;
+  };
+  const sameWeek = weekKey != null && saved.weekKey === weekKey;
+  const weeklyClaims = sameWeek
+    ? Math.max(0, Math.floor(Number(saved.weeklyClaims) || 0))
+    : 0;
+  const weeklyBonusClaimed = sameWeek
+    ? saved.weeklyBonusClaimed === true
+    : false;
+  if (obj.dayKey !== dayKey) {
+    return weekKey
+      ? { dayKey, claimed: [], weekKey, weeklyClaims, weeklyBonusClaimed }
+      : { dayKey, claimed: [] };
+  }
   const claimed = Array.isArray(obj.claimed)
     ? obj.claimed.filter(isGuildTrainingDrillId)
     : [];
-  return { dayKey, claimed: Array.from(new Set(claimed)) };
+  const base = { dayKey, claimed: Array.from(new Set(claimed)) };
+  return weekKey
+    ? { ...base, weekKey, weeklyClaims, weeklyBonusClaimed }
+    : base;
 }
 
 export function guildTrainingReward(
   drill: GuildTrainingDrillDef,
   upgrade: TrainingGroundUpgradeDef,
+  extraRewardBonusPct = 0,
 ): { mastery: number } {
-  const mult = 1 + Math.max(0, upgrade.trainingRewardBonusPct) / 100;
+  const totalBonusPct =
+    Math.max(0, upgrade.trainingRewardBonusPct) +
+    Math.max(0, extraRewardBonusPct);
+  const mult = 1 + totalBonusPct / 100;
   return {
     mastery: Math.max(1, Math.floor(drill.baseMasteryReward * mult)),
   };
@@ -230,19 +279,21 @@ export function guildTrainingDrillViews({
   characterLevel,
   hasJob,
   currentClass,
+  rewardBonusPct = 0,
 }: {
   state: GuildTrainingState;
   buildingLevel: number;
   characterLevel: number;
   hasJob: boolean;
   currentClass: V2Class;
+  rewardBonusPct?: number;
 }): GuildTrainingDrillView[] {
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, buildingLevel));
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const claimedCount = state.claimed.length;
-  return GUILD_TRAINING_DRILL_IDS.map((id) => {
+  const views = GUILD_TRAINING_DRILL_IDS.map((id) => {
     const drill = GUILD_TRAINING_DRILLS[id];
-    const reward = guildTrainingReward(drill, upgrade);
+    const reward = guildTrainingReward(drill, upgrade, rewardBonusPct);
     const claimed = state.claimed.includes(id);
     let lockedReason: string | null = null;
     if (buildingLevel < drill.minBuildingLevel) {
@@ -268,12 +319,42 @@ export function guildTrainingDrillViews({
       rewardMastery: reward.mastery,
     };
   });
+  const recommended = recommendedGuildTrainingDrill(views);
+  return views.map((view) =>
+    recommended?.id === view.id ? { ...view, recommended: true } : view,
+  );
+}
+
+export function recommendedGuildTrainingDrill(
+  drills: readonly GuildTrainingDrillView[],
+): GuildTrainingDrillView | null {
+  return (
+    drills
+      .filter((drill) => drill.available)
+      .sort((a, b) => b.rewardMastery - a.rewardMastery)[0] ?? null
+  );
 }
 
 export function claimGuildTrainingDrill(
   state: GuildTrainingState,
   drillId: GuildTrainingDrillId,
-): GuildTrainingState {
-  if (state.claimed.includes(drillId)) return state;
-  return { ...state, claimed: [...state.claimed, drillId] };
+): { state: GuildTrainingState; weeklyBonusMastery: number } {
+  if (state.claimed.includes(drillId)) {
+    return { state, weeklyBonusMastery: 0 };
+  }
+  const weeklyClaims = Math.max(0, Math.floor(state.weeklyClaims ?? 0)) + 1;
+  const weeklyBonusClaimed = state.weeklyBonusClaimed === true;
+  const weeklyBonusMastery =
+    !weeklyBonusClaimed && weeklyClaims >= GUILD_TRAINING_WEEKLY_BONUS_TARGET
+      ? GUILD_TRAINING_WEEKLY_BONUS_MASTERY
+      : 0;
+  return {
+    state: {
+      ...state,
+      claimed: [...state.claimed, drillId],
+      weeklyClaims,
+      weeklyBonusClaimed: weeklyBonusClaimed || weeklyBonusMastery > 0,
+    },
+    weeklyBonusMastery,
+  };
 }

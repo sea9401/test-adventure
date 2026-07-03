@@ -716,9 +716,8 @@ export function CodexEquipmentPanel({
                           <EquipmentTierBadge tier={item.tier} compact />
                         </div>
                         <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-                          {v2ItemTypeLabel(item)} · 위력 {item.power} · 무게{" "}
-                          {item.weight} · 보유 {ownedCount} · 등록 가능{" "}
-                          {eligible.length}
+                          {v2ItemTypeLabel(item)} · 위력 {item.power} · 보유{" "}
+                          {ownedCount} · 등록 가능 {eligible.length}
                         </div>
                         {craftRecord ? (
                           <div className="mt-0.5 flex flex-wrap gap-1 text-[10px]">

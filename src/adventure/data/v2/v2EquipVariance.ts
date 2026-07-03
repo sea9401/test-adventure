@@ -1,9 +1,9 @@
-// v2 장비 개체 편차 — 획득(드랍/제작) 시 위력·무게·옵션 값을 카탈로그 ±편차로 굴린다.
+// v2 장비 개체 편차 — 획득(드랍/제작) 시 위력·옵션 값을 카탈로그 ±편차로 굴린다.
 // 등급/이름 없음(숫자 편차만). 상점 구매는 미적용(정가 고정). 굴림은 equipment.v2.statRolls
 // 에 per-id 저장(V2EquipRoll). derive·UI 는 굴림 있으면 그 값, 없으면 카탈로그.
 //
-// spread = round(값 × VARIANCE_FRACTION). 값이 0(무게 등)이면 변동 없음. 바닥: 위력 ≥1,
-// 무게 ≥0, 옵션 ≥1(옵션이 사라지진 않음). god-roll 추격이 엔드게임이라 편차를 크게
+// spread = round(값 × VARIANCE_FRACTION). 값이 0이면 변동 없음. 바닥: 위력 ≥1,
+// 옵션 ≥1(옵션이 사라지진 않음). god-roll 추격이 엔드게임이라 편차를 크게
 // (0.65 = ±65%) — 같은 종류라도 굴림이 크게 갈려 추격 가치. VARIANCE_FRACTION·바닥은 다이얼.
 
 import {
@@ -37,7 +37,7 @@ export function rollItemStats(
 ): V2EquipRoll {
   const roll: V2EquipRoll = {
     power: rollStat(item.power, 1, rng),
-    weight: rollStat(item.weight, 0, rng),
+    weight: 0,
   };
   if (item.options) {
     const opts: V2EquipOptions = {};
@@ -54,7 +54,7 @@ export function rollItemStats(
 export function catalogItemStats(item: V2Equipment): V2EquipRoll {
   return {
     power: item.power,
-    weight: item.weight,
+    weight: 0,
     ...(item.options ? { options: { ...item.options } } : {}),
   };
 }
@@ -70,12 +70,11 @@ function statRange(
 }
 
 // 개체 굴림 품질 % — 카탈로그 기준값 대비 굴린 위치(0 = 최저 굴림, 100 = god-roll).
-// 스탯별 [lo, hi](rollStat 과 동일 범위) 안의 정규화 위치를 가중 평균. 무게는 낮을수록
-// 좋아 반전. 변동 없는(spread 0) 스탯·굴림 없는 아이템(상점 정가)은 제외 → 그런 건 null.
-// 가중: 위력 2(주 스탯), 옵션·무게 각 1. 다이얼.
+// 스탯별 [lo, hi](rollStat 과 동일 범위) 안의 정규화 위치를 가중 평균.
+// 변동 없는(spread 0) 스탯·굴림 없는 아이템(상점 정가)은 제외 → 그런 건 null.
+// 가중: 위력 2(주 스탯), 옵션 1. 다이얼.
 const ROLL_WEIGHT_POWER = 2;
 const ROLL_WEIGHT_OPTION = 1;
-const ROLL_WEIGHT_WEIGHT = 1;
 export function rollQualityPct(
   item: V2Equipment,
   roll: V2EquipRoll | undefined,
@@ -98,7 +97,6 @@ export function rollQualityPct(
     weightSum += w;
   };
   consider(item.power, roll.power, 1, ROLL_WEIGHT_POWER, false);
-  consider(item.weight, roll.weight, 0, ROLL_WEIGHT_WEIGHT, true);
   if (item.options) {
     for (const k of V2_EQUIP_OPTION_KEYS) {
       const base = item.options[k];

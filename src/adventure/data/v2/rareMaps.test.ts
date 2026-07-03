@@ -21,7 +21,7 @@ describe("rareMaps", () => {
     }
   });
 
-  it("newRareMapInstance — 종류 정의대로 판수 세팅(만료 없음)", () => {
+  it("newRareMapInstance — 종류 정의대로 판수 세팅", () => {
     const m = newRareMapInstance("worn_map", 17, NOW, "rm_test");
     expect(m).toMatchObject({
       iid: "rm_test",
@@ -32,9 +32,9 @@ describe("rareMaps", () => {
     });
   });
 
-  it("parseRareMaps — 소진/형식불량만 purge, 옛 expiresAt 가 박혀도 무시하고 보존", () => {
+  it("parseRareMaps — 소진/형식불량만 purge, 옛 expiresAt 값은 무시한다", () => {
     const ok = newRareMapInstance("worn_map", 5, NOW, "rm_ok");
-    // 옛 데이터: 과거 expiresAt(폐지된 필드)가 박혀 있어도 더는 만료시키지 않는다(소모품·시간무제한).
+    // 옛 데이터: 과거 expiresAt 값 자체는 무시하고 foundAt 기준 TTL만 적용한다.
     const oldExpiry = {
       ...newRareMapInstance("worn_map", 5, NOW, "rm_old"),
       expiresAt: NOW - 1,
@@ -42,8 +42,41 @@ describe("rareMaps", () => {
     const used = { ...newRareMapInstance("worn_map", 5, NOW, "rm_used"), runsLeft: 0 };
     const junk = [{ iid: 1 }, null, "x", { ...ok, kind: "unknown_kind" }];
     const parsed = parseRareMaps([ok, oldExpiry, used, ...junk], NOW);
-    // ok + oldExpiry 둘 다 보존(만료 무시), used(소진)·junk 만 purge.
+    // ok + oldExpiry 둘 다 보존(expiresAt 무시), used(소진)·junk 만 purge.
     expect(parsed.map((m) => m.iid).sort()).toEqual(["rm_ok", "rm_old"]);
+  });
+
+  it("parseRareMaps — 레어맵과 비밀 상점 지도는 발견 후 30분이 지나면 제거된다", () => {
+    const freshShop = newRareMapInstance(
+      "secret_shop_map",
+      5,
+      NOW - 29 * 60 * 1000,
+      "rm_fresh_shop",
+    );
+    const expiredShop = newRareMapInstance(
+      "secret_shop_map",
+      5,
+      NOW - 30 * 60 * 1000,
+      "rm_expired_shop",
+    );
+    const freshHuntMap = newRareMapInstance(
+      "worn_map",
+      5,
+      NOW - 29 * 60 * 1000,
+      "rm_fresh_hunt",
+    );
+    const expiredHuntMap = newRareMapInstance(
+      "worn_map",
+      5,
+      NOW - 30 * 60 * 1000,
+      "rm_expired_hunt",
+    );
+
+    expect(
+      parseRareMaps([freshShop, expiredShop, freshHuntMap, expiredHuntMap], NOW).map(
+        (m) => m.iid,
+      ),
+    ).toEqual(["rm_fresh_shop", "rm_fresh_hunt"]);
   });
 
   it("parseRareMaps — 배열 아님/빈 값은 []", () => {

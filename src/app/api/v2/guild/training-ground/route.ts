@@ -1,11 +1,6 @@
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  guildActivityLog,
-  guildMembers,
-  outpostVillages,
-  savesKv,
-} from "@/db/schema";
+import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
@@ -22,22 +17,37 @@ import {
   tier1ClassOf,
 } from "@/adventure/data/v2/classes";
 import {
+  isJobUnlocked,
+  V2_JOB_LIST,
   V2_JOB_CATALOG,
   cumLevelForJob,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
+  emptyV2SkillsState,
+  equippedGuildTrainingBonuses,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import {
+  nextTrainingGroundUpgrade,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
+  settlementBuildingUpgradeCostText,
+  settlementBuildingUpgradeSummary,
   trainingGroundUpgradeForLevel,
 } from "@/adventure/data/v2/settlement";
 import {
   claimGuildTrainingDrill,
+  GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
+  GUILD_TRAINING_WEEKLY_BONUS_TARGET,
   guildTrainingDayWindow,
   guildTrainingDrillViews,
   isGuildTrainingDrillId,
   parseGuildTrainingState,
+  recommendedGuildTrainingDrill,
+  todayGuildTrainingWeekKey,
 } from "@/adventure/data/v2/guildTrainingGround";
+import { nextSpMilestoneProgressForCumLevel } from "@/adventure/data/v2/coreLoopConfig";
 
 const TRAINING_SAVE_KEY = "guild-training.v1";
 
@@ -46,14 +56,6 @@ type CharacterSave = Record<string, unknown> & {
   specChoice?: unknown;
   level?: unknown;
 };
-
-type TrainingActivityMetaView = {
-  drillTitle: string | null;
-  rewardMastery: number;
-};
-
-type GuildTrainingDayWindow = ReturnType<typeof guildTrainingDayWindow>;
-
 
 function trainingGroundLevelFromBuildings(buildings: unknown): number {
   if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
@@ -94,135 +96,32 @@ function currentJobInfo(charSave: CharacterSave, profRaw: unknown) {
       ? cumLevelForJob(prof, job)
       : groupCumLevel(prof, group)
     : null;
-  return { cls, group, jobId, job, prof, hasJob, mastery };
+  const groupMastery = hasJob ? groupCumLevel(prof, group) : null;
+  return { cls, group, jobId, job, prof, hasJob, mastery, groupMastery };
 }
 
-function positiveInt(raw: unknown): number {
-  const value =
-    typeof raw === "number"
-      ? raw
-      : typeof raw === "string"
-        ? Number(raw)
-        : 0;
-  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-}
-
-function trainingActivityMeta(raw: unknown): TrainingActivityMetaView {
-  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
-    return { drillTitle: null, rewardMastery: 0 };
-  }
-  const obj = raw as Record<string, unknown>;
-  return {
-    drillTitle:
-      typeof obj.drillTitle === "string" && obj.drillTitle.trim()
-        ? obj.drillTitle.trim()
-        : null,
-    rewardMastery: positiveInt(obj.rewardMastery),
-  };
-}
-
-async function readProfileNames(userIds: string[]): Promise<Map<string, string>> {
-  const ids = Array.from(new Set(userIds.filter((id) => id.length > 0)));
-  const nameByUser = new Map<string, string>();
-  if (ids.length === 0) return nameByUser;
-
-  const rows = await db
-    .select({ userId: savesKv.userId, value: savesKv.value })
-    .from(savesKv)
-    .where(
-      and(
-        inArray(savesKv.userId, ids),
-        eq(savesKv.key, "character-profile.v2"),
-      ),
-    );
-  for (const row of rows) {
-    const value = (row.value ?? null) as { name?: string } | null;
-    const name = value?.name?.trim();
-    if (name) nameByUser.set(row.userId, name);
-  }
-  return nameByUser;
-}
-
-async function readGuildTrainingSummary({
-  guildId,
-  dayWindow,
-  dailyClaimLimit,
-}: {
-  guildId: number;
-  dayWindow: GuildTrainingDayWindow;
-  dailyClaimLimit: number;
-}) {
-  const [memberRows, activityRows] = await Promise.all([
-    db
-      .select({ userId: guildMembers.userId })
-      .from(guildMembers)
-      .where(eq(guildMembers.guildId, guildId)),
-    db
-      .select({
-        id: guildActivityLog.id,
-        actorUserId: guildActivityLog.actorUserId,
-        meta: guildActivityLog.meta,
-        createdAt: guildActivityLog.createdAt,
-      })
-      .from(guildActivityLog)
-      .where(
-        and(
-          eq(guildActivityLog.guildId, guildId),
-          eq(guildActivityLog.type, "training_drill_claim"),
-          gte(guildActivityLog.createdAt, dayWindow.start),
-          lt(guildActivityLog.createdAt, dayWindow.end),
-        ),
-      )
-      .orderBy(desc(guildActivityLog.createdAt)),
-  ]);
-
-  const memberIds = memberRows.map((row) => row.userId);
-  const memberIdSet = new Set(memberIds);
-  const rows = activityRows.flatMap((row) => {
-    if (
-      typeof row.actorUserId !== "string" ||
-      !memberIdSet.has(row.actorUserId)
-    ) {
+function nextJobGoal(current: ReturnType<typeof currentJobInfo>) {
+  if (!current.hasJob || !current.job) return null;
+  const candidates = V2_JOB_LIST.flatMap((job) => {
+    if (job.id === current.jobId || isJobUnlocked(job, current.prof)) {
       return [];
     }
+    const required = job.unlock.prereqs[current.jobId];
+    if (required == null) return [];
+    const actual = cumLevelForJob(current.prof, current.job!);
+    const remaining = Math.max(0, required - actual);
+    if (remaining <= 0) return [];
     return [
       {
-        ...row,
-        actorUserId: row.actorUserId,
-        metaView: trainingActivityMeta(row.meta),
+        jobId: job.id,
+        name: job.name,
+        requiredMastery: required,
+        currentMastery: actual,
+        remainingMastery: remaining,
       },
     ];
   });
-  const participatedMemberIds = new Set(rows.map((row) => row.actorUserId));
-  const totalMastery = rows.reduce(
-    (sum, row) => sum + row.metaView.rewardMastery,
-    0,
-  );
-  const recentRows = rows.slice(0, 5);
-  const nameByUser = await readProfileNames(
-    recentRows.map((row) => row.actorUserId),
-  );
-
-  return {
-    dayKey: dayWindow.dayKey,
-    memberCount: memberIds.length,
-    participatedMemberCount: participatedMemberIds.size,
-    pendingMemberCount: Math.max(
-      0,
-      memberIds.length - participatedMemberIds.size,
-    ),
-    completionCount: rows.length,
-    dailyClaimLimit,
-    maxCompletionCount: memberIds.length * Math.max(1, dailyClaimLimit),
-    totalMastery,
-    recent: recentRows.map((row) => ({
-      id: row.id,
-      actorName: nameByUser.get(row.actorUserId) ?? "모험가",
-      drillTitle: row.metaView.drillTitle ?? "훈련",
-      rewardMastery: row.metaView.rewardMastery,
-      createdAt: row.createdAt,
-    })),
-  };
+  return candidates.sort((a, b) => a.remainingMastery - b.remainingMastery)[0] ?? null;
 }
 
 export async function GET() {
@@ -236,12 +135,13 @@ export async function GET() {
   }
 
   const trainingGroundLevel = await guildTrainingGroundLevel(guildId);
-  const dayWindow = guildTrainingDayWindow();
-  const dayKey = dayWindow.dayKey;
-  const [charSave, profRaw, trainingRaw] = await Promise.all([
+  const { dayKey } = guildTrainingDayWindow();
+  const weekKey = todayGuildTrainingWeekKey();
+  const [charSave, profRaw, trainingRaw, skillsRaw] = await Promise.all([
     readSave<CharacterSave | null>(db, userId, "character.v2", null),
     readSave<V2ProficiencyState | null>(db, userId, "proficiency.v2", null),
     readSave<Record<string, unknown> | null>(db, userId, TRAINING_SAVE_KEY, null),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
   ]);
   if (!charSave) {
     return Response.json({ ok: false, error: "no_character" }, { status: 400 });
@@ -249,35 +149,67 @@ export async function GET() {
 
   const current = currentJobInfo(charSave, profRaw);
   const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
-  const state = parseGuildTrainingState(trainingRaw, dayKey);
+  const state = parseGuildTrainingState(trainingRaw, dayKey, weekKey);
+  const trainingBonuses = equippedGuildTrainingBonuses(
+    parseV2SkillsState(skillsRaw).equipped,
+  );
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel));
+  const nextUpgrade = nextTrainingGroundUpgrade(trainingGroundLevel);
   const drills = guildTrainingDrillViews({
     state,
     buildingLevel: trainingGroundLevel,
     characterLevel,
     hasJob: current.hasJob,
     currentClass: current.group,
+    rewardBonusPct: trainingBonuses.rewardBonusPct,
   });
   const claimedCount = drills.filter((drill) => drill.claimed).length;
   const availableCount = drills.filter((drill) => drill.available).length;
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const remainingClaims = Math.max(0, dailyClaimLimit - claimedCount);
-  const guildSummary = await readGuildTrainingSummary({
-    guildId,
-    dayWindow,
-    dailyClaimLimit,
-  });
+  const recommendedDrill = recommendedGuildTrainingDrill(drills);
+  const nextSp =
+    current.groupMastery != null
+      ? nextSpMilestoneProgressForCumLevel(current.groupMastery)
+      : null;
   return Response.json({
     ok: true,
     dayKey,
     hasTrainingGround: trainingGroundLevel > 0,
     trainingGroundLevel,
     upgrade,
+    nextUpgrade: nextUpgrade
+      ? {
+          level: nextUpgrade.level,
+          label: nextUpgrade.label,
+          trainingRewardBonusPct: nextUpgrade.trainingRewardBonusPct,
+          unlockedDrillCount: nextUpgrade.unlockedDrillCount,
+          costText: settlementBuildingUpgradeCostText(nextUpgrade.cost),
+          summary: settlementBuildingUpgradeSummary(
+            "training_ground",
+            nextUpgrade,
+          ),
+        }
+      : null,
     claimedCount,
     availableCount,
     remainingClaims,
     claimableCount: Math.min(availableCount, remainingClaims),
-    guildSummary,
+    recommendedDrillId: recommendedDrill?.id ?? null,
+    weekly: {
+      weekKey,
+      completed: state.weeklyClaims ?? 0,
+      target: GUILD_TRAINING_WEEKLY_BONUS_TARGET,
+      bonusMastery:
+        GUILD_TRAINING_WEEKLY_BONUS_MASTERY +
+        trainingBonuses.weeklyBonusMastery,
+      bonusClaimed: state.weeklyBonusClaimed === true,
+    },
+    trainingBonuses,
+    goals: {
+      nextSp,
+      nextJob: nextJobGoal(current),
+    },
     currentJob: current.job
       ? {
           id: current.job.id,
@@ -320,6 +252,7 @@ export async function POST(req: Request) {
 
   const result = await db.transaction(async (tx) => {
     const { dayKey } = guildTrainingDayWindow();
+    const weekKey = todayGuildTrainingWeekKey();
     const charSave = await lockSaveForUpdate<CharacterSave | null>(
       tx,
       userId,
@@ -341,9 +274,18 @@ export async function POST(req: Request) {
       TRAINING_SAVE_KEY,
       null,
     );
+    const skillsRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState(),
+    );
     const current = currentJobInfo(charSave, profRaw);
     const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
-    const state = parseGuildTrainingState(trainingRaw, dayKey);
+    const state = parseGuildTrainingState(trainingRaw, dayKey, weekKey);
+    const trainingBonuses = equippedGuildTrainingBonuses(
+      parseV2SkillsState(skillsRaw).equipped,
+    );
     if (state.claimed.includes(drillId)) {
       return {
         status: 409,
@@ -356,6 +298,7 @@ export async function POST(req: Request) {
       characterLevel,
       hasJob: current.hasJob,
       currentClass: current.group,
+      rewardBonusPct: trainingBonuses.rewardBonusPct,
     }).find((d) => d.id === drillId);
     if (!drill || !drill.available) {
       return {
@@ -368,14 +311,20 @@ export async function POST(req: Request) {
       };
     }
 
+    const claim = claimGuildTrainingDrill(state, drillId);
+    const weeklyBonusMastery =
+      claim.weeklyBonusMastery > 0
+        ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
+        : 0;
+    const totalRewardMastery = drill.rewardMastery + weeklyBonusMastery;
     let prof = current.prof;
-    prof = addCumLevel(prof, current.group, drill.rewardMastery);
-    prof = addJobCumLevel(prof, current.jobId, drill.rewardMastery);
+    prof = addCumLevel(prof, current.group, totalRewardMastery);
+    prof = addJobCumLevel(prof, current.jobId, totalRewardMastery);
     const masteryAfter =
       current.job != null
         ? cumLevelForJob(prof, current.job)
         : groupCumLevel(prof, current.group);
-    const nextState = claimGuildTrainingDrill(state, drillId);
+    const nextState = claim.state;
 
     await upsertSave(tx, userId, "proficiency.v2", prof);
     await upsertSave(tx, userId, TRAINING_SAVE_KEY, nextState);
@@ -385,7 +334,7 @@ export async function POST(req: Request) {
       actorUserId: userId,
       meta: {
         drillTitle: drill.title,
-        rewardMastery: drill.rewardMastery,
+        rewardMastery: totalRewardMastery,
       },
     });
 
@@ -395,7 +344,9 @@ export async function POST(req: Request) {
         ok: true as const,
         dayKey,
         drill,
-        rewardMastery: drill.rewardMastery,
+        rewardMastery: totalRewardMastery,
+        baseRewardMastery: drill.rewardMastery,
+        weeklyBonusMastery,
         masteryAfter,
         claimed: nextState.claimed,
       },

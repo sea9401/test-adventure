@@ -13,8 +13,8 @@ import {
 // 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
-  it("등재 재료 = 기존 17종 + 협동 보스 주화/재료/장비상자 8종 — NPC 판매가는 비등재(유저 거래 전용)", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(25);
+  it("등재 재료 = 기존 17종 + 협동 보스 보상 9종 — NPC 판매가는 비등재(유저 거래 전용)", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(26);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -37,6 +37,7 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.v2_coop_canyon_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_lake_equipment_box).toBeDefined();
     expect(V2_MATERIALS.v2_coop_void_equipment_box).toBeDefined();
+    expect(V2_MATERIALS.v2_coop_mastery_tome).toBeDefined();
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
       expect(V2_MATERIAL_SELL_PRICE[id]).toBeUndefined();

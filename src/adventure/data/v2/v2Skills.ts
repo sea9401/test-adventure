@@ -101,6 +101,11 @@ export type V2PassiveSkillEffect = {
   fishingRareSizeBonusPct?: number;
   /** 상위 대물권 크기 굴림일 때 크기를 상한 쪽으로 추가 보정. */
   fishingBigCatchSizeBonusPct?: number;
+  // ── 길드 훈련장(비전투) — 개인 훈련 수령 서버 판정에서만 소비. 전투 derive 와 무관.
+  /** 길드 훈련장 개인 훈련 숙련도 보상 +%. */
+  guildTrainingRewardBonusPct?: number;
+  /** 주간 훈련 보너스가 발동할 때 추가로 받는 직업 숙련도. */
+  guildTrainingWeeklyBonusMastery?: number;
   /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
@@ -111,8 +116,8 @@ export type V2PassiveSkillEffect = {
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
 // 스타터(자동 보유)는
-// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
-// 들판 기준 ~750승/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~3) 포인트 기준 →
+// 들판 기준 ~750승/종, 잊힌 성소 이후 ~500승/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
 export const V2_SKILL_LEARN_COST_COMMON = 1500; // tier1(입문) 기본 단가.
 // 학습 비용 tier 스케일(숙달 포인트) — 입문/중급/상급. per-skill learnCost 오버라이드가 우선.
 export const V2_SKILL_LEARN_COST_BY_TIER: Record<1 | 2 | 3, number> = {
@@ -603,6 +608,21 @@ export function equippedProfPerKillBonus(equipped: readonly V2SkillId[]): number
   return n;
 }
 
+// 장착 패시브의 길드 훈련장 보너스 합산. 개인 훈련 수령 서버 판정에서만 소비한다.
+export function equippedGuildTrainingBonuses(equipped: readonly V2SkillId[]): {
+  rewardBonusPct: number;
+  weeklyBonusMastery: number;
+} {
+  let rewardBonusPct = 0;
+  let weeklyBonusMastery = 0;
+  for (const id of equipped) {
+    const passive = V2_SKILLS[id]?.passive;
+    rewardBonusPct += passive?.guildTrainingRewardBonusPct ?? 0;
+    weeklyBonusMastery += passive?.guildTrainingWeeklyBonusMastery ?? 0;
+  }
+  return { rewardBonusPct, weeklyBonusMastery };
+}
+
 // 장착 패시브의 낚시 보너스 합산. 캐스팅 서버 판정에서만 소비한다.
 export function equippedFishingBonuses(equipped: readonly V2SkillId[]): {
   sizeBonusPct: number;
@@ -757,6 +777,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`희귀 이상 물고기 크기 +${p.fishingRareSizeBonusPct}%`);
   if (p.fishingBigCatchSizeBonusPct)
     chips.push(`대물급 물고기 크기 +${p.fishingBigCatchSizeBonusPct}%`);
+  if (p.guildTrainingRewardBonusPct)
+    chips.push(`훈련장 보상 +${p.guildTrainingRewardBonusPct}%`);
+  if (p.guildTrainingWeeklyBonusMastery)
+    chips.push(`주간 훈련 보너스 +${p.guildTrainingWeeklyBonusMastery}`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
   if (p.skillCritOverflow)

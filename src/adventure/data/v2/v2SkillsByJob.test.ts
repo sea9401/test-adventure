@@ -131,6 +131,29 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(2);
   });
 
+  it("헬스 트레이너 생활 직업 라인은 장착형 훈련장 패시브를 배운다", () => {
+    expect(skillsForJob("healthtrainer")).toEqual([
+      "v2c_healthtrainer_routine",
+    ]);
+    expect(skillsForJob("physicalcoach")).toEqual([
+      "v2c_physicalcoach_conditioning",
+    ]);
+    expect(skillsForJob("mastertrainer")).toEqual([
+      "v2c_mastertrainer_elitetraining",
+    ]);
+    for (const jobId of ["healthtrainer", "physicalcoach", "mastertrainer"]) {
+      for (const id of skillsForJob(jobId)) {
+        expect(V2_SKILLS[id].category, id).toBe("passive");
+      }
+    }
+    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingRewardBonusPct).toBe(5);
+    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingWeeklyBonusMastery).toBe(5);
+    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingRewardBonusPct).toBe(8);
+    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingWeeklyBonusMastery).toBe(10);
+    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingRewardBonusPct).toBe(12);
+    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingWeeklyBonusMastery).toBe(15);
+  });
+
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {
     // 도적 정체성 — 데미지가 str-atk 가 아니라 행운/민첩 직접 비례(scaling). 원시스탯이 커서 계수 작음.
     const assassin = V2_SKILLS.v2c_assassin_ambush.effects[0];
@@ -285,7 +308,7 @@ describe("직업 킷 — 스킬셋", () => {
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
     expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
     expect(V2_SKILLS.v2c_warlord_slaughter.passive?.berserkAtkPctPerLostHpPct).toBe(0.65);
-    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 패왕(힘%·옛 철신서 전환·무인 재설계)
+    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 근력 III(힘%·옛 철신서 전환·무인 재설계)
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_runecaster_grandsigil.equippedSynergies?.map((s) => s.requiredSkillId)).toEqual([
       "v2c_mage_acumen",
@@ -310,7 +333,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_venomlord_sovereign.passive
         ?.poisonedEnemyDefReductionPct,
-    ).toBe(28); // 독왕 — 중독 적 방어 감소 정점
+    ).toBe(28); // 부식 III — 중독 적 방어 감소 정점
     expect(V2_SKILLS.v2c_rescueexpert_rescue.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 45,
@@ -556,8 +579,8 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
-  it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 패왕(힘%) — 연격형 재설계", () => {
-    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡연파+패왕)으로.
+  it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {
+    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡연파+근력 III)으로.
     //   v2c_sensei_combo/ironbody id 유지(세이브 호환·내용만 교체).
     expect(skillsForJob("sensei")).toEqual([
       "v2c_sensei_combo",

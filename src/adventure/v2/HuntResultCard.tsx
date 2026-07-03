@@ -35,7 +35,7 @@ export type HuntResult = {
   enemyName: string;
   won: boolean;
   expGained: number;
-  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~5).
+  proficiencyGained?: number; // 숙달 포인트 획득(승리·깊이별 +2~3).
   masteryGained?: number; // 직업 숙련도 획득(승리당 +1).
   goldGained: number;
   goldGross?: number;

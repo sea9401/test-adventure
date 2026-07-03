@@ -24,6 +24,7 @@ import {
   spMilestonesForCumLevel,
   spMilestonesCrossed,
   spMasteryProgressForCumLevel,
+  nextSpMilestoneProgressForCumLevel,
   SP_MASTERED_REQUIRED_CUMLEVEL,
   SP_MASTERED_JOB_BONUS,
   OFFLINE_MAX_MS,
@@ -264,6 +265,29 @@ describe("spMilestonesCrossed — 레벨업 시 새로 넘은 SP 마일스톤(�
   it("cumLevel 단조 — 역행/동일은 0(음수 방지)", () => {
     expect(spMilestonesCrossed(300, 100)).toBe(0);
     expect(spMilestonesCrossed(115, 115)).toBe(0);
+  });
+});
+
+describe("nextSpMilestoneProgressForCumLevel — 다음 SP 목표", () => {
+  it("다음 SP 임계와 남은 숙련도를 저장 숙련도 기준으로 돌려준다", () => {
+    expect(nextSpMilestoneProgressForCumLevel(0)).toMatchObject({
+      currentMilestoneSp: 0,
+      nextMilestoneSp: 1,
+      requiredCumLevel: 405,
+      remainingCumLevel: 405,
+    });
+    expect(nextSpMilestoneProgressForCumLevel(405)).toMatchObject({
+      currentMilestoneSp: 1,
+      nextMilestoneSp: 2,
+      requiredCumLevel: 1035,
+      remainingCumLevel: 630,
+    });
+    expect(nextSpMilestoneProgressForCumLevel(1020)).toMatchObject({
+      currentMilestoneSp: 1,
+      nextMilestoneSp: 2,
+      requiredCumLevel: 1035,
+      remainingCumLevel: 15,
+    });
   });
 });
 

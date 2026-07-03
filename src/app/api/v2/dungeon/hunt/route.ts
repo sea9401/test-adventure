@@ -901,7 +901,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         enemyName,
         won,
         expGained,
-        proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~5).
+        proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~3).
         masteryGained, // 직업 숙련도 획득(승리·직업 보유 시 +1).
         masteryAfter, // 상시 카드 readout — 사냥 후 현재 직업 숙련도(none=null).
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)

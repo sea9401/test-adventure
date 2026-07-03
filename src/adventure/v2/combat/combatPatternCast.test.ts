@@ -14,7 +14,10 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 
 // 전투 패턴이 resolveV2SkillCast 에 주입됐을 때: (1) procChance 은퇴(확정 발동), (2) 조건 게이팅.
-function castInput(equipped: string[], over: Partial<V2SkillCastInput> = {}): V2SkillCastInput {
+function castInput(
+  equipped: string[],
+  over: Partial<V2SkillCastInput> = {},
+): V2SkillCastInput {
   return {
     skills: { learned: equipped, equipped } as V2SkillCastInput["skills"],
     cooldowns: {},
@@ -27,7 +30,13 @@ function castInput(equipped: string[], over: Partial<V2SkillCastInput> = {}): V2
       selfBuffs: {},
       selfDebuffs: {},
     },
-    target: { def: 10, maxHp: 1000, currentHp: 1000, selfBuffs: {}, selfDebuffs: {} },
+    target: {
+      def: 10,
+      maxHp: 1000,
+      currentHp: 1000,
+      selfBuffs: {},
+      selfDebuffs: {},
+    },
     ...over,
   };
 }
@@ -45,11 +54,51 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
         skills: {
           learned: ["v2_skill_strike"],
           equipped: ["v2_skill_strike"],
-          enhancements: { v2_skill_strike: 3 },
+          enhancements: { v2_skill_strike: { mode: "power", level: 3 } },
         },
       }),
     );
     expect(enhanced.enemyDamage).toBe(Math.floor(plain.enemyDamage * 1.09));
+  });
+
+  it("집중 의식은 위력을 올리지 않고 발동 확률만 올린다", () => {
+    const fail = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 45,
+        skills: {
+          learned: [SKILL],
+          equipped: [SKILL],
+        },
+      }),
+    );
+    expect(fail.castSkillId).toBeNull();
+
+    const focused = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 45,
+        skills: {
+          learned: [SKILL],
+          equipped: [SKILL],
+          enhancements: { [SKILL]: { mode: "focus", level: 3 } },
+        },
+      }),
+    );
+    const powered = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 45,
+        skills: {
+          learned: [SKILL],
+          equipped: [SKILL],
+          enhancements: { [SKILL]: { mode: "power", level: 3 } },
+        },
+      }),
+    );
+
+    expect(focused.castSkillId).toBe(SKILL);
+    expect(powered.castSkillId).toBeNull();
+    expect(focused.enemyDamage).toBe(
+      resolveV2SkillCast(castInput([SKILL], { procRoll: 10 })).enemyDamage,
+    );
   });
 
   it("패턴 피해 = 평타 바닥 + 초과분 × 차수 통과율(난격=t1)", () => {

@@ -10,9 +10,14 @@ import {
   orderedLearnedSkills,
 } from "@/adventure/data/v2/v2Skills";
 import {
+  isSkillRitualFocusEligible,
+  isSkillRitualPowerEligible,
   isSkillRitualEligible,
-  skillRitualBonusPct,
+  skillRitualFocusBonusPct,
   skillRitualLevel,
+  skillRitualMode,
+  skillRitualPowerBonusPct,
+  skillRitualRefund,
 } from "@/adventure/data/v2/skillRitual";
 import {
   parseV2Class,
@@ -252,17 +257,28 @@ export function elementalSkillsSection(
   const equippedSet = new Set<string>(skillsState.equipped);
   return elementalSkillsForClass(cls, specChoice).map((skillId) => {
     const def = V2_SKILLS[skillId];
+    const ritualLevel = skillRitualLevel(skillsState.enhancements, skillId);
+    const ritualMode = skillRitualMode(skillsState.enhancements, skillId);
     return {
       skillId,
       name: def.name,
       cost: v2SkillLearnCost(skillId),
       learned: learnedSet.has(skillId),
       equipped: equippedSet.has(skillId),
-      ritualLevel: skillRitualLevel(skillsState.enhancements, skillId),
-      ritualBonusPct: skillRitualBonusPct(
-        skillRitualLevel(skillsState.enhancements, skillId),
-      ),
+      ritualMode,
+      ritualLevel,
+      ritualBonusPct:
+        ritualMode === "focus"
+          ? skillRitualFocusBonusPct(ritualLevel)
+          : skillRitualPowerBonusPct(ritualLevel),
+      ritualPowerBonusPct:
+        ritualMode === "power" ? skillRitualPowerBonusPct(ritualLevel) : 0,
+      ritualFocusBonusPct:
+        ritualMode === "focus" ? skillRitualFocusBonusPct(ritualLevel) : 0,
+      ritualPowerEligible: isSkillRitualPowerEligible(def),
+      ritualFocusEligible: isSkillRitualFocusEligible(def),
       ritualEligible: isSkillRitualEligible(def),
+      ritualRefund: skillRitualRefund(ritualLevel),
     };
   });
 }
@@ -323,6 +339,8 @@ export function loadoutSection(params: {
     .map((id) => {
       const def = V2_SKILLS[id];
       const equipped = equippedSet.has(id);
+      const ritualLevel = skillRitualLevel(skillsState.enhancements, id);
+      const ritualMode = skillRitualMode(skillsState.enhancements, id);
       if (equipped) spUsed += spCostOf(def);
       return {
         skillId: id,
@@ -331,11 +349,20 @@ export function loadoutSection(params: {
         category: def.category,
         equipped,
         favorite: favoriteSet.has(id),
-        ritualLevel: skillRitualLevel(skillsState.enhancements, id),
-        ritualBonusPct: skillRitualBonusPct(
-          skillRitualLevel(skillsState.enhancements, id),
-        ),
+        ritualMode,
+        ritualLevel,
+        ritualBonusPct:
+          ritualMode === "focus"
+            ? skillRitualFocusBonusPct(ritualLevel)
+            : skillRitualPowerBonusPct(ritualLevel),
+        ritualPowerBonusPct:
+          ritualMode === "power" ? skillRitualPowerBonusPct(ritualLevel) : 0,
+        ritualFocusBonusPct:
+          ritualMode === "focus" ? skillRitualFocusBonusPct(ritualLevel) : 0,
+        ritualPowerEligible: isSkillRitualPowerEligible(def),
+        ritualFocusEligible: isSkillRitualFocusEligible(def),
         ritualEligible: isSkillRitualEligible(def),
+        ritualRefund: skillRitualRefund(ritualLevel),
       };
     });
   // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만.

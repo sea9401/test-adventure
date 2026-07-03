@@ -24,9 +24,18 @@ export type V2LoadoutSkill = {
   equipped: boolean;
   favorite?: boolean;
   category?: V2LoadoutSkillCategory;
+  ritualMode?: "power" | "focus" | null;
   ritualLevel?: number;
   ritualBonusPct?: number;
+  ritualPowerBonusPct?: number;
+  ritualFocusBonusPct?: number;
+  ritualPowerEligible?: boolean;
+  ritualFocusEligible?: boolean;
   ritualEligible?: boolean;
+  ritualRefund?: {
+    gold: number;
+    proficiency: number;
+  };
 };
 export type V2LoadoutSpBreakdown = {
   base: number;

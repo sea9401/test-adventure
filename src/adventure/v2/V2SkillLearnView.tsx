@@ -9,9 +9,17 @@ import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   SKILL_RITUAL_MAX_LEVEL,
   nextSkillRitualStep,
+  skillRitualFocusBonusPct,
+  skillRitualPowerBonusPct,
+  skillRitualRefund,
+  type SkillRitualMode,
 } from "@/adventure/data/v2/skillRitual";
 import { SkillEffectChips } from "./SkillEffectChips";
-import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
+import {
+  V2LoadoutPanel,
+  type V2LoadoutData,
+  type V2LoadoutSkill,
+} from "./V2LoadoutPanel";
 import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
 import { useGameState } from "./GameStateProvider";
 
@@ -24,9 +32,18 @@ type ElementalRow = {
   name: string;
   cost: number;
   learned: boolean;
+  ritualMode?: SkillRitualMode | null;
   ritualLevel?: number;
   ritualBonusPct?: number;
+  ritualPowerBonusPct?: number;
+  ritualFocusBonusPct?: number;
+  ritualPowerEligible?: boolean;
+  ritualFocusEligible?: boolean;
   ritualEligible?: boolean;
+  ritualRefund?: {
+    gold: number;
+    proficiency: number;
+  };
 };
 
 type StateShape = {
@@ -44,6 +61,17 @@ function skillDesc(id: string): string {
 }
 function goldLabel(value: number): string {
   return `${value.toLocaleString()}G`;
+}
+function modeLabel(mode: SkillRitualMode): string {
+  return mode === "focus" ? "집중 의식" : "위력 의식";
+}
+function modeBonusLabel(mode: SkillRitualMode, bonus: number): string {
+  return mode === "focus" ? `발동확률 +${bonus}%p` : `위력 +${bonus}%`;
+}
+function ritualBonusFor(mode: SkillRitualMode, level: number): number {
+  return mode === "focus"
+    ? skillRitualFocusBonusPct(level)
+    : skillRitualPowerBonusPct(level);
 }
 
 export function V2SkillLearnView({
@@ -64,6 +92,8 @@ export function V2SkillLearnView({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [ritualTarget, setRitualTarget] = useState<V2LoadoutSkill | null>(null);
+  const [ritualMode, setRitualMode] = useState<SkillRitualMode>("power");
 
   // 마운트 1회 로드 — setState 동기 호출을 피하려 loading 초기값(true)에서 시작, 완료 시 해제.
   const refresh = useCallback(async () => {
@@ -141,27 +171,50 @@ export function V2SkillLearnView({
         name: s.name,
         spCost: 0,
         equipped: false,
+        ritualMode: s.ritualMode,
         ritualLevel: s.ritualLevel,
         ritualBonusPct: s.ritualBonusPct,
+        ritualPowerBonusPct: s.ritualPowerBonusPct,
+        ritualFocusBonusPct: s.ritualFocusBonusPct,
+        ritualPowerEligible: s.ritualPowerEligible,
+        ritualFocusEligible: s.ritualFocusEligible,
         ritualEligible: s.ritualEligible,
+        ritualRefund: s.ritualRefund,
       }));
   }, [elementalSkills, loadout]);
 
-  const enhance = useCallback(
-    async (skillId: string) => {
+  const openRitual = useCallback((skill: V2LoadoutSkill) => {
+    const currentMode = skill.ritualMode ?? null;
+    const firstMode: SkillRitualMode =
+      currentMode ??
+      (skill.ritualPowerEligible
+        ? "power"
+        : skill.ritualFocusEligible
+          ? "focus"
+          : "power");
+    setRitualTarget(skill);
+    setRitualMode(firstMode);
+    setMsg(null);
+  }, []);
+
+  const submitRitual = useCallback(
+    async (skillId: string, mode: SkillRitualMode) => {
       setBusy(`ritual:${skillId}`);
       setMsg(null);
       try {
         const res = await fetch("/api/v2/me/skill-ritual", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ skillId }),
+          body: JSON.stringify({ skillId, mode }),
         });
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
+          mode?: SkillRitualMode;
           level?: number;
           bonusPct?: number;
+          powerBonusPct?: number;
+          focusBonusPct?: number;
           points?: number;
           gold?: number;
           bankedGold?: number;
@@ -184,9 +237,13 @@ export function V2SkillLearnView({
                     ? "배운 스킬만 강화할 수 있어요"
                     : j?.error === "not_eligible"
                       ? "강화 의식 대상이 아닌 스킬이에요"
-                      : j?.error === "max_level"
-                        ? "이미 최대 단계예요"
-                        : (j?.error ?? `http ${res.status}`);
+                      : j?.error === "not_focus_eligible"
+                        ? "발동 확률이 있는 스킬만 집중 의식을 진행할 수 있어요"
+                        : j?.error === "mode_locked"
+                          ? `${modeLabel(j.mode ?? "power")}을 초기화한 뒤 다른 의식을 선택할 수 있어요`
+                          : j?.error === "max_level"
+                            ? "이미 최대 단계예요"
+                            : (j?.error ?? `http ${res.status}`);
           setMsg(`✗ ${label}`);
           return;
         }
@@ -197,8 +254,9 @@ export function V2SkillLearnView({
             typeof j.bankedGold === "number" ? j.bankedGold : undefined,
           viewerProficiency: typeof j.points === "number" ? j.points : undefined,
         });
+        setRitualTarget(null);
         setMsg(
-          `✓ ${skillName(skillId)} +${j.level ?? 0} 강화 완료 (위력 +${j.bonusPct ?? 0}%)`,
+          `✓ ${skillName(skillId)} ${modeLabel(j.mode ?? mode)} +${j.level ?? 0} 완료 (${modeBonusLabel(j.mode ?? mode, j.bonusPct ?? 0)})`,
         );
         refresh();
       } catch (err) {
@@ -209,6 +267,87 @@ export function V2SkillLearnView({
     },
     [applyResourcePatch, refresh, usable],
   );
+
+  const resetRitual = useCallback(
+    async (skillId: string) => {
+      setBusy(`ritual-reset:${skillId}`);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/skill-ritual", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ skillId, action: "reset" }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          points?: number;
+          gold?: number;
+          bankedGold?: number;
+          refundedGold?: number;
+          refundedProficiency?: number;
+        } | null;
+        if (!j?.ok) {
+          const label =
+            j?.error === "not_enhanced"
+              ? "초기화할 의식이 없어요"
+              : j?.error === "not_learned"
+                ? "배운 스킬만 초기화할 수 있어요"
+                : (j?.error ?? `http ${res.status}`);
+          setMsg(`✗ ${label}`);
+          return;
+        }
+        if (typeof j.points === "number") setUsable(j.points);
+        applyResourcePatch({
+          gold: typeof j.gold === "number" ? j.gold : undefined,
+          bankedGold:
+            typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+          viewerProficiency: typeof j.points === "number" ? j.points : undefined,
+        });
+        setRitualTarget(null);
+        setMsg(
+          `✓ ${skillName(skillId)} 의식 초기화 완료 (${goldLabel(j.refundedGold ?? 0)} · 숙달 ${(j.refundedProficiency ?? 0).toLocaleString()} 환급)`,
+        );
+        refresh();
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [applyResourcePatch, refresh],
+  );
+
+  const ritualSkill = ritualTarget
+    ? V2_SKILLS[ritualTarget.skillId as V2SkillId]
+    : null;
+  const ritualLevel = Math.max(
+    0,
+    Math.floor(ritualTarget?.ritualLevel ?? 0),
+  );
+  const currentRitualMode = ritualTarget?.ritualMode ?? null;
+  const modeLocked =
+    currentRitualMode != null && currentRitualMode !== ritualMode;
+  const selectedEligible =
+    ritualMode === "focus"
+      ? Boolean(ritualTarget?.ritualFocusEligible)
+      : Boolean(ritualTarget?.ritualPowerEligible);
+  const selectedCurrentLevel =
+    currentRitualMode === ritualMode ? ritualLevel : 0;
+  const selectedNext =
+    modeLocked || !selectedEligible
+      ? null
+      : nextSkillRitualStep(selectedCurrentLevel);
+  const currentBonus = ritualBonusFor(ritualMode, selectedCurrentLevel);
+  const nextBonus = selectedNext
+    ? ritualBonusFor(ritualMode, selectedNext.level)
+    : currentBonus;
+  const currentRefund =
+    ritualTarget?.ritualRefund ?? skillRitualRefund(ritualLevel);
+  const baseProcChance =
+    typeof ritualSkill?.procChance === "number" ? ritualSkill.procChance : 100;
+  const focusCurrentChance = Math.min(100, baseProcChance + currentBonus);
+  const focusNextChance = Math.min(100, baseProcChance + nextBonus);
 
   const Wrapper = embedded ? "div" : "main";
   return (
@@ -315,6 +454,13 @@ export function V2SkillLearnView({
                 const level = Math.max(0, Math.floor(s.ritualLevel ?? 0));
                 const next = nextSkillRitualStep(level);
                 const maxed = level >= SKILL_RITUAL_MAX_LEVEL || !next;
+                const mode = s.ritualMode ?? null;
+                const displayedBonus =
+                  mode === "focus"
+                    ? (s.ritualFocusBonusPct ?? s.ritualBonusPct ?? 0)
+                    : mode === "power"
+                      ? (s.ritualPowerBonusPct ?? s.ritualBonusPct ?? 0)
+                      : 0;
                 return (
                   <li
                     key={s.skillId}
@@ -326,28 +472,26 @@ export function V2SkillLearnView({
                           {s.name}
                         </span>
                         <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                          +{level} · 위력 +{s.ritualBonusPct ?? 0}%
+                          {mode
+                            ? `${modeLabel(mode)} +${level} · ${modeBonusLabel(mode, displayedBonus)}`
+                            : "미강화"}
                         </span>
                       </div>
                       <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                         {maxed
                           ? "최대 단계"
-                          : `다음 +${next.level}: ${goldLabel(next.goldCost)} · 숙달 ${next.proficiencyCost.toLocaleString()} · 직업 숙련도 ${next.requiredJobCumLevel.toLocaleString()}`}
+                          : `확인창에서 의식 선택 · 다음 +${next.level}: ${goldLabel(next.goldCost)} · 숙달 ${next.proficiencyCost.toLocaleString()}`}
                       </p>
                       <SkillEffectChips skillId={s.skillId} />
                     </div>
                     <Button
-                      onClick={() => enhance(s.skillId)}
-                      disabled={busy != null || maxed}
-                      variant="success"
+                      onClick={() => openRitual(s)}
+                      disabled={busy != null}
+                      variant={maxed ? "secondary" : "success"}
                       size="xs"
                       className="shrink-0"
                     >
-                      {busy === `ritual:${s.skillId}`
-                        ? "진행 중…"
-                        : maxed
-                          ? "완료"
-                          : "강화"}
+                      {busy === `ritual:${s.skillId}` ? "진행 중…" : "상세"}
                     </Button>
                   </li>
                 );
@@ -355,6 +499,172 @@ export function V2SkillLearnView({
             )}
           </ul>
         </Card>
+      )}
+
+      {ritualTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && busy == null) {
+              setRitualTarget(null);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="skill-ritual-title"
+            className="w-full max-w-[560px] rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3
+                  id="skill-ritual-title"
+                  className="truncate text-base font-semibold"
+                >
+                  {ritualTarget.name} 강화 의식
+                </h3>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  {currentRitualMode
+                    ? `${modeLabel(currentRitualMode)} +${ritualLevel} 적용 중`
+                    : "아직 의식이 적용되지 않았습니다."}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => setRitualTarget(null)}
+                disabled={busy != null}
+              >
+                닫기
+              </Button>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {(["power", "focus"] as const).map((mode) => {
+                const eligible =
+                  mode === "focus"
+                    ? Boolean(ritualTarget.ritualFocusEligible)
+                    : Boolean(ritualTarget.ritualPowerEligible);
+                const locked =
+                  currentRitualMode != null && currentRitualMode !== mode;
+                const active = ritualMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setRitualMode(mode)}
+                    disabled={!eligible || locked || busy != null}
+                    className={[
+                      "rounded-md border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                      active
+                        ? "border-emerald-500 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950/40"
+                        : "border-zinc-200 bg-zinc-50 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800",
+                    ].join(" ")}
+                  >
+                    <span className="block text-sm font-semibold">
+                      {modeLabel(mode)}
+                    </span>
+                    <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                      {mode === "focus"
+                        ? "발동 확률이 있는 스킬의 발동률을 올립니다."
+                        : "피해, 회복, 보호막 수치를 올립니다."}
+                    </span>
+                    <span className="mt-1 block text-[11px] text-zinc-500 dark:text-zinc-500">
+                      {!eligible
+                        ? "이 스킬은 해당 의식을 사용할 수 없습니다."
+                        : locked
+                          ? "초기화 후 선택 가능"
+                          : "선택 가능"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-medium">{modeLabel(ritualMode)}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {modeLocked
+                    ? "다른 의식은 초기화 후 진행 가능"
+                    : selectedNext
+                      ? `+${selectedCurrentLevel} → +${selectedNext.level}`
+                      : "다음 단계 없음"}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                <div className="rounded-md bg-white px-3 py-2 dark:bg-zinc-950">
+                  <div className="text-zinc-500 dark:text-zinc-400">현재</div>
+                  <div className="mt-1 font-semibold">
+                    {modeBonusLabel(ritualMode, currentBonus)}
+                  </div>
+                  {ritualMode === "focus" && (
+                    <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                      발동률 {baseProcChance}% → {focusCurrentChance}%
+                    </div>
+                  )}
+                </div>
+                <div className="rounded-md bg-white px-3 py-2 dark:bg-zinc-950">
+                  <div className="text-zinc-500 dark:text-zinc-400">다음</div>
+                  <div className="mt-1 font-semibold">
+                    {selectedNext
+                      ? modeBonusLabel(ritualMode, nextBonus)
+                      : "진행 불가"}
+                  </div>
+                  {ritualMode === "focus" && selectedNext && (
+                    <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                      발동률 {baseProcChance}% → {focusNextChance}%
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-zinc-600 dark:text-zinc-300">
+                {selectedNext
+                  ? `비용 ${goldLabel(selectedNext.goldCost)} · 숙달 ${selectedNext.proficiencyCost.toLocaleString()} · 직업 숙련도 ${selectedNext.requiredJobCumLevel.toLocaleString()}`
+                  : modeLocked
+                    ? "현재 적용된 의식을 초기화해야 다른 방향을 선택할 수 있습니다."
+                    : "최대 단계이거나 조건을 만족하지 않는 의식입니다."}
+              </div>
+            </div>
+
+            {ritualLevel > 0 && (
+              <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                초기화하면 현재 의식이 사라지고 누적 비용의 50%를 돌려받습니다. 환급:{" "}
+                <strong>{goldLabel(currentRefund.gold)}</strong> · 숙달{" "}
+                <strong>{currentRefund.proficiency.toLocaleString()}</strong>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              {ritualLevel > 0 && (
+                <Button
+                  variant="warning"
+                  size="sm"
+                  onClick={() => resetRitual(ritualTarget.skillId)}
+                  disabled={busy != null}
+                >
+                  {busy === `ritual-reset:${ritualTarget.skillId}`
+                    ? "초기화 중…"
+                    : "초기화"}
+                </Button>
+              )}
+              <Button
+                variant="success"
+                size="sm"
+                onClick={() => submitRitual(ritualTarget.skillId, ritualMode)}
+                disabled={busy != null || !selectedNext}
+              >
+                {busy === `ritual:${ritualTarget.skillId}`
+                  ? "진행 중…"
+                  : selectedNext
+                    ? `${modeLabel(ritualMode)} +${selectedNext.level} 진행`
+                    : "진행 불가"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {msg && (

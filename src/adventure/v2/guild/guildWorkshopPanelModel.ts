@@ -1,11 +1,11 @@
 import {
-  type ProductionKind,
-  type SettlementResources,
-} from "@/adventure/data/v2/settlement";
-import {
   GUILD_WORKSHOP_MATERIALS,
   type GuildWorkshopMaterialId,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
+import {
+  type ProductionKind,
+  type SettlementResources,
+} from "@/adventure/data/v2/settlement";
 import { TITLES } from "@/adventure/data/titles";
 import type {
   GuildWorkshopCraftMode,
@@ -31,7 +31,7 @@ export type WorkshopRecipeView = {
   craftOnly?: boolean;
   note: string;
   cost: Partial<Record<ProductionKind, number>>;
-  materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
+  materialCost?: Partial<Record<string, number>>;
   profession: "blacksmith";
   requiredArtisanLevel: number;
   artisanXp: number;
@@ -50,6 +50,8 @@ export type WorkshopRecipeView = {
     materialOk: boolean;
     canCraft: boolean;
     qualityChancePct: number;
+    cost?: Partial<Record<ProductionKind, number>>;
+    materialCost?: Partial<Record<string, number>>;
     costText: string;
     plus2Unlocked: boolean;
   };
@@ -235,7 +237,7 @@ export const ERROR_TEXT: Record<string, string> = {
   insufficient_artisan_level: "대장장이 숙련도가 부족합니다.",
   insufficient_smithy_level: "대장간 레벨이 부족합니다.",
   masterwork_locked: "명장 제작은 대장장이 Lv 8부터 사용할 수 있습니다.",
-  insufficient_resources: "길드 영지 재화가 부족합니다.",
+  insufficient_resources: "제작 재료가 부족합니다.",
   insufficient_materials: "제작 재료가 부족합니다.",
 };
 
@@ -624,8 +626,8 @@ export function recipeInfoPillClass(ok: boolean | null = null): string {
 }
 
 export function recipeCanPayText(recipe: WorkshopRecipeView): string {
-  if (!recipe.resourceOk && recipe.materialOk === false) return "자원/재료 부족";
-  if (!recipe.resourceOk) return "자원 부족";
+  if (!recipe.resourceOk && recipe.materialOk === false) return "재료 부족";
+  if (!recipe.resourceOk) return "통나무/철광석 부족";
   if (recipe.materialOk === false) return "재료 부족";
   return "비용 충족";
 }
@@ -633,8 +635,8 @@ export function recipeCanPayText(recipe: WorkshopRecipeView): string {
 export function masterworkCanPayText(recipe: WorkshopRecipeView): string {
   const masterwork = recipe.masterwork;
   if (!masterwork) return "명장 정보 없음";
-  if (!masterwork.resourceOk && !masterwork.materialOk) return "자원/재료 부족";
-  if (!masterwork.resourceOk) return "자원 부족";
+  if (!masterwork.resourceOk && !masterwork.materialOk) return "재료 부족";
+  if (!masterwork.resourceOk) return "통나무/철광석 부족";
   if (!masterwork.materialOk) return "재료 부족";
   return "비용 충족";
 }

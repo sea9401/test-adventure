@@ -12,6 +12,7 @@ import {
   guildWorkshopDismantlePlan,
   guildWorkshopQualityChancePct,
   guildWorkshopRecipeView,
+  guildWorkshopRecipeResourceMaterialCost,
   guildWorkshopRecipeResourceCost,
   guildWorkshopRecipeMaterialCost,
   hasGuildWorkshopRecipeMaterials,
@@ -20,11 +21,15 @@ import {
   parseGuildWorkshopCraftRecords,
   rollGuildWorkshopEnhance,
   spendGuildWorkshopRecipeCost,
+  spendGuildWorkshopRecipeMaterials,
 } from "./guildWorkshop";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
+import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
 import { V2_EQUIPMENT } from "./v2Equipment";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
+  [SETTLEMENT_MATERIAL_ID.timber]: 99999,
+  [SETTLEMENT_MATERIAL_ID.ironOre]: 99999,
   [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
@@ -35,20 +40,41 @@ describe("guild workshop recipes", () => {
   it("keeps starter smithy recipes open at blacksmith level 1", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
     expect(meetsGuildWorkshopRecipeLevel({}, recipe)).toBe(true);
-    expect(guildWorkshopRecipeView(recipe, { crop: 99, ore: 99 }).canCraft).toBe(
-      true,
-    );
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 0, ore: 0 },
+        {},
+        0,
+        1,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ).canCraft,
+    ).toBe(true);
   });
 
   it("locks advanced recipes behind blacksmith level", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.mithril_sword;
-    expect(guildWorkshopRecipeView(recipe, { crop: 99, ore: 99 }).canCraft).toBe(
-      false,
-    );
     expect(
-      guildWorkshopRecipeView(recipe, { crop: 999, ore: 999 }, {
-        blacksmith: { xp: 2200, crafts: 40 },
-      }).canCraft,
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 0, ore: 0 },
+        {},
+        0,
+        1,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ).canCraft,
+    ).toBe(false);
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 0, ore: 0 },
+        {
+          blacksmith: { xp: 2200, crafts: 40 },
+        },
+        0,
+        1,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ).canCraft,
     ).toBe(true);
   });
 
@@ -176,7 +202,11 @@ describe("guild workshop recipes", () => {
         artisan,
         0,
         4,
-        { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
+        {
+          [SETTLEMENT_MATERIAL_ID.timber]: 99999,
+          [SETTLEMENT_MATERIAL_ID.ironOre]: 99999,
+          [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
+        },
       ),
     ).toMatchObject({ resourceOk: true, materialOk: false, canCraft: false });
     expect(
@@ -243,9 +273,16 @@ describe("guild workshop recipes", () => {
 
   it("separates level gate from resource gate", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.leather_gloves;
-    const view = guildWorkshopRecipeView(recipe, { crop: 0, ore: 0 }, {
-      blacksmith: { xp: 260, crafts: 9 },
-    });
+    const view = guildWorkshopRecipeView(
+      recipe,
+      { crop: 999, ore: 999 },
+      {
+        blacksmith: { xp: 260, crafts: 9 },
+      },
+      0,
+      1,
+      {},
+    );
     expect(view.levelOk).toBe(true);
     expect(view.resourceOk).toBe(false);
     expect(view.canCraft).toBe(false);
@@ -320,8 +357,16 @@ describe("guild workshop recipes", () => {
       crop: (recipe.cost.crop ?? 0) * 3,
       ore: (recipe.cost.ore ?? 0) * 3,
     });
+    expect(
+      guildWorkshopRecipeResourceMaterialCost(recipe, "masterwork"),
+    ).toMatchObject({
+      [SETTLEMENT_MATERIAL_ID.timber]: (recipe.cost.crop ?? 0) * 3,
+      [SETTLEMENT_MATERIAL_ID.ironOre]: (recipe.cost.ore ?? 0) * 3,
+    });
     expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject(
       {
+        [SETTLEMENT_MATERIAL_ID.timber]: (recipe.cost.crop ?? 0) * 3,
+        [SETTLEMENT_MATERIAL_ID.ironOre]: (recipe.cost.ore ?? 0) * 3,
         [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 4,
       },
     );
@@ -341,6 +386,22 @@ describe("guild workshop recipes", () => {
     ).toMatchObject({
       crop: 9999 - (recipe.cost.crop ?? 0) * 3,
       ore: 9999 - (recipe.cost.ore ?? 0) * 3,
+    });
+    expect(
+      spendGuildWorkshopRecipeMaterials(
+        {
+          [SETTLEMENT_MATERIAL_ID.timber]: 9999,
+          [SETTLEMENT_MATERIAL_ID.ironOre]: 9999,
+          [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 9,
+        },
+        recipe,
+        "masterwork",
+      ),
+    ).toMatchObject({
+      [SETTLEMENT_MATERIAL_ID.timber]:
+        9999 - (recipe.cost.crop ?? 0) * 3,
+      [SETTLEMENT_MATERIAL_ID.ironOre]: 9999 - (recipe.cost.ore ?? 0) * 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 5,
     });
   });
 

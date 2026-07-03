@@ -15,17 +15,12 @@ import {
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
 } from "@/adventure/data/v2/settlement";
-import {
-  lockGuildSettlement,
-  readGuildSettlement,
-  upsertGuildSettlement,
-} from "@/lib/server/v2Settlement";
+import { readGuildSettlement } from "@/lib/server/v2Settlement";
 import {
   GUILD_WORKSHOP_RECIPE_IDS,
   GUILD_WORKSHOP_RECIPES,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
-  canAffordGuildWorkshopRecipe,
   guildWorkshopCraftRecordTitleIds,
   guildWorkshopBonusFromTotalCrafts,
   guildWorkshopRecipeView,
@@ -37,7 +32,6 @@ import {
   parseGuildWorkshopCraftRecords,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
-  spendGuildWorkshopRecipeCost,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
 } from "@/adventure/data/v2/guildWorkshop";
@@ -285,7 +279,7 @@ export async function POST(req: Request) {
       {},
     );
     const materials = parseGuildWorkshopMaterialInventory(charRaw.materials);
-    const resources = await lockGuildSettlement(tx, guildId);
+    const resources = await readGuildSettlement(tx, guildId);
     const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
       userId,
@@ -343,28 +337,6 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (!canAffordGuildWorkshopRecipe(resources, recipe, craftMode)) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "insufficient_resources" as const,
-          resources,
-          materials,
-          artisan: artisanView(craftingRaw),
-          recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
-            guildWorkshopRecipeView(
-              GUILD_WORKSHOP_RECIPES[id],
-              resources,
-              currentArtisan,
-              guildBonus,
-              smithyLevel,
-              materials,
-            ),
-          ),
-        },
-      };
-    }
     if (!hasGuildWorkshopRecipeMaterials(materials, recipe, craftMode)) {
       return {
         status: 409,
@@ -391,11 +363,6 @@ export async function POST(req: Request) {
       currentArtisan,
       recipe.profession,
       recipe.artisanXp,
-    );
-    const nextResources = spendGuildWorkshopRecipeCost(
-      resources,
-      recipe,
-      craftMode,
     );
     const nextMaterials = spendGuildWorkshopRecipeMaterials(
       materials,
@@ -445,7 +412,6 @@ export async function POST(req: Request) {
     };
     const nextOwned = [...parsed.owned, craftedItem];
 
-    await upsertGuildSettlement(tx, guildId, nextResources);
     await upsertSave(tx, userId, "character.v2", {
       ...charRaw,
       materials: nextMaterials,
@@ -556,7 +522,7 @@ export async function POST(req: Request) {
         recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
           guildWorkshopRecipeView(
             GUILD_WORKSHOP_RECIPES[id],
-            nextResources,
+            resources,
             nextArtisan,
             nextGuildBonus,
             smithyLevel,
@@ -564,7 +530,7 @@ export async function POST(req: Request) {
           ),
         ),
         grantedTitles,
-        resources: nextResources,
+        resources,
         materials: nextMaterials,
         owned: nextOwned,
       },

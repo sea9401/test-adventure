@@ -78,7 +78,10 @@ import {
 } from "@/adventure/data/v2/codex";
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
+  FISHING_CODEX_SP_MILESTONES,
   discoveredFishIds,
+  fishCodexSpBonus,
+  nextFishCodexMilestone,
   parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
 import { ANTIQUE_TOTAL } from "@/adventure/data/v2/antique";
@@ -420,6 +423,9 @@ export function fishingCodexSection(
     discoveredIds: ids,
     total: FISH_TOTAL,
     best,
+    spBonus: fishCodexSpBonus(codex),
+    milestones: [...FISHING_CODEX_SP_MILESTONES],
+    nextMilestone: nextFishCodexMilestone(ids.length),
     tierCompletions: codexSpBonusFromRaw(fishingCodexRaw, treasureCodexRaw)
       .fishTiers,
   };

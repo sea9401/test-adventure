@@ -292,7 +292,7 @@ export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
 //   정복 = cumLevel≥SP_MASTERED_REQUIRED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
 //   spCapBonus — SP 열매(협동 보스 보상) 사용분. 소프트캡(40) 위에 더해 천장을 올린다(영구
-//   빌드폭). collectionBonus — 어보/유물 등급 완성 파생 보너스. 둘 다 기본 0 → 기존 콜러 무변.
+//   빌드폭). collectionBonus — 어보/유물 도감 파생 보너스. 둘 다 기본 0 → 기존 콜러 무변.
 export function calcSpBudget(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
   spCapBonus = 0,

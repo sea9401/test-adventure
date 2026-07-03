@@ -1,14 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { FISH, FISH_IDS } from "@/adventure/data/v2/fish";
 import {
+  FISHING_CODEX_SP_MILESTONES,
   countDiscoveredFish,
   discoveredFishIds,
   emptyFishCodex,
   fishBestSizeScoreBonus,
   fishCodexSpBonus,
+  fishCodexSpBonusForCount,
   fishCodexScore,
   fishCodexTotalCaught,
   fishTierCompletions,
+  nextFishCodexMilestone,
   parseFishCodex,
   recordCatch,
 } from "./fishingCodex";
@@ -96,21 +99,40 @@ describe("낚시 도감 — parse / count", () => {
   });
 });
 
-describe("낚시 도감 — 등급 완성 SP", () => {
-  it("등급별 전종 발견 시 1 SP, 일부 발견은 0 SP", () => {
-    const commonIds = FISH_IDS.filter((id) => FISH[id].tier === "common");
+describe("낚시 도감 — 발견 수 마일스톤 SP", () => {
+  it("고정 마일스톤마다 1 SP를 지급하고 다음 단계도 반환한다", () => {
+    expect(FISHING_CODEX_SP_MILESTONES).toEqual([10, 20, 30, 40, 46]);
+    expect(fishCodexSpBonusForCount(9)).toBe(0);
+    expect(fishCodexSpBonusForCount(10)).toBe(1);
+    expect(fishCodexSpBonusForCount(39)).toBe(3);
+    expect(fishCodexSpBonusForCount(40)).toBe(4);
+    expect(fishCodexSpBonusForCount(46)).toBe(5);
+    expect(fishCodexSpBonusForCount(47)).toBe(5);
+    expect(nextFishCodexMilestone(39)).toBe(40);
+    expect(nextFishCodexMilestone(46)).toBeNull();
+  });
+
+  it("발견 어종 수 기준으로 SP를 계산하고 등급 완성은 SP를 주지 않는다", () => {
+    const firstTenIds = FISH_IDS.slice(0, 10);
     let codex = emptyFishCodex();
-    for (const [i, id] of commonIds.entries()) {
+    for (const [i, id] of firstTenIds.entries()) {
       codex = recordCatch(codex, id, 10 + i, 1000 + i);
     }
     expect(fishCodexSpBonus(codex)).toBe(1);
+
+    const commonIds = FISH_IDS.filter((id) => FISH[id].tier === "common");
+    let commonCodex = emptyFishCodex();
+    for (const [i, id] of commonIds.entries()) {
+      commonCodex = recordCatch(commonCodex, id, 10 + i, 1000 + i);
+    }
+    expect(fishCodexSpBonus(commonCodex)).toBe(0);
     expect(
-      fishTierCompletions(codex).find((tier) => tier.tier === "common"),
+      fishTierCompletions(commonCodex).find((tier) => tier.tier === "common"),
     ).toMatchObject({
       discovered: commonIds.length,
       total: commonIds.length,
       complete: true,
-      sp: 1,
+      sp: 0,
     });
 
     const firstCommon = commonIds[0];

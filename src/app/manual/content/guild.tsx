@@ -4,7 +4,27 @@ import {
   GUILD_LEAVE_COOLDOWN_DAYS,
   GUILD_MAX_MEMBERS,
 } from "@/adventure/data/guild";
-import { H2, P, UL, Em, Note } from "./primitives";
+import {
+  GUILD_COMBAT_SUPPLY_DEFS,
+  GUILD_COMBAT_SUPPLY_IDS,
+  GUILD_COMBAT_SUPPLY_MAX_LEVEL,
+  guildCombatSupplyNextCost,
+} from "@/adventure/data/v2/guildCombatSupply";
+import {
+  GUILD_TRAINING_DRILLS,
+  GUILD_TRAINING_DRILL_IDS,
+  GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
+  GUILD_TRAINING_WEEKLY_BONUS_TARGET,
+} from "@/adventure/data/v2/guildTrainingGround";
+import {
+  GUILD_WORKSHOP_BONUS_TIERS,
+  GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT,
+  GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT,
+  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
+  GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+  GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
+} from "@/adventure/data/v2/guildWorkshop";
+import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function GuildContent() {
   return (
@@ -48,6 +68,87 @@ export function GuildContent() {
         나머지가 금고로 들어갑니다. 자세한 건 <Em>거점과 영토</Em> 페이지를 보세요.
       </P>
 
+      <H2>전투보급 연구</H2>
+      <P>
+        길드 명성은 전투보급을 올리는 데 쓸 수 있습니다. 전투보급은 길드 단위
+        연구이고, 사냥 보상에 작게 누적되는 장기 보너스입니다.
+      </P>
+      <Table
+        head={["보급", "최대 단계", "효과", "1단계 비용"]}
+        rows={GUILD_COMBAT_SUPPLY_IDS.map((id) => {
+          const def = GUILD_COMBAT_SUPPLY_DEFS[id];
+          return [
+            <Em key={id}>{def.name}</Em>,
+            `${GUILD_COMBAT_SUPPLY_MAX_LEVEL}단계`,
+            def.effectLabel(GUILD_COMBAT_SUPPLY_MAX_LEVEL),
+            `${guildCombatSupplyNextCost(0)?.toLocaleString("ko-KR")} 명성`,
+          ];
+        })}
+        caption="단계가 오를수록 다음 연구 비용이 증가합니다. 골드 보급과 EXP 보급은 사냥 보상을 올리고, 숙달 보급은 사냥 승리 시 추가 숙달 포인트를 확률로 줍니다."
+      />
+
+      <H2>길드 훈련장</H2>
+      <P>
+        길드 영지에 훈련장이 있으면 매일 직업 숙련도를 보강할 수 있습니다. 훈련은
+        현재 직업 기준으로 적용되고, 공용 훈련과 직군별 특화 훈련이 나뉩니다.
+      </P>
+      <UL>
+        <li>
+          건물 레벨과 캐릭터 레벨에 따라 훈련이 잠기거나 열립니다. 완료한 훈련은
+          KST 일자 기준으로 다음 날 다시 초기화됩니다.
+        </li>
+        <li>
+          주간 훈련 {GUILD_TRAINING_WEEKLY_BONUS_TARGET}회를 채우면 추가로{" "}
+          <Em>숙련도 {GUILD_TRAINING_WEEKLY_BONUS_MASTERY}</Em> 보너스를 받을 수
+          있습니다.
+        </li>
+      </UL>
+      <Table
+        head={["훈련", "분류", "해금", "기본 숙련도"]}
+        rows={GUILD_TRAINING_DRILL_IDS.map((id) => {
+          const drill = GUILD_TRAINING_DRILLS[id];
+          return [
+            <Em key={id}>{drill.title}</Em>,
+            drill.focus === "common" ? "공용" : "직군 특화",
+            `훈련장 Lv.${drill.minBuildingLevel} / 캐릭터 Lv.${drill.minCharacterLevel}`,
+            `+${drill.baseMasteryReward}`,
+          ];
+        })}
+        caption="실제 지급량은 훈련장 업그레이드 보너스가 더해진 뒤 계산됩니다."
+      />
+
+      <H2>길드 제작소</H2>
+      <P>
+        제작소는 영지 자원과 제작 재료를 써 장비를 만드는 길드 시설입니다. 제작은
+        장인 성장과 연결되고, 누적 제작 기록이 쌓일수록 품질 확률 보너스가 붙습니다.
+      </P>
+      <UL>
+        <li>
+          일반 제작의 품질 확률 상한은 <Em>{GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%</Em>,
+          명장 제작의 품질 확률 상한은{" "}
+          <Em>{GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}%</Em>입니다.
+        </li>
+        <li>
+          명장 제작은 자원 비용 x{GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT},
+          재료 비용 x{GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT}를 쓰는 대신
+          더 높은 품질과 명장 각인을 노립니다.
+        </li>
+        <li>
+          분해는 제작 재료 일부를 돌려받는 기능입니다. 회수율은 최대{" "}
+          <Em>{GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT}%</Em>입니다.
+        </li>
+      </UL>
+      <Table
+        head={["누적 제작", "품질 확률 보너스"]}
+        rows={GUILD_WORKSHOP_BONUS_TIERS.filter((tier) => tier.tier > 0).map(
+          (tier) => [
+            `${tier.totalCrafts.toLocaleString("ko-KR")}회`,
+            `+${tier.qualityChanceBonusPct}%`,
+          ],
+        )}
+        caption="제작 기록은 길드 제작소 현황판과 장인 성장 패널에서 확인합니다."
+      />
+
       <H2>탈퇴 · 추방 · 양도 · 해산</H2>
       <UL>
         <li>
@@ -65,8 +166,9 @@ export function GuildContent() {
       </UL>
 
       <Note>
-        길드에는 아직 길드 게시판·의뢰나 길드 버프가 없습니다. 길드의 핵심 가치는{" "}
-        <Em>거점 점령</Em>입니다.
+        길드는 거점 점령만이 아니라 전투보급, 훈련장, 제작소까지 함께 키우는
+        장기 성장 단위입니다. 명성·영지 자원·세금 회수를 꾸준히 관리할수록 길드
+        전체의 효율이 올라갑니다.
       </Note>
     </>
   );

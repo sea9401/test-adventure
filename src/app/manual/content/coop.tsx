@@ -1,4 +1,10 @@
-import { H2, P, UL, Em, Note } from "./primitives";
+import {
+  COOP_EQUIPMENT_BOX,
+  COOP_EXTRA_REWARD_RULES,
+  COOP_MASTERY_TOME_GAIN,
+} from "@/adventure/data/v2/coopRewards";
+import { COOP_TIER_LABEL, COOP_TIER_ORDER } from "@/adventure/data/v2/coopBosses";
+import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 export function CoopContent() {
   return (
@@ -43,13 +49,37 @@ export function CoopContent() {
       <P>
         토벌에 성공하면 <Em>내 누적 데미지 비율</Em>로 기여 티어가 정해지고, 높을수록
         좋은 보상을 <Em>확률로</Em> 받습니다 — SP 최대치를 영구히 올리는{" "}
-        <Em>SP 열매</Em>와, 협동 보스에서만 나오는 <Em>보스 전용 유니크 장비</Em>
-        입니다. 보상은 협동 보스 화면에서 직접 수령합니다.
+        <Em>SP 열매</Em>, 협동 보스에서만 나오는 <Em>보스 전용 유니크 장비</Em>,
+        협동 주화·보스 재료·장비 상자입니다. 보상은 협동 보스 화면에서 직접
+        수령합니다.
       </P>
+      <Table
+        head={["기여 티어", "협동 주화", "보스 재료", "장비 상자 확률"]}
+        rows={COOP_TIER_ORDER.map((tier) => {
+          const rule = COOP_EXTRA_REWARD_RULES[tier];
+          return [
+            <Em key={tier}>{COOP_TIER_LABEL[tier]}</Em>,
+            `x${rule.coin}`,
+            `x${rule.bossMaterial}`,
+            rule.equipmentBoxChance > 0
+              ? `${Math.round(rule.equipmentBoxChance * 100)}%`
+              : "-",
+          ];
+        })}
+        caption="SP 열매와 보스 전용 유니크 보상 외에, 기여 티어별 확정 주화·재료와 확률 장비 상자가 추가로 지급됩니다."
+      />
+      <Table
+        head={["장비 상자", "출처"]}
+        rows={Object.values(COOP_EQUIPMENT_BOX).map((box) => [
+          <Em key={box.id}>{box.name}</Em>,
+          box.source,
+        ])}
+        caption="장비 상자는 인벤토리 소모품 영역에서 사용하며, 해당 구간의 정규 장비 중 하나를 무작위로 줍니다."
+      />
       <Note>
-        SP 열매는 거래소에서 거래할 수 있고, 사용 횟수에는 캐릭터당 상한이 있어요.
-        토벌에 참여만 해도 처치 기록은 남지만, 보상은 일정 기여 이상부터 확률로
-        나옵니다.
+        SP 열매와 상급 숙련 교본은 거래소에서 거래할 수 있습니다. 상급 숙련 교본은
+        사용하면 현재 직업 숙련도가 {COOP_MASTERY_TOME_GAIN} 오릅니다. 토벌에
+        참여만 해도 처치 기록은 남지만, 보상은 일정 기여 이상부터 확률로 나옵니다.
       </Note>
     </>
   );

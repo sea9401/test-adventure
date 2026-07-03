@@ -19,6 +19,7 @@ import {
   applyComboFinisherToHits,
   resolveV2SkillCast,
   type V2SkillCastResult,
+  type V2SkillDotApply,
   distributeBoostedHits,
   rollAttackCount,
   tickV2BuffMap,
@@ -181,6 +182,29 @@ function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number 
   return Math.max(0, Math.round(state.enemy.def * (1 - corrodePct / 100)));
 }
 
+function corrosionPoisonDotMult(player: PlayerCombat): number {
+  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  return corrodePct > 0 ? 1 + corrodePct / 100 : 1;
+}
+
+function applyCorrosionToPoisonDots(
+  dots: readonly V2SkillDotApply[],
+  player: PlayerCombat,
+): V2SkillDotApply[] {
+  const mult = corrosionPoisonDotMult(player);
+  if (mult === 1) return [...dots];
+  return dots.map((dot) =>
+    dot.tag === "poison"
+      ? {
+          ...dot,
+          flatPerStack: dot.flatPerStack * mult,
+          atkCoefPerStack: dot.atkCoefPerStack * mult,
+          pctMaxHpPerStack: dot.pctMaxHpPerStack * mult,
+        }
+      : dot,
+  );
+}
+
 export function applyPlayerOnHitDots(
   state: BattleState,
   player: PlayerCombat,
@@ -199,9 +223,10 @@ export function applyPlayerOnHitDots(
   const poisonStacks =
     (add?.poisonStacks ?? 0) + (player.poisonOnHit ? 1 : 0);
   if (player.poisonOnHit && poisonStacks > 0) {
+    const poisonMult = corrosionPoisonDotMult(player);
     dots.push(makePoisonDot({
       stacks: poisonStacks,
-      pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack,
+      pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack * poisonMult,
       sourceAtk: player.atk,
     }));
   }
@@ -1495,8 +1520,12 @@ export function applyPlayerV2SkillCast(
   }
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
+  const dotsToApplyToTarget = applyCorrosionToPoisonDots(
+    result.dotsToApplyToTarget,
+    player,
+  );
   // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
-  const nextEnemyDots = applyV2DotsToTarget(state.enemyV2Dots, result.dotsToApplyToTarget);
+  const nextEnemyDots = applyV2DotsToTarget(state.enemyV2Dots, dotsToApplyToTarget);
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -1511,7 +1540,7 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
-  for (const dot of result.dotsToApplyToTarget) {
+  for (const dot of dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,

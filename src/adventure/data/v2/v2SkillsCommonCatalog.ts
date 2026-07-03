@@ -535,7 +535,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomist_corrosion: {
     id: "v2c_venomist_corrosion", name: "부식", stat: "luk", category: "passive", tier: 2,
-    description: "독이 스며든 적의 방어를 무르게 한다.",
+    description: "독이 스며든 적의 방어를 무르게 하고 중독 피해를 깊게 침투시킨다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 12 },
@@ -763,7 +763,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomancer_corrosion3: {
     id: "v2c_venomancer_corrosion3", name: "부식 II", stat: "luk", category: "passive", tier: 3,
-    description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어를 더 크게 낮춘다.",
+    description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어와 중독 피해를 더 크게 흔든다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 20 },
@@ -1037,7 +1037,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_venomlord_sovereign: {
     id: "v2c_venomlord_sovereign", name: "부식 III", stat: "luk", category: "passive", tier: 3,
-    description: "독을 다스리는 정점. 중독된 적의 방어를 크게 무너뜨린다.",
+    description: "독을 다스리는 정점. 중독된 적의 방어와 독 피해 저항을 크게 무너뜨린다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 28 },
@@ -1317,7 +1317,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_plaguebringer_decay: {
     id: "v2c_plaguebringer_decay", name: "부식 IV", stat: "luk", category: "passive", tier: 3,
-    description: "독이 갑옷과 살을 함께 무너뜨린다.",
+    description: "독이 갑옷과 살을 함께 무너뜨려 중독 피해를 더 깊게 남긴다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 35, critDmgPct: 10 },

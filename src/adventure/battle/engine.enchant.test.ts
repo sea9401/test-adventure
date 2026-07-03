@@ -329,34 +329,45 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
     expect(corrodeDmg).toBe(baseDmg);
   });
 
-  it("중독 상태면 v2 공격 스킬 데미지도 증가", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const measureSkill = (player: PlayerCombat) => {
-      let s = initialBattleState(
+  it("독무가 건 중독 틱 피해도 증가", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const firstPoisonTick = (player: PlayerCombat) => {
+      const result = resolveBattle(
         player,
-        enemy({ hp: 100000, def: 40, spd: 1 }),
+        enemy({ hp: 100000, atk: 1, def: 40, spd: 1, evasionPct: 0 }),
         "용사",
         {
-          learned: ["v2_skill_strike"],
-          equipped: ["v2_skill_strike"],
+          pickAction: () => ({ kind: "attack" }),
+          potions: {},
+          v2Skills: {
+            learned: ["v2c_venomist_toxiccloud"],
+            equipped: ["v2c_venomist_toxiccloud"],
+          },
         },
       );
-      s = {
-        ...s,
-        enemyV2Dots: [makePoisonDot({ stacks: 3, pctMaxHpPerStack: 0, sourceAtk: 0 })],
-      };
-      const hp0 = s.enemyHp;
-      s = advanceTurn(s, player, "용사", { kind: "attack" });
-      return hp0 - s.enemyHp;
+      const tick = result.finalState.log.find((e) => e.text.startsWith("[중독]"));
+      const amount = tick?.text.match(/\[중독\] (\d+) 피해/)?.[1];
+      return amount ? Number(amount) : 0;
     };
 
-    const baseDmg = measureSkill({ ...BASE_PLAYER, atk: 60, maxMp: 100, mp: 100 });
-    const corrodeDmg = measureSkill({
+    const baseDmg = firstPoisonTick({
       ...BASE_PLAYER,
-      atk: 60,
-      maxMp: 100,
-      mp: 100,
-      poisonedEnemyDefReductionPct: 50,
+      atk: 100,
+      spd: 100,
+      lukStat: 200,
+      maxMp: 1000,
+      mp: 1000,
+      accRating: 1000,
+    });
+    const corrodeDmg = firstPoisonTick({
+      ...BASE_PLAYER,
+      atk: 100,
+      spd: 100,
+      lukStat: 200,
+      maxMp: 1000,
+      mp: 1000,
+      accRating: 1000,
+      poisonedEnemyDefReductionPct: 12,
     });
     expect(corrodeDmg).toBeGreaterThan(baseDmg);
   });

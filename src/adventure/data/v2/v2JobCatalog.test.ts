@@ -20,6 +20,7 @@ import {
   isDirectNextJob,
   jobById,
   unlockedJobs,
+  jobUnlockSpBonus,
   jobUnlockConditionText,
   cumLevelForJob,
   isFishingJobId,
@@ -119,6 +120,15 @@ function profWith(groupCumLevels: Record<string, number>) {
 function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
   return { ...emptyProficiency(), jobCumLevel: { ...jobCumLevels } };
 }
+
+describe("jobUnlockSpBonus", () => {
+  it("실제 해금 직업(tier>0) 하나당 SP +1로 센다", () => {
+    expect(jobUnlockSpBonus(emptyProficiency())).toBe(4);
+    expect(jobUnlockSpBonus(profWith({ warrior: TIER2_UNLOCK_CUMLEVEL }))).toBe(
+      6,
+    );
+  });
+});
 
 describe("v2JobCatalog 구조", () => {
   it("78개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 14 + 6차 6)을 정의한다", () => {

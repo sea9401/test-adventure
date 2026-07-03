@@ -860,6 +860,15 @@ export function isJobUnlocked(
   return true;
 }
 
+export function jobUnlockSpBonus(
+  proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
+): number {
+  return V2_JOB_LIST.filter(
+    (job) => job.tier > 0 && isJobUnlocked(job, proficiency, ctx),
+  ).length;
+}
+
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 숙련도 임계.
 //   예: "Lv 100 달성" / "사제 숙련도 1800" / "기사 숙련도 1800, 사제 숙련도 1800"(하이브리드).
 export function jobUnlockConditionText(job: V2JobDefinition): string {

@@ -2,7 +2,7 @@
 //
 // 레벨 슬롯/직업체인 자동장착 폐지 → "배운 스킬 중 Σ spCost ≤ SP예산"으로 자유 장착(오픈 믹스).
 //   - 배운 스킬(learned)이면 직업 무관 장착 가능(수집 라이브러리) — 공용(v2c_*)·기본기(v2_skill_*).
-//   - 합계: Σ spCostOf(equipped) ≤ calcSpBudget(proficiency.groups).
+//   - 합계: Σ spCostOf(equipped) ≤ calcSpBudget(...직업 해금 보너스 포함).
 //
 // 전부 V2_CORE_LOOP_V2 뒤에서만 강제. flag off 면 기존 자동장착(learned ∩ chain, 상한 없음) 유지.
 // 이 모듈은 순수(부수효과·DB 없음) — 라우트가 budget 을 계산해 넘긴다(순환 import 회피).

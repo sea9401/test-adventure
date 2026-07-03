@@ -37,6 +37,7 @@ import {
   V2_JOB_CATALOG,
   isJobUnlocked,
   isRootJobSelectable,
+  jobUnlockSpBonus,
   jobIdFromLegacy,
   CATALOG_USES_QUEST_CONDITION,
   LEGACY_CLASS_SPEC_BY_JOB,
@@ -183,6 +184,7 @@ export async function POST(req: Request) {
             nextProf.groups,
             spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
             codexBonus.total,
+            jobUnlockSpBonus(nextProf, jobCtx),
           ),
         ),
       });

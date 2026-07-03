@@ -108,7 +108,7 @@ describe("fruitTierForBoss / fruitTierForMaterial", () => {
 });
 
 describe("calcSpBudget spCapBonus 배선 (byte-identical 가드)", () => {
-  // 대표 groups — 마일스톤/마스터 분기 둘 다 커버.
+  // groups 는 옛 호출 호환용 인자이며 새 SP 예산에는 직접 영향을 주지 않는다.
   const groups: Record<string, { cumLevel?: number }> = {
     a: { cumLevel: 120 },
     b: { cumLevel: 300 },
@@ -118,7 +118,7 @@ describe("calcSpBudget spCapBonus 배선 (byte-identical 가드)", () => {
     expect(calcSpBudget(groups)).toBe(calcSpBudget(groups, 0));
   });
 
-  it("보너스는 캡 위에 그대로 더해진다", () => {
+  it("보너스는 예산에 그대로 더해진다", () => {
     const base = calcSpBudget(groups);
     expect(calcSpBudget(groups, 5)).toBe(base + 5);
     expect(calcSpBudget(groups, 14)).toBe(base + 14);

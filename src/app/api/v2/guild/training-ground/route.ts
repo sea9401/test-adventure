@@ -50,7 +50,6 @@ import {
   recommendedGuildTrainingDrill,
   todayGuildTrainingWeekKey,
 } from "@/adventure/data/v2/guildTrainingGround";
-import { nextSpMilestoneProgressForCumLevel } from "@/adventure/data/v2/coreLoopConfig";
 
 const TRAINING_SAVE_KEY = "guild-training.v1";
 
@@ -171,10 +170,6 @@ export async function GET() {
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const remainingClaims = Math.max(0, dailyClaimLimit - claimedCount);
   const recommendedDrill = recommendedGuildTrainingDrill(drills);
-  const nextSp =
-    current.groupMastery != null
-      ? nextSpMilestoneProgressForCumLevel(current.groupMastery)
-      : null;
   return Response.json({
     ok: true,
     dayKey,
@@ -210,7 +205,6 @@ export async function GET() {
     },
     trainingBonuses,
     goals: {
-      nextSp,
       nextJob: nextJobGoal(current),
     },
     currentJob: current.job

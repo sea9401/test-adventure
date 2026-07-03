@@ -157,7 +157,6 @@ export function GuildTrainingGroundPanel({
     weekly && weekly.target > 0
       ? Math.min(100, Math.max(0, (weeklyCompleted / weekly.target) * 100))
       : 0;
-  const nextSp = state?.goals?.nextSp ?? null;
   const nextJob = state?.goals?.nextJob ?? null;
 
   return (
@@ -258,14 +257,6 @@ export function GuildTrainingGroundPanel({
                 다음 성장 목표
               </div>
               <div className="mt-0.5 space-y-0.5 font-medium">
-                {nextSp ? (
-                  <div>
-                    SP +1까지 숙련도{" "}
-                    <span className="tabular-nums">
-                      {nextSp.remainingCumLevel.toLocaleString()}
-                    </span>
-                  </div>
-                ) : null}
                 {nextJob ? (
                   <div>
                     {nextJob.name}까지 숙련도{" "}
@@ -274,7 +265,7 @@ export function GuildTrainingGroundPanel({
                     </span>
                   </div>
                 ) : null}
-                {!nextSp && !nextJob ? <div>현재 표시할 목표 없음</div> : null}
+                {!nextJob ? <div>현재 표시할 목표 없음</div> : null}
               </div>
             </div>
             <div className="rounded border border-white/70 bg-white px-2 py-1.5 dark:border-slate-700 dark:bg-slate-950">

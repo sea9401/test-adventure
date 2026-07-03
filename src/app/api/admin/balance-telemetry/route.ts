@@ -12,6 +12,7 @@ import { artisanLevel, parseArtisanState } from "@/adventure/data/v2/artisan";
 import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
 import {
   cumLevelForJob,
+  jobUnlockSpBonus,
   jobIdFromLegacy,
   V2_JOB_CATALOG,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -146,6 +147,7 @@ export async function GET() {
       prof.groups,
       Number(charAny.spCapBonus) || 0,
       collectionSp,
+      jobUnlockSpBonus(prof),
     );
     const fishCodex = parseFishCodex(r.fishing_codex);
     const treasureCodex = parseTreasureCodex(r.treasure_codex);

@@ -219,136 +219,63 @@ describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
   });
 });
 
-describe("spMilestonesForCumLevel — 점감(widening) 마일스톤 곡선", () => {
-  it("점감 임계 — n번째 SP 누적 숙련도(a45 d25, 해금 스케일 ×9): 405/1035/1890/2970/4275/5805/7560/9540", () => {
-    // 임계 직전엔 n-1, 임계 도달 시 n.
-    const T = [405, 1035, 1890, 2970, 4275, 5805, 7560, 9540];
-    T.forEach((thresh, i) => {
-      expect(spMilestonesForCumLevel(thresh - 1), `${thresh}-1`).toBe(i);
-      expect(spMilestonesForCumLevel(thresh), `${thresh}`).toBe(i + 1);
-    });
-  });
-  it("간격이 뒤로 갈수록 넓어진다 (점감 — flat 아님)", () => {
-    // 1→2 간격 70, 2→3 간격 95, 3→4 간격 120 … 단조 증가.
-    const gaps = [115 - 45, 210 - 115, 330 - 210, 475 - 330];
-    for (let i = 1; i < gaps.length; i++) {
-      expect(gaps[i]).toBeGreaterThan(gaps[i - 1]);
-    }
-  });
-  it("첫 SP 전(cum<45)·0·손상 입력(음수·NaN·Infinity) = 0", () => {
+describe("숙련도 SP 마일스톤 — deprecated", () => {
+  it("숙련도는 더 이상 SP 를 직접 지급하지 않는다", () => {
     expect(spMilestonesForCumLevel(0)).toBe(0);
-    expect(spMilestonesForCumLevel(269)).toBe(0);
-    expect(spMilestonesForCumLevel(-50)).toBe(0);
-    expect(spMilestonesForCumLevel(NaN)).toBe(0);
-    expect(spMilestonesForCumLevel(Infinity)).toBe(0);
-  });
-  it("매우 큰 cumLevel 도 유한 정수 반환(천장은 calcSpBudget 캡이 담당)", () => {
-    const v = spMilestonesForCumLevel(10_000_000);
-    expect(Number.isFinite(v)).toBe(true);
-    expect(Number.isInteger(v)).toBe(true);
-  });
-});
-
-describe("spMilestonesCrossed — 레벨업 시 새로 넘은 SP 마일스톤(알림용)", () => {
-  it("임계를 넘지 않은 레벨업 = 0", () => {
-    expect(spMilestonesCrossed(405, 450)).toBe(0); // 둘 다 1번째 구간
-    expect(spMilestonesCrossed(2619, 2628)).toBe(0); // 베테랑(이미 3) — 새 임계 없음
-  });
-  it("임계 1개 넘기면 1", () => {
-    expect(spMilestonesCrossed(1026, 1035)).toBe(1); // 2번째 임계 도달
-    expect(spMilestonesCrossed(396, 405)).toBe(1); // 첫 SP
-  });
-  it("한 번에 여러 임계 넘기면 그 수만큼(다중 레벨업)", () => {
-    // 0 → 1890: 임계 405·1035·1890 세 개 통과 = 3.
-    expect(spMilestonesCrossed(0, 1890)).toBe(3);
-  });
-  it("cumLevel 단조 — 역행/동일은 0(음수 방지)", () => {
-    expect(spMilestonesCrossed(300, 100)).toBe(0);
-    expect(spMilestonesCrossed(115, 115)).toBe(0);
-  });
-});
-
-describe("nextSpMilestoneProgressForCumLevel — 다음 SP 목표", () => {
-  it("다음 SP 임계와 남은 숙련도를 저장 숙련도 기준으로 돌려준다", () => {
-    expect(nextSpMilestoneProgressForCumLevel(0)).toMatchObject({
-      currentMilestoneSp: 0,
-      nextMilestoneSp: 1,
-      requiredCumLevel: 405,
-      remainingCumLevel: 405,
-    });
+    expect(spMilestonesForCumLevel(10_000_000)).toBe(0);
+    expect(spMilestonesCrossed(396, 405)).toBe(0);
+    expect(spMilestonesCrossed(0, 1890)).toBe(0);
     expect(nextSpMilestoneProgressForCumLevel(405)).toMatchObject({
-      currentMilestoneSp: 1,
-      nextMilestoneSp: 2,
-      requiredCumLevel: 1035,
-      remainingCumLevel: 630,
-    });
-    expect(nextSpMilestoneProgressForCumLevel(1020)).toMatchObject({
-      currentMilestoneSp: 1,
-      nextMilestoneSp: 2,
-      requiredCumLevel: 1035,
-      remainingCumLevel: 15,
+      currentMilestoneSp: 0,
+      nextMilestoneSp: 0,
+      requiredCumLevel: 0,
+      remainingCumLevel: 0,
     });
   });
 });
 
-describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => {
-  it("빈 직업군 = SP_BASE(12)", () => {
-    expect(calcSpBudget({})).toBe(12);
-    expect(calcSpBudget(null)).toBe(12);
+describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () => {
+  it("기본 SP 는 25이고 숙련도 groups 는 예산에 직접 영향을 주지 않는다", () => {
+    expect(calcSpBudget({})).toBe(25);
+    expect(calcSpBudget(null)).toBe(25);
+    expect(calcSpBudget({ warrior: { cumLevel: 100_000 } })).toBe(25);
   });
-  it("직업군 cumLevel 점감 마일스톤 합산", () => {
-    expect(calcSpBudget({ warrior: { cumLevel: 1035 } })).toBe(14); // 12 + 2
-    expect(
-      calcSpBudget({ warrior: { cumLevel: 1890 }, mage: { cumLevel: 405 } }),
-    ).toBe(16); // 12 + 3 + 1
+
+  it("해금 직업 수집 보너스는 직업 하나당 SP +1", () => {
+    expect(calcSpBudget({}, 0, 0, 4)).toBe(29);
+    expect(calcSpBudget({ a: { cumLevel: 100_000, tier: 4 } }, 0, 0, 76)).toBe(
+      101,
+    );
   });
-  it("정복(cumLevel≥10000) 직업군당 +3 — tier 무관(환생 flatten 영향 없음)", () => {
-    // cumLevel 2250 은 이제 장기 정복 전 단계 → 마일스톤(2250→3) + base12 = 15.
-    expect(calcSpBudget({ warrior: { cumLevel: 2250 } })).toBe(15);
-    // 임계 직전(9999) = 미정복 → 정복 보너스 없음(마일스톤 8 만).
-    expect(calcSpBudget({ warrior: { cumLevel: 9999 } })).toBe(20);
-    // cumLevel 10000 = 정복 → 마일스톤(10000→8) + base12 + 정복3 = 23.
-    expect(calcSpBudget({ warrior: { cumLevel: 10000 } })).toBe(23);
-    // tier 4 라도 cumLevel 낮으면 미정복 — 차수 기반 아님(코어루프 flatten 무관).
-    expect(calcSpBudget({ warrior: { cumLevel: 405, tier: 4 } })).toBe(13); // 12+1
+
+  it("소프트캡 없이 도감/열매 보너스를 그대로 더한다", () => {
+    expect(calcSpBudget({}, 0, 2, 4)).toBe(31);
+    expect(calcSpBudget({ a: { cumLevel: 100_000, tier: 4 } }, 5, 10, 76)).toBe(
+      116,
+    );
   });
-  it("운영 실측 베테랑 — 10000 정복 전에는 마일스톤만 반영되어 예산이 낮게 유지된다", () => {
-    // 실제 user8 마이그 후: warrior2619·rogue2619·mage2619·martial1701 / 밸런스 입력 291·291·291·189.
-    const sp = calcSpBudget({
-      warrior: { cumLevel: 2619, tier: 4 },
-      rogue: { cumLevel: 2619, tier: 4 },
-      mage: { cumLevel: 2619, tier: 4 },
-      martial: { cumLevel: 1701, tier: 3 },
-    });
-    // balance 291→3 마일스톤 ×3 = 9, 189→2 = 2 → 11 마일스톤 + base12 = 23.
-    expect(sp).toBe(23);
-  });
-  it("소프트캡 40", () => {
-    expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } })).toBe(40);
-  });
-  it("도감 완성 SP 는 소프트캡 위에 더한다", () => {
-    expect(calcSpBudget({}, 0, 2)).toBe(14);
-    expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } }, 0, 10)).toBe(50);
-  });
-  it("breakdown 은 소프트캡 조정까지 포함해 실제 예산과 합계가 일치한다", () => {
+
+  it("breakdown 은 직업 해금 보너스와 실제 예산 합계가 일치한다", () => {
     const groups = {
       warrior: { cumLevel: 100_000, tier: 4 },
       mage: { cumLevel: 10_000, tier: 4 },
     };
-    const breakdown = calcSpBudgetBreakdown(groups, 5, 7);
+    const breakdown = calcSpBudgetBreakdown(groups, 5, 7, 9);
     const visibleSum =
       breakdown.base +
-      breakdown.milestoneSp +
-      breakdown.masteryBonusSp -
-      breakdown.softCapReduction +
+      breakdown.jobUnlockSp +
       breakdown.spFruitBonus +
       breakdown.collectionBonusSp;
     expect(visibleSum).toBe(breakdown.budget);
-    expect(breakdown.budget).toBe(calcSpBudget(groups, 5, 7));
-    expect(breakdown.softCapReduction).toBeGreaterThan(0);
+    expect(breakdown.budget).toBe(calcSpBudget(groups, 5, 7, 9));
+    expect(breakdown.milestoneSp).toBe(0);
+    expect(breakdown.masteryBonusSp).toBe(0);
+    expect(breakdown.softCapReduction).toBe(0);
   });
+
   it("손상 입력 방어", () => {
-    expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(12);
+    expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(25);
+    expect(calcSpBudget({}, 0, 0, NaN)).toBe(25);
   });
 });
 

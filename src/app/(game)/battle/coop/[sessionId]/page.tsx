@@ -15,7 +15,6 @@ export default function CoopBossDetailPage() {
     playerSubtitle,
     stamina,
     setStamina,
-    setHp,
   } = useGameState();
   return (
     <V2CoopBossDetailView
@@ -25,7 +24,6 @@ export default function CoopBossDetailPage() {
       playerSubtitle={playerSubtitle}
       stamina={stamina}
       setStamina={setStamina}
-      setHp={setHp}
       onBack={() => router.push("/battle/coop")}
     />
   );

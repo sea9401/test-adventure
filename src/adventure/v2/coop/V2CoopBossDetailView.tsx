@@ -11,7 +11,6 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { StaminaState } from "@/adventure/v2/stamina";
-import type { HpBarState } from "@/adventure/v2/HpBar";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
@@ -40,7 +39,6 @@ export function V2CoopBossDetailView({
   playerSubtitle,
   stamina,
   setStamina,
-  setHp,
   onBack,
 }: {
   sessionId: string;
@@ -49,7 +47,6 @@ export function V2CoopBossDetailView({
   playerSubtitle?: string;
   stamina: StaminaState;
   setStamina: (s: StaminaState) => void;
-  setHp?: (s: HpBarState) => void;
   onBack: () => void;
 }) {
   const {
@@ -65,9 +62,6 @@ export function V2CoopBossDetailView({
   } = useCoopSessionState({
     sessionId,
     setStamina,
-    onHpAfterAttack: (r) => {
-      setHp?.({ hp: r.hpAfter, maxHp: r.maxHp, anchorMs: Date.now() });
-    },
   });
   const [now, setNow] = useState(() => Date.now());
   // 기여도 기준 안내 모달 — 헤더 우측 버튼으로 연다.
@@ -419,8 +413,6 @@ export function V2CoopBossDetailView({
               gender={playerGender}
               exp={0}
               maxExp={1}
-              hpCharges={lastAttack.hpCharges}
-              mpCharges={lastAttack.mpCharges}
               playerSubtitle={playerSubtitle}
             />
           )}

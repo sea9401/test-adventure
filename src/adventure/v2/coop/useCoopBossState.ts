@@ -52,10 +52,6 @@ export type CoopAttackResult = {
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
-  hpAfter: number;
-  maxHp: number;
-  hpCharges?: number;
-  mpCharges?: number;
   replay?: ReplayPayload;
 };
 
@@ -266,12 +262,9 @@ export function useCoopListState() {
 export function useCoopSessionState({
   sessionId,
   setStamina,
-  onHpAfterAttack,
 }: {
   sessionId: string;
   setStamina: (s: StaminaState) => void;
-  // 공격 응답의 최종 HP 반영 콜백(전역 HP 바) — 미전달이면 무시.
-  onHpAfterAttack?: (r: { hpAfter: number; maxHp: number }) => void;
 }) {
   const [detail, setDetail] = useState<CoopSessionDetail | null>(null);
   const [missing, setMissing] = useState(false);
@@ -337,7 +330,6 @@ export function useCoopSessionState({
       if (j.ok && j.result) {
         const r = j.result;
         setLastAttack(r);
-        onHpAfterAttack?.(r);
         // 공격 직후 즉시 — 보스 공유 HP 바를 응답값으로 낙관적 갱신(refresh 왕복 전 체감).
         //   finally 의 refresh 가 곧 서버 권위로 확정(다른 사람 공격분도 반영).
         setDetail((prev) =>
@@ -358,13 +350,11 @@ export function useCoopSessionState({
             ? `재공격 대기 중 — ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
             : j.error === "out_of_stamina"
               ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
-              : j.error === "hp_zero"
-                ? "체력이 부족합니다 — 회복 후 다시 시도하세요."
-                : j.error === "no_active_boss"
-                  ? "이미 끝난 토벌입니다."
-                  : j.error === "already_defeated"
-                    ? "이미 처치된 보스입니다."
-                    : `공격 실패 (${j.error ?? "unknown"})`,
+              : j.error === "no_active_boss"
+                ? "이미 끝난 토벌입니다."
+                : j.error === "already_defeated"
+                  ? "이미 처치된 보스입니다."
+                  : `공격 실패 (${j.error ?? "unknown"})`,
         );
       }
     } catch {
@@ -373,7 +363,7 @@ export function useCoopSessionState({
       await refresh();
       setBusy(false);
     }
-  }, [busy, refresh, sessionId, setStamina, onHpAfterAttack]);
+  }, [busy, refresh, sessionId, setStamina]);
 
   const claim = useCallback(async () => {
     if (busy) return;

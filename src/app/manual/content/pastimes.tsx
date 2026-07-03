@@ -1,4 +1,41 @@
-import { H2, P, UL, Em, Note } from "./primitives";
+import {
+  FISH,
+  FISH_TIER_ORDER,
+  FISH_TIERS,
+  type FishTier,
+} from "@/adventure/data/v2/fish";
+import {
+  MULTTAE_CONDITIONS,
+  MULTTAE_WINDOW_MS,
+} from "@/adventure/data/v2/multtae";
+import {
+  FISHING_CONTRACTS,
+  FISHING_DAILY_CHALLENGES,
+} from "@/adventure/data/v2/fishingDailyChallenges";
+import {
+  FISHING_COLLECTION_GOALS,
+  FISHING_LURES,
+  FISHING_RODS,
+} from "@/adventure/v2/fishingProgression";
+import { H2, P, UL, Em, Note, Table } from "./primitives";
+
+const CATCH_COIN_BY_TIER: Record<FishTier, number> = {
+  common: 3,
+  uncommon: 3,
+  rare: 5,
+  epic: 10,
+  legendary: 20,
+};
+
+const DAILY_CATCH_COIN_CAP = 3000;
+const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
+const fishList = Object.values(FISH);
+const normalFishCount = fishList.filter((fish) => !fish.condition).length;
+const specialFishCount = fishList.length - normalFishCount;
+
+function fishName(id: string | undefined) {
+  return id && id in FISH ? FISH[id as keyof typeof FISH].name : "없음";
+}
 
 export function PastimesContent() {
   return (
@@ -28,7 +65,8 @@ export function PastimesContent() {
         </li>
         <li>
           시간대에 따라 <Em>물때</Em>가 바뀌고, 특정 물때에는 한정 특별 손님이
-          등장합니다. 물때 배지에서 현재 효과와 다음 물때를 확인할 수 있습니다.
+          등장합니다. 물때는 {TIDE_HOURS}시간마다 전환되며, 바로 앞 타임과 같은
+          물때가 연속으로 나오지 않게 편성됩니다.
         </li>
         <li>
           주간 종별 최대어 대회, 오늘의 의뢰, 일일 과제, 누적 목표로{" "}
@@ -36,6 +74,70 @@ export function PastimesContent() {
           서 <Em>어보</Em>에 기록돼요.
         </li>
       </UL>
+      <P>
+        현재 어보에는 총 <Em>{fishList.length}종</Em>이 있고, 기본 어종{" "}
+        {normalFishCount}종과 물때 한정 특별 손님 {specialFishCount}종으로 나뉩니다.
+      </P>
+      <Table
+        head={["티어", "어종 수", "챔질 코인", "주간 최대어 보상"]}
+        rows={FISH_TIER_ORDER.map((tier) => {
+          const meta = FISH_TIERS[tier];
+          const count = fishList.filter((fish) => fish.tier === tier).length;
+          return [
+            <Em key={`${tier}-label`}>{meta.label}</Em>,
+            `${count}종`,
+            `${CATCH_COIN_BY_TIER[tier]}코인`,
+            `1위 ${meta.recordCoins.rank1} / 2위 ${meta.recordCoins.rank2} / 3위 ${meta.recordCoins.rank3}`,
+          ];
+        })}
+        caption={`챔질 코인은 KST 일자 기준 하루 ${DAILY_CATCH_COIN_CAP.toLocaleString()}코인까지만 직접 적립됩니다. 일일 과제·의뢰·누적 목표·주간 랭킹·낚시 레벨업 보상은 별도 보상입니다.`}
+      />
+
+      <H2>낚시 레벨과 보상</H2>
+      <UL>
+        <li>
+          물고기를 낚으면 티어에 따라 낚시 경험치를 얻고, 레벨이 오르면{" "}
+          <Em>낚시 레벨업 보상 코인</Em>이 추가로 지급됩니다. 이 보상은 챔질 코인
+          일일 상한과 별개입니다.
+        </li>
+        <li>
+          낚시 레벨은 물고기 크기와 물때 특별 손님 가중치에 작게 보정을 줍니다.
+          전투 직업 숙련도나 전투 스탯과는 분리됩니다.
+        </li>
+        <li>
+          일일 과제는 {FISHING_DAILY_CHALLENGES.length}종, 오늘의 의뢰는{" "}
+          {FISHING_CONTRACTS.length}종, 누적 수집 목표는{" "}
+          {FISHING_COLLECTION_GOALS.length}종입니다. 조건을 달성한 뒤 직접 수령해야
+          코인이 들어옵니다.
+        </li>
+      </UL>
+
+      <H2>낚시 장비와 물때</H2>
+      <Table
+        head={["구분", "종류 수", "역할"]}
+        rows={[
+          [
+            "낚싯대",
+            `${Object.keys(FISHING_RODS).length}종`,
+            "입질 대기시간, 크기, 희귀 이상 크기, 대물권 보정",
+          ],
+          [
+            "미끼",
+            `${Object.keys(FISHING_LURES).length}종`,
+            "티어 가중치, 특별 손님 가중치, 대물·희귀 크기 보정",
+          ],
+        ]}
+        caption="장비는 낚시 코인 상점에서 구매하고, 보유한 장비 중 하나씩 장착합니다."
+      />
+      <Table
+        head={["물때", "효과", "특별 손님"]}
+        rows={MULTTAE_CONDITIONS.map((condition) => [
+          <Em key={condition.id}>{condition.label}</Em>,
+          condition.effect.label,
+          fishName(condition.specialFishId),
+        ])}
+        caption={`${TIDE_HOURS}시간 단위 전역 스케줄입니다. 물때별 배경 연출도 함께 바뀝니다.`}
+      />
 
       <H2>발굴 (보물탐사)</H2>
       <UL>

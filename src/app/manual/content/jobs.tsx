@@ -6,7 +6,15 @@ import {
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  MASTERY_TOWER_MAX_FLOOR,
+  MASTERY_TOWER_MILESTONES,
+  masteryTowerFloorReward,
+  masteryTowerRequiredPower,
+} from "@/adventure/data/v2/masteryTower";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
+
+const MASTERY_TOWER_SAMPLE_FLOORS = [10, 20, 30];
 
 export function JobsContent() {
   return (
@@ -102,6 +110,43 @@ export function JobsContent() {
           모험가 상태에서는 직업 숙련도가 오르지 않습니다.
         </li>
       </UL>
+
+      <H2>숙련의 탑</H2>
+      <P>
+        전투 탭의 <Em>숙련의 탑</Em>은 하루 한 번 보상을 받는 숙련 보조 콘텐츠입니다.
+        도전 자체는 제한 없이 다시 할 수 있고, 그날 도달한 최고층 기준으로{" "}
+        <Em>숙련 증서</Em>를 수령합니다.
+      </P>
+      <UL>
+        <li>
+          탑은 총 <Em>{MASTERY_TOWER_MAX_FLOOR}층</Em>이고, 층마다 요구 전투력이
+          있습니다. 전투력이 요구치를 넘으면 다음 층으로 올라갑니다.
+        </li>
+        <li>
+          보상은 현재 직업에 바로 들어가지 않고 <Em>숙련 증서</Em>로 지급됩니다.
+          증서는 해금된 직업에 원하는 수량만큼 사용해 그 직업 숙련도를 올릴 수
+          있습니다.
+        </li>
+        <li>
+          10·20·30층은 처음 도달했을 때 추가 보너스가 붙습니다. 일일 보상은 KST
+          기준 하루 한 번만 수령합니다.
+        </li>
+      </UL>
+      <Table
+        head={["층", "요구 전투력", "일일 기본 증서", "첫 달성 보너스"]}
+        rows={MASTERY_TOWER_SAMPLE_FLOORS.map((floor) => {
+          const milestone = MASTERY_TOWER_MILESTONES.find(
+            (m) => m.floor === floor,
+          );
+          return [
+            `${floor}층`,
+            masteryTowerRequiredPower(floor).toLocaleString("ko-KR"),
+            masteryTowerFloorReward(floor).toLocaleString("ko-KR"),
+            milestone ? `+${milestone.bonus}` : "-",
+          ];
+        })}
+        caption="표는 대표 층 예시입니다. 실제 수령량은 그날 최고 도달층으로 계산됩니다."
+      />
 
       <H2>수행 (한계 올리기)</H2>
       <P>

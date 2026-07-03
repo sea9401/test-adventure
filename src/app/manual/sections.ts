@@ -40,13 +40,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "hunting",
     title: "사냥과 사냥터",
-    summary: "프론티어 깊이 밴드, 단발·일괄 사냥, 스태미나, 전리품, 희귀 탐사.",
+    summary: "프론티어 깊이 밴드, 스태미나, 전리품, 희귀 탐사·입장권.",
     group: "combat",
   },
   {
     slug: "coop",
     title: "협동 보스",
-    summary: "소환서 수집, 소환, 공유 HP 토벌, SP 열매·보스 유니크 보상.",
+    summary: "공유 HP 토벌, 기여 보상, SP 열매·협동 주화·장비 상자.",
     group: "combat",
   },
   {
@@ -58,7 +58,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "jobs",
     title: "직업·숙련도·전직",
-    summary: "4직군에서 전직으로 뻗는 직업 트리, 숙달 포인트, 계보 전직, 수행.",
+    summary: "직업 트리, 숙달 포인트, 계보 전직, 숙련의 탑, 수행.",
     group: "growth",
   },
   {
@@ -100,7 +100,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "guild",
     title: "길드",
-    summary: "창단·가입 신청·초대, 길드 운영과 금고.",
+    summary: "창단·가입, 금고, 전투보급, 훈련장, 제작소.",
     group: "world",
   },
   {
@@ -130,7 +130,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "pastimes",
     title: "낚시와 발굴",
-    summary: "낚시 미니게임·주간 대회, 보물 발굴과 거래.",
+    summary: "낚시 레벨·물때·어보·코인 보상, 보물 발굴과 거래.",
     group: "versus",
   },
 ];

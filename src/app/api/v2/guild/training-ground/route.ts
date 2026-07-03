@@ -4,6 +4,7 @@ import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/economyLog";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
@@ -326,7 +327,12 @@ export async function POST(req: Request) {
       claim.weeklyBonusMastery > 0
         ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
         : 0;
-    const totalRewardMastery = drill.rewardMastery + weeklyBonusMastery;
+    const hotTime = await readActiveHotTime();
+    const beforeHotTimeMastery = drill.rewardMastery + weeklyBonusMastery;
+    const totalRewardMastery = hotTime.active
+      ? applyPctBonus(beforeHotTimeMastery, hotTime.bonuses.masteryPct)
+      : beforeHotTimeMastery;
+    const hotTimeMasteryBonus = bonusDelta(beforeHotTimeMastery, totalRewardMastery);
     let prof = current.prof;
     prof = addCumLevel(prof, current.group, totalRewardMastery);
     prof = addJobCumLevel(prof, current.jobId, totalRewardMastery);
@@ -357,6 +363,14 @@ export async function POST(req: Request) {
         rewardMastery: totalRewardMastery,
         baseRewardMastery: drill.rewardMastery,
         weeklyBonusMastery,
+        hotTime:
+          hotTime.active && hotTimeMasteryBonus > 0
+            ? {
+                title: hotTime.title,
+                masteryPct: hotTime.bonuses.masteryPct,
+                masteryBonus: hotTimeMasteryBonus,
+              }
+            : null,
         masteryAfter,
         claimed: nextState.claimed,
       },
@@ -375,6 +389,7 @@ export async function POST(req: Request) {
         drillTitle: result.body.drill.title,
         baseRewardMastery: result.body.baseRewardMastery,
         weeklyBonusMastery: result.body.weeklyBonusMastery,
+        hotTime: result.body.hotTime,
         masteryAfter: result.body.masteryAfter,
       },
     });

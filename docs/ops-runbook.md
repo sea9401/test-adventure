@@ -151,8 +151,9 @@ bash deploy/maintenance.sh status   # 현재 상태
 ## 5. 헬스 / 모니터링
 - `https://msmsge.com/api/health` → `{ok, db:"ok", ms}` (DB 핑 포함, 실패 시 503). 인증 불필요.
 - `/api/version` = 빌드 정보.
-- 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정 확인.
+- 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정, 매크로 의심 점수 확인.
 - `OPS_ALERT_WEBHOOK_URL` 이 설정되어 있으면 임계치 알림과 일일 운영 리포트가 webhook으로 발송된다.
+- 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
 - ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
 
 ---
@@ -205,7 +206,8 @@ bash deploy/maintenance.sh status   # 현재 상태
 ### 배포 후 점검
 1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.
 2. `curl -fsS https://msmsge.com/api/health` 와 `/api/version` 확인.
-3. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
+3. 배포 Action 의 `deploy-smoke 200` 로그 확인.
+4. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
 
 ---
 

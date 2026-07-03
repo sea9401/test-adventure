@@ -78,7 +78,7 @@ export function SelectedUserPanel({
 
       <SanctionsSection userId={user.id} readOnly={readOnly} />
 
-      <OpsUserSummarySection userId={user.id} />
+      <OpsUserSummarySection userId={user.id} readOnly={readOnly} />
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
 

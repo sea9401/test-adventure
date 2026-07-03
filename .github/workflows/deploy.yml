@@ -73,4 +73,8 @@ jobs:
             sc=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/sign-in || echo 000)
             [ "$sc" = "200" ] || { echo "✗ SMOKE FAIL: /sign-in → $sc"; exit 1; }
             echo "  /sign-in 200"
+            CRON_SECRET=$(grep '^CRON_SECRET=' .env.production.local | cut -d= -f2- | tr -d '"')
+            ops=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 -X POST -H "Authorization: Bearer $CRON_SECRET" http://127.0.0.1:3000/api/v2/cron/deploy-smoke || echo 000)
+            [ "$ops" = "200" ] || { echo "✗ SMOKE FAIL: deploy-smoke → $ops"; exit 1; }
+            echo "  deploy-smoke 200"
             echo "✓ [prod] smoke pass · done"

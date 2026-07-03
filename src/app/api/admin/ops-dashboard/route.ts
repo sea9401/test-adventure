@@ -3,16 +3,17 @@ import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents } from "@/db/schema";
 import { requireAdmin } from "@/lib/server/isAdmin";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const FIVE_MIN_MS = 5 * 60 * 1000;
 
-export async function GET() {
+export async function GET(req: Request) {
   const gate = await requireAdmin();
   if (gate) return gate;
 
+  const sp = new URL(req.url).searchParams;
+  const hours = clampHours(Number(sp.get("hours")) || 24);
   const now = Date.now();
-  const since24h = new Date(now - DAY_MS);
+  const since = new Date(now - hours * HOUR_MS);
 
   const [abuseRows, economyRows, auditRows] = await Promise.all([
     db
@@ -25,7 +26,7 @@ export async function GET() {
         createdAt: abuseEvents.createdAt,
       })
       .from(abuseEvents)
-      .where(gte(abuseEvents.createdAt, since24h))
+      .where(gte(abuseEvents.createdAt, since))
       .orderBy(desc(abuseEvents.id))
       .limit(1_000),
     db
@@ -40,7 +41,7 @@ export async function GET() {
         createdAt: economyEvents.createdAt,
       })
       .from(economyEvents)
-      .where(gte(economyEvents.createdAt, since24h))
+      .where(gte(economyEvents.createdAt, since))
       .orderBy(desc(economyEvents.id))
       .limit(1_000),
     db
@@ -52,7 +53,7 @@ export async function GET() {
         createdAt: adminAuditLog.createdAt,
       })
       .from(adminAuditLog)
-      .where(gte(adminAuditLog.createdAt, since24h))
+      .where(gte(adminAuditLog.createdAt, since))
       .orderBy(desc(adminAuditLog.id))
       .limit(300),
   ]);
@@ -63,6 +64,7 @@ export async function GET() {
   return Response.json({
     ok: true,
     generatedAt: new Date(now).toISOString(),
+    periodHours: hours,
     webhookConfigured: Boolean(process.env.OPS_ALERT_WEBHOOK_URL),
     abuse,
     economy,
@@ -73,8 +75,10 @@ export async function GET() {
     alerts: buildAlerts({
       abuse,
       economy,
-      audit24h: auditRows.length,
+      auditCount: auditRows.length,
+      periodHours: hours,
     }),
+    suspiciousUsers: scoreSuspiciousUsers(abuseRows),
     slowQueryCandidates: [
       {
         key: "marketplace.prices",
@@ -96,6 +100,14 @@ export async function GET() {
       },
     ],
   });
+}
+
+function clampHours(value: number): number {
+  if (!Number.isFinite(value)) return 24;
+  if (value <= 1) return 1;
+  if (value <= 6) return 6;
+  if (value <= 24) return 24;
+  return 168;
 }
 
 function summarizeAbuse(
@@ -169,11 +181,13 @@ function topCounts(values: string[], limit = 8) {
 function buildAlerts({
   abuse,
   economy,
-  audit24h,
+  auditCount,
+  periodHours,
 }: {
   abuse: ReturnType<typeof summarizeAbuse>;
   economy: ReturnType<typeof summarizeEconomy>;
-  audit24h: number;
+  auditCount: number;
+  periodHours: number;
 }) {
   const alerts: Array<{
     level: "danger" | "warning" | "info";
@@ -199,7 +213,7 @@ function buildAlerts({
     alerts.push({
       level: "danger",
       title: "보상 수령 실패 누적",
-      message: `최근 24시간 실패 이벤트 ${economy.rewardFailures24h.toLocaleString()}건`,
+      message: `선택 기간(${periodLabel(periodHours)}) 실패 이벤트 ${economy.rewardFailures24h.toLocaleString()}건`,
     });
   }
 
@@ -211,13 +225,75 @@ function buildAlerts({
     });
   }
 
-  if (audit24h >= 30) {
+  if (auditCount >= 30) {
     alerts.push({
       level: "info",
       title: "관리자 변경 많음",
-      message: `최근 24시간 관리자 변경 ${audit24h.toLocaleString()}건`,
+      message: `선택 기간(${periodLabel(periodHours)}) 관리자 변경 ${auditCount.toLocaleString()}건`,
     });
   }
 
   return alerts;
+}
+
+function periodLabel(hours: number) {
+  return hours === 168 ? "7일" : `${hours}시간`;
+}
+
+function scoreSuspiciousUsers(
+  rows: Array<{
+    action: string;
+    reason: string;
+    userId: string | null;
+    ip: string | null;
+    createdAt: Date;
+  }>,
+) {
+  const users = new Map<
+    string,
+    {
+      events: number;
+      rateLimited: number;
+      actions: Set<string>;
+      ips: Set<string>;
+      lastAt: number;
+    }
+  >();
+  for (const row of rows) {
+    if (!row.userId) continue;
+    const value =
+      users.get(row.userId) ?? {
+        events: 0,
+        rateLimited: 0,
+        actions: new Set<string>(),
+        ips: new Set<string>(),
+        lastAt: 0,
+      };
+    value.events += 1;
+    if (row.reason === "rate_limited") value.rateLimited += 1;
+    value.actions.add(row.action);
+    if (row.ip) value.ips.add(row.ip);
+    value.lastAt = Math.max(value.lastAt, row.createdAt.getTime());
+    users.set(row.userId, value);
+  }
+  return [...users.entries()]
+    .map(([userId, value]) => {
+      const score =
+        value.rateLimited * 5 +
+        value.events * 2 +
+        Math.max(0, value.actions.size - 1) * 3 +
+        Math.max(0, value.ips.size - 1) * 4;
+      return {
+        userId,
+        score,
+        events: value.events,
+        rateLimited: value.rateLimited,
+        actionCount: value.actions.size,
+        ipCount: value.ips.size,
+        lastAt: new Date(value.lastAt).toISOString(),
+      };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || b.rateLimited - a.rateLimited)
+    .slice(0, 12);
 }

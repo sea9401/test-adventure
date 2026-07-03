@@ -161,10 +161,35 @@ export type MulttaeWindow = {
   endsAt: number; // epoch ms
 };
 
+function rawMulttaeOrderForBag(bagIndex: number): number[] {
+  const order = MULTTAE_CONDITIONS.map((_, index) => index);
+  for (let i = order.length - 1; i > 0; i -= 1) {
+    const seed = hash32(`multtae:bag:${bagIndex}:${i}`);
+    const j = seed % (i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+function multtaeOrderForBag(bagIndex: number): number[] {
+  const order = rawMulttaeOrderForBag(bagIndex);
+  if (bagIndex > 0 && order.length > 1) {
+    const previousOrder = rawMulttaeOrderForBag(bagIndex - 1);
+    const previousLast = previousOrder[previousOrder.length - 1];
+    if (order[0] === previousLast) {
+      [order[0], order[1]] = [order[1], order[0]];
+    }
+  }
+  return order;
+}
+
 // 특정 창의 물때 — 결정론(같은 입력 = 같은 답, 서버·클라 공통). 날씨와 별개 시드.
 export function multtaeForWindow(windowIndex: number): MulttaeCondition {
-  const seed = hash32(`multtae:${windowIndex}`);
-  return MULTTAE_CONDITIONS[seed % MULTTAE_CONDITIONS.length];
+  const bagSize = MULTTAE_CONDITIONS.length;
+  const bagIndex = Math.floor(windowIndex / bagSize);
+  const bagPosition = ((windowIndex % bagSize) + bagSize) % bagSize;
+  const order = multtaeOrderForBag(bagIndex);
+  return MULTTAE_CONDITIONS[order[bagPosition]];
 }
 
 export function multtaeAt(nowMs: number): MulttaeWindow {

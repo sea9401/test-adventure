@@ -75,6 +75,12 @@ describe("물때 결정론 스케줄", () => {
     }
   });
 
+  it("앞전 창과 같은 물때가 연속으로 나오지 않는다", () => {
+    for (let idx = 1; idx < 1000; idx += 1) {
+      expect(multtaeForWindow(idx).id).not.toBe(multtaeForWindow(idx - 1).id);
+    }
+  });
+
   it("모든 물때가 시드 공간에서 등장(균등 매핑)", () => {
     const hits = new Map<string, number>();
     for (let idx = 0; idx < 5000; idx += 1) {

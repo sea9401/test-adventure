@@ -10,6 +10,11 @@ import {
   Star,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import {
+  V2_SKILLS,
+  v2SkillSearchText,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
 import { SkillEffectChips } from "./SkillEffectChips";
 
 // SP 로드아웃 패널 — 배운 스킬 라이브러리에서 SP 예산 안으로 장착/해제(코어루프 전용).
@@ -177,17 +182,38 @@ export function V2LoadoutPanel({
     () => order.map((id) => meta.get(id)).filter((s): s is V2LoadoutSkill => !!s),
     [meta, order],
   );
-  const normalizedQuery = query.trim().toLowerCase();
+  const searchIndex = useMemo(
+    () =>
+      new Map(
+        loadout.library.map((skill) => {
+          const def = V2_SKILLS[skill.skillId as V2SkillId];
+          const text = def
+            ? v2SkillSearchText(def)
+            : `${skill.skillId} ${skill.name}`.toLowerCase();
+          return [skill.skillId, text] as const;
+        }),
+      ),
+    [loadout.library],
+  );
+  const queryTerms = useMemo(
+    () =>
+      query
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean),
+    [query],
+  );
   const visibleLibrary = useMemo(
     () =>
       orderedLibrary.filter((s) => {
         const equipped = equippedSet.has(s.skillId);
         const favorite = favoriteSet.has(s.skillId);
         const wouldFit = spUsed + s.spCost <= spBudget;
+        const searchText = searchIndex.get(s.skillId) ?? "";
         const matchesQuery =
-          normalizedQuery.length === 0 ||
-          s.name.toLowerCase().includes(normalizedQuery) ||
-          s.skillId.toLowerCase().includes(normalizedQuery);
+          queryTerms.length === 0 ||
+          queryTerms.every((term) => searchText.includes(term));
         if (!matchesQuery) return false;
         if (filter === "favorite") return favorite;
         if (filter === "equipped") return equipped;
@@ -200,8 +226,9 @@ export function V2LoadoutPanel({
       equippedSet,
       favoriteSet,
       filter,
-      normalizedQuery,
       orderedLibrary,
+      queryTerms,
+      searchIndex,
       spBudget,
       spUsed,
     ],

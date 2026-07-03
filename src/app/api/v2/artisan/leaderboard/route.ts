@@ -1,6 +1,11 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, guilds, savesKv } from "@/db/schema";
+import {
+  artisanLeaderboardSnapshots,
+  guildMembers,
+  guilds,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -146,11 +151,13 @@ function rewardViews(
   myRank: number | null,
   ownedTitleIds: Set<string>,
   seasonRewardClaimed: boolean,
+  rewardsOpen = true,
 ) {
   return artisanLeaderboardRewardViews(
     myRank,
     ownedTitleIds,
     seasonRewardClaimed,
+    rewardsOpen,
   ).map((reward) => ({
     ...reward,
     titleName: TITLES[reward.titleId]?.name ?? reward.label,
@@ -174,6 +181,14 @@ export async function GET() {
   ]);
 
   const viewerIndex = ranked.findIndex((entry) => entry.userId === viewerId);
+  const previousSeasonRewards = previousSeason
+    ? rewardViews(
+        previousSeason.rank,
+        ownedTitleIds,
+        previousSeason.rewardClaimedAt != null,
+        previousSeason.rewardClaimedAt == null,
+      )
+    : [];
   const top = ranked.slice(0, 20);
   const includeViewer =
     viewerIndex >= 20 ? [...top, ranked[viewerIndex]] : top;
@@ -240,7 +255,9 @@ export async function GET() {
       viewerIndex >= 0 ? viewerIndex + 1 : null,
       ownedTitleIds,
       weeklyStats.claimedRewardWeekKey === season.key,
+      false,
     ),
+    previousSeasonRewards,
     nextReward: artisanLeaderboardNextReward(
       viewerIndex >= 0 ? viewerIndex + 1 : null,
     ),
@@ -248,7 +265,7 @@ export async function GET() {
   });
 }
 
-// POST /api/v2/artisan/leaderboard — 현재 순위 기준 랭킹 칭호 보상 수령.
+// POST /api/v2/artisan/leaderboard — 종료 스냅샷 기준 랭킹 칭호 보상 수령.
 export async function POST() {
   const viewerId = await ensureUser();
   if (!viewerId) {
@@ -256,22 +273,61 @@ export async function POST() {
   }
 
   const season = currentLeaderboardSeason();
-  const ranked = await loadBlacksmithRankingsFresh(season.key);
-  const viewerIndex = ranked.findIndex((entry) => entry.userId === viewerId);
-  const myRank = viewerIndex >= 0 ? viewerIndex + 1 : null;
-  const titleIds = artisanLeaderboardRewardTitleIds(myRank);
-  if (!myRank || titleIds.length === 0) {
+  await snapshotStaleArtisanLeaderboards(season.key);
+  const currentRanked = await loadBlacksmithRankingsFresh(season.key);
+  const currentViewerIndex = currentRanked.findIndex(
+    (entry) => entry.userId === viewerId,
+  );
+  const currentRank =
+    currentViewerIndex >= 0 ? currentViewerIndex + 1 : null;
+
+  const snapshot = (
+    await db
+      .select({
+        weekKey: artisanLeaderboardSnapshots.weekKey,
+        rank: artisanLeaderboardSnapshots.rank,
+        totalCrafts: artisanLeaderboardSnapshots.totalCrafts,
+        qualityCrafts: artisanLeaderboardSnapshots.qualityCrafts,
+        weeklyXp: artisanLeaderboardSnapshots.weeklyXp,
+        rewardClaimedAt: artisanLeaderboardSnapshots.rewardClaimedAt,
+      })
+      .from(artisanLeaderboardSnapshots)
+      .where(
+        and(
+          eq(artisanLeaderboardSnapshots.userId, viewerId),
+          isNull(artisanLeaderboardSnapshots.rewardClaimedAt),
+        ),
+      )
+      .orderBy(desc(artisanLeaderboardSnapshots.weekKey))
+      .limit(1)
+  )[0];
+
+  if (!snapshot) {
     return Response.json(
       {
         ok: false,
-        error: myRank ? "no_reward" : "not_ranked",
-        myRank,
+        error: currentRank ? "season_active" : "not_ranked",
+        myRank: currentRank,
         rewards: rewardViews(
-          myRank,
+          currentRank,
           await loadOwnedTitleIds(viewerId),
-          (await loadWeeklyWorkshopStats(viewerId, season.key))
-            .claimedRewardWeekKey === season.key,
+          true,
+          false,
         ),
+      },
+      { status: 409 },
+    );
+  }
+
+  const titleIds = artisanLeaderboardRewardTitleIds(snapshot.rank);
+  if (titleIds.length === 0) {
+    return Response.json(
+      {
+        ok: false,
+        error: "no_reward",
+        myRank: snapshot.rank,
+        previousSeason: snapshot,
+        rewards: rewardViews(snapshot.rank, await loadOwnedTitleIds(viewerId), false),
       },
       { status: 409 },
     );
@@ -280,6 +336,67 @@ export async function POST() {
   const grantedTitles = await db.transaction(async (tx) => {
     const obtainedAt = Date.now();
     const granted: string[] = [];
+    const lockedSnapshot = (
+      await tx
+        .select({
+          weekKey: artisanLeaderboardSnapshots.weekKey,
+          rank: artisanLeaderboardSnapshots.rank,
+          rewardClaimedAt: artisanLeaderboardSnapshots.rewardClaimedAt,
+        })
+        .from(artisanLeaderboardSnapshots)
+        .where(
+          and(
+            eq(artisanLeaderboardSnapshots.weekKey, snapshot.weekKey),
+            eq(artisanLeaderboardSnapshots.userId, viewerId),
+          ),
+        )
+        .for("update")
+        .limit(1)
+    )[0];
+    if (!lockedSnapshot || lockedSnapshot.rewardClaimedAt != null) {
+      return { granted, rewardFame: 0, alreadyClaimed: true };
+    }
+    const lockedTitleIds = artisanLeaderboardRewardTitleIds(lockedSnapshot.rank);
+    for (const titleId of lockedTitleIds) {
+      if (await grantTitleIfMissingInTx(tx, viewerId, titleId, obtainedAt)) {
+        granted.push(titleId);
+      }
+    }
+    const rewardFame = artisanLeaderboardRewardFame(lockedTitleIds);
+    const member = (
+      await tx
+        .select({ guildId: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, viewerId))
+        .limit(1)
+    )[0];
+    if (member && rewardFame > 0) {
+      await addGuildFame(tx, member.guildId, rewardFame);
+    }
+    await tx
+      .update(artisanLeaderboardSnapshots)
+      .set({ rewardClaimedAt: new Date(obtainedAt) })
+      .where(
+        and(
+          eq(artisanLeaderboardSnapshots.weekKey, lockedSnapshot.weekKey),
+          eq(artisanLeaderboardSnapshots.userId, viewerId),
+          isNull(artisanLeaderboardSnapshots.rewardClaimedAt),
+        ),
+      );
+    if (member && (granted.length > 0 || rewardFame > 0)) {
+      const bestTitleId = granted[0] ?? lockedTitleIds[0];
+      await logGuildActivity(tx, {
+        guildId: member.guildId,
+        type: "artisan_rank_reward",
+        actorUserId: viewerId,
+        meta: {
+          artisanRank: lockedSnapshot.rank,
+          titleName: bestTitleId ? TITLES[bestTitleId]?.name : undefined,
+          rewardFame,
+        },
+      });
+    }
+
     const craftingRaw = await lockSaveForUpdate<{
       weeklyWorkshopStats?: unknown;
       [key: string]: unknown;
@@ -288,49 +405,14 @@ export async function POST() {
       craftingRaw.weeklyWorkshopStats,
       season.key,
     );
-    const seasonRewardAlreadyClaimed =
-      weeklyStats.claimedRewardWeekKey === season.key;
-    for (const titleId of titleIds) {
-      if (await grantTitleIfMissingInTx(tx, viewerId, titleId, obtainedAt)) {
-        granted.push(titleId);
-      }
-    }
-    const rewardFame = seasonRewardAlreadyClaimed
-      ? 0
-      : artisanLeaderboardRewardFame(titleIds);
-    if (granted.length > 0 || rewardFame > 0) {
-      const member = (
-        await tx
-          .select({ guildId: guildMembers.guildId })
-          .from(guildMembers)
-          .where(eq(guildMembers.userId, viewerId))
-          .limit(1)
-      )[0];
-      if (member) {
-        if (rewardFame > 0) {
-          await addGuildFame(tx, member.guildId, rewardFame);
-          await upsertSave(tx, viewerId, "crafting.v2", {
-            ...craftingRaw,
-            weeklyWorkshopStats: {
-              ...weeklyStats,
-              claimedRewardWeekKey: season.key,
-            },
-          });
-        }
-        const bestTitleId = granted[0];
-        await logGuildActivity(tx, {
-          guildId: member.guildId,
-          type: "artisan_rank_reward",
-          actorUserId: viewerId,
-          meta: {
-            artisanRank: myRank,
-            titleName: bestTitleId ? TITLES[bestTitleId]?.name : undefined,
-            rewardFame,
-          },
-        });
-      }
-    }
-    return { granted, rewardFame };
+    await upsertSave(tx, viewerId, "crafting.v2", {
+      ...craftingRaw,
+      weeklyWorkshopStats: {
+        ...weeklyStats,
+        claimedRewardWeekKey: lockedSnapshot.weekKey,
+      },
+    });
+    return { granted, rewardFame, alreadyClaimed: false };
   });
   const ownedTitleIds = await loadOwnedTitleIds(viewerId);
 
@@ -338,9 +420,16 @@ export async function POST() {
     ok: true,
     profession: "blacksmith",
     season,
-    myRank,
-    rewards: rewardViews(myRank, ownedTitleIds, true),
-    nextReward: artisanLeaderboardNextReward(myRank),
+    previousSeason: { ...snapshot, rewardClaimedAt: new Date().toISOString() },
+    myRank: currentRank,
+    rewards: rewardViews(currentRank, ownedTitleIds, true, false),
+    previousSeasonRewards: rewardViews(
+      snapshot.rank,
+      ownedTitleIds,
+      true,
+      false,
+    ),
+    nextReward: artisanLeaderboardNextReward(currentRank),
     grantedTitles: grantedTitles.granted,
     rewardFame: grantedTitles.rewardFame,
   });

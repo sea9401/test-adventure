@@ -120,6 +120,7 @@ export function artisanLeaderboardRewardViews(
   myRank: number | null,
   ownedTitleIds: ReadonlySet<string>,
   seasonRewardClaimed: boolean,
+  rewardsOpen = true,
 ) {
   return ARTISAN_LEADERBOARD_REWARDS.map((reward) => ({
     ...reward,
@@ -127,6 +128,7 @@ export function artisanLeaderboardRewardViews(
     eligible: myRank != null && myRank <= reward.rank,
     seasonRewardClaimed,
     claimable:
+      rewardsOpen &&
       myRank != null &&
       myRank <= reward.rank &&
       (!ownedTitleIds.has(reward.titleId) || !seasonRewardClaimed),

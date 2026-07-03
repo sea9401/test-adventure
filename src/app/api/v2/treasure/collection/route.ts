@@ -2,12 +2,17 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
+import { maxGuildSettlementBuildingLevelFromDb } from "@/lib/server/settlementBuildingLevels";
 import {
   TREASURE_COLLECTION_KEY,
   parseTreasureCollection,
 } from "@/adventure/v2/treasureCollection";
 import {
+  FRAGMENTS_PER_MAP,
   TREASURE_FRAGMENTS_KEY,
+  fragmentsRequiredForMapWorkshopLevel,
+  mapWorkshopFragmentDiscountPct,
   parseTreasureFragments,
 } from "@/adventure/v2/treasureFragments";
 import { TREASURE_WALLET_KEY, walletCoins } from "@/lib/server/treasure/coins";
@@ -45,10 +50,20 @@ export async function GET() {
   const collection = parseTreasureCollection(colRow?.value);
   const fragments = parseTreasureFragments(fragRow?.value).fragments;
   const coins = walletCoins(walletRow?.value);
+  const guildId = await getGuildIdByUser(userId);
+  const mapWorkshopLevel =
+    guildId == null
+      ? 0
+      : await maxGuildSettlementBuildingLevelFromDb(guildId, "map_workshop");
+  const needed = fragmentsRequiredForMapWorkshopLevel(mapWorkshopLevel);
   return Response.json({
     ok: true,
     instances: collection.instances,
     fragments,
+    needed,
+    baseNeeded: FRAGMENTS_PER_MAP,
+    mapWorkshopLevel,
+    discountPct: mapWorkshopFragmentDiscountPct(mapWorkshopLevel),
     coins,
   });
 }

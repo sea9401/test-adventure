@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
+import { FRAGMENTS_PER_MAP } from "./treasureFragments";
 import type {
   DigOutcome,
   OpenOutcome,
+  TreasureFragmentStatus,
   TreasureHandlers,
 } from "./TreasureDigView";
 import type { TreasureSitePublic } from "./treasureDig";
@@ -19,6 +21,11 @@ export function useTreasure(): TreasureHandlers {
         resumed: Boolean(j.resumed),
         site: j.site as TreasureSitePublic,
         fragments: typeof j.fragments === "number" ? j.fragments : undefined,
+        needed: typeof j.needed === "number" ? j.needed : undefined,
+        baseNeeded: typeof j.baseNeeded === "number" ? j.baseNeeded : undefined,
+        mapWorkshopLevel:
+          typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : undefined,
+        discountPct: typeof j.discountPct === "number" ? j.discountPct : undefined,
       };
     }
     if (j?.error === "not_enough_fragments") {
@@ -26,17 +33,33 @@ export function useTreasure(): TreasureHandlers {
         ok: false,
         reason: "not_enough_fragments",
         fragments: Number(j.fragments ?? 0),
+        needed: typeof j.needed === "number" ? j.needed : undefined,
+        baseNeeded: typeof j.baseNeeded === "number" ? j.baseNeeded : undefined,
+        mapWorkshopLevel:
+          typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : undefined,
+        discountPct: typeof j.discountPct === "number" ? j.discountPct : undefined,
       };
     }
     return { ok: false, reason: "error" };
   }, []);
 
   // 보유 지도 조각 수 — 발굴 화면 진입 시 표시용. collection 라우트가 fragments 를 함께 반환한다.
-  const loadFragments = useCallback(async (): Promise<number | null> => {
+  const loadFragments = useCallback(async (): Promise<TreasureFragmentStatus | null> => {
     try {
       const res = await fetch("/api/v2/treasure/collection");
       const j = await res.json().catch(() => null);
-      if (res.ok && j?.ok && typeof j.fragments === "number") return j.fragments;
+      if (res.ok && j?.ok && typeof j.fragments === "number") {
+        return {
+          fragments: j.fragments,
+          needed:
+            typeof j.needed === "number" ? j.needed : FRAGMENTS_PER_MAP,
+          baseNeeded:
+            typeof j.baseNeeded === "number" ? j.baseNeeded : FRAGMENTS_PER_MAP,
+          mapWorkshopLevel:
+            typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : 0,
+          discountPct: typeof j.discountPct === "number" ? j.discountPct : 0,
+        };
+      }
     } catch {}
     return null;
   }, []);

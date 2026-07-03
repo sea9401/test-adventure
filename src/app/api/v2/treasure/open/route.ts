@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { maxGuildSettlementBuildingLevel } from "@/lib/server/settlementBuildingLevels";
 import {
   TREASURE_SESSION_KEY,
   parseTreasureSession,
@@ -11,11 +13,14 @@ import {
 import {
   TREASURE_FRAGMENTS_KEY,
   FRAGMENTS_PER_MAP,
+  fragmentsRequiredForMapWorkshopLevel,
+  mapWorkshopFragmentDiscountPct,
   parseTreasureFragments,
-  spendOneMap,
+  spendOneMapWithCost,
 } from "@/adventure/v2/treasureFragments";
 
-// POST /api/v2/treasure/open — 지도 조각 K개를 소비해 발굴 지점을 연다.
+// POST /api/v2/treasure/open — 지도 조각을 소비해 발굴 지점을 연다.
+// 길드 영지에 지도 제작소가 있으면 최고 레벨 기준으로 필요 조각 수를 줄인다.
 //
 // 매장지·골동품(희귀도·보존상태)은 여기서 서버가 굴려 세션에 박제한다. 응답엔 비밀(매장지/
 // 골동품)을 절대 싣지 않는다 — 격자 공개 뷰만. 이미 진행 중인 발굴이 있으면 조각 소비 없이
@@ -39,22 +44,36 @@ export async function POST() {
     const existing = parseTreasureSession(
       await lockSaveForUpdate(tx, userId, TREASURE_SESSION_KEY, {}),
     );
+    const guildId = await getGuildId(tx, userId);
+    const mapWorkshopLevel =
+      guildId == null
+        ? 0
+        : await maxGuildSettlementBuildingLevel(tx, guildId, "map_workshop");
+    const needed = fragmentsRequiredForMapWorkshopLevel(mapWorkshopLevel);
+    const discountPct = mapWorkshopFragmentDiscountPct(mapWorkshopLevel);
     // 진행 중 세션 = 이미 조각을 낸 발굴. 새로 열지 않고 그대로 이어준다.
     if (existing) {
       return {
         ok: true as const,
         resumed: true as const,
         site: toPublicSite(existing),
+        needed,
+        baseNeeded: FRAGMENTS_PER_MAP,
+        mapWorkshopLevel,
+        discountPct,
       };
     }
 
-    const spent = spendOneMap(frags);
+    const spent = spendOneMapWithCost(frags, needed);
     if (!spent) {
       return {
         ok: false as const,
         error: "not_enough_fragments" as const,
         fragments: frags.fragments,
-        needed: FRAGMENTS_PER_MAP,
+        needed,
+        baseNeeded: FRAGMENTS_PER_MAP,
+        mapWorkshopLevel,
+        discountPct,
       };
     }
     await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, spent);
@@ -66,6 +85,10 @@ export async function POST() {
       resumed: false as const,
       site: toPublicSite(session),
       fragments: spent.fragments,
+      needed,
+      baseNeeded: FRAGMENTS_PER_MAP,
+      mapWorkshopLevel,
+      discountPct,
     };
   });
 

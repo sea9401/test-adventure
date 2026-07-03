@@ -7,7 +7,7 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { resolveCurrentOutpostId } from "@/adventure/data/v2/outpostGraph";
 
 // POST /api/v2/me/bank — 골드 입금/출금.
-// body: { action: "deposit" | "withdraw", amount: number }
+// body: { action: "deposit" | "withdraw", amount: number | "all" }
 //
 // 은행 = 사냥 패배 페널티 완충용 저축. 입출금은 "안전한 곳"에서만 — 현재 거점이 중립이거나
 // 내 길드 소유(또는 미점령 NPC)일 때. 다른 길드 점령 거점(침입 중)에선 불가(unsafe_location).
@@ -37,14 +37,16 @@ export async function POST(req: Request) {
     body.action === "deposit" || body.action === "withdraw"
       ? body.action
       : null;
-  const amount =
-    typeof body.amount === "number" && Number.isFinite(body.amount)
+  const all = body.amount === "all";
+  const amount = all
+    ? 0
+    : typeof body.amount === "number" && Number.isFinite(body.amount)
       ? Math.floor(body.amount)
       : NaN;
   if (!action) {
     return Response.json({ ok: false, error: "bad_action" }, { status: 400 });
   }
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!all && (!Number.isFinite(amount) || amount <= 0)) {
     return Response.json({ ok: false, error: "bad_amount" }, { status: 400 });
   }
 
@@ -77,15 +79,16 @@ export async function POST(req: Request) {
 
     const gold = Math.max(0, charSave.gold ?? 0);
     const banked = Math.max(0, charSave.bankedGold ?? 0);
+    const requested = all ? (action === "deposit" ? gold : banked) : amount;
     let nextGold: number;
     let nextBanked: number;
     let moved: number;
     if (action === "deposit") {
-      moved = Math.min(amount, gold); // 보유보다 많이 못 넣음.
+      moved = Math.min(requested, gold); // 보유보다 많이 못 넣음.
       nextGold = gold - moved;
       nextBanked = banked + moved;
     } else {
-      moved = Math.min(amount, banked); // 입금분보다 많이 못 뺌.
+      moved = Math.min(requested, banked); // 입금분보다 많이 못 뺌.
       nextGold = gold + moved;
       nextBanked = banked - moved;
     }

@@ -10,6 +10,11 @@ import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
+import {
+  applyPctBonus,
+  bonusDelta,
+  readActiveHotTime,
+} from "@/lib/server/opsSettings";
 
 // BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
 // EXP 바 안 보이게 0 으로 fallback (현재 exp 와 동일 → pct 0).
@@ -626,14 +631,23 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     mapExpMult,
     mapGoldMult,
   });
-  const expGained = applyGuildCombatRewardBonus(
+  const hotTime = await readActiveHotTime(now);
+  const expAfterGuild = applyGuildCombatRewardBonus(
     baseRewards.expGained,
     guildCombatSupply.expPct,
   );
-  const goldGross = applyGuildCombatRewardBonus(
+  const goldAfterGuild = applyGuildCombatRewardBonus(
     baseRewards.goldGross,
     guildCombatSupply.goldPct,
   );
+  const expGained = hotTime.active
+    ? applyPctBonus(expAfterGuild, hotTime.bonuses.expPct)
+    : expAfterGuild;
+  const goldGross = hotTime.active
+    ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct)
+    : goldAfterGuild;
+  const hotTimeExpBonus = bonusDelta(expAfterGuild, expGained);
+  const hotTimeGoldBonus = bonusDelta(goldAfterGuild, goldGross);
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
   const { drops, droppedEquipment, droppedUnique, nextOwned } = rollHuntDrops({
@@ -906,6 +920,16 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
         goldAfter: newGold, // 사냥 후 최종 보유 골드 — 클라 공용 상태 즉시 동기화용.
         goldGross,
+        hotTime:
+          hotTime.active && (hotTimeExpBonus > 0 || hotTimeGoldBonus > 0)
+            ? {
+                title: hotTime.title,
+                expBonus: hotTimeExpBonus,
+                goldBonus: hotTimeGoldBonus,
+                expPct: hotTime.bonuses.expPct,
+                goldPct: hotTime.bonuses.goldPct,
+              }
+            : null,
         goldTaxed,
         // 코어루프 패배 페널티 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
         //   lossTax = 이번 판 소실액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.

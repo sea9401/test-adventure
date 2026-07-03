@@ -72,6 +72,12 @@ export type ReelOutcome =
         coinBonus: number;
         fragmentChanceBonusPct: number;
       };
+      hotTime?: {
+        title: string;
+        fishingCoinPct: number;
+        catchBonus: number;
+        levelBonus: number;
+      } | null;
       /** 이번 어획으로 오른 오늘의 의뢰/일일 과제/누적 목표. */
       challengeProgress?: FishingProgressNotice[];
     }
@@ -1233,6 +1239,13 @@ function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
   }
   if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
     labels.push(`레벨업 보상 +${result.levelRewardCoins}`);
+  }
+  if (result.hotTime && (result.hotTime.catchBonus > 0 || result.hotTime.levelBonus > 0)) {
+    labels.push(
+      `핫타임 +${result.hotTime.fishingCoinPct}% · 코인 +${
+        result.hotTime.catchBonus + result.hotTime.levelBonus
+      }`,
+    );
   }
   if (result.fishingXpGained != null && result.fishingXpGained > 0) {
     labels.push(

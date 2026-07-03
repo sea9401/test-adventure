@@ -169,6 +169,15 @@ export function useFishing(): FishingHandlers {
                     ),
                   }
                 : undefined,
+            hotTime:
+              j.hotTime && typeof j.hotTime === "object"
+                ? {
+                    title: String(j.hotTime.title ?? ""),
+                    fishingCoinPct: Number(j.hotTime.fishingCoinPct ?? 0),
+                    catchBonus: Number(j.hotTime.catchBonus ?? 0),
+                    levelBonus: Number(j.hotTime.levelBonus ?? 0),
+                  }
+                : null,
             fishingXpGained: Number(j.fishingXpGained ?? 0),
             fishingLevel:
               typeof j.fishingLevel === "number" ? j.fishingLevel : undefined,

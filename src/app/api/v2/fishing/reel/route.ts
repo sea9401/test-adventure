@@ -29,6 +29,7 @@ import {
 import { currentFishingSeasonId } from "@/lib/server/fishing/season";
 import { upsertFishingRecord } from "@/lib/server/fishing/records";
 import {
+  FISHING_CATCH_COIN_BY_TIER,
   FISHING_WALLET_KEY,
   applyCatchCoin,
   fishingCatchCoinProgress,
@@ -70,6 +71,7 @@ import {
   fishingProgressNotices,
 } from "@/adventure/v2/fishingChallengeProgress";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -255,15 +257,29 @@ export async function POST(req: Request) {
       FISHING_WALLET_KEY,
       {},
     );
+    const hotTime = await readActiveHotTime(now);
+    const baseCatchCoin =
+      (FISHING_CATCH_COIN_BY_TIER[FISH[session.fishId].tier] ?? 0) +
+      streakBuff.coinBonus +
+      (multtaeEffect.coinBonus ?? 0);
+    const hotTimeCatchCoin = hotTime.active
+      ? applyPctBonus(baseCatchCoin, hotTime.bonuses.fishingCoinPct)
+      : baseCatchCoin;
+    const hotTimeCatchBonus = bonusDelta(baseCatchCoin, hotTimeCatchCoin);
     const coinResult = applyCatchCoin(
       walletBeforeCoins,
       FISH[session.fishId].tier,
       dayKey,
-      streakBuff.coinBonus + (multtaeEffect.coinBonus ?? 0),
+      streakBuff.coinBonus + (multtaeEffect.coinBonus ?? 0) + hotTimeCatchBonus,
     );
-    const levelRewardCoins = progressResult.leveledUp
+    const baseLevelRewardCoins = progressResult.leveledUp
       ? fishingLevelRewardCoins(progressView.level)
       : 0;
+    const levelRewardCoins =
+      hotTime.active && baseLevelRewardCoins > 0
+        ? applyPctBonus(baseLevelRewardCoins, hotTime.bonuses.fishingCoinPct)
+        : baseLevelRewardCoins;
+    const hotTimeLevelBonus = bonusDelta(baseLevelRewardCoins, levelRewardCoins);
     const walletAfterCoins =
       levelRewardCoins > 0
         ? fishingWalletWithCoins(
@@ -316,6 +332,15 @@ export async function POST(req: Request) {
       fragmentsTotal,
       streak,
       streakBuff,
+      hotTime:
+        hotTime.active && (hotTimeCatchBonus > 0 || hotTimeLevelBonus > 0)
+          ? {
+              title: hotTime.title,
+              fishingCoinPct: hotTime.bonuses.fishingCoinPct,
+              catchBonus: hotTimeCatchBonus,
+              levelBonus: hotTimeLevelBonus,
+            }
+          : null,
     };
   });
 
@@ -343,6 +368,7 @@ export async function POST(req: Request) {
         tier: fish.tier,
         dailyEarned: result.dailyCatchCoins.earned,
         dailyCap: result.dailyCatchCoins.cap,
+        hotTime: result.hotTime,
       },
     });
   }
@@ -356,6 +382,7 @@ export async function POST(req: Request) {
       detail: {
         fishingLevel: result.fishingLevel,
         fishId: result.fishId,
+        hotTime: result.hotTime,
       },
     });
   }
@@ -399,5 +426,6 @@ export async function POST(req: Request) {
         result.streakBuff.fragmentChanceBonus * 100,
       ),
     },
+    hotTime: result.hotTime,
   });
 }

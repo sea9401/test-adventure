@@ -12,6 +12,7 @@ const SUMMARY_KEYS = [
   FISHING_WALLET_KEY,
   TREASURE_WALLET_KEY,
   "inventory.v2",
+  "equipment.v2",
   STAMINA_POTIONS_KEY,
 ] as const;
 
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
   const saves = new Map(saveRows.map((row) => [row.key, row.value]));
   const character = objectValue(saves.get("character.v2"));
   const inventory = objectValue(saves.get("inventory.v2"));
+  const equipment = objectValue(saves.get("equipment.v2"));
 
   const summary = {
     gold: intValue(character.gold),
@@ -59,6 +61,7 @@ export async function GET(req: Request) {
     masteryCertificates: intValue(inventory[MASTERY_CERTIFICATE_KEY]),
     staminaPotions: staminaPotionCount(saves.get(STAMINA_POTIONS_KEY)),
   };
+  const inventorySummary = summarizeInventory({ character, inventory, equipment });
 
   const rewardHistory = eventRows
     .filter((row) => row.eventType.startsWith("reward."))
@@ -78,6 +81,7 @@ export async function GET(req: Request) {
     ok: true,
     userId,
     summary,
+    inventorySummary,
     trackedKeys: saveRows
       .filter((row) => SUMMARY_KEYS.includes(row.key as (typeof SUMMARY_KEYS)[number]))
       .map((row) => ({
@@ -99,4 +103,43 @@ function objectValue(raw: unknown): Record<string, unknown> {
 function intValue(raw: unknown): number {
   const value = Number(raw ?? 0);
   return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
+
+function summarizeInventory({
+  character,
+  inventory,
+  equipment,
+}: {
+  character: Record<string, unknown>;
+  inventory: Record<string, unknown>;
+  equipment: Record<string, unknown>;
+}) {
+  const materials = objectValue(character.materials);
+  const rareMaps = Array.isArray(character.rareMaps) ? character.rareMaps.length : 0;
+  const owned = Array.isArray(equipment.owned) ? equipment.owned : [];
+  const entries = Object.entries(inventory)
+    .map(([key, value]) => [key, intValue(value)] as const)
+    .filter(([, value]) => value > 0);
+  const coopBoxes = entries.filter(([key]) => key.includes("coop") && key.includes("box"));
+  const coopMasteryTomes = entries.filter(
+    ([key]) => key.includes("coop") && key.includes("mastery"),
+  );
+  const spFruits = entries.filter(
+    ([key]) => key.includes("sp") && (key.includes("fruit") || key.includes("열매")),
+  );
+  return {
+    equipmentCount: owned.length,
+    materialTop: Object.entries(materials)
+      .map(([key, value]) => ({ key, quantity: intValue(value) }))
+      .filter((row) => row.quantity > 0)
+      .sort((a, b) => b.quantity - a.quantity || a.key.localeCompare(b.key))
+      .slice(0, 8),
+    rareMapCount: rareMaps,
+    coopBoxes: coopBoxes.map(([key, quantity]) => ({ key, quantity })),
+    coopMasteryTomes: coopMasteryTomes.map(([key, quantity]) => ({
+      key,
+      quantity,
+    })),
+    spFruits: spFruits.map(([key, quantity]) => ({ key, quantity })),
+  };
 }

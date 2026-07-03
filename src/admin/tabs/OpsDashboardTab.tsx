@@ -11,6 +11,7 @@ type CountRow = { key: string; count: number };
 
 type Dashboard = {
   generatedAt: string;
+  periodHours: number;
   webhookConfigured: boolean;
   alerts: Array<{
     level: "danger" | "warning" | "info";
@@ -53,6 +54,15 @@ type Dashboard = {
     cacheTtlSec: number;
     note: string;
   }>;
+  suspiciousUsers: Array<{
+    userId: string;
+    score: number;
+    events: number;
+    rateLimited: number;
+    actionCount: number;
+    ipCount: number;
+    lastAt: string;
+  }>;
 };
 
 type HotTimeSettings = {
@@ -71,13 +81,29 @@ type HotTimeSettings = {
 
 export function OpsDashboardTab() {
   const { showToast } = useAdmin();
+  const [hours, setHours] = useState(24);
   const { data, loading, error, refetch } = useAsyncData<{ ok: true } & Dashboard>(
-    (signal) => adminGet("/api/admin/ops-dashboard", signal),
+    (signal) => adminGet(`/api/admin/ops-dashboard?hours=${hours}`, signal),
+    [hours],
   );
+  const [testingWebhook, setTestingWebhook] = useState(false);
 
   useEffect(() => {
     if (error) showToast(`조회 실패: ${error}`);
   }, [error, showToast]);
+
+  const testWebhook = async () => {
+    setTestingWebhook(true);
+    try {
+      await adminPost("/api/admin/ops-alert-test", {});
+      showToast("알림 테스트 전송됨");
+    } catch (e) {
+      showToast(`알림 테스트 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setTestingWebhook(false);
+    }
+  };
+  const periodLabel = hours === 168 ? "7일" : `${hours}시간`;
 
   return (
     <section className="space-y-4">
@@ -85,12 +111,27 @@ export function OpsDashboardTab() {
         <div>
           <h3 className="text-sm font-semibold">운영 현황판</h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            최근 24시간 기준 이상 행동, 경제 이벤트, 관리자 변경 흐름을 봅니다.
+            선택 기간({periodLabel}) 기준 이상 행동, 경제 이벤트, 관리자 변경 흐름을 봅니다.
           </p>
         </div>
-        <Button onClick={() => void refetch()} disabled={loading}>
-          {loading ? "조회 중..." : "새로고침"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={hours}
+            onChange={(e) => setHours(Number(e.target.value))}
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+          >
+            <option value={1}>1시간</option>
+            <option value={6}>6시간</option>
+            <option value={24}>24시간</option>
+            <option value={168}>7일</option>
+          </select>
+          <Button onClick={() => void testWebhook()} disabled={testingWebhook}>
+            {testingWebhook ? "전송 중..." : "알림 테스트"}
+          </Button>
+          <Button onClick={() => void refetch()} disabled={loading}>
+            {loading ? "조회 중..." : "새로고침"}
+          </Button>
+        </div>
       </div>
 
       {!data ? (
@@ -129,7 +170,7 @@ export function OpsDashboardTab() {
             <Metric label="제한 초과 5분" value={data.abuse.last5m} />
             <Metric label="제한 초과 1시간" value={data.abuse.last1h} />
             <Metric label="경제 이벤트 1시간" value={data.economy.last1h} />
-            <Metric label="관리자 변경 24시간" value={data.audit.last24h} />
+            <Metric label={`관리자 변경 ${periodLabel}`} value={data.audit.last24h} />
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
@@ -142,10 +183,10 @@ export function OpsDashboardTab() {
             </Panel>
             <Panel title="경제 이벤트">
               <div className="mb-2 grid grid-cols-2 gap-2 text-xs">
-                <Metric label="골드 유입 24시간" value={data.economy.goldIn24h} />
-                <Metric label="골드 유출 24시간" value={data.economy.goldOut24h} />
+                <Metric label={`골드 유입 ${periodLabel}`} value={data.economy.goldIn24h} />
+                <Metric label={`골드 유출 ${periodLabel}`} value={data.economy.goldOut24h} />
                 <Metric
-                  label="보상 실패 24시간"
+                  label={`보상 실패 ${periodLabel}`}
                   value={data.economy.rewardFailures24h}
                 />
                 <Metric
@@ -185,6 +226,43 @@ export function OpsDashboardTab() {
                 </tbody>
               </table>
             </div>
+          </Panel>
+
+          <Panel title="매크로 의심 점수">
+            {data.suspiciousUsers.length === 0 ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">의심 점수 없음</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-zinc-500 dark:text-zinc-400">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">userId</th>
+                      <th className="py-1 pr-3 font-medium">점수</th>
+                      <th className="py-1 pr-3 font-medium">제한</th>
+                      <th className="py-1 pr-3 font-medium">이벤트</th>
+                      <th className="py-1 pr-3 font-medium">action/IP</th>
+                      <th className="py-1 pr-3 font-medium">최근</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.suspiciousUsers.map((row) => (
+                      <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
+                        <td className="py-1 pr-3 font-mono">{row.userId.slice(0, 12)}</td>
+                        <td className="py-1 pr-3 tabular-nums">{row.score}</td>
+                        <td className="py-1 pr-3 tabular-nums">{row.rateLimited}</td>
+                        <td className="py-1 pr-3 tabular-nums">{row.events}</td>
+                        <td className="py-1 pr-3 tabular-nums">
+                          {row.actionCount}/{row.ipCount}
+                        </td>
+                        <td className="py-1 pr-3 text-zinc-500">
+                          {new Date(row.lastAt).toLocaleString("ko-KR")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Panel>
 
           <HotTimePanel />

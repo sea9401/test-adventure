@@ -32,6 +32,13 @@ const TYPE_LABELS: Record<string, string> = {
   warn: "경고",
 };
 
+const SANCTION_PRESETS = [
+  { label: "매크로 의심 경고", action: "warn" as const, days: 0, reason: "매크로 의심 패턴 확인" },
+  { label: "1일 정지", action: "suspend" as const, days: 1, reason: "반복 요청 제한 초과" },
+  { label: "3일 정지", action: "suspend" as const, days: 3, reason: "반복 자동화 의심 행위" },
+  { label: "영구 정지", action: "ban" as const, days: 0, reason: "명백한 자동화/악용 행위" },
+];
+
 // 유저 제재 — 밴/정지/경고 부과 + 해제 + 이력. /api/admin/sanctions 직접 조작.
 // 차단 enforcement 는 ensureUser(모든 게임 API 경유)가 users.bannedUntil 로 검사.
 export function SanctionsSection({
@@ -85,6 +92,11 @@ export function SanctionsSection({
     }
   };
 
+  const applyPreset = (preset: (typeof SANCTION_PRESETS)[number]) => {
+    setReason(preset.reason);
+    if (preset.days > 0) setDays(preset.days);
+  };
+
   const banned = status?.banned ?? false;
   const disabled = readOnly || loading || busy;
 
@@ -116,6 +128,19 @@ export function SanctionsSection({
           placeholder="사유 (감사 로그·이력에 기록)"
           disabled={disabled}
         />
+        <div className="flex flex-wrap gap-1">
+          {SANCTION_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              disabled={disabled}
+              onClick={() => applyPreset(preset)}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={disabled} onClick={() => void act("warn")}>
             경고 기록

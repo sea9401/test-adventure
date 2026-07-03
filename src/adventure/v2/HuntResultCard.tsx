@@ -39,6 +39,13 @@ export type HuntResult = {
   masteryGained?: number; // 직업 숙련도 획득(승리당 +1).
   goldGained: number;
   goldGross?: number;
+  hotTime?: {
+    title: string;
+    expBonus: number;
+    goldBonus: number;
+    expPct: number;
+    goldPct: number;
+  } | null;
   goldTaxed?: number;
   // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
   taxOwnerLabel?: string;
@@ -237,6 +244,12 @@ export function HuntResultCard({
             +{result.goldGained}
           </span>
         </div>
+        {result.hotTime && (result.hotTime.expBonus > 0 || result.hotTime.goldBonus > 0) && (
+          <div className="text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-300">
+            핫타임 {result.hotTime.title || "이벤트"} · EXP +
+            {result.hotTime.expBonus} · 골드 +{result.hotTime.goldBonus}
+          </div>
+        )}
         {(result.goldTaxed ?? 0) > 0 && (
           <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
             세금 −{result.goldTaxed} G → {result.taxOwnerLabel ?? "점령자"}

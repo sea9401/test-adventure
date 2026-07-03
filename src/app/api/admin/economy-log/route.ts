@@ -9,6 +9,7 @@ export async function GET(req: Request) {
 
   const sp = new URL(req.url).searchParams;
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 200, 1), 1000);
+  const format = sp.get("format")?.trim().toLowerCase() || "json";
   const userId = sp.get("userId")?.trim() || null;
   const eventType = sp.get("eventType")?.trim() || null;
   const itemKind = sp.get("itemKind")?.trim() || null;
@@ -43,6 +44,17 @@ export async function GET(req: Request) {
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(desc(economyEvents.id))
     .limit(limit);
+
+  if (format === "csv") {
+    return new Response(toCsv(rows), {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": `attachment; filename="economy-log-${new Date()
+          .toISOString()
+          .slice(0, 10)}.csv"`,
+      },
+    });
+  }
 
   return Response.json({ ok: true, entries: rows, summary: summarize(rows) });
 }
@@ -136,4 +148,58 @@ function addCurrency(
   value.out += Math.abs(Math.min(0, delta));
   value.count += 1;
   currencies.set(key, value);
+}
+
+function toCsv(
+  rows: Array<{
+    id: number;
+    userId: string | null;
+    gameName: string | null;
+    counterpartyUserId: string | null;
+    eventType: string;
+    goldDelta: number;
+    itemKind: string | null;
+    itemId: string | null;
+    quantity: number | null;
+    detail: unknown;
+    createdAt: Date;
+  }>,
+) {
+  const header = [
+    "id",
+    "createdAt",
+    "userId",
+    "gameName",
+    "counterpartyUserId",
+    "eventType",
+    "goldDelta",
+    "itemKind",
+    "itemId",
+    "quantity",
+    "detail",
+  ];
+  const lines = rows.map((row) =>
+    [
+      row.id,
+      row.createdAt.toISOString(),
+      row.userId ?? "",
+      row.gameName ?? "",
+      row.counterpartyUserId ?? "",
+      row.eventType,
+      row.goldDelta,
+      row.itemKind ?? "",
+      row.itemId ?? "",
+      row.quantity ?? "",
+      row.detail ? JSON.stringify(row.detail) : "",
+    ]
+      .map(csvCell)
+      .join(","),
+  );
+  return [header.join(","), ...lines].join("\n");
+}
+
+function csvCell(value: unknown): string {
+  const text = String(value ?? "");
+  if (!/[",\n\r]/.test(text)) return text;
+  return `"${text.replaceAll('"', '""')}"`;
 }

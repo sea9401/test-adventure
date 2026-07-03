@@ -75,9 +75,17 @@ export function EconomyLogTab() {
             거래소, 상점, 보상 수령의 골드·아이템 흐름을 확인합니다.
           </p>
         </div>
-        <Button onClick={() => void refetch()} disabled={loading}>
-          {loading ? "조회 중..." : "새로고침"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`${url}&format=csv`}
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            CSV 다운로드
+          </a>
+          <Button onClick={() => void refetch()} disabled={loading}>
+            {loading ? "조회 중..." : "새로고침"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-2 md:grid-cols-3">

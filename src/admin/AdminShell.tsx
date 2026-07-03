@@ -14,6 +14,7 @@ import { EconomyLogTab } from "./tabs/EconomyLogTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
 import { BroadcastTab } from "./tabs/BroadcastTab";
 import { FeedbackTab } from "./tabs/FeedbackTab";
+import { OpsManualTab } from "./tabs/OpsManualTab";
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
@@ -28,6 +29,7 @@ type TabKey =
   | "economy"
   | "broadcast"
   | "feedback"
+  | "opsManual"
   | "audit";
 
 type TabGroup = "system" | "ops";
@@ -43,6 +45,7 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "economy", label: "경제 로그", group: "ops" },
   { key: "broadcast", label: "공지·우편", group: "ops" },
   { key: "feedback", label: "건의사항", group: "ops" },
+  { key: "opsManual", label: "운영 매뉴얼", group: "ops" },
   { key: "audit", label: "감사 로그", group: "ops" },
 ];
 
@@ -163,6 +166,7 @@ function ShellInner() {
           {tab === "economy" && <EconomyLogTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}
+          {tab === "opsManual" && <OpsManualTab />}
           {tab === "audit" && <AuditLogTab />}
         </main>
       </div>

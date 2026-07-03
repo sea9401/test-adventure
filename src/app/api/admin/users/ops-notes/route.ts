@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq, like } from "drizzle-orm";
 import { db } from "@/db";
 import { opsSettings } from "@/db/schema";
 import { logAdminAction } from "@/lib/server/adminAudit";
@@ -18,16 +18,29 @@ type OpsUserNote = {
   updatedAt: string | null;
 };
 
+type OpsUserNoteSearchRow = OpsUserNote & {
+  userId: string;
+};
+
 const NOTE_KEY_PREFIX = "ops-user-notes.v1:";
 const MAX_NOTES = 80;
+const MAX_SEARCH_ROWS = 500;
 
 export async function GET(req: Request) {
   const gate = await requireAdmin();
   if (gate) return gate;
 
-  const userId = new URL(req.url).searchParams.get("userId")?.trim();
+  const sp = new URL(req.url).searchParams;
+  const userId = sp.get("userId")?.trim();
   if (!userId) {
-    return Response.json({ ok: false, error: "missing_user" }, { status: 400 });
+    return Response.json({
+      ok: true,
+      notes: await searchNotes({
+        q: sp.get("q")?.trim() ?? "",
+        status: parseStatus(sp.get("status")),
+        limit: clampLimit(sp.get("limit")),
+      }),
+    });
   }
 
   return Response.json({
@@ -35,6 +48,42 @@ export async function GET(req: Request) {
     userId,
     notes: await readNotes(userId),
   });
+}
+
+async function searchNotes({
+  q,
+  status,
+  limit,
+}: {
+  q: string;
+  status: "open" | "resolved" | "all";
+  limit: number;
+}): Promise<OpsUserNoteSearchRow[]> {
+  const rows = await db
+    .select({
+      key: opsSettings.key,
+      value: opsSettings.value,
+      updatedAt: opsSettings.updatedAt,
+    })
+    .from(opsSettings)
+    .where(like(opsSettings.key, `${NOTE_KEY_PREFIX}%`))
+    .orderBy(desc(opsSettings.updatedAt))
+    .limit(MAX_SEARCH_ROWS);
+  const needle = q.toLowerCase();
+  return rows
+    .flatMap((row): OpsUserNoteSearchRow[] => {
+      const userId = row.key.slice(NOTE_KEY_PREFIX.length);
+      return parseNotes(row.value).map((note) => ({ ...note, userId }));
+    })
+    .filter((note) => status === "all" || note.status === status)
+    .filter((note) => {
+      if (!needle) return true;
+      return `${note.userId} ${note.text} ${note.createdByEmail} ${note.updatedByEmail ?? ""}`
+        .toLowerCase()
+        .includes(needle);
+    })
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, limit);
 }
 
 export async function POST(req: Request) {
@@ -134,6 +183,16 @@ async function readNotes(userId: string): Promise<OpsUserNote[]> {
 
 function noteKey(userId: string) {
   return `${NOTE_KEY_PREFIX}${userId}`;
+}
+
+function parseStatus(raw: string | null): "open" | "resolved" | "all" {
+  return raw === "open" || raw === "resolved" ? raw : "all";
+}
+
+function clampLimit(raw: string | null) {
+  const value = Number(raw ?? 80);
+  if (!Number.isFinite(value)) return 80;
+  return Math.max(1, Math.min(200, Math.floor(value)));
 }
 
 function parseNotes(raw: unknown): OpsUserNote[] {

@@ -140,6 +140,38 @@ async function recordOpsAlertHistory(entry: Omit<OpsAlertHistoryEntry, "id" | "c
 }
 
 function selectOpsAlertChannel(detail?: Record<string, unknown>) {
+  const requestedChannel = typeof detail?.channel === "string" ? detail.channel : "";
+  if (requestedChannel === "reward") {
+    return webhookChannel(
+      "reward",
+      "OPS_ALERT_REWARD_WEBHOOK_URL",
+      process.env.OPS_ALERT_REWARD_WEBHOOK_URL,
+    );
+  }
+  if (requestedChannel === "abuse") {
+    return webhookChannel(
+      "abuse",
+      "OPS_ALERT_ABUSE_WEBHOOK_URL",
+      process.env.OPS_ALERT_ABUSE_WEBHOOK_URL,
+    );
+  }
+  if (requestedChannel === "economy") {
+    return webhookChannel(
+      "economy",
+      "OPS_ALERT_ECONOMY_WEBHOOK_URL",
+      process.env.OPS_ALERT_ECONOMY_WEBHOOK_URL,
+    );
+  }
+  if (requestedChannel === "deploy") {
+    return webhookChannel(
+      "deploy",
+      "OPS_ALERT_DEPLOY_WEBHOOK_URL",
+      process.env.OPS_ALERT_DEPLOY_WEBHOOK_URL,
+    );
+  }
+  if (requestedChannel === "default") {
+    return webhookChannel("default", "OPS_ALERT_WEBHOOK_URL", process.env.OPS_ALERT_WEBHOOK_URL);
+  }
   const signalKey = typeof detail?.signalKey === "string" ? detail.signalKey : "";
   const eventType = typeof detail?.eventType === "string" ? detail.eventType : "";
   if (signalKey.includes("reward") || eventType.startsWith("reward.failure.")) {

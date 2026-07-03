@@ -58,6 +58,25 @@ type OpsSummary = {
     remaining: number;
     status: "ok" | "near" | "capped";
   }>;
+  economySnapshot: {
+    goldIn24h: number;
+    goldOut24h: number;
+    goldNet24h: number;
+    itemIn24h: number;
+    compensationCount24h: number;
+    rewardFailureCount24h: number;
+    topEvents24h: CountRow[];
+    topItems24h: CountRow[];
+  };
+  timeline: Array<{
+    id: string;
+    type: "note" | "audit" | "sanction" | "economy";
+    tone: "danger" | "warning" | "info";
+    title: string;
+    summary: string;
+    actor: string | null;
+    createdAt: string;
+  }>;
   inventorySummary: {
     equipmentCount: number;
     materialTop: Array<{ key: string; quantity: number }>;
@@ -71,6 +90,8 @@ type OpsSummary = {
   proficiencyHistory: OpsEventRow[];
   recentEconomy: OpsEventRow[];
 };
+
+type CountRow = { key: string; count: number };
 
 const COMP_KIND_OPTIONS = [
   "gold",
@@ -263,6 +284,7 @@ export function OpsUserSummarySection({
         <div className="mt-3 space-y-3">
           <SnapshotPanel snapshot={data.snapshot} />
           <DailyLimitPanel rows={data.dailyLimits} />
+          <EconomySnapshotPanel snapshot={data.economySnapshot} />
           <div className="grid gap-2 sm:grid-cols-3">
             <Metric label="보유 골드" value={data.summary.gold} />
             <Metric label="은행 골드" value={data.summary.bankedGold} />
@@ -372,6 +394,7 @@ export function OpsUserSummarySection({
           <EventList title="최근 보상 수령" rows={data.rewardHistory} />
           <EventList title="최근 보정 지급" rows={data.recentCompensations} />
           <EventList title="숙련/증서 이벤트" rows={data.proficiencyHistory} />
+          <TimelinePanel rows={data.timeline} />
         </div>
       )}
     </section>
@@ -466,6 +489,91 @@ function InventorySummary({ summary }: { summary: OpsSummary["inventorySummary"]
       <MiniRows title="SP 열매" rows={summary.spFruits} />
     </section>
   );
+}
+
+function EconomySnapshotPanel({
+  snapshot,
+}: {
+  snapshot: OpsSummary["economySnapshot"];
+}) {
+  return (
+    <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+      <h3 className="mb-2 text-xs font-semibold">경제 스냅샷 24시간</h3>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Metric label="골드 유입" value={snapshot.goldIn24h} />
+        <Metric label="골드 유출" value={snapshot.goldOut24h} />
+        <Metric label="순변동" value={snapshot.goldNet24h} />
+        <Metric label="아이템 유입 수량" value={snapshot.itemIn24h} />
+        <Metric label="보정 지급" value={snapshot.compensationCount24h} />
+        <Metric label="보상 실패" value={snapshot.rewardFailureCount24h} />
+      </div>
+      <div className="mt-2 grid gap-2 md:grid-cols-2">
+        <CountRows title="이벤트 상위" rows={snapshot.topEvents24h} />
+        <CountRows title="품목 상위" rows={snapshot.topItems24h} />
+      </div>
+    </section>
+  );
+}
+
+function TimelinePanel({ rows }: { rows: OpsSummary["timeline"] }) {
+  return (
+    <section>
+      <h3 className="mb-1 text-xs font-semibold">문의 대응 타임라인</h3>
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">기록 없음</p>
+      ) : (
+        <ol className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+          {rows.slice(0, 24).map((row) => (
+            <li
+              key={row.id}
+              className={`rounded-md border px-2 py-1.5 text-xs ${timelineClass(row.tone)}`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium">{row.title}</span>
+                <span className="text-[11px] opacity-75">
+                  {new Date(row.createdAt).toLocaleString("ko-KR")}
+                </span>
+              </div>
+              <p className="mt-1 whitespace-pre-wrap break-words">{row.summary || "-"}</p>
+              <div className="mt-1 font-mono text-[11px] opacity-70">
+                {row.type}
+                {row.actor ? ` · ${row.actor}` : ""}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function CountRows({ title, rows }: { title: string; rows: CountRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="text-[11px]">
+      <div className="mb-1 font-medium text-zinc-500">{title}</div>
+      <div className="flex flex-wrap gap-1">
+        {rows.map((row) => (
+          <span
+            key={row.key}
+            className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800"
+          >
+            {row.key} {row.count.toLocaleString()}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function timelineClass(tone: OpsSummary["timeline"][number]["tone"]) {
+  if (tone === "danger") {
+    return "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200";
+  }
+  if (tone === "warning") {
+    return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200";
+  }
+  return "border-zinc-200 bg-zinc-50 text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200";
 }
 
 function MiniPairs({

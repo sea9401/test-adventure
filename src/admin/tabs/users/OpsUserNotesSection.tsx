@@ -16,6 +16,12 @@ type OpsUserNote = {
   updatedAt: string | null;
 };
 
+type OpsNoteTemplate = {
+  id: string;
+  label: string;
+  text: string;
+};
+
 export function OpsUserNotesSection({
   userId,
   readOnly,
@@ -36,6 +42,9 @@ export function OpsUserNotesSection({
       ),
     [userId],
   );
+  const { data: settings } = useAsyncData<{
+    opsNoteTemplates: OpsNoteTemplate[];
+  }>((signal) => adminGet("/api/admin/ops-settings", signal));
   const canWrite = Boolean(adminMe?.capabilities.reward || adminMe?.capabilities.sanction);
   const disabled = readOnly || saving || !canWrite;
 
@@ -84,15 +93,32 @@ export function OpsUserNotesSection({
       </p>
 
       <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          disabled={disabled}
-          rows={3}
-          maxLength={1_000}
-          placeholder="운영자가 참고할 메모"
-          className="min-h-20 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-950"
-        />
+        <div>
+          {settings?.opsNoteTemplates?.length ? (
+            <div className="mb-1 flex flex-wrap gap-1">
+              {settings.opsNoteTemplates.slice(0, 8).map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setText(template.text)}
+                  className="rounded border border-sky-200 bg-white px-2 py-1 text-[11px] text-sky-800 hover:bg-sky-50 disabled:opacity-50 dark:border-sky-900 dark:bg-zinc-900 dark:text-sky-200 dark:hover:bg-sky-950/30"
+                >
+                  {template.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            disabled={disabled}
+            rows={3}
+            maxLength={1_000}
+            placeholder="운영자가 참고할 메모"
+            className="min-h-20 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+          />
+        </div>
         <div className="flex items-end">
           <Button
             variant="primary"

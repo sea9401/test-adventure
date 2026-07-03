@@ -7,14 +7,17 @@ import {
   ALERT_THRESHOLDS_KEY,
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
+  OPS_NOTE_TEMPLATES_KEY,
   REWARD_COMPENSATION_PRESETS_KEY,
   parseAlertThresholds,
   parseHotTime,
   parseHotTimeSchedules,
+  parseOpsNoteTemplates,
   parseRewardCompensationPresets,
   readAlertThresholdSettings,
   readHotTimeSettings,
   readHotTimeSchedules,
+  readOpsNoteTemplates,
   readRewardCompensationPresets,
   upsertOpsSetting,
 } from "@/lib/server/opsSettings";
@@ -36,11 +39,17 @@ export async function GET() {
       updatedByEmail: rewardCompensationPresetsUpdatedByEmail,
       updatedAt: rewardCompensationPresetsUpdatedAt,
     },
+    {
+      templates: opsNoteTemplates,
+      updatedByEmail: opsNoteTemplatesUpdatedByEmail,
+      updatedAt: opsNoteTemplatesUpdatedAt,
+    },
   ] = await Promise.all([
     readHotTimeSettings(),
     readHotTimeSchedules(),
     readAlertThresholdSettings(),
     readRewardCompensationPresets(),
+    readOpsNoteTemplates(),
   ]);
 
   return Response.json({
@@ -58,6 +67,9 @@ export async function GET() {
     rewardCompensationPresetsUpdatedByEmail,
     rewardCompensationPresetsUpdatedAt:
       rewardCompensationPresetsUpdatedAt?.toISOString() ?? null,
+    opsNoteTemplates,
+    opsNoteTemplatesUpdatedByEmail,
+    opsNoteTemplatesUpdatedAt: opsNoteTemplatesUpdatedAt?.toISOString() ?? null,
   });
 }
 
@@ -71,6 +83,7 @@ export async function POST(req: Request) {
         hotTimeSchedules?: unknown;
         alertThresholds?: unknown;
         rewardCompensationPresets?: unknown;
+        opsNoteTemplates?: unknown;
       }
     | null;
   if (!body || typeof body !== "object") {
@@ -129,6 +142,17 @@ export async function POST(req: Request) {
       detail: { count: rewardCompensationPresets.length },
     });
     updated.rewardCompensationPresets = rewardCompensationPresets;
+  }
+
+  if ("opsNoteTemplates" in body) {
+    const opsNoteTemplates = parseOpsNoteTemplates(body.opsNoteTemplates);
+    await upsertOpsSetting(OPS_NOTE_TEMPLATES_KEY, opsNoteTemplates, adminEmail, now);
+    await logAdminAction({
+      adminEmail,
+      action: "ops-settings.ops-note-templates.update",
+      detail: { count: opsNoteTemplates.length },
+    });
+    updated.opsNoteTemplates = opsNoteTemplates;
   }
 
   if (Object.keys(updated).length === 0) {

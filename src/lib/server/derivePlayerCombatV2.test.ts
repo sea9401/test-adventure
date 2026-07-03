@@ -14,6 +14,10 @@ import {
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
+import {
+  MAGIC_DEF_PER_INT,
+  MAGIC_DEF_PER_SPI,
+} from "./v2CombatCoefficients";
 import { CRIT_MULT_BASE } from "@/adventure/data/v2/v2CombatConstants";
 import {
   V2_BASE_HP,
@@ -292,6 +296,22 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.player.magicAtk).toBe(
       Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+    );
+  });
+});
+
+describe("derivePlayerCombatV2Pure magicDef (마법형 몬스터 대응축)", () => {
+  it("정신이 마법 방어 주축, 지능은 보조로 환산된다", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { spi: 100, int: 40 },
+      v2Equipped: {},
+    });
+    expect(d.player.magicDef).toBe(
+      Math.floor(
+        d.totalStats.spi * MAGIC_DEF_PER_SPI +
+          d.totalStats.int * MAGIC_DEF_PER_INT,
+      ) + V2_BASE_COMBAT_BONUS,
     );
   });
 });

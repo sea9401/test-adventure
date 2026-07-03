@@ -64,7 +64,7 @@ import { MarketplaceEquipmentTab } from "./marketplace/MarketplaceEquipmentTab";
 import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
 import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
 
-// v2 거래소 — 장비 개체 + 재료 + 소모품(레어맵) 거래(고정가).
+// v2 거래소 — 장비 개체 + 재료 + 소모품(희귀 탐사/입장권) 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   타입·시세 헬퍼·시세줄/가격입력 leaf 컴포넌트는 marketplace/marketplaceShared 공용.
 
@@ -350,7 +350,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     );
   };
 
-  // 소모품(레어맵) 등록 — 개체 단위(가격만 입력).
+  // 소모품(희귀 탐사/입장권) 등록 — 개체 단위(가격만 입력).
   const listConsumable = (iid: string) => {
     const price = parseAmount(prices[iid]);
     if (!Number.isInteger(price) || price < 1) {
@@ -360,7 +360,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     return act(
       "/api/v2/marketplace/list",
       { kind: "consumable", iid, price },
-      "✓ 지도 등록",
+      "✓ 소모품 등록",
       loadInventory,
     );
   };
@@ -957,7 +957,7 @@ function expiryLabel(createdAt: string, ttlDays?: number): string | null {
   return `만료까지 ${Math.ceil(leftDays)}일`;
 }
 
-// 소모품(레어맵) 매물 상태 — payload 실물 기준 잔여 판수와 30분 지도 만료를 함께 판정.
+// 소모품(희귀 탐사/입장권) 매물 상태 — payload 실물 기준 잔여 판수와 30분 만료를 함께 판정.
 // 실물이 없으면(소진/만료/불량 스냅샷) 구매 불가 경고. expiryLabel(매물 자체 TTL)은 별개.
 function consumableStatusLine(payload: unknown): {
   text: string;
@@ -969,7 +969,7 @@ function consumableStatusLine(payload: unknown): {
   const usage =
     def?.category === "utility"
       ? `사용 ${inst.runsLeft}회`
-      : `남은 ${inst.runsLeft}판`;
+      : `희귀 탐사 ${inst.runsLeft}판`;
   return { text: usage, expired: false };
 }
 

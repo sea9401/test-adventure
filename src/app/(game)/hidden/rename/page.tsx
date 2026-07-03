@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2RenameView } from "@/adventure/v2/V2RenameView";
 
-// /hidden/rename?map=<iid> — 개명의 신전. 「개명의 신전 지도」(인벤토리 소모품 탭)로 입장.
+// /hidden/rename?map=<iid> — 개명 신전. 「개명 신전 입장권」(인벤토리 소모품 탭)으로 입장.
 export default function RenamePage() {
   const router = useRouter();
   const mapIid = useSearchParams().get("map") ?? "";

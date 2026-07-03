@@ -9,8 +9,8 @@ import {
   type Avatar,
 } from "@/adventure/profile/avatars";
 
-// 화공의 공방 — 「화공의 공방 지도」로 입장. 초상화 변경 1회(성공 시 지도 소모).
-// 서버(/api/v2/me/portrait)가 지도 소유를 권위 검증.
+// 화공의 공방 — 「화공 공방 입장권」으로 입장. 초상화 변경 1회(성공 시 입장권 소모).
+// 서버(/api/v2/me/portrait)가 입장권 소유를 권위 검증.
 
 export function V2PortraitView({
   mapIid,
@@ -48,7 +48,7 @@ export function V2PortraitView({
       } else {
         const label =
           j?.error === "no_map"
-            ? "유효한 「화공의 공방 지도」가 필요합니다"
+            ? "유효한 「화공 공방 입장권」이 필요합니다"
             : j?.error === "same_avatar"
               ? "지금 초상화와 같습니다"
               : (j?.error ?? `http ${res.status}`);
@@ -65,7 +65,7 @@ export function V2PortraitView({
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="화공의 공방" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        초상화를 새로 그립니다 — 지도는 한 번 쓰면 사라집니다.
+        초상화를 새로 그립니다 — 입장권은 한 번 쓰면 사라집니다.
       </p>
 
       <Card padding="md" className="space-y-3">

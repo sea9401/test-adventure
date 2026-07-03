@@ -8,8 +8,8 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TextInput } from "@/components/ui/TextInput";
 
-// 개명의 신전 — 「개명의 신전 지도」로 입장. 닉네임 변경 1회(성공 시 지도 소모).
-// 서버(/api/v2/me/rename)가 지도 소유/이름 중복을 권위 검증.
+// 개명 신전 — 「개명 신전 입장권」으로 입장. 닉네임 변경 1회(성공 시 입장권 소모).
+// 서버(/api/v2/me/rename)가 입장권 소유/이름 중복을 권위 검증.
 
 export function V2RenameView({
   mapIid,
@@ -52,8 +52,8 @@ export function V2RenameView({
             ? "이미 사용 중인 이름입니다"
             : j?.error === "same_name"
               ? "지금 이름과 같습니다"
-              : j?.error === "no_map"
-                ? "유효한 「개명의 신전 지도」가 필요합니다"
+            : j?.error === "no_map"
+                ? "유효한 「개명 신전 입장권」이 필요합니다"
                 : j?.error === "invalid"
                   ? "이름은 1~16자입니다"
                   : (j?.error ?? `http ${res.status}`);
@@ -70,7 +70,7 @@ export function V2RenameView({
     <PageShell>
       <SubViewHeader title="개명의 신전" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        새 이름으로 다시 태어납니다 — 지도는 한 번 쓰면 사라집니다.
+        새 이름으로 다시 태어납니다 — 입장권은 한 번 쓰면 사라집니다.
       </p>
 
       <Card padding="md" className="space-y-3">

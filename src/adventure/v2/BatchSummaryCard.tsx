@@ -76,9 +76,13 @@ export function BatchSummaryCard({
   const uniqueItems = summary.droppedUniques
     .map((id) => V2_EQUIPMENT[id])
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const rareMapNames = (summary.rareMapDrops ?? []).map(
-    (k) => RARE_MAP_KINDS[k]?.name ?? k,
-  );
+  const rareMapDrops = summary.rareMapDrops ?? [];
+  const huntRareMapNames = rareMapDrops
+    .filter((k) => RARE_MAP_KINDS[k]?.category === "hunt")
+    .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
+  const utilityMapNames = rareMapDrops
+    .filter((k) => RARE_MAP_KINDS[k]?.category === "utility")
+    .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
 
   // 드랍 배너 — 재료 + 장비 합쳐 한 줄.
   const dropParts: string[] = [];
@@ -94,9 +98,15 @@ export function BatchSummaryCard({
 
   return (
     <Card padding="sm">
-      {rareMapNames.length > 0 && (
+      {huntRareMapNames.length > 0 && (
         <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
-          🗺 {rareMapNames.join(", ")} 발견! — 인벤토리 소모품에서 확인
+          ✨ 희귀 탐사 {huntRareMapNames.join(", ")} 개방! — 전투 탭 &gt;
+          사냥터에서 입장
+        </div>
+      )}
+      {utilityMapNames.length > 0 && (
+        <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+          🎟 {utilityMapNames.join(", ")} 발견! — 가방 소모품에서 사용
         </div>
       )}
       {uniqueItems.length > 0 && (

@@ -46,7 +46,7 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "enhance_high",
   "enhance_destroy",
   // 보스/희귀 사건 — 드물어 도배 위험 없고 서버 전체에 알릴 만한 "사건"이라 전광판에 합류.
-  //   coop_summon/kill=협동 보스, rare_map_drop=레어맵 발견, fishing_big_catch=낚시 대물.
+  //   coop_summon/kill=협동 보스, rare_map_drop=희귀 탐사/입장권 발견, fishing_big_catch=낚시 대물.
   //   ⚠️ unique_drop 은 의도적으로 제외 — 빈도가 높아 전광판 도배(아래 FEED_CATEGORY 주석 참고).
   "coop_summon",
   "coop_kill",
@@ -76,7 +76,7 @@ export const FEED_CATEGORIES = ["acquisition", "enhance", "war", "boss"] as cons
 export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
-  // 획득 — 걸작 제작/레어맵 발견(희귀 사건만 — 유니크 드랍 제외).
+  // 획득 — 걸작 제작/희귀 탐사 발견(희귀 사건만 — 유니크 드랍 제외).
   acquisition: ["masterpiece", "rare_map_drop"],
   // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
@@ -125,7 +125,7 @@ export type FeedPayload =
   // enhance_high — 고강(ENHANCE_FEED_MIN_LEVEL 이상) 강화 성공 / enhance_destroy — 같은 레벨대
   //   파괴(개체 소멸). level = 성공=달성 레벨·파괴=잃은 개체 레벨. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
-  // rare_map_drop — 레어맵 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
+  // rare_map_drop — 희귀 탐사/입장권 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
   // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
   | { kind: string }
   // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.

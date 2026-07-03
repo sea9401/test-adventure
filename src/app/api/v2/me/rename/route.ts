@@ -6,7 +6,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 
-// POST /api/v2/me/rename — 닉네임 변경. 「개명의 신전 지도」(레어맵 utility) 1장 소모.
+// POST /api/v2/me/rename — 닉네임 변경. 「개명 신전 입장권」(utility) 1장 소모.
 //   body: { map: <iid>, name: string }
 // 게임 내 유일한 개명 수단(생성 후 이름은 고정). 검증/쓰기는 /api/profile/setup 의
 // 신규 경로와 동일 규약: legacy savesKv 이름 + users.gameName UNIQUE(23505) 이중 검사,
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   try {
     const result = await db.transaction(async (tx) => {
       const now = Date.now();
-      // 지도 게이트 — character.v2 lock(소모 쓰기까지 동일 락).
+      // 입장권 게이트 — character.v2 lock(소모 쓰기까지 동일 락).
       const charSave = await lockSaveForUpdate<CharSave>(
         tx,
         userId,
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         return { status: 403, body: { ok: false as const, error: "no_map" } };
       }
 
-      // 현재 프로필 — 같은 이름으로의 "변경"은 지도 낭비라 거부.
+      // 현재 프로필 — 같은 이름으로의 "변경"은 입장권 낭비라 거부.
       const profRows = await tx
         .select({ value: savesKv.value })
         .from(savesKv)
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
         throw e;
       }
 
-      // 프로필 + 지도 소모(1회용 — 제거).
+      // 프로필 + 입장권 소모(1회용 — 제거).
       await upsertSave(tx, userId, PROFILE_STORAGE_KEY, {
         ...profile,
         name,

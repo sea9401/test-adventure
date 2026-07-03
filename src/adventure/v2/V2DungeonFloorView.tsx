@@ -712,7 +712,7 @@ export function V2DungeonFloorView({
       </p>
       {rareMapIid && (
         <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
-          🗺 레어맵 사냥 중
+          ✨ 희귀 탐사 진행 중
           {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
           {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
         </div>

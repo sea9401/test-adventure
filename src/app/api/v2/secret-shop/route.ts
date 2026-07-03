@@ -32,8 +32,8 @@ import {
 //   !V2_HUNT_USE_STAMINA (옛 V2_CORE_LOOP_V2 단독 게이트는 스태미나 모드서도 잘못 숨겼음).
 const STAMINA_SHOP_ITEMS = new Set(["stamina_potion", "stamina_cap_tonic"]);
 
-// 비밀 상점 — 「비밀 상점의 지도」 보유자만. 품목당 1회(지도 bought[]), 전 품목
-// 구매 시 지도 소진(runsLeft 0 → parse purge).
+// 비밀 상점 — 「비밀 상점 초대장」 보유자만. 품목당 1회(초대장 bought[]), 전 품목
+// 구매 시 초대장 소진(runsLeft 0 → parse purge).
 //
 // GET  ?map=<iid>            → { ok, stock:[{..., bought}], gold }
 // POST { map, itemId }       → 구매. 골드 차감 + 효과 적용 + bought 마킹.
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 구매 마킹 — 전 품목 구매 시 지도 소진(runsLeft 0 → parse 가 purge).
+    // 구매 마킹 — 전 품목 구매 시 초대장 소진(runsLeft 0 → parse 가 purge).
     //   쿨다운 모드면 스태미나 상품은 구매 불가라 "전 품목"에서 제외(아니면 영영 소진 안 됨).
     const nextBought = [...bought, item.id];
     const buyableStock = SECRET_SHOP_STOCK.filter(

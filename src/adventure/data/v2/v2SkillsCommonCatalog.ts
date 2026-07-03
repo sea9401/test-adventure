@@ -63,6 +63,7 @@ export type V2CommonSkillId =
   | "v2c_monk_palm" // 철포 (받피감 버프 — selfBuffPct·수도승 탱)
   | "v2c_caster_bolt" // 마탄 (마법 단일 강)
   | "v2c_acolyte_smite" // 치유 (자힐 — heal)
+  | "v2c_warder_barrier" // 결계 (보호막)
   | "v2c_assassin_ambush" // 처단 (처형 — executeDamage·LUK 비례)
   | "v2c_archer_volley" // 속박 사격 (딜 + 취약 enemyVuln)
   | "v2c_venomist_toxiccloud" // 독무 (중독 누적 + 중독 스택 비례딜)
@@ -75,6 +76,7 @@ export type V2CommonSkillId =
   | "v2c_monk_spirit" // 강건 II (활력 +20%·수도승)
   | "v2c_caster_acumen" // 총명 II (지능 +20%)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
+  | "v2c_warder_ward" // 결계술 (마법 방어력 + 초반 마법 피해 감소)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
   | "v2c_venomist_corrosion" // 부식 (중독된 적 방어 감소)
@@ -450,6 +452,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 100,
     effects: [{ kind: "heal", pctLostHp: 4, statCoef: 0.35, baseFlatByTier: [30, 30, 30], scaling: "magic" }],
   },
+  v2c_warder_barrier: {
+    id: "v2c_warder_barrier", name: "결계", stat: "int", category: "buff", tier: 2,
+    description: "정신을 둘러 보호막을 세운다.", mpCost: 28, cooldown: 0, procChance: 100,
+    effects: [{ kind: "shield", pctMaxHp: 8, turns: 3 }],
+  },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {
     // 자객 = 행운/크리(dex10/luk10) — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"). LUK 원시스탯이
@@ -545,6 +552,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "치유의 비결. 회복량이 늘어난다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { healPowerPct: 20 },
+  },
+  v2c_warder_ward: {
+    id: "v2c_warder_ward", name: "결계술", stat: "int", category: "passive", tier: 2,
+    description: "마법을 흘려내는 결계를 익힌다. 마법 방어력이 오르고 전투 초반 마법 피해가 줄어든다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: {
+      magicDefPct: 15,
+      openingMagicDamageReductionPct: 10,
+      openingMagicDamageReductionPhases: 3,
+    },
   },
   v2c_assassin_fortune: {
     // 크리 폭발(자객) — 옛 행운%에서 치명 확률로 리스킨.

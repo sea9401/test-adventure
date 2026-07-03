@@ -29,6 +29,22 @@ describe("사제 회복 패시브 (SPI PR-4 — v2c_acolyte_mana 리스킨)", ()
   });
 });
 
+describe("결계사 마법 방어 패시브", () => {
+  it("결계술은 마법 방어력과 초반 마법 피해 감소를 제공한다", () => {
+    const p = V2_SKILLS.v2c_warder_ward?.passive;
+    expect(p).toMatchObject({
+      magicDefPct: 15,
+      openingMagicDamageReductionPct: 10,
+      openingMagicDamageReductionPhases: 3,
+    });
+    expect(aggregateEquippedPassives(["v2c_warder_ward"])).toMatchObject({
+      magicDefPct: 15,
+      openingMagicDamageReductionPct: 10,
+      openingMagicDamageReductionPhases: 3,
+    });
+  });
+});
+
 describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 시너지)", () => {
   it("v2c_guardian_bulwark3 = 방어 20%(받피감→방어% 전환)", () => {
     expect(V2_SKILLS.v2c_guardian_bulwark3?.passive?.defPct).toBe(20);

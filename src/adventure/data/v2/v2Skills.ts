@@ -82,6 +82,12 @@ export type V2PassiveSkillEffect = {
   //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
   /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
   damageTakenReductionPct?: number;
+  /** 마법 방어력 +% 가산(결계술) — magicDef 에 곱연산. */
+  magicDefPct?: number;
+  /** 전투 초반 마법형 평타 받는 피해 -% 가산(결계술). */
+  openingMagicDamageReductionPct?: number;
+  /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
+  openingMagicDamageReductionPhases?: number;
   // ── 원소 통달(원소술사) — 속성 상성 양방향 강화. 유리 시 추가 딜·불리(받을 때) 추가 감소.
   //   derive 가 player.elementAdvPctBonus/DisPctBonus 로 합산 → cast 의 elementAdvPct/disPct 에 가산.
   /** 속성 유리 배수 +%p 가산(원소 통달) — V2_ELEMENT_ADV_PCT 에 더해 전달. */
@@ -455,6 +461,8 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.accuracyPct ?? 0) / 12;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
+    mag += (p.magicDefPct ?? 0) / 12;
+    mag += (p.openingMagicDamageReductionPct ?? 0) / 10;
     mag += (p.elementAdvPctBonus ?? 0) / 15;
     mag += (p.elementDisPctBonus ?? 0) / 20;
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
@@ -537,6 +545,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
+  magicDefPct: number;
+  openingMagicDamageReductionPct: number;
+  openingMagicDamageReductionPhases: number;
   elementAdvPctBonus: number;
   elementDisPctBonus: number;
   poisonedEnemyDefReductionPct: number;
@@ -561,6 +572,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
+  let magicDefPct = 0;
+  let openingMagicDamageReductionPct = 0;
+  let openingMagicDamageReductionPhases = 0;
   let elementAdvPctBonus = 0;
   let elementDisPctBonus = 0;
   let poisonedEnemyDefReductionPct = 0;
@@ -594,6 +608,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
+    magicDefPct += p.magicDefPct ?? 0;
+    openingMagicDamageReductionPct += p.openingMagicDamageReductionPct ?? 0;
+    openingMagicDamageReductionPhases = Math.max(
+      openingMagicDamageReductionPhases,
+      p.openingMagicDamageReductionPhases ?? 0,
+    );
     elementAdvPctBonus += p.elementAdvPctBonus ?? 0;
     elementDisPctBonus += p.elementDisPctBonus ?? 0;
     poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
@@ -619,6 +639,9 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
+    magicDefPct,
+    openingMagicDamageReductionPct,
+    openingMagicDamageReductionPhases,
     elementAdvPctBonus,
     elementDisPctBonus,
     poisonedEnemyDefReductionPct,
@@ -794,6 +817,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
+  if (p.magicDefPct) chips.push(`마법 방어력 +${p.magicDefPct}%`);
+  if (p.openingMagicDamageReductionPct)
+    chips.push(
+      `전투 초반 ${p.openingMagicDamageReductionPhases ?? 3}회 마법 피해 -${p.openingMagicDamageReductionPct}%`,
+    );
   // 원소 통달(원소술사) — 속성 상성 양방향 강화. 누락 시 로드아웃/학습 화면에 칩이 안 떴음.
   if (p.elementAdvPctBonus)
     chips.push(`속성 유리 피해 +${p.elementAdvPctBonus}%`);
@@ -837,7 +865,7 @@ export const MP_BASE_PCT = 0.07;
 const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
-  "mage", "caster", "acolyte", "magus", "bishop", "sage", "elementalist", "archbishop",
+  "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([

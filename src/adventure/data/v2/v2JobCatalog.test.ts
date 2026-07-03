@@ -42,7 +42,7 @@ const LEGACY_CLASSES = [...BASE_JOBS, "survivor"];
 const TIER2_BY_PARENT: Record<string, string[]> = {
   warrior: ["shieldman", "squire"],
   martial: ["boxer", "monk"],
-  mage: ["caster", "acolyte"],
+  mage: ["caster", "acolyte", "warder"],
   rogue: ["assassin", "archer", "venomist"],
   survivor: ["camper", "ironman", "fisher", "healthtrainer"],
 };
@@ -131,12 +131,12 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("78개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 14 + 6차 6)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(78);
+  it("79개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 14 + 6차 6)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(79);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(13);
+    expect(byTier(2)).toBe(14);
     expect(byTier(3)).toBe(19);
     expect(byTier(4)).toBe(20);
     expect(byTier(5)).toBe(14);
@@ -669,6 +669,7 @@ describe("jobDisplayName (직업 시스템 — 무조건화)", () => {
   it("직업 카탈로그 이름(견습 X·상위), 미인식 직군은 모험가 폴백", () => {
     expect(jobDisplayName("warrior", null)).toBe("견습 병사");
     expect(jobDisplayName("mage", "knight")).toBe("견습 마법사"); // spec 미매칭 → 부모 직업
+    expect(jobDisplayName("mage", "warder")).toBe("결계사");
     expect(jobDisplayName("warrior", "knight")).toBe("방패병"); // 상위 직업 반영
     expect(jobDisplayName("none", null)).toBe("모험가");
     expect(jobDisplayName("bogus" as never, null)).toBe("모험가");

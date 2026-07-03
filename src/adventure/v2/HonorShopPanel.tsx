@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 
 // 명예상점 — 정착지 전쟁 개인 화폐(명예) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
 //   수비 전투 승리·길드 골드 입금으로 모은 명예로 구매. V2GuildHome "명예상점" 탭에서 렌더(flag on).
@@ -9,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 type Item = { id: string; name: string; cost: number };
 
 export default function HonorShopPanel() {
+  const { applyResourcePatch } = useGameState();
   const [honor, setHonor] = useState<number | null>(null);
   const [honorEarned, setHonorEarned] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -45,12 +47,21 @@ export default function HonorShopPanel() {
           body: JSON.stringify({ itemId }),
         });
         const j = (await r.json().catch(() => null)) as
-          | { ok: true; honor: number; honorEarned: number; granted: string }
+          | {
+              ok: true;
+              honor: number;
+              honorEarned: number;
+              granted: string;
+              staminaPotions?: number;
+            }
           | { ok: false; error: string }
           | null;
         if (j?.ok) {
           setHonor(j.honor);
           setHonorEarned(j.honorEarned ?? j.honor);
+          if (typeof j.staminaPotions === "number") {
+            applyResourcePatch({ staminaPotions: j.staminaPotions });
+          }
           setMsg("✓ 구매 완료 — 스태미나 회복약 +1");
         } else {
           setMsg(
@@ -63,7 +74,7 @@ export default function HonorShopPanel() {
         setBusy(false);
       }
     },
-    [],
+    [applyResourcePatch],
   );
 
   return (

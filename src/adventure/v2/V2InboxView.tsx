@@ -195,7 +195,7 @@ type Tab = "inbox" | "history" | "sent";
 
 export function V2InboxView({ onBack }: { onBack: () => void }) {
   // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
-  const { refreshGuildId } = useGameState();
+  const { applyResourcePatch, refreshGuildId } = useGameState();
   const { notifyReward } = useRewardToast();
   const [tab, setTab] = useState<Tab>("inbox");
   const [items, setItems] = useState<InboxItem[] | null>(null);
@@ -279,6 +279,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           goldAdded?: number;
           coinsAdded?: { season: string; coins: number }[];
           staminaPotionsAdded?: number;
+          staminaPotions?: number | null;
           itemsAdded?: { quantity: number }[];
           equipV2Added?: { count: number }[];
           materialsV2Added?: { count: number }[];
@@ -307,6 +308,9 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         }
         if ((j.staminaPotionsAdded ?? 0) > 0) {
           parts.push(`+스태미나 회복약 ${j.staminaPotionsAdded}개`);
+        }
+        if (typeof j.staminaPotions === "number") {
+          applyResourcePatch({ staminaPotions: j.staminaPotions });
         }
         // 재료/장비(운영자 우편·길드 보상 등) — 총 수량으로 요약.
         const itemQty = (j.itemsAdded ?? []).reduce(
@@ -337,7 +341,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         setBusy(false);
       }
     },
-    [busy, load, notifyReward],
+    [applyResourcePatch, busy, load, notifyReward],
   );
 
   const respondInvite = useCallback(

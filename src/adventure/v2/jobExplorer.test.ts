@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   JOB_TAG_FILTERS,
+  isJobVisibleInShrine,
   jobTags,
   matchesJobExplorerFilters,
   type JobExplorerJob,
@@ -76,6 +77,28 @@ describe("jobExplorer tags", () => {
   it("jobTags does not emit removed tier or hybrid labels", () => {
     expect(jobTags(job("templar", { tier: 3 }))).not.toEqual(
       expect.arrayContaining(["고차", "심화", "최종", "초월", "복합"]),
+    );
+  });
+
+  it("growth shrine hides locked jobs until their unlock condition is revealed", () => {
+    expect(
+      isJobVisibleInShrine(
+        job("hidden-master", {
+          unlocked: false,
+          conditionRevealed: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isJobVisibleInShrine(
+        job("revealed-master", {
+          unlocked: false,
+          conditionRevealed: true,
+        }),
+      ),
+    ).toBe(true);
+    expect(isJobVisibleInShrine(job("warrior", { unlocked: true }))).toBe(
+      true,
     );
   });
 });

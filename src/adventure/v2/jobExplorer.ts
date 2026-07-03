@@ -21,6 +21,12 @@ export type JobExplorerContext = {
   currentJobId?: string | null;
 };
 
+export function isJobVisibleInShrine(
+  job: Pick<JobExplorerJob, "unlocked" | "conditionRevealed">,
+): boolean {
+  return job.unlocked !== false || job.conditionRevealed !== false;
+}
+
 export type JobTagFilter = {
   key: string;
   label: string;

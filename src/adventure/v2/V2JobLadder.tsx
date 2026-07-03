@@ -13,12 +13,13 @@ import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import {
   JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
+  isJobVisibleInShrine,
   jobTags,
   matchesJobExplorerFilters,
 } from "./jobExplorer";
 
 // 직업 시스템 v2 전직 화면(직업 숙련도 점진 공개).
-// 전체 직업을 검색/태그/목표로 탐색하고, 해금된 직업과 조건 부족 직업을 현재 캐릭터 기준으로 나눈다.
+// 조건이 공개된 직업을 검색/태그/목표로 탐색하고, 해금된 직업과 조건 부족 직업을 현재 캐릭터 기준으로 나눈다.
 // 스킬·패시브는 스킬 화면에서 학습·장착(여긴 직업명+해금조건만).
 
 export type JobLadderEntry = {
@@ -26,8 +27,10 @@ export type JobLadderEntry = {
   name: string;
   // 카탈로그 계층(정렬/디버그용). 전직 화면은 차수 UI 대신 직업명·조건·숙련도를 보여준다.
   tier: number;
-  // 해금 조건 충족 여부. 잠긴 직업도 조건/목표 표시를 위해 목록에 포함된다.
+  // 해금 조건 충족 여부. 해금 조건이 공개된 잠긴 직업만 조건/목표 표시를 위해 목록에 포함된다.
   unlocked?: boolean;
+  // 해금 조건 공개 여부. false인 잠긴 직업은 성장의 신전 목록에서 숨긴다.
+  conditionRevealed?: boolean;
   // 해금 조건(공유용 표기). 예: "Lv 100 달성" / "견습 병사 숙련도 100".
   condition: string;
   // 이 직업에 쌓은 숙련도(직업별/직군). 직업별 진행도 확인용.
@@ -82,12 +85,16 @@ export function V2JobLadder({
     }
   };
 
+  const visibleJobs = useMemo(
+    () => jobs.filter(isJobVisibleInShrine),
+    [jobs],
+  );
   const filteredJobs = useMemo(
     () =>
-      jobs.filter((job) =>
+      visibleJobs.filter((job) =>
         matchesJobExplorerFilters(job, query, activeTags, { currentJobId }),
       ),
-    [activeTags, currentJobId, jobs, query],
+    [activeTags, currentJobId, query, visibleJobs],
   );
   const goalJobs = filteredJobs.filter((job) => job.id === goalJobId);
   const currentJobs = filteredJobs.filter(
@@ -175,12 +182,12 @@ export function V2JobLadder({
         </p>
       </Card>
 
-      {/* 전직 가능 직업 — 검색/태그/목표 기반 탐색. 잠긴 직업도 조건 확인용으로 표시. */}
+      {/* 전직 가능 직업 — 검색/태그/목표 기반 탐색. 해금 조건이 공개된 직업만 표시. */}
       <Card padding="md" className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">직업 찾기</h3>
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            {filteredJobs.length}/{jobs.length}
+            {filteredJobs.length}/{visibleJobs.length}
           </span>
         </div>
         <div className="relative">
@@ -225,7 +232,7 @@ export function V2JobLadder({
           })}
         </div>
 
-        {jobs.length === 0 ? (
+        {visibleJobs.length === 0 ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {atLevelCap
               ? "아직 해금된 전직 후보가 없어요. 사냥으로 직업 숙련도를 더 쌓아 보세요."
@@ -467,9 +474,11 @@ function JobRow({
             직업 보너스 · {job.bonus}
           </span>
         )}
-        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          해금 조건 · {job.condition}
-        </span>
+        {job.conditionRevealed !== false && (
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            해금 조건 · {job.condition}
+          </span>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <button

@@ -5,7 +5,7 @@ import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 
 // 직업 사다리(전직 화면) 프리뷰 — 로그인 없이 V2JobLadder 렌더 확인. (prod 404 = /dev layout 가드.)
 // 코어루프 운영에서 V2CultivationView 가 /api/v2/me/state 의 jobsV2 로 넘기는 모양과 동일한 mock.
-// 잠긴 직업은 목록에서 숨김(해금된 것만) + 직업 옆 "해금 조건" 표기 — 핵심 UX 두 가지를 점검.
+// 조건 미공개 직업은 목록에서 숨김 + 직업 옆 "해금 조건" 표기 — 핵심 UX 두 가지를 점검.
 // ⚠️ 전직 버튼은 실제 /api/v2/me/advance-class 를 호출 → 로그인 없는 여기선 동작 안 함(렌더 확인용).
 
 const noop = async () => {};
@@ -21,6 +21,7 @@ const BASE_JOBS: JobLadderEntry[] = [
 const WARRIOR_UPPER: JobLadderEntry[] = [
   { id: "shieldman", name: "방패병", tier: 2, condition: "견습 병사 숙련도 900", bonus: "활력 +12 · 힘 +6", skillsCollected: true },
   { id: "squire", name: "견습 기사", tier: 2, condition: "견습 병사 숙련도 900", bonus: "힘 +12 · 민첩 +5" },
+  { id: "knight", name: "기사", tier: 3, unlocked: false, conditionRevealed: false, condition: "조건 미공개", bonus: "힘 +18 · 활력 +8" },
 ];
 
 function Scenario({
@@ -52,7 +53,7 @@ export default function DevJobLadderPage() {
     <div className="mx-auto max-w-md space-y-6 p-4">
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
         <strong>직업 사다리 프리뷰</strong> — 코어루프 전직 화면(V2JobLadder) 렌더 확인.
-        잠긴 직업 숨김 + 해금 조건 표기 점검용. 전직 버튼은 실제 API 호출이라 여기선 작동 안 함.
+        조건 미공개 직업 숨김 + 해금 조건 표기 점검용. 전직 버튼은 실제 API 호출이라 여기선 작동 안 함.
       </div>
 
       <Scenario

@@ -47,6 +47,11 @@ import {
 } from "./V2ItemCard";
 import { FishIcon } from "@/adventure/v2/FishIcon";
 import {
+  FISHING_CODEX_SP_MILESTONES,
+  fishCodexSpBonusForCount,
+  nextFishCodexMilestone,
+} from "@/adventure/v2/fishingCodex";
+import {
   FISH,
   FISH_IDS,
   FISH_TIERS,
@@ -112,6 +117,20 @@ const TIER_BADGE: Record<FishTier, string> = {
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
 const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
+
+type FishingCodexMeta = {
+  total: number;
+  spBonus: number;
+  milestones: number[];
+  nextMilestone: number | null;
+};
+
+const defaultFishingCodexMeta = (discoveredCount = 0): FishingCodexMeta => ({
+  total: FISH_IDS.length,
+  spBonus: fishCodexSpBonusForCount(discoveredCount),
+  milestones: [...FISHING_CODEX_SP_MILESTONES],
+  nextMilestone: nextFishCodexMilestone(discoveredCount),
+});
 
 type CodexTab =
   | "huntground"
@@ -194,6 +213,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
   const [fishDiscovered, setFishDiscovered] = useState<Set<string>>(new Set());
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
+  const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
+    () => defaultFishingCodexMeta(),
+  );
   const [antiqueDiscovered, setAntiqueDiscovered] = useState<Set<string>>(new Set());
   const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
@@ -215,9 +237,35 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           setDiscovered(new Set(j.codex.discoveredIds as string[]));
         }
         // 어보 진척은 PR-2 에서 라우트가 채운다. 없으면 빈 상태(전종 미발견).
+        let fishingDiscoveredCount = 0;
         if (Array.isArray(j?.fishingCodex?.discoveredIds)) {
-          setFishDiscovered(new Set(j.fishingCodex.discoveredIds as string[]));
+          const ids = j.fishingCodex.discoveredIds as string[];
+          fishingDiscoveredCount = ids.length;
+          setFishDiscovered(new Set(ids));
         }
+        const fallbackFishingMeta =
+          defaultFishingCodexMeta(fishingDiscoveredCount);
+        const fishingMilestones = Array.isArray(j?.fishingCodex?.milestones)
+          ? j.fishingCodex.milestones.filter(
+              (n: unknown): n is number => typeof n === "number",
+            )
+          : fallbackFishingMeta.milestones;
+        setFishingCodexMeta({
+          total:
+            typeof j?.fishingCodex?.total === "number"
+              ? j.fishingCodex.total
+              : fallbackFishingMeta.total,
+          spBonus:
+            typeof j?.fishingCodex?.spBonus === "number"
+              ? j.fishingCodex.spBonus
+              : fallbackFishingMeta.spBonus,
+          milestones: fishingMilestones,
+          nextMilestone:
+            typeof j?.fishingCodex?.nextMilestone === "number" ||
+            j?.fishingCodex?.nextMilestone === null
+              ? j.fishingCodex.nextMilestone
+              : fallbackFishingMeta.nextMilestone,
+        });
         if (j?.fishingCodex?.best && typeof j.fishingCodex.best === "object") {
           setFishBest(j.fishingCodex.best as Record<string, number>);
         }
@@ -293,6 +341,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     (sum, tier) => sum + (spFruitUsed[tier] ?? 0),
     0,
   );
+  const fishDiscoveredCount = fishDiscovered.size;
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
@@ -650,14 +699,49 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       )}
       {tab === "fish" && (
         <div className="space-y-3">
+          <Card padding="md">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold">어보</h2>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  발견 {fishDiscoveredCount} / {fishingCodexMeta.total}종 · SP +
+                  {fishingCodexMeta.spBonus}
+                </p>
+              </div>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                다음 보상{" "}
+                {fishingCodexMeta.nextMilestone
+                  ? `${fishingCodexMeta.nextMilestone}종`
+                  : "신규 어종 추가 시 확장"}
+              </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-sky-500 transition-[width]"
+                style={{
+                  width: `${
+                    fishingCodexMeta.total > 0
+                      ? Math.min(
+                          100,
+                          (fishDiscoveredCount / fishingCodexMeta.total) * 100,
+                        )
+                      : 0
+                  }%`,
+                }}
+              />
+            </div>
+            {fishingCodexMeta.milestones.length > 0 && (
+              <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                SP 보상: {fishingCodexMeta.milestones.join(" / ")}종
+              </p>
+            )}
+          </Card>
           {FISH_TIER_ORDER.map((tier) => {
             const meta = FISH_TIERS[tier];
             const species = FISH_IDS.filter((id) => FISH[id].tier === tier);
             const discoveredCount = species.filter((id) =>
               fishDiscovered.has(id),
             ).length;
-            const complete =
-              species.length > 0 && discoveredCount === species.length;
             return (
               <Card key={tier} padding="none" className="overflow-hidden">
                 <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
@@ -669,15 +753,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                     <span>
                       {discoveredCount}/{species.length}
-                    </span>
-                    <span
-                      className={
-                        complete
-                          ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                          : ""
-                      }
-                    >
-                      {complete ? "SP +1 획득" : "완성 시 SP +1"}
                     </span>
                     <span>1등 보상 {meta.recordCoins.rank1}코인</span>
                   </div>

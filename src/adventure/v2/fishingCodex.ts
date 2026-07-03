@@ -16,6 +16,9 @@ import {
 
 export const FISHING_CODEX_KEY = "fishing-codex.v1";
 
+// 신규 어종이 추가되면 여기에 다음 단계만 이어 붙인다. 기존 보상은 회수하지 않는다.
+export const FISHING_CODEX_SP_MILESTONES = [10, 20, 30, 40, 46] as const;
+
 export type FishCodexEntry = {
   /** 한 번이라도 잡음. */
   discovered: boolean;
@@ -148,6 +151,7 @@ export type FishTierCompletion = {
   discovered: number;
   total: number;
   complete: boolean;
+  /** Legacy field. 낚시 도감 SP 는 이제 발견 수 마일스톤 기준이다. */
   sp: number;
 };
 
@@ -163,11 +167,19 @@ export function fishTierCompletions(codex: FishCodex): FishTierCompletion[] {
       discovered: count,
       total: ids.length,
       complete,
-      sp: complete ? 1 : 0,
+      sp: 0,
     };
   });
 }
 
+export function fishCodexSpBonusForCount(count: number): number {
+  return FISHING_CODEX_SP_MILESTONES.filter((need) => count >= need).length;
+}
+
+export function nextFishCodexMilestone(count: number): number | null {
+  return FISHING_CODEX_SP_MILESTONES.find((need) => count < need) ?? null;
+}
+
 export function fishCodexSpBonus(codex: FishCodex): number {
-  return fishTierCompletions(codex).reduce((sum, t) => sum + t.sp, 0);
+  return fishCodexSpBonusForCount(countDiscoveredFish(codex));
 }

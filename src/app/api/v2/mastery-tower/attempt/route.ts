@@ -8,6 +8,7 @@ import {
   MASTERY_TOWER_SAVE_KEY,
   clearMasteryTowerFloor,
   kstDateKey,
+  masteryTowerAttemptLog,
   masteryTowerClaimPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
@@ -45,6 +46,7 @@ export async function POST() {
     let tower = parseMasteryTowerState(raw, kstDateKey());
     const floor = tower.todayBestFloor + 1;
     if (floor > MASTERY_TOWER_MAX_FLOOR) {
+      const claimPreview = masteryTowerClaimPreview(tower);
       return {
         status: 200,
         body: {
@@ -55,7 +57,15 @@ export async function POST() {
           power,
           floor: null,
           requiredPower: null,
-          claimPreview: masteryTowerClaimPreview(tower),
+          claimPreview,
+          log: masteryTowerAttemptLog({
+            floor: null,
+            power,
+            requiredPower: null,
+            success: false,
+            tower,
+            claimPreview,
+          }),
         },
       };
     }
@@ -66,6 +76,7 @@ export async function POST() {
       tower = clearMasteryTowerFloor(tower, floor);
       await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
     }
+    const claimPreview = masteryTowerClaimPreview(tower);
 
     return {
       status: 200,
@@ -76,7 +87,15 @@ export async function POST() {
         power,
         floor,
         requiredPower,
-        claimPreview: masteryTowerClaimPreview(tower),
+        claimPreview,
+        log: masteryTowerAttemptLog({
+          floor,
+          power,
+          requiredPower,
+          success,
+          tower,
+          claimPreview,
+        }),
       },
     };
   });

@@ -22,6 +22,11 @@ type TowerJob = {
   mastery: number;
 };
 
+type TowerLogEntry = {
+  kind: "info" | "player" | "enemy" | "success" | "fail" | "reward";
+  text: string;
+};
+
 type TowerStatus = {
   ok?: boolean;
   error?: string;
@@ -56,6 +61,7 @@ export function V2MasteryTowerView({
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
+  const [lastAttemptLog, setLastAttemptLog] = useState<TowerLogEntry[]>([]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -102,11 +108,13 @@ export function V2MasteryTowerView({
         floor?: number | null;
         requiredPower?: number | null;
         power?: number;
+        log?: TowerLogEntry[];
       } | null;
       if (!j?.ok) {
         setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
+      setLastAttemptLog(j.log ?? []);
       if (j.success) {
         setMsg(`✓ ${j.floor}층 돌파`);
       } else if (j.error === "max_floor") {
@@ -289,6 +297,25 @@ export function V2MasteryTowerView({
         )}
       </Card>
 
+      {lastAttemptLog.length > 0 && (
+        <Card padding="md" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <CastleTurret size={18} weight="duotone" className="text-emerald-500" />
+            <h2 className="text-base font-semibold">최근 도전 로그</h2>
+          </div>
+          <ol className="space-y-1.5">
+            {lastAttemptLog.map((entry, index) => (
+              <li
+                key={`${entry.kind}-${index}`}
+                className={`rounded-md border px-3 py-2 text-sm ${logEntryClass(entry.kind)}`}
+              >
+                {entry.text}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+
       {status && (
         <Card padding="md" className="space-y-3">
           <div className="flex items-center gap-2">
@@ -358,6 +385,22 @@ export function V2MasteryTowerView({
       )}
     </main>
   );
+}
+
+function logEntryClass(kind: TowerLogEntry["kind"]): string {
+  if (kind === "success" || kind === "reward") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200";
+  }
+  if (kind === "fail") {
+    return "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200";
+  }
+  if (kind === "player") {
+    return "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200";
+  }
+  if (kind === "enemy") {
+    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200";
+  }
+  return "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

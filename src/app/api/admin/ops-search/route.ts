@@ -1,0 +1,141 @@
+import { desc, eq, ilike, or } from "drizzle-orm";
+import { db } from "@/db";
+import { abuseEvents, adminAuditLog, economyEvents, users } from "@/db/schema";
+import { requireAdmin } from "@/lib/server/isAdmin";
+
+export async function GET(req: Request) {
+  const gate = await requireAdmin();
+  if (gate) return gate;
+
+  const sp = new URL(req.url).searchParams;
+  const q = sp.get("q")?.trim() ?? "";
+  const limit = Math.min(Math.max(Number(sp.get("limit")) || 60, 1), 200);
+  if (q.length < 2) {
+    return Response.json({ ok: true, entries: [] });
+  }
+
+  const numericId = Number(q);
+  const eventId = Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+  const pattern = `%${q}%`;
+  const perLogLimit = Math.max(10, Math.ceil(limit / 2));
+
+  const [abuseRows, economyRows, auditRows] = await Promise.all([
+    db
+      .select({
+        id: abuseEvents.id,
+        userId: abuseEvents.userId,
+        gameName: users.gameName,
+        ip: abuseEvents.ip,
+        action: abuseEvents.action,
+        reason: abuseEvents.reason,
+        detail: abuseEvents.detail,
+        createdAt: abuseEvents.createdAt,
+      })
+      .from(abuseEvents)
+      .leftJoin(users, eq(users.id, abuseEvents.userId))
+      .where(
+        or(
+          eventId ? eq(abuseEvents.id, eventId) : undefined,
+          ilike(abuseEvents.action, pattern),
+          ilike(abuseEvents.reason, pattern),
+          ilike(abuseEvents.ip, pattern),
+          ilike(abuseEvents.userId, pattern),
+          ilike(users.gameName, pattern),
+        ),
+      )
+      .orderBy(desc(abuseEvents.id))
+      .limit(perLogLimit),
+    db
+      .select({
+        id: economyEvents.id,
+        userId: economyEvents.userId,
+        gameName: users.gameName,
+        eventType: economyEvents.eventType,
+        itemKind: economyEvents.itemKind,
+        itemId: economyEvents.itemId,
+        quantity: economyEvents.quantity,
+        detail: economyEvents.detail,
+        createdAt: economyEvents.createdAt,
+      })
+      .from(economyEvents)
+      .leftJoin(users, eq(users.id, economyEvents.userId))
+      .where(
+        or(
+          eventId ? eq(economyEvents.id, eventId) : undefined,
+          ilike(economyEvents.eventType, pattern),
+          ilike(economyEvents.itemKind, pattern),
+          ilike(economyEvents.itemId, pattern),
+          ilike(economyEvents.userId, pattern),
+          ilike(users.gameName, pattern),
+        ),
+      )
+      .orderBy(desc(economyEvents.id))
+      .limit(perLogLimit),
+    db
+      .select({
+        id: adminAuditLog.id,
+        adminEmail: adminAuditLog.adminEmail,
+        action: adminAuditLog.action,
+        targetUserId: adminAuditLog.targetUserId,
+        gameName: users.gameName,
+        detail: adminAuditLog.detail,
+        createdAt: adminAuditLog.createdAt,
+      })
+      .from(adminAuditLog)
+      .leftJoin(users, eq(users.id, adminAuditLog.targetUserId))
+      .where(
+        or(
+          eventId ? eq(adminAuditLog.id, eventId) : undefined,
+          ilike(adminAuditLog.adminEmail, pattern),
+          ilike(adminAuditLog.action, pattern),
+          ilike(adminAuditLog.targetUserId, pattern),
+          ilike(users.gameName, pattern),
+        ),
+      )
+      .orderBy(desc(adminAuditLog.id))
+      .limit(perLogLimit),
+  ]);
+
+  const entries = [
+    ...abuseRows.map((row) => ({
+      id: `abuse:${row.id}`,
+      log: "abuse" as const,
+      eventId: row.id,
+      userId: row.userId,
+      gameName: row.gameName,
+      title: row.action,
+      subtitle: row.reason,
+      detail: row.detail,
+      createdAt: row.createdAt.toISOString(),
+      href: `/admin?tab=abuse&${row.userId ? `userId=${encodeURIComponent(row.userId)}` : `ip=${encodeURIComponent(row.ip ?? "")}`}`,
+    })),
+    ...economyRows.map((row) => ({
+      id: `economy:${row.id}`,
+      log: "economy" as const,
+      eventId: row.id,
+      userId: row.userId,
+      gameName: row.gameName,
+      title: row.eventType,
+      subtitle: [row.itemKind, row.itemId, row.quantity ?? null].filter(Boolean).join(" · "),
+      detail: row.detail,
+      createdAt: row.createdAt.toISOString(),
+      href: `/admin?tab=economy&eventType=${encodeURIComponent(row.eventType)}`,
+    })),
+    ...auditRows.map((row) => ({
+      id: `audit:${row.id}`,
+      log: "audit" as const,
+      eventId: row.id,
+      userId: row.targetUserId,
+      gameName: row.gameName,
+      title: row.action,
+      subtitle: row.adminEmail,
+      detail: row.detail,
+      createdAt: row.createdAt.toISOString(),
+      href: `/admin?tab=audit&action=${encodeURIComponent(row.action)}`,
+    })),
+  ]
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, limit);
+
+  return Response.json({ ok: true, entries });
+}

@@ -15,6 +15,7 @@ import { AuditLogTab } from "./tabs/AuditLogTab";
 import { BroadcastTab } from "./tabs/BroadcastTab";
 import { FeedbackTab } from "./tabs/FeedbackTab";
 import { OpsManualTab } from "./tabs/OpsManualTab";
+import { OpsSearchTab } from "./tabs/OpsSearchTab";
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
@@ -27,6 +28,7 @@ type TabKey =
   | "season"
   | "abuse"
   | "economy"
+  | "opsSearch"
   | "broadcast"
   | "feedback"
   | "opsManual"
@@ -43,6 +45,7 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "season", label: "시즌", group: "ops" },
   { key: "abuse", label: "이상 행동", group: "ops" },
   { key: "economy", label: "경제 로그", group: "ops" },
+  { key: "opsSearch", label: "통합 검색", group: "ops" },
   { key: "broadcast", label: "공지·우편", group: "ops" },
   { key: "feedback", label: "건의사항", group: "ops" },
   { key: "opsManual", label: "운영 매뉴얼", group: "ops" },
@@ -71,7 +74,7 @@ function ShellInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = tabFromParam(searchParams.get("tab"));
-  const { readOnly, setReadOnly, toast } = useAdmin();
+  const { readOnly, setReadOnly, toast, adminMe, loadingAdminMe } = useAdmin();
   const groups = groupTabs(TABS);
   const openTab = (next: TabKey) => {
     const sp = new URLSearchParams(searchParams.toString());
@@ -92,7 +95,7 @@ function ShellInner() {
             </Link>
             <h1 className="text-base font-semibold">관리자 도구</h1>
             <span className="rounded bg-zinc-200 px-2 py-0.5 font-mono text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              dev
+              {loadingAdminMe ? "loading" : roleLabel(adminMe?.role ?? null)}
             </span>
           </div>
           <label className="inline-flex items-center gap-2 text-sm">
@@ -111,6 +114,14 @@ function ShellInner() {
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           ⚠️ 이 페이지는 게임 진행 상태를 직접 변경합니다. 변경 후 게임 라우트는
           새로고침이 필요할 수 있습니다.
+          {adminMe ? (
+            <span className="mt-1 block text-xs">
+              현재 계정 {adminMe.email} · 가능 작업 {capabilityLabel(adminMe.capabilities)}
+              {" · "}권한 설정 super {adminMe.roleConfig.super}, reward{" "}
+              {adminMe.roleConfig.reward}, sanction {adminMe.roleConfig.sanction},
+              readonly {adminMe.roleConfig.readonly}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -171,6 +182,7 @@ function ShellInner() {
           {tab === "season" && <SeasonOpsTab />}
           {tab === "abuse" && <AbuseLogTab />}
           {tab === "economy" && <EconomyLogTab />}
+          {tab === "opsSearch" && <OpsSearchTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}
           {tab === "opsManual" && <OpsManualTab />}
@@ -189,6 +201,27 @@ function ShellInner() {
 
 function tabFromParam(raw: string | null): TabKey {
   return TABS.some((tab) => tab.key === raw) ? (raw as TabKey) : "users";
+}
+
+function roleLabel(role: string | null) {
+  if (role === "super") return "super";
+  if (role === "reward") return "reward";
+  if (role === "sanction") return "sanction";
+  if (role === "readonly") return "readonly";
+  return "no-role";
+}
+
+function capabilityLabel(capabilities: {
+  reward: boolean;
+  sanction: boolean;
+  super: boolean;
+}) {
+  const labels = [
+    capabilities.super ? "전체" : null,
+    capabilities.reward ? "보상" : null,
+    capabilities.sanction ? "제재" : null,
+  ].filter(Boolean);
+  return labels.length > 0 ? labels.join(", ") : "조회";
 }
 
 export function AdminShell() {

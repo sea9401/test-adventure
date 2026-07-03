@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
 import { useAsyncData } from "@/lib/useAsyncData";
@@ -20,9 +21,12 @@ type Entry = {
 // 관리자 감사 로그 — 모든 admin 변경 행동의 최신순 기록(읽기 전용).
 export function AuditLogTab() {
   const { showToast } = useAdmin();
-  const [adminEmail, setAdminEmail] = useState("");
-  const [action, setAction] = useState("");
-  const [targetUserId, setTargetUserId] = useState("");
+  const searchParams = useSearchParams();
+  const [adminEmail, setAdminEmail] = useState(searchParams.get("adminEmail") ?? "");
+  const [action, setAction] = useState(searchParams.get("action") ?? "");
+  const [targetUserId, setTargetUserId] = useState(
+    searchParams.get("targetUserId") ?? "",
+  );
   const [since, setSince] = useState("");
   const [until, setUntil] = useState("");
 

@@ -67,7 +67,13 @@ export async function POST(req: Request) {
   if (gate) return gate;
   const adminEmail = await currentAdminEmail();
 
-  let body: { userId?: unknown; action?: unknown; reason?: unknown; days?: unknown };
+  let body: {
+    userId?: unknown;
+    action?: unknown;
+    reason?: unknown;
+    adminMemo?: unknown;
+    days?: unknown;
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -77,6 +83,8 @@ export async function POST(req: Request) {
   const userId = typeof body.userId === "string" ? body.userId : "";
   const action = body.action;
   const reason = typeof body.reason === "string" ? body.reason.slice(0, 500) : "";
+  const adminMemo =
+    typeof body.adminMemo === "string" ? body.adminMemo.slice(0, 500) : "";
   const days = typeof body.days === "number" ? body.days : 0;
 
   if (!userId || !isAction(action)) {
@@ -169,6 +177,7 @@ export async function POST(req: Request) {
     detail: {
       gameName: target.gameName,
       reason,
+      adminMemo,
       ...(action === "suspend" || action === "extend" ? { days } : {}),
     },
   });

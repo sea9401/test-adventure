@@ -2,6 +2,10 @@ import { desc, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents } from "@/db/schema";
 import { requireAdmin } from "@/lib/server/isAdmin";
+import {
+  readAlertThresholdSettings,
+  readOpsAlertHistory,
+} from "@/lib/server/opsSettings";
 
 const HOUR_MS = 60 * 60 * 1000;
 const FIVE_MIN_MS = 5 * 60 * 1000;
@@ -15,7 +19,13 @@ export async function GET(req: Request) {
   const now = Date.now();
   const since = new Date(now - hours * HOUR_MS);
 
-  const [abuseRows, economyRows, auditRows] = await Promise.all([
+  const [
+    abuseRows,
+    economyRows,
+    auditRows,
+    { alertThresholds },
+    alertHistory,
+  ] = await Promise.all([
     db
       .select({
         id: abuseEvents.id,
@@ -57,6 +67,8 @@ export async function GET(req: Request) {
       .where(gte(adminAuditLog.createdAt, since))
       .orderBy(desc(adminAuditLog.id))
       .limit(300),
+    readAlertThresholdSettings(),
+    readOpsAlertHistory(),
   ]);
 
   const abuse = summarizeAbuse(abuseRows, now);
@@ -69,6 +81,8 @@ export async function GET(req: Request) {
     webhookConfigured: Boolean(process.env.OPS_ALERT_WEBHOOK_URL),
     abuse,
     economy,
+    alertThresholds,
+    alertHistory: alertHistory.slice(0, 12),
     audit: {
       last24h: auditRows.length,
       latest: auditRows.slice(0, 10),
@@ -78,6 +92,7 @@ export async function GET(req: Request) {
       economy,
       auditCount: auditRows.length,
       periodHours: hours,
+      thresholds: alertThresholds,
     }),
     rewardFailureCandidates: economyRows
       .filter((row) => row.eventType.startsWith("reward.failure."))
@@ -196,11 +211,13 @@ function buildAlerts({
   economy,
   auditCount,
   periodHours,
+  thresholds,
 }: {
   abuse: ReturnType<typeof summarizeAbuse>;
   economy: ReturnType<typeof summarizeEconomy>;
   auditCount: number;
   periodHours: number;
+  thresholds: Awaited<ReturnType<typeof readAlertThresholdSettings>>["alertThresholds"];
 }) {
   const alerts: Array<{
     level: "danger" | "warning" | "info";
@@ -208,13 +225,13 @@ function buildAlerts({
     message: string;
   }> = [];
 
-  if (abuse.last5m >= 20) {
+  if (abuse.last5m >= thresholds.abuseLast5m) {
     alerts.push({
       level: "danger",
       title: "요청 제한 급증",
       message: `최근 5분 제한 이벤트 ${abuse.last5m.toLocaleString()}건`,
     });
-  } else if (abuse.last1h >= 50) {
+  } else if (abuse.last1h >= thresholds.abuseLast1h) {
     alerts.push({
       level: "warning",
       title: "요청 제한 증가",
@@ -222,7 +239,7 @@ function buildAlerts({
     });
   }
 
-  if (economy.rewardFailures24h >= 5) {
+  if (economy.rewardFailures24h >= thresholds.rewardFailures) {
     alerts.push({
       level: "danger",
       title: "보상 수령 실패 누적",
@@ -230,7 +247,7 @@ function buildAlerts({
     });
   }
 
-  if (economy.largeGoldEvents24h >= 3) {
+  if (economy.largeGoldEvents24h >= thresholds.largeGoldEvents) {
     alerts.push({
       level: "warning",
       title: "대량 골드 이동",
@@ -238,7 +255,7 @@ function buildAlerts({
     });
   }
 
-  if (auditCount >= 30) {
+  if (auditCount >= thresholds.adminAudit) {
     alerts.push({
       level: "info",
       title: "관리자 변경 많음",

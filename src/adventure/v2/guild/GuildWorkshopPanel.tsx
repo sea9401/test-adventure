@@ -4,13 +4,16 @@ import {
   PRODUCTION_KIND_ICON,
   PRODUCTION_KIND_NAME,
   SETTLEMENT_BUILDINGS,
-  type ProductionKind,
 } from "@/adventure/data/v2/settlement";
 import { blacksmithJobForLevel } from "@/adventure/data/v2/artisan";
 import {
   GUILD_WORKSHOP_MATERIALS,
   GUILD_WORKSHOP_MATERIAL_IDS,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
+import {
+  SETTLEMENT_MATERIAL_ID,
+  SETTLEMENT_MATERIALS,
+} from "@/adventure/data/v2/settlementMaterials";
 import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
 import type {
   GuildWorkshopCraftMode,
@@ -317,8 +320,14 @@ export function GuildWorkshopPanel({
   );
   const materialEntries = useMemo(
     () =>
-      GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
-        const mat = GUILD_WORKSHOP_MATERIALS[id];
+      [
+        SETTLEMENT_MATERIAL_ID.timber,
+        SETTLEMENT_MATERIAL_ID.ironOre,
+        ...GUILD_WORKSHOP_MATERIAL_IDS,
+      ].map((id) => {
+        const mat =
+          (SETTLEMENT_MATERIALS as Record<string, { name: string }>)[id] ??
+          (GUILD_WORKSHOP_MATERIALS as Record<string, { name: string }>)[id];
         const amount = Math.max(0, Math.floor(materials[id] ?? 0));
         return {
           key: id,
@@ -383,39 +392,29 @@ export function GuildWorkshopPanel({
               ...(nextGuildBonus ? { guildBonus: nextGuildBonus } : {}),
               recipes: Array.isArray(json.recipes)
                 ? json.recipes
-                : prev.recipes.map((recipe) => ({
-                    ...recipe,
-                    levelOk:
+                : prev.recipes.map((recipe) => {
+                    const levelOk =
                       !nextArtisan ||
                       nextArtisan.blacksmith.level >=
-                        recipe.requiredArtisanLevel,
-                    smithyLevelOk:
-                      (prev.smithyLevel ?? 1) >= recipe.requiredSmithyLevel,
-                    resourceOk: Object.entries(recipe.cost).every(
-                      ([kind, amount]) =>
-                        Math.max(
-                          0,
-                          nextResources[kind as ProductionKind] ?? 0,
-                        ) >= Math.max(0, amount ?? 0),
-                    ),
-                    canCraft:
-                      (!nextArtisan ||
-                        nextArtisan.blacksmith.level >=
-                          recipe.requiredArtisanLevel) &&
-                      (prev.smithyLevel ?? 1) >= recipe.requiredSmithyLevel &&
-                      Object.entries(recipe.cost).every(
-                        ([kind, amount]) =>
-                          Math.max(
-                            0,
-                            nextResources[kind as ProductionKind] ?? 0,
-                          ) >= Math.max(0, amount ?? 0),
-                      ) &&
-                      Object.entries(recipe.materialCost ?? {}).every(
-                        ([id, amount]) =>
-                          Math.max(0, nextMaterials[id] ?? 0) >=
-                          Math.max(0, amount ?? 0),
-                      ),
-                  })),
+                        recipe.requiredArtisanLevel;
+                    const smithyLevelOk =
+                      (prev.smithyLevel ?? 1) >= recipe.requiredSmithyLevel;
+                    const materialOk = Object.entries(
+                      recipe.materialCost ?? {},
+                    ).every(
+                      ([id, amount]) =>
+                        Math.max(0, nextMaterials[id] ?? 0) >=
+                        Math.max(0, amount ?? 0),
+                    );
+                    return {
+                      ...recipe,
+                      levelOk,
+                      smithyLevelOk,
+                      resourceOk: materialOk,
+                      materialOk,
+                      canCraft: levelOk && smithyLevelOk && materialOk,
+                    };
+                  }),
             }
           : prev,
       );
@@ -870,7 +869,7 @@ export function GuildWorkshopPanel({
       <div className="grid gap-2 md:grid-cols-[0.85fr_1.15fr]">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-            길드 영지 재화
+            길드 영지 보유량
           </div>
           <div className="mt-1 grid grid-cols-2 gap-1">
             {resourceEntries.map((entry) => (
@@ -966,8 +965,8 @@ export function GuildWorkshopPanel({
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
             {localSmithy
-              ? "이 거점의 대장간에서 길드 영지 재화를 사용해 장비를 제작합니다."
-              : `보유 수 ${smithyCount.toLocaleString()}개. 길드 영지 재화를 사용해 장비를 제작합니다.`}
+              ? "이 거점의 대장간에서 개인 재료를 사용해 장비를 제작합니다."
+              : `보유 수 ${smithyCount.toLocaleString()}개. 개인 재료를 사용해 장비를 제작합니다.`}
           </p>
         </div>
         <button

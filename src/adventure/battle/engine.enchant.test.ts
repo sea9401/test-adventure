@@ -328,6 +328,38 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
     );
     expect(corrodeDmg).toBe(baseDmg);
   });
+
+  it("중독 상태면 v2 공격 스킬 데미지도 증가", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const measureSkill = (player: PlayerCombat) => {
+      let s = initialBattleState(
+        player,
+        enemy({ hp: 100000, def: 40, spd: 1 }),
+        "용사",
+        {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      );
+      s = {
+        ...s,
+        enemyV2Dots: [makePoisonDot({ stacks: 3, pctMaxHpPerStack: 0, sourceAtk: 0 })],
+      };
+      const hp0 = s.enemyHp;
+      s = advanceTurn(s, player, "용사", { kind: "attack" });
+      return hp0 - s.enemyHp;
+    };
+
+    const baseDmg = measureSkill({ ...BASE_PLAYER, atk: 60, maxMp: 100, mp: 100 });
+    const corrodeDmg = measureSkill({
+      ...BASE_PLAYER,
+      atk: 60,
+      maxMp: 100,
+      mp: 100,
+      poisonedEnemyDefReductionPct: 50,
+    });
+    expect(corrodeDmg).toBeGreaterThan(baseDmg);
+  });
 });
 
 describe("extraAttackChancePctWhileEnemyBleeding — 검투사 혈광 (출혈 적에게 연타)", () => {

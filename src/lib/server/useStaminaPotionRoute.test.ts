@@ -116,22 +116,44 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
     expect(char().stamina.current).toBe(MAX_STAMINA + STAMINA_POTION_RESTORE * 10);
   });
 
-  it("비축 상한 초과 사용 → 상한(고정 10,000)으로 클램프", async () => {
+  it("비축 상한 초과 사용 → 필요한 개수까지만 차감하고 상한으로 클램프", async () => {
     const t = Date.now();
     const cap = staminaOverchargeCap(MAX_STAMINA); // 고정 10000 (max 5000 < 상한)
-    // 상한 근처(cap-100)에서 10개(=+2000) 사용 → cap+1900 시도지만 cap 으로 클램프.
+    // 상한 근처(cap-100)에서 10개 요청 → 1개만 써도 cap 도달, 9개는 보존.
     store.set(k("u1", "character.v2"), {
       stamina: { current: cap - 100, lastUpdatedAt: t },
     });
     store.set(k("u1", STAMINA_POTIONS_KEY), { count: 10 });
     const res = await POST(req({ count: 10 }));
-    const j = (await res.json()) as { stamina: number };
+    const j = (await res.json()) as {
+      stamina: number;
+      used: number;
+      count: number;
+    };
     expect(res.status).toBe(200);
+    expect(j.used).toBe(1);
+    expect(j.count).toBe(9);
     expect(j.stamina).toBe(cap);
     expect(char().stamina.current).toBe(cap);
+    expect(potCount()).toBe(9);
   });
 
-  it("이미 상한 초과(레거시) → 사용해도 줄지 않음(max-guard)", async () => {
+  it("이미 비축 상한이면 사용 거부 + 포션 불변", async () => {
+    const t = Date.now();
+    const cap = staminaOverchargeCap(MAX_STAMINA);
+    store.set(k("u1", "character.v2"), {
+      stamina: { current: cap, lastUpdatedAt: t },
+    });
+    store.set(k("u1", STAMINA_POTIONS_KEY), { count: 3 });
+    const res = await POST(req({ count: 3 }));
+    const j = (await res.json()) as { error: string };
+    expect(res.status).toBe(400);
+    expect(j.error).toBe("stamina_cap");
+    expect(char().stamina.current).toBe(cap);
+    expect(potCount()).toBe(3);
+  });
+
+  it("이미 상한 초과(레거시) → 사용 거부 + 기존 스태미나 보존", async () => {
     const t = Date.now();
     const cap = staminaOverchargeCap(MAX_STAMINA);
     const over = cap + 5000; // 상한보다 높은 레거시 비축분
@@ -140,9 +162,11 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
     });
     store.set(k("u1", STAMINA_POTIONS_KEY), { count: 3 });
     const res = await POST(req({ count: 3 }));
-    const j = (await res.json()) as { stamina: number };
-    expect(res.status).toBe(200);
-    expect(j.stamina).toBe(over); // min(cap,…) 단독이면 cap 으로 깎였을 것
+    const j = (await res.json()) as { error: string };
+    expect(res.status).toBe(400);
+    expect(j.error).toBe("stamina_cap");
+    expect(char().stamina.current).toBe(over); // min(cap,…) 단독이면 cap 으로 깎였을 것
+    expect(potCount()).toBe(3);
   });
 
   it("count 가 보유 초과 → 보유 수로 클램프", async () => {

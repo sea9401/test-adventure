@@ -1863,6 +1863,11 @@ function resolveBattleLegacy(
             // PR2-B — 상대(플레이어)의 처단/스택 payoff 대상 = 시전자 player.
             currentHp: state.playerHp,
             maxHp: state.playerMaxHp,
+            magicSkillDamageReductionPct:
+              state.turn.enemyPhasesCompleted <
+              (player.passiveOpeningMagicDamageReductionPhases ?? 0)
+                ? (player.passiveOpeningMagicDamageReductionPct ?? 0)
+                : 0,
             bleedStacks: state.playerV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
             poisonStacks: state.playerV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
           },

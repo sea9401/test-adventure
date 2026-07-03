@@ -579,6 +579,8 @@ export type V2SkillCastInput = {
     def: number;
     // PR-2 v2 — 마법 방어력 (마법 데미지 경감, 미지정=물리 def 폴백).
     magicDef?: number;
+    // 결계술 등 — 마법 스킬 피해에만 곱연산으로 적용되는 받피감. 평타 감소는 enemyPhase 쪽에서 처리.
+    magicSkillDamageReductionPct?: number;
     // PR2-B — execute(처단 처형 임계)·스택 payoff(참절/중독폭발/비전작렬). 미지정=폴백.
     currentHp?: number;
     maxHp?: number;
@@ -801,7 +803,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       scaling === "luk" ||
       scaling === "all" ||
       scaling === "maxHp";
-    return v2DamageAmount({
+    const raw = v2DamageAmount({
       attackerAtk,
       attackerMagicAtk: scale === "magic" ? input.attacker.magicAtk : undefined,
       attackerMinDamage: input.attacker.minDamage,
@@ -816,6 +818,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       targetSelfDebuffs: input.target.selfDebuffs,
       elementMult: skillElementMult,
     });
+    const magicSkillReductionPct =
+      scale === "magic" && targetDefOverride === undefined
+        ? (input.target.magicSkillDamageReductionPct ?? 0)
+        : 0;
+    return magicSkillReductionPct > 0
+      ? Math.max(1, Math.floor(raw * (1 - magicSkillReductionPct / 100)))
+      : raw;
   };
   const healScaleBase = (
     statCoef: number,

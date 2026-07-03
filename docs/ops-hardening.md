@@ -9,7 +9,10 @@
 - 거래소 조회 캐시: 시세는 30초, 최근 거래는 15초 캐시한다.
 - 관리자 감사 로그: 저장 데이터 직접 수정과 길드 쿨다운 해제도 `admin_audit_log`에 남긴다.
 - 중복 클릭 방지: 상점, 거래소, 낚시, 발굴의 주요 변경 액션은 클라이언트에서도 단일 실행으로 잠근다.
-- 운영 알림: `OPS_ALERT_WEBHOOK_URL`이 있으면 같은 API의 제한 초과가 5분 내 25회 이상 누적될 때 웹훅 알림을 보낸다.
+- 경제 로그: 거래소, 상점, 주요 보상 수령 이벤트를 `economy_events`에 남기고 관리자 `경제 로그` 탭에서 조회한다.
+- 운영 현황판: 관리자 `운영 현황` 탭에서 최근 제한 초과, 경제 이벤트, 관리자 변경 흐름을 확인한다.
+- 운영 알림: `OPS_ALERT_WEBHOOK_URL`이 있으면 action 그룹별 제한 초과가 임계치 이상 누적될 때 웹훅 알림을 보낸다.
+- 보관 정책: `/api/v2/cron/ops-retention`이 오래된 운영 로그를 정리한다.
 
 ## 제한 기준
 
@@ -29,10 +32,17 @@
 
 - `OPS_ALERT_WEBHOOK_URL`: Slack/Discord 호환 웹훅 URL. 없으면 알림은 비활성화된다.
 - `abuse_events`: 같은 IP에서 여러 유저가 동일 API에 걸리는지 확인한다.
+- `economy_events`: 거래소/상점/보상 이벤트의 골드·아이템 흐름을 확인한다.
 - `admin_audit_log`: 운영자가 직접 바꾼 저장 데이터와 쿨다운 해제 이력을 확인한다.
+- `src/lib/server/rateLimitStore.ts`: Redis 이전 시 교체할 저장소 인터페이스.
+
+## 보관 정책
+
+- `abuse_events`: 90일 보관.
+- `economy_events`: 180일 보관.
+- 1회 삭제 상한은 5,000행이다. 오래 쌓였으면 다음 cron 이 이어서 정리한다.
 
 ## 다음 단계 후보
 
-- 서버가 여러 인스턴스로 늘어나면 현재 in-memory rate limit을 Redis 기반으로 옮긴다.
-- `abuse_events`가 커지면 월 단위 보관 정책이나 오래된 row 삭제 cron을 둔다.
-- 실제 알림량을 보고 `threshold`와 `windowMs`를 API별로 분리한다.
+- 서버가 여러 인스턴스로 늘어나면 `rateLimitStore`의 memory 구현을 Redis 구현으로 교체한다.
+- 실제 알림량을 보고 그룹별 `threshold`와 `windowMs`를 더 세분화한다.

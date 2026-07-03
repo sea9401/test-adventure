@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
@@ -92,8 +93,34 @@ export async function POST(req: Request) {
       .set({ status: "cancelled", closedAt: new Date() })
       .where(eq(marketplaceListingsV2.id, listingId));
 
-    return { status: 200, body: { ok: true as const } };
+    return {
+      status: 200,
+      log: {
+        itemKind: listing.kind,
+        itemId: listing.itemId,
+        quantity: listing.quantity,
+        price: listing.price,
+        listingId,
+      },
+      body: { ok: true as const },
+    };
   });
+
+  const economyLog = result.status === 200 && "log" in result ? result.log : null;
+  if (economyLog) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "marketplace.cancel",
+      goldDelta: 0,
+      itemKind: economyLog.itemKind,
+      itemId: economyLog.itemId,
+      quantity: economyLog.quantity,
+      detail: {
+        listingId: economyLog.listingId,
+        price: economyLog.price,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

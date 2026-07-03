@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { coopBossContributors, coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_BOSSES,
@@ -253,6 +254,32 @@ export async function POST(req: Request) {
       body: { ok: true as const, alreadyClaimed: false, reward },
     };
   });
+
+  if (
+    result.status === 200 &&
+    result.body.ok &&
+    result.body.alreadyClaimed === false &&
+    result.body.reward
+  ) {
+    const reward = result.body.reward;
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.coop.claim",
+      itemKind: "coop_reward",
+      quantity: 1,
+      detail: {
+        sessionId,
+        tier: reward.tier,
+        coopCoin: reward.coopCoin,
+        bossMaterialId: reward.bossMaterialId,
+        bossMaterialCount: reward.bossMaterialCount,
+        spFruitMaterialId: reward.spFruitMaterialId,
+        spFruitCount: reward.spFruitCount,
+        uniqueId: reward.uniqueId,
+        equipmentBoxId: reward.equipmentBoxId,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

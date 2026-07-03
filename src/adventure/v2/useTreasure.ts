@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import { FRAGMENTS_PER_MAP } from "./treasureFragments";
 import type {
   DigOutcome,
@@ -12,12 +13,12 @@ import type { TreasureSitePublic } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
-  const openBusyRef = useRef(false);
-  const digBusyRef = useRef(false);
+  const beginOpen = useSingleFlightGuard();
+  const beginDig = useSingleFlightGuard();
 
   const open = useCallback(async (): Promise<OpenOutcome> => {
-    if (openBusyRef.current) return { ok: false, reason: "error" };
-    openBusyRef.current = true;
+    const release = beginOpen();
+    if (!release) return { ok: false, reason: "error" };
     try {
       const res = await fetch("/api/v2/treasure/open", { method: "POST" });
       const j = await res.json().catch(() => null);
@@ -48,9 +49,9 @@ export function useTreasure(): TreasureHandlers {
       }
       return { ok: false, reason: "error" };
     } finally {
-      openBusyRef.current = false;
+      release();
     }
-  }, []);
+  }, [beginOpen]);
 
   // 보유 지도 조각 수 — 발굴 화면 진입 시 표시용. collection 라우트가 fragments 를 함께 반환한다.
   const loadFragments = useCallback(async (): Promise<TreasureFragmentStatus | null> => {
@@ -94,8 +95,8 @@ export function useTreasure(): TreasureHandlers {
 
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
-      if (digBusyRef.current) return { outcome: "error" };
-      digBusyRef.current = true;
+      const release = beginDig();
+      if (!release) return { outcome: "error" };
       try {
         const res = await fetch("/api/v2/treasure/dig", {
           method: "POST",
@@ -131,10 +132,10 @@ export function useTreasure(): TreasureHandlers {
             return { outcome: "error" };
         }
       } finally {
-        digBusyRef.current = false;
+        release();
       }
     },
-    [],
+    [beginDig],
   );
 
   return { open, dig, loadFragments, loadSession };

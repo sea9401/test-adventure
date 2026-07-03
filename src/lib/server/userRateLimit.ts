@@ -3,6 +3,11 @@ import {
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
 import { recordOpsSignal } from "@/lib/server/opsAlert";
+import {
+  getRateLimitStore,
+  resetRateLimitStoreForTests,
+  type RateLimitResult,
+} from "@/lib/server/rateLimitStore";
 
 type UserRateLimitOptions = {
   userId: string;
@@ -21,27 +26,11 @@ type UserAndIpRateLimitOptions = {
   now?: number;
 };
 
-type Bucket = {
-  count: number;
-  resetAt: number;
-};
-
-const buckets = new Map<string, Bucket>();
 const lastLimitedLogAt = new Map<string, number>();
-let lastCleanupAt = 0;
-const CLEANUP_INTERVAL_MS = 60_000;
 const LIMITED_LOG_INTERVAL_MS = 60_000;
 
 function keyOf(userId: string, action: string) {
   return `${action}:${userId}`;
-}
-
-function cleanup(now: number) {
-  if (now - lastCleanupAt < CLEANUP_INTERVAL_MS) return;
-  lastCleanupAt = now;
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt <= now) buckets.delete(key);
-  }
 }
 
 export function checkUserRateLimit({
@@ -50,33 +39,9 @@ export function checkUserRateLimit({
   limit,
   windowMs,
   now = Date.now(),
-}: UserRateLimitOptions):
-  | { ok: true; remaining: number; resetAt: number }
-  | { ok: false; retryAfterSec: number; resetAt: number } {
-  cleanup(now);
-
+}: UserRateLimitOptions): RateLimitResult {
   const key = keyOf(userId, action);
-  const current = buckets.get(key);
-  const bucket =
-    current && current.resetAt > now
-      ? current
-      : { count: 0, resetAt: now + windowMs };
-
-  if (bucket.count >= limit) {
-    return {
-      ok: false,
-      retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
-      resetAt: bucket.resetAt,
-    };
-  }
-
-  bucket.count += 1;
-  buckets.set(key, bucket);
-  return {
-    ok: true,
-    remaining: Math.max(0, limit - bucket.count),
-    resetAt: bucket.resetAt,
-  };
+  return getRateLimitStore().check(key, limit, windowMs, now);
 }
 
 export function userRateLimitResponse(retryAfterSec: number) {
@@ -127,15 +92,34 @@ function logRateLimitExceeded(
     },
   });
   recordOpsSignal({
-    key: `rate-limit:${options.action}`,
-    label: "rate limit exceeded repeatedly",
-    threshold: 25,
+    key: `rate-limit:${rateLimitAlertGroup(options.action)}`,
+    label: `rate limit exceeded repeatedly: ${rateLimitAlertGroup(options.action)}`,
+    threshold: rateLimitAlertThreshold(options.action),
     windowMs: 5 * 60_000,
     detail: {
       action: options.action,
+      group: rateLimitAlertGroup(options.action),
       scope: extra?.scope ?? "user",
     },
   });
+}
+
+function rateLimitAlertGroup(action: string): string {
+  if (action.includes(":marketplace:")) return "marketplace";
+  if (action.includes(":shop:")) return "shop";
+  if (action.includes(":fishing:")) return "fishing";
+  if (action.includes(":treasure:")) return "treasure";
+  if (action.includes(":dungeon:") || action.includes(":coop:")) return "battle";
+  if (action.includes(":me:state")) return "state";
+  return "general";
+}
+
+function rateLimitAlertThreshold(action: string): number {
+  const group = rateLimitAlertGroup(action);
+  if (group === "marketplace" || group === "shop") return 12;
+  if (group === "state") return 40;
+  if (group === "battle") return 30;
+  return 20;
 }
 
 export function enforceUserRateLimit(
@@ -201,7 +185,6 @@ export function enforceUserAndIpRateLimit(
 }
 
 export function resetUserRateLimitForTests() {
-  buckets.clear();
+  resetRateLimitStoreForTests();
   lastLimitedLogAt.clear();
-  lastCleanupAt = 0;
 }

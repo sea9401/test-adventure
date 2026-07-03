@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   buildQuestCtx,
@@ -185,6 +186,39 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  if (result.status === 200 && result.body.ok && !("retroactive" in result.body)) {
+    const reward = result.body.reward;
+    if (reward.gold > 0) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.quest.gold",
+        goldDelta: reward.gold,
+        itemKind: "gold",
+        quantity: reward.gold,
+        detail: { questId: result.body.questId },
+      });
+    }
+    if (reward.equip) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.quest.equip",
+        itemKind: "equip",
+        itemId: reward.equip,
+        quantity: 1,
+        detail: { questId: result.body.questId },
+      });
+    }
+    if (reward.staminaPotions > 0) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.quest.stamina_potion",
+        itemKind: "stamina_potion",
+        quantity: reward.staminaPotions,
+        detail: { questId: result.body.questId },
+      });
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

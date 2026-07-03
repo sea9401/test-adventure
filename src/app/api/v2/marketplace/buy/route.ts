@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { inboxValues } from "@/lib/server/inboxPayload";
@@ -162,6 +163,14 @@ export async function POST(req: Request) {
 
     return {
       status: 200,
+      log: {
+        sellerId: listing.sellerId,
+        itemKind: listing.kind,
+        itemId: listing.itemId,
+        quantity: listing.quantity,
+        price: listing.price,
+        listingId,
+      },
       body: {
         ok: true as const,
         itemName: listing.itemName,
@@ -171,6 +180,33 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  const economyLog = result.status === 200 && "log" in result ? result.log : null;
+  if (economyLog) {
+    recordEconomyEventSoon({
+      userId,
+      counterpartyUserId: economyLog.sellerId,
+      eventType: "marketplace.buy",
+      goldDelta: -economyLog.price,
+      itemKind: economyLog.itemKind,
+      itemId: economyLog.itemId,
+      quantity: economyLog.quantity,
+      detail: { listingId: economyLog.listingId },
+    });
+    recordEconomyEventSoon({
+      userId: economyLog.sellerId,
+      counterpartyUserId: userId,
+      eventType: "marketplace.sell",
+      goldDelta: saleProceeds(economyLog.price),
+      itemKind: economyLog.itemKind,
+      itemId: economyLog.itemId,
+      quantity: economyLog.quantity,
+      detail: {
+        listingId: economyLog.listingId,
+        grossGold: economyLog.price,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

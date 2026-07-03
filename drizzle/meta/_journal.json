@@ -708,6 +708,13 @@
       "when": 1783132800000,
       "tag": "0100_abuse_events",
       "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1783136400000,
+      "tag": "0101_ops_followups",
+      "breakpoints": true
     }
   ]
 }

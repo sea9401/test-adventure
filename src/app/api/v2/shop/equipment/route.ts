@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
@@ -99,6 +100,18 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  if (result.status === 200) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "shop.equipment.buy",
+      goldDelta: -price,
+      itemKind: "equip",
+      itemId: id,
+      quantity: 1,
+      detail: { price },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

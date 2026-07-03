@@ -35,41 +35,32 @@ import {
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
-  applyHpRegen,
-  canHuntWithHp,
-  parseHpRegenSince,
-} from "@/adventure/v2/hpRegen";
-import {
   elementDamageMult,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
 } from "@/adventure/data/v2/elements";
-import {
-  enforceUserAndIpRateLimit,
-} from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
 //
 // 본문: { sessionId } — 같은 종류 동시 다수 소환(#714)이라 kind 가 아닌 세션 인스턴스 대상.
 // 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
-//   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사 + HP 게이트.
+//   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사.
 //   2. equipment/skills/proficiency lock-read → derive(왕복 0).
 //   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(COOP_ATTACK_TURNS 턴 캡, 전역 잔여
-//      HP 시작 + 발악 스테이지 적용 — 실제 차감은 아래 GREATEST 클램프).
+//      HP 시작 + 발악 스테이지 적용 — 플레이어는 현재 HP/MP와 무관하게 만전으로 시작).
 //   4. session FOR UPDATE → 재검증(처치/만료) + 쿨다운 → hp 차감 + 처치 CAS(락 보유로
 //      1명만 defeated 분기 — v1 attack.ts 의 C1/C2 race fix 승계).
 //   5. contributor UPSERT + 공격 로그 1줄.
-//   6. character.v2(스태미너·HP/MP)·inventory.v2(충전약 자동 회복) 기록 — 세션 검증을
-//      통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
+//   6. character.v2 에 스태미너만 기록 — 협동 보스는 현재 HP/MP 를 소모하지 않는 별도 전투.
+//      세션 검증을 통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
 // 처치 확정자(킬 CAS)는 tx 후 coop_kill 피드 발행. 보상은 별도 claim(본인 세이브만 —
 // 교차 유저 락 0 원칙).
 
 type CharSave = {
   stamina?: unknown;
   staminaCapBonus?: unknown;
-  hp?: number;
-  hpRegenSince?: number;
   [k: string]: unknown;
 };
 
@@ -106,7 +97,7 @@ export async function POST(req: Request) {
   let defeatedKind: string | null = null;
   const result = await db.transaction(async (tx) => {
     const now = Date.now();
-    // === 1. character.v2 잠금 + 스태미너/HP 게이트 ===
+    // === 1. character.v2 잠금 + 스태미너 게이트 ===
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -146,24 +137,6 @@ export async function POST(req: Request) {
       };
     }
     const { player, skills: v2Skills } = preparedActor;
-
-    // 사냥과 동일한 사전 HP 회복 + 저체력 게이트(5% 미만 차단·스태미너 미소모).
-    const regenResult = applyHpRegen(
-      Math.max(0, charSave.hp ?? player.maxHp),
-      player.maxHp,
-      parseHpRegenSince(charSave.hpRegenSince, now),
-      now,
-    );
-    if (!canHuntWithHp(regenResult.hp, player.maxHp)) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "hp_zero" as const,
-          stamina: applyRegen(stamina, now, staminaMax),
-        },
-      };
-    }
 
     // === 3. 세션 조기 검증(비잠금 — 시뮬 전 빠른 거부) + kind 해석 ===
     const peekRows = await tx
@@ -237,10 +210,12 @@ export async function POST(req: Request) {
       null,
     );
     const playerName = profile?.name?.trim() || "모험가";
+    const battleMaxHp = player.maxHp;
+    const battleMaxMp = player.player.maxMp ?? 0;
     const playerForBattle = {
       ...player.player,
-      hp: regenResult.hp,
-      mp: player.player.mp,
+      hp: battleMaxHp,
+      mp: battleMaxMp,
       atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
       magicAtk: Math.max(
         0,
@@ -270,7 +245,7 @@ export async function POST(req: Request) {
     );
     const damageTaken = Math.max(
       0,
-      regenResult.hp - battleResult.finalState.playerHp,
+      battleMaxHp - battleResult.finalState.playerHp,
     );
     const diedEarly = battleResult.finalState.playerHp <= 0;
 
@@ -386,41 +361,10 @@ export async function POST(req: Request) {
       createdAt: nowDate,
     });
 
-    // === 6. character.v2(스태미너·HP/MP) + inventory.v2 충전약 — hunt 와 동일 ===
-    let afterHp = Math.max(0, battleResult.finalState.playerHp);
-    const maxMp = player.player.maxMp ?? 0;
-    let afterMp = Math.max(
-      0,
-      Math.min(maxMp, battleResult.finalState.playerMp),
-    );
-    const invSave = await lockSaveForUpdate<{
-      hpCharges?: number;
-      mpCharges?: number;
-      [k: string]: unknown;
-    }>(tx, userId, "inventory.v2", {});
-    let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
-    let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
-    if (afterHp > 0 && afterHp < player.maxHp && hpCharges > 0) {
-      const restore = Math.min(player.maxHp - afterHp, hpCharges);
-      afterHp += restore;
-      hpCharges -= restore;
-    }
-    if (afterMp < maxMp && mpCharges > 0) {
-      const restore = Math.min(maxMp - afterMp, mpCharges);
-      afterMp += restore;
-      mpCharges -= restore;
-    }
-    await upsertSave(tx, userId, "inventory.v2", {
-      ...invSave,
-      hpCharges,
-      mpCharges,
-    });
+    // === 6. character.v2 스태미너만 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       stamina: afterStamina,
-      hp: afterHp,
-      mp: afterMp,
-      hpRegenSince: now,
     });
 
     return {
@@ -439,10 +383,6 @@ export async function POST(req: Request) {
           defeated: bossHp === 0,
           myDamage,
           myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp)),
-          hpAfter: afterHp,
-          maxHp: player.maxHp,
-          hpCharges,
-          mpCharges,
           replay: toReplayPayload(battleResult.finalState, 200),
         },
       },

@@ -59,6 +59,66 @@ export function isTreasureDigToolId(v: unknown): v is TreasureDigToolId {
   return TREASURE_DIG_TOOLS.some((tool) => tool.id === v);
 }
 
+export type TreasureFieldEventId =
+  | "intact_layer"
+  | "buried_cache"
+  | "sealed_chamber";
+
+export type TreasureFieldEvent = {
+  id: TreasureFieldEventId;
+  name: string;
+  summary: string;
+  effectLabel: string;
+  weight: number;
+  conditionBonus: number;
+  appraisalBonusPct: number;
+  requiresProbe: boolean;
+};
+
+export const TREASURE_FIELD_EVENTS: readonly TreasureFieldEvent[] = [
+  {
+    id: "intact_layer",
+    name: "온전한 유물층",
+    summary: "토층이 무너지지 않아 유물이 비교적 온전하게 남아 있습니다.",
+    effectLabel: "성공 시 보존상태 +10",
+    weight: 40,
+    conditionBonus: 10,
+    appraisalBonusPct: 0,
+    requiresProbe: false,
+  },
+  {
+    id: "buried_cache",
+    name: "묻힌 보관함",
+    summary: "낡은 보관함 흔적이 보여 감정 가치가 조금 더 붙습니다.",
+    effectLabel: "성공 시 감정가 +15%",
+    weight: 35,
+    conditionBonus: 0,
+    appraisalBonusPct: 15,
+    requiresProbe: false,
+  },
+  {
+    id: "sealed_chamber",
+    name: "봉인된 방",
+    summary: "얇은 벽 너머에 숨은 공간이 있습니다. 탐침으로 확인해야 가치가 살아납니다.",
+    effectLabel: "탐침 사용 후 성공 시 감정가 +25%",
+    weight: 25,
+    conditionBonus: 0,
+    appraisalBonusPct: 25,
+    requiresProbe: true,
+  },
+] as const;
+
+export function isTreasureFieldEventId(v: unknown): v is TreasureFieldEventId {
+  return TREASURE_FIELD_EVENTS.some((event) => event.id === v);
+}
+
+export function treasureFieldEventById(
+  eventId: TreasureFieldEventId | null,
+): TreasureFieldEvent | null {
+  if (!eventId) return null;
+  return TREASURE_FIELD_EVENTS.find((event) => event.id === eventId) ?? null;
+}
+
 export type TreasureSiteOptionId =
   | "old_market"
   | "royal_tomb"
@@ -144,6 +204,8 @@ export type TreasureSession = {
   siteId: string;
   /** 유저가 선택한 탐사지 타입. 오래된 세션은 파싱 시 기본값으로 보정한다. */
   siteOptionId: TreasureSiteOptionId;
+  /** 발굴 지점에 붙은 현장 이벤트. 오래된 세션은 null 로 보정한다. */
+  fieldEventId: TreasureFieldEventId | null;
   gridSize: number;
   /** 매장지 셀 (서버 전용 비밀). */
   treasureCell: number;
@@ -164,6 +226,10 @@ export type TreasureSitePublic = {
     digsAllowedMod: number;
     conditionBonus: number;
   };
+  fieldEvent: Pick<
+    TreasureFieldEvent,
+    "id" | "name" | "summary" | "effectLabel" | "requiresProbe"
+  > | null;
   gridSize: number;
   digsAllowed: number;
   digsUsed: number;
@@ -172,6 +238,7 @@ export type TreasureSitePublic = {
 
 export function toPublicSite(s: TreasureSession): TreasureSitePublic {
   const siteOption = treasureSiteOptionById(s.siteOptionId);
+  const fieldEvent = treasureFieldEventById(s.fieldEventId);
   return {
     siteId: s.siteId,
     siteOption: {
@@ -182,6 +249,15 @@ export function toPublicSite(s: TreasureSession): TreasureSitePublic {
       digsAllowedMod: siteOption.digsAllowedMod,
       conditionBonus: siteOption.conditionBonus,
     },
+    fieldEvent: fieldEvent
+      ? {
+          id: fieldEvent.id,
+          name: fieldEvent.name,
+          summary: fieldEvent.summary,
+          effectLabel: fieldEvent.effectLabel,
+          requiresProbe: fieldEvent.requiresProbe,
+        }
+      : null,
     gridSize: s.gridSize,
     digsAllowed: s.digsAllowed,
     digsUsed: treasureActionsUsed(s),
@@ -222,6 +298,10 @@ export function treasureActionsUsed(session: TreasureSession): number {
   return session.digs.reduce((sum, dig) => sum + dig.actionCost, 0);
 }
 
+export function treasureUsedProbe(session: TreasureSession): boolean {
+  return session.digs.some((dig) => dig.tool === "probe" && dig.actionCost > 0);
+}
+
 function pickAntiqueIdForSite(
   rng: () => number,
   siteOption: TreasureSiteOption,
@@ -258,13 +338,40 @@ function pickAntiqueIdForSite(
   );
 }
 
+function pickTreasureFieldEventId(rng: () => number): TreasureFieldEventId {
+  const total = TREASURE_FIELD_EVENTS.reduce((sum, event) => sum + event.weight, 0);
+  let roll = rng() * total;
+  for (const event of TREASURE_FIELD_EVENTS) {
+    if (roll < event.weight) return event.id;
+    roll -= event.weight;
+  }
+  return TREASURE_FIELD_EVENTS[0].id;
+}
+
 export function treasureConditionAfterHit(session: TreasureSession): number {
   const remaining = Math.max(0, session.digsAllowed - treasureActionsUsed(session));
   const efficiencyBonus = Math.min(
     MAX_DIG_EFFICIENCY_CONDITION_BONUS,
     remaining * CONDITION_BONUS_PER_REMAINING_DIG,
   );
-  return clampCondition(session.condition + efficiencyBonus);
+  const fieldEvent = treasureFieldEventById(session.fieldEventId);
+  return clampCondition(
+    session.condition + efficiencyBonus + (fieldEvent?.conditionBonus ?? 0),
+  );
+}
+
+export function treasureAppraisalBonusPct(session: TreasureSession): number {
+  const fieldEvent = treasureFieldEventById(session.fieldEventId);
+  if (!fieldEvent) return 0;
+  if (fieldEvent.requiresProbe && !treasureUsedProbe(session)) return 0;
+  return fieldEvent.appraisalBonusPct;
+}
+
+export function applyTreasureAppraisalBonus(
+  appraisedValue: number,
+  bonusPct: number,
+): number {
+  return Math.floor(appraisedValue * (100 + bonusPct) / 100);
 }
 
 // 새 발굴 지점 굴림(순수) — 매장지·골동품·보존상태 박제. siteId 는 라우트가 발급.
@@ -286,9 +393,11 @@ export function rollNewSession(args: {
   const condition = clampCondition(
     rollCondition(antiqueId, rng) + siteOption.conditionBonus,
   );
+  const fieldEventId = pickTreasureFieldEventId(rng);
   return {
     siteId,
     siteOptionId: siteOption.id,
+    fieldEventId,
     gridSize: GRID_SIZE,
     treasureCell,
     antiqueId,
@@ -430,6 +539,9 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
   const siteOptionId = isTreasureSiteOptionId(r.siteOptionId)
     ? r.siteOptionId
     : DEFAULT_TREASURE_SITE_OPTION_ID;
+  const fieldEventId = isTreasureFieldEventId(r.fieldEventId)
+    ? r.fieldEventId
+    : null;
   const condition = r.condition;
   if (
     typeof condition !== "number" ||
@@ -484,6 +596,7 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
   return {
     siteId: r.siteId,
     siteOptionId,
+    fieldEventId,
     gridSize,
     treasureCell,
     antiqueId: r.antiqueId,

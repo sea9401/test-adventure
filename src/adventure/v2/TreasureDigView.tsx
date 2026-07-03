@@ -31,6 +31,7 @@ export type DugAntique = {
   tier: string;
   condition: number;
   conditionBonus?: number;
+  appraisalBonusPct?: number;
   appraisedValue: number;
 };
 
@@ -364,6 +365,9 @@ export function TreasureDigView({
             단서로 매장지를 정확히 파내면 골동품 발굴 성공! 무엇이 묻혔는지(희귀도·보존상태)는
             운이라 파봐야 압니다. 빨리 찾아낼수록 보존상태가 조금 더 좋아집니다.
           </p>
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            발굴 지점을 열면 현장 이벤트가 하나 붙어 보존상태나 감정가에 추가 보너스가 생길 수 있습니다.
+          </p>
           {hasWorkshopDiscount && (
             <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300">
               지도 제작소 Lv {mapWorkshopLevel} 효과: 기본 {baseFragmentCost}개 →{" "}
@@ -383,6 +387,20 @@ export function TreasureDigView({
             </span>
             <span>{grid.siteOption.effectLabel}</span>
           </div>
+          {grid.fieldEvent ? (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100">
+              <span className="font-semibold">{grid.fieldEvent.name}</span>
+              <span className="mx-1 text-emerald-700/70 dark:text-emerald-200/70">
+                ·
+              </span>
+              <span>{grid.fieldEvent.effectLabel}</span>
+              {grid.fieldEvent.requiresProbe ? (
+                <span className="ml-1 text-emerald-700/80 dark:text-emerald-200/80">
+                  탐침 필요
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <div className="rounded-md border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
             <div className="grid grid-cols-2 gap-2">
               {TREASURE_DIG_TOOLS.map((tool) => {
@@ -500,6 +518,12 @@ export function TreasureDigView({
               result.antique.appraisedValue * TREASURE_SELL_GOLD_MULT
             ).toLocaleString()}
             골드
+            {result.antique.appraisalBonusPct ? (
+              <span className="text-emerald-700 dark:text-emerald-300">
+                {" "}
+                (현장 +{result.antique.appraisalBonusPct}%)
+              </span>
+            ) : null}
           </p>
         </div>
       )}

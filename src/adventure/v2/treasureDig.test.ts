@@ -3,12 +3,14 @@ import {
   DIGS_ALLOWED,
   GRID_SIZE,
   TOTAL_CELLS,
+  applyTreasureAppraisalBonus,
   applyDig,
   chebyshev,
   clueForDistance,
   parseTreasureSession,
   rollNewSession,
   treasureActionsUsed,
+  treasureAppraisalBonusPct,
   treasureConditionAfterHit,
   toPublicSite,
   type TreasureSession,
@@ -20,6 +22,7 @@ function sessionWith(treasureCell: number): TreasureSession {
   return {
     siteId: "s1",
     siteOptionId: "old_market",
+    fieldEventId: null,
     gridSize: GRID_SIZE,
     treasureCell,
     antiqueId: "clay_shard",
@@ -121,6 +124,7 @@ describe("rollNewSession / toPublicSite", () => {
     expect(pub).not.toHaveProperty("antiqueId");
     expect(pub).not.toHaveProperty("condition");
     expect(pub.siteOption.name).toBeTruthy();
+    expect(pub.fieldEvent?.name).toBeTruthy();
     expect(pub.digsUsed).toBe(0);
   });
 
@@ -146,6 +150,35 @@ describe("rollNewSession / toPublicSite", () => {
     expect(hit.kind).toBe("hit");
     expect(treasureConditionAfterHit(hit.session)).toBe(65);
   });
+
+  it("현장 이벤트는 보존상태와 감정가 보너스를 적용한다", () => {
+    const intactHit = applyDig(
+      { ...sessionWith(12), fieldEventId: "intact_layer" },
+      12,
+    );
+    expect(intactHit.kind).toBe("hit");
+    expect(treasureConditionAfterHit(intactHit.session)).toBe(75);
+
+    const cacheHit = applyDig(
+      { ...sessionWith(12), fieldEventId: "buried_cache" },
+      12,
+    );
+    expect(cacheHit.kind).toBe("hit");
+    expect(treasureAppraisalBonusPct(cacheHit.session)).toBe(15);
+    expect(applyTreasureAppraisalBonus(1000, 15)).toBe(1150);
+  });
+
+  it("봉인된 방 감정가 보너스는 탐침을 사용한 뒤에만 적용한다", () => {
+    const sealed = { ...sessionWith(12), fieldEventId: "sealed_chamber" } as const;
+    const directHit = applyDig(sealed, 12, "shovel");
+    expect(directHit.kind).toBe("hit");
+    expect(treasureAppraisalBonusPct(directHit.session)).toBe(0);
+
+    const probe = applyDig(sealed, 7, "probe");
+    const probedHit = applyDig(probe.session, 12, "shovel");
+    expect(probedHit.kind).toBe("hit");
+    expect(treasureAppraisalBonusPct(probedHit.session)).toBe(25);
+  });
 });
 
 describe("parseTreasureSession", () => {
@@ -163,8 +196,13 @@ describe("parseTreasureSession", () => {
 
   it("구버전 세션처럼 siteOptionId 가 없어도 기본 탐사지로 복구한다", () => {
     const s = rollNewSession({ siteId: "legacy", rng: () => 0.3, now: 5 });
-    const parsed = parseTreasureSession({ ...s, siteOptionId: undefined });
+    const parsed = parseTreasureSession({
+      ...s,
+      siteOptionId: undefined,
+      fieldEventId: undefined,
+    });
     expect(parsed?.siteOptionId).toBe("old_market");
+    expect(parsed?.fieldEventId).toBeNull();
   });
 
   it("위조 가드: 범위 밖 매장지 / 미지 골동품 / 중복 dig 셀 / 예산 초과", () => {

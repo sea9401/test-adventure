@@ -7,9 +7,11 @@ import {
   type OpenOutcome,
 } from "@/adventure/v2/TreasureDigView";
 import {
+  applyTreasureAppraisalBonus,
   applyDig,
   rollNewSession,
   toPublicSite,
+  treasureAppraisalBonusPct,
   treasureConditionAfterHit,
   type TreasureDigToolId,
   type TreasureSession,
@@ -87,6 +89,7 @@ export function TreasureHarness() {
       if (r.kind === "hit") {
         const a = ANTIQUES[s.antiqueId];
         const finalCondition = treasureConditionAfterHit(r.session);
+        const appraisalBonusPct = treasureAppraisalBonusPct(r.session);
         session.current = null;
         return {
           outcome: "hit",
@@ -98,7 +101,11 @@ export function TreasureHarness() {
             tier: a.tier,
             condition: finalCondition,
             conditionBonus: Math.max(0, finalCondition - s.condition),
-            appraisedValue: appraiseValue(s.antiqueId, finalCondition),
+            appraisalBonusPct,
+            appraisedValue: applyTreasureAppraisalBonus(
+              appraiseValue(s.antiqueId, finalCondition),
+              appraisalBonusPct,
+            ),
           },
           codexCount: 0,
         };

@@ -10,25 +10,55 @@ function getAdminEmails(): Set<string> {
   );
 }
 
+export type AdminRole = "readonly" | "reward" | "sanction" | "super";
+
+function getRoleEmails(envKey: string): Set<string> {
+  const raw = process.env[envKey] ?? "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+export async function currentAdminRole(): Promise<AdminRole | null> {
+  const session = await auth();
+  const email = session?.user?.email?.toLowerCase();
+  if (!email) return null;
+  if (getAdminEmails().has(email)) return "super";
+  if (getRoleEmails("OPS_REWARD_EMAILS").has(email)) return "reward";
+  if (getRoleEmails("OPS_SANCTION_EMAILS").has(email)) return "sanction";
+  if (getRoleEmails("OPS_READONLY_EMAILS").has(email)) return "readonly";
+  return null;
+}
+
 /** 관리자 이메일 리스트 (소문자). 랭킹 등 admin 제외 SQL 필터 합성에 사용. */
 export function getAdminEmailsList(): string[] {
   return Array.from(getAdminEmails());
 }
 
 export async function isCurrentUserAdmin(): Promise<boolean> {
-  const allow = getAdminEmails();
-  if (allow.size === 0) return false;
-  const session = await auth();
-  if (!session?.user?.email) return false;
-  return allow.has(session.user.email.toLowerCase());
+  return (await currentAdminRole()) != null;
 }
 
 export async function requireAdmin(): Promise<Response | null> {
   const session = await auth();
   if (!session?.user?.id) return new Response("unauthorized", { status: 401 });
-  const ok = await isCurrentUserAdmin();
-  if (!ok) return new Response("forbidden", { status: 403 });
+  if (!(await isCurrentUserAdmin())) return new Response("forbidden", { status: 403 });
   return null;
+}
+
+export async function requireAdminRole(role: AdminRole): Promise<Response | null> {
+  const session = await auth();
+  if (!session?.user?.id) return new Response("unauthorized", { status: 401 });
+  const email = session.user.email?.toLowerCase();
+  if (!email) return new Response("forbidden", { status: 403 });
+  if (getAdminEmails().has(email)) return null;
+  if (role === "readonly" && (await isCurrentUserAdmin())) return null;
+  if (role === "reward" && getRoleEmails("OPS_REWARD_EMAILS").has(email)) return null;
+  if (role === "sanction" && getRoleEmails("OPS_SANCTION_EMAILS").has(email)) return null;
+  return new Response("forbidden", { status: 403 });
 }
 
 /** 현재 관리자 이메일(소문자). 감사 로그 기록용 — requireAdmin 통과 후 호출. */

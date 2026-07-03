@@ -1235,7 +1235,7 @@ function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
     result.dailyCatchCoins.cap > 0 &&
     result.dailyCatchCoins.earned >= result.dailyCatchCoins.cap
   ) {
-    labels.push("일일 제한 도달 · 챔질 코인 미지급");
+    labels.push("일일 낚시 코인 제한 도달 · 추가 코인 +0");
   }
   if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
     labels.push(`레벨업 보상 +${result.levelRewardCoins}`);

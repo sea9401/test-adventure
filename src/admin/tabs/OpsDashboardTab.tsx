@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import { Button } from "../ui/Field";
@@ -61,7 +62,25 @@ type Dashboard = {
     rateLimited: number;
     actionCount: number;
     ipCount: number;
+    ips: string[];
     lastAt: string;
+  }>;
+  connectedIps: Array<{
+    ip: string;
+    events: number;
+    rateLimited: number;
+    userCount: number;
+    actionCount: number;
+    userIds: string[];
+    lastAt: string;
+  }>;
+  rewardFailureCandidates: Array<{
+    id: number;
+    userId: string | null;
+    eventType: string;
+    itemId: string | null;
+    detail: Record<string, unknown> | null;
+    createdAt: string;
   }>;
 };
 
@@ -247,15 +266,114 @@ export function OpsDashboardTab() {
                   <tbody>
                     {data.suspiciousUsers.map((row) => (
                       <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
-                        <td className="py-1 pr-3 font-mono">{row.userId.slice(0, 12)}</td>
+                        <td className="py-1 pr-3 font-mono">
+                          <Link
+                            href={`/admin?tab=abuse&userId=${encodeURIComponent(row.userId)}`}
+                            className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                          >
+                            {row.userId.slice(0, 12)}
+                          </Link>
+                        </td>
                         <td className="py-1 pr-3 tabular-nums">{row.score}</td>
                         <td className="py-1 pr-3 tabular-nums">{row.rateLimited}</td>
                         <td className="py-1 pr-3 tabular-nums">{row.events}</td>
                         <td className="py-1 pr-3 tabular-nums">
-                          {row.actionCount}/{row.ipCount}
+                          {row.actionCount}/
+                          {row.ips.length > 0 ? (
+                            <Link
+                              href={`/admin?tab=abuse&ip=${encodeURIComponent(row.ips[0])}`}
+                              className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                            >
+                              {row.ipCount}
+                            </Link>
+                          ) : (
+                            row.ipCount
+                          )}
                         </td>
                         <td className="py-1 pr-3 text-zinc-500">
                           {new Date(row.lastAt).toLocaleString("ko-KR")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="IP 연결 계정">
+            {data.connectedIps.length === 0 ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">연결 후보 없음</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-zinc-500 dark:text-zinc-400">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">IP</th>
+                      <th className="py-1 pr-3 font-medium">계정</th>
+                      <th className="py-1 pr-3 font-medium">제한/이벤트</th>
+                      <th className="py-1 pr-3 font-medium">userIds</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.connectedIps.map((row) => (
+                      <tr key={row.ip} className="border-t border-zinc-100 dark:border-zinc-800">
+                        <td className="py-1 pr-3 font-mono">
+                          <Link
+                            href={`/admin?tab=abuse&ip=${encodeURIComponent(row.ip)}`}
+                            className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                          >
+                            {row.ip}
+                          </Link>
+                        </td>
+                        <td className="py-1 pr-3 tabular-nums">{row.userCount}</td>
+                        <td className="py-1 pr-3 tabular-nums">
+                          {row.rateLimited}/{row.events}
+                        </td>
+                        <td className="py-1 pr-3 font-mono text-[11px] text-zinc-500">
+                          {row.userIds.map((id) => id.slice(0, 8)).join(", ")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+
+          <Panel title="보상 실패 보정 후보">
+            {data.rewardFailureCandidates.length === 0 ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">후보 없음</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-zinc-500 dark:text-zinc-400">
+                    <tr>
+                      <th className="py-1 pr-3 font-medium">event id</th>
+                      <th className="py-1 pr-3 font-medium">유저</th>
+                      <th className="py-1 pr-3 font-medium">유형</th>
+                      <th className="py-1 pr-3 font-medium">시각</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.rewardFailureCandidates.map((row) => (
+                      <tr key={row.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                        <td className="py-1 pr-3 font-mono">{row.id}</td>
+                        <td className="py-1 pr-3 font-mono">
+                          {row.userId ? (
+                            <Link
+                              href={`/admin?tab=economy&userId=${encodeURIComponent(row.userId)}&eventType=${encodeURIComponent(row.eventType)}`}
+                              className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                            >
+                              {row.userId.slice(0, 12)}
+                            </Link>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="py-1 pr-3 font-mono">{row.itemId ?? row.eventType}</td>
+                        <td className="py-1 pr-3 text-zinc-500">
+                          {new Date(row.createdAt).toLocaleString("ko-KR")}
                         </td>
                       </tr>
                     ))}

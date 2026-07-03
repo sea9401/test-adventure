@@ -1,13 +1,17 @@
 import { and, desc, eq, isNull, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { users, userSanctions } from "@/db/schema";
-import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
+import {
+  currentAdminEmail,
+  requireAdmin,
+  requireAdminRole,
+} from "@/lib/server/isAdmin";
 import { logAdminAction } from "@/lib/server/adminAudit";
 
 // 유저 제재 — 밴/정지/경고 부과 + 해제 + 이력 조회. requireAdmin 게이트.
 //   GET  ?userId=...        → 현재 차단 상태 + 제재 이력
 //   POST { userId, action, reason?, days? }
-//        action: 'ban'(영구) | 'suspend'(기간, days 필수) | 'warn'(경고) | 'lift'(해제)
+//        action: 'ban'(영구) | 'suspend'(기간, days 필수) | 'extend'(기간 연장) | 'warn'(경고) | 'lift'(해제)
 //
 // 차단 enforcement 는 users.bannedUntil 비정규화 필드(ensureUser 가 검사). 이 라우트는
 // 그 필드 + user_sanctions 이력을 함께 갱신한다. 모든 변경은 감사 로그에 기록.
@@ -15,7 +19,7 @@ import { logAdminAction } from "@/lib/server/adminAudit";
 // 영구 밴의 bannedUntil 센티넬 — 사실상 무한(Postgres timestamp 범위 내).
 const PERMANENT = new Date("9999-12-31T00:00:00.000Z");
 
-const ACTIONS = ["ban", "suspend", "warn", "lift"] as const;
+const ACTIONS = ["ban", "suspend", "extend", "warn", "lift"] as const;
 type Action = (typeof ACTIONS)[number];
 function isAction(v: unknown): v is Action {
   return typeof v === "string" && (ACTIONS as readonly string[]).includes(v);
@@ -59,7 +63,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdminRole("sanction");
   if (gate) return gate;
   const adminEmail = await currentAdminEmail();
 
@@ -81,9 +85,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (action === "suspend" && (!Number.isFinite(days) || days <= 0)) {
+  if ((action === "suspend" || action === "extend") && (!Number.isFinite(days) || days <= 0)) {
     return Response.json(
-      { ok: false, error: "suspend requires days > 0" },
+      { ok: false, error: `${action} requires days > 0` },
       { status: 400 },
     );
   }
@@ -124,19 +128,29 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, action, banned: false });
   }
 
-  // ban / suspend / warn
+  // ban / suspend / extend / warn
   const expiresAt =
     action === "ban"
       ? PERMANENT
-      : action === "suspend"
+      : action === "suspend" || action === "extend"
         ? new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
         : null;
+  const currentBan = await db
+    .select({ bannedUntil: users.bannedUntil })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+    .then((rows) => rows[0]?.bannedUntil ?? null);
+  const effectiveExpiresAt =
+    action === "extend" && currentBan && currentBan.getTime() > now.getTime()
+      ? new Date(currentBan.getTime() + days * 24 * 60 * 60 * 1000)
+      : expiresAt;
 
   await db.insert(userSanctions).values({
     userId,
-    type: action,
+    type: action === "extend" ? "suspend" : action,
     reason,
-    expiresAt,
+    expiresAt: effectiveExpiresAt,
     createdByEmail: adminEmail,
   });
 
@@ -144,7 +158,7 @@ export async function POST(req: Request) {
   if (action !== "warn") {
     await db
       .update(users)
-      .set({ bannedUntil: expiresAt, banReason: reason || null, updatedAt: now })
+      .set({ bannedUntil: effectiveExpiresAt, banReason: reason || null, updatedAt: now })
       .where(eq(users.id, userId));
   }
 
@@ -155,7 +169,7 @@ export async function POST(req: Request) {
     detail: {
       gameName: target.gameName,
       reason,
-      ...(action === "suspend" ? { days } : {}),
+      ...(action === "suspend" || action === "extend" ? { days } : {}),
     },
   });
 
@@ -163,6 +177,6 @@ export async function POST(req: Request) {
     ok: true,
     action,
     banned: action !== "warn",
-    bannedUntil: expiresAt?.toISOString() ?? null,
+    bannedUntil: effectiveExpiresAt?.toISOString() ?? null,
   });
 }

@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { logAdminAction } from "@/lib/server/adminAudit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
-import { currentAdminEmail, requireAdmin } from "@/lib/server/isAdmin";
+import { currentAdminEmail, requireAdminRole } from "@/lib/server/isAdmin";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { FISHING_WALLET_KEY, fishingWalletWithCoins, walletCoins as fishingCoins } from "@/lib/server/fishing/coins";
 import { TREASURE_WALLET_KEY, walletCoins as treasureCoins } from "@/lib/server/treasure/coins";
@@ -19,7 +19,7 @@ const ITEM_KINDS = [
 type ItemKind = (typeof ITEM_KINDS)[number];
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdminRole("reward");
   if (gate) return gate;
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
   const quantity = clampPositiveInt(body?.quantity, 1_000_000_000);
   const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 500) : "";
   const sourceEventId = clampPositiveInt(body?.sourceEventId, 2_147_483_647, 0);
+  const confirmLarge = body?.confirmLarge === true;
 
   if (!userId || !isItemKind(itemKind) || quantity <= 0) {
     return Response.json(
@@ -42,6 +43,16 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  if (isLargeCompensation(itemKind, quantity) && !confirmLarge) {
+    return Response.json(
+      {
+        ok: false,
+        error: "large_compensation_requires_confirm",
+        threshold: largeThreshold(itemKind),
+      },
+      { status: 409 },
+    );
+  }
 
   const result = await db.transaction(async (tx) => {
     if (itemKind === "gold") {
@@ -51,15 +62,17 @@ export async function POST(req: Request) {
         "character.v2",
         {},
       );
-      const bankedGold = intValue(char.bankedGold) + quantity;
+      const beforeBalance = intValue(char.bankedGold);
+      const bankedGold = beforeBalance + quantity;
       await upsertSave(tx, userId, "character.v2", { ...char, bankedGold });
-      return { balance: bankedGold };
+      return { beforeBalance, balance: bankedGold };
     }
     if (itemKind === "fishing_coin") {
       const wallet = await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {});
-      const coins = fishingCoins(wallet) + quantity;
+      const beforeBalance = fishingCoins(wallet);
+      const coins = beforeBalance + quantity;
       await upsertSave(tx, userId, FISHING_WALLET_KEY, fishingWalletWithCoins(wallet, coins));
-      return { balance: coins };
+      return { beforeBalance, balance: coins };
     }
     if (itemKind === "treasure_coin") {
       const wallet = await lockSaveForUpdate<Record<string, unknown>>(
@@ -68,9 +81,10 @@ export async function POST(req: Request) {
         TREASURE_WALLET_KEY,
         {},
       );
-      const coins = treasureCoins(wallet) + quantity;
+      const beforeBalance = treasureCoins(wallet);
+      const coins = beforeBalance + quantity;
       await upsertSave(tx, userId, TREASURE_WALLET_KEY, { ...wallet, coins });
-      return { balance: coins };
+      return { beforeBalance, balance: coins };
     }
     if (itemKind === "mastery_certificate") {
       const inv = await lockSaveForUpdate<Record<string, unknown>>(
@@ -79,12 +93,13 @@ export async function POST(req: Request) {
         "inventory.v2",
         {},
       );
-      const certificates = intValue(inv[MASTERY_CERTIFICATE_KEY]) + quantity;
+      const beforeBalance = intValue(inv[MASTERY_CERTIFICATE_KEY]);
+      const certificates = beforeBalance + quantity;
       await upsertSave(tx, userId, "inventory.v2", {
         ...inv,
         [MASTERY_CERTIFICATE_KEY]: certificates,
       });
-      return { balance: certificates };
+      return { beforeBalance, balance: certificates };
     }
     if (itemKind === "stamina_potion") {
       const current = staminaPotionCount(
@@ -92,7 +107,7 @@ export async function POST(req: Request) {
       );
       const count = current + quantity;
       await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count });
-      return { balance: count };
+      return { beforeBalance: current, balance: count };
     }
 
     const char = await lockSaveForUpdate<Record<string, unknown>>(
@@ -105,9 +120,10 @@ export async function POST(req: Request) {
       char.materials && typeof char.materials === "object" && !Array.isArray(char.materials)
         ? { ...(char.materials as Record<string, number>) }
         : {};
-    materials[itemId] = intValue(materials[itemId]) + quantity;
+    const beforeBalance = intValue(materials[itemId]);
+    materials[itemId] = beforeBalance + quantity;
     await upsertSave(tx, userId, "character.v2", { ...char, materials });
-    return { balance: materials[itemId] };
+    return { beforeBalance, balance: materials[itemId] };
   });
 
   const adminEmail = await currentAdminEmail();
@@ -124,10 +140,23 @@ export async function POST(req: Request) {
     itemKind,
     itemId: itemId || itemKind,
     quantity,
-    detail: { reason, sourceEventId, balance: result.balance },
+    detail: {
+      reason,
+      sourceEventId,
+      beforeBalance: result.beforeBalance,
+      balance: result.balance,
+    },
   });
 
   return Response.json({ ok: true, ...result });
+}
+
+function largeThreshold(itemKind: ItemKind) {
+  return itemKind === "gold" ? 100_000 : itemKind === "material" ? 5_000 : 1_000;
+}
+
+function isLargeCompensation(itemKind: ItemKind, quantity: number) {
+  return quantity >= largeThreshold(itemKind);
 }
 
 function isItemKind(value: string): value is ItemKind {

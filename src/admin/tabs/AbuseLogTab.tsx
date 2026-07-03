@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
 import { Button } from "../ui/Field";
@@ -25,10 +26,11 @@ function compactDetail(detail: Record<string, unknown> | null): string {
 
 export function AbuseLogTab() {
   const { showToast } = useAdmin();
-  const [action, setAction] = useState("");
-  const [reason, setReason] = useState("");
-  const [userId, setUserId] = useState("");
-  const [ip, setIp] = useState("");
+  const searchParams = useSearchParams();
+  const [action, setAction] = useState(searchParams.get("action") ?? "");
+  const [reason, setReason] = useState(searchParams.get("reason") ?? "");
+  const [userId, setUserId] = useState(searchParams.get("userId") ?? "");
+  const [ip, setIp] = useState(searchParams.get("ip") ?? "");
   const [since, setSince] = useState("");
   const [until, setUntil] = useState("");
 

@@ -76,12 +76,24 @@ export function SanctionsSection({
     void load();
   }, [load]);
 
-  const act = async (action: "ban" | "suspend" | "warn" | "lift") => {
+  const act = async (
+    action: "ban" | "suspend" | "extend" | "warn" | "lift",
+    overrideDays = days,
+  ) => {
     setBusy(true);
     try {
-      await adminPost("/api/admin/sanctions", { userId, action, reason, days });
+      await adminPost("/api/admin/sanctions", {
+        userId,
+        action,
+        reason,
+        days: overrideDays,
+      });
       const label =
-        action === "lift" ? "제재 해제" : (TYPE_LABELS[action] ?? action);
+        action === "lift"
+          ? "제재 해제"
+          : action === "extend"
+            ? "제재 연장"
+            : (TYPE_LABELS[action] ?? action);
       showToast(`${label} 적용 완료`);
       if (action !== "warn") setReason("");
       await load();
@@ -173,13 +185,21 @@ export function SanctionsSection({
             onConfirm={() => void act("ban")}
           />
           {banned && (
-            <Button
-              variant="primary"
-              disabled={disabled}
-              onClick={() => void act("lift")}
-            >
-              제재 해제
-            </Button>
+            <>
+              <Button disabled={disabled} onClick={() => void act("extend", 1)}>
+                1일 연장
+              </Button>
+              <Button disabled={disabled} onClick={() => void act("extend", 3)}>
+                3일 연장
+              </Button>
+              <Button
+                variant="primary"
+                disabled={disabled}
+                onClick={() => void act("lift")}
+              >
+                제재 해제
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -189,20 +209,26 @@ export function SanctionsSection({
           <div className="mb-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             이력 (최근 {status.sanctions.length})
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-2 border-l border-zinc-200 pl-3 dark:border-zinc-800">
             {status.sanctions.map((s) => (
               <li
                 key={s.id}
-                className="rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                className="relative rounded border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
               >
+                <span className="absolute -left-[17px] top-2 h-2 w-2 rounded-full bg-amber-500" />
                 <span className="font-semibold">
                   {TYPE_LABELS[s.type] ?? s.type}
                 </span>
                 {s.reason ? <> — {s.reason}</> : null}
+                {s.expiresAt ? (
+                  <span className="ml-1 text-zinc-400">
+                    · 만료 {new Date(s.expiresAt).toLocaleString("ko-KR")}
+                  </span>
+                ) : null}
                 {s.liftedAt ? (
                   <span className="text-emerald-600 dark:text-emerald-400">
                     {" "}
-                    (해제됨)
+                    · 해제 {new Date(s.liftedAt).toLocaleString("ko-KR")}
                   </span>
                 ) : null}
                 <span className="ml-1 text-zinc-400">

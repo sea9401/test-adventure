@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
 import { Button } from "../ui/Field";
@@ -37,10 +38,11 @@ type EconomySummary = {
 
 export function EconomyLogTab() {
   const { showToast } = useAdmin();
-  const [eventType, setEventType] = useState("");
-  const [userId, setUserId] = useState("");
-  const [itemKind, setItemKind] = useState("");
-  const [itemId, setItemId] = useState("");
+  const searchParams = useSearchParams();
+  const [eventType, setEventType] = useState(searchParams.get("eventType") ?? "");
+  const [userId, setUserId] = useState(searchParams.get("userId") ?? "");
+  const [itemKind, setItemKind] = useState(searchParams.get("itemKind") ?? "");
+  const [itemId, setItemId] = useState(searchParams.get("itemId") ?? "");
   const [since, setSince] = useState("");
   const [until, setUntil] = useState("");
 

@@ -38,6 +38,7 @@ export async function GET(req: Request) {
         itemKind: economyEvents.itemKind,
         itemId: economyEvents.itemId,
         quantity: economyEvents.quantity,
+        detail: economyEvents.detail,
         createdAt: economyEvents.createdAt,
       })
       .from(economyEvents)
@@ -78,7 +79,19 @@ export async function GET(req: Request) {
       auditCount: auditRows.length,
       periodHours: hours,
     }),
+    rewardFailureCandidates: economyRows
+      .filter((row) => row.eventType.startsWith("reward.failure."))
+      .slice(0, 12)
+      .map((row) => ({
+        id: row.id,
+        userId: row.userId,
+        eventType: row.eventType,
+        itemId: row.itemId,
+        detail: row.detail,
+        createdAt: row.createdAt,
+      })),
     suspiciousUsers: scoreSuspiciousUsers(abuseRows),
+    connectedIps: scoreConnectedIps(abuseRows),
     slowQueryCandidates: [
       {
         key: "marketplace.prices",
@@ -290,10 +303,62 @@ function scoreSuspiciousUsers(
         rateLimited: value.rateLimited,
         actionCount: value.actions.size,
         ipCount: value.ips.size,
+        ips: [...value.ips].sort().slice(0, 5),
         lastAt: new Date(value.lastAt).toISOString(),
       };
     })
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || b.rateLimited - a.rateLimited)
+    .slice(0, 12);
+}
+
+function scoreConnectedIps(
+  rows: Array<{
+    action: string;
+    reason: string;
+    userId: string | null;
+    ip: string | null;
+    createdAt: Date;
+  }>,
+) {
+  const ips = new Map<
+    string,
+    {
+      events: number;
+      rateLimited: number;
+      users: Set<string>;
+      actions: Set<string>;
+      lastAt: number;
+    }
+  >();
+  for (const row of rows) {
+    if (!row.ip) continue;
+    const value =
+      ips.get(row.ip) ?? {
+        events: 0,
+        rateLimited: 0,
+        users: new Set<string>(),
+        actions: new Set<string>(),
+        lastAt: 0,
+      };
+    value.events += 1;
+    if (row.reason === "rate_limited") value.rateLimited += 1;
+    if (row.userId) value.users.add(row.userId);
+    value.actions.add(row.action);
+    value.lastAt = Math.max(value.lastAt, row.createdAt.getTime());
+    ips.set(row.ip, value);
+  }
+  return [...ips.entries()]
+    .map(([ip, value]) => ({
+      ip,
+      events: value.events,
+      rateLimited: value.rateLimited,
+      userCount: value.users.size,
+      actionCount: value.actions.size,
+      userIds: [...value.users].sort().slice(0, 8),
+      lastAt: new Date(value.lastAt).toISOString(),
+    }))
+    .filter((row) => row.userCount >= 2 || row.rateLimited >= 5)
+    .sort((a, b) => b.userCount - a.userCount || b.rateLimited - a.rateLimited)
     .slice(0, 12);
 }

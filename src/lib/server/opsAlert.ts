@@ -27,13 +27,15 @@ export async function sendOpsAlert(
   message: string,
   detail?: Record<string, unknown>,
 ) {
-  const url = process.env.OPS_ALERT_WEBHOOK_URL;
+  const channel = selectOpsAlertChannel(detail);
+  const url = channel.url;
+  const recordedDetail = { ...(detail ?? {}), channel: channel.key };
   if (!url) {
     await recordOpsAlertHistory({
       message,
-      detail: detail ?? null,
+      detail: recordedDetail,
       status: "skipped",
-      error: "OPS_ALERT_WEBHOOK_URL not configured",
+      error: `${channel.envName} not configured`,
     });
     return;
   }
@@ -44,13 +46,13 @@ export async function sendOpsAlert(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         text: message,
-        detail,
+        detail: recordedDetail,
         at: new Date().toISOString(),
       }),
     });
     await recordOpsAlertHistory({
       message,
-      detail: detail ?? null,
+      detail: recordedDetail,
       status: "sent",
       error: null,
     });
@@ -58,7 +60,7 @@ export async function sendOpsAlert(
     console.error("[ops-alert] webhook failed", e);
     await recordOpsAlertHistory({
       message,
-      detail: detail ?? null,
+      detail: recordedDetail,
       status: "failed",
       error: e instanceof Error ? e.message : "unknown error",
     });
@@ -86,6 +88,7 @@ export function recordOpsSignal({
   bucket.alertedAt = now;
   void sendOpsAlert(`[ops] ${label}`, {
     ...detail,
+    signalKey: key,
     count: bucket.count,
     threshold,
     windowMs,
@@ -134,4 +137,43 @@ async function recordOpsAlertHistory(entry: Omit<OpsAlertHistoryEntry, "id" | "c
   } catch (e) {
     console.error("[ops-alert] history failed", e);
   }
+}
+
+function selectOpsAlertChannel(detail?: Record<string, unknown>) {
+  const signalKey = typeof detail?.signalKey === "string" ? detail.signalKey : "";
+  const eventType = typeof detail?.eventType === "string" ? detail.eventType : "";
+  if (signalKey.includes("reward") || eventType.startsWith("reward.failure.")) {
+    return webhookChannel(
+      "reward",
+      "OPS_ALERT_REWARD_WEBHOOK_URL",
+      process.env.OPS_ALERT_REWARD_WEBHOOK_URL,
+    );
+  }
+  if (
+    signalKey.includes("abuse") ||
+    signalKey.includes("rate-limit") ||
+    signalKey.includes("same-ip")
+  ) {
+    return webhookChannel(
+      "abuse",
+      "OPS_ALERT_ABUSE_WEBHOOK_URL",
+      process.env.OPS_ALERT_ABUSE_WEBHOOK_URL,
+    );
+  }
+  if (signalKey.includes("economy") || eventType.startsWith("admin.reward.")) {
+    return webhookChannel(
+      "economy",
+      "OPS_ALERT_ECONOMY_WEBHOOK_URL",
+      process.env.OPS_ALERT_ECONOMY_WEBHOOK_URL,
+    );
+  }
+  return webhookChannel("default", "OPS_ALERT_WEBHOOK_URL", process.env.OPS_ALERT_WEBHOOK_URL);
+}
+
+function webhookChannel(key: string, envName: string, url: string | undefined) {
+  return {
+    key,
+    envName,
+    url: url || process.env.OPS_ALERT_WEBHOOK_URL,
+  };
 }

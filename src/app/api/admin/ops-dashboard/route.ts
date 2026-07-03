@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, lte } from "drizzle-orm";
 import { db } from "@/db";
 import {
   abuseEvents,
@@ -25,11 +25,19 @@ export async function GET(req: Request) {
   const hours = clampHours(Number(sp.get("hours")) || 24);
   const now = Date.now();
   const since = new Date(now - hours * HOUR_MS);
+  const daySince = new Date(now - 24 * HOUR_MS);
+  const prevDaySince = new Date(now - 48 * HOUR_MS);
 
   const [
     abuseRows,
     economyRows,
     auditRows,
+    currentDayAbuseRows,
+    currentDayEconomyRows,
+    currentDayAuditRows,
+    previousAbuseRows,
+    previousEconomyRows,
+    previousAuditRows,
     { alertThresholds },
     alertHistory,
     rewardFailureStatuses,
@@ -78,6 +86,74 @@ export async function GET(req: Request) {
       .where(gte(adminAuditLog.createdAt, since))
       .orderBy(desc(adminAuditLog.id))
       .limit(300),
+    db
+      .select({
+        action: abuseEvents.action,
+        reason: abuseEvents.reason,
+        userId: abuseEvents.userId,
+        ip: abuseEvents.ip,
+        createdAt: abuseEvents.createdAt,
+      })
+      .from(abuseEvents)
+      .where(gte(abuseEvents.createdAt, daySince))
+      .orderBy(desc(abuseEvents.id))
+      .limit(1_000),
+    db
+      .select({
+        id: economyEvents.id,
+        eventType: economyEvents.eventType,
+        goldDelta: economyEvents.goldDelta,
+        itemKind: economyEvents.itemKind,
+        itemId: economyEvents.itemId,
+        quantity: economyEvents.quantity,
+        createdAt: economyEvents.createdAt,
+      })
+      .from(economyEvents)
+      .where(gte(economyEvents.createdAt, daySince))
+      .orderBy(desc(economyEvents.id))
+      .limit(1_000),
+    db
+      .select({
+        action: adminAuditLog.action,
+      })
+      .from(adminAuditLog)
+      .where(gte(adminAuditLog.createdAt, daySince))
+      .orderBy(desc(adminAuditLog.id))
+      .limit(1_000),
+    db
+      .select({
+        action: abuseEvents.action,
+        reason: abuseEvents.reason,
+        userId: abuseEvents.userId,
+        ip: abuseEvents.ip,
+        createdAt: abuseEvents.createdAt,
+      })
+      .from(abuseEvents)
+      .where(and(gte(abuseEvents.createdAt, prevDaySince), lt(abuseEvents.createdAt, daySince)))
+      .orderBy(desc(abuseEvents.id))
+      .limit(1_000),
+    db
+      .select({
+        id: economyEvents.id,
+        eventType: economyEvents.eventType,
+        goldDelta: economyEvents.goldDelta,
+        itemKind: economyEvents.itemKind,
+        itemId: economyEvents.itemId,
+        quantity: economyEvents.quantity,
+        createdAt: economyEvents.createdAt,
+      })
+      .from(economyEvents)
+      .where(and(gte(economyEvents.createdAt, prevDaySince), lt(economyEvents.createdAt, daySince)))
+      .orderBy(desc(economyEvents.id))
+      .limit(1_000),
+    db
+      .select({
+        action: adminAuditLog.action,
+      })
+      .from(adminAuditLog)
+      .where(and(gte(adminAuditLog.createdAt, prevDaySince), lt(adminAuditLog.createdAt, daySince)))
+      .orderBy(desc(adminAuditLog.id))
+      .limit(1_000),
     readAlertThresholdSettings(),
     readOpsAlertHistory(),
     readRewardFailureStatuses(),
@@ -120,10 +196,19 @@ export async function GET(req: Request) {
 
   const abuse = summarizeAbuse(abuseRows, now);
   const economy = summarizeEconomy(economyRows, now);
+  const suspiciousUsers = scoreSuspiciousUsers(abuseRows);
+  const connectedIps = scoreConnectedIps(abuseRows);
+  const previousAbuse = summarizeAbuse(previousAbuseRows, daySince.getTime());
+  const previousEconomy = summarizeEconomy(previousEconomyRows, daySince.getTime());
+  const currentDayAbuse = summarizeAbuse(currentDayAbuseRows, now);
+  const currentDayEconomy = summarizeEconomy(currentDayEconomyRows, now);
   const rewardFailureStatusById = new Map(
     rewardFailureStatuses.map((entry) => [entry.eventId, entry]),
   );
   const rewardFailures = economyRows.filter((row) =>
+    row.eventType.startsWith("reward.failure."),
+  );
+  const current24hRewardFailures = currentDayEconomyRows.filter((row) =>
     row.eventType.startsWith("reward.failure."),
   );
 
@@ -132,6 +217,7 @@ export async function GET(req: Request) {
     generatedAt: new Date(now).toISOString(),
     periodHours: hours,
     webhookConfigured: Boolean(process.env.OPS_ALERT_WEBHOOK_URL),
+    alertChannels: alertChannelStatus(),
     abuse,
     economy,
     alertThresholds,
@@ -139,6 +225,8 @@ export async function GET(req: Request) {
       abuse,
       economy,
       auditCount: auditRows.length,
+      suspiciousUsers,
+      connectedIps,
     }),
     alertHistory: alertHistory.slice(0, 12),
     dailyReport: buildDailyReport({
@@ -147,6 +235,24 @@ export async function GET(req: Request) {
       auditRows,
       rewardFailures,
       rewardFailureStatuses,
+    }),
+    periodComparison: buildPeriodComparison({
+      current: buildDailyReport({
+        abuse: currentDayAbuse,
+        economy: currentDayEconomy,
+        auditRows: currentDayAuditRows,
+        rewardFailures: current24hRewardFailures,
+        rewardFailureStatuses,
+      }),
+      previous: buildDailyReport({
+        abuse: previousAbuse,
+        economy: previousEconomy,
+        auditRows: previousAuditRows,
+        rewardFailures: previousEconomyRows.filter((row) =>
+          row.eventType.startsWith("reward.failure."),
+        ),
+        rewardFailureStatuses,
+      }),
     }),
     sanctionReport: {
       expiring24h: expiringSanctions.map((row) => ({
@@ -169,6 +275,8 @@ export async function GET(req: Request) {
       auditCount: auditRows.length,
       periodHours: hours,
       thresholds: alertThresholds,
+      suspiciousUsers,
+      connectedIps,
     }),
     rewardFailureCandidates: economyRows
       .filter((row) => row.eventType.startsWith("reward.failure."))
@@ -183,8 +291,9 @@ export async function GET(req: Request) {
         createdAt: row.createdAt,
       })),
     rewardFailureStatusRecent: rewardFailureStatuses.slice(0, 12),
-    suspiciousUsers: scoreSuspiciousUsers(abuseRows),
-    connectedIps: scoreConnectedIps(abuseRows),
+    suspiciousUsers,
+    sanctionRecommendations: buildSanctionRecommendations(suspiciousUsers),
+    connectedIps,
     slowQueryCandidates: [
       {
         key: "marketplace.prices",
@@ -212,17 +321,27 @@ function suggestAlertThresholds({
   abuse,
   economy,
   auditCount,
+  suspiciousUsers,
+  connectedIps,
 }: {
   abuse: ReturnType<typeof summarizeAbuse>;
   economy: ReturnType<typeof summarizeEconomy>;
   auditCount: number;
+  suspiciousUsers: ReturnType<typeof scoreSuspiciousUsers>;
+  connectedIps: ReturnType<typeof scoreConnectedIps>;
 }) {
+  const topUser = suspiciousUsers[0];
+  const topIp = connectedIps[0];
+  const topAction = abuse.topActions[0];
   return {
     abuseLast5m: suggested(abuse.last5m, DEFAULT_SUGGESTED.abuseLast5m),
     abuseLast1h: suggested(abuse.last1h, DEFAULT_SUGGESTED.abuseLast1h),
     rewardFailures: suggested(economy.rewardFailures24h, DEFAULT_SUGGESTED.rewardFailures),
     largeGoldEvents: suggested(economy.largeGoldEvents24h, DEFAULT_SUGGESTED.largeGoldEvents),
     adminAudit: suggested(auditCount, DEFAULT_SUGGESTED.adminAudit),
+    repeatUserEvents: suggested(topUser?.events ?? 0, DEFAULT_SUGGESTED.repeatUserEvents),
+    connectedIpUsers: suggested(topIp?.userCount ?? 0, DEFAULT_SUGGESTED.connectedIpUsers),
+    topActionEvents: suggested(topAction?.count ?? 0, DEFAULT_SUGGESTED.topActionEvents),
   };
 }
 
@@ -232,6 +351,9 @@ const DEFAULT_SUGGESTED = {
   rewardFailures: 5,
   largeGoldEvents: 3,
   adminAudit: 30,
+  repeatUserEvents: 30,
+  connectedIpUsers: 3,
+  topActionEvents: 80,
 };
 
 function suggested(current: number, fallback: number) {
@@ -264,6 +386,30 @@ function buildDailyReport({
     largeGoldEvents: economy.largeGoldEvents24h,
     adminChanges: auditRows.length,
     goldNet: economy.goldIn24h - economy.goldOut24h,
+  };
+}
+
+function buildPeriodComparison({
+  current,
+  previous,
+}: {
+  current: ReturnType<typeof buildDailyReport>;
+  previous: ReturnType<typeof buildDailyReport>;
+}) {
+  return {
+    current,
+    previous,
+    deltas: {
+      rewardFailures: current.rewardFailures - previous.rewardFailures,
+      rewardFailuresHandled: current.rewardFailuresHandled - previous.rewardFailuresHandled,
+      rewardCompensated: current.rewardCompensated - previous.rewardCompensated,
+      sanctionsChanged: current.sanctionsChanged - previous.sanctionsChanged,
+      abuseEvents: current.abuseEvents - previous.abuseEvents,
+      rateLimited: current.rateLimited - previous.rateLimited,
+      largeGoldEvents: current.largeGoldEvents - previous.largeGoldEvents,
+      adminChanges: current.adminChanges - previous.adminChanges,
+      goldNet: current.goldNet - previous.goldNet,
+    },
   };
 }
 
@@ -428,12 +574,16 @@ function buildAlerts({
   auditCount,
   periodHours,
   thresholds,
+  suspiciousUsers,
+  connectedIps,
 }: {
   abuse: ReturnType<typeof summarizeAbuse>;
   economy: ReturnType<typeof summarizeEconomy>;
   auditCount: number;
   periodHours: number;
   thresholds: Awaited<ReturnType<typeof readAlertThresholdSettings>>["alertThresholds"];
+  suspiciousUsers: ReturnType<typeof scoreSuspiciousUsers>;
+  connectedIps: ReturnType<typeof scoreConnectedIps>;
 }) {
   const alerts: Array<{
     level: "danger" | "warning" | "info";
@@ -476,6 +626,33 @@ function buildAlerts({
       level: "info",
       title: "관리자 변경 많음",
       message: `선택 기간(${periodLabel(periodHours)}) 관리자 변경 ${auditCount.toLocaleString()}건`,
+    });
+  }
+
+  const topUser = suspiciousUsers[0];
+  if (topUser && topUser.events >= thresholds.repeatUserEvents) {
+    alerts.push({
+      level: "warning",
+      title: "동일 계정 반복 이벤트",
+      message: `${topUser.userId.slice(0, 12)} · 이벤트 ${topUser.events.toLocaleString()}건 · 점수 ${topUser.score.toLocaleString()}`,
+    });
+  }
+
+  const topIp = connectedIps[0];
+  if (topIp && topIp.userCount >= thresholds.connectedIpUsers) {
+    alerts.push({
+      level: "warning",
+      title: "동일 IP 다계정 연결",
+      message: `${topIp.ip} · 계정 ${topIp.userCount.toLocaleString()}개 · 제한 ${topIp.rateLimited.toLocaleString()}건`,
+    });
+  }
+
+  const topAction = abuse.topActions[0];
+  if (topAction && topAction.count >= thresholds.topActionEvents) {
+    alerts.push({
+      level: "info",
+      title: "특정 보호 이벤트 집중",
+      message: `${topAction.key} · ${topAction.count.toLocaleString()}건`,
     });
   }
 
@@ -594,4 +771,37 @@ function scoreConnectedIps(
     .filter((row) => row.userCount >= 2 || row.rateLimited >= 5)
     .sort((a, b) => b.userCount - a.userCount || b.rateLimited - a.rateLimited)
     .slice(0, 12);
+}
+
+function buildSanctionRecommendations(
+  users: ReturnType<typeof scoreSuspiciousUsers>,
+) {
+  return users
+    .filter((row) => row.score >= 30 || row.rateLimited >= 5 || row.events >= 20)
+    .map((row) => {
+      const recommendation =
+        row.score >= 120 || row.rateLimited >= 20
+          ? "임시 정지 검토"
+          : row.score >= 60 || row.rateLimited >= 10
+            ? "채팅/거래 제한 검토"
+            : "모니터링 유지";
+      return {
+        userId: row.userId,
+        score: row.score,
+        recommendation,
+        reason: `제한 ${row.rateLimited.toLocaleString()}건 · 이벤트 ${row.events.toLocaleString()}건 · IP ${row.ipCount.toLocaleString()}개`,
+        href: `/admin?tab=users&q=${encodeURIComponent(row.userId)}`,
+      };
+    })
+    .slice(0, 8);
+}
+
+function alertChannelStatus() {
+  return {
+    default: Boolean(process.env.OPS_ALERT_WEBHOOK_URL),
+    reward: Boolean(process.env.OPS_ALERT_REWARD_WEBHOOK_URL),
+    abuse: Boolean(process.env.OPS_ALERT_ABUSE_WEBHOOK_URL),
+    economy: Boolean(process.env.OPS_ALERT_ECONOMY_WEBHOOK_URL),
+    deploy: Boolean(process.env.OPS_ALERT_DEPLOY_WEBHOOK_URL),
+  };
 }

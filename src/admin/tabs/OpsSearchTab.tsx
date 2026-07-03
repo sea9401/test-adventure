@@ -16,6 +16,7 @@ type OpsSearchEntry = {
   title: string;
   subtitle: string;
   summary: string;
+  rewardFailureStatus: "open" | "reviewed" | "compensated" | "ignored" | null;
   detail: Record<string, unknown> | null;
   createdAt: string;
   href: string;
@@ -27,6 +28,11 @@ export function OpsSearchTab() {
   const [q, setQ] = useState("");
   const url = useMemo(() => {
     const sp = new URLSearchParams({ limit: "80" });
+    if (q.trim().length >= 2) sp.set("q", q.trim());
+    return `/api/admin/ops-search?${sp.toString()}`;
+  }, [q]);
+  const csvUrl = useMemo(() => {
+    const sp = new URLSearchParams({ limit: "200", format: "csv" });
     if (q.trim().length >= 2) sp.set("q", q.trim());
     return `/api/admin/ops-search?${sp.toString()}`;
   }, [q]);
@@ -50,9 +56,21 @@ export function OpsSearchTab() {
             userId, 캐릭터명, IP, event id, action, item id를 이상 행동·경제·감사 로그에서 함께 찾습니다.
           </p>
         </div>
-        <Button onClick={() => void refetch()} disabled={loading || q.trim().length < 2}>
-          {loading ? "조회 중..." : "새로고침"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={csvUrl}
+            className={`rounded-md border border-zinc-300 px-3 py-1.5 text-xs dark:border-zinc-700 ${
+              q.trim().length < 2
+                ? "pointer-events-none opacity-50"
+                : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            }`}
+          >
+            CSV
+          </Link>
+          <Button onClick={() => void refetch()} disabled={loading || q.trim().length < 2}>
+            {loading ? "조회 중..." : "새로고침"}
+          </Button>
+        </div>
       </div>
 
       <label className="block space-y-1 text-xs">
@@ -81,6 +99,7 @@ export function OpsSearchTab() {
                 <th className="px-2 py-1.5 font-medium">event</th>
                 <th className="px-2 py-1.5 font-medium">대상</th>
                 <th className="px-2 py-1.5 font-medium">내용</th>
+                <th className="px-2 py-1.5 font-medium">보상 실패</th>
                 <th className="px-2 py-1.5 font-medium">요약</th>
                 <th className="px-2 py-1.5 font-medium">바로가기</th>
               </tr>
@@ -125,6 +144,9 @@ export function OpsSearchTab() {
                       </div>
                     ) : null}
                   </td>
+                  <td className="px-2 py-1.5 text-[11px]">
+                    {entry.rewardFailureStatus ? rewardFailureStatusLabel(entry.rewardFailureStatus) : "-"}
+                  </td>
                   <td className="max-w-[300px] truncate px-2 py-1.5 text-[11px] text-zinc-500">
                     {entry.summary || (entry.detail ? JSON.stringify(entry.detail) : "-")}
                   </td>
@@ -144,4 +166,13 @@ export function OpsSearchTab() {
       )}
     </section>
   );
+}
+
+function rewardFailureStatusLabel(
+  status: NonNullable<OpsSearchEntry["rewardFailureStatus"]>,
+) {
+  if (status === "open") return "후보";
+  if (status === "reviewed") return "검토 완료";
+  if (status === "compensated") return "보정 완료";
+  return "제외";
 }

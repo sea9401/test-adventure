@@ -2,6 +2,7 @@ import { desc, eq, ilike, or } from "drizzle-orm";
 import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents, users } from "@/db/schema";
 import { requireAdmin } from "@/lib/server/isAdmin";
+import { readRewardFailureStatuses } from "@/lib/server/opsSettings";
 
 export async function GET(req: Request) {
   const gate = await requireAdmin();
@@ -10,7 +11,13 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const q = sp.get("q")?.trim() ?? "";
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 60, 1), 200);
+  const format = sp.get("format") === "csv" ? "csv" : "json";
   if (q.length < 2) {
+    if (format === "csv") {
+      return new Response(csvRows([]), {
+        headers: { "content-type": "text/csv; charset=utf-8" },
+      });
+    }
     return Response.json({ ok: true, entries: [] });
   }
 
@@ -19,7 +26,7 @@ export async function GET(req: Request) {
   const pattern = `%${q}%`;
   const perLogLimit = Math.max(10, Math.ceil(limit / 2));
 
-  const [abuseRows, economyRows, auditRows] = await Promise.all([
+  const [abuseRows, economyRows, auditRows, rewardFailureStatuses] = await Promise.all([
     db
       .select({
         id: abuseEvents.id,
@@ -94,7 +101,11 @@ export async function GET(req: Request) {
       )
       .orderBy(desc(adminAuditLog.id))
       .limit(perLogLimit),
+    readRewardFailureStatuses(),
   ]);
+  const rewardFailureStatusById = new Map(
+    rewardFailureStatuses.map((entry) => [entry.eventId, entry.status]),
+  );
 
   const entries = [
     ...abuseRows.map((row) => ({
@@ -106,6 +117,7 @@ export async function GET(req: Request) {
       title: row.action,
       subtitle: row.reason,
       summary: summarizeDetail("abuse", row.detail),
+      rewardFailureStatus: null,
       detail: row.detail,
       createdAt: row.createdAt.toISOString(),
       href: `/admin?tab=abuse&${row.userId ? `userId=${encodeURIComponent(row.userId)}` : `ip=${encodeURIComponent(row.ip ?? "")}`}`,
@@ -120,6 +132,9 @@ export async function GET(req: Request) {
       title: row.eventType,
       subtitle: [row.itemKind, row.itemId, row.quantity ?? null].filter(Boolean).join(" · "),
       summary: summarizeDetail("economy", row.detail),
+      rewardFailureStatus: row.eventType.startsWith("reward.failure.")
+        ? rewardFailureStatusById.get(row.id) ?? "open"
+        : null,
       detail: row.detail,
       createdAt: row.createdAt.toISOString(),
       href: `/admin?tab=economy&eventType=${encodeURIComponent(row.eventType)}`,
@@ -134,6 +149,7 @@ export async function GET(req: Request) {
       title: row.action,
       subtitle: row.adminEmail,
       summary: summarizeDetail("audit", row.detail),
+      rewardFailureStatus: null,
       detail: row.detail,
       createdAt: row.createdAt.toISOString(),
       href: `/admin?tab=audit&action=${encodeURIComponent(row.action)}`,
@@ -145,7 +161,56 @@ export async function GET(req: Request) {
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, limit);
 
+  if (format === "csv") {
+    return new Response(csvRows(entries), {
+      headers: {
+        "content-type": "text/csv; charset=utf-8",
+        "content-disposition": `attachment; filename="ops-search-${Date.now()}.csv"`,
+      },
+    });
+  }
+
   return Response.json({ ok: true, entries });
+}
+
+function csvRows(entries: Array<{
+  log: string;
+  eventId: number;
+  createdAt: string;
+  userId: string | null;
+  gameName: string | null;
+  title: string;
+  subtitle: string;
+  summary: string;
+  rewardFailureStatus: string | null;
+  href: string;
+  userHref: string | null;
+}>) {
+  const columns = [
+    "log",
+    "eventId",
+    "createdAt",
+    "userId",
+    "gameName",
+    "title",
+    "subtitle",
+    "summary",
+    "rewardFailureStatus",
+    "href",
+    "userHref",
+  ] as const;
+  return [
+    columns.join(","),
+    ...entries.map((entry) =>
+      columns
+        .map((column) => csvCell(entry[column] == null ? "" : String(entry[column])))
+        .join(","),
+    ),
+  ].join("\n");
+}
+
+function csvCell(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function summarizeDetail(kind: "abuse" | "economy" | "audit", raw: unknown) {

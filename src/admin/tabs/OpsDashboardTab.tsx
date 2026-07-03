@@ -10,23 +10,37 @@ import { useAsyncData } from "@/lib/useAsyncData";
 
 type CountRow = { key: string; count: number };
 
+type DailyReport = {
+  rewardFailures: number;
+  rewardFailuresHandled: number;
+  rewardCompensated: number;
+  sanctionsChanged: number;
+  abuseEvents: number;
+  rateLimited: number;
+  largeGoldEvents: number;
+  adminChanges: number;
+  goldNet: number;
+};
+
 type Dashboard = {
   generatedAt: string;
   periodHours: number;
   webhookConfigured: boolean;
+  alertChannels: {
+    default: boolean;
+    reward: boolean;
+    abuse: boolean;
+    economy: boolean;
+    deploy: boolean;
+  };
   alertThresholds: AlertThresholdSettings;
   suggestedAlertThresholds: AlertThresholdSettings;
   alertHistory: AlertHistoryEntry[];
-  dailyReport: {
-    rewardFailures: number;
-    rewardFailuresHandled: number;
-    rewardCompensated: number;
-    sanctionsChanged: number;
-    abuseEvents: number;
-    rateLimited: number;
-    largeGoldEvents: number;
-    adminChanges: number;
-    goldNet: number;
+  dailyReport: DailyReport;
+  periodComparison: {
+    current: DailyReport;
+    previous: DailyReport;
+    deltas: DailyReport;
   };
   sanctionReport: {
     expiring24h: Array<{
@@ -106,6 +120,13 @@ type Dashboard = {
     ips: string[];
     lastAt: string;
   }>;
+  sanctionRecommendations: Array<{
+    userId: string;
+    score: number;
+    recommendation: string;
+    reason: string;
+    href: string;
+  }>;
   connectedIps: Array<{
     ip: string;
     events: number;
@@ -157,6 +178,9 @@ type AlertThresholdSettings = {
   rewardFailures: number;
   largeGoldEvents: number;
   adminAudit: number;
+  repeatUserEvents: number;
+  connectedIpUsers: number;
+  topActionEvents: number;
 };
 
 type AlertHistoryEntry = {
@@ -297,6 +321,7 @@ export function OpsDashboardTab() {
           </div>
 
           <DailyReportPanel report={data.dailyReport} periodLabel={periodLabel} />
+          <PeriodComparisonPanel comparison={data.periodComparison} />
           <RiskEventsPanel rows={data.riskEvents} />
 
           <div className="grid gap-3 lg:grid-cols-2">
@@ -448,8 +473,9 @@ export function OpsDashboardTab() {
             )}
           </Panel>
 
+          <SanctionRecommendationPanel rows={data.sanctionRecommendations} />
           <RewardFailurePanel rows={data.rewardFailureCandidates} onDone={refetch} />
-          <RewardFailureStatusPanel rows={data.rewardFailureStatusRecent} />
+          <RewardFailureStatusPanel rows={data.rewardFailureStatusRecent} onDone={refetch} />
           <CompensationPresetPanel />
 
           <AlertThresholdPanel
@@ -458,6 +484,7 @@ export function OpsDashboardTab() {
             onSaved={refetch}
           />
           <SanctionReportPanel report={data.sanctionReport} />
+          <AlertChannelsPanel value={data.alertChannels} />
           <AlertHistoryPanel rows={data.alertHistory} />
           <HotTimePanel />
         </>
@@ -489,6 +516,52 @@ function DailyReportPanel({
   );
 }
 
+function PeriodComparisonPanel({
+  comparison,
+}: {
+  comparison: Dashboard["periodComparison"];
+}) {
+  const rows: Array<{ key: keyof DailyReport; label: string }> = [
+    { key: "rewardFailures", label: "보상 실패" },
+    { key: "rateLimited", label: "제한 이벤트" },
+    { key: "largeGoldEvents", label: "대량 골드" },
+    { key: "adminChanges", label: "관리자 변경" },
+    { key: "goldNet", label: "골드 순변동" },
+  ];
+  return (
+    <Panel title="24시간 비교">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="text-zinc-500 dark:text-zinc-400">
+            <tr>
+              <th className="py-1 pr-3 font-medium">항목</th>
+              <th className="py-1 pr-3 font-medium">최근 24시간</th>
+              <th className="py-1 pr-3 font-medium">이전 24시간</th>
+              <th className="py-1 pr-3 font-medium">변화</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key} className="border-t border-zinc-100 dark:border-zinc-800">
+                <td className="py-1 pr-3">{row.label}</td>
+                <td className="py-1 pr-3 tabular-nums">
+                  {comparison.current[row.key].toLocaleString()}
+                </td>
+                <td className="py-1 pr-3 tabular-nums">
+                  {comparison.previous[row.key].toLocaleString()}
+                </td>
+                <td className={`py-1 pr-3 tabular-nums ${deltaClass(comparison.deltas[row.key])}`}>
+                  {formatDelta(comparison.deltas[row.key])}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+  );
+}
+
 function RiskEventsPanel({ rows }: { rows: Dashboard["riskEvents"] }) {
   return (
     <Panel title="운영 위험도 표시">
@@ -511,6 +584,50 @@ function RiskEventsPanel({ rows }: { rows: Dashboard["riskEvents"] }) {
               <div className="mt-1 font-mono text-[11px] opacity-80">{row.message}</div>
             </Link>
           ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function SanctionRecommendationPanel({
+  rows,
+}: {
+  rows: Dashboard["sanctionRecommendations"];
+}) {
+  return (
+    <Panel title="제재 검토 추천">
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">추천 대상 없음</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-zinc-500 dark:text-zinc-400">
+              <tr>
+                <th className="py-1 pr-3 font-medium">userId</th>
+                <th className="py-1 pr-3 font-medium">점수</th>
+                <th className="py-1 pr-3 font-medium">추천</th>
+                <th className="py-1 pr-3 font-medium">근거</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
+                  <td className="py-1 pr-3 font-mono">
+                    <Link
+                      href={row.href}
+                      className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                    >
+                      {row.userId.slice(0, 12)}
+                    </Link>
+                  </td>
+                  <td className="py-1 pr-3 tabular-nums">{row.score.toLocaleString()}</td>
+                  <td className="py-1 pr-3">{row.recommendation}</td>
+                  <td className="py-1 pr-3 text-zinc-500">{row.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </Panel>
@@ -650,37 +767,94 @@ function RewardFailurePanel({
   );
 }
 
-function RewardFailureStatusPanel({ rows }: { rows: RewardFailureStatusEntry[] }) {
+function RewardFailureStatusPanel({
+  rows,
+  onDone,
+}: {
+  rows: RewardFailureStatusEntry[];
+  onDone: () => void;
+}) {
+  const { showToast } = useAdmin();
+  const [filter, setFilter] = useState<RewardFailureStatus | "all">("all");
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const filtered = filter === "all" ? rows : rows.filter((row) => row.status === filter);
+
+  const reopen = async (eventId: number) => {
+    setSavingId(eventId);
+    try {
+      await adminPost("/api/admin/reward-failures/resolve", {
+        eventIds: [eventId],
+        note: "후보로 되돌림",
+        status: "open",
+      });
+      showToast("보상 실패 후보로 되돌림");
+      onDone();
+    } catch (e) {
+      showToast(`되돌리기 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <Panel title="최근 보상 실패 처리 상태">
       {rows.length === 0 ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">처리 이력 없음</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="text-zinc-500 dark:text-zinc-400">
-              <tr>
-                <th className="py-1 pr-3 font-medium">event id</th>
-                <th className="py-1 pr-3 font-medium">상태</th>
-                <th className="py-1 pr-3 font-medium">관리자</th>
-                <th className="py-1 pr-3 font-medium">메모</th>
-                <th className="py-1 pr-3 font-medium">시각</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.eventId} className="border-t border-zinc-100 dark:border-zinc-800">
-                  <td className="py-1 pr-3 font-mono">{row.eventId}</td>
-                  <td className="py-1 pr-3">{statusLabel(row.status)}</td>
-                  <td className="py-1 pr-3 text-zinc-500">{row.adminEmail}</td>
-                  <td className="py-1 pr-3">{row.note || "-"}</td>
-                  <td className="py-1 pr-3 text-zinc-500">
-                    {new Date(row.updatedAt).toLocaleString("ko-KR")}
-                  </td>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-zinc-500 dark:text-zinc-400">상태 필터</span>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as RewardFailureStatus | "all")}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-950"
+            >
+              <option value="all">전체</option>
+              <option value="reviewed">검토 완료</option>
+              <option value="compensated">보정 완료</option>
+              <option value="ignored">제외</option>
+            </select>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-zinc-500 dark:text-zinc-400">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">event id</th>
+                  <th className="py-1 pr-3 font-medium">상태</th>
+                  <th className="py-1 pr-3 font-medium">관리자</th>
+                  <th className="py-1 pr-3 font-medium">메모</th>
+                  <th className="py-1 pr-3 font-medium">시각</th>
+                  <th className="py-1 pr-3 font-medium">조치</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((row) => (
+                  <tr key={row.eventId} className="border-t border-zinc-100 dark:border-zinc-800">
+                    <td className="py-1 pr-3 font-mono">{row.eventId}</td>
+                    <td className="py-1 pr-3">{statusLabel(row.status)}</td>
+                    <td className="py-1 pr-3 text-zinc-500">{row.adminEmail}</td>
+                    <td className="py-1 pr-3">{row.note || "-"}</td>
+                    <td className="py-1 pr-3 text-zinc-500">
+                      {new Date(row.updatedAt).toLocaleString("ko-KR")}
+                    </td>
+                    <td className="py-1 pr-3">
+                      <Button
+                        onClick={() => void reopen(row.eventId)}
+                        disabled={savingId === row.eventId}
+                      >
+                        {savingId === row.eventId ? "처리 중..." : "후보로"}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 ? (
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                필터에 맞는 이력 없음
+              </p>
+            ) : null}
+          </div>
         </div>
       )}
     </Panel>
@@ -691,7 +865,22 @@ function CompensationPresetPanel() {
   const { showToast } = useAdmin();
   const { data, loading, error, refetch } = useAsyncData<{
     rewardCompensationPresets: RewardCompensationPreset[];
+    rewardCompensationPresetsUpdatedByEmail: string | null;
+    rewardCompensationPresetsUpdatedAt: string | null;
   }>((signal) => adminGet("/api/admin/ops-settings", signal));
+  const { data: auditData } = useAsyncData<{
+    entries: Array<{
+      id: number;
+      adminEmail: string;
+      detail: Record<string, unknown> | null;
+      createdAt: string;
+    }>;
+  }>((signal) =>
+    adminGet(
+      "/api/admin/audit-log?action=ops-settings.reward-compensation-presets.update&limit=5",
+      signal,
+    ),
+  );
   const [draft, setDraft] = useState<RewardCompensationPreset[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -829,6 +1018,27 @@ function CompensationPresetPanel() {
               {saving ? "저장 중..." : "프리셋 저장"}
             </Button>
           </div>
+          <div className="rounded-md border border-zinc-100 p-2 text-[11px] dark:border-zinc-800">
+            <div className="text-zinc-500 dark:text-zinc-400">
+              마지막 수정 {data?.rewardCompensationPresetsUpdatedByEmail ?? "-"} ·{" "}
+              {data?.rewardCompensationPresetsUpdatedAt
+                ? new Date(data.rewardCompensationPresetsUpdatedAt).toLocaleString("ko-KR")
+                : "-"}
+            </div>
+            {auditData?.entries?.length ? (
+              <ul className="mt-1 space-y-1">
+                {auditData.entries.map((entry) => (
+                  <li key={entry.id} className="flex flex-wrap justify-between gap-2">
+                    <span>{entry.adminEmail}</span>
+                    <span className="text-zinc-500">
+                      {new Date(entry.createdAt).toLocaleString("ko-KR")} ·{" "}
+                      {Number(entry.detail?.count ?? 0).toLocaleString()}개
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
       )}
     </Panel>
@@ -869,7 +1079,7 @@ function AlertThresholdPanel({
 
   return (
     <Panel title="운영 알림 임계치">
-      <div className="grid gap-2 md:grid-cols-5">
+      <div className="grid gap-2 md:grid-cols-4">
         <NumberField
           label="제한 5분"
           value={draft.abuseLast5m}
@@ -900,6 +1110,24 @@ function AlertThresholdPanel({
           onChange={(adminAudit) => setDraft({ ...draft, adminAudit })}
           max={100_000}
         />
+        <NumberField
+          label="동일 유저 이벤트"
+          value={draft.repeatUserEvents}
+          onChange={(repeatUserEvents) => setDraft({ ...draft, repeatUserEvents })}
+          max={100_000}
+        />
+        <NumberField
+          label="동일 IP 계정"
+          value={draft.connectedIpUsers}
+          onChange={(connectedIpUsers) => setDraft({ ...draft, connectedIpUsers })}
+          max={100_000}
+        />
+        <NumberField
+          label="상위 action"
+          value={draft.topActionEvents}
+          onChange={(topActionEvents) => setDraft({ ...draft, topActionEvents })}
+          max={100_000}
+        />
       </div>
       <div className="mt-2 flex flex-wrap justify-end gap-2">
         <Button onClick={() => setDraft(suggested)} disabled={saving}>
@@ -912,7 +1140,8 @@ function AlertThresholdPanel({
       <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
         추천값: 5분 {suggested.abuseLast5m}, 1시간 {suggested.abuseLast1h}, 보상 실패{" "}
         {suggested.rewardFailures}, 대량 골드 {suggested.largeGoldEvents}, 관리자 변경{" "}
-        {suggested.adminAudit}
+        {suggested.adminAudit}, 동일 유저 {suggested.repeatUserEvents}, 동일 IP{" "}
+        {suggested.connectedIpUsers}, 상위 action {suggested.topActionEvents}
       </p>
     </Panel>
   );
@@ -972,6 +1201,36 @@ function MiniSanctionList({
   );
 }
 
+function AlertChannelsPanel({ value }: { value: Dashboard["alertChannels"] }) {
+  const rows = [
+    { key: "default", label: "기본", env: "OPS_ALERT_WEBHOOK_URL" },
+    { key: "reward", label: "보상", env: "OPS_ALERT_REWARD_WEBHOOK_URL" },
+    { key: "abuse", label: "이상 행동", env: "OPS_ALERT_ABUSE_WEBHOOK_URL" },
+    { key: "economy", label: "경제", env: "OPS_ALERT_ECONOMY_WEBHOOK_URL" },
+    { key: "deploy", label: "배포", env: "OPS_ALERT_DEPLOY_WEBHOOK_URL" },
+  ] as const;
+  return (
+    <Panel title="운영 알림 채널">
+      <div className="grid gap-2 md:grid-cols-5">
+        {rows.map((row) => (
+          <div
+            key={row.key}
+            className="rounded-md border border-zinc-100 px-2 py-1.5 text-xs dark:border-zinc-800"
+          >
+            <div className="font-medium">{row.label}</div>
+            <div className={value[row.key] ? "text-emerald-600" : "text-zinc-500"}>
+              {value[row.key] ? "설정됨" : "미설정"}
+            </div>
+            <div className="mt-0.5 truncate font-mono text-[10px] text-zinc-400">
+              {row.env}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 function AlertHistoryPanel({ rows }: { rows: AlertHistoryEntry[] }) {
   return (
     <Panel title="운영 알림 이력">
@@ -1020,6 +1279,7 @@ function HotTimePanel() {
   const [saving, setSaving] = useState(false);
   const value = draft ?? data?.hotTime ?? null;
   const conflicts = value ? hotTimeConflicts(value, scheduleDraft) : [];
+  const preview = value ? hotTimePreview(value, scheduleDraft) : [];
 
   useEffect(() => {
     // 서버 설정을 편집 draft 로 복사한다. 이후 입력 중에는 draft 가 로컬 소스다.
@@ -1175,6 +1435,7 @@ function HotTimePanel() {
               <h5 className="text-xs font-semibold">반복 예약</h5>
               <Button onClick={addSchedule}>예약 추가</Button>
             </div>
+            <HotTimePreview rows={preview} />
             {scheduleDraft.length === 0 ? (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">예약 없음</p>
             ) : (
@@ -1241,6 +1502,96 @@ function hotTimeConflicts(
     }
   }
   return messages.slice(0, 5);
+}
+
+function hotTimePreview(
+  hotTime: HotTimeSettings,
+  schedules: HotTimeSchedule[],
+) {
+  const now = Date.now();
+  const until = now + 7 * 24 * 60 * 60 * 1000;
+  const rows: Array<{
+    source: "manual" | "schedule";
+    title: string;
+    startsAt: string;
+    endsAt: string;
+    bonuses: HotTimeSettings["bonuses"];
+  }> = [];
+  if (isManualHotTimeValid(hotTime)) {
+    const start = Date.parse(hotTime.startsAt);
+    const end = Date.parse(hotTime.endsAt);
+    if (end > now && start < until) {
+      rows.push({
+        source: "manual",
+        title: hotTime.title,
+        startsAt: new Date(start).toISOString(),
+        endsAt: new Date(end).toISOString(),
+        bonuses: hotTime.bonuses,
+      });
+    }
+  }
+  const startDayKst = new Date(now + 9 * 60 * 60 * 1000);
+  startDayKst.setUTCHours(0, 0, 0, 0);
+  for (let offset = 0; offset < 7; offset += 1) {
+    const day = new Date(startDayKst);
+    day.setUTCDate(day.getUTCDate() + offset);
+    const dayOfWeek = day.getUTCDay();
+    const datePart = day.toISOString().slice(0, 10);
+    for (const schedule of schedules) {
+      if (!schedule.enabled || !schedule.days.includes(dayOfWeek)) continue;
+      const start = Date.parse(`${datePart}T${schedule.startsAt}:00+09:00`);
+      const end = Date.parse(`${datePart}T${schedule.endsAt}:00+09:00`);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) continue;
+      if (end <= now || start >= until) continue;
+      rows.push({
+        source: "schedule",
+        title: schedule.title,
+        startsAt: new Date(start).toISOString(),
+        endsAt: new Date(end).toISOString(),
+        bonuses: schedule.bonuses,
+      });
+    }
+  }
+  return rows
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+    .slice(0, 20);
+}
+
+function HotTimePreview({
+  rows,
+}: {
+  rows: ReturnType<typeof hotTimePreview>;
+}) {
+  return (
+    <div className="mb-2 rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+      <div className="mb-1 text-[11px] font-medium text-zinc-500">7일 미리보기</div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">예정 없음</p>
+      ) : (
+        <ul className="grid gap-1 text-[11px] md:grid-cols-2">
+          {rows.map((row) => (
+            <li
+              key={`${row.source}:${row.startsAt}:${row.title}`}
+              className="rounded border border-zinc-100 px-2 py-1 dark:border-zinc-800"
+            >
+              <div className="font-medium">{row.title || "핫타임"}</div>
+              <div className="text-zinc-500">
+                {new Date(row.startsAt).toLocaleString("ko-KR")} -{" "}
+                {new Date(row.endsAt).toLocaleTimeString("ko-KR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+              <div className="text-zinc-500">
+                {row.source === "manual" ? "단발" : "반복"} · 골드 {row.bonuses.goldPct}% ·
+                경험치 {row.bonuses.expPct}% · 숙련 {row.bonuses.masteryPct}%
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function isManualHotTimeValid(hotTime: HotTimeSettings) {
@@ -1410,6 +1761,17 @@ function statusLabel(status: RewardFailureStatus) {
   return "검토 완료";
 }
 
+function formatDelta(value: number) {
+  if (value === 0) return "0";
+  return `${value > 0 ? "+" : ""}${value.toLocaleString()}`;
+}
+
+function deltaClass(value: number) {
+  if (value > 0) return "text-amber-700 dark:text-amber-300";
+  if (value < 0) return "text-emerald-700 dark:text-emerald-300";
+  return "text-zinc-500";
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
@@ -1497,10 +1859,15 @@ function toLocalInput(iso: string): string {
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <h4 className="mb-2 text-xs font-semibold">{title}</h4>
-      {children}
-    </section>
+    <details
+      open
+      className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      <summary className="cursor-pointer select-none text-xs font-semibold marker:text-zinc-400">
+        {title}
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
   );
 }
 

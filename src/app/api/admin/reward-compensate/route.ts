@@ -1,4 +1,6 @@
+import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
+import { economyEvents } from "@/db/schema";
 import { logAdminAction } from "@/lib/server/adminAudit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { currentAdminEmail, requireAdminRole } from "@/lib/server/isAdmin";
@@ -21,6 +23,7 @@ const ITEM_KINDS = [
   "material",
 ] as const;
 type ItemKind = (typeof ITEM_KINDS)[number];
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function POST(req: Request) {
   const gate = await requireAdminRole("reward");
@@ -34,6 +37,7 @@ export async function POST(req: Request) {
   const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 500) : "";
   const sourceEventId = clampPositiveInt(body?.sourceEventId, 2_147_483_647, 0);
   const confirmLarge = body?.confirmLarge === true;
+  const confirmDuplicate = body?.confirmDuplicate === true;
 
   if (!userId || !isItemKind(itemKind) || quantity <= 0) {
     return Response.json(
@@ -53,6 +57,53 @@ export async function POST(req: Request) {
         ok: false,
         error: "large_compensation_requires_confirm",
         threshold: largeThreshold(itemKind),
+      },
+      { status: 409 },
+    );
+  }
+  if (sourceEventId > 0) {
+    const existing = (await readRewardFailureStatuses()).find(
+      (entry) => entry.eventId === sourceEventId,
+    );
+    if (existing?.status === "compensated" && !confirmDuplicate) {
+      return Response.json(
+        {
+          ok: false,
+          error: "duplicate_source_event",
+          sourceEventId,
+          updatedAt: existing.updatedAt,
+        },
+        { status: 409 },
+      );
+    }
+  }
+  const similar = (
+    await db
+      .select({
+        id: economyEvents.id,
+        createdAt: economyEvents.createdAt,
+      })
+      .from(economyEvents)
+      .where(
+        and(
+          eq(economyEvents.userId, userId),
+          eq(economyEvents.eventType, "admin.reward.compensate"),
+          eq(economyEvents.itemKind, itemKind),
+          eq(economyEvents.itemId, itemId || itemKind),
+          eq(economyEvents.quantity, quantity),
+          gte(economyEvents.createdAt, new Date(Date.now() - DAY_MS)),
+        ),
+      )
+      .orderBy(desc(economyEvents.id))
+      .limit(1)
+  )[0];
+  if (similar && !confirmDuplicate) {
+    return Response.json(
+      {
+        ok: false,
+        error: "similar_compensation_exists",
+        eventId: similar.id,
+        createdAt: similar.createdAt.toISOString(),
       },
       { status: 409 },
     );

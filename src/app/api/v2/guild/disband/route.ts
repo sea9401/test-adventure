@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, guilds } from "@/db/schema";
+import { guildMembers, guilds, guildSettlementBuildingLevels } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 import { neutralizeGuildTiles } from "@/lib/server/tileOccupation";
@@ -73,6 +73,9 @@ export async function POST(req: Request) {
     // 해산 — 그 길드의 전 타일 영토를 중립화(빈 땅). 영토=길드 소유라 길드가 사라지면 영토도
     //   소멸: 점령행·거점 금고·수비큐·영주·정착지 행 즉시 제거(크론 캐스케이드 전 스테일 방지).
     await neutralizeGuildTiles(tx, mem.guildId);
+    await tx
+      .delete(guildSettlementBuildingLevels)
+      .where(eq(guildSettlementBuildingLevels.guildId, mem.guildId));
     await tx
       .update(guilds)
       .set({ disbandedAt: new Date() })

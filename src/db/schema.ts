@@ -969,6 +969,21 @@ export const guildWorkshopWeekly = pgTable("guild_workshop_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 길드 영지 건축물 보관 레벨 — 슬롯 압박/전쟁 점령으로 건물이 사라져도 같은 길드가 같은 건물을
+// 다시 배치하면 최고 보관 레벨로 복구한다. 길드 해산 시에는 cascade 로 함께 제거된다.
+export const guildSettlementBuildingLevels = pgTable(
+  "guild_settlement_building_levels",
+  {
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    buildingId: text("building_id").notNull(),
+    level: integer("level").notNull().default(1),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],
+);
+
 export const artisanLeaderboardSnapshots = pgTable(
   "artisan_leaderboard_snapshots",
   {

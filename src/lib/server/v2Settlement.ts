@@ -1,6 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { db as dbType } from "@/db";
 import {
+  guildSettlementBuildingLevels,
   outpostOccupations,
   outpostVillages,
   tileSettlements,
@@ -23,7 +24,10 @@ import {
   MAX_SLOTS_BY_TIER,
   clampUnlockedSlots,
   isSettlementBuildingId,
+  settlementBuildingIdOf,
+  settlementBuildingLevelOf,
   settlementBuildingSlot,
+  type SettlementBuildingId,
   type VillageTier,
   type ProductionJob,
   type ProductionKind,
@@ -295,6 +299,68 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
         jobs: row.jobs,
       },
     });
+}
+
+// ── 길드 건축물 레벨 보관 ───────────────────────────────────────────────────
+// 슬롯 폐기/전쟁 점령으로 건물이 사라질 때 최고 레벨을 길드 단위로 저장한다.
+// 같은 길드가 같은 건물을 다시 배치하면 이 레벨로 복구한다. 솔로 정착지는 보관 대상이 아니다.
+export async function rememberGuildSettlementBuildingLevel(
+  tx: Tx,
+  guildId: number,
+  buildingId: SettlementBuildingId,
+  level: number,
+): Promise<void> {
+  const safeLevel = settlementBuildingLevelOf({ level });
+  await tx
+    .insert(guildSettlementBuildingLevels)
+    .values({ guildId, buildingId, level: safeLevel })
+    .onConflictDoUpdate({
+      target: [
+        guildSettlementBuildingLevels.guildId,
+        guildSettlementBuildingLevels.buildingId,
+      ],
+      set: {
+        level: sql`greatest(${guildSettlementBuildingLevels.level}, ${safeLevel})`,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+export async function rememberGuildSettlementBuildings(
+  tx: Tx,
+  village: VillageRow,
+): Promise<void> {
+  if (village.guildId == null) return;
+  for (const raw of Object.values(village.buildings)) {
+    const buildingId = settlementBuildingIdOf(raw);
+    if (!buildingId) continue;
+    await rememberGuildSettlementBuildingLevel(
+      tx,
+      village.guildId,
+      buildingId,
+      settlementBuildingLevelOf(raw),
+    );
+  }
+}
+
+export async function readGuildSettlementBuildingLevel(
+  tx: Tx,
+  guildId: number,
+  buildingId: SettlementBuildingId,
+): Promise<number | null> {
+  const row = (
+    await tx
+      .select({ level: guildSettlementBuildingLevels.level })
+      .from(guildSettlementBuildingLevels)
+      .where(
+        and(
+          eq(guildSettlementBuildingLevels.guildId, guildId),
+          eq(guildSettlementBuildingLevels.buildingId, buildingId),
+        ),
+      )
+      .limit(1)
+  )[0];
+  return row ? settlementBuildingLevelOf({ level: row.level }) : null;
 }
 
 // ── 길드 정착지 재화 풀(v2_guild_resources.settlement jsonb) ───────────────

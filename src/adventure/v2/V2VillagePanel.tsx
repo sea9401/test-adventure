@@ -694,6 +694,22 @@ export function V2VillagePanel({
                             {def.name} 최고 레벨입니다.
                           </div>
                         )}
+                        <button
+                          type="button"
+                          disabled={busy || !canManageActions}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `${def.name}을 폐기할까요? 같은 길드가 다시 배치하면 현재 레벨이 복구됩니다.`,
+                              )
+                            ) {
+                              void act("building/discard", { slot: 0 });
+                            }
+                          }}
+                          className="mt-2 w-full rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-900 dark:bg-zinc-950 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                        >
+                          {def.name} 폐기
+                        </button>
                       </div>
                     ) : null}
                   </div>
@@ -750,7 +766,7 @@ const ERR_MESSAGES: Record<string, string> = {
   slot_locked: "먼저 건축물 슬롯을 해금해야 해요.",
   already_occupied: "이미 건축물이 배치된 슬롯이에요.",
   building_unavailable: "아직 배치할 수 없는 건축물이에요.",
-  building_required: "업그레이드할 건축물이 필요해요.",
+  building_required: "건축물이 필요해요.",
   smithy_required: "길드 대장간이 필요해요.",
   max_level: "이미 최고 레벨이에요.",
   insufficient_resources: "정착지 재화가 부족해요.",

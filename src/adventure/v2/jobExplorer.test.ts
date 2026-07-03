@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   JOB_TAG_FILTERS,
+  compareJobExplorerLineOrder,
   isJobVisibleInShrine,
   jobTags,
   matchesJobExplorerFilters,
@@ -100,5 +101,36 @@ describe("jobExplorer tags", () => {
     expect(isJobVisibleInShrine(job("warrior", { unlocked: true }))).toBe(
       true,
     );
+  });
+
+  it("growth shrine orders jobs by job line instead of tier blocks", () => {
+    const ids = [
+      "mage",
+      "shieldman",
+      "warrior",
+      "paladin",
+      "squire",
+      "caster",
+      "guardian",
+      "survivor",
+      "camper",
+    ];
+
+    expect(
+      ids
+        .map((id) => job(id))
+        .sort(compareJobExplorerLineOrder)
+        .map((j) => j.id),
+    ).toEqual([
+      "warrior",
+      "shieldman",
+      "guardian",
+      "squire",
+      "paladin",
+      "mage",
+      "caster",
+      "survivor",
+      "camper",
+    ]);
   });
 });

@@ -13,6 +13,7 @@ import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import {
   JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
+  compareJobExplorerLineOrder,
   isJobVisibleInShrine,
   jobTags,
   matchesJobExplorerFilters,
@@ -86,7 +87,7 @@ export function V2JobLadder({
   };
 
   const visibleJobs = useMemo(
-    () => jobs.filter(isJobVisibleInShrine),
+    () => jobs.filter(isJobVisibleInShrine).sort(compareJobExplorerLineOrder),
     [jobs],
   );
   const filteredJobs = useMemo(

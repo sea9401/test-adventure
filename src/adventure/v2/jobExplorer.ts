@@ -1,4 +1,7 @@
-import { V2_JOB_CATALOG } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  V2_JOB_CATALOG,
+  V2_JOB_LIST,
+} from "@/adventure/data/v2/v2JobCatalog";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 export const JOB_GOAL_STORAGE_KEY = "adventure.v2.jobGoalId";
@@ -25,6 +28,33 @@ export function isJobVisibleInShrine(
   job: Pick<JobExplorerJob, "unlocked" | "conditionRevealed">,
 ): boolean {
   return job.unlocked !== false || job.conditionRevealed !== false;
+}
+
+const JOB_LINE_ROOT_ORDER = [
+  "none",
+  "warrior",
+  "martial",
+  "mage",
+  "rogue",
+  "survivor",
+];
+
+const JOB_CATALOG_INDEX = new Map(
+  V2_JOB_LIST.map((job, index) => [job.id, index] as const),
+);
+
+const JOB_LINE_ORDER = buildJobLineOrder();
+
+export function compareJobExplorerLineOrder(
+  a: Pick<JobExplorerJob, "id" | "name" | "tier">,
+  b: Pick<JobExplorerJob, "id" | "name" | "tier">,
+): number {
+  return (
+    jobLineOrderOf(a.id) - jobLineOrderOf(b.id) ||
+    (a.tier ?? 99) - (b.tier ?? 99) ||
+    a.name.localeCompare(b.name, "ko-KR") ||
+    a.id.localeCompare(b.id)
+  );
 }
 
 export type JobTagFilter = {
@@ -161,4 +191,42 @@ function rootJobIds(jobId: string, seen = new Set<string>()): Set<string> {
     for (const root of rootJobIds(prereqId, seen)) roots.add(root);
   }
   return roots;
+}
+
+function buildJobLineOrder(): Map<string, number> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const job of V2_JOB_LIST) {
+    const primaryParent = Object.keys(job.unlock.prereqs)[0];
+    if (!primaryParent) continue;
+    const children = childrenByParent.get(primaryParent) ?? [];
+    children.push(job.id);
+    childrenByParent.set(primaryParent, children);
+  }
+  for (const children of childrenByParent.values()) {
+    children.sort(
+      (a, b) =>
+        (JOB_CATALOG_INDEX.get(a) ?? 9999) -
+        (JOB_CATALOG_INDEX.get(b) ?? 9999),
+    );
+  }
+
+  const order = new Map<string, number>();
+  let next = 0;
+  const visit = (jobId: string) => {
+    if (order.has(jobId) || !V2_JOB_CATALOG[jobId]) return;
+    order.set(jobId, next);
+    next += 1;
+    for (const childId of childrenByParent.get(jobId) ?? []) visit(childId);
+  };
+
+  for (const rootId of JOB_LINE_ROOT_ORDER) visit(rootId);
+  for (const job of V2_JOB_LIST) visit(job.id);
+  return order;
+}
+
+function jobLineOrderOf(jobId: string): number {
+  return (
+    JOB_LINE_ORDER.get(jobId) ??
+    10000 + (JOB_CATALOG_INDEX.get(jobId) ?? 9999)
+  );
 }

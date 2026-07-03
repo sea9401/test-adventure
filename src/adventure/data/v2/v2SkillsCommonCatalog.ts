@@ -47,6 +47,7 @@ export type V2CommonSkillId =
   | "v2c_survivor_baitcraft" // 미끼 고르기 (물고기 크기)
   | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 물고기 크기)
   | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물급 물고기 크기)
+  | "v2c_healthtrainer_routine" // 운동 루틴 (길드 훈련장 보상)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -551,6 +552,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { fishingSpecialWeightPct: 25 },
+  },
+  v2c_healthtrainer_routine: {
+    id: "v2c_healthtrainer_routine", name: "운동 루틴", stat: "vit", category: "passive", tier: 2,
+    description: "개인 훈련 루틴을 잡아 길드 훈련장 보상과 주간 훈련 보너스를 조금 높인다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { guildTrainingRewardBonusPct: 5, guildTrainingWeeklyBonusMastery: 5 },
   },
   v2c_ironman_body: {
     id: "v2c_ironman_body", name: "단련된 몸", stat: "vit", category: "passive", tier: 2,

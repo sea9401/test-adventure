@@ -145,6 +145,10 @@ export function GuildTrainingGroundPanel({
     drills.find((drill) => drill.recommended) ??
     null;
   const weekly = state?.weekly ?? null;
+  const trainingBonuses = state?.trainingBonuses ?? null;
+  const hasPassiveTrainingBonus =
+    (trainingBonuses?.rewardBonusPct ?? 0) > 0 ||
+    (trainingBonuses?.weeklyBonusMastery ?? 0) > 0;
   const weeklyCompleted = Math.min(
     weekly?.target ?? 0,
     Math.max(0, weekly?.completed ?? 0),
@@ -295,6 +299,13 @@ export function GuildTrainingGroundPanel({
             <div className="rounded border border-emerald-100 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
               이번 주 {weekly.target.toLocaleString()}회 훈련 완료 시 숙련도 +
               {weekly.bonusMastery.toLocaleString()}
+            </div>
+          )}
+          {hasPassiveTrainingBonus && (
+            <div className="rounded border border-violet-100 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300">
+              장착 패시브: 훈련장 보상 +
+              {(trainingBonuses?.rewardBonusPct ?? 0).toLocaleString()}% · 주간
+              보너스 +{(trainingBonuses?.weeklyBonusMastery ?? 0).toLocaleString()}
             </div>
           )}
           {recommendedDrill && claimableCount > 0 && (

@@ -16,6 +16,7 @@ import {
   unlockedJobs,
   jobUnlockConditionText,
   cumLevelForJob,
+  isFishingJobId,
   type V2JobDefinition,
   type ExtraJobCondition,
   type JobUnlockContext,
@@ -36,7 +37,7 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   martial: ["boxer", "monk"],
   mage: ["caster", "acolyte"],
   rogue: ["assassin", "archer", "venomist"],
-  survivor: ["camper", "ironman", "fisher"],
+  survivor: ["camper", "ironman", "fisher", "healthtrainer"],
 };
 // 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
 const TIER3_LINEAGE: Record<string, string> = {
@@ -107,12 +108,12 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("70개 직업(루트 2 + 기본 4 + 상위 12 + 고차 18 + 심화 19 + 5차 13 + 6차 2)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(70);
+  it("71개 직업(루트 2 + 기본 4 + 상위 13 + 고차 18 + 심화 19 + 5차 13 + 6차 2)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(71);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(12);
+    expect(byTier(2)).toBe(13);
     expect(byTier(3)).toBe(18);
     expect(byTier(4)).toBe(19);
     expect(byTier(5)).toBe(13);
@@ -637,6 +638,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("rogue", "venomist")).toBe("venomist");
     expect(jobIdFromLegacy("rogue", "venomancer")).toBe("venomancer");
     expect(jobIdFromLegacy("survivor", "fisher")).toBe("fisher");
+    expect(jobIdFromLegacy("survivor", "healthtrainer")).toBe("healthtrainer");
     expect(jobIdFromLegacy("survivor", "angler")).toBe("angler");
     expect(jobIdFromLegacy("survivor", "masterangler")).toBe("masterangler");
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
@@ -668,10 +670,18 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("rogue", "venomancer")).toBe("맹독술사");
     expect(displayName("rogue", "venomlord")).toBe("독왕");
     expect(displayName("survivor", "fisher")).toBe("낚시꾼");
+    expect(displayName("survivor", "healthtrainer")).toBe("헬스 트레이너");
     expect(displayName("survivor", "angler")).toBe("명인 낚시꾼");
     expect(displayName("survivor", "masterangler")).toBe("강태공");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
+  });
+});
+
+describe("생활 직업 숙련도 획득 분기", () => {
+  it("헬스 트레이너는 낚시 숙련도 예외가 아니므로 사냥 숙련도 대상이다", () => {
+    expect(isFishingJobId("fisher")).toBe(true);
+    expect(isFishingJobId("healthtrainer")).toBe(false);
   });
 });
 

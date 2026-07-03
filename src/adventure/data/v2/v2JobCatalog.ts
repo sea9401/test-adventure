@@ -167,6 +167,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 3, spi: 2 }, // 생활 루트 입문 — 낚시 보너스는 장착 패시브가 담당
     unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
   },
+  healthtrainer: {
+    id: "healthtrainer",
+    name: "헬스 트레이너",
+    tier: 2,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 3, str: 2 }, // 훈련장 생활 루트 입문 — 훈련 보너스는 장착 패시브가 담당
+    unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
   // 전사 갈래
@@ -847,6 +855,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   camper: { class: "survivor", spec: "camper" },
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },
+  healthtrainer: { class: "survivor", spec: "healthtrainer" },
   fieldmedic: { class: "survivor", spec: "fieldmedic" },
   extremesurvivor: { class: "survivor", spec: "extremesurvivor" },
   angler: { class: "survivor", spec: "angler" },

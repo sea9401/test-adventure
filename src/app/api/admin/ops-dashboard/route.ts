@@ -254,6 +254,7 @@ export async function GET(req: Request) {
     connectedIps,
   });
   const compensationOverview = buildCompensationOverview(currentDayEconomyRows);
+  const compensationReport = buildCompensationReport(currentDayEconomyRows, auditRows);
   const opsChangeHistory = buildOpsChangeHistory(auditRows);
 
   return Response.json({
@@ -288,6 +289,7 @@ export async function GET(req: Request) {
       openRewardFailures: openRewardFailureCandidates.length,
     }),
     compensationOverview,
+    compensationReport,
     sanctionReport: {
       expiring24h: expiringSanctions.map((row) => ({
         ...row,
@@ -629,6 +631,54 @@ function buildCompensationOverview(
     userCount: users.size,
     totalQuantity: compensations.reduce((sum, row) => sum + Math.max(0, row.quantity ?? 0), 0),
     byKind,
+  };
+}
+
+function buildCompensationReport(
+  economyRows: Array<{
+    id: number;
+    userId: string | null;
+    eventType: string;
+    goldDelta: number;
+    itemKind: string | null;
+    itemId: string | null;
+    quantity: number | null;
+    detail: unknown;
+    createdAt: Date;
+  }>,
+  auditRows: Array<{
+    id: number;
+    adminEmail: string;
+    action: string;
+    targetUserId: string | null;
+    detail: unknown;
+    createdAt: Date;
+  }>,
+) {
+  const compensations = economyRows.filter((row) => row.eventType === "admin.reward.compensate");
+  const auditCompensations = auditRows.filter((row) => row.action === "reward.compensate");
+  return {
+    count: compensations.length,
+    userCount: new Set(compensations.flatMap((row) => (row.userId ? [row.userId] : []))).size,
+    totalGold: compensations.reduce((sum, row) => sum + Math.max(0, row.goldDelta), 0),
+    totalQuantity: compensations.reduce((sum, row) => sum + Math.max(0, row.quantity ?? 0), 0),
+    byKind: topCounts(compensations.flatMap((row) => (row.itemKind ? [row.itemKind] : [])), 8),
+    byAdmin: topCounts(auditCompensations.map((row) => row.adminEmail), 8),
+    byUser: topCounts(compensations.flatMap((row) => (row.userId ? [row.userId] : [])), 8),
+    recent: compensations.slice(0, 16).map((row) => {
+      const detail = detailObject(row.detail);
+      return {
+        id: row.id,
+        userId: row.userId,
+        itemKind: row.itemKind,
+        itemId: row.itemId,
+        quantity: row.quantity,
+        goldDelta: row.goldDelta,
+        reason: textValue(detail.reason),
+        sourceEventId: numberValue(detail.sourceEventId),
+        createdAt: row.createdAt.toISOString(),
+      };
+    }),
   };
 }
 

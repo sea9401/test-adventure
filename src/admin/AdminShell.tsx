@@ -9,6 +9,7 @@ import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
 import { GridDungeonAnalyticsTab } from "./tabs/GridDungeonAnalyticsTab";
 import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
 import { OpsDashboardTab } from "./tabs/OpsDashboardTab";
+import { OpsWorkflowsTab } from "./tabs/OpsWorkflowsTab";
 import { AbuseLogTab } from "./tabs/AbuseLogTab";
 import { EconomyLogTab } from "./tabs/EconomyLogTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
@@ -25,6 +26,7 @@ type TabKey =
   | "balance"
   | "gridDungeon"
   | "opsDashboard"
+  | "opsWorkflows"
   | "season"
   | "abuse"
   | "economy"
@@ -42,6 +44,7 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "balance", label: "밸런스", group: "system" },
   { key: "gridDungeon", label: "던전", group: "system" },
   { key: "opsDashboard", label: "운영 현황", group: "ops" },
+  { key: "opsWorkflows", label: "운영 워크플로", group: "ops" },
   { key: "season", label: "시즌", group: "ops" },
   { key: "abuse", label: "이상 행동", group: "ops" },
   { key: "economy", label: "경제 로그", group: "ops" },
@@ -203,6 +206,7 @@ function ShellInner() {
           {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "gridDungeon" && <GridDungeonAnalyticsTab />}
           {tab === "opsDashboard" && <OpsDashboardTab />}
+          {tab === "opsWorkflows" && <OpsWorkflowsTab />}
           {tab === "season" && <SeasonOpsTab />}
           {tab === "abuse" && <AbuseLogTab />}
           {tab === "economy" && <EconomyLogTab />}

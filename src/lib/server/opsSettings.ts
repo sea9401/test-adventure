@@ -8,6 +8,7 @@ export const ALERT_THRESHOLDS_KEY = "ops-alert-thresholds.v1";
 export const OPS_ALERT_HISTORY_KEY = "ops-alert-history.v1";
 export const REWARD_FAILURE_STATUS_KEY = "reward-failure-status.v1";
 export const REWARD_COMPENSATION_PRESETS_KEY = "reward-compensation-presets.v1";
+export const OPS_NOTE_TEMPLATES_KEY = "ops-note-templates.v1";
 
 export type HotTimeSettings = {
   enabled: boolean;
@@ -85,6 +86,12 @@ export type RewardCompensationPreset = {
   reason: string;
 };
 
+export type OpsNoteTemplate = {
+  id: string;
+  label: string;
+  text: string;
+};
+
 export const DEFAULT_HOT_TIME: HotTimeSettings = {
   enabled: false,
   title: "",
@@ -150,6 +157,29 @@ export const DEFAULT_REWARD_COMPENSATION_PRESETS: RewardCompensationPreset[] = [
     itemId: "",
     quantity: 1,
     reason: "재료 미지급 보정",
+  },
+];
+
+export const DEFAULT_OPS_NOTE_TEMPLATES: OpsNoteTemplate[] = [
+  {
+    id: "daily-limit",
+    label: "일일 제한 안내",
+    text: "문의 내용 확인. 일일 획득 제한 도달 가능성이 있어 오늘 획득량과 최근 보상 로그를 함께 확인함.",
+  },
+  {
+    id: "reward-review",
+    label: "보상 검토",
+    text: "보상 미지급 문의 접수. 원본 이벤트, 최근 보상 수령, 중복 지급 여부 확인 필요.",
+  },
+  {
+    id: "compensated",
+    label: "보정 완료",
+    text: "운영 보정 지급 완료. 지급 품목, 수량, 원본 이벤트 id를 보상 보정 기록에서 확인 가능.",
+  },
+  {
+    id: "abuse-watch",
+    label: "이상 행동 관찰",
+    text: "반복 요청 또는 비정상 패턴 의심. 제재 전 추가 로그와 재현 여부를 관찰함.",
   },
 ];
 
@@ -237,6 +267,19 @@ export async function readRewardCompensationPresets(): Promise<{
   const row = await readSettingRow(REWARD_COMPENSATION_PRESETS_KEY);
   return {
     presets: parseRewardCompensationPresets(row?.value),
+    updatedByEmail: row?.updatedByEmail ?? null,
+    updatedAt: row?.updatedAt ?? null,
+  };
+}
+
+export async function readOpsNoteTemplates(): Promise<{
+  templates: OpsNoteTemplate[];
+  updatedByEmail: string | null;
+  updatedAt: Date | null;
+}> {
+  const row = await readSettingRow(OPS_NOTE_TEMPLATES_KEY);
+  return {
+    templates: parseOpsNoteTemplates(row?.value),
     updatedByEmail: row?.updatedByEmail ?? null,
     updatedAt: row?.updatedAt ?? null,
   };
@@ -485,6 +528,31 @@ export function parseRewardCompensationPresets(raw: unknown): RewardCompensation
       : DEFAULT_REWARD_COMPENSATION_PRESETS;
   const parsed = list.slice(0, 20).map(parseRewardCompensationPreset).filter((row): row is RewardCompensationPreset => row != null);
   return parsed.length > 0 ? parsed : DEFAULT_REWARD_COMPENSATION_PRESETS;
+}
+
+export function parseOpsNoteTemplates(raw: unknown): OpsNoteTemplate[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as { templates?: unknown }).templates)
+      ? (raw as { templates: unknown[] }).templates
+      : DEFAULT_OPS_NOTE_TEMPLATES;
+  const parsed = list
+    .slice(0, 30)
+    .map(parseOpsNoteTemplate)
+    .filter((row): row is OpsNoteTemplate => row != null);
+  return parsed.length > 0 ? parsed : DEFAULT_OPS_NOTE_TEMPLATES;
+}
+
+function parseOpsNoteTemplate(raw: unknown): OpsNoteTemplate | null {
+  const r =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
+  const label = textValue(r.label, 40);
+  const id = textValue(r.id, 80) || label.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+  const text = textValue(r.text, 1_000);
+  if (!id || !label || !text) return null;
+  return { id, label, text };
 }
 
 function parseRewardCompensationPreset(raw: unknown): RewardCompensationPreset | null {

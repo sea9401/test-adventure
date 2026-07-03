@@ -3,12 +3,12 @@
 // "갈아엎을수도있으니까" — 라이브 ITEMS catalog 와 분리해 v2_ 접두어로 자체 풀.
 // 저장 위치: 별 save key `equipment.v2` (character.v2.equipped 와 충돌 X).
 //
-// PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 무게(weight) / 옵션(options)** 으로
+// PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 옵션(options)** 중심으로
 // 통합 (옛 atk/def/matk 직접표기 + 6스탯 token 폐기). 효과는 **슬롯별 분기**(derive):
 //   - 무기: 위력 → weaponType 별 공격력. 지팡이=마법 공격력, 그 외=물리 공격력.
 //   - 갑옷/장갑/신발: 위력 → 물리 방어력 (물리 방어선 3슬롯).
 //   - 반지/목걸이: 위력 → 마법 방어력 (장신구선 2슬롯).
-//   - 무게 → 속도 −(선형). 빌드 트레이드오프(중갑 = 느림). 장갑·신발·장신구는 가볍다.
+//   - 예전 무게 페널티는 카탈로그 변환 단계에서 일부 장비의 속도 감소 옵션으로 노출한다.
 //   - 옵션(crit/eva/mp/hp) → 위력 외 flavor 차별화. derive 결과 player 에 후-가산.
 //     장갑=치명 / 신발=회피 / 반지=치명 / 목걸이=MP 로 슬롯 시그니처를 가른다.
 // 스탯 정체성(힘/민/지…)은 이제 **훈련 분배 + 직업**에서 나온다 — 장비는 스탯 token 을 안 준다.
@@ -99,7 +99,7 @@ export type V2EquipRarity = "common" | "unique";
 // 장비 ID는 카탈로그 키에서 자동 파생한다. 새 장비 추가 시 수동 유니언 갱신이 필요 없다.
 export type V2EquipmentId = keyof typeof V2_EQUIPMENT;
 
-// 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
+// 옵션 — 위력 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
 //   mp, hp, spd: flat 정수
 //   critMult: 백분의 일(×) 정수 — 100 = +1.0× 치명피해. derive 에서 /100 환산(예 30 → +0.30×).
@@ -152,9 +152,9 @@ export type V2Equipment = {
   description: string;
   /** 위력 — 슬롯별 분기(무기=weaponType 별 공격력 / 방어구=물방 / 장신구=마방). 항상 ≥ 1. */
   power: number;
-  /** 무게 — 속도 −(선형, derive). 0 = 패널티 없음(장신구·경갑). */
+  /** 레거시 호환 필드. 현재 export 카탈로그와 실효 스탯에서는 항상 0으로 정규화한다. */
   weight: number;
-  /** flavor 옵션 — 위력/무게 외 부가 효과. 없으면 생략. */
+  /** flavor 옵션 — 위력 외 부가 효과. 없으면 생략. */
   options?: V2EquipOptions;
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
@@ -730,25 +730,18 @@ export function v2EquipPowerLabel(item: V2Equipment): string {
   return "방어력";
 }
 
-// 무게 표시·체감 스케일 — 카탈로그 원시 무게가 SPD(다중공격·템포) 가치에 비해 너무 작아
-//   "옵션이 있긴 한가" 싶을 만큼 미미했다(오너 피드백). 원시 무게를 슬롯별 계수로 키운다:
-//   일반 장비 ×2, 무기는 원시 무게가 과하게 가벼워 ×4(별도·더 무겁게). 속도 페널티는 그대로
-//   무게×WEIGHT_SPD_PENALTY 라 "표시 무게 1 = 속도 −2" 직관이 유지된다(체감만 비례 확대).
-//   카탈로그 값·굴림은 불변 — 단일 다이얼(per-item churn·기존 보유템 불일치 회피). effectiveStats
-//   상류에서 키우므로 신규/기존(굴림) 아이템이 동일하게 적용된다. 무게는 전투력 점수에 미산입이라
-//   순수 속도 트레이드오프(파워 인플레 없음).
-export const EQUIP_WEIGHT_SCALE = 2;
-export const WEAPON_WEIGHT_SCALE = 4;
+// 무게는 표시/전투 스탯에서 제거했다. 예전 중량 페널티는 카탈로그 export 단계에서
+// 일정 이상 무거운 장비의 속도 감소 옵션으로 변환된다. 이 함수는 저장된 옛 굴림 호환용이다.
 export function scaledEquipWeight(item: V2Equipment, rawWeight: number): number {
-  return (
-    rawWeight * (item.slot === "weapon" ? WEAPON_WEIGHT_SCALE : EQUIP_WEIGHT_SCALE)
-  );
+  void item;
+  void rawWeight;
+  return 0;
 }
 
 // 적용 스탯 — 개체 굴림(V2EquipRoll) 있으면 그 값, 없으면 카탈로그(상점 구매·옛 데이터·옵션
 // 없는 아이템). 옵션은 **카탈로그 키로 스코프 + per-key 병합** — 카탈로그에 없는 옵션은
 // (손상/변조 세이브라도) 주입 안 하고, 카탈로그 옵션이 굴림에서 누락돼도 떨어뜨리지 않음.
-// 무게는 scaledEquipWeight 로 키워 반환(표시·derive 공통) — 카탈로그/굴림 원시값은 불변.
+// 무게는 항상 0으로 반환한다. 옛 굴림의 weight 값은 저장 호환용으로만 보존된다.
 // derive·표시·UI 공용 단일 source (V2EquipRoll 타입은 아래에 선언, 타입 호이스팅으로 참조 가능).
 export function effectiveStats(
   item: V2Equipment,
@@ -757,7 +750,7 @@ export function effectiveStats(
   if (!roll) {
     return {
       power: item.power,
-      weight: scaledEquipWeight(item, item.weight),
+      weight: 0,
       options: item.options,
     };
   }
@@ -773,7 +766,7 @@ export function effectiveStats(
   }
   return {
     power: roll.power,
-    weight: scaledEquipWeight(item, roll.weight),
+    weight: 0,
     options,
   };
 }
@@ -803,7 +796,7 @@ export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
   );
 }
 
-// 장비 → {라벨, 값} 행 배열. 기본 전투 스탯 → 무게 → 옵션 순. 0 값은 건너뜀.
+// 장비 → {라벨, 값} 행 배열. 기본 전투 스탯 → 옵션 순. 0 값은 건너뜀.
 // roll 주면 개체 굴림값 표시(보유템), 없으면 카탈로그(상점·제작 미리보기). 단일 source.
 export function v2EquipStatRows(
   item: V2Equipment,
@@ -818,9 +811,6 @@ export function v2EquipStatRows(
   if (power) {
     out.push({ label: v2EquipPowerLabel(item), value: `+${power}` });
   }
-  if (eff.weight) {
-    out.push({ label: "무게", value: `${eff.weight}` });
-  }
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) {
     const v = opts[k];
@@ -828,14 +818,14 @@ export function v2EquipStatRows(
     // critMult 는 백분의 일 정수 저장(30 = +0.30×) → 배수 표기. 그 외 %/flat.
     const value =
       k === "critMult"
-        ? `+${(v / 100).toFixed(2)}×`
-        : `+${v}${OPTION_PERCENT_KEYS.has(k) ? "%" : ""}`;
+        ? `${v > 0 ? "+" : ""}${(v / 100).toFixed(2)}×`
+        : `${v > 0 ? "+" : ""}${v}${OPTION_PERCENT_KEYS.has(k) ? "%" : ""}`;
     out.push({ label: OPTION_LABELS[k], value });
   }
   return out;
 }
 
-// 표시 문자열 배열 ("공격력 +14", "무게 2", "치명 +2%" 등) — 한 줄 인라인용.
+// 표시 문자열 배열 ("공격력 +14", "치명 +2%" 등) — 한 줄 인라인용.
 // rows 를 합쳐 단일 source 유지.
 export function v2EquipStatEntries(item: V2Equipment, roll?: V2EquipRoll): string[] {
   return v2EquipStatRows(item, roll).map((r) => `${r.label} ${r.value}`);
@@ -849,26 +839,25 @@ export type V2EquipCompareRow = {
   label: string;
   /** 후보 표시값(없으면 "—") — v2EquipStatRows 와 동일 포맷. */
   value: string;
-  /** 증감 표시("" = 동일). 무게만 감소가 이득이라 부호는 그대로, 색은 better 로 결정. */
+  /** 증감 표시("" = 동일). */
   deltaText: string;
-  /** 1 = 이득(초록) · -1 = 손해(빨강) · 0 = 동일. 무게는 낮을수록 이득(lowerBetter). */
+  /** 1 = 이득(초록) · -1 = 손해(빨강) · 0 = 동일. */
   better: 0 | 1 | -1;
 };
 
-// 비교 행 순서 + 무게만 "낮을수록 이득" — 전투 스탯/옵션은 높을수록 이득.
+// 비교 행 순서 — 전투 스탯/옵션은 높을수록 이득.
 const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
   { label: "공격력", lowerBetter: false },
   { label: "마법 공격력", lowerBetter: false },
   { label: "방어력", lowerBetter: false },
   { label: "마법 방어력", lowerBetter: false },
-  { label: "무게", lowerBetter: true },
   ...V2_EQUIP_OPTION_KEYS.map((k) => ({
     label: OPTION_LABELS[k],
     lowerBetter: false,
   })),
 ];
 
-// 라벨별 수치(증감 계산용) — effectiveStats 의 기본 전투 스탯(강화 반영)·무게·옵션을 평탄화.
+// 라벨별 수치(증감 계산용) — effectiveStats 의 기본 전투 스탯(강화 반영)·옵션을 평탄화.
 function compareNumeric(
   item: V2Equipment,
   roll?: V2EquipRoll,
@@ -878,7 +867,6 @@ function compareNumeric(
   const eff = effectiveStats(item, roll);
   const out: Record<string, number> = {
     [v2EquipPowerLabel(item)]: powerWithBonuses(eff.power, enhance, craftQuality),
-    무게: eff.weight,
   };
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) out[OPTION_LABELS[k]] = opts[k] ?? 0;

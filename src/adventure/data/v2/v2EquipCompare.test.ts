@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT, v2EquipCompareRows } from "./v2Equipment";
 
-// 비교 행 — 카탈로그 값(굴림 없음) 기준. 위력은 WEAPON_POWER_SCALE(×0.8 round) 반영,
-//   무게는 WEAPON_WEIGHT_SCALE(×4) 반영값.
-//   철검 위력5/무게8 · 한타검 위력19/무게12 · 각궁 위력16/무게4+치명1% · 목궁 위력5/무게4.
+// 비교 행 — 카탈로그 값(굴림 없음) 기준. 위력은 WEAPON_POWER_SCALE(×0.8 round) 반영.
+//   무게는 표시/전투 스탯에서 제거되고, 일정 이상 무거운 장비만 속도 페널티 옵션으로 노출된다.
+//   철검 위력5/속도-4 · 한타검 위력19/속도-6 · 각궁 위력15+치명1% · 목궁 위력5.
 const ironSword = { item: V2_EQUIPMENT.v2_iron_sword };
 const greatSword = { item: V2_EQUIPMENT.v2_greatsword };
 const hornBow = { item: V2_EQUIPMENT.v2_horn_bow };
@@ -25,12 +25,12 @@ describe("v2EquipCompareRows", () => {
     expect(power.better).toBe(1);
   });
 
-  it("무게는 낮을수록 이득 — 증가하면 손해(better=-1), 부호는 그대로 +", () => {
+  it("무거운 장비 페널티는 속도 감소 옵션으로 비교된다", () => {
     const rows = v2EquipCompareRows(greatSword, ironSword);
-    const weight = row(rows, "무게");
-    expect(weight.value).toBe("12");
-    expect(weight.deltaText).toBe("+4"); // 8 → 12
-    expect(weight.better).toBe(-1); // 무거워짐 = 손해
+    const spd = row(rows, "속도");
+    expect(spd.value).toBe("-6");
+    expect(spd.deltaText).toBe("-2"); // -4 → -6
+    expect(spd.better).toBe(-1);
   });
 
   it("후보만 가진 옵션은 이득으로 +값 노출(치명 +1%)", () => {
@@ -59,16 +59,14 @@ describe("v2EquipCompareRows", () => {
     expect(crit.better).toBe(-1);
   });
 
-  it("값이 같으면 증감 없음(deltaText '', better 0) — 무게 동일", () => {
+  it("후보/장착 모두 없는 옵션은 비교 행을 만들지 않는다", () => {
     const rows = v2EquipCompareRows(hornBow, woodenBow);
-    const weight = row(rows, "무게");
-    expect(weight.deltaText).toBe("");
-    expect(weight.better).toBe(0);
+    expect(rows.find((r) => r.label === "속도")).toBeUndefined();
+    expect(rows.find((r) => r.label === "무게")).toBeUndefined();
   });
 
   it("양쪽 모두 0 인 스탯은 행을 만들지 않는다", () => {
     const rows = v2EquipCompareRows(greatSword, ironSword);
-    // 옵션 없는 두 검 — 공격력/무게만, 옵션 행 없음.
-    expect(rows.map((r) => r.label)).toEqual(["공격력", "무게"]);
+    expect(rows.map((r) => r.label)).toEqual(["공격력", "속도"]);
   });
 });

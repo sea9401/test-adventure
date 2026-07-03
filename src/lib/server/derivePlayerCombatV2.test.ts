@@ -62,14 +62,14 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(geared.healMult ?? 1).toBeCloseTo((plain.healMult ?? 1) * 1.08, 4);
   });
 
-  it("철검 T1 (위력 → 물공) → atk=무기위력, magicAtk=0, weight=8(원시2×무기4)", () => {
+  it("철검 T1 (위력 → 물공) → atk=무기위력, magicAtk=0, weight=0, 속도 페널티 옵션", () => {
     // 지팡이를 제외한 무기 위력은 물리 공격력에만 먹인다. 위력값은 카탈로그 기준(다이얼 변경에 견고).
-    // 무게는 effectiveStats 슬롯 스케일 — 무기 ×4(WEAPON_WEIGHT_SCALE) → 원시 2 = 표시 8.
     const swordPow = V2_EQUIPMENT.v2_iron_sword.power;
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
     expect(a.atk).toBe(swordPow);
     expect(a.magicAtk).toBe(0);
-    expect(a.weight).toBe(8);
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-4);
     expect(a.def).toBe(0);
     expect(a.crit).toBe(0);
   });
@@ -81,23 +81,24 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicAtk).toBe(staffPow);
   });
 
-  it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
-    // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 5 × 무기4 = 20.
+  it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·옵션", () => {
+    // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 는 무시.
     const sword = aggregateV2Equipment(
       { weapon: "v2_iron_sword" },
       { v2_iron_sword: { power: 10, weight: 5 } },
     );
     expect(sword.atk).toBe(10);
     expect(sword.magicAtk).toBe(0);
-    expect(sword.weight).toBe(20);
+    expect(sword.weight).toBe(0);
+    expect(sword.spd).toBe(-4);
 
-    // 별노래궁(무기)에 굴림 {power:18, weight:3, crit:3} → weight 3 × 무기4 = 12.
+    // 별노래궁(무기)에 굴림 {power:18, weight:3, crit:3} → weight 는 무시.
     const bow = aggregateV2Equipment(
       { weapon: "v2_starsong_bow" },
       { v2_starsong_bow: { power: 18, weight: 3, options: { crit: 3 } } },
     );
     expect(bow.atk).toBe(18);
-    expect(bow.weight).toBe(12);
+    expect(bow.weight).toBe(0);
     expect(bow.crit).toBe(3);
   });
 
@@ -107,12 +108,12 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       { v2_greatsword: { power: 99, weight: 0 } },
     );
     expect(a.atk).toBe(V2_EQUIPMENT.v2_iron_sword.power);
-    expect(a.weight).toBe(8); // 철검 원시 2 × 무기4
+    expect(a.weight).toBe(0);
   });
 
-  it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
-    // 철검: 무기 위력 → atk, weight 원시2 × 무기4 = 8
-    // 쇠사슬 갑옷: 위력 4(×2) weight 원시2 × 일반2 = 4 (갑옷 → def)
+  it("슬롯별 분기 (T1) — 무기·갑옷·반지", () => {
+    // 철검: 무기 위력 → atk, 속도-4
+    // 쇠사슬 갑옷: 위력 4(×2) (갑옷 → def)
     // 은가락지: 위력 2(×2) weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
@@ -123,7 +124,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(4); // 갑옷만(반지는 마방)
     expect(a.magicDef).toBe(2); // 반지 위력
-    expect(a.weight).toBe(8 + 4 + 0);
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-4);
   });
 
   it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
@@ -140,8 +142,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
-    // 별노래궁: 무기 위력 weight 원시2 × 무기4 = 8, crit 2
-    // 바람 망토: 위력 6 weight 원시1 × 일반2 = 2, eva 3 hp 80 (갑옷 축: 방어+HP)
+    // 별노래궁: 무기 위력, crit 2, 속도-4
+    // 바람 망토: 위력 6, eva 3 hp 80 (갑옷 축: 방어+HP)
     // 마나의 정수 T3: 위력 4(×2) weight 0 mp 48 + eva 3 (목걸이 → 마방, 워드 갈래)
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
@@ -153,17 +155,19 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.def).toBe(6); // 갑옷만
     expect(a.magicDef).toBe(4 + 14); // 목걸이 위력 4 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
     expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
-    expect(a.weight).toBe(8 + 2 + 0);
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-4);
     expect(a.crit).toBe(2);
     expect(a.eva).toBe(6); // 바람망토 3 + 마나의 정수 3
     expect(a.hp).toBe(80);
     expect(a.mp).toBe(48);
   });
 
-  it("중갑 무게 — 미스릴 갑옷 T5 = def 18(×2), weight 원시8 × 일반2 = 16", () => {
+  it("중갑 페널티 — 미스릴 갑옷 T5 = def 18(×2), 속도 -8", () => {
     const a = aggregateV2Equipment({ armor: "v2_mithril_plate" });
     expect(a.def).toBe(18);
-    expect(a.weight).toBe(16);
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-8);
     expect(a.magicDef).toBe(0); // 방어구는 마방 안 줌
   });
 

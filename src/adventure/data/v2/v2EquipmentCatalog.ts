@@ -1470,7 +1470,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "armor",
     concept: "heavy",
     tier: 8,
-    name: "녹비늘",
+    name: "독왕의 장삼",
     description: "짙은 독안개에 오래 젖어도 몸의 열을 붙잡아 주는 흉갑.",
     power: 94,
     weight: 6,
@@ -1483,7 +1483,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "gloves",
     concept: "light",
     tier: 8,
-    name: "점액흔",
+    name: "점액독수",
     description: "젖은 손잡이를 놓치지 않도록 비늘 무늬를 새긴 장갑.",
     power: 26,
     weight: 3,
@@ -1496,7 +1496,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "boots",
     concept: "light",
     tier: 8,
-    name: "진창길",
+    name: "독성 걸음",
     description: "진흙을 박차고 나가도록 발바닥에 단단한 비늘을 댄 신.",
     power: 26,
     weight: 3,
@@ -1509,7 +1509,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "ring",
     concept: "luck",
     tier: 8,
-    name: "늪심장",
+    name: "늪의 심장",
     description: "진흙 아래 뛰는 늪의 고동을 손끝에 전해 오래 버티게 하는 반지.",
     power: 22,
     weight: 0,
@@ -1522,7 +1522,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "necklace",
     concept: "mana",
     tier: 8,
-    name: "심장끈",
+    name: "늪의 고동",
     description: "축축한 심장석이 맥박처럼 흔들려 몸을 흐릿하게 지켜 주는 목걸이.",
     power: 22,
     weight: 0,
@@ -1535,7 +1535,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "boots",
     concept: "light",
     tier: 8,
-    name: "물그림자",
+    name: "갈대바람 신발",
     description: "물 위의 그림자처럼 흔적을 흐려 공격이 닿기 전에 몸을 빼는 신.",
     power: 19,
     weight: 1,
@@ -1547,7 +1547,7 @@ const V2_EQUIPMENT_BASE = {
     slot: "armor",
     concept: "heavy",
     tier: 8,
-    name: "늪비늘",
+    name: "늪의 비늘",
     description: "거친 리자드 비늘을 두껍게 엮어 맞으면서 밀고 들어가게 만든 흉갑.",
     power: 107,
     weight: 10,
@@ -2658,6 +2658,8 @@ export type V2Equipment = V2EquipmentBase<V2EquipmentId>;
 export const WEAPON_POWER_SCALE = 0.8;
 export const ENDGAME_POWER_SCALE_FROM_TIER = 10;
 export const ENDGAME_POWER_SCALE = 0.9;
+const LIGHT_WEIGHT_POWER_TRIM = 0.95;
+const SPEED_PENALTY_THRESHOLD = 3;
 
 function equipmentPowerScale(item: V2Equipment): number {
   let scale = 1;
@@ -2668,20 +2670,47 @@ function equipmentPowerScale(item: V2Equipment): number {
   return scale;
 }
 
+function visibleSpeedPenaltyFor(item: V2Equipment): number {
+  if (item.weight <= 0) return 0;
+  const oldPenalty = item.weight * (item.slot === "weapon" ? 2 : 1);
+  return oldPenalty >= SPEED_PENALTY_THRESHOLD ? oldPenalty : 0;
+}
+
+function mergeSpeedPenalty(
+  options: V2Equipment["options"],
+  penalty: number,
+): V2Equipment["options"] {
+  if (penalty <= 0) return options;
+  const next = { ...(options ?? {}) };
+  const spd = (next.spd ?? 0) - penalty;
+  if (spd === 0) {
+    delete next.spd;
+  } else {
+    next.spd = spd;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
 function applyEquipmentCatalogScales(
   catalog: Record<V2EquipmentId, V2Equipment>,
 ): Record<V2EquipmentId, V2Equipment> {
   return Object.fromEntries(
     Object.entries(catalog).map(([id, item]) => {
       const scale = equipmentPowerScale(item);
+      const speedPenalty = visibleSpeedPenaltyFor(item);
+      const scaledPower =
+        scale === 1 ? item.power : Math.max(1, Math.round(item.power * scale));
+      const power =
+        item.weight > 0 && speedPenalty === 0
+          ? Math.max(1, Math.round(scaledPower * LIGHT_WEIGHT_POWER_TRIM))
+          : scaledPower;
       return [
         id,
         {
           ...item,
-          power:
-            scale === 1
-              ? item.power
-              : Math.max(1, Math.round(item.power * scale)),
+          power,
+          weight: 0,
+          options: mergeSpeedPenalty(item.options, speedPenalty),
         },
       ];
     }),

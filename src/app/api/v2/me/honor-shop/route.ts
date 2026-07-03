@@ -102,9 +102,10 @@ export async function POST(req: Request) {
       {},
     );
     const count = parseStaminaPotions(potSave).count;
+    const staminaPotions = count + 1;
     await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
       ...potSave,
-      count: count + 1,
+      count: staminaPotions,
     });
     return {
       status: 200,
@@ -113,6 +114,7 @@ export async function POST(req: Request) {
         honor: honor - item.cost,
         honorEarned,
         granted: item.id,
+        staminaPotions,
       },
     };
   });

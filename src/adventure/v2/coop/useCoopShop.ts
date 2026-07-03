@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 
 export type CoopShopLimit = {
   scope: "daily" | "weekly";
@@ -59,6 +60,7 @@ function stateFromResponse(j: Record<string, unknown>): CoopShopState {
 }
 
 export function useCoopShop() {
+  const { applyResourcePatch } = useGameState();
   const [state, setState] = useState<CoopShopState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,11 @@ export function useCoopShop() {
         unknown
       > | null;
       if (res.ok && j?.ok) {
+        if (typeof j.staminaPotions === "number") {
+          applyResourcePatch({
+            staminaPotions: Math.max(0, j.staminaPotions),
+          });
+        }
         setState(stateFromResponse(j));
         setError(null);
       } else {
@@ -82,7 +89,7 @@ export function useCoopShop() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyResourcePatch]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh 는 async(fetch 후 set)
@@ -103,6 +110,11 @@ export function useCoopShop() {
           unknown
         > | null;
         if (res.ok && j?.ok) {
+          if (typeof j.staminaPotions === "number") {
+            applyResourcePatch({
+              staminaPotions: Math.max(0, j.staminaPotions),
+            });
+          }
           setState((prev) =>
             prev
               ? {
@@ -148,7 +160,7 @@ export function useCoopShop() {
         setBuying(null);
       }
     },
-    [],
+    [applyResourcePatch],
   );
 
   return { state, loading, error, buying, refresh, buy };

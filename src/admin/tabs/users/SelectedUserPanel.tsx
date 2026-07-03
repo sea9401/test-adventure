@@ -12,6 +12,7 @@ import {
   type V2GrantPayload,
 } from "./types";
 import { GuildCooldownSection } from "./GuildCooldownSection";
+import { OpsUserNotesSection } from "./OpsUserNotesSection";
 import { OpsUserSummarySection } from "./OpsUserSummarySection";
 import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
@@ -77,6 +78,8 @@ export function SelectedUserPanel({
       </div>
 
       <SanctionsSection userId={user.id} readOnly={readOnly} />
+
+      <OpsUserNotesSection userId={user.id} readOnly={readOnly} />
 
       <OpsUserSummarySection userId={user.id} readOnly={readOnly} />
 

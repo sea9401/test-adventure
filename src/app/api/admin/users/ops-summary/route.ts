@@ -10,16 +10,21 @@ import {
 import { TREASURE_WALLET_KEY, walletCoins as treasureCoins } from "@/lib/server/treasure/coins";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import { STAMINA_POTIONS_KEY, staminaPotionCount } from "@/adventure/v2/staminaPotions";
+import { MAX_STAMINA, parseStaminaFromSave } from "@/adventure/v2/stamina";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
 const SUMMARY_KEYS = [
   "character.v2",
+  "character-profile.v2",
   FISHING_WALLET_KEY,
   TREASURE_WALLET_KEY,
   "inventory.v2",
   "equipment.v2",
+  "proficiency.v2",
+  "v2-skills.v1",
   STAMINA_POTIONS_KEY,
 ] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   const gate = await requireAdmin();
@@ -55,8 +60,11 @@ export async function GET(req: Request) {
 
   const saves = new Map(saveRows.map((row) => [row.key, row.value]));
   const character = objectValue(saves.get("character.v2"));
+  const profile = objectValue(saves.get("character-profile.v2"));
   const inventory = objectValue(saves.get("inventory.v2"));
   const equipment = objectValue(saves.get("equipment.v2"));
+  const proficiency = objectValue(saves.get("proficiency.v2"));
+  const skills = objectValue(saves.get("v2-skills.v1"));
 
   const summary = {
     gold: intValue(character.gold),
@@ -71,6 +79,12 @@ export async function GET(req: Request) {
     kstDailyKey(new Date()),
   );
   const inventorySummary = summarizeInventory({ character, inventory, equipment });
+  const snapshot = buildSnapshot({ character, profile, equipment, proficiency, skills });
+  const dailyLimits = buildDailyLimits({
+    fishingCatchCoins,
+    eventRows,
+    now: Date.now(),
+  });
 
   const rewardHistory = eventRows
     .filter((row) => row.eventType.startsWith("reward."))
@@ -90,7 +104,9 @@ export async function GET(req: Request) {
     ok: true,
     userId,
     summary,
+    snapshot,
     fishingCatchCoins,
+    dailyLimits,
     inventorySummary,
     trackedKeys: saveRows
       .filter((row) => SUMMARY_KEYS.includes(row.key as (typeof SUMMARY_KEYS)[number]))
@@ -155,4 +171,120 @@ function summarizeInventory({
     })),
     spFruits: spFruits.map(([key, quantity]) => ({ key, quantity })),
   };
+}
+
+function buildSnapshot({
+  character,
+  profile,
+  equipment,
+  proficiency,
+  skills,
+}: {
+  character: Record<string, unknown>;
+  profile: Record<string, unknown>;
+  equipment: Record<string, unknown>;
+  proficiency: Record<string, unknown>;
+  skills: Record<string, unknown>;
+}) {
+  const stamina = parseStaminaFromSave(character.stamina);
+  const owned = Array.isArray(equipment.owned) ? equipment.owned : [];
+  const equipped = objectValue(character.equipped);
+  const equippedSlots = Object.entries(equipped)
+    .flatMap(([slot, item]) => {
+      const value = objectValue(item);
+      const itemId = typeof value.itemId === "string" ? value.itemId : null;
+      return itemId ? [{ slot, itemId }] : [];
+    })
+    .slice(0, 6);
+  const learnedSkills = Array.isArray(skills.learned)
+    ? skills.learned.filter((row): row is string => typeof row === "string")
+    : [];
+  const equippedSkills = Array.isArray(skills.equipped)
+    ? skills.equipped.filter((row): row is string => typeof row === "string")
+    : Array.isArray(character.equippedSkills)
+      ? character.equippedSkills.filter((row): row is string => typeof row === "string")
+      : [];
+  return {
+    name: typeof profile.name === "string" ? profile.name : null,
+    level: intValue(character.level),
+    exp: intValue(character.exp),
+    hp: intValue(character.hp),
+    classId: textValue(character.class) ?? textValue(character.currentClass) ?? null,
+    specChoice: textValue(character.specChoice),
+    guild: textValue(character.affiliation) ?? "무소속",
+    stamina: {
+      current: stamina.current,
+      max: MAX_STAMINA,
+      lastUpdatedAt: stamina.lastUpdatedAt,
+    },
+    equipmentCount: owned.length,
+    equippedSlots,
+    learnedSkillCount: learnedSkills.length,
+    equippedSkills: equippedSkills.slice(0, 8),
+    proficiencyTop: Object.entries(proficiency)
+      .map(([key, value]) => ({ key, quantity: intValue(value) }))
+      .filter((row) => row.quantity > 0)
+      .sort((a, b) => b.quantity - a.quantity || a.key.localeCompare(b.key))
+      .slice(0, 6),
+  };
+}
+
+function buildDailyLimits({
+  fishingCatchCoins,
+  eventRows,
+  now,
+}: {
+  fishingCatchCoins: { earned: number; cap: number };
+  eventRows: Array<{
+    eventType: string;
+    itemKind: string | null;
+    quantity: number | null;
+    createdAt: Date;
+  }>;
+  now: number;
+}) {
+  const dayRows = eventRows.filter((row) => now - row.createdAt.getTime() <= DAY_MS);
+  const compensations = dayRows.filter((row) => row.eventType === "admin.reward.compensate");
+  return [
+    {
+      key: "fishing_catch_coin",
+      label: "낚시 챔질 코인",
+      earned: fishingCatchCoins.earned,
+      cap: fishingCatchCoins.cap,
+      remaining: Math.max(0, fishingCatchCoins.cap - fishingCatchCoins.earned),
+      status:
+        fishingCatchCoins.earned >= fishingCatchCoins.cap
+          ? ("capped" as const)
+          : fishingCatchCoins.earned >= fishingCatchCoins.cap * 0.8
+            ? ("near" as const)
+            : ("ok" as const),
+    },
+    {
+      key: "admin_compensation",
+      label: "24시간 보정 지급",
+      earned: compensations.length,
+      cap: 3,
+      remaining: Math.max(0, 3 - compensations.length),
+      status:
+        compensations.length >= 3
+          ? ("capped" as const)
+          : compensations.length >= 2
+            ? ("near" as const)
+            : ("ok" as const),
+    },
+    {
+      key: "reward_failures",
+      label: "24시간 보상 실패",
+      earned: dayRows.filter((row) => row.eventType.startsWith("reward.failure.")).length,
+      cap: 1,
+      remaining: 0,
+      status: dayRows.some((row) => row.eventType.startsWith("reward.failure."))
+        ? ("near" as const)
+        : ("ok" as const),
+    },
+  ];
+}
+
+function textValue(raw: unknown) {
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }

@@ -129,6 +129,7 @@ export function AuditLogTab() {
                 <th className="px-2 py-1.5 font-medium">관리자</th>
                 <th className="px-2 py-1.5 font-medium">행동</th>
                 <th className="px-2 py-1.5 font-medium">대상</th>
+                <th className="px-2 py-1.5 font-medium">요약</th>
                 <th className="px-2 py-1.5 font-medium">상세</th>
               </tr>
             </thead>
@@ -150,7 +151,7 @@ export function AuditLogTab() {
                   <td className="px-2 py-1.5 text-zinc-600 dark:text-zinc-300">
                     {e.targetGameName ? (
                       <Link
-                        href={`/character/${encodeURIComponent(e.targetGameName)}`}
+                        href={`/admin?tab=users&q=${encodeURIComponent(e.targetUserId ?? e.targetGameName)}`}
                         className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
                       >
                         {e.targetGameName}
@@ -160,6 +161,9 @@ export function AuditLogTab() {
                     ) : (
                       "—"
                     )}
+                  </td>
+                  <td className="max-w-[260px] px-2 py-1.5 text-zinc-600 dark:text-zinc-300">
+                    {auditSummary(e)}
                   </td>
                   <td className="px-2 py-1.5 font-mono text-[10px] text-zinc-400">
                     {e.detail ? JSON.stringify(e.detail) : "—"}
@@ -172,4 +176,49 @@ export function AuditLogTab() {
       )}
     </section>
   );
+}
+
+function auditSummary(entry: Entry) {
+  const detail = entry.detail ?? {};
+  if (entry.action.startsWith("sanction.")) {
+    return [
+      "제재",
+      stringValue(detail.reason),
+      stringValue(detail.adminMemo),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  if (entry.action === "reward.compensate") {
+    return [
+      "보상 보정",
+      stringValue(detail.itemKind),
+      numberValue(detail.quantity),
+      stringValue(detail.reason),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  if (entry.action.startsWith("ops-user-notes.")) {
+    return entry.action.endsWith(".add")
+      ? "운영 메모 추가"
+      : entry.action.endsWith(".resolve")
+        ? "운영 메모 처리"
+        : entry.action.endsWith(".reopen")
+          ? "운영 메모 재오픈"
+          : "운영 메모 삭제";
+  }
+  if (entry.action.startsWith("ops-settings.")) return "운영 설정 변경";
+  if (entry.action === "grant.v2") return "v2 지급";
+  if (entry.action === "reset-character") return "캐릭터 초기화";
+  return stringValue(detail.reason) ?? stringValue(detail.adminMemo) ?? "변경 기록";
+}
+
+function stringValue(raw: unknown) {
+  return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 120) : null;
+}
+
+function numberValue(raw: unknown) {
+  const value = Number(raw ?? 0);
+  return Number.isFinite(value) && value > 0 ? value.toLocaleString() : null;
 }

@@ -120,8 +120,11 @@ type Dashboard = {
   suspiciousUsers: Array<{
     userId: string;
     score: number;
+    severity: "watch" | "review" | "strong";
     events: number;
     rateLimited: number;
+    rewardFailures: number;
+    avgIntervalSec: number;
     actionCount: number;
     ipCount: number;
     ips: string[];
@@ -420,6 +423,7 @@ export function OpsDashboardTab() {
                     <tr>
                       <th className="py-1 pr-3 font-medium">userId</th>
                       <th className="py-1 pr-3 font-medium">점수</th>
+                      <th className="py-1 pr-3 font-medium">단계</th>
                       <th className="py-1 pr-3 font-medium">제한</th>
                       <th className="py-1 pr-3 font-medium">이벤트</th>
                       <th className="hidden py-1 pr-3 font-medium md:table-cell">action/IP</th>
@@ -438,6 +442,11 @@ export function OpsDashboardTab() {
                           </Link>
                         </td>
                         <td className="py-1 pr-3 tabular-nums">{row.score}</td>
+                        <td className="py-1 pr-3">
+                          <span className={`rounded px-1.5 py-0.5 text-[11px] ${suspicionClass(row.severity)}`}>
+                            {suspicionLabel(row.severity)}
+                          </span>
+                        </td>
                         <td className="py-1 pr-3 tabular-nums">{row.rateLimited}</td>
                         <td className="py-1 pr-3 tabular-nums">{row.events}</td>
                         <td className="hidden py-1 pr-3 tabular-nums md:table-cell">
@@ -457,6 +466,10 @@ export function OpsDashboardTab() {
                           <div>{new Date(row.lastAt).toLocaleString("ko-KR")}</div>
                           <div className="mt-0.5 max-w-[320px] text-[11px]">
                             {row.topActions.map((action) => `${action.key} ${action.count}`).join(", ") || "-"}
+                          </div>
+                          <div className="mt-0.5 text-[11px]">
+                            보상실패 {row.rewardFailures.toLocaleString()} · 평균간격{" "}
+                            {row.avgIntervalSec ? `${row.avgIntervalSec}s` : "-"}
                           </div>
                           <div className="mt-0.5 hidden max-w-[360px] text-[11px] md:block">
                             {row.recentEvents
@@ -667,6 +680,22 @@ function RiskEventsPanel({ rows }: { rows: Dashboard["riskEvents"] }) {
       )}
     </Panel>
   );
+}
+
+function suspicionLabel(severity: Dashboard["suspiciousUsers"][number]["severity"]) {
+  if (severity === "strong") return "강한 의심";
+  if (severity === "review") return "검토 필요";
+  return "주의";
+}
+
+function suspicionClass(severity: Dashboard["suspiciousUsers"][number]["severity"]) {
+  if (severity === "strong") {
+    return "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200";
+  }
+  if (severity === "review") {
+    return "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200";
+  }
+  return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
 }
 
 function SanctionRecommendationPanel({

@@ -198,7 +198,7 @@ export async function GET(req: Request) {
 
   const abuse = summarizeAbuse(abuseRows, now);
   const economy = summarizeEconomy(economyRows, now);
-  const suspiciousUsers = scoreSuspiciousUsers(abuseRows);
+  const suspiciousUsers = scoreSuspiciousUsers(abuseRows, currentDayEconomyRows);
   const connectedIps = scoreConnectedIps(abuseRows);
   const previousAbuse = summarizeAbuse(previousAbuseRows, daySince.getTime());
   const previousEconomy = summarizeEconomy(previousEconomyRows, daySince.getTime());
@@ -893,7 +893,16 @@ function scoreSuspiciousUsers(
     ip: string | null;
     createdAt: Date;
   }>,
+  economyRows: Array<{
+    userId?: string | null;
+    eventType: string;
+  }> = [],
 ) {
+  const rewardFailuresByUser = new Map<string, number>();
+  for (const row of economyRows) {
+    if (!row.userId || !row.eventType.startsWith("reward.failure.")) continue;
+    rewardFailuresByUser.set(row.userId, (rewardFailuresByUser.get(row.userId) ?? 0) + 1);
+  }
   const users = new Map<
     string,
     {
@@ -931,16 +940,36 @@ function scoreSuspiciousUsers(
   }
   return [...users.entries()]
     .map(([userId, value]) => {
+      const sortedEvents = [...value.recentEvents].sort((a, b) => a.createdAt - b.createdAt);
+      const avgIntervalSec = averageIntervalSec(sortedEvents.map((event) => event.createdAt));
+      const fastRepeatBonus =
+        value.events >= 8 && avgIntervalSec > 0 && avgIntervalSec <= 10
+          ? 30
+          : value.events >= 8 && avgIntervalSec > 0 && avgIntervalSec <= 30
+            ? 15
+            : 0;
+      const rewardFailures = rewardFailuresByUser.get(userId) ?? 0;
       const score =
         value.rateLimited * 5 +
         value.events * 2 +
         Math.max(0, value.actions.size - 1) * 3 +
-        Math.max(0, value.ips.size - 1) * 4;
+        Math.max(0, value.ips.size - 1) * 4 +
+        rewardFailures * 4 +
+        fastRepeatBonus;
+      const severity =
+        score >= 120 || value.rateLimited >= 20 || fastRepeatBonus >= 30
+          ? ("strong" as const)
+          : score >= 60 || value.rateLimited >= 10 || rewardFailures >= 5
+            ? ("review" as const)
+            : ("watch" as const);
       return {
         userId,
         score,
+        severity,
         events: value.events,
         rateLimited: value.rateLimited,
+        rewardFailures,
+        avgIntervalSec,
         actionCount: value.actions.size,
         ipCount: value.ips.size,
         ips: [...value.ips].sort().slice(0, 5),
@@ -960,6 +989,15 @@ function scoreSuspiciousUsers(
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || b.rateLimited - a.rateLimited)
     .slice(0, 12);
+}
+
+function averageIntervalSec(timestamps: number[]) {
+  if (timestamps.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < timestamps.length; i += 1) {
+    total += Math.max(0, timestamps[i] - timestamps[i - 1]);
+  }
+  return Math.round(total / (timestamps.length - 1) / 1000);
 }
 
 function scoreConnectedIps(
@@ -1020,20 +1058,26 @@ function buildSanctionRecommendations(
     .filter((row) => row.score >= 30 || row.rateLimited >= 5 || row.events >= 20)
     .map((row) => {
       const recommendation =
-        row.score >= 120 || row.rateLimited >= 20
+        row.severity === "strong"
           ? "임시 정지 검토"
-          : row.score >= 60 || row.rateLimited >= 10
+          : row.severity === "review"
             ? "채팅/거래 제한 검토"
             : "모니터링 유지";
       return {
         userId: row.userId,
         score: row.score,
         recommendation,
-        reason: `제한 ${row.rateLimited.toLocaleString()}건 · 이벤트 ${row.events.toLocaleString()}건 · IP ${row.ipCount.toLocaleString()}개`,
+        reason: `단계 ${suspicionSeverityLabel(row.severity)} · 제한 ${row.rateLimited.toLocaleString()}건 · 실패 ${row.rewardFailures.toLocaleString()}건 · 평균간격 ${row.avgIntervalSec ? `${row.avgIntervalSec}s` : "-"}`,
         href: `/admin?tab=users&q=${encodeURIComponent(row.userId)}`,
       };
     })
     .slice(0, 8);
+}
+
+function suspicionSeverityLabel(severity: "watch" | "review" | "strong") {
+  if (severity === "strong") return "강한 의심";
+  if (severity === "review") return "검토 필요";
+  return "주의";
 }
 
 function alertChannelStatus() {

@@ -123,6 +123,30 @@ function ShellInner() {
             </span>
           ) : null}
         </div>
+        {adminMe ? (
+          <div className="mt-2 grid gap-2 text-xs md:grid-cols-4">
+            <RoleCard
+              label="readonly"
+              active={adminMe.role === "readonly"}
+              text="조회와 문의 확인만 가능"
+            />
+            <RoleCard
+              label="reward"
+              active={adminMe.role === "reward"}
+              text="보상 지급과 운영 메모 가능"
+            />
+            <RoleCard
+              label="sanction"
+              active={adminMe.role === "sanction"}
+              text="제재와 운영 메모 가능"
+            />
+            <RoleCard
+              label="super"
+              active={adminMe.role === "super"}
+              text="모든 운영 작업 가능"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pb-12 md:flex-row">
@@ -209,6 +233,29 @@ function roleLabel(role: string | null) {
   if (role === "sanction") return "sanction";
   if (role === "readonly") return "readonly";
   return "no-role";
+}
+
+function RoleCard({
+  label,
+  text,
+  active,
+}: {
+  label: string;
+  text: string;
+  active: boolean;
+}) {
+  return (
+    <div
+      className={
+        active
+          ? "rounded-md border border-zinc-900 bg-zinc-900 px-2 py-1.5 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+          : "rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+      }
+    >
+      <div className="font-mono font-semibold">{label}</div>
+      <div className="mt-0.5">{text}</div>
+    </div>
+  );
 }
 
 function capabilityLabel(capabilities: {

@@ -27,10 +27,37 @@ type OpsSummary = {
     masteryCertificates: number;
     staminaPotions: number;
   };
+  snapshot: {
+    name: string | null;
+    level: number;
+    exp: number;
+    hp: number;
+    classId: string | null;
+    specChoice: string | null;
+    guild: string;
+    stamina: {
+      current: number;
+      max: number;
+      lastUpdatedAt: number;
+    };
+    equipmentCount: number;
+    equippedSlots: Array<{ slot: string; itemId: string }>;
+    learnedSkillCount: number;
+    equippedSkills: string[];
+    proficiencyTop: Array<{ key: string; quantity: number }>;
+  };
   fishingCatchCoins: {
     earned: number;
     cap: number;
   };
+  dailyLimits: Array<{
+    key: string;
+    label: string;
+    earned: number;
+    cap: number;
+    remaining: number;
+    status: "ok" | "near" | "capped";
+  }>;
   inventorySummary: {
     equipmentCount: number;
     materialTop: Array<{ key: string; quantity: number }>;
@@ -234,6 +261,8 @@ export function OpsUserSummarySection({
         </p>
       ) : (
         <div className="mt-3 space-y-3">
+          <SnapshotPanel snapshot={data.snapshot} />
+          <DailyLimitPanel rows={data.dailyLimits} />
           <div className="grid gap-2 sm:grid-cols-3">
             <Metric label="보유 골드" value={data.summary.gold} />
             <Metric label="은행 골드" value={data.summary.bankedGold} />
@@ -349,6 +378,77 @@ export function OpsUserSummarySection({
   );
 }
 
+function SnapshotPanel({ snapshot }: { snapshot: OpsSummary["snapshot"] }) {
+  return (
+    <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+      <h3 className="mb-2 text-xs font-semibold">문의 대응 스냅샷</h3>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Metric label="레벨" value={snapshot.level} />
+        <Metric label="EXP" value={snapshot.exp} />
+        <Metric label="HP" value={snapshot.hp} />
+        <Metric
+          label="스태미나"
+          value={snapshot.stamina.current}
+          suffix={` / ${snapshot.stamina.max.toLocaleString()}`}
+        />
+        <Metric label="장비 수" value={snapshot.equipmentCount} />
+        <Metric label="학습 스킬" value={snapshot.learnedSkillCount} />
+      </div>
+      <div className="mt-2 grid gap-2 md:grid-cols-2">
+        <MiniPairs
+          title="기본"
+          rows={[
+            ["이름", snapshot.name ?? "-"],
+            ["직업", [snapshot.classId, snapshot.specChoice].filter(Boolean).join(" / ") || "-"],
+            ["길드", snapshot.guild],
+          ]}
+        />
+        <MiniRows
+          title="장착 장비"
+          rows={snapshot.equippedSlots.map((row) => ({
+            key: `${row.slot}:${row.itemId}`,
+            quantity: 1,
+          }))}
+        />
+        <MiniRows
+          title="장착 스킬"
+          rows={snapshot.equippedSkills.map((key) => ({ key, quantity: 1 }))}
+        />
+        <MiniRows title="숙련 상위" rows={snapshot.proficiencyTop} />
+      </div>
+    </section>
+  );
+}
+
+function DailyLimitPanel({ rows }: { rows: OpsSummary["dailyLimits"] }) {
+  return (
+    <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+      <h3 className="mb-2 text-xs font-semibold">일일 제한·문의 체크</h3>
+      <div className="grid gap-2 md:grid-cols-3">
+        {rows.map((row) => (
+          <div
+            key={row.key}
+            className={`rounded-md border px-2 py-1.5 text-xs ${limitStatusClass(row.status)}`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{row.label}</span>
+              <span className="text-[11px]">{limitStatusLabel(row.status)}</span>
+            </div>
+            <div className="mt-1 tabular-nums">
+              {row.earned.toLocaleString()} / {row.cap.toLocaleString()}
+            </div>
+            {row.key !== "reward_failures" ? (
+              <div className="mt-0.5 text-[11px] opacity-75">
+                남음 {row.remaining.toLocaleString()}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function InventorySummary({ summary }: { summary: OpsSummary["inventorySummary"] }) {
   return (
     <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
@@ -365,6 +465,28 @@ function InventorySummary({ summary }: { summary: OpsSummary["inventorySummary"]
       <MiniRows title="협동 숙련서" rows={summary.coopMasteryTomes} />
       <MiniRows title="SP 열매" rows={summary.spFruits} />
     </section>
+  );
+}
+
+function MiniPairs({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<[string, string]>;
+}) {
+  return (
+    <div className="text-[11px]">
+      <div className="mb-1 font-medium text-zinc-500">{title}</div>
+      <dl className="grid grid-cols-[72px_1fr] gap-x-2 gap-y-1">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-zinc-400">{label}</dt>
+            <dd className="min-w-0 truncate font-mono">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 
@@ -388,6 +510,22 @@ function MiniRows({
       </div>
     </div>
   );
+}
+
+function limitStatusClass(status: OpsSummary["dailyLimits"][number]["status"]) {
+  if (status === "capped") {
+    return "border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200";
+  }
+  if (status === "near") {
+    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200";
+  }
+  return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200";
+}
+
+function limitStatusLabel(status: OpsSummary["dailyLimits"][number]["status"]) {
+  if (status === "capped") return "상한/주의";
+  if (status === "near") return "확인 필요";
+  return "정상";
 }
 
 function Metric({

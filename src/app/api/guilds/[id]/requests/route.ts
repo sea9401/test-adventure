@@ -7,6 +7,7 @@ import {
   guilds,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { notifyGuildJoinRequested } from "@/lib/server/guildNotifications";
 import {
   GUILD_JOIN_REQUEST_EXPIRES_DAYS,
   guildMemberCap,
@@ -112,6 +113,12 @@ export async function POST(
     if ("error" in result) {
       return Response.json(result, { status: result.status });
     }
+    await notifyGuildJoinRequested({
+      guildId: result.guildId,
+      guildName: result.guildName,
+      requestId: result.requestId,
+      applicantUserId: userId,
+    });
     return Response.json(result);
   } catch (e) {
     console.error("[guilds.requests.POST] ", e);

@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { guildJoinRequests, guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { notifyGuildJoinDeclined } from "@/lib/server/guildNotifications";
 import { isAdminRole } from "@/lib/server/guildAdmin";
 
 // POST /api/guilds/requests/[requestId]/decline — 마스터/관리자가 가입 신청 거절.
@@ -32,7 +33,7 @@ export async function POST(
       }
 
       const guildRows = await tx
-        .select({ masterId: guilds.masterId })
+        .select({ masterId: guilds.masterId, name: guilds.name })
         .from(guilds)
         .where(and(eq(guilds.id, reqRow.guildId), isNull(guilds.disbandedAt)))
         .limit(1);
@@ -59,12 +60,22 @@ export async function POST(
         .update(guildJoinRequests)
         .set({ status: "declined" })
         .where(eq(guildJoinRequests.id, requestId));
-      return { ok: true as const };
+      return {
+        ok: true as const,
+        guildId: reqRow.guildId,
+        guildName: guild.name,
+        userId: reqRow.userId,
+      };
     });
 
     if ("error" in result) {
       return Response.json(result, { status: result.status });
     }
+    await notifyGuildJoinDeclined({
+      userId: result.userId,
+      guildId: result.guildId,
+      guildName: result.guildName,
+    });
     return Response.json(result);
   } catch (e) {
     console.error("[guilds.requests.decline.POST] ", e);

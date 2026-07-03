@@ -15,12 +15,16 @@ export const NOTIF_POLL_MS = 60_000;
 // 함락/토벌은 디바운스 없음(즉시).
 export const WAR_NOTIF_DEBOUNCE_MS = 6 * 3_600_000;
 
-// 알림 종류 — 전쟁 3종으로 시작, 스키마는 범용(추후 아레나/길드 신청 등 확장).
+// 알림 종류 — 개인이 놓치면 손해인 서버 사건. 우편함(첨부/수락 액션)과는 분리한다.
 export const V2_NOTIFICATION_TYPES = [
   "outpost_attacked",
   "outpost_lost",
   "ejected",
   "title_unlocked",
+  "guild_join_requested",
+  "guild_join_accepted",
+  "guild_join_declined",
+  "coop_defeated",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -50,6 +54,25 @@ export type V2NotificationPayload =
       titleId: string;
       titleName: string;
       hidden?: boolean;
+    }
+  // guild_join_requested — 가입 신청 도착. 길드 관리자에게 발송.
+  | {
+      guildId: number;
+      guildName: string;
+      requestId: number;
+      applicantUserId: string;
+      applicantName: string;
+    }
+  // guild_join_accepted / guild_join_declined — 내 가입 신청 처리 결과.
+  | {
+      guildId: number;
+      guildName: string;
+    }
+  // coop_defeated — 내가 기여한 협동 보스가 처치되어 보상 수령 가능.
+  | {
+      sessionId: string;
+      kindId: string;
+      bossName: string;
     };
 
 // 클라/서버가 주고받는 한 항목.

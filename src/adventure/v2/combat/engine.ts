@@ -175,6 +175,12 @@ function isEnemyPoisoned(state: BattleState): boolean {
   return state.enemyV2Dots.some((d) => d.tag === "poison" && d.stacks > 0 && d.turns > 0);
 }
 
+function playerSkillTargetDef(state: BattleState, player: PlayerCombat): number {
+  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  if (corrodePct <= 0 || !isEnemyPoisoned(state)) return state.enemy.def;
+  return Math.max(0, Math.round(state.enemy.def * (1 - corrodePct / 100)));
+}
+
 export function applyPlayerOnHitDots(
   state: BattleState,
   player: PlayerCombat,
@@ -1290,7 +1296,7 @@ export function applyPlayerV2SkillCast(
       characterElement: player.characterElement,
     },
     target: {
-      def: state.enemy.def,
+      def: playerSkillTargetDef(state, player),
       // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
       selfBuffs: state.enemyV2SelfBuffs,
       selfDebuffs: tickedEnemyDebuffs,

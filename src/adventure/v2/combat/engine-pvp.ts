@@ -286,6 +286,12 @@ function sideHasDot(side: PvPSide, tag: import("./combatShared").V2DotTag): bool
   return side.v2Dots.some((d) => d.tag === tag && d.stacks > 0 && d.turns > 0);
 }
 
+function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
+  const corrodePct = attacker.player.poisonedEnemyDefReductionPct ?? 0;
+  if (corrodePct <= 0 || !sideHasDot(defender, "poison")) return defender.player.def;
+  return Math.max(0, Math.round(defender.player.def * (1 - corrodePct / 100)));
+}
+
 export function rollPvPAttackCount(attacker: PvPSide, defender: PvPSide): number {
   const bonus = attacker.player.extraAttackChancePctWhileEnemyBleeding ?? 0;
   if (bonus <= 0 || !sideHasDot(defender, "bleed")) {
@@ -1432,7 +1438,7 @@ export function castV2SkillOnAttackerTurnPvP(
       characterElement: side.player.characterElement,
     },
     target: {
-      def: opp.player.def,
+      def: skillTargetDef(side, opp),
       magicDef: opp.player.magicDef,
       // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
       selfBuffs: opp.v2SelfBuffs,

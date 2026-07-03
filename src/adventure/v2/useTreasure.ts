@@ -122,6 +122,9 @@ export function useTreasure(): TreasureHandlers {
               outcome: "hit",
               clue: "hot",
               antique: j.antique,
+              grantedTitles: Array.isArray(j.grantedTitles)
+                ? j.grantedTitles
+                : [],
               codexCount: Number(j.codexCount ?? 0),
             };
           case "miss":

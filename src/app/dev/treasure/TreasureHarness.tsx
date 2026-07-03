@@ -107,6 +107,7 @@ export function TreasureHarness() {
               appraisalBonusPct,
             ),
           },
+          grantedTitles: [],
           codexCount: 0,
         };
       }

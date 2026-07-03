@@ -65,7 +65,13 @@ export type TreasureFragmentStatus = {
 };
 
 export type DigOutcome =
-  | { outcome: "hit"; clue: DigClue; antique: DugAntique; codexCount: number }
+  | {
+      outcome: "hit";
+      clue: DigClue;
+      antique: DugAntique;
+      grantedTitles?: { titleId: string; name: string }[];
+      codexCount: number;
+    }
   | { outcome: "probe"; clue: DigClue; site: TreasureSitePublic }
   | { outcome: "miss"; clue: DigClue; site: TreasureSitePublic }
   | {
@@ -121,7 +127,12 @@ const CLUE_EMOJI: Record<DigClue, string> = {
 };
 
 type Result =
-  | { kind: "hit"; antique: DugAntique; treasureCell: number }
+  | {
+      kind: "hit";
+      antique: DugAntique;
+      treasureCell: number;
+      grantedTitles: { titleId: string; name: string }[];
+    }
   | {
       kind: "exhausted";
       treasureCell: number;
@@ -237,7 +248,12 @@ export function TreasureDigView({
         const r = await dig(site.siteId, cell, selectedToolId);
         switch (r.outcome) {
           case "hit":
-            setResult({ kind: "hit", antique: r.antique, treasureCell: cell });
+            setResult({
+              kind: "hit",
+              antique: r.antique,
+              treasureCell: cell,
+              grantedTitles: r.grantedTitles ?? [],
+            });
             break;
           case "exhausted":
             setResult({
@@ -525,6 +541,11 @@ export function TreasureDigView({
               </span>
             ) : null}
           </p>
+          {result.grantedTitles.length > 0 ? (
+            <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              칭호 획득: {result.grantedTitles.map((title) => title.name).join(", ")}
+            </p>
+          ) : null}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import type { Monster } from "@/adventure/data/monsters/types";
+import { scaleMonsterCombatNumbers } from "./combatNumberScale";
 import {
   floorStatMult,
   floorDefMult,
@@ -47,7 +48,7 @@ export function scaleMonsterForFloor(
     exp === monster.exp &&
     accuracy === (monster.accuracy ?? 0)
   ) {
-    return monster;
+    return scaleMonsterCombatNumbers(monster);
   }
-  return { ...monster, hp, atk, def, exp, accuracy };
+  return scaleMonsterCombatNumbers({ ...monster, hp, atk, def, exp, accuracy });
 }

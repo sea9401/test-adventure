@@ -518,8 +518,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // floor(100 × 0.7 + 90) - 20 = 160 - 20 = 140
-    expect(result.enemyDamage).toBe(140);
+    // floor(100 × 0.7 + 90×3) - 20 = 340 - 20 = 320
+    expect(result.enemyDamage).toBe(320);
     expect(result.enemyDebuffsToApply).toEqual([
       { stat: "vit", pct: 15, turns: 3 },
     ]);
@@ -755,7 +755,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
 
   it("resolveV2SkillCast — 화염구(scaling magic)은 magicAtk 로 스케일", () => {
     // 화염구: statCoef 1.0, baseFlat 180, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 1.0 + 180) - def 0 = 260. (procChance 30 이나 procRoll 미지정 = 항상 발동)
+    // 기대 직격: floor(80 × 1.0 + 180×3) - def 0 = 620.
+    // procChance 30 이나 procRoll 미지정 = 항상 발동.
     const result = resolveV2SkillCast({
       skills: { learned: ["v2c_mage_fireball"], equipped: ["v2c_mage_fireball"] },
       cooldowns: {},
@@ -770,7 +771,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("화염구");
-    expect(result.enemyDamage).toBe(260);
+    expect(result.enemyDamage).toBe(620);
   });
 
   it("resolveV2SkillCast — 생명 강타(scaling maxHp)는 최대 HP 로 스케일", () => {
@@ -787,7 +788,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("생명 강타");
-    expect(result.enemyDamage).toBe(330);
+    expect(result.enemyDamage).toBe(850);
   });
 
   it("resolveV2SkillCast — 만상검(scaling all)은 올스탯 합계로 스케일", () => {
@@ -805,7 +806,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("만상검");
-    expect(result.enemyDamage).toBe(372);
+    expect(result.enemyDamage).toBe(1116);
   });
 
   it("resolveV2SkillCast — dot 효과 스킬은 dotsToApplyToTarget 에 적재(출혈)", () => {
@@ -827,6 +828,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     // DoT 는 별도 경로로 적용 대기 목록에 실린다(프리셋 + 시전자 atk).
     expect(result.dotsToApplyToTarget).toContainEqual({
       ...V2_DOT_PRESETS.출혈,
+      flatPerStack: V2_DOT_PRESETS.출혈.flatPerStack * 3,
       sourceAtk: 5,
     });
   });

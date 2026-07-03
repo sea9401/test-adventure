@@ -46,6 +46,10 @@ import {
   SPELL_STACK_CAP,
   attackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  scaleMonsterCombatNumbers,
+  scalePlayerCombatNumbers,
+} from "@/adventure/data/v2/combatNumberScale";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { computeCritOverflowBonus } from "./engine.damageHelpers";
@@ -2089,8 +2093,10 @@ export function resolveBattle(
   playerName: string,
   ctx: ResolveContext,
 ): BattleResolution {
-  if (V2_CORE_LOOP_V2) return resolveBattleAtb(player, enemy, playerName, ctx);
-  return resolveBattleLegacy(player, enemy, playerName, ctx);
+  const scaledPlayer = scalePlayerCombatNumbers(player);
+  const scaledEnemy = scaleMonsterCombatNumbers(enemy);
+  if (V2_CORE_LOOP_V2) return resolveBattleAtb(scaledPlayer, scaledEnemy, playerName, ctx);
+  return resolveBattleLegacy(scaledPlayer, scaledEnemy, playerName, ctx);
 }
 
 // 물약 효과 적용 — 순수 함수. 인벤토리 차감은 호출 측 책임.

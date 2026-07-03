@@ -648,7 +648,7 @@ describe("execute — 적 HP 25% 이하 추가 피해", () => {
       initialEnemyHp: 7000,
       maxTurns: 1,
     });
-    expect(result.finalState.enemy.hp).toBe(30000);
+    expect(result.finalState.enemy.hp).toBe(90000);
     expect(result.finalState.log.some((e) => e.text.includes("별빛 처형"))).toBe(true);
   });
 });

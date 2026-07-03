@@ -21,6 +21,7 @@ import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
 import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
+import { scaleCombatNumber } from "./combatNumberScale";
 
 describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
   it("깊이 1..maxDepth 를 ≤6깊이 블록으로 묶고, 전부 빠짐없이 단조 커버", () => {
@@ -253,13 +254,13 @@ describe("scaleMonsterForFloor", () => {
     const weak = MONSTERS["슬라임"];
     const d1 = scaleMonsterForFloor(weak, 1);
     // 깊이 1 = hp/atk/def/exp ×1.0(평탄). 단 명중은 floorAccuracy(1)=0.3 가산(들판 대결 퇴화 방지·라운드 금지).
-    expect(d1.hp).toBe(weak.hp);
-    expect(d1.atk).toBe(weak.atk);
+    expect(d1.hp).toBe(scaleCombatNumber(weak.hp));
+    expect(d1.atk).toBe(scaleCombatNumber(weak.atk));
     expect(d1.accuracy).toBeCloseTo((weak.accuracy ?? 0) + floorAccuracy(1));
     // 들판 평탄화: 깊이 2~6 은 ×1.06→×1.3 완만. 들판 6 = ×1.3 새 객체.
     const d6 = scaleMonsterForFloor(weak, 6);
     expect(d6).not.toBe(weak);
-    expect(d6.hp).toBe(Math.round(weak.hp * floorStatMult(6)));
+    expect(d6.hp).toBe(scaleCombatNumber(Math.round(weak.hp * floorStatMult(6))));
   });
 
   it("floor 3+ 사다리 배율 — hp/atk 선형·def 댐핑·exp 곡선, 새 객체", () => {
@@ -268,12 +269,14 @@ describe("scaleMonsterForFloor", () => {
     // hp = floorStatMult × 프론티어 진입 완화(d7~9 풀) × 크리 HP 상쇄. atk = floorStatMult × 진입 완화.
     //   (def/exp/accuracy 는 완화 미적용). d8 은 frontierOnsetSoften 풀 구간(=MIN).
     expect(scaled.hp).toBe(
-      Math.round(base.hp * floorStatMult(8) * frontierOnsetSoften(8) * floorCritHpComp(8)),
+      scaleCombatNumber(
+        Math.round(base.hp * floorStatMult(8) * frontierOnsetSoften(8) * floorCritHpComp(8)),
+      ),
     );
     expect(scaled.atk).toBe(
-      Math.round(base.atk * floorStatMult(8) * frontierOnsetSoften(8)),
+      scaleCombatNumber(Math.round(base.atk * floorStatMult(8) * frontierOnsetSoften(8))),
     );
-    expect(scaled.def).toBe(Math.round(base.def * floorDefMult(8)));
+    expect(scaled.def).toBe(scaleCombatNumber(Math.round(base.def * floorDefMult(8))));
     expect(scaled.exp).toBe(Math.round(base.exp * floorExpMult(8)));
     expect(scaled.accuracy).toBeCloseTo((base.accuracy ?? 0) + floorAccuracy(8)); // 회피 대결 명중(라운드 안 함)
     expect(scaled.spd).toBe(base.spd); // hp/atk/def/exp/accuracy 외 필드 보존

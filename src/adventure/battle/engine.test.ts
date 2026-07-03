@@ -414,7 +414,7 @@ describe("resolveBattle", () => {
     expect(r.outcome).toBe("lose"); // 타임아웃(처치 못 함)
     expect(r.turns).toBe(50); // maxTurns 에 도달한 그 턴에 멈춘다(>=).
     // 그동안 데미지는 누적되고, 샌드백은 살아있다.
-    const dealt = 1_000_000 - r.finalState.enemyHp;
+    const dealt = r.finalState.enemy.hp - r.finalState.enemyHp;
     expect(dealt).toBeGreaterThan(0);
     expect(r.finalState.enemyHp).toBeGreaterThan(0);
   });

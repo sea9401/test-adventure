@@ -60,6 +60,7 @@ import {
   V2_CORE_LOOP_V2,
   CLAIM_GOLD_COST_BY_TIER,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_COMBAT_NUMBER_SCALE } from "@/adventure/data/v2/combatNumberScale";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
   applyHpRegen,
@@ -337,7 +338,7 @@ export async function POST(req: Request) {
 
     // hp 회복 + 병사 보정 적용
     const hpRegen = applyHpRegen(
-      Math.max(0, charSave.hp ?? player.maxHp),
+      Math.max(0, player.player.hp),
       player.maxHp,
       parseHpRegenSince(charSave.hpRegenSince, now),
       now,
@@ -660,6 +661,7 @@ export async function POST(req: Request) {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
+      combatNumberScale: V2_COMBAT_NUMBER_SCALE,
       hpRegenSince: now,
       ...(treasuryCaptured
         ? { gold: baseGold + treasuryCaptured.capturerShare }

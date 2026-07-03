@@ -26,6 +26,7 @@ import {
   canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_COMBAT_NUMBER_SCALE } from "@/adventure/data/v2/combatNumberScale";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   MAX_STAMINA,
@@ -70,6 +71,7 @@ type CharSave = {
   stamina?: unknown;
   staminaCapBonus?: unknown;
   hp?: number;
+  combatNumberScale?: unknown;
   hpRegenSince?: number;
   [k: string]: unknown;
 };
@@ -151,7 +153,7 @@ export async function POST(req: Request) {
 
     // 사냥과 동일한 사전 HP 회복 + 저체력 게이트(5% 미만 차단·스태미너 미소모).
     const regenResult = applyHpRegen(
-      Math.max(0, charSave.hp ?? player.maxHp),
+      Math.max(0, player.player.hp),
       player.maxHp,
       parseHpRegenSince(charSave.hpRegenSince, now),
       now,
@@ -213,17 +215,22 @@ export async function POST(req: Request) {
     const { playerElement, basicAttackElement } = preparedActor;
     // 전역 잔여 HP 기준으로 발악 스테이지를 굽되, 전투 maxHp 는 공유 최대 HP로 유지한다.
     // 그래야 처형/HP비율 스킬이 "남은 HP를 최대 HP로 오인"하지 않는다.
+    const bossMaxHp = Math.max(
+      1,
+      Math.floor(Number(sessionPeek.maxHp ?? kind.sharedMaxHp)),
+    );
     const { monster: bossMonsterForCurrentHp, enrageNotes } = coopBossForBattle(
       kind,
       sessionPeek.hp,
+      bossMaxHp,
     );
     const bossStartHp = Math.max(
       1,
-      Math.min(Math.floor(sessionPeek.hp), kind.sharedMaxHp),
+      Math.min(Math.floor(sessionPeek.hp), bossMaxHp),
     );
     const bossMonster = {
       ...bossMonsterForCurrentHp,
-      hp: kind.sharedMaxHp,
+      hp: bossMaxHp,
     };
     const playerElemMult = elementDamageMult(
       basicAttackElement,
@@ -421,6 +428,7 @@ export async function POST(req: Request) {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
+      combatNumberScale: V2_COMBAT_NUMBER_SCALE,
       mp: afterMp,
       hpRegenSince: now,
     });

@@ -49,7 +49,7 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
     expect(COOP_BOSSES.void_priest.scrollCost).toBe(30);
-    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(420_000);
+    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(1_260_000);
   });
 
   it("공허의 대사제 — 저주 기믹과 방어형 보상", () => {

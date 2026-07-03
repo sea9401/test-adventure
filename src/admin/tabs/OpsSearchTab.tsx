@@ -26,6 +26,7 @@ type OpsSearchEntry = {
 export function OpsSearchTab() {
   const { showToast } = useAdmin();
   const [q, setQ] = useState("");
+  const [savedFilters, setSavedFilters] = useState<string[]>(() => readSavedFilters());
   const url = useMemo(() => {
     const sp = new URLSearchParams({ limit: "80" });
     if (q.trim().length >= 2) sp.set("q", q.trim());
@@ -46,6 +47,19 @@ export function OpsSearchTab() {
   }, [error, showToast]);
 
   const entries = q.trim().length >= 2 ? (data?.entries ?? []) : [];
+  const saveFilter = () => {
+    const value = q.trim();
+    if (value.length < 2) return;
+    const next = [value, ...savedFilters.filter((row) => row !== value)].slice(0, 12);
+    setSavedFilters(next);
+    writeSavedFilters(next);
+    showToast("검색어 저장됨");
+  };
+  const removeFilter = (value: string) => {
+    const next = savedFilters.filter((row) => row !== value);
+    setSavedFilters(next);
+    writeSavedFilters(next);
+  };
 
   return (
     <section className="space-y-3">
@@ -82,6 +96,32 @@ export function OpsSearchTab() {
           className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
         />
       </label>
+      <div className="flex flex-wrap items-center gap-1 text-xs">
+        <Button onClick={saveFilter} disabled={q.trim().length < 2}>
+          검색어 저장
+        </Button>
+        {savedFilters.map((filter) => (
+          <span
+            key={filter}
+            className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <button
+              type="button"
+              onClick={() => setQ(filter)}
+              className="font-mono hover:underline"
+            >
+              {filter}
+            </button>
+            <button
+              type="button"
+              onClick={() => removeFilter(filter)}
+              className="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+            >
+              x
+            </button>
+          </span>
+        ))}
+      </div>
 
       {q.trim().length < 2 ? (
         <p className="text-xs text-zinc-500 dark:text-zinc-400">검색어를 입력하세요.</p>
@@ -175,4 +215,23 @@ function rewardFailureStatusLabel(
   if (status === "reviewed") return "검토 완료";
   if (status === "compensated") return "보정 완료";
   return "제외";
+}
+
+const SAVED_FILTER_KEY = "ops-search.saved-filters.v1";
+
+function readSavedFilters() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(SAVED_FILTER_KEY) ?? "[]");
+    return Array.isArray(raw)
+      ? raw.filter((row): row is string => typeof row === "string" && row.trim().length >= 2).slice(0, 12)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSavedFilters(values: string[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(SAVED_FILTER_KEY, JSON.stringify(values.slice(0, 12)));
 }

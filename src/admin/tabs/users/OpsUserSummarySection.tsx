@@ -163,7 +163,7 @@ export function OpsUserSummarySection({
     if (isLargeCompensation(itemKind, quantity) && !confirmLarge) return;
     setSaving(true);
     try {
-      const submit = (confirmDuplicate: boolean) =>
+      const submit = (confirmDuplicate: boolean, confirmDailyRisk: boolean) =>
         adminPost<{
           beforeBalance: number;
           balance: number;
@@ -176,20 +176,37 @@ export function OpsUserSummarySection({
           sourceEventId,
           confirmLarge,
           confirmDuplicate,
+          confirmDailyRisk,
         });
       let result: { beforeBalance: number; balance: number };
       try {
-        result = await submit(false);
+        result = await submit(false, false);
       } catch (e) {
         const message = e instanceof Error ? e.message : "";
-        if (!isDuplicateCompensationError(message)) throw e;
+        if (!isDuplicateCompensationError(message) && message !== "daily_compensation_risk") {
+          throw e;
+        }
         const ok = window.confirm(
           message === "duplicate_source_event"
             ? "이미 보정 완료 처리된 원본 이벤트입니다. 그래도 한 번 더 지급할까요?"
-            : "최근 24시간 안에 같은 유저에게 같은 품목/수량 보정이 있습니다. 그래도 지급할까요?",
+            : message === "daily_compensation_risk"
+              ? "최근 24시간 안에 같은 유저에게 보정 지급이 여러 번 있거나 수량이 큽니다. 그래도 지급할까요?"
+              : "최근 24시간 안에 같은 유저에게 같은 품목/수량 보정이 있습니다. 그래도 지급할까요?",
         );
         if (!ok) return;
-        result = await submit(true);
+        const confirmedDuplicate = isDuplicateCompensationError(message);
+        const confirmedDailyRisk = message === "daily_compensation_risk";
+        try {
+          result = await submit(confirmedDuplicate, confirmedDailyRisk);
+        } catch (second) {
+          const secondMessage = second instanceof Error ? second.message : "";
+          if (secondMessage !== "daily_compensation_risk" || confirmedDailyRisk) throw second;
+          const dailyOk = window.confirm(
+            "중복 확인 후에도 최근 24시간 보정 총량 경고가 있습니다. 그래도 지급할까요?",
+          );
+          if (!dailyOk) return;
+          result = await submit(confirmedDuplicate, true);
+        }
       }
       setLastCompensation(result);
       showToast("보정 지급 완료");

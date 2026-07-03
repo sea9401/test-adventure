@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  NumberInput,
+  formatThousands,
+  parseAmount,
+} from "@/components/ui/NumberInput";
+import {
   MAX_STAMINA,
   REGEN_SECONDS_PER_POINT,
   applyRegen,
@@ -121,7 +126,7 @@ function formatRegenTime(ms: number): string {
   return restMinutes > 0 ? `${hours}시간 ${restMinutes}분` : `${hours}시간`;
 }
 
-// 스태미나 포션 사용 모달 — 보유 수·포션당 회복·현재 스태미나 + 개수 스테퍼.
+// 스태미나 포션 사용 모달 — 보유 수·포션당 회복·현재 스태미나 + 개수 입력.
 //   사용 상한 = min(보유, 비축 상한까지 필요 개수). 최대치를 넘겨 비축 가능하되
 //   staminaOverchargeCap(고정 10,000)까지. 기본 제안 = 만피까지. "한 번에 많이 먹어두고
 //   길게 사냥" 의도 → 초과분은 회복 없이 사냥/이동으로만 소모.
@@ -147,16 +152,27 @@ function StaminaPotionModal({
   // 기본 제안 개수 = 만피까지 필요한 만큼(그 이상은 사용자가 비축 선택).
   const fillToMax = Math.max(0, Math.ceil((max - current) / restore));
   const defaultQty = Math.max(1, Math.min(usableMax, fillToMax || 1));
-  const [qty, setQty] = useState(defaultQty);
+  const [qtyInput, setQtyInput] = useState(() =>
+    formatThousands(String(defaultQty)),
+  );
   const [busy, setBusy] = useState(false);
 
-  // 표시·사용에 쓰는 유효 개수 — 항상 1..usableMax 로 클램프.
-  const effQty = Math.max(1, Math.min(qty, usableMax));
-  const projected = Math.min(cap, current + restore * effQty); // 비축 상한까지만
+  const parsedQty = parseAmount(qtyInput);
+  const hasQty = parsedQty > 0;
+  // 표시·사용에 쓰는 유효 개수 — 입력이 있으면 1..usableMax 로 클램프.
+  const effQty = hasQty ? Math.max(1, Math.min(parsedQty, usableMax)) : 0;
+  const projected = hasQty
+    ? Math.min(cap, current + restore * effQty)
+    : current;
   const overcharge = projected > max;
 
+  const setClampedQty = (next: number) => {
+    const safe = Math.max(1, Math.min(Math.floor(next), usableMax));
+    setQtyInput(formatThousands(String(safe)));
+  };
+
   const handleUse = async () => {
-    if (atCap || busy) return;
+    if (atCap || busy || !hasQty) return;
     setBusy(true);
     try {
       await onUse(effQty);
@@ -213,20 +229,35 @@ function StaminaPotionModal({
             <div className="mt-4 flex items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={() => setQty(effQty - 1)}
-                disabled={busy || effQty <= 1}
+                onClick={() => setClampedQty((hasQty ? effQty : 1) - 1)}
+                disabled={busy || !hasQty || effQty <= 1}
                 aria-label="개수 줄이기"
                 className={stepBtn}
               >
                 −
               </button>
-              <span className="w-12 text-center text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                {effQty}
-              </span>
+              <label className="sr-only" htmlFor="stamina-potion-qty">
+                사용할 개수
+              </label>
+              <NumberInput
+                id="stamina-potion-qty"
+                value={qtyInput}
+                onValueChange={(value) => {
+                  const parsed = parseAmount(value);
+                  if (parsed <= 0) {
+                    setQtyInput("");
+                    return;
+                  }
+                  setClampedQty(parsed);
+                }}
+                disabled={busy}
+                className="h-9 w-20 rounded-md border border-zinc-300 bg-white px-2 text-center text-lg font-bold tabular-nums text-zinc-900 outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-amber-500 dark:focus:ring-amber-900"
+                aria-label="사용할 스태미나 포션 개수"
+              />
               <button
                 type="button"
-                onClick={() => setQty(effQty + 1)}
-                disabled={busy || effQty >= usableMax}
+                onClick={() => setClampedQty((hasQty ? effQty : 0) + 1)}
+                disabled={busy || (hasQty && effQty >= usableMax)}
                 aria-label="개수 늘리기"
                 className={stepBtn}
               >
@@ -235,8 +266,8 @@ function StaminaPotionModal({
               {usableMax > 1 && (
                 <button
                   type="button"
-                  onClick={() => setQty(usableMax)}
-                  disabled={busy || effQty >= usableMax}
+                  onClick={() => setClampedQty(usableMax)}
+                  disabled={busy || (hasQty && effQty >= usableMax)}
                   className="ml-1 rounded-md border border-zinc-300 px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
                   최대
@@ -269,10 +300,10 @@ function StaminaPotionModal({
           <button
             type="button"
             onClick={handleUse}
-            disabled={atCap || busy}
+            disabled={atCap || busy || !hasQty}
             className="flex-1 rounded-md border border-amber-600 bg-amber-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? "사용 중…" : `${effQty}개 사용`}
+            {busy ? "사용 중…" : hasQty ? `${effQty}개 사용` : "개수 입력"}
           </button>
         </div>
       </div>

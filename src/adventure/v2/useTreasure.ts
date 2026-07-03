@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { FRAGMENTS_PER_MAP } from "./treasureFragments";
 import type {
   DigOutcome,
@@ -12,35 +12,44 @@ import type { TreasureSitePublic } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
+  const openBusyRef = useRef(false);
+  const digBusyRef = useRef(false);
+
   const open = useCallback(async (): Promise<OpenOutcome> => {
-    const res = await fetch("/api/v2/treasure/open", { method: "POST" });
-    const j = await res.json().catch(() => null);
-    if (res.ok && j?.ok) {
-      return {
-        ok: true,
-        resumed: Boolean(j.resumed),
-        site: j.site as TreasureSitePublic,
-        fragments: typeof j.fragments === "number" ? j.fragments : undefined,
-        needed: typeof j.needed === "number" ? j.needed : undefined,
-        baseNeeded: typeof j.baseNeeded === "number" ? j.baseNeeded : undefined,
-        mapWorkshopLevel:
-          typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : undefined,
-        discountPct: typeof j.discountPct === "number" ? j.discountPct : undefined,
-      };
+    if (openBusyRef.current) return { ok: false, reason: "error" };
+    openBusyRef.current = true;
+    try {
+      const res = await fetch("/api/v2/treasure/open", { method: "POST" });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok) {
+        return {
+          ok: true,
+          resumed: Boolean(j.resumed),
+          site: j.site as TreasureSitePublic,
+          fragments: typeof j.fragments === "number" ? j.fragments : undefined,
+          needed: typeof j.needed === "number" ? j.needed : undefined,
+          baseNeeded: typeof j.baseNeeded === "number" ? j.baseNeeded : undefined,
+          mapWorkshopLevel:
+            typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : undefined,
+          discountPct: typeof j.discountPct === "number" ? j.discountPct : undefined,
+        };
+      }
+      if (j?.error === "not_enough_fragments") {
+        return {
+          ok: false,
+          reason: "not_enough_fragments",
+          fragments: Number(j.fragments ?? 0),
+          needed: typeof j.needed === "number" ? j.needed : undefined,
+          baseNeeded: typeof j.baseNeeded === "number" ? j.baseNeeded : undefined,
+          mapWorkshopLevel:
+            typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : undefined,
+          discountPct: typeof j.discountPct === "number" ? j.discountPct : undefined,
+        };
+      }
+      return { ok: false, reason: "error" };
+    } finally {
+      openBusyRef.current = false;
     }
-    if (j?.error === "not_enough_fragments") {
-      return {
-        ok: false,
-        reason: "not_enough_fragments",
-        fragments: Number(j.fragments ?? 0),
-        needed: typeof j.needed === "number" ? j.needed : undefined,
-        baseNeeded: typeof j.baseNeeded === "number" ? j.baseNeeded : undefined,
-        mapWorkshopLevel:
-          typeof j.mapWorkshopLevel === "number" ? j.mapWorkshopLevel : undefined,
-        discountPct: typeof j.discountPct === "number" ? j.discountPct : undefined,
-      };
-    }
-    return { ok: false, reason: "error" };
   }, []);
 
   // 보유 지도 조각 수 — 발굴 화면 진입 시 표시용. collection 라우트가 fragments 를 함께 반환한다.
@@ -85,38 +94,44 @@ export function useTreasure(): TreasureHandlers {
 
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
-      const res = await fetch("/api/v2/treasure/dig", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ siteId, cell }),
-      });
-      const j = await res.json().catch(() => null);
-      if (!j?.ok) return { outcome: "error" };
-      switch (j.outcome) {
-        case "hit":
-          return {
-            outcome: "hit",
-            clue: "hot",
-            antique: j.antique,
-            codexCount: Number(j.codexCount ?? 0),
-          };
-        case "miss":
-          return {
-            outcome: "miss",
-            clue: j.clue,
-            site: j.site as TreasureSitePublic,
-          };
-        case "exhausted":
-          return {
-            outcome: "exhausted",
-            clue: j.clue,
-            treasureCell: Number(j.treasureCell),
-            missed: j.missed,
-          };
-        case "invalid":
-          return { outcome: "invalid", site: j.site as TreasureSitePublic };
-        default:
-          return { outcome: "error" };
+      if (digBusyRef.current) return { outcome: "error" };
+      digBusyRef.current = true;
+      try {
+        const res = await fetch("/api/v2/treasure/dig", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ siteId, cell }),
+        });
+        const j = await res.json().catch(() => null);
+        if (!j?.ok) return { outcome: "error" };
+        switch (j.outcome) {
+          case "hit":
+            return {
+              outcome: "hit",
+              clue: "hot",
+              antique: j.antique,
+              codexCount: Number(j.codexCount ?? 0),
+            };
+          case "miss":
+            return {
+              outcome: "miss",
+              clue: j.clue,
+              site: j.site as TreasureSitePublic,
+            };
+          case "exhausted":
+            return {
+              outcome: "exhausted",
+              clue: j.clue,
+              treasureCell: Number(j.treasureCell),
+              missed: j.missed,
+            };
+          case "invalid":
+            return { outcome: "invalid", site: j.site as TreasureSitePublic };
+          default:
+            return { outcome: "error" };
+        }
+      } finally {
+        digBusyRef.current = false;
       }
     },
     [],

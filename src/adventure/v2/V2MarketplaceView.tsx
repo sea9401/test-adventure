@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Storefront } from "@phosphor-icons/react";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -147,6 +147,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const actionBusyRef = useRef(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gold, setGold] = useState<number | null>(null);
@@ -283,7 +284,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
   const act = useCallback(
     async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
-      if (busy) return;
+      if (actionBusyRef.current) return;
+      actionBusyRef.current = true;
       setBusy(true);
       setError(null);
       setMsg(null);
@@ -303,10 +305,11 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       } catch (e) {
         setError(e instanceof Error ? e.message : "처리 실패");
       } finally {
+        actionBusyRef.current = false;
         setBusy(false);
       }
     },
-    [busy],
+    [],
   );
 
   const buy = (l: Listing) =>

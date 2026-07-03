@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, users } from "@/db/schema";
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { logAdminAction } from "@/lib/server/adminAudit";
+import { currentAdminEmail, requireAdmin } from "@/lib/server/isAdmin";
 import { upsertSave } from "@/lib/server/savesKv";
 import { isSyncedKey, type SyncedKey } from "@/lib/storage/synced-keys";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
@@ -84,6 +85,7 @@ export async function PATCH(req: Request) {
     return new Response("missing value", { status: 400 });
   }
 
+  let profileNameSynced: string | null = null;
   try {
     await db.transaction(async (tx) => {
       await upsertSave(tx, userId, key, body.value);
@@ -103,6 +105,7 @@ export async function PATCH(req: Request) {
               .update(users)
               .set({ gameName: rawName, updatedAt: new Date() })
               .where(eq(users.id, userId));
+            profileNameSynced = rawName;
           } catch (e) {
             const code = (e as { code?: string }).code;
             if (code === "23505") throw new TakenError();
@@ -117,6 +120,16 @@ export async function PATCH(req: Request) {
     }
     throw e;
   }
+
+  await logAdminAction({
+    adminEmail: await currentAdminEmail(),
+    action: "saves.patch",
+    targetUserId: userId,
+    detail: {
+      key,
+      profileNameSynced,
+    },
+  });
 
   return Response.json({ ok: true, updatedAt: Date.now() });
 }

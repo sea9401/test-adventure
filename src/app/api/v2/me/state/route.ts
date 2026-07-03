@@ -2,6 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { guilds, guildMembers, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { grantTitleIfMissing, ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import {
   INSOMNIA_TITLE_ID,
@@ -105,11 +106,19 @@ async function readStateSaveRows(userId: string) {
   return new Map(rows.map((row) => [row.key as StateSaveKey, row.value]));
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:me:state",
+    userLimit: 120,
+    ipLimit: 800,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   // reconcileV2EquippedSkills 는 idempotent — 코어루프에서는 수동 SP 로드아웃을 보존하고
   // 학습분/SP예산 기준으로만 정리한다. learned 불변.

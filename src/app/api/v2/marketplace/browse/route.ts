@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import {
   MARKETPLACE_V2_BROWSE_LIMIT,
   MARKETPLACE_V2_LISTING_TTL_DAYS,
@@ -17,6 +18,14 @@ import {
 export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:marketplace:browse",
+    userLimit: 180,
+    ipLimit: 1_000,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const url = new URL(req.url);
   const kindParam = url.searchParams.get("kind");

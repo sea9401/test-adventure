@@ -36,6 +36,8 @@ export function useFishing(): FishingHandlers {
   const [progressionLoading, setProgressionLoading] = useState(true);
   const [challengeBadgeCount, setChallengeBadgeCount] = useState(0);
   const mounted = useRef(true);
+  const castBusyRef = useRef(false);
+  const reelBusyRef = useRef(false);
 
   useEffect(() => {
     mounted.current = true;
@@ -81,95 +83,107 @@ export function useFishing(): FishingHandlers {
   }, []);
 
   const cast = useCallback(async (): Promise<CastOutcome> => {
-    const res = await fetch("/api/v2/fishing/cast", { method: "POST" });
-    if (!res.ok) throw new Error("cast_failed");
-    const j = await res.json();
-    if (
-      !j?.ok ||
-      typeof j.castId !== "string" ||
-      typeof j.biteDelayMs !== "number"
-    ) {
-      throw new Error("cast_failed");
+    if (castBusyRef.current) throw new Error("cast_in_progress");
+    castBusyRef.current = true;
+    try {
+      const res = await fetch("/api/v2/fishing/cast", { method: "POST" });
+      if (!res.ok) throw new Error("cast_failed");
+      const j = await res.json();
+      if (
+        !j?.ok ||
+        typeof j.castId !== "string" ||
+        typeof j.biteDelayMs !== "number"
+      ) {
+        throw new Error("cast_failed");
+      }
+      if (j.progression && typeof j.progression === "object") {
+        setProgression(j.progression as FishingProgressionView);
+      }
+      const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
+      if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
+      return {
+        castId: j.castId,
+        biteDelayMs: j.biteDelayMs,
+        dailyCatchCoins: nextDailyCatchCoins,
+      };
+    } finally {
+      castBusyRef.current = false;
     }
-    if (j.progression && typeof j.progression === "object") {
-      setProgression(j.progression as FishingProgressionView);
-    }
-    const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
-    if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
-    return {
-      castId: j.castId,
-      biteDelayMs: j.biteDelayMs,
-      dailyCatchCoins: nextDailyCatchCoins,
-    };
   }, []);
 
   const reel = useCallback(
     async (castId: string, reactionMs: number): Promise<ReelOutcome> => {
-      const res = await fetch("/api/v2/fishing/reel", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ castId, reactionMs }),
-      });
-      if (!res.ok) throw new Error("reel_failed");
-      const j = await res.json();
-      if (!j?.ok) throw new Error("reel_failed");
-      const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
-      if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
-      if (j.caught) {
-        if (j.progression && typeof j.progression === "object") {
-          setProgression(j.progression as FishingProgressionView);
-        }
-        if (typeof j.challengeClaimableCount === "number") {
-          setChallengeBadgeCount(
-            Math.max(0, Math.floor(j.challengeClaimableCount)),
-          );
+      if (reelBusyRef.current) throw new Error("reel_in_progress");
+      reelBusyRef.current = true;
+      try {
+        const res = await fetch("/api/v2/fishing/reel", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ castId, reactionMs }),
+        });
+        if (!res.ok) throw new Error("reel_failed");
+        const j = await res.json();
+        if (!j?.ok) throw new Error("reel_failed");
+        const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
+        if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
+        if (j.caught) {
+          if (j.progression && typeof j.progression === "object") {
+            setProgression(j.progression as FishingProgressionView);
+          }
+          if (typeof j.challengeClaimableCount === "number") {
+            setChallengeBadgeCount(
+              Math.max(0, Math.floor(j.challengeClaimableCount)),
+            );
+          }
+          return {
+            caught: true,
+            fishId: String(j.fishId),
+            name: String(j.name),
+            tier: j.tier,
+            size: Number(j.size),
+            isNewSpecies: Boolean(j.isNewSpecies),
+            isPersonalBest: Boolean(j.isPersonalBest),
+            prevBest: Number(j.prevBest ?? 0),
+            codexCount: Number(j.codexCount ?? 0),
+            coinsGained: Number(j.coinsGained ?? 0),
+            dailyCatchCoins: nextDailyCatchCoins,
+            levelRewardCoins: Number(j.levelRewardCoins ?? 0),
+            special:
+              j.special && typeof j.special === "object"
+                ? {
+                    id: String(j.special.id),
+                    label: String(j.special.label),
+                    emoji: String(j.special.emoji),
+                  }
+                : null,
+            streak:
+              j.streak && typeof j.streak === "object"
+                ? {
+                    current: Number(j.streak.current ?? 0),
+                    best: Number(j.streak.best ?? 0),
+                    buffTier: Number(j.streak.buffTier ?? 0),
+                    coinBonus: Number(j.streak.coinBonus ?? 0),
+                    fragmentChanceBonusPct: Number(
+                      j.streak.fragmentChanceBonusPct ?? 0,
+                    ),
+                  }
+                : undefined,
+            fishingXpGained: Number(j.fishingXpGained ?? 0),
+            fishingLevel:
+              typeof j.fishingLevel === "number" ? j.fishingLevel : undefined,
+            fishingLevelUp: Boolean(j.fishingLevelUp),
+            fishingCatches:
+              typeof j.fishingCatches === "number" ? j.fishingCatches : undefined,
+            challengeProgress: parseFishingProgressNotices(j.challengeProgress),
+          };
         }
         return {
-          caught: true,
-          fishId: String(j.fishId),
-          name: String(j.name),
-          tier: j.tier,
-          size: Number(j.size),
-          isNewSpecies: Boolean(j.isNewSpecies),
-          isPersonalBest: Boolean(j.isPersonalBest),
-          prevBest: Number(j.prevBest ?? 0),
-          codexCount: Number(j.codexCount ?? 0),
-          coinsGained: Number(j.coinsGained ?? 0),
-          dailyCatchCoins: nextDailyCatchCoins,
-          levelRewardCoins: Number(j.levelRewardCoins ?? 0),
-          special:
-            j.special && typeof j.special === "object"
-              ? {
-                  id: String(j.special.id),
-                  label: String(j.special.label),
-                  emoji: String(j.special.emoji),
-                }
-              : null,
-          streak:
-            j.streak && typeof j.streak === "object"
-              ? {
-                  current: Number(j.streak.current ?? 0),
-                  best: Number(j.streak.best ?? 0),
-                  buffTier: Number(j.streak.buffTier ?? 0),
-                  coinBonus: Number(j.streak.coinBonus ?? 0),
-                  fragmentChanceBonusPct: Number(
-                    j.streak.fragmentChanceBonusPct ?? 0,
-                  ),
-                }
-              : undefined,
-          fishingXpGained: Number(j.fishingXpGained ?? 0),
-          fishingLevel:
-            typeof j.fishingLevel === "number" ? j.fishingLevel : undefined,
-          fishingLevelUp: Boolean(j.fishingLevelUp),
-          fishingCatches:
-            typeof j.fishingCatches === "number" ? j.fishingCatches : undefined,
-          challengeProgress: parseFishingProgressNotices(j.challengeProgress),
+          caught: false,
+          reason: typeof j.reason === "string" ? j.reason : "unknown",
         };
+      } finally {
+        reelBusyRef.current = false;
       }
-      return {
-        caught: false,
-        reason: typeof j.reason === "string" ? j.reason : "unknown",
-      };
     },
     [],
   );

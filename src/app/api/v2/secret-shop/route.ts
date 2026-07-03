@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   parseRareMaps,
@@ -95,10 +95,11 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:secret-shop:buy",
-    limit: 60,
+    userLimit: 60,
+    ipLimit: 360,
     windowMs: 60_000,
   });
   if (limited) return limited;
@@ -247,10 +248,11 @@ export async function DELETE(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:secret-shop:delete",
-    limit: 30,
+    userLimit: 30,
+    ipLimit: 180,
     windowMs: 60_000,
   });
   if (limited) return limited;

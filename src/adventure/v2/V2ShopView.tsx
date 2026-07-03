@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -118,6 +118,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const actionBusyRef = useRef(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("buy");
   const [loadError, setLoadError] = useState(false);
@@ -186,6 +187,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   }, []);
 
   const buy = useCallback(async (id: V2EquipmentId) => {
+    if (actionBusyRef.current) return;
+    actionBusyRef.current = true;
     setBusyId(id);
     setMsg(null);
     try {
@@ -224,6 +227,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
+      actionBusyRef.current = false;
       setBusyId(null);
     }
   }, [applyResourcePatch]);
@@ -232,6 +236,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   // 장착분만 남은 경우(카드는 locked 라 보통 클릭 불가) 서버가 "equipped" 로 거부(#426).
   const sellEquipment = useCallback(
     async (id: V2EquipmentId) => {
+      if (actionBusyRef.current) return;
       const inst =
         ownedInsts.find((i) => i.id === id && !equippedIids.has(i.iid)) ??
         ownedInsts.find((i) => i.id === id);
@@ -239,6 +244,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         setMsg("✗ 판매할 개체가 없습니다");
         return;
       }
+      actionBusyRef.current = true;
       setBusyId(id);
       setMsg(null);
       try {
@@ -278,6 +284,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
+        actionBusyRef.current = false;
         setBusyId(null);
       }
     },
@@ -286,6 +293,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
   // 재료는 보유 스택 전량을 한 번에 환금.
   const sellMaterial = useCallback(async (id: V2MaterialId) => {
+    if (actionBusyRef.current) return;
+    actionBusyRef.current = true;
     setBusyId(id);
     setMsg(null);
     try {
@@ -319,6 +328,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
+      actionBusyRef.current = false;
       setBusyId(null);
     }
   }, [applyResourcePatch]);

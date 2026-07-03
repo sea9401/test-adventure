@@ -2,6 +2,7 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -40,6 +41,14 @@ function bad(error: string, status = 400) {
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return bad("unauthorized", 401);
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:marketplace:list",
+    userLimit: 40,
+    ipLimit: 240,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: {
     kind?: unknown;

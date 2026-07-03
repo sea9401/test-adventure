@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   MASTERY_CERTIFICATE_KEY,
@@ -10,15 +10,16 @@ import {
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:mastery-tower:claim",
-    limit: 20,
+    userLimit: 20,
+    ipLimit: 120,
     windowMs: 60_000,
   });
   if (limited) return limited;

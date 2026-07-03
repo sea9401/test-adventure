@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
@@ -22,6 +23,14 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:shop:equipment:sell",
+    userLimit: 90,
+    ipLimit: 540,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: { iid?: unknown };
   try {

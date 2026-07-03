@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_MASTERY_TOME_GAIN,
@@ -34,15 +34,16 @@ function parseMaterials(raw: unknown): Record<string, number> {
 
 // POST /api/v2/me/use-coop-mastery-tome — 상급 숙련 교본 1개 사용.
 // 거래 가능한 character.v2.materials 소모품을 현재 직업 숙련도(+직군 숙련도)에 즉시 반영한다.
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:me:use-coop-mastery-tome",
-    limit: 60,
+    userLimit: 60,
+    ipLimit: 360,
     windowMs: 60_000,
   });
   if (limited) return limited;

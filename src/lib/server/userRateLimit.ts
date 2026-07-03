@@ -1,7 +1,22 @@
+import {
+  clientIpFromRequest,
+  recordAbuseEventSoon,
+} from "@/lib/server/abuseLog";
+import { recordOpsSignal } from "@/lib/server/opsAlert";
+
 type UserRateLimitOptions = {
   userId: string;
   action: string;
   limit: number;
+  windowMs: number;
+  now?: number;
+};
+
+type UserAndIpRateLimitOptions = {
+  userId: string;
+  action: string;
+  userLimit: number;
+  ipLimit: number;
   windowMs: number;
   now?: number;
 };
@@ -79,9 +94,14 @@ export function userRateLimitResponse(retryAfterSec: number) {
 function logRateLimitExceeded(
   options: UserRateLimitOptions,
   retryAfterSec: number,
+  extra?: {
+    ip?: string | null;
+    scope?: "user" | "ip";
+    keyUserId?: string;
+  },
 ) {
   const now = options.now ?? Date.now();
-  const key = keyOf(options.userId, options.action);
+  const key = keyOf(extra?.keyUserId ?? options.userId, options.action);
   const prev = lastLimitedLogAt.get(key) ?? 0;
   if (prev > 0 && now - prev < LIMITED_LOG_INTERVAL_MS) return;
   lastLimitedLogAt.set(key, now);
@@ -91,6 +111,30 @@ function logRateLimitExceeded(
     limit: options.limit,
     windowMs: options.windowMs,
     retryAfterSec,
+    ip: extra?.ip,
+    scope: extra?.scope ?? "user",
+  });
+  recordAbuseEventSoon({
+    userId: options.userId,
+    ip: extra?.ip ?? null,
+    action: options.action,
+    reason: "rate_limited",
+    detail: {
+      scope: extra?.scope ?? "user",
+      limit: options.limit,
+      windowMs: options.windowMs,
+      retryAfterSec,
+    },
+  });
+  recordOpsSignal({
+    key: `rate-limit:${options.action}`,
+    label: "rate limit exceeded repeatedly",
+    threshold: 25,
+    windowMs: 5 * 60_000,
+    detail: {
+      action: options.action,
+      scope: extra?.scope ?? "user",
+    },
   });
 }
 
@@ -101,6 +145,59 @@ export function enforceUserRateLimit(
   if (rateLimit.ok) return null;
   logRateLimitExceeded(options, rateLimit.retryAfterSec);
   return userRateLimitResponse(rateLimit.retryAfterSec);
+}
+
+export function enforceUserAndIpRateLimit(
+  req: Request,
+  options: UserAndIpRateLimitOptions,
+): Response | null {
+  const userLimit = checkUserRateLimit({
+    userId: options.userId,
+    action: options.action,
+    limit: options.userLimit,
+    windowMs: options.windowMs,
+    now: options.now,
+  });
+  if (!userLimit.ok) {
+    logRateLimitExceeded(
+      {
+        userId: options.userId,
+        action: options.action,
+        limit: options.userLimit,
+        windowMs: options.windowMs,
+        now: options.now,
+      },
+      userLimit.retryAfterSec,
+      { scope: "user", ip: clientIpFromRequest(req) },
+    );
+    return userRateLimitResponse(userLimit.retryAfterSec);
+  }
+
+  const ip = clientIpFromRequest(req);
+  if (!ip) return null;
+  const ipKey = `ip:${ip}`;
+  const ipLimit = checkUserRateLimit({
+    userId: ipKey,
+    action: options.action,
+    limit: options.ipLimit,
+    windowMs: options.windowMs,
+    now: options.now,
+  });
+  if (!ipLimit.ok) {
+    logRateLimitExceeded(
+      {
+        userId: options.userId,
+        action: options.action,
+        limit: options.ipLimit,
+        windowMs: options.windowMs,
+        now: options.now,
+      },
+      ipLimit.retryAfterSec,
+      { scope: "ip", ip, keyUserId: ipKey },
+    );
+    return userRateLimitResponse(ipLimit.retryAfterSec);
+  }
+  return null;
 }
 
 export function resetUserRateLimitForTests() {

@@ -36,11 +36,64 @@ export type CurrentOutpost = {
   treasuryGold: number;
 };
 
+const CURRENT_OUTPOST_CACHE_MS = 3_000;
+const FREEFORM_SETTLEMENTS_CACHE_MS = 5_000;
+
+type CacheEntry<T> = {
+  value: T;
+  computedAt: number;
+  inFlight?: Promise<T>;
+};
+
+const currentOutpostCache = new Map<string, CacheEntry<CurrentOutpost | null>>();
+let freeformSettlementsCache: CacheEntry<
+  Awaited<ReturnType<typeof loadFreeformTileSettlementsFresh>>
+> | null = null;
+
+async function withCache<T>(
+  entry: CacheEntry<T> | undefined,
+  ttlMs: number,
+  fetcher: () => Promise<T>,
+  write: (entry: CacheEntry<T>) => void,
+): Promise<T> {
+  const now = Date.now();
+  if (entry && now - entry.computedAt < ttlMs) return entry.value;
+  if (entry?.inFlight) return entry.inFlight;
+  const promise = fetcher().then(
+    (value) => {
+      write({ value, computedAt: Date.now() });
+      return value;
+    },
+    (err: unknown) => {
+      if (entry) write({ value: entry.value, computedAt: entry.computedAt });
+      throw err;
+    },
+  );
+  write({
+    value: entry?.value as T,
+    computedAt: entry?.computedAt ?? 0,
+    inFlight: promise,
+  });
+  return promise;
+}
+
 // character.v2.lastVisitedOutpost.outpostId → 거점 카드 데이터. null = 아직 방문 없음("이동 중").
 export async function loadCurrentOutpost(
   lastVisitId: unknown,
 ): Promise<CurrentOutpost | null> {
   if (typeof lastVisitId !== "string") return null;
+  const cached = currentOutpostCache.get(lastVisitId);
+  return withCache(
+    cached,
+    CURRENT_OUTPOST_CACHE_MS,
+    () => loadCurrentOutpostFresh(lastVisitId),
+    (entry) => currentOutpostCache.set(lastVisitId, entry),
+  );
+}
+
+async function loadCurrentOutpostFresh(
+  lastVisitId: string,
+): Promise<CurrentOutpost | null> {
   const o = resolveOutpostMeta(lastVisitId);
   if (!o) return null;
   const occRow = (
@@ -109,6 +162,17 @@ export async function loadCurrentOutpost(
 // 모험 탭 "현 위치" 카드가 거점 카드와 동일 정보(소속/세율/정책/영주/금고)를 쓰므로
 // 점령행의 정책·세율, 거점 금고, 영주까지 칸별로 동봉(전부 N+1 회피 일괄 조회).
 export async function loadFreeformTileSettlements() {
+  return withCache(
+    freeformSettlementsCache ?? undefined,
+    FREEFORM_SETTLEMENTS_CACHE_MS,
+    loadFreeformTileSettlementsFresh,
+    (entry) => {
+      freeformSettlementsCache = entry;
+    },
+  );
+}
+
+async function loadFreeformTileSettlementsFresh() {
   const rows = await db.select().from(tileSettlements);
   if (rows.length === 0) return [];
   // 타일 점령행 일괄 조회(N+1 회피) → 칸별 소유 길드/정책/세율.

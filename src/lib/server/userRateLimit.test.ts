@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   checkUserRateLimit,
+  enforceUserAndIpRateLimit,
   enforceUserRateLimit,
   resetUserRateLimitForTests,
 } from "./userRateLimit";
@@ -87,8 +88,8 @@ describe("userRateLimit", () => {
         action: "hunt",
         limit: 1,
         windowMs: 60_000,
-      now: 61_001,
-    }).ok,
+        now: 61_001,
+      }).ok,
     ).toBe(true);
   });
 
@@ -123,6 +124,48 @@ describe("userRateLimit", () => {
         now: 1_200,
       });
       expect(secondLimited?.status).toBe(429);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("can limit multiple users behind the same IP", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const req = new Request("https://example.test", {
+        headers: { "x-forwarded-for": "203.0.113.9, 10.0.0.1" },
+      });
+      expect(
+        enforceUserAndIpRateLimit(req, {
+          userId: "u1",
+          action: "cast",
+          userLimit: 10,
+          ipLimit: 2,
+          windowMs: 60_000,
+          now: 1_000,
+        }),
+      ).toBeNull();
+      expect(
+        enforceUserAndIpRateLimit(req, {
+          userId: "u2",
+          action: "cast",
+          userLimit: 10,
+          ipLimit: 2,
+          windowMs: 60_000,
+          now: 1_100,
+        }),
+      ).toBeNull();
+
+      const limited = enforceUserAndIpRateLimit(req, {
+        userId: "u3",
+        action: "cast",
+        userLimit: 10,
+        ipLimit: 2,
+        windowMs: 60_000,
+        now: 1_200,
+      });
+      expect(limited?.status).toBe(429);
       expect(warn).toHaveBeenCalledTimes(1);
     } finally {
       warn.mockRestore();

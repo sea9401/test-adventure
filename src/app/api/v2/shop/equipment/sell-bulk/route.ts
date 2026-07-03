@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { selectBulkSell } from "@/adventure/data/v2/v2EquipVariance";
@@ -29,6 +30,14 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:shop:equipment:sell-bulk",
+    userLimit: 30,
+    ipLimit: 180,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: { slot?: unknown; belowPct?: unknown };
   try {

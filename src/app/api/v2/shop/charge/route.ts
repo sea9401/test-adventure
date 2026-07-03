@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
@@ -26,6 +27,14 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:shop:charge",
+    userLimit: 90,
+    ipLimit: 540,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: { kind?: unknown; amount?: unknown };
   try {

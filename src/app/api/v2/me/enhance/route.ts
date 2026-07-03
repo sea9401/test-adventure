@@ -24,7 +24,7 @@ import {
   type EnhanceChoice,
 } from "@/adventure/data/v2/v2Enhance";
 import {
-  enforceUserRateLimit,
+  enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
 
 // POST /api/v2/me/enhance — 장비 개체 강화 1회 시도. 설계: docs/v2-equipment-enhance-plan.md
@@ -51,10 +51,11 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:me:enhance",
-    limit: 120,
+    userLimit: 120,
+    ipLimit: 600,
     windowMs: 60_000,
   });
   if (limited) return limited;

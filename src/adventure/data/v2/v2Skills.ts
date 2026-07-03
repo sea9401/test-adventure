@@ -32,6 +32,10 @@ import {
   PRESET_NAME_MAX,
   totalPresetSlots,
 } from "./v2LoadoutPresets";
+import {
+  normalizeSkillEnhancements,
+  type V2SkillEnhancements,
+} from "./skillRitual";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 
@@ -882,6 +886,8 @@ export type V2SkillsState = {
    *  loadout-presets 라우트만 변경. 슬롯 수 = totalPresetSlots()(무료 고정). 옛
    *  loadoutPresetSlotsBought 필드는 폐기(수집 포인트 경제 제거) — 옛 세이브에 남아도 inert. */
   loadoutPresets?: V2LoadoutPreset[];
+  /** 스킬 강화 의식 — skillId 별 강화 단계(+1~+5). 배운 스킬만 보존한다. */
+  enhancements?: V2SkillEnhancements;
 };
 
 export function emptyV2SkillsState(): V2SkillsState {
@@ -995,6 +1001,10 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     (raw as { favoriteSkills?: unknown }).favoriteSkills,
     learned,
   );
+  const enhancements = normalizeSkillEnhancements(
+    (raw as { enhancements?: unknown }).enhancements,
+    learned,
+  );
   let base: V2SkillsState = pattern
     ? { learned, equipped, pattern }
     : { learned, equipped };
@@ -1002,6 +1012,7 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
   if (favoriteSkills.length > 0) base = { ...base, favoriteSkills };
   if (presets.length > 0) base = { ...base, presets };
   if (loadoutPresets.length > 0) base = { ...base, loadoutPresets };
+  if (Object.keys(enhancements).length > 0) base = { ...base, enhancements };
   return base;
 }
 

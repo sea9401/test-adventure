@@ -10,6 +10,11 @@ import {
   orderedLearnedSkills,
 } from "@/adventure/data/v2/v2Skills";
 import {
+  isSkillRitualEligible,
+  skillRitualBonusPct,
+  skillRitualLevel,
+} from "@/adventure/data/v2/skillRitual";
+import {
   parseV2Class,
   tier1ClassOf,
   nextAdvanceTier,
@@ -253,6 +258,11 @@ export function elementalSkillsSection(
       cost: v2SkillLearnCost(skillId),
       learned: learnedSet.has(skillId),
       equipped: equippedSet.has(skillId),
+      ritualLevel: skillRitualLevel(skillsState.enhancements, skillId),
+      ritualBonusPct: skillRitualBonusPct(
+        skillRitualLevel(skillsState.enhancements, skillId),
+      ),
+      ritualEligible: isSkillRitualEligible(def),
     };
   });
 }
@@ -321,6 +331,11 @@ export function loadoutSection(params: {
         category: def.category,
         equipped,
         favorite: favoriteSet.has(id),
+        ritualLevel: skillRitualLevel(skillsState.enhancements, id),
+        ritualBonusPct: skillRitualBonusPct(
+          skillRitualLevel(skillsState.enhancements, id),
+        ),
+        ritualEligible: isSkillRitualEligible(def),
       };
     });
   // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만.

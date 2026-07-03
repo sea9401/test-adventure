@@ -16,6 +16,10 @@ import {
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
+  skillRitualLevel,
+  skillRitualPowerMultiplier,
+} from "@/adventure/data/v2/skillRitual";
+import {
   elementDamageMult,
   V2_ELEMENT_LABEL,
   type V2Element,
@@ -709,6 +713,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  const ritualPowerMult = skillRitualPowerMultiplier(
+    skillRitualLevel(input.skills.enhancements, id),
+  );
+  const applyRitualPower = (amount: number): number =>
+    ritualPowerMult === 1 ? amount : Math.floor(amount * ritualPowerMult);
   // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
   // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.
   const attackEl = input.attacker.attackElement ?? "neutral";
@@ -970,6 +979,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
     return Math.round(basicFloor + surplus * skillMult);
   })();
+  const scaledSelfHeal = skillMult === 1 ? selfHeal : Math.round(selfHeal * skillMult);
+  const boostedShield = shieldToApply
+    ? {
+        ...shieldToApply,
+        hp: applyRitualPower(shieldToApply.hp),
+        mp: applyRitualPower(shieldToApply.mp),
+      }
+    : undefined;
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
@@ -978,15 +995,15 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     castSkillName: def.elementNamed
       ? `${V2_ELEMENT_LABEL[charEl]} 마법`
       : def.name,
-    enemyDamage: scaledEnemyDamage,
+    enemyDamage: applyRitualPower(scaledEnemyDamage),
     hitDamages,
-    selfHeal: skillMult === 1 ? selfHeal : Math.round(selfHeal * skillMult),
+    selfHeal: applyRitualPower(scaledSelfHeal),
     selfBuffsToApply,
     enemyDebuffsToApply,
     dotsToApplyToTarget,
     selfHpCost,
     selfBuffPctToApply,
-    shieldToApply,
+    shieldToApply: boostedShield,
     selfRegenToApply,
     enemyVulnToApply,
     enemyEvasionDownToApply,

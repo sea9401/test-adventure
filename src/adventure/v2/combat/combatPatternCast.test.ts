@@ -38,6 +38,20 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("스킬 강화 의식은 직접 피해 최종값을 증폭한다", () => {
+    const plain = resolveV2SkillCast(castInput(["v2_skill_strike"]));
+    const enhanced = resolveV2SkillCast(
+      castInput(["v2_skill_strike"], {
+        skills: {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+          enhancements: { v2_skill_strike: 3 },
+        },
+      }),
+    );
+    expect(enhanced.enemyDamage).toBe(Math.floor(plain.enemyDamage * 1.09));
+  });
+
   it("패턴 피해 = 평타 바닥 + 초과분 × 차수 통과율(난격=t1)", () => {
     // 옛 경로(procRoll 미지정 = 항상 발동): 풀 위력.
     const full = resolveV2SkillCast(castInput([SKILL]));

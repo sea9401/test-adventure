@@ -25,10 +25,14 @@ import {
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
-  isSkillRitualEligible,
+  isSkillRitualFocusEligible,
+  isSkillRitualPowerEligible,
   nextSkillRitualStep,
-  skillRitualBonusPct,
-  skillRitualLevel,
+  skillRitualFocusBonusPct,
+  skillRitualPowerBonusPct,
+  skillRitualRefund,
+  skillRitualState,
+  type SkillRitualMode,
 } from "@/adventure/data/v2/skillRitual";
 
 type CharSave = {
@@ -46,7 +50,15 @@ function ownerJobForSkill(skillId: V2SkillId, fallbackJobId: string) {
   return V2_JOB_CATALOG[fallbackJobId] ?? null;
 }
 
-// POST /api/v2/me/skill-ritual — 배운 스킬 1개를 골드+숙달 포인트로 +1 강화한다.
+function addGold(gold: number, amount: number): number {
+  return Math.max(0, Math.floor(Number(gold) || 0)) + Math.max(0, amount);
+}
+
+function parseMode(raw: unknown): SkillRitualMode | null {
+  return raw === "power" || raw === "focus" ? raw : null;
+}
+
+// POST /api/v2/me/skill-ritual — 배운 스킬 1개를 골드+숙달 포인트로 강화/초기화한다.
 // lock 순서: character.v2 → skills.v2 → proficiency.v2 (learn/loadout 계열과 동일).
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -54,13 +66,14 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { skillId?: unknown };
+  let body: { skillId?: unknown; mode?: unknown; action?: unknown };
   try {
-    body = (await req.json()) as { skillId?: unknown };
+    body = (await req.json()) as typeof body;
   } catch {
     body = {};
   }
   const skillId = typeof body.skillId === "string" ? body.skillId : null;
+  const action = body.action === "reset" ? "reset" : "enhance";
   if (!skillId) {
     return Response.json(
       { ok: false, error: "missing_skill" },
@@ -107,14 +120,77 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_learned" as const },
       };
     }
-    if (!isSkillRitualEligible(def)) {
+    const current = skillRitualState(skills.enhancements, sid);
+    const currentLevel = current?.level ?? 0;
+    if (action === "reset") {
+      if (!current) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "not_enhanced" as const },
+        };
+      }
+      const refund = skillRitualRefund(current.level);
+      const nextEnhancements = { ...(skills.enhancements ?? {}) };
+      delete nextEnhancements[sid];
+      const { enhancements: _enhancements, ...skillsWithoutEnhancements } =
+        skills;
+      const nextSkills: V2SkillsState =
+        Object.keys(nextEnhancements).length > 0
+          ? { ...skills, enhancements: nextEnhancements }
+          : skillsWithoutEnhancements;
+      const nextProf: V2ProficiencyState = {
+        ...prof,
+        points: usablePoints(prof) + refund.proficiency,
+      };
+      const nextChar: CharSave = {
+        ...charSave,
+        gold: addGold(Number(charSave.gold) || 0, refund.gold),
+      };
+      await upsertSave(tx, userId, "character.v2", nextChar);
+      await upsertSave(tx, userId, "skills.v2", nextSkills);
+      await upsertSave(tx, userId, "proficiency.v2", nextProf);
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          action: "reset" as const,
+          skillId: sid,
+          mode: current.mode,
+          refundedGold: refund.gold,
+          refundedProficiency: refund.proficiency,
+          gold: nextChar.gold,
+          bankedGold: Math.max(0, Math.floor(Number(charSave.bankedGold) || 0)),
+          points: usablePoints(nextProf),
+          enhancements: nextSkills.enhancements ?? {},
+        },
+      };
+    }
+
+    const requestedMode = parseMode(body.mode) ?? current?.mode ?? "power";
+    if (current && current.mode !== requestedMode) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "mode_locked" as const,
+          mode: current.mode,
+        },
+      };
+    }
+    if (requestedMode === "power" && !isSkillRitualPowerEligible(def)) {
       return {
         status: 400,
         body: { ok: false as const, error: "not_eligible" as const },
       };
     }
+    if (requestedMode === "focus" && !isSkillRitualFocusEligible(def)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "not_focus_eligible" as const },
+      };
+    }
 
-    const currentLevel = skillRitualLevel(skills.enhancements, sid);
     const step = nextSkillRitualStep(currentLevel);
     if (!step) {
       return {
@@ -173,7 +249,7 @@ export async function POST(req: Request) {
       ...skills,
       enhancements: {
         ...(skills.enhancements ?? {}),
-        [sid]: nextLevel,
+        [sid]: { mode: requestedMode, level: nextLevel },
       },
     };
     const nextChar: CharSave = {
@@ -189,9 +265,18 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
+        action: "enhance" as const,
         skillId: sid,
+        mode: requestedMode,
         level: nextLevel,
-        bonusPct: skillRitualBonusPct(nextLevel),
+        bonusPct:
+          requestedMode === "focus"
+            ? skillRitualFocusBonusPct(nextLevel)
+            : skillRitualPowerBonusPct(nextLevel),
+        powerBonusPct:
+          requestedMode === "power" ? skillRitualPowerBonusPct(nextLevel) : 0,
+        focusBonusPct:
+          requestedMode === "focus" ? skillRitualFocusBonusPct(nextLevel) : 0,
         spentGold: step.goldCost,
         spentProficiency: step.proficiencyCost,
         gold: goldSpend.gold,

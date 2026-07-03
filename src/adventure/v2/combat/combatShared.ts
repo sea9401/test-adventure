@@ -16,8 +16,8 @@ import {
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
-  skillRitualLevel,
-  skillRitualPowerMultiplier,
+  skillRitualFocusBonusFor,
+  skillRitualPowerBonusFor,
 } from "@/adventure/data/v2/skillRitual";
 import {
   elementDamageMult,
@@ -688,9 +688,15 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // 비패턴 경로는 후보가 하나라 기존처럼 실패 시 평타 폴백한다. MP·쿨다운은 소모하지 않는다.
     const rollProc = !viaPattern || (input.applyProcInPattern ?? false);
     if (rollProc) {
+      const ritualFocusBonus = skillRitualFocusBonusFor(
+        input.skills.enhancements,
+        candidateId,
+      );
       const procChance = Math.min(
         100,
-        (candidateDef.procChance ?? 100) + (input.procChanceBonus ?? 0),
+        (candidateDef.procChance ?? 100) +
+          (input.procChanceBonus ?? 0) +
+          ritualFocusBonus,
       );
       if (
         procChance < 100 &&
@@ -713,9 +719,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
-  const ritualPowerMult = skillRitualPowerMultiplier(
-    skillRitualLevel(input.skills.enhancements, id),
-  );
+  const ritualPowerMult =
+    1 + skillRitualPowerBonusFor(input.skills.enhancements, id) / 100;
   const applyRitualPower = (amount: number): number =>
     ritualPowerMult === 1 ? amount : Math.floor(amount * ritualPowerMult);
   // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는

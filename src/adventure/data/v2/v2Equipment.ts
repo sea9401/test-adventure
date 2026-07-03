@@ -58,7 +58,7 @@ export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   1: "들판 I~III",
   2: "마른 협곡~심층 동굴",
   3: "잊힌 성소~짐승의 소굴",
-  4: "검은 왕도~백골 고원",
+  4: "검은 왕도~심해 폐허",
 };
 
 export function v2EquipDisplayTierOf(
@@ -631,6 +631,54 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     thresholds: [
       { count: 2, bonus: { crit: 7, critMult: 35, spd: 7 } },
       { count: 3, bonus: { crit: 11, eva: 9, critMult: 60, spd: 12 } },
+    ],
+  },
+  {
+    id: "storm_guard",
+    name: "폭풍 수호",
+    thresholds: [
+      { count: 2, bonus: { hp: 210, def: 30, critResist: 8 } },
+      { count: 3, bonus: { hp: 360, def: 54, magicDef: 20, critResist: 13 } },
+    ],
+  },
+  {
+    id: "lightning_rite",
+    name: "낙뢰 의식",
+    thresholds: [
+      { count: 2, bonus: { mp: 190, healPowerPct: 6, magicDef: 18 } },
+      { count: 3, bonus: { mp: 290, healPowerPct: 11, magicDef: 32, critResist: 6 } },
+    ],
+  },
+  {
+    id: "cliff_hunt",
+    name: "절벽 추격",
+    thresholds: [
+      { count: 2, bonus: { crit: 8, critMult: 40, spd: 8 } },
+      { count: 3, bonus: { crit: 12, eva: 10, critMult: 65, spd: 14 } },
+    ],
+  },
+  {
+    id: "trench_guard",
+    name: "해구 수호",
+    thresholds: [
+      { count: 2, bonus: { hp: 240, def: 34, critResist: 9 } },
+      { count: 3, bonus: { hp: 410, def: 60, magicDef: 24, critResist: 15 } },
+    ],
+  },
+  {
+    id: "deep_rite",
+    name: "해연 의식",
+    thresholds: [
+      { count: 2, bonus: { mp: 210, healPowerPct: 7, magicDef: 20 } },
+      { count: 3, bonus: { mp: 320, healPowerPct: 12, magicDef: 36, critResist: 7 } },
+    ],
+  },
+  {
+    id: "undertow_hunt",
+    name: "암류 추격",
+    thresholds: [
+      { count: 2, bonus: { crit: 9, critMult: 45, spd: 9 } },
+      { count: 3, bonus: { crit: 13, eva: 11, critMult: 70, spd: 15 } },
     ],
   },
 ];

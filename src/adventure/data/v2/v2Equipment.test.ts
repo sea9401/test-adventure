@@ -210,14 +210,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 38 + 제작전용 14 + 전문화 스타터 3", () => {
+  it("정규 그리드 29종 + 유니크 48 + 제작전용 14 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 105(밴드 흔한 풀 105, 강등된 옛 필드 유니크 포함) · 유니크 38
+    //   전문화 스타터 3 · noDrop 129(밴드 흔한 풀 129, 강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 189 = 정규 29 + 유니크 38 + 제작전용 14 + 전문화 스타터 3 + noDrop 105.
+    //     총 223 = 정규 29 + 유니크 48 + 제작전용 14 + 전문화 스타터 3 + noDrop 129.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -225,10 +225,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(38);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(14);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
-    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(105);
+    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(129);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {

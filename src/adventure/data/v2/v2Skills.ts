@@ -204,8 +204,18 @@ export type V2SkillEffect =
       //   고방어 적일수록 본타는 줄지만 관통분은 그대로라 "꿰뚫는" 페이오프(관통사).
       pierceDamagePct?: number;
     }
-  // pctLostHp: 잃은 체력 비례 회복(기공 순환).
-  | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }
+  // pctLostHp: 잃은 체력 비례 회복. statCoef/baseFlatByTier/scaling: 스탯 계수 회복.
+  | {
+      kind: "heal";
+      pctMaxHp?: number;
+      flat?: number;
+      pctLostHp?: number;
+      statCoef?: number;
+      baseFlatByTier?: readonly [number, number, number];
+      scaling?: V2DamageScaling;
+    }
+  // 이번 스킬로 가한 피해량의 pct% 만큼 회복.
+  | { kind: "healFromDamage"; pct: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
   | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction" | "reflectDamage"; pct: number; turns: number }
@@ -336,6 +346,8 @@ export type V2SkillDefinition = {
     requiredSkillId: V2SkillId;
     effects: readonly V2SkillEffect[];
   }[];
+  /** 전투당 1회만 시전 가능. 시전 후 해당 전투가 끝날 때까지 쿨다운으로 잠근다. */
+  oncePerBattle?: boolean;
 };
 
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
@@ -390,7 +402,15 @@ function spEffectValue(e: V2SkillEffect): number {
       return e.stacks * e.turns * perStack;
     }
     case "heal":
-      return (e.pctMaxHp ?? e.pctLostHp ?? 0) / 16 + (e.flat ?? 0) / SP_FLAT_NORM;
+      return (
+        (e.pctMaxHp ?? 0) / 16 +
+        (e.pctLostHp ?? 0) / 16 +
+        (e.flat ?? 0) / SP_FLAT_NORM +
+        (e.statCoef ?? 0) +
+        spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM
+      );
+    case "healFromDamage":
+      return e.pct / 18;
     case "shield":
       return (((e.pctMaxHp ?? 0) + (e.pctMaxMp ?? 0)) / 20) * Math.max(1, e.turns) * 0.5;
     case "selfRegen":
@@ -465,6 +485,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   //   일부 할인은 주되 최강 누크가 최저가가 되지 않게. 10%→0.69 · 30%→0.80 · 100%→1.0.
   const proc = Math.min(1, Math.max(0, (def.procChance ?? 100) / 100));
   raw *= 0.55 + 0.45 * Math.sqrt(proc);
+  if (def.oncePerBattle) raw *= 0.65;
   if (def.cooldown > 0) raw /= 1 + def.cooldown / 4;
   return raw;
 }
@@ -686,8 +707,16 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "damage":
       return `피해 공격력×${e.statCoef}${flatChip(e.baseFlat, e.baseFlatByTier)}${scalingChip(e.scaling)}`;
     case "heal":
-      if (e.pctLostHp != null) return `회복 잃은 체력 ${e.pctLostHp}%`;
-      return e.pctMaxHp != null ? `회복 최대HP ${e.pctMaxHp}%` : `회복 +${e.flat ?? 0}`;
+      return [
+        e.pctLostHp != null ? `잃은 체력 ${e.pctLostHp}%` : "",
+        e.pctMaxHp != null ? `최대HP ${e.pctMaxHp}%` : "",
+        e.statCoef != null
+          ? `공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)}${scalingChip(e.scaling)}`
+          : "",
+        e.flat ? `+${e.flat}` : "",
+      ].filter(Boolean).join(" + ").replace(/^/, "회복 ");
+    case "healFromDamage":
+      return `피해량 ${e.pct}% 회복`;
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${e.turns}턴)`;
     case "selfBuffPct":
@@ -843,6 +872,7 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   // MP 비용 = 고정 절대값(기준 풀 기반) → 인게임·매뉴얼 동일 숫자. 무료/몬스터(0)는 칩 생략.
   const mp = v2SkillMpCostValue(skill);
   if (mp > 0) chips.push(`MP ${mp}`);
+  if (skill.oncePerBattle) chips.push("전투당 1회");
   if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}턴`);
   if (skill.element && skill.element !== "neutral") {
     chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);

@@ -433,6 +433,99 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(result.enemyDamage).toBe(0);
   });
 
+  it("heal effect — 잃은 체력 비례 + 스탯 계수 회복 합산", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_acolyte_smite"],
+        equipped: ["v2c_acolyte_smite"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 0,
+        magicAtk: 100,
+        maxHp: 200,
+        currentHp: 100,
+        healMult: 1,
+        maxMp: 200,
+        classTier: 2,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    // 치유: 잃은 HP 100의 4% + magicAtk 100×0.35 + flat 30 = 69.
+    expect(result.selfHeal).toBe(69);
+  });
+
+  it("oncePerBattle 스킬은 시전 뒤 전투 내 재사용 불가 쿨다운으로 잠긴다", () => {
+    const first = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_survivor_firstaid"],
+        equipped: ["v2c_survivor_firstaid"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 0,
+        atk: 0,
+        maxHp: 200,
+        currentHp: 100,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(first.castSkillId).toBe("v2c_survivor_firstaid");
+    expect(first.nextMp).toBe(0);
+
+    const second = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_survivor_firstaid"],
+        equipped: ["v2c_survivor_firstaid"],
+      },
+      cooldowns: first.nextCooldowns,
+      attacker: {
+        mp: 0,
+        atk: 0,
+        maxHp: 200,
+        currentHp: 100,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(second.castSkillId).toBeNull();
+  });
+
+  it("healFromDamage effect — 스킬 피해량의 %를 회복한다", () => {
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_darkpriest_reap"],
+        equipped: ["v2c_darkpriest_reap"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 0,
+        luk: 100,
+        maxHp: 200,
+        currentHp: 100,
+        healMult: 1,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 0,
+        currentHp: 1000,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+    });
+    expect(result.enemyDamage).toBe(372);
+    expect(result.selfHeal).toBe(Math.floor(372 * 0.14));
+  });
+
   it("selfBuff effect — buff 목록 반환 (stat/pct/turns)", () => {
     // dash: selfBuff stat=spd pct=10 turns=3.
     const result = resolveV2SkillCast({

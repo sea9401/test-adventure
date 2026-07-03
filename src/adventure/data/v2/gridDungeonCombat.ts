@@ -200,6 +200,11 @@ function partySkillHeal(
     total +=
       Math.floor(target.maxHp * ((effect.pctMaxHp ?? 0) / 100)) +
       Math.floor(missing * ((effect.pctLostHp ?? 0) / 100)) +
+      Math.floor(
+        (effect.scaling === "magic" ? actor.magicAtk : actor.atk) *
+          (effect.statCoef ?? 0) +
+          (effect.baseFlatByTier?.[0] ?? 0),
+      ) +
       (effect.flat ?? 0);
   }
   return Math.max(0, Math.floor(total * actor.healMult));

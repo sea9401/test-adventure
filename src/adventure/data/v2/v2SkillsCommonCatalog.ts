@@ -335,7 +335,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_survivor_firstaid: {
     id: "v2c_survivor_firstaid", name: "응급 처치", stat: "vit", category: "heal", tier: 1,
-    description: "급한 상처부터 막아 잃은 체력을 일부 되찾는다.", mpCost: 24, cooldown: 0, procChance: 100,
+    description: "급한 상처부터 막아 잃은 체력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100,
+    oncePerBattle: true,
     effects: [{ kind: "heal", pctLostHp: 20 }],
   },
   v2c_survivor_knowledge: {
@@ -438,10 +439,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_acolyte_smite: {
     // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
-    //   pctLostHp=잃은 체력 비례(낮을수록 강·고HP 낭비 없음). 스마트 패턴이 HP<50%에서 자동 발동.
+    //   잃은 체력 비례를 낮추고 마법공격 계수를 붙여 극저HP 폭발 회복을 줄인다.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
     description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 10 }],
+    effects: [{ kind: "heal", pctLostHp: 4, statCoef: 0.35, baseFlatByTier: [30, 30, 30], scaling: "magic" }],
   },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {
@@ -477,7 +478,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_camper_camp: {
     id: "v2c_camper_camp", name: "야영", stat: "vit", category: "heal", tier: 2,
     description: "짧게 숨을 고르고 몸을 추슬러 잃은 체력을 회복한다.",
-    mpCost: 30, cooldown: 0, procChance: 100,
+    mpCost: 0, cooldown: 0, procChance: 100,
+    oncePerBattle: true,
     effects: [{ kind: "heal", pctLostHp: 25 }],
   },
   v2c_ironman_brace: {
@@ -700,7 +702,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
     description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 18 }],
+    effects: [{ kind: "heal", pctLostHp: 6, statCoef: 0.55, baseFlatByTier: [80, 80, 80], scaling: "magic" }],
   },
   v2c_shadow_assassinate: {
     // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
@@ -724,13 +726,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_fieldmedic_treatment: {
     id: "v2c_fieldmedic_treatment", name: "현장 처치", stat: "vit", category: "heal", tier: 3,
     description: "전투 중에도 침착하게 상처를 정리해 잃은 체력을 크게 회복한다.",
-    mpCost: 40, cooldown: 0, procChance: 100,
+    mpCost: 0, cooldown: 0, procChance: 100,
+    oncePerBattle: true,
     effects: [{ kind: "heal", pctLostHp: 35 }],
   },
   v2c_extremesurvivor_struggle: {
     id: "v2c_extremesurvivor_struggle", name: "사투", stat: "vit", category: "heal", tier: 3,
     description: "숨이 끊기기 직전의 집중으로 상처를 막고 보호막을 세운다.",
-    mpCost: 40, cooldown: 0, procChance: 100,
+    mpCost: 0, cooldown: 0, procChance: 100,
+    oncePerBattle: true,
     effects: [{ kind: "heal", pctLostHp: 25 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
   },
 
@@ -842,7 +846,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 44, cooldown: 0, procChance: 30,
     effects: [
       { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.15, baseFlatByTier: [190, 190, 190], soakRatio: 1.2 },
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "healFromDamage", pct: 18 },
     ],
   },
   v2c_bloodtemplar_martyr: {
@@ -875,7 +879,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [
       { kind: "damage", statCoef: 0.18, baseFlat: 120, scaling: "luk" },
       { kind: "executeDamage", statCoef: 0.24, baseFlatByTier: [210, 210, 210], hpThresholdPct: 20, bonusMult: 2.4, scaling: "luk" },
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "healFromDamage", pct: 14 },
     ],
   },
   v2c_darkpriest_blessing: {
@@ -1124,7 +1128,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
     mpCost: 46, cooldown: 0, procChance: 100,
     effects: [
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "heal", pctLostHp: 5, statCoef: 0.45, baseFlatByTier: [70, 70, 70], scaling: "magic" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1192,7 +1196,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_rescueexpert_rescue: {
     id: "v2c_rescueexpert_rescue", name: "긴급 구조", stat: "vit", category: "heal", tier: 3,
     description: "치명적인 부상을 수습하고 곧바로 보호막을 덧댄다.",
-    mpCost: 46, cooldown: 0, procChance: 100,
+    mpCost: 0, cooldown: 0, procChance: 100,
+    oncePerBattle: true,
     effects: [{ kind: "heal", pctLostHp: 45 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
   },
   v2c_rescueexpert_support: {
@@ -1205,7 +1210,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_returner_survive: {
     id: "v2c_returner_survive", name: "생환", stat: "vit", category: "heal", tier: 3,
     description: "끝까지 숨을 붙잡아 잃은 체력을 되찾고 큰 보호막을 만든다.",
-    mpCost: 46, cooldown: 0, procChance: 100,
+    mpCost: 0, cooldown: 0, procChance: 100,
+    oncePerBattle: true,
     effects: [{ kind: "heal", pctLostHp: 35 }, { kind: "shield", pctMaxHp: 12, turns: 3 }],
   },
   v2c_returner_undying: {
@@ -1312,7 +1318,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
     mpCost: 54, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "heal", pctLostHp: 18 },
+      { kind: "heal", pctLostHp: 6, statCoef: 0.6, baseFlatByTier: [90, 90, 90], scaling: "magic" },
       { kind: "shield", pctMaxHp: 10, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
     ],

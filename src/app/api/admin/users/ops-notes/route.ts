@@ -12,6 +12,7 @@ type OpsUserNote = {
   id: string;
   text: string;
   status: "open" | "resolved";
+  workflowStatus: "needs_review" | "in_progress" | "done";
   createdByEmail: string;
   createdAt: string;
   updatedByEmail: string | null;
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
       notes: await searchNotes({
         q: sp.get("q")?.trim() ?? "",
         status: parseStatus(sp.get("status")),
+        workflowStatus: parseWorkflowStatus(sp.get("workflowStatus")),
         limit: clampLimit(sp.get("limit")),
       }),
     });
@@ -53,10 +55,12 @@ export async function GET(req: Request) {
 async function searchNotes({
   q,
   status,
+  workflowStatus,
   limit,
 }: {
   q: string;
   status: "open" | "resolved" | "all";
+  workflowStatus: OpsUserNote["workflowStatus"] | "all";
   limit: number;
 }): Promise<OpsUserNoteSearchRow[]> {
   const rows = await db
@@ -76,6 +80,7 @@ async function searchNotes({
       return parseNotes(row.value).map((note) => ({ ...note, userId }));
     })
     .filter((note) => status === "all" || note.status === status)
+    .filter((note) => workflowStatus === "all" || note.workflowStatus === workflowStatus)
     .filter((note) => {
       if (!needle) return true;
       return `${note.userId} ${note.text} ${note.createdByEmail} ${note.updatedByEmail ?? ""}`
@@ -116,27 +121,50 @@ export async function POST(req: Request) {
       {
         id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         text,
-        status: "open" as const,
-        createdByEmail: adminEmail,
+          status: "open" as const,
+          workflowStatus: "needs_review" as const,
+          createdByEmail: adminEmail,
         createdAt: now,
         updatedByEmail: null,
         updatedAt: null,
       },
       ...notes,
     ].slice(0, MAX_NOTES);
-  } else if (action === "resolve" || action === "reopen" || action === "delete") {
+  } else if (
+    action === "resolve" ||
+    action === "reopen" ||
+    action === "delete" ||
+    action === "set-workflow-status"
+  ) {
     const noteId = typeof body?.noteId === "string" ? body.noteId : "";
     if (!noteId) {
       return Response.json({ ok: false, error: "missing_note" }, { status: 400 });
     }
     if (action === "delete") {
       next = notes.filter((note) => note.id !== noteId);
+    } else if (action === "set-workflow-status") {
+      const workflowStatus = parseWorkflowStatus(body?.workflowStatus);
+      if (workflowStatus === "all") {
+        return Response.json({ ok: false, error: "bad_workflow_status" }, { status: 400 });
+      }
+      next = notes.map((note) =>
+        note.id === noteId
+          ? {
+              ...note,
+              workflowStatus,
+              status: workflowStatus === "done" ? "resolved" : "open",
+              updatedByEmail: adminEmail,
+              updatedAt: now,
+            }
+          : note,
+      );
     } else {
       next = notes.map((note) =>
         note.id === noteId
           ? {
               ...note,
               status: action === "resolve" ? "resolved" : "open",
+              workflowStatus: action === "resolve" ? "done" : "needs_review",
               updatedByEmail: adminEmail,
               updatedAt: now,
             }
@@ -189,6 +217,12 @@ function parseStatus(raw: string | null): "open" | "resolved" | "all" {
   return raw === "open" || raw === "resolved" ? raw : "all";
 }
 
+function parseWorkflowStatus(raw: unknown): OpsUserNote["workflowStatus"] | "all" {
+  return raw === "needs_review" || raw === "in_progress" || raw === "done"
+    ? raw
+    : "all";
+}
+
 function clampLimit(raw: string | null) {
   const value = Number(raw ?? 80);
   if (!Number.isFinite(value)) return 80;
@@ -207,6 +241,12 @@ function parseNotes(raw: unknown): OpsUserNote[] {
           id: value.id,
           text: value.text.slice(0, 1_000),
           status: value.status === "resolved" ? "resolved" : "open",
+          workflowStatus:
+            value.workflowStatus === "in_progress" || value.workflowStatus === "done"
+              ? value.workflowStatus
+              : value.status === "resolved"
+                ? "done"
+                : "needs_review",
           createdByEmail:
             typeof value.createdByEmail === "string" ? value.createdByEmail : "unknown",
           createdAt:

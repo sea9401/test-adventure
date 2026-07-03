@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
@@ -14,6 +14,7 @@ type OpsNote = {
   userId: string;
   text: string;
   status: "open" | "resolved";
+  workflowStatus: "needs_review" | "in_progress" | "done";
   createdByEmail: string;
   createdAt: string;
   updatedByEmail: string | null;
@@ -68,6 +69,7 @@ type DailyReport = {
 };
 
 type OpsDashboard = {
+  opsSummary: string[];
   periodComparison: {
     current: DailyReport;
     previous: DailyReport;
@@ -100,6 +102,14 @@ type OpsDashboard = {
     economy: boolean;
     deploy: boolean;
   };
+  alertHistory: Array<{
+    id: string;
+    message: string;
+    detail: Record<string, unknown> | null;
+    status: "sent" | "failed" | "skipped";
+    error: string | null;
+    createdAt: string;
+  }>;
 };
 
 const NOTE_STATUS_OPTIONS = [
@@ -108,12 +118,28 @@ const NOTE_STATUS_OPTIONS = [
   { value: "resolved", label: "처리됨" },
 ] as const;
 
+const NOTE_WORKFLOW_OPTIONS = [
+  { value: "all", label: "전체 상태" },
+  { value: "needs_review", label: "확인 필요" },
+  { value: "in_progress", label: "처리 중" },
+  { value: "done", label: "완료" },
+] as const;
+
+type NoteWorkflowFilter = (typeof NOTE_WORKFLOW_OPTIONS)[number]["value"];
+
 const ALERT_CHANNELS = [
   { key: "default", label: "기본" },
   { key: "reward", label: "보상" },
   { key: "abuse", label: "이상 행동" },
   { key: "economy", label: "경제" },
   { key: "deploy", label: "배포" },
+] as const;
+
+const ALERT_HISTORY_FILTERS = [
+  { value: "all", label: "전체" },
+  { value: "sent", label: "성공" },
+  { value: "failed", label: "실패" },
+  { value: "skipped", label: "스킵" },
 ] as const;
 
 const REPORT_ROWS: Array<{ key: keyof DailyReport; label: string }> = [
@@ -135,16 +161,23 @@ export function OpsWorkflowsTab() {
   const [noteStatus, setNoteStatus] = useState<(typeof NOTE_STATUS_OPTIONS)[number]["value"]>(
     "open",
   );
+  const [noteWorkflowStatus, setNoteWorkflowStatus] =
+    useState<NoteWorkflowFilter>("needs_review");
+  const [dashboardHours, setDashboardHours] = useState(168);
+  const [alertHistoryFilter, setAlertHistoryFilter] =
+    useState<(typeof ALERT_HISTORY_FILTERS)[number]["value"]>("all");
+  const [updatingNoteId, setUpdatingNoteId] = useState<string | null>(null);
   const notes = useAsyncData<{ notes: OpsNote[] }>(
     (signal) =>
       adminGet(
-        `/api/admin/users/ops-notes?q=${encodeURIComponent(noteQuery)}&status=${noteStatus}&limit=80`,
+        `/api/admin/users/ops-notes?q=${encodeURIComponent(noteQuery)}&status=${noteStatus}&workflowStatus=${noteWorkflowStatus}&limit=120`,
         signal,
       ),
-    [noteQuery, noteStatus],
+    [noteQuery, noteStatus, noteWorkflowStatus],
   );
   const dashboard = useAsyncData<OpsDashboard>((signal) =>
-    adminGet("/api/admin/ops-dashboard?hours=168", signal),
+    adminGet(`/api/admin/ops-dashboard?hours=${dashboardHours}`, signal),
+    [dashboardHours],
   );
   const settings = useAsyncData<OpsSettings>((signal) =>
     adminGet("/api/admin/ops-settings", signal),
@@ -154,6 +187,10 @@ export function OpsWorkflowsTab() {
   const canEditSettings = Boolean(adminMe?.capabilities.super);
   const canWriteNotes = Boolean(adminMe?.capabilities.reward || adminMe?.capabilities.sanction);
   const templates = templateDraft ?? settings.data?.opsNoteTemplates ?? [];
+  const filteredAlertHistory = useMemo(() => {
+    const rows = dashboard.data?.alertHistory ?? [];
+    return rows.filter((row) => alertHistoryFilter === "all" || row.status === alertHistoryFilter);
+  }, [alertHistoryFilter, dashboard.data?.alertHistory]);
 
   const saveTemplates = async () => {
     setSavingTemplates(true);
@@ -189,6 +226,27 @@ export function OpsWorkflowsTab() {
     settings.refetch();
   };
 
+  const updateNoteWorkflow = async (
+    note: OpsNote,
+    workflowStatus: Exclude<NoteWorkflowFilter, "all">,
+  ) => {
+    setUpdatingNoteId(note.id);
+    try {
+      await adminPost("/api/admin/users/ops-notes", {
+        userId: note.userId,
+        noteId: note.id,
+        action: "set-workflow-status",
+        workflowStatus,
+      });
+      showToast("문의 상태 저장됨");
+      notes.refetch();
+    } catch (e) {
+      showToast(`문의 상태 저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setUpdatingNoteId(null);
+    }
+  };
+
   return (
     <section className="space-y-4">
       <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -203,20 +261,38 @@ export function OpsWorkflowsTab() {
         </div>
       </div>
 
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <RolePermissionPanel
+          readOnly={readOnly}
+          role={adminMe?.role ?? null}
+          canWriteNotes={canWriteNotes}
+          canEditSettings={canEditSettings}
+        />
+        <OpsSummaryPanel dashboard={dashboard.data} />
+      </div>
+
       <GlobalNotesPanel
         q={noteQueryDraft}
         onQChange={setNoteQueryDraft}
         status={noteStatus}
         onStatusChange={setNoteStatus}
+        workflowStatus={noteWorkflowStatus}
+        onWorkflowStatusChange={setNoteWorkflowStatus}
         notes={notes.data?.notes ?? []}
         loading={notes.loading}
         error={notes.error}
         canWrite={canWriteNotes}
+        updatingNoteId={updatingNoteId}
         onSearch={() => setNoteQuery(noteQueryDraft.trim())}
+        onWorkflowChange={updateNoteWorkflow}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <CompensationReportPanel report={dashboard.data?.compensationReport ?? null} />
+        <CompensationReportPanel
+          report={dashboard.data?.compensationReport ?? null}
+          hours={dashboardHours}
+          onHoursChange={setDashboardHours}
+        />
         <PeriodComparisonPanel comparison={dashboard.data?.periodComparison ?? null} />
       </div>
 
@@ -240,10 +316,79 @@ export function OpsWorkflowsTab() {
             dashboard.refetch();
           }}
         />
-        <HotTimeCalendarPanel schedules={settings.data?.hotTimeSchedules ?? []} />
+        <AlertHistoryPanel
+          rows={filteredAlertHistory}
+          value={alertHistoryFilter}
+          onChange={setAlertHistoryFilter}
+        />
       </div>
 
+      <HotTimeCalendarPanel schedules={settings.data?.hotTimeSchedules ?? []} />
+
       <RollbackGuidePanel />
+    </section>
+  );
+}
+
+function RolePermissionPanel({
+  readOnly,
+  role,
+  canWriteNotes,
+  canEditSettings,
+}: {
+  readOnly: boolean;
+  role: string | null;
+  canWriteNotes: boolean;
+  canEditSettings: boolean;
+}) {
+  const rows = [
+    ["현재 역할", role ?? "no-role"],
+    ["운영 메모", canWriteNotes ? "작성·상태 변경 가능" : "조회만 가능"],
+    ["설정 변경", canEditSettings ? "템플릿·다이얼 변경 가능" : "super 권한 필요"],
+    ["읽기 전용", readOnly ? "변경 버튼 비활성" : "변경 가능"],
+  ];
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <h3 className="text-sm font-semibold">권한별 작업 상태</h3>
+      <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+            <dt className="text-zinc-500">{label}</dt>
+            <dd className="mt-0.5 font-medium">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function OpsSummaryPanel({ dashboard }: { dashboard: OpsDashboard | null }) {
+  const summary = dashboard?.opsSummary ?? [];
+  const report = dashboard?.compensationReport;
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <h3 className="text-sm font-semibold">오늘 운영 요약</h3>
+      {summary.length === 0 ? (
+        <p className="mt-2 text-xs text-zinc-500">불러오는 중...</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {summary.slice(0, 4).map((line) => (
+            <div
+              key={line}
+              className="rounded-md border border-zinc-100 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              {line}
+            </div>
+          ))}
+          {report ? (
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Metric label="보정 지급" value={report.count} />
+              <Metric label="대상 유저" value={report.userCount} />
+              <Metric label="알림 이력" value={dashboard.alertHistory.length} />
+            </div>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
@@ -253,21 +398,32 @@ function GlobalNotesPanel({
   onQChange,
   status,
   onStatusChange,
+  workflowStatus,
+  onWorkflowStatusChange,
   notes,
   loading,
   error,
   canWrite,
+  updatingNoteId,
   onSearch,
+  onWorkflowChange,
 }: {
   q: string;
   onQChange: (value: string) => void;
   status: (typeof NOTE_STATUS_OPTIONS)[number]["value"];
   onStatusChange: (value: (typeof NOTE_STATUS_OPTIONS)[number]["value"]) => void;
+  workflowStatus: NoteWorkflowFilter;
+  onWorkflowStatusChange: (value: NoteWorkflowFilter) => void;
   notes: OpsNote[];
   loading: boolean;
   error: string | null;
   canWrite: boolean;
+  updatingNoteId: string | null;
   onSearch: () => void;
+  onWorkflowChange: (
+    note: OpsNote,
+    workflowStatus: Exclude<NoteWorkflowFilter, "all">,
+  ) => void | Promise<void>;
 }) {
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -277,7 +433,7 @@ function GlobalNotesPanel({
           {loading ? "조회 중..." : `${notes.length.toLocaleString()}건`}
         </span>
       </div>
-      <div className="mt-2 grid gap-2 md:grid-cols-[1fr_160px_auto]">
+      <div className="mt-2 grid gap-2 md:grid-cols-[1fr_150px_150px_auto]">
         <input
           value={q}
           onChange={(e) => onQChange(e.target.value)}
@@ -300,6 +456,17 @@ function GlobalNotesPanel({
             </option>
           ))}
         </select>
+        <select
+          value={workflowStatus}
+          onChange={(e) => onWorkflowStatusChange(e.target.value as NoteWorkflowFilter)}
+          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+        >
+          {NOTE_WORKFLOW_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
         <Button onClick={onSearch}>검색</Button>
       </div>
       {!canWrite ? (
@@ -317,6 +484,7 @@ function GlobalNotesPanel({
             <thead className="sticky top-0 bg-zinc-50 text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
               <tr>
                 <th className="px-2 py-1.5">상태</th>
+                <th className="px-2 py-1.5">처리</th>
                 <th className="px-2 py-1.5">유저</th>
                 <th className="px-2 py-1.5">메모</th>
                 <th className="px-2 py-1.5">작성</th>
@@ -330,6 +498,27 @@ function GlobalNotesPanel({
                 >
                   <td className="whitespace-nowrap px-2 py-1.5">
                     <StatusBadge status={note.status} />
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-1.5">
+                    <select
+                      value={note.workflowStatus}
+                      disabled={!canWrite || updatingNoteId === note.id}
+                      onChange={(e) =>
+                        void onWorkflowChange(
+                          note,
+                          e.target.value as Exclude<NoteWorkflowFilter, "all">,
+                        )
+                      }
+                      className="rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950"
+                    >
+                      {NOTE_WORKFLOW_OPTIONS.filter((option) => option.value !== "all").map(
+                        (option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ),
+                      )}
+                    </select>
                   </td>
                   <td className="whitespace-nowrap px-2 py-1.5 font-mono">
                     <Link
@@ -358,12 +547,40 @@ function GlobalNotesPanel({
 
 function CompensationReportPanel({
   report,
+  hours,
+  onHoursChange,
 }: {
   report: OpsDashboard["compensationReport"] | null;
+  hours: number;
+  onHoursChange: (hours: number) => void;
 }) {
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <h3 className="text-sm font-semibold">보상 지급 내역 리포트</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">보상 지급 내역 리포트</h3>
+        <div className="flex flex-wrap gap-1">
+          {[24, 168].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onHoursChange(value)}
+              className={
+                hours === value
+                  ? "rounded border border-zinc-900 bg-zinc-900 px-2 py-1 text-xs text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                  : "rounded border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              }
+            >
+              {value === 24 ? "24시간" : "7일"}
+            </button>
+          ))}
+          <Button
+            disabled={!report || report.recent.length === 0}
+            onClick={() => report && downloadCompensationCsv(report)}
+          >
+            CSV
+          </Button>
+        </div>
+      </div>
       {!report ? (
         <p className="mt-2 text-xs text-zinc-500">불러오는 중...</p>
       ) : (
@@ -417,6 +634,18 @@ function CompensationReportPanel({
                       </td>
                       <td className="max-w-[220px] truncate px-2 py-1.5 text-zinc-500">
                         {row.reason ?? "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right">
+                        {row.userId ? (
+                          <Link
+                            href={compensationDraftHref(row)}
+                            className="rounded border border-zinc-300 px-2 py-0.5 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          >
+                            정정 초안
+                          </Link>
+                        ) : (
+                          "-"
+                        )}
                       </td>
                     </tr>
                   ))
@@ -638,12 +867,93 @@ function AlertTestPanel({
   );
 }
 
-function HotTimeCalendarPanel({ schedules }: { schedules: HotTimeSchedule[] }) {
-  const days = nextDays(7);
+function AlertHistoryPanel({
+  rows,
+  value,
+  onChange,
+}: {
+  rows: OpsDashboard["alertHistory"];
+  value: (typeof ALERT_HISTORY_FILTERS)[number]["value"];
+  onChange: (value: (typeof ALERT_HISTORY_FILTERS)[number]["value"]) => void;
+}) {
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <h3 className="text-sm font-semibold">핫타임 캘린더</h3>
-      <div className="mt-3 grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">운영 알림 이력</h3>
+        <select
+          value={value}
+          onChange={(e) =>
+            onChange(e.target.value as (typeof ALERT_HISTORY_FILTERS)[number]["value"])
+          }
+          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+        >
+          {ALERT_HISTORY_FILTERS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-xs text-zinc-500">이력 없음</p>
+      ) : (
+        <div className="mt-3 max-h-64 overflow-y-auto rounded-md border border-zinc-100 dark:border-zinc-800">
+          <table className="w-full text-left text-[11px]">
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-t border-zinc-100 first:border-t-0 dark:border-zinc-800"
+                >
+                  <td className="whitespace-nowrap px-2 py-1.5">
+                    <AlertStatusBadge status={row.status} />
+                  </td>
+                  <td className="max-w-[280px] px-2 py-1.5">
+                    <div className="truncate">{row.message}</div>
+                    <div className="font-mono text-zinc-400">
+                      {String(row.detail?.channel ?? "default")}
+                    </div>
+                  </td>
+                  <td className="max-w-[220px] truncate px-2 py-1.5 text-zinc-500">
+                    {row.error ?? "-"}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-zinc-500">
+                    {new Date(row.createdAt).toLocaleString("ko-KR")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function HotTimeCalendarPanel({ schedules }: { schedules: HotTimeSchedule[] }) {
+  const days = nextDays(7);
+  const warnings = hotTimeWarnings(schedules);
+  return (
+    <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">핫타임 캘린더</h3>
+        <span className={warnings.length ? "text-xs text-amber-600" : "text-xs text-emerald-600"}>
+          {warnings.length ? `경고 ${warnings.length}건` : "예약 상태 정상"}
+        </span>
+      </div>
+      {warnings.length ? (
+        <div className="mt-2 grid gap-1">
+          {warnings.slice(0, 6).map((warning) => (
+            <div
+              key={warning}
+              className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              {warning}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="mt-3 grid gap-2 lg:grid-cols-2">
         {days.map((day) => {
           const rows = schedules.filter((row) => row.enabled && row.days.includes(day.weekday));
           return (
@@ -713,6 +1023,22 @@ function StatusBadge({ status }: { status: OpsNote["status"] }) {
   );
 }
 
+function AlertStatusBadge({ status }: { status: OpsDashboard["alertHistory"][number]["status"] }) {
+  const cls =
+    status === "sent"
+      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+      : status === "failed"
+        ? "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-200"
+        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
+  return <span className={`rounded px-1.5 py-0.5 ${cls}`}>{statusLabel(status)}</span>;
+}
+
+function statusLabel(status: OpsDashboard["alertHistory"][number]["status"]) {
+  if (status === "sent") return "성공";
+  if (status === "failed") return "실패";
+  return "스킵";
+}
+
 function Metric({ label, value, suffix = "" }: { label: string; value: number; suffix?: string }) {
   return (
     <div className="rounded-md border border-zinc-100 px-2 py-1.5 dark:border-zinc-800">
@@ -772,6 +1098,51 @@ function formatPct(current: number, previous: number) {
   return `${pct > 0 ? "+" : ""}${pct.toLocaleString()}%`;
 }
 
+function compensationDraftHref(row: OpsDashboard["compensationReport"]["recent"][number]) {
+  const sp = new URLSearchParams();
+  sp.set("tab", "users");
+  if (row.userId) sp.set("q", row.userId);
+  if (row.sourceEventId > 0) sp.set("sourceEventId", String(row.sourceEventId));
+  sp.set("draftItemKind", row.itemKind ?? "gold");
+  sp.set("draftItemId", row.itemId ?? "");
+  sp.set("draftQuantity", String(row.quantity ?? Math.max(0, row.goldDelta)));
+  sp.set(
+    "draftReason",
+    `보정 지급 정정 검토 · 원 지급 event ${row.id}${row.reason ? ` · ${row.reason}` : ""}`,
+  );
+  return `/admin?${sp.toString()}`;
+}
+
+function downloadCompensationCsv(report: OpsDashboard["compensationReport"]) {
+  const rows = [
+    ["id", "createdAt", "userId", "itemKind", "itemId", "quantity", "goldDelta", "sourceEventId", "reason"],
+    ...report.recent.map((row) => [
+      row.id,
+      row.createdAt,
+      row.userId ?? "",
+      row.itemKind ?? "",
+      row.itemId ?? "",
+      row.quantity ?? "",
+      row.goldDelta,
+      row.sourceEventId || "",
+      row.reason ?? "",
+    ]),
+  ];
+  const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `ops-compensations-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
 const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 function nextDays(count: number) {
@@ -787,4 +1158,45 @@ function nextDays(count: number) {
     });
   }
   return out;
+}
+
+function hotTimeWarnings(schedules: HotTimeSchedule[]) {
+  const active = schedules.filter((row) => row.enabled);
+  const warnings: string[] = [];
+  for (let day = 0; day <= 6; day += 1) {
+    const rows = active
+      .filter((row) => row.days.includes(day))
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i];
+      const totalBonus =
+        row.bonuses.goldPct +
+        row.bonuses.expPct +
+        row.bonuses.masteryPct +
+        row.bonuses.fishingCoinPct;
+      if (totalBonus >= 300) {
+        warnings.push(`${WEEKDAY_LABELS[day]} ${row.title || row.id}: 보너스 총합이 높습니다.`);
+      }
+      const duration = minutesOf(row.endsAt) - minutesOf(row.startsAt);
+      if (duration >= 240) {
+        warnings.push(`${WEEKDAY_LABELS[day]} ${row.title || row.id}: 4시간 이상 예약입니다.`);
+      }
+      const next = rows[i + 1];
+      if (next && minutesOf(next.startsAt) < minutesOf(row.endsAt)) {
+        warnings.push(
+          `${WEEKDAY_LABELS[day]} ${row.title || row.id} / ${next.title || next.id}: 시간이 겹칩니다.`,
+        );
+      }
+    }
+    if (rows.length === 0) {
+      warnings.push(`${WEEKDAY_LABELS[day]}: 반복 핫타임 예약이 없습니다.`);
+    }
+  }
+  return warnings;
+}
+
+function minutesOf(value: string) {
+  const [h, m] = value.split(":").map((part) => Number(part));
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return 0;
+  return h * 60 + m;
 }

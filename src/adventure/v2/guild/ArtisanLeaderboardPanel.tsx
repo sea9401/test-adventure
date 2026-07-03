@@ -64,6 +64,7 @@ type ArtisanLeaderboardData = {
   totalRanked: number;
   myRank: number | null;
   rewards: ArtisanLeaderboardReward[];
+  previousSeasonRewards: ArtisanLeaderboardReward[];
   nextReward: ArtisanLeaderboardNextReward | null;
   entries: ArtisanLeaderboardEntry[];
 };
@@ -102,6 +103,9 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
               typeof json.totalRanked === "number" ? json.totalRanked : 0,
             myRank: typeof json.myRank === "number" ? json.myRank : null,
             rewards: Array.isArray(json.rewards) ? json.rewards : [],
+            previousSeasonRewards: Array.isArray(json.previousSeasonRewards)
+              ? json.previousSeasonRewards
+              : [],
             nextReward:
               json.nextReward && typeof json.nextReward === "object"
                 ? (json.nextReward as ArtisanLeaderboardNextReward)
@@ -152,6 +156,15 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             ? {
                 ...prev,
                 rewards: json.rewards,
+                previousSeasonRewards: Array.isArray(
+                  json.previousSeasonRewards,
+                )
+                  ? json.previousSeasonRewards
+                  : [],
+                previousSeason:
+                  json.previousSeason && typeof json.previousSeason === "object"
+                    ? (json.previousSeason as ArtisanPreviousSeason)
+                    : prev.previousSeason,
                 nextReward:
                   json.nextReward && typeof json.nextReward === "object"
                     ? (json.nextReward as ArtisanLeaderboardNextReward)
@@ -163,10 +176,15 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
       const rewards = Array.isArray(json.rewards)
         ? (json.rewards as ArtisanLeaderboardReward[])
         : (data?.rewards ?? []);
+      const previousSeasonRewards = Array.isArray(json.previousSeasonRewards)
+        ? (json.previousSeasonRewards as ArtisanLeaderboardReward[])
+        : (data?.previousSeasonRewards ?? []);
       const grantedNames = Array.isArray(json.grantedTitles)
         ? json.grantedTitles
             .map((id: unknown) => {
-              const reward = rewards.find((r) => r.titleId === id);
+              const reward =
+                previousSeasonRewards.find((r) => r.titleId === id) ??
+                rewards.find((r) => r.titleId === id);
               return reward?.titleName;
             })
             .filter((name: unknown): name is string => typeof name === "string")
@@ -188,7 +206,7 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
   }
 
   const hasEligibleReward =
-    data?.rewards.some((reward) => reward.claimable) ?? false;
+    data?.previousSeasonRewards.some((reward) => reward.claimable) ?? false;
   const myEntry = data?.entries.find((entry) => entry.isMe) ?? null;
 
   return (
@@ -263,6 +281,15 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             {data.previousSeason.qualityCrafts.toLocaleString()}회 · XP{" "}
             {data.previousSeason.weeklyXp.toLocaleString()}
           </div>
+          {data.previousSeason.rewardClaimedAt ? (
+            <div className="mt-1 text-sky-800/80 dark:text-sky-200/80">
+              보상 수령 완료
+            </div>
+          ) : data.previousSeasonRewards.some((reward) => reward.claimable) ? (
+            <div className="mt-1 text-sky-800/80 dark:text-sky-200/80">
+              지난 시즌 보상을 수령할 수 있습니다.
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -272,10 +299,14 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
             <div className="min-w-0">
               <div className="font-semibold">랭킹 보상</div>
               <div className="mt-1 text-amber-800/80 dark:text-amber-200/80">
-                제작 기록이 있으면 시즌 참여 보상을 받을 수 있고, 상위권은
-                추가 칭호와 명성을 받습니다. 순위가 오른 뒤 다시 수령하면 상위
-                보상만 추가됩니다.
+                현재 시즌 보상은 시즌 종료 후 확정 순위로 수령할 수 있습니다.
+                상위권은 추가 칭호와 명성을 받습니다.
               </div>
+              {data.previousSeasonRewards.some((reward) => reward.claimable) ? (
+                <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
+                  수령 가능: 지난 시즌 {data.previousSeason?.rank}위 보상
+                </div>
+              ) : null}
               {data.nextReward ? (
                 <div className="mt-1 rounded border border-amber-200 bg-white/70 px-2 py-1 text-amber-900 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-100">
                   다음 목표: {data.nextReward.label}까지{" "}
@@ -307,6 +338,8 @@ export function ArtisanLeaderboardPanel({ onBack }: { onBack: () => void }) {
                         : "보유"
                       : reward.claimable
                         ? "수령 가능"
+                        : reward.eligible
+                          ? "시즌 종료 후"
                         : "미달성"}
                   </span>
                 ))}

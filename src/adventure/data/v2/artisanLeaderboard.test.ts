@@ -123,4 +123,12 @@ describe("artisanLeaderboardRewardTitleIds", () => {
       )?.claimable,
     ).toBe(false);
   });
+
+  it("keeps live season leaderboard rewards locked until the season is settled", () => {
+    expect(
+      artisanLeaderboardRewardViews(1, new Set(), false, false).some(
+        (reward) => reward.claimable,
+      ),
+    ).toBe(false);
+  });
 });

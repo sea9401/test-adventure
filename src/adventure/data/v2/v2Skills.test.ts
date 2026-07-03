@@ -385,6 +385,18 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips).toContain("발동 100%");
   });
 
+  it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
+      "회복 잃은 체력 4% + 공격력×0.35 +30~30 (마법)",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
+      "피해량 14% 회복",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_survivor_firstaid)).toContain(
+      "전투당 1회",
+    );
+  });
+
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
     const chips = describeV2Skill(V2_SKILLS.mob_venom_bite);
     expect(chips.some((c) => c.includes("중독") && c.includes("지속피해"))).toBe(

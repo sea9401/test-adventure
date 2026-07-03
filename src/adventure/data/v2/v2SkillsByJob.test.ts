@@ -96,12 +96,16 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "heal",
       pctLostHp: 20,
     });
+    expect(V2_SKILLS.v2c_survivor_firstaid.mpCost).toBe(0);
+    expect(V2_SKILLS.v2c_survivor_firstaid.oncePerBattle).toBe(true);
     expect(V2_SKILLS.v2c_survivor_knowledge.passive?.maxHpPct).toBe(10);
     expect(V2_SKILLS.v2c_survivor_baitcraft.passive?.fishingSizeBonusPct).toBe(4);
     expect(V2_SKILLS.v2c_camper_camp.effects[0]).toMatchObject({
       kind: "heal",
       pctLostHp: 25,
     });
+    expect(V2_SKILLS.v2c_camper_camp.mpCost).toBe(0);
+    expect(V2_SKILLS.v2c_camper_camp.oncePerBattle).toBe(true);
     expect(V2_SKILLS.v2c_camper_ration.passive).toMatchObject({
       healPowerPct: 10,
       maxHpPct: 5,
@@ -249,6 +253,8 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "heal",
       pctLostHp: 35,
     });
+    expect(V2_SKILLS.v2c_fieldmedic_treatment.mpCost).toBe(0);
+    expect(V2_SKILLS.v2c_fieldmedic_treatment.oncePerBattle).toBe(true);
     expect(V2_SKILLS.v2c_fieldmedic_training.passive).toMatchObject({
       healPowerPct: 15,
       maxHpPct: 8,
@@ -339,7 +345,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
-      { kind: "heal", pctLostHp: 12 },
+      { kind: "heal", pctLostHp: 5, statCoef: 0.45, baseFlatByTier: [70, 70, 70], scaling: "magic" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({
@@ -356,6 +362,8 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "heal",
       pctLostHp: 45,
     });
+    expect(V2_SKILLS.v2c_rescueexpert_rescue.mpCost).toBe(0);
+    expect(V2_SKILLS.v2c_rescueexpert_rescue.oncePerBattle).toBe(true);
     expect(V2_SKILLS.v2c_rescueexpert_support.passive).toMatchObject({
       healPowerPct: 20,
       maxHpPct: 10,
@@ -364,6 +372,8 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "heal",
       pctLostHp: 35,
     });
+    expect(V2_SKILLS.v2c_returner_survive.mpCost).toBe(0);
+    expect(V2_SKILLS.v2c_returner_survive.oncePerBattle).toBe(true);
     expect(V2_SKILLS.v2c_returner_undying.passive).toMatchObject({
       maxHpPct: 25,
       damageTakenReductionPct: 8,
@@ -638,7 +648,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(
       V2_SKILLS.v2c_bloodtemplar_stigma.effects.some(
-        (e) => e.kind === "heal" && e.pctLostHp === 12,
+        (e) => e.kind === "healFromDamage" && e.pct === 18,
       ),
     ).toBe(true);
     expect(V2_SKILLS.v2c_bloodtemplar_martyr.passive).toMatchObject({
@@ -665,7 +675,7 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
     expect(
       V2_SKILLS.v2c_darkpriest_reap.effects.some(
-        (e) => e.kind === "heal" && e.pctLostHp === 12,
+        (e) => e.kind === "healFromDamage" && e.pct === 14,
       ),
     ).toBe(true);
     expect(V2_SKILLS.v2c_darkpriest_blessing.passive).toMatchObject({

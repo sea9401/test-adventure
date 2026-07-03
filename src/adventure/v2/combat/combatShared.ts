@@ -435,6 +435,8 @@ export function emptyV2SkillCooldowns(): V2SkillCooldowns {
   return {};
 }
 
+const ONCE_PER_BATTLE_COOLDOWN = 1_000_000;
+
 // 매 플레이어 턴 진입 시 호출. 양수 카운터 -1 (0 이하 키는 삭제 — ready 상태).
 export function tickV2SkillCooldowns(map: V2SkillCooldowns): V2SkillCooldowns {
   const next: V2SkillCooldowns = {};
@@ -815,6 +817,21 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       elementMult: skillElementMult,
     });
   };
+  const healScaleBase = (
+    statCoef: number,
+    baseFlat: number,
+    scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | "all" | "maxHp" | undefined,
+  ): number => {
+    let base = input.attacker.atk;
+    if (scaling === "magic") base = input.attacker.magicAtk ?? input.attacker.atk;
+    else if (scaling === "def") base = input.attacker.def ?? input.attacker.atk;
+    else if (scaling === "vit") base = input.attacker.vit ?? input.attacker.atk;
+    else if (scaling === "dex") base = input.attacker.dex ?? input.attacker.atk;
+    else if (scaling === "luk") base = input.attacker.luk ?? input.attacker.atk;
+    else if (scaling === "all") base = input.attacker.allStatTotal ?? input.attacker.atk;
+    else if (scaling === "maxHp") base = input.attacker.maxHp;
+    return Math.floor((base * statCoef + baseFlat) * (input.attacker.healMult ?? 1));
+  };
 
   // 속성 분기(원소술사) — def.elementEffects 가 있으면 시전자 캐릭 속성의 효과 배열을 쓴다(매칭
   //   없으면 effects 폴백=무속성). 기존 스킬은 elementEffects 미정의 → def.effects 그대로(byte-identical).
@@ -829,6 +846,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     synergyEffects.length > 0
       ? [...baseCastEffects, ...synergyEffects]
       : baseCastEffects;
+  let healFromDamagePct = 0;
   for (const effect of castEffects) {
     if (effect.kind === "damage") {
       const flat = flatOf(effect.baseFlat, effect.baseFlatByTier);
@@ -839,18 +857,30 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : 0;
       dealDamage(base + pierceBonus);
     } else if (effect.kind === "heal") {
+      let amount = 0;
       if (effect.pctLostHp != null) {
         // 잃은 체력 비례 회복(기공 순환).
         const lost = Math.max(0, input.attacker.maxHp - (input.attacker.currentHp ?? input.attacker.maxHp));
-        selfHeal += Math.floor(((lost * effect.pctLostHp) / 100) * (input.attacker.healMult ?? 1));
-      } else {
-        selfHeal += v2HealAmount({
+        amount += Math.floor(((lost * effect.pctLostHp) / 100) * (input.attacker.healMult ?? 1));
+      }
+      if (effect.pctMaxHp != null || effect.flat != null) {
+        amount += v2HealAmount({
           attackerMaxHp: input.attacker.maxHp,
           pctMaxHp: effect.pctMaxHp ?? 0,
           flat: effect.flat ?? 0,
           healMult: input.attacker.healMult,
         });
       }
+      if (effect.statCoef != null || effect.baseFlatByTier != null) {
+        amount += healScaleBase(
+          effect.statCoef ?? 0,
+          flatOf(undefined, effect.baseFlatByTier),
+          effect.scaling,
+        );
+      }
+      selfHeal += amount;
+    } else if (effect.kind === "healFromDamage") {
+      healFromDamagePct += effect.pct;
     } else if (effect.kind === "selfBuff") {
       selfBuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
     } else if (effect.kind === "selfBuffPct") {
@@ -984,7 +1014,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
     return Math.round(basicFloor + surplus * skillMult);
   })();
-  const scaledSelfHeal = skillMult === 1 ? selfHeal : Math.round(selfHeal * skillMult);
+  const damageBasedHeal = Math.floor(
+    ((scaledEnemyDamage * healFromDamagePct) / 100) * (input.attacker.healMult ?? 1),
+  );
+  const scaledSelfHeal =
+    skillMult === 1
+      ? selfHeal + damageBasedHeal
+      : Math.round(selfHeal * skillMult) + damageBasedHeal;
   const boostedShield = shieldToApply
     ? {
         ...shieldToApply,
@@ -994,7 +1030,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     : undefined;
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
-    nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
+    nextCooldowns: {
+      ...ticked,
+      [id]: def.oncePerBattle ? ONCE_PER_BATTLE_COOLDOWN : def.cooldown + 1,
+    },
     castSkillId: id,
     // 원소술사 "속성 마법" → 로그에 시전자 속성으로 동적 표기("불 마법" 등). 그 외=정적 def.name.
     castSkillName: def.elementNamed

@@ -10,9 +10,9 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import {
   captureOutpostOccupation,
   recordOutpostAttack,
@@ -223,14 +223,6 @@ export async function POST(req: Request) {
         );
     }
 
-    const attacker = await derivePlayerCombatV2(userId, tx);
-    if (!attacker) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "no_character" },
-      };
-    }
-
     // 관련 세이브 사전 정렬 lock(데드락 회피) — raid=공격자+1번, conquest=공격자+큐 전원.
     const defenderIds =
       mode === "raid"
@@ -239,15 +231,26 @@ export async function POST(req: Request) {
           : []
         : queue.map((q) => q.userId);
     const lockIds = Array.from(new Set([userId, ...defenderIds])).sort();
+    const charSaves = new Map<string, WarVigorSave>();
     for (const id of lockIds) {
-      await lockSaveForUpdate<unknown>(tx, id, "character.v2", {});
+      charSaves.set(
+        id,
+        await lockSaveForUpdate<WarVigorSave>(tx, id, "character.v2", {}),
+      );
     }
-    const attackerSave = await lockSaveForUpdate<WarVigorSave>(
+    const attackerSave = charSaves.get(userId) ?? {};
+    const attackerActor = await prepareV2BattleActor({
       tx,
       userId,
-      "character.v2",
-      {},
-    );
+      charSave: attackerSave,
+    });
+    if (!attackerActor) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "no_character" },
+      };
+    }
+    const attacker = attackerActor.player;
     const attackerName = await resolveUserDisplayName(userId);
     // 공격 기록 리플레이 봉투용 성별(claim 미러 — character-profile.v2.gender, 기본 male1).
     const attackerProfileRow = await tx
@@ -355,8 +358,13 @@ export async function POST(req: Request) {
       if (defender1Id == null) {
         won = true; // 무방비 → 무혈 약탈.
       } else {
-        const defender = await derivePlayerCombatV2(defender1Id, tx);
-        if (!defender) {
+        const defenderSave = charSaves.get(defender1Id) ?? {};
+        const defenderActor = await prepareV2BattleActor({
+          tx,
+          userId: defender1Id,
+          charSave: defenderSave,
+        });
+        if (!defenderActor) {
           await tx
             .delete(outpostDefenders)
             .where(
@@ -367,13 +375,8 @@ export async function POST(req: Request) {
             );
           won = true;
         } else {
+          const defender = defenderActor.player;
           defenderName = await resolveUserDisplayName(defender1Id);
-          const defenderSave = await lockSaveForUpdate<WarVigorSave>(
-            tx,
-            defender1Id,
-            "character.v2",
-            {},
-          );
           const defenderVigor = parseWarVigor(defenderSave.warVigor);
           const aStartHp = Math.max(
             1,
@@ -396,7 +399,10 @@ export async function POST(req: Request) {
             defenderStanced,
             attackerName,
             defenderName,
-            autoDuelContext(),
+            {
+              ...autoDuelContext(),
+              v2Skills: { p1: attackerActor.skills, p2: defenderActor.skills },
+            },
           );
           won = pvp.outcome === "p1_win";
           replay = toPvpReplayPayload(pvp.finalState, defenderName, 200);
@@ -542,8 +548,13 @@ export async function POST(req: Request) {
     // 이 공격에서 수비자들이 막아낸 만큼 점령 길드에 누적할 명성 — tx 끝에서 단일 UPDATE.
     let defenderFameDelta = 0;
     for (const d of queue) {
-      const defender = await derivePlayerCombatV2(d.userId, tx);
-      if (!defender) {
+      const defenderSave = charSaves.get(d.userId) ?? {};
+      const defenderActor = await prepareV2BattleActor({
+        tx,
+        userId: d.userId,
+        charSave: defenderSave,
+      });
+      if (!defenderActor) {
         // 스테일 수비자(캐릭 없음) → 자동 격파.
         await tx
           .delete(outpostDefenders)
@@ -556,12 +567,7 @@ export async function POST(req: Request) {
         defendersDefeated += 1;
         continue;
       }
-      const defenderSave = await lockSaveForUpdate<WarVigorSave>(
-        tx,
-        d.userId,
-        "character.v2",
-        {},
-      );
+      const defender = defenderActor.player;
       const dVigor = parseWarVigor(defenderSave.warVigor);
       const dStartHp = Math.max(1, Math.floor(defender.maxHp * dVigor.hp));
       const dName = await resolveUserDisplayName(d.userId);
@@ -578,7 +584,10 @@ export async function POST(req: Request) {
         defenderStanced,
         attackerName,
         dName,
-        autoDuelContext(),
+        {
+          ...autoDuelContext(),
+          v2Skills: { p1: attackerActor.skills, p2: defenderActor.skills },
+        },
       );
       lastPvp = pvp;
       lastDefenderName = dName;

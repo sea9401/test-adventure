@@ -36,6 +36,19 @@ vi.mock("@/lib/server/derivePlayerCombatV2", () => ({
     selectedStance: null,
   })),
 }));
+vi.mock("@/lib/server/v2BattlePrep", () => ({
+  prepareV2BattleActor: vi.fn(async ({ userId }: { userId: string }) => ({
+    player: {
+      player: { hp: 1000, atk: 100, def: 50, spd: 50, maxMp: 100 },
+      maxHp: 1000,
+      selectedStance: null,
+    },
+    skills: {
+      learned: [`${userId}:skill`],
+      equipped: [`${userId}:skill`],
+    },
+  })),
+}));
 
 vi.mock("@/adventure/v2/combat/engine-pvp", () => ({
   resolveBattlePvP: vi.fn(() => ({
@@ -122,6 +135,7 @@ vi.mock("@/db", async () => {
 });
 
 import { POST } from "@/app/api/v2/outpost/eject/route";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 
 function req(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/outpost/eject", {
@@ -184,5 +198,11 @@ describe("POST /api/v2/outpost/eject bounty", () => {
         save: expect.objectContaining({ gold: 0, bankedGold: 9_500 }),
       }),
     );
+    expect(vi.mocked(resolveBattlePvP).mock.calls[0]?.[4]).toMatchObject({
+      v2Skills: {
+        p1: { equipped: ["hunter:skill"] },
+        p2: { equipped: ["intruder:skill"] },
+      },
+    });
   });
 });

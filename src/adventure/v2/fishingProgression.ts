@@ -4,6 +4,7 @@ import {
   isFishId,
   type FishId,
   type FishTier,
+  type FishTierWeightBonuses,
 } from "@/adventure/data/v2/fish";
 
 export const FISHING_PROGRESS_KEY = "fishing-progress.v1";
@@ -17,7 +18,9 @@ export type FishingRodId =
 
 export type FishingLureId =
   | "dough_lure"
+  | "daily_bait"
   | "tide_lure"
+  | "rare_lure"
   | "trophy_lure"
   | "prism_lure";
 
@@ -27,6 +30,7 @@ export type FishingGearBonuses = {
   rareSizeBonusPct: number;
   bigCatchSizeBonusPct: number;
   specialWeightPct: number;
+  tierWeightPct: FishTierWeightBonuses;
 };
 
 export type FishingRod = {
@@ -100,12 +104,41 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
     price: 0,
     bonuses: {},
   },
+  daily_bait: {
+    id: "daily_bait",
+    name: "과제용 떡밥",
+    description: "흔함·보통·희귀 어종 쪽으로 입질을 당겨 일일 과제를 맞추기 쉽다.",
+    price: 900,
+    bonuses: {
+      tierWeightPct: {
+        common: 70,
+        uncommon: 45,
+        rare: 15,
+        epic: -35,
+        legendary: -55,
+      },
+    },
+  },
   tide_lure: {
     id: "tide_lure",
     name: "물때 미끼",
     description: "물때 한정 특별 손님의 가중치를 올리고 물고기 크기를 조금 보정한다.",
     price: 1200,
     bonuses: { specialWeightPct: 20, sizeBonusPct: 1 },
+  },
+  rare_lure: {
+    id: "rare_lure",
+    name: "희귀 미끼",
+    description: "희귀 어종 중심으로 입질을 당기고 영웅 어종도 조금 더 노린다.",
+    price: 2200,
+    bonuses: {
+      tierWeightPct: {
+        common: -25,
+        uncommon: -10,
+        rare: 70,
+        epic: 20,
+      },
+    },
   },
   trophy_lure: {
     id: "trophy_lure",
@@ -400,6 +433,7 @@ export function fishingLevelBonuses(level: number): FishingGearBonuses {
     rareSizeBonusPct: 0,
     bigCatchSizeBonusPct: 0,
     specialWeightPct: Math.min(15, Math.floor((safeLevel - 1) / 2)),
+    tierWeightPct: {},
   };
 }
 
@@ -471,6 +505,13 @@ function addBonuses(
   target.rareSizeBonusPct += source.rareSizeBonusPct ?? 0;
   target.bigCatchSizeBonusPct += source.bigCatchSizeBonusPct ?? 0;
   target.specialWeightPct += source.specialWeightPct ?? 0;
+  if (source.tierWeightPct) {
+    target.tierWeightPct = { ...target.tierWeightPct };
+    for (const tier of Object.keys(source.tierWeightPct) as FishTier[]) {
+      target.tierWeightPct[tier] =
+        (target.tierWeightPct[tier] ?? 0) + (source.tierWeightPct[tier] ?? 0);
+    }
+  }
 }
 
 export function fishingBonusesFromProgression(

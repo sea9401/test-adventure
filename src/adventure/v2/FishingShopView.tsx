@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { FISH_TIERS, FISH_TIER_ORDER } from "@/adventure/data/v2/fish";
 import { FishingSubTabs } from "./FishingSubTabs";
 import {
   CoinConsumableShopList,
@@ -39,6 +40,13 @@ function bonusLabels(bonuses: Partial<FishingGearBonuses>): string[] {
     labels.push(`대물급 크기 +${bonuses.bigCatchSizeBonusPct}%`);
   if (bonuses.specialWeightPct)
     labels.push(`특별 손님 +${bonuses.specialWeightPct}%`);
+  if (bonuses.tierWeightPct) {
+    for (const tier of FISH_TIER_ORDER) {
+      const bonus = bonuses.tierWeightPct[tier] ?? 0;
+      if (bonus === 0) continue;
+      labels.push(`${FISH_TIERS[tier].label} ${bonus > 0 ? "+" : ""}${bonus}%`);
+    }
+  }
   return labels.length > 0 ? labels : ["기본"];
 }
 

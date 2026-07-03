@@ -6,6 +6,7 @@ import {
   emptyV2SkillsState,
   orderedLearnedSkills,
   describeV2Skill,
+  v2SkillSearchText,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
   aggregateEquippedPassives,
@@ -102,6 +103,16 @@ describe("낚시 생활 패시브", () => {
 });
 
 describe("v2Skills 카탈로그", () => {
+  it("스킬 검색 색인은 이름뿐 아니라 설명과 효과 칩도 포함한다", () => {
+    const corrosion = v2SkillSearchText(V2_SKILLS.v2c_venomist_corrosion);
+    expect(corrosion).toContain("부식");
+    expect(corrosion).toContain("독");
+    expect(corrosion).toContain("중독 적 방어");
+
+    const guard = v2SkillSearchText(V2_SKILLS.v2c_ironknight_guard);
+    expect(guard).toContain("보호막");
+  });
+
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
     for (const id of V2_STARTER_SKILL_IDS) {
       expect(V2_SKILLS[id]).toBeDefined();

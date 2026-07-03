@@ -850,6 +850,21 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   return chips;
 }
 
+export function v2SkillSearchText(skill: V2SkillDefinition): string {
+  return [
+    skill.id,
+    skill.name,
+    skill.description,
+    skill.stat,
+    skill.category,
+    skill.element ? V2_ELEMENT_LABEL[skill.element] : "",
+    ...describeV2Skill(skill),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 // 모든 스타터 id — PR-2 스타터 지급/백필에서 사용.
 export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [
   "v2_skill_strike",

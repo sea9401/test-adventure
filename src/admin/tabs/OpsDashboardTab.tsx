@@ -36,6 +36,13 @@ type Dashboard = {
   alertThresholds: AlertThresholdSettings;
   suggestedAlertThresholds: AlertThresholdSettings;
   alertHistory: AlertHistoryEntry[];
+  opsSummary: string[];
+  compensationOverview: {
+    count: number;
+    userCount: number;
+    totalQuantity: number;
+    byKind: CountRow[];
+  };
   dailyReport: DailyReport;
   periodComparison: {
     current: DailyReport;
@@ -118,6 +125,13 @@ type Dashboard = {
     actionCount: number;
     ipCount: number;
     ips: string[];
+    topActions: CountRow[];
+    recentEvents: Array<{
+      action: string;
+      reason: string;
+      ip: string | null;
+      createdAt: string;
+    }>;
     lastAt: string;
   }>;
   sanctionRecommendations: Array<{
@@ -143,8 +157,23 @@ type Dashboard = {
     itemId: string | null;
     detail: Record<string, unknown> | null;
     createdAt: string;
+    classification: {
+      key: string;
+      label: string;
+      tone: "danger" | "warning" | "info";
+      priority: number;
+      action: string;
+    };
   }>;
   rewardFailureStatusRecent: RewardFailureStatusEntry[];
+  opsChangeHistory: Array<{
+    id: number;
+    adminEmail: string;
+    action: string;
+    targetUserId: string | null;
+    summary: string;
+    createdAt: string;
+  }>;
 };
 
 type HotTimeSettings = {
@@ -313,6 +342,7 @@ export function OpsDashboardTab() {
             )}
           </div>
 
+          <OpsSummaryPanel lines={data.opsSummary} />
           <div className="grid gap-2 md:grid-cols-4">
             <Metric label="제한 초과 5분" value={data.abuse.last5m} />
             <Metric label="제한 초과 1시간" value={data.abuse.last1h} />
@@ -321,6 +351,7 @@ export function OpsDashboardTab() {
           </div>
 
           <DailyReportPanel report={data.dailyReport} periodLabel={periodLabel} />
+          <CompensationOverviewPanel overview={data.compensationOverview} />
           <PeriodComparisonPanel comparison={data.periodComparison} />
           <RiskEventsPanel rows={data.riskEvents} />
 
@@ -391,8 +422,8 @@ export function OpsDashboardTab() {
                       <th className="py-1 pr-3 font-medium">점수</th>
                       <th className="py-1 pr-3 font-medium">제한</th>
                       <th className="py-1 pr-3 font-medium">이벤트</th>
-                      <th className="py-1 pr-3 font-medium">action/IP</th>
-                      <th className="py-1 pr-3 font-medium">최근</th>
+                      <th className="hidden py-1 pr-3 font-medium md:table-cell">action/IP</th>
+                      <th className="py-1 pr-3 font-medium">최근·상세</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -409,7 +440,7 @@ export function OpsDashboardTab() {
                         <td className="py-1 pr-3 tabular-nums">{row.score}</td>
                         <td className="py-1 pr-3 tabular-nums">{row.rateLimited}</td>
                         <td className="py-1 pr-3 tabular-nums">{row.events}</td>
-                        <td className="py-1 pr-3 tabular-nums">
+                        <td className="hidden py-1 pr-3 tabular-nums md:table-cell">
                           {row.actionCount}/
                           {row.ips.length > 0 ? (
                             <Link
@@ -423,7 +454,15 @@ export function OpsDashboardTab() {
                           )}
                         </td>
                         <td className="py-1 pr-3 text-zinc-500">
-                          {new Date(row.lastAt).toLocaleString("ko-KR")}
+                          <div>{new Date(row.lastAt).toLocaleString("ko-KR")}</div>
+                          <div className="mt-0.5 max-w-[320px] text-[11px]">
+                            {row.topActions.map((action) => `${action.key} ${action.count}`).join(", ") || "-"}
+                          </div>
+                          <div className="mt-0.5 hidden max-w-[360px] text-[11px] md:block">
+                            {row.recentEvents
+                              .map((event) => `${event.action}/${event.reason}${event.ip ? `/${event.ip}` : ""}`)
+                              .join(" · ") || "-"}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -485,6 +524,7 @@ export function OpsDashboardTab() {
           />
           <SanctionReportPanel report={data.sanctionReport} />
           <AlertChannelsPanel value={data.alertChannels} />
+          <OpsChangeHistoryPanel rows={data.opsChangeHistory} />
           <AlertHistoryPanel rows={data.alertHistory} />
           <HotTimePanel />
         </>
@@ -512,6 +552,45 @@ function DailyReportPanel({
         <Metric label="관리자 변경" value={report.adminChanges} />
         <Metric label="골드 순변동" value={report.goldNet} />
       </div>
+    </Panel>
+  );
+}
+
+function OpsSummaryPanel({ lines }: { lines: string[] }) {
+  return (
+    <Panel title="운영 자동 요약">
+      {lines.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">요약할 변화 없음</p>
+      ) : (
+        <ul className="grid gap-1 text-xs md:grid-cols-2">
+          {lines.map((line) => (
+            <li key={line} className="rounded-md border border-zinc-100 px-2 py-1.5 dark:border-zinc-800">
+              {line}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function CompensationOverviewPanel({
+  overview,
+}: {
+  overview: Dashboard["compensationOverview"];
+}) {
+  return (
+    <Panel title="보정 지급 안전 요약">
+      <div className="grid gap-2 md:grid-cols-3">
+        <Metric label="24시간 보정" value={overview.count} />
+        <Metric label="대상 유저" value={overview.userCount} />
+        <Metric label="총 수량" value={overview.totalQuantity} />
+      </div>
+      {overview.byKind.length > 0 ? (
+        <div className="mt-2">
+          <MiniList title="품목별" rows={overview.byKind} />
+        </div>
+      ) : null}
     </Panel>
   );
 }
@@ -595,6 +674,35 @@ function SanctionRecommendationPanel({
 }: {
   rows: Dashboard["sanctionRecommendations"];
 }) {
+  const { showToast, adminMe } = useAdmin();
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const canSanction = Boolean(adminMe?.capabilities.sanction);
+
+  const applySanction = async (
+    userId: string,
+    action: "warn" | "suspend",
+    days: number,
+    reason: string,
+  ) => {
+    const label = action === "warn" ? "경고" : `${days}일 정지`;
+    if (!window.confirm(`${userId.slice(0, 12)} 계정에 ${label}를 적용할까요?`)) return;
+    setSavingUserId(userId);
+    try {
+      await adminPost("/api/admin/sanctions", {
+        userId,
+        action,
+        days,
+        reason,
+        adminMemo: "운영 현황 제재 추천에서 실행",
+      });
+      showToast(`제재 처리 완료: ${label}`);
+    } catch (e) {
+      showToast(`제재 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   return (
     <Panel title="제재 검토 추천">
       {rows.length === 0 ? (
@@ -608,6 +716,7 @@ function SanctionRecommendationPanel({
                 <th className="py-1 pr-3 font-medium">점수</th>
                 <th className="py-1 pr-3 font-medium">추천</th>
                 <th className="py-1 pr-3 font-medium">근거</th>
+                <th className="py-1 pr-3 font-medium">실행</th>
               </tr>
             </thead>
             <tbody>
@@ -624,6 +733,28 @@ function SanctionRecommendationPanel({
                   <td className="py-1 pr-3 tabular-nums">{row.score.toLocaleString()}</td>
                   <td className="py-1 pr-3">{row.recommendation}</td>
                   <td className="py-1 pr-3 text-zinc-500">{row.reason}</td>
+                  <td className="py-1 pr-3">
+                    <div className="flex flex-wrap gap-1">
+                      <Button
+                        disabled={!canSanction || savingUserId === row.userId}
+                        onClick={() => void applySanction(row.userId, "warn", 0, row.reason)}
+                      >
+                        경고
+                      </Button>
+                      <Button
+                        disabled={!canSanction || savingUserId === row.userId}
+                        onClick={() => void applySanction(row.userId, "suspend", 1, row.reason)}
+                      >
+                        1일
+                      </Button>
+                      <Button
+                        disabled={!canSanction || savingUserId === row.userId}
+                        onClick={() => void applySanction(row.userId, "suspend", 3, row.reason)}
+                      >
+                        3일
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -712,8 +843,9 @@ function RewardFailurePanel({
                   <th className="py-1 pr-3 font-medium">선택</th>
                   <th className="py-1 pr-3 font-medium">event id</th>
                   <th className="py-1 pr-3 font-medium">유저</th>
-                  <th className="py-1 pr-3 font-medium">유형</th>
-                  <th className="py-1 pr-3 font-medium">시각</th>
+                  <th className="py-1 pr-3 font-medium">추정</th>
+                  <th className="hidden py-1 pr-3 font-medium md:table-cell">유형</th>
+                  <th className="hidden py-1 pr-3 font-medium md:table-cell">시각</th>
                   <th className="py-1 pr-3 font-medium">조치</th>
                 </tr>
               </thead>
@@ -740,8 +872,16 @@ function RewardFailurePanel({
                         "-"
                       )}
                     </td>
-                    <td className="py-1 pr-3 font-mono">{row.itemId ?? row.eventType}</td>
-                    <td className="py-1 pr-3 text-zinc-500">
+                    <td className="py-1 pr-3">
+                      <div className={classificationClass(row.classification.tone)}>
+                        {row.classification.label}
+                      </div>
+                      <div className="mt-0.5 hidden max-w-[240px] text-[11px] text-zinc-500 md:block">
+                        {row.classification.action}
+                      </div>
+                    </td>
+                    <td className="hidden py-1 pr-3 font-mono md:table-cell">{row.itemId ?? row.eventType}</td>
+                    <td className="hidden py-1 pr-3 text-zinc-500 md:table-cell">
                       {new Date(row.createdAt).toLocaleString("ko-KR")}
                     </td>
                     <td className="py-1 pr-3">
@@ -1209,6 +1349,7 @@ function AlertChannelsPanel({ value }: { value: Dashboard["alertChannels"] }) {
     { key: "economy", label: "경제", env: "OPS_ALERT_ECONOMY_WEBHOOK_URL" },
     { key: "deploy", label: "배포", env: "OPS_ALERT_DEPLOY_WEBHOOK_URL" },
   ] as const;
+  const missing = rows.filter((row) => !value[row.key]);
   return (
     <Panel title="운영 알림 채널">
       <div className="grid gap-2 md:grid-cols-5">
@@ -1227,6 +1368,52 @@ function AlertChannelsPanel({ value }: { value: Dashboard["alertChannels"] }) {
           </div>
         ))}
       </div>
+      {missing.length > 0 ? (
+        <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+          미설정 채널: {missing.map((row) => row.env).join(", ")}. 미설정 채널은 기본 웹훅으로 대체되거나 알림 이력에 skipped로 남습니다.
+        </p>
+      ) : null}
+    </Panel>
+  );
+}
+
+function OpsChangeHistoryPanel({ rows }: { rows: Dashboard["opsChangeHistory"] }) {
+  return (
+    <Panel title="운영 변경 이력">
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">최근 변경 없음</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-zinc-500 dark:text-zinc-400">
+              <tr>
+                <th className="py-1 pr-3 font-medium">시각</th>
+                <th className="py-1 pr-3 font-medium">작업</th>
+                <th className="hidden py-1 pr-3 font-medium md:table-cell">대상</th>
+                <th className="py-1 pr-3 font-medium">관리자</th>
+                <th className="hidden py-1 pr-3 font-medium md:table-cell">요약</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                  <td className="whitespace-nowrap py-1 pr-3 text-zinc-500">
+                    {new Date(row.createdAt).toLocaleString("ko-KR")}
+                  </td>
+                  <td className="py-1 pr-3 font-mono">{row.action}</td>
+                  <td className="hidden py-1 pr-3 font-mono text-zinc-500 md:table-cell">
+                    {row.targetUserId?.slice(0, 12) ?? "-"}
+                  </td>
+                  <td className="py-1 pr-3">{row.adminEmail}</td>
+                  <td className="hidden py-1 pr-3 text-zinc-500 md:table-cell">
+                    {row.summary || "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Panel>
   );
 }
@@ -1516,6 +1703,7 @@ function hotTimePreview(
     startsAt: string;
     endsAt: string;
     bonuses: HotTimeSettings["bonuses"];
+    conflict?: boolean;
   }> = [];
   if (isManualHotTimeValid(hotTime)) {
     const start = Date.parse(hotTime.startsAt);
@@ -1552,8 +1740,17 @@ function hotTimePreview(
       });
     }
   }
-  return rows
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+  const sorted = rows.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  return sorted
+    .map((row, index) => ({
+      ...row,
+      conflict: sorted.some(
+        (other, otherIndex) =>
+          otherIndex !== index &&
+          Date.parse(row.startsAt) < Date.parse(other.endsAt) &&
+          Date.parse(other.startsAt) < Date.parse(row.endsAt),
+      ),
+    }))
     .slice(0, 20);
 }
 
@@ -1574,7 +1771,14 @@ function HotTimePreview({
               key={`${row.source}:${row.startsAt}:${row.title}`}
               className="rounded border border-zinc-100 px-2 py-1 dark:border-zinc-800"
             >
-              <div className="font-medium">{row.title || "핫타임"}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{row.title || "핫타임"}</span>
+                {row.conflict ? (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                    충돌
+                  </span>
+                ) : null}
+              </div>
               <div className="text-zinc-500">
                 {new Date(row.startsAt).toLocaleString("ko-KR")} -{" "}
                 {new Date(row.endsAt).toLocaleTimeString("ko-KR", {
@@ -1753,6 +1957,14 @@ function toneClass(level: "danger" | "warning" | "info") {
     : level === "warning"
       ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
       : "border-zinc-200 bg-white text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
+}
+
+function classificationClass(tone: "danger" | "warning" | "info") {
+  return tone === "danger"
+    ? "inline-flex rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700 dark:bg-red-950/40 dark:text-red-300"
+    : tone === "warning"
+      ? "inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+      : "inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300";
 }
 
 function statusLabel(status: RewardFailureStatus) {

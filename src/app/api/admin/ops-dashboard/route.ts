@@ -101,11 +101,13 @@ export async function GET(req: Request) {
     db
       .select({
         id: economyEvents.id,
+        userId: economyEvents.userId,
         eventType: economyEvents.eventType,
         goldDelta: economyEvents.goldDelta,
         itemKind: economyEvents.itemKind,
         itemId: economyEvents.itemId,
         quantity: economyEvents.quantity,
+        detail: economyEvents.detail,
         createdAt: economyEvents.createdAt,
       })
       .from(economyEvents)
@@ -211,6 +213,48 @@ export async function GET(req: Request) {
   const current24hRewardFailures = currentDayEconomyRows.filter((row) =>
     row.eventType.startsWith("reward.failure."),
   );
+  const openRewardFailureCandidates = economyRows
+    .filter((row) => row.eventType.startsWith("reward.failure."))
+    .filter((row) => !rewardFailureStatusById.has(row.id))
+    .slice(0, 12)
+    .map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      eventType: row.eventType,
+      itemId: row.itemId,
+      detail: row.detail,
+      createdAt: row.createdAt,
+      classification: classifyRewardFailure(row, currentDayEconomyRows),
+    }));
+  const periodComparison = buildPeriodComparison({
+    current: buildDailyReport({
+      abuse: currentDayAbuse,
+      economy: currentDayEconomy,
+      auditRows: currentDayAuditRows,
+      rewardFailures: current24hRewardFailures,
+      rewardFailureStatuses,
+    }),
+    previous: buildDailyReport({
+      abuse: previousAbuse,
+      economy: previousEconomy,
+      auditRows: previousAuditRows,
+      rewardFailures: previousEconomyRows.filter((row) =>
+        row.eventType.startsWith("reward.failure."),
+      ),
+      rewardFailureStatuses,
+    }),
+  });
+  const alerts = buildAlerts({
+    abuse,
+    economy,
+    auditCount: auditRows.length,
+    periodHours: hours,
+    thresholds: alertThresholds,
+    suspiciousUsers,
+    connectedIps,
+  });
+  const compensationOverview = buildCompensationOverview(currentDayEconomyRows);
+  const opsChangeHistory = buildOpsChangeHistory(auditRows);
 
   return Response.json({
     ok: true,
@@ -236,24 +280,14 @@ export async function GET(req: Request) {
       rewardFailures,
       rewardFailureStatuses,
     }),
-    periodComparison: buildPeriodComparison({
-      current: buildDailyReport({
-        abuse: currentDayAbuse,
-        economy: currentDayEconomy,
-        auditRows: currentDayAuditRows,
-        rewardFailures: current24hRewardFailures,
-        rewardFailureStatuses,
-      }),
-      previous: buildDailyReport({
-        abuse: previousAbuse,
-        economy: previousEconomy,
-        auditRows: previousAuditRows,
-        rewardFailures: previousEconomyRows.filter((row) =>
-          row.eventType.startsWith("reward.failure."),
-        ),
-        rewardFailureStatuses,
-      }),
+    periodComparison,
+    opsSummary: buildOpsSummary({
+      alerts,
+      comparison: periodComparison,
+      compensationOverview,
+      openRewardFailures: openRewardFailureCandidates.length,
     }),
+    compensationOverview,
     sanctionReport: {
       expiring24h: expiringSanctions.map((row) => ({
         ...row,
@@ -269,31 +303,13 @@ export async function GET(req: Request) {
       last24h: auditRows.length,
       latest: auditRows.slice(0, 10),
     },
-    alerts: buildAlerts({
-      abuse,
-      economy,
-      auditCount: auditRows.length,
-      periodHours: hours,
-      thresholds: alertThresholds,
-      suspiciousUsers,
-      connectedIps,
-    }),
-    rewardFailureCandidates: economyRows
-      .filter((row) => row.eventType.startsWith("reward.failure."))
-      .filter((row) => !rewardFailureStatusById.has(row.id))
-      .slice(0, 12)
-      .map((row) => ({
-        id: row.id,
-        userId: row.userId,
-        eventType: row.eventType,
-        itemId: row.itemId,
-        detail: row.detail,
-        createdAt: row.createdAt,
-      })),
+    alerts,
+    rewardFailureCandidates: openRewardFailureCandidates,
     rewardFailureStatusRecent: rewardFailureStatuses.slice(0, 12),
     suspiciousUsers,
     sanctionRecommendations: buildSanctionRecommendations(suspiciousUsers),
     connectedIps,
+    opsChangeHistory,
     slowQueryCandidates: [
       {
         key: "marketplace.prices",
@@ -413,6 +429,53 @@ function buildPeriodComparison({
   };
 }
 
+function buildOpsSummary({
+  alerts,
+  comparison,
+  compensationOverview,
+  openRewardFailures,
+}: {
+  alerts: Array<{ level: "danger" | "warning" | "info"; title: string; message: string }>;
+  comparison: ReturnType<typeof buildPeriodComparison>;
+  compensationOverview: ReturnType<typeof buildCompensationOverview>;
+  openRewardFailures: number;
+}) {
+  const lines: string[] = [];
+  const danger = alerts.filter((row) => row.level === "danger");
+  if (danger.length > 0) {
+    lines.push(`즉시 확인 알림 ${danger.length.toLocaleString()}건: ${danger[0].title}`);
+  } else if (alerts.length > 0) {
+    lines.push(`주의 알림 ${alerts.length.toLocaleString()}건이 있습니다.`);
+  } else {
+    lines.push("설정된 임계치를 넘은 운영 알림은 없습니다.");
+  }
+  if (openRewardFailures > 0) {
+    lines.push(`미처리 보상 실패 후보 ${openRewardFailures.toLocaleString()}건이 남아 있습니다.`);
+  }
+  const rewardDelta = comparison.deltas.rewardFailures;
+  if (rewardDelta !== 0) {
+    lines.push(
+      `보상 실패는 이전 24시간 대비 ${rewardDelta > 0 ? "증가" : "감소"}했습니다(${formatSigned(rewardDelta)}).`,
+    );
+  }
+  const rateDelta = comparison.deltas.rateLimited;
+  if (rateDelta !== 0) {
+    lines.push(
+      `요청 제한 이벤트는 이전 24시간 대비 ${rateDelta > 0 ? "증가" : "감소"}했습니다(${formatSigned(rateDelta)}).`,
+    );
+  }
+  if (compensationOverview.count > 0) {
+    lines.push(
+      `최근 24시간 보정 지급 ${compensationOverview.count.toLocaleString()}건, 대상 ${compensationOverview.userCount.toLocaleString()}명입니다.`,
+    );
+  }
+  return lines.slice(0, 5);
+}
+
+function formatSigned(value: number) {
+  return `${value > 0 ? "+" : ""}${value.toLocaleString()}`;
+}
+
 function buildRiskEvents(
   auditRows: Array<{
     id: number;
@@ -466,6 +529,165 @@ function buildRiskEvents(
   return [...auditRisks, ...economyRisks]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, 12);
+}
+
+function classifyRewardFailure(
+  row: {
+    id: number;
+    userId: string | null;
+    eventType: string;
+    itemId: string | null;
+    detail: unknown;
+  },
+  currentDayEconomyRows: Array<{
+    userId: string | null;
+    eventType: string;
+    itemKind: string | null;
+    itemId: string | null;
+    quantity: number | null;
+    detail: unknown;
+  }>,
+) {
+  const detail = detailObject(row.detail);
+  const haystack = `${row.eventType} ${row.itemId ?? ""} ${JSON.stringify(detail)}`.toLowerCase();
+  const compensated = currentDayEconomyRows.find((event) => {
+    if (event.eventType !== "admin.reward.compensate") return false;
+    if (event.userId && row.userId && event.userId !== row.userId) return false;
+    const eventDetail = detailObject(event.detail);
+    return Number(eventDetail.sourceEventId ?? 0) === row.id;
+  });
+  if (compensated) {
+    return {
+      key: "already_compensated",
+      label: "이미 보정 가능성",
+      tone: "warning" as const,
+      priority: 20,
+      action: "처리 상태를 보정 완료로 맞출지 확인",
+    };
+  }
+  if (
+    haystack.includes("daily_cap") ||
+    haystack.includes("dailycap") ||
+    haystack.includes("daily cap") ||
+    haystack.includes("limit") ||
+    haystack.includes("cap")
+  ) {
+    return {
+      key: "daily_cap",
+      label: "일일 제한 가능성",
+      tone: "info" as const,
+      priority: 40,
+      action: "유저 운영 요약의 오늘 낚시 코인 상한 확인",
+    };
+  }
+  if (
+    haystack.includes("duplicate") ||
+    haystack.includes("already") ||
+    haystack.includes("claimed") ||
+    haystack.includes("중복") ||
+    haystack.includes("이미")
+  ) {
+    return {
+      key: "duplicate_or_claimed",
+      label: "중복 수령 가능성",
+      tone: "warning" as const,
+      priority: 50,
+      action: "최근 보상 수령과 원본 event id 확인",
+    };
+  }
+  return {
+    key: "possible_missing",
+    label: "미지급 가능성",
+    tone: "danger" as const,
+    priority: 80,
+    action: "유저 보정 화면에서 원본 event id로 보정 검토",
+  };
+}
+
+function detailObject(raw: unknown): Record<string, unknown> {
+  return raw && typeof raw === "object" && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {};
+}
+
+function buildCompensationOverview(
+  rows: Array<{
+    userId: string | null;
+    eventType: string;
+    itemKind: string | null;
+    quantity: number | null;
+  }>,
+) {
+  const compensations = rows.filter((row) => row.eventType === "admin.reward.compensate");
+  const users = new Set(compensations.flatMap((row) => (row.userId ? [row.userId] : [])));
+  const byKind = topCounts(
+    compensations.flatMap((row) => (row.itemKind ? [row.itemKind] : [])),
+    6,
+  );
+  return {
+    count: compensations.length,
+    userCount: users.size,
+    totalQuantity: compensations.reduce((sum, row) => sum + Math.max(0, row.quantity ?? 0), 0),
+    byKind,
+  };
+}
+
+function buildOpsChangeHistory(
+  rows: Array<{
+    id: number;
+    adminEmail: string;
+    action: string;
+    targetUserId: string | null;
+    detail: unknown;
+    createdAt: Date;
+  }>,
+) {
+  return rows
+    .filter(
+      (row) =>
+        row.action.startsWith("ops-settings.") ||
+        row.action.startsWith("reward.") ||
+        row.action.startsWith("sanction."),
+    )
+    .slice(0, 16)
+    .map((row) => ({
+      id: row.id,
+      adminEmail: row.adminEmail,
+      action: row.action,
+      targetUserId: row.targetUserId,
+      summary: summarizeAuditChange(row),
+      createdAt: row.createdAt.toISOString(),
+    }));
+}
+
+function summarizeAuditChange(row: { action: string; detail: unknown }) {
+  const detail = detailObject(row.detail);
+  if (row.action === "reward.compensate") {
+    return [
+      textValue(detail.itemKind),
+      numberValue(detail.quantity) > 0 ? numberValue(detail.quantity).toLocaleString() : null,
+      textValue(detail.reason),
+    ].filter(Boolean).join(" · ");
+  }
+  if (row.action.startsWith("sanction.")) {
+    return [textValue(detail.reason), textValue(detail.adminMemo)].filter(Boolean).join(" · ");
+  }
+  if (row.action === "ops-settings.reward-compensation-presets.update") {
+    return `프리셋 ${numberValue(detail.count).toLocaleString()}개`;
+  }
+  if (row.action === "ops-settings.hot-time.update") {
+    return [detail.enabled ? "활성" : "비활성", textValue(detail.title)].filter(Boolean).join(" · ");
+  }
+  return "";
+}
+
+function textValue(raw: unknown) {
+  return typeof raw === "string" && raw.trim() ? raw.trim().slice(0, 120) : null;
+}
+
+function numberValue(raw: unknown) {
+  const value = Number(raw ?? 0);
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
 function riskForAudit(row: { action: string; detail: unknown }) {
@@ -679,6 +901,7 @@ function scoreSuspiciousUsers(
       rateLimited: number;
       actions: Set<string>;
       ips: Set<string>;
+      recentEvents: Array<{ action: string; reason: string; ip: string | null; createdAt: number }>;
       lastAt: number;
     }
   >();
@@ -690,12 +913,19 @@ function scoreSuspiciousUsers(
         rateLimited: 0,
         actions: new Set<string>(),
         ips: new Set<string>(),
+        recentEvents: [],
         lastAt: 0,
       };
     value.events += 1;
     if (row.reason === "rate_limited") value.rateLimited += 1;
     value.actions.add(row.action);
     if (row.ip) value.ips.add(row.ip);
+    value.recentEvents.push({
+      action: row.action,
+      reason: row.reason,
+      ip: row.ip,
+      createdAt: row.createdAt.getTime(),
+    });
     value.lastAt = Math.max(value.lastAt, row.createdAt.getTime());
     users.set(row.userId, value);
   }
@@ -714,6 +944,16 @@ function scoreSuspiciousUsers(
         actionCount: value.actions.size,
         ipCount: value.ips.size,
         ips: [...value.ips].sort().slice(0, 5),
+        topActions: topCounts(value.recentEvents.map((event) => event.action), 5),
+        recentEvents: value.recentEvents
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .slice(0, 5)
+          .map((event) => ({
+            action: event.action,
+            reason: event.reason,
+            ip: event.ip,
+            createdAt: new Date(event.createdAt).toISOString(),
+          })),
         lastAt: new Date(value.lastAt).toISOString(),
       };
     })

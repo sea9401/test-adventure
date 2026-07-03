@@ -38,6 +38,7 @@ export async function POST(req: Request) {
   const sourceEventId = clampPositiveInt(body?.sourceEventId, 2_147_483_647, 0);
   const confirmLarge = body?.confirmLarge === true;
   const confirmDuplicate = body?.confirmDuplicate === true;
+  const confirmDailyRisk = body?.confirmDailyRisk === true;
 
   if (!userId || !isItemKind(itemKind) || quantity <= 0) {
     return Response.json(
@@ -77,26 +78,30 @@ export async function POST(req: Request) {
       );
     }
   }
-  const similar = (
-    await db
-      .select({
-        id: economyEvents.id,
-        createdAt: economyEvents.createdAt,
-      })
-      .from(economyEvents)
-      .where(
-        and(
-          eq(economyEvents.userId, userId),
-          eq(economyEvents.eventType, "admin.reward.compensate"),
-          eq(economyEvents.itemKind, itemKind),
-          eq(economyEvents.itemId, itemId || itemKind),
-          eq(economyEvents.quantity, quantity),
-          gte(economyEvents.createdAt, new Date(Date.now() - DAY_MS)),
-        ),
-      )
-      .orderBy(desc(economyEvents.id))
-      .limit(1)
-  )[0];
+  const recentCompensations = await db
+    .select({
+      id: economyEvents.id,
+      itemKind: economyEvents.itemKind,
+      itemId: economyEvents.itemId,
+      quantity: economyEvents.quantity,
+      createdAt: economyEvents.createdAt,
+    })
+    .from(economyEvents)
+    .where(
+      and(
+        eq(economyEvents.userId, userId),
+        eq(economyEvents.eventType, "admin.reward.compensate"),
+        gte(economyEvents.createdAt, new Date(Date.now() - DAY_MS)),
+      ),
+    )
+    .orderBy(desc(economyEvents.id))
+    .limit(20);
+  const similar = recentCompensations.find(
+    (row) =>
+      row.itemKind === itemKind &&
+      row.itemId === (itemId || itemKind) &&
+      row.quantity === quantity,
+  );
   if (similar && !confirmDuplicate) {
     return Response.json(
       {
@@ -108,7 +113,24 @@ export async function POST(req: Request) {
       { status: 409 },
     );
   }
-
+  const sameKindQuantity = recentCompensations
+    .filter((row) => row.itemKind === itemKind)
+    .reduce((sum, row) => sum + Math.max(0, row.quantity ?? 0), 0);
+  if (
+    !confirmDailyRisk &&
+    (recentCompensations.length >= 3 ||
+      sameKindQuantity + quantity >= largeThreshold(itemKind) * 2)
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error: "daily_compensation_risk",
+        recentCount: recentCompensations.length,
+        sameKindQuantity,
+      },
+      { status: 409 },
+    );
+  }
   const result = await db.transaction(async (tx) => {
     if (itemKind === "gold") {
       const char = await lockSaveForUpdate<Record<string, unknown>>(

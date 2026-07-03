@@ -262,8 +262,12 @@ export function parseGuildTrainingState(
 export function guildTrainingReward(
   drill: GuildTrainingDrillDef,
   upgrade: TrainingGroundUpgradeDef,
+  extraRewardBonusPct = 0,
 ): { mastery: number } {
-  const mult = 1 + Math.max(0, upgrade.trainingRewardBonusPct) / 100;
+  const totalBonusPct =
+    Math.max(0, upgrade.trainingRewardBonusPct) +
+    Math.max(0, extraRewardBonusPct);
+  const mult = 1 + totalBonusPct / 100;
   return {
     mastery: Math.max(1, Math.floor(drill.baseMasteryReward * mult)),
   };
@@ -275,19 +279,21 @@ export function guildTrainingDrillViews({
   characterLevel,
   hasJob,
   currentClass,
+  rewardBonusPct = 0,
 }: {
   state: GuildTrainingState;
   buildingLevel: number;
   characterLevel: number;
   hasJob: boolean;
   currentClass: V2Class;
+  rewardBonusPct?: number;
 }): GuildTrainingDrillView[] {
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, buildingLevel));
   const dailyClaimLimit = Math.max(1, upgrade.unlockedDrillCount);
   const claimedCount = state.claimed.length;
   const views = GUILD_TRAINING_DRILL_IDS.map((id) => {
     const drill = GUILD_TRAINING_DRILLS[id];
-    const reward = guildTrainingReward(drill, upgrade);
+    const reward = guildTrainingReward(drill, upgrade, rewardBonusPct);
     const claimed = state.claimed.includes(id);
     let lockedReason: string | null = null;
     if (buildingLevel < drill.minBuildingLevel) {

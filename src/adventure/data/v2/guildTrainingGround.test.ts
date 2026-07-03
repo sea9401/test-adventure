@@ -175,6 +175,24 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
   });
 
+  it("장착 패시브의 훈련장 보상 보너스를 추가 반영한다", () => {
+    const views = guildTrainingDrillViews({
+      state: { dayKey: "2026-07-01", claimed: [] },
+      buildingLevel: 3,
+      characterLevel: 50,
+      hasJob: true,
+      currentClass: "warrior",
+      rewardBonusPct: 5,
+    });
+
+    expect(views.find((v) => v.id === "basic_stance")).toMatchObject({
+      rewardMastery: 15,
+    });
+    expect(views.find((v) => v.id === "weapon_flow")).toMatchObject({
+      rewardMastery: 20,
+    });
+  });
+
   it("훈련장 레벨별 일일 훈련 횟수를 초과하면 남은 훈련을 잠근다", () => {
     const state: GuildTrainingState = {
       dayKey: "2026-07-01",

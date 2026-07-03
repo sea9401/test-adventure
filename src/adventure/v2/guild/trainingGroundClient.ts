@@ -48,6 +48,10 @@ export type TrainingState = {
     bonusMastery: number;
     bonusClaimed: boolean;
   };
+  trainingBonuses?: {
+    rewardBonusPct: number;
+    weeklyBonusMastery: number;
+  };
   goals?: {
     nextSp?: {
       currentMilestoneSp: number;

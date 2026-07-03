@@ -24,6 +24,11 @@ import {
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
+  emptyV2SkillsState,
+  equippedGuildTrainingBonuses,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import {
   nextTrainingGroundUpgrade,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
@@ -132,10 +137,11 @@ export async function GET() {
   const trainingGroundLevel = await guildTrainingGroundLevel(guildId);
   const { dayKey } = guildTrainingDayWindow();
   const weekKey = todayGuildTrainingWeekKey();
-  const [charSave, profRaw, trainingRaw] = await Promise.all([
+  const [charSave, profRaw, trainingRaw, skillsRaw] = await Promise.all([
     readSave<CharacterSave | null>(db, userId, "character.v2", null),
     readSave<V2ProficiencyState | null>(db, userId, "proficiency.v2", null),
     readSave<Record<string, unknown> | null>(db, userId, TRAINING_SAVE_KEY, null),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
   ]);
   if (!charSave) {
     return Response.json({ ok: false, error: "no_character" }, { status: 400 });
@@ -144,6 +150,9 @@ export async function GET() {
   const current = currentJobInfo(charSave, profRaw);
   const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
   const state = parseGuildTrainingState(trainingRaw, dayKey, weekKey);
+  const trainingBonuses = equippedGuildTrainingBonuses(
+    parseV2SkillsState(skillsRaw).equipped,
+  );
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel));
   const nextUpgrade = nextTrainingGroundUpgrade(trainingGroundLevel);
   const drills = guildTrainingDrillViews({
@@ -152,6 +161,7 @@ export async function GET() {
     characterLevel,
     hasJob: current.hasJob,
     currentClass: current.group,
+    rewardBonusPct: trainingBonuses.rewardBonusPct,
   });
   const claimedCount = drills.filter((drill) => drill.claimed).length;
   const availableCount = drills.filter((drill) => drill.available).length;
@@ -190,9 +200,12 @@ export async function GET() {
       weekKey,
       completed: state.weeklyClaims ?? 0,
       target: GUILD_TRAINING_WEEKLY_BONUS_TARGET,
-      bonusMastery: GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
+      bonusMastery:
+        GUILD_TRAINING_WEEKLY_BONUS_MASTERY +
+        trainingBonuses.weeklyBonusMastery,
       bonusClaimed: state.weeklyBonusClaimed === true,
     },
+    trainingBonuses,
     goals: {
       nextSp,
       nextJob: nextJobGoal(current),
@@ -261,9 +274,18 @@ export async function POST(req: Request) {
       TRAINING_SAVE_KEY,
       null,
     );
+    const skillsRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState(),
+    );
     const current = currentJobInfo(charSave, profRaw);
     const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
     const state = parseGuildTrainingState(trainingRaw, dayKey, weekKey);
+    const trainingBonuses = equippedGuildTrainingBonuses(
+      parseV2SkillsState(skillsRaw).equipped,
+    );
     if (state.claimed.includes(drillId)) {
       return {
         status: 409,
@@ -276,6 +298,7 @@ export async function POST(req: Request) {
       characterLevel,
       hasJob: current.hasJob,
       currentClass: current.group,
+      rewardBonusPct: trainingBonuses.rewardBonusPct,
     }).find((d) => d.id === drillId);
     if (!drill || !drill.available) {
       return {
@@ -289,7 +312,11 @@ export async function POST(req: Request) {
     }
 
     const claim = claimGuildTrainingDrill(state, drillId);
-    const totalRewardMastery = drill.rewardMastery + claim.weeklyBonusMastery;
+    const weeklyBonusMastery =
+      claim.weeklyBonusMastery > 0
+        ? claim.weeklyBonusMastery + trainingBonuses.weeklyBonusMastery
+        : 0;
+    const totalRewardMastery = drill.rewardMastery + weeklyBonusMastery;
     let prof = current.prof;
     prof = addCumLevel(prof, current.group, totalRewardMastery);
     prof = addJobCumLevel(prof, current.jobId, totalRewardMastery);
@@ -319,7 +346,7 @@ export async function POST(req: Request) {
         drill,
         rewardMastery: totalRewardMastery,
         baseRewardMastery: drill.rewardMastery,
-        weeklyBonusMastery: claim.weeklyBonusMastery,
+        weeklyBonusMastery,
         masteryAfter,
         claimed: nextState.claimed,
       },

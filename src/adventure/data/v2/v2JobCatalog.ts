@@ -846,6 +846,14 @@ export function jobUnlockConditionText(job: V2JobDefinition): string {
     .join(", ");
 }
 
+export function isDirectNextJob(
+  currentJobId: string | null | undefined,
+  job: V2JobDefinition,
+): boolean {
+  if (!currentJobId || job.id === currentJobId) return false;
+  return Object.prototype.hasOwnProperty.call(job.unlock.prereqs, currentJobId);
+}
+
 // 그 직업에 쌓은 숙련도(표시용) — tier1 직업=직군 숙련도(groups), tier2+=직업별 숙련도(jobCumLevel).
 //   isJobUnlocked 의 prereq 분기와 같은 기준. 미적립=0.
 export function cumLevelForJob(

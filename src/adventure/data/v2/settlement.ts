@@ -67,6 +67,7 @@ export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 export type SettlementBuildingId =
   | "guild_smithy"
   | "training_ground"
+  | "map_workshop"
   | "alchemy_workshop"
   | "woodworks";
 
@@ -100,6 +101,12 @@ export const SETTLEMENT_BUILDINGS: Record<
     icon: "🎯",
     desc: "길드원이 매일 현재 직업 숙련도 훈련을 받을 수 있는 영지 시설입니다.",
   },
+  map_workshop: {
+    id: "map_workshop",
+    name: "지도 제작소",
+    icon: "🗺️",
+    desc: "발굴 지점을 여는 데 필요한 지도 조각을 줄여주는 영지 시설입니다.",
+  },
   alchemy_workshop: {
     id: "alchemy_workshop",
     name: "연금 공방",
@@ -119,6 +126,7 @@ export const SETTLEMENT_BUILDING_IDS = Object.keys(
 export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_smithy",
   "training_ground",
+  "map_workshop",
 ];
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
@@ -215,9 +223,50 @@ export const TRAINING_GROUND_UPGRADES: readonly TrainingGroundUpgradeDef[] = [
   },
 ];
 
+export type MapWorkshopUpgradeDef = {
+  level: number;
+  cost: Partial<Record<ProductionKind, number>>;
+  fragmentDiscountPct: number;
+  label: string;
+};
+
+export const MAP_WORKSHOP_UPGRADES: readonly MapWorkshopUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    fragmentDiscountPct: 5,
+    label: "낡은 제도대",
+  },
+  {
+    level: 2,
+    cost: { crop: 500, ore: 400 },
+    fragmentDiscountPct: 10,
+    label: "측량 도구",
+  },
+  {
+    level: 3,
+    cost: { crop: 1400, ore: 1100 },
+    fragmentDiscountPct: 15,
+    label: "정밀 나침반",
+  },
+  {
+    level: 4,
+    cost: { crop: 3200, ore: 2600 },
+    fragmentDiscountPct: 20,
+    label: "항로 기록실",
+  },
+  {
+    level: 5,
+    cost: { crop: 6800, ore: 5400 },
+    fragmentDiscountPct: 25,
+    label: "왕립 지도 보관소",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
-  | TrainingGroundUpgradeDef;
+  | TrainingGroundUpgradeDef
+  | MapWorkshopUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -284,12 +333,32 @@ export function nextTrainingGroundUpgrade(
   );
 }
 
+export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    MAP_WORKSHOP_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    MAP_WORKSHOP_UPGRADES[0]
+  );
+}
+
+export function nextMapWorkshopUpgrade(
+  level: number,
+): MapWorkshopUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    MAP_WORKSHOP_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ?? null
+  );
+}
+
 export function nextSettlementBuildingUpgrade(
   buildingId: SettlementBuildingId,
   level: number,
 ): AnySettlementBuildingUpgradeDef | null {
   if (buildingId === "training_ground") {
     return nextTrainingGroundUpgrade(level);
+  }
+  if (buildingId === "map_workshop") {
+    return nextMapWorkshopUpgrade(level);
   }
   if (buildingId === "guild_smithy") {
     return nextGuildSmithyUpgrade(level);
@@ -304,6 +373,10 @@ export function settlementBuildingUpgradeSummary(
   if (buildingId === "training_ground") {
     const training = upgrade as TrainingGroundUpgradeDef;
     return `훈련 보상 +${training.trainingRewardBonusPct}% · 일일 훈련 ${training.unlockedDrillCount}회`;
+  }
+  if (buildingId === "map_workshop") {
+    const map = upgrade as MapWorkshopUpgradeDef;
+    return `지도 조각 비용 -${map.fragmentDiscountPct}%`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p`;

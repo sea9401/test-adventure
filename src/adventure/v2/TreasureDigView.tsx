@@ -27,8 +27,33 @@ export type DugAntique = {
 };
 
 export type OpenOutcome =
-  | { ok: true; resumed: boolean; site: TreasureSitePublic; fragments?: number }
-  | { ok: false; reason: "not_enough_fragments" | "error"; fragments?: number };
+  | {
+      ok: true;
+      resumed: boolean;
+      site: TreasureSitePublic;
+      fragments?: number;
+      needed?: number;
+      baseNeeded?: number;
+      mapWorkshopLevel?: number;
+      discountPct?: number;
+    }
+  | {
+      ok: false;
+      reason: "not_enough_fragments" | "error";
+      fragments?: number;
+      needed?: number;
+      baseNeeded?: number;
+      mapWorkshopLevel?: number;
+      discountPct?: number;
+    };
+
+export type TreasureFragmentStatus = {
+  fragments: number;
+  needed: number;
+  baseNeeded: number;
+  mapWorkshopLevel: number;
+  discountPct: number;
+};
 
 export type DigOutcome =
   | { outcome: "hit"; clue: DigClue; antique: DugAntique; codexCount: number }
@@ -46,7 +71,7 @@ export type TreasureHandlers = {
   open: () => Promise<OpenOutcome>;
   dig: (siteId: string, cell: number) => Promise<DigOutcome>;
   /** 보유 지도 조각 수 조회(표시용). 없으면 조각 수를 숨긴다. */
-  loadFragments?: () => Promise<number | null>;
+  loadFragments?: () => Promise<TreasureFragmentStatus | null>;
   /** 진행 중 발굴 세션 복원(읽기 전용). 마운트 시 격자를 이어 그린다. 없으면 복원 안 함. */
   loadSession?: () => Promise<TreasureSitePublic | null>;
 };
@@ -111,14 +136,24 @@ export function TreasureDigView({
   const [notice, setNotice] = useState<string | null>(null);
   // 보유 지도 조각 — 마운트 시 조회, open 응답(소비 후 잔량/부족 시 현재량)으로 갱신.
   const [fragments, setFragments] = useState<number | null>(null);
+  const [fragmentCost, setFragmentCost] = useState(FRAGMENTS_PER_MAP);
+  const [baseFragmentCost, setBaseFragmentCost] = useState(FRAGMENTS_PER_MAP);
+  const [mapWorkshopLevel, setMapWorkshopLevel] = useState(0);
+  const [discountPct, setDiscountPct] = useState(0);
   // 세션 복원 진행 중 — loadSession 결과 전까지 시작 화면이 깜빡이지 않게 가린다.
   const [restoring, setRestoring] = useState(Boolean(loadSession));
 
   useEffect(() => {
     if (!loadFragments) return;
     let alive = true;
-    void loadFragments().then((n) => {
-      if (alive && typeof n === "number") setFragments(n);
+    void loadFragments().then((status) => {
+      if (alive && status) {
+        setFragments(status.fragments);
+        setFragmentCost(status.needed);
+        setBaseFragmentCost(status.baseNeeded);
+        setMapWorkshopLevel(status.mapWorkshopLevel);
+        setDiscountPct(status.discountPct);
+      }
     });
     return () => {
       alive = false;
@@ -152,10 +187,15 @@ export function TreasureDigView({
     try {
       const r = await open();
       if (typeof r.fragments === "number") setFragments(r.fragments);
+      if (typeof r.needed === "number") setFragmentCost(r.needed);
+      if (typeof r.baseNeeded === "number") setBaseFragmentCost(r.baseNeeded);
+      if (typeof r.mapWorkshopLevel === "number") setMapWorkshopLevel(r.mapWorkshopLevel);
+      if (typeof r.discountPct === "number") setDiscountPct(r.discountPct);
       if (!r.ok) {
+        const needed = r.needed ?? fragmentCost;
         setNotice(
           r.reason === "not_enough_fragments"
-            ? `지도 조각이 부족합니다 (${r.fragments ?? 0}/${FRAGMENTS_PER_MAP}). 낚시·사냥으로 모으세요.`
+            ? `지도 조각이 부족합니다 (${r.fragments ?? 0}/${needed}). 낚시·사냥으로 모으세요.`
             : "발굴 지점을 열 수 없습니다.",
         );
       } else {
@@ -167,7 +207,7 @@ export function TreasureDigView({
     } finally {
       setBusy(false);
     }
-  }, [open]);
+  }, [fragmentCost, open]);
 
   const handleDig = useCallback(
     async (cell: number) => {
@@ -208,6 +248,8 @@ export function TreasureDigView({
   if (grid) for (const d of grid.digs) clueByCell.set(d.cell, d.clue);
   const treasureCell = result?.treasureCell ?? -1;
   const digsRemaining = grid ? grid.digsAllowed - grid.digsUsed : 0;
+  const hasWorkshopDiscount =
+    mapWorkshopLevel > 0 && discountPct > 0 && fragmentCost < baseFragmentCost;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -247,7 +289,7 @@ export function TreasureDigView({
           </p>
           <ol className="list-decimal space-y-1.5 pl-4">
             <li>
-              지도 조각 {FRAGMENTS_PER_MAP}개로 발굴 지점을 엽니다. (조각은 낚시·사냥에서 모여요)
+              지도 조각 {fragmentCost}개로 발굴 지점을 엽니다. (조각은 낚시·사냥에서 모여요)
             </li>
             <li>
               {GRID_SIZE}×{GRID_SIZE} 격자에서 칸을 골라 최대 {DIGS_ALLOWED}번까지 파볼 수 있어요.
@@ -269,6 +311,12 @@ export function TreasureDigView({
             단서로 매장지를 정확히 파내면 골동품 발굴 성공! 무엇이 묻혔는지(희귀도·보존상태)는
             운이라 파봐야 압니다.
           </p>
+          {hasWorkshopDiscount && (
+            <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300">
+              지도 제작소 Lv {mapWorkshopLevel} 효과: 기본 {baseFragmentCost}개 →{" "}
+              {fragmentCost}개 (-{discountPct}%)
+            </p>
+          )}
         </div>
       )}
 
@@ -363,15 +411,15 @@ export function TreasureDigView({
       {(!grid || result) && !restoring ? (
         <button
           type="button"
-          disabled={busy || (fragments !== null && fragments < FRAGMENTS_PER_MAP)}
+          disabled={busy || (fragments !== null && fragments < fragmentCost)}
           onClick={handleOpen}
           className="ui-lift-card w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-zinc-50 transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
           {busy
             ? "여는 중…"
-            : fragments !== null && fragments < FRAGMENTS_PER_MAP
-              ? `지도 조각 부족 (${fragments}/${FRAGMENTS_PER_MAP})`
-              : `${result ? "다시 발굴하기" : "발굴 지점 열기"} (지도 조각 ${FRAGMENTS_PER_MAP}개)`}
+            : fragments !== null && fragments < fragmentCost
+              ? `지도 조각 부족 (${fragments}/${fragmentCost})`
+              : `${result ? "다시 발굴하기" : "발굴 지점 열기"} (지도 조각 ${fragmentCost}개)`}
         </button>
       ) : null}
     </main>

@@ -23,7 +23,7 @@ import {
 } from "@/adventure/data/v2/tileWarfare";
 
 // POST /api/v2/outpost/village/building/place — body { outpostId, slot, buildingId }
-// 해금된 건축물 슬롯에 영지 건물을 배치한다. 현재는 길드 대장간만 배치 가능하고 효과는 후속 연결.
+// 해금된 건축물 슬롯에 영지 건물을 배치한다. 배치 가능 목록은 settlement.ts 카탈로그가 결정한다.
 //   마스터/부마스터 전용. 교체/철거는 아직 없음(이미 배치된 슬롯은 already_occupied).
 export async function POST(req: Request) {
   const userId = await ensureUser();

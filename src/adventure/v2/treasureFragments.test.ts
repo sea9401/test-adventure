@@ -4,9 +4,12 @@ import {
   addFragments,
   assemblableMaps,
   emptyTreasureFragments,
+  fragmentsRequiredForMapWorkshopLevel,
+  mapWorkshopFragmentDiscountPct,
   parseTreasureFragments,
   rollFragmentDrop,
   spendOneMap,
+  spendOneMapWithCost,
 } from "./treasureFragments";
 
 describe("parseTreasureFragments", () => {
@@ -55,6 +58,24 @@ describe("spendOneMap", () => {
   it("K개 이상이면 K 차감", () => {
     expect(spendOneMap({ fragments: FRAGMENTS_PER_MAP })).toEqual({ fragments: 0 });
     expect(spendOneMap({ fragments: FRAGMENTS_PER_MAP + 2 })).toEqual({ fragments: 2 });
+  });
+});
+
+describe("map workshop fragment discount", () => {
+  it("레벨별 할인율과 필요 조각 수를 계산한다", () => {
+    expect(mapWorkshopFragmentDiscountPct(0)).toBe(0);
+    expect(mapWorkshopFragmentDiscountPct(1)).toBe(5);
+    expect(mapWorkshopFragmentDiscountPct(5)).toBe(25);
+    expect(mapWorkshopFragmentDiscountPct(99)).toBe(25);
+    expect(fragmentsRequiredForMapWorkshopLevel(0)).toBe(FRAGMENTS_PER_MAP);
+    expect(fragmentsRequiredForMapWorkshopLevel(1)).toBe(48);
+    expect(fragmentsRequiredForMapWorkshopLevel(5)).toBe(38);
+  });
+
+  it("할인된 비용으로 지도 조각을 소비한다", () => {
+    expect(spendOneMapWithCost({ fragments: 37 }, 38)).toBeNull();
+    expect(spendOneMapWithCost({ fragments: 38 }, 38)).toEqual({ fragments: 0 });
+    expect(spendOneMapWithCost({ fragments: 50 }, 38)).toEqual({ fragments: 12 });
   });
 });
 

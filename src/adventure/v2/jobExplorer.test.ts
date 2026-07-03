@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   JOB_TAG_FILTERS,
+  compareJobExplorerLineOrder,
+  isJobVisibleInShrine,
   jobTags,
   matchesJobExplorerFilters,
   type JobExplorerJob,
@@ -77,5 +79,58 @@ describe("jobExplorer tags", () => {
     expect(jobTags(job("templar", { tier: 3 }))).not.toEqual(
       expect.arrayContaining(["고차", "심화", "최종", "초월", "복합"]),
     );
+  });
+
+  it("growth shrine hides locked jobs until their unlock condition is revealed", () => {
+    expect(
+      isJobVisibleInShrine(
+        job("hidden-master", {
+          unlocked: false,
+          conditionRevealed: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isJobVisibleInShrine(
+        job("revealed-master", {
+          unlocked: false,
+          conditionRevealed: true,
+        }),
+      ),
+    ).toBe(true);
+    expect(isJobVisibleInShrine(job("warrior", { unlocked: true }))).toBe(
+      true,
+    );
+  });
+
+  it("growth shrine orders jobs by job line instead of tier blocks", () => {
+    const ids = [
+      "mage",
+      "shieldman",
+      "warrior",
+      "paladin",
+      "squire",
+      "caster",
+      "guardian",
+      "survivor",
+      "camper",
+    ];
+
+    expect(
+      ids
+        .map((id) => job(id))
+        .sort(compareJobExplorerLineOrder)
+        .map((j) => j.id),
+    ).toEqual([
+      "warrior",
+      "shieldman",
+      "guardian",
+      "squire",
+      "paladin",
+      "mage",
+      "caster",
+      "survivor",
+      "camper",
+    ]);
   });
 });

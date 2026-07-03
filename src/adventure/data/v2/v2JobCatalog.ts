@@ -758,6 +758,22 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 28, str: 8 },
     unlock: { prereqs: { ironknight: TIER6_UNLOCK_CUMLEVEL } },
   },
+  swordsaint: {
+    id: "swordsaint",
+    name: "검성",
+    tier: 6,
+    cultivateProfile: { str: 2, dex: 1, vit: 1 },
+    jobBonus: { str: 28, dex: 8 },
+    unlock: { prereqs: { swordmaster: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  hegemon: {
+    id: "hegemon",
+    name: "패황",
+    tier: 6,
+    cultivateProfile: { str: 2, vit: 1, luk: 1 },
+    jobBonus: { str: 30, vit: 6 },
+    unlock: { prereqs: { overlord: TIER6_UNLOCK_CUMLEVEL } },
+  },
   celestialdragon: {
     id: "celestialdragon",
     name: "천룡권성",
@@ -765,6 +781,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, dex: 1, vit: 1 },
     jobBonus: { str: 27, dex: 9, vit: 4 },
     unlock: { prereqs: { dragonfist: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  vajraarhat: {
+    id: "vajraarhat",
+    name: "금강나한",
+    tier: 6,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { vit: 28, spi: 8 },
+    unlock: { prereqs: { adamantmonk: TIER6_UNLOCK_CUMLEVEL } },
   },
   seagod: {
     id: "seagod",
@@ -985,7 +1009,10 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   bloodlord: { class: "warrior", spec: "bloodlord" },
   // tier 6 — 5차 직업 계승.
   fortressknight: { class: "warrior", spec: "fortressknight" },
+  swordsaint: { class: "warrior", spec: "swordsaint" },
+  hegemon: { class: "warrior", spec: "hegemon" },
   celestialdragon: { class: "martial", spec: "celestialdragon" },
+  vajraarhat: { class: "martial", spec: "vajraarhat" },
   seagod: { class: "survivor", spec: "seagod" },
 };
 

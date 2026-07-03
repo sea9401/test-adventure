@@ -100,7 +100,10 @@ const TIER5_LINEAGE: Record<string, string> = {
 };
 const TIER6_LINEAGE: Record<string, string> = {
   fortressknight: "ironknight",
+  swordsaint: "swordmaster",
+  hegemon: "overlord",
   celestialdragon: "dragonfist",
+  vajraarhat: "adamantmonk",
   seagod: "fullcatchking",
 };
 
@@ -118,8 +121,8 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("75개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 14 + 6차 3)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(75);
+  it("78개 직업(루트 2 + 기본 4 + 상위 13 + 고차 19 + 심화 20 + 5차 14 + 6차 6)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(78);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
@@ -127,7 +130,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(19);
     expect(byTier(4)).toBe(20);
     expect(byTier(5)).toBe(14);
-    expect(byTier(6)).toBe(3);
+    expect(byTier(6)).toBe(6);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -322,11 +325,26 @@ describe("해금 트리", () => {
       spec: "fortressknight",
     });
     expect(jobIdFromLegacy("warrior", "fortressknight")).toBe("fortressknight");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.swordsaint).toEqual({
+      class: "warrior",
+      spec: "swordsaint",
+    });
+    expect(jobIdFromLegacy("warrior", "swordsaint")).toBe("swordsaint");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.hegemon).toEqual({
+      class: "warrior",
+      spec: "hegemon",
+    });
+    expect(jobIdFromLegacy("warrior", "hegemon")).toBe("hegemon");
     expect(LEGACY_CLASS_SPEC_BY_JOB.celestialdragon).toEqual({
       class: "martial",
       spec: "celestialdragon",
     });
     expect(jobIdFromLegacy("martial", "celestialdragon")).toBe("celestialdragon");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.vajraarhat).toEqual({
+      class: "martial",
+      spec: "vajraarhat",
+    });
+    expect(jobIdFromLegacy("martial", "vajraarhat")).toBe("vajraarhat");
     expect(LEGACY_CLASS_SPEC_BY_JOB.seagod).toEqual({
       class: "survivor",
       spec: "seagod",

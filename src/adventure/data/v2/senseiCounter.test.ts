@@ -19,7 +19,7 @@ describe("투승 반격 패시브", () => {
     expect(spCostOf(s)).toBe(6); // 루브릭 8(counterChancePct 30) × 패시브 할인 0.75 → 6
   });
 
-  it("aggregateEquippedPassives 가 counterChancePct 합산", () => {
+  it("aggregateEquippedPassives 가 counterChancePct 를 독립 확률로 결합", () => {
     expect(aggregateEquippedPassives(["v2c_battlemonk_counter"]).counterChancePct).toBe(30);
     // 미장착 = 0(byte-identical 보장).
     expect(aggregateEquippedPassives([]).counterChancePct).toBe(0);

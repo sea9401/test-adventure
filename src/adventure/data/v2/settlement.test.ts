@@ -18,7 +18,9 @@ import {
   SLOT_UNLOCK_GOLD_STEP,
   UPGRADE_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
+  settlementBuildingUpgradeSummary,
   trainingGroundUpgradeForLevel,
 } from "./settlement";
 import { terrainTraitOf } from "./outposts";
@@ -55,6 +57,23 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       trainingRewardBonusPct: 50,
       unlockedDrillCount: 3,
     });
+  });
+
+  it("지도 제작소는 배치 가능 건물이며 Lv5에서 지도 조각 비용 -25%를 연다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("map_workshop");
+    expect(nextSettlementBuildingUpgrade("map_workshop", 1)).toMatchObject({
+      level: 2,
+      fragmentDiscountPct: 10,
+    });
+    expect(mapWorkshopUpgradeForLevel(5)).toMatchObject({
+      fragmentDiscountPct: 25,
+    });
+    expect(
+      settlementBuildingUpgradeSummary(
+        "map_workshop",
+        mapWorkshopUpgradeForLevel(5),
+      ),
+    ).toBe("지도 조각 비용 -25%");
   });
 
   it("INITIAL_UNLOCKED_SLOTS=0 / clampUnlockedSlots — [0, 최대]로 보정", () => {

@@ -24,8 +24,8 @@ import {
 } from "@/adventure/data/v2/tileWarfare";
 
 // POST /api/v2/outpost/village/building/place — body { outpostId, slot, buildingId }
-// 해금된 건축물 슬롯에 영지 건물을 배치한다. 마스터/부마스터 전용.
-//   같은 길드가 이전에 폐기/점령으로 보관한 건물 레벨이 있으면 그 레벨로 복구한다.
+// 해금된 건축물 슬롯에 영지 건물을 배치한다. 배치 가능 목록은 settlement.ts 카탈로그가 결정한다.
+//   마스터/부마스터 전용. 같은 길드가 이전에 폐기/점령으로 보관한 건물 레벨이 있으면 복구한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {

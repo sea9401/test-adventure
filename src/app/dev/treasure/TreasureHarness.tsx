@@ -13,13 +13,16 @@ import {
   type TreasureSession,
 } from "@/adventure/v2/treasureDig";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
-import { spendOneMap } from "@/adventure/v2/treasureFragments";
+import {
+  FRAGMENTS_PER_MAP,
+  spendOneMap,
+} from "@/adventure/v2/treasureFragments";
 
 // /dev/treasure 하니스 — 서버 권위 로직을 클라에서 그대로 재사용(같은 순수 함수 rollNewSession/
-// applyDig). 로그인·DB 없이 발굴 미니게임 UI 만 QA. 지도 조각 15개로 시작, 새로고침 시 초기화.
+// applyDig). 로그인·DB 없이 발굴 미니게임 UI 만 QA. 지도 조각 55개로 시작, 새로고침 시 초기화.
 export function TreasureHarness() {
   const session = useRef<TreasureSession | null>(null);
-  const fragments = useRef({ fragments: 15 });
+  const fragments = useRef({ fragments: 55 });
 
   const open = useCallback(async (): Promise<OpenOutcome> => {
     if (session.current) {
@@ -31,6 +34,10 @@ export function TreasureHarness() {
         ok: false,
         reason: "not_enough_fragments",
         fragments: fragments.current.fragments,
+        needed: FRAGMENTS_PER_MAP,
+        baseNeeded: FRAGMENTS_PER_MAP,
+        mapWorkshopLevel: 0,
+        discountPct: 0,
       };
     }
     fragments.current = spent;
@@ -44,13 +51,20 @@ export function TreasureHarness() {
       resumed: false,
       site: toPublicSite(session.current),
       fragments: spent.fragments,
+      needed: FRAGMENTS_PER_MAP,
+      baseNeeded: FRAGMENTS_PER_MAP,
+      mapWorkshopLevel: 0,
+      discountPct: 0,
     };
   }, []);
 
-  const loadFragments = useCallback(
-    async (): Promise<number | null> => fragments.current.fragments,
-    [],
-  );
+  const loadFragments = useCallback(async () => ({
+    fragments: fragments.current.fragments,
+    needed: FRAGMENTS_PER_MAP,
+    baseNeeded: FRAGMENTS_PER_MAP,
+    mapWorkshopLevel: 0,
+    discountPct: 0,
+  }), []);
 
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
@@ -97,7 +111,7 @@ export function TreasureHarness() {
     <div className="space-y-3">
       <div className="mx-auto max-w-[520px] px-6 pt-4">
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          DEV 하니스 — 서버 없이 로컬 mock(같은 순수 로직). 지도 조각 15개로 시작, 새로고침 시
+          DEV 하니스 — 서버 없이 로컬 mock(같은 순수 로직). 지도 조각 55개로 시작, 새로고침 시
           초기화.
         </div>
       </div>

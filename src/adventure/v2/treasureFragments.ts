@@ -11,6 +11,16 @@ export const TREASURE_FRAGMENTS_KEY = "treasure-fragments.v1";
 // 2026-06-12 사용자 조정: 5→50 (조각 획득량 대비 발굴이 너무 잦음 — 판매 ×100 과 세트).
 export const FRAGMENTS_PER_MAP = 50;
 
+/** 지도 제작소 레벨별 발굴 지도 조각 비용 할인율. */
+export const MAP_WORKSHOP_FRAGMENT_DISCOUNT_PCT: Record<number, number> = {
+  0: 0,
+  1: 5,
+  2: 10,
+  3: 15,
+  4: 20,
+  5: 25,
+};
+
 /** 낚시 챔질 성공 시 조각 드랍 확률 — 주 경로. (다이얼) */
 export const FISHING_FRAGMENT_DROP_CHANCE = 0.12;
 
@@ -44,10 +54,28 @@ export function assemblableMaps(state: TreasureFragments): number {
   return Math.floor(state.fragments / FRAGMENTS_PER_MAP);
 }
 
+export function mapWorkshopFragmentDiscountPct(level: number): number {
+  const safe = Math.max(0, Math.min(5, Math.floor(Number(level) || 0)));
+  return MAP_WORKSHOP_FRAGMENT_DISCOUNT_PCT[safe] ?? 0;
+}
+
+export function fragmentsRequiredForMapWorkshopLevel(level: number): number {
+  const discountPct = mapWorkshopFragmentDiscountPct(level);
+  return Math.max(1, Math.ceil(FRAGMENTS_PER_MAP * (100 - discountPct) / 100));
+}
+
 // 발굴 1회분(K개) 조각 소비(순수). 부족하면 null. 발굴 지점 개방(PR-3 open)에서 사용.
 export function spendOneMap(state: TreasureFragments): TreasureFragments | null {
-  if (state.fragments < FRAGMENTS_PER_MAP) return null;
-  return { fragments: state.fragments - FRAGMENTS_PER_MAP };
+  return spendOneMapWithCost(state, FRAGMENTS_PER_MAP);
+}
+
+export function spendOneMapWithCost(
+  state: TreasureFragments,
+  cost: number,
+): TreasureFragments | null {
+  const needed = Math.max(1, Math.floor(Number(cost) || FRAGMENTS_PER_MAP));
+  if (state.fragments < needed) return null;
+  return { fragments: state.fragments - needed };
 }
 
 // 드랍 굴림 — 성공 시 1개. rng() ∈ [0, 1). chance 는 [0,1] 클램프.

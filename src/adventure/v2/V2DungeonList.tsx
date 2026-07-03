@@ -20,6 +20,9 @@ import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 // 뒤로 갈수록 깊이가 한 화면에 너무 많아지는 걸 테마별로 접어 해소. frontierDepth = 최고 도달
 // 깊이(기본 2). 그 이상은 "도전(미정복)" 구역(= maxDepth+1). 단 MAX_FRONTIER_DEPTH(마지막 테마 끝)에서 캡.
 
+export const DUNGEON_THEME_VISIBILITY_STORAGE_KEY =
+  "adventure.v2.dungeonThemeHiddenStarts";
+
 export function V2DungeonList({
   currentOutpost,
   onSelectFloor,
@@ -50,10 +53,43 @@ export function V2DungeonList({
   // 열린 테마 — 블록의 첫 깊이로 식별(배열 인덱스보다 안정적, frontierDepth 변동에도 견고).
   //   사냥터에서 "뒤로"로 진입 시(initialOpenDepth) 그 테마를 펼친 상태로 시작.
   const [openDepth, setOpenDepth] = useState<number | null>(initialOpenDepth);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hiddenThemeStarts, setHiddenThemeStarts] = useState<Set<number>>(
+    () => new Set(),
+  );
   const openGroup =
     openDepth != null
       ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
       : null;
+  const visibleGroups = groups.filter((g) => !hiddenThemeStarts.has(g.depths[0]));
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(DUNGEON_THEME_VISIBILITY_STORAGE_KEY);
+        setHiddenThemeStarts(parseHiddenThemeStarts(raw));
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  function setHiddenThemes(next: Set<number>) {
+    setHiddenThemeStarts(next);
+    try {
+      if (next.size === 0) {
+        localStorage.removeItem(DUNGEON_THEME_VISIBILITY_STORAGE_KEY);
+      } else {
+        localStorage.setItem(
+          DUNGEON_THEME_VISIBILITY_STORAGE_KEY,
+          JSON.stringify([...next].sort((a, b) => a - b)),
+        );
+      }
+    } catch {}
+  }
+
+  function toggleThemeVisibility(startDepth: number) {
+    setHiddenThemes(toggleHiddenTheme(hiddenThemeStarts, startDepth));
+  }
 
   // 열린 희귀 탐사 — 마운트 1회 조회(판수 소모와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
@@ -121,6 +157,59 @@ export function V2DungeonList({
         // 테마(사냥터) 카드 (+위에 열린 희귀 탐사 섹션).
         <div className="space-y-3">
           <PowerSummary playerPower={playerPower} />
+          <div className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              표시 사냥터 {visibleGroups.length}/{groups.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen((v) => !v)}
+              className="rounded-md border border-zinc-300 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              표시 설정
+            </button>
+          </div>
+          {settingsOpen && (
+            <Card padding="sm" className="space-y-2">
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {groups.map((g) => {
+                  const from = g.depths[0];
+                  const to = g.depths[g.depths.length - 1];
+                  const checked = !hiddenThemeStarts.has(from);
+                  return (
+                    <label
+                      key={from}
+                      className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-zinc-800 dark:text-zinc-100">
+                          {g.name}
+                        </span>
+                        <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleThemeVisibility(from)}
+                        className="h-4 w-4 shrink-0 accent-rose-600"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+              {hiddenThemeStarts.size > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setHiddenThemes(new Set())}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  전체 표시
+                </button>
+              )}
+            </Card>
+          )}
           {onSelectRareMap && rareMaps.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -149,62 +238,104 @@ export function V2DungeonList({
               ))}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            {groups.map((g) => {
-              const hasChallenge = g.depths.includes(challengeDepth);
-              const from = g.depths[0];
-              const to = g.depths[g.depths.length - 1];
-              return (
+          {visibleGroups.length === 0 ? (
+            <Card padding="md">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  표시할 사냥터가 없습니다.
+                </p>
                 <button
-                  key={from}
                   type="button"
-                  onClick={() => setOpenDepth(from)}
-                  className="group block h-full text-left"
+                  onClick={() => setHiddenThemes(new Set())}
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  <Card
-                    padding="sm"
-                    className={`ui-dungeon-card flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
-                      hasChallenge
-                        ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
-                        : "hover:border-rose-300 dark:hover:border-rose-600"
-                    }`}
-                  >
-                    <div
-                      className={`truncate text-sm font-medium transition-colors ${
-                        hasChallenge
-                          ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
-                          : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
-                      }`}
-                    >
-                      {g.name}
-                    </div>
-                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
-                    </div>
-                    <ThemeElementLine depth={from} compact />
-                    {hasChallenge && (
-                      <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                        도전 구역 포함
-                      </div>
-                    )}
-                    <span
-                      className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
-                        hasChallenge
-                          ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
-                          : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
-                      }`}
-                    >
-                      열기
-                    </span>
-                  </Card>
+                  전체 표시
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {visibleGroups.map((g) => {
+                const hasChallenge = g.depths.includes(challengeDepth);
+                const from = g.depths[0];
+                const to = g.depths[g.depths.length - 1];
+                return (
+                  <button
+                    key={from}
+                    type="button"
+                    onClick={() => setOpenDepth(from)}
+                    className="group block h-full text-left"
+                  >
+                    <Card
+                      padding="sm"
+                      className={`ui-dungeon-card flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
+                        hasChallenge
+                          ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
+                          : "hover:border-rose-300 dark:hover:border-rose-600"
+                      }`}
+                    >
+                      <div
+                        className={`truncate text-sm font-medium transition-colors ${
+                          hasChallenge
+                            ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
+                            : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
+                        }`}
+                      >
+                        {g.name}
+                      </div>
+                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
+                      </div>
+                      <ThemeElementLine depth={from} compact />
+                      {hasChallenge && (
+                        <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                          도전 구역 포함
+                        </div>
+                      )}
+                      <span
+                        className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
+                          hasChallenge
+                            ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
+                            : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
+                        }`}
+                      >
+                        열기
+                      </span>
+                    </Card>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </main>
   );
+}
+
+export function toggleHiddenTheme(
+  hidden: ReadonlySet<number>,
+  startDepth: number,
+): Set<number> {
+  const next = new Set(hidden);
+  if (next.has(startDepth)) next.delete(startDepth);
+  else next.add(startDepth);
+  return next;
+}
+
+export function parseHiddenThemeStarts(raw: string | null): Set<number> {
+  try {
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    if (!Array.isArray(parsed)) return new Set();
+    const next = new Set<number>();
+    for (const value of parsed) {
+      const n = Math.floor(Number(value));
+      if (Number.isFinite(n) && n > 0) next.add(n);
+    }
+    return next;
+  } catch {
+    return new Set();
+  }
 }
 
 // 깊이 1개 카드 — 입장. (이너 뷰에서 테마의 각 깊이.)

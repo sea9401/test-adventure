@@ -767,7 +767,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.elementDisPctBonus)
     chips.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
   if (p.poisonedEnemyDefReductionPct)
-    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct}%`);
+    chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * 3}%`);
   if (p.berserkAtkPctPerLostHpPct)
     chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
   if (p.enemyMagicVulnPctPerStack)

@@ -58,7 +58,7 @@ export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   1: "들판 I~III",
   2: "마른 협곡~심층 동굴",
   3: "잊힌 성소~짐승의 소굴",
-  4: "검은 왕도~백골 고원",
+  4: "검은 왕도~심해 폐허",
 };
 
 export function v2EquipDisplayTierOf(
@@ -271,7 +271,7 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(전투시작/저체력/회복/회피/크리/피격/스킬시전/상태방어/N타마다).
+//   트리거가 있다(전투시작/저체력/회복/회피/크리/적중/피격/스킬시전/상태방어/N타마다).
 //   docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
@@ -282,6 +282,7 @@ export type SignatureTrigger =
   | "on_heal"
   | "on_dodge"
   | "on_crit"
+  | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
   | "status_block_once"
@@ -304,6 +305,14 @@ export type SignatureEffect = {
   poisonOnCrit?: boolean;
   /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
   chillSlowPct?: number;
+  /** on_hit: 공격 적중 시 대상에게 중독을 부여할 확률. */
+  poisonChancePct?: number;
+  /** on_hit: 공격 적중 시 부여하는 중독 스택 수. 기본 1. */
+  poisonStacks?: number;
+  /** on_hit: 공격 적중 시 대상에게 감전(둔화)을 부여할 확률. */
+  shockChancePct?: number;
+  /** on_hit: 감전 발동 시 적 속도 −% (buffActions 행동). */
+  shockSlowPct?: number;
   /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
   defGainOnHitPct?: number;
   /** battle_start: 전투 시작 시 maxHp 의 이 % 만큼 보호막 생성. */
@@ -339,6 +348,12 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";
+    case "on_hit":
+      if (sig.poisonChancePct)
+        return `공격 적중 시 ${sig.poisonChancePct}% 확률로 중독 ${sig.poisonStacks ?? 1}스택`;
+      if (sig.shockChancePct)
+        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 속도 −${sig.shockSlowPct ?? 0}% (${sig.buffActions ?? 1}행동)`;
+      return "공격 적중 시 발동";
     case "on_hit_taken":
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
     case "on_skill_cast":
@@ -631,6 +646,54 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     thresholds: [
       { count: 2, bonus: { crit: 7, critMult: 35, spd: 7 } },
       { count: 3, bonus: { crit: 11, eva: 9, critMult: 60, spd: 12 } },
+    ],
+  },
+  {
+    id: "storm_guard",
+    name: "폭풍 수호",
+    thresholds: [
+      { count: 2, bonus: { hp: 210, def: 30, critResist: 8 } },
+      { count: 3, bonus: { hp: 360, def: 54, magicDef: 20, critResist: 13 } },
+    ],
+  },
+  {
+    id: "lightning_rite",
+    name: "낙뢰 의식",
+    thresholds: [
+      { count: 2, bonus: { mp: 190, healPowerPct: 6, magicDef: 18 } },
+      { count: 3, bonus: { mp: 290, healPowerPct: 11, magicDef: 32, critResist: 6 } },
+    ],
+  },
+  {
+    id: "cliff_hunt",
+    name: "절벽 추격",
+    thresholds: [
+      { count: 2, bonus: { crit: 8, critMult: 40, spd: 8 } },
+      { count: 3, bonus: { crit: 12, eva: 10, critMult: 65, spd: 14 } },
+    ],
+  },
+  {
+    id: "trench_guard",
+    name: "해구 수호",
+    thresholds: [
+      { count: 2, bonus: { hp: 240, def: 34, critResist: 9 } },
+      { count: 3, bonus: { hp: 410, def: 60, magicDef: 24, critResist: 15 } },
+    ],
+  },
+  {
+    id: "deep_rite",
+    name: "해연 의식",
+    thresholds: [
+      { count: 2, bonus: { mp: 210, healPowerPct: 7, magicDef: 20 } },
+      { count: 3, bonus: { mp: 320, healPowerPct: 12, magicDef: 36, critResist: 7 } },
+    ],
+  },
+  {
+    id: "undertow_hunt",
+    name: "암류 추격",
+    thresholds: [
+      { count: 2, bonus: { crit: 9, critMult: 45, spd: 9 } },
+      { count: 3, bonus: { crit: 13, eva: 11, critMult: 70, spd: 15 } },
     ],
   },
 ];

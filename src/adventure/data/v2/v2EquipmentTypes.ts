@@ -47,6 +47,7 @@ export type SignatureTrigger =
   | "on_heal"
   | "on_dodge"
   | "on_crit"
+  | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
   | "status_block_once"
@@ -62,6 +63,10 @@ export type SignatureEffect = {
   healPct?: number;
   poisonOnCrit?: boolean;
   chillSlowPct?: number;
+  poisonChancePct?: number;
+  poisonStacks?: number;
+  shockChancePct?: number;
+  shockSlowPct?: number;
   defGainOnHitPct?: number;
   battleStartShieldPctMaxHp?: number;
   mpRefundPctOfCost?: number;

@@ -377,7 +377,14 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(
       isQuestClaimable(
         questById("a_depth48")!,
-        { ...ZERO, frontierDepth: 48 },
+        { ...ZERO, frontierDepth: 71 },
+        new Set(["a_depth25", "a_depth40"]),
+      ),
+    ).toBe(false);
+    expect(
+      isQuestClaimable(
+        questById("a_depth48")!,
+        { ...ZERO, frontierDepth: 72 },
         new Set(["a_depth25", "a_depth40"]),
       ),
     ).toBe(true);
@@ -437,7 +444,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       level: 100,
       tier: 4,
       battleCount: 999,
-      frontierDepth: 48,
+      frontierDepth: 72,
       equippedCount: 6,
       uniqueOwned: 5,
       cultivations: 9,

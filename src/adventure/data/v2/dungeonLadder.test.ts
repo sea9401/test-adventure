@@ -112,7 +112,7 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     expect(floorExpMult(999)).toBe(REWARD_EXP_MULT_CAP);
     expect(REWARD_EXP_MULT_CAP).toBe(30);
     // 전 구간 단조 증가(절벽 없음) — 소프트캡 경계 포함.
-    for (let d = 2; d <= 60; d++) {
+    for (let d = 2; d <= 72; d++) {
       expect(floorExpMult(d)).toBeGreaterThanOrEqual(floorExpMult(d - 1));
     }
     // 소프트캡 경계 연속성 — 기울기는 꺾이되 점프(절벽) 없음.

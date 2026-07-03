@@ -110,6 +110,24 @@ const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
   { key: "백골 군주", name: "백골 군주", image: "/images/monster/v2/bone-lord.webp", element: "earth", statusSkill: "mob_rending_claw" },
 ];
 
+// 폭풍 산맥 — 고산 폭풍지대. 61~66 권장 전투력 3400~3900, 고회피·감전·돌진 압박.
+const BAND_J_STORM_MOUNTAIN_ENEMIES: DungeonEnemy[] = [
+  { key: "뇌운 절벽늑대", name: "뇌운 절벽늑대", image: "/images/monster/v2/stormcloud-cliff-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
+  { key: "폭풍뿔 거수", name: "폭풍뿔 거수", image: "/images/monster/v2/stormhorn-behemoth.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
+  { key: "칼바람 약탈대장", name: "칼바람 약탈대장", image: "/images/monster/v2/coldwind-raider-captain.webp", element: "wind" },
+  { key: "바위등 수호수", name: "바위등 수호수", image: "/images/monster/v2/rockback-guardian-beast.webp", element: "earth" },
+  { key: "낙뢰 예언자", name: "낙뢰 예언자", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
+];
+
+// 심해 폐허 — 잠긴 고대 폐허. 67~72 권장 전투력 4000~4500, 물·공허·별빛 마법 압박.
+const BAND_K_ABYSS_RUINS_ENEMIES: DungeonEnemy[] = [
+  { key: "해연 추적자", name: "해연 추적자", image: "/images/monster/v2/abyssal-pursuer.webp", element: "water", statusSkill: "mob_chilling_touch" },
+  { key: "청독 집게왕", name: "청독 집게왕", image: "/images/monster/v2/blue-venom-pincer-king.webp", element: "earth", statusSkill: "mob_venom_bite" },
+  { key: "침몰한 원혼", name: "침몰한 원혼", image: "/images/monster/v2/sunken-wraith.webp", element: "void", statusSkill: "mob_rending_claw", castSkill: "mob_arcane_burst" },
+  { key: "해구의 사도", name: "해구의 사도", image: "/images/monster/v2/trench-apostle.webp", element: "starlight", castSkill: "mob_arcane_burst" },
+  { key: "암류 파수병", name: "암류 파수병", image: "/images/monster/v2/undertow-sentinel.webp", element: "void", statusSkill: "mob_rending_claw" },
+];
+
 // 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
 export const MAIN_DUNGEON: Dungeon = {
   id: "main",
@@ -125,12 +143,13 @@ export const MAIN_DUNGEON: Dungeon = {
 };
 
 // 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판 onboarding 풀도 6깊이.
-// 마지막 테마(백골 고원)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
+// 마지막 테마(심해 폐허)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
 // "테마명 + 테마 내 로컬 번호(1~6)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
 // 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
 // 2026-06-28: 검은 왕도(43~48) 추가. 43+ 는 dungeonLadder 의 엔드 확장 램프로 권장 전투력 1500대.
 // 2026-06-30: 붉은 벌판(49~54)·백골 고원(55~60) 추가.
+// 2026-07-04: 폭풍 산맥(61~66)·심해 폐허(67~72) 추가.
 export const THEME_DEPTH_SPAN = 6;
 const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
@@ -142,7 +161,9 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 37~42
   { name: "검은 왕도", enemies: BAND_G_BLACK_THRONE_ENEMIES }, // 43~48
   { name: "붉은 벌판", enemies: BAND_H_RED_FIELD_ENEMIES }, // 49~54
-  { name: "백골 고원", enemies: BAND_I_BONE_PLATEAU_ENEMIES }, // 55~60 (마지막 테마 = 프론티어 끝)
+  { name: "백골 고원", enemies: BAND_I_BONE_PLATEAU_ENEMIES }, // 55~60
+  { name: "폭풍 산맥", enemies: BAND_J_STORM_MOUNTAIN_ENEMIES }, // 61~66
+  { name: "심해 폐허", enemies: BAND_K_ABYSS_RUINS_ENEMIES }, // 67~72 (마지막 테마 = 프론티어 끝)
 ];
 
 // 프론티어 최대 깊이 = 마지막 테마의 끝(테마수 × 6). 2026-06-19 오너 결정 = 마지막 테마를

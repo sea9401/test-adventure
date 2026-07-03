@@ -262,6 +262,44 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_plateau_lord_necklace",
     ],
   },
+  {
+    // 폭풍 산맥(61~66) — 고산 폭풍·절벽 사냥 테마 상위 T12 엔드 장비.
+    minDepth: 61,
+    maxDepth: 66,
+    ids: [
+      "v2_stormpeak_greatsword",
+      "v2_stormpeak_staff",
+      "v2_stormpeak_bow",
+      "v2_stormpeak_dagger",
+      "v2_stormpeak_guard_armor",
+      "v2_stormpeak_oracle_robe",
+      "v2_stormpeak_guard_gloves",
+      "v2_stormpeak_raider_gloves",
+      "v2_stormpeak_guard_boots",
+      "v2_stormpeak_gale_boots",
+      "v2_stormpeak_thunder_ring",
+      "v2_stormpeak_banner_necklace",
+    ],
+  },
+  {
+    // 심해 폐허(67~72) — 해연·청독·암류 테마 상위 T12 엔드 장비.
+    minDepth: 67,
+    maxDepth: 72,
+    ids: [
+      "v2_abyssruin_greatsword",
+      "v2_abyssruin_staff",
+      "v2_abyssruin_bow",
+      "v2_abyssruin_dagger",
+      "v2_abyssruin_guard_armor",
+      "v2_abyssruin_apostle_robe",
+      "v2_abyssruin_guard_gloves",
+      "v2_abyssruin_pincer_gloves",
+      "v2_abyssruin_guard_boots",
+      "v2_abyssruin_current_boots",
+      "v2_abyssruin_tide_ring",
+      "v2_abyssruin_sentinel_necklace",
+    ],
+  },
 ];
 
 // 흔한 밴드 장비 드랍률 — 모든 테마에서 로컬 깊이 기준으로 통일한다.
@@ -308,7 +346,7 @@ export type BandUniquePool = {
 // 🔑 유니크 재정의(2026-06-26·docs/v2-signature-uniques-plan.md): 옛 필드 유니크(굴림 사이드그레이드)는
 //   특별하지 않아 `common`(일반)으로 강등 → BAND_COMMON_POOLS 로 이동. 유니크 풀엔 **이름 있는
 //   고유 아이템(Signature)** 만 남아 "유니크 = 정말 특별한 것"이 됨. 게이트 = **잊힌 성소(25)부터** —
-//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~60 = 밴드당 고유 5종, chance 0.00015(밴드유니크보다
+//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~72 = 밴드당 고유 5종, chance 0.00015(밴드유니크보다
 //   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
 export const SIGNATURE_UNIQUE_CHANCE = 0.00015; // 고유 아이템 총 드랍률(밴드당)·다이얼. 0.0005→0.0002→0.00015(더 귀하게).
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
@@ -392,6 +430,32 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_plateau_sig_bone_lord_plate",
       "v2_plateau_sig_rider_boots",
       "v2_plateau_sig_cairn_crown",
+    ],
+  },
+  {
+    // 폭풍 산맥(61~66) 고유 5종 — 고산 폭풍·절벽 사냥.
+    minDepth: 61,
+    maxDepth: 66,
+    chance: SIGNATURE_UNIQUE_CHANCE,
+    ids: [
+      "v2_stormpeak_sig_wolf_dagger",
+      "v2_stormpeak_sig_stormhorn_plate",
+      "v2_stormpeak_sig_raider_bow",
+      "v2_stormpeak_sig_oracle_staff",
+      "v2_stormpeak_sig_thunder_ring",
+    ],
+  },
+  {
+    // 심해 폐허(67~72) 고유 5종 — 해연·청독·암류.
+    minDepth: 67,
+    maxDepth: 72,
+    chance: SIGNATURE_UNIQUE_CHANCE,
+    ids: [
+      "v2_abyssruin_sig_pursuer_bow",
+      "v2_abyssruin_sig_pincer_gloves",
+      "v2_abyssruin_sig_sunken_robe",
+      "v2_abyssruin_sig_apostle_staff",
+      "v2_abyssruin_sig_sentinel_plate",
     ],
   },
 ];

@@ -34,9 +34,13 @@ import {
   everyNHitsValue,
   firesOnCritPoison,
   formatChillSlowLog,
+  formatShockSlowLog,
   onCritEnemyChill,
   onCritSpeedBuff,
+  rollOnHitPoison,
+  rollOnHitShock,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import {
   CRIT_PCT_CAP,
@@ -764,15 +768,31 @@ export function resolvePlayerPhase(
     critRoll,
     sigDealtDamage,
   );
-  const sigEnemyDots = sigCritPoison
-    ? applyV2DotsToTarget(state.enemyV2Dots, [
-        makePoisonDot({
-          stacks: 1,
-          pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-          sourceAtk: player.atk,
-        }),
-      ])
-    : state.enemyV2Dots;
+  const sigHitPoison = rollOnHitPoison(player.equipSignatures, sigDealtDamage);
+  const sigPoisonDots = [
+    ...(sigCritPoison
+      ? [
+          makePoisonDot({
+            stacks: 1,
+            pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: player.atk,
+          }),
+        ]
+      : []),
+    ...(sigHitPoison
+      ? [
+          makePoisonDot({
+            stacks: sigHitPoison.stacks,
+            pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: player.atk,
+          }),
+        ]
+      : []),
+  ];
+  const sigEnemyDots =
+    sigPoisonDots.length > 0
+      ? applyV2DotsToTarget(state.enemyV2Dots, sigPoisonDots)
+      : state.enemyV2Dots;
   // 시그니처 발동 시 속도 버프 병합 — 기존 버프(폭주 등)보다 약하면 유지(Math.max·미감소).
   const sigSpdActiveMult =
     nextBuffsTimed.playerSpdTurnsLeft > 0 ? nextBuffsTimed.playerSpdMult : 1;
@@ -791,6 +811,7 @@ export function resolvePlayerPhase(
     critRoll,
     sigDealtDamage,
   );
+  const sigHitShock = rollOnHitShock(player.equipSignatures, sigDealtDamage);
   const sigEnemySlowActiveMult =
     nextBuffsTimed.enemySpdTurnsLeft > 0 ? nextBuffsTimed.enemySpdMult : 1;
   const sigChillDebuff = sigCritChill
@@ -802,10 +823,28 @@ export function resolvePlayerPhase(
         ),
       }
     : null;
+  const sigShockDebuff = sigHitShock
+    ? {
+        enemySpdMult: Math.min(
+          sigChillDebuff?.enemySpdMult ?? sigEnemySlowActiveMult,
+          sigHitShock.mult,
+        ),
+        enemySpdTurnsLeft: Math.max(
+          sigChillDebuff?.enemySpdTurnsLeft ?? nextBuffsTimed.enemySpdTurnsLeft,
+          sigHitShock.turns,
+        ),
+      }
+    : null;
   if (sigCritPoison) {
     log = appendLog(log, {
       kind: "info",
       text: `[독니] ${state.enemy.name}을(를) 중독시켰다!`,
+    });
+  }
+  if (sigHitPoison) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigHitPoison.label}] ${state.enemy.name}에게 중독 ${sigHitPoison.stacks}스택을 남겼다.`,
     });
   }
   if (sigSpdBuff) {
@@ -818,6 +857,12 @@ export function resolvePlayerPhase(
     log = appendLog(log, {
       kind: "info",
       text: formatChillSlowLog(state.enemy.name, sigCritChill),
+    });
+  }
+  if (sigHitShock) {
+    log = appendLog(log, {
+      kind: "info",
+      text: formatShockSlowLog(state.enemy.name, sigHitShock),
     });
   }
   // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
@@ -846,6 +891,8 @@ export function resolvePlayerPhase(
       ...(sigSpdBuff ?? {}),
       // 고유 시그니처 on-crit 한기(동결의 갑주) 적 둔화 — 미발동이면 빈 객체(불변).
       ...(sigChillDebuff ?? {}),
+      // 고유 시그니처 on-hit 감전 적 둔화 — 한기와 같은 enemySpd 슬롯에 가장 강한 슬로우로 병합.
+      ...(sigShockDebuff ?? {}),
     },
     stacks: {
       ...state.stacks,

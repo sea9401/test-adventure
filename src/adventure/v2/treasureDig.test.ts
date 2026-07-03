@@ -8,6 +8,7 @@ import {
   clueForDistance,
   parseTreasureSession,
   rollNewSession,
+  treasureConditionAfterHit,
   toPublicSite,
   type TreasureSession,
 } from "./treasureDig";
@@ -17,6 +18,7 @@ import { isAntiqueId } from "@/adventure/data/v2/antique";
 function sessionWith(treasureCell: number): TreasureSession {
   return {
     siteId: "s1",
+    siteOptionId: "old_market",
     gridSize: GRID_SIZE,
     treasureCell,
     antiqueId: "clay_shard",
@@ -90,17 +92,36 @@ describe("rollNewSession / toPublicSite", () => {
     expect(s.treasureCell).toBeGreaterThanOrEqual(0);
     expect(s.treasureCell).toBeLessThan(TOTAL_CELLS);
     expect(isAntiqueId(s.antiqueId)).toBe(true);
-    expect(s.digsAllowed).toBe(DIGS_ALLOWED);
+    expect(s.digsAllowed).toBe(DIGS_ALLOWED + 1);
     const pub = toPublicSite(s);
     expect(pub).not.toHaveProperty("treasureCell");
     expect(pub).not.toHaveProperty("antiqueId");
     expect(pub).not.toHaveProperty("condition");
+    expect(pub.siteOption.name).toBeTruthy();
     expect(pub.digsUsed).toBe(0);
   });
 
   it("rng 0 → 매장지 0번 셀", () => {
     const s = rollNewSession({ siteId: "x", rng: () => 0, now: 0 });
     expect(s.treasureCell).toBe(0);
+  });
+
+  it("탐사지 선택은 세션에 박제되고 발굴 횟수 modifier 를 적용한다", () => {
+    const s = rollNewSession({
+      siteId: "royal",
+      siteOptionId: "royal_tomb",
+      rng: () => 0.5,
+      now: 0,
+    });
+    expect(s.siteOptionId).toBe("royal_tomb");
+    expect(s.digsAllowed).toBe(DIGS_ALLOWED - 1);
+    expect(toPublicSite(s).siteOption.id).toBe("royal_tomb");
+  });
+
+  it("적은 횟수로 적중하면 남은 발굴 횟수만큼 보존상태 보너스를 준다", () => {
+    const hit = applyDig(sessionWith(12), 12);
+    expect(hit.kind).toBe("hit");
+    expect(treasureConditionAfterHit(hit.session)).toBe(65);
   });
 });
 
@@ -115,6 +136,12 @@ describe("parseTreasureSession", () => {
     const s = rollNewSession({ siteId: "rt", rng: () => 0.3, now: 5 });
     const withDig = applyDig(s, 0).session;
     expect(parseTreasureSession(withDig)).toEqual(withDig);
+  });
+
+  it("구버전 세션처럼 siteOptionId 가 없어도 기본 탐사지로 복구한다", () => {
+    const s = rollNewSession({ siteId: "legacy", rng: () => 0.3, now: 5 });
+    const parsed = parseTreasureSession({ ...s, siteOptionId: undefined });
+    expect(parsed?.siteOptionId).toBe("old_market");
   });
 
   it("위조 가드: 범위 밖 매장지 / 미지 골동품 / 중복 dig 셀 / 예산 초과", () => {

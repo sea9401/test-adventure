@@ -8,6 +8,7 @@ import {
   applyDig,
   parseTreasureSession,
   toPublicSite,
+  treasureConditionAfterHit,
 } from "@/adventure/v2/treasureDig";
 import {
   TREASURE_COLLECTION_KEY,
@@ -76,10 +77,11 @@ export async function POST(req: Request) {
     }
 
     if (dig.kind === "hit") {
+      const finalCondition = treasureConditionAfterHit(dig.session);
       const instance: AntiqueInstance = {
         instanceId: generateAntiqueInstanceId(),
         antiqueId: session.antiqueId,
-        condition: session.condition,
+        condition: finalCondition,
         foundAt: now,
       };
       // 보관함에 인스턴스 추가.
@@ -96,10 +98,10 @@ export async function POST(req: Request) {
       const codex = parseTreasureCodex(
         await lockSaveForUpdate(tx, userId, TREASURE_CODEX_KEY, {}),
       );
-      const nextCodex = recordFind(codex, session.antiqueId, session.condition, now);
+      const nextCodex = recordFind(codex, session.antiqueId, finalCondition, now);
       await upsertSave(tx, userId, TREASURE_CODEX_KEY, nextCodex);
       // 주간 발굴가치 점수 += 결정적 감정가(주간 랭킹 원천, PR-7). 같은 tx 원자 증가.
-      const appraisedValue = appraiseValue(session.antiqueId, session.condition);
+      const appraisedValue = appraiseValue(session.antiqueId, finalCondition);
       await addTreasureScore(
         tx,
         userId,
@@ -118,7 +120,8 @@ export async function POST(req: Request) {
           antiqueId: a.id,
           name: a.name,
           tier: a.tier,
-          condition: session.condition,
+          condition: finalCondition,
+          conditionBonus: Math.max(0, finalCondition - session.condition),
           appraisedValue,
         },
         codexCount: countDiscoveredAntiques(nextCodex),

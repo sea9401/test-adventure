@@ -1,16 +1,20 @@
 "use client";
 
-import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
+import {
+  TREASURE_SELL_GOLD_MULT,
+  formatCondition,
+} from "@/adventure/data/v2/antique";
 
 import { useCallback, useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   DIG_CLUE_LABEL,
-  DIGS_ALLOWED,
   GRID_SIZE,
+  TREASURE_SITE_OPTIONS,
   type DigClue,
   type TreasureSitePublic,
+  type TreasureSiteOptionId,
 } from "./treasureDig";
 import { FRAGMENTS_PER_MAP } from "./treasureFragments";
 
@@ -23,6 +27,7 @@ export type DugAntique = {
   name: string;
   tier: string;
   condition: number;
+  conditionBonus?: number;
   appraisedValue: number;
 };
 
@@ -68,7 +73,7 @@ export type DigOutcome =
   | { outcome: "error" };
 
 export type TreasureHandlers = {
-  open: () => Promise<OpenOutcome>;
+  open: (siteOptionId: TreasureSiteOptionId) => Promise<OpenOutcome>;
   dig: (siteId: string, cell: number) => Promise<DigOutcome>;
   /** 보유 지도 조각 수 조회(표시용). 없으면 조각 수를 숨긴다. */
   loadFragments?: () => Promise<TreasureFragmentStatus | null>;
@@ -140,6 +145,8 @@ export function TreasureDigView({
   const [baseFragmentCost, setBaseFragmentCost] = useState(FRAGMENTS_PER_MAP);
   const [mapWorkshopLevel, setMapWorkshopLevel] = useState(0);
   const [discountPct, setDiscountPct] = useState(0);
+  const [selectedSiteOptionId, setSelectedSiteOptionId] =
+    useState<TreasureSiteOptionId>(TREASURE_SITE_OPTIONS[0].id);
   // 세션 복원 진행 중 — loadSession 결과 전까지 시작 화면이 깜빡이지 않게 가린다.
   const [restoring, setRestoring] = useState(Boolean(loadSession));
 
@@ -170,6 +177,7 @@ export function TreasureDigView({
       .then((s) => {
         if (alive && s) {
           setSite(s);
+          setSelectedSiteOptionId(s.siteOption.id);
           setResult(null);
         }
       })
@@ -185,7 +193,7 @@ export function TreasureDigView({
     setBusy(true);
     setNotice(null);
     try {
-      const r = await open();
+      const r = await open(selectedSiteOptionId);
       if (typeof r.fragments === "number") setFragments(r.fragments);
       if (typeof r.needed === "number") setFragmentCost(r.needed);
       if (typeof r.baseNeeded === "number") setBaseFragmentCost(r.baseNeeded);
@@ -200,6 +208,7 @@ export function TreasureDigView({
         );
       } else {
         setSite(r.site);
+        setSelectedSiteOptionId(r.site.siteOption.id);
         setResult(null);
       }
     } catch {
@@ -207,7 +216,7 @@ export function TreasureDigView({
     } finally {
       setBusy(false);
     }
-  }, [fragmentCost, open]);
+  }, [fragmentCost, open, selectedSiteOptionId]);
 
   const handleDig = useCallback(
     async (cell: number) => {
@@ -283,8 +292,38 @@ export function TreasureDigView({
 
       {/* 발굴 방법 — 아직 발굴 지점을 연 적 없는 첫 화면에서 안내(복원 중엔 깜빡임 방지로 숨김) */}
       {!grid && !restoring && (
-        <div className="ui-treasure-guide rounded-lg border border-zinc-200 bg-white p-4 text-xs leading-relaxed text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="ui-treasure-guide space-y-3 rounded-lg border border-zinc-200 bg-white p-4 text-xs leading-relaxed text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           <p className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            탐사지 선택
+          </p>
+          <div className="grid gap-2 md:grid-cols-3">
+            {TREASURE_SITE_OPTIONS.map((option) => {
+              const selected = selectedSiteOptionId === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setSelectedSiteOptionId(option.id)}
+                  className={`rounded-md border px-3 py-2 text-left transition ${
+                    selected
+                      ? "border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-100"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">
+                    {option.name}
+                  </span>
+                  <span className="mt-1 block text-[11px] opacity-80">
+                    {option.summary}
+                  </span>
+                  <span className="mt-1 block text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                    {option.effectLabel}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             발굴 방법
           </p>
           <ol className="list-decimal space-y-1.5 pl-4">
@@ -292,7 +331,7 @@ export function TreasureDigView({
               지도 조각 {fragmentCost}개로 발굴 지점을 엽니다. (조각은 낚시·사냥에서 모여요)
             </li>
             <li>
-              {GRID_SIZE}×{GRID_SIZE} 격자에서 칸을 골라 최대 {DIGS_ALLOWED}번까지 파볼 수 있어요.
+              {GRID_SIZE}×{GRID_SIZE} 격자에서 칸을 골라 탐사지별 제한 횟수 안에 파볼 수 있어요.
             </li>
             <li>
               파낸 칸이 매장지에서 얼마나 가까운지 알려줍니다 —{" "}
@@ -309,7 +348,7 @@ export function TreasureDigView({
           </p>
           <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
             단서로 매장지를 정확히 파내면 골동품 발굴 성공! 무엇이 묻혔는지(희귀도·보존상태)는
-            운이라 파봐야 압니다.
+            운이라 파봐야 압니다. 빨리 찾아낼수록 보존상태가 조금 더 좋아집니다.
           </p>
           {hasWorkshopDiscount && (
             <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300">
@@ -323,6 +362,13 @@ export function TreasureDigView({
       {/* 격자 — 진행 중이거나 결과 공개 중일 때 */}
       {grid && (
         <div className="space-y-3">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+            <span className="font-semibold">{grid.siteOption.name}</span>
+            <span className="mx-1 text-amber-700/70 dark:text-amber-200/70">
+              ·
+            </span>
+            <span>{grid.siteOption.effectLabel}</span>
+          </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-500 dark:text-zinc-400">
               남은 발굴{" "}
@@ -374,15 +420,26 @@ export function TreasureDigView({
       {/* 결과 카드 */}
       {result?.kind === "hit" && (
         <div className="ui-treasure-result rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-center dark:border-emerald-800 dark:bg-emerald-950/40">
-          <p className="text-xs text-emerald-700 dark:text-emerald-300">발굴 성공!</p>
+          <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            발굴 성공 · 감정 완료
+          </p>
           <p className="mt-1 text-lg font-bold">
             🏺 {result.antique.name}{" "}
             <span className={`text-sm ${TIER_STYLE[result.antique.tier] ?? ""}`}>
               ({TIER_LABEL[result.antique.tier] ?? result.antique.tier})
             </span>
           </p>
+          <p className="mt-1 text-xs font-medium text-zinc-700 dark:text-zinc-200">
+            보존상태 {formatCondition(result.antique.condition)}
+            {result.antique.conditionBonus ? (
+              <span className="text-emerald-700 dark:text-emerald-300">
+                {" "}
+                (+{result.antique.conditionBonus})
+              </span>
+            ) : null}
+          </p>
           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-            보존상태 {result.antique.condition}% · 판매가{" "}
+            감정가 {result.antique.appraisedValue.toLocaleString()} · 판매가{" "}
             {(
               result.antique.appraisedValue * TREASURE_SELL_GOLD_MULT
             ).toLocaleString()}
@@ -419,7 +476,7 @@ export function TreasureDigView({
             ? "여는 중…"
             : fragments !== null && fragments < fragmentCost
               ? `지도 조각 부족 (${fragments}/${fragmentCost})`
-              : `${result ? "다시 발굴하기" : "발굴 지점 열기"} (지도 조각 ${fragmentCost}개)`}
+              : `${result ? "다시 발굴하기" : "탐사지 열기"} (지도 조각 ${fragmentCost}개)`}
         </button>
       ) : null}
     </main>

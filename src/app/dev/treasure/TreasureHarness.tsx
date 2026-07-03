@@ -10,7 +10,9 @@ import {
   applyDig,
   rollNewSession,
   toPublicSite,
+  treasureConditionAfterHit,
   type TreasureSession,
+  type TreasureSiteOptionId,
 } from "@/adventure/v2/treasureDig";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
 import {
@@ -24,7 +26,9 @@ export function TreasureHarness() {
   const session = useRef<TreasureSession | null>(null);
   const fragments = useRef({ fragments: 55 });
 
-  const open = useCallback(async (): Promise<OpenOutcome> => {
+  const open = useCallback(async (
+    siteOptionId: TreasureSiteOptionId,
+  ): Promise<OpenOutcome> => {
     if (session.current) {
       return { ok: true, resumed: true, site: toPublicSite(session.current) };
     }
@@ -43,6 +47,7 @@ export function TreasureHarness() {
     fragments.current = spent;
     session.current = rollNewSession({
       siteId: `${Date.now()}-${Math.random()}`,
+      siteOptionId,
       rng: Math.random,
       now: Date.now(),
     });
@@ -76,6 +81,7 @@ export function TreasureHarness() {
       }
       if (r.kind === "hit") {
         const a = ANTIQUES[s.antiqueId];
+        const finalCondition = treasureConditionAfterHit(r.session);
         session.current = null;
         return {
           outcome: "hit",
@@ -85,8 +91,9 @@ export function TreasureHarness() {
             antiqueId: a.id,
             name: a.name,
             tier: a.tier,
-            condition: s.condition,
-            appraisedValue: appraiseValue(s.antiqueId, s.condition),
+            condition: finalCondition,
+            conditionBonus: Math.max(0, finalCondition - s.condition),
+            appraisedValue: appraiseValue(s.antiqueId, finalCondition),
           },
           codexCount: 0,
         };

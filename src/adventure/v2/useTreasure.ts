@@ -9,18 +9,24 @@ import type {
   TreasureFragmentStatus,
   TreasureHandlers,
 } from "./TreasureDigView";
-import type { TreasureSitePublic } from "./treasureDig";
+import type { TreasureSiteOptionId, TreasureSitePublic } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
   const beginOpen = useSingleFlightGuard();
   const beginDig = useSingleFlightGuard();
 
-  const open = useCallback(async (): Promise<OpenOutcome> => {
+  const open = useCallback(async (
+    siteOptionId: TreasureSiteOptionId,
+  ): Promise<OpenOutcome> => {
     const release = beginOpen();
     if (!release) return { ok: false, reason: "error" };
     try {
-      const res = await fetch("/api/v2/treasure/open", { method: "POST" });
+      const res = await fetch("/api/v2/treasure/open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ siteOptionId }),
+      });
       const j = await res.json().catch(() => null);
       if (res.ok && j?.ok) {
         return {

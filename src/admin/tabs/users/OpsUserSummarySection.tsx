@@ -26,6 +26,10 @@ type OpsSummary = {
     masteryCertificates: number;
     staminaPotions: number;
   };
+  fishingCatchCoins: {
+    earned: number;
+    cap: number;
+  };
   inventorySummary: {
     equipmentCount: number;
     materialTop: Array<{ key: string; quantity: number }>;
@@ -35,6 +39,7 @@ type OpsSummary = {
     spFruits: Array<{ key: string; quantity: number }>;
   };
   rewardHistory: OpsEventRow[];
+  recentCompensations: OpsEventRow[];
   proficiencyHistory: OpsEventRow[];
   recentEconomy: OpsEventRow[];
 };
@@ -62,6 +67,10 @@ export function OpsUserSummarySection({
   const [reason, setReason] = useState("");
   const [sourceEventId, setSourceEventId] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [lastCompensation, setLastCompensation] = useState<{
+    beforeBalance: number;
+    balance: number;
+  } | null>(null);
   const { data, loading, error, refetch } = useAsyncData<OpsSummary>(
     (signal) =>
       adminGet(
@@ -76,16 +85,27 @@ export function OpsUserSummarySection({
   }, [error]);
 
   const compensate = async () => {
+    const confirmLarge = isLargeCompensation(itemKind, quantity)
+      ? window.confirm(
+          `대량 보정 지급입니다. ${itemKind} ${quantity.toLocaleString()}개를 지급할까요?`,
+        )
+      : false;
+    if (isLargeCompensation(itemKind, quantity) && !confirmLarge) return;
     setSaving(true);
     try {
-      await adminPost("/api/admin/reward-compensate", {
+      const result = await adminPost<{
+        beforeBalance: number;
+        balance: number;
+      }>("/api/admin/reward-compensate", {
         userId,
         itemKind,
         itemId,
         quantity,
         reason,
         sourceEventId,
+        confirmLarge,
       });
+      setLastCompensation(result);
       showToast("보정 지급 완료");
       await refetch();
     } catch (e) {
@@ -118,6 +138,11 @@ export function OpsUserSummarySection({
             <Metric label="발굴 코인" value={data.summary.treasureCoins} />
             <Metric label="숙련 증서" value={data.summary.masteryCertificates} />
             <Metric label="스태미나 회복약" value={data.summary.staminaPotions} />
+            <Metric
+              label="오늘 낚시 코인"
+              value={data.fishingCatchCoins.earned}
+              suffix={` / ${data.fishingCatchCoins.cap.toLocaleString()}`}
+            />
           </div>
           <InventorySummary summary={data.inventorySummary} />
           <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
@@ -177,8 +202,20 @@ export function OpsUserSummarySection({
                 </Button>
               </div>
             </div>
+            {lastCompensation ? (
+              <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400">
+                잔액 {lastCompensation.beforeBalance.toLocaleString()} →{" "}
+                {lastCompensation.balance.toLocaleString()}
+              </p>
+            ) : null}
+            {data.recentCompensations.length > 0 ? (
+              <div className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                최근 보정 {data.recentCompensations.length}건이 있습니다. 같은 문의 중복 지급 여부를 확인하세요.
+              </div>
+            ) : null}
           </section>
           <EventList title="최근 보상 수령" rows={data.rewardHistory} />
+          <EventList title="최근 보정 지급" rows={data.recentCompensations} />
           <EventList title="숙련/증서 이벤트" rows={data.proficiencyHistory} />
         </div>
       )}
@@ -227,15 +264,35 @@ function MiniRows({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({
+  label,
+  value,
+  suffix = "",
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+}) {
   return (
     <div className="rounded-md border border-zinc-100 px-2 py-1.5 dark:border-zinc-800">
       <div className="text-[10px] text-zinc-500 dark:text-zinc-400">{label}</div>
       <div className="mt-0.5 text-sm font-semibold tabular-nums">
         {value.toLocaleString()}
+        {suffix}
       </div>
     </div>
   );
+}
+
+function largeThreshold(itemKind: (typeof COMP_KIND_OPTIONS)[number]) {
+  return itemKind === "gold" ? 100_000 : itemKind === "material" ? 5_000 : 1_000;
+}
+
+function isLargeCompensation(
+  itemKind: (typeof COMP_KIND_OPTIONS)[number],
+  quantity: number,
+) {
+  return quantity >= largeThreshold(itemKind);
 }
 
 function SmallInput({

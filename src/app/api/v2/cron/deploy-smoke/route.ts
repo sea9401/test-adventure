@@ -27,6 +27,12 @@ export async function POST(req: Request) {
       .limit(1),
     db.select({ key: opsSettings.key }).from(opsSettings).limit(1),
   ]);
+  const apiModules = await Promise.all([
+    import("@/app/api/v2/fishing/status/route"),
+    import("@/app/api/v2/dungeon/hunt/route"),
+    import("@/app/api/v2/guild/training-ground/route"),
+    import("@/app/api/admin/ops-dashboard/route"),
+  ]);
 
   return Response.json({
     ok: true,
@@ -35,5 +41,9 @@ export async function POST(req: Request) {
     abuseReadable: Array.isArray(abuse),
     auditReadable: Array.isArray(audit),
     settingsReadable: Array.isArray(settings),
+    fishingStatusApiLoaded: typeof apiModules[0].GET === "function",
+    huntApiLoaded: typeof apiModules[1].POST === "function",
+    guildTrainingApiLoaded: typeof apiModules[2].GET === "function",
+    adminOpsApiLoaded: typeof apiModules[3].GET === "function",
   });
 }

@@ -2,10 +2,15 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { economyEvents, savesKv } from "@/db/schema";
 import { requireAdmin } from "@/lib/server/isAdmin";
-import { FISHING_WALLET_KEY, walletCoins as fishingCoins } from "@/lib/server/fishing/coins";
+import {
+  FISHING_WALLET_KEY,
+  fishingCatchCoinProgress,
+  walletCoins as fishingCoins,
+} from "@/lib/server/fishing/coins";
 import { TREASURE_WALLET_KEY, walletCoins as treasureCoins } from "@/lib/server/treasure/coins";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import { STAMINA_POTIONS_KEY, staminaPotionCount } from "@/adventure/v2/staminaPotions";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
 const SUMMARY_KEYS = [
   "character.v2",
@@ -61,6 +66,10 @@ export async function GET(req: Request) {
     masteryCertificates: intValue(inventory[MASTERY_CERTIFICATE_KEY]),
     staminaPotions: staminaPotionCount(saves.get(STAMINA_POTIONS_KEY)),
   };
+  const fishingCatchCoins = fishingCatchCoinProgress(
+    saves.get(FISHING_WALLET_KEY),
+    kstDailyKey(new Date()),
+  );
   const inventorySummary = summarizeInventory({ character, inventory, equipment });
 
   const rewardHistory = eventRows
@@ -81,6 +90,7 @@ export async function GET(req: Request) {
     ok: true,
     userId,
     summary,
+    fishingCatchCoins,
     inventorySummary,
     trackedKeys: saveRows
       .filter((row) => SUMMARY_KEYS.includes(row.key as (typeof SUMMARY_KEYS)[number]))
@@ -89,6 +99,9 @@ export async function GET(req: Request) {
         updatedAt: row.updatedAt.toISOString(),
       })),
     rewardHistory,
+    recentCompensations: eventRows
+      .filter((row) => row.eventType === "admin.reward.compensate")
+      .slice(0, 20),
     proficiencyHistory,
     recentEconomy: eventRows.slice(0, 50),
   });

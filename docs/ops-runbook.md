@@ -40,7 +40,7 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node` 있음. 단 
 
 ## 3. 배포
 
-**배포 = `main` 에 머지** (push:main → 자동). 흐름: GitHub Action `deploy.yml`(appleboy/ssh-action, 시크릿 `EC2_HOST`/`EC2_SSH_KEY`) → EC2에서 `git reset --hard origin/main` → `install-deps.sh` → `migrate.mjs`(대기 마이그 적용) → `npm run build` → `sudo systemctl restart adventure-rpg` → **스모크**(`/api/health`+`/sign-in` 200 재시도 검증).
+**배포 = `main` 에 머지** (push:main → 자동). 흐름: GitHub Action `deploy.yml`(appleboy/ssh-action, 시크릿 `EC2_HOST`/`EC2_SSH_KEY`) → EC2에서 `git reset --hard origin/main` → `install-deps.sh` → `migrate.mjs`(대기 마이그 적용) → `npm run build` → `sudo systemctl restart adventure-rpg` → **스모크**(`/api/health`+`/sign-in`+`deploy-smoke` 200 재시도 검증).
 
 > ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 
@@ -152,6 +152,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 - `https://msmsge.com/api/health` → `{ok, db:"ok", ms}` (DB 핑 포함, 실패 시 503). 인증 불필요.
 - `/api/version` = 빌드 정보.
 - 관리자 `운영 현황` 탭 → 제한 초과, 경제 이벤트, 보상 실패, 대량 골드 이동, 핫타임 설정, 매크로 의심 점수 확인.
+- 운영 현황의 매크로 의심 userId/IP는 `이상 행동`·`경제 로그` 필터로 바로 연결된다.
 - `OPS_ALERT_WEBHOOK_URL` 이 설정되어 있으면 임계치 알림과 일일 운영 리포트가 webhook으로 발송된다.
 - 운영 알림 연결 확인은 `운영 현황`의 `알림 테스트` 버튼으로 한다.
 - ⬜ 외부 업타임 모니터(Route53 헬스체크/CloudWatch/UptimeRobot)는 미설정 — 추후.
@@ -178,6 +179,12 @@ bash deploy/maintenance.sh status   # 현재 상태
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
 
+관리자 권한:
+- `ADMIN_EMAILS`: 최고 관리자. 모든 관리자 작업 가능.
+- `OPS_READONLY_EMAILS`: 관리자 조회만 가능.
+- `OPS_REWARD_EMAILS`: 보상 보정 지급 가능.
+- `OPS_SANCTION_EMAILS`: 제재 변경 가능.
+
 인증: **카카오 OAuth만**(구글은 베타 동안 제외 #1216). NextAuth/Auth.js + Drizzle 어댑터.
 
 ---
@@ -196,17 +203,19 @@ bash deploy/maintenance.sh status   # 현재 상태
 2. `운영 요약`에서 현재 재화, 최근 보상 수령, 숙련/증서 이벤트 확인.
 3. `경제 로그`에서 `userId` 필터로 `reward.*`와 `reward.failure.*` 확인.
 4. 낚시 코인은 `오늘 챔질 코인` 상한 도달 시 추가 챔질 코인이 미지급된다. 레벨업 보상은 별도 로그(`reward.fishing.level`)로 확인.
+5. 운영 현황의 `보상 실패 보정 후보`에서 원본 event id를 확인한 뒤 보정 지급에 남긴다.
 
 ### 매크로/부하 의심
 1. `운영 현황` 알림 카드에서 요청 제한 급증 여부 확인.
 2. `이상 행동` 탭에서 action/IP/userId/reason 필터 적용.
 3. 동일 IP 다계정 반복이면 IP 제한 또는 제재 검토. 단일 유저 반복이면 유저 제재 또는 API limit/window 조정 검토.
-4. 정상 유저가 반복적으로 걸리면 해당 콘텐츠의 정상 클릭 속도를 다시 측정하고 제한값을 조정.
+4. 차단 중인 유저는 제재 패널에서 1일/3일 연장 또는 해제를 처리한다.
+5. 정상 유저가 반복적으로 걸리면 해당 콘텐츠의 정상 클릭 속도를 다시 측정하고 제한값을 조정.
 
 ### 배포 후 점검
 1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.
 2. `curl -fsS https://msmsge.com/api/health` 와 `/api/version` 확인.
-3. 배포 Action 의 `deploy-smoke 200` 로그 확인.
+3. 배포 Action 의 `deploy-smoke 200` 로그 확인. 낚시 상태, 사냥, 길드 훈련장, 관리자 ops API 모듈 로드도 같이 점검된다.
 4. 관리자 `운영 현황`에서 webhook 설정, 알림 카드, 최근 경제 이벤트가 비정상적으로 튀지 않는지 확인.
 
 ---

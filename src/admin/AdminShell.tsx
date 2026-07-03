@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdminProvider, useAdmin } from "./AdminContext";
 import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
@@ -68,9 +68,16 @@ function groupTabs<T extends { group: TabGroup }>(
 }
 
 function ShellInner() {
-  const [tab, setTab] = useState<TabKey>("users");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = tabFromParam(searchParams.get("tab"));
   const { readOnly, setReadOnly, toast } = useAdmin();
   const groups = groupTabs(TABS);
+  const openTab = (next: TabKey) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("tab", next);
+    router.replace(`/admin?${sp.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -115,7 +122,7 @@ function ShellInner() {
               <li key={t.key}>
                 <button
                   type="button"
-                  onClick={() => setTab(t.key)}
+                  onClick={() => openTab(t.key)}
                   className={
                     tab === t.key
                       ? "rounded-md border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-left text-sm font-medium text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
@@ -138,7 +145,7 @@ function ShellInner() {
                     <li key={t.key}>
                       <button
                         type="button"
-                        onClick={() => setTab(t.key)}
+                        onClick={() => openTab(t.key)}
                         className={
                           tab === t.key
                             ? "w-full rounded-md border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-left text-sm font-medium text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
@@ -178,6 +185,10 @@ function ShellInner() {
       ) : null}
     </div>
   );
+}
+
+function tabFromParam(raw: string | null): TabKey {
+  return TABS.some((tab) => tab.key === raw) ? (raw as TabKey) : "users";
 }
 
 export function AdminShell() {

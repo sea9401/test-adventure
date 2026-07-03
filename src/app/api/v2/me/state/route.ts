@@ -39,6 +39,7 @@ import {
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
+import { readActiveHotTime } from "@/lib/server/opsSettings";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
   MAX_STAMINA,
@@ -323,6 +324,7 @@ export async function GET(req: Request) {
     ? await loadFreeformTileSettlements()
     : [];
   const equipmentCodex = equipmentCodexSummary(equipmentCodexRow?.value);
+  const hotTime = await readActiveHotTime(now);
 
   return Response.json({
     ok: true,
@@ -333,6 +335,14 @@ export async function GET(req: Request) {
     // 코어루프 활성(은행/골드 모델·직업 시스템 등) — 사냥 throttle 과 독립. 클라는 이 값으로
     //   coreLoopOn 을 판정(combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운이 null 이라).
     coreLoopOn: V2_CORE_LOOP_V2,
+    hotTime: hotTime.active
+      ? {
+          title: hotTime.title,
+          endsAt: hotTime.endsAt,
+          bonuses: hotTime.bonuses,
+          serverNow: now,
+        }
+      : null,
     // 사냥이 스태미나 모드인가(코어루프 on + 스태미나 다이얼) — 클라가 스태미나 바/UI 표시 판정.
     huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
     // 사냥 쿨다운 — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).

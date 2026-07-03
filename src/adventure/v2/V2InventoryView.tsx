@@ -340,6 +340,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             ? "보유한 교본이 없습니다"
             : j?.error === "no_current_job"
               ? "현재 직업에는 사용할 수 없습니다"
+              : j?.error === "fishing_job"
+                ? "낚시 계열 직업에는 사용할 수 없습니다"
               : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
         return;

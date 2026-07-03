@@ -12,7 +12,10 @@ import {
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
-import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  isFishingJobId,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 type CharSave = {
   class?: unknown;
@@ -71,6 +74,12 @@ export async function POST(req: Request) {
       return {
         status: 400,
         body: { ok: false as const, error: "no_current_job" },
+      };
+    }
+    if (isFishingJobId(jobId)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "fishing_job" },
       };
     }
 

@@ -111,7 +111,11 @@ export function V2MasteryTowerView({
         log?: TowerLogEntry[];
       } | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        const label =
+          j?.error === "fishing_job"
+            ? "낚시 계열 직업에는 숙련 증서를 사용할 수 없습니다"
+            : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
         return;
       }
       setLastAttemptLog(j.log ?? []);
@@ -353,7 +357,7 @@ export function V2MasteryTowerView({
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {selectedJob
-              ? `${selectedJob.name}에 증서를 투자합니다. 잠긴 직업에는 사용할 수 없습니다.`
+              ? `${selectedJob.name}에 증서를 투자합니다. 낚시 계열과 잠긴 직업에는 사용할 수 없습니다.`
               : "사용할 직업을 선택하세요."}
           </p>
         </Card>

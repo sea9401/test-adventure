@@ -23,6 +23,7 @@ export type BattleAction =
   | { kind: "open-subjugation" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" }
+  | { kind: "open-mastery-tower" }
   | { kind: "open-map" };
 
 export function V2BattleHome({
@@ -72,6 +73,13 @@ export function V2BattleHome({
           }
           title="훈련장"
           onClick={() => onAction({ kind: "open-sparring" })}
+        />
+        <EntryCard
+          icon={
+            <Barbell size={28} weight="duotone" className="text-emerald-500" />
+          }
+          title="숙련의 탑"
+          onClick={() => onAction({ kind: "open-mastery-tower" })}
         />
         <EntryCard
           icon={

@@ -273,6 +273,8 @@ export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 export { COMBO_FINISHER_PERIOD } from "@/adventure/data/v2/v2CombatConstants";
 
 export type PlayerCombat = {
+  /** v2 전투 숫자 단위 스케일. 미지정이면 전투 진입 전 현재 스케일로 보정된다. */
+  combatNumberScale?: number;
   hp: number;
   maxHp: number;
   // v2 마법 시스템 — derive 에서 INT × MP_PER_INT + V2_BASE_MP 로 계산.

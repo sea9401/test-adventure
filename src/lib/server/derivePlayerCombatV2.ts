@@ -30,6 +30,11 @@ import {
   CRIT_MULT_BASE,
   POISON_PCT_PER_POINT,
 } from "@/adventure/data/v2/v2CombatConstants";
+import {
+  scaleCombatNumber,
+  scaleSavedHpToCurrent,
+  V2_COMBAT_NUMBER_SCALE,
+} from "@/adventure/data/v2/combatNumberScale";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
   V2_CLASS_DEFS,
@@ -126,6 +131,7 @@ import {
 export type SavedCharacterV2 = {
   hp?: number;
   mp?: number;
+  combatNumberScale?: unknown;
   level?: number;
   selectedStance?: unknown;
   // PR-1 전투 재설계 — 직업·속성. 직업은 derive 의 앵커 스탯 보정, 속성은 hunt 의 상성에 사용.
@@ -181,7 +187,9 @@ export function v2LevelGrowthHpMp(args: {
   intGained: number;
 }): { hp: number; mp: number } {
   return {
-    hp: args.levelsGained * V2_HP_PER_LEVEL + args.vitGained * HP_PER_VIT,
+    hp: scaleCombatNumber(
+      args.levelsGained * V2_HP_PER_LEVEL + args.vitGained * HP_PER_VIT,
+    ),
     mp: args.levelsGained * V2_MP_PER_LEVEL + args.intGained * MP_PER_INT,
   };
 }
@@ -215,6 +223,8 @@ export type DerivePlayerCombatV2PureInput = {
   v2StatRolls?: Partial<Record<V2EquipmentId, V2EquipRoll>>;
   /** 현재 hp. undefined 면 maxHp 풀충. maxHp 초과는 클램프. */
   hp?: number;
+  /** hp 저장 당시 전투 숫자 단위. 미지정이면 1배 구 저장값으로 보정. */
+  combatNumberScale?: unknown;
   /** 현재 mp. undefined 면 maxMp 풀충. maxMp 초과는 클램프. PR-potion-auto-restore. */
   mp?: number;
   /** character.v2.selectedStance raw. undefined = null. */
@@ -422,13 +432,15 @@ export function derivePlayerCombatV2Pure(
     (1 + ((input.passiveHealPowerPct ?? 0) + equipAcc.healPowerPct) / 100);
   // 코어루프 모험가 HP 패시브 — on + 무직(=모험가)일 때만 ×1.1. off = ×1.0(무변경).
   // 직업 시스템 v2 — 최대 HP/MP % 패시브(체력/마나). 미지정(flag off/sim) = ×1(무변경).
-  const maxHp = Math.floor(
-    (V2_BASE_HP +
-      Math.max(0, level - 1) * V2_HP_PER_LEVEL +
-      totalStats.vit * HP_PER_VIT +
-      equipAcc.hp) *
-      coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2) *
-      (1 + (input.maxHpPct ?? 0) / 100),
+  const maxHp = scaleCombatNumber(
+    Math.floor(
+      (V2_BASE_HP +
+        Math.max(0, level - 1) * V2_HP_PER_LEVEL +
+        totalStats.vit * HP_PER_VIT +
+        equipAcc.hp) *
+        coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2) *
+        (1 + (input.maxHpPct ?? 0) / 100),
+    ),
   );
   const maxMp = Math.floor(
     (V2_BASE_MP +
@@ -484,7 +496,10 @@ export function derivePlayerCombatV2Pure(
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
 
   // hp 클램프 (저장값이 maxHp 초과 안 되게)
-  const savedHp = input.hp ?? maxHp;
+  const savedHp =
+    input.hp == null
+      ? maxHp
+      : scaleSavedHpToCurrent(input.hp, input.combatNumberScale);
   const hp = Math.max(0, Math.min(savedHp, maxHp));
 
   // mp 클램프 (저장값이 maxMp 초과 안 되게). 미지정이면 maxMp 풀충 (옛 캐릭 호환).
@@ -572,6 +587,7 @@ export function derivePlayerCombatV2Pure(
     (input.passiveMagicSkillDamagePct ?? 0);
 
   const player: PlayerCombat = {
+    combatNumberScale: V2_COMBAT_NUMBER_SCALE,
     hp,
     maxHp,
     mp,
@@ -589,9 +605,9 @@ export function derivePlayerCombatV2Pure(
     ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     // 밤그림자 — 스킬 치명 오버플로 플래그. 미보유(false/undefined)면 키 생략 → player 객체 byte-identical.
     ...(input.passiveSkillCritOverflow ? { skillCritOverflow: true as const } : {}),
-    atk: specAtk,
-    magicAtk: specMagicAtk,
-    def: specDef,
+    atk: scaleCombatNumber(specAtk),
+    magicAtk: scaleCombatNumber(specMagicAtk),
+    def: scaleCombatNumber(specDef),
     spd: specSpd,
     evasionPct,
     evaRating, // 회피 대결형 — 전투에서 쓰는 캡 없는 raw(evasionPct 는 표시 전용).
@@ -604,9 +620,9 @@ export function derivePlayerCombatV2Pure(
     // 치명타 피해 — 전 가산원(luk/str/장비/맹공/인술/spec) 합을 점감 곡선으로 1회 환산.
     critMult: critMultCurve(critBonusWithPassive + (specEff.critMultAdd ?? 0)),
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
-    magicDef,
+    magicDef: scaleCombatNumber(magicDef),
     critResistPct,
-    minDamage,
+    minDamage: scaleCombatNumber(minDamage),
     healMult,
     // 직업 효과 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 합산(sumOrUndef).
     // (구 직업군 패시브는 은퇴 → specEff/input 만 합류.)
@@ -643,11 +659,13 @@ export function derivePlayerCombatV2Pure(
       ? { elementDisPctBonus: input.passiveElementDisPctBonus }
       : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
-    ...(thornsFlatFromDef > 0 ? { thornsFlatFromDef } : {}),
+    ...(thornsFlatFromDef > 0
+      ? { thornsFlatFromDef: scaleCombatNumber(thornsFlatFromDef) }
+      : {}),
     ...(totalBleedDmgPerStack > 0
       ? {
           bleedOnHit: {
-            flatPerStack: totalBleedDmgPerStack,
+            flatPerStack: scaleCombatNumber(totalBleedDmgPerStack),
             atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
           },
         }
@@ -819,6 +837,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     v2Equipped,
     v2StatRolls,
     hp: character.hp,
+    combatNumberScale: character.combatNumberScale,
     mp: character.mp,
     selectedStanceRaw: character.selectedStance,
     playerClass: parsedClass,

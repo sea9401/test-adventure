@@ -61,7 +61,7 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
     expect(COOP_BOSSES.void_priest.scrollCost).toBe(30);
-    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(420_000);
+    expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(1_260_000);
     expect(COOP_BOSSES.mountain_chief_hard).toMatchObject({
       difficulty: "hard",
       scrollCost: 30,
@@ -232,7 +232,7 @@ describe("coopBosses 카탈로그", () => {
       for (const st of b.enrageStages) {
         const justAbove = coopBossForBattle(
           b,
-          Math.floor(b.sharedMaxHp * st.hpFraction) + 1,
+          Math.floor(b.sharedMaxHp * st.hpFraction) + 2,
         );
         expect(justAbove.enrageNotes).not.toContain(st.note);
         const atThreshold = coopBossForBattle(
@@ -297,14 +297,14 @@ describe("coopBosses 카탈로그", () => {
       COOP_BOSSES.mountain_chief_hard,
       COOP_BOSSES.mountain_chief_hard.sharedMaxHp,
     ).monster;
-    expect(normal.atk).toBe(146);
-    expect(normal.def).toBe(44);
-    expect(normal.magicDef).toBe(49);
+    expect(normal.atk).toBe(438);
+    expect(normal.def).toBe(132);
+    expect(normal.magicDef).toBe(147);
     expect(normal.accuracy).toBeGreaterThan(4);
     expect(normal.evasionPct).toBe(5);
-    expect(hard.atk).toBe(3314);
-    expect(hard.def).toBe(396);
-    expect(hard.magicDef).toBe(510);
+    expect(hard.atk).toBe(9942);
+    expect(hard.def).toBe(1188);
+    expect(hard.magicDef).toBe(1530);
     expect(hard.accuracy).toBeGreaterThan(32);
     expect(hard.evasionPct).toBe(12);
   });

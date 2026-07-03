@@ -23,6 +23,7 @@ import {
   parseV2Class,
 } from "@/adventure/data/v2/classes";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_COMBAT_NUMBER_SCALE } from "@/adventure/data/v2/combatNumberScale";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -82,6 +83,7 @@ type CharSave = {
   tilePos?: { col?: number; row?: number; at?: number };
   hp?: number;
   mp?: number;
+  combatNumberScale?: unknown;
   hpRegenSince?: number;
   element?: unknown;
   materials?: unknown;
@@ -912,7 +914,7 @@ export async function POST(req: Request) {
         Math.floor(player?.maxHp ?? GRID_DUNGEON_MAX_HP),
       );
       const regen = applyHpRegen(
-        Math.max(0, charSave.hp ?? expeditionMaxHp),
+        Math.max(0, player?.player.hp ?? expeditionMaxHp),
         expeditionMaxHp,
         parseHpRegenSince(charSave.hpRegenSince, now),
         now,
@@ -923,6 +925,7 @@ export async function POST(req: Request) {
       const characterAtStart = {
         ...charSave,
         hp: regen.hp,
+        combatNumberScale: V2_COMBAT_NUMBER_SCALE,
         hpRegenSince: now,
       };
       const support = await gridDungeonSupportSnapshots({
@@ -1061,6 +1064,7 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         hp: moved.run.hp,
+        combatNumberScale: V2_COMBAT_NUMBER_SCALE,
         hpRegenSince: now,
       });
       await upsertSave(tx, userId, GRID_DUNGEON_SAVE_KEY, moved.run);

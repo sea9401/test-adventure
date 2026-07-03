@@ -13,6 +13,7 @@
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { BattleLogEntry } from "@/adventure/v2/combat/engineState";
 import { scaleMonsterForFloor } from "./monsterScale";
+import { scaleCombatNumber } from "./combatNumberScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2MonsterStatusSkillId } from "./v2Skills";
@@ -483,8 +484,8 @@ const VOID_PRIEST_BASE: Monster = {
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현재 사다리: 30k→6h · 80k→16h · 200k→24h(캡) · 420k→24h(캡).
-export const COOP_DURATION_HP_PER_HOUR = 5_000;
+// 현재 사다리: 90k→6h · 240k→16h · 600k→24h(캡) · 1260k→24h(캡).
+export const COOP_DURATION_HP_PER_HOUR = 15_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
 
@@ -513,7 +514,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "산군",
     desc: "산을 틀어쥔 채 군림하는 자. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 10,
-    sharedMaxHp: 30_000,
+    sharedMaxHp: 90_000,
     anchorDepth: 12,
     base: MOUNTAIN_CHIEF_BASE,
     uniqueIds: ["v2_boss_mountain_axe", "v2_boss_mountain_amulet"],
@@ -551,7 +552,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "스콜피온 킹",
     desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 전갈. 절벽조차 집게로 꿰뚫는다.",
     scrollCost: 15,
-    sharedMaxHp: 80_000,
+    sharedMaxHp: 240_000,
     anchorDepth: 24,
     base: CANYON_PREDATOR_BASE,
     uniqueIds: ["v2_boss_canyon_fang", "v2_boss_canyon_boots"],
@@ -588,7 +589,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "호수의 괴물",
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 거대한 존재. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
-    sharedMaxHp: 200_000,
+    sharedMaxHp: 600_000,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul", "v2_boss_lake_gloves"],
@@ -626,7 +627,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "공허의 대사제",
     desc: "검은 왕도의 봉인 아래 남은 대사제. 맞설수록 저주가 깊어지고, 남은 저주는 다음 일격을 더 무겁게 만든다.",
     scrollCost: 30,
-    sharedMaxHp: 420_000,
+    sharedMaxHp: 1_260_000,
     anchorDepth: 60,
     base: VOID_PRIEST_BASE,
     uniqueIds: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
@@ -746,13 +747,21 @@ export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
 export function coopBossForBattle(
   kind: CoopBossKind,
   currentHp: number,
-  opts?: { conditionalEnrageWeakened?: boolean },
+  sharedMaxHpOrOpts:
+    | number
+    | { conditionalEnrageWeakened?: boolean } = kind.sharedMaxHp,
+  maybeOpts?: { conditionalEnrageWeakened?: boolean },
 ): { monster: Monster; enrageNotes: string[] } {
   // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
   //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
   const scaled = scaleMonsterForFloor(kind.base, kind.anchorDepth, false);
-  const hp = Math.max(1, Math.min(Math.floor(currentHp), kind.sharedMaxHp));
-  const frac = hp / kind.sharedMaxHp;
+  const sharedMaxHp =
+    typeof sharedMaxHpOrOpts === "number" ? sharedMaxHpOrOpts : kind.sharedMaxHp;
+  const opts =
+    typeof sharedMaxHpOrOpts === "number" ? maybeOpts : sharedMaxHpOrOpts;
+  const maxHp = Math.max(1, Math.floor(sharedMaxHp));
+  const hp = Math.max(1, Math.min(Math.floor(currentHp), maxHp));
+  const frac = hp / maxHp;
   let atk = scaled.atk;
   let def = scaled.def;
   let magicDef = scaled.magicDef;
@@ -762,8 +771,9 @@ export function coopBossForBattle(
     if (frac > stage.hpFraction) return;
     if (stage.atkMult) atk = Math.round(atk * stage.atkMult);
     if (stage.defBonus) {
-      def += stage.defBonus;
-      if (magicDef != null) magicDef += stage.defBonus;
+      const scaledBonus = scaleCombatNumber(stage.defBonus);
+      def += scaledBonus;
+      if (magicDef != null) magicDef += scaledBonus;
     }
     if (stage.evasionBonus) evasion += stage.evasionBonus;
     enrageNotes.push(stage.note);

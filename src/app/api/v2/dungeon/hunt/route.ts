@@ -65,6 +65,7 @@ import {
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_COMBAT_NUMBER_SCALE } from "@/adventure/data/v2/combatNumberScale";
 import {
   applyHpRegen,
   canHuntWithHp,
@@ -532,7 +533,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 사냥 전 hp 회복 — 마지막 사냥 이후 흐른 시간만큼 충전.
   const hpBefore = parseHpRegenSince(charSave.hpRegenSince, now);
   const regenResult = applyHpRegen(
-    Math.max(0, charSave.hp ?? player.maxHp),
+    Math.max(0, player.player.hp),
     player.maxHp,
     hpBefore,
     now,
@@ -581,6 +582,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
         hp: startPlayerHp,
+        combatNumberScale: V2_COMBAT_NUMBER_SCALE,
         hpRegenSince: now,
       });
       await upsertSave(tx, userId, "inventory.v2", {
@@ -794,6 +796,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ...charSaveWithoutEject,
     stamina: afterStamina,
     hp: afterHp,
+    combatNumberScale: V2_COMBAT_NUMBER_SCALE,
     mp: afterMp,
     hpRegenSince: now,
     level: expResult.level,

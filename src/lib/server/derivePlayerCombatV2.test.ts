@@ -27,6 +27,10 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { V2_JOB_CATALOG } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  scaleCombatNumber,
+  V2_COMBAT_NUMBER_SCALE,
+} from "@/adventure/data/v2/combatNumberScale";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -253,7 +257,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      scaleCombatNumber(Math.floor(15 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS),
     );
   });
 
@@ -266,7 +270,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(115);
     expect(d.player.magicAtk).toBe(
-      Math.floor(115 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+      scaleCombatNumber(Math.floor(115 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS),
     );
   });
 
@@ -279,10 +283,10 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+      scaleCombatNumber(Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS),
     );
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS,
+      scaleCombatNumber(Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + V2_BASE_COMBAT_BONUS),
     );
   });
 
@@ -295,7 +299,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: { weapon: "v2_oak_staff" },
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
+      scaleCombatNumber(Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS),
     );
   });
 });
@@ -308,10 +312,12 @@ describe("derivePlayerCombatV2Pure magicDef (마법형 몬스터 대응축)", ()
       v2Equipped: {},
     });
     expect(d.player.magicDef).toBe(
-      Math.floor(
-        d.totalStats.spi * MAGIC_DEF_PER_SPI +
-          d.totalStats.int * MAGIC_DEF_PER_INT,
-      ) + V2_BASE_COMBAT_BONUS,
+      scaleCombatNumber(
+        Math.floor(
+          d.totalStats.spi * MAGIC_DEF_PER_SPI +
+            d.totalStats.int * MAGIC_DEF_PER_INT,
+        ) + V2_BASE_COMBAT_BONUS,
+      ),
     );
   });
 
@@ -401,8 +407,8 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
       v2Equipped: {},
     });
     expect(d.totalStats.vit).toBe(15);
-    expect(d.maxHp).toBe(V2_BASE_HP + 15);
-    expect(d.maxHp).toBe(150);
+    expect(d.maxHp).toBe(scaleCombatNumber(V2_BASE_HP + 15));
+    expect(d.maxHp).toBe(450);
   });
 
   it("레벨 성장 — Lv100 = V2_BASE_HP + 99×10 + vit", () => {
@@ -410,8 +416,10 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
       level: 100,
       v2Equipped: {},
     });
-    expect(d.maxHp).toBe(V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15);
-    expect(d.maxHp).toBe(135 + 990 + 15); // 1140
+    expect(d.maxHp).toBe(
+      scaleCombatNumber(V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15),
+    );
+    expect(d.maxHp).toBe(3420);
   });
 
   it("vit 투자 시 추가 (HP_PER_VIT 1)", () => {
@@ -422,7 +430,7 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
     });
     // 베이스 vit 15 + 할당 50 = 65. maxHp = 135 + 65 = 200.
     expect(d.totalStats.vit).toBe(65);
-    expect(d.maxHp).toBe(V2_BASE_HP + 65);
+    expect(d.maxHp).toBe(scaleCombatNumber(V2_BASE_HP + 65));
   });
 });
 
@@ -462,13 +470,12 @@ describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPc
   });
 
   it("maxHpPct — 최대 HP 비례 증가(체력 +12%)", () => {
-    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
     const withPct = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: {},
       maxHpPct: 12,
     });
-    expect(withPct.maxHp).toBe(Math.floor(base.maxHp * 1.12));
+    expect(withPct.maxHp).toBe(2148);
   });
 
   it("maxMpPct — 최대 MP 비례 증가(마나 +12%)", () => {
@@ -901,7 +908,11 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     }).player;
     // 방어% — def/magicDef 곱연산(철벽·결계 공통 방어축).
     expect(buffed.def).toBe(Math.floor(plain.def * 1.2));
-    expect(buffed.magicDef).toBe(Math.floor((plain.magicDef ?? 0) * 1.2));
+    expect(buffed.magicDef).toBe(
+      scaleCombatNumber(
+        Math.floor(((plain.magicDef ?? 0) / V2_COMBAT_NUMBER_SCALE) * 1.2),
+      ),
+    );
     // 명중 — accuracyPct 가산(정밀). 저레벨 베이스라 캡(35) 미도달 → +12.
     expect((buffed.accuracyPct ?? 0) - (plain.accuracyPct ?? 0)).toBeCloseTo(
       12,

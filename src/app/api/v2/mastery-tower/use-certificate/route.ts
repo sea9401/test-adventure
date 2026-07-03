@@ -1,5 +1,9 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import {
+  recordEconomyEventSoon,
+  recordRewardFailureSoon,
+} from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import {
@@ -102,6 +106,41 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  if (result.status === 200 && result.body.ok) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "proficiency.certificate.use",
+      itemKind: "mastery_certificate",
+      itemId: MASTERY_CERTIFICATE_KEY,
+      quantity: -result.body.used,
+      detail: {
+        jobId: result.body.jobId,
+        jobName: result.body.jobName,
+        group: result.body.group,
+        jobMastery: result.body.jobMastery,
+        groupMastery: result.body.groupMastery,
+      },
+    });
+    recordEconomyEventSoon({
+      userId,
+      eventType: "proficiency.certificate.gain",
+      itemKind: "mastery",
+      itemId: result.body.jobId,
+      quantity: result.body.used,
+      detail: {
+        jobName: result.body.jobName,
+        group: result.body.group,
+      },
+    });
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "mastery_certificate",
+      error: result.body.error,
+      detail: { jobId, status: result.status },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

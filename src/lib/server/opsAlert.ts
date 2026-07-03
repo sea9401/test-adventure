@@ -14,7 +14,10 @@ type SignalBucket = {
 
 const signalBuckets = new Map<string, SignalBucket>();
 
-async function sendOpsAlert(message: string, detail?: Record<string, unknown>) {
+export async function sendOpsAlert(
+  message: string,
+  detail?: Record<string, unknown>,
+) {
   const url = process.env.OPS_ALERT_WEBHOOK_URL;
   if (!url) return;
 

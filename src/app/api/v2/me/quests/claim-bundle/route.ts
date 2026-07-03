@@ -1,6 +1,9 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  recordEconomyEventSoon,
+  recordRewardFailureSoon,
+} from "@/lib/server/economyLog";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   assembleQuestExtras,
@@ -91,6 +94,13 @@ export async function POST(req: Request) {
       itemKind: "stamina_potion",
       quantity: result.body.potions,
       detail: { scope: result.body.scope },
+    });
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "quest_bundle",
+      error: result.body.error,
+      detail: { scope, status: result.status },
     });
   }
 

@@ -69,6 +69,7 @@ import {
   countClaimableFishingTasks,
   fishingProgressNotices,
 } from "@/adventure/v2/fishingChallengeProgress";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -328,6 +329,34 @@ export async function POST(req: Request) {
     await insertFeedEntry(userId, "fishing_big_catch", {
       fishId: result.fishId,
       size: result.size,
+    });
+  }
+  if (result.coinsGained > 0) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "currency.fishing.catch",
+      itemKind: "fishing_coin",
+      itemId: "catch_daily_cap",
+      quantity: result.coinsGained,
+      detail: {
+        fishId: result.fishId,
+        tier: fish.tier,
+        dailyEarned: result.dailyCatchCoins.earned,
+        dailyCap: result.dailyCatchCoins.cap,
+      },
+    });
+  }
+  if (result.levelRewardCoins > 0) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.fishing.level",
+      itemKind: "fishing_coin",
+      itemId: "level_reward",
+      quantity: result.levelRewardCoins,
+      detail: {
+        fishingLevel: result.fishingLevel,
+        fishId: result.fishId,
+      },
     });
   }
   // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).

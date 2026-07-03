@@ -57,15 +57,24 @@ export async function GET() {
       .limit(300),
   ]);
 
+  const abuse = summarizeAbuse(abuseRows, now);
+  const economy = summarizeEconomy(economyRows, now);
+
   return Response.json({
     ok: true,
     generatedAt: new Date(now).toISOString(),
-    abuse: summarizeAbuse(abuseRows, now),
-    economy: summarizeEconomy(economyRows, now),
+    webhookConfigured: Boolean(process.env.OPS_ALERT_WEBHOOK_URL),
+    abuse,
+    economy,
     audit: {
       last24h: auditRows.length,
       latest: auditRows.slice(0, 10),
     },
+    alerts: buildAlerts({
+      abuse,
+      economy,
+      audit24h: auditRows.length,
+    }),
     slowQueryCandidates: [
       {
         key: "marketplace.prices",
@@ -129,15 +138,22 @@ function summarizeEconomy(
   const last1h = rows.filter((r) => now - r.createdAt.getTime() <= HOUR_MS);
   const goldIn = rows.reduce((sum, r) => sum + Math.max(0, r.goldDelta), 0);
   const goldOut = rows.reduce((sum, r) => sum + Math.abs(Math.min(0, r.goldDelta)), 0);
+  const rewardFailures = rows.filter((r) =>
+    r.eventType.startsWith("reward.failure."),
+  );
+  const largeGoldEvents = rows.filter((r) => Math.abs(r.goldDelta) >= 500_000);
   return {
     last1h: last1h.length,
     last24h: rows.length,
     goldIn24h: goldIn,
     goldOut24h: goldOut,
+    rewardFailures24h: rewardFailures.length,
+    largeGoldEvents24h: largeGoldEvents.length,
     topEvents: topCounts(rows.map((r) => r.eventType)),
     topItems: topCounts(
       rows.flatMap((r) => (r.itemKind && r.itemId ? [`${r.itemKind}:${r.itemId}`] : [])),
     ),
+    topRewardFailures: topCounts(rewardFailures.map((r) => r.itemId ?? r.eventType)),
   };
 }
 
@@ -148,4 +164,60 @@ function topCounts(values: string[], limit = 8) {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, limit)
     .map(([key, count]) => ({ key, count }));
+}
+
+function buildAlerts({
+  abuse,
+  economy,
+  audit24h,
+}: {
+  abuse: ReturnType<typeof summarizeAbuse>;
+  economy: ReturnType<typeof summarizeEconomy>;
+  audit24h: number;
+}) {
+  const alerts: Array<{
+    level: "danger" | "warning" | "info";
+    title: string;
+    message: string;
+  }> = [];
+
+  if (abuse.last5m >= 20) {
+    alerts.push({
+      level: "danger",
+      title: "요청 제한 급증",
+      message: `최근 5분 제한 이벤트 ${abuse.last5m.toLocaleString()}건`,
+    });
+  } else if (abuse.last1h >= 50) {
+    alerts.push({
+      level: "warning",
+      title: "요청 제한 증가",
+      message: `최근 1시간 제한 이벤트 ${abuse.last1h.toLocaleString()}건`,
+    });
+  }
+
+  if (economy.rewardFailures24h >= 5) {
+    alerts.push({
+      level: "danger",
+      title: "보상 수령 실패 누적",
+      message: `최근 24시간 실패 이벤트 ${economy.rewardFailures24h.toLocaleString()}건`,
+    });
+  }
+
+  if (economy.largeGoldEvents24h >= 3) {
+    alerts.push({
+      level: "warning",
+      title: "대량 골드 이동",
+      message: `50만 골드 이상 이동 ${economy.largeGoldEvents24h.toLocaleString()}건`,
+    });
+  }
+
+  if (audit24h >= 30) {
+    alerts.push({
+      level: "info",
+      title: "관리자 변경 많음",
+      message: `최근 24시간 관리자 변경 ${audit24h.toLocaleString()}건`,
+    });
+  }
+
+  return alerts;
 }

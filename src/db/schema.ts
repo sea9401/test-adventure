@@ -1264,6 +1264,15 @@ export const economyEvents = pgTable(
   ],
 );
 
+// 운영 설정 — 핫타임/이벤트 배율/운영 토글처럼 코드 배포 없이 조정할 값을 key-value 로 보관.
+// value 는 설정별 JSON 계약을 각 admin API 에서 검증한다.
+export const opsSettings = pgTable("ops_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedByEmail: text("updated_by_email"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 관리자 감사 로그 — admin API 의 모든 변경 행동을 append-only 로 기록(누가·무엇을·대상).
 //   action:       'sanction.ban' / 'grant.v2' / 'reset-character' / 'season-ops.war-rollover' 등.
 //   targetUserId: 대상 유저(있으면). detail: 자유형 컨텍스트(JSON).

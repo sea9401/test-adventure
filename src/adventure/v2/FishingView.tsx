@@ -1223,6 +1223,13 @@ function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
   const labels: string[] = [];
   if (result.coinsGained != null && result.coinsGained > 0) {
     labels.push(`코인 +${result.coinsGained}`);
+  } else if (
+    result.coinsGained === 0 &&
+    result.dailyCatchCoins &&
+    result.dailyCatchCoins.cap > 0 &&
+    result.dailyCatchCoins.earned >= result.dailyCatchCoins.cap
+  ) {
+    labels.push("일일 제한 도달 · 챔질 코인 미지급");
   }
   if (result.levelRewardCoins != null && result.levelRewardCoins > 0) {
     labels.push(`레벨업 보상 +${result.levelRewardCoins}`);
@@ -1460,6 +1467,10 @@ export function FishingView({
           Math.max(0, (dailyCatchCoins.earned / dailyCatchCoins.cap) * 100),
         )
       : 0;
+  const dailyCoinRemaining =
+    dailyCatchCoins && dailyCatchCoins.cap > 0
+      ? Math.max(0, dailyCatchCoins.cap - dailyCatchCoins.earned)
+      : null;
   const idleActionClass =
     "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
   const resultActionClass =
@@ -1489,6 +1500,16 @@ export function FishingView({
               {dailyCatchCoins.earned.toLocaleString()}/
               {dailyCatchCoins.cap.toLocaleString()}
             </span>
+          </div>
+          <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-amber-800/80 dark:text-amber-100/80">
+            <span>
+              {dailyCoinRemaining === 0
+                ? "일일 획득 제한 도달"
+                : dailyCoinRemaining == null
+                  ? "일일 획득 제한 확인 중"
+                  : `남은 획득 가능 ${dailyCoinRemaining.toLocaleString()} 코인`}
+            </span>
+            <span>제한 초과분 미지급</span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
             <div

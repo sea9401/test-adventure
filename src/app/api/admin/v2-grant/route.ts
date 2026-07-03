@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
 import { logAdminAction } from "@/lib/server/adminAudit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_LEVEL } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
@@ -307,6 +308,41 @@ export async function POST(req: Request) {
     targetUserId: userId,
     detail: { granted: Object.keys(result).filter((k) => k !== "ok") },
   });
+
+  if (proficiencyGain > 0 && result.proficiencyEarned != null) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "admin.grant.proficiency_points",
+      itemKind: "proficiency",
+      quantity: proficiencyGain,
+      detail: { totalUsablePoints: result.proficiencyEarned },
+    });
+  }
+  if (masteryGain > 0 && result.masteryEarned != null) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "admin.grant.mastery",
+      itemKind: "mastery",
+      quantity: masteryGain,
+      detail: { groupMastery: result.masteryEarned },
+    });
+  }
+  if (fishingCoinGain > 0) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "admin.grant.fishing_coin",
+      itemKind: "fishing_coin",
+      quantity: fishingCoinGain,
+    });
+  }
+  if (treasureCoinGain > 0) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "admin.grant.treasure_coin",
+      itemKind: "treasure_coin",
+      quantity: treasureCoinGain,
+    });
+  }
 
   return Response.json(result);
 }

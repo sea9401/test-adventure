@@ -2,7 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { coopBossContributors, coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  recordEconomyEventSoon,
+  recordRewardFailureSoon,
+} from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_BOSSES,
@@ -278,6 +281,13 @@ export async function POST(req: Request) {
         uniqueId: reward.uniqueId,
         equipmentBoxId: reward.equipmentBoxId,
       },
+    });
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "coop",
+      error: result.body.error,
+      detail: { sessionId, status: result.status },
     });
   }
 

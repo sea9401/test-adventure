@@ -1,9 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAdmin } from "../AdminContext";
-import { adminGet } from "../api";
+import { adminGet, adminPost } from "../api";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 
@@ -11,6 +11,12 @@ type CountRow = { key: string; count: number };
 
 type Dashboard = {
   generatedAt: string;
+  webhookConfigured: boolean;
+  alerts: Array<{
+    level: "danger" | "warning" | "info";
+    title: string;
+    message: string;
+  }>;
   abuse: {
     last5m: number;
     last1h: number;
@@ -25,8 +31,11 @@ type Dashboard = {
     last24h: number;
     goldIn24h: number;
     goldOut24h: number;
+    rewardFailures24h: number;
+    largeGoldEvents24h: number;
     topEvents: CountRow[];
     topItems: CountRow[];
+    topRewardFailures: CountRow[];
   };
   audit: {
     last24h: number;
@@ -44,6 +53,20 @@ type Dashboard = {
     cacheTtlSec: number;
     note: string;
   }>;
+};
+
+type HotTimeSettings = {
+  enabled: boolean;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  bonuses: {
+    goldPct: number;
+    expPct: number;
+    masteryPct: number;
+    fishingCoinPct: number;
+  };
+  note: string;
 };
 
 export function OpsDashboardTab() {
@@ -76,6 +99,32 @@ export function OpsDashboardTab() {
         </p>
       ) : (
         <>
+          <div className="grid gap-2">
+            {!data.webhookConfigured ? (
+              <AlertCard
+                level="warning"
+                title="알림 웹훅 미설정"
+                message="OPS_ALERT_WEBHOOK_URL 이 없어서 임계치 초과 알림은 관리자 화면에서만 확인됩니다."
+              />
+            ) : null}
+            {data.alerts.length === 0 ? (
+              <AlertCard
+                level="info"
+                title="주의 알림 없음"
+                message="최근 운영 지표가 설정된 임계치 안에 있습니다."
+              />
+            ) : (
+              data.alerts.map((alert) => (
+                <AlertCard
+                  key={`${alert.level}:${alert.title}`}
+                  level={alert.level}
+                  title={alert.title}
+                  message={alert.message}
+                />
+              ))
+            )}
+          </div>
+
           <div className="grid gap-2 md:grid-cols-4">
             <Metric label="제한 초과 5분" value={data.abuse.last5m} />
             <Metric label="제한 초과 1시간" value={data.abuse.last1h} />
@@ -95,8 +144,21 @@ export function OpsDashboardTab() {
               <div className="mb-2 grid grid-cols-2 gap-2 text-xs">
                 <Metric label="골드 유입 24시간" value={data.economy.goldIn24h} />
                 <Metric label="골드 유출 24시간" value={data.economy.goldOut24h} />
+                <Metric
+                  label="보상 실패 24시간"
+                  value={data.economy.rewardFailures24h}
+                />
+                <Metric
+                  label="대량 골드 이동"
+                  value={data.economy.largeGoldEvents24h}
+                />
               </div>
               <CountList rows={data.economy.topEvents} empty="event 없음" />
+              {data.economy.topRewardFailures.length > 0 ? (
+                <div className="mt-2">
+                  <MiniList title="보상 실패" rows={data.economy.topRewardFailures} />
+                </div>
+              ) : null}
             </Panel>
           </div>
 
@@ -124,9 +186,161 @@ export function OpsDashboardTab() {
               </table>
             </div>
           </Panel>
+
+          <HotTimePanel />
         </>
       )}
     </section>
+  );
+}
+
+function HotTimePanel() {
+  const { showToast } = useAdmin();
+  const { data, loading, error, refetch } = useAsyncData<{
+    hotTime: HotTimeSettings;
+    updatedByEmail: string | null;
+    updatedAt: string | null;
+  }>((signal) => adminGet("/api/admin/ops-settings", signal));
+  const [draft, setDraft] = useState<HotTimeSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const value = draft ?? data?.hotTime ?? null;
+
+  useEffect(() => {
+    // 서버 설정을 편집 draft 로 복사한다. 이후 입력 중에는 draft 가 로컬 소스다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (data?.hotTime) setDraft(data.hotTime);
+  }, [data]);
+
+  useEffect(() => {
+    if (error) showToast(`핫타임 조회 실패: ${error}`);
+  }, [error, showToast]);
+
+  const save = async () => {
+    if (!value) return;
+    setSaving(true);
+    try {
+      const saved = await adminPost<{ hotTime: HotTimeSettings }>(
+        "/api/admin/ops-settings",
+        { hotTime: value },
+      );
+      setDraft(saved.hotTime);
+      showToast("핫타임 설정 저장됨");
+      void refetch();
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Panel title="이벤트·핫타임 설정">
+      {!value ? (
+        <p className="text-xs text-zinc-500">
+          {loading ? "불러오는 중..." : "설정 없음"}
+        </p>
+      ) : (
+        <div className="space-y-2 text-xs">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={value.enabled}
+              onChange={(e) =>
+                setDraft({ ...value, enabled: e.target.checked })
+              }
+            />
+            <span>활성화</span>
+          </label>
+          <div className="grid gap-2 md:grid-cols-3">
+            <TextField
+              label="제목"
+              value={value.title}
+              onChange={(title) => setDraft({ ...value, title })}
+            />
+            <TextField
+              label="시작"
+              type="datetime-local"
+              value={toLocalInput(value.startsAt)}
+              onChange={(startsAt) => setDraft({ ...value, startsAt })}
+            />
+            <TextField
+              label="종료"
+              type="datetime-local"
+              value={toLocalInput(value.endsAt)}
+              onChange={(endsAt) => setDraft({ ...value, endsAt })}
+            />
+            <NumberField
+              label="골드 %"
+              value={value.bonuses.goldPct}
+              onChange={(goldPct) =>
+                setDraft({ ...value, bonuses: { ...value.bonuses, goldPct } })
+              }
+            />
+            <NumberField
+              label="경험치 %"
+              value={value.bonuses.expPct}
+              onChange={(expPct) =>
+                setDraft({ ...value, bonuses: { ...value.bonuses, expPct } })
+              }
+            />
+            <NumberField
+              label="숙련 %"
+              value={value.bonuses.masteryPct}
+              onChange={(masteryPct) =>
+                setDraft({ ...value, bonuses: { ...value.bonuses, masteryPct } })
+              }
+            />
+            <NumberField
+              label="낚시 코인 %"
+              value={value.bonuses.fishingCoinPct}
+              onChange={(fishingCoinPct) =>
+                setDraft({
+                  ...value,
+                  bonuses: { ...value.bonuses, fishingCoinPct },
+                })
+              }
+            />
+          </div>
+          <TextField
+            label="메모"
+            value={value.note}
+            onChange={(note) => setDraft({ ...value, note })}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] text-zinc-500">
+              마지막 수정 {data?.updatedByEmail ?? "-"} ·{" "}
+              {data?.updatedAt ? new Date(data.updatedAt).toLocaleString("ko-KR") : "-"}
+            </span>
+            <Button onClick={() => void save()} disabled={saving}>
+              {saving ? "저장 중..." : "설정 저장"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function AlertCard({
+  level,
+  title,
+  message,
+}: {
+  level: "danger" | "warning" | "info";
+  title: string;
+  message: string;
+}) {
+  const tone =
+    level === "danger"
+      ? "border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+      : level === "warning"
+        ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+        : "border-zinc-200 bg-white text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
+  return (
+    <div className={`rounded-md border px-3 py-2 text-xs ${tone}`}>
+      <div className="font-semibold">{title}</div>
+      <div className="mt-0.5">{message}</div>
+    </div>
   );
 }
 
@@ -137,6 +351,62 @@ function Metric({ label, value }: { label: string; value: number }) {
       <div className="mt-1 text-lg font-semibold tabular-nums">{value.toLocaleString()}</div>
     </div>
   );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: "text" | "datetime-local";
+}) {
+  return (
+    <label className="space-y-1 text-xs">
+      <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+      />
+    </label>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="space-y-1 text-xs">
+      <span className="text-zinc-500 dark:text-zinc-400">{label}</span>
+      <input
+        type="number"
+        min={0}
+        max={500}
+        value={value}
+        onChange={(e) => onChange(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+      />
+    </label>
+  );
+}
+
+function toLocalInput(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  const offsetMs = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function Panel({ title, children }: { title: string; children: ReactNode }) {

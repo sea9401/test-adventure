@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { recordEconomyEventSoon, recordRewardFailureSoon } from "@/lib/server/economyLog";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
@@ -361,6 +362,30 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  if (result.status === 200 && result.body.ok) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "proficiency.guild_training",
+      itemKind: "mastery",
+      itemId: drillId,
+      quantity: result.body.rewardMastery,
+      detail: {
+        guildId,
+        drillTitle: result.body.drill.title,
+        baseRewardMastery: result.body.baseRewardMastery,
+        weeklyBonusMastery: result.body.weeklyBonusMastery,
+        masteryAfter: result.body.masteryAfter,
+      },
+    });
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "guild_training",
+      error: result.body.error,
+      detail: { drillId, status: result.status },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

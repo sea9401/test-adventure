@@ -24,6 +24,10 @@ import {
   fishingGoalById,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
+import {
+  recordEconomyEventSoon,
+  recordRewardFailureSoon,
+} from "@/lib/server/economyLog";
 
 // POST /api/v2/fishing/challenges/claim — body { id }. 완료된 일일 도전 보상(낚시 코인) 수령.
 //   락 순서: 일일트래커 → 지갑(reel 은 트래커만, 정산 크론은 지갑만 → 순환 없음, 데드락 안전).
@@ -111,6 +115,23 @@ export async function POST(req: Request) {
         },
       };
     });
+    if (result.status === 200 && result.body.ok && result.body.reward > 0) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.fishing.challenge",
+        itemKind: "fishing_coin",
+        itemId: id,
+        quantity: result.body.reward,
+        detail: { challengeId: id, kind: "goal" },
+      });
+    } else if (result.status !== 200 && !result.body.ok) {
+      recordRewardFailureSoon({
+        userId,
+        source: "fishing_challenge",
+        error: result.body.error,
+        detail: { challengeId: id, kind: "goal", status: result.status },
+      });
+    }
     return Response.json(result.body, { status: result.status });
   }
 
@@ -174,6 +195,28 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  if (result.status === 200 && result.body.ok && result.body.reward > 0) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "reward.fishing.challenge",
+      itemKind: "fishing_coin",
+      itemId: id,
+      quantity: result.body.reward,
+      detail: { challengeId: id, kind: contractDef ? "contract" : "daily" },
+    });
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "fishing_challenge",
+      error: result.body.error,
+      detail: {
+        challengeId: id,
+        kind: contractDef ? "contract" : "daily",
+        status: result.status,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

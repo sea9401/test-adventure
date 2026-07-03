@@ -1,6 +1,9 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { recordEconomyEventSoon } from "@/lib/server/economyLog";
+import {
+  recordEconomyEventSoon,
+  recordRewardFailureSoon,
+} from "@/lib/server/economyLog";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -93,6 +96,13 @@ export async function POST(req: Request) {
         base: result.body.base,
         firstClearBonus: result.body.firstClearBonus,
       },
+    });
+  } else if (result.status !== 200 && !result.body.ok) {
+    recordRewardFailureSoon({
+      userId,
+      source: "mastery_tower",
+      error: result.body.error,
+      detail: { status: result.status },
     });
   }
 

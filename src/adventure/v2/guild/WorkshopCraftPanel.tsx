@@ -298,7 +298,8 @@ export function WorkshopCraftPanel({
             </div>
             <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {filteredRecipes.length.toLocaleString()} /{" "}
-              {(state?.recipes.length ?? 0).toLocaleString()}종 표시
+              {(state?.recipes.length ?? 0).toLocaleString()}종 표시 · 비용은
+              개인 보유 재료에서 차감
             </div>
           </div>
           <details className="group">
@@ -496,7 +497,7 @@ export function WorkshopCraftPanel({
                     </button>
                   </div>
                   <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-                    {recipe.costText}
+                    개인 재료: {recipe.costText}
                   </div>
                   <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
                     ★ {recipe.qualityChancePct}% · 상한{" "}
@@ -525,7 +526,9 @@ export function WorkshopCraftPanel({
                   </button>
                   </div>
                   <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-                    {masterwork?.costText ?? "대장장이 Lv 8 필요"}
+                    {masterwork
+                      ? `개인 재료: ${masterwork.costText}`
+                      : "대장장이 Lv 8 필요"}
                   </div>
                   <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
                     {masterwork

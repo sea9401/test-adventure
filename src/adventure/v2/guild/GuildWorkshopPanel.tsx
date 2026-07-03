@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Hammer, LockKey, SpinnerGap } from "@phosphor-icons/react";
 import {
   PRODUCTION_KIND_ICON,
-  PRODUCTION_KIND_NAME,
+  SETTLEMENT_RESOURCE_NAME,
   SETTLEMENT_BUILDINGS,
 } from "@/adventure/data/v2/settlement";
 import { blacksmithJobForLevel } from "@/adventure/data/v2/artisan";
@@ -312,7 +312,7 @@ export function GuildWorkshopPanel({
         const amount = Math.max(0, Math.floor(resources[kind] ?? 0));
         return {
           key: kind,
-          label: `${PRODUCTION_KIND_ICON[kind]} ${PRODUCTION_KIND_NAME[kind]}`,
+          label: `${PRODUCTION_KIND_ICON[kind]} ${SETTLEMENT_RESOURCE_NAME[kind]}`,
           amount,
         };
       }),
@@ -332,6 +332,7 @@ export function GuildWorkshopPanel({
         return {
           key: id,
           label: mat.name,
+          source: "개인 보유",
           amount,
         };
       }),
@@ -869,7 +870,10 @@ export function GuildWorkshopPanel({
       <div className="grid gap-2 md:grid-cols-[0.85fr_1.15fr]">
         <div className="min-w-0">
           <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-            길드 영지 보유량
+            길드 영지 자원
+          </div>
+          <div className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
+            마을 승급·건축물 업그레이드용
           </div>
           <div className="mt-1 grid grid-cols-2 gap-1">
             {resourceEntries.map((entry) => (
@@ -889,7 +893,10 @@ export function GuildWorkshopPanel({
         </div>
         <div className="min-w-0">
           <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-            보유 제작 재료
+            개인 보유 제작 재료
+          </div>
+          <div className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
+            제작 시 이 목록에서 차감
           </div>
           <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-4">
             {materialEntries.map((entry) => (
@@ -899,6 +906,9 @@ export function GuildWorkshopPanel({
               >
                 <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
                   {entry.label}
+                </div>
+                <div className="mt-0.5 text-[10px] text-stone-400 dark:text-stone-500">
+                  {entry.source}
                 </div>
                 <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
                   {entry.amount.toLocaleString()}
@@ -965,8 +975,8 @@ export function GuildWorkshopPanel({
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
             {localSmithy
-              ? "이 거점의 대장간에서 개인 재료를 사용해 장비를 제작합니다."
-              : `보유 수 ${smithyCount.toLocaleString()}개. 개인 재료를 사용해 장비를 제작합니다.`}
+              ? "이 거점의 대장간에서 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다."
+              : `보유 수 ${smithyCount.toLocaleString()}개. 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다.`}
           </p>
         </div>
         <button

@@ -17,7 +17,7 @@ import {
 import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
-  PRODUCTION_KIND_NAME,
+  SETTLEMENT_RESOURCE_NAME,
   PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
   UPGRADE_COST,
@@ -76,7 +76,10 @@ function fmtGold(n: number): string {
 
 function costLabel(cost: Resources): string {
   return PRODUCTION_KINDS.filter((k) => (cost[k] ?? 0) > 0)
-    .map((k) => `${PRODUCTION_KIND_ICON[k]} ${PRODUCTION_KIND_NAME[k]} ${cost[k]}`)
+    .map(
+      (k) =>
+        `${PRODUCTION_KIND_ICON[k]} ${SETTLEMENT_RESOURCE_NAME[k]} ${cost[k]}`,
+    )
     .join(" · ");
 }
 
@@ -328,16 +331,20 @@ export function V2VillagePanel({
   );
 
   const resourcePool = (
-    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+      <span className="font-medium text-zinc-700 dark:text-zinc-200">
+        길드 자원
+      </span>
       {PRODUCTION_KINDS.map((k) => (
         <span key={k} className="war-resource-pill tabular-nums">
-          {PRODUCTION_KIND_ICON[k]} {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
+          {PRODUCTION_KIND_ICON[k]} {SETTLEMENT_RESOURCE_NAME[k]}{" "}
+          {resources[k] ?? 0}
         </span>
       ))}
     </div>
   );
 
-  // ── 재료 기부 ── 개인 인벤(통나무/철광석)을 정착지 풀(crop/ore)에 적립. 길드원 전원. ──────
+  // ── 재료 전환 ── 개인 인벤(통나무/철광석)을 정착지 풀(crop/ore)에 적립. 길드원 전원. ──────
   const ownTimber = inv[SETTLEMENT_MATERIAL_ID.timber] ?? 0;
   const ownIronOre = inv[SETTLEMENT_MATERIAL_ID.ironOre] ?? 0;
   const dT = Math.floor(Number(donateTimber) || 0);
@@ -348,6 +355,8 @@ export function V2VillagePanel({
     {
       id: SETTLEMENT_MATERIAL_ID.timber,
       label: SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.timber].name,
+      target: SETTLEMENT_RESOURCE_NAME.crop,
+      icon: PRODUCTION_KIND_ICON.crop,
       own: ownTimber,
       val: donateTimber,
       set: setDonateTimber,
@@ -355,6 +364,8 @@ export function V2VillagePanel({
     {
       id: SETTLEMENT_MATERIAL_ID.ironOre,
       label: SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.ironOre].name,
+      target: SETTLEMENT_RESOURCE_NAME.ore,
+      icon: PRODUCTION_KIND_ICON.ore,
       own: ownIronOre,
       val: donateIronOre,
       set: setDonateIronOre,
@@ -369,16 +380,21 @@ export function V2VillagePanel({
           disabled={busy}
           className="rounded bg-zinc-200 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-300 disabled:opacity-50 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
         >
-          재료 기부
+          길드 자원 전환
         </button>
       ) : (
         <div className="space-y-1.5 rounded border border-zinc-200 p-2 dark:border-zinc-700">
           <p className="text-zinc-500 dark:text-zinc-400">
-            개인 인벤의 재료를 정착지 발전에 기부합니다.
+            개인 인벤의 재료를 길드 자원으로 전환합니다. 전환한 재료는
+            개인 제작 재료로 되돌릴 수 없습니다.
           </p>
           {donateRows.map((row) => (
-            <label key={row.id} className="flex items-center gap-2">
+            <label key={row.id} className="flex flex-wrap items-center gap-2">
               <span className="w-12 shrink-0">{row.label}</span>
+              <span className="shrink-0 text-zinc-400">→</span>
+              <span className="w-20 shrink-0 text-zinc-600 dark:text-zinc-300">
+                {row.icon} {row.target}
+              </span>
               <input
                 type="number"
                 min={0}
@@ -397,7 +413,7 @@ export function V2VillagePanel({
               disabled={busy || !donateValid}
               className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
             >
-              기부하기
+              전환하기
             </button>
             <button
               type="button"

@@ -55,6 +55,10 @@ export const PRODUCTION_KIND_NAME: Record<ProductionKind, string> = {
   crop: "통나무",
   ore: "철광석",
 };
+export const SETTLEMENT_RESOURCE_NAME: Record<ProductionKind, string> = {
+  crop: "길드 목재",
+  ore: "길드 철재",
+};
 // 종류별 간단 아이콘(이모지) — 슬롯/재화 표시용.
 export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
   crop: "🪵",
@@ -387,7 +391,7 @@ export function settlementBuildingUpgradeCostText(
 ): string {
   const parts = PRODUCTION_KINDS.filter((kind) => (cost[kind] ?? 0) > 0).map(
     (kind) =>
-      `${PRODUCTION_KIND_ICON[kind]} ${PRODUCTION_KIND_NAME[kind]} ${(
+      `${PRODUCTION_KIND_ICON[kind]} ${SETTLEMENT_RESOURCE_NAME[kind]} ${(
         cost[kind] ?? 0
       ).toLocaleString()}`,
   );

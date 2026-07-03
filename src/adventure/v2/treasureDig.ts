@@ -29,6 +29,36 @@ export const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
 export const CONDITION_BONUS_PER_REMAINING_DIG = 3;
 export const MAX_DIG_EFFICIENCY_CONDITION_BONUS = 15;
 
+export type TreasureDigToolId = "shovel" | "probe";
+
+export type TreasureDigTool = {
+  id: TreasureDigToolId;
+  name: string;
+  summary: string;
+  effectLabel: string;
+};
+
+export const TREASURE_DIG_TOOLS: readonly TreasureDigTool[] = [
+  {
+    id: "shovel",
+    name: "삽",
+    summary: "선택한 칸을 직접 파냅니다.",
+    effectLabel: "적중 시 즉시 발굴",
+  },
+  {
+    id: "probe",
+    name: "탐침",
+    summary: "흙을 크게 파내지 않고 주변 지층을 찔러봅니다.",
+    effectLabel: "선택 칸과 상하좌우 단서 확인 · 행동 1회",
+  },
+] as const;
+
+export const DEFAULT_TREASURE_DIG_TOOL_ID: TreasureDigToolId = "shovel";
+
+export function isTreasureDigToolId(v: unknown): v is TreasureDigToolId {
+  return TREASURE_DIG_TOOLS.some((tool) => tool.id === v);
+}
+
 export type TreasureSiteOptionId =
   | "old_market"
   | "royal_tomb"
@@ -102,7 +132,13 @@ export const DIG_CLUE_LABEL: Record<DigClue, string> = {
   cold: "차가움",
 };
 
-export type DigRecord = { cell: number; clue: DigClue };
+export type DigRecord = {
+  cell: number;
+  clue: DigClue;
+  tool: TreasureDigToolId;
+  /** 이 단서가 소비한 행동 수. 탐침으로 같이 드러난 주변 칸은 0일 수 있다. */
+  actionCost: number;
+};
 
 export type TreasureSession = {
   siteId: string;
@@ -148,8 +184,13 @@ export function toPublicSite(s: TreasureSession): TreasureSitePublic {
     },
     gridSize: s.gridSize,
     digsAllowed: s.digsAllowed,
-    digsUsed: s.digs.length,
-    digs: s.digs.map((d) => ({ cell: d.cell, clue: d.clue })),
+    digsUsed: treasureActionsUsed(s),
+    digs: s.digs.map((d) => ({
+      cell: d.cell,
+      clue: d.clue,
+      tool: d.tool,
+      actionCost: d.actionCost,
+    })),
   };
 }
 
@@ -175,6 +216,10 @@ export function clueForDistance(d: number): DigClue {
 
 function clampCondition(condition: number): number {
   return Math.max(MIN_CONDITION, Math.min(100, Math.floor(condition)));
+}
+
+export function treasureActionsUsed(session: TreasureSession): number {
+  return session.digs.reduce((sum, dig) => sum + dig.actionCost, 0);
 }
 
 function pickAntiqueIdForSite(
@@ -214,7 +259,7 @@ function pickAntiqueIdForSite(
 }
 
 export function treasureConditionAfterHit(session: TreasureSession): number {
-  const remaining = Math.max(0, session.digsAllowed - session.digs.length);
+  const remaining = Math.max(0, session.digsAllowed - treasureActionsUsed(session));
   const efficiencyBonus = Math.min(
     MAX_DIG_EFFICIENCY_CONDITION_BONUS,
     remaining * CONDITION_BONUS_PER_REMAINING_DIG,
@@ -256,12 +301,53 @@ export function rollNewSession(args: {
 
 export type DigResult =
   | { kind: "invalid"; session: TreasureSession }
+  | { kind: "probe"; clue: DigClue; revealed: DigRecord[]; session: TreasureSession }
   | { kind: "miss"; clue: DigClue; session: TreasureSession }
   | { kind: "exhausted"; clue: DigClue; session: TreasureSession }
   | { kind: "hit"; session: TreasureSession };
 
-// 한 번 파기(순수). 범위/중복/예산 가드 후 거리 단서·적중 판정. nextSession 반환.
-export function applyDig(session: TreasureSession, cell: number): DigResult {
+function clueForCell(session: TreasureSession, cell: number): DigClue {
+  return clueForDistance(chebyshev(cell, session.treasureCell, session.gridSize));
+}
+
+function probeCellsFor(cell: number, gridSize: number): number[] {
+  const [row, col] = cellRowCol(cell, gridSize);
+  const cells = [cell];
+  if (row > 0) cells.push(cell - gridSize);
+  if (row < gridSize - 1) cells.push(cell + gridSize);
+  if (col > 0) cells.push(cell - 1);
+  if (col < gridSize - 1) cells.push(cell + 1);
+  return cells;
+}
+
+function hasShovelDig(session: TreasureSession, cell: number): boolean {
+  return session.digs.some((dig) => dig.cell === cell && dig.tool === "shovel");
+}
+
+function addShovelDig(session: TreasureSession, cell: number): DigRecord[] {
+  const clue = clueForCell(session, cell);
+  const existingIndex = session.digs.findIndex((dig) => dig.cell === cell);
+  if (existingIndex < 0) {
+    return [...session.digs, { cell, clue, tool: "shovel", actionCost: 1 }];
+  }
+  return session.digs.map((dig, index) =>
+    index === existingIndex
+      ? {
+          cell,
+          clue,
+          tool: "shovel",
+          actionCost: dig.actionCost + 1,
+        }
+      : dig,
+  );
+}
+
+// 한 번 행동(순수). 삽은 한 칸을 파고, 탐침은 선택 칸+상하좌우 단서를 공개한다.
+export function applyDig(
+  session: TreasureSession,
+  cell: number,
+  tool: TreasureDigToolId = DEFAULT_TREASURE_DIG_TOOL_ID,
+): DigResult {
   if (
     !Number.isInteger(cell) ||
     cell < 0 ||
@@ -269,27 +355,49 @@ export function applyDig(session: TreasureSession, cell: number): DigResult {
   ) {
     return { kind: "invalid", session };
   }
-  // 예산 소진(이미 끝났어야 함) 또는 같은 셀 재발굴 → 무효(소비 없음).
-  if (session.digs.length >= session.digsAllowed) {
+  // 예산 소진(이미 끝났어야 함) → 무효(소비 없음).
+  if (treasureActionsUsed(session) >= session.digsAllowed) {
     return { kind: "invalid", session };
   }
-  if (session.digs.some((d) => d.cell === cell)) {
-    return { kind: "invalid", session };
+
+  if (tool === "probe") {
+    const knownCells = new Set(session.digs.map((dig) => dig.cell));
+    const revealed = probeCellsFor(cell, session.gridSize)
+      .filter((probeCell) => !knownCells.has(probeCell))
+      .map((probeCell, index) => ({
+        cell: probeCell,
+        clue: clueForCell(session, probeCell),
+        tool: "probe" as const,
+        actionCost: index === 0 ? 1 : 0,
+      }));
+    if (revealed.length === 0) return { kind: "invalid", session };
+    const next: TreasureSession = {
+      ...session,
+      digs: [...session.digs, ...revealed],
+    };
+    const centerClue = clueForCell(session, cell);
+    if (treasureActionsUsed(next) >= session.digsAllowed) {
+      return { kind: "exhausted", clue: centerClue, session: next };
+    }
+    return { kind: "probe", clue: centerClue, revealed, session: next };
   }
+
+  if (hasShovelDig(session, cell)) return { kind: "invalid", session };
+
   const d = chebyshev(cell, session.treasureCell, session.gridSize);
   if (d === 0) {
     const next: TreasureSession = {
       ...session,
-      digs: [...session.digs, { cell, clue: "hot" }],
+      digs: addShovelDig(session, cell),
     };
     return { kind: "hit", session: next };
   }
   const clue = clueForDistance(d);
   const next: TreasureSession = {
     ...session,
-    digs: [...session.digs, { cell, clue }],
+    digs: addShovelDig(session, cell),
   };
-  if (next.digs.length >= session.digsAllowed) {
+  if (treasureActionsUsed(next) >= session.digsAllowed) {
     return { kind: "exhausted", clue, session: next };
   }
   return { kind: "miss", clue, session: next };
@@ -342,10 +450,22 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
   if (!Array.isArray(r.digs)) return null;
   const digs: DigRecord[] = [];
   const seen = new Set<number>();
+  let actionsUsed = 0;
   for (const d of r.digs) {
     if (!d || typeof d !== "object") return null;
     const cell = (d as { cell?: unknown }).cell;
     const clue = (d as { clue?: unknown }).clue;
+    const rawTool = (d as { tool?: unknown }).tool;
+    const tool = isTreasureDigToolId(rawTool) ? rawTool : DEFAULT_TREASURE_DIG_TOOL_ID;
+    const rawActionCost = (d as { actionCost?: unknown }).actionCost;
+    const actionCost =
+      typeof rawActionCost === "number" &&
+      Number.isInteger(rawActionCost) &&
+      rawActionCost >= 0
+        ? rawActionCost
+        : 1;
+    if (tool === "shovel" && actionCost < 1) return null;
+    if (tool === "probe" && actionCost > 1) return null;
     if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0 || cell >= total) {
       return null;
     }
@@ -355,9 +475,10 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     // 따로 조작)된 세션을 차단(다이얼 값과 무관하게 관계만 검증).
     if (clue !== clueForDistance(chebyshev(cell, treasureCell, gridSize))) return null;
     seen.add(cell);
-    digs.push({ cell, clue });
+    actionsUsed += actionCost;
+    digs.push({ cell, clue, tool, actionCost });
   }
-  if (digs.length > digsAllowed) return null;
+  if (actionsUsed > digsAllowed) return null;
   const openedAt =
     typeof r.openedAt === "number" && Number.isFinite(r.openedAt) ? r.openedAt : 0;
   return {

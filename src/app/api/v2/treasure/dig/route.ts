@@ -4,11 +4,14 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
 import {
+  DEFAULT_TREASURE_DIG_TOOL_ID,
   TREASURE_SESSION_KEY,
   applyDig,
+  isTreasureDigToolId,
   parseTreasureSession,
   toPublicSite,
   treasureConditionAfterHit,
+  type TreasureDigToolId,
 } from "@/adventure/v2/treasureDig";
 import {
   TREASURE_COLLECTION_KEY,
@@ -28,7 +31,7 @@ import {
 import { addTreasureScore } from "@/lib/server/treasure/records";
 import { currentTreasureSeasonId } from "@/lib/server/treasure/season";
 
-// POST /api/v2/treasure/dig — body { siteId, cell }. 격자 한 칸을 판다.
+// POST /api/v2/treasure/dig — body { siteId, cell, tool }. 격자 한 칸에 행동한다.
 //
 // 적중이면 open 때 박제한 골동품을 인스턴스로 발굴해 보관함(treasure-collection.v1)에 넣고
 // 유물 도감에 등록하고 세션 종료. 빗나가면 거리 단서, 예산 소진이면 매장지를 공개하고 종료.
@@ -53,12 +56,19 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  const b = (body ?? {}) as { siteId?: unknown; cell?: unknown };
+  const b = (body ?? {}) as {
+    siteId?: unknown;
+    cell?: unknown;
+    tool?: unknown;
+  };
   if (typeof b.siteId !== "string" || typeof b.cell !== "number") {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const siteId = b.siteId;
   const cell = b.cell;
+  const tool: TreasureDigToolId = isTreasureDigToolId(b.tool)
+    ? b.tool
+    : DEFAULT_TREASURE_DIG_TOOL_ID;
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
@@ -69,7 +79,7 @@ export async function POST(req: Request) {
     // 다른 발굴 지점(새 open 이 덮었거나 이미 종료) — 현재 세션 보존하고 거부.
     if (session.siteId !== siteId) return { outcome: "stale" as const };
 
-    const dig = applyDig(session, cell);
+    const dig = applyDig(session, cell, tool);
 
     if (dig.kind === "invalid") {
       // 범위 밖/중복/예산소진 — 소비 없이 현재 상태 반환.
@@ -136,6 +146,16 @@ export async function POST(req: Request) {
         clue: dig.clue,
         treasureCell: session.treasureCell,
         missed: { antiqueId: a.id, name: a.name, tier: a.tier },
+      };
+    }
+
+    if (dig.kind === "probe") {
+      await upsertSave(tx, userId, TREASURE_SESSION_KEY, dig.session);
+      return {
+        outcome: "probe" as const,
+        clue: dig.clue,
+        revealed: dig.revealed.length,
+        site: toPublicSite(dig.session),
       };
     }
 

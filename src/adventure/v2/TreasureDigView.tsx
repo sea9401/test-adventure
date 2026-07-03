@@ -11,8 +11,11 @@ import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   DIG_CLUE_LABEL,
   GRID_SIZE,
+  TREASURE_DIG_TOOLS,
   TREASURE_SITE_OPTIONS,
   type DigClue,
+  type DigRecord,
+  type TreasureDigToolId,
   type TreasureSitePublic,
   type TreasureSiteOptionId,
 } from "./treasureDig";
@@ -62,6 +65,7 @@ export type TreasureFragmentStatus = {
 
 export type DigOutcome =
   | { outcome: "hit"; clue: DigClue; antique: DugAntique; codexCount: number }
+  | { outcome: "probe"; clue: DigClue; site: TreasureSitePublic }
   | { outcome: "miss"; clue: DigClue; site: TreasureSitePublic }
   | {
       outcome: "exhausted";
@@ -74,7 +78,11 @@ export type DigOutcome =
 
 export type TreasureHandlers = {
   open: (siteOptionId: TreasureSiteOptionId) => Promise<OpenOutcome>;
-  dig: (siteId: string, cell: number) => Promise<DigOutcome>;
+  dig: (
+    siteId: string,
+    cell: number,
+    tool: TreasureDigToolId,
+  ) => Promise<DigOutcome>;
   /** 보유 지도 조각 수 조회(표시용). 없으면 조각 수를 숨긴다. */
   loadFragments?: () => Promise<TreasureFragmentStatus | null>;
   /** 진행 중 발굴 세션 복원(읽기 전용). 마운트 시 격자를 이어 그린다. 없으면 복원 안 함. */
@@ -147,6 +155,8 @@ export function TreasureDigView({
   const [discountPct, setDiscountPct] = useState(0);
   const [selectedSiteOptionId, setSelectedSiteOptionId] =
     useState<TreasureSiteOptionId>(TREASURE_SITE_OPTIONS[0].id);
+  const [selectedToolId, setSelectedToolId] =
+    useState<TreasureDigToolId>(TREASURE_DIG_TOOLS[0].id);
   // 세션 복원 진행 중 — loadSession 결과 전까지 시작 화면이 깜빡이지 않게 가린다.
   const [restoring, setRestoring] = useState(Boolean(loadSession));
 
@@ -223,7 +233,7 @@ export function TreasureDigView({
       if (!site || busy || result) return;
       setBusy(true);
       try {
-        const r = await dig(site.siteId, cell);
+        const r = await dig(site.siteId, cell, selectedToolId);
         switch (r.outcome) {
           case "hit":
             setResult({ kind: "hit", antique: r.antique, treasureCell: cell });
@@ -236,6 +246,7 @@ export function TreasureDigView({
             });
             break;
           case "miss":
+          case "probe":
           case "invalid":
             setSite(r.site);
             break;
@@ -249,12 +260,12 @@ export function TreasureDigView({
         setBusy(false);
       }
     },
-    [site, busy, result, dig],
+    [site, busy, result, dig, selectedToolId],
   );
 
   const grid = site;
-  const clueByCell = new Map<number, DigClue>();
-  if (grid) for (const d of grid.digs) clueByCell.set(d.cell, d.clue);
+  const digByCell = new Map<number, DigRecord>();
+  if (grid) for (const d of grid.digs) digByCell.set(d.cell, d);
   const treasureCell = result?.treasureCell ?? -1;
   const digsRemaining = grid ? grid.digsAllowed - grid.digsUsed : 0;
   const hasWorkshopDiscount =
@@ -334,6 +345,9 @@ export function TreasureDigView({
               {GRID_SIZE}×{GRID_SIZE} 격자에서 칸을 골라 탐사지별 제한 횟수 안에 파볼 수 있어요.
             </li>
             <li>
+              삽은 한 칸을 직접 파내고, 탐침은 행동 1회를 써서 선택 칸과 상하좌우 단서를 확인합니다.
+            </li>
+            <li>
               파낸 칸이 매장지에서 얼마나 가까운지 알려줍니다 —{" "}
               <span className="font-semibold text-zinc-800 dark:text-zinc-100">
                 뜨거울수록 가깝습니다.
@@ -369,9 +383,38 @@ export function TreasureDigView({
             </span>
             <span>{grid.siteOption.effectLabel}</span>
           </div>
+          <div className="rounded-md border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="grid grid-cols-2 gap-2">
+              {TREASURE_DIG_TOOLS.map((tool) => {
+                const selected = selectedToolId === tool.id;
+                return (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    onClick={() => setSelectedToolId(tool.id)}
+                    className={`rounded-md border px-3 py-2 text-left text-xs transition ${
+                      selected
+                        ? "border-emerald-400 bg-emerald-50 text-emerald-950 dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">
+                      {tool.name}
+                    </span>
+                    <span className="mt-1 block text-[11px] opacity-80">
+                      {tool.summary}
+                    </span>
+                    <span className="mt-1 block text-[11px] font-medium">
+                      {tool.effectLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-zinc-500 dark:text-zinc-400">
-              남은 발굴{" "}
+              남은 행동{" "}
               <span className="font-bold tabular-nums text-zinc-800 dark:text-zinc-100">
                 {digsRemaining}
               </span>
@@ -390,10 +433,16 @@ export function TreasureDigView({
             style={{ gridTemplateColumns: `repeat(${grid.gridSize}, minmax(0, 1fr))` }}
           >
             {Array.from({ length: grid.gridSize * grid.gridSize }, (_, cell) => {
-              const clue = clueByCell.get(cell);
+              const digRecord = digByCell.get(cell);
+              const clue = digRecord?.clue;
               const isTreasure = cell === treasureCell;
-              const dug = clue !== undefined;
-              const disabled = busy || dug || result !== null;
+              const shovelDug = digRecord?.tool === "shovel";
+              const probed = digRecord?.tool === "probe";
+              const disabled =
+                busy ||
+                result !== null ||
+                (selectedToolId === "shovel" && shovelDug) ||
+                (selectedToolId === "probe" && digsRemaining <= 0);
               return (
                 <button
                   key={cell}
@@ -403,13 +452,20 @@ export function TreasureDigView({
                   className={`ui-treasure-cell flex aspect-square items-center justify-center rounded-md text-base font-semibold transition ${
                     isTreasure
                       ? "is-treasure bg-amber-300 text-amber-950 ring-2 ring-amber-500 dark:bg-amber-400"
-                      : dug
-                        ? CLUE_STYLE[clue]
+                      : clue
+                        ? `${CLUE_STYLE[clue]} ${
+                            probed
+                              ? "border-2 border-dashed border-white/70 opacity-80 dark:border-zinc-100/50"
+                              : ""
+                          }`
                         : "bg-zinc-200/70 hover:bg-zinc-300/80 dark:bg-zinc-800 dark:hover:bg-zinc-700"
-                  } ${disabled && !dug && !isTreasure ? "cursor-not-allowed opacity-60" : ""}`}
-                  title={dug ? DIG_CLUE_LABEL[clue] : undefined}
+                  } ${disabled && !clue && !isTreasure ? "cursor-not-allowed opacity-60" : ""}`}
+                  title={clue ? DIG_CLUE_LABEL[clue] : undefined}
                 >
-                  {isTreasure ? "💎" : dug ? CLUE_EMOJI[clue] : ""}
+                  {isTreasure ? "💎" : clue ? CLUE_EMOJI[clue] : ""}
+                  {probed && !isTreasure ? (
+                    <span className="sr-only">탐침 확인</span>
+                  ) : null}
                 </button>
               );
             })}

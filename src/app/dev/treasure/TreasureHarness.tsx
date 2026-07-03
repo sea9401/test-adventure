@@ -11,6 +11,7 @@ import {
   rollNewSession,
   toPublicSite,
   treasureConditionAfterHit,
+  type TreasureDigToolId,
   type TreasureSession,
   type TreasureSiteOptionId,
 } from "@/adventure/v2/treasureDig";
@@ -72,10 +73,14 @@ export function TreasureHarness() {
   }), []);
 
   const dig = useCallback(
-    async (siteId: string, cell: number): Promise<DigOutcome> => {
+    async (
+      siteId: string,
+      cell: number,
+      tool: TreasureDigToolId,
+    ): Promise<DigOutcome> => {
       const s = session.current;
       if (!s || s.siteId !== siteId) return { outcome: "error" };
-      const r = applyDig(s, cell);
+      const r = applyDig(s, cell, tool);
       if (r.kind === "invalid") {
         return { outcome: "invalid", site: toPublicSite(s) };
       }
@@ -107,6 +112,10 @@ export function TreasureHarness() {
           treasureCell: s.treasureCell,
           missed: { antiqueId: a.id, name: a.name, tier: a.tier },
         };
+      }
+      if (r.kind === "probe") {
+        session.current = r.session;
+        return { outcome: "probe", clue: r.clue, site: toPublicSite(r.session) };
       }
       session.current = r.session;
       return { outcome: "miss", clue: r.clue, site: toPublicSite(r.session) };

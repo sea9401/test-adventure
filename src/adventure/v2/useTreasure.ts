@@ -10,6 +10,7 @@ import type {
   TreasureHandlers,
 } from "./TreasureDigView";
 import type { TreasureSiteOptionId, TreasureSitePublic } from "./treasureDig";
+import type { TreasureDigToolId } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
@@ -100,14 +101,18 @@ export function useTreasure(): TreasureHandlers {
   }, []);
 
   const dig = useCallback(
-    async (siteId: string, cell: number): Promise<DigOutcome> => {
+    async (
+      siteId: string,
+      cell: number,
+      tool: TreasureDigToolId,
+    ): Promise<DigOutcome> => {
       const release = beginDig();
       if (!release) return { outcome: "error" };
       try {
         const res = await fetch("/api/v2/treasure/dig", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ siteId, cell }),
+          body: JSON.stringify({ siteId, cell, tool }),
         });
         const j = await res.json().catch(() => null);
         if (!j?.ok) return { outcome: "error" };
@@ -122,6 +127,12 @@ export function useTreasure(): TreasureHandlers {
           case "miss":
             return {
               outcome: "miss",
+              clue: j.clue,
+              site: j.site as TreasureSitePublic,
+            };
+          case "probe":
+            return {
+              outcome: "probe",
               clue: j.clue,
               site: j.site as TreasureSitePublic,
             };

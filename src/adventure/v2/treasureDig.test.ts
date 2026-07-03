@@ -8,6 +8,7 @@ import {
   clueForDistance,
   parseTreasureSession,
   rollNewSession,
+  treasureActionsUsed,
   treasureConditionAfterHit,
   toPublicSite,
   type TreasureSession,
@@ -51,7 +52,9 @@ describe("applyDig", () => {
   it("적중 → hit", () => {
     const r = applyDig(sessionWith(12), 12);
     expect(r.kind).toBe("hit");
-    expect(r.session.digs).toEqual([{ cell: 12, clue: "hot" }]);
+    expect(r.session.digs).toEqual([
+      { cell: 12, clue: "hot", tool: "shovel", actionCost: 1 },
+    ]);
   });
 
   it("빗나감 → miss + 거리 단서", () => {
@@ -79,10 +82,30 @@ describe("applyDig", () => {
       s = r.session;
       lastKind = r.kind;
     }
-    expect(s.digs.length).toBe(DIGS_ALLOWED);
+    expect(treasureActionsUsed(s)).toBe(DIGS_ALLOWED);
     expect(lastKind).toBe("exhausted");
     // 예산 소진 후 추가 발굴 → invalid.
     expect(applyDig(s, 10).kind).toBe("invalid");
+  });
+
+  it("탐침은 선택 칸과 상하좌우 단서를 공개하지만 적중 발굴은 하지 않는다", () => {
+    const probe = applyDig(sessionWith(12), 7, "probe");
+    expect(probe.kind).toBe("probe");
+    expect(probe.session.digs.map((d) => d.cell)).toEqual([7, 2, 12, 6, 8]);
+    expect(treasureActionsUsed(probe.session)).toBe(1);
+    expect(probe.session.digs.find((d) => d.cell === 12)).toMatchObject({
+      clue: "hot",
+      tool: "probe",
+      actionCost: 0,
+    });
+
+    const hit = applyDig(probe.session, 12, "shovel");
+    expect(hit.kind).toBe("hit");
+    expect(treasureActionsUsed(hit.session)).toBe(2);
+    expect(hit.session.digs.find((d) => d.cell === 12)).toMatchObject({
+      tool: "shovel",
+      actionCost: 1,
+    });
   });
 });
 
@@ -176,6 +199,8 @@ describe("parseTreasureSession", () => {
     ).toBeNull();
     // 일치하는 단서는 통과(셀 0 = 거리 2 → warm).
     const ok = parseTreasureSession({ ...s, digs: [{ cell: 0, clue: "warm" }] });
-    expect(ok?.digs).toEqual([{ cell: 0, clue: "warm" }]);
+    expect(ok?.digs).toEqual([
+      { cell: 0, clue: "warm", tool: "shovel", actionCost: 1 },
+    ]);
   });
 });

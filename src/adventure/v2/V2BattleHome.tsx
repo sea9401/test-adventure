@@ -2,6 +2,7 @@
 
 import {
   Barbell,
+  CastleTurret,
   CompassRose,
   Crosshair,
   Skull,
@@ -76,7 +77,7 @@ export function V2BattleHome({
         />
         <EntryCard
           icon={
-            <Barbell size={28} weight="duotone" className="text-emerald-500" />
+            <CastleTurret size={28} weight="duotone" className="text-emerald-500" />
           }
           title="숙련의 탑"
           onClick={() => onAction({ kind: "open-mastery-tower" })}

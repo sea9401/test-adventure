@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowClockwise, Barbell, Certificate, CheckCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, CastleTurret, Certificate, CheckCircle } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -268,7 +268,7 @@ export function V2MasteryTowerView({
                 disabled={busy != null || !canAttempt}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
               >
-                <Barbell size={16} weight="duotone" />
+                <CastleTurret size={16} weight="duotone" />
                 {busy === "attempt" ? "도전 중…" : "다음 층 도전"}
               </button>
               <button

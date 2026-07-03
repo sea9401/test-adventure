@@ -58,7 +58,7 @@ const FROST: SignatureEffect = {
 const THUNDER_FANG: SignatureEffect = {
   trigger: "on_hit",
   label: "뇌운",
-  shockChancePct: 28,
+  shockChancePct: 15,
   shockSlowPct: 50,
   buffActions: 1,
 };

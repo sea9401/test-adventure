@@ -906,8 +906,16 @@ export function advanceTurnPvP(
     critRoll,
     sigDealtDamage,
   );
-  const sigHitShock = rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage);
   const sigStatusBlock = statusBlockOnce(defender.player.equipSignatures);
+  const sigEnemySlowActiveMult =
+    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
+      ? nextBuffsTimedFromAp.enemySpdMult
+      : 1;
+  // 감전은 중첩/갱신하지 않는다. 기존 둔화 슬롯이 살아 있거나 같은 타격에서 한기가 발동하면 미발동.
+  const sigHitShock =
+    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0 || sigCritChill
+      ? null
+      : rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage);
   const sigStatusFired = sigCritPoison || !!sigHitPoison || !!sigCritChill || !!sigHitShock;
   const statusBlockSigStatus =
     sigStatusFired && !!sigStatusBlock && !defender.flags.statusBlockUsed;
@@ -950,10 +958,6 @@ export function advanceTurnPvP(
     nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
       ? nextBuffsTimedFromAp.playerSpdMult
       : 1;
-  const sigEnemySlowActiveMult =
-    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
-      ? nextBuffsTimedFromAp.enemySpdMult
-      : 1;
   // 지속 효과 (PR-2 미러).
   // 여기는 cyclingChiBonus(매 턴 누적) 만 추가한다.
   const nextBuffsTimed: PvPSideBuffs = {
@@ -982,18 +986,8 @@ export function advanceTurnPvP(
     // 감전 on-hit 적 둔화 병합(한기와 같은 enemySpd 슬롯).
     ...(!statusBlockSigStatus && sigHitShock
       ? {
-          enemySpdMult: Math.min(
-            sigCritChill
-              ? Math.min(sigEnemySlowActiveMult, sigCritChill.mult)
-              : sigEnemySlowActiveMult,
-            sigHitShock.mult,
-          ),
-          enemySpdTurnsLeft: Math.max(
-            sigCritChill
-              ? Math.max(nextBuffsTimedFromAp.enemySpdTurnsLeft, sigCritChill.turns)
-              : nextBuffsTimedFromAp.enemySpdTurnsLeft,
-            sigHitShock.turns,
-          ),
+          enemySpdMult: sigHitShock.mult,
+          enemySpdTurnsLeft: sigHitShock.turns,
         }
       : {}),
   };

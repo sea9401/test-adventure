@@ -3,11 +3,15 @@ import {
   DIGS_ALLOWED,
   GRID_SIZE,
   TOTAL_CELLS,
+  applyTreasureAppraisalBonus,
   applyDig,
   chebyshev,
   clueForDistance,
   parseTreasureSession,
   rollNewSession,
+  treasureActionsUsed,
+  treasureAppraisalBonusPct,
+  treasureConditionAfterHit,
   toPublicSite,
   type TreasureSession,
 } from "./treasureDig";
@@ -17,6 +21,8 @@ import { isAntiqueId } from "@/adventure/data/v2/antique";
 function sessionWith(treasureCell: number): TreasureSession {
   return {
     siteId: "s1",
+    siteOptionId: "old_market",
+    fieldEventId: null,
     gridSize: GRID_SIZE,
     treasureCell,
     antiqueId: "clay_shard",
@@ -49,7 +55,9 @@ describe("applyDig", () => {
   it("적중 → hit", () => {
     const r = applyDig(sessionWith(12), 12);
     expect(r.kind).toBe("hit");
-    expect(r.session.digs).toEqual([{ cell: 12, clue: "hot" }]);
+    expect(r.session.digs).toEqual([
+      { cell: 12, clue: "hot", tool: "shovel", actionCost: 1 },
+    ]);
   });
 
   it("빗나감 → miss + 거리 단서", () => {
@@ -77,10 +85,30 @@ describe("applyDig", () => {
       s = r.session;
       lastKind = r.kind;
     }
-    expect(s.digs.length).toBe(DIGS_ALLOWED);
+    expect(treasureActionsUsed(s)).toBe(DIGS_ALLOWED);
     expect(lastKind).toBe("exhausted");
     // 예산 소진 후 추가 발굴 → invalid.
     expect(applyDig(s, 10).kind).toBe("invalid");
+  });
+
+  it("탐침은 선택 칸과 상하좌우 단서를 공개하지만 적중 발굴은 하지 않는다", () => {
+    const probe = applyDig(sessionWith(12), 7, "probe");
+    expect(probe.kind).toBe("probe");
+    expect(probe.session.digs.map((d) => d.cell)).toEqual([7, 2, 12, 6, 8]);
+    expect(treasureActionsUsed(probe.session)).toBe(1);
+    expect(probe.session.digs.find((d) => d.cell === 12)).toMatchObject({
+      clue: "hot",
+      tool: "probe",
+      actionCost: 0,
+    });
+
+    const hit = applyDig(probe.session, 12, "shovel");
+    expect(hit.kind).toBe("hit");
+    expect(treasureActionsUsed(hit.session)).toBe(2);
+    expect(hit.session.digs.find((d) => d.cell === 12)).toMatchObject({
+      tool: "shovel",
+      actionCost: 1,
+    });
   });
 });
 
@@ -90,17 +118,66 @@ describe("rollNewSession / toPublicSite", () => {
     expect(s.treasureCell).toBeGreaterThanOrEqual(0);
     expect(s.treasureCell).toBeLessThan(TOTAL_CELLS);
     expect(isAntiqueId(s.antiqueId)).toBe(true);
-    expect(s.digsAllowed).toBe(DIGS_ALLOWED);
+    expect(s.digsAllowed).toBe(DIGS_ALLOWED + 1);
     const pub = toPublicSite(s);
     expect(pub).not.toHaveProperty("treasureCell");
     expect(pub).not.toHaveProperty("antiqueId");
     expect(pub).not.toHaveProperty("condition");
+    expect(pub.siteOption.name).toBeTruthy();
+    expect(pub.fieldEvent?.name).toBeTruthy();
     expect(pub.digsUsed).toBe(0);
   });
 
   it("rng 0 → 매장지 0번 셀", () => {
     const s = rollNewSession({ siteId: "x", rng: () => 0, now: 0 });
     expect(s.treasureCell).toBe(0);
+  });
+
+  it("탐사지 선택은 세션에 박제되고 발굴 횟수 modifier 를 적용한다", () => {
+    const s = rollNewSession({
+      siteId: "royal",
+      siteOptionId: "royal_tomb",
+      rng: () => 0.5,
+      now: 0,
+    });
+    expect(s.siteOptionId).toBe("royal_tomb");
+    expect(s.digsAllowed).toBe(DIGS_ALLOWED - 1);
+    expect(toPublicSite(s).siteOption.id).toBe("royal_tomb");
+  });
+
+  it("적은 횟수로 적중하면 남은 발굴 횟수만큼 보존상태 보너스를 준다", () => {
+    const hit = applyDig(sessionWith(12), 12);
+    expect(hit.kind).toBe("hit");
+    expect(treasureConditionAfterHit(hit.session)).toBe(65);
+  });
+
+  it("현장 이벤트는 보존상태와 감정가 보너스를 적용한다", () => {
+    const intactHit = applyDig(
+      { ...sessionWith(12), fieldEventId: "intact_layer" },
+      12,
+    );
+    expect(intactHit.kind).toBe("hit");
+    expect(treasureConditionAfterHit(intactHit.session)).toBe(75);
+
+    const cacheHit = applyDig(
+      { ...sessionWith(12), fieldEventId: "buried_cache" },
+      12,
+    );
+    expect(cacheHit.kind).toBe("hit");
+    expect(treasureAppraisalBonusPct(cacheHit.session)).toBe(15);
+    expect(applyTreasureAppraisalBonus(1000, 15)).toBe(1150);
+  });
+
+  it("봉인된 방 감정가 보너스는 탐침을 사용한 뒤에만 적용한다", () => {
+    const sealed = { ...sessionWith(12), fieldEventId: "sealed_chamber" } as const;
+    const directHit = applyDig(sealed, 12, "shovel");
+    expect(directHit.kind).toBe("hit");
+    expect(treasureAppraisalBonusPct(directHit.session)).toBe(0);
+
+    const probe = applyDig(sealed, 7, "probe");
+    const probedHit = applyDig(probe.session, 12, "shovel");
+    expect(probedHit.kind).toBe("hit");
+    expect(treasureAppraisalBonusPct(probedHit.session)).toBe(25);
   });
 });
 
@@ -115,6 +192,17 @@ describe("parseTreasureSession", () => {
     const s = rollNewSession({ siteId: "rt", rng: () => 0.3, now: 5 });
     const withDig = applyDig(s, 0).session;
     expect(parseTreasureSession(withDig)).toEqual(withDig);
+  });
+
+  it("구버전 세션처럼 siteOptionId 가 없어도 기본 탐사지로 복구한다", () => {
+    const s = rollNewSession({ siteId: "legacy", rng: () => 0.3, now: 5 });
+    const parsed = parseTreasureSession({
+      ...s,
+      siteOptionId: undefined,
+      fieldEventId: undefined,
+    });
+    expect(parsed?.siteOptionId).toBe("old_market");
+    expect(parsed?.fieldEventId).toBeNull();
   });
 
   it("위조 가드: 범위 밖 매장지 / 미지 골동품 / 중복 dig 셀 / 예산 초과", () => {
@@ -149,6 +237,8 @@ describe("parseTreasureSession", () => {
     ).toBeNull();
     // 일치하는 단서는 통과(셀 0 = 거리 2 → warm).
     const ok = parseTreasureSession({ ...s, digs: [{ cell: 0, clue: "warm" }] });
-    expect(ok?.digs).toEqual([{ cell: 0, clue: "warm" }]);
+    expect(ok?.digs).toEqual([
+      { cell: 0, clue: "warm", tool: "shovel", actionCost: 1 },
+    ]);
   });
 });

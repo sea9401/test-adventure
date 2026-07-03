@@ -2,13 +2,27 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { TITLES } from "@/adventure/data/titles";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
 import {
+  DEFAULT_TREASURE_DIG_TOOL_ID,
   TREASURE_SESSION_KEY,
+  applyTreasureAppraisalBonus,
   applyDig,
+  isTreasureDigToolId,
   parseTreasureSession,
   toPublicSite,
+  treasureAppraisalBonusPct,
+  treasureConditionAfterHit,
+  treasureUsedProbe,
+  type TreasureDigToolId,
 } from "@/adventure/v2/treasureDig";
+import {
+  TREASURE_ACHIEVEMENTS_KEY,
+  parseTreasureAchievementStats,
+  reachedTreasureAchievementTitleIds,
+  recordTreasureAchievementHit,
+} from "@/adventure/v2/treasureAchievements";
 import {
   TREASURE_COLLECTION_KEY,
   addInstance,
@@ -26,8 +40,9 @@ import {
 } from "@/adventure/v2/treasureCodex";
 import { addTreasureScore } from "@/lib/server/treasure/records";
 import { currentTreasureSeasonId } from "@/lib/server/treasure/season";
+import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 
-// POST /api/v2/treasure/dig — body { siteId, cell }. 격자 한 칸을 판다.
+// POST /api/v2/treasure/dig — body { siteId, cell, tool }. 격자 한 칸에 행동한다.
 //
 // 적중이면 open 때 박제한 골동품을 인스턴스로 발굴해 보관함(treasure-collection.v1)에 넣고
 // 유물 도감에 등록하고 세션 종료. 빗나가면 거리 단서, 예산 소진이면 매장지를 공개하고 종료.
@@ -52,12 +67,19 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  const b = (body ?? {}) as { siteId?: unknown; cell?: unknown };
+  const b = (body ?? {}) as {
+    siteId?: unknown;
+    cell?: unknown;
+    tool?: unknown;
+  };
   if (typeof b.siteId !== "string" || typeof b.cell !== "number") {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const siteId = b.siteId;
   const cell = b.cell;
+  const tool: TreasureDigToolId = isTreasureDigToolId(b.tool)
+    ? b.tool
+    : DEFAULT_TREASURE_DIG_TOOL_ID;
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
@@ -68,7 +90,7 @@ export async function POST(req: Request) {
     // 다른 발굴 지점(새 open 이 덮었거나 이미 종료) — 현재 세션 보존하고 거부.
     if (session.siteId !== siteId) return { outcome: "stale" as const };
 
-    const dig = applyDig(session, cell);
+    const dig = applyDig(session, cell, tool);
 
     if (dig.kind === "invalid") {
       // 범위 밖/중복/예산소진 — 소비 없이 현재 상태 반환.
@@ -76,10 +98,13 @@ export async function POST(req: Request) {
     }
 
     if (dig.kind === "hit") {
+      const finalCondition = treasureConditionAfterHit(dig.session);
+      const appraisalBonusPct = treasureAppraisalBonusPct(dig.session);
+      const a = ANTIQUES[session.antiqueId];
       const instance: AntiqueInstance = {
         instanceId: generateAntiqueInstanceId(),
         antiqueId: session.antiqueId,
-        condition: session.condition,
+        condition: finalCondition,
         foundAt: now,
       };
       // 보관함에 인스턴스 추가.
@@ -96,10 +121,37 @@ export async function POST(req: Request) {
       const codex = parseTreasureCodex(
         await lockSaveForUpdate(tx, userId, TREASURE_CODEX_KEY, {}),
       );
-      const nextCodex = recordFind(codex, session.antiqueId, session.condition, now);
+      const nextCodex = recordFind(codex, session.antiqueId, finalCondition, now);
       await upsertSave(tx, userId, TREASURE_CODEX_KEY, nextCodex);
       // 주간 발굴가치 점수 += 결정적 감정가(주간 랭킹 원천, PR-7). 같은 tx 원자 증가.
-      const appraisedValue = appraiseValue(session.antiqueId, session.condition);
+      const appraisedValue = applyTreasureAppraisalBonus(
+        appraiseValue(session.antiqueId, finalCondition),
+        appraisalBonusPct,
+      );
+      const achievementStats = parseTreasureAchievementStats(
+        await lockSaveForUpdate(tx, userId, TREASURE_ACHIEVEMENTS_KEY, {}),
+      );
+      const nextAchievementStats = recordTreasureAchievementHit(achievementStats, {
+        siteOptionId: session.siteOptionId,
+        condition: finalCondition,
+        appraisedValue,
+        usedProbe: treasureUsedProbe(dig.session),
+      });
+      await upsertSave(
+        tx,
+        userId,
+        TREASURE_ACHIEVEMENTS_KEY,
+        nextAchievementStats,
+      );
+      const grantedTitles: { titleId: string; name: string }[] = [];
+      for (const titleId of reachedTreasureAchievementTitleIds(nextAchievementStats)) {
+        if (await grantTitleIfMissingInTx(tx, userId, titleId, now)) {
+          grantedTitles.push({
+            titleId,
+            name: TITLES[titleId]?.name ?? titleId,
+          });
+        }
+      }
       await addTreasureScore(
         tx,
         userId,
@@ -110,7 +162,6 @@ export async function POST(req: Request) {
       // 세션 종료.
       await upsertSave(tx, userId, TREASURE_SESSION_KEY, {});
 
-      const a = ANTIQUES[session.antiqueId];
       return {
         outcome: "hit" as const,
         antique: {
@@ -118,9 +169,12 @@ export async function POST(req: Request) {
           antiqueId: a.id,
           name: a.name,
           tier: a.tier,
-          condition: session.condition,
+          condition: finalCondition,
+          conditionBonus: Math.max(0, finalCondition - session.condition),
+          appraisalBonusPct,
           appraisedValue,
         },
+        grantedTitles,
         codexCount: countDiscoveredAntiques(nextCodex),
       };
     }
@@ -133,6 +187,16 @@ export async function POST(req: Request) {
         clue: dig.clue,
         treasureCell: session.treasureCell,
         missed: { antiqueId: a.id, name: a.name, tier: a.tier },
+      };
+    }
+
+    if (dig.kind === "probe") {
+      await upsertSave(tx, userId, TREASURE_SESSION_KEY, dig.session);
+      return {
+        outcome: "probe" as const,
+        clue: dig.clue,
+        revealed: dig.revealed.length,
+        site: toPublicSite(dig.session),
       };
     }
 

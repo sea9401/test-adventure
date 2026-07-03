@@ -7,9 +7,12 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { maxGuildSettlementBuildingLevel } from "@/lib/server/settlementBuildingLevels";
 import {
   TREASURE_SESSION_KEY,
+  DEFAULT_TREASURE_SITE_OPTION_ID,
+  isTreasureSiteOptionId,
   parseTreasureSession,
   rollNewSession,
   toPublicSite,
+  type TreasureSiteOptionId,
 } from "@/adventure/v2/treasureDig";
 import {
   TREASURE_FRAGMENTS_KEY,
@@ -40,6 +43,22 @@ export async function POST(req: Request) {
     windowMs: 60_000,
   });
   if (limited) return limited;
+
+  let body: unknown = null;
+  try {
+    body = await req.json();
+  } catch {
+    // 기존 클라이언트 호환: body 없이 POST 하면 기본 탐사지로 연다.
+  }
+  let siteOptionId: TreasureSiteOptionId = DEFAULT_TREASURE_SITE_OPTION_ID;
+  if (
+    body != null &&
+    typeof body === "object" &&
+    isTreasureSiteOptionId((body as { siteOptionId?: unknown }).siteOptionId)
+  ) {
+    siteOptionId = (body as { siteOptionId: TreasureSiteOptionId })
+      .siteOptionId;
+  }
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
@@ -87,7 +106,12 @@ export async function POST(req: Request) {
     }
     await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, spent);
 
-    const session = rollNewSession({ siteId: randomUUID(), rng: Math.random, now });
+    const session = rollNewSession({
+      siteId: randomUUID(),
+      siteOptionId,
+      rng: Math.random,
+      now,
+    });
     await upsertSave(tx, userId, TREASURE_SESSION_KEY, session);
     return {
       ok: true as const,

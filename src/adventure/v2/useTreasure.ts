@@ -9,18 +9,25 @@ import type {
   TreasureFragmentStatus,
   TreasureHandlers,
 } from "./TreasureDigView";
-import type { TreasureSitePublic } from "./treasureDig";
+import type { TreasureSiteOptionId, TreasureSitePublic } from "./treasureDig";
+import type { TreasureDigToolId } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
   const beginOpen = useSingleFlightGuard();
   const beginDig = useSingleFlightGuard();
 
-  const open = useCallback(async (): Promise<OpenOutcome> => {
+  const open = useCallback(async (
+    siteOptionId: TreasureSiteOptionId,
+  ): Promise<OpenOutcome> => {
     const release = beginOpen();
     if (!release) return { ok: false, reason: "error" };
     try {
-      const res = await fetch("/api/v2/treasure/open", { method: "POST" });
+      const res = await fetch("/api/v2/treasure/open", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ siteOptionId }),
+      });
       const j = await res.json().catch(() => null);
       if (res.ok && j?.ok) {
         return {
@@ -94,14 +101,18 @@ export function useTreasure(): TreasureHandlers {
   }, []);
 
   const dig = useCallback(
-    async (siteId: string, cell: number): Promise<DigOutcome> => {
+    async (
+      siteId: string,
+      cell: number,
+      tool: TreasureDigToolId,
+    ): Promise<DigOutcome> => {
       const release = beginDig();
       if (!release) return { outcome: "error" };
       try {
         const res = await fetch("/api/v2/treasure/dig", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ siteId, cell }),
+          body: JSON.stringify({ siteId, cell, tool }),
         });
         const j = await res.json().catch(() => null);
         if (!j?.ok) return { outcome: "error" };
@@ -111,11 +122,20 @@ export function useTreasure(): TreasureHandlers {
               outcome: "hit",
               clue: "hot",
               antique: j.antique,
+              grantedTitles: Array.isArray(j.grantedTitles)
+                ? j.grantedTitles
+                : [],
               codexCount: Number(j.codexCount ?? 0),
             };
           case "miss":
             return {
               outcome: "miss",
+              clue: j.clue,
+              site: j.site as TreasureSitePublic,
+            };
+          case "probe":
+            return {
+              outcome: "probe",
               clue: j.clue,
               site: j.site as TreasureSitePublic,
             };

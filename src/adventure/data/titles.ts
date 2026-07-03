@@ -767,6 +767,42 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "발굴 코인 상점에서 발굴 코인 2000으로 구매",
     category: "treasure",
   },
+  // ── 발굴 업적 칭호 (발굴 성공 기록으로 자동 지급) ───────────────────────
+  treasure_first_find: {
+    id: "treasure_first_find",
+    name: "첫 삽의 주인",
+    description: "처음으로 땅속의 흔적을 제대로 건져 올린 자.",
+    condition: "발굴 1회 성공",
+    category: "treasure",
+  },
+  treasure_veteran_excavator: {
+    id: "treasure_veteran_excavator",
+    name: "노련한 발굴가",
+    description: "단서의 온도를 읽고 흙 밑의 길을 반복해서 찾아낸 손.",
+    condition: "발굴 10회 성공",
+    category: "treasure",
+  },
+  treasure_pristine_keeper: {
+    id: "treasure_pristine_keeper",
+    name: "보존의 손",
+    description: "오래 묻힌 물건을 상처 없이 깨워 내는 섬세한 손길.",
+    condition: "보존상태 90 이상 골동품 발굴",
+    category: "treasure",
+  },
+  treasure_probe_pathfinder: {
+    id: "treasure_probe_pathfinder",
+    name: "탐침술사",
+    description: "흙을 크게 헤집지 않고도 묻힌 방향을 읽어내는 자.",
+    condition: "탐침을 사용한 발굴 5회 성공",
+    category: "treasure",
+  },
+  treasure_three_site_surveyor: {
+    id: "treasure_three_site_surveyor",
+    name: "삼지 답사자",
+    description: "서로 다른 세 탐사지의 흙냄새를 모두 기억하는 사람.",
+    condition: "세 탐사지에서 각각 발굴 성공",
+    category: "treasure",
+  },
   // ── 업적 보상 칭호 (퀘스트/업적 보상 수령 시 자동 지급) ──────────────────
   ach_full_gear: {
     id: "ach_full_gear",

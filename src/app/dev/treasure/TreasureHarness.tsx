@@ -7,10 +7,15 @@ import {
   type OpenOutcome,
 } from "@/adventure/v2/TreasureDigView";
 import {
+  applyTreasureAppraisalBonus,
   applyDig,
   rollNewSession,
   toPublicSite,
+  treasureAppraisalBonusPct,
+  treasureConditionAfterHit,
+  type TreasureDigToolId,
   type TreasureSession,
+  type TreasureSiteOptionId,
 } from "@/adventure/v2/treasureDig";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
 import {
@@ -24,7 +29,9 @@ export function TreasureHarness() {
   const session = useRef<TreasureSession | null>(null);
   const fragments = useRef({ fragments: 55 });
 
-  const open = useCallback(async (): Promise<OpenOutcome> => {
+  const open = useCallback(async (
+    siteOptionId: TreasureSiteOptionId,
+  ): Promise<OpenOutcome> => {
     if (session.current) {
       return { ok: true, resumed: true, site: toPublicSite(session.current) };
     }
@@ -43,6 +50,7 @@ export function TreasureHarness() {
     fragments.current = spent;
     session.current = rollNewSession({
       siteId: `${Date.now()}-${Math.random()}`,
+      siteOptionId,
       rng: Math.random,
       now: Date.now(),
     });
@@ -67,15 +75,21 @@ export function TreasureHarness() {
   }), []);
 
   const dig = useCallback(
-    async (siteId: string, cell: number): Promise<DigOutcome> => {
+    async (
+      siteId: string,
+      cell: number,
+      tool: TreasureDigToolId,
+    ): Promise<DigOutcome> => {
       const s = session.current;
       if (!s || s.siteId !== siteId) return { outcome: "error" };
-      const r = applyDig(s, cell);
+      const r = applyDig(s, cell, tool);
       if (r.kind === "invalid") {
         return { outcome: "invalid", site: toPublicSite(s) };
       }
       if (r.kind === "hit") {
         const a = ANTIQUES[s.antiqueId];
+        const finalCondition = treasureConditionAfterHit(r.session);
+        const appraisalBonusPct = treasureAppraisalBonusPct(r.session);
         session.current = null;
         return {
           outcome: "hit",
@@ -85,9 +99,15 @@ export function TreasureHarness() {
             antiqueId: a.id,
             name: a.name,
             tier: a.tier,
-            condition: s.condition,
-            appraisedValue: appraiseValue(s.antiqueId, s.condition),
+            condition: finalCondition,
+            conditionBonus: Math.max(0, finalCondition - s.condition),
+            appraisalBonusPct,
+            appraisedValue: applyTreasureAppraisalBonus(
+              appraiseValue(s.antiqueId, finalCondition),
+              appraisalBonusPct,
+            ),
           },
+          grantedTitles: [],
           codexCount: 0,
         };
       }
@@ -100,6 +120,10 @@ export function TreasureHarness() {
           treasureCell: s.treasureCell,
           missed: { antiqueId: a.id, name: a.name, tier: a.tier },
         };
+      }
+      if (r.kind === "probe") {
+        session.current = r.session;
+        return { outcome: "probe", clue: r.clue, site: toPublicSite(r.session) };
       }
       session.current = r.session;
       return { outcome: "miss", clue: r.clue, site: toPublicSite(r.session) };

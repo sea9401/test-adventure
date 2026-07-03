@@ -18,6 +18,7 @@ import {
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_LIST,
+  isFishingJobId,
   isJobUnlocked,
   isRootJobSelectable,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -76,7 +77,10 @@ export async function GET() {
 
   const jobs = V2_JOB_LIST.filter(
     (job) =>
-      job.id !== "none" && isRootJobSelectable(job) && isJobUnlocked(job, prof),
+      job.id !== "none" &&
+      !isFishingJobId(job.id) &&
+      isRootJobSelectable(job) &&
+      isJobUnlocked(job, prof),
   ).map((job) => ({
     id: job.id,
     name: job.name,

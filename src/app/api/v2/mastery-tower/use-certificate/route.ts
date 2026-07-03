@@ -9,6 +9,7 @@ import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
+  isFishingJobId,
   isJobUnlocked,
   isRootJobSelectable,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -65,6 +66,12 @@ export async function POST(req: Request) {
     const job = V2_JOB_CATALOG[jobId];
     if (!job || job.id === "none" || !isRootJobSelectable(job)) {
       return { status: 400, body: { ok: false as const, error: "bad_job" } };
+    }
+    if (isFishingJobId(job.id)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "fishing_job" },
+      };
     }
 
     const profRaw = await lockSaveForUpdate<unknown>(

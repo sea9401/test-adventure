@@ -57,6 +57,13 @@ describe("마법형 몬스터(atkType:magic) — 마법방어(정신)로 경감"
     expect(physTakes).toBeGreaterThan(magicTakes * 2);
   });
 
+  it("중간 수준 마법방어도 마법 피해를 체감 가능하게 낮춘다", () => {
+    const magicMob: Monster = { ...baseMob, atkType: "magic" };
+    const noCounter = damageTaken(combatant({ magicDef: 0 }), magicMob);
+    const prepared = damageTaken(combatant({ magicDef: 120 }), magicMob);
+    expect(prepared).toBeLessThan(noCounter * 0.5);
+  });
+
   it("물리 몹: 물리방어로 경감 — magicDef 는 무용", () => {
     const physMob: Monster = { ...baseMob, atkType: "physical" };
     expect(damageTaken(physDefBuild, physMob)).toBeLessThan(

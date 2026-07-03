@@ -61,8 +61,10 @@ export const EVA_PER_LUK = 0.08;
 // 치명타 피해 — 힘 minor (행운은 CRIT_DMG_PER_LUK major).
 export const CRIT_DMG_PER_STR = 0.002;
 // 마법 방어력 — 정신 major + 지능 minor. 마법 데미지 경감.
-export const MAGIC_DEF_PER_SPI = 0.12;
-export const MAGIC_DEF_PER_INT = 0.03;
+// 2026-07-04: 마법형 몬스터 피해 대응축이 약하게 체감되어 SPI/INT 환산을 상향.
+// 물리 방어 버프는 마법 공격에 적용되지 않으므로, 정신·장신구·마방 옵션 준비 보상을 선명하게 둔다.
+export const MAGIC_DEF_PER_SPI = 0.2;
+export const MAGIC_DEF_PER_INT = 0.05;
 // 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p). SPI 부활 PR-3b: 치명형 몹/PvP 치명을
 //   완전 봉인하지 못하게 cap(고-spi 도 치명 위협 일부 잔존·과투자 무력화 방지, eva/acc cap 패턴).
 export const CRIT_RESIST_PER_SPI = 0.1;

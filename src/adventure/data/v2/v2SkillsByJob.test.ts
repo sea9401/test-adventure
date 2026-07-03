@@ -119,7 +119,17 @@ describe("직업 킷 — 스킬셋", () => {
     expect(skillsForJob("masterangler")).toEqual([
       "v2c_masterangler_bigcatchsense",
     ]);
-    for (const jobId of ["fisher", "angler", "masterangler"]) {
+    expect(skillsForJob("fullcatchking")).toEqual([
+      "v2c_fullcatchking_bountyhaul",
+    ]);
+    expect(skillsForJob("seagod")).toEqual(["v2c_seagod_deepcurrent"]);
+    for (const jobId of [
+      "fisher",
+      "angler",
+      "masterangler",
+      "fullcatchking",
+      "seagod",
+    ]) {
       for (const id of skillsForJob(jobId)) {
         expect(V2_SKILLS[id].category, id).toBe("passive");
       }
@@ -129,6 +139,14 @@ describe("직업 킷 — 스킬셋", () => {
     expect(
       V2_SKILLS.v2c_masterangler_bigcatchsense.passive?.fishingBigCatchSizeBonusPct,
     ).toBe(2);
+    expect(V2_SKILLS.v2c_fullcatchking_bountyhaul.passive).toMatchObject({
+      fishingSizeBonusPct: 3,
+      fishingBigCatchSizeBonusPct: 2,
+    });
+    expect(V2_SKILLS.v2c_seagod_deepcurrent.passive).toMatchObject({
+      fishingSpecialWeightPct: 20,
+      fishingRareSizeBonusPct: 4,
+    });
   });
 
   it("헬스 트레이너 생활 직업 라인은 장착형 훈련장 패시브를 배운다", () => {

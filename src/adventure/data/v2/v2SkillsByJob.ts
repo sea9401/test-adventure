@@ -92,11 +92,13 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork"], // 권황: 용린파쇄 + 무극보법
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
   immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"], // 불멸자: 생명 강타 + 불멸의 심장
+  fullcatchking: ["v2c_fullcatchking_bountyhaul"], // 만선왕 — 만선 조업
   transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"], // 초월자: 만상검 + 초월 조화
   bloodlord: ["v2c_bloodlord_brand", "v2c_bloodlord_martyrdom"], // 혈성군주: 왕혈 낙인 + 불사의 순교
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
+  seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
 };
 
 /** 새 직업 id 의 학습 가능 시그니처 스킬셋. 미존재 jobId = 빈 배열(시작 스킬은 별도 자동 보유). */

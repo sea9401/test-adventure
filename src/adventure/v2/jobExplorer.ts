@@ -113,6 +113,8 @@ const LIFE_JOB_IDS = new Set([
   "fisher",
   "angler",
   "masterangler",
+  "fullcatchking",
+  "seagod",
   "healthtrainer",
   "physicalcoach",
   "mastertrainer",

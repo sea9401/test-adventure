@@ -22,6 +22,7 @@ import {
   artisanLeaderboardRewardTitleIds,
   parseArtisanWeeklyWorkshopStats,
   rankArtisanLeaderboardEntries,
+  type ArtisanLeaderboardRankInput,
 } from "@/adventure/data/v2/artisanLeaderboard";
 import {
   artisanLevel,
@@ -31,7 +32,25 @@ import {
 } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 
-async function loadBlacksmithRankings(weekKey: string) {
+const RANKING_CACHE_TTL_MS = 30_000;
+
+type BlacksmithRankingEntry = ArtisanLeaderboardRankInput & {
+  level: number;
+  xp: number;
+  xpIntoLevel: number;
+  xpForNext: number;
+  cumulativeCrafts: number;
+};
+
+type RankingCache = {
+  rows: BlacksmithRankingEntry[];
+  computedAt: number;
+  inFlight?: Promise<BlacksmithRankingEntry[]>;
+};
+
+const rankingCache = new Map<string, RankingCache>();
+
+async function loadBlacksmithRankingsFresh(weekKey: string) {
   const craftingRows = await db
     .select({ userId: savesKv.userId, value: savesKv.value })
     .from(savesKv)
@@ -63,6 +82,33 @@ async function loadBlacksmithRankings(weekKey: string) {
         cumulativeCrafts: cumulativeStats.totalCrafts,
       };
     }));
+}
+
+async function loadCachedBlacksmithRankings(weekKey: string) {
+  const now = Date.now();
+  const entry = rankingCache.get(weekKey);
+  if (entry && now - entry.computedAt < RANKING_CACHE_TTL_MS) return entry.rows;
+  if (entry?.inFlight) return entry.inFlight;
+
+  const promise = loadBlacksmithRankingsFresh(weekKey).then(
+    (rows) => {
+      rankingCache.set(weekKey, { rows, computedAt: Date.now() });
+      return rows;
+    },
+    (err: unknown) => {
+      const e = rankingCache.get(weekKey);
+      if (e && e.inFlight === promise) {
+        rankingCache.set(weekKey, { rows: e.rows, computedAt: e.computedAt });
+      }
+      throw err;
+    },
+  );
+  rankingCache.set(weekKey, {
+    rows: entry?.rows ?? [],
+    computedAt: entry?.computedAt ?? 0,
+    inFlight: promise,
+  });
+  return promise;
 }
 
 function currentLeaderboardSeason() {
@@ -121,7 +167,7 @@ export async function GET() {
   const season = currentLeaderboardSeason();
   await snapshotStaleArtisanLeaderboards(season.key);
   const [ranked, ownedTitleIds, weeklyStats, previousSeason] = await Promise.all([
-    loadBlacksmithRankings(season.key),
+    loadCachedBlacksmithRankings(season.key),
     loadOwnedTitleIds(viewerId),
     loadWeeklyWorkshopStats(viewerId, season.key),
     latestArtisanLeaderboardSnapshotForUser(viewerId),
@@ -210,7 +256,7 @@ export async function POST() {
   }
 
   const season = currentLeaderboardSeason();
-  const ranked = await loadBlacksmithRankings(season.key);
+  const ranked = await loadBlacksmithRankingsFresh(season.key);
   const viewerIndex = ranked.findIndex((entry) => entry.userId === viewerId);
   const myRank = viewerIndex >= 0 ? viewerIndex + 1 : null;
   const titleIds = artisanLeaderboardRewardTitleIds(myRank);

@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_EQUIPMENT_BOX,
@@ -30,6 +31,13 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:me:use-coop-equipment-box",
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let boxId: unknown;
   try {

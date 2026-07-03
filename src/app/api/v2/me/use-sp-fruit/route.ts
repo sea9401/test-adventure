@@ -5,6 +5,7 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import {
   parseProficiencyForChar,
   emptyProficiency,
@@ -51,6 +52,13 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:me:use-sp-fruit",
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let tier: SpFruitTier | null = null;
   try {

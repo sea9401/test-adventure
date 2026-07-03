@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { maxGuildSettlementBuildingLevel } from "@/lib/server/settlementBuildingLevels";
@@ -31,6 +32,13 @@ export async function POST() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:treasure:open",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -226,6 +227,13 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:guild:training-ground:claim",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: { drillId?: unknown };
   try {

@@ -96,8 +96,7 @@ import {
   resolveUserDisplayName,
 } from "@/lib/server/serverFeed";
 import {
-  checkUserRateLimit,
-  userRateLimitResponse,
+  enforceUserRateLimit,
 } from "@/lib/server/userRateLimit";
 import { rollHuntDrops } from "./huntDrops";
 import { computeGoldTax, computeLossTax } from "./huntTax";
@@ -993,15 +992,13 @@ export async function POST(req: Request) {
   }
   // 명시적 string — runOneHunt(중첩 클로저)에서 narrowing 이 풀리지 않게.
   const userId: string = maybeUserId;
-  const rateLimit = checkUserRateLimit({
+  const limited = enforceUserRateLimit({
     userId,
     action: "v2:dungeon:hunt",
     limit: 180,
     windowMs: 60_000,
   });
-  if (!rateLimit.ok) {
-    return userRateLimitResponse(rateLimit.retryAfterSec);
-  }
+  if (limited) return limited;
 
   let body: {
     floor?: unknown; // = 프론티어 깊이(depth). 클라 호환 위해 키 이름 유지.

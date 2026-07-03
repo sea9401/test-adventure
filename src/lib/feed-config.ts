@@ -28,6 +28,7 @@ export const FEED_TYPES = [
   "outpost_eject",
   "enhance_high",
   "enhance_destroy",
+  // 레거시 타입. 더 이상 발행/노출하지 않지만 기존 DB row 해석을 위해 타입은 유지한다.
   "rare_map_drop",
   "coop_summon",
   "coop_kill",
@@ -35,6 +36,9 @@ export const FEED_TYPES = [
   "newcomer",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
+
+// 기록은 남아 있어도 전체 소식/전광판/분류 탭에는 보여주지 않는 타입.
+export const FEED_HIDDEN_TYPES: readonly FeedType[] = ["rare_map_drop"];
 
 // 전광판 묶음 — GET /api/feed?types=war 서버 필터 + 전광판 티커(WarTicker) 소비.
 // 전쟁 사건 + 서버 명물(고강 +9 이상 성공/파괴). 서버 필터인 이유: FEED_FETCH_LIMIT 안에서
@@ -46,11 +50,10 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "enhance_high",
   "enhance_destroy",
   // 보스/희귀 사건 — 드물어 도배 위험 없고 서버 전체에 알릴 만한 "사건"이라 전광판에 합류.
-  //   coop_summon/kill=협동 보스, rare_map_drop=희귀 탐사/입장권 발견, fishing_big_catch=낚시 대물.
+  //   coop_summon/kill=협동 보스, fishing_big_catch=낚시 대물.
   //   ⚠️ unique_drop 은 의도적으로 제외 — 빈도가 높아 전광판 도배(아래 FEED_CATEGORY 주석 참고).
   "coop_summon",
   "coop_kill",
-  "rare_map_drop",
   "fishing_big_catch",
   // newcomer = 전쟁 사건은 아니지만 "서버 전체에 알리는 한 줄"이라 같은 상단 전광판에 태운다
   // (enhance_high 가 전쟁 아님에도 여기 묶인 것과 같은 취지 — 전광판 = 서버 공지 묶음).
@@ -76,8 +79,8 @@ export const FEED_CATEGORIES = ["acquisition", "enhance", "war", "boss"] as cons
 export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
-  // 획득 — 걸작 제작/희귀 탐사 발견(희귀 사건만 — 유니크 드랍 제외).
-  acquisition: ["masterpiece", "rare_map_drop"],
+  // 획득 — 걸작 제작(유니크 드랍/레어맵 발견 제외).
+  acquisition: ["masterpiece"],
   // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.
@@ -125,7 +128,7 @@ export type FeedPayload =
   // enhance_high — 고강(ENHANCE_FEED_MIN_LEVEL 이상) 강화 성공 / enhance_destroy — 같은 레벨대
   //   파괴(개체 소멸). level = 성공=달성 레벨·파괴=잃은 개체 레벨. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
-  // rare_map_drop — 희귀 탐사/입장권 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
+  // rare_map_drop — 레거시: 과거 희귀 탐사/입장권 발견 소식. 현재는 전체 소식에 발행하지 않음.
   // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
   | { kind: string }
   // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.

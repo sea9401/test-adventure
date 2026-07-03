@@ -11,7 +11,7 @@
 // 옛 PATCH(내 소식 공유 opt-out)는 제거 — 피드는 항상 기록(사용자 결정 2026-06-13).
 // 걸작 제작은 서버 권위(/api/craft) 에서 직접 insertFeedEntry — 클라 POST 로는 받지 않는다.
 
-import { desc, inArray } from "drizzle-orm";
+import { desc, inArray, notInArray } from "drizzle-orm";
 import { db } from "@/db";
 import { serverFeed } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -19,6 +19,7 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   FEED_CATEGORY_TYPES,
   FEED_FETCH_LIMIT,
+  FEED_HIDDEN_TYPES,
   WAR_FEED_TYPES,
   parseFeedCategory,
   type FeedEntry,
@@ -52,7 +53,7 @@ export async function GET(req: Request) {
     .from(serverFeed);
   const rows = await (typeFilter
     ? baseQuery.where(inArray(serverFeed.type, typeFilter))
-    : baseQuery
+    : baseQuery.where(notInArray(serverFeed.type, [...FEED_HIDDEN_TYPES]))
   )
     .orderBy(desc(serverFeed.id))
     .limit(FEED_FETCH_LIMIT);

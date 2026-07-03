@@ -26,6 +26,7 @@ import {
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
+import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/learn-skill — 현재 직업 시그니처 1종 학습. 숙달 포인트 비용 지불.
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
             spent.groups,
             spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
             codexBonus?.total ?? 0,
+            jobUnlockSpBonus(spent),
           ),
         )
       : nextLearned.filter((s) => elementalPool.includes(s));

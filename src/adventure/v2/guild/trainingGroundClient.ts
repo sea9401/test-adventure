@@ -53,12 +53,6 @@ export type TrainingState = {
     weeklyBonusMastery: number;
   };
   goals?: {
-    nextSp?: {
-      currentMilestoneSp: number;
-      nextMilestoneSp: number;
-      requiredCumLevel: number;
-      remainingCumLevel: number;
-    } | null;
     nextJob?: {
       jobId: string;
       name: string;

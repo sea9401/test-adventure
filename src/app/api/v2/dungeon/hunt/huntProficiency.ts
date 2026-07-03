@@ -1,5 +1,5 @@
 // 사냥 승리/레벨업의 숙련도·성장 적립 — runOneHunt 에서 추출한 순수 헬퍼(DB 미접촉).
-// 적립(숙달 포인트·직업 숙련도·SP 마일스톤)과 레벨업 랜덤 스탯 성장을 한 번에 계산하고,
+// 적립(숙달 포인트·직업 숙련도)과 레벨업 랜덤 스탯 성장을 한 번에 계산하고,
 // 쓰기(proficiency.v2 upsert)는 라우트가 반환값(nextProficiency)으로 수행한다.
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -24,10 +24,6 @@ import {
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { equippedProfPerKillBonus } from "@/adventure/data/v2/v2Skills";
 import { rollGuildCombatProficiencyBonus } from "@/adventure/data/v2/guildCombatSupply";
-import {
-  V2_CORE_LOOP_V2,
-  spMilestonesCrossed,
-} from "@/adventure/data/v2/coreLoopConfig";
 
 export type HuntProficiencyResult = {
   /** 갱신된 proficiency — null 이면 쓰기 불필요(패배·무성장: readout 만 산출). */
@@ -38,7 +34,7 @@ export type HuntProficiencyResult = {
   masteryGained: number;
   /** 상시 카드 readout — 이 사냥 후 현재 직업 숙련도(none=null). */
   masteryAfter: number | null;
-  /** 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤 수(flag off=항상 0). */
+  /** deprecated — 숙련도 마일스톤 SP 지급 제거로 항상 0. */
   spMilestonesGained: number;
   /** 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용. */
   statGains: Partial<Record<V2StatKey, number>>;
@@ -75,7 +71,7 @@ export function applyHuntProficiency(params: {
   let proficiencyGained = 0;
   let masteryGained = 0;
   let masteryAfter: number | null = null;
-  let spMilestonesGained = 0;
+  const spMilestonesGained = 0;
   const statGains: Partial<Record<V2StatKey, number>> = {};
 
   if (won || levelsGained > 0) {
@@ -100,13 +96,9 @@ export function applyHuntProficiency(params: {
         proficiencyGained = perKill;
       }
       if (group !== "none" && !isFishingJobId(v2JobId)) {
-        const oldMastery = prof.groups[group]?.cumLevel ?? 0;
         prof = addCumLevel(prof, group, 1);
         prof = addJobCumLevel(prof, v2JobId, 1);
         masteryGained = 1;
-        if (V2_CORE_LOOP_V2) {
-          spMilestonesGained = spMilestonesCrossed(oldMastery, oldMastery + 1);
-        }
       }
     }
     // 레벨업 시 — 랜덤 스탯 성장. 직업 숙련도는 레벨업이 아니라 사냥 승리에서 적립한다.

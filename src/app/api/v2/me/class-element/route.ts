@@ -20,6 +20,7 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
+import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -304,6 +305,7 @@ export async function POST(req: Request) {
               (charSave as { spFruitUsed?: unknown }).spFruitUsed,
             ),
             codexBonus?.total ?? 0,
+            jobUnlockSpBonus(prof),
           ),
         )
       : (() => {

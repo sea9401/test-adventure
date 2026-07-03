@@ -46,6 +46,7 @@ export type V2LoadoutSpBreakdown = {
   base: number;
   milestoneSp: number;
   masteryBonusSp: number;
+  jobUnlockSp?: number;
   softCapReduction?: number;
   spFruitBonus: number;
   equipmentCodexBonus?: number;
@@ -567,8 +568,7 @@ export function V2LoadoutPanel({
         <div className="mt-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/80">
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-300">
             <span>기본 {spBreakdown.base}</span>
-            <span>숙련도 +{spBreakdown.milestoneSp}</span>
-            <span>직업군 정복 +{spBreakdown.masteryBonusSp}</span>
+            <span>직업 해금 +{spBreakdown.jobUnlockSp ?? 0}</span>
             {(spBreakdown.softCapReduction ?? 0) > 0 && (
               <span>상한 조정 -{spBreakdown.softCapReduction}</span>
             )}
@@ -576,40 +576,6 @@ export function V2LoadoutPanel({
             <span>도감 +{spBreakdown.collectionBonusSp}</span>
             <span>장비 도감 +{spBreakdown.equipmentCodexBonus ?? 0}</span>
           </div>
-          {spBreakdown.groups.length > 0 && (
-            <div className="mt-2 grid gap-1 sm:grid-cols-2">
-              {spBreakdown.groups.map((g) => {
-                const masteryPct =
-                  g.requiredCumLevel > 0
-                    ? Math.min(100, (g.cumLevel / g.requiredCumLevel) * 100)
-                    : 0;
-                return (
-                  <div key={g.id} className="min-w-0">
-                    <div className="flex items-center justify-between gap-2 text-[11px]">
-                      <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">
-                        {g.label}
-                      </span>
-                      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
-                        {g.mastered
-                          ? `정복 +${g.masteryBonusSp}`
-                          : `${g.cumLevel.toLocaleString()} / ${g.requiredCumLevel.toLocaleString()}`}
-                      </span>
-                    </div>
-                    <div className="war-meter-track mt-1 h-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                      <div
-                        className={`war-meter-fill h-full rounded-full ${
-                          g.mastered
-                            ? "bg-emerald-500 dark:bg-emerald-500"
-                            : "bg-sky-500 dark:bg-sky-500"
-                        }`}
-                        style={{ width: `${masteryPct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
       )}
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

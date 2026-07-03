@@ -19,6 +19,7 @@ import {
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
+import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/loadout — 수동 SP 로드아웃 저장(코어루프). body: { equipped: string[] }(우선순위 순서).
@@ -83,6 +84,7 @@ export async function POST(req: Request) {
       prof.groups,
       spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
       (await readCodexSpBonus(tx, userId)).total,
+      jobUnlockSpBonus(prof),
     );
 
     const check = validateLoadout(requested, skills.learned, spBudget);

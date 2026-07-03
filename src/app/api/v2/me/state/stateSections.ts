@@ -64,6 +64,7 @@ import {
   isDirectNextJob,
   isJobUnlocked,
   isRootJobSelectable,
+  jobUnlockSpBonus,
   jobIdFromLegacy,
   jobUnlockConditionText,
   cumLevelForJob,
@@ -300,6 +301,7 @@ export function loadoutSection(params: {
   fishingCodexRaw: unknown;
   treasureCodexRaw: unknown;
   equipmentCodexSpBonus: number;
+  jobUnlockCtx?: JobUnlockContext;
 }) {
   const {
     charSave,
@@ -308,6 +310,7 @@ export function loadoutSection(params: {
     fishingCodexRaw,
     treasureCodexRaw,
     equipmentCodexSpBonus: equipmentCodexBonus,
+    jobUnlockCtx,
   } = params;
   const prof = parseProficiencyForChar(proficiencyRaw, charSave);
   const skillsState = parseV2SkillsState(skillsRaw);
@@ -324,6 +327,7 @@ export function loadoutSection(params: {
     spBudgetGroups,
     spFruitBonus,
     collectionBonus.total + equipmentCodexBonus,
+    jobUnlockSpBonus(prof, jobUnlockCtx),
   );
   const spBudget = spBreakdownBase.budget;
   const groups = V2_SELECTABLE_CLASSES.map((id) => {
@@ -385,6 +389,7 @@ export function loadoutSection(params: {
       base: spBreakdownBase.base,
       milestoneSp,
       masteryBonusSp,
+      jobUnlockSp: spBreakdownBase.jobUnlockSp,
       softCapReduction: spBreakdownBase.softCapReduction,
       spFruitBonus: spBreakdownBase.spFruitBonus,
       equipmentCodexBonus,

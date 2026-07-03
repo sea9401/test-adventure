@@ -200,31 +200,17 @@ export const STAT_FLOOR_DECAY_BAND = 2500;
 export const STAT_FLOOR_DECAY_PER_BAND = 0.1;
 export const STAT_FLOOR_DECAY_MIN = 0.45;
 
-// === 스킬포인트(SP) 로드아웃 예산 (직업군 마일스톤 파생) =======================
+// === 스킬포인트(SP) 로드아웃 예산 (직업 해금 수집 파생) ========================
 // 레벨 슬롯(스킬 1개씩) 폐지 → "배운 스킬 중 합(spCost) ≤ SP예산"으로 자유 장착. SP 는
-// 직업군별 숙련도 마일스톤 보상으로 쌓인다(성장 체감 — "스킬포인트 획득!"). 베테랑일수록
-// 큰 로드아웃. 여러 직업군 환생 누적 = 더 큰 예산. (전 V2_CORE_LOOP_V2 뒤·미배선이면 inert.)
+// 기본 예산 + 해금한 실제 직업 수 + 별도 수집/소모품 보너스로 쌓인다. 숙련도 자체는 더 이상
+// SP 를 직접 주지 않고, 직업 해금 조건을 채우는 간접 동기로만 남긴다.
 //
-// 🔑 마일스톤 간격은 cumLevel 이 깊어질수록 "넓어진다"(점감) — flat 간격은 선형 무한증가라
-//    베테랑이 결국 전 카탈로그 장착 가능(제약 붕괴). SP 계산은 해금용 숙련도를 1/9 정규화한
-//    밸런스 입력을 쓴다. 운영 실측(prod RDS 10인)의 예전 1환생≈291 은 마이그 후 2619지만
-//    밸런스 입력은 그대로 291 이라 예산 충격이 없다. n번째 SP 간격 = BASE + (n-1)*WIDEN.
-//    (밸런스 입력 임계: SP1@45 2@115 3@210 4@330 5@475 6@645 7@840 8@1060.)
-export const SP_BASE = 12; // 시작 SP.
-export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 밸런스 숙련도(저장 숙련도 405).
-export const SP_MILESTONE_WIDEN = 25; // 다음 SP 마다 간격이 이만큼씩 더 벌어진다(점감 강도).
-export const SP_MASTERED_JOB_BONUS = 3; // 직업군 "정복" 1회당 +SP.
-// "정복" 기준 = 저장 숙련도 10,000(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
-//   리셋이라 tier≥4 기준은 거의 휴면(현 직업군이 4차 도달~환생 전에만 +3). cumLevel 은 환생에도
-//   보존 → "여러 직업 정복 누적"이 실제로 쌓인다(오픈믹스 수집 보상). 마일스톤 SP 는 1/9 밸런스
-//   입력을 계속 쓰지만, 정복 보상은 충분히 장기 목표가 되도록 저장 숙련도 기준을 직접 본다.
+export const SP_BASE = 25; // 시작 SP.
+export const SP_MILESTONE_BASE = 45; // deprecated: 숙련도 SP 마일스톤은 더 이상 사용하지 않는다.
+export const SP_MILESTONE_WIDEN = 25; // deprecated.
+export const SP_MASTERED_JOB_BONUS = 0; // deprecated: 직업군 정복 SP 보너스 제거.
 export const SP_MASTERED_REQUIRED_CUMLEVEL = 10_000;
-export const SP_MAX_SOFT_CAP = 40; // 절대 천장(점감 곡선상 단일직 ~7·broad 베테랑 ~32, 캡은 안전망).
-const SP_MASTERY_BALANCE_SCALE = 9;
-function spBalanceCumLevel(cumLevel: number): number {
-  if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0;
-  return Math.floor(cumLevel / SP_MASTERY_BALANCE_SCALE);
-}
+export const SP_MAX_SOFT_CAP = Number.POSITIVE_INFINITY; // deprecated: 수집형 SP 는 소프트캡 없음.
 
 export function spMasteryProgressForCumLevel(cumLevel: number): {
   cumLevel: number;
@@ -245,23 +231,15 @@ export function spMasteryProgressForCumLevel(cumLevel: number): {
     remainingCumLevel: mastered
       ? 0
       : Math.max(0, SP_MASTERED_REQUIRED_CUMLEVEL - current),
-    milestoneSp: spMilestonesForCumLevel(current),
-    masteryBonusSp: mastered ? SP_MASTERED_JOB_BONUS : 0,
+    milestoneSp: 0,
+    masteryBonusSp: 0,
   };
 }
 
-// 한 직업군 cumLevel → 마일스톤 SP 개수(점감). 간격이 SP 마다 +WIDEN 벌어지는 등차 임계의 역.
-//   임계 T(n) = BASE·n + WIDEN·n(n-1)/2 ≤ cum 인 최대 n. 근의공식 닫힌형(루프 불필요).
-//   cum ≤ 0 → 0. (역수식 floor 경계 부동소수 안정용 +1e-9.)
+// deprecated: 숙련도는 더 이상 SP 를 직접 지급하지 않는다.
 export function spMilestonesForCumLevel(cumLevel: number): number {
-  const raw = spBalanceCumLevel(Number(cumLevel));
-  const cum = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
-  if (cum < SP_MILESTONE_BASE) return 0;
-  const a = SP_MILESTONE_BASE;
-  const d = SP_MILESTONE_WIDEN;
-  const n =
-    (d / 2 - a + Math.sqrt((a - d / 2) ** 2 + 2 * d * cum)) / d + 1e-9;
-  return Math.max(0, Math.floor(n));
+  void cumLevel;
+  return 0;
 }
 
 export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
@@ -270,89 +248,76 @@ export function nextSpMilestoneProgressForCumLevel(cumLevel: number): {
   requiredCumLevel: number;
   remainingCumLevel: number;
 } {
-  const current = Number.isFinite(cumLevel)
-    ? Math.max(0, Math.floor(cumLevel))
-    : 0;
-  const currentMilestoneSp = spMilestonesForCumLevel(current);
-  const nextMilestoneSp = currentMilestoneSp + 1;
-  const balanceRequired =
-    SP_MILESTONE_BASE * nextMilestoneSp +
-    (SP_MILESTONE_WIDEN * nextMilestoneSp * (nextMilestoneSp - 1)) / 2;
-  const requiredCumLevel = balanceRequired * SP_MASTERY_BALANCE_SCALE;
+  void cumLevel;
   return {
-    currentMilestoneSp,
-    nextMilestoneSp,
-    requiredCumLevel,
-    remainingCumLevel: Math.max(0, requiredCumLevel - current),
+    currentMilestoneSp: 0,
+    nextMilestoneSp: 0,
+    requiredCumLevel: 0,
+    remainingCumLevel: 0,
   };
 }
 
-// SP 예산 계산 — 각 직업군 밸런스 숙련도 점감 마일스톤 합 + 정복 보너스 + 기본. 소프트캡.
-//   groups = proficiency.groups (직업군별 { cumLevel }). 구조적 인자(순환 import 회피).
-//   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
-//   정복 = cumLevel≥SP_MASTERED_REQUIRED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
-//   spCapBonus — SP 열매(협동 보스 보상) 사용분. 소프트캡(40) 위에 더해 천장을 올린다(영구
-//   빌드폭). collectionBonus — 어보/유물 도감 파생 보너스. 둘 다 기본 0 → 기존 콜러 무변.
+// SP 예산 계산 — 기본 + 해금 직업 수 + SP 열매 + 도감 보너스. 소프트캡 없음.
+//   groups 인자는 옛 숙련도 기반 호출 호환용으로 남기며 계산에는 사용하지 않는다.
 export function calcSpBudget(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
   spCapBonus = 0,
   collectionBonus = 0,
+  jobUnlockBonus = 0,
 ): number {
-  return calcSpBudgetBreakdown(groups, spCapBonus, collectionBonus).budget;
+  return calcSpBudgetBreakdown(
+    groups,
+    spCapBonus,
+    collectionBonus,
+    jobUnlockBonus,
+  ).budget;
 }
 
 export function calcSpBudgetBreakdown(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
   spCapBonus = 0,
   collectionBonus = 0,
+  jobUnlockBonus = 0,
 ): {
   budget: number;
   base: number;
   milestoneSp: number;
   masteryBonusSp: number;
+  jobUnlockSp: number;
   rawCoreSp: number;
   cappedCoreSp: number;
   softCapReduction: number;
   spFruitBonus: number;
   collectionBonusSp: number;
 } {
-  let milestoneSp = 0;
-  let masteredBonus = 0;
-  for (const g of Object.values(groups ?? {})) {
-    const cum = Number(g?.cumLevel) || 0;
-    milestoneSp += spMilestonesForCumLevel(cum);
-    if (cum >= SP_MASTERED_REQUIRED_CUMLEVEL) {
-      masteredBonus += SP_MASTERED_JOB_BONUS;
-    }
-  }
+  void groups;
   const bonus = Math.max(0, Math.floor(Number(spCapBonus) || 0));
   const collection = Math.max(0, Math.floor(Number(collectionBonus) || 0));
-  const rawCoreSp = SP_BASE + milestoneSp + masteredBonus;
-  const cappedCoreSp = Math.min(SP_MAX_SOFT_CAP, rawCoreSp);
+  const jobUnlockSp = Math.max(0, Math.floor(Number(jobUnlockBonus) || 0));
+  const rawCoreSp = SP_BASE + jobUnlockSp;
+  const cappedCoreSp = rawCoreSp;
   return {
     budget: cappedCoreSp + bonus + collection,
     base: SP_BASE,
-    milestoneSp,
-    masteryBonusSp: masteredBonus,
+    milestoneSp: 0,
+    masteryBonusSp: 0,
+    jobUnlockSp,
     rawCoreSp,
     cappedCoreSp,
-    softCapReduction: Math.max(0, rawCoreSp - cappedCoreSp),
+    softCapReduction: 0,
     spFruitBonus: bonus,
     collectionBonusSp: collection,
   };
 }
 
-// 두 cumLevel 사이에 새로 넘은 SP 마일스톤 수("스킬포인트 +N 획득!" 알림용).
-//   cumLevel 은 단조 증가(addCumLevel 누적·환생도 보존)라 각 마일스톤은 평생 1회만 넘는다 →
-//   레벨업 시점(old→new)에서 차분만 보면 별도 영속 카운터 없이 정확히 1회 발화. 음수 방지.
+// deprecated: 숙련도 마일스톤 SP 지급 제거.
 export function spMilestonesCrossed(
   oldCumLevel: number,
   newCumLevel: number,
 ): number {
-  return Math.max(
-    0,
-    spMilestonesForCumLevel(newCumLevel) - spMilestonesForCumLevel(oldCumLevel),
-  );
+  void oldCumLevel;
+  void newCumLevel;
+  return 0;
 }
 
 // === 거점 행동 비용 (스태미나 → 골드/전투 쿨다운으로 대체) ====================

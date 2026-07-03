@@ -426,6 +426,7 @@ export async function GET(req: Request) {
             fishingCodexRaw: fishingCodexRow?.value,
             treasureCodexRaw: treasureCodexRow?.value,
             equipmentCodexSpBonus: equipmentCodex.spBonus,
+            jobUnlockCtx,
           }),
         }
       : {}),

@@ -19,6 +19,7 @@ import {
   spCapBonusFromFruits,
   type SpFruitTier,
 } from "@/adventure/data/v2/spFruit";
+import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/use-sp-fruit — SP 열매(협동 보스 드랍 소모품) 1개 사용 → SP 최대치 +1(영구).
@@ -128,6 +129,7 @@ export async function POST(req: Request) {
       prof.groups,
       capBonus,
       (await readCodexSpBonus(tx, userId)).total,
+      jobUnlockSpBonus(prof),
     );
 
     return {

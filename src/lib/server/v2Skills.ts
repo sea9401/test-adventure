@@ -16,6 +16,7 @@ import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import { readCodexSpBonus } from "./codexSpBonus";
@@ -48,6 +49,7 @@ export function sanitizeCombatLoadout(
         prof.groups,
         spCapBonusFromRaw(cs.spFruitUsed),
         collectionBonusSp,
+        jobUnlockSpBonus(prof),
       ),
     ),
   };
@@ -99,6 +101,7 @@ export async function reconcileV2EquippedSkills(
             prof.groups,
             spCapBonusFromRaw(charSave.spFruitUsed),
             codexBonus.total,
+            jobUnlockSpBonus(prof),
           ),
         );
       })()

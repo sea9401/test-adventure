@@ -7,6 +7,7 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   cumLevelForJob,
+  jobUnlockSpBonus,
   jobIdFromLegacy,
   V2_JOB_CATALOG,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -138,6 +139,7 @@ export async function GET() {
       prof.groups,
       Number(character.spCapBonus) || 0,
       collectionSp,
+      jobUnlockSpBonus(prof),
     );
     const equipment = parseEquipmentSave(r.equipment);
     const fishCodex = parseFishCodex(r.fishing_codex);

@@ -1,6 +1,6 @@
 // SP 열매 — 협동 보스가 드랍하는 거래 가능 소모성 아이템. 사용 시 SP 최대치 +1(영구·캐릭터당
 //   사용 캡). docs: 협동 보스 리워크. 보스별 등급(I/II/III/IV)·캡 도달 시 사용 차단(거래만).
-//   하드캡 SP_MAX_SOFT_CAP(40) 위에 사용분만큼 더해 예산을 올린다(calcSpBudget 2번째 인자).
+//   사용분만큼 SP 예산을 올린다(calcSpBudget 2번째 인자).
 //
 // 🔑 타입-only import 만 둔다(런타임 순환 회피): dungeonDrops 가 SP_FRUIT_MATERIALS(값)를
 //    spread 하고, 여기선 V2Material/CoopBossKindId 를 타입으로만 참조.

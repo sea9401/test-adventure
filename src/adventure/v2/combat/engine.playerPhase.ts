@@ -32,11 +32,14 @@ import {
 } from "./combatShared";
 import {
   everyNHitsValue,
+  formatDefDebuffLog,
   firesOnCritPoison,
   formatChillSlowLog,
   formatShockSlowLog,
+  onCritEnemyDefDebuff,
   onCritEnemyChill,
   onCritSpeedBuff,
+  rollOnHitBleed,
   rollOnHitPoison,
   rollOnHitShock,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
@@ -769,6 +772,7 @@ export function resolvePlayerPhase(
     sigDealtDamage,
   );
   const sigHitPoison = rollOnHitPoison(player.equipSignatures, sigDealtDamage);
+  const sigHitBleed = rollOnHitBleed(player.equipSignatures, sigDealtDamage);
   const sigPoisonDots = [
     ...(sigCritPoison
       ? [
@@ -811,6 +815,11 @@ export function resolvePlayerPhase(
     critRoll,
     sigDealtDamage,
   );
+  const sigCritDefDebuff = onCritEnemyDefDebuff(
+    player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
   const sigEnemySlowActiveMult =
     nextBuffsTimed.enemySpdTurnsLeft > 0 ? nextBuffsTimed.enemySpdMult : 1;
   // 감전은 중첩/갱신하지 않는다. 기존 둔화 슬롯이 살아 있거나 같은 타격에서 한기가 발동하면 미발동.
@@ -833,6 +842,20 @@ export function resolvePlayerPhase(
         enemySpdTurnsLeft: sigHitShock.turns,
       }
     : null;
+  const sigEnemyDefDebuffActivePct =
+    nextBuffsTimed.enemyDefDebuffTurnsLeft > 0 ? nextBuffsTimed.enemyDefDebuffPct : 0;
+  const sigEnemyDefDebuff = sigCritDefDebuff
+    ? {
+        enemyDefDebuffPct: Math.max(
+          sigEnemyDefDebuffActivePct,
+          sigCritDefDebuff.pct,
+        ),
+        enemyDefDebuffTurnsLeft: Math.max(
+          nextBuffsTimed.enemyDefDebuffTurnsLeft,
+          sigCritDefDebuff.turns,
+        ),
+      }
+    : null;
   if (sigCritPoison) {
     log = appendLog(log, {
       kind: "info",
@@ -845,6 +868,12 @@ export function resolvePlayerPhase(
       text: `[${sigHitPoison.label}] ${state.enemy.name}에게 중독 ${sigHitPoison.stacks}스택을 남겼다.`,
     });
   }
+  if (sigHitBleed) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigHitBleed.label}] ${state.enemy.name}에게 출혈 ${sigHitBleed.stacks}스택을 남겼다.`,
+    });
+  }
   if (sigSpdBuff) {
     log = appendLog(log, {
       kind: "info",
@@ -855,6 +884,12 @@ export function resolvePlayerPhase(
     log = appendLog(log, {
       kind: "info",
       text: formatChillSlowLog(state.enemy.name, sigCritChill),
+    });
+  }
+  if (sigCritDefDebuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: formatDefDebuffLog(state.enemy.name, sigCritDefDebuff),
     });
   }
   if (sigHitShock) {
@@ -891,6 +926,8 @@ export function resolvePlayerPhase(
       ...(sigChillDebuff ?? {}),
       // 고유 시그니처 on-hit 감전 적 둔화 — 한기와 같은 enemySpd 슬롯에 가장 강한 슬로우로 병합.
       ...(sigShockDebuff ?? {}),
+      // 고유 시그니처 표식 방어 감소 — AP 약점 노출과 같은 enemyDef 슬롯에 병합.
+      ...(sigEnemyDefDebuff ?? {}),
     },
     stacks: {
       ...state.stacks,
@@ -919,7 +956,7 @@ export function resolvePlayerPhase(
         ? queuedExtraAttacksAdd
         : state.turn.queuedExtraAttacks,
     },
-  }, player, { bleedStacks: apBleedAdd }));
+  }, player, { bleedStacks: apBleedAdd + (sigHitBleed?.stacks ?? 0) }));
   if (enemyHp <= 0) {
     return {
       ...afterDamage,

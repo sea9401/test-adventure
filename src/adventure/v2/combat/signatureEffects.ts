@@ -147,6 +147,29 @@ export function onCritEnemyChill(
   return best;
 }
 
+export function onCritEnemyDefDebuff(
+  signatures: SignatureEffect[] | undefined,
+  critRoll: boolean,
+  dealtDamage: boolean,
+): { pct: number; turns: number; label: string } | null {
+  if (!critRoll || !dealtDamage || !signatures) return null;
+  let best: { pct: number; turns: number; label: string } | null = null;
+  for (const s of signatures) {
+    if (s.trigger !== "on_crit" || !s.enemyDefDebuffPct) continue;
+    const pct = Math.max(0, s.enemyDefDebuffPct);
+    const turns = Math.max(1, s.buffActions ?? 1);
+    if (!best || pct > best.pct) best = { pct, turns, label: s.label };
+  }
+  return best;
+}
+
+export function formatDefDebuffLog(
+  targetName: string,
+  debuff: { pct: number; turns: number; label: string },
+): string {
+  return `[${debuff.label}] ${targetName}에게 표식을 남겼다. (방어 ${debuff.pct}% 감소, ${debuff.turns}턴)`;
+}
+
 export function formatChillSlowLog(
   targetName: string,
   chill: { mult: number; turns: number },
@@ -177,6 +200,24 @@ export function rollOnHitPoison(
     if (s.trigger !== "on_hit" || !s.poisonChancePct) continue;
     if (roll() * 100 >= s.poisonChancePct) continue;
     stacks += Math.max(1, s.poisonStacks ?? 1);
+    labels.push(s.label);
+  }
+  if (stacks <= 0) return null;
+  return { stacks, label: labels.join(" + ") };
+}
+
+export function rollOnHitBleed(
+  signatures: SignatureEffect[] | undefined,
+  dealtDamage: boolean,
+  roll: () => number = Math.random,
+): { stacks: number; label: string } | null {
+  if (!dealtDamage || !signatures) return null;
+  let stacks = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_hit" || !s.bleedChancePct) continue;
+    if (roll() * 100 >= s.bleedChancePct) continue;
+    stacks += Math.max(1, s.bleedStacks ?? 1);
     labels.push(s.label);
   }
   if (stacks <= 0) return null;

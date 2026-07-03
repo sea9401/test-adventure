@@ -309,10 +309,16 @@ export type SignatureEffect = {
   poisonChancePct?: number;
   /** on_hit: 공격 적중 시 부여하는 중독 스택 수. 기본 1. */
   poisonStacks?: number;
+  /** on_hit: 공격 적중 시 대상에게 출혈을 부여할 확률. */
+  bleedChancePct?: number;
+  /** on_hit: 공격 적중 시 부여하는 출혈 스택 수. 기본 1. */
+  bleedStacks?: number;
   /** on_hit: 공격 적중 시 대상에게 감전(둔화)을 부여할 확률. */
   shockChancePct?: number;
   /** on_hit: 감전 발동 시 적 속도 −% (buffActions 행동). */
   shockSlowPct?: number;
+  /** on_crit: 치명타 시 적 DEF −% (buffActions 행동). */
+  enemyDefDebuffPct?: number;
   /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
   defGainOnHitPct?: number;
   /** battle_start: 전투 시작 시 maxHp 의 이 % 만큼 보호막 생성. */
@@ -345,12 +351,16 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
       if (sig.chillSlowPct)
         return `치명타 시 대상 한기 — 속도 −${sig.chillSlowPct}% (${sig.buffActions ?? 1}행동)`;
+      if (sig.enemyDefDebuffPct)
+        return `치명타 시 대상 표식 — 방어 −${sig.enemyDefDebuffPct}% (${sig.buffActions ?? 1}행동)`;
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";
     case "on_hit":
       if (sig.poisonChancePct)
         return `공격 적중 시 ${sig.poisonChancePct}% 확률로 중독 ${sig.poisonStacks ?? 1}스택`;
+      if (sig.bleedChancePct)
+        return `공격 적중 시 ${sig.bleedChancePct}% 확률로 출혈 ${sig.bleedStacks ?? 1}스택`;
       if (sig.shockChancePct)
         return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 속도 −${sig.shockSlowPct ?? 0}% (${sig.buffActions ?? 1}행동)`;
       return "공격 적중 시 발동";
@@ -527,8 +537,13 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "포식자",
     pieces: ["v2_den_sig_alpha_greatsword", "v2_den_sig_beasthide_armor"],
     bonus: { critMult: 40, hp: 60 },
-    // 3타마다 추가타 1회 — 폭딜 정체성(Phase 2).
-    signature: { trigger: "every_n_hits", label: "포식자", everyNHits: 3 },
+    // 적중 시 출혈 — 포식자 정체성. 추가타 인플레 대신 출혈 축을 연다.
+    signature: {
+      trigger: "on_hit",
+      label: "포식자",
+      bleedChancePct: 30,
+      bleedStacks: 1,
+    },
   },
   {
     id: "sig_black_throne",

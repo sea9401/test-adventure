@@ -204,6 +204,14 @@ describe("스탯 맵 무결성", () => {
 });
 
 describe("해금 트리", () => {
+  it("일반 직업 차수별 숙련도 요구치를 고정한다", () => {
+    expect(TIER2_UNLOCK_CUMLEVEL).toBe(1000);
+    expect(TIER3_UNLOCK_CUMLEVEL).toBe(2500);
+    expect(TIER4_UNLOCK_CUMLEVEL).toBe(4500);
+    expect(TIER5_UNLOCK_CUMLEVEL).toBe(18000);
+    expect(TIER6_UNLOCK_CUMLEVEL).toBe(35000);
+  });
+
   it("루트·기본 4직업은 prereqs 가 비어 있다", () => {
     expect(V2_JOB_CATALOG.none.unlock.prereqs).toEqual({});
     expect(V2_JOB_CATALOG.survivor.unlock.prereqs).toEqual({});

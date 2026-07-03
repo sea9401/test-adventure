@@ -158,6 +158,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 ## 6. 크론 (EC2 `crontab -l`, UTC)
 정기 작업이 EC2 crontab으로 돈다(각 라우트가 `CRON_SECRET` Bearer 검사). 종류:
 - **일일 04:00 UTC**: chat/bulletin/guilds cleanup
+- **일일 04:20 UTC**: ops-retention(이상 행동/경제 로그 보관 기간 초과분 정리)
 - **일요일 15:0x UTC**: tower-weekly-cycle · pvp-season-rollover · pvp/fishing/treasure **season-rewards** · war-season-rollover(제거 대상이면 해제)
 - TLS: `certbot-renew.timer`(systemd, 하루 2회)
 

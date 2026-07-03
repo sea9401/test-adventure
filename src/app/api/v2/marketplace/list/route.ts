@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -134,7 +135,17 @@ export async function POST(req: Request) {
               : null,
         })
         .returning({ id: marketplaceListingsV2.id });
-      return { status: 200, body: { ok: true as const, listingId: row.id } };
+      return {
+        status: 200,
+        log: {
+          listingId: row.id,
+          itemKind: "equip",
+          itemId: inst.id,
+          quantity: 1,
+          price,
+        },
+        body: { ok: true as const, listingId: row.id },
+      };
     }
 
     if (kind === "consumable") {
@@ -168,7 +179,17 @@ export async function POST(req: Request) {
           instancePayload: inst,
         })
         .returning({ id: marketplaceListingsV2.id });
-      return { status: 200, body: { ok: true as const, listingId: row.id } };
+      return {
+        status: 200,
+        log: {
+          listingId: row.id,
+          itemKind: "consumable",
+          itemId: inst.kind,
+          quantity: 1,
+          price,
+        },
+        body: { ok: true as const, listingId: row.id },
+      };
     }
 
     // material
@@ -204,8 +225,34 @@ export async function POST(req: Request) {
         instancePayload: null,
       })
       .returning({ id: marketplaceListingsV2.id });
-    return { status: 200, body: { ok: true as const, listingId: row.id } };
+    return {
+      status: 200,
+      log: {
+        listingId: row.id,
+        itemKind: "material",
+        itemId,
+        quantity,
+        price,
+      },
+      body: { ok: true as const, listingId: row.id },
+    };
   });
+
+  const economyLog = result.status === 200 && "log" in result ? result.log : null;
+  if (economyLog) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "marketplace.list",
+      goldDelta: 0,
+      itemKind: economyLog.itemKind,
+      itemId: economyLog.itemId,
+      quantity: economyLog.quantity,
+      detail: {
+        listingId: economyLog.listingId,
+        price: economyLog.price,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

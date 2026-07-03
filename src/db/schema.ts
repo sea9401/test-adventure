@@ -1229,9 +1229,38 @@ export const abuseEvents = pgTable(
   },
   (t) => [
     index("abuse_events_created_idx").on(sql`${t.id} DESC`),
+    index("abuse_events_created_at_idx").on(sql`${t.createdAt} DESC`),
     index("abuse_events_user_created_idx").on(t.userId, sql`${t.id} DESC`),
     index("abuse_events_ip_created_idx").on(t.ip, sql`${t.id} DESC`),
     index("abuse_events_action_created_idx").on(t.action, sql`${t.id} DESC`),
+    index("abuse_events_reason_created_idx").on(t.reason, sql`${t.id} DESC`),
+  ],
+);
+
+// 경제 이벤트 로그 — 거래소/상점/보상 등 골드·아이템 유입/유출 감사용.
+// 게임 진행을 막지 않도록 기록 실패는 서버 유틸에서 best-effort 로 처리한다.
+export const economyEvents = pgTable(
+  "economy_events",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    counterpartyUserId: text("counterparty_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    eventType: text("event_type").notNull(),
+    goldDelta: integer("gold_delta").notNull().default(0),
+    itemKind: text("item_kind"),
+    itemId: text("item_id"),
+    quantity: integer("quantity"),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("economy_events_created_idx").on(sql`${t.id} DESC`),
+    index("economy_events_created_at_idx").on(sql`${t.createdAt} DESC`),
+    index("economy_events_user_created_idx").on(t.userId, sql`${t.id} DESC`),
+    index("economy_events_type_created_idx").on(t.eventType, sql`${t.id} DESC`),
+    index("economy_events_item_created_idx").on(t.itemKind, t.itemId, sql`${t.id} DESC`),
   ],
 );
 
@@ -1251,5 +1280,8 @@ export const adminAuditLog = pgTable(
   (t) => [
     // 최신순 조회.
     index("admin_audit_log_created_idx").on(sql`${t.id} DESC`),
+    index("admin_audit_log_admin_created_idx").on(t.adminEmail, sql`${t.id} DESC`),
+    index("admin_audit_log_action_created_idx").on(t.action, sql`${t.id} DESC`),
+    index("admin_audit_log_target_created_idx").on(t.targetUserId, sql`${t.id} DESC`),
   ],
 );

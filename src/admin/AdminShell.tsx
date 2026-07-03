@@ -8,7 +8,9 @@ import { StatsTab } from "./tabs/StatsTab";
 import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
 import { GridDungeonAnalyticsTab } from "./tabs/GridDungeonAnalyticsTab";
 import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
+import { OpsDashboardTab } from "./tabs/OpsDashboardTab";
 import { AbuseLogTab } from "./tabs/AbuseLogTab";
+import { EconomyLogTab } from "./tabs/EconomyLogTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
 import { BroadcastTab } from "./tabs/BroadcastTab";
 import { FeedbackTab } from "./tabs/FeedbackTab";
@@ -20,8 +22,10 @@ type TabKey =
   | "stats"
   | "balance"
   | "gridDungeon"
+  | "opsDashboard"
   | "season"
   | "abuse"
+  | "economy"
   | "broadcast"
   | "feedback"
   | "audit";
@@ -33,8 +37,10 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "stats", label: "통계", group: "system" },
   { key: "balance", label: "밸런스", group: "system" },
   { key: "gridDungeon", label: "던전", group: "system" },
+  { key: "opsDashboard", label: "운영 현황", group: "ops" },
   { key: "season", label: "시즌", group: "ops" },
   { key: "abuse", label: "이상 행동", group: "ops" },
+  { key: "economy", label: "경제 로그", group: "ops" },
   { key: "broadcast", label: "공지·우편", group: "ops" },
   { key: "feedback", label: "건의사항", group: "ops" },
   { key: "audit", label: "감사 로그", group: "ops" },
@@ -151,8 +157,10 @@ function ShellInner() {
           {tab === "stats" && <StatsTab />}
           {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "gridDungeon" && <GridDungeonAnalyticsTab />}
+          {tab === "opsDashboard" && <OpsDashboardTab />}
           {tab === "season" && <SeasonOpsTab />}
           {tab === "abuse" && <AbuseLogTab />}
+          {tab === "economy" && <EconomyLogTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}
           {tab === "audit" && <AuditLogTab />}

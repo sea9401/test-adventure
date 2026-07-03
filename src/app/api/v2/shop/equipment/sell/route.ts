@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
@@ -102,6 +103,10 @@ export async function POST(req: Request) {
     });
     return {
       status: 200,
+      log: {
+        itemId: inst.id,
+        sellPrice,
+      },
       body: {
         ok: true as const,
         gold: newGold,
@@ -111,6 +116,19 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  const economyLog = result.status === 200 && "log" in result ? result.log : null;
+  if (economyLog) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "shop.equipment.sell",
+      goldDelta: economyLog.sellPrice,
+      itemKind: "equip",
+      itemId: economyLog.itemId,
+      quantity: 1,
+      detail: { sellPrice: economyLog.sellPrice },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

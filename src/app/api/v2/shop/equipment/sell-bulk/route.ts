@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { selectBulkSell } from "@/adventure/data/v2/v2EquipVariance";
@@ -108,6 +109,12 @@ export async function POST(req: Request) {
     });
     return {
       status: 200,
+      log: {
+        soldCount: plan.count,
+        soldGold: plan.gold,
+        slot,
+        belowPct,
+      },
       body: {
         ok: true as const,
         soldCount: plan.count,
@@ -118,6 +125,22 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  const economyLog = result.status === 200 && "log" in result ? result.log : null;
+  if (economyLog && economyLog.soldCount > 0) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "shop.equipment.sell_bulk",
+      goldDelta: economyLog.soldGold,
+      itemKind: "equip",
+      quantity: economyLog.soldCount,
+      detail: {
+        soldGold: economyLog.soldGold,
+        slot: economyLog.slot ?? null,
+        belowPct: economyLog.belowPct ?? null,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

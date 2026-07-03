@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
@@ -33,6 +33,7 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import { useGameState } from "./GameStateProvider";
+import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -91,6 +92,13 @@ const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
 
 const MATERIAL_IDS = Object.keys(V2_MATERIALS) as V2MaterialId[];
 
+function shopErrorLabel(error: string | undefined, status: number, retryAfterSec?: number) {
+  if (error === "rate_limited") {
+    return `요청이 많습니다. ${Math.max(1, Math.floor(retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
+  }
+  return error ?? `http ${status}`;
+}
+
 // 개체 배열 → id별 보유 카운트(판매 후보 표시용).
 function buildCountMap(
   owned: V2EquipInstance[],
@@ -118,7 +126,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   const [busyId, setBusyId] = useState<string | null>(null);
-  const actionBusyRef = useRef(false);
+  const beginAction = useSingleFlightGuard();
   const [msg, setMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("buy");
   const [loadError, setLoadError] = useState(false);
@@ -187,8 +195,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   }, []);
 
   const buy = useCallback(async (id: V2EquipmentId) => {
-    if (actionBusyRef.current) return;
-    actionBusyRef.current = true;
+    const release = beginAction();
+    if (!release) return;
     setBusyId(id);
     setMsg(null);
     try {
@@ -201,13 +209,14 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         | {
             ok?: boolean;
             error?: string;
+            retryAfterSec?: number;
             gold?: number;
             bankedGold?: number;
             owned?: V2EquipInstance[];
           }
         | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        setMsg(`✗ ${shopErrorLabel(j?.error, res.status, j?.retryAfterSec)}`);
         return;
       }
       const item = V2_EQUIPMENT[id];
@@ -227,24 +236,25 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
-      actionBusyRef.current = false;
+      release();
       setBusyId(null);
     }
-  }, [applyResourcePatch]);
+  }, [applyResourcePatch, beginAction]);
 
   // 판매는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 판다.
   // 장착분만 남은 경우(카드는 locked 라 보통 클릭 불가) 서버가 "equipped" 로 거부(#426).
   const sellEquipment = useCallback(
     async (id: V2EquipmentId) => {
-      if (actionBusyRef.current) return;
+      const release = beginAction();
+      if (!release) return;
       const inst =
         ownedInsts.find((i) => i.id === id && !equippedIids.has(i.iid)) ??
         ownedInsts.find((i) => i.id === id);
       if (!inst) {
+        release();
         setMsg("✗ 판매할 개체가 없습니다");
         return;
       }
-      actionBusyRef.current = true;
       setBusyId(id);
       setMsg(null);
       try {
@@ -257,6 +267,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           | {
               ok?: boolean;
               error?: string;
+              retryAfterSec?: number;
               gold?: number;
               owned?: V2EquipInstance[];
               sellPrice?: number;
@@ -266,7 +277,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           const reason =
             j?.error === "equipped"
               ? "장착 중인 장비는 판매할 수 없습니다"
-              : (j?.error ?? `http ${res.status}`);
+              : shopErrorLabel(j?.error, res.status, j?.retryAfterSec);
           setMsg(`✗ ${reason}`);
           // 서버가 장착분 판매를 막았으면 화면 상태를 최신으로 맞춘다.
           if (j?.error === "equipped") refresh();
@@ -284,17 +295,17 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
-        actionBusyRef.current = false;
+        release();
         setBusyId(null);
       }
     },
-    [ownedInsts, equippedIids, refresh, applyResourcePatch],
+    [ownedInsts, equippedIids, refresh, applyResourcePatch, beginAction],
   );
 
   // 재료는 보유 스택 전량을 한 번에 환금.
   const sellMaterial = useCallback(async (id: V2MaterialId) => {
-    if (actionBusyRef.current) return;
-    actionBusyRef.current = true;
+    const release = beginAction();
+    if (!release) return;
     setBusyId(id);
     setMsg(null);
     try {
@@ -307,13 +318,14 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         | {
             ok?: boolean;
             error?: string;
+            retryAfterSec?: number;
             gold?: number;
             materials?: Partial<Record<V2MaterialId, number>>;
             sold?: { count: number; gold: number };
           }
         | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        setMsg(`✗ ${shopErrorLabel(j?.error, res.status, j?.retryAfterSec)}`);
         return;
       }
       const mat = V2_MATERIALS[id];
@@ -328,10 +340,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
-      actionBusyRef.current = false;
+      release();
       setBusyId(null);
     }
-  }, [applyResourcePatch]);
+  }, [applyResourcePatch, beginAction]);
 
   const subTabs = mode === "buy" ? SLOT_TABS : SELL_TABS;
 

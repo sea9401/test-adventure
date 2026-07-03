@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Storefront } from "@phosphor-icons/react";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -45,6 +45,7 @@ import {
 import { useGameState } from "./GameStateProvider";
 import { TabBar } from "@/components/ui/TabBar";
 import { usePagination } from "@/lib/usePagination";
+import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import {
   V2_ITEM_TABS,
   sortEquipInstances,
@@ -123,6 +124,13 @@ const ERR_LABEL: Record<string, string> = {
   not_owner: "내 매물이 아니에요.",
 };
 
+function actionErrorLabel(error: string | undefined, status: number, retryAfterSec?: number) {
+  if (error === "rate_limited") {
+    return `요청이 많아요. ${Math.max(1, Math.floor(retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
+  }
+  return ERR_LABEL[error ?? ""] ?? error ?? `실패 (${status})`;
+}
+
 export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
   const { coreLoopOn, bankedGold, refreshGameState } = useGameState();
@@ -147,7 +155,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const actionBusyRef = useRef(false);
+  const beginAction = useSingleFlightGuard();
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [gold, setGold] = useState<number | null>(null);
@@ -284,8 +292,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
   const act = useCallback(
     async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
-      if (actionBusyRef.current) return;
-      actionBusyRef.current = true;
+      const release = beginAction();
+      if (!release) return;
       setBusy(true);
       setError(null);
       setMsg(null);
@@ -295,9 +303,11 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify(body),
         });
-        const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+        const j = (await res.json().catch(() => null)) as
+          | { ok?: boolean; error?: string; retryAfterSec?: number }
+          | null;
         if (!res.ok || !j?.ok) {
-          setError(ERR_LABEL[j?.error ?? ""] ?? j?.error ?? `실패 (${res.status})`);
+          setError(actionErrorLabel(j?.error, res.status, j?.retryAfterSec));
           return;
         }
         setMsg(okMsg);
@@ -305,11 +315,11 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       } catch (e) {
         setError(e instanceof Error ? e.message : "처리 실패");
       } finally {
-        actionBusyRef.current = false;
+        release();
         setBusy(false);
       }
     },
-    [],
+    [beginAction],
   );
 
   const buy = (l: Listing) =>

@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_MATERIALS,
@@ -120,6 +121,21 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  const sold = result.status === 200 && "sold" in result.body ? result.body.sold : null;
+  if (sold) {
+    recordEconomyEventSoon({
+      userId,
+      eventType: "shop.material.sell",
+      goldDelta: sold.gold,
+      itemKind: "material",
+      itemId: sold.id,
+      quantity: sold.count,
+      detail: {
+        unitPrice,
+      },
+    });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

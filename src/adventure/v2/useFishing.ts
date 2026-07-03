@@ -5,6 +5,7 @@ import {
   countClaimableFishingTasks,
   type FishingProgressNotice,
 } from "./fishingChallengeProgress";
+import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import type { FishingProgressionView } from "./fishingProgression";
 import type {
   CastOutcome,
@@ -36,8 +37,8 @@ export function useFishing(): FishingHandlers {
   const [progressionLoading, setProgressionLoading] = useState(true);
   const [challengeBadgeCount, setChallengeBadgeCount] = useState(0);
   const mounted = useRef(true);
-  const castBusyRef = useRef(false);
-  const reelBusyRef = useRef(false);
+  const beginCast = useSingleFlightGuard();
+  const beginReel = useSingleFlightGuard();
 
   useEffect(() => {
     mounted.current = true;
@@ -83,8 +84,8 @@ export function useFishing(): FishingHandlers {
   }, []);
 
   const cast = useCallback(async (): Promise<CastOutcome> => {
-    if (castBusyRef.current) throw new Error("cast_in_progress");
-    castBusyRef.current = true;
+    const release = beginCast();
+    if (!release) throw new Error("cast_in_progress");
     try {
       const res = await fetch("/api/v2/fishing/cast", { method: "POST" });
       if (!res.ok) throw new Error("cast_failed");
@@ -107,14 +108,14 @@ export function useFishing(): FishingHandlers {
         dailyCatchCoins: nextDailyCatchCoins,
       };
     } finally {
-      castBusyRef.current = false;
+      release();
     }
-  }, []);
+  }, [beginCast]);
 
   const reel = useCallback(
     async (castId: string, reactionMs: number): Promise<ReelOutcome> => {
-      if (reelBusyRef.current) throw new Error("reel_in_progress");
-      reelBusyRef.current = true;
+      const release = beginReel();
+      if (!release) throw new Error("reel_in_progress");
       try {
         const res = await fetch("/api/v2/fishing/reel", {
           method: "POST",
@@ -182,10 +183,10 @@ export function useFishing(): FishingHandlers {
           reason: typeof j.reason === "string" ? j.reason : "unknown",
         };
       } finally {
-        reelBusyRef.current = false;
+        release();
       }
     },
-    [],
+    [beginReel],
   );
 
   return {

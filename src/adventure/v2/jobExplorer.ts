@@ -14,6 +14,7 @@ export type JobExplorerJob = {
   skillsCollected?: boolean;
   skillsLearned?: number;
   skillsTotal?: number;
+  conditionRevealed?: boolean;
 };
 
 export type JobExplorerContext = {
@@ -88,7 +89,7 @@ export function matchesJobExplorerFilters(
   const haystack = [
     job.id,
     job.name,
-    job.condition ?? "",
+    job.conditionRevealed === false ? "" : (job.condition ?? ""),
     job.bonus ?? "",
     jobTierLabel(job.tier),
     ...jobTags(job, context),

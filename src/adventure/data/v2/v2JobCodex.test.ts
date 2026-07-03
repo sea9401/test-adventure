@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { buildJobCodex } from "./v2JobCodex";
-import { TIER2_UNLOCK_CUMLEVEL, V2_JOB_LIST } from "./v2JobCatalog";
+import {
+  TIER2_UNLOCK_CUMLEVEL,
+  TIER5_UNLOCK_CUMLEVEL,
+  V2_JOB_LIST,
+} from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 // 직군 cumLevel 을 세팅한 proficiency 생성 헬퍼.
@@ -33,7 +37,7 @@ describe("buildJobCodex", () => {
     // 잠긴 직업도 목표/조건 확인용으로 목록에 남는다.
     expect(codex.jobs.find((j) => j.id === "veteran")?.unlocked).toBe(false);
     expect(codex.jobs.every((j) => typeof j.tier === "number")).toBe(true);
-    // 각 직업에 해금 조건 텍스트가 붙는다.
+    // 공개 대상 직업에는 해금 조건 텍스트가 붙는다.
     expect(codex.jobs.every((j) => typeof j.condition === "string" && j.condition.length > 0)).toBe(true);
     const shieldman = codex.jobs.find((j) => j.id === "shieldman");
     expect(shieldman?.condition).toContain("숙련도");
@@ -89,4 +93,23 @@ describe("buildJobCodex", () => {
     const codex = buildJobCodex(emptyProficiency(), [], "none", null);
     expect(codex.jobs.every((j) => !j.isCurrent)).toBe(true);
   });
+
+  it("잠긴 먼 직업 조건은 숨기고 현재 직업의 직접 후속 조건은 공개한다", () => {
+    const prof = profJobs({ dragonfist: TIER5_UNLOCK_CUMLEVEL });
+    const codex = buildJobCodex(prof, [], "martial", "dragonfist");
+
+    const celestialdragon = codex.jobs.find((j) => j.id === "celestialdragon");
+    expect(celestialdragon?.unlocked).toBe(false);
+    expect(celestialdragon?.conditionRevealed).toBe(true);
+    expect(celestialdragon?.condition).toContain("권황 숙련도");
+
+    const fortressknight = codex.jobs.find((j) => j.id === "fortressknight");
+    expect(fortressknight?.unlocked).toBe(false);
+    expect(fortressknight?.conditionRevealed).toBe(false);
+    expect(fortressknight?.condition).toBe("선행 직업 해금 후 공개");
+  });
 });
+
+function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
+  return { ...emptyProficiency(), jobCumLevel: { ...jobCumLevels } };
+}

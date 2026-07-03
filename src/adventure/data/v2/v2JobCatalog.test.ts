@@ -17,6 +17,7 @@ import {
   CATALOG_USES_QUEST_CONDITION,
   jobIdFromLegacy,
   isJobUnlocked,
+  isDirectNextJob,
   jobById,
   unlockedJobs,
   jobUnlockConditionText,
@@ -643,6 +644,21 @@ describe("jobDisplayName (직업 시스템 — 무조건화)", () => {
     expect(jobDisplayName("warrior", "knight")).toBe("방패병"); // 상위 직업 반영
     expect(jobDisplayName("none", null)).toBe("모험가");
     expect(jobDisplayName("bogus" as never, null)).toBe("모험가");
+  });
+});
+
+describe("isDirectNextJob", () => {
+  it("현재 직업을 선행조건으로 둔 바로 다음 직업만 true", () => {
+    expect(isDirectNextJob("dragonfist", V2_JOB_CATALOG.celestialdragon)).toBe(
+      true,
+    );
+    expect(isDirectNextJob("sensei", V2_JOB_CATALOG.celestialdragon)).toBe(
+      false,
+    );
+    expect(isDirectNextJob("dragonfist", V2_JOB_CATALOG.dragonfist)).toBe(
+      false,
+    );
+    expect(isDirectNextJob(null, V2_JOB_CATALOG.celestialdragon)).toBe(false);
   });
 });
 

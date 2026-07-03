@@ -61,6 +61,7 @@ import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
+  isDirectNextJob,
   isJobUnlocked,
   isRootJobSelectable,
   jobIdFromLegacy,
@@ -176,7 +177,11 @@ export function jobsV2Section(params: {
       (job) => isRootJobSelectable(job),
     ).map((job) => {
       const unlocked = isJobUnlocked(job, prof, jobUnlockCtx);
-      const condition = jobUnlockConditionText(job);
+      const conditionRevealed =
+        unlocked || job.id === currentJobId || isDirectNextJob(currentJobId, job);
+      const condition = conditionRevealed
+        ? jobUnlockConditionText(job)
+        : "선행 직업 해금 후 공개";
       // 직업 내장 보너스(플랫 스탯) — "이 직업을 고를 이유"로 전직 화면에 표기.
       const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
         .map((k) => `${V2_STAT_LABELS[k]} +${job.jobBonus[k]}`)
@@ -191,6 +196,7 @@ export function jobsV2Section(params: {
         tier: job.tier,
         unlocked,
         condition,
+        conditionRevealed,
         cumLevel: cumLevelForJob(prof, job),
         bonus,
         skillsCollected,

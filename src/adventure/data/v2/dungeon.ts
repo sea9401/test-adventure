@@ -112,20 +112,20 @@ const BAND_I_BONE_PLATEAU_ENEMIES: DungeonEnemy[] = [
 
 // 폭풍 산맥 — 고산 폭풍지대. 61~66 권장 전투력 3400~3900, 고회피·감전·돌진 압박.
 const BAND_J_STORM_MOUNTAIN_ENEMIES: DungeonEnemy[] = [
-  { key: "절벽 폭풍늑대", name: "절벽 폭풍늑대", image: "/images/monster/v2/mountain-cliff-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
-  { key: "천둥 들소", name: "천둥 들소", image: "/images/monster/v2/mountain-bison.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
-  { key: "산맥 약탈대장", name: "산맥 약탈대장", image: "/images/monster/v2/mountain-brigand.webp", element: "wind" },
-  { key: "고산 수호곰", name: "고산 수호곰", image: "/images/monster/v2/forest-bear.webp", element: "earth" },
-  { key: "폭풍 주술사", name: "폭풍 주술사", image: "/images/monster/v2/storm-standard-bearer.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
+  { key: "뇌운 절벽늑대", name: "뇌운 절벽늑대", image: "/images/monster/v2/stormcloud-cliff-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
+  { key: "폭풍뿔 거수", name: "폭풍뿔 거수", image: "/images/monster/v2/stormhorn-behemoth.webp", element: "lightning", statusSkill: "mob_chilling_touch" },
+  { key: "칼바람 약탈대장", name: "칼바람 약탈대장", image: "/images/monster/v2/coldwind-raider-captain.webp", element: "wind" },
+  { key: "바위등 수호수", name: "바위등 수호수", image: "/images/monster/v2/rockback-guardian-beast.webp", element: "earth" },
+  { key: "낙뢰 예언자", name: "낙뢰 예언자", image: "/images/monster/v2/lightning-oracle.webp", element: "lightning", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_burst" },
 ];
 
 // 심해 폐허 — 잠긴 고대 폐허. 67~72 권장 전투력 4000~4500, 물·공허·별빛 마법 압박.
 const BAND_K_ABYSS_RUINS_ENEMIES: DungeonEnemy[] = [
-  { key: "심해 추적자", name: "심해 추적자", image: "/images/monster/v2/nessi.webp", element: "water", statusSkill: "mob_chilling_touch" },
-  { key: "폐허 전갈왕", name: "폐허 전갈왕", image: "/images/monster/v2/scorpionking.webp", element: "earth", statusSkill: "mob_venom_bite" },
-  { key: "해저 망령", name: "해저 망령", image: "/images/monster/v2/snow-wraith.webp", element: "void", statusSkill: "mob_rending_claw", castSkill: "mob_arcane_burst" },
-  { key: "심연 사제", name: "심연 사제", image: "/images/monster/v2/ruins-wraith.webp", element: "starlight", castSkill: "mob_arcane_burst" },
-  { key: "검푸른 파수병", name: "검푸른 파수병", image: "/images/monster/v2/throne-void-knight.webp", element: "void", statusSkill: "mob_rending_claw" },
+  { key: "해연 추적자", name: "해연 추적자", image: "/images/monster/v2/abyssal-pursuer.webp", element: "water", statusSkill: "mob_chilling_touch" },
+  { key: "청독 집게왕", name: "청독 집게왕", image: "/images/monster/v2/blue-venom-pincer-king.webp", element: "earth", statusSkill: "mob_venom_bite" },
+  { key: "침몰한 원혼", name: "침몰한 원혼", image: "/images/monster/v2/sunken-wraith.webp", element: "void", statusSkill: "mob_rending_claw", castSkill: "mob_arcane_burst" },
+  { key: "해구의 사도", name: "해구의 사도", image: "/images/monster/v2/trench-apostle.webp", element: "starlight", castSkill: "mob_arcane_burst" },
+  { key: "암류 파수병", name: "암류 파수병", image: "/images/monster/v2/undertow-sentinel.webp", element: "void", statusSkill: "mob_rending_claw" },
 ];
 
 // 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.

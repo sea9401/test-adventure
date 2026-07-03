@@ -505,8 +505,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
   },
 
   // ── 프론티어 밴드 J — 폭풍 산맥 (깊이 61~66). 고산 폭풍, 권장 전투력 3400~3900. ──
-  "절벽 폭풍늑대": {
-    name: "절벽 폭풍늑대",
+  "뇌운 절벽늑대": {
+    name: "뇌운 절벽늑대",
     tags: ["beast"],
     hp: 300,
     atk: 36,
@@ -517,8 +517,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     critPct: 30,
     skill: { kind: "pierce", name: "폭풍 송곳니", armorPierce: 6 },
   },
-  "천둥 들소": {
-    name: "천둥 들소",
+  "폭풍뿔 거수": {
+    name: "폭풍뿔 거수",
     tags: ["beast"],
     hp: 470,
     atk: 29,
@@ -530,8 +530,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     v2Skills: { learned: ["mob_crushing_blow"], equipped: ["mob_crushing_blow"] },
     v2MaxMp: 110,
   },
-  "산맥 약탈대장": {
-    name: "산맥 약탈대장",
+  "칼바람 약탈대장": {
+    name: "칼바람 약탈대장",
     tags: ["humanoid"],
     hp: 340,
     atk: 36,
@@ -542,8 +542,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     critPct: 35,
     skill: { kind: "pierce", name: "절벽 급습", armorPierce: 6 },
   },
-  "고산 수호곰": {
-    name: "고산 수호곰",
+  "바위등 수호수": {
+    name: "바위등 수호수",
     tags: ["beast"],
     hp: 500,
     atk: 30,
@@ -558,8 +558,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     },
     v2MaxMp: 120,
   },
-  "폭풍 주술사": {
-    name: "폭풍 주술사",
+  "낙뢰 예언자": {
+    name: "낙뢰 예언자",
     tags: ["humanoid"],
     hp: 280,
     atk: 37,
@@ -572,8 +572,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
   },
 
   // ── 프론티어 밴드 K — 심해 폐허 (깊이 67~72). 물·공허·별빛, 권장 전투력 4000~4500. ──
-  "심해 추적자": {
-    name: "심해 추적자",
+  "해연 추적자": {
+    name: "해연 추적자",
     tags: ["dragon"],
     hp: 390,
     atk: 38,
@@ -584,8 +584,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     atkType: "magic",
     skill: { kind: "pierce", name: "물결 절단", armorPierce: 6 },
   },
-  "폐허 전갈왕": {
-    name: "폐허 전갈왕",
+  "청독 집게왕": {
+    name: "청독 집게왕",
     tags: ["beast"],
     hp: 430,
     atk: 37,
@@ -596,8 +596,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     critPct: 25,
     skill: { kind: "pierce", name: "폐허 독침", armorPierce: 7 },
   },
-  "해저 망령": {
-    name: "해저 망령",
+  "침몰한 원혼": {
+    name: "침몰한 원혼",
     tags: ["undead"],
     hp: 310,
     atk: 40,
@@ -608,8 +608,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     atkType: "magic",
     critPct: 25,
   },
-  "심연 사제": {
-    name: "심연 사제",
+  "해구의 사도": {
+    name: "해구의 사도",
     tags: ["humanoid", "undead"],
     hp: 300,
     atk: 41,
@@ -624,8 +624,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     },
     v2MaxMp: 120,
   },
-  "검푸른 파수병": {
-    name: "검푸른 파수병",
+  "암류 파수병": {
+    name: "암류 파수병",
     tags: ["humanoid", "undead"],
     hp: 420,
     atk: 39,

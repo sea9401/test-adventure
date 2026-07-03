@@ -293,9 +293,11 @@ function skillTargetDef(attacker: PvPSide, defender: PvPSide): number {
   return Math.max(0, Math.round(defender.player.def * (1 - corrodePct / 100)));
 }
 
+const CORROSION_POISON_DAMAGE_SCALE = 3;
+
 function corrosionPoisonDotMult(player: PlayerCombat): number {
   const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
-  return corrodePct > 0 ? 1 + corrodePct / 100 : 1;
+  return corrodePct > 0 ? 1 + (corrodePct * CORROSION_POISON_DAMAGE_SCALE) / 100 : 1;
 }
 
 function applyCorrosionToPoisonDots(

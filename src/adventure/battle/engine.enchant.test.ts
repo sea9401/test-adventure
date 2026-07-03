@@ -370,6 +370,7 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
       poisonedEnemyDefReductionPct: 12,
     });
     expect(corrodeDmg).toBeGreaterThan(baseDmg);
+    expect(corrodeDmg).toBeGreaterThanOrEqual(Math.floor(baseDmg * 1.25));
   });
 });
 

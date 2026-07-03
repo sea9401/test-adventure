@@ -64,6 +64,30 @@ describe("마법형 몬스터(atkType:magic) — 마법방어(정신)로 경감"
     expect(prepared).toBeLessThan(noCounter * 0.5);
   });
 
+  it("결계술 초반 감소는 지정된 적 행동 수 동안 마법형 평타에만 적용된다", () => {
+    const magicMob: Monster = { ...baseMob, atkType: "magic" };
+    const noCounter = damageTaken(combatant({ magicDef: 0 }), magicMob);
+    const warded = damageTaken(
+      combatant({
+        magicDef: 0,
+        passiveOpeningMagicDamageReductionPct: 10,
+        passiveOpeningMagicDamageReductionPhases: 2,
+      }),
+      magicMob,
+    );
+    const physicalWarded = damageTaken(
+      combatant({
+        magicDef: 0,
+        passiveOpeningMagicDamageReductionPct: 10,
+        passiveOpeningMagicDamageReductionPhases: 2,
+      }),
+      { ...baseMob, atkType: "physical" },
+    );
+
+    expect(warded).toBe(noCounter - 40);
+    expect(physicalWarded).toBe(noCounter);
+  });
+
   it("물리 몹: 물리방어로 경감 — magicDef 는 무용", () => {
     const physMob: Monster = { ...baseMob, atkType: "physical" };
     expect(damageTaken(physDefBuild, physMob)).toBeLessThan(

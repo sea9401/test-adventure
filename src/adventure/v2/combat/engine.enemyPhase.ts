@@ -737,8 +737,17 @@ export function resolveEnemyPhase(
     state.playerHp,
     player.maxHp,
   );
+  const openingMagicReducePct =
+    magicAttack &&
+    state.turn.enemyPhasesCompleted <
+      (player.passiveOpeningMagicDamageReductionPhases ?? 0)
+      ? (player.passiveOpeningMagicDamageReductionPct ?? 0)
+      : 0;
   const passiveReducePct =
-    (player.passiveDamageTakenReductionPct ?? 0) + buffReducePct + sigReducePct;
+    (player.passiveDamageTakenReductionPct ?? 0) +
+    openingMagicReducePct +
+    buffReducePct +
+    sigReducePct;
   const passiveReduced =
     passiveReducePct > 0
       ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))

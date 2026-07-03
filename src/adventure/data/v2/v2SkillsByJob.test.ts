@@ -50,6 +50,7 @@ describe("직업 킷 — 스킬셋", () => {
       monk: ["v2c_monk_palm", "v2c_monk_spirit"],
       caster: ["v2c_caster_bolt", "v2c_caster_acumen"],
       acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"],
+      warder: ["v2c_warder_barrier", "v2c_warder_ward"],
       assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"],
       archer: ["v2c_archer_volley", "v2c_archer_agility"],
       venomist: ["v2c_venomist_toxiccloud", "v2c_venomist_corrosion"],
@@ -66,6 +67,16 @@ describe("직업 킷 — 스킬셋", () => {
     // 역할 다양화 1차: 사제 = 자힐(heal), 방패병 = 방어력 기반 데미지.
     expect(V2_SKILLS.v2c_acolyte_smite.category).toBe("heal");
     expect(V2_SKILLS.v2c_acolyte_smite.effects[0]).toMatchObject({ kind: "heal" });
+    expect(V2_SKILLS.v2c_warder_barrier.category).toBe("buff");
+    expect(V2_SKILLS.v2c_warder_barrier.effects[0]).toMatchObject({
+      kind: "shield",
+      pctMaxHp: 8,
+    });
+    expect(V2_SKILLS.v2c_warder_ward.passive).toMatchObject({
+      magicDefPct: 15,
+      openingMagicDamageReductionPct: 10,
+      openingMagicDamageReductionPhases: 3,
+    });
     expect(V2_SKILLS.v2c_shieldman_bash.effects[0]).toMatchObject({
       kind: "damage",
       scaling: "def",
@@ -830,7 +841,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
-  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식/광전/마법취약) 합산", () => {
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%/부식/광전/마법취약/마방) 합산", () => {
     // 명중(accuracyPct) 축은 신궁 "매의 눈"(tier4)으로, 흡혈(lifesteal)은 보류(무인 재설계 2026-06-22)라
     //   이 케이스엔 미포함. 회피 원천 = 권사 보법(v2c_boxer_fortitude, evasionPct 8).
     const agg = aggregateEquippedPassives([
@@ -841,6 +852,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_venomist_corrosion", // poisonedEnemyDefReductionPct 12 (중독 적 방어 약화)
       "v2c_berserker_madness3", // berserkAtkPctPerLostHpPct 0.45
       "v2c_shaman_omen3", // enemyMagicVulnPctPerStack 5
+      "v2c_warder_ward", // magicDefPct 15 + 초반 마법 피해 감소
     ]);
     expect(agg.critPct).toBe(8);
     expect(agg.critDmgPct).toBe(25);
@@ -849,6 +861,9 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.poisonedEnemyDefReductionPct).toBe(12);
     expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
+    expect(agg.magicDefPct).toBe(15);
+    expect(agg.openingMagicDamageReductionPct).toBe(10);
+    expect(agg.openingMagicDamageReductionPhases).toBe(3);
     // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
   });

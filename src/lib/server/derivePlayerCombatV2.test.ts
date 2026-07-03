@@ -314,6 +314,21 @@ describe("derivePlayerCombatV2Pure magicDef (마법형 몬스터 대응축)", ()
       ) + V2_BASE_COMBAT_BONUS,
     );
   });
+
+  it("결계술 패시브는 magicDef 를 비율로 올리고 초반 마법 피해 감소 필드를 전달한다", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const warded = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveMagicDefPct: 15,
+      passiveOpeningMagicDamageReductionPct: 10,
+      passiveOpeningMagicDamageReductionPhases: 3,
+    }).player;
+
+    expect(warded.magicDef).toBe(Math.floor((base.magicDef ?? 0) * 1.15));
+    expect(warded.passiveOpeningMagicDamageReductionPct).toBe(10);
+    expect(warded.passiveOpeningMagicDamageReductionPhases).toBe(3);
+  });
 });
 
 describe("derivePlayerCombatV2Pure critMult (점감 곡선 — LUK 크리 데미지)", () => {

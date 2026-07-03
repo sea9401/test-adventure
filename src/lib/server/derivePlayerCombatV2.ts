@@ -271,6 +271,12 @@ export type DerivePlayerCombatV2PureInput = {
   passiveHealPowerPct?: number;
   /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
   passiveDamageTakenReductionPct?: number;
+  /** 마법 방어력 +%(결계술 패시브) — magicDef 에 곱연산. */
+  passiveMagicDefPct?: number;
+  /** 초반 마법형 평타 받는 피해 -%(결계술 패시브). */
+  passiveOpeningMagicDamageReductionPct?: number;
+  /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
+  passiveOpeningMagicDamageReductionPhases?: number;
   /** 속성 유리/불리 +%p(원소 통달 패시브) — player.elementAdvPctBonus/DisPctBonus 로 출력. */
   passiveElementAdvPctBonus?: number;
   passiveElementDisPctBonus?: number;
@@ -385,12 +391,15 @@ export function derivePlayerCombatV2Pure(
     equipAcc.magicAtk +
     V2_BASE_COMBAT_BONUS;
   // 마법 방어력(신규) — 정신 major + 지능 minor + 장신구 위력. combatShared 가 마법 데미지에서 차감.
-  const magicDef =
+  const baseMagicDef =
     Math.floor(
       totalStats.spi * MAGIC_DEF_PER_SPI +
         totalStats.int * MAGIC_DEF_PER_INT +
         equipAcc.magicDef,
     ) + V2_BASE_COMBAT_BONUS;
+  const magicDef = input.passiveMagicDefPct
+    ? Math.floor(baseMagicDef * (1 + input.passiveMagicDefPct / 100))
+    : baseMagicDef;
   // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
   const minDamage = Math.floor(
     totalStats.str * MIN_DMG_PER_STR +
@@ -607,6 +616,15 @@ export function derivePlayerCombatV2Pure(
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }
       : {}),
+    ...((input.passiveOpeningMagicDamageReductionPct ?? 0) > 0 &&
+    (input.passiveOpeningMagicDamageReductionPhases ?? 0) > 0
+      ? {
+          passiveOpeningMagicDamageReductionPct:
+            input.passiveOpeningMagicDamageReductionPct,
+          passiveOpeningMagicDamageReductionPhases:
+            input.passiveOpeningMagicDamageReductionPhases,
+        }
+      : {}),
     // 원소 통달(원소술사) — 속성 상성 양방향 강화. 미보유=0 → 키 생략(inert·byte-identical).
     ...((input.passiveElementAdvPctBonus ?? 0) > 0
       ? { elementAdvPctBonus: input.passiveElementAdvPctBonus }
@@ -805,6 +823,11 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
+    passiveMagicDefPct: passiveAgg.magicDefPct,
+    passiveOpeningMagicDamageReductionPct:
+      passiveAgg.openingMagicDamageReductionPct,
+    passiveOpeningMagicDamageReductionPhases:
+      passiveAgg.openingMagicDamageReductionPhases,
     passiveElementAdvPctBonus: passiveAgg.elementAdvPctBonus,
     passiveElementDisPctBonus: passiveAgg.elementDisPctBonus,
     passivePoisonedEnemyDefReductionPct:

@@ -239,6 +239,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 7, vit: 7, spi: 5 }, // 자힐 탱 (← 옛 cleric)
     unlock: { prereqs: { mage: TIER2_UNLOCK_CUMLEVEL } },
   },
+  warder: {
+    id: "warder",
+    name: "결계사",
+    tier: 2,
+    cultivateProfile: { spi: 2, vit: 1, int: 1 },
+    jobBonus: { spi: 12, vit: 5, int: 3 }, // 마법 피해 대응 축 — 정신 방어형
+    unlock: { prereqs: { mage: TIER2_UNLOCK_CUMLEVEL } },
+  },
   // 도적 갈래
   assassin: {
     id: "assassin",
@@ -956,6 +964,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   monk: { class: "martial", spec: "cheolsan" },
   caster: { class: "mage", spec: "arcane" },
   acolyte: { class: "mage", spec: "cleric" },
+  warder: { class: "mage", spec: "warder" },
   assassin: { class: "rogue", spec: "assassin" },
   archer: { class: "rogue", spec: "archery" },
   venomist: { class: "rogue", spec: "venomist" },

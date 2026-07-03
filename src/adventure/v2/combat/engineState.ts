@@ -477,6 +477,9 @@ export type PlayerCombat = {
   // 가드/평탄감소 전. derive 가 전문화 aggregate(받피감)로 채움. 0/undefined=미보유.
   // docs/v2-job-spec-passives-plan.md §3-A·§6. (P3b 엔진 훅 — P3c derive 가 주입.)
   passiveDamageTakenReductionPct?: number;
+  // 결계술 — 전투 초반 N번의 적 행동 동안 마법형 평타 피해를 추가로 줄인다. 0/undefined=미보유.
+  passiveOpeningMagicDamageReductionPct?: number;
+  passiveOpeningMagicDamageReductionPhases?: number;
   // 워메이지 주문 연사 — 스킬 발동 확률 %p 가산(resolveV2SkillCast 의 procChance 에 합산). 0/undefined=미보유.
   skillProcChanceAdd?: number;
   // 워메이지 마력 순환 — 매 플레이어 턴 종료 시 MP 회복(flat). HP 회복과 독립. 0/undefined=미보유.
@@ -516,4 +519,3 @@ export type EquippedAPSkill = { skill: APSkill; condition: APSkillCondition };
 export type PlayerAction =
   | { kind: "attack" }
   | { kind: "use_potion"; potionId: PotionId; potion: Potion };
-

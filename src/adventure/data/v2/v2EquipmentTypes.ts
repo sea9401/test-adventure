@@ -65,8 +65,11 @@ export type SignatureEffect = {
   chillSlowPct?: number;
   poisonChancePct?: number;
   poisonStacks?: number;
+  bleedChancePct?: number;
+  bleedStacks?: number;
   shockChancePct?: number;
   shockSlowPct?: number;
+  enemyDefDebuffPct?: number;
   defGainOnHitPct?: number;
   battleStartShieldPctMaxHp?: number;
   mpRefundPctOfCost?: number;

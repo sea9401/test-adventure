@@ -26,14 +26,17 @@ import {
 } from "./combatShared";
 import {
   everyNHitsValue,
+  formatDefDebuffLog,
   firesOnCritPoison,
   formatChillSlowLog,
   formatShockSlowLog,
   healToShield,
+  onCritEnemyDefDebuff,
   onCritEnemyChill,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
   onHitTakenDefGain,
+  rollOnHitBleed,
   rollOnHitPoison,
   rollOnHitShock,
   statusBlockOnce,
@@ -899,9 +902,15 @@ export function advanceTurnPvP(
     sigDealtDamage,
   );
   const sigHitPoison = rollOnHitPoison(attacker.player.equipSignatures, sigDealtDamage);
+  const sigHitBleed = rollOnHitBleed(attacker.player.equipSignatures, sigDealtDamage);
   // 한기(동결의 갑주) — 공격자 크리 시 방어자 둔화. 공격자 buffs.enemySpdMult 가 상대(방어자)
   //   속도를 늦춘다(effectiveSideSpd: other.enemySpdMult 가 who 를 슬로우). 군림(자속도+)의 거울.
   const sigCritChill = onCritEnemyChill(
+    attacker.player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  const sigCritDefDebuff = onCritEnemyDefDebuff(
     attacker.player.equipSignatures,
     critRoll,
     sigDealtDamage,
@@ -916,7 +925,13 @@ export function advanceTurnPvP(
     nextBuffsTimedFromAp.enemySpdTurnsLeft > 0 || sigCritChill
       ? null
       : rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage);
-  const sigStatusFired = sigCritPoison || !!sigHitPoison || !!sigCritChill || !!sigHitShock;
+  const sigStatusFired =
+    sigCritPoison ||
+    !!sigHitPoison ||
+    !!sigHitBleed ||
+    !!sigCritChill ||
+    !!sigHitShock ||
+    !!sigCritDefDebuff;
   const statusBlockSigStatus =
     sigStatusFired && !!sigStatusBlock && !defender.flags.statusBlockUsed;
   if (statusBlockSigStatus && sigStatusBlock) {
@@ -936,6 +951,12 @@ export function advanceTurnPvP(
       text: `[${sigHitPoison.label}] ${defender.name}에게 중독 ${sigHitPoison.stacks}스택을 남겼다.`,
     });
   }
+  if (!statusBlockSigStatus && sigHitBleed) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigHitBleed.label}] ${defender.name}에게 출혈 ${sigHitBleed.stacks}스택을 남겼다.`,
+    });
+  }
   if (sigCritSpeedBuff) {
     log = appendLog(log, {
       kind: "info",
@@ -946,6 +967,12 @@ export function advanceTurnPvP(
     log = appendLog(log, {
       kind: "info",
       text: formatChillSlowLog(defender.name, sigCritChill),
+    });
+  }
+  if (!statusBlockSigStatus && sigCritDefDebuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: formatDefDebuffLog(defender.name, sigCritDefDebuff),
     });
   }
   if (!statusBlockSigStatus && sigHitShock) {
@@ -988,6 +1015,21 @@ export function advanceTurnPvP(
       ? {
           enemySpdMult: sigHitShock.mult,
           enemySpdTurnsLeft: sigHitShock.turns,
+        }
+      : {}),
+    // 표식 on-crit 적 방어 감소 병합(AP 약점 노출과 같은 enemyDef 슬롯).
+    ...(!statusBlockSigStatus && sigCritDefDebuff
+      ? {
+          enemyDefDebuffPct: Math.max(
+            nextBuffsTimedFromAp.enemyDefDebuffTurnsLeft > 0
+              ? nextBuffsTimedFromAp.enemyDefDebuffPct
+              : 0,
+            sigCritDefDebuff.pct,
+          ),
+          enemyDefDebuffTurnsLeft: Math.max(
+            nextBuffsTimedFromAp.enemyDefDebuffTurnsLeft,
+            sigCritDefDebuff.turns,
+          ),
         }
       : {}),
   };
@@ -1070,7 +1112,9 @@ export function advanceTurnPvP(
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
       braceDefBonus: nextBraceDefBonus,
     },
-  }, attacker, { bleedStacks: apBleedAdd });
+  }, attacker, {
+    bleedStacks: apBleedAdd + (!statusBlockSigStatus ? sigHitBleed?.stacks ?? 0 : 0),
+  });
   let next: PvPBattleState = setSide(
     setSide({ ...state, log }, atkKey, newAttacker),
     defKey,

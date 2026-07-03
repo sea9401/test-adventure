@@ -3013,7 +3013,12 @@ const V2_EQUIPMENT_BASE = {
     options: { crit: 18, critMult: 58, eva: 10 },
     weaponType: "bow",
     rarity: "unique",
-    signature: { trigger: "every_n_hits", label: "칼바람 낙인", everyNHits: 3 },
+    signature: {
+      trigger: "on_crit",
+      label: "칼바람 낙인",
+      enemyDefDebuffPct: 18,
+      buffActions: 2,
+    },
   },
   v2_stormpeak_sig_oracle_staff: {
     id: "v2_stormpeak_sig_oracle_staff",

@@ -2,16 +2,19 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   battleStartShield,
   formatChillSlowLog,
+  formatDefDebuffLog,
   formatShockSlowLog,
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
+  onCritEnemyDefDebuff,
   onCritEnemyChill,
   firesOnCritPoison,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
   onHitTakenDefGain,
   onSkillCastMpRefund,
+  rollOnHitBleed,
   rollOnHitPoison,
   rollOnHitShock,
   statusBlockOnce,
@@ -68,6 +71,20 @@ const BLUE_VENOM: SignatureEffect = {
   label: "청독",
   poisonChancePct: 35,
   poisonStacks: 1,
+};
+
+const PREDATOR_BLEED: SignatureEffect = {
+  trigger: "on_hit",
+  label: "포식자",
+  bleedChancePct: 30,
+  bleedStacks: 1,
+};
+
+const GALE_MARK: SignatureEffect = {
+  trigger: "on_crit",
+  label: "칼바람 낙인",
+  enemyDefDebuffPct: 18,
+  buffActions: 2,
 };
 
 const BONE_THRONE: SignatureEffect = {
@@ -133,6 +150,42 @@ describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)",
   it("전투 로그는 둔화량과 지속 턴을 쉽게 표시", () => {
     expect(formatChillSlowLog("허수아비", { mult: 0.75, turns: 2 })).toBe(
       "[한기] 허수아비이(가) 얼어붙어 느려진다. (속도 25% 감소, 2턴)",
+    );
+  });
+});
+
+describe("onCritEnemyDefDebuff (치명타 표식 — 적 방어 감소)", () => {
+  it("시그니처 없음/크리 아님/피해 없음 → null", () => {
+    expect(onCritEnemyDefDebuff(undefined, true, true)).toBeNull();
+    expect(onCritEnemyDefDebuff([GALE_MARK], false, true)).toBeNull();
+    expect(onCritEnemyDefDebuff([GALE_MARK], true, false)).toBeNull();
+  });
+
+  it("치명타+피해 시 방어 감소와 지속행동을 반환", () => {
+    expect(onCritEnemyDefDebuff([GALE_MARK], true, true)).toEqual({
+      pct: 18,
+      turns: 2,
+      label: "칼바람 낙인",
+    });
+  });
+
+  it("여러 개면 가장 강한 방어 감소를 사용", () => {
+    const stronger: SignatureEffect = {
+      trigger: "on_crit",
+      label: "깊은 표식",
+      enemyDefDebuffPct: 25,
+      buffActions: 1,
+    };
+    expect(onCritEnemyDefDebuff([GALE_MARK, stronger], true, true)).toEqual({
+      pct: 25,
+      turns: 1,
+      label: "깊은 표식",
+    });
+  });
+
+  it("전투 로그는 표식 라벨과 방어 감소량을 표시", () => {
+    expect(formatDefDebuffLog("허수아비", { pct: 18, turns: 2, label: "칼바람 낙인" })).toBe(
+      "[칼바람 낙인] 허수아비에게 표식을 남겼다. (방어 18% 감소, 2턴)",
     );
   });
 });
@@ -341,6 +394,27 @@ describe("rollOnHitPoison (공격 적중 시 확률 중독)", () => {
     expect(rollOnHitPoison([BLUE_VENOM, other], true, () => 0)).toEqual({
       stacks: 3,
       label: "청독 + 맹독침",
+    });
+  });
+});
+
+describe("rollOnHitBleed (공격 적중 시 확률 출혈)", () => {
+  it("피해 없음/미장착/확률 실패 → null", () => {
+    expect(rollOnHitBleed([PREDATOR_BLEED], false, () => 0)).toBeNull();
+    expect(rollOnHitBleed(undefined, true, () => 0)).toBeNull();
+    expect(rollOnHitBleed([PREDATOR_BLEED], true, () => 0.99)).toBeNull();
+  });
+
+  it("확률 성공 시 스택과 라벨을 반환하고 여러 장비는 합산", () => {
+    const other: SignatureEffect = {
+      trigger: "on_hit",
+      label: "깊은 상처",
+      bleedChancePct: 100,
+      bleedStacks: 2,
+    };
+    expect(rollOnHitBleed([PREDATOR_BLEED, other], true, () => 0)).toEqual({
+      stacks: 3,
+      label: "포식자 + 깊은 상처",
     });
   });
 });

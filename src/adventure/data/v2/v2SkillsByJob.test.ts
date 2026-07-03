@@ -575,6 +575,42 @@ describe("직업 킷 — 스킬셋", () => {
       damageTakenReductionPct: 8,
       thornsDefPct: 120,
     });
+    expect(skillsForJob("swordsaint")).toEqual([
+      "v2c_swordsaint_flash",
+      "v2c_swordsaint_transcendence",
+    ]);
+    expect(V2_SKILLS.v2c_swordsaint_flash.category).toBe("attack");
+    expect(V2_SKILLS.v2c_swordsaint_flash.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "enemyDebuff",
+      "enemyDelay",
+    ]);
+    expect(V2_SKILLS.v2c_swordsaint_transcendence.category).toBe("passive");
+    expect(V2_SKILLS.v2c_swordsaint_transcendence.passive).toMatchObject({
+      statPct: { str: 24 },
+      critDmgPct: 35,
+      accuracyPct: 10,
+      spdOverflowToAtkPct: 35,
+    });
+    expect(skillsForJob("hegemon")).toEqual([
+      "v2c_hegemon_annihilation",
+      "v2c_hegemon_dominion",
+    ]);
+    expect(V2_SKILLS.v2c_hegemon_annihilation.effects.map((e) => e.kind)).toEqual([
+      "hpCostDamage",
+      "executeDamage",
+      "enemyVuln",
+    ]);
+    expect(V2_SKILLS.v2c_hegemon_annihilation.effects[0]).toMatchObject({
+      kind: "hpCostDamage",
+      pctCurrentHp: 14,
+    });
+    expect(V2_SKILLS.v2c_hegemon_dominion.category).toBe("passive");
+    expect(V2_SKILLS.v2c_hegemon_dominion.passive).toMatchObject({
+      berserkAtkPctPerLostHpPct: 1.0,
+      critDmgPct: 40,
+      maxHpPct: 12,
+    });
     expect(skillsForJob("celestialdragon")).toEqual([
       "v2c_celestialdragon_combo",
       "v2c_celestialdragon_breath",
@@ -605,6 +641,28 @@ describe("직업 킷 — 스킬셋", () => {
       accuracyPct: 12,
       comboFinisherBonusPct: 30,
     });
+    expect(skillsForJob("vajraarhat")).toEqual([
+      "v2c_vajraarhat_seal",
+      "v2c_vajraarhat_body",
+    ]);
+    expect(V2_SKILLS.v2c_vajraarhat_seal.category).toBe("buff");
+    expect(V2_SKILLS.v2c_vajraarhat_seal.effects).toEqual([
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+      { kind: "selfBuffPct", target: "reflectDamage", pct: 45, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_vajraarhat_body.category).toBe("passive");
+    expect(V2_SKILLS.v2c_vajraarhat_body.passive).toMatchObject({
+      maxHpPct: 32,
+      damageTakenReductionPct: 8,
+      counterChancePct: 30,
+    });
+    expect(
+      aggregateEquippedPassives([
+        "v2c_adamantmonk_body",
+        "v2c_vajraarhat_body",
+      ]).counterChancePct,
+    ).toBe(54.5);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {

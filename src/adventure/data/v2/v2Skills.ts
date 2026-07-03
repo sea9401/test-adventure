@@ -52,7 +52,7 @@ export type V2PassiveSkillEffect = {
   maxMpPct?: number;
   /** 민첩→공격력 보조 계수(예기). */
   atkPerDexCoef?: number;
-  // ── 다양성 확장(A 메타) — 스탯 크기 외 "작동 방식" 사이드그레이드. 모두 가산 합산.
+  // ── 다양성 확장(A 메타) — 스탯 크기 외 "작동 방식" 사이드그레이드. 반격 확률 외에는 가산 합산.
   //   엔진 레버에 직결: critPct→critChancePct · critDmgPct→critMult(/100) · evasionPct→eva(cap)
   //   · lifestealPct→흡혈(낮게). 미지정=무적용(byte-identical).
   /** 치명타 확률 +%p 가산(급소·치명). */
@@ -518,8 +518,9 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_COMMON_SKILLS,
 };
 
-// 장착(로드아웃)된 패시브 스킬들의 상시 효과 합산 — 코어루프 derive 가 호출.
-//   stat 가산(근력 등) + atkPerDexCoef 합(예기). 패시브 아닌 스킬·미존재 id 는 무시.
+// 장착(로드아웃)된 패시브 스킬들의 상시 효과 집계 — 코어루프 derive 가 호출.
+//   대부분은 합산한다. 반격 확률(counterChancePct)은 100%에 쉽게 닿지 않도록 실패 확률을 곱한다.
+//   패시브 아닌 스킬·미존재 id 는 무시.
 export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   stat: Partial<Record<V2StatKey, number>>;
   statPct: Partial<Record<V2StatKey, number>>;
@@ -554,7 +555,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let critDmgPct = 0;
   let evasionPct = 0;
   let lifestealPct = 0;
-  let counterChancePct = 0;
+  let counterFailChance = 1;
   let defPct = 0;
   let thornsDefPct = 0;
   let accuracyPct = 0;
@@ -584,7 +585,10 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct += p.critDmgPct ?? 0;
     evasionPct += p.evasionPct ?? 0;
     lifestealPct += p.lifestealPct ?? 0;
-    counterChancePct += p.counterChancePct ?? 0;
+    if (p.counterChancePct) {
+      const chance = Math.max(0, Math.min(100, p.counterChancePct));
+      counterFailChance *= 1 - chance / 100;
+    }
     defPct += p.defPct ?? 0;
     thornsDefPct += p.thornsDefPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
@@ -609,7 +613,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct,
     evasionPct,
     lifestealPct,
-    counterChancePct,
+    counterChancePct: Math.round((1 - counterFailChance) * 10000) / 100,
     defPct,
     thornsDefPct,
     accuracyPct,
@@ -838,7 +842,7 @@ const MP_CASTER_JOBS = new Set([
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([
   "martial", "boxer", "monk", "brawler", "warmonk", "sensei", "battlemonk",
-  "dragonfist", "adamantmonk", "celestialdragon",
+  "dragonfist", "adamantmonk", "celestialdragon", "vajraarhat",
 ]);
 // 도적 ×0.7 — 물리/술수·MP 가벼움.
 const MP_ROGUE_JOBS = new Set([

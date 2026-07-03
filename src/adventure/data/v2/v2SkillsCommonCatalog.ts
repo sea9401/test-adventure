@@ -198,8 +198,14 @@ export type V2CommonSkillId =
   // ── 6차 직업 ──
   | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + ATB 지연)
   | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 반사)
+  | "v2c_swordsaint_flash" // 무심검 (강한 일격 + 무력 + ATB 지연)
+  | "v2c_swordsaint_transcendence" // 검성의 경지 (힘 + 치명피해 + 속도초과 전환)
+  | "v2c_hegemon_annihilation" // 멸왕난무 (HP 소모 + 처형 + 취약)
+  | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해 + 최대 HP)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
-  | "v2c_celestialdragon_breath"; // 천룡의 호흡 (힘 + 민첩 + 회피)
+  | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
+  | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
+  | "v2c_vajraarhat_body"; // 나한금신 (최대 HP + 받피감 + 반격)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -1449,6 +1455,40 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { defPct: 30, damageTakenReductionPct: 8, thornsDefPct: 120 },
   },
+  v2c_swordsaint_flash: {
+    id: "v2c_swordsaint_flash", name: "무심검", stat: "str", category: "attack", tier: 3,
+    description: "마음을 비운 한 검으로 적의 자세와 흐름을 동시에 끊는다.",
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      dmg(1.95, 460),
+      { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+      { kind: "enemyDelay", pct: 45 },
+    ],
+  },
+  v2c_swordsaint_transcendence: {
+    id: "v2c_swordsaint_transcendence", name: "검성의 경지", stat: "str", category: "passive", tier: 3,
+    description: "검로가 완성된다. 힘과 치명 피해가 오르고, 한계를 넘어선 속도가 더 큰 공격력으로 돌아온다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { statPct: { str: 24 }, critDmgPct: 35, accuracyPct: 10, spdOverflowToAtkPct: 35 },
+  },
+  v2c_hegemon_annihilation: {
+    id: "v2c_hegemon_annihilation", name: "멸왕난무", stat: "str", category: "attack", tier: 3,
+    description: "왕좌까지 피로 물들이는 연격. 생명을 태워 몰아붙이고 약해진 적을 짓밟는다.",
+    mpCost: 62, cooldown: 0, procChance: 30, learnCost: 12000,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 14, statCoef: 1.95, baseFlatByTier: [430, 430, 430], soakRatio: 2.6 },
+      { kind: "executeDamage", statCoef: 0.42, baseFlatByTier: [220, 220, 220], hpThresholdPct: 28, bonusMult: 2.5 },
+      { kind: "enemyVuln", pct: 12, turns: 3 },
+    ],
+  },
+  v2c_hegemon_dominion: {
+    id: "v2c_hegemon_dominion", name: "패황의 지배", stat: "str", category: "passive", tier: 3,
+    description: "상처가 깊을수록 지배력이 강해진다. 잃은 체력에 따른 공격력과 치명 피해가 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { berserkAtkPctPerLostHpPct: 1.0, critDmgPct: 40, maxHpPct: 12 },
+  },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,
     description: "하늘로 솟구친 뒤 다섯 번 내리꽂아 적의 흐름을 끊고 전장을 장악한다.",
@@ -1471,6 +1511,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       accuracyPct: 12,
       comboFinisherBonusPct: 30,
     },
+  },
+  v2c_vajraarhat_seal: {
+    id: "v2c_vajraarhat_seal", name: "금강인", stat: "vit", category: "buff", tier: 3,
+    description: "금강의 인을 맺어 몸을 잠그고, 들어오는 공격을 되돌릴 준비를 한다.",
+    mpCost: 58, cooldown: 0, procChance: 100, learnCost: 12000,
+    effects: [
+      { kind: "shield", pctMaxHp: 18, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+      { kind: "selfBuffPct", target: "reflectDamage", pct: 45, turns: 3 },
+    ],
+  },
+  v2c_vajraarhat_body: {
+    id: "v2c_vajraarhat_body", name: "나한금신", stat: "vit", category: "passive", tier: 3,
+    description: "나한의 금빛 몸으로 버틴다. 최대 체력과 피해 저항, 반격 확률이 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { maxHpPct: 32, damageTakenReductionPct: 8, counterChancePct: 30 },
   },
 };
 

@@ -39,6 +39,20 @@ vi.mock("@/lib/server/derivePlayerCombatV2", () => ({
     selectedStance: null,
   })),
 }));
+vi.mock("@/lib/server/v2BattlePrep", () => ({
+  prepareV2BattleActor: vi.fn(async ({ userId }: { userId: string }) => ({
+    player: {
+      // 전투력비율 공성 — derivePowerScore 입력(atk/def/spd) 필요. 임의 값.
+      player: { atk: 100, magicAtk: 0, def: 50, spd: 50, maxMp: 100, hp: 1000 },
+      maxHp: 1000,
+      selectedStance: null,
+    },
+    skills: {
+      learned: [`${userId}:skill`],
+      equipped: [`${userId}:skill`],
+    },
+  })),
+}));
 // 수비 결투용 — 결정적 결과. 빈 큐(길드 무수비) 경로는 이 mock 미사용.
 vi.mock("@/adventure/v2/combat/engine-pvp", () => ({
   resolveBattlePvP: vi.fn(() => ({
@@ -125,6 +139,7 @@ vi.mock("@/db", () => {
 });
 
 import { POST } from "@/app/api/v2/outpost/attack/route";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 
 function req(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/outpost/attack", {
@@ -206,6 +221,12 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     expect(h.upsertGuildRes).toContainEqual({
       guildId: 7,
       patch: { gold: 100 },
+    });
+    expect(vi.mocked(resolveBattlePvP).mock.calls[0]?.[4]).toMatchObject({
+      v2Skills: {
+        p1: { equipped: ["u-atk:skill"] },
+        p2: { equipped: ["u-def:skill"] },
+      },
     });
   });
 

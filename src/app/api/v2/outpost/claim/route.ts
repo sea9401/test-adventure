@@ -20,10 +20,10 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import {
   captureOutpostOccupation,
   recordOutpostAttack,
@@ -326,14 +326,19 @@ export async function POST(req: Request) {
       afterStamina = after;
     }
 
-    const player = await derivePlayerCombatV2(userId, tx);
-    if (!player) {
+    const playerActor = await prepareV2BattleActor({
+      tx,
+      userId,
+      charSave,
+    });
+    if (!playerActor) {
       return {
         ok: false as const,
         status: 400,
         body: { ok: false as const, error: "no_character" as const },
       };
     }
+    const player = playerActor.player;
 
     // hp 회복 + 병사 보정 적용
     const hpRegen = applyHpRegen(
@@ -423,8 +428,15 @@ export async function POST(req: Request) {
 
     if (pvpDefenderId) {
       // === PvP claim — 영웅 일기토 + 본 병사 전쟁 ===
-      const defender = await derivePlayerCombatV2(pvpDefenderId, tx);
-      if (!defender) {
+      const defenderSave = await lockSaveForUpdate<{
+        [k: string]: unknown;
+      }>(tx, pvpDefenderId, "character.v2", {});
+      const defenderActor = await prepareV2BattleActor({
+        tx,
+        userId: pvpDefenderId,
+        charSave: defenderSave,
+      });
+      if (!defenderActor) {
         // 점령자 캐릭 없음 = stale occupation (saves 손상/유저 삭제 등).
         // row 정리 후 NPC claim 로 fallthrough. ownership 이전이 의미 없는
         // 케이스라 stale row 삭제 + NPC 일기토 흐름.
@@ -434,6 +446,7 @@ export async function POST(req: Request) {
         pvpFallbackToNpc = true;
         stillHasOccRow = false;
       } else {
+        const defender = defenderActor.player;
         // 수비자 이름
         const defProfileRow = await tx
           .select({ value: savesKv.value })
@@ -467,7 +480,10 @@ export async function POST(req: Request) {
           defenderStanced,
           playerName,
           defenderLabel,
-          autoDuelContext(),
+          {
+            ...autoDuelContext(),
+            v2Skills: { p1: playerActor.skills, p2: defenderActor.skills },
+          },
         );
         duelWonByAttacker = pvp.outcome === "p1_win";
         turns = pvp.turns;
@@ -493,6 +509,7 @@ export async function POST(req: Request) {
           pickAction: (state) =>
             pickAutoAction(state, { rules: [], potions: {} }),
           potions: {},
+          v2Skills: playerActor.skills,
         },
       );
       won = battle.outcome === "win";

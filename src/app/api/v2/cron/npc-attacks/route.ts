@@ -1,9 +1,10 @@
 import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
+import { lockSaveForUpdate } from "@/lib/server/savesKv";
 import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -90,8 +91,15 @@ export async function POST(req: Request) {
         }
 
         const ownerId = lockedOcc.occupiedByUserId;
-        const player = await derivePlayerCombatV2(ownerId, tx);
-        if (!player) {
+        const ownerSave = await lockSaveForUpdate<{
+          [k: string]: unknown;
+        }>(tx, ownerId, "character.v2", {});
+        const ownerActor = await prepareV2BattleActor({
+          tx,
+          userId: ownerId,
+          charSave: ownerSave,
+        });
+        if (!ownerActor) {
           // 점령자 캐릭 없음 (이상) → skip + nextAttackAt 갱신
           await tx
             .update(outpostOccupations)
@@ -102,6 +110,7 @@ export async function POST(req: Request) {
           summary.skipped += 1;
           return;
         }
+        const player = ownerActor.player;
 
         const champion = getChampion(outpost.type, outpost.tier);
         // PR-7b: 병사 보정 제거 — 점령자 영웅 단신, hp = 만피.
@@ -115,6 +124,7 @@ export async function POST(req: Request) {
             pickAction: (state) =>
               pickAutoAction(state, { rules: [], potions: {} }),
             potions: {},
+            v2Skills: ownerActor.skills,
           },
         );
 

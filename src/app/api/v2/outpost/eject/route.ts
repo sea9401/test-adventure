@@ -3,9 +3,9 @@ import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   HUNT_COST,
@@ -179,16 +179,24 @@ export async function POST(req: Request) {
       afterStamina = after;
     }
 
-    // === 6. 양측 PlayerCombat derive ===
-    const attackerCombat = await derivePlayerCombatV2(userId, tx);
-    const defenderCombat = await derivePlayerCombatV2(targetUserId, tx);
-    if (!attackerCombat) {
+    // === 6. 양측 PlayerCombat + 장착 스킬 준비 ===
+    const attackerActor = await prepareV2BattleActor({
+      tx,
+      userId,
+      charSave: attackerSave,
+    });
+    const defenderActor = await prepareV2BattleActor({
+      tx,
+      userId: targetUserId,
+      charSave: defenderSave,
+    });
+    if (!attackerActor) {
       return {
         status: 400,
         body: { ok: false as const, error: "no_character" as const },
       };
     }
-    if (!defenderCombat) {
+    if (!defenderActor) {
       // 침입자 캐릭이 derive 불가 — race(데이터 손상). 침입자 트래킹만 clear.
       const { lastHuntedOutpost: _drop, ...defenderSaveCleared } = defenderSave;
       void _drop;
@@ -198,6 +206,8 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "target_unavailable" as const },
       };
     }
+    const attackerCombat = attackerActor.player;
+    const defenderCombat = defenderActor.player;
 
     // 도전자 사전 hp 회복 (사냥과 동일 흐름).
     const attackerHpBefore = parseHpRegenSince(attackerSave.hpRegenSince, now);
@@ -223,7 +233,10 @@ export async function POST(req: Request) {
       { ...defenderCombat.player, hp: defenderStartHp },
       attackerName,
       defenderName,
-      autoDuelContext(),
+      {
+        ...autoDuelContext(),
+        v2Skills: { p1: attackerActor.skills, p2: defenderActor.skills },
+      },
     );
     const won = battleResult.outcome === "p1_win";
     // 토벌 전투 리플레이 — 토벌자(=나) p1 시점. 결과 카드 아래 BattleScene 표시용.

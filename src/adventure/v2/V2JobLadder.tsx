@@ -85,9 +85,9 @@ export function V2JobLadder({
   const filteredJobs = useMemo(
     () =>
       jobs.filter((job) =>
-        matchesJobExplorerFilters(job, query, activeTags),
+        matchesJobExplorerFilters(job, query, activeTags, { currentJobId }),
       ),
-    [activeTags, jobs, query],
+    [activeTags, currentJobId, jobs, query],
   );
   const goalJobs = filteredJobs.filter((job) => job.id === goalJobId);
   const currentJobs = filteredJobs.filter(
@@ -392,6 +392,7 @@ function JobSection({
             isCurrent={job.id === currentJobId}
             isGoal={job.id === goalJobId}
             atLevelCap={atLevelCap}
+            currentJobId={currentJobId}
             onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
             onPick={() => onPick(job)}
           />
@@ -406,6 +407,7 @@ function JobRow({
   isCurrent,
   isGoal,
   atLevelCap,
+  currentJobId,
   onSetGoal,
   onPick,
 }: {
@@ -413,11 +415,12 @@ function JobRow({
   isCurrent: boolean;
   isGoal: boolean;
   atLevelCap: boolean;
+  currentJobId: string;
   onSetGoal: () => void;
   onPick: () => void;
 }) {
   const unlocked = job.unlocked !== false;
-  const tags = jobTags(job).slice(0, 4);
+  const tags = jobTags(job, { currentJobId }).slice(0, 4);
   return (
     <li
       className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${

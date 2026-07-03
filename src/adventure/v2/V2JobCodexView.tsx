@@ -27,6 +27,7 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
   const [goalJobId, setGoalJobId] = useState<string | null>(null);
+  const currentJobId = codex.jobs.find((job) => job.isCurrent)?.id ?? null;
 
   useEffect(() => {
     try {
@@ -50,9 +51,9 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
   const filteredJobs = useMemo(
     () =>
       codex.jobs.filter((job) =>
-        matchesJobExplorerFilters(job, query, activeTags),
+        matchesJobExplorerFilters(job, query, activeTags, { currentJobId }),
       ),
-    [activeTags, codex.jobs, query],
+    [activeTags, codex.jobs, currentJobId, query],
   );
   const goalJobs = filteredJobs.filter((job) => job.id === goalJobId);
   const currentJobs = filteredJobs.filter(
@@ -133,24 +134,28 @@ export function JobCodexList({ codex }: { codex: JobCodex }) {
             title="목표 직업"
             jobs={goalJobs}
             goalJobId={goalJobId}
+            currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
           <JobSection
             title="현재 직업"
             jobs={currentJobs}
             goalJobId={goalJobId}
+            currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
           <JobSection
             title="해금된 직업"
             jobs={unlockedJobs}
             goalJobId={goalJobId}
+            currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
           <JobSection
             title="조건 부족"
             jobs={lockedJobs}
             goalJobId={goalJobId}
+            currentJobId={currentJobId}
             onSetGoal={setGoal}
           />
         </div>
@@ -194,11 +199,13 @@ function JobSection({
   title,
   jobs,
   goalJobId,
+  currentJobId,
   onSetGoal,
 }: {
   title: string;
   jobs: JobCodex["jobs"];
   goalJobId: string | null;
+  currentJobId: string | null;
   onSetGoal: (jobId: string | null) => void;
 }) {
   if (jobs.length === 0) return null;
@@ -218,6 +225,7 @@ function JobSection({
             key={job.id}
             job={job}
             isGoal={job.id === goalJobId}
+            currentJobId={currentJobId}
             onSetGoal={() => onSetGoal(job.id === goalJobId ? null : job.id)}
           />
         ))}
@@ -229,13 +237,15 @@ function JobSection({
 function JobRow({
   job,
   isGoal,
+  currentJobId,
   onSetGoal,
 }: {
   job: JobCodex["jobs"][number];
   isGoal: boolean;
+  currentJobId: string | null;
   onSetGoal: () => void;
 }) {
-  const tags = jobTags(job).slice(0, 4);
+  const tags = jobTags(job, { currentJobId }).slice(0, 4);
   return (
     <li
       className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${

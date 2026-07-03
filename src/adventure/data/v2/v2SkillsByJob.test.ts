@@ -131,14 +131,27 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(2);
   });
 
-  it("헬스 트레이너는 장착형 훈련장 패시브를 배운다", () => {
+  it("헬스 트레이너 생활 직업 라인은 장착형 훈련장 패시브를 배운다", () => {
     expect(skillsForJob("healthtrainer")).toEqual([
       "v2c_healthtrainer_routine",
     ]);
-    const skill = V2_SKILLS.v2c_healthtrainer_routine;
-    expect(skill.category).toBe("passive");
-    expect(skill.passive?.guildTrainingRewardBonusPct).toBe(5);
-    expect(skill.passive?.guildTrainingWeeklyBonusMastery).toBe(5);
+    expect(skillsForJob("physicalcoach")).toEqual([
+      "v2c_physicalcoach_conditioning",
+    ]);
+    expect(skillsForJob("mastertrainer")).toEqual([
+      "v2c_mastertrainer_elitetraining",
+    ]);
+    for (const jobId of ["healthtrainer", "physicalcoach", "mastertrainer"]) {
+      for (const id of skillsForJob(jobId)) {
+        expect(V2_SKILLS[id].category, id).toBe("passive");
+      }
+    }
+    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingRewardBonusPct).toBe(5);
+    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingWeeklyBonusMastery).toBe(5);
+    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingRewardBonusPct).toBe(8);
+    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingWeeklyBonusMastery).toBe(10);
+    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingRewardBonusPct).toBe(12);
+    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingWeeklyBonusMastery).toBe(15);
   });
 
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {

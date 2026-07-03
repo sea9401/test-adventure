@@ -381,6 +381,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 10, spi: 5 },
     unlock: { prereqs: { fisher: FISHING_TIER3_UNLOCK_CUMLEVEL } },
   },
+  physicalcoach: {
+    id: "physicalcoach",
+    name: "피지컬 코치",
+    tier: 3,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 10, str: 5 },
+    unlock: { prereqs: { healthtrainer: TIER3_UNLOCK_CUMLEVEL } },
+  },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
   //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
   //   (jobCumLevel)을 본다 — isJobUnlocked 가 prereq 키의 tier 로 분기(tier1=직군 groups, 상위=
@@ -586,6 +594,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { luk: 2, spi: 1, vit: 1 },
     jobBonus: { luk: 15, spi: 7 },
     unlock: { prereqs: { angler: FISHING_TIER4_UNLOCK_CUMLEVEL } },
+  },
+  mastertrainer: {
+    id: "mastertrainer",
+    name: "마스터 트레이너",
+    tier: 4,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 15, str: 7 },
+    unlock: { prereqs: { physicalcoach: TIER4_UNLOCK_CUMLEVEL } },
   },
   crusader: {
     id: "crusader",
@@ -868,6 +884,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   fieldmedic: { class: "survivor", spec: "fieldmedic" },
   extremesurvivor: { class: "survivor", spec: "extremesurvivor" },
   angler: { class: "survivor", spec: "angler" },
+  physicalcoach: { class: "survivor", spec: "physicalcoach" },
   shieldman: { class: "warrior", spec: "knight" },
   squire: { class: "warrior", spec: "gwang" },
   boxer: { class: "martial", spec: "gigong" },
@@ -915,6 +932,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   rescueexpert: { class: "survivor", spec: "rescueexpert" },
   returner: { class: "survivor", spec: "returner" },
   masterangler: { class: "survivor", spec: "masterangler" },
+  mastertrainer: { class: "survivor", spec: "mastertrainer" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 피와 회복의 탱딜

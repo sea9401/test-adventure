@@ -48,6 +48,8 @@ export type V2CommonSkillId =
   | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 물고기 크기)
   | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물급 물고기 크기)
   | "v2c_healthtrainer_routine" // 운동 루틴 (길드 훈련장 보상)
+  | "v2c_physicalcoach_conditioning" // 컨디셔닝 프로그램 (길드 훈련장 보상)
+  | "v2c_mastertrainer_elitetraining" // 엘리트 트레이닝 (길드 훈련장 보상)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -560,6 +562,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { guildTrainingRewardBonusPct: 5, guildTrainingWeeklyBonusMastery: 5 },
+  },
+  v2c_physicalcoach_conditioning: {
+    id: "v2c_physicalcoach_conditioning", name: "컨디셔닝 프로그램", stat: "vit", category: "passive", tier: 3,
+    description: "훈련 강도와 회복 주기를 맞춰 길드 훈련장 보상과 주간 훈련 보너스를 높인다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { guildTrainingRewardBonusPct: 8, guildTrainingWeeklyBonusMastery: 10 },
+  },
+  v2c_mastertrainer_elitetraining: {
+    id: "v2c_mastertrainer_elitetraining", name: "엘리트 트레이닝", stat: "vit", category: "passive", tier: 3,
+    description: "상위 전직자를 위한 고강도 훈련 설계로 길드 훈련장 보상을 크게 끌어올린다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { guildTrainingRewardBonusPct: 12, guildTrainingWeeklyBonusMastery: 15 },
   },
   v2c_ironman_body: {
     id: "v2c_ironman_body", name: "단련된 몸", stat: "vit", category: "passive", tier: 2,

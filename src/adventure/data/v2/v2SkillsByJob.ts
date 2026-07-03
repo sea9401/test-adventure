@@ -47,6 +47,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   fieldmedic: ["v2c_fieldmedic_treatment", "v2c_fieldmedic_training"], // 현장 처치 + 구급 숙련
   extremesurvivor: ["v2c_extremesurvivor_struggle", "v2c_extremesurvivor_adaptation"], // 사투 + 극한 적응
   angler: ["v2c_angler_pointreading"], // 명인 낚시꾼 — 포인트 짚기
+  physicalcoach: ["v2c_physicalcoach_conditioning"], // 피지컬 코치 — 컨디셔닝 프로그램
   // ── 하이브리드(tier 3·전사×마법) ──
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
@@ -75,6 +76,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   rescueexpert: ["v2c_rescueexpert_rescue", "v2c_rescueexpert_support"], // 긴급 구조 + 생환 지원
   returner: ["v2c_returner_survive", "v2c_returner_undying"], // 생환 + 불굴
   masterangler: ["v2c_masterangler_bigcatchsense"], // 강태공 — 대물 감각
+  mastertrainer: ["v2c_mastertrainer_elitetraining"], // 마스터 트레이너 — 엘리트 트레이닝
   crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"], // 성전사: 성전의 심판 + 불굴의 맹세
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판 + 피의 서약

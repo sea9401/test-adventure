@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildLeaveCooldown, users } from "@/db/schema";
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { logAdminAction } from "@/lib/server/adminAudit";
+import { currentAdminEmail, requireAdmin } from "@/lib/server/isAdmin";
 
 async function userExists(userId: string): Promise<boolean> {
   const rows = await db
@@ -51,6 +52,13 @@ export async function DELETE(req: Request) {
     .delete(guildLeaveCooldown)
     .where(eq(guildLeaveCooldown.userId, userId))
     .returning({ userId: guildLeaveCooldown.userId });
+
+  await logAdminAction({
+    adminEmail: await currentAdminEmail(),
+    action: "guild-cooldown.clear",
+    targetUserId: userId,
+    detail: { cleared: removed.length > 0 },
+  });
 
   return Response.json({ ok: true, cleared: removed.length > 0 });
 }

@@ -96,7 +96,7 @@ import {
   resolveUserDisplayName,
 } from "@/lib/server/serverFeed";
 import {
-  enforceUserRateLimit,
+  enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
 import { rollHuntDrops } from "./huntDrops";
 import { computeGoldTax, computeLossTax } from "./huntTax";
@@ -992,10 +992,11 @@ export async function POST(req: Request) {
   }
   // 명시적 string — runOneHunt(중첩 클로저)에서 narrowing 이 풀리지 않게.
   const userId: string = maybeUserId;
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:dungeon:hunt",
-    limit: 180,
+    userLimit: 180,
+    ipLimit: 900,
     windowMs: 60_000,
   });
   if (limited) return limited;

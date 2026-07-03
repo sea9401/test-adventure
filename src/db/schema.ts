@@ -1214,6 +1214,27 @@ export const userSanctions = pgTable(
   ],
 );
 
+// 운영 이상 행동 로그 — rate limit 초과, 반복 bad_request/stale/no_session 등 abuse 후보 이벤트.
+// 핫패스에서는 best-effort 로 기록한다. 실패해도 본 요청 처리를 막지 않는다.
+export const abuseEvents = pgTable(
+  "abuse_events",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    ip: text("ip"),
+    action: text("action").notNull(),
+    reason: text("reason").notNull(),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("abuse_events_created_idx").on(sql`${t.id} DESC`),
+    index("abuse_events_user_created_idx").on(t.userId, sql`${t.id} DESC`),
+    index("abuse_events_ip_created_idx").on(t.ip, sql`${t.id} DESC`),
+    index("abuse_events_action_created_idx").on(t.action, sql`${t.id} DESC`),
+  ],
+);
+
 // 관리자 감사 로그 — admin API 의 모든 변경 행동을 append-only 로 기록(누가·무엇을·대상).
 //   action:       'sanction.ban' / 'grant.v2' / 'reset-character' / 'season-ops.war-rollover' 등.
 //   targetUserId: 대상 유저(있으면). detail: 자유형 컨텍스트(JSON).

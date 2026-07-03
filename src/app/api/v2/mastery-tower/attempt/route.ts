@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -15,15 +15,16 @@ import {
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:mastery-tower:attempt",
-    limit: 90,
+    userLimit: 90,
+    ipLimit: 500,
     windowMs: 60_000,
   });
   if (limited) return limited;

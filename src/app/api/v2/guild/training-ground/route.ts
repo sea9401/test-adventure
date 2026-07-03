@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { getGuildIdByUser } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -227,10 +227,11 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:guild:training-ground:claim",
-    limit: 30,
+    userLimit: 30,
+    ipLimit: 180,
     windowMs: 60_000,
   });
   if (limited) return limited;

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { applyExpTomeGrant, EXP_TOME_GRANT } from "@/lib/server/expTomeGrant";
@@ -23,10 +23,11 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:me:use-exp-tome",
-    limit: 60,
+    userLimit: 60,
+    ipLimit: 360,
     windowMs: 60_000,
   });
   if (limited) return limited;

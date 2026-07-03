@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { maxGuildSettlementBuildingLevel } from "@/lib/server/settlementBuildingLevels";
@@ -27,15 +27,16 @@ import {
 // 골동품)을 절대 싣지 않는다 — 격자 공개 뷰만. 이미 진행 중인 발굴이 있으면 조각 소비 없이
 // 그 공개 뷰를 돌려준다(resume). 락 순서: treasure-fragments → treasure-session
 // (조각 row 를 직렬화 지점으로 — 본문 주석 참고).
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const limited = enforceUserRateLimit({
+  const limited = enforceUserAndIpRateLimit(req, {
     userId,
     action: "v2:treasure:open",
-    limit: 30,
+    userLimit: 30,
+    ipLimit: 180,
     windowMs: 60_000,
   });
   if (limited) return limited;

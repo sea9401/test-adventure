@@ -8,6 +8,7 @@ import { StatsTab } from "./tabs/StatsTab";
 import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
 import { GridDungeonAnalyticsTab } from "./tabs/GridDungeonAnalyticsTab";
 import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
+import { AbuseLogTab } from "./tabs/AbuseLogTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
 import { BroadcastTab } from "./tabs/BroadcastTab";
 import { FeedbackTab } from "./tabs/FeedbackTab";
@@ -20,6 +21,7 @@ type TabKey =
   | "balance"
   | "gridDungeon"
   | "season"
+  | "abuse"
   | "broadcast"
   | "feedback"
   | "audit";
@@ -32,6 +34,7 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "balance", label: "밸런스", group: "system" },
   { key: "gridDungeon", label: "던전", group: "system" },
   { key: "season", label: "시즌", group: "ops" },
+  { key: "abuse", label: "이상 행동", group: "ops" },
   { key: "broadcast", label: "공지·우편", group: "ops" },
   { key: "feedback", label: "건의사항", group: "ops" },
   { key: "audit", label: "감사 로그", group: "ops" },
@@ -149,6 +152,7 @@ function ShellInner() {
           {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "gridDungeon" && <GridDungeonAnalyticsTab />}
           {tab === "season" && <SeasonOpsTab />}
+          {tab === "abuse" && <AbuseLogTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}
           {tab === "audit" && <AuditLogTab />}

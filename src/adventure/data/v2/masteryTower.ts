@@ -17,6 +17,11 @@ export type MasteryTowerState = {
   firstClearRewardsClaimed: number[];
 };
 
+export type MasteryTowerLogEntry = {
+  kind: "info" | "player" | "enemy" | "success" | "fail" | "reward";
+  text: string;
+};
+
 export function kstDateKey(now: number = Date.now()): string {
   return new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
@@ -108,8 +113,79 @@ export function clearMasteryTowerFloor(
   };
 }
 
+export function masteryTowerAttemptLog({
+  floor,
+  power,
+  requiredPower,
+  success,
+  tower,
+  claimPreview,
+}: {
+  floor: number | null;
+  power: number;
+  requiredPower: number | null;
+  success: boolean;
+  tower: MasteryTowerState;
+  claimPreview: ReturnType<typeof masteryTowerClaimPreview>;
+}): MasteryTowerLogEntry[] {
+  if (floor == null || requiredPower == null) {
+    return [
+      {
+        kind: "success",
+        text: `오늘 가능한 최고층(${MASTERY_TOWER_MAX_FLOOR}층)에 도달했습니다.`,
+      },
+    ];
+  }
+
+  const gap = power - requiredPower;
+  const pressurePct = Math.max(
+    0,
+    Math.min(999, Math.floor((power / Math.max(1, requiredPower)) * 100)),
+  );
+  const lines: MasteryTowerLogEntry[] = [
+    { kind: "info", text: `[1턴] 숙련의 탑 ${floor}층 문지기 조우` },
+    {
+      kind: "player",
+      text: `[2턴] 공격 판정: 내 전투력 ${fmt(power)} / 요구 ${fmt(requiredPower)} (${pressurePct}%)`,
+    },
+  ];
+
+  if (success) {
+    lines.push(
+      {
+        kind: "enemy",
+        text: `[3턴] 문지기의 방어를 ${fmt(gap)}만큼 초과했습니다.`,
+      },
+      {
+        kind: "success",
+        text: `[결과] ${floor}층 돌파 · 오늘 최고층 ${tower.todayBestFloor}층`,
+      },
+    );
+    if (claimPreview.total > 0) {
+      lines.push({
+        kind: "reward",
+        text: `[보상] 현재 수령 가능 숙련 증서 ${fmt(claimPreview.total)}`,
+      });
+    }
+  } else {
+    lines.push(
+      {
+        kind: "enemy",
+        text: `[3턴] 문지기의 방어를 뚫지 못했습니다. 부족 전투력 ${fmt(-gap)}`,
+      },
+      { kind: "fail", text: `[결과] ${floor}층 실패` },
+    );
+  }
+
+  return lines;
+}
+
 function clampFloor(raw: unknown): number {
   const n = Math.floor(Number(raw));
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(MASTERY_TOWER_MAX_FLOOR, n));
+}
+
+function fmt(value: number): string {
+  return Math.floor(value).toLocaleString("ko-KR");
 }

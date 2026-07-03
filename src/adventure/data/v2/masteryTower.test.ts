@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  masteryTowerAttemptLog,
   masteryTowerClaimPreview,
   masteryTowerFloorReward,
   masteryTowerRequiredPower,
@@ -61,5 +62,53 @@ describe("masteryTower", () => {
     expect(masteryTowerRequiredPower(20)).toBeLessThan(
       masteryTowerRequiredPower(30),
     );
+  });
+
+  it("도전 로그는 성공 판정과 보상 프리뷰를 포함한다", () => {
+    const log = masteryTowerAttemptLog({
+      floor: 10,
+      power: 200,
+      requiredPower: 145,
+      success: true,
+      tower: {
+        date: "2026-07-03",
+        todayBestFloor: 10,
+        claimed: false,
+        lifetimeBestFloor: 10,
+        firstClearRewardsClaimed: [],
+      },
+      claimPreview: {
+        base: 300,
+        firstClearBonus: 100,
+        total: 400,
+        newlyClaimedMilestones: [10],
+      },
+    });
+    expect(log.map((entry) => entry.kind)).toContain("success");
+    expect(log.at(-1)?.text).toContain("400");
+  });
+
+  it("도전 로그는 실패 시 부족 전투력을 표시한다", () => {
+    const log = masteryTowerAttemptLog({
+      floor: 20,
+      power: 300,
+      requiredPower: 385,
+      success: false,
+      tower: {
+        date: "2026-07-03",
+        todayBestFloor: 19,
+        claimed: false,
+        lifetimeBestFloor: 19,
+        firstClearRewardsClaimed: [10],
+      },
+      claimPreview: {
+        base: 0,
+        firstClearBonus: 0,
+        total: 0,
+        newlyClaimedMilestones: [],
+      },
+    });
+    expect(log.map((entry) => entry.kind)).toContain("fail");
+    expect(log.some((entry) => entry.text.includes("85"))).toBe(true);
   });
 });

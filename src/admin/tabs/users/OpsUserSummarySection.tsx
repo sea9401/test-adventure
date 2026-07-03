@@ -163,18 +163,34 @@ export function OpsUserSummarySection({
     if (isLargeCompensation(itemKind, quantity) && !confirmLarge) return;
     setSaving(true);
     try {
-      const result = await adminPost<{
-        beforeBalance: number;
-        balance: number;
-      }>("/api/admin/reward-compensate", {
-        userId,
-        itemKind,
-        itemId,
-        quantity,
-        reason,
-        sourceEventId,
-        confirmLarge,
-      });
+      const submit = (confirmDuplicate: boolean) =>
+        adminPost<{
+          beforeBalance: number;
+          balance: number;
+        }>("/api/admin/reward-compensate", {
+          userId,
+          itemKind,
+          itemId,
+          quantity,
+          reason,
+          sourceEventId,
+          confirmLarge,
+          confirmDuplicate,
+        });
+      let result: { beforeBalance: number; balance: number };
+      try {
+        result = await submit(false);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "";
+        if (!isDuplicateCompensationError(message)) throw e;
+        const ok = window.confirm(
+          message === "duplicate_source_event"
+            ? "이미 보정 완료 처리된 원본 이벤트입니다. 그래도 한 번 더 지급할까요?"
+            : "최근 24시간 안에 같은 유저에게 같은 품목/수량 보정이 있습니다. 그래도 지급할까요?",
+        );
+        if (!ok) return;
+        result = await submit(true);
+      }
       setLastCompensation(result);
       showToast("보정 지급 완료");
       refetch();
@@ -386,6 +402,10 @@ function isLargeCompensation(
   quantity: number,
 ) {
   return quantity >= largeThreshold(itemKind);
+}
+
+function isDuplicateCompensationError(message: string) {
+  return message === "duplicate_source_event" || message === "similar_compensation_exists";
 }
 
 function SmallInput({

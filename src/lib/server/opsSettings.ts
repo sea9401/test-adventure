@@ -46,6 +46,9 @@ export type AlertThresholdSettings = {
   rewardFailures: number;
   largeGoldEvents: number;
   adminAudit: number;
+  repeatUserEvents: number;
+  connectedIpUsers: number;
+  topActionEvents: number;
 };
 
 export type OpsAlertHistoryEntry = {
@@ -102,6 +105,9 @@ export const DEFAULT_ALERT_THRESHOLDS: AlertThresholdSettings = {
   rewardFailures: 5,
   largeGoldEvents: 3,
   adminAudit: 30,
+  repeatUserEvents: 30,
+  connectedIpUsers: 3,
+  topActionEvents: 80,
 };
 
 export const DEFAULT_REWARD_COMPENSATION_PRESETS: RewardCompensationPreset[] = [
@@ -404,6 +410,9 @@ export function parseAlertThresholds(raw: unknown): AlertThresholdSettings {
     rewardFailures: thresholdValue(r.rewardFailures, DEFAULT_ALERT_THRESHOLDS.rewardFailures),
     largeGoldEvents: thresholdValue(r.largeGoldEvents, DEFAULT_ALERT_THRESHOLDS.largeGoldEvents),
     adminAudit: thresholdValue(r.adminAudit, DEFAULT_ALERT_THRESHOLDS.adminAudit),
+    repeatUserEvents: thresholdValue(r.repeatUserEvents, DEFAULT_ALERT_THRESHOLDS.repeatUserEvents),
+    connectedIpUsers: thresholdValue(r.connectedIpUsers, DEFAULT_ALERT_THRESHOLDS.connectedIpUsers),
+    topActionEvents: thresholdValue(r.topActionEvents, DEFAULT_ALERT_THRESHOLDS.topActionEvents),
   };
 }
 

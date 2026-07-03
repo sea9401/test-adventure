@@ -13,7 +13,8 @@ import {
   writeRewardFailureStatuses,
 } from "@/lib/server/opsSettings";
 
-const STATUS_VALUES = ["reviewed", "compensated", "ignored"] as const;
+const STATUS_VALUES = ["reviewed", "compensated", "ignored", "open"] as const;
+type RequestedStatus = RewardFailureStatus | "open";
 
 export async function POST(req: Request) {
   const gate = await requireAdminRole("reward");
@@ -52,14 +53,18 @@ export async function POST(req: Request) {
   const now = new Date();
   const previous = await readRewardFailureStatuses();
   const nextById = new Map(previous.map((entry) => [entry.eventId, entry]));
-  for (const row of failures) {
-    nextById.set(row.id, {
-      eventId: row.id,
-      status,
-      note,
-      adminEmail,
-      updatedAt: now.toISOString(),
-    });
+  if (status === "open") {
+    for (const row of failures) nextById.delete(row.id);
+  } else {
+    for (const row of failures) {
+      nextById.set(row.id, {
+        eventId: row.id,
+        status,
+        note,
+        adminEmail,
+        updatedAt: now.toISOString(),
+      });
+    }
   }
   await writeRewardFailureStatuses(
     [...nextById.values()].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
@@ -92,10 +97,11 @@ export async function POST(req: Request) {
     ok: true,
     status,
     reviewed: failures.length,
+    reopened: status === "open" ? failures.length : 0,
     eventIds: failures.map((row) => row.id),
   });
 }
 
-function isStatus(value: unknown): value is RewardFailureStatus {
+function isStatus(value: unknown): value is RequestedStatus {
   return typeof value === "string" && (STATUS_VALUES as readonly string[]).includes(value);
 }

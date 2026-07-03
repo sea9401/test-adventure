@@ -10,6 +10,80 @@ import {
   type LeaderboardRow,
 } from "@/adventure/v2/fishingLeaderboard";
 
+const CACHE_TTL_MS = 30_000;
+
+type RowsCache = {
+  rows: LeaderboardRow[];
+  computedAt: number;
+  inFlight?: Promise<LeaderboardRow[]>;
+};
+
+const seasonRowsCache = new Map<string, RowsCache>();
+let allTimeRowsCache: RowsCache | null = null;
+
+async function getCachedRows(
+  cache: Map<string, RowsCache>,
+  key: string,
+  fetcher: () => Promise<LeaderboardRow[]>,
+): Promise<LeaderboardRow[]> {
+  const now = Date.now();
+  const entry = cache.get(key);
+  if (entry && now - entry.computedAt < CACHE_TTL_MS) return entry.rows;
+  if (entry?.inFlight) return entry.inFlight;
+
+  const promise = fetcher().then(
+    (rows) => {
+      cache.set(key, { rows, computedAt: Date.now() });
+      return rows;
+    },
+    (err: unknown) => {
+      const e = cache.get(key);
+      if (e && e.inFlight === promise) {
+        cache.set(key, { rows: e.rows, computedAt: e.computedAt });
+      }
+      throw err;
+    },
+  );
+  cache.set(key, {
+    rows: entry?.rows ?? [],
+    computedAt: entry?.computedAt ?? 0,
+    inFlight: promise,
+  });
+  return promise;
+}
+
+async function getCachedAllTimeRows(
+  fetcher: () => Promise<LeaderboardRow[]>,
+): Promise<LeaderboardRow[]> {
+  const now = Date.now();
+  if (allTimeRowsCache && now - allTimeRowsCache.computedAt < CACHE_TTL_MS) {
+    return allTimeRowsCache.rows;
+  }
+  if (allTimeRowsCache?.inFlight) return allTimeRowsCache.inFlight;
+
+  const promise = fetcher().then(
+    (rows) => {
+      allTimeRowsCache = { rows, computedAt: Date.now() };
+      return rows;
+    },
+    (err: unknown) => {
+      if (allTimeRowsCache?.inFlight === promise) {
+        allTimeRowsCache = {
+          rows: allTimeRowsCache.rows,
+          computedAt: allTimeRowsCache.computedAt,
+        };
+      }
+      throw err;
+    },
+  );
+  allTimeRowsCache = {
+    rows: allTimeRowsCache?.rows ?? [],
+    computedAt: allTimeRowsCache?.computedAt ?? 0,
+    inFlight: promise,
+  };
+  return promise;
+}
+
 // 캐스팅 성공 시 (user, season, fish) 개인 최대어 upsert — 새 사이즈가 더 클 때만 갱신.
 // setWhere 로 read 없이 원자적 keep-max. reel 트랜잭션 안에서 호출(별도 tx 열지 않음).
 export async function upsertFishingRecord(
@@ -41,31 +115,33 @@ export async function getFishingLeaderboard(
   meUserId: string,
   topN: number = 10,
 ): Promise<Record<string, ReturnType<typeof shapeLeaderboard>[string]>> {
-  const rows = await db
-    .select({
-      fishId: fishingRecords.fishId,
-      userId: fishingRecords.userId,
-      size: fishingRecords.bestSize,
-      name: sql<string | null>`${savesKv.value} ->> 'name'`,
-    })
-    .from(fishingRecords)
-    .leftJoin(
-      savesKv,
-      and(
-        eq(savesKv.userId, fishingRecords.userId),
-        eq(savesKv.key, "character-profile.v2"),
-      ),
-    )
-    .where(eq(fishingRecords.seasonId, seasonId))
-    .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
+  const rows = await getCachedRows(seasonRowsCache, seasonId, async () => {
+    const freshRows = await db
+      .select({
+        fishId: fishingRecords.fishId,
+        userId: fishingRecords.userId,
+        size: fishingRecords.bestSize,
+        name: sql<string | null>`${savesKv.value} ->> 'name'`,
+      })
+      .from(fishingRecords)
+      .leftJoin(
+        savesKv,
+        and(
+          eq(savesKv.userId, fishingRecords.userId),
+          eq(savesKv.key, "character-profile.v2"),
+        ),
+      )
+      .where(eq(fishingRecords.seasonId, seasonId))
+      .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
 
-  const shaped: LeaderboardRow[] = rows.map((r) => ({
-    fishId: r.fishId,
-    userId: r.userId,
-    name: r.name,
-    size: r.size,
-  }));
-  return shapeLeaderboard(shaped, meUserId, topN);
+    return freshRows.map((r) => ({
+      fishId: r.fishId,
+      userId: r.userId,
+      name: r.name,
+      size: r.size,
+    }));
+  });
+  return shapeLeaderboard(rows, meUserId, topN);
 }
 
 // 역대 최대어 명예의 전당 — 전 시즌 통틀어 (user, fish) 별 최대어를 집계해 종별 순위로.
@@ -75,28 +151,32 @@ export async function getAllTimeFishingRecords(
   meUserId: string,
   topN: number = 10,
 ): Promise<Record<string, ReturnType<typeof shapeLeaderboard>[string]>> {
-  const rows = await db
-    .select({
-      fishId: fishingRecords.fishId,
-      userId: fishingRecords.userId,
-      size: fishingRecords.bestSize,
-      name: sql<string | null>`${savesKv.value} ->> 'name'`,
-    })
-    .from(fishingRecords)
-    .leftJoin(
-      savesKv,
-      and(
-        eq(savesKv.userId, fishingRecords.userId),
-        eq(savesKv.key, "character-profile.v2"),
-      ),
-    )
-    .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
+  const rows = await getCachedAllTimeRows(async () => {
+    const freshRows = await db
+      .select({
+        fishId: fishingRecords.fishId,
+        userId: fishingRecords.userId,
+        size: fishingRecords.bestSize,
+        name: sql<string | null>`${savesKv.value} ->> 'name'`,
+      })
+      .from(fishingRecords)
+      .leftJoin(
+        savesKv,
+        and(
+          eq(savesKv.userId, fishingRecords.userId),
+          eq(savesKv.key, "character-profile.v2"),
+        ),
+      )
+      .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
 
-  const shaped: LeaderboardRow[] = rows.map((r) => ({
-    fishId: r.fishId,
-    userId: r.userId,
-    name: r.name,
-    size: r.size,
-  }));
-  return shapeLeaderboard(reduceAllTimeBest(shaped), meUserId, topN);
+    return reduceAllTimeBest(
+      freshRows.map((r) => ({
+        fishId: r.fishId,
+        userId: r.userId,
+        name: r.name,
+        size: r.size,
+      })),
+    );
+  });
+  return shapeLeaderboard(rows, meUserId, topN);
 }

@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -19,6 +20,13 @@ export async function POST() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:mastery-tower:attempt",
+    limit: 90,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const derived = await derivePlayerCombatV2(userId);
   if (!derived) {

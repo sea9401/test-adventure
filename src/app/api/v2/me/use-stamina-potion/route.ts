@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   MAX_STAMINA,
@@ -30,6 +31,13 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:me:use-stamina-potion",
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   // 사용 개수 — body { count }. 미전달/손상 = 1(레거시 단일 사용 호환).
   let reqCount = 1;

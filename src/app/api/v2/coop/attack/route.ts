@@ -45,8 +45,7 @@ import {
   V2_ELEMENT_DIS_PCT,
 } from "@/adventure/data/v2/elements";
 import {
-  checkUserRateLimit,
-  userRateLimitResponse,
+  enforceUserRateLimit,
 } from "@/lib/server/userRateLimit";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
@@ -80,15 +79,13 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const userId: string = maybeUserId;
-  const rateLimit = checkUserRateLimit({
+  const limited = enforceUserRateLimit({
     userId,
     action: "v2:coop:attack",
     limit: 90,
     windowMs: 60_000,
   });
-  if (!rateLimit.ok) {
-    return userRateLimitResponse(rateLimit.retryAfterSec);
-  }
+  if (limited) return limited;
 
   let body: { sessionId?: unknown };
   try {

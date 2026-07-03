@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import {
   GUILD_COMBAT_SUPPLY_LIST,
   GUILD_COMBAT_SUPPLY_MAX_LEVEL,
@@ -107,6 +108,13 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:guild:combat-supply:upgrade",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   let body: { supplyId?: unknown };
   try {

@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   parseRareMaps,
@@ -94,6 +95,13 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:secret-shop:buy",
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
   let body: { map?: unknown; itemId?: unknown };
   try {
     body = (await req.json()) as typeof body;
@@ -239,6 +247,13 @@ export async function DELETE(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:secret-shop:delete",
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
   let body: { map?: unknown };
   try {
     body = (await req.json()) as typeof body;

@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_MASTERY_TOME_GAIN,
@@ -38,6 +39,13 @@ export async function POST() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:me:use-coop-mastery-tome",
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
@@ -38,6 +39,13 @@ export async function POST() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserRateLimit({
+    userId,
+    action: "v2:fishing:cast",
+    limit: 45,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const now = Date.now();
   const [skillsRaw, progressRaw, walletRaw] = await Promise.all([

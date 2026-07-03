@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   ANTIQUES,
@@ -124,7 +125,7 @@ export function TreasureCollectionView({
       />
 
       {!loading && junkGroup.length > 0 && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-2.5 dark:border-zinc-800 dark:bg-zinc-900/40">
+        <div className={`${SURFACE_CARD} p-2.5`}>
           {confirm ? (
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span>
@@ -199,13 +200,15 @@ export function TreasureCollectionView({
       )}
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-zinc-400">불러오는 중…</p>
+        <div className={`${SURFACE_CARD} py-10 text-center text-sm text-zinc-400`}>
+          불러오는 중…
+        </div>
       ) : enriched.length === 0 ? (
-        <p className="py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+        <div className={`${SURFACE_CARD} py-10 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
           아직 발굴한 골동품이 없습니다. 지도 조각을 모아 발굴 감정소에서 파보세요.
-        </p>
+        </div>
       ) : (
-        <ul className="divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className={`${SURFACE_CARD} divide-y divide-zinc-200 overflow-hidden dark:divide-zinc-800`}>
           {enriched.map((e) => {
             const sellInFlight = selling === e.instanceId;
             const anyBusy = selling !== null || bulkSelling;

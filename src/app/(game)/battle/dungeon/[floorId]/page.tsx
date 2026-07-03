@@ -29,6 +29,7 @@ export default function DungeonFloorPage() {
     playerSubtitle,
     viewerProficiency,
     stamina,
+    staminaMax,
     setStamina,
     hpCharges,
     mpCharges,
@@ -83,6 +84,7 @@ export default function DungeonFloorPage() {
       playerSubtitle={playerSubtitle}
       playerProficiency={viewerProficiency}
       stamina={stamina}
+      staminaMax={staminaMax}
       setStamina={setStamina}
       hp={hp}
       setHp={setHp}

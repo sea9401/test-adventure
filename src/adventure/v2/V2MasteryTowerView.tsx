@@ -5,6 +5,10 @@ import { ArrowClockwise, CastleTurret, Certificate, CheckCircle } from "@phospho
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import type { Gender } from "@/adventure/profile/avatars";
 
 type TowerState = {
   date: string;
@@ -27,6 +31,20 @@ type TowerLogEntry = {
   text: string;
 };
 
+type TowerGuardian = {
+  name: string;
+  hp: number;
+  atk: number;
+  def: number;
+  spd: number;
+  accuracy: number;
+  evasionPct: number;
+  atkType: "physical" | "magic";
+  critPct: number;
+  bonusAttackChancePct: number;
+  skills: string[];
+};
+
 type TowerStatus = {
   ok?: boolean;
   error?: string;
@@ -41,6 +59,7 @@ type TowerStatus = {
   power: number;
   nextFloor: number | null;
   nextRequiredPower: number | null;
+  nextGuardian: TowerGuardian | null;
   rewards: {
     samples: { floor: number; reward: number }[];
     milestones: { floor: number; bonus: number }[];
@@ -62,6 +81,14 @@ export function V2MasteryTowerView({
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
   const [lastAttemptLog, setLastAttemptLog] = useState<TowerLogEntry[]>([]);
+  const [lastAttemptReplay, setLastAttemptReplay] = useState<{
+    floor: number;
+    replay: ReplayPayload;
+    startPlayerHp: number;
+    outcome: "win" | "lose";
+    playerName: string;
+    gender: Gender;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -109,6 +136,10 @@ export function V2MasteryTowerView({
         requiredPower?: number | null;
         power?: number;
         log?: TowerLogEntry[];
+        replay?: ReplayPayload;
+        startPlayerHp?: number;
+        playerName?: string;
+        gender?: string;
       } | null;
       if (!j?.ok) {
         const label =
@@ -119,6 +150,18 @@ export function V2MasteryTowerView({
         return;
       }
       setLastAttemptLog(j.log ?? []);
+      setLastAttemptReplay(
+        j.replay && typeof j.floor === "number"
+          ? {
+              floor: j.floor,
+              replay: j.replay,
+              startPlayerHp: j.startPlayerHp ?? j.replay.playerMaxHp,
+              outcome: j.success ? "win" : "lose",
+              playerName: j.playerName ?? "모험가",
+              gender: (j.gender ?? "male1") as Gender,
+            }
+          : null,
+      );
       if (j.success) {
         setMsg(`✓ ${j.floor}층 돌파`);
       } else if (j.error === "max_floor") {
@@ -255,13 +298,42 @@ export function V2MasteryTowerView({
                   오늘 30층까지 돌파했습니다.
                 </p>
               ) : (
-                <p>
-                  다음 도전:{" "}
-                  <span className="font-semibold">{status.nextFloor}층</span>{" "}
-                  <span className="text-zinc-500 dark:text-zinc-400">
-                    권장 전투력 {status.nextRequiredPower?.toLocaleString("ko-KR")}
-                  </span>
-                </p>
+                <div className="space-y-2">
+                  <p>
+                    다음 도전:{" "}
+                    <span className="font-semibold">{status.nextFloor}층</span>{" "}
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      권장 전투력 {status.nextRequiredPower?.toLocaleString("ko-KR")}
+                    </span>
+                  </p>
+                  {status.nextGuardian && (
+                    <div className="grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4">
+                      <Stat
+                        label={status.nextGuardian.name}
+                        value={`HP ${status.nextGuardian.hp.toLocaleString("ko-KR")}`}
+                      />
+                      <Stat
+                        label={status.nextGuardian.atkType === "magic" ? "마법 공격" : "물리 공격"}
+                        value={status.nextGuardian.atk.toLocaleString("ko-KR")}
+                      />
+                      <Stat label="방어" value={status.nextGuardian.def.toLocaleString("ko-KR")} />
+                      <Stat label="속도" value={status.nextGuardian.spd.toLocaleString("ko-KR")} />
+                    </div>
+                  )}
+                  {status.nextGuardian && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      명중 {status.nextGuardian.accuracy}% · 회피{" "}
+                      {status.nextGuardian.evasionPct}% · 치명{" "}
+                      {status.nextGuardian.critPct}% · 추가타{" "}
+                      {status.nextGuardian.bonusAttackChancePct}%{" "}
+                      {status.nextGuardian.skills.length > 0
+                        ? `· ${status.nextGuardian.skills
+                            .map((id) => towerSkillName(id))
+                            .join(" / ")}`
+                        : ""}
+                    </p>
+                  )}
+                </div>
               )}
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 수령 예정: 기본{" "}
@@ -318,6 +390,20 @@ export function V2MasteryTowerView({
             ))}
           </ol>
         </Card>
+      )}
+
+      {lastAttemptReplay && (
+        <ReplayBattleScene
+          key={`${lastAttemptReplay.floor}-${lastAttemptReplay.outcome}`}
+          payload={lastAttemptReplay.replay}
+          startPlayerHp={lastAttemptReplay.startPlayerHp}
+          playerName={lastAttemptReplay.playerName}
+          gender={lastAttemptReplay.gender}
+          exp={0}
+          maxExp={1}
+          playerSubtitle={`숙련의 탑 ${lastAttemptReplay.floor}층`}
+          outcome={lastAttemptReplay.outcome}
+        />
       )}
 
       {status && (
@@ -405,6 +491,11 @@ function logEntryClass(kind: TowerLogEntry["kind"]): string {
     return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200";
   }
   return "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
+}
+
+function towerSkillName(id: string): string {
+  const skill = V2_SKILLS[id as keyof typeof V2_SKILLS];
+  return skill?.name ?? id;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

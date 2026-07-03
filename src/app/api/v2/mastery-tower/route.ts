@@ -12,6 +12,7 @@ import {
   kstDateKey,
   masteryTowerClaimPreview,
   masteryTowerFloorReward,
+  masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
@@ -106,6 +107,10 @@ export async function GET() {
       tower.todayBestFloor >= MASTERY_TOWER_MAX_FLOOR
         ? null
         : masteryTowerRequiredPower(tower.todayBestFloor + 1),
+    nextGuardian:
+      tower.todayBestFloor >= MASTERY_TOWER_MAX_FLOOR
+        ? null
+        : masteryTowerGuardianPreview(tower.todayBestFloor + 1),
     rewards: {
       maxFloor: MASTERY_TOWER_MAX_FLOOR,
       milestones: MASTERY_TOWER_MILESTONES,

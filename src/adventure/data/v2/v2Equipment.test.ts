@@ -834,11 +834,11 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
       signatureLabel({
         trigger: "on_hit",
         label: "뇌운",
-        shockChancePct: 28,
+        shockChancePct: 15,
         shockSlowPct: 50,
         buffActions: 1,
       }),
-    ).toBe("공격 적중 시 28% 확률로 감전 — 속도 −50% (1행동)");
+    ).toBe("공격 적중 시 15% 확률로 감전 — 속도 −50% (1행동)");
     expect(
       signatureLabel({
         trigger: "on_hit_taken",

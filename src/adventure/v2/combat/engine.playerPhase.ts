@@ -811,9 +811,13 @@ export function resolvePlayerPhase(
     critRoll,
     sigDealtDamage,
   );
-  const sigHitShock = rollOnHitShock(player.equipSignatures, sigDealtDamage);
   const sigEnemySlowActiveMult =
     nextBuffsTimed.enemySpdTurnsLeft > 0 ? nextBuffsTimed.enemySpdMult : 1;
+  // 감전은 중첩/갱신하지 않는다. 기존 둔화 슬롯이 살아 있거나 같은 타격에서 한기가 발동하면 미발동.
+  const sigHitShock =
+    nextBuffsTimed.enemySpdTurnsLeft > 0 || sigCritChill
+      ? null
+      : rollOnHitShock(player.equipSignatures, sigDealtDamage);
   const sigChillDebuff = sigCritChill
     ? {
         enemySpdMult: Math.min(sigEnemySlowActiveMult, sigCritChill.mult),
@@ -825,14 +829,8 @@ export function resolvePlayerPhase(
     : null;
   const sigShockDebuff = sigHitShock
     ? {
-        enemySpdMult: Math.min(
-          sigChillDebuff?.enemySpdMult ?? sigEnemySlowActiveMult,
-          sigHitShock.mult,
-        ),
-        enemySpdTurnsLeft: Math.max(
-          sigChillDebuff?.enemySpdTurnsLeft ?? nextBuffsTimed.enemySpdTurnsLeft,
-          sigHitShock.turns,
-        ),
+        enemySpdMult: sigHitShock.mult,
+        enemySpdTurnsLeft: sigHitShock.turns,
       }
     : null;
   if (sigCritPoison) {

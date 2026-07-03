@@ -4,7 +4,7 @@
 //   → 골든 byte-identical.
 //
 // 🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만(battle_start/
-//   low_hp/on_heal/on_dodge/on_crit/on_hit_taken/on_skill_cast/status_block_once/every_n_hits).
+//   low_hp/on_heal/on_dodge/on_crit/on_hit/on_hit_taken/on_skill_cast/status_block_once/every_n_hits).
 //   PR-2a = low_hp(성물) PvE+PvP. 나머지 트리거는 PR-2b.
 
 import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
@@ -108,6 +108,7 @@ export function onSkillCastMpRefund(
 // on_crit 독(독니 단검) — 크리 + 피해 발생 시 부여할 독 스택 magnitude(maxHp 비율/스택). 기존
 //   poison 다이얼(~0.004) 동급. 시그니처는 발동 여부만, 강도는 이 상수(밸런스 다이얼).
 export const SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK = 0.005;
+export const SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK = 0.004;
 
 // on_crit 속도 버프(군림목걸이) — 크리 + 피해 발생 시 발동할 속도 버프 {배수, 지속행동}.
 //   여러 개면 가장 강한 배수. 미발동/미장착 = null.
@@ -162,6 +163,52 @@ export function firesOnCritPoison(
 ): boolean {
   if (!critRoll || !dealtDamage || !signatures) return false;
   return signatures.some((s) => s.trigger === "on_crit" && s.poisonOnCrit);
+}
+
+export function rollOnHitPoison(
+  signatures: SignatureEffect[] | undefined,
+  dealtDamage: boolean,
+  roll: () => number = Math.random,
+): { stacks: number; label: string } | null {
+  if (!dealtDamage || !signatures) return null;
+  let stacks = 0;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_hit" || !s.poisonChancePct) continue;
+    if (roll() * 100 >= s.poisonChancePct) continue;
+    stacks += Math.max(1, s.poisonStacks ?? 1);
+    labels.push(s.label);
+  }
+  if (stacks <= 0) return null;
+  return { stacks, label: labels.join(" + ") };
+}
+
+export function rollOnHitShock(
+  signatures: SignatureEffect[] | undefined,
+  dealtDamage: boolean,
+  roll: () => number = Math.random,
+): { mult: number; turns: number; label: string } | null {
+  if (!dealtDamage || !signatures) return null;
+  let best: { mult: number; turns: number } | null = null;
+  const labels: string[] = [];
+  for (const s of signatures) {
+    if (s.trigger !== "on_hit" || !s.shockChancePct || !s.shockSlowPct) continue;
+    if (roll() * 100 >= s.shockChancePct) continue;
+    const mult = Math.max(0.1, 1 - s.shockSlowPct / 100);
+    const turns = Math.max(1, s.buffActions ?? 1);
+    labels.push(s.label);
+    if (!best || mult < best.mult) best = { mult, turns };
+  }
+  if (!best) return null;
+  return { ...best, label: labels.join(" + ") };
+}
+
+export function formatShockSlowLog(
+  targetName: string,
+  shock: { mult: number; turns: number; label: string },
+): string {
+  const slowPct = Math.max(0, Math.round((1 - shock.mult) * 100));
+  return `[${shock.label}] ${targetName}이(가) 감전되어 움직임이 끊긴다. (속도 ${slowPct}% 감소, ${shock.turns}턴)`;
 }
 
 // on_dodge 회복(봉인된 반지) — 회피 성공 시 maxHp 의 healPct% 회복량 합산. 없으면 0.

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   battleStartShield,
   formatChillSlowLog,
+  formatShockSlowLog,
   healToShield,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
@@ -11,6 +12,8 @@ import {
   onDodgeSpeedBuff,
   onHitTakenDefGain,
   onSkillCastMpRefund,
+  rollOnHitPoison,
+  rollOnHitShock,
   statusBlockOnce,
   everyNHitsValue,
 } from "./signatureEffects";
@@ -50,6 +53,21 @@ const FROST: SignatureEffect = {
   label: "한기",
   chillSlowPct: 25,
   buffActions: 2,
+};
+
+const THUNDER_FANG: SignatureEffect = {
+  trigger: "on_hit",
+  label: "뇌운",
+  shockChancePct: 28,
+  shockSlowPct: 50,
+  buffActions: 1,
+};
+
+const BLUE_VENOM: SignatureEffect = {
+  trigger: "on_hit",
+  label: "청독",
+  poisonChancePct: 35,
+  poisonStacks: 1,
 };
 
 const BONE_THRONE: SignatureEffect = {
@@ -303,6 +321,64 @@ describe("firesOnCritPoison (독니 크리 독)", () => {
     expect(firesOnCritPoison([FANG], true, false)).toBe(false);
     expect(firesOnCritPoison(undefined, true, true)).toBe(false);
     expect(firesOnCritPoison([CROWN], true, true)).toBe(false); // 군림=속도만
+  });
+});
+
+describe("rollOnHitPoison (공격 적중 시 확률 중독)", () => {
+  it("피해 없음/미장착/확률 실패 → null", () => {
+    expect(rollOnHitPoison([BLUE_VENOM], false, () => 0)).toBeNull();
+    expect(rollOnHitPoison(undefined, true, () => 0)).toBeNull();
+    expect(rollOnHitPoison([BLUE_VENOM], true, () => 0.99)).toBeNull();
+  });
+
+  it("확률 성공 시 스택과 라벨을 반환하고 여러 장비는 합산", () => {
+    const other: SignatureEffect = {
+      trigger: "on_hit",
+      label: "맹독침",
+      poisonChancePct: 100,
+      poisonStacks: 2,
+    };
+    expect(rollOnHitPoison([BLUE_VENOM, other], true, () => 0)).toEqual({
+      stacks: 3,
+      label: "청독 + 맹독침",
+    });
+  });
+});
+
+describe("rollOnHitShock (공격 적중 시 감전 둔화)", () => {
+  it("피해 없음/미장착/확률 실패 → null", () => {
+    expect(rollOnHitShock([THUNDER_FANG], false, () => 0)).toBeNull();
+    expect(rollOnHitShock(undefined, true, () => 0)).toBeNull();
+    expect(rollOnHitShock([THUNDER_FANG], true, () => 0.99)).toBeNull();
+  });
+
+  it("확률 성공 시 슬로우 배수와 지속행동을 반환", () => {
+    expect(rollOnHitShock([THUNDER_FANG], true, () => 0)).toEqual({
+      mult: 0.5,
+      turns: 1,
+      label: "뇌운",
+    });
+  });
+
+  it("여러 개면 가장 강한 슬로우를 사용하고 라벨은 보존", () => {
+    const weaker: SignatureEffect = {
+      trigger: "on_hit",
+      label: "잔전",
+      shockChancePct: 100,
+      shockSlowPct: 20,
+      buffActions: 3,
+    };
+    expect(rollOnHitShock([weaker, THUNDER_FANG], true, () => 0)).toEqual({
+      mult: 0.5,
+      turns: 1,
+      label: "잔전 + 뇌운",
+    });
+  });
+
+  it("전투 로그는 감전 라벨과 둔화량을 표시", () => {
+    expect(formatShockSlowLog("허수아비", { mult: 0.5, turns: 1, label: "뇌운" })).toBe(
+      "[뇌운] 허수아비이(가) 감전되어 움직임이 끊긴다. (속도 50% 감소, 1턴)",
+    );
   });
 });
 

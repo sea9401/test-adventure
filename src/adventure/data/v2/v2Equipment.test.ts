@@ -778,7 +778,7 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
 });
 
 describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
-  it("트리거별 한국어 한 줄 — 11 효과", () => {
+  it("트리거별 한국어 한 줄 — 13 효과", () => {
     expect(
       signatureLabel({
         trigger: "battle_start",
@@ -822,6 +822,23 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
         buffActions: 2,
       }),
     ).toBe("치명타 시 속도 +20% (2행동)");
+    expect(
+      signatureLabel({
+        trigger: "on_hit",
+        label: "청독",
+        poisonChancePct: 35,
+        poisonStacks: 1,
+      }),
+    ).toBe("공격 적중 시 35% 확률로 중독 1스택");
+    expect(
+      signatureLabel({
+        trigger: "on_hit",
+        label: "뇌운",
+        shockChancePct: 28,
+        shockSlowPct: 50,
+        buffActions: 1,
+      }),
+    ).toBe("공격 적중 시 28% 확률로 감전 — 속도 −50% (1행동)");
     expect(
       signatureLabel({
         trigger: "on_hit_taken",

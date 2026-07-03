@@ -28,13 +28,17 @@ import {
   everyNHitsValue,
   firesOnCritPoison,
   formatChillSlowLog,
+  formatShockSlowLog,
   healToShield,
   onCritEnemyChill,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
   onHitTakenDefGain,
+  rollOnHitPoison,
+  rollOnHitShock,
   statusBlockOnce,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+  SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
 import {
   appendLog,
@@ -894,10 +898,20 @@ export function advanceTurnPvP(
     critRoll,
     sigDealtDamage,
   );
+  const sigHitPoison = rollOnHitPoison(attacker.player.equipSignatures, sigDealtDamage);
+  // 한기(동결의 갑주) — 공격자 크리 시 방어자 둔화. 공격자 buffs.enemySpdMult 가 상대(방어자)
+  //   속도를 늦춘다(effectiveSideSpd: other.enemySpdMult 가 who 를 슬로우). 군림(자속도+)의 거울.
+  const sigCritChill = onCritEnemyChill(
+    attacker.player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  const sigHitShock = rollOnHitShock(attacker.player.equipSignatures, sigDealtDamage);
   const sigStatusBlock = statusBlockOnce(defender.player.equipSignatures);
-  const statusBlockSigPoison =
-    sigCritPoison && !!sigStatusBlock && !defender.flags.statusBlockUsed;
-  if (statusBlockSigPoison && sigStatusBlock) {
+  const sigStatusFired = sigCritPoison || !!sigHitPoison || !!sigCritChill || !!sigHitShock;
+  const statusBlockSigStatus =
+    sigStatusFired && !!sigStatusBlock && !defender.flags.statusBlockUsed;
+  if (statusBlockSigStatus && sigStatusBlock) {
     log = appendLog(log, {
       kind: "info",
       text: `[${sigStatusBlock.label}] ${defender.name} 상태이상을 막았다.`,
@@ -908,23 +922,28 @@ export function advanceTurnPvP(
       text: `[독니] ${defender.name}을(를) 중독시켰다!`,
     });
   }
+  if (!statusBlockSigStatus && sigHitPoison) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[${sigHitPoison.label}] ${defender.name}에게 중독 ${sigHitPoison.stacks}스택을 남겼다.`,
+    });
+  }
   if (sigCritSpeedBuff) {
     log = appendLog(log, {
       kind: "info",
       text: `[군림] 결정타 — 속도가 솟구친다!`,
     });
   }
-  // 한기(동결의 갑주) — 공격자 크리 시 방어자 둔화. 공격자 buffs.enemySpdMult 가 상대(방어자)
-  //   속도를 늦춘다(effectiveSideSpd: other.enemySpdMult 가 who 를 슬로우). 군림(자속도+)의 거울.
-  const sigCritChill = onCritEnemyChill(
-    attacker.player.equipSignatures,
-    critRoll,
-    sigDealtDamage,
-  );
-  if (sigCritChill) {
+  if (!statusBlockSigStatus && sigCritChill) {
     log = appendLog(log, {
       kind: "info",
       text: formatChillSlowLog(defender.name, sigCritChill),
+    });
+  }
+  if (!statusBlockSigStatus && sigHitShock) {
+    log = appendLog(log, {
+      kind: "info",
+      text: formatShockSlowLog(defender.name, sigHitShock),
     });
   }
   const sigSpdActiveMult =
@@ -951,12 +970,29 @@ export function advanceTurnPvP(
         }
       : {}),
     // 한기 on-crit 적 둔화 병합(가장 강한 슬로우=Math.min·미발동=빈 객체).
-    ...(sigCritChill
+    ...(!statusBlockSigStatus && sigCritChill
       ? {
           enemySpdMult: Math.min(sigEnemySlowActiveMult, sigCritChill.mult),
           enemySpdTurnsLeft: Math.max(
             nextBuffsTimedFromAp.enemySpdTurnsLeft,
             sigCritChill.turns,
+          ),
+        }
+      : {}),
+    // 감전 on-hit 적 둔화 병합(한기와 같은 enemySpd 슬롯).
+    ...(!statusBlockSigStatus && sigHitShock
+      ? {
+          enemySpdMult: Math.min(
+            sigCritChill
+              ? Math.min(sigEnemySlowActiveMult, sigCritChill.mult)
+              : sigEnemySlowActiveMult,
+            sigHitShock.mult,
+          ),
+          enemySpdTurnsLeft: Math.max(
+            sigCritChill
+              ? Math.max(nextBuffsTimedFromAp.enemySpdTurnsLeft, sigCritChill.turns)
+              : nextBuffsTimedFromAp.enemySpdTurnsLeft,
+            sigHitShock.turns,
           ),
         }
       : {}),
@@ -1006,20 +1042,33 @@ export function advanceTurnPvP(
   const newDefender: PvPSide = applyPvPOnHitDots({
     ...defender,
     // 독니 on-crit 독(Phase 2) 합류 — 미발동=defender.v2Dots 그대로.
-    v2Dots: sigCritPoison && !statusBlockSigPoison
+    v2Dots: !statusBlockSigStatus && (sigCritPoison || sigHitPoison)
       ? applyV2DotsToTarget(defender.v2Dots, [
-          makePoisonDot({
-            stacks: 1,
-            pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
-            sourceAtk: attacker.player.atk,
-          }),
+          ...(sigCritPoison
+            ? [
+                makePoisonDot({
+                  stacks: 1,
+                  pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+                  sourceAtk: attacker.player.atk,
+                }),
+              ]
+            : []),
+          ...(sigHitPoison
+            ? [
+                makePoisonDot({
+                  stacks: sigHitPoison.stacks,
+                  pctMaxHpPerStack: SIGNATURE_HIT_POISON_PCT_MAX_HP_PER_STACK,
+                  sourceAtk: attacker.player.atk,
+                }),
+              ]
+            : []),
         ])
       : defender.v2Dots,
     hp: newDefenderHp,
     flags: {
       ...defender.flags,
       enduranceTriggered: defender.flags.enduranceTriggered || enduranceFires,
-      statusBlockUsed: defender.flags.statusBlockUsed || statusBlockSigPoison,
+      statusBlockUsed: defender.flags.statusBlockUsed || statusBlockSigStatus,
     },
     stacks: {
       ...defender.stacks,

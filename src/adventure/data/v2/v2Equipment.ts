@@ -271,7 +271,7 @@ export function weaponGateOpen(
 
 // === 발동형 시그니처 효과 (Phase 2) ==================================
 // 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
-//   트리거가 있다(전투시작/저체력/회복/회피/크리/피격/스킬시전/상태방어/N타마다).
+//   트리거가 있다(전투시작/저체력/회복/회피/크리/적중/피격/스킬시전/상태방어/N타마다).
 //   docs/v2-signature-uniques-plan.md §10.
 //   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
 //   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
@@ -282,6 +282,7 @@ export type SignatureTrigger =
   | "on_heal"
   | "on_dodge"
   | "on_crit"
+  | "on_hit"
   | "on_hit_taken"
   | "on_skill_cast"
   | "status_block_once"
@@ -304,6 +305,14 @@ export type SignatureEffect = {
   poisonOnCrit?: boolean;
   /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
   chillSlowPct?: number;
+  /** on_hit: 공격 적중 시 대상에게 중독을 부여할 확률. */
+  poisonChancePct?: number;
+  /** on_hit: 공격 적중 시 부여하는 중독 스택 수. 기본 1. */
+  poisonStacks?: number;
+  /** on_hit: 공격 적중 시 대상에게 감전(둔화)을 부여할 확률. */
+  shockChancePct?: number;
+  /** on_hit: 감전 발동 시 적 속도 −% (buffActions 행동). */
+  shockSlowPct?: number;
   /** on_hit_taken: 받은 HP 피해의 이 % 만큼 DEF 보너스 누적(전투 중, 상한=기본 DEF). */
   defGainOnHitPct?: number;
   /** battle_start: 전투 시작 시 maxHp 의 이 % 만큼 보호막 생성. */
@@ -339,6 +348,12 @@ export function signatureLabel(sig: SignatureEffect): string {
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";
+    case "on_hit":
+      if (sig.poisonChancePct)
+        return `공격 적중 시 ${sig.poisonChancePct}% 확률로 중독 ${sig.poisonStacks ?? 1}스택`;
+      if (sig.shockChancePct)
+        return `공격 적중 시 ${sig.shockChancePct}% 확률로 감전 — 속도 −${sig.shockSlowPct ?? 0}% (${sig.buffActions ?? 1}행동)`;
+      return "공격 적중 시 발동";
     case "on_hit_taken":
       return `피격 시 받은 HP 피해의 ${sig.defGainOnHitPct ?? 0}%만큼 방어 상승`;
     case "on_skill_cast":

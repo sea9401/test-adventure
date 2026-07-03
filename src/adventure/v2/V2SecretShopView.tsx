@@ -123,6 +123,42 @@ export function V2SecretShopView({
     }
   }
 
+  async function leaveShop() {
+    if (busy) return;
+    if (
+      !window.confirm("남은 물품을 포기하고 비밀 상점 초대장을 소진할까요?")
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/secret-shop", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ map: activeMapIid }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (j?.ok) {
+        await refreshGameState();
+        onBack();
+      } else {
+        const label =
+          j?.error === "no_map"
+            ? "이미 닫혔거나 만료된 초대장입니다"
+            : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
+      }
+    } catch (err) {
+      setMsg(`✗ network: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 구매).
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
   return (
@@ -190,6 +226,15 @@ export function V2SecretShopView({
               </div>
             </Card>
           ))}
+          <Button
+            onClick={leaveShop}
+            disabled={busy}
+            variant="danger"
+            size="sm"
+            fullWidth
+          >
+            나가기
+          </Button>
         </div>
       )}
     </PageShell>

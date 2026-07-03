@@ -59,6 +59,7 @@ import {
   lockVillage,
   upsertVillage,
   normalizeVillageOwner,
+  rememberGuildSettlementBuildings,
 } from "@/lib/server/v2Settlement";
 import { removeTileWarfare } from "@/lib/server/tileOccupation";
 import {
@@ -678,6 +679,10 @@ export async function POST(req: Request) {
       if (damaged <= 0) {
         // 함락. 공격자 정체성으로 분기 — 길드 공격자=인수(소유 이전), 솔로 공격자=철거(빈땅).
         captured = true;
+        const capturedVillage = await lockVillage(tx, outpost.id);
+        if (capturedVillage) {
+          await rememberGuildSettlementBuildings(tx, capturedVillage);
+        }
         if (attackerGuildId == null) {
           // 솔로 공격자는 점령으로 소유할 수 없음 → 막타 시 정착지 철거(빈땅·게이트상 타일 전용).
           //   전쟁 행(점령/금고/수비큐/영주) + 정착지 + 생산(마을) 모두 제거 → (col,row) 재개척 가능.
@@ -749,7 +754,7 @@ export async function POST(req: Request) {
           //   normalizeVillageOwner 가 비움. 타일이면 village=null 로 스킵(위 tile 분기가 처리).
           const village = isTileOutpostId(outpost.id)
             ? null
-            : await lockVillage(tx, outpost.id);
+            : capturedVillage;
           if (village) {
             const transferred = normalizeVillageOwner(village, attackerGuildId);
             const down = prevTier(village.tier);

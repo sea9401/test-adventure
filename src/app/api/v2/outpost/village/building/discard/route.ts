@@ -1,21 +1,20 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
   guildOwningOutpost,
   lockVillage,
-  normalizeVillageToOwner,
   normalizeVillageOwner,
-  readGuildSettlementBuildingLevel,
+  normalizeVillageToOwner,
+  rememberGuildSettlementBuildingLevel,
   resolveTileVillageManageOwner,
   upsertVillage,
   type SettlementOwner,
 } from "@/lib/server/v2Settlement";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
-  canPlaceSettlementBuilding,
-  isSettlementBuildingId,
   MAX_SLOTS_BY_TIER,
-  settlementBuildingSlot,
+  settlementBuildingIdOf,
+  settlementBuildingLevelOf,
 } from "@/adventure/data/v2/settlement";
 import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
@@ -23,15 +22,14 @@ import {
   parseTileOutpostId,
 } from "@/adventure/data/v2/tileWarfare";
 
-// POST /api/v2/outpost/village/building/place — body { outpostId, slot, buildingId }
-// 해금된 건축물 슬롯에 영지 건물을 배치한다. 배치 가능 목록은 settlement.ts 카탈로그가 결정한다.
-//   마스터/부마스터 전용. 같은 길드가 이전에 폐기/점령으로 보관한 건물 레벨이 있으면 복구한다.
+// POST /api/v2/outpost/village/building/discard — body { outpostId, slot }
+// 건축물 슬롯을 비운다. 길드 소유 마을은 폐기 전 건물 레벨을 길드 단위로 보관한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  let body: { outpostId?: unknown; slot?: unknown; buildingId?: unknown };
+  let body: { outpostId?: unknown; slot?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -40,20 +38,8 @@ export async function POST(req: Request) {
 
   const outpostId = typeof body.outpostId === "string" ? body.outpostId : "";
   const slot = typeof body.slot === "number" ? body.slot : Number(body.slot);
-  const buildingId = body.buildingId;
-  if (
-    !outpostId ||
-    !Number.isInteger(slot) ||
-    slot < 0 ||
-    !isSettlementBuildingId(buildingId)
-  ) {
+  if (!outpostId || !Number.isInteger(slot) || slot < 0) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
-  }
-  if (!canPlaceSettlementBuilding(buildingId)) {
-    return Response.json(
-      { ok: false, error: "building_unavailable" },
-      { status: 409 },
-    );
   }
 
   try {
@@ -101,29 +87,30 @@ export async function POST(req: Request) {
       if (slot >= village.unlockedSlots || slot >= MAX_SLOTS_BY_TIER[village.tier]) {
         return { status: 409, body: { ok: false as const, error: "slot_locked" } };
       }
-      if (village.buildings[slot] != null) {
+
+      const rawBuilding = village.buildings[slot];
+      const buildingId = settlementBuildingIdOf(rawBuilding);
+      if (!buildingId) {
         return {
           status: 409,
-          body: { ok: false as const, error: "already_occupied" },
+          body: { ok: false as const, error: "building_required" },
         };
       }
+      const level = settlementBuildingLevelOf(rawBuilding);
+      if (guildId != null) {
+        await rememberGuildSettlementBuildingLevel(tx, guildId, buildingId, level);
+      }
 
-      const restoredLevel =
-        guildId != null
-          ? (await readGuildSettlementBuildingLevel(tx, guildId, buildingId)) ?? 1
-          : 1;
-      village.buildings = {
-        ...village.buildings,
-        [slot]: settlementBuildingSlot(buildingId, restoredLevel),
-      };
+      const buildings = { ...village.buildings };
+      delete buildings[slot];
+      village.buildings = buildings;
       await upsertVillage(tx, village);
       return {
         status: 200,
         body: {
           ok: true as const,
           slot,
-          buildingId,
-          building: village.buildings[slot],
+          building: { id: buildingId, level },
           buildings: village.buildings,
         },
       };

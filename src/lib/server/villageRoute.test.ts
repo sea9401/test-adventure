@@ -24,16 +24,22 @@ import {
 } from "@/adventure/data/v2/settlement";
 
 // ── 공유 인메모리 스토어(호이스팅) ───────────────────────────────────────────
-const { villages, resourcesByGuild, guildGold, owners, guildState } = vi.hoisted(
-  () => ({
+const {
+  villages,
+  resourcesByGuild,
+  guildGold,
+  owners,
+  buildingMemory,
+  guildState,
+} = vi.hoisted(() => ({
     villages: new Map<string, unknown>(),
     resourcesByGuild: new Map<number, Record<string, number>>(),
     guildGold: new Map<number, number>(), // 길드 금고 골드(칸 해금 비용)
     owners: new Map<string, number>(),
+    buildingMemory: new Map<string, number>(),
     // getGuildId 계약 + 관리 게이트(isGuildMasterOrVice) 모킹값.
     guildState: { current: null as number | null, canManage: true },
-  }),
-);
+  }));
 
 const ME_USER = "u-settler";
 const MY_GUILD = 42;
@@ -126,6 +132,26 @@ vi.mock("@/lib/server/v2Settlement", () => {
         (resourcesByGuild as Map<number, object>).set(guildId, clone(res));
       },
     ),
+    rememberGuildSettlementBuildingLevel: vi.fn(
+      async (
+        _tx: unknown,
+        guildId: number,
+        buildingId: string,
+        level: number,
+      ) => {
+        const key = `${guildId}:${buildingId}`;
+        const prev = (buildingMemory as Map<string, number>).get(key) ?? 0;
+        (buildingMemory as Map<string, number>).set(
+          key,
+          Math.max(prev, Math.max(1, Math.floor(Number(level) || 1))),
+        );
+      },
+    ),
+    readGuildSettlementBuildingLevel: vi.fn(
+      async (_tx: unknown, guildId: number, buildingId: string) =>
+        (buildingMemory as Map<string, number>).get(`${guildId}:${buildingId}`) ??
+        null,
+    ),
     // 점령 이관 정규화 — REAL 과 동일(다른 길드면 소유 갱신 + 작물 비움, 판/슬롯 종류는 유지).
     normalizeVillageOwner: (village: Row, guildId: number): Row =>
       village.guildId === guildId
@@ -147,6 +173,7 @@ vi.mock("@/lib/server/v2Settlement", () => {
 // 라우트 핸들러 — 모킹 등록 후 import.
 import { GET } from "@/app/api/v2/outpost/village/route";
 import { POST as buildPOST } from "@/app/api/v2/outpost/village/build/route";
+import { POST as discardBuildingPOST } from "@/app/api/v2/outpost/village/building/discard/route";
 import { POST as placeBuildingPOST } from "@/app/api/v2/outpost/village/building/place/route";
 import { POST as upgradeBuildingPOST } from "@/app/api/v2/outpost/village/building/upgrade/route";
 import { POST as upgradePOST } from "@/app/api/v2/outpost/village/upgrade/route";
@@ -217,6 +244,7 @@ beforeEach(() => {
   resourcesByGuild.clear();
   guildGold.clear();
   owners.clear();
+  buildingMemory.clear();
   vi.useFakeTimers();
   vi.setSystemTime(T0);
   vi.mocked(ensureUser).mockResolvedValue(ME_USER);
@@ -562,6 +590,86 @@ describe("POST /api/v2/outpost/village/building/place", () => {
     );
     expect(res.status).toBe(409);
     expect(((await res.json()) as AnyJson).error).toBe("building_unavailable");
+  });
+
+  it("보관된 같은 길드 건축물 레벨이 있으면 재배치 때 복구한다", async () => {
+    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
+    buildingMemory.set(`${MY_GUILD}:guild_smithy`, 4);
+
+    const res = await placeBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0, buildingId: "guild_smithy" }),
+    );
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as AnyJson & {
+      building: { id: string; level: number };
+    };
+    expect(json.building).toEqual({ id: "guild_smithy", level: 4 });
+    expect(
+      (
+        villages.get(FARM_OUTPOST) as {
+          buildings: Record<string, { id: string; level: number }>;
+        }
+      ).buildings["0"],
+    ).toEqual({ id: "guild_smithy", level: 4 });
+  });
+});
+
+// ── building/discard (건축물 폐기) ──────────────────────────────────────────
+describe("POST /api/v2/outpost/village/building/discard", () => {
+  it("미인증 → 401", async () => {
+    vi.mocked(ensureUser).mockResolvedValueOnce(null);
+    const res = await discardBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("마스터/부마스터 아님 → 403 not_authorized", async () => {
+    guildState.canManage = false;
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      buildings: { "0": { id: "guild_smithy", level: 3 } },
+    });
+    const res = await discardBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as AnyJson).error).toBe("not_authorized");
+  });
+
+  it("건물이 없는 슬롯 → 409 building_required", async () => {
+    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
+    const res = await discardBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as AnyJson).error).toBe("building_required");
+  });
+
+  it("happy — 슬롯을 비우고 같은 길드 건축물 최고 레벨을 보관한다", async () => {
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      buildings: { "0": { id: "guild_smithy", level: 3 } },
+    });
+    buildingMemory.set(`${MY_GUILD}:guild_smithy`, 4);
+
+    const res = await discardBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as AnyJson & {
+      building: { id: string; level: number };
+      buildings: Record<string, unknown>;
+    };
+    expect(json.building).toEqual({ id: "guild_smithy", level: 3 });
+    expect(json.buildings).toEqual({});
+    expect(
+      (villages.get(FARM_OUTPOST) as { buildings: Record<string, unknown> })
+        .buildings,
+    ).toEqual({});
+    expect(buildingMemory.get(`${MY_GUILD}:guild_smithy`)).toBe(4);
   });
 });
 

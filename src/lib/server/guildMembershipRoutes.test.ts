@@ -237,7 +237,7 @@ describe("POST /api/v2/guild/disband", () => {
     expect(res.status).toBe(200);
     expect((await res.json()).disbanded).toBe(true);
     expect(spies.clearAffiliation).toHaveBeenCalledTimes(2);
-    expect(spies.del).toHaveBeenCalledTimes(1); // guildMembers 즉시 해제
+    expect(spies.del).toHaveBeenCalledTimes(2); // guildMembers 해제 + 건물 보관 레벨 삭제
     expect(spies.upd).toHaveBeenCalledTimes(1); // guilds 툼스톤(disbandedAt)
   });
 });

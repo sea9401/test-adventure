@@ -4,7 +4,16 @@
 // 읽고 끝 채널(첨부 없음) — 우편함과 분리. 거점명 클릭 → 해당 거점 화면.
 
 import { useEffect, useState } from "react";
-import { Bell, Crown, Flag, ShieldWarning, Skull } from "@phosphor-icons/react";
+import {
+  Bell,
+  Crown,
+  Flag,
+  Handshake,
+  ShieldWarning,
+  Skull,
+  Sword,
+  UsersThree,
+} from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
@@ -41,6 +50,34 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-amber-500 dark:text-amber-400"
+    />
+  ),
+  guild_join_requested: (
+    <UsersThree
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-sky-500 dark:text-sky-400"
+    />
+  ),
+  guild_join_accepted: (
+    <Handshake
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-emerald-500 dark:text-emerald-400"
+    />
+  ),
+  guild_join_declined: (
+    <UsersThree
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-zinc-500 dark:text-zinc-400"
+    />
+  ),
+  coop_defeated: (
+    <Sword
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-violet-500 dark:text-violet-400"
     />
   ),
 };
@@ -99,6 +136,46 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
           {p.titleName}
         </span>
         을(를) 획득했습니다
+      </>
+    );
+  }
+  if (n.type === "guild_join_requested") {
+    const p = n.payload as {
+      guildName: string;
+      applicantName: string;
+    };
+    return (
+      <>
+        <span className="font-medium">{p.applicantName}</span> 님이{" "}
+        <span className="font-medium">{p.guildName}</span> 길드에 가입을
+        신청했습니다
+      </>
+    );
+  }
+  if (n.type === "guild_join_accepted") {
+    const p = n.payload as { guildName: string };
+    return (
+      <>
+        <span className="font-medium">{p.guildName}</span> 길드 가입 신청이
+        수락되었습니다
+      </>
+    );
+  }
+  if (n.type === "guild_join_declined") {
+    const p = n.payload as { guildName: string };
+    return (
+      <>
+        <span className="font-medium">{p.guildName}</span> 길드 가입 신청이
+        거절되었습니다
+      </>
+    );
+  }
+  if (n.type === "coop_defeated") {
+    const p = n.payload as { bossName: string };
+    return (
+      <>
+        협동 보스 <span className="font-medium">{p.bossName}</span>이(가)
+        처치되었습니다. 보상을 수령할 수 있습니다
       </>
     );
   }

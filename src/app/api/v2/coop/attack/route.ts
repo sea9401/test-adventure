@@ -6,6 +6,7 @@ import {
   coopBossSessions,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { insertNotificationMany } from "@/lib/server/v2Notifications";
 import {
   lockSaveForUpdate,
   readSave,
@@ -22,6 +23,7 @@ import {
   coopBossForBattle,
   coopTierForRatio,
   parseCoopBossKindId,
+  type CoopBossKindId,
   coopAttackCooldownMs,
   canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
@@ -93,8 +95,6 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_session" }, { status: 400 });
   }
 
-  let defeatedNow = false;
-  let defeatedKind: string | null = null;
   const result = await db.transaction(async (tx) => {
     const now = Date.now();
     // === 1. character.v2 잠금 + 스태미너 게이트 ===
@@ -318,8 +318,6 @@ export async function POST(req: Request) {
         .update(coopBossSessions)
         .set({ defeatedAt: nowDate })
         .where(eq(coopBossSessions.id, s.id));
-      defeatedNow = true;
-      defeatedKind = kindId;
     }
 
     // === 5. contributor UPSERT + 공격 로그 ===
@@ -389,9 +387,32 @@ export async function POST(req: Request) {
     };
   });
 
-  // 처치 피드 — 킬 CAS 를 점유한 1명만(트랜잭션 밖 — insertFeedEntry 자체가 실패 삼킴).
-  if (defeatedNow && defeatedKind) {
+  // 처치 피드/개인 알림 — 킬 CAS 를 점유한 1명만(트랜잭션 밖 — 부수 효과).
+  const defeatedResult =
+    result.status === 200 && result.body.ok ? result.body.result : null;
+  if (defeatedResult?.defeated) {
+    const defeatedKind = defeatedResult.kind as CoopBossKindId;
     await insertFeedEntry(userId, "coop_kill", { kind: defeatedKind });
+    const contributors = await db
+      .select({
+        userId: coopBossContributors.userId,
+        damage: coopBossContributors.damage,
+      })
+      .from(coopBossContributors)
+      .where(eq(coopBossContributors.sessionId, sessionId));
+    const recipients = contributors
+      .filter((c) =>
+        coopTierForRatio(c.damage / Math.max(1, defeatedResult.bossMaxHp)),
+      )
+      .map((c) => c.userId);
+    if (recipients.length > 0) {
+      const bossName = COOP_BOSSES[defeatedKind]?.name ?? defeatedKind;
+      await insertNotificationMany(recipients, "coop_defeated", {
+        sessionId,
+        kindId: defeatedKind,
+        bossName,
+      });
+    }
   }
 
   return Response.json(result.body, { status: result.status });

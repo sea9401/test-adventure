@@ -8,6 +8,7 @@ import {
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { notifyGuildJoinAccepted } from "@/lib/server/guildNotifications";
 import { isAdminRole } from "@/lib/server/guildAdmin";
 import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
@@ -140,6 +141,7 @@ export async function POST(
       return {
         ok: true as const,
         guildId: guild.id,
+        guildName: guild.name,
         userId: applicantId,
       };
     });
@@ -147,6 +149,11 @@ export async function POST(
     if ("error" in result) {
       return Response.json(result, { status: result.status });
     }
+    await notifyGuildJoinAccepted({
+      userId: result.userId,
+      guildId: result.guildId,
+      guildName: result.guildName,
+    });
     return Response.json(result);
   } catch (e) {
     console.error("[guilds.requests.accept.POST] ", e);

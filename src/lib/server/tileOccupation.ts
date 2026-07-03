@@ -1,7 +1,7 @@
 // v2 타일 전쟁 Phase 1 — 타일 정착지의 점령행 생성/정리 (서버 전용).
 //
-// 자유 타일 정착지(개인 userId 소유)를 합성 거점 id `tile:col,row` 점령행으로 전쟁 자산화한다.
-//   - createTileOccupation: 창립자 소유 점령행 생성(길드원=길드 소유·무길드=솔로 소유).
+// 자유 타일 정착지를 합성 거점 id `tile:col,row` 점령행으로 전쟁 자산화한다.
+//   - createTileOccupation: 창립자가 속한 길드 소유 점령행 생성. 무길드는 더 이상 솔로 점령행을 만들지 않는다.
 //   - removeTileWarfare: 철거/함락 시 그 타일의 전쟁 행(점령/금고/수비큐/영주) 전부 정리.
 //
 // ⚠️ 누수 방지: occupations·war/overview GET 은 플래그 비게이트라, tile 점령행이 생기면
@@ -32,8 +32,7 @@ import type {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-// 창립자 소유 점령행 생성 — 길드원이면 길드 소유, 무길드면 솔로 소유(occupiedByGuildId=null).
-//   솔로 점령행도 전쟁 대상(정복 가능)이라 빠짐없이 생성한다(옛 "무길드=no-op" 폐기).
+// 창립자 소속 길드 점령행 생성 — 무길드는 솔로 영토 폐기 정책에 따라 no-op.
 //   onConflictDoNothing — 드문 고아 행과 충돌해도 tx abort 회피(insert 에러=tx 중단이라 금지).
 export async function createTileOccupation(
   tx: Tx,
@@ -45,7 +44,10 @@ export async function createTileOccupation(
     .from(guildMembers)
     .where(eq(guildMembers.userId, userId))
     .limit(1);
-  const guildId = member?.guildId ?? null; // null = 솔로(무길드) 점령행
+  const guildId = member?.guildId ?? null;
+  if (guildId == null) {
+    return { created: false, guildId: null };
+  }
 
   const values = buildTileOccupationValues({
     userId,

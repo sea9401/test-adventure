@@ -112,6 +112,13 @@ export type WorkshopState = {
     weeklyProgressBonusPct: number;
     label: string;
   };
+  externalAccess?: {
+    kind: "external";
+    outpostId: string;
+    guildId: number;
+    taxRate: number;
+    useFeeGold: number;
+  } | null;
   recipes: WorkshopRecipeView[];
 };
 
@@ -239,6 +246,8 @@ export const ERROR_TEXT: Record<string, string> = {
   masterwork_locked: "명장 제작은 대장장이 Lv 8부터 사용할 수 있습니다.",
   insufficient_resources: "제작 재료가 부족합니다.",
   insufficient_materials: "제작 재료가 부족합니다.",
+  insufficient_gold: "외부 이용료를 낼 골드가 부족합니다.",
+  policy_blocked: "점령 길드가 길드원 전용으로 설정한 대장간입니다.",
 };
 
 export const WEEKLY_ERROR_TEXT: Record<string, string> = {

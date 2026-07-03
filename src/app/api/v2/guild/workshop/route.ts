@@ -15,6 +15,12 @@ import {
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
 } from "@/adventure/data/v2/settlement";
+import {
+  applyExternalBuildingUseFeeToCharacter,
+  outpostIdFromRequest,
+  resolveOutpostBuildingAccess,
+  type SettlementBuildingAccess,
+} from "@/lib/server/settlementBuildingAccess";
 import { readGuildSettlement } from "@/lib/server/v2Settlement";
 import {
   GUILD_WORKSHOP_RECIPE_IDS,
@@ -113,6 +119,68 @@ async function readGuildWorkshopBonus(
   return guildWorkshopBonusFromTotalCrafts(totalCrafts);
 }
 
+async function resolveWorkshopAccess(
+  userId: string,
+  outpostId: string | null,
+): Promise<
+  | { ok: true; access: SettlementBuildingAccess }
+  | { ok: false; status: number; body: Record<string, unknown> }
+> {
+  if (outpostId) {
+    const result = await db.transaction((tx) =>
+      resolveOutpostBuildingAccess(tx, userId, outpostId, "guild_smithy"),
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        body: {
+          ok: false,
+          error:
+            result.error === "building_required"
+              ? "smithy_required"
+              : result.error,
+        },
+      };
+    }
+    return { ok: true, access: result.access };
+  }
+
+  const guildId = await getGuildIdByUser(userId);
+  if (guildId == null) {
+    return {
+      ok: false,
+      status: 403,
+      body: { ok: false, error: "no_guild" },
+    };
+  }
+  const level = await guildSmithyLevel(guildId);
+  return {
+    ok: true,
+    access: {
+      outpostId: "",
+      guildId,
+      buildingId: "guild_smithy",
+      level,
+      kind: "member",
+      taxRate: 0,
+      useFeeGold: 0,
+    },
+  };
+}
+
+function externalAccessView(access: SettlementBuildingAccess) {
+  return access.kind === "external"
+    ? {
+        kind: access.kind,
+        outpostId: access.outpostId,
+        guildId: access.guildId,
+        taxRate: access.taxRate,
+        useFeeGold: access.useFeeGold,
+      }
+    : null;
+}
+
 function artisanView(rawCrafting: unknown) {
   const craft =
     rawCrafting != null &&
@@ -154,21 +222,24 @@ function workshopRecordsView(rawCrafting: unknown) {
   return parseGuildWorkshopCraftRecords(craft.workshopRecords);
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) {
-    return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
+  const resolved = await resolveWorkshopAccess(
+    userId,
+    outpostIdFromRequest(req),
+  );
+  if (!resolved.ok) {
+    return Response.json(resolved.body, { status: resolved.status });
   }
+  const { access } = resolved;
+  const guildId = access.guildId;
+  const smithyLevel = access.level;
 
-  const [smithyLevel, baseGuildBonus] = await Promise.all([
-    guildSmithyLevel(guildId),
-    readGuildWorkshopBonus(guildId),
-  ]);
+  const baseGuildBonus = await readGuildWorkshopBonus(guildId);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
   const guildBonus = {
     ...baseGuildBonus,
@@ -216,6 +287,7 @@ export async function GET() {
     artisan,
     workshopStats,
     workshopRecords,
+    externalAccess: externalAccessView(access),
     recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
       guildWorkshopRecipeView(
         GUILD_WORKSHOP_RECIPES[id],
@@ -235,7 +307,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { recipeId?: unknown; mode?: unknown };
+  let body: { recipeId?: unknown; mode?: unknown; outpostId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -250,11 +322,16 @@ export async function POST(req: Request) {
   const recipe = GUILD_WORKSHOP_RECIPES[body.recipeId];
   const craftMode = isGuildWorkshopCraftMode(body.mode) ? body.mode : "normal";
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) {
-    return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
+  const resolved = await resolveWorkshopAccess(
+    userId,
+    outpostIdFromRequest(req, body.outpostId),
+  );
+  if (!resolved.ok) {
+    return Response.json(resolved.body, { status: resolved.status });
   }
-  const smithyLevel = await guildSmithyLevel(guildId);
+  const { access } = resolved;
+  const guildId = access.guildId;
+  const smithyLevel = access.level;
   if (smithyLevel <= 0) {
     return Response.json(
       { ok: false, error: "smithy_required" },
@@ -359,6 +436,19 @@ export async function POST(req: Request) {
         },
       };
     }
+    const fee = await applyExternalBuildingUseFeeToCharacter(tx, access, charRaw);
+    if (!fee.ok) {
+      return {
+        status: fee.status,
+        body: {
+          ok: false as const,
+          error: fee.error,
+          requiredGold: fee.requiredGold,
+          externalAccess: externalAccessView(access),
+        },
+      };
+    }
+    const paidCharRaw = fee.charSave as CharacterSaveWithMaterials;
     const nextArtisan = addArtisanXp(
       currentArtisan,
       recipe.profession,
@@ -413,7 +503,7 @@ export async function POST(req: Request) {
     const nextOwned = [...parsed.owned, craftedItem];
 
     await upsertSave(tx, userId, "character.v2", {
-      ...charRaw,
+      ...paidCharRaw,
       materials: nextMaterials,
     });
     await upsertSave(tx, userId, "equipment.v2", {
@@ -516,6 +606,8 @@ export async function POST(req: Request) {
         workshopStats: nextWorkshopStats,
         workshopRecords: nextWorkshopRecords,
         weeklyState: nextWeekly,
+        externalAccess: externalAccessView(access),
+        externalUseFeeGold: fee.feeGold,
         smithyLevel,
         smithyBonus,
         guildBonus: nextGuildBonus,

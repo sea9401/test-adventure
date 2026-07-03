@@ -97,15 +97,14 @@ export async function POST(req: Request) {
       };
     }
     // 영토=길드 소유 — 길드 점령 거점은 길드 마스터/관리자만 설정(점령자 본인이라도 일반 멤버·
-    //   탈퇴자면 불가, occupiedByUserId 바이패스 차단). 솔로 잔존 타일(마이그 전/엣지)만 점령자 본인.
-    if (occ.occupiedByGuildId != null) {
-      if (!(await isGuildAdmin(tx, occ.occupiedByGuildId, userId))) {
-        return {
-          status: 403,
-          body: { ok: false as const, error: "not_owner" as const },
-        };
-      }
-    } else if (occ.occupiedByUserId !== userId) {
+    //   탈퇴자면 불가, occupiedByUserId 바이패스 차단). 솔로 잔존 타일은 정책 변경 대상에서 제외.
+    if (occ.occupiedByGuildId == null) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "need_guild_territory" as const },
+      };
+    }
+    if (!(await isGuildAdmin(tx, occ.occupiedByGuildId, userId))) {
       return {
         status: 403,
         body: { ok: false as const, error: "not_owner" as const },

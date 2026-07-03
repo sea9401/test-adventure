@@ -40,6 +40,12 @@ import {
   trainingGroundUpgradeForLevel,
 } from "@/adventure/data/v2/settlement";
 import {
+  chargeExternalBuildingUseFee,
+  outpostIdFromRequest,
+  resolveOutpostBuildingAccess,
+  type SettlementBuildingAccess,
+} from "@/lib/server/settlementBuildingAccess";
+import {
   claimGuildTrainingDrill,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
   GUILD_TRAINING_WEEKLY_BONUS_TARGET,
@@ -58,6 +64,68 @@ type CharacterSave = Record<string, unknown> & {
   specChoice?: unknown;
   level?: unknown;
 };
+
+async function resolveTrainingAccess(
+  userId: string,
+  outpostId: string | null,
+): Promise<
+  | { ok: true; access: SettlementBuildingAccess }
+  | { ok: false; status: number; body: Record<string, unknown> }
+> {
+  if (outpostId) {
+    const result = await db.transaction((tx) =>
+      resolveOutpostBuildingAccess(tx, userId, outpostId, "training_ground"),
+    );
+    if (!result.ok) {
+      return {
+        ok: false,
+        status: result.status,
+        body: {
+          ok: false,
+          error:
+            result.error === "building_required"
+              ? "training_ground_required"
+              : result.error,
+        },
+      };
+    }
+    return { ok: true, access: result.access };
+  }
+
+  const guildId = await getGuildIdByUser(userId);
+  if (guildId == null) {
+    return {
+      ok: false,
+      status: 403,
+      body: { ok: false, error: "no_guild" },
+    };
+  }
+  const level = await guildTrainingGroundLevel(guildId);
+  return {
+    ok: true,
+    access: {
+      outpostId: "",
+      guildId,
+      buildingId: "training_ground",
+      level,
+      kind: "member",
+      taxRate: 0,
+      useFeeGold: 0,
+    },
+  };
+}
+
+function externalAccessView(access: SettlementBuildingAccess) {
+  return access.kind === "external"
+    ? {
+        kind: access.kind,
+        outpostId: access.outpostId,
+        guildId: access.guildId,
+        taxRate: access.taxRate,
+        useFeeGold: access.useFeeGold,
+      }
+    : null;
+}
 
 function trainingGroundLevelFromBuildings(buildings: unknown): number {
   if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
@@ -126,17 +194,21 @@ function nextJobGoal(current: ReturnType<typeof currentJobInfo>) {
   return candidates.sort((a, b) => a.remainingMastery - b.remainingMastery)[0] ?? null;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) {
-    return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
+  const resolved = await resolveTrainingAccess(
+    userId,
+    outpostIdFromRequest(req),
+  );
+  if (!resolved.ok) {
+    return Response.json(resolved.body, { status: resolved.status });
   }
+  const { access } = resolved;
 
-  const trainingGroundLevel = await guildTrainingGroundLevel(guildId);
+  const trainingGroundLevel = access.level;
   const { dayKey } = guildTrainingDayWindow();
   const weekKey = todayGuildTrainingWeekKey();
   const [charSave, profRaw, trainingRaw, skillsRaw] = await Promise.all([
@@ -203,6 +275,7 @@ export async function GET() {
         trainingBonuses.weeklyBonusMastery,
       bonusClaimed: state.weeklyBonusClaimed === true,
     },
+    externalAccess: externalAccessView(access),
     trainingBonuses,
     goals: {
       nextJob: nextJobGoal(current),
@@ -232,7 +305,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { drillId?: unknown };
+  let body: { drillId?: unknown; outpostId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -243,11 +316,16 @@ export async function POST(req: Request) {
   }
   const drillId = body.drillId;
 
-  const guildId = await getGuildIdByUser(userId);
-  if (guildId == null) {
-    return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
+  const resolved = await resolveTrainingAccess(
+    userId,
+    outpostIdFromRequest(req, body.outpostId),
+  );
+  if (!resolved.ok) {
+    return Response.json(resolved.body, { status: resolved.status });
   }
-  const trainingGroundLevel = await guildTrainingGroundLevel(guildId);
+  const { access } = resolved;
+  const guildId = access.guildId;
+  const trainingGroundLevel = access.level;
   if (trainingGroundLevel <= 0) {
     return Response.json(
       { ok: false, error: "training_ground_required" },
@@ -315,6 +393,18 @@ export async function POST(req: Request) {
         },
       };
     }
+    const fee = await chargeExternalBuildingUseFee(tx, userId, access);
+    if (!fee.ok) {
+      return {
+        status: fee.status,
+        body: {
+          ok: false as const,
+          error: fee.error,
+          requiredGold: fee.requiredGold,
+          externalAccess: externalAccessView(access),
+        },
+      };
+    }
 
     const claim = claimGuildTrainingDrill(state, drillId);
     const weeklyBonusMastery =
@@ -367,6 +457,8 @@ export async function POST(req: Request) {
             : null,
         masteryAfter,
         claimed: nextState.claimed,
+        externalAccess: externalAccessView(access),
+        externalUseFeeGold: fee.feeGold,
       },
     };
   });

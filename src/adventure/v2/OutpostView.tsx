@@ -281,6 +281,10 @@ export function OutpostView({
     viewerGuildId === occupation.occupiedByGuildId;
   // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨기고 영지 활동 탭.
   const ownByMyGuild = isOwner || isGuildMember;
+  const externalOpenSettlement =
+    !ownByMyGuild &&
+    occupation?.occupiedByGuildId != null &&
+    (occupation.policy ?? "open") === "open";
   // 정착지/거점 활동 탭 노출 = 우리 길드 소유(점령). 영토=길드 소유라 솔로 소유 경로는 폐기.
   const ownSettlement = ownByMyGuild;
   // 정착지 관리(건설·이름변경·칸 해금·단계 업그레이드) = 점령 길드의 마스터/부마스터.
@@ -651,16 +655,20 @@ export function OutpostView({
           </div>
         )}
 
-        {ownSettlement ? (
-          // 내 거점/정착지 — 마을 / 대장간 / 최근 공격 기록 탭.
+        {ownSettlement || externalOpenSettlement ? (
+          // 내 거점/정착지 또는 공개 거점 — 마을 / 대장간 / 최근 공격 기록 탭.
           <OutpostActivityTabs
             outpostId={outpost.id}
             activityTab={activityTab}
             onTabChange={setActivityTab}
             canManageSettlement={canManageSettlement}
+            showManageTab={ownByMyGuild}
+            canDefendSettlement={ownByMyGuild}
             attackLogReload={attackLogReload}
           />
-        ) : (
+        ) : null}
+
+        {!ownSettlement ? (
           // 비-소유 — 점령/공성 시도.
           <OutpostAttackPanel
             outpostId={outpost.id}
@@ -678,7 +686,7 @@ export function OutpostView({
             onRaid={attemptRaid}
             onConquest={attemptConquest}
           />
-        )}
+        ) : null}
 
         <OutpostResultCards
           lastClaimResult={lastClaimResult}

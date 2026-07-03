@@ -21,6 +21,8 @@ const ERROR_TEXT: Record<string, string> = {
   no_guild: "길드 가입 후 이용할 수 있어요.",
   no_character: "캐릭터 생성 후 이용할 수 있어요.",
   training_ground_required: "길드 영지에 훈련장이 필요해요.",
+  policy_blocked: "점령 길드가 길드원 전용으로 설정한 훈련장이에요.",
+  insufficient_gold: "외부 이용료를 낼 골드가 부족해요.",
   already_claimed: "오늘 이미 완료한 훈련이에요.",
   locked: "아직 이용할 수 없는 훈련이에요.",
   invalid: "잘못된 요청이에요.",
@@ -30,10 +32,12 @@ const ERROR_TEXT: Record<string, string> = {
 export function GuildTrainingGroundPanel({
   info,
   localTrainingGround = false,
+  outpostId,
   onChanged,
 }: {
   info: GuildInfoResponse | null;
   localTrainingGround?: boolean;
+  outpostId?: string;
   onChanged?: () => void | Promise<void>;
 }) {
   const { notifyReward } = useRewardToast();
@@ -47,11 +51,14 @@ export function GuildTrainingGroundPanel({
     null,
   );
   const [message, setMessage] = useState<string | null>(null);
+  const endpoint = outpostId
+    ? `/api/v2/guild/training-ground?outpostId=${encodeURIComponent(outpostId)}`
+    : "/api/v2/guild/training-ground";
 
   const load = useCallback(async (alive: () => boolean = () => true) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v2/guild/training-ground");
+      const res = await fetch(endpoint);
       const json = (await res.json().catch(() => null)) as TrainingState | null;
       if (!alive()) return;
       if (!res.ok || !json?.ok) {
@@ -69,7 +76,7 @@ export function GuildTrainingGroundPanel({
     } finally {
       if (alive()) setLoading(false);
     }
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     let alive = true;
@@ -88,7 +95,7 @@ export function GuildTrainingGroundPanel({
       const res = await fetch("/api/v2/guild/training-ground", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ drillId }),
+        body: JSON.stringify({ drillId, outpostId }),
       });
       const json = (await res.json().catch(() => null)) as
         | {
@@ -146,6 +153,7 @@ export function GuildTrainingGroundPanel({
     null;
   const weekly = state?.weekly ?? null;
   const trainingBonuses = state?.trainingBonuses ?? null;
+  const externalAccess = state?.externalAccess ?? null;
   const hasPassiveTrainingBonus =
     (trainingBonuses?.rewardBonusPct ?? 0) > 0 ||
     (trainingBonuses?.weeklyBonusMastery ?? 0) > 0;
@@ -179,7 +187,9 @@ export function GuildTrainingGroundPanel({
             )}
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {hasTrainingGround
+            {externalAccess
+              ? `외부 이용료 ${externalAccess.useFeeGold.toLocaleString()} G · 훈련 완료 시 점령 길드 금고로 들어갑니다.`
+              : hasTrainingGround
               ? `Lv ${level} · ${state?.upgrade?.label ?? "훈련 설비"}`
               : "길드 영지 슬롯에 훈련장을 배치하면 이용할 수 있어요."}
           </p>

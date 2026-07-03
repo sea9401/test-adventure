@@ -58,7 +58,7 @@ export type HuntResult = {
   droppedEquipment?: V2EquipmentId | null;
   droppedUnique?: V2EquipmentId | null;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
-  // 레어맵 — 새 지도 발견(kind id) / 입장 중 남은 판수.
+  // 희귀 탐사 — 새 탐사 개방(kind id) / 입장 중 남은 판수.
   rareMapDrop?: RareMapKindId | null;
   rareMapRunsLeft?: number | null;
   // PR-1 속성 상성 — 내 속성 vs 몬스터 속성 결과.
@@ -135,6 +135,9 @@ export function HuntResultCard({
     drops as Array<[string, number]>,
     droppedEquip?.name ?? null,
   );
+  const rareMapDropDef = result.rareMapDrop
+    ? RARE_MAP_KINDS[result.rareMapDrop]
+    : null;
   const statGainsText = formatStatGains(result.statGains);
   const hpMpGainsText = formatHpMpGains(result.hpGain, result.mpGain);
 
@@ -144,10 +147,16 @@ export function HuntResultCard({
       // 패배 카드는 붉은 링으로 승리 카드와 확연히 구분 — "졌는지 모르고 계속 사냥" 방지.
       className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
     >
-      {result.rareMapDrop && (
+      {rareMapDropDef && (
         <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
-          🗺 「{RARE_MAP_KINDS[result.rareMapDrop].name}」 발견! — 인벤토리
-          소모품에서 확인
+          {rareMapDropDef.category === "hunt" ? (
+            <>
+              ✨ 희귀 탐사 「{rareMapDropDef.name}」 개방! — 전투 탭 &gt;
+              사냥터에서 입장
+            </>
+          ) : (
+            <>🎟 「{rareMapDropDef.name}」 발견! — 가방 소모품에서 사용</>
+          )}
         </div>
       )}
       {droppedUniq && (

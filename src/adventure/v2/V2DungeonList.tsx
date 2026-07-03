@@ -37,7 +37,7 @@ export function V2DungeonList({
   onOpenMap: () => void;
   frontierDepth?: number;
   playerPower?: number | null;
-  // 레어맵 입장 — 보유 지도(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
+  // 희귀 탐사 입장 — 열린 탐사(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
   onSelectRareMap?: (map: RareMapInstance) => void;
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
   initialOpenDepth?: number | null;
@@ -55,7 +55,7 @@ export function V2DungeonList({
       ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
       : null;
 
-  // 보유 레어맵 — 마운트 1회 조회(판수 소모와 30분 만료는 서버 권위).
+  // 열린 희귀 탐사 — 마운트 1회 조회(판수 소모와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   useEffect(() => {
     if (!onSelectRareMap) return;
@@ -64,7 +64,7 @@ export function V2DungeonList({
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
         if (alive && j?.ok) {
-          // hunt 계열만 — 유틸맵(비밀 상점/개명/화공)은 인벤토리 소모품 탭에서 사용.
+          // hunt 계열만 — 입장권(비밀 상점/개명/화공)은 인벤토리 소모품 탭에서 사용.
           setRareMaps(
             (j.rareMaps ?? []).filter(
               (m) => RARE_MAP_KINDS[m.kind]?.category === "hunt",
@@ -118,13 +118,13 @@ export function V2DungeonList({
           </div>
         </div>
       ) : (
-        // 테마(사냥터) 카드 (+위에 보유 레어맵 섹션).
+        // 테마(사냥터) 카드 (+위에 열린 희귀 탐사 섹션).
         <div className="space-y-3">
           <PowerSummary playerPower={playerPower} />
           {onSelectRareMap && rareMaps.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                발견한 지도
+                열린 희귀 탐사
               </div>
               {rareMaps.map((m) => (
                 <button
@@ -135,7 +135,7 @@ export function V2DungeonList({
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-sky-800 dark:text-sky-200">
-                      🗺 {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} — 깊이{" "}
+                      ✨ {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} — 깊이{" "}
                       {m.depth}
                     </span>
                     <span className="mt-0.5 block text-[11px] text-sky-700/80 dark:text-sky-400/80">

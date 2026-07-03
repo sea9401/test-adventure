@@ -141,15 +141,15 @@ function entryText(e: FeedEntry): React.ReactNode {
   );
   if (e.type === "rare_map_drop") {
     const p = e.payload as { kind: string };
-    const kindName =
-      RARE_MAP_KINDS[p.kind as keyof typeof RARE_MAP_KINDS]?.name ?? p.kind;
+    const def = RARE_MAP_KINDS[p.kind as keyof typeof RARE_MAP_KINDS];
+    const kindName = def?.name ?? p.kind;
     return (
       <>
-        {name} 님이 희귀한{" "}
+        {name} 님이 {def?.category === "utility" ? "희귀 입장권" : "희귀 탐사"}{" "}
         <span className="font-medium text-sky-600 dark:text-sky-400">
           「{kindName}」
         </span>{" "}
-        발견!
+        {def?.category === "utility" ? "발견!" : "개방!"}
       </>
     );
   }

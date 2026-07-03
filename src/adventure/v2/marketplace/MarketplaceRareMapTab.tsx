@@ -14,7 +14,7 @@ import {
   type PriceStat,
 } from "./marketplaceShared";
 
-// 판매 탭 — 소모품(레어맵). 빈 목록 안내 / 개체 단위 가격 입력 카드 목록.
+// 판매 탭 — 희귀 탐사/입장권. 빈 목록 안내 / 개체 단위 가격 입력 카드 목록.
 export function MarketplaceRareMapTab({
   rareMaps,
   pager,
@@ -36,8 +36,8 @@ export function MarketplaceRareMapTab({
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          팔 수 있는 소모품이 없어요. 레어맵은 사냥 중 아주 낮은
-          확률로 발견됩니다.
+          팔 수 있는 희귀 탐사나 입장권이 없어요. 사냥 중 아주 낮은
+          확률로 열리거나 발견됩니다.
         </div>
       </Card>
     );
@@ -46,11 +46,12 @@ export function MarketplaceRareMapTab({
     <div className="space-y-2">
       {pager.pageItems.map((m) => {
         const def = RARE_MAP_KINDS[m.kind];
+        const icon = def?.category === "hunt" ? "✨" : "🎟";
         return (
           <Card key={m.iid} padding="sm">
             <div className="flex items-center justify-between gap-2">
               <span className="min-w-0 text-sm font-medium">
-                🗺 {def?.name ?? m.kind}
+                {icon} {def?.name ?? m.kind}
                 <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                   깊이 {m.depth} · 남은 {m.runsLeft}판
                 </span>

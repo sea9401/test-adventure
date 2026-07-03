@@ -7,7 +7,7 @@ import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { isValidAvatarId } from "@/adventure/profile/avatars";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 
-// POST /api/v2/me/portrait — 프로필 초상화(외형) 변경. 「화공의 공방 지도」 1장 소모.
+// POST /api/v2/me/portrait — 프로필 초상화(외형) 변경. 「화공 공방 입장권」 1장 소모.
 //   body: { map: <iid>, avatar: Avatar }
 // 게임 내 유일한 초상화 변경 수단 — 옛 무게이트 /api/profile/avatar 는 410 폐기.
 

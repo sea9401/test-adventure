@@ -347,7 +347,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   // 오프라인 정산은 판별 시뮬 시각 주입(HP 회복을 5초 간격으로). 온라인 = 실시간.
   const now = ctx.nowOverride ?? Date.now();
 
-  // === 레어맵(소모품 지도) — 입장 검증 + 보상 배수. 스태미너 차감 전 거부. ===
+  // === 희귀 탐사 — 입장 검증 + 보상 배수. 스태미나 차감 전 거부. ===
   // parse 가 만료/소진을 lazy purge — 아래 save 기록 시 정리분이 함께 영속된다.
   let rareMaps: RareMapInstance[] = parseRareMaps(charSave.rareMaps, now);
   let activeRareMap: RareMapInstance | null = null;

@@ -31,14 +31,14 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 
-// 유틸맵 사용 — 종류별 전용 화면으로 이동(지도 iid 동봉, 서버가 소유 재검증).
+// 입장권 사용 — 종류별 전용 화면으로 이동(iid 동봉, 서버가 소유 재검증).
 const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
   rename_map: "/hidden/rename",
   portrait_map: "/hidden/portrait",
 };
 
-// 소모품 탭 — SP 열매 섹션 + 보유 레어맵 목록. SP 열매 보유/사용수·일괄 새로고침 등
-// 데이터는 코디네이터(부모)가 보유하고, 여기서는 표시 + 유틸맵 이동만 담당(거동 불변).
+// 소모품 탭 — SP 열매 섹션 + 보유 입장권 목록. SP 열매 보유/사용수·일괄 새로고침 등
+// 데이터는 코디네이터(부모)가 보유하고, 여기서는 표시 + 입장권 이동만 담당(거동 불변).
 export function RareMapsTab({
   materials,
   spFruitUsed,
@@ -394,18 +394,21 @@ function CoopEquipmentBoxSection({
   );
 }
 
-// 소모품 탭 — 보유 레어맵 목록. hunt 계열 사용(입장)은 사냥터 목록의 "발견한 지도",
+// 소모품 탭 — 보유 입장권 목록. hunt 계열 희귀 탐사는 사냥터 목록의 "열린 희귀 탐사",
 // utility 계열(비밀 상점/개명/화공)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
 function ConsumableList({
   maps,
   onUse,
-  // 위에 SP 열매 섹션이 이미 보유분을 그리면(true) 빈 레어맵 안내문을 숨긴다.
+  // 위에 다른 소모품 섹션이 이미 보유분을 그리면(true) 빈 안내문을 숨긴다.
   suppressEmpty = false,
 }: {
   maps: RareMapInstance[] | null;
   onUse?: (m: RareMapInstance) => void;
   suppressEmpty?: boolean;
 }) {
+  const utilityMaps = maps?.filter(
+    (m) => RARE_MAP_KINDS[m.kind]?.category === "utility",
+  );
   const [infoCard, setInfoCard] = useState<{
     title: string;
     subtitle: string;
@@ -414,7 +417,7 @@ function ConsumableList({
     anchor: ItemCardAnchor;
   } | null>(null);
 
-  if (maps === null) {
+  if (utilityMaps === undefined) {
     return (
       <div className="space-y-2">
         <Skeleton className="h-12 w-full" />
@@ -422,25 +425,23 @@ function ConsumableList({
       </div>
     );
   }
-  if (maps.length === 0) {
+  if (utilityMaps.length === 0) {
     if (suppressEmpty) return null;
     return (
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
         title="보유한 소모품이 없습니다"
-        message="레어맵은 사냥 중 낮은 확률로 발견됩니다."
+        message="비밀 상점 초대장과 입장권은 사냥 중 낮은 확률로 발견됩니다."
       />
     );
   }
   return (
     <>
       <ul className="space-y-1.5">
-        {maps.map((m) => {
+        {utilityMaps.map((m) => {
           const def = RARE_MAP_KINDS[m.kind];
-          const isUtility = def?.category === "utility";
           const lines = [
             { label: "남은 횟수", value: `${m.runsLeft}` },
-            ...(isUtility ? [] : [{ label: "깊이", value: `${m.depth}` }]),
           ];
           return (
             <li
@@ -453,7 +454,7 @@ function ConsumableList({
                   onClick={(e) =>
                     setInfoCard({
                       title: def?.name ?? m.kind,
-                      subtitle: isUtility ? "소모품" : "레어맵",
+                      subtitle: "소모품",
                       description: def?.desc ?? "",
                       lines,
                       anchor: anchorOf(e.currentTarget),
@@ -462,30 +463,20 @@ function ConsumableList({
                   className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
                 >
                   <span className="block truncate text-sm font-medium">
-                    🗺 {def?.name ?? m.kind}
+                    🎟 {def?.name ?? m.kind}
                   </span>
                 </button>
-                {isUtility ? (
-                  <Button
-                    onClick={() => onUse?.(m)}
-                    variant="info"
-                    size="xs"
-                    className="shrink-0"
-                  >
-                    사용
-                  </Button>
-                ) : (
-                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                    깊이 {m.depth}
-                  </span>
-                )}
+                <Button
+                  onClick={() => onUse?.(m)}
+                  variant="info"
+                  size="xs"
+                  className="shrink-0"
+                >
+                  사용
+                </Button>
               </div>
               <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                {isUtility ? (
-                  <>남은 {m.runsLeft}회</>
-                ) : (
-                  <>남은 {m.runsLeft}판 · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」</>
-                )}
+                남은 {m.runsLeft}회
               </div>
               {def?.desc && (
                 <button
@@ -493,7 +484,7 @@ function ConsumableList({
                   onClick={(e) =>
                     setInfoCard({
                       title: def.name,
-                      subtitle: isUtility ? "소모품" : "레어맵",
+                      subtitle: "소모품",
                       description: def.desc,
                       lines,
                       anchor: anchorOf(e.currentTarget),

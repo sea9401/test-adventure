@@ -130,6 +130,8 @@ export const FISH_TIERS: Record<FishTier, FishTierMeta> = {
   },
 };
 
+export type FishTierWeightBonuses = Partial<Record<FishTier, number>>;
+
 export const FISH: Record<FishId, Fish> = {
   // === 흔함 (9) ===
   crucian_carp: {
@@ -577,7 +579,17 @@ export function rollFishSize(
 export type FishPickOptions = {
   /** 현재 물때 한정 어종의 티어 내 추첨 가중치 보정. 25 = 해당 손님 가중치 1.25배. */
   specialWeightBonusPct?: number;
+  /** 티어 자체의 추첨 가중치 보정. 50 = 1.5배, -35 = 0.65배. */
+  tierWeightPct?: FishTierWeightBonuses;
 };
+
+function tierEncounterWeight(tier: FishTier, options: FishPickOptions): number {
+  const bonusPct = Math.max(
+    -90,
+    Math.min(500, options.tierWeightPct?.[tier] ?? 0),
+  );
+  return FISH_TIERS[tier].encounterWeight * (1 + bonusPct / 100);
+}
 
 // 어떤 종이 걸리나 — 티어 가중치로 티어를 뽑고, 티어 안에서 종을 균등 추첨.
 // rng() ∈ [0, 1).
@@ -589,17 +601,18 @@ export function pickFishId(
   options: FishPickOptions = {},
 ): FishId {
   const totalWeight = FISH_TIER_ORDER.reduce(
-    (sum, t) => sum + FISH_TIERS[t].encounterWeight,
+    (sum, t) => sum + tierEncounterWeight(t, options),
     0,
   );
   let roll = rng() * totalWeight;
   let tier: FishTier = FISH_TIER_ORDER[FISH_TIER_ORDER.length - 1];
   for (const t of FISH_TIER_ORDER) {
-    if (roll < FISH_TIERS[t].encounterWeight) {
+    const weight = tierEncounterWeight(t, options);
+    if (roll < weight) {
       tier = t;
       break;
     }
-    roll -= FISH_TIERS[t].encounterWeight;
+    roll -= weight;
   }
   const species = FISH_IDS.filter(
     (id) =>

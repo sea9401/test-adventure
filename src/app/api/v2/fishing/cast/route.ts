@@ -69,6 +69,7 @@ export async function POST() {
       skillBonuses.bigCatchSizeBonusPct +
       progressBonuses.bigCatchSizeBonusPct +
       (multtaeEffect.bigCatchSizeBonusPct ?? 0),
+    tierWeightPct: progressBonuses.tierWeightPct,
   };
   const waitReductionPct = Math.min(
     50,
@@ -84,6 +85,7 @@ export async function POST() {
   const biteAt = now + biteDelayMs;
   const fishId = pickFishId(Math.random, mt.condition.id, {
     specialWeightBonusPct: fishingBonuses.specialWeightPct,
+    tierWeightPct: fishingBonuses.tierWeightPct,
   });
   const size = rollFishSize(fishId, Math.random, {
     sizeBonusPct: fishingBonuses.sizeBonusPct,

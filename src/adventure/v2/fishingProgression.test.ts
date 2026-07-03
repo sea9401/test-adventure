@@ -78,6 +78,7 @@ describe("낚시 진행도", () => {
       rareSizeBonusPct: 0,
       bigCatchSizeBonusPct: 0,
       specialWeightPct: 0,
+      tierWeightPct: {},
     });
     expect(fishingLevelBonuses(5).sizeBonusPct).toBe(1);
     expect(fishingLevelBonuses(5).specialWeightPct).toBe(2);
@@ -127,10 +128,25 @@ describe("낚시 진행도", () => {
     );
   });
 
+  it("등급 보정 미끼는 티어별 출현 가중치를 장착 총합에 더한다", () => {
+    const withDaily = buyFishingLure(emptyFishingProgression(), "daily_bait");
+    const dailyBonuses = fishingBonusesFromProgression(withDaily);
+    expect(dailyBonuses.tierWeightPct.common).toBe(70);
+    expect(dailyBonuses.tierWeightPct.uncommon).toBe(45);
+    expect(dailyBonuses.tierWeightPct.epic).toBe(-35);
+
+    const withRare = buyFishingLure(withDaily, "rare_lure");
+    const rareBonuses = fishingBonusesFromProgression(withRare);
+    expect(rareBonuses.tierWeightPct.rare).toBe(70);
+    expect(rareBonuses.tierWeightPct.common).toBe(-25);
+  });
+
   it("상점 도구 가격 조회는 등재 id만 허용한다", () => {
     expect(fishingGearPrice("rod", "lacquered_rod")).toBe(1200);
     expect(fishingGearPrice("rod", "storm_rod")).toBe(9000);
+    expect(fishingGearPrice("lure", "daily_bait")).toBe(900);
     expect(fishingGearPrice("lure", "trophy_lure")).toBe(1800);
+    expect(fishingGearPrice("lure", "rare_lure")).toBe(2200);
     expect(fishingGearPrice("lure", "prism_lure")).toBe(5000);
     expect(fishingGearPrice("rod", "ghost_rod")).toBeNull();
   });

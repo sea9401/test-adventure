@@ -38,6 +38,24 @@ const TIER_COUNTS: Record<FishTier, number> = {
   legendary: 5,
 };
 
+function countPickedTiers(
+  seed: number,
+  options?: Parameters<typeof pickFishId>[2],
+): Record<FishTier, number> {
+  const rng = mulberry32(seed);
+  const hits: Record<FishTier, number> = {
+    common: 0,
+    uncommon: 0,
+    rare: 0,
+    epic: 0,
+    legendary: 0,
+  };
+  for (let i = 0; i < 40000; i += 1) {
+    hits[FISH[pickFishId(rng, undefined, options)].tier] += 1;
+  }
+  return hits;
+}
+
 describe("어종 카탈로그", () => {
   it("항상풀 38종(티어 9/10/7/7/5) + 물때 한정 8종 = 총 46", () => {
     expect(FISH_TOTAL).toBe(46);
@@ -172,6 +190,39 @@ describe("종 추첨 (encounter)", () => {
     // 흔함 비율이 대략 가중치(40/100)에 근접.
     expect(tierHits.common / N).toBeGreaterThan(0.3);
     expect(tierHits.common / N).toBeLessThan(0.5);
+  });
+
+  it("티어 보정은 일일 과제용으로 낮은 등급 분포를 당길 수 있다", () => {
+    const base = countPickedTiers(4401);
+    const boosted = countPickedTiers(4401, {
+      tierWeightPct: {
+        common: 70,
+        uncommon: 45,
+        rare: 15,
+        epic: -35,
+        legendary: -55,
+      },
+    });
+    expect(boosted.common + boosted.uncommon).toBeGreaterThan(
+      base.common + base.uncommon,
+    );
+    expect(boosted.epic + boosted.legendary).toBeLessThan(
+      base.epic + base.legendary,
+    );
+  });
+
+  it("티어 보정은 희귀 중심 미끼도 표현할 수 있다", () => {
+    const base = countPickedTiers(9901);
+    const boosted = countPickedTiers(9901, {
+      tierWeightPct: {
+        common: -25,
+        uncommon: -10,
+        rare: 70,
+        epic: 20,
+      },
+    });
+    expect(boosted.rare).toBeGreaterThan(base.rare);
+    expect(boosted.common).toBeLessThan(base.common);
   });
 });
 

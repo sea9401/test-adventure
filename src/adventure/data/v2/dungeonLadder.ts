@@ -45,7 +45,8 @@ export const END_EXTENSION_STAT_STEP = 1.0;
 
 // 검은 왕도 이후 신규 사냥터 권장 전투력 앵커(2026-06-30).
 // 43~48(검은 왕도)은 기존 1500대 엔드 램프를 유지하고, 49~54(붉은 벌판)는 2000~2300,
-// 55~60(백골 고원)은 2800~3300으로 한 단계 더 큰 단차를 둔다.
+// 55~60(백골 고원)은 2800~3300으로 한 단계 더 큰 단차를 둔다. 61+ 는 깊이당 +100으로
+// 이어져 폭풍 산맥(3400~3900), 심해 폐허(4000~4500)를 자연 확장한다.
 function endExtensionPowerGate(depth: number): number {
   const d = Math.max(END_EXTENSION_START_DEPTH, Math.floor(depth));
   if (d < 49) {

@@ -41,24 +41,31 @@ export default function DungeonFloorPage() {
     setFrontierDepth,
     refreshGameState,
     applyResourcePatch,
+    gameStateLoaded,
     combatCooldown,
     setCombatCooldown,
     offlineHunt,
   } = useGameState();
 
   const n = Number(params.floorId);
-  // 유효한 깊이: 양의 정수, 최고 도달+1 이하. 단 MAX_FRONTIER_DEPTH(마지막 테마 끝)에서 캡 —
-  //   그 너머는 콘텐츠 없음(서버 frontier_end). 레거시 >42 저장값도 여기서 막혀 우아하게 notFound.
-  const valid =
-    Number.isInteger(n) &&
-    n >= 1 &&
-    n <= Math.min(MAX_FRONTIER_DEPTH, frontierDepth + 1);
+  // 형식/콘텐츠 끝은 즉시 판정하되, 최고 도달 깊이(frontierDepth)는 me/state 로딩 뒤 판정한다.
+  // 새로고침 직후 기본값(2)으로 깊은 사냥터를 404 처리하는 레이스를 막는다.
+  const validDepthShape =
+    Number.isInteger(n) && n >= 1 && n <= MAX_FRONTIER_DEPTH;
+  const unlockedDepthLimit = Math.min(MAX_FRONTIER_DEPTH, frontierDepth + 1);
+  const valid = validDepthShape && n <= unlockedDepthLimit;
+  const waitingForGameState =
+    validDepthShape && !valid && !gameStateLoaded;
 
   // 거점이 사라진 사고용 안전 — 사냥터 목록으로 복귀.
   useEffect(() => {
-    if (valid && !currentOutpost) router.replace("/battle/dungeon");
-  }, [valid, currentOutpost, router]);
+    if (gameStateLoaded && valid && !currentOutpost) {
+      router.replace("/battle/dungeon");
+    }
+  }, [gameStateLoaded, valid, currentOutpost, router]);
 
+  if (!validDepthShape) notFound();
+  if (waitingForGameState) return null;
   if (!valid) notFound();
   if (!currentOutpost) return null;
 

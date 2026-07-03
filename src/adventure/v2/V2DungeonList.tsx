@@ -25,6 +25,7 @@ export const DUNGEON_THEME_VISIBILITY_STORAGE_KEY =
 
 export function V2DungeonList({
   currentOutpost,
+  gameStateLoaded = true,
   onSelectFloor,
   onBack,
   onOpenMap,
@@ -34,6 +35,7 @@ export function V2DungeonList({
   initialOpenDepth = null,
 }: {
   currentOutpost: { id: string; name: string } | null;
+  gameStateLoaded?: boolean;
   onSelectFloor: (depth: number) => void;
   // 상단 뒤로가기 — 진입 출처(전투 탭)로 복귀. 지도 열기는 별도 버튼(onOpenMap).
   onBack: () => void;
@@ -120,13 +122,19 @@ export function V2DungeonList({
         title={openGroup ? openGroup.name : "사냥터"}
         onBack={openGroup ? () => setOpenDepth(null) : onBack}
       />
-      {!currentOutpost && (
+      {!currentOutpost && gameStateLoaded && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
           거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능.
         </p>
       )}
 
-      {!currentOutpost ? (
+      {!currentOutpost && !gameStateLoaded ? (
+        <Card padding="md">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            사냥터 정보를 불러오는 중입니다.
+          </p>
+        </Card>
+      ) : !currentOutpost ? (
         <Card padding="md">
           <button
             type="button"

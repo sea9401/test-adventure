@@ -9,7 +9,13 @@ import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 // 자동 사냥(오프라인 세션) 중이면 목록 대신 사냥 중인 층으로 바로 입장한다 — 거기서 정지 가능.
 export default function DungeonListPage() {
   const router = useRouter();
-  const { currentOutpost, frontierDepth, offlineHunt, playerCombat } =
+  const {
+    currentOutpost,
+    frontierDepth,
+    offlineHunt,
+    playerCombat,
+    gameStateLoaded,
+  } =
     useGameState();
   // ?openDepth=<테마 첫 깊이> — 사냥터에서 "뒤로"로 들어오면 그 테마의 깊이 선택을 펼친 채 시작.
   const openDepthParam = useSearchParams().get("openDepth");
@@ -30,6 +36,7 @@ export default function DungeonListPage() {
   return (
     <V2DungeonList
       currentOutpost={currentOutpost}
+      gameStateLoaded={gameStateLoaded}
       onSelectFloor={(depth) => router.push(`/battle/dungeon/${depth}`)}
       onBack={() => router.push("/battle")}
       onOpenMap={() => router.push("/map")}

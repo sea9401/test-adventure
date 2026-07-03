@@ -289,6 +289,11 @@ export function V2LoadoutPanel({
     }
   }
 
+  function clearEquipped() {
+    if (busy || order.length === 0) return;
+    commit([]);
+  }
+
   function reorderSkill(
     activeId: string,
     overId: string,
@@ -574,8 +579,18 @@ export function V2LoadoutPanel({
       </p>
       {equippedSkills.length > 0 && (
         <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-          <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-            장착 중
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              장착 중
+            </div>
+            <button
+              type="button"
+              onClick={clearEquipped}
+              disabled={busy || order.length === 0}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              초기화
+            </button>
           </div>
           <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
             {equippedSkills.map((s, idx) => (
@@ -719,7 +734,7 @@ export function V2LoadoutPanel({
             disabled={query.length === 0 && filter === "all"}
             className="rounded px-1.5 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 disabled:pointer-events-none disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            초기화
+            검색 초기화
           </button>
         </div>
 

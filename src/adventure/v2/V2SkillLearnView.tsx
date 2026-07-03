@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  SKILL_RITUAL_MAX_LEVEL,
+  nextSkillRitualStep,
+} from "@/adventure/data/v2/skillRitual";
 import { SkillEffectChips } from "./SkillEffectChips";
 import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
 import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
+import { useGameState } from "./GameStateProvider";
 
 // v2 학습 — 숙달 포인트로 직업 스킬을 습득하고 SP 로드아웃을 구성한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
@@ -19,6 +24,9 @@ type ElementalRow = {
   name: string;
   cost: number;
   learned: boolean;
+  ritualLevel?: number;
+  ritualBonusPct?: number;
+  ritualEligible?: boolean;
 };
 
 type StateShape = {
@@ -34,6 +42,9 @@ function skillName(id: string): string {
 function skillDesc(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.description ?? "";
 }
+function goldLabel(value: number): string {
+  return `${value.toLocaleString()}G`;
+}
 
 export function V2SkillLearnView({
   onBack,
@@ -43,9 +54,10 @@ export function V2SkillLearnView({
   onBack: () => void;
   // 스킬 허브(탭)에 끼워질 때 — 자체 헤더/페이지 컨테이너 생략(허브가 제공).
   embedded?: boolean;
-  // 허브 탭 분리 — "learn"=학습 라이브러리만, "loadout"=프리셋+장착만, "all"=전부(독립).
-  section?: "all" | "learn" | "loadout";
+  // 허브 탭 분리 — "learn"=학습, "loadout"=프리셋+장착, "enhance"=강화 의식, "all"=전부.
+  section?: "all" | "learn" | "loadout" | "enhance";
 }) {
+  const { applyResourcePatch } = useGameState();
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
   const [usable, setUsable] = useState(0);
@@ -117,6 +129,86 @@ export function V2SkillLearnView({
     [usable, refresh],
   );
 
+  const enhanceRows = useMemo(() => {
+    const library = loadout?.library ?? [];
+    if (library.length > 0) {
+      return library.filter((s) => s.ritualEligible);
+    }
+    return elementalSkills
+      .filter((s) => s.learned && s.ritualEligible)
+      .map((s) => ({
+        skillId: s.skillId,
+        name: s.name,
+        spCost: 0,
+        equipped: false,
+        ritualLevel: s.ritualLevel,
+        ritualBonusPct: s.ritualBonusPct,
+        ritualEligible: s.ritualEligible,
+      }));
+  }, [elementalSkills, loadout]);
+
+  const enhance = useCallback(
+    async (skillId: string) => {
+      setBusy(`ritual:${skillId}`);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/skill-ritual", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ skillId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          level?: number;
+          bonusPct?: number;
+          points?: number;
+          gold?: number;
+          bankedGold?: number;
+          required?: number;
+          have?: number;
+          goldCost?: number;
+          requiredJobCumLevel?: number;
+          haveJobCumLevel?: number;
+          jobName?: string | null;
+        } | null;
+        if (!j?.ok) {
+          const label =
+            j?.error === "insufficient_gold"
+              ? `골드 부족 (필요 ${goldLabel(j.goldCost ?? 0)})`
+              : j?.error === "insufficient_proficiency"
+                ? `숙달 포인트 부족 (필요 ${j.required ?? 0}, 보유 ${j.have ?? usable})`
+                : j?.error === "insufficient_mastery"
+                  ? `${j.jobName ?? "해당 직업"} 숙련도 부족 (${j.haveJobCumLevel ?? 0}/${j.requiredJobCumLevel ?? 0})`
+                  : j?.error === "not_learned"
+                    ? "배운 스킬만 강화할 수 있어요"
+                    : j?.error === "not_eligible"
+                      ? "강화 의식 대상이 아닌 스킬이에요"
+                      : j?.error === "max_level"
+                        ? "이미 최대 단계예요"
+                        : (j?.error ?? `http ${res.status}`);
+          setMsg(`✗ ${label}`);
+          return;
+        }
+        if (typeof j.points === "number") setUsable(j.points);
+        applyResourcePatch({
+          gold: typeof j.gold === "number" ? j.gold : undefined,
+          bankedGold:
+            typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+          viewerProficiency: typeof j.points === "number" ? j.points : undefined,
+        });
+        setMsg(
+          `✓ ${skillName(skillId)} +${j.level ?? 0} 강화 완료 (위력 +${j.bonusPct ?? 0}%)`,
+        );
+        refresh();
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [applyResourcePatch, refresh, usable],
+  );
 
   const Wrapper = embedded ? "div" : "main";
   return (
@@ -129,18 +221,21 @@ export function V2SkillLearnView({
     >
       {!embedded && <SubViewHeader title="스킬" onBack={onBack} />}
 
-      {section !== "learn" && !loading && loadout && (
+      {section !== "learn" && section !== "enhance" && !loading && loadout && (
         <V2LoadoutPresetsPanel
           currentEquipped={loadout.equipped}
           onApplied={refresh}
         />
       )}
 
-      {section !== "learn" && !loading && loadout && (
+      {section !== "learn" && section !== "enhance" && !loading && loadout && (
         <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
       )}
 
-      {section !== "loadout" && !loading && elementalSkills.length > 0 && (
+      {section !== "loadout" &&
+        section !== "enhance" &&
+        !loading &&
+        elementalSkills.length > 0 && (
         <Card padding="md">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">학습</h2>
@@ -195,6 +290,69 @@ export function V2SkillLearnView({
                 </li>
               );
             })}
+          </ul>
+        </Card>
+      )}
+
+      {(section === "enhance" || section === "all") && !loading && (
+        <Card padding="md">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">강화 의식</h2>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              숙달 포인트{" "}
+              <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                {usable}
+              </strong>
+            </div>
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {enhanceRows.length === 0 ? (
+              <li className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                강화 가능한 학습 스킬이 없습니다.
+              </li>
+            ) : (
+              enhanceRows.map((s) => {
+                const level = Math.max(0, Math.floor(s.ritualLevel ?? 0));
+                const next = nextSkillRitualStep(level);
+                const maxed = level >= SKILL_RITUAL_MAX_LEVEL || !next;
+                return (
+                  <li
+                    key={s.skillId}
+                    className="ui-skill-card flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="truncate text-sm font-semibold">
+                          {s.name}
+                        </span>
+                        <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                          +{level} · 위력 +{s.ritualBonusPct ?? 0}%
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {maxed
+                          ? "최대 단계"
+                          : `다음 +${next.level}: ${goldLabel(next.goldCost)} · 숙달 ${next.proficiencyCost.toLocaleString()} · 직업 숙련도 ${next.requiredJobCumLevel.toLocaleString()}`}
+                      </p>
+                      <SkillEffectChips skillId={s.skillId} />
+                    </div>
+                    <Button
+                      onClick={() => enhance(s.skillId)}
+                      disabled={busy != null || maxed}
+                      variant="success"
+                      size="xs"
+                      className="shrink-0"
+                    >
+                      {busy === `ritual:${s.skillId}`
+                        ? "진행 중…"
+                        : maxed
+                          ? "완료"
+                          : "강화"}
+                    </Button>
+                  </li>
+                );
+              })
+            )}
           </ul>
         </Card>
       )}

@@ -24,6 +24,9 @@ export type V2LoadoutSkill = {
   equipped: boolean;
   favorite?: boolean;
   category?: V2LoadoutSkillCategory;
+  ritualLevel?: number;
+  ritualBonusPct?: number;
+  ritualEligible?: boolean;
 };
 export type V2LoadoutSpBreakdown = {
   base: number;

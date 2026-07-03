@@ -31,21 +31,21 @@ function sequence(values: readonly number[]): () => number {
 }
 
 const TIER_COUNTS: Record<FishTier, number> = {
-  common: 6,
-  uncommon: 7,
+  common: 9,
+  uncommon: 10,
   rare: 7,
-  epic: 6,
-  legendary: 4,
+  epic: 7,
+  legendary: 5,
 };
 
 describe("어종 카탈로그", () => {
-  it("항상풀 30종(티어 6/7/7/6/4) + 물때 한정 4종 = 총 34", () => {
-    expect(FISH_TOTAL).toBe(34);
+  it("항상풀 38종(티어 9/10/7/7/5) + 물때 한정 8종 = 총 46", () => {
+    expect(FISH_TOTAL).toBe(46);
     const always = FISH_IDS.filter((id) => FISH[id].condition === undefined);
     const special = FISH_IDS.filter((id) => FISH[id].condition !== undefined);
-    expect(always.length).toBe(30);
-    expect(special.length).toBe(4);
-    // 티어 구성(6/7/7/6/4)은 항상풀 기준 — 특별 손님은 자기 티어에 얹힐 뿐.
+    expect(always.length).toBe(38);
+    expect(special.length).toBe(8);
+    // 티어 구성(9/10/7/7/5)은 항상풀 기준 — 특별 손님은 자기 티어에 얹힐 뿐.
     for (const tier of FISH_TIER_ORDER) {
       const count = always.filter((id) => FISH[id].tier === tier).length;
       expect(count).toBe(TIER_COUNTS[tier]);
@@ -176,7 +176,7 @@ describe("종 추첨 (encounter)", () => {
 });
 
 describe("물때 한정 특별 손님 추첨 게이트 (공정성 청정)", () => {
-  it("조건 인자 없으면 특별 손님은 절대 안 나온다(항상풀 30종만)", () => {
+  it("조건 인자 없으면 특별 손님은 절대 안 나온다(항상풀 38종만)", () => {
     const rng = mulberry32(2024);
     for (let i = 0; i < 20000; i += 1) {
       expect(FISH[pickFishId(rng)].condition).toBeUndefined();
@@ -191,6 +191,10 @@ describe("물때 한정 특별 손님 추첨 게이트 (공정성 청정)", () =
     expect(seen.has("moonshadow_eel")).toBe(false); // starlit 손님 불가
     expect(seen.has("mist_koi")).toBe(false); // mist 손님 불가
     expect(seen.has("stormrider")).toBe(false); // tempest 손님 불가
+    expect(seen.has("moonlit_trout")).toBe(false); // moonlit 손님 불가
+    expect(seen.has("waterfall_salmon")).toBe(false); // rapid 손님 불가
+    expect(seen.has("ghost_eel")).toBe(false); // ebb 손님 불가
+    expect(seen.has("abyss_catfish")).toBe(false); // deepcurrent 손님 불가
     expect(seen.has("crucian_carp")).toBe(true); // 항상풀은 그대로
   });
 

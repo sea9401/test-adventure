@@ -1,5 +1,8 @@
-// 결정론 해시 + 4시간 시간 창 — 시드 기반 결정론 시스템(물때 등) 공용 유틸.
+// 결정론 해시 + 시간 창 — 시드 기반 결정론 시스템(물때 등) 공용 유틸.
 // (옛 weather.ts 에 있던 hash32/WEATHER_WINDOW_MS 를 날씨 제거 후 여기로 이전.)
+
+// 2시간 창 (UTC epoch 정렬). 하루 12창.
+export const WINDOW_2H_MS = 2 * 3_600_000;
 
 // 4시간 창 (UTC epoch 정렬). 하루 6창.
 export const WINDOW_4H_MS = 4 * 3_600_000;

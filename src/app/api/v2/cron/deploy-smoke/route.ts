@@ -6,6 +6,8 @@ import {
   readAlertThresholdSettings,
   readHotTimeSchedules,
   readHotTimeSettings,
+  readRewardCompensationPresets,
+  readRewardFailureStatuses,
 } from "@/lib/server/opsSettings";
 
 export async function POST(req: Request) {
@@ -16,6 +18,8 @@ export async function POST(req: Request) {
     hotTime,
     hotTimeSchedules,
     alertThresholds,
+    rewardFailureStatuses,
+    rewardCompensationPresets,
     economy,
     abuse,
     audit,
@@ -24,6 +28,8 @@ export async function POST(req: Request) {
     readHotTimeSettings(),
     readHotTimeSchedules(),
     readAlertThresholdSettings(),
+    readRewardFailureStatuses(),
+    readRewardCompensationPresets(),
     db
       .select({ id: economyEvents.id })
       .from(economyEvents)
@@ -61,6 +67,8 @@ export async function POST(req: Request) {
     settingsReadable: Array.isArray(settings),
     hotTimeScheduleCount: hotTimeSchedules.schedules.length,
     alertThresholdsReadable: alertThresholds.alertThresholds.rewardFailures > 0,
+    rewardFailureStatusReadable: Array.isArray(rewardFailureStatuses),
+    rewardCompensationPresetCount: rewardCompensationPresets.presets.length,
     fishingStatusApiLoaded: typeof apiModules[0].GET === "function",
     huntApiLoaded: typeof apiModules[1].POST === "function",
     guildTrainingApiLoaded: typeof apiModules[2].GET === "function",

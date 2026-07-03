@@ -15,7 +15,46 @@ type Dashboard = {
   periodHours: number;
   webhookConfigured: boolean;
   alertThresholds: AlertThresholdSettings;
+  suggestedAlertThresholds: AlertThresholdSettings;
   alertHistory: AlertHistoryEntry[];
+  dailyReport: {
+    rewardFailures: number;
+    rewardFailuresHandled: number;
+    rewardCompensated: number;
+    sanctionsChanged: number;
+    abuseEvents: number;
+    rateLimited: number;
+    largeGoldEvents: number;
+    adminChanges: number;
+    goldNet: number;
+  };
+  sanctionReport: {
+    expiring24h: Array<{
+      id: number;
+      userId: string;
+      gameName: string | null;
+      type: string;
+      reason: string;
+      expiresAt: string | null;
+    }>;
+    lifted: Array<{
+      id: number;
+      userId: string;
+      gameName: string | null;
+      type: string;
+      reason: string;
+      liftedAt: string | null;
+      liftedByEmail: string | null;
+    }>;
+  };
+  riskEvents: Array<{
+    id: string;
+    level: "danger" | "warning" | "info";
+    title: string;
+    message: string;
+    createdAt: string;
+    href: string;
+  }>;
   alerts: Array<{
     level: "danger" | "warning" | "info";
     title: string;
@@ -84,6 +123,7 @@ type Dashboard = {
     detail: Record<string, unknown> | null;
     createdAt: string;
   }>;
+  rewardFailureStatusRecent: RewardFailureStatusEntry[];
 };
 
 type HotTimeSettings = {
@@ -127,6 +167,40 @@ type AlertHistoryEntry = {
   error: string | null;
   createdAt: string;
 };
+
+type RewardFailureStatus = "reviewed" | "compensated" | "ignored";
+
+type RewardFailureStatusEntry = {
+  eventId: number;
+  status: RewardFailureStatus;
+  note: string;
+  adminEmail: string;
+  updatedAt: string;
+};
+
+type RewardCompensationPreset = {
+  id: string;
+  label: string;
+  itemKind:
+    | "gold"
+    | "fishing_coin"
+    | "treasure_coin"
+    | "mastery_certificate"
+    | "stamina_potion"
+    | "material";
+  itemId: string;
+  quantity: number;
+  reason: string;
+};
+
+const COMP_KIND_OPTIONS: RewardCompensationPreset["itemKind"][] = [
+  "gold",
+  "fishing_coin",
+  "treasure_coin",
+  "mastery_certificate",
+  "stamina_potion",
+  "material",
+];
 
 export function OpsDashboardTab() {
   const { showToast } = useAdmin();
@@ -221,6 +295,9 @@ export function OpsDashboardTab() {
             <Metric label="경제 이벤트 1시간" value={data.economy.last1h} />
             <Metric label={`관리자 변경 ${periodLabel}`} value={data.audit.last24h} />
           </div>
+
+          <DailyReportPanel report={data.dailyReport} periodLabel={periodLabel} />
+          <RiskEventsPanel rows={data.riskEvents} />
 
           <div className="grid gap-3 lg:grid-cols-2">
             <Panel title="이상 행동 Top">
@@ -372,13 +449,71 @@ export function OpsDashboardTab() {
           </Panel>
 
           <RewardFailurePanel rows={data.rewardFailureCandidates} onDone={refetch} />
+          <RewardFailureStatusPanel rows={data.rewardFailureStatusRecent} />
+          <CompensationPresetPanel />
 
-          <AlertThresholdPanel value={data.alertThresholds} onSaved={refetch} />
+          <AlertThresholdPanel
+            value={data.alertThresholds}
+            suggested={data.suggestedAlertThresholds}
+            onSaved={refetch}
+          />
+          <SanctionReportPanel report={data.sanctionReport} />
           <AlertHistoryPanel rows={data.alertHistory} />
           <HotTimePanel />
         </>
       )}
     </section>
+  );
+}
+
+function DailyReportPanel({
+  report,
+  periodLabel,
+}: {
+  report: Dashboard["dailyReport"];
+  periodLabel: string;
+}) {
+  return (
+    <Panel title={`운영 리포트 (${periodLabel})`}>
+      <div className="grid gap-2 md:grid-cols-4">
+        <Metric label="보상 실패" value={report.rewardFailures} />
+        <Metric label="처리된 실패" value={report.rewardFailuresHandled} />
+        <Metric label="보정 완료" value={report.rewardCompensated} />
+        <Metric label="제재 변경" value={report.sanctionsChanged} />
+        <Metric label="제한 이벤트" value={report.rateLimited} />
+        <Metric label="대량 골드" value={report.largeGoldEvents} />
+        <Metric label="관리자 변경" value={report.adminChanges} />
+        <Metric label="골드 순변동" value={report.goldNet} />
+      </div>
+    </Panel>
+  );
+}
+
+function RiskEventsPanel({ rows }: { rows: Dashboard["riskEvents"] }) {
+  return (
+    <Panel title="운영 위험도 표시">
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">강조할 위험 이벤트 없음</p>
+      ) : (
+        <div className="grid gap-2 md:grid-cols-2">
+          {rows.map((row) => (
+            <Link
+              key={row.id}
+              href={row.href}
+              className={`rounded-md border px-3 py-2 text-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 ${toneClass(row.level)}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">{row.title}</span>
+                <span className="text-[11px] opacity-75">
+                  {new Date(row.createdAt).toLocaleString("ko-KR")}
+                </span>
+              </div>
+              <div className="mt-1 font-mono text-[11px] opacity-80">{row.message}</div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 
@@ -392,6 +527,7 @@ function RewardFailurePanel({
   const { showToast } = useAdmin();
   const [selected, setSelected] = useState<number[]>([]);
   const [note, setNote] = useState("");
+  const [status, setStatus] = useState<RewardFailureStatus>("reviewed");
   const [saving, setSaving] = useState(false);
   const selectedSet = new Set(selected);
 
@@ -408,10 +544,11 @@ function RewardFailurePanel({
       await adminPost("/api/admin/reward-failures/resolve", {
         eventIds: selected,
         note,
+        status,
       });
       setSelected([]);
       setNote("");
-      showToast("선택 보상 실패 검토 처리됨");
+      showToast("선택 보상 실패 상태 저장됨");
       onDone();
     } catch (e) {
       showToast(`처리 실패: ${e instanceof Error ? e.message : "오류"}`);
@@ -432,6 +569,18 @@ function RewardFailurePanel({
               value={note}
               onChange={setNote}
             />
+            <label className="space-y-1 text-xs">
+              <span className="text-zinc-500 dark:text-zinc-400">상태</span>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as RewardFailureStatus)}
+                className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+              >
+                <option value="reviewed">검토 완료</option>
+                <option value="compensated">보정 완료</option>
+                <option value="ignored">제외</option>
+              </select>
+            </label>
             <Button
               onClick={() => void markReviewed()}
               disabled={saving || selected.length === 0}
@@ -448,6 +597,7 @@ function RewardFailurePanel({
                   <th className="py-1 pr-3 font-medium">유저</th>
                   <th className="py-1 pr-3 font-medium">유형</th>
                   <th className="py-1 pr-3 font-medium">시각</th>
+                  <th className="py-1 pr-3 font-medium">조치</th>
                 </tr>
               </thead>
               <tbody>
@@ -477,6 +627,18 @@ function RewardFailurePanel({
                     <td className="py-1 pr-3 text-zinc-500">
                       {new Date(row.createdAt).toLocaleString("ko-KR")}
                     </td>
+                    <td className="py-1 pr-3">
+                      {row.userId ? (
+                        <Link
+                          href={`/admin?tab=users&q=${encodeURIComponent(row.userId)}&sourceEventId=${row.id}`}
+                          className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                        >
+                          유저 보정
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -488,11 +650,198 @@ function RewardFailurePanel({
   );
 }
 
+function RewardFailureStatusPanel({ rows }: { rows: RewardFailureStatusEntry[] }) {
+  return (
+    <Panel title="최근 보상 실패 처리 상태">
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">처리 이력 없음</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-zinc-500 dark:text-zinc-400">
+              <tr>
+                <th className="py-1 pr-3 font-medium">event id</th>
+                <th className="py-1 pr-3 font-medium">상태</th>
+                <th className="py-1 pr-3 font-medium">관리자</th>
+                <th className="py-1 pr-3 font-medium">메모</th>
+                <th className="py-1 pr-3 font-medium">시각</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.eventId} className="border-t border-zinc-100 dark:border-zinc-800">
+                  <td className="py-1 pr-3 font-mono">{row.eventId}</td>
+                  <td className="py-1 pr-3">{statusLabel(row.status)}</td>
+                  <td className="py-1 pr-3 text-zinc-500">{row.adminEmail}</td>
+                  <td className="py-1 pr-3">{row.note || "-"}</td>
+                  <td className="py-1 pr-3 text-zinc-500">
+                    {new Date(row.updatedAt).toLocaleString("ko-KR")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function CompensationPresetPanel() {
+  const { showToast } = useAdmin();
+  const { data, loading, error, refetch } = useAsyncData<{
+    rewardCompensationPresets: RewardCompensationPreset[];
+  }>((signal) => adminGet("/api/admin/ops-settings", signal));
+  const [draft, setDraft] = useState<RewardCompensationPreset[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // 서버 설정을 편집 draft 로 복사한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (data?.rewardCompensationPresets) setDraft(data.rewardCompensationPresets);
+  }, [data]);
+  useEffect(() => {
+    if (error) showToast(`프리셋 조회 실패: ${error}`);
+  }, [error, showToast]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const saved = await adminPost<{
+        rewardCompensationPresets: RewardCompensationPreset[];
+      }>("/api/admin/ops-settings", { rewardCompensationPresets: draft });
+      setDraft(saved.rewardCompensationPresets);
+      showToast("보상 보정 프리셋 저장됨");
+      void refetch();
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const update = (id: string, patch: Partial<RewardCompensationPreset>) => {
+    setDraft((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  return (
+    <Panel title="보상 보정 프리셋 관리">
+      {loading && draft.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">불러오는 중...</p>
+      ) : (
+        <div className="space-y-2">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-zinc-500 dark:text-zinc-400">
+                <tr>
+                  <th className="py-1 pr-2 font-medium">이름</th>
+                  <th className="py-1 pr-2 font-medium">종류</th>
+                  <th className="py-1 pr-2 font-medium">itemId</th>
+                  <th className="py-1 pr-2 font-medium">수량</th>
+                  <th className="py-1 pr-2 font-medium">사유</th>
+                  <th className="py-1 pr-2 font-medium">삭제</th>
+                </tr>
+              </thead>
+              <tbody>
+                {draft.map((preset) => (
+                  <tr key={preset.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                    <td className="py-1 pr-2">
+                      <InlineInput
+                        value={preset.label}
+                        onChange={(label) => update(preset.id, { label })}
+                      />
+                    </td>
+                    <td className="py-1 pr-2">
+                      <select
+                        value={preset.itemKind}
+                        onChange={(e) =>
+                          update(preset.id, {
+                            itemKind: e.target.value as RewardCompensationPreset["itemKind"],
+                          })
+                        }
+                        className="w-full rounded border border-zinc-300 bg-white px-1.5 py-1 dark:border-zinc-700 dark:bg-zinc-950"
+                      >
+                        {COMP_KIND_OPTIONS.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {kind}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-1 pr-2">
+                      <InlineInput
+                        value={preset.itemId}
+                        onChange={(itemId) => update(preset.id, { itemId })}
+                      />
+                    </td>
+                    <td className="py-1 pr-2">
+                      <input
+                        type="number"
+                        min={1}
+                        value={preset.quantity}
+                        onChange={(e) =>
+                          update(preset.id, {
+                            quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                          })
+                        }
+                        className="w-24 rounded border border-zinc-300 bg-white px-1.5 py-1 dark:border-zinc-700 dark:bg-zinc-950"
+                      />
+                    </td>
+                    <td className="py-1 pr-2">
+                      <InlineInput
+                        value={preset.reason}
+                        onChange={(reason) => update(preset.id, { reason })}
+                      />
+                    </td>
+                    <td className="py-1 pr-2">
+                      <Button
+                        onClick={() =>
+                          setDraft((prev) => prev.filter((row) => row.id !== preset.id))
+                        }
+                      >
+                        삭제
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={() =>
+                setDraft((prev) => [
+                  ...prev,
+                  {
+                    id: `preset-${Date.now().toString(36)}`,
+                    label: "새 프리셋",
+                    itemKind: "fishing_coin",
+                    itemId: "",
+                    quantity: 1,
+                    reason: "보상 보정",
+                  },
+                ])
+              }
+            >
+              추가
+            </Button>
+            <Button onClick={() => void save()} disabled={saving || draft.length === 0}>
+              {saving ? "저장 중..." : "프리셋 저장"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function AlertThresholdPanel({
   value,
+  suggested,
   onSaved,
 }: {
   value: AlertThresholdSettings;
+  suggested: AlertThresholdSettings;
   onSaved: () => void;
 }) {
   const { showToast } = useAdmin();
@@ -552,12 +901,74 @@ function AlertThresholdPanel({
           max={100_000}
         />
       </div>
-      <div className="mt-2 flex justify-end">
+      <div className="mt-2 flex flex-wrap justify-end gap-2">
+        <Button onClick={() => setDraft(suggested)} disabled={saving}>
+          추천값 적용
+        </Button>
         <Button onClick={() => void save()} disabled={saving}>
           {saving ? "저장 중..." : "임계치 저장"}
         </Button>
       </div>
+      <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        추천값: 5분 {suggested.abuseLast5m}, 1시간 {suggested.abuseLast1h}, 보상 실패{" "}
+        {suggested.rewardFailures}, 대량 골드 {suggested.largeGoldEvents}, 관리자 변경{" "}
+        {suggested.adminAudit}
+      </p>
     </Panel>
+  );
+}
+
+function SanctionReportPanel({ report }: { report: Dashboard["sanctionReport"] }) {
+  return (
+    <Panel title="제재 만료·해제 리포트">
+      <div className="grid gap-3 lg:grid-cols-2">
+        <MiniSanctionList
+          title="24시간 내 만료"
+          rows={report.expiring24h.map((row) => ({
+            key: row.id,
+            name: row.gameName ?? row.userId.slice(0, 10),
+            meta: `${row.type} · ${row.expiresAt ? new Date(row.expiresAt).toLocaleString("ko-KR") : "-"}`,
+            reason: row.reason,
+          }))}
+        />
+        <MiniSanctionList
+          title="최근 해제"
+          rows={report.lifted.map((row) => ({
+            key: row.id,
+            name: row.gameName ?? row.userId.slice(0, 10),
+            meta: `${row.type} · ${row.liftedByEmail ?? "-"} · ${row.liftedAt ? new Date(row.liftedAt).toLocaleString("ko-KR") : "-"}`,
+            reason: row.reason,
+          }))}
+        />
+      </div>
+    </Panel>
+  );
+}
+
+function MiniSanctionList({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ key: number; name: string; meta: string; reason: string }>;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-[11px] font-medium text-zinc-500">{title}</div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">없음</p>
+      ) : (
+        <ul className="space-y-1 text-xs">
+          {rows.map((row) => (
+            <li key={row.key} className="rounded-md border border-zinc-100 px-2 py-1 dark:border-zinc-800">
+              <div className="font-mono">{row.name}</div>
+              <div className="mt-0.5 text-[11px] text-zinc-500">{row.meta}</div>
+              {row.reason ? <div className="mt-0.5 text-[11px]">{row.reason}</div> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -608,6 +1019,7 @@ function HotTimePanel() {
   const [scheduleDraft, setScheduleDraft] = useState<HotTimeSchedule[]>([]);
   const [saving, setSaving] = useState(false);
   const value = draft ?? data?.hotTime ?? null;
+  const conflicts = value ? hotTimeConflicts(value, scheduleDraft) : [];
 
   useEffect(() => {
     // 서버 설정을 편집 draft 로 복사한다. 이후 입력 중에는 draft 가 로컬 소스다.
@@ -767,6 +1179,13 @@ function HotTimePanel() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400">예약 없음</p>
             ) : (
               <div className="space-y-2">
+                {conflicts.length > 0 ? (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                    {conflicts.map((message) => (
+                      <div key={message}>{message}</div>
+                    ))}
+                  </div>
+                ) : null}
                 {scheduleDraft.map((schedule, index) => (
                   <ScheduleEditor
                     key={schedule.id}
@@ -794,6 +1213,61 @@ function HotTimePanel() {
       )}
     </Panel>
   );
+}
+
+function hotTimeConflicts(
+  hotTime: HotTimeSettings,
+  schedules: HotTimeSchedule[],
+): string[] {
+  const active = schedules.filter((row) => row.enabled);
+  const messages: string[] = [];
+  for (let i = 0; i < active.length; i += 1) {
+    for (let j = i + 1; j < active.length; j += 1) {
+      const overlapDays = active[i].days.filter((day) => active[j].days.includes(day));
+      if (overlapDays.length > 0 && timeOverlaps(active[i], active[j])) {
+        messages.push(
+          `반복 예약 겹침: ${active[i].title || active[i].id} / ${active[j].title || active[j].id} (${overlapDays.map((day) => DAY_LABELS[day]).join(", ")})`,
+        );
+      }
+    }
+  }
+  if (isManualHotTimeValid(hotTime)) {
+    const start = new Date(hotTime.startsAt);
+    const end = new Date(hotTime.endsAt);
+    for (const schedule of active) {
+      if (manualOverlapsSchedule(start, end, schedule)) {
+        messages.push(`단발 핫타임과 반복 예약 겹침: ${schedule.title || schedule.id}`);
+      }
+    }
+  }
+  return messages.slice(0, 5);
+}
+
+function isManualHotTimeValid(hotTime: HotTimeSettings) {
+  const start = Date.parse(hotTime.startsAt);
+  const end = Date.parse(hotTime.endsAt);
+  return hotTime.enabled && Number.isFinite(start) && Number.isFinite(end) && start < end;
+}
+
+function timeOverlaps(a: HotTimeSchedule, b: HotTimeSchedule) {
+  return a.startsAt < b.endsAt && b.startsAt < a.endsAt;
+}
+
+function manualOverlapsSchedule(start: Date, end: Date, schedule: HotTimeSchedule) {
+  const cursor = new Date(start);
+  cursor.setUTCHours(0, 0, 0, 0);
+  while (cursor.getTime() < end.getTime()) {
+    const kst = new Date(cursor.getTime() + 9 * 60 * 60 * 1000);
+    const day = kst.getUTCDay();
+    if (schedule.days.includes(day)) {
+      const datePart = kst.toISOString().slice(0, 10);
+      const scheduledStart = Date.parse(`${datePart}T${schedule.startsAt}:00+09:00`);
+      const scheduledEnd = Date.parse(`${datePart}T${schedule.endsAt}:00+09:00`);
+      if (start.getTime() < scheduledEnd && scheduledStart < end.getTime()) return true;
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return false;
 }
 
 const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -922,6 +1396,20 @@ function AlertCard({
   );
 }
 
+function toneClass(level: "danger" | "warning" | "info") {
+  return level === "danger"
+    ? "border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+    : level === "warning"
+      ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+      : "border-zinc-200 bg-white text-zinc-800 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
+}
+
+function statusLabel(status: RewardFailureStatus) {
+  if (status === "compensated") return "보정 완료";
+  if (status === "ignored") return "제외";
+  return "검토 완료";
+}
+
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
@@ -952,6 +1440,22 @@ function TextField({
         className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
       />
     </label>
+  );
+}
+
+function InlineInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full min-w-32 rounded border border-zinc-300 bg-white px-1.5 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+    />
   );
 }
 

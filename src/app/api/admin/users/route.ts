@@ -30,6 +30,7 @@ export async function GET(req: Request) {
     ? base.where(
         or(
           ilike(users.email, `%${q}%`),
+          ilike(users.id, `%${q}%`),
           ilike(users.gameName, `%${q}%`),
           ilike(presence.name, `%${q}%`),
         ),

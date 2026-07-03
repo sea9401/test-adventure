@@ -1,5 +1,3 @@
-import { db } from "@/db";
-import { opsSettings } from "@/db/schema";
 import { logAdminAction } from "@/lib/server/adminAudit";
 import {
   currentAdminEmail,
@@ -9,12 +7,16 @@ import {
   ALERT_THRESHOLDS_KEY,
   HOT_TIME_KEY,
   HOT_TIME_SCHEDULES_KEY,
+  REWARD_COMPENSATION_PRESETS_KEY,
   parseAlertThresholds,
   parseHotTime,
   parseHotTimeSchedules,
+  parseRewardCompensationPresets,
   readAlertThresholdSettings,
   readHotTimeSettings,
   readHotTimeSchedules,
+  readRewardCompensationPresets,
+  upsertOpsSetting,
 } from "@/lib/server/opsSettings";
 
 export async function GET() {
@@ -29,10 +31,16 @@ export async function GET() {
       updatedByEmail: alertThresholdsUpdatedByEmail,
       updatedAt: alertThresholdsUpdatedAt,
     },
+    {
+      presets: rewardCompensationPresets,
+      updatedByEmail: rewardCompensationPresetsUpdatedByEmail,
+      updatedAt: rewardCompensationPresetsUpdatedAt,
+    },
   ] = await Promise.all([
     readHotTimeSettings(),
     readHotTimeSchedules(),
     readAlertThresholdSettings(),
+    readRewardCompensationPresets(),
   ]);
 
   return Response.json({
@@ -46,6 +54,10 @@ export async function GET() {
     alertThresholds,
     alertThresholdsUpdatedByEmail,
     alertThresholdsUpdatedAt: alertThresholdsUpdatedAt?.toISOString() ?? null,
+    rewardCompensationPresets,
+    rewardCompensationPresetsUpdatedByEmail,
+    rewardCompensationPresetsUpdatedAt:
+      rewardCompensationPresetsUpdatedAt?.toISOString() ?? null,
   });
 }
 
@@ -58,6 +70,7 @@ export async function POST(req: Request) {
         hotTime?: unknown;
         hotTimeSchedules?: unknown;
         alertThresholds?: unknown;
+        rewardCompensationPresets?: unknown;
       }
     | null;
   if (!body || typeof body !== "object") {
@@ -69,7 +82,7 @@ export async function POST(req: Request) {
 
   if ("hotTime" in body) {
     const hotTime = parseHotTime(body.hotTime);
-    await upsertSetting(HOT_TIME_KEY, hotTime, adminEmail, now);
+    await upsertOpsSetting(HOT_TIME_KEY, hotTime, adminEmail, now);
     await logAdminAction({
       adminEmail,
       action: "ops-settings.hot-time.update",
@@ -80,7 +93,7 @@ export async function POST(req: Request) {
 
   if ("hotTimeSchedules" in body) {
     const hotTimeSchedules = parseHotTimeSchedules(body.hotTimeSchedules);
-    await upsertSetting(HOT_TIME_SCHEDULES_KEY, hotTimeSchedules, adminEmail, now);
+    await upsertOpsSetting(HOT_TIME_SCHEDULES_KEY, hotTimeSchedules, adminEmail, now);
     await logAdminAction({
       adminEmail,
       action: "ops-settings.hot-time-schedules.update",
@@ -91,7 +104,7 @@ export async function POST(req: Request) {
 
   if ("alertThresholds" in body) {
     const alertThresholds = parseAlertThresholds(body.alertThresholds);
-    await upsertSetting(ALERT_THRESHOLDS_KEY, alertThresholds, adminEmail, now);
+    await upsertOpsSetting(ALERT_THRESHOLDS_KEY, alertThresholds, adminEmail, now);
     await logAdminAction({
       adminEmail,
       action: "ops-settings.alert-thresholds.update",
@@ -100,33 +113,27 @@ export async function POST(req: Request) {
     updated.alertThresholds = alertThresholds;
   }
 
+  if ("rewardCompensationPresets" in body) {
+    const rewardCompensationPresets = parseRewardCompensationPresets(
+      body.rewardCompensationPresets,
+    );
+    await upsertOpsSetting(
+      REWARD_COMPENSATION_PRESETS_KEY,
+      rewardCompensationPresets,
+      adminEmail,
+      now,
+    );
+    await logAdminAction({
+      adminEmail,
+      action: "ops-settings.reward-compensation-presets.update",
+      detail: { count: rewardCompensationPresets.length },
+    });
+    updated.rewardCompensationPresets = rewardCompensationPresets;
+  }
+
   if (Object.keys(updated).length === 0) {
     return Response.json({ ok: false, error: "no setting provided" }, { status: 400 });
   }
 
   return Response.json({ ok: true, ...updated, updatedByEmail: adminEmail });
-}
-
-async function upsertSetting(
-  key: string,
-  value: unknown,
-  adminEmail: string,
-  updatedAt: Date,
-) {
-  await db
-    .insert(opsSettings)
-    .values({
-      key,
-      value,
-      updatedByEmail: adminEmail,
-      updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: opsSettings.key,
-      set: {
-        value,
-        updatedByEmail: adminEmail,
-        updatedAt,
-      },
-    });
 }

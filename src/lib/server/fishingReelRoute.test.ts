@@ -73,7 +73,7 @@ function seedFisherSession(now: number) {
 
 describe("POST /api/v2/fishing/reel", () => {
   beforeEach(() => {
-    vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    vi.spyOn(Date, "now").mockReturnValue(1_800_014_400_000);
     vi.spyOn(Math, "random").mockReturnValue(0.5);
   });
   afterEach(() => {

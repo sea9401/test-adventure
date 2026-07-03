@@ -33,10 +33,48 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const SANCTION_PRESETS = [
-  { label: "매크로 의심 경고", action: "warn" as const, days: 0, reason: "매크로 의심 패턴 확인" },
-  { label: "1일 정지", action: "suspend" as const, days: 1, reason: "반복 요청 제한 초과" },
-  { label: "3일 정지", action: "suspend" as const, days: 3, reason: "반복 자동화 의심 행위" },
-  { label: "영구 정지", action: "ban" as const, days: 0, reason: "명백한 자동화/악용 행위" },
+  {
+    label: "매크로 의심 경고",
+    action: "warn" as const,
+    days: 0,
+    reason: "비정상 반복 플레이 패턴이 확인되어 경고 처리되었습니다.",
+    adminMemo: "제한 이벤트·반복 요청 패턴 확인",
+  },
+  {
+    label: "1일 정지",
+    action: "suspend" as const,
+    days: 1,
+    reason: "반복 요청 제한 초과로 1일 이용 제한이 적용되었습니다.",
+    adminMemo: "rate_limited 누적, 단기 정지",
+  },
+  {
+    label: "3일 정지",
+    action: "suspend" as const,
+    days: 3,
+    reason: "자동화 의심 행위가 반복되어 3일 이용 제한이 적용되었습니다.",
+    adminMemo: "자동화 의심 반복, 중기 정지",
+  },
+  {
+    label: "동일 IP 다계정",
+    action: "suspend" as const,
+    days: 3,
+    reason: "동일 접속 환경에서 비정상 다계정 이용 정황이 확인되었습니다.",
+    adminMemo: "IP 연결 계정/행동 패턴 교차 확인 필요",
+  },
+  {
+    label: "보상 악용",
+    action: "suspend" as const,
+    days: 7,
+    reason: "보상 시스템 악용 정황이 확인되어 이용 제한이 적용되었습니다.",
+    adminMemo: "경제 로그와 보상 수령 이력 확인",
+  },
+  {
+    label: "영구 정지",
+    action: "ban" as const,
+    days: 0,
+    reason: "명백한 자동화 또는 악용 행위로 영구 이용 제한이 적용되었습니다.",
+    adminMemo: "영구 차단 근거 확인 완료",
+  },
 ];
 
 // 유저 제재 — 밴/정지/경고 부과 + 해제 + 이력. /api/admin/sanctions 직접 조작.
@@ -48,11 +86,12 @@ export function SanctionsSection({
   userId: string;
   readOnly: boolean;
 }) {
-  const { showToast } = useAdmin();
+  const { showToast, adminMe } = useAdmin();
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
+  const [adminMemo, setAdminMemo] = useState("");
   const [days, setDays] = useState(7);
 
   const load = useCallback(async () => {
@@ -86,6 +125,7 @@ export function SanctionsSection({
         userId,
         action,
         reason,
+        adminMemo,
         days: overrideDays,
       });
       const label =
@@ -106,11 +146,13 @@ export function SanctionsSection({
 
   const applyPreset = (preset: (typeof SANCTION_PRESETS)[number]) => {
     setReason(preset.reason);
+    setAdminMemo(preset.adminMemo);
     if (preset.days > 0) setDays(preset.days);
   };
 
   const banned = status?.banned ?? false;
-  const disabled = readOnly || loading || busy;
+  const canSanction = Boolean(adminMe?.capabilities.sanction);
+  const disabled = readOnly || loading || busy || !canSanction;
 
   return (
     <section className="rounded-md border border-amber-300 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
@@ -137,7 +179,13 @@ export function SanctionsSection({
         <TextInput
           value={reason}
           onChange={setReason}
-          placeholder="사유 (감사 로그·이력에 기록)"
+          placeholder="유저 노출 사유"
+          disabled={disabled}
+        />
+        <TextInput
+          value={adminMemo}
+          onChange={setAdminMemo}
+          placeholder="관리자 메모 (감사 로그에만 기록)"
           disabled={disabled}
         />
         <div className="flex flex-wrap gap-1">
@@ -244,6 +292,11 @@ export function SanctionsSection({
       {readOnly && (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
           보기 전용 모드 — 상단에서 편집 가능으로 전환해야 동작합니다.
+        </p>
+      )}
+      {!canSanction && (
+        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+          현재 계정에는 제재 권한이 없습니다.
         </p>
       )}
     </section>

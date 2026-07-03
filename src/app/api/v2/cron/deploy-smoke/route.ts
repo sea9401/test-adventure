@@ -2,14 +2,28 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents, opsSettings } from "@/db/schema";
 import { requireCronAuth } from "@/lib/server/cronAuth";
-import { readHotTimeSettings } from "@/lib/server/opsSettings";
+import {
+  readAlertThresholdSettings,
+  readHotTimeSchedules,
+  readHotTimeSettings,
+} from "@/lib/server/opsSettings";
 
 export async function POST(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
 
-  const [hotTime, economy, abuse, audit, settings] = await Promise.all([
+  const [
+    hotTime,
+    hotTimeSchedules,
+    alertThresholds,
+    economy,
+    abuse,
+    audit,
+    settings,
+  ] = await Promise.all([
     readHotTimeSettings(),
+    readHotTimeSchedules(),
+    readAlertThresholdSettings(),
     db
       .select({ id: economyEvents.id })
       .from(economyEvents)
@@ -32,6 +46,10 @@ export async function POST(req: Request) {
     import("@/app/api/v2/dungeon/hunt/route"),
     import("@/app/api/v2/guild/training-ground/route"),
     import("@/app/api/admin/ops-dashboard/route"),
+    import("@/app/api/admin/ops-settings/route"),
+    import("@/app/api/admin/ops-search/route"),
+    import("@/app/api/admin/me/route"),
+    import("@/app/api/admin/reward-failures/resolve/route"),
   ]);
 
   return Response.json({
@@ -41,9 +59,16 @@ export async function POST(req: Request) {
     abuseReadable: Array.isArray(abuse),
     auditReadable: Array.isArray(audit),
     settingsReadable: Array.isArray(settings),
+    hotTimeScheduleCount: hotTimeSchedules.schedules.length,
+    alertThresholdsReadable: alertThresholds.alertThresholds.rewardFailures > 0,
     fishingStatusApiLoaded: typeof apiModules[0].GET === "function",
     huntApiLoaded: typeof apiModules[1].POST === "function",
     guildTrainingApiLoaded: typeof apiModules[2].GET === "function",
     adminOpsApiLoaded: typeof apiModules[3].GET === "function",
+    adminOpsSettingsApiLoaded:
+      typeof apiModules[4].GET === "function" && typeof apiModules[4].POST === "function",
+    adminOpsSearchApiLoaded: typeof apiModules[5].GET === "function",
+    adminMeApiLoaded: typeof apiModules[6].GET === "function",
+    rewardFailureResolveApiLoaded: typeof apiModules[7].POST === "function",
   });
 }

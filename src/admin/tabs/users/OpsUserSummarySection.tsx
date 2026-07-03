@@ -53,6 +53,50 @@ const COMP_KIND_OPTIONS = [
   "material",
 ] as const;
 
+const COMP_PRESETS: Array<{
+  label: string;
+  itemKind: (typeof COMP_KIND_OPTIONS)[number];
+  itemId: string;
+  quantity: number;
+  reason: string;
+}> = [
+  {
+    label: "낚시 코인 미지급",
+    itemKind: "fishing_coin",
+    itemId: "",
+    quantity: 100,
+    reason: "낚시 코인 미지급 보정",
+  },
+  {
+    label: "발굴 코인 미지급",
+    itemKind: "treasure_coin",
+    itemId: "",
+    quantity: 100,
+    reason: "발굴 코인 미지급 보정",
+  },
+  {
+    label: "숙련 증서 미지급",
+    itemKind: "mastery_certificate",
+    itemId: "",
+    quantity: 1,
+    reason: "숙련 증서 미지급 보정",
+  },
+  {
+    label: "스태미나 회복약",
+    itemKind: "stamina_potion",
+    itemId: "",
+    quantity: 1,
+    reason: "스태미나 회복약 미지급 보정",
+  },
+  {
+    label: "재료 보정",
+    itemKind: "material",
+    itemId: "",
+    quantity: 1,
+    reason: "재료 미지급 보정",
+  },
+];
+
 export function OpsUserSummarySection({
   userId,
   readOnly,
@@ -60,7 +104,7 @@ export function OpsUserSummarySection({
   userId: string;
   readOnly: boolean;
 }) {
-  const { showToast } = useAdmin();
+  const { showToast, adminMe } = useAdmin();
   const [itemKind, setItemKind] = useState<(typeof COMP_KIND_OPTIONS)[number]>("gold");
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState(0);
@@ -79,6 +123,8 @@ export function OpsUserSummarySection({
       ),
     [userId],
   );
+  const canReward = Boolean(adminMe?.capabilities.reward);
+  const formDisabled = readOnly || saving || !canReward;
 
   useEffect(() => {
     if (error) console.warn("[admin] ops summary failed", error);
@@ -107,7 +153,7 @@ export function OpsUserSummarySection({
       });
       setLastCompensation(result);
       showToast("보정 지급 완료");
-      await refetch();
+      refetch();
     } catch (e) {
       showToast(`보정 실패: ${e instanceof Error ? e.message : "오류"}`);
     } finally {
@@ -147,6 +193,24 @@ export function OpsUserSummarySection({
           <InventorySummary summary={data.inventorySummary} />
           <section className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
             <h3 className="mb-2 text-xs font-semibold">보상 보정 지급</h3>
+            <div className="mb-2 flex flex-wrap gap-1">
+              {COMP_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  disabled={formDisabled}
+                  onClick={() => {
+                    setItemKind(preset.itemKind);
+                    setItemId(preset.itemId);
+                    setQuantity(preset.quantity);
+                    setReason(preset.reason);
+                  }}
+                  className="rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
             <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr]">
               <label className="space-y-1 text-xs">
                 <span className="text-zinc-500">종류</span>
@@ -155,7 +219,7 @@ export function OpsUserSummarySection({
                   onChange={(e) =>
                     setItemKind(e.target.value as (typeof COMP_KIND_OPTIONS)[number])
                   }
-                  disabled={readOnly || saving}
+                  disabled={formDisabled}
                   className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-950"
                 >
                   {COMP_KIND_OPTIONS.map((value) => (
@@ -169,33 +233,33 @@ export function OpsUserSummarySection({
                 label="itemId"
                 value={itemId}
                 onChange={setItemId}
-                disabled={readOnly || saving}
+                disabled={formDisabled}
                 placeholder="material만 필수"
               />
               <SmallInput
                 label="수량"
                 value={String(quantity)}
                 onChange={(value) => setQuantity(Math.max(0, Math.floor(Number(value) || 0)))}
-                disabled={readOnly || saving}
+                disabled={formDisabled}
                 type="number"
               />
               <SmallInput
                 label="사유"
                 value={reason}
                 onChange={setReason}
-                disabled={readOnly || saving}
+                disabled={formDisabled}
                 placeholder="문의/보상 실패 보정"
               />
               <SmallInput
                 label="원본 event id"
                 value={sourceEventId ? String(sourceEventId) : ""}
                 onChange={(value) => setSourceEventId(Math.max(0, Math.floor(Number(value) || 0)))}
-                disabled={readOnly || saving}
+                disabled={formDisabled}
                 type="number"
               />
               <div className="flex items-end">
                 <Button
-                  disabled={readOnly || saving || quantity <= 0}
+                  disabled={formDisabled || quantity <= 0}
                   onClick={() => void compensate()}
                 >
                   {saving ? "지급 중..." : "보정 지급"}
@@ -206,6 +270,11 @@ export function OpsUserSummarySection({
               <p className="mt-2 text-[11px] text-emerald-700 dark:text-emerald-400">
                 잔액 {lastCompensation.beforeBalance.toLocaleString()} →{" "}
                 {lastCompensation.balance.toLocaleString()}
+              </p>
+            ) : null}
+            {!canReward ? (
+              <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
+                현재 계정에는 보상 지급 권한이 없습니다.
               </p>
             ) : null}
             {data.recentCompensations.length > 0 ? (

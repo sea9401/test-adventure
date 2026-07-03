@@ -12,6 +12,13 @@ function getAdminEmails(): Set<string> {
 
 export type AdminRole = "readonly" | "reward" | "sanction" | "super";
 
+export type AdminCapabilities = {
+  read: boolean;
+  reward: boolean;
+  sanction: boolean;
+  super: boolean;
+};
+
 function getRoleEmails(envKey: string): Set<string> {
   const raw = process.env[envKey] ?? "";
   return new Set(
@@ -31,6 +38,41 @@ export async function currentAdminRole(): Promise<AdminRole | null> {
   if (getRoleEmails("OPS_SANCTION_EMAILS").has(email)) return "sanction";
   if (getRoleEmails("OPS_READONLY_EMAILS").has(email)) return "readonly";
   return null;
+}
+
+export function getAdminRoleConfigSummary(): Record<AdminRole, number> {
+  return {
+    super: getAdminEmails().size,
+    reward: getRoleEmails("OPS_REWARD_EMAILS").size,
+    sanction: getRoleEmails("OPS_SANCTION_EMAILS").size,
+    readonly: getRoleEmails("OPS_READONLY_EMAILS").size,
+  };
+}
+
+export async function currentAdminCapabilities(): Promise<AdminCapabilities> {
+  const session = await auth();
+  const email = session?.user?.email?.toLowerCase();
+  const empty: AdminCapabilities = {
+    read: false,
+    reward: false,
+    sanction: false,
+    super: false,
+  };
+  if (!email) return empty;
+  const superAdmin = getAdminEmails().has(email);
+  const reward = superAdmin || getRoleEmails("OPS_REWARD_EMAILS").has(email);
+  const sanction = superAdmin || getRoleEmails("OPS_SANCTION_EMAILS").has(email);
+  const readonly =
+    superAdmin ||
+    reward ||
+    sanction ||
+    getRoleEmails("OPS_READONLY_EMAILS").has(email);
+  return {
+    read: readonly,
+    reward,
+    sanction,
+    super: superAdmin,
+  };
 }
 
 /** 관리자 이메일 리스트 (소문자). 랭킹 등 admin 제외 SQL 필터 합성에 사용. */

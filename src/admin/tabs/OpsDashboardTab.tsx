@@ -14,6 +14,8 @@ type Dashboard = {
   generatedAt: string;
   periodHours: number;
   webhookConfigured: boolean;
+  alertThresholds: AlertThresholdSettings;
+  alertHistory: AlertHistoryEntry[];
   alerts: Array<{
     level: "danger" | "warning" | "info";
     title: string;
@@ -96,6 +98,34 @@ type HotTimeSettings = {
     fishingCoinPct: number;
   };
   note: string;
+};
+
+type HotTimeSchedule = {
+  id: string;
+  enabled: boolean;
+  title: string;
+  days: number[];
+  startsAt: string;
+  endsAt: string;
+  bonuses: HotTimeSettings["bonuses"];
+  note: string;
+};
+
+type AlertThresholdSettings = {
+  abuseLast5m: number;
+  abuseLast1h: number;
+  rewardFailures: number;
+  largeGoldEvents: number;
+  adminAudit: number;
+};
+
+type AlertHistoryEntry = {
+  id: string;
+  message: string;
+  detail: Record<string, unknown> | null;
+  status: "sent" | "failed" | "skipped";
+  error: string | null;
+  createdAt: string;
 };
 
 export function OpsDashboardTab() {
@@ -341,48 +371,10 @@ export function OpsDashboardTab() {
             )}
           </Panel>
 
-          <Panel title="보상 실패 보정 후보">
-            {data.rewardFailureCandidates.length === 0 ? (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">후보 없음</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="text-zinc-500 dark:text-zinc-400">
-                    <tr>
-                      <th className="py-1 pr-3 font-medium">event id</th>
-                      <th className="py-1 pr-3 font-medium">유저</th>
-                      <th className="py-1 pr-3 font-medium">유형</th>
-                      <th className="py-1 pr-3 font-medium">시각</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.rewardFailureCandidates.map((row) => (
-                      <tr key={row.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                        <td className="py-1 pr-3 font-mono">{row.id}</td>
-                        <td className="py-1 pr-3 font-mono">
-                          {row.userId ? (
-                            <Link
-                              href={`/admin?tab=economy&userId=${encodeURIComponent(row.userId)}&eventType=${encodeURIComponent(row.eventType)}`}
-                              className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
-                            >
-                              {row.userId.slice(0, 12)}
-                            </Link>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                        <td className="py-1 pr-3 font-mono">{row.itemId ?? row.eventType}</td>
-                        <td className="py-1 pr-3 text-zinc-500">
-                          {new Date(row.createdAt).toLocaleString("ko-KR")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
+          <RewardFailurePanel rows={data.rewardFailureCandidates} onDone={refetch} />
 
+          <AlertThresholdPanel value={data.alertThresholds} onSaved={refetch} />
+          <AlertHistoryPanel rows={data.alertHistory} />
           <HotTimePanel />
         </>
       )}
@@ -390,14 +382,230 @@ export function OpsDashboardTab() {
   );
 }
 
+function RewardFailurePanel({
+  rows,
+  onDone,
+}: {
+  rows: Dashboard["rewardFailureCandidates"];
+  onDone: () => void;
+}) {
+  const { showToast } = useAdmin();
+  const [selected, setSelected] = useState<number[]>([]);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const selectedSet = new Set(selected);
+
+  const toggle = (id: number) => {
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
+    );
+  };
+
+  const markReviewed = async () => {
+    if (selected.length === 0) return;
+    setSaving(true);
+    try {
+      await adminPost("/api/admin/reward-failures/resolve", {
+        eventIds: selected,
+        note,
+      });
+      setSelected([]);
+      setNote("");
+      showToast("선택 보상 실패 검토 처리됨");
+      onDone();
+    } catch (e) {
+      showToast(`처리 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Panel title="보상 실패 보정 후보">
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">후보 없음</p>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-end gap-2 text-xs">
+            <TextField
+              label="처리 메모"
+              value={note}
+              onChange={setNote}
+            />
+            <Button
+              onClick={() => void markReviewed()}
+              disabled={saving || selected.length === 0}
+            >
+              {saving ? "처리 중..." : `선택 ${selected.length}건 검토 처리`}
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-zinc-500 dark:text-zinc-400">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">선택</th>
+                  <th className="py-1 pr-3 font-medium">event id</th>
+                  <th className="py-1 pr-3 font-medium">유저</th>
+                  <th className="py-1 pr-3 font-medium">유형</th>
+                  <th className="py-1 pr-3 font-medium">시각</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                    <td className="py-1 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(row.id)}
+                        onChange={() => toggle(row.id)}
+                      />
+                    </td>
+                    <td className="py-1 pr-3 font-mono">{row.id}</td>
+                    <td className="py-1 pr-3 font-mono">
+                      {row.userId ? (
+                        <Link
+                          href={`/admin?tab=economy&userId=${encodeURIComponent(row.userId)}&eventType=${encodeURIComponent(row.eventType)}`}
+                          className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
+                        >
+                          {row.userId.slice(0, 12)}
+                        </Link>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="py-1 pr-3 font-mono">{row.itemId ?? row.eventType}</td>
+                    <td className="py-1 pr-3 text-zinc-500">
+                      {new Date(row.createdAt).toLocaleString("ko-KR")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function AlertThresholdPanel({
+  value,
+  onSaved,
+}: {
+  value: AlertThresholdSettings;
+  onSaved: () => void;
+}) {
+  const { showToast } = useAdmin();
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // 서버 설정을 편집 draft 로 복사한다. 이후 입력 중에는 draft 가 로컬 소스다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(value);
+  }, [value]);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await adminPost("/api/admin/ops-settings", { alertThresholds: draft });
+      showToast("알림 임계치 저장됨");
+      onSaved();
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Panel title="운영 알림 임계치">
+      <div className="grid gap-2 md:grid-cols-5">
+        <NumberField
+          label="제한 5분"
+          value={draft.abuseLast5m}
+          onChange={(abuseLast5m) => setDraft({ ...draft, abuseLast5m })}
+          max={100_000}
+        />
+        <NumberField
+          label="제한 1시간"
+          value={draft.abuseLast1h}
+          onChange={(abuseLast1h) => setDraft({ ...draft, abuseLast1h })}
+          max={100_000}
+        />
+        <NumberField
+          label="보상 실패"
+          value={draft.rewardFailures}
+          onChange={(rewardFailures) => setDraft({ ...draft, rewardFailures })}
+          max={100_000}
+        />
+        <NumberField
+          label="대량 골드"
+          value={draft.largeGoldEvents}
+          onChange={(largeGoldEvents) => setDraft({ ...draft, largeGoldEvents })}
+          max={100_000}
+        />
+        <NumberField
+          label="관리자 변경"
+          value={draft.adminAudit}
+          onChange={(adminAudit) => setDraft({ ...draft, adminAudit })}
+          max={100_000}
+        />
+      </div>
+      <div className="mt-2 flex justify-end">
+        <Button onClick={() => void save()} disabled={saving}>
+          {saving ? "저장 중..." : "임계치 저장"}
+        </Button>
+      </div>
+    </Panel>
+  );
+}
+
+function AlertHistoryPanel({ rows }: { rows: AlertHistoryEntry[] }) {
+  return (
+    <Panel title="운영 알림 이력">
+      {rows.length === 0 ? (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">이력 없음</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-zinc-500 dark:text-zinc-400">
+              <tr>
+                <th className="py-1 pr-3 font-medium">시각</th>
+                <th className="py-1 pr-3 font-medium">상태</th>
+                <th className="py-1 pr-3 font-medium">메시지</th>
+                <th className="py-1 pr-3 font-medium">오류</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                  <td className="whitespace-nowrap py-1 pr-3 text-zinc-500">
+                    {new Date(row.createdAt).toLocaleString("ko-KR")}
+                  </td>
+                  <td className="py-1 pr-3 font-mono">{row.status}</td>
+                  <td className="py-1 pr-3">{row.message}</td>
+                  <td className="py-1 pr-3 text-zinc-500">{row.error ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function HotTimePanel() {
   const { showToast } = useAdmin();
   const { data, loading, error, refetch } = useAsyncData<{
     hotTime: HotTimeSettings;
+    hotTimeSchedules: HotTimeSchedule[];
     updatedByEmail: string | null;
     updatedAt: string | null;
   }>((signal) => adminGet("/api/admin/ops-settings", signal));
   const [draft, setDraft] = useState<HotTimeSettings | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<HotTimeSchedule[]>([]);
   const [saving, setSaving] = useState(false);
   const value = draft ?? data?.hotTime ?? null;
 
@@ -405,6 +613,7 @@ function HotTimePanel() {
     // 서버 설정을 편집 draft 로 복사한다. 이후 입력 중에는 draft 가 로컬 소스다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (data?.hotTime) setDraft(data.hotTime);
+    if (data?.hotTimeSchedules) setScheduleDraft(data.hotTimeSchedules);
   }, [data]);
 
   useEffect(() => {
@@ -427,6 +636,44 @@ function HotTimePanel() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveSchedules = async () => {
+    setSaving(true);
+    try {
+      const saved = await adminPost<{ hotTimeSchedules: HotTimeSchedule[] }>(
+        "/api/admin/ops-settings",
+        { hotTimeSchedules: scheduleDraft },
+      );
+      setScheduleDraft(saved.hotTimeSchedules);
+      showToast("핫타임 반복 예약 저장됨");
+      void refetch();
+    } catch (e) {
+      showToast(`저장 실패: ${e instanceof Error ? e.message : "오류"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addSchedule = () => {
+    setScheduleDraft((prev) => [
+      ...prev,
+      {
+        id: `schedule-${Date.now().toString(36)}`,
+        enabled: true,
+        title: "반복 핫타임",
+        days: [6, 0],
+        startsAt: "20:00",
+        endsAt: "22:00",
+        bonuses: {
+          goldPct: 20,
+          expPct: 20,
+          masteryPct: 20,
+          fishingCoinPct: 20,
+        },
+        note: "",
+      },
+    ]);
   };
 
   return (
@@ -511,9 +758,144 @@ function HotTimePanel() {
               {saving ? "저장 중..." : "설정 저장"}
             </Button>
           </div>
+          <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h5 className="text-xs font-semibold">반복 예약</h5>
+              <Button onClick={addSchedule}>예약 추가</Button>
+            </div>
+            {scheduleDraft.length === 0 ? (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">예약 없음</p>
+            ) : (
+              <div className="space-y-2">
+                {scheduleDraft.map((schedule, index) => (
+                  <ScheduleEditor
+                    key={schedule.id}
+                    value={schedule}
+                    onChange={(next) =>
+                      setScheduleDraft((prev) =>
+                        prev.map((row) => (row.id === schedule.id ? next : row)),
+                      )
+                    }
+                    onRemove={() =>
+                      setScheduleDraft((prev) => prev.filter((row) => row.id !== schedule.id))
+                    }
+                    index={index}
+                  />
+                ))}
+                <div className="flex justify-end">
+                  <Button onClick={() => void saveSchedules()} disabled={saving}>
+                    {saving ? "저장 중..." : "반복 예약 저장"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </Panel>
+  );
+}
+
+const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function ScheduleEditor({
+  value,
+  onChange,
+  onRemove,
+  index,
+}: {
+  value: HotTimeSchedule;
+  onChange: (value: HotTimeSchedule) => void;
+  onRemove: () => void;
+  index: number;
+}) {
+  const setBonus = (
+    key: keyof HotTimeSettings["bonuses"],
+    next: number,
+  ) => {
+    onChange({ ...value, bonuses: { ...value.bonuses, [key]: next } });
+  };
+  const toggleDay = (day: number) => {
+    const days = value.days.includes(day)
+      ? value.days.filter((value) => value !== day)
+      : [...value.days, day].sort((a, b) => a - b);
+    onChange({ ...value, days });
+  };
+
+  return (
+    <div className="rounded-md border border-zinc-100 p-2 dark:border-zinc-800">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="inline-flex items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={value.enabled}
+            onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
+          />
+          <span>예약 {index + 1} 활성화</span>
+        </label>
+        <Button onClick={onRemove}>삭제</Button>
+      </div>
+      <div className="grid gap-2 md:grid-cols-3">
+        <TextField
+          label="제목"
+          value={value.title}
+          onChange={(title) => onChange({ ...value, title })}
+        />
+        <TextField
+          label="시작 시각(KST)"
+          type="time"
+          value={value.startsAt}
+          onChange={(startsAt) => onChange({ ...value, startsAt })}
+        />
+        <TextField
+          label="종료 시각(KST)"
+          type="time"
+          value={value.endsAt}
+          onChange={(endsAt) => onChange({ ...value, endsAt })}
+        />
+        <NumberField
+          label="골드 %"
+          value={value.bonuses.goldPct}
+          onChange={(next) => setBonus("goldPct", next)}
+        />
+        <NumberField
+          label="경험치 %"
+          value={value.bonuses.expPct}
+          onChange={(next) => setBonus("expPct", next)}
+        />
+        <NumberField
+          label="숙련 %"
+          value={value.bonuses.masteryPct}
+          onChange={(next) => setBonus("masteryPct", next)}
+        />
+        <NumberField
+          label="낚시 코인 %"
+          value={value.bonuses.fishingCoinPct}
+          onChange={(next) => setBonus("fishingCoinPct", next)}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {DAY_LABELS.map((label, day) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => toggleDay(day)}
+            className={
+              value.days.includes(day)
+                ? "rounded border border-zinc-900 bg-zinc-900 px-2 py-1 text-[11px] text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                : "rounded border border-zinc-300 bg-white px-2 py-1 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
+            }
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <TextField
+        label="메모"
+        value={value.note}
+        onChange={(note) => onChange({ ...value, note })}
+      />
+    </div>
   );
 }
 
@@ -558,7 +940,7 @@ function TextField({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  type?: "text" | "datetime-local";
+  type?: "text" | "datetime-local" | "time";
 }) {
   return (
     <label className="space-y-1 text-xs">
@@ -577,10 +959,12 @@ function NumberField({
   label,
   value,
   onChange,
+  max = 500,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  max?: number;
 }) {
   return (
     <label className="space-y-1 text-xs">
@@ -588,9 +972,11 @@ function NumberField({
       <input
         type="number"
         min={0}
-        max={500}
+        max={max}
         value={value}
-        onChange={(e) => onChange(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+        onChange={(e) =>
+          onChange(Math.min(max, Math.max(0, Math.floor(Number(e.target.value) || 0))))
+        }
         className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
       />
     </label>

@@ -1219,10 +1219,18 @@ const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
 };
 
 function levelBonusLabels(progression: FishingProgressionView): string[] {
-  return [
-    `크기 +${progression.levelBonuses.sizeBonusPct}%`,
-    `특별 손님 +${progression.levelBonuses.specialWeightPct}%`,
+  const bonuses = progression.levelBonuses;
+  const labels = [
+    `크기 +${bonuses.sizeBonusPct}%`,
+    `특별 손님 +${bonuses.specialWeightPct}%`,
   ];
+  if (bonuses.rareSizeBonusPct > 0) {
+    labels.push(`희귀 이상 +${bonuses.rareSizeBonusPct}%`);
+  }
+  if (bonuses.bigCatchSizeBonusPct > 0) {
+    labels.push(`대물급 +${bonuses.bigCatchSizeBonusPct}%`);
+  }
+  return labels;
 }
 
 function rewardSummaryLabels(result: CaughtReelOutcome): string[] {

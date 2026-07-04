@@ -69,6 +69,7 @@ import {
 } from "@/adventure/data/v2/antique";
 import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
+import type { V2LoadoutSpBreakdown } from "./V2LoadoutPanel";
 import {
   SP_FRUIT,
   SP_FRUIT_TIERS,
@@ -224,6 +225,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     () => parseSpFruitUsed(undefined),
   );
   const [spFruitCapBonus, setSpFruitCapBonus] = useState(0);
+  const [spBreakdown, setSpBreakdown] =
+    useState<V2LoadoutSpBreakdown | null>(null);
   // 칭호 — 보유 목록(획득한 것만)·현재 장착. 장착은 /api/v2/me/equip-title POST.
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>([]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
@@ -285,6 +288,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         if (typeof j?.spFruit?.capBonus === "number") {
           setSpFruitCapBonus(j.spFruit.capBonus);
         }
+        if (
+          j?.loadout?.spBreakdown &&
+          typeof j.loadout.spBreakdown === "object"
+        ) {
+          setSpBreakdown(j.loadout.spBreakdown as V2LoadoutSpBreakdown);
+        }
         if (Array.isArray(j?.titles?.ownedTitleIds)) {
           setOwnedTitleIds(j.titles.ownedTitleIds as string[]);
         }
@@ -341,6 +350,68 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     (sum, tier) => sum + (spFruitUsed[tier] ?? 0),
     0,
   );
+  const spFishBonus =
+    spBreakdown?.collectionBonus?.fishSp ?? fishingCodexMeta.spBonus;
+  const spTreasureBonus = spBreakdown?.collectionBonus?.treasureSp ?? 0;
+  const spEquipmentBonus = spBreakdown?.equipmentCodexBonus ?? 0;
+  const spJobUnlockBonus = spBreakdown?.jobUnlockSp ?? 0;
+  const spSoftCapReduction = spBreakdown?.softCapReduction ?? 0;
+  const spCurrentTotal =
+    spBreakdown == null
+      ? spFruitCapBonus + spFishBonus
+      : spBreakdown.base +
+        spJobUnlockBonus -
+        spSoftCapReduction +
+        spBreakdown.spFruitBonus +
+        spFishBonus +
+        spTreasureBonus +
+        spEquipmentBonus;
+  const spSourceRows = [
+    {
+      label: "기본 SP",
+      value: spBreakdown?.base ?? 0,
+      detail: "캐릭터 기본 예산",
+    },
+    {
+      label: "직업 해금",
+      value: spJobUnlockBonus,
+      detail: "직업 트리 해금 보너스",
+      signed: true,
+    },
+    {
+      label: "어보",
+      value: spFishBonus,
+      detail: "낚시 도감 보상",
+      signed: true,
+    },
+    {
+      label: "유물",
+      value: spTreasureBonus,
+      detail: "발굴 도감 보상",
+      signed: true,
+    },
+    {
+      label: "장비 도감",
+      value: spEquipmentBonus,
+      detail: "장비 등록 보상",
+      signed: true,
+    },
+    {
+      label: "SP 열매",
+      value: spBreakdown?.spFruitBonus ?? spFruitCapBonus,
+      detail: `사용 ${spFruitUsedTotal}/${spFruitUseCap}개`,
+      signed: true,
+    },
+    ...(spSoftCapReduction > 0
+      ? [
+          {
+            label: "상한 조정",
+            value: -spSoftCapReduction,
+            detail: "기본·직업 해금 합산 소프트캡",
+          },
+        ]
+      : []),
+  ];
   const fishDiscoveredCount = fishDiscovered.size;
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
@@ -354,7 +425,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           [
             ["huntground", "사냥터"],
             ["equipment", "장비"],
-            ["spFruit", "SP 열매"],
+            ["spFruit", "SP 수집"],
             ["fish", "어보"],
             ["treasure", "유물"],
             ["title", "칭호"],
@@ -551,27 +622,42 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           <Card padding="md">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 className="text-sm font-bold">SP 열매 사용 기록</h2>
+                <h2 className="text-sm font-bold">SP 수집 현황</h2>
                 <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  사용 {spFruitUsedTotal}/{spFruitUseCap}개 · SP 최대치 +
-                  {spFruitCapBonus}
+                  {spBreakdown ? "현재 SP 최대치" : "확인된 수집 보너스"}{" "}
+                  {spCurrentTotal} · SP 열매 +{spFruitCapBonus}
                 </p>
               </div>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                협동 보스 보상
+                영구 SP 기록
               </span>
             </div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-amber-500 transition-[width]"
-                style={{
-                  width: `${
-                    spFruitUseCap > 0
-                      ? Math.min(100, (spFruitUsedTotal / spFruitUseCap) * 100)
-                      : 0
-                  }%`,
-                }}
-              />
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {spSourceRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="rounded-md bg-zinc-50 px-3 py-2 dark:bg-zinc-900/70"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                      {row.label}
+                    </span>
+                    <span
+                      className={`text-sm font-bold tabular-nums ${
+                        row.value < 0
+                          ? "text-rose-600 dark:text-rose-300"
+                          : "text-zinc-900 dark:text-zinc-100"
+                      }`}
+                    >
+                      {row.value > 0 && row.signed ? "+" : ""}
+                      {row.value}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {row.detail}
+                  </p>
+                </div>
+              ))}
             </div>
           </Card>
 

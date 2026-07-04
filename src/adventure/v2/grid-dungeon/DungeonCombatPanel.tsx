@@ -314,7 +314,7 @@ export function DungeonCombatSummary({
         </div>
         <div className="flex items-center gap-2 text-zinc-500">
           <CombatPlaybackBadge isPlaying={isPlaying} />
-          <span>{combat.turns}턴</span>
+          <span>{combat.turns}행동</span>
           <span>내 HP -{combat.hpLost.toLocaleString()}</span>
         </div>
       </div>
@@ -439,4 +439,3 @@ export function DungeonCombatSummary({
     </div>
   );
 }
-

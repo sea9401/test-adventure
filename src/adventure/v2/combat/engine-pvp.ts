@@ -1706,28 +1706,28 @@ export function castV2SkillOnAttackerTurnPvP(
   if (result.selfRegenToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "운기"}] 매 턴 HP +${result.selfRegenToApply.pctMaxHpPerTurn}% (${result.selfRegenToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "운기"}] 행동마다 HP +${result.selfRegenToApply.pctMaxHpPerTurn}% (${result.selfRegenToApply.turns}행동)`,
       side: who,
     });
   }
   if (critBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuff.pct}%p (${critBuff.turns}턴)`,
+      text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuff.pct}%p (${critBuff.turns}행동)`,
       side: who,
     });
   }
   if (evaBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuff.pct}%p (${evaBuff.turns}턴)`,
+      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuff.pct}%p (${evaBuff.turns}행동)`,
       side: who,
     });
   }
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
       side: who,
     });
   }
@@ -1753,14 +1753,14 @@ export function castV2SkillOnAttackerTurnPvP(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
       side: who,
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
       side: who,
     });
   }

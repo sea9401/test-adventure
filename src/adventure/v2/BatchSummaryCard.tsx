@@ -232,7 +232,7 @@ export function BatchSummaryCard({
                     ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950"
                     : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950"
                 }`}
-                title={`${entry.index}회차 · ${entry.enemyName} · ${entry.turns}턴`}
+                title={`${entry.index}회차 · ${entry.enemyName} · ${entry.turns}행동`}
               >
                 {entry.index}회
               </button>

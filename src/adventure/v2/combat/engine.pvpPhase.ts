@@ -815,32 +815,32 @@ export function advanceTurnPvP(
     } else if (effect.kind === "player_dmg_reduction_turns") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${effect.turns}턴간 받는 피해 -${effect.pct}%`,
+        text: `[${skill.name}] ${effect.turns}행동 동안 받는 피해 -${effect.pct}%`,
       });
     } else if (effect.kind === "enemy_def_debuff_pct_turns") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${effect.turns}턴간 ${defender.name}의 DEF -${effect.pct}%`,
+        text: `[${skill.name}] ${effect.turns}행동 동안 ${defender.name}의 DEF -${effect.pct}%`,
       });
     } else if (effect.kind === "player_atk_buff_def_debuff_pct_turns") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${effect.turns}턴간 ATK +${effect.atkPct}%, DEF -${effect.defPct}%`,
+        text: `[${skill.name}] ${effect.turns}행동 동안 ATK +${effect.atkPct}%, DEF -${effect.defPct}%`,
       });
     } else if (effect.kind === "enemy_spd_mult_turns") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${effect.turns}턴간 ${defender.name}의 SPD ×${effect.mult}`,
+        text: `[${skill.name}] ${effect.turns}행동 동안 ${defender.name}의 SPD ×${effect.mult}`,
       });
     } else if (effect.kind === "player_spd_mult_turns") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${effect.turns}턴간 SPD ×${effect.mult}`,
+        text: `[${skill.name}] ${effect.turns}행동 동안 SPD ×${effect.mult}`,
       });
     } else if (effect.kind === "atk_multiplier_with_silence") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${defender.name} ${effect.silenceTurns}턴간 스킬 봉인 (PvP 에선 무효)`,
+        text: `[${skill.name}] ${defender.name} ${effect.silenceTurns}행동 동안 스킬 봉인 (PvP 에선 무효)`,
       });
     } else if (effect.kind === "block_next_enemy_attack") {
       log = appendLog(log, {
@@ -850,7 +850,7 @@ export function advanceTurnPvP(
     } else if (effect.kind === "lifesteal_dmg_pct_turns") {
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] ${effect.turns}턴간 가한 피해의 ${effect.pct}% HP 회복`,
+        text: `[${skill.name}] ${effect.turns}행동 동안 가한 피해의 ${effect.pct}% HP 회복`,
       });
     }
   }

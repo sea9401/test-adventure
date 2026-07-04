@@ -219,7 +219,7 @@ function DuelOnlySection({
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <div className="text-zinc-500">{won ? "격파" : "패배"}</div>
-          <div className="font-mono">{turns}턴</div>
+          <div className="font-mono">{turns}행동</div>
         </div>
         {maxHp !== undefined && (
           <div className="text-right">

@@ -1,7 +1,7 @@
 // 마법형 몬스터 (SPI 부활 PR-3a) — atkType:"magic" 몹의 공격이 플레이어 마법방어(magicDef=정신)로
 // 경감되는지 검증. 물리방어 파이프라인 우회 = 물리탱크 약점·정신 빌드 카운터(대항 축). 미지정/
 // physical 은 기존 물리 경로(byte-identical 회귀).
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   advanceTurn,
   initialBattleState,
@@ -86,6 +86,36 @@ describe("마법형 몬스터(atkType:magic) — 마법방어(정신)로 경감"
 
     expect(warded).toBe(noCounter - 40);
     expect(physicalWarded).toBe(noCounter);
+  });
+
+  it("결계술 초반 감소는 몬스터 마법 스킬 피해에도 적용된다", () => {
+    const magicCaster: Monster = {
+      ...baseMob,
+      atkType: "magic",
+      v2Skills: {
+        learned: ["mob_arcane_bolt"],
+        equipped: ["mob_arcane_bolt"],
+      },
+      v2MaxMp: 999,
+    };
+    const run = (player: PlayerCombat) => {
+      const spy = vi.spyOn(Math, "random").mockReturnValue(0);
+      try {
+        return damageTaken(player, magicCaster, 1);
+      } finally {
+        spy.mockRestore();
+      }
+    };
+    const plain = run(combatant({ magicDef: 0 }));
+    const warded = run(
+      combatant({
+        magicDef: 0,
+        passiveOpeningMagicDamageReductionPct: 10,
+        passiveOpeningMagicDamageReductionPhases: 3,
+      }),
+    );
+
+    expect(warded).toBe(Math.floor(plain * 0.9));
   });
 
   it("물리 몹: 물리방어로 경감 — magicDef 는 무용", () => {

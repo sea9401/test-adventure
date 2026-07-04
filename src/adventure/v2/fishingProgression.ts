@@ -8,6 +8,8 @@ import {
 } from "@/adventure/data/v2/fish";
 
 export const FISHING_PROGRESS_KEY = "fishing-progress.v1";
+export const FISHING_LEVEL_CAP = 50;
+export const FISHING_MASTER_LEVEL = 30;
 
 export type FishingRodId =
   | "reed_rod"
@@ -415,7 +417,7 @@ export function deriveFishingGoalViews(
 
 export function fishingLevelForXp(xp: number): number {
   const safe = Math.max(0, Math.floor(Number(xp) || 0));
-  return Math.min(30, 1 + Math.floor(Math.sqrt(safe / 35)));
+  return Math.min(FISHING_LEVEL_CAP, 1 + Math.floor(Math.sqrt(safe / 35)));
 }
 
 export function fishingLevelRewardCoins(level: number): number {
@@ -427,12 +429,17 @@ export function fishingLevelRewardCoins(level: number): number {
 
 export function fishingLevelBonuses(level: number): FishingGearBonuses {
   const safeLevel = Math.max(1, Math.floor(Number(level) || 1));
+  const masterLevel = Math.max(0, safeLevel - FISHING_MASTER_LEVEL);
   return {
     waitReductionPct: 0,
-    sizeBonusPct: Math.min(8, Math.floor((safeLevel - 1) / 4)),
-    rareSizeBonusPct: 0,
-    bigCatchSizeBonusPct: 0,
-    specialWeightPct: Math.min(15, Math.floor((safeLevel - 1) / 2)),
+    sizeBonusPct:
+      Math.min(7, Math.floor((safeLevel - 1) / 4)) +
+      Math.min(2, Math.floor((masterLevel + 5) / 10)),
+    rareSizeBonusPct: Math.min(2, Math.floor(masterLevel / 10)),
+    bigCatchSizeBonusPct: Math.min(1, Math.floor(masterLevel / 20)),
+    specialWeightPct:
+      Math.min(14, Math.floor((safeLevel - 1) / 2)) +
+      Math.min(10, Math.floor(masterLevel / 2)),
     tierWeightPct: {},
   };
 }
@@ -448,12 +455,13 @@ export function fishingProgressionView(
   const level = fishingLevelForXp(state.xp);
   const levelStart = xpRequiredForLevel(level);
   const levelEnd = xpRequiredForLevel(level + 1);
+  const capped = level >= FISHING_LEVEL_CAP;
   const levelBonuses = fishingLevelBonuses(level);
   return {
     ...state,
     level,
-    xpIntoLevel: Math.max(0, state.xp - levelStart),
-    xpForNext: Math.max(1, levelEnd - levelStart),
+    xpIntoLevel: capped ? 0 : Math.max(0, state.xp - levelStart),
+    xpForNext: capped ? 1 : Math.max(1, levelEnd - levelStart),
     goals: deriveFishingGoalViews(state),
     levelBonuses,
     bonuses: fishingBonusesFromProgression(state),

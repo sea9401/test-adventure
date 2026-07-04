@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { MULTTAE_CONDITIONS } from "@/adventure/data/v2/multtae";
+import { equippedFishingBonuses } from "@/adventure/data/v2/v2Skills";
 import {
+  FISHING_LEVEL_CAP,
   FISHING_LURES,
+  FISHING_LURE_IDS,
+  FISHING_MASTER_LEVEL,
   FISHING_RODS,
+  FISHING_ROD_IDS,
   addFishingCatchXp,
   buyFishingLure,
   buyFishingRod,
@@ -64,14 +70,16 @@ describe("낚시 진행도", () => {
     expect(goal?.claimable).toBe(true);
   });
 
-  it("레벨은 경험치 곡선에 따라 상승하고 30에서 멈춘다", () => {
+  it("레벨은 경험치 곡선에 따라 상승하고 50에서 멈춘다", () => {
     expect(fishingLevelForXp(0)).toBe(1);
     expect(fishingLevelForXp(35)).toBe(2);
     expect(fishingLevelForXp(140)).toBe(3);
-    expect(fishingLevelForXp(999_999)).toBe(30);
+    expect(fishingLevelForXp(29 * 29 * 35)).toBe(FISHING_MASTER_LEVEL);
+    expect(fishingLevelForXp(49 * 49 * 35)).toBe(FISHING_LEVEL_CAP);
+    expect(fishingLevelForXp(999_999)).toBe(FISHING_LEVEL_CAP);
   });
 
-  it("레벨 보너스는 물고기 크기와 특별 손님 가중치만 제공한다", () => {
+  it("레벨 보너스는 30 이후 명인 구간에서만 희귀/대물 보정을 작게 더한다", () => {
     expect(fishingLevelBonuses(1)).toEqual({
       waitReductionPct: 0,
       sizeBonusPct: 0,
@@ -84,6 +92,106 @@ describe("낚시 진행도", () => {
     expect(fishingLevelBonuses(5).specialWeightPct).toBe(2);
     expect(fishingLevelBonuses(30).sizeBonusPct).toBe(7);
     expect(fishingLevelBonuses(30).specialWeightPct).toBe(14);
+    expect(fishingLevelBonuses(30).rareSizeBonusPct).toBe(0);
+    expect(fishingLevelBonuses(30).bigCatchSizeBonusPct).toBe(0);
+    expect(fishingLevelBonuses(35).sizeBonusPct).toBe(8);
+    expect(fishingLevelBonuses(40).rareSizeBonusPct).toBe(1);
+    expect(fishingLevelBonuses(50)).toEqual({
+      waitReductionPct: 0,
+      sizeBonusPct: 9,
+      rareSizeBonusPct: 2,
+      bigCatchSizeBonusPct: 1,
+      specialWeightPct: 24,
+      tierWeightPct: {},
+    });
+  });
+
+  it("50레벨 + 최고 장비 + 낚시 패시브 + 물때 보정 합산도 안전선 안에 둔다", () => {
+    let maxProgress = {
+      sizeBonusPct: 0,
+      rareSizeBonusPct: 0,
+      bigCatchSizeBonusPct: 0,
+      specialWeightPct: 0,
+    };
+    for (const rodId of FISHING_ROD_IDS) {
+      for (const lureId of FISHING_LURE_IDS) {
+        const state = {
+          ...emptyFishingProgression(),
+          xp: 999_999,
+          ownedRods: FISHING_ROD_IDS,
+          ownedLures: FISHING_LURE_IDS,
+          equippedRodId: rodId,
+          equippedLureId: lureId,
+        };
+        const b = fishingBonusesFromProgression(state);
+        maxProgress = {
+          sizeBonusPct: Math.max(maxProgress.sizeBonusPct, b.sizeBonusPct),
+          rareSizeBonusPct: Math.max(maxProgress.rareSizeBonusPct, b.rareSizeBonusPct),
+          bigCatchSizeBonusPct: Math.max(maxProgress.bigCatchSizeBonusPct, b.bigCatchSizeBonusPct),
+          specialWeightPct: Math.max(maxProgress.specialWeightPct, b.specialWeightPct),
+        };
+      }
+    }
+    const skillBonuses = equippedFishingBonuses([
+      "v2c_survivor_baitcraft",
+      "v2c_camper_tidereading",
+      "v2c_angler_pointreading",
+      "v2c_masterangler_bigcatchsense",
+      "v2c_fullcatchking_bountyhaul",
+      "v2c_seagod_deepcurrent",
+    ]);
+    const maxMulttae = MULTTAE_CONDITIONS.reduce(
+      (acc, c) => ({
+        sizeBonusPct: Math.max(acc.sizeBonusPct, c.effect.sizeBonusPct ?? 0),
+        rareSizeBonusPct: Math.max(
+          acc.rareSizeBonusPct,
+          c.effect.rareSizeBonusPct ?? 0,
+        ),
+        bigCatchSizeBonusPct: Math.max(
+          acc.bigCatchSizeBonusPct,
+          c.effect.bigCatchSizeBonusPct ?? 0,
+        ),
+        specialWeightPct: Math.max(
+          acc.specialWeightPct,
+          c.effect.specialWeightBonusPct ?? 0,
+        ),
+      }),
+      {
+        sizeBonusPct: 0,
+        rareSizeBonusPct: 0,
+        bigCatchSizeBonusPct: 0,
+        specialWeightPct: 0,
+      },
+    );
+    const total = {
+      sizeBonusPct:
+        maxProgress.sizeBonusPct +
+        skillBonuses.sizeBonusPct +
+        maxMulttae.sizeBonusPct,
+      rareSizeBonusPct:
+        maxProgress.rareSizeBonusPct +
+        skillBonuses.rareSizeBonusPct +
+        maxMulttae.rareSizeBonusPct,
+      bigCatchSizeBonusPct:
+        maxProgress.bigCatchSizeBonusPct +
+        skillBonuses.bigCatchSizeBonusPct +
+        maxMulttae.bigCatchSizeBonusPct,
+      specialWeightPct:
+        maxProgress.specialWeightPct +
+        skillBonuses.specialWeightPct +
+        maxMulttae.specialWeightPct,
+    };
+
+    expect(total).toEqual({
+      sizeBonusPct: 22,
+      rareSizeBonusPct: 21,
+      bigCatchSizeBonusPct: 16,
+      specialWeightPct: 124,
+    });
+    expect(total.sizeBonusPct).toBeLessThanOrEqual(22);
+    expect(total.rareSizeBonusPct).toBeLessThanOrEqual(21);
+    expect(total.bigCatchSizeBonusPct).toBeLessThanOrEqual(16);
+    expect(total.specialWeightPct).toBeLessThanOrEqual(125);
   });
 
   it("레벨업 코인 보상은 2레벨부터 주고 5레벨 단위에서 커진다", () => {

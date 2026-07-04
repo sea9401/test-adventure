@@ -1407,10 +1407,16 @@ export function applyPlayerV2SkillCast(
     (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
       ? Math.min(SPELL_STACK_CAP, state.stacks.spellCastCount + 1)
       : state.stacks.spellCastCount;
-  const nextMagicVulnStacks =
+  const magicVulnApplyChancePct = player.enemyMagicVulnApplyChancePct ?? 100;
+  const magicVulnApplied =
     (player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
     result.castSkillId &&
-    result.enemyDamage > 0
+    result.enemyDamage > 0 &&
+    magicVulnApplyChancePct > 0 &&
+    (magicVulnApplyChancePct >= 100 ||
+      Math.random() * 100 < magicVulnApplyChancePct);
+  const nextMagicVulnStacks =
+    magicVulnApplied
       ? Math.min(
           MAGIC_VULN_STACK_CAP,
           state.stacks.enemyMagicVulnStacks + 1,

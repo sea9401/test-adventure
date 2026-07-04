@@ -255,6 +255,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.evasionPct).toBe(12);
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
     expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnPctPerStack).toBe(5);
+    expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnApplyChancePct).toBe(70);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct?.dex).toBe(20);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBeUndefined();
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
@@ -355,6 +356,7 @@ describe("직업 킷 — 스킬셋", () => {
       critPct: 5,
     });
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
+    expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnApplyChancePct).toBe(85);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
       { kind: "heal", pctLostHp: 5, statCoef: 0.45, baseFlatByTier: [70, 70, 70], scaling: "magic" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
@@ -861,6 +863,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.poisonedEnemyDefReductionPct).toBe(12);
     expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
+    expect(agg.enemyMagicVulnApplyChancePct).toBe(70);
     expect(agg.magicDefPct).toBe(15);
     expect(agg.openingMagicDamageReductionPct).toBe(10);
     expect(agg.openingMagicDamageReductionPhases).toBe(3);

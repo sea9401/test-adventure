@@ -1793,11 +1793,17 @@ export function castV2SkillOnAttackerTurnPvP(
           }
         : nextStacks,
   };
-  // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 상대 마법취약 +1(상한 클램프, 감쇠 없음).
-  const nextOppMagicVuln =
+  // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 확률로 상대 마법취약 +1(상한 클램프, 감쇠 없음).
+  const magicVulnApplyChancePct = side.player.enemyMagicVulnApplyChancePct ?? 100;
+  const magicVulnApplied =
     (side.player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
     result.castSkillId &&
-    result.enemyDamage > 0
+    result.enemyDamage > 0 &&
+    magicVulnApplyChancePct > 0 &&
+    (magicVulnApplyChancePct >= 100 ||
+      Math.random() * 100 < magicVulnApplyChancePct);
+  const nextOppMagicVuln =
+    magicVulnApplied
       ? Math.min(MAGIC_VULN_STACK_CAP, opp.stacks.magicVulnStacks + 1)
       : opp.stacks.magicVulnStacks;
   const nextOpp: PvPSide = {

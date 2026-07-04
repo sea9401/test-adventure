@@ -286,6 +286,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveBerserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 누적. */
   passiveEnemyMagicVulnPctPerStack?: number;
+  /** 약점 노출 누적 확률. */
+  passiveEnemyMagicVulnApplyChancePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
@@ -686,6 +688,8 @@ export function derivePlayerCombatV2Pure(
       ? {
           enemyMagicVulnPctPerStack:
             input.passiveEnemyMagicVulnPctPerStack,
+          enemyMagicVulnApplyChancePct:
+            input.passiveEnemyMagicVulnApplyChancePct ?? 100,
         }
       : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
@@ -718,7 +722,11 @@ export function derivePlayerCombatV2Pure(
       : {}),
     // 약점 노출 — 엔진이 스킬 적중 시 적 마법취약 스택 누적(받는 마법피해 +%).
     ...(specEff.enemyMagicVulnPctPerStack
-      ? { enemyMagicVulnPctPerStack: specEff.enemyMagicVulnPctPerStack }
+      ? {
+          enemyMagicVulnPctPerStack: specEff.enemyMagicVulnPctPerStack,
+          enemyMagicVulnApplyChancePct:
+            specEff.enemyMagicVulnApplyChancePct ?? 100,
+        }
       : {}),
   };
 
@@ -839,6 +847,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.berserkAtkPctPerLostHpPct,
     passiveEnemyMagicVulnPctPerStack:
       passiveAgg.enemyMagicVulnPctPerStack,
+    passiveEnemyMagicVulnApplyChancePct:
+      passiveAgg.enemyMagicVulnApplyChancePct,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,

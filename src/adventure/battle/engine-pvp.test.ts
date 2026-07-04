@@ -1096,6 +1096,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       hp: 300,
       maxHp: 300,
       enemyMagicVulnPctPerStack: 50, // 마도사 약점 노출 패시브
+      enemyMagicVulnApplyChancePct: 100,
     });
     const p2 = makePlayer({ spd: 1, def: 0, hp: 2000, maxHp: 2000 });
     const ctx: PvPResolveContext = {

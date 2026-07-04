@@ -100,6 +100,8 @@ export type V2PassiveSkillEffect = {
   berserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 스킬피해 +%. */
   enemyMagicVulnPctPerStack?: number;
+  /** 약점 노출 누적 확률 +%p. 미지정이면 기존 호환을 위해 100%로 처리. */
+  enemyMagicVulnApplyChancePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
   // ── 낚시(비전투) — 캐스팅 시 서버 권위 판정에서만 소비. 전투 derive 와 무관.
@@ -553,6 +555,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   poisonedEnemyDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
+  enemyMagicVulnApplyChancePct: number;
   spdOverflowToAtkPct: number;
   skillCritOverflow: boolean;
   comboFinisherBonusPct: number;
@@ -580,6 +583,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let poisonedEnemyDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
+  let enemyMagicVulnApplyChancePct = 0;
   let spdOverflowToAtkPct = 0;
   let skillCritOverflow = false;
   let comboFinisherBonusPct = 0;
@@ -619,6 +623,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
     berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
+    if ((p.enemyMagicVulnPctPerStack ?? 0) > 0) {
+      enemyMagicVulnApplyChancePct = Math.max(
+        enemyMagicVulnApplyChancePct,
+        p.enemyMagicVulnApplyChancePct ?? 100,
+      );
+    }
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
@@ -647,6 +657,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     poisonedEnemyDefReductionPct,
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
+    enemyMagicVulnApplyChancePct,
     spdOverflowToAtkPct,
     skillCritOverflow,
     comboFinisherBonusPct,
@@ -836,6 +847,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
   if (p.enemyMagicVulnPctPerStack)
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
+  if (p.enemyMagicVulnApplyChancePct)
+    chips.push(`마법취약 누적 확률 ${p.enemyMagicVulnApplyChancePct}%`);
   if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
   if (p.fishingSizeBonusPct)
     chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);

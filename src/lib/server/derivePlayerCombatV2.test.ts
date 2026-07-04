@@ -924,9 +924,12 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     const shaman = derivePlayerCombatV2Pure({
       ...base,
       passiveEnemyMagicVulnPctPerStack: 5,
+      passiveEnemyMagicVulnApplyChancePct: 70,
     }).player;
     expect(plain.enemyMagicVulnPctPerStack).toBeUndefined();
+    expect(plain.enemyMagicVulnApplyChancePct).toBeUndefined();
     expect(shaman.enemyMagicVulnPctPerStack).toBe(5);
+    expect(shaman.enemyMagicVulnApplyChancePct).toBe(70);
   });
 
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
@@ -941,6 +944,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveAccuracyPct: 0,
       passiveBerserkAtkPctPerLostHpPct: 0,
       passiveEnemyMagicVulnPctPerStack: 0,
+      passiveEnemyMagicVulnApplyChancePct: 0,
     }).player;
     expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
     expect(b.critMult ?? 0).toBe(a.critMult ?? 0);
@@ -951,6 +955,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(b.accuracyPct ?? 0).toBe(a.accuracyPct ?? 0);
     expect(b.berserkAtkPctPerLostHpPct).toBeUndefined();
     expect(b.enemyMagicVulnPctPerStack).toBeUndefined();
+    expect(b.enemyMagicVulnApplyChancePct).toBeUndefined();
   });
 });
 

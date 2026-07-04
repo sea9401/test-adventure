@@ -261,7 +261,7 @@ export type DerivePlayerCombatV2PureInput = {
   passiveLifestealPct?: number;
   /** 반격 확률 +%p(절정 반격) — passiveCounterChancePct 에 가산(클래스 패시브·전문화와 합산). */
   passiveCounterChancePct?: number;
-  /** 방어력 +%(철벽, 다양성 2차) — def 에 곱연산. PvE/PvP 양쪽(damageBetween 공용). */
+  /** 방어력 +%(철벽, 다양성 2차) — def 와 magicDef 에 곱연산. PvE/PvP 양쪽. */
   passiveDefPct?: number;
   /** 반사(수호자) — 피격 시 내 방어력의 이 %만큼 고정 데미지 반사. def 확정 후 thornsFlatFromDef 로 환산. */
   passiveThornsDefPct?: number;
@@ -390,15 +390,18 @@ export function derivePlayerCombatV2Pure(
     Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
     equipAcc.magicAtk +
     V2_BASE_COMBAT_BONUS;
-  // 마법 방어력(신규) — 정신 major + 지능 minor + 장신구 위력. combatShared 가 마법 데미지에서 차감.
+  // 마법 방어력 — 정신 major + 지능 minor + 장신구 위력. 방어% 패시브는 방벽 계열 공통 내구
+  // 보정으로 마방에도 적용한다. 결계술의 전용 magicDefPct 와 합산 후 1회 곱한다.
   const baseMagicDef =
     Math.floor(
       totalStats.spi * MAGIC_DEF_PER_SPI +
         totalStats.int * MAGIC_DEF_PER_INT +
         equipAcc.magicDef,
     ) + V2_BASE_COMBAT_BONUS;
-  const magicDef = input.passiveMagicDefPct
-    ? Math.floor(baseMagicDef * (1 + input.passiveMagicDefPct / 100))
+  const passiveMagicDefPct =
+    (input.passiveDefPct ?? 0) + (input.passiveMagicDefPct ?? 0);
+  const magicDef = passiveMagicDefPct
+    ? Math.floor(baseMagicDef * (1 + passiveMagicDefPct / 100))
     : baseMagicDef;
   // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
   const minDamage = Math.floor(

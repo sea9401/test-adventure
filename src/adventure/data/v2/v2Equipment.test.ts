@@ -368,10 +368,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(65);
     expect(V2_EQUIPMENT.v2_crafted_runic_staff.power).toBe(76);
     expect(V2_EQUIPMENT.v2_crafted_ward_plate.power).toBe(64);
-    expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(12);
-    expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(12);
+    expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(22);
+    expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(22);
     expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
-    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(41);
+    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(73);
   });
 
   it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T3, 무기는 weaponType별 T1~T3", () => {
@@ -500,19 +500,19 @@ describe("v2EquipStatRows (표시 행)", () => {
   });
 
   it("반지 critMult 옵션 — 마법 방어력 + 치명피해 배수 표기(+0.12×)", () => {
-    // 은가락지 T1: 위력 2(×2), weight 0, critMult 12(백분의일) → "+0.12×".
+    // 은가락지 T1: 위력 4, weight 0, critMult 12(백분의일) → "+0.12×".
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
     expect(rows).toEqual([
-      { label: "마법 방어력", value: "+2" },
+      { label: "마법 방어력", value: "+4" },
       { label: "치명피해", value: "+0.12×" },
     ]);
   });
 
   it("mp 옵션은 % 없이 flat", () => {
-    // 마나의 정수 T3: 위력 4(×2), weight 0, mp 48 + eva 3 + 회복 8%(SPI gear PR-2).
+    // 마나의 정수 T3: 위력 7, weight 0, mp 48 + eva 3 + 회복 8%(SPI gear PR-2).
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
-      { label: "마법 방어력", value: "+4" },
+      { label: "마법 방어력", value: "+7" },
       { label: "회피", value: "+3%" },
       { label: "MP", value: "+48" },
       { label: "회복", value: "+8%" },

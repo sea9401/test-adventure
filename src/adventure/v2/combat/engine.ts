@@ -1178,14 +1178,14 @@ export function applyEnemyV2SkillCast(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
       turn: "enemy",
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
       turn: "enemy",
     });
   }
@@ -1531,14 +1531,14 @@ export function applyPlayerV2SkillCast(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
       turn: "player",
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
       turn: "player",
     });
   }
@@ -1564,7 +1564,7 @@ export function applyPlayerV2SkillCast(
   if (result.selfRegenToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "운기"}] 매 턴 HP +${result.selfRegenToApply.pctMaxHpPerTurn}% (${result.selfRegenToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "운기"}] 행동마다 HP +${result.selfRegenToApply.pctMaxHpPerTurn}% (${result.selfRegenToApply.turns}행동)`,
       turn: "player",
     });
   }
@@ -1572,7 +1572,7 @@ export function applyPlayerV2SkillCast(
   if (critBuffForLog) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuffForLog.pct}%p (${critBuffForLog.turns}턴)`,
+      text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuffForLog.pct}%p (${critBuffForLog.turns}행동)`,
       turn: "player",
     });
   }
@@ -1580,35 +1580,35 @@ export function applyPlayerV2SkillCast(
   if (evaBuffForLog) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuffForLog.pct}%p (${evaBuffForLog.turns}턴)`,
+      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuffForLog.pct}%p (${evaBuffForLog.turns}행동)`,
       turn: "player",
     });
   }
   if (result.enemyVulnToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
       turn: "player",
     });
   }
   if (result.enemyEvasionDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "실명"}] 적 회피 −${result.enemyEvasionDownToApply.pct}% (${result.enemyEvasionDownToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "실명"}] 적 회피 −${result.enemyEvasionDownToApply.pct}% (${result.enemyEvasionDownToApply.turns}행동)`,
       turn: "player",
     });
   }
   if (result.enemyAccuracyDownToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "암흑"}] 적 명중 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "암흑"}] 적 명중 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}행동)`,
       turn: "player",
     });
   }
   if (result.enemyHealReduceToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "화상"}] 적 회복 −${result.enemyHealReduceToApply.pct}% (${result.enemyHealReduceToApply.turns}턴)`,
+      text: `[${result.castSkillName ?? "화상"}] 적 회복 −${result.enemyHealReduceToApply.pct}% (${result.enemyHealReduceToApply.turns}행동)`,
       turn: "player",
     });
   }
@@ -1925,14 +1925,14 @@ function resolveBattleLegacy(
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+            text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}행동)`,
             turn: "enemy",
           });
         }
         for (const d of result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}행동)`,
             turn: "enemy",
           });
         }

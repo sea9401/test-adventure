@@ -187,7 +187,7 @@ export function useDungeonHunt({
                 : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
             pushLog(
-              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof}${mastery} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감${r.taxOwnerLabel ? ` → ${r.taxOwnerLabel}` : ""}, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}행동) · ${hpStr} · EXP +${r.expGained}${prof}${mastery} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감${r.taxOwnerLabel ? ` → ${r.taxOwnerLabel}` : ""}, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
             return r;
           }

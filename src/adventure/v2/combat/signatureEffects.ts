@@ -167,7 +167,7 @@ export function formatDefDebuffLog(
   targetName: string,
   debuff: { pct: number; turns: number; label: string },
 ): string {
-  return `[${debuff.label}] ${targetName}에게 표식을 남겼다. (방어 ${debuff.pct}% 감소, ${debuff.turns}턴)`;
+  return `[${debuff.label}] ${targetName}에게 표식을 남겼다. (방어 ${debuff.pct}% 감소, ${debuff.turns}행동)`;
 }
 
 export function formatChillSlowLog(
@@ -175,7 +175,7 @@ export function formatChillSlowLog(
   chill: { mult: number; turns: number },
 ): string {
   const slowPct = Math.max(0, Math.round((1 - chill.mult) * 100));
-  return `[한기] ${targetName}이(가) 얼어붙어 느려진다. (속도 ${slowPct}% 감소, ${chill.turns}턴)`;
+  return `[한기] ${targetName}이(가) 얼어붙어 느려진다. (속도 ${slowPct}% 감소, ${chill.turns}행동)`;
 }
 
 // on_crit 독 부여 여부(독니 단검) — 크리 + 피해 발생 시 poisonOnCrit 시그니처가 하나라도 있으면 true.
@@ -249,7 +249,7 @@ export function formatShockSlowLog(
   shock: { mult: number; turns: number; label: string },
 ): string {
   const slowPct = Math.max(0, Math.round((1 - shock.mult) * 100));
-  return `[${shock.label}] ${targetName}이(가) 감전되어 움직임이 끊긴다. (속도 ${slowPct}% 감소, ${shock.turns}턴)`;
+  return `[${shock.label}] ${targetName}이(가) 감전되어 움직임이 끊긴다. (속도 ${slowPct}% 감소, ${shock.turns}행동)`;
 }
 
 // on_dodge 회복(봉인된 반지) — 회피 성공 시 maxHp 의 healPct% 회복량 합산. 없으면 0.

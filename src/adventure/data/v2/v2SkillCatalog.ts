@@ -162,7 +162,7 @@ export const V2_BASE_SKILLS = {
     stat: "str",
     category: "buff",
     tier: 3,
-    description: "포효해 전의를 끌어올린다 (공격력 +25%, 3턴).",
+    description: "포효해 전의를 끌어올린다 (공격력 +25%, 3행동).",
     mpCost: 25,
     cooldown: 4,
     procChance: 50,

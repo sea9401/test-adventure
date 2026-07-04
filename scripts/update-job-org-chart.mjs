@@ -164,29 +164,29 @@ function effectText(e) {
     case "heal":
       return `회복 ${e.pctLostHp ? `잃은 체력 ${e.pctLostHp}%` : e.pctMaxHp ? `최대 HP ${e.pctMaxHp}%` : `${e.flat ?? 0}`}`;
     case "shield":
-      return `보호막 ${e.pctMaxHp ? `최대 HP ${e.pctMaxHp}%` : `최대 MP ${e.pctMaxMp ?? 0}%`} (${e.turns}턴)`;
+      return `보호막 ${e.pctMaxHp ? `최대 HP ${e.pctMaxHp}%` : `최대 MP ${e.pctMaxMp ?? 0}%`} (소진까지)`;
     case "selfBuff":
-      return `자신 ${STAT_LABEL[e.stat] ?? e.stat} +${e.pct}% (${e.turns}턴)`;
+      return `자신 ${STAT_LABEL[e.stat] ?? e.stat} +${e.pct}% (${e.turns}행동)`;
     case "selfBuffPct":
-      return `${targetLabel(e.target)} +${e.pct}% (${e.turns}턴)`;
+      return `${targetLabel(e.target)} +${e.pct}% (${e.turns}행동)`;
     case "selfRegen":
-      return `매턴 최대 HP ${e.pctMaxHpPerTurn}% 회복 (${e.turns}턴)`;
+      return `행동마다 최대 HP ${e.pctMaxHpPerTurn}% 회복 (${e.turns}행동)`;
     case "manaRestore":
       return `마나 ${e.pctMaxMp}% 회복`;
     case "enemyDebuff":
-      return `적 ${STAT_LABEL[e.stat] ?? e.stat} -${e.pct}% (${e.turns}턴)`;
+      return `적 ${STAT_LABEL[e.stat] ?? e.stat} -${e.pct}% (${e.turns}행동)`;
     case "enemyVuln":
-      return `적 받는 피해 +${e.pct}% (${e.turns}턴)`;
+      return `적 받는 피해 +${e.pct}% (${e.turns}행동)`;
     case "enemyEvasionDown":
-      return `적 회피 -${e.pct}% (${e.turns}턴)`;
+      return `적 회피 -${e.pct}% (${e.turns}행동)`;
     case "enemyAccuracyDown":
-      return `적 명중 -${e.pct}% (${e.turns}턴)`;
+      return `적 명중 -${e.pct}% (${e.turns}행동)`;
     case "selfHaste":
       return `다음 행동 가속 ${e.pct}%`;
     case "enemyDelay":
       return `적 다음 행동 지연 ${e.pct}%`;
     case "enemyHealReduce":
-      return `적 회복량 -${e.pct}% (${e.turns}턴)`;
+      return `적 회복량 -${e.pct}% (${e.turns}행동)`;
     case "hpCostDamage":
       return `현재 HP ${e.pctCurrentHp}% 소모 · 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)}, 소모 HP의 ${e.soakRatio * 100}% 추가`;
     case "healToDamage":
@@ -198,7 +198,7 @@ function effectText(e) {
     case "stackPayoffDamage":
       return `${stackLabel(e.tag)} 스택 비례 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)}, 스택당 +${e.perStackFlat}`;
     case "dot":
-      return `${e.label} +${e.stacks}스택 (${e.turns}턴, 스택당 ${e.flatPerStack})`;
+      return `${e.label} +${e.stacks}스택 (${e.turns}행동, 스택당 ${e.flatPerStack})`;
     default:
       return e.kind;
   }

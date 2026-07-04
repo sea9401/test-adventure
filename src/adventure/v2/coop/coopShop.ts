@@ -1,5 +1,8 @@
 import { TITLES, type TitleId } from "@/adventure/data/titles";
-import { SUMMON_SCROLL_MATERIAL_ID } from "@/adventure/data/v2/coopBosses";
+import {
+  SUMMON_SCROLL_MATERIAL_ID,
+  type CoopBossKindId,
+} from "@/adventure/data/v2/coopBosses";
 import {
   COOP_BOSS_MATERIAL,
   COOP_COIN_MATERIAL_ID,
@@ -41,43 +44,44 @@ const coinCost = (coins: number, materials: Record<string, number> = {}) => ({
   materials: { [COOP_COIN_MATERIAL_ID]: coins, ...materials },
 });
 
+const EQUIPMENT_BOX_SHOP_COST_BY_TIER: Record<
+  1 | 2 | 3 | 4,
+  { coins: number; bossMaterial: number }
+> = {
+  1: { coins: 80, bossMaterial: 10 },
+  2: { coins: 160, bossMaterial: 12 },
+  3: { coins: 280, bossMaterial: 15 },
+  4: { coins: 480, bossMaterial: 20 },
+};
+
+function equipmentBoxShopEntries(): CoopShopEntry[] {
+  return (Object.keys(COOP_EQUIPMENT_BOX) as CoopBossKindId[]).map((boss) => {
+    const box = COOP_EQUIPMENT_BOX[boss];
+    const material = COOP_BOSS_MATERIAL[boss];
+    const cost = EQUIPMENT_BOX_SHOP_COST_BY_TIER[box.displayTier];
+    return {
+      itemId: `${boss}_equipment_box`,
+      category: "equipment_box",
+      name: box.name,
+      description: box.description,
+      cost: coinCost(cost.coins, { [material.id]: cost.bossMaterial }),
+      output: {
+        kind: "material",
+        materialId: box.id,
+        count: 1,
+      },
+    };
+  });
+}
+
+function allBossMaterialCost(count: number): Record<string, number> {
+  return Object.fromEntries(
+    Object.values(COOP_BOSS_MATERIAL).map((material) => [material.id, count]),
+  );
+}
+
 export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
-  {
-    itemId: "mountain_equipment_box",
-    category: "equipment_box",
-    name: COOP_EQUIPMENT_BOX.mountain_chief.name,
-    description: COOP_EQUIPMENT_BOX.mountain_chief.description,
-    cost: coinCost(80, { [COOP_BOSS_MATERIAL.mountain_chief.id]: 10 }),
-    output: {
-      kind: "material",
-      materialId: COOP_EQUIPMENT_BOX.mountain_chief.id,
-      count: 1,
-    },
-  },
-  {
-    itemId: "canyon_equipment_box",
-    category: "equipment_box",
-    name: COOP_EQUIPMENT_BOX.canyon_predator.name,
-    description: COOP_EQUIPMENT_BOX.canyon_predator.description,
-    cost: coinCost(160, { [COOP_BOSS_MATERIAL.canyon_predator.id]: 12 }),
-    output: {
-      kind: "material",
-      materialId: COOP_EQUIPMENT_BOX.canyon_predator.id,
-      count: 1,
-    },
-  },
-  {
-    itemId: "lake_equipment_box",
-    category: "equipment_box",
-    name: COOP_EQUIPMENT_BOX.lake_sovereign.name,
-    description: COOP_EQUIPMENT_BOX.lake_sovereign.description,
-    cost: coinCost(280, { [COOP_BOSS_MATERIAL.lake_sovereign.id]: 15 }),
-    output: {
-      kind: "material",
-      materialId: COOP_EQUIPMENT_BOX.lake_sovereign.id,
-      count: 1,
-    },
-  },
+  ...equipmentBoxShopEntries(),
   {
     itemId: "stamina_potion",
     category: "consumable",
@@ -153,11 +157,7 @@ export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
     description:
       TITLES[COOP_SHOP_TITLE_IDS.raider]?.description ??
       "꾸준히 협동 전선에 선 자.",
-    cost: coinCost(800, {
-      [COOP_BOSS_MATERIAL.mountain_chief.id]: 10,
-      [COOP_BOSS_MATERIAL.canyon_predator.id]: 10,
-      [COOP_BOSS_MATERIAL.lake_sovereign.id]: 10,
-    }),
+    cost: coinCost(800, allBossMaterialCost(10)),
     output: { kind: "title", titleId: COOP_SHOP_TITLE_IDS.raider },
   },
 ];

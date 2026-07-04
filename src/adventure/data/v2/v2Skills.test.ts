@@ -365,7 +365,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips.some((c) => c.includes("중독") && c.includes("지속피해"))).toBe(
       true,
     );
-    expect(chips).toContain("쿨 3턴");
+    expect(chips).toContain("쿨 3행동");
   });
 
   it("MP 0·무속성이면 MP·속성 칩 없음", () => {

@@ -53,8 +53,8 @@ export function V2SparringView({
         {lastResult && !busy && (
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
             {lastResult.won
-              ? `허수아비를 ${lastResult.turns}턴 만에 쓰러뜨렸다.`
-              : `${lastResult.turns}턴 동안 허수아비에게 ${(
+              ? `허수아비를 ${lastResult.turns}행동 만에 쓰러뜨렸다.`
+              : `${lastResult.turns}행동 동안 허수아비에게 ${(
                   lastResult.damageDealt ?? 0
                 ).toLocaleString()} 데미지를 입혔다.`}
           </p>

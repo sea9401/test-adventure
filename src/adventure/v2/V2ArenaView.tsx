@@ -331,7 +331,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                   </div>
                 </div>
                 <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
-                  {lastResult.turns} 턴
+                  {lastResult.turns}행동
                 </div>
               </div>
               <div className="mt-3 text-sm">
@@ -430,7 +430,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                         {h.scoreDelta}
                       </span>
                       <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
-                        {h.turns}턴
+                        {h.turns}행동
                       </span>
                       <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
                       <FilmStrip size={14} className="shrink-0 text-zinc-400" />

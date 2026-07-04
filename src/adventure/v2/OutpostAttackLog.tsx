@@ -212,7 +212,7 @@ export function OutpostAttackLog({
                       )}
                     </div>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {fmtAgo(a.at, nowMs)} · {a.turns}턴
+                      {fmtAgo(a.at, nowMs)} · {a.turns}행동
                       {a.hasReplay && (
                         <>
                           {" · "}

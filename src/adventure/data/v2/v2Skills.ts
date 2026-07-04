@@ -633,6 +633,9 @@ function scalingChip(scaling?: V2DamageScaling): string {
   if (scaling === "luk") return " (행운비례)";
   return "";
 }
+function actionsChip(actions: number): string {
+  return `${actions}행동`;
+}
 
 function describeV2Effect(e: V2SkillEffect): string {
   switch (e.kind) {
@@ -642,33 +645,33 @@ function describeV2Effect(e: V2SkillEffect): string {
       if (e.pctLostHp != null) return `회복 잃은 체력 ${e.pctLostHp}%`;
       return e.pctMaxHp != null ? `회복 최대HP ${e.pctMaxHp}%` : `회복 +${e.flat ?? 0}`;
     case "selfBuff":
-      return `${STAT_LABELS[e.stat]} +${e.pct}% (${e.turns}턴)`;
+      return `${STAT_LABELS[e.stat]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfBuffPct":
-      return `${DERIVED_BUFF_LABEL[e.target]} +${e.pct}% (${e.turns}턴)`;
+      return `${DERIVED_BUFF_LABEL[e.target]} +${e.pct}% (${actionsChip(e.turns)})`;
     case "selfRegen":
-      return `매턴 최대HP ${e.pctMaxHpPerTurn}% 회복 (${e.turns}턴)`;
+      return `행동마다 최대HP ${e.pctMaxHpPerTurn}% 회복 (${actionsChip(e.turns)})`;
     case "shield": {
       const parts: string[] = [];
       if (e.pctMaxHp) parts.push(`최대HP ${e.pctMaxHp}%`);
       if (e.pctMaxMp) parts.push(`최대MP ${e.pctMaxMp}%`);
-      return `보호막 (${parts.join(" + ")}) (${e.turns}턴)`;
+      return `보호막 (${parts.join(" + ")}, 소진까지)`;
     }
     case "manaRestore":
       return `마나 ${e.pctMaxMp}% 회복`;
     case "enemyDebuff":
-      return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${e.turns}턴)`;
+      return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${actionsChip(e.turns)})`;
     case "enemyVuln":
-      return `적 받는 피해 +${e.pct}% (${e.turns}턴)`;
+      return `적 받는 피해 +${e.pct}% (${actionsChip(e.turns)})`;
     case "enemyEvasionDown":
-      return `적 회피 −${e.pct}%p (${e.turns}턴)`;
+      return `적 회피 −${e.pct}%p (${actionsChip(e.turns)})`;
     case "enemyAccuracyDown":
-      return `적 명중 −${e.pct}%p (${e.turns}턴)`;
+      return `적 명중 −${e.pct}%p (${actionsChip(e.turns)})`;
     case "selfHaste":
       return `내 다음 행동 속도 +${e.pct}% (1회)`;
     case "enemyDelay":
       return `적 다음 행동 지연 +${e.pct}% (1회)`;
     case "enemyHealReduce":
-      return `적 회복 −${e.pct}% (${e.turns}턴)`;
+      return `적 회복 −${e.pct}% (${actionsChip(e.turns)})`;
     case "hpCostDamage":
       return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
     case "healToDamage":
@@ -680,7 +683,7 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "stackPayoffDamage":
       return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 +${e.perStackFlat}`;
     case "dot":
-      return `${e.label} 지속피해 +${e.stacks}스택 (${e.turns}턴)`;
+      return `${e.label} 지속피해 +${e.stacks}스택 (${actionsChip(e.turns)})`;
   }
   // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = e;
@@ -789,7 +792,7 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   // MP 비용 = 고정 절대값(기준 풀 기반) → 인게임·매뉴얼 동일 숫자. 무료/몬스터(0)는 칩 생략.
   const mp = v2SkillMpCostValue(skill);
   if (mp > 0) chips.push(`MP ${mp}`);
-  if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}턴`);
+  if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}행동`);
   if (skill.element && skill.element !== "neutral") {
     chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);
   }

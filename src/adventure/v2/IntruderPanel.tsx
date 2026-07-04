@@ -242,7 +242,7 @@ export function IntruderPanel({
             lastResult.won ? (
               <>
                 ✓ {lastResult.attackerName} → {lastResult.defenderName} 토벌 성공 (
-                {lastResult.turns}턴)
+                {lastResult.turns}행동)
                 {lastResult.bountyGold && lastResult.bountyGold > 0
                   ? ` · 길드 금고로 ${lastResult.bountyGold.toLocaleString()}G 압류`
                   : " · 침입자 무일푼"}
@@ -262,7 +262,7 @@ export function IntruderPanel({
               </>
             ) : (
               <>
-                ✗ {lastResult.attackerName} 패배 ({lastResult.turns}턴) · 침입자
+                ✗ {lastResult.attackerName} 패배 ({lastResult.turns}행동) · 침입자
                 남음
               </>
             )

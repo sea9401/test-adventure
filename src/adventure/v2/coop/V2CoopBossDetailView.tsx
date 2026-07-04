@@ -404,7 +404,7 @@ export function V2CoopBossDetailView({
             <span className="text-rose-600 dark:text-rose-400">
               {lastAttack.damageDealt.toLocaleString()}
             </span>{" "}
-            데미지 ({lastAttack.turns}턴{lastAttack.diedEarly && " · 쓰러짐"}
+            데미지 ({lastAttack.turns}행동{lastAttack.diedEarly && " · 쓰러짐"}
             {lastAttack.defeated && " · 처치 확정타!"})
           </div>
           {lastAttack.replay && (

@@ -52,7 +52,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "stats",
     title: "스탯과 성장",
-    summary: "6대 스탯의 전투 환산, 자동 성장과 한계치.",
+    summary: "6대 스탯이 전투에 반영되는 방식, 자동 성장과 최대치.",
     group: "growth",
   },
   {
@@ -76,7 +76,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "equipment",
     title: "장비",
-    summary: "6슬롯 개체 장비, 위력→스탯 환산, 옵션 편차, 세트.",
+    summary: "6슬롯 개체 장비, 위력이 스탯에 반영되는 방식, 옵션 편차, 세트.",
     group: "growth",
   },
   {

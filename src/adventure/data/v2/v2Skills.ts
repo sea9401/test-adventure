@@ -720,12 +720,12 @@ function flatChip(baseFlat?: number, byTier?: readonly [number, number, number])
 }
 function scalingChip(scaling?: V2DamageScaling): string {
   if (scaling === "magic") return " (마법)";
-  if (scaling === "def") return " (방어비례)";
-  if (scaling === "vit") return " (활력비례)";
-  if (scaling === "dex") return " (민첩비례)";
-  if (scaling === "luk") return " (행운비례)";
-  if (scaling === "all") return " (올스탯비례)";
-  if (scaling === "maxHp") return " (최대HP비례)";
+  if (scaling === "def") return " (방어력 기반)";
+  if (scaling === "vit") return " (활력 기반)";
+  if (scaling === "dex") return " (민첩 기반)";
+  if (scaling === "luk") return " (행운 기반)";
+  if (scaling === "all") return " (모든 스탯 기반)";
+  if (scaling === "maxHp") return " (최대 HP 기반)";
   return "";
 }
 
@@ -837,7 +837,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.fishingSizeBonusPct)
     chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);
   if (p.fishingSpecialWeightPct)
-    chips.push(`물때 한정 어종 가중치 +${p.fishingSpecialWeightPct}%`);
+    chips.push(`물때 한정 어종 등장률 +${p.fishingSpecialWeightPct}%`);
   if (p.fishingRareSizeBonusPct)
     chips.push(`희귀 이상 물고기 크기 +${p.fishingRareSizeBonusPct}%`);
   if (p.fishingBigCatchSizeBonusPct)
@@ -847,7 +847,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.guildTrainingWeeklyBonusMastery)
     chips.push(`주간 훈련 보너스 +${p.guildTrainingWeeklyBonusMastery}`);
   if (p.spdOverflowToAtkPct)
-    chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
+    chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
   if (p.skillCritOverflow)
     chips.push(`치명 한계(75%) 초과 보너스를 스킬에도 적용`);
   if (p.comboFinisherBonusPct)

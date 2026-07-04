@@ -51,13 +51,13 @@ describe("rollItemStats", () => {
   });
 
   it("값 0(무게)은 spread 0 → 변동 없음, 위력은 ±편차(0.65)", () => {
-    // 은가락지 위력 2(×2): spread round(2*0.65)=1 → [1,3]. 무게 0 → spread 0 고정.
+    // 은가락지 위력 4: spread round(4*0.65)=3 → [1,7]. 무게 0 → spread 0 고정.
     const lo = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0);
     expect(lo.weight).toBe(0); // 무게 0 고정
-    expect(lo.power).toBe(1); // 위력 [1,3] 의 하단
+    expect(lo.power).toBe(1); // 위력 [1,7] 의 하단
     const hi = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0.999);
     expect(hi.weight).toBe(0); // 무게 0 고정
-    expect(hi.power).toBe(3); // 위력 [1,3] 의 상단
+    expect(hi.power).toBe(7); // 위력 [1,7] 의 상단
   });
 
   it("옵션 없는 아이템은 굴림에 options 없음 — 목궁", () => {

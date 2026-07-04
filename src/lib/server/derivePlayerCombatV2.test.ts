@@ -118,7 +118,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("슬롯별 분기 (T1) — 무기·갑옷·반지", () => {
     // 철검: 무기 위력 → atk, 속도-4
     // 쇠사슬 갑옷: 위력 4(×2) (갑옷 → def)
-    // 은가락지: 위력 2(×2) weight 0 (반지 → magicDef)
+    // 은가락지: 위력 4 weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
       armor: "v2_chain_mail",
@@ -127,7 +127,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.atk).toBe(V2_EQUIPMENT.v2_iron_sword.power);
     expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(4); // 갑옷만(반지는 마방)
-    expect(a.magicDef).toBe(2); // 반지 위력
+    expect(a.magicDef).toBe(4); // 반지 위력
     expect(a.weight).toBe(0);
     expect(a.spd).toBe(-4);
   });
@@ -148,7 +148,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
     // 별노래궁: 무기 위력, crit 2, 속도-4
     // 바람 망토: 위력 6, eva 3 hp 80 (갑옷 축: 방어+HP)
-    // 마나의 정수 T3: 위력 4(×2) weight 0 mp 48 + eva 3 (목걸이 → 마방, 워드 갈래)
+    // 마나의 정수 T3: 위력 7 weight 0 mp 48 + eva 3 (목걸이 → 마방, 워드 갈래)
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
@@ -157,7 +157,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.atk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
     expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(6); // 갑옷만
-    expect(a.magicDef).toBe(4 + 14); // 목걸이 위력 4 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
+    expect(a.magicDef).toBe(7 + 14); // 목걸이 위력 7 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
     expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
     expect(a.weight).toBe(0);
     expect(a.spd).toBe(-4);
@@ -176,10 +176,10 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("반지·목걸이 위력은 마방만(물방 X), 무게 0", () => {
-    // 운명의 반지 T3: 위력 4(×2) weight 0 critMult 26(+0.26×) + spd 7 → 마방 + 치명피해(반지 축) + 속공 갈래.
+    // 운명의 반지 T3: 위력 7 weight 0 critMult 26(+0.26×) + spd 7 → 마방 + 치명피해(반지 축) + 속공 갈래.
     const a = aggregateV2Equipment({ ring: "v2_fate_ring" });
     expect(a.def).toBe(0); // 반지는 물방 안 줌
-    expect(a.magicDef).toBe(4);
+    expect(a.magicDef).toBe(7);
     expect(a.weight).toBe(0);
     expect(a.critMult).toBe(26);
     expect(a.spd).toBe(7);
@@ -899,8 +899,9 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveDefPct: 20,
       passiveAccuracyPct: 12,
     }).player;
-    // 방어% — def 곱연산(철벽).
+    // 방어% — def/magicDef 곱연산(철벽·결계 공통 방어축).
     expect(buffed.def).toBe(Math.floor(plain.def * 1.2));
+    expect(buffed.magicDef).toBe(Math.floor((plain.magicDef ?? 0) * 1.2));
     // 명중 — accuracyPct 가산(정밀). 저레벨 베이스라 캡(35) 미도달 → +12.
     expect((buffed.accuracyPct ?? 0) - (plain.accuracyPct ?? 0)).toBeCloseTo(
       12,
@@ -946,6 +947,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(b.evasionPct ?? 0).toBe(a.evasionPct ?? 0);
     expect(b.enchantLifestealPct ?? 0).toBe(0);
     expect(b.def).toBe(a.def);
+    expect(b.magicDef).toBe(a.magicDef);
     expect(b.accuracyPct ?? 0).toBe(a.accuracyPct ?? 0);
     expect(b.berserkAtkPctPerLostHpPct).toBeUndefined();
     expect(b.enemyMagicVulnPctPerStack).toBeUndefined();

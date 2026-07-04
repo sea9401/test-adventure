@@ -95,7 +95,7 @@ describe("낚시 생활 패시브", () => {
       "물고기 크기 +4%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_camper_tidereading)).toContain(
-      "물때 한정 어종 가중치 +25%",
+      "물때 한정 어종 등장률 +25%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_angler_pointreading)).toContain(
       "희귀 이상 물고기 크기 +3%",
@@ -110,7 +110,7 @@ describe("낚시 생활 패시브", () => {
       "대물급 물고기 크기 +2%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_seagod_deepcurrent)).toContain(
-      "물때 한정 어종 가중치 +20%",
+      "물때 한정 어종 등장률 +20%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_seagod_deepcurrent)).toContain(
       "희귀 이상 물고기 크기 +4%",

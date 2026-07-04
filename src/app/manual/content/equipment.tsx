@@ -9,7 +9,7 @@ export function EquipmentContent() {
         갖고, 그게 슬롯에 따라 다른 전투 수치로 풀립니다.
       </P>
       <Table
-        head={["슬롯", "위력이 환산되는 곳"]}
+        head={["슬롯", "위력이 반영되는 곳"]}
         rows={[
           [<Em key="w">무기</Em>, "물리 공격력 + 마법 공격력 (양쪽 모두)"],
           [<Em key="a">갑옷 · 장갑 · 신발</Em>, "물리 방어력"],

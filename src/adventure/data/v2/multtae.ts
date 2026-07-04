@@ -54,7 +54,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     description: "동이 트며 물낯이 금빛으로 물든다. 이 시간에만 비치는 손님이 있다.",
     specialFishId: "goldeye",
     effect: {
-      label: "특별 손님 가중치 +25%",
+      label: "특별 손님 등장률 +25%",
       specialWeightBonusPct: 25,
     },
   },
@@ -134,7 +134,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     description: "깊은 물길이 조용히 뒤틀린다. 바닥의 거대한 수염이 미끼를 찾는다.",
     specialFishId: "abyss_catfish",
     effect: {
-      label: "특별 손님 가중치 +15% · 대물급 크기 +2%",
+      label: "특별 손님 등장률 +15% · 대물급 크기 +2%",
       specialWeightBonusPct: 15,
       bigCatchSizeBonusPct: 2,
     },

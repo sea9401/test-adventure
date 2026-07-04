@@ -55,7 +55,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   reed_rod: {
     id: "reed_rod",
     name: "갈대 낚싯대",
-    description: "기본 낚싯대. 특별한 보정은 없지만 언제든 쓸 수 있다.",
+    description: "기본 낚싯대. 특별한 추가 효과는 없지만 언제든 쓸 수 있다.",
     price: 0,
     bonuses: {},
   },
@@ -76,7 +76,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   master_rod: {
     id: "master_rod",
     name: "장인의 낚싯대",
-    description: "대기시간을 줄이고 물고기와 희귀 어종의 크기를 고르게 보정한다.",
+    description: "대기시간을 줄이고 물고기와 희귀 어종이 조금 더 크게 잡히게 한다.",
     price: 6500,
     bonuses: {
       waitReductionPct: 15,
@@ -124,7 +124,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   tide_lure: {
     id: "tide_lure",
     name: "물때 미끼",
-    description: "물때 한정 특별 손님의 가중치를 올리고 물고기 크기를 조금 보정한다.",
+    description: "물때 한정 특별 손님이 더 잘 나오게 하고 물고기가 조금 더 크게 잡히게 한다.",
     price: 1200,
     bonuses: { specialWeightPct: 20, sizeBonusPct: 1 },
   },
@@ -145,14 +145,14 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   trophy_lure: {
     id: "trophy_lure",
     name: "대물 미끼",
-    description: "희귀 이상과 대물급 어획의 크기를 보정한다.",
+    description: "희귀 이상과 대물급 어획이 조금 더 크게 잡히게 한다.",
     price: 1800,
     bonuses: { rareSizeBonusPct: 2, bigCatchSizeBonusPct: 3 },
   },
   prism_lure: {
     id: "prism_lure",
     name: "프리즘 미끼",
-    description: "물때 손님을 더 자주 부르고 희귀 어종의 크기를 보정한다.",
+    description: "물때 손님이 더 자주 나오고 희귀 어종이 조금 더 크게 잡히게 한다.",
     price: 5000,
     bonuses: { specialWeightPct: 30, rareSizeBonusPct: 4, bigCatchSizeBonusPct: 2 },
   },

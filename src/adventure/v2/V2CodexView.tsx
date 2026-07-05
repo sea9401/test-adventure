@@ -412,6 +412,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         ]
       : []),
   ];
+  const spCollectionCards = spSourceRows.filter(
+    (row) => row.label !== "SP 열매",
+  );
   const fishDiscoveredCount = fishDiscovered.size;
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
@@ -661,57 +664,119 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             </div>
           </Card>
 
-          <div className="grid gap-2 sm:grid-cols-3">
-            {SP_FRUIT_TIERS.map((tier) => {
-              const def = SP_FRUIT[tier];
-              const used = spFruitUsed[tier] ?? 0;
-              const source = COOP_BOSSES[def.bossKind]?.name ?? "협동 보스";
-              const complete = used >= def.useCap;
-              return (
-                <Card key={tier} padding="md">
-                  <div className="flex min-h-[8.75rem] flex-col">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="truncate text-sm font-bold">
-                          {def.name}
-                        </h3>
-                        <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                          {source} 보상
-                        </p>
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between gap-2 px-1">
+              <h3 className="text-sm font-bold">SP 수집 목록</h3>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                열매 외 영구 SP
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {spCollectionCards.map((row) => {
+                const gained = row.value > 0 || row.label === "기본 SP";
+                return (
+                  <Card key={row.label} padding="md">
+                    <div className="flex min-h-[7.25rem] flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-bold">
+                            {row.label}
+                          </h3>
+                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {row.detail}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                            gained
+                              ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                              : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                          }`}
+                        >
+                          {gained ? "획득" : "미획득"}
+                        </span>
                       </div>
-                      <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                          complete
-                            ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
-                            : "bg-amber-200/70 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                      <div
+                        className={`mt-3 text-2xl font-bold tabular-nums ${
+                          row.value < 0
+                            ? "text-rose-600 dark:text-rose-300"
+                            : "text-zinc-900 dark:text-zinc-100"
                         }`}
                       >
-                        {complete ? "완료" : "진행"}
-                      </span>
+                        {row.value > 0 && row.signed ? "+" : ""}
+                        {row.value}
+                      </div>
+                      <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {row.label === "상한 조정"
+                          ? "SP 최대치 계산에서 차감"
+                          : "현재 SP 최대치에 반영"}
+                      </div>
                     </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
 
-                    <div className="mt-3 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                      {used}
-                      <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                        /{def.useCap}
-                      </span>
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between gap-2 px-1">
+              <h3 className="text-sm font-bold">SP 열매 상세</h3>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                협동 보스 보상
+              </span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {SP_FRUIT_TIERS.map((tier) => {
+                const def = SP_FRUIT[tier];
+                const used = spFruitUsed[tier] ?? 0;
+                const source = COOP_BOSSES[def.bossKind]?.name ?? "협동 보스";
+                const complete = used >= def.useCap;
+                return (
+                  <Card key={tier} padding="md">
+                    <div className="flex min-h-[8.75rem] flex-col">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-bold">
+                            {def.name}
+                          </h3>
+                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {source} 보상
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                            complete
+                              ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                              : "bg-amber-200/70 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                          }`}
+                        >
+                          {complete ? "완료" : "진행"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                        {used}
+                        <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                          /{def.useCap}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                        <div
+                          className="h-full rounded-full bg-amber-500"
+                          style={{
+                            width: `${Math.min(100, (used / def.useCap) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        현재 SP +{used * def.spPerUse} · 1개당 SP +
+                        {def.spPerUse}
+                      </div>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                      <div
-                        className="h-full rounded-full bg-amber-500"
-                        style={{
-                          width: `${Math.min(100, (used / def.useCap) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      현재 SP +{used * def.spPerUse} · 1개당 SP +
-                      {def.spPerUse}
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+                  </Card>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

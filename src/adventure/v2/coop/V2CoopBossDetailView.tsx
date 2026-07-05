@@ -11,7 +11,7 @@ import { FilmStrip } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import type { StaminaState } from "@/adventure/v2/stamina";
+import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
@@ -48,6 +48,7 @@ export function V2CoopBossDetailView({
   playerGender,
   playerSubtitle,
   stamina,
+  staminaMax,
   setStamina,
   onBack,
 }: {
@@ -56,6 +57,7 @@ export function V2CoopBossDetailView({
   playerGender: Gender;
   playerSubtitle?: string;
   stamina: StaminaState;
+  staminaMax: number;
   setStamina: (s: StaminaState) => void;
   onBack: () => void;
 }) {
@@ -124,7 +126,8 @@ export function V2CoopBossDetailView({
       ? my.lastAttackAt + coopAttackCooldownMs() - now
       : 0;
   const onCooldown = active && cooldownLeft > 0;
-  const lowStamina = stamina.current < COOP_ATTACK_STAMINA_COST;
+  const liveStamina = applyRegen(stamina, now, staminaMax);
+  const lowStamina = liveStamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.damage > 0;
   // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
   const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;

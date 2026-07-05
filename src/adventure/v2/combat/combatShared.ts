@@ -494,6 +494,8 @@ export type V2SkillCastResult = {
   castSkillId: V2SkillId | null;
   castSkillName: string | null;
   enemyDamage: number;
+  /** enemyDamage 중 scaling="magic" 피해 효과에서 나온 피해분. */
+  magicEnemyDamage: number;
   /** 적에게 가한 damage 효과별 개별 피해(다단 스킬 = 타당 1개). 합 = enemyDamage.
    *  엔진이 전투 로그를 타마다 한 줄로 쪼개는 데 사용(부스트는 distributeBoostedHits 로 분배). */
   hitDamages: number[];
@@ -598,6 +600,7 @@ export type V2SkillCastInput = {
 
 const EMPTY_CAST_RESULT_BASE = {
   enemyDamage: 0,
+  magicEnemyDamage: 0,
   hitDamages: [] as number[],
   selfHeal: 0,
   selfBuffsToApply: [] as V2SkillBuffApply[],
@@ -747,10 +750,24 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const skillElementMult = mBasic > 0 ? mSkill / mBasic : 1;
   // 3) effect 별 결과 누산.
   let enemyDamage = 0;
+  let magicEnemyDamage = 0;
   // 개별 damage 효과(다단 스킬 = 타당 1개)를 따로 모아 둔다 — 엔진이 로그를 타마다 쪼갬.
   const hitDamages: number[] = [];
-  const dealDamage = (x: number): void => {
+  const dealDamage = (
+    x: number,
+    scaling:
+      | "physical"
+      | "magic"
+      | "def"
+      | "vit"
+      | "dex"
+      | "luk"
+      | "all"
+      | "maxHp"
+      | undefined,
+  ): void => {
     enemyDamage += x;
+    if (scaling === "magic") magicEnemyDamage += x;
     hitDamages.push(x);
   };
   let selfHeal = 0;
@@ -864,7 +881,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       const pierceBonus = effect.pierceDamagePct
         ? Math.round((damageWith(effect.statCoef, flat, effect.scaling, 0, 0) * effect.pierceDamagePct) / 100)
         : 0;
-      dealDamage(base + pierceBonus);
+      dealDamage(base + pierceBonus, effect.scaling);
     } else if (effect.kind === "heal") {
       let amount = 0;
       if (effect.pctLostHp != null) {
@@ -927,13 +944,24 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
       const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
       selfHpCost += cost;
-      dealDamage(damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling, Math.floor(cost * effect.soakRatio)));
+      dealDamage(
+        damageWith(
+          effect.statCoef,
+          flatOf(undefined, effect.baseFlatByTier),
+          effect.scaling,
+          Math.floor(cost * effect.soakRatio),
+        ),
+        effect.scaling,
+      );
     } else if (effect.kind === "healToDamage") {
       // 신성 강타 — 자힐 후 힐량×damageRatio 적에게 딜.
       const atkBase = (effect.scaling === "magic" ? input.attacker.magicAtk ?? input.attacker.atk : input.attacker.atk) * effect.healStatCoef;
       const heal = Math.floor((atkBase + flatOf(undefined, effect.healFlatByTier)) * (input.attacker.healMult ?? 1));
       selfHeal += heal;
-      dealDamage(Math.floor(heal * effect.damageRatio * skillElementMult));
+      dealDamage(
+        Math.floor(heal * effect.damageRatio * skillElementMult),
+        effect.scaling,
+      );
     } else if (effect.kind === "executeDamage") {
       // 처단 — 적 HP 임계 이하면 ×bonusMult.
       const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
@@ -942,19 +970,32 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         effect.hpThresholdPct,
         input.target.executeHpThresholdFloorPct ?? 0,
       );
-      dealDamage(frac <= thresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
+      dealDamage(
+        frac <= thresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base,
+        effect.scaling,
+      );
     } else if (effect.kind === "ambushDamage") {
       // 기습 — 처형의 역. 적 HP 임계 "이상"(풀피)이면 ×bonusMult (오프너 알파), 아니면 낮은 기본딜.
       const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
-      dealDamage(frac >= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
+      dealDamage(
+        frac >= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base,
+        effect.scaling,
+      );
     } else if (effect.kind === "stackPayoffDamage") {
       // 참절/중독폭발/비전작렬 — 적 DoT/취약 스택당 추가딜.
       const stacks =
         effect.tag === "bleed" ? input.target.bleedStacks ?? 0
         : effect.tag === "poison" ? input.target.poisonStacks ?? 0
         : input.target.magicVulnStacks ?? 0;
-      dealDamage(damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat, effect.scaling));
+      dealDamage(
+        damageWith(
+          effect.statCoef,
+          flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat,
+          effect.scaling,
+        ),
+        effect.scaling,
+      );
     } else if (effect.kind === "dot") {
       // 패턴 경로 DoT throttle — 확정 발동으로 자주 적용되는 DoT 틱 위력을 깎는다(평타 바닥 보호로
       //   직타는 안 깎이므로 DoT 만 줄여도 빌드가 평타 이하로 안 떨어짐). off/몹 cast 는 미적용.
@@ -1023,6 +1064,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
     return Math.round(basicFloor + surplus * skillMult);
   })();
+  const scaledMagicEnemyDamage =
+    magicEnemyDamage <= 0
+      ? 0
+      : magicEnemyDamage >= enemyDamage
+        ? scaledEnemyDamage
+        : Math.floor(
+            (scaledEnemyDamage * magicEnemyDamage) / Math.max(1, enemyDamage),
+          );
   const damageBasedHeal = Math.floor(
     ((scaledEnemyDamage * healFromDamagePct) / 100) * (input.attacker.healMult ?? 1),
   );
@@ -1049,6 +1098,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       ? `${V2_ELEMENT_LABEL[charEl]} 마법`
       : def.name,
     enemyDamage: applyRitualPower(scaledEnemyDamage),
+    magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
     hitDamages,
     selfHeal: applyRitualPower(scaledSelfHeal),
     selfBuffsToApply,

@@ -624,6 +624,20 @@ describe("직업 킷 — 스킬셋", () => {
       critDmgPct: 40,
       maxHpPct: 12,
     });
+    expect(skillsForJob("archmage")).toEqual([
+      "v2c_archmage_collapse",
+      "v2c_archmage_theory",
+    ]);
+    expect(V2_SKILLS.v2c_archmage_collapse.category).toBe("attack");
+    expect(V2_SKILLS.v2c_archmage_collapse.effects).toEqual([
+      { kind: "damage", statCoef: 1.95, baseFlat: 430, scaling: "magic" },
+      { kind: "enemyDelay", pct: 35 },
+    ]);
+    expect(V2_SKILLS.v2c_archmage_theory.category).toBe("passive");
+    expect(V2_SKILLS.v2c_archmage_theory.passive).toMatchObject({
+      statPct: { int: 22 },
+      magicSkillDamagePct: 12,
+    });
     expect(skillsForJob("celestialdragon")).toEqual([
       "v2c_celestialdragon_combo",
       "v2c_celestialdragon_breath",
@@ -869,6 +883,12 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.openingMagicDamageReductionPhases).toBe(3);
     // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
+  });
+
+  it("aggregateEquippedPassives — 대마도 이론은 INT%와 마법 스킬 피해를 합산한다", () => {
+    const agg = aggregateEquippedPassives(["v2c_archmage_theory"]);
+    expect(agg.statPct).toEqual({ int: 22 });
+    expect(agg.magicSkillDamagePct).toBe(12);
   });
 
   it("aggregateEquippedPassives — 천룡의 호흡이 절초 보너스를 합산", () => {

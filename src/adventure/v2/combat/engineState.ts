@@ -505,6 +505,8 @@ export type PlayerCombat = {
   enemyMagicVulnPctPerStack?: number;
   // 약점 노출 누적 확률. undefined 는 기존 직접 주입 테스트/호환을 위해 100%로 처리.
   enemyMagicVulnApplyChancePct?: number;
+  // 대마도 이론 — scaling="magic" 스킬 피해 +%. 0/undefined=미보유.
+  magicSkillDamagePct?: number;
   // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
   mpCostReductionPct?: number;
   // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──

@@ -782,6 +782,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 30, vit: 6 },
     unlock: { prereqs: { overlord: TIER6_UNLOCK_CUMLEVEL } },
   },
+  archmage: {
+    id: "archmage",
+    name: "대마도사",
+    tier: 6,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { arcanist: TIER6_UNLOCK_CUMLEVEL } },
+  },
   celestialdragon: {
     id: "celestialdragon",
     name: "천룡권성",
@@ -1029,6 +1037,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   fortressknight: { class: "warrior", spec: "fortressknight" },
   swordsaint: { class: "warrior", spec: "swordsaint" },
   hegemon: { class: "warrior", spec: "hegemon" },
+  archmage: { class: "mage", spec: "archmage" },
   celestialdragon: { class: "martial", spec: "celestialdragon" },
   vajraarhat: { class: "martial", spec: "vajraarhat" },
   seagod: { class: "survivor", spec: "seagod" },

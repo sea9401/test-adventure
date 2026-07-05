@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   advanceTurn,
+  applyPlayerV2SkillCast,
   initialBattleState,
   resolveBattle,
   type PlayerCombat,
@@ -574,6 +575,47 @@ describe("주문중첩/약점노출 — 스킬 데미지 스택 (resolveBattle �
       enemyMagicVulnApplyChancePct: 0,
     });
     expect(blocked.stacks.enemyMagicVulnStacks).toBe(0);
+  });
+
+  it("마법 스킬 피해 — scaling=magic 피해만 증폭하고 물리 스킬은 유지한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const castOnce = (
+      skillId: "v2c_mage_fireball" | "v2_skill_strike",
+      over: Partial<PlayerCombat> = {},
+    ) => {
+      const player: PlayerCombat = {
+        ...BASE_PLAYER,
+        accuracyPct: 1000,
+        atk: 100,
+        magicAtk: 100,
+        maxMp: 1000,
+        mp: 1000,
+        ...over,
+      };
+      const state = initialBattleState(
+        player,
+        enemy({ hp: 2000, def: 0, spd: 1 }),
+        "용사",
+        { learned: [skillId], equipped: [skillId] },
+      );
+      return applyPlayerV2SkillCast(state, player, {
+        selfBuffs: {},
+        selfDebuffs: {},
+        enemyDebuffs: {},
+      }).state;
+    };
+
+    const plainMagic = castOnce("v2c_mage_fireball");
+    const boostedMagic = castOnce("v2c_mage_fireball", {
+      magicSkillDamagePct: 100,
+    });
+    const plainPhysical = castOnce("v2_skill_strike");
+    const boostedPhysical = castOnce("v2_skill_strike", {
+      magicSkillDamagePct: 100,
+    });
+
+    expect(2000 - boostedMagic.enemyHp).toBe((2000 - plainMagic.enemyHp) * 2);
+    expect(boostedPhysical.enemyHp).toBe(plainPhysical.enemyHp);
   });
 });
 

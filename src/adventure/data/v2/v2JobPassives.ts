@@ -54,6 +54,8 @@ export type V2JobPassiveEffect = {
   /** 약점 노출 — 스킬 적중 시 대상 받는 마법피해 %/스택(상한). */
   enemyMagicVulnPctPerStack?: number;
   enemyMagicVulnApplyChancePct?: number;
+  /** 마법 스킬 피해 +% — scaling="magic" 피해분에만 적용. */
+  magicSkillDamagePct?: number;
   /** 주문 중첩 — 스킬 시전마다 스킬 데미지 % 누적(전투 내, 상한). */
   skillDmgPctPerCast?: number;
   /** 마력 순환 — 매 턴 MP 회복(flat). */

@@ -932,6 +932,16 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(shaman.enemyMagicVulnApplyChancePct).toBe(70);
   });
 
+  it("마법 스킬 피해 패시브는 전투 레버로 노출된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const archmage = derivePlayerCombatV2Pure({
+      ...base,
+      passiveMagicSkillDamagePct: 12,
+    }).player;
+    expect(plain.magicSkillDamagePct).toBeUndefined();
+    expect(archmage.magicSkillDamagePct).toBe(12);
+  });
+
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
     const a = derivePlayerCombatV2Pure({ ...base }).player;
     const b = derivePlayerCombatV2Pure({
@@ -945,6 +955,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveBerserkAtkPctPerLostHpPct: 0,
       passiveEnemyMagicVulnPctPerStack: 0,
       passiveEnemyMagicVulnApplyChancePct: 0,
+      passiveMagicSkillDamagePct: 0,
     }).player;
     expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
     expect(b.critMult ?? 0).toBe(a.critMult ?? 0);
@@ -956,6 +967,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(b.berserkAtkPctPerLostHpPct).toBeUndefined();
     expect(b.enemyMagicVulnPctPerStack).toBeUndefined();
     expect(b.enemyMagicVulnApplyChancePct).toBeUndefined();
+    expect(b.magicSkillDamagePct).toBeUndefined();
   });
 });
 

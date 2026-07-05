@@ -13,7 +13,7 @@ import type { MulttaeConditionId } from "./multtae";
 export type FishTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
 export type FishId =
-  // 흔함 (9)
+  // 흔함 (10)
   | "crucian_carp"
   | "minnow"
   | "killifish"
@@ -23,7 +23,8 @@ export type FishId =
   | "bitterling"
   | "sand_gudgeon"
   | "pond_smelt"
-  // 보통 (10)
+  | "mudskipper"
+  // 보통 (11)
   | "carp"
   | "catfish"
   | "sea_bass"
@@ -34,6 +35,7 @@ export type FishId =
   | "sweetfish"
   | "chub"
   | "freshwater_eel"
+  | "yellowtail"
   // 희귀 (7)
   | "trout"
   | "pike"
@@ -50,13 +52,15 @@ export type FishId =
   | "giant_octopus"
   | "anglerfish"
   | "golden_koi"
-  // 전설 (5)
+  | "sunfish"
+  // 전설 (6)
   | "platinum_carp"
   | "starlit_ray"
   | "abyssal_leviathan"
   | "dragonscale_fish"
   | "ancient_fish"
-  // 물때 한정 특별 손님 (8) — 해당 물때 창에만 입질(multtae.ts). 항상풀(위 38종)엔 안 섞임.
+  | "oarfish"
+  // 물때 한정 특별 손님 (8) — 해당 물때 창에만 입질(multtae.ts). 항상풀(위 42종)엔 안 섞임.
   | "goldeye"
   | "moonshadow_eel"
   | "mist_koi"
@@ -133,7 +137,7 @@ export const FISH_TIERS: Record<FishTier, FishTierMeta> = {
 export type FishTierWeightBonuses = Partial<Record<FishTier, number>>;
 
 export const FISH: Record<FishId, Fish> = {
-  // === 흔함 (9) ===
+  // === 흔함 (10) ===
   crucian_carp: {
     id: "crucian_carp",
     name: "붕어",
@@ -206,8 +210,16 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 18,
     description: "가느다란 은빛 몸이 차가운 물속에서 반짝인다.",
   },
+  mudskipper: {
+    id: "mudskipper",
+    name: "짱뚱어",
+    tier: "common",
+    minSize: 7,
+    maxSize: 30,
+    description: "갯벌 위를 폴짝이며 다니는 물고기. 물 밖에서도 한동안 버틴다.",
+  },
 
-  // === 보통 (10) ===
+  // === 보통 (11) ===
   carp: {
     id: "carp",
     name: "잉어",
@@ -287,6 +299,14 @@ export const FISH: Record<FishId, Fish> = {
     minSize: 35,
     maxSize: 120,
     description: "진흙과 돌 틈을 누비는 긴 몸의 물고기. 줄을 감아 당기는 힘이 질기다.",
+  },
+  yellowtail: {
+    id: "yellowtail",
+    name: "방어",
+    tier: "uncommon",
+    minSize: 45,
+    maxSize: 150,
+    description: "푸른 등과 빠른 몸놀림을 가진 바다 물고기. 힘찬 돌진으로 낚싯줄을 흔든다.",
   },
 
   // === 희귀 (7) ===
@@ -404,8 +424,16 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 150,
     description: "비늘마다 금빛이 도는 귀한 잉어. 수면 위로 오르면 물가가 환해진다.",
   },
+  sunfish: {
+    id: "sunfish",
+    name: "개복치",
+    tier: "epic",
+    minSize: 90,
+    maxSize: 330,
+    description: "납작하고 거대한 몸으로 느릿하게 떠다닌다. 보기와 달리 끌어올리기 까다롭다.",
+  },
 
-  // === 전설 (5) ===
+  // === 전설 (6) ===
   platinum_carp: {
     id: "platinum_carp",
     name: "백금 잉어",
@@ -446,9 +474,17 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 650,
     description: "오래된 지층의 기억을 품은 듯한 물고기. 등비늘이 화석처럼 단단하다.",
   },
+  oarfish: {
+    id: "oarfish",
+    name: "산갈치",
+    tier: "legendary",
+    minSize: 250,
+    maxSize: 1100,
+    description: "깊은 바다에서 올라오는 길고 붉은 지느러미의 물고기. 나타나면 모두가 숨을 죽인다.",
+  },
 
   // === 물때 한정 특별 손님 (8) ===
-  // 각자 자기 물때 창에만 입질한다(condition). 항상풀 38종과 섞이지 않아 공정성 청정 —
+  // 각자 자기 물때 창에만 입질한다(condition). 항상풀 42종과 섞이지 않아 공정성 청정 —
   // 사이즈는 일반 heavy-tail, 종별 리더보드 칸만 하나씩 더 생긴다.
   goldeye: {
     id: "goldeye",

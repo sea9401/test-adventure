@@ -249,6 +249,7 @@ export async function POST(req: Request) {
       battleMaxHp - battleResult.finalState.playerHp,
     );
     const diedEarly = battleResult.finalState.playerHp <= 0;
+    const replay = toReplayPayload(battleResult.finalState, 200);
 
     // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
     const [s] = await tx
@@ -368,7 +369,7 @@ export async function POST(req: Request) {
       damageDealt: appliedDamage,
       damageTaken,
       diedEarly,
-      log: [], // 전체 로그는 응답 replay 로만 — DB 비대화 방지(피드는 데미지 라인).
+      log: replay,
       createdAt: nowDate,
     });
 
@@ -394,7 +395,7 @@ export async function POST(req: Request) {
           defeated: bossHp === 0,
           myDamage,
           myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),
-          replay: toReplayPayload(battleResult.finalState, 200),
+          replay,
         },
       },
     };

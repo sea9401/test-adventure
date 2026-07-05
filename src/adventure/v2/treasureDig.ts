@@ -1,13 +1,13 @@
-// 발굴 미니게임 — 격자 + 단서(뜨/따/미/차) 추리 + 매장지 적중. 서버 권위 순수 코어.
+// 발굴 미니게임 — 유물 노출도/보존도/붕괴 위험을 관리하는 발굴 상태 머신.
 //
-// 설계: docs/treasure-hunt-plan.md §4 §7
-// open 이 격자/매장지/골동품을 서버에서 굴려 세션에 박제(클라는 격자만 본다), dig 가 이
-// 순수 함수로 단서를 계산하고 적중을 판정한다. 매 dig 가 세션을 갱신(여러 번 호출).
-//
-// 봇 방지: 매장지·골동품(희귀도·보존상태)은 open 때 서버에서만 굴려 세션에 박제 → 클라가
-// 결과를 못 만든다. 단서(거리 밴드)는 서버 계산. 조각 funnel 이 시도 자체를 throttle.
+// open 이 골동품과 숨은 상태(기초 보존상태, 지반 불안정도)를 서버에서 봉인하고, action 이
+// 이 순수 함수로 진행을 갱신한다. 클라는 공개 상태(노출/보존/위험/확신/힌트)만 보고
+// "더 파낼지, 안정화할지, 지금 회수할지"를 결정한다.
 
 import {
+  ANTIQUES,
+  ANTIQUE_THEME_LABEL,
+  ANTIQUE_TIERS,
   isAntiqueId,
   pickAntiqueId,
   rollCondition,
@@ -17,211 +17,493 @@ import {
 
 export const TREASURE_SESSION_KEY = "treasure-session.v1";
 
-/** 격자 한 변 길이 (5×5). (다이얼) */
-export const GRID_SIZE = 5;
-/** 발굴 시도 횟수(예산). (다이얼) */
-export const DIGS_ALLOWED = 6;
-export const TOTAL_CELLS = GRID_SIZE * GRID_SIZE;
+export const ACTIONS_ALLOWED = 9;
+export const MIN_EXPOSURE_TO_EXTRACT = 70;
+export const COLLAPSE_RISK = 100;
 
-// 단서 — 매장지까지의 체비셰프 거리 밴드. (거리 0 = 적중)
-export type DigClue = "hot" | "warm" | "lukewarm" | "cold";
+export type TreasureAction = "probe" | "shovel" | "brush" | "stabilize" | "extract";
 
-export const DIG_CLUE_LABEL: Record<DigClue, string> = {
-  hot: "뜨거움",
-  warm: "따뜻함",
-  lukewarm: "미지근함",
-  cold: "차가움",
+export const TREASURE_ACTION_LABEL: Record<TreasureAction, string> = {
+  probe: "탐침",
+  shovel: "삽질",
+  brush: "붓질",
+  stabilize: "보강",
+  extract: "회수",
 };
 
-export type DigRecord = { cell: number; clue: DigClue };
+export const TREASURE_ACTION_HELP: Record<TreasureAction, string> = {
+  probe: "유물의 윤곽과 성격을 파악합니다. 확신도가 크게 오르지만 위험도도 오릅니다.",
+  shovel: "흙을 크게 걷어냅니다. 빠르지만 보존도와 위험 부담이 큽니다.",
+  brush: "조심스럽게 노출도를 올립니다. 느리지만 보존도 손상이 적습니다.",
+  stabilize: "무너지는 흙을 다집니다. 진행은 거의 없지만 위험도를 낮춥니다.",
+  extract: "현재 상태로 유물을 회수합니다. 노출도가 낮으면 실패합니다.",
+};
+
+type ProgressAction = Exclude<TreasureAction, "extract">;
+
+type ProgressDelta = {
+  exposure: number;
+  preservation: number;
+  risk: number;
+  certainty: number;
+  message: string;
+};
+
+const PROGRESS_DELTAS: Record<ProgressAction, ProgressDelta> = {
+  probe: {
+    exposure: 7,
+    preservation: -1,
+    risk: 8,
+    certainty: 26,
+    message: "탐침으로 흙 아래의 윤곽을 읽었습니다.",
+  },
+  shovel: {
+    exposure: 24,
+    preservation: -8,
+    risk: 18,
+    certainty: 6,
+    message: "삽질로 덮인 흙을 크게 걷어냈습니다.",
+  },
+  brush: {
+    exposure: 12,
+    preservation: -2,
+    risk: 7,
+    certainty: 12,
+    message: "붓으로 표면을 조심스럽게 드러냈습니다.",
+  },
+  stabilize: {
+    exposure: 3,
+    preservation: -1,
+    risk: -24,
+    certainty: 4,
+    message: "흙벽을 보강해 붕괴 위험을 낮췄습니다.",
+  },
+};
+
+export type TreasureActionRecord = {
+  action: TreasureAction;
+  exposure: number;
+  preservation: number;
+  risk: number;
+  certainty: number;
+  message: string;
+};
+
+export type TreasureHint = {
+  key: string;
+  label: string;
+};
 
 export type TreasureSession = {
   siteId: string;
-  gridSize: number;
-  /** 매장지 셀 (서버 전용 비밀). */
-  treasureCell: number;
-  /** 박제된 골동품 종류 (비밀). */
+  /** 박제된 골동품 종류 (서버 전용 비밀). */
   antiqueId: AntiqueId;
-  /** 박제된 보존상태 (비밀). */
+  /** 서버가 굴린 기초 보존상태. 최종 보존상태의 운 요소. */
   condition: number;
-  digsAllowed: number;
-  /** 파낸 셀 + 각 단서 (digsUsed = digs.length). 단서는 비밀 아님 — 유저가 얻은 정보. */
-  digs: DigRecord[];
+  /** 지반 불안정도. 높을수록 같은 행동도 위험이 더 빨리 오른다. */
+  instability: number;
+  exposure: number;
+  preservation: number;
+  risk: number;
+  certainty: number;
+  actionsAllowed: number;
+  actions: TreasureActionRecord[];
   openedAt: number;
 };
 
-// 클라에 내려보내는 공개 뷰 — 비밀(매장지/골동품/보존상태) 제거.
 export type TreasureSitePublic = {
   siteId: string;
-  gridSize: number;
-  digsAllowed: number;
-  digsUsed: number;
-  digs: DigRecord[];
+  exposure: number;
+  preservation: number;
+  risk: number;
+  certainty: number;
+  actionsAllowed: number;
+  actionsUsed: number;
+  canExtract: boolean;
+  forcedExtract: boolean;
+  hints: TreasureHint[];
+  actions: TreasureActionRecord[];
 };
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function riskTax(risk: number): number {
+  if (risk >= 90) return 10;
+  if (risk >= 75) return 6;
+  if (risk >= 60) return 3;
+  return 0;
+}
+
+function instabilityForAntique(antiqueId: AntiqueId, rng: () => number): number {
+  const tier = ANTIQUES[antiqueId].tier;
+  const tierTax = {
+    common: 0,
+    uncommon: 1,
+    rare: 2,
+    epic: 3,
+    legendary: 4,
+  }[tier];
+  return tierTax + Math.floor(rng() * 7);
+}
+
+export function finalConditionForSession(session: TreasureSession): number {
+  return clamp(
+    session.condition * 0.55 + session.preservation * 0.45,
+    MIN_CONDITION,
+    100,
+  );
+}
+
+export function hintsForSession(session: TreasureSession): TreasureHint[] {
+  const antique = ANTIQUES[session.antiqueId];
+  const tier = ANTIQUE_TIERS[antique.tier];
+  const hints: TreasureHint[] = [];
+  if (session.certainty >= 20) {
+    hints.push({
+      key: "theme",
+      label: `${ANTIQUE_THEME_LABEL[antique.theme]} 계열의 흔적`,
+    });
+  }
+  if (session.certainty >= 45) {
+    hints.push({
+      key: "tier",
+      label: `${tier.label} 등급 반응`,
+    });
+  }
+  if (session.certainty >= 70) {
+    hints.push({
+      key: "value",
+      label: `온전하면 약 ${antique.baseValue.toLocaleString()}G급`,
+    });
+  }
+  if (session.certainty >= 90) {
+    hints.push({
+      key: "name",
+      label: antique.name,
+    });
+  }
+  return hints;
+}
 
 export function toPublicSite(s: TreasureSession): TreasureSitePublic {
   return {
     siteId: s.siteId,
-    gridSize: s.gridSize,
-    digsAllowed: s.digsAllowed,
-    digsUsed: s.digs.length,
-    digs: s.digs.map((d) => ({ cell: d.cell, clue: d.clue })),
+    exposure: s.exposure,
+    preservation: s.preservation,
+    risk: s.risk,
+    certainty: s.certainty,
+    actionsAllowed: s.actionsAllowed,
+    actionsUsed: s.actions.length,
+    canExtract: s.exposure >= MIN_EXPOSURE_TO_EXTRACT,
+    forcedExtract: s.actions.length >= s.actionsAllowed,
+    hints: hintsForSession(s),
+    actions: s.actions.map((a) => ({ ...a })),
   };
 }
 
-// 셀 인덱스 → (행, 열). 인덱스 = 행 × gridSize + 열.
-function cellRowCol(cell: number, gridSize: number): [number, number] {
-  return [Math.floor(cell / gridSize), cell % gridSize];
-}
-
-// 두 셀의 체비셰프 거리 — max(|Δ행|, |Δ열|).
-export function chebyshev(a: number, b: number, gridSize: number): number {
-  const [ra, ca] = cellRowCol(a, gridSize);
-  const [rb, cb] = cellRowCol(b, gridSize);
-  return Math.max(Math.abs(ra - rb), Math.abs(ca - cb));
-}
-
-// 거리 → 단서 밴드. (거리 0 = 적중이라 여기 안 옴.)
-export function clueForDistance(d: number): DigClue {
-  if (d <= 1) return "hot";
-  if (d === 2) return "warm";
-  if (d === 3) return "lukewarm";
-  return "cold";
-}
-
-// 새 발굴 지점 굴림(순수) — 매장지·골동품·보존상태 박제. siteId 는 라우트가 발급.
 export function rollNewSession(args: {
   siteId: string;
   rng: () => number;
   now: number;
 }): TreasureSession {
   const { siteId, rng, now } = args;
-  const treasureCell = Math.min(TOTAL_CELLS - 1, Math.floor(rng() * TOTAL_CELLS));
   const antiqueId = pickAntiqueId(rng);
-  const condition = rollCondition(antiqueId, rng);
   return {
     siteId,
-    gridSize: GRID_SIZE,
-    treasureCell,
     antiqueId,
-    condition,
-    digsAllowed: DIGS_ALLOWED,
-    digs: [],
+    condition: rollCondition(antiqueId, rng),
+    instability: instabilityForAntique(antiqueId, rng),
+    exposure: 0,
+    preservation: 100,
+    risk: 12 + Math.floor(rng() * 10),
+    certainty: 0,
+    actionsAllowed: ACTIONS_ALLOWED,
+    actions: [],
     openedAt: now,
   };
 }
 
-export type DigResult =
+export type TreasureActionResult =
   | { kind: "invalid"; session: TreasureSession }
-  | { kind: "miss"; clue: DigClue; session: TreasureSession }
-  | { kind: "exhausted"; clue: DigClue; session: TreasureSession }
-  | { kind: "hit"; session: TreasureSession };
+  | { kind: "progress"; session: TreasureSession; message: string }
+  | { kind: "collapsed"; session: TreasureSession; message: string }
+  | { kind: "failed"; session: TreasureSession; message: string }
+  | { kind: "extracted"; session: TreasureSession; condition: number };
 
-// 한 번 파기(순수). 범위/중복/예산 가드 후 거리 단서·적중 판정. nextSession 반환.
-export function applyDig(session: TreasureSession, cell: number): DigResult {
-  if (
-    !Number.isInteger(cell) ||
-    cell < 0 ||
-    cell >= session.gridSize * session.gridSize
-  ) {
-    return { kind: "invalid", session };
-  }
-  // 예산 소진(이미 끝났어야 함) 또는 같은 셀 재발굴 → 무효(소비 없음).
-  if (session.digs.length >= session.digsAllowed) {
-    return { kind: "invalid", session };
-  }
-  if (session.digs.some((d) => d.cell === cell)) {
-    return { kind: "invalid", session };
-  }
-  const d = chebyshev(cell, session.treasureCell, session.gridSize);
-  if (d === 0) {
-    const next: TreasureSession = {
-      ...session,
-      digs: [...session.digs, { cell, clue: "hot" }],
-    };
-    return { kind: "hit", session: next };
-  }
-  const clue = clueForDistance(d);
-  const next: TreasureSession = {
+function appendRecord(
+  session: TreasureSession,
+  action: TreasureAction,
+  message: string,
+): TreasureSession {
+  return {
     ...session,
-    digs: [...session.digs, { cell, clue }],
+    actions: [
+      ...session.actions,
+      {
+        action,
+        exposure: session.exposure,
+        preservation: session.preservation,
+        risk: session.risk,
+        certainty: session.certainty,
+        message,
+      },
+    ],
   };
-  if (next.digs.length >= session.digsAllowed) {
-    return { kind: "exhausted", clue, session: next };
-  }
-  return { kind: "miss", clue, session: next };
 }
 
-function isDigClue(v: unknown): v is DigClue {
-  return v === "hot" || v === "warm" || v === "lukewarm" || v === "cold";
+export function applyTreasureAction(
+  session: TreasureSession,
+  action: TreasureAction,
+): TreasureActionResult {
+  if (!isTreasureAction(action)) return { kind: "invalid", session };
+
+  if (action === "extract") {
+    if (session.exposure < MIN_EXPOSURE_TO_EXTRACT) {
+      const penalty = MIN_EXPOSURE_TO_EXTRACT - session.exposure;
+      const next = appendRecord(
+        {
+          ...session,
+          preservation: clamp(session.preservation - penalty, MIN_CONDITION, 100),
+          risk: COLLAPSE_RISK,
+        },
+        action,
+        "노출이 부족한 상태로 당겨 유물이 흙 속에서 부서졌습니다.",
+      );
+      return {
+        kind: "failed",
+        session: next,
+        message: "노출이 부족한 상태로 당겨 유물이 흙 속에서 부서졌습니다.",
+      };
+    }
+    const roughnessPenalty = clamp((100 - session.exposure) * 0.2, 0, 8);
+    const next = appendRecord(
+      {
+        ...session,
+        preservation: clamp(
+          session.preservation - roughnessPenalty - riskTax(session.risk) * 0.5,
+          MIN_CONDITION,
+          100,
+        ),
+      },
+      action,
+      "유물을 회수했습니다.",
+    );
+    return {
+      kind: "extracted",
+      session: next,
+      condition: finalConditionForSession(next),
+    };
+  }
+
+  if (session.actions.length >= session.actionsAllowed) {
+    return { kind: "invalid", session };
+  }
+
+  const delta = PROGRESS_DELTAS[action];
+  const riskGain =
+    delta.risk > 0 ? delta.risk + Math.ceil(session.instability / 2) : delta.risk;
+  const nextRisk = clamp(session.risk + riskGain, 0, COLLAPSE_RISK);
+  const next = appendRecord(
+    {
+      ...session,
+      exposure: clamp(session.exposure + delta.exposure, 0, 100),
+      preservation: clamp(
+        session.preservation + delta.preservation - riskTax(nextRisk),
+        MIN_CONDITION,
+        100,
+      ),
+      risk: nextRisk,
+      certainty: clamp(session.certainty + delta.certainty, 0, 100),
+    },
+    action,
+    delta.message,
+  );
+
+  if (next.risk >= COLLAPSE_RISK) {
+    return {
+      kind: "collapsed",
+      session: next,
+      message: "지반이 무너져 발굴 지점을 잃었습니다.",
+    };
+  }
+
+  return { kind: "progress", session: next, message: delta.message };
 }
 
-// 손상/빈 입력은 null(=열린 세션 없음). 위조 가드: 비밀 필드 범위·격자 정합·digs 정합.
-export function parseTreasureSession(raw: unknown): TreasureSession | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.siteId !== "string" || !r.siteId) return null;
-  const gridSize = r.gridSize;
-  if (typeof gridSize !== "number" || !Number.isInteger(gridSize) || gridSize < 1) {
-    return null;
-  }
-  const total = gridSize * gridSize;
-  const treasureCell = r.treasureCell;
+export function isTreasureAction(v: unknown): v is TreasureAction {
+  return (
+    v === "probe" ||
+    v === "shovel" ||
+    v === "brush" ||
+    v === "stabilize" ||
+    v === "extract"
+  );
+}
+
+function isRecord(raw: unknown): raw is Record<string, unknown> {
+  return !!raw && typeof raw === "object";
+}
+
+function parseActionRecord(raw: unknown): TreasureActionRecord | null {
+  if (!isRecord(raw)) return null;
+  if (!isTreasureAction(raw.action)) return null;
+  const exposure = raw.exposure;
+  const preservation = raw.preservation;
+  const risk = raw.risk;
+  const certainty = raw.certainty;
+  const message = raw.message;
   if (
-    typeof treasureCell !== "number" ||
-    !Number.isInteger(treasureCell) ||
-    treasureCell < 0 ||
-    treasureCell >= total
+    typeof exposure !== "number" ||
+    typeof preservation !== "number" ||
+    typeof risk !== "number" ||
+    typeof certainty !== "number" ||
+    typeof message !== "string"
   ) {
     return null;
   }
-  if (typeof r.antiqueId !== "string" || !isAntiqueId(r.antiqueId)) return null;
-  const condition = r.condition;
+  if (
+    exposure < 0 ||
+    exposure > 100 ||
+    preservation < MIN_CONDITION ||
+    preservation > 100 ||
+    risk < 0 ||
+    risk > COLLAPSE_RISK ||
+    certainty < 0 ||
+    certainty > 100
+  ) {
+    return null;
+  }
+  return {
+    action: raw.action,
+    exposure: clamp(exposure, 0, 100),
+    preservation: clamp(preservation, MIN_CONDITION, 100),
+    risk: clamp(risk, 0, COLLAPSE_RISK),
+    certainty: clamp(certainty, 0, 100),
+    message,
+  };
+}
+
+function parseLegacyGridSession(raw: Record<string, unknown>): TreasureSession | null {
+  if (typeof raw.siteId !== "string" || !raw.siteId) return null;
+  if (typeof raw.antiqueId !== "string" || !isAntiqueId(raw.antiqueId)) return null;
+  const condition = raw.condition;
+  if (typeof condition !== "number" || condition < MIN_CONDITION || condition > 100) {
+    return null;
+  }
+  if (
+    typeof raw.gridSize !== "number" ||
+    typeof raw.treasureCell !== "number" ||
+    !Array.isArray(raw.digs)
+  ) {
+    return null;
+  }
+  const migratedActions = Math.min(raw.digs.length, ACTIONS_ALLOWED);
+  const exposure = clamp(migratedActions * 9, 0, 64);
+  const preservation = clamp(100 - migratedActions * 3, MIN_CONDITION, 100);
+  const risk = clamp(14 + migratedActions * 7, 0, 82);
+  const certainty = clamp(migratedActions * 14, 0, 88);
+  const actions: TreasureActionRecord[] = Array.from(
+    { length: migratedActions },
+    (_, idx) => ({
+      action: "probe",
+      exposure: clamp((idx + 1) * 9, 0, 64),
+      preservation: clamp(100 - (idx + 1) * 3, MIN_CONDITION, 100),
+      risk: clamp(14 + (idx + 1) * 7, 0, 82),
+      certainty: clamp((idx + 1) * 14, 0, 88),
+      message: "이전 발굴 기록을 새 방식으로 이전했습니다.",
+    }),
+  );
+  return {
+    siteId: raw.siteId,
+    antiqueId: raw.antiqueId,
+    condition: clamp(condition, MIN_CONDITION, 100),
+    instability: 3,
+    exposure,
+    preservation,
+    risk,
+    certainty,
+    actionsAllowed: ACTIONS_ALLOWED,
+    actions,
+    openedAt:
+      typeof raw.openedAt === "number" && Number.isFinite(raw.openedAt)
+        ? raw.openedAt
+        : 0,
+  };
+}
+
+// 손상/빈 입력은 null(=열린 세션 없음). 옛 격자 세션은 새 상태로 이전해 이미 쓴 지도 조각을 보존.
+export function parseTreasureSession(raw: unknown): TreasureSession | null {
+  if (!isRecord(raw)) return null;
+  const legacy = parseLegacyGridSession(raw);
+  if (legacy) return legacy;
+  if (typeof raw.siteId !== "string" || !raw.siteId) return null;
+  if (typeof raw.antiqueId !== "string" || !isAntiqueId(raw.antiqueId)) return null;
+
+  const condition = raw.condition;
+  const instability = raw.instability;
+  const exposure = raw.exposure;
+  const preservation = raw.preservation;
+  const risk = raw.risk;
+  const certainty = raw.certainty;
+  const actionsAllowed = raw.actionsAllowed;
   if (
     typeof condition !== "number" ||
-    !Number.isInteger(condition) ||
-    condition < MIN_CONDITION ||
-    condition > 100
+    typeof instability !== "number" ||
+    typeof exposure !== "number" ||
+    typeof preservation !== "number" ||
+    typeof risk !== "number" ||
+    typeof certainty !== "number" ||
+    typeof actionsAllowed !== "number"
   ) {
     return null;
   }
-  const digsAllowed = r.digsAllowed;
   if (
-    typeof digsAllowed !== "number" ||
-    !Number.isInteger(digsAllowed) ||
-    digsAllowed < 1
+    condition < MIN_CONDITION ||
+    condition > 100 ||
+    instability < 0 ||
+    instability > 20 ||
+    exposure < 0 ||
+    exposure > 100 ||
+    preservation < MIN_CONDITION ||
+    preservation > 100 ||
+    risk < 0 ||
+    risk > COLLAPSE_RISK ||
+    certainty < 0 ||
+    certainty > 100 ||
+    !Number.isInteger(actionsAllowed) ||
+    actionsAllowed < 1 ||
+    actionsAllowed > 20 ||
+    !Array.isArray(raw.actions) ||
+    raw.actions.length > actionsAllowed + 1
   ) {
     return null;
   }
-  if (!Array.isArray(r.digs)) return null;
-  const digs: DigRecord[] = [];
-  const seen = new Set<number>();
-  for (const d of r.digs) {
-    if (!d || typeof d !== "object") return null;
-    const cell = (d as { cell?: unknown }).cell;
-    const clue = (d as { clue?: unknown }).clue;
-    if (typeof cell !== "number" || !Number.isInteger(cell) || cell < 0 || cell >= total) {
-      return null;
-    }
-    if (seen.has(cell)) return null;
-    if (!isDigClue(clue)) return null;
-    // 내부 정합 — 저장된 단서가 매장지까지 거리와 일치해야 한다. 손상/위조(매장지·단서를
-    // 따로 조작)된 세션을 차단(다이얼 값과 무관하게 관계만 검증).
-    if (clue !== clueForDistance(chebyshev(cell, treasureCell, gridSize))) return null;
-    seen.add(cell);
-    digs.push({ cell, clue });
+
+  const actions: TreasureActionRecord[] = [];
+  for (const a of raw.actions) {
+    const parsed = parseActionRecord(a);
+    if (!parsed) return null;
+    actions.push(parsed);
   }
-  if (digs.length > digsAllowed) return null;
+
   const openedAt =
-    typeof r.openedAt === "number" && Number.isFinite(r.openedAt) ? r.openedAt : 0;
+    typeof raw.openedAt === "number" && Number.isFinite(raw.openedAt)
+      ? raw.openedAt
+      : 0;
+
   return {
-    siteId: r.siteId,
-    gridSize,
-    treasureCell,
-    antiqueId: r.antiqueId,
-    condition,
-    digsAllowed,
-    digs,
+    siteId: raw.siteId,
+    antiqueId: raw.antiqueId,
+    condition: clamp(condition, MIN_CONDITION, 100),
+    instability: clamp(instability, 0, 20),
+    exposure: clamp(exposure, 0, 100),
+    preservation: clamp(preservation, MIN_CONDITION, 100),
+    risk: clamp(risk, 0, COLLAPSE_RISK),
+    certainty: clamp(certainty, 0, 100),
+    actionsAllowed,
+    actions,
     openedAt,
   };
 }

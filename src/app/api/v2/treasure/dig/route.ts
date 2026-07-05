@@ -4,7 +4,8 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
 import {
   TREASURE_SESSION_KEY,
-  applyDig,
+  applyTreasureAction,
+  isTreasureAction,
   parseTreasureSession,
   toPublicSite,
 } from "@/adventure/v2/treasureDig";
@@ -26,11 +27,11 @@ import {
 import { addTreasureScore } from "@/lib/server/treasure/records";
 import { currentTreasureSeasonId } from "@/lib/server/treasure/season";
 
-// POST /api/v2/treasure/dig — body { siteId, cell }. 격자 한 칸을 판다.
+// POST /api/v2/treasure/dig — body { siteId, action }. 발굴 행동을 수행한다.
 //
-// 적중이면 open 때 박제한 골동품을 인스턴스로 발굴해 보관함(treasure-collection.v1)에 넣고
-// 유물 도감에 등록하고 세션 종료. 빗나가면 거리 단서, 예산 소진이면 매장지를 공개하고 종료.
-// 매장지/골동품은 세션에만 있어 클라가 위조 못 한다. 락 순서: session → collection → codex.
+// 회수 성공이면 open 때 박제한 골동품을 인스턴스로 발굴해 보관함(treasure-collection.v1)에
+// 넣고 유물 도감에 등록하고 세션 종료. 진행 행동은 노출/보존/위험/확신 상태를 갱신한다.
+// 골동품과 기초 보존상태는 세션에만 있어 클라가 위조 못 한다. 락 순서: session → collection → codex.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -43,12 +44,12 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  const b = (body ?? {}) as { siteId?: unknown; cell?: unknown };
-  if (typeof b.siteId !== "string" || typeof b.cell !== "number") {
+  const b = (body ?? {}) as { siteId?: unknown; action?: unknown };
+  if (typeof b.siteId !== "string" || !isTreasureAction(b.action)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const siteId = b.siteId;
-  const cell = b.cell;
+  const action = b.action;
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
@@ -59,18 +60,18 @@ export async function POST(req: Request) {
     // 다른 발굴 지점(새 open 이 덮었거나 이미 종료) — 현재 세션 보존하고 거부.
     if (session.siteId !== siteId) return { outcome: "stale" as const };
 
-    const dig = applyDig(session, cell);
+    const dig = applyTreasureAction(session, action);
 
     if (dig.kind === "invalid") {
-      // 범위 밖/중복/예산소진 — 소비 없이 현재 상태 반환.
+      // 예산소진 등 무효 행동 — 소비 없이 현재 상태 반환.
       return { outcome: "invalid" as const, site: toPublicSite(session) };
     }
 
-    if (dig.kind === "hit") {
+    if (dig.kind === "extracted") {
       const instance: AntiqueInstance = {
         instanceId: generateAntiqueInstanceId(),
         antiqueId: session.antiqueId,
-        condition: session.condition,
+        condition: dig.condition,
         foundAt: now,
       };
       // 보관함에 인스턴스 추가.
@@ -87,10 +88,10 @@ export async function POST(req: Request) {
       const codex = parseTreasureCodex(
         await lockSaveForUpdate(tx, userId, TREASURE_CODEX_KEY, {}),
       );
-      const nextCodex = recordFind(codex, session.antiqueId, session.condition, now);
+      const nextCodex = recordFind(codex, session.antiqueId, dig.condition, now);
       await upsertSave(tx, userId, TREASURE_CODEX_KEY, nextCodex);
       // 주간 발굴가치 점수 += 결정적 감정가(주간 랭킹 원천, PR-7). 같은 tx 원자 증가.
-      const appraisedValue = appraiseValue(session.antiqueId, session.condition);
+      const appraisedValue = appraiseValue(session.antiqueId, dig.condition);
       await addTreasureScore(
         tx,
         userId,
@@ -109,29 +110,29 @@ export async function POST(req: Request) {
           antiqueId: a.id,
           name: a.name,
           tier: a.tier,
-          condition: session.condition,
+          condition: dig.condition,
           appraisedValue,
         },
         codexCount: countDiscoveredAntiques(nextCodex),
       };
     }
 
-    if (dig.kind === "exhausted") {
+    if (dig.kind === "collapsed" || dig.kind === "failed") {
       await upsertSave(tx, userId, TREASURE_SESSION_KEY, {});
       const a = ANTIQUES[session.antiqueId];
       return {
         outcome: "exhausted" as const,
-        clue: dig.clue,
-        treasureCell: session.treasureCell,
+        site: toPublicSite(dig.session),
+        message: dig.message,
         missed: { antiqueId: a.id, name: a.name, tier: a.tier },
       };
     }
 
-    // miss — 세션 갱신.
+    // progress — 세션 갱신.
     await upsertSave(tx, userId, TREASURE_SESSION_KEY, dig.session);
     return {
-      outcome: "miss" as const,
-      clue: dig.clue,
+      outcome: "progress" as const,
+      message: dig.message,
       site: toPublicSite(dig.session),
     };
   });

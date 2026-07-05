@@ -7,6 +7,7 @@ import type {
   TreasureHandlers,
 } from "./TreasureDigView";
 import type { TreasureSitePublic } from "./treasureDig";
+import type { TreasureAction } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
@@ -61,11 +62,11 @@ export function useTreasure(): TreasureHandlers {
   }, []);
 
   const dig = useCallback(
-    async (siteId: string, cell: number): Promise<DigOutcome> => {
+    async (siteId: string, action: TreasureAction): Promise<DigOutcome> => {
       const res = await fetch("/api/v2/treasure/dig", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ siteId, cell }),
+        body: JSON.stringify({ siteId, action }),
       });
       const j = await res.json().catch(() => null);
       if (!j?.ok) return { outcome: "error" };
@@ -73,21 +74,20 @@ export function useTreasure(): TreasureHandlers {
         case "hit":
           return {
             outcome: "hit",
-            clue: "hot",
             antique: j.antique,
             codexCount: Number(j.codexCount ?? 0),
           };
-        case "miss":
+        case "progress":
           return {
-            outcome: "miss",
-            clue: j.clue,
+            outcome: "progress",
+            message: String(j.message ?? ""),
             site: j.site as TreasureSitePublic,
           };
         case "exhausted":
           return {
             outcome: "exhausted",
-            clue: j.clue,
-            treasureCell: Number(j.treasureCell),
+            site: j.site as TreasureSitePublic,
+            message: String(j.message ?? ""),
             missed: j.missed,
           };
         case "invalid":

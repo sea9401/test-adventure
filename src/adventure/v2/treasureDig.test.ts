@@ -1,154 +1,174 @@
 import { describe, it, expect } from "vitest";
 import {
-  DIGS_ALLOWED,
-  GRID_SIZE,
-  TOTAL_CELLS,
-  applyDig,
-  chebyshev,
-  clueForDistance,
+  ACTIONS_ALLOWED,
+  COLLAPSE_RISK,
+  MIN_EXPOSURE_TO_EXTRACT,
+  applyTreasureAction,
+  finalConditionForSession,
+  hintsForSession,
   parseTreasureSession,
   rollNewSession,
   toPublicSite,
   type TreasureSession,
 } from "./treasureDig";
-import { isAntiqueId } from "@/adventure/data/v2/antique";
+import { isAntiqueId, MIN_CONDITION } from "@/adventure/data/v2/antique";
 
-// 매장지를 알고 시작하는 테스트용 세션 빌더(굴림 우회).
-function sessionWith(treasureCell: number): TreasureSession {
+function session(overrides: Partial<TreasureSession> = {}): TreasureSession {
   return {
     siteId: "s1",
-    gridSize: GRID_SIZE,
-    treasureCell,
     antiqueId: "clay_shard",
-    condition: 50,
-    digsAllowed: DIGS_ALLOWED,
-    digs: [],
+    condition: 60,
+    instability: 0,
+    exposure: 0,
+    preservation: 100,
+    risk: 10,
+    certainty: 0,
+    actionsAllowed: ACTIONS_ALLOWED,
+    actions: [],
     openedAt: 0,
+    ...overrides,
   };
 }
 
-describe("chebyshev / clueForDistance", () => {
-  it("거리: 5×5 인덱스 기준", () => {
-    expect(chebyshev(0, 0, 5)).toBe(0);
-    expect(chebyshev(0, 1, 5)).toBe(1); // (0,0)-(0,1)
-    expect(chebyshev(0, 6, 5)).toBe(1); // (0,0)-(1,1) 대각
-    expect(chebyshev(0, 24, 5)).toBe(4); // (0,0)-(4,4) 모서리
-    expect(chebyshev(12, 0, 5)).toBe(2); // 중앙(2,2)-(0,0)
-  });
-
-  it("단서 밴드", () => {
-    expect(clueForDistance(1)).toBe("hot");
-    expect(clueForDistance(2)).toBe("warm");
-    expect(clueForDistance(3)).toBe("lukewarm");
-    expect(clueForDistance(4)).toBe("cold");
-    expect(clueForDistance(9)).toBe("cold");
-  });
-});
-
-describe("applyDig", () => {
-  it("적중 → hit", () => {
-    const r = applyDig(sessionWith(12), 12);
-    expect(r.kind).toBe("hit");
-    expect(r.session.digs).toEqual([{ cell: 12, clue: "hot" }]);
-  });
-
-  it("빗나감 → miss + 거리 단서", () => {
-    const r = applyDig(sessionWith(12), 0); // 거리 2 → warm
-    expect(r.kind).toBe("miss");
-    if (r.kind === "miss") expect(r.clue).toBe("warm");
-  });
-
-  it("범위 밖 / 비정수 / 중복 셀 → invalid (소비 없음)", () => {
-    const s = sessionWith(12);
-    expect(applyDig(s, -1).kind).toBe("invalid");
-    expect(applyDig(s, TOTAL_CELLS).kind).toBe("invalid");
-    expect(applyDig(s, 3.5).kind).toBe("invalid");
-    const after = applyDig(s, 0).session; // 0 파냄
-    expect(applyDig(after, 0).kind).toBe("invalid"); // 같은 셀 재발굴
-  });
-
-  it("예산 소진 시 마지막 빗나감은 exhausted", () => {
-    let s = sessionWith(24); // 매장지 모서리
-    // 매장지(24)·이미 판 셀 피해 DIGS_ALLOWED 번 빗나가게 파기.
-    const misses = [0, 1, 2, 3, 5, 6].slice(0, DIGS_ALLOWED);
-    let lastKind = "";
-    for (let i = 0; i < misses.length; i += 1) {
-      const r = applyDig(s, misses[i]);
-      s = r.session;
-      lastKind = r.kind;
-    }
-    expect(s.digs.length).toBe(DIGS_ALLOWED);
-    expect(lastKind).toBe("exhausted");
-    // 예산 소진 후 추가 발굴 → invalid.
-    expect(applyDig(s, 10).kind).toBe("invalid");
-  });
-});
-
 describe("rollNewSession / toPublicSite", () => {
-  it("유효 세션 굴림 + 공개 뷰는 비밀 제거", () => {
+  it("유효 세션을 만들고 공개 뷰는 비밀을 제거한다", () => {
     const s = rollNewSession({ siteId: "x", rng: () => 0.5, now: 1000 });
-    expect(s.treasureCell).toBeGreaterThanOrEqual(0);
-    expect(s.treasureCell).toBeLessThan(TOTAL_CELLS);
     expect(isAntiqueId(s.antiqueId)).toBe(true);
-    expect(s.digsAllowed).toBe(DIGS_ALLOWED);
+    expect(s.actionsAllowed).toBe(ACTIONS_ALLOWED);
+    expect(s.exposure).toBe(0);
+    expect(s.preservation).toBe(100);
+
     const pub = toPublicSite(s);
-    expect(pub).not.toHaveProperty("treasureCell");
     expect(pub).not.toHaveProperty("antiqueId");
     expect(pub).not.toHaveProperty("condition");
-    expect(pub.digsUsed).toBe(0);
+    expect(pub).not.toHaveProperty("instability");
+    expect(pub.actionsUsed).toBe(0);
+    expect(pub.canExtract).toBe(false);
+  });
+});
+
+describe("applyTreasureAction", () => {
+  it("탐침은 확신도를 크게 올리고 행동 기록을 남긴다", () => {
+    const r = applyTreasureAction(session(), "probe");
+    expect(r.kind).toBe("progress");
+    expect(r.session.certainty).toBe(26);
+    expect(r.session.exposure).toBe(7);
+    expect(r.session.risk).toBe(18);
+    expect(r.session.actions).toHaveLength(1);
+    expect(r.session.actions[0].action).toBe("probe");
   });
 
-  it("rng 0 → 매장지 0번 셀", () => {
-    const s = rollNewSession({ siteId: "x", rng: () => 0, now: 0 });
-    expect(s.treasureCell).toBe(0);
+  it("삽질은 빠르게 노출하지만 위험과 보존도 손상이 크다", () => {
+    const r = applyTreasureAction(session({ risk: 70 }), "shovel");
+    expect(r.kind).toBe("progress");
+    expect(r.session.exposure).toBe(24);
+    expect(r.session.risk).toBe(88);
+    expect(r.session.preservation).toBeLessThan(92);
+  });
+
+  it("보강은 위험도를 낮추고 약간의 진행만 준다", () => {
+    const r = applyTreasureAction(session({ risk: 80 }), "stabilize");
+    expect(r.kind).toBe("progress");
+    expect(r.session.risk).toBe(56);
+    expect(r.session.exposure).toBe(3);
+  });
+
+  it("위험도가 100에 닿으면 붕괴된다", () => {
+    const r = applyTreasureAction(session({ risk: 95, instability: 6 }), "shovel");
+    expect(r.kind).toBe("collapsed");
+    expect(r.session.risk).toBe(COLLAPSE_RISK);
+  });
+
+  it("노출도가 부족한 조기 회수는 실패한다", () => {
+    const r = applyTreasureAction(session({ exposure: MIN_EXPOSURE_TO_EXTRACT - 1 }), "extract");
+    expect(r.kind).toBe("failed");
+    expect(r.session.risk).toBe(COLLAPSE_RISK);
+  });
+
+  it("충분히 노출된 유물은 회수되고 최종 보존상태가 산출된다", () => {
+    const s = session({ exposure: 82, preservation: 90, condition: 50, certainty: 80 });
+    const r = applyTreasureAction(s, "extract");
+    expect(r.kind).toBe("extracted");
+    if (r.kind === "extracted") {
+      expect(r.condition).toBe(finalConditionForSession(r.session));
+      expect(r.condition).toBeGreaterThanOrEqual(MIN_CONDITION);
+      expect(r.condition).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it("행동 예산을 다 쓰면 진행 행동은 무효지만 회수는 가능하다", () => {
+    let s = session();
+    for (let i = 0; i < ACTIONS_ALLOWED; i += 1) {
+      const r = applyTreasureAction(s, "brush");
+      s = r.session;
+    }
+    expect(applyTreasureAction(s, "brush").kind).toBe("invalid");
+    expect(applyTreasureAction({ ...s, exposure: 80 }, "extract").kind).toBe("extracted");
+  });
+});
+
+describe("hintsForSession", () => {
+  it("확신도에 따라 힌트를 단계적으로 공개한다", () => {
+    expect(hintsForSession(session({ certainty: 0 }))).toHaveLength(0);
+    expect(hintsForSession(session({ certainty: 20 })).map((h) => h.key)).toEqual([
+      "theme",
+    ]);
+    expect(hintsForSession(session({ certainty: 90 })).map((h) => h.key)).toEqual([
+      "theme",
+      "tier",
+      "value",
+      "name",
+    ]);
   });
 });
 
 describe("parseTreasureSession", () => {
-  it("손상/빈 입력 → null", () => {
+  it("손상/빈 입력은 null", () => {
     expect(parseTreasureSession(null)).toBeNull();
     expect(parseTreasureSession({})).toBeNull();
-    expect(parseTreasureSession({ siteId: "" })).toBeNull();
+  });
+
+  it("옛 격자 세션은 새 발굴 세션으로 이전한다", () => {
+    const migrated = parseTreasureSession({
+      siteId: "old",
+      gridSize: 6,
+      treasureCell: 1,
+      antiqueId: "clay_shard",
+      condition: 50,
+      digsAllowed: 7,
+      digs: [{ cell: 0, clue: "warm" }, { cell: 1, clue: "hot" }],
+    });
+    expect(migrated?.siteId).toBe("old");
+    expect(migrated?.antiqueId).toBe("clay_shard");
+    expect(migrated?.actions).toHaveLength(2);
+    expect(migrated?.exposure).toBeGreaterThan(0);
   });
 
   it("정상 라운드트립", () => {
-    const s = rollNewSession({ siteId: "rt", rng: () => 0.3, now: 5 });
-    const withDig = applyDig(s, 0).session;
-    expect(parseTreasureSession(withDig)).toEqual(withDig);
+    const r = applyTreasureAction(session(), "probe");
+    expect(parseTreasureSession(r.session)).toEqual(r.session);
   });
 
-  it("위조 가드: 범위 밖 매장지 / 미지 골동품 / 중복 dig 셀 / 예산 초과", () => {
-    const base = rollNewSession({ siteId: "g", rng: () => 0.3, now: 0 });
-    expect(parseTreasureSession({ ...base, treasureCell: 999 })).toBeNull();
-    expect(parseTreasureSession({ ...base, antiqueId: "fake" })).toBeNull();
+  it("범위 밖 수치와 미지 액션은 null", () => {
+    const s = session();
+    expect(parseTreasureSession({ ...s, antiqueId: "fake" })).toBeNull();
+    expect(parseTreasureSession({ ...s, exposure: 101 })).toBeNull();
+    expect(parseTreasureSession({ ...s, preservation: 0 })).toBeNull();
+    expect(parseTreasureSession({ ...s, instability: 99 })).toBeNull();
     expect(
       parseTreasureSession({
-        ...base,
-        digs: [
-          { cell: 1, clue: "hot" },
-          { cell: 1, clue: "warm" },
+        ...s,
+        actions: [
+          {
+            action: "wrong",
+            exposure: 1,
+            preservation: 99,
+            risk: 1,
+            certainty: 1,
+            message: "x",
+          },
         ],
       }),
     ).toBeNull();
-    expect(
-      parseTreasureSession({ ...base, digsAllowed: 1, digs: [
-        { cell: 1, clue: "hot" },
-        { cell: 2, clue: "warm" },
-      ] }),
-    ).toBeNull();
-    expect(
-      parseTreasureSession({ ...base, digs: [{ cell: 0, clue: "nope" }] }),
-    ).toBeNull();
-  });
-
-  it("위조 가드: 단서가 매장지 거리와 불일치하면 null", () => {
-    // 매장지 12, 셀 11 은 거리 1 → "hot" 이어야 하는데 "cold" 로 위조.
-    const s = sessionWith(12);
-    expect(
-      parseTreasureSession({ ...s, digs: [{ cell: 11, clue: "cold" }] }),
-    ).toBeNull();
-    // 일치하는 단서는 통과(셀 0 = 거리 2 → warm).
-    const ok = parseTreasureSession({ ...s, digs: [{ cell: 0, clue: "warm" }] });
-    expect(ok?.digs).toEqual([{ cell: 0, clue: "warm" }]);
   });
 });

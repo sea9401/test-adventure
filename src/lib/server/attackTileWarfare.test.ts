@@ -14,6 +14,9 @@ const h = vi.hoisted(() => ({
   pvpAttackerWins: true, // resolveBattlePvP mock 결과 제어(솔로 수비 결투)
   // 공격자 위치 마커(약탈 "현지 위치" 게이트) — 대상 칸 일치 시 통과.
   attackerTilePos: null as { col: number; row: number; at?: number } | null,
+  attackerWarVigor: { hp: 1, mp: 1, at: 0 },
+  lastWarAttackAt: 0,
+  upsertSaves: [] as Array<{ userId: string; value: Record<string, unknown> }>,
   // 정복 발판(guildTileFoothold mock) — 기본 허용(인접 영지 보유).
   foothold: { ownsAny: true, adjacentOwned: true },
 }));
@@ -81,9 +84,24 @@ vi.mock("@/lib/server/v2GuildFame", () => ({
 vi.mock("@/lib/server/savesKv", () => ({
   // 공격자(u-atk) 세이브엔 tilePos 주입(약탈 위치 게이트용). 그 외(수비자)는 빈 세이브.
   lockSaveForUpdate: vi.fn(async (_tx: unknown, id: string) =>
-    id === "u-atk" ? { tilePos: h.attackerTilePos } : {},
+    id === "u-atk"
+      ? {
+          tilePos: h.attackerTilePos,
+          warVigor: h.attackerWarVigor,
+          lastWarAttackAt: h.lastWarAttackAt,
+        }
+      : {},
   ),
-  upsertSave: vi.fn(async () => {}),
+  upsertSave: vi.fn(
+    async (
+      _tx: unknown,
+      userId: string,
+      _key: string,
+      value: Record<string, unknown>,
+    ) => {
+      h.upsertSaves.push({ userId, value });
+    },
+  ),
 }));
 // 정복 발판 게이트 — guildTileFoothold 는 제어용 h.foothold 반환(인접 영지/땅 보유 판정).
 //   중립 거점 인접(isTileAdjacentToNeutralOutpost)은 mock 하지 않음(실로직 검증).
@@ -173,6 +191,9 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     h.attackerGuildId = 7;
     h.pvpAttackerWins = true;
     h.attackerTilePos = null;
+    h.attackerWarVigor = { hp: 1, mp: 1, at: 0 };
+    h.lastWarAttackAt = 0;
+    h.upsertSaves = [];
     h.foothold = { ownsAny: true, adjacentOwned: true };
   });
   afterEach(() => vi.clearAllMocks());
@@ -198,6 +219,7 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
       guildId: 7,
       patch: { gold: 250 },
     });
+    expect(h.upsertSaves.some((s) => s.value.lastWarAttackAt)).toBe(true);
   });
 
   it("수비대 격파 약탈(raid) → 타일 금고 10% 탈취 → 공격 길드 골드", async () => {
@@ -272,6 +294,34 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     expect(h.upsertGuildRes).toHaveLength(0); // 금고 탈취 없음
   });
 
+  it("공격 쿨타임 중이면 429 war_attack_cooldown (전투/탈취 없음)", async () => {
+    h.occ = occRow({});
+    h.treasuryGold = 1000;
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 61 * 60_000 };
+    h.lastWarAttackAt = Date.now() - 60_000;
+    const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
+    expect(res.status).toBe(429);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "war_attack_cooldown",
+    );
+    expect(h.upsertGuildRes).toHaveLength(0);
+    expect(h.upsertSaves).toHaveLength(0);
+  });
+
+  it("건강도 HP/MP 중 하나라도 50% 미만이면 low_war_vigor (전투/탈취 없음)", async () => {
+    h.occ = occRow({});
+    h.treasuryGold = 1000;
+    h.attackerTilePos = { col: 2, row: 3, at: Date.now() - 61 * 60_000 };
+    h.attackerWarVigor = { hp: 0.49, mp: 1, at: Date.now() };
+    const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "low_war_vigor",
+    );
+    expect(h.upsertGuildRes).toHaveLength(0);
+    expect(h.upsertSaves).toHaveLength(0);
+  });
+
   it("정복(conquest) — 인접 영지 없고 중립 거점 인접도 아니면 no_foothold", async () => {
     h.occ = occRow({ fortHp: 10 });
     h.foothold = { ownsAny: true, adjacentOwned: false }; // 땅은 있으나 비인접
@@ -299,6 +349,9 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
     h.attackerGuildId = 7;
     h.pvpAttackerWins = true;
     h.attackerTilePos = null;
+    h.attackerWarVigor = { hp: 1, mp: 1, at: 0 };
+    h.lastWarAttackAt = 0;
+    h.upsertSaves = [];
     h.foothold = { ownsAny: true, adjacentOwned: true };
   });
   afterEach(() => vi.clearAllMocks());

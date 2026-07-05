@@ -101,7 +101,7 @@ export const tileFeatureAt = (col: number, row: number): TileFeature | null =>
 - **타일 자체**: `settleable=false` 아우라 타일(호수와 대칭). 온천 *위*엔 정착 못 하고 인접에 버프 —
   "온천에 정착했는데 보너스가 없다"는 혼란을 피하고 *인접 소유* 모델과 정확히 일치(P2 구현 결정).
   수혜 칸 = `HOTSPRING_BENEFIT_COORDS`(온천 4-인접 중 정착 가능 칸·산맥 등 settleable=false 이웃 제외).
-- **수치**: 회복 시간 ×0.5(2배 가속). `WAR_VIGOR_FULL_RECOVERY_MS`(현재 7분) → 인접 시 3.5분.
+- **수치**: 회복 시간 ×0.5(2배 가속). `WAR_VIGOR_FULL_RECOVERY_MS`(현재 10분) → 인접 시 5분.
 - **수혜 귀속(확정)**: war vigor 는 per-player(character.v2)라, **온천 인접 칸을 보유한 길드의
   길드원**이 recover 할 때 가속(소유=영토 보상답고 구현 단순). 서 있는 위치가 아니라 *소유*가
   기준(Codex 권고).

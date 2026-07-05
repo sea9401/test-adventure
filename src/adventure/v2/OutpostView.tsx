@@ -31,6 +31,7 @@ import type {
 } from "./outpost/types";
 import {
   RAID_MIN_TILE_STAY_MS,
+  WAR_ATTACK_MIN_VIGOR_FRAC,
   V2_SETTLEMENT_WARFARE,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import type { WarVigor } from "@/adventure/data/v2/warVigor";
@@ -233,6 +234,16 @@ export function OutpostView({
   const tileIntrusionActive = enemyGuildSiege && standingOnTargetTile;
   const tileRaidReady =
     tileIntrusionActive && raidStayElapsedMs >= RAID_MIN_TILE_STAY_MS;
+  const warAttackDisabled =
+    warVigor &&
+    (warVigor.hp < WAR_ATTACK_MIN_VIGOR_FRAC ||
+      warVigor.mp < WAR_ATTACK_MIN_VIGOR_FRAC)
+      ? {
+          reason: `전쟁 건강도 HP/MP가 모두 ${Math.round(
+            WAR_ATTACK_MIN_VIGOR_FRAC * 100,
+          )}% 이상이어야 공격할 수 있습니다.`,
+        }
+      : null;
   const raidDisabled = raidOutOfRange
     ? {
         reason:
@@ -678,8 +689,9 @@ export function OutpostView({
             claimDisabled={claimDisabled}
             coreLoopOn={coreLoopOn}
             busy={busy}
-            raidDisabled={raidDisabled}
+            raidDisabled={raidDisabled ?? warAttackDisabled}
             conquerOutOfRange={conquerOutOfRange}
+            conquerDisabled={warAttackDisabled}
             conquerRazes={conquerRazes}
             attackLogReload={attackLogReload}
             onClaim={attemptClaim}
@@ -724,6 +736,10 @@ function raidErrorMsg(error: string): string {
       return "점령 길드 멤버만 할 수 있습니다";
     case "protected":
       return "함락 직후 보호막 — 잠시 후 가능";
+    case "war_attack_cooldown":
+      return "전쟁 공격은 2분마다 한 번만 가능합니다";
+    case "low_war_vigor":
+      return "전쟁 건강도 HP/MP가 모두 50% 이상이어야 공격할 수 있습니다";
     case "no_character":
       return "캐릭터 정보를 찾을 수 없습니다";
     case "disabled":

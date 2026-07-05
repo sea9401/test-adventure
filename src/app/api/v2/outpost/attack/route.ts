@@ -74,6 +74,8 @@ import {
   LAKE_ATTACKER_PENALTY_MULT,
   HONOR_PER_DEFENSE_WIN,
   RAID_MIN_TILE_STAY_MS,
+  WAR_ATTACK_COOLDOWN_MS,
+  WAR_ATTACK_MIN_VIGOR_FRAC,
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
 } from "@/adventure/data/v2/settlementWarfareConfig";
@@ -94,6 +96,7 @@ import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 
 type WarVigorSave = {
   warVigor?: unknown;
+  lastWarAttackAt?: unknown;
   // 자유 타일 지도 위치 마커(move-tile 갱신) — 약탈 "현지 위치" 게이트에 사용.
   tilePos?: { col?: number; row?: number; at?: number };
   [k: string]: unknown;
@@ -269,6 +272,47 @@ export async function POST(req: Request) {
         ? attackerProfile.gender
         : "male1";
     const attackerVigor = parseWarVigor(attackerSave.warVigor);
+    const lastWarAttackAt =
+      typeof attackerSave.lastWarAttackAt === "number" &&
+      Number.isFinite(attackerSave.lastWarAttackAt) &&
+      attackerSave.lastWarAttackAt > 0
+        ? attackerSave.lastWarAttackAt
+        : 0;
+    const cooldownRemainingMs =
+      lastWarAttackAt + WAR_ATTACK_COOLDOWN_MS - now;
+    if (
+      cooldownRemainingMs > 0 &&
+      cooldownRemainingMs <= WAR_ATTACK_COOLDOWN_MS
+    ) {
+      return {
+        status: 429,
+        body: {
+          ok: false as const,
+          error: "war_attack_cooldown",
+          cooldownMs: WAR_ATTACK_COOLDOWN_MS,
+          remainingMs: cooldownRemainingMs,
+          nextWarAttackAt: lastWarAttackAt + WAR_ATTACK_COOLDOWN_MS,
+        },
+      };
+    }
+    if (
+      attackerVigor.hp < WAR_ATTACK_MIN_VIGOR_FRAC ||
+      attackerVigor.mp < WAR_ATTACK_MIN_VIGOR_FRAC
+    ) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "low_war_vigor",
+          minVigor: WAR_ATTACK_MIN_VIGOR_FRAC,
+          warVigor: attackerVigor,
+        },
+      };
+    }
+    const attackerSaveWithAttackCooldown = {
+      ...attackerSave,
+      lastWarAttackAt: now,
+    };
     const aMaxMp = attacker.player.maxMp ?? 0;
 
     // === 위치/인접 게이트 (타일 정착지 대상만 — 옛 카탈로그 거점은 오프보드·inert 라 현행 유지) ===
@@ -410,7 +454,7 @@ export async function POST(req: Request) {
           raidBattled = true;
           const dMaxMp = defender.player.maxMp ?? 0;
           await upsertSave(tx, userId, "character.v2", {
-            ...attackerSave,
+            ...attackerSaveWithAttackCooldown,
             ...(nextTilePos ? { tilePos: nextTilePos } : {}),
             warVigor: vigorAfterBattle(
               pvp.finalState.p1.hp,
@@ -454,9 +498,16 @@ export async function POST(req: Request) {
 
       if (nextTilePos && !attackerSaveUpdated) {
         await upsertSave(tx, userId, "character.v2", {
-          ...attackerSave,
+          ...attackerSaveWithAttackCooldown,
           tilePos: nextTilePos,
         });
+      } else if (!attackerSaveUpdated) {
+        await upsertSave(
+          tx,
+          userId,
+          "character.v2",
+          attackerSaveWithAttackCooldown,
+        );
       }
 
       let stolenGold = 0;
@@ -632,7 +683,7 @@ export async function POST(req: Request) {
     // 공격자 건강도 저장(전투가 한 번이라도 있었으면).
     if (attackerFinal) {
       await upsertSave(tx, userId, "character.v2", {
-        ...attackerSave,
+        ...attackerSaveWithAttackCooldown,
         warVigor: vigorAfterBattle(
           attackerFinal.hp,
           attacker.maxHp,
@@ -641,6 +692,13 @@ export async function POST(req: Request) {
           now,
         ),
       });
+    } else {
+      await upsertSave(
+        tx,
+        userId,
+        "character.v2",
+        attackerSaveWithAttackCooldown,
+      );
     }
 
     let captured = false;

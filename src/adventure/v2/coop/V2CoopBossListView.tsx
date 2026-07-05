@@ -28,6 +28,51 @@ import { V2CoopTabs } from "@/adventure/v2/coop/V2CoopTabs";
 
 // 소환 공개 범위 선택지는 coopBosses.COOP_VISIBILITY_OPTIONS(상세 변경 UI 와 공용).
 
+type CoopBossSummonVariant = {
+  kind: CoopBossKindId;
+  label: string;
+};
+
+type CoopBossSummonGroup = {
+  id: string;
+  baseKind: CoopBossKindId;
+  variants: readonly CoopBossSummonVariant[];
+};
+
+const SANGOON_KIND_IDS = new Set<CoopBossKindId>([
+  "mountain_chief",
+  "mountain_chief_hard",
+]);
+
+const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
+  {
+    id: "mountain_chief",
+    baseKind: "mountain_chief",
+    variants: [
+      { kind: "mountain_chief", label: "NORMAL" },
+      { kind: "mountain_chief_hard", label: "HARD" },
+    ],
+  },
+  ...COOP_BOSS_KIND_IDS.filter((kindId) => !SANGOON_KIND_IDS.has(kindId)).map(
+    (kindId) => ({
+      id: kindId,
+      baseKind: kindId,
+      variants: [{ kind: kindId, label: "NORMAL" }],
+    }),
+  ),
+];
+
+function coopBossListName(kindId: CoopBossKindId): string {
+  return kindId === "mountain_chief_hard"
+    ? COOP_BOSSES.mountain_chief.name
+    : COOP_BOSSES[kindId].name;
+}
+
+function coopBossDifficultyBadge(kindId: CoopBossKindId): string | null {
+  if (!SANGOON_KIND_IDS.has(kindId)) return null;
+  return COOP_BOSSES[kindId].difficulty === "hard" ? "HARD" : "NORMAL";
+}
+
 export function V2CoopBossListView({
   onOpenSession,
   onOpenShop,
@@ -51,8 +96,13 @@ export function V2CoopBossListView({
   const [now, setNow] = useState(() => Date.now());
   // 코어루프 소환 공개 범위(flag-on만 사용). 모든 종류 소환에 공통 적용.
   const [visibility, setVisibility] = useState<string>("public");
-  // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — kind 단위 토글.
-  const [infoOpen, setInfoOpen] = useState<CoopBossKindId | null>(null);
+  // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — UI 그룹 단위 토글.
+  const [infoOpen, setInfoOpen] = useState<string | null>(null);
+  const [selectedKindByGroup, setSelectedKindByGroup] = useState<
+    Record<string, CoopBossKindId>
+  >({
+    mountain_chief: "mountain_chief",
+  });
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -130,7 +180,12 @@ export function V2CoopBossListView({
               className="flex items-center justify-between gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 dark:border-emerald-700 dark:bg-emerald-950/40"
             >
               <span className="min-w-0 text-sm">
-                <span className="font-medium">{COOP_BOSSES[c.kind].name}</span>{" "}
+                <span className="font-medium">{coopBossListName(c.kind)}</span>
+                {coopBossDifficultyBadge(c.kind) && (
+                  <span className="ml-1 rounded border border-emerald-400 px-1 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-700 dark:text-emerald-300">
+                    {coopBossDifficultyBadge(c.kind)}
+                  </span>
+                )}{" "}
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
                   내 기여 {c.myDamage.toLocaleString()} ·{" "}
                   {c.tier ? COOP_TIER_LABEL[c.tier] : "기준 미달"}
@@ -200,6 +255,8 @@ export function V2CoopBossListView({
         )}
         {sessions.map((s) => {
           const def = COOP_BOSSES[s.kind];
+          const displayName = coopBossListName(s.kind);
+          const difficultyBadge = coopBossDifficultyBadge(s.kind);
           const hpPct = Math.max(
             0,
             Math.min(100, (s.hp / s.maxHp) * 100),
@@ -217,13 +274,18 @@ export function V2CoopBossListView({
               >
                 <img
                   src={def.base.image}
-                  alt={def.name}
+                  alt={displayName}
                   className="ui-boss-portrait h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline justify-between gap-1">
                     <span className="text-sm font-semibold">
-                      {def.name}
+                      {displayName}
+                      {difficultyBadge && (
+                        <span className="ml-1.5 rounded border border-rose-300 px-1 py-0.5 align-middle text-[10px] font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300">
+                          {difficultyBadge}
+                        </span>
+                      )}
                       {s.summonedByName && (
                         <span className="ml-1.5 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
                           {s.summonedByName} 님이 소환
@@ -270,37 +332,47 @@ export function V2CoopBossListView({
         )}
       </div>
 
-      {/* 소환하기 — 종류별(동시 소환 캡까지) */}
+      {/* 소환하기 — 보스별 카드, 난이도 변형은 카드 안에서 선택 */}
       <div className="space-y-1.5">
         <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           소환하기
         </div>
-        {COOP_BOSS_KIND_IDS.map((kindId) => {
-          const def = COOP_BOSSES[kindId];
-          const activeCount = activeCountByKind.get(kindId) ?? 0;
-          const capped = activeCount >= MAX_ACTIVE_PER_KIND;
+        {COOP_SUMMON_GROUPS.map((group) => {
+          const selectedKind =
+            selectedKindByGroup[group.id] ?? group.variants[0]?.kind;
+          const def = COOP_BOSSES[selectedKind];
+          const baseDef = COOP_BOSSES[group.baseKind];
+          const selectedActiveCount = activeCountByKind.get(selectedKind) ?? 0;
+          const activeLabel = group.variants
+            .map((variant) => {
+              const count = activeCountByKind.get(variant.kind) ?? 0;
+              return count > 0 ? `${variant.label} ${count}마리` : null;
+            })
+            .filter(Boolean)
+            .join(" · ");
+          const capped = selectedActiveCount >= MAX_ACTIVE_PER_KIND;
           const short = scrolls < def.scrollCost;
-          const open = infoOpen === kindId;
+          const open = infoOpen === group.id;
           return (
-            <Card key={kindId} padding="md" className="ui-coop-card space-y-2">
+            <Card key={group.id} padding="md" className="ui-coop-card space-y-2">
               <div className="flex items-center gap-3">
                 <img
-                  src={def.base.image}
-                  alt={def.name}
+                  src={baseDef.base.image}
+                  alt={baseDef.name}
                   className="ui-boss-portrait h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover opacity-80 dark:border-zinc-700"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">
-                    {def.name}
+                    {baseDef.name}
                   </span>
                   <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
                     소환서 {def.scrollCost}장 · {coopBossDurationLabel(def)}
-                    {activeCount > 0 && ` · 토벌 중 ${activeCount}마리`}
+                    {activeLabel && ` · 토벌 중 ${activeLabel}`}
                   </span>
                 </span>
                 <button
                   type="button"
-                  onClick={() => setInfoOpen(open ? null : kindId)}
+                  onClick={() => setInfoOpen(open ? null : group.id)}
                   aria-expanded={open}
                   className="flex shrink-0 items-center gap-0.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 >
@@ -310,7 +382,7 @@ export function V2CoopBossListView({
                 <button
                   type="button"
                   disabled={busy || !loaded || capped || short}
-                  onClick={() => void handleSummon(kindId)}
+                  onClick={() => void handleSummon(selectedKind)}
                   className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
                 >
                   {capped
@@ -320,6 +392,33 @@ export function V2CoopBossListView({
                       : "소환"}
                 </button>
               </div>
+              {group.variants.length > 1 && (
+                <div className="grid grid-cols-2 gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+                  {group.variants.map((variant) => {
+                    const selected = selectedKind === variant.kind;
+                    return (
+                      <button
+                        key={variant.kind}
+                        type="button"
+                        onClick={() =>
+                          setSelectedKindByGroup((prev) => ({
+                            ...prev,
+                            [group.id]: variant.kind,
+                          }))
+                        }
+                        aria-pressed={selected}
+                        className={`rounded px-2 py-1.5 text-xs font-semibold transition-colors ${
+                          selected
+                            ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950"
+                            : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {variant.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {open && (
                 <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
                   <div className="flex flex-wrap gap-1">

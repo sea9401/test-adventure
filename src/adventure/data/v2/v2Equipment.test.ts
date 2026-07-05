@@ -214,10 +214,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 129(밴드 흔한 풀 129, 강등된 옛 필드 유니크 포함) · 유니크 48
+    //   전문화 스타터 3 · noDrop 135(밴드 흔한 풀 129 + 하드 산군 5T 6종, 강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 223 = 정규 29 + 유니크 48 + 제작전용 14 + 전문화 스타터 3 + noDrop 129.
+    //     총 229 = 정규 29 + 유니크 48 + 제작전용 14 + 전문화 스타터 3 + noDrop 135.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -228,7 +228,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(14);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
-    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(129);
+    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+하드 산군+강등 필드유니크)").toHaveLength(135);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -457,26 +457,28 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("tier 값이 1~12 범위 안에 있고 정수", () => {
+  it("tier 값이 1~13 범위 안에 있고 정수", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(Number.isInteger(item.tier)).toBe(true);
       expect(item.tier).toBeGreaterThanOrEqual(1);
-      expect(item.tier).toBeLessThanOrEqual(12);
+      expect(item.tier).toBeLessThanOrEqual(13);
     }
   });
 
-  it("표시 티어는 내부 12티어를 3개씩 묶어 짧게 노출", () => {
+  it("표시 티어는 사냥터 장비 1~4T 압축 + 하드 보스 5T로 노출", () => {
     expect(V2_EQUIP_TIER_ORDER.map((tier) => v2EquipDisplayTierOf(tier))).toEqual([
       1, 1, 1,
       2, 2, 2,
       3, 3, 3,
       4, 4, 4,
+      5,
     ]);
     expect(v2EquipTierDisplayLabel(1)).toBe("1T");
     expect(v2EquipTierDisplayLabel(4)).toBe("2T");
     expect(v2EquipTierDisplayLabel(7)).toBe("3T");
     expect(v2EquipTierDisplayLabel(12)).toBe("4T");
-    expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(4);
+    expect(v2EquipTierDisplayLabel(13)).toBe("5T");
+    expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(5);
   });
 });
 

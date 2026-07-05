@@ -712,6 +712,10 @@ export const coopBossSessions = pgTable(
     summonerGuildId: integer("summoner_guild_id"),
     // 가시성/공격권한 — 'public'(공개·기본) | 'guild_only'(길드원만) | 'summoner_only'(소환자만).
     visibility: text("visibility").notNull().default("public"),
+    // 하드 보스 조건부 발악 상태. 현재는 흉포한 산군 50% 발악 약화 여부만 사용한다.
+    hardEnrageWeakened: boolean("hard_enrage_weakened")
+      .notNull()
+      .default(false),
   },
   (t) => [
     // 활성 세션 조회용(kind + defeatedAt IS NULL) — 같은 종류 동시 다수 소환 허용으로

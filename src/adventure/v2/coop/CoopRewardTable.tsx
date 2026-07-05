@@ -9,10 +9,10 @@ import {
   COOP_SP_FRUIT_CHANCE,
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
-  COOP_TIER_THRESHOLDS,
   COOP_UNIQUE_CHANCE,
   coopBossDurationLabel,
   coopSpFruitMaxAt,
+  coopTierThresholdFor,
   coopTierForRatio,
   type CoopBossKind,
   type CoopRewardTier,
@@ -22,7 +22,7 @@ import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   COOP_BOSS_MATERIAL,
   COOP_EQUIPMENT_BOX,
-  COOP_EXTRA_REWARD_RULES,
+  coopExtraRewardRuleFor,
 } from "@/adventure/data/v2/coopRewards";
 
 // 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피). 인라인/모달 공용.
@@ -65,7 +65,7 @@ function pct(n: number): string {
 }
 
 function requiredDamage(kind: CoopBossKind, tier: CoopRewardTier): number {
-  return Math.ceil(COOP_TIER_THRESHOLDS[tier] * kind.sharedMaxHp);
+  return Math.ceil(coopTierThresholdFor(tier, kind) * kind.sharedMaxHp);
 }
 
 function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
@@ -76,7 +76,7 @@ function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
     .filter((n): n is string => Boolean(n));
   const fruitChance = COOP_SP_FRUIT_CHANCE[tier];
   const uniqueChance = COOP_UNIQUE_CHANCE[tier];
-  const extra = COOP_EXTRA_REWARD_RULES[tier];
+  const extra = coopExtraRewardRuleFor(kind.id, tier);
   const bossMaterial = COOP_BOSS_MATERIAL[kind.id];
   const equipmentBox = COOP_EQUIPMENT_BOX[kind.id];
   const drops: string[] = [];
@@ -88,8 +88,8 @@ function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
       `${equipmentBox.name} (${Math.round(extra.equipmentBoxChance * 100)}%)`,
     );
   }
-  if (fruitChance > 0) {
-    drops.push(`${fruit?.name ?? "SP 열매"} (${pct(fruitChance)})`);
+  if (fruit && fruitChance > 0) {
+    drops.push(`${fruit.name} (${pct(fruitChance)})`);
   }
   if (uniqueChance > 0 && uniqueNames.length > 0) {
     drops.push(`보스 유니크 (${pct(uniqueChance)})`);
@@ -98,6 +98,8 @@ function rewardDropList(kind: CoopBossKind, tier: CoopRewardTier): string {
 }
 
 export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
+  const fruitTier = fruitTierForBoss(kind.id);
+  const hasFruit = fruitTier != null;
   return (
     <div className="space-y-3 text-xs text-zinc-600 dark:text-zinc-300">
       <p>
@@ -137,7 +139,7 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
                   {COOP_TIER_LABEL[tier]}
                 </td>
                 <td className="border-t border-zinc-100 px-2 py-1.5 text-right font-mono dark:border-zinc-800">
-                  {pct(COOP_TIER_THRESHOLDS[tier])}+
+                  {pct(coopTierThresholdFor(tier, kind))}+
                 </td>
                 <td className="border-t border-zinc-100 px-2 py-1.5 text-right font-mono dark:border-zinc-800">
                   {requiredDamage(kind, tier).toLocaleString()}
@@ -148,8 +150,9 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
         </table>
       </div>
       <p className="text-zinc-500 dark:text-zinc-400">
-        GOLD 이상부터 SP 열매를 굴리고, EPIC 이상부터 보스 유니크를 별도로
-        굴립니다.
+        {hasFruit
+          ? "GOLD 이상부터 SP 열매를 굴리고, EPIC 이상부터 보스 유니크를 별도로 굴립니다."
+          : "도달 티어에 따라 보스 재료와 장비 상자 보상이 달라지고, EPIC 이상부터 보스 유니크를 별도로 굴립니다."}
       </p>
     </div>
   );
@@ -168,12 +171,12 @@ export function CoopRewardTable({
 }) {
   const myTier =
     myDamage != null && myDamage > 0
-      ? coopTierForRatio(myDamage / kind.sharedMaxHp)
+      ? coopTierForRatio(myDamage / kind.sharedMaxHp, kind)
       : null;
   const nextTier =
     myDamage != null
       ? COOP_TIER_ORDER.find(
-          (t) => myDamage < COOP_TIER_THRESHOLDS[t] * kind.sharedMaxHp,
+          (t) => myDamage < coopTierThresholdFor(t, kind) * kind.sharedMaxHp,
         )
       : undefined;
   // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III).
@@ -282,23 +285,31 @@ export function CoopRewardTable({
             {Math.max(
               0,
               Math.ceil(
-                COOP_TIER_THRESHOLDS[nextTier] * kind.sharedMaxHp - myDamage,
+                coopTierThresholdFor(nextTier, kind) * kind.sharedMaxHp -
+                  myDamage,
               ),
             ).toLocaleString()}
           </span>{" "}
           데미지
         </p>
       )}
-      {myTier && coopSpFruitMaxAt(myTier) > 0 && (
+      {fruit && myTier && coopSpFruitMaxAt(myTier) > 0 && (
         <p className="text-xs text-amber-700 dark:text-amber-400">
-          현재 티어 보상 — 토벌 성공 시 {fruit?.name ?? "SP 열매"} 최대{" "}
+          현재 티어 보상 — 토벌 성공 시 {fruit.name} 최대{" "}
           {coopSpFruitMaxAt(myTier)}개 (각 단계 확률 독립 굴림)
         </p>
       )}
-      <p className="text-xs text-zinc-400 dark:text-zinc-500">
-        기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. GOLD 이상 도달 티어를 독립 굴림 —
-        통과 시 {fruit?.name ?? "SP 열매"} 1개. LEGEND 달성 시 최대 3개.
-      </p>
+      {fruit ? (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. GOLD 이상 도달 티어를 독립 굴림 —
+          통과 시 {fruit.name} 1개. LEGEND 달성 시 최대 3개.
+        </p>
+      ) : (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">
+          기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. 보스별 재료와 장비 상자는
+          도달 티어 기준으로 지급됩니다.
+        </p>
+      )}
     </div>
   );
 }

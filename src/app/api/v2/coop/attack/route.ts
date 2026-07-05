@@ -187,6 +187,7 @@ export async function POST(req: Request) {
     const { monster: bossMonsterForCurrentHp, enrageNotes } = coopBossForBattle(
       kind,
       sessionPeek.hp,
+      { conditionalEnrageWeakened: sessionPeek.hardEnrageWeakened },
     );
     const bossStartHp = Math.max(
       1,
@@ -303,11 +304,23 @@ export async function POST(req: Request) {
     // 오버킬 클램프 — 기여도(contributor.damage)는 실제로 깎은 양만 적립
     // (시뮬은 peek 시점 잔여 HP 시작이라 보통 안 넘치지만, 동시 공격의 stale 스냅샷 흡수).
     const appliedDamage = Math.min(damageDealt, s.hp);
+    const projectedBossHp = Math.max(0, s.hp - appliedDamage);
+    const bossBleedingAtEnd = battleResult.finalState.enemyV2Dots.some(
+      (dot) => dot.tag === "bleed" && dot.stacks > 0 && dot.turns > 0,
+    );
+    const conditionalEnrage = kind.conditionalEnrage;
+    const weakenConditionalEnrage =
+      conditionalEnrage != null &&
+      !s.hardEnrageWeakened &&
+      s.hp / Math.max(1, s.maxHp) > conditionalEnrage.hpFraction &&
+      projectedBossHp / Math.max(1, s.maxHp) <= conditionalEnrage.hpFraction &&
+      bossBleedingAtEnd;
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)
       .set({
         hp: sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
+        ...(weakenConditionalEnrage ? { hardEnrageWeakened: true } : {}),
       })
       .where(eq(coopBossSessions.id, s.id))
       .returning({ hp: coopBossSessions.hp });
@@ -380,7 +393,7 @@ export async function POST(req: Request) {
           bossMaxHp: s.maxHp,
           defeated: bossHp === 0,
           myDamage,
-          myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp)),
+          myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),
           replay: toReplayPayload(battleResult.finalState, 200),
         },
       },
@@ -402,7 +415,10 @@ export async function POST(req: Request) {
       .where(eq(coopBossContributors.sessionId, sessionId));
     const recipients = contributors
       .filter((c) =>
-        coopTierForRatio(c.damage / Math.max(1, defeatedResult.bossMaxHp)),
+        coopTierForRatio(
+          c.damage / Math.max(1, defeatedResult.bossMaxHp),
+          defeatedKind,
+        ),
       )
       .map((c) => c.userId);
     if (recipients.length > 0) {

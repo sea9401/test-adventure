@@ -145,6 +145,7 @@ export async function POST(req: Request) {
     }
     const tier = coopTierForRatio(
       contrib.damage / Math.max(1, session.maxHp),
+      kindId,
     );
     if (!tier) {
       await tx

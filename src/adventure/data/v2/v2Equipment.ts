@@ -43,13 +43,26 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+export type V2EquipTier =
+  | 1
+  | 2
+  | 3
+  | 4
+  | 5
+  | 6
+  | 7
+  | 8
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13;
 
 export const V2_EQUIP_TIER_ORDER: readonly V2EquipTier[] = [
-  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
 ];
 
-export type V2EquipDisplayTier = 1 | 2 | 3 | 4;
+export type V2EquipDisplayTier = 1 | 2 | 3 | 4 | 5;
 
 export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   V2EquipDisplayTier,
@@ -59,6 +72,7 @@ export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   2: "마른 협곡~심층 동굴",
   3: "잊힌 성소~짐승의 소굴",
   4: "검은 왕도~심해 폐허",
+  5: "하드 보스",
 };
 
 export function v2EquipDisplayTierOf(
@@ -198,6 +212,7 @@ const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   10: 49766400,
   11: 99532800,
   12: 199065600,
+  13: 398131200,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -709,6 +724,23 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     thresholds: [
       { count: 2, bonus: { crit: 9, critMult: 45, spd: 9 } },
       { count: 3, bonus: { crit: 13, eva: 11, critMult: 70, spd: 15 } },
+    ],
+  },
+  {
+    id: "hard_sangoon",
+    name: "흉포한 산군",
+    thresholds: [
+      { count: 2, bonus: { hp: 360, def: 44, magicDef: 24 } },
+      { count: 4, bonus: { hp: 520, def: 64, crit: 4, critResist: 8 } },
+      {
+        count: 6,
+        bonus: { hp: 760, def: 96, magicDef: 48, critResist: 14 },
+        signature: {
+          trigger: "on_hit_taken",
+          label: "정면돌파",
+          defGainOnHitPct: 2,
+        },
+      },
     ],
   },
 ];

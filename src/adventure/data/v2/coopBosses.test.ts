@@ -6,10 +6,12 @@ import {
   coopBossDurationMs,
   COOP_BOSS_KIND_IDS,
   COOP_TIER_ORDER,
+  COOP_HARD_TIER_THRESHOLDS,
   COOP_TIER_THRESHOLDS,
   SUMMON_SCROLL_DROP_PCT,
   coopBossForBattle,
   coopEnrageStatus,
+  coopTierThresholdFor,
   coopTierForRatio,
   parseCoopBossKindId,
   rollSummonScrollDrop,
@@ -32,11 +34,17 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("4종 — id 일치·소환서 비용/공유 HP 오름차순(사다리)", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(4);
+  it("5종 — 노말 4단 사다리 + 하드 산군", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(5);
+    const normalLadder = [
+      "mountain_chief",
+      "canyon_predator",
+      "lake_sovereign",
+      "void_priest",
+    ] as const;
     let prevCost = 0;
     let prevHp = 0;
-    for (const id of COOP_BOSS_KIND_IDS) {
+    for (const id of normalLadder) {
       const b = COOP_BOSSES[id];
       expect(b.id).toBe(id);
       expect(b.scrollCost).toBeGreaterThan(prevCost);
@@ -50,6 +58,12 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
     expect(COOP_BOSSES.void_priest.scrollCost).toBe(30);
     expect(COOP_BOSSES.void_priest.sharedMaxHp).toBe(420_000);
+    expect(COOP_BOSSES.mountain_chief_hard).toMatchObject({
+      difficulty: "hard",
+      scrollCost: 30,
+      sharedMaxHp: 600_000,
+      anchorDepth: 60,
+    });
   });
 
   it("공허의 대사제 — 저주 기믹과 방어형 보상", () => {
@@ -181,6 +195,7 @@ describe("coopBosses 카탈로그", () => {
   it("발악 스테이지 — 전역 비율 임계 이하에서 누적 적용 + 안내 노트", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
+      if (b.enrageStages.length === 0) continue;
       expect(b.enrageStages.length).toBeGreaterThan(0);
       expect(b.traits.length).toBeGreaterThan(0);
       const full = coopBossForBattle(b, b.sharedMaxHp);
@@ -210,6 +225,22 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
+  it("하드 산군 — 50% 조건부 발악과 약화 상태", () => {
+    const b = COOP_BOSSES.mountain_chief_hard;
+    expect(b.conditionalEnrage?.hpFraction).toBe(0.5);
+    const full = coopBossForBattle(b, b.sharedMaxHp);
+    const normal = coopBossForBattle(b, b.sharedMaxHp * 0.5);
+    const weakened = coopBossForBattle(b, b.sharedMaxHp * 0.5, {
+      conditionalEnrageWeakened: true,
+    });
+    expect(normal.enrageNotes).toHaveLength(1);
+    expect(weakened.enrageNotes).toHaveLength(1);
+    expect(normal.monster.atk).toBeGreaterThan(weakened.monster.atk);
+    expect(normal.monster.def).toBeGreaterThan(weakened.monster.def);
+    expect(weakened.monster.atk).toBeGreaterThan(full.monster.atk);
+    expect(weakened.monster.def).toBeGreaterThan(full.monster.def);
+  });
+
   it("유지시간 — HP 비례·최소 2h·최대 24h 클램프·HP 오름차순과 단조", () => {
     let prev = 0;
     for (const id of COOP_BOSS_KIND_IDS) {
@@ -232,6 +263,7 @@ describe("coopBosses 카탈로그", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
       const n = b.enrageStages.length;
+      if (n === 0) continue;
       // 풀피 — 발동 0·다음 단계는 가장 높은 임계.
       const full = coopEnrageStatus(b, 1);
       expect(full.activeCount).toBe(0);
@@ -281,6 +313,27 @@ describe("coopTierForRatio", () => {
     expect(coopTierForRatio(COOP_TIER_THRESHOLDS.epic)).toBe("epic");
     expect(coopTierForRatio(COOP_TIER_THRESHOLDS.legend)).toBe("legend");
     expect(coopTierForRatio(1)).toBe("legend");
+  });
+
+  it("하드 보스는 별도 기여 기준을 사용", () => {
+    expect(coopTierThresholdFor("bronze", "mountain_chief_hard")).toBe(
+      COOP_HARD_TIER_THRESHOLDS.bronze,
+    );
+    expect(
+      coopTierForRatio(
+        COOP_HARD_TIER_THRESHOLDS.bronze - 0.0001,
+        "mountain_chief_hard",
+      ),
+    ).toBeNull();
+    expect(
+      coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.bronze, "mountain_chief_hard"),
+    ).toBe("bronze");
+    expect(
+      coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.gold, "mountain_chief_hard"),
+    ).toBe("gold");
+    expect(
+      coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.legend, "mountain_chief_hard"),
+    ).toBe("legend");
   });
 });
 

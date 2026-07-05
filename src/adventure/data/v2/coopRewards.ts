@@ -20,6 +20,7 @@ export const COOP_MASTERY_TOME_GAIN = 50;
 
 export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_claw",
+  mountain_chief_hard: "v2_coop_mountain_trace",
   canyon_predator: "v2_coop_canyon_chitin",
   lake_sovereign: "v2_coop_lake_crystal",
   void_priest: "v2_coop_void_relic",
@@ -27,6 +28,7 @@ export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
 
 export const COOP_EQUIPMENT_BOX_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_equipment_box",
+  mountain_chief_hard: "v2_coop_mountain_hard_equipment_box",
   canyon_predator: "v2_coop_canyon_equipment_box",
   lake_sovereign: "v2_coop_lake_equipment_box",
   void_priest: "v2_coop_void_equipment_box",
@@ -36,46 +38,60 @@ export type CoopEquipmentBoxDef = {
   id: string;
   name: string;
   description: string;
-  displayTier: 1 | 2 | 3 | 4;
+  displayTier: 1 | 2 | 3 | 4 | 5;
   source: string;
   tiers: readonly V2EquipTier[];
+  itemIds?: readonly V2EquipmentId[];
 };
 
 export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
   mountain_chief: {
     id: COOP_EQUIPMENT_BOX_ID.mountain_chief,
     name: "산군 1티어 장비 상자",
-    description:
-      "사용하면 들판 I~III 등급의 정규 장비 중 1개를 무작위로 획득한다.",
+    description: "사용하면 1T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 1,
-    source: "들판 I~III",
+    source: "1T 정규 장비",
     tiers: [1, 2, 3],
+  },
+  mountain_chief_hard: {
+    id: COOP_EQUIPMENT_BOX_ID.mountain_chief_hard,
+    name: "흉포한 산군 5T 장비 상자",
+    description:
+      "사용하면 하드 산군 전용 5T 장비 중 1개를 무작위로 획득한다.",
+    displayTier: 5,
+    source: "하드 산군",
+    tiers: [13],
+    itemIds: [
+      "v2_hard_sangoon_cleaver",
+      "v2_hard_sangoon_hide",
+      "v2_hard_sangoon_claws",
+      "v2_hard_sangoon_stride",
+      "v2_hard_sangoon_ring",
+      "v2_hard_sangoon_amulet",
+    ],
   },
   canyon_predator: {
     id: COOP_EQUIPMENT_BOX_ID.canyon_predator,
     name: "스콜피온 2티어 장비 상자",
-    description:
-      "사용하면 마른 협곡~심층 동굴 등급의 정규 장비 중 1개를 무작위로 획득한다.",
+    description: "사용하면 2T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 2,
-    source: "마른 협곡~심층 동굴",
+    source: "2T 정규 장비",
     tiers: [4, 5, 6],
   },
   lake_sovereign: {
     id: COOP_EQUIPMENT_BOX_ID.lake_sovereign,
     name: "호수 3티어 장비 상자",
-    description:
-      "사용하면 잊힌 성소~짐승의 소굴 등급의 정규 장비 중 1개를 무작위로 획득한다.",
+    description: "사용하면 3T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 3,
-    source: "잊힌 성소~짐승의 소굴",
+    source: "3T 정규 장비",
     tiers: [7, 8, 9],
   },
   void_priest: {
     id: COOP_EQUIPMENT_BOX_ID.void_priest,
     name: "공허 4티어 장비 상자",
-    description:
-      "사용하면 검은 왕도~백골 고원 등급의 정규 장비 중 1개를 무작위로 획득한다.",
+    description: "사용하면 4T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 4,
-    source: "검은 왕도~백골 고원",
+    source: "4T 정규 장비",
     tiers: [10, 11, 12],
   },
 };
@@ -89,6 +105,12 @@ export const COOP_BOSS_MATERIAL: Record<
     name: "산군의 발톱",
     description:
       "산군 토벌 기여 보상으로 얻는 재료. 협동 보스 교환 보상에 쓰일 수 있다.",
+  },
+  mountain_chief_hard: {
+    id: COOP_BOSS_MATERIAL_ID.mountain_chief_hard,
+    name: "산군의 흔적",
+    description:
+      "흉포한 산군 토벌 기여 보상으로 얻는 재료. 하드 보스 장비 성장에 쓰일 수 있다.",
   },
   canyon_predator: {
     id: COOP_BOSS_MATERIAL_ID.canyon_predator,
@@ -148,6 +170,26 @@ export const COOP_EXTRA_REWARD_RULES: Record<
   legend: { coin: 45, bossMaterial: 15, equipmentBoxChance: 0.2 },
 };
 
+export const COOP_HARD_EXTRA_REWARD_RULES: Record<
+  CoopRewardTier,
+  CoopExtraRewardRule
+> = {
+  bronze: { coin: 3, bossMaterial: 1, equipmentBoxChance: 0 },
+  silver: { coin: 8, bossMaterial: 2, equipmentBoxChance: 0 },
+  gold: { coin: 15, bossMaterial: 4, equipmentBoxChance: 0.1 },
+  epic: { coin: 28, bossMaterial: 7, equipmentBoxChance: 0.25 },
+  legend: { coin: 45, bossMaterial: 12, equipmentBoxChance: 1 },
+};
+
+export function coopExtraRewardRuleFor(
+  boss: CoopBossKindId,
+  tier: CoopRewardTier,
+): CoopExtraRewardRule {
+  return boss === "mountain_chief_hard"
+    ? COOP_HARD_EXTRA_REWARD_RULES[tier]
+    : COOP_EXTRA_REWARD_RULES[tier];
+}
+
 export type CoopExtraRewardRoll = {
   coin: number;
   bossMaterialId: string;
@@ -162,7 +204,7 @@ export function rollCoopExtraRewards(
   tier: CoopRewardTier,
   rng: () => number,
 ): CoopExtraRewardRoll {
-  const rule = COOP_EXTRA_REWARD_RULES[tier];
+  const rule = coopExtraRewardRuleFor(boss, tier);
   const material = COOP_BOSS_MATERIAL[boss];
   const box = COOP_EQUIPMENT_BOX[boss];
   const gotBox = rule.equipmentBoxChance > 0 && rng() < rule.equipmentBoxChance;
@@ -180,7 +222,7 @@ export function coopExtraRewardDropText(boss: CoopBossKindId): string[] {
   const material = COOP_BOSS_MATERIAL[boss];
   const box = COOP_EQUIPMENT_BOX[boss];
   return COOP_TIER_ORDER.map((tier) => {
-    const rule = COOP_EXTRA_REWARD_RULES[tier];
+    const rule = coopExtraRewardRuleFor(boss, tier);
     const parts = [
       `협동 주화 x${rule.coin}`,
       `${material.name} x${rule.bossMaterial}`,
@@ -207,6 +249,9 @@ export function rollCoopEquipmentBoxItem(
   rng: () => number,
 ): V2EquipmentId | null {
   const box = COOP_EQUIPMENT_BOX[boss];
+  if (box.itemIds && box.itemIds.length > 0) {
+    return box.itemIds[Math.floor(rng() * box.itemIds.length)] ?? null;
+  }
   const tierGroups: readonly (readonly V2EquipTier[])[] =
     box.displayTier === 4
       ? [box.tiers, [7, 8, 9], [4, 5, 6], [1, 2, 3]]

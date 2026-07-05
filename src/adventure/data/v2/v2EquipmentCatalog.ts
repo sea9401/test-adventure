@@ -2,7 +2,7 @@
 // 공개 타입·로직은 v2Equipment.ts 에서 re-export 한다(import 경로 불변).
 import type { V2EquipmentBase } from "./v2EquipmentTypes";
 
-// V2_EQUIPMENT — 223종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
+// V2_EQUIPMENT — 229종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
 //   (경갑 단일·중갑은 armor 만). 제거분은 LEGACY_ID_REMAP 비파괴 마이그. 무기종류는 직업 늘면 재추가 가능.
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (마방 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
@@ -747,6 +747,88 @@ const V2_EQUIPMENT_BASE = {
     rarity: "unique",
     setId: "void_bastion",
     signature: { trigger: "status_block_once", label: "봉인 성물", statusBlockOnce: true },
+  },
+
+  // 하드 산군 전용 5T 장비 — 흉포한 산군 장비 상자 전용 풀.
+  // 사냥터 1~4T 압축 사다리 밖의 보스 장비라 tier 13(표시 5T)로 둔다.
+  v2_hard_sangoon_cleaver: {
+    id: "v2_hard_sangoon_cleaver",
+    slot: "weapon",
+    concept: "str",
+    tier: 13,
+    name: "흉포한 산군의 도끼",
+    description: "상처 난 산군의 앞발처럼 묵직한 도끼. 맞서는 자를 정면에서 갈라낸다.",
+    power: 640,
+    weight: 12,
+    options: { hp: 420, def: 36, critResist: 6 },
+    weaponType: "greatsword",
+    noDrop: true,
+    setTags: ["hard_sangoon"],
+  },
+  v2_hard_sangoon_hide: {
+    id: "v2_hard_sangoon_hide",
+    slot: "armor",
+    concept: "heavy",
+    tier: 13,
+    name: "흉포한 산군의 가죽갑주",
+    description: "칼날을 튕겨 낸 두꺼운 가죽갑주. 버티며 밀고 들어가는 전열에 맞다.",
+    power: 225,
+    weight: 18,
+    options: { hp: 900, def: 90, magicDef: 55, critResist: 8, spd: -12 },
+    noDrop: true,
+    setTags: ["hard_sangoon"],
+  },
+  v2_hard_sangoon_claws: {
+    id: "v2_hard_sangoon_claws",
+    slot: "gloves",
+    concept: "light",
+    tier: 13,
+    name: "흉포한 산군의 발톱장갑",
+    description: "산군의 발톱 조각을 덧댄 장갑. 방어 자세에서도 반격의 힘을 남긴다.",
+    power: 66,
+    weight: 8,
+    options: { hp: 220, def: 38, crit: 4, critResist: 4 },
+    noDrop: true,
+    setTags: ["hard_sangoon"],
+  },
+  v2_hard_sangoon_stride: {
+    id: "v2_hard_sangoon_stride",
+    slot: "boots",
+    concept: "light",
+    tier: 13,
+    name: "흉포한 산군의 산행화",
+    description: "거친 산비탈을 짓누르듯 걷는 신. 빠르진 않지만 디딘 자리가 무너지지 않는다.",
+    power: 64,
+    weight: 8,
+    options: { hp: 200, def: 32, eva: 4, critResist: 4, spd: -6 },
+    noDrop: true,
+    setTags: ["hard_sangoon"],
+  },
+  v2_hard_sangoon_ring: {
+    id: "v2_hard_sangoon_ring",
+    slot: "ring",
+    concept: "luck",
+    tier: 13,
+    name: "흉포한 산군의 이빨반지",
+    description: "부러진 송곳니를 깎아 만든 반지. 피 냄새 속에서도 급소를 놓치지 않는다.",
+    power: 108,
+    weight: 0,
+    options: { hp: 260, crit: 5, critMult: 35, critResist: 8 },
+    noDrop: true,
+    setTags: ["hard_sangoon"],
+  },
+  v2_hard_sangoon_amulet: {
+    id: "v2_hard_sangoon_amulet",
+    slot: "necklace",
+    concept: "mana",
+    tier: 13,
+    name: "흉포한 산군의 흔적부적",
+    description: "산군의 흔적을 엮은 부적. 물러서지 않는 기세가 몸을 두껍게 감싼다.",
+    power: 116,
+    weight: 0,
+    options: { hp: 300, mp: 80, magicDef: 40, critResist: 8 },
+    noDrop: true,
+    setTags: ["hard_sangoon"],
   },
 
   // ── 마른 협곡 밴드 드랍 (깊이 7~12, T4) ───────────────────────────────

@@ -45,13 +45,14 @@ const coinCost = (coins: number, materials: Record<string, number> = {}) => ({
 });
 
 const EQUIPMENT_BOX_SHOP_COST_BY_TIER: Record<
-  1 | 2 | 3 | 4,
+  1 | 2 | 3 | 4 | 5,
   { coins: number; bossMaterial: number }
 > = {
   1: { coins: 80, bossMaterial: 10 },
   2: { coins: 160, bossMaterial: 12 },
   3: { coins: 280, bossMaterial: 15 },
   4: { coins: 480, bossMaterial: 20 },
+  5: { coins: 720, bossMaterial: 30 },
 };
 
 function equipmentBoxShopEntries(): CoopShopEntry[] {

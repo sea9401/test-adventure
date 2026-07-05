@@ -96,6 +96,8 @@ export type V2PassiveSkillEffect = {
   elementDisPctBonus?: number;
   /** 원소 공명 — 원소 폭주 같은 속성 분기 액티브의 보조 효과를 강화. */
   elementResonance?: boolean;
+  /** 각인 증폭 — 각인 해방의 복수 장착 시너지를 강화. */
+  inscriptionAmplification?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 0.45 = HP를 전부 잃은 상태 기준 공격력 +45%. */
@@ -355,7 +357,8 @@ export type V2SkillDefinition = {
   /** 장착 시너지 — 특정 스킬이 로드아웃에 함께 있을 때 시전 효과를 추가한다.
    *  문장술사처럼 저차 패시브를 보존하는 빌드에 보상을 주기 위한 액티브 전용 확장. */
   equippedSynergies?: readonly {
-    requiredSkillId: V2SkillId;
+    requiredSkillId?: V2SkillId;
+    requiredSkillIds?: readonly V2SkillId[];
     effects: readonly V2SkillEffect[];
   }[];
   /** 속성 장착 시너지 — 특정 패시브를 함께 장착하면 현재 캐릭터 속성의 효과 배열을 강화판으로 교체한다. */
@@ -477,6 +480,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.elementAdvPctBonus ?? 0) / 15;
     mag += (p.elementDisPctBonus ?? 0) / 20;
     if (p.elementResonance) mag += 2;
+    if (p.inscriptionAmplification) mag += 2;
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
@@ -864,6 +868,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.elementDisPctBonus)
     chips.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
   if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
+  if (p.inscriptionAmplification) chips.push("각인 해방 문장 시너지 강화");
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * 3}%`);
   if (p.berserkAtkPctPerLostHpPct)
@@ -907,7 +912,7 @@ const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
-  "elementallord", "archmage",
+  "elementallord", "inscriber", "archmage",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([

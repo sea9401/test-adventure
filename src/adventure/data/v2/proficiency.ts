@@ -105,6 +105,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   bloodlord: { str: 2, vit: 1, spi: 1 }, // 혈성군주 — 혈성기사 최종형
   darkpriest: { luk: 2, spi: 1, int: 1 }, // 암흑사제 — 그림자의 행운 + 사제 정신·지능
   elementallord: { int: 2, spi: 2 }, // 원소군주 — 원소술사 심화, 순수 속성 마법 중심
+  inscriber: { int: 2, spi: 2 }, // 각인술사 — 문장술사 심화, 문장 조합형 마법 중심
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
   transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 초월자 — 모든 능력 균형

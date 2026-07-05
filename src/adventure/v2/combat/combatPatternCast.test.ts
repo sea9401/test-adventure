@@ -423,6 +423,33 @@ describe("resolveV2SkillCast — 문장술사 장착 시너지", () => {
   });
 });
 
+describe("resolveV2SkillCast — 각인술사 복수 장착 시너지", () => {
+  it("각인 증폭을 함께 장착하면 각인 해방의 문장 재료 효과가 추가로 열린다", () => {
+    const skill = "v2c_inscriber_release";
+    const materials = [
+      skill,
+      "v2c_mage_acumen",
+      "v2c_caster_acumen",
+      "v2c_magus_acumen3",
+      "v2c_runecaster_circuit",
+    ];
+    const base = resolveV2SkillCast(castInput(materials));
+    const amplified = resolveV2SkillCast(
+      castInput([...materials, "v2c_inscriber_amplification"]),
+    );
+
+    expect(base.castSkillId).toBe(skill);
+    expect(amplified.castSkillId).toBe(skill);
+    expect(amplified.hitDamages.length).toBe(base.hitDamages.length + 2);
+    expect(amplified.enemyDamage).toBeGreaterThan(base.enemyDamage);
+    expect(base.manaRestored).toBe(7);
+    expect(amplified.manaRestored).toBe(11);
+    expect(base.shieldToApply).toMatchObject({ mp: 10, turns: 3 });
+    expect(amplified.shieldToApply).toMatchObject({ mp: 16, turns: 3 });
+    expect(amplified.enemyVulnToApply).toEqual({ pct: 14, turns: 2 });
+  });
+});
+
 describe("resolveV2SkillCast — 원소군주 원소 공명", () => {
   it("원소 공명을 함께 장착하면 원소 폭주의 현재 속성 보조 효과가 강화된다", () => {
     const skill = "v2c_elementallord_surge";

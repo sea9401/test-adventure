@@ -181,6 +181,8 @@ export type V2CommonSkillId =
   | "v2c_arcanist_theory" // 비전 이론 (지능 + 치명확률)
   | "v2c_elementallord_surge" // 원소 폭주 (속성별 강화 마법)
   | "v2c_elementallord_resonance" // 원소 공명 (원소 폭주 보조 효과 강화)
+  | "v2c_inscriber_release" // 각인 해방 (장착 문장 조합형 마법)
+  | "v2c_inscriber_amplification" // 각인 증폭 (각인 해방 시너지 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
@@ -1370,6 +1372,53 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { elementResonance: true },
+  },
+  v2c_inscriber_release: {
+    id: "v2c_inscriber_release", name: "각인 해방", stat: "int", category: "attack", tier: 3,
+    description: "마력에 새긴 각인을 해방한다. 장착한 문장 재료에 따라 추가 효과가 열린다.",
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(1.45, 280, "magic")],
+    equippedSynergies: [
+      {
+        requiredSkillId: "v2c_mage_acumen",
+        effects: [dmg(0.28, 60, "magic")],
+      },
+      {
+        requiredSkillId: "v2c_caster_acumen",
+        effects: [{ kind: "manaRestore", pctMaxMp: 7 }],
+      },
+      {
+        requiredSkillId: "v2c_magus_acumen3",
+        effects: [{ kind: "enemyVuln", pct: 14, turns: 2 }],
+      },
+      {
+        requiredSkillId: "v2c_runecaster_circuit",
+        effects: [{ kind: "shield", pctMaxHp: 0, pctMaxMp: 10, turns: 3 }],
+      },
+      {
+        requiredSkillIds: ["v2c_mage_acumen", "v2c_inscriber_amplification"],
+        effects: [dmg(0.16, 35, "magic")],
+      },
+      {
+        requiredSkillIds: ["v2c_caster_acumen", "v2c_inscriber_amplification"],
+        effects: [{ kind: "manaRestore", pctMaxMp: 4 }],
+      },
+      {
+        requiredSkillIds: ["v2c_magus_acumen3", "v2c_inscriber_amplification"],
+        effects: [dmg(0.18, 40, "magic")],
+      },
+      {
+        requiredSkillIds: ["v2c_runecaster_circuit", "v2c_inscriber_amplification"],
+        effects: [{ kind: "shield", pctMaxHp: 0, pctMaxMp: 6, turns: 3 }],
+      },
+    ],
+  },
+  v2c_inscriber_amplification: {
+    id: "v2c_inscriber_amplification", name: "각인 증폭", stat: "int", category: "passive", tier: 3,
+    description: "각인의 흐름을 증폭한다. 각인 해방이 문장 재료와 반응할 때 추가 효과가 열린다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { inscriptionAmplification: true },
   },
   v2c_marksman_shot: {
     id: "v2c_marksman_shot", name: "정밀 사격", stat: "dex", category: "attack", tier: 3,

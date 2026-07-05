@@ -210,6 +210,8 @@ export type V2CommonSkillId =
   | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해 + 최대 HP)
   | "v2c_archmage_collapse" // 비전 붕괴 (순수 마법 피해 + ATB 지연)
   | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
+  | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
+  | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
@@ -1634,6 +1636,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { int: 22 }, magicSkillDamagePct: 12 },
+  },
+  v2c_savior_judgment: {
+    id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,
+    description: "구원의 빛을 심판으로 바꾸어 적을 태우고 빈틈을 드러낸다.",
+    mpCost: 80, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      { kind: "damage", statCoef: 1.85, baseFlat: 430, scaling: "magic" },
+      { kind: "enemyVuln", pct: 16, turns: 3 },
+    ],
+  },
+  v2c_savior_grace: {
+    id: "v2c_savior_grace", name: "구원의 은총", stat: "int", category: "passive", tier: 3,
+    description: "은총이 치유와 생존의 한계를 끌어올린다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { healPowerPct: 35, maxHpPct: 18, damageTakenReductionPct: 8 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

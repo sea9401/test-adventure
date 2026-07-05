@@ -32,6 +32,14 @@ import {
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { Gender } from "@/adventure/profile/avatars";
 
+function fmtPreviewNumber(value: number): string {
+  return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
+}
+
+function fmtPreviewPct(value: number): string {
+  return `${Math.max(0, Math.min(100, value)).toFixed(1)}%`;
+}
+
 export function V2CoopBossDetailView({
   sessionId,
   playerName,
@@ -267,6 +275,66 @@ export function V2CoopBossDetailView({
           </p>
         )}
       </Card>
+
+      {detail.combatPreview && (
+        <Card padding="md" className="space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-sm font-semibold">전투 예상</span>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              현재 HP 기준
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                내 명중률
+              </div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {fmtPreviewPct(detail.combatPreview.player.hitPct)}
+              </div>
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                명중 {fmtPreviewNumber(detail.combatPreview.player.accRating)} ·
+                보스 회피 {fmtPreviewNumber(detail.combatPreview.boss.evasion)}
+              </div>
+            </div>
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                내 회피율
+              </div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {fmtPreviewPct(detail.combatPreview.player.evadePct)}
+              </div>
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                회피 {fmtPreviewNumber(detail.combatPreview.player.evaRating)} ·
+                보스 명중 {fmtPreviewNumber(detail.combatPreview.boss.accuracy)}
+              </div>
+            </div>
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                보스 공격
+              </div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {fmtPreviewNumber(detail.combatPreview.boss.atk)}
+              </div>
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                속도 {fmtPreviewNumber(detail.combatPreview.boss.effectiveSpd)}
+              </div>
+            </div>
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                보스 방어
+              </div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {fmtPreviewNumber(detail.combatPreview.boss.def)}
+              </div>
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                마법방어{" "}
+                {fmtPreviewNumber(detail.combatPreview.boss.magicDef)}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* 소환자 전용 — 소환 후 공개 범위 변경. 나만/길드원만으로 시작해 기여 보상을 쌓은 뒤 공개로. */}
       {showScopeControl && (

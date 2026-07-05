@@ -302,11 +302,14 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
   tags: ["humanoid"],
   image: "/images/monster/v2/sangoon.webp",
   hp: 620,
-  atk: 35,
-  def: 14,
+  atk: 33,
+  def: 18,
+  magicDef: 20,
   // spd ↑(2026-06-26) — 협동 보스는 effectiveMonsterSpd(10+raw×6)로 매핑돼 필드 1~9 밴드에선
   //   엔드 플레이어(spd 200~300) 대비 반격이 너무 굼떴다. 레이드 보스라 밴드 밖으로 올림(유효 ~95).
-  spd: 14,
+  spd: 15,
+  accuracy: 3,
+  evasionPct: 5,
   exp: 90,
   skill: {
     kind: "heavy_blow",
@@ -328,9 +331,12 @@ const MOUNTAIN_CHIEF_HARD_BASE: Monster = {
   ...MOUNTAIN_CHIEF_BASE,
   name: "흉포한 산군",
   hp: 860,
-  atk: 42,
-  def: 18,
-  spd: 15,
+  atk: 40,
+  def: 28,
+  magicDef: 36,
+  spd: 16,
+  accuracy: 8,
+  evasionPct: 12,
   armorVulnerable: 0.35,
   playerDefVulnerable: 0.35,
   dropQualityBias: 4,
@@ -604,15 +610,15 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   mountain_chief_hard: {
     id: "mountain_chief_hard",
-    difficulty: "hard",
-    name: "흉포한 산군",
-    desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
-    scrollCost: 30,
-    sharedMaxHp: 600_000,
-    anchorDepth: 60,
-    base: MOUNTAIN_CHIEF_HARD_BASE,
-    uniqueIds: ["v2_boss_mountain_axe", "v2_boss_mountain_amulet"],
-    titleId: "v2_boss_mountain",
+  difficulty: "hard",
+  name: "흉포한 산군",
+  desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
+  scrollCost: 30,
+  sharedMaxHp: 600_000,
+  anchorDepth: 60,
+  base: MOUNTAIN_CHIEF_HARD_BASE,
+  uniqueIds: [],
+  titleId: "v2_boss_mountain",
     statusSkill: "mob_rending_claw",
     enrageStages: [],
     conditionalEnrage: {
@@ -665,12 +671,16 @@ export function coopBossForBattle(
   const frac = hp / kind.sharedMaxHp;
   let atk = scaled.atk;
   let def = scaled.def;
+  let magicDef = scaled.magicDef;
   let evasion = scaled.evasionPct ?? 0;
   const enrageNotes: string[] = [];
   const applyEnrage = (stage: CoopEnrageStage) => {
     if (frac > stage.hpFraction) return;
     if (stage.atkMult) atk = Math.round(atk * stage.atkMult);
-    if (stage.defBonus) def += stage.defBonus;
+    if (stage.defBonus) {
+      def += stage.defBonus;
+      if (magicDef != null) magicDef += stage.defBonus;
+    }
     if (stage.evasionBonus) evasion += stage.evasionBonus;
     enrageNotes.push(stage.note);
   };
@@ -689,6 +699,7 @@ export function coopBossForBattle(
     hp,
     atk,
     def,
+    ...(magicDef != null ? { magicDef } : {}),
     ...(evasion > 0 ? { evasionPct: evasion } : {}),
     ...(kind.statusSkill
       ? {

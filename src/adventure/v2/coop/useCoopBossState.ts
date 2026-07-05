@@ -91,6 +91,23 @@ export type CoopSessionDetail = {
     tier: CoopRewardTier | null;
     claimed: boolean;
   };
+  combatPreview: {
+    boss: {
+      atk: number;
+      def: number;
+      magicDef: number;
+      spd: number;
+      effectiveSpd: number;
+      accuracy: number;
+      evasion: number;
+    };
+    player: {
+      accRating: number;
+      evaRating: number;
+      hitPct: number;
+      evadePct: number;
+    };
+  } | null;
   participantCount: number;
   top: { name: string; damage: number; attackCount: number; isMe?: boolean }[];
   recentAttacks: {
@@ -288,6 +305,7 @@ export function useCoopSessionState({
         setDetail({
           session: j.session,
           my: j.my,
+          combatPreview: j.combatPreview ?? null,
           participantCount: j.participantCount,
           top: j.top,
           recentAttacks: j.recentAttacks,

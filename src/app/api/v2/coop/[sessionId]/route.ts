@@ -10,12 +10,20 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
+  COOP_BOSSES,
+  coopBossForBattle,
   coopTierForRatio,
   parseCoopBossKindId,
   parseCoopVisibility,
   canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  attackMissPct,
+  dodgeChance,
+} from "@/adventure/data/v2/v2CombatConstants";
+import { effectiveMonsterSpd } from "@/adventure/v2/combat/combatTimeline";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 
 // GET /api/v2/coop/[sessionId] — 협동 보스 인스턴스 상세(상세 화면 폴링용).
 // 활성/처치/만료 무관 조회 가능 — 끝난 세션도 결과·내 보상 상태를 보여준다.
@@ -124,6 +132,38 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   const myRow = contribs.find((r) => r.userId === userId) ?? null;
   const myDamage = myRow?.damage ?? 0;
+  const combat = await derivePlayerCombatV2(userId);
+  const combatPreview = (() => {
+    if (!combat) return null;
+    const bossDef = COOP_BOSSES[kind];
+    const { monster } = coopBossForBattle(bossDef, session.hp, {
+      conditionalEnrageWeakened: session.hardEnrageWeakened,
+    });
+    const player = combat.player;
+    const bossEvaRating = Math.max(0, monster.evasionPct ?? 0) *
+      (player.precisionEvasionMult ?? 1);
+    const playerAccRating = player.accRating ?? player.accuracyPct ?? 0;
+    const playerMissPct = attackMissPct(bossEvaRating, playerAccRating);
+    const playerEvaRating = player.evaRating ?? player.evasionPct;
+    const bossAccRating = monster.accuracy ?? 0;
+    return {
+      boss: {
+        atk: monster.atk,
+        def: monster.def,
+        magicDef: monster.magicDef ?? monster.def,
+        spd: monster.spd,
+        effectiveSpd: effectiveMonsterSpd(monster.spd),
+        accuracy: bossAccRating,
+        evasion: bossEvaRating,
+      },
+      player: {
+        accRating: playerAccRating,
+        evaRating: playerEvaRating,
+        hitPct: Math.max(0, Math.min(100, 100 - playerMissPct)),
+        evadePct: dodgeChance(playerEvaRating, bossAccRating),
+      },
+    };
+  })();
 
   const recentAttacks = await db
     .select({
@@ -160,6 +200,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       tier: coopTierForRatio(myDamage / Math.max(1, session.maxHp), kind),
       claimed: myRow?.claimedAt != null,
     },
+    combatPreview,
     participantCount: contribs.length,
     top: contribs.slice(0, 30).map((r) => ({
       name: r.name?.trim() || profileNameByUser.get(r.userId) || "모험가",

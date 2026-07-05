@@ -35,6 +35,10 @@ export function scaleMonsterForFloor(
   const hp = Math.max(1, Math.round(monster.hp * sMult * hpComp));
   const atk = Math.max(1, Math.round(monster.atk * sMult));
   const def = Math.max(0, Math.round(monster.def * dMult));
+  const magicDef =
+    monster.magicDef == null
+      ? undefined
+      : Math.max(0, Math.round(monster.magicDef * dMult));
   const exp = Math.max(0, Math.round(monster.exp * eMult));
   // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
   //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
@@ -44,10 +48,19 @@ export function scaleMonsterForFloor(
     hp === monster.hp &&
     atk === monster.atk &&
     def === monster.def &&
+    magicDef === monster.magicDef &&
     exp === monster.exp &&
     accuracy === (monster.accuracy ?? 0)
   ) {
     return monster;
   }
-  return { ...monster, hp, atk, def, exp, accuracy };
+  return {
+    ...monster,
+    hp,
+    atk,
+    def,
+    ...(magicDef != null ? { magicDef } : {}),
+    exp,
+    accuracy,
+  };
 }

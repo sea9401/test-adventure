@@ -101,6 +101,8 @@ export type Monster = {
   hp: number;
   atk: number;
   def: number;
+  /** 마법 데미지 경감용 방어력. 미지정이면 전투 계산에서 def 를 폴백으로 쓴다. */
+  magicDef?: number;
   spd: number;
   /** 0~100. 플레이어 공격을 % 확률로 회피. 0/undefined = 항상 피격. */
   evasionPct?: number;

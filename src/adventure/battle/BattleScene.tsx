@@ -182,6 +182,7 @@ export type BattleStats = {
   critChancePct?: number; // 치명 % (플레이어)
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
   bonusAttackChancePct?: number; // 몬스터 행동 1회당 추가타 성향
+  primaryAttack?: "physical" | "magic";
 };
 
 // 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
@@ -212,6 +213,11 @@ export function BattleStatStrip({
   opponentStats?: BattleStats;
 }) {
   const [open, setOpen] = useState(false);
+  const usesMagicAttack = stats.primaryAttack === "magic";
+  const primaryAttackLabel = usesMagicAttack ? "마공" : "공";
+  const primaryAttackValue = usesMagicAttack
+    ? (stats.magicAtk ?? stats.atk ?? 0)
+    : (stats.atk ?? 0);
   const details: { label: string; value: string }[] =
     variant === "enemy" && opponentStats
       ? [
@@ -256,7 +262,9 @@ export function BattleStatStrip({
           ...(stats.critChancePct && stats.critChancePct > 0
             ? [{ label: "치명", value: pct(stats.critChancePct) }]
             : []),
-          ...(stats.magicAtk && stats.magicAtk > 0
+          ...(usesMagicAttack
+            ? [{ label: "공", value: String(Math.round(stats.atk ?? 0)) }]
+            : stats.magicAtk && stats.magicAtk > 0
             ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
             : []),
         ];
@@ -280,7 +288,8 @@ export function BattleStatStrip({
         }`}
       >
         <span>
-          <span className={dim}>공</span> {(stats.atk ?? 0).toLocaleString()}
+          <span className={dim}>{primaryAttackLabel}</span>{" "}
+          {Math.round(primaryAttackValue).toLocaleString()}
         </span>
         <span>
           <span className={dim}>방</span> {(stats.def ?? 0).toLocaleString()}

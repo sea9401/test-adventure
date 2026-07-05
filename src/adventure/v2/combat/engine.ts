@@ -1324,6 +1324,7 @@ export function applyPlayerV2SkillCast(
     },
     target: {
       def: playerSkillTargetDef(state, player),
+      magicDef: state.enemy.magicDef,
       // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
       selfBuffs: state.enemyV2SelfBuffs,
       selfDebuffs: tickedEnemyDebuffs,

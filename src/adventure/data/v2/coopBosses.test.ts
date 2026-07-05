@@ -84,7 +84,12 @@ describe("coopBosses 카탈로그", () => {
   it("유니크/칭호 카탈로그 — 휴면 id 도 장비·칭호 카탈로그에 실재(기보유분 호환)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      // 보상 개편으로 드랍/지급은 폐지됐지만 id·카탈로그는 보존(보유분 비파괴).
+      // 하드 산군은 레거시 노말 산군 유니크가 보상에 섞이지 않도록 유니크 롤을 끈다.
+      if (id === "mountain_chief_hard") {
+        expect(b.uniqueIds).toEqual([]);
+        continue;
+      }
+      // 보상 개편 후에도 기존 보스 유니크 id·카탈로그는 보존(보유분 비파괴).
       expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u], `unknown equipment: ${u}`).toBeDefined();
@@ -161,6 +166,10 @@ describe("coopBosses 카탈로그", () => {
   it("보스 uniqueIds — 시그니처 유니크 실재(이름·rarity·signature)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
+      if (id === "mountain_chief_hard") {
+        expect(b.uniqueIds).toEqual([]);
+        continue;
+      }
       expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u]?.rarity).toBe("unique");
@@ -239,6 +248,27 @@ describe("coopBosses 카탈로그", () => {
     expect(normal.monster.def).toBeGreaterThan(weakened.monster.def);
     expect(weakened.monster.atk).toBeGreaterThan(full.monster.atk);
     expect(weakened.monster.def).toBeGreaterThan(full.monster.def);
+  });
+
+  it("산군 난이도별 방어·마법방어·명중·회피 스탯을 가진다", () => {
+    const normal = coopBossForBattle(
+      COOP_BOSSES.mountain_chief,
+      COOP_BOSSES.mountain_chief.sharedMaxHp,
+    ).monster;
+    const hard = coopBossForBattle(
+      COOP_BOSSES.mountain_chief_hard,
+      COOP_BOSSES.mountain_chief_hard.sharedMaxHp,
+    ).monster;
+    expect(normal.atk).toBe(146);
+    expect(normal.def).toBe(44);
+    expect(normal.magicDef).toBe(49);
+    expect(normal.accuracy).toBeGreaterThan(4);
+    expect(normal.evasionPct).toBe(5);
+    expect(hard.atk).toBe(3314);
+    expect(hard.def).toBe(396);
+    expect(hard.magicDef).toBe(510);
+    expect(hard.accuracy).toBeGreaterThan(32);
+    expect(hard.evasionPct).toBe(12);
   });
 
   it("유지시간 — HP 비례·최소 2h·최대 24h 클램프·HP 오름차순과 단조", () => {

@@ -869,9 +869,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   }
   // 장착 시너지(문장술사) — 지정된 선행 패시브가 로드아웃에 함께 있으면 시전 효과를 뒤에 덧붙인다.
   //   learned 전체가 아니라 equipped 기준이다. 기존 패시브 시스템과 같은 "장착해야 효과" 규칙을 따른다.
+  const equippedSynergyActive = (s: NonNullable<typeof def.equippedSynergies>[number]) =>
+    (s.requiredSkillId == null || equippedSet.has(s.requiredSkillId)) &&
+    (s.requiredSkillIds ?? []).every((sid) => equippedSet.has(sid));
   const synergyEffects =
     def.equippedSynergies?.flatMap((s) =>
-      equippedSet.has(s.requiredSkillId) ? s.effects : [],
+      equippedSynergyActive(s) ? s.effects : [],
     ) ?? [];
   const castEffects =
     synergyEffects.length > 0

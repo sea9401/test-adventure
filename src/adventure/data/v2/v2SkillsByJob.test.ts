@@ -468,6 +468,7 @@ describe("직업 킷 — 스킬셋", () => {
       overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"],
       arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"],
       elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"],
+      inscriber: ["v2c_inscriber_release", "v2c_inscriber_amplification"],
       marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
       nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"],
       saint: ["v2c_saint_miracle", "v2c_saint_benediction"],
@@ -527,6 +528,40 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_elementallord_resonance.passive).toMatchObject({
       elementResonance: true,
+    });
+    expect(V2_SKILLS.v2c_inscriber_release.category).toBe("attack");
+    expect(V2_SKILLS.v2c_inscriber_release.effects).toEqual([
+      { kind: "damage", statCoef: 1.45, baseFlat: 280, scaling: "magic" },
+    ]);
+    expect(
+      V2_SKILLS.v2c_inscriber_release.equippedSynergies?.map((s) => ({
+        requiredSkillId: s.requiredSkillId,
+        requiredSkillIds: s.requiredSkillIds,
+      })),
+    ).toEqual([
+      { requiredSkillId: "v2c_mage_acumen", requiredSkillIds: undefined },
+      { requiredSkillId: "v2c_caster_acumen", requiredSkillIds: undefined },
+      { requiredSkillId: "v2c_magus_acumen3", requiredSkillIds: undefined },
+      { requiredSkillId: "v2c_runecaster_circuit", requiredSkillIds: undefined },
+      {
+        requiredSkillId: undefined,
+        requiredSkillIds: ["v2c_mage_acumen", "v2c_inscriber_amplification"],
+      },
+      {
+        requiredSkillId: undefined,
+        requiredSkillIds: ["v2c_caster_acumen", "v2c_inscriber_amplification"],
+      },
+      {
+        requiredSkillId: undefined,
+        requiredSkillIds: ["v2c_magus_acumen3", "v2c_inscriber_amplification"],
+      },
+      {
+        requiredSkillId: undefined,
+        requiredSkillIds: ["v2c_runecaster_circuit", "v2c_inscriber_amplification"],
+      },
+    ]);
+    expect(V2_SKILLS.v2c_inscriber_amplification.passive).toMatchObject({
+      inscriptionAmplification: true,
     });
     expect(V2_SKILLS.v2c_nightshade_eclipse.effects.map((e) => e.kind)).toEqual([
       "ambushDamage",

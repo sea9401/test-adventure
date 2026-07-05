@@ -702,6 +702,22 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { int: 22 },
       magicSkillDamagePct: 12,
     });
+    expect(skillsForJob("savior")).toEqual([
+      "v2c_savior_judgment",
+      "v2c_savior_grace",
+    ]);
+    expect(V2_SKILLS.v2c_savior_judgment.category).toBe("attack");
+    expect(V2_SKILLS.v2c_savior_judgment.mpCost).toBe(80);
+    expect(V2_SKILLS.v2c_savior_judgment.effects).toEqual([
+      { kind: "damage", statCoef: 1.85, baseFlat: 430, scaling: "magic" },
+      { kind: "enemyVuln", pct: 16, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_savior_grace.category).toBe("passive");
+    expect(V2_SKILLS.v2c_savior_grace.passive).toMatchObject({
+      healPowerPct: 35,
+      maxHpPct: 18,
+      damageTakenReductionPct: 8,
+    });
     expect(skillsForJob("celestialdragon")).toEqual([
       "v2c_celestialdragon_combo",
       "v2c_celestialdragon_breath",

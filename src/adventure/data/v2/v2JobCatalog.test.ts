@@ -106,6 +106,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   swordsaint: "swordmaster",
   hegemon: "overlord",
   archmage: "arcanist",
+  savior: "saint",
   celestialdragon: "dragonfist",
   vajraarhat: "adamantmonk",
   seagod: "fullcatchking",
@@ -134,8 +135,8 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("82개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 16 + 6차 7)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(82);
+  it("83개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 16 + 6차 8)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(83);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
@@ -143,7 +144,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(19);
     expect(byTier(4)).toBe(20);
     expect(byTier(5)).toBe(16);
-    expect(byTier(6)).toBe(7);
+    expect(byTier(6)).toBe(8);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -353,6 +354,11 @@ describe("해금 트리", () => {
       spec: "archmage",
     });
     expect(jobIdFromLegacy("mage", "archmage")).toBe("archmage");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.savior).toEqual({
+      class: "mage",
+      spec: "savior",
+    });
+    expect(jobIdFromLegacy("mage", "savior")).toBe("savior");
     expect(LEGACY_CLASS_SPEC_BY_JOB.celestialdragon).toEqual({
       class: "martial",
       spec: "celestialdragon",
@@ -797,6 +803,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "inscriber")).toBe("각인술사");
     expect(displayName("mage", "archmage")).toBe("대마도사");
+    expect(displayName("mage", "savior")).toBe("구원자");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
   });

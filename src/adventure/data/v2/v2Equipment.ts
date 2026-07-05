@@ -623,6 +623,24 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     ],
   },
   {
+    id: "abyssal_current",
+    name: "심연 해류",
+    thresholds: [
+      { count: 2, bonus: { hp: 280, mp: 140, magicDef: 28, critResist: 4 } },
+      {
+        count: 3,
+        bonus: {
+          hp: 420,
+          mp: 220,
+          magicDef: 42,
+          crit: 4,
+          spd: 6,
+          critResist: 8,
+        },
+      },
+    ],
+  },
+  {
     id: "royal_hunt",
     name: "왕도 사냥꾼",
     thresholds: [

@@ -72,6 +72,16 @@ describe("coopRewards", () => {
       coopExtraRewardRuleFor("mountain_chief_hard", "legend")
         .equipmentBoxChance,
     ).toBe(1);
+    expect(COOP_BOSS_MATERIAL.abyssal_tyrant.name).toBe("심연어룡의 비늘");
+    expect(COOP_EQUIPMENT_BOX.abyssal_tyrant).toMatchObject({
+      name: "심연어룡 5T 장비 상자",
+      displayTier: 5,
+      tiers: [13],
+    });
+    expect(coopExtraRewardRuleFor("abyssal_tyrant", "silver").equipmentBoxChance)
+      .toBe(0);
+    expect(coopExtraRewardRuleFor("abyssal_tyrant", "legend").equipmentBoxChance)
+      .toBe(1);
   });
 
   it("rollCoopExtraRewards — 확정 보상 + 상자 확률 경계", () => {
@@ -106,10 +116,12 @@ describe("coopRewards", () => {
       const got = rollCoopEquipmentBoxItem(boss, () => 0);
       expect(got).toBeTruthy();
       const item = V2_EQUIPMENT[got!];
-      if (boss === "mountain_chief_hard") {
+      if (boss === "mountain_chief_hard" || boss === "abyssal_tyrant") {
         expect(item.tier).toBe(13);
-        expect(item.setTags).toContain("hard_sangoon");
-        expect(COOP_EQUIPMENT_BOX.mountain_chief_hard.itemIds).toContain(got);
+        expect(item.setTags).toContain(
+          boss === "abyssal_tyrant" ? "abyssal_current" : "hard_sangoon",
+        );
+        expect(COOP_EQUIPMENT_BOX[boss].itemIds).toContain(got);
         continue;
       }
       expect(item.tier).toBeLessThanOrEqual(

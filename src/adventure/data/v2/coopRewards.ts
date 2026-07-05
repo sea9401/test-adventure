@@ -21,6 +21,7 @@ export const COOP_MASTERY_TOME_GAIN = 50;
 export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_claw",
   mountain_chief_hard: "v2_coop_mountain_trace",
+  abyssal_tyrant: "v2_coop_abyssal_scale",
   canyon_predator: "v2_coop_canyon_chitin",
   lake_sovereign: "v2_coop_lake_crystal",
   void_priest: "v2_coop_void_relic",
@@ -29,6 +30,7 @@ export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
 export const COOP_EQUIPMENT_BOX_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_equipment_box",
   mountain_chief_hard: "v2_coop_mountain_hard_equipment_box",
+  abyssal_tyrant: "v2_coop_abyssal_equipment_box",
   canyon_predator: "v2_coop_canyon_equipment_box",
   lake_sovereign: "v2_coop_lake_equipment_box",
   void_priest: "v2_coop_void_equipment_box",
@@ -68,6 +70,20 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
       "v2_hard_sangoon_stride",
       "v2_hard_sangoon_ring",
       "v2_hard_sangoon_amulet",
+    ],
+  },
+  abyssal_tyrant: {
+    id: COOP_EQUIPMENT_BOX_ID.abyssal_tyrant,
+    name: "심연어룡 5T 장비 상자",
+    description:
+      "사용하면 심연어룡 전용 5T 장비 중 1개를 무작위로 획득한다.",
+    displayTier: 5,
+    source: "심연어룡",
+    tiers: [13],
+    itemIds: [
+      "v2_boss_abyssal_armor",
+      "v2_boss_abyssal_ring",
+      "v2_boss_abyssal_necklace",
     ],
   },
   canyon_predator: {
@@ -111,6 +127,12 @@ export const COOP_BOSS_MATERIAL: Record<
     name: "산군의 흔적",
     description:
       "흉포한 산군 토벌 기여 보상으로 얻는 재료. 하드 보스 장비 성장에 쓰일 수 있다.",
+  },
+  abyssal_tyrant: {
+    id: COOP_BOSS_MATERIAL_ID.abyssal_tyrant,
+    name: "심연어룡의 비늘",
+    description:
+      "심연어룡 토벌 기여 보상으로 얻는 재료. 수압을 머금은 하드 보스 장비 성장에 쓰일 수 있다.",
   },
   canyon_predator: {
     id: COOP_BOSS_MATERIAL_ID.canyon_predator,
@@ -185,7 +207,7 @@ export function coopExtraRewardRuleFor(
   boss: CoopBossKindId,
   tier: CoopRewardTier,
 ): CoopExtraRewardRule {
-  return boss === "mountain_chief_hard"
+  return boss === "mountain_chief_hard" || boss === "abyssal_tyrant"
     ? COOP_HARD_EXTRA_REWARD_RULES[tier]
     : COOP_EXTRA_REWARD_RULES[tier];
 }

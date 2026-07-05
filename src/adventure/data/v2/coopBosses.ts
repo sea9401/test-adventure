@@ -11,6 +11,7 @@
 // 컬럼에 CoopBossKindId 를 넣는다(v1 COOP_BOSSES 는 빈 맵이라 cron/respawn 과 충돌 없음).
 
 import type { Monster } from "@/adventure/data/monsters/types";
+import type { BattleLogEntry } from "@/adventure/v2/combat/engineState";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
@@ -29,6 +30,25 @@ export const SUMMON_SCROLL_DROP_PCT = 0.5;
 // 사냥 승리 시 소환서 드랍 굴림(순수). rng() ∈ [0,1). 통과 시 1장.
 export function rollSummonScrollDrop(rng: () => number): number {
   return rng() * 100 < SUMMON_SCROLL_DROP_PCT ? 1 : 0;
+}
+
+// 낚시 성공 시 초저확률로 자동 소환되는 이벤트 보스.
+// 성공 챔질 기준 0.02%: 2,000회 성공당 출현 확률 약 33%.
+export const FISHING_COOP_BOSS_KIND_ID = "abyssal_tyrant";
+export const FISHING_COOP_BOSS_SPAWN_CHANCE = 0.0002;
+
+export function rollFishingCoopBossSpawn(rng: () => number): boolean {
+  return rng() < FISHING_COOP_BOSS_SPAWN_CHANCE;
+}
+
+export function coopCriticalDamageFromLog(log: readonly BattleLogEntry[]): number {
+  return log.reduce((sum, entry) => {
+    if (entry.kind !== "player_attack") return sum;
+    if (!entry.text.includes("[크리티컬]")) return sum;
+    const match = entry.text.match(/(\d+)\s*피해/);
+    const damage = match ? Number(match[1]) : 0;
+    return sum + (Number.isFinite(damage) ? Math.max(0, Math.floor(damage)) : 0);
+  }, 0);
 }
 
 // === 보상 티어 =========================================================
@@ -76,7 +96,9 @@ export function coopBossDifficultyOf(
   if (kind && typeof kind === "object" && kind.difficulty) {
     return kind.difficulty;
   }
-  return kind === "mountain_chief_hard" ? "hard" : "normal";
+  return kind === "mountain_chief_hard" || kind === "abyssal_tyrant"
+    ? "hard"
+    : "normal";
 }
 
 export function coopTierThresholdsFor(
@@ -239,6 +261,7 @@ export const MAX_ACTIVE_PER_KIND = 20;
 export type CoopBossKindId =
   | "mountain_chief"
   | "mountain_chief_hard"
+  | "abyssal_tyrant"
   | "canyon_predator"
   | "lake_sovereign"
   | "void_priest";
@@ -341,6 +364,32 @@ const MOUNTAIN_CHIEF_HARD_BASE: Monster = {
   playerDefVulnerable: 0.35,
   dropQualityBias: 4,
   v2MaxMp: 95,
+};
+
+const ABYSSAL_TYRANT_BASE: Monster = {
+  name: "심연어룡",
+  tags: ["beast"],
+  image: "/images/monster/deepseamonster.webp",
+  element: "water",
+  hp: 840,
+  atk: 40,
+  def: 16,
+  magicDef: 32,
+  spd: 17,
+  accuracy: 8,
+  evasionPct: 8,
+  exp: 120,
+  skill: {
+    kind: "pierce",
+    name: "심해 돌진",
+    armorPierce: 16,
+  },
+  armorVulnerable: 0.3,
+  playerDefVulnerable: 0.3,
+  dropQualityBias: 4,
+  onDefeatTitleId: "v2_boss_lake",
+  v2Skills: { learned: ["mob_arcane_nova"], equipped: ["mob_arcane_nova"] },
+  v2MaxMp: 120,
 };
 
 const CANYON_PREDATOR_BASE: Monster = {
@@ -637,6 +686,41 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       },
     },
     traits: ["강한 물리 압박", "출혈", "피와 상처에 민감하게 반응"],
+  },
+  abyssal_tyrant: {
+    id: "abyssal_tyrant",
+    difficulty: "hard",
+    name: "심연어룡",
+    desc: "낚싯줄 아래 어둠을 찢고 올라오는 거대한 어룡. 거품과 해류를 몰아치며 전장을 휘젓는다.",
+    scrollCost: 30,
+    sharedMaxHp: 600_000,
+    anchorDepth: 60,
+    base: ABYSSAL_TYRANT_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_lake",
+    enrageStages: [],
+    conditionalEnrage: {
+      hpFraction: 0.5,
+      normal: {
+        hpFraction: 0.5,
+        note: "심연어룡이 심해의 수압을 통째로 끌어올린다! (공격력·방어력·회피 상승)",
+        atkMult: 1.35,
+        defBonus: 12,
+        evasionBonus: 8,
+      },
+      weakened: {
+        hpFraction: 0.5,
+        note: "갈라진 아가미 사이로 심해의 수압이 새어나간다. (공격력·방어력 소폭 상승)",
+        atkMult: 1.15,
+        defBonus: 8,
+      },
+    },
+    traits: [
+      "심해 돌진 — 방어 관통",
+      "비전 해일 — 제한된 MP로 강한 마법 피해",
+      "낚시 이벤트 — 챔질 성공 시 0.02% 확률로 출현",
+      "숨구멍 — HP 50% 돌입 순간 치명타로 압력을 흔들면 수압 발악 약화",
+    ],
   },
 };
 

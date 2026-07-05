@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 
 // v2 협동 보스 — 세션 공용 헬퍼.
 //
@@ -16,6 +17,16 @@ import { and, eq, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { coopBossSessions, messages, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
+import {
+  COOP_BOSSES,
+  FISHING_COOP_BOSS_KIND_ID,
+  MAX_ACTIVE_PER_KIND,
+  coopBossDurationMs,
+  rollFishingCoopBossSpawn,
+} from "@/adventure/data/v2/coopBosses";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+
+type TxExecutor = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // 시스템 broadcast 용 가짜 유저 — messages.userId 가 NOT NULL + users.id FK 라
 // 시스템 글도 user row 를 참조해야 함(coopRespawn 과 동일 패턴·같은 id 재사용).
@@ -77,4 +88,55 @@ export async function findActiveCoopSessions(
         isNull(coopBossSessions.defeatedAt),
       ),
     );
+}
+
+export type FishingCoopBossSpawnResult = {
+  sessionId: string;
+  kind: typeof FISHING_COOP_BOSS_KIND_ID;
+  name: string;
+  expiresAt: number;
+} | null;
+
+export async function trySpawnFishingCoopBoss(
+  ex: TxExecutor,
+  args: {
+    userId: string;
+    summonerName: string;
+    now: Date;
+    rng?: () => number;
+  },
+): Promise<FishingCoopBossSpawnResult> {
+  const rng = args.rng ?? Math.random;
+  if (!rollFishingCoopBossSpawn(rng)) return null;
+
+  const kindId = FISHING_COOP_BOSS_KIND_ID;
+  const kind = COOP_BOSSES[kindId];
+  await expireStaleCoopSessions(ex, args.now);
+  const active = await findActiveCoopSessions(ex, kindId);
+  if (active.length >= MAX_ACTIVE_PER_KIND) return null;
+
+  const sessionId = randomUUID();
+  const expiresAt = new Date(args.now.getTime() + coopBossDurationMs(kind));
+  const summonerGuildId = await getGuildId(ex, args.userId);
+  await ex.insert(coopBossSessions).values({
+    id: sessionId,
+    regionId: kindId,
+    bossName: kind.name,
+    hp: kind.sharedMaxHp,
+    maxHp: kind.sharedMaxHp,
+    spawnedAt: args.now,
+    expiresAt,
+    regenPerMin: 0,
+    lastRegenAt: null,
+    summonedByName: args.summonerName,
+    summonerId: args.userId,
+    summonerGuildId,
+    visibility: "public",
+  });
+  return {
+    sessionId,
+    kind: kindId,
+    name: kind.name,
+    expiresAt: expiresAt.getTime(),
+  };
 }

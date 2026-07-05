@@ -72,6 +72,10 @@ import {
 } from "@/adventure/v2/fishingChallengeProgress";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { applyPctBonus, bonusDelta, readActiveHotTime } from "@/lib/server/opsSettings";
+import {
+  broadcastCoopNotice,
+  trySpawnFishingCoopBoss,
+} from "@/lib/server/v2Coop";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -307,6 +311,12 @@ export async function POST(req: Request) {
       fragmentsTotal = nextFrags.fragments;
     }
 
+    const coopBoss = await trySpawnFishingCoopBoss(tx, {
+      userId,
+      summonerName: "모험가",
+      now: new Date(now),
+    });
+
     return {
       caught: true as const,
       fishId: session.fishId,
@@ -330,6 +340,7 @@ export async function POST(req: Request) {
       masteryAfter,
       fragmentDrop,
       fragmentsTotal,
+      coopBoss,
       streak,
       streakBuff,
       hotTime:
@@ -386,6 +397,12 @@ export async function POST(req: Request) {
       },
     });
   }
+  if (result.coopBoss) {
+    await insertFeedEntry(userId, "coop_summon", { kind: result.coopBoss.kind });
+    await broadcastCoopNotice(
+      `${result.coopBoss.name}이(가) 낚싯줄을 타고 올라왔다`,
+    );
+  }
   // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).
   const mt = fish.condition ? MULTTAE_BY_ID.get(fish.condition) : undefined;
   return Response.json({
@@ -417,6 +434,7 @@ export async function POST(req: Request) {
     // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
     fragmentDrop: result.fragmentDrop,
     fragmentsTotal: result.fragmentsTotal,
+    coopBoss: result.coopBoss,
     streak: {
       current: result.streak.current,
       best: result.streak.best,

@@ -422,3 +422,29 @@ describe("resolveV2SkillCast — 문장술사 장착 시너지", () => {
     expect(withSigils.enemyVulnToApply).toEqual({ pct: 12, turns: 2 });
   });
 });
+
+describe("resolveV2SkillCast — 원소군주 원소 공명", () => {
+  it("원소 공명을 함께 장착하면 원소 폭주의 현재 속성 보조 효과가 강화된다", () => {
+    const skill = "v2c_elementallord_surge";
+    const base = resolveV2SkillCast(
+      castInput([skill], {
+        attacker: {
+          ...castInput([skill]).attacker,
+          characterElement: "wind",
+        },
+      }),
+    );
+    const resonant = resolveV2SkillCast(
+      castInput([skill, "v2c_elementallord_resonance"], {
+        attacker: {
+          ...castInput([skill]).attacker,
+          characterElement: "wind",
+        },
+      }),
+    );
+
+    expect(base.selfHasteToApply).toEqual({ pct: 55 });
+    expect(resonant.selfHasteToApply).toEqual({ pct: 65 });
+    expect(resonant.enemyDamage).toBe(base.enemyDamage);
+  });
+});

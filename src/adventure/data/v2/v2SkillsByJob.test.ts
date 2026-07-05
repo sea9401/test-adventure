@@ -467,6 +467,7 @@ describe("직업 킷 — 스킬셋", () => {
       ironknight: ["v2c_ironknight_guard", "v2c_ironknight_wall"],
       overlord: ["v2c_overlord_ruin", "v2c_overlord_throne"],
       arcanist: ["v2c_arcanist_burst", "v2c_arcanist_theory"],
+      elementallord: ["v2c_elementallord_surge", "v2c_elementallord_resonance"],
       marksman: ["v2c_marksman_shot", "v2c_marksman_aim"],
       nightshade: ["v2c_nightshade_eclipse", "v2c_nightshade_cloak"],
       saint: ["v2c_saint_miracle", "v2c_saint_benediction"],
@@ -498,6 +499,34 @@ describe("직업 킷 — 스킬셋", () => {
       berserkAtkPctPerLostHpPct: 0.8,
       critDmgPct: 30,
       maxHpPct: 8,
+    });
+    expect(V2_SKILLS.v2c_elementallord_surge.category).toBe("attack");
+    expect(V2_SKILLS.v2c_elementallord_surge.effects).toEqual([
+      { kind: "damage", statCoef: 1.65, baseFlat: 320, scaling: "magic" },
+    ]);
+    expect(V2_SKILLS.v2c_elementallord_surge.elementEffects?.fire?.map((e) => e.kind)).toEqual([
+      "damage",
+      "dot",
+      "enemyHealReduce",
+    ]);
+    expect(V2_SKILLS.v2c_elementallord_surge.elementEffects?.water).toEqual([
+      { kind: "damage", statCoef: 1.65, baseFlat: 320, scaling: "magic" },
+      { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
+    ]);
+    expect(
+      V2_SKILLS.v2c_elementallord_surge.elementEffectSynergies?.[0],
+    ).toMatchObject({
+      requiredSkillId: "v2c_elementallord_resonance",
+    });
+    expect(
+      V2_SKILLS.v2c_elementallord_surge.elementEffectSynergies?.[0].elementEffects
+        .wind,
+    ).toEqual([
+      { kind: "damage", statCoef: 1.65, baseFlat: 320, scaling: "magic" },
+      { kind: "selfHaste", pct: 65 },
+    ]);
+    expect(V2_SKILLS.v2c_elementallord_resonance.passive).toMatchObject({
+      elementResonance: true,
     });
     expect(V2_SKILLS.v2c_nightshade_eclipse.effects.map((e) => e.kind)).toEqual([
       "ambushDamage",

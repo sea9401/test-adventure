@@ -89,6 +89,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   ironknight: "warden",
   overlord: "warlord",
   arcanist: "sage",
+  elementallord: "elementalist",
   marksman: "chief",
   nightshade: "phantom",
   saint: "archbishop",
@@ -132,15 +133,15 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("80개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 14 + 6차 7)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(80);
+  it("81개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 15 + 6차 7)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(81);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(14);
     expect(byTier(3)).toBe(19);
     expect(byTier(4)).toBe(20);
-    expect(byTier(5)).toBe(14);
+    expect(byTier(5)).toBe(15);
     expect(byTier(6)).toBe(7);
   });
 
@@ -792,6 +793,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("survivor", "fullcatchking")).toBe("만선왕");
     expect(displayName("survivor", "seagod")).toBe("해신");
     expect(displayName("survivor", "mastertrainer")).toBe("마스터 트레이너");
+    expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "archmage")).toBe("대마도사");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지

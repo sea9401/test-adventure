@@ -94,6 +94,8 @@ export type V2PassiveSkillEffect = {
   elementAdvPctBonus?: number;
   /** 속성 불리 감소 +%p 가산(원소 통달) — V2_ELEMENT_DIS_PCT 에 더해 전달(받피 추가 경감·딜 추가 손해). */
   elementDisPctBonus?: number;
+  /** 원소 공명 — 원소 폭주 같은 속성 분기 액티브의 보조 효과를 강화. */
+  elementResonance?: boolean;
   /** 중독된 적 방어 -% 가산(부식) — 엔진이 중독 상태인 적에게만 적용. */
   poisonedEnemyDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 0.45 = HP를 전부 잃은 상태 기준 공격력 +45%. */
@@ -356,6 +358,11 @@ export type V2SkillDefinition = {
     requiredSkillId: V2SkillId;
     effects: readonly V2SkillEffect[];
   }[];
+  /** 속성 장착 시너지 — 특정 패시브를 함께 장착하면 현재 캐릭터 속성의 효과 배열을 강화판으로 교체한다. */
+  elementEffectSynergies?: readonly {
+    requiredSkillId: V2SkillId;
+    elementEffects: Partial<Record<V2Element, readonly V2SkillEffect[]>>;
+  }[];
   /** 전투당 1회만 시전 가능. 시전 후 해당 전투가 끝날 때까지 쿨다운으로 잠근다. */
   oncePerBattle?: boolean;
 };
@@ -469,6 +476,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.openingMagicDamageReductionPct ?? 0) / 10;
     mag += (p.elementAdvPctBonus ?? 0) / 15;
     mag += (p.elementDisPctBonus ?? 0) / 20;
+    if (p.elementResonance) mag += 2;
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
@@ -492,6 +500,13 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   if (def.equippedSynergies) {
     for (const synergy of def.equippedSynergies) {
       raw += sumEffects(synergy.effects);
+    }
+  }
+  if (def.elementEffectSynergies) {
+    for (const synergy of def.elementEffectSynergies) {
+      for (const variant of Object.values(synergy.elementEffects)) {
+        if (variant) raw = Math.max(raw, sumEffects(variant));
+      }
     }
   }
   // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.55): 저확률 스킬에
@@ -848,6 +863,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`속성 유리 피해 +${p.elementAdvPctBonus}%`);
   if (p.elementDisPctBonus)
     chips.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
+  if (p.elementResonance) chips.push("원소 폭주 속성 효과 강화");
   if (p.poisonedEnemyDefReductionPct)
     chips.push(`중독 적 방어 -${p.poisonedEnemyDefReductionPct}% / 중독 피해 +${p.poisonedEnemyDefReductionPct * 3}%`);
   if (p.berserkAtkPctPerLostHpPct)
@@ -891,7 +907,7 @@ const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
-  "archmage",
+  "elementallord", "archmage",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([

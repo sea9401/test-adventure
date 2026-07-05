@@ -671,6 +671,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 18, spi: 8 },
     unlock: { prereqs: { sage: TIER5_UNLOCK_CUMLEVEL } },
   },
+  elementallord: {
+    id: "elementallord",
+    name: "원소군주",
+    tier: 5,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 18, spi: 8 },
+    unlock: { prereqs: { elementalist: TIER5_UNLOCK_CUMLEVEL } },
+  },
   marksman: {
     id: "marksman",
     name: "명궁",
@@ -1023,6 +1031,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   ironknight: { class: "warrior", spec: "ironknight" },
   overlord: { class: "warrior", spec: "overlord" },
   arcanist: { class: "mage", spec: "arcanist" },
+  elementallord: { class: "mage", spec: "elementallord" },
   marksman: { class: "rogue", spec: "marksman" },
   nightshade: { class: "rogue", spec: "nightshade" },
   saint: { class: "mage", spec: "saint" },

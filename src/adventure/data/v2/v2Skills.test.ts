@@ -282,6 +282,22 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_chi)).toEqual({
       kind: "self_hp", op: "below", pct: 50,
     });
+    // 보호막(마나 보호막) → HP가 내려갔고 기존 보호막이 없을 때.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_mage_shield)).toEqual({
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 70 },
+        { kind: "self_shield", active: false },
+      ],
+    });
+    // 회복+보호막 복합기 → 저HP이고 기존 보호막이 없을 때.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_rescueexpert_rescue)).toEqual({
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 50 },
+        { kind: "self_shield", active: false },
+      ],
+    });
     // 스탯 버프(함성) → 그 버프 없을 때(재버프 낭비 방지).
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warrior_warcry)).toEqual({
       kind: "self_buff", stat: "str", active: false,

@@ -52,6 +52,7 @@ import {
   tileFeatureAt,
   isLakeAdjacentTile,
   isTradeRouteTile,
+  areTilesAdjacent4,
   TILE_TERRAIN_LABEL,
   type TileFeatureKind,
   type TileSettlementTier,
@@ -297,6 +298,15 @@ export function TileMap({
     col: selCol,
     row: selRow,
   });
+  const viewerGuildSettlements =
+    viewerGuildId == null
+      ? []
+      : (tileSettlements ?? []).filter((s) => s.guildId === viewerGuildId);
+  const selectedAdjacentToViewerGuildTile = viewerGuildSettlements.some((s) =>
+    areTilesAdjacent4(s.col, s.row, selCol, selRow),
+  );
+  const selectedAllowedByGuildExpansion =
+    viewerGuildSettlements.length === 0 || selectedAdjacentToViewerGuildTile;
 
   // 플레이어 마커 칸 — tilePos 우선, 없으면 현재 거점 칸에서 파생(보드 밖이면 마커 없음).
   const playerPos =
@@ -823,6 +833,11 @@ export function TileMap({
                   // 개척은 그 칸에 실제로 가 있어야 가능 — 먼저 "여기로 이동"(위 버튼) 후 개척.
                   <span className="text-xs text-zinc-500">
                     이 칸으로 이동해야 개척할 수 있습니다
+                  </span>
+                ) : !selectedAllowedByGuildExpansion ? (
+                  <span className="text-xs text-amber-400">
+                    보유 거점이 있는 길드는 자기 길드 거점에 인접한 빈 땅만 개척할 수
+                    있습니다
                   </span>
                 ) : (
                   // 이름을 직접 정해 개척마을을 세운다 — 그 이름이 지도·헤더의 거점 표시 이름.

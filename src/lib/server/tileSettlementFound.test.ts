@@ -13,6 +13,8 @@ const h = vi.hoisted(() => ({
   soloSaves: [] as Record<string, unknown>[],
   // FOR UPDATE 로 읽히는 기존 정착지 행(rename 시나리오). 기본 없음.
   existing: [] as Record<string, unknown>[],
+  ownedOutpostIds: [] as string[],
+  selectCalls: 0,
   updates: [] as Record<string, unknown>[],
   // 플레이어 마커 위치(readSave) — found 는 그 칸에 있어야 가능. 기본=foundReq 좌표(4,2) 일치.
   //   (4,2)=지형 없는 빈 칸·리베라 거리 2 — 산맥/협곡/호수 칸과 무겹침.
@@ -59,7 +61,20 @@ vi.mock("@/db", () => {
   const tx = {
     select: () => ({
       from: () => ({
-        where: () => ({ for: () => ({ limit: async () => h.existing }) }),
+        where: () => {
+          h.selectCalls += 1;
+          const rows =
+            h.selectCalls === 1
+              ? h.existing
+              : h.ownedOutpostIds.map((outpostId) => ({ outpostId }));
+          return {
+            for: () => ({ limit: async () => rows }),
+            then: (
+              resolve: (value: typeof rows) => unknown,
+              reject: (reason: unknown) => unknown,
+            ) => Promise.resolve(rows).then(resolve, reject),
+          };
+        },
       }),
     }),
     insert: () => ({
@@ -105,6 +120,8 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     h.guildUpserts = [];
     h.soloSaves = [];
     h.existing = [];
+    h.ownedOutpostIds = [];
+    h.selectCalls = 0;
     h.updates = [];
     h.tilePos = { col: 4, row: 2 };
     vi.clearAllMocks();
@@ -122,6 +139,40 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     expect(h.inserts[0]).toMatchObject({ name: "내정착지" });
     expect(h.guildUpserts).toContainEqual({ gold: COST }); // 2*COST - COST
     expect(h.soloSaves).toHaveLength(0); // 개인 골드 차감 없음
+  });
+
+  it("보유 거점이 없는 길드: 빈 땅이면 인접 제한 없이 개척 가능", async () => {
+    h.guildId = 7;
+    h.isAdmin = true;
+    h.guildGold = FOUND_COST + COST;
+    h.ownedOutpostIds = [];
+    const res = await POST(foundReq());
+    expect(res.status).toBe(200);
+    expect(h.inserts).toHaveLength(1);
+  });
+
+  it("이미 보유 거점이 있는 길드: 보유 타일에 4방향 인접한 칸만 개척 가능", async () => {
+    h.guildId = 7;
+    h.isAdmin = true;
+    h.guildGold = FOUND_COST + COST;
+    h.ownedOutpostIds = ["tile:4,1"];
+    const res = await POST(foundReq(4, 2, "인접개척"));
+    expect(res.status).toBe(200);
+    expect(h.inserts).toHaveLength(1);
+  });
+
+  it("이미 보유 거점이 있는 길드: 인접하지 않은 빈 땅은 409 not_adjacent_to_guild_tile", async () => {
+    h.guildId = 7;
+    h.isAdmin = true;
+    h.guildGold = FOUND_COST + COST;
+    h.ownedOutpostIds = ["tile:0,0"];
+    const res = await POST(foundReq());
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "not_adjacent_to_guild_tile",
+    );
+    expect(h.inserts).toHaveLength(0);
+    expect(h.guildUpserts).toHaveLength(0);
   });
 
   it("이름 없으면 400 invalid_name (미생성)", async () => {
@@ -200,6 +251,8 @@ describe("POST tile-settlement found — 길드 규칙", () => {
 describe("POST tile-settlement rename — 개명 폐지(이름 불변)", () => {
   afterEach(() => {
     h.existing = [];
+    h.ownedOutpostIds = [];
+    h.selectCalls = 0;
     h.updates = [];
     h.soloGold = 0;
     vi.clearAllMocks();

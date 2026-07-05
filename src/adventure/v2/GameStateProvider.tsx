@@ -286,6 +286,8 @@ function tileSettlementErrorMessage(
       return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
     case "not_at_tile":
       return "개척하려면 먼저 이 칸으로 이동하세요.";
+    case "not_adjacent_to_guild_tile":
+      return "이미 보유한 거점이 있는 길드는 자기 길드 거점에 인접한 빈 땅에만 개척할 수 있습니다.";
     case "already_settled":
       return "이미 정착지가 있는 칸입니다.";
     case "tile_is_outpost":

@@ -125,6 +125,7 @@ export function V2DungeonFloorView({
   mp,
   setMp,
   playerCombat,
+  playerPrimaryAttack = "physical",
   onSeekHealing,
   onBack,
   playerSubtitle,
@@ -165,6 +166,7 @@ export function V2DungeonFloorView({
   setMp?: (s: { mp: number; maxMp: number }) => void;
   // 유효 전투 스탯(공/방/속+상세) — 캐릭터 카드 표기용. me/state 권위.
   playerCombat?: PlayerCombatStats | null;
+  playerPrimaryAttack?: "physical" | "magic";
   // "치료소로 가기" — 마을 치료소 뷰로 이동. 미전달이면 버튼 숨김.
   onSeekHealing?: () => void;
   onBack: () => void;
@@ -781,6 +783,7 @@ export function V2DungeonFloorView({
           mpCharges={statusMpCharges}
           hasMp={(mp?.maxMp ?? 0) > 0}
           combat={playerCombat}
+          primaryAttack={playerPrimaryAttack}
           proficiency={statusProficiency}
         />
       )}
@@ -987,7 +990,11 @@ export function V2DungeonFloorView({
           elementMatchup={selectedBatchReplay.elementMatchup}
           outcome={selectedBatchReplay.won ? undefined : "lose"}
           playerCombat={
-            playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
+            playerCombat
+              ? playerCombatToBattleStats(playerCombat, {
+                  primaryAttack: playerPrimaryAttack,
+                })
+              : undefined
           }
         />
       )}
@@ -1030,7 +1037,11 @@ export function V2DungeonFloorView({
           // 승리는 결과 카드의 "전투 결과 승리"와 중복이라 배너 생략 — 패배만 부각(코덱스 권고).
           outcome={lastResult.won ? undefined : "lose"}
           playerCombat={
-            playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
+            playerCombat
+              ? playerCombatToBattleStats(playerCombat, {
+                  primaryAttack: playerPrimaryAttack,
+                })
+              : undefined
           }
         />
       )}

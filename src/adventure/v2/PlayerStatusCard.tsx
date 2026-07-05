@@ -27,7 +27,10 @@ export type PlayerCombatStats = {
 
 // me/state combat → BattleStatStrip 입력. 명중=accRating(캡 없는 raw) 우선, 폴백 accuracyPct.
 //   플레이어 카드·전투 패널 양쪽에서 동일 매핑을 쓰도록 추출.
-export function playerCombatToBattleStats(c: PlayerCombatStats): BattleStats {
+export function playerCombatToBattleStats(
+  c: PlayerCombatStats,
+  options: { primaryAttack?: "physical" | "magic" } = {},
+): BattleStats {
   return {
     atk: c.atk,
     def: c.def,
@@ -37,6 +40,7 @@ export function playerCombatToBattleStats(c: PlayerCombatStats): BattleStats {
     evaRating: c.evaRating ?? c.evasionPct,
     critChancePct: c.critChancePct,
     magicAtk: c.magicAtk,
+    primaryAttack: options.primaryAttack,
   };
 }
 import { type HpBarState } from "@/adventure/v2/HpBar";
@@ -97,15 +101,24 @@ function LiveHpThinBar({ state }: { state: HpBarState }) {
   );
 }
 
-function CombatSummary({ combat }: { combat: PlayerCombatStats }) {
+function CombatSummary({
+  combat,
+  primaryAttack = "physical",
+}: {
+  combat: PlayerCombatStats;
+  primaryAttack?: "physical" | "magic";
+}) {
   const itemClass =
     "inline-flex items-baseline gap-1 whitespace-nowrap text-[13px] leading-tight tabular-nums text-zinc-600 dark:text-zinc-300";
   const labelClass = "text-zinc-400 dark:text-zinc-500";
+  const attackLabel = primaryAttack === "magic" ? "마공" : "힘";
+  const attackValue =
+    primaryAttack === "magic" ? (combat.magicAtk ?? combat.atk) : combat.atk;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span className={itemClass}>
-        <span className={labelClass}>힘</span>
-        <span>{Math.round(combat.atk).toLocaleString()}</span>
+        <span className={labelClass}>{attackLabel}</span>
+        <span>{Math.round(attackValue).toLocaleString()}</span>
       </span>
       <span className={itemClass}>
         <span className={labelClass}>방</span>
@@ -158,6 +171,7 @@ export function PlayerStatusCard({
   mpCharges,
   hasMp = false,
   combat,
+  primaryAttack = "physical",
   proficiency = null,
 }: {
   gender: Gender;
@@ -175,6 +189,7 @@ export function PlayerStatusCard({
   hasMp?: boolean;
   // 유효 전투 스탯 — 공/방/속(+상세). 미전달이면 미표시.
   combat?: PlayerCombatStats | null;
+  primaryAttack?: "physical" | "magic";
   // 현재 전직 중인 구체 직업의 숙련도. null/미전달 = 모험가(무직업) → 줄 생략.
   proficiency?: number | null;
 }) {
@@ -227,7 +242,9 @@ export function PlayerStatusCard({
               color="bg-amber-400"
             />
           </div>
-          {combat && <CombatSummary combat={combat} />}
+          {combat && (
+            <CombatSummary combat={combat} primaryAttack={primaryAttack} />
+          )}
           <RecoverySummary
             hpCharges={playerStatus.recoveryCharges?.hp ?? 0}
             mpCharges={playerStatus.recoveryCharges?.mp ?? 0}

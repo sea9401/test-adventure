@@ -24,6 +24,7 @@ export default function DungeonFloorPage() {
     currentOutpost,
     viewerName,
     viewerGender,
+    viewerClass,
     viewerExp,
     viewerExpToNext,
     playerSubtitle,
@@ -91,6 +92,7 @@ export default function DungeonFloorPage() {
       mp={mp}
       setMp={setMp}
       playerCombat={playerCombat}
+      playerPrimaryAttack={viewerClass === "mage" ? "magic" : "physical"}
       onSeekHealing={() => router.push("/town/healing")}
       // 뒤로 = 테마 선택이 아니라 그 테마의 깊이 선택으로(들판1→들판2 빠른 이동). 현재 깊이가
       //   속한 테마 블록의 첫 깊이를 openDepth 로 넘겨 해당 테마를 펼친 채 목록을 연다.

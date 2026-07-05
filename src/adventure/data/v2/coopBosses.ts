@@ -52,6 +52,14 @@ export const COOP_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
   legend: 0.6,
 };
 
+export const COOP_HARD_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
+  bronze: 0.05,
+  silver: 0.1,
+  gold: 0.18,
+  epic: 0.3,
+  legend: 0.45,
+};
+
 export const COOP_TIER_LABEL: Record<CoopRewardTier, string> = {
   bronze: "BRONZE",
   silver: "SILVER",
@@ -60,11 +68,41 @@ export const COOP_TIER_LABEL: Record<CoopRewardTier, string> = {
   legend: "LEGEND",
 };
 
+export type CoopBossDifficulty = "normal" | "hard";
+
+export function coopBossDifficultyOf(
+  kind: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null | undefined,
+): CoopBossDifficulty {
+  if (kind && typeof kind === "object" && kind.difficulty) {
+    return kind.difficulty;
+  }
+  return kind === "mountain_chief_hard" ? "hard" : "normal";
+}
+
+export function coopTierThresholdsFor(
+  kind?: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null,
+): Record<CoopRewardTier, number> {
+  return coopBossDifficultyOf(kind) === "hard"
+    ? COOP_HARD_TIER_THRESHOLDS
+    : COOP_TIER_THRESHOLDS;
+}
+
+export function coopTierThresholdFor(
+  tier: CoopRewardTier,
+  kind?: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null,
+): number {
+  return coopTierThresholdsFor(kind)[tier];
+}
+
 /** 누적 데미지 비율(0~1) → 도달한 최고 티어. bronze 미달이면 null. */
-export function coopTierForRatio(ratio: number): CoopRewardTier | null {
+export function coopTierForRatio(
+  ratio: number,
+  kind?: CoopBossKindId | { difficulty?: CoopBossDifficulty } | null,
+): CoopRewardTier | null {
+  const thresholds = coopTierThresholdsFor(kind);
   let achieved: CoopRewardTier | null = null;
   for (const tier of COOP_TIER_ORDER) {
-    if (ratio >= COOP_TIER_THRESHOLDS[tier]) achieved = tier;
+    if (ratio >= thresholds[tier]) achieved = tier;
     else break;
   }
   return achieved;
@@ -200,6 +238,7 @@ export const MAX_ACTIVE_PER_KIND = 20;
 
 export type CoopBossKindId =
   | "mountain_chief"
+  | "mountain_chief_hard"
   | "canyon_predator"
   | "lake_sovereign"
   | "void_priest";
@@ -218,8 +257,15 @@ export type CoopEnrageStage = {
   evasionBonus?: number;
 };
 
+export type CoopConditionalEnrage = {
+  hpFraction: number;
+  normal: CoopEnrageStage;
+  weakened: CoopEnrageStage;
+};
+
 export type CoopBossKind = {
   id: CoopBossKindId;
+  difficulty?: CoopBossDifficulty;
   name: string;
   /** 보스 상세 화면 플레이버 한 줄. */
   desc: string;
@@ -241,6 +287,8 @@ export type CoopBossKind = {
   statusSkill?: V2MonsterStatusSkillId;
   /** 발악 스테이지 — hpFraction 내림차순 권장(전부 누적 적용). ⚠️ 수치 캘리브 다이얼. */
   enrageStages: CoopEnrageStage[];
+  /** 조건부 발악 — 상태 저장이 필요한 하드 보스용. */
+  conditionalEnrage?: CoopConditionalEnrage;
   /** 보스 특성 표시 문구(상세/소환 정보 카드) — 스킬·상태이상·발악 요약. */
   traits: string[];
 };
@@ -274,6 +322,19 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
   //   → MP 소진(≈3회) 후엔 평타·기존 강타만. (scaleMonsterForFloor 가 ...monster 로 보존.)
   v2Skills: { learned: ["mob_savage_roar"], equipped: ["mob_savage_roar"] },
   v2MaxMp: 75,
+};
+
+const MOUNTAIN_CHIEF_HARD_BASE: Monster = {
+  ...MOUNTAIN_CHIEF_BASE,
+  name: "흉포한 산군",
+  hp: 860,
+  atk: 42,
+  def: 18,
+  spd: 15,
+  armorVulnerable: 0.35,
+  playerDefVulnerable: 0.35,
+  dropQualityBias: 4,
+  v2MaxMp: 95,
 };
 
 const CANYON_PREDATOR_BASE: Monster = {
@@ -541,6 +602,36 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "발악 — HP 75%·50%·25% 단계로 점점 강해짐(방어력·공격력·회피)",
     ],
   },
+  mountain_chief_hard: {
+    id: "mountain_chief_hard",
+    difficulty: "hard",
+    name: "흉포한 산군",
+    desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
+    scrollCost: 30,
+    sharedMaxHp: 600_000,
+    anchorDepth: 60,
+    base: MOUNTAIN_CHIEF_HARD_BASE,
+    uniqueIds: ["v2_boss_mountain_axe", "v2_boss_mountain_amulet"],
+    titleId: "v2_boss_mountain",
+    statusSkill: "mob_rending_claw",
+    enrageStages: [],
+    conditionalEnrage: {
+      hpFraction: 0.5,
+      normal: {
+        hpFraction: 0.5,
+        note: "산군의 포효가 산등성이를 뒤흔든다! (공격력·방어력 상승)",
+        atkMult: 1.35,
+        defBonus: 20,
+      },
+      weakened: {
+        hpFraction: 0.5,
+        note: "벌어진 상처 탓에 산군의 포효가 흐트러졌다. (공격력·방어력 소폭 상승)",
+        atkMult: 1.15,
+        defBonus: 8,
+      },
+    },
+    traits: ["강한 물리 압박", "출혈", "피와 상처에 민감하게 반응"],
+  },
 };
 
 export const COOP_BOSS_KIND_IDS = Object.keys(
@@ -565,6 +656,7 @@ export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
 export function coopBossForBattle(
   kind: CoopBossKind,
   currentHp: number,
+  opts?: { conditionalEnrageWeakened?: boolean },
 ): { monster: Monster; enrageNotes: string[] } {
   // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
   //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
@@ -575,12 +667,22 @@ export function coopBossForBattle(
   let def = scaled.def;
   let evasion = scaled.evasionPct ?? 0;
   const enrageNotes: string[] = [];
-  for (const stage of kind.enrageStages) {
-    if (frac > stage.hpFraction) continue;
+  const applyEnrage = (stage: CoopEnrageStage) => {
+    if (frac > stage.hpFraction) return;
     if (stage.atkMult) atk = Math.round(atk * stage.atkMult);
     if (stage.defBonus) def += stage.defBonus;
     if (stage.evasionBonus) evasion += stage.evasionBonus;
     enrageNotes.push(stage.note);
+  };
+  for (const stage of kind.enrageStages) {
+    applyEnrage(stage);
+  }
+  if (kind.conditionalEnrage && frac <= kind.conditionalEnrage.hpFraction) {
+    applyEnrage(
+      opts?.conditionalEnrageWeakened
+        ? kind.conditionalEnrage.weakened
+        : kind.conditionalEnrage.normal,
+    );
   }
   const monster: Monster = {
     ...scaled,
@@ -655,6 +757,6 @@ export const BOSS_TITLE_IDS: string[] = [
 export const BOSS_TITLE_TO_KIND: Record<string, CoopBossKindId> = Object.values(
   COOP_BOSSES,
 ).reduce<Record<string, CoopBossKindId>>((acc, b) => {
-  acc[b.titleId] = b.id;
+  acc[b.titleId] ??= b.id;
   return acc;
 }, {});

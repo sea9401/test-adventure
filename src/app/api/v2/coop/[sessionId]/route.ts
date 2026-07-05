@@ -157,7 +157,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       damage: myDamage,
       attackCount: myRow?.attackCount ?? 0,
       lastAttackAt: myRow?.lastAttackAt?.getTime() ?? null,
-      tier: coopTierForRatio(myDamage / Math.max(1, session.maxHp)),
+      tier: coopTierForRatio(myDamage / Math.max(1, session.maxHp), kind),
       claimed: myRow?.claimedAt != null,
     },
     participantCount: contribs.length,

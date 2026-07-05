@@ -17,25 +17,25 @@ export const GUILD_WORKSHOP_MATERIALS = {
     id: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
     name: "정제 철괴",
     description:
-      "철광석을 여러 번 정련한 대장간 전용 주괴. T4 제작 장비의 기본 병목 재료다.",
+      "철광석을 여러 번 정련한 대장간 전용 주괴. 2T 제작 장비의 기본 병목 재료다.",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
     name: "미스릴 조각",
     description:
-      "마력을 머금은 은빛 금속 조각. T6 제작 장비의 핵심 재료다.",
+      "마력을 머금은 은빛 금속 조각. 2T 후반~3T 제작 장비의 핵심 재료다.",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
     name: "태양석",
     description:
-      "강한 열기와 빛을 품은 광석. T8 제작 장비에 쓰는 고급 재료다.",
+      "강한 열기와 빛을 품은 광석. 3T 제작 장비에 쓰는 고급 재료다.",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
     name: "오로라 결정",
     description:
-      "검은 왕도 주변에서 드물게 발견되는 다색 결정. T10 제작 장비의 최상위 병목 재료다.",
+      "검은 왕도 주변에서 드물게 발견되는 다색 결정. 4T 제작 장비의 최상위 병목 재료다.",
   },
 } as const;
 
@@ -60,22 +60,22 @@ export const GUILD_WORKSHOP_MATERIAL_SOURCES: Record<
   [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: {
     source: "필드 사냥",
     depthText: "프론티어 7-18",
-    note: "T4-T5 제작과 초반 해체 루프의 기본 재료",
+    note: "2T 제작과 초반 해체 루프의 기본 재료",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: {
     source: "필드 사냥",
     depthText: "프론티어 19-30",
-    note: "T6-T7 제작 전용 장비의 병목 재료",
+    note: "2T 후반~3T 제작 전용 장비의 병목 재료",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: {
     source: "필드 사냥",
     depthText: "프론티어 31-42",
-    note: "T8-T9 고급 제작과 명장 제작 준비 재료",
+    note: "3T 고급 제작과 명장 제작 준비 재료",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: {
     source: "필드 사냥",
     depthText: "프론티어 43+",
-    note: "T10+ 최상위 제작 전용 장비 재료",
+    note: "4T 최상위 제작 전용 장비 재료",
   },
 };
 

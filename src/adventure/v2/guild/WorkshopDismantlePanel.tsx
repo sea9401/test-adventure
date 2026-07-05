@@ -227,10 +227,10 @@ export function WorkshopDismantlePanel({
           className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
         >
           <option value="all">모든 티어</option>
-          <option value="t4">T4-T5</option>
-          <option value="t6">T6-T7</option>
-          <option value="t8">T8-T9</option>
-          <option value="t10">T10+</option>
+          <option value="t4">2T 초입</option>
+          <option value="t6">2T 후반~3T 초입</option>
+          <option value="t8">3T 후반</option>
+          <option value="t10">4T</option>
         </select>
         <select
           value={dismantleSort}

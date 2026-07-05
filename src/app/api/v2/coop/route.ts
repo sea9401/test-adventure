@@ -124,7 +124,7 @@ export async function GET() {
         summonedByName: s.summonedByName,
         participantCount: countBySession.get(s.id) ?? 0,
         myDamage,
-        myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp)),
+        myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kind),
       };
     })
     .filter(Boolean);
@@ -157,7 +157,7 @@ export async function GET() {
   const claimables = claimRows
     .map((r) => {
       const kind = parseCoopBossKindId(r.regionId);
-      const tier = coopTierForRatio(r.damage / Math.max(1, r.maxHp));
+      const tier = coopTierForRatio(r.damage / Math.max(1, r.maxHp), kind);
       return kind
         ? {
             sessionId: r.sessionId,

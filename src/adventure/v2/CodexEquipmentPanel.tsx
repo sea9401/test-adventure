@@ -476,10 +476,10 @@ export function CodexEquipmentPanel({
         titleId: "artisan_full_kit_smith",
       },
       {
-        label: "T10+ 제작",
+        label: "4T 제작",
         progress: highTierCount,
         goal: 1,
-        detail: "왕도급 제작 기록",
+        detail: "4T 제작 기록",
         titleId: "artisan_high_tier_smith",
       },
       {

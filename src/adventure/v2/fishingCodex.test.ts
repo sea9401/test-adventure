@@ -101,15 +101,18 @@ describe("낚시 도감 — parse / count", () => {
 
 describe("낚시 도감 — 발견 수 마일스톤 SP", () => {
   it("고정 마일스톤마다 1 SP를 지급하고 다음 단계도 반환한다", () => {
-    expect(FISHING_CODEX_SP_MILESTONES).toEqual([10, 20, 30, 40, 46]);
+    expect(FISHING_CODEX_SP_MILESTONES).toEqual([10, 20, 30, 40, 46, 50]);
     expect(fishCodexSpBonusForCount(9)).toBe(0);
     expect(fishCodexSpBonusForCount(10)).toBe(1);
     expect(fishCodexSpBonusForCount(39)).toBe(3);
     expect(fishCodexSpBonusForCount(40)).toBe(4);
     expect(fishCodexSpBonusForCount(46)).toBe(5);
-    expect(fishCodexSpBonusForCount(47)).toBe(5);
+    expect(fishCodexSpBonusForCount(49)).toBe(5);
+    expect(fishCodexSpBonusForCount(50)).toBe(6);
+    expect(fishCodexSpBonusForCount(51)).toBe(6);
     expect(nextFishCodexMilestone(39)).toBe(40);
-    expect(nextFishCodexMilestone(46)).toBeNull();
+    expect(nextFishCodexMilestone(46)).toBe(50);
+    expect(nextFishCodexMilestone(50)).toBeNull();
   });
 
   it("발견 어종 수 기준으로 SP를 계산하고 등급 완성은 SP를 주지 않는다", () => {
@@ -120,24 +123,24 @@ describe("낚시 도감 — 발견 수 마일스톤 SP", () => {
     }
     expect(fishCodexSpBonus(codex)).toBe(1);
 
-    const commonIds = FISH_IDS.filter((id) => FISH[id].tier === "common");
-    let commonCodex = emptyFishCodex();
-    for (const [i, id] of commonIds.entries()) {
-      commonCodex = recordCatch(commonCodex, id, 10 + i, 1000 + i);
+    const legendaryIds = FISH_IDS.filter((id) => FISH[id].tier === "legendary");
+    let legendaryCodex = emptyFishCodex();
+    for (const [i, id] of legendaryIds.entries()) {
+      legendaryCodex = recordCatch(legendaryCodex, id, 10 + i, 1000 + i);
     }
-    expect(fishCodexSpBonus(commonCodex)).toBe(0);
+    expect(fishCodexSpBonus(legendaryCodex)).toBe(0);
     expect(
-      fishTierCompletions(commonCodex).find((tier) => tier.tier === "common"),
+      fishTierCompletions(legendaryCodex).find((tier) => tier.tier === "legendary"),
     ).toMatchObject({
-      discovered: commonIds.length,
-      total: commonIds.length,
+      discovered: legendaryIds.length,
+      total: legendaryIds.length,
       complete: true,
       sp: 0,
     });
 
-    const firstCommon = commonIds[0];
-    expect(firstCommon).toBeDefined();
-    const partial = recordCatch(emptyFishCodex(), firstCommon!, 10, 1);
+    const firstLegendary = legendaryIds[0];
+    expect(firstLegendary).toBeDefined();
+    const partial = recordCatch(emptyFishCodex(), firstLegendary!, 10, 1);
     expect(fishCodexSpBonus(partial)).toBe(0);
   });
 });

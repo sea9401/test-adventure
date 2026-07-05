@@ -7,6 +7,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
+import { FilmStrip } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
@@ -23,6 +24,7 @@ import {
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   fmtCoopRemain,
+  type CoopRecentAttack,
   useCoopSessionState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import {
@@ -74,6 +76,8 @@ export function V2CoopBossDetailView({
   const [now, setNow] = useState(() => Date.now());
   // 기여도 기준 안내 모달 — 헤더 우측 버튼으로 연다.
   const [criteriaOpen, setCriteriaOpen] = useState(false);
+  const [selectedAttackReplay, setSelectedAttackReplay] =
+    useState<CoopRecentAttack | null>(null);
   useEscapeKey(() => setCriteriaOpen(false));
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -531,21 +535,78 @@ export function V2CoopBossDetailView({
       {/* 최근 공격 활동 */}
       {detail.recentAttacks.length > 0 && (
         <Card padding="md" className="space-y-1">
-          <div className="text-sm font-semibold">최근 공격</div>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-sm font-semibold">전투 기록</div>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              최근 10회
+            </span>
+          </div>
           {detail.recentAttacks.map((a, i) => (
-            <div
-              key={`${a.at}-${i}`}
-              className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400"
+            <button
+              key={a.id || `${a.at}-${i}`}
+              type="button"
+              disabled={!a.replay}
+              onClick={() => a.replay && setSelectedAttackReplay(a)}
+              className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition ${
+                selectedAttackReplay?.id === a.id
+                  ? "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+                  : a.replay
+                    ? "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                    : "cursor-default text-zinc-400 dark:text-zinc-500"
+              }`}
             >
-              <span className="truncate">
+              <span className="min-w-0 truncate">
                 {a.name}
-                {a.diedEarly && " 💀"}
+                {a.isMe && (
+                  <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
+                    나
+                  </span>
+                )}
+                {a.diedEarly && (
+                  <span className="ml-1 text-[10px] text-rose-500">
+                    전투불능
+                  </span>
+                )}
               </span>
-              <span className="shrink-0 font-mono">
-                -{a.damageDealt.toLocaleString()}
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="font-mono">
+                  -{a.damageDealt.toLocaleString()}
+                </span>
+                {a.replay && <FilmStrip size={14} className="text-zinc-400" />}
               </span>
-            </div>
+            </button>
           ))}
+        </Card>
+      )}
+
+      {selectedAttackReplay?.replay && (
+        <Card padding="md" className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 text-sm font-semibold">
+              <span className="truncate">{selectedAttackReplay.name}</span> 공격 기록
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedAttackReplay(null)}
+              className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            >
+              닫기
+            </button>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            준 피해 {selectedAttackReplay.damageDealt.toLocaleString()} · 받은 피해{" "}
+            {selectedAttackReplay.damageTaken.toLocaleString()}
+            {selectedAttackReplay.diedEarly && " · 전투불능"}
+          </p>
+          <ReplayBattleScene
+            key={selectedAttackReplay.id}
+            payload={selectedAttackReplay.replay}
+            playerName={selectedAttackReplay.name}
+            gender={selectedAttackReplay.isMe ? playerGender : "male1"}
+            exp={0}
+            maxExp={1}
+            playerSubtitle={selectedAttackReplay.isMe ? playerSubtitle : undefined}
+          />
         </Card>
       )}
     </main>

@@ -17,7 +17,7 @@ import {
 export const FISHING_CODEX_KEY = "fishing-codex.v1";
 
 // 신규 어종이 추가되면 여기에 다음 단계만 이어 붙인다. 기존 보상은 회수하지 않는다.
-export const FISHING_CODEX_SP_MILESTONES = [10, 20, 30, 40, 46] as const;
+export const FISHING_CODEX_SP_MILESTONES = [10, 20, 30, 40, 46, 50] as const;
 
 export type FishCodexEntry = {
   /** 한 번이라도 잡음. */

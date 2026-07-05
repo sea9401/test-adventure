@@ -69,6 +69,17 @@ export type CoopClaimReward = {
   equipmentBoxName?: string | null;
 };
 
+export type CoopRecentAttack = {
+  id: number;
+  name: string;
+  damageDealt: number;
+  damageTaken: number;
+  diedEarly: boolean;
+  isMe?: boolean;
+  replay?: ReplayPayload | null;
+  at: number;
+};
+
 export type CoopSessionDetail = {
   session: {
     id: string;
@@ -110,12 +121,7 @@ export type CoopSessionDetail = {
   } | null;
   participantCount: number;
   top: { name: string; damage: number; attackCount: number; isMe?: boolean }[];
-  recentAttacks: {
-    name: string;
-    damageDealt: number;
-    diedEarly: boolean;
-    at: number;
-  }[];
+  recentAttacks: CoopRecentAttack[];
 };
 
 // 공용 claim 호출 — 목록/상세 양쪽에서 사용.

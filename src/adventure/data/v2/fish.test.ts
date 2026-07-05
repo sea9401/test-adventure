@@ -31,11 +31,11 @@ function sequence(values: readonly number[]): () => number {
 }
 
 const TIER_COUNTS: Record<FishTier, number> = {
-  common: 9,
-  uncommon: 10,
+  common: 10,
+  uncommon: 11,
   rare: 7,
-  epic: 7,
-  legendary: 5,
+  epic: 8,
+  legendary: 6,
 };
 
 function countPickedTiers(
@@ -57,13 +57,13 @@ function countPickedTiers(
 }
 
 describe("어종 카탈로그", () => {
-  it("항상풀 38종(티어 9/10/7/7/5) + 물때 한정 8종 = 총 46", () => {
-    expect(FISH_TOTAL).toBe(46);
+  it("항상풀 42종(티어 10/11/7/8/6) + 물때 한정 8종 = 총 50", () => {
+    expect(FISH_TOTAL).toBe(50);
     const always = FISH_IDS.filter((id) => FISH[id].condition === undefined);
     const special = FISH_IDS.filter((id) => FISH[id].condition !== undefined);
-    expect(always.length).toBe(38);
+    expect(always.length).toBe(42);
     expect(special.length).toBe(8);
-    // 티어 구성(9/10/7/7/5)은 항상풀 기준 — 특별 손님은 자기 티어에 얹힐 뿐.
+    // 티어 구성(10/11/7/8/6)은 항상풀 기준 — 특별 손님은 자기 티어에 얹힐 뿐.
     for (const tier of FISH_TIER_ORDER) {
       const count = always.filter((id) => FISH[id].tier === tier).length;
       expect(count).toBe(TIER_COUNTS[tier]);

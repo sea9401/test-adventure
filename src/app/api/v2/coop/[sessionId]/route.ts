@@ -24,6 +24,7 @@ import {
 } from "@/adventure/data/v2/v2CombatConstants";
 import { effectiveMonsterSpd } from "@/adventure/v2/combat/combatTimeline";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // GET /api/v2/coop/[sessionId] — 협동 보스 인스턴스 상세(상세 화면 폴링용).
 // 활성/처치/만료 무관 조회 가능 — 끝난 세션도 결과·내 보상 상태를 보여준다.
@@ -33,6 +34,16 @@ import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 //   top(30, isMe), recentAttacks(10) }
 
 type Ctx = { params: Promise<{ sessionId: string }> };
+
+function parseReplayPayload(raw: unknown): ReplayPayload | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const r = raw as Partial<ReplayPayload>;
+  if (!r.enemy || typeof r.enemy !== "object") return null;
+  if (typeof r.playerMaxHp !== "number") return null;
+  if (typeof r.playerMaxMp !== "number") return null;
+  if (!Array.isArray(r.log) || r.log.length === 0) return null;
+  return r as ReplayPayload;
+}
 
 export async function GET(_req: Request, { params }: Ctx) {
   const userId = await ensureUser();
@@ -167,9 +178,13 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   const recentAttacks = await db
     .select({
+      id: coopBossAttackLog.id,
+      userId: coopBossAttackLog.userId,
       name: coopBossAttackLog.name,
       damageDealt: coopBossAttackLog.damageDealt,
+      damageTaken: coopBossAttackLog.damageTaken,
       diedEarly: coopBossAttackLog.diedEarly,
+      log: coopBossAttackLog.log,
       createdAt: coopBossAttackLog.createdAt,
     })
     .from(coopBossAttackLog)
@@ -209,9 +224,13 @@ export async function GET(_req: Request, { params }: Ctx) {
       isMe: r.userId === userId,
     })),
     recentAttacks: recentAttacks.map((a) => ({
+      id: a.id,
       name: a.name,
       damageDealt: a.damageDealt,
+      damageTaken: a.damageTaken,
       diedEarly: a.diedEarly,
+      isMe: a.userId === userId,
+      replay: parseReplayPayload(a.log),
       at: a.createdAt.getTime(),
     })),
   });

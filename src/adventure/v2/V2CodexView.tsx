@@ -227,6 +227,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [spFruitCapBonus, setSpFruitCapBonus] = useState(0);
   const [spBreakdown, setSpBreakdown] =
     useState<V2LoadoutSpBreakdown | null>(null);
+  const [jobUnlockProgress, setJobUnlockProgress] = useState({
+    current: 0,
+    total: 0,
+  });
+  const [equipmentCodexProgress, setEquipmentCodexProgress] = useState({
+    current: 0,
+    total: 0,
+  });
   // 칭호 — 보유 목록(획득한 것만)·현재 장착. 장착은 /api/v2/me/equip-title POST.
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>([]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
@@ -293,6 +301,26 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           typeof j.loadout.spBreakdown === "object"
         ) {
           setSpBreakdown(j.loadout.spBreakdown as V2LoadoutSpBreakdown);
+        }
+        if (Array.isArray(j?.jobsV2?.jobs)) {
+          const jobs = j.jobsV2.jobs as Array<{ unlocked?: unknown }>;
+          setJobUnlockProgress({
+            current: jobs.filter((job) => job.unlocked === true).length,
+            total: jobs.length,
+          });
+        }
+        if (j?.equipmentCodex && typeof j.equipmentCodex === "object") {
+          const codex = j.equipmentCodex as {
+            registeredCount?: unknown;
+            total?: unknown;
+          };
+          setEquipmentCodexProgress({
+            current:
+              typeof codex.registeredCount === "number"
+                ? codex.registeredCount
+                : 0,
+            total: typeof codex.total === "number" ? codex.total : 0,
+          });
         }
         if (Array.isArray(j?.titles?.ownedTitleIds)) {
           setOwnedTitleIds(j.titles.ownedTitleIds as string[]);
@@ -414,7 +442,52 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   ];
   const spCollectionCards = spSourceRows.filter(
     (row) => row.label !== "SP 열매",
-  );
+  ).map((row) => {
+    const progress =
+      row.label === "기본 SP"
+        ? { current: 1, total: 1, label: "기본 지급 완료" }
+        : row.label === "직업 해금"
+          ? {
+              current: jobUnlockProgress.current || spJobUnlockBonus,
+              total: jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1),
+              label: `해금 ${jobUnlockProgress.current || spJobUnlockBonus}/${
+                jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1)
+              }직업`,
+            }
+          : row.label === "어보"
+            ? {
+                current: fishDiscovered.size,
+                total: fishingCodexMeta.total,
+                label: `수집 ${fishDiscovered.size}/${fishingCodexMeta.total}종`,
+              }
+            : row.label === "유물"
+              ? {
+                  current: antiqueDiscovered.size,
+                  total: ANTIQUE_IDS.length,
+                  label: `수집 ${antiqueDiscovered.size}/${ANTIQUE_IDS.length}종`,
+                }
+              : row.label === "장비 도감"
+                ? {
+                    current: equipmentCodexProgress.current,
+                    total:
+                      equipmentCodexProgress.total ||
+                      Math.max(equipmentCodexProgress.current, 1),
+                    label: `등록 ${equipmentCodexProgress.current}/${
+                      equipmentCodexProgress.total ||
+                      Math.max(equipmentCodexProgress.current, 1)
+                    }종`,
+                  }
+                : {
+                    current: Math.abs(row.value),
+                    total: Math.max(Math.abs(row.value), 1),
+                    label: "상한 조정 적용",
+                  };
+    const progressPct =
+      progress.total > 0
+        ? Math.min(100, (progress.current / progress.total) * 100)
+        : 0;
+    return { ...row, progress, progressPct };
+  });
   const fishDiscoveredCount = fishDiscovered.size;
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
@@ -673,10 +746,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
               {spCollectionCards.map((row) => {
-                const gained = row.value > 0 || row.label === "기본 SP";
+                const complete =
+                  row.progress.total > 0 &&
+                  row.progress.current >= row.progress.total;
+                const gained =
+                  row.value > 0 || row.label === "기본 SP" || row.value < 0;
                 return (
                   <Card key={row.label} padding="md">
-                    <div className="flex min-h-[7.25rem] flex-col">
+                    <div className="flex min-h-[8.75rem] flex-col">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="truncate text-sm font-bold">
@@ -688,12 +765,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         </div>
                         <span
                           className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                            gained
+                            complete
                               ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                              : gained
+                                ? "bg-amber-200/70 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
                               : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
                           }`}
                         >
-                          {gained ? "획득" : "미획득"}
+                          {complete ? "완료" : gained ? "진행" : "미획득"}
                         </span>
                       </div>
                       <div
@@ -706,7 +785,18 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         {row.value > 0 && row.signed ? "+" : ""}
                         {row.value}
                       </div>
-                      <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                        <div
+                          className={`h-full rounded-full ${
+                            row.value < 0 ? "bg-rose-500" : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${row.progressPct}%` }}
+                        />
+                      </div>
+                      <div className="mt-1.5 text-[11px] font-medium tabular-nums text-zinc-600 dark:text-zinc-300">
+                        {row.progress.label}
+                      </div>
+                      <div className="mt-auto pt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                         {row.label === "상한 조정"
                           ? "SP 최대치 계산에서 차감"
                           : "현재 SP 최대치에 반영"}

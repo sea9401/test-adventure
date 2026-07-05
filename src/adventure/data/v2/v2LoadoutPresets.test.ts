@@ -5,7 +5,7 @@ import { parseV2SkillsState } from "./v2Skills";
 describe("로드아웃 프리셋 슬롯(무료 고정)", () => {
   it("총 슬롯 = PRESET_SLOTS 고정(구매 폐지·인자 없음)", () => {
     expect(totalPresetSlots()).toBe(PRESET_SLOTS);
-    expect(PRESET_SLOTS).toBe(5);
+    expect(PRESET_SLOTS).toBe(10);
   });
 });
 
@@ -27,8 +27,8 @@ describe("parseV2SkillsState — 로드아웃 프리셋", () => {
     expect(parsed.loadoutPresets![0].skills).toEqual(["v2c_warrior_might"]); // 중복·무효 제거
   });
 
-  it("고정 슬롯(5) 초과분은 drop", () => {
-    const many = Array.from({ length: 8 }, (_, i) => ({
+  it("고정 슬롯(10) 초과분은 drop", () => {
+    const many = Array.from({ length: PRESET_SLOTS + 3 }, (_, i) => ({
       name: `p${i}`,
       skills: ["v2c_warrior_strike"],
     }));
@@ -37,7 +37,7 @@ describe("parseV2SkillsState — 로드아웃 프리셋", () => {
       equipped: [],
       loadoutPresets: many,
     });
-    expect(parsed.loadoutPresets).toHaveLength(PRESET_SLOTS); // 5 상한
+    expect(parsed.loadoutPresets).toHaveLength(PRESET_SLOTS); // 10 상한
   });
 
   it("옛 loadoutPresetSlotsBought 필드는 무시(inert)·미보존", () => {

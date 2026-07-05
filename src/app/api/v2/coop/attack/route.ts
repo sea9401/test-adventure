@@ -21,6 +21,7 @@ import {
   COOP_ATTACK_TURNS,
   COOP_BOSSES,
   coopBossForBattle,
+  coopCriticalDamageFromLog,
   coopTierForRatio,
   parseCoopBossKindId,
   type CoopBossKindId,
@@ -244,6 +245,9 @@ export async function POST(req: Request) {
       0,
       bossStartHp - battleResult.finalState.enemyHp,
     );
+    const criticalDamageRaw = coopCriticalDamageFromLog(
+      battleResult.finalState.log,
+    );
     const damageTaken = Math.max(
       0,
       battleMaxHp - battleResult.finalState.playerHp,
@@ -305,6 +309,13 @@ export async function POST(req: Request) {
     // 오버킬 클램프 — 기여도(contributor.damage)는 실제로 깎은 양만 적립
     // (시뮬은 peek 시점 잔여 HP 시작이라 보통 안 넘치지만, 동시 공격의 stale 스냅샷 흡수).
     const appliedDamage = Math.min(damageDealt, s.hp);
+    const appliedCriticalDamage =
+      damageDealt > 0
+        ? Math.min(
+            appliedDamage,
+            Math.floor((criticalDamageRaw * appliedDamage) / damageDealt),
+          )
+        : 0;
     const projectedBossHp = Math.max(0, s.hp - appliedDamage);
     const bossBleedingAtEnd = battleResult.finalState.enemyV2Dots.some(
       (dot) => dot.tag === "bleed" && dot.stacks > 0 && dot.turns > 0,
@@ -315,7 +326,9 @@ export async function POST(req: Request) {
       !s.hardEnrageWeakened &&
       s.hp / Math.max(1, s.maxHp) > conditionalEnrage.hpFraction &&
       projectedBossHp / Math.max(1, s.maxHp) <= conditionalEnrage.hpFraction &&
-      bossBleedingAtEnd;
+      (kindId === "abyssal_tyrant"
+        ? appliedCriticalDamage > 0
+        : bossBleedingAtEnd);
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)

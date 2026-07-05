@@ -13,6 +13,7 @@ export default function FishingPage() {
       onOpenShop={() => router.push("/town/fishing/shop")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}
       onOpenHallOfFame={() => router.push("/town/fishing/hall-of-fame")}
+      onOpenCoopSession={(sessionId) => router.push(`/battle/coop/${sessionId}`)}
     />
   );
 }

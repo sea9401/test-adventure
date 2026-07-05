@@ -10,12 +10,14 @@ export function FishingPanel({
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
+  onOpenCoopSession,
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
   onOpenShop: () => void;
   onOpenChallenges: () => void;
   onOpenHallOfFame: () => void;
+  onOpenCoopSession?: (sessionId: string) => void;
 }) {
   const handlers = useFishing();
   return (
@@ -26,6 +28,7 @@ export function FishingPanel({
       onOpenShop={onOpenShop}
       onOpenChallenges={onOpenChallenges}
       onOpenHallOfFame={onOpenHallOfFame}
+      onOpenCoopSession={onOpenCoopSession}
     />
   );
 }

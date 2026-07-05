@@ -831,6 +831,47 @@ const V2_EQUIPMENT_BASE = {
     setTags: ["hard_sangoon"],
   },
 
+  // 심연어룡 전용 5T 장비 — 낚시 이벤트 HARD 보스 장비 상자 전용 풀.
+  v2_boss_abyssal_armor: {
+    id: "v2_boss_abyssal_armor",
+    slot: "armor",
+    concept: "heavy",
+    tier: 13,
+    name: "심연어룡의 수압갑주",
+    description: "심해의 압력을 견딘 비늘 갑주. 물러서지 않는 전열에게 거친 해류처럼 버틴다.",
+    power: 210,
+    weight: 8,
+    options: { hp: 760, def: 70, magicDef: 75, critResist: 6, spd: -8 },
+    noDrop: true,
+    setTags: ["abyssal_current"],
+  },
+  v2_boss_abyssal_ring: {
+    id: "v2_boss_abyssal_ring",
+    slot: "ring",
+    concept: "luck",
+    tier: 13,
+    name: "심연어룡의 해류반지",
+    description: "손가락을 감싼 해류가 급소를 향해 휘어진다. 깊은 물살 속에서도 일격을 놓치지 않는다.",
+    power: 104,
+    weight: 0,
+    options: { hp: 180, mp: 140, crit: 6, critMult: 45, magicDef: 20 },
+    noDrop: true,
+    setTags: ["abyssal_current"],
+  },
+  v2_boss_abyssal_necklace: {
+    id: "v2_boss_abyssal_necklace",
+    slot: "necklace",
+    concept: "mana",
+    tier: 13,
+    name: "심연어룡의 아가미목걸이",
+    description: "갈라진 아가미 틈에 맺힌 결정. 마력을 머금은 숨결이 오래 버티는 싸움을 받쳐 준다.",
+    power: 112,
+    weight: 0,
+    options: { hp: 260, mp: 200, magicDef: 55, spd: 4, healPowerPct: 8 },
+    noDrop: true,
+    setTags: ["abyssal_current"],
+  },
+
   // ── 마른 협곡 밴드 드랍 (깊이 7~12, T4) ───────────────────────────────
   // 프론티어 첫 밴드(마른 협곡) 전용 장비. 무기 4종 +
   // 마른땅 갑주 세트 3종. 위력은 정규 최고(전 장비 ×2 후 48~62)보다 +52% 헤드룸 — 밴드 드랍이

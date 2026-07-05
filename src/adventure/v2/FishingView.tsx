@@ -78,6 +78,13 @@ export type ReelOutcome =
         catchBonus: number;
         levelBonus: number;
       } | null;
+      /** 낚시 성공 중 낮은 확률로 소환된 협동 보스. */
+      coopBoss?: {
+        sessionId: string;
+        kind: string;
+        name: string;
+        expiresAt: number;
+      } | null;
       /** 이번 어획으로 오른 오늘의 의뢰/일일 과제/누적 목표. */
       challengeProgress?: FishingProgressNotice[];
     }
@@ -1329,6 +1336,7 @@ export function FishingView({
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
+  onOpenCoopSession,
   progression,
   progressionLoading,
   challengeBadgeCount,
@@ -1338,6 +1346,7 @@ export function FishingView({
   onOpenShop?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
+  onOpenCoopSession?: (sessionId: string) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -1715,6 +1724,25 @@ export function FishingView({
                   연속 {result.streak.current} 버프 · 코인 +
                   {result.streak.coinBonus} · 지도 조각 +
                   {result.streak.fragmentChanceBonusPct}%p
+                </div>
+              )}
+              {result.coopBoss && (
+                <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-left dark:border-rose-800 dark:bg-rose-950/30">
+                  <div className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                    {result.coopBoss.name} 출현
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-rose-700/80 dark:text-rose-200/80">
+                    낚싯줄을 타고 협동 보스가 올라왔다.
+                  </div>
+                  {onOpenCoopSession && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCoopSession(result.coopBoss!.sessionId)}
+                      className="mt-2 w-full rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 active:scale-[0.99]"
+                    >
+                      토벌하러 가기
+                    </button>
+                  )}
                 </div>
               )}
               <ChallengeProgressSummary items={result.challengeProgress} />

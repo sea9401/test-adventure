@@ -85,8 +85,8 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(isTradableEquip("constructor")).toBe(false);
   });
 
-  it("재료 = 기존 17종 + 협동 보스 보상 11종 — 등재 재료만 tradable", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(28);
+  it("재료 = 기존 17종 + 협동 보스 보상 13종 — 등재 재료만 tradable", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(30);
     for (const id of Object.keys(V2_MATERIALS)) {
       expect(isTradableMaterial(id)).toBe(true);
     }

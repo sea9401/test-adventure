@@ -27,6 +27,10 @@ import {
   COOP_ATTACK_COOLDOWN_MS_V2,
   COOP_ATTACK_STAMINA_COST,
   MAX_ACTIVE_PER_KIND,
+  FISHING_COOP_BOSS_KIND_ID,
+  FISHING_COOP_BOSS_SPAWN_CHANCE,
+  coopCriticalDamageFromLog,
+  rollFishingCoopBossSpawn,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -34,8 +38,8 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("5종 — 노말 4단 사다리 + 하드 산군", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(5);
+  it("6종 — 노말 4단 사다리 + 하드 보스 2종", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(6);
     const normalLadder = [
       "mountain_chief",
       "canyon_predator",
@@ -64,6 +68,12 @@ describe("coopBosses 카탈로그", () => {
       sharedMaxHp: 600_000,
       anchorDepth: 60,
     });
+    expect(COOP_BOSSES.abyssal_tyrant).toMatchObject({
+      difficulty: "hard",
+      scrollCost: 30,
+      sharedMaxHp: 600_000,
+      anchorDepth: 60,
+    });
   });
 
   it("공허의 대사제 — 저주 기믹과 방어형 보상", () => {
@@ -85,7 +95,7 @@ describe("coopBosses 카탈로그", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
       // 하드 산군은 레거시 노말 산군 유니크가 보상에 섞이지 않도록 유니크 롤을 끈다.
-      if (id === "mountain_chief_hard") {
+      if (COOP_BOSSES[id].difficulty === "hard") {
         expect(b.uniqueIds).toEqual([]);
         continue;
       }
@@ -166,7 +176,7 @@ describe("coopBosses 카탈로그", () => {
   it("보스 uniqueIds — 시그니처 유니크 실재(이름·rarity·signature)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      if (id === "mountain_chief_hard") {
+      if (COOP_BOSSES[id].difficulty === "hard") {
         expect(b.uniqueIds).toEqual([]);
         continue;
       }
@@ -250,6 +260,34 @@ describe("coopBosses 카탈로그", () => {
     expect(weakened.monster.def).toBeGreaterThan(full.monster.def);
   });
 
+  it("심연어룡 — 낚시 이벤트 HARD 보스 + 치명타 수압 파훼", () => {
+    const b = COOP_BOSSES.abyssal_tyrant;
+    expect(FISHING_COOP_BOSS_KIND_ID).toBe("abyssal_tyrant");
+    expect(FISHING_COOP_BOSS_SPAWN_CHANCE).toBe(0.0002);
+    expect(rollFishingCoopBossSpawn(() => 0)).toBe(true);
+    expect(rollFishingCoopBossSpawn(() => FISHING_COOP_BOSS_SPAWN_CHANCE)).toBe(
+      false,
+    );
+    expect(b.base.v2Skills?.equipped).toContain("mob_arcane_nova");
+    expect(b.conditionalEnrage?.hpFraction).toBe(0.5);
+    const normal = coopBossForBattle(b, b.sharedMaxHp * 0.5);
+    const weakened = coopBossForBattle(b, b.sharedMaxHp * 0.5, {
+      conditionalEnrageWeakened: true,
+    });
+    expect(normal.monster.atk).toBeGreaterThan(weakened.monster.atk);
+    expect(normal.monster.def).toBeGreaterThan(weakened.monster.def);
+    expect(normal.monster.evasionPct ?? 0).toBeGreaterThan(
+      weakened.monster.evasionPct ?? 0,
+    );
+    expect(
+      coopCriticalDamageFromLog([
+        { kind: "player_attack", text: "공격! [크리티컬] 100 피해를 입혔다." },
+        { kind: "player_attack", text: "공격! 80 피해를 입혔다." },
+        { kind: "info", text: "z" },
+      ]),
+    ).toBe(100);
+  });
+
   it("산군 난이도별 방어·마법방어·명중·회피 스탯을 가진다", () => {
     const normal = coopBossForBattle(
       COOP_BOSSES.mountain_chief,
@@ -325,6 +363,7 @@ describe("coopBosses 카탈로그", () => {
   it("parseCoopBossKindId — 유효 id 만 통과", () => {
     expect(parseCoopBossKindId("mountain_chief")).toBe("mountain_chief");
     expect(parseCoopBossKindId("void_priest")).toBe("void_priest");
+    expect(parseCoopBossKindId("abyssal_tyrant")).toBe("abyssal_tyrant");
     expect(parseCoopBossKindId("nope")).toBeNull();
     expect(parseCoopBossKindId(42)).toBeNull();
     expect(parseCoopBossKindId(null)).toBeNull();
@@ -364,6 +403,9 @@ describe("coopTierForRatio", () => {
     expect(
       coopTierForRatio(COOP_HARD_TIER_THRESHOLDS.legend, "mountain_chief_hard"),
     ).toBe("legend");
+    expect(coopTierThresholdFor("bronze", "abyssal_tyrant")).toBe(
+      COOP_HARD_TIER_THRESHOLDS.bronze,
+    );
   });
 });
 

@@ -178,6 +178,15 @@ export function useFishing(): FishingHandlers {
                     levelBonus: Number(j.hotTime.levelBonus ?? 0),
                   }
                 : null,
+            coopBoss:
+              j.coopBoss && typeof j.coopBoss === "object"
+                ? {
+                    sessionId: String(j.coopBoss.sessionId),
+                    kind: String(j.coopBoss.kind),
+                    name: String(j.coopBoss.name),
+                    expiresAt: Number(j.coopBoss.expiresAt ?? 0),
+                  }
+                : null,
             fishingXpGained: Number(j.fishingXpGained ?? 0),
             fishingLevel:
               typeof j.fishingLevel === "number" ? j.fishingLevel : undefined,

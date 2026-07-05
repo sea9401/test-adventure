@@ -1353,6 +1353,7 @@ export function applyPlayerV2SkillCast(
       result = {
         ...result,
         enemyDamage: 0,
+        magicEnemyDamage: 0,
         dotsToApplyToTarget: [],
         enemyDebuffsToApply: [],
       };
@@ -1374,6 +1375,13 @@ export function applyPlayerV2SkillCast(
     state.stacks.enemyVulnTurns > 0
       ? 1 + state.stacks.enemyVulnPct / 100
       : 1;
+  const magicSkillDamageBonus =
+    result.magicEnemyDamage > 0 && (player.magicSkillDamagePct ?? 0) > 0
+      ? Math.floor(
+          (result.magicEnemyDamage * (player.magicSkillDamagePct ?? 0)) / 100,
+        )
+      : 0;
+  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
   // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
   //   분리(평타 critMult 비연동 → 비폭주). 오버플로(캡 초과분 크리뎀)는 평타 전용, 스킬은 flat.
   //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
@@ -1390,7 +1398,7 @@ export function applyPlayerV2SkillCast(
       ? Math.max(1, state.playerAttacksLeft)
       : 1;
   const singleSkillDamage = Math.floor(
-    result.enemyDamage *
+    skillDamageBase *
       spellStackMult *
       magicVulnMult *
       vulnMult *

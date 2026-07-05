@@ -1510,6 +1510,7 @@ export function castV2SkillOnAttackerTurnPvP(
       result = {
         ...result,
         enemyDamage: 0,
+        magicEnemyDamage: 0,
         dotsToApplyToTarget: [],
         enemyDebuffsToApply: [],
       };
@@ -1540,6 +1541,14 @@ export function castV2SkillOnAttackerTurnPvP(
   const nextEnemyVulnPct =
     result.enemyVulnToApply?.pct ?? side.stacks.enemyVulnPct;
   const vulnMult = nextEnemyVulnTurns > 0 ? 1 + nextEnemyVulnPct / 100 : 1;
+  const magicSkillDamageBonus =
+    result.magicEnemyDamage > 0 && (side.player.magicSkillDamagePct ?? 0) > 0
+      ? Math.floor(
+          (result.magicEnemyDamage * (side.player.magicSkillDamagePct ?? 0)) /
+            100,
+        )
+      : 0;
+  const skillDamageBase = result.enemyDamage + magicSkillDamageBonus;
   // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
   //   로 분리. 데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
   const skillCritFired =
@@ -1553,7 +1562,7 @@ export function castV2SkillOnAttackerTurnPvP(
       ? Math.max(1, side.attacksLeft)
       : 1;
   const singleSkillDamage = Math.floor(
-    result.enemyDamage *
+    skillDamageBase *
       spellStackMult *
       magicVulnMult *
       vulnMult *

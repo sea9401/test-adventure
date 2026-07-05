@@ -204,6 +204,8 @@ export type V2CommonSkillId =
   | "v2c_swordsaint_transcendence" // 검성의 경지 (힘 + 치명피해 + 속도초과 전환)
   | "v2c_hegemon_annihilation" // 멸왕난무 (HP 소모 + 처형 + 취약)
   | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해 + 최대 HP)
+  | "v2c_archmage_collapse" // 비전 붕괴 (순수 마법 피해 + ATB 지연)
+  | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
@@ -1506,6 +1508,19 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { berserkAtkPctPerLostHpPct: 1.0, critDmgPct: 40, maxHpPct: 12 },
+  },
+  v2c_archmage_collapse: {
+    id: "v2c_archmage_collapse", name: "비전 붕괴", stat: "int", category: "attack", tier: 3,
+    description: "고도로 압축한 마력을 무너뜨려 순수한 마법 피해를 준다.",
+    mpCost: 58, cooldown: 0, procChance: 32, learnCost: 12000,
+    effects: [dmg(1.95, 430, "magic"), { kind: "enemyDelay", pct: 35 }],
+  },
+  v2c_archmage_theory: {
+    id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
+    description: "마법식의 근본을 꿰뚫는다. 지능과 마법 스킬 피해가 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { statPct: { int: 22 }, magicSkillDamagePct: 12 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

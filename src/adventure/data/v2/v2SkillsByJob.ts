@@ -100,6 +100,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
   swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence"], // 검성: 무심검 + 검성의 경지
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕난무 + 패황의 지배
+  archmage: ["v2c_archmage_collapse", "v2c_archmage_theory"], // 대마도사: 비전 붕괴 + 대마도 이론
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류

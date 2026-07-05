@@ -102,6 +102,8 @@ export type V2PassiveSkillEffect = {
   enemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률 +%p. 미지정이면 기존 호환을 위해 100%로 처리. */
   enemyMagicVulnApplyChancePct?: number;
+  /** 마법 스킬 피해 +% — damage effect 의 scaling="magic" 피해분에만 적용. */
+  magicSkillDamagePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
   // ── 낚시(비전투) — 캐스팅 시 서버 권위 판정에서만 소비. 전투 derive 와 무관.
@@ -470,6 +472,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
+    mag += (p.magicSkillDamagePct ?? 0) / 8;
     mag += (p.comboFinisherBonusPct ?? 0) / 25;
     return mag;
   }
@@ -556,6 +559,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
   enemyMagicVulnApplyChancePct: number;
+  magicSkillDamagePct: number;
   spdOverflowToAtkPct: number;
   skillCritOverflow: boolean;
   comboFinisherBonusPct: number;
@@ -584,6 +588,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
   let enemyMagicVulnApplyChancePct = 0;
+  let magicSkillDamagePct = 0;
   let spdOverflowToAtkPct = 0;
   let skillCritOverflow = false;
   let comboFinisherBonusPct = 0;
@@ -629,6 +634,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
         p.enemyMagicVulnApplyChancePct ?? 100,
       );
     }
+    magicSkillDamagePct += p.magicSkillDamagePct ?? 0;
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
     comboFinisherBonusPct += p.comboFinisherBonusPct ?? 0;
@@ -658,6 +664,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
     enemyMagicVulnApplyChancePct,
+    magicSkillDamagePct,
     spdOverflowToAtkPct,
     skillCritOverflow,
     comboFinisherBonusPct,
@@ -849,6 +856,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
   if (p.enemyMagicVulnApplyChancePct)
     chips.push(`마법취약 누적 확률 ${p.enemyMagicVulnApplyChancePct}%`);
+  if (p.magicSkillDamagePct)
+    chips.push(`마법 스킬 피해 +${p.magicSkillDamagePct}%`);
   if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
   if (p.fishingSizeBonusPct)
     chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);
@@ -882,6 +891,7 @@ const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
+  "archmage",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
 const MP_MARTIAL_JOBS = new Set([

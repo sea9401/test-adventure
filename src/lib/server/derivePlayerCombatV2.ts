@@ -288,6 +288,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEnemyMagicVulnPctPerStack?: number;
   /** 약점 노출 누적 확률. */
   passiveEnemyMagicVulnApplyChancePct?: number;
+  /** 마법 스킬 피해 +% — scaling="magic" 피해분에만 적용. */
+  passiveMagicSkillDamagePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
@@ -565,6 +567,9 @@ export function derivePlayerCombatV2Pure(
   const totalPoisonedEnemyDefReductionPct =
     (specEff.poisonedEnemyDefReductionPct ?? 0) +
     (input.passivePoisonedEnemyDefReductionPct ?? 0);
+  const totalMagicSkillDamagePct =
+    (specEff.magicSkillDamagePct ?? 0) +
+    (input.passiveMagicSkillDamagePct ?? 0);
 
   const player: PlayerCombat = {
     hp,
@@ -691,6 +696,9 @@ export function derivePlayerCombatV2Pure(
           enemyMagicVulnApplyChancePct:
             input.passiveEnemyMagicVulnApplyChancePct ?? 100,
         }
+      : {}),
+    ...(totalMagicSkillDamagePct > 0
+      ? { magicSkillDamagePct: totalMagicSkillDamagePct }
       : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
     ...(specEff.extraAttackChancePctWhileEnemyBleeding
@@ -849,6 +857,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.enemyMagicVulnPctPerStack,
     passiveEnemyMagicVulnApplyChancePct:
       passiveAgg.enemyMagicVulnApplyChancePct,
+    passiveMagicSkillDamagePct: passiveAgg.magicSkillDamagePct,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
     passiveComboFinisherBonusPct: passiveAgg.comboFinisherBonusPct,

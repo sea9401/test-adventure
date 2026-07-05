@@ -409,6 +409,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.enemyDamage).toBe(80);
+    expect(result.magicEnemyDamage).toBe(0);
     expect(result.selfHeal).toBe(0);
   });
 
@@ -864,6 +865,7 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
     expect(result.castSkillName).toBe("화염구");
     expect(result.enemyDamage).toBe(260);
+    expect(result.magicEnemyDamage).toBe(260);
   });
 
   it("resolveV2SkillCast — 생명 강타(scaling maxHp)는 최대 HP 로 스케일", () => {

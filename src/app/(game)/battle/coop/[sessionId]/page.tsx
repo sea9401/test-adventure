@@ -14,6 +14,7 @@ export default function CoopBossDetailPage() {
     viewerGender,
     playerSubtitle,
     stamina,
+    staminaMax,
     setStamina,
   } = useGameState();
   return (
@@ -23,6 +24,7 @@ export default function CoopBossDetailPage() {
       playerGender={viewerGender}
       playerSubtitle={playerSubtitle}
       stamina={stamina}
+      staminaMax={staminaMax}
       setStamina={setStamina}
       onBack={() => router.push("/battle/coop")}
     />

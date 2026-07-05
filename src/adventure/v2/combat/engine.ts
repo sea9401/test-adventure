@@ -1337,6 +1337,7 @@ export function applyPlayerV2SkillCast(
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
       // 활성 파생버프(회피/치명/받피감) — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포).
+      selfShieldActive: state.stacks.playerShield > 0,
       selfBuffPctActive: {
         evasion: state.stacks.skillEvasionTurns > 0,
         crit: state.stacks.skillCritTurns > 0,

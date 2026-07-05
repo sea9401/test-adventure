@@ -1467,6 +1467,7 @@ export function castV2SkillOnAttackerTurnPvP(
       allStatTotal: side.player.allStatTotal,
       // 활성 파생버프 — PvP 는 회피/치명/반사 증폭을 추적(받피감은 PvP-inert). 받피감=true 로 둬서 self_buff_pct
       //   (damageReduction, active:false) 조건이 PvP 에서 철포를 매턴 스팸(평타 차단)하지 않게 가드.
+      selfShieldActive: side.stacks.playerShield > 0,
       selfBuffPctActive: {
         evasion: side.stacks.skillEvasionTurns > 0,
         crit: side.stacks.skillCritTurns > 0,

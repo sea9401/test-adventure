@@ -1216,11 +1216,31 @@ export function smartDefaultConditionForSkill(
   // 적에게 피해를 주는 스킬(부가 DoT/디버프 동반 포함)은 평타 대체 = 항상 발동.
   if (effs.some((e) => DAMAGE_EFFECT_KINDS.has(e.kind))) return { kind: "always" };
   // 순수 유틸 — 매 턴 스팸 방지로 종류별 조건.
-  if (effs.some((e) => e.kind === "heal")) {
+  const hasHeal = effs.some((e) => e.kind === "heal");
+  const hasShield = effs.some((e) => e.kind === "shield");
+  if (hasHeal && hasShield) {
+    return {
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 50 },
+        { kind: "self_shield", active: false },
+      ],
+    }; // 회복+보호막 = 저HP이고 기존 보호막이 없을 때.
+  }
+  if (hasHeal) {
     return { kind: "self_hp", op: "below", pct: 50 }; // 힐 = HP 낮을 때.
   }
-  if (effs.some((e) => e.kind === "shield" || e.kind === "selfRegen")) {
-    return { kind: "self_hp", op: "below", pct: 60 }; // 보호막·리젠 = 피해 입을 때.
+  if (hasShield) {
+    return {
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 70 },
+        { kind: "self_shield", active: false },
+      ],
+    }; // 보호막 = 피해 입었고 기존 보호막이 없을 때.
+  }
+  if (effs.some((e) => e.kind === "selfRegen")) {
+    return { kind: "self_hp", op: "below", pct: 60 }; // 리젠 = 피해 입을 때.
   }
   if (effs.some((e) => e.kind === "manaRestore")) {
     return { kind: "self_mp", op: "below", pct: 40 }; // 마나 회복(명상) = MP 낮을 때.

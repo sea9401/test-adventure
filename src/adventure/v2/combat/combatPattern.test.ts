@@ -17,6 +17,7 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
   return {
     selfHpPct: 100,
     selfMpPct: 100,
+    selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction" | "reflectDamage">(),
     enemyHpPct: 100,
@@ -33,6 +34,34 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "always" }, ctx())).toBe(true);
   });
 
+  it("all/any — 하위 조건 조합", () => {
+    const lowHp = ctx({ selfHpPct: 35, selfMpPct: 80 });
+    expect(
+      conditionPasses(
+        {
+          kind: "all",
+          conditions: [
+            { kind: "self_hp", op: "below", pct: 40 },
+            { kind: "self_mp", op: "above", pct: 50 },
+          ],
+        },
+        lowHp,
+      ),
+    ).toBe(true);
+    expect(
+      conditionPasses(
+        {
+          kind: "any",
+          conditions: [
+            { kind: "self_hp", op: "below", pct: 20 },
+            { kind: "self_mp", op: "above", pct: 50 },
+          ],
+        },
+        lowHp,
+      ),
+    ).toBe(true);
+  });
+
   it("self_hp below/above — 경계 포함", () => {
     const c = ctx({ selfHpPct: 30 });
     expect(conditionPasses({ kind: "self_hp", op: "below", pct: 30 }, c)).toBe(true);
@@ -44,6 +73,22 @@ describe("conditionPasses", () => {
   it("self_mp", () => {
     expect(conditionPasses({ kind: "self_mp", op: "below", pct: 20 }, ctx({ selfMpPct: 10 }))).toBe(true);
     expect(conditionPasses({ kind: "self_mp", op: "below", pct: 20 }, ctx({ selfMpPct: 50 }))).toBe(false);
+  });
+
+  it("self_shield active/inactive — 보호막 재시전 방지 패턴", () => {
+    expect(conditionPasses({ kind: "self_shield", active: false }, ctx())).toBe(true);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", active: false },
+        ctx({ selfShieldActive: true }),
+      ),
+    ).toBe(false);
+    expect(
+      conditionPasses(
+        { kind: "self_shield", active: true },
+        ctx({ selfShieldActive: true }),
+      ),
+    ).toBe(true);
   });
 
   it("self_buff active/inactive — 재버프 방지 패턴", () => {
@@ -145,6 +190,17 @@ describe("parseCombatPattern (저장 검증)", () => {
     const raw = {
       blocks: [
         { condition: { kind: "self_hp", op: "below", pct: 30 }, action: { kind: "skill", skillId: "heal" } },
+        { condition: { kind: "self_shield", active: false }, action: { kind: "skill", skillId: "shield" } },
+        {
+          condition: {
+            kind: "all",
+            conditions: [
+              { kind: "self_hp", op: "below", pct: 50 },
+              { kind: "self_shield", active: false },
+            ],
+          },
+          action: { kind: "skill", skillId: "guard" },
+        },
         { condition: { kind: "always" }, action: { kind: "skill", skillId: "strike" } },
         { condition: { kind: "always" }, action: { kind: "role", role: "main_attack" } },
         { condition: { kind: "bogus" }, action: { kind: "skill", skillId: "x" } }, // 잘못된 조건 → drop
@@ -154,10 +210,12 @@ describe("parseCombatPattern (저장 검증)", () => {
       ],
     };
     const p = parseCombatPattern(raw);
-    expect(p.blocks).toHaveLength(3);
+    expect(p.blocks).toHaveLength(5);
     expect(p.blocks[0].action).toEqual({ kind: "skill", skillId: "heal" });
-    expect(p.blocks[1].condition).toEqual({ kind: "always" });
-    expect(p.blocks[2].action).toEqual({ kind: "role", role: "main_attack" });
+    expect(p.blocks[1].condition).toEqual({ kind: "self_shield", active: false });
+    expect(p.blocks[2].condition.kind).toBe("all");
+    expect(p.blocks[3].condition).toEqual({ kind: "always" });
+    expect(p.blocks[4].action).toEqual({ kind: "role", role: "main_attack" });
   });
 
   it("비객체/blocks 누락 → 빈 패턴", () => {

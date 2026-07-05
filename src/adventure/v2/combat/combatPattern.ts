@@ -19,9 +19,14 @@ export type V2PatternEnemyStatus = "bleed" | "poison" | "vuln";
 // 조건 — "언제 이 블록을 발동하나". 아군/위치는 1:1 자동전투엔 없어 미포함(파티 도입 시 확장).
 export type V2CombatCondition =
   | { kind: "always" }
+  // 복합 조건. all = 모든 하위 조건 만족, any = 하나 이상 만족.
+  | { kind: "all"; conditions: readonly V2CombatCondition[] }
+  | { kind: "any"; conditions: readonly V2CombatCondition[] }
   // 내 HP/MP 비율(0~100). below = 이하, above = 이상(둘 다 경계 포함).
   | { kind: "self_hp"; op: "below" | "above"; pct: number }
   | { kind: "self_mp"; op: "below" | "above"; pct: number }
+  // 내 보호막 보유 여부 — 보호막 스킬 재시전/중첩 낭비 방지.
+  | { kind: "self_shield"; active: boolean }
   // 내 상태 — 특정 스탯 버프 활성/미활성(재버프 낭비 방지 등). v2SelfBuffs 키 = StatKey.
   | { kind: "self_buff"; stat: StatKey; active: boolean }
   // 내 파생 버프(회피/치명/받피감/반사피해 = selfBuffPct) 활성/미활성 — 만료 시 재시전.
@@ -56,6 +61,7 @@ export type V2CombatPattern = { blocks: V2CombatBlock[] };
 export type V2PatternCtx = {
   selfHpPct: number; // 0~100
   selfMpPct: number; // 0~100
+  selfShieldActive: boolean;
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
   selfBuffPctTargets: ReadonlySet<"evasion" | "crit" | "damageReduction" | "reflectDamage">; // 활성 파생버프
   enemyHpPct: number; // 0~100
@@ -81,6 +87,10 @@ export function conditionPasses(
   switch (cond.kind) {
     case "always":
       return true;
+    case "all":
+      return cond.conditions.length > 0 && cond.conditions.every((c) => conditionPasses(c, ctx));
+    case "any":
+      return cond.conditions.some((c) => conditionPasses(c, ctx));
     case "self_hp":
       return cond.op === "below"
         ? ctx.selfHpPct <= cond.pct
@@ -89,6 +99,8 @@ export function conditionPasses(
       return cond.op === "below"
         ? ctx.selfMpPct <= cond.pct
         : ctx.selfMpPct >= cond.pct;
+    case "self_shield":
+      return ctx.selfShieldActive === cond.active;
     case "self_buff":
       return ctx.selfBuffStats.has(cond.stat) === cond.active;
     case "self_buff_pct":
@@ -193,23 +205,40 @@ export function defaultPatternFromEquipped(
 // 손상/구버전 raw 도 안전하게 정규화: 블록 단위 검증, 알 수 없는 조건·행동 kind 나 잘못된
 // 파라미터는 그 블록을 drop(통째 폐기 아님). skillId 는 문자열만 확인(실재 여부는 런타임 게이트).
 export const V2_COMBAT_PATTERN_MAX_BLOCKS = 16; // 폭주 방지 상한.
+export const V2_COMBAT_PATTERN_MAX_SUBCONDITIONS = 4;
+const V2_COMBAT_PATTERN_MAX_CONDITION_DEPTH = 2;
 
 function isFinitePct(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
 }
 
-function parseCondition(raw: unknown): V2CombatCondition | null {
+function parseCondition(raw: unknown, depth = 0): V2CombatCondition | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Record<string, unknown>;
   switch (c.kind) {
     case "always":
       return { kind: "always" };
+    case "all":
+    case "any": {
+      if (depth >= V2_COMBAT_PATTERN_MAX_CONDITION_DEPTH) return null;
+      if (!Array.isArray(c.conditions)) return null;
+      const conditions = c.conditions
+        .slice(0, V2_COMBAT_PATTERN_MAX_SUBCONDITIONS)
+        .map((child) => parseCondition(child, depth + 1))
+        .filter((child): child is V2CombatCondition => child != null);
+      if (conditions.length === 0) return null;
+      return { kind: c.kind, conditions };
+    }
     case "self_hp":
     case "self_mp":
     case "enemy_hp": {
       const op = c.op === "below" || c.op === "above" ? c.op : null;
       if (!op || !isFinitePct(c.pct)) return null;
       return { kind: c.kind, op, pct: Math.max(0, Math.min(100, c.pct)) };
+    }
+    case "self_shield": {
+      if (typeof c.active !== "boolean") return null;
+      return { kind: "self_shield", active: c.active };
     }
     case "self_buff": {
       if (typeof c.stat !== "string" || typeof c.active !== "boolean") return null;

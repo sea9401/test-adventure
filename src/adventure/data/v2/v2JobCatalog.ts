@@ -772,6 +772,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { str: 13, vit: 9, spi: 4 },
     unlock: { prereqs: { crimsontemplar: TIER5_UNLOCK_CUMLEVEL } },
   },
+  calamitycaller: {
+    id: "calamitycaller",
+    name: "재앙술사",
+    tier: 5,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 18, spi: 6, luk: 4 },
+    unlock: { prereqs: { archshaman: TIER5_UNLOCK_CUMLEVEL } },
+  },
 
   // ─── Tier 6: 초월 심화 직업 — 5차 직업 숙련도 기반 엔드 성장 ───
   fortressknight: {
@@ -813,6 +821,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { spi: 2, int: 1, vit: 1 },
     jobBonus: { spi: 28, vit: 10, int: 4 },
     unlock: { prereqs: { saint: TIER6_UNLOCK_CUMLEVEL } },
+  },
+  doomprophet: {
+    id: "doomprophet",
+    name: "종말예언자",
+    tier: 6,
+    cultivateProfile: { int: 2, spi: 1, luk: 1 },
+    jobBonus: { int: 28, spi: 8, luk: 6 },
+    unlock: { prereqs: { calamitycaller: TIER6_UNLOCK_CUMLEVEL } },
   },
   celestialdragon: {
     id: "celestialdragon",
@@ -1059,12 +1075,14 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   fullcatchking: { class: "survivor", spec: "fullcatchking" },
   transcendent: { class: "warrior", spec: "transcendent" },
   bloodlord: { class: "warrior", spec: "bloodlord" },
+  calamitycaller: { class: "mage", spec: "calamitycaller" },
   // tier 6 — 5차 직업 계승.
   fortressknight: { class: "warrior", spec: "fortressknight" },
   swordsaint: { class: "warrior", spec: "swordsaint" },
   hegemon: { class: "warrior", spec: "hegemon" },
   archmage: { class: "mage", spec: "archmage" },
   savior: { class: "mage", spec: "savior" },
+  doomprophet: { class: "mage", spec: "doomprophet" },
   celestialdragon: { class: "martial", spec: "celestialdragon" },
   vajraarhat: { class: "martial", spec: "vajraarhat" },
   seagod: { class: "survivor", spec: "seagod" },

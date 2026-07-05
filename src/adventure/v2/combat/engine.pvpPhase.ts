@@ -280,13 +280,20 @@ function computeAttackDamagePvP(
   const stormBonus = computeStormBonus(attacker.player.atk, apMultEffect);
   const totalDmgBeforeVuln = dmg + decreeDmg + impactDmg + stormBonus;
   // PR2-B 속박 — 시전자(attacker)가 속박 활성 시 가하는 피해 +%. 모든 평타 배수 끝 마지막 곱(PvE 미러).
-  const totalDmg =
+  const totalDmgAfterVuln =
     attacker.stacks.enemyVulnTurns > 0
       ? Math.max(
           1,
           Math.floor(totalDmgBeforeVuln * (1 + attacker.stacks.enemyVulnPct / 100)),
         )
       : totalDmgBeforeVuln;
+  const totalDmg =
+    attacker.stacks.damageDownTurns > 0 && attacker.stacks.damageDownPct > 0
+      ? Math.max(
+          1,
+          Math.floor(totalDmgAfterVuln * (1 - attacker.stacks.damageDownPct / 100)),
+        )
+      : totalDmgAfterVuln;
   return {
     assassinFires, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, totalDmg, weakpointDefIgnore,
   };

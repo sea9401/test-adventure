@@ -201,6 +201,8 @@ export type V2CommonSkillId =
   | "v2c_transcendent_harmony" // 초월 조화 (올스탯 패시브)
   | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형 + 회복)
   | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 광전 + 회복강화)
+  | "v2c_calamitycaller_brand" // 재앙의 낙인 (마법 피해 + 쇠약 + 금제)
+  | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
   | "v2c_fortressknight_ram" // 성채 충각 (방어력 비례 피해 + ATB 지연)
   | "v2c_fortressknight_citadel" // 움직이는 성채 (방어 + 받피감 + 반사)
@@ -212,6 +214,8 @@ export type V2CommonSkillId =
   | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
+  | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
+  | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
@@ -1155,6 +1159,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 8, enemyMagicVulnApplyChancePct: 85 },
   },
+  v2c_calamitycaller_brand: {
+    id: "v2c_calamitycaller_brand", name: "재앙의 낙인", stat: "int", category: "attack", tier: 3,
+    description: "재앙의 낙인을 찍어 적의 힘과 주문 흐름을 함께 무너뜨린다.",
+    mpCost: 54, cooldown: 0, procChance: 32, learnCost: 8000,
+    effects: [
+      dmg(1.45, 280, "magic"),
+      { kind: "enemyDamageDown", pct: 14, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 18, turns: 3 },
+    ],
+  },
+  v2c_calamitycaller_omen: {
+    id: "v2c_calamitycaller_omen", name: "흉조 III", stat: "int", category: "passive", tier: 3,
+    description: "흉조가 재앙으로 번진다. 마법취약이 더 안정적으로 쌓이고 더 깊게 파고든다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { enemyMagicVulnPctPerStack: 10, enemyMagicVulnApplyChancePct: 95 },
+  },
   v2c_archbishop_sanctuary: {
     id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
@@ -1652,6 +1673,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { healPowerPct: 35, maxHpPct: 18, damageTakenReductionPct: 8 },
+  },
+  v2c_doomprophet_sentence: {
+    id: "v2c_doomprophet_sentence", name: "종말 선고", stat: "int", category: "attack", tier: 3,
+    description: "종말을 예언해 적의 영혼을 침식시키고 쌓인 마법취약을 터뜨린다.",
+    mpCost: 84, cooldown: 0, procChance: 32, learnCost: 12000,
+    effects: [
+      dmg(1.75, 420, "magic"),
+      { kind: "enemyDotVuln", pct: 24, turns: 3 },
+      { kind: "stackPayoffDamage", tag: "magicVuln", statCoef: 0.42, baseFlatByTier: [220, 220, 220], perStackFlat: 58, scaling: "magic" },
+    ],
+  },
+  v2c_doomprophet_revelation: {
+    id: "v2c_doomprophet_revelation", name: "불길한 계시", stat: "int", category: "passive", tier: 3,
+    description: "종말의 계시가 모든 주문에 스민다. 마법취약과 저주 디버프가 한층 깊어진다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { enemyMagicVulnPctPerStack: 12, enemyMagicVulnApplyChancePct: 100 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

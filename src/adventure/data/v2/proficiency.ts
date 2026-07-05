@@ -114,6 +114,8 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   hegemon: { str: 2, vit: 1, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심
   archmage: { int: 2, spi: 2 }, // 대마도사 — 비전술사 최종형, 순수 마법 중심
   savior: { spi: 2, int: 1, vit: 1 }, // 구원자 — 성자 최종형, 치유와 생존 보조 중심
+  calamitycaller: { int: 2, spi: 1, luk: 1 }, // 재앙술사 — 대주술사 심화, 저주·재앙 디버프 중심
+  doomprophet: { int: 2, spi: 1, luk: 1 }, // 종말예언자 — 재앙술사 최종형, 종말 선고와 침식 중심
   dragonfist: { str: 2, dex: 1, vit: 1 }, // 권황 — 권룡 계보의 연격·보법 중심
   celestialdragon: { str: 2, dex: 1, vit: 1 }, // 천룡권성 — 권황 최종형, 힘과 민첩 중심
   vajraarhat: { vit: 2, spi: 1, str: 1 }, // 금강나한 — 금강승 최종형, 내구와 기백 중심

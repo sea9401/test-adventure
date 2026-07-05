@@ -478,6 +478,7 @@ describe("직업 킷 — 스킬셋", () => {
       immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"],
       transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"],
       bloodlord: ["v2c_bloodlord_brand", "v2c_bloodlord_martyrdom"],
+      calamitycaller: ["v2c_calamitycaller_brand", "v2c_calamitycaller_omen"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -634,6 +635,15 @@ describe("직업 킷 — 스킬셋", () => {
       healPowerPct: 20,
       damageTakenReductionPct: 6,
     });
+    expect(V2_SKILLS.v2c_calamitycaller_brand.effects).toEqual([
+      { kind: "damage", statCoef: 1.45, baseFlat: 280, scaling: "magic" },
+      { kind: "enemyDamageDown", pct: 14, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 18, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_calamitycaller_omen.passive).toMatchObject({
+      enemyMagicVulnPctPerStack: 10,
+      enemyMagicVulnApplyChancePct: 95,
+    });
   });
 
   it("6차 직업 = 계열 컨셉을 확장한 액티브 + 패시브", () => {
@@ -717,6 +727,21 @@ describe("직업 킷 — 스킬셋", () => {
       healPowerPct: 35,
       maxHpPct: 18,
       damageTakenReductionPct: 8,
+    });
+    expect(skillsForJob("doomprophet")).toEqual([
+      "v2c_doomprophet_sentence",
+      "v2c_doomprophet_revelation",
+    ]);
+    expect(V2_SKILLS.v2c_doomprophet_sentence.category).toBe("attack");
+    expect(V2_SKILLS.v2c_doomprophet_sentence.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "enemyDotVuln",
+      "stackPayoffDamage",
+    ]);
+    expect(V2_SKILLS.v2c_doomprophet_revelation.category).toBe("passive");
+    expect(V2_SKILLS.v2c_doomprophet_revelation.passive).toMatchObject({
+      enemyMagicVulnPctPerStack: 12,
+      enemyMagicVulnApplyChancePct: 100,
     });
     expect(skillsForJob("celestialdragon")).toEqual([
       "v2c_celestialdragon_combo",

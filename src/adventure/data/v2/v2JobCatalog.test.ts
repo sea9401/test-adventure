@@ -100,6 +100,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   immortal: "returner",
   fullcatchking: "masterangler",
   bloodlord: "crimsontemplar",
+  calamitycaller: "archshaman",
 };
 const TIER6_LINEAGE: Record<string, string> = {
   fortressknight: "ironknight",
@@ -107,6 +108,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   hegemon: "overlord",
   archmage: "arcanist",
   savior: "saint",
+  doomprophet: "calamitycaller",
   celestialdragon: "dragonfist",
   vajraarhat: "adamantmonk",
   seagod: "fullcatchking",
@@ -135,16 +137,16 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("83개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 16 + 6차 8)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(83);
+  it("85개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 17 + 6차 9)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(85);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(14);
     expect(byTier(3)).toBe(19);
     expect(byTier(4)).toBe(20);
-    expect(byTier(5)).toBe(16);
-    expect(byTier(6)).toBe(8);
+    expect(byTier(5)).toBe(17);
+    expect(byTier(6)).toBe(9);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -359,6 +361,11 @@ describe("해금 트리", () => {
       spec: "savior",
     });
     expect(jobIdFromLegacy("mage", "savior")).toBe("savior");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.doomprophet).toEqual({
+      class: "mage",
+      spec: "doomprophet",
+    });
+    expect(jobIdFromLegacy("mage", "doomprophet")).toBe("doomprophet");
     expect(LEGACY_CLASS_SPEC_BY_JOB.celestialdragon).toEqual({
       class: "martial",
       spec: "celestialdragon",
@@ -804,6 +811,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("mage", "inscriber")).toBe("각인술사");
     expect(displayName("mage", "archmage")).toBe("대마도사");
     expect(displayName("mage", "savior")).toBe("구원자");
+    expect(displayName("mage", "calamitycaller")).toBe("재앙술사");
+    expect(displayName("mage", "doomprophet")).toBe("종말예언자");
     expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
     expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
   });

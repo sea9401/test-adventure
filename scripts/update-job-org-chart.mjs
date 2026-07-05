@@ -187,6 +187,12 @@ function effectText(e) {
       return `적 다음 행동 지연 ${e.pct}%`;
     case "enemyHealReduce":
       return `적 회복량 -${e.pct}% (${e.turns}행동)`;
+    case "enemyDamageDown":
+      return `적 주는 피해 -${e.pct}% (${e.turns}행동)`;
+    case "enemySkillProcDown":
+      return `적 스킬 발동률 -${e.pct}%p (${e.turns}행동)`;
+    case "enemyDotVuln":
+      return `적 지속/저주 피해 +${e.pct}% (${e.turns}행동)`;
     case "hpCostDamage":
       return `현재 HP ${e.pctCurrentHp}% 소모 · 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)}, 소모 HP의 ${e.soakRatio * 100}% 추가`;
     case "healToDamage":

@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { db } from "@/db";
-import { tileSettlements } from "@/db/schema";
+import { outpostOccupations, tileSettlements } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -18,6 +18,7 @@ import {
   isTileSettlementTier,
   scaledTileGoldCost,
   isTileSettleable,
+  areTilesAdjacent4,
 } from "@/adventure/data/v2/tileConfig";
 import { isValidVillageName } from "@/adventure/data/v2/settlement";
 import {
@@ -29,6 +30,10 @@ import {
   createTileOccupation,
   removeTileWarfare,
 } from "@/lib/server/tileOccupation";
+import {
+  parseTileOutpostId,
+  TILE_OUTPOST_PREFIX,
+} from "@/adventure/data/v2/tileWarfare";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
@@ -49,6 +54,34 @@ import {
 type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function guildTileExpansionState(
+  tx: Tx,
+  guildId: number,
+  col: number,
+  row: number,
+): Promise<{ hasOwnedTile: boolean; adjacentToOwnedTile: boolean }> {
+  const rows = await tx
+    .select({ outpostId: outpostOccupations.outpostId })
+    .from(outpostOccupations)
+    .where(
+      and(
+        eq(outpostOccupations.occupiedByGuildId, guildId),
+        like(outpostOccupations.outpostId, `${TILE_OUTPOST_PREFIX}%`),
+      ),
+    );
+
+  let hasOwnedTile = false;
+  for (const r of rows) {
+    const pos = parseTileOutpostId(r.outpostId);
+    if (!pos) continue;
+    hasOwnedTile = true;
+    if (areTilesAdjacent4(pos.col, pos.row, col, row)) {
+      return { hasOwnedTile: true, adjacentToOwnedTile: true };
+    }
+  }
+  return { hasOwnedTile, adjacentToOwnedTile: false };
+}
 
 // 골드 과금 — 코어루프 on 일 때만(은행 우선). 부족 시 ok:false. off 면 과금 없이 통과.
 async function chargeGold(
@@ -175,6 +208,14 @@ export async function POST(req: Request) {
         return { kind: "err", status: 403, error: "not_guild_admin" };
       }
       const gr = await lockGuildResources(tx, guildId);
+      const expansion = await guildTileExpansionState(tx, guildId, col, row);
+      if (expansion.hasOwnedTile && !expansion.adjacentToOwnedTile) {
+        return {
+          kind: "err",
+          status: 409,
+          error: "not_adjacent_to_guild_tile",
+        };
+      }
       if (V2_CORE_LOOP_V2 && gr.gold < foundCost) {
         return {
           kind: "err",

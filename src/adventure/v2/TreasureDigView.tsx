@@ -5,11 +5,18 @@ import {
   formatCondition,
 } from "@/adventure/data/v2/antique";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
+import {
+  ArrowDown,
+  HandCoins,
+  MagnifyingGlass,
+  Path,
+  Shield,
+} from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
-  MIN_EXPOSURE_TO_EXTRACT,
+  MAX_DEPTH,
   TREASURE_ACTION_HELP,
   TREASURE_ACTION_LABEL,
   TREASURE_SITE_OPTIONS,
@@ -99,7 +106,24 @@ const TIER_STYLE: Record<string, string> = {
   legendary: "text-amber-600 dark:text-amber-300",
 };
 
-const ACTIONS: TreasureAction[] = ["probe", "shovel", "brush", "stabilize", "extract"];
+const ACTIONS: TreasureAction[] = [
+  "descend",
+  "detour",
+  "excavate",
+  "secure",
+  "retreat",
+];
+
+const ACTION_ICON: Record<
+  TreasureAction,
+  ComponentType<{ size?: number; weight?: "regular" | "bold" | "fill" }>
+> = {
+  descend: ArrowDown,
+  detour: Path,
+  excavate: MagnifyingGlass,
+  secure: Shield,
+  retreat: HandCoins,
+};
 
 type Result =
   | {
@@ -117,10 +141,14 @@ type Result =
 function Meter({
   label,
   value,
+  max,
+  suffix,
   tone,
 }: {
   label: string;
   value: number;
+  max: number;
+  suffix?: string;
   tone: "amber" | "emerald" | "rose" | "sky";
 }) {
   const fill = {
@@ -129,15 +157,45 @@ function Meter({
     rose: "bg-rose-500",
     sky: "bg-sky-500",
   }[tone];
+  const width = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="font-medium text-zinc-700 dark:text-zinc-200">{label}</span>
-        <span className="tabular-nums text-zinc-500 dark:text-zinc-400">{value}%</span>
+        <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+          {value.toLocaleString()}
+          {suffix ?? ""}
+        </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-        <div className={`h-full rounded-full ${fill}`} style={{ width: `${value}%` }} />
+        <div className={`h-full rounded-full ${fill}`} style={{ width: `${width}%` }} />
       </div>
+    </div>
+  );
+}
+
+function DepthTrack({ depth, maxDepth }: { depth: number; maxDepth: number }) {
+  return (
+    <div className="grid grid-cols-5 gap-1.5" aria-label={`현재 ${depth}층`}>
+      {Array.from({ length: MAX_DEPTH }, (_, idx) => {
+        const layer = idx + 1;
+        const active = layer <= depth;
+        const reachable = layer <= maxDepth;
+        return (
+          <div
+            key={layer}
+            className={`h-8 rounded border text-center text-[11px] font-semibold leading-8 ${
+              active
+                ? "border-amber-500 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100"
+                : reachable
+                  ? "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+                  : "border-zinc-100 bg-zinc-100 text-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-700"
+            }`}
+          >
+            {layer}층
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -294,10 +352,10 @@ export function TreasureDigView({
 
   const selectedSite = TREASURE_SITE_OPTIONS.find((s) => s.id === selectedSiteOptionId);
   const actionsRemaining = site ? site.actionsAllowed - site.actionsUsed : 0;
-  const canProgress = !!site && !site.forcedExtract && !result;
+  const canProgress = !!site && !site.forcedRetreat && !result;
 
   return (
-    <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[620px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
         title="보물 발굴"
         onBack={onBack}
@@ -308,8 +366,7 @@ export function TreasureDigView({
         }
       />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        유물을 드러내되 망가뜨리지 마세요. 충분히 노출되면 회수할 수 있지만,
-        위험을 방치하면 발굴 지점이 무너집니다.
+        발견물을 챙긴 뒤 더 깊이 내려갈지, 지금 들고 나갈지 결정하세요. 무너지면 전리품을 잃습니다.
       </p>
 
       <TreasureSubTabs
@@ -360,44 +417,44 @@ export function TreasureDigView({
               )}
             </div>
             <div className="mt-1">
-              {selectedSite?.name}에서 노출도와 보존도를 관리하며 유물을 회수합니다.
+              {selectedSite?.name}에서 층을 내려가며 전리품과 붕괴 위험을 저울질합니다.
             </div>
           </div>
           <ol className="list-decimal space-y-1.5 pl-4">
-            <li>탐침, 삽질, 붓질, 보강을 골라 노출도와 확신도를 올립니다.</li>
-            <li>
-              노출도 {MIN_EXPOSURE_TO_EXTRACT}%부터 회수할 수 있습니다. 보존도는 최종
-              감정가에 반영됩니다.
-            </li>
+            <li>층을 내려갈수록 전리품은 커지고 붕괴 위험도 커집니다.</li>
+            <li>전리품을 들고 나가야 보상이 확정됩니다. 무너지면 발굴은 실패합니다.</li>
           </ol>
         </div>
       )}
 
       {site && (
         <div className="space-y-4">
-          <div className="grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
               <span>
-                {site.siteOption.name} · 남은 행동{" "}
+                {site.siteOption.name} · 남은 선택{" "}
                 <b className="tabular-nums text-zinc-800 dark:text-zinc-100">
                   {Math.max(0, actionsRemaining)}
                 </b>
                 /{site.actionsAllowed}
               </span>
-              <span>{site.canExtract ? "회수 가능" : "노출 부족"}</span>
+              <span>{site.forcedRetreat ? "철수 판단 필요" : `다음 층 위험 +${site.nextDepthRisk}`}</span>
             </div>
-            <Meter label="노출도" value={site.exposure} tone="amber" />
-            <Meter label="보존도" value={site.preservation} tone="emerald" />
-            <Meter label="붕괴 위험" value={site.risk} tone="rose" />
-            <Meter label="확신도" value={site.certainty} tone="sky" />
+            <DepthTrack depth={site.depth} maxDepth={site.maxDepth} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Meter label="들고 있는 전리품" value={site.haul} max={320} tone="amber" />
+              <Meter label="안정도" value={site.stability} max={100} suffix="%" tone="emerald" />
+              <Meter label="붕괴 위험" value={site.risk} max={100} suffix="%" tone="rose" />
+              <Meter label="판독" value={site.insight} max={100} suffix="%" tone="sky" />
+            </div>
           </div>
 
           <div className="rounded-md border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">판독 결과</h2>
-              {site.forcedExtract && !result && (
-                <span className="rounded bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-rose-950/50 dark:text-rose-200">
-                  회수만 가능
+              <h2 className="text-sm font-semibold">현재 판단</h2>
+              {site.nextDepthReward > 0 && !site.forcedRetreat && (
+                <span className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  다음 층 전리품 +{site.nextDepthReward}
                 </span>
               )}
             </div>
@@ -419,17 +476,18 @@ export function TreasureDigView({
               </div>
             ) : (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                아직 유물의 성격을 읽지 못했습니다.
+                아직 챙긴 단서가 부족합니다. 정밀 발굴을 하면 판독이 빨라집니다.
               </p>
             )}
           </div>
 
           {!result && (
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
               {ACTIONS.map((action) => {
-                const isExtract = action === "extract";
+                const Icon = ACTION_ICON[action];
+                const isRetreat = action === "retreat";
                 const disabled =
-                  busy || (!isExtract && !canProgress) || (site.forcedExtract && !isExtract);
+                  busy || (isRetreat ? !site.canRetreat : !canProgress);
                 return (
                   <button
                     key={action}
@@ -437,15 +495,18 @@ export function TreasureDigView({
                     disabled={disabled}
                     onClick={() => handleAction(action)}
                     title={TREASURE_ACTION_HELP[action]}
-                    className={`rounded-md border px-3 py-2 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      isExtract
+                    className={`flex min-h-16 gap-2 rounded-md border px-3 py-2 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isRetreat
                         ? "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
                         : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                     }`}
                   >
-                    <span className="block">{TREASURE_ACTION_LABEL[action]}</span>
-                    <span className="mt-1 block text-[11px] font-normal opacity-70">
-                      {TREASURE_ACTION_HELP[action]}
+                    <Icon size={18} weight="bold" />
+                    <span className="min-w-0">
+                      <span className="block">{TREASURE_ACTION_LABEL[action]}</span>
+                      <span className="mt-1 block text-[11px] font-normal leading-snug opacity-70">
+                        {TREASURE_ACTION_HELP[action]}
+                      </span>
                     </span>
                   </button>
                 );

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ACTIONS_ALLOWED,
   COLLAPSE_RISK,
-  MIN_EXPOSURE_TO_EXTRACT,
+  MAX_DEPTH,
   applyTreasureAction,
   finalConditionForSession,
   hintsForSession,
@@ -23,10 +23,12 @@ function session(overrides: Partial<TreasureSession> = {}): TreasureSession {
     antiqueId: "clay_shard",
     condition: 60,
     instability: 0,
-    exposure: 0,
-    preservation: 100,
+    depth: 0,
+    maxDepth: MAX_DEPTH,
+    haul: 0,
+    stability: 92,
     risk: 10,
-    certainty: 0,
+    insight: 0,
     actionsAllowed: ACTIONS_ALLOWED,
     actions: [],
     openedAt: 0,
@@ -45,8 +47,8 @@ describe("rollNewSession / toPublicSite", () => {
     expect(isAntiqueId(s.antiqueId)).toBe(true);
     expect(s.siteOptionId).toBe("royal_tomb");
     expect(s.actionsAllowed).toBe(ACTIONS_ALLOWED - 1);
-    expect(s.exposure).toBe(0);
-    expect(s.preservation).toBe(100);
+    expect(s.depth).toBe(0);
+    expect(s.haul).toBe(0);
 
     const pub = toPublicSite(s);
     expect(pub).not.toHaveProperty("antiqueId");
@@ -54,55 +56,64 @@ describe("rollNewSession / toPublicSite", () => {
     expect(pub).not.toHaveProperty("instability");
     expect(pub.siteOption.id).toBe("royal_tomb");
     expect(pub.actionsUsed).toBe(0);
-    expect(pub.canExtract).toBe(false);
+    expect(pub.canRetreat).toBe(false);
+    expect(pub.nextDepthReward).toBeGreaterThan(0);
   });
 });
 
 describe("applyTreasureAction", () => {
-  it("탐침은 확신도를 크게 올리고 행동 기록을 남긴다", () => {
-    const r = applyTreasureAction(session(), "probe");
+  it("더 내려가기는 심도와 전리품을 올리고 위험을 키운다", () => {
+    const r = applyTreasureAction(session(), "descend");
     expect(r.kind).toBe("progress");
-    expect(r.session.certainty).toBe(26);
-    expect(r.session.exposure).toBe(7);
-    expect(r.session.risk).toBe(18);
-    expect(r.session.actions).toHaveLength(1);
-    expect(r.session.actions[0].action).toBe("probe");
+    expect(r.session.depth).toBe(1);
+    expect(r.session.haul).toBeGreaterThan(0);
+    expect(r.session.risk).toBeGreaterThan(10);
+    expect(r.session.actions[0].action).toBe("descend");
+  });
+
+  it("우회는 내려가되 직행보다 위험 증가와 전리품이 작다", () => {
+    const direct = applyTreasureAction(session(), "descend");
+    const detour = applyTreasureAction(session(), "detour");
+    expect(direct.kind).toBe("progress");
+    expect(detour.kind).toBe("progress");
+    expect(detour.session.depth).toBe(1);
+    expect(detour.session.risk).toBeLessThan(direct.session.risk);
+    expect(detour.session.haul).toBeLessThan(direct.session.haul);
+  });
+
+  it("정밀 발굴은 현재 층 전리품과 판독을 올린다", () => {
+    const r = applyTreasureAction(session({ depth: 2, haul: 20 }), "excavate");
+    expect(r.kind).toBe("progress");
+    expect(r.session.depth).toBe(2);
+    expect(r.session.haul).toBeGreaterThan(20);
+    expect(r.session.insight).toBeGreaterThan(15);
     expect(treasureUsedProbe(r.session)).toBe(true);
   });
 
-  it("삽질은 빠르게 노출하지만 위험과 보존도 손상이 크다", () => {
-    const r = applyTreasureAction(session({ risk: 70 }), "shovel");
+  it("보강은 안정도를 회복하고 위험을 낮춘다", () => {
+    const r = applyTreasureAction(session({ risk: 80, stability: 45 }), "secure");
     expect(r.kind).toBe("progress");
-    expect(r.session.exposure).toBe(24);
-    expect(r.session.risk).toBe(88);
-    expect(r.session.preservation).toBeLessThan(92);
-  });
-
-  it("보강은 위험도를 낮추고 약간의 진행만 준다", () => {
-    const r = applyTreasureAction(session({ risk: 80 }), "stabilize");
-    expect(r.kind).toBe("progress");
-    expect(r.session.risk).toBe(56);
-    expect(r.session.exposure).toBe(3);
+    expect(r.session.risk).toBeLessThan(80);
+    expect(r.session.stability).toBeGreaterThan(45);
   });
 
   it("위험도가 100에 닿으면 붕괴된다", () => {
-    const r = applyTreasureAction(session({ risk: 95, instability: 6 }), "shovel");
+    const r = applyTreasureAction(
+      session({ risk: 95, stability: 30, depth: 3, instability: 6 }),
+      "descend",
+    );
     expect(r.kind).toBe("collapsed");
     expect(r.session.risk).toBe(COLLAPSE_RISK);
   });
 
-  it("노출도가 부족한 조기 회수는 실패한다", () => {
-    const r = applyTreasureAction(
-      session({ exposure: MIN_EXPOSURE_TO_EXTRACT - 1 }),
-      "extract",
-    );
+  it("전리품 없이 철수하면 실패한다", () => {
+    const r = applyTreasureAction(session(), "retreat");
     expect(r.kind).toBe("failed");
-    expect(r.session.risk).toBe(COLLAPSE_RISK);
   });
 
-  it("충분히 노출된 유물은 회수되고 최종 보존상태가 산출된다", () => {
-    const s = session({ exposure: 82, preservation: 90, condition: 50, certainty: 80 });
-    const r = applyTreasureAction(s, "extract");
+  it("전리품을 들고 철수하면 유물이 회수되고 최종 보존상태가 산출된다", () => {
+    const s = session({ depth: 3, haul: 120, stability: 84, risk: 44, insight: 55 });
+    const r = applyTreasureAction(s, "retreat");
     expect(r.kind).toBe("extracted");
     if (r.kind === "extracted") {
       expect(r.condition).toBe(finalConditionForSession(r.session));
@@ -111,24 +122,24 @@ describe("applyTreasureAction", () => {
     }
   });
 
-  it("행동 예산을 다 쓰면 진행 행동은 무효지만 회수는 가능하다", () => {
+  it("행동 예산을 다 쓰면 진행 행동은 무효지만 철수는 가능하다", () => {
     let s = session();
     for (let i = 0; i < ACTIONS_ALLOWED; i += 1) {
-      const r = applyTreasureAction(s, "brush");
+      const r = applyTreasureAction(s, "excavate");
       s = r.session;
     }
-    expect(applyTreasureAction(s, "brush").kind).toBe("invalid");
-    expect(applyTreasureAction({ ...s, exposure: 80 }, "extract").kind).toBe("extracted");
+    expect(applyTreasureAction(s, "secure").kind).toBe("invalid");
+    expect(applyTreasureAction({ ...s, haul: 80 }, "retreat").kind).toBe("extracted");
   });
 });
 
 describe("hints / bonus", () => {
-  it("확신도에 따라 힌트를 단계적으로 공개한다", () => {
-    expect(hintsForSession(session({ certainty: 0 }))).toHaveLength(0);
-    expect(hintsForSession(session({ certainty: 20 })).map((h) => h.key)).toEqual([
+  it("판독에 따라 힌트를 단계적으로 공개한다", () => {
+    expect(hintsForSession(session({ insight: 0 }))).toHaveLength(0);
+    expect(hintsForSession(session({ insight: 15 })).map((h) => h.key)).toEqual([
       "theme",
     ]);
-    expect(hintsForSession(session({ certainty: 90 })).map((h) => h.key)).toEqual([
+    expect(hintsForSession(session({ insight: 85 })).map((h) => h.key)).toEqual([
       "theme",
       "tier",
       "value",
@@ -136,11 +147,11 @@ describe("hints / bonus", () => {
     ]);
   });
 
-  it("봉인된 방 감정 보너스는 탐침 사용 후에만 적용된다", () => {
+  it("봉인된 방 감정 보너스는 정밀 발굴 사용 후에만 적용된다", () => {
     const sealed = session({ fieldEventId: "sealed_chamber" });
     expect(treasureAppraisalBonusPct(sealed)).toBe(0);
-    const probed = applyTreasureAction(sealed, "probe").session;
-    expect(treasureAppraisalBonusPct(probed)).toBe(25);
+    const excavated = applyTreasureAction(sealed, "excavate").session;
+    expect(treasureAppraisalBonusPct(excavated)).toBe(25);
   });
 });
 
@@ -150,7 +161,7 @@ describe("parseTreasureSession", () => {
     expect(parseTreasureSession({})).toBeNull();
   });
 
-  it("옛 격자 세션은 새 발굴 세션으로 이전한다", () => {
+  it("옛 격자 세션은 심도 돌파형 세션으로 이전한다", () => {
     const migrated = parseTreasureSession({
       siteId: "old",
       siteOptionId: "royal_tomb",
@@ -166,19 +177,50 @@ describe("parseTreasureSession", () => {
     expect(migrated?.siteOptionId).toBe("royal_tomb");
     expect(migrated?.fieldEventId).toBe("intact_layer");
     expect(migrated?.actions).toHaveLength(2);
-    expect(migrated?.exposure).toBeGreaterThan(0);
+    expect(migrated?.haul).toBeGreaterThan(0);
+  });
+
+  it("이전 수치형 세션도 심도 돌파형 세션으로 이전한다", () => {
+    const migrated = parseTreasureSession({
+      siteId: "meter",
+      siteOptionId: "old_market",
+      fieldEventId: "buried_cache",
+      antiqueId: "clay_shard",
+      condition: 50,
+      instability: 3,
+      exposure: 58,
+      preservation: 82,
+      risk: 41,
+      certainty: 36,
+      actionsAllowed: 9,
+      actions: [
+        {
+          action: "probe",
+          exposure: 7,
+          preservation: 99,
+          risk: 18,
+          certainty: 26,
+          message: "x",
+        },
+      ],
+      openedAt: 10,
+    });
+    expect(migrated?.siteId).toBe("meter");
+    expect(migrated?.depth).toBeGreaterThan(0);
+    expect(migrated?.haul).toBeGreaterThan(0);
   });
 
   it("정상 라운드트립", () => {
-    const r = applyTreasureAction(session(), "probe");
+    const r = applyTreasureAction(session(), "descend");
     expect(parseTreasureSession(r.session)).toEqual(r.session);
   });
 
   it("범위 밖 수치와 미지 액션은 null", () => {
     const s = session();
     expect(parseTreasureSession({ ...s, antiqueId: "fake" })).toBeNull();
-    expect(parseTreasureSession({ ...s, exposure: 101 })).toBeNull();
-    expect(parseTreasureSession({ ...s, preservation: 0 })).toBeNull();
+    expect(parseTreasureSession({ ...s, depth: 99 })).toBeNull();
+    expect(parseTreasureSession({ ...s, haul: -1 })).toBeNull();
+    expect(parseTreasureSession({ ...s, stability: 101 })).toBeNull();
     expect(parseTreasureSession({ ...s, instability: 99 })).toBeNull();
     expect(
       parseTreasureSession({
@@ -186,10 +228,11 @@ describe("parseTreasureSession", () => {
         actions: [
           {
             action: "wrong",
-            exposure: 1,
-            preservation: 99,
+            depth: 1,
+            haul: 1,
+            stability: 99,
             risk: 1,
-            certainty: 1,
+            insight: 1,
             message: "x",
           },
         ],

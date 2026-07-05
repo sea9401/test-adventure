@@ -1,7 +1,7 @@
-// 발굴 미니게임 — 유물 노출도/보존도/붕괴 위험을 관리하는 발굴 상태 머신.
+// 발굴 미니게임 — 심도 돌파형 "들고 나갈까, 더 내려갈까" 상태 머신.
 //
-// main 의 탐사지 선택/현장 이벤트/업적 보상 흐름은 유지하고, 칸 맞추기 격자 룰만
-// "더 파낼지, 안정화할지, 지금 회수할지"를 판단하는 행동형 게임으로 교체한다.
+// 탐사지 선택/현장 이벤트/업적 보상 흐름은 유지하고, 발굴 판정은 전리품과 붕괴 위험
+// 사이에서 철수 타이밍을 고르는 push-your-luck 구조로 처리한다.
 
 import {
   ANTIQUES,
@@ -18,26 +18,31 @@ import {
 
 export const TREASURE_SESSION_KEY = "treasure-session.v1";
 
-export const ACTIONS_ALLOWED = 9;
-export const MIN_EXPOSURE_TO_EXTRACT = 70;
+export const ACTIONS_ALLOWED = 8;
+export const MAX_DEPTH = 5;
 export const COLLAPSE_RISK = 100;
 
-export type TreasureAction = "probe" | "shovel" | "brush" | "stabilize" | "extract";
+export type TreasureAction =
+  | "descend"
+  | "secure"
+  | "detour"
+  | "excavate"
+  | "retreat";
 
 export const TREASURE_ACTION_LABEL: Record<TreasureAction, string> = {
-  probe: "탐침",
-  shovel: "삽질",
-  brush: "붓질",
-  stabilize: "보강",
-  extract: "회수",
+  descend: "더 내려가기",
+  secure: "보강",
+  detour: "우회",
+  excavate: "정밀 발굴",
+  retreat: "챙기고 나가기",
 };
 
 export const TREASURE_ACTION_HELP: Record<TreasureAction, string> = {
-  probe: "유물의 윤곽과 성격을 파악합니다. 확신도가 크게 오르지만 위험도도 오릅니다.",
-  shovel: "흙을 크게 걷어냅니다. 빠르지만 보존도와 위험 부담이 큽니다.",
-  brush: "조심스럽게 노출도를 올립니다. 느리지만 보존도 손상이 적습니다.",
-  stabilize: "무너지는 흙을 다집니다. 진행은 거의 없지만 위험도를 낮춥니다.",
-  extract: "현재 상태로 유물을 회수합니다. 노출도가 낮으면 실패합니다.",
+  descend: "다음 층으로 곧장 내려갑니다. 보상이 크지만 붕괴 위험도 크게 오릅니다.",
+  secure: "버팀목을 세워 안정도를 회복하고 붕괴 위험을 낮춥니다.",
+  detour: "무른 지반을 피해 한 층 내려갑니다. 보상은 줄지만 위험 증가가 작습니다.",
+  excavate: "현재 층을 더 훑어 전리품과 판독 정보를 얻습니다.",
+  retreat: "지금까지 챙긴 전리품을 들고 발굴을 끝냅니다.",
 };
 
 export type TreasureSiteOptionId =
@@ -61,7 +66,7 @@ export const TREASURE_SITE_OPTIONS: readonly TreasureSiteOption[] = [
     id: "old_market",
     name: "옛 시장터",
     summary: "주화와 장신구가 많이 묻힌 넓은 터.",
-    effectLabel: "주화·장신구 확률 증가 · 행동 +1회 · 보존 -3",
+    effectLabel: "주화·장신구 확률 증가 · 선택 +1회 · 보존 -3",
     actionMod: 1,
     conditionBonus: -3,
     themeWeightMultiplier: { coin: 2.2, ornament: 1.6 },
@@ -71,7 +76,7 @@ export const TREASURE_SITE_OPTIONS: readonly TreasureSiteOption[] = [
     id: "royal_tomb",
     name: "왕가의 묘역",
     summary: "깊이 봉인된 대신 값진 부장품이 나올 수 있는 곳.",
-    effectLabel: "희귀 이상 확률 증가 · 행동 -1회",
+    effectLabel: "희귀 이상 확률 증가 · 선택 -1회",
     actionMod: -1,
     conditionBonus: 0,
     tierWeightMultiplier: { rare: 1.65, epic: 1.85, legendary: 2.1 },
@@ -143,8 +148,8 @@ export const TREASURE_FIELD_EVENTS: readonly TreasureFieldEvent[] = [
   {
     id: "sealed_chamber",
     name: "봉인된 방",
-    summary: "얇은 벽 너머에 숨은 공간이 있습니다. 탐침으로 확인해야 가치가 살아납니다.",
-    effectLabel: "탐침 사용 후 성공 시 감정가 +25%",
+    summary: "얇은 벽 너머에 숨은 공간이 있습니다. 정밀 발굴로 확인해야 가치가 살아납니다.",
+    effectLabel: "정밀 발굴 후 성공 시 감정가 +25%",
     weight: 25,
     conditionBonus: 0,
     appraisalBonusPct: 25,
@@ -163,53 +168,15 @@ export function treasureFieldEventById(
   return TREASURE_FIELD_EVENTS.find((event) => event.id === eventId) ?? null;
 }
 
-type ProgressAction = Exclude<TreasureAction, "extract">;
-
-type ProgressDelta = {
-  exposure: number;
-  preservation: number;
-  risk: number;
-  certainty: number;
-  message: string;
-};
-
-const PROGRESS_DELTAS: Record<ProgressAction, ProgressDelta> = {
-  probe: {
-    exposure: 7,
-    preservation: -1,
-    risk: 8,
-    certainty: 26,
-    message: "탐침으로 흙 아래의 윤곽을 읽었습니다.",
-  },
-  shovel: {
-    exposure: 24,
-    preservation: -8,
-    risk: 18,
-    certainty: 6,
-    message: "삽질로 덮인 흙을 크게 걷어냈습니다.",
-  },
-  brush: {
-    exposure: 12,
-    preservation: -2,
-    risk: 7,
-    certainty: 12,
-    message: "붓으로 표면을 조심스럽게 드러냈습니다.",
-  },
-  stabilize: {
-    exposure: 3,
-    preservation: -1,
-    risk: -24,
-    certainty: 4,
-    message: "흙벽을 보강해 붕괴 위험을 낮췄습니다.",
-  },
-};
+type ProgressAction = Exclude<TreasureAction, "retreat">;
 
 export type TreasureActionRecord = {
   action: TreasureAction;
-  exposure: number;
-  preservation: number;
+  depth: number;
+  haul: number;
+  stability: number;
   risk: number;
-  certainty: number;
+  insight: number;
   message: string;
 };
 
@@ -225,10 +192,12 @@ export type TreasureSession = {
   antiqueId: AntiqueId;
   condition: number;
   instability: number;
-  exposure: number;
-  preservation: number;
+  depth: number;
+  maxDepth: number;
+  haul: number;
+  stability: number;
   risk: number;
-  certainty: number;
+  insight: number;
   actionsAllowed: number;
   actions: TreasureActionRecord[];
   openedAt: number;
@@ -244,14 +213,18 @@ export type TreasureSitePublic = {
     TreasureFieldEvent,
     "id" | "name" | "summary" | "effectLabel" | "requiresProbe"
   > | null;
-  exposure: number;
-  preservation: number;
+  depth: number;
+  maxDepth: number;
+  haul: number;
+  stability: number;
   risk: number;
-  certainty: number;
+  insight: number;
   actionsAllowed: number;
   actionsUsed: number;
-  canExtract: boolean;
-  forcedExtract: boolean;
+  canRetreat: boolean;
+  forcedRetreat: boolean;
+  nextDepthReward: number;
+  nextDepthRisk: number;
   hints: TreasureHint[];
   actions: TreasureActionRecord[];
 };
@@ -265,8 +238,8 @@ function clampCondition(condition: number): number {
 }
 
 function riskTax(risk: number): number {
-  if (risk >= 90) return 10;
-  if (risk >= 75) return 6;
+  if (risk >= 90) return 12;
+  if (risk >= 75) return 7;
   if (risk >= 60) return 3;
   return 0;
 }
@@ -326,8 +299,23 @@ function instabilityForAntique(antiqueId: AntiqueId, rng: () => number): number 
   return tierTax + Math.floor(rng() * 7);
 }
 
+function layerReward(depth: number): number {
+  const rewards = [0, 16, 32, 55, 86, 128] as const;
+  return rewards[clamp(depth, 0, MAX_DEPTH)] ?? rewards[MAX_DEPTH];
+}
+
+function nextDepthRisk(session: TreasureSession, mode: "direct" | "detour"): number {
+  const nextDepth = clamp(session.depth + 1, 1, session.maxDepth);
+  const base =
+    mode === "direct"
+      ? 12 + nextDepth * 7 + Math.ceil(session.instability / 2)
+      : 7 + nextDepth * 4 + Math.ceil(session.instability / 3);
+  const footingBonus = session.stability >= 82 ? -3 : session.stability <= 35 ? 5 : 0;
+  return Math.max(1, base + footingBonus);
+}
+
 export function treasureUsedProbe(session: TreasureSession): boolean {
-  return session.actions.some((record) => record.action === "probe");
+  return session.actions.some((record) => record.action === "excavate");
 }
 
 export function treasureAppraisalBonusPct(session: TreasureSession): number {
@@ -346,9 +334,13 @@ export function applyTreasureAppraisalBonus(
 
 export function finalConditionForSession(session: TreasureSession): number {
   const fieldEvent = treasureFieldEventById(session.fieldEventId);
+  const depthBonus = Math.min(22, session.depth * 4 + session.haul * 0.07);
   return clampCondition(
-    session.condition * 0.55 +
-      session.preservation * 0.45 +
+    session.condition * 0.42 +
+      session.stability * 0.38 +
+      depthBonus +
+      session.insight * 0.06 -
+      riskTax(session.risk) +
       (fieldEvent?.conditionBonus ?? 0),
   );
 }
@@ -359,22 +351,22 @@ export function hintsForSession(session: TreasureSession): TreasureHint[] {
   const antique = ANTIQUES[session.antiqueId];
   const tier = ANTIQUE_TIERS[antique.tier];
   const hints: TreasureHint[] = [];
-  if (session.certainty >= 20) {
+  if (session.insight >= 15) {
     hints.push({
       key: "theme",
-      label: `${ANTIQUE_THEME_LABEL[antique.theme]} 계열의 흔적`,
+      label: `${ANTIQUE_THEME_LABEL[antique.theme]} 계열 흔적`,
     });
   }
-  if (session.certainty >= 45) {
+  if (session.insight >= 35) {
     hints.push({ key: "tier", label: `${tier.label} 등급 반응` });
   }
-  if (session.certainty >= 70) {
+  if (session.insight >= 60) {
     hints.push({
       key: "value",
       label: `온전하면 약 ${antique.baseValue.toLocaleString()}G급`,
     });
   }
-  if (session.certainty >= 90) {
+  if (session.insight >= 85 || session.depth >= session.maxDepth) {
     hints.push({ key: "name", label: antique.name });
   }
   return hints;
@@ -383,6 +375,7 @@ export function hintsForSession(session: TreasureSession): TreasureHint[] {
 export function toPublicSite(s: TreasureSession): TreasureSitePublic {
   const siteOption = treasureSiteOptionById(s.siteOptionId);
   const fieldEvent = treasureFieldEventById(s.fieldEventId);
+  const actionsUsed = s.actions.length;
   return {
     siteId: s.siteId,
     siteOption: {
@@ -402,14 +395,18 @@ export function toPublicSite(s: TreasureSession): TreasureSitePublic {
           requiresProbe: fieldEvent.requiresProbe,
         }
       : null,
-    exposure: s.exposure,
-    preservation: s.preservation,
+    depth: s.depth,
+    maxDepth: s.maxDepth,
+    haul: s.haul,
+    stability: s.stability,
     risk: s.risk,
-    certainty: s.certainty,
+    insight: s.insight,
     actionsAllowed: s.actionsAllowed,
-    actionsUsed: s.actions.length,
-    canExtract: s.exposure >= MIN_EXPOSURE_TO_EXTRACT,
-    forcedExtract: s.actions.length >= s.actionsAllowed,
+    actionsUsed,
+    canRetreat: s.haul > 0,
+    forcedRetreat: actionsUsed >= s.actionsAllowed || s.depth >= s.maxDepth,
+    nextDepthReward: s.depth >= s.maxDepth ? 0 : layerReward(s.depth + 1),
+    nextDepthRisk: s.depth >= s.maxDepth ? 0 : nextDepthRisk(s, "direct"),
     hints: hintsForSession(s),
     actions: s.actions.map((a) => ({ ...a })),
   };
@@ -438,10 +435,12 @@ export function rollNewSession(args: {
       rollCondition(antiqueId, rng) + siteOption.conditionBonus,
     ),
     instability: instabilityForAntique(antiqueId, rng),
-    exposure: 0,
-    preservation: 100,
-    risk: 12 + Math.floor(rng() * 10),
-    certainty: 0,
+    depth: 0,
+    maxDepth: MAX_DEPTH,
+    haul: 0,
+    stability: 88 + Math.floor(rng() * 9),
+    risk: 10 + Math.floor(rng() * 10),
+    insight: 0,
     actionsAllowed: Math.max(1, ACTIONS_ALLOWED + siteOption.actionMod),
     actions: [],
     openedAt: now,
@@ -466,14 +465,75 @@ function appendRecord(
       ...session.actions,
       {
         action,
-        exposure: session.exposure,
-        preservation: session.preservation,
+        depth: session.depth,
+        haul: session.haul,
+        stability: session.stability,
         risk: session.risk,
-        certainty: session.certainty,
+        insight: session.insight,
         message,
       },
     ],
   };
+}
+
+function applyProgress(
+  session: TreasureSession,
+  action: ProgressAction,
+): TreasureSession {
+  if (action === "secure") {
+    return {
+      ...session,
+      stability: clamp(session.stability + 14, 0, 100),
+      risk: clamp(session.risk - 24 - Math.floor(session.stability / 25), 0, COLLAPSE_RISK),
+      insight: clamp(session.insight + 4, 0, 100),
+    };
+  }
+
+  if (action === "excavate") {
+    const depth = Math.max(1, session.depth);
+    const nextRisk = clamp(
+      session.risk + 9 + depth * 5 + Math.ceil(session.instability / 2),
+      0,
+      COLLAPSE_RISK,
+    );
+    return {
+      ...session,
+      haul: clamp(session.haul + layerReward(depth) * 0.45, 0, 999),
+      stability: clamp(session.stability - (4 + depth + riskTax(nextRisk)), 0, 100),
+      risk: nextRisk,
+      insight: clamp(session.insight + 18 + depth, 0, 100),
+    };
+  }
+
+  const nextDepth = clamp(session.depth + 1, 1, session.maxDepth);
+  const direct = action === "descend";
+  const riskGain = nextDepthRisk(session, direct ? "direct" : "detour");
+  const nextRisk = clamp(session.risk + riskGain, 0, COLLAPSE_RISK);
+  return {
+    ...session,
+    depth: nextDepth,
+    haul: clamp(
+      session.haul + layerReward(nextDepth) * (direct ? 1 : 0.58),
+      0,
+      999,
+    ),
+    stability: clamp(
+      session.stability - (direct ? 7 + nextDepth * 2 : 4 + nextDepth),
+      0,
+      100,
+    ),
+    risk: nextRisk,
+    insight: clamp(session.insight + (direct ? 10 + nextDepth * 2 : 7 + nextDepth), 0, 100),
+  };
+}
+
+function progressMessage(action: ProgressAction, after: TreasureSession) {
+  if (action === "secure") return "버팀목을 세워 지반을 붙잡았습니다.";
+  if (action === "excavate") return "현재 층을 훑어 들고 나갈 발견물을 더 챙겼습니다.";
+  if (action === "detour") {
+    return `${after.depth}층으로 우회했습니다. 전리품은 줄었지만 길이 안정적입니다.`;
+  }
+  return `${after.depth}층까지 내려갔습니다. 더 큰 발견물이 손에 들어왔습니다.`;
 }
 
 export function applyTreasureAction(
@@ -482,37 +542,13 @@ export function applyTreasureAction(
 ): TreasureActionResult {
   if (!isTreasureAction(action)) return { kind: "invalid", session };
 
-  if (action === "extract") {
-    if (session.exposure < MIN_EXPOSURE_TO_EXTRACT) {
-      const penalty = MIN_EXPOSURE_TO_EXTRACT - session.exposure;
-      const next = appendRecord(
-        {
-          ...session,
-          preservation: clamp(session.preservation - penalty, MIN_CONDITION, 100),
-          risk: COLLAPSE_RISK,
-        },
-        action,
-        "노출이 부족한 상태로 당겨 유물이 흙 속에서 부서졌습니다.",
-      );
-      return {
-        kind: "failed",
-        session: next,
-        message: "노출이 부족한 상태로 당겨 유물이 흙 속에서 부서졌습니다.",
-      };
+  if (action === "retreat") {
+    if (session.haul <= 0) {
+      const message = "챙길 발견물이 없는 상태로 철수해 발굴이 무산됐습니다.";
+      const next = appendRecord(session, action, message);
+      return { kind: "failed", session: next, message };
     }
-    const roughnessPenalty = clamp((100 - session.exposure) * 0.2, 0, 8);
-    const next = appendRecord(
-      {
-        ...session,
-        preservation: clamp(
-          session.preservation - roughnessPenalty - riskTax(session.risk) * 0.5,
-          MIN_CONDITION,
-          100,
-        ),
-      },
-      action,
-      "유물을 회수했습니다.",
-    );
+    const next = appendRecord(session, action, "발견물을 들고 지상으로 철수했습니다.");
     return {
       kind: "extracted",
       session: next,
@@ -520,48 +556,32 @@ export function applyTreasureAction(
     };
   }
 
-  if (session.actions.length >= session.actionsAllowed) {
+  if (session.actions.length >= session.actionsAllowed || session.depth >= session.maxDepth) {
     return { kind: "invalid", session };
   }
 
-  const delta = PROGRESS_DELTAS[action];
-  const riskGain =
-    delta.risk > 0 ? delta.risk + Math.ceil(session.instability / 2) : delta.risk;
-  const nextRisk = clamp(session.risk + riskGain, 0, COLLAPSE_RISK);
-  const next = appendRecord(
-    {
-      ...session,
-      exposure: clamp(session.exposure + delta.exposure, 0, 100),
-      preservation: clamp(
-        session.preservation + delta.preservation - riskTax(nextRisk),
-        MIN_CONDITION,
-        100,
-      ),
-      risk: nextRisk,
-      certainty: clamp(session.certainty + delta.certainty, 0, 100),
-    },
-    action,
-    delta.message,
-  );
+  const progressed = applyProgress(session, action);
+  const message = progressMessage(action, progressed);
+  const next = appendRecord(progressed, action, message);
 
-  if (next.risk >= COLLAPSE_RISK) {
+  if (next.risk >= COLLAPSE_RISK || next.stability <= 0) {
     return {
       kind: "collapsed",
       session: next,
-      message: "지반이 무너져 발굴 지점을 잃었습니다.",
+      message: "갱도가 무너져 들고 있던 발견물을 모두 잃었습니다.",
     };
   }
 
-  return { kind: "progress", session: next, message: delta.message };
+  return { kind: "progress", session: next, message };
 }
 
 export function isTreasureAction(v: unknown): v is TreasureAction {
   return (
-    v === "probe" ||
-    v === "shovel" ||
-    v === "brush" ||
-    v === "stabilize" ||
-    v === "extract"
+    v === "descend" ||
+    v === "secure" ||
+    v === "detour" ||
+    v === "excavate" ||
+    v === "retreat"
   );
 }
 
@@ -572,40 +592,60 @@ function isRecord(raw: unknown): raw is Record<string, unknown> {
 function parseActionRecord(raw: unknown): TreasureActionRecord | null {
   if (!isRecord(raw)) return null;
   if (!isTreasureAction(raw.action)) return null;
-  const exposure = raw.exposure;
-  const preservation = raw.preservation;
-  const risk = raw.risk;
-  const certainty = raw.certainty;
-  const message = raw.message;
+  const { depth, haul, stability, risk, insight, message } = raw;
   if (
-    typeof exposure !== "number" ||
-    typeof preservation !== "number" ||
+    typeof depth !== "number" ||
+    typeof haul !== "number" ||
+    typeof stability !== "number" ||
     typeof risk !== "number" ||
-    typeof certainty !== "number" ||
+    typeof insight !== "number" ||
     typeof message !== "string"
   ) {
     return null;
   }
   if (
-    exposure < 0 ||
-    exposure > 100 ||
-    preservation < MIN_CONDITION ||
-    preservation > 100 ||
+    depth < 0 ||
+    depth > MAX_DEPTH ||
+    haul < 0 ||
+    haul > 999 ||
+    stability < 0 ||
+    stability > 100 ||
     risk < 0 ||
     risk > COLLAPSE_RISK ||
-    certainty < 0 ||
-    certainty > 100
+    insight < 0 ||
+    insight > 100
   ) {
     return null;
   }
   return {
     action: raw.action,
-    exposure: clamp(exposure, 0, 100),
-    preservation: clamp(preservation, MIN_CONDITION, 100),
+    depth: clamp(depth, 0, MAX_DEPTH),
+    haul: clamp(haul, 0, 999),
+    stability: clamp(stability, 0, 100),
     risk: clamp(risk, 0, COLLAPSE_RISK),
-    certainty: clamp(certainty, 0, 100),
+    insight: clamp(insight, 0, 100),
     message,
   };
+}
+
+function parseSiteOptionId(raw: unknown): TreasureSiteOptionId {
+  return isTreasureSiteOptionId(raw) ? raw : DEFAULT_TREASURE_SITE_OPTION_ID;
+}
+
+function parseFieldEventId(raw: unknown): TreasureFieldEventId | null {
+  return isTreasureFieldEventId(raw) ? raw : null;
+}
+
+function legacyRecord(
+  action: TreasureAction,
+  depth: number,
+  haul: number,
+  stability: number,
+  risk: number,
+  insight: number,
+  message: string,
+): TreasureActionRecord {
+  return { action, depth, haul, stability, risk, insight, message };
 }
 
 function parseLegacyGridSession(raw: Record<string, unknown>): TreasureSession | null {
@@ -622,39 +662,39 @@ function parseLegacyGridSession(raw: Record<string, unknown>): TreasureSession |
   ) {
     return null;
   }
-  const siteOptionId = isTreasureSiteOptionId(raw.siteOptionId)
-    ? raw.siteOptionId
-    : DEFAULT_TREASURE_SITE_OPTION_ID;
-  const fieldEventId = isTreasureFieldEventId(raw.fieldEventId)
-    ? raw.fieldEventId
-    : null;
   const migratedActions = Math.min(raw.digs.length, ACTIONS_ALLOWED);
+  const depth = clamp(Math.floor(migratedActions / 2), 0, 2);
+  const haul = clamp(migratedActions * 18, 0, 140);
+  const stability = clamp(92 - migratedActions * 4, 0, 100);
+  const risk = clamp(14 + migratedActions * 7, 0, 82);
+  const insight = clamp(migratedActions * 14, 0, 88);
   const actions: TreasureActionRecord[] = Array.from(
     { length: migratedActions },
-    (_, idx) => ({
-      action: "probe",
-      exposure: clamp((idx + 1) * 9, 0, 64),
-      preservation: clamp(100 - (idx + 1) * 3, MIN_CONDITION, 100),
-      risk: clamp(14 + (idx + 1) * 7, 0, 82),
-      certainty: clamp((idx + 1) * 14, 0, 88),
-      message: "이전 발굴 기록을 새 방식으로 이전했습니다.",
-    }),
+    (_, idx) =>
+      legacyRecord(
+        "excavate",
+        clamp(Math.floor((idx + 1) / 2), 0, 2),
+        clamp((idx + 1) * 18, 0, 140),
+        clamp(92 - (idx + 1) * 4, 0, 100),
+        clamp(14 + (idx + 1) * 7, 0, 82),
+        clamp((idx + 1) * 14, 0, 88),
+        "이전 발굴 기록을 심도 돌파형으로 이전했습니다.",
+      ),
   );
   return {
     siteId: raw.siteId,
-    siteOptionId,
-    fieldEventId,
+    siteOptionId: parseSiteOptionId(raw.siteOptionId),
+    fieldEventId: parseFieldEventId(raw.fieldEventId),
     antiqueId: raw.antiqueId,
     condition: clampCondition(condition),
     instability: 3,
-    exposure: clamp(migratedActions * 9, 0, 64),
-    preservation: clamp(100 - migratedActions * 3, MIN_CONDITION, 100),
-    risk: clamp(14 + migratedActions * 7, 0, 82),
-    certainty: clamp(migratedActions * 14, 0, 88),
-    actionsAllowed: Math.max(
-      1,
-      ACTIONS_ALLOWED + treasureSiteOptionById(siteOptionId).actionMod,
-    ),
+    depth,
+    maxDepth: MAX_DEPTH,
+    haul,
+    stability,
+    risk,
+    insight,
+    actionsAllowed: ACTIONS_ALLOWED,
     actions,
     openedAt:
       typeof raw.openedAt === "number" && Number.isFinite(raw.openedAt)
@@ -663,34 +703,100 @@ function parseLegacyGridSession(raw: Record<string, unknown>): TreasureSession |
   };
 }
 
-// 손상/빈 입력은 null(=열린 세션 없음). 옛 격자 세션은 새 상태로 이전해 이미 쓴 지도 조각을 보존.
-export function parseTreasureSession(raw: unknown): TreasureSession | null {
-  if (!isRecord(raw)) return null;
-  const legacy = parseLegacyGridSession(raw);
-  if (legacy) return legacy;
+function parseLegacyExposureSession(raw: Record<string, unknown>): TreasureSession | null {
   if (typeof raw.siteId !== "string" || !raw.siteId) return null;
   if (typeof raw.antiqueId !== "string" || !isAntiqueId(raw.antiqueId)) return null;
+  const { condition, exposure, preservation, risk, certainty } = raw;
+  if (
+    typeof condition !== "number" ||
+    typeof exposure !== "number" ||
+    typeof preservation !== "number" ||
+    typeof risk !== "number" ||
+    typeof certainty !== "number"
+  ) {
+    return null;
+  }
+  if (
+    condition < MIN_CONDITION ||
+    condition > 100 ||
+    exposure < 0 ||
+    exposure > 100 ||
+    preservation < MIN_CONDITION ||
+    preservation > 100 ||
+    risk < 0 ||
+    risk > COLLAPSE_RISK ||
+    certainty < 0 ||
+    certainty > 100
+  ) {
+    return null;
+  }
+  const sourceActions = Array.isArray(raw.actions) ? raw.actions : [];
+  const migratedActions = Math.min(sourceActions.length, ACTIONS_ALLOWED);
+  const depth = clamp(Math.floor(exposure / 24), 0, MAX_DEPTH - 1);
+  const haul = clamp(exposure * 1.2 + migratedActions * 8, 0, 220);
+  const stability = clamp(preservation, 0, 100);
+  const insight = clamp(certainty, 0, 100);
+  const actions: TreasureActionRecord[] = Array.from(
+    { length: migratedActions },
+    (_, idx) =>
+      legacyRecord(
+        "excavate",
+        clamp(Math.floor(((idx + 1) / Math.max(1, migratedActions)) * depth), 0, MAX_DEPTH),
+        clamp(((idx + 1) / Math.max(1, migratedActions)) * haul, 0, 220),
+        clamp(100 - (idx + 1) * 5, 0, 100),
+        clamp(12 + (idx + 1) * 8, 0, 90),
+        clamp(((idx + 1) / Math.max(1, migratedActions)) * insight, 0, 100),
+        "이전 발굴 기록을 심도 돌파형으로 이전했습니다.",
+      ),
+  );
+  return {
+    siteId: raw.siteId,
+    siteOptionId: parseSiteOptionId(raw.siteOptionId),
+    fieldEventId: parseFieldEventId(raw.fieldEventId),
+    antiqueId: raw.antiqueId,
+    condition: clampCondition(condition),
+    instability:
+      typeof raw.instability === "number" && raw.instability >= 0 && raw.instability <= 20
+        ? clamp(raw.instability, 0, 20)
+        : 3,
+    depth,
+    maxDepth: MAX_DEPTH,
+    haul,
+    stability,
+    risk: clamp(risk, 0, 92),
+    insight,
+    actionsAllowed: ACTIONS_ALLOWED,
+    actions,
+    openedAt:
+      typeof raw.openedAt === "number" && Number.isFinite(raw.openedAt)
+        ? raw.openedAt
+        : 0,
+  };
+}
 
-  const siteOptionId = isTreasureSiteOptionId(raw.siteOptionId)
-    ? raw.siteOptionId
-    : DEFAULT_TREASURE_SITE_OPTION_ID;
-  const fieldEventId = isTreasureFieldEventId(raw.fieldEventId)
-    ? raw.fieldEventId
-    : null;
-  const condition = raw.condition;
-  const instability = raw.instability;
-  const exposure = raw.exposure;
-  const preservation = raw.preservation;
-  const risk = raw.risk;
-  const certainty = raw.certainty;
+export function parseTreasureSession(raw: unknown): TreasureSession | null {
+  if (!isRecord(raw)) return null;
+  const legacyGrid = parseLegacyGridSession(raw);
+  if (legacyGrid) return legacyGrid;
+  const legacyExposure = parseLegacyExposureSession(raw);
+  if (legacyExposure) return legacyExposure;
+
+  if (typeof raw.siteId !== "string" || !raw.siteId) return null;
+  if (!isTreasureSiteOptionId(raw.siteOptionId)) return null;
+  if (raw.fieldEventId !== null && !isTreasureFieldEventId(raw.fieldEventId)) return null;
+  if (typeof raw.antiqueId !== "string" || !isAntiqueId(raw.antiqueId)) return null;
+
+  const { condition, instability, depth, maxDepth, haul, stability, risk, insight } = raw;
   const actionsAllowed = raw.actionsAllowed;
   if (
     typeof condition !== "number" ||
     typeof instability !== "number" ||
-    typeof exposure !== "number" ||
-    typeof preservation !== "number" ||
+    typeof depth !== "number" ||
+    typeof maxDepth !== "number" ||
+    typeof haul !== "number" ||
+    typeof stability !== "number" ||
     typeof risk !== "number" ||
-    typeof certainty !== "number" ||
+    typeof insight !== "number" ||
     typeof actionsAllowed !== "number"
   ) {
     return null;
@@ -700,14 +806,19 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     condition > 100 ||
     instability < 0 ||
     instability > 20 ||
-    exposure < 0 ||
-    exposure > 100 ||
-    preservation < MIN_CONDITION ||
-    preservation > 100 ||
+    depth < 0 ||
+    depth > MAX_DEPTH ||
+    maxDepth < 1 ||
+    maxDepth > MAX_DEPTH ||
+    depth > maxDepth ||
+    haul < 0 ||
+    haul > 999 ||
+    stability < 0 ||
+    stability > 100 ||
     risk < 0 ||
     risk > COLLAPSE_RISK ||
-    certainty < 0 ||
-    certainty > 100 ||
+    insight < 0 ||
+    insight > 100 ||
     !Number.isInteger(actionsAllowed) ||
     actionsAllowed < 1 ||
     actionsAllowed > 20 ||
@@ -731,15 +842,17 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
 
   return {
     siteId: raw.siteId,
-    siteOptionId,
-    fieldEventId,
+    siteOptionId: raw.siteOptionId,
+    fieldEventId: raw.fieldEventId,
     antiqueId: raw.antiqueId,
     condition: clampCondition(condition),
     instability: clamp(instability, 0, 20),
-    exposure: clamp(exposure, 0, 100),
-    preservation: clamp(preservation, MIN_CONDITION, 100),
+    depth: clamp(depth, 0, MAX_DEPTH),
+    maxDepth: clamp(maxDepth, 1, MAX_DEPTH),
+    haul: clamp(haul, 0, 999),
+    stability: clamp(stability, 0, 100),
     risk: clamp(risk, 0, COLLAPSE_RISK),
-    certainty: clamp(certainty, 0, 100),
+    insight: clamp(insight, 0, 100),
     actionsAllowed,
     actions,
     openedAt,

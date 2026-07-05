@@ -179,6 +179,8 @@ export type V2CommonSkillId =
   | "v2c_overlord_throne" // 광기의 왕좌 (광전 + 치명피해)
   | "v2c_arcanist_burst" // 비전 폭발 (순수 마법 피해)
   | "v2c_arcanist_theory" // 비전 이론 (지능 + 치명확률)
+  | "v2c_elementallord_surge" // 원소 폭주 (속성별 강화 마법)
+  | "v2c_elementallord_resonance" // 원소 공명 (원소 폭주 보조 효과 강화)
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
@@ -1306,6 +1308,68 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { int: 18 }, critPct: 8 },
+  },
+  v2c_elementallord_surge: {
+    id: "v2c_elementallord_surge", name: "원소 폭주", stat: "int", category: "attack", tier: 3,
+    description: "선택한 원소를 폭주시켜 강한 마법 피해와 속성별 권능을 함께 발현한다.",
+    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(1.65, 320, "magic")],
+    elementEffects: {
+      fire: [
+        dmg(1.65, 320, "magic"),
+        { kind: "dot", ...V2_DOT_PRESETS.연소 },
+        { kind: "enemyHealReduce", pct: 55, turns: 3 },
+      ],
+      water: [
+        dmg(1.65, 320, "magic"),
+        { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
+      ],
+      wind: [dmg(1.65, 320, "magic"), { kind: "selfHaste", pct: 55 }],
+      earth: [dmg(1.65, 320, "magic"), { kind: "enemyDelay", pct: 55 }],
+      lightning: [dmg(1.65, 320, "magic"), { kind: "enemyVuln", pct: 22, turns: 3 }],
+      starlight: [
+        dmg(1.65, 320, "magic"),
+        { kind: "enemyEvasionDown", pct: 24, turns: 3 },
+      ],
+      void: [
+        dmg(1.65, 320, "magic"),
+        { kind: "enemyAccuracyDown", pct: 24, turns: 3 },
+      ],
+    },
+    elementEffectSynergies: [
+      {
+        requiredSkillId: "v2c_elementallord_resonance",
+        elementEffects: {
+          fire: [
+            dmg(1.65, 320, "magic"),
+            { kind: "dot", ...V2_DOT_PRESETS.연소 },
+            { kind: "enemyHealReduce", pct: 65, turns: 3 },
+          ],
+          water: [
+            dmg(1.65, 320, "magic"),
+            { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },
+          ],
+          wind: [dmg(1.65, 320, "magic"), { kind: "selfHaste", pct: 65 }],
+          earth: [dmg(1.65, 320, "magic"), { kind: "enemyDelay", pct: 65 }],
+          lightning: [dmg(1.65, 320, "magic"), { kind: "enemyVuln", pct: 28, turns: 3 }],
+          starlight: [
+            dmg(1.65, 320, "magic"),
+            { kind: "enemyEvasionDown", pct: 30, turns: 3 },
+          ],
+          void: [
+            dmg(1.65, 320, "magic"),
+            { kind: "enemyAccuracyDown", pct: 30, turns: 3 },
+          ],
+        },
+      },
+    ],
+  },
+  v2c_elementallord_resonance: {
+    id: "v2c_elementallord_resonance", name: "원소 공명", stat: "int", category: "passive", tier: 3,
+    description: "현재 원소와 깊게 공명한다. 원소 폭주의 속성별 보조 효과가 강화된다.",
+    mpCost: 0, cooldown: 0, learnCost: 8000,
+    effects: [],
+    passive: { elementResonance: true },
   },
   v2c_marksman_shot: {
     id: "v2c_marksman_shot", name: "정밀 사격", stat: "dex", category: "attack", tier: 3,

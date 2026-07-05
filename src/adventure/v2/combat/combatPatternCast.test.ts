@@ -210,6 +210,19 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(boosted.castSkillId).toBe(SKILL);
   });
 
+  it("procChanceBonus 음수 보정은 0 아래로 클램프되어 발동을 막는다", () => {
+    const suppressed = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 0,
+        procChanceBonus: -100,
+        combatPattern: always,
+        applyProcInPattern: true,
+      }),
+    );
+
+    expect(suppressed.castSkillId).toBeNull();
+  });
+
   it("applyProcInPattern=true + procRoll 미지정이면 항상 발동(구 호출·테스트 호환)", () => {
     // procRoll 없으면 게이트 스킵 → 확정 발동(엔진은 항상 procRoll 주입하지만 방어).
     const r = resolveV2SkillCast(
@@ -447,6 +460,32 @@ describe("resolveV2SkillCast — 각인술사 복수 장착 시너지", () => {
     expect(base.shieldToApply).toMatchObject({ mp: 10, turns: 3 });
     expect(amplified.shieldToApply).toMatchObject({ mp: 16, turns: 3 });
     expect(amplified.enemyVulnToApply).toEqual({ pct: 14, turns: 2 });
+  });
+});
+
+describe("resolveV2SkillCast — 주술사 고차 디버프", () => {
+  it("재앙의 낙인은 쇠약과 금제를 함께 적용한다", () => {
+    const r = resolveV2SkillCast(castInput(["v2c_calamitycaller_brand"]));
+
+    expect(r.castSkillId).toBe("v2c_calamitycaller_brand");
+    expect(r.enemyDamage).toBeGreaterThan(0);
+    expect(r.enemyDamageDownToApply).toEqual({ pct: 14, turns: 3 });
+    expect(r.enemySkillProcDownToApply).toEqual({ pct: 18, turns: 3 });
+  });
+
+  it("종말 선고는 침식과 마법취약 스택 보상 피해를 적용한다", () => {
+    const target = {
+      ...castInput(["v2c_doomprophet_sentence"]).target,
+      magicVulnStacks: 5,
+    };
+    const noStacks = resolveV2SkillCast(castInput(["v2c_doomprophet_sentence"]));
+    const stacked = resolveV2SkillCast(
+      castInput(["v2c_doomprophet_sentence"], { target }),
+    );
+
+    expect(stacked.castSkillId).toBe("v2c_doomprophet_sentence");
+    expect(stacked.enemyDotVulnToApply).toEqual({ pct: 24, turns: 3 });
+    expect(stacked.enemyDamage).toBeGreaterThan(noStacks.enemyDamage);
   });
 });
 

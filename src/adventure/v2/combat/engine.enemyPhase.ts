@@ -707,6 +707,16 @@ export function resolveEnemyPhase(
           Math.floor(rawDmgBeforeCurse * (1 + curseDamageTakenPct / 100)),
         )
       : rawDmgBeforeCurse;
+  const rawDmgAfterEnemyDamageDown =
+    state.stacks.enemyDamageDownTurns > 0 && state.stacks.enemyDamageDownPct > 0
+      ? Math.max(
+          1,
+          Math.floor(
+            rawDmgBeforeReduction *
+              (1 - state.stacks.enemyDamageDownPct / 100),
+          ),
+        )
+      : rawDmgBeforeReduction;
   // 결의 (AP) — 받는 피해 -pct%. 가드/굳건/철벽 전에 곱연산으로 먼저 깎이도록.
   const rawDmg =
     state.buffs.playerDmgReductionTurnsLeft > 0 &&
@@ -714,11 +724,11 @@ export function resolveEnemyPhase(
       ? Math.max(
           1,
           Math.floor(
-            rawDmgBeforeReduction *
+            rawDmgAfterEnemyDamageDown *
               (1 - state.buffs.playerDmgReductionPct / 100),
           ),
         )
-      : rawDmgBeforeReduction;
+      : rawDmgAfterEnemyDamageDown;
   // 별빛 인내(enchant endure) — 받는 피해 -pct%. 결의 다음, 가드/굳건/철벽 전에 곱연산.
   // 항상 활성(시한부 X). 최소 1 클램프.
   const endurePct = player.enchantEndurePct ?? 0;

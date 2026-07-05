@@ -514,6 +514,9 @@ export type V2SkillCastResult = {
   selfHasteToApply?: { pct: number }; // 바람(원소술사) — ATB 내 다음 행동 가속 %(1회). 비-ATB 무시.
   enemyDelayToApply?: { pct: number }; // 대지(원소술사) — ATB 적 다음 행동 지연 %(1회). 비-ATB 무시.
   enemyHealReduceToApply?: { pct: number; turns: number }; // 화상(원소술사 불) — 적 회복 −%(N턴)
+  enemyDamageDownToApply?: { pct: number; turns: number }; // 쇠약 — 적 주는 직접 피해 −%(N턴)
+  enemySkillProcDownToApply?: { pct: number; turns: number }; // 금제 — 적 스킬 발동률 −%p(N턴)
+  enemyDotVulnToApply?: { pct: number; turns: number }; // 침식 — 적 지속/저주 피해 +%(N턴)
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
 };
 
@@ -699,11 +702,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         input.skills.enhancements,
         candidateId,
       );
-      const procChance = Math.min(
-        100,
-        (candidateDef.procChance ?? 100) +
-          (input.procChanceBonus ?? 0) +
-          ritualFocusBonus,
+      const procChance = Math.max(
+        0,
+        Math.min(
+          100,
+          (candidateDef.procChance ?? 100) +
+            (input.procChanceBonus ?? 0) +
+            ritualFocusBonus,
+        ),
       );
       if (
         procChance < 100 &&
@@ -785,6 +791,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let selfHasteToApply: V2SkillCastResult["selfHasteToApply"];
   let enemyDelayToApply: V2SkillCastResult["enemyDelayToApply"];
   let enemyHealReduceToApply: V2SkillCastResult["enemyHealReduceToApply"];
+  let enemyDamageDownToApply: V2SkillCastResult["enemyDamageDownToApply"];
+  let enemySkillProcDownToApply: V2SkillCastResult["enemySkillProcDownToApply"];
+  let enemyDotVulnToApply: V2SkillCastResult["enemyDotVulnToApply"];
 
   // 전문화 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
   const tierIdx = Math.min(2, Math.max(0, (input.attacker.classTier ?? 2) - 2));
@@ -948,6 +957,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     } else if (effect.kind === "enemyHealReduce") {
       // 화상 — 적 회복 효과 감소 디버프(N턴). 소비는 적/상대 회복 지점(회복 스킬·재생).
       enemyHealReduceToApply = { pct: effect.pct, turns: effect.turns };
+    } else if (effect.kind === "enemyDamageDown") {
+      enemyDamageDownToApply = { pct: effect.pct, turns: effect.turns };
+    } else if (effect.kind === "enemySkillProcDown") {
+      enemySkillProcDownToApply = { pct: effect.pct, turns: effect.turns };
+    } else if (effect.kind === "enemyDotVuln") {
+      enemyDotVulnToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "hpCostDamage") {
       // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
       const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
@@ -1122,6 +1137,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     selfHasteToApply,
     enemyDelayToApply,
     enemyHealReduceToApply,
+    enemyDamageDownToApply,
+    enemySkillProcDownToApply,
+    enemyDotVulnToApply,
     manaRestored: manaRestore,
   };
 }

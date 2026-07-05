@@ -98,12 +98,14 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   fullcatchking: ["v2c_fullcatchking_bountyhaul"], // 만선왕 — 만선 조업
   transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"], // 초월자: 만상검 + 초월 조화
   bloodlord: ["v2c_bloodlord_brand", "v2c_bloodlord_martyrdom"], // 혈성군주: 왕혈 낙인 + 불사의 순교
+  calamitycaller: ["v2c_calamitycaller_brand", "v2c_calamitycaller_omen"], // 재앙술사: 재앙의 낙인 + 흉조 III
   // ── 6차 직업 — 5차 직업 숙련도 기반 엔드 성장 ──
   fortressknight: ["v2c_fortressknight_ram", "v2c_fortressknight_citadel"], // 성채기사: 성채 충각 + 움직이는 성채
   swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence"], // 검성: 무심검 + 검성의 경지
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕난무 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory"], // 대마도사: 비전 붕괴 + 대마도 이론
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
+  doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류

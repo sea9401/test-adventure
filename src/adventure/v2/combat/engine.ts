@@ -620,6 +620,12 @@ function applySkillTempBuffs(
     enemyAccuracyDownTurns: result.enemyAccuracyDownToApply ? result.enemyAccuracyDownToApply.turns : prev.enemyAccuracyDownTurns,
     enemyHealReducePct: result.enemyHealReduceToApply?.pct ?? prev.enemyHealReducePct,
     enemyHealReduceTurns: result.enemyHealReduceToApply ? result.enemyHealReduceToApply.turns : prev.enemyHealReduceTurns,
+    enemyDamageDownPct: result.enemyDamageDownToApply?.pct ?? prev.enemyDamageDownPct,
+    enemyDamageDownTurns: result.enemyDamageDownToApply ? result.enemyDamageDownToApply.turns : prev.enemyDamageDownTurns,
+    enemySkillProcDownPct: result.enemySkillProcDownToApply?.pct ?? prev.enemySkillProcDownPct,
+    enemySkillProcDownTurns: result.enemySkillProcDownToApply ? result.enemySkillProcDownToApply.turns : prev.enemySkillProcDownTurns,
+    enemyDotVulnPct: result.enemyDotVulnToApply?.pct ?? prev.enemyDotVulnPct,
+    enemyDotVulnTurns: result.enemyDotVulnToApply ? result.enemyDotVulnToApply.turns : prev.enemyDotVulnTurns,
   };
 }
 
@@ -662,6 +668,9 @@ export function finishPlayerTurn(
         enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
         enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
         enemyHealReduceTurns: Math.max(0, s.enemyHealReduceTurns - 1),
+        enemyDamageDownTurns: Math.max(0, s.enemyDamageDownTurns - 1),
+        enemySkillProcDownTurns: Math.max(0, s.enemySkillProcDownTurns - 1),
+        enemyDotVulnTurns: Math.max(0, s.enemyDotVulnTurns - 1),
       },
     };
   }
@@ -914,6 +923,12 @@ export function initialBattleState(
       enemyAccuracyDownTurns: 0,
       enemyHealReducePct: 0,
       enemyHealReduceTurns: 0,
+      enemyDamageDownPct: 0,
+      enemyDamageDownTurns: 0,
+      enemySkillProcDownPct: 0,
+      enemySkillProcDownTurns: 0,
+      enemyDotVulnPct: 0,
+      enemyDotVulnTurns: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     v2Skills,
@@ -972,8 +987,12 @@ export function advanceTurn(
       },
     };
     const enemyDotTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
-    if (enemyDotTick.totalDmg > 0) {
-      const newHp = Math.max(0, state.enemyHp - enemyDotTick.totalDmg);
+    const enemyDotDamage =
+      enemyDotTick.totalDmg > 0 && state.stacks.enemyDotVulnTurns > 0
+        ? Math.floor(enemyDotTick.totalDmg * (1 + state.stacks.enemyDotVulnPct / 100))
+        : enemyDotTick.totalDmg;
+    if (enemyDotDamage > 0) {
+      const newHp = Math.max(0, state.enemyHp - enemyDotDamage);
       state = applyPhaseTriggerIfAny({
         ...state,
         enemyHp: newHp,
@@ -983,7 +1002,7 @@ export function advanceTurn(
           text: `[${state.enemyV2Dots
             .filter((d) => d.turns > 0)
             .map((d) => d.label)
-            .join(" + ")}] ${enemyDotTick.totalDmg} 피해를 입혔다.`,
+            .join(" + ")}] ${enemyDotDamage} 피해를 입혔다.`,
         }),
       });
       if (state.enemyHp <= 0) {
@@ -1089,6 +1108,10 @@ export function applyEnemyV2SkillCast(
     skills: state.enemyV2Skills,
     cooldowns: state.enemyV2SkillCooldowns,
     procRoll: Math.random() * 100,
+    procChanceBonus:
+      state.stacks.enemySkillProcDownTurns > 0
+        ? -state.stacks.enemySkillProcDownPct
+        : 0,
     attacker: {
       mp: state.enemyMp,
       atk: state.enemy.atk,
@@ -1132,11 +1155,15 @@ export function applyEnemyV2SkillCast(
   let nextPlayerHp = state.playerHp;
   let nextEnemyHp = state.enemyHp;
   let nextLog = state.log;
-  if (result.enemyDamage > 0 && result.castSkillName) {
-    nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
+  const enemySkillDamage =
+    result.enemyDamage > 0 && state.stacks.enemyDamageDownTurns > 0
+      ? Math.floor(result.enemyDamage * (1 - state.stacks.enemyDamageDownPct / 100))
+      : result.enemyDamage;
+  if (enemySkillDamage > 0 && result.castSkillName) {
+    nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamage);
     nextLog = appendLog(nextLog, {
       kind: "enemy_attack",
-      text: `${result.castSkillName}! ${result.enemyDamage} 피해를 입혔다.`,
+      text: `${result.castSkillName}! ${enemySkillDamage} 피해를 입혔다.`,
     });
   }
   if (result.selfHeal > 0 && result.castSkillName) {
@@ -1204,7 +1231,7 @@ export function applyEnemyV2SkillCast(
     });
   }
   const countered =
-    result.enemyDamage > 0 && result.castSkillName
+    enemySkillDamage > 0 && result.castSkillName
       ? applyPassiveCounterOnHitIfAny(
           {
             ...state,
@@ -1371,6 +1398,10 @@ export function applyPlayerV2SkillCast(
     (state.stacks.enemyMagicVulnStacks *
       (player.enemyMagicVulnPctPerStack ?? 0)) /
       100;
+  const erosionMult =
+    state.stacks.enemyDotVulnTurns > 0 && state.stacks.enemyMagicVulnStacks > 0
+      ? 1 + state.stacks.enemyDotVulnPct / 100
+      : 1;
   // PR2-B-2c 속박 — 적 취약(받는 피해 +%) 가산.
   const vulnMult =
     state.stacks.enemyVulnTurns > 0
@@ -1402,6 +1433,7 @@ export function applyPlayerV2SkillCast(
     skillDamageBase *
       spellStackMult *
       magicVulnMult *
+      erosionMult *
       vulnMult *
       // 밤그림자(skillCritOverflow) — 스킬 크리에도 크리 오버플로(75% 초과분 크리뎀) 가산. 전역=flat.
       (skillCritFired
@@ -1627,6 +1659,27 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  if (result.enemyDamageDownToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "쇠약"}] 적 주는 피해 −${result.enemyDamageDownToApply.pct}% (${result.enemyDamageDownToApply.turns}행동)`,
+      turn: "player",
+    });
+  }
+  if (result.enemySkillProcDownToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "금제"}] 적 스킬 발동률 −${result.enemySkillProcDownToApply.pct}%p (${result.enemySkillProcDownToApply.turns}행동)`,
+      turn: "player",
+    });
+  }
+  if (result.enemyDotVulnToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "침식"}] 적 지속/저주 피해 +${result.enemyDotVulnToApply.pct}% (${result.enemyDotVulnToApply.turns}행동)`,
+      turn: "player",
+    });
+  }
   state = {
     ...state,
     playerHp: nextPlayerHp,
@@ -1849,6 +1902,10 @@ function resolveBattleLegacy(
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
           procRoll: Math.random() * 100,
+          procChanceBonus:
+            state.stacks.enemySkillProcDownTurns > 0
+              ? -state.stacks.enemySkillProcDownPct
+              : 0,
           // 속성 양방향(2026-06-20): 몹→플레이어 스킬도 방어 상성 적용. adv/dis 생략 = elementDamageMult
           //   기본값(전역 V2_ELEMENT_ADV/DIS_PCT=25/15) 사용 — 몹 평타(enemyPhase enemyElemMult)와 일관.
           //   내가 몹 속성에 강하면 몹 스킬 피해 감소, 약하면 증가. 🔑 #881 로 몹 더블어택(스킬+평타) 수정
@@ -1895,11 +1952,15 @@ function resolveBattleLegacy(
         enemySkillFiredThisTurn = result.castSkillId != null;
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
-        if (result.enemyDamage > 0 && result.castSkillName) {
-          nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
+        const enemySkillDamage =
+          result.enemyDamage > 0 && state.stacks.enemyDamageDownTurns > 0
+            ? Math.floor(result.enemyDamage * (1 - state.stacks.enemyDamageDownPct / 100))
+            : result.enemyDamage;
+        if (enemySkillDamage > 0 && result.castSkillName) {
+          nextPlayerHp = Math.max(0, nextPlayerHp - enemySkillDamage);
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
-            text: `${result.castSkillName}! ${result.enemyDamage} 피해를 입혔다.`,
+            text: `${result.castSkillName}! ${enemySkillDamage} 피해를 입혔다.`,
           });
         }
         // 적의 self heal — enemy_attack kind (적 측 행동). 화상(enemyHealReduce)이 있으면 회복 감소.
@@ -1966,7 +2027,7 @@ function resolveBattleLegacy(
           });
         }
         const countered =
-          result.enemyDamage > 0 && result.castSkillName
+          enemySkillDamage > 0 && result.castSkillName
             ? applyPassiveCounterOnHitIfAny(
                 {
                   ...state,

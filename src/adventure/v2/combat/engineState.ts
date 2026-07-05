@@ -207,6 +207,12 @@ export type BattleStacks = {
   enemyAccuracyDownTurns: number;
   enemyHealReducePct: number; // 화상 — 적 회복 효과 -%(회복 스킬·재생). 흡혈 제외.
   enemyHealReduceTurns: number;
+  enemyDamageDownPct: number; // 쇠약 — 적이 주는 직접 피해 -%(평타·스킬).
+  enemyDamageDownTurns: number;
+  enemySkillProcDownPct: number; // 금제 — 적 v2 스킬 발동률 -%p.
+  enemySkillProcDownTurns: number;
+  enemyDotVulnPct: number; // 침식 — 적이 받는 DoT 틱/마법취약 폭발 피해 +%.
+  enemyDotVulnTurns: number;
 };
 
 export type BattleState = {

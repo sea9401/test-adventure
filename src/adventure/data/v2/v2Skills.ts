@@ -251,6 +251,12 @@ export type V2SkillEffect =
   | { kind: "enemyDelay"; pct: number }
   // 화상(원소술사 불) — 적 회복 효과(회복 스킬·재생) −pct% (N턴). 흡혈/공격파생 회복은 제외.
   | { kind: "enemyHealReduce"; pct: number; turns: number }
+  // 쇠약 — 적이 주는 모든 직접 피해 −pct% (평타·스킬). STR 감소와 달리 마법형 적에게도 유효.
+  | { kind: "enemyDamageDown"; pct: number; turns: number }
+  // 금제 — 적 스킬 발동률 −pct%p. 완전 침묵 대신 확률을 깎는 소프트 CC.
+  | { kind: "enemySkillProcDown"; pct: number; turns: number }
+  // 침식 — 적이 받는 DoT 틱과 마법취약 스택 폭발 피해 +pct%.
+  | { kind: "enemyDotVuln"; pct: number; turns: number }
   // HP 소모 딜 — 현재 HP pctCurrentHp% 소모 + 소모량×soakRatio 추가딜(사혈격).
   | {
       kind: "hpCostDamage";
@@ -447,6 +453,12 @@ function spEffectValue(e: V2SkillEffect): number {
       return (e.pct * e.turns) / 50; // 파생/증폭 버프는 약간 더 강하게.
     case "enemyHealReduce":
       return (e.pct * e.turns) / 90; // 니치(주로 PvP).
+    case "enemyDamageDown":
+      return (e.pct * e.turns) / 65;
+    case "enemySkillProcDown":
+      return (e.pct * e.turns) / 85;
+    case "enemyDotVuln":
+      return (e.pct * e.turns) / 75;
     case "selfHaste":
     case "enemyDelay":
       return e.pct / 60; // 1회성 ATB 템포(턴 없음).
@@ -812,6 +824,12 @@ function describeV2Effect(e: V2SkillEffect): string {
       return `적 다음 행동 지연 +${e.pct}% (1회)`;
     case "enemyHealReduce":
       return `적 회복 −${e.pct}% (${actionsChip(e.turns)})`;
+    case "enemyDamageDown":
+      return `적 주는 피해 −${e.pct}% (${actionsChip(e.turns)})`;
+    case "enemySkillProcDown":
+      return `적 스킬 발동률 −${e.pct}%p (${actionsChip(e.turns)})`;
+    case "enemyDotVuln":
+      return `적 지속/저주 피해 +${e.pct}% (${actionsChip(e.turns)})`;
     case "hpCostDamage":
       return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
     case "healToDamage":

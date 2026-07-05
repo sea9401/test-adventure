@@ -167,6 +167,12 @@ export type PvPSideStacks = {
   //   −healReducePct%. 흡혈/공격파생 회복은 제외. 자기 턴(cast hook)에 turns 감소.
   healReducePct: number;
   healReduceTurns: number;
+  damageDownPct: number; // 쇠약 — 이 side 가 주는 직접 피해 -%.
+  damageDownTurns: number;
+  skillProcDownPct: number; // 금제 — 이 side 의 스킬 발동률 -%p.
+  skillProcDownTurns: number;
+  dotVulnPct: number; // 침식 — 이 side 가 받는 DoT/마법취약 피해 +%.
+  dotVulnTurns: number;
   // 약점 노출(마도사) — 이 side 에 누적된 마법취약 스택(상대가 부착). 스택당 받는 스킬피해 +%
   // (상대 enemyMagicVulnPctPerStack), 비전 작렬 payoff 가 소비. 감쇠 없음·MAGIC_VULN_STACK_CAP 상한.
   magicVulnStacks: number;
@@ -474,6 +480,12 @@ function buildSide(
       enemyVulnTurns: 0,
       healReducePct: 0,
       healReduceTurns: 0,
+      damageDownPct: 0,
+      damageDownTurns: 0,
+      skillProcDownPct: 0,
+      skillProcDownTurns: 0,
+      dotVulnPct: 0,
+      dotVulnTurns: 0,
       magicVulnStacks: 0,
       spellCastCount: 0,
       comboHitCount: 0,
@@ -1246,8 +1258,12 @@ export function endAttackerPhase(
   // 방어자 페이즈 시작 — 방어자가 받는 tagged DoT 를 한 번 tick.
   const defenderBeforeDot = next[defKey];
   const dotTick = tickV2Dots(defenderBeforeDot.v2Dots, defenderBeforeDot.maxHp);
-  if (dotTick.totalDmg > 0) {
-    const newHp = Math.max(0, defenderBeforeDot.hp - dotTick.totalDmg);
+  const dotDamage =
+    dotTick.totalDmg > 0 && defenderBeforeDot.stacks.dotVulnTurns > 0
+      ? Math.floor(dotTick.totalDmg * (1 + defenderBeforeDot.stacks.dotVulnPct / 100))
+      : dotTick.totalDmg;
+  if (dotDamage > 0) {
+    const newHp = Math.max(0, defenderBeforeDot.hp - dotDamage);
     next = setSide(next, defKey, {
       ...defenderBeforeDot,
       hp: newHp,
@@ -1260,7 +1276,7 @@ export function endAttackerPhase(
         text: `[${defenderBeforeDot.v2Dots
           .filter((d) => d.turns > 0)
           .map((d) => d.label)
-          .join(" + ")}] ${defenderBeforeDot.name}이(가) ${dotTick.totalDmg} 피해를 입었다.`,
+          .join(" + ")}] ${defenderBeforeDot.name}이(가) ${dotDamage} 피해를 입었다.`,
       }),
     };
     if (newHp <= 0) {
@@ -1423,7 +1439,9 @@ export function castV2SkillOnAttackerTurnPvP(
     // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
     //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
-    procChanceBonus: side.player.skillProcChanceAdd ?? 0,
+    procChanceBonus:
+      (side.player.skillProcChanceAdd ?? 0) -
+      (side.stacks.skillProcDownTurns > 0 ? side.stacks.skillProcDownPct : 0),
     // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
     applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
     // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(PvP 양쪽 다 플레이어). off 면 옛 슬롯순서+proc.
@@ -1530,6 +1548,10 @@ export function castV2SkillOnAttackerTurnPvP(
     1 +
     (opp.stacks.magicVulnStacks * (side.player.enemyMagicVulnPctPerStack ?? 0)) /
       100;
+  const erosionMult =
+    opp.stacks.dotVulnTurns > 0 && opp.stacks.magicVulnStacks > 0
+      ? 1 + opp.stacks.dotVulnPct / 100
+      : 1;
   // 속박(enemyVuln) 이번 턴 유효값 — turn-start 감소(또는 새 시전 set) 적용 후. 스킬 cast 와
   //   같은 턴 평타가 동일 값을 쓰도록 nextStacks 와 공유(평타는 post-hook nextStacks 를 읽음).
   //   pre-decay 를 쓰면 속박 마지막 턴에 스킬만 증폭/평타는 미증폭 불일치(Codex).
@@ -1565,7 +1587,11 @@ export function castV2SkillOnAttackerTurnPvP(
     skillDamageBase *
       spellStackMult *
       magicVulnMult *
+      erosionMult *
       vulnMult *
+      (side.stacks.damageDownTurns > 0
+        ? 1 - side.stacks.damageDownPct / 100
+        : 1) *
       // 밤그림자(skillCritOverflow) — PvE 미러. 스킬 크리에도 크리 오버플로 가산. 전역=flat.
       (skillCritFired
         ? side.player.skillCritOverflow
@@ -1698,6 +1724,12 @@ export function castV2SkillOnAttackerTurnPvP(
     // 화상 — 이 side 에 걸린 회복 감소. 자기 턴 시작에 turns 감소(부착은 상대 cast 의 nextOpp 에서).
     healReducePct: side.stacks.healReducePct,
     healReduceTurns: Math.max(0, side.stacks.healReduceTurns - 1),
+    damageDownPct: side.stacks.damageDownPct,
+    damageDownTurns: Math.max(0, side.stacks.damageDownTurns - 1),
+    skillProcDownPct: side.stacks.skillProcDownPct,
+    skillProcDownTurns: Math.max(0, side.stacks.skillProcDownTurns - 1),
+    dotVulnPct: side.stacks.dotVulnPct,
+    dotVulnTurns: Math.max(0, side.stacks.dotVulnTurns - 1),
     // 주문 중첩 — 패시브 보유 + 시전 시 +1(데미지 무관, cap). PvE increment 미러.
     spellCastCount:
       (side.player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
@@ -1737,6 +1769,27 @@ export function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemyDamageDownToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "쇠약"}] ${opp.name} 주는 피해 −${result.enemyDamageDownToApply.pct}% (${result.enemyDamageDownToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemySkillProcDownToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "금제"}] ${opp.name} 스킬 발동률 −${result.enemySkillProcDownToApply.pct}%p (${result.enemySkillProcDownToApply.turns}행동)`,
+      side: who,
+    });
+  }
+  if (result.enemyDotVulnToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "침식"}] ${opp.name} 지속/저주 피해 +${result.enemyDotVulnToApply.pct}% (${result.enemyDotVulnToApply.turns}행동)`,
       side: who,
     });
   }
@@ -1832,6 +1885,19 @@ export function castV2SkillOnAttackerTurnPvP(
       healReduceTurns: result.enemyHealReduceToApply
         ? result.enemyHealReduceToApply.turns
         : opp.stacks.healReduceTurns,
+      damageDownPct: result.enemyDamageDownToApply?.pct ?? opp.stacks.damageDownPct,
+      damageDownTurns: result.enemyDamageDownToApply
+        ? result.enemyDamageDownToApply.turns
+        : opp.stacks.damageDownTurns,
+      skillProcDownPct:
+        result.enemySkillProcDownToApply?.pct ?? opp.stacks.skillProcDownPct,
+      skillProcDownTurns: result.enemySkillProcDownToApply
+        ? result.enemySkillProcDownToApply.turns
+        : opp.stacks.skillProcDownTurns,
+      dotVulnPct: result.enemyDotVulnToApply?.pct ?? opp.stacks.dotVulnPct,
+      dotVulnTurns: result.enemyDotVulnToApply
+        ? result.enemyDotVulnToApply.turns
+        : opp.stacks.dotVulnTurns,
     },
   };
   const selfHastePct = result.selfHasteToApply?.pct ?? 0;

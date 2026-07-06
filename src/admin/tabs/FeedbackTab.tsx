@@ -26,6 +26,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "기타",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  open: "접수",
+  reviewed: "검토 완료",
+  resolved: "처리 완료",
+};
+
 export function FeedbackTab() {
   const { showToast } = useAdmin();
   const {
@@ -96,7 +102,7 @@ export function FeedbackTab() {
                 <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
                   <span>{entry.email ?? entry.userId}</span>
                   <span>#{entry.id}</span>
-                  <span>{entry.status}</span>
+                  <span>{STATUS_LABELS[entry.status] ?? entry.status}</span>
                 </div>
               </li>
             ))}

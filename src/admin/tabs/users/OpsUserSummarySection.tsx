@@ -9,9 +9,12 @@ import {
   economyEventLabel,
   economyItemKindLabel,
   economyItemLabel,
+  economyKnownItemName,
 } from "../../economyLabels";
+import { adminLogLabel, jobLabel, skillLabel } from "../../displayLabels";
 import { Button } from "../../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
+import { V2_SLOT_LABEL, type V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 
 type OpsEventRow = {
   id: number;
@@ -451,22 +454,28 @@ function SnapshotPanel({ snapshot }: { snapshot: OpsSummary["snapshot"] }) {
           title="기본"
           rows={[
             ["이름", snapshot.name ?? "-"],
-            ["직업", [snapshot.classId, snapshot.specChoice].filter(Boolean).join(" / ") || "-"],
+            ["직업", jobLabel(snapshot.classId, snapshot.specChoice)],
             ["길드", snapshot.guild],
           ]}
         />
         <MiniRows
           title="장착 장비"
           rows={snapshot.equippedSlots.map((row) => ({
-            key: `${row.slot}:${row.itemId}`,
+            key: `${slotLabel(row.slot)} · ${economyKnownItemName(row.itemId)}`,
             quantity: 1,
           }))}
+          labelKey={(key) => key}
         />
         <MiniRows
           title="장착 스킬"
           rows={snapshot.equippedSkills.map((key) => ({ key, quantity: 1 }))}
+          labelKey={skillLabel}
         />
-        <MiniRows title="숙련 상위" rows={snapshot.proficiencyTop} />
+        <MiniRows
+          title="숙련 상위"
+          rows={snapshot.proficiencyTop}
+          labelKey={(key) => jobLabel(key, null)}
+        />
       </div>
     </section>
   );
@@ -585,7 +594,7 @@ function TimelinePanel({ rows }: { rows: OpsSummary["timeline"] }) {
               </div>
               <p className="mt-1 whitespace-pre-wrap break-words">{row.summary || "-"}</p>
               <div className="mt-1 font-mono text-[11px] opacity-70">
-                {row.type}
+                {adminLogLabel(row.type)}
                 {row.actor ? ` · ${row.actor}` : ""}
               </div>
             </li>
@@ -658,9 +667,11 @@ function MiniPairs({
 function MiniRows({
   title,
   rows,
+  labelKey = economyCountKeyLabel,
 }: {
   title: string;
   rows: Array<{ key: string; quantity: number }>;
+  labelKey?: (key: string) => string;
 }) {
   if (rows.length === 0) return null;
   return (
@@ -669,12 +680,16 @@ function MiniRows({
       <div className="flex flex-wrap gap-1">
         {rows.map((row) => (
           <span key={row.key} className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
-            {economyCountKeyLabel(row.key)} x{row.quantity.toLocaleString()}
+            {labelKey(row.key)} x{row.quantity.toLocaleString()}
           </span>
         ))}
       </div>
     </div>
   );
+}
+
+function slotLabel(slot: string): string {
+  return V2_SLOT_LABEL[slot as V2EquipSlot] ?? slot;
 }
 
 function limitStatusClass(status: OpsSummary["dailyLimits"][number]["status"]) {

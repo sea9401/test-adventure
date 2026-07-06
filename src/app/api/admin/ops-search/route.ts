@@ -131,6 +131,9 @@ export async function GET(req: Request) {
       gameName: row.gameName,
       title: row.eventType,
       subtitle: [row.itemKind, row.itemId, row.quantity ?? null].filter(Boolean).join(" · "),
+      itemKind: row.itemKind,
+      itemId: row.itemId,
+      quantity: row.quantity,
       summary: summarizeDetail("economy", row.detail),
       rewardFailureStatus: row.eventType.startsWith("reward.failure.")
         ? rewardFailureStatusById.get(row.id) ?? "open"

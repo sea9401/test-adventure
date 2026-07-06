@@ -7,8 +7,16 @@ import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
 import { useAsyncData } from "@/lib/useAsyncData";
 import { Button } from "../ui/Field";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
-import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  adminActionLabel,
+  adminDetailKeyLabel,
+  adminDetailValueLabel,
+  resolveAdminActionFilter,
+} from "../displayLabels";
+import {
+  economyItemKindLabel,
+  economyKnownItemName,
+} from "../economyLabels";
 
 type Entry = {
   id: number;
@@ -18,21 +26,6 @@ type Entry = {
   targetGameName: string | null;
   detail: Record<string, unknown> | null;
   createdAt: string;
-};
-
-const ACTION_LABELS: Record<string, string> = {
-  "grant.v2": "아이템 지급",
-  "mail.broadcast": "전체 우편",
-  "mail.user": "개별 우편",
-  "reset-character": "캐릭터 초기화",
-  "sanction.ban": "영구 밴",
-  "sanction.suspend": "기간 정지",
-  "sanction.warn": "경고",
-  "sanction.lift": "제재 해제",
-  "season-ops.pvp-rollover": "아레나 시즌 정리",
-  "season-ops.pvp-rewards": "아레나 보상 지급",
-  "season-ops.fishing-rewards": "낚시 보상 지급",
-  "season-ops.treasure-rewards": "발굴 보상 지급",
 };
 
 const GRANT_KEY_LABELS: Record<string, string> = {
@@ -64,7 +57,7 @@ export function AuditLogTab() {
   const url = useMemo(() => {
     const sp = new URLSearchParams({ limit: "300" });
     if (adminEmail.trim()) sp.set("adminEmail", adminEmail.trim());
-    const actionFilter = resolveActionFilter(action);
+    const actionFilter = resolveAdminActionFilter(action);
     if (actionFilter) sp.set("action", actionFilter);
     if (targetUserId.trim()) sp.set("targetUserId", targetUserId.trim());
     if (since) sp.set("since", since);
@@ -178,7 +171,7 @@ export function AuditLogTab() {
                     {e.adminEmail}
                   </td>
                   <td className="px-2 py-1.5 font-medium text-zinc-800 dark:text-zinc-100">
-                    {actionLabel(e.action)}
+                    {adminActionLabel(e.action)}
                   </td>
                   <td className="px-2 py-1.5 text-zinc-600 dark:text-zinc-300">
                     {e.targetGameName ? (
@@ -224,7 +217,7 @@ function auditSummary(entry: Entry) {
   if (entry.action === "reward.compensate") {
     return [
       "보상 보정",
-      stringValue(detail.itemKind),
+      detail.itemKind ? economyItemKindLabel(String(detail.itemKind)) : null,
       numberValue(detail.quantity),
       stringValue(detail.reason),
     ]
@@ -252,19 +245,6 @@ function auditSummary(entry: Entry) {
   }
   if (entry.action === "reset-character") return "캐릭터 초기화";
   return stringValue(detail.reason) ?? stringValue(detail.adminMemo) ?? "변경 기록";
-}
-
-function actionLabel(action: string) {
-  return ACTION_LABELS[action] ?? action;
-}
-
-function resolveActionFilter(raw: string) {
-  const value = raw.trim();
-  if (!value) return "";
-  const found = Object.entries(ACTION_LABELS).find(
-    ([key, label]) => key === value || label === value,
-  );
-  return found?.[0] ?? value;
 }
 
 function auditDetailText(detail: Record<string, unknown> | null) {
@@ -312,8 +292,8 @@ function attachmentList(raw: unknown, kind: "material" | "equipment") {
       if (!id || !count) return null;
       const name =
         kind === "material"
-          ? (V2_MATERIALS[id as keyof typeof V2_MATERIALS]?.name ?? id)
-          : (V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT]?.name ?? id);
+          ? economyKnownItemName(id)
+          : economyKnownItemName(id);
       return `${name} x${count}`;
     })
     .filter((v): v is string => Boolean(v));
@@ -322,25 +302,18 @@ function attachmentList(raw: unknown, kind: "material" | "equipment") {
 
 function compactDetail(detail: Record<string, unknown>) {
   return Object.entries(detail)
-    .map(([key, value]) => `${key}: ${compactValue(key, value)}`)
+    .map(([key, value]) => `${adminDetailKeyLabel(key)}: ${compactValue(key, value)}`)
     .join(" · ");
 }
 
 function compactValue(key: string, value: unknown): string {
-  if (typeof value === "string") {
-    if (key === "materialId") {
-      return V2_MATERIALS[value as keyof typeof V2_MATERIALS]?.name ?? value;
-    }
-    if (key === "itemId" || key === "equipmentId") {
-      return V2_EQUIPMENT[value as keyof typeof V2_EQUIPMENT]?.name ?? value;
-    }
-    return value;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return adminDetailValueLabel(key, value);
   }
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) return value.map((v) => compactValue(key, v)).join(", ");
   if (value && typeof value === "object") {
     return Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `${k}: ${compactValue(k, v)}`)
+      .map(([k, v]) => `${adminDetailKeyLabel(k)}: ${compactValue(k, v)}`)
       .join(", ");
   }
   return "—";

@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../../AdminContext";
 import { adminGet, adminPost } from "../../api";
+import {
+  economyCountKeyLabel,
+  economyEventLabel,
+  economyItemKindLabel,
+  economyItemLabel,
+} from "../../economyLabels";
 import { Button } from "../../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 
@@ -228,7 +234,7 @@ export function OpsUserSummarySection({
   const compensate = async () => {
     const confirmLarge = isLargeCompensation(itemKind, quantity)
       ? window.confirm(
-          `대량 보정 지급입니다. ${itemKind} ${quantity.toLocaleString()}개를 지급할까요?`,
+          `대량 보정 지급입니다. ${economyItemKindLabel(itemKind)} ${quantity.toLocaleString()}개를 지급할까요?`,
         )
       : false;
     if (isLargeCompensation(itemKind, quantity) && !confirmLarge) return;
@@ -355,7 +361,7 @@ export function OpsUserSummarySection({
                 >
                   {COMP_KIND_OPTIONS.map((value) => (
                     <option key={value} value={value}>
-                      {value}
+                      {economyItemKindLabel(value)}
                     </option>
                   ))}
                 </select>
@@ -531,8 +537,8 @@ function EconomySnapshotPanel({
         <Metric label="보상 실패" value={snapshot.rewardFailureCount24h} />
       </div>
       <div className="mt-2 grid gap-2 md:grid-cols-2">
-        <CountRows title="이벤트 상위" rows={snapshot.topEvents24h} />
-        <CountRows title="품목 상위" rows={snapshot.topItems24h} />
+        <CountRows title="이벤트 상위" rows={snapshot.topEvents24h} labelKey={economyEventLabel} />
+        <CountRows title="품목 상위" rows={snapshot.topItems24h} labelKey={economyItemKindLabel} />
       </div>
     </section>
   );
@@ -590,7 +596,15 @@ function TimelinePanel({ rows }: { rows: OpsSummary["timeline"] }) {
   );
 }
 
-function CountRows({ title, rows }: { title: string; rows: CountRow[] }) {
+function CountRows({
+  title,
+  rows,
+  labelKey = (key) => key,
+}: {
+  title: string;
+  rows: CountRow[];
+  labelKey?: (key: string) => string;
+}) {
   if (rows.length === 0) return null;
   return (
     <div className="text-[11px]">
@@ -599,9 +613,9 @@ function CountRows({ title, rows }: { title: string; rows: CountRow[] }) {
         {rows.map((row) => (
           <span
             key={row.key}
-            className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800"
+            className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800"
           >
-            {row.key} {row.count.toLocaleString()}
+            {labelKey(row.key)} {row.count.toLocaleString()}
           </span>
         ))}
       </div>
@@ -654,8 +668,8 @@ function MiniRows({
       <div className="mb-1 font-medium text-zinc-500">{title}</div>
       <div className="flex flex-wrap gap-1">
         {rows.map((row) => (
-          <span key={row.key} className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800">
-            {row.key} x{row.quantity.toLocaleString()}
+          <span key={row.key} className="rounded bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800">
+            {economyCountKeyLabel(row.key)} x{row.quantity.toLocaleString()}
           </span>
         ))}
       </div>
@@ -759,7 +773,7 @@ function EventList({ title, rows }: { title: string; rows: OpsEventRow[] }) {
                   <td className="whitespace-nowrap px-2 py-1 text-zinc-500">
                     {new Date(row.createdAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-2 py-1 font-mono">{row.eventType}</td>
+                  <td className="px-2 py-1">{economyEventLabel(row.eventType)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">
                     {row.goldDelta !== 0
                       ? `${row.goldDelta > 0 ? "+" : ""}${row.goldDelta.toLocaleString()}G`
@@ -767,8 +781,8 @@ function EventList({ title, rows }: { title: string; rows: OpsEventRow[] }) {
                         ? `${row.quantity.toLocaleString()}`
                         : "-"}
                   </td>
-                  <td className="max-w-[160px] truncate px-2 py-1 font-mono text-zinc-400">
-                    {[row.itemKind, row.itemId].filter(Boolean).join(":") || "-"}
+                  <td className="max-w-[160px] truncate px-2 py-1 text-zinc-400">
+                    {economyItemLabel(row.itemKind, row.itemId)}
                   </td>
                 </tr>
               ))}

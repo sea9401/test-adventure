@@ -7,8 +7,15 @@ import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
-import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  economyDetailKeyLabel,
+  economyDetailValueLabel,
+  economyEventLabel,
+  economyItemKindLabel,
+  economyItemLabel,
+  resolveEconomyEventFilter,
+  resolveEconomyItemKindFilter,
+} from "../economyLabels";
 
 type EconomyEntry = {
   id: number;
@@ -38,31 +45,6 @@ type EconomySummary = {
   hourly: Array<{ hour: string; count: number; goldIn: number; goldOut: number }>;
 };
 
-const EVENT_LABELS: Record<string, string> = {
-  "marketplace.buy": "거래소 구매",
-  "marketplace.sell": "거래소 판매",
-  "marketplace.cancel": "거래소 취소",
-  "marketplace.expire": "거래소 만료",
-  "shop.buy": "상점 구매",
-  "shop.sell": "상점 판매",
-  "reward.claim": "보상 수령",
-  "reward.compensate": "보상 보정",
-  "mail.claim": "우편 수령",
-  "bank.deposit": "은행 입금",
-  "bank.withdraw": "은행 출금",
-};
-
-const ITEM_KIND_LABELS: Record<string, string> = {
-  gold: "골드",
-  equip: "장비",
-  equipment: "장비",
-  material: "재료",
-  fishing_coin: "낚시 코인",
-  treasure_coin: "발굴 코인",
-  mastery_certificate: "숙련 증서",
-  stamina_potion: "스태미나 회복약",
-};
-
 export function EconomyLogTab() {
   const { showToast } = useAdmin();
   const searchParams = useSearchParams();
@@ -75,8 +57,8 @@ export function EconomyLogTab() {
 
   const url = useMemo(() => {
     const sp = new URLSearchParams({ limit: "300" });
-    const eventFilter = resolveEventFilter(eventType);
-    const itemKindFilter = resolveItemKindFilter(itemKind);
+    const eventFilter = resolveEconomyEventFilter(eventType);
+    const itemKindFilter = resolveEconomyItemKindFilter(itemKind);
     if (eventFilter) sp.set("eventType", eventFilter);
     if (userId.trim()) sp.set("userId", userId.trim());
     if (itemKindFilter) sp.set("itemKind", itemKindFilter);
@@ -164,12 +146,12 @@ export function EconomyLogTab() {
                       "-"
                     )}
                   </td>
-                  <td className="px-2 py-1.5">{eventLabel(e.eventType)}</td>
+                  <td className="px-2 py-1.5">{economyEventLabel(e.eventType)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">
                     {e.goldDelta.toLocaleString()}
                   </td>
                   <td className="px-2 py-1.5">
-                    {itemLabel(e.itemKind, e.itemId)}
+                    {economyItemLabel(e.itemKind, e.itemId)}
                     {e.quantity != null ? ` x${e.quantity}` : ""}
                   </td>
                   <td className="max-w-md truncate px-2 py-1.5 text-[11px] text-zinc-500">
@@ -202,13 +184,13 @@ function SummaryPanel({
           ) : (
             summary.currencies.map((row) => (
               <div key={row.key} className="grid grid-cols-[1fr_auto] gap-2 text-xs">
-                <span className="font-mono">{row.key}</span>
+                <span>{economyItemKindLabel(row.key)}</span>
                 <span className="tabular-nums">
                   {row.net >= 0 ? "+" : ""}
                   {row.net.toLocaleString()}
                 </span>
                 <div className="col-span-2 text-[10px] text-zinc-500">
-                  in {row.in.toLocaleString()} · out {row.out.toLocaleString()} · {row.count}
+                  유입 {row.in.toLocaleString()} · 사용 {row.out.toLocaleString()} · {row.count}
                   건
                 </div>
               </div>
@@ -291,7 +273,7 @@ function CountRows({ rows }: { rows: Array<{ key: string; count: number }> }) {
     <ul className="space-y-1 text-xs">
       {rows.map((row) => (
         <li key={row.key} className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate">{eventLabel(row.key)}</span>
+          <span className="min-w-0 truncate">{economyEventLabel(row.key)}</span>
           <span className="shrink-0 tabular-nums text-zinc-500">{row.count}</span>
         </li>
       ))}
@@ -349,79 +331,10 @@ function DateFilter({
   );
 }
 
-function eventLabel(key: string) {
-  return EVENT_LABELS[key] ?? key;
-}
-
-function resolveEventFilter(raw: string) {
-  const value = raw.trim();
-  if (!value) return "";
-  const found = Object.entries(EVENT_LABELS).find(
-    ([key, label]) => key === value || label === value,
-  );
-  return found?.[0] ?? value;
-}
-
-function resolveItemKindFilter(raw: string) {
-  const value = raw.trim();
-  if (!value) return "";
-  const found = Object.entries(ITEM_KIND_LABELS).find(
-    ([key, label]) => key === value || label === value,
-  );
-  return found?.[0] ?? value;
-}
-
-function itemLabel(kind: string | null, id: string | null) {
-  if (!kind && !id) return "-";
-  if (kind === "material" && id) {
-    return V2_MATERIALS[id as keyof typeof V2_MATERIALS]?.name ?? id;
-  }
-  if ((kind === "equip" || kind === "equipment") && id) {
-    return V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT]?.name ?? id;
-  }
-  const kindLabel = kind ? ITEM_KIND_LABELS[kind] ?? kind : "";
-  return [kindLabel, id].filter(Boolean).join(" · ");
-}
-
 function economyDetailText(detail: Record<string, unknown> | null) {
   if (!detail) return "-";
   const parts = Object.entries(detail).map(([key, value]) => {
-    return `${detailKeyLabel(key)}: ${detailValueLabel(key, value)}`;
+    return `${economyDetailKeyLabel(key)}: ${economyDetailValueLabel(key, value)}`;
   });
   return parts.join(" · ");
-}
-
-function detailKeyLabel(key: string) {
-  const labels: Record<string, string> = {
-    itemKind: "아이템 종류",
-    itemId: "아이템",
-    materialId: "재료",
-    equipmentId: "장비",
-    quantity: "수량",
-    reason: "사유",
-    source: "출처",
-    message: "메시지",
-  };
-  return labels[key] ?? key;
-}
-
-function detailValueLabel(key: string, value: unknown): string {
-  if (typeof value === "string") {
-    if (key === "itemKind") return ITEM_KIND_LABELS[value] ?? value;
-    if (key === "materialId") {
-      return V2_MATERIALS[value as keyof typeof V2_MATERIALS]?.name ?? value;
-    }
-    if (key === "itemId" || key === "equipmentId") {
-      return V2_EQUIPMENT[value as keyof typeof V2_EQUIPMENT]?.name ?? value;
-    }
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value)) return value.map((v) => detailValueLabel(key, v)).join(", ");
-  if (value && typeof value === "object") {
-    return Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `${detailKeyLabel(k)}: ${detailValueLabel(k, v)}`)
-      .join(", ");
-  }
-  return "-";
 }

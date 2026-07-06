@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ACTIONS_ALLOWED,
   COLLAPSE_RISK,
+  TREASURE_GRID_HEIGHT,
   TREASURE_GRID_SIZE,
   TREASURE_MAX_ENERGY,
   applyTreasureAction,
@@ -78,8 +79,9 @@ describe("rollNewSession / toPublicSite", () => {
     expect(isAntiqueId(s.antiqueId)).toBe(true);
     expect(s.actionsAllowed).toBe(ACTIONS_ALLOWED);
     expect(s.gridSize).toBe(TREASURE_GRID_SIZE);
+    expect(s.gridHeight).toBe(TREASURE_GRID_HEIGHT);
     expect(s.energy).toBe(TREASURE_MAX_ENERGY);
-    expect(s.cells).toHaveLength(TREASURE_GRID_SIZE * TREASURE_GRID_SIZE);
+    expect(s.cells).toHaveLength(TREASURE_GRID_SIZE * TREASURE_GRID_HEIGHT);
 
     const pub = toPublicSite(s);
     expect(pub).not.toHaveProperty("antiqueId");
@@ -227,7 +229,7 @@ describe("parseTreasureSession", () => {
     });
     expect(migrated?.siteId).toBe("old");
     expect(migrated?.antiqueId).toBe("clay_shard");
-    expect(migrated?.cells).toHaveLength(TREASURE_GRID_SIZE * TREASURE_GRID_SIZE);
+    expect(migrated?.cells).toHaveLength(TREASURE_GRID_SIZE * TREASURE_GRID_HEIGHT);
     expect(migrated?.tools.bombs).toBeGreaterThan(0);
     expect(migrated?.actions).toHaveLength(2);
     expect(migrated?.haul).toBeGreaterThan(0);
@@ -289,7 +291,7 @@ describe("parseTreasureSession", () => {
       openedAt: 10,
     });
     expect(migrated?.siteId).toBe("depth");
-    expect(migrated?.cells).toHaveLength(TREASURE_GRID_SIZE * TREASURE_GRID_SIZE);
+    expect(migrated?.cells).toHaveLength(TREASURE_GRID_SIZE * TREASURE_GRID_HEIGHT);
     expect(migrated?.haul).toBe(80);
     expect(migrated?.tools.bombs).toBeGreaterThan(0);
   });

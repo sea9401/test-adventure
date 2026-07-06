@@ -1,7 +1,7 @@
-// 발굴 미니게임 — 지도 1장 안에서 탐사력을 쓰며 타일을 여는 상태 머신.
+// 발굴 미니게임 — 지도 1장으로 채운 드릴 연료를 쓰며 지하 터널을 여는 상태 머신.
 //
 // open 이 골동품과 숨은 지도 타일을 서버 세션에 봉인하고, action 은 이 순수 함수로만
-// 진행된다. 클라는 공개/스캔된 타일과 탐사력만 보고 어느 방향으로 더 팔지 결정한다.
+// 진행된다. 클라는 공개/스캔된 지층과 연료만 보고 어느 방향으로 더 팔지 결정한다.
 
 import {
   ANTIQUES,
@@ -16,12 +16,13 @@ import {
 
 export const TREASURE_SESSION_KEY = "treasure-session.v1";
 
-export const TREASURE_GRID_SIZE = 6;
-export const TREASURE_MAX_ENERGY = 20;
-export const ACTIONS_ALLOWED = 22;
+export const TREASURE_GRID_SIZE = 7;
+export const TREASURE_GRID_HEIGHT = 10;
+export const TREASURE_MAX_ENERGY = 32;
+export const ACTIONS_ALLOWED = 36;
 export const TREASURE_START_BOMBS = 2;
 export const TREASURE_START_ROPES = 1;
-export const MAX_DEPTH = TREASURE_GRID_SIZE * 2;
+export const MAX_DEPTH = TREASURE_GRID_HEIGHT - 1;
 export const COLLAPSE_RISK = 100;
 
 export const TREASURE_SITE_OPTIONS = [
@@ -67,11 +68,11 @@ export const TREASURE_ACTION_LABEL: Record<TreasureAction, string> = {
 };
 
 export const TREASURE_ACTION_HELP: Record<TreasureAction, string> = {
-  excavate: "인접한 숨은 타일을 열고 그 칸으로 들어갑니다. 타일마다 탐사력 소모가 다릅니다.",
-  move: "이미 드러난 인접 칸으로 이동합니다. 탐사력 1을 씁니다.",
-  scan: "현재 위치 주변의 숨은 칸 성격을 읽습니다. 탐사력 2를 씁니다.",
-  bomb: "폭약 1개로 인접한 숨은 칸을 안전하게 뚫습니다. 암반과 균열에 특히 좋습니다.",
-  secure: "무너지는 흙벽을 보강해 안정도를 회복하고 위험을 낮춥니다. 탐사력 2를 씁니다.",
+  excavate: "드릴을 인접한 흙벽에 넣어 터널을 냅니다. 지층마다 연료 소모가 다릅니다.",
+  move: "이미 뚫린 터널로 이동합니다. 연료 1을 씁니다.",
+  scan: "주변 흙벽의 반응을 읽습니다. 연료 2를 씁니다.",
+  bomb: "폭약 1개로 인접한 흙벽을 안전하게 뚫습니다. 암반과 균열에 특히 좋습니다.",
+  secure: "버팀목을 세워 터널을 보강하고 위험을 낮춥니다. 연료 2를 씁니다.",
   rope: "로프 1개로 바로 귀환합니다. 위험 페널티를 크게 줄여 보존상태를 지킵니다.",
   retreat: "지금 들고 있는 발견물을 챙겨 발굴을 끝냅니다.",
 };
@@ -132,14 +133,16 @@ export type TreasureSession = {
   condition: number;
   /** 지반 불안정도. 높을수록 위험 타일의 피해가 커진다. */
   instability: number;
+  /** 가로 칸 수. 저장 키 호환 때문에 이름은 gridSize 유지. */
   gridSize: number;
+  gridHeight: number;
   position: number;
   camp: number;
   energy: number;
   maxEnergy: number;
   tools: TreasureTools;
   cells: TreasureCell[];
-  /** 시작점에서 가장 멀리 들어간 맨해튼 거리. */
+  /** 입구에서 아래로 가장 깊게 내려간 y 좌표. */
   depth: number;
   maxDepth: number;
   /** 현재 들고 있는 발견물 가치. 성공 회수 전까지는 확정 보상이 아니다. */
@@ -155,6 +158,7 @@ export type TreasureSession = {
 export type TreasureSitePublic = {
   siteId: string;
   gridSize: number;
+  gridHeight: number;
   position: number;
   camp: number;
   energy: number;
@@ -197,32 +201,36 @@ function riskTax(risk: number): number {
   return 0;
 }
 
-function xy(index: number, size: number): { x: number; y: number } {
-  return { x: index % size, y: Math.floor(index / size) };
+function xy(index: number, width: number): { x: number; y: number } {
+  return { x: index % width, y: Math.floor(index / width) };
 }
 
-function indexOf(x: number, y: number, size: number): number {
-  return y * size + x;
+function indexOf(x: number, y: number, width: number): number {
+  return y * width + x;
 }
 
-function distance(a: number, b: number, size: number): number {
-  const av = xy(a, size);
-  const bv = xy(b, size);
+function distance(a: number, b: number, width: number): number {
+  const av = xy(a, width);
+  const bv = xy(b, width);
   return Math.abs(av.x - bv.x) + Math.abs(av.y - bv.y);
 }
 
-function adjacentIndexes(index: number, size: number): number[] {
-  const { x, y } = xy(index, size);
+function verticalDepth(index: number, width: number): number {
+  return xy(index, width).y;
+}
+
+function adjacentIndexes(index: number, width: number, height: number): number[] {
+  const { x, y } = xy(index, width);
   const out: number[] = [];
-  if (y > 0) out.push(indexOf(x, y - 1, size));
-  if (x < size - 1) out.push(indexOf(x + 1, y, size));
-  if (y < size - 1) out.push(indexOf(x, y + 1, size));
-  if (x > 0) out.push(indexOf(x - 1, y, size));
+  if (y > 0) out.push(indexOf(x, y - 1, width));
+  if (x < width - 1) out.push(indexOf(x + 1, y, width));
+  if (y < height - 1) out.push(indexOf(x, y + 1, width));
+  if (x > 0) out.push(indexOf(x - 1, y, width));
   return out;
 }
 
-function isAdjacent(a: number, b: number, size: number): boolean {
-  return distance(a, b, size) === 1;
+function isAdjacent(a: number, b: number, width: number): boolean {
+  return distance(a, b, width) === 1;
 }
 
 function instabilityForAntique(antiqueId: AntiqueId, rng: () => number): number {
@@ -289,7 +297,7 @@ function cellRewardLabel(kind: TreasureCellKind): string {
     case "cache":
       return "상자 전리품";
     case "supply":
-      return "탐사력 회복";
+      return "연료 회복";
     case "relic":
       return "큰 전리품";
     case "fissure":
@@ -297,32 +305,39 @@ function cellRewardLabel(kind: TreasureCellKind): string {
   }
 }
 
-function kindFromRoll(r: number): TreasureCellKind {
-  if (r < 0.1) return "rock";
-  if (r < 0.24) return "dense";
-  if (r < 0.36) return "clue";
-  if (r < 0.47) return "cache";
-  if (r < 0.58) return "supply";
-  if (r < 0.64) return "fissure";
+function kindFromRoll(r: number, y: number, height: number): TreasureCellKind {
+  const depthRatio = height <= 1 ? 0 : y / (height - 1);
+  if (r < 0.05 + depthRatio * 0.13) return "rock";
+  if (r < 0.18 + depthRatio * 0.15) return "dense";
+  if (r < 0.3) return "clue";
+  if (r < 0.4 + depthRatio * 0.08) return "cache";
+  if (r < 0.52 - depthRatio * 0.1) return "supply";
+  if (r < 0.58 + depthRatio * 0.1) return "fissure";
   return "soil";
 }
 
-function buildCells(rng: () => number, size: number, camp: number): TreasureCell[] {
-  const total = size * size;
+function buildCells(
+  rng: () => number,
+  width: number,
+  height: number,
+  camp: number,
+): TreasureCell[] {
+  const total = width * height;
   const cells: TreasureCell[] = [];
-  const campNeighbors = new Set(adjacentIndexes(camp, size));
+  const campNeighbors = new Set(adjacentIndexes(camp, width, height));
   const relicCandidates = Array.from({ length: total }, (_, i) => i).filter(
-    (i) => i !== camp && distance(i, camp, size) >= size - 1,
+    (i) => i !== camp && verticalDepth(i, width) >= height - 3,
   );
   const relicIndex =
     relicCandidates[Math.floor(rng() * relicCandidates.length)] ?? total - 1;
 
   for (let i = 0; i < total; i += 1) {
+    const { y } = xy(i, width);
     let kind: TreasureCellKind = "soil";
     if (i === camp) kind = "camp";
     else if (i === relicIndex) kind = "relic";
     else if (campNeighbors.has(i)) kind = rng() < 0.3 ? "cache" : "soil";
-    else kind = kindFromRoll(rng());
+    else kind = kindFromRoll(rng(), y, height);
     cells.push({
       index: i,
       kind,
@@ -334,8 +349,8 @@ function buildCells(rng: () => number, size: number, camp: number): TreasureCell
   return cells;
 }
 
-function fallbackCells(size: number, camp: number): TreasureCell[] {
-  const cells = buildCells(() => 0.72, size, camp);
+function fallbackCells(width: number, height: number, camp: number): TreasureCell[] {
+  const cells = buildCells(() => 0.72, width, height, camp);
   const relic = cells[cells.length - 1];
   cells[relic.index] = { ...relic, kind: "relic", revealed: false, scanned: false };
   return cells;
@@ -405,7 +420,7 @@ function cellEffect(
         risk: -6,
         insight: 4,
         energy: 5,
-        message: "낡은 보급품을 찾아 탐사력을 회복했습니다.",
+        message: "낡은 보급품을 찾아 드릴 연료를 회복했습니다.",
       };
     case "relic":
       return {
@@ -545,6 +560,7 @@ export function toPublicSite(s: TreasureSession): TreasureSitePublic {
   return {
     siteId: s.siteId,
     gridSize: s.gridSize,
+    gridHeight: s.gridHeight,
     position: s.position,
     camp: s.camp,
     energy: s.energy,
@@ -561,7 +577,7 @@ export function toPublicSite(s: TreasureSession): TreasureSitePublic {
     actionsUsed,
     canRetreat: s.haul > 0,
     forcedRetreat: s.energy <= 0 || actionsUsed >= s.actionsAllowed,
-    adjacentHidden: adjacentIndexes(s.position, s.gridSize).filter(
+    adjacentHidden: adjacentIndexes(s.position, s.gridSize, s.gridHeight).filter(
       (i) => !s.cells[i]?.revealed,
     ).length,
     summary: summaryForSession(s),
@@ -579,7 +595,8 @@ export function rollNewSession(args: {
   const { siteId, rng, now } = args;
   const antiqueId = pickAntiqueId(rng);
   const gridSize = TREASURE_GRID_SIZE;
-  const camp = indexOf(Math.floor(gridSize / 2), gridSize - 1, gridSize);
+  const gridHeight = TREASURE_GRID_HEIGHT;
+  const camp = indexOf(Math.floor(gridSize / 2), 0, gridSize);
   return {
     siteId,
     siteOptionId: args.siteOptionId ?? DEFAULT_TREASURE_SITE_OPTION_ID,
@@ -587,12 +604,13 @@ export function rollNewSession(args: {
     condition: rollCondition(antiqueId, rng),
     instability: instabilityForAntique(antiqueId, rng),
     gridSize,
+    gridHeight,
     position: camp,
     camp,
     energy: TREASURE_MAX_ENERGY,
     maxEnergy: TREASURE_MAX_ENERGY,
     tools: { bombs: TREASURE_START_BOMBS, ropes: TREASURE_START_ROPES },
-    cells: buildCells(rng, gridSize, camp),
+    cells: buildCells(rng, gridSize, gridHeight, camp),
     depth: 0,
     maxDepth: MAX_DEPTH,
     haul: 0,
@@ -675,7 +693,7 @@ function applyExcavate(
     cells,
     position: nextPosition,
     energy: clamp(session.energy - cost + effect.energy, 0, session.maxEnergy),
-    depth: Math.max(session.depth, distance(session.camp, nextPosition, session.gridSize)),
+    depth: Math.max(session.depth, verticalDepth(nextPosition, session.gridSize)),
     haul: clamp(session.haul + effect.haul, 0, 999),
     stability: clamp(session.stability + effect.stability, 0, 100),
     risk: clamp(session.risk + effect.risk, 0, COLLAPSE_RISK),
@@ -712,7 +730,7 @@ function applyBomb(
     position: cellIndex,
     tools: { ...session.tools, bombs: session.tools.bombs - 1 },
     energy: clamp(session.energy - 1 + effect.energy, 0, session.maxEnergy),
-    depth: Math.max(session.depth, distance(session.camp, cellIndex, session.gridSize)),
+    depth: Math.max(session.depth, verticalDepth(cellIndex, session.gridSize)),
     haul: clamp(session.haul + effect.haul, 0, 999),
     stability: clamp(session.stability + effect.stability, 0, 100),
     risk: clamp(session.risk + effect.risk, 0, COLLAPSE_RISK),
@@ -739,7 +757,7 @@ function applyMove(
     ...session,
     position: cellIndex,
     energy: clamp(session.energy - 1, 0, session.maxEnergy),
-    depth: Math.max(session.depth, distance(session.camp, cellIndex, session.gridSize)),
+    depth: Math.max(session.depth, verticalDepth(cellIndex, session.gridSize)),
   };
   const message = `${cellLabel(cell.kind)} 칸으로 이동했습니다.`;
   const recorded = appendRecord(next, "move", target, message);
@@ -748,7 +766,7 @@ function applyMove(
 
 function applyScan(session: TreasureSession): TreasureActionResult {
   if (session.energy < 2) return { kind: "invalid", session };
-  const around = new Set(adjacentIndexes(session.position, session.gridSize));
+  const around = new Set(adjacentIndexes(session.position, session.gridSize, session.gridHeight));
   let scanned = 0;
   const cells = session.cells.map((c) => {
     if (!around.has(c.index) || c.revealed || c.scanned) return c;
@@ -866,14 +884,14 @@ function isRecord(raw: unknown): raw is Record<string, unknown> {
   return !!raw && typeof raw === "object";
 }
 
-function parseCell(raw: unknown, size: number): TreasureCell | null {
+function parseCell(raw: unknown, totalCells: number): TreasureCell | null {
   if (!isRecord(raw)) return null;
   const { index, kind, revealed, scanned, depleted } = raw;
   if (
     typeof index !== "number" ||
     !Number.isInteger(index) ||
     index < 0 ||
-    index >= size * size ||
+    index >= totalCells ||
     !isTreasureCellKind(kind) ||
     typeof revealed !== "boolean" ||
     typeof scanned !== "boolean" ||
@@ -967,14 +985,19 @@ function legacyRecord(
 
 function legacySessionBase(raw: Record<string, unknown>, migratedActions: number) {
   const gridSize = TREASURE_GRID_SIZE;
-  const camp = indexOf(Math.floor(gridSize / 2), gridSize - 1, gridSize);
-  const cells = fallbackCells(gridSize, camp);
+  const gridHeight = TREASURE_GRID_HEIGHT;
+  const camp = indexOf(Math.floor(gridSize / 2), 0, gridSize);
+  const cells = fallbackCells(gridSize, gridHeight, camp);
   for (const cell of cells) {
     if (distance(cell.index, camp, gridSize) <= 1) cell.revealed = true;
   }
-  const position = adjacentIndexes(camp, gridSize)[0] ?? camp;
+  const position =
+    adjacentIndexes(camp, gridSize, gridHeight).find(
+      (i) => verticalDepth(i, gridSize) > 0,
+    ) ?? camp;
   return {
     gridSize,
+    gridHeight,
     camp,
     position,
     cells,
@@ -1203,7 +1226,12 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
   if (legacyGrid) return legacyGrid;
   const legacyExposure = parseLegacyExposureSession(raw);
   if (legacyExposure) return legacyExposure;
-  const legacyDepth = !Array.isArray(raw.cells) ? parseLegacyDepthSession(raw) : null;
+  const legacyDepth =
+    !Array.isArray(raw.cells) ||
+    raw.gridSize !== TREASURE_GRID_SIZE ||
+    raw.gridHeight !== TREASURE_GRID_HEIGHT
+      ? parseLegacyDepthSession(raw)
+      : null;
   if (legacyDepth) return legacyDepth;
 
   if (typeof raw.siteId !== "string" || !raw.siteId) return null;
@@ -1213,6 +1241,7 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     condition,
     instability,
     gridSize,
+    gridHeight,
     position,
     camp,
     energy,
@@ -1230,6 +1259,7 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     typeof condition !== "number" ||
     typeof instability !== "number" ||
     typeof gridSize !== "number" ||
+    typeof gridHeight !== "number" ||
     typeof position !== "number" ||
     typeof camp !== "number" ||
     typeof energy !== "number" ||
@@ -1251,12 +1281,13 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     instability < 0 ||
     instability > 20 ||
     gridSize !== TREASURE_GRID_SIZE ||
+    gridHeight !== TREASURE_GRID_HEIGHT ||
     !Number.isInteger(position) ||
     !Number.isInteger(camp) ||
     position < 0 ||
-    position >= gridSize * gridSize ||
+    position >= gridSize * gridHeight ||
     camp < 0 ||
-    camp >= gridSize * gridSize ||
+    camp >= gridSize * gridHeight ||
     energy < 0 ||
     energy > maxEnergy ||
     maxEnergy < 1 ||
@@ -1276,9 +1307,9 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     insight > 100 ||
     !Number.isInteger(actionsAllowed) ||
     actionsAllowed < 1 ||
-    actionsAllowed > 30 ||
+    actionsAllowed > ACTIONS_ALLOWED ||
     !Array.isArray(raw.cells) ||
-    raw.cells.length !== gridSize * gridSize ||
+    raw.cells.length !== gridSize * gridHeight ||
     !Array.isArray(raw.actions) ||
     raw.actions.length > actionsAllowed + 1
   ) {
@@ -1288,7 +1319,7 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
   const cells: TreasureCell[] = [];
   const seen = new Set<number>();
   for (const c of raw.cells) {
-    const parsed = parseCell(c, gridSize);
+    const parsed = parseCell(c, gridSize * gridHeight);
     if (!parsed || seen.has(parsed.index)) return null;
     cells.push(parsed);
     seen.add(parsed.index);
@@ -1301,7 +1332,7 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
   for (const a of raw.actions) {
     const parsed = parseActionRecord(a);
     if (!parsed) return null;
-    if (parsed.cell !== undefined && (parsed.cell < 0 || parsed.cell >= gridSize * gridSize)) {
+    if (parsed.cell !== undefined && (parsed.cell < 0 || parsed.cell >= gridSize * gridHeight)) {
       return null;
     }
     actions.push(parsed);
@@ -1324,6 +1355,7 @@ export function parseTreasureSession(raw: unknown): TreasureSession | null {
     condition: clamp(condition, MIN_CONDITION, 100),
     instability: clamp(instability, 0, 20),
     gridSize,
+    gridHeight,
     position,
     camp,
     energy: clamp(energy, 0, maxEnergy),

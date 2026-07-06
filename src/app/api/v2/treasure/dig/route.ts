@@ -31,7 +31,7 @@ import { currentTreasureSeasonId } from "@/lib/server/treasure/season";
 // POST /api/v2/treasure/dig — body { siteId, action }. 발굴 행동을 수행한다.
 //
 // 회수 성공이면 open 때 박제한 골동품을 인스턴스로 발굴해 보관함(treasure-collection.v1)에
-// 넣고 유물 도감에 등록하고 세션 종료. 진행 행동은 지도/탐사력/전리품/안정도/위험 상태를 갱신한다.
+// 넣고 유물 도감에 등록하고 세션 종료. 진행 행동은 지하 지도/연료/전리품/안정도/위험 상태를 갱신한다.
 // 골동품과 기초 보존상태는 세션에만 있어 클라가 위조 못 한다. 락 순서: session → collection → codex.
 export async function POST(req: Request) {
   const userId = await ensureUser();

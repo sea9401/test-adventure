@@ -2,7 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { FloppyDisk, Shield, Star, Sword, Trash } from "@phosphor-icons/react";
+import {
+  Circle,
+  Diamond,
+  FloppyDisk,
+  HandFist,
+  Shield,
+  Sneaker,
+  Sword,
+  Trash,
+  type Icon,
+} from "@phosphor-icons/react";
+import {
+  V2_EQUIPMENT,
+  type V2EquipInstance,
+  type V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "@/adventure/v2/V2ItemCard";
 
 type Loadout = {
   id: string;
@@ -15,10 +36,30 @@ type Loadout = {
   summary?: {
     elementLabel: string | null;
     skills: { id: string; name: string; passive: boolean }[];
-    equipment: { slot: string; slotLabel: string; iid: string; name: string }[];
+    equipment: {
+      slot: V2EquipSlot;
+      slotLabel: string;
+      iid: string | null;
+      name: string | null;
+      inst: V2EquipInstance | null;
+    }[];
     patternBlocks: number;
   };
 };
+
+const EQUIP_SLOTS: {
+  slot: V2EquipSlot;
+  label: string;
+  Icon: Icon;
+  color: string;
+}[] = [
+  { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
+  { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
+  { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
+  { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
+  { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
+  { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
+];
 
 function formatKst(iso: string | undefined): string {
   if (!iso) return "-";
@@ -57,6 +98,10 @@ export function V2ArenaLoadoutTab() {
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [card, setCard] = useState<{
+    inst: V2EquipInstance;
+    anchor: ItemCardAnchor;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,16 +168,19 @@ export function V2ArenaLoadoutTab() {
 
   if (err) return <LoadErrorBanner onRetry={load} />;
 
-  const passiveSkills = loadout?.summary?.skills.filter((s) => s.passive) ?? [];
-  const activeSkills = loadout?.summary?.skills.filter((s) => !s.passive) ?? [];
+  const skills = loadout?.summary?.skills.filter((s) => s.passive) ?? [];
+  const patternSkills = loadout?.summary?.skills.filter((s) => !s.passive) ?? [];
+  const equipmentBySlot = new Map(
+    (loadout?.summary?.equipment ?? []).map((item) => [item.slot, item]),
+  );
 
   return (
     <section className="space-y-4">
       <div className="space-y-3">
         <p className="text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-          현재 장착된 속성, 어빌리티, 스킬, 장비를 아레나 전투용 템플릿으로 저장합니다.
-          아레나에서는 공격할 때도, 다른 모험가가 나를 상대할 때도 이 템플릿이 사용됩니다.
-          직업과 현재 스탯은 저장하지 않습니다.
+          현재 장착된 스킬, 전투패턴, 장비를 아레나 전투용 템플릿으로 저장합니다. 아레나에서는
+          공격할 때도, 다른 모험가가 나를 상대할 때도 이 템플릿이 사용됩니다. 직업과 현재
+          스탯은 저장하지 않습니다.
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -175,24 +223,12 @@ export function V2ArenaLoadoutTab() {
             현재 저장된 템플릿 ({formatKst(loadout.savedAt)})
           </div>
 
-          <Section title="속성">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="flex items-center gap-2 font-semibold">
-                <Star size={16} weight="fill" className="text-amber-500" />
-                현재 속성
-              </span>
-              <span className="text-right font-semibold text-fuchsia-600 dark:text-fuchsia-300">
-                {loadout.summary?.elementLabel ?? "중립"}
-              </span>
-            </div>
-          </Section>
-
-          <Section title="어빌리티">
-            {passiveSkills.length === 0 ? (
-              <div className="text-sm text-zinc-500">저장된 어빌리티가 없어요.</div>
+          <Section title="스킬">
+            {skills.length === 0 ? (
+              <div className="text-sm text-zinc-500">저장된 스킬이 없어요.</div>
             ) : (
               <ul className="space-y-2 text-sm">
-                {passiveSkills.map((skill) => (
+                {skills.map((skill) => (
                   <li key={skill.id} className="flex items-center justify-between gap-3">
                     <span className="font-semibold">{skill.name}</span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">항상</span>
@@ -202,12 +238,12 @@ export function V2ArenaLoadoutTab() {
             )}
           </Section>
 
-          <Section title="스킬">
-            {activeSkills.length === 0 ? (
-              <div className="text-sm text-zinc-500">저장된 스킬이 없어요.</div>
+          <Section title="전투패턴">
+            {patternSkills.length === 0 ? (
+              <div className="text-sm text-zinc-500">저장된 전투패턴이 없어요.</div>
             ) : (
               <ul className="space-y-2 text-sm">
-                {activeSkills.map((skill) => (
+                {patternSkills.map((skill) => (
                   <li key={skill.id} className="flex items-center justify-between gap-3">
                     <span className="font-semibold">{skill.name}</span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -220,31 +256,80 @@ export function V2ArenaLoadoutTab() {
           </Section>
 
           <Section title="장비">
-            {loadout.summary?.equipment.length ? (
-              <ul className="space-y-2">
-                {loadout.summary.equipment.map((item) => (
-                  <li
-                    key={`${item.slot}:${item.iid}`}
-                    className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700"
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
+                const saved = equipmentBySlot.get(slot);
+                const inst = saved?.inst ?? null;
+                const item = inst ? V2_EQUIPMENT[inst.id] : null;
+                const inner = (
+                  <>
+                    <Icon size={18} weight="duotone" className={color} />
+                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {label}
+                    </div>
+                    <div
+                      className={`flex max-w-full items-baseline justify-center text-xs font-medium ${
+                        item
+                          ? powerNameClass(item, inst?.roll)
+                          : "text-zinc-400 dark:text-zinc-600"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {item?.name ?? (saved?.iid ? "보유하지 않은 장비" : "—")}
+                      </span>
+                      {item && inst?.enhance && inst.enhance.level > 0 ? (
+                        <span className="ml-1 shrink-0 text-amber-500">
+                          +{inst.enhance.level}
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                );
+                return (
+                  <div
+                    key={slot}
+                    className="flex min-h-[6.25rem] flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-center sm:min-h-[6.75rem] dark:border-zinc-700 dark:bg-zinc-900"
                   >
-                    {item.slot === "weapon" ? (
-                      <Sword size={16} className="shrink-0 text-zinc-500" />
+                    {inst && item ? (
+                      <button
+                        type="button"
+                        onClick={(e) =>
+                          setCard({ inst, anchor: anchorOf(e.currentTarget) })
+                        }
+                        className="flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      >
+                        {inner}
+                      </button>
                     ) : (
-                      <Shield size={16} className="shrink-0 text-zinc-500" />
+                      <div className="flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1">
+                        {inner}
+                      </div>
                     )}
-                    <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
-                      {item.slotLabel}
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-600">
+                      {saved?.iid ? "저장됨" : "비어있음"}
                     </span>
-                    <span className="min-w-0 truncate font-semibold">{item.name}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="text-sm text-zinc-500">저장된 장비가 없어요.</div>
-            )}
+                  </div>
+                );
+              })}
+            </div>
           </Section>
         </>
       )}
+      {card &&
+        (() => {
+          const item = V2_EQUIPMENT[card.inst.id];
+          return (
+            <V2ItemCard
+              item={item}
+              roll={card.inst.roll}
+              enhance={card.inst.enhance}
+              craftQuality={card.inst.craftQuality}
+              craftedBy={card.inst.craftedBy}
+              anchor={card.anchor}
+              onClose={() => setCard(null)}
+            />
+          );
+        })()}
     </section>
   );
 }

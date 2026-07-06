@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   ACTIONS_ALLOWED,
-  COLLAPSE_RISK,
   TREASURE_GRID_HEIGHT,
   TREASURE_GRID_SIZE,
   TREASURE_MAX_ENERGY,
@@ -127,7 +126,7 @@ describe("applyTreasureAction", () => {
     expect(r.session.cells.some((c) => c.scanned && !c.revealed)).toBe(true);
   });
 
-  it("폭약은 인접 숨은 칸을 낮은 탐사력 비용으로 열고 폭약을 소비한다", () => {
+  it("폭약은 인접 숨은 칸을 낮은 연료 비용으로 열고 폭약을 소비한다", () => {
     const { session: s, cell } = withAdjacentKind(session(), "rock");
     const normal = applyTreasureAction(s, "excavate", { cell });
     const bombed = applyTreasureAction(s, "bomb", { cell });
@@ -136,25 +135,25 @@ describe("applyTreasureAction", () => {
     expect(bombed.session.position).toBe(cell);
     expect(bombed.session.tools.bombs).toBe(s.tools.bombs - 1);
     expect(bombed.session.energy).toBeGreaterThan(normal.session.energy);
-    expect(bombed.session.risk).toBeLessThan(normal.session.risk);
+    expect(bombed.session.haul).toBeGreaterThan(normal.session.haul);
   });
 
-  it("보강은 탐사력을 쓰고 안정도를 회복하며 위험을 낮춘다", () => {
+  it("정비는 연료만 쓴다", () => {
     const r = applyTreasureAction(session({ risk: 80, stability: 45 }), "secure");
     expect(r.kind).toBe("progress");
     expect(r.session.energy).toBe(TREASURE_MAX_ENERGY - 2);
-    expect(r.session.risk).toBeLessThan(80);
-    expect(r.session.stability).toBeGreaterThan(45);
+    expect(r.session.risk).toBe(80);
+    expect(r.session.stability).toBe(45);
   });
 
-  it("위험도가 100에 닿으면 붕괴된다", () => {
+  it("위험 수치는 더 이상 붕괴를 일으키지 않는다", () => {
     const { session: s, cell } = withAdjacentKind(
       session({ risk: 95, stability: 30, instability: 6 }),
       "fissure",
     );
     const r = applyTreasureAction(s, "excavate", { cell });
-    expect(r.kind).toBe("collapsed");
-    expect(r.session.risk).toBe(COLLAPSE_RISK);
+    expect(r.kind).toBe("progress");
+    expect(r.session.risk).toBe(95);
   });
 
   it("전리품 없이 귀환하면 실패한다", () => {
@@ -173,7 +172,7 @@ describe("applyTreasureAction", () => {
     }
   });
 
-  it("로프 귀환은 로프를 소비하고 일반 귀환보다 보존상태를 높인다", () => {
+  it("즉시 귀환은 로프를 소비하고 일반 귀환과 같은 보존상태를 쓴다", () => {
     const s = session({ depth: 4, haul: 130, stability: 62, risk: 88, insight: 45 });
     const normal = applyTreasureAction(s, "retreat");
     const rope = applyTreasureAction(s, "rope");
@@ -181,7 +180,7 @@ describe("applyTreasureAction", () => {
     expect(rope.kind).toBe("extracted");
     if (normal.kind === "extracted" && rope.kind === "extracted") {
       expect(rope.session.tools.ropes).toBe(s.tools.ropes - 1);
-      expect(rope.condition).toBeGreaterThan(normal.condition);
+      expect(rope.condition).toBe(normal.condition);
     }
   });
 

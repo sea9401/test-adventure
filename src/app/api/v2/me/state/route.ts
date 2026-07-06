@@ -246,7 +246,7 @@ export async function GET(req: Request) {
     staminaMax,
   );
 
-  const hpStored = Math.max(0, charSave.hp ?? maxHp);
+  const hpStored = Math.max(0, combat?.player.hp ?? maxHp);
   const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
   const hpRegen = applyHpRegen(hpStored, maxHp, hpRegenSince, now);
 

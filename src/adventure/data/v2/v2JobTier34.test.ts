@@ -29,6 +29,10 @@ import {
 } from "./v2Skills";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
+import {
+  scaleCombatNumber,
+  V2_COMBAT_NUMBER_SCALE,
+} from "./combatNumberScale";
 
 // 직군 cumLevel(groups) 로 구성한 숙련도 — tier-4 부모 직군 게이트용.
 function profWithGroups(groupCumLevels: Record<string, number>): V2ProficiencyState {
@@ -209,7 +213,11 @@ describe("성기사 하이브리드 derive — 전사측·마법(회복)측 양�
     const aegis = deriveWithEquippedKit(KIT, { ...TANK }).player;
     // defPct 10 → def 곱연산 ×1.1. (킷에 패시브가 가호 하나뿐이라 defPct=10 확정.)
     const defPct = V2_SKILLS.v2c_templar_aegis.passive!.defPct!;
-    expect(aegis.def).toBe(Math.floor(plain.def * (1 + defPct / 100)));
+    expect(aegis.def).toBe(
+      scaleCombatNumber(
+        Math.floor((plain.def / V2_COMBAT_NUMBER_SCALE) * (1 + defPct / 100)),
+      ),
+    );
     expect(aegis.def).toBeGreaterThan(plain.def);
   });
 

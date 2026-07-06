@@ -44,6 +44,31 @@ type ArenaHistoryEntry = {
   replay: ReplayPayload;
 };
 
+type ArenaSeasonHistoryEntry = {
+  seasonId: string;
+  startAt: string;
+  endAt: string;
+  rank: number;
+  totalRanked: number;
+  rating: number;
+  wins: number;
+  losses: number;
+  draws: number;
+};
+
+type ArenaOpponentRecord = {
+  key: string;
+  name: string;
+  level: number;
+  userId?: string;
+  botId?: string;
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  lastAt: string;
+};
+
 type MatchResp =
   | {
       ok: true;
@@ -73,9 +98,9 @@ type Tab = "main" | "history" | "ranking" | "loadout" | "shop";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "main", label: "메인" },
-  { id: "history", label: "전투 기록" },
   { id: "ranking", label: "순위표" },
   { id: "loadout", label: "전투 세팅" },
+  { id: "history", label: "기록" },
   { id: "shop", label: "상점" },
 ];
 
@@ -122,12 +147,166 @@ function formatKst(iso: string | undefined): string {
   }).format(new Date(time));
 }
 
+function recordText({
+  wins,
+  losses,
+  draws,
+}: {
+  wins: number;
+  losses: number;
+  draws: number;
+}): string {
+  return `${wins}-${losses}-${draws}`;
+}
+
+function RecentBattleList({
+  history,
+  limit,
+  title,
+  emptyText,
+  onOpen,
+}: {
+  history: ArenaHistoryEntry[];
+  limit?: number;
+  title: string;
+  emptyText: string;
+  onOpen: (id: string) => void;
+}) {
+  const rows = typeof limit === "number" ? history.slice(0, limit) : history;
+  if (rows.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-zinc-500">{emptyText}</div>
+    );
+  }
+  return (
+    <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mb-2 text-sm font-semibold">{title}</div>
+      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {rows.map((h) => (
+          <li key={h.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(h.id)}
+              className="ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+            >
+              <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
+                {OUTCOME_LABEL[h.outcome]}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {h.opponent?.name || "상대"}
+                <span className="ml-1 text-xs text-zinc-500">
+                  Lv.{h.opponent?.level ?? "?"}
+                </span>
+              </span>
+              <span
+                className={
+                  "shrink-0 tabular-nums " +
+                  (h.scoreDelta > 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : h.scoreDelta < 0
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-zinc-500")
+                }
+              >
+                {h.scoreDelta >= 0 ? "+" : ""}
+                {h.scoreDelta}
+              </span>
+              <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
+                {h.turns}행동
+              </span>
+              <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
+              <FilmStrip size={14} className="shrink-0 text-zinc-400" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function WeeklySeasonRecords({
+  seasons,
+}: {
+  seasons: ArenaSeasonHistoryEntry[];
+}) {
+  return (
+    <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mb-2 text-sm font-semibold">주간 아레나 기록</div>
+      {seasons.length === 0 ? (
+        <div className="py-5 text-center text-sm text-zinc-500">
+          아직 종료된 주간 아레나 기록이 없어요.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {seasons.map((s) => {
+            const matches = s.wins + s.losses + s.draws;
+            return (
+              <li
+                key={s.seasonId}
+                className="rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/70"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">{s.seasonId}</span>
+                  <span className="text-xs text-zinc-500">
+                    {formatKst(s.endAt)} 종료
+                  </span>
+                </div>
+                <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  <span>순위 {s.rank}/{s.totalRanked}</span>
+                  <span>승률 {percent(s.wins, matches)}</span>
+                  <span>전적 {recordText(s)}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function OpponentRecordList({
+  records,
+}: {
+  records: ArenaOpponentRecord[];
+}) {
+  return (
+    <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mb-2 text-sm font-semibold">자주 만난 상대</div>
+      {records.length === 0 ? (
+        <div className="py-5 text-center text-sm text-zinc-500">
+          상대 전적을 만들 전투 기록이 아직 부족해요.
+        </div>
+      ) : (
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {records.map((r) => (
+            <li
+              key={r.key}
+              className="flex items-center justify-between gap-3 py-2 text-sm"
+            >
+              <span className="min-w-0 flex-1 truncate">
+                <span className="font-semibold">{r.name}</span>
+                <span className="ml-1 text-xs text-zinc-500">Lv.{r.level}</span>
+              </span>
+              <span className="shrink-0 text-xs text-zinc-500">
+                {r.matches}전 · {recordText(r)} · {timeAgo(r.lastAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("main");
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<ArenaHistoryEntry[]>([]);
+  const [seasonHistory, setSeasonHistory] = useState<ArenaSeasonHistoryEntry[]>([]);
+  const [opponentRecords, setOpponentRecords] = useState<ArenaOpponentRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   // 재도전 쿨타임 — cooldownUntil(epoch ms, 0=없음). nowMs 틱으로 카운트다운 렌더.
@@ -153,8 +332,16 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const hj = (await histRes.json().catch(() => null)) as {
         ok?: boolean;
         history?: ArenaHistoryEntry[];
+        seasons?: ArenaSeasonHistoryEntry[];
+        opponentRecords?: ArenaOpponentRecord[];
       } | null;
-      if (hj?.ok && Array.isArray(hj.history)) setHistory(hj.history);
+      if (hj?.ok) {
+        if (Array.isArray(hj.history)) setHistory(hj.history);
+        if (Array.isArray(hj.seasons)) setSeasonHistory(hj.seasons);
+        if (Array.isArray(hj.opponentRecords)) {
+          setOpponentRecords(hj.opponentRecords);
+        }
+      }
     } catch {
       setState(null);
       setLoadError(true);
@@ -252,6 +439,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const seasonMatches =
     (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
   const recent = history[0];
+  const openHistoryEntry = useCallback(
+    (id: string) => router.push(`/battle/arena/${encodeURIComponent(id)}`),
+    [router],
+  );
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -409,61 +600,27 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             </div>
           </section>
 
+          <RecentBattleList
+            history={history}
+            limit={5}
+            title="최근 전투 기록"
+            emptyText="아직 전투 기록이 없어요. 도전 후 기록이 여기에 표시됩니다."
+            onOpen={openHistoryEntry}
+          />
+
         </>
       )}
 
       {tab === "history" && (
         <>
-          {history.length === 0 ? (
-            <div className="py-8 text-center text-sm text-zinc-500">
-              아직 전투 기록이 없어요. 메인에서 도전해 보세요.
-            </div>
-          ) : (
-            <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="mb-2 text-sm font-semibold">전투 기록 (최근 10판)</div>
-              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {history.map((h) => (
-                  <li key={h.id}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        router.push(`/battle/arena/${encodeURIComponent(h.id)}`)
-                      }
-                      className="ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-                    >
-                      <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
-                        {OUTCOME_LABEL[h.outcome]}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {h.opponent?.name || "상대"}
-                        <span className="ml-1 text-xs text-zinc-500">
-                          Lv.{h.opponent?.level ?? "?"}
-                        </span>
-                      </span>
-                      <span
-                        className={
-                          "shrink-0 tabular-nums " +
-                          (h.scoreDelta > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : h.scoreDelta < 0
-                              ? "text-rose-600 dark:text-rose-400"
-                              : "text-zinc-500")
-                        }
-                      >
-                        {h.scoreDelta >= 0 ? "+" : ""}
-                        {h.scoreDelta}
-                      </span>
-                      <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
-                        {h.turns}행동
-                      </span>
-                      <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
-                      <FilmStrip size={14} className="shrink-0 text-zinc-400" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <WeeklySeasonRecords seasons={seasonHistory} />
+          <OpponentRecordList records={opponentRecords} />
+          <RecentBattleList
+            history={history}
+            title="전투 기록 (최근 10판)"
+            emptyText="아직 전투 기록이 없어요. 메인에서 도전해 보세요."
+            onOpen={openHistoryEntry}
+          />
         </>
       )}
 

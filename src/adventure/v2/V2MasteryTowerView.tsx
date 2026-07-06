@@ -33,6 +33,8 @@ type TowerLogEntry = {
 
 type TowerGuardian = {
   name: string;
+  gimmickName: string | null;
+  gimmickDescription: string | null;
   hp: number;
   atk: number;
   def: number;
@@ -295,7 +297,7 @@ export function V2MasteryTowerView({
             <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/60">
               {status.nextFloor == null ? (
                 <p className="font-medium text-emerald-600 dark:text-emerald-400">
-                  오늘 30층까지 돌파했습니다.
+                  오늘 50층까지 돌파했습니다.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -321,6 +323,7 @@ export function V2MasteryTowerView({
                     </div>
                   )}
                   {status.nextGuardian && (
+                    <>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
                       명중 {status.nextGuardian.accuracy}% · 회피{" "}
                       {status.nextGuardian.evasionPct}% · 치명{" "}
@@ -332,6 +335,15 @@ export function V2MasteryTowerView({
                             .join(" / ")}`
                         : ""}
                     </p>
+                    {status.nextGuardian.gimmickName && (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
+                        <span className="font-semibold">
+                          {status.nextGuardian.gimmickName}
+                        </span>{" "}
+                        {status.nextGuardian.gimmickDescription}
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               )}

@@ -114,7 +114,7 @@ export async function GET() {
     rewards: {
       maxFloor: MASTERY_TOWER_MAX_FLOOR,
       milestones: MASTERY_TOWER_MILESTONES,
-      samples: [5, 10, 15, 20, 25, 30].map((floor) => ({
+      samples: [5, 10, 20, 30, 40, 50].map((floor) => ({
         floor,
         reward: masteryTowerFloorReward(floor),
       })),

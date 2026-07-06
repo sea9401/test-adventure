@@ -4,12 +4,14 @@ import type { V2SkillId } from "./v2Skills";
 export const MASTERY_TOWER_SAVE_KEY = "mastery-tower.v1";
 export const MASTERY_CERTIFICATE_KEY = "masteryCertificates";
 
-export const MASTERY_TOWER_MAX_FLOOR = 30;
+export const MASTERY_TOWER_MAX_FLOOR = 50;
 
 export const MASTERY_TOWER_MILESTONES = [
   { floor: 10, bonus: 100 },
   { floor: 20, bonus: 200 },
   { floor: 30, bonus: 300 },
+  { floor: 40, bonus: 400 },
+  { floor: 50, bonus: 500 },
 ] as const;
 
 export type MasteryTowerState = {
@@ -31,21 +33,25 @@ export function kstDateKey(now: number = Date.now()): string {
 
 export function masteryTowerFloorReward(floor: number): number {
   const f = clampFloor(floor);
-  if (f <= 10) return f * 30;
-  if (f <= 20) return 300 + (f - 10) * 45;
-  return 750 + (f - 20) * 60;
+  if (f <= 10) return f * 20;
+  if (f <= 20) return 200 + (f - 10) * 30;
+  if (f <= 30) return 500 + (f - 20) * 45;
+  if (f <= 40) return 950 + (f - 30) * 60;
+  return 1550 + (f - 40) * 85;
 }
 
 export function masteryTowerRequiredPower(floor: number): number {
   const f = clampFloor(floor);
   if (f <= 0) return 0;
-  if (f <= 10) return 45 + f * 10;
-  if (f <= 20) return 145 + (f - 10) * 24;
-  return 385 + (f - 20) * 55;
+  if (f <= 10) return 90 + f * 30;
+  if (f <= 20) return 390 + (f - 10) * 81;
+  return 1200 + (f - 20) * 130;
 }
 
 export type MasteryTowerGuardianPreview = {
   name: string;
+  gimmickName: string | null;
+  gimmickDescription: string | null;
   hp: number;
   atk: number;
   def: number;
@@ -62,35 +68,45 @@ export function masteryTowerGuardianForFloor(floor: number): Monster {
   const f = clampFloor(floor);
   const power = masteryTowerRequiredPower(f);
   const phase =
-    f >= 25 ? "심층" : f >= 17 ? "상층" : f >= 9 ? "중층" : "하층";
-  const magicFloor = f >= 10 && f % 3 === 1;
+    f >= 40 ? "최심층" : f >= 25 ? "심층" : f >= 17 ? "상층" : f >= 9 ? "중층" : "하층";
+  const boss = towerGuardianBossGimmick(f);
+  const magicFloor = f >= 10 && (f % 3 === 1 || f === 40 || f === 50);
   const skills = towerGuardianSkills(f);
   return {
-    name: `${phase} 수호자`,
+    name: boss?.name ?? `${phase} 수호자`,
     tags: ["golem", "spirit"],
-    hp: Math.round(260 + power * 7.5 + f * f * 6),
-    atk: Math.round(18 + power * 0.72 + f * 2),
-    def: Math.round(8 + power * 0.42 + f * 1.4),
-    spd: Math.round(55 + f * 7),
-    accuracy: Math.min(85, Math.round(f * 2 + (f >= 16 ? 15 : 0))),
+    hp: Math.round((260 + power * 7.5 + f * f * 6) * (boss?.hpMult ?? 1)),
+    atk: Math.round((18 + power * 0.72 + f * 2) * (boss?.atkMult ?? 1)),
+    def: Math.round((8 + power * 0.42 + f * 1.4) * (boss?.defMult ?? 1)),
+    spd: Math.round((55 + f * 7) * (boss?.spdMult ?? 1)),
+    accuracy: Math.min(
+      92,
+      Math.round(f * 2 + (f >= 16 ? 15 : 0) + (boss?.accuracyBonus ?? 0)),
+    ),
     evasionPct: f >= 12 ? Math.min(28, Math.round((f - 10) * 1.4)) : 0,
     element: "neutral",
     atkType: magicFloor ? "magic" : "physical",
-    critPct: f >= 8 ? Math.min(35, Math.round(f + 2)) : 0,
-    critMult: f >= 8 ? 1.5 + Math.min(0.45, f / 100) : undefined,
+    critPct:
+      f >= 8 ? Math.min(55, Math.round(f + 2 + (boss?.critBonus ?? 0))) : 0,
+    critMult: f >= 8 ? 1.5 + Math.min(0.6, f / 100) : undefined,
     exp: 0,
     drops: [],
-    armorVulnerable: f >= 20 ? 0.22 : f >= 10 ? 0.12 : 0,
-    playerDefVulnerable: f >= 15 ? Math.min(0.32, 0.08 + (f - 15) * 0.012) : 0,
+    armorVulnerable:
+      boss?.armorVulnerable ?? (f >= 20 ? 0.22 : f >= 10 ? 0.12 : 0),
+    playerDefVulnerable:
+      boss?.playerDefVulnerable ??
+      (f >= 15 ? Math.min(0.32, 0.08 + (f - 15) * 0.012) : 0),
     bonusAttackChancePct:
-      f >= 18 ? Math.min(100, Math.round((f - 17) * 7)) : 0,
+      boss?.bonusAttackChancePct ??
+      (f >= 18 ? Math.min(100, Math.round((f - 17) * 7)) : 0),
     ...(skills.length
       ? {
           v2Skills: {
             learned: skills,
             equipped: skills,
           },
-          v2MaxMp: f >= 24 ? 140 : f >= 16 ? 100 : 60,
+          v2MaxMp:
+            boss?.v2MaxMp ?? (f >= 40 ? 220 : f >= 24 ? 140 : f >= 16 ? 100 : 60),
         }
       : {}),
   };
@@ -100,8 +116,11 @@ export function masteryTowerGuardianPreview(
   floor: number,
 ): MasteryTowerGuardianPreview {
   const guardian = masteryTowerGuardianForFloor(floor);
+  const boss = towerGuardianBossGimmick(floor);
   return {
     name: guardian.name,
+    gimmickName: boss?.gimmickName ?? null,
+    gimmickDescription: boss?.gimmickDescription ?? null,
     hp: guardian.hp,
     atk: guardian.atk,
     def: guardian.def,
@@ -118,6 +137,20 @@ export function masteryTowerGuardianPreview(
 function towerGuardianSkills(floor: number): V2SkillId[] {
   const f = clampFloor(floor);
   if (f < 8) return [];
+  if (f === 50) {
+    return [
+      "mob_arcane_nova",
+      "mob_savage_roar",
+      "mob_crushing_blow",
+      "mob_chilling_touch",
+    ];
+  }
+  if (f === 40) {
+    return ["mob_arcane_burst", "mob_chilling_touch", "mob_venom_bite"];
+  }
+  if (f === 30) {
+    return ["mob_crushing_blow", "mob_savage_roar", "mob_rending_claw"];
+  }
   if (f < 15) {
     return [statusSkillForFloor(f)];
   }
@@ -139,6 +172,72 @@ function statusSkillForFloor(floor: number): V2SkillId {
   if (cycle === 0) return "mob_rending_claw";
   if (cycle === 1) return "mob_chilling_touch";
   return "mob_venom_bite";
+}
+
+function towerGuardianBossGimmick(floor: number):
+  | {
+      name: string;
+      gimmickName: string;
+      gimmickDescription: string;
+      hpMult?: number;
+      atkMult?: number;
+      defMult?: number;
+      spdMult?: number;
+      accuracyBonus?: number;
+      critBonus?: number;
+      armorVulnerable?: number;
+      playerDefVulnerable?: number;
+      bonusAttackChancePct?: number;
+      v2MaxMp?: number;
+    }
+  | null {
+  const f = clampFloor(floor);
+  if (f === 30) {
+    return {
+      name: "탑의 숙련자",
+      gimmickName: "집중 방패",
+      gimmickDescription:
+        "높은 방어와 분쇄 일격으로 정면 화력을 시험합니다. 관통과 강한 단일 화력이 유리합니다.",
+      defMult: 1.25,
+      armorVulnerable: 0.3,
+      playerDefVulnerable: 0.34,
+      bonusAttackChancePct: 120,
+    };
+  }
+  if (f === 40) {
+    return {
+      name: "침묵의 교관",
+      gimmickName: "침묵 압박",
+      gimmickDescription:
+        "마법 공격, 한기, 독으로 긴 교전을 압박합니다. 마법방어와 생존력이 중요합니다.",
+      hpMult: 1.08,
+      atkMult: 1.08,
+      accuracyBonus: 8,
+      critBonus: 4,
+      playerDefVulnerable: 0.22,
+      bonusAttackChancePct: 180,
+      v2MaxMp: 220,
+    };
+  }
+  if (f === 50) {
+    return {
+      name: "정점의 대련자",
+      gimmickName: "삼중 시험",
+      gimmickDescription:
+        "비전 폭발, 포효, 분쇄, 한기를 모두 사용합니다. 화력, 생존, 템포 중 하나라도 약하면 전투가 길어집니다.",
+      hpMult: 1.12,
+      atkMult: 1.12,
+      defMult: 1.08,
+      spdMult: 1.1,
+      accuracyBonus: 12,
+      critBonus: 8,
+      armorVulnerable: 0.28,
+      playerDefVulnerable: 0.28,
+      bonusAttackChancePct: 260,
+      v2MaxMp: 300,
+    };
+  }
+  return null;
 }
 
 export function parseMasteryTowerState(

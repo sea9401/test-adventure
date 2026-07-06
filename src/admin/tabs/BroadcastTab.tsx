@@ -7,6 +7,10 @@ import { DangerAction } from "../ui/DangerAction";
 import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  adminEquipSlotSortValue,
+  adminEquipmentOptionLabel,
+} from "@/admin/displayNames";
 
 const SELECT_CLS =
   "w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100";
@@ -48,8 +52,19 @@ export function BroadcastTab() {
   const equipOptions = useMemo(
     () =>
       Object.values(V2_EQUIPMENT)
-        .map((e) => ({ id: e.id, name: e.name, tier: e.tier, slot: e.slot }))
-        .sort((a, b) => a.tier - b.tier || a.slot.localeCompare(b.slot)),
+        .map((e) => ({
+          id: e.id,
+          name: e.name,
+          label: adminEquipmentOptionLabel(e),
+          tier: e.tier,
+          slot: e.slot,
+        }))
+        .sort(
+          (a, b) =>
+            a.tier - b.tier ||
+            adminEquipSlotSortValue(a.slot) - adminEquipSlotSortValue(b.slot) ||
+            a.name.localeCompare(b.name, "ko"),
+        ),
     [],
   );
   const consumableOptions = useMemo(
@@ -256,7 +271,7 @@ export function BroadcastTab() {
         <h3 className="text-sm font-semibold">대량 우편 (골드·재료·장비·소비템)</h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           골드 + 재료/장비/소비템 + 메시지를 우편함으로 발송합니다(수신자가 수령). 보정금·이벤트
-          보상용. 장비는 base 등급으로 지급됩니다.
+          보상용. 장비는 기본 등급으로 지급됩니다.
           <strong> 전체 발송</strong>은 모든 유저에게 자원을 지급하는 강력한 작업입니다.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -272,11 +287,11 @@ export function BroadcastTab() {
             />
           </Field>
           {target === "user" && (
-            <Field label="유저 ID" hint="유저 탭에서 복사한 user id">
+            <Field label="유저 ID" hint="유저 탭에서 복사한 유저 ID">
               <TextInput
                 value={userId}
                 onChange={setUserId}
-                placeholder="user id"
+                placeholder="유저 ID"
                 disabled={mailDisabled}
               />
             </Field>
@@ -302,7 +317,7 @@ export function BroadcastTab() {
             >
               {materialOptions.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name} ({o.id})
+                  {o.name}
                 </option>
               ))}
             </select>
@@ -348,7 +363,7 @@ export function BroadcastTab() {
 
         {/* 장비 첨부 */}
         <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
-          <Field label="장비 첨부 (base 등급)">
+          <Field label="장비 첨부 (기본 등급)">
             <select
               value={eqSel}
               disabled={mailDisabled || equipOptions.length === 0}
@@ -357,7 +372,7 @@ export function BroadcastTab() {
             >
               {equipOptions.map((o) => (
                 <option key={o.id} value={o.id}>
-                  T{o.tier} · {o.slot} · {o.name} ({o.id})
+                  {o.label}
                 </option>
               ))}
             </select>
@@ -414,7 +429,7 @@ export function BroadcastTab() {
             >
               {consumableOptions.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.name} ({o.id})
+                  {o.name}
                 </option>
               ))}
             </select>

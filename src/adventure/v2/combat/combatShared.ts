@@ -555,6 +555,7 @@ export type V2SkillCastInput = {
     classTier?: number;
     // 활성 파생버프(회피/치명/받피감 = selfBuffPct) — 패턴 조건 self_buff_pct 평가용. 엔진이
     //   state.stacks 의 turns>0 여부로 채운다. 미지정=전부 비활성(구 호출 안전).
+    selfShieldActive?: boolean;
     selfBuffPctActive?: {
       evasion?: boolean;
       crit?: boolean;
@@ -607,6 +608,7 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
   return {
     selfHpPct: ((a.currentHp ?? a.maxHp) / maxHp) * 100,
     selfMpPct: (a.mp / maxMp) * 100,
+    selfShieldActive: a.selfShieldActive ?? false,
     // 활성 자버프 스탯만(turns>0). 엔진은 tick 으로 만료 키를 제거하지만, 비-엔진 호출의 stale
     //   0턴 키가 false-positive(버프 활성) 내지 않게 방어적 필터.
     selfBuffStats: new Set(

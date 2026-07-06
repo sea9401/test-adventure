@@ -2,11 +2,13 @@
 
 import {
   Barbell,
+  CastleTurret,
   CompassRose,
   Crosshair,
   Skull,
   Sword,
   Trophy,
+  Wall,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
@@ -21,6 +23,8 @@ export type BattleAction =
   | { kind: "open-subjugation" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" }
+  | { kind: "open-mastery-tower" }
+  | { kind: "open-grid-dungeon" }
   | { kind: "open-map" };
 
 export function V2BattleHome({
@@ -62,6 +66,13 @@ export function V2BattleHome({
         />
         <EntryCard
           icon={
+            <CastleTurret size={28} weight="duotone" className="text-emerald-500" />
+          }
+          title="숙련의 탑"
+          onClick={() => onAction({ kind: "open-mastery-tower" })}
+        />
+        <EntryCard
+          icon={
             <Crosshair
               size={28}
               weight="duotone"
@@ -70,6 +81,13 @@ export function V2BattleHome({
           }
           title="토벌"
           onClick={() => onAction({ kind: "open-subjugation" })}
+        />
+        <EntryCard
+          icon={
+            <Wall size={28} weight="duotone" className="text-amber-500" />
+          }
+          title="던전 입장"
+          onClick={() => onAction({ kind: "open-grid-dungeon" })}
         />
         <EntryCard
           icon={

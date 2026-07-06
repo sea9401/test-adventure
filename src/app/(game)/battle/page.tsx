@@ -15,6 +15,10 @@ export default function BattlePage() {
           router.push("/battle/subjugation");
         else if (a.kind === "open-arena") router.push("/battle/arena");
         else if (a.kind === "open-sparring") router.push("/battle/sparring");
+        else if (a.kind === "open-mastery-tower")
+          router.push("/battle/mastery-tower");
+        else if (a.kind === "open-grid-dungeon")
+          router.push("/battle/grid-dungeon");
         else if (a.kind === "open-map") router.push("/map");
       }}
     />

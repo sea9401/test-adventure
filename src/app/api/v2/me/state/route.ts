@@ -101,7 +101,10 @@ import {
 } from "@/adventure/v2/treasureCodex";
 import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import {
+  derivePlayerCombatV2FromSaves,
+  type SavedCharacterV2,
+} from "@/lib/server/derivePlayerCombatV2";
 import {
   isIntruderActive,
   parseLastHuntedOutpost,
@@ -130,6 +133,33 @@ import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
 // 캐릭터(레벨/EXP/HP/스태미너/골드) + 길드(id/name) + 자원풀 한 번에.
 // HP·stamina 는 시간 회복 적용한 현재값으로 surface (다음 사냥 진입 시 동기화).
 
+const STATE_SAVE_KEYS = [
+  "character.v2",
+  "character-profile.v2",
+  "equipment.v2",
+  "skills.v2",
+  "proficiency.v2",
+  "fishing-codex.v1",
+  "treasure-codex.v1",
+  "treasure-fragments.v1",
+  "adventure-log.v2",
+  STAMINA_POTIONS_KEY,
+  "inventory.v2",
+  EQUIPMENT_CODEX_KEY,
+] as const;
+
+type StateSaveKey = (typeof STATE_SAVE_KEYS)[number];
+
+async function readStateSaveRows(userId: string) {
+  const rows = await db
+    .select({ key: savesKv.key, value: savesKv.value })
+    .from(savesKv)
+    .where(
+      and(eq(savesKv.userId, userId), inArray(savesKv.key, [...STATE_SAVE_KEYS])),
+    );
+  return new Map(rows.map((row) => [row.key as StateSaveKey, row.value]));
+}
+
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
@@ -146,39 +176,8 @@ export async function GET() {
     return gid;
   });
 
-  const [
-    charRow,
-    profileRow,
-    guildRow,
-    combat,
-    resources,
-    skillsRow,
-    proficiencyRow,
-    fishingCodexRow,
-    treasureCodexRow,
-    treasureFragmentsRow,
-    adventureLogRow,
-    staminaPotionsRow,
-    inventoryRow,
-    equipmentCodexRow,
-  ] = await Promise.all([
-      db
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")))
-        .limit(1)
-        .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(
-        and(
-          eq(savesKv.userId, userId),
-          eq(savesKv.key, "character-profile.v2"),
-        ),
-      )
-      .limit(1)
-      .then((rows) => rows[0]),
+  const [stateSaves, guildRow, resources] = await Promise.all([
+    readStateSaveRows(userId),
     guildId == null
       ? Promise.resolve(undefined)
       : db
@@ -199,71 +198,30 @@ export async function GET() {
           .where(eq(guilds.id, guildId))
           .limit(1)
           .then((rows) => rows[0]),
-    derivePlayerCombatV2(userId),
     guildId == null
       ? Promise.resolve(null)
       : db.transaction(async (tx) => readGuildResources(tx, guildId)),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "skills.v2")))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "proficiency.v2")))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "fishing-codex.v1")))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "treasure-codex.v1")))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(
-        and(eq(savesKv.userId, userId), eq(savesKv.key, "treasure-fragments.v1")),
-      )
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(
-        and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)),
-      )
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "inventory.v2")))
-      .limit(1)
-      .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(
-        and(eq(savesKv.userId, userId), eq(savesKv.key, EQUIPMENT_CODEX_KEY)),
-      )
-      .limit(1)
-      .then((rows) => rows[0]),
   ]);
+
+  const saveRow = (key: StateSaveKey): { value: unknown } | undefined =>
+    stateSaves.has(key) ? { value: stateSaves.get(key) } : undefined;
+  const charRow = saveRow("character.v2");
+  const profileRow = saveRow("character-profile.v2");
+  const skillsRow = saveRow("skills.v2");
+  const proficiencyRow = saveRow("proficiency.v2");
+  const fishingCodexRow = saveRow("fishing-codex.v1");
+  const treasureCodexRow = saveRow("treasure-codex.v1");
+  const treasureFragmentsRow = saveRow("treasure-fragments.v1");
+  const adventureLogRow = saveRow("adventure-log.v2");
+  const staminaPotionsRow = saveRow(STAMINA_POTIONS_KEY);
+  const inventoryRow = saveRow("inventory.v2");
+  const equipmentCodexRow = saveRow(EQUIPMENT_CODEX_KEY);
+  const combat = derivePlayerCombatV2FromSaves({
+    character: charRow?.value as SavedCharacterV2 | undefined,
+    equipmentSave: stateSaves.get("equipment.v2"),
+    proficiencyRaw: proficiencyRow?.value,
+    skillsRaw: skillsRow?.value,
+  });
 
   // 전투 횟수(전적) — adventure-log.v2 의 monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의).
   const logVal = (adventureLogRow?.value ?? null) as {

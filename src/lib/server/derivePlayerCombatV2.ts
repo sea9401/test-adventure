@@ -13,9 +13,9 @@
 //   luk → 치명 확률(crit += luk×0.12) + 치명 데미지(critMult 점감곡선 bonus += luk×0.007). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
-// 장비(PR-4a 위력/무게/옵션 모델):
+// 장비(PR-4a 위력/옵션 모델):
 //   - 위력 → 슬롯별 분기(지팡이=마공 / 기타 무기=물공 / 방어구=물방 / 장신구=마방). 결과 후-가산.
-//   - 무게 → 속도 −(선형, weight×WEIGHT_SPD_PENALTY).
+//   - 속도 페널티는 숨은 무게가 아니라 options.spd 음수로 직접 표시·적용한다.
 //   - 옵션(crit/mp/eva/hp) → 결과 후-가산. 장비는 6스탯 token 을 안 준다(정체성=훈련 분배).
 //
 // 반환 타입 DerivedPlayerCombatV2 는 라이브 DerivedPlayerCombat 와 독립 — v2 전투는
@@ -156,8 +156,8 @@ export type DerivedPlayerCombatV2 = {
   classTier: number;
 };
 
-// PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 6개에서 위력을 슬롯/무기종류별로 분기 누적 +
-// 무게 합산 + 옵션(crit/mp/eva/hp) 누적. 장비는 더 이상 6스탯 token 을 안 준다(정체성은
+// PR-4a 장비 위력/옵션 합산 — equipment.v2 슬롯 6개에서 위력을 슬롯/무기종류별로 분기 누적 +
+// 옵션(crit/mp/eva/hp/spd 등) 누적. 장비는 더 이상 6스탯 token 을 안 준다(정체성은
 // 훈련 분배). 단위 테스트가 검증할 수 있도록 export.
 export type V2EquipAggregate = {
   // 위력 슬롯별 분기 (derive 결과 후-가산)
@@ -165,7 +165,7 @@ export type V2EquipAggregate = {
   magicAtk: number; // Σ 지팡이 무기 위력 (마법 공격력)
   def: number; // Σ 방어구 위력 (물리 방어력)
   magicDef: number; // Σ 장신구 위력 (마법 방어력)
-  // 무게 — 속도 페널티 (derive 에서 −weight×계수)
+  // 옛 세이브/호환용. 신규 장비는 weight=0 이며 속도 페널티는 spd 옵션에 직접 들어간다.
   weight: number;
   // 옵션 — derive 결과 후-가산
   crit: number;
@@ -338,6 +338,8 @@ export {
   CRIT_MULT_CEIL,
   CRIT_MULT_SCALE,
   MAGIC_ATK_PER_INT,
+  MAGIC_DEF_PER_INT,
+  MAGIC_DEF_PER_SPI,
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./v2CombatCoefficients";
@@ -450,6 +452,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveBerserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 누적. */
   passiveEnemyMagicVulnPctPerStack?: number;
+  /** 약점 노출 누적 확률. */
+  passiveEnemyMagicVulnApplyChancePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계 초과분을 공격력 %로 환산(점근, 값=상한%). 장착 패시브 합산분. */
   passiveSpdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 스킬에도 적용. 장착 패시브에서 주입. */
@@ -481,7 +485,7 @@ export function derivePlayerCombatV2Pure(
     emptyV2StatMap(),
   );
   // PR-4a — totalStats = baseAllocated 그대로. 장비는 더 이상 6스탯 token 을 안 준다
-  // (위력/무게/옵션만). 1차 스탯 정체성은 훈련 분배 + 직업 보정에서만 나온다.
+  // (위력/옵션만). 1차 스탯 정체성은 훈련 분배 + 직업 보정에서만 나온다.
   const totalStats: Record<V2StatKey, number> = { ...baseAllocatedStats };
 
   // PR-1 직업 보정 — 직업 앵커 스탯에 차수별 보정 %. (전사 1차 = STR +10%, 4차 = +35%)
@@ -552,13 +556,17 @@ export function derivePlayerCombatV2Pure(
     Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
     equipAcc.magicAtk +
     V2_BASE_COMBAT_BONUS;
-  // 마법 방어력(신규) — 정신 major + 지능 minor + 장신구 위력. combatShared 가 마법 데미지에서 차감.
-  const magicDef =
+  // 마법 방어력 — 정신 major + 지능 minor + 장신구 위력. 방어% 패시브는 방벽 계열 공통 내구
+  // 보정으로 마방에도 적용한다. 그래야 결계/방벽 패시브가 마법몹 상대로도 체감된다.
+  const baseMagicDef =
     Math.floor(
       totalStats.spi * MAGIC_DEF_PER_SPI +
         totalStats.int * MAGIC_DEF_PER_INT +
         equipAcc.magicDef,
     ) + V2_BASE_COMBAT_BONUS;
+  const magicDef = input.passiveDefPct
+    ? Math.floor(baseMagicDef * (1 + input.passiveDefPct / 100))
+    : baseMagicDef;
   // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
   const minDamage = Math.floor(
     totalStats.str * MIN_DMG_PER_STR +
@@ -625,7 +633,7 @@ export function derivePlayerCombatV2Pure(
       totalStats.int * ACC_PER_INT +
       totalStats.spi * ACC_PER_SPI,
   );
-  // 속도 = 민첩 파생(1차 아님) − 장비 무게×계수(중갑일수록 느림). 음수 0 클램프.
+  // 속도 = 민첩 파생(1차 아님) + 장비 속도 옵션. 음수 0 클램프.
   const spd = Math.max(
     0,
     totalStats.dex * SPD_PER_DEX -
@@ -832,6 +840,8 @@ export function derivePlayerCombatV2Pure(
       ? {
           enemyMagicVulnPctPerStack:
             input.passiveEnemyMagicVulnPctPerStack,
+          enemyMagicVulnApplyChancePct:
+            input.passiveEnemyMagicVulnApplyChancePct ?? 100,
         }
       : {}),
     // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
@@ -975,6 +985,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.berserkAtkPctPerLostHpPct,
     passiveEnemyMagicVulnPctPerStack:
       passiveAgg.enemyMagicVulnPctPerStack,
+    passiveEnemyMagicVulnApplyChancePct:
+      passiveAgg.enemyMagicVulnApplyChancePct,
     passiveSpdOverflowToAtkPct: passiveAgg.spdOverflowToAtkPct,
     passiveSkillCritOverflow: passiveAgg.skillCritOverflow,
   });

@@ -2,23 +2,31 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
 import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
 import { ArenaShopPanel } from "@/adventure/v2/ArenaShopPanel";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-import { Sword, Coin, Trophy, FilmStrip } from "@phosphor-icons/react";
+import { Sword, Trophy, FilmStrip } from "@phosphor-icons/react";
 
-// v2 1:1 아레나 — 4탭: 메인(도전·결과·전투 로그) / 전투 기록(다시보기) / 순위표 / 세팅(로드아웃).
+// v2 1:1 아레나 — 5탭: 메인(도전·요약) / 전투 기록 / 순위표 / 세팅(로드아웃) / 상점.
 
 type StateResp = {
   ok?: boolean;
   state?: {
     score: number;
     cooldownRemainingMs: number;
+    season?: {
+      id: string;
+      startAt: string;
+      endAt: string;
+      rating: number;
+      wins: number;
+      losses: number;
+      draws: number;
+    };
   };
   cooldownMs?: number;
 };
@@ -27,13 +35,38 @@ type ArenaHistoryEntry = {
   id: string;
   at: string;
   outcome: "win" | "loss" | "draw";
-  opponent: { name: string; level: number; userId?: string };
+  opponent: { name: string; level: number; userId?: string; botId?: string };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;
   goldGained: number;
   turns: number;
   replay: ReplayPayload;
+};
+
+type ArenaSeasonHistoryEntry = {
+  seasonId: string;
+  startAt: string;
+  endAt: string;
+  rank: number;
+  totalRanked: number;
+  rating: number;
+  wins: number;
+  losses: number;
+  draws: number;
+};
+
+type ArenaOpponentRecord = {
+  key: string;
+  name: string;
+  level: number;
+  userId?: string;
+  botId?: string;
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  lastAt: string;
 };
 
 type MatchResp =
@@ -45,7 +78,13 @@ type MatchResp =
       scoreAfter: number;
       scoreDelta: number;
       goldGained: number;
-      opponent: { name: string; level: number; score: number; userId?: string };
+      opponent: {
+        name: string;
+        level: number;
+        score: number;
+        userId?: string;
+        botId?: string;
+      };
       historyEntry: ArenaHistoryEntry;
       cooldownMs: number;
     }
@@ -59,14 +98,21 @@ type Tab = "main" | "history" | "ranking" | "loadout" | "shop";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "main", label: "메인" },
-  { id: "history", label: "전투 기록" },
   { id: "ranking", label: "순위표" },
-  { id: "loadout", label: "세팅" },
+  { id: "loadout", label: "전투 세팅" },
+  { id: "history", label: "기록" },
   { id: "shop", label: "상점" },
 ];
 
 // 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
 const FALLBACK_COOLDOWN_MS = 10_000;
+
+const WEEKLY_REWARDS = [
+  { rank: "1위", coins: 1000 },
+  { rank: "2~3위", coins: 600 },
+  { rank: "4~10위", coins: 300 },
+  { rank: "참가", coins: 100 },
+] as const;
 
 const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
   win: "승리",
@@ -82,30 +128,185 @@ function outcomeColor(outcome: ArenaHistoryEntry["outcome"]): string {
       : "text-zinc-600 dark:text-zinc-400";
 }
 
-function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return "";
-  const diff = Date.now() - then;
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "방금";
-  if (m < 60) return `${m}분 전`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}시간 전`;
-  return `${Math.floor(h / 24)}일 전`;
+function percent(numerator: number, denominator: number): string {
+  if (denominator <= 0) return "0%";
+  return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+function formatKst(iso: string | undefined): string {
+  if (!iso) return "-";
+  const time = new Date(iso).getTime();
+  if (!Number.isFinite(time)) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(time));
+}
+
+function recordText({
+  wins,
+  losses,
+  draws,
+}: {
+  wins: number;
+  losses: number;
+  draws: number;
+}): string {
+  return `${wins}-${losses}-${draws}`;
+}
+
+function RecentBattleList({
+  history,
+  limit,
+  title,
+  emptyText,
+  onOpen,
+}: {
+  history: ArenaHistoryEntry[];
+  limit?: number;
+  title: string;
+  emptyText: string;
+  onOpen: (id: string) => void;
+}) {
+  const rows = typeof limit === "number" ? history.slice(0, limit) : history;
+  if (rows.length === 0) {
+    return (
+      <div className="py-8 text-center text-sm text-zinc-500">{emptyText}</div>
+    );
+  }
+  return (
+    <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mb-2 text-sm font-semibold">{title}</div>
+      <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        {rows.map((h) => (
+          <li key={h.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(h.id)}
+              className="ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+            >
+              <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
+                {OUTCOME_LABEL[h.outcome]}
+              </span>
+              <span className="min-w-0 flex-1 truncate">
+                {h.opponent?.name || "상대"}
+                <span className="ml-1 text-xs text-zinc-500">
+                  Lv.{h.opponent?.level ?? "?"}
+                </span>
+              </span>
+              <span
+                className={
+                  "shrink-0 tabular-nums " +
+                  (h.scoreDelta > 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : h.scoreDelta < 0
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-zinc-500")
+                }
+              >
+                {h.scoreDelta >= 0 ? "+" : ""}
+                {h.scoreDelta}
+              </span>
+              <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
+                {h.turns}행동
+              </span>
+              <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
+              <FilmStrip size={14} className="shrink-0 text-zinc-400" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function WeeklySeasonRecords({
+  seasons,
+}: {
+  seasons: ArenaSeasonHistoryEntry[];
+}) {
+  return (
+    <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mb-2 text-sm font-semibold">주간 아레나 기록</div>
+      {seasons.length === 0 ? (
+        <div className="py-5 text-center text-sm text-zinc-500">
+          아직 종료된 주간 아레나 기록이 없어요.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {seasons.map((s) => {
+            const matches = s.wins + s.losses + s.draws;
+            return (
+              <li
+                key={s.seasonId}
+                className="rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/70"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-semibold">{s.seasonId}</span>
+                  <span className="text-xs text-zinc-500">
+                    {formatKst(s.endAt)} 종료
+                  </span>
+                </div>
+                <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                  <span>순위 {s.rank}/{s.totalRanked}</span>
+                  <span>승률 {percent(s.wins, matches)}</span>
+                  <span>전적 {recordText(s)}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function OpponentRecordList({
+  records,
+}: {
+  records: ArenaOpponentRecord[];
+}) {
+  return (
+    <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="mb-2 text-sm font-semibold">자주 만난 상대</div>
+      {records.length === 0 ? (
+        <div className="py-5 text-center text-sm text-zinc-500">
+          상대 전적을 만들 전투 기록이 아직 부족해요.
+        </div>
+      ) : (
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {records.map((r) => (
+            <li
+              key={r.key}
+              className="flex items-center justify-between gap-3 py-2 text-sm"
+            >
+              <span className="min-w-0 flex-1 truncate">
+                <span className="font-semibold">{r.name}</span>
+                <span className="ml-1 text-xs text-zinc-500">Lv.{r.level}</span>
+              </span>
+              <span className="shrink-0 text-xs text-zinc-500">
+                {r.matches}전 · {recordText(r)} · {timeAgo(r.lastAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const router = useRouter();
-  const { viewerName, viewerGender, playerSubtitle } = useGameState();
   const [tab, setTab] = useState<Tab>("main");
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
-  const [lastResult, setLastResult] = useState<
-    Extract<MatchResp, { ok: true }> | null
-  >(null);
   const [history, setHistory] = useState<ArenaHistoryEntry[]>([]);
-  // 다시보기 중인 기록(방금 싸운 판 또는 목록에서 고른 과거 판). null = 닫힘.
-  const [replayEntry, setReplayEntry] = useState<ArenaHistoryEntry | null>(null);
+  const [seasonHistory, setSeasonHistory] = useState<ArenaSeasonHistoryEntry[]>([]);
+  const [opponentRecords, setOpponentRecords] = useState<ArenaOpponentRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   // 재도전 쿨타임 — cooldownUntil(epoch ms, 0=없음). nowMs 틱으로 카운트다운 렌더.
@@ -131,8 +332,16 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const hj = (await histRes.json().catch(() => null)) as {
         ok?: boolean;
         history?: ArenaHistoryEntry[];
+        seasons?: ArenaSeasonHistoryEntry[];
+        opponentRecords?: ArenaOpponentRecord[];
       } | null;
-      if (hj?.ok && Array.isArray(hj.history)) setHistory(hj.history);
+      if (hj?.ok) {
+        if (Array.isArray(hj.history)) setHistory(hj.history);
+        if (Array.isArray(hj.seasons)) setSeasonHistory(hj.seasons);
+        if (Array.isArray(hj.opponentRecords)) {
+          setOpponentRecords(hj.opponentRecords);
+        }
+      }
     } catch {
       setState(null);
       setLoadError(true);
@@ -166,16 +375,36 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const res = await fetch("/api/v2/arena/match", { method: "POST" });
       const j = (await res.json().catch(() => null)) as MatchResp | null;
       if (j && j.ok) {
-        setLastResult(j);
         setHistory((prev) => [j.historyEntry, ...prev].slice(0, 10));
-        setReplayEntry(j.historyEntry); // 방금 싸운 판 전투 로그 자동 표시
         setState((prev) =>
           prev?.state
-            ? { ...prev, state: { ...prev.state, score: j.scoreAfter } }
+            ? {
+                ...prev,
+                state: {
+                  ...prev.state,
+                  score: j.scoreAfter,
+                  season: prev.state.season
+                    ? {
+                        ...prev.state.season,
+                        rating: prev.state.season.rating + j.scoreDelta,
+                        wins:
+                          prev.state.season.wins +
+                          (j.outcome === "win" ? 1 : 0),
+                        losses:
+                          prev.state.season.losses +
+                          (j.outcome === "loss" ? 1 : 0),
+                        draws:
+                          prev.state.season.draws +
+                          (j.outcome === "draw" ? 1 : 0),
+                      }
+                    : prev.state.season,
+                },
+              }
             : prev,
         );
         setNowMs(Date.now());
         setCooldownUntil(Date.now() + (j.cooldownMs ?? FALLBACK_COOLDOWN_MS));
+        router.push(`/battle/arena/${encodeURIComponent(j.historyEntry.id)}`);
       } else if (j && !j.ok) {
         if (j.error === "cooldown") {
           setNowMs(Date.now());
@@ -200,58 +429,19 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [busy]);
+  }, [busy, router]);
 
   const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
   const onCooldown = cooldownLeftMs > 0;
   const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
   const canChallenge = !busy && !onCooldown;
-
-  const replayBlock = replayEntry && (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <FilmStrip size={16} className="text-amber-600 dark:text-amber-400" />
-          전투 로그 ·{" "}
-          <span className="font-normal text-zinc-500">
-            vs{" "}
-            {replayEntry.opponent?.name ? (
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(`/character/${encodeURIComponent(replayEntry.opponent!.name)}`)
-                }
-                className="text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
-              >
-                {replayEntry.opponent?.name || "상대"}
-              </button>
-            ) : (
-              (replayEntry.opponent?.name || "상대")
-            )}{" "}
-            Lv.{replayEntry.opponent?.level ?? "?"} ·{" "}
-            <span className={outcomeColor(replayEntry.outcome)}>
-              {OUTCOME_LABEL[replayEntry.outcome]}
-            </span>
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setReplayEntry(null)}
-          className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          닫기
-        </button>
-      </div>
-      <ReplayBattleScene
-        key={replayEntry.id}
-        payload={replayEntry.replay}
-        playerName={viewerName}
-        gender={viewerGender}
-        exp={0}
-        maxExp={1}
-        playerSubtitle={playerSubtitle}
-      />
-    </section>
+  const season = state?.state?.season;
+  const seasonMatches =
+    (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
+  const recent = history[0];
+  const openHistoryEntry = useCallback(
+    (id: string) => router.push(`/battle/arena/${encodeURIComponent(id)}`),
+    [router],
   );
 
   return (
@@ -294,11 +484,47 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       {tab === "main" && (
         <>
           <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-              <Trophy size={14} /> 점수
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  <Trophy size={14} /> 누적 점수
+                </div>
+                <div className="mt-1 text-2xl font-bold tabular-nums">
+                  {state?.state?.score ?? 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  이번 주 전적
+                </div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  {season?.wins ?? 0}-{season?.losses ?? 0}-{season?.draws ?? 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">승률</div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  {percent(season?.wins ?? 0, seasonMatches)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  주간 레이팅
+                </div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  {season?.rating ?? 1000}
+                </div>
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-bold tabular-nums">
-              {state?.state?.score ?? 0}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+              <span>시즌 {season?.id ?? "-"}</span>
+              <span>정산 {formatKst(season?.endAt)}</span>
+              {recent && (
+                <span>
+                  최근 {OUTCOME_LABEL[recent.outcome]} · {recent.scoreDelta >= 0 ? "+" : ""}
+                  {recent.scoreDelta} · {timeAgo(recent.at)}
+                </span>
+              )}
             </div>
           </section>
 
@@ -321,126 +547,80 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             </div>
           )}
 
-          {lastResult && (
-            <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>
-                  <div className={"mt-0.5 text-lg font-bold " + outcomeColor(lastResult.outcome)}>
-                    {OUTCOME_LABEL[lastResult.outcome]}
-                  </div>
+          <section className="grid gap-3 sm:grid-cols-2">
+            <div className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-2 font-semibold">규칙</div>
+              <dl className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
+                <div className="flex justify-between gap-3">
+                  <dt>매칭</dt>
+                  <dd className="text-right">실유저 우선 · 부족하면 연습 상대</dd>
                 </div>
-                <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
-                  {lastResult.turns}행동
+                <div className="flex justify-between gap-3">
+                  <dt>쿨타임</dt>
+                  <dd className="text-right">매치 후 10초</dd>
                 </div>
-              </div>
-              <div className="mt-3 text-sm">
-                상대{" "}
-                {lastResult.opponent.name ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/character/${encodeURIComponent(lastResult.opponent.name)}`)}
-                    className="font-semibold text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
-                  >
-                    {lastResult.opponent.name}
-                  </button>
-                ) : (
-                  <strong>{lastResult.opponent.name}</strong>
-                )}
-                <span className="ml-1 text-zinc-500">Lv.{lastResult.opponent.level}</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                  <div className="text-xs text-zinc-500">점수</div>
-                  <div className="mt-0.5 font-semibold tabular-nums">
-                    {lastResult.scoreBefore} →{" "}
-                    <span
-                      className={
-                        lastResult.scoreDelta > 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : lastResult.scoreDelta < 0
-                            ? "text-rose-600 dark:text-rose-400"
-                            : ""
-                      }
-                    >
-                      {lastResult.scoreAfter}
-                    </span>
-                    <span className="ml-1 text-xs text-zinc-500">
-                      ({lastResult.scoreDelta >= 0 ? "+" : ""}
-                      {lastResult.scoreDelta})
-                    </span>
-                  </div>
+                <div className="flex justify-between gap-3">
+                  <dt>점수</dt>
+                  <dd className="text-right">승 +20 · 패 -10 · 무 0</dd>
                 </div>
-                <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                  <div className="flex items-center gap-1 text-xs text-zinc-500">
-                    <Coin size={12} /> 골드
-                  </div>
-                  <div className="mt-0.5 font-semibold tabular-nums">
-                    +{lastResult.goldGained}
-                  </div>
+                <div className="flex justify-between gap-3">
+                  <dt>업셋</dt>
+                  <dd className="text-right">높은 점수 상대 승리 +5 · 낮은 점수 상대 패배 -5</dd>
                 </div>
-              </div>
-            </section>
-          )}
+                <div className="flex justify-between gap-3">
+                  <dt>골드</dt>
+                  <dd className="text-right">승리 Lv×50 · 패배/무승부 Lv×10</dd>
+                </div>
+              </dl>
+            </div>
 
-          {replayBlock}
+            <div className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="font-semibold">주간 보상</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  우편함 지급
+                </span>
+              </div>
+              <div className="space-y-1 text-xs">
+                {WEEKLY_REWARDS.map((r) => (
+                  <div
+                    key={r.rank}
+                    className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/70"
+                  >
+                    <span className="font-medium">{r.rank}</span>
+                    <span className="tabular-nums text-amber-700 dark:text-amber-300">
+                      {r.coins.toLocaleString()} 코인
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                주간 레이팅 순위 기준입니다. 매주 월요일 00:00(KST)에 시즌이 넘어갑니다.
+              </p>
+            </div>
+          </section>
+
+          <RecentBattleList
+            history={history}
+            limit={5}
+            title="최근 전투 기록"
+            emptyText="아직 전투 기록이 없어요. 도전 후 기록이 여기에 표시됩니다."
+            onOpen={openHistoryEntry}
+          />
+
         </>
       )}
 
       {tab === "history" && (
         <>
-          {history.length === 0 ? (
-            <div className="py-8 text-center text-sm text-zinc-500">
-              아직 전투 기록이 없어요. 메인에서 도전해 보세요.
-            </div>
-          ) : (
-            <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="mb-2 text-sm font-semibold">전투 기록 (최근 10판)</div>
-              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {history.map((h) => (
-                  <li key={h.id}>
-                    <button
-                      type="button"
-                      onClick={() => setReplayEntry(h)}
-                      className={
-                        "ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
-                        (replayEntry?.id === h.id ? "bg-amber-50 dark:bg-amber-950/30" : "")
-                      }
-                    >
-                      <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
-                        {OUTCOME_LABEL[h.outcome]}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">
-                        {h.opponent?.name || "상대"}
-                        <span className="ml-1 text-xs text-zinc-500">
-                          Lv.{h.opponent?.level ?? "?"}
-                        </span>
-                      </span>
-                      <span
-                        className={
-                          "shrink-0 tabular-nums " +
-                          (h.scoreDelta > 0
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : h.scoreDelta < 0
-                              ? "text-rose-600 dark:text-rose-400"
-                              : "text-zinc-500")
-                        }
-                      >
-                        {h.scoreDelta >= 0 ? "+" : ""}
-                        {h.scoreDelta}
-                      </span>
-                      <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
-                        {h.turns}행동
-                      </span>
-                      <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
-                      <FilmStrip size={14} className="shrink-0 text-zinc-400" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-          {replayBlock}
+          <WeeklySeasonRecords seasons={seasonHistory} />
+          <OpponentRecordList records={opponentRecords} />
+          <RecentBattleList
+            history={history}
+            title="전투 기록 (최근 10판)"
+            emptyText="아직 전투 기록이 없어요. 메인에서 도전해 보세요."
+            onOpen={openHistoryEntry}
+          />
         </>
       )}
 

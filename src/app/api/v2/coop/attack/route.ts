@@ -11,7 +11,7 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
@@ -20,10 +20,14 @@ import {
   COOP_ATTACK_TURNS,
   COOP_BOSSES,
   coopBossForBattle,
+  coopConditionalEnrageWeakened,
+  coopCriticalDamageFromLog,
   coopTierForRatio,
   parseCoopBossKindId,
   coopAttackCooldownMs,
   canAccessCoopBoss,
+  parseCoopMechanicState,
+  updateCoopMechanicStateAfterAttack,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -41,23 +45,13 @@ import {
 } from "@/adventure/v2/hpRegen";
 import {
   elementDamageMult,
-  parseV2Element,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
-  type V2Element,
 } from "@/adventure/data/v2/elements";
-import {
-  emptyV2SkillsState,
-  parseV2SkillsState,
-} from "@/adventure/data/v2/v2Skills";
-import { emptyProficiency } from "@/adventure/data/v2/proficiency";
-import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
-import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import {
   checkUserRateLimit,
   userRateLimitResponse,
 } from "@/lib/server/userRateLimit";
-import type { EquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
@@ -146,49 +140,18 @@ export async function POST(req: Request) {
     }
 
     // === 2. derive preload (hunt 와 동일 락 순서: character→equipment→skills→proficiency) ===
-    const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
+    const preparedActor = await prepareV2BattleActor({
       tx,
       userId,
-      "equipment.v2",
-      {},
-    );
-    const skillsRaw = await lockSaveForUpdate(
-      tx,
-      userId,
-      "skills.v2",
-      emptyV2SkillsState() as unknown as Record<string, unknown>,
-    );
-    const proficiencyRaw = await lockSaveForUpdate(
-      tx,
-      userId,
-      "proficiency.v2",
-      emptyProficiency() as unknown as Record<string, unknown>,
-    );
-    // 코어루프 — 전투 직전 로드아웃 sanitize(SP 예산/직업고정 강제). flag off=원본 그대로(추가 작업 0).
-    const v2SkillsParsed = parseV2SkillsState(skillsRaw);
-    const codexBonus = V2_CORE_LOOP_V2
-      ? await readCodexSpBonus(tx, userId)
-      : null;
-    const v2Skills = V2_CORE_LOOP_V2
-      ? sanitizeCombatLoadout(
-          v2SkillsParsed,
-          charSave,
-          proficiencyRaw,
-          codexBonus?.total ?? 0,
-        )
-      : v2SkillsParsed;
-    const player = await derivePlayerCombatV2(userId, tx, {
-      character: charSave,
-      equipmentSave,
-      proficiencyRaw,
-      skillsRaw,
+      charSave,
     });
-    if (!player) {
+    if (!preparedActor) {
       return {
         status: 400,
         body: { ok: false as const, error: "no_character" as const },
       };
     }
+    const { player, skills: v2Skills } = preparedActor;
 
     // 사냥과 동일한 사전 HP 회복 + 저체력 게이트(5% 미만 차단·스태미너 미소모).
     const regenResult = applyHpRegen(
@@ -247,20 +210,23 @@ export async function POST(req: Request) {
       };
     }
     const kind = COOP_BOSSES[kindId];
+    const peekMechanicState = parseCoopMechanicState(sessionPeek.mechanicState);
 
     // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 전역 잔여
     // (#715 — 막타 처치가 리플레이에 보이고 damageDealt 자연 클램프. 동시 공격의 stale
     // 스냅샷 잔여분은 아래 GREATEST + min(s.hp) 클램프가 흡수).
-    const playerElement = parseV2Element(
-      (charSave as { element?: unknown }).element,
-    );
-    const basicAttackElement: V2Element =
-      player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
+    const { playerElement, basicAttackElement } = preparedActor;
     // 전역 잔여 HP 기준으로 발악 스테이지를 굽되, 전투 maxHp 는 공유 최대 HP로 유지한다.
     // 그래야 처형/HP비율 스킬이 "남은 HP를 최대 HP로 오인"하지 않는다.
     const { monster: bossMonsterForCurrentHp, enrageNotes } = coopBossForBattle(
       kind,
       sessionPeek.hp,
+      {
+        conditionalEnrageWeakened: coopConditionalEnrageWeakened(
+          kindId,
+          peekMechanicState,
+        ),
+      },
     );
     const bossStartHp = Math.max(
       1,
@@ -314,6 +280,9 @@ export async function POST(req: Request) {
     const damageDealt = Math.max(
       0,
       bossStartHp - battleResult.finalState.enemyHp,
+    );
+    const criticalDamageRaw = coopCriticalDamageFromLog(
+      battleResult.finalState.log,
     );
     const damageTaken = Math.max(
       0,
@@ -375,11 +344,28 @@ export async function POST(req: Request) {
     // 오버킬 클램프 — 기여도(contributor.damage)는 실제로 깎은 양만 적립
     // (시뮬은 peek 시점 잔여 HP 시작이라 보통 안 넘치지만, 동시 공격의 stale 스냅샷 흡수).
     const appliedDamage = Math.min(damageDealt, s.hp);
+    const appliedCriticalDamage =
+      damageDealt > 0
+        ? Math.min(
+            appliedDamage,
+            Math.floor((criticalDamageRaw * appliedDamage) / damageDealt),
+          )
+        : 0;
+    const nextMechanicState = updateCoopMechanicStateAfterAttack(
+      kindId,
+      s.mechanicState,
+      {
+        bossHpBefore: s.hp,
+        bossMaxHp: s.maxHp,
+        criticalDamage: appliedCriticalDamage,
+      },
+    );
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)
       .set({
         hp: sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
+        mechanicState: nextMechanicState,
       })
       .where(eq(coopBossSessions.id, s.id))
       .returning({ hp: coopBossSessions.hp });
@@ -486,6 +472,7 @@ export async function POST(req: Request) {
           defeated: bossHp === 0,
           myDamage,
           myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp)),
+          mechanicState: nextMechanicState,
           hpAfter: afterHp,
           maxHp: player.maxHp,
           hpCharges,

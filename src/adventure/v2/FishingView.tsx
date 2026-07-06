@@ -11,6 +11,7 @@ import {
 import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
 import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
 import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
+import { FishIcon } from "@/adventure/v2/FishIcon";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -18,7 +19,16 @@ import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 // 표현/상호작용만 담당하고 서버 권위 판정은 주입된 cast/reel 콜백이 한다 —
 // 실게임(useFishing)은 API 를, /dev 하니스는 로컬 mock 을 주입한다(로그인·DB 없이 QA).
 
-export type CastOutcome = { castId: string; biteDelayMs: number };
+export type FishingDailyCatchCoins = {
+  earned: number;
+  cap: number;
+};
+
+export type CastOutcome = {
+  castId: string;
+  biteDelayMs: number;
+  dailyCatchCoins?: FishingDailyCatchCoins;
+};
 
 export type ReelOutcome =
   | {
@@ -33,17 +43,48 @@ export type ReelOutcome =
       codexCount: number;
       /** 이번 챔질로 받은 낚시 코인(티어 소량·일일 상한 도달 시 0). */
       coinsGained?: number;
+      /** 오늘 챔질로 획득한 낚시 코인 진행도. */
+      dailyCatchCoins?: FishingDailyCatchCoins;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
+      /** 서버 권위 연속 성공 기록과 현재 버프. */
+      streak?: {
+        current: number;
+        best: number;
+        buffTier: number;
+        coinBonus: number;
+        fragmentChanceBonusPct: number;
+      };
+      /** 낚시 성공 중 낮은 확률로 소환된 협동 보스. */
+      coopBoss?: {
+        sessionId: string;
+        kind: string;
+        name: string;
+        expiresAt: number;
+      } | null;
     }
   | { caught: false; reason: string };
 
 export type FishingHandlers = {
   cast: () => Promise<CastOutcome>;
   reel: (castId: string, reactionMs: number) => Promise<ReelOutcome>;
+  dailyCatchCoins?: FishingDailyCatchCoins | null;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
+
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return (
+    target.isContentEditable ||
+    tagName === "input" ||
+    tagName === "select" ||
+    tagName === "textarea" ||
+    tagName === "button" ||
+    tagName === "a"
+  );
+}
 
 const MISS_MESSAGE: Record<string, string> = {
   too_early: "너무 일찍 챘다. 물고기가 달아났다.",
@@ -64,122 +105,118 @@ function BobberScene({ phase }: { phase: Phase }) {
   const waiting = phase === "waiting";
   const idle = phase === "idle";
   const onWater = waiting || biting;
+  const bobberVisible = idle || onWater;
 
   return (
-    <div className="pointer-events-none relative flex h-full w-full flex-col items-center justify-center overflow-hidden">
-      {/* ── 대기(idle) — 낚싯대·줄·찌가 놓인 조용한 수면 장면 ── */}
-      {idle && (
-        <div className="absolute inset-0">
-          {/* 수면 밴드 */}
-          <div className="absolute bottom-0 left-0 right-0 h-[38%] border-t border-blue-200/60 bg-blue-100/50 dark:border-blue-700/40 dark:bg-blue-900/30" />
+    <div
+      className={`fish-flash-scene pointer-events-none relative flex h-full w-full flex-col items-center justify-end overflow-hidden ${
+        biting ? "is-biting" : ""
+      } ${waiting ? "is-waiting" : ""}`}
+    >
+      <div className="fish-sky" />
+      <div className="fish-cloud fish-cloud-a" />
+      <div className="fish-cloud fish-cloud-b" />
+      <div className="fish-bank" />
+      <div className="fish-reeds fish-reeds-left" />
+      <div className="fish-reeds fish-reeds-right" />
+      <div className="fish-water">
+        <span className="fish-wave fish-wave-a" />
+        <span className="fish-wave fish-wave-b" />
+        <span className="fish-wave fish-wave-c" />
+      </div>
+      <div className="fish-dock">
+        <span />
+        <span />
+        <span />
+      </div>
 
-          {/* 낚싯대 + 줄 (inline SVG) */}
-          <svg
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full"
-            viewBox="0 0 200 100"
-            preserveAspectRatio="none"
-          >
-            {/* 낚싯대 팁 — 짧고 굵은 갈색 선 */}
-            <line
-              x1="170" y1="4"
-              x2="148" y2="20"
-              stroke="#8B6914"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            {/* 낚싯줄 — 얇은 회색 사선 */}
-            <line
-              x1="148" y1="20"
-              x2="100" y2="60"
-              stroke="#94a3b8"
-              strokeWidth="0.8"
-              strokeOpacity="0.7"
-            />
-          </svg>
+      <svg
+        aria-hidden="true"
+        className="fish-rod"
+        viewBox="0 0 260 160"
+        preserveAspectRatio="none"
+      >
+        <path
+          d="M226 18 C196 35 169 57 142 87"
+          fill="none"
+          stroke="#6f4d23"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M226 18 C196 35 169 57 142 87"
+          fill="none"
+          stroke="#c08a3d"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          opacity="0.75"
+        />
+        <path
+          d="M142 87 C130 99 126 106 120 115"
+          fill="none"
+          stroke="#dce8ef"
+          strokeWidth="0.9"
+          strokeLinecap="round"
+          opacity="0.9"
+        />
+      </svg>
 
-          {/* 잔잔한 수면 잔물결 (느리고 작음 — 입질 신호와 명확히 구분) */}
-          <span className="fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border border-blue-300/40 dark:border-blue-500/30" style={{ bottom: "37%" }} />
+      {bobberVisible && (
+        <div className="fish-bobber-stage">
           <span
-            className="fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border border-blue-300/25 dark:border-blue-500/20"
-            style={{ bottom: "37%", animationDelay: "2.5s" }}
-          />
-
-          {/* 낚싯줄 빛 반사 글린트 */}
-          <span
-            className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/70"
-            style={{ left: "58%", top: "42%" }}
-          />
-
-          {/* 휴식 중인 찌 — 하늘색(=입질 신호인 amber와 색이 다름) */}
-          <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: "calc(38% - 0.5rem)" }}>
-            <div className="fish-bob-idle">
-              <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
-              <span className="block h-4 w-4 rounded-full bg-sky-400 shadow-sm dark:bg-sky-500" />
-              <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── waiting / biting — 기존 동작 그대로 ── */}
-      {onWater && (
-        <div className="relative flex h-20 w-full items-end justify-center">
-          {/* 수면 잔물결 — 대기: 잔잔 다중, 입질: 강한 파동 */}
-          <span
-            className={`absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border ${
+            className={`fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border ${
               biting
-                ? "fish-ripple-bite border-amber-400/70"
-                : "fish-ripple border-sky-400/40"
+                ? "fish-ripple-bite border-amber-300/80"
+                : "border-cyan-100/45"
             }`}
           />
-          {waiting && (
+          <span
+            className="fish-ripple absolute left-1/2 h-6 w-16 rounded-[100%] border border-white/25"
+            style={{ animationDelay: "0.7s" }}
+          />
+          {onWater && (
             <>
               <span
-                className="fish-ripple absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border border-sky-400/30"
-                style={{ animationDelay: "0.7s" }}
-              />
-              <span
-                className="fish-ripple absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border border-sky-400/20"
+                className="fish-ripple absolute left-1/2 h-6 w-16 rounded-[100%] border border-cyan-100/25"
                 style={{ animationDelay: "1.4s" }}
               />
-              {/* 기포 */}
-              <span className="fish-bubble absolute bottom-4 left-[42%] h-1.5 w-1.5 rounded-full bg-sky-300/60" />
+              <span className="fish-bubble absolute left-[42%] h-1.5 w-1.5 rounded-full bg-cyan-100/70" />
               <span
-                className="fish-bubble absolute bottom-4 left-[56%] h-1 w-1 rounded-full bg-sky-300/50"
+                className="fish-bubble absolute left-[56%] h-1 w-1 rounded-full bg-cyan-100/55"
                 style={{ animationDelay: "1.6s" }}
               />
             </>
           )}
-
-          {/* 찌 — 캐스팅 진입 시 포물선으로 날아와 안착(one-shot), 안에서 까닥/입질 */}
-          <div className="fish-cast-arc relative z-10">
+          <span className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/80" />
+          <div className={onWater ? "fish-cast-arc relative z-10" : "relative z-10"}>
             <div className={biting ? "fish-bob-bite" : "fish-bob-idle"}>
-              <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
+              <span className="mx-auto block h-4 w-[2px] rounded bg-zinc-700/80 dark:bg-zinc-300/80" />
               <span
-                className={`block h-4 w-4 rounded-full shadow-sm ${
-                  biting ? "bg-amber-500" : "bg-rose-500"
+                className={`block h-4 w-4 rounded-full border border-white/70 shadow-md ${
+                  biting ? "bg-amber-500" : idle ? "bg-sky-400" : "bg-rose-500"
                 }`}
               />
-              <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
+              <span className="mx-auto -mt-1 block h-4 w-3 rounded-b-full rounded-t-sm bg-zinc-100 shadow-sm dark:bg-zinc-200" />
             </div>
           </div>
         </div>
       )}
 
-      <div className="mt-2">
-        {phase === "casting" && <span className="text-sm">던지는 중…</span>}
-        {waiting && (
-          <>
-            <span className="block text-sm">입질을 기다리는 중…</span>
-            <span className="mt-0.5 block text-[11px] opacity-70">
-              아직 누르지 말 것
-            </span>
-          </>
-        )}
-        {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
-        {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
-      </div>
+      {phase !== "idle" && (
+        <div className="fish-scene-status relative z-20 mb-3 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-950/70">
+          {phase === "casting" && <span className="text-sm">던지는 중…</span>}
+          {waiting && (
+            <>
+              <span className="block text-sm">입질을 기다리는 중…</span>
+              <span className="mt-0.5 block text-[11px] opacity-70">
+                아직 누르지 말 것
+              </span>
+            </>
+          )}
+          {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
+          {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -196,28 +233,31 @@ function reactionGrade(ms: number): { label: string; cls: string } {
 }
 
 // 티어별 "잡는 순간" 강조 — 희귀·대물일수록 크게 등장 + 발광.
-const TIER_REVEAL: Record<FishTier, { sizeCls: string; glow: boolean }> = {
-  common: { sizeCls: "text-3xl", glow: false },
-  uncommon: { sizeCls: "text-4xl", glow: false },
-  rare: { sizeCls: "text-5xl", glow: true },
-  epic: { sizeCls: "text-6xl", glow: true },
-  legendary: { sizeCls: "text-7xl", glow: true },
+const TIER_REVEAL: Record<FishTier, { iconCls: string; glow: boolean }> = {
+  common: { iconCls: "h-12 w-12", glow: false },
+  uncommon: { iconCls: "h-14 w-14", glow: false },
+  rare: { iconCls: "h-16 w-16", glow: true },
+  epic: { iconCls: "h-[4.5rem] w-[4.5rem]", glow: true },
+  legendary: { iconCls: "h-20 w-20", glow: true },
 };
 
 export function FishingView({
   cast,
   reel,
+  dailyCatchCoins,
   onBack,
   onOpenLeaderboard,
   onOpenShop,
   onOpenChallenges,
   onOpenHallOfFame,
+  onOpenCoopSession,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenShop?: () => void;
   onOpenChallenges?: () => void;
   onOpenHallOfFame?: () => void;
+  onOpenCoopSession?: (sessionId: string) => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -265,7 +305,7 @@ export function FishingView({
         if (outcome.caught) {
           setSessionCount((c) => c + 1);
           setSessionBest((b) => Math.max(b, outcome.size));
-          setStreak((s) => s + 1);
+          setStreak((s) => outcome.streak?.current ?? s + 1);
         } else {
           setStreak(0);
         }
@@ -325,8 +365,33 @@ export function FishingView({
     }
   }, [phase, resolveReel]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || isTextEntryTarget(event.target)) return;
+      if (event.key !== " " && event.key !== "Enter") return;
+
+      if (phase === "idle" || phase === "result") {
+        event.preventDefault();
+        startCast();
+      } else if (phase === "waiting" || phase === "biting") {
+        event.preventDefault();
+        onTapZone();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [phase, startCast, onTapZone]);
+
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
+  const dailyCoinPct =
+    dailyCatchCoins && dailyCatchCoins.cap > 0
+      ? Math.min(
+          100,
+          Math.max(0, (dailyCatchCoins.earned / dailyCatchCoins.cap) * 100),
+        )
+      : 0;
 
   return (
     <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
@@ -341,6 +406,24 @@ export function FishingView({
       />
 
       <MulttaeBadge />
+
+      {dailyCatchCoins && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-medium">오늘 챔질 코인</span>
+            <span className="tabular-nums">
+              {dailyCatchCoins.earned.toLocaleString()}/
+              {dailyCatchCoins.cap.toLocaleString()}
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-[width]"
+              style={{ width: `${dailyCoinPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {sessionCount > 0 && (
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -371,9 +454,9 @@ export function FishingView({
           type="button"
           disabled={!tapActive}
           onClick={onTapZone}
-          className={`ui-fishing-zone relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
+          className={`ui-fishing-zone relative flex h-56 w-full select-none flex-col items-center justify-center overflow-hidden rounded-lg border-2 text-center transition ${
             biting
-              ? "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
+              ? "is-biting border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
               : tapActive
                 ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
                 : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
@@ -397,11 +480,11 @@ export function FishingView({
                 {TIER_REVEAL[result.tier].glow && (
                   <span className="fish-glow absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/40 blur-md" />
                 )}
-                <div
-                  className={`fish-reveal relative ${TIER_REVEAL[result.tier].sizeCls}`}
-                >
-                  🐟
-                </div>
+                <FishIcon
+                  fishId={result.fishId}
+                  name={result.name}
+                  className={`fish-reveal ${TIER_REVEAL[result.tier].iconCls}`}
+                />
               </div>
               <div className="text-base font-bold">
                 {result.name}{" "}
@@ -437,6 +520,32 @@ export function FishingView({
                   + {result.coinsGained} 낚시 코인
                 </div>
               )}
+              {result.streak && result.streak.buffTier > 0 && (
+                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                  연속 {result.streak.current} 버프 · 코인 +
+                  {result.streak.coinBonus} · 지도 조각 +
+                  {result.streak.fragmentChanceBonusPct}%p
+                </div>
+              )}
+              {result.coopBoss && (
+                <div className="mt-3 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-left dark:border-rose-800 dark:bg-rose-950/30">
+                  <div className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                    {result.coopBoss.name} 출현
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-rose-700/80 dark:text-rose-200/80">
+                    낚싯줄을 타고 협동 보스가 올라왔다.
+                  </div>
+                  {onOpenCoopSession && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenCoopSession(result.coopBoss!.sessionId)}
+                      className="mt-2 w-full rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 active:scale-[0.99]"
+                    >
+                      토벌하러 가기
+                    </button>
+                  )}
+                </div>
+              )}
               {lastReactionMs != null && (
                 <div className="text-[11px] font-medium">
                   <span className={reactionGrade(lastReactionMs).cls}>
@@ -452,9 +561,11 @@ export function FishingView({
             <div className="space-y-1">
               {/* 놓침 — 물고기가 휙 달아난다 */}
               <div className="relative mx-auto h-8 w-full overflow-hidden">
-                <span className="fish-dart-away absolute bottom-0 left-1/2 text-2xl">
-                  🐟
-                </span>
+                <FishIcon
+                  fishId="minnow"
+                  decorative
+                  className="fish-dart-away absolute bottom-0 left-1/2 h-8 w-8"
+                />
               </div>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 {missMessage(result?.reason ?? "")}

@@ -26,37 +26,45 @@ import {
 } from "./v2EquipVariance";
 
 describe("rollItemStats", () => {
-  it("rng=0 → 각 스탯 최소값(별노래궁: 위력 ±편차, weight/crit ±1)", () => {
-    // power spread = round(위력×0.65) → [위력−spread, 위력+spread]. weight 1→[1,3], crit 1→[1,3].
+  it("rng=0 → 각 스탯 최소값(별노래궁: 위력 ±편차, crit ±1, 속도 페널티 고정)", () => {
+    // power spread = round(위력×0.65) → [위력−spread, 위력+spread]. crit 1→[1,3].
     // 위력값은 카탈로그 기준(다이얼 변경에 견고).
     const bowPow = V2_EQUIPMENT.v2_starsong_bow.power;
     const spread = Math.round(bowPow * VARIANCE_FRACTION);
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0);
-    expect(r).toEqual({ power: bowPow - spread, weight: 1, options: { crit: 1 } });
+    expect(r).toEqual({
+      power: bowPow - spread,
+      weight: 0,
+      options: { crit: 1, spd: -4 },
+    });
   });
 
   it("rng≈1 → 각 스탯 최대값", () => {
     const bowPow = V2_EQUIPMENT.v2_starsong_bow.power;
     const spread = Math.round(bowPow * VARIANCE_FRACTION);
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0.999);
-    expect(r).toEqual({ power: bowPow + spread, weight: 3, options: { crit: 3 } });
+    expect(r).toEqual({
+      power: bowPow + spread,
+      weight: 0,
+      options: { crit: 3, spd: -4 },
+    });
   });
 
   it("값 0(무게)은 spread 0 → 변동 없음, 위력은 ±편차(0.65)", () => {
-    // 은가락지 위력 2(×2): spread round(2*0.65)=1 → [1,3]. 무게 0 → spread 0 고정.
+    // 은가락지 위력 4: spread round(4*0.65)=3 → [1,7]. 무게 0 → spread 0 고정.
     const lo = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0);
     expect(lo.weight).toBe(0); // 무게 0 고정
-    expect(lo.power).toBe(1); // 위력 [1,3] 의 하단
+    expect(lo.power).toBe(1); // 위력 [1,7] 의 하단
     const hi = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0.999);
     expect(hi.weight).toBe(0); // 무게 0 고정
-    expect(hi.power).toBe(3); // 위력 [1,3] 의 상단
+    expect(hi.power).toBe(7); // 위력 [1,7] 의 상단
   });
 
-  it("옵션 없는 아이템은 굴림에 options 없음 — 철검 위력6/weight2", () => {
+  it("속도 페널티만 있는 아이템은 고정 옵션으로 굴림된다 — 철검", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_iron_sword, () => 0);
-    expect(r.options).toBeUndefined();
-    expect(r.power).toBe(2); // ×2(철검 6): spread round(6*0.65)=4 → [2,10]
-    expect(r.weight).toBe(1); // spread round(2*0.65)=1 → [1,3]
+    expect(r.options).toEqual({ spd: -4 });
+    expect(r.power).toBe(2);
+    expect(r.weight).toBe(0);
   });
 
   it("전 아이템: 굴림이 항상 바닥·범위 안 (LCG 다수 시행)", () => {
@@ -69,14 +77,16 @@ describe("rollItemStats", () => {
       for (let i = 0; i < 30; i++) {
         const r = rollItemStats(item, rng);
         const ps = Math.round(item.power * VARIANCE_FRACTION);
-        const ws = Math.round(item.weight * VARIANCE_FRACTION);
         expect(r.power, `${item.id}.power`).toBeGreaterThanOrEqual(1);
         expect(Math.abs(r.power - item.power), `${item.id}.power spread`).toBeLessThanOrEqual(ps);
-        expect(r.weight, `${item.id}.weight`).toBeGreaterThanOrEqual(0);
-        expect(Math.abs(r.weight - item.weight), `${item.id}.weight spread`).toBeLessThanOrEqual(ws);
+        expect(r.weight, `${item.id}.weight`).toBe(0);
         if (item.options) {
           for (const [k, v] of Object.entries(item.options)) {
             const rv = (r.options ?? {})[k as keyof typeof r.options];
+            if (v < 0) {
+              expect(rv, `${item.id}.${k}`).toBe(v);
+              continue;
+            }
             expect(rv, `${item.id}.${k}`).toBeGreaterThanOrEqual(1);
             expect(
               Math.abs((rv ?? 0) - v),
@@ -90,34 +100,34 @@ describe("rollItemStats", () => {
 });
 
 describe("effectiveStats", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력=카탈로그 기준, 원시 weight2(무기 ×4=8), crit2
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력=카탈로그 기준, crit2, 속도 -4
 
-  it("굴림 없으면 카탈로그 그대로(무게는 슬롯 스케일 적용)", () => {
+  it("굴림 없으면 카탈로그 그대로(무게는 0, 속도 페널티는 옵션)", () => {
     expect(effectiveStats(bow, undefined)).toEqual({
       power: bow.power,
-      weight: 8, // 원시 2 × WEAPON_WEIGHT_SCALE(4)
-      options: { crit: 2 },
+      weight: 0,
+      options: { crit: 2, spd: -4 },
     });
   });
 
   it("굴림 있으면 그 값", () => {
     expect(
       effectiveStats(bow, { power: 16, weight: 1, options: { crit: 3 } }),
-    ).toEqual({ power: 16, weight: 4, options: { crit: 3 } });
+    ).toEqual({ power: 16, weight: 0, options: { crit: 3, spd: -4 } });
   });
 
   it("굴림에 options 없으면 카탈로그 옵션으로 폴백", () => {
     expect(effectiveStats(bow, { power: 16, weight: 1 })).toEqual({
       power: 16,
-      weight: 4, // 굴림 원시 1 × WEAPON_WEIGHT_SCALE(4)
-      options: { crit: 2 },
+      weight: 0,
+      options: { crit: 2, spd: -4 },
     });
   });
 
   it("카탈로그에 없는 옵션은 주입 안 함(스코프) — 활은 crit만, mp 무시", () => {
     expect(
       effectiveStats(bow, { power: 16, weight: 1, options: { crit: 3, mp: 99 } }),
-    ).toEqual({ power: 16, weight: 4, options: { crit: 3 } });
+    ).toEqual({ power: 16, weight: 0, options: { crit: 3, spd: -4 } });
   });
 
   it("2옵션 아이템: 굴림 일부 키만이면 나머지는 카탈로그 — 회피망토 eva굴림+hp카탈로그", () => {
@@ -125,7 +135,7 @@ describe("effectiveStats", () => {
     const cloak = V2_EQUIPMENT.v2_lake_dodge_cloak;
     expect(
       effectiveStats(cloak, { power: 12, weight: 1, options: { eva: 25 } }),
-    ).toEqual({ power: 12, weight: 2, options: { eva: 25, hp: 40 } }); // 망토=갑옷 ×2
+    ).toEqual({ power: 12, weight: 0, options: { eva: 25, hp: 40 } });
   });
 
   it("옵션 없는 아이템은 굴림에 옵션이 있어도 주입 안 함 — 철검", () => {
@@ -135,43 +145,43 @@ describe("effectiveStats", () => {
       options: { crit: 5 },
     });
     expect(r.power).toBe(4);
-    expect(r.weight).toBe(4); // 철검=무기, 굴림 원시 1 × WEAPON_WEIGHT_SCALE(4)
-    expect(r.options).toBeUndefined();
+    expect(r.weight).toBe(0);
+    expect(r.options).toEqual({ spd: -4 });
   });
 });
 
 describe("rollQualityPct", () => {
   const bow = V2_EQUIPMENT.v2_starsong_bow;
-  // 위력 범위 [base−spread, base+spread] — 카탈로그 기준(다이얼 변경에 견고). weight[1,3], crit[1,3].
+  // 위력 범위 [base−spread, base+spread] — 카탈로그 기준(다이얼 변경에 견고). crit[1,3].
   const pBase = bow.power;
   const pSpread = Math.round(pBase * VARIANCE_FRACTION);
   const pMin = pBase - pSpread;
   const pMax = pBase + pSpread;
 
-  it("god-roll(전 스탯 최대·무게 최소) = 100%", () => {
+  it("god-roll(전 스탯 최대) = 100%", () => {
     expect(
       rollQualityPct(bow, { power: pMax, weight: 1, options: { crit: 3 } }),
     ).toBe(100);
   });
 
-  it("최저 굴림(전 스탯 최소·무게 최대) = 0%", () => {
+  it("최저 굴림(전 스탯 최소) = 0%", () => {
     expect(
       rollQualityPct(bow, { power: pMin, weight: 3, options: { crit: 1 } }),
     ).toBe(0);
   });
 
   it("카탈로그 기준값(가운데) = 50%", () => {
-    // base = (min+max)/2 가운데, weight 2·crit 2 도 가운데.
+    // base = (min+max)/2 가운데, crit 2 도 가운데.
     expect(
       rollQualityPct(bow, { power: pBase, weight: 2, options: { crit: 2 } }),
     ).toBe(50);
   });
 
-  it("위력만 god(나머지 가운데) — 위력 가중 2 → 75%", () => {
-    // power 1.0(w2) + weight 0.5(w1) + crit 0.5(w1) = 3/4
+  it("위력만 god(나머지 가운데) — 위력 가중 2 → 83%", () => {
+    // power 1.0(w2) + crit 0.5(w1) = 2.5/3
     expect(
       rollQualityPct(bow, { power: pMax, weight: 2, options: { crit: 2 } }),
-    ).toBe(75);
+    ).toBe(83);
   });
 
   it("굴림 없으면(상점 정가) null", () => {
@@ -206,7 +216,7 @@ describe("reforgeGoldCost", () => {
   });
 
   it("저위력 아이템은 바닥(MIN) 적용 — 은가락지", () => {
-    const ring = V2_EQUIPMENT.v2_silver_ring; // 위력 2 → 2,000 < 20,000
+    const ring = V2_EQUIPMENT.v2_silver_ring; // 위력 4 → 4,000 < 20,000
     expect(Math.floor(ring.power * REFORGE_GOLD_K)).toBeLessThan(
       REFORGE_MIN_COST,
     );

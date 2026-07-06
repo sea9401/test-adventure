@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import {
   MARKETPLACE_V2_BROWSE_LIMIT,
   MARKETPLACE_V2_LISTING_TTL_DAYS,
+  currentMarketplaceItemName,
   isMarketKind,
 } from "@/lib/server/marketplaceV2";
 
@@ -62,6 +63,13 @@ export async function GET(req: Request) {
     viewerId: userId,
     viewerGold,
     ttlDays: MARKETPLACE_V2_LISTING_TTL_DAYS,
-    listings: rows,
+    listings: rows.map((row) => ({
+      ...row,
+      itemName: currentMarketplaceItemName(
+        row.kind,
+        row.itemId,
+        row.itemName,
+      ),
+    })),
   });
 }

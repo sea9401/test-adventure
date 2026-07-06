@@ -36,8 +36,7 @@ type ChargeKind = "hp" | "mp";
 
 export function V2HealingView({ onBack }: { onBack: () => void }) {
   // 사냥터 게이트·상단 HP바가 읽는 공유 HP. 치료 직후 동기화해 stale "회복 필요" 차단 방지.
-  const { setHp: setSharedHp, coreLoopOn, setBankedGold: syncCtxBanked } =
-    useGameState();
+  const { coreLoopOn, applyResourcePatch } = useGameState();
   const [hp, setHp] = useState<number | null>(null);
   const [maxHp, setMaxHp] = useState<number | null>(null);
   const [mp, setMp] = useState<number | null>(null);
@@ -67,7 +66,14 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         setMaxMp(j.character.maxMp ?? 0);
         setGold(j.character.gold);
         setBankedGold(j.character.bankedGold ?? 0);
-        syncCtxBanked(j.character.bankedGold ?? 0);
+        applyResourcePatch({
+          gold: j.character.gold,
+          bankedGold: j.character.bankedGold ?? 0,
+          hp: j.character.hp,
+          maxHp: j.character.maxHp,
+          mp: j.character.mp ?? j.character.maxMp ?? 0,
+          maxMp: j.character.maxMp ?? 0,
+        });
       }
       const invJ = invRes.ok
         ? ((await invRes.json().catch(() => null)) as InventoryResponse | null)
@@ -88,7 +94,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
     } catch {
       setLoadError(true);
     }
-  }, [syncCtxBanked]);
+  }, [applyResourcePatch]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
@@ -124,19 +130,23 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
       if (typeof j.gold === "number") setGold(j.gold);
       if (typeof j.bankedGold === "number") {
         setBankedGold(j.bankedGold);
-        syncCtxBanked(j.bankedGold);
       }
-      // 공유 HP 도 동기화 — 안 하면 사냥터가 옛 HP 를 읽어 "회복 필요" 로 막는다.
-      if (typeof j.hp === "number" && typeof j.maxHp === "number") {
-        setSharedHp({ hp: j.hp, maxHp: j.maxHp, anchorMs: Date.now() });
-      }
+      applyResourcePatch({
+        gold: typeof j.gold === "number" ? j.gold : undefined,
+        bankedGold:
+          typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+        hp: typeof j.hp === "number" ? j.hp : undefined,
+        maxHp: typeof j.maxHp === "number" ? j.maxHp : undefined,
+        mp: typeof j.mp === "number" ? j.mp : undefined,
+        maxMp: typeof j.maxMp === "number" ? j.maxMp : undefined,
+      });
       setMsg(`✓ 회복 완료 (${j.cost ?? 0} G)`);
     } catch (err) {
       setMsg(`✗ network: ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
-  }, [setSharedHp, syncCtxBanked]);
+  }, [applyResourcePatch]);
 
   const buyCharge = useCallback(
     async (kind: ChargeKind, amount: number) => {
@@ -169,17 +179,25 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         if (typeof j.gold === "number") setGold(j.gold);
         if (typeof j.bankedGold === "number") {
           setBankedGold(j.bankedGold);
-          syncCtxBanked(j.bankedGold);
         }
         if (typeof j.hpCharges === "number") setHpCharges(j.hpCharges);
         if (typeof j.mpCharges === "number") setMpCharges(j.mpCharges);
+        applyResourcePatch({
+          gold: typeof j.gold === "number" ? j.gold : undefined,
+          bankedGold:
+            typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+          hpCharges:
+            typeof j.hpCharges === "number" ? j.hpCharges : undefined,
+          mpCharges:
+            typeof j.mpCharges === "number" ? j.mpCharges : undefined,
+        });
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
         setBusy(null);
       }
     },
-    [syncCtxBanked],
+    [applyResourcePatch],
   );
 
   // 충전약 지불 게이트 — flag on 이면 보유+은행(은행 골드로도 충전). 무료치료 기준(아래)은 보유 기준 유지.

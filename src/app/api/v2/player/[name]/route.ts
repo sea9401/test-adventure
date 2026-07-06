@@ -14,8 +14,13 @@ import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import {
   parseProficiencyForChar,
+  capGain,
+  effectiveStatCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
+import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
@@ -125,6 +130,11 @@ export async function GET(_req: Request, ctx: Ctx) {
     byKey.get("proficiency.v2") as V2ProficiencyState | undefined,
     charSave,
   );
+  const floors = computeStatFloors(prof);
+  const effectiveCaps: Partial<Record<string, number>> = {};
+  for (const k of V2_STAT_KEYS) {
+    effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(prof, k));
+  }
   const group = tier1ClassOf(playerClass);
   const currentGroup = prof.groups[group];
 
@@ -230,7 +240,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       magicAtk: combat.player.magicAtk ?? 0,
       magicDef: combat.player.magicDef ?? 0,
       evasionPct: combat.player.evasionPct,
+      evaRating: combat.player.evaRating,
       accuracyPct: combat.player.accuracyPct,
+      accRating: combat.player.accRating,
       critChancePct: combat.player.critChancePct,
       critMult: combat.player.critMult,
       power: derivePowerScore({
@@ -243,8 +255,12 @@ export async function GET(_req: Request, ctx: Ctx) {
       }),
     },
     battleCount,
+    frontierDepth: Math.min(
+      MAX_FRONTIER_DEPTH,
+      Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
+    ),
     proficiency: {
-      caps: prof.caps,
+      caps: effectiveCaps,
       current: {
         group,
         cumLevel: currentGroup?.cumLevel ?? 0,

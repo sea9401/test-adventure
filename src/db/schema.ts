@@ -712,6 +712,10 @@ export const coopBossSessions = pgTable(
     summonerGuildId: integer("summoner_guild_id"),
     // 가시성/공격권한 — 'public'(공개·기본) | 'guild_only'(길드원만) | 'summoner_only'(소환자만).
     visibility: text("visibility").notNull().default("public"),
+    // 보스별 숨겨진 기믹 상태. 예: 심연어룡 숨구멍 파훼 누적 치명타 피해/성공 여부.
+    mechanicState: jsonb("mechanic_state")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
   },
   (t) => [
     // 활성 세션 조회용(kind + defeatedAt IS NULL) — 같은 종류 동시 다수 소환 허용으로

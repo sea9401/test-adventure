@@ -41,6 +41,30 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(toReplayPayloadLite(fs).enemy.element).toBe("fire");
   });
 
+  it("몹 전투 상세(atkType/critPct) 전달 — 전투 화면 스탯 상세용", () => {
+    const fs = {
+      ...fixture(3),
+      enemy: {
+        name: "심연 집행자",
+        hp: 420,
+        image: "abyss.webp",
+        atk: 55,
+        def: 20,
+        spd: 11,
+        atkType: "magic",
+        critPct: 25,
+      },
+    } as unknown as BattleState;
+    expect(toReplayPayload(fs, 200).enemy).toMatchObject({
+      atkType: "magic",
+      critPct: 25,
+    });
+    expect(toReplayPayloadLite(fs).enemy).toMatchObject({
+      atkType: "magic",
+      critPct: 25,
+    });
+  });
+
   it("full toReplayPayload 와 메타 필드는 동일 — log 만 다름(단판 무변경 보증)", () => {
     const fs = fixture(10);
     const full = toReplayPayload(fs, 200);

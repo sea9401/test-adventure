@@ -4,6 +4,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { getAdminEmailsList } from "@/lib/server/isAdmin";
 import { kstWeekStartKey } from "@/adventure/tower/weeklyTypes";
 import { pointsFromExp } from "@/lib/paragon";
+import {
+  FISHING_CODEX_KEY,
+  fishCodexScore,
+  parseFishCodex,
+} from "@/adventure/v2/fishingCodex";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
 // 호출처는 stats CTE 의 WHERE 절에 그대로 합성한다.
@@ -21,6 +26,7 @@ const VALID_METRICS = [
   "level",
   "fame",
   "battleCount",
+  "fishingScore",
   "towerWeek",
   "towerChallenge",
 ] as const;
@@ -45,6 +51,8 @@ type RankRow = {
   paragonLevel: number;
   fame: number;
   battleCount: number;
+  /** 낚시 도감 누적 어획 점수. fishingScore 탭 정렬·표시. */
+  fishingScore: number;
   /** towerWeek 한정 — 이번 주 최고층. 다른 metric 에서는 0. */
   weekHighest: number;
   /** towerChallenge 한정 — 도전 모드 영구 최고층. 다른 metric 에서는 0. */
@@ -63,6 +71,7 @@ const cache: Map<Metric, CacheEntry> = new Map();
 async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
+  if (metric === "fishingScore") return fetchFishingScoreRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
   // level 탭 = "총 직업 숙련도"(cum_level) 순. API metric 키는 호환을 위해 level 유지.
   // cumLevel 은 환생으로 리셋되지 않는 직군 숙련도라 차수 환생/전직 진행이 그대로 반영된다.
@@ -140,10 +149,67 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     paragonLevel: pointsFromExp(Number(r.paragon_exp)),
     fame: Number(r.fame),
     battleCount: Number(r.battle_count),
+    fishingScore: 0,
     weekHighest: 0,
     challengeHighest: 0,
     rank: Number(r.rank),
   }));
+}
+
+async function fetchFishingScoreRows(): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      u.id AS user_id,
+      COALESCE(u.game_name, p.value->>'name') AS name,
+      COALESCE((c.value->>'level')::int, 1) AS level,
+      COALESCE((c.value->>'fame')::bigint, 0) AS fame,
+      f.value AS fishing_codex,
+      COALESCE(f.updated_at, u.created_at) AS updated_at
+    FROM users u
+    INNER JOIN saves_kv f ON f.user_id = u.id AND f.key = ${FISHING_CODEX_KEY}
+    LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
+    LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string;
+    name: string;
+    level: number;
+    fame: number;
+    fishing_codex: unknown;
+    updated_at: Date | string;
+  };
+  return (result.rows as unknown as DbRow[])
+    .map((r) => ({
+      userId: String(r.user_id),
+      name: String(r.name),
+      level: Number(r.level),
+      cumLevel: 0,
+      paragonLevel: 0,
+      fame: Number(r.fame),
+      battleCount: 0,
+      fishingScore: fishCodexScore(parseFishCodex(r.fishing_codex)),
+      weekHighest: 0,
+      challengeHighest: 0,
+      rank: 0,
+      updatedAtMs: new Date(r.updated_at).getTime(),
+    }))
+    .filter((r) => r.fishingScore > 0)
+    .sort((a, b) => b.fishingScore - a.fishingScore || a.updatedAtMs - b.updatedAtMs)
+    .map((r, index) => ({
+      userId: r.userId,
+      name: r.name,
+      level: r.level,
+      cumLevel: r.cumLevel,
+      paragonLevel: r.paragonLevel,
+      fame: r.fame,
+      battleCount: r.battleCount,
+      fishingScore: r.fishingScore,
+      weekHighest: r.weekHighest,
+      challengeHighest: r.challengeHighest,
+      rank: index + 1,
+    }));
 }
 
 // 주간 최고층 랭킹 — tower-weekly.v1 의 weekStartedAt 가 현재 KST 주와 같은 행만 노출.
@@ -192,6 +258,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
+    fishingScore: 0,
     weekHighest: Number(r.week_highest),
     challengeHighest: 0,
     rank: Number(r.rank),
@@ -242,6 +309,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
+    fishingScore: 0,
     weekHighest: 0,
     challengeHighest: Number(r.challenge_highest),
     rank: Number(r.rank),
@@ -278,7 +346,7 @@ async function getRows(metric: Metric): Promise<RankRow[]> {
   return promise;
 }
 
-// GET /api/rankings?metric=level|fame|battleCount
+// GET /api/rankings?metric=level|fame|battleCount|fishingScore
 // 응답: { list: 상위 LIST_LIMIT, me: 본인 row+rank | null }.
 // 본인 row 도 캐시 스냅샷에서 찾으므로 갓 레벨업한 직후엔 다음 캐시 갱신까지
 // 갱신값이 안 보일 수 있음 (의도된 trade-off — 부하 대비 30초 staleness).
@@ -302,6 +370,7 @@ export async function GET(req: Request) {
     paragonLevel: r.paragonLevel,
     fame: r.fame,
     battleCount: r.battleCount,
+    fishingScore: r.fishingScore,
     weekHighest: r.weekHighest,
     challengeHighest: r.challengeHighest,
     mine: r.userId === userId,
@@ -317,6 +386,7 @@ export async function GET(req: Request) {
         paragonLevel: myRow.paragonLevel,
         fame: myRow.fame,
         battleCount: myRow.battleCount,
+        fishingScore: myRow.fishingScore,
         weekHighest: myRow.weekHighest,
         challengeHighest: myRow.challengeHighest,
       }

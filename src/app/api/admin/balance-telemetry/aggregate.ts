@@ -10,9 +10,14 @@ import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 //   DB·derive 와 분리 — 밴딩/중앙값/지배스탯 로직을 단위 테스트 가능하게.
 
 export type TelemetryUser = {
+  userId?: string;
+  email?: string | null;
+  name?: string | null;
+  lastSeenAt?: string | null;
   level: number;
   frontierDepth: number;
   gold: number;
+  bankedGold?: number;
   power: number;
   totalStats: Record<V2StatKey, number>;
   classId: string;
@@ -47,6 +52,11 @@ export type BalanceTelemetry = {
     medianPower: number;
     maxFrontierDepth: number;
   };
+  filters?: {
+    activeHours: number | null;
+    userTokens: string[];
+    unmatchedUserTokens: string[];
+  };
   depthBands: Bucket[];
   levelBands: Bucket[];
   powerBands: { label: string; players: number }[];
@@ -64,6 +74,24 @@ export type BalanceTelemetry = {
     avgGold: number;
     medianGold: number;
     maxGold: number;
+  }[];
+  goldSummary: {
+    players: number;
+    avgWalletGold: number;
+    avgBankGold: number;
+    avgTotalGold: number;
+    medianTotalGold: number;
+    maxTotalGold: number;
+  };
+  goldUsers: {
+    userId: string;
+    name: string | null;
+    email: string | null;
+    lastSeenAt: string | null;
+    level: number;
+    walletGold: number;
+    bankedGold: number;
+    totalGold: number;
   }[];
   equipmentUsage: { id: string; name: string; count: number }[];
   equipmentSummary: {
@@ -142,7 +170,11 @@ export function median(nums: number[]): number {
 
 export function aggregateBalanceTelemetry(
   users: TelemetryUser[],
-  meta: { adminExcluded: number; deriveFailed: number },
+  meta: {
+    adminExcluded: number;
+    deriveFailed: number;
+    filters?: BalanceTelemetry["filters"];
+  },
 ): BalanceTelemetry {
   const players = users.length;
 
@@ -171,6 +203,9 @@ export function aggregateBalanceTelemetry(
     dominantStatAcc[k] = 0;
   }
   const goldByLevelBand = LEVEL_BANDS.map(() => [] as number[]);
+  const walletGoldAll: number[] = [];
+  const bankGoldAll: number[] = [];
+  const totalGoldAll: number[] = [];
   const equipmentByLevelBand = LEVEL_BANDS.map(
     () => [] as {
       equipped: number;
@@ -188,6 +223,12 @@ export function aggregateBalanceTelemetry(
 
   for (const u of users) {
     powerAll.push(u.power);
+    const walletGold = Math.max(0, Math.floor(u.gold));
+    const bankedGold = Math.max(0, Math.floor(u.bankedGold ?? 0));
+    const totalGold = walletGold + bankedGold;
+    walletGoldAll.push(walletGold);
+    bankGoldAll.push(bankedGold);
+    totalGoldAll.push(totalGold);
 
     if (u.frontierDepth > MAX_FRONTIER_DEPTH) {
       legacyDepth++;
@@ -205,7 +246,7 @@ export function aggregateBalanceTelemetry(
     if (li >= 0) {
       levelAcc[li].players++;
       levelAcc[li].powerSum += u.power;
-      goldByLevelBand[li].push(u.gold);
+      goldByLevelBand[li].push(totalGold);
       equipmentByLevelBand[li].push({
         equipped: u.equipmentEquipped,
         owned: u.equipmentOwned,
@@ -360,6 +401,33 @@ export function aggregateBalanceTelemetry(
       ? Math.round(items.reduce((sum, x) => sum + pick(x), 0) / items.length)
       : 0;
 
+  const goldSummary = {
+    players,
+    avgWalletGold: avgOf(walletGoldAll, (x) => x),
+    avgBankGold: avgOf(bankGoldAll, (x) => x),
+    avgTotalGold: avgOf(totalGoldAll, (x) => x),
+    medianTotalGold: median(totalGoldAll),
+    maxTotalGold: totalGoldAll.length ? Math.max(...totalGoldAll) : 0,
+  };
+
+  const goldUsers = users
+    .map((u) => {
+      const walletGold = Math.max(0, Math.floor(u.gold));
+      const bankedGold = Math.max(0, Math.floor(u.bankedGold ?? 0));
+      return {
+        userId: u.userId ?? "",
+        name: u.name ?? null,
+        email: u.email ?? null,
+        lastSeenAt: u.lastSeenAt ?? null,
+        level: u.level,
+        walletGold,
+        bankedGold,
+        totalGold: walletGold + bankedGold,
+      };
+    })
+    .sort((a, b) => b.totalGold - a.totalGold)
+    .slice(0, 200);
+
   const equipmentSummary = LEVEL_BANDS.map((b, i) => {
     const list = equipmentByLevelBand[i];
     return {
@@ -382,6 +450,7 @@ export function aggregateBalanceTelemetry(
       medianPower: median(powerAll),
       maxFrontierDepth: MAX_FRONTIER_DEPTH,
     },
+    filters: meta.filters,
     depthBands,
     levelBands,
     powerBands,
@@ -394,6 +463,8 @@ export function aggregateBalanceTelemetry(
     spPressureBands,
     statAxes,
     economy,
+    goldSummary,
+    goldUsers,
     equipmentUsage,
     equipmentSummary,
     lifeProgress: {

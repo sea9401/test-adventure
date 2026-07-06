@@ -58,6 +58,7 @@ import {
   usablePoints,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Class } from "@/adventure/data/v2/classes";
+import { TIER5_UNLOCK_CUMLEVEL } from "@/adventure/data/v2/v2JobCatalog";
 
 function advanceReq(targetJobId: string): Request {
   return new Request("http://t/api/v2/me/advance-class", {
@@ -223,7 +224,7 @@ describe("advance-class — 5차 전직 조건", () => {
     store.set("proficiency.v2", {
       points: 0,
       groups: { warrior: { cultivations: 0, tier: 1, cumLevel: 0 } },
-      jobCumLevel: { veteran: 7500 },
+      jobCumLevel: { veteran: TIER5_UNLOCK_CUMLEVEL },
       caps: {},
       grown: {},
     });

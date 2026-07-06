@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import type { StaminaState } from "@/adventure/v2/stamina";
+import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -27,7 +27,7 @@ import {
   useCoopSessionState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import {
-  CoopRewardCaptions,
+  CoopContributionCriteria,
   CoopRewardTable,
 } from "@/adventure/v2/coop/CoopRewardTable";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -39,6 +39,7 @@ export function V2CoopBossDetailView({
   playerGender,
   playerSubtitle,
   stamina,
+  staminaMax,
   setStamina,
   setHp,
   onBack,
@@ -48,6 +49,7 @@ export function V2CoopBossDetailView({
   playerGender: Gender;
   playerSubtitle?: string;
   stamina: StaminaState;
+  staminaMax: number;
   setStamina: (s: StaminaState) => void;
   setHp?: (s: HpBarState) => void;
   onBack: () => void;
@@ -70,9 +72,9 @@ export function V2CoopBossDetailView({
     },
   });
   const [now, setNow] = useState(() => Date.now());
-  // 기여 보상 상세 모달(보상 캡션 = 무엇을 주나). 헤더 우측 버튼으로 연다.
-  const [rewardInfoOpen, setRewardInfoOpen] = useState(false);
-  useEscapeKey(() => setRewardInfoOpen(false));
+  // 기여도 기준 안내 모달 — 헤더 우측 버튼으로 연다.
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
+  useEscapeKey(() => setCriteriaOpen(false));
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -118,7 +120,8 @@ export function V2CoopBossDetailView({
       ? my.lastAttackAt + coopAttackCooldownMs() - now
       : 0;
   const onCooldown = active && cooldownLeft > 0;
-  const lowStamina = stamina.current < COOP_ATTACK_STAMINA_COST;
+  const liveStamina = applyRegen(stamina, now, staminaMax);
+  const lowStamina = liveStamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.damage > 0;
   // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
   const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;
@@ -324,77 +327,82 @@ export function V2CoopBossDetailView({
             <div className="text-sm font-semibold">기여 보상</div>
             <button
               type="button"
-              onClick={() => setRewardInfoOpen(true)}
+              onClick={() => setCriteriaOpen(true)}
               className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             >
-              보상 보기
+              기여 기준
             </button>
           </div>
           <CoopRewardTable kind={def} myDamage={my.damage} hideCaptions />
         </Card>
       )}
 
-      {/* 기여 보상 상세 모달 — 무엇을 주나(SP 열매·보스 유니크 트로피). 인라인 캡션 대체. */}
-      {rewardInfoOpen && (
+      {/* 기여도 기준 모달 — 요구 딜 산식과 티어별 기준 안내. */}
+      {criteriaOpen && (
         <>
           <div
             className="fixed inset-0 z-40 bg-black/50"
-            onClick={() => setRewardInfoOpen(false)}
+            onClick={() => setCriteriaOpen(false)}
             aria-hidden
           />
           <div
             role="dialog"
-            aria-label="기여 보상 상세"
+            aria-label="기여도 기준"
             className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                기여 보상 — {def.name}
+                기여도 기준 — {def.name}
               </h2>
               <button
                 type="button"
-                onClick={() => setRewardInfoOpen(false)}
+                onClick={() => setCriteriaOpen(false)}
                 className="rounded p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
                 aria-label="닫기"
               >
                 ✕
               </button>
             </div>
-            <CoopRewardCaptions kind={def} />
+            <CoopContributionCriteria kind={def} />
           </div>
         </>
       )}
 
-      {lastReward &&
-        (lastReward.spFruitCount > 0 || lastReward.uniqueId ? (
-          <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
-            </p>
-            <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-              {lastReward.uniqueId && (
+      {lastReward && (
+        <div className="ui-reward-flash rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
+          </p>
+          <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+            {lastReward.coopCoin != null && lastReward.coopCoin > 0 && (
+              <li>협동 주화 ×{lastReward.coopCoin}</li>
+            )}
+            {lastReward.bossMaterialCount != null &&
+              lastReward.bossMaterialCount > 0 && (
                 <li>
-                  ⚔️ 보스 유니크{" "}
-                  <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
-                  — 인벤토리에서 확인!
+                  {lastReward.bossMaterialName ?? "보스 재료"} ×
+                  {lastReward.bossMaterialCount}
                 </li>
               )}
-              {lastReward.spFruitCount > 0 && (
-                <li>
-                  🍂 {lastReward.spFruitName ?? "SP 열매"} ×
-                  {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
-                </li>
-              )}
-            </ul>
-          </div>
-        ) : (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              {COOP_TIER_LABEL[lastReward.tier]} 기여 — 이번엔 드랍 없음. (SP 열매
-              GOLD+·유니크 EPIC+ 확률)
-            </p>
-          </div>
-        ))}
+            {lastReward.equipmentBoxName && (
+              <li>{lastReward.equipmentBoxName} — 소모품 탭에서 사용</li>
+            )}
+            {lastReward.uniqueId && (
+              <li>
+                보스 유니크{" "}
+                <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
+                — 인벤토리에서 확인
+              </li>
+            )}
+            {lastReward.spFruitCount > 0 && (
+              <li>
+                {lastReward.spFruitName ?? "SP 열매"} ×
+                {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* 내 공격 결과 — 요약 + 전투 다시보기 */}
       {lastAttack && (

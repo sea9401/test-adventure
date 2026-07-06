@@ -288,7 +288,7 @@ export function V2CharacterScreen({
             }
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}
-            statDescriptions={V2_STAT_DESCRIPTIONS}
+            statDescriptions={playerName ? undefined : V2_STAT_DESCRIPTIONS}
           />
         </Card>
       )}

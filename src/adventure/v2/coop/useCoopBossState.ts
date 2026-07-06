@@ -67,6 +67,10 @@ export type CoopClaimReward = {
   // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
   uniqueId: string | null;
   uniqueName: string | null;
+  coopCoin?: number;
+  bossMaterialName?: string | null;
+  bossMaterialCount?: number;
+  equipmentBoxName?: string | null;
 };
 
 export type CoopSessionDetail = {

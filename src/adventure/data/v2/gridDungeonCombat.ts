@@ -22,7 +22,7 @@ export const GRID_DUNGEON_PARTY_SCALING: Partial<
 > = {
   monster: { hpPerSupporter: 0.35, atkPerSupporter: 0.12 },
   elite: { hpPerSupporter: 0.55, atkPerSupporter: 0.2 },
-  boss: { hpPerSupporter: 0.35, atkPerSupporter: 0.18 },
+  boss: { hpPerSupporter: 0.25, atkPerSupporter: 0.24 },
 };
 
 const FORMATION_TARGET_CYCLE = 10;
@@ -116,6 +116,7 @@ function partyPatternCtx({
   return {
     selfHpPct: lowestHpPct,
     selfMpPct: actor.maxMp > 0 ? (actor.mp / actor.maxMp) * 100 : 100,
+    selfShieldActive: false,
     selfBuffStats: new Set<StatKey>(),
     selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction">(),
     enemyHpPct: (enemyHp / enemyMaxHp) * 100,

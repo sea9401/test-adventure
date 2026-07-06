@@ -1317,6 +1317,7 @@ export function castV2SkillOnAttackerTurnPvP(
       luk: side.player.lukStat,
       // 활성 파생버프 — PvP 는 회피/치명만 추적(받피감은 PvP-inert). 받피감=true 로 둬서 self_buff_pct
       //   (damageReduction, active:false) 조건이 PvP 에서 철포를 매턴 스팸(평타 차단)하지 않게 가드.
+      selfShieldActive: side.stacks.playerShield > 0,
       selfBuffPctActive: {
         evasion: side.stacks.skillEvasionTurns > 0,
         crit: side.stacks.skillCritTurns > 0,
@@ -1599,11 +1600,17 @@ export function castV2SkillOnAttackerTurnPvP(
     v2SelfDebuffs: tickedSelfDebuffs,
     stacks: nextStacks,
   };
-  // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 상대 마법취약 +1(상한 클램프, 감쇠 없음).
-  const nextOppMagicVuln =
+  // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 확률로 상대 마법취약 +1(상한 클램프, 감쇠 없음).
+  const magicVulnApplyChancePct = side.player.enemyMagicVulnApplyChancePct ?? 100;
+  const magicVulnApplied =
     (side.player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
     result.castSkillId &&
-    result.enemyDamage > 0
+    result.enemyDamage > 0 &&
+    magicVulnApplyChancePct > 0 &&
+    (magicVulnApplyChancePct >= 100 ||
+      Math.random() * 100 < magicVulnApplyChancePct);
+  const nextOppMagicVuln =
+    magicVulnApplied
       ? Math.min(MAGIC_VULN_STACK_CAP, opp.stacks.magicVulnStacks + 1)
       : opp.stacks.magicVulnStacks;
   const nextOpp: PvPSide = {

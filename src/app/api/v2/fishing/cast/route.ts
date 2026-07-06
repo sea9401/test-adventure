@@ -4,6 +4,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
   emptyV2SkillsState,
   equippedFishingBonuses,
@@ -15,6 +16,10 @@ import {
   rollBiteDelayMs,
   type FishingSession,
 } from "@/adventure/v2/fishingSession";
+import {
+  FISHING_WALLET_KEY,
+  fishingCatchCoinProgress,
+} from "@/lib/server/fishing/coins";
 
 // POST /api/v2/fishing/cast — 찌 던지기.
 //
@@ -60,5 +65,10 @@ export async function POST() {
     await upsertSave(tx, userId, FISHING_SESSION_KEY, session);
   });
 
-  return Response.json({ ok: true, castId, biteDelayMs });
+  const dailyCatchCoins = fishingCatchCoinProgress(
+    await readSave(db, userId, FISHING_WALLET_KEY, {}),
+    kstDailyKey(new Date(now)),
+  );
+
+  return Response.json({ ok: true, castId, biteDelayMs, dailyCatchCoins });
 }

@@ -18,6 +18,9 @@ import {
   coopSpFruitMaxAt,
   COOP_UNIQUE_CHANCE,
   rollCoopUnique,
+  FISHING_COOP_BOSS_KIND_ID,
+  FISHING_COOP_BOSS_SPAWN_CHANCE,
+  rollFishingCoopBossSpawn,
   canAccessCoopBoss,
   parseCoopVisibility,
   coopAttackCooldownMs,
@@ -25,6 +28,11 @@ import {
   COOP_ATTACK_COOLDOWN_MS_V2,
   COOP_ATTACK_STAMINA_COST,
   MAX_ACTIVE_PER_KIND,
+  ABYSSAL_BREATH_CRIT_DAMAGE_REQUIRED,
+  coopConditionalEnrageWeakened,
+  coopCriticalDamageFromLog,
+  parseCoopMechanicState,
+  updateCoopMechanicStateAfterAttack,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -32,13 +40,15 @@ import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 import { TITLES } from "@/adventure/data/titles";
 
 describe("coopBosses 카탈로그", () => {
-  it("3종 — id 일치·소환서 비용/공유 HP 오름차순(사다리)", () => {
-    expect(COOP_BOSS_KIND_IDS).toHaveLength(3);
+  it("4종 — id 일치·기본 3종은 소환서 비용/공유 HP 오름차순(사다리)", () => {
+    expect(COOP_BOSS_KIND_IDS).toHaveLength(4);
+    for (const id of COOP_BOSS_KIND_IDS) {
+      expect(COOP_BOSSES[id].id).toBe(id);
+    }
     let prevCost = 0;
     let prevHp = 0;
-    for (const id of COOP_BOSS_KIND_IDS) {
+    for (const id of ["mountain_chief", "canyon_predator", "lake_sovereign"] as const) {
       const b = COOP_BOSSES[id];
-      expect(b.id).toBe(id);
       expect(b.scrollCost).toBeGreaterThan(prevCost);
       expect(b.sharedMaxHp).toBeGreaterThan(prevHp);
 
@@ -48,13 +58,17 @@ describe("coopBosses 카탈로그", () => {
     expect(COOP_BOSSES.mountain_chief.scrollCost).toBe(10);
     expect(COOP_BOSSES.canyon_predator.scrollCost).toBe(15);
     expect(COOP_BOSSES.lake_sovereign.scrollCost).toBe(20);
+    expect(COOP_BOSSES.abyssal_tyrant.scrollCost).toBe(30);
+    expect(COOP_BOSSES.abyssal_tyrant.sharedMaxHp).toBe(600_000);
+    expect(COOP_BOSSES.abyssal_tyrant.anchorDepth).toBe(60);
+    expect(COOP_BOSSES.abyssal_tyrant.base.v2Skills?.equipped).toContain(
+      "mob_arcane_nova",
+    );
   });
 
   it("유니크/칭호 카탈로그 — 휴면 id 도 장비·칭호 카탈로그에 실재(기보유분 호환)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      // 보상 개편으로 드랍/지급은 폐지됐지만 id·카탈로그는 보존(보유분 비파괴).
-      expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u], `unknown equipment: ${u}`).toBeDefined();
         expect(V2_EQUIPMENT[u].rarity).toBe("unique");
@@ -130,7 +144,6 @@ describe("coopBosses 카탈로그", () => {
   it("보스 uniqueIds — 시그니처 유니크 실재(이름·rarity·signature)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u]?.rarity).toBe("unique");
         expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 발동형 효과 부여
@@ -164,21 +177,25 @@ describe("coopBosses 카탈로그", () => {
   it("발악 스테이지 — 전역 비율 임계 이하에서 누적 적용 + 안내 노트", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      expect(b.enrageStages.length).toBeGreaterThan(0);
+      const stages = [
+        ...(b.conditionalEnrage ? [b.conditionalEnrage.normal] : []),
+        ...b.enrageStages,
+      ];
+      expect(stages.length).toBeGreaterThan(0);
       expect(b.traits.length).toBeGreaterThan(0);
       const full = coopBossForBattle(b, b.sharedMaxHp);
       // 가장 깊은 스테이지 임계 바로 아래 — 전 스테이지 적용.
-      const deepest = Math.min(...b.enrageStages.map((st) => st.hpFraction));
+      const deepest = Math.min(...stages.map((st) => st.hpFraction));
       const low = coopBossForBattle(
         b,
         Math.max(1, Math.floor(b.sharedMaxHp * deepest) - 1),
       );
-      expect(low.enrageNotes).toHaveLength(b.enrageStages.length);
+      expect(low.enrageNotes).toHaveLength(stages.length);
       // 스탯이 단조 증가(atkMult/defBonus/evasionBonus 중 무엇이든 강화 방향).
       expect(low.monster.atk).toBeGreaterThanOrEqual(full.monster.atk);
       expect(low.monster.def).toBeGreaterThanOrEqual(full.monster.def);
       // 경계 — 임계 초과 HP 에선 그 스테이지 미적용, 임계 정확히에선 적용(≤).
-      for (const st of b.enrageStages) {
+      for (const st of stages) {
         const justAbove = coopBossForBattle(
           b,
           Math.floor(b.sharedMaxHp * st.hpFraction) + 1,
@@ -193,9 +210,9 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
-  it("유지시간 — HP 비례·최소 2h·최대 24h 클램프·HP 오름차순과 단조", () => {
+  it("유지시간 — 기본 3단은 HP 비례 단조, 심연어룡은 하드 산군급", () => {
     let prev = 0;
-    for (const id of COOP_BOSS_KIND_IDS) {
+    for (const id of ["mountain_chief", "canyon_predator", "lake_sovereign"] as const) {
       const b = COOP_BOSSES[id];
       const d = coopBossDurationMs(b);
       expect(d).toBeGreaterThanOrEqual(COOP_DURATION_MIN_MS);
@@ -203,6 +220,9 @@ describe("coopBosses 카탈로그", () => {
       expect(d).toBeGreaterThanOrEqual(prev);
       prev = d;
     }
+    expect(coopBossDurationMs(COOP_BOSSES.abyssal_tyrant)).toBe(
+      COOP_DURATION_MAX_MS,
+    );
     // 캡 — 거대 HP 가상 보스도 24h 를 넘지 않는다.
     const giant = { ...COOP_BOSSES.lake_sovereign, sharedMaxHp: 10_000_000 };
     expect(coopBossDurationMs(giant)).toBe(COOP_DURATION_MAX_MS);
@@ -214,7 +234,11 @@ describe("coopBosses 카탈로그", () => {
   it("coopEnrageStatus — 라이브 발악 진행/예고(상세 배지용)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      const n = b.enrageStages.length;
+      const allStages = [
+        ...(b.conditionalEnrage ? [b.conditionalEnrage.normal] : []),
+        ...b.enrageStages,
+      ];
+      const n = allStages.length;
       // 풀피 — 발동 0·다음 단계는 가장 높은 임계.
       const full = coopEnrageStatus(b, 1);
       expect(full.activeCount).toBe(0);
@@ -226,7 +250,7 @@ describe("coopBosses 카탈로그", () => {
           full.stages[i].stage.hpFraction,
         );
       }
-      const highest = Math.max(...b.enrageStages.map((s) => s.hpFraction));
+      const highest = Math.max(...allStages.map((s) => s.hpFraction));
       expect(full.nextStage?.hpFraction).toBe(highest);
       // 바닥 — 전부 발동·다음 없음.
       const low = coopEnrageStatus(b, 0);
@@ -245,9 +269,66 @@ describe("coopBosses 카탈로그", () => {
 
   it("parseCoopBossKindId — 유효 id 만 통과", () => {
     expect(parseCoopBossKindId("mountain_chief")).toBe("mountain_chief");
+    expect(parseCoopBossKindId("abyssal_tyrant")).toBe("abyssal_tyrant");
     expect(parseCoopBossKindId("nope")).toBeNull();
     expect(parseCoopBossKindId(42)).toBeNull();
     expect(parseCoopBossKindId(null)).toBeNull();
+  });
+
+  it("낚시 이벤트 보스 — 고정 kind + 초저확률 경계", () => {
+    expect(FISHING_COOP_BOSS_KIND_ID).toBe("abyssal_tyrant");
+    expect(FISHING_COOP_BOSS_SPAWN_CHANCE).toBeGreaterThan(0);
+    expect(FISHING_COOP_BOSS_SPAWN_CHANCE).toBeLessThan(0.01);
+    expect(rollFishingCoopBossSpawn(() => 0)).toBe(true);
+    expect(rollFishingCoopBossSpawn(() => FISHING_COOP_BOSS_SPAWN_CHANCE)).toBe(false);
+  });
+
+  it("심연어룡 숨구멍 — 50% 전 치명타 피해 누적으로 조건부 발악이 약화된다", () => {
+    const state = updateCoopMechanicStateAfterAttack("abyssal_tyrant", {}, {
+      bossHpBefore: 400_000,
+      bossMaxHp: 600_000,
+      criticalDamage: ABYSSAL_BREATH_CRIT_DAMAGE_REQUIRED,
+    });
+    expect(state.abyssalTyrant?.breathOpened).toBe(true);
+    expect(coopConditionalEnrageWeakened("abyssal_tyrant", state)).toBe(true);
+
+    const normal = coopBossForBattle(COOP_BOSSES.abyssal_tyrant, 300_000);
+    const weakened = coopBossForBattle(COOP_BOSSES.abyssal_tyrant, 300_000, {
+      conditionalEnrageWeakened: true,
+    });
+    expect(normal.monster.atk).toBeGreaterThan(weakened.monster.atk);
+    expect(normal.monster.def).toBeGreaterThan(weakened.monster.def);
+    expect(normal.monster.evasionPct ?? 0).toBeGreaterThan(
+      weakened.monster.evasionPct ?? 0,
+    );
+
+    const late = updateCoopMechanicStateAfterAttack("abyssal_tyrant", {}, {
+      bossHpBefore: 300_000,
+      bossMaxHp: 600_000,
+      criticalDamage: ABYSSAL_BREATH_CRIT_DAMAGE_REQUIRED,
+    });
+    expect(late.abyssalTyrant).toBeUndefined();
+  });
+
+  it("심연어룡 숨구멍 — 전투 로그에서 치명타 피해만 합산한다", () => {
+    const damage = coopCriticalDamageFromLog([
+      {
+        kind: "player_attack",
+        text: "공격! [크리티컬] 100 피해를 입혔다.",
+        critical: true,
+        damage: 100,
+      },
+      {
+        kind: "player_attack",
+        text: "공격! 80 피해를 입혔다.",
+        critical: false,
+        damage: 80,
+      },
+      { kind: "info", text: "기타" },
+    ]);
+    expect(damage).toBe(100);
+    expect(parseCoopMechanicState({ abyssalTyrant: { breathCritDamage: 7.8 } }))
+      .toEqual({ abyssalTyrant: { breathCritDamage: 7, breathOpened: false } });
   });
 });
 

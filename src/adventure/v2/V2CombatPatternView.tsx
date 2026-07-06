@@ -12,6 +12,7 @@ import {
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
 import {
   V2_COMBAT_PATTERN_MAX_PRESETS,
+  V2_COMBAT_PATTERN_MAX_SUBCONDITIONS,
   V2_COMBAT_PRESET_NAME_MAXLEN,
   type V2CombatAction,
   type V2CombatBlock,
@@ -28,16 +29,24 @@ import {
 const STAT_KEYS: StatKey[] = ["str", "dex", "vit", "spd", "luk", "int"];
 
 type CondKind = V2CombatCondition["kind"];
+type SimpleCondKind = Exclude<CondKind, "all" | "any">;
 const COND_KINDS: { value: CondKind; label: string }[] = [
   { value: "always", label: "항상" },
+  { value: "all", label: "모두 만족" },
+  { value: "any", label: "하나 만족" },
   { value: "self_hp", label: "내 HP" },
   { value: "self_mp", label: "내 MP" },
+  { value: "self_shield", label: "내 보호막" },
   { value: "self_buff", label: "내 버프" },
   { value: "self_buff_pct", label: "내 파생버프" },
   { value: "enemy_hp", label: "적 HP" },
   { value: "enemy_status", label: "적 상태" },
   { value: "turn", label: "턴" },
 ];
+const SIMPLE_COND_KINDS: { value: SimpleCondKind; label: string }[] =
+  COND_KINDS.filter((c): c is { value: SimpleCondKind; label: string } =>
+    c.value !== "all" && c.value !== "any",
+  );
 
 const ROLE_OPTIONS: { value: V2CombatRole; label: string }[] = [
   { value: "main_attack", label: "주 공격" },
@@ -51,10 +60,28 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
   switch (kind) {
     case "always":
       return { kind: "always" };
+    case "all":
+      return {
+        kind: "all",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 50 },
+          { kind: "self_shield", active: false },
+        ],
+      };
+    case "any":
+      return {
+        kind: "any",
+        conditions: [
+          { kind: "self_hp", op: "below", pct: 30 },
+          { kind: "self_mp", op: "below", pct: 20 },
+        ],
+      };
     case "self_hp":
       return { kind: "self_hp", op: "below", pct: 50 };
     case "self_mp":
       return { kind: "self_mp", op: "below", pct: 30 };
+    case "self_shield":
+      return { kind: "self_shield", active: false };
     case "self_buff":
       return { kind: "self_buff", stat: "str", active: false };
     case "self_buff_pct":
@@ -568,6 +595,14 @@ function ConditionParams({
   switch (c.kind) {
     case "always":
       return null;
+    case "all":
+    case "any":
+      return (
+        <CompoundConditionParams
+          condition={c}
+          onChange={onChange}
+        />
+      );
     case "self_hp":
     case "self_mp":
     case "enemy_hp":
@@ -582,6 +617,14 @@ function ConditionParams({
             onChange={(e) => onChange({ ...c, pct: clampPct(e.target.value) })} />
           <span className="text-zinc-400">%</span>
         </>
+      );
+    case "self_shield":
+      return (
+        <select className={sel} value={c.active ? "y" : "n"}
+          onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
+          <option value="n">없을 때</option>
+          <option value="y">있을 때</option>
+        </select>
       );
     case "self_buff":
       return (
@@ -650,6 +693,75 @@ function ConditionParams({
         </>
       );
   }
+}
+
+function CompoundConditionParams({
+  condition: c,
+  onChange,
+}: {
+  condition: Extract<V2CombatCondition, { kind: "all" | "any" }>;
+  onChange: (c: V2CombatCondition) => void;
+}) {
+  const updateChild = (idx: number, child: V2CombatCondition) => {
+    onChange({
+      ...c,
+      conditions: c.conditions.map((prev, i) => (i === idx ? child : prev)),
+    });
+  };
+  const removeChild = (idx: number) => {
+    const next = c.conditions.filter((_, i) => i !== idx);
+    if (next.length > 0) onChange({ ...c, conditions: next });
+  };
+  const addChild = () => {
+    if (c.conditions.length >= V2_COMBAT_PATTERN_MAX_SUBCONDITIONS) return;
+    onChange({
+      ...c,
+      conditions: [...c.conditions, { kind: "self_hp", op: "below", pct: 50 }],
+    });
+  };
+
+  return (
+    <div className="flex min-w-[240px] flex-1 flex-col gap-1.5">
+      {c.conditions.map((child, idx) => (
+        <div
+          key={idx}
+          className="flex flex-wrap items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+        >
+          <span className="w-10 text-[11px] text-zinc-400">
+            {c.kind === "all" ? "AND" : "OR"} {idx + 1}
+          </span>
+          <select
+            className={sel}
+            value={child.kind === "all" || child.kind === "any" ? "always" : child.kind}
+            onChange={(e) => updateChild(idx, defaultCondition(e.target.value as SimpleCondKind))}
+          >
+            {SIMPLE_COND_KINDS.map((kind) => (
+              <option key={kind.value} value={kind.value}>{kind.label}</option>
+            ))}
+          </select>
+          <ConditionParams condition={child} onChange={(next) => updateChild(idx, next)} />
+          {c.conditions.length > 1 && (
+            <button
+              type="button"
+              onClick={() => removeChild(idx)}
+              className="rounded px-1.5 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+      {c.conditions.length < V2_COMBAT_PATTERN_MAX_SUBCONDITIONS && (
+        <button
+          type="button"
+          onClick={addChild}
+          className="w-fit rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          + 하위 조건
+        </button>
+      )}
+    </div>
+  );
 }
 
 function clampPct(v: string): number {

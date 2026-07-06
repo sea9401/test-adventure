@@ -73,16 +73,16 @@ describe("낚시 생활 패시브", () => {
 
   it("describeV2Skill 가 낚시 효과 칩을 낸다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_survivor_baitcraft)).toContain(
-      "낚시 크기 보정 +4%",
+      "물고기 크기 +4%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_camper_tidereading)).toContain(
       "물때 한정 어종 가중치 +25%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_angler_pointreading)).toContain(
-      "희귀 이상 낚시 크기 보정 +3%",
+      "희귀 이상 물고기 크기 +3%",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_masterangler_bigcatchsense)).toContain(
-      "대물권 낚시 크기 보정 +2%",
+      "대물급 물고기 크기 +2%",
     );
   });
 });
@@ -240,6 +240,22 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     // 힐(기공 순환) → HP 낮을 때.
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_chi)).toEqual({
       kind: "self_hp", op: "below", pct: 50,
+    });
+    // 보호막(마나 보호막) → HP가 내려갔고 기존 보호막이 없을 때.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_mage_shield)).toEqual({
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 70 },
+        { kind: "self_shield", active: false },
+      ],
+    });
+    // 회복+보호막 복합기 → 저HP이고 기존 보호막이 없을 때.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_rescueexpert_rescue)).toEqual({
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 50 },
+        { kind: "self_shield", active: false },
+      ],
     });
     // 스탯 버프(함성) → 그 버프 없을 때(재버프 낭비 방지).
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warrior_warcry)).toEqual({

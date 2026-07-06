@@ -23,19 +23,19 @@ export const GUILD_WORKSHOP_MATERIALS = {
     id: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,
     name: "미스릴 조각",
     description:
-      "마력을 머금은 은빛 금속 조각. T6 제작 장비의 핵심 재료다.",
+      "마력을 머금은 은빛 금속 조각. T5 제작 장비의 핵심 재료다.",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.sunstone,
     name: "태양석",
     description:
-      "강한 열기와 빛을 품은 광석. T8 제작 장비에 쓰는 고급 재료다.",
+      "강한 열기와 빛을 품은 광석. T5 제작 장비에 쓰는 고급 재료다.",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal,
     name: "오로라 결정",
     description:
-      "검은 왕도 주변에서 드물게 발견되는 다색 결정. T10 제작 장비의 최상위 병목 재료다.",
+      "검은 왕도 주변에서 드물게 발견되는 다색 결정. T5 제작 장비의 최상위 병목 재료다.",
   },
 } as const;
 

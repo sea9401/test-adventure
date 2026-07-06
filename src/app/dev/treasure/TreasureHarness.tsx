@@ -11,6 +11,7 @@ import {
   rollNewSession,
   toPublicSite,
   type TreasureAction,
+  type TreasureActionTarget,
   type TreasureSession,
 } from "@/adventure/v2/treasureDig";
 import { ANTIQUES, appraiseValue } from "@/adventure/data/v2/antique";
@@ -54,10 +55,14 @@ export function TreasureHarness() {
   );
 
   const dig = useCallback(
-    async (siteId: string, action: TreasureAction): Promise<DigOutcome> => {
+    async (
+      siteId: string,
+      action: TreasureAction,
+      target?: TreasureActionTarget,
+    ): Promise<DigOutcome> => {
       const s = session.current;
       if (!s || s.siteId !== siteId) return { outcome: "error" };
-      const r = applyTreasureAction(s, action);
+      const r = applyTreasureAction(s, action, target);
       if (r.kind === "invalid") {
         return { outcome: "invalid", site: toPublicSite(s) };
       }
@@ -75,6 +80,7 @@ export function TreasureHarness() {
             appraisedValue: appraiseValue(s.antiqueId, r.condition),
           },
           codexCount: 0,
+          site: toPublicSite(r.session),
         };
       }
       if (r.kind === "collapsed" || r.kind === "failed") {

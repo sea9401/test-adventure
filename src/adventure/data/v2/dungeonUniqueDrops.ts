@@ -166,7 +166,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 31~36) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
+    // 리자드 늪지(밴드 E, 31~36) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪의 심장 장신구 2.
     minDepth: 31,
     maxDepth: 36,
     ids: [
@@ -225,7 +225,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 붉은 벌판(49~54) — 전선·화약·폭풍 테마 T11 엔드 장비.
+    // 붉은 벌판(49~54) — 전선·화약·폭풍 테마 T5 엔드 장비.
     minDepth: 49,
     maxDepth: 54,
     ids: [
@@ -244,7 +244,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 백골 고원(55~60) — 백골·까마귀·왕릉 테마 T12 엔드 장비.
+    // 백골 고원(55~60) — 백골·까마귀·왕릉 테마 T5 엔드 장비.
     minDepth: 55,
     maxDepth: 60,
     ids: [

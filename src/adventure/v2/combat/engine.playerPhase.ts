@@ -525,6 +525,8 @@ export function resolvePlayerPhase(
   let log = appendLog(state.log, {
     kind: "player_attack",
     text: `공격! ${prefix}${totalDmg} 피해를 입혔다.`,
+    damage: totalDmg,
+    critical: critRoll,
   });
   // 이중 행운 — 첫 크리티컬 발동 순간 활성화, 후속 공격/회피 부터 보너스 적용.
   const shouldActivateLucky =

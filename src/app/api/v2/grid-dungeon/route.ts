@@ -10,7 +10,6 @@ import {
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
   elementDamageMult,
-  parseV2Element,
 } from "@/adventure/data/v2/elements";
 import {
   emptyV2SkillsState,
@@ -23,12 +22,11 @@ import {
   jobDisplayName,
   parseV2Class,
 } from "@/adventure/data/v2/classes";
-import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
-import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   lockSaveForUpdate,
@@ -36,7 +34,6 @@ import {
   upsertSave,
   type DbExecutor,
 } from "@/lib/server/savesKv";
-import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
   GRID_DUNGEON_DAILY_REWARDS_KEY,
@@ -49,6 +46,7 @@ import {
   gridDungeonDayKey,
   gridDungeonKey,
   gridDungeonLayoutForRoute,
+  gridDungeonRoomGold,
   gridDungeonRewardQuota,
   gridDungeonTileAt,
   isGridDungeonCombatTile,
@@ -63,6 +61,7 @@ import {
   withGridDungeonLayout,
   type GridDungeonMoveDir,
   type GridDungeonResolvedCombat,
+  type GridDungeonRouteId,
   type GridDungeonRun,
   type GridDungeonSupportRole,
   type GridDungeonSupporterSnapshot,
@@ -153,6 +152,10 @@ function normalizeGridDungeonFrontlineId({
   return typeof raw === "string" && supporterIds.includes(raw) ? raw : userId;
 }
 
+function lockOrderedUserIds(userIds: string[]): string[] {
+  return [...userIds].sort();
+}
+
 function displayJobFromCharacter(raw: unknown): string {
   const char = raw as { class?: unknown; specChoice?: unknown } | null;
   const cls = parseV2Class(char?.class);
@@ -223,7 +226,7 @@ async function reserveGridDungeonSupportUses({
   supporterIds: string[];
   now: number;
 }): Promise<{ ok: true } | { ok: false; error: "support_limit_reached" }> {
-  for (const supporterId of supporterIds) {
+  for (const supporterId of lockOrderedUserIds(supporterIds)) {
     const raw = await lockSaveForUpdate(
       tx,
       supporterId,
@@ -251,7 +254,10 @@ async function rewardGridDungeonSupporters({
   supporters: GridDungeonSupporterSnapshot[];
   now: number;
 }) {
-  for (const supporter of supporters) {
+  const supportersByLockOrder = [...supporters].sort((a, b) =>
+    a.userId.localeCompare(b.userId),
+  );
+  for (const supporter of supportersByLockOrder) {
     const raw = await lockSaveForUpdate(
       tx,
       supporter.userId,
@@ -405,9 +411,11 @@ async function gridDungeonSupportSnapshots({
     return { ok: false, error: "invalid_supporter" };
   }
   const candidates = await guildSupportCandidateRows(tx, userId);
-  const candidateById = new Map(candidates.map((candidate) => [candidate.userId, candidate]));
-  const supporters: GridDungeonSupporterSnapshot[] = [];
-  for (const supporterId of supporterIds) {
+  const candidateById = new Map(
+    candidates.map((candidate) => [candidate.userId, candidate]),
+  );
+  const supporterById = new Map<string, GridDungeonSupporterSnapshot>();
+  for (const supporterId of lockOrderedUserIds(supporterIds)) {
     const skillsRaw = await lockSaveForUpdate(
       tx,
       supporterId,
@@ -415,15 +423,19 @@ async function gridDungeonSupportSnapshots({
       emptyV2SkillsState(),
     );
     const skills = parseV2SkillsState(skillsRaw);
-    const derived = await derivePlayerCombatV2(supporterId, tx, { skillsRaw: skills });
+    const derived = await derivePlayerCombatV2(supporterId, tx, {
+      skillsRaw: skills,
+    });
     const candidate = candidateById.get(supporterId);
-    if (!derived || !candidate) return { ok: false, error: "invalid_supporter" };
+    if (!derived || !candidate) {
+      return { ok: false, error: "invalid_supporter" };
+    }
     const savedPattern = skills.pattern ?? { blocks: [] };
     const pattern =
       savedPattern.blocks.length > 0
         ? savedPattern
         : smartDefaultPatternFromEquipped(skills.equipped);
-    supporters.push({
+    supporterById.set(supporterId, {
       userId: supporterId,
       name: candidate.name,
       level: candidate.level,
@@ -442,6 +454,12 @@ async function gridDungeonSupportSnapshots({
       pattern,
       capturedAt: now,
     });
+  }
+  const supporters: GridDungeonSupporterSnapshot[] = [];
+  for (const supporterId of supporterIds) {
+    const supporter = supporterById.get(supporterId);
+    if (!supporter) return { ok: false, error: "invalid_supporter" };
+    supporters.push(supporter);
   }
   return { ok: true, supporters };
 }
@@ -504,12 +522,6 @@ function historyEntryFromRun({
   };
 }
 
-const GRID_DUNGEON_COMBAT_REWARD: Partial<Record<GridDungeonTileKind, number>> = {
-  monster: 0,
-  elite: 0,
-  boss: 0,
-};
-
 const GRID_DUNGEON_COMBAT_DEPTH: Partial<Record<GridDungeonTileKind, number>> = {
   monster: 2,
   elite: 4,
@@ -551,6 +563,7 @@ async function resolveGridDungeonCombat({
   supporters,
   frontlineId,
   tile,
+  routeId,
   runHp,
   runMaxHp,
 }: {
@@ -560,6 +573,7 @@ async function resolveGridDungeonCombat({
   supporters: GridDungeonSupporterSnapshot[];
   frontlineId: string;
   tile: GridDungeonTileKind;
+  routeId: GridDungeonRouteId;
   runHp: number;
   runMaxHp: number;
 }): Promise<GridDungeonResolvedCombat | null> {
@@ -569,41 +583,20 @@ async function resolveGridDungeonCombat({
   const baseMonster = V2_MONSTERS[picked.enemy.key];
   if (!baseMonster) return null;
 
-  const equipmentSave = await lockSaveForUpdate(tx, userId, "equipment.v2", {});
-  const skillsRaw = await lockSaveForUpdate(
+  const preparedActor = await prepareV2BattleActor({
     tx,
     userId,
-    "skills.v2",
-    emptyV2SkillsState() as unknown as Record<string, unknown>,
-  );
-  const proficiencyRaw = await lockSaveForUpdate(
-    tx,
-    userId,
-    "proficiency.v2",
-    emptyProficiency(),
-  );
-  const parsedSkills = parseV2SkillsState(skillsRaw);
-  const codexBonus = V2_CORE_LOOP_V2 ? await readCodexSpBonus(tx, userId) : null;
-  const v2Skills = V2_CORE_LOOP_V2
-    ? sanitizeCombatLoadout(
-        parsedSkills,
-        charSave,
-        proficiencyRaw,
-        codexBonus?.total ?? 0,
-    )
-    : parsedSkills;
-  const combatSkillsRaw = { ...parsedSkills, equipped: v2Skills.equipped };
-  const player = await derivePlayerCombatV2(userId, tx, {
-    character: charSave,
-    equipmentSave,
-    proficiencyRaw,
-    skillsRaw: combatSkillsRaw,
+    charSave,
+    deriveSkills: "sanitized",
   });
-  if (!player) return null;
+  if (!preparedActor) return null;
+  const {
+    player,
+    skills: v2Skills,
+    playerElement,
+    basicAttackElement,
+  } = preparedActor;
 
-  const playerElement = parseV2Element(charSave.element);
-  const basicAttackElement =
-    player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
   const monsterElement = picked.enemy.element ?? "neutral";
   const elemMult = elementDamageMult(
     basicAttackElement,
@@ -689,7 +682,7 @@ async function resolveGridDungeonCombat({
   const won = partyResult
     ? partyResult.outcome === "win"
     : soloResult?.outcome === "win";
-  const rewardGold = won ? (GRID_DUNGEON_COMBAT_REWARD[tile] ?? 0) : 0;
+  const rewardGold = won ? gridDungeonRoomGold(routeId, tile) : 0;
   const drops = won ? rollGridDungeonDrops(tile) : {};
   const playerHpAfter = partyResult
     ? partyResult.playerHpAfter
@@ -953,6 +946,7 @@ export async function POST(req: Request) {
                   ? userId
                   : run.frontlineId,
               tile: target.tile,
+              routeId: run.routeId,
               runHp: run.hp,
               runMaxHp: run.maxHp,
             })

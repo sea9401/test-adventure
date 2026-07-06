@@ -34,7 +34,7 @@ export type HuntResultPayload = HuntResult & {
   // 사냥 후 MP — 전역 MP 바 갱신용.
   mpAfter?: number;
   maxMp?: number;
-  // 코어루프 패배 세금 — lossTax = 이번 판 압류액(0=승리/flag off), atRiskGold = 마지막 패배
+  // 코어루프 패배 페널티 — lossTax = 이번 판 압류액(0=승리/flag off), atRiskGold = 마지막 패배
   //   이후 누적 승리분(위험 골드 뱃지 갱신용).
   lossTax?: number;
   atRiskGold?: number;

@@ -3,10 +3,8 @@ import { db } from "@/db";
 import { guilds, outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
-import {
-  derivePlayerCombatV2,
-  v2LevelGrowthHpMp,
-} from "@/lib/server/derivePlayerCombatV2";
+import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
+import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
@@ -27,10 +25,8 @@ import {
   addCumLevel,
   addJobCumLevel,
   setGrown,
-  emptyProficiency,
   effectiveLevelCap,
   proficiencyPerKillAtDepth,
-  type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
   V2_JOB_CATALOG,
@@ -43,16 +39,13 @@ import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   elementDamageMult,
   elementMatchup,
-  parseV2Element,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
   type ElementMatchup,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
-  emptyV2SkillsState,
   equippedProfPerKillBonus,
-  parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
@@ -112,8 +105,6 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
-import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import {
   insertFeedEntry,
   resolveUserDisplayName,
@@ -171,7 +162,7 @@ type CharSave = {
   ejectedFrom?: unknown;
   rareMaps?: unknown;
   lastBattleAt?: number; // 코어루프 사냥 쿨다운 — 마지막 사냥/오프라인 정산 시각.
-  atRiskGold?: number; // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상).
+  atRiskGold?: number; // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(패배 시 절반 소실 대상).
   lastHuntDepth?: number; // 코어루프 오프라인 정산 farm 깊이(마지막 정상 사냥 깊이).
   frontierDepth?: number; // 프론티어 최고 도달 깊이(오프라인 깊이 검증·게이트에 사용).
   [k: string]: unknown;
@@ -187,7 +178,7 @@ export type RunOneHuntCtx = {
   // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
   rareMapIid: string | null;
   // 오프라인 정산 모드 — 전투 쿨다운 게이트·per-battle lastBattleAt 기록을 건너뛴다(정산
-  //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 세금/HP/포션/레벨업은 그대로 적용.
+  //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 페널티/HP/포션/레벨업은 그대로 적용.
   offline?: boolean;
   // 시각 주입(오프라인) — 판별 HP 회복 시각을 lastBattleAt+i×쿨다운 으로 시뮬(5초 간격 회복).
   //   미지정 = Date.now()(온라인).
@@ -440,39 +431,13 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   //   skills→proficiency. 모든 라우트가 character.v2 를 가장 먼저 잠그므로 같은 유저 동시 tx 는
   //   character.v2 에서 직렬화 → 이후 같은-유저 키 락 순서는 데드락과 무관(dev/admin grant 도
   //   이미 proficiency→inventory 순이라 이 순서가 외려 더 일관).
-  const skillsRaw = await lockSaveForUpdate(
+  const preparedActor = await prepareV2BattleActor({
     tx,
     userId,
-    "skills.v2",
-    emptyV2SkillsState() as unknown as Record<string, unknown>,
-  );
-  const proficiencyRaw = await lockSaveForUpdate<V2ProficiencyState>(
-    tx,
-    userId,
-    "proficiency.v2",
-    emptyProficiency(),
-  );
-  // 코어루프 — 전투 직전 로드아웃 sanitize(SP 예산/직업고정 강제). flag off=원본 그대로(추가 작업 0).
-  //   reconcile 는 state 로드마다 영속 정리하지만, state 없이 곧장 사냥 오는 경로도 막는다(전투 입력 한정).
-  const v2SkillsParsed = parseV2SkillsState(skillsRaw);
-  const codexBonus = V2_CORE_LOOP_V2
-    ? await readCodexSpBonus(tx, userId)
-    : null;
-  const v2Skills = V2_CORE_LOOP_V2
-    ? sanitizeCombatLoadout(
-        v2SkillsParsed,
-        charSave,
-        proficiencyRaw,
-        codexBonus?.total ?? 0,
-      )
-    : v2SkillsParsed;
-  const player = await derivePlayerCombatV2(userId, tx, {
-    character: charSave,
+    charSave,
     equipmentSave,
-    proficiencyRaw,
-    skillsRaw,
   });
-  if (!player) {
+  if (!preparedActor) {
     return {
       ok: false as const,
       status: 400,
@@ -483,18 +448,18 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       },
     };
   }
+  const {
+    player,
+    skills: v2Skills,
+    proficiencyRaw,
+    playerElement,
+    basicAttackElement,
+  } = preparedActor;
 
   // PR-1/5b 속성 상성 — 양방향 데미지 ±%.
   //   캐릭 속성(playerElement) = 방어(피격) 속성 + 스킬 기본 속성.
   //   평타/공격 속성(basicAttackElement) = 무기 속성 ?? 캐릭 속성 (PR-5b 무기 속성 우선).
   //   atk 엔 basicAttackElement 를 baked, 스킬은 combatShared 가 스킬속성으로 재정규화.
-  const playerElement = parseV2Element(
-    (charSave as { element?: unknown }).element,
-  );
-  const basicAttackElement: V2Element =
-    player.weaponElement !== "neutral"
-      ? player.weaponElement
-      : playerElement;
 
   // 적 — 깊이 풀에서 랜덤 픽 후 깊이 스케일(이름·초상화는 사냥터 고유 값으로 덮어씀).
   //   spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.
@@ -737,9 +702,9 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   });
   const goldNet = goldGross - goldTaxed;
 
-  // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
-  //   절반(보유 한도 클램프)을 압류하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
-  //   off = lossTax 0·atRiskGold 미기록(byte-identical). 행선지는 아래 저장 후 라우팅.
+  // 코어루프 패배 페널티 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
+  //   절반(보유 한도 클램프)을 소실하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
+  //   off = lossTax 0·atRiskGold 미기록(byte-identical). 소실 골드는 어디에도 입금하지 않는다.
   const { lossTax, nextAtRisk } = computeLossTax({
     won,
     goldNet,
@@ -842,7 +807,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     //   이 값을 보지 않는다. 오프라인 정산은 per-battle 기록 생략(정산 루프가 마지막에
     //   lastBattleAt=realNow 한 번).
     ...(V2_CORE_LOOP_V2 && !ctx.offline ? { lastBattleAt: now } : {}),
-    // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
+    // 코어루프 패배 페널티 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
     ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),
     // 오프라인 정산 farm 깊이 — 쿨다운 모드의 정상 사냥(레어맵 아님)만 기록(스태미나 모드는 오프라인 폐지).
     ...(HUNT_COOLDOWN_MODE && !ctx.offline && !rareMapIid
@@ -901,10 +866,10 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     // PR-perf — 위에서 upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷, 중간
     //   proficiency 쓰기 없음 → 새 lock 과 동일 base). 중복 lock-read 제거.
     let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~5), 직업 숙련도는 승리당 +1.
+    // 적립 — 승리 시. 숙달 포인트는 깊이 밴드 비례(2~3), 직업 숙련도는 승리당 +1.
     //   none(모험가)은 숙달 포인트만 적립하고, 직업 숙련도/정복 게이트는 제외한다.
     if (won) {
-      // 승리당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
+      // 승리당 숙달 포인트 = 깊이 밴드(2~3) + 착용 패시브 보너스(수련 = +1).
       const perKill =
         proficiencyPerKillAtDepth(depth) +
         equippedProfPerKillBonus(v2Skills.equipped);
@@ -1046,25 +1011,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         },
       });
   }
-  // 코어루프 패배 세금 → 그 땅(거점/타일) 금고. 적/NPC 점령지 또는 영토 타일만 —
-  //   같은 길드·무거점이면 행선지 없이 순수 sink(보유에서 이미 차감, 자기거래 차단).
-  const lossTaxDest = tileTaxOutpostId ?? outpostId;
-  if (
-    lossTax > 0 &&
-    lossTaxDest &&
-    (taxOwnerId || npcTaxOutpostId || tileTaxOutpostId)
-  ) {
-    await tx
-      .insert(outpostTreasury)
-      .values({ outpostId: lossTaxDest, gold: lossTax, updatedAt: new Date(now) })
-      .onConflictDoUpdate({
-        target: outpostTreasury.outpostId,
-        set: {
-          gold: sql`${outpostTreasury.gold} + ${lossTax}`,
-          updatedAt: new Date(now),
-        },
-      });
-  }
+  // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
 
   return {
     ok: true as const,
@@ -1081,15 +1028,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         enemyName,
         won,
         expGained,
-        proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~5).
+        proficiencyGained, // 숙달 포인트 획득(승리·수행 프로필 보유 시 깊이별 +2~3).
         masteryGained, // 직업 숙련도 획득(승리·직업 보유 시 +1).
         masteryAfter, // 상시 카드 readout — 사냥 후 현재 직업 숙련도(none=null).
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
         goldAfter: newGold, // 사냥 후 최종 보유 골드 — 클라 공용 상태 즉시 동기화용.
         goldGross,
         goldTaxed,
-        // 코어루프 패배 세금 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
-        //   lossTax = 이번 판 압류액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.
+        // 코어루프 패배 페널티 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
+        //   lossTax = 이번 판 소실액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.
         ...(V2_CORE_LOOP_V2
           ? { lossTax, atRiskGold: nextAtRisk, spMilestonesGained }
           : {}),

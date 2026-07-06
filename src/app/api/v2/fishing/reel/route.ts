@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -30,6 +30,7 @@ import { upsertFishingRecord } from "@/lib/server/fishing/records";
 import {
   FISHING_WALLET_KEY,
   applyCatchCoin,
+  fishingCatchCoinProgress,
 } from "@/lib/server/fishing/coins";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
@@ -44,6 +45,16 @@ import {
   parseTreasureFragments,
   rollFragmentDrop,
 } from "@/adventure/v2/treasureFragments";
+import {
+  FISHING_STREAK_KEY,
+  fishingStreakBuff,
+  nextFishingStreak,
+  resetFishingStreak,
+} from "@/adventure/v2/fishingStreak";
+import {
+  broadcastCoopNotice,
+  trySpawnFishingCoopBoss,
+} from "@/lib/server/v2Coop";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -90,11 +101,21 @@ export async function POST(req: Request) {
       expiresAt: session.expiresAt,
     });
     if (!judgment.caught) {
+      const streak = resetFishingStreak(
+        await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
+      );
+      await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
       return { caught: false as const, reason: judgment.reason };
     }
 
+    const streak = nextFishingStreak(
+      await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
+    );
+    await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
+    const streakBuff = fishingStreakBuff(streak.current);
+
     // 낚시 계열 직업 숙련도 — 성공한 챔질 1회당 +1. 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
-    // 락 순서: 세션 → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
+    // 락 순서: 세션 → streak → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
     const charSave = await lockSaveForUpdate<{
       class?: unknown;
       specChoice?: unknown;
@@ -158,12 +179,16 @@ export async function POST(req: Request) {
       await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {}),
       FISH[session.fishId].tier,
       dayKey,
+      streakBuff.coinBonus,
     );
     await upsertSave(tx, userId, FISHING_WALLET_KEY, coinResult.next);
 
     // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
     // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
-    const fragmentDrop = rollFragmentDrop(Math.random, FISHING_FRAGMENT_DROP_CHANCE);
+    const fragmentDrop = rollFragmentDrop(
+      Math.random,
+      FISHING_FRAGMENT_DROP_CHANCE + streakBuff.fragmentChanceBonus,
+    );
     let fragmentsTotal = 0;
     if (fragmentDrop > 0) {
       const frags = parseTreasureFragments(
@@ -173,6 +198,20 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, nextFrags);
       fragmentsTotal = nextFrags.fragments;
     }
+
+    const profile = await readSave<{ name?: string } | null>(
+      tx,
+      userId,
+      "character-profile.v2",
+      null,
+    );
+    const summonerName = profile?.name?.trim() || "모험가";
+    const coopBoss = await trySpawnFishingCoopBoss(tx, {
+      userId,
+      summonerName,
+      now: new Date(now),
+      rng: Math.random,
+    });
 
     return {
       caught: true as const,
@@ -184,10 +223,14 @@ export async function POST(req: Request) {
       codexCount: countDiscoveredFish(next),
       coinsGained: coinResult.awarded,
       coins: coinResult.next.coins,
+      dailyCatchCoins: fishingCatchCoinProgress(coinResult.next, dayKey),
       masteryGained,
       masteryAfter,
       fragmentDrop,
       fragmentsTotal,
+      coopBoss,
+      streak,
+      streakBuff,
     };
   });
 
@@ -202,6 +245,12 @@ export async function POST(req: Request) {
       fishId: result.fishId,
       size: result.size,
     });
+  }
+  if (result.coopBoss) {
+    await insertFeedEntry(userId, "coop_summon", { kind: result.coopBoss.kind });
+    await broadcastCoopNotice(
+      `${result.coopBoss.name}이(가) 낚싯줄을 타고 올라왔다`,
+    );
   }
   // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).
   const mt = fish.condition ? MULTTAE_BY_ID.get(fish.condition) : undefined;
@@ -219,11 +268,29 @@ export async function POST(req: Request) {
     // 챔질당 코인 — 이번 마리 지급액(일일 상한 도달 시 0) + 누적 잔액.
     coinsGained: result.coinsGained,
     coins: result.coins,
+    dailyCatchCoins: result.dailyCatchCoins,
     masteryGained: result.masteryGained,
     masteryAfter: result.masteryAfter,
     special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,
     // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
     fragmentDrop: result.fragmentDrop,
     fragmentsTotal: result.fragmentsTotal,
+    coopBoss: result.coopBoss
+      ? {
+          sessionId: result.coopBoss.sessionId,
+          kind: result.coopBoss.kind,
+          name: result.coopBoss.name,
+          expiresAt: result.coopBoss.expiresAt,
+        }
+      : null,
+    streak: {
+      current: result.streak.current,
+      best: result.streak.best,
+      buffTier: result.streakBuff.tier,
+      coinBonus: result.streakBuff.coinBonus,
+      fragmentChanceBonusPct: Math.round(
+        result.streakBuff.fragmentChanceBonus * 100,
+      ),
+    },
   });
 }

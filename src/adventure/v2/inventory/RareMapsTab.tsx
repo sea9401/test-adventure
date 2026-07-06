@@ -21,6 +21,11 @@ import {
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 import {
+  COOP_EQUIPMENT_BOX,
+  COOP_MASTERY_TOME_GAIN,
+  COOP_MASTERY_TOME_MATERIAL_ID,
+} from "@/adventure/data/v2/coopRewards";
+import {
   V2SimpleItemInfoCard,
   anchorOf,
   type ItemCardAnchor,
@@ -28,7 +33,6 @@ import {
 
 // 유틸맵 사용 — 종류별 전용 화면으로 이동(지도 iid 동봉, 서버가 소유 재검증).
 const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
-  secret_shop_map: "/hidden/shop",
   rename_map: "/hidden/rename",
   portrait_map: "/hidden/portrait",
 };
@@ -40,15 +44,26 @@ export function RareMapsTab({
   spFruitUsed,
   busy,
   onUseSpFruit,
+  onUseEquipmentBox,
+  onUseMasteryTome,
   rareMaps,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
   busy: string | null;
   onUseSpFruit: (tier: SpFruitTier) => void;
+  onUseEquipmentBox: (boxId: string) => void;
+  onUseMasteryTome: () => void;
   rareMaps: RareMapInstance[] | null;
 }) {
   const router = useRouter();
+  const hasSpFruit = SP_FRUIT_TIERS.some(
+    (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
+  );
+  const hasEquipmentBox = Object.values(COOP_EQUIPMENT_BOX).some(
+    (box) => (materials[box.id] ?? 0) > 0,
+  );
+  const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
   return (
     <div className="space-y-4">
       <SpFruitSection
@@ -57,11 +72,19 @@ export function RareMapsTab({
         busy={busy}
         onUse={onUseSpFruit}
       />
+      <CoopEquipmentBoxSection
+        materials={materials}
+        busy={busy}
+        onUse={onUseEquipmentBox}
+      />
+      <MasteryTomeSection
+        materials={materials}
+        busy={busy}
+        onUse={onUseMasteryTome}
+      />
       <ConsumableList
         maps={rareMaps}
-        suppressEmpty={SP_FRUIT_TIERS.some(
-          (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
-        )}
+        suppressEmpty={hasSpFruit || hasEquipmentBox || hasMasteryTome}
         onUse={(m) => {
           // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
           //   (레벨·스탯이 전역에 반영되도록).
@@ -77,10 +100,94 @@ export function RareMapsTab({
               .catch(() => {});
             return;
           }
+          if (m.kind === "secret_shop_map") {
+            router.push("/hidden/shop");
+            return;
+          }
           const base = UTILITY_MAP_ROUTE[m.kind];
           if (base) router.push(`${base}?map=${m.iid}`);
         }}
       />
+    </div>
+  );
+}
+
+// 상급 숙련 교본 — 협동 보스 주화 상점/거래소로 유통되는 현재 직업 숙련도 보조 소모품.
+function MasteryTomeSection({
+  materials,
+  busy,
+  onUse,
+}: {
+  materials: Partial<Record<V2MaterialId, number>>;
+  busy: string | null;
+  onUse: () => void;
+}) {
+  const [infoCard, setInfoCard] = useState<{
+    title: string;
+    description: string;
+    held: number;
+    anchor: ItemCardAnchor;
+  } | null>(null);
+  const held = materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0;
+  if (held <= 0) return null;
+
+  const material = V2_MATERIALS[COOP_MASTERY_TOME_MATERIAL_ID];
+  const isBusy = busy === "coop_mastery_tome";
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold text-violet-700 dark:text-violet-400">
+        숙련 교본 · 사용 시 현재 직업 숙련도 증가
+      </div>
+      <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900 dark:bg-violet-950/40">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={(e) =>
+              setInfoCard({
+                title: material?.name ?? "상급 숙련 교본",
+                description:
+                  material?.description ??
+                  `사용하면 현재 직업 숙련도가 ${COOP_MASTERY_TOME_GAIN} 오릅니다.`,
+                held,
+                anchor: anchorOf(e.currentTarget),
+              })
+            }
+            className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-violet-400"
+          >
+            <span className="block truncate text-sm font-medium">
+              📘 {material?.name ?? "상급 숙련 교본"}
+              <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                ×{held}
+              </span>
+            </span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              현재 직업 숙련도 +{COOP_MASTERY_TOME_GAIN}
+            </span>
+          </button>
+          <Button
+            disabled={isBusy}
+            onClick={onUse}
+            variant="secondary"
+            size="xs"
+            className="shrink-0"
+          >
+            {isBusy ? "사용 중…" : "사용"}
+          </Button>
+        </div>
+      </div>
+      {infoCard ? (
+        <V2SimpleItemInfoCard
+          title={infoCard.title}
+          subtitle="소모품"
+          description={infoCard.description}
+          anchor={infoCard.anchor}
+          onClose={() => setInfoCard(null)}
+          lines={[
+            { label: "보유", value: `×${infoCard.held}` },
+            { label: "숙련도", value: `+${COOP_MASTERY_TOME_GAIN}` },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
@@ -185,6 +292,101 @@ function SpFruitSection({
           lines={[
             { label: "보유", value: `×${infoCard.held}` },
             { label: "사용", value: `${infoCard.usedCount}/${infoCard.useCap}` },
+          ]}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// 협동 보스 장비 상자 — 사용 시 해당 보스 단계의 정규 장비 1개 획득.
+function CoopEquipmentBoxSection({
+  materials,
+  busy,
+  onUse,
+}: {
+  materials: Partial<Record<V2MaterialId, number>>;
+  busy: string | null;
+  onUse: (boxId: string) => void;
+}) {
+  const [infoCard, setInfoCard] = useState<{
+    title: string;
+    description: string;
+    held: number;
+    tier: number;
+    source: string;
+    anchor: ItemCardAnchor;
+  } | null>(null);
+
+  const boxes = Object.values(COOP_EQUIPMENT_BOX)
+    .map((box) => ({ box, held: materials[box.id] ?? 0 }))
+    .filter((entry) => entry.held > 0);
+  if (boxes.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400">
+        협동 장비 상자 · 사용 시 장비 1개 획득
+      </div>
+      <ul className="space-y-1.5">
+        {boxes.map(({ box, held }) => {
+          const material = V2_MATERIALS[box.id];
+          const isBusy = busy === box.id;
+          return (
+            <li
+              key={box.id}
+              className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 dark:border-sky-900 dark:bg-sky-950/40"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={(e) =>
+                    setInfoCard({
+                      title: material?.name ?? box.name,
+                      description: material?.description ?? box.description,
+                      held,
+                      tier: box.displayTier,
+                      source: box.source,
+                      anchor: anchorOf(e.currentTarget),
+                    })
+                  }
+                  className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
+                >
+                  <span className="block truncate text-sm font-medium">
+                    상자 · {box.name}
+                    <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                      ×{held}
+                    </span>
+                  </span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {box.displayTier}티어 · {box.source}
+                  </span>
+                </button>
+                <Button
+                  disabled={isBusy}
+                  onClick={() => onUse(box.id)}
+                  variant="secondary"
+                  size="xs"
+                  className="shrink-0"
+                >
+                  {isBusy ? "사용 중…" : "사용"}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {infoCard ? (
+        <V2SimpleItemInfoCard
+          title={infoCard.title}
+          subtitle="소모품"
+          description={infoCard.description}
+          anchor={infoCard.anchor}
+          onClose={() => setInfoCard(null)}
+          lines={[
+            { label: "보유", value: `×${infoCard.held}` },
+            { label: "티어", value: `${infoCard.tier}티어` },
+            { label: "범위", value: infoCard.source },
           ]}
         />
       ) : null}

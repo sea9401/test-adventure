@@ -11,9 +11,13 @@ import {
   derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
   MAGIC_ATK_PER_INT,
+  MAGIC_DEF_PER_INT,
+  MAGIC_DEF_PER_SPI,
   V2_BASE_COMBAT_BONUS,
+  V2_BASE_STATS,
   VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
+import { damageToDefender } from "@/adventure/v2/combat/combatShared";
 import { CRIT_MULT_BASE } from "@/adventure/data/v2/v2CombatConstants";
 import {
   V2_BASE_HP,
@@ -62,14 +66,14 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(geared.healMult ?? 1).toBeCloseTo((plain.healMult ?? 1) * 1.08, 4);
   });
 
-  it("철검 T1 (위력 → 물공) → atk=무기위력, magicAtk=0, weight=8(원시2×무기4)", () => {
+  it("철검 T1 (위력 → 물공) → atk=무기위력, magicAtk=0, 속도 페널티는 옵션", () => {
     // 지팡이를 제외한 무기 위력은 물리 공격력에만 먹인다. 위력값은 카탈로그 기준(다이얼 변경에 견고).
-    // 무게는 effectiveStats 슬롯 스케일 — 무기 ×4(WEAPON_WEIGHT_SCALE) → 원시 2 = 표시 8.
     const swordPow = V2_EQUIPMENT.v2_iron_sword.power;
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
     expect(a.atk).toBe(swordPow);
     expect(a.magicAtk).toBe(0);
-    expect(a.weight).toBe(8);
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-4);
     expect(a.def).toBe(0);
     expect(a.crit).toBe(0);
   });
@@ -81,24 +85,26 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicAtk).toBe(staffPow);
   });
 
-  it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
-    // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 5 × 무기4 = 20.
+  it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·옵션", () => {
+    // 철검(무기)에 굴림 {power:10, weight:5} → atk=10, weight 는 무시.
     const sword = aggregateV2Equipment(
       { weapon: "v2_iron_sword" },
       { v2_iron_sword: { power: 10, weight: 5 } },
     );
     expect(sword.atk).toBe(10);
     expect(sword.magicAtk).toBe(0);
-    expect(sword.weight).toBe(20);
+    expect(sword.weight).toBe(0);
+    expect(sword.spd).toBe(-4);
 
-    // 별노래궁(무기)에 굴림 {power:18, weight:3, crit:3} → weight 3 × 무기4 = 12.
+    // 별노래궁(무기)에 굴림 {power:18, weight:3, crit:3} → weight 는 무시, 속도 페널티 유지.
     const bow = aggregateV2Equipment(
       { weapon: "v2_starsong_bow" },
       { v2_starsong_bow: { power: 18, weight: 3, options: { crit: 3 } } },
     );
     expect(bow.atk).toBe(18);
-    expect(bow.weight).toBe(12);
+    expect(bow.weight).toBe(0);
     expect(bow.crit).toBe(3);
+    expect(bow.spd).toBe(-4);
   });
 
   it("statRolls 에 그 장비 굴림 없으면 카탈로그 그대로(비파괴)", () => {
@@ -107,13 +113,13 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       { v2_greatsword: { power: 99, weight: 0 } },
     );
     expect(a.atk).toBe(V2_EQUIPMENT.v2_iron_sword.power);
-    expect(a.weight).toBe(8); // 철검 원시 2 × 무기4
+    expect(a.weight).toBe(0);
   });
 
-  it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
-    // 철검: 무기 위력 → atk, weight 원시2 × 무기4 = 8
-    // 쇠사슬 갑옷: 위력 4(×2) weight 원시2 × 일반2 = 4 (갑옷 → def)
-    // 은가락지: 위력 2(×2) weight 0 (반지 → magicDef)
+  it("슬롯별 분기 + 속도 페널티 옵션 (T1) — 무기·갑옷·반지", () => {
+    // 철검: 무기 위력 → atk, 속도 -4
+    // 쇠사슬 갑옷: 방어력 4, 가벼운 무게였던 항목은 숨은 페널티 제거
+    // 은가락지: 위력 4 (반지 → magicDef)
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
       armor: "v2_chain_mail",
@@ -122,8 +128,9 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.atk).toBe(V2_EQUIPMENT.v2_iron_sword.power);
     expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(4); // 갑옷만(반지는 마방)
-    expect(a.magicDef).toBe(2); // 반지 위력
-    expect(a.weight).toBe(8 + 4 + 0);
+    expect(a.magicDef).toBe(4); // 반지 위력
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-4);
   });
 
   it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
@@ -140,9 +147,9 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
-    // 별노래궁: 무기 위력 weight 원시2 × 무기4 = 8, crit 2
-    // 바람 망토: 위력 6 weight 원시1 × 일반2 = 2, eva 3 hp 80 (갑옷 축: 방어+HP)
-    // 마나의 정수 T3: 위력 4(×2) weight 0 mp 48 + eva 3 (목걸이 → 마방, 워드 갈래)
+    // 별노래궁: 무기 위력, crit 2, 속도 -4
+    // 바람 망토: 위력 6, eva 3 hp 80 (갑옷 축: 방어+HP)
+    // 마나의 정수 T3: 위력 7, weight 0 mp 48 + eva 3 (목걸이 → 마방, 워드 갈래)
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
@@ -151,27 +158,29 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.atk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
     expect(a.magicAtk).toBe(0);
     expect(a.def).toBe(6); // 갑옷만
-    expect(a.magicDef).toBe(4 + 14); // 목걸이 위력 4 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
+    expect(a.magicDef).toBe(7 + 14); // 목걸이 위력 7 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
     expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
-    expect(a.weight).toBe(8 + 2 + 0);
+    expect(a.weight).toBe(0);
     expect(a.crit).toBe(2);
+    expect(a.spd).toBe(-4);
     expect(a.eva).toBe(6); // 바람망토 3 + 마나의 정수 3
     expect(a.hp).toBe(80);
     expect(a.mp).toBe(48);
   });
 
-  it("중갑 무게 — 미스릴 갑옷 T5 = def 18(×2), weight 원시8 × 일반2 = 16", () => {
+  it("중갑 속도 페널티 — 미스릴 갑옷 = 방어 18, 속도 -8", () => {
     const a = aggregateV2Equipment({ armor: "v2_mithril_plate" });
     expect(a.def).toBe(18);
-    expect(a.weight).toBe(16);
+    expect(a.weight).toBe(0);
+    expect(a.spd).toBe(-8);
     expect(a.magicDef).toBe(0); // 방어구는 마방 안 줌
   });
 
   it("반지·목걸이 위력은 마방만(물방 X), 무게 0", () => {
-    // 운명의 반지 T3: 위력 4(×2) weight 0 critMult 26(+0.26×) + spd 7 → 마방 + 치명피해(반지 축) + 속공 갈래.
+    // 운명의 반지 T3: 위력 7, weight 0 critMult 26(+0.26×) + spd 7 → 마방 + 치명피해(반지 축) + 속공 갈래.
     const a = aggregateV2Equipment({ ring: "v2_fate_ring" });
     expect(a.def).toBe(0); // 반지는 물방 안 줌
-    expect(a.magicDef).toBe(4);
+    expect(a.magicDef).toBe(7);
     expect(a.weight).toBe(0);
     expect(a.critMult).toBe(26);
     expect(a.spd).toBe(7);
@@ -860,13 +869,52 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveDefPct: 20,
       passiveAccuracyPct: 12,
     }).player;
-    // 방어% — def 곱연산(철벽).
+    // 방어% — def/magicDef 곱연산(철벽·방벽 계열 공통 내구).
     expect(buffed.def).toBe(Math.floor(plain.def * 1.2));
+    expect(buffed.magicDef).toBe(Math.floor((plain.magicDef ?? 0) * 1.2));
     // 명중 — accuracyPct 가산(정밀). 저레벨 베이스라 캡(35) 미도달 → +12.
     expect((buffed.accuracyPct ?? 0) - (plain.accuracyPct ?? 0)).toBeCloseTo(
       12,
       5,
     );
+  });
+
+  it("기본 마법방어는 SPI 중심으로 충분히 커지고, 방어% 패시브가 후반 마법 피해를 체감 감소시킨다", () => {
+    const plain = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { spi: 1000, int: 300 },
+      v2Equipped: {
+        ring: "v2_fate_ring",
+        necklace: "v2_mana_essence",
+      },
+    }).player;
+    const warded = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { spi: 1000, int: 300 },
+      v2Equipped: {
+        ring: "v2_fate_ring",
+        necklace: "v2_mana_essence",
+      },
+      passiveDefPct: 15,
+    }).player;
+
+    const equipMagicDef =
+      aggregateV2Equipment({
+        ring: "v2_fate_ring",
+        necklace: "v2_mana_essence",
+      }).magicDef;
+    expect(plain.magicDef).toBe(
+      Math.floor(
+        (1000 + V2_BASE_STATS.spi) * MAGIC_DEF_PER_SPI +
+          (300 + V2_BASE_STATS.int) * MAGIC_DEF_PER_INT +
+          equipMagicDef,
+      ) + V2_BASE_COMBAT_BONUS,
+    );
+    expect(warded.magicDef).toBe(Math.floor((plain.magicDef ?? 0) * 1.15));
+
+    const plainDamage = damageToDefender(6000, plain.magicDef ?? 0);
+    const wardedDamage = damageToDefender(6000, warded.magicDef ?? 0);
+    expect(plainDamage - wardedDamage).toBeGreaterThanOrEqual(150);
   });
 
   it("광전 패시브는 잃은 HP 비례 공격력 레버로 노출된다", () => {
@@ -884,9 +932,12 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     const shaman = derivePlayerCombatV2Pure({
       ...base,
       passiveEnemyMagicVulnPctPerStack: 5,
+      passiveEnemyMagicVulnApplyChancePct: 70,
     }).player;
     expect(plain.enemyMagicVulnPctPerStack).toBeUndefined();
+    expect(plain.enemyMagicVulnApplyChancePct).toBeUndefined();
     expect(shaman.enemyMagicVulnPctPerStack).toBe(5);
+    expect(shaman.enemyMagicVulnApplyChancePct).toBe(70);
   });
 
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
@@ -901,6 +952,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveAccuracyPct: 0,
       passiveBerserkAtkPctPerLostHpPct: 0,
       passiveEnemyMagicVulnPctPerStack: 0,
+      passiveEnemyMagicVulnApplyChancePct: 0,
     }).player;
     expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
     expect(b.critMult ?? 0).toBe(a.critMult ?? 0);
@@ -910,6 +962,7 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(b.accuracyPct ?? 0).toBe(a.accuracyPct ?? 0);
     expect(b.berserkAtkPctPerLostHpPct).toBeUndefined();
     expect(b.enemyMagicVulnPctPerStack).toBeUndefined();
+    expect(b.enemyMagicVulnApplyChancePct).toBeUndefined();
   });
 });
 

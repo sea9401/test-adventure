@@ -44,9 +44,9 @@ export type V2CommonSkillId =
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   | "v2c_survivor_firstaid" // 응급 처치 (잃은 HP 회복)
   | "v2c_survivor_knowledge" // 생존 지식 (최대 HP)
-  | "v2c_survivor_baitcraft" // 미끼 고르기 (낚시 크기 보정)
-  | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 낚시 크기 보정)
-  | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물권 낚시 크기 보정)
+  | "v2c_survivor_baitcraft" // 미끼 고르기 (물고기 크기)
+  | "v2c_angler_pointreading" // 포인트 짚기 (희귀 이상 물고기 크기)
+  | "v2c_masterangler_bigcatchsense" // 대물 감각 (대물급 물고기 크기)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -104,8 +104,8 @@ export type V2CommonSkillId =
   | "v2c_shaman_omen3" // 흉조 (마법취약 누적)
   | "v2c_warmonk_evasion3" // 강건 III (활력 +30%·무승)
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
-  | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
-  | "v2c_venomancer_corrosion3" // 침식 (중독된 적 방어 감소 II)
+  | "v2c_shadow_lethality3" // 필살 (치명 피해 +25%)
+  | "v2c_venomancer_corrosion3" // 부식 II (중독된 적 방어 감소)
   | "v2c_fieldmedic_training" // 구급 숙련 (회복 + 최대 HP)
   | "v2c_extremesurvivor_adaptation" // 극한 적응 (최대 HP + 받피감)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
@@ -126,22 +126,22 @@ export type V2CommonSkillId =
   | "v2c_sensei_combo" // 권룡파 (방깎 단일 — 무력 디버프·권룡)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·관통 20% 방어무시 추가타)
-  | "v2c_veteran_lethal" // 필살 (치명 피해 +30%)
-  | "v2c_sensei_ironbody" // 패왕 (힘 +20%·권룡)
-  | "v2c_sage_insight" // 간파 (치명 확률 +10%)
+  | "v2c_veteran_lethal" // 필살 II (치명 피해 +30%)
+  | "v2c_sensei_ironbody" // 근력 III (힘 +20%·권룡)
+  | "v2c_sage_insight" // 치명 II (치명 확률 +10%)
   | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
   | "v2c_phantom_ambush" // 기습 (풀피 적에게 큰 오프너 — ambushDamage·LUK 비례)
   | "v2c_phantom_stealth" // 은신 (회피 +16%)
   // ── 도적 4차 세 번째 갈래(독왕·독술 계보) ──
   | "v2c_venomlord_plague" // 독왕진 (중독 폭발·LUK 비례)
-  | "v2c_venomlord_sovereign" // 독왕 (중독된 적 방어 감소 III)
+  | "v2c_venomlord_sovereign" // 부식 III (중독된 적 방어 감소)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
   // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) ──
   | "v2c_archshaman_rite" // 금단 의식 (마법취약 폭발)
-  | "v2c_archshaman_curse" // 금기 주술 (마법취약 심화)
+  | "v2c_archshaman_curse" // 흉조 II (마법취약 심화)
   // ── 마법 4차 네 번째 갈래(주교·대사제 계승) ──
   | "v2c_archbishop_sanctuary" // 성역 선포 (낮은 회복 + 받피감)
   | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
@@ -150,7 +150,7 @@ export type V2CommonSkillId =
   | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
   // ── 전사 4차 세 번째 갈래(광왕·광전사 계승) ──
   | "v2c_warlord_bloodbath" // 혈전 (HP 소모 강타)
-  | "v2c_warlord_slaughter" // 살육본능 (광기 상위)
+  | "v2c_warlord_slaughter" // 광기 II (광기 상위)
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) ──
   | "v2c_battlemonk_counter" // 반격 (피격 시 확률 반격 — 옛 절정 킷 상속)
   | "v2c_battlemonk_ironbody" // 철신 (최대 HP +20%)
@@ -169,11 +169,11 @@ export type V2CommonSkillId =
   | "v2c_marksman_shot" // 정밀 사격 (DEX 관통 다단)
   | "v2c_marksman_aim" // 조준 (민첩 + 명중)
   | "v2c_nightshade_eclipse" // 월식 (오프너 + 처형)
-  | "v2c_nightshade_cloak" // 밤의 장막 (회피 + 치명피해)
+  | "v2c_nightshade_cloak" // 은신 II (회피 + 치명피해)
   | "v2c_saint_miracle" // 기적 (회복 + 방벽)
   | "v2c_saint_benediction" // 축복 (회복 + 내구)
   | "v2c_plaguebringer_outbreak" // 역병 창궐 (중독 폭발)
-  | "v2c_plaguebringer_decay" // 붕괴 (부식 심화)
+  | "v2c_plaguebringer_decay" // 부식 IV (부식 심화)
   | "v2c_adamantmonk_stance" // 금강 자세 (피해 감소 + 반격)
   | "v2c_adamantmonk_body"; // 금강불괴 (최대 HP + 반격)
 
@@ -322,14 +322,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_survivor_baitcraft: {
     id: "v2c_survivor_baitcraft", name: "미끼 고르기", stat: "luk", category: "passive", tier: 1,
-    description: "상황에 맞는 미끼를 골라 낚은 물고기의 씨알을 조금 좋게 만든다.", mpCost: 0, cooldown: 0,
+    description: "상황에 맞는 미끼를 골라 낚은 물고기가 조금 더 크게 잡히게 한다.", mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
     passive: { fishingSizeBonusPct: 4 },
   },
   v2c_angler_pointreading: {
     id: "v2c_angler_pointreading", name: "포인트 짚기", stat: "luk", category: "passive", tier: 3,
-    description: "흐름과 수심을 읽어 좋은 자리에 미끼를 넣는다. 희귀 이상 어종의 씨알이 조금 좋아진다.",
+    description: "흐름과 수심을 읽어 좋은 자리에 미끼를 넣는다. 희귀 이상 어종이 조금 더 크게 잡힌다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
@@ -692,7 +692,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "주문이 적의 혼을 흐트러뜨린다. 스킬 적중 시 마법취약을 누적시킨다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { enemyMagicVulnPctPerStack: 5 },
+    passive: { enemyMagicVulnPctPerStack: 5, enemyMagicVulnApplyChancePct: 70 },
   },
   v2c_warmonk_evasion3: {
     // 강건 III(무승) — 무인 재설계(2026-06-22): 옛 허공보(회피)에서 활력%로 전환. 수도승 강건 II(+20%)의
@@ -710,13 +710,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { healPowerPct: 30 },
   },
   v2c_shadow_lethality3: {
-    id: "v2c_shadow_lethality3", name: "그늘", stat: "luk", category: "passive", tier: 3,
+    id: "v2c_shadow_lethality3", name: "필살", stat: "luk", category: "passive", tier: 3,
     description: "급소를 노리는 일격. 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { critDmgPct: 25 }, // 크리축 차수 단조 — 그림자=3차(2차20<3차25<4차30).
   },
   v2c_venomancer_corrosion3: {
-    id: "v2c_venomancer_corrosion3", name: "침식", stat: "luk", category: "passive", tier: 3,
+    id: "v2c_venomancer_corrosion3", name: "부식 II", stat: "luk", category: "passive", tier: 3,
     description: "맹독이 갑옷 틈을 파고든다. 중독된 적의 방어를 더 크게 낮춘다.",
     mpCost: 0, cooldown: 0,
     effects: [],
@@ -878,22 +878,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 심화 직업 패시브(tier 4) — 직군마다 다른 효과(라인 비포화·기존 어휘, PvP-안전) ──
   v2c_veteran_lethal: {
     // 전사 심화 — 치명 피해(중장갑 라인의 딜 마무리). str% 는 견습기사·방어%는 기사가 유지.
-    id: "v2c_veteran_lethal", name: "필살", stat: "str", category: "passive", tier: 3,
+    id: "v2c_veteran_lethal", name: "필살 II", stat: "str", category: "passive", tier: 3,
     description: "한 방에 모든 것을 싣는다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { critDmgPct: 30 }, // 크리축 차수 단조 — 정예 기사=4차 최상(2차20<3차25<4차30·25→30).
   },
   v2c_sensei_ironbody: {
-    // 패왕(권룡 4차 패시브) — 무인 재설계(2026-06-22): 옛 철신(최대 HP%)에서 힘%로 교체. 격투가 라인
+    // 근력 III(권룡 4차 패시브) — 무인 재설계(2026-06-22): 옛 철신(최대 HP%)에서 힘%로 교체. 격투가 라인
     //   (STR딜·회피) 정점의 공격 정체성. t4 STR% 는 유일 축(고유성 유지). 최대 HP%(철신)는 투승으로 이전. id 유지.
-    id: "v2c_sensei_ironbody", name: "패왕", stat: "str", category: "passive", tier: 3,
-    description: "패왕의 기개. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    id: "v2c_sensei_ironbody", name: "근력 III", stat: "str", category: "passive", tier: 3,
+    description: "극한의 단련. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { str: 20 } },
   },
   v2c_sage_insight: {
     // 마법 심화 — 치명 확률(술사 치명피해와 시너지). int 라인에 crit 확률 추가.
-    id: "v2c_sage_insight", name: "간파", stat: "int", category: "passive", tier: 3,
+    id: "v2c_sage_insight", name: "치명 II", stat: "int", category: "passive", tier: 3,
     description: "흐름을 꿰뚫는다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     // 크리축 차수 단조(2026-06-22): 치명확률 4차 대마법사 > 2차 자객(8). 자객(크리 테마)은 8 유지·sage 8→10.
@@ -941,7 +941,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_venomlord_sovereign: {
-    id: "v2c_venomlord_sovereign", name: "독왕", stat: "luk", category: "passive", tier: 3,
+    id: "v2c_venomlord_sovereign", name: "부식 III", stat: "luk", category: "passive", tier: 3,
     description: "독을 다스리는 정점. 중독된 적의 방어를 크게 무너뜨린다.",
     mpCost: 0, cooldown: 0,
     effects: [],
@@ -1000,11 +1000,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_archshaman_curse: {
-    id: "v2c_archshaman_curse", name: "금기 주술", stat: "int", category: "passive", tier: 3,
+    id: "v2c_archshaman_curse", name: "흉조 II", stat: "int", category: "passive", tier: 3,
     description: "금기를 새긴 주문이 적의 혼을 더 크게 흔든다. 마법취약 효과가 깊어진다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { enemyMagicVulnPctPerStack: 8 },
+    passive: { enemyMagicVulnPctPerStack: 8, enemyMagicVulnApplyChancePct: 85 },
   },
   v2c_archbishop_sanctuary: {
     id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
@@ -1051,7 +1051,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_warlord_slaughter: {
-    id: "v2c_warlord_slaughter", name: "살육본능", stat: "str", category: "passive", tier: 3,
+    id: "v2c_warlord_slaughter", name: "광기 II", stat: "str", category: "passive", tier: 3,
     description: "죽음에 가까울수록 전장이 선명해진다. 광기보다 더 크게 공격력이 오른다.",
     mpCost: 0, cooldown: 0,
     effects: [],
@@ -1059,7 +1059,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 
   // ── 무도 4차 두 번째 갈래(투승·무승 계승) 킷 — 반격(피격 카운터) + 철신(최대 HP) ──
-  //   무인 재설계(2026-06-22): 옛 절정(sensei) 킷을 그대로 상속. 권룡(sensei)이 공격형(권룡파+패왕)으로
+  //   무인 재설계(2026-06-22): 옛 절정(sensei) 킷을 그대로 상속. 권룡(sensei)이 공격형(권룡파+근력 III)으로
   //   바뀌며 탱 정체성(반격+철신)이 무승 계보 정점 투승으로 이동. 신규 전용 id(직업별 id 컨벤션).
   v2c_battlemonk_counter: {
     // 투승 반격(패시브) — 피격 생존 시 30% 확률로 적에게 ATK 반격(passiveCounterChancePct 훅·PvE
@@ -1172,7 +1172,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_nightshade_cloak: {
-    id: "v2c_nightshade_cloak", name: "밤의 장막", stat: "luk", category: "passive", tier: 3,
+    id: "v2c_nightshade_cloak", name: "은신 II", stat: "luk", category: "passive", tier: 3,
     description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다. 치명 한계 초과분이 스킬에도 실린다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
@@ -1205,7 +1205,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_plaguebringer_decay: {
-    id: "v2c_plaguebringer_decay", name: "붕괴", stat: "luk", category: "passive", tier: 3,
+    id: "v2c_plaguebringer_decay", name: "부식 IV", stat: "luk", category: "passive", tier: 3,
     description: "독이 갑옷과 살을 함께 무너뜨린다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],

@@ -90,6 +90,8 @@ export type V2PassiveSkillEffect = {
   berserkAtkPctPerLostHpPct?: number;
   /** 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 스킬피해 +%. */
   enemyMagicVulnPctPerStack?: number;
+  /** 약점 노출 누적 확률 +%p. 미지정이면 기존 호환을 위해 100%로 처리. */
+  enemyMagicVulnApplyChancePct?: number;
   // ── 경제(비전투) — 장착 시 사냥 승리당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
   profPerKillBonus?: number;
   // ── 낚시(비전투) — 캐스팅 시 서버 권위 판정에서만 소비. 전투 derive 와 무관.
@@ -109,8 +111,8 @@ export type V2PassiveSkillEffect = {
 
 // 스킬 학습 비용 — 숙달 포인트로 지불. 티어별 단가를 기본으로 하며, per-skill override 가 우선.
 // 스타터(자동 보유)는
-// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
-// 들판 기준 ~750승/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+// 학습 경로를 타지 않는다. 승리당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~3) 포인트 기준 →
+// 들판 기준 ~750승/종, 잊힌 성소 이후 ~500승/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
 export const V2_SKILL_LEARN_COST_COMMON = 1500; // tier1(입문) 기본 단가.
 // 학습 비용 tier 스케일(숙달 포인트) — 입문/중급/상급. per-skill learnCost 오버라이드가 우선.
 export const V2_SKILL_LEARN_COST_BY_TIER: Record<1 | 2 | 3, number> = {
@@ -495,6 +497,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   poisonedEnemyDefReductionPct: number;
   berserkAtkPctPerLostHpPct: number;
   enemyMagicVulnPctPerStack: number;
+  enemyMagicVulnApplyChancePct: number;
   spdOverflowToAtkPct: number;
   skillCritOverflow: boolean;
 } {
@@ -518,6 +521,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let poisonedEnemyDefReductionPct = 0;
   let berserkAtkPctPerLostHpPct = 0;
   let enemyMagicVulnPctPerStack = 0;
+  let enemyMagicVulnApplyChancePct = 0;
   let spdOverflowToAtkPct = 0;
   let skillCritOverflow = false;
   for (const id of equipped) {
@@ -547,6 +551,12 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     poisonedEnemyDefReductionPct += p.poisonedEnemyDefReductionPct ?? 0;
     berserkAtkPctPerLostHpPct += p.berserkAtkPctPerLostHpPct ?? 0;
     enemyMagicVulnPctPerStack += p.enemyMagicVulnPctPerStack ?? 0;
+    if ((p.enemyMagicVulnPctPerStack ?? 0) > 0) {
+      enemyMagicVulnApplyChancePct = Math.max(
+        enemyMagicVulnApplyChancePct,
+        p.enemyMagicVulnApplyChancePct ?? 100,
+      );
+    }
     spdOverflowToAtkPct += p.spdOverflowToAtkPct ?? 0;
     if (p.skillCritOverflow) skillCritOverflow = true;
   }
@@ -571,6 +581,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     poisonedEnemyDefReductionPct,
     berserkAtkPctPerLostHpPct,
     enemyMagicVulnPctPerStack,
+    enemyMagicVulnApplyChancePct,
     spdOverflowToAtkPct,
     skillCritOverflow,
   };
@@ -728,15 +739,17 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`잃은 HP 100%당 공격력 +${Math.round(p.berserkAtkPctPerLostHpPct * 100)}%`);
   if (p.enemyMagicVulnPctPerStack)
     chips.push(`마법취약 스택당 받는 스킬피해 +${p.enemyMagicVulnPctPerStack}%`);
+  if (p.enemyMagicVulnApplyChancePct)
+    chips.push(`마법취약 누적 확률 ${p.enemyMagicVulnApplyChancePct}%`);
   if (p.profPerKillBonus) chips.push(`사냥 승리 숙달 +${p.profPerKillBonus}`);
   if (p.fishingSizeBonusPct)
-    chips.push(`낚시 크기 보정 +${p.fishingSizeBonusPct}%`);
+    chips.push(`물고기 크기 +${p.fishingSizeBonusPct}%`);
   if (p.fishingSpecialWeightPct)
     chips.push(`물때 한정 어종 가중치 +${p.fishingSpecialWeightPct}%`);
   if (p.fishingRareSizeBonusPct)
-    chips.push(`희귀 이상 낚시 크기 보정 +${p.fishingRareSizeBonusPct}%`);
+    chips.push(`희귀 이상 물고기 크기 +${p.fishingRareSizeBonusPct}%`);
   if (p.fishingBigCatchSizeBonusPct)
-    chips.push(`대물권 낚시 크기 보정 +${p.fishingBigCatchSizeBonusPct}%`);
+    chips.push(`대물급 물고기 크기 +${p.fishingBigCatchSizeBonusPct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
   if (p.skillCritOverflow)
@@ -1016,11 +1029,31 @@ export function smartDefaultConditionForSkill(
   // 적에게 피해를 주는 스킬(부가 DoT/디버프 동반 포함)은 평타 대체 = 항상 발동.
   if (effs.some((e) => DAMAGE_EFFECT_KINDS.has(e.kind))) return { kind: "always" };
   // 순수 유틸 — 매 턴 스팸 방지로 종류별 조건.
-  if (effs.some((e) => e.kind === "heal")) {
+  const hasHeal = effs.some((e) => e.kind === "heal");
+  const hasShield = effs.some((e) => e.kind === "shield");
+  if (hasHeal && hasShield) {
+    return {
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 50 },
+        { kind: "self_shield", active: false },
+      ],
+    }; // 회복+보호막 = 저HP이고 기존 보호막이 없을 때.
+  }
+  if (hasHeal) {
     return { kind: "self_hp", op: "below", pct: 50 }; // 힐 = HP 낮을 때.
   }
-  if (effs.some((e) => e.kind === "shield" || e.kind === "selfRegen")) {
-    return { kind: "self_hp", op: "below", pct: 60 }; // 보호막·리젠 = 피해 입을 때.
+  if (hasShield) {
+    return {
+      kind: "all",
+      conditions: [
+        { kind: "self_hp", op: "below", pct: 70 },
+        { kind: "self_shield", active: false },
+      ],
+    }; // 보호막 = 피해 입었고 기존 보호막이 없을 때.
+  }
+  if (effs.some((e) => e.kind === "selfRegen")) {
+    return { kind: "self_hp", op: "below", pct: 60 }; // 리젠 = 피해 입을 때.
   }
   if (effs.some((e) => e.kind === "manaRestore")) {
     return { kind: "self_mp", op: "below", pct: 40 }; // 마나 회복(명상) = MP 낮을 때.

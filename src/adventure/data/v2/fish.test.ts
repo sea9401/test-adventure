@@ -108,7 +108,7 @@ describe("사이즈 굴림 (heavy-tail)", () => {
     expect(big.length / samples.length).toBeLessThan(0.05);
   });
 
-  it("크기 보정은 같은 굴림에서 씨알을 상한 쪽으로만 올린다", () => {
+  it("크기 보정은 같은 굴림에서 물고기 크기를 상한 쪽으로만 올린다", () => {
     const id = "crucian_carp";
     const base = rollFishSize(id, () => 0.5);
     const boosted = rollFishSize(id, () => 0.5, { sizeBonusPct: 4 });

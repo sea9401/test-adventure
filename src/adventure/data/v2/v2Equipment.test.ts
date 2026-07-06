@@ -197,14 +197,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 36 + 제작전용 14 + 전문화 스타터 3", () => {
+  it("정규 그리드 29종 + 유니크 39 + 제작전용 14 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 104:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · noDrop 105(밴드 흔한 풀 105, 강등된 옛 필드 유니크 포함) · 유니크 36
+    //   전문화 스타터 3 · noDrop 105(밴드 흔한 풀 105, 강등된 옛 필드 유니크 포함) · 유니크 39
     //     (고유 아이템 15 + 보스 3). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 15 → unique. 검은 왕도 noDrop 12종 + 고유 5종 추가.
-    //     총 187 = 정규 29 + 유니크 36 + 제작전용 14 + 전문화 스타터 3 + noDrop 105.
+    //     총 190 = 정규 29 + 유니크 39 + 제작전용 14 + 전문화 스타터 3 + noDrop 105.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -212,7 +212,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(36);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(39);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(14);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(105);
@@ -283,6 +283,44 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
+  it("심연어룡 세트는 최종 T5 HARD 보스 보상급 총량을 가진다", () => {
+    const set = V2_EQUIP_TAG_SETS.find((s) => s.id === "abyssal_current");
+    expect(set).toBeDefined();
+    const pieces = [
+      V2_EQUIPMENT.v2_boss_abyssal_armor,
+      V2_EQUIPMENT.v2_boss_abyssal_ring,
+      V2_EQUIPMENT.v2_boss_abyssal_necklace,
+    ];
+
+    expect(pieces.map((item) => item.tier)).toEqual([5, 5, 5]);
+    expect(pieces.every((item) => item.rarity === "unique")).toBe(true);
+    expect(pieces.every((item) => item.setTags?.includes("abyssal_current"))).toBe(
+      true,
+    );
+    expect(V2_EQUIPMENT.v2_boss_abyssal_armor.power).toBe(210);
+    expect(V2_EQUIPMENT.v2_boss_abyssal_armor.options?.spd).toBe(-8);
+    expect(V2_EQUIPMENT.v2_boss_abyssal_ring.power).toBe(104);
+    expect(V2_EQUIPMENT.v2_boss_abyssal_necklace.power).toBe(112);
+    expect(set?.thresholds.map((t) => t.count)).toEqual([2, 3]);
+
+    const totalOption = (
+      key: "hp" | "mp" | "crit" | "spd" | "magicDef" | "critResist",
+    ): number =>
+      pieces.reduce((sum, item) => sum + (item.options?.[key] ?? 0), 0) +
+      (set?.thresholds.reduce(
+        (sum, threshold) => sum + (threshold.bonus[key] ?? 0),
+        0,
+      ) ?? 0);
+
+    expect(totalOption("hp")).toBe(1_900);
+    expect(totalOption("mp")).toBe(700);
+    expect(totalOption("crit")).toBe(10);
+    expect(totalOption("spd")).toBe(2);
+    expect(totalOption("magicDef")).toBe(220);
+    expect(totalOption("critResist")).toBe(18);
+    expect(V2_EQUIPMENT.v2_boss_abyssal_ring.options?.critMult).toBe(45);
+  });
+
   it("태그 세트(V2_EQUIP_TAG_SETS)는 실제 아이템 setTags 와 연결되고 단계가 증가", () => {
     for (const set of V2_EQUIP_TAG_SETS) {
       const pieces = Object.values(V2_EQUIPMENT).filter((item) =>
@@ -317,7 +355,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     });
   });
 
-  it("제작 전용 장비는 대장간 진행용 짝수 티어에 배치된다", () => {
+  it("제작 전용 장비는 대장간 진행용 T4/T5 구간에 배치된다", () => {
     const tiers = Object.fromEntries(
       Object.values(V2_EQUIPMENT)
         .filter((item) => item.craftOnly)
@@ -329,23 +367,23 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       v2_crafted_runic_staff: 4,
       v2_crafted_spark_gloves: 4,
       v2_crafted_windstep_boots: 4,
-      v2_crafted_master_ring: 6,
-      v2_crafted_ward_plate: 6,
-      v2_crafted_aether_necklace: 6,
-      v2_crafted_sunforge_blade: 8,
-      v2_crafted_aurora_crown: 10,
+      v2_crafted_master_ring: 5,
+      v2_crafted_ward_plate: 5,
+      v2_crafted_aether_necklace: 5,
+      v2_crafted_sunforge_blade: 5,
+      v2_crafted_aurora_crown: 5,
     });
   });
 
   it("제작 전용 장비는 재정립된 티어에 맞는 위력 기준을 가진다", () => {
     expect(V2_EQUIPMENT.v2_crafted_oathblade.power).toBe(72);
-    expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(68);
+    expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(65);
     expect(V2_EQUIPMENT.v2_crafted_runic_staff.power).toBe(76);
     expect(V2_EQUIPMENT.v2_crafted_ward_plate.power).toBe(64);
-    expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(12);
-    expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(12);
+    expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(22);
+    expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(22);
     expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
-    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(45);
+    expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(81);
   });
 
   it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T3, 무기는 weaponType별 T1~T3", () => {
@@ -431,23 +469,23 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("tier 값이 1~12 범위 안에 있고 정수", () => {
+  it("tier 값이 1~5 범위 안에 있고 정수", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(Number.isInteger(item.tier)).toBe(true);
       expect(item.tier).toBeGreaterThanOrEqual(1);
-      expect(item.tier).toBeLessThanOrEqual(12);
+      expect(item.tier).toBeLessThanOrEqual(5);
     }
   });
 });
 
 describe("v2EquipStatRows (표시 행)", () => {
-  it("기본 전투 스탯 → 무게 → 옵션 순, 0 은 생략", () => {
-    // 별노래궁(무기): 위력=카탈로그 기준, weight 2 → 표시 ×4=8(WEAPON_WEIGHT_SCALE), crit 2.
+  it("기본 전투 스탯 → 옵션 순, 0 은 생략", () => {
+    // 별노래궁(무기): 위력=카탈로그 기준, crit 2, 기존 무게는 속도 -4 옵션으로 노출.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
       { label: "공격력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
-      { label: "무게", value: "8" },
       { label: "치명", value: "+2%" },
+      { label: "속도", value: "-4" },
     ]);
   });
 
@@ -460,19 +498,19 @@ describe("v2EquipStatRows (표시 행)", () => {
   });
 
   it("반지 critMult 옵션 — 마법 방어력 + 치명피해 배수 표기(+0.12×)", () => {
-    // 은가락지 T1: 위력 2(×2), weight 0, critMult 12(백분의일) → "+0.12×".
+    // 은가락지 T1: 위력 4, weight 0, critMult 12(백분의일) → "+0.12×".
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
     expect(rows).toEqual([
-      { label: "마법 방어력", value: "+2" },
+      { label: "마법 방어력", value: "+4" },
       { label: "치명피해", value: "+0.12×" },
     ]);
   });
 
   it("mp 옵션은 % 없이 flat", () => {
-    // 마나의 정수 T3: 위력 4(×2), weight 0, mp 48 + eva 3 + 회복 8%(SPI gear PR-2).
+    // 마나의 정수 T3: 위력 7, weight 0, mp 48 + eva 3 + 회복 8%(SPI gear PR-2).
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
-      { label: "마법 방어력", value: "+4" },
+      { label: "마법 방어력", value: "+7" },
       { label: "회피", value: "+3%" },
       { label: "MP", value: "+48" },
       { label: "회복", value: "+8%" },
@@ -491,7 +529,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     expect(rows).toContainEqual({ label: "HP", value: "+40" });
   });
 
-  it("굴림(roll) 주면 굴림값 표시 — 별노래궁(무기) 굴림(16/1/crit3), 무게 ×4=4", () => {
+  it("굴림(roll) 주면 굴림값 표시 — 별노래궁(무기) 굴림(16/crit3), 속도 페널티 유지", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow, {
       power: 16,
       weight: 1,
@@ -499,8 +537,8 @@ describe("v2EquipStatRows (표시 행)", () => {
     });
     expect(rows).toEqual([
       { label: "공격력", value: "+16" },
-      { label: "무게", value: "4" },
       { label: "치명", value: "+3%" },
+      { label: "속도", value: "-4" },
     ]);
   });
 });

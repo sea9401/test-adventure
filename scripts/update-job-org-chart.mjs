@@ -338,7 +338,7 @@ body.dark .theme-toggle{background:#1f1f23;color:#e4e4e7;border-color:#3f3f46}
 </style></head><body>
 <button type="button" class="theme-toggle" id="themeToggle" aria-label="테마 전환">🌙 다크</button>
 <h1>직업 전직 조직도 — v2</h1>
-<p class="sub">총 ${total}개 직업 · 모험가/생존자 루트와 1~4차 전직. 🔒=해금 조건(숙련도). <b>하이브리드</b>(점선 카드)=조건 2개 직업. 스킬 칩 <b>마우스 오버</b>=효과·수치·마나 소모량·발동 확률.</p>
+<p class="sub">총 ${total}개 직업 · 모험가/생존자 루트와 1~5차 전직. 🔒=해금 조건(숙련도). <b>하이브리드</b>(점선 카드)=조건 2개 직업. 스킬 칩 <b>마우스 오버</b>=효과·수치·마나 소모량·발동 확률.</p>
 <div class="legend">${Object.entries(GROUP_LABEL).map(([k, v]) => `<span class="lg g-${k}">${v}</span>`).join("")}<span class="lg lg-hyb">하이브리드(조건 2개)</span></div>
 <div class="scroll"><ul class="chart">${chart}</ul></div>
 <div id="tip"></div>

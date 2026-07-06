@@ -12,7 +12,6 @@ import {
   V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
-  scaledEquipWeight,
   signatureLabel,
   craftQualityStars,
   powerWithBonuses,
@@ -94,6 +93,24 @@ export function CraftOnlyBadge({ className = "" }: { className?: string }) {
       className={`shrink-0 rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 ${className}`}
     >
       제작전용
+    </span>
+  );
+}
+
+function EquipmentTierBadge({
+  item,
+  className = "",
+}: {
+  item: V2Equipment;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`shrink-0 rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 ${className}`}
+      title={`${item.tier}티어`}
+      aria-label={`${item.tier}티어`}
+    >
+      {item.tier}T
     </span>
   );
 }
@@ -185,7 +202,6 @@ function rollRange(
 }
 
 function formatRangeValue(label: string, value: number): string {
-  if (label === "무게") return `${value}`;
   if (label === "치명피해") return `+${(value / 100).toFixed(2)}×`;
   if (
     label === "치명" ||
@@ -223,18 +239,6 @@ function statRowWithRollRange(
     };
   }
 
-  if (row.label === "무게") {
-    const range = rollRange(item.weight, 0);
-    if (!range) return row;
-    return {
-      ...row,
-      value: `${row.value} (${scaledEquipWeight(
-        item,
-        range.lo,
-      )} - ${scaledEquipWeight(item, range.hi)})`,
-    };
-  }
-
   const optionKey = RANGE_OPTION_LABEL_TO_KEY[row.label];
   const base = optionKey ? item.options?.[optionKey] : undefined;
   if (base == null) return row;
@@ -251,7 +255,7 @@ function statRowWithRollRange(
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
 // 전체화면 모달 아님: 스크림/스크롤락/포커스트랩 없이, 바깥 클릭·Esc 로만 닫힘.
-// 내용은 이름·옵션(스탯 행)·세트·설명만. 티어 숫자·컨셉 태그(힘/민/지 등)는 노출 안 함.
+// 내용은 이름·짧은 티어·옵션(스탯 행)·세트·설명만. 컨셉 태그(힘/민/지 등)는 노출 안 함.
 
 // 클릭한 슬롯의 화면 좌표 — 이 근처에 카드를 띄운다 (DOMRect 의 필요한 값만).
 export type ItemCardAnchor = { top: number; bottom: number; left: number };
@@ -331,18 +335,14 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  // 기본 스탯(공격력/방어력 계열·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다.
+  // 기본 스탯(공격력/방어력 계열)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다.
   //   강화 수치는 이름 옆 "+N" 으로만 표기.
   const statRows = v2EquipStatRows(item, roll, enhance, craftQuality).map((row) =>
     statRowWithRollRange(item, row, roll, enhance, craftQuality),
   );
   const powerLabel = v2EquipPowerLabel(item);
-  const baseRows = statRows.filter(
-    (r) => r.label === powerLabel || r.label === "무게",
-  );
-  const optionRows = statRows.filter(
-    (r) => r.label !== powerLabel && r.label !== "무게",
-  );
+  const baseRows = statRows.filter((r) => r.label === powerLabel);
+  const optionRows = statRows.filter((r) => r.label !== powerLabel);
   const pct = rollQualityPct(item, roll);
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
@@ -397,6 +397,7 @@ export function V2ItemCard({
               {item.name}
             </h2>
             <div className="flex items-center gap-1.5">
+              <EquipmentTierBadge item={item} />
               <ItemTypeChip item={item} />
               {item.craftOnly ? <CraftOnlyBadge /> : null}
               {pct != null && (
@@ -761,7 +762,7 @@ export type V2CompareSide = {
   craftedBy?: V2CraftedBy;
 };
 
-// 증감 색 — 이득(초록)/손해(빨강)/동일(회색). 무게는 낮을수록 이득이라 방향이 아닌 better 로 색 결정.
+// 증감 색 — 이득(초록)/손해(빨강)/동일(회색).
 function compareDeltaClass(better: number): string {
   if (better > 0) return "text-emerald-600 dark:text-emerald-400";
   if (better < 0) return "text-rose-600 dark:text-rose-400";

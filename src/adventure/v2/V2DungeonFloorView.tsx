@@ -20,7 +20,11 @@ import {
   type PlayerCombatStats,
 } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
-import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
+import {
+  HUNT_COST,
+  applyRegen,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { MAIN_DUNGEON, depthName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
@@ -60,6 +64,39 @@ function saveHuntCount(n: HuntCount): void {
   } catch {}
 }
 
+type RecoveryChargesSnapshot = {
+  baseHpCharges: number;
+  baseMpCharges: number;
+  hpCharges: number;
+  mpCharges: number;
+};
+
+function nextRecoveryChargesSnapshot({
+  prev,
+  initialHpCharges,
+  initialMpCharges,
+  hpCharges,
+  mpCharges,
+}: {
+  prev: RecoveryChargesSnapshot;
+  initialHpCharges: number;
+  initialMpCharges: number;
+  hpCharges?: number | null;
+  mpCharges?: number | null;
+}): RecoveryChargesSnapshot {
+  const prevStillCurrent =
+    prev.baseHpCharges === initialHpCharges &&
+    prev.baseMpCharges === initialMpCharges;
+  return {
+    baseHpCharges: initialHpCharges,
+    baseMpCharges: initialMpCharges,
+    hpCharges:
+      hpCharges ?? (prevStillCurrent ? prev.hpCharges : initialHpCharges),
+    mpCharges:
+      mpCharges ?? (prevStillCurrent ? prev.mpCharges : initialMpCharges),
+  };
+}
+
 // 오프라인 사냥 남은 시간 표기(ms → "1시간 23분"/"23분"/"45초").
 function fmtOfflineRemain(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -81,12 +118,14 @@ export function V2DungeonFloorView({
   initialHpCharges = 0,
   initialMpCharges = 0,
   stamina,
+  staminaMax,
   setStamina,
   hp,
   setHp,
   mp,
   setMp,
   playerCombat,
+  playerPrimaryAttack = "physical",
   onSeekHealing,
   onBack,
   playerSubtitle,
@@ -116,6 +155,7 @@ export function V2DungeonFloorView({
   initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
   stamina: StaminaState;
+  staminaMax?: number;
   setStamina: (s: StaminaState) => void;
   // 전역 HP + setter — V2GameFlow. 미로딩(null)이면 클라 게이트 비활성(서버가 최종 권위).
   // dev 하니스(DungeonHunt)에선 미전달 → optional.
@@ -126,6 +166,7 @@ export function V2DungeonFloorView({
   setMp?: (s: { mp: number; maxMp: number }) => void;
   // 유효 전투 스탯(공/방/속+상세) — 캐릭터 카드 표기용. me/state 권위.
   playerCombat?: PlayerCombatStats | null;
+  playerPrimaryAttack?: "physical" | "magic";
   // "치료소로 가기" — 마을 치료소 뷰로 이동. 미전달이면 버튼 숨김.
   onSeekHealing?: () => void;
   onBack: () => void;
@@ -206,13 +247,30 @@ export function V2DungeonFloorView({
     latestProficiencyState.base === playerProficiency
       ? latestProficiencyState.value
       : playerProficiency;
+  const [latestRecoveryChargesState, setLatestRecoveryChargesState] =
+    useState<RecoveryChargesSnapshot>(() => ({
+      baseHpCharges: initialHpCharges,
+      baseMpCharges: initialMpCharges,
+      hpCharges: initialHpCharges,
+      mpCharges: initialMpCharges,
+    }));
+  const latestHpCharges =
+    latestRecoveryChargesState.baseHpCharges === initialHpCharges &&
+    latestRecoveryChargesState.baseMpCharges === initialMpCharges
+      ? latestRecoveryChargesState.hpCharges
+      : initialHpCharges;
+  const latestMpCharges =
+    latestRecoveryChargesState.baseHpCharges === initialHpCharges &&
+    latestRecoveryChargesState.baseMpCharges === initialMpCharges
+      ? latestRecoveryChargesState.mpCharges
+      : initialMpCharges;
   const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
   const statusMaxExp =
     lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? initialMaxExp;
   const statusHpCharges =
-    lastResult?.hpCharges ?? batchStatus?.hpCharges ?? initialHpCharges;
+    lastResult?.hpCharges ?? batchStatus?.hpCharges ?? latestHpCharges;
   const statusMpCharges =
-    lastResult?.mpCharges ?? batchStatus?.mpCharges ?? initialMpCharges;
+    lastResult?.mpCharges ?? batchStatus?.mpCharges ?? latestMpCharges;
   // "직업 숙련도" 상시 readout — 최신 사냥값(단판 masteryAfter / 일괄 proficiencyAfter) 우선,
   //   없으면 화면 진입 시점 값(playerProficiency). null = 모험가(무직업) → 카드에서 줄 생략.
   const statusProficiency =
@@ -401,6 +459,17 @@ export function V2DungeonFloorView({
         });
         onProficiencyChange?.(b.proficiencyAfter);
       }
+      if (b.hpCharges != null || b.mpCharges != null) {
+        setLatestRecoveryChargesState((prev) =>
+          nextRecoveryChargesSnapshot({
+            prev,
+            initialHpCharges,
+            initialMpCharges,
+            hpCharges: b.hpCharges,
+            mpCharges: b.mpCharges,
+          }),
+        );
+      }
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
       setBatchStatus({
         exp: b.expAfter ?? 0,
@@ -436,7 +505,8 @@ export function V2DungeonFloorView({
   const cooldownLeftSec = onCooldown
     ? Math.ceil((combatCooldown.nextBattleAt - now) / 1000)
     : 0;
-  const lowStamina = !coreLoopOn && stamina.current < HUNT_COST;
+  const liveStamina = applyRegen(stamina, now, staminaMax);
+  const lowStamina = !coreLoopOn && liveStamina.current < HUNT_COST;
   const oneActionDisabled = busy || batchRunning;
   // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).
   // hp 미로딩(null)이면 게이트 비활성 — 서버 가드가 최종 차단.
@@ -493,6 +563,17 @@ export function V2DungeonFloorView({
               value: r.masteryAfter,
             });
             onProficiencyChange?.(r.masteryAfter);
+          }
+          if (r.hpCharges != null || r.mpCharges != null) {
+            setLatestRecoveryChargesState((prev) =>
+              nextRecoveryChargesSnapshot({
+                prev,
+                initialHpCharges,
+                initialMpCharges,
+                hpCharges: r.hpCharges,
+                mpCharges: r.mpCharges,
+              }),
+            );
           }
           if (r.levelsGained > 0) onLevelUp?.();
           if (
@@ -661,6 +742,7 @@ export function V2DungeonFloorView({
           mpCharges={statusMpCharges}
           hasMp={(mp?.maxMp ?? 0) > 0}
           combat={playerCombat}
+          primaryAttack={playerPrimaryAttack}
           proficiency={statusProficiency}
         />
       )}
@@ -867,7 +949,11 @@ export function V2DungeonFloorView({
           elementMatchup={selectedBatchReplay.elementMatchup}
           outcome={selectedBatchReplay.won ? undefined : "lose"}
           playerCombat={
-            playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
+            playerCombat
+              ? playerCombatToBattleStats(playerCombat, {
+                  primaryAttack: playerPrimaryAttack,
+                })
+              : undefined
           }
         />
       )}
@@ -910,7 +996,11 @@ export function V2DungeonFloorView({
           // 승리는 결과 카드의 "전투 결과 승리"와 중복이라 배너 생략 — 패배만 부각(코덱스 권고).
           outcome={lastResult.won ? undefined : "lose"}
           playerCombat={
-            playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
+            playerCombat
+              ? playerCombatToBattleStats(playerCombat, {
+                  primaryAttack: playerPrimaryAttack,
+                })
+              : undefined
           }
         />
       )}

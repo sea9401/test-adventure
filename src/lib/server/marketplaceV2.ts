@@ -81,6 +81,18 @@ export function itemDisplayName(kind: MarketKind, id: string): string | null {
   return isTradableMaterial(id) ? V2_MATERIALS[id].name : null;
 }
 
+// 조회 표시명 — 장비/재료는 카탈로그 이름 변경을 즉시 반영하고, 레어맵은 깊이 정보가 들어간
+// 등록 시점 표시명(예: "희귀 지도 (깊이 12)")을 유지한다.
+export function currentMarketplaceItemName(
+  kind: string,
+  id: string,
+  storedName: string,
+): string {
+  if (!isMarketKind(kind)) return storedName;
+  if (kind === "consumable") return storedName;
+  return itemDisplayName(kind, id) ?? storedName;
+}
+
 // 플레이어 표시 이름 — dual-source: users.gameName(권위) → character-profile.v2.name(레거시).
 //   없으면 null. (inbox/send 의 resolveSenderName 과 동일 규약.)
 export async function resolvePlayerName(

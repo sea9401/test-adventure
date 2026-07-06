@@ -17,7 +17,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   V2_MATERIALS,
@@ -58,6 +58,7 @@ import {
 import { enhancedPower } from "@/adventure/data/v2/v2Enhance";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import { FishIcon } from "@/adventure/v2/FishIcon";
 import {
   FISH,
   FISH_IDS,
@@ -81,6 +82,13 @@ import {
 } from "@/adventure/data/titles";
 import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
+import type { V2LoadoutSpBreakdown } from "./V2LoadoutPanel";
+import {
+  SP_FRUIT,
+  SP_FRUIT_TIERS,
+  type SpFruitTier,
+} from "@/adventure/data/v2/spFruit";
+import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 
 // v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 유물(골동품) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
@@ -119,11 +127,13 @@ const TIER_BADGE: Record<FishTier, string> = {
   legendary:
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
+const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
 
 type CodexTab =
   | "huntground"
   | "materials"
   | "equipment"
+  | "spFruit"
   | "fish"
   | "treasure"
   | "title"
@@ -179,6 +189,30 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
+type EquipmentBuildFilter =
+  | "all"
+  | "magic"
+  | "crit"
+  | "evasion"
+  | "speed"
+  | "tank"
+  | "heal"
+  | "signature"
+  | "set";
+const EQUIPMENT_BUILD_FILTERS: readonly {
+  key: EquipmentBuildFilter;
+  label: string;
+}[] = [
+  { key: "all", label: "전체" },
+  { key: "magic", label: "마법" },
+  { key: "crit", label: "치명" },
+  { key: "evasion", label: "회피" },
+  { key: "speed", label: "속도" },
+  { key: "tank", label: "탱커" },
+  { key: "heal", label: "회복" },
+  { key: "signature", label: "시그니처" },
+  { key: "set", label: "세트" },
+];
 
 function compareEquipmentCodexCandidate(
   a: V2EquipInstance,
@@ -200,6 +234,77 @@ function compareEquipmentCodexCandidate(
     : 0;
   if (powerA !== powerB) return powerA - powerB;
   return a.iid.localeCompare(b.iid);
+}
+
+function equipmentBuildTags(item: V2Equipment): string[] {
+  const tags = new Set<string>();
+  const options = item.options ?? {};
+  if (
+    item.concept === "int" ||
+    item.concept === "mana" ||
+    item.weaponType === "staff" ||
+    (options.mp ?? 0) > 0
+  ) {
+    tags.add("마법");
+  }
+  if ((options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0) {
+    tags.add("치명");
+  }
+  if ((options.eva ?? 0) > 0) tags.add("회피");
+  if ((options.spd ?? 0) > 0) tags.add("속도");
+  if (
+    item.concept === "heavy" ||
+    (options.hp ?? 0) > 0 ||
+    (options.def ?? 0) > 0 ||
+    (options.magicDef ?? 0) > 0 ||
+    (options.critResist ?? 0) > 0
+  ) {
+    tags.add("탱커");
+  }
+  if ((options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0) {
+    tags.add("회복");
+  }
+  if (item.signature) tags.add("시그니처");
+  if (item.setId || (item.setTags?.length ?? 0) > 0) tags.add("세트");
+  return [...tags];
+}
+
+function equipmentMatchesBuildFilter(
+  item: V2Equipment,
+  filter: EquipmentBuildFilter,
+): boolean {
+  if (filter === "all") return true;
+  const options = item.options ?? {};
+  switch (filter) {
+    case "magic":
+      return (
+        item.concept === "int" ||
+        item.concept === "mana" ||
+        item.weaponType === "staff" ||
+        (options.mp ?? 0) > 0
+      );
+    case "crit":
+      return (options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0;
+    case "evasion":
+      return (options.eva ?? 0) > 0;
+    case "speed":
+      return (options.spd ?? 0) > 0;
+    case "tank":
+      return (
+        item.concept === "heavy" ||
+        (options.hp ?? 0) > 0 ||
+        (options.def ?? 0) > 0 ||
+        (options.magicDef ?? 0) > 0 ||
+        (options.critResist ?? 0) > 0
+      );
+    case "heal":
+      return (options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0;
+    case "signature":
+      return Boolean(item.signature);
+    case "set":
+      return Boolean(item.setId || (item.setTags?.length ?? 0) > 0);
+  }
+  return true;
 }
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
@@ -241,7 +346,7 @@ function DropChip({
   );
 }
 
-// 스타터 풀(깊이 1~12)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 티어 가중 후 무작위 슬롯·컨셉으로
+// 스타터 풀(깊이 1~6)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 티어 가중 후 무작위 슬롯·컨셉으로
 //   뽑히므로 그 티어들의 그리드 전 종류가 후보. 유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
 function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
   const tiers = new Set(
@@ -278,6 +383,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
   const [frontierDepth, setFrontierDepth] = useState(0);
+  const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>({
+    1: 0,
+    2: 0,
+    3: 0,
+  });
+  const [spFruitCapBonus, setSpFruitCapBonus] = useState(0);
+  const [spBreakdown, setSpBreakdown] =
+    useState<V2LoadoutSpBreakdown | null>(null);
   // 칭호 — 보유 목록(획득한 것만)·현재 장착. 장착은 /api/v2/me/equip-title POST.
   const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>([]);
   const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
@@ -307,6 +420,26 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
+        }
+        if (j?.spFruit?.used && typeof j.spFruit.used === "object") {
+          const used = j.spFruit.used as Partial<Record<SpFruitTier, number>>;
+          setSpFruitUsed({
+            1: used[1] ?? 0,
+            2: used[2] ?? 0,
+            3: used[3] ?? 0,
+          });
+        }
+        if (typeof j?.spFruit?.capBonus === "number") {
+          setSpFruitCapBonus(j.spFruit.capBonus);
+        }
+        if (
+          j?.loadout?.spBreakdown &&
+          typeof j.loadout.spBreakdown === "object"
+        ) {
+          setSpBreakdown(j.loadout.spBreakdown as V2LoadoutSpBreakdown);
+        }
+        if (j?.equipmentCodex && typeof j.equipmentCodex === "object") {
+          applyEquipmentCodexPayload(j.equipmentCodex as EquipmentCodexResponse);
         }
         if (Array.isArray(j?.titles?.ownedTitleIds)) {
           setOwnedTitleIds(j.titles.ownedTitleIds as string[]);
@@ -361,6 +494,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
   const [equipmentCodexSlot, setEquipmentCodexSlot] =
     useState<V2EquipSlot>("weapon");
+  const [equipmentBuildFilter, setEquipmentBuildFilter] =
+    useState<EquipmentBuildFilter>("all");
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
     if (!j) return;
@@ -469,6 +604,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     if (equipmentCodexBusy) return;
     const candidates = equipmentEntries
       .filter((id) => V2_EQUIPMENT[id].slot === slot)
+      .filter((id) =>
+        equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
+      )
       .filter((id) => !equipmentRegisteredIds.has(id))
       .map((id) => equipmentCounts.eligible.get(id)?.[0] ?? null)
       .filter((inst): inst is V2EquipInstance => Boolean(inst));
@@ -570,13 +708,15 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     }
     return { owned, eligible };
   })();
-  const equipmentSlotEntries = equipmentEntries.filter(
-    (id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot,
-  );
+  const equipmentSlotEntries = equipmentEntries
+    .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot)
+    .filter((id) =>
+      equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
+    );
   const equipmentSlotPager = usePagination(
     equipmentSlotEntries,
     EQUIPMENT_CODEX_PAGE_SIZE,
-    equipmentCodexSlot,
+    `${equipmentCodexSlot}:${equipmentBuildFilter}`,
   );
   const equipmentSlotRegisteredCount = equipmentSlotEntries.filter((id) =>
     equipmentRegisteredIds.has(id),
@@ -586,6 +726,82 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       !equipmentRegisteredIds.has(id) &&
       (equipmentCounts.eligible.get(id)?.length ?? 0) > 0,
   ).length;
+  const spFruitUseCap = SP_FRUIT_TIERS.reduce(
+    (sum, tier) => sum + SP_FRUIT[tier].useCap,
+    0,
+  );
+  const spFruitUsedTotal = SP_FRUIT_TIERS.reduce(
+    (sum, tier) => sum + (spFruitUsed[tier] ?? 0),
+    0,
+  );
+  const spFishBonus = spBreakdown?.collectionBonus?.fishSp ?? 0;
+  const spTreasureBonus = spBreakdown?.collectionBonus?.treasureSp ?? 0;
+  const spEquipmentBonus =
+    spBreakdown?.equipmentCodexBonus ?? equipmentCodexMeta.spBonus;
+  const spSoftCapReduction = spBreakdown?.softCapReduction ?? 0;
+  const spCurrentTotal =
+    spBreakdown == null
+      ? spFruitCapBonus + spEquipmentBonus
+      : spBreakdown.base +
+        spBreakdown.milestoneSp +
+        spBreakdown.masteryBonusSp -
+        spSoftCapReduction +
+        spBreakdown.spFruitBonus +
+        spFishBonus +
+        spTreasureBonus +
+        spEquipmentBonus;
+  const spSourceRows = [
+    {
+      label: "기본 SP",
+      value: spBreakdown?.base ?? 0,
+      detail: "캐릭터 기본 예산",
+    },
+    {
+      label: "숙련도 마일스톤",
+      value: spBreakdown?.milestoneSp ?? 0,
+      detail: "직업군 누적 레벨 보상",
+      signed: true,
+    },
+    {
+      label: "직업군 정복",
+      value: spBreakdown?.masteryBonusSp ?? 0,
+      detail: "정복 완료 직업군 보너스",
+      signed: true,
+    },
+    {
+      label: "어보",
+      value: spFishBonus,
+      detail: "낚시 도감 티어 완성",
+      signed: true,
+    },
+    {
+      label: "유물",
+      value: spTreasureBonus,
+      detail: "발굴 도감 티어 완성",
+      signed: true,
+    },
+    {
+      label: "장비 도감",
+      value: spEquipmentBonus,
+      detail: `등록 ${equipmentCodexMeta.registeredCount}/${equipmentCodexMeta.total}종`,
+      signed: true,
+    },
+    {
+      label: "SP 열매",
+      value: spBreakdown?.spFruitBonus ?? spFruitCapBonus,
+      detail: `사용 ${spFruitUsedTotal}/${spFruitUseCap}개`,
+      signed: true,
+    },
+    ...(spSoftCapReduction > 0
+      ? [
+          {
+            label: "상한 조정",
+            value: -spSoftCapReduction,
+            detail: "기본·숙련·정복 합산 소프트캡",
+          },
+        ]
+      : []),
+  ];
 
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
@@ -598,6 +814,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           [
             ["huntground", "사냥터"],
             ["equipment", "장비"],
+            ["spFruit", "SP 수집"],
             ["fish", "어보"],
             ["treasure", "유물"],
             ["title", "칭호"],
@@ -635,7 +852,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 theme.depthStart,
                 theme.depthEnd,
               );
-              // 일반 장비 드랍 목록 — 밴드 흔한 13종(13~48) 또는 스타터 그리드(1~12). + 처치당 확률 라벨.
+              // 일반 장비 드랍 목록 — 밴드 흔한 장비 또는 스타터 그리드. + 처치당 확률 라벨.
               const regularIds: V2EquipmentId[] = band
                 ? band.ids
                 : pool
@@ -787,7 +1004,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         ))}
 
       {tab === "equipment" && (
-        <div className="space-y-3">
+        <div className={`${CODEX_PANEL_SURFACE} space-y-3`}>
           <Card padding="md">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -843,9 +1060,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             <div className="space-y-3">
               <div className="flex flex-wrap gap-1.5">
                 {EQUIPMENT_SLOT_ORDER.map((slot) => {
-                  const slotEntries = equipmentEntries.filter(
-                    (id) => V2_EQUIPMENT[id].slot === slot,
-                  );
+                  const slotEntries = equipmentEntries
+                    .filter((id) => V2_EQUIPMENT[id].slot === slot)
+                    .filter((id) =>
+                      equipmentMatchesBuildFilter(
+                        V2_EQUIPMENT[id],
+                        equipmentBuildFilter,
+                      ),
+                    );
                   const registeredCount = slotEntries.filter((id) =>
                     equipmentRegisteredIds.has(id),
                   ).length;
@@ -861,6 +1083,34 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       }`}
                     >
                       {V2_SLOT_LABEL[slot]} {registeredCount}/{slotEntries.length}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {EQUIPMENT_BUILD_FILTERS.map((filter) => {
+                  const count =
+                    filter.key === "all"
+                      ? equipmentEntries.length
+                      : equipmentEntries.filter((id) =>
+                          equipmentMatchesBuildFilter(
+                            V2_EQUIPMENT[id],
+                            filter.key,
+                          ),
+                        ).length;
+                  return (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      onClick={() => setEquipmentBuildFilter(filter.key)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        equipmentBuildFilter === filter.key
+                          ? "bg-emerald-700 text-white dark:bg-emerald-400 dark:text-emerald-950"
+                          : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      }`}
+                    >
+                      {filter.label} {count}
                     </button>
                   );
                 })}
@@ -882,87 +1132,114 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 >
                   {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
                     ? "일괄 등록 중"
-                    : "보유 장비 일괄 등록"}
+                    : equipmentBuildFilter === "all"
+                      ? "보유 장비 일괄 등록"
+                      : "필터 장비 일괄 등록"}
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {equipmentSlotPager.pageItems.map((id) => {
-                  const item = V2_EQUIPMENT[id];
-                  const registered = equipmentRegisteredIds.has(id);
-                  const ownedCount = equipmentCounts.owned.get(id) ?? 0;
-                  const eligible = equipmentCounts.eligible.get(id) ?? [];
-                  const inst = eligible[0] ?? null;
-                  const disabled =
-                    registered || !inst || equipmentCodexBusy !== null;
-                  const buttonLabel = registered
-                    ? "등록됨"
-                    : inst
-                      ? "등록"
-                      : ownedCount > 0
-                        ? "장착·잠금"
-                        : "보유 없음";
-                  const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
-                  return (
-                    <div
-                      key={id}
-                      className={`ui-codex-card ui-lift-card relative flex min-h-[7.25rem] flex-col gap-1 p-3 text-left transition ${
-                        registered
-                          ? "is-registered rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-emerald-950 dark:ring-emerald-900"
-                          : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
-                      } ${!registered && inst ? "is-ready" : ""}`}
-                    >
-                      <button
-                        type="button"
-                        onClick={(e) => setCard({ item, anchor: anchorOf(e.currentTarget) })}
-                        className="flex flex-1 flex-col gap-1 text-left"
+              {equipmentSlotEntries.length === 0 ? (
+                <Card padding="md">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    이 부위에는 선택한 빌드 축의 장비가 없습니다.
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {equipmentSlotPager.pageItems.map((id) => {
+                    const item = V2_EQUIPMENT[id];
+                    const buildTags = equipmentBuildTags(item).slice(0, 4);
+                    const registered = equipmentRegisteredIds.has(id);
+                    const ownedCount = equipmentCounts.owned.get(id) ?? 0;
+                    const eligible = equipmentCounts.eligible.get(id) ?? [];
+                    const inst = eligible[0] ?? null;
+                    const disabled =
+                      registered || !inst || equipmentCodexBusy !== null;
+                    const buttonLabel = registered
+                      ? "등록됨"
+                      : inst
+                        ? "등록"
+                        : ownedCount > 0
+                          ? "장착·잠금"
+                          : "보유 없음";
+                    const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
+                    return (
+                      <div
+                        key={id}
+                        className={`ui-codex-card ui-lift-card relative flex min-h-[7.25rem] flex-col gap-1 p-3 text-left transition ${
+                          registered
+                            ? "is-registered rounded-lg border border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-600/80 dark:bg-emerald-950 dark:ring-emerald-900"
+                            : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
+                        } ${!registered && inst ? "is-ready" : ""}`}
                       >
-                        <div className="flex items-start justify-between gap-1">
-                          <Icon size={20} weight="duotone" className={color} />
-                          {registered ? (
-                            <span className="inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
-                              <CheckCircle size={12} weight="fill" />
-                              등록
-                            </span>
-                          ) : inst ? (
-                            <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                              등록 가능
-                            </span>
-                          ) : (
-                            <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                              미등록
-                            </span>
-                          )}
-                        </div>
-                        <div className="min-w-0 truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-100">
-                          {item.name}
-                        </div>
-                        <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-                          {v2ItemTypeLabel(item)} · 위력 {item.power} · 무게{" "}
-                          {item.weight} · 보유 {ownedCount} · 등록 가능{" "}
-                          {eligible.length}
-                        </div>
-                      </button>
-                      {!registered && (
                         <button
                           type="button"
-                          disabled={disabled}
-                          onClick={() => inst && void registerEquipment(inst)}
-                          className={`mt-auto inline-flex h-6 items-center justify-center rounded px-2 text-[11px] font-medium transition ${
-                            disabled
-                              ? "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
-                              : "border border-emerald-500 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950"
-                          }`}
+                          onClick={(e) =>
+                            setCard({
+                              item,
+                              anchor: anchorOf(e.currentTarget),
+                            })
+                          }
+                          className="flex flex-1 flex-col gap-1 text-left"
                         >
-                          {equipmentCodexBusy === inst?.iid
-                            ? "등록 중"
-                            : buttonLabel}
+                          <div className="flex items-start justify-between gap-1">
+                            <Icon size={20} weight="duotone" className={color} />
+                            {registered ? (
+                              <span className="inline-flex items-center gap-1 rounded bg-emerald-600 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
+                                <CheckCircle size={12} weight="fill" />
+                                등록
+                              </span>
+                            ) : inst ? (
+                              <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                등록 가능
+                              </span>
+                            ) : (
+                              <span className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                                미등록
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0 truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-zinc-100">
+                            {item.name}
+                          </div>
+                          <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                            {v2ItemTypeLabel(item)} · 위력 {item.power} · 보유{" "}
+                            {ownedCount} · 등록 가능 {eligible.length}
+                          </div>
+                          {buildTags.length > 0 && (
+                            <div className="mt-0.5 flex flex-wrap gap-1">
+                              {buildTags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                        {!registered && (
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => inst && void registerEquipment(inst)}
+                            className={`mt-auto inline-flex h-6 items-center justify-center rounded px-2 text-[11px] font-medium transition ${
+                              disabled
+                                ? "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
+                                : "border border-emerald-500 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-600 dark:text-emerald-300 dark:hover:bg-emerald-950"
+                            }`}
+                          >
+                            {equipmentCodexBusy === inst?.iid
+                              ? "등록 중"
+                              : buttonLabel}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <Pagination
                 page={equipmentSlotPager.page}
                 pageCount={equipmentSlotPager.pageCount}
@@ -970,6 +1247,158 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               />
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "spFruit" && (
+        <div className={`${CODEX_PANEL_SURFACE} space-y-3`}>
+          <Card padding="md">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="text-sm font-bold">SP 수집 현황</h2>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  {spBreakdown ? "현재 SP 최대치" : "확인된 수집 보너스"}{" "}
+                  {spCurrentTotal} · SP 열매 +{spFruitCapBonus}
+                </p>
+              </div>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                영구 SP 기록
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {spSourceRows.map((row) => (
+                <div
+                  key={row.label}
+                  className="rounded-md bg-zinc-50 px-3 py-2 dark:bg-zinc-900/70"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+                      {row.label}
+                    </span>
+                    <span
+                      className={`text-sm font-bold tabular-nums ${
+                        row.value < 0
+                          ? "text-rose-600 dark:text-rose-300"
+                          : "text-zinc-900 dark:text-zinc-100"
+                      }`}
+                    >
+                      {row.value > 0 && row.signed ? "+" : ""}
+                      {row.value}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {row.detail}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {spBreakdown && spBreakdown.groups.length > 0 && (
+            <Card padding="md">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <h3 className="text-sm font-bold">직업군 숙련 기록</h3>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  숙련 SP +{spBreakdown.milestoneSp + spBreakdown.masteryBonusSp}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {spBreakdown.groups.map((group) => {
+                  const pct =
+                    group.requiredCumLevel > 0
+                      ? Math.min(
+                          100,
+                          (group.cumLevel / group.requiredCumLevel) * 100,
+                        )
+                      : 0;
+                  return (
+                    <div
+                      key={group.id}
+                      className="rounded-md bg-zinc-50 px-3 py-2 dark:bg-zinc-900/70"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                          {group.label}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                            group.mastered
+                              ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                              : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                          }`}
+                        >
+                          {group.mastered ? "정복" : `${Math.floor(pct)}%`}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                        <div
+                          className="h-full rounded-full bg-violet-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        누적 Lv {group.cumLevel}/{group.requiredCumLevel} · SP +
+                        {group.milestoneSp + group.masteryBonusSp}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            {SP_FRUIT_TIERS.map((tier) => {
+              const def = SP_FRUIT[tier];
+              const used = spFruitUsed[tier] ?? 0;
+              const source = COOP_BOSSES[def.bossKind]?.name ?? "협동 보스";
+              const complete = used >= def.useCap;
+              return (
+                <Card key={tier} padding="md">
+                  <div className="flex min-h-[8.75rem] flex-col">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-sm font-bold">
+                          {def.name}
+                        </h3>
+                        <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {source} 보상
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          complete
+                            ? "bg-emerald-200/70 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                            : "bg-amber-200/70 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+                        }`}
+                      >
+                        {complete ? "완료" : "진행"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                      {used}
+                      <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                        /{def.useCap}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-amber-500"
+                        style={{
+                          width: `${Math.min(100, (used / def.useCap) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-auto pt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      현재 SP +{used * def.spPerUse} · 1개당 SP +
+                      {def.spPerUse}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1086,7 +1515,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
                           <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            🐟 {found ? fish.name : "???"}
+                            <FishIcon
+                              fishId={id}
+                              name={found ? fish.name : undefined}
+                              decorative={!found}
+                              className={`h-6 w-6 ${found ? "" : "grayscale"}`}
+                            />
+                            {found ? fish.name : "???"}
                             {found ? (
                               <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                                 등재
@@ -1207,7 +1642,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             message="낚시·발굴·투기장 상점과 수집 보상으로 칭호를 모으면 여기서 장착할 수 있어요. 장착한 칭호는 채팅과 접속자 목록에 표시됩니다."
           />
         ) : (
-          <div className="space-y-4">
+          <div className={`${CODEX_PANEL_SURFACE} space-y-4`}>
             <Card padding="sm">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">

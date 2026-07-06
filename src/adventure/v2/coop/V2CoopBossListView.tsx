@@ -24,14 +24,17 @@ import {
 } from "@/adventure/v2/coop/useCoopBossState";
 import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2CoopTabs } from "@/adventure/v2/coop/V2CoopTabs";
 
 // 소환 공개 범위 선택지는 coopBosses.COOP_VISIBILITY_OPTIONS(상세 변경 UI 와 공용).
 
 export function V2CoopBossListView({
   onOpenSession,
+  onOpenShop,
   onBack,
 }: {
   onOpenSession: (sessionId: string) => void;
+  onOpenShop?: () => void;
   onBack: () => void;
 }) {
   const {
@@ -79,6 +82,8 @@ export function V2CoopBossListView({
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
       </p>
+
+      <V2CoopTabs active="bosses" onOpenShop={onOpenShop} />
 
       {/* 코어루프 — 소환 공개 범위. flag off 면 미표시(항상 공개). */}
       {V2_CORE_LOOP_V2 && (
@@ -144,36 +149,41 @@ export function V2CoopBossListView({
         </Card>
       )}
 
-      {lastReward &&
-        (lastReward.spFruitCount > 0 || lastReward.uniqueId ? (
-          <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
-            </p>
-            <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-              {lastReward.uniqueId && (
+      {lastReward && (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
+          </p>
+          <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+            {lastReward.coopCoin != null && lastReward.coopCoin > 0 && (
+              <li>협동 주화 ×{lastReward.coopCoin}</li>
+            )}
+            {lastReward.bossMaterialCount != null &&
+              lastReward.bossMaterialCount > 0 && (
                 <li>
-                  ⚔️ 보스 유니크{" "}
-                  <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
-                  — 인벤토리에서 확인!
+                  {lastReward.bossMaterialName ?? "보스 재료"} ×
+                  {lastReward.bossMaterialCount}
                 </li>
               )}
-              {lastReward.spFruitCount > 0 && (
-                <li>
-                  🍂 {lastReward.spFruitName ?? "SP 열매"} ×
-                  {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
-                </li>
-              )}
-            </ul>
-          </div>
-        ) : (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              {COOP_TIER_LABEL[lastReward.tier]} 기여 — 이번엔 드랍 없음. (SP 열매
-              GOLD+·유니크 EPIC+ 확률)
-            </p>
-          </div>
-        ))}
+            {lastReward.equipmentBoxName && (
+              <li>{lastReward.equipmentBoxName} — 소모품 탭에서 사용</li>
+            )}
+            {lastReward.uniqueId && (
+              <li>
+                보스 유니크{" "}
+                <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
+                — 인벤토리에서 확인
+              </li>
+            )}
+            {lastReward.spFruitCount > 0 && (
+              <li>
+                {lastReward.spFruitName ?? "SP 열매"} ×
+                {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
       <div className="space-y-1.5">

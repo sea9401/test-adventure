@@ -38,6 +38,37 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("self_shield 조건 — 보호막이 남아 있으면 보호막 스킬을 다시 쓰지 않는다", () => {
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: {
+            kind: "all",
+            conditions: [
+              { kind: "self_hp", op: "below", pct: 70 },
+              { kind: "self_shield", active: false },
+            ],
+          },
+          action: { kind: "skill", skillId: "v2c_mage_shield" },
+        },
+      ],
+    };
+    const base = castInput(["v2c_mage_shield"], {
+      combatPattern: pattern,
+      attacker: {
+        ...castInput(["v2c_mage_shield"]).attacker,
+        currentHp: 500,
+      },
+    });
+    expect(resolveV2SkillCast(base).castSkillId).toBe("v2c_mage_shield");
+    expect(
+      resolveV2SkillCast({
+        ...base,
+        attacker: { ...base.attacker, selfShieldActive: true },
+      }).castSkillId,
+    ).toBeNull();
+  });
+
   it("패턴 피해 = 평타 바닥 + 초과분 × 차수 통과율(난격=t1)", () => {
     // 옛 경로(procRoll 미지정 = 항상 발동): 풀 위력.
     const full = resolveV2SkillCast(castInput([SKILL]));

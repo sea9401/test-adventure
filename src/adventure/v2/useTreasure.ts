@@ -7,7 +7,7 @@ import type {
   TreasureHandlers,
 } from "./TreasureDigView";
 import type { TreasureSitePublic } from "./treasureDig";
-import type { TreasureAction } from "./treasureDig";
+import type { TreasureAction, TreasureActionTarget } from "./treasureDig";
 
 // 실게임용 open/dig — /api/v2/treasure/* 권위 라우트 래퍼. TreasureDigView 에 주입한다.
 export function useTreasure(): TreasureHandlers {
@@ -43,7 +43,7 @@ export function useTreasure(): TreasureHandlers {
   }, []);
 
   // 진행 중 발굴 세션 복원 — 마운트 시 호출. 조각 소비 없는 읽기 전용(open 의 resume 과 동일 뷰).
-  //   다른 화면을 다녀와도 발굴이 사라지지 않게 격자를 그대로 이어준다.
+  //   다른 화면을 다녀와도 발굴이 사라지지 않게 지도 진행을 그대로 이어준다.
   //   🔑 타임아웃(AbortController) 필수 — 멈춘 fetch 가 영영 안 끝나면 호출측 restoring 가드가
   //      true 로 굳어 화면이 빈 채로 잠긴다. 8초 내 항상 settle(실패 시 null=시작 화면 폴백).
   const loadSession = useCallback(async (): Promise<TreasureSitePublic | null> => {
@@ -62,11 +62,15 @@ export function useTreasure(): TreasureHandlers {
   }, []);
 
   const dig = useCallback(
-    async (siteId: string, action: TreasureAction): Promise<DigOutcome> => {
+    async (
+      siteId: string,
+      action: TreasureAction,
+      target?: TreasureActionTarget,
+    ): Promise<DigOutcome> => {
       const res = await fetch("/api/v2/treasure/dig", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ siteId, action }),
+        body: JSON.stringify({ siteId, action, target }),
       });
       const j = await res.json().catch(() => null);
       if (!j?.ok) return { outcome: "error" };
@@ -76,6 +80,7 @@ export function useTreasure(): TreasureHandlers {
             outcome: "hit",
             antique: j.antique,
             codexCount: Number(j.codexCount ?? 0),
+            site: j.site as TreasureSitePublic | undefined,
           };
         case "progress":
           return {

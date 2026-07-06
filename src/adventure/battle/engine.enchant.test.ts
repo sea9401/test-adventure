@@ -522,6 +522,15 @@ describe("주문중첩/약점노출 — 스킬 데미지 스택 (resolveBattle �
       plain.turn.completedPlayerTurns,
     );
   });
+
+  it("약점 노출 — 누적 확률이 0%면 적중해도 마법취약을 쌓지 않는다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const blocked = run({
+      enemyMagicVulnPctPerStack: 50,
+      enemyMagicVulnApplyChancePct: 0,
+    });
+    expect(blocked.stacks.enemyMagicVulnStacks).toBe(0);
+  });
 });
 
 describe("mpCostReductionPct — 워메이지 절제 (스킬 마나 소모 환급)", () => {

@@ -1,11 +1,14 @@
-// 패배 세금 카운터(코어루프) 통합 — huntCooldown.test.ts 와 같은 in-memory savesKv +
+// 패배 페널티 카운터(코어루프) 통합 — huntCooldown.test.ts 와 같은 in-memory savesKv +
 // coreLoopConfig importOriginal(flag만 on). 승리 시 atRiskGold 가 goldGained 만큼 누적되는
-// 배선을 검증한다(패배 세금 산술은 lossTaxOf 단위 테스트가 커버 — 결정적 패배 유도는 전투
-// 밸런스에 취약해 통합에선 승리 누적만).
+// 배선과, 패배 소실 골드가 금고에 입금되지 않는 것을 검증한다.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, treasuryInserts, battleOutcome } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  treasuryInserts: [] as unknown[],
+  battleOutcome: { value: "win" as "win" | "lose" },
+}));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   const actual =
@@ -34,7 +37,10 @@ vi.mock("@/db", () => {
   const tx = {
     select: () => chain,
     insert: () => ({
-      values: () => ({ onConflictDoUpdate: async () => undefined }),
+      values: (value: unknown) => {
+        treasuryInserts.push(value);
+        return { onConflictDoUpdate: async () => undefined };
+      },
     }),
   };
   return {
@@ -55,6 +61,35 @@ vi.mock("@/lib/server/savesKv", () => ({
     store.set(key, value);
   }),
 }));
+vi.mock("@/adventure/v2/combat/engine", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/adventure/v2/combat/engine")>();
+  return {
+    ...actual,
+    resolveBattle: vi.fn((player, enemy, _name) => {
+      const outcome = battleOutcome.value;
+      const playerMaxHp = Math.max(1, Number(player.maxHp) || 1);
+      const playerMaxMp = Math.max(0, Number(player.maxMp) || 0);
+      const playerMp = Math.max(0, Number(player.mp) || playerMaxMp);
+      return {
+        outcome,
+        finalState: {
+          enemy,
+          enemyHp: outcome === "win" ? 0 : Math.max(1, Number(enemy.hp) || 1),
+          playerHp: outcome === "win" ? playerMaxHp : 0,
+          playerMaxHp,
+          playerMp,
+          playerMaxMp,
+          log: [],
+          phase: "ended",
+          outcome,
+        },
+        potionsConsumed: {},
+        turns: 1,
+      };
+    }),
+  };
+});
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
@@ -98,9 +133,11 @@ function char() {
   };
 }
 
-describe("POST /api/v2/dungeon/hunt — 패배 세금 카운터(코어루프 on)", () => {
+describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 on)", () => {
   beforeEach(() => {
     seedStrongWarrior();
+    treasuryInserts.length = 0;
+    battleOutcome.value = "win";
     vi.spyOn(Math, "random").mockReturnValue(0.5); // 확정 승리
   });
   afterEach(() => {
@@ -114,7 +151,7 @@ describe("POST /api/v2/dungeon/hunt — 패배 세금 카운터(코어루프 on)
       result: { goldGained: number; lossTax: number; atRiskGold: number };
     };
     expect(json.result.goldGained).toBeGreaterThan(0);
-    expect(json.result.lossTax).toBe(0); // 승리 = 세금 0
+    expect(json.result.lossTax).toBe(0); // 승리 = 소실 0
     // 0 에서 goldGained 만큼 누적.
     expect(json.result.atRiskGold).toBe(json.result.goldGained);
     expect(char().atRiskGold).toBe(json.result.goldGained);
@@ -134,5 +171,36 @@ describe("POST /api/v2/dungeon/hunt — 패배 세금 카운터(코어루프 on)
     const second = await POST(huntReq({ floor: 1 }));
     const j2 = (await second.json()) as { result: { goldGained: number } };
     expect(char().atRiskGold).toBe(after1 + j2.result.goldGained);
+  });
+
+  it("패배 시 잃은 골드는 금고에 입금하지 않고 소실한다", async () => {
+    store.set("character.v2", {
+      ...char(),
+      atRiskGold: 200,
+      gold: 1000,
+      lastBattleAt: Date.now() - HUNT_COOLDOWN_MS - 1000,
+    });
+    battleOutcome.value = "lose";
+
+    const res = await POST(
+      huntReq({ floor: 1, outpostId: "neutral_north_outpost" }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      result: {
+        won: boolean;
+        goldAfter: number;
+        lossTax: number;
+        atRiskGold: number;
+      };
+    };
+
+    expect(json.result.won).toBe(false);
+    expect(json.result.lossTax).toBe(100);
+    expect(json.result.goldAfter).toBe(900);
+    expect(json.result.atRiskGold).toBe(0);
+    expect(char().gold).toBe(900);
+    expect(char().atRiskGold).toBe(0);
+    expect(treasuryInserts).toEqual([]);
   });
 });

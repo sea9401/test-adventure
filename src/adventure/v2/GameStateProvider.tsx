@@ -85,6 +85,77 @@ export type Occupation = {
   villageName: string | null;
 };
 
+export type GameResourcePatch = {
+  gold?: number;
+  bankedGold?: number;
+  hp?: number;
+  maxHp?: number;
+  mp?: number;
+  maxMp?: number;
+  hpCharges?: number;
+  mpCharges?: number;
+  stamina?: StaminaState;
+  staminaMax?: number;
+  staminaPotions?: number;
+  atRiskGold?: number | null;
+  viewerProficiency?: number | null;
+  combatCooldown?: { nextBattleAt: number; cooldownMs: number } | null;
+};
+
+type GameStateSnapshot = {
+  character?: {
+    name?: string;
+    gender?: string;
+    level?: number;
+    exp?: number;
+    expToNext?: number;
+    class?: string;
+    classDisplayName?: string | null;
+    element?: string;
+    hp?: number;
+    maxHp?: number;
+    mp?: number;
+    maxMp?: number;
+    hpCharges?: number;
+    mpCharges?: number;
+    stamina?: {
+      current: number;
+      lastUpdatedAt: number;
+      max?: number;
+    };
+    staminaPotions?: number;
+    gold?: number;
+    bankedGold?: number;
+    atRiskGold?: number | null;
+  };
+  currentOutpost?: { id: string; name: string } | null;
+  discoveredOutpostIds?: string[];
+  tilePos?: { col: number; row: number; at?: number } | null;
+  tileSettlements?: TileSettlement[];
+  accountName?: string | null;
+  frontierDepth?: number;
+  proficiency?: {
+    groups?: Record<string, { tier?: number }>;
+    current?: { group?: string; cumLevel?: number };
+  };
+  coreLoopOn?: boolean;
+  huntStaminaMode?: boolean;
+  combatCooldown?: {
+    nextBattleAt: number;
+    cooldownMs: number;
+    serverNow: number;
+  } | null;
+  offlinePending?: number | null;
+  combat?: PlayerCombatStats | null;
+  offlineHunt?: {
+    active: boolean;
+    startedAt?: number;
+    endsAt?: number;
+    serverNow?: number;
+    depth?: number;
+  } | null;
+} | null;
+
 type GameStateValue = {
   // 신원/캐릭터
   viewerUserId: string | null;
@@ -164,6 +235,7 @@ type GameStateValue = {
   refreshOccupations: () => Promise<void>;
   refreshGuildId: () => Promise<void>;
   refreshGameState: () => Promise<void>;
+  applyResourcePatch: (patch: GameResourcePatch) => void;
   // 최초 me/state fetch 가 끝났는가. 타일 정착지처럼 비동기 로드에 의존하는 화면이
   //   "데이터 아직 없음"과 "진짜 없음"을 구분하려면 필요(딥링크/새로고침 notFound 오발 방지).
   gameStateLoaded: boolean;
@@ -213,6 +285,8 @@ function tileSettlementErrorMessage(
       return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
     case "not_at_tile":
       return "개척하려면 먼저 이 칸으로 이동하세요.";
+    case "not_adjacent_to_guild_tile":
+      return "이미 보유한 거점이 있는 길드는 자기 길드 거점에 인접한 빈 땅에만 개척할 수 있습니다.";
     case "already_settled":
       return "이미 정착지가 있는 칸입니다.";
     case "tile_is_outpost":
@@ -366,194 +440,200 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const applyResourcePatch = useCallback((patch: GameResourcePatch) => {
+    if (typeof patch.gold === "number") setGold(Math.max(0, patch.gold));
+    if (typeof patch.bankedGold === "number") {
+      setBankedGold(Math.max(0, patch.bankedGold));
+    }
+    if (typeof patch.staminaMax === "number") {
+      setStaminaMax(Math.max(1, patch.staminaMax));
+    }
+    if (patch.stamina) {
+      setStamina({
+        current: patch.stamina.current,
+        lastUpdatedAt: patch.stamina.lastUpdatedAt,
+      });
+    }
+    if (typeof patch.staminaPotions === "number") {
+      setStaminaPotions(Math.max(0, patch.staminaPotions));
+    }
+    if (typeof patch.hpCharges === "number") {
+      setHpCharges(Math.max(0, patch.hpCharges));
+    }
+    if (typeof patch.mpCharges === "number") {
+      setMpCharges(Math.max(0, patch.mpCharges));
+    }
+    if (typeof patch.hp === "number" && typeof patch.maxHp === "number") {
+      setHp({ hp: patch.hp, maxHp: patch.maxHp, anchorMs: Date.now() });
+    }
+    if (typeof patch.mp === "number" && typeof patch.maxMp === "number") {
+      setMp({ mp: patch.mp, maxMp: patch.maxMp });
+    }
+    if ("viewerProficiency" in patch) {
+      setViewerProficiency(patch.viewerProficiency ?? null);
+    }
+    if ("atRiskGold" in patch) {
+      setAtRiskGold(patch.atRiskGold ?? null);
+    }
+    if ("combatCooldown" in patch) {
+      setCombatCooldown(patch.combatCooldown ?? null);
+    }
+  }, []);
+
+  const applyGameStateSnapshot = useCallback(
+    (j: GameStateSnapshot) => {
+      if (!j) return;
+      if (j.character?.name) setViewerName(j.character.name);
+      setAccountName(j.accountName ?? null);
+      if (j.character?.gender) setViewerGender(j.character.gender as Gender);
+      if (typeof j.character?.level === "number") {
+        setViewerLevel(j.character.level);
+      }
+      if (typeof j.character?.exp === "number") {
+        setViewerExp(Math.max(0, j.character.exp));
+      }
+      if (typeof j.character?.expToNext === "number") {
+        setViewerExpToNext(Math.max(1, j.character.expToNext));
+      }
+      if (j.character?.class) setViewerClass(j.character.class);
+      setViewerJobName(
+        typeof j.character?.classDisplayName === "string"
+          ? j.character.classDisplayName
+          : null,
+      );
+      if (j.character?.element) setViewerElement(j.character.element);
+
+      const currentGroup = j.proficiency?.current?.group ?? "none";
+      const currentProficiency =
+        currentGroup === "none"
+          ? null
+          : (j.proficiency?.current?.cumLevel ?? 0);
+      applyResourcePatch({ viewerProficiency: currentProficiency });
+      const currentTier =
+        currentGroup === "none"
+          ? null
+          : (j.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+      setViewerLevelCap(
+        currentTier == null ? null : effectiveLevelCap(currentTier),
+      );
+
+      applyResourcePatch({
+        staminaMax:
+          typeof j.character?.stamina?.max === "number"
+            ? j.character.stamina.max
+            : undefined,
+        stamina: j.character?.stamina
+          ? {
+              current: j.character.stamina.current,
+              lastUpdatedAt: j.character.stamina.lastUpdatedAt,
+            }
+          : undefined,
+        staminaPotions:
+          typeof j.character?.staminaPotions === "number"
+            ? j.character.staminaPotions
+            : undefined,
+        hpCharges:
+          typeof j.character?.hpCharges === "number"
+            ? j.character.hpCharges
+            : undefined,
+        mpCharges:
+          typeof j.character?.mpCharges === "number"
+            ? j.character.mpCharges
+            : undefined,
+        gold:
+          typeof j.character?.gold === "number"
+            ? j.character.gold
+            : undefined,
+        bankedGold:
+          typeof j.character?.bankedGold === "number"
+            ? j.character.bankedGold
+            : undefined,
+        hp:
+          typeof j.character?.hp === "number" &&
+          typeof j.character?.maxHp === "number"
+            ? j.character.hp
+            : undefined,
+        maxHp:
+          typeof j.character?.hp === "number" &&
+          typeof j.character?.maxHp === "number"
+            ? j.character.maxHp
+            : undefined,
+        mp:
+          typeof j.character?.mp === "number" &&
+          typeof j.character?.maxMp === "number"
+            ? j.character.mp
+            : undefined,
+        maxMp:
+          typeof j.character?.mp === "number" &&
+          typeof j.character?.maxMp === "number"
+            ? j.character.maxMp
+            : undefined,
+        atRiskGold:
+          typeof j.character?.atRiskGold === "number"
+            ? j.character.atRiskGold
+            : null,
+      });
+
+      setPlayerCombat(j.combat ?? null);
+      if (j.currentOutpost) setCurrentOutpost(j.currentOutpost);
+      if (j.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
+        setDiscoveredIds(new Set(j.discoveredOutpostIds));
+      }
+      if (j.tilePos) {
+        setTilePos(j.tilePos);
+      } else if (j.currentOutpost) {
+        setTilePos(TILE_POS_BY_OUTPOST.get(j.currentOutpost.id) ?? null);
+      }
+      if (Array.isArray(j.tileSettlements)) {
+        setTileSettlements(j.tileSettlements);
+      }
+      if (typeof j.frontierDepth === "number") {
+        setFrontierDepth(
+          Math.min(MAX_FRONTIER_DEPTH, Math.max(2, j.frontierDepth)),
+        );
+      }
+
+      const cc = j.combatCooldown;
+      applyResourcePatch({
+        combatCooldown: cc
+          ? {
+              nextBattleAt:
+                Date.now() + Math.max(0, cc.nextBattleAt - cc.serverNow),
+              cooldownMs: cc.cooldownMs,
+            }
+          : null,
+      });
+      setCoreLoopOn(j.coreLoopOn === true);
+      setHuntStaminaMode(j.huntStaminaMode === true);
+      setOfflinePending(
+        typeof j.offlinePending === "number" ? j.offlinePending : null,
+      );
+
+      const oh = j.offlineHunt;
+      if (oh == null) {
+        setOfflineHunt(null);
+      } else if (
+        oh.active &&
+        typeof oh.endsAt === "number" &&
+        typeof oh.serverNow === "number"
+      ) {
+        setOfflineHunt({
+          active: true,
+          endsAt: Date.now() + Math.max(0, oh.endsAt - oh.serverNow),
+          depth: typeof oh.depth === "number" ? oh.depth : 1,
+        });
+      } else {
+        setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
+      }
+    },
+    [applyResourcePatch],
+  );
+
   const refreshGameState = useCallback(async () => {
     try {
       const res = await fetch("/api/v2/me/state");
       if (res.ok) {
-        const j = (await res.json()) as {
-          character?: {
-            name?: string;
-            gender?: string;
-            level?: number;
-            exp?: number;
-            expToNext?: number;
-            class?: string;
-            classDisplayName?: string | null;
-            element?: string;
-            hp?: number;
-            maxHp?: number;
-            mp?: number;
-            maxMp?: number;
-            hpCharges?: number;
-            mpCharges?: number;
-            stamina?: {
-              current: number;
-              lastUpdatedAt: number;
-              max?: number;
-            };
-            staminaPotions?: number;
-            gold?: number;
-            bankedGold?: number;
-            atRiskGold?: number | null;
-          };
-          currentOutpost?: { id: string; name: string } | null;
-          discoveredOutpostIds?: string[];
-          tilePos?: { col: number; row: number; at?: number } | null;
-          tileSettlements?: TileSettlement[];
-          accountName?: string | null;
-          frontierDepth?: number;
-          proficiency?: {
-            groups?: Record<string, { tier?: number }>;
-            current?: { group?: string; cumLevel?: number };
-          };
-          // 코어루프 활성(은행/골드/직업) — 사냥 throttle 과 독립.
-          coreLoopOn?: boolean;
-          // 사냥이 스태미나 모드인가(스태미나 바/UI 표시).
-          huntStaminaMode?: boolean;
-          // 쿨다운 모드 전용(스태미나 모드/off=null).
-          combatCooldown?: {
-            nextBattleAt: number;
-            cooldownMs: number;
-            serverNow: number;
-          } | null;
-          offlinePending?: number | null;
-          // 유효 전투 스탯(공/방/속 + 명중/회피/치명). 사냥 카드 표기용.
-          combat?: PlayerCombatStats | null;
-          offlineHunt?: {
-            active: boolean;
-            startedAt?: number;
-            endsAt?: number;
-            serverNow?: number;
-            depth?: number;
-          } | null;
-        } | null;
-        if (j?.character?.name) setViewerName(j.character.name);
-        setAccountName(j?.accountName ?? null);
-        if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
-        if (typeof j?.character?.level === "number")
-          setViewerLevel(j.character.level);
-        if (typeof j?.character?.exp === "number") {
-          setViewerExp(Math.max(0, j.character.exp));
-        }
-        if (typeof j?.character?.expToNext === "number") {
-          setViewerExpToNext(Math.max(1, j.character.expToNext));
-        }
-        if (j?.character?.class) setViewerClass(j.character.class);
-        setViewerJobName(
-          typeof j?.character?.classDisplayName === "string"
-            ? j.character.classDisplayName
-            : null,
-        );
-        if (j?.character?.element) setViewerElement(j.character.element);
-        const currentGroup = j?.proficiency?.current?.group ?? "none";
-        setViewerProficiency(
-          currentGroup === "none"
-            ? null
-            : (j?.proficiency?.current?.cumLevel ?? 0),
-        );
-        const currentTier =
-          currentGroup === "none"
-            ? null
-            : (j?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
-        setViewerLevelCap(
-          currentTier == null ? null : effectiveLevelCap(currentTier),
-        );
-        if (typeof j?.character?.stamina?.max === "number") {
-          setStaminaMax(j.character.stamina.max);
-        }
-        if (j?.character?.stamina) {
-          setStamina({
-            current: j.character.stamina.current,
-            lastUpdatedAt: j.character.stamina.lastUpdatedAt,
-          });
-        }
-        if (typeof j?.character?.staminaPotions === "number") {
-          setStaminaPotions(j.character.staminaPotions);
-        }
-        if (typeof j?.character?.hpCharges === "number") {
-          setHpCharges(Math.max(0, j.character.hpCharges));
-        }
-        if (typeof j?.character?.mpCharges === "number") {
-          setMpCharges(Math.max(0, j.character.mpCharges));
-        }
-        if (typeof j?.character?.gold === "number") setGold(j.character.gold);
-        if (typeof j?.character?.bankedGold === "number")
-          setBankedGold(j.character.bankedGold);
-        if (
-          typeof j?.character?.hp === "number" &&
-          typeof j?.character?.maxHp === "number"
-        ) {
-          setHp({
-            hp: j.character.hp,
-            maxHp: j.character.maxHp,
-            anchorMs: Date.now(),
-          });
-        }
-        if (
-          typeof j?.character?.mp === "number" &&
-          typeof j?.character?.maxMp === "number"
-        ) {
-          setMp({ mp: j.character.mp, maxMp: j.character.maxMp });
-        }
-        setPlayerCombat(j?.combat ?? null);
-        if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
-        if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
-          setDiscoveredIds(new Set(j.discoveredOutpostIds));
-        }
-        // 마커 좌표 — 저장된 tilePos 우선, 없으면 현재 거점 칸에서 파생(자유 타일 지도용).
-        if (j?.tilePos) {
-          setTilePos(j.tilePos);
-        } else if (j?.currentOutpost) {
-          setTilePos(TILE_POS_BY_OUTPOST.get(j.currentOutpost.id) ?? null);
-        }
-        if (Array.isArray(j?.tileSettlements)) {
-          setTileSettlements(j.tileSettlements);
-        }
-        if (typeof j?.frontierDepth === "number") {
-          // MAX 캡 — 클라가 캡 밖 깊이를 들고 다니지 않게(서버도 캡하지만 방어).
-          setFrontierDepth(
-            Math.min(MAX_FRONTIER_DEPTH, Math.max(2, j.frontierDepth)),
-          );
-        }
-        // 코어루프 — 전투 쿨다운(서버 시각 → 클라 로컬로 변환, skew 보정), 위험 골드, 오프라인 대기.
-        const cc = j?.combatCooldown;
-        if (cc) {
-          const remaining = Math.max(0, cc.nextBattleAt - cc.serverNow);
-          setCombatCooldown({
-            nextBattleAt: Date.now() + remaining,
-            cooldownMs: cc.cooldownMs,
-          });
-        } else {
-          setCombatCooldown(null);
-        }
-        setCoreLoopOn(j?.coreLoopOn === true);
-        setHuntStaminaMode(j?.huntStaminaMode === true);
-        setOfflinePending(
-          typeof j?.offlinePending === "number" ? j.offlinePending : null,
-        );
-        // 오프라인 사냥 세션 — endsAt(서버) → 클라 로컬로 변환(skew 보정).
-        const oh = j?.offlineHunt;
-        if (oh == null) {
-          setOfflineHunt(null);
-        } else if (
-          oh.active &&
-          typeof oh.endsAt === "number" &&
-          typeof oh.serverNow === "number"
-        ) {
-          const remaining = Math.max(0, oh.endsAt - oh.serverNow);
-          setOfflineHunt({
-            active: true,
-            endsAt: Date.now() + remaining,
-            depth: typeof oh.depth === "number" ? oh.depth : 1,
-          });
-        } else {
-          setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
-        }
-        setAtRiskGold(
-          typeof j?.character?.atRiskGold === "number"
-            ? j.character.atRiskGold
-            : null,
-        );
+        applyGameStateSnapshot((await res.json()) as GameStateSnapshot);
       }
     } catch {
     } finally {
@@ -561,7 +641,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       //   continuation 의 setState 들과 배치되어 한 번에 반영된다.
       setGameStateLoaded(true);
     }
-  }, []);
+  }, [applyGameStateSnapshot]);
 
   useEffect(() => {
     // 비동기 fetch 후 setState 라 cascading render 가 아니지만 린트는 호출 그래프만
@@ -596,15 +676,17 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       typeof j.stamina.current === "number" &&
       typeof j.stamina.lastUpdatedAt === "number"
     ) {
-      setStamina({
-        current: j.stamina.current,
-        lastUpdatedAt: j.stamina.lastUpdatedAt,
+      applyResourcePatch({
+        stamina: {
+          current: j.stamina.current,
+          lastUpdatedAt: j.stamina.lastUpdatedAt,
+        },
       });
     }
     if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
       setDiscoveredIds(new Set(j.discoveredOutpostIds));
     }
-  }, []);
+  }, [applyResourcePatch]);
 
   // 거점 진입 — 낙관적으로 위치를 바꾸고 거점 화면(`/outpost/[id]`)으로 라우팅한 뒤
   // visit-outpost 를 POST. 실패하면 위치를 되돌리고 직전 화면으로 router.back().
@@ -752,8 +834,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           requiredGold?: number;
         } | null;
         if (res.ok) {
-          if (typeof j?.gold === "number") setGold(j.gold);
-          if (typeof j?.bankedGold === "number") setBankedGold(j.bankedGold);
+          applyResourcePatch({
+            gold: typeof j?.gold === "number" ? j.gold : undefined,
+            bankedGold:
+              typeof j?.bankedGold === "number" ? j.bankedGold : undefined,
+          });
           return { ok: true };
         }
         return {
@@ -766,7 +851,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: "network" };
       }
     },
-    [],
+    [applyResourcePatch],
   );
   const foundTile = useCallback(
     async (col: number, row: number, name: string): Promise<boolean> => {
@@ -900,6 +985,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     refreshOccupations,
     refreshGuildId,
     refreshGameState,
+    applyResourcePatch,
     gameStateLoaded,
     frontierDepth,
     setFrontierDepth,

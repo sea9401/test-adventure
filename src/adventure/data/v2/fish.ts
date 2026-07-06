@@ -166,7 +166,7 @@ export const FISH: Record<FishId, Fish> = {
     tier: "common",
     minSize: 2,
     maxSize: 11,
-    description: "투명한 몸에 줄무늬가 비친다. 큰 놈은 제법 씨알이 굵다.",
+    description: "투명한 몸에 줄무늬가 비친다. 큰 놈은 제법 몸집이 크다.",
   },
 
   // === 보통 (7) ===
@@ -415,6 +415,10 @@ export const FISH_TOTAL = FISH_IDS.length;
 
 export function isFishId(id: string): id is FishId {
   return Object.prototype.hasOwnProperty.call(FISH, id);
+}
+
+export function fishImagePath(id: FishId): string {
+  return `/images/fish/${id}.webp`;
 }
 
 export type FishSizeRollOptions = {

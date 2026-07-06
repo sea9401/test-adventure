@@ -103,7 +103,7 @@ function buildCountMap(
 export function V2ShopView({ onBack }: { onBack: () => void }) {
   // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬(이 화면의 me/state·구매 응답)로
   //   추적해 항상 신선하게 유지하고, 앱 전역(은행 패널 등)을 위해 컨텍스트도 함께 동기화한다.
-  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
+  const { coreLoopOn, applyResourcePatch } = useGameState();
   const [gold, setGold] = useState<number>(0);
   const [bankedGold, setBankedGold] = useState<number>(0);
   // 지불 가능 총액 — flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행.
@@ -154,7 +154,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         : null;
       setGold(stateJ?.character?.gold ?? 0);
       setBankedGold(stateJ?.character?.bankedGold ?? 0);
-      syncCtxBanked(stateJ?.character?.bankedGold ?? 0);
+      applyResourcePatch({
+        gold: stateJ?.character?.gold ?? 0,
+        bankedGold: stateJ?.character?.bankedGold ?? 0,
+      });
       const insts = equipJ?.owned ?? [];
       const eqIids = new Set(Object.values(equipJ?.equipped ?? {}));
       setOwnedInsts(insts);
@@ -168,7 +171,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } catch {
       setLoadError(true);
     }
-  }, [syncCtxBanked]);
+  }, [applyResourcePatch]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
@@ -212,14 +215,18 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       if (typeof j.gold === "number") setGold(j.gold);
       if (typeof j.bankedGold === "number") {
         setBankedGold(j.bankedGold);
-        syncCtxBanked(j.bankedGold);
       }
+      applyResourcePatch({
+        gold: typeof j.gold === "number" ? j.gold : undefined,
+        bankedGold:
+          typeof j.bankedGold === "number" ? j.bankedGold : undefined,
+      });
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
       setBusyId(null);
     }
-  }, [syncCtxBanked]);
+  }, [applyResourcePatch]);
 
   // 판매는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 판다.
   // 장착분만 남은 경우(카드는 locked 라 보통 클릭 불가) 서버가 "equipped" 로 거부(#426).
@@ -264,14 +271,17 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         const insts = j.owned ?? [];
         setOwnedInsts(insts);
         setCounts(buildCountMap(insts));
-        if (typeof j.gold === "number") setGold(j.gold);
+        if (typeof j.gold === "number") {
+          setGold(j.gold);
+          applyResourcePatch({ gold: j.gold });
+        }
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
         setBusyId(null);
       }
     },
-    [ownedInsts, equippedIids, refresh],
+    [ownedInsts, equippedIids, refresh, applyResourcePatch],
   );
 
   // 재료는 보유 스택 전량을 한 번에 환금.
@@ -302,13 +312,16 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         `✓ ${mat.name} ×${j.sold?.count ?? 0} 판매 (+${j.sold?.gold ?? 0} G)`,
       );
       setMaterials(j.materials ?? {});
-      if (typeof j.gold === "number") setGold(j.gold);
+      if (typeof j.gold === "number") {
+        setGold(j.gold);
+        applyResourcePatch({ gold: j.gold });
+      }
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [applyResourcePatch]);
 
   const subTabs = mode === "buy" ? SLOT_TABS : SELL_TABS;
 

@@ -61,8 +61,11 @@ export const EVA_PER_LUK = 0.08;
 // 치명타 피해 — 힘 minor (행운은 CRIT_DMG_PER_LUK major).
 export const CRIT_DMG_PER_STR = 0.002;
 // 마법 방어력 — 정신 major + 지능 minor. 마법 데미지 경감.
-export const MAGIC_DEF_PER_SPI = 0.12;
-export const MAGIC_DEF_PER_INT = 0.03;
+// 2026-07-04: 후반 마법몹 피해가 5천 단위로 올라간 반면 기존 마방은 장신구+SPI 합산이
+// 200 안팎에 머물러 방어% 패시브가 거의 체감되지 않았다. damageToDefender 는 비율감산이라
+// 마방도 물리 방어처럼 충분한 절대값을 가져야 한다.
+export const MAGIC_DEF_PER_SPI = 0.52;
+export const MAGIC_DEF_PER_INT = 0.1;
 // 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p). SPI 부활 PR-3b: 치명형 몹/PvP 치명을
 //   완전 봉인하지 못하게 cap(고-spi 도 치명 위협 일부 잔존·과투자 무력화 방지, eva/acc cap 패턴).
 export const CRIT_RESIST_PER_SPI = 0.1;

@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
+import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
 import {
@@ -95,7 +96,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     setTab(itemTabFromParam(tabParam));
   }, [tabParam]);
   const [sortMode, setSortMode] = useState<SortMode>("default");
-  // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모는 서버 권위. 만료 없음).
+  // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   useEffect(() => {
     if (tab !== "consumable") return;
@@ -162,7 +163,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
-  const { refreshGameState } = useGameState();
+  const { refreshGameState, setGold } = useGameState();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -282,6 +283,78 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [refresh],
   );
 
+  // 협동 보스 장비 상자 사용 — 상자 1개 소모 후 장비 인스턴스 1개 획득.
+  const useCoopEquipmentBox = useCallback(
+    async (boxId: string) => {
+      setBusy(boxId);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/use-coop-equipment-box", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ boxId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          equipment?: { name?: string };
+        } | null;
+        if (!j?.ok) {
+          const label =
+            j?.error === "no_box"
+              ? "보유한 상자가 없습니다"
+              : (j?.error ?? `http ${res.status}`);
+          setMsg(`✗ ${label}`);
+          return;
+        }
+        await refresh();
+        setMsg(`✓ ${j.equipment?.name ?? "장비"} 획득`);
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [refresh],
+  );
+
+  // 상급 숙련 교본 사용 — 거래 가능한 협동 보스 소모품. 현재 직업 숙련도만 서버 권위로 올린다.
+  const useCoopMasteryTome = useCallback(async () => {
+    setBusy("coop_mastery_tome");
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/use-coop-mastery-tome", {
+        method: "POST",
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        gained?: number;
+        jobMastery?: number;
+      } | null;
+      if (!j?.ok) {
+        const label =
+          j?.error === "no_tome"
+            ? "보유한 교본이 없습니다"
+            : j?.error === "no_current_job"
+              ? "현재 직업에는 사용할 수 없습니다"
+              : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
+        return;
+      }
+      await refresh();
+      void refreshGameState();
+      setMsg(
+        `✓ 현재 직업 숙련도 +${j.gained ?? COOP_MASTERY_TOME_GAIN}` +
+          (typeof j.jobMastery === "number" ? ` (현재 ${j.jobMastery})` : ""),
+      );
+    } catch (err) {
+      setMsg(`✗ ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }, [refresh, refreshGameState]);
+
   // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
   const applyLock = useCallback(
     async (iid: string, locked: boolean) => {
@@ -342,12 +415,16 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           owned?: V2EquipInstance[];
           soldCount?: number;
           soldGold?: number;
+          gold?: number;
         } | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
         setOwned(j.owned ?? []);
+        if (typeof j.gold === "number") {
+          setGold(j.gold);
+        }
         setMsg(
           `✓ ${j.soldCount ?? 0}개 판매 (+${(j.soldGold ?? 0).toLocaleString()}골드)`,
         );
@@ -357,7 +434,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [owned, equipped],
+    [owned, equipped, setGold],
   );
 
   // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).
@@ -519,6 +596,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             spFruitUsed={spFruitUsed}
             busy={busy}
             onUseSpFruit={useSpFruit}
+            onUseEquipmentBox={useCoopEquipmentBox}
+            onUseMasteryTome={useCoopMasteryTome}
             rareMaps={rareMaps}
           />
         ) : tab === "material" ? (

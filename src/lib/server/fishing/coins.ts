@@ -25,6 +25,11 @@ export type FishingWallet = {
   catchDay?: { date: string; earned: number };
 };
 
+export type FishingCatchCoinProgress = {
+  earned: number;
+  cap: number;
+};
+
 export function walletCoins(raw: unknown): number {
   if (!raw || typeof raw !== "object") return 0;
   const v = (raw as { coins?: unknown }).coins;
@@ -45,6 +50,16 @@ function catchEarnedToday(raw: unknown, dayKey: string): number {
     : 0;
 }
 
+export function fishingCatchCoinProgress(
+  raw: unknown,
+  dayKey: string,
+): FishingCatchCoinProgress {
+  return {
+    earned: Math.min(catchEarnedToday(raw, dayKey), FISHING_CATCH_COIN_DAILY_CAP),
+    cap: FISHING_CATCH_COIN_DAILY_CAP,
+  };
+}
+
 // 잡은 물고기 1마리 코인 적립 — 티어값을 일일 상한 내에서 지급. 비파괴.
 //   raw = 현재 지갑 세이브(잠금 read), tier = 종 티어, dayKey = kstDailyKey.
 //   반환 = 저장할 다음 지갑 + 실제 지급액(awarded). 상한 도달이면 awarded 0.
@@ -52,10 +67,13 @@ export function applyCatchCoin(
   raw: unknown,
   tier: FishTier,
   dayKey: string,
+  bonus: number = 0,
 ): { next: FishingWallet; awarded: number } {
   const coins = walletCoins(raw);
   const earnedToday = catchEarnedToday(raw, dayKey);
-  const tierCoin = FISHING_CATCH_COIN_BY_TIER[tier] ?? 0;
+  const tierCoin =
+    (FISHING_CATCH_COIN_BY_TIER[tier] ?? 0) +
+    Math.max(0, Math.floor(Number(bonus) || 0));
   const awarded = Math.max(
     0,
     Math.min(tierCoin, FISHING_CATCH_COIN_DAILY_CAP - earnedToday),
@@ -79,4 +97,18 @@ export async function readFishingCoins(userId: string): Promise<number> {
       .limit(1)
   )[0];
   return walletCoins(row?.value);
+}
+
+export async function readFishingCatchCoinProgress(
+  userId: string,
+  dayKey: string,
+): Promise<FishingCatchCoinProgress> {
+  const row = (
+    await db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, FISHING_WALLET_KEY)))
+      .limit(1)
+  )[0];
+  return fishingCatchCoinProgress(row?.value, dayKey);
 }

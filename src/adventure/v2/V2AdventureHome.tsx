@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Coins, MapPin } from "@phosphor-icons/react";
+import { Coins, MapPin, Wall } from "@phosphor-icons/react";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -77,12 +77,14 @@ export function V2AdventureHome({
   currentOutpost,
   tilePos,
   tileSettlements,
+  onOpenGridDungeon,
 }: {
   currentOutpost: { id: string; name: string } | null;
   // 서 있는 타일(자유 타일 지도). currentOutpost 는 사냥 base 로 리베라에 고정되므로,
   //   "현 위치" 카드는 tilePos 로 판정해야 빈 땅에서 리베라가 박혀 보이는 버그를 막는다.
   tilePos: { col: number; row: number } | null;
   tileSettlements: TileSettlement[];
+  onOpenGridDungeon: () => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -298,6 +300,14 @@ export function V2AdventureHome({
                 ({loc.col}, {loc.row})
               </dd>
             </dl>
+            <button
+              type="button"
+              onClick={onOpenGridDungeon}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-amber-400"
+            >
+              <Wall size={16} weight="fill" />
+              던전 입장
+            </button>
           </section>
         )}
 

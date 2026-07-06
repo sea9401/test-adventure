@@ -77,6 +77,10 @@ export type BattleLogEntry =
        * 보여줄 때 사용. 레거시(고정교대) 엔진·옛 로그는 미동봉(undefined) → UI 가 턴 단위로 폴백.
        */
       t?: number;
+      /** 서버 집계용 선택 메타. 표시 로직은 text 를 그대로 사용한다. */
+      damage?: number;
+      /** 서버 집계용 선택 메타 — 이 공격 로그가 치명타 피해인지 여부. */
+      critical?: boolean;
     }
   | {
       // 매 턴 종료 시점 (그리고 전투 종료 시) 양쪽 HP 스냅샷. UI 가 텍스트형 막대로 렌더.
@@ -541,6 +545,8 @@ export type PlayerCombat = {
   skillDmgPctPerCast?: number;
   // 마도사 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 마법피해 +%. 0/undefined=미보유.
   enemyMagicVulnPctPerStack?: number;
+  // 약점 노출 누적 확률. undefined 는 기존 직접 주입 테스트/호환을 위해 100%로 처리.
+  enemyMagicVulnApplyChancePct?: number;
   // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
   mpCostReductionPct?: number;
   // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──
@@ -768,6 +774,51 @@ export function applyCounterIfAny(
     };
   }
   return { state: next, ended: false };
+}
+
+// 피격 생존 반격 패시브 — enemyPhase 기본 공격뿐 아니라 몬스터 v2 스킬 피해에도 같은 조건으로 발동.
+export function applyPassiveCounterOnHitIfAny(
+  state: BattleState,
+  player: PlayerCombat,
+): BattleState {
+  const pct = player.passiveCounterChancePct ?? 0;
+  if (
+    pct <= 0 ||
+    state.playerHp <= 0 ||
+    state.enemyHp <= 0 ||
+    Math.random() * 100 >= pct
+  ) {
+    return state;
+  }
+
+  const v2AtkMult = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+  const v2DefMult = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
+  const counterDef = playerFacingEnemyDef(state, player);
+  const dmg = damageBetween(
+    v2AtkMult !== 1 ? Math.floor(player.atk * v2AtkMult) : player.atk,
+    v2DefMult !== 1 ? Math.floor(counterDef * v2DefMult) : counterDef,
+  );
+  const enemyHp = Math.max(0, state.enemyHp - dmg);
+  let next: BattleState = {
+    ...state,
+    enemyHp,
+    log: appendLog(state.log, {
+      kind: "player_attack",
+      text: `[반격] ${state.enemy.name}에게 ${dmg} 반격 피해.`,
+    }),
+  };
+  if (enemyHp <= 0) {
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+      }),
+      phase: "ended",
+      outcome: "win",
+    };
+  }
+  return next;
 }
 
 // 재생 — 플레이어 턴 종료 후 (completedPlayerTurns 증가 후) 호출.
@@ -1550,6 +1601,23 @@ export function applyEnemyV2SkillCast(
       turn: "enemy",
     });
   }
+  const countered =
+    result.enemyDamage > 0 && result.castSkillName
+      ? applyPassiveCounterOnHitIfAny(
+          {
+            ...state,
+            playerHp: nextPlayerHp,
+            enemyHp: nextEnemyHp,
+            log: nextLog,
+          },
+          player,
+        )
+      : null;
+  if (countered) {
+    nextPlayerHp = countered.playerHp;
+    nextEnemyHp = countered.enemyHp;
+    nextLog = countered.log;
+  }
   let nextState: BattleState = {
     ...state,
     playerHp: nextPlayerHp,
@@ -1561,7 +1629,13 @@ export function applyEnemyV2SkillCast(
     playerV2Dots: nextPlayerDots,
     log: nextLog,
   };
-  if (nextState.playerHp <= 0) {
+  if (countered?.phase === "ended") {
+    nextState = {
+      ...nextState,
+      phase: "ended",
+      outcome: countered.outcome,
+    };
+  } else if (nextState.playerHp <= 0) {
     nextState = {
       ...nextState,
       log: appendLog(nextState.log, {
@@ -1629,6 +1703,7 @@ export function applyPlayerV2SkillCast(
       maxMp: state.playerMaxMp,
       classTier: player.classTier,
       // 활성 파생버프(회피/치명/받피감) — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포).
+      selfShieldActive: state.stacks.playerShield > 0,
       selfBuffPctActive: {
         evasion: state.stacks.skillEvasionTurns > 0,
         crit: state.stacks.skillCritTurns > 0,
@@ -1725,10 +1800,16 @@ export function applyPlayerV2SkillCast(
     (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
       ? Math.min(SPELL_STACK_CAP, state.stacks.spellCastCount + 1)
       : state.stacks.spellCastCount;
-  const nextMagicVulnStacks =
+  const magicVulnApplyChancePct = player.enemyMagicVulnApplyChancePct ?? 100;
+  const magicVulnApplied =
     (player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
     result.castSkillId &&
-    result.enemyDamage > 0
+    result.enemyDamage > 0 &&
+    magicVulnApplyChancePct > 0 &&
+    (magicVulnApplyChancePct >= 100 ||
+      Math.random() * 100 < magicVulnApplyChancePct);
+  const nextMagicVulnStacks =
+    magicVulnApplied
       ? Math.min(
           MAGIC_VULN_STACK_CAP,
           state.stacks.enemyMagicVulnStacks + 1,
@@ -1768,6 +1849,8 @@ export function applyPlayerV2SkillCast(
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
         text: `${result.castSkillName}!${skillCritFired ? " [크리티컬]" : ""} ${hit} 피해를 입혔다.`,
+        damage: hit,
+        critical: skillCritFired,
       });
     }
   } else if (skillMissed && result.castSkillName) {
@@ -2213,6 +2296,23 @@ function resolveBattleLegacy(
             turn: "enemy",
           });
         }
+        const countered =
+          result.enemyDamage > 0 && result.castSkillName
+            ? applyPassiveCounterOnHitIfAny(
+                {
+                  ...state,
+                  playerHp: nextPlayerHp,
+                  enemyHp: nextEnemyHp,
+                  log: nextLog,
+                },
+                player,
+              )
+            : null;
+        if (countered) {
+          nextPlayerHp = countered.playerHp;
+          nextEnemyHp = countered.enemyHp;
+          nextLog = countered.log;
+        }
         state = {
           ...state,
           playerHp: nextPlayerHp,
@@ -2226,6 +2326,14 @@ function resolveBattleLegacy(
           log: nextLog,
         };
         // lethal — enemy v2 damage 로 player 사망 시 outcome=lose.
+        if (countered?.phase === "ended") {
+          state = {
+            ...state,
+            phase: "ended",
+            outcome: countered.outcome,
+          };
+          continue;
+        }
         if (state.playerHp <= 0) {
           state = {
             ...state,

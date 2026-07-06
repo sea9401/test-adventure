@@ -18,6 +18,7 @@ export function OutpostAttackPanel({
   busy,
   raidDisabled,
   conquerOutOfRange,
+  conquerDisabled,
   conquerRazes,
   attackLogReload,
   onClaim,
@@ -33,6 +34,7 @@ export function OutpostAttackPanel({
   busy: boolean;
   raidDisabled: { reason: string } | null;
   conquerOutOfRange: boolean;
+  conquerDisabled: { reason: string } | null;
   conquerRazes: boolean;
   attackLogReload: number;
   onClaim: () => void;
@@ -106,7 +108,15 @@ export function OutpostAttackPanel({
                 : "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비대 전원과 건강도 결투 + 성벽 공성, 함락 시 마을 1단계 강등·소유 이전. 한 번에 안 되니 여러 차례 공격해야 함."
           }
           onClick={onConquest}
-          disabled={busy || conquerOutOfRange}
+          disabled={
+            conquerDisabled ??
+            (conquerOutOfRange
+              ? {
+                  reason:
+                    "인접한 우리 영지가 있어야 정복할 수 있어요 — 우리 길드 영지 옆 칸부터 노리세요.",
+                }
+              : busy)
+          }
           loading={busy}
         />
       )}

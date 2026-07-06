@@ -694,6 +694,13 @@
       "when": 1782864000000,
       "tag": "0098_bulletin_guild_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1782907200000,
+      "tag": "0099_coop_boss_mechanic_state",
+      "breakpoints": true
     }
   ]
 }

@@ -5,12 +5,13 @@
 //   누적 데미지로 깎음(1회 공격 = COOP_ATTACK_TURNS 턴 시뮬, 보스가 반격) → 처치 시
 //   기여도 비율 5티어 보상(골드 + 보스 전용 유니크 확률 + 첫 처치 칭호).
 //
-// 옛 솔로 "보스 도전"(#622 파일럿, dungeonBosses.ts)은 이 시스템으로 대체 — 보스 3종의
+// 옛 솔로 "보스 도전"(#622 파일럿, dungeonBosses.ts)은 이 시스템으로 대체 — 기본 보스 3종의
 // 이름/아트/스킬/유니크/칭호 자산은 그대로 협동 보스로 승계(보유 유저 호환).
 // DB 는 v1 협동 인프라(coop_boss_sessions/contributors/attack_log) 재사용 — regionId
 // 컬럼에 CoopBossKindId 를 넣는다(v1 COOP_BOSSES 는 빈 맵이라 cron/respawn 과 충돌 없음).
 
 import type { Monster } from "@/adventure/data/monsters/types";
+import type { BattleLogEntry } from "@/adventure/v2/combat/engine";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
@@ -29,6 +30,15 @@ export const SUMMON_SCROLL_DROP_PCT = 0.5;
 // 사냥 승리 시 소환서 드랍 굴림(순수). rng() ∈ [0,1). 통과 시 1장.
 export function rollSummonScrollDrop(rng: () => number): number {
   return rng() * 100 < SUMMON_SCROLL_DROP_PCT ? 1 : 0;
+}
+
+// 낚시 성공 시 초저확률로 자동 소환되는 이벤트 보스.
+// 성공 챔질 기준 0.02%: 유저 풀이 늘어도 "사건"으로 남는 희귀도.
+export const FISHING_COOP_BOSS_KIND_ID = "abyssal_tyrant";
+export const FISHING_COOP_BOSS_SPAWN_CHANCE = 0.0002;
+
+export function rollFishingCoopBossSpawn(rng: () => number): boolean {
+  return rng() < FISHING_COOP_BOSS_SPAWN_CHANCE;
 }
 
 // === 보상 티어 =========================================================
@@ -196,11 +206,15 @@ export function canAccessCoopBoss(
 // ⚠️ 캘리브 다이얼.
 export const MAX_ACTIVE_PER_KIND = 20;
 
+export const ABYSSAL_BREATH_BREAK_HP_FRACTION = 0.5;
+export const ABYSSAL_BREATH_CRIT_DAMAGE_REQUIRED = 90_000;
+
 // === 보스 정의 =========================================================
 
 export type CoopBossKindId =
   | "mountain_chief"
   | "canyon_predator"
+  | "abyssal_tyrant"
   | "lake_sovereign";
 
 // 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
@@ -215,6 +229,12 @@ export type CoopEnrageStage = {
   defBonus?: number;
   /** 회피율 가산(%p). */
   evasionBonus?: number;
+};
+
+export type CoopConditionalEnrage = {
+  hpFraction: number;
+  normal: CoopEnrageStage;
+  weakened: CoopEnrageStage;
 };
 
 export type CoopBossKind = {
@@ -240,9 +260,83 @@ export type CoopBossKind = {
   statusSkill?: V2MonsterStatusSkillId;
   /** 발악 스테이지 — hpFraction 내림차순 권장(전부 누적 적용). ⚠️ 수치 캘리브 다이얼. */
   enrageStages: CoopEnrageStage[];
+  /** 숨겨진 파훼로 약화 가능한 단일 발악. 산군 HARD/심연어룡 HARD 계열용. */
+  conditionalEnrage?: CoopConditionalEnrage;
   /** 보스 특성 표시 문구(상세/소환 정보 카드) — 스킬·상태이상·발악 요약. */
   traits: string[];
 };
+
+export type CoopMechanicState = {
+  abyssalTyrant?: {
+    breathCritDamage: number;
+    breathOpened: boolean;
+  };
+};
+
+export function parseCoopMechanicState(value: unknown): CoopMechanicState {
+  if (!value || typeof value !== "object") return {};
+  const src = value as {
+    abyssalTyrant?: {
+      breathCritDamage?: unknown;
+      breathOpened?: unknown;
+    };
+  };
+  const breath = src.abyssalTyrant;
+  if (!breath || typeof breath !== "object") return {};
+  return {
+    abyssalTyrant: {
+      breathCritDamage:
+        typeof breath.breathCritDamage === "number" &&
+        Number.isFinite(breath.breathCritDamage)
+          ? Math.max(0, Math.floor(breath.breathCritDamage))
+          : 0,
+      breathOpened: breath.breathOpened === true,
+    },
+  };
+}
+
+export function coopCriticalDamageFromLog(log: readonly BattleLogEntry[]): number {
+  return log.reduce((sum, entry) => {
+    if (entry.kind !== "player_attack") return sum;
+    if (entry.critical !== true) return sum;
+    return sum + Math.max(0, Math.floor(entry.damage ?? 0));
+  }, 0);
+}
+
+export function coopConditionalEnrageWeakened(
+  kindId: CoopBossKindId,
+  state: CoopMechanicState,
+): boolean {
+  return kindId === "abyssal_tyrant" && state.abyssalTyrant?.breathOpened === true;
+}
+
+export function updateCoopMechanicStateAfterAttack(
+  kindId: CoopBossKindId,
+  stateRaw: unknown,
+  args: {
+    bossHpBefore: number;
+    bossMaxHp: number;
+    criticalDamage: number;
+  },
+): CoopMechanicState {
+  const state = parseCoopMechanicState(stateRaw);
+  if (kindId !== "abyssal_tyrant") return state;
+  const maxHp = Math.max(1, args.bossMaxHp);
+  if (args.bossHpBefore / maxHp <= ABYSSAL_BREATH_BREAK_HP_FRACTION) {
+    return state;
+  }
+  const prev = state.abyssalTyrant?.breathCritDamage ?? 0;
+  const next = prev + Math.max(0, Math.floor(args.criticalDamage));
+  return {
+    ...state,
+    abyssalTyrant: {
+      breathCritDamage: next,
+      breathOpened:
+        state.abyssalTyrant?.breathOpened === true ||
+        next >= ABYSSAL_BREATH_CRIT_DAMAGE_REQUIRED,
+    },
+  };
+}
 
 // 보스 베이스 — 옛 dungeonBosses.ts(#622 파일럿) 승계 + 협동 레이드 킷(#715).
 // phaseTrigger(시뮬 내부 HP 비율 트리거)는 폐기 — 시뮬이 전역 잔여 HP 에서 시작하므로
@@ -327,10 +421,34 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   v2MaxMp: 105,
 };
 
+const ABYSSAL_TYRANT_BASE: Monster = {
+  name: "심연어룡",
+  tags: ["beast"],
+  image: "/images/monster/deepseamonster.webp",
+  element: "water",
+  hp: 840,
+  atk: 40,
+  def: 16,
+  spd: 17,
+  exp: 120,
+  skill: {
+    kind: "pierce",
+    name: "심해 돌진",
+    armorPierce: 16,
+  },
+  armorVulnerable: 0.3,
+  playerDefVulnerable: 0.3,
+  dropQualityBias: 3,
+  onDefeatTitleId: "v2_boss_abyssal",
+  v2Skills: { learned: ["mob_arcane_nova"], equipped: ["mob_arcane_nova"] },
+  v2MaxMp: 120,
+};
+
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현 3종(HP ×2 리워크): 30k→6h · 80k→16h · 200k→24h(캡). HP 2배라 토벌 시간도 비례 확대.
+// 현 보스(HP ×2 리워크): 30k→6h · 80k→16h · 200k→24h(캡).
+// HP 2배라 토벌 시간도 비례 확대.
 export const COOP_DURATION_HP_PER_HOUR = 5_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
@@ -351,8 +469,7 @@ export function coopBossDurationLabel(kind: CoopBossKind): string {
   return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
 }
 
-// 3단 사다리 — 소환서 10/15/20장, 시뮬 스탯은 깊이 12/24/42 스케일(상위 보스일수록
-// 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·보상은 ⚠️ 라이브 캘리브.
+// 기본 3단 사다리 + 낚시 이벤트 보스. 공유 HP·보상은 ⚠️ 라이브 캘리브.
 // 보상 = SP 열매뿐(COOP_SP_FRUIT_CHANCE·티어별 확률 굴림). 골드·유니크·칭호 보상 폐지(2026-06-26).
 export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   mountain_chief: {
@@ -430,6 +547,40 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(회피·공격력)",
     ],
   },
+  abyssal_tyrant: {
+    id: "abyssal_tyrant",
+    name: "심연어룡",
+    desc: "낚싯줄 아래 어둠을 찢고 올라오는 거대한 어룡. 거품과 해류를 몰아치며 전장을 휘젓는다.",
+    scrollCost: 30,
+    sharedMaxHp: 600_000,
+    anchorDepth: 60,
+    base: ABYSSAL_TYRANT_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_abyssal",
+    enrageStages: [],
+    conditionalEnrage: {
+      hpFraction: ABYSSAL_BREATH_BREAK_HP_FRACTION,
+      normal: {
+        hpFraction: ABYSSAL_BREATH_BREAK_HP_FRACTION,
+        note: "심연어룡이 심해의 수압을 통째로 끌어올린다! (공격력·방어력·회피 상승)",
+        atkMult: 1.35,
+        defBonus: 12,
+        evasionBonus: 8,
+      },
+      weakened: {
+        hpFraction: ABYSSAL_BREATH_BREAK_HP_FRACTION,
+        note: "갈라진 아가미 사이로 심해의 수압이 새어나간다. (공격력·방어력 소폭 상승)",
+        atkMult: 1.15,
+        defBonus: 8,
+      },
+    },
+    traits: [
+      "심해 돌진 — 방어 관통",
+      "비전 해일 — 제한된 MP로 강한 마법 피해",
+      "낚시 이벤트 — 챔질 성공 시 0.02% 확률로 출현",
+      "숨구멍 — HP 50% 전까지 누적 치명타 피해가 충분하면 수압 발악 약화",
+    ],
+  },
   lake_sovereign: {
     id: "lake_sovereign",
     name: "호수의 괴물",
@@ -492,6 +643,7 @@ export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
 export function coopBossForBattle(
   kind: CoopBossKind,
   currentHp: number,
+  options: { conditionalEnrageWeakened?: boolean } = {},
 ): { monster: Monster; enrageNotes: string[] } {
   // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
   //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
@@ -502,6 +654,16 @@ export function coopBossForBattle(
   let def = scaled.def;
   let evasion = scaled.evasionPct ?? 0;
   const enrageNotes: string[] = [];
+  const conditional = kind.conditionalEnrage;
+  if (conditional && frac <= conditional.hpFraction) {
+    const stage = options.conditionalEnrageWeakened
+      ? conditional.weakened
+      : conditional.normal;
+    if (stage.atkMult) atk = Math.round(atk * stage.atkMult);
+    if (stage.defBonus) def += stage.defBonus;
+    if (stage.evasionBonus) evasion += stage.evasionBonus;
+    enrageNotes.push(stage.note);
+  }
   for (const stage of kind.enrageStages) {
     if (frac > stage.hpFraction) continue;
     if (stage.atkMult) atk = Math.round(atk * stage.atkMult);
@@ -547,7 +709,11 @@ export function coopEnrageStatus(
   hpFraction: number,
 ): CoopEnrageStatus {
   // 내림차순(임계 높은 = 먼저 발동) — 트래커 표시 순서와 일치.
-  const sorted = [...kind.enrageStages].sort(
+  const conditionalStage = kind.conditionalEnrage?.normal;
+  const sorted = [
+    ...(conditionalStage ? [conditionalStage] : []),
+    ...kind.enrageStages,
+  ].sort(
     (a, b) => b.hpFraction - a.hpFraction,
   );
   const stages = sorted.map((stage) => ({

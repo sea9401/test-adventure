@@ -358,7 +358,7 @@ describe("spMasteryProgressForCumLevel — 직업군 정복 진행도 표시용"
   });
 });
 
-describe("lossTaxOf — 패배 세금 (순수, 보유 한도 클램프)", () => {
+describe("lossTaxOf — 패배 페널티 (순수, 보유 한도 클램프)", () => {
   it("정상 — atRiskGold 의 절반(LOSS_TAX_RATE)", () => {
     expect(lossTaxOf(100_000, 100_000)).toEqual({
       tax: 50_000,
@@ -374,7 +374,7 @@ describe("lossTaxOf — 패배 세금 (순수, 보유 한도 클램프)", () => 
     expect(lossTaxOf(100_000, 0)).toEqual({ tax: 0, nextHeld: 0 });
   });
 
-  it("atRiskGold 0(최근 승리 없음) = 세금 0", () => {
+  it("atRiskGold 0(최근 승리 없음) = 소실 0", () => {
     expect(lossTaxOf(0, 100_000)).toEqual({ tax: 0, nextHeld: 100_000 });
   });
 

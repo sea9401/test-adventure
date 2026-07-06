@@ -55,7 +55,7 @@ export function V2DungeonList({
       ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
       : null;
 
-  // 보유 레어맵 — 마운트 1회 조회(판수 소모는 입장 후 서버 권위. 만료 없음).
+  // 보유 레어맵 — 마운트 1회 조회(판수 소모와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   useEffect(() => {
     if (!onSelectRareMap) return;

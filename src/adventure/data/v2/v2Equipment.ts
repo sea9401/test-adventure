@@ -3,12 +3,12 @@
 // "갈아엎을수도있으니까" — 라이브 ITEMS catalog 와 분리해 v2_ 접두어로 자체 풀.
 // 저장 위치: 별 save key `equipment.v2` (character.v2.equipped 와 충돌 X).
 //
-// PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 무게(weight) / 옵션(options)** 으로
+// PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 옵션(options)** 중심으로
 // 통합 (옛 atk/def/matk 직접표기 + 6스탯 token 폐기). 효과는 **슬롯별 분기**(derive):
 //   - 무기: 위력 → weaponType 별 공격력. 지팡이=마법 공격력, 그 외=물리 공격력.
 //   - 갑옷/장갑/신발: 위력 → 물리 방어력 (물리 방어선 3슬롯).
 //   - 반지/목걸이: 위력 → 마법 방어력 (장신구선 2슬롯).
-//   - 무게 → 속도 −(선형). 빌드 트레이드오프(중갑 = 느림). 장갑·신발·장신구는 가볍다.
+//   - 무거운 장비 트레이드오프는 숨은 무게 대신 options.spd 음수로 직접 표시한다.
 //   - 옵션(crit/eva/mp/hp) → 위력 외 flavor 차별화. derive 결과 player 에 후-가산.
 //     장갑=치명 / 신발=회피 / 반지=치명 / 목걸이=MP 로 슬롯 시그니처를 가른다.
 // 스탯 정체성(힘/민/지…)은 이제 **훈련 분배 + 직업**에서 나온다 — 장비는 스탯 token 을 안 준다.
@@ -43,7 +43,7 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
 
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
@@ -130,6 +130,9 @@ export type V2EquipmentId =
   | "v2_boss_canyon_boots"
   | "v2_boss_lake_maul"
   | "v2_boss_lake_gloves"
+  | "v2_boss_abyssal_armor"
+  | "v2_boss_abyssal_ring"
+  | "v2_boss_abyssal_necklace"
   // 마른 협곡 밴드 드랍 (깊이 7~12, T4) — 무기 4종 + 마른땅 갑주 세트.
   | "v2_canyon_greatsword"
   | "v2_canyon_staff"
@@ -151,7 +154,7 @@ export type V2EquipmentId =
   | "v2_lake_frost_boots"
   | "v2_lake_chill_ring"
   | "v2_lake_chill_necklace"
-  // 심층 동굴 밴드 드랍 (밴드 C, 깊이 19~24, T6).
+  // 심층 동굴 밴드 드랍 (밴드 C, 깊이 19~24, T5).
   | "v2_cave_greatsword"
   | "v2_cave_staff"
   | "v2_cave_bow"
@@ -172,7 +175,7 @@ export type V2EquipmentId =
   | "v2_cave_ruin_gloves"
   | "v2_cave_focus_ring"
   // 추가 2피스 세트 (밴드 드랍) — 장신구 외 부위·크로스 조합, 무기 비포함.
-  // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 25~30, T7).
+  // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 25~30, T5).
   | "v2_sanctum_greatsword"
   | "v2_sanctum_staff"
   | "v2_sanctum_bow"
@@ -184,7 +187,7 @@ export type V2EquipmentId =
   | "v2_sanctum_arcana_necklace"
   | "v2_sanctum_anchor_armor"
   | "v2_sanctum_nova_ring"
-  // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 31~36, T8).
+  // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 31~36, T5).
   | "v2_swamp_greatsword"
   | "v2_swamp_staff"
   | "v2_swamp_bow"
@@ -196,7 +199,7 @@ export type V2EquipmentId =
   | "v2_swamp_heart_necklace"
   | "v2_swamp_mire_boots"
   | "v2_swamp_bruiser_armor"
-  // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 37~42, T9).
+  // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 37~42, T5).
   | "v2_den_greatsword"
   | "v2_den_staff"
   | "v2_den_bow"
@@ -209,7 +212,7 @@ export type V2EquipmentId =
   | "v2_den_mauler_gloves"
   | "v2_den_ghost_boots"
   | "v2_den_hide_armor"
-  // 검은 왕도 밴드 드랍 (밴드 G, 깊이 43~48, T10) — 태그 세트(2/3단계) 첫 적용.
+  // 검은 왕도 밴드 드랍 (밴드 G, 깊이 43~48, T5) — 태그 세트(2/3단계) 첫 적용.
   | "v2_throne_greatsword"
   | "v2_throne_staff"
   | "v2_throne_bow"
@@ -222,7 +225,7 @@ export type V2EquipmentId =
   | "v2_throne_shadow_boots"
   | "v2_throne_void_ring"
   | "v2_throne_royal_necklace"
-  // 붉은 벌판 밴드 드랍 (밴드 H, 깊이 49~54, T11).
+  // 붉은 벌판 밴드 드랍 (밴드 H, 깊이 49~54, T5).
   | "v2_redfield_greatsword"
   | "v2_redfield_staff"
   | "v2_redfield_bow"
@@ -235,7 +238,7 @@ export type V2EquipmentId =
   | "v2_redfield_ash_boots"
   | "v2_redfield_ember_ring"
   | "v2_redfield_banner_necklace"
-  // 백골 고원 밴드 드랍 (밴드 I, 깊이 55~60, T12).
+  // 백골 고원 밴드 드랍 (밴드 I, 깊이 55~60, T5).
   | "v2_plateau_greatsword"
   | "v2_plateau_staff"
   | "v2_plateau_bow"
@@ -280,7 +283,7 @@ export type V2EquipmentId =
   | "v2_plateau_sig_rider_boots"
   | "v2_plateau_sig_cairn_crown";
 
-// 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
+// 옵션 — 위력 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
 //   mp, hp, spd: flat 정수
 //   critMult: 백분의 일(×) 정수 — 100 = +1.0× 치명피해. derive 에서 /100 환산(예 30 → +0.30×).
@@ -333,9 +336,9 @@ export type V2Equipment = {
   description: string;
   /** 위력 — 슬롯별 분기(무기=weaponType 별 공격력 / 방어구=물방 / 장신구=마방). 항상 ≥ 1. */
   power: number;
-  /** 무게 — 속도 −(선형, derive). 0 = 패널티 없음(장신구·경갑). */
+  /** 옛 세이브/굴림 호환 필드. 신규 카탈로그는 0, 실제 페널티는 options.spd 음수로 표현. */
   weight: number;
-  /** flavor 옵션 — 위력/무게 외 부가 효과. 없으면 생략. */
+  /** flavor 옵션 — 위력 외 부가 효과. 없으면 생략. */
   options?: V2EquipOptions;
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
@@ -360,25 +363,18 @@ export type V2Equipment = {
   signature?: SignatureEffect;
 };
 
-// 마을 상점 판매가 — T1~T3 는 스타터 곡선, T4+ 는 프론티어 밴드 장비 판매가.
+// 마을 상점 판매가 — T1~T3 는 스타터 곡선, T4~T5 는 프론티어 밴드 장비 판매가.
 // 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
 //   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
 //   T3 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
 // 2026-06-07 티어 1/3/5 → 1/2/3 리넘버(표기 숨김 후 연속번호). 곡선·매그니튜드는 불변(키만 리키).
-// 2026-06-30 프론티어 드랍을 T4~T12로 재정립. 판매가는 T3 이후 ×2 완만 램프.
+// 장비 티어는 T1~T5만 사용한다. 프론티어/하드 보스/후반 밴드는 모두 T5 안에서 수치와 획득처로 구분한다.
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 300,
   2: 10800,
   3: 388800,
   4: 777600,
   5: 1555200,
-  6: 3110400,
-  7: 6220800,
-  8: 12441600,
-  9: 24883200,
-  10: 49766400,
-  11: 99532800,
-  12: 199065600,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -610,7 +606,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   },
   {
     id: "swamp_heart",
-    name: "늪심장 장신구",
+    name: "늪의 심장 장신구",
     pieces: ["v2_swamp_heart_ring", "v2_swamp_heart_necklace"],
     bonus: { hp: 100, eva: 10 },
   },
@@ -681,6 +677,17 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
 ];
 
 export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
+  {
+    id: "abyssal_current",
+    name: "심연 해류",
+    thresholds: [
+      { count: 2, bonus: { hp: 280, mp: 140, magicDef: 28, critResist: 4 } },
+      {
+        count: 3,
+        bonus: { hp: 420, mp: 220, magicDef: 42, crit: 4, spd: 6, critResist: 8 },
+      },
+    ],
+  },
   {
     id: "artisan_crafted",
     name: "장인표 장비",
@@ -870,25 +877,20 @@ export function v2EquipPowerLabel(item: V2Equipment): string {
   return "방어력";
 }
 
-// 무게 표시·체감 스케일 — 카탈로그 원시 무게가 SPD(다중공격·템포) 가치에 비해 너무 작아
-//   "옵션이 있긴 한가" 싶을 만큼 미미했다(오너 피드백). 원시 무게를 슬롯별 계수로 키운다:
-//   일반 장비 ×2, 무기는 원시 무게가 과하게 가벼워 ×4(별도·더 무겁게). 속도 페널티는 그대로
-//   무게×WEIGHT_SPD_PENALTY 라 "표시 무게 1 = 속도 −2" 직관이 유지된다(체감만 비례 확대).
-//   카탈로그 값·굴림은 불변 — 단일 다이얼(per-item churn·기존 보유템 불일치 회피). effectiveStats
-//   상류에서 키우므로 신규/기존(굴림) 아이템이 동일하게 적용된다. 무게는 전투력 점수에 미산입이라
-//   순수 속도 트레이드오프(파워 인플레 없음).
+// 무게는 옛 세이브/굴림 호환용 필드로만 남긴다. 실제 전투·표시는 속도 옵션(spd)으로 직접
+// 드러낸다. 신규 카탈로그는 export 단계에서 weight=0 으로 정규화된다.
 export const EQUIP_WEIGHT_SCALE = 2;
 export const WEAPON_WEIGHT_SCALE = 4;
 export function scaledEquipWeight(item: V2Equipment, rawWeight: number): number {
-  return (
-    rawWeight * (item.slot === "weapon" ? WEAPON_WEIGHT_SCALE : EQUIP_WEIGHT_SCALE)
-  );
+  void item;
+  void rawWeight;
+  return 0;
 }
 
 // 적용 스탯 — 개체 굴림(V2EquipRoll) 있으면 그 값, 없으면 카탈로그(상점 구매·옛 데이터·옵션
 // 없는 아이템). 옵션은 **카탈로그 키로 스코프 + per-key 병합** — 카탈로그에 없는 옵션은
 // (손상/변조 세이브라도) 주입 안 하고, 카탈로그 옵션이 굴림에서 누락돼도 떨어뜨리지 않음.
-// 무게는 scaledEquipWeight 로 키워 반환(표시·derive 공통) — 카탈로그/굴림 원시값은 불변.
+// 무게는 더 이상 적용하지 않으며 항상 0 으로 반환한다.
 // derive·표시·UI 공용 단일 source (V2EquipRoll 타입은 아래에 선언, 타입 호이스팅으로 참조 가능).
 export function effectiveStats(
   item: V2Equipment,
@@ -897,7 +899,7 @@ export function effectiveStats(
   if (!roll) {
     return {
       power: item.power,
-      weight: scaledEquipWeight(item, item.weight),
+      weight: 0,
       options: item.options,
     };
   }
@@ -913,7 +915,7 @@ export function effectiveStats(
   }
   return {
     power: roll.power,
-    weight: scaledEquipWeight(item, roll.weight),
+    weight: 0,
     options,
   };
 }
@@ -948,7 +950,7 @@ export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
   );
 }
 
-// 장비 → {라벨, 값} 행 배열. 기본 전투 스탯 → 무게 → 옵션 순. 0 값은 건너뜀.
+// 장비 → {라벨, 값} 행 배열. 기본 전투 스탯 → 옵션 순. 0 값은 건너뜀.
 // roll 주면 개체 굴림값 표시(보유템), 없으면 카탈로그(상점·제작 미리보기). 단일 source.
 export function v2EquipStatRows(
   item: V2Equipment,
@@ -963,24 +965,22 @@ export function v2EquipStatRows(
   if (power) {
     out.push({ label: v2EquipPowerLabel(item), value: `+${power}` });
   }
-  if (eff.weight) {
-    out.push({ label: "무게", value: `${eff.weight}` });
-  }
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) {
     const v = opts[k];
     if (!v) continue;
     // critMult 는 백분의 일 정수 저장(30 = +0.30×) → 배수 표기. 그 외 %/flat.
+    const sign = v > 0 ? "+" : "";
     const value =
       k === "critMult"
-        ? `+${(v / 100).toFixed(2)}×`
-        : `+${v}${OPTION_PERCENT_KEYS.has(k) ? "%" : ""}`;
+        ? `${sign}${(v / 100).toFixed(2)}×`
+        : `${sign}${v}${OPTION_PERCENT_KEYS.has(k) ? "%" : ""}`;
     out.push({ label: OPTION_LABELS[k], value });
   }
   return out;
 }
 
-// 표시 문자열 배열 ("공격력 +14", "무게 2", "치명 +2%" 등) — 한 줄 인라인용.
+// 표시 문자열 배열 ("공격력 +14", "치명 +2%" 등) — 한 줄 인라인용.
 // rows 를 합쳐 단일 source 유지.
 export function v2EquipStatEntries(item: V2Equipment, roll?: V2EquipRoll): string[] {
   return v2EquipStatRows(item, roll).map((r) => `${r.label} ${r.value}`);
@@ -994,26 +994,22 @@ export type V2EquipCompareRow = {
   label: string;
   /** 후보 표시값(없으면 "—") — v2EquipStatRows 와 동일 포맷. */
   value: string;
-  /** 증감 표시("" = 동일). 무게만 감소가 이득이라 부호는 그대로, 색은 better 로 결정. */
+  /** 증감 표시("" = 동일). */
   deltaText: string;
-  /** 1 = 이득(초록) · -1 = 손해(빨강) · 0 = 동일. 무게는 낮을수록 이득(lowerBetter). */
+  /** 1 = 이득(초록) · -1 = 손해(빨강) · 0 = 동일. */
   better: 0 | 1 | -1;
 };
 
-// 비교 행 순서 + 무게만 "낮을수록 이득" — 전투 스탯/옵션은 높을수록 이득.
-const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
-  { label: "공격력", lowerBetter: false },
-  { label: "마법 공격력", lowerBetter: false },
-  { label: "방어력", lowerBetter: false },
-  { label: "마법 방어력", lowerBetter: false },
-  { label: "무게", lowerBetter: true },
-  ...V2_EQUIP_OPTION_KEYS.map((k) => ({
-    label: OPTION_LABELS[k],
-    lowerBetter: false,
-  })),
+// 비교 행 순서 — 전투 스탯/옵션은 높을수록 이득.
+const COMPARE_FIELD_ORDER: string[] = [
+  "공격력",
+  "마법 공격력",
+  "방어력",
+  "마법 방어력",
+  ...V2_EQUIP_OPTION_KEYS.map((k) => OPTION_LABELS[k]),
 ];
 
-// 라벨별 수치(증감 계산용) — effectiveStats 의 기본 전투 스탯(강화 반영)·무게·옵션을 평탄화.
+// 라벨별 수치(증감 계산용) — effectiveStats 의 기본 전투 스탯(강화 반영)·옵션을 평탄화.
 function compareNumeric(
   item: V2Equipment,
   roll?: V2EquipRoll,
@@ -1023,7 +1019,6 @@ function compareNumeric(
   const eff = effectiveStats(item, roll);
   const out: Record<string, number> = {
     [v2EquipPowerLabel(item)]: powerWithBonuses(eff.power, enhance, craftQuality),
-    무게: eff.weight,
   };
   const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) out[OPTION_LABELS[k]] = opts[k] ?? 0;
@@ -1082,13 +1077,12 @@ export function v2EquipCompareRows(
     equipped.craftQuality,
   );
   const out: V2EquipCompareRow[] = [];
-  for (const { label, lowerBetter } of COMPARE_FIELD_ORDER) {
+  for (const label of COMPARE_FIELD_ORDER) {
     const cv = candN[label] ?? 0;
     const ev = eqN[label] ?? 0;
     if (cv === 0 && ev === 0) continue;
     const delta = cv - ev;
-    const better: 0 | 1 | -1 =
-      delta === 0 ? 0 : lowerBetter ? (delta < 0 ? 1 : -1) : delta > 0 ? 1 : -1;
+    const better: 0 | 1 | -1 = delta === 0 ? 0 : delta > 0 ? 1 : -1;
     out.push({
       label,
       value: candDisplay.get(label) ?? "—",
@@ -1105,7 +1099,7 @@ export function v2EquipCompareRows(
 // 라우트(GET·equip·grant) 와 derivePlayerCombatV2 가 공유한다. v2Equipment.ts 가
 // catalog 의 단일 source 이므로 파싱도 여기에 두는 게 자연스럽다.
 
-// 획득(드랍/제작) 시 굴린 개체 스탯 — 카탈로그 기준값 ±편차(위력·무게·옵션). 등급/이름 없음.
+// 획득(드랍/제작) 시 굴린 개체 스탯 — 카탈로그 기준값 ±편차(위력·옵션). 등급/이름 없음.
 // 상점 구매는 굴림 없음(정가 고정). per-id 저장 — id당 한 굴림 공유,
 // 0개 되면 삭제(재획득 시 재굴림). 굴림 없으면 derive·UI 가 카탈로그 값 사용.
 export type V2EquipRoll = {
@@ -1223,7 +1217,7 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "necklace",
 ]);
 
-// 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
+// 굴림 1건 정규화 — power(≥1)/weight(호환용 ≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
 // 거래소 buy/cancel 의 payload 복원에도 쓰여 공개(굴림 방어 파스 단일 출처).
 export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
   if (!val || typeof val !== "object") return undefined;
@@ -1413,8 +1407,8 @@ export function resolveEquippedForAggregate(
     const inst = byIid.get(iid);
     if (!inst) continue;
     eq[slot] = inst.id;
-    // 강화/제작품질 — 위력만 배율(옵션·무게 불변)을 합성 roll 로 내려보냄. aggregate/엔진 무수정.
-    // roll 없는 개체(상점 구매 등)도 카탈로그 위력 기준으로 강화 반영(weight 는 카탈로그,
+    // 강화/제작품질 — 위력만 배율(옵션 불변)을 합성 roll 로 내려보냄. aggregate/엔진 무수정.
+    // roll 없는 개체(상점 구매 등)도 카탈로그 위력 기준으로 강화 반영(weight 는 호환용,
     // options 미지정 = effectiveStats 가 카탈로그 옵션 사용 — 미강화와 동일 의미).
     const bonusPct = (inst.enhance?.bonusPct ?? 0) + (inst.craftQuality?.bonusPct ?? 0);
     if (bonusPct > 0) {

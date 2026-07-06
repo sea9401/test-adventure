@@ -160,7 +160,7 @@ export function UsersTab() {
       else if (j.equipmentOwned) parts.push("장비 지급");
       if (j.staminaRefilled != null) parts.push(`스태미나 ${j.staminaRefilled}`);
       showToast(
-        `v2 지급 완료: ${parts.join(", ") || "변경 없음"}. 대상 유저 새로고침 필요.`,
+        `지급 완료: ${parts.join(", ") || "변경 없음"}. 대상 유저 새로고침 필요.`,
       );
       await loadSaves(selected.id);
     } catch (e) {

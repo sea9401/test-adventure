@@ -24,12 +24,13 @@ export default function DungeonFloorPage() {
     currentOutpost,
     viewerName,
     viewerGender,
+    viewerClass,
     viewerExp,
     viewerExpToNext,
     playerSubtitle,
     viewerProficiency,
-    setViewerProficiency,
     stamina,
+    staminaMax,
     setStamina,
     hpCharges,
     mpCharges,
@@ -41,10 +42,9 @@ export default function DungeonFloorPage() {
     frontierDepth,
     setFrontierDepth,
     refreshGameState,
+    applyResourcePatch,
     combatCooldown,
     setCombatCooldown,
-    setAtRiskGold,
-    setGold,
     offlineHunt,
   } = useGameState();
 
@@ -78,12 +78,14 @@ export default function DungeonFloorPage() {
       playerSubtitle={playerSubtitle}
       playerProficiency={viewerProficiency}
       stamina={stamina}
+      staminaMax={staminaMax}
       setStamina={setStamina}
       hp={hp}
       setHp={setHp}
       mp={mp}
       setMp={setMp}
       playerCombat={playerCombat}
+      playerPrimaryAttack={viewerClass === "mage" ? "magic" : "physical"}
       onSeekHealing={() => router.push("/town/healing")}
       // 뒤로 = 테마 선택이 아니라 그 테마의 깊이 선택으로(들판1→들판2 빠른 이동). 현재 깊이가
       //   속한 테마 블록의 첫 깊이를 openDepth 로 넘겨 해당 테마를 펼친 채 목록을 연다.
@@ -96,9 +98,11 @@ export default function DungeonFloorPage() {
       rareMapIid={rareMapIid}
       combatCooldown={combatCooldown}
       setCombatCooldown={setCombatCooldown}
-      setAtRiskGold={setAtRiskGold}
-      onGoldChange={setGold}
-      onProficiencyChange={setViewerProficiency}
+      setAtRiskGold={(n) => applyResourcePatch({ atRiskGold: n })}
+      onGoldChange={(n) => applyResourcePatch({ gold: n })}
+      onProficiencyChange={(n) =>
+        applyResourcePatch({ viewerProficiency: n })
+      }
       offlineHunt={offlineHunt}
       onRefresh={refreshGameState}
     />

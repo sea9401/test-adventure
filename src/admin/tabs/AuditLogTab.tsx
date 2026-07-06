@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useAdmin } from "../AdminContext";
 import { useAsyncData } from "@/lib/useAsyncData";
 import { Button } from "../ui/Field";
+import { adminActionLabel, formatAdminAuditDetail } from "../displayNames";
 
 type Entry = {
   id: number;
@@ -77,16 +78,16 @@ export function AuditLogTab() {
                   <td className="px-2 py-1.5 text-zinc-600 dark:text-zinc-300">
                     {e.adminEmail}
                   </td>
-                  <td className="px-2 py-1.5 font-mono text-zinc-800 dark:text-zinc-100">
-                    {e.action}
+                  <td className="px-2 py-1.5 font-medium text-zinc-800 dark:text-zinc-100">
+                    {adminActionLabel(e.action)}
                   </td>
                   <td className="px-2 py-1.5 text-zinc-600 dark:text-zinc-300">
                     {e.targetUserId
                       ? (e.targetGameName ?? e.targetUserId.slice(0, 8))
                       : "—"}
                   </td>
-                  <td className="px-2 py-1.5 font-mono text-[10px] text-zinc-400">
-                    {e.detail ? JSON.stringify(e.detail) : "—"}
+                  <td className="px-2 py-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {formatAdminAuditDetail(e.detail)}
                   </td>
                 </tr>
               ))}

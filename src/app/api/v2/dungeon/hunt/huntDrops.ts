@@ -106,7 +106,7 @@ export function rollHuntDrops(params: {
     // ownedSet 은 rollUniqueDrop 의 유니크 dedup 용(유니크는 종류당 1개). 정규 rollEquipDrop
     // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
     const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
-    // 정규 장비 드랍: 스타터(1~12)=rollEquipDrop(6%), 프론티어 밴드(13~30)=흔한 밴드 장비
+    // 정규 장비 드랍: 스타터(깊이 1~6)=rollEquipDrop, 프론티어 밴드=흔한 밴드 장비
     //   (rollBandCommonDrop, 로컬 깊이 램프 2~4%). rollEquipDrop 이 13+ 에서 null → ?? 로 밴드
     //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
     droppedEquipment =

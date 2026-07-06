@@ -31,9 +31,13 @@ export const V2_TILE_PRODUCTION =
 
 // ── 건강도 (war vigor) — 순수 헬퍼는 warVigor.ts ──────────────────────────
 // 0(소진)→1(만충)까지 걸리는 시간. 치료소 방문 시 경과만큼 선형 회복(lazy·크론 불요).
-export const WAR_VIGOR_FULL_RECOVERY_MS = 7 * 60_000; // 7분 만충(빠른 회복)
+export const WAR_VIGOR_FULL_RECOVERY_MS = 10 * 60_000; // 10분 만충(빠른 회복)
+// 전쟁 공격(약탈/정복) 자체 쿨타임 — 유효 공격 행동마다 저장(save.lastWarAttackAt).
+export const WAR_ATTACK_COOLDOWN_MS = 2 * 60_000; // 2분
+// 공격 가능 최소 건강도. HP/MP 중 하나라도 이 값 미만이면 공격 불가.
+export const WAR_ATTACK_MIN_VIGOR_FRAC = 0.5;
 // 온천(hotspring) 지형 — 인접 정착지를 보유한 길드의 길드원은 회복 분모를 이 값으로 나눠 가속.
-//   2 = ×2(7분→3.5분). 과하면 1.5. 후킹 = war-vigor/recover · heal 라우트(tileHotspring.ts).
+//   2 = ×2(10분→5분). 과하면 1.5. 후킹 = war-vigor/recover · heal 라우트(tileHotspring.ts).
 export const HOTSPRING_VIGOR_RECOVERY_DIVISOR = 2;
 
 // ── 약탈 / 정복 (PR-3) ────────────────────────────────────────────────────

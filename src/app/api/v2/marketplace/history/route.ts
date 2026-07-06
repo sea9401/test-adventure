@@ -2,7 +2,10 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { MARKETPLACE_V2_HISTORY_LIMIT } from "@/lib/server/marketplaceV2";
+import {
+  MARKETPLACE_V2_HISTORY_LIMIT,
+  currentMarketplaceItemName,
+} from "@/lib/server/marketplaceV2";
 
 // GET /api/v2/marketplace/history — 최근 체결된 거래(거래소 "최근 거래" 탭).
 //   status='sold' 매물을 체결 시각(closedAt) 최신순, 최대 MARKETPLACE_V2_HISTORY_LIMIT.
@@ -34,5 +37,15 @@ export async function GET() {
     .orderBy(desc(marketplaceListingsV2.closedAt))
     .limit(MARKETPLACE_V2_HISTORY_LIMIT);
 
-  return Response.json({ ok: true, trades: rows });
+  return Response.json({
+    ok: true,
+    trades: rows.map((row) => ({
+      ...row,
+      itemName: currentMarketplaceItemName(
+        row.kind,
+        row.itemId,
+        row.itemName,
+      ),
+    })),
+  });
 }

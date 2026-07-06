@@ -40,16 +40,20 @@ function countText(res: BattleResolution, needle: string): number {
   ).length;
 }
 
-function run(enemy: Monster): BattleResolution {
+function runWithPlayer(combatant: PlayerCombat, enemy: Monster): BattleResolution {
   // 항상 proc(0.1×100=10 < procChance 60) + 결정론. 플레이어는 스킬 없음(평타만).
   vi.spyOn(Math, "random").mockReturnValue(0.1);
-  const res = resolveBattle(player, enemy, "테스터", {
+  const res = resolveBattle(combatant, enemy, "테스터", {
     pickAction: () => ({ kind: "attack" }),
     potions: {},
     v2Skills: { learned: [], equipped: [] },
   } as never);
   vi.restoreAllMocks();
   return res;
+}
+
+function run(enemy: Monster): BattleResolution {
+  return runWithPlayer(player, enemy);
 }
 
 describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => {
@@ -104,5 +108,33 @@ describe("몬스터 MP 시전 횟수 제한 (ATB applyEnemyV2SkillCast)", () => 
       evasionPct: 0,
     };
     expect(countText(run(enemy), "분쇄 일격")).toBe(0);
+  });
+
+  it("몬스터 v2 스킬 피해에도 피격 반격 패시브가 발동한다", () => {
+    const counterPlayer: PlayerCombat = {
+      ...player,
+      atk: 25,
+      passiveCounterChancePct: 100,
+    };
+    const enemy: Monster = {
+      name: "정예 반격 시험체",
+      tags: [],
+      hp: 1_000_000,
+      atk: 50,
+      def: 0,
+      spd: 30,
+      exp: 0,
+      evasionPct: 0,
+      v2Skills: {
+        learned: ["mob_crushing_blow"],
+        equipped: ["mob_crushing_blow"],
+      },
+      v2MaxMp: 30,
+    };
+
+    const res = runWithPlayer(counterPlayer, enemy);
+
+    expect(countText(res, "분쇄 일격")).toBe(1);
+    expect(countText(res, "[반격] 정예 반격 시험체에게")).toBeGreaterThan(0);
   });
 });

@@ -328,6 +328,14 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "마른 협곡 보스 처치",
     category: "battle",
   },
+  v2_boss_abyssal: {
+    id: "v2_boss_abyssal",
+    name: "심연을 낚은 자",
+    description: "평범한 낚싯줄 끝에서 심연의 포식자를 끌어올린 자.",
+    condition: "심연어룡 토벌",
+    category: "fishing",
+    hidden: true,
+  },
   v2_boss_lake: {
     id: "v2_boss_lake",
     name: "얼음을 깨뜨린 자",
@@ -681,6 +689,21 @@ export const TITLES: Record<TitleId, Title> = {
     description: "투기장의 전설로 길이 회자되는 자.",
     condition: "투기장 상점에서 투기장 코인 2500으로 구매",
     category: "pvp",
+  },
+  // ── 협동 교환소 칭호 (협동 주화/보스 재료로 구매) ───────────────────────
+  coop_helping_hand: {
+    id: "coop_helping_hand",
+    name: "협동의 손",
+    description: "토벌 전선에 기꺼이 손을 보탠 자.",
+    condition: "협동 교환소에서 협동 주화 300으로 구매",
+    category: "battle",
+  },
+  coop_raider: {
+    id: "coop_raider",
+    name: "토벌대원",
+    description: "여러 전장의 증표를 모아 꾸준함을 증명한 자.",
+    condition: "협동 교환소에서 협동 주화 800과 보스별 재료 10개씩으로 구매",
+    category: "battle",
   },
   // ── 낚시 코인 상점 칭호 (낚시 코인으로 구매) ──────────────────────────────
   // 활성 3종 — 가격 오름차순(월척 사냥꾼 → 바다의 전설 → 강태공).

@@ -195,6 +195,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.evasionPct).toBe(12);
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
     expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnPctPerStack).toBe(5);
+    expect(V2_SKILLS.v2c_shaman_omen3.passive?.enemyMagicVulnApplyChancePct).toBe(70);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct?.dex).toBe(20);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBeUndefined();
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
@@ -279,9 +280,10 @@ describe("직업 킷 — 스킬셋", () => {
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
     expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
     expect(V2_SKILLS.v2c_warlord_slaughter.passive?.berserkAtkPctPerLostHpPct).toBe(0.65);
-    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 패왕(힘%·옛 철신서 전환·무인 재설계)
+    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 근력 III(힘%·옛 철신서 전환·무인 재설계)
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
+    expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnApplyChancePct).toBe(85);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
       { kind: "heal", pctLostHp: 12 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
@@ -409,8 +411,8 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
-  it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {
-    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡파+패왕)으로.
+  it("권룡(sensei) = 권룡파(방깎 액티브) + 근력 III(힘%) — 무인 재설계", () => {
+    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡파+근력 III)으로.
     //   v2c_sensei_combo/ironbody id 유지(세이브 호환·내용만 교체).
     expect(skillsForJob("sensei")).toEqual([
       "v2c_sensei_combo",
@@ -590,6 +592,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.poisonedEnemyDefReductionPct).toBe(12);
     expect(agg.berserkAtkPctPerLostHpPct).toBe(0.45);
     expect(agg.enemyMagicVulnPctPerStack).toBe(5);
+    expect(agg.enemyMagicVulnApplyChancePct).toBe(70);
     // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
   });

@@ -103,7 +103,7 @@ describe("aggregateBalanceTelemetry", () => {
     const users = [
       user({ level: 10, power: 100, gold: 500 }), // 1-29
       user({ level: 40, power: 300, gold: 1500 }), // 30-49
-      user({ level: 100, power: 1700, gold: 100000 }), // 100+
+      user({ level: 100, power: 1700, gold: 100000, bankedGold: 25000 }), // 100+
     ];
     const t = aggregateBalanceTelemetry(users, {
       adminExcluded: 0,
@@ -116,8 +116,12 @@ describe("aggregateBalanceTelemetry", () => {
     expect(b100?.avgPower).toBe(1700);
     // 경제 — 100+ 골드.
     const e100 = t.economy.find((e) => e.label === "100+");
-    expect(e100?.avgGold).toBe(100000);
-    expect(e100?.maxGold).toBe(100000);
+    expect(e100?.avgGold).toBe(125000);
+    expect(e100?.maxGold).toBe(125000);
+    expect(t.goldSummary.avgWalletGold).toBe(34000);
+    expect(t.goldSummary.avgBankGold).toBe(8333);
+    expect(t.goldSummary.avgTotalGold).toBe(42333);
+    expect(t.goldSummary.maxTotalGold).toBe(125000);
     // 전체 전투력 — median([100,300,1700])=300, avg=round(2100/3)=700.
     expect(t.summary.medianPower).toBe(300);
     expect(t.summary.avgPower).toBe(700);

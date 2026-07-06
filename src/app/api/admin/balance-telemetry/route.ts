@@ -48,9 +48,44 @@ import {
 //   관리자(테스트) 계정 제외. 최근 밸런스 변경(난이도 곡선·아이템 정리·DEX 독주·SPI 부활) 검증용.
 //   집계 로직은 ./aggregate(순수·테스트) 로 분리 — 여기선 DB read + per-user derive 만.
 
-export async function GET() {
+function parseActiveHours(value: string | null): number | null {
+  if (value == null || value.trim() === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(24 * 30, Math.max(1 / 60, n));
+}
+
+function parseUserTokens(value: string | null): string[] {
+  if (!value) return [];
+  return [
+    ...new Set(
+      value
+        .split(/[\s,]+/)
+        .map((v) => v.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ].slice(0, 100);
+}
+
+function rowMatchesToken(
+  row: { user_id: string; email: string | null; game_name: string | null },
+  token: string,
+): boolean {
+  const id = row.user_id.toLowerCase();
+  const email = row.email?.toLowerCase() ?? "";
+  const name = row.game_name?.toLowerCase() ?? "";
+  return id === token || email === token || name === token;
+}
+
+export async function GET(req: Request) {
   const gate = await requireAdmin();
   if (gate) return gate;
+
+  const url = new URL(req.url);
+  const activeHours = parseActiveHours(url.searchParams.get("activeHours"));
+  const userTokens = parseUserTokens(url.searchParams.get("users"));
+  const activeSince =
+    activeHours == null ? null : Date.now() - activeHours * 60 * 60 * 1000;
 
   const adminSet = new Set(getAdminEmailsList().map((e) => e.toLowerCase()));
 
@@ -59,6 +94,8 @@ export async function GET() {
     SELECT
       u.id AS user_id,
       LOWER(u.email) AS email,
+      COALESCE(u.game_name, p.name) AS game_name,
+      p.last_seen_at AS last_seen_at,
       c.value AS character,
       e.value AS equipment,
       pr.value AS proficiency,
@@ -69,6 +106,7 @@ export async function GET() {
       cr.value AS crafting
     FROM users u
     JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
+    LEFT JOIN presence p ON p.user_id = u.id
     LEFT JOIN saves_kv e ON e.user_id = u.id AND e.key = 'equipment.v2'
     LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
     LEFT JOIN saves_kv s ON s.user_id = u.id AND s.key = 'skills.v2'
@@ -81,6 +119,8 @@ export async function GET() {
   type Row = {
     user_id: string;
     email: string | null;
+    game_name: string | null;
+    last_seen_at: Date | string | null;
     character: unknown;
     equipment: unknown;
     proficiency: unknown;
@@ -95,11 +135,22 @@ export async function GET() {
   const users: TelemetryUser[] = [];
   let adminExcluded = 0;
   let deriveFailed = 0;
+  const matchedTokens = new Set<string>();
 
   for (const r of rows) {
     if (r.email && adminSet.has(r.email)) {
       adminExcluded++;
       continue;
+    }
+    if (activeSince != null) {
+      const lastSeenMs =
+        r.last_seen_at == null ? NaN : new Date(r.last_seen_at).getTime();
+      if (!Number.isFinite(lastSeenMs) || lastSeenMs < activeSince) continue;
+    }
+    if (userTokens.length > 0) {
+      const hits = userTokens.filter((token) => rowMatchesToken(r, token));
+      if (hits.length === 0) continue;
+      for (const token of hits) matchedTokens.add(token);
     }
     const character = (r.character ?? undefined) as
       | SavedCharacterV2
@@ -200,9 +251,19 @@ export async function GET() {
     }
 
     users.push({
+      userId: r.user_id,
+      email: r.email,
+      name: r.game_name,
+      lastSeenAt:
+        r.last_seen_at == null
+          ? null
+          : r.last_seen_at instanceof Date
+            ? r.last_seen_at.toISOString()
+            : String(r.last_seen_at),
       level: Math.max(1, Math.floor(Number(character.level ?? 1))),
       frontierDepth: Math.max(1, Math.floor(Number(charAny.frontierDepth) || 1)),
       gold: Math.max(0, Math.floor(Number(charAny.gold) || 0)),
+      bankedGold: Math.max(0, Math.floor(Number(charAny.bankedGold) || 0)),
       power,
       totalStats: derived.totalStats,
       classId,
@@ -246,6 +307,14 @@ export async function GET() {
   }
 
   return Response.json(
-    aggregateBalanceTelemetry(users, { adminExcluded, deriveFailed }),
+    aggregateBalanceTelemetry(users, {
+      adminExcluded,
+      deriveFailed,
+      filters: {
+        activeHours,
+        userTokens,
+        unmatchedUserTokens: userTokens.filter((token) => !matchedTokens.has(token)),
+      },
+    }),
   );
 }

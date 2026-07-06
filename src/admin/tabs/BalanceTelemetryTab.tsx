@@ -1,6 +1,7 @@
 "use client";
 
-import { Button } from "../ui/Field";
+import { useState } from "react";
+import { Button, TextInput } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 // 응답 타입은 서버 집계 모듈이 단일 소스 — 필드 추가/개명 시 클라 드리프트를 컴파일이 잡는다.
 // (type-only import 라 서버 코드가 클라 번들에 끌려오지 않는다.)
@@ -65,6 +66,17 @@ function BarRow({
   );
 }
 
+function formatLastSeen(iso: string | null): string {
+  if (!iso) return "—";
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "—";
+  const diff = Date.now() - t;
+  if (diff < 60_000) return "방금";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}분 전`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}시간 전`;
+  return new Date(iso).toLocaleString("ko-KR");
+}
+
 function WorkshopEconomySignal({
   label,
   value,
@@ -89,13 +101,24 @@ function WorkshopEconomySignal({
 }
 
 export function BalanceTelemetryTab() {
+  const [activeHours, setActiveHours] = useState("24");
+  const [selectedUsers, setSelectedUsers] = useState("");
   const { data, loading, error, refetch } = useAsyncData<Telemetry>(
-    (signal) =>
-      fetch("/api/admin/balance-telemetry", { signal }).then(async (res) => {
+    (signal) => {
+      const params = new URLSearchParams();
+      const hours = Number(activeHours);
+      if (Number.isFinite(hours) && hours > 0) {
+        params.set("activeHours", String(hours));
+      }
+      const users = selectedUsers.trim();
+      if (users) params.set("users", users);
+      const qs = params.toString();
+      return fetch(`/api/admin/balance-telemetry${qs ? `?${qs}` : ""}`, { signal }).then(async (res) => {
         if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
         return res.json() as Promise<Telemetry>;
-      }),
-    [],
+      });
+    },
+    [activeHours, selectedUsers],
   );
 
   const depthMax = Math.max(1, ...(data?.depthBands ?? []).map((b) => b.players));
@@ -158,20 +181,59 @@ export function BalanceTelemetryTab() {
   return (
     <div className="space-y-4">
       <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">밸런스 텔레메트리</h2>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              읽기 전용 — 현재 v2 세이브 집계(관리자 계정 제외). 프론티어·직업 숙련도·SP·장비·생활 진행 실측용.
+              읽기 전용 — 현재 v2 세이브 집계(관리자 계정 제외). 최근 접속자/선택 유저 단위로 볼 수 있습니다.
             </p>
           </div>
           <Button onClick={refetch} disabled={loading}>
             {loading ? "로딩…" : "새로고침"}
           </Button>
         </div>
+        <div className="mt-3 grid gap-2 md:grid-cols-[160px_1fr]">
+          <label className="block">
+            <span className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              액티브 기준
+            </span>
+            <div className="mt-1 flex items-center gap-2">
+              <TextInput
+                value={activeHours}
+                onChange={setActiveHours}
+                placeholder="24"
+                className="font-mono"
+              />
+              <span className="shrink-0 text-xs text-zinc-500">시간</span>
+            </div>
+            <span className="mt-1 block text-[11px] text-zinc-500">
+              비우거나 0이면 전체 유저를 집계합니다.
+            </span>
+          </label>
+          <label className="block">
+            <span className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              선택 유저
+            </span>
+            <textarea
+              value={selectedUsers}
+              onChange={(e) => setSelectedUsers(e.target.value)}
+              placeholder="정확한 닉네임, 이메일, userId를 쉼표나 줄바꿈으로 입력"
+              className="mt-1 min-h-16 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+            <span className="mt-1 block text-[11px] text-zinc-500">
+              입력하면 정확히 일치하는 유저만 집계합니다. 액티브 기준도 함께 적용됩니다.
+            </span>
+          </label>
+        </div>
         {error ? (
           <div className="mt-2 text-xs text-red-600 dark:text-red-400">
             {error}
+          </div>
+        ) : null}
+        {data?.filters?.unmatchedUserTokens.length ? (
+          <div className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+            매칭되지 않은 선택 유저:{" "}
+            {data.filters.unmatchedUserTokens.join(", ")}
           </div>
         ) : null}
         {data ? (
@@ -202,6 +264,97 @@ export function BalanceTelemetryTab() {
 
       {data ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Card
+            title="골드 요약"
+            hint="현재 보유량 기준입니다. 수급량 원장은 아직 없어서 지갑+은행 합산 보유 골드를 봅니다."
+          >
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+              {[
+                { label: "대상 유저", value: data.goldSummary.players },
+                { label: "평균 지갑", value: data.goldSummary.avgWalletGold },
+                { label: "평균 은행", value: data.goldSummary.avgBankGold },
+                { label: "평균 합계", value: data.goldSummary.avgTotalGold },
+                { label: "중앙 합계", value: data.goldSummary.medianTotalGold },
+                { label: "최대 합계", value: data.goldSummary.maxTotalGold },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950"
+                >
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    {item.label}
+                  </div>
+                  <div className="font-mono text-sm tabular-nums">
+                    {item.value.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card
+            title="유저별 골드"
+            hint="상위 200명까지 표시합니다. 선택 유저를 입력하면 그 대상만 나옵니다."
+          >
+            <div className="max-h-80 overflow-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-zinc-500 dark:text-zinc-400">
+                    <th className="py-1 pr-2 font-medium">유저</th>
+                    <th className="py-1 pr-2 text-right font-medium">Lv</th>
+                    <th className="py-1 pr-2 text-right font-medium">지갑</th>
+                    <th className="py-1 pr-2 text-right font-medium">은행</th>
+                    <th className="py-1 pr-2 text-right font-medium">합계</th>
+                    <th className="py-1 text-right font-medium">접속</th>
+                  </tr>
+                </thead>
+                <tbody className="tabular-nums">
+                  {data.goldUsers.length ? (
+                    data.goldUsers.map((u) => (
+                      <tr
+                        key={u.userId}
+                        className="border-t border-zinc-100 dark:border-zinc-800"
+                      >
+                        <td className="max-w-44 py-1 pr-2">
+                          <div className="truncate font-medium">
+                            {u.name ?? "(이름 없음)"}
+                          </div>
+                          <div className="truncate font-mono text-[10px] text-zinc-500">
+                            {u.email ?? u.userId}
+                          </div>
+                        </td>
+                        <td className="py-1 pr-2 text-right font-mono">
+                          {u.level}
+                        </td>
+                        <td className="py-1 pr-2 text-right font-mono">
+                          {u.walletGold.toLocaleString()}
+                        </td>
+                        <td className="py-1 pr-2 text-right font-mono">
+                          {u.bankedGold.toLocaleString()}
+                        </td>
+                        <td className="py-1 pr-2 text-right font-mono font-semibold">
+                          {u.totalGold.toLocaleString()}
+                        </td>
+                        <td className="py-1 text-right text-[11px] text-zinc-500">
+                          {formatLastSeen(u.lastSeenAt)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="border-t border-zinc-100 py-3 text-center text-zinc-500 dark:border-zinc-800"
+                      >
+                        대상 유저 없음
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
           <Card
             title="깊이 분포 (프론티어 도달)"
             hint="난이도 곡선·프론티어 캡 검증 — 정체 구간·진척. 막대=인원, 우측=평균 전투력."

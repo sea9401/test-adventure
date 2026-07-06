@@ -11,28 +11,28 @@ import {
 } from "./masteryTower";
 
 describe("masteryTower", () => {
-  it("층별 일일 보상은 10/20/30층 기준 300/750/1350", () => {
-    expect(masteryTowerFloorReward(5)).toBe(150);
-    expect(masteryTowerFloorReward(10)).toBe(300);
-    expect(masteryTowerFloorReward(15)).toBe(525);
-    expect(masteryTowerFloorReward(20)).toBe(750);
-    expect(masteryTowerFloorReward(25)).toBe(1050);
-    expect(masteryTowerFloorReward(30)).toBe(1350);
+  it("층별 일일 보상은 뒤쪽 층일수록 더 크게 늘고 50층은 2400이다", () => {
+    expect(masteryTowerFloorReward(5)).toBe(100);
+    expect(masteryTowerFloorReward(10)).toBe(200);
+    expect(masteryTowerFloorReward(20)).toBe(500);
+    expect(masteryTowerFloorReward(30)).toBe(950);
+    expect(masteryTowerFloorReward(40)).toBe(1550);
+    expect(masteryTowerFloorReward(50)).toBe(2400);
   });
 
   it("첫 도달 보너스는 미수령 milestone 만 합산한다", () => {
     const preview = masteryTowerClaimPreview({
       date: "2026-07-03",
-      todayBestFloor: 30,
+      todayBestFloor: 50,
       claimed: false,
-      lifetimeBestFloor: 30,
+      lifetimeBestFloor: 50,
       firstClearRewardsClaimed: [10],
     });
     expect(preview).toEqual({
-      base: 1350,
-      firstClearBonus: 500,
-      total: 1850,
-      newlyClaimedMilestones: [20, 30],
+      base: 2400,
+      firstClearBonus: 1400,
+      total: 3800,
+      newlyClaimedMilestones: [20, 30, 40, 50],
     });
   });
 
@@ -65,12 +65,15 @@ describe("masteryTower", () => {
     expect(masteryTowerRequiredPower(20)).toBeLessThan(
       masteryTowerRequiredPower(30),
     );
+    expect(masteryTowerRequiredPower(30)).toBeLessThan(
+      masteryTowerRequiredPower(50),
+    );
   });
 
   it("수호자는 층이 오를수록 실제 전투 스탯과 기믹이 강화된다", () => {
     const low = masteryTowerGuardianPreview(5);
     const mid = masteryTowerGuardianPreview(15);
-    const high = masteryTowerGuardianPreview(30);
+    const high = masteryTowerGuardianPreview(50);
     expect(low.hp).toBeLessThan(mid.hp);
     expect(mid.hp).toBeLessThan(high.hp);
     expect(low.atk).toBeLessThan(mid.atk);
@@ -79,6 +82,37 @@ describe("masteryTower", () => {
     expect(mid.skills.length).toBeGreaterThan(0);
     expect(high.skills.length).toBeGreaterThan(mid.skills.length);
     expect(high.bonusAttackChancePct).toBeGreaterThan(0);
+  });
+
+  it("30/40/50층 수호자는 전용 이름과 기믹을 가진다", () => {
+    expect(masteryTowerRequiredPower(10)).toBe(390);
+    expect(masteryTowerRequiredPower(20)).toBe(1200);
+    expect(masteryTowerRequiredPower(30)).toBe(2500);
+    expect(masteryTowerRequiredPower(40)).toBe(3800);
+    expect(masteryTowerRequiredPower(50)).toBe(5100);
+
+    expect(masteryTowerGuardianPreview(30)).toMatchObject({
+      name: "탑의 숙련자",
+      gimmickName: "집중 방패",
+      skills: ["mob_crushing_blow", "mob_savage_roar", "mob_rending_claw"],
+    });
+    expect(masteryTowerGuardianPreview(40)).toMatchObject({
+      name: "침묵의 교관",
+      gimmickName: "침묵 압박",
+      atkType: "magic",
+      skills: ["mob_arcane_burst", "mob_chilling_touch", "mob_venom_bite"],
+    });
+    expect(masteryTowerGuardianPreview(50)).toMatchObject({
+      name: "정점의 대련자",
+      gimmickName: "삼중 시험",
+      atkType: "magic",
+      skills: [
+        "mob_arcane_nova",
+        "mob_savage_roar",
+        "mob_crushing_blow",
+        "mob_chilling_touch",
+      ],
+    });
   });
 
   it("수호자 전투 몬스터는 드랍/경험치 없이 생성된다", () => {
@@ -118,9 +152,9 @@ describe("masteryTower", () => {
         firstClearRewardsClaimed: [],
       },
       claimPreview: {
-        base: 300,
+        base: 200,
         firstClearBonus: 100,
-        total: 400,
+        total: 300,
         newlyClaimedMilestones: [10],
       },
       turns: 7,
@@ -130,7 +164,7 @@ describe("masteryTower", () => {
       enemyMaxHp: 3000,
     });
     expect(log.map((entry) => entry.kind)).toContain("success");
-    expect(log.at(-1)?.text).toContain("400");
+    expect(log.at(-1)?.text).toContain("300");
   });
 
   it("도전 로그는 실패 시 수호자 잔여 HP를 표시한다", () => {

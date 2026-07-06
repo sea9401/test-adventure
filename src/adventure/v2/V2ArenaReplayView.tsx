@@ -26,6 +26,13 @@ type HistoryResp =
   | { ok: true; history: ArenaHistoryEntry[] }
   | { ok?: false; error?: string };
 
+type StateResp = {
+  ok?: boolean;
+  state?: {
+    cooldownRemainingMs: number;
+  };
+};
+
 type MatchResp =
   | {
       ok: true;
@@ -89,8 +96,18 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
     setLoadError(false);
     setNotFound(false);
     try {
-      const res = await fetch("/api/v2/arena/history");
+      const [res, stateRes] = await Promise.all([
+        fetch("/api/v2/arena/history"),
+        fetch("/api/v2/arena/state"),
+      ]);
       const json = (await res.json().catch(() => null)) as HistoryResp | null;
+      const stateJson = (await stateRes.json().catch(() => null)) as StateResp | null;
+      const cooldownMs = stateJson?.state?.cooldownRemainingMs ?? 0;
+      if (cooldownMs > 0) {
+        const now = Date.now();
+        setNowMs(now);
+        setCooldownUntil(now + cooldownMs);
+      }
       if (!json?.ok || !Array.isArray(json.history)) {
         setEntry(null);
         setLoadError(true);

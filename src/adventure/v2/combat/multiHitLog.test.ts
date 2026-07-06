@@ -10,7 +10,6 @@ import {
   v2DamageAmount,
   type V2SkillCastInput,
 } from "./combatShared";
-import { scaleCombatNumber } from "@/adventure/data/v2/combatNumberScale";
 
 function castInput(equipped: string[]): V2SkillCastInput {
   return {
@@ -110,12 +109,12 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
       target: { def: TARGET_DEF, selfBuffs: {}, selfDebuffs: {} },
     });
     // 관통사 = { statCoef 0.35, baseFlat 250, scaling dex, pierceDamagePct 20 }.
-    // damageWith(dex) → dex/baseFlat 을 전투 숫자 단위로 보정한 뒤 v2DamageAmount 로 계산.
+    // damageWith(dex) → v2DamageAmount(physical, attackerAtk=dex=100, statScaled→빈 버프맵).
     const common = {
-      attackerAtk: scaleCombatNumber(100),
+      attackerAtk: 100,
       scaling: "physical" as const,
       statCoef: 0.35,
-      baseFlat: scaleCombatNumber(250),
+      baseFlat: 250,
       attackerSelfBuffs: {},
       attackerSelfDebuffs: {},
       targetSelfBuffs: {},

@@ -97,8 +97,6 @@ export type MonsterSkill =
 export type Monster = {
   name: string;
   tags: MonsterTag[];
-  /** v2 전투 숫자 단위 스케일. 미지정이면 전투 진입 전 현재 스케일로 보정된다. */
-  combatNumberScale?: number;
   image?: string;
   hp: number;
   atk: number;

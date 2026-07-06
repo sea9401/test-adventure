@@ -16,7 +16,6 @@ import {
 import {
   V2_CORE_LOOP_V2,
 } from "@/adventure/data/v2/coreLoopConfig";
-import { V2_COMBAT_NUMBER_SCALE } from "@/adventure/data/v2/combatNumberScale";
 import { EJECT_BANKED_GOLD_STEAL_FRAC } from "@/adventure/data/v2/settlementWarfareConfig";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
@@ -57,7 +56,6 @@ const EJECT_STAMINA_COST = HUNT_COST;
 type CharSave = {
   stamina?: unknown;
   hp?: number;
-  combatNumberScale?: unknown;
   hpRegenSince?: number;
   gold?: number;
   bankedGold?: number;
@@ -214,7 +212,7 @@ export async function POST(req: Request) {
     // 도전자 사전 hp 회복 (사냥과 동일 흐름).
     const attackerHpBefore = parseHpRegenSince(attackerSave.hpRegenSince, now);
     const attackerRegen = applyHpRegen(
-      Math.max(0, attackerCombat.player.hp),
+      Math.max(0, attackerSave.hp ?? attackerCombat.maxHp),
       attackerCombat.maxHp,
       attackerHpBefore,
       now,
@@ -273,7 +271,6 @@ export async function POST(req: Request) {
       ...attackerSave,
       stamina: afterStamina,
       hp: attackerHpAfter,
-      combatNumberScale: V2_COMBAT_NUMBER_SCALE,
       hpRegenSince: now,
     });
 

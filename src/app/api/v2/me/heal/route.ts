@@ -6,7 +6,6 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
-import { V2_COMBAT_NUMBER_SCALE } from "@/adventure/data/v2/combatNumberScale";
 import {
   V2_SETTLEMENT_WARFARE,
   WAR_VIGOR_FULL_RECOVERY_MS,
@@ -25,7 +24,6 @@ import { guildHasHotspringAdjacency } from "@/lib/server/tileHotspring";
 type CharSave = {
   hp?: number;
   mp?: number;
-  combatNumberScale?: unknown;
   hpRegenSince?: number;
   gold?: number;
   [k: string]: unknown;
@@ -57,7 +55,7 @@ export async function POST() {
     const now = Date.now();
     const maxHp = player.maxHp;
     const maxMp = Math.max(0, player.player.maxMp ?? 0);
-    const savedHp = Math.max(0, player.player.hp);
+    const savedHp = Math.max(0, charSave.hp ?? maxHp);
     const savedMp = Math.max(0, charSave.mp ?? maxMp);
     const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
     const regen = applyHpRegen(savedHp, maxHp, hpRegenSince, now);
@@ -116,7 +114,6 @@ export async function POST() {
       ...charSave,
       hp: maxHp,
       mp: maxMp,
-      combatNumberScale: V2_COMBAT_NUMBER_SCALE,
       hpRegenSince: now,
       gold: spend.gold,
       bankedGold: spend.bankedGold,

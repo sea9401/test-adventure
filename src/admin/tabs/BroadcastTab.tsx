@@ -49,7 +49,7 @@ export function BroadcastTab() {
       {
         id: "stamina_potion",
         name: "스태미나 회복약",
-        label: "스태미나 회복약 (stamina_potion)",
+        label: "스태미나 회복약",
       },
     ],
     [],
@@ -186,7 +186,7 @@ export function BroadcastTab() {
         <h3 className="text-sm font-semibold">대량 우편 (골드·재료·장비·소비템)</h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           골드 + 재료/장비/소비템 + 메시지를 우편함으로 발송합니다(수신자가 수령). 보정금·이벤트
-          보상용. 장비는 base 등급으로 지급됩니다.
+          보상용. 장비는 기본 등급으로 지급됩니다.
           <strong> 전체 발송</strong>은 모든 유저에게 자원을 지급하는 강력한 작업입니다.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -229,7 +229,7 @@ export function BroadcastTab() {
           disabled={mailDisabled}
         />
         <AttachmentPicker
-          label="장비 첨부 (base 등급)"
+          label="장비 첨부 (기본 등급)"
           options={equipOptions}
           entries={attachItems}
           onChange={setAttachItems}

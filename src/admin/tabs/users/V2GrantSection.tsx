@@ -47,15 +47,15 @@ export function V2GrantSection({
 
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="text-sm font-semibold">v2 지급</h2>
+      <h2 className="text-sm font-semibold">아이템·자원 지급</h2>
       <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-        v2 재료·장비·충전약·숙련도. 골드·EXP·레벨은 위 캐릭터 패널에서 편집합니다.
+        재료·장비·충전약·숙련도. 골드·EXP·레벨은 위 캐릭터 패널에서 편집합니다.
         대상 유저는 새로고침해야 반영됩니다.
       </p>
 
       {/* 재료 (character.v2.materials) */}
       <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
-        <Field label="v2 재료">
+        <Field label="재료">
           <select
             value={materialId}
             disabled={readOnly || materialOptions.length === 0}
@@ -86,7 +86,7 @@ export function V2GrantSection({
 
       {/* 장비 (equipment.v2.owned) */}
       <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_auto]">
-        <Field label="v2 장비 (보유 추가)">
+        <Field label="장비 (보유 추가)">
           <select
             value={equipId}
             disabled={readOnly || equipOptions.length === 0}
@@ -119,7 +119,7 @@ export function V2GrantSection({
           >
             {rareMapOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.name} ({o.id})
+                {o.name}
               </option>
             ))}
           </select>

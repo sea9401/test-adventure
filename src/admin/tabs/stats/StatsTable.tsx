@@ -26,7 +26,7 @@ export function StatsTable({
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
       <h2 className="text-sm font-semibold">유저별 상세</h2>
       <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-        현재 v2 세이브 기준의 진척입니다. 직업 숙련도는 현재 직업 기준, 총 숙련도는 전 직군 합계입니다.
+        현재 게임 데이터 기준의 진척입니다. 직업 숙련도는 현재 직업 기준, 총 숙련도는 전 직군 합계입니다.
       </p>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[1080px] text-xs">

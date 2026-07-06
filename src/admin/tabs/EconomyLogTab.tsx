@@ -7,6 +7,8 @@ import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 
 type EconomyEntry = {
   id: number;
@@ -36,6 +38,31 @@ type EconomySummary = {
   hourly: Array<{ hour: string; count: number; goldIn: number; goldOut: number }>;
 };
 
+const EVENT_LABELS: Record<string, string> = {
+  "marketplace.buy": "거래소 구매",
+  "marketplace.sell": "거래소 판매",
+  "marketplace.cancel": "거래소 취소",
+  "marketplace.expire": "거래소 만료",
+  "shop.buy": "상점 구매",
+  "shop.sell": "상점 판매",
+  "reward.claim": "보상 수령",
+  "reward.compensate": "보상 보정",
+  "mail.claim": "우편 수령",
+  "bank.deposit": "은행 입금",
+  "bank.withdraw": "은행 출금",
+};
+
+const ITEM_KIND_LABELS: Record<string, string> = {
+  gold: "골드",
+  equip: "장비",
+  equipment: "장비",
+  material: "재료",
+  fishing_coin: "낚시 코인",
+  treasure_coin: "발굴 코인",
+  mastery_certificate: "숙련 증서",
+  stamina_potion: "스태미나 회복약",
+};
+
 export function EconomyLogTab() {
   const { showToast } = useAdmin();
   const searchParams = useSearchParams();
@@ -48,9 +75,11 @@ export function EconomyLogTab() {
 
   const url = useMemo(() => {
     const sp = new URLSearchParams({ limit: "300" });
-    if (eventType.trim()) sp.set("eventType", eventType.trim());
+    const eventFilter = resolveEventFilter(eventType);
+    const itemKindFilter = resolveItemKindFilter(itemKind);
+    if (eventFilter) sp.set("eventType", eventFilter);
     if (userId.trim()) sp.set("userId", userId.trim());
-    if (itemKind.trim()) sp.set("itemKind", itemKind.trim());
+    if (itemKindFilter) sp.set("itemKind", itemKindFilter);
     if (itemId.trim()) sp.set("itemId", itemId.trim());
     if (since) sp.set("since", since);
     if (until) sp.set("until", until);
@@ -91,10 +120,10 @@ export function EconomyLogTab() {
       </div>
 
       <div className="grid gap-2 md:grid-cols-3">
-        <Filter label="event" value={eventType} onChange={setEventType} placeholder="marketplace.buy" />
-        <Filter label="userId" value={userId} onChange={setUserId} />
-        <Filter label="itemKind" value={itemKind} onChange={setItemKind} placeholder="equip" />
-        <Filter label="itemId" value={itemId} onChange={setItemId} />
+        <Filter label="이벤트" value={eventType} onChange={setEventType} placeholder="거래소 구매" />
+        <Filter label="유저 ID" value={userId} onChange={setUserId} />
+        <Filter label="아이템 종류" value={itemKind} onChange={setItemKind} placeholder="장비" />
+        <Filter label="아이템 이름" value={itemId} onChange={setItemId} />
         <DateFilter label="시작" value={since} onChange={setSince} />
         <DateFilter label="종료" value={until} onChange={setUntil} />
       </div>
@@ -112,7 +141,7 @@ export function EconomyLogTab() {
               <tr>
                 <th className="px-2 py-1.5 font-medium">시각</th>
                 <th className="px-2 py-1.5 font-medium">유저</th>
-                <th className="px-2 py-1.5 font-medium">event</th>
+                <th className="px-2 py-1.5 font-medium">이벤트</th>
                 <th className="px-2 py-1.5 font-medium">골드</th>
                 <th className="px-2 py-1.5 font-medium">아이템</th>
                 <th className="px-2 py-1.5 font-medium">상세</th>
@@ -135,16 +164,16 @@ export function EconomyLogTab() {
                       "-"
                     )}
                   </td>
-                  <td className="px-2 py-1.5 font-mono">{e.eventType}</td>
+                  <td className="px-2 py-1.5">{eventLabel(e.eventType)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">
                     {e.goldDelta.toLocaleString()}
                   </td>
-                  <td className="px-2 py-1.5 font-mono">
-                    {[e.itemKind, e.itemId].filter(Boolean).join(":") || "-"}
+                  <td className="px-2 py-1.5">
+                    {itemLabel(e.itemKind, e.itemId)}
                     {e.quantity != null ? ` x${e.quantity}` : ""}
                   </td>
-                  <td className="max-w-md truncate px-2 py-1.5 font-mono text-[10px] text-zinc-400">
-                    {e.detail ? JSON.stringify(e.detail) : "-"}
+                  <td className="max-w-md truncate px-2 py-1.5 text-[11px] text-zinc-500">
+                    {economyDetailText(e.detail)}
                   </td>
                 </tr>
               ))}
@@ -235,7 +264,7 @@ function SummaryPanel({
                   {row.net.toLocaleString()}
                 </span>
                 <span className="col-span-2 text-[10px] text-zinc-500">
-                  in {row.goldIn.toLocaleString()} · out {row.goldOut.toLocaleString()} ·{" "}
+                  유입 {row.goldIn.toLocaleString()} · 사용 {row.goldOut.toLocaleString()} ·{" "}
                   {row.count}건
                 </span>
               </button>
@@ -262,7 +291,7 @@ function CountRows({ rows }: { rows: Array<{ key: string; count: number }> }) {
     <ul className="space-y-1 text-xs">
       {rows.map((row) => (
         <li key={row.key} className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate font-mono">{row.key}</span>
+          <span className="min-w-0 truncate">{eventLabel(row.key)}</span>
           <span className="shrink-0 tabular-nums text-zinc-500">{row.count}</span>
         </li>
       ))}
@@ -318,4 +347,81 @@ function DateFilter({
       />
     </label>
   );
+}
+
+function eventLabel(key: string) {
+  return EVENT_LABELS[key] ?? key;
+}
+
+function resolveEventFilter(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  const found = Object.entries(EVENT_LABELS).find(
+    ([key, label]) => key === value || label === value,
+  );
+  return found?.[0] ?? value;
+}
+
+function resolveItemKindFilter(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  const found = Object.entries(ITEM_KIND_LABELS).find(
+    ([key, label]) => key === value || label === value,
+  );
+  return found?.[0] ?? value;
+}
+
+function itemLabel(kind: string | null, id: string | null) {
+  if (!kind && !id) return "-";
+  if (kind === "material" && id) {
+    return V2_MATERIALS[id as keyof typeof V2_MATERIALS]?.name ?? id;
+  }
+  if ((kind === "equip" || kind === "equipment") && id) {
+    return V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT]?.name ?? id;
+  }
+  const kindLabel = kind ? ITEM_KIND_LABELS[kind] ?? kind : "";
+  return [kindLabel, id].filter(Boolean).join(" · ");
+}
+
+function economyDetailText(detail: Record<string, unknown> | null) {
+  if (!detail) return "-";
+  const parts = Object.entries(detail).map(([key, value]) => {
+    return `${detailKeyLabel(key)}: ${detailValueLabel(key, value)}`;
+  });
+  return parts.join(" · ");
+}
+
+function detailKeyLabel(key: string) {
+  const labels: Record<string, string> = {
+    itemKind: "아이템 종류",
+    itemId: "아이템",
+    materialId: "재료",
+    equipmentId: "장비",
+    quantity: "수량",
+    reason: "사유",
+    source: "출처",
+    message: "메시지",
+  };
+  return labels[key] ?? key;
+}
+
+function detailValueLabel(key: string, value: unknown): string {
+  if (typeof value === "string") {
+    if (key === "itemKind") return ITEM_KIND_LABELS[value] ?? value;
+    if (key === "materialId") {
+      return V2_MATERIALS[value as keyof typeof V2_MATERIALS]?.name ?? value;
+    }
+    if (key === "itemId" || key === "equipmentId") {
+      return V2_EQUIPMENT[value as keyof typeof V2_EQUIPMENT]?.name ?? value;
+    }
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map((v) => detailValueLabel(key, v)).join(", ");
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([k, v]) => `${detailKeyLabel(k)}: ${detailValueLabel(k, v)}`)
+      .join(", ");
+  }
+  return "-";
 }

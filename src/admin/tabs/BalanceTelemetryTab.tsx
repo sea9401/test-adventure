@@ -185,7 +185,7 @@ export function BalanceTelemetryTab() {
           <div>
             <h2 className="text-sm font-semibold">밸런스 텔레메트리</h2>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              읽기 전용 — 현재 v2 세이브 집계(관리자 계정 제외). 최근 접속자/선택 유저 단위로 볼 수 있습니다.
+              읽기 전용 — 현재 게임 데이터 집계(관리자 계정 제외). 최근 접속자/선택 유저 단위로 볼 수 있습니다.
             </p>
           </div>
           <Button onClick={refetch} disabled={loading}>
@@ -217,7 +217,7 @@ export function BalanceTelemetryTab() {
             <textarea
               value={selectedUsers}
               onChange={(e) => setSelectedUsers(e.target.value)}
-              placeholder="정확한 닉네임, 이메일, userId를 쉼표나 줄바꿈으로 입력"
+              placeholder="정확한 닉네임, 이메일, 유저 ID를 쉼표나 줄바꿈으로 입력"
               className="mt-1 min-h-16 w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
             <span className="mt-1 block text-[11px] text-zinc-500">
@@ -372,7 +372,7 @@ export function BalanceTelemetryTab() {
 
           <Card
             title="현재 직업 분포"
-            hint="새 직업 카탈로그 기준 jobId. 상위 20개만 표시합니다."
+            hint="게임 내 직업 이름 기준입니다. 상위 20개만 표시합니다."
           >
             {data.jobDist.map((j) => (
               <BarRow
@@ -504,7 +504,7 @@ export function BalanceTelemetryTab() {
               />
             ))}
             <div className="mt-2 border-t border-zinc-100 pt-2 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-              파생 classTier:{" "}
+              직군 티어:{" "}
               {data.tierDist.map((t) => `${t.tier} ${t.count}`).join(" · ") ||
                 "없음"}
             </div>
@@ -533,7 +533,7 @@ export function BalanceTelemetryTab() {
 
           <Card
             title="장비 보유/강화 — 레벨대별"
-            hint="avg equipped / owned / max +강화."
+            hint="평균 장착 수 / 보유 수 / 최고 강화 단계."
           >
             <div className="overflow-x-auto">
               <table className="w-full text-xs">

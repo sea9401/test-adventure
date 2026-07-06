@@ -81,6 +81,8 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [nextBusy, setNextBusy] = useState(false);
   const [nextError, setNextError] = useState<string | null>(null);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const loadEntry = useCallback(async () => {
     setLoading(true);
@@ -110,8 +112,21 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
     loadEntry();
   }, [loadEntry]);
 
+  useEffect(() => {
+    if (cooldownUntil <= 0) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 250);
+    const timeout = setTimeout(
+      () => setCooldownUntil(0),
+      Math.max(0, cooldownUntil - Date.now()) + 50,
+    );
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [cooldownUntil]);
+
   const startNextMatch = useCallback(async () => {
-    if (nextBusy) return;
+    if (nextBusy || cooldownUntil > Date.now()) return;
     setNextBusy(true);
     setNextError(null);
     try {
@@ -124,8 +139,10 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
         return;
       }
       if (json?.error === "cooldown") {
-        const seconds = Math.max(1, Math.ceil((json.cooldownMs ?? 0) / 1000));
-        setNextError(`재도전까지 ${seconds}초 남았습니다.`);
+        const cooldownMs = json.cooldownMs ?? 10_000;
+        setNowMs(Date.now());
+        setCooldownUntil(Date.now() + cooldownMs);
+        setNextError(null);
       } else if (json?.error === "no_opponent") {
         setNextError("지금은 상대할 모험가가 없습니다.");
       } else if (json?.error === "no_character") {
@@ -140,7 +157,7 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
     } finally {
       setNextBusy(false);
     }
-  }, [nextBusy, router]);
+  }, [cooldownUntil, nextBusy, router]);
 
   const battleOutcome = useMemo(() => {
     if (!entry) return undefined;
@@ -148,6 +165,9 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
     if (entry.outcome === "loss") return "lose";
     return undefined;
   }, [entry]);
+  const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
+  const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
+  const onCooldown = cooldownLeftMs > 0;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -267,9 +287,12 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
             outcomeAction={
               battleOutcome
                 ? {
-                    label: "다음 전투 진행",
+                    label: onCooldown
+                      ? `재도전까지 ${cooldownLeftSec}초`
+                      : "다음 전투 진행",
                     busyLabel: "매치 진행 중...",
                     busy: nextBusy,
+                    disabled: onCooldown,
                     onClick: startNextMatch,
                     hint: nextError,
                   }

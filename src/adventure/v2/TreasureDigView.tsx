@@ -2,7 +2,7 @@
 
 import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -136,6 +136,8 @@ type Result =
     }
   | null;
 
+type ActionRunStatus = "continue" | "busy" | "stop";
+
 function Meter({
   label,
   value,
@@ -207,32 +209,64 @@ const DRILL_DIRECTIONS: DrillDirection[] = [
   { key: "right", label: "오른쪽", dx: 1, dy: 0, Icon: ArrowRight },
 ];
 
+type DrillCommand = {
+  action: TreasureAction;
+  target: TreasureActionTarget;
+  requiredFuel: number;
+  targetCell: TreasureSitePublic["cells"][number];
+};
+
+function drillOptionForDirection(
+  site: TreasureSitePublic,
+  direction: DrillDirection,
+): DrillCommand | null {
+  const current = site.cells.find((cell) => cell.current);
+  if (!current) return null;
+  const target = site.cells.find(
+    (cell) => cell.x === current.x + direction.dx && cell.y === current.y + direction.dy,
+  );
+  if (!target) return null;
+  const action: TreasureAction = target.revealed ? "move" : "excavate";
+  const requiredFuel = action === "move" ? 1 : target.cost;
+  return {
+    action,
+    target: { cell: target.index },
+    requiredFuel,
+    targetCell: target,
+  };
+}
+
+function drillCommandForDirection(
+  site: TreasureSitePublic,
+  direction: DrillDirection,
+): DrillCommand | null {
+  const option = drillOptionForDirection(site, direction);
+  if (!option || site.energy < option.requiredFuel) return null;
+  return option;
+}
+
 function DrillPanel({
   site,
   busy,
   result,
-  onAction,
+  activeHoldKey,
+  onDirection,
+  onHoldStart,
+  onHoldEnd,
 }: {
   site: TreasureSitePublic;
   busy: boolean;
   result: Result;
-  onAction: (action: TreasureAction, target?: TreasureActionTarget) => void;
+  activeHoldKey: DrillDirection["key"] | null;
+  onDirection: (direction: DrillDirection) => void;
+  onHoldStart: (direction: DrillDirection) => void;
+  onHoldEnd: () => void;
 }) {
-  const current = site.cells.find((cell) => cell.current);
   const markerTop = `${Math.min(88, Math.max(8, (site.depth / Math.max(1, site.maxDepth)) * 80 + 8))}%`;
-  const options = DRILL_DIRECTIONS.map((direction) => {
-    const target = current
-      ? site.cells.find(
-          (cell) => cell.x === current.x + direction.dx && cell.y === current.y + direction.dy,
-        )
-      : undefined;
-    const action: TreasureAction | null = !target
-      ? null
-      : target.revealed
-        ? "move"
-        : "excavate";
-    return { ...direction, target, action };
-  });
+  const options = DRILL_DIRECTIONS.map((direction) => ({
+    ...direction,
+    option: drillOptionForDirection(site, direction),
+  }));
 
   return (
     <div className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -249,22 +283,25 @@ function DrillPanel({
 
       <div className="space-y-2">
         <div className="grid grid-cols-3 gap-2">
-          {options.map(({ key, label, target, action, Icon }) => {
-          const requiredFuel = action === "move" ? 1 : target?.cost ?? 0;
+          {options.map(({ key, label, option, Icon, ...direction }) => {
+          const target = option?.targetCell;
+          const action = option?.action ?? null;
+          const requiredFuel = option?.requiredFuel ?? 0;
           const haul = action === "excavate" ? haulForKind(target?.kind) : 0;
           const energyGain = action === "excavate" ? energyForKind(target?.kind) : 0;
           const disabled =
             busy ||
             !!result ||
             site.forcedRetreat ||
-            !action ||
-            !target ||
+            !option ||
             site.energy < requiredFuel;
           const tone = target?.revealed
             ? "border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
             : target?.kind
               ? `${CELL_TONE[target.kind]} border-transparent`
               : "border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-600";
+          const active = activeHoldKey === key;
+          const fullDirection: DrillDirection = { key, label, Icon, ...direction };
           return (
             <button
               key={key}
@@ -275,10 +312,18 @@ function DrillPanel({
                   ? `${target.label ?? "흙벽"} · 연료 -${requiredFuel}${haul > 0 ? ` · 획득 +${haul}` : ""}`
                   : `${label}에는 더 팔 곳이 없습니다.`
               }
-              onClick={() => {
-                if (action && target) onAction(action, { cell: target.index });
+              onClick={() => onDirection(fullDirection)}
+              onPointerDown={() => {
+                if (!disabled) onHoldStart(fullDirection);
               }}
-              className={`min-h-32 rounded-md border p-2 text-left transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 ${tone}`}
+              onPointerUp={onHoldEnd}
+              onPointerCancel={onHoldEnd}
+              onPointerLeave={onHoldEnd}
+              onBlur={onHoldEnd}
+              onContextMenu={(event) => event.preventDefault()}
+              className={`min-h-32 touch-manipulation select-none rounded-md border p-2 text-left transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 ${
+                active ? "ring-2 ring-sky-400 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900" : ""
+              } ${tone}`}
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <Icon size={18} weight="bold" />
@@ -360,6 +405,38 @@ export function TreasureDigView({
   const [notice, setNotice] = useState<string | null>(null);
   const [fragments, setFragments] = useState<number | null>(null);
   const [restoring, setRestoring] = useState(Boolean(loadSession));
+  const [activeHoldKey, setActiveHoldKey] = useState<DrillDirection["key"] | null>(null);
+  const siteRef = useRef<TreasureSitePublic | null>(null);
+  const resultRef = useRef<Result>(null);
+  const busyRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
+  const holdRef = useRef<{
+    timeout: number | null;
+    interval: number | null;
+    running: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    siteRef.current = site;
+  }, [site]);
+
+  useEffect(() => {
+    resultRef.current = result;
+  }, [result]);
+
+  useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
+  const stopHolding = useCallback(() => {
+    const hold = holdRef.current;
+    if (hold?.timeout) window.clearTimeout(hold.timeout);
+    if (hold?.interval) window.clearInterval(hold.interval);
+    holdRef.current = null;
+    setActiveHoldKey(null);
+  }, []);
+
+  useEffect(() => stopHolding, [stopHolding]);
 
   useEffect(() => {
     if (!loadFragments) return;
@@ -378,6 +455,8 @@ export function TreasureDigView({
     void loadSession()
       .then((s) => {
         if (alive && s) {
+          siteRef.current = s;
+          resultRef.current = null;
           setSite(s);
           setResult(null);
         }
@@ -391,6 +470,7 @@ export function TreasureDigView({
   }, [loadSession]);
 
   const handleOpen = useCallback(async () => {
+    busyRef.current = true;
     setBusy(true);
     setNotice(null);
     try {
@@ -403,54 +483,126 @@ export function TreasureDigView({
             : "발굴 지점을 열 수 없습니다.",
         );
       } else {
+        siteRef.current = r.site;
+        resultRef.current = null;
         setSite(r.site);
         setResult(null);
       }
     } catch {
       setNotice("발굴 지점을 열 수 없습니다.");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }, [open]);
 
-  const handleAction = useCallback(
-    async (action: TreasureAction, target?: TreasureActionTarget) => {
-      if (!site || busy || result) return;
+  const runAction = useCallback(
+    async (action: TreasureAction, target?: TreasureActionTarget): Promise<ActionRunStatus> => {
+      const currentSite = siteRef.current;
+      if (!currentSite || resultRef.current) return "stop";
+      if (busyRef.current) return "busy";
+      busyRef.current = true;
       setBusy(true);
       setNotice(null);
       try {
-        const r = await dig(site.siteId, action, target);
+        const r = await dig(currentSite.siteId, action, target);
         switch (r.outcome) {
           case "hit":
-            if (r.site) setSite(r.site);
-            setResult({ kind: "hit", antique: r.antique });
-            break;
+            if (r.site) {
+              siteRef.current = r.site;
+              setSite(r.site);
+            }
+            resultRef.current = { kind: "hit", antique: r.antique };
+            setResult(resultRef.current);
+            return "stop";
           case "exhausted":
+            siteRef.current = r.site;
             setSite(r.site);
-            setResult({
+            resultRef.current = {
               kind: "exhausted",
               message: r.message,
               missed: r.missed,
-            });
-            break;
+            };
+            setResult(resultRef.current);
+            return "stop";
           case "progress":
+            siteRef.current = r.site;
             setSite(r.site);
             setNotice(r.message);
-            break;
+            return "continue";
           case "invalid":
+            siteRef.current = r.site;
             setSite(r.site);
-            break;
+            return "stop";
           case "error":
             setNotice("발굴 중 오류가 발생했습니다.");
-            break;
+            return "stop";
         }
       } catch {
         setNotice("발굴 중 오류가 발생했습니다.");
+        return "stop";
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
+      return "stop";
     },
-    [site, busy, result, dig],
+    [dig],
+  );
+
+  const executeDirection = useCallback(
+    async (direction: DrillDirection): Promise<ActionRunStatus> => {
+      const currentSite = siteRef.current;
+      if (!currentSite || resultRef.current) return "stop";
+      const command = drillCommandForDirection(currentSite, direction);
+      if (!command || currentSite.forcedRetreat) return "stop";
+      return runAction(command.action, command.target);
+    },
+    [runAction],
+  );
+
+  const handleDirection = useCallback(
+    (direction: DrillDirection) => {
+      if (suppressNextClickRef.current) {
+        suppressNextClickRef.current = false;
+        return;
+      }
+      void executeDirection(direction);
+    },
+    [executeDirection],
+  );
+
+  const startHolding = useCallback(
+    (direction: DrillDirection) => {
+      stopHolding();
+      setActiveHoldKey(direction.key);
+      const tick = async () => {
+        const hold = holdRef.current;
+        if (!hold || hold.running) return;
+        hold.running = true;
+        try {
+          const status = await executeDirection(direction);
+          if (status === "stop") stopHolding();
+        } finally {
+          if (holdRef.current) holdRef.current.running = false;
+        }
+      };
+      const timeout = window.setTimeout(() => {
+        suppressNextClickRef.current = true;
+        void tick();
+        const hold = holdRef.current;
+        if (hold) hold.interval = window.setInterval(() => void tick(), 520);
+      }, 360);
+      holdRef.current = { timeout, interval: null, running: false };
+    },
+    [executeDirection, stopHolding],
+  );
+
+  const handleAction = useCallback(
+    (action: TreasureAction, target?: TreasureActionTarget) => {
+      void runAction(action, target);
+    },
+    [runAction],
   );
 
   return (
@@ -512,7 +664,10 @@ export function TreasureDigView({
             site={site}
             busy={busy}
             result={result}
-            onAction={handleAction}
+            activeHoldKey={activeHoldKey}
+            onDirection={handleDirection}
+            onHoldStart={startHolding}
+            onHoldEnd={stopHolding}
           />
 
           {!result && (

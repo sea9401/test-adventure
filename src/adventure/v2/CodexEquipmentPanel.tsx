@@ -104,6 +104,30 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
+type EquipmentBuildFilter =
+  | "all"
+  | "magic"
+  | "crit"
+  | "evasion"
+  | "speed"
+  | "tank"
+  | "heal"
+  | "signature"
+  | "set";
+const EQUIPMENT_BUILD_FILTERS: readonly {
+  key: EquipmentBuildFilter;
+  label: string;
+}[] = [
+  { key: "all", label: "전체" },
+  { key: "magic", label: "마법" },
+  { key: "crit", label: "치명" },
+  { key: "evasion", label: "회피" },
+  { key: "speed", label: "속도" },
+  { key: "tank", label: "탱커" },
+  { key: "heal", label: "회복" },
+  { key: "signature", label: "시그니처" },
+  { key: "set", label: "세트" },
+];
 
 function compareEquipmentCodexCandidate(
   a: V2EquipInstance,
@@ -125,6 +149,77 @@ function compareEquipmentCodexCandidate(
     : 0;
   if (powerA !== powerB) return powerA - powerB;
   return a.iid.localeCompare(b.iid);
+}
+
+function equipmentBuildTags(item: V2Equipment): string[] {
+  const tags = new Set<string>();
+  const options = item.options ?? {};
+  if (
+    item.concept === "int" ||
+    item.concept === "mana" ||
+    item.weaponType === "staff" ||
+    (options.mp ?? 0) > 0
+  ) {
+    tags.add("마법");
+  }
+  if ((options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0) {
+    tags.add("치명");
+  }
+  if ((options.eva ?? 0) > 0) tags.add("회피");
+  if ((options.spd ?? 0) > 0) tags.add("속도");
+  if (
+    item.concept === "heavy" ||
+    (options.hp ?? 0) > 0 ||
+    (options.def ?? 0) > 0 ||
+    (options.magicDef ?? 0) > 0 ||
+    (options.critResist ?? 0) > 0
+  ) {
+    tags.add("탱커");
+  }
+  if ((options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0) {
+    tags.add("회복");
+  }
+  if (item.signature) tags.add("시그니처");
+  if (item.setId || (item.setTags?.length ?? 0) > 0) tags.add("세트");
+  return [...tags];
+}
+
+function equipmentMatchesBuildFilter(
+  item: V2Equipment,
+  filter: EquipmentBuildFilter,
+): boolean {
+  if (filter === "all") return true;
+  const options = item.options ?? {};
+  switch (filter) {
+    case "magic":
+      return (
+        item.concept === "int" ||
+        item.concept === "mana" ||
+        item.weaponType === "staff" ||
+        (options.mp ?? 0) > 0
+      );
+    case "crit":
+      return (options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0;
+    case "evasion":
+      return (options.eva ?? 0) > 0;
+    case "speed":
+      return (options.spd ?? 0) > 0;
+    case "tank":
+      return (
+        item.concept === "heavy" ||
+        (options.hp ?? 0) > 0 ||
+        (options.def ?? 0) > 0 ||
+        (options.magicDef ?? 0) > 0 ||
+        (options.critResist ?? 0) > 0
+      );
+    case "heal":
+      return (options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0;
+    case "signature":
+      return Boolean(item.signature);
+    case "set":
+      return Boolean(item.setId || (item.setTags?.length ?? 0) > 0);
+  }
+  return true;
 }
 
 function parseEquipmentCraftRecord(raw: unknown): EquipmentCraftRecordView | null {
@@ -240,6 +335,8 @@ export function CodexEquipmentPanel({
   const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
   const [equipmentCodexSlot, setEquipmentCodexSlot] =
     useState<V2EquipSlot>("weapon");
+  const [equipmentBuildFilter, setEquipmentBuildFilter] =
+    useState<EquipmentBuildFilter>("all");
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
     if (!j) return;
@@ -352,6 +449,9 @@ export function CodexEquipmentPanel({
     if (equipmentCodexBusy) return;
     const candidates = equipmentEntries
       .filter((id) => V2_EQUIPMENT[id].slot === slot)
+      .filter((id) =>
+        equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
+      )
       .filter((id) => !equipmentRegisteredIds.has(id))
       .map((id) => equipmentCounts.eligible.get(id)?.[0] ?? null)
       .filter((inst): inst is V2EquipInstance => Boolean(inst));
@@ -415,13 +515,15 @@ export function CodexEquipmentPanel({
     }
     return { owned, eligible };
   })();
-  const equipmentSlotEntries = equipmentEntries.filter(
-    (id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot,
-  );
+  const equipmentSlotEntries = equipmentEntries
+    .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot)
+    .filter((id) =>
+      equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
+    );
   const equipmentSlotPager = usePagination(
     equipmentSlotEntries,
     EQUIPMENT_CODEX_PAGE_SIZE,
-    equipmentCodexSlot,
+    `${equipmentCodexSlot}:${equipmentBuildFilter}`,
   );
   const equipmentSlotRegisteredCount = equipmentSlotEntries.filter((id) =>
     equipmentRegisteredIds.has(id),
@@ -617,9 +719,14 @@ export function CodexEquipmentPanel({
             <div className="space-y-3">
               <div className="flex flex-wrap gap-1.5">
                 {EQUIPMENT_SLOT_ORDER.map((slot) => {
-                  const slotEntries = equipmentEntries.filter(
-                    (id) => V2_EQUIPMENT[id].slot === slot,
-                  );
+                  const slotEntries = equipmentEntries
+                    .filter((id) => V2_EQUIPMENT[id].slot === slot)
+                    .filter((id) =>
+                      equipmentMatchesBuildFilter(
+                        V2_EQUIPMENT[id],
+                        equipmentBuildFilter,
+                      ),
+                    );
                   const registeredCount = slotEntries.filter((id) =>
                     equipmentRegisteredIds.has(id),
                   ).length;
@@ -635,6 +742,34 @@ export function CodexEquipmentPanel({
                       }`}
                     >
                       {V2_SLOT_LABEL[slot]} {registeredCount}/{slotEntries.length}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {EQUIPMENT_BUILD_FILTERS.map((filter) => {
+                  const count =
+                    filter.key === "all"
+                      ? equipmentEntries.length
+                      : equipmentEntries.filter((id) =>
+                          equipmentMatchesBuildFilter(
+                            V2_EQUIPMENT[id],
+                            filter.key,
+                          ),
+                        ).length;
+                  return (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      onClick={() => setEquipmentBuildFilter(filter.key)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                        equipmentBuildFilter === filter.key
+                          ? "bg-emerald-700 text-white dark:bg-emerald-400 dark:text-emerald-950"
+                          : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      }`}
+                    >
+                      {filter.label} {count}
                     </button>
                   );
                 })}
@@ -656,13 +791,23 @@ export function CodexEquipmentPanel({
                 >
                   {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
                     ? "일괄 등록 중"
-                    : "보유 장비 일괄 등록"}
+                    : equipmentBuildFilter === "all"
+                      ? "보유 장비 일괄 등록"
+                      : "필터 장비 일괄 등록"}
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {equipmentSlotPager.pageItems.map((id) => {
+              {equipmentSlotEntries.length === 0 ? (
+                <Card padding="md">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    이 부위에는 선택한 빌드 축의 장비가 없습니다.
+                  </p>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {equipmentSlotPager.pageItems.map((id) => {
                   const item = V2_EQUIPMENT[id];
+                  const buildTags = equipmentBuildTags(item).slice(0, 4);
                   const registered = equipmentRegisteredIds.has(id);
                   const ownedCount = equipmentCounts.owned.get(id) ?? 0;
                   const eligible = equipmentCounts.eligible.get(id) ?? [];
@@ -719,6 +864,18 @@ export function CodexEquipmentPanel({
                           {v2ItemTypeLabel(item)} · 위력 {item.power} · 보유{" "}
                           {ownedCount} · 등록 가능 {eligible.length}
                         </div>
+                        {buildTags.length > 0 && (
+                          <div className="mt-0.5 flex flex-wrap gap-1">
+                            {buildTags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {craftRecord ? (
                           <div className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
                             <span className="rounded bg-amber-100 px-1.5 py-px font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
@@ -759,7 +916,8 @@ export function CodexEquipmentPanel({
                     </div>
                   );
                 })}
-              </div>
+                </div>
+              )}
               <Pagination
                 page={equipmentSlotPager.page}
                 pageCount={equipmentSlotPager.pageCount}

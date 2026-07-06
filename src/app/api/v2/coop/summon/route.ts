@@ -18,6 +18,7 @@ import {
   MAX_ACTIVE_PER_KIND,
   SUMMON_SCROLL_MATERIAL_ID,
   coopBossDurationMs,
+  isScrollSummonableCoopBossKind,
   parseCoopBossKindId,
   parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
@@ -50,6 +51,12 @@ export async function POST(req: Request) {
   const kindId = parseCoopBossKindId(body.kind);
   if (!kindId) {
     return Response.json({ ok: false, error: "bad_kind" }, { status: 400 });
+  }
+  if (!isScrollSummonableCoopBossKind(kindId)) {
+    return Response.json(
+      { ok: false, error: "not_scroll_summonable" },
+      { status: 400 },
+    );
   }
   const kind = COOP_BOSSES[kindId];
   // 코어루프 — 소환자가 공개 범위를 고른다(공개/길드원만/소환자만). off 면 항상 public(현행).

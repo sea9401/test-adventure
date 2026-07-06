@@ -728,6 +728,15 @@ export const COOP_BOSS_KIND_IDS = Object.keys(
   COOP_BOSSES,
 ) as CoopBossKindId[];
 
+export const SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS: readonly CoopBossKindId[] =
+  COOP_BOSS_KIND_IDS.filter((kindId) => kindId !== FISHING_COOP_BOSS_KIND_ID);
+
+export function isScrollSummonableCoopBossKind(
+  kindId: CoopBossKindId,
+): boolean {
+  return kindId !== FISHING_COOP_BOSS_KIND_ID;
+}
+
 export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
   // own-key 만 인정 — `in` 은 프로토타입 키("toString" 등)도 통과시켜, 손상된 payload 가
   //   COOP_BOSSES["toString"](프로토타입 함수)로 새는 잠복 위험이 있었다(코덱스 지적).

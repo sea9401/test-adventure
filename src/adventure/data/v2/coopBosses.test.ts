@@ -29,6 +29,8 @@ import {
   MAX_ACTIVE_PER_KIND,
   FISHING_COOP_BOSS_KIND_ID,
   FISHING_COOP_BOSS_SPAWN_CHANCE,
+  SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS,
+  isScrollSummonableCoopBossKind,
   coopCriticalDamageFromLog,
   rollFishingCoopBossSpawn,
 } from "./coopBosses";
@@ -263,6 +265,11 @@ describe("coopBosses 카탈로그", () => {
   it("심연어룡 — 낚시 이벤트 HARD 보스 + 치명타 수압 파훼", () => {
     const b = COOP_BOSSES.abyssal_tyrant;
     expect(FISHING_COOP_BOSS_KIND_ID).toBe("abyssal_tyrant");
+    expect(SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS).not.toContain(
+      FISHING_COOP_BOSS_KIND_ID,
+    );
+    expect(isScrollSummonableCoopBossKind("abyssal_tyrant")).toBe(false);
+    expect(isScrollSummonableCoopBossKind("mountain_chief_hard")).toBe(true);
     expect(FISHING_COOP_BOSS_SPAWN_CHANCE).toBe(0.0002);
     expect(rollFishingCoopBossSpawn(() => 0)).toBe(true);
     expect(rollFishingCoopBossSpawn(() => FISHING_COOP_BOSS_SPAWN_CHANCE)).toBe(

@@ -5,15 +5,13 @@ import { useRouter } from "next/navigation";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
 import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
 import { ArenaShopPanel } from "@/adventure/v2/ArenaShopPanel";
-import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-import { Sword, Coin, Trophy, FilmStrip } from "@phosphor-icons/react";
+import { Sword, Trophy, FilmStrip } from "@phosphor-icons/react";
 
-// v2 1:1 아레나 — 4탭: 메인(도전·결과·전투 로그) / 전투 기록(다시보기) / 순위표 / 세팅(로드아웃).
+// v2 1:1 아레나 — 5탭: 메인(도전·요약) / 전투 기록 / 순위표 / 세팅(로드아웃) / 상점.
 
 type StateResp = {
   ok?: boolean;
@@ -126,16 +124,10 @@ function formatKst(iso: string | undefined): string {
 
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const router = useRouter();
-  const { viewerName, viewerGender, playerSubtitle } = useGameState();
   const [tab, setTab] = useState<Tab>("main");
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
-  const [lastResult, setLastResult] = useState<
-    Extract<MatchResp, { ok: true }> | null
-  >(null);
   const [history, setHistory] = useState<ArenaHistoryEntry[]>([]);
-  // 다시보기 중인 기록(방금 싸운 판 또는 목록에서 고른 과거 판). null = 닫힘.
-  const [replayEntry, setReplayEntry] = useState<ArenaHistoryEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   // 재도전 쿨타임 — cooldownUntil(epoch ms, 0=없음). nowMs 틱으로 카운트다운 렌더.
@@ -196,9 +188,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const res = await fetch("/api/v2/arena/match", { method: "POST" });
       const j = (await res.json().catch(() => null)) as MatchResp | null;
       if (j && j.ok) {
-        setLastResult(j);
         setHistory((prev) => [j.historyEntry, ...prev].slice(0, 10));
-        setReplayEntry(j.historyEntry); // 방금 싸운 판 전투 로그 자동 표시
         setState((prev) =>
           prev?.state
             ? {
@@ -227,6 +217,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
         );
         setNowMs(Date.now());
         setCooldownUntil(Date.now() + (j.cooldownMs ?? FALLBACK_COOLDOWN_MS));
+        router.push(`/battle/arena/${encodeURIComponent(j.historyEntry.id)}`);
       } else if (j && !j.ok) {
         if (j.error === "cooldown") {
           setNowMs(Date.now());
@@ -251,7 +242,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [busy]);
+  }, [busy, router]);
 
   const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
   const onCooldown = cooldownLeftMs > 0;
@@ -261,55 +252,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const seasonMatches =
     (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
   const recent = history[0];
-
-  const replayBlock = replayEntry && (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold">
-          <FilmStrip size={16} className="text-amber-600 dark:text-amber-400" />
-          전투 로그 ·{" "}
-          <span className="font-normal text-zinc-500">
-            vs{" "}
-            {replayEntry.opponent.userId && replayEntry.opponent.name ? (
-              <button
-                type="button"
-                onClick={() =>
-                  router.push(
-                    `/character/${encodeURIComponent(replayEntry.opponent.name)}`,
-                  )
-                }
-                className="text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
-              >
-                {replayEntry.opponent.name}
-              </button>
-            ) : (
-              replayEntry.opponent.name || "상대"
-            )}{" "}
-            Lv.{replayEntry.opponent?.level ?? "?"} ·{" "}
-            <span className={outcomeColor(replayEntry.outcome)}>
-              {OUTCOME_LABEL[replayEntry.outcome]}
-            </span>
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setReplayEntry(null)}
-          className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-        >
-          닫기
-        </button>
-      </div>
-      <ReplayBattleScene
-        key={replayEntry.id}
-        payload={replayEntry.replay}
-        playerName={viewerName}
-        gender={viewerGender}
-        exp={0}
-        maxExp={1}
-        playerSubtitle={playerSubtitle}
-      />
-    </section>
-  );
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -467,73 +409,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             </div>
           </section>
 
-          {lastResult && (
-            <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>
-                  <div className={"mt-0.5 text-lg font-bold " + outcomeColor(lastResult.outcome)}>
-                    {OUTCOME_LABEL[lastResult.outcome]}
-                  </div>
-                </div>
-                <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
-                  {lastResult.turns}행동
-                </div>
-              </div>
-              <div className="mt-3 text-sm">
-                상대{" "}
-                {lastResult.opponent.userId && lastResult.opponent.name ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(
-                        `/character/${encodeURIComponent(lastResult.opponent.name)}`,
-                      )
-                    }
-                    className="font-semibold text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
-                  >
-                    {lastResult.opponent.name}
-                  </button>
-                ) : (
-                  <strong>{lastResult.opponent.name}</strong>
-                )}
-                <span className="ml-1 text-zinc-500">Lv.{lastResult.opponent.level}</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                  <div className="text-xs text-zinc-500">점수</div>
-                  <div className="mt-0.5 font-semibold tabular-nums">
-                    {lastResult.scoreBefore} →{" "}
-                    <span
-                      className={
-                        lastResult.scoreDelta > 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : lastResult.scoreDelta < 0
-                            ? "text-rose-600 dark:text-rose-400"
-                            : ""
-                      }
-                    >
-                      {lastResult.scoreAfter}
-                    </span>
-                    <span className="ml-1 text-xs text-zinc-500">
-                      ({lastResult.scoreDelta >= 0 ? "+" : ""}
-                      {lastResult.scoreDelta})
-                    </span>
-                  </div>
-                </div>
-                <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-                  <div className="flex items-center gap-1 text-xs text-zinc-500">
-                    <Coin size={12} /> 골드
-                  </div>
-                  <div className="mt-0.5 font-semibold tabular-nums">
-                    +{lastResult.goldGained}
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {replayBlock}
         </>
       )}
 
@@ -551,11 +426,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                   <li key={h.id}>
                     <button
                       type="button"
-                      onClick={() => setReplayEntry(h)}
-                      className={
-                        "ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
-                        (replayEntry?.id === h.id ? "bg-amber-50 dark:bg-amber-950/30" : "")
+                      onClick={() =>
+                        router.push(`/battle/arena/${encodeURIComponent(h.id)}`)
                       }
+                      className="ui-guild-row flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
                     >
                       <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
                         {OUTCOME_LABEL[h.outcome]}
@@ -590,7 +464,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               </ul>
             </section>
           )}
-          {replayBlock}
         </>
       )}
 

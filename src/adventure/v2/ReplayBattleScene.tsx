@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import {
   BattleScene,
+  type BattleOutcomeAction,
   type BattlePlayerStatus,
   type BattleStats,
 } from "@/adventure/battle/BattleScene";
@@ -29,6 +30,7 @@ export function ReplayBattleScene({
   elementMatchup,
   playerCombat,
   outcome,
+  outcomeAction,
 }: {
   payload: ReplayPayload;
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
@@ -48,6 +50,7 @@ export function ReplayBattleScene({
   playerCombat?: BattleStats;
   // 전투 결과(승/패) — BattleScene 상단 승패 배너용. 미전달 시 배너 미표시.
   outcome?: "win" | "lose";
+  outcomeAction?: BattleOutcomeAction;
 }) {
   const derivedState = useMemo<BattleState>(() => {
     // finalState — 마지막 hp_bar entry 의 HP 가 최종.
@@ -95,6 +98,7 @@ export function ReplayBattleScene({
       elementMatchup={elementMatchup}
       playerCombat={playerCombat}
       outcome={outcome}
+      outcomeAction={outcomeAction}
     />
   );
 }

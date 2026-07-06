@@ -77,7 +77,7 @@ export type ArenaHistoryEntry = {
   /** ISO 시각. */
   at: string;
   outcome: ArenaMatchOutcome;
-  opponent: { name: string; level: number; userId?: string };
+  opponent: { name: string; level: number; userId?: string; botId?: string };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;
@@ -292,4 +292,3 @@ export function pushRecentOpponent(
   }
   return next;
 }
-

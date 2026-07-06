@@ -28,7 +28,7 @@ type ArenaHistoryEntry = {
   id: string;
   at: string;
   outcome: "win" | "loss" | "draw";
-  opponent: { name: string; level: number; userId?: string };
+  opponent: { name: string; level: number; userId?: string; botId?: string };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;
@@ -46,7 +46,13 @@ type MatchResp =
       scoreAfter: number;
       scoreDelta: number;
       goldGained: number;
-      opponent: { name: string; level: number; score: number; userId?: string };
+      opponent: {
+        name: string;
+        level: number;
+        score: number;
+        userId?: string;
+        botId?: string;
+      };
       historyEntry: ArenaHistoryEntry;
       cooldownMs: number;
     }
@@ -204,18 +210,20 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           전투 로그 ·{" "}
           <span className="font-normal text-zinc-500">
             vs{" "}
-            {replayEntry.opponent?.name ? (
+            {replayEntry.opponent.userId && replayEntry.opponent.name ? (
               <button
                 type="button"
                 onClick={() =>
-                  router.push(`/character/${encodeURIComponent(replayEntry.opponent!.name)}`)
+                  router.push(
+                    `/character/${encodeURIComponent(replayEntry.opponent.name)}`,
+                  )
                 }
                 className="text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
               >
-                {replayEntry.opponent?.name || "상대"}
+                {replayEntry.opponent.name}
               </button>
             ) : (
-              (replayEntry.opponent?.name || "상대")
+              replayEntry.opponent.name || "상대"
             )}{" "}
             Lv.{replayEntry.opponent?.level ?? "?"} ·{" "}
             <span className={outcomeColor(replayEntry.outcome)}>
@@ -325,10 +333,14 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               </div>
               <div className="mt-3 text-sm">
                 상대{" "}
-                {lastResult.opponent.name ? (
+                {lastResult.opponent.userId && lastResult.opponent.name ? (
                   <button
                     type="button"
-                    onClick={() => router.push(`/character/${encodeURIComponent(lastResult.opponent.name)}`)}
+                    onClick={() =>
+                      router.push(
+                        `/character/${encodeURIComponent(lastResult.opponent.name)}`,
+                      )
+                    }
                     className="font-semibold text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
                   >
                     {lastResult.opponent.name}

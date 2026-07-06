@@ -31,10 +31,9 @@ import {
 import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
 import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
-import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
-// 아레나 세팅(로드아웃) — 캐릭터 현재 빌드(장착 스킬+전투 패턴+장착 장비) 스냅샷 저장/적용/삭제.
+// 전투 세팅 스냅샷 — 직업/스탯은 제외하고 현재 장착 스킬+전투 패턴+장착 장비만 저장/적용/삭제.
 // GET  → 목록.
 // POST { action: "save", name } → 현재 빌드를 새 로드아웃으로 저장(저장순 ≤ MAX).
 //      { action: "apply", id } → 그 로드아웃으로 현재 장착(skills.v2 equipped/pattern +
@@ -160,7 +159,6 @@ export async function POST(req: Request) {
         prof.groups,
         spCapBonusFromRaw(charSave.spFruitUsed),
         (await readCodexSpBonus(tx, userId)).total,
-        jobUnlockSpBonus(prof),
       );
       const nextSkills = {
         ...skills,

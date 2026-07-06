@@ -20,6 +20,15 @@ type StateResp = {
   state?: {
     score: number;
     cooldownRemainingMs: number;
+    season?: {
+      id: string;
+      startAt: string;
+      endAt: string;
+      rating: number;
+      wins: number;
+      losses: number;
+      draws: number;
+    };
   };
   cooldownMs?: number;
 };
@@ -68,12 +77,19 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "main", label: "메인" },
   { id: "history", label: "전투 기록" },
   { id: "ranking", label: "순위표" },
-  { id: "loadout", label: "세팅" },
+  { id: "loadout", label: "전투 세팅" },
   { id: "shop", label: "상점" },
 ];
 
 // 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
 const FALLBACK_COOLDOWN_MS = 10_000;
+
+const WEEKLY_REWARDS = [
+  { rank: "1위", coins: 1000 },
+  { rank: "2~3위", coins: 600 },
+  { rank: "4~10위", coins: 300 },
+  { rank: "참가", coins: 100 },
+] as const;
 
 const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
   win: "승리",
@@ -87,6 +103,25 @@ function outcomeColor(outcome: ArenaHistoryEntry["outcome"]): string {
     : outcome === "loss"
       ? "text-rose-600 dark:text-rose-400"
       : "text-zinc-600 dark:text-zinc-400";
+}
+
+function percent(numerator: number, denominator: number): string {
+  if (denominator <= 0) return "0%";
+  return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+function formatKst(iso: string | undefined): string {
+  if (!iso) return "-";
+  const time = new Date(iso).getTime();
+  if (!Number.isFinite(time)) return "-";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(time));
 }
 
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
@@ -166,7 +201,28 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
         setReplayEntry(j.historyEntry); // 방금 싸운 판 전투 로그 자동 표시
         setState((prev) =>
           prev?.state
-            ? { ...prev, state: { ...prev.state, score: j.scoreAfter } }
+            ? {
+                ...prev,
+                state: {
+                  ...prev.state,
+                  score: j.scoreAfter,
+                  season: prev.state.season
+                    ? {
+                        ...prev.state.season,
+                        rating: prev.state.season.rating + j.scoreDelta,
+                        wins:
+                          prev.state.season.wins +
+                          (j.outcome === "win" ? 1 : 0),
+                        losses:
+                          prev.state.season.losses +
+                          (j.outcome === "loss" ? 1 : 0),
+                        draws:
+                          prev.state.season.draws +
+                          (j.outcome === "draw" ? 1 : 0),
+                      }
+                    : prev.state.season,
+                },
+              }
             : prev,
         );
         setNowMs(Date.now());
@@ -201,6 +257,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const onCooldown = cooldownLeftMs > 0;
   const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
   const canChallenge = !busy && !onCooldown;
+  const season = state?.state?.season;
+  const seasonMatches =
+    (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
+  const recent = history[0];
 
   const replayBlock = replayEntry && (
     <section className="space-y-2">
@@ -291,11 +351,47 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       {tab === "main" && (
         <>
           <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-              <Trophy size={14} /> 점수
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  <Trophy size={14} /> 누적 점수
+                </div>
+                <div className="mt-1 text-2xl font-bold tabular-nums">
+                  {state?.state?.score ?? 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  이번 주 전적
+                </div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  {season?.wins ?? 0}-{season?.losses ?? 0}-{season?.draws ?? 0}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">승률</div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  {percent(season?.wins ?? 0, seasonMatches)}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  주간 레이팅
+                </div>
+                <div className="mt-1 text-lg font-bold tabular-nums">
+                  {season?.rating ?? 1000}
+                </div>
+              </div>
             </div>
-            <div className="mt-1 text-2xl font-bold tabular-nums">
-              {state?.state?.score ?? 0}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+              <span>시즌 {season?.id ?? "-"}</span>
+              <span>정산 {formatKst(season?.endAt)}</span>
+              {recent && (
+                <span>
+                  최근 {OUTCOME_LABEL[recent.outcome]} · {recent.scoreDelta >= 0 ? "+" : ""}
+                  {recent.scoreDelta} · {timeAgo(recent.at)}
+                </span>
+              )}
             </div>
           </section>
 
@@ -317,6 +413,59 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               {error}
             </div>
           )}
+
+          <section className="grid gap-3 sm:grid-cols-2">
+            <div className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-2 font-semibold">규칙</div>
+              <dl className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
+                <div className="flex justify-between gap-3">
+                  <dt>매칭</dt>
+                  <dd className="text-right">실유저 우선 · 부족하면 연습 상대</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>쿨타임</dt>
+                  <dd className="text-right">매치 후 10초</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>점수</dt>
+                  <dd className="text-right">승 +20 · 패 -10 · 무 0</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>업셋</dt>
+                  <dd className="text-right">높은 점수 상대 승리 +5 · 낮은 점수 상대 패배 -5</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>골드</dt>
+                  <dd className="text-right">승리 Lv×50 · 패배/무승부 Lv×10</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="font-semibold">주간 보상</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  우편함 지급
+                </span>
+              </div>
+              <div className="space-y-1 text-xs">
+                {WEEKLY_REWARDS.map((r) => (
+                  <div
+                    key={r.rank}
+                    className="flex items-center justify-between rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/70"
+                  >
+                    <span className="font-medium">{r.rank}</span>
+                    <span className="tabular-nums text-amber-700 dark:text-amber-300">
+                      {r.coins.toLocaleString()} 코인
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                주간 레이팅 순위 기준입니다. 매주 월요일 00:00(KST)에 시즌이 넘어갑니다.
+              </p>
+            </div>
+          </section>
 
           {lastResult && (
             <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

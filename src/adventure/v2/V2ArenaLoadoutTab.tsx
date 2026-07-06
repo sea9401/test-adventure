@@ -71,7 +71,7 @@ export function V2ArenaLoadoutTab() {
     if (j && j.ok && j.loadouts) {
       setLoadouts(j.loadouts);
       setName("");
-      setNotice("현재 세팅을 저장했어요.");
+      setNotice("직업과 스탯을 제외한 전투 스냅샷을 저장했어요.");
     } else {
       setNotice("저장에 실패했어요.");
     }
@@ -87,7 +87,7 @@ export function V2ArenaLoadoutTab() {
       if (j && j.ok && j.applied) {
         await refreshGameState();
         setNotice(
-          `'${l.name}' 적용됨 — 스킬 ${j.applied.skills.length} · 장비 ${j.applied.equipmentSlots}칸`,
+          `'${l.name}' 적용됨 — 현재 직업·스탯 유지 · 스킬 ${j.applied.skills.length} · 장비 ${j.applied.equipmentSlots}칸`,
         );
       } else {
         setNotice("적용에 실패했어요.");
@@ -114,8 +114,8 @@ export function V2ArenaLoadoutTab() {
   return (
     <section className="space-y-3">
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        현재 장착한 스킬·스킬 패턴·장비를 한 세팅으로 저장해 두고, 눌러서 그대로 불러올 수 있어요.
-        (판매·미습득으로 사라진 항목은 자동으로 건너뜁니다.)
+        전직해도 다시 불러올 수 있도록 스킬·스킬 패턴·장비만 저장합니다. 직업과 현재 스탯은
+        저장하지 않으며, 적용할 때도 바꾸지 않습니다. 판매·미습득으로 사라진 항목은 건너뜁니다.
       </p>
 
       <div className="flex gap-2">
@@ -124,7 +124,7 @@ export function V2ArenaLoadoutTab() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          placeholder="세팅 이름 (예: 크리 빌드)"
+          placeholder="스냅샷 이름 (예: 크리 빌드)"
           className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900"
         />
         <button
@@ -133,12 +133,12 @@ export function V2ArenaLoadoutTab() {
           onClick={saveCurrent}
           className="flex shrink-0 items-center gap-1 rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
         >
-          <FloppyDisk size={16} /> 현재 세팅 저장
+          <FloppyDisk size={16} /> 현재 스냅샷 저장
         </button>
       </div>
       {loadouts.length >= MAX && (
         <p className="text-xs text-amber-600 dark:text-amber-400">
-          세팅은 최대 {MAX}개까지 저장할 수 있어요. 하나 지우고 저장해 주세요.
+          스냅샷은 최대 {MAX}개까지 저장할 수 있어요. 하나 지우고 저장해 주세요.
         </p>
       )}
 
@@ -152,7 +152,7 @@ export function V2ArenaLoadoutTab() {
         <div className="py-6 text-center text-sm text-zinc-500">불러오는 중...</div>
       ) : loadouts.length === 0 ? (
         <div className="py-6 text-center text-sm text-zinc-500">
-          저장된 세팅이 없어요. 위에서 현재 세팅을 저장해 보세요.
+          저장된 전투 스냅샷이 없어요. 위에서 현재 장착 상태를 저장해 보세요.
         </div>
       ) : (
         <ul className="space-y-2">
@@ -167,6 +167,7 @@ export function V2ArenaLoadoutTab() {
                   스킬 {l.skills?.length ?? 0} · 장비{" "}
                   {Object.keys(l.equipment ?? {}).length}칸
                   {l.pattern?.blocks?.length ? " · 스킬 패턴" : ""}
+                  {" · 직업/스탯 제외"}
                 </div>
               </div>
               <button

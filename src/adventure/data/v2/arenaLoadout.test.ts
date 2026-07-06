@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   ARENA_LOADOUT_MAX,
   parseArenaLoadouts,
+  parseActiveArenaLoadout,
+  serializeActiveArenaLoadout,
   loadoutSkillsForApply,
   loadoutEquipmentForApply,
   type ArenaLoadout,
@@ -14,6 +16,7 @@ const mk = (id: string, over: Partial<ArenaLoadout> = {}): ArenaLoadout => ({
   savedAt: "2026-06-08T00:00:00.000Z",
   skills: ["a", "b"] as unknown as V2SkillId[],
   pattern: null,
+  element: "fire",
   equipment: { weapon: "w1", armor: "a1" },
   ...over,
 });
@@ -38,6 +41,7 @@ describe("parseArenaLoadouts (방어적 파싱)", () => {
     ]);
     expect(parsed).toHaveLength(2);
     expect(parsed[0]!.id).toBe("ok");
+    expect(parsed[0]!.element).toBe("fire");
     expect(parsed[1]!.skills).toEqual(["x", "y"]);
     expect(parsed[1]!.equipment).toEqual({ weapon: "w" }); // armor=5 거름·bogus 슬롯 거름
   });
@@ -45,6 +49,19 @@ describe("parseArenaLoadouts (방어적 파싱)", () => {
   it("MAX 로 자른다", () => {
     const big = Array.from({ length: ARENA_LOADOUT_MAX + 4 }, (_, i) => mk(`l${i}`));
     expect(parseArenaLoadouts(big)).toHaveLength(ARENA_LOADOUT_MAX);
+  });
+});
+
+describe("active arena loadout", () => {
+  it("목록 첫 항목을 활성 템플릿으로 읽는다", () => {
+    expect(parseActiveArenaLoadout([mk("first"), mk("second")])?.id).toBe(
+      "first",
+    );
+  });
+
+  it("단일 활성 템플릿 저장 형태는 배열 1개다", () => {
+    expect(serializeActiveArenaLoadout(mk("active"))).toHaveLength(1);
+    expect(serializeActiveArenaLoadout(null)).toEqual([]);
   });
 });
 

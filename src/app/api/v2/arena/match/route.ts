@@ -3,8 +3,11 @@ import { db } from "@/db";
 import { savesKv, pvpRatings } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  derivePlayerCombatV2,
+  type SavedCharacterV2,
+} from "@/lib/server/derivePlayerCombatV2";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import {
   codexSpBonusFromRaw,
@@ -25,8 +28,19 @@ import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
   ARENA_STATE_KEY,
   ARENA_HISTORY_KEY,
+  ARENA_LOADOUTS_KEY,
   CHARACTER_STATE_KEY,
 } from "@/lib/storage-keys";
+import {
+  loadoutEquipmentForApply,
+  loadoutSkillsForApply,
+  parseActiveArenaLoadout,
+  type ArenaLoadout,
+} from "@/adventure/data/v2/arenaLoadout";
+import {
+  parseEquipmentSave,
+  type EquipmentSave,
+} from "@/adventure/data/v2/v2Equipment";
 import {
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
@@ -97,6 +111,32 @@ type BotPick = {
   bot: ArenaBot;
 };
 
+function equipmentSaveForArena(
+  equipmentRaw: unknown,
+  loadout: ArenaLoadout | null,
+): unknown {
+  if (!loadout) return equipmentRaw;
+  const { owned } = parseEquipmentSave(equipmentRaw);
+  const ownedIids = new Set(owned.map((item) => item.iid));
+  return {
+    owned,
+    equipped: loadoutEquipmentForApply(loadout, ownedIids),
+  };
+}
+
+function skillsStateForArena(
+  skillsRaw: unknown,
+  loadout: ArenaLoadout | null,
+): V2SkillsState {
+  const skills = parseV2SkillsState(skillsRaw);
+  if (!loadout) return skills;
+  return {
+    ...skills,
+    equipped: loadoutSkillsForApply(loadout, skills.learned),
+    pattern: loadout.pattern ?? undefined,
+  };
+}
+
 function nameOf(value: unknown, fallback: string): string {
   if (!value || typeof value !== "object") return fallback;
   const v = value as ProfileShape;
@@ -164,8 +204,44 @@ export async function POST() {
       };
     }
 
-    // 4. 본인 derive.
-    const viewerCombat = await derivePlayerCombatV2(userId, tx);
+    const viewerArenaLoadout = parseActiveArenaLoadout(
+      await readSave(tx, userId, ARENA_LOADOUTS_KEY, []),
+    );
+    const myEquipmentRaw = await readSave<EquipmentSave>(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const mySkillsBaseRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState() as unknown as Record<string, unknown>,
+    );
+    const myProfRaw = await lockSaveForUpdate<V2ProficiencyState>(
+      tx,
+      userId,
+      "proficiency.v2",
+      emptyProficiency(),
+    );
+    let mySkills = skillsStateForArena(mySkillsBaseRaw, viewerArenaLoadout);
+    if (V2_CORE_LOOP_V2) {
+      mySkills = sanitizeCombatLoadout(
+        mySkills,
+        charSave,
+        myProfRaw,
+        (await readCodexSpBonus(tx, userId)).total,
+      );
+    }
+
+    // 4. 본인 derive. 아레나 템플릿이 있으면 장비/스킬/패턴은 템플릿을 사용하고, 직업/스탯/레벨은 현재값.
+    const viewerCombat = await derivePlayerCombatV2(userId, tx, {
+      character: charSave,
+      equipmentSave: equipmentSaveForArena(myEquipmentRaw, viewerArenaLoadout),
+      proficiencyRaw: myProfRaw,
+      skillsRaw: mySkills,
+    });
     if (!viewerCombat) {
       return {
         status: 400,
@@ -202,9 +278,9 @@ export async function POST() {
       ]),
     );
     // 본인 속성.
-    const viewerElement = parseV2Element(
-      (charSave as { element?: unknown }).element,
-    );
+    const viewerElement =
+      viewerArenaLoadout?.element ??
+      parseV2Element((charSave as { element?: unknown }).element);
 
     // 6a. 점수 (arena-state.v2) 일괄 조회. 미존재면 0.
     const scoreByUser = new Map<string, number>();
@@ -286,17 +362,61 @@ export async function POST() {
     // 8. 상대 PlayerCombat 준비. 실유저 derive 실패(상대 세이브 손상 등)도 봇으로 폴백해
     //    호출자 입장에서는 아레나가 끊기지 않게 한다.
     const pickedUserId = picked.userId;
-    let opponentCombat =
-      pickedBot != null
-        ? pickedBot.combat
-        : pickedUserId
-          ? await derivePlayerCombatV2(pickedUserId, tx)
-          : null;
+    let opponentCombat = pickedBot != null ? pickedBot.combat : null;
+    let oppSkills: V2SkillsState = emptyV2SkillsState();
+    let oppLoadoutElement: V2Element | undefined;
+    if (!opponentCombat && pickedUserId) {
+      const oppRows = await tx
+        .select({ key: savesKv.key, value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(
+            eq(savesKv.userId, pickedUserId),
+            inArray(savesKv.key, [
+              CHARACTER_STATE_KEY,
+              "equipment.v2",
+              "skills.v2",
+              "proficiency.v2",
+              "fishing-codex.v1",
+              "treasure-codex.v1",
+              ARENA_LOADOUTS_KEY,
+            ]),
+          ),
+        );
+      const oppRow = (k: string) => oppRows.find((r) => r.key === k)?.value;
+      const oppLoadout = parseActiveArenaLoadout(oppRow(ARENA_LOADOUTS_KEY));
+      const oppCharSave =
+        (oppRow(CHARACTER_STATE_KEY) as SavedCharacterV2 | undefined) ??
+        (candidateChars.find((r) => r.userId === pickedUserId)?.value as
+          | SavedCharacterV2
+          | undefined);
+      oppLoadoutElement = oppLoadout?.element;
+      oppSkills = skillsStateForArena(oppRow("skills.v2"), oppLoadout);
+      if (V2_CORE_LOOP_V2) {
+        oppSkills = sanitizeCombatLoadout(
+          oppSkills,
+          oppCharSave ?? {},
+          oppRow("proficiency.v2"),
+          codexSpBonusFromRaw(
+            oppRow("fishing-codex.v1"),
+            oppRow("treasure-codex.v1"),
+          ).total,
+        );
+      }
+      opponentCombat = await derivePlayerCombatV2(pickedUserId, tx, {
+        character: oppCharSave,
+        equipmentSave: equipmentSaveForArena(oppRow("equipment.v2"), oppLoadout),
+        proficiencyRaw: oppRow("proficiency.v2"),
+        skillsRaw: oppSkills,
+      });
+    }
     if (!opponentCombat) {
       const botPick = pickBot();
       picked = botPick?.candidate ?? null;
       pickedBot = botPick?.bot ?? null;
       opponentCombat = botPick?.bot.combat ?? null;
+      oppSkills = emptyV2SkillsState();
+      oppLoadoutElement = undefined;
     }
     if (!picked || !opponentCombat) {
       return {
@@ -330,7 +450,10 @@ export async function POST() {
       ? { userId: oppUserId, at: now.toISOString() }
       : { botId: oppBotId, at: now.toISOString() };
     const oppElement: V2Element =
-      pickedBot?.element ?? (oppUserId ? elementByUser.get(oppUserId) : undefined) ?? "neutral";
+      pickedBot?.element ??
+      oppLoadoutElement ??
+      (oppUserId ? elementByUser.get(oppUserId) : undefined) ??
+      "neutral";
     const oppWeaponElement: V2Element = opponentCombat.weaponElement; // PR-5b — 상대 무기 속성(평타).
 
     // 본인 HP 도 풀충전 — 단판 모델.
@@ -379,72 +502,6 @@ export async function POST() {
       oppAttackElement,
       oppElement,
     );
-
-    // PR-4b — 양측 v2 스킬 wiring. 본인은 lock, 상대는 plain read (다른 user row lock = deadlock 위험).
-    const mySkillsRaw = await lockSaveForUpdate(
-      tx,
-      userId,
-      "skills.v2",
-      emptyV2SkillsState() as unknown as Record<string, unknown>,
-    );
-    let mySkills = parseV2SkillsState(mySkillsRaw);
-    let oppSkills: V2SkillsState;
-    if (V2_CORE_LOOP_V2) {
-      // 코어루프 — 양측 로드아웃을 전투 직전 sanitize(SP 예산/직업고정 강제). 상대가 flip 후 state
-      //   로드를 안 거쳤어도 over-budget 로드아웃으로 싸우지 못하게. (flag off 면 이 분기 미진입.)
-      const myProfRaw = await lockSaveForUpdate<V2ProficiencyState>(
-        tx,
-        userId,
-        "proficiency.v2",
-        emptyProficiency(),
-      );
-      mySkills = sanitizeCombatLoadout(
-        mySkills,
-        charSave,
-        myProfRaw,
-        (await readCodexSpBonus(tx, userId)).total,
-      );
-      if (oppUserId) {
-        const oppRows = await tx
-          .select({ key: savesKv.key, value: savesKv.value })
-          .from(savesKv)
-          .where(
-            and(
-              eq(savesKv.userId, oppUserId),
-              inArray(savesKv.key, [
-                "skills.v2",
-                "character.v2",
-                "proficiency.v2",
-                "fishing-codex.v1",
-                "treasure-codex.v1",
-              ]),
-            ),
-          );
-        const oppRow = (k: string) => oppRows.find((r) => r.key === k)?.value;
-        oppSkills = sanitizeCombatLoadout(
-          parseV2SkillsState(oppRow("skills.v2")),
-          oppRow("character.v2") ?? {},
-          oppRow("proficiency.v2"),
-          codexSpBonusFromRaw(
-            oppRow("fishing-codex.v1"),
-            oppRow("treasure-codex.v1"),
-          ).total,
-        );
-      } else {
-        oppSkills = emptyV2SkillsState();
-      }
-    } else {
-      if (oppUserId) {
-        const oppSkillsRow = await tx
-          .select({ value: savesKv.value })
-          .from(savesKv)
-          .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, "skills.v2")))
-          .limit(1);
-        oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
-      } else {
-        oppSkills = emptyV2SkillsState();
-      }
-    }
 
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {

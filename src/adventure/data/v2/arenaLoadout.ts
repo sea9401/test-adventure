@@ -1,9 +1,9 @@
-// 전투 세팅 스냅샷 — 직업/스탯은 저장하지 않고 장착 스킬 + 활성 전투 패턴(겜빗) +
-// 장착 장비(슬롯→개체 iid)만 저장한다. 전직 후에는 현재 직업/스탯은 그대로 두고, 이 스냅샷으로
-// 현재 캐릭터 장착만 즉시 교체한다. 라이브 전투(사냥·아레나)가 모두 이 장착 상태를 읽으므로
-// 캐릭터 전역에 적용된다(아레나 전용 아님).
+// 아레나 전투 세팅 스냅샷 — 직업/스탯은 저장하지 않고 속성 + 장착 스킬 + 활성 전투 패턴(겜빗) +
+// 장착 장비(슬롯→개체 iid)만 저장한다. 아레나 매치는 공격/수비 양쪽 모두 이 활성 스냅샷을
+// 전투 입력에 오버레이한다. 캐릭터의 현재 장착 상태를 직접 바꾸지 않는다.
 //
-// 저장 위치 = save key `arena-loadouts.v2`(목록). 순수 데이터/헬퍼만 — DB 접근은 라우트에서.
+// 저장 위치 = save key `arena-loadouts.v2`. 과거에는 목록이었으므로 파서는 배열의 첫 항목을
+// 활성 템플릿으로 읽는다. 신규 저장은 단일 원소 배열로 덮어쓴다.
 
 import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
 import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
@@ -11,9 +11,11 @@ import {
   parseCombatPattern,
   type V2CombatPattern,
 } from "@/adventure/v2/combat/combatPattern";
+import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 
 export const ARENA_LOADOUT_MAX = 6;
 export const ARENA_LOADOUT_NAME_MAX = 40;
+export const ARENA_LOADOUT_TEMPLATE_ID = "arena-template";
 
 const SLOTS: readonly V2EquipSlot[] = [
   "weapon",
@@ -30,6 +32,8 @@ export type ArenaLoadout = {
   name: string;
   /** ISO 저장 시각. */
   savedAt: string;
+  /** 아레나에서 사용할 속성. null/undefined 면 현재 캐릭터 속성 사용. */
+  element?: V2Element;
   /** 장착 스킬 스냅샷(우선순위 순). 적용 시 learned 인 것만 복원. */
   skills: V2SkillId[];
   /** 활성 전투 패턴(겜빗) 스냅샷. null = 미설정(엔진 기본 패턴). */
@@ -62,6 +66,8 @@ export function parseArenaLoadouts(value: unknown): ArenaLoadout[] {
       id: o.id,
       name: o.name.slice(0, ARENA_LOADOUT_NAME_MAX),
       savedAt: typeof o.savedAt === "string" ? o.savedAt : "",
+      element:
+        o.element == null ? undefined : parseV2Element(o.element),
       skills,
       pattern: o.pattern != null ? parseCombatPattern(o.pattern) : null,
       equipment,
@@ -69,6 +75,16 @@ export function parseArenaLoadouts(value: unknown): ArenaLoadout[] {
     if (out.length >= ARENA_LOADOUT_MAX) break;
   }
   return out;
+}
+
+export function parseActiveArenaLoadout(value: unknown): ArenaLoadout | null {
+  return parseArenaLoadouts(value)[0] ?? null;
+}
+
+export function serializeActiveArenaLoadout(
+  loadout: ArenaLoadout | null,
+): ArenaLoadout[] {
+  return loadout ? [loadout] : [];
 }
 
 // 적용 — 저장 스킬 중 현재 learned 인 것만(미보유/리셋된 스킬 자동 제외, 순서 보존).

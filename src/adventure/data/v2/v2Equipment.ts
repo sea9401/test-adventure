@@ -499,7 +499,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   },
   {
     id: "swamp_heart",
-    name: "늪심장 장신구",
+    name: "늪의 심장 장신구",
     pieces: ["v2_swamp_heart_ring", "v2_swamp_heart_necklace"],
     bonus: { hp: 100, eva: 10 },
   },

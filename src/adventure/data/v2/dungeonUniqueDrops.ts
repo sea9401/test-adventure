@@ -166,7 +166,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 31~36) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
+    // 리자드 늪지(밴드 E, 31~36) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪의 심장 장신구 2.
     minDepth: 31,
     maxDepth: 36,
     ids: [

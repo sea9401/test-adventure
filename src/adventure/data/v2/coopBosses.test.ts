@@ -372,6 +372,7 @@ describe("coopBosses 카탈로그", () => {
 
 describe("coopTierForRatio", () => {
   it("임계 경계 — 미달 null·각 임계 도달 시 그 티어", () => {
+    expect(COOP_TIER_THRESHOLDS.legend).toBe(0.45);
     expect(coopTierForRatio(0)).toBeNull();
     expect(
       coopTierForRatio(COOP_TIER_THRESHOLDS.bronze - 0.0001),

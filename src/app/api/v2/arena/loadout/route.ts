@@ -7,55 +7,115 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
-import { ARENA_LOADOUTS_KEY } from "@/lib/storage-keys";
+import { CHARACTER_STATE_KEY, ARENA_LOADOUTS_KEY } from "@/lib/storage-keys";
 import {
-  ARENA_LOADOUT_MAX,
   ARENA_LOADOUT_NAME_MAX,
-  loadoutEquipmentForApply,
-  loadoutSkillsForApply,
-  parseArenaLoadouts,
+  ARENA_LOADOUT_TEMPLATE_ID,
+  parseActiveArenaLoadout,
+  serializeActiveArenaLoadout,
   type ArenaLoadout,
 } from "@/adventure/data/v2/arenaLoadout";
 import {
-  emptyV2SkillsState,
-  parseV2SkillsState,
-} from "@/adventure/data/v2/v2Skills";
-import {
   parseEquipmentSave,
+  V2_EQUIPMENT,
   type EquipmentSave,
+  type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
-  parseProficiencyForChar,
-  emptyProficiency,
-} from "@/adventure/data/v2/proficiency";
-import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
-import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
-import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
-import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+  emptyV2SkillsState,
+  parseV2SkillsState,
+  V2_SKILLS,
+} from "@/adventure/data/v2/v2Skills";
+import {
+  parseV2Element,
+  V2_ELEMENT_LABEL,
+} from "@/adventure/data/v2/elements";
 
-// 전투 세팅 스냅샷 — 직업/스탯은 제외하고 현재 장착 스킬+전투 패턴+장착 장비만 저장/적용/삭제.
-// GET  → 목록.
-// POST { action: "save", name } → 현재 빌드를 새 로드아웃으로 저장(저장순 ≤ MAX).
-//      { action: "apply", id } → 그 로드아웃으로 현재 장착(skills.v2 equipped/pattern +
-//                                 equipment.v2 equipped)을 교체. 미보유 스킬/장비는 건너뜀.
-//      { action: "delete", id } → 삭제.
+const SLOT_LABEL: Record<V2EquipSlot, string> = {
+  weapon: "무기",
+  armor: "방어구",
+  gloves: "장갑",
+  boots: "신발",
+  ring: "장신구",
+  necklace: "목걸이",
+};
+
+type PresentedArenaLoadout = ArenaLoadout & {
+  summary: {
+    elementLabel: string | null;
+    skills: { id: string; name: string; passive: boolean }[];
+    equipment: { slot: V2EquipSlot; slotLabel: string; iid: string; name: string }[];
+    patternBlocks: number;
+  };
+};
+
+function presentLoadout(
+  loadout: ArenaLoadout | null,
+  equipmentRaw: unknown,
+): PresentedArenaLoadout | null {
+  if (!loadout) return null;
+  const { owned } = parseEquipmentSave(equipmentRaw);
+  const ownedByIid = new Map(owned.map((item) => [item.iid, item]));
+  const equipment: PresentedArenaLoadout["summary"]["equipment"] = [];
+  for (const slot of Object.keys(loadout.equipment) as V2EquipSlot[]) {
+    const iid = loadout.equipment[slot];
+    if (!iid) continue;
+    const inst = ownedByIid.get(iid);
+    equipment.push({
+      slot,
+      slotLabel: SLOT_LABEL[slot],
+      iid,
+      name: inst ? (V2_EQUIPMENT[inst.id]?.name ?? inst.id) : "보유하지 않은 장비",
+    });
+  }
+  return {
+    ...loadout,
+    summary: {
+      elementLabel: loadout.element ? V2_ELEMENT_LABEL[loadout.element] : null,
+      skills: loadout.skills.map((id) => ({
+        id,
+        name: V2_SKILLS[id]?.name ?? id,
+        passive: Boolean(V2_SKILLS[id]?.passive),
+      })),
+      equipment,
+      patternBlocks: loadout.pattern?.blocks.length ?? 0,
+    },
+  };
+}
+
+// 아레나 설정 — 활성 템플릿 1개.
+// GET  → 현재 저장된 아레나 템플릿.
+// POST { action: "save", name? } → 현재 속성·장착 스킬·전투 패턴·장비를 아레나 템플릿으로 저장.
+//      { action: "delete" } → 저장된 템플릿 삭제.
 //
-// 🔑 락 순서 — apply 는 equipment.v2 → skills.v2 순(hunt 라우트와 동일). 이 라우트는 character.v2
-//   를 안 잠그지만, 두 키를 다른 라우트와 같은 상대 순서로 잠그면 사이클이 안 생긴다(hunt 도
-//   equipment→skills). arena-loadouts.v2 는 이 라우트만 건드려 경합 없음.
+// 저장된 템플릿은 캐릭터의 현재 장착을 바꾸지 않는다. /arena/match 가 공격/수비 양쪽 전투 입력에
+// 오버레이해서 사용한다.
 
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const row = await db
-    .select({ value: savesKv.value })
-    .from(savesKv)
-    .where(and(eq(savesKv.userId, userId), eq(savesKv.key, ARENA_LOADOUTS_KEY)))
-    .limit(1)
-    .then((rows) => rows[0]);
-  return Response.json({ ok: true, loadouts: parseArenaLoadouts(row?.value ?? null) });
+  const [loadoutRow, equipmentRow] = await Promise.all([
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, ARENA_LOADOUTS_KEY)))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "equipment.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
+  ]);
+  const loadout = parseActiveArenaLoadout(loadoutRow?.value ?? null);
+  return Response.json({
+    ok: true,
+    loadout: presentLoadout(loadout, equipmentRow?.value ?? null),
+    loadouts: loadout ? [loadout] : [],
+  });
 }
 
 export async function POST(req: Request) {
@@ -63,122 +123,67 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  let body: { action?: unknown; name?: unknown; id?: unknown };
+  let body: { action?: unknown; name?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  const action = body.action;
 
   const result = await db.transaction(async (tx) => {
-    const loadouts = parseArenaLoadouts(
-      await lockSaveForUpdate<unknown>(tx, userId, ARENA_LOADOUTS_KEY, []),
-    );
+    await lockSaveForUpdate<unknown>(tx, userId, ARENA_LOADOUTS_KEY, []);
 
-    if (action === "save") {
+    if (body.action === "save") {
       const name =
         typeof body.name === "string" && body.name.trim().length > 0
           ? body.name.trim().slice(0, ARENA_LOADOUT_NAME_MAX)
-          : "내 세팅";
-      // 현재 빌드 스냅샷 — 비잠금 read(사용자 자신의 현재 장착을 그대로 찍음).
+          : "아레나 템플릿";
+      const charSave = await readSave<{ element?: unknown }>(
+        tx,
+        userId,
+        CHARACTER_STATE_KEY,
+        {},
+      );
       const skills = parseV2SkillsState(
         await readSave(tx, userId, "skills.v2", emptyV2SkillsState()),
       );
-      const { equipped } = parseEquipmentSave(
-        await readSave<EquipmentSave>(tx, userId, "equipment.v2", {}),
-      );
-      const now = new Date();
-      const loadout: ArenaLoadout = {
-        id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
-        name,
-        savedAt: now.toISOString(),
-        skills: skills.equipped,
-        pattern: skills.pattern ?? null,
-        equipment: equipped,
-      };
-      const next = [loadout, ...loadouts].slice(0, ARENA_LOADOUT_MAX);
-      await upsertSave(tx, userId, ARENA_LOADOUTS_KEY, next);
-      return { status: 200, body: { ok: true as const, loadouts: next } };
-    }
-
-    if (action === "delete") {
-      const id = typeof body.id === "string" ? body.id : "";
-      const next = loadouts.filter((l) => l.id !== id);
-      await upsertSave(tx, userId, ARENA_LOADOUTS_KEY, next);
-      return { status: 200, body: { ok: true as const, loadouts: next } };
-    }
-
-    if (action === "apply") {
-      const id = typeof body.id === "string" ? body.id : "";
-      const loadout = loadouts.find((l) => l.id === id);
-      if (!loadout) {
-        return {
-          status: 404,
-          body: { ok: false as const, error: "not_found" as const },
-        };
-      }
-      // 락 순서: equipment.v2 → skills.v2 (hunt 와 동일).
-      const equipRaw = await lockSaveForUpdate<EquipmentSave>(
+      const equipmentRaw = await readSave<EquipmentSave>(
         tx,
         userId,
         "equipment.v2",
         {},
       );
-      const { owned, equipped } = parseEquipmentSave(equipRaw);
-      const ownedIids = new Set(owned.map((o) => o.iid));
-      const nextEquipped = loadoutEquipmentForApply(loadout, ownedIids);
-      // 적용된 슬롯 수(피드백). 빈 결과여도 정상(장비 다 팔았을 때) — 미장착 상태로.
-      void equipped;
-      await upsertSave(tx, userId, "equipment.v2", {
-        owned,
-        equipped: nextEquipped,
-      });
-
-      const skillsRaw = await lockSaveForUpdate(
+      const { equipped } = parseEquipmentSave(equipmentRaw);
+      const loadout: ArenaLoadout = {
+        id: ARENA_LOADOUT_TEMPLATE_ID,
+        name,
+        savedAt: new Date().toISOString(),
+        element: parseV2Element(charSave.element),
+        skills: skills.equipped,
+        pattern: skills.pattern ?? null,
+        equipment: equipped,
+      };
+      await upsertSave(
         tx,
         userId,
-        "skills.v2",
-        emptyV2SkillsState() as unknown as Record<string, unknown>,
+        ARENA_LOADOUTS_KEY,
+        serializeActiveArenaLoadout(loadout),
       );
-      const skills = parseV2SkillsState(skillsRaw);
-      // SP 예산 재클램프(방어선) — 저장된 로드아웃이 이후 spCost 재조정으로 현재 예산을 넘길 수
-      //   있어, apply 시 현재 예산까지 순서 보존 greedy 클램프한다(정상 케이스는 항등 = 무변경).
-      //   예산 산정용 character/proficiency 는 비잠금 읽기 — 단조 증가라 stale 이어도 보수적으로
-      //   안전하고, 이 tx 의 쓰기잠금(equipment→skills) 순서에 영향 없음.
-      const charSave = await readSave<{
-        class?: unknown;
-        level?: unknown;
-        spFruitUsed?: unknown;
-      }>(tx, userId, "character.v2", {});
-      const prof = parseProficiencyForChar(
-        await readSave(tx, userId, "proficiency.v2", emptyProficiency()),
-        charSave,
-      );
-      const spBudget = calcSpBudget(
-        prof.groups,
-        spCapBonusFromRaw(charSave.spFruitUsed),
-        (await readCodexSpBonus(tx, userId)).total,
-      );
-      const nextSkills = {
-        ...skills,
-        equipped: clampLoadoutToBudget(
-          loadoutSkillsForApply(loadout, skills.learned),
-          spBudget,
-        ),
-        pattern: loadout.pattern ?? undefined,
-      };
-      await upsertSave(tx, userId, "skills.v2", nextSkills);
-
       return {
         status: 200,
         body: {
           ok: true as const,
-          applied: {
-            skills: nextSkills.equipped,
-            equipmentSlots: Object.keys(nextEquipped).length,
-          },
+          loadout: presentLoadout(loadout, equipmentRaw),
+          loadouts: [loadout],
         },
+      };
+    }
+
+    if (body.action === "delete") {
+      await upsertSave(tx, userId, ARENA_LOADOUTS_KEY, []);
+      return {
+        status: 200,
+        body: { ok: true as const, loadout: null, loadouts: [] },
       };
     }
 

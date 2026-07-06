@@ -6,6 +6,12 @@ import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import {
+  abuseActionLabel,
+  abuseReasonLabel,
+  adminActionLabel,
+  adminStatusLabel,
+} from "../displayLabels";
+import {
   economyEventLabel,
   economyItemKindLabel,
   economyKnownItemName,
@@ -365,7 +371,11 @@ export function OpsDashboardTab() {
 
           <div className="grid gap-3 lg:grid-cols-2">
             <Panel title="이상 행동 Top">
-              <CountList rows={data.abuse.topActions} empty="action 없음" />
+              <CountList
+                rows={data.abuse.topActions}
+                empty="행동 없음"
+                labelKey={abuseActionLabel}
+              />
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 <MiniList title="IP" rows={data.abuse.topIps} />
                 <MiniList title="유저" rows={data.abuse.topUsers} />
@@ -406,7 +416,7 @@ export function OpsDashboardTab() {
               <table className="w-full text-left text-xs">
                 <thead className="text-zinc-500 dark:text-zinc-400">
                   <tr>
-                    <th className="py-1 pr-3 font-medium">key</th>
+                    <th className="py-1 pr-3 font-medium">대상</th>
                     <th className="py-1 pr-3 font-medium">상태</th>
                     <th className="py-1 pr-3 font-medium">TTL</th>
                     <th className="py-1 pr-3 font-medium">메모</th>
@@ -415,8 +425,8 @@ export function OpsDashboardTab() {
                 <tbody>
                   {data.slowQueryCandidates.map((row) => (
                     <tr key={row.key} className="border-t border-zinc-100 dark:border-zinc-800">
-                      <td className="py-1 pr-3 font-mono">{row.key}</td>
-                      <td className="py-1 pr-3">{row.status}</td>
+                      <td className="py-1 pr-3">{slowQueryLabel(row.key)}</td>
+                      <td className="py-1 pr-3">{slowQueryStatusLabel(row.status)}</td>
                       <td className="py-1 pr-3 tabular-nums">{row.cacheTtlSec}s</td>
                       <td className="py-1 pr-3 text-zinc-500">{row.note}</td>
                     </tr>
@@ -478,7 +488,9 @@ export function OpsDashboardTab() {
                         <td className="py-1 pr-3 text-zinc-500">
                           <div>{new Date(row.lastAt).toLocaleString("ko-KR")}</div>
                           <div className="mt-0.5 max-w-[320px] text-[11px]">
-                            {row.topActions.map((action) => `${action.key} ${action.count}`).join(", ") || "-"}
+                            {row.topActions
+                              .map((action) => `${abuseActionLabel(action.key)} ${action.count}`)
+                              .join(", ") || "-"}
                           </div>
                           <div className="mt-0.5 text-[11px]">
                             보상실패 {row.rewardFailures.toLocaleString()} · 평균간격{" "}
@@ -486,7 +498,15 @@ export function OpsDashboardTab() {
                           </div>
                           <div className="mt-0.5 hidden max-w-[360px] text-[11px] md:block">
                             {row.recentEvents
-                              .map((event) => `${event.action}/${event.reason}${event.ip ? `/${event.ip}` : ""}`)
+                              .map((event) =>
+                                [
+                                  abuseActionLabel(event.action),
+                                  abuseReasonLabel(event.reason),
+                                  event.ip,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" / "),
+                              )
                               .join(" · ") || "-"}
                           </div>
                         </td>
@@ -686,7 +706,7 @@ function RiskEventsPanel({ rows }: { rows: Dashboard["riskEvents"] }) {
                   {new Date(row.createdAt).toLocaleString("ko-KR")}
                 </span>
               </div>
-              <div className="mt-1 font-mono text-[11px] opacity-80">{row.message}</div>
+              <div className="mt-1 text-[11px] opacity-80">{riskMessageLabel(row.message)}</div>
             </Link>
           ))}
         </div>
@@ -701,6 +721,18 @@ function suspicionLabel(severity: Dashboard["suspiciousUsers"][number]["severity
   return "주의";
 }
 
+function riskMessageLabel(message: string): string {
+  const [head, rest] = message.split(" · ", 2);
+  const action = adminActionLabel(head);
+  const event = economyEventLabel(head);
+  const label = action !== head ? action : event !== head ? event : head;
+  if (!rest) return label;
+
+  const [kind, ...tail] = rest.split(" ");
+  const itemKind = economyItemKindLabel(kind);
+  return `${label} · ${[itemKind, ...tail].join(" ")}`;
+}
+
 function suspicionClass(severity: Dashboard["suspiciousUsers"][number]["severity"]) {
   if (severity === "strong") {
     return "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200";
@@ -709,6 +741,20 @@ function suspicionClass(severity: Dashboard["suspiciousUsers"][number]["severity
     return "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200";
   }
   return "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+}
+
+function slowQueryLabel(key: string): string {
+  const labels: Record<string, string> = {
+    "marketplace.history": "거래소 거래 내역",
+    "marketplace.prices": "거래소 시세",
+    "me.state.outpost": "내 상태/거점 조회",
+  };
+  return labels[key] ?? key;
+}
+
+function slowQueryStatusLabel(status: string): string {
+  if (status === "cached") return "캐시 적용";
+  return status;
 }
 
 function SanctionRecommendationPanel({
@@ -1307,7 +1353,7 @@ function AlertThresholdPanel({
           max={100_000}
         />
         <NumberField
-          label="상위 action"
+          label="상위 행동"
           value={draft.topActionEvents}
           onChange={(topActionEvents) => setDraft({ ...draft, topActionEvents })}
           max={100_000}
@@ -1325,7 +1371,7 @@ function AlertThresholdPanel({
         추천값: 5분 {suggested.abuseLast5m}, 1시간 {suggested.abuseLast1h}, 보상 실패{" "}
         {suggested.rewardFailures}, 대량 골드 {suggested.largeGoldEvents}, 관리자 변경{" "}
         {suggested.adminAudit}, 동일 유저 {suggested.repeatUserEvents}, 동일 IP{" "}
-        {suggested.connectedIpUsers}, 상위 action {suggested.topActionEvents}
+        {suggested.connectedIpUsers}, 상위 행동 {suggested.topActionEvents}
       </p>
     </Panel>
   );
@@ -1340,7 +1386,7 @@ function SanctionReportPanel({ report }: { report: Dashboard["sanctionReport"] }
           rows={report.expiring24h.map((row) => ({
             key: row.id,
             name: row.gameName ?? row.userId.slice(0, 10),
-            meta: `${row.type} · ${row.expiresAt ? new Date(row.expiresAt).toLocaleString("ko-KR") : "-"}`,
+            meta: `${sanctionTypeLabel(row.type)} · ${row.expiresAt ? new Date(row.expiresAt).toLocaleString("ko-KR") : "-"}`,
             reason: row.reason,
           }))}
         />
@@ -1349,7 +1395,7 @@ function SanctionReportPanel({ report }: { report: Dashboard["sanctionReport"] }
           rows={report.lifted.map((row) => ({
             key: row.id,
             name: row.gameName ?? row.userId.slice(0, 10),
-            meta: `${row.type} · ${row.liftedByEmail ?? "-"} · ${row.liftedAt ? new Date(row.liftedAt).toLocaleString("ko-KR") : "-"}`,
+            meta: `${sanctionTypeLabel(row.type)} · ${row.liftedByEmail ?? "-"} · ${row.liftedAt ? new Date(row.liftedAt).toLocaleString("ko-KR") : "-"}`,
             reason: row.reason,
           }))}
         />
@@ -1383,6 +1429,15 @@ function MiniSanctionList({
       )}
     </div>
   );
+}
+
+function sanctionTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    ban: "영구 밴",
+    suspend: "기간 정지",
+    warn: "경고",
+  };
+  return labels[type] ?? type;
 }
 
 function AlertChannelsPanel({ value }: { value: Dashboard["alertChannels"] }) {
@@ -1444,7 +1499,7 @@ function OpsChangeHistoryPanel({ rows }: { rows: Dashboard["opsChangeHistory"] }
                   <td className="whitespace-nowrap py-1 pr-3 text-zinc-500">
                     {new Date(row.createdAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="py-1 pr-3 font-mono">{row.action}</td>
+                  <td className="py-1 pr-3">{adminActionLabel(row.action)}</td>
                   <td className="hidden py-1 pr-3 font-mono text-zinc-500 md:table-cell">
                     {row.targetUserId?.slice(0, 12) ?? "-"}
                   </td>
@@ -1484,7 +1539,7 @@ function AlertHistoryPanel({ rows }: { rows: AlertHistoryEntry[] }) {
                   <td className="whitespace-nowrap py-1 pr-3 text-zinc-500">
                     {new Date(row.createdAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="py-1 pr-3 font-mono">{row.status}</td>
+                  <td className="py-1 pr-3">{adminStatusLabel(row.status)}</td>
                   <td className="py-1 pr-3">{row.message}</td>
                   <td className="py-1 pr-3 text-zinc-500">{row.error ?? "-"}</td>
                 </tr>

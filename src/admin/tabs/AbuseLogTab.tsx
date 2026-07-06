@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
+import {
+  abuseActionLabel,
+  abuseReasonLabel,
+  adminDetailText,
+  resolveAbuseActionFilter,
+  resolveAbuseReasonFilter,
+} from "../displayLabels";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 
@@ -20,8 +27,7 @@ type AbuseEntry = {
 };
 
 function compactDetail(detail: Record<string, unknown> | null): string {
-  if (!detail) return "-";
-  return JSON.stringify(detail);
+  return adminDetailText(detail);
 }
 
 export function AbuseLogTab() {
@@ -36,8 +42,10 @@ export function AbuseLogTab() {
 
   const url = useMemo(() => {
     const sp = new URLSearchParams({ limit: "300" });
-    if (action.trim()) sp.set("action", action.trim());
-    if (reason.trim()) sp.set("reason", reason.trim());
+    const actionFilter = resolveAbuseActionFilter(action);
+    const reasonFilter = resolveAbuseReasonFilter(reason);
+    if (actionFilter) sp.set("action", actionFilter);
+    if (reasonFilter) sp.set("reason", reasonFilter);
     if (userId.trim()) sp.set("userId", userId.trim());
     if (ip.trim()) sp.set("ip", ip.trim());
     if (since) sp.set("since", since);
@@ -110,25 +118,25 @@ export function AbuseLogTab() {
 
       <div className="grid gap-2 md:grid-cols-3">
         <label className="space-y-1 text-xs">
-          <span className="text-zinc-500 dark:text-zinc-400">action</span>
+          <span className="text-zinc-500 dark:text-zinc-400">행동</span>
           <input
             value={action}
             onChange={(e) => setAction(e.target.value)}
-            placeholder="v2:fishing:cast"
+            placeholder="낚시 던지기"
             className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
         </label>
         <label className="space-y-1 text-xs">
-          <span className="text-zinc-500 dark:text-zinc-400">reason</span>
+          <span className="text-zinc-500 dark:text-zinc-400">사유</span>
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="rate_limited"
+            placeholder="요청 제한"
             className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           />
         </label>
         <label className="space-y-1 text-xs">
-          <span className="text-zinc-500 dark:text-zinc-400">userId</span>
+          <span className="text-zinc-500 dark:text-zinc-400">유저 ID</span>
           <input
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
@@ -175,9 +183,9 @@ export function AbuseLogTab() {
                 <th className="px-2 py-1.5 font-medium">시각</th>
                 <th className="px-2 py-1.5 font-medium">유저</th>
                 <th className="px-2 py-1.5 font-medium">IP</th>
-                <th className="px-2 py-1.5 font-medium">action</th>
-                <th className="px-2 py-1.5 font-medium">reason</th>
-                <th className="px-2 py-1.5 font-medium">detail</th>
+                <th className="px-2 py-1.5 font-medium">행동</th>
+                <th className="px-2 py-1.5 font-medium">사유</th>
+                <th className="px-2 py-1.5 font-medium">상세</th>
               </tr>
             </thead>
             <tbody>
@@ -206,13 +214,13 @@ export function AbuseLogTab() {
                   <td className="px-2 py-1.5 font-mono text-zinc-600 dark:text-zinc-300">
                     {e.ip ?? "-"}
                   </td>
-                  <td className="px-2 py-1.5 font-mono text-zinc-800 dark:text-zinc-100">
-                    {e.action}
+                  <td className="px-2 py-1.5 text-zinc-800 dark:text-zinc-100">
+                    {abuseActionLabel(e.action)}
                   </td>
                   <td className="px-2 py-1.5 text-zinc-700 dark:text-zinc-200">
-                    {e.reason}
+                    {abuseReasonLabel(e.reason)}
                   </td>
-                  <td className="max-w-md truncate px-2 py-1.5 font-mono text-[10px] text-zinc-400">
+                  <td className="max-w-md truncate px-2 py-1.5 text-[10px] text-zinc-400">
                     {compactDetail(e.detail)}
                   </td>
                 </tr>

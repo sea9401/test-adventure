@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAdmin } from "../AdminContext";
 import { adminGet } from "../api";
+import {
+  abuseActionLabel,
+  abuseReasonLabel,
+  adminActionLabel,
+  adminDetailText,
+  adminLogLabel,
+} from "../displayLabels";
+import { economyEventLabel, economyItemLabel } from "../economyLabels";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 
@@ -15,6 +23,9 @@ type OpsSearchEntry = {
   gameName: string | null;
   title: string;
   subtitle: string;
+  itemKind?: string | null;
+  itemId?: string | null;
+  quantity?: number | null;
   summary: string;
   rewardFailureStatus: "open" | "reviewed" | "compensated" | "ignored" | null;
   detail: Record<string, unknown> | null;
@@ -67,7 +78,7 @@ export function OpsSearchTab() {
         <div>
           <h3 className="text-sm font-semibold">운영 로그 통합 검색</h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            userId, 캐릭터명, IP, event id, action, item id를 이상 행동·경제·감사 로그에서 함께 찾습니다.
+            유저 ID, 캐릭터명, IP, 이벤트 ID, 행동, 아이템 ID를 이상 행동·경제·감사 로그에서 함께 찾습니다.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -153,7 +164,7 @@ export function OpsSearchTab() {
                   <td className="whitespace-nowrap px-2 py-1.5 text-zinc-500">
                     {new Date(entry.createdAt).toLocaleString("ko-KR")}
                   </td>
-                  <td className="px-2 py-1.5 font-mono">{entry.log}</td>
+                  <td className="px-2 py-1.5">{adminLogLabel(entry.log)}</td>
                   <td className="px-2 py-1.5 font-mono">
                     <Link
                       href={entry.href}
@@ -175,12 +186,12 @@ export function OpsSearchTab() {
                     )}
                   </td>
                   <td className="px-2 py-1.5">
-                    <div className="font-mono text-zinc-800 dark:text-zinc-100">
-                      {entry.title}
+                    <div className="text-zinc-800 dark:text-zinc-100">
+                      {entryTitle(entry)}
                     </div>
-                    {entry.subtitle ? (
+                    {entrySubtitle(entry) ? (
                       <div className="mt-0.5 text-[11px] text-zinc-500">
-                        {entry.subtitle}
+                        {entrySubtitle(entry)}
                       </div>
                     ) : null}
                   </td>
@@ -188,7 +199,7 @@ export function OpsSearchTab() {
                     {entry.rewardFailureStatus ? rewardFailureStatusLabel(entry.rewardFailureStatus) : "-"}
                   </td>
                   <td className="max-w-[300px] truncate px-2 py-1.5 text-[11px] text-zinc-500">
-                    {entry.summary || (entry.detail ? JSON.stringify(entry.detail) : "-")}
+                    {entry.summary || adminDetailText(entry.detail)}
                   </td>
                   <td className="px-2 py-1.5">
                     <Link
@@ -206,6 +217,22 @@ export function OpsSearchTab() {
       )}
     </section>
   );
+}
+
+function entryTitle(entry: OpsSearchEntry): string {
+  if (entry.log === "abuse") return abuseActionLabel(entry.title);
+  if (entry.log === "economy") return economyEventLabel(entry.title);
+  return adminActionLabel(entry.title);
+}
+
+function entrySubtitle(entry: OpsSearchEntry): string {
+  if (entry.log === "abuse") return abuseReasonLabel(entry.subtitle);
+  if (entry.log === "economy") {
+    const item = economyItemLabel(entry.itemKind ?? null, entry.itemId ?? null);
+    const quantity = entry.quantity != null ? `x${entry.quantity.toLocaleString()}` : "";
+    return [item === "-" ? "" : item, quantity].filter(Boolean).join(" · ");
+  }
+  return entry.subtitle;
 }
 
 function rewardFailureStatusLabel(

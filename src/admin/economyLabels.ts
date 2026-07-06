@@ -1,5 +1,6 @@
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { COOP_EQUIPMENT_BOX } from "@/adventure/data/v2/coopRewards";
 
 export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "admin.grant.fishing_coin": "관리자 낚시 코인 지급",
@@ -102,10 +103,14 @@ export function economyCountKeyLabel(key: string): string {
 export function economyDetailKeyLabel(key: string): string {
   const labels: Record<string, string> = {
     equipmentId: "장비",
+    equipmentBoxId: "장비 상자",
     itemId: "아이템",
     itemKind: "아이템 종류",
+    bossMaterialId: "보스 재료",
     materialId: "재료",
     message: "메시지",
+    spFruitCount: "SP 열매",
+    spFruitMaterialId: "SP 열매 재료",
     quantity: "수량",
     reason: "사유",
     source: "출처",
@@ -117,8 +122,13 @@ export function economyDetailValueLabel(key: string, value: unknown): string {
   if (typeof value === "string") {
     if (key === "eventType") return economyEventLabel(value);
     if (key === "itemKind") return economyItemKindLabel(value);
-    if (key === "materialId") return materialName(value);
-    if (key === "itemId" || key === "equipmentId") return economyKnownItemName(value) || value;
+    if (key === "materialId" || key === "bossMaterialId" || key === "spFruitMaterialId") {
+      return materialName(value) || economyKnownItemName(value);
+    }
+    if (key === "itemId" || key === "equipmentId" || key === "uniqueId") {
+      return economyKnownItemName(value) || value;
+    }
+    if (key === "equipmentBoxId") return coopEquipmentBoxName(value) || value;
     return value;
   }
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -134,7 +144,7 @@ export function economyDetailValueLabel(key: string, value: unknown): string {
 }
 
 export function economyKnownItemName(id: string): string {
-  return equipmentName(id) || materialName(id) || economyItemKindLabel(id);
+  return equipmentName(id) || materialName(id) || coopEquipmentBoxName(id) || economyItemKindLabel(id);
 }
 
 function resolveLabelFilter(raw: string, labels: Record<string, string>): string {
@@ -152,4 +162,8 @@ function materialName(id: string): string {
 
 function equipmentName(id: string): string {
   return V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT]?.name ?? "";
+}
+
+function coopEquipmentBoxName(id: string): string {
+  return Object.values(COOP_EQUIPMENT_BOX).find((box) => box.id === id)?.name ?? "";
 }

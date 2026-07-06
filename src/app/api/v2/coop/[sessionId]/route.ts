@@ -147,12 +147,9 @@ export async function GET(_req: Request, { params }: Ctx) {
   const combatPreview = (() => {
     if (!combat) return null;
     const bossDef = COOP_BOSSES[kind];
-    const { monster } = coopBossForBattle(
-      bossDef,
-      session.hp,
-      session.maxHp,
-      { conditionalEnrageWeakened: session.hardEnrageWeakened },
-    );
+    const { monster } = coopBossForBattle(bossDef, session.hp, {
+      conditionalEnrageWeakened: session.hardEnrageWeakened,
+    });
     const player = combat.player;
     const bossEvaRating = Math.max(0, monster.evasionPct ?? 0) *
       (player.precisionEvasionMult ?? 1);

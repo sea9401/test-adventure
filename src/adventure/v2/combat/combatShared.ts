@@ -31,7 +31,6 @@ import {
   POISON_CAP_ATK_COEF,
   POISON_MAX_STACKS,
 } from "@/adventure/data/v2/v2CombatConstants";
-import { scaleCombatNumber } from "@/adventure/data/v2/combatNumberScale";
 import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
 import {
@@ -409,7 +408,7 @@ export function v2HealAmount(args: {
   healMult?: number;
 }): number {
   const pctPart = Math.floor((args.attackerMaxHp * args.pctMaxHp) / 100);
-  const base = Math.max(0, pctPart + scaleCombatNumber(args.flat));
+  const base = Math.max(0, pctPart + args.flat);
   return Math.floor(base * (args.healMult ?? 1));
 }
 
@@ -818,27 +817,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     let scale: "physical" | "magic" = "physical";
     if (scaling === "magic") scale = "magic";
     else if (scaling === "def") attackerAtk = input.attacker.def ?? input.attacker.atk;
-    else if (scaling === "vit") {
-      attackerAtk =
-        input.attacker.vit == null
-          ? input.attacker.atk
-          : scaleCombatNumber(input.attacker.vit);
-    } else if (scaling === "dex") {
-      attackerAtk =
-        input.attacker.dex == null
-          ? input.attacker.atk
-          : scaleCombatNumber(input.attacker.dex);
-    } else if (scaling === "luk") {
-      attackerAtk =
-        input.attacker.luk == null
-          ? input.attacker.atk
-          : scaleCombatNumber(input.attacker.luk);
-    } else if (scaling === "all") {
-      attackerAtk =
-        input.attacker.allStatTotal == null
-          ? input.attacker.atk
-          : scaleCombatNumber(input.attacker.allStatTotal);
-    } else if (scaling === "maxHp") attackerAtk = input.attacker.maxHp;
+    else if (scaling === "vit") attackerAtk = input.attacker.vit ?? input.attacker.atk;
+    else if (scaling === "dex") attackerAtk = input.attacker.dex ?? input.attacker.atk;
+    else if (scaling === "luk") attackerAtk = input.attacker.luk ?? input.attacker.atk;
+    else if (scaling === "all") attackerAtk = input.attacker.allStatTotal ?? input.attacker.atk;
+    else if (scaling === "maxHp") attackerAtk = input.attacker.maxHp;
     // def/vit/dex/luk/all/maxHp 비례딜은 STR 공격버프가 atk 를 부풀리는 v2DamageAmount 의 버프 곱을 받으면
     //   안 됨(Codex 검토). attackerAtk 이 이미 그 스탯 값이라 빈 버프 전달.
     const statScaled =
@@ -856,7 +839,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       targetDef: targetDefOverride ?? input.target.def,
       targetMagicDef: targetDefOverride ?? input.target.magicDef,
       statCoef,
-      baseFlat: scaleCombatNumber(baseFlat) + extraFlat,
+      baseFlat: baseFlat + extraFlat,
       attackerSelfBuffs: statScaled ? {} : input.attacker.selfBuffs,
       attackerSelfDebuffs: statScaled ? {} : input.attacker.selfDebuffs,
       targetSelfBuffs: input.target.selfBuffs,
@@ -998,10 +981,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     } else if (effect.kind === "healToDamage") {
       // 신성 강타 — 자힐 후 힐량×damageRatio 적에게 딜.
       const atkBase = (effect.scaling === "magic" ? input.attacker.magicAtk ?? input.attacker.atk : input.attacker.atk) * effect.healStatCoef;
-      const heal = Math.floor(
-        (atkBase + scaleCombatNumber(flatOf(undefined, effect.healFlatByTier))) *
-          (input.attacker.healMult ?? 1),
-      );
+      const heal = Math.floor((atkBase + flatOf(undefined, effect.healFlatByTier)) * (input.attacker.healMult ?? 1));
       selfHeal += heal;
       dealDamage(
         Math.floor(heal * effect.damageRatio * skillElementMult),
@@ -1055,7 +1035,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         stacks: effect.stacks,
         maxStacks: effect.maxStacks,
         turns: effect.turns,
-        flatPerStack: scaleCombatNumber(effect.flatPerStack) * dm,
+        flatPerStack: effect.flatPerStack * dm,
         atkCoefPerStack: effect.atkCoefPerStack * dm,
         pctMaxHpPerStack: effect.pctMaxHpPerStack * dm,
         sourceAtk: dotSourceAtk,

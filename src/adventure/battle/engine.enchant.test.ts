@@ -371,6 +371,7 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
       poisonedEnemyDefReductionPct: 12,
     });
     expect(corrodeDmg).toBeGreaterThan(baseDmg);
+    expect(corrodeDmg).toBeGreaterThanOrEqual(Math.floor(baseDmg * 1.25));
   });
 });
 
@@ -742,7 +743,7 @@ describe("execute — 적 HP 25% 이하 추가 피해", () => {
       initialEnemyHp: 7000,
       maxTurns: 1,
     });
-    expect(result.finalState.enemy.hp).toBe(90000);
+    expect(result.finalState.enemy.hp).toBe(30000);
     expect(result.finalState.log.some((e) => e.text.includes("별빛 처형"))).toBe(true);
   });
 });

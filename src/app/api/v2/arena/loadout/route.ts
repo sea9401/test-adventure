@@ -19,6 +19,7 @@ import {
   parseEquipmentSave,
   V2_EQUIPMENT,
   type EquipmentSave,
+  type V2EquipInstance,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -40,11 +41,26 @@ const SLOT_LABEL: Record<V2EquipSlot, string> = {
   necklace: "목걸이",
 };
 
+const EQUIP_SLOTS: readonly V2EquipSlot[] = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+];
+
 type PresentedArenaLoadout = ArenaLoadout & {
   summary: {
     elementLabel: string | null;
     skills: { id: string; name: string; passive: boolean }[];
-    equipment: { slot: V2EquipSlot; slotLabel: string; iid: string; name: string }[];
+    equipment: {
+      slot: V2EquipSlot;
+      slotLabel: string;
+      iid: string | null;
+      name: string | null;
+      inst: V2EquipInstance | null;
+    }[];
     patternBlocks: number;
   };
 };
@@ -57,15 +73,15 @@ function presentLoadout(
   const { owned } = parseEquipmentSave(equipmentRaw);
   const ownedByIid = new Map(owned.map((item) => [item.iid, item]));
   const equipment: PresentedArenaLoadout["summary"]["equipment"] = [];
-  for (const slot of Object.keys(loadout.equipment) as V2EquipSlot[]) {
-    const iid = loadout.equipment[slot];
-    if (!iid) continue;
-    const inst = ownedByIid.get(iid);
+  for (const slot of EQUIP_SLOTS) {
+    const iid = loadout.equipment[slot] ?? null;
+    const inst = iid ? (ownedByIid.get(iid) ?? null) : null;
     equipment.push({
       slot,
       slotLabel: SLOT_LABEL[slot],
       iid,
-      name: inst ? (V2_EQUIPMENT[inst.id]?.name ?? inst.id) : "보유하지 않은 장비",
+      name: inst ? (V2_EQUIPMENT[inst.id]?.name ?? inst.id) : null,
+      inst,
     });
   }
   return {

@@ -124,13 +124,26 @@ describe("coopRewards", () => {
         expect(COOP_EQUIPMENT_BOX[boss].itemIds).toContain(got);
         continue;
       }
-      expect(item.tier).toBeLessThanOrEqual(
-        Math.max(...COOP_EQUIPMENT_BOX[boss].tiers),
-      );
+      const tiers = COOP_EQUIPMENT_BOX[boss].tiers;
+      expect(tiers).toContain(item.tier);
       expect(isUnique(item)).toBe(false);
       expect(item.craftOnly).not.toBe(true);
       expect(item.starterOnly).not.toBe(true);
-      expect(item.noDrop).not.toBe(true);
+    }
+  });
+
+  it("rollCoopEquipmentBoxItem — 2/3/4티어 상자는 낮은 티어로 fallback 하지 않는다", () => {
+    for (const boss of [
+      "canyon_predator",
+      "lake_sovereign",
+      "void_priest",
+    ] as const) {
+      const tiers = COOP_EQUIPMENT_BOX[boss].tiers;
+      for (const point of [0, 0.25, 0.5, 0.75, 0.999]) {
+        const got = rollCoopEquipmentBoxItem(boss, () => point);
+        expect(got).toBeTruthy();
+        expect(tiers).toContain(V2_EQUIPMENT[got!].tier);
+      }
     }
   });
 });

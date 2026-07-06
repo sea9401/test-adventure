@@ -274,27 +274,15 @@ export function rollCoopEquipmentBoxItem(
   if (box.itemIds && box.itemIds.length > 0) {
     return box.itemIds[Math.floor(rng() * box.itemIds.length)] ?? null;
   }
-  const tierGroups: readonly (readonly V2EquipTier[])[] =
-    box.displayTier === 4
-      ? [box.tiers, [7, 8, 9], [4, 5, 6], [1, 2, 3]]
-      : box.displayTier === 3
-        ? [box.tiers, [4, 5, 6], [1, 2, 3]]
-        : box.displayTier === 2
-          ? [box.tiers, [1, 2, 3]]
-          : [box.tiers];
-  let candidates: V2EquipmentId[] = [];
-  for (const tiers of tierGroups) {
-    const allowed = new Set<V2EquipTier>(tiers);
-    candidates = Object.values(V2_EQUIPMENT)
-      .filter((item) => {
-        if (!allowed.has(item.tier)) return false;
-        if (isUnique(item)) return false;
-        if (item.craftOnly || item.starterOnly || item.noDrop) return false;
-        return true;
-      })
-      .map((item) => item.id);
-    if (candidates.length > 0) break;
-  }
+  const allowed = new Set<V2EquipTier>(box.tiers);
+  const candidates = Object.values(V2_EQUIPMENT)
+    .filter((item) => {
+      if (!allowed.has(item.tier)) return false;
+      if (isUnique(item)) return false;
+      if (item.craftOnly || item.starterOnly) return false;
+      return true;
+    })
+    .map((item) => item.id);
   if (candidates.length === 0) return null;
   return candidates[Math.floor(rng() * candidates.length)] ?? null;
 }

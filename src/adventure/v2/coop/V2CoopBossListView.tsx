@@ -11,10 +11,10 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import {
   COOP_BOSSES,
-  COOP_BOSS_KIND_IDS,
   COOP_TIER_LABEL,
   COOP_VISIBILITY_OPTIONS,
   MAX_ACTIVE_PER_KIND,
+  SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS,
   coopBossDurationLabel,
   type CoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
@@ -53,13 +53,13 @@ const COOP_SUMMON_GROUPS: readonly CoopBossSummonGroup[] = [
       { kind: "mountain_chief_hard", label: "HARD" },
     ],
   },
-  ...COOP_BOSS_KIND_IDS.filter((kindId) => !SANGOON_KIND_IDS.has(kindId)).map(
-    (kindId) => ({
+  ...SCROLL_SUMMONABLE_COOP_BOSS_KIND_IDS.filter(
+    (kindId) => !SANGOON_KIND_IDS.has(kindId),
+  ).map((kindId) => ({
       id: kindId,
       baseKind: kindId,
       variants: [{ kind: kindId, label: "NORMAL" }],
-    }),
-  ),
+    })),
 ];
 
 function coopBossListName(kindId: CoopBossKindId): string {

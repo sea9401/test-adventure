@@ -232,6 +232,8 @@ export function useCoopListState() {
             ? `소환서가 부족합니다 (보유 ${j.have ?? 0} / 필요 ${j.need ?? "?"})`
             : j.error === "too_many_active"
               ? `${COOP_BOSSES[kind].name}은(는) 동시 소환 한도(${j.cap ?? "?"}마리)에 도달했습니다.`
+              : j.error === "not_scroll_summonable"
+                ? `${COOP_BOSSES[kind].name}은(는) 낚시로만 출현합니다.`
               : `소환 실패 (${j.error ?? "unknown"})`,
         );
         return null;

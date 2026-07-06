@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
+import {
+  economyEventLabel,
+  economyItemKindLabel,
+  economyKnownItemName,
+} from "../economyLabels";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 
@@ -379,10 +384,18 @@ export function OpsDashboardTab() {
                   value={data.economy.largeGoldEvents24h}
                 />
               </div>
-              <CountList rows={data.economy.topEvents} empty="event 없음" />
+              <CountList
+                rows={data.economy.topEvents}
+                empty="이벤트 없음"
+                labelKey={economyEventLabel}
+              />
               {data.economy.topRewardFailures.length > 0 ? (
                 <div className="mt-2">
-                  <MiniList title="보상 실패" rows={data.economy.topRewardFailures} />
+                  <MiniList
+                    title="보상 실패"
+                    rows={data.economy.topRewardFailures}
+                    labelKey={economyEventLabel}
+                  />
                 </div>
               ) : null}
             </Panel>
@@ -601,7 +614,7 @@ function CompensationOverviewPanel({
       </div>
       {overview.byKind.length > 0 ? (
         <div className="mt-2">
-          <MiniList title="품목별" rows={overview.byKind} />
+          <MiniList title="품목별" rows={overview.byKind} labelKey={economyItemKindLabel} />
         </div>
       ) : null}
     </Panel>
@@ -909,7 +922,9 @@ function RewardFailurePanel({
                         {row.classification.action}
                       </div>
                     </td>
-                    <td className="hidden py-1 pr-3 font-mono md:table-cell">{row.itemId ?? row.eventType}</td>
+                    <td className="hidden py-1 pr-3 md:table-cell">
+                      {row.itemId ? economyKnownItemName(row.itemId) : economyEventLabel(row.eventType)}
+                    </td>
                     <td className="hidden py-1 pr-3 text-zinc-500 md:table-cell">
                       {new Date(row.createdAt).toLocaleString("ko-KR")}
                     </td>
@@ -1121,7 +1136,7 @@ function CompensationPresetPanel() {
                       >
                         {COMP_KIND_OPTIONS.map((kind) => (
                           <option key={kind} value={kind}>
-                            {kind}
+                            {economyItemKindLabel(kind)}
                           </option>
                         ))}
                       </select>
@@ -2112,7 +2127,15 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function CountList({ rows, empty }: { rows: CountRow[]; empty: string }) {
+function CountList({
+  rows,
+  empty,
+  labelKey = (key) => key,
+}: {
+  rows: CountRow[];
+  empty: string;
+  labelKey?: (key: string) => string;
+}) {
   if (rows.length === 0) {
     return <p className="text-xs text-zinc-500 dark:text-zinc-400">{empty}</p>;
   }
@@ -2120,7 +2143,7 @@ function CountList({ rows, empty }: { rows: CountRow[]; empty: string }) {
     <ul className="space-y-1 text-xs">
       {rows.map((row) => (
         <li key={row.key} className="flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate font-mono">{row.key}</span>
+          <span className="min-w-0 truncate">{labelKey(row.key)}</span>
           <span className="shrink-0 tabular-nums text-zinc-500">{row.count.toLocaleString()}</span>
         </li>
       ))}
@@ -2128,11 +2151,19 @@ function CountList({ rows, empty }: { rows: CountRow[]; empty: string }) {
   );
 }
 
-function MiniList({ title, rows }: { title: string; rows: CountRow[] }) {
+function MiniList({
+  title,
+  rows,
+  labelKey,
+}: {
+  title: string;
+  rows: CountRow[];
+  labelKey?: (key: string) => string;
+}) {
   return (
     <div>
       <div className="mb-1 text-[11px] font-medium text-zinc-500">{title}</div>
-      <CountList rows={rows} empty="없음" />
+      <CountList rows={rows} empty="없음" labelKey={labelKey} />
     </div>
   );
 }

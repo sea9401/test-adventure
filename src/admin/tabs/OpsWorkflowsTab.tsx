@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
+import { economyItemKindLabel, economyItemLabel } from "../economyLabels";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
 
@@ -592,7 +593,7 @@ function CompensationReportPanel({
             <Metric label="아이템 수량" value={report.totalQuantity} />
           </div>
           <div className="grid gap-2 md:grid-cols-3">
-            <CountBox title="품목별" rows={report.byKind} />
+            <CountBox title="품목별" rows={report.byKind} labelKey={economyItemKindLabel} />
             <CountBox title="운영자별" rows={report.byAdmin} />
             <CountBox title="유저별" rows={report.byUser} linkUsers />
           </div>
@@ -624,8 +625,8 @@ function CompensationReportPanel({
                           "-"
                         )}
                       </td>
-                      <td className="px-2 py-1.5 font-mono">
-                        {[row.itemKind, row.itemId].filter(Boolean).join(":") || "gold"}
+                      <td className="px-2 py-1.5">
+                        {economyItemLabel(row.itemKind, row.itemId)}
                       </td>
                       <td className="px-2 py-1.5 text-right tabular-nums">
                         {row.goldDelta > 0
@@ -1055,10 +1056,12 @@ function CountBox({
   title,
   rows,
   linkUsers = false,
+  labelKey = (key) => key,
 }: {
   title: string;
   rows: CountRow[];
   linkUsers?: boolean;
+  labelKey?: (key: string) => string;
 }) {
   return (
     <div className="rounded-md border border-zinc-100 p-2 text-xs dark:border-zinc-800">
@@ -1077,7 +1080,7 @@ function CountBox({
                   {row.key}
                 </Link>
               ) : (
-                <span className="min-w-0 truncate font-mono">{row.key}</span>
+                <span className="min-w-0 truncate">{labelKey(row.key)}</span>
               )}
               <span className="tabular-nums">{row.count.toLocaleString()}</span>
             </li>

@@ -26,6 +26,18 @@ type HistoryResp =
   | { ok: true; history: ArenaHistoryEntry[] }
   | { ok?: false; error?: string };
 
+type MatchResp =
+  | {
+      ok: true;
+      historyEntry: ArenaHistoryEntry;
+      cooldownMs: number;
+    }
+  | {
+      ok: false;
+      error: string;
+      cooldownMs?: number;
+    };
+
 const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
   win: "승리",
   loss: "패배",
@@ -67,6 +79,8 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [nextBusy, setNextBusy] = useState(false);
+  const [nextError, setNextError] = useState<string | null>(null);
 
   const loadEntry = useCallback(async () => {
     setLoading(true);
@@ -95,6 +109,38 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 페이지 진입 시 서버 기록을 불러온다.
     loadEntry();
   }, [loadEntry]);
+
+  const startNextMatch = useCallback(async () => {
+    if (nextBusy) return;
+    setNextBusy(true);
+    setNextError(null);
+    try {
+      const res = await fetch("/api/v2/arena/match", { method: "POST" });
+      const json = (await res.json().catch(() => null)) as MatchResp | null;
+      if (json?.ok) {
+        router.push(
+          `/battle/arena/${encodeURIComponent(json.historyEntry.id)}`,
+        );
+        return;
+      }
+      if (json?.error === "cooldown") {
+        const seconds = Math.max(1, Math.ceil((json.cooldownMs ?? 0) / 1000));
+        setNextError(`재도전까지 ${seconds}초 남았습니다.`);
+      } else if (json?.error === "no_opponent") {
+        setNextError("지금은 상대할 모험가가 없습니다.");
+      } else if (json?.error === "no_character") {
+        setNextError("캐릭터가 없어 매치를 진행할 수 없습니다.");
+      } else if (json?.error === "unauthorized") {
+        setNextError("로그인이 필요합니다.");
+      } else {
+        setNextError("다음 전투를 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } catch {
+      setNextError("네트워크 오류가 발생했습니다.");
+    } finally {
+      setNextBusy(false);
+    }
+  }, [nextBusy, router]);
 
   const battleOutcome = useMemo(() => {
     if (!entry) return undefined;
@@ -218,6 +264,17 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
             maxExp={1}
             playerSubtitle={playerSubtitle}
             outcome={battleOutcome}
+            outcomeAction={
+              battleOutcome
+                ? {
+                    label: "다음 전투 진행",
+                    busyLabel: "매치 진행 중...",
+                    busy: nextBusy,
+                    onClick: startNextMatch,
+                    hint: nextError,
+                  }
+                : undefined
+            }
           />
         </>
       )}

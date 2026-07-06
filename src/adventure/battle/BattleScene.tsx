@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BattleState } from "../v2/combat/engine";
 import { BattleLogList } from "./BattleLogList";
 import { MONSTERS } from "../data/monsters";
@@ -27,6 +27,15 @@ export type BattlePlayerStatus = {
   // v2: 충전식 회복약 잔량. 있으면 개수(hpPotionCount) 대신 충전량으로 표기.
   // mp 충전은 MP 풀이 있는 캐릭(playerMaxMp>0)에만 노출.
   recoveryCharges?: { hp: number; mp: number };
+};
+
+export type BattleOutcomeAction = {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  busyLabel?: string;
+  busy?: boolean;
+  hint?: ReactNode;
 };
 
 const RECENT_KIND_COLOR: Record<NotificationKind, string> = {
@@ -442,6 +451,7 @@ export function BattleScene({
   elementMatchup,
   playerCombat,
   outcome,
+  outcomeAction,
 }: {
   state: BattleState;
   playerName: string;
@@ -462,6 +472,8 @@ export function BattleScene({
   // 전투 종료 결과 — 전달되면 전투 패널 위에 큰 승/패 배너를 띄운다. 미전달(라이브 진행 중·
   //   PvP·코업 등)이면 배너 미표시 → 기존 호출부 렌더 byte-identical.
   outcome?: "win" | "lose";
+  // 결과 배너 안에 붙일 후속 액션. 아레나처럼 결과 직후 다음 전투로 이어지는 화면에서만 사용.
+  outcomeAction?: BattleOutcomeAction;
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
@@ -499,6 +511,29 @@ export function BattleScene({
             <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
               이번 전투에서 졌습니다 — 보상이 없습니다.
             </p>
+          )}
+          {outcomeAction && (
+            <div className="mt-3 flex flex-col items-center gap-1">
+              <button
+                type="button"
+                onClick={outcomeAction.onClick}
+                disabled={outcomeAction.disabled || outcomeAction.busy}
+                className={`inline-flex h-10 min-w-40 items-center justify-center rounded-md px-4 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  outcome === "lose"
+                    ? "bg-rose-600 hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-400"
+                    : "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+                }`}
+              >
+                {outcomeAction.busy
+                  ? (outcomeAction.busyLabel ?? "진행 중...")
+                  : outcomeAction.label}
+              </button>
+              {outcomeAction.hint ? (
+                <div className="text-xs text-zinc-600 dark:text-zinc-300">
+                  {outcomeAction.hint}
+                </div>
+              ) : null}
+            </div>
           )}
         </div>
       )}

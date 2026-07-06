@@ -23,7 +23,7 @@ export const ACTIONS_ALLOWED = 36;
 export const TREASURE_START_BOMBS = 2;
 export const TREASURE_START_ROPES = 1;
 export const MAX_DEPTH = TREASURE_GRID_HEIGHT - 1;
-export const COLLAPSE_RISK = 100;
+export const COLLAPSE_RISK = 100; // 저장 호환용. 단순 채굴에서는 붕괴 판정에 쓰지 않는다.
 
 export const TREASURE_SITE_OPTIONS = [
   "old_market",
@@ -63,7 +63,7 @@ export const TREASURE_ACTION_LABEL: Record<TreasureAction, string> = {
   scan: "탐지",
   bomb: "폭약",
   secure: "보강",
-  rope: "로프 귀환",
+  rope: "즉시 귀환",
   retreat: "귀환",
 };
 
@@ -71,9 +71,9 @@ export const TREASURE_ACTION_HELP: Record<TreasureAction, string> = {
   excavate: "드릴을 인접한 흙벽에 넣어 터널을 냅니다. 지층마다 연료 소모가 다릅니다.",
   move: "이미 뚫린 터널로 이동합니다. 연료 1을 씁니다.",
   scan: "주변 흙벽의 반응을 읽습니다. 연료 2를 씁니다.",
-  bomb: "폭약 1개로 인접한 흙벽을 안전하게 뚫습니다. 암반과 균열에 특히 좋습니다.",
-  secure: "버팀목을 세워 터널을 보강하고 위험을 낮춥니다. 연료 2를 씁니다.",
-  rope: "로프 1개로 바로 귀환합니다. 위험 페널티를 크게 줄여 보존상태를 지킵니다.",
+  bomb: "폭약 1개로 인접한 흙벽을 뚫습니다.",
+  secure: "잠시 정비합니다. 연료 2를 씁니다.",
+  rope: "바로 귀환합니다.",
   retreat: "지금 들고 있는 발견물을 챙겨 발굴을 끝냅니다.",
 };
 
@@ -131,7 +131,7 @@ export type TreasureSession = {
   antiqueId: AntiqueId;
   /** 서버가 굴린 기초 보존상태. 최종 보존상태의 운 요소. */
   condition: number;
-  /** 지반 불안정도. 높을수록 위험 타일의 피해가 커진다. */
+  /** 예전 발굴 세션 호환용 값. 단순 채굴에서는 보상 판정에 쓰지 않는다. */
   instability: number;
   /** 가로 칸 수. 저장 키 호환 때문에 이름은 gridSize 유지. */
   gridSize: number;
@@ -192,13 +192,6 @@ export type TreasureRunSummary = {
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(n)));
-}
-
-function riskTax(risk: number): number {
-  if (risk >= 90) return 12;
-  if (risk >= 75) return 7;
-  if (risk >= 60) return 3;
-  return 0;
 }
 
 function xy(index: number, width: number): { x: number; y: number } {
@@ -301,7 +294,7 @@ function cellRewardLabel(kind: TreasureCellKind): string {
     case "relic":
       return "큰 전리품";
     case "fissure":
-      return "고위험 전리품";
+      return "균열 전리품";
   }
 }
 
@@ -356,10 +349,7 @@ function fallbackCells(width: number, height: number, camp: number): TreasureCel
   return cells;
 }
 
-function cellEffect(
-  kind: TreasureCellKind,
-  instability: number,
-): {
+function cellEffect(kind: TreasureCellKind): {
   haul: number;
   stability: number;
   risk: number;
@@ -371,8 +361,8 @@ function cellEffect(
     case "soil":
       return {
         haul: 7,
-        stability: -1,
-        risk: 1,
+        stability: 0,
+        risk: 0,
         insight: 3,
         energy: 0,
         message: "무른 흙을 걷어내 작은 발견물을 챙겼습니다.",
@@ -380,8 +370,8 @@ function cellEffect(
     case "dense":
       return {
         haul: 24,
-        stability: -5,
-        risk: 8 + Math.ceil(instability / 2),
+        stability: 0,
+        risk: 0,
         insight: 5,
         energy: 0,
         message: "단단한 흙층을 뚫고 묵직한 발견물을 챙겼습니다.",
@@ -389,8 +379,8 @@ function cellEffect(
     case "rock":
       return {
         haul: 40,
-        stability: -10,
-        risk: 15 + instability,
+        stability: 0,
+        risk: 0,
         insight: 6,
         energy: 0,
         message: "암반을 깨자 광물과 뒤섞인 유물이 드러났습니다.",
@@ -398,8 +388,8 @@ function cellEffect(
     case "clue":
       return {
         haul: 10,
-        stability: -2,
-        risk: 4,
+        stability: 0,
+        risk: 0,
         insight: 26,
         energy: 0,
         message: "흙결의 반응을 읽어 유물의 성격을 더 좁혔습니다.",
@@ -407,8 +397,8 @@ function cellEffect(
     case "cache":
       return {
         haul: 52,
-        stability: -4,
-        risk: 9 + Math.ceil(instability / 2),
+        stability: 0,
+        risk: 0,
         insight: 10,
         energy: 0,
         message: "묻힌 상자를 열어 값나가는 조각을 챙겼습니다.",
@@ -416,8 +406,8 @@ function cellEffect(
     case "supply":
       return {
         haul: 6,
-        stability: 5,
-        risk: -6,
+        stability: 0,
+        risk: 0,
         insight: 4,
         energy: 5,
         message: "낡은 보급품을 찾아 드릴 연료를 회복했습니다.",
@@ -425,8 +415,8 @@ function cellEffect(
     case "relic":
       return {
         haul: 135,
-        stability: -8,
-        risk: 16 + instability,
+        stability: 0,
+        risk: 0,
         insight: 38,
         energy: 0,
         message: "고대 유물층에 닿았습니다. 큰 발견물을 확보했습니다.",
@@ -434,11 +424,11 @@ function cellEffect(
     case "fissure":
       return {
         haul: 34,
-        stability: -13,
-        risk: 24 + instability,
+        stability: 0,
+        risk: 0,
         insight: 12,
         energy: 0,
-        message: "균열을 비집고 들어가 발견물을 얻었지만 지반이 크게 흔들렸습니다.",
+        message: "갈라진 광맥 틈에서 발견물을 챙겼습니다.",
       };
     case "camp":
       return {
@@ -452,18 +442,18 @@ function cellEffect(
   }
 }
 
-function bombEffect(kind: TreasureCellKind, instability: number): ReturnType<typeof cellEffect> {
-  const base = cellEffect(kind, instability);
+function bombEffect(kind: TreasureCellKind): ReturnType<typeof cellEffect> {
+  const base = cellEffect(kind);
   return {
     ...base,
     haul: clamp(base.haul * (kind === "rock" || kind === "fissure" ? 1.1 : 0.85), 0, 999),
-    stability: Math.min(0, base.stability + 5),
-    risk: Math.max(0, Math.floor(base.risk * 0.35)),
+    stability: 0,
+    risk: 0,
     insight: clamp(base.insight * 0.75, 0, 100),
     energy: base.energy,
     message:
       kind === "rock" || kind === "fissure"
-        ? "폭약으로 위험한 지형을 크게 열어 발견물을 확보했습니다."
+        ? "폭약으로 단단한 지층을 크게 열어 발견물을 확보했습니다."
         : "폭약으로 길을 냈습니다. 빠르지만 세밀한 단서는 일부 흩어졌습니다.",
   };
 }
@@ -472,24 +462,14 @@ export function finalConditionForSession(session: TreasureSession): number {
   const depthBonus = Math.min(24, session.depth * 2.8 + session.haul * 0.045);
   const energyBonus = Math.min(8, session.energy * 0.35);
   return clamp(
-    session.condition * 0.42 +
-      session.stability * 0.36 +
-      depthBonus +
-      energyBonus +
-      session.insight * 0.07 -
-      riskTax(session.risk),
+    session.condition * 0.55 + depthBonus + energyBonus + session.insight * 0.12,
     MIN_CONDITION,
     100,
   );
 }
 
 export function safeExitConditionForSession(session: TreasureSession): number {
-  const safeSession = {
-    ...session,
-    risk: clamp(session.risk - 36, 0, COLLAPSE_RISK),
-    stability: clamp(session.stability + 10, 0, 100),
-  };
-  return clamp(finalConditionForSession(safeSession) + 3, MIN_CONDITION, 100);
+  return finalConditionForSession(session);
 }
 
 export function summaryForSession(session: TreasureSession): TreasureRunSummary {
@@ -538,7 +518,7 @@ export function hintsForSession(session: TreasureSession): TreasureHint[] {
 function toPublicCell(session: TreasureSession, cell: TreasureCell): TreasureCellPublic {
   const adjacent = isAdjacent(session.position, cell.index, session.gridSize);
   const current = session.position === cell.index;
-  const visibleKind = cell.revealed || cell.scanned || current ? cell.kind : undefined;
+  const visibleKind = cell.revealed || cell.scanned || current || adjacent ? cell.kind : undefined;
   return {
     index: cell.index,
     ...xy(cell.index, session.gridSize),
@@ -656,13 +636,7 @@ function appendRecord(
 }
 
 function collapseIfNeeded(session: TreasureSession): TreasureActionResult | null {
-  if (session.risk >= COLLAPSE_RISK || session.stability <= 0) {
-    return {
-      kind: "collapsed",
-      session,
-      message: "갱도가 무너져 들고 있던 발견물을 모두 잃었습니다.",
-    };
-  }
+  void session;
   return null;
 }
 
@@ -681,7 +655,7 @@ function applyExcavate(
   const cost = cellCost(cell.kind);
   if (session.energy < cost) return { kind: "invalid", session };
 
-  const effect = cellEffect(cell.kind, session.instability);
+  const effect = cellEffect(cell.kind);
   const cells = session.cells.map((c) =>
     c.index === cellIndex
       ? { ...c, revealed: true, scanned: false, depleted: true }
@@ -718,7 +692,7 @@ function applyBomb(
   }
   if (session.energy < 1) return { kind: "invalid", session };
 
-  const effect = bombEffect(cell.kind, session.instability);
+  const effect = bombEffect(cell.kind);
   const cells = session.cells.map((c) =>
     c.index === cellIndex
       ? { ...c, revealed: true, scanned: false, depleted: true }
@@ -791,11 +765,8 @@ function applySecure(session: TreasureSession): TreasureActionResult {
   const next: TreasureSession = {
     ...session,
     energy: clamp(session.energy - 2, 0, session.maxEnergy),
-    stability: clamp(session.stability + 16, 0, 100),
-    risk: clamp(session.risk - 24 - Math.floor(session.stability / 28), 0, COLLAPSE_RISK),
-    insight: clamp(session.insight + 4, 0, 100),
   };
-  const message = "버팀목을 세워 지반을 붙잡았습니다.";
+  const message = "드릴을 정비했습니다.";
   const recorded = appendRecord(next, "secure", undefined, message);
   return { kind: "progress", session: recorded, message };
 }
@@ -832,14 +803,12 @@ export function applyTreasureAction(
     const safeSession: TreasureSession = {
       ...session,
       tools: { ...session.tools, ropes: session.tools.ropes - 1 },
-      risk: clamp(session.risk - 36, 0, COLLAPSE_RISK),
-      stability: clamp(session.stability + 10, 0, 100),
     };
-    const next = appendRecord(safeSession, action, target, "로프를 타고 발견물을 안전하게 끌어올렸습니다.");
+    const next = appendRecord(safeSession, action, target, "발견물을 챙겨 바로 귀환했습니다.");
     return {
       kind: "extracted",
       session: next,
-      condition: clamp(finalConditionForSession(next) + 3, MIN_CONDITION, 100),
+      condition: finalConditionForSession(next),
     };
   }
 

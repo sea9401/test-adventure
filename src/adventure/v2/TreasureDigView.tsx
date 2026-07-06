@@ -2,15 +2,12 @@
 
 import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowUUpLeft,
-  Bomb,
-  Compass,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   HandCoins,
-  MagnifyingGlass,
-  MapTrifold,
-  Shield,
 } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
@@ -20,7 +17,6 @@ import {
   type TreasureAction,
   type TreasureActionTarget,
   type TreasureCellKind,
-  type TreasureCellPublic,
   type TreasureSitePublic,
 } from "./treasureDig";
 import { FRAGMENTS_PER_MAP } from "./treasureFragments";
@@ -81,26 +77,6 @@ const TIER_STYLE: Record<string, string> = {
   legendary: "text-amber-600 dark:text-amber-300",
 };
 
-const TOOL_ACTIONS: TreasureAction[] = [
-  "scan",
-  "secure",
-  "rope",
-  "retreat",
-];
-
-const ACTION_ICON: Record<
-  TreasureAction,
-  ComponentType<{ size?: number; weight?: "regular" | "bold" | "fill" }>
-> = {
-  excavate: MapTrifold,
-  move: Compass,
-  scan: MagnifyingGlass,
-  bomb: Bomb,
-  secure: Shield,
-  rope: ArrowUUpLeft,
-  retreat: HandCoins,
-};
-
 const CELL_TONE: Record<TreasureCellKind | "hidden", string> = {
   hidden:
     "bg-stone-700 text-stone-300 dark:bg-stone-950 dark:text-stone-600",
@@ -124,28 +100,31 @@ const CELL_TONE: Record<TreasureCellKind | "hidden", string> = {
     "bg-rose-900 text-rose-50 dark:bg-rose-950 dark:text-rose-100",
 };
 
-function cellGlyph(cell: TreasureCellPublic): string {
-  if (!cell.kind) return cell.adjacent ? "?" : "";
-  switch (cell.kind) {
-    case "camp":
-      return "IN";
+function haulForKind(kind: TreasureCellKind | undefined): number {
+  switch (kind) {
     case "soil":
-      return "";
+      return 7;
     case "dense":
-      return "";
+      return 24;
     case "rock":
-      return "";
+      return 40;
     case "clue":
-      return "R";
+      return 10;
     case "cache":
-      return "C";
+      return 52;
     case "supply":
-      return "F";
+      return 6;
     case "relic":
-      return "A";
+      return 135;
     case "fissure":
-      return "!";
+      return 34;
+    default:
+      return 0;
   }
+}
+
+function energyForKind(kind: TreasureCellKind | undefined): number {
+  return kind === "supply" ? 5 : 0;
 }
 
 type Result =
@@ -214,146 +193,123 @@ function DepthTrack({ depth, maxDepth }: { depth: number; maxDepth: number }) {
   );
 }
 
-function TreasureMap({
+type DrillDirection = {
+  key: "left" | "down" | "right";
+  label: string;
+  dx: number;
+  dy: number;
+  Icon: typeof ArrowDown;
+};
+
+const DRILL_DIRECTIONS: DrillDirection[] = [
+  { key: "left", label: "왼쪽", dx: -1, dy: 0, Icon: ArrowLeft },
+  { key: "down", label: "아래", dx: 0, dy: 1, Icon: ArrowDown },
+  { key: "right", label: "오른쪽", dx: 1, dy: 0, Icon: ArrowRight },
+];
+
+function DrillPanel({
   site,
   busy,
   result,
-  mapMode,
   onAction,
 }: {
   site: TreasureSitePublic;
   busy: boolean;
   result: Result;
-  mapMode: "excavate" | "bomb";
   onAction: (action: TreasureAction, target?: TreasureActionTarget) => void;
 }) {
+  const current = site.cells.find((cell) => cell.current);
+  const markerTop = `${Math.min(88, Math.max(8, (site.depth / Math.max(1, site.maxDepth)) * 80 + 8))}%`;
+  const options = DRILL_DIRECTIONS.map((direction) => {
+    const target = current
+      ? site.cells.find(
+          (cell) => cell.x === current.x + direction.dx && cell.y === current.y + direction.dy,
+        )
+      : undefined;
+    const action: TreasureAction | null = !target
+      ? null
+      : target.revealed
+        ? "move"
+        : "excavate";
+    return { ...direction, target, action };
+  });
+
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="mb-2 flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-        <span className="font-semibold text-zinc-700 dark:text-zinc-200">지하 채굴</span>
-        <span>깊이 {site.depth}/{site.maxDepth}</span>
+    <div className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="relative h-64 overflow-hidden rounded-md border border-stone-800 bg-stone-900 shadow-inner dark:border-stone-950 dark:bg-stone-950">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_45%_10%,rgba(255,255,255,0.12),transparent_24%),linear-gradient(180deg,rgba(180,120,60,0.28),rgba(40,24,16,0.9))]" />
+        <div className="absolute left-1/2 top-0 h-full w-16 -translate-x-1/2 bg-zinc-950/70 shadow-[0_0_40px_rgba(0,0,0,0.55)_inset]" />
+        <div className="absolute left-1/2 h-9 w-12 -translate-x-1/2 -translate-y-1/2 rounded-sm bg-sky-400 text-center text-[10px] font-black leading-9 text-sky-950 shadow-lg" style={{ top: markerTop }}>
+          DRILL
+        </div>
+        <div className="absolute bottom-3 left-3 rounded bg-black/40 px-2 py-1 text-xs font-semibold text-stone-100">
+          깊이 {site.depth}/{site.maxDepth}
+        </div>
       </div>
-      <div
-        className="grid overflow-hidden rounded-md border border-stone-800 bg-stone-800 shadow-inner dark:border-stone-950 dark:bg-stone-950"
-        style={{ gridTemplateColumns: `repeat(${site.gridSize}, minmax(0, 1fr))` }}
-      >
-        {site.cells.map((cell) => {
-          const action: TreasureAction | null = cell.current
-            ? null
-            : cell.adjacent && cell.revealed
-              ? "move"
-              : cell.adjacent && !cell.revealed
-                ? mapMode
-                : null;
+
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          {options.map(({ key, label, target, action, Icon }) => {
+          const requiredFuel = action === "move" ? 1 : target?.cost ?? 0;
+          const haul = action === "excavate" ? haulForKind(target?.kind) : 0;
+          const energyGain = action === "excavate" ? energyForKind(target?.kind) : 0;
           const disabled =
             busy ||
             !!result ||
-            !action ||
             site.forcedRetreat ||
-            (action === "bomb" && site.tools.bombs <= 0);
-          const tone =
-            cell.revealed || cell.scanned || cell.current
-              ? CELL_TONE[cell.kind ?? "hidden"]
-              : CELL_TONE.hidden;
-          const title = cell.kind
-            ? `${cell.label} · ${cell.reward} · 비용 ${cell.cost}`
-            : cell.adjacent
-              ? mapMode === "bomb"
-                ? "흙벽 · 폭약 1개와 연료 1로 뚫습니다"
-                : "흙벽 · 연료 소모는 지층에 따라 달라집니다"
-              : "아직 닿지 않는 흙벽";
-          const isTunnel = cell.revealed || cell.current;
-          const depthShade =
-            cell.y > site.gridHeight * 0.66
-              ? "brightness-[0.82]"
-              : cell.y > site.gridHeight * 0.36
-                ? "brightness-[0.92]"
-                : "";
+            !action ||
+            !target ||
+            site.energy < requiredFuel;
+          const tone = target?.revealed
+            ? "border-zinc-300 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            : target?.kind
+              ? `${CELL_TONE[target.kind]} border-transparent`
+              : "border-zinc-200 bg-zinc-100 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-600";
           return (
             <button
-              key={cell.index}
+              key={key}
               type="button"
               disabled={disabled}
-              title={title}
+              title={
+                target
+                  ? `${target.label ?? "흙벽"} · 연료 -${requiredFuel}${haul > 0 ? ` · 획득 +${haul}` : ""}`
+                  : `${label}에는 더 팔 곳이 없습니다.`
+              }
               onClick={() => {
-                if (action) onAction(action, { cell: cell.index });
+                if (action && target) onAction(action, { cell: target.index });
               }}
-              className={`relative aspect-square text-[10px] font-bold transition disabled:cursor-not-allowed ${tone} ${depthShade} ${
-                cell.current
-                  ? "z-10 ring-2 ring-sky-300 ring-offset-0"
-                  : action
-                    ? "hover:brightness-110"
-                    : ""
-              }`}
+              className={`min-h-32 rounded-md border p-2 text-left transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-45 ${tone}`}
             >
-              {!isTunnel && (
-                <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.12),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_45%)]" />
-              )}
-              {isTunnel && (
-                <span className="absolute inset-[12%] rounded-sm bg-zinc-950/70 shadow-inner dark:bg-black/70" />
-              )}
-              {cell.kind === "rock" && !isTunnel && (
-                <span className="absolute inset-x-[20%] top-[30%] h-[34%] rounded-full bg-zinc-400/40" />
-              )}
-              {(cell.kind === "cache" || cell.kind === "relic" || cell.kind === "supply" || cell.kind === "clue") && (
-                <span className="absolute inset-[28%] rounded-full bg-current opacity-70 blur-[1px]" />
-              )}
-              {cell.current ? (
-                <span className="absolute inset-[18%] flex items-center justify-center rounded-sm bg-sky-400 text-[9px] font-black text-sky-950 shadow">
-                  DR
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Icon size={18} weight="bold" />
+                <span className="text-[11px] font-semibold">{label}</span>
+              </div>
+              <div className="text-sm font-bold">
+                {target
+                  ? target.revealed
+                    ? "이동"
+                    : target.label ?? "흙벽"
+                  : "막힘"}
+              </div>
+              {target ? (
+                <span className="mt-2 block text-[11px] leading-relaxed opacity-80">
+                  연료 -{requiredFuel}
+                  {haul > 0 ? ` · 획득 +${haul}` : ""}
+                  {energyGain > 0 ? ` · 연료 +${energyGain}` : ""}
                 </span>
               ) : (
-                <span className="absolute inset-0 flex items-center justify-center">
-                  {cellGlyph(cell)}
-                </span>
-              )}
-              {cell.scanned && !cell.revealed && (
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-cyan-300" />
-              )}
-              {action && (
-                <span className="absolute bottom-0.5 right-0.5 rounded bg-black/45 px-1 text-[9px] text-white">
-                  {cell.kind ? cell.cost : "?"}
-                </span>
+                <span className="mt-2 block text-[11px] opacity-70">팔 수 없음</span>
               )}
             </button>
           );
         })}
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 sm:grid-cols-5">
-        {(["soil", "dense", "rock", "clue", "cache", "supply", "relic", "fissure"] as TreasureCellKind[]).map(
-          (kind) => (
-            <div key={kind} className="flex min-w-0 items-center gap-1">
-              <span className={`h-3 w-3 shrink-0 rounded-sm ${CELL_TONE[kind]}`} />
-              <span className="truncate">{cellLabelForView(kind)}</span>
-            </div>
-          ),
-        )}
+        </div>
+        <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          벽을 고르면 바로 파고 들어갑니다. 필요한 건 남은 연료와 들고 나올 전리품뿐입니다.
+        </p>
       </div>
     </div>
   );
-}
-
-function cellLabelForView(kind: TreasureCellKind): string {
-  switch (kind) {
-    case "camp":
-      return "입구";
-    case "soil":
-      return "흙";
-    case "dense":
-      return "단단";
-    case "rock":
-      return "암반";
-    case "clue":
-      return "반응";
-    case "cache":
-      return "상자";
-    case "supply":
-      return "보급";
-    case "relic":
-      return "유물층";
-    case "fissure":
-      return "균열";
-  }
 }
 
 function RunSummary({ site }: { site: TreasureSitePublic | null }) {
@@ -404,7 +360,6 @@ export function TreasureDigView({
   const [notice, setNotice] = useState<string | null>(null);
   const [fragments, setFragments] = useState<number | null>(null);
   const [restoring, setRestoring] = useState(Boolean(loadSession));
-  const [mapMode, setMapMode] = useState<"excavate" | "bomb">("excavate");
 
   useEffect(() => {
     if (!loadFragments) return;
@@ -450,7 +405,6 @@ export function TreasureDigView({
       } else {
         setSite(r.site);
         setResult(null);
-        setMapMode("excavate");
       }
     } catch {
       setNotice("발굴 지점을 열 수 없습니다.");
@@ -499,10 +453,6 @@ export function TreasureDigView({
     [site, busy, result, dig],
   );
 
-  const actionsRemaining = site ? site.actionsAllowed - site.actionsUsed : 0;
-  const canProgress = !!site && !site.forcedRetreat && !result;
-  const effectiveMapMode = site?.tools.bombs === 0 ? "excavate" : mapMode;
-
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -515,7 +465,7 @@ export function TreasureDigView({
         }
       />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        지도 조각으로 드릴 연료를 채우고, 지하에서 챙긴 발견물을 들고 귀환합니다.
+        드릴 방향을 고르고, 연료를 써서 발견물을 챙긴 뒤 귀환합니다.
       </p>
 
       <TreasureSubTabs
@@ -538,8 +488,8 @@ export function TreasureDigView({
           </p>
           <ol className="list-decimal space-y-1.5 pl-4">
             <li>지도 조각 {FRAGMENTS_PER_MAP}개를 드릴 연료로 바꿔 지하 입구를 엽니다.</li>
-            <li>흙벽을 뚫거나 이미 열린 터널로 이동하며 연료를 씁니다.</li>
-            <li>발견물을 들고 귀환해야 보상이 확정됩니다. 무너지면 발굴은 실패합니다.</li>
+            <li>왼쪽, 아래, 오른쪽 중 하나를 골라 파고 들어갑니다.</li>
+            <li>연료가 남아 있을 때 발견물을 들고 귀환하면 보상이 확정됩니다.</li>
           </ol>
         </div>
       )}
@@ -548,127 +498,34 @@ export function TreasureDigView({
         <div className="space-y-4">
           <div className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-              <span>
-                남은 행동{" "}
-                <b className="tabular-nums text-zinc-800 dark:text-zinc-100">
-                  {Math.max(0, actionsRemaining)}
-                </b>
-                /{site.actionsAllowed}
-              </span>
-              <span>{site.forcedRetreat ? "귀환 판단 필요" : `주변 숨은 칸 ${site.adjacentHidden}`}</span>
+              <span>현재 깊이 {site.depth}</span>
+              <span>{site.forcedRetreat ? "귀환 필요" : `팔 수 있는 방향 ${site.adjacentHidden}`}</span>
             </div>
             <DepthTrack depth={site.depth} maxDepth={site.maxDepth} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Meter label="연료" value={site.energy} max={site.maxEnergy} tone="sky" />
               <Meter label="들고 있는 전리품" value={site.haul} max={320} tone="amber" />
-              <Meter label="안정도" value={site.stability} max={100} suffix="%" tone="emerald" />
-              <Meter label="붕괴 위험" value={site.risk} max={100} suffix="%" tone="rose" />
-              <Meter label="판독" value={site.insight} max={100} suffix="%" tone="sky" />
             </div>
           </div>
 
-          <TreasureMap
+          <DrillPanel
             site={site}
             busy={busy}
             result={result}
-            mapMode={effectiveMapMode}
             onAction={handleAction}
           />
 
           {!result && (
-            <div className="grid grid-cols-2 gap-2 rounded-md border border-zinc-200 bg-white p-2 text-xs shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <button
-                type="button"
-                onClick={() => setMapMode("excavate")}
-                className={`rounded border px-3 py-2 font-semibold transition ${
-                  effectiveMapMode === "excavate"
-                    ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
-                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                }`}
-              >
-                일반 발굴
-              </button>
-              <button
-                type="button"
-                disabled={site.tools.bombs <= 0}
-                onClick={() => setMapMode("bomb")}
-                className={`rounded border px-3 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  effectiveMapMode === "bomb"
-                    ? "border-rose-700 bg-rose-700 text-white dark:border-rose-300 dark:bg-rose-300 dark:text-rose-950"
-                    : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:bg-zinc-900 dark:text-rose-200 dark:hover:bg-rose-950/40"
-                }`}
-              >
-                폭약 발굴 {site.tools.bombs}개
-              </button>
-            </div>
-          )}
-
-          <div className="rounded-md border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">현재 판단</h2>
-              {site.energy > 0 && !site.forcedRetreat && (
-                <span className="rounded bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                  현재 깊이 {site.depth}
-                </span>
-              )}
-            </div>
-            {site.hints.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {site.hints.map((h) => (
-                  <span
-                    key={h.key}
-                    className="rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                  >
-                    {h.label}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                아직 챙긴 단서가 부족합니다. 탐지를 쓰거나 유물 반응 지층을 열면 판독이 빨라집니다.
-              </p>
-            )}
-          </div>
-
-          {!result && (
-            <div className="grid gap-2 sm:grid-cols-3">
-              {TOOL_ACTIONS.map((action) => {
-                const Icon = ACTION_ICON[action];
-                const isRetreat = action === "retreat";
-                const isRope = action === "rope";
-                const disabled =
-                  busy ||
-                  (isRetreat || isRope
-                    ? !site.canRetreat || (isRope && site.tools.ropes <= 0)
-                    : !canProgress);
-                return (
-                  <button
-                    key={action}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => handleAction(action)}
-                    title={TREASURE_ACTION_HELP[action]}
-                    className={`flex min-h-16 gap-2 rounded-md border px-3 py-2 text-left text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      isRetreat
-                        ? "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
-                        : isRope
-                          ? "border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100"
-                        : "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    <Icon size={18} weight="bold" />
-                    <span className="min-w-0">
-                      <span className="block">{TREASURE_ACTION_LABEL[action]}</span>
-                      <span className="mt-1 block text-[11px] font-normal leading-snug opacity-70">
-                        {action === "rope"
-                          ? `${TREASURE_ACTION_HELP[action]} (${site.tools.ropes}개)`
-                          : TREASURE_ACTION_HELP[action]}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              disabled={busy || !site.canRetreat}
+              onClick={() => handleAction("retreat")}
+              title={TREASURE_ACTION_HELP.retreat}
+              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-md border border-zinc-900 bg-zinc-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
+            >
+              <HandCoins size={18} weight="bold" />
+              발견물 챙겨 귀환
+            </button>
           )}
 
           {site.actions.length > 0 && (

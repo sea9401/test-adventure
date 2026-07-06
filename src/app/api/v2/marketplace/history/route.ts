@@ -3,7 +3,10 @@ import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { MARKETPLACE_V2_HISTORY_LIMIT } from "@/lib/server/marketplaceV2";
+import {
+  MARKETPLACE_V2_HISTORY_LIMIT,
+  currentMarketplaceItemName,
+} from "@/lib/server/marketplaceV2";
 
 const HISTORY_CACHE_MS = 15_000;
 
@@ -73,7 +76,17 @@ async function loadHistoryPayloadFresh(): Promise<HistoryPayload> {
     .orderBy(desc(marketplaceListingsV2.closedAt))
     .limit(MARKETPLACE_V2_HISTORY_LIMIT);
 
-  const payload: HistoryPayload = { ok: true, trades: rows };
+  const payload: HistoryPayload = {
+    ok: true,
+    trades: rows.map((row) => ({
+      ...row,
+      itemName: currentMarketplaceItemName(
+        row.kind,
+        row.itemId,
+        row.itemName,
+      ),
+    })),
+  };
   historyCache = { computedAt: Date.now(), value: payload };
   return payload;
 }

@@ -10,6 +10,7 @@ import {
   isTradableMaterial,
   isValidMaterialQty,
   isValidPrice,
+  currentMarketplaceItemName,
   itemDisplayName,
   saleProceeds,
   saleTax,
@@ -67,9 +68,10 @@ describe("isValidMaterialQty", () => {
 });
 
 describe("isMarketKind", () => {
-  it("equip/material 만", () => {
+  it("v2 거래소 종류만 통과", () => {
     expect(isMarketKind("equip")).toBe(true);
     expect(isMarketKind("material")).toBe(true);
+    expect(isMarketKind("consumable")).toBe(true);
     expect(isMarketKind("gold")).toBe(false);
     expect(isMarketKind(null)).toBe(false);
   });
@@ -101,5 +103,20 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const matId = Object.keys(V2_MATERIALS)[0];
     expect(itemDisplayName("material", matId)).toBe(V2_MATERIALS[matId].name);
     expect(itemDisplayName("material", "nope")).toBeNull();
+  });
+
+  it("currentMarketplaceItemName — 장비/재료는 현재 카탈로그명, 소모품은 스냅샷명 유지", () => {
+    const eqId = Object.keys(V2_EQUIPMENT)[0];
+    const matId = Object.keys(V2_MATERIALS)[0];
+    expect(currentMarketplaceItemName("equip", eqId, "옛 장비명")).toBe(
+      V2_EQUIPMENT[eqId as keyof typeof V2_EQUIPMENT].name,
+    );
+    expect(currentMarketplaceItemName("material", matId, "옛 재료명")).toBe(
+      V2_MATERIALS[matId].name,
+    );
+    expect(
+      currentMarketplaceItemName("consumable", "rare_map", "희귀 지도 (깊이 12)"),
+    ).toBe("희귀 지도 (깊이 12)");
+    expect(currentMarketplaceItemName("gold", "coin", "골드")).toBe("골드");
   });
 });

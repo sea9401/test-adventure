@@ -8,6 +8,7 @@ import {
   isTreasureAction,
   parseTreasureSession,
   toPublicSite,
+  type TreasureActionTarget,
 } from "@/adventure/v2/treasureDig";
 import {
   TREASURE_COLLECTION_KEY,
@@ -30,7 +31,7 @@ import { currentTreasureSeasonId } from "@/lib/server/treasure/season";
 // POST /api/v2/treasure/dig — body { siteId, action }. 발굴 행동을 수행한다.
 //
 // 회수 성공이면 open 때 박제한 골동품을 인스턴스로 발굴해 보관함(treasure-collection.v1)에
-// 넣고 유물 도감에 등록하고 세션 종료. 진행 행동은 노출/보존/위험/확신 상태를 갱신한다.
+// 넣고 유물 도감에 등록하고 세션 종료. 진행 행동은 지하 지도/연료/전리품/안정도/위험 상태를 갱신한다.
 // 골동품과 기초 보존상태는 세션에만 있어 클라가 위조 못 한다. 락 순서: session → collection → codex.
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -44,12 +45,13 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  const b = (body ?? {}) as { siteId?: unknown; action?: unknown };
+  const b = (body ?? {}) as { siteId?: unknown; action?: unknown; target?: unknown };
   if (typeof b.siteId !== "string" || !isTreasureAction(b.action)) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
   const siteId = b.siteId;
   const action = b.action;
+  const target = parseTarget(b.target);
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
     // 다른 발굴 지점(새 open 이 덮었거나 이미 종료) — 현재 세션 보존하고 거부.
     if (session.siteId !== siteId) return { outcome: "stale" as const };
 
-    const dig = applyTreasureAction(session, action);
+    const dig = applyTreasureAction(session, action, target);
 
     if (dig.kind === "invalid") {
       // 예산소진 등 무효 행동 — 소비 없이 현재 상태 반환.
@@ -114,6 +116,7 @@ export async function POST(req: Request) {
           appraisedValue,
         },
         codexCount: countDiscoveredAntiques(nextCodex),
+        site: toPublicSite(dig.session),
       };
     }
 
@@ -141,4 +144,10 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: result.outcome }, { status: 409 });
   }
   return Response.json({ ok: true, ...result });
+}
+
+function parseTarget(raw: unknown): TreasureActionTarget | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const cell = (raw as { cell?: unknown }).cell;
+  return typeof cell === "number" && Number.isInteger(cell) ? { cell } : undefined;
 }

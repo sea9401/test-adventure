@@ -5,10 +5,7 @@ import { ArrowClockwise, CastleTurret, Certificate, CheckCircle } from "@phospho
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
-import type { Gender } from "@/adventure/profile/avatars";
 
 type TowerState = {
   date: string;
@@ -24,11 +21,6 @@ type TowerJob = {
   tier: number;
   group: string;
   mastery: number;
-};
-
-type TowerLogEntry = {
-  kind: "info" | "player" | "enemy" | "success" | "fail" | "reward";
-  text: string;
 };
 
 type TowerGuardian = {
@@ -71,26 +63,19 @@ type TowerStatus = {
 
 export function V2MasteryTowerView({
   onBack,
+  onEnterBattle,
   onRefreshGameState,
 }: {
   onBack: () => void;
+  onEnterBattle: () => void;
   onRefreshGameState?: () => void | Promise<void>;
 }) {
   const [status, setStatus] = useState<TowerStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"attempt" | "claim" | "use" | null>(null);
+  const [busy, setBusy] = useState<"claim" | "use" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
-  const [lastAttemptLog, setLastAttemptLog] = useState<TowerLogEntry[]>([]);
-  const [lastAttemptReplay, setLastAttemptReplay] = useState<{
-    floor: number;
-    replay: ReplayPayload;
-    startPlayerHp: number;
-    outcome: "win" | "lose";
-    playerName: string;
-    gender: Gender;
-  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -122,64 +107,6 @@ export function V2MasteryTowerView({
     () => status?.jobs.find((job) => job.id === selectedJobId) ?? null,
     [selectedJobId, status?.jobs],
   );
-
-  async function attempt() {
-    setBusy("attempt");
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/mastery-tower/attempt", {
-        method: "POST",
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        success?: boolean;
-        error?: string;
-        floor?: number | null;
-        requiredPower?: number | null;
-        power?: number;
-        log?: TowerLogEntry[];
-        replay?: ReplayPayload;
-        startPlayerHp?: number;
-        playerName?: string;
-        gender?: string;
-      } | null;
-      if (!j?.ok) {
-        const label =
-          j?.error === "fishing_job"
-            ? "낚시 계열 직업에는 숙련 증서를 사용할 수 없습니다"
-            : (j?.error ?? `http ${res.status}`);
-        setMsg(`✗ ${label}`);
-        return;
-      }
-      setLastAttemptLog(j.log ?? []);
-      setLastAttemptReplay(
-        j.replay && typeof j.floor === "number"
-          ? {
-              floor: j.floor,
-              replay: j.replay,
-              startPlayerHp: j.startPlayerHp ?? j.replay.playerMaxHp,
-              outcome: j.success ? "win" : "lose",
-              playerName: j.playerName ?? "모험가",
-              gender: (j.gender ?? "male1") as Gender,
-            }
-          : null,
-      );
-      if (j.success) {
-        setMsg(`✓ ${j.floor}층 돌파`);
-      } else if (j.error === "max_floor") {
-        setMsg("✓ 오늘 가능한 최고층에 도달했습니다");
-      } else {
-        setMsg(
-          `✗ ${j.floor}층 실패 · 전투력 ${j.power ?? 0}/${j.requiredPower ?? 0}`,
-        );
-      }
-      await refresh();
-    } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function claim() {
     setBusy("claim");
@@ -360,12 +287,12 @@ export function V2MasteryTowerView({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => void attempt()}
+                onClick={onEnterBattle}
                 disabled={busy != null || !canAttempt}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
               >
                 <CastleTurret size={16} weight="duotone" />
-                {busy === "attempt" ? "도전 중…" : "다음 층 도전"}
+                입장
               </button>
               <button
                 type="button"
@@ -384,39 +311,6 @@ export function V2MasteryTowerView({
           </>
         )}
       </Card>
-
-      {lastAttemptLog.length > 0 && (
-        <Card padding="md" className="space-y-3">
-          <div className="flex items-center gap-2">
-            <CastleTurret size={18} weight="duotone" className="text-emerald-500" />
-            <h2 className="text-base font-semibold">최근 도전 로그</h2>
-          </div>
-          <ol className="space-y-1.5">
-            {lastAttemptLog.map((entry, index) => (
-              <li
-                key={`${entry.kind}-${index}`}
-                className={`rounded-md border px-3 py-2 text-sm ${logEntryClass(entry.kind)}`}
-              >
-                {entry.text}
-              </li>
-            ))}
-          </ol>
-        </Card>
-      )}
-
-      {lastAttemptReplay && (
-        <ReplayBattleScene
-          key={`${lastAttemptReplay.floor}-${lastAttemptReplay.outcome}`}
-          payload={lastAttemptReplay.replay}
-          startPlayerHp={lastAttemptReplay.startPlayerHp}
-          playerName={lastAttemptReplay.playerName}
-          gender={lastAttemptReplay.gender}
-          exp={0}
-          maxExp={1}
-          playerSubtitle={`숙련의 탑 ${lastAttemptReplay.floor}층`}
-          outcome={lastAttemptReplay.outcome}
-        />
-      )}
 
       {status && (
         <Card padding="md" className="space-y-3">
@@ -487,22 +381,6 @@ export function V2MasteryTowerView({
       )}
     </main>
   );
-}
-
-function logEntryClass(kind: TowerLogEntry["kind"]): string {
-  if (kind === "success" || kind === "reward") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200";
-  }
-  if (kind === "fail") {
-    return "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200";
-  }
-  if (kind === "player") {
-    return "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/30 dark:text-sky-200";
-  }
-  if (kind === "enemy") {
-    return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200";
-  }
-  return "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200";
 }
 
 function towerSkillName(id: string): string {

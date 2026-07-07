@@ -20,9 +20,14 @@ type TowerAttemptResult = {
   ok?: boolean;
   success?: boolean;
   error?: string;
+  tower?: {
+    runFloor?: number;
+    cooldownUntil?: number;
+  };
   floor?: number | null;
   requiredPower?: number | null;
   power?: number;
+  retryAfterSeconds?: number;
   log?: TowerLogEntry[];
   replay?: ReplayPayload;
   startPlayerHp?: number;
@@ -30,10 +35,18 @@ type TowerAttemptResult = {
   gender?: string;
 };
 
-function resultMessage(result: TowerAttemptResult): string {
+function resultMessage(
+  result: TowerAttemptResult,
+  cooldownSeconds: number,
+): string {
   if (result.error === "max_floor") return "오늘 가능한 최고층에 도달했습니다.";
+  if (result.error === "cooldown") {
+    return `재입장 대기 중 · ${cooldownSeconds}초 후 1층부터 재입장`;
+  }
   if (result.success) return `${result.floor ?? "-"}층 돌파`;
-  return `${result.floor ?? "-"}층 실패 · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}`;
+  const retry =
+    cooldownSeconds > 0 ? ` · ${cooldownSeconds}초 후 1층부터 재입장` : "";
+  return `${result.floor ?? "-"}층 실패 · 전투력 ${(result.power ?? 0).toLocaleString("ko-KR")}/${(result.requiredPower ?? 0).toLocaleString("ko-KR")}${retry}`;
 }
 
 function errorMessage(error: string | undefined): string {
@@ -48,6 +61,7 @@ export function V2MasteryTowerBattleView() {
   const [result, setResult] = useState<TowerAttemptResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const enterTower = useCallback(async () => {
     setBusy(true);
@@ -92,7 +106,26 @@ export function V2MasteryTowerBattleView() {
   }, [result]);
 
   const isMaxFloor = result?.error === "max_floor";
-  const canContinue = Boolean(result?.ok && !busy && !isMaxFloor);
+  const cooldownUntil =
+    typeof result?.tower?.cooldownUntil === "number"
+      ? result.tower.cooldownUntil
+      : null;
+  const cooldownSeconds =
+    cooldownUntil && cooldownUntil > now
+      ? Math.ceil((cooldownUntil - now) / 1000)
+      : cooldownUntil
+        ? 0
+        : Math.max(0, Math.ceil(result?.retryAfterSeconds ?? 0));
+  const isCooldown = result?.error === "cooldown" || cooldownSeconds > 0;
+  const canContinue = Boolean(
+    result?.ok && !busy && !isMaxFloor && cooldownSeconds <= 0,
+  );
+
+  useEffect(() => {
+    if (!cooldownUntil || cooldownUntil <= now) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil, now]);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -124,7 +157,14 @@ export function V2MasteryTowerBattleView() {
 
       {result?.ok && (
         <StatusBanner tone={result.success || isMaxFloor ? "success" : "error"}>
-          {resultMessage(result)}
+          {resultMessage(result, cooldownSeconds)}
+        </StatusBanner>
+      )}
+
+      {isCooldown && (
+        <StatusBanner tone="warning">
+          패배하면 현재 등반은 초기화됩니다. {cooldownSeconds}초 후 1층부터 다시
+          시작할 수 있습니다.
         </StatusBanner>
       )}
 
@@ -159,7 +199,12 @@ export function V2MasteryTowerBattleView() {
           playerSubtitle={`숙련의 탑 ${replay.floor}층`}
           outcome={replay.outcome}
           outcomeAction={{
-            label: replay.outcome === "win" ? "다음 층 입장" : "재입장",
+            label:
+              replay.outcome === "win"
+                ? "다음 층 입장"
+                : cooldownSeconds > 0
+                  ? `재입장 대기 ${cooldownSeconds}초`
+                  : "재입장",
             busyLabel: "입장 중...",
             busy,
             disabled: !canContinue,
@@ -183,7 +228,7 @@ export function V2MasteryTowerBattleView() {
             disabled={!canContinue}
             className="h-10 rounded-md border border-zinc-200 px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
           >
-            다시 입장
+            {cooldownSeconds > 0 ? `재입장 대기 ${cooldownSeconds}초` : "다시 입장"}
           </button>
         </Card>
       )}

@@ -227,6 +227,9 @@ export function V2GuildHome({
         <GuildFacilitiesPanel
           guildId={guildId}
           info={info}
+          canUnlockFacilities={canManage}
+          onChanged={refresh}
+          onNotice={setNotice}
           onOpenFacility={(id) => {
             if (id === "guild_smithy") setSubTab("workshop");
             else if (id === "training_ground") setSubTab("training");

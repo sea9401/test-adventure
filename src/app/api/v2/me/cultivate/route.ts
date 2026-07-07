@@ -80,6 +80,7 @@ export async function POST() {
         group,
         caps: effectiveCaps,
         cultivations: nextCult,
+        capGains: totalCapGains(applied.next),
         points: usablePoints(applied.next),
         nextCost: cultivationCost(totalCapGains(applied.next)),
       },

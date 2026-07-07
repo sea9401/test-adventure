@@ -145,6 +145,7 @@ type StateShape = {
       cumLevel: number;
       points: number;
       cultivations: number;
+      capGains: number;
       nextCost: number;
       advance?: V2AdvanceInfo | null;
     };
@@ -158,6 +159,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [group, setGroup] = useState<string>("none");
   const [usable, setUsable] = useState(0);
   const [cultivations, setCultivations] = useState(0);
+  const [capGains, setCapGains] = useState(0);
   const [nextCost, setNextCost] = useState(0);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
@@ -193,6 +195,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setGroup(cur.group);
         setUsable(cur.points);
         setCultivations(cur.cultivations);
+        setCapGains(cur.capGains ?? 0);
         setNextCost(cur.nextCost);
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
@@ -265,6 +268,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         mult?: number;
         caps?: Partial<Record<V2StatKey, number>>;
         cultivations?: number;
+        capGains?: number;
         points?: number;
         nextCost?: number;
         required?: number;
@@ -284,6 +288,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${crit}`);
       setCaps(j.caps ?? caps);
       setCultivations(j.cultivations ?? cultivations + 1);
+      setCapGains(j.capGains ?? capGains);
       setUsable(j.points ?? Math.max(0, usable - nextCost));
       setNextCost(j.nextCost ?? nextCost);
     } catch (err) {
@@ -291,7 +296,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [caps, cultivations, usable, nextCost, setMsg]);
+  }, [capGains, caps, cultivations, usable, nextCost, setMsg]);
 
   const changeElement = useCallback(async () => {
     if (!picker || !elementChanged) return;
@@ -575,7 +580,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             {profile && (
               <div className="mt-3 flex items-center justify-between gap-2">
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  수행 {cultivations}회 · 다음 비용{" "}
+                  한계 증가 합 {capGains.toLocaleString()} · 수행{" "}
+                  {cultivations.toLocaleString()}회 · 다음 비용{" "}
                   <strong
                     className={`tabular-nums ${
                       usable >= nextCost

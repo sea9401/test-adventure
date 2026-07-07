@@ -59,8 +59,8 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     });
   });
 
-  it("지도 제작소는 배치 가능 건물이며 Lv5에서 지도 조각 비용 -25%를 연다", () => {
-    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("map_workshop");
+  it("지도 제작소는 임시 비활성화되어 신규 배치 목록에서 제외된다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).not.toContain("map_workshop");
     expect(nextSettlementBuildingUpgrade("map_workshop", 1)).toMatchObject({
       level: 2,
       fragmentDiscountPct: 10,

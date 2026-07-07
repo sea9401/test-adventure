@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -45,7 +44,6 @@ export function V2GuildHome({
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
 }) {
-  const router = useRouter();
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
@@ -233,7 +231,6 @@ export function V2GuildHome({
           onOpenFacility={(id) => {
             if (id === "guild_smithy") setSubTab("workshop");
             else if (id === "training_ground") setSubTab("training");
-            else if (id === "map_workshop") router.push("/town/treasure");
           }}
         />
       )}

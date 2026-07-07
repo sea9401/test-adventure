@@ -1,17 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { TreasureShopPanel } from "@/adventure/v2/TreasureShopPanel";
+import { TreasureDisabledPanel } from "@/adventure/v2/TreasureDisabledPanel";
 
 // /town/treasure/shop — 발굴 코인 상점.
 export default function TreasureShopPage() {
   const router = useRouter();
-  return (
-    <TreasureShopPanel
-      onBack={() => router.push("/town")}
-      onOpenDig={() => router.push("/town/treasure")}
-      onOpenLeaderboard={() => router.push("/town/treasure/leaderboard")}
-      onOpenCollection={() => router.push("/town/treasure/collection")}
-    />
-  );
+  return <TreasureDisabledPanel onBack={() => router.push("/town")} />;
 }

@@ -5,7 +5,6 @@ import {
   FirstAid,
   Fish,
   Hammer,
-  MagnifyingGlass,
   PottedPlant,
   Storefront,
 } from "@phosphor-icons/react";
@@ -24,7 +23,6 @@ export type TownAction =
   | { kind: "open-smithy" }
   | { kind: "open-fishing" }
   | { kind: "open-farm" }
-  | { kind: "open-treasure" }
   | { kind: "open-bank" };
 
 export function V2TownHome({
@@ -74,17 +72,6 @@ export function V2TownHome({
           title="모험가 농장"
           description="씨앗을 심고 기다렸다 수확하는 생활 콘텐츠"
           onClick={() => onAction({ kind: "open-farm" })}
-        />
-        <EntryCard
-          icon={
-            <MagnifyingGlass
-              size={28}
-              weight="duotone"
-              className="text-amber-500"
-            />
-          }
-          title="발굴 감정소"
-          onClick={() => onAction({ kind: "open-treasure" })}
         />
       </div>
     </PageShell>

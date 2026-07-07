@@ -10,13 +10,11 @@ import {
 import type { GuildInfoResponse, Notice } from "./guildShared";
 
 const FACILITY_LABEL: Partial<Record<SettlementBuildingId, string>> = {
-  map_workshop: "발굴 지원소",
 };
 
 const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_smithy: "장비 제작과 대장장이 성장을 지원하는 길드 공용 시설입니다.",
   training_ground: "길드원이 매일 직업 숙련도 훈련을 받을 수 있는 시설입니다.",
-  map_workshop: "발굴 지점을 여는 데 필요한 지도 조각 소모를 줄입니다.",
 };
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
@@ -47,7 +45,9 @@ export function GuildFacilitiesPanel({
     );
   }
 
-  const rows = PLACEABLE_SETTLEMENT_BUILDING_IDS.map((id) => {
+  const rows = PLACEABLE_SETTLEMENT_BUILDING_IDS.filter(
+    (id) => id !== "map_workshop",
+  ).map((id) => {
     const def = SETTLEMENT_BUILDINGS[id];
     const count = info?.settlementBuildings?.[id] ?? 0;
     return {
@@ -56,7 +56,7 @@ export function GuildFacilitiesPanel({
       icon: def.icon,
       name: FACILITY_LABEL[id] ?? def.name,
       desc: FACILITY_DESC[id] ?? def.desc.replaceAll("영지 ", ""),
-      actionLabel: id === "map_workshop" ? "감정소로" : "열기",
+      actionLabel: "열기",
       cost: GUILD_FACILITY_UNLOCK_GOLD_COST[id] ?? 0,
     };
   });

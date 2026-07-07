@@ -130,7 +130,6 @@ export const SETTLEMENT_BUILDING_IDS = Object.keys(
 export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_smithy",
   "training_ground",
-  "map_workshop",
 ];
 
 export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<

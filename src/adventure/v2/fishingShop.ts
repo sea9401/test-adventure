@@ -11,6 +11,7 @@
 
 import { TITLES, type TitleId } from "@/adventure/data/titles";
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
+import { FARM_FISHING_SEED_POUCH_NAME } from "./farm";
 
 export type FishingShopTitle = {
   titleId: TitleId;
@@ -37,6 +38,12 @@ export const FISHING_SHOP_CONSUMABLES: readonly FishingShopConsumable[] = [
     name: "스태미나 회복약",
     description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 보관했다 필요할 때 쓴다.`,
     price: 200, // 2026-06-27 사용자 결정 100→200.
+  },
+  {
+    itemId: "farm_seed_pouch",
+    name: FARM_FISHING_SEED_POUCH_NAME,
+    description: "밀·허브·옥수수 씨앗이 조금씩 든 농장용 주머니.",
+    price: 160,
   },
 ];
 

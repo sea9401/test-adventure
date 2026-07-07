@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  FISHING_SHOP_CONSUMABLES,
   FISHING_SHOP_TITLES,
+  fishingShopConsumablePriceFor,
   fishingShopEntries,
   fishingShopPriceFor,
 } from "./fishingShop";
@@ -49,6 +51,16 @@ describe("낚시 코인 상점 카탈로그", () => {
     expect(taegong?.name).toBe("강태공");
     expect(taegong?.price).toBe(3000);
     expect(taegong?.description.length).toBeGreaterThan(0);
+  });
+
+  it("소비품에 스태미나 회복약과 농장 씨앗 주머니를 둔다", () => {
+    expect(FISHING_SHOP_CONSUMABLES.map((item) => item.itemId)).toEqual([
+      "stamina_potion",
+      "farm_seed_pouch",
+    ]);
+    expect(fishingShopConsumablePriceFor("stamina_potion")).toBe(200);
+    expect(fishingShopConsumablePriceFor("farm_seed_pouch")).toBe(160);
+    expect(fishingShopConsumablePriceFor("not_an_item")).toBeUndefined();
   });
 
   it("제거된 칭호는 정의도 삭제(표시 경로가 미정의 id 를 가드)", () => {

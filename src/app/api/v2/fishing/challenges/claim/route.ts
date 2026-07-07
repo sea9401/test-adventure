@@ -25,12 +25,20 @@ import {
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
 import {
+  FARM_FISHING_SEED_POUCH_NAME,
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  grantFarmSeeds,
+  normalizeFarmForDay,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
   recordEconomyEventSoon,
   recordRewardFailureSoon,
 } from "@/lib/server/economyLog";
 
 // POST /api/v2/fishing/challenges/claim — body { id }. 완료된 일일 도전 보상(낚시 코인) 수령.
-//   락 순서: 일일트래커 → 지갑(reel 은 트래커만, 정산 크론은 지갑만 → 순환 없음, 데드락 안전).
+//   락 순서: 일일트래커 → 지갑 → 농장(reel 은 트래커만, 정산 크론은 지갑만 → 순환 없음).
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -55,6 +63,7 @@ export async function POST(req: Request) {
   }
 
   const now = new Date();
+  const nowMs = now.getTime();
   const dayKey = kstDailyKey(now);
 
   if (goalDef) {
@@ -177,6 +186,32 @@ export async function POST(req: Request) {
       FISHING_WALLET_KEY,
       fishingWalletWithCoins(wallet, coins),
     );
+
+    const seedReward = def.rewardSeeds;
+    const seedPouch =
+      seedReward && Object.values(seedReward).some((count) => (count ?? 0) > 0)
+        ? { name: FARM_FISHING_SEED_POUCH_NAME, seeds: seedReward }
+        : undefined;
+    if (seedPouch) {
+      const farm = normalizeFarmForDay(
+        parseFarmState(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            FARM_SAVE_KEY,
+            emptyFarmState(nowMs),
+          ),
+        ),
+        nowMs,
+      );
+      await upsertSave(
+        tx,
+        userId,
+        FARM_SAVE_KEY,
+        grantFarmSeeds(farm, seedPouch.seeds),
+      );
+    }
+
     await upsertSave(tx, userId, FISHING_DAILY_KEY, {
       ...state,
       claimed: isContract ? state.claimed : [...state.claimed, id],
@@ -192,6 +227,7 @@ export async function POST(req: Request) {
         challengeId: id,
         reward: def.rewardCoins,
         coins,
+        seedPouch,
       },
     };
   });
@@ -205,6 +241,20 @@ export async function POST(req: Request) {
       quantity: result.body.reward,
       detail: { challengeId: id, kind: contractDef ? "contract" : "daily" },
     });
+    if (result.body.seedPouch) {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "reward.fishing.seed_pouch",
+        itemKind: "farm_seed_pouch",
+        itemId: id,
+        quantity: 1,
+        detail: {
+          challengeId: id,
+          kind: contractDef ? "contract" : "daily",
+          seeds: result.body.seedPouch.seeds,
+        },
+      });
+    }
   } else if (result.status !== 200 && !result.body.ok) {
     recordRewardFailureSoon({
       userId,

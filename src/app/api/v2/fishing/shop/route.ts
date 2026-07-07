@@ -7,7 +7,7 @@
 //      - 코인 부족 → 402 (지급/부여 없음)
 //      - 이미 보유 → 409 (차감 없음)
 // 락 순서:
-//   칭호/소비품: fishing-wallet.v1 → adventure-log.v2 또는 stamina-potions.v1
+//   칭호/소비품: fishing-wallet.v1 → adventure-log.v2 또는 stamina-potions.v1/farm.v2
 //   도구: fishing-progress.v1 → fishing-wallet.v1
 // 정산(seasonRewards)은 fishing_seasons → fishing-wallet 순이고 adventure-log 를 안 잡으므로 순환 대기 없음.
 
@@ -28,6 +28,15 @@ import {
   fishingShopConsumablePriceFor,
   fishingShopPriceFor,
 } from "@/adventure/v2/fishingShop";
+import {
+  FARM_FISHING_SEED_POUCH_NAME,
+  FARM_FISHING_SHOP_SEED_REWARD,
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  grantFarmSeeds,
+  normalizeFarmForDay,
+  parseFarmState,
+} from "@/adventure/v2/farm";
 import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
@@ -328,8 +337,8 @@ async function buyFishingGear(
   });
 }
 
-// 소비템 구매 — 현재는 스태미나 회복약(stamina-potions.v1 +1). 보관형 소비템이라 반복 구매.
-//   락 순서: fishing-wallet.v1 → stamina-potions.v1 (지갑 먼저 — 칭호 흐름과 동일 시작).
+// 소비템 구매 — 보관형 소비템이라 반복 구매.
+//   락 순서: fishing-wallet.v1 → 지급 대상 저장소 (지갑 먼저 — 칭호 흐름과 동일 시작).
 //   두 키를 함께 잡는 다른 라우트가 없어 교차 데드락 없음.
 async function buyConsumable(userId: string, itemId: string): Promise<Response> {
   const price = fishingShopConsumablePriceFor(itemId);
@@ -346,14 +355,45 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     );
     const coins = walletCoins(wallet);
     if (coins < price) return { kind: "insufficient" as const, coins };
-    const potSave = await lockSaveForUpdate<{ count: number }>(
-      tx,
-      userId,
-      STAMINA_POTIONS_KEY,
-      { count: 0 },
-    );
-    const nextCount = staminaPotionCount(potSave) + 1;
-    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: nextCount });
+
+    let staminaPotions: number | undefined;
+    let seedPouch:
+      | { name: string; seeds: typeof FARM_FISHING_SHOP_SEED_REWARD }
+      | undefined;
+    if (itemId === "stamina_potion") {
+      const potSave = await lockSaveForUpdate<{ count: number }>(
+        tx,
+        userId,
+        STAMINA_POTIONS_KEY,
+        { count: 0 },
+      );
+      staminaPotions = staminaPotionCount(potSave) + 1;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: staminaPotions });
+    } else if (itemId === "farm_seed_pouch") {
+      const now = Date.now();
+      const farm = normalizeFarmForDay(
+        parseFarmState(
+          await lockSaveForUpdate(
+            tx,
+            userId,
+            FARM_SAVE_KEY,
+            emptyFarmState(now),
+          ),
+        ),
+        now,
+      );
+      await upsertSave(
+        tx,
+        userId,
+        FARM_SAVE_KEY,
+        grantFarmSeeds(farm, FARM_FISHING_SHOP_SEED_REWARD),
+      );
+      seedPouch = {
+        name: FARM_FISHING_SEED_POUCH_NAME,
+        seeds: FARM_FISHING_SHOP_SEED_REWARD,
+      };
+    }
+
     const coinBalance = coins - price;
     await upsertSave(
       tx,
@@ -361,7 +401,7 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       FISHING_WALLET_KEY,
       fishingWalletWithCoins(wallet, coinBalance),
     );
-    return { kind: "ok" as const, coinBalance, staminaPotions: nextCount };
+    return { kind: "ok" as const, coinBalance, staminaPotions, seedPouch };
   });
 
   if (outcome.kind === "insufficient") {
@@ -375,5 +415,6 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     itemId,
     coins: outcome.coinBalance,
     staminaPotions: outcome.staminaPotions,
+    seedPouch: outcome.seedPouch,
   });
 }

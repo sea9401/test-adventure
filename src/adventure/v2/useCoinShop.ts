@@ -139,7 +139,7 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
             applyResourcePatch({ staminaPotions: j.staminaPotions });
           }
           setState((s) => (s ? applyResponse(s, j) : s));
-          return { ok: true, message: "스태미나 회복약을 구매했다." };
+          return { ok: true, message: consumableSuccessMessage(j, itemId) };
         }
         if (j?.error === "insufficient_coins") {
           if (typeof j.coins === "number") {
@@ -159,4 +159,18 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
   );
 
   return { state, setState, loading, error, buying, setBuying, buy, buyConsumable };
+}
+
+function consumableSuccessMessage(j: Json, itemId: string): string {
+  if (itemId === "farm_seed_pouch") {
+    const pouch = j.seedPouch;
+    const name =
+      pouch &&
+      typeof pouch === "object" &&
+      typeof (pouch as { name?: unknown }).name === "string"
+        ? (pouch as { name: string }).name
+        : "씨앗 주머니";
+    return `${name}를 구매했다.`;
+  }
+  return "스태미나 회복약을 구매했다.";
 }

@@ -176,4 +176,19 @@ describe("deriveViews", () => {
     expect(contracts.find((v) => v.id === "c_carp5")?.claimable).toBe(true);
     expect(contracts.find((v) => v.id === "c_big80")?.claimable).toBe(true);
   });
+
+  it("의뢰 보상에 농장 씨앗 주머니를 노출한다", () => {
+    const contracts = deriveFishingContractViews(emptyFishingDaily(DAY));
+
+    expect(contracts.find((v) => v.id === "c_carp5")).toMatchObject({
+      rewardSeedPouchName: "물가 씨앗 주머니",
+      rewardSeeds: { wheat: 3 },
+    });
+    expect(contracts.find((v) => v.id === "c_big80")).toMatchObject({
+      rewardSeeds: { wheat: 2, herb: 1 },
+    });
+    expect(contracts.find((v) => v.id === "c_special1")).toMatchObject({
+      rewardSeeds: { herb: 1, corn: 1 },
+    });
+  });
 });

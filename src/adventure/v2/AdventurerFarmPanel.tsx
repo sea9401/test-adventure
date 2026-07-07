@@ -15,6 +15,8 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
+  FARM_MAX_PLOT_COUNT,
+  nextFarmPlotUpgrade,
   type FarmCrop,
   type FarmCropId,
   type FarmDeliveryRequest,
@@ -157,6 +159,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               now={now}
               dailyDeliveryCount={dailyDeliveryCount}
             />
+            <FarmGrowthPanel farm={farm} />
 
             {error && (
               <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
@@ -277,8 +280,8 @@ function FarmSummary({
         label="밭 상태"
         value={
           readyPlots > 0
-            ? `수확 가능 ${readyPlots}칸`
-            : `재배 중 ${growingPlots}칸`
+            ? `${farm.plots.length}칸 · 수확 ${readyPlots}`
+            : `${farm.plots.length}칸 · 재배 ${growingPlots}`
         }
       />
       <SummaryTile
@@ -291,6 +294,29 @@ function FarmSummary({
         label="오늘 납품"
         value={`${dailyDeliveryCount}/${FARM_DAILY_DELIVERY_LIMIT}`}
       />
+    </div>
+  );
+}
+
+function FarmGrowthPanel({ farm }: { farm: FarmState }) {
+  const next = nextFarmPlotUpgrade(farm.stats.reputation);
+  const unlocked = farm.plots.length;
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
+          <PottedPlant size={17} weight="duotone" className="text-emerald-500" />
+          농장 성장
+        </div>
+        <span className="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-zinc-950 dark:text-emerald-300">
+          밭 {unlocked}/{FARM_MAX_PLOT_COUNT}칸
+        </span>
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+        {next
+          ? `농장 명성 ${next.reputationRequired} 달성 시 ${next.title}이 열려 밭 ${next.plotCount}칸을 사용할 수 있습니다.`
+          : "현재 준비된 모든 밭을 사용할 수 있습니다."}
+      </p>
     </div>
   );
 }

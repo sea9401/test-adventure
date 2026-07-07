@@ -58,6 +58,7 @@ import {
   QualityPctText,
   CraftQualityStars,
 } from "@/adventure/v2/V2ItemCard";
+import { useSystemToast } from "./RewardToastProvider";
 import {
   SETTLEMENT_MATERIAL_ID,
   WALL_REPAIR_KIT_ID,
@@ -137,6 +138,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     text: string;
   } | null>(null);
   const [mode, setMode] = useState<ForgeMode>("enhance");
+  const { notifySystem } = useSystemToast();
+
+  useEffect(() => {
+    if (!msg) return;
+    notifySystem(msg.text, msg.kind === "success" ? "success" : "error");
+  }, [msg, notifySystem]);
 
   const refresh = useCallback(async () => {
     try {

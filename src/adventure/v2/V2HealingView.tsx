@@ -4,11 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { StatusBanner } from "@/components/ui/StatusBanner";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import { useSystemToast } from "./RewardToastProvider";
 
 // v2 치료소 — 만피 회복(무료) + HP/MP 충전약 구매.
 // 옛 V2ShopView 의 충전 섹션을 이관 — 상점은 장비만 취급.
@@ -44,8 +44,8 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [hpCharges, setHpCharges] = useState<number | null>(null);
   const [mpCharges, setMpCharges] = useState<number | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const { notifySystem } = useSystemToast();
 
   const refresh = useCallback(async () => {
     setLoadError(false);
@@ -88,7 +88,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
 
   const handleHeal = useCallback(async () => {
     setBusy("heal");
-    setMsg(null);
     try {
       const res = await fetch("/api/v2/me/heal", { method: "POST" });
       const j = (await res.json().catch(() => null)) as {
@@ -103,7 +102,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         error?: string;
       } | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
       if (typeof j.hp === "number") setHp(j.hp);
@@ -123,18 +122,17 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         mp: typeof j.mp === "number" ? j.mp : undefined,
         maxMp: typeof j.maxMp === "number" ? j.maxMp : undefined,
       });
-      setMsg(`✓ 회복 완료 (${j.cost ?? 0} G)`);
+      notifySystem(`✓ 회복 완료 (${j.cost ?? 0} G)`);
     } catch (err) {
-      setMsg(`✗ network: ${(err as Error).message}`);
+      notifySystem(`✗ network: ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
-  }, [applyResourcePatch]);
+  }, [applyResourcePatch, notifySystem]);
 
   const buyCharge = useCallback(
     async (kind: ChargeKind, amount: number) => {
       setBusy(kind);
-      setMsg(null);
       try {
         const res = await fetch("/api/v2/shop/charge", {
           method: "POST",
@@ -153,10 +151,10 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
             }
           | null;
         if (!j?.ok) {
-          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
-        setMsg(
+        notifySystem(
           `✓ ${kind === "hp" ? "HP" : "MP"} +${(j.charged ?? amount).toLocaleString()} 충전`,
         );
         if (typeof j.gold === "number") setGold(j.gold);
@@ -175,12 +173,12 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
             typeof j.mpCharges === "number" ? j.mpCharges : undefined,
         });
       } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
+        notifySystem(`✗ ${(err as Error).message}`);
       } finally {
         setBusy(null);
       }
     },
-    [applyResourcePatch],
+    [applyResourcePatch, notifySystem],
   );
 
   // 충전약 지불 게이트 — flag on 이면 보유+은행(은행 골드로도 충전). 무료치료 기준(아래)은 보유 기준 유지.
@@ -275,11 +273,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         )}
       </Card>
 
-      {msg && (
-        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
-          {msg}
-        </StatusBanner>
-      )}
     </main>
   );
 }

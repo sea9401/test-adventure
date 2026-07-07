@@ -9,6 +9,7 @@ import {
 } from "./CoinShopLists";
 import { treasureShopEntries, TREASURE_SHOP_CONSUMABLES } from "./treasureShop";
 import type { BuyResult, TreasureShopState } from "./useTreasureShop";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 발굴 코인 상점 — 칭호 + 소비템 구매. 데이터·구매 핸들러는 주입(useTreasureShop 실 API / dev mock).
 // 설계: docs/treasure-hunt-plan.md §6
@@ -43,16 +44,22 @@ export function TreasureShopView({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+  const { notifySystem } = useSystemToast();
+
+  const showMessage = (r: BuyResult) => {
+    setMessage({ ok: r.ok, text: r.message });
+    notifySystem(r.message, r.ok ? "success" : "error");
+  };
 
   const handleBuy = async (titleId: string) => {
     const r = await onBuy(titleId);
-    setMessage({ ok: r.ok, text: r.message });
+    showMessage(r);
   };
 
   const handleBuyConsumable = async (itemId: string) => {
     if (!onBuyConsumable) return;
     const r = await onBuyConsumable(itemId);
-    setMessage({ ok: r.ok, text: r.message });
+    showMessage(r);
   };
 
   const coins = state?.coins ?? 0;

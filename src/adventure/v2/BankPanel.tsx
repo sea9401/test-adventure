@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 은행 패널 — 골드 입금/출금.
 
@@ -32,7 +33,7 @@ export function BankPanel() {
   const depositOnly = coreLoopOn;
   const [amountText, setAmountText] = useState("");
   const [busyAction, setBusyAction] = useState<BankAction | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const { notifySystem } = useSystemToast();
 
   const amount = parseAmount(amountText);
   const canSubmit = amount > 0 && busyAction === null;
@@ -40,7 +41,6 @@ export function BankPanel() {
   function fillAll(action: BankAction) {
     const max = action === "deposit" ? gold : bankedGold;
     setAmountText(max > 0 ? max.toLocaleString("en-US") : "");
-    setMessage(null);
   }
 
   // amountOverride 를 주면 입력칸 대신 그 값으로 처리. "all" 은 서버가 save lock 이후
@@ -48,11 +48,10 @@ export function BankPanel() {
   async function submit(action: BankAction, amountOverride?: number | "all") {
     const amt = amountOverride ?? amount;
     if ((amt !== "all" && amt <= 0) || busyAction !== null) {
-      setMessage("금액을 확인해 주세요");
+      notifySystem("✗ 금액을 확인해 주세요");
       return;
     }
     setBusyAction(action);
-    setMessage(null);
     try {
       const res = await fetch("/api/v2/me/bank", {
         method: "POST",
@@ -61,16 +60,16 @@ export function BankPanel() {
       });
       const j = (await res.json().catch(() => null)) as BankResult | null;
       if (!j?.ok) {
-        setMessage(BANK_ERROR_TEXT[j?.error ?? ""] ?? "알 수 없는 오류입니다");
+        notifySystem(`✗ ${BANK_ERROR_TEXT[j?.error ?? ""] ?? "알 수 없는 오류입니다"}`);
         return;
       }
       applyResourcePatch({ gold: j.gold, bankedGold: j.bankedGold });
       setAmountText("");
-      setMessage(
-        `${action === "deposit" ? "입금" : "출금"} ${j.moved.toLocaleString()}G 완료`,
+      notifySystem(
+        `✓ ${action === "deposit" ? "입금" : "출금"} ${j.moved.toLocaleString()}G 완료`,
       );
     } catch (err) {
-      setMessage(`네트워크 오류: ${(err as Error).message}`);
+      notifySystem(`✗ 네트워크 오류: ${(err as Error).message}`);
     } finally {
       setBusyAction(null);
     }
@@ -114,7 +113,6 @@ export function BankPanel() {
               value={amountText}
               onValueChange={(v) => {
                 setAmountText(v);
-                setMessage(null);
               }}
               placeholder="금액"
               className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-emerald-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
@@ -160,11 +158,6 @@ export function BankPanel() {
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
           입금한 골드는 사냥 패배 페널티에서 안전합니다.
         </p>
-      )}
-      {message && (
-        <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-          {message}
-        </div>
       )}
     </div>
   );

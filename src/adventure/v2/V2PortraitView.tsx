@@ -8,6 +8,7 @@ import {
   avatarImageSrc,
   type Avatar,
 } from "@/adventure/profile/avatars";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 화공의 공방 — 「화공 공방 입장권」으로 입장. 초상화 변경 1회(성공 시 입장권 소모).
 // 서버(/api/v2/me/portrait)가 입장권 소유를 권위 검증.
@@ -25,7 +26,7 @@ export function V2PortraitView({
 }) {
   const [selected, setSelected] = useState<Avatar | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
 
   async function submit() {
     if (!selected || busy) return;

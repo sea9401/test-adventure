@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 길드 골드 입금 패널 — 길드원이 개인 골드를 길드 공용 골드 풀에 넣는다.
 
@@ -22,7 +23,7 @@ export function GuildGoldDepositPanel({
   const [guildGold, setGuildGold] = useState<number | null>(null);
   const [amountText, setAmountText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { notifySystem } = useSystemToast();
 
   const refresh = useCallback(async () => {
     try {
@@ -47,16 +48,14 @@ export function GuildGoldDepositPanel({
 
   function fillAll() {
     setAmountText(spendable > 0 ? spendable.toLocaleString("en-US") : "");
-    setMessage(null);
   }
 
   const submit = useCallback(async () => {
     if (amount <= 0 || amount > spendable || busy) {
-      setMessage("금액을 확인해 주세요");
+      notifySystem("✗ 금액을 확인해 주세요");
       return;
     }
     setBusy(true);
-    setMessage(null);
     try {
       const res = await fetch("/api/v2/guild/resources/deposit", {
         method: "POST",
@@ -72,21 +71,31 @@ export function GuildGoldDepositPanel({
         guildGold?: number;
       } | null;
       if (!j?.ok) {
-        setMessage(DEPOSIT_ERROR_TEXT[j?.error ?? ""] ?? "입금에 실패했어요");
+        notifySystem(`✗ ${DEPOSIT_ERROR_TEXT[j?.error ?? ""] ?? "입금에 실패했어요"}`);
         return;
       }
       if (typeof j.gold === "number") setGold(j.gold);
       if (typeof j.bankedGold === "number") setBankedGold(j.bankedGold);
       if (typeof j.guildGold === "number") setGuildGold(j.guildGold);
       setAmountText("");
-      setMessage(`길드 금고에 ${(j.deposited ?? 0).toLocaleString()} G 입금 완료`);
+      notifySystem(
+        `✓ 길드 금고에 ${(j.deposited ?? 0).toLocaleString()} G 입금 완료`,
+      );
       onChanged?.();
     } catch (err) {
-      setMessage(`네트워크 오류: ${(err as Error).message}`);
+      notifySystem(`✗ 네트워크 오류: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
-  }, [amount, spendable, busy, setGold, setBankedGold, onChanged]);
+  }, [
+    amount,
+    spendable,
+    busy,
+    setGold,
+    setBankedGold,
+    onChanged,
+    notifySystem,
+  ]);
 
   return (
     <div className="rounded-md border border-zinc-300 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -115,7 +124,6 @@ export function GuildGoldDepositPanel({
           value={amountText}
           onValueChange={(v) => {
             setAmountText(v);
-            setMessage(null);
           }}
           placeholder="입금 금액"
           className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-amber-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
@@ -137,11 +145,6 @@ export function GuildGoldDepositPanel({
       >
         {busy ? "처리 중…" : "길드 금고에 입금"}
       </button>
-      {message && (
-        <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-          {message}
-        </div>
-      )}
     </div>
   );
 }

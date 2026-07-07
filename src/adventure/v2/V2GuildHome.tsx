@@ -23,6 +23,7 @@ import {
   type PendingRequest,
   type StateResponse,
 } from "./guild/guildShared";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 길드 탭 — sub-tab nav 분리 (info / members / facilities / training / manage).
 // 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·길드 연구·직책.
@@ -55,6 +56,12 @@ export function V2GuildHome({
   const [trainingClaimableCount, setTrainingClaimableCount] = useState<
     number | null
   >(null);
+  const { notifySystem } = useSystemToast();
+
+  useEffect(() => {
+    if (!notice) return;
+    notifySystem(notice.text, notice.kind === "ok" ? "success" : "error");
+  }, [notice, notifySystem]);
 
   const refresh = useCallback(async () => {
     setLoading(true);

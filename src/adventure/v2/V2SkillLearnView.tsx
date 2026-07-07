@@ -22,6 +22,7 @@ import {
 } from "./V2LoadoutPanel";
 import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
 import { useGameState } from "./GameStateProvider";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // v2 학습 — 숙달 포인트로 직업 스킬을 습득하고 SP 로드아웃을 구성한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
@@ -91,7 +92,7 @@ export function V2SkillLearnView({
   const [usable, setUsable] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [ritualTarget, setRitualTarget] = useState<V2LoadoutSkill | null>(null);
   const [ritualMode, setRitualMode] = useState<SkillRitualMode>("power");
 
@@ -156,7 +157,7 @@ export function V2SkillLearnView({
         setBusy(null);
       }
     },
-    [usable, refresh],
+    [usable, refresh, setMsg],
   );
 
   const enhanceRows = useMemo(() => {
@@ -195,7 +196,7 @@ export function V2SkillLearnView({
     setRitualTarget(skill);
     setRitualMode(firstMode);
     setMsg(null);
-  }, []);
+  }, [setMsg]);
 
   const submitRitual = useCallback(
     async (skillId: string, mode: SkillRitualMode) => {
@@ -265,7 +266,7 @@ export function V2SkillLearnView({
         setBusy(null);
       }
     },
-    [applyResourcePatch, refresh, usable],
+    [applyResourcePatch, refresh, usable, setMsg],
   );
 
   const resetRitual = useCallback(
@@ -315,7 +316,7 @@ export function V2SkillLearnView({
         setBusy(null);
       }
     },
-    [applyResourcePatch, refresh],
+    [applyResourcePatch, refresh, setMsg],
   );
 
   const ritualSkill = ritualTarget

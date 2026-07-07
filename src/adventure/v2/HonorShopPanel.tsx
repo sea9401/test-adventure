@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 명예상점 — 정착지 전쟁 개인 화폐(명예) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
 //   수비 전투 승리·길드 골드 입금으로 모은 명예로 구매. V2GuildHome "명예상점" 탭에서 렌더(flag on).
@@ -15,7 +16,7 @@ export default function HonorShopPanel() {
   const [honorEarned, setHonorEarned] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const { notifySystem } = useSystemToast();
 
   const load = useCallback(async () => {
     try {
@@ -39,7 +40,6 @@ export default function HonorShopPanel() {
   const buy = useCallback(
     async (itemId: string) => {
       setBusy(true);
-      setMsg(null);
       try {
         const r = await fetch("/api/v2/me/honor-shop", {
           method: "POST",
@@ -62,19 +62,19 @@ export default function HonorShopPanel() {
           if (typeof j.staminaPotions === "number") {
             applyResourcePatch({ staminaPotions: j.staminaPotions });
           }
-          setMsg("✓ 구매 완료 — 스태미나 회복약 +1");
+          notifySystem("✓ 구매 완료 — 스태미나 회복약 +1");
         } else {
-          setMsg(
+          notifySystem(
             `✗ ${j?.error === "insufficient_honor" ? "명성이 부족합니다" : (j?.error ?? "구매 실패")}`,
           );
         }
       } catch (e) {
-        setMsg(`✗ ${(e as Error).message}`);
+        notifySystem(`✗ ${(e as Error).message}`);
       } finally {
         setBusy(false);
       }
     },
-    [applyResourcePatch],
+    [applyResourcePatch, notifySystem],
   );
 
   return (
@@ -118,17 +118,6 @@ export default function HonorShopPanel() {
           <p className="text-sm text-zinc-400">품목이 없습니다.</p>
         )}
       </div>
-      {msg && (
-        <p
-          className={`mt-2 text-xs ${
-            msg.startsWith("✓")
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-rose-600 dark:text-rose-400"
-          }`}
-        >
-          {msg}
-        </p>
-      )}
     </Card>
   );
 }

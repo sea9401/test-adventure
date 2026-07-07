@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 로드아웃 프리셋 패널 — 이름 붙인 로드아웃을 저장/적용/삭제. 슬롯은 무료 고정(수집 포인트 경제
 //   폐지). 적용은 POST /api/v2/me/loadout(예산/직업고정 검증 재사용) → 부모 refresh. 저장/현황은
@@ -25,7 +26,7 @@ export function V2LoadoutPresetsPanel({
   const [state, setState] = useState<PresetState | null>(null);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
 
   const load = useCallback(async () => {
     try {

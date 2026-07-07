@@ -9,7 +9,10 @@ import {
 } from "@phosphor-icons/react";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
-import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
+import {
+  useRewardToast,
+  useSystemMessageState,
+} from "@/adventure/v2/RewardToastProvider";
 import type { GuildInfoResponse } from "./guildShared";
 import {
   trainingClaimableCountOf,
@@ -50,7 +53,7 @@ export function GuildTrainingGroundPanel({
   const [claimingId, setClaimingId] = useState<GuildTrainingDrillId | null>(
     null,
   );
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useSystemMessageState();
   const endpoint = outpostId
     ? `/api/v2/guild/training-ground?outpostId=${encodeURIComponent(outpostId)}`
     : "/api/v2/guild/training-ground";
@@ -76,7 +79,7 @@ export function GuildTrainingGroundPanel({
     } finally {
       if (alive()) setLoading(false);
     }
-  }, [endpoint]);
+  }, [endpoint, setMessage]);
 
   useEffect(() => {
     let alive = true;

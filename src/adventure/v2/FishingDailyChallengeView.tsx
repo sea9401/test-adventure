@@ -1,6 +1,4 @@
 "use client";
-
-import { useState } from "react";
 import { formatRemainingMinutesFloor } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -12,7 +10,7 @@ import type {
   ClaimResult,
   FishingChallengesState,
 } from "./useFishingDailyChallenge";
-import { useRewardToast } from "./RewardToastProvider";
+import { useRewardToast, useSystemMessageState } from "./RewardToastProvider";
 
 type ChallengeItemView = FishingProgressTaskView & {
   desc: string;
@@ -129,7 +127,7 @@ export function FishingDailyChallengeView({
   onOpenHallOfFame?: () => void;
   onOpenShop?: () => void;
 }) {
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const { notifyReward } = useRewardToast();
 
   const handleClaim = async (id: string) => {

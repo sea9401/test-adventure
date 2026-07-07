@@ -16,6 +16,7 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { SkillEffectChips } from "./SkillEffectChips";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // SP 로드아웃 패널 — 배운 스킬 라이브러리에서 SP 예산 안으로 장착/해제(코어루프 전용).
 //   공용/기본기는 직업 무관 장착(오픈믹스), 시그니처는 현 직업 체인 밖이면 잠김(locked).
@@ -123,7 +124,7 @@ export function V2LoadoutPanel({
   const [compact, setCompact] = useState(false);
   const [showSpDetails, setShowSpDetails] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const dragSessionRef = useRef<DragSession | null>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const autoScrollFrameRef = useRef<number | null>(null);

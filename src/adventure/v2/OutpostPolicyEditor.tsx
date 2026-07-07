@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 거점 정책·세율 편집기 — OutpostView(점령자 본인)와 길드 관리탭(마스터/관리자)이 공유.
 // 서버(/api/v2/outpost/policy)가 점령자 본인 또는 점령 길드 마스터/관리자를 허용.
@@ -69,7 +70,7 @@ function OutpostPolicyEditorInner({
   const [policy, setPolicy] = useState(currentPolicy);
   const [taxPct, setTaxPct] = useState(() => toTaxPct(currentTaxRate));
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
 
   const dirty =
     policy !== currentPolicy || taxPct !== toTaxPct(currentTaxRate);

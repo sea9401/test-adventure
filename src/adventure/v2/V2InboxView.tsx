@@ -23,7 +23,10 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
-import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
+import {
+  useRewardToast,
+  useSystemMessageState,
+} from "@/adventure/v2/RewardToastProvider";
 
 const EQUIPMENT_BY_ID = V2_EQUIPMENT as unknown as Readonly<
   Record<string, { name: string } | undefined>
@@ -205,7 +208,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
   const [sent, setSent] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [composeOpen, setComposeOpen] = useState(false);
   // 상세 모달로 내용을 보고 있는 우편(없으면 닫힘).
   const [selected, setSelected] = useState<InboxItem | null>(null);
@@ -341,7 +344,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         setBusy(false);
       }
     },
-    [applyResourcePatch, busy, load, notifyReward],
+    [applyResourcePatch, busy, load, notifyReward, setMsg],
   );
 
   const respondInvite = useCallback(
@@ -375,7 +378,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         setBusy(false);
       }
     },
-    [busy, load, refreshGuildId],
+    [busy, load, refreshGuildId, setMsg],
   );
 
   const displayed =

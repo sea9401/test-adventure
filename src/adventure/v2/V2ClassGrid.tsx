@@ -20,6 +20,7 @@ import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
 import { useGameState } from "./GameStateProvider";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 성장의 신전 "직업" 탭 레거시 폴백 — 직군 아이콘 그리드.
 // 코어루프 on 에서는 V2JobLadder 가 렌더되고, 이 컴포넌트는 jobsV2 가 없는 off 모드에서만 쓴다.
@@ -78,7 +79,7 @@ export function V2ClassGrid({
     activeGroup === "none" ? V2_SELECTABLE_CLASSES[0] : activeGroup,
   );
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const activeTier =
     activeGroup === "none" ? 1 : (groups[activeGroup]?.tier ?? 1);
   const activeCap = tierLevelCap(activeTier);
@@ -131,7 +132,7 @@ export function V2ClassGrid({
     } finally {
       setBusy(false);
     }
-  }, [activeCap, activeTier, onChanged]);
+  }, [activeCap, activeTier, onChanged, setMsg]);
 
   const doSwitch = useCallback(
     async (job: V2Class) => {
@@ -178,7 +179,7 @@ export function V2ClassGrid({
         setBusy(false);
       }
     },
-    [currentElement, onChanged],
+    [currentElement, onChanged, setMsg],
   );
 
   // 선택된 직군 상세.

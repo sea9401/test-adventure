@@ -55,7 +55,14 @@ export type V2BuildPresetRecommendation = {
 };
 
 export const BUILD_GOALS_SAVE_KEY = "build-goals.v2";
+export const BUILD_GOALS_EXPORT_KIND = "v2-build-goals";
 export const MAX_ACTIVE_BUILD_GOALS = 3;
+
+export type V2BuildGoalsExport = {
+  kind: typeof BUILD_GOALS_EXPORT_KIND;
+  version: 1;
+  activePresetIds: V2BuildPresetId[];
+};
 
 export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
   {
@@ -205,6 +212,40 @@ export function parseBuildGoalsState(raw: unknown): V2BuildGoalsState {
       .filter((id, index, arr) => arr.indexOf(id) === index)
       .slice(0, MAX_ACTIVE_BUILD_GOALS),
   };
+}
+
+export function serializeBuildGoalsExport(state: V2BuildGoalsState): string {
+  const normalized = parseBuildGoalsState(state);
+  const payload: V2BuildGoalsExport = {
+    kind: BUILD_GOALS_EXPORT_KIND,
+    version: 1,
+    activePresetIds: normalized.activePresetIds,
+  };
+  return JSON.stringify(payload);
+}
+
+export function parseBuildGoalsExport(raw: unknown): V2BuildGoalsState | null {
+  let value = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (Array.isArray(value)) {
+    return parseBuildGoalsState({ activePresetIds: value });
+  }
+  if (value == null || typeof value !== "object") return null;
+  const obj = value as {
+    kind?: unknown;
+    code?: unknown;
+    activePresetIds?: unknown;
+  };
+  if (typeof obj.code === "string") return parseBuildGoalsExport(obj.code);
+  if (obj.kind != null && obj.kind !== BUILD_GOALS_EXPORT_KIND) return null;
+  if (!Array.isArray(obj.activePresetIds)) return null;
+  return parseBuildGoalsState(obj);
 }
 
 export function setBuildGoalActive(

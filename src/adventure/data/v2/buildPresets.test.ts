@@ -4,8 +4,10 @@ import {
   MAX_ACTIVE_BUILD_GOALS,
   V2_BUILD_PRESETS,
   buildPresetProgress,
+  parseBuildGoalsExport,
   parseBuildGoalsState,
   recommendBuildPresets,
+  serializeBuildGoalsExport,
   setBuildGoalActive,
 } from "./buildPresets";
 import { V2_EQUIPMENT } from "./v2Equipment";
@@ -67,6 +69,23 @@ describe("v2 build presets", () => {
 
     const three = setBuildGoalActive(two, "arcane_breaker", false);
     expect(three.activePresetIds).toEqual(["duelist_sword", "venomlord_dash"]);
+  });
+
+  it("빌드 목표 export 코드는 다시 import 할 수 있고 손상 입력은 거부한다", () => {
+    const code = serializeBuildGoalsExport({
+      activePresetIds: ["venomlord_dash", "relic_tank"],
+    });
+    expect(parseBuildGoalsExport(code)?.activePresetIds).toEqual([
+      "venomlord_dash",
+      "relic_tank",
+    ]);
+    expect(
+      parseBuildGoalsExport({
+        activePresetIds: ["missing", "arcane_breaker", "arcane_breaker"],
+      })?.activePresetIds,
+    ).toEqual(["arcane_breaker"]);
+    expect(parseBuildGoalsExport("{")).toBeNull();
+    expect(parseBuildGoalsExport({ kind: "other", activePresetIds: [] })).toBeNull();
   });
 
   it("프리셋 진행률은 장비·도감·스킬·장착 축을 분리해 계산한다", () => {

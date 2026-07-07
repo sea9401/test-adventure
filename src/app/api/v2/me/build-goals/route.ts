@@ -5,6 +5,7 @@ import {
   BUILD_GOALS_SAVE_KEY,
   emptyBuildGoalsState,
   isV2BuildPresetId,
+  parseBuildGoalsExport,
   parseBuildGoalsState,
   setBuildGoalActive,
   type V2BuildGoalsState,
@@ -57,4 +58,26 @@ export async function POST(req: Request) {
   });
 
   return Response.json(result);
+}
+
+// PUT body: export payload or { activePresetIds } — 공유 코드 가져오기/전체 교체.
+export async function PUT(req: Request) {
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  let body: unknown;
+  try {
+    body = (await req.json()) as unknown;
+  } catch {
+    body = null;
+  }
+  const next = parseBuildGoalsExport(body);
+  if (!next) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+
+  await upsertSave(db, userId, BUILD_GOALS_SAVE_KEY, next);
+  return Response.json({ ok: true, activePresetIds: next.activePresetIds });
 }

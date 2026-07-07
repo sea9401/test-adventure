@@ -5,10 +5,12 @@ import {
   CheckCircle,
   Circle,
   Diamond,
+  DownloadSimple,
   HandFist,
   Shield,
   Sneaker,
   Sword,
+  UploadSimple,
   type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -48,7 +50,9 @@ import {
 import {
   MAX_ACTIVE_BUILD_GOALS,
   V2_BUILD_PRESETS,
+  parseBuildGoalsExport,
   recommendBuildPresets,
+  serializeBuildGoalsExport,
   type V2BuildPresetId,
 } from "@/adventure/data/v2/buildPresets";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
@@ -85,6 +89,8 @@ type LoadoutResponse = {
   learned?: unknown;
   equipped?: unknown;
 };
+
+type BuildGoalBusy = V2BuildPresetId | "import";
 
 type EquipmentCraftRecordView = {
   recipeId?: string;
@@ -295,9 +301,7 @@ export function CodexEquipmentPanel({
   const [equippedBuildSkillIds, setEquippedBuildSkillIds] = useState<
     Set<V2SkillId>
   >(new Set());
-  const [buildGoalBusy, setBuildGoalBusy] = useState<V2BuildPresetId | null>(
-    null,
-  );
+  const [buildGoalBusy, setBuildGoalBusy] = useState<BuildGoalBusy | null>(null);
   const [buildGoalMsg, setBuildGoalMsg] = useState<string | null>(null);
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
@@ -415,6 +419,55 @@ export function CodexEquipmentPanel({
     } catch {
       setActiveBuildGoalIds(before);
       setBuildGoalMsg("빌드 목표를 저장하지 못했어요");
+    } finally {
+      setBuildGoalBusy(null);
+    }
+  }
+
+  async function exportBuildGoals() {
+    const code = serializeBuildGoalsExport({
+      activePresetIds: [...activeBuildGoalIds],
+    });
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard");
+      await navigator.clipboard.writeText(code);
+      setBuildGoalMsg("빌드 목표 코드를 복사했어요");
+    } catch {
+      window.prompt("빌드 목표 코드", code);
+      setBuildGoalMsg("빌드 목표 코드를 만들었어요");
+    }
+  }
+
+  async function importBuildGoals() {
+    if (buildGoalBusy) return;
+    const code = window.prompt("가져올 빌드 목표 코드");
+    if (!code) return;
+    const parsed = parseBuildGoalsExport(code);
+    if (!parsed) {
+      setBuildGoalMsg("빌드 목표 코드를 읽지 못했어요");
+      return;
+    }
+    const before = new Set(activeBuildGoalIds);
+    setBuildGoalBusy("import");
+    setBuildGoalMsg(null);
+    setActiveBuildGoalIds(new Set(parsed.activePresetIds));
+    try {
+      const res = await fetch("/api/v2/me/build-goals", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const j = (await res.json().catch(() => null)) as BuildGoalsResponse | null;
+      if (!res.ok || !j?.ok) throw new Error("failed");
+      applyBuildGoalsPayload(j);
+      setBuildGoalMsg(
+        parsed.activePresetIds.length > 0
+          ? "빌드 목표를 가져왔어요"
+          : "빌드 목표를 비웠어요",
+      );
+    } catch {
+      setActiveBuildGoalIds(before);
+      setBuildGoalMsg("빌드 목표를 가져오지 못했어요");
     } finally {
       setBuildGoalBusy(null);
     }
@@ -694,11 +747,30 @@ export function CodexEquipmentPanel({
           </Card>
 
           <Card padding="md">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <h2 className="text-sm font-bold">빌드 프리셋 아이디어</h2>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                목표 {activeBuildGoalIds.size}/{MAX_ACTIVE_BUILD_GOALS}
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void exportBuildGoals()}
+                  className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  <DownloadSimple size={13} weight="bold" />
+                  내보내기
+                </button>
+                <button
+                  type="button"
+                  disabled={Boolean(buildGoalBusy)}
+                  onClick={() => void importBuildGoals()}
+                  className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  <UploadSimple size={13} weight="bold" />
+                  {buildGoalBusy === "import" ? "가져오는 중" : "가져오기"}
+                </button>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  목표 {activeBuildGoalIds.size}/{MAX_ACTIVE_BUILD_GOALS}
+                </span>
+              </div>
             </div>
             {buildGoalMsg && (
               <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">

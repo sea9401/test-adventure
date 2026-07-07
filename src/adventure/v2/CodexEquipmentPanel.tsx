@@ -45,6 +45,8 @@ import {
   equipmentHasBuildTag,
   type V2BuildTagId,
 } from "@/adventure/data/v2/buildTags";
+import { V2_BUILD_PRESETS } from "@/adventure/data/v2/buildPresets";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -584,6 +586,99 @@ export function CodexEquipmentPanel({
                 {equipmentCodexMsg}
               </p>
             )}
+          </Card>
+
+          <Card padding="md">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-bold">빌드 프리셋 아이디어</h2>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                장비·스킬 조합 목표
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+              {V2_BUILD_PRESETS.map((preset) => (
+                <div
+                  key={preset.id}
+                  className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {preset.name}
+                      </div>
+                      <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {preset.summary}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {preset.tags.slice(0, 6).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      >
+                        {V2_BUILD_TAG_LABEL[tag]}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div>
+                      <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                        핵심 장비
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {preset.equipmentIds.map((id) => {
+                          const item = V2_EQUIPMENT[id];
+                          if (!item) return null;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={(e) =>
+                                onShowCard({
+                                  item,
+                                  anchor: anchorOf(e.currentTarget),
+                                })
+                              }
+                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              {item.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                        권장 스킬
+                      </div>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {preset.skillIds.map((id) => {
+                          const skill = V2_SKILLS[id];
+                          if (!skill) return null;
+                          return (
+                            <span
+                              key={id}
+                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                            >
+                              {skill.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2">
+                    <div className="rounded bg-emerald-50 px-2 py-1.5 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
+                      {preset.strengths.join(" · ")}
+                    </div>
+                    <div className="rounded bg-zinc-100 px-2 py-1.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                      {preset.weaknesses.join(" · ")}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
 
           <Card padding="md">

@@ -23,6 +23,7 @@ import {
   jobCumLevelOf,
   groupCumLevel,
   totalCumLevel,
+  totalCapGains,
   diminishedCumLevel,
   V2_FLOOR_DECAY_BAND,
   V2_FLOOR_DECAY_MIN,
@@ -236,10 +237,10 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(addPoints(p1, "warrior", 0)).toBe(p1);
   });
 
-  it("cultivationCost — 올린 cap 총합 비례(8 + 합×5)", () => {
+  it("cultivationCost — 올린 cap 총합 비례(8 + 합×10)", () => {
     expect(cultivationCost(0)).toBe(8);
-    expect(cultivationCost(1)).toBe(13);
-    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 5));
+    expect(cultivationCost(1)).toBe(18);
+    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 10));
     expect(cultivationCost(100)).toBeGreaterThan(cultivationCost(10));
     expect(cultivationCost(-5)).toBe(8);
   });
@@ -271,9 +272,9 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r!.next.caps.dex).toBe(1);
     expect(r!.next.caps.luk).toBeUndefined(); // 프로필 외 미변
     expect(cultivationCount(r!.next, "warrior")).toBe(1);
-    // 2회차 비용 = 8 + (올린 cap합 4)×5 = 28
+    // 2회차 비용 = 8 + (올린 cap합 4)×10 = 48
     const r2 = applyCultivation(r!.next, "warrior");
-    expect(r2!.cost).toBe(28);
+    expect(r2!.cost).toBe(48);
     expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
@@ -301,7 +302,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r!.next.caps.str).toBeUndefined();
     expect(r!.next.caps.vit).toBeUndefined();
     const r2 = applyCultivation(r!.next, "warrior", undefined, "int");
-    expect(r2!.cost).toBe(28);
+    expect(r2!.cost).toBe(48);
     expect(r2!.next.caps.int).toBe(8);
   });
 
@@ -352,6 +353,25 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(guardian!.next.caps.str).toBe(2);
     expect(guardian!.next.caps.dex).toBe(1);
     expect(guardian!.next.caps.int).toBeUndefined();
+  });
+
+  it("applyCultivation — 초월자는 총 +6 cap 이득만큼 다음 비용이 더 오른다", () => {
+    const p = parseProficiency({ groups: { warrior: { points: 1000 } } });
+    const r = applyCultivation(
+      p,
+      "warrior",
+      undefined,
+      undefined,
+      "transcendent",
+    );
+
+    expect(r).not.toBeNull();
+    expect(r!.cost).toBe(8);
+    for (const stat of ["str", "vit", "dex", "int", "spi", "luk"] as const) {
+      expect(r!.next.caps[stat]).toBe(1);
+    }
+    expect(totalCapGains(r!.next)).toBe(6);
+    expect(cultivationCost(totalCapGains(r!.next))).toBe(68);
   });
 
   it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none=균형 4스탯·무효는 빈 배열", () => {

@@ -138,8 +138,9 @@ export function effectiveCultivateProfile(
 // 크리티컬 다중 수행이 더 많은 cap 을 한 번에 올리면 그만큼 다음 비용도 비싸진다(자연 throttle).
 // PER_CAP 1.5→5(2026-06): 숙달 포인트가 floor·전직 게이트에서 분리되고 수행 연료로만 남으며
 // 과잉 → cap 인플레(t4 245). 비용계수 상향으로 diminishing 강화 → t4 cap ~169(옛 총cap 복귀).
+// PER_CAP 5→10(2026-07): 주간·고난도 루프 확장 후 수행 체감 비용이 낮아져 장기 sink 를 보강.
 export const V2_CULT_COST_BASE = 8;
-export const V2_CULT_COST_PER_CAP = 5;
+export const V2_CULT_COST_PER_CAP = 10;
 export function cultivationCost(totalCapGains: number): number {
   return Math.round(
     V2_CULT_COST_BASE + Math.max(0, totalCapGains) * V2_CULT_COST_PER_CAP,

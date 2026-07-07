@@ -505,6 +505,7 @@ export function proficiencySection(
       // 숙달 포인트 잔액(사용가능). 옛 earned/usable 통합.
       points: usablePoints(prof),
       cultivations: cultivationCount(prof, group),
+      capGains: totalCapGains(prof),
       nextCost: cultivationCost(totalCapGains(prof)),
       // 현 직업군 다음 차수 전직 가능 여부 — 코어루프 on 에서는 jobsV2/advance-class 가 권위라 숨긴다.
       advance: (() => {

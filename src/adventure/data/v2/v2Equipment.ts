@@ -231,6 +231,21 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
+// NPC 판매 기준가 — 상점 구매가와 분리한다. 후반 장비(T4+)는 사냥 골드보다 장비 환금이
+// 커지지 않도록 T3 이후 램프를 ×2 대신 ×1.5 로 압축한다. T1~T3 은 기존 환금 유지.
+const SELL_TIER_ANCHOR = 3 satisfies V2EquipTier;
+const SELL_TIER_POST_ANCHOR_MULT = 1.5;
+
+function sellTierBase(tier: V2EquipTier): number | undefined {
+  const authored = SHOP_TIER_BASE[tier];
+  if (authored == null) return undefined;
+  if (tier <= SELL_TIER_ANCHOR) return authored;
+  const anchor = SHOP_TIER_BASE[SELL_TIER_ANCHOR];
+  return Math.round(
+    anchor * Math.pow(SELL_TIER_POST_ANCHOR_MULT, tier - SELL_TIER_ANCHOR),
+  );
+}
+
 // 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·전문화스타터는 비매품. T2/T3 는
 //   드랍 전용(상점=처음 갖추는 구간만, 진짜 장비는 파밍). 판매가는 shopPriceForSell(티어 무관).
 export function shopPriceOf(item: V2Equipment): number | undefined {
@@ -245,7 +260,9 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 //   전용·전문화 스타터(수련용)도 판매 허용 — 인벤 클러터(전직 지급 수련용 등) 정리. 실수 판매는
 //   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 스타터 T1만(유니크 등 비매=구매 불가 유지).
 export function shopPriceForSell(item: V2Equipment): number | undefined {
-  return shopPriceFor(item.tier, item.slot);
+  const base = sellTierBase(item.tier);
+  if (base == null) return undefined;
+  return Math.round(base * SHOP_SLOT_MULT[item.slot]);
 }
 
 // 판매가 비율 — 구매가의 5%(floor). 단건/일괄 판매 공용 단일 소스(드리프트 방지).

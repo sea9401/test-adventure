@@ -11,10 +11,19 @@ import type {
   FishingChallengesState,
 } from "./useFishingDailyChallenge";
 import { useRewardToast, useSystemMessageState } from "./RewardToastProvider";
+import type { FarmCropId, FarmSeedInventory } from "./farm";
 
 type ChallengeItemView = FishingProgressTaskView & {
   desc: string;
   rewardCoins: number;
+  rewardSeeds?: FarmSeedInventory;
+  rewardSeedPouchName?: string;
+};
+
+const SEED_LABELS: Record<FarmCropId, string> = {
+  wheat: "밀 씨앗",
+  herb: "허브 씨앗",
+  corn: "옥수수 씨앗",
 };
 
 function fmtRemain(nextResetAt: number): string {
@@ -63,8 +72,14 @@ function ChallengeSection({
                   {c.desc}
                 </div>
               </div>
-              <span className="shrink-0 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+              <span className="shrink-0 text-right text-[11px] font-medium text-amber-700 dark:text-amber-300">
                 코인 {c.rewardCoins}
+                {hasSeedRewards(c.rewardSeeds) && (
+                  <span className="block text-emerald-700 dark:text-emerald-300">
+                    {c.rewardSeedPouchName ?? "씨앗 주머니"} ·{" "}
+                    {formatSeedRewards(c.rewardSeeds)}
+                  </span>
+                )}
               </span>
             </div>
 
@@ -100,6 +115,19 @@ function ChallengeSection({
       </ul>
     </section>
   );
+}
+
+function hasSeedRewards(seeds?: FarmSeedInventory): boolean {
+  return Object.values(seeds ?? {}).some((count) => (count ?? 0) > 0);
+}
+
+function formatSeedRewards(seeds?: FarmSeedInventory): string {
+  const entries = Object.entries(seeds ?? {}).filter(
+    ([, count]) => (count ?? 0) > 0,
+  ) as [FarmCropId, number][];
+  return entries
+    .map(([cropId, count]) => `${SEED_LABELS[cropId]} ${count}개`)
+    .join(", ");
 }
 
 // 일일 낚시 과제 — 순수 표현. 데이터·핸들러는 주입(FishingDailyChallengePanel).

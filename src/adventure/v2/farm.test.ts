@@ -3,8 +3,10 @@ import {
   FARM_DAILY_QUEST_SEED_REWARD,
   claimFarmDelivery,
   emptyFarmState,
+  farmPlotCountForReputation,
   grantFarmSeeds,
   harvestPlot,
+  nextFarmPlotUpgrade,
   parseFarmState,
   plantCrop,
 } from "./farm";
@@ -81,7 +83,7 @@ describe("adventurer farm", () => {
     expect(state.plots[0].cropId).toBeNull();
   });
 
-  it("claims a delivery by consuming crops and granting seeds", () => {
+  it("claims a delivery by consuming crops and granting reputation", () => {
     const state = {
       ...emptyFarmState(1_000),
       inventory: { wheat: 3 },
@@ -95,14 +97,14 @@ describe("adventurer farm", () => {
 
     expect(result).toMatchObject({
       requestId: "bakery-wheat",
-      rewardSeeds: { wheat: 3, herb: 1 },
-      rewardReputation: 2,
+      rewardSeeds: {},
+      rewardReputation: 3,
     });
     expect(next.inventory.wheat).toBeUndefined();
-    expect(next.seeds).toEqual({ wheat: 3, herb: 1 });
+    expect(next.seeds).toEqual({});
     expect(next.deliveries.claimedIds).toEqual(["bakery-wheat"]);
     expect(next.stats.deliveries).toBe(1);
-    expect(next.stats.reputation).toBe(2);
+    expect(next.stats.reputation).toBe(3);
   });
 
   it("rejects claiming the same daily delivery twice", () => {
@@ -153,6 +155,29 @@ describe("adventurer farm", () => {
 
     expect(nextDay.deliveries.claimedIds).toEqual(["market-corn"]);
     expect(nextDay.stats.deliveries).toBe(3);
+    expect(nextDay.stats.reputation).toBe(13);
+    expect(nextDay.plots).toHaveLength(4);
+    expect(nextDay.plots[3]).toMatchObject({ id: "plot-4", cropId: null });
+  });
+
+  it("derives farm plot growth from reputation", () => {
+    expect(farmPlotCountForReputation(0)).toBe(3);
+    expect(farmPlotCountForReputation(8)).toBe(4);
+    expect(farmPlotCountForReputation(20)).toBe(5);
+    expect(nextFarmPlotUpgrade(7)).toMatchObject({
+      plotCount: 4,
+      reputationRequired: 8,
+    });
+    expect(nextFarmPlotUpgrade(20)).toBeNull();
+  });
+
+  it("normalizes high reputation saves with unlocked plots", () => {
+    const parsed = parseFarmState({
+      stats: { reputation: 20 },
+    });
+
+    expect(parsed.plots).toHaveLength(5);
+    expect(parsed.plots[4]).toMatchObject({ id: "plot-5", cropId: null });
   });
 
   it("normalizes malformed saves to three stable plots", () => {

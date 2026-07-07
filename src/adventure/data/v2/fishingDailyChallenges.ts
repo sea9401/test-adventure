@@ -7,6 +7,11 @@
 // 이벤트 구동 카운터: reel 성공마다 그날 카운트를 올린다(희귀/종류 술어는 누적치 차분으로
 //   표현 불가). 일 경계(KST)가 바뀌면 lazy 롤오버로 카운트·수령을 리셋한다(반복 퀘와 같은 결).
 
+import {
+  FARM_FISHING_CONTRACT_SEED_REWARD,
+  FARM_FISHING_SEED_POUCH_NAME,
+  type FarmSeedInventory,
+} from "@/adventure/v2/farm";
 import { FISH, isFishId, type FishId, type FishTier } from "./fish";
 
 export const FISHING_DAILY_KEY = "fishing-daily-challenges.v1";
@@ -44,6 +49,7 @@ export type FishingDailyChallengeDef = {
   desc: string;
   goal: number;
   rewardCoins: number;
+  rewardSeeds?: FarmSeedInventory;
   /** 그날 상태에서 이 도전의 진행 수치. */
   progress: (s: FishingDailyState) => number;
 };
@@ -179,6 +185,8 @@ export type FishingDailyView = {
   desc: string;
   goal: number;
   rewardCoins: number;
+  rewardSeeds?: FarmSeedInventory;
+  rewardSeedPouchName?: string;
   progress: number;
   complete: boolean;
   claimed: boolean;
@@ -191,6 +199,7 @@ export type FishingContractDef = {
   desc: string;
   goal: number;
   rewardCoins: number;
+  rewardSeeds?: FarmSeedInventory;
   progress: (s: FishingDailyState) => number;
 };
 
@@ -203,6 +212,7 @@ export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
     desc: "오늘 잉어 5마리를 낚아 납품하세요.",
     goal: 5,
     rewardCoins: 90,
+    rewardSeeds: { wheat: 3 },
     progress: (s) => s.fishCounts.carp ?? 0,
   },
   {
@@ -211,6 +221,7 @@ export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
     desc: "오늘 80cm 이상 물고기 1마리를 낚으세요.",
     goal: 1,
     rewardCoins: 120,
+    rewardSeeds: FARM_FISHING_CONTRACT_SEED_REWARD,
     progress: (s) => s.big80,
   },
   {
@@ -219,6 +230,7 @@ export const FISHING_CONTRACTS: readonly FishingContractDef[] = [
     desc: "오늘 물때 특별 손님 1마리를 낚으세요.",
     goal: 1,
     rewardCoins: 140,
+    rewardSeeds: { herb: 1, corn: 1 },
     progress: (s) => s.specialGuests,
   },
 ];
@@ -242,6 +254,10 @@ export function deriveFishingContractViews(
       desc: c.desc,
       goal: c.goal,
       rewardCoins: c.rewardCoins,
+      rewardSeeds: c.rewardSeeds,
+      rewardSeedPouchName: c.rewardSeeds
+        ? FARM_FISHING_SEED_POUCH_NAME
+        : undefined,
       progress: Math.min(c.goal, raw),
       complete,
       claimed,
@@ -263,6 +279,10 @@ export function deriveFishingDailyViews(
       desc: d.desc,
       goal: d.goal,
       rewardCoins: d.rewardCoins,
+      rewardSeeds: d.rewardSeeds,
+      rewardSeedPouchName: d.rewardSeeds
+        ? FARM_FISHING_SEED_POUCH_NAME
+        : undefined,
       progress: Math.min(d.goal, raw),
       complete,
       claimed,

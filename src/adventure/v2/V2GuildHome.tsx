@@ -12,8 +12,6 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
-import { GuildWorkshopPanel } from "./guild/GuildWorkshopPanel";
-import { GuildTrainingGroundPanel } from "./guild/GuildTrainingGroundPanel";
 import { fetchGuildTrainingClaimableCount } from "./guild/trainingGroundClient";
 import {
   type GuildInfoResponse,
@@ -24,8 +22,9 @@ import {
 } from "./guild/guildShared";
 import { useSystemToast } from "./RewardToastProvider";
 
-// 길드 탭 — sub-tab nav 분리 (info / members / facilities / training / manage).
+// 길드 탭 — sub-tab nav 분리 (info / members / facilities / manage).
 // 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·길드 연구·직책.
+// 훈련장·대장간 등 길드 시설은 상위 탭을 늘리지 않고 facilities 내부에서 진입한다.
 // 각 탭의 렌더·로컬 상태/핸들러는 ./guild/*Panel 로 추출. 이 파일 = 공유 상태 + 탭 전환 조정자.
 
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
@@ -133,18 +132,15 @@ export function V2GuildHome({
     trainingClaimableCount != null && trainingClaimableCount > 0
       ? trainingClaimableCount
       : undefined;
-  const withTraining: GuildSubTabDef[] =
-    info?.hasTrainingGround || (info?.settlementBuildings?.training_ground ?? 0) > 0
-      ? [...BASE_SUB_TABS, { key: "training", label: "훈련장", badge: trainingBadge }]
-      : BASE_SUB_TABS;
-  const withWorkshop: GuildSubTabDef[] =
-    info?.hasGuildSmithy || (info?.settlementBuildings?.guild_smithy ?? 0) > 0
-      ? [...withTraining, { key: "workshop", label: "대장간" }]
-      : withTraining;
+  const baseSubTabs: GuildSubTabDef[] = BASE_SUB_TABS.map((tab) =>
+    tab.key === "facilities" && trainingBadge != null
+      ? { ...tab, badge: trainingBadge }
+      : tab,
+  );
   // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
   const subTabs: GuildSubTabDef[] = canManage
     ? [
-        ...withWorkshop,
+        ...baseSubTabs,
         {
           key: "manage",
           label:
@@ -153,7 +149,7 @@ export function V2GuildHome({
               : "관리",
         },
       ]
-    : withWorkshop;
+    : baseSubTabs;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab
@@ -174,12 +170,6 @@ export function V2GuildHome({
           scrollable
         />
       </HeaderPanel>
-
-      {activeTab === "training" && (
-        <GuildTrainingGroundPanel info={info} onChanged={refresh} />
-      )}
-
-      {activeTab === "workshop" && <GuildWorkshopPanel info={info} />}
 
       {activeTab === "info" && (
         <GuildInfoPanel
@@ -228,10 +218,6 @@ export function V2GuildHome({
           canUnlockFacilities={canManage}
           onChanged={refresh}
           onNotice={setNotice}
-          onOpenFacility={(id) => {
-            if (id === "guild_smithy") setSubTab("workshop");
-            else if (id === "training_ground") setSubTab("training");
-          }}
         />
       )}
     </main>

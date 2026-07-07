@@ -12,6 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { TabBar } from "@/components/ui/TabBar";
 import type {
   FarmCrop,
   FarmCropId,
@@ -38,6 +39,8 @@ const SEED_LABELS: Record<FarmCropId, string> = {
   corn: "옥수수 씨앗",
 };
 
+type FarmSectionKey = "grow" | "delivery";
+
 export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
   const {
     loading,
@@ -56,11 +59,52 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     deliver,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
+  const [activeSection, setActiveSection] = useState<FarmSectionKey>("grow");
   const cropById = useMemo(
     () => new Map(crops.map((crop) => [crop.id, crop])),
     [crops],
   );
   const selectedCrop = cropById.get(selectedCropId) ?? crops[0];
+  const readyPlotCount = useMemo(
+    () =>
+      farm?.plots.filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
+        .length ?? 0,
+    [farm?.plots, now],
+  );
+  const deliverableCount = useMemo(
+    () =>
+      farm
+        ? deliveries.filter((delivery) => {
+            const claimed = farm.deliveries.claimedIds.includes(delivery.id);
+            const have = farm.inventory[delivery.requiredItemId] ?? 0;
+            return !claimed && have >= delivery.requiredQuantity;
+          }).length
+        : 0,
+    [deliveries, farm],
+  );
+  const farmTabs = useMemo(
+    () =>
+      [
+        {
+          key: "grow",
+          label: "재배",
+          icon: <FlowerTulip size={16} weight="duotone" />,
+          badge: readyPlotCount > 0 ? readyPlotCount : undefined,
+        },
+        {
+          key: "delivery",
+          label: "납품",
+          icon: <Package size={16} weight="duotone" />,
+          badge: deliverableCount > 0 ? deliverableCount : undefined,
+        },
+      ] satisfies ReadonlyArray<{
+        key: FarmSectionKey;
+        label: string;
+        icon: ReactNode;
+        badge?: number;
+      }>,
+    [deliverableCount, readyPlotCount],
+  );
 
   return (
     <PageShell spacing="tight">
@@ -103,13 +147,6 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           <div className="space-y-4 p-4">
             <FarmSummary farm={farm} now={now} />
 
-            <CropSelector
-              crops={crops}
-              seeds={farm.seeds}
-              selectedCropId={selectedCrop?.id ?? selectedCropId}
-              onSelect={setSelectedCropId}
-            />
-
             {error && (
               <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
                 {error}
@@ -133,33 +170,65 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              {farm.plots.map((plot) => (
-                <PlotCard
-                  key={plot.id}
-                  plot={plot}
-                  now={now}
-                  crop={plot.cropId ? cropById.get(plot.cropId) : null}
-                  selectedCrop={selectedCrop}
-                  selectedSeedCount={
-                    selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
-                  }
-                  busy={busyPlotId === plot.id}
-                  onPlant={() => selectedCrop && plant(plot.id, selectedCrop.id)}
-                  onHarvest={() => harvest(plot.id)}
-                />
-              ))}
+            <div className="md:hidden">
+              <TabBar
+                tabs={farmTabs}
+                active={activeSection}
+                onChange={setActiveSection}
+                ariaLabel="농장 섹션"
+                variant="underline"
+                className="border-lime-200 dark:border-emerald-900/70"
+              />
             </div>
 
-            <DeliveryBoard
-              deliveries={deliveries}
-              inventory={farm.inventory}
-              claimedIds={farm.deliveries.claimedIds}
-              busyDeliveryId={busyDeliveryId}
-              onDeliver={deliver}
-            />
+            <div
+              className={
+                activeSection === "grow" ? "space-y-4" : "hidden space-y-4 md:block"
+              }
+            >
+              <CropSelector
+                crops={crops}
+                seeds={farm.seeds}
+                selectedCropId={selectedCrop?.id ?? selectedCropId}
+                onSelect={setSelectedCropId}
+              />
 
-            <InventoryPanel inventory={farm.inventory} />
+              <div className="grid gap-3 sm:grid-cols-3">
+                {farm.plots.map((plot) => (
+                  <PlotCard
+                    key={plot.id}
+                    plot={plot}
+                    now={now}
+                    crop={plot.cropId ? cropById.get(plot.cropId) : null}
+                    selectedCrop={selectedCrop}
+                    selectedSeedCount={
+                      selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
+                    }
+                    busy={busyPlotId === plot.id}
+                    onPlant={() => selectedCrop && plant(plot.id, selectedCrop.id)}
+                    onHarvest={() => harvest(plot.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div
+              className={
+                activeSection === "delivery"
+                  ? "space-y-4"
+                  : "hidden space-y-4 md:block"
+              }
+            >
+              <DeliveryBoard
+                deliveries={deliveries}
+                inventory={farm.inventory}
+                claimedIds={farm.deliveries.claimedIds}
+                busyDeliveryId={busyDeliveryId}
+                onDeliver={deliver}
+              />
+
+              <InventoryPanel inventory={farm.inventory} />
+            </div>
           </div>
         ) : (
           <div className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

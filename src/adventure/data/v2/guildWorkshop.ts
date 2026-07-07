@@ -153,7 +153,7 @@ export const GUILD_WORKSHOP_QUALITY_BONUS_PCT: Record<1 | 2, number> = {
 };
 export const GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT = 25;
 export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 20;
-export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 3;
+export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 2;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
 export const GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT = 50;
@@ -187,7 +187,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   greatsword: {
     id: "greatsword",
     equipmentId: "v2_greatsword",
-    cost: { crop: 18, ore: 30 },
+    cost: { crop: 12, ore: 18 },
     profession: "blacksmith",
     requiredArtisanLevel: 3,
     artisanXp: 24,
@@ -196,7 +196,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   mithril_sword: {
     id: "mithril_sword",
     equipmentId: "v2_mithril_sword",
-    cost: { crop: 60, ore: 120 },
+    cost: { crop: 24, ore: 48 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 46,
@@ -214,7 +214,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   horn_bow: {
     id: "horn_bow",
     equipmentId: "v2_horn_bow",
-    cost: { crop: 34, ore: 12 },
+    cost: { crop: 22, ore: 8 },
     profession: "blacksmith",
     requiredArtisanLevel: 3,
     artisanXp: 22,
@@ -223,7 +223,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   starsong_bow: {
     id: "starsong_bow",
     equipmentId: "v2_starsong_bow",
-    cost: { crop: 120, ore: 45 },
+    cost: { crop: 52, ore: 20 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 44,
@@ -241,7 +241,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   obsidian_staff: {
     id: "obsidian_staff",
     equipmentId: "v2_obsidian_staff",
-    cost: { crop: 38, ore: 10 },
+    cost: { crop: 24, ore: 6 },
     profession: "blacksmith",
     requiredArtisanLevel: 3,
     artisanXp: 22,
@@ -250,7 +250,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   starlit_staff: {
     id: "starlit_staff",
     equipmentId: "v2_starlit_staff",
-    cost: { crop: 130, ore: 38 },
+    cost: { crop: 56, ore: 16 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 44,
@@ -268,7 +268,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   full_plate: {
     id: "full_plate",
     equipmentId: "v2_full_plate",
-    cost: { crop: 12, ore: 42 },
+    cost: { crop: 8, ore: 27 },
     profession: "blacksmith",
     requiredArtisanLevel: 3,
     artisanXp: 26,
@@ -277,7 +277,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   mithril_plate: {
     id: "mithril_plate",
     equipmentId: "v2_mithril_plate",
-    cost: { crop: 42, ore: 150 },
+    cost: { crop: 20, ore: 60 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 52,
@@ -295,7 +295,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   shadow_cloak: {
     id: "shadow_cloak",
     equipmentId: "v2_shadow_cloak",
-    cost: { crop: 34, ore: 16 },
+    cost: { crop: 22, ore: 10 },
     profession: "blacksmith",
     requiredArtisanLevel: 3,
     artisanXp: 24,
@@ -304,7 +304,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   windweave_cloak: {
     id: "windweave_cloak",
     equipmentId: "v2_windweave_cloak",
-    cost: { crop: 120, ore: 54 },
+    cost: { crop: 52, ore: 24 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 48,
@@ -322,7 +322,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   shadow_gloves: {
     id: "shadow_gloves",
     equipmentId: "v2_shadow_gloves",
-    cost: { crop: 28, ore: 20 },
+    cost: { crop: 18, ore: 12 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
     artisanXp: 24,
@@ -331,7 +331,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   windweave_gloves: {
     id: "windweave_gloves",
     equipmentId: "v2_windweave_gloves",
-    cost: { crop: 95, ore: 80 },
+    cost: { crop: 44, ore: 34 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 42,
@@ -349,7 +349,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   shadow_boots: {
     id: "shadow_boots",
     equipmentId: "v2_shadow_boots",
-    cost: { crop: 28, ore: 20 },
+    cost: { crop: 18, ore: 12 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
     artisanXp: 24,
@@ -358,7 +358,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   windweave_boots: {
     id: "windweave_boots",
     equipmentId: "v2_windweave_boots",
-    cost: { crop: 95, ore: 80 },
+    cost: { crop: 44, ore: 34 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 42,
@@ -376,7 +376,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   lucky_charm: {
     id: "lucky_charm",
     equipmentId: "v2_lucky_charm",
-    cost: { crop: 18, ore: 48 },
+    cost: { crop: 10, ore: 24 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
     artisanXp: 28,
@@ -385,7 +385,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   fate_ring: {
     id: "fate_ring",
     equipmentId: "v2_fate_ring",
-    cost: { crop: 58, ore: 150 },
+    cost: { crop: 24, ore: 56 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 50,
@@ -394,7 +394,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   jade_amulet: {
     id: "jade_amulet",
     equipmentId: "v2_jade_amulet",
-    cost: { crop: 16, ore: 36 },
+    cost: { crop: 10, ore: 20 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
     artisanXp: 26,
@@ -403,7 +403,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crystal_amulet: {
     id: "crystal_amulet",
     equipmentId: "v2_crystal_amulet",
-    cost: { crop: 42, ore: 85 },
+    cost: { crop: 26, ore: 54 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 42,
@@ -412,7 +412,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   mana_essence: {
     id: "mana_essence",
     equipmentId: "v2_mana_essence",
-    cost: { crop: 85, ore: 165 },
+    cost: { crop: 28, ore: 52 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     artisanXp: 54,
@@ -421,7 +421,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_oathblade: {
     id: "crafted_oathblade",
     equipmentId: "v2_crafted_oathblade",
-    cost: { crop: 180, ore: 260 },
+    cost: { crop: 45, ore: 65 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -432,7 +432,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_gale_bow: {
     id: "crafted_gale_bow",
     equipmentId: "v2_crafted_gale_bow",
-    cost: { crop: 260, ore: 150 },
+    cost: { crop: 68, ore: 38 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -443,7 +443,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_runic_staff: {
     id: "crafted_runic_staff",
     equipmentId: "v2_crafted_runic_staff",
-    cost: { crop: 240, ore: 170 },
+    cost: { crop: 64, ore: 42 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -454,7 +454,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_master_ring: {
     id: "crafted_master_ring",
     equipmentId: "v2_crafted_master_ring",
-    cost: { crop: 160, ore: 310 },
+    cost: { crop: 50, ore: 85 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 7,
@@ -465,7 +465,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_ward_plate: {
     id: "crafted_ward_plate",
     equipmentId: "v2_crafted_ward_plate",
-    cost: { crop: 160, ore: 320 },
+    cost: { crop: 50, ore: 95 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
     profession: "blacksmith",
     requiredArtisanLevel: 7,
@@ -476,7 +476,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_spark_gloves: {
     id: "crafted_spark_gloves",
     equipmentId: "v2_crafted_spark_gloves",
-    cost: { crop: 210, ore: 190 },
+    cost: { crop: 55, ore: 45 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -487,7 +487,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_windstep_boots: {
     id: "crafted_windstep_boots",
     equipmentId: "v2_crafted_windstep_boots",
-    cost: { crop: 240, ore: 150 },
+    cost: { crop: 62, ore: 38 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -498,7 +498,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_aether_necklace: {
     id: "crafted_aether_necklace",
     equipmentId: "v2_crafted_aether_necklace",
-    cost: { crop: 180, ore: 280 },
+    cost: { crop: 55, ore: 80 },
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 7,
@@ -509,7 +509,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_sunforge_blade: {
     id: "crafted_sunforge_blade",
     equipmentId: "v2_crafted_sunforge_blade",
-    cost: { crop: 460, ore: 680 },
+    cost: { crop: 95, ore: 145 },
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
@@ -523,7 +523,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_aurora_crown: {
     id: "crafted_aurora_crown",
     equipmentId: "v2_crafted_aurora_crown",
-    cost: { crop: 640, ore: 880 },
+    cost: { crop: 120, ore: 170 },
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 1,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 3,
@@ -537,7 +537,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_bulwark_shield: {
     id: "crafted_bulwark_shield",
     equipmentId: "v2_crafted_bulwark_shield",
-    cost: { crop: 760, ore: 1080 },
+    cost: { crop: 140, ore: 210 },
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 2,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
@@ -551,7 +551,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_stormlance: {
     id: "crafted_stormlance",
     equipmentId: "v2_crafted_stormlance",
-    cost: { crop: 920, ore: 880 },
+    cost: { crop: 190, ore: 180 },
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 3,
@@ -565,7 +565,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_kingbreaker_axe: {
     id: "crafted_kingbreaker_axe",
     equipmentId: "v2_crafted_kingbreaker_axe",
-    cost: { crop: 980, ore: 1320 },
+    cost: { crop: 160, ore: 220 },
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,
@@ -579,7 +579,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_astral_grimoire: {
     id: "crafted_astral_grimoire",
     equipmentId: "v2_crafted_astral_grimoire",
-    cost: { crop: 1180, ore: 1040 },
+    cost: { crop: 210, ore: 180 },
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,

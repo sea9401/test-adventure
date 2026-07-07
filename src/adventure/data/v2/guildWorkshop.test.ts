@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   GUILD_WORKSHOP_RECIPES,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
@@ -239,15 +240,29 @@ describe("guild workshop recipes", () => {
       ]);
       expect(recipe.artisanXp).toBeGreaterThanOrEqual(60);
     }
-    expect(Math.min(...(totalsBySmithy.get(2) ?? []))).toBeGreaterThan(350);
-    expect(Math.min(...(totalsBySmithy.get(3) ?? []))).toBeGreaterThan(
-      Math.max(...(totalsBySmithy.get(2) ?? [])),
+    expect(Math.min(...(totalsBySmithy.get(2) ?? []))).toBeGreaterThanOrEqual(
+      70,
     );
-    expect(Math.min(...(totalsBySmithy.get(4) ?? []))).toBeGreaterThan(
-      Math.max(...(totalsBySmithy.get(3) ?? [])),
+    expect(Math.max(...(totalsBySmithy.get(2) ?? []))).toBeLessThanOrEqual(
+      110,
     );
-    expect(Math.min(...(totalsBySmithy.get(5) ?? []))).toBeGreaterThan(
-      Math.max(...(totalsBySmithy.get(4) ?? [])),
+    expect(Math.min(...(totalsBySmithy.get(3) ?? []))).toBeGreaterThanOrEqual(
+      100,
+    );
+    expect(Math.max(...(totalsBySmithy.get(3) ?? []))).toBeLessThanOrEqual(
+      150,
+    );
+    expect(Math.min(...(totalsBySmithy.get(4) ?? []))).toBeGreaterThanOrEqual(
+      180,
+    );
+    expect(Math.max(...(totalsBySmithy.get(4) ?? []))).toBeLessThanOrEqual(
+      260,
+    );
+    expect(Math.min(...(totalsBySmithy.get(5) ?? []))).toBeGreaterThanOrEqual(
+      250,
+    );
+    expect(Math.max(...(totalsBySmithy.get(5) ?? []))).toBeLessThanOrEqual(
+      400,
     );
   });
 
@@ -345,7 +360,9 @@ describe("guild workshop recipes", () => {
       canCraft: true,
       plus2Unlocked: false,
     });
-    expect(view.masterwork.cost.crop).toBe((recipe.cost.crop ?? 0) * 3);
+    expect(view.masterwork.cost.crop).toBe(
+      (recipe.cost.crop ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+    );
     expect(
       view.masterwork.materialCost[GUILD_WORKSHOP_MATERIAL_ID.refinedIron],
     ).toBe(4);
@@ -354,19 +371,27 @@ describe("guild workshop recipes", () => {
   it("spends increased resources and materials for masterwork craft mode", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
     expect(guildWorkshopRecipeResourceCost(recipe, "masterwork")).toMatchObject({
-      crop: (recipe.cost.crop ?? 0) * 3,
-      ore: (recipe.cost.ore ?? 0) * 3,
+      crop:
+        (recipe.cost.crop ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+      ore:
+        (recipe.cost.ore ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
     });
     expect(
       guildWorkshopRecipeResourceMaterialCost(recipe, "masterwork"),
     ).toMatchObject({
-      [SETTLEMENT_MATERIAL_ID.timber]: (recipe.cost.crop ?? 0) * 3,
-      [SETTLEMENT_MATERIAL_ID.ironOre]: (recipe.cost.ore ?? 0) * 3,
+      [SETTLEMENT_MATERIAL_ID.timber]:
+        (recipe.cost.crop ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+      [SETTLEMENT_MATERIAL_ID.ironOre]:
+        (recipe.cost.ore ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
     });
     expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject(
       {
-        [SETTLEMENT_MATERIAL_ID.timber]: (recipe.cost.crop ?? 0) * 3,
-        [SETTLEMENT_MATERIAL_ID.ironOre]: (recipe.cost.ore ?? 0) * 3,
+        [SETTLEMENT_MATERIAL_ID.timber]:
+          (recipe.cost.crop ?? 0) *
+          GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+        [SETTLEMENT_MATERIAL_ID.ironOre]:
+          (recipe.cost.ore ?? 0) *
+          GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
         [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 4,
       },
     );
@@ -384,8 +409,12 @@ describe("guild workshop recipes", () => {
         "masterwork",
       ),
     ).toMatchObject({
-      crop: 9999 - (recipe.cost.crop ?? 0) * 3,
-      ore: 9999 - (recipe.cost.ore ?? 0) * 3,
+      crop:
+        9999 -
+        (recipe.cost.crop ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+      ore:
+        9999 -
+        (recipe.cost.ore ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
     });
     expect(
       spendGuildWorkshopRecipeMaterials(
@@ -399,8 +428,11 @@ describe("guild workshop recipes", () => {
       ),
     ).toMatchObject({
       [SETTLEMENT_MATERIAL_ID.timber]:
-        9999 - (recipe.cost.crop ?? 0) * 3,
-      [SETTLEMENT_MATERIAL_ID.ironOre]: 9999 - (recipe.cost.ore ?? 0) * 3,
+        9999 -
+        (recipe.cost.crop ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+      [SETTLEMENT_MATERIAL_ID.ironOre]:
+        9999 -
+        (recipe.cost.ore ?? 0) * GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
       [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 5,
     });
   });

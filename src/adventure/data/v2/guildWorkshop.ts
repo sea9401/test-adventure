@@ -29,41 +29,28 @@ import {
 } from "./settlementMaterials";
 
 export type GuildWorkshopRecipeId =
-  | "iron_sword"
-  | "greatsword"
-  | "mithril_sword"
-  | "wooden_bow"
-  | "horn_bow"
-  | "starsong_bow"
-  | "oak_staff"
-  | "obsidian_staff"
-  | "starlit_staff"
-  | "chain_mail"
-  | "full_plate"
-  | "mithril_plate"
-  | "leather_armor"
-  | "shadow_cloak"
-  | "windweave_cloak"
-  | "leather_gloves"
-  | "shadow_gloves"
-  | "windweave_gloves"
-  | "leather_boots"
-  | "shadow_boots"
-  | "windweave_boots"
-  | "silver_ring"
-  | "lucky_charm"
-  | "fate_ring"
-  | "jade_amulet"
-  | "crystal_amulet"
-  | "mana_essence"
   | "crafted_oathblade"
   | "crafted_gale_bow"
   | "crafted_runic_staff"
+  | "crafted_guard_gauntlets"
+  | "crafted_guard_greaves"
+  | "crafted_fury_boots"
+  | "crafted_pursuit_grips"
+  | "crafted_focus_gloves"
+  | "crafted_focus_boots"
   | "crafted_master_ring"
   | "crafted_ward_plate"
   | "crafted_spark_gloves"
   | "crafted_windstep_boots"
   | "crafted_aether_necklace"
+  | "crafted_guard_ring"
+  | "crafted_fury_plate"
+  | "crafted_pursuit_coat"
+  | "crafted_pursuit_ring"
+  | "crafted_focus_ring"
+  | "crafted_fury_necklace"
+  | "crafted_pursuit_necklace"
+  | "crafted_focus_robe"
   | "crafted_sunforge_blade"
   | "crafted_aurora_crown"
   | "crafted_bulwark_shield"
@@ -152,7 +139,7 @@ export const GUILD_WORKSHOP_QUALITY_BONUS_PCT: Record<1 | 2, number> = {
   2: 10,
 };
 export const GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT = 25;
-export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 20;
+export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 25;
 export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 2;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
@@ -175,336 +162,236 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   GuildWorkshopRecipeId,
   GuildWorkshopRecipe
 > = {
-  iron_sword: {
-    id: "iron_sword",
-    equipmentId: "v2_iron_sword",
-    cost: { crop: 3, ore: 8 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 1,
-    artisanXp: 12,
-    note: "전열 기본 무기",
-  },
-  greatsword: {
-    id: "greatsword",
-    equipmentId: "v2_greatsword",
-    cost: { crop: 12, ore: 18 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 3,
-    artisanXp: 24,
-    note: "전열 중급 무기",
-  },
-  mithril_sword: {
-    id: "mithril_sword",
-    equipmentId: "v2_mithril_sword",
-    cost: { crop: 24, ore: 48 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 46,
-    note: "전열 상급 무기",
-  },
-  wooden_bow: {
-    id: "wooden_bow",
-    equipmentId: "v2_wooden_bow",
-    cost: { crop: 8, ore: 2 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 1,
-    artisanXp: 10,
-    note: "원거리 기본 무기",
-  },
-  horn_bow: {
-    id: "horn_bow",
-    equipmentId: "v2_horn_bow",
-    cost: { crop: 22, ore: 8 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 3,
-    artisanXp: 22,
-    note: "원거리 중급 무기",
-  },
-  starsong_bow: {
-    id: "starsong_bow",
-    equipmentId: "v2_starsong_bow",
-    cost: { crop: 52, ore: 20 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 44,
-    note: "원거리 상급 무기",
-  },
-  oak_staff: {
-    id: "oak_staff",
-    equipmentId: "v2_oak_staff",
-    cost: { crop: 10, ore: 1 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 1,
-    artisanXp: 10,
-    note: "마법 기본 무기",
-  },
-  obsidian_staff: {
-    id: "obsidian_staff",
-    equipmentId: "v2_obsidian_staff",
-    cost: { crop: 24, ore: 6 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 3,
-    artisanXp: 22,
-    note: "마법 중급 무기",
-  },
-  starlit_staff: {
-    id: "starlit_staff",
-    equipmentId: "v2_starlit_staff",
-    cost: { crop: 56, ore: 16 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 44,
-    note: "마법 상급 무기",
-  },
-  chain_mail: {
-    id: "chain_mail",
-    equipmentId: "v2_chain_mail",
-    cost: { crop: 2, ore: 10 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 1,
-    artisanXp: 14,
-    note: "중갑 기본 방어구",
-  },
-  full_plate: {
-    id: "full_plate",
-    equipmentId: "v2_full_plate",
-    cost: { crop: 8, ore: 27 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 3,
-    artisanXp: 26,
-    note: "중갑 중급 방어구",
-  },
-  mithril_plate: {
-    id: "mithril_plate",
-    equipmentId: "v2_mithril_plate",
-    cost: { crop: 20, ore: 60 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 52,
-    note: "중갑 상급 방어구",
-  },
-  leather_armor: {
-    id: "leather_armor",
-    equipmentId: "v2_leather_armor",
-    cost: { crop: 7, ore: 3 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 1,
-    artisanXp: 10,
-    note: "경갑 기본 방어구",
-  },
-  shadow_cloak: {
-    id: "shadow_cloak",
-    equipmentId: "v2_shadow_cloak",
-    cost: { crop: 22, ore: 10 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 3,
-    artisanXp: 24,
-    note: "경갑 중급 방어구",
-  },
-  windweave_cloak: {
-    id: "windweave_cloak",
-    equipmentId: "v2_windweave_cloak",
-    cost: { crop: 52, ore: 24 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 48,
-    note: "경갑 상급 방어구",
-  },
-  leather_gloves: {
-    id: "leather_gloves",
-    equipmentId: "v2_leather_gloves",
-    cost: { crop: 6, ore: 4 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 2,
-    artisanXp: 11,
-    note: "치명 보조 장갑",
-  },
-  shadow_gloves: {
-    id: "shadow_gloves",
-    equipmentId: "v2_shadow_gloves",
-    cost: { crop: 18, ore: 12 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 4,
-    artisanXp: 24,
-    note: "치명 중급 장갑",
-  },
-  windweave_gloves: {
-    id: "windweave_gloves",
-    equipmentId: "v2_windweave_gloves",
-    cost: { crop: 44, ore: 34 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 42,
-    note: "치명 상급 장갑",
-  },
-  leather_boots: {
-    id: "leather_boots",
-    equipmentId: "v2_leather_boots",
-    cost: { crop: 6, ore: 4 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 2,
-    artisanXp: 11,
-    note: "회피 보조 신발",
-  },
-  shadow_boots: {
-    id: "shadow_boots",
-    equipmentId: "v2_shadow_boots",
-    cost: { crop: 18, ore: 12 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 4,
-    artisanXp: 24,
-    note: "회피 중급 신발",
-  },
-  windweave_boots: {
-    id: "windweave_boots",
-    equipmentId: "v2_windweave_boots",
-    cost: { crop: 44, ore: 34 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 42,
-    note: "회피 상급 신발",
-  },
-  silver_ring: {
-    id: "silver_ring",
-    equipmentId: "v2_silver_ring",
-    cost: { crop: 2, ore: 12 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 3,
-    artisanXp: 16,
-    note: "치명 장신구",
-  },
-  lucky_charm: {
-    id: "lucky_charm",
-    equipmentId: "v2_lucky_charm",
-    cost: { crop: 10, ore: 24 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 4,
-    artisanXp: 28,
-    note: "치명 중급 반지",
-  },
-  fate_ring: {
-    id: "fate_ring",
-    equipmentId: "v2_fate_ring",
-    cost: { crop: 24, ore: 56 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 50,
-    note: "치명 상급 반지",
-  },
-  jade_amulet: {
-    id: "jade_amulet",
-    equipmentId: "v2_jade_amulet",
-    cost: { crop: 10, ore: 20 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 4,
-    artisanXp: 26,
-    note: "마나 기본 목걸이",
-  },
-  crystal_amulet: {
-    id: "crystal_amulet",
-    equipmentId: "v2_crystal_amulet",
-    cost: { crop: 26, ore: 54 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 42,
-    note: "마나 중급 목걸이",
-  },
-  mana_essence: {
-    id: "mana_essence",
-    equipmentId: "v2_mana_essence",
-    cost: { crop: 28, ore: 52 },
-    profession: "blacksmith",
-    requiredArtisanLevel: 5,
-    artisanXp: 54,
-    note: "마나 상급 목걸이",
-  },
   crafted_oathblade: {
     id: "crafted_oathblade",
     equipmentId: "v2_crafted_oathblade",
     cost: { crop: 45, ore: 65 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
-    requiredArtisanLevel: 6,
-    requiredSmithyLevel: 2,
-    artisanXp: 70,
-    note: "제작 전용 장검",
+    requiredArtisanLevel: 1,
+    requiredSmithyLevel: 1,
+    artisanXp: 36,
+    note: "수호 세트 무기",
   },
   crafted_gale_bow: {
     id: "crafted_gale_bow",
     equipmentId: "v2_crafted_gale_bow",
     cost: { crop: 68, ore: 38 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
-    requiredArtisanLevel: 6,
-    requiredSmithyLevel: 2,
-    artisanXp: 68,
-    note: "제작 전용 활",
+    requiredArtisanLevel: 1,
+    requiredSmithyLevel: 1,
+    artisanXp: 34,
+    note: "질풍 세트 무기",
   },
   crafted_runic_staff: {
     id: "crafted_runic_staff",
     equipmentId: "v2_crafted_runic_staff",
     cost: { crop: 64, ore: 42 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
-    requiredArtisanLevel: 6,
-    requiredSmithyLevel: 2,
-    artisanXp: 68,
-    note: "제작 전용 지팡이",
+    requiredArtisanLevel: 1,
+    requiredSmithyLevel: 1,
+    artisanXp: 34,
+    note: "룬 세트 무기",
+  },
+  crafted_guard_gauntlets: {
+    id: "crafted_guard_gauntlets",
+    equipmentId: "v2_crafted_guard_gauntlets",
+    cost: { crop: 45, ore: 60 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "수호 세트 장갑",
+  },
+  crafted_guard_greaves: {
+    id: "crafted_guard_greaves",
+    equipmentId: "v2_crafted_guard_greaves",
+    cost: { crop: 50, ore: 52 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "수호 세트 장화",
+  },
+  crafted_fury_boots: {
+    id: "crafted_fury_boots",
+    equipmentId: "v2_crafted_fury_boots",
+    cost: { crop: 62, ore: 45 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "격노 세트 장화",
+  },
+  crafted_pursuit_grips: {
+    id: "crafted_pursuit_grips",
+    equipmentId: "v2_crafted_pursuit_grips",
+    cost: { crop: 68, ore: 38 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "질풍 세트 장갑",
+  },
+  crafted_focus_gloves: {
+    id: "crafted_focus_gloves",
+    equipmentId: "v2_crafted_focus_gloves",
+    cost: { crop: 55, ore: 45 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "룬 세트 장갑",
+  },
+  crafted_focus_boots: {
+    id: "crafted_focus_boots",
+    equipmentId: "v2_crafted_focus_boots",
+    cost: { crop: 58, ore: 42 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "룬 세트 장화",
   },
   crafted_master_ring: {
     id: "crafted_master_ring",
     equipmentId: "v2_crafted_master_ring",
     cost: { crop: 50, ore: 85 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
-    requiredArtisanLevel: 7,
-    requiredSmithyLevel: 3,
-    artisanXp: 82,
-    note: "제작 전용 반지",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 66,
+    note: "격노 세트 반지",
   },
   crafted_ward_plate: {
     id: "crafted_ward_plate",
     equipmentId: "v2_crafted_ward_plate",
     cost: { crop: 50, ore: 95 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
     profession: "blacksmith",
-    requiredArtisanLevel: 7,
-    requiredSmithyLevel: 3,
-    artisanXp: 86,
-    note: "제작 전용 갑주",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 68,
+    note: "수호 세트 갑옷",
   },
   crafted_spark_gloves: {
     id: "crafted_spark_gloves",
     equipmentId: "v2_crafted_spark_gloves",
     cost: { crop: 55, ore: 45 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
-    requiredArtisanLevel: 6,
-    requiredSmithyLevel: 2,
-    artisanXp: 66,
-    note: "제작 전용 장갑",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "격노 세트 장갑",
   },
   crafted_windstep_boots: {
     id: "crafted_windstep_boots",
     equipmentId: "v2_crafted_windstep_boots",
     cost: { crop: 62, ore: 38 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 1 },
     profession: "blacksmith",
-    requiredArtisanLevel: 6,
-    requiredSmithyLevel: 2,
-    artisanXp: 66,
-    note: "제작 전용 장화",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "질풍 세트 장화",
   },
   crafted_aether_necklace: {
     id: "crafted_aether_necklace",
     equipmentId: "v2_crafted_aether_necklace",
     cost: { crop: 55, ore: 80 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
-    requiredArtisanLevel: 7,
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 66,
+    note: "룬 세트 목걸이",
+  },
+  crafted_guard_ring: {
+    id: "crafted_guard_ring",
+    equipmentId: "v2_crafted_guard_ring",
+    cost: { crop: 50, ore: 85 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 4,
+    requiredSmithyLevel: 2,
+    artisanXp: 58,
+    note: "수호 세트 반지",
+  },
+  crafted_fury_plate: {
+    id: "crafted_fury_plate",
+    equipmentId: "v2_crafted_fury_plate",
+    cost: { crop: 60, ore: 90 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 68,
+    note: "격노 세트 갑옷",
+  },
+  crafted_pursuit_coat: {
+    id: "crafted_pursuit_coat",
+    equipmentId: "v2_crafted_pursuit_coat",
+    cost: { crop: 90, ore: 55 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 68,
+    note: "질풍 세트 갑옷",
+  },
+  crafted_pursuit_ring: {
+    id: "crafted_pursuit_ring",
+    equipmentId: "v2_crafted_pursuit_ring",
+    cost: { crop: 82, ore: 55 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 4,
+    requiredSmithyLevel: 2,
+    artisanXp: 58,
+    note: "질풍 세트 반지",
+  },
+  crafted_focus_ring: {
+    id: "crafted_focus_ring",
+    equipmentId: "v2_crafted_focus_ring",
+    cost: { crop: 72, ore: 68 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 4,
+    requiredSmithyLevel: 2,
+    artisanXp: 58,
+    note: "룬 세트 반지",
+  },
+  crafted_fury_necklace: {
+    id: "crafted_fury_necklace",
+    equipmentId: "v2_crafted_fury_necklace",
+    cost: { crop: 105, ore: 150 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
     requiredSmithyLevel: 3,
-    artisanXp: 84,
-    note: "제작 전용 목걸이",
+    artisanXp: 92,
+    note: "격노 세트 목걸이",
+  },
+  crafted_pursuit_necklace: {
+    id: "crafted_pursuit_necklace",
+    equipmentId: "v2_crafted_pursuit_necklace",
+    cost: { crop: 155, ore: 105 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 3,
+    artisanXp: 92,
+    note: "질풍 세트 목걸이",
+  },
+  crafted_focus_robe: {
+    id: "crafted_focus_robe",
+    equipmentId: "v2_crafted_focus_robe",
+    cost: { crop: 130, ore: 125 },
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 3,
+    artisanXp: 92,
+    note: "룬 세트 갑옷",
   },
   crafted_sunforge_blade: {
     id: "crafted_sunforge_blade",
@@ -518,7 +405,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredArtisanLevel: 8,
     requiredSmithyLevel: 4,
     artisanXp: 120,
-    note: "Lv4 대장간 전용 장검",
+    note: "격노 세트 무기",
   },
   crafted_aurora_crown: {
     id: "crafted_aurora_crown",
@@ -532,7 +419,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredArtisanLevel: 9,
     requiredSmithyLevel: 5,
     artisanXp: 155,
-    note: "Lv5 대장간 전용 장신구",
+    note: "수호 세트 목걸이",
   },
   crafted_bulwark_shield: {
     id: "crafted_bulwark_shield",
@@ -546,7 +433,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredArtisanLevel: 10,
     requiredSmithyLevel: 5,
     artisanXp: 180,
-    note: "Lv5 대장간 전용 방패",
+    note: "수호 세트 무기",
   },
   crafted_stormlance: {
     id: "crafted_stormlance",
@@ -560,7 +447,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredArtisanLevel: 10,
     requiredSmithyLevel: 5,
     artisanXp: 182,
-    note: "Lv5 대장간 전용 창",
+    note: "질풍 세트 무기",
   },
   crafted_kingbreaker_axe: {
     id: "crafted_kingbreaker_axe",
@@ -574,7 +461,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredArtisanLevel: 11,
     requiredSmithyLevel: 5,
     artisanXp: 210,
-    note: "Lv5 대장간 전용 도끼",
+    note: "격노 세트 무기",
   },
   crafted_astral_grimoire: {
     id: "crafted_astral_grimoire",
@@ -588,7 +475,7 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredArtisanLevel: 11,
     requiredSmithyLevel: 5,
     artisanXp: 215,
-    note: "Lv5 대장간 전용 마도서",
+    note: "룬 세트 무기",
   },
 };
 

@@ -103,6 +103,7 @@ import {
 import {
   enforceUserAndIpRateLimit,
 } from "@/lib/server/userRateLimit";
+import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { rollHuntDrops } from "./huntDrops";
 import { computeGoldTax, computeLossTax } from "./huntTax";
 import { creditOutpostTreasury } from "./huntTreasury";
@@ -898,6 +899,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     await creditOutpostTreasury(tx, tileTaxOutpostId, goldTaxed, now);
   }
   // 코어루프 패배 페널티는 순수 소실이다. 보유 골드에서 이미 차감됐고, 세금처럼 금고에 쌓지 않는다.
+  if (won && !ctx.offline) {
+    await incrementGuildExplorationProgressForUser(
+      tx,
+      userId,
+      "huntWins",
+      1,
+      new Date(now),
+    );
+  }
 
   return {
     ok: true as const,

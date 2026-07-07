@@ -743,6 +743,13 @@
       "when": 1783216800000,
       "tag": "0105_simplify_guild_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1783220400000,
+      "tag": "0106_guild_exploration_weekly",
+      "breakpoints": true
     }
   ]
 }

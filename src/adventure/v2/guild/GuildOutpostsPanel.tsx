@@ -8,15 +8,14 @@ import {
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 import type { GuildInfoResponse, Notice } from "./guildShared";
+import { GuildExplorationPanel } from "./GuildExplorationPanel";
 import { GuildTrainingGroundPanel } from "./GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "./GuildWorkshopPanel";
-
-const FACILITY_LABEL: Partial<Record<SettlementBuildingId, string>> = {
-};
 
 const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_smithy: "장비 제작과 대장장이 성장을 지원하는 길드 공용 시설입니다.",
   training_ground: "길드원이 매일 직업 숙련도 훈련을 받을 수 있는 시설입니다.",
+  exploration_hq: "주간 길드 탐사 의뢰와 원정 진척을 관리하는 시설입니다.",
 };
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
@@ -56,9 +55,9 @@ export function GuildFacilitiesPanel({
       id,
       count,
       icon: def.icon,
-      name: FACILITY_LABEL[id] ?? def.name,
+      name: def.name,
       desc: FACILITY_DESC[id] ?? def.desc.replaceAll("영지 ", ""),
-      actionLabel: "열기",
+      actionLabel: id === "exploration_hq" ? "현황" : "열기",
       cost: GUILD_FACILITY_UNLOCK_GOLD_COST[id] ?? 0,
     };
   });
@@ -83,6 +82,15 @@ export function GuildFacilitiesPanel({
     );
   }
 
+  if (activeFacility === "exploration_hq") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <GuildExplorationPanel onChanged={onChanged} />
+      </div>
+    );
+  }
+
   async function unlockFacility(id: SettlementBuildingId) {
     if (unlockingId) return;
     setUnlockingId(id);
@@ -101,7 +109,7 @@ export function GuildFacilitiesPanel({
         return;
       }
       const def = SETTLEMENT_BUILDINGS[id];
-      onNotice?.({ kind: "ok", text: `${FACILITY_LABEL[id] ?? def.name} 개방 완료` });
+      onNotice?.({ kind: "ok", text: `${def.name} 개방 완료` });
       onChanged?.();
     } catch {
       onNotice?.({ kind: "err", text: "시설 개방에 실패했습니다." });

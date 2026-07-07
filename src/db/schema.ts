@@ -984,6 +984,20 @@ export const guildWorkshopWeekly = pgTable("guild_workshop_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 길드 탐사 본부 주간 의뢰 진행도. 주차가 바뀌면 lazy reset 으로 같은 row 를 새 weekKey 로 덮는다.
+// progress 는 100 = 1회분으로 저장해 탐사 본부 진척 보너스(+%)를 정수로 반영한다.
+export const guildExplorationWeekly = pgTable("guild_exploration_weekly", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  weekKey: text("week_key").notNull(),
+  coopEpicProgress: integer("coop_epic_progress").notNull().default(0),
+  huntWinProgress: integer("hunt_win_progress").notNull().default(0),
+  fishingCatchProgress: integer("fishing_catch_progress").notNull().default(0),
+  claimed: jsonb("claimed").notNull().default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 길드 영지 건축물 보관 레벨 — 슬롯 압박/전쟁 점령으로 건물이 사라져도 같은 길드가 같은 건물을
 // 다시 배치하면 최고 보관 레벨로 복구한다. 길드 해산 시에는 cascade 로 함께 제거된다.
 export const guildSettlementBuildingLevels = pgTable(

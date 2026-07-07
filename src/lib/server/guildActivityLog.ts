@@ -15,6 +15,7 @@ export type GuildActivityType =
   | "role_change"
   | "gold_deposit"
   | "workshop_weekly_claim"
+  | "exploration_weekly_claim"
   | "workshop_delivery"
   | "workshop_craft_only"
   | "artisan_rank_reward"
@@ -29,7 +30,7 @@ export type GuildActivityMeta = {
   amount?: number; // gold_deposit
   role?: string; // role_change ("manager" | "member")
   nationName?: string; // nation_declare
-  questTitle?: string; // workshop_weekly_claim
+  questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
   itemName?: string; // workshop_delivery | workshop_craft_only
   smithyLevel?: number; // smithy_upgrade
@@ -43,8 +44,8 @@ export type GuildActivityMeta = {
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward
-  rewardGold?: number; // workshop_weekly_claim | workshop_delivery
-  rewardFame?: number; // workshop_weekly_claim
+  rewardGold?: number; // workshop_weekly_claim | exploration_weekly_claim | workshop_delivery
+  rewardFame?: number; // workshop_weekly_claim | exploration_weekly_claim
 };
 
 export async function logGuildActivity(

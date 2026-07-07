@@ -1,5 +1,8 @@
 import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
-import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
+import {
+  PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  SETTLEMENT_BUILDINGS,
+} from "@/adventure/data/v2/settlement";
 import { GuildGoldDepositPanel } from "../GuildGoldDepositPanel";
 import {
   GuildActivityList,
@@ -20,16 +23,13 @@ export function GuildInfoPanel({
   activity: GuildActivity[];
   onRefresh: () => void;
 }) {
-  const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
-  const trainingCount = info?.settlementBuildings?.training_ground ?? 0;
-  const facilityLabels = [
-    smithyCount > 0
-      ? `${SETTLEMENT_BUILDINGS.guild_smithy.icon} ${SETTLEMENT_BUILDINGS.guild_smithy.name} ×${smithyCount}`
-      : null,
-    trainingCount > 0
-      ? `${SETTLEMENT_BUILDINGS.training_ground.icon} ${SETTLEMENT_BUILDINGS.training_ground.name} ×${trainingCount}`
-      : null,
-  ].filter((label): label is string => Boolean(label));
+  const facilityLabels = PLACEABLE_SETTLEMENT_BUILDING_IDS.map((id) => {
+    const count = info?.settlementBuildings?.[id] ?? 0;
+    const def = SETTLEMENT_BUILDINGS[id];
+    const level = info?.settlementBuildingLevels?.[id] ?? 1;
+    const suffix = count > 1 ? ` Lv.${level} ×${count}` : ` Lv.${level}`;
+    return count > 0 ? `${def.icon} ${def.name}${suffix}` : null;
+  }).filter((label): label is string => Boolean(label));
 
   return info?.guild ? (
     <div className="space-y-3">

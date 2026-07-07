@@ -11,6 +11,11 @@ import {
   guildCombatSupplyNextCost,
 } from "@/adventure/data/v2/guildCombatSupply";
 import {
+  GUILD_EXPLORATION_WEEKLY_MISSION_IDS,
+  GUILD_EXPLORATION_WEEKLY_MISSIONS,
+} from "@/adventure/data/v2/guildExploration";
+import { explorationHqUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import {
   GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_DRILL_IDS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
@@ -115,6 +120,43 @@ export function GuildContent() {
           ];
         })}
         caption="실제 지급량은 훈련장 업그레이드 보너스가 더해진 뒤 계산됩니다."
+      />
+
+      <H2>탐사 본부</H2>
+      <P>
+        탐사 본부는 길드 단위 주간 탐사 의뢰를 관리하는 시설입니다. 시설 레벨이
+        오르면 한 주에 진행할 수 있는 탐사 수와 의뢰 진척 보너스가 늘어납니다.
+        기본 협동보스 목표는 단순 처치가 아니라{" "}
+        <Em>
+          {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
+        </Em>
+        로 계산하고, 이후 사냥·낚시 의뢰가 추가로 열립니다. 완료 시 길드 금고와
+        길드 명성을 보상으로 받습니다.
+      </P>
+      <Table
+        head={["레벨", "단계", "주간 탐사", "진척 보너스"]}
+        rows={[1, 2, 3, 4, 5].map((level) => {
+          const upgrade = explorationHqUpgradeForLevel(level);
+          return [
+            `Lv.${upgrade.level}`,
+            <Em key={upgrade.level}>{upgrade.label}</Em>,
+            `${upgrade.weeklyMissionCount}건`,
+            `+${upgrade.missionProgressBonusPct}%`,
+          ];
+        })}
+        caption={`진척 보너스는 의뢰 진행도에 적용됩니다. 예를 들어 +35%라면 협동보스 EPIC 이상 기여 1회가 1.35회분으로 계산됩니다.`}
+      />
+      <Table
+        head={["주간 의뢰", "목표", "보상"]}
+        rows={GUILD_EXPLORATION_WEEKLY_MISSION_IDS.map((id) => {
+          const mission = GUILD_EXPLORATION_WEEKLY_MISSIONS[id];
+          return [
+            <Em key={id}>{mission.title}</Em>,
+            `${mission.goal.toLocaleString("ko-KR")}회분`,
+            `길드 금고 ${mission.rewardGold.toLocaleString()}G · 명성 ${mission.rewardFame.toLocaleString()}`,
+          ];
+        })}
+        caption="협동보스 의뢰는 보상 수령 시점에 최초 1회만 집계되며, GOLD 이하는 탐사 진척으로 인정하지 않습니다."
       />
 
       <H2>길드 제작소</H2>

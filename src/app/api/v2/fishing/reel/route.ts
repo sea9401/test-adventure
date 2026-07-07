@@ -76,6 +76,7 @@ import {
   broadcastCoopNotice,
   trySpawnFishingCoopBoss,
 } from "@/lib/server/v2Coop";
+import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -316,6 +317,13 @@ export async function POST(req: Request) {
       summonerName: "모험가",
       now: new Date(now),
     });
+    await incrementGuildExplorationProgressForUser(
+      tx,
+      userId,
+      "fishingCatches",
+      1,
+      new Date(now),
+    );
 
     return {
       caught: true as const,

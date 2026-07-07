@@ -71,6 +71,7 @@ export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 export type SettlementBuildingId =
   | "guild_smithy"
   | "training_ground"
+  | "exploration_hq"
   | "map_workshop"
   | "alchemy_workshop"
   | "woodworks";
@@ -105,6 +106,12 @@ export const SETTLEMENT_BUILDINGS: Record<
     icon: "🎯",
     desc: "길드원이 매일 현재 직업 숙련도 훈련을 받을 수 있는 영지 시설입니다.",
   },
+  exploration_hq: {
+    id: "exploration_hq",
+    name: "탐사 본부",
+    icon: "🧭",
+    desc: "길드 단위 주간 탐사 의뢰와 원정 진척 보너스를 위한 영지 시설입니다.",
+  },
   map_workshop: {
     id: "map_workshop",
     name: "지도 제작소",
@@ -130,6 +137,7 @@ export const SETTLEMENT_BUILDING_IDS = Object.keys(
 export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_smithy",
   "training_ground",
+  "exploration_hq",
 ];
 
 export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
@@ -137,6 +145,7 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
 > = {
   guild_smithy: 50_000_000,
   training_ground: 80_000_000,
+  exploration_hq: 65_000_000,
   map_workshop: 15_000_000,
 };
 
@@ -248,6 +257,14 @@ export type MapWorkshopUpgradeDef = {
   label: string;
 };
 
+export type ExplorationHqUpgradeDef = {
+  level: number;
+  cost: SettlementBuildingUpgradeCost;
+  weeklyMissionCount: number;
+  missionProgressBonusPct: number;
+  label: string;
+};
+
 export const MAP_WORKSHOP_UPGRADES: readonly MapWorkshopUpgradeDef[] = [
   {
     level: 1,
@@ -281,10 +298,49 @@ export const MAP_WORKSHOP_UPGRADES: readonly MapWorkshopUpgradeDef[] = [
   },
 ];
 
+export const EXPLORATION_HQ_UPGRADES: readonly ExplorationHqUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    weeklyMissionCount: 1,
+    missionProgressBonusPct: 0,
+    label: "탐사 게시판",
+  },
+  {
+    level: 2,
+    cost: { crop: 400, ore: 250, gold: 12_000_000, fame: 600 },
+    weeklyMissionCount: 1,
+    missionProgressBonusPct: 10,
+    label: "정찰 기록실",
+  },
+  {
+    level: 3,
+    cost: { crop: 1000, ore: 700, gold: 24_000_000, fame: 1400 },
+    weeklyMissionCount: 2,
+    missionProgressBonusPct: 15,
+    label: "원정 지휘소",
+  },
+  {
+    level: 4,
+    cost: { crop: 2300, ore: 1600, gold: 48_000_000, fame: 3000 },
+    weeklyMissionCount: 2,
+    missionProgressBonusPct: 25,
+    label: "길잡이 회의실",
+  },
+  {
+    level: 5,
+    cost: { crop: 4500, ore: 3200, gold: 80_000_000, fame: 5600 },
+    weeklyMissionCount: 3,
+    missionProgressBonusPct: 35,
+    label: "대륙 탐사 본부",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
   | TrainingGroundUpgradeDef
-  | MapWorkshopUpgradeDef;
+  | MapWorkshopUpgradeDef
+  | ExplorationHqUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -351,6 +407,26 @@ export function nextTrainingGroundUpgrade(
   );
 }
 
+export function explorationHqUpgradeForLevel(
+  level: number,
+): ExplorationHqUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    EXPLORATION_HQ_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    EXPLORATION_HQ_UPGRADES[0]
+  );
+}
+
+export function nextExplorationHqUpgrade(
+  level: number,
+): ExplorationHqUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    EXPLORATION_HQ_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ??
+    null
+  );
+}
+
 export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
   const safe = clampSettlementBuildingLevel(level);
   return (
@@ -375,6 +451,9 @@ export function nextSettlementBuildingUpgrade(
   if (buildingId === "training_ground") {
     return nextTrainingGroundUpgrade(level);
   }
+  if (buildingId === "exploration_hq") {
+    return nextExplorationHqUpgrade(level);
+  }
   if (buildingId === "map_workshop") {
     return nextMapWorkshopUpgrade(level);
   }
@@ -391,6 +470,10 @@ export function settlementBuildingUpgradeSummary(
   if (buildingId === "training_ground") {
     const training = upgrade as TrainingGroundUpgradeDef;
     return `훈련 보상 +${training.trainingRewardBonusPct}% · 일일 훈련 ${training.unlockedDrillCount}회`;
+  }
+  if (buildingId === "exploration_hq") {
+    const exploration = upgrade as ExplorationHqUpgradeDef;
+    return `주간 탐사 ${exploration.weeklyMissionCount}건 · 진척 +${exploration.missionProgressBonusPct}%`;
   }
   if (buildingId === "map_workshop") {
     const map = upgrade as MapWorkshopUpgradeDef;

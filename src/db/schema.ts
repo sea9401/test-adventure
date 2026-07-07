@@ -223,7 +223,8 @@ export const bulletinComments = pgTable(
   ],
 );
 
-// 글로벌 채팅 메시지. 3일 후 cron 으로 일괄 삭제.
+// 채팅 메시지. channel='global' 은 전체 채팅, channel='guild' 는 guildId 길드원 전용.
+// 3일 후 cron 으로 일괄 삭제.
 // name/className/title 은 전송 시점 스냅샷 — 이후 사용자가 바뀌어도 과거 메시지는 그대로.
 // title 은 미장착 시 NULL.
 export const messages = pgTable(
@@ -233,6 +234,10 @@ export const messages = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull().default("global"),
+    guildId: integer("guild_id").references(() => guilds.id, {
+      onDelete: "cascade",
+    }),
     name: text("name").notNull(),
     className: text("class_name").notNull(),
     title: text("title"),
@@ -241,8 +246,14 @@ export const messages = pgTable(
   },
   (t) => [
     index("messages_created_at_idx").on(t.createdAt),
+    index("messages_channel_created_at_idx").on(t.channel, t.createdAt),
+    index("messages_guild_created_at_idx").on(t.guildId, t.createdAt),
     // POST 의 rate-limit 조회용 — userId 로 본인 마지막 메시지 시각.
     index("messages_user_created_at_idx").on(t.userId, t.createdAt),
+    check(
+      "messages_channel_scope_check",
+      sql`(${t.channel} = 'global' AND ${t.guildId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL)`,
+    ),
   ],
 );
 

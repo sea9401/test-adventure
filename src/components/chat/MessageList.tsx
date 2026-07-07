@@ -5,7 +5,7 @@ import { formatRelative } from "@/lib/notifications";
 import type { ChatMessage } from "../ChatPanel";
 import { MessageBody } from "./MessageBody";
 
-// 스크롤 가능한 메시지 리스트 — 채팅/알림 탭의 메시지를 렌더하고 자동 스크롤을 처리.
+// 스크롤 가능한 메시지 리스트 — 채팅/길드/알림 탭의 메시지를 렌더하고 자동 스크롤을 처리.
 export function MessageList({
   open,
   tab,
@@ -13,7 +13,7 @@ export function MessageList({
   onSelectName,
 }: {
   open: boolean;
-  tab: "chat" | "notice";
+  tab: "chat" | "guild" | "notice";
   messages: ChatMessage[];
   onSelectName: (name: string) => void;
 }) {
@@ -57,9 +57,9 @@ export function MessageList({
     >
       {messages.length === 0 ? (
         <div className="flex h-full items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
-          {tab === "chat"
-            ? "아직 메시지가 없습니다."
-            : "협동 보스 알림이 없습니다."}
+          {tab === "notice"
+            ? "협동 보스 알림이 없습니다."
+            : "아직 메시지가 없습니다."}
         </div>
       ) : (
         // 말풍선 없이 평문 한 줄로 — 이름(클릭 시 프로필) + 시간 + 본문이 그대로 흐른다.

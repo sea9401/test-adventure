@@ -17,6 +17,7 @@ import {
   masteryTowerRequiredPower,
 } from "@/adventure/data/v2/masteryTower";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
+import { JobRoadmapScroller } from "./JobRoadmapScroller";
 
 const MASTERY_TOWER_SAMPLE_FLOORS = [10, 20, 30];
 
@@ -206,11 +207,11 @@ function JobRoadmap() {
           ))}
         </div>
       </div>
-      <div className="manual-job-roadmap overflow-x-auto rounded-md border border-zinc-200 bg-zinc-950 p-4 dark:border-zinc-800">
+      <JobRoadmapScroller>
         <ul className="manual-job-tree">
           <RoadmapBranch node={root} />
         </ul>
-      </div>
+      </JobRoadmapScroller>
       <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
         카드에는 이름과 순서만 표시합니다. 복합 표시는 여러 선행 직업 숙련도가 필요한
         하이브리드 전직입니다.
@@ -304,8 +305,14 @@ function prereqText(job: V2JobDefinition): string {
 }
 
 const ROADMAP_CSS = `
-.manual-job-roadmap{color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px}
-.manual-job-tree{display:inline-flex;min-width:100%;justify-content:flex-start;margin:0;padding:18px 24px 0}
+.manual-job-roadmap-wrap{position:relative;max-width:100%}
+.manual-job-roadmap-controls{position:absolute;right:10px;top:10px;z-index:2;display:flex;gap:6px}
+.manual-job-roadmap-button{display:inline-flex;height:30px;width:30px;align-items:center;justify-content:center;border:1px solid rgba(248,250,252,.18);border-radius:7px;background:rgba(23,19,29,.86);color:#f8fafc;box-shadow:0 8px 18px rgba(0,0,0,.28);transition:background-color .15s ease,border-color .15s ease,transform .12s ease}
+.manual-job-roadmap-button:hover{border-color:rgba(248,250,252,.34);background:rgba(40,33,52,.95)}
+.manual-job-roadmap-button:active{transform:translateY(1px)}
+.manual-job-roadmap{max-width:100%;overflow-x:auto;overflow-y:hidden;color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px;overscroll-behavior-x:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch;cursor:grab}
+.manual-job-roadmap.is-dragging{cursor:grabbing}
+.manual-job-tree{display:flex;width:max-content;min-width:max(100%,1320px);justify-content:flex-start;margin:0;padding:34px 24px 0}
 .manual-job-tree ul{position:relative;display:flex;justify-content:center;margin:0;padding:34px 0 0}
 .manual-job-tree li{position:relative;display:flex;flex-direction:column;align-items:center;list-style:none;margin:0;padding:34px 8px 0}
 .manual-job-tree li::before,.manual-job-tree li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:34px;border-top:2px solid #5e526e}

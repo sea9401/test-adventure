@@ -2,6 +2,11 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
+import { lockGuildFame, spendGuildFame } from "@/lib/server/v2GuildFame";
+import {
   guildOwningOutpost,
   lockGuildSettlement,
   lockVillage,
@@ -17,12 +22,13 @@ import {
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
   settlementBuildingSlot,
+  type SettlementBuildingUpgradeCost,
   type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 
-function canAfford(
+function canAffordMaterials(
   resources: SettlementResources,
-  cost: SettlementResources,
+  cost: SettlementBuildingUpgradeCost,
 ): boolean {
   return PRODUCTION_KINDS.every(
     (kind) => Math.max(0, resources[kind] ?? 0) >= Math.max(0, cost[kind] ?? 0),
@@ -31,7 +37,7 @@ function canAfford(
 
 function spendCost(
   resources: SettlementResources,
-  cost: SettlementResources,
+  cost: SettlementBuildingUpgradeCost,
 ): SettlementResources {
   const next: SettlementResources = { ...resources };
   for (const kind of PRODUCTION_KINDS) {
@@ -44,7 +50,7 @@ function spendCost(
 }
 
 // POST /api/v2/outpost/village/building/upgrade — body { outpostId, slot }
-// 영지 건축물 업그레이드. 비용은 길드 정착지 재화에서 차감한다.
+// 영지 건축물 업그레이드. 비용은 길드 정착지 재화·길드 금고·사용 가능 명성에서 차감한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -98,7 +104,7 @@ export async function POST(req: Request) {
       }
 
       const resources = await lockGuildSettlement(tx, guildId);
-      if (!canAfford(resources, nextUpgrade.cost)) {
+      if (!canAffordMaterials(resources, nextUpgrade.cost)) {
         return {
           status: 409,
           body: {
@@ -108,14 +114,54 @@ export async function POST(req: Request) {
           },
         };
       }
+      const goldCost = Math.max(0, Math.floor(nextUpgrade.cost.gold ?? 0));
+      const guildGold = await lockGuildResources(tx, guildId);
+      if (goldCost > 0 && guildGold.gold < goldCost) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "insufficient_gold",
+            gold: guildGold.gold,
+            required: goldCost,
+          },
+        };
+      }
+      const fameCost = Math.max(0, Math.floor(nextUpgrade.cost.fame ?? 0));
+      const guildFame = await lockGuildFame(tx, guildId);
+      if (!guildFame) {
+        return {
+          status: 404,
+          body: { ok: false as const, error: "guild_not_found" },
+        };
+      }
+      if (fameCost > 0 && guildFame.fameAvailable < fameCost) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "insufficient_fame",
+            fameAvailable: guildFame.fameAvailable,
+            required: fameCost,
+          },
+        };
+      }
 
       const nextResources = spendCost(resources, nextUpgrade.cost);
+      const nextGold = guildGold.gold - goldCost;
+      const nextFameAvailable = guildFame.fameAvailable - fameCost;
       village.buildings = {
         ...village.buildings,
         [slot]: settlementBuildingSlot(buildingId, nextUpgrade.level),
       };
       await upsertVillage(tx, village);
       await upsertGuildSettlement(tx, guildId, nextResources);
+      if (goldCost > 0) {
+        await upsertGuildResources(tx, guildId, { gold: nextGold });
+      }
+      if (fameCost > 0) {
+        await spendGuildFame(tx, guildId, fameCost);
+      }
       await logGuildActivity(tx, {
         guildId,
         type:
@@ -137,6 +183,8 @@ export async function POST(req: Request) {
           building: village.buildings[slot],
           buildings: village.buildings,
           resources: nextResources,
+          gold: nextGold,
+          fameAvailable: nextFameAvailable,
         },
       };
     });

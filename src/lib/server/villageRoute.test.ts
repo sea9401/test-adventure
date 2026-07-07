@@ -28,6 +28,7 @@ const {
   villages,
   resourcesByGuild,
   guildGold,
+  guildFame,
   owners,
   buildingMemory,
   guildState,
@@ -35,6 +36,7 @@ const {
     villages: new Map<string, unknown>(),
     resourcesByGuild: new Map<number, Record<string, number>>(),
     guildGold: new Map<number, number>(), // 길드 금고 골드(칸 해금 비용)
+    guildFame: new Map<number, number>(), // 사용 가능 길드 명성
     owners: new Map<string, number>(),
     buildingMemory: new Map<string, number>(),
     // getGuildId 계약 + 관리 게이트(isGuildMasterOrVice) 모킹값.
@@ -82,6 +84,18 @@ vi.mock("@/lib/server/v2GuildResources", () => ({
   upsertGuildResources: vi.fn(
     async (_tx: unknown, guildId: number, res: { gold: number }) => {
       guildGold.set(guildId, Math.max(0, res.gold));
+    },
+  ),
+}));
+
+vi.mock("@/lib/server/v2GuildFame", () => ({
+  lockGuildFame: vi.fn(async (_tx: unknown, guildId: number) => {
+    const fameAvailable = guildFame.get(guildId) ?? 0;
+    return { fameTotal: fameAvailable, fameAvailable };
+  }),
+  spendGuildFame: vi.fn(
+    async (_tx: unknown, guildId: number, cost: number) => {
+      guildFame.set(guildId, Math.max(0, (guildFame.get(guildId) ?? 0) - cost));
     },
   ),
 }));
@@ -243,6 +257,7 @@ beforeEach(() => {
   villages.clear();
   resourcesByGuild.clear();
   guildGold.clear();
+  guildFame.clear();
   owners.clear();
   buildingMemory.clear();
   vi.useFakeTimers();
@@ -678,6 +693,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       crop: (cost.crop ?? 0) + 10,
       ore: (cost.ore ?? 0) + 20,
     });
+    guildGold.set(MY_GUILD, (cost.gold ?? 0) + 30);
+    guildFame.set(MY_GUILD, (cost.fame ?? 0) + 40);
 
     const res = await upgradeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
@@ -688,6 +705,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
     };
     expect(json.building).toEqual({ id: "guild_smithy", level: 2 });
     expect(resourcesByGuild.get(MY_GUILD)).toEqual({ crop: 10, ore: 20 });
+    expect(guildGold.get(MY_GUILD)).toBe(30);
+    expect(guildFame.get(MY_GUILD)).toBe(40);
     expect(
       (
         villages.get(FARM_OUTPOST) as {
@@ -707,6 +726,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       crop: cost.crop ?? 0,
       ore: cost.ore ?? 0,
     });
+    guildGold.set(MY_GUILD, cost.gold ?? 0);
+    guildFame.set(MY_GUILD, cost.fame ?? 0);
     const res = await upgradeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
     );
@@ -726,6 +747,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       buildings: { "0": { id: "guild_smithy", level: 1 } },
     });
     resourcesByGuild.set(MY_GUILD, { crop: 0, ore: 0 });
+    guildGold.set(MY_GUILD, 9_999_999_999);
+    guildFame.set(MY_GUILD, 9_999_999);
     const res = await upgradeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
     );
@@ -745,6 +768,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       crop: cost.crop ?? 0,
       ore: cost.ore ?? 0,
     });
+    guildGold.set(MY_GUILD, cost.gold ?? 0);
+    guildFame.set(MY_GUILD, cost.fame ?? 0);
     const res = await upgradeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
     );
@@ -765,6 +790,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       crop: (cost.crop ?? 0) + 3,
       ore: (cost.ore ?? 0) + 7,
     });
+    guildGold.set(MY_GUILD, (cost.gold ?? 0) + 11);
+    guildFame.set(MY_GUILD, (cost.fame ?? 0) + 13);
 
     const res = await upgradeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
@@ -775,6 +802,48 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
     };
     expect(json.building).toEqual({ id: "training_ground", level: 2 });
     expect(resourcesByGuild.get(MY_GUILD)).toEqual({ crop: 3, ore: 7 });
+    expect(guildGold.get(MY_GUILD)).toBe(11);
+    expect(guildFame.get(MY_GUILD)).toBe(13);
+  });
+
+  it("골드 부족 → 409 insufficient_gold", async () => {
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      buildings: { "0": { id: "guild_smithy", level: 1 } },
+    });
+    const cost = GUILD_SMITHY_UPGRADES[1].cost;
+    resourcesByGuild.set(MY_GUILD, {
+      crop: cost.crop ?? 0,
+      ore: cost.ore ?? 0,
+    });
+    guildGold.set(MY_GUILD, Math.max(0, (cost.gold ?? 0) - 1));
+    guildFame.set(MY_GUILD, cost.fame ?? 0);
+
+    const res = await upgradeBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as AnyJson).error).toBe("insufficient_gold");
+  });
+
+  it("길드 명성 부족 → 409 insufficient_fame", async () => {
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      buildings: { "0": { id: "guild_smithy", level: 1 } },
+    });
+    const cost = GUILD_SMITHY_UPGRADES[1].cost;
+    resourcesByGuild.set(MY_GUILD, {
+      crop: cost.crop ?? 0,
+      ore: cost.ore ?? 0,
+    });
+    guildGold.set(MY_GUILD, cost.gold ?? 0);
+    guildFame.set(MY_GUILD, Math.max(0, (cost.fame ?? 0) - 1));
+
+    const res = await upgradeBuildingPOST(
+      jreq({ outpostId: FARM_OUTPOST, slot: 0 }),
+    );
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as AnyJson).error).toBe("insufficient_fame");
   });
 
   it("지도 제작소 Lv1 → Lv2 업그레이드 비용을 정착지 재화에서 차감", async () => {
@@ -787,6 +856,8 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       crop: (cost.crop ?? 0) + 10,
       ore: (cost.ore ?? 0) + 20,
     });
+    guildGold.set(MY_GUILD, cost.gold ?? 0);
+    guildFame.set(MY_GUILD, cost.fame ?? 0);
 
     const res = await upgradeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0 }),

@@ -76,6 +76,7 @@ export function V2MasteryTowerView({
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
+  const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -111,6 +112,7 @@ export function V2MasteryTowerView({
   async function claim() {
     setBusy("claim");
     setMsg(null);
+    setConfirmClaimOpen(false);
     try {
       const res = await fetch("/api/v2/mastery-tower/claim", {
         method: "POST",
@@ -296,7 +298,7 @@ export function V2MasteryTowerView({
               </button>
               <button
                 type="button"
-                onClick={() => void claim()}
+                onClick={() => setConfirmClaimOpen(true)}
                 disabled={busy != null || !canClaim}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -311,6 +313,70 @@ export function V2MasteryTowerView({
           </>
         )}
       </Card>
+
+      {status && confirmClaimOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mastery-tower-claim-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && busy == null) {
+              setConfirmClaimOpen(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm rounded-md border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <h2 id="mastery-tower-claim-title" className="text-base font-bold">
+              보상 수령 확인
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              현재 오늘 최고 기록은{" "}
+              <b className="text-zinc-900 dark:text-zinc-100">
+                {status.tower.todayBestFloor}층
+              </b>
+              이고, 지금 수령하면 숙련 증서{" "}
+              <b className="text-emerald-700 dark:text-emerald-300">
+                {status.claimPreview.total.toLocaleString("ko-KR")}개
+              </b>
+              를 받습니다.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              재도전은 계속 가능하지만 오늘 보상은 한 번만 수령합니다. 기록을 더
+              갱신한 뒤 수령하시겠습니까?
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={busy != null || !canAttempt}
+                onClick={() => {
+                  setConfirmClaimOpen(false);
+                  onEnterBattle();
+                }}
+                className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                더 도전하기
+              </button>
+              <button
+                type="button"
+                disabled={busy != null || !canClaim}
+                onClick={() => void claim()}
+                className="h-10 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy === "claim" ? "수령 중…" : "지금 수령"}
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={busy != null}
+              onClick={() => setConfirmClaimOpen(false)}
+              className="mt-2 h-9 w-full rounded-md px-3 text-sm font-medium text-zinc-500 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
 
       {status && (
         <Card padding="md" className="space-y-3">

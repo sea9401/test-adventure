@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 
@@ -149,6 +150,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           activeKey={activeTab}
           onNavigate={(href) => router.push(href)}
         />
+        {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
+        <WarTicker />
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">

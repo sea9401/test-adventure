@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { V2_EQUIPMENT } from "./v2Equipment";
+import {
+  V2_EQUIPMENT,
+  V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
+} from "./v2Equipment";
 import { V2_SKILLS } from "./v2Skills";
 import {
   V2_BUILD_TAG_LABEL,
@@ -52,6 +56,44 @@ describe("v2 build tags", () => {
     expect(equipmentHasBuildTag(V2_EQUIPMENT.v2_boss_canyon_fang, "poison")).toBe(
       true,
     );
+  });
+
+  it("세트 정의 태그는 조각 장비에 상속된다", () => {
+    expectTags(buildTagsForEquipment(V2_EQUIPMENT.v2_sanctum_sig_priest_armor), [
+      "heal",
+      "low_hp",
+      "set",
+    ]);
+    expectTags(buildTagsForEquipment(V2_EQUIPMENT.v2_swamp_sig_venom_gloves), [
+      "crit",
+      "evasion",
+      "speed",
+      "set",
+    ]);
+    expectTags(buildTagsForEquipment(V2_EQUIPMENT.v2_den_sig_alpha_greatsword), [
+      "bleed",
+      "dot",
+      "set",
+    ]);
+    expectTags(buildTagsForEquipment(V2_EQUIPMENT.v2_crafted_oathblade), [
+      "tank",
+      "set",
+    ]);
+  });
+
+  it("모든 장비 세트와 태그 세트는 빌드 태그를 가진다", () => {
+    for (const set of V2_EQUIP_SETS) {
+      expect(set.buildTags?.length ?? 0, set.id).toBeGreaterThan(0);
+      for (const tag of set.buildTags ?? []) {
+        expect(V2_BUILD_TAG_LABEL[tag], `${set.id}:${tag}`).toBeTruthy();
+      }
+    }
+    for (const set of V2_EQUIP_TAG_SETS) {
+      expect(set.buildTags?.length ?? 0, set.id).toBeGreaterThan(0);
+      for (const tag of set.buildTags ?? []) {
+        expect(V2_BUILD_TAG_LABEL[tag], `${set.id}:${tag}`).toBeTruthy();
+      }
+    }
   });
 
   it("스킬 태그 — 효과·패시브에서 빌드 축을 추론한다", () => {

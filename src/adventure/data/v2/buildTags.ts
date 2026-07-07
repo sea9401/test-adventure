@@ -1,5 +1,9 @@
 import type { StatKey } from "@/adventure/data/stats";
-import type { V2Equipment } from "./v2Equipment";
+import {
+  V2_EQUIP_SETS,
+  V2_EQUIP_TAG_SETS,
+  type V2Equipment,
+} from "./v2Equipment";
 import type {
   V2PassiveSkillEffect,
   V2SkillDefinition,
@@ -59,16 +63,21 @@ export const V2_BUILD_TAGS: readonly V2BuildTagDef[] = [
   { id: "speed", label: "속도", group: "combat", showInEquipmentCodex: true },
   { id: "tank", label: "탱커", group: "combat", showInEquipmentCodex: true },
   { id: "heal", label: "회복", group: "combat", showInEquipmentCodex: true },
-  { id: "shield", label: "보호막", group: "combat" },
-  { id: "low_hp", label: "저체력", group: "combat" },
+  { id: "shield", label: "보호막", group: "combat", showInEquipmentCodex: true },
+  { id: "low_hp", label: "저체력", group: "combat", showInEquipmentCodex: true },
   { id: "poison", label: "독", group: "status", showInEquipmentCodex: true },
   { id: "bleed", label: "출혈", group: "status", showInEquipmentCodex: true },
   { id: "burn", label: "화상", group: "status" },
-  { id: "dot", label: "지속피해", group: "status" },
-  { id: "vulnerability", label: "취약", group: "status" },
-  { id: "execute", label: "처형", group: "combat" },
-  { id: "pierce", label: "관통", group: "combat" },
-  { id: "resource", label: "자원", group: "utility" },
+  { id: "dot", label: "지속피해", group: "status", showInEquipmentCodex: true },
+  {
+    id: "vulnerability",
+    label: "취약",
+    group: "status",
+    showInEquipmentCodex: true,
+  },
+  { id: "execute", label: "처형", group: "combat", showInEquipmentCodex: true },
+  { id: "pierce", label: "관통", group: "combat", showInEquipmentCodex: true },
+  { id: "resource", label: "자원", group: "utility", showInEquipmentCodex: true },
   { id: "fishing", label: "낚시", group: "utility" },
   { id: "guild", label: "길드", group: "utility" },
   {
@@ -105,6 +114,14 @@ export const V2_EQUIPMENT_OPTION_BUILD_TAGS: Readonly<
   healPowerPct: ["magic", "heal"],
   critResist: ["tank"],
 };
+
+const V2_EQUIP_SET_BUILD_TAGS = new Map(
+  V2_EQUIP_SETS.map((set) => [set.id, set.buildTags ?? []]),
+);
+
+const V2_EQUIP_TAG_SET_BUILD_TAGS = new Map(
+  V2_EQUIP_TAG_SETS.map((set) => [set.id, set.buildTags ?? []]),
+);
 
 function addStatTag(tags: Set<V2BuildTagId>, stat: StatKey): void {
   if (stat === "str") tags.add("str");
@@ -162,8 +179,25 @@ export function buildTagsForEquipment(item: V2Equipment): V2BuildTagId[] {
   }
   if ((item.signature?.enemyDefDebuffPct ?? 0) > 0) tags.add("vulnerability");
   if ((item.signature?.mpRefundPctOfCost ?? 0) > 0) tags.add("resource");
+  if ((item.signature?.spdBuffPct ?? 0) > 0 || (item.signature?.chillSlowPct ?? 0) > 0) {
+    tags.add("speed");
+  }
+  if (item.signature?.statusBlockOnce) tags.add("tank");
   if (item.signature) tags.add("signature");
-  if (item.setId || (item.setTags?.length ?? 0) > 0) tags.add("set");
+  if (item.setId) {
+    tags.add("set");
+    for (const tag of V2_EQUIP_SET_BUILD_TAGS.get(item.setId) ?? []) {
+      tags.add(tag);
+    }
+  }
+  if ((item.setTags?.length ?? 0) > 0) {
+    tags.add("set");
+    for (const setTag of item.setTags ?? []) {
+      for (const tag of V2_EQUIP_TAG_SET_BUILD_TAGS.get(setTag) ?? []) {
+        tags.add(tag);
+      }
+    }
+  }
 
   return orderedBuildTags(tags);
 }

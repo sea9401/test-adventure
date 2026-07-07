@@ -5,6 +5,9 @@ import {
   FarmError,
   emptyFarmState,
   getFarmDeliveryRequests,
+  getFarmShopItems,
+  getFarmSpecialDeliveryRequests,
+  getFarmWeeklyDeliveryRequests,
   isFarmCropId,
   normalizeFarmForDay,
   parseFarmState,
@@ -49,6 +52,9 @@ export async function POST(req: Request) {
       farm: next,
       crops: FARM_CROP_LIST,
       deliveries: getFarmDeliveryRequests(),
+      specialDeliveries: getFarmSpecialDeliveryRequests(),
+      weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
+      shopItems: getFarmShopItems(),
     });
   } catch (e) {
     if (e instanceof FarmError) {

@@ -6,6 +6,9 @@ import {
   claimFarmDelivery,
   emptyFarmState,
   getFarmDeliveryRequests,
+  getFarmShopItems,
+  getFarmSpecialDeliveryRequests,
+  getFarmWeeklyDeliveryRequests,
   normalizeFarmForDay,
   parseFarmState,
 } from "@/adventure/v2/farm";
@@ -46,6 +49,9 @@ export async function POST(req: Request) {
       farm,
       crops: FARM_CROP_LIST,
       deliveries: getFarmDeliveryRequests(),
+      specialDeliveries: getFarmSpecialDeliveryRequests(),
+      weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
+      shopItems: getFarmShopItems(),
       deliveryResult: result,
     });
   } catch (e) {

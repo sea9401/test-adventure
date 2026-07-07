@@ -20,14 +20,18 @@ import {
   type FarmCrop,
   type FarmCropId,
   type FarmDeliveryRequest,
+  type FarmItemInventory,
   type FarmItemId,
   type FarmPlot,
   type FarmSeedInventory,
+  type FarmShopItem,
+  type FarmSpecialDeliveryRequest,
   type FarmState,
+  type FarmWeeklyDeliveryRequest,
 } from "./farm";
 import { useFarm } from "./useFarm";
 
-type FarmSectionKey = "grow" | "delivery";
+type FarmSectionKey = "grow" | "delivery" | "shop";
 
 const ITEM_LABELS: Record<FarmItemId, string> = {
   wheat: "밀",
@@ -49,17 +53,29 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     loading,
     busyPlotId,
     busyDeliveryId,
+    busySpecialDeliveryId,
+    busyWeeklyDeliveryId,
+    busyShopItemId,
     error,
     now,
     farm,
     crops,
     deliveries,
+    specialDeliveries,
+    weeklyDeliveries,
+    shopItems,
     lastResult,
     lastDeliveryResult,
+    lastSpecialDeliveryResult,
+    lastWeeklyDeliveryResult,
+    lastShopResult,
     refresh,
     plant,
     harvest,
     deliver,
+    deliverSpecial,
+    deliverWeekly,
+    buyShopItem,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
   const [activeSection, setActiveSection] = useState<FarmSectionKey>("grow");
@@ -87,10 +103,22 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               !claimed &&
               have >= delivery.requiredQuantity
             );
-          }).length
+          }).length +
+          specialDeliveries.filter((delivery) =>
+            hasRequiredItems(farm.inventory, delivery.requiredItems),
+          ).length +
+          weeklyDeliveries.filter(
+            (delivery) =>
+              !farm.weekly.claimedIds.includes(delivery.id) &&
+              hasRequiredItems(farm.inventory, delivery.requiredItems),
+          ).length
         : 0,
-    [deliveries, farm, deliveryLimitReached],
+    [deliveries, farm, deliveryLimitReached, specialDeliveries, weeklyDeliveries],
   );
+  const availableReputation = farm ? farmAvailableReputation(farm) : 0;
+  const affordableShopCount = farm
+    ? shopItems.filter((item) => availableReputation >= item.costReputation).length
+    : 0;
   const farmTabs = useMemo(
     () =>
       [
@@ -106,13 +134,19 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           icon: <Package size={16} weight="duotone" />,
           badge: deliverableCount > 0 ? deliverableCount : undefined,
         },
+        {
+          key: "shop",
+          label: "상점",
+          icon: <Sparkle size={16} weight="duotone" />,
+          badge: affordableShopCount > 0 ? affordableShopCount : undefined,
+        },
       ] satisfies ReadonlyArray<{
         key: FarmSectionKey;
         label: string;
         icon: ReactNode;
         badge?: number;
       }>,
-    [deliverableCount, readyPlotCount],
+    [affordableShopCount, deliverableCount, readyPlotCount],
   );
 
   return (
@@ -186,6 +220,32 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               </div>
             )}
 
+            {lastSpecialDeliveryResult && (
+              <ResultNotice
+                title={`${lastSpecialDeliveryResult.title} 납품 완료`}
+                rewardReputation={lastSpecialDeliveryResult.rewardReputation}
+                rewardSeeds={lastSpecialDeliveryResult.rewardSeeds}
+              />
+            )}
+
+            {lastWeeklyDeliveryResult && (
+              <ResultNotice
+                title={`${lastWeeklyDeliveryResult.title} 납품 완료`}
+                rewardReputation={lastWeeklyDeliveryResult.rewardReputation}
+                rewardSeeds={lastWeeklyDeliveryResult.rewardSeeds}
+              />
+            )}
+
+            {lastShopResult && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+                {lastShopResult.title} 구매 완료. 농장 명성{" "}
+                {lastShopResult.costReputation}을 사용했습니다.
+                {hasSeedRewards(lastShopResult.rewardSeeds)
+                  ? ` 씨앗 보상: ${formatSeedRewards(lastShopResult.rewardSeeds)}.`
+                  : ""}
+              </div>
+            )}
+
             <TabBar
               tabs={farmTabs}
               active={activeSection}
@@ -237,7 +297,31 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 onDeliver={deliver}
               />
 
+              <RareDeliveryBoard
+                deliveries={specialDeliveries}
+                inventory={farm.inventory}
+                busyDeliveryId={busySpecialDeliveryId}
+                onDeliver={deliverSpecial}
+              />
+
+              <WeeklyDeliveryBoard
+                deliveries={weeklyDeliveries}
+                inventory={farm.inventory}
+                claimedIds={farm.weekly.claimedIds}
+                busyDeliveryId={busyWeeklyDeliveryId}
+                onDeliver={deliverWeekly}
+              />
+
               <InventoryPanel inventory={farm.inventory} />
+            </div>
+
+            <div className={activeSection === "shop" ? "space-y-4" : "hidden"}>
+              <FarmShopPanel
+                items={shopItems}
+                availableReputation={availableReputation}
+                busyShopItemId={busyShopItemId}
+                onBuy={buyShopItem}
+              />
             </div>
           </div>
         ) : (
@@ -286,8 +370,8 @@ function FarmSummary({
       />
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
-        label="농장 명성"
-        value={farm.stats.reputation.toLocaleString("ko-KR")}
+        label="사용 명성"
+        value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}/${farm.stats.reputation.toLocaleString("ko-KR")}`}
       />
       <SummaryTile
         icon={<Package size={17} weight="duotone" />}
@@ -321,6 +405,25 @@ function FarmGrowthPanel({ farm }: { farm: FarmState }) {
   );
 }
 
+function ResultNotice({
+  title,
+  rewardReputation,
+  rewardSeeds,
+}: {
+  title: string;
+  rewardReputation: number;
+  rewardSeeds: FarmSeedInventory;
+}) {
+  return (
+    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+      {title}. 농장 명성 {rewardReputation}을 받았습니다.
+      {hasSeedRewards(rewardSeeds)
+        ? ` 씨앗 보상: ${formatSeedRewards(rewardSeeds)}.`
+        : ""}
+    </div>
+  );
+}
+
 function SummaryTile({
   icon,
   label,
@@ -337,6 +440,219 @@ function SummaryTile({
         {label}
       </div>
       <div className="mt-1 text-base font-black">{value}</div>
+    </div>
+  );
+}
+
+function RareDeliveryBoard({
+  deliveries,
+  inventory,
+  busyDeliveryId,
+  onDeliver,
+}: {
+  deliveries: FarmSpecialDeliveryRequest[];
+  inventory: FarmItemInventory;
+  busyDeliveryId: string | null;
+  onDeliver: (requestId: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <Sparkle size={17} weight="duotone" className="text-emerald-500" />
+        희귀 수확 납품
+      </div>
+      <div className="grid gap-2 lg:grid-cols-3">
+        {deliveries.map((delivery) => {
+          const enough = hasRequiredItems(inventory, delivery.requiredItems);
+          const busy = busyDeliveryId === delivery.id;
+          return (
+            <DeliveryRequestCard
+              key={delivery.id}
+              title={delivery.title}
+              note={delivery.note}
+              requirementText={formatItemRequirements(
+                delivery.requiredItems,
+                inventory,
+              )}
+              rewardText={`명성 ${delivery.rewardReputation} · ${formatSeedRewards(delivery.rewardSeeds)}`}
+              buttonText={
+                busy ? "납품 중..." : enough ? "희귀 납품" : "재료 부족"
+              }
+              disabled={!enough || busy}
+              onClick={() => onDeliver(delivery.id)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WeeklyDeliveryBoard({
+  deliveries,
+  inventory,
+  claimedIds,
+  busyDeliveryId,
+  onDeliver,
+}: {
+  deliveries: FarmWeeklyDeliveryRequest[];
+  inventory: FarmItemInventory;
+  claimedIds: string[];
+  busyDeliveryId: string | null;
+  onDeliver: (requestId: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <Package size={17} weight="duotone" className="text-emerald-500" />
+        주간 농장 납품
+      </div>
+      <div className="grid gap-2 lg:grid-cols-3">
+        {deliveries.map((delivery) => {
+          const claimed = claimedIds.includes(delivery.id);
+          const enough = hasRequiredItems(inventory, delivery.requiredItems);
+          const busy = busyDeliveryId === delivery.id;
+          return (
+            <DeliveryRequestCard
+              key={delivery.id}
+              title={delivery.title}
+              note={delivery.note}
+              requirementText={formatItemRequirements(
+                delivery.requiredItems,
+                inventory,
+              )}
+              rewardText={`명성 ${delivery.rewardReputation} · ${formatSeedRewards(delivery.rewardSeeds)}`}
+              buttonText={
+                busy
+                  ? "납품 중..."
+                  : claimed
+                    ? "이번 주 완료"
+                    : enough
+                      ? "주간 납품"
+                      : "재료 부족"
+              }
+              disabled={claimed || !enough || busy}
+              onClick={() => onDeliver(delivery.id)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DeliveryRequestCard({
+  title,
+  note,
+  requirementText,
+  rewardText,
+  buttonText,
+  disabled,
+  onClick,
+}: {
+  title: string;
+  note: string;
+  requirementText: string;
+  rewardText: string;
+  buttonText: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="font-bold text-zinc-900 dark:text-zinc-100">{title}</div>
+      <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+        {note}
+      </p>
+      <div className="mt-3 rounded-md bg-zinc-50 px-2.5 py-2 text-xs dark:bg-zinc-900">
+        <div className="flex justify-between gap-2">
+          <span className="text-zinc-500 dark:text-zinc-400">필요</span>
+          <span className="text-right font-semibold text-zinc-800 dark:text-zinc-100">
+            {requirementText}
+          </span>
+        </div>
+        <div className="mt-1 flex justify-between gap-2">
+          <span className="text-zinc-500 dark:text-zinc-400">보상</span>
+          <span className="text-right font-semibold text-emerald-700 dark:text-emerald-300">
+            {rewardText}
+          </span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+      >
+        {buttonText}
+      </button>
+    </div>
+  );
+}
+
+function FarmShopPanel({
+  items,
+  availableReputation,
+  busyShopItemId,
+  onBuy,
+}: {
+  items: FarmShopItem[];
+  availableReputation: number;
+  busyShopItemId: string | null;
+  onBuy: (itemId: string) => void;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <Sparkle size={17} weight="duotone" className="text-emerald-500" />
+          농장 평판 상점
+        </div>
+        <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          사용 가능 {availableReputation.toLocaleString("ko-KR")}
+        </span>
+      </div>
+      <div className="grid gap-2 lg:grid-cols-3">
+        {items.map((item) => {
+          const affordable = availableReputation >= item.costReputation;
+          const busy = busyShopItemId === item.id;
+          return (
+            <div
+              key={item.id}
+              className="flex min-h-[11rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              <div className="font-bold text-zinc-900 dark:text-zinc-100">
+                {item.title}
+              </div>
+              <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                {item.note}
+              </p>
+              <div className="mt-3 rounded-md bg-zinc-50 px-2.5 py-2 text-xs dark:bg-zinc-900">
+                <div className="flex justify-between gap-2">
+                  <span className="text-zinc-500 dark:text-zinc-400">비용</span>
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                    명성 {item.costReputation}
+                  </span>
+                </div>
+                <div className="mt-1 flex justify-between gap-2">
+                  <span className="text-zinc-500 dark:text-zinc-400">획득</span>
+                  <span className="text-right font-semibold text-emerald-700 dark:text-emerald-300">
+                    {formatSeedRewards(item.rewardSeeds)}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onBuy(item.id)}
+                disabled={!affordable || busy}
+                className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+              >
+                {busy ? "구매 중..." : affordable ? "구매하기" : "명성 부족"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -626,6 +942,36 @@ function formatSeedRewards(seeds: FarmSeedInventory): string {
 
 function hasSeedRewards(seeds: FarmSeedInventory): boolean {
   return Object.values(seeds).some((count) => (count ?? 0) > 0);
+}
+
+function farmAvailableReputation(farm: FarmState): number {
+  return Math.max(0, farm.stats.reputation - farm.stats.reputationSpent);
+}
+
+function hasRequiredItems(
+  inventory: FarmItemInventory,
+  requirements: FarmItemInventory,
+): boolean {
+  return Object.entries(requirements).every(([itemId, count]) => {
+    const required = Math.max(0, Math.floor(Number(count) || 0));
+    return (inventory[itemId as FarmItemId] ?? 0) >= required;
+  });
+}
+
+function formatItemRequirements(
+  requirements: FarmItemInventory,
+  inventory: FarmItemInventory,
+): string {
+  const entries = Object.entries(requirements).filter(
+    ([, count]) => (count ?? 0) > 0,
+  ) as [FarmItemId, number][];
+  if (entries.length === 0) return "없음";
+  return entries
+    .map(([itemId, count]) => {
+      const have = inventory[itemId] ?? 0;
+      return `${ITEM_LABELS[itemId] ?? itemId} ${have}/${count}`;
+    })
+    .join(", ");
 }
 
 function plotLabel(id: string): string {

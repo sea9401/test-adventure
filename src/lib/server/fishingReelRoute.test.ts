@@ -2,10 +2,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, upsertFishingRecord } = vi.hoisted(() => ({
-  store: new Map<string, unknown>(),
-  upsertFishingRecord: vi.fn(async () => {}),
-}));
+const { store, upsertFishingRecord, incrementGuildExplorationProgressForUser } =
+  vi.hoisted(() => ({
+    store: new Map<string, unknown>(),
+    upsertFishingRecord: vi.fn(async () => {}),
+    incrementGuildExplorationProgressForUser: vi.fn(async () => null),
+  }));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
@@ -15,6 +17,9 @@ vi.mock("@/lib/server/serverFeed", () => ({
 }));
 vi.mock("@/lib/server/fishing/records", () => ({
   upsertFishingRecord,
+}));
+vi.mock("@/lib/server/guildExplorationWeekly", () => ({
+  incrementGuildExplorationProgressForUser,
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -50,6 +55,7 @@ function reelReq(body: Record<string, unknown>): Request {
 function seedFisherSession(now: number) {
   store.clear();
   upsertFishingRecord.mockClear();
+  incrementGuildExplorationProgressForUser.mockClear();
   store.set("character.v2", {
     class: "survivor",
     specChoice: "fisher",

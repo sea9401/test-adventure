@@ -729,6 +729,13 @@
       "when": 1783208866412,
       "tag": "0103_hard_sangoon_enrage",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1783213200000,
+      "tag": "0104_guild_chat_channel",
+      "breakpoints": true
     }
   ]
 }

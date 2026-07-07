@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChatCircle } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
-import { ChatPanel, type ChatMessage } from "./ChatPanel";
+import { ChatPanel, type ChatChannel, type ChatMessage } from "./ChatPanel";
 
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
@@ -13,9 +13,10 @@ const POLL_INTERVAL_OPEN_MS = 1500;
 // 채팅 / 알림(협동 보스 등) 의 "마지막으로 본 메시지 id" 를 따로 저장 — 둘이 섞이지 않게.
 const LAST_SEEN_KEY = "chat:lastSeenId";
 const LAST_SEEN_NOTICE_KEY = "chat:lastSeenNoticeId";
+const LAST_SEEN_GUILD_KEY = "chat:lastSeenGuildId";
 
-async function fetchMessages(): Promise<ChatMessage[]> {
-  const res = await fetch("/api/chat", { cache: "no-store" });
+async function fetchMessages(channel: ChatChannel): Promise<ChatMessage[]> {
+  const res = await fetch(`/api/chat?channel=${channel}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
   return res.json();
 }
@@ -35,20 +36,29 @@ export function ChatButton({
   name,
   className,
   title,
+  viewerGuildId,
   onSent,
 }: {
   name: string;
   className: string;
   title: string | null;
+  viewerGuildId: number | null;
   /** 메시지 전송 성공 시 1회 호출 — '수다쟁이' 칭호 카운터 등에 사용. */
   onSent?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [lastSeenChatId, setLastSeenChatId] = useState<number>(() => readId(LAST_SEEN_KEY));
+  const [guildMessages, setGuildMessages] = useState<ChatMessage[]>([]);
+  const [lastSeenChatId, setLastSeenChatId] = useState<number>(() =>
+    readId(LAST_SEEN_KEY),
+  );
+  const [lastSeenGuildId, setLastSeenGuildId] = useState<number>(() =>
+    readId(LAST_SEEN_GUILD_KEY),
+  );
   const [lastSeenNoticeId, setLastSeenNoticeId] = useState<number>(() =>
     readId(LAST_SEEN_NOTICE_KEY),
   );
+  const guildAvailable = viewerGuildId != null;
 
   // 패널이 닫혀 있어도 항상 폴링 — 새 메시지 도착 감지용.
   // open 이 바뀌면 effect 가 다시 실행돼 즉시 한 번 fetch + 새 주기로 재시작.
@@ -57,9 +67,13 @@ export function ChatButton({
     let initialized = false;
     const tick = async () => {
       try {
-        const next = await fetchMessages();
+        const [next, nextGuild] = await Promise.all([
+          fetchMessages("global"),
+          guildAvailable ? fetchMessages("guild").catch(() => []) : [],
+        ]);
         if (cancelled) return;
         setMessages(next);
+        setGuildMessages(nextGuild);
         if (!initialized) {
           initialized = true;
           // 한 번도 채팅을 본 적 없는 유저라면 (lastSeen === 0), 첫 폴링 결과의
@@ -70,6 +84,10 @@ export function ChatButton({
           );
           const lastNotice = next.reduce(
             (mx, m) => (isNoticeMessage(m) && m.id > mx ? m.id : mx),
+            0,
+          );
+          const lastGuild = nextGuild.reduce(
+            (mx, m) => (m.id > mx ? m.id : mx),
             0,
           );
           // 두 경우에 prev 를 현재 최신 id 로 맞춤:
@@ -89,6 +107,12 @@ export function ChatButton({
             writeId(LAST_SEEN_NOTICE_KEY, lastNotice);
             return lastNotice;
           });
+          setLastSeenGuildId((prev) => {
+            if (lastGuild === 0) return prev;
+            if (prev !== 0 && prev <= lastGuild) return prev;
+            writeId(LAST_SEEN_GUILD_KEY, lastGuild);
+            return lastGuild;
+          });
         }
       } catch {
         // 네트워크 오류는 다음 폴링에서 자동 재시도.
@@ -103,30 +127,45 @@ export function ChatButton({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [open]);
+  }, [open, guildAvailable, viewerGuildId]);
 
   // ChatPanel 이 보고 있는 탭의 최신 메시지를 본 것으로 처리.
-  const handleSeen = useCallback((kind: "chat" | "notice", lastId: number) => {
-    if (kind === "chat") {
-      setLastSeenChatId((prev) => {
-        if (lastId <= prev) return prev;
-        writeId(LAST_SEEN_KEY, lastId);
-        return lastId;
-      });
-    } else {
-      setLastSeenNoticeId((prev) => {
-        if (lastId <= prev) return prev;
-        writeId(LAST_SEEN_NOTICE_KEY, lastId);
-        return lastId;
-      });
-    }
-  }, []);
+  const handleSeen = useCallback(
+    (kind: "chat" | "guild" | "notice", lastId: number) => {
+      if (kind === "chat") {
+        setLastSeenChatId((prev) => {
+          if (lastId <= prev) return prev;
+          writeId(LAST_SEEN_KEY, lastId);
+          return lastId;
+        });
+      } else if (kind === "guild") {
+        setLastSeenGuildId((prev) => {
+          if (lastId <= prev) return prev;
+          writeId(LAST_SEEN_GUILD_KEY, lastId);
+          return lastId;
+        });
+      } else {
+        setLastSeenNoticeId((prev) => {
+          if (lastId <= prev) return prev;
+          writeId(LAST_SEEN_NOTICE_KEY, lastId);
+          return lastId;
+        });
+      }
+    },
+    [],
+  );
 
   const handleMessageSent = useCallback(
     (m: ChatMessage) => {
-      setMessages((prev) =>
-        prev.some((x) => x.id === m.id) ? prev : [...prev, m],
-      );
+      if (m.channel === "guild") {
+        setGuildMessages((prev) =>
+          prev.some((x) => x.id === m.id) ? prev : [...prev, m],
+        );
+      } else {
+        setMessages((prev) =>
+          prev.some((x) => x.id === m.id) ? prev : [...prev, m],
+        );
+      }
       onSent?.();
     },
     [onSent],
@@ -135,9 +174,13 @@ export function ChatButton({
   const hasUnreadChat = messages.some(
     (m) => !isNoticeMessage(m) && m.id > lastSeenChatId && !m.mine,
   );
+  const hasUnreadGuild = guildMessages.some(
+    (m) => m.id > lastSeenGuildId && !m.mine,
+  );
   const hasUnreadNotice = messages.some(
     (m) => isNoticeMessage(m) && m.id > lastSeenNoticeId && !m.mine,
   );
+  const hasUnread = hasUnreadChat || hasUnreadGuild || hasUnreadNotice;
 
   return (
     <>
@@ -148,16 +191,16 @@ export function ChatButton({
         aria-expanded={open}
         aria-label={
           open
-            ? "전체 채팅 닫기"
-            : hasUnreadChat
-              ? "전체 채팅 열기 (새 메시지 있음)"
-              : "전체 채팅 열기"
+            ? "채팅 닫기"
+            : hasUnread
+              ? "채팅 열기 (새 메시지 있음)"
+              : "채팅 열기"
         }
-        title="전체 채팅"
+        title="채팅"
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         <ChatCircle size={20} weight="duotone" />
-        {hasUnreadChat ? (
+        {hasUnreadChat || hasUnreadGuild ? (
           <span
             aria-hidden
             className="absolute right-0.5 top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950"
@@ -179,8 +222,11 @@ export function ChatButton({
         className={className}
         title={title}
         messages={messages}
+        guildMessages={guildMessages}
+        guildAvailable={guildAvailable}
         onMessageSent={handleMessageSent}
         unreadChat={hasUnreadChat}
+        unreadGuild={hasUnreadGuild}
         unreadNotice={hasUnreadNotice}
         onSeen={handleSeen}
       />

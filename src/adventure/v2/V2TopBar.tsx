@@ -18,6 +18,7 @@ export function V2TopBar({
   playerLevel,
   bankedGold,
   coreLoopOn,
+  viewerGuildId,
 }: {
   // 현재 표시할 허브명. 없으면 기본 문구.
   locationName: string | null;
@@ -25,6 +26,7 @@ export function V2TopBar({
   playerName: string;
   playerLevel: number;
   bankedGold: number;
+  viewerGuildId: number | null;
   // 코어루프 on 이면 좌상단 은행 금액 대신 캐릭터 이름·레벨을 표기.
   coreLoopOn: boolean;
 }) {
@@ -64,7 +66,12 @@ export function V2TopBar({
         <NotificationBell />
         {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).
             v2 는 인벤토리 미연결이라 아이템 링크 없이 텍스트 채팅만. */}
-        <ChatButton name={playerName} className="" title={null} />
+        <ChatButton
+          name={playerName}
+          className=""
+          title={null}
+          viewerGuildId={viewerGuildId}
+        />
         <V2SettingsMenu gameName={gameName} />
       </nav>
     </header>

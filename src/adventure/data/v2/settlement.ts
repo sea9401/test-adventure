@@ -330,7 +330,7 @@ export const EXPLORATION_HQ_UPGRADES: readonly ExplorationHqUpgradeDef[] = [
   {
     level: 5,
     cost: { crop: 4500, ore: 3200, gold: 80_000_000, fame: 5600 },
-    weeklyMissionCount: 3,
+    weeklyMissionCount: 4,
     missionProgressBonusPct: 35,
     label: "대륙 탐사 본부",
   },

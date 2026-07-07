@@ -51,6 +51,7 @@ import {
   type RareMapInstance,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
+import { GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH } from "@/adventure/data/v2/guildExploration";
 import {
   HUNT_COST,
   MAX_STAMINA,
@@ -907,6 +908,15 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       1,
       new Date(now),
     );
+    if (depth >= GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH) {
+      await incrementGuildExplorationProgressForUser(
+        tx,
+        userId,
+        "deepHuntWins",
+        1,
+        new Date(now),
+      );
+    }
   }
 
   return {

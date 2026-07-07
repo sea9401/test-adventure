@@ -130,8 +130,8 @@ export function GuildContent() {
         <Em>
           {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
         </Em>
-        로 계산하고, 이후 사냥·낚시 의뢰가 추가로 열립니다. 완료 시 길드 금고와
-        길드 명성을 보상으로 받습니다.
+        로 계산하고, 이후 사냥·낚시·고난도 사냥 의뢰가 추가로 열립니다. 완료 시
+        길드 금고와 길드 명성을 보상으로 받습니다.
       </P>
       <Table
         head={["레벨", "단계", "주간 탐사", "진척 보너스"]}

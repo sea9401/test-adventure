@@ -47,6 +47,13 @@ export type V2BuildPresetProgress = {
   unequippedLearnedSkillIds: V2SkillId[];
 };
 
+export type V2BuildPresetRecommendation = {
+  preset: V2BuildPreset;
+  progress: V2BuildPresetProgress;
+  rank: number;
+  reason: string;
+};
+
 export const BUILD_GOALS_SAVE_KEY = "build-goals.v2";
 export const MAX_ACTIVE_BUILD_GOALS = 3;
 
@@ -254,4 +261,57 @@ export function buildPresetProgress(
       (id) => learnedSkillIds.has(id) && !equippedSkillIds.has(id),
     ),
   };
+}
+
+export function buildPresetRecommendationReason(
+  progress: V2BuildPresetProgress,
+): string {
+  if (progress.score >= progress.maxScore) return "완성 상태";
+  if (
+    progress.skillsLearned >= progress.skillsTotal &&
+    progress.unequippedLearnedSkillIds.length > 0
+  ) {
+    return "스킬 장착만 보강";
+  }
+  if (
+    progress.equipmentOwned >= progress.equipmentTotal &&
+    progress.equipmentRegistered < progress.equipmentTotal
+  ) {
+    return "도감 등록 보강";
+  }
+  if (progress.skillsLearned >= progress.skillsTotal) return "스킬 학습 완료";
+  if (progress.equipmentOwned >= progress.equipmentTotal) return "장비 보유 완료";
+  if (progress.equipmentOwned > progress.skillsLearned) return "장비 기반 우세";
+  if (progress.skillsLearned > progress.equipmentOwned) return "스킬 기반 우세";
+  return "균형 진행";
+}
+
+export function recommendBuildPresets(
+  presets: readonly V2BuildPreset[],
+  input: V2BuildPresetProgressInput,
+): V2BuildPresetRecommendation[] {
+  return presets
+    .map((preset, index) => {
+      const progress = buildPresetProgress(preset, input);
+      return { preset, progress, index };
+    })
+    .sort((a, b) => {
+      if (a.progress.score !== b.progress.score) {
+        return b.progress.score - a.progress.score;
+      }
+      if (a.progress.pct !== b.progress.pct) return b.progress.pct - a.progress.pct;
+      if (a.progress.skillsEquipped !== b.progress.skillsEquipped) {
+        return b.progress.skillsEquipped - a.progress.skillsEquipped;
+      }
+      if (a.progress.equipmentOwned !== b.progress.equipmentOwned) {
+        return b.progress.equipmentOwned - a.progress.equipmentOwned;
+      }
+      return a.index - b.index;
+    })
+    .map(({ preset, progress }, index) => ({
+      preset,
+      progress,
+      rank: index + 1,
+      reason: buildPresetRecommendationReason(progress),
+    }));
 }

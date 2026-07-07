@@ -5,6 +5,7 @@ import {
   V2_BUILD_PRESETS,
   buildPresetProgress,
   parseBuildGoalsState,
+  recommendBuildPresets,
   setBuildGoalActive,
 } from "./buildPresets";
 import { V2_EQUIPMENT } from "./v2Equipment";
@@ -87,5 +88,23 @@ describe("v2 build presets", () => {
     expect(progress.missingEquipmentIds).toEqual(preset.equipmentIds.slice(2));
     expect(progress.missingSkillIds).toEqual(preset.skillIds.slice(2));
     expect(progress.unequippedLearnedSkillIds).toEqual([preset.skillIds[1]]);
+  });
+
+  it("현재 보유 상태에 가까운 프리셋을 추천 순으로 정렬한다", () => {
+    const [venom, relic, arcane] = V2_BUILD_PRESETS;
+    const recommendations = recommendBuildPresets([venom, relic, arcane], {
+      ownedEquipmentIds: new Set([...arcane.equipmentIds, relic.equipmentIds[0]]),
+      registeredEquipmentIds: new Set([arcane.equipmentIds[0]]),
+      learnedSkillIds: new Set(arcane.skillIds),
+      equippedSkillIds: new Set([arcane.skillIds[0], arcane.skillIds[1]]),
+    });
+
+    expect(recommendations.map((entry) => entry.preset.id)).toEqual([
+      arcane.id,
+      relic.id,
+      venom.id,
+    ]);
+    expect(recommendations[0].rank).toBe(1);
+    expect(recommendations[0].reason).toBe("스킬 장착만 보강");
   });
 });

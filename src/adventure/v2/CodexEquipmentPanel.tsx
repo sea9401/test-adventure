@@ -48,7 +48,7 @@ import {
 import {
   MAX_ACTIVE_BUILD_GOALS,
   V2_BUILD_PRESETS,
-  buildPresetProgress,
+  recommendBuildPresets,
   type V2BuildPresetId,
 } from "@/adventure/data/v2/buildPresets";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
@@ -546,6 +546,13 @@ export function CodexEquipmentPanel({
     return { owned, eligible };
   })();
   const ownedBuildEquipmentIds = new Set(equipmentCounts.owned.keys());
+  const buildRecommendations = recommendBuildPresets(V2_BUILD_PRESETS, {
+    ownedEquipmentIds: ownedBuildEquipmentIds,
+    registeredEquipmentIds: equipmentRegisteredIds,
+    learnedSkillIds: learnedBuildSkillIds,
+    equippedSkillIds: equippedBuildSkillIds,
+  });
+  const topBuildRecommendations = buildRecommendations.slice(0, 3);
   const equipmentSlotEntries = equipmentEntries
     .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot)
     .filter((id) =>
@@ -698,16 +705,33 @@ export function CodexEquipmentPanel({
                 {buildGoalMsg}
               </p>
             )}
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {topBuildRecommendations.map(({ preset, progress, rank, reason }) => (
+                <div
+                  key={preset.id}
+                  className="rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/40"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      추천 {rank}
+                    </span>
+                    <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {progress.pct}%
+                    </span>
+                  </div>
+                  <div className="mt-1 truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">
+                    {preset.name}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {reason}
+                  </div>
+                </div>
+              ))}
+            </div>
             <div className="mt-3 grid gap-2 lg:grid-cols-2">
-              {V2_BUILD_PRESETS.map((preset) => {
+              {buildRecommendations.map(({ preset, progress, rank, reason }) => {
                 const goalActive = activeBuildGoalIds.has(preset.id);
                 const busy = buildGoalBusy === preset.id;
-                const progress = buildPresetProgress(preset, {
-                  ownedEquipmentIds: ownedBuildEquipmentIds,
-                  registeredEquipmentIds: equipmentRegisteredIds,
-                  learnedSkillIds: learnedBuildSkillIds,
-                  equippedSkillIds: equippedBuildSkillIds,
-                });
                 const missingEquipmentText = progress.missingEquipmentIds
                   .slice(0, 2)
                   .map((id) => V2_EQUIPMENT[id]?.name ?? id)
@@ -731,8 +755,13 @@ export function CodexEquipmentPanel({
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                          {preset.name}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                            {preset.name}
+                          </span>
+                          <span className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                            추천 {rank} · {reason}
+                          </span>
                         </div>
                         <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                           {preset.summary}

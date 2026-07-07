@@ -214,13 +214,10 @@ export function V2MasteryTowerView({
         </StatusBanner>
       )}
 
-      <Card padding="md" className="space-y-3">
+      <Card padding="md" className="space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold">오늘의 등반</h2>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              재도전은 무제한입니다. 보상은 오늘 최고층 기준으로 한 번만 수령합니다.
-            </p>
           </div>
           <button
             type="button"
@@ -238,47 +235,94 @@ export function V2MasteryTowerView({
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-              <Stat label="오늘 최고층" value={`${status.tower.todayBestFloor}층`} />
-              <Stat label="역대 최고층" value={`${status.tower.lifetimeBestFloor}층`} />
-              <Stat label="내 전투력" value={status.power.toLocaleString("ko-KR")} />
-              <Stat
-                label="보유 증서"
-                value={status.certificates.toLocaleString("ko-KR")}
-              />
-            </div>
-
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/60">
-              {status.nextFloor == null ? (
-                <p className="font-medium text-emerald-600 dark:text-emerald-400">
-                  오늘 50층까지 돌파했습니다.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  <p>
-                    다음 도전:{" "}
-                    <span className="font-semibold">{status.nextFloor}층</span>{" "}
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      권장 전투력 {status.nextRequiredPower?.toLocaleString("ko-KR")}
-                    </span>
+            <div className="rounded-md border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    다음 목표
                   </p>
-                  {status.nextGuardian && (
-                    <div className="grid grid-cols-2 gap-1.5 text-xs sm:grid-cols-4">
-                      <Stat
-                        label={status.nextGuardian.name}
-                        value={`HP ${status.nextGuardian.hp.toLocaleString("ko-KR")}`}
+                  {status.nextFloor == null ? (
+                    <p className="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                      50층 완료
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-3xl font-bold tabular-nums">
+                      {status.nextFloor}층
+                    </p>
+                  )}
+                  {status.nextFloor != null && (
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      권장 전투력{" "}
+                      {status.nextRequiredPower?.toLocaleString("ko-KR") ?? "-"}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:text-right">
+                  <CompactMetric
+                    label="오늘 최고"
+                    value={`${status.tower.todayBestFloor}층`}
+                  />
+                  <CompactMetric
+                    label="역대 최고"
+                    value={`${status.tower.lifetimeBestFloor}층`}
+                  />
+                  <CompactMetric
+                    label="수령 예정"
+                    value={status.claimPreview.total.toLocaleString("ko-KR")}
+                  />
+                  <CompactMetric
+                    label="보유 증서"
+                    value={status.certificates.toLocaleString("ko-KR")}
+                  />
+                </div>
+              </div>
+
+              {cooldownSeconds > 0 && (
+                <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  재입장 대기 중 · {cooldownSeconds}초 후 1층부터 다시 시작
+                </p>
+              )}
+
+              {status.nextGuardian && (
+                <details className="group mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                    <span>
+                      {status.nextGuardian.name}
+                      {status.nextGuardian.gimmickName
+                        ? ` · ${status.nextGuardian.gimmickName}`
+                        : ""}
+                    </span>
+                    <span className="text-xs text-zinc-400 group-open:hidden">
+                      펼치기
+                    </span>
+                    <span className="hidden text-xs text-zinc-400 group-open:inline">
+                      접기
+                    </span>
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:grid-cols-4">
+                      <CompactMetric
+                        label="HP"
+                        value={status.nextGuardian.hp.toLocaleString("ko-KR")}
                       />
-                      <Stat
-                        label={status.nextGuardian.atkType === "magic" ? "마법 공격" : "물리 공격"}
+                      <CompactMetric
+                        label={
+                          status.nextGuardian.atkType === "magic"
+                            ? "마법 공격"
+                            : "물리 공격"
+                        }
                         value={status.nextGuardian.atk.toLocaleString("ko-KR")}
                       />
-                      <Stat label="방어" value={status.nextGuardian.def.toLocaleString("ko-KR")} />
-                      <Stat label="속도" value={status.nextGuardian.spd.toLocaleString("ko-KR")} />
+                      <CompactMetric
+                        label="방어"
+                        value={status.nextGuardian.def.toLocaleString("ko-KR")}
+                      />
+                      <CompactMetric
+                        label="속도"
+                        value={status.nextGuardian.spd.toLocaleString("ko-KR")}
+                      />
                     </div>
-                  )}
-                  {status.nextGuardian && (
-                    <>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                       명중 {status.nextGuardian.accuracy}% · 회피{" "}
                       {status.nextGuardian.evasionPct}% · 치명{" "}
                       {status.nextGuardian.critPct}% · 추가타{" "}
@@ -289,31 +333,13 @@ export function V2MasteryTowerView({
                             .join(" / ")}`
                         : ""}
                     </p>
-                    {status.nextGuardian.gimmickName && (
-                      <div className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200">
-                        <span className="font-semibold">
-                          {status.nextGuardian.gimmickName}
-                        </span>{" "}
+                    {status.nextGuardian.gimmickDescription && (
+                      <p className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
                         {status.nextGuardian.gimmickDescription}
-                      </div>
+                      </p>
                     )}
-                    </>
-                  )}
-                </div>
-              )}
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                수령 예정: 기본{" "}
-                {status.claimPreview.base.toLocaleString("ko-KR")} + 첫 도달{" "}
-                {status.claimPreview.firstClearBonus.toLocaleString("ko-KR")} ={" "}
-                <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                  {status.claimPreview.total.toLocaleString("ko-KR")}
-                </span>
-              </p>
-              {cooldownSeconds > 0 && (
-                <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-                  패배 후 재입장 대기 중입니다. {cooldownSeconds}초 후 1층부터 다시
-                  시작할 수 있습니다.
-                </p>
+                  </div>
+                </details>
               )}
             </div>
 
@@ -453,27 +479,29 @@ export function V2MasteryTowerView({
       )}
 
       {status && (
-        <Card padding="md" className="space-y-2">
-          <h2 className="text-base font-semibold">보상표</h2>
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            {status.rewards.samples.map((row) => (
-              <div
-                key={row.floor}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                <div className="font-semibold">{row.floor}층</div>
-                <div className="text-zinc-500 dark:text-zinc-400">
-                  {row.reward.toLocaleString("ko-KR")}
-                </div>
+        <Card padding="md">
+          <details>
+            <summary className="cursor-pointer list-none text-base font-semibold">
+              보상표
+            </summary>
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-xs">
+                {status.rewards.samples.map((row) => (
+                  <CompactMetric
+                    key={row.floor}
+                    label={`${row.floor}층`}
+                    value={row.reward.toLocaleString("ko-KR")}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            첫 도달 보너스:{" "}
-            {status.rewards.milestones
-              .map((m) => `${m.floor}층 +${m.bonus}`)
-              .join(" · ")}
-          </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                첫 도달 보너스:{" "}
+                {status.rewards.milestones
+                  .map((m) => `${m.floor}층 +${m.bonus}`)
+                  .join(" · ")}
+              </p>
+            </div>
+          </details>
         </Card>
       )}
     </main>
@@ -485,13 +513,11 @@ function towerSkillName(id: string): string {
   return skill?.name ?? id;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function CompactMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-        {label}
-      </div>
-      <div className="mt-0.5 text-sm font-semibold tabular-nums">{value}</div>
+    <div>
+      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{label}</div>
+      <div className="mt-0.5 font-semibold tabular-nums">{value}</div>
     </div>
   );
 }

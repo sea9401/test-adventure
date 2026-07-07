@@ -28,7 +28,7 @@ import {
   type V2Equipment,
   type V2EquipmentId,
   type V2EquipSlot,
-  type V2EquipTier,
+  type V2EquipCatalogTier,
 } from "../src/adventure/data/v2/v2Equipment";
 import type { DungeonFloorId } from "../src/adventure/data/v2/types";
 
@@ -39,7 +39,7 @@ const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 // 한 티어의 6슬롯 풀세팅. 가장 흔한 빌드: str 무기 / heavy 갑옷·장갑·신발 / 운 반지 / 마법 목걸이.
 // PR-4a — v2Equipped 슬롯 맵을 반환(derivePlayerCombatV2Pure 가 위력/무게로 처리).
 function loadoutForTier(
-  tier: V2EquipTier | null,
+  tier: V2EquipCatalogTier | null,
 ): Partial<Record<V2EquipSlot, V2EquipmentId>> {
   if (tier === null) return {};
   const bySlotTier = (slot: V2EquipSlot, concept: V2Equipment["concept"]) =>
@@ -62,7 +62,7 @@ function loadoutForTier(
   return eq;
 }
 
-function deriveLoadout(tier: V2EquipTier | null): PlayerCombat {
+function deriveLoadout(tier: V2EquipCatalogTier | null): PlayerCombat {
   // 올바른 v2 derive — 단련 0 으로 고정(LEVEL 만, 장비만 변인).
   const d = derivePlayerCombatV2Pure({
     level: LEVEL,
@@ -83,7 +83,7 @@ type CaseResult = {
 };
 
 function simBattle(
-  tier: V2EquipTier | null,
+  tier: V2EquipCatalogTier | null,
   floor: DungeonFloorId,
   trials: number,
 ): CaseResult {
@@ -120,7 +120,7 @@ function simBattle(
 type DropDistribution = {
   trials: number;
   dropped: number;
-  byTier: Partial<Record<V2EquipTier, number>>;
+  byTier: Partial<Record<V2EquipCatalogTier, number>>;
 };
 
 function simDrops(
@@ -146,7 +146,7 @@ console.log(`\n=== 1) 장비 세팅 × 층 — 통과율·평균 턴 (LEVEL=${LE
 const headers = ["설정", ...FLOORS.map((f) => `F${f}`)];
 console.log(headers.map((s) => s.padEnd(14)).join(""));
 
-const setups: { label: string; tier: V2EquipTier | null }[] = [
+const setups: { label: string; tier: V2EquipCatalogTier | null }[] = [
   { label: "장비없음", tier: null },
   { label: "T1 풀세팅", tier: 1 },
   { label: "T2 풀세팅", tier: 2 },
@@ -178,7 +178,7 @@ for (const floor of FLOORS) {
     .sort((a, b) => a - b);
   const tierStr = tiers
     .map((t) => {
-      const cnt = r.byTier[t as V2EquipTier] ?? 0;
+      const cnt = r.byTier[t as V2EquipCatalogTier] ?? 0;
       const pct = r.dropped > 0 ? ((cnt / r.dropped) * 100).toFixed(0) : "0";
       return `T${t}:${pct}%`;
     })
@@ -201,7 +201,7 @@ const r3Pct = (r3.dropped / r3.trials) * 100;
 const r3Tiers = Object.keys(r3.byTier)
   .map(Number)
   .sort((a, b) => a - b)
-  .map((t) => `T${t}:${r3.byTier[t as V2EquipTier]}회`);
+  .map((t) => `T${t}:${r3.byTier[t as V2EquipCatalogTier]}회`);
 console.log(
   `드랍 ${r3Pct.toFixed(1)}% (T1 슬롯 잃음 → 풀 마른 시 그 굴림 null)`,
 );

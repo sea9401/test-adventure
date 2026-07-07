@@ -53,7 +53,7 @@ describe("coopRewards", () => {
     expect(COOP_EQUIPMENT_BOX.mountain_chief_hard).toMatchObject({
       name: "흉포한 산군 5T 장비 상자",
       displayTier: 5,
-      tiers: [13],
+      catalogTiers: [13],
     });
     expect(COOP_HARD_EXTRA_REWARD_RULES.bronze.bossMaterial).toBe(1);
     expect(COOP_HARD_EXTRA_REWARD_RULES.silver.bossMaterial).toBe(2);
@@ -76,7 +76,7 @@ describe("coopRewards", () => {
     expect(COOP_EQUIPMENT_BOX.abyssal_tyrant).toMatchObject({
       name: "심연어룡 5T 장비 상자",
       displayTier: 5,
-      tiers: [13],
+      catalogTiers: [13],
     });
     expect(coopExtraRewardRuleFor("abyssal_tyrant", "silver").equipmentBoxChance)
       .toBe(0);
@@ -124,8 +124,8 @@ describe("coopRewards", () => {
         expect(COOP_EQUIPMENT_BOX[boss].itemIds).toContain(got);
         continue;
       }
-      const tiers = COOP_EQUIPMENT_BOX[boss].tiers;
-      expect(tiers).toContain(item.tier);
+      const catalogTiers = COOP_EQUIPMENT_BOX[boss].catalogTiers;
+      expect(catalogTiers).toContain(item.tier);
       expect(isUnique(item)).toBe(false);
       expect(item.craftOnly).not.toBe(true);
       expect(item.starterOnly).not.toBe(true);
@@ -138,11 +138,11 @@ describe("coopRewards", () => {
       "lake_sovereign",
       "void_priest",
     ] as const) {
-      const tiers = COOP_EQUIPMENT_BOX[boss].tiers;
+      const catalogTiers = COOP_EQUIPMENT_BOX[boss].catalogTiers;
       for (const point of [0, 0.25, 0.5, 0.75, 0.999]) {
         const got = rollCoopEquipmentBoxItem(boss, () => point);
         expect(got).toBeTruthy();
-        expect(tiers).toContain(V2_EQUIPMENT[got!].tier);
+        expect(catalogTiers).toContain(V2_EQUIPMENT[got!].tier);
       }
     }
   });

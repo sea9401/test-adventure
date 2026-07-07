@@ -4,8 +4,8 @@ import {
   craftQualityStars,
   powerWithBonuses,
   scaledEquipWeight,
-  v2EquipDisplayTierOf,
-  v2EquipTierDisplayLabel,
+  v2EquipCatalogTierToDisplayTier,
+  v2EquipCatalogTierDisplayLabel,
   v2EquipPowerLabel,
   type V2CraftQualityState,
   type V2Equipment,
@@ -13,7 +13,7 @@ import {
   type V2EquipRoll,
   type V2EquipSlot,
   type V2EquipStatRow,
-  type V2EquipTier,
+  type V2EquipCatalogTier,
 } from "@/adventure/data/v2/v2Equipment";
 import { VARIANCE_FRACTION } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
@@ -348,17 +348,17 @@ export function EquipmentTierBadge({
   compact = false,
   className = "",
 }: {
-  tier: V2EquipTier;
+  tier: V2EquipCatalogTier;
   compact?: boolean;
   className?: string;
 }) {
   return (
     <span
-      className={`ui-equipment-tier-badge ui-equipment-display-tier-${v2EquipDisplayTierOf(tier)} inline-flex shrink-0 items-center rounded-md border border-zinc-200 bg-white/80 font-semibold tabular-nums text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300 ${
+      className={`ui-equipment-tier-badge ui-equipment-display-tier-${v2EquipCatalogTierToDisplayTier(tier)} inline-flex shrink-0 items-center rounded-md border border-zinc-200 bg-white/80 font-semibold tabular-nums text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-300 ${
         compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-0.5 text-[11px]"
       } ${className}`}
     >
-      {v2EquipTierDisplayLabel(tier)}
+      {v2EquipCatalogTierDisplayLabel(tier)}
     </span>
   );
 }

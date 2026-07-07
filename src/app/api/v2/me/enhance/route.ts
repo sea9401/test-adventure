@@ -3,6 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   isUnique,
+  enhanceGoldCostForEquipment,
   parseEquipmentSave,
   removeInstance,
   V2_EQUIPMENT,
@@ -17,7 +18,6 @@ import {
   ENHANCE_UNIQUE_COST_MULT,
   demoteEnhance,
   enhanceBonusPct,
-  enhanceGoldCost,
   enhanceOutcomeRow,
   enhanceStoneCost,
   rollEnhanceOutcome,
@@ -36,7 +36,7 @@ import {
 //             골드만 모드에선 의미가 없어 거부(개체 보호).
 //
 // 결과(4종, enhanceOutcomeRow): 성공(+1·구간 보너스) / 유지 / 하락(−1) / 파괴(개체 소멸).
-// 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCost(제곱 램프), 유니크 ×2 —
+// 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCostForEquipment(티어 보정 제곱 램프), 유니크 ×2 —
 // 성공/실패 무관 선차감.
 // 락 순서: character.v2 → equipment.v2 (처분 라우트들과 동일).
 
@@ -152,7 +152,8 @@ export async function POST(req: Request) {
     const stoneCost =
       stone === "none" || feed ? 0 : enhanceStoneCost(level) * uniqueMult;
     const basePower = inst.roll?.power ?? item.power;
-    const goldCost = enhanceGoldCost(basePower, level) * uniqueMult;
+    const goldCost =
+      enhanceGoldCostForEquipment(item, basePower, level) * uniqueMult;
 
     const mats = { ...(charSave.materials ?? {}) };
     const haveStones = stoneId

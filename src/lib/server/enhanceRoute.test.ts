@@ -31,9 +31,11 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { POST } from "@/app/api/v2/me/enhance/route";
 import {
   ENHANCE_STONE_MATERIAL_ID,
-  enhanceGoldCost,
 } from "@/adventure/data/v2/v2Enhance";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  enhanceGoldCostForEquipment,
+  V2_EQUIPMENT,
+} from "@/adventure/data/v2/v2Equipment";
 
 const WEAPON = "v2_den_greatsword"; // 흔한(noDrop normal) — 유니크 배수 없음 가정 검증은 isUnique 따라.
 const RED = ENHANCE_STONE_MATERIAL_ID.red;
@@ -127,7 +129,9 @@ describe("POST /api/v2/me/enhance", () => {
     expect(json.outcome).toBe("success");
     expect(json.enhance).toEqual({ level: 1, bonusPct: 2 });
     expect(json.stoneCost).toBe(1);
-    expect(json.goldCost).toBe(enhanceGoldCost(300, 0)); // 300×15×1 = 4,500
+    expect(json.goldCost).toBe(
+      enhanceGoldCostForEquipment(V2_EQUIPMENT[WEAPON], 300, 0),
+    ); // 일반 4T 장비는 300×15×1 = 4,500
     const char = store.get("character.v2") as CharSave;
     expect(char.materials[BLUE]).toBe(49);
     expect(char.gold).toBe(1_000_000 - json.goldCost);
@@ -291,7 +295,7 @@ describe("POST /api/v2/me/enhance", () => {
       (id) =>
         (V2_EQUIPMENT[id as keyof typeof V2_EQUIPMENT] as { rarity?: string })
           .rarity === "unique",
-    )!;
+    )! as keyof typeof V2_EQUIPMENT;
     store.set("equipment.v2", {
       owned: [{ iid: "u1", id: uniqueId, roll: { power: 200, weight: 3 } }],
       equipped: {},
@@ -300,6 +304,8 @@ describe("POST /api/v2/me/enhance", () => {
     const res = await POST(req({ iid: "u1", stone: "blue" }));
     const json = (await res.json()) as { stoneCost: number; goldCost: number };
     expect(json.stoneCost).toBe(2); // 1 × 2
-    expect(json.goldCost).toBe(enhanceGoldCost(200, 0) * 2);
+    expect(json.goldCost).toBe(
+      enhanceGoldCostForEquipment(V2_EQUIPMENT[uniqueId], 200, 0) * 2,
+    );
   });
 });

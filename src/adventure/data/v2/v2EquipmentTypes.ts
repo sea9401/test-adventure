@@ -18,7 +18,7 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier =
+export type V2EquipCatalogTier =
   | 1
   | 2
   | 3
@@ -95,7 +95,8 @@ export type V2EquipmentBase<Id extends string = string> = {
   id: Id;
   slot: V2EquipSlot;
   concept: V2EquipConcept;
-  tier: V2EquipTier;
+  /** 내부 카탈로그 단계. 화면 표시는 V2EquipDisplayTier 로 압축해서 노출한다. */
+  tier: V2EquipCatalogTier;
   name: string;
   description: string;
   power: number;

@@ -1,9 +1,9 @@
 // v2 던전 장비 드랍 — 사용자 결정: 장비는 던전 전담.
 // 거점·토너먼트·본전쟁·아레나는 골드/EXP/점수/자원만, 장비 X.
 //
-// 자료구조: 층별로 (chance, tierWeights). 한 사냥당 장비 굴림 1회 — rng() 가 chance
-// 미만이면 통과. 통과 시 tierWeights 가중 랜덤으로 티어 선택, 그 티어 안에서 컨셉
-// 균등 랜덤. 이미 보유한 id 는 후보에서 제외 (장비는 unique).
+// 자료구조: 층별로 (chance, catalogTierWeights). 한 사냥당 장비 굴림 1회 — rng() 가 chance
+// 미만이면 통과. 통과 시 catalogTierWeights 가중 랜덤으로 카탈로그 티어를 선택하고,
+// 그 카탈로그 티어 안에서 컨셉 균등 랜덤. 이미 보유한 id 는 후보에서 제외 (장비는 unique).
 //
 // 컨셉 균등 = "어떤 빌드든 펜션 비슷한 속도" 의 단순화. PR-4 sim 캘리브 단계에서 가중·
 // 확률 튜닝.
@@ -12,14 +12,14 @@ import {
   V2_EQUIPMENT,
   isUnique,
   type V2EquipmentId,
-  type V2EquipTier,
+  type V2EquipCatalogTier,
 } from "./v2Equipment";
 
 export type FloorEquipDropPool = {
   /** 사냥 1회당 장비 굴림 확률 [0, 1]. */
   chance: number;
-  /** 통과 시 가중 티어 pick. 합산 가중치 = 분모. */
-  tierWeights: Partial<Record<V2EquipTier, number>>;
+  /** 통과 시 가중 카탈로그 티어 pick. 합산 가중치 = 분모. */
+  catalogTierWeights: Partial<Record<V2EquipCatalogTier, number>>;
 };
 
 // 드랍 = 스타터 구간(들판, 깊이 1~6)에서만. 단일 풀 균일 — 깊이별 램프 없이 한 값.
@@ -29,8 +29,8 @@ export type FloorEquipDropPool = {
 //   2026-06-19: "깊은 산" 삭제로 스타터 구간 1~12 → 1~6(들판만)로 축소. 7+ 는 밴드 드랍.
 export const STARTER_END_DEPTH = 6; // 들판(1~6) = 스타터 구간
 export const STARTER_DROP_POOL: FloorEquipDropPool = {
-  chance: 0.012, // 총 드랍률(2026-06-13 ÷5 — 거래 활성화). tierWeights 3:2:1.
-  tierWeights: { 1: 3, 2: 2, 3: 1 },
+  chance: 0.012, // 총 드랍률(2026-06-13 ÷5 — 거래 활성화). catalogTierWeights 3:2:1.
+  catalogTierWeights: { 1: 3, 2: 2, 3: 1 },
 };
 
 // 깊이 → 드랍 풀. 스타터 구간(1~6)만 풀, 프론티어(7+)는 null(밴드 콘텐츠 전 정규 드랍 없음).
@@ -39,7 +39,8 @@ export function dropPoolForDepth(depth: number): FloorEquipDropPool | null {
   return null;
 }
 
-const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3]);
+const VALID_CATALOG_TIERS: ReadonlySet<V2EquipCatalogTier> =
+  new Set<V2EquipCatalogTier>([1, 2, 3]);
 
 // 결정적 테스트 + 서버 무작위 모두 같은 함수 시그니처. rng() ∈ [0, 1).
 // 굴림 실패·티어 후보 풀 0·이미 다 보유 → null.
@@ -67,23 +68,24 @@ export function rollEquipDrop(
   // 1) 통과 굴림
   if (rng() >= Math.min(1, pool.chance * chanceMult)) return null;
 
-  // 2) 티어 가중 pick
-  const tiers: V2EquipTier[] = [];
+  // 2) 카탈로그 티어 가중 pick
+  const catalogTiers: V2EquipCatalogTier[] = [];
   let totalWeight = 0;
-  for (const k of Object.keys(pool.tierWeights)) {
-    const t = Number(k) as V2EquipTier;
-    if (!VALID_TIERS.has(t)) continue;
-    const w = pool.tierWeights[t] ?? 0;
+  for (const k of Object.keys(pool.catalogTierWeights)) {
+    const t = Number(k) as V2EquipCatalogTier;
+    if (!VALID_CATALOG_TIERS.has(t)) continue;
+    const w = pool.catalogTierWeights[t] ?? 0;
     if (w <= 0) continue;
-    tiers.push(t);
+    catalogTiers.push(t);
     totalWeight += w;
   }
-  if (totalWeight <= 0 || tiers.length === 0) return null;
+  if (totalWeight <= 0 || catalogTiers.length === 0) return null;
 
   let roll = rng() * totalWeight;
-  let pickedTier: V2EquipTier = tiers[tiers.length - 1];
-  for (const t of tiers) {
-    const w = pool.tierWeights[t] ?? 0;
+  let pickedTier: V2EquipCatalogTier =
+    catalogTiers[catalogTiers.length - 1];
+  for (const t of catalogTiers) {
+    const w = pool.catalogTierWeights[t] ?? 0;
     if (roll < w) {
       pickedTier = t;
       break;

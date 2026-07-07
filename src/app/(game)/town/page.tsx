@@ -22,6 +22,9 @@ export default function TownPage() {
           case "open-fishing":
             router.push("/town/fishing");
             break;
+          case "open-farm":
+            router.push("/town/farm");
+            break;
           case "open-treasure":
             router.push("/town/treasure");
             break;

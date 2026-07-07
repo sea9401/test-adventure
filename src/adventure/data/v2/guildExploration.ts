@@ -7,11 +7,13 @@ import {
 export type GuildExplorationWeeklyMissionId =
   | "weekly_coop_epic_30"
   | "weekly_hunt_win_500"
-  | "weekly_fishing_catch_120";
+  | "weekly_fishing_catch_120"
+  | "weekly_deep_hunt_win_100";
 
 export type GuildExplorationWeeklyMetric =
   | "coopBossTierClaims"
   | "huntWins"
+  | "deepHuntWins"
   | "fishingCatches";
 
 export type GuildExplorationWeeklyMission = {
@@ -28,6 +30,7 @@ export type GuildExplorationWeeklyState = {
   weekKey: string;
   coopEpicProgress: number;
   huntWinProgress: number;
+  deepHuntWinProgress: number;
   fishingCatchProgress: number;
   claimed: GuildExplorationWeeklyMissionId[];
 };
@@ -46,6 +49,8 @@ export const GUILD_EXPLORATION_COOP_MIN_TIER: CoopRewardTier = "epic";
 export const GUILD_EXPLORATION_COOP_WEEKLY_TARGET = 30;
 export const GUILD_EXPLORATION_HUNT_WEEKLY_TARGET = 500;
 export const GUILD_EXPLORATION_FISHING_WEEKLY_TARGET = 120;
+export const GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH = 49;
+export const GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET = 100;
 export const GUILD_EXPLORATION_PROGRESS_UNIT = 100;
 
 export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
@@ -75,6 +80,14 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     metric: "fishingCatches",
     goal: GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
     rewardGold: 2_000_000,
+    rewardFame: 150,
+  },
+  weekly_deep_hunt_win_100: {
+    id: "weekly_deep_hunt_win_100",
+    title: `${GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH}층 이상 사냥 승리 ${GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET}회`,
+    metric: "deepHuntWins",
+    goal: GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
+    rewardGold: 3_000_000,
     rewardFame: 150,
   },
 };
@@ -107,6 +120,7 @@ function emptyExplorationWeeklyState(
     weekKey: currentWeekKey,
     coopEpicProgress: 0,
     huntWinProgress: 0,
+    deepHuntWinProgress: 0,
     fishingCatchProgress: 0,
     claimed: [],
   };
@@ -140,6 +154,10 @@ export function parseGuildExplorationWeeklyState(
       0,
       Math.floor(Number(obj.huntWinProgress) || 0),
     ),
+    deepHuntWinProgress: Math.max(
+      0,
+      Math.floor(Number(obj.deepHuntWinProgress) || 0),
+    ),
     fishingCatchProgress: Math.max(
       0,
       Math.floor(Number(obj.fishingCatchProgress) || 0),
@@ -170,6 +188,7 @@ function progressForMetric(
 ): number {
   if (metric === "coopBossTierClaims") return state.coopEpicProgress;
   if (metric === "huntWins") return state.huntWinProgress;
+  if (metric === "deepHuntWins") return state.deepHuntWinProgress;
   if (metric === "fishingCatches") return state.fishingCatchProgress;
   return 0;
 }
@@ -224,6 +243,12 @@ export function addGuildExplorationProgress(
     return {
       ...state,
       fishingCatchProgress: state.fishingCatchProgress + amount,
+    };
+  }
+  if (metric === "deepHuntWins") {
+    return {
+      ...state,
+      deepHuntWinProgress: state.deepHuntWinProgress + amount,
     };
   }
   return state;

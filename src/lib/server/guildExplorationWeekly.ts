@@ -32,6 +32,7 @@ function rowToState(
         weekKey?: string | null;
         coopEpicProgress?: number | null;
         huntWinProgress?: number | null;
+        deepHuntWinProgress?: number | null;
         fishingCatchProgress?: number | null;
         claimed?: unknown;
       }
@@ -45,6 +46,7 @@ function rowToState(
           weekKey: row.weekKey,
           coopEpicProgress: row.coopEpicProgress,
           huntWinProgress: row.huntWinProgress,
+          deepHuntWinProgress: row.deepHuntWinProgress,
           fishingCatchProgress: row.fishingCatchProgress,
           claimed: row.claimed,
         }
@@ -69,6 +71,7 @@ export async function lockGuildExplorationWeeklyState(
         weekKey: guildExplorationWeekly.weekKey,
         coopEpicProgress: guildExplorationWeekly.coopEpicProgress,
         huntWinProgress: guildExplorationWeekly.huntWinProgress,
+        deepHuntWinProgress: guildExplorationWeekly.deepHuntWinProgress,
         fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
         claimed: guildExplorationWeekly.claimed,
       })
@@ -95,6 +98,7 @@ export async function readGuildExplorationWeeklyState(
         weekKey: guildExplorationWeekly.weekKey,
         coopEpicProgress: guildExplorationWeekly.coopEpicProgress,
         huntWinProgress: guildExplorationWeekly.huntWinProgress,
+        deepHuntWinProgress: guildExplorationWeekly.deepHuntWinProgress,
         fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
         claimed: guildExplorationWeekly.claimed,
       })
@@ -117,6 +121,7 @@ export async function saveGuildExplorationWeeklyState(
       weekKey: state.weekKey,
       coopEpicProgress: state.coopEpicProgress,
       huntWinProgress: state.huntWinProgress,
+      deepHuntWinProgress: state.deepHuntWinProgress,
       fishingCatchProgress: state.fishingCatchProgress,
       claimed: guildExplorationWeeklyClaimedPayload(state),
       updatedAt: new Date(),
@@ -127,6 +132,7 @@ export async function saveGuildExplorationWeeklyState(
         weekKey: state.weekKey,
         coopEpicProgress: state.coopEpicProgress,
         huntWinProgress: state.huntWinProgress,
+        deepHuntWinProgress: state.deepHuntWinProgress,
         fishingCatchProgress: state.fishingCatchProgress,
         claimed: guildExplorationWeeklyClaimedPayload(state),
         updatedAt: new Date(),

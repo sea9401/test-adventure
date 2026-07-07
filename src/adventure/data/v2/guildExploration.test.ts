@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   GUILD_EXPLORATION_COOP_MIN_TIER,
   GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
+  GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH,
+  GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
   GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
   GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
   GUILD_EXPLORATION_PROGRESS_UNIT,
@@ -35,6 +37,7 @@ describe("guild exploration weekly missions", () => {
       "weekly_coop_epic_30",
       "weekly_hunt_win_500",
       "weekly_fishing_catch_120",
+      "weekly_deep_hunt_win_100",
     ]);
     expect(GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_hunt_win_500).toMatchObject({
       metric: "huntWins",
@@ -50,6 +53,15 @@ describe("guild exploration weekly missions", () => {
       rewardGold: 2_000_000,
       rewardFame: 150,
     });
+    expect(
+      GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_deep_hunt_win_100,
+    ).toMatchObject({
+      metric: "deepHuntWins",
+      goal: GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
+      rewardGold: 3_000_000,
+      rewardFame: 150,
+    });
+    expect(GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH).toBe(49);
   });
 
   it("accepts only EPIC or higher coop tiers", () => {
@@ -83,16 +95,24 @@ describe("guild exploration weekly missions", () => {
       20,
       2,
     );
+    const deepHunted = addGuildExplorationProgress(
+      fished,
+      "deepHuntWins",
+      20,
+      4,
+    );
 
-    expect(fished.huntWinProgress).toBe(360);
-    expect(fished.fishingCatchProgress).toBe(240);
-    expect(guildExplorationWeeklyMissionViews(fished, 3).map((v) => v.id))
+    expect(deepHunted.huntWinProgress).toBe(360);
+    expect(deepHunted.fishingCatchProgress).toBe(240);
+    expect(deepHunted.deepHuntWinProgress).toBe(480);
+    expect(guildExplorationWeeklyMissionViews(deepHunted, 4).map((v) => v.id))
       .toEqual([
         "weekly_coop_epic_30",
         "weekly_hunt_win_500",
         "weekly_fishing_catch_120",
+        "weekly_deep_hunt_win_100",
       ]);
-    expect(guildExplorationWeeklyMissionViews(fished, 2).map((v) => v.id))
+    expect(guildExplorationWeeklyMissionViews(deepHunted, 2).map((v) => v.id))
       .toEqual(["weekly_coop_epic_30", "weekly_hunt_win_500"]);
   });
 
@@ -102,6 +122,7 @@ describe("guild exploration weekly missions", () => {
       coopEpicProgress: GUILD_EXPLORATION_COOP_WEEKLY_TARGET *
         GUILD_EXPLORATION_PROGRESS_UNIT,
       huntWinProgress: 0,
+      deepHuntWinProgress: 0,
       fishingCatchProgress: 0,
       claimed: [],
     };

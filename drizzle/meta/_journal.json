@@ -750,6 +750,13 @@
       "when": 1783220400000,
       "tag": "0106_guild_exploration_weekly",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1783224000000,
+      "tag": "0107_guild_exploration_deep_hunt",
+      "breakpoints": true
     }
   ]
 }

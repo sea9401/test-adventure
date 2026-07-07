@@ -786,6 +786,7 @@ const ERR_MESSAGES: Record<string, string> = {
   smithy_required: "길드 대장간이 필요해요.",
   max_level: "이미 최고 레벨이에요.",
   insufficient_resources: "정착지 재화가 부족해요.",
+  insufficient_fame: "길드 명성이 부족해요.",
   "load_failed:401": "로그인이 필요해요. 새로고침 후 다시 시도해주세요.",
   "load_failed:500": "마을 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
   "load_failed:network": "네트워크 오류로 마을 정보를 불러오지 못했어요.",

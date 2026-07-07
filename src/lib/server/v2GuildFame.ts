@@ -26,3 +26,40 @@ export async function addGuildFame(
     })
     .where(eq(guilds.id, guildId));
 }
+
+export async function lockGuildFame(
+  tx: Tx,
+  guildId: number,
+): Promise<{ fameTotal: number; fameAvailable: number } | null> {
+  const row = (
+    await tx
+      .select({
+        fameTotal: guilds.fameTotal,
+        fameAvailable: guilds.fameAvailable,
+      })
+      .from(guilds)
+      .where(eq(guilds.id, guildId))
+      .for("update")
+      .limit(1)
+  )[0];
+  if (!row) return null;
+  return {
+    fameTotal: Math.max(0, row.fameTotal),
+    fameAvailable: Math.max(0, row.fameAvailable),
+  };
+}
+
+export async function spendGuildFame(
+  tx: Tx,
+  guildId: number,
+  cost: number,
+): Promise<void> {
+  const spend = Math.floor(cost);
+  if (!(spend > 0)) return;
+  await tx
+    .update(guilds)
+    .set({
+      fameAvailable: sql`${guilds.fameAvailable} - ${spend}`,
+    })
+    .where(eq(guilds.id, guildId));
+}

@@ -56,8 +56,8 @@ export const PRODUCTION_KIND_NAME: Record<ProductionKind, string> = {
   ore: "철광석",
 };
 export const SETTLEMENT_RESOURCE_NAME: Record<ProductionKind, string> = {
-  crop: "길드 목재",
-  ore: "길드 철재",
+  crop: "통나무",
+  ore: "철광석",
 };
 // 종류별 간단 아이콘(이모지) — 슬롯/재화 표시용.
 export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
@@ -142,9 +142,16 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
 
+export type SettlementBuildingUpgradeCost = Partial<
+  Record<ProductionKind, number>
+> & {
+  gold?: number;
+  fame?: number;
+};
+
 export type SettlementBuildingUpgradeDef = {
   level: number;
-  cost: Partial<Record<ProductionKind, number>>;
+  cost: SettlementBuildingUpgradeCost;
   qualityChanceBonusPct: number;
   weeklyProgressBonusPct: number;
   label: string;
@@ -160,28 +167,28 @@ export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
   },
   {
     level: 2,
-    cost: { crop: 600, ore: 900 },
+    cost: { crop: 300, ore: 450, gold: 10_000_000, fame: 500 },
     qualityChanceBonusPct: 1,
     weeklyProgressBonusPct: 10,
     label: "담금질 설비",
   },
   {
     level: 3,
-    cost: { crop: 1600, ore: 2400 },
+    cost: { crop: 800, ore: 1200, gold: 20_000_000, fame: 1200 },
     qualityChanceBonusPct: 2,
     weeklyProgressBonusPct: 20,
     label: "명장 화로",
   },
   {
     level: 4,
-    cost: { crop: 3600, ore: 5200 },
+    cost: { crop: 1800, ore: 2600, gold: 40_000_000, fame: 2500 },
     qualityChanceBonusPct: 4,
     weeklyProgressBonusPct: 30,
     label: "장인 조합 설비",
   },
   {
     level: 5,
-    cost: { crop: 7200, ore: 9800 },
+    cost: { crop: 3600, ore: 4900, gold: 70_000_000, fame: 5000 },
     qualityChanceBonusPct: 6,
     weeklyProgressBonusPct: 40,
     label: "대장장이 전당",
@@ -190,7 +197,7 @@ export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
 
 export type TrainingGroundUpgradeDef = {
   level: number;
-  cost: Partial<Record<ProductionKind, number>>;
+  cost: SettlementBuildingUpgradeCost;
   trainingRewardBonusPct: number;
   unlockedDrillCount: number;
   label: string;
@@ -206,28 +213,28 @@ export const TRAINING_GROUND_UPGRADES: readonly TrainingGroundUpgradeDef[] = [
   },
   {
     level: 2,
-    cost: { crop: 700, ore: 700 },
+    cost: { crop: 350, ore: 350, gold: 15_000_000, fame: 700 },
     trainingRewardBonusPct: 10,
     unlockedDrillCount: 1,
     label: "장비 훈련 구역",
   },
   {
     level: 3,
-    cost: { crop: 1800, ore: 1800 },
+    cost: { crop: 900, ore: 900, gold: 30_000_000, fame: 1500 },
     trainingRewardBonusPct: 20,
     unlockedDrillCount: 2,
     label: "실전 교관 배치",
   },
   {
     level: 4,
-    cost: { crop: 4200, ore: 4200 },
+    cost: { crop: 2100, ore: 2100, gold: 55_000_000, fame: 3200 },
     trainingRewardBonusPct: 35,
     unlockedDrillCount: 2,
     label: "전술 훈련장",
   },
   {
     level: 5,
-    cost: { crop: 8200, ore: 8200 },
+    cost: { crop: 4100, ore: 4100, gold: 90_000_000, fame: 6000 },
     trainingRewardBonusPct: 50,
     unlockedDrillCount: 3,
     label: "정예 훈련소",
@@ -236,7 +243,7 @@ export const TRAINING_GROUND_UPGRADES: readonly TrainingGroundUpgradeDef[] = [
 
 export type MapWorkshopUpgradeDef = {
   level: number;
-  cost: Partial<Record<ProductionKind, number>>;
+  cost: SettlementBuildingUpgradeCost;
   fragmentDiscountPct: number;
   label: string;
 };
@@ -394,7 +401,7 @@ export function settlementBuildingUpgradeSummary(
 }
 
 export function settlementBuildingUpgradeCostText(
-  cost: Partial<Record<ProductionKind, number>>,
+  cost: SettlementBuildingUpgradeCost,
 ): string {
   const parts = PRODUCTION_KINDS.filter((kind) => (cost[kind] ?? 0) > 0).map(
     (kind) =>
@@ -402,6 +409,12 @@ export function settlementBuildingUpgradeCostText(
         cost[kind] ?? 0
       ).toLocaleString()}`,
   );
+  if ((cost.gold ?? 0) > 0) {
+    parts.push(`길드 금고 ${(cost.gold ?? 0).toLocaleString()}G`);
+  }
+  if ((cost.fame ?? 0) > 0) {
+    parts.push(`길드 명성 ${(cost.fame ?? 0).toLocaleString()}`);
+  }
   return parts.length > 0 ? parts.join(" · ") : "무료";
 }
 

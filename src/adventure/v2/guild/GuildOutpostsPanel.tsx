@@ -114,22 +114,18 @@ export function GuildFacilitiesPanel({
                     {row.desc}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <span
-                    className={`inline-flex rounded px-2 py-1 text-xs font-semibold tabular-nums ${
-                      row.count > 0
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                        : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                    }`}
-                  >
-                    {row.count > 0 ? `x${row.count}` : "미개방"}
-                  </span>
-                  {row.count <= 0 && row.cost > 0 && (
-                    <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {row.cost.toLocaleString()}G
-                    </div>
-                  )}
-                </div>
+                {row.count <= 0 && (
+                  <div className="shrink-0 text-right">
+                    <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                      미개방
+                    </span>
+                    {row.cost > 0 && (
+                      <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {row.cost.toLocaleString()}G
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               {row.count > 0 && onOpenFacility && (
                 <button

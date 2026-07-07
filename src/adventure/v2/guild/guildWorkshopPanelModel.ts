@@ -316,8 +316,11 @@ export function workshopRecordQualityText(levelRaw: number): string {
 
 export function nextWorkshopGoal(state: WorkshopState | null): string {
   if (!state) return "제작 정보를 불러오는 중입니다.";
+  const firstCraftedRecipe = state.recipes.find((recipe) => recipe.craftOnly);
   if (state.workshopStats.totalCrafts <= 0) {
-    return "첫 제작 의뢰를 완료하세요.";
+    return firstCraftedRecipe
+      ? `수련 제작으로 숙련도를 올려 ${firstCraftedRecipe.itemName} 제작을 여세요.`
+      : "첫 제작 의뢰를 완료하세요.";
   }
   if (state.artisan.blacksmith.level < 2) {
     const remain = Math.max(
@@ -330,9 +333,12 @@ export function nextWorkshopGoal(state: WorkshopState | null): string {
   if (state.workshopStats.qualityCrafts <= 0) {
     return "★ 품질 장비 제작에 도전하세요.";
   }
-  const locked = state.recipes.find((recipe) => !recipe.levelOk);
+  const locked = state.recipes.find(
+    (recipe) =>
+      recipe.craftOnly && (!recipe.levelOk || !recipe.smithyLevelOk),
+  );
   if (locked) {
-    return `${locked.itemName} 해금까지 대장장이 Lv ${locked.requiredArtisanLevel}`;
+    return `${locked.itemName} 해금까지 대장장이 Lv ${locked.requiredArtisanLevel} · 대장간 Lv ${locked.requiredSmithyLevel}`;
   }
   return "장인의 길 기본 목표를 모두 달성했습니다.";
 }
@@ -430,12 +436,14 @@ export function buildWorkshopRecommendation(
       weeklyTarget.metric === "qualityCrafts";
     const masterworkRecipe = preferMasterwork
       ? bestCraftableMasterworkRecipe(state.recipes, (recipe) =>
+          recipe.craftOnly === true &&
           weeklyQuestMatchesRecipe(weeklyTarget, recipe),
         )
       : undefined;
     const normalRecipe =
       masterworkRecipe ??
       bestCraftableRecipe(state.recipes, (recipe) =>
+        recipe.craftOnly === true &&
         weeklyQuestMatchesRecipe(weeklyTarget, recipe),
       );
     if (normalRecipe) {
@@ -475,7 +483,7 @@ export function buildWorkshopRecommendation(
   }
   const craftableMasterwork = bestCraftableMasterworkRecipe(
     state.recipes,
-    () => true,
+    (recipe) => recipe.craftOnly === true,
   );
   if (craftableMasterwork) {
     return {
@@ -486,7 +494,10 @@ export function buildWorkshopRecommendation(
       tone: "masterwork",
     };
   }
-  const craftable = bestCraftableRecipe(state.recipes, () => true);
+  const craftable = bestCraftableRecipe(
+    state.recipes,
+    (recipe) => recipe.craftOnly === true,
+  );
   if (craftable) {
     return {
       title: `${craftable.itemName} 제작`,

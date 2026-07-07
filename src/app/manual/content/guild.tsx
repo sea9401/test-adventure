@@ -124,6 +124,11 @@ export function GuildContent() {
       </P>
       <UL>
         <li>
+          기본 제작 목록은 <Em>수호각인 · 질풍각인 · 룬각인</Em> 제작 세트
+          장비를 중심으로 표시됩니다. 드랍 장비와 같은 일반 레시피는 초반
+          숙련도 보강용 수련 제작으로 분리됩니다.
+        </li>
+        <li>
           일반 제작의 품질 확률 상한은 <Em>{GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%</Em>이고,
           명장 제작은 <Em>★ 이상 품질을 확정</Em>합니다.
         </li>

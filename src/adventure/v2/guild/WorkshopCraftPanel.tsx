@@ -38,6 +38,7 @@ import {
   weeklyRecipeHints,
   type CraftResultView,
   type WeeklyState,
+  type WorkshopRecipeView,
   type WorkshopState,
 } from "./guildWorkshopPanelModel";
 
@@ -102,44 +103,61 @@ export function WorkshopCraftPanel({
     "all",
   );
   const [recipeScopeFilter, setRecipeScopeFilter] = useState<
-    "all" | "craftOnly" | "craftable"
+    "all" | "craftable"
   >("all");
   const [recipeSort, setRecipeSort] = useState<"level" | "tier" | "chance">(
     "level",
   );
 
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
-  const filteredRecipes = useMemo(() => {
-    const recipes = [...(state?.recipes ?? [])].filter((recipe) => {
+  const {
+    craftedRecipes,
+    trainingRecipes,
+    totalCraftedRecipes,
+    totalTrainingRecipes,
+  } = useMemo(() => {
+    const allRecipes = state?.recipes ?? [];
+    const matchesSharedFilter = (recipe: WorkshopRecipeView) => {
       if (recipeSlotFilter !== "all" && recipe.slot !== recipeSlotFilter) {
         return false;
       }
-      if (recipeScopeFilter === "craftOnly" && !recipe.craftOnly) return false;
       if (recipeScopeFilter === "craftable" && !recipe.canCraft) return false;
       return true;
-    });
-    recipes.sort((a, b) => {
-      if (recommendedRecipeId) {
-        const ar = a.id === recommendedRecipeId ? 1 : 0;
-        const br = b.id === recommendedRecipeId ? 1 : 0;
-        if (ar !== br) return br - ar;
-      }
-      if (recipeSort === "tier") {
-        return b.tier - a.tier || a.requiredArtisanLevel - b.requiredArtisanLevel;
-      }
-      if (recipeSort === "chance") {
+    };
+    const sortRecipes = (recipes: WorkshopRecipeView[]) =>
+      recipes.sort((a, b) => {
+        if (recommendedRecipeId) {
+          const ar = a.id === recommendedRecipeId ? 1 : 0;
+          const br = b.id === recommendedRecipeId ? 1 : 0;
+          if (ar !== br) return br - ar;
+        }
+        if (recipeSort === "tier") {
+          return b.tier - a.tier || a.requiredArtisanLevel - b.requiredArtisanLevel;
+        }
+        if (recipeSort === "chance") {
+          return (
+            b.qualityChancePct - a.qualityChancePct ||
+            a.requiredArtisanLevel - b.requiredArtisanLevel
+          );
+        }
         return (
-          b.qualityChancePct - a.qualityChancePct ||
-          a.requiredArtisanLevel - b.requiredArtisanLevel
+          a.requiredArtisanLevel - b.requiredArtisanLevel ||
+          a.tier - b.tier ||
+          a.itemName.localeCompare(b.itemName, "ko")
         );
-      }
-      return (
-        a.requiredArtisanLevel - b.requiredArtisanLevel ||
-        a.tier - b.tier ||
-        a.itemName.localeCompare(b.itemName, "ko")
-      );
-    });
-    return recipes;
+      });
+    const allCraftedRecipes = allRecipes.filter((recipe) => recipe.craftOnly);
+    const allTrainingRecipes = allRecipes.filter((recipe) => !recipe.craftOnly);
+    return {
+      craftedRecipes: sortRecipes(
+        allCraftedRecipes.filter(matchesSharedFilter),
+      ),
+      trainingRecipes: sortRecipes(
+        allTrainingRecipes.filter(matchesSharedFilter),
+      ),
+      totalCraftedRecipes: allCraftedRecipes.length,
+      totalTrainingRecipes: allTrainingRecipes.length,
+    };
   }, [
     recipeScopeFilter,
     recipeSlotFilter,
@@ -157,6 +175,119 @@ export function WorkshopCraftPanel({
   const craftResultMasterworkLine = craftResult
     ? craftResultMasterworkSummary(craftResult)
     : null;
+
+  function renderRecipeRow(recipe: WorkshopRecipeView) {
+    const busy = craftingId === recipe.id;
+    const masterwork = recipe.masterwork;
+    const weeklyHints = weeklyRecipeHints(recipe, weekly);
+    const recommended = recommendedRecipeId === recipe.id;
+    return (
+      <div
+        key={recipe.id}
+        className={`ui-recipe-row grid gap-3 px-3 py-2.5 ${
+          recommended ? "bg-emerald-50/70 dark:bg-emerald-950/20" : ""
+        }`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <strong className="text-sm text-zinc-950 dark:text-zinc-50">
+                {recipe.itemName}
+              </strong>
+              {recommended ? (
+                <span className="rounded bg-emerald-700 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
+                  추천
+                </span>
+              ) : null}
+              <span className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                T{recipe.tier} · {V2_SLOT_LABEL[recipe.slot]}
+              </span>
+              {recipe.craftOnly ? <CraftOnlyBadge /> : null}
+              {weeklyHints.slice(0, 2).map((hint) => (
+                <span
+                  key={hint}
+                  className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                >
+                  {hint}
+                </span>
+              ))}
+            </div>
+            <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              대장장이 Lv {recipe.requiredArtisanLevel} · 대장간 Lv{" "}
+              {recipe.requiredSmithyLevel} · 숙련도 +{recipe.artisanXp}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                일반 제작
+              </span>
+              <button
+                type="button"
+                disabled={!recipe.canCraft || busy || craftingId != null}
+                onClick={() => void craft(recipe.id)}
+                className="inline-flex h-7 min-w-16 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+              >
+                {busy ? (
+                  <SpinnerGap size={14} className="animate-spin" aria-hidden />
+                ) : !recipe.levelOk ? (
+                  `Lv ${recipe.requiredArtisanLevel}`
+                ) : !recipe.smithyLevelOk ? (
+                  `대장간 Lv ${recipe.requiredSmithyLevel}`
+                ) : recipe.canCraft ? (
+                  "제작"
+                ) : (
+                  "부족"
+                )}
+              </button>
+            </div>
+            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
+              개인 재료: {recipe.costText}
+            </div>
+            <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
+              ★ {recipe.qualityChancePct}% · 상한{" "}
+              {GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%
+            </div>
+          </div>
+
+          <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                명장 제작
+              </span>
+              <button
+                type="button"
+                disabled={!masterwork?.canCraft || busy || craftingId != null}
+                onClick={() => void craft(recipe.id, "masterwork")}
+                className="inline-flex h-7 min-w-20 items-center justify-center rounded border border-rose-700 bg-rose-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+              >
+                {busy ? (
+                  <SpinnerGap size={14} className="animate-spin" aria-hidden />
+                ) : (
+                  masterworkButtonText(recipe)
+                )}
+              </button>
+            </div>
+            <div className="mt-1 text-zinc-600 dark:text-zinc-400">
+              {masterwork
+                ? `개인 재료: ${masterwork.costText}`
+                : "대장장이 Lv 8 필요"}
+            </div>
+            <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
+              {masterwork
+                ? masterwork.plus2Unlocked
+                  ? `★ 확정 · ★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
+                  : "★ 확정 · ★★ Lv9 해금"
+                : "명장 각인/★ 확정"}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function craft(
     recipeId: GuildWorkshopRecipeId,
@@ -301,12 +432,12 @@ export function WorkshopCraftPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-              제작 목록
+              제작 세트
             </div>
             <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              {filteredRecipes.length.toLocaleString()} /{" "}
-              {(state?.recipes.length ?? 0).toLocaleString()}종 표시 · 비용은
-              개인 보유 재료에서 차감
+              {craftedRecipes.length.toLocaleString()} /{" "}
+              {totalCraftedRecipes.toLocaleString()}종 표시 · 수호/질풍/룬
+              각인 장비 중심
             </div>
           </div>
           <details className="group">
@@ -411,15 +542,12 @@ export function WorkshopCraftPanel({
           <select
             value={recipeScopeFilter}
             onChange={(e) =>
-              setRecipeScopeFilter(
-                e.target.value as "all" | "craftOnly" | "craftable",
-              )
+              setRecipeScopeFilter(e.target.value as "all" | "craftable")
             }
             className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
           >
-            <option value="all">모든 레시피</option>
+            <option value="all">제작 세트 전체</option>
             <option value="craftable">제작 가능</option>
-            <option value="craftOnly">제작 전용</option>
           </select>
           <select
             value={recipeSort}
@@ -436,132 +564,34 @@ export function WorkshopCraftPanel({
       </div>
 
       <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
-        {filteredRecipes.map((recipe) => {
-          const busy = craftingId === recipe.id;
-          const masterwork = recipe.masterwork;
-          const weeklyHints = weeklyRecipeHints(recipe, weekly);
-          const recommended = recommendedRecipeId === recipe.id;
-          return (
-            <div
-              key={recipe.id}
-              className={`ui-recipe-row grid gap-3 px-3 py-2.5 ${
-                recommended
-                  ? "bg-emerald-50/70 dark:bg-emerald-950/20"
-                  : ""
-              }`}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <strong className="text-sm text-zinc-950 dark:text-zinc-50">
-                      {recipe.itemName}
-                    </strong>
-                    {recommended ? (
-                      <span className="rounded bg-emerald-700 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
-                        추천
-                      </span>
-                    ) : null}
-                    <span className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      T{recipe.tier} · {V2_SLOT_LABEL[recipe.slot]}
-                    </span>
-                    {recipe.craftOnly ? <CraftOnlyBadge /> : null}
-                    {weeklyHints.slice(0, 2).map((hint) => (
-                      <span
-                        key={hint}
-                        className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                      >
-                        {hint}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    대장장이 Lv {recipe.requiredArtisanLevel} · 대장간 Lv{" "}
-                    {recipe.requiredSmithyLevel} · 숙련도 +{recipe.artisanXp}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-2 md:grid-cols-2">
-                <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-100">
-                      일반 제작
-                    </span>
-                    <button
-                      type="button"
-                      disabled={!recipe.canCraft || busy || craftingId != null}
-                      onClick={() => void craft(recipe.id)}
-                      className="inline-flex h-7 min-w-16 items-center justify-center rounded border border-emerald-700 bg-emerald-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-emerald-500 dark:bg-emerald-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-                    >
-                      {busy ? (
-                        <SpinnerGap
-                          size={14}
-                          className="animate-spin"
-                          aria-hidden
-                        />
-                      ) : !recipe.levelOk ? (
-                        `Lv ${recipe.requiredArtisanLevel}`
-                      ) : !recipe.smithyLevelOk ? (
-                        `대장간 Lv ${recipe.requiredSmithyLevel}`
-                      ) : recipe.canCraft ? (
-                        "제작"
-                      ) : (
-                        "부족"
-                      )}
-                    </button>
-                  </div>
-                  <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-                    개인 재료: {recipe.costText}
-                  </div>
-                  <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
-                    ★ {recipe.qualityChancePct}% · 상한{" "}
-                    {GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%
-                  </div>
-                </div>
-
-                <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold text-zinc-800 dark:text-zinc-100">
-                      명장 제작
-                    </span>
-                  <button
-                    type="button"
-                    disabled={
-                      !masterwork?.canCraft || busy || craftingId != null
-                    }
-                    onClick={() => void craft(recipe.id, "masterwork")}
-                    className="inline-flex h-7 min-w-20 items-center justify-center rounded border border-rose-700 bg-rose-700 px-2.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:border-rose-500 dark:bg-rose-600 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
-                  >
-                    {busy ? (
-                      <SpinnerGap size={14} className="animate-spin" aria-hidden />
-                    ) : (
-                      masterworkButtonText(recipe)
-                    )}
-                  </button>
-                  </div>
-                  <div className="mt-1 text-zinc-600 dark:text-zinc-400">
-                    {masterwork
-                      ? `개인 재료: ${masterwork.costText}`
-                      : "대장장이 Lv 8 필요"}
-                  </div>
-                  <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
-                    {masterwork
-                      ? masterwork.plus2Unlocked
-                        ? `★ 확정 · ★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
-                        : "★ 확정 · ★★ Lv9 해금"
-                      : "명장 각인/★ 확정"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {!loading && filteredRecipes.length === 0 ? (
+        {craftedRecipes.map((recipe) => renderRecipeRow(recipe))}
+        {!loading && craftedRecipes.length === 0 ? (
           <div className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-            조건에 맞는 제작 의뢰가 없습니다.
+            조건에 맞는 제작 세트 의뢰가 없습니다.
           </div>
         ) : null}
       </div>
+
+      {totalTrainingRecipes > 0 ? (
+        <details className="rounded border border-zinc-200 bg-white text-xs dark:border-zinc-800 dark:bg-zinc-950">
+          <summary className="cursor-pointer px-3 py-2 font-semibold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-900">
+            수련 제작 {trainingRecipes.length.toLocaleString()} /{" "}
+            {totalTrainingRecipes.toLocaleString()}종
+          </summary>
+          <div className="border-t border-zinc-200 px-3 py-2 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+            드랍 장비와 같은 기본 레시피입니다. 초반 숙련도 보강용으로만
+            분리해 두었습니다.
+          </div>
+          <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            {trainingRecipes.map((recipe) => renderRecipeRow(recipe))}
+            {!loading && trainingRecipes.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                조건에 맞는 수련 제작 의뢰가 없습니다.
+              </div>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
     </>
   );
 }

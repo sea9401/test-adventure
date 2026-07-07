@@ -13,11 +13,13 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildMemberCap } from "@/adventure/data/guild";
 import {
+  PRODUCTION_KINDS,
   SETTLEMENT_BUILDING_IDS,
   tierMeetsNation,
   isSettlementBuildingId,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
+  type SettlementResources,
   type SettlementBuildingId,
   type VillageTier,
 } from "@/adventure/data/v2/settlement";
@@ -35,6 +37,18 @@ import {
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
+
+function parseSettlementResources(raw: unknown): SettlementResources {
+  if (typeof raw !== "object" || raw === null) return {};
+  const out: SettlementResources = {};
+  for (const kind of PRODUCTION_KINDS) {
+    const value = (raw as Record<string, unknown>)[kind];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      out[kind] = Math.floor(value);
+    }
+  }
+  return out;
+}
 
 // GET /api/v2/me/guild/info — 길드 정보 + 멤버 list (V2GuildHome).
 //
@@ -353,12 +367,16 @@ export async function GET() {
   // 길드 자금 — 길드 공용 골드 풀(v2_guild_resources.gold). 거점 점령/수리 재원·금고 입금 누적.
   const resRow = (
     await db
-      .select({ gold: v2GuildResources.gold })
+      .select({
+        gold: v2GuildResources.gold,
+        settlement: v2GuildResources.settlement,
+      })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
       .limit(1)
   )[0];
   const guildGold = Math.max(0, resRow?.gold ?? 0);
+  const settlementResources = parseSettlementResources(resRow?.settlement);
 
   // 이미 쓰인 색(다른 활성 길드) — 관리탭 색 picker 에서 비활성. 내 색은 제외(선택 가능).
   const takenColorRows = await db
@@ -387,6 +405,7 @@ export async function GET() {
     canDeclareNation,
     settlementBuildings,
     settlementBuildingLevels,
+    settlementResources,
     hasGuildSmithy,
     hasTrainingGround,
     hasMapWorkshop,

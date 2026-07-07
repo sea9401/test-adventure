@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages, savesKv } from "@/db/schema";
+import { guildMembers, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
@@ -10,11 +10,8 @@ import {
 } from "@/lib/server/guildWorkshopWeekly";
 import { snapshotStaleArtisanLeaderboards } from "@/lib/server/artisanLeaderboardSnapshots";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import {
-  guildSmithyUpgradeForLevel,
-  settlementBuildingIdOf,
-  settlementBuildingLevelOf,
-} from "@/adventure/data/v2/settlement";
+import { guildSmithyUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import { readGuildSmithyLevel } from "@/lib/server/guildFacilities";
 import {
   applyExternalBuildingUseFeeToCharacter,
   outpostIdFromRequest,
@@ -65,31 +62,6 @@ type CharacterSaveWithMaterials = {
   materials?: unknown;
   [key: string]: unknown;
 };
-
-
-function guildSmithyLevelFromBuildings(buildings: unknown): number {
-  if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
-    return 0;
-  }
-  let level = 0;
-  for (const raw of Object.values(buildings as Record<string, unknown>)) {
-    if (settlementBuildingIdOf(raw) === "guild_smithy") {
-      level = Math.max(level, settlementBuildingLevelOf(raw));
-    }
-  }
-  return level;
-}
-
-async function guildSmithyLevel(guildId: number): Promise<number> {
-  const rows = await db
-    .select({ buildings: outpostVillages.buildings })
-    .from(outpostVillages)
-    .where(eq(outpostVillages.guildId, guildId));
-  return rows.reduce(
-    (max, row) => Math.max(max, guildSmithyLevelFromBuildings(row.buildings)),
-    0,
-  );
-}
 
 async function readGuildWorkshopBonus(
   guildId: number,
@@ -154,7 +126,7 @@ async function resolveWorkshopAccess(
       body: { ok: false, error: "no_guild" },
     };
   }
-  const level = await guildSmithyLevel(guildId);
+  const level = await readGuildSmithyLevel(db, guildId);
   return {
     ok: true,
     access: {

@@ -18,7 +18,7 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 export const ARENA_MATCH_COOLDOWN_MS = 10_000;
 export const RECENT_OPPONENT_TRACK = 5;
 // 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
-export const ARENA_HISTORY_MAX = 10;
+export const ARENA_HISTORY_MAX = 50;
 
 // 점수 공식
 export const SCORE_WIN = 20;

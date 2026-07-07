@@ -3,6 +3,7 @@ import { V2_BUILD_TAG_LABEL } from "./buildTags";
 import {
   MAX_ACTIVE_BUILD_GOALS,
   V2_BUILD_PRESETS,
+  buildPresetProgress,
   parseBuildGoalsState,
   setBuildGoalActive,
 } from "./buildPresets";
@@ -65,5 +66,26 @@ describe("v2 build presets", () => {
 
     const three = setBuildGoalActive(two, "arcane_breaker", false);
     expect(three.activePresetIds).toEqual(["duelist_sword", "venomlord_dash"]);
+  });
+
+  it("프리셋 진행률은 장비·도감·스킬·장착 축을 분리해 계산한다", () => {
+    const preset = V2_BUILD_PRESETS[0];
+    const progress = buildPresetProgress(preset, {
+      ownedEquipmentIds: new Set([preset.equipmentIds[0], preset.equipmentIds[1]]),
+      registeredEquipmentIds: new Set([preset.equipmentIds[0]]),
+      learnedSkillIds: new Set([preset.skillIds[0], preset.skillIds[1]]),
+      equippedSkillIds: new Set([preset.skillIds[0]]),
+    });
+
+    expect(progress.equipmentOwned).toBe(2);
+    expect(progress.equipmentRegistered).toBe(1);
+    expect(progress.skillsLearned).toBe(2);
+    expect(progress.skillsEquipped).toBe(1);
+    expect(progress.score).toBe(6);
+    expect(progress.maxScore).toBe(16);
+    expect(progress.pct).toBe(38);
+    expect(progress.missingEquipmentIds).toEqual(preset.equipmentIds.slice(2));
+    expect(progress.missingSkillIds).toEqual(preset.skillIds.slice(2));
+    expect(progress.unequippedLearnedSkillIds).toEqual([preset.skillIds[1]]);
   });
 });

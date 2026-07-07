@@ -48,9 +48,10 @@ import {
 import {
   MAX_ACTIVE_BUILD_GOALS,
   V2_BUILD_PRESETS,
+  buildPresetProgress,
   type V2BuildPresetId,
 } from "@/adventure/data/v2/buildPresets";
-import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -77,6 +78,12 @@ type EquipmentCodexResponse = Partial<EquipmentCodexMeta> & {
 type BuildGoalsResponse = {
   ok?: boolean;
   activePresetIds?: unknown;
+};
+
+type LoadoutResponse = {
+  ok?: boolean;
+  learned?: unknown;
+  equipped?: unknown;
 };
 
 type EquipmentCraftRecordView = {
@@ -282,6 +289,12 @@ export function CodexEquipmentPanel({
   const [activeBuildGoalIds, setActiveBuildGoalIds] = useState<
     Set<V2BuildPresetId>
   >(new Set());
+  const [learnedBuildSkillIds, setLearnedBuildSkillIds] = useState<
+    Set<V2SkillId>
+  >(new Set());
+  const [equippedBuildSkillIds, setEquippedBuildSkillIds] = useState<
+    Set<V2SkillId>
+  >(new Set());
   const [buildGoalBusy, setBuildGoalBusy] = useState<V2BuildPresetId | null>(
     null,
   );
@@ -315,6 +328,24 @@ export function CodexEquipmentPanel({
     setActiveBuildGoalIds(new Set(ids));
   }
 
+  function applyLoadoutPayload(j: LoadoutResponse | null) {
+    const learnedRaw = Array.isArray(j?.learned) ? j.learned : [];
+    const learned = learnedRaw.filter(
+      (id): id is V2SkillId =>
+        typeof id === "string" && Boolean(V2_SKILLS[id as V2SkillId]),
+    );
+    const learnedSet = new Set(learned);
+    const equippedRaw = Array.isArray(j?.equipped) ? j.equipped : [];
+    const equipped = equippedRaw.filter(
+      (id): id is V2SkillId =>
+        typeof id === "string" &&
+        Boolean(V2_SKILLS[id as V2SkillId]) &&
+        learnedSet.has(id as V2SkillId),
+    );
+    setLearnedBuildSkillIds(learnedSet);
+    setEquippedBuildSkillIds(new Set(equipped));
+  }
+
   useEffect(() => {
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 장비 탭 진입 시 도감/보유 장비 lazy fetch
@@ -324,11 +355,13 @@ export function CodexEquipmentPanel({
       fetch("/api/v2/me/equipment-codex").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/v2/me/build-goals").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/v2/me/loadout").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([codex, equipment, buildGoals]) => {
+      .then(([codex, equipment, buildGoals, loadout]) => {
         if (!alive) return;
         applyEquipmentCodexPayload(codex as EquipmentCodexResponse | null);
         applyBuildGoalsPayload(buildGoals as BuildGoalsResponse | null);
+        applyLoadoutPayload(loadout as LoadoutResponse | null);
         if (equipment && Array.isArray(equipment.owned)) {
           setOwnedEquipment(equipment.owned as V2EquipInstance[]);
         }
@@ -512,6 +545,7 @@ export function CodexEquipmentPanel({
     }
     return { owned, eligible };
   })();
+  const ownedBuildEquipmentIds = new Set(equipmentCounts.owned.keys());
   const equipmentSlotEntries = equipmentEntries
     .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot)
     .filter((id) =>
@@ -668,6 +702,24 @@ export function CodexEquipmentPanel({
               {V2_BUILD_PRESETS.map((preset) => {
                 const goalActive = activeBuildGoalIds.has(preset.id);
                 const busy = buildGoalBusy === preset.id;
+                const progress = buildPresetProgress(preset, {
+                  ownedEquipmentIds: ownedBuildEquipmentIds,
+                  registeredEquipmentIds: equipmentRegisteredIds,
+                  learnedSkillIds: learnedBuildSkillIds,
+                  equippedSkillIds: equippedBuildSkillIds,
+                });
+                const missingEquipmentText = progress.missingEquipmentIds
+                  .slice(0, 2)
+                  .map((id) => V2_EQUIPMENT[id]?.name ?? id)
+                  .join(" · ");
+                const missingSkillText = progress.missingSkillIds
+                  .slice(0, 2)
+                  .map((id) => V2_SKILLS[id]?.name ?? id)
+                  .join(" · ");
+                const unequippedSkillText = progress.unequippedLearnedSkillIds
+                  .slice(0, 2)
+                  .map((id) => V2_SKILLS[id]?.name ?? id)
+                  .join(" · ");
                 return (
                   <div
                     key={preset.id}
@@ -708,6 +760,76 @@ export function CodexEquipmentPanel({
                         {V2_BUILD_TAG_LABEL[tag]}
                       </span>
                     ))}
+                  </div>
+                  <div className="mt-3 rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/40">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                        빌드 완성도
+                      </span>
+                      <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {progress.pct}% · {progress.score}/{progress.maxScore}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 transition-[width]"
+                        style={{ width: `${progress.pct}%` }}
+                      />
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-4">
+                      {[
+                        [
+                          "보유",
+                          progress.equipmentOwned,
+                          progress.equipmentTotal,
+                        ],
+                        [
+                          "도감",
+                          progress.equipmentRegistered,
+                          progress.equipmentTotal,
+                        ],
+                        ["학습", progress.skillsLearned, progress.skillsTotal],
+                        ["장착", progress.skillsEquipped, progress.skillsTotal],
+                      ].map(([label, current, total]) => (
+                        <div
+                          key={label}
+                          className="rounded bg-white px-2 py-1 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+                        >
+                          <span className="text-zinc-400 dark:text-zinc-500">
+                            {label}
+                          </span>{" "}
+                          <span className="font-semibold tabular-nums">
+                            {current}/{total}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {(missingEquipmentText ||
+                      missingSkillText ||
+                      unequippedSkillText) && (
+                      <div className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {missingEquipmentText && (
+                          <p>
+                            부족 장비: {missingEquipmentText}
+                            {progress.missingEquipmentIds.length > 2 ? " 외" : ""}
+                          </p>
+                        )}
+                        {missingSkillText && (
+                          <p>
+                            부족 스킬: {missingSkillText}
+                            {progress.missingSkillIds.length > 2 ? " 외" : ""}
+                          </p>
+                        )}
+                        {unequippedSkillText && (
+                          <p>
+                            장착 후보: {unequippedSkillText}
+                            {progress.unequippedLearnedSkillIds.length > 2
+                              ? " 외"
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     <div>

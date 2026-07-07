@@ -25,6 +25,28 @@ export type V2BuildGoalsState = {
   activePresetIds: V2BuildPresetId[];
 };
 
+export type V2BuildPresetProgressInput = {
+  ownedEquipmentIds?: ReadonlySet<string>;
+  registeredEquipmentIds?: ReadonlySet<string>;
+  learnedSkillIds?: ReadonlySet<string>;
+  equippedSkillIds?: ReadonlySet<string>;
+};
+
+export type V2BuildPresetProgress = {
+  equipmentOwned: number;
+  equipmentTotal: number;
+  equipmentRegistered: number;
+  skillsLearned: number;
+  skillsEquipped: number;
+  skillsTotal: number;
+  score: number;
+  maxScore: number;
+  pct: number;
+  missingEquipmentIds: V2EquipmentId[];
+  missingSkillIds: V2SkillId[];
+  unequippedLearnedSkillIds: V2SkillId[];
+};
+
 export const BUILD_GOALS_SAVE_KEY = "build-goals.v2";
 export const MAX_ACTIVE_BUILD_GOALS = 3;
 
@@ -187,5 +209,49 @@ export function setBuildGoalActive(
   if (!active) return { activePresetIds: current };
   return {
     activePresetIds: [presetId, ...current].slice(0, MAX_ACTIVE_BUILD_GOALS),
+  };
+}
+
+export function buildPresetProgress(
+  preset: V2BuildPreset,
+  input: V2BuildPresetProgressInput,
+): V2BuildPresetProgress {
+  const ownedEquipmentIds = input.ownedEquipmentIds ?? new Set<string>();
+  const registeredEquipmentIds =
+    input.registeredEquipmentIds ?? new Set<string>();
+  const learnedSkillIds = input.learnedSkillIds ?? new Set<string>();
+  const equippedSkillIds = input.equippedSkillIds ?? new Set<string>();
+  const equipmentOwned = preset.equipmentIds.filter((id) =>
+    ownedEquipmentIds.has(id),
+  ).length;
+  const equipmentRegistered = preset.equipmentIds.filter((id) =>
+    registeredEquipmentIds.has(id),
+  ).length;
+  const skillsLearned = preset.skillIds.filter((id) =>
+    learnedSkillIds.has(id),
+  ).length;
+  const skillsEquipped = preset.skillIds.filter((id) =>
+    equippedSkillIds.has(id),
+  ).length;
+  const maxScore = preset.equipmentIds.length * 2 + preset.skillIds.length * 2;
+  const score =
+    equipmentOwned + equipmentRegistered + skillsLearned + skillsEquipped;
+  return {
+    equipmentOwned,
+    equipmentTotal: preset.equipmentIds.length,
+    equipmentRegistered,
+    skillsLearned,
+    skillsEquipped,
+    skillsTotal: preset.skillIds.length,
+    score,
+    maxScore,
+    pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
+    missingEquipmentIds: preset.equipmentIds.filter(
+      (id) => !ownedEquipmentIds.has(id),
+    ),
+    missingSkillIds: preset.skillIds.filter((id) => !learnedSkillIds.has(id)),
+    unequippedLearnedSkillIds: preset.skillIds.filter(
+      (id) => learnedSkillIds.has(id) && !equippedSkillIds.has(id),
+    ),
   };
 }

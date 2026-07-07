@@ -3,6 +3,7 @@ import {
   toReplayPayload,
   toReplayPayloadLite,
   toPvpReplayPayload,
+  toPvpReplayPayloadForSide,
 } from "./replayPayload";
 import type {
   BattleState,
@@ -112,7 +113,7 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
   const pvpFinal = (log: BattleLogEntry[]) =>
     ({
       p1: { maxHp: 600, maxMp: 100, mp: 40 },
-      p2: { maxHp: 450 },
+      p2: { maxHp: 450, maxMp: 80, mp: 25 },
       log,
     }) as unknown as Parameters<typeof toPvpReplayPayload>[0];
 
@@ -141,6 +142,48 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
     };
     const p = toPvpReplayPayload(pvpFinal([hpBar]), "상대", 200);
     expect(p.log[0]).toEqual(hpBar); // 변형 없이 통과
+  });
+
+  it("p2 관점 변환은 hp_bar 와 로그 레인을 뒤집는다", () => {
+    const hpBar: BattleLogEntry = {
+      kind: "hp_bar",
+      text: "",
+      playerHp: 500,
+      playerMaxHp: 600,
+      playerMp: 40,
+      playerMaxMp: 100,
+      enemyHp: 200,
+      enemyMaxHp: 450,
+      enemyMp: 25,
+      enemyMaxMp: 80,
+    };
+    const p = toPvpReplayPayloadForSide(
+      pvpFinal([
+        { kind: "player_attack", text: "p1 공격", side: "p1" },
+        { kind: "player_attack", text: "p2 공격", side: "p2" },
+        hpBar,
+      ]),
+      "p2",
+      "공격자",
+      200,
+    );
+    expect(p.log[0]).toMatchObject({ kind: "enemy_attack", turn: "enemy" });
+    expect(p.log[1]).toMatchObject({ kind: "player_attack", turn: "player" });
+    expect(p.log[2]).toMatchObject({
+      kind: "hp_bar",
+      playerHp: 200,
+      playerMaxHp: 450,
+      playerMp: 25,
+      playerMaxMp: 80,
+      enemyHp: 500,
+      enemyMaxHp: 600,
+      enemyMp: 40,
+      enemyMaxMp: 100,
+    });
+    expect(p.enemy).toEqual({ name: "공격자", hp: 600 });
+    expect(p.playerMaxHp).toBe(450);
+    expect(p.playerMaxMp).toBe(80);
+    expect(p.playerMp).toBe(25);
   });
 
   it("메타 — enemy.hp=상대 maxHp, playerMax*/playerMp=p1 사이드", () => {

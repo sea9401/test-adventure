@@ -24,7 +24,10 @@ import {
 } from "@/adventure/data/v2/arenaBots";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { autoDuelContext } from "@/adventure/v2/combat/duelOptions";
-import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
+import {
+  toPvpReplayPayload,
+  toPvpReplayPayloadForSide,
+} from "@/adventure/data/v2/replayPayload";
 import {
   ARENA_STATE_KEY,
   ARENA_HISTORY_KEY,
@@ -42,15 +45,17 @@ import {
   type EquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
 import {
+  ARENA_INITIAL_RATING,
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
-  applyScoreDelta,
   computeGoldReward,
-  computeScoreDelta,
+  defaultArenaState,
+  oppositeArenaOutcome,
   parseArenaHistory,
   parseArenaState,
   pushArenaHistory,
   pushRecentOpponent,
+  settleArenaElo,
   weightForCandidate,
   weightedPick,
   type ArenaCandidate,
@@ -79,14 +84,14 @@ import {
 //   2. 재도전 쿨타임 검사. lastMatchAt + ARENA_MATCH_COOLDOWN_MS 전이면 429 (cooldown).
 //   3. 본인 derivePlayerCombatV2.
 //   4. 후보 풀 — 본인 제외 character.v2 보유 유저 (snapshot). 각 candidate 의
-//      arena-state.v2.score 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
-//   5. 실유저 우선 매칭 — 후보가 없거나 상대 derive 실패 시 레벨 근처 봇으로 폴백.
+//      Elo score(미존재면 1000) 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
+//   5. 실유저 우선 매칭 — 후보가 없거나 상대 derive 실패 시 비랭크 봇으로 폴백.
 //   6. weightForCandidate 가중 랜덤 추첨.
 //   7. 선정된 상대만 derive (real user snapshot) 또는 봇 snapshot 사용.
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
-//   9. outcome → 점수 변동(0 미만 클램프), 골드 보상.
-//  10. arena-state.v2(score/lastMatchAt/recentOpponents) + character.v2(gold) 저장.
-//  11. 전투 로그(나=p1 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX, 다시보기).
+//   9. outcome → 실유저전은 양쪽 Elo 정산(K=32), 봇전은 비랭크.
+//  10. 공격자/방어자 arena-state.v2(score/recentOpponents) + 공격자 gold 저장.
+//  11. 양쪽 전투 로그(각자 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX).
 
 type CharSaveShape = {
   level?: number;
@@ -165,16 +170,16 @@ export async function POST() {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    // 1. 본인 character.v2 + arena-state.v2 lock — 같은 유저라 데드락 안전.
-    //    arena 키부터 잠그면 character 와 다른 곳에서의 lock 순서와 충돌 없음
-    //    (현 코드에 arena lock 다른 경로 없음).
+    // 1. 본인 character.v2 lock — 같은 유저의 동시 매치 요청을 직렬화한다.
+    //    arena-state 는 상대가 확정된 뒤 양쪽 userId 정렬 순서로 잠근다. 그래야 A→B 와
+    //    B→A 동시 매치에서 서로 반대 순서로 arena row 를 잡는 데드락을 피할 수 있다.
     const charSave = await lockSaveForUpdate<CharSaveShape>(
       tx,
       userId,
       CHARACTER_STATE_KEY,
       {},
     );
-    const rawArena = await lockSaveForUpdate<unknown>(
+    const rawArena = await readSave<unknown>(
       tx,
       userId,
       ARENA_STATE_KEY,
@@ -282,7 +287,7 @@ export async function POST() {
       viewerArenaLoadout?.element ??
       parseV2Element((charSave as { element?: unknown }).element);
 
-    // 6a. 점수 (arena-state.v2) 일괄 조회. 미존재면 0.
+    // 6a. Elo 점수 (arena-state.v2) 일괄 조회. 미존재면 초기 레이팅.
     const scoreByUser = new Map<string, number>();
     if (candidateIds.length > 0) {
       const arenaRows = await tx
@@ -308,7 +313,7 @@ export async function POST() {
       userId: r.userId,
       name: "모험가", // 추첨 후 갱신
       level: levelOf(r.value),
-      score: scoreByUser.get(r.userId) ?? 0,
+      score: scoreByUser.get(r.userId) ?? ARENA_INITIAL_RATING,
     }));
 
     const pickBot = (): BotPick | null => {
@@ -333,8 +338,8 @@ export async function POST() {
       return weightedPick(weightedBots, Math.random);
     };
 
-    // 7. 가중 추첨 — 실유저 풀을 우선한다. 후보가 없으면 봇 폴백으로 새 서버/저인구 상황에서도
-    //    아레나가 실제로 진행된다. 봇도 recentOpponents 페널티를 받아 같은 봇 반복을 줄인다.
+    // 7. 가중 추첨 — 실유저 풀을 우선한다. 후보가 없으면 비랭크 봇 폴백으로 새 서버/저인구
+    //    상황에서도 아레나가 실제로 진행된다. 봇도 recentOpponents 페널티를 받아 같은 봇 반복을 줄인다.
     const weighted = realCandidates.map((cand) => ({
       item: cand,
       weight: weightForCandidate(
@@ -517,8 +522,86 @@ export async function POST() {
           ? "loss"
           : "draw";
 
-    const scoreDelta = computeScoreDelta(myScore, oppScore, outcome);
-    const newScore = applyScoreDelta(myScore, scoreDelta);
+    const ranked = oppUserId != null;
+    const ensureSaveRowsForSettlement = async (
+      ids: string[],
+      key: string,
+      value: unknown,
+    ) => {
+      const uniqueIds = [...new Set(ids)].sort();
+      if (uniqueIds.length === 0) return uniqueIds;
+      const insertedAt = new Date();
+      await tx
+        .insert(savesKv)
+        .values(
+          uniqueIds.map((id) => ({
+            userId: id,
+            key,
+            value,
+            version: 1,
+            updatedAt: insertedAt,
+          })),
+        )
+        .onConflictDoNothing({ target: [savesKv.userId, savesKv.key] });
+      return uniqueIds;
+    };
+    const lockArenaStatesForSettlement = async (ids: string[]) => {
+      const out = new Map<string, ReturnType<typeof parseArenaState>>();
+      const lockIds = await ensureSaveRowsForSettlement(
+        ids,
+        ARENA_STATE_KEY,
+        defaultArenaState(),
+      );
+      for (const id of lockIds) {
+        out.set(
+          id,
+          parseArenaState(
+            await lockSaveForUpdate<unknown>(tx, id, ARENA_STATE_KEY, null),
+          ),
+        );
+      }
+      return out;
+    };
+    const lockArenaHistoriesForSettlement = async (ids: string[]) => {
+      const out = new Map<string, ArenaHistoryEntry[]>();
+      const lockIds = await ensureSaveRowsForSettlement(
+        ids,
+        ARENA_HISTORY_KEY,
+        [],
+      );
+      for (const id of lockIds) {
+        out.set(
+          id,
+          parseArenaHistory(
+            await lockSaveForUpdate<unknown>(tx, id, ARENA_HISTORY_KEY, []),
+          ),
+        );
+      }
+      return out;
+    };
+
+    const settlementUserIds =
+      ranked && oppUserId ? [userId, oppUserId] : [userId];
+    const lockedArenaStates =
+      await lockArenaStatesForSettlement(settlementUserIds);
+    const attackerArena =
+      lockedArenaStates.get(userId) ?? parseArenaState(parsedArena);
+    const defenderArena =
+      ranked && oppUserId
+        ? (lockedArenaStates?.get(oppUserId) ?? defaultArenaState())
+        : null;
+    const elo = defenderArena
+      ? settleArenaElo(attackerArena.score, defenderArena.score, outcome)
+      : {
+          attackerScoreBefore: attackerArena.score,
+          attackerScoreAfter: attackerArena.score,
+          attackerDelta: 0,
+          defenderScoreBefore: oppScore,
+          defenderScoreAfter: oppScore,
+          defenderDelta: 0,
+        };
+    const scoreDelta = elo.attackerDelta;
+    const newScore = elo.attackerScoreAfter;
     const goldGain = computeGoldReward(myLevel, outcome);
 
     // 11b. 전투 로그(다시보기) — 나=p1 관점 ReplayPayload + 전투 기록 1판.
@@ -528,33 +611,76 @@ export async function POST() {
       at: now.toISOString(),
       outcome,
       opponent: { name: oppName, level: oppLevel, userId: oppUserId, botId: oppBotId },
-      scoreBefore: myScore,
+      scoreBefore: elo.attackerScoreBefore,
       scoreAfter: newScore,
       scoreDelta,
       goldGained: goldGain,
       turns: battle.turns,
       replay,
     };
+    const defenderHistoryEntry: ArenaHistoryEntry | null =
+      ranked && oppUserId && defenderArena
+        ? {
+            id: `${now.getTime().toString(36)}-${Math.floor(
+              Math.random() * 1e6,
+            ).toString(36)}`,
+            at: now.toISOString(),
+            outcome: oppositeArenaOutcome(outcome),
+            opponent: { name: viewerName, level: myLevel, userId },
+            scoreBefore: elo.defenderScoreBefore,
+            scoreAfter: elo.defenderScoreAfter,
+            scoreDelta: elo.defenderDelta,
+            goldGained: 0,
+            turns: battle.turns,
+            replay: toPvpReplayPayloadForSide(
+              battle.finalState,
+              "p2",
+              viewerName,
+              ARENA_REPLAY_LOG_CAP,
+            ),
+          }
+        : null;
 
     // 12. 상태 저장.
     const nextArena = {
-      ...parsedArena,
+      ...attackerArena,
       score: newScore,
       lastMatchAt: now.toISOString(),
-      recentOpponents: pushRecentOpponent(parsedArena.recentOpponents, oppRef),
+      recentOpponents: pushRecentOpponent(attackerArena.recentOpponents, oppRef),
     };
     await upsertSave(tx, userId, ARENA_STATE_KEY, nextArena);
+    if (ranked && oppUserId && defenderArena) {
+      await upsertSave(tx, oppUserId, ARENA_STATE_KEY, {
+        ...defenderArena,
+        score: elo.defenderScoreAfter,
+        recentOpponents: pushRecentOpponent(defenderArena.recentOpponents, {
+          userId,
+          at: now.toISOString(),
+        }),
+      });
+    }
 
     // 전투 기록 — 최근순 ≤ MAX 저장(리플레이 포함). character.v2 를 먼저 락했으므로 같은 유저
     //   동시 매치는 직렬화 → read-modify-write 안전(lockSaveForUpdate 로 일관 유지).
-    const rawHistory = await lockSaveForUpdate<unknown>(
-      tx,
-      userId,
-      ARENA_HISTORY_KEY,
-      [],
+    const lockedHistories = await lockArenaHistoriesForSettlement(
+      ranked && oppUserId ? [userId, oppUserId] : [userId],
     );
-    const nextHistory = pushArenaHistory(parseArenaHistory(rawHistory), historyEntry);
+    const nextHistory = pushArenaHistory(
+      lockedHistories.get(userId) ?? [],
+      historyEntry,
+    );
     await upsertSave(tx, userId, ARENA_HISTORY_KEY, nextHistory);
+    if (defenderHistoryEntry && oppUserId) {
+      await upsertSave(
+        tx,
+        oppUserId,
+        ARENA_HISTORY_KEY,
+        pushArenaHistory(
+          lockedHistories.get(oppUserId) ?? [],
+          defenderHistoryEntry,
+        ),
+      );
+    }
 
     const nextChar = {
       ...charSave,
@@ -568,7 +694,7 @@ export async function POST() {
         ok: true as const,
         outcome,
         turns: battle.turns,
-        scoreBefore: myScore,
+        scoreBefore: elo.attackerScoreBefore,
         scoreAfter: newScore,
         scoreDelta,
         goldGained: goldGain,
@@ -578,11 +704,15 @@ export async function POST() {
         opponent: {
           name: oppName,
           level: oppLevel,
-          score: oppScore,
+          score: elo.defenderScoreBefore,
           element: oppElement,
           userId: oppUserId,
           botId: oppBotId,
         },
+        ranked,
+        opponentScoreBefore: elo.defenderScoreBefore,
+        opponentScoreAfter: elo.defenderScoreAfter,
+        opponentScoreDelta: elo.defenderDelta,
         // 전투 로그 다시보기 + 전투 기록 1판(클라가 즉시 replay 표시 + 기록 목록 prepend).
         historyEntry,
         // 재도전 쿨타임(ms) — 클라가 버튼 카운트다운 시작에 사용.
@@ -592,40 +722,54 @@ export async function POST() {
   });
 
   // 주간 시즌 순위 적립 — 매치 tx 밖 best-effort(실패해도 매치엔 영향 없음). 이번 주 시즌
-  //   pvp_ratings 에 점수 변동/전적을 누적해 주간 순위를 만든다(매주 새 seasonId = 리셋).
+  //   pvp_ratings 에 양쪽 점수 변동/전적을 누적해 주간 순위를 만든다(매주 새 seasonId = 리셋).
   //   기존 pvp 시즌 보상 인프라(pvp-season-rewards 크론·티어·우편·투기장 코인)를 그대로 활용 —
   //   v2 아레나가 점수를 arena-state 에만 쓰던 탓에 비어 있던 pvp_ratings 를 채워 부활시킨다.
   //   ⚠️ tx 안에 두면 적립 실패 시 매치가 통째 롤백되므로(PG: tx 내 에러=전체 abort) 밖에서 처리.
-  if (result.body.ok) {
+  if (result.body.ok && result.body.ranked && result.body.opponent.userId) {
     try {
-      const { scoreDelta, outcome } = result.body;
+      const { scoreDelta, outcome, opponentScoreDelta } = result.body;
+      const defenderUserId = result.body.opponent.userId;
+      const defenderOutcome = oppositeArenaOutcome(outcome);
       // 정산 시각은 fresh now — 매치가 주 경계(일 15:00 UTC)를 넘나들어도 적립 시점의
       //   "현재(열린) 시즌" 에 정확히 귀속(닫힌/보상완료 시즌에 쓰지 않음).
       const settleNow = new Date();
       const season = await getOrCreateCurrentSeason(settleNow);
-      const w = outcome === "win" ? 1 : 0;
-      const l = outcome === "loss" ? 1 : 0;
-      const d = outcome === "draw" ? 1 : 0;
-      await db
-        .insert(pvpRatings)
-        .values({
-          userId,
-          seasonId: season.id,
-          rating: 1000 + scoreDelta,
-          wins: w,
-          losses: l,
-          draws: d,
-        })
-        .onConflictDoUpdate({
-          target: [pvpRatings.userId, pvpRatings.seasonId],
-          set: {
-            rating: sql`${pvpRatings.rating} + ${scoreDelta}`,
-            wins: sql`${pvpRatings.wins} + ${w}`,
-            losses: sql`${pvpRatings.losses} + ${l}`,
-            draws: sql`${pvpRatings.draws} + ${d}`,
-            updatedAt: settleNow,
-          },
-        });
+      const ratingRows = [
+        { userId, delta: scoreDelta, outcome },
+        {
+          userId: defenderUserId,
+          delta: opponentScoreDelta,
+          outcome: defenderOutcome,
+        },
+      ];
+      await db.transaction(async (tx) => {
+        for (const row of ratingRows) {
+          const w = row.outcome === "win" ? 1 : 0;
+          const l = row.outcome === "loss" ? 1 : 0;
+          const d = row.outcome === "draw" ? 1 : 0;
+          await tx
+            .insert(pvpRatings)
+            .values({
+              userId: row.userId,
+              seasonId: season.id,
+              rating: ARENA_INITIAL_RATING + row.delta,
+              wins: w,
+              losses: l,
+              draws: d,
+            })
+            .onConflictDoUpdate({
+              target: [pvpRatings.userId, pvpRatings.seasonId],
+              set: {
+                rating: sql`${pvpRatings.rating} + ${row.delta}`,
+                wins: sql`${pvpRatings.wins} + ${w}`,
+                losses: sql`${pvpRatings.losses} + ${l}`,
+                draws: sql`${pvpRatings.draws} + ${d}`,
+                updatedAt: settleNow,
+              },
+            });
+        }
+      });
     } catch (e) {
       console.error("[arena] 주간 시즌 레이팅 적립 실패", e);
     }

@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARENA_ELO_K,
+  ARENA_INITIAL_RATING,
   ARENA_MATCH_COOLDOWN_MS,
   RECENT_OPPONENT_TRACK,
-  SCORE_LOSS,
-  SCORE_UPSET_BONUS,
-  SCORE_UPSET_PENALTY,
-  SCORE_WIN,
   arenaCooldownRemainingMs,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
   defaultArenaState,
+  oppositeArenaOutcome,
   parseArenaState,
   pushRecentOpponent,
+  settleArenaElo,
   weightForCandidate,
   weightedPick,
   ARENA_HISTORY_MAX,
@@ -67,7 +67,8 @@ describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
 describe("parseArenaState", () => {
   it("null/undefined 면 기본값", () => {
     const s = parseArenaState(null);
-    expect(s.score).toBe(0);
+    expect(s.score).toBe(ARENA_INITIAL_RATING);
+    expect(s.ratingVersion).toBe(2);
     expect(s.recentOpponents).toEqual([]);
     expect(s.milestonesReached).toEqual([]);
     // 기본 lastMatchAt = 에폭 → 쿨타임 없음(즉시 도전 가능).
@@ -75,12 +76,22 @@ describe("parseArenaState", () => {
   });
 
   it("부분 필드만 있어도 안전 처리", () => {
-    const s = parseArenaState({ score: 42 });
+    const s = parseArenaState({ score: 1042, ratingVersion: 2 });
+    expect(s.score).toBe(1042);
+  });
+
+  it("버전 없는 옛 누적 점수는 Elo 기본값으로 정규화", () => {
+    const s = parseArenaState({ score: 4200 });
+    expect(s.score).toBe(ARENA_INITIAL_RATING);
+  });
+
+  it("현재 버전 점수는 보존", () => {
+    const s = parseArenaState({ score: 42, ratingVersion: 2 });
     expect(s.score).toBe(42);
   });
 
   it("음수 점수는 0 으로 클램프", () => {
-    const s = parseArenaState({ score: -50 });
+    const s = parseArenaState({ score: -50, ratingVersion: 2 });
     expect(s.score).toBe(0);
   });
 
@@ -117,7 +128,7 @@ describe("parseArenaState", () => {
   });
 
   it("기타 모르는 필드는 무시", () => {
-    const s = parseArenaState({ extraStuff: 1, score: 10 });
+    const s = parseArenaState({ extraStuff: 1, score: 10, ratingVersion: 2 });
     expect(s.score).toBe(10);
   });
 });
@@ -156,23 +167,54 @@ describe("arenaCooldownRemainingMs", () => {
 });
 
 describe("computeScoreDelta", () => {
-  it("승리 기본 +SCORE_WIN", () => {
-    expect(computeScoreDelta(100, 100, "win")).toBe(SCORE_WIN);
+  it("동점 Elo 승리는 K/2 만큼 상승", () => {
+    expect(computeScoreDelta(1000, 1000, "win")).toBe(ARENA_ELO_K / 2);
   });
-  it("자기보다 점수 높은 상대 승리 시 upset 보너스", () => {
-    expect(computeScoreDelta(50, 200, "win")).toBe(SCORE_WIN + SCORE_UPSET_BONUS);
+
+  it("높은 레이팅 상대를 이기면 더 많이 오른다", () => {
+    expect(computeScoreDelta(1000, 1200, "win")).toBeGreaterThan(
+      computeScoreDelta(1000, 1000, "win"),
+    );
   });
-  it("자기보다 점수 낮은 상대 승리 시 보너스 없음", () => {
-    expect(computeScoreDelta(200, 50, "win")).toBe(SCORE_WIN);
+
+  it("낮은 레이팅 상대를 이기면 덜 오른다", () => {
+    expect(computeScoreDelta(1200, 1000, "win")).toBeLessThan(
+      computeScoreDelta(1000, 1000, "win"),
+    );
   });
-  it("패배 기본 SCORE_LOSS (음수)", () => {
-    expect(computeScoreDelta(100, 100, "loss")).toBe(SCORE_LOSS);
+
+  it("동점 Elo 패배는 -K/2 만큼 하락", () => {
+    expect(computeScoreDelta(1000, 1000, "loss")).toBe(-(ARENA_ELO_K / 2));
   });
-  it("자기보다 점수 낮은 상대에게 패배 시 upset 페널티", () => {
-    expect(computeScoreDelta(200, 50, "loss")).toBe(SCORE_LOSS + SCORE_UPSET_PENALTY);
+
+  it("무승부는 동점이면 0, 레이팅 차이가 있으면 낮은 쪽이 소폭 오른다", () => {
+    expect(computeScoreDelta(1000, 1000, "draw")).toBe(0);
+    expect(computeScoreDelta(1000, 1200, "draw")).toBeGreaterThan(0);
+    expect(computeScoreDelta(1200, 1000, "draw")).toBeLessThan(0);
   });
-  it("무승부는 0", () => {
-    expect(computeScoreDelta(100, 100, "draw")).toBe(0);
+});
+
+describe("settleArenaElo", () => {
+  it("공격자 승리 시 양쪽 delta 는 제로섬", () => {
+    const settled = settleArenaElo(1000, 1000, "win");
+    expect(settled.attackerDelta).toBe(16);
+    expect(settled.defenderDelta).toBe(-16);
+    expect(settled.attackerScoreAfter).toBe(1016);
+    expect(settled.defenderScoreAfter).toBe(984);
+  });
+
+  it("공격자 패배 시 방어자가 점수를 얻는다", () => {
+    const settled = settleArenaElo(1000, 1000, "loss");
+    expect(settled.attackerDelta).toBe(-16);
+    expect(settled.defenderDelta).toBe(16);
+    expect(settled.attackerScoreAfter).toBe(984);
+    expect(settled.defenderScoreAfter).toBe(1016);
+  });
+
+  it("oppositeArenaOutcome 은 방어자 전적 저장에 쓰는 반대 결과를 만든다", () => {
+    expect(oppositeArenaOutcome("win")).toBe("loss");
+    expect(oppositeArenaOutcome("loss")).toBe("win");
+    expect(oppositeArenaOutcome("draw")).toBe("draw");
   });
 });
 
@@ -267,7 +309,7 @@ describe("applyScoreDelta", () => {
     expect(applyScoreDelta(50, 20)).toBe(70);
   });
   it("음수 결과는 0 으로 클램프 — 점수 0 인 신규가 첫 매치 패배 시", () => {
-    expect(applyScoreDelta(0, SCORE_LOSS)).toBe(0);
+    expect(applyScoreDelta(0, -16)).toBe(0);
   });
   it("점수 5 + 패 -10 = -5 → 0 클램프", () => {
     expect(applyScoreDelta(5, -10)).toBe(0);

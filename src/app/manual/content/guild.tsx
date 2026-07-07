@@ -10,6 +10,10 @@ import {
   GUILD_COMBAT_SUPPLY_MAX_LEVEL,
   guildCombatSupplyNextCost,
 } from "@/adventure/data/v2/guildCombatSupply";
+import {
+  GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
+  GUILD_EXPLORATION_WEEKLY_MISSIONS,
+} from "@/adventure/data/v2/guildExploration";
 import { explorationHqUpgradeForLevel } from "@/adventure/data/v2/settlement";
 import {
   GUILD_TRAINING_DRILLS,
@@ -122,6 +126,11 @@ export function GuildContent() {
       <P>
         탐사 본부는 길드 단위 주간 탐사 의뢰를 관리하는 시설입니다. 시설 레벨이
         오르면 한 주에 진행할 수 있는 탐사 수와 의뢰 진척 보너스가 늘어납니다.
+        협동보스 목표는 단순 처치가 아니라{" "}
+        <Em>
+          {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
+        </Em>
+        로 계산합니다.
       </P>
       <Table
         head={["레벨", "단계", "주간 탐사", "진척 보너스"]}
@@ -134,7 +143,7 @@ export function GuildContent() {
             `+${upgrade.missionProgressBonusPct}%`,
           ];
         })}
-        caption="탐사 의뢰는 길드원이 사냥·발굴·보스 처치 같은 활동으로 함께 채우는 주간 목표로 확장됩니다."
+        caption={`탐사 의뢰는 길드원이 사냥·발굴·협동보스 EPIC 이상 기여 ${GUILD_EXPLORATION_COOP_WEEKLY_TARGET}회 같은 활동으로 함께 채우는 주간 목표로 확장됩니다.`}
       />
 
       <H2>길드 제작소</H2>

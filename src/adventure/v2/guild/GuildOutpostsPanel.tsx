@@ -19,9 +19,11 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
 export function GuildFacilitiesPanel({
   guildId,
   info,
+  onOpenFacility,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
+  onOpenFacility?: (id: SettlementBuildingId) => void;
 }) {
   if (guildId == null) {
     return (
@@ -40,6 +42,8 @@ export function GuildFacilitiesPanel({
       icon: def.icon,
       name: FACILITY_LABEL[id] ?? def.name,
       desc: FACILITY_DESC[id] ?? def.desc.replaceAll("영지 ", ""),
+      actionLabel:
+        id === "map_workshop" ? "감정소로" : "열기",
     };
   });
   const hasAny = rows.some((row) => row.count > 0);
@@ -78,6 +82,15 @@ export function GuildFacilitiesPanel({
                   x{row.count}
                 </span>
               </div>
+              {row.count > 0 && onOpenFacility && (
+                <button
+                  type="button"
+                  onClick={() => onOpenFacility(row.id)}
+                  className="mt-2 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                >
+                  {row.name} {row.actionLabel}
+                </button>
+              )}
             </div>
           ))}
         </div>

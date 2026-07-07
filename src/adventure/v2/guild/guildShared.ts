@@ -82,6 +82,7 @@ export function fmtDate(iso: string): string {
 export type GuildSubTab =
   | "info"
   | "members"
+  | "workshop"
   | "training"
   | "manage"
   | "facilities";

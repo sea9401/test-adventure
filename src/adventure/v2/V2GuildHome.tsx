@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -12,6 +13,7 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
+import { GuildWorkshopPanel } from "./guild/GuildWorkshopPanel";
 import { GuildTrainingGroundPanel } from "./guild/GuildTrainingGroundPanel";
 import { fetchGuildTrainingClaimableCount } from "./guild/trainingGroundClient";
 import {
@@ -42,6 +44,7 @@ export function V2GuildHome({
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
 }) {
+  const router = useRouter();
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
@@ -129,10 +132,14 @@ export function V2GuildHome({
     info?.hasTrainingGround || (info?.settlementBuildings?.training_ground ?? 0) > 0
       ? [...BASE_SUB_TABS, { key: "training", label: "훈련장", badge: trainingBadge }]
       : BASE_SUB_TABS;
+  const withWorkshop: GuildSubTabDef[] =
+    info?.hasGuildSmithy || (info?.settlementBuildings?.guild_smithy ?? 0) > 0
+      ? [...withTraining, { key: "workshop", label: "대장간" }]
+      : withTraining;
   // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
   const subTabs: GuildSubTabDef[] = canManage
     ? [
-        ...withTraining,
+        ...withWorkshop,
         {
           key: "manage",
           label:
@@ -141,7 +148,7 @@ export function V2GuildHome({
               : "관리",
         },
       ]
-    : withTraining;
+    : withWorkshop;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab
@@ -166,6 +173,8 @@ export function V2GuildHome({
       {activeTab === "training" && (
         <GuildTrainingGroundPanel info={info} onChanged={refresh} />
       )}
+
+      {activeTab === "workshop" && <GuildWorkshopPanel info={info} />}
 
       {activeTab === "info" && (
         <GuildInfoPanel
@@ -211,6 +220,11 @@ export function V2GuildHome({
         <GuildFacilitiesPanel
           guildId={guildId}
           info={info}
+          onOpenFacility={(id) => {
+            if (id === "guild_smithy") setSubTab("workshop");
+            else if (id === "training_ground") setSubTab("training");
+            else if (id === "map_workshop") router.push("/town/treasure");
+          }}
         />
       )}
     </main>

@@ -57,19 +57,21 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
     const unlockedRecipes = state.recipes.filter(
       (recipe) => recipe.levelOk && recipe.smithyLevelOk,
     );
-    const craftOnlyUnlocked = unlockedRecipes.filter(
+    const craftedSetRecipes = state.recipes.filter((recipe) => recipe.craftOnly);
+    const craftOnlyUnlockedRecipes = unlockedRecipes.filter(
       (recipe) => recipe.craftOnly,
-    ).length;
-    const maxTier = unlockedRecipes.reduce(
+    );
+    const trainingRecipeCount = state.recipes.length - craftedSetRecipes.length;
+    const maxTier = craftOnlyUnlockedRecipes.reduce(
       (max, recipe) => Math.max(max, recipe.tier),
       0,
     );
     return {
       normalQualityChance,
       maxTier,
-      unlockedRecipeCount: unlockedRecipes.length,
-      totalRecipeCount: state.recipes.length,
-      craftOnlyUnlocked,
+      totalRecipeCount: craftedSetRecipes.length,
+      craftOnlyUnlocked: craftOnlyUnlockedRecipes.length,
+      trainingRecipeCount,
       masterworkUnlocked: blacksmithLevel >= BLACKSMITH_MASTERWORK_LEVEL,
       plus2Unlocked: blacksmithLevel >= BLACKSMITH_PLUS2_QUALITY_LEVEL,
     };
@@ -228,7 +230,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                   currentEffectSummary.maxTier > 0
                     ? `T${currentEffectSummary.maxTier}`
                     : "없음",
-                detail: `${currentEffectSummary.unlockedRecipeCount}/${currentEffectSummary.totalRecipeCount}종 · 전용 ${currentEffectSummary.craftOnlyUnlocked}종`,
+                detail: `제작 세트 ${currentEffectSummary.craftOnlyUnlocked}/${currentEffectSummary.totalRecipeCount}종 · 수련 ${currentEffectSummary.trainingRecipeCount}종 분리`,
               },
               {
                 label: "★ 품질",

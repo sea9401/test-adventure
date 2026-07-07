@@ -8,6 +8,8 @@ import {
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 import type { GuildInfoResponse, Notice } from "./guildShared";
+import { GuildTrainingGroundPanel } from "./GuildTrainingGroundPanel";
+import { GuildWorkshopPanel } from "./GuildWorkshopPanel";
 
 const FACILITY_LABEL: Partial<Record<SettlementBuildingId, string>> = {
 };
@@ -21,14 +23,12 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
 export function GuildFacilitiesPanel({
   guildId,
   info,
-  onOpenFacility,
   canUnlockFacilities,
   onChanged,
   onNotice,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
-  onOpenFacility?: (id: SettlementBuildingId) => void;
   canUnlockFacilities?: boolean;
   onChanged?: () => void;
   onNotice?: (notice: Notice) => void;
@@ -36,6 +36,8 @@ export function GuildFacilitiesPanel({
   const [unlockingId, setUnlockingId] = useState<SettlementBuildingId | null>(
     null,
   );
+  const [activeFacility, setActiveFacility] =
+    useState<SettlementBuildingId | null>(null);
 
   if (guildId == null) {
     return (
@@ -62,6 +64,24 @@ export function GuildFacilitiesPanel({
   });
   const hasAny = rows.some((row) => row.count > 0);
   const guildGold = info?.guildGold ?? 0;
+
+  if (activeFacility === "guild_smithy") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <GuildWorkshopPanel info={info} />
+      </div>
+    );
+  }
+
+  if (activeFacility === "training_ground") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <GuildTrainingGroundPanel info={info} onChanged={onChanged} />
+      </div>
+    );
+  }
 
   async function unlockFacility(id: SettlementBuildingId) {
     if (unlockingId) return;
@@ -127,10 +147,10 @@ export function GuildFacilitiesPanel({
                   </div>
                 )}
               </div>
-              {row.count > 0 && onOpenFacility && (
+              {row.count > 0 && (
                 <button
                   type="button"
-                  onClick={() => onOpenFacility(row.id)}
+                  onClick={() => setActiveFacility(row.id)}
                   className="mt-2 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                 >
                   {row.name} {row.actionLabel}
@@ -173,6 +193,18 @@ export function GuildFacilitiesPanel({
         </p>
       )}
     </div>
+  );
+}
+
+function FacilityBackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-9 items-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+    >
+      시설 목록
+    </button>
   );
 }
 

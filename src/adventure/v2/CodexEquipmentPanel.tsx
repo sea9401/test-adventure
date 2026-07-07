@@ -48,11 +48,14 @@ import {
   type V2BuildTagId,
 } from "@/adventure/data/v2/buildTags";
 import {
+  DEFAULT_BUILD_PRESET_CONDITIONS,
   MAX_ACTIVE_BUILD_GOALS,
   V2_BUILD_PRESETS,
+  normalizeBuildPresetConditions,
   parseBuildGoalsExport,
   recommendBuildPresets,
   serializeBuildGoalsExport,
+  type V2BuildPresetConditionKey,
   type V2BuildPresetId,
 } from "@/adventure/data/v2/buildPresets";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
@@ -125,6 +128,15 @@ const DEFAULT_EQUIPMENT_CODEX_META: EquipmentCodexMeta = {
   milestones: [],
   nextMilestone: null,
 };
+const BUILD_CONDITION_CONTROLS: readonly {
+  key: V2BuildPresetConditionKey;
+  label: string;
+}[] = [
+  { key: "equipmentOwned", label: "보유" },
+  { key: "equipmentRegistered", label: "도감" },
+  { key: "skillsLearned", label: "학습" },
+  { key: "skillsEquipped", label: "장착" },
+];
 const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
   const ia = V2_EQUIPMENT[a];
   const ib = V2_EQUIPMENT[b];
@@ -292,6 +304,9 @@ export function CodexEquipmentPanel({
     useState<V2EquipSlot>("weapon");
   const [equipmentBuildFilter, setEquipmentBuildFilter] =
     useState<EquipmentBuildFilter>("all");
+  const [buildProgressConditions, setBuildProgressConditions] = useState(
+    DEFAULT_BUILD_PRESET_CONDITIONS,
+  );
   const [activeBuildGoalIds, setActiveBuildGoalIds] = useState<
     Set<V2BuildPresetId>
   >(new Set());
@@ -348,6 +363,14 @@ export function CodexEquipmentPanel({
     );
     setLearnedBuildSkillIds(learnedSet);
     setEquippedBuildSkillIds(new Set(equipped));
+  }
+
+  function toggleBuildProgressCondition(key: V2BuildPresetConditionKey) {
+    setBuildProgressConditions((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (!Object.values(next).some(Boolean)) return prev;
+      return normalizeBuildPresetConditions(next);
+    });
   }
 
   useEffect(() => {
@@ -604,6 +627,7 @@ export function CodexEquipmentPanel({
     registeredEquipmentIds: equipmentRegisteredIds,
     learnedSkillIds: learnedBuildSkillIds,
     equippedSkillIds: equippedBuildSkillIds,
+    conditions: buildProgressConditions,
   });
   const topBuildRecommendations = buildRecommendations.slice(0, 3);
   const equipmentSlotEntries = equipmentEntries
@@ -777,6 +801,32 @@ export function CodexEquipmentPanel({
                 {buildGoalMsg}
               </p>
             )}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                계산 조건
+              </span>
+              {BUILD_CONDITION_CONTROLS.map((condition) => {
+                const active = buildProgressConditions[condition.key];
+                return (
+                  <label
+                    key={condition.key}
+                    className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold transition ${
+                      active
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggleBuildProgressCondition(condition.key)}
+                      className="h-3 w-3 accent-emerald-600"
+                    />
+                    {condition.label}
+                  </label>
+                );
+              })}
+            </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-3">
               {topBuildRecommendations.map(({ preset, progress, rank, reason }) => (
                 <div
@@ -804,18 +854,24 @@ export function CodexEquipmentPanel({
               {buildRecommendations.map(({ preset, progress, rank, reason }) => {
                 const goalActive = activeBuildGoalIds.has(preset.id);
                 const busy = buildGoalBusy === preset.id;
-                const missingEquipmentText = progress.missingEquipmentIds
-                  .slice(0, 2)
-                  .map((id) => V2_EQUIPMENT[id]?.name ?? id)
-                  .join(" · ");
-                const missingSkillText = progress.missingSkillIds
-                  .slice(0, 2)
-                  .map((id) => V2_SKILLS[id]?.name ?? id)
-                  .join(" · ");
-                const unequippedSkillText = progress.unequippedLearnedSkillIds
-                  .slice(0, 2)
-                  .map((id) => V2_SKILLS[id]?.name ?? id)
-                  .join(" · ");
+                const missingEquipmentText = progress.conditions.equipmentOwned
+                  ? progress.missingEquipmentIds
+                      .slice(0, 2)
+                      .map((id) => V2_EQUIPMENT[id]?.name ?? id)
+                      .join(" · ")
+                  : "";
+                const missingSkillText = progress.conditions.skillsLearned
+                  ? progress.missingSkillIds
+                      .slice(0, 2)
+                      .map((id) => V2_SKILLS[id]?.name ?? id)
+                      .join(" · ")
+                  : "";
+                const unequippedSkillText = progress.conditions.skillsEquipped
+                  ? progress.unequippedLearnedSkillIds
+                      .slice(0, 2)
+                      .map((id) => V2_SKILLS[id]?.name ?? id)
+                      .join(" · ")
+                  : "";
                 return (
                   <div
                     key={preset.id}
@@ -880,27 +936,45 @@ export function CodexEquipmentPanel({
                     <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-4">
                       {[
                         [
+                          "equipmentOwned",
                           "보유",
                           progress.equipmentOwned,
                           progress.equipmentTotal,
                         ],
                         [
+                          "equipmentRegistered",
                           "도감",
                           progress.equipmentRegistered,
                           progress.equipmentTotal,
                         ],
-                        ["학습", progress.skillsLearned, progress.skillsTotal],
-                        ["장착", progress.skillsEquipped, progress.skillsTotal],
-                      ].map(([label, current, total]) => (
+                        [
+                          "skillsLearned",
+                          "학습",
+                          progress.skillsLearned,
+                          progress.skillsTotal,
+                        ],
+                        [
+                          "skillsEquipped",
+                          "장착",
+                          progress.skillsEquipped,
+                          progress.skillsTotal,
+                        ],
+                      ].map(([key, label, current, total]) => (
                         <div
-                          key={label}
-                          className="rounded bg-white px-2 py-1 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+                          key={key}
+                          className={`rounded bg-white px-2 py-1 dark:bg-zinc-900 ${
+                            progress.conditions[key as V2BuildPresetConditionKey]
+                              ? "text-zinc-600 dark:text-zinc-300"
+                              : "text-zinc-400 dark:text-zinc-600"
+                          }`}
                         >
                           <span className="text-zinc-400 dark:text-zinc-500">
                             {label}
                           </span>{" "}
                           <span className="font-semibold tabular-nums">
-                            {current}/{total}
+                            {progress.conditions[key as V2BuildPresetConditionKey]
+                              ? `${current}/${total}`
+                              : "제외"}
                           </span>
                         </div>
                       ))}

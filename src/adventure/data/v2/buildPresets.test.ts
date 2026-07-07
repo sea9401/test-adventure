@@ -109,6 +109,37 @@ describe("v2 build presets", () => {
     expect(progress.unequippedLearnedSkillIds).toEqual([preset.skillIds[1]]);
   });
 
+  it("진행률 조건을 끄면 해당 축은 점수와 분모에서 제외한다", () => {
+    const preset = V2_BUILD_PRESETS[0];
+    const progress = buildPresetProgress(preset, {
+      ownedEquipmentIds: new Set(preset.equipmentIds),
+      registeredEquipmentIds: new Set([preset.equipmentIds[0]]),
+      learnedSkillIds: new Set([preset.skillIds[0], preset.skillIds[1]]),
+      equippedSkillIds: new Set([preset.skillIds[0]]),
+      conditions: {
+        equipmentOwned: false,
+        equipmentRegistered: false,
+        skillsLearned: true,
+        skillsEquipped: true,
+      },
+    });
+
+    expect(progress.score).toBe(3);
+    expect(progress.maxScore).toBe(8);
+    expect(progress.pct).toBe(38);
+    expect(progress.conditions.equipmentOwned).toBe(false);
+
+    const fallback = buildPresetProgress(preset, {
+      conditions: {
+        equipmentOwned: false,
+        equipmentRegistered: false,
+        skillsLearned: false,
+        skillsEquipped: false,
+      },
+    });
+    expect(fallback.maxScore).toBe(16);
+  });
+
   it("현재 보유 상태에 가까운 프리셋을 추천 순으로 정렬한다", () => {
     const [venom, relic, arcane] = V2_BUILD_PRESETS;
     const recommendations = recommendBuildPresets([venom, relic, arcane], {

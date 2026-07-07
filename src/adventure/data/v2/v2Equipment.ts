@@ -506,6 +506,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_canyon_set_boots",
     ],
     bonus: { crit: 5, critMult: 30, hp: 30 },
+    buildTags: ["crit", "tank"],
   },
   {
     // 마른 협곡 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 버스트 유틸. 2종 보너스 치명+8·속도+6.
@@ -513,6 +514,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "모래바람 장신구",
     pieces: ["v2_canyon_sand_ring", "v2_canyon_sand_necklace"],
     bonus: { crit: 8, spd: 6 },
+    buildTags: ["crit", "speed"],
   },
   {
     // 얼음 호수 공격형 세트(갑주 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·속도+6·HP+40 (속공 크리 결).
@@ -524,6 +526,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_lake_frost_boots",
     ],
     bonus: { crit: 5, spd: 6, hp: 40 },
+    buildTags: ["crit", "speed", "tank"],
   },
   {
     // 얼음 호수 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 회피/지속 유틸. 2종 보너스 회피+6·HP+60.
@@ -531,6 +534,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "한기 장신구",
     pieces: ["v2_lake_chill_ring", "v2_lake_chill_necklace"],
     bonus: { eva: 6, hp: 60 },
+    buildTags: ["evasion", "tank"],
   },
   {
     // 심층 동굴 공격형 세트(갑주 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터 결).
@@ -542,6 +546,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_cave_abyss_boots",
     ],
     bonus: { critMult: 50, mp: 40, hp: 50 },
+    buildTags: ["magic", "crit", "tank", "resource"],
   },
   {
     // 심층 동굴 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 마력/엔진 유틸. 2종 보너스 MP+50·속도+6.
@@ -549,6 +554,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "공허 장신구",
     pieces: ["v2_cave_void_ring", "v2_cave_void_necklace"],
     bonus: { mp: 50, spd: 6 },
+    buildTags: ["magic", "speed", "resource"],
   },
 
   // ── 무기 포함 특화 세트 ──────────────────────────────────────────────────────
@@ -563,12 +569,14 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_sanctum_set_boots",
     ],
     bonus: { critMult: 70, mp: 55, hp: 70 },
+    buildTags: ["magic", "crit", "tank", "resource"],
   },
   {
     id: "sanctum_arcana",
     name: "성운 장신구",
     pieces: ["v2_sanctum_arcana_ring", "v2_sanctum_arcana_necklace"],
     bonus: { mp: 70, spd: 8 },
+    buildTags: ["magic", "speed", "resource"],
   },
   {
     id: "swamp_mist",
@@ -579,12 +587,14 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_swamp_set_boots",
     ],
     bonus: { spd: 10, eva: 7, hp: 80 },
+    buildTags: ["evasion", "speed", "tank"],
   },
   {
     id: "swamp_heart",
     name: "늪의 심장 장신구",
     pieces: ["v2_swamp_heart_ring", "v2_swamp_heart_necklace"],
     bonus: { hp: 100, eva: 10 },
+    buildTags: ["evasion", "tank"],
   },
   {
     id: "den_predator",
@@ -595,12 +605,14 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_den_set_boots",
     ],
     bonus: { critMult: 100, mp: 80, hp: 100 },
+    buildTags: ["magic", "crit", "tank", "resource"],
   },
   {
     id: "den_alpha",
     name: "우두머리 장신구",
     pieces: ["v2_den_alpha_ring", "v2_den_alpha_necklace"],
     bonus: { mp: 100, spd: 12 },
+    buildTags: ["magic", "speed", "resource"],
   },
 
   // ── 고유 아이템(Signature) 2피스 세트 — 일부만 세트, 일부는 단품(다양성). 보수적 2피스 보너스.
@@ -609,6 +621,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "성물",
     pieces: ["v2_sanctum_sig_priest_armor", "v2_sanctum_sig_priest_necklace"],
     bonus: { healPowerPct: 8, magicDef: 12 },
+    buildTags: ["magic", "tank", "heal", "low_hp"],
     // 저체력(HP≤30%) 시 받는 피해 −25% — 버팀 정체성(Phase 2).
     signature: {
       trigger: "low_hp",
@@ -622,6 +635,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "독왕",
     pieces: ["v2_swamp_sig_venom_gloves", "v2_swamp_sig_slip_boots"],
     bonus: { eva: 6, crit: 6 },
+    buildTags: ["crit", "evasion", "speed"],
     // 회피 성공 시 3행동 동안 속도 +25% — 기동 정체성(Phase 2).
     signature: {
       trigger: "on_dodge",
@@ -635,6 +649,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "포식자",
     pieces: ["v2_den_sig_alpha_greatsword", "v2_den_sig_beasthide_armor"],
     bonus: { critMult: 40, hp: 60 },
+    buildTags: ["physical", "crit", "tank", "bleed", "dot"],
     // 적중 시 출혈 — 포식자 정체성. 추가타 인플레 대신 출혈 축을 연다.
     signature: {
       trigger: "on_hit",
@@ -648,6 +663,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "검은 왕좌",
     pieces: ["v2_throne_sig_black_plate", "v2_throne_sig_void_crown"],
     bonus: { hp: 180, magicDef: 18, critResist: 8 },
+    buildTags: ["magic", "tank", "shield", "low_hp"],
     signature: {
       trigger: "low_hp",
       label: "검은 왕좌",
@@ -660,6 +676,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "공허 성벽",
     pieces: ["v2_boss_void_bastion", "v2_boss_void_reliquary"],
     bonus: { hp: 240, def: 36, magicDef: 30, critResist: 12 },
+    buildTags: ["magic", "tank", "shield"],
     signature: {
       trigger: "battle_start",
       label: "공허 성벽",
@@ -678,6 +695,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "artisan_bulwark",
     name: "수호각인 장비",
+    buildTags: ["tank"],
     thresholds: [
       { count: 2, bonus: { hp: 220, def: 24, critResist: 8 } },
       { count: 4, bonus: { hp: 360, def: 42, critResist: 14 } },
@@ -686,6 +704,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "artisan_gale",
     name: "질풍각인 장비",
+    buildTags: ["crit", "evasion", "speed"],
     thresholds: [
       { count: 2, bonus: { crit: 4, eva: 3, spd: 5 } },
       { count: 4, bonus: { crit: 8, eva: 7, spd: 12, critMult: 35 } },
@@ -694,6 +713,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "artisan_arcane",
     name: "룬각인 장비",
+    buildTags: ["magic", "tank", "heal", "resource"],
     thresholds: [
       { count: 2, bonus: { mp: 180, magicDef: 20, healPowerPct: 8 } },
       { count: 4, bonus: { mp: 320, magicDef: 34, healPowerPct: 14 } },
@@ -702,6 +722,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "black_iron",
     name: "흑철",
+    buildTags: ["magic", "tank"],
     thresholds: [
       { count: 2, bonus: { hp: 100, magicDef: 10 } },
       { count: 3, bonus: { hp: 160, magicDef: 18, critResist: 8 } },
@@ -710,6 +731,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "void_regalia",
     name: "공허 예복",
+    buildTags: ["magic", "speed", "resource"],
     thresholds: [
       { count: 2, bonus: { mp: 120, magicDef: 8 } },
       { count: 3, bonus: { mp: 180, magicDef: 14, spd: 8 } },
@@ -718,6 +740,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "abyssal_current",
     name: "심연 해류",
+    buildTags: ["magic", "crit", "speed", "tank", "resource"],
     thresholds: [
       { count: 2, bonus: { hp: 280, mp: 140, magicDef: 28, critResist: 4 } },
       {
@@ -736,6 +759,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "royal_hunt",
     name: "왕도 사냥꾼",
+    buildTags: ["crit", "evasion", "speed"],
     thresholds: [
       { count: 2, bonus: { crit: 6, spd: 6 } },
       { count: 3, bonus: { crit: 10, eva: 6, spd: 10 } },
@@ -744,6 +768,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "ash_line",
     name: "잿빛 전선",
+    buildTags: ["tank"],
     thresholds: [
       { count: 2, bonus: { hp: 140, def: 18, critResist: 4 } },
       { count: 3, bonus: { hp: 220, def: 32, magicDef: 12, critResist: 8 } },
@@ -752,6 +777,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "ember_rite",
     name: "연소 의식",
+    buildTags: ["magic", "tank", "heal", "resource"],
     thresholds: [
       { count: 2, bonus: { mp: 150, healPowerPct: 5, magicDef: 12 } },
       { count: 3, bonus: { mp: 230, healPowerPct: 10, magicDef: 20, critResist: 4 } },
@@ -760,6 +786,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "storm_hunt",
     name: "폭풍 추격",
+    buildTags: ["crit", "evasion", "speed"],
     thresholds: [
       { count: 2, bonus: { crit: 5, eva: 5, spd: 8 } },
       { count: 3, bonus: { crit: 9, eva: 10, critMult: 35, spd: 14 } },
@@ -768,6 +795,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "bone_line",
     name: "백골 장벽",
+    buildTags: ["tank"],
     thresholds: [
       { count: 2, bonus: { hp: 180, def: 26, critResist: 7 } },
       { count: 3, bonus: { hp: 320, def: 48, magicDef: 18, critResist: 12 } },
@@ -776,6 +804,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "crow_rite",
     name: "까마귀 조문",
+    buildTags: ["magic", "tank", "heal", "resource"],
     thresholds: [
       { count: 2, bonus: { mp: 170, healPowerPct: 5, magicDef: 16 } },
       { count: 3, bonus: { mp: 260, healPowerPct: 10, magicDef: 28, critResist: 5 } },
@@ -784,6 +813,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "death_hunt",
     name: "사혼 추격",
+    buildTags: ["crit", "evasion", "speed"],
     thresholds: [
       { count: 2, bonus: { crit: 7, critMult: 35, spd: 7 } },
       { count: 3, bonus: { crit: 11, eva: 9, critMult: 60, spd: 12 } },
@@ -792,6 +822,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "storm_guard",
     name: "폭풍 수호",
+    buildTags: ["tank"],
     thresholds: [
       { count: 2, bonus: { hp: 210, def: 30, critResist: 8 } },
       { count: 3, bonus: { hp: 360, def: 54, magicDef: 20, critResist: 13 } },
@@ -800,6 +831,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "lightning_rite",
     name: "낙뢰 의식",
+    buildTags: ["magic", "tank", "heal", "resource"],
     thresholds: [
       { count: 2, bonus: { mp: 190, healPowerPct: 6, magicDef: 18 } },
       { count: 3, bonus: { mp: 290, healPowerPct: 11, magicDef: 32, critResist: 6 } },
@@ -808,6 +840,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "cliff_hunt",
     name: "절벽 추격",
+    buildTags: ["crit", "evasion", "speed"],
     thresholds: [
       { count: 2, bonus: { crit: 8, critMult: 40, spd: 8 } },
       { count: 3, bonus: { crit: 12, eva: 10, critMult: 65, spd: 14 } },
@@ -816,6 +849,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "trench_guard",
     name: "해구 수호",
+    buildTags: ["tank"],
     thresholds: [
       { count: 2, bonus: { hp: 240, def: 34, critResist: 9 } },
       { count: 3, bonus: { hp: 410, def: 60, magicDef: 24, critResist: 15 } },
@@ -824,6 +858,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "deep_rite",
     name: "해연 의식",
+    buildTags: ["magic", "tank", "heal", "resource"],
     thresholds: [
       { count: 2, bonus: { mp: 210, healPowerPct: 7, magicDef: 20 } },
       { count: 3, bonus: { mp: 320, healPowerPct: 12, magicDef: 36, critResist: 7 } },
@@ -832,6 +867,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "undertow_hunt",
     name: "암류 추격",
+    buildTags: ["crit", "evasion", "speed"],
     thresholds: [
       { count: 2, bonus: { crit: 9, critMult: 45, spd: 9 } },
       { count: 3, bonus: { crit: 13, eva: 11, critMult: 70, spd: 15 } },
@@ -840,6 +876,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
     id: "hard_sangoon",
     name: "흉포한 산군",
+    buildTags: ["physical", "crit", "tank"],
     thresholds: [
       { count: 2, bonus: { hp: 360, def: 44, magicDef: 24 } },
       { count: 4, bonus: { hp: 520, def: 64, crit: 4, critResist: 8 } },

@@ -24,22 +24,16 @@ export const DUNGEON_THEME_VISIBILITY_STORAGE_KEY =
   "adventure.v2.dungeonThemeHiddenStarts";
 
 export function V2DungeonList({
-  currentOutpost,
-  gameStateLoaded = true,
   onSelectFloor,
   onBack,
-  onOpenMap,
   frontierDepth = 2,
   playerPower = null,
   onSelectRareMap,
   initialOpenDepth = null,
 }: {
-  currentOutpost: { id: string; name: string } | null;
-  gameStateLoaded?: boolean;
   onSelectFloor: (depth: number) => void;
-  // 상단 뒤로가기 — 진입 출처(전투 탭)로 복귀. 지도 열기는 별도 버튼(onOpenMap).
+  // 상단 뒤로가기 — 진입 출처(전투 탭)로 복귀.
   onBack: () => void;
-  onOpenMap: () => void;
   frontierDepth?: number;
   playerPower?: number | null;
   // 희귀 탐사 입장 — 열린 탐사(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
@@ -122,29 +116,8 @@ export function V2DungeonList({
         title={openGroup ? openGroup.name : "사냥터"}
         onBack={openGroup ? () => setOpenDepth(null) : onBack}
       />
-      {!currentOutpost && gameStateLoaded && (
-        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능.
-        </p>
-      )}
 
-      {!currentOutpost && !gameStateLoaded ? (
-        <Card padding="md">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            사냥터 정보를 불러오는 중입니다.
-          </p>
-        </Card>
-      ) : !currentOutpost ? (
-        <Card padding="md">
-          <button
-            type="button"
-            onClick={onOpenMap}
-            className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            지도 열기
-          </button>
-        </Card>
-      ) : openGroup ? (
+      {openGroup ? (
         // 이너 — 선택한 테마의 깊이 카드 6개.
         <div className="space-y-3">
           <PowerSummary playerPower={playerPower} />

@@ -1,5 +1,4 @@
 import { useCallback } from "react";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import { GuildOrgChart } from "../GuildOrgChart";
 import { NoticeBanner } from "./NoticeBanner";
 import type { GuildInfoResponse, Notice } from "./guildShared";
@@ -70,10 +69,7 @@ export function GuildMembersPanel({
         </div>
       ) : (
         // 길드원 조직도 — 마스터→부마스터→관리자→일반 위계 트리(회사 조직도 느낌).
-        <GuildOrgChart
-          members={info.members}
-          showHonor={V2_SETTLEMENT_WARFARE}
-        />
+        <GuildOrgChart members={info.members} />
       )}
 
       {/* 길드 탈퇴 — 마스터가 아닌 본인만. 마스터는 관리 탭에서 양도/해산. */}

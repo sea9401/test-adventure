@@ -10,11 +10,9 @@ import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 export default function DungeonListPage() {
   const router = useRouter();
   const {
-    currentOutpost,
     frontierDepth,
     offlineHunt,
     playerCombat,
-    gameStateLoaded,
   } =
     useGameState();
   // ?openDepth=<테마 첫 깊이> — 사냥터에서 "뒤로"로 들어오면 그 테마의 깊이 선택을 펼친 채 시작.
@@ -35,11 +33,8 @@ export default function DungeonListPage() {
 
   return (
     <V2DungeonList
-      currentOutpost={currentOutpost}
-      gameStateLoaded={gameStateLoaded}
       onSelectFloor={(depth) => router.push(`/battle/dungeon/${depth}`)}
       onBack={() => router.push("/battle")}
-      onOpenMap={() => router.push("/map")}
       frontierDepth={frontierDepth}
       playerPower={playerCombat?.power ?? null}
       initialOpenDepth={initialOpenDepth}

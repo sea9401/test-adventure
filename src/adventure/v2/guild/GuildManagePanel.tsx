@@ -11,8 +11,6 @@ import {
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
 import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems-icons";
 import { GUILD_COLORS } from "@/adventure/data/guild-colors";
-import { OutpostPolicyEditor } from "../OutpostPolicyEditor";
-import LordPanel from "../LordPanel";
 import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
 import {
@@ -21,11 +19,9 @@ import {
   type GuildManageTab,
   type Notice,
   type PendingRequest,
-  type PolicyTarget,
 } from "./guildShared";
 
-// 길드 관리 탭 — 마스터/관리자 전용. 멤버(초대·신청·직책)·거점 정책·길드 설정(엠블럼·색·국가·해산).
-// (V2GuildHome 에서 추출, 거동 불변)
+// 길드 관리 탭 — 마스터/관리자 전용. 멤버(초대·신청·직책)·길드 연구·길드 설정(엠블럼·색·해산).
 export function GuildManagePanel({
   info,
   guildId,
@@ -36,13 +32,9 @@ export function GuildManagePanel({
   setNotice,
   onRefresh,
   isMaster,
-  canManage,
   pendingRequests,
   loading,
-  policyTargets,
-  viewerUserId,
   onGuildChanged,
-  onOccupationsChanged,
 }: {
   info: GuildInfoResponse | null;
   guildId: number | null;
@@ -53,21 +45,13 @@ export function GuildManagePanel({
   setNotice: (n: Notice | null) => void;
   onRefresh: () => Promise<void>;
   isMaster: boolean;
-  canManage: boolean;
   pendingRequests: PendingRequest[];
   loading: boolean;
-  policyTargets: PolicyTarget[];
-  viewerUserId: string | null;
   onGuildChanged?: () => void;
-  onOccupationsChanged?: () => void;
 }) {
   // 관리 탭 내부 하위 탭 선택.
   const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [inviteName, setInviteName] = useState("");
-  // 관리탭 — 거점 정책 에디터 펼침 (한 번에 하나).
-  const [policyOpenId, setPolicyOpenId] = useState<string | null>(null);
-  // 국가 선포 — 국가명 입력.
-  const [nationInput, setNationInput] = useState("");
   // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
   const [disbandConfirm, setDisbandConfirm] = useState("");
 
@@ -126,52 +110,7 @@ export function GuildManagePanel({
     }
   }, [inviteName, guildId, acting, setActing, setNotice]);
 
-  // 마스터가 국가 선포 — 대도시 마을 보유 시. 성공하면 길드 정원이 늘어난다.
-  const handleDeclareNation = useCallback(async () => {
-    const name = nationInput.trim();
-    if (name.length === 0 || acting) return;
-    setActing(true);
-    setNotice(null);
-    try {
-      const res = await fetch("/api/v2/guild/nation/declare", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        reason?: string;
-        requiredTier?: string;
-      } | null;
-      if (j?.ok) {
-        setNotice({
-          kind: "ok",
-          text: `${name} 국가를 선포했어요. 길드 정원이 늘어납니다.`,
-        });
-        setNationInput("");
-        await onRefresh();
-      } else {
-        const msg =
-          j?.error === "no_metropolis"
-            ? `${j.requiredTier ?? "대도시"} 등급 마을이 있어야 선포할 수 있어요.`
-            : j?.error === "already_nation"
-              ? "이미 국가를 선포했어요."
-              : j?.error === "not_master"
-                ? "마스터만 선포할 수 있어요."
-                : j?.error === "invalid_name"
-                  ? (j.reason ?? "국가명을 확인해 주세요.")
-                  : `선포에 실패했어요 (${j?.error ?? `http ${res.status}`}).`;
-        setNotice({ kind: "err", text: msg });
-      }
-    } catch {
-      setNotice({ kind: "err", text: "선포에 실패했어요. 잠시 후 다시 시도해 주세요." });
-    } finally {
-      setActing(false);
-    }
-  }, [nationInput, acting, onRefresh, setActing, setNotice]);
-
-  // 마스터가 길드 엠블럼 설정 — 지도 마커에 그 길드 점령 거점 아이콘으로 표시.
+  // 마스터가 길드 엠블럼 설정.
   const handleSetEmblem = useCallback(
     async (key: string) => {
       if (acting) return;
@@ -190,7 +129,7 @@ export function GuildManagePanel({
         if (j?.ok) {
           setNotice({
             kind: "ok",
-            text: "길드 엠블럼을 바꿨어요. 지도에 반영됩니다.",
+            text: "길드 엠블럼을 바꿨어요. 길드 정보에 반영됩니다.",
           });
           await onRefresh();
         } else {
@@ -231,7 +170,7 @@ export function GuildManagePanel({
           error?: string;
         } | null;
         if (j?.ok) {
-          setNotice({ kind: "ok", text: "길드 색을 바꿨어요. 지도에 반영됩니다." });
+          setNotice({ kind: "ok", text: "길드 색을 바꿨어요. 길드 정보에 반영됩니다." });
           await onRefresh();
         } else {
           setNotice({
@@ -379,7 +318,7 @@ export function GuildManagePanel({
     [acting, onRefresh, onGuildChanged, setActing, setNotice],
   );
 
-  // 마스터가 길드 해산 — 길드 이름 입력으로 확인. 금고 골드 소멸·점령 거점 해방.
+  // 마스터가 길드 해산 — 길드 이름 입력으로 확인.
   const handleDisband = useCallback(async () => {
     const name = stateGuildName ?? info?.guild?.name ?? "";
     if (acting || disbandConfirm.trim() !== name || name.length === 0) return;
@@ -413,7 +352,7 @@ export function GuildManagePanel({
     }
   }, [acting, disbandConfirm, stateGuildName, info?.guild?.name, onRefresh, onGuildChanged, setActing, setNotice]);
 
-  // 관리 탭 내부 하위 탭 — 멤버/거점 정책은 관리자+, 길드 설정(엠블럼·색·국가·해산)은 마스터 전용.
+  // 관리 탭 내부 하위 탭 — 멤버/길드 연구는 관리자+, 길드 설정(엠블럼·색·해산)은 마스터 전용.
   //   관리자(비마스터)는 설정 탭 미노출. 멤버 탭에 가입 신청 대기 뱃지.
   const manageTabs: { key: GuildManageTab; label: string }[] = [
     {
@@ -422,7 +361,6 @@ export function GuildManagePanel({
         pendingRequests.length > 0 ? `멤버 (${pendingRequests.length})` : "멤버",
     },
     { key: "research", label: "길드 연구" },
-    { key: "territory", label: "거점 정책" },
   ];
   if (isMaster) manageTabs.push({ key: "settings", label: "길드 설정" });
   const activeManageTab: GuildManageTab = manageTabs.some(
@@ -435,7 +373,7 @@ export function GuildManagePanel({
     <div className="space-y-4">
       {notice && <NoticeBanner notice={notice} />}
 
-      {/* 관리 탭이 비대해져 내부 하위 탭으로 분리 — 멤버 / 거점 정책 / 길드 설정.
+      {/* 관리 탭이 비대해져 내부 하위 탭으로 분리 — 멤버 / 길드 연구 / 길드 설정.
           지역 배경 위라 surface(HeaderPanel)로 감싸야 보임 — 상위 탭과 동일 패턴([[ui-design-system-surfaces]] #888/#890). */}
       <HeaderPanel className="py-2">
         <TabBar
@@ -483,15 +421,15 @@ export function GuildManagePanel({
         </div>
       )}
 
-      {/* ── 길드 설정: 엠블럼 · 색 · 국가 선포 · 위험 구역(해산) ── */}
-      {/* 길드 엠블럼 — 마스터 전용. 지도에서 이 길드 점령 거점에 표시되는 아이콘. */}
+      {/* ── 길드 설정: 엠블럼 · 색 · 위험 구역(해산) ── */}
+      {/* 길드 엠블럼 — 마스터 전용. */}
       {activeManageTab === "settings" && isMaster && (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             길드 엠블럼
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            지도에서 우리 길드가 점령한 거점에 이 아이콘이 표시돼요.
+            길드 프로필과 길드원 화면에 이 아이콘이 표시돼요.
           </p>
           <div className="mt-2 grid grid-cols-6 gap-1.5">
             {GUILD_EMBLEMS.map((em) => {
@@ -520,14 +458,14 @@ export function GuildManagePanel({
         </div>
       )}
 
-      {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). 지도 마커 채움색. */}
+      {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). */}
       {activeManageTab === "settings" && isMaster && (
         <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             길드 색
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            지도에서 우리 길드 거점 채움색이에요. 다른 길드가 쓰는 색은 고를 수 없어요(선착순).
+            길드 프로필 색상이에요. 다른 길드가 쓰는 색은 고를 수 없어요(선착순).
           </p>
           <div className="mt-2 grid grid-cols-8 gap-1.5">
             {GUILD_COLORS.map((c) => {
@@ -610,52 +548,6 @@ export function GuildManagePanel({
         </div>
       )}
 
-      {/* ── 거점 정책: 영주 + 정책·세율 (타일 정착지 + 카탈로그 거점) ── */}
-      {/* 정책/영주 지정 = 마스터/관리자. 세금 수확 = 영주 본인(LordPanel 내부 게이트). */}
-      {activeManageTab === "territory" && (
-        <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            거점 정책 · 영주 · 세율
-          </div>
-          {policyTargets.length === 0 ? (
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-              점령한 거점이 아직 없어요.
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {policyTargets.map((t) => (
-                <div
-                  key={t.outpostId}
-                  className="ui-workshop-card overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <OutpostPolicyEditor
-                    outpostId={t.outpostId}
-                    title={t.title}
-                    currentPolicy={t.occ?.policy ?? "open"}
-                    currentTaxRate={Number(t.occ?.taxRate ?? "0")}
-                    open={policyOpenId === t.outpostId}
-                    onToggle={() =>
-                      setPolicyOpenId((cur) =>
-                        cur === t.outpostId ? null : t.outpostId,
-                      )
-                    }
-                    onSaved={() => onOccupationsChanged?.()}
-                  />
-                  {/* 영주·세금 — 정책 편집기와 같은 펼침(policyOpenId) 안에. 펼쳤을 때만 표시. */}
-                  {policyOpenId === t.outpostId && (
-                    <LordPanel
-                      outpostId={t.outpostId}
-                      canManage={canManage}
-                      viewerUserId={viewerUserId}
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* 직책 관리 — 마스터 전용. 관리자 임명/해임. (멤버 탭) */}
       {activeManageTab === "members" && isMaster && (
         <div className="space-y-2">
@@ -663,8 +555,7 @@ export function GuildManagePanel({
             직책 관리
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            부마스터·관리자는 이 관리 탭(초대·가입 신청·거점 정책/세율)을 쓸
-            수 있어요.
+            부마스터·관리자는 초대·가입 신청·길드 연구를 쓸 수 있어요.
           </p>
           <ul className="space-y-1.5">
             {(info?.members ?? [])
@@ -742,60 +633,7 @@ export function GuildManagePanel({
         </div>
       )}
 
-      {/* 국가 선포 — 마스터 전용. 대도시 마을 보유 시 선포 → 길드 정원 증가. (설정 탭) */}
-      {activeManageTab === "settings" && isMaster && (
-        <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            국가 선포
-          </div>
-          {info?.guild?.nationName ? (
-            <div className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-2.5 dark:border-indigo-900/60 dark:bg-indigo-950/40">
-              <div className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                {info.guild.nationName}
-              </div>
-              <p className="mt-0.5 text-xs text-indigo-600/80 dark:text-indigo-400/80">
-                {info.guild.nationDeclaredAt
-                  ? `${fmtDate(info.guild.nationDeclaredAt)} 선포`
-                  : "선포됨"}{" "}
-                · 길드 정원 {info.memberCap ?? GUILD_MAX_MEMBERS}명
-              </p>
-            </div>
-          ) : info?.canDeclareNation ? (
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                대도시 마을을 보유했어요. 국가를 선포하면 길드가 성장합니다
-                (정원 증가). 국가명은 한 번 정하면 바꿀 수 없어요.
-              </p>
-              <div className="mt-2 flex gap-2">
-                <input
-                  type="text"
-                  value={nationInput}
-                  onChange={(e) => setNationInput(e.target.value)}
-                  placeholder="국가명 (2~16자)"
-                  disabled={acting}
-                  maxLength={16}
-                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-400"
-                />
-                <button
-                  type="button"
-                  onClick={handleDeclareNation}
-                  disabled={acting || nationInput.trim().length === 0}
-                  className="shrink-0 rounded-md border border-indigo-700 bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  국가 선포
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-              대도시 등급 마을을 보유하면 국가를 선포할 수 있어요. 선포하면
-              길드 정원이 늘어납니다.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* 위험 구역 — 길드 해산(마스터 전용). 금고 소멸·거점 해방·되돌릴 수 없음. (설정 탭) */}
+      {/* 위험 구역 — 길드 해산(마스터 전용). 금고 소멸·되돌릴 수 없음. (설정 탭) */}
       {activeManageTab === "settings" && isMaster && (
         <div className="space-y-2">
           <div className="text-xs font-medium uppercase tracking-wider text-rose-500">
@@ -804,8 +642,7 @@ export function GuildManagePanel({
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-rose-950/30">
             <p className="text-xs text-rose-700 dark:text-rose-300">
               길드를 해산하면 모든 길드원이 방출되고, 금고 골드(
-              {(info?.guildGold ?? 0).toLocaleString()} G)가 소멸하며, 점령한
-              거점이 모두 해방됩니다. 되돌릴 수 없어요.
+              {(info?.guildGold ?? 0).toLocaleString()} G)가 소멸합니다. 되돌릴 수 없어요.
             </p>
             <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
               확인을 위해 길드 이름{" "}

@@ -31,7 +31,7 @@ export function GuildInfoPanel({
       ? `${SETTLEMENT_BUILDINGS.training_ground.icon} ${SETTLEMENT_BUILDINGS.training_ground.name} ×${trainingCount}`
       : null,
     mapWorkshopCount > 0
-      ? `${SETTLEMENT_BUILDINGS.map_workshop.icon} ${SETTLEMENT_BUILDINGS.map_workshop.name} ×${mapWorkshopCount}`
+      ? `${SETTLEMENT_BUILDINGS.map_workshop.icon} 발굴 지원소 ×${mapWorkshopCount}`
       : null,
   ].filter((label): label is string => Boolean(label));
 
@@ -39,14 +39,6 @@ export function GuildInfoPanel({
     <div className="space-y-3">
       <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900">
         <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          {info.guild.nationName && (
-            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-              <dt className="text-zinc-500 dark:text-zinc-400">국가</dt>
-              <dd className="truncate font-semibold text-indigo-600 dark:text-indigo-400">
-                {info.guild.nationName}
-              </dd>
-            </div>
-          )}
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-zinc-500 dark:text-zinc-400">길드마스터</dt>
             <dd className="truncate font-medium">
@@ -75,7 +67,7 @@ export function GuildInfoPanel({
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <dt className="text-zinc-500 dark:text-zinc-400">영지 시설</dt>
+            <dt className="text-zinc-500 dark:text-zinc-400">길드 시설</dt>
             <dd className="truncate font-medium">
               {facilityLabels.length > 0 ? facilityLabels.join(" · ") : "없음"}
             </dd>
@@ -96,11 +88,11 @@ export function GuildInfoPanel({
 
       <GuildCombatSupplySummary />
 
-      {/* 길드 금고 입금 — 거점 화면에서 이관. 점령/공성 비용 재원 충원.
+      {/* 길드 금고 입금 — 길드 공용 자금 충원.
           입금 후 refresh 로 정보 카드 '길드 자금'·활동 내역도 갱신. */}
       <GuildGoldDepositPanel onChanged={onRefresh} />
 
-      {/* 길드원 활동 내역 — 가입·임명·입금·국가선포·창단. */}
+      {/* 길드원 활동 내역 — 가입·임명·입금·창단. */}
       <GuildActivityList activity={activity} loading={loading} />
     </div>
   ) : (

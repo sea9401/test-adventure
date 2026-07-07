@@ -20,8 +20,8 @@ const ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요해요.",
   no_guild: "길드 가입 후 이용할 수 있어요.",
   no_character: "캐릭터 생성 후 이용할 수 있어요.",
-  training_ground_required: "길드 영지에 훈련장이 필요해요.",
-  policy_blocked: "점령 길드가 길드원 전용으로 설정한 훈련장이에요.",
+  training_ground_required: "길드 시설에 훈련장이 필요해요.",
+  policy_blocked: "길드원 전용 훈련장이에요.",
   insufficient_gold: "외부 이용료를 낼 골드가 부족해요.",
   already_claimed: "오늘 이미 완료한 훈련이에요.",
   locked: "아직 이용할 수 없는 훈련이에요.",
@@ -188,10 +188,10 @@ export function GuildTrainingGroundPanel({
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {externalAccess
-              ? `외부 이용료 ${externalAccess.useFeeGold.toLocaleString()} G · 훈련 완료 시 점령 길드 금고로 들어갑니다.`
+              ? `외부 이용료 ${externalAccess.useFeeGold.toLocaleString()} G`
               : hasTrainingGround
               ? `Lv ${level} · ${state?.upgrade?.label ?? "훈련 설비"}`
-              : "길드 영지 슬롯에 훈련장을 배치하면 이용할 수 있어요."}
+              : "길드 시설에 훈련장을 배치하면 이용할 수 있어요."}
           </p>
         </div>
         {hasTrainingGround && (

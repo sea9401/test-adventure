@@ -122,7 +122,7 @@ export function GuildExplorationPanel({
   const endsAt = state?.endsAt ? new Date(state.endsAt) : null;
 
   return (
-    <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export function GuildExplorationPanel({
         </div>
       </dl>
 
-      <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+      <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             주간 탐사 의뢰
@@ -201,7 +201,7 @@ export function GuildExplorationPanel({
             return (
               <div
                 key={mission.id}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -248,7 +248,7 @@ export function GuildExplorationPanel({
         </div>
 
         {!loading && missions.length === 0 ? (
-          <p className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+          <p className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
             등록된 탐사 의뢰가 없습니다.
           </p>
         ) : null}

@@ -310,7 +310,7 @@ export function ChatPanel({
       className="pointer-events-none fixed inset-0 z-[45] flex items-end justify-end sm:p-4"
     >
       <div
-        className="pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        className="pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
         // 데스크톱만 크기 조절(인라인이 sm:max-w-md/sm:h-[600px] 보다 우선). 모바일은 전체폭 유지.
         style={
           isDesktop
@@ -343,7 +343,7 @@ export function ChatPanel({
             </svg>
           </div>
         )}
-        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             <ChatCircle size={20} weight="duotone" />
             채팅
@@ -376,7 +376,7 @@ export function ChatPanel({
         </header>
 
         {presenceOpen && (
-          <div className="no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/60">
+          <div className="no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60">
             {presence.length === 0 ? (
               <div className="text-xs text-zinc-500 dark:text-zinc-400">
                 접속 중인 유저가 없습니다.
@@ -420,7 +420,7 @@ export function ChatPanel({
           </div>
         )}
 
-        <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex border-b border-zinc-200 dark:border-zinc-700">
           {(
             [
               ["chat", "전체", chatMessages.length, unreadChat],
@@ -468,11 +468,11 @@ export function ChatPanel({
         )}
 
         {tab === "notice" ? (
-          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
             협동 보스 알림. 공개 채팅은 전체 탭에서 사용할 수 있습니다.
           </div>
         ) : tab === "guild" && !guildAvailable ? (
-          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
             길드에 가입하면 길드원 채팅을 사용할 수 있습니다.
           </div>
         ) : (

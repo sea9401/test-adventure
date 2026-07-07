@@ -27,7 +27,7 @@ export function GuildArtisanContributionPanel({
     .slice(0, 5);
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           제작 기여도
@@ -68,7 +68,7 @@ export function GuildArtisanContributionPanel({
           ))}
         </div>
       ) : (
-        <div className="rounded-md border border-dashed border-zinc-200 px-3 py-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <div className="rounded-md border border-dashed border-zinc-200 px-3 py-3 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
           아직 길드 대장간 제작 기록이 없어요.
         </div>
       )}

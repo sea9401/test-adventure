@@ -151,7 +151,7 @@ export function V2CoopBossListView({
                 className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors ${
                   visibility === v
                     ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
                 }`}
               >
                 {label}
@@ -393,7 +393,7 @@ export function V2CoopBossListView({
                 </button>
               </div>
               {group.variants.length > 1 && (
-                <div className="grid grid-cols-2 gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="grid grid-cols-2 gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-900">
                   {group.variants.map((variant) => {
                     const selected = selectedKind === variant.kind;
                     return (
@@ -420,7 +420,7 @@ export function V2CoopBossListView({
                 </div>
               )}
               {open && (
-                <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
                   <div className="flex flex-wrap gap-1">
                     {def.traits.map((t) => (
                       <span

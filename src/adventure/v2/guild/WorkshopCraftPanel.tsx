@@ -220,7 +220,7 @@ export function WorkshopCraftPanel({
         </div>
 
         <div className="grid gap-2 md:grid-cols-2">
-          <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-zinc-800 dark:text-zinc-100">
                 일반 제작
@@ -253,7 +253,7 @@ export function WorkshopCraftPanel({
             </div>
           </div>
 
-          <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold text-zinc-800 dark:text-zinc-100">
                 명장 제작
@@ -428,7 +428,7 @@ export function WorkshopCraftPanel({
         </div>
       ) : null}
 
-      <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -441,10 +441,10 @@ export function WorkshopCraftPanel({
             </div>
           </div>
           <details className="group">
-            <summary className="cursor-pointer rounded border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800">
+            <summary className="cursor-pointer rounded border border-zinc-300 bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
               제작 참고
             </summary>
-            <div className="mt-2 w-full space-y-2 rounded border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950 sm:min-w-[420px]">
+            <div className="mt-2 w-full space-y-2 rounded border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-900 sm:min-w-[420px]">
               <div>
                 <div className="font-semibold text-zinc-900 dark:text-zinc-100">
                   재료 수급처
@@ -460,7 +460,7 @@ export function WorkshopCraftPanel({
                     return (
                       <div
                         key={id}
-                        className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900"
+                        className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-zinc-900 dark:text-zinc-100">
@@ -531,7 +531,7 @@ export function WorkshopCraftPanel({
               className={`rounded-full px-2.5 py-1 font-medium transition ${
                 recipeSlotFilter === value
                   ? "bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950"
-                  : "bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  : "bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               }`}
             >
               {label}
@@ -544,7 +544,7 @@ export function WorkshopCraftPanel({
             onChange={(e) =>
               setRecipeScopeFilter(e.target.value as "all" | "craftable")
             }
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="all">제작 세트 전체</option>
             <option value="craftable">제작 가능</option>
@@ -554,7 +554,7 @@ export function WorkshopCraftPanel({
             onChange={(e) =>
               setRecipeSort(e.target.value as "level" | "tier" | "chance")
             }
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="level">해금 레벨순</option>
             <option value="tier">티어 높은순</option>
@@ -563,7 +563,7 @@ export function WorkshopCraftPanel({
         </div>
       </div>
 
-      <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
         {craftedRecipes.map((recipe) => renderRecipeRow(recipe))}
         {!loading && craftedRecipes.length === 0 ? (
           <div className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -573,12 +573,12 @@ export function WorkshopCraftPanel({
       </div>
 
       {totalTrainingRecipes > 0 ? (
-        <details className="rounded border border-zinc-200 bg-white text-xs dark:border-zinc-800 dark:bg-zinc-950">
+        <details className="rounded border border-zinc-200 bg-white text-xs dark:border-zinc-700 dark:bg-zinc-900">
           <summary className="cursor-pointer px-3 py-2 font-semibold text-zinc-700 hover:bg-zinc-50 dark:text-zinc-200 dark:hover:bg-zinc-900">
             수련 제작 {trainingRecipes.length.toLocaleString()} /{" "}
             {totalTrainingRecipes.toLocaleString()}종
           </summary>
-          <div className="border-t border-zinc-200 px-3 py-2 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <div className="border-t border-zinc-200 px-3 py-2 text-[11px] text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             드랍 장비와 같은 기본 레시피입니다. 초반 숙련도 보강용으로만
             분리해 두었습니다.
           </div>

@@ -1019,7 +1019,7 @@ function FishingSceneCanvas({
           className={`fish-scene-status absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded px-3 py-1 text-center backdrop-blur-[1px] ${
             biting
               ? "bg-rose-600/95 text-white shadow-lg shadow-rose-950/30 ring-4 ring-white/80 dark:bg-rose-500/95 dark:ring-white/70"
-              : "bg-white/75 shadow-sm dark:bg-zinc-950/70"
+              : "bg-white/75 shadow-sm dark:bg-zinc-900/70"
           }`}
         >
           {phase === "casting" && <span className="text-sm">던지는 중…</span>}
@@ -1508,7 +1508,7 @@ export function FishingView({
 
   return (
     <>
-      <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[720px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
+      <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[720px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100">
         <SubViewHeader title="낚시터" onBack={onBack} />
 
         <FishingSubTabs
@@ -1619,7 +1619,7 @@ export function FishingView({
           </div>
         </>
       ) : progressionLoading ? (
-        <div className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-center text-[11px] text-zinc-400 dark:border-zinc-800 sm:rounded-xl sm:p-3 sm:text-xs">
+        <div className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-center text-[11px] text-zinc-400 dark:border-zinc-700 sm:rounded-xl sm:p-3 sm:text-xs">
           낚시 숙련도 불러오는 중…
         </div>
       ) : null}
@@ -1658,7 +1658,7 @@ export function FishingView({
               ? "is-biting border-rose-500 bg-rose-100 text-rose-950 ring-4 ring-rose-400/60 dark:border-rose-300 dark:bg-rose-950/70 dark:text-rose-100 dark:ring-rose-300/45"
               : tapActive
                 ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
-                : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
+                : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-500"
           }`}
         >
           <FishingSceneCanvas
@@ -1672,7 +1672,7 @@ export function FishingView({
 
       {/* 결과 */}
       {phase === "result" && (
-        <div className="ui-fishing-result rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-800">
+        <div className="ui-fishing-result rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-700">
           {error ? (
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (
@@ -1759,7 +1759,7 @@ export function FishingView({
             </div>
           ) : (
             <div className="space-y-1">
-              <div className="relative mx-auto h-16 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
+              <div className="relative mx-auto h-16 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
                 <FishingResultScene result={result} tideId={currentTideId} />
                 <FishIcon
                   fishId="minnow"

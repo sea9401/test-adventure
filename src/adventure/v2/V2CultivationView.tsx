@@ -455,7 +455,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                         className={`flex min-h-14 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-semibold transition ${
                           active
                             ? style.active
-                            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-zinc-700"
+                            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-700"
                         }`}
                       >
                         <span

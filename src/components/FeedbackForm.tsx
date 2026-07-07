@@ -66,7 +66,7 @@ export function FeedbackForm() {
   }
 
   return (
-    <section className="rounded-md border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="rounded-md border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
       <div className="space-y-3 px-4 py-4">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {CATEGORY_OPTIONS.map((option) => (
@@ -110,7 +110,7 @@ export function FeedbackForm() {
           </span>
         </div>
       </div>
-      <div className="flex justify-end border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+      <div className="flex justify-end border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
         <button
           type="button"
           onClick={submit}

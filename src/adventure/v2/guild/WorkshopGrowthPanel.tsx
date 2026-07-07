@@ -103,9 +103,9 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
   }, [state]);
 
   return (
-    <div className="space-y-3 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-800 dark:text-zinc-100">
+    <div className="space-y-3 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
       <div className="grid gap-3 lg:grid-cols-[1.05fr_1fr]">
-        <div className="rounded border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="rounded border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
@@ -174,7 +174,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
         </div>
 
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
               다음 차수
             </div>
@@ -189,7 +189,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 : "모든 생산직 차수 해금"}
             </div>
           </div>
-          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
               다음 스킬
             </div>
@@ -202,7 +202,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
               {nextBlacksmithSkill?.description ?? "대장장이 패시브 완료"}
             </div>
           </div>
-          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
               다음 보상
             </div>
@@ -254,7 +254,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950"
+                className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
               >
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   {item.label}
@@ -273,7 +273,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
         <div>
           <div className="mb-2 font-semibold">제작 기록</div>
           <div className="grid gap-2 sm:grid-cols-3">
-            <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 누적 제작
               </div>
@@ -281,7 +281,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 {workshopRecords.totalCrafts.toLocaleString()}회
               </div>
             </div>
-            <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 품질 제작
               </div>
@@ -289,7 +289,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 {workshopRecords.qualityCrafts.toLocaleString()}회
               </div>
             </div>
-            <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 최고 기록
               </div>
@@ -309,7 +309,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
 
         <div>
           <div className="mb-2 font-semibold">대장간 보너스</div>
-          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
                 대장간 Lv {(state.smithyLevel ?? 1).toLocaleString()} ·{" "}
@@ -336,7 +336,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
       </div>
 
       {topRecipeRecords.length > 0 ? (
-        <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+        <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
           <summary className="cursor-pointer text-sm font-semibold">
             자주 제작한 장비
           </summary>
@@ -344,7 +344,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
             {topRecipeRecords.map(({ id, recipe, record }) => (
               <div
                 key={id}
-                className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{recipe.itemName}</span>
@@ -362,7 +362,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
         </details>
       ) : null}
 
-      <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+      <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
         <summary className="cursor-pointer text-sm font-semibold">
           세부 성장표
         </summary>
@@ -378,7 +378,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                     className={`rounded border px-2 py-1 ${
                       unlocked
                         ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -411,8 +411,8 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                     key={skill.id}
                     className={`rounded border px-2 py-1 ${
                       unlocked
-                        ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                        ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -445,7 +445,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 className={`rounded border px-2 py-1 ${
                   unlocked
                     ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -465,7 +465,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
         </div>
       </details>
 
-      <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+      <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
         <summary className="cursor-pointer text-sm font-semibold">
           대장간 Lv 해금
         </summary>
@@ -479,7 +479,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
             {nextSmithyUnlockRecipes.slice(0, 4).map((recipe) => (
               <div
                 key={recipe.id}
-                className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{recipe.itemName}</span>

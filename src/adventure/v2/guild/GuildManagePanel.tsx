@@ -398,7 +398,7 @@ export function GuildManagePanel({
       {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
       {/* 멤버 초대 — 길드원 탭에서 이동 */}
       {activeManageTab === "members" && guildId != null && (
-        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             멤버 초대
           </div>
@@ -414,7 +414,7 @@ export function GuildManagePanel({
               placeholder="초대할 닉네임"
               disabled={acting}
               maxLength={64}
-              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-400"
+              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
             />
             <button
               type="button"
@@ -431,7 +431,7 @@ export function GuildManagePanel({
       {/* ── 길드 설정: 엠블럼 · 색 · 위험 구역(해산) ── */}
       {/* 길드 엠블럼 — 마스터 전용. */}
       {activeManageTab === "settings" && isMaster && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             길드 엠블럼
           </div>
@@ -454,7 +454,7 @@ export function GuildManagePanel({
                   className={`ui-guild-swatch flex aspect-square items-center justify-center rounded-md border transition disabled:opacity-50 ${
                     selected
                       ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                      : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
                   }`}
                 >
                   <Icon size={18} weight="fill" />
@@ -467,7 +467,7 @@ export function GuildManagePanel({
 
       {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). */}
       {activeManageTab === "settings" && isMaster && (
-        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             길드 색
           </div>
@@ -508,7 +508,7 @@ export function GuildManagePanel({
             가입 신청
           </div>
           {pendingRequests.length === 0 ? (
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
               {loading ? "불러오는 중…" : "대기 중인 가입 신청이 없어요."}
             </div>
           ) : (
@@ -516,7 +516,7 @@ export function GuildManagePanel({
               {pendingRequests.map((r) => (
                 <li
                   key={r.requestId}
-                  className="ui-guild-row flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                  className="ui-guild-row flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <div className="min-w-0 flex-1">
                     <span className="truncate text-sm font-medium">
@@ -577,7 +577,7 @@ export function GuildManagePanel({
                 return (
                   <li
                     key={m.userId}
-                    className="ui-guild-row flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                    className="ui-guild-row flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <div className="flex min-w-0 items-center gap-1.5">
                       {currentRole === "manager" && (
@@ -629,7 +629,7 @@ export function GuildManagePanel({
               })}
             {(info?.members ?? []).filter((m) => m.role !== "master")
               .length === 0 && (
-              <li className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+              <li className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                 임명할 길드원이 없어요.
               </li>
             )}
@@ -663,7 +663,7 @@ export function GuildManagePanel({
                 placeholder="길드 이름"
                 disabled={acting}
                 maxLength={GUILD_NAME_MAX}
-                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-rose-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-rose-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900"
               />
               <button
                 type="button"

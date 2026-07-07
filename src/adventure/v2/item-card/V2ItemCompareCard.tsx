@@ -199,7 +199,7 @@ export function V2ItemCompareCard({
       <div
         role="dialog"
         aria-label={`${candidate.item.name} 비교`}
-        className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
@@ -242,7 +242,7 @@ export function V2ItemCompareCard({
           {/* 좌 — 현재 장착(절대값 + 해제) */}
           <div className="min-w-0 space-y-2">
             <CompareHeader tag="현재 장착 중" side={equipped} />
-            <div className="space-y-0.5 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+            <div className="space-y-0.5 border-t border-zinc-100 pt-2 dark:border-zinc-700">
               {equippedRows.length === 0 ? (
                 <span className="text-xs text-zinc-400 dark:text-zinc-500">
                   옵션 없음
@@ -268,9 +268,9 @@ export function V2ItemCompareCard({
           </div>
 
           {/* 우 — 후보(절대값 + 현재 대비 증감) */}
-          <div className="min-w-0 space-y-2 border-l border-zinc-100 pl-3 dark:border-zinc-800">
+          <div className="min-w-0 space-y-2 border-l border-zinc-100 pl-3 dark:border-zinc-700">
             <CompareHeader tag="비교 대상" side={candidate} />
-            <div className="space-y-0.5 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+            <div className="space-y-0.5 border-t border-zinc-100 pt-2 dark:border-zinc-700">
               {compareRows.length === 0 ? (
                 <span className="text-xs text-zinc-400 dark:text-zinc-500">
                   옵션 없음
@@ -299,7 +299,7 @@ export function V2ItemCompareCard({
         </div>
 
         {candidate.item.description && (
-          <p className="mt-3 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <p className="mt-3 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             {candidate.item.description}
           </p>
         )}

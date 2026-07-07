@@ -94,8 +94,8 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         <List size={20} weight="bold" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+        <div className="absolute right-0 top-full z-30 mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             광장
           </div>
           <ul className="py-1">
@@ -120,7 +120,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </li>
             ))}
           </ul>
-          <div className="border-b border-t border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <div className="border-b border-t border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             설정
           </div>
           <ul className="py-1">
@@ -159,7 +159,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
               </Link>
             </li>
           </ul>
-          <ul className="border-t border-zinc-200 py-1 dark:border-zinc-800">
+          <ul className="border-t border-zinc-200 py-1 dark:border-zinc-700">
             <li>
               <button
                 type="button"

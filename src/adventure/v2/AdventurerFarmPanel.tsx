@@ -165,8 +165,8 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
         }
       />
 
-      <section className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
               <PottedPlant size={24} weight="duotone" />
@@ -252,7 +252,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               onChange={setActiveSection}
               ariaLabel="농장 섹션"
               variant="underline"
-              className="border-zinc-200 dark:border-zinc-800"
+              className="border-zinc-200 dark:border-zinc-700"
             />
 
             <div
@@ -386,13 +386,13 @@ function FarmGrowthPanel({ farm }: { farm: FarmState }) {
   const next = nextFarmPlotUpgrade(farm.stats.reputation);
   const unlocked = farm.plots.length;
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
           <PottedPlant size={17} weight="duotone" className="text-emerald-500" />
           농장 성장
         </div>
-        <span className="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-zinc-950 dark:text-emerald-300">
+        <span className="rounded bg-white px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
           밭 {unlocked}/{FARM_MAX_PLOT_COUNT}칸
         </span>
       </div>
@@ -434,7 +434,7 @@ function SummaryTile({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-zinc-900 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
+    <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
         {icon}
         {label}
@@ -456,7 +456,7 @@ function RareDeliveryBoard({
   onDeliver: (requestId: string) => void;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         <Sparkle size={17} weight="duotone" className="text-emerald-500" />
         희귀 수확 납품
@@ -502,7 +502,7 @@ function WeeklyDeliveryBoard({
   onDeliver: (requestId: string) => void;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         <Package size={17} weight="duotone" className="text-emerald-500" />
         주간 농장 납품
@@ -559,7 +559,7 @@ function DeliveryRequestCard({
   onClick: () => void;
 }) {
   return (
-    <div className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="font-bold text-zinc-900 dark:text-zinc-100">{title}</div>
       <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
         {note}
@@ -602,7 +602,7 @@ function FarmShopPanel({
   onBuy: (itemId: string) => void;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <Sparkle size={17} weight="duotone" className="text-emerald-500" />
@@ -619,7 +619,7 @@ function FarmShopPanel({
           return (
             <div
               key={item.id}
-              className="flex min-h-[11rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+              className="flex min-h-[11rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
               <div className="font-bold text-zinc-900 dark:text-zinc-100">
                 {item.title}
@@ -669,7 +669,7 @@ function CropSelector({
   onSelect: (id: FarmCropId) => void;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         <Leaf size={17} weight="duotone" className="text-emerald-500" />
         씨앗 선택
@@ -685,7 +685,7 @@ function CropSelector({
               className={`rounded-md border px-3 py-2 text-left transition ${
                 active
                   ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
+                  : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
               }`}
             >
               <span className="block text-sm font-bold">{crop.seedName}</span>
@@ -732,7 +732,7 @@ function PlotCard({
       : 0;
 
   return (
-    <div className="flex min-h-[13rem] flex-col rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex min-h-[13rem] flex-col rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-bold text-stone-900 dark:text-stone-100">
           {plotLabel(plot.id)}
@@ -775,7 +775,7 @@ function PlotCard({
         </>
       ) : (
         <>
-          <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-5 text-center dark:border-zinc-700 dark:bg-zinc-950">
+          <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
             <div className="text-sm font-bold text-stone-700 dark:text-stone-200">
               빈 밭
             </div>
@@ -820,7 +820,7 @@ function DeliveryBoard({
 }) {
   const dailyLimitReached = dailyDeliveryCount >= dailyDeliveryLimit;
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           <Package size={17} weight="duotone" className="text-emerald-500" />
@@ -839,7 +839,7 @@ function DeliveryBoard({
           return (
             <div
               key={delivery.id}
-              className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+              className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
               <div className="font-bold text-zinc-900 dark:text-zinc-100">
                 {delivery.title}
@@ -899,7 +899,7 @@ function InventoryPanel({
     number,
   ][];
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
         <Sparkle size={17} weight="duotone" className="text-emerald-500" />
         농장 보관함
@@ -913,7 +913,7 @@ function InventoryPanel({
           {entries.map(([itemId, count]) => (
             <div
               key={itemId}
-              className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+              className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
               <span className="font-medium text-zinc-800 dark:text-zinc-100">
                 {ITEM_LABELS[itemId] ?? itemId}

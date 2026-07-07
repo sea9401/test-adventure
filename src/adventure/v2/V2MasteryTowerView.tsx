@@ -222,7 +222,7 @@ export function V2MasteryTowerView({
           <button
             type="button"
             onClick={() => void refresh()}
-            className="rounded-md border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            className="rounded-md border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
             aria-label="새로고침"
           >
             <ArrowClockwise size={16} />
@@ -235,7 +235,7 @@ export function V2MasteryTowerView({
           </p>
         ) : (
           <>
-            <div className="rounded-md border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+            <div className="rounded-md border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/60">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -284,7 +284,7 @@ export function V2MasteryTowerView({
               )}
 
               {status.nextGuardian && (
-                <details className="group mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+                <details className="group mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-zinc-700 dark:text-zinc-200">
                     <span>
                       {status.nextGuardian.name}
@@ -445,7 +445,7 @@ export function V2MasteryTowerView({
             <select
               value={selectedJobId}
               onChange={(e) => setSelectedJobId(e.currentTarget.value)}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950"
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
             >
               {status.jobs.map((job) => (
                 <option key={job.id} value={job.id}>
@@ -459,7 +459,7 @@ export function V2MasteryTowerView({
               max={status.certificates}
               value={amount}
               onChange={(e) => setAmount(e.currentTarget.value)}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950"
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
             />
             <button
               type="button"

@@ -136,7 +136,7 @@ export async function GET(req: Request) {
     guildId == null
       ? Promise.resolve(undefined)
       : db
-          // 길드 이름 + 내 직책 한 번에 — 정착지 관리 탭 게이트(마스터/부마스터)용.
+          // 길드 이름 + 내 직책 한 번에 — 정착지 관리 탭 게이트(마스터/관리자)용.
           .select({
             name: guilds.name,
             masterId: guilds.masterId,
@@ -390,7 +390,7 @@ export async function GET(req: Request) {
     combat: combatStats,
     // 누적 전투 횟수(전적) — 내 정보 기본 정보 카드 표기용.
     battleCount,
-    // 길드 — id/name + 내 직책(role)·마스터 여부. 정착지 관리 탭(마스터/부마스터)·기타 권한 UI 용.
+    // 길드 — id/name + 내 직책(role)·마스터 여부. 정착지 관리 탭(마스터/관리자)·기타 권한 UI 용.
     guild:
       guildId == null
         ? null

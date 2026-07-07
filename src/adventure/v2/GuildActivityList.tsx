@@ -36,7 +36,7 @@ export type GuildActivity = {
 };
 
 const ROLE_NAME: Record<string, string> = {
-  vice_master: "부마스터",
+  vice_master: "관리자",
   manager: "관리자",
   member: "일반",
 };

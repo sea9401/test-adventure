@@ -545,7 +545,7 @@ export const guilds = pgTable(
 );
 
 // 길드 소속. 1인 1길드 — userId 유니크 인덱스로 enforce.
-// role: 'master' | 'member'.
+// role: 'master' | 'manager' | 'member'.
 export const guildMembers = pgTable(
   "guild_members",
   {
@@ -1079,7 +1079,7 @@ export const outpostDefenders = pgTable(
   (t) => [primaryKey({ columns: [t.outpostId, t.userId] })],
 );
 
-// 정착지 전쟁 — 거점 영주. 거점당 1인(outpostId PK). 점령 길드 마스터/부마스터가 임명.
+// 정착지 전쟁 — 거점 영주. 거점당 1인(outpostId PK). 점령 길드 마스터/관리자가 임명.
 //   세금이 거점 금고(outpost_treasury)에 누적되고, 영주만 6h 쿨다운으로 수확(10% 개인/90% 길드).
 //   설계: docs/v2-settlement-warfare-plan.md §2.4. PR-4(플래그 V2_SETTLEMENT_WARFARE 뒤).
 //   guildId = 임명 당시 점령 길드(거점 양도 시 스테일 — 읽기에서 현재 점령길드로 필터).

@@ -11,7 +11,7 @@ import {
   lockGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import {
   isValidVillageName,
   INITIAL_UNLOCKED_SLOTS,
@@ -23,7 +23,7 @@ import { tileBuild } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/build — body { outpostId, name }
 // 점령한 빈 공터에 마을을 세운다 — 이름만 정한다.
-//   마스터/부마스터 전용. 건설에 길드 금고 골드 1천만 소모. 건설 직후엔 빈 판(0칸) — 현재
+//   마스터/관리자 전용. 건설에 길드 금고 골드 1천만 소모. 건설 직후엔 빈 판(0칸) — 현재
 //   마을별 1칸을 골드로 해금(unlock-slot)한다.
 //   - 마을 없음 → 새로 건설(이름만, 1천만 골드 차감).
 //   - 마을 있고 이름 없음(옛 lazy 생성분) → 이름만 채워 건설(무료, 기존 판 보존).
@@ -60,8 +60,8 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      // 마을 건설 = 마스터/부마스터 전용(관리 탭).
-      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+      // 마을 건설 = 마스터/관리자 전용(관리 탭).
+      if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
         return {
           status: 403,
           body: { ok: false as const, error: "not_authorized" },

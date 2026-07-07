@@ -29,7 +29,7 @@ type CombatSupplyView = {
 };
 
 function isGuildManagerRole(role: string | null | undefined): boolean {
-  return role === "master" || role === "manager" || role === "vice_master";
+  return role === "master" || role === "manager";
 }
 
 function combatSupplyViews(

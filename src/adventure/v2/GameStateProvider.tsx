@@ -281,7 +281,7 @@ function tileSettlementErrorMessage(
     case "out_of_gold":
       return `골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요.`;
     case "not_guild_admin":
-      return "개척마을 건설은 길드 마스터·부마스터만 가능합니다.";
+      return "개척마을 건설은 길드 마스터·관리자만 가능합니다.";
     case "need_guild":
       return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
     case "not_at_tile":

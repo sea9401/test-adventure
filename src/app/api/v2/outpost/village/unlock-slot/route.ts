@@ -10,7 +10,7 @@ import {
   lockGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { canUnlockSlot } from "@/adventure/data/v2/settlement";
 import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
 import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
@@ -18,7 +18,7 @@ import { tileUnlockSlot } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/unlock-slot — body { outpostId }
 // 다음 건축물 슬롯을 길드 금고 골드로 연다. [PR-3] 슬롯 생산 폐지 — 종류 선택 없음.
-//   마스터/부마스터 전용. 슬롯마다 누진 골드(현재 1슬롯 정책이라 첫 슬롯만 사용). 가득 차면 at_max.
+//   마스터/관리자 전용. 슬롯마다 누진 골드(현재 1슬롯 정책이라 첫 슬롯만 사용). 가득 차면 at_max.
 // lock 순서: 점령행 → 마을 → 길드 자원(골드 풀). 타 라우트 공통(단일 길드 자원 row).
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -46,8 +46,8 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      // 건축물 슬롯 해금 = 마스터/부마스터 전용(관리 탭).
-      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+      // 건축물 슬롯 해금 = 마스터/관리자 전용(관리 탭).
+      if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
         return {
           status: 403,
           body: { ok: false as const, error: "not_authorized" },

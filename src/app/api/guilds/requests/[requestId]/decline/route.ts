@@ -40,7 +40,7 @@ export async function POST(
       const guild = guildRows[0];
       if (!guild) return { error: "guild_not_found", status: 404 as const };
       if (guild.masterId !== userId) {
-        // 관리 직책(부마스터/관리자)도 처리 가능 — 길드 관리탭 권한.
+        // 관리 직책(관리자)도 처리 가능 — 길드 관리탭 권한.
         const memRows = await tx
           .select({ role: guildMembers.role })
           .from(guildMembers)

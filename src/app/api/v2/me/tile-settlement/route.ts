@@ -35,7 +35,7 @@ import {
   TILE_OUTPOST_PREFIX,
 } from "@/adventure/data/v2/tileWarfare";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import {
   lockGuildResources,
   upsertGuildResources,
@@ -198,13 +198,13 @@ export async function POST(req: Request) {
       }
       // 개척마을 생성비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(중앙=기본).
       const foundCost = scaledTileGoldCost(TILE_FOUND_COST, col, row);
-      // 영토=길드 소유 — 개척마을 생성은 길드 행위(마스터/부마스터만·길드 자금 소모).
+      // 영토=길드 소유 — 개척마을 생성은 길드 행위(마스터/관리자만·길드 자금 소모).
       //   무소속 솔로 정착지 생성은 폐기. 기존 잔존 솔로 데이터는 가입/창단 훅에서 길드로 편입된다.
       const guildId = await getGuildId(tx, userId);
       if (guildId == null) {
         return { kind: "err", status: 403, error: "need_guild" };
       }
-      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+      if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
         return { kind: "err", status: 403, error: "not_guild_admin" };
       }
       const gr = await lockGuildResources(tx, guildId);

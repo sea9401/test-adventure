@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import {
   lockGuildResources,
   upsertGuildResources,
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+      if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
         return {
           status: 403,
           body: { ok: false as const, error: "not_authorized" },

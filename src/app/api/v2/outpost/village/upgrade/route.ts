@@ -8,16 +8,16 @@ import {
   upsertGuildSettlement,
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { canUpgrade, applyUpgradeCost } from "@/adventure/data/v2/settlement";
 import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
 import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { tileUpgrade } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/upgrade — body { outpostId }
-// 길드 재화로 마을 단계 업그레이드(마을→도시→대도시). 마스터/부마스터 전용. 현 판을 다 채워야 가능.
+// 길드 재화로 마을 단계 업그레이드(마을→도시→대도시). 마스터/관리자 전용. 현 판을 다 채워야 가능.
 // lock 순서: 점령행 → 마을 → 길드 재화(타 라우트 공통).
-// (마스터/부마스터 판정은 비잠금 read — FOR UPDATE 전이라 데드락 사이클 무관.)
+// (마스터/관리자 판정은 비잠금 read — FOR UPDATE 전이라 데드락 사이클 무관.)
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -44,8 +44,8 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      // 단계 업그레이드 = 마스터/부마스터 전용(관리 탭).
-      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+      // 단계 업그레이드 = 마스터/관리자 전용(관리 탭).
+      if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
         return {
           status: 403,
           body: { ok: false as const, error: "not_authorized" },

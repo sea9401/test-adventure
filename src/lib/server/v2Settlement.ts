@@ -10,7 +10,7 @@ import {
 } from "@/db/schema";
 import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { getGuildId } from "./v2EnsureSoloGuild";
-import { isGuildMasterOrVice } from "./guildAdmin";
+import { isGuildMasterOrManager } from "./guildAdmin";
 import {
   lockGuildResources,
   upsertGuildResources,
@@ -648,7 +648,7 @@ export async function resolveTileVillageManageOwner(
     if (myGuild !== guildId) {
       return { ok: false, status: 403, error: "not_owner" };
     }
-    if (requireAdmin && !(await isGuildMasterOrVice(tx, guildId, userId))) {
+    if (requireAdmin && !(await isGuildMasterOrManager(tx, guildId, userId))) {
       return { ok: false, status: 403, error: "not_authorized" };
     }
     return { ok: true, owner: { kind: "guild", guildId } };

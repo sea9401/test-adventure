@@ -1,4 +1,7 @@
-import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
+import type {
+  SettlementBuildingId,
+  SettlementResources,
+} from "@/adventure/data/v2/settlement";
 
 // V2GuildHome 탭 분리 — 탭 패널들이 공유하는 타입·순수 헬퍼.
 
@@ -63,6 +66,7 @@ export type GuildInfoResponse = {
   settlementBuildings?: Partial<Record<SettlementBuildingId, number>>;
   // 길드 소유 마을에 배치된 영지 건축물의 최고 레벨.
   settlementBuildingLevels?: Partial<Record<SettlementBuildingId, number>>;
+  settlementResources?: SettlementResources;
   hasGuildSmithy?: boolean;
   hasTrainingGround?: boolean;
   hasMapWorkshop?: boolean;

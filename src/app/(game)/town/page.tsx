@@ -25,9 +25,6 @@ export default function TownPage() {
           case "open-farm":
             router.push("/town/farm");
             break;
-          case "open-treasure":
-            router.push("/town/treasure");
-            break;
           case "open-bank":
             router.push("/town/bank");
             break;

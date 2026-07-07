@@ -13,7 +13,6 @@ import {
   FirstAid,
   Hammer,
   Lightning,
-  MagnifyingGlass,
   PottedPlant,
   Skull,
   Sparkle,
@@ -66,7 +65,6 @@ const TABS: TabDef[] = [
       { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
       { label: "낚시터", href: "/town/fishing", Icon: Fish, color: "text-cyan-500" },
       { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
-      { label: "발굴 감정소", href: "/town/treasure", Icon: MagnifyingGlass, color: "text-amber-500" },
     ],
   },
   {

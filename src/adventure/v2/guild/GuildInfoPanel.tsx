@@ -22,16 +22,12 @@ export function GuildInfoPanel({
 }) {
   const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
   const trainingCount = info?.settlementBuildings?.training_ground ?? 0;
-  const mapWorkshopCount = info?.settlementBuildings?.map_workshop ?? 0;
   const facilityLabels = [
     smithyCount > 0
       ? `${SETTLEMENT_BUILDINGS.guild_smithy.icon} ${SETTLEMENT_BUILDINGS.guild_smithy.name} ×${smithyCount}`
       : null,
     trainingCount > 0
       ? `${SETTLEMENT_BUILDINGS.training_ground.icon} ${SETTLEMENT_BUILDINGS.training_ground.name} ×${trainingCount}`
-      : null,
-    mapWorkshopCount > 0
-      ? `${SETTLEMENT_BUILDINGS.map_workshop.icon} 발굴 지원소 ×${mapWorkshopCount}`
       : null,
   ].filter((label): label is string => Boolean(label));
 

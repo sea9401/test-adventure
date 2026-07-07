@@ -83,7 +83,7 @@ export function GuildFacilitiesPanel({
   }
 
   if (activeFacility === "exploration_hq") {
-    const level = info?.settlementBuildings?.exploration_hq ?? 0;
+    const level = info?.settlementBuildingLevels?.exploration_hq ?? 0;
     const upgrade = explorationHqUpgradeForLevel(Math.max(1, level));
     return (
       <div className="space-y-3">

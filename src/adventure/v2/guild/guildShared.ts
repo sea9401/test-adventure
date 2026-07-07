@@ -61,6 +61,8 @@ export type GuildInfoResponse = {
   guildGold?: number;
   // 길드 소유 마을에 배치된 영지 건축물 수.
   settlementBuildings?: Partial<Record<SettlementBuildingId, number>>;
+  // 길드 소유 마을에 배치된 영지 건축물의 최고 레벨.
+  settlementBuildingLevels?: Partial<Record<SettlementBuildingId, number>>;
   hasGuildSmithy?: boolean;
   hasTrainingGround?: boolean;
   hasMapWorkshop?: boolean;

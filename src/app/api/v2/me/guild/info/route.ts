@@ -17,6 +17,7 @@ import {
   tierMeetsNation,
   isSettlementBuildingId,
   settlementBuildingIdOf,
+  settlementBuildingLevelOf,
   type SettlementBuildingId,
   type VillageTier,
 } from "@/adventure/data/v2/settlement";
@@ -324,6 +325,9 @@ export async function GET() {
   const settlementBuildings = Object.fromEntries(
     SETTLEMENT_BUILDING_IDS.map((id) => [id, 0]),
   ) as Record<SettlementBuildingId, number>;
+  const settlementBuildingLevels = Object.fromEntries(
+    SETTLEMENT_BUILDING_IDS.map((id) => [id, 0]),
+  ) as Record<SettlementBuildingId, number>;
   for (const village of villageRows) {
     if (typeof village.buildings !== "object" || village.buildings === null) {
       continue;
@@ -332,6 +336,10 @@ export async function GET() {
       const buildingId = settlementBuildingIdOf(rawBuilding);
       if (isSettlementBuildingId(buildingId)) {
         settlementBuildings[buildingId] += 1;
+        settlementBuildingLevels[buildingId] = Math.max(
+          settlementBuildingLevels[buildingId],
+          settlementBuildingLevelOf(rawBuilding),
+        );
       }
     }
   }
@@ -378,6 +386,7 @@ export async function GET() {
     hasMetropolis,
     canDeclareNation,
     settlementBuildings,
+    settlementBuildingLevels,
     hasGuildSmithy,
     hasTrainingGround,
     hasMapWorkshop,

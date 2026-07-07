@@ -26,7 +26,9 @@ export function GuildInfoPanel({
   const facilityLabels = PLACEABLE_SETTLEMENT_BUILDING_IDS.map((id) => {
     const count = info?.settlementBuildings?.[id] ?? 0;
     const def = SETTLEMENT_BUILDINGS[id];
-    return count > 0 ? `${def.icon} ${def.name} ×${count}` : null;
+    const level = info?.settlementBuildingLevels?.[id] ?? 1;
+    const suffix = count > 1 ? ` Lv.${level} ×${count}` : ` Lv.${level}`;
+    return count > 0 ? `${def.icon} ${def.name}${suffix}` : null;
   }).filter((label): label is string => Boolean(label));
 
   return info?.guild ? (

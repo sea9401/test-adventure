@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  FARM_DAILY_QUEST_SEED_REWARD,
   claimFarmDelivery,
   emptyFarmState,
+  grantFarmSeeds,
   harvestPlot,
   parseFarmState,
   plantCrop,
@@ -27,6 +29,16 @@ describe("adventurer farm", () => {
     expect(() => plantCrop(state, "plot-1", "wheat", 1_000)).toThrow(
       "no_seed",
     );
+  });
+
+  it("grants farm seeds from the daily quest seed pouch", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      seeds: { wheat: 1 },
+    };
+    const next = grantFarmSeeds(state, FARM_DAILY_QUEST_SEED_REWARD);
+
+    expect(next.seeds).toEqual({ wheat: 5, herb: 2, corn: 1 });
   });
 
   it("rejects harvesting before the crop is ready", () => {
@@ -104,6 +116,43 @@ describe("adventurer farm", () => {
     expect(() => claimFarmDelivery(claimed, "bakery-wheat", 1_000)).toThrow(
       "delivery_already_claimed",
     );
+  });
+
+  it("limits total farm deliveries per day", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      inventory: { wheat: 3, herb: 2, corn: 5 },
+      seeds: {},
+    };
+    const { state: first } = claimFarmDelivery(state, "bakery-wheat", 1_000);
+    const { state: second } = claimFarmDelivery(first, "clinic-herb", 1_000);
+
+    expect(second.deliveries.claimedIds).toEqual([
+      "bakery-wheat",
+      "clinic-herb",
+    ]);
+    expect(() => claimFarmDelivery(second, "market-corn", 1_000)).toThrow(
+      "delivery_daily_limit",
+    );
+  });
+
+  it("resets the daily delivery limit on a new farm day", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      inventory: { wheat: 6, herb: 2, corn: 5 },
+      seeds: {},
+    };
+    const { state: first } = claimFarmDelivery(state, "bakery-wheat", 1_000);
+    const { state: second } = claimFarmDelivery(first, "clinic-herb", 1_000);
+
+    const { state: nextDay } = claimFarmDelivery(
+      second,
+      "market-corn",
+      1_000 + 24 * 60 * 60 * 1000,
+    );
+
+    expect(nextDay.deliveries.claimedIds).toEqual(["market-corn"]);
+    expect(nextDay.stats.deliveries).toBe(3);
   });
 
   it("normalizes malformed saves to three stable plots", () => {

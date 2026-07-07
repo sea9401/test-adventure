@@ -27,7 +27,7 @@ export type GuildActivityType =
 
 export type GuildActivityMeta = {
   amount?: number; // gold_deposit
-  role?: string; // role_change ("vice_master" | "manager" | "member")
+  role?: string; // role_change ("manager" | "member")
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim
   deliveryTitle?: string; // workshop_delivery

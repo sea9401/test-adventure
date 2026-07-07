@@ -8,7 +8,7 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildOwningOutpost } from "@/lib/server/v2Settlement";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import {
   LORD_HARVEST_COOLDOWN_MS,
@@ -16,7 +16,7 @@ import {
 } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // 정착지 전쟁 — 거점 영주 지정/조회. 설계: docs/v2-settlement-warfare-plan.md §2.4.
-//   POST { outpostId, userId, action: "set"|"clear" } — 점령 길드 마스터/부마스터만.
+//   POST { outpostId, userId, action: "set"|"clear" } — 점령 길드 마스터/관리자만.
 //   GET ?outpostId= — 현재 영주(현재 점령길드 필터·스테일 제외) + 거점 금고 잔액.
 //   플래그 off → 404.
 
@@ -107,13 +107,13 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "missing_user" }, { status: 400 });
   }
 
-  // lock 순서: occupation FOR UPDATE(guildOwningOutpost) → 영주 행 변경. 마스터/부마스터 전용.
+  // lock 순서: occupation FOR UPDATE(guildOwningOutpost) → 영주 행 변경. 마스터/관리자 전용.
   const gate = await db.transaction(async (tx) => {
     const guildId = await guildOwningOutpost(tx, userId, outpostId);
     if (guildId == null) {
       return { ok: false as const, status: 403, error: "not_owner" };
     }
-    if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+    if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
       return { ok: false as const, status: 403, error: "not_authorized" };
     }
     if (action === "clear") {

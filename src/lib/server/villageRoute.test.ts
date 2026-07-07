@@ -39,7 +39,7 @@ const {
     guildFame: new Map<number, number>(), // 사용 가능 길드 명성
     owners: new Map<string, number>(),
     buildingMemory: new Map<string, number>(),
-    // getGuildId 계약 + 관리 게이트(isGuildMasterOrVice) 모킹값.
+    // getGuildId 계약 + 관리 게이트(isGuildMasterOrManager) 모킹값.
     guildState: { current: null as number | null, canManage: true },
   }));
 
@@ -59,9 +59,9 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => MY_GUILD as number | null),
 }));
 
-// 관리 게이트(build/rename/unlock-slot/upgrade) — 마스터/부마스터 여부. 기본 true(통과).
+// 관리 게이트(build/rename/unlock-slot/upgrade) — 마스터/관리자 여부. 기본 true(통과).
 vi.mock("@/lib/server/guildAdmin", () => ({
-  isGuildMasterOrVice: vi.fn(async () => guildState.canManage),
+  isGuildMasterOrManager: vi.fn(async () => guildState.canManage),
 }));
 
 vi.mock("@/lib/server/guildActivityLog", () => ({
@@ -264,7 +264,7 @@ beforeEach(() => {
   vi.setSystemTime(T0);
   vi.mocked(ensureUser).mockResolvedValue(ME_USER);
   guildState.current = MY_GUILD; // 기본 = 유저가 내 길드 소속
-  guildState.canManage = true; // 기본 = 마스터/부마스터(관리 가능)
+  guildState.canManage = true; // 기본 = 마스터/관리자(관리 가능)
 });
 
 afterEach(() => {
@@ -358,7 +358,7 @@ describe("POST /api/v2/outpost/village/build", () => {
     expect(r2.status).toBe(400);
   });
 
-  it("마스터/부마스터 아님 → 403 not_authorized", async () => {
+  it("마스터/관리자 아님 → 403 not_authorized", async () => {
     guildState.canManage = false;
     setOwner(PLAIN_OUTPOST, MY_GUILD);
     const res = await buildPOST(jreq({ outpostId: PLAIN_OUTPOST, name: "마을" }));
@@ -437,7 +437,7 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
     expect(((await res.json()) as AnyJson).error).toBe("not_owner");
   });
 
-  it("마스터/부마스터 아님 → 403 not_authorized", async () => {
+  it("마스터/관리자 아님 → 403 not_authorized", async () => {
     guildState.canManage = false;
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
     guildGold.set(MY_GUILD, 9_999_999_999);
@@ -512,7 +512,7 @@ describe("POST /api/v2/outpost/village/building/place", () => {
     expect(res.status).toBe(401);
   });
 
-  it("마스터/부마스터 아님 → 403 not_authorized", async () => {
+  it("마스터/관리자 아님 → 403 not_authorized", async () => {
     guildState.canManage = false;
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
     const res = await placeBuildingPOST(
@@ -633,7 +633,7 @@ describe("POST /api/v2/outpost/village/building/discard", () => {
     expect(res.status).toBe(401);
   });
 
-  it("마스터/부마스터 아님 → 403 not_authorized", async () => {
+  it("마스터/관리자 아님 → 403 not_authorized", async () => {
     guildState.canManage = false;
     seedBuiltVillage(FARM_OUTPOST, {
       unlockedSlots: 1,
@@ -884,7 +884,7 @@ describe("POST /api/v2/outpost/village/upgrade", () => {
     expect(res.status).toBe(403);
   });
 
-  it("마스터/부마스터 아님 → 403 not_authorized", async () => {
+  it("마스터/관리자 아님 → 403 not_authorized", async () => {
     guildState.canManage = false;
     seedBuiltVillage(FARM_OUTPOST, { tier: "village", unlockedSlots: 1 });
     resourcesByGuild.set(MY_GUILD, { crop: 99999, ore: 99999 });

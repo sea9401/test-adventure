@@ -3,7 +3,7 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 
 export type OrgMember = {
   userId: string;
-  role: string; // "master" | "vice_master" | "manager" | "member"
+  role: string; // "master" | "manager" | "member"
   joinedAt: string; // ISO date
   name: string;
   level: number;
@@ -12,7 +12,7 @@ export type OrgMember = {
   honorEarned?: number; // 누적 명성(정착지 전쟁 획득 누계). 표시는 showHonor 로 게이트
 };
 
-type RoleKey = "master" | "vice_master" | "manager" | "member";
+type RoleKey = "master" | "manager" | "member";
 
 type Tier = {
   role: RoleKey;
@@ -23,14 +23,12 @@ type Tier = {
 
 const ROLE_LABELS: Record<RoleKey, string> = {
   master: "마스터",
-  vice_master: "부마스터",
   manager: "관리자",
   member: "일반",
 };
 
 const ROLE_BADGE_CLASSES: Record<RoleKey, string> = {
   master: "bg-amber-400 text-amber-900 dark:bg-amber-400 dark:text-amber-900",
-  vice_master: "bg-violet-500 text-white dark:bg-violet-500 dark:text-white",
   manager: "bg-sky-500 text-white dark:bg-sky-500 dark:text-white",
   member: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
 };
@@ -204,15 +202,11 @@ export function GuildOrgChart({
       variant: "master",
     },
     {
-      role: "vice_master",
-      label: ROLE_LABELS.vice_master,
-      members: members.filter((member) => member.role === "vice_master"),
-      variant: "row",
-    },
-    {
       role: "manager",
       label: ROLE_LABELS.manager,
-      members: members.filter((member) => member.role === "manager"),
+      members: members.filter(
+        (member) => member.role === "manager" || member.role === "vice_master",
+      ),
       variant: "row",
     },
     {
@@ -220,8 +214,7 @@ export function GuildOrgChart({
       label: ROLE_LABELS.member,
       // 일반 tier 는 catch-all — 알 수 없는 role 도 여기로(아무도 누락 안 되게).
       members: members.filter(
-        (member) =>
-          !["master", "vice_master", "manager"].includes(member.role),
+        (member) => !["master", "vice_master", "manager"].includes(member.role),
       ),
       variant: "grid",
     },

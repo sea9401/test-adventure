@@ -45,7 +45,7 @@ import {
 } from "@/adventure/data/v2/settlementMaterials";
 
 // 길드 마을 관리 패널 — 점령 거점 상세(OutpostView)에 노출.
-//   마스터/부마스터: 마을 건설(이름)·이름 변경·건축물 슬롯 해금·배치·단계 업그레이드.
+//   마스터/관리자: 마을 건설(이름)·이름 변경·건축물 슬롯 해금·배치·단계 업그레이드.
 //   [PR-3] 슬롯 생산 폐지 — 슬롯은 영지 건축물 자리. crop/ore 는 사냥 드랍→기부+업글로만.
 
 type Village = {
@@ -223,7 +223,7 @@ export function V2VillagePanel({
   const goldNoun = isTileOutpostId(outpostId) ? "보유" : "길드 금고";
   // 건설됨 = 이름.
   const built = !!village && village.name != null;
-  const manageDisabledText = "마스터·부마스터만 변경할 수 있어요.";
+  const manageDisabledText = "마스터·관리자만 변경할 수 있어요.";
 
   if (exists === null) {
     return (
@@ -772,7 +772,7 @@ const ERR_MESSAGES: Record<string, string> = {
   insufficient_material: "보유한 재료가 부족해요.",
   bad_request: "잘못된 요청이에요.",
   not_owner: "이 거점의 점령 길드만 관리할 수 있어요.",
-  not_authorized: "길드 마스터·부마스터만 관리할 수 있어요.",
+  not_authorized: "길드 마스터·관리자만 관리할 수 있어요.",
   not_built: "먼저 마을을 건설해야 해요.",
   already_built: "이미 세워진 마을이에요.",
   invalid_name: "이름은 1~16자로 지어주세요.",

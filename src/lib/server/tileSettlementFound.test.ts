@@ -1,4 +1,4 @@
-// 개척마을 생성(found) 길드 규칙 — 길드 소속이면 마스터/부마스터만 + 길드 자금 소모.
+// 개척마을 생성(found) 길드 규칙 — 길드 소속이면 마스터/관리자만 + 길드 자금 소모.
 //   영토=길드 소유 — 무소속은 개척 불가(need_guild). (2026-06-24 길드 전용 영토)
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +38,7 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => h.guildId),
 }));
 vi.mock("@/lib/server/guildAdmin", () => ({
-  isGuildMasterOrVice: vi.fn(async () => h.isAdmin),
+  isGuildMasterOrManager: vi.fn(async () => h.isAdmin),
 }));
 vi.mock("@/lib/server/v2GuildResources", () => ({
   lockGuildResources: vi.fn(async () => ({ gold: h.guildGold })),
@@ -127,7 +127,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     vi.clearAllMocks();
   });
 
-  it("길드 마스터/부마스터: 길드 자금 소모 + 정착지 생성(이름 저장·개인 골드 불변)", async () => {
+  it("길드 마스터/관리자: 길드 자금 소모 + 정착지 생성(이름 저장·개인 골드 불변)", async () => {
     h.guildId = 7;
     h.isAdmin = true;
     h.guildGold = FOUND_COST + COST; // 차감 후 COST 남도록
@@ -192,7 +192,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     expect(h.inserts).toHaveLength(0);
   });
 
-  it("길드원이지만 마스터/부마스터 아님 → 403 not_guild_admin", async () => {
+  it("길드원이지만 마스터/관리자 아님 → 403 not_guild_admin", async () => {
     h.guildId = 7;
     h.isAdmin = false;
     h.guildGold = COST * 2;

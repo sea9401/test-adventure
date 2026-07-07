@@ -132,6 +132,14 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "training_ground",
 ];
 
+export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
+  Record<SettlementBuildingId, number>
+> = {
+  guild_smithy: 30_000_000,
+  training_ground: 20_000_000,
+  map_workshop: 15_000_000,
+};
+
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
 
 export type SettlementBuildingUpgradeDef = {

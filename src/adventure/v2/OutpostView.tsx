@@ -97,7 +97,7 @@ export function OutpostView({
   const [intrusionOutpostId, setIntrusionOutpostId] = useState<string | null>(
     null,
   );
-  // 내 길드 직책 — 정착지 관리 탭(마스터/부마스터 전용) 게이트. 같은 응답에서.
+  // 내 길드 직책 — 정착지 관리 탭(마스터/관리자 전용) 게이트. 같은 응답에서.
   const [guildRole, setGuildRole] = useState<string | null>(null);
   const [guildIsMaster, setGuildIsMaster] = useState(false);
   // 영주(거점 1인) + 거점 금고(쌓인 세금) — 헤더 표기용. lord GET 에서 둘 다(없으면 null).
@@ -298,10 +298,9 @@ export function OutpostView({
     (occupation.policy ?? "open") === "open";
   // 정착지/거점 활동 탭 노출 = 우리 길드 소유(점령). 영토=길드 소유라 솔로 소유 경로는 폐기.
   const ownSettlement = ownByMyGuild;
-  // 정착지 관리(건설·이름변경·칸 해금·단계 업그레이드) = 점령 길드의 마스터/부마스터.
-  //   role 'vice_master' 는 guildAdmin 의 GUILD_ROLE_VICE_MASTER 와 동일(클라라 문자열 직접 비교).
+  // 정착지 관리(건설·이름변경·칸 해금·단계 업그레이드) = 점령 길드의 마스터/관리자.
   const canManageSettlement =
-    isGuildMember && (guildIsMaster || guildRole === "vice_master");
+    isGuildMember && (guildIsMaster || guildRole === "manager");
   // 비-소유자가 정복할 수 있는 대상인가 — 타일이면 누구나(솔로/길드 영지 무관), 카탈로그 정적
   //   거점은 철거(빈땅) 불가라 길드 viewer + 길드 점령만. occupation 없으면 불가. (비-소유 브랜치 전용)
   const isTile = isTileOutpostId(outpost.id);

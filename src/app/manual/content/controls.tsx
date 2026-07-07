@@ -33,7 +33,7 @@ export function ControlsContent() {
           돌아갑니다.
         </li>
         <li>
-          <Em>채팅</Em> — 다른 모험가와의 전체 채팅.
+          <Em>채팅</Em> — 전체 채팅, 길드원 채팅, 협동 보스 알림.
         </li>
         <li>
           <Em>설정 (⚙)</Em> — 라이트/다크 모드, 메뉴얼, 광장, 로그아웃.

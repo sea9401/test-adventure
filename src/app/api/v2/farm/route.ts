@@ -4,6 +4,9 @@ import {
   FARM_SAVE_KEY,
   emptyFarmState,
   getFarmDeliveryRequests,
+  getFarmShopItems,
+  getFarmSpecialDeliveryRequests,
+  getFarmWeeklyDeliveryRequests,
   normalizeFarmForDay,
   parseFarmState,
 } from "@/adventure/v2/farm";
@@ -30,5 +33,8 @@ export async function GET() {
     farm,
     crops: FARM_CROP_LIST,
     deliveries: getFarmDeliveryRequests(),
+    specialDeliveries: getFarmSpecialDeliveryRequests(),
+    weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
+    shopItems: getFarmShopItems(),
   });
 }

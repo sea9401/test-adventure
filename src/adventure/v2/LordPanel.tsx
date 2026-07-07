@@ -5,7 +5,7 @@ import { useSystemMessageState } from "./RewardToastProvider";
 
 // 정착지 전쟁 — 거점 영주/세금 패널. 설계: docs/v2-settlement-warfare-plan.md §2.4.
 //   모든 길드원: 현재 영주 + 거점 금고 표시. 영주 본인: 세금 수확(6h 쿨·10% 개인/90% 길드).
-//   마스터/부마스터(canManage): 영주 지정/해제(길드원 목록). PR-4·플래그 on 전용.
+//   마스터/관리자(canManage): 영주 지정/해제(길드원 목록). PR-4·플래그 on 전용.
 
 type Lord = {
   userId: string;
@@ -167,7 +167,7 @@ export default function LordPanel({
 
       {canManage && (
         <div className="space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-          <div className="text-xs text-zinc-500">영주 지정 (마스터·부마스터)</div>
+          <div className="text-xs text-zinc-500">영주 지정 (마스터·관리자)</div>
           <div className="flex flex-wrap gap-1.5">
             {members.map((m) => (
               <button

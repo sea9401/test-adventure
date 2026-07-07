@@ -10,7 +10,7 @@ import {
   upsertVillage,
   type SettlementOwner,
 } from "@/lib/server/v2Settlement";
-import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import { isGuildMasterOrManager } from "@/lib/server/guildAdmin";
 import {
   canPlaceSettlementBuilding,
   isSettlementBuildingId,
@@ -25,7 +25,7 @@ import {
 
 // POST /api/v2/outpost/village/building/place — body { outpostId, slot, buildingId }
 // 해금된 건축물 슬롯에 영지 건물을 배치한다. 배치 가능 목록은 settlement.ts 카탈로그가 결정한다.
-//   마스터/부마스터 전용. 같은 길드가 이전에 폐기/점령으로 보관한 건물 레벨이 있으면 복구한다.
+//   마스터/관리자 전용. 같은 길드가 이전에 폐기/점령으로 보관한 건물 레벨이 있으면 복구한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
         if (guildId == null) {
           return { status: 403, body: { ok: false as const, error: "not_owner" } };
         }
-        if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+        if (!(await isGuildMasterOrManager(tx, guildId, userId))) {
           return {
             status: 403,
             body: { ok: false as const, error: "not_authorized" },

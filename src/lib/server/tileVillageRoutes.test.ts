@@ -34,7 +34,7 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
   getGuildId: vi.fn(async () => GUILD),
 }));
 vi.mock("@/lib/server/guildAdmin", () => ({
-  isGuildMasterOrVice: vi.fn(async () => true),
+  isGuildMasterOrManager: vi.fn(async () => true),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, uid: string, _k: string, fb: unknown) =>

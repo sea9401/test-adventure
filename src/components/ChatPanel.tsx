@@ -21,8 +21,11 @@ import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 
+export type ChatChannel = "global" | "guild";
+
 export type ChatMessage = {
   id: number;
+  channel: ChatChannel;
   name: string;
   className: string;
   title: string | null;
@@ -45,8 +48,11 @@ export function ChatPanel({
   className,
   title,
   messages,
+  guildMessages,
+  guildAvailable,
   onMessageSent,
   unreadChat = false,
+  unreadGuild = false,
   unreadNotice = false,
   onSeen,
 }: {
@@ -56,20 +62,23 @@ export function ChatPanel({
   className: string;
   title: string | null;
   messages: ChatMessage[];
+  guildMessages: ChatMessage[];
+  guildAvailable: boolean;
   onMessageSent: (m: ChatMessage) => void;
   /** 채팅/알림 탭별 안 읽은 메시지 유무 — 탭에 점 표시. */
   unreadChat?: boolean;
+  unreadGuild?: boolean;
   unreadNotice?: boolean;
   /** 해당 탭의 최신 메시지를 본 것으로 처리. */
-  onSeen?: (kind: "chat" | "notice", lastId: number) => void;
+  onSeen?: (kind: "chat" | "guild" | "notice", lastId: number) => void;
 }) {
   const router = useRouter();
   const presence = usePresencePoll(open);
   const [presenceOpen, setPresenceOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // 채팅 / 알림(협동 보스 등 시스템 메시지) 탭 분리.
-  const [tab, setTab] = useState<"chat" | "notice">("chat");
+  // 전체 채팅 / 길드 채팅 / 알림(협동 보스 등 시스템 메시지) 탭 분리.
+  const [tab, setTab] = useState<"chat" | "guild" | "notice">("chat");
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
@@ -155,27 +164,43 @@ export function ChatPanel({
   // 권위적 messages + 낙관적 pending 을 합쳐 화면용 리스트 생성.
   // 서버 echo 와 임시 메시지가 일시적으로 겹쳐 보이지 않도록, 본인이 보낸
   // 권위적 메시지가 들어오면 같은 content 의 가장 오래된 pending 을 숨긴다.
-  const visibleMessages = useMemo(() => {
-    if (pending.length === 0) return messages;
-    const remainingPending = [...pending];
-    for (const m of messages) {
-      if (!m.mine) continue;
-      const i = remainingPending.findIndex((p) => p.content === m.content);
-      if (i >= 0) remainingPending.splice(i, 1);
-    }
-    return [...messages, ...remainingPending];
-  }, [messages, pending]);
+  const visibleMessagesFor = useMemo(() => {
+    return (baseMessages: ChatMessage[], channel: ChatChannel) => {
+      const channelPending = pending.filter((m) => m.channel === channel);
+      if (channelPending.length === 0) return baseMessages;
+      const remainingPending = [...channelPending];
+      for (const m of baseMessages) {
+        if (!m.mine) continue;
+        const i = remainingPending.findIndex((p) => p.content === m.content);
+        if (i >= 0) remainingPending.splice(i, 1);
+      }
+      return [...baseMessages, ...remainingPending];
+    };
+  }, [pending]);
+  const visibleGlobalMessages = useMemo(
+    () => visibleMessagesFor(messages, "global"),
+    [messages, visibleMessagesFor],
+  );
+  const visibleGuildMessages = useMemo(
+    () => visibleMessagesFor(guildMessages, "guild"),
+    [guildMessages, visibleMessagesFor],
+  );
 
   // 일반 채팅 / 시스템 알림(협동 보스 스폰·토벌 등) 을 className 으로 갈라낸다.
   const chatMessages = useMemo(
-    () => visibleMessages.filter((m) => !isNoticeMessage(m)),
-    [visibleMessages],
+    () => visibleGlobalMessages.filter((m) => !isNoticeMessage(m)),
+    [visibleGlobalMessages],
   );
   const noticeMessages = useMemo(
-    () => visibleMessages.filter((m) => isNoticeMessage(m)),
-    [visibleMessages],
+    () => visibleGlobalMessages.filter((m) => isNoticeMessage(m)),
+    [visibleGlobalMessages],
   );
-  const shownMessages = tab === "chat" ? chatMessages : noticeMessages;
+  const shownMessages =
+    tab === "chat"
+      ? chatMessages
+      : tab === "guild"
+        ? visibleGuildMessages
+        : noticeMessages;
 
   // 권위적 messages 만 보고 (낙관적 pending 의 음수 임시 id 제외) 각 카테고리 최신 id 계산.
   const lastChatId = useMemo(
@@ -186,13 +211,18 @@ export function ChatPanel({
     () => messages.reduce((mx, m) => (isNoticeMessage(m) && m.id > mx ? m.id : mx), 0),
     [messages],
   );
+  const lastGuildId = useMemo(
+    () => guildMessages.reduce((mx, m) => (m.id > mx ? m.id : mx), 0),
+    [guildMessages],
+  );
 
   // 패널이 열려 있는 동안 보고 있는 탭의 최신 메시지는 읽은 것으로 보고.
   useEffect(() => {
     if (!open || !onSeen) return;
     if (tab === "chat" && lastChatId > 0) onSeen("chat", lastChatId);
+    if (tab === "guild" && lastGuildId > 0) onSeen("guild", lastGuildId);
     if (tab === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
-  }, [open, tab, lastChatId, lastNoticeId, onSeen]);
+  }, [open, tab, lastChatId, lastGuildId, lastNoticeId, onSeen]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +232,7 @@ export function ChatPanel({
     const tempId = --tempIdRef.current;
     const temp: ChatMessage = {
       id: tempId,
+      channel: tab === "guild" ? "guild" : "global",
       name,
       className,
       title,
@@ -217,6 +248,7 @@ export function ChatPanel({
         name,
         className,
         title,
+        channel: tab === "guild" ? "guild" : "global",
         content: trimmed,
       });
       // 서버 응답 도착 — 부모 messages 에 합류. visibleMessages 가 content 매칭으로
@@ -314,7 +346,7 @@ export function ChatPanel({
         <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             <ChatCircle size={20} weight="duotone" />
-            전체 채팅
+            채팅
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -391,7 +423,8 @@ export function ChatPanel({
         <div className="flex border-b border-zinc-200 dark:border-zinc-800">
           {(
             [
-              ["chat", "채팅", chatMessages.length, unreadChat],
+              ["chat", "전체", chatMessages.length, unreadChat],
+              ["guild", "길드", visibleGuildMessages.length, unreadGuild],
               ["notice", "알림", noticeMessages.length, unreadNotice],
             ] as const
           ).map(([key, label, count, unread]) => (
@@ -436,7 +469,11 @@ export function ChatPanel({
 
         {tab === "notice" ? (
           <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
-            협동 보스 알림. 채팅하려면 채팅 탭으로
+            협동 보스 알림. 공개 채팅은 전체 탭에서 사용할 수 있습니다.
+          </div>
+        ) : tab === "guild" && !guildAvailable ? (
+          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+            길드에 가입하면 길드원 채팅을 사용할 수 있습니다.
           </div>
         ) : (
           <ChatComposer

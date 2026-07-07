@@ -733,8 +733,22 @@
     {
       "idx": 104,
       "version": "7",
-      "when": 1783212466412,
-      "tag": "0104_guild_exploration_weekly",
+      "when": 1783213200000,
+      "tag": "0104_guild_chat_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1783216800000,
+      "tag": "0105_simplify_guild_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1783220400000,
+      "tag": "0106_guild_exploration_weekly",
       "breakpoints": true
     }
   ]

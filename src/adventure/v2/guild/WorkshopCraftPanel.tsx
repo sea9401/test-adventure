@@ -436,7 +436,7 @@ export function WorkshopCraftPanel({
             </div>
             <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {craftedRecipes.length.toLocaleString()} /{" "}
-              {totalCraftedRecipes.toLocaleString()}종 표시 · 수호/질풍/룬
+              {totalCraftedRecipes.toLocaleString()}종 표시 · 수호/격노/질풍/룬
               각인 장비 중심
             </div>
           </div>

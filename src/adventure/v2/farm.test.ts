@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   FARM_DAILY_QUEST_SEED_REWARD,
+  buyFarmShopItem,
+  claimFarmSpecialDelivery,
   claimFarmDelivery,
+  claimFarmWeeklyDelivery,
   emptyFarmState,
+  farmPlotCountForReputation,
+  farmAvailableReputation,
   grantFarmSeeds,
   harvestPlot,
+  nextFarmPlotUpgrade,
   parseFarmState,
   plantCrop,
 } from "./farm";
@@ -77,11 +83,12 @@ describe("adventurer farm", () => {
       rareHarvests: 1,
       deliveries: 0,
       reputation: 0,
+      reputationSpent: 0,
     });
     expect(state.plots[0].cropId).toBeNull();
   });
 
-  it("claims a delivery by consuming crops and granting seeds", () => {
+  it("claims a delivery by consuming crops and granting reputation", () => {
     const state = {
       ...emptyFarmState(1_000),
       inventory: { wheat: 3 },
@@ -95,14 +102,74 @@ describe("adventurer farm", () => {
 
     expect(result).toMatchObject({
       requestId: "bakery-wheat",
-      rewardSeeds: { wheat: 3, herb: 1 },
-      rewardReputation: 2,
+      rewardSeeds: {},
+      rewardReputation: 3,
     });
     expect(next.inventory.wheat).toBeUndefined();
-    expect(next.seeds).toEqual({ wheat: 3, herb: 1 });
+    expect(next.seeds).toEqual({});
     expect(next.deliveries.claimedIds).toEqual(["bakery-wheat"]);
     expect(next.stats.deliveries).toBe(1);
-    expect(next.stats.reputation).toBe(2);
+    expect(next.stats.reputation).toBe(3);
+    expect(next.stats.reputationSpent).toBe(0);
+  });
+
+  it("claims a rare harvest delivery as a repeatable sink", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      inventory: { golden_wheat: 1 },
+      seeds: {},
+    };
+    const { state: next, result } = claimFarmSpecialDelivery(
+      state,
+      "rare-golden-wheat",
+    );
+
+    expect(result).toMatchObject({
+      requestId: "rare-golden-wheat",
+      rewardSeeds: { wheat: 4, herb: 1 },
+      rewardReputation: 5,
+    });
+    expect(next.inventory.golden_wheat).toBeUndefined();
+    expect(next.seeds).toEqual({ wheat: 4, herb: 1 });
+    expect(next.stats.reputation).toBe(5);
+  });
+
+  it("spends available farm reputation in the farm shop without shrinking plot unlocks", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: {
+        ...emptyFarmState(1_000).stats,
+        reputation: 20,
+      },
+      seeds: {},
+    };
+
+    const { state: next, result } = buyFarmShopItem(state, "market-seed-box");
+
+    expect(result).toMatchObject({
+      itemId: "market-seed-box",
+      costReputation: 7,
+      rewardSeeds: { wheat: 2, corn: 4 },
+    });
+    expect(next.stats.reputation).toBe(20);
+    expect(next.stats.reputationSpent).toBe(7);
+    expect(farmAvailableReputation(next)).toBe(13);
+    expect(farmPlotCountForReputation(next.stats.reputation)).toBe(5);
+  });
+
+  it("rejects farm shop purchases without enough available reputation", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: {
+        ...emptyFarmState(1_000).stats,
+        reputation: 5,
+        reputationSpent: 3,
+      },
+    };
+
+    expect(() => buyFarmShopItem(state, "seed-crate")).toThrow(
+      "not_enough_reputation",
+    );
   });
 
   it("rejects claiming the same daily delivery twice", () => {
@@ -153,6 +220,60 @@ describe("adventurer farm", () => {
 
     expect(nextDay.deliveries.claimedIds).toEqual(["market-corn"]);
     expect(nextDay.stats.deliveries).toBe(3);
+    expect(nextDay.stats.reputation).toBe(13);
+    expect(nextDay.plots).toHaveLength(4);
+    expect(nextDay.plots[3]).toMatchObject({ id: "plot-4", cropId: null });
+  });
+
+  it("claims a weekly delivery once per farm week and resets next week", () => {
+    const monday = Date.parse("2026-07-06T00:00:00+09:00");
+    const nextMonday = monday + 7 * 24 * 60 * 60 * 1000;
+    const state = {
+      ...emptyFarmState(monday),
+      inventory: { wheat: 60, golden_wheat: 2 },
+      seeds: {},
+    };
+    const { state: claimed } = claimFarmWeeklyDelivery(
+      state,
+      "weekly-bakery-crate",
+      monday,
+    );
+
+    expect(claimed.weekly.claimedIds).toEqual(["weekly-bakery-crate"]);
+    expect(claimed.inventory.wheat).toBe(30);
+    expect(claimed.inventory.golden_wheat).toBe(1);
+    expect(claimed.stats.reputation).toBe(12);
+    expect(() =>
+      claimFarmWeeklyDelivery(claimed, "weekly-bakery-crate", monday),
+    ).toThrow("weekly_delivery_already_claimed");
+
+    const { state: reset } = claimFarmWeeklyDelivery(
+      claimed,
+      "weekly-bakery-crate",
+      nextMonday,
+    );
+    expect(reset.weekly.claimedIds).toEqual(["weekly-bakery-crate"]);
+    expect(reset.stats.reputation).toBe(24);
+  });
+
+  it("derives farm plot growth from reputation", () => {
+    expect(farmPlotCountForReputation(0)).toBe(3);
+    expect(farmPlotCountForReputation(8)).toBe(4);
+    expect(farmPlotCountForReputation(20)).toBe(5);
+    expect(nextFarmPlotUpgrade(7)).toMatchObject({
+      plotCount: 4,
+      reputationRequired: 8,
+    });
+    expect(nextFarmPlotUpgrade(20)).toBeNull();
+  });
+
+  it("normalizes high reputation saves with unlocked plots", () => {
+    const parsed = parseFarmState({
+      stats: { reputation: 20 },
+    });
+
+    expect(parsed.plots).toHaveLength(5);
+    expect(parsed.plots[4]).toMatchObject({ id: "plot-5", cropId: null });
   });
 
   it("normalizes malformed saves to three stable plots", () => {
@@ -173,11 +294,13 @@ describe("adventurer farm", () => {
       dayKey: "2026-07-07",
       claimedIds: ["bakery-wheat"],
     });
+    expect(parsed.weekly.claimedIds).toEqual([]);
     expect(parsed.stats).toEqual({
       harvests: 3,
       rareHarvests: 0,
       deliveries: 0,
       reputation: 4,
+      reputationSpent: 0,
     });
   });
 });

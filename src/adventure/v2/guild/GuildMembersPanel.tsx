@@ -68,7 +68,7 @@ export function GuildMembersPanel({
           {loading ? "불러오는 중…" : "—"}
         </div>
       ) : (
-        // 길드원 조직도 — 마스터→부마스터→관리자→일반 위계 트리(회사 조직도 느낌).
+        // 길드원 조직도 — 마스터→관리자→일반 위계 트리.
         <GuildOrgChart members={info.members} />
       )}
 

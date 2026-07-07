@@ -77,7 +77,11 @@ export function useFishingDailyChallenge() {
         const j = await r.json().catch(() => null);
         if (r.ok && j?.ok) {
           await load();
-          return { ok: true, message: `낚시 코인 ${j.reward}개를 받았다.` };
+          const seedText = formatSeedPouch(j.seedPouch);
+          return {
+            ok: true,
+            message: `낚시 코인 ${j.reward}개를 받았다.${seedText}`,
+          };
         }
         return { ok: false, message: CLAIM_ERR[j?.error] ?? "수령하지 못했다." };
       } catch {
@@ -90,4 +94,26 @@ export function useFishingDailyChallenge() {
   );
 
   return { state, loading, error, claiming, claim };
+}
+
+function formatSeedPouch(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const pouch = raw as { name?: unknown; seeds?: unknown };
+  const name = typeof pouch.name === "string" ? pouch.name : "씨앗 주머니";
+  if (!pouch.seeds || typeof pouch.seeds !== "object") return "";
+  const labels: Record<string, string> = {
+    wheat: "밀 씨앗",
+    herb: "허브 씨앗",
+    corn: "옥수수 씨앗",
+  };
+  const parts = Object.entries(pouch.seeds as Record<string, unknown>)
+    .map(([id, count]) => {
+      const n =
+        typeof count === "number" && Number.isFinite(count)
+          ? Math.max(0, Math.floor(count))
+          : 0;
+      return n > 0 && labels[id] ? `${labels[id]} ${n}개` : "";
+    })
+    .filter(Boolean);
+  return parts.length > 0 ? ` ${name}(${parts.join(", ")})도 받았다.` : "";
 }

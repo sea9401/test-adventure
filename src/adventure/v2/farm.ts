@@ -2,11 +2,14 @@ export const FARM_SAVE_KEY = "farm.v2";
 
 export const FARM_PLOT_COUNT = 3;
 
+export const FARM_MAX_PLOT_COUNT = 5;
+
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 
 export type FarmCropId = "wheat" | "herb" | "corn";
 
 export type FarmSeedInventory = Partial<Record<FarmCropId, number>>;
+export type FarmItemInventory = Partial<Record<FarmItemId, number>>;
 
 export const FARM_DAILY_QUEST_SEED_POUCH_NAME = "낡은 씨앗 주머니";
 
@@ -15,6 +18,30 @@ export const FARM_DAILY_QUEST_SEED_REWARD: Record<FarmCropId, number> = {
   herb: 2,
   corn: 1,
 };
+
+export const FARM_FISHING_SEED_POUCH_NAME = "물가 씨앗 주머니";
+
+export const FARM_FISHING_CONTRACT_SEED_REWARD: FarmSeedInventory = {
+  wheat: 2,
+  herb: 1,
+};
+
+export const FARM_FISHING_SHOP_SEED_REWARD: Record<FarmCropId, number> = {
+  wheat: 3,
+  herb: 2,
+  corn: 1,
+};
+
+export type FarmPlotUpgrade = {
+  plotCount: number;
+  reputationRequired: number;
+  title: string;
+};
+
+export const FARM_PLOT_UPGRADES: readonly FarmPlotUpgrade[] = [
+  { plotCount: 4, reputationRequired: 8, title: "두 번째 밭두렁" },
+  { plotCount: 5, reputationRequired: 20, title: "작은 공동 텃밭" },
+];
 
 export type FarmItemId =
   | "wheat"
@@ -49,10 +76,14 @@ export type FarmPlot = {
 export type FarmState = {
   version: 1;
   plots: FarmPlot[];
-  inventory: Partial<Record<FarmItemId, number>>;
+  inventory: FarmItemInventory;
   seeds: FarmSeedInventory;
   deliveries: {
     dayKey: string;
+    claimedIds: string[];
+  };
+  weekly: {
+    weekKey: string;
     claimedIds: string[];
   };
   stats: {
@@ -60,6 +91,7 @@ export type FarmState = {
     rareHarvests: number;
     deliveries: number;
     reputation: number;
+    reputationSpent: number;
   };
 };
 
@@ -90,6 +122,53 @@ export type FarmDeliveryResult = {
   title: string;
   rewardSeeds: FarmSeedInventory;
   rewardReputation: number;
+};
+
+export type FarmSpecialDeliveryRequest = {
+  id: string;
+  title: string;
+  note: string;
+  requiredItems: FarmItemInventory;
+  rewardSeeds: FarmSeedInventory;
+  rewardReputation: number;
+};
+
+export type FarmSpecialDeliveryResult = {
+  requestId: string;
+  title: string;
+  rewardSeeds: FarmSeedInventory;
+  rewardReputation: number;
+};
+
+export type FarmWeeklyDeliveryRequest = {
+  id: string;
+  title: string;
+  note: string;
+  requiredItems: FarmItemInventory;
+  rewardSeeds: FarmSeedInventory;
+  rewardReputation: number;
+};
+
+export type FarmWeeklyDeliveryResult = {
+  requestId: string;
+  title: string;
+  rewardSeeds: FarmSeedInventory;
+  rewardReputation: number;
+};
+
+export type FarmShopItem = {
+  id: string;
+  title: string;
+  note: string;
+  costReputation: number;
+  rewardSeeds: FarmSeedInventory;
+};
+
+export type FarmShopPurchaseResult = {
+  itemId: string;
+  title: string;
+  costReputation: number;
+  rewardSeeds: FarmSeedInventory;
 };
 
 export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
@@ -148,16 +227,18 @@ export const FARM_STARTER_SEEDS: Record<FarmCropId, number> = {
 export function emptyFarmState(now = Date.now()): FarmState {
   return {
     version: 1,
-    plots: Array.from({ length: FARM_PLOT_COUNT }, (_, i) => ({
-      id: `plot-${i + 1}`,
-      cropId: null,
-      plantedAt: null,
-      readyAt: null,
-    })),
+    plots: createFarmPlots(FARM_PLOT_COUNT),
     inventory: {},
     seeds: { ...FARM_STARTER_SEEDS },
     deliveries: { dayKey: farmDayKey(now), claimedIds: [] },
-    stats: { harvests: 0, rareHarvests: 0, deliveries: 0, reputation: 0 },
+    weekly: { weekKey: farmWeekKey(now), claimedIds: [] },
+    stats: {
+      harvests: 0,
+      rareHarvests: 0,
+      deliveries: 0,
+      reputation: 0,
+      reputationSpent: 0,
+    },
   };
 }
 
@@ -165,20 +246,29 @@ export function parseFarmState(raw: unknown): FarmState {
   const fallback = emptyFarmState();
   if (!raw || typeof raw !== "object") return fallback;
   const value = raw as Partial<FarmState>;
-  const plots = fallback.plots.map((base, index) => {
-    const candidate = Array.isArray(value.plots) ? value.plots[index] : null;
-    if (!candidate || typeof candidate !== "object") return base;
-    const p = candidate as Partial<FarmPlot>;
-    const cropId = isFarmCropId(p.cropId) ? p.cropId : null;
-    const plantedAt = cropId ? positiveNumberOrNull(p.plantedAt) : null;
-    const readyAt = cropId ? positiveNumberOrNull(p.readyAt) : null;
-    return {
-      id: base.id,
-      cropId,
-      plantedAt,
-      readyAt,
-    };
-  });
+  const stats = {
+    harvests: nonNegativeInt(value.stats?.harvests),
+    rareHarvests: nonNegativeInt(value.stats?.rareHarvests),
+    deliveries: nonNegativeInt(value.stats?.deliveries),
+    reputation: nonNegativeInt(value.stats?.reputation),
+    reputationSpent: nonNegativeInt(value.stats?.reputationSpent),
+  };
+  const plots = createFarmPlots(farmPlotCountForReputation(stats.reputation)).map(
+    (base, index) => {
+      const candidate = Array.isArray(value.plots) ? value.plots[index] : null;
+      if (!candidate || typeof candidate !== "object") return base;
+      const p = candidate as Partial<FarmPlot>;
+      const cropId = isFarmCropId(p.cropId) ? p.cropId : null;
+      const plantedAt = cropId ? positiveNumberOrNull(p.plantedAt) : null;
+      const readyAt = cropId ? positiveNumberOrNull(p.readyAt) : null;
+      return {
+        id: base.id,
+        cropId,
+        plantedAt,
+        readyAt,
+      };
+    },
+  );
   return {
     version: 1,
     plots,
@@ -188,12 +278,8 @@ export function parseFarmState(raw: unknown): FarmState {
         ? { ...FARM_STARTER_SEEDS }
         : parseSeedInventory(value.seeds),
     deliveries: parseDeliveryState(value.deliveries),
-    stats: {
-      harvests: nonNegativeInt(value.stats?.harvests),
-      rareHarvests: nonNegativeInt(value.stats?.rareHarvests),
-      deliveries: nonNegativeInt(value.stats?.deliveries),
-      reputation: nonNegativeInt(value.stats?.reputation),
-    },
+    weekly: parseWeeklyState(value.weekly),
+    stats,
   };
 }
 
@@ -206,8 +292,8 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
       requiredItemId: "wheat",
       requiredItemName: "밀",
       requiredQuantity: 3,
-      rewardSeeds: { wheat: 3, herb: 1 },
-      rewardReputation: 2,
+      rewardSeeds: {},
+      rewardReputation: 3,
     },
     {
       id: "clinic-herb",
@@ -216,18 +302,102 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
       requiredItemId: "herb",
       requiredItemName: "허브",
       requiredQuantity: 2,
-      rewardSeeds: { herb: 2, corn: 1 },
-      rewardReputation: 3,
+      rewardSeeds: {},
+      rewardReputation: 4,
     },
     {
       id: "market-corn",
       title: "장터 간식 상자",
-      note: "오래 자라는 작물을 요구하지만 씨앗 보상이 넉넉합니다.",
+      note: "오래 자라는 작물을 요구하지만 농장 명성을 크게 올립니다.",
       requiredItemId: "corn",
       requiredItemName: "옥수수",
       requiredQuantity: 5,
-      rewardSeeds: { wheat: 2, corn: 2 },
-      rewardReputation: 4,
+      rewardSeeds: {},
+      rewardReputation: 6,
+    },
+  ];
+}
+
+export function getFarmSpecialDeliveryRequests(): FarmSpecialDeliveryRequest[] {
+  return [
+    {
+      id: "rare-golden-wheat",
+      title: "제빵장의 황금 밀 주문",
+      note: "희귀 수확으로 얻은 황금 밀을 고급 빵 재료로 넘깁니다.",
+      requiredItems: { golden_wheat: 1 },
+      rewardSeeds: { wheat: 4, herb: 1 },
+      rewardReputation: 5,
+    },
+    {
+      id: "rare-silverleaf",
+      title: "치료소 은빛잎 표본",
+      note: "은빛잎은 약효가 좋아 치료소에서 별도 사례를 제공합니다.",
+      requiredItems: { silverleaf: 1 },
+      rewardSeeds: { herb: 4, corn: 1 },
+      rewardReputation: 6,
+    },
+    {
+      id: "rare-sweet-corn",
+      title: "장터 달콤 옥수수 상자",
+      note: "달콤 옥수수는 축제 간식 재료로 높은 값을 받습니다.",
+      requiredItems: { sweet_corn: 1 },
+      rewardSeeds: { wheat: 2, corn: 3 },
+      rewardReputation: 7,
+    },
+  ];
+}
+
+export function getFarmWeeklyDeliveryRequests(): FarmWeeklyDeliveryRequest[] {
+  return [
+    {
+      id: "weekly-bakery-crate",
+      title: "주간 제빵소 밀 상자",
+      note: "이번 주 여관과 제빵소에 들어갈 밀을 한 번에 납품합니다.",
+      requiredItems: { wheat: 30, golden_wheat: 1 },
+      rewardSeeds: { wheat: 8, herb: 3 },
+      rewardReputation: 12,
+    },
+    {
+      id: "weekly-clinic-bundle",
+      title: "주간 치료소 약초 묶음",
+      note: "치료소가 회복약 재료를 넉넉히 확보하려 합니다.",
+      requiredItems: { herb: 16, silverleaf: 1 },
+      rewardSeeds: { herb: 8, corn: 3 },
+      rewardReputation: 14,
+    },
+    {
+      id: "weekly-market-cart",
+      title: "주간 장터 간식 수레",
+      note: "오래 자란 옥수수와 희귀 수확을 모아 장터에 보냅니다.",
+      requiredItems: { corn: 24, sweet_corn: 1 },
+      rewardSeeds: { wheat: 4, corn: 7 },
+      rewardReputation: 16,
+    },
+  ];
+}
+
+export function getFarmShopItems(): FarmShopItem[] {
+  return [
+    {
+      id: "seed-crate",
+      title: "마을 씨앗 상자",
+      note: "가볍게 다시 심을 수 있는 기본 씨앗 묶음입니다.",
+      costReputation: 3,
+      rewardSeeds: { wheat: 4, herb: 2, corn: 1 },
+    },
+    {
+      id: "herbal-seed-box",
+      title: "약초 씨앗 상자",
+      note: "치료소 납품을 준비하기 좋은 허브 중심 씨앗 상자입니다.",
+      costReputation: 5,
+      rewardSeeds: { herb: 5, corn: 1 },
+    },
+    {
+      id: "market-seed-box",
+      title: "장터 씨앗 상자",
+      note: "시간은 걸리지만 주간 납품에 필요한 작물을 준비합니다.",
+      costReputation: 7,
+      rewardSeeds: { wheat: 2, corn: 4 },
     },
   ];
 }
@@ -236,12 +406,148 @@ export function normalizeFarmForDay(
   state: FarmState,
   now = Date.now(),
 ): FarmState {
+  const withPlots = normalizeFarmPlotCount(state);
   const dayKey = farmDayKey(now);
-  if (state.deliveries.dayKey === dayKey) return state;
+  const weekKey = farmWeekKey(now);
+  const withDaily =
+    withPlots.deliveries.dayKey === dayKey
+      ? withPlots
+      : {
+          ...withPlots,
+          deliveries: { dayKey, claimedIds: [] },
+        };
+  if (withDaily.weekly.weekKey === weekKey) return withDaily;
   return {
-    ...state,
-    deliveries: { dayKey, claimedIds: [] },
+    ...withDaily,
+    weekly: { weekKey, claimedIds: [] },
   };
+}
+
+export function farmAvailableReputation(state: FarmState): number {
+  return Math.max(0, state.stats.reputation - state.stats.reputationSpent);
+}
+
+export function buyFarmShopItem(
+  state: FarmState,
+  itemId: string,
+): { state: FarmState; result: FarmShopPurchaseResult } {
+  const item = getFarmShopItems().find((entry) => entry.id === itemId);
+  if (!item) throw new FarmError("shop_item_not_found");
+  if (farmAvailableReputation(state) < item.costReputation) {
+    throw new FarmError("not_enough_reputation");
+  }
+  const next = grantFarmSeeds(
+    {
+      ...state,
+      stats: {
+        ...state.stats,
+        reputationSpent: state.stats.reputationSpent + item.costReputation,
+      },
+    },
+    item.rewardSeeds,
+  );
+  return {
+    state: next,
+    result: {
+      itemId: item.id,
+      title: item.title,
+      costReputation: item.costReputation,
+      rewardSeeds: item.rewardSeeds,
+    },
+  };
+}
+
+export function claimFarmSpecialDelivery(
+  state: FarmState,
+  requestId: string,
+): { state: FarmState; result: FarmSpecialDeliveryResult } {
+  const request = getFarmSpecialDeliveryRequests().find(
+    (item) => item.id === requestId,
+  );
+  if (!request) throw new FarmError("special_delivery_not_found");
+  if (!hasFarmItems(state.inventory, request.requiredItems)) {
+    throw new FarmError("not_enough_items");
+  }
+  const seedState = grantFarmSeeds(state, request.rewardSeeds);
+  const nextState = normalizeFarmPlotCount({
+    ...seedState,
+    inventory: spendFarmItems(seedState.inventory, request.requiredItems),
+    stats: {
+      ...seedState.stats,
+      deliveries: seedState.stats.deliveries + 1,
+      reputation: seedState.stats.reputation + request.rewardReputation,
+    },
+  });
+
+  return {
+    state: nextState,
+    result: {
+      requestId: request.id,
+      title: request.title,
+      rewardSeeds: request.rewardSeeds,
+      rewardReputation: request.rewardReputation,
+    },
+  };
+}
+
+export function claimFarmWeeklyDelivery(
+  state: FarmState,
+  requestId: string,
+  now = Date.now(),
+): { state: FarmState; result: FarmWeeklyDeliveryResult } {
+  const weeklyState = normalizeFarmForDay(state, now);
+  const request = getFarmWeeklyDeliveryRequests().find(
+    (item) => item.id === requestId,
+  );
+  if (!request) throw new FarmError("weekly_delivery_not_found");
+  if (weeklyState.weekly.claimedIds.includes(request.id)) {
+    throw new FarmError("weekly_delivery_already_claimed");
+  }
+  if (!hasFarmItems(weeklyState.inventory, request.requiredItems)) {
+    throw new FarmError("not_enough_items");
+  }
+  const seedState = grantFarmSeeds(weeklyState, request.rewardSeeds);
+  const nextState = normalizeFarmPlotCount({
+    ...seedState,
+    inventory: spendFarmItems(seedState.inventory, request.requiredItems),
+    weekly: {
+      ...seedState.weekly,
+      claimedIds: [...seedState.weekly.claimedIds, request.id],
+    },
+    stats: {
+      ...seedState.stats,
+      deliveries: seedState.stats.deliveries + 1,
+      reputation: seedState.stats.reputation + request.rewardReputation,
+    },
+  });
+
+  return {
+    state: nextState,
+    result: {
+      requestId: request.id,
+      title: request.title,
+      rewardSeeds: request.rewardSeeds,
+      rewardReputation: request.rewardReputation,
+    },
+  };
+}
+
+export function farmPlotCountForReputation(reputation: number): number {
+  const rep = nonNegativeInt(reputation);
+  return FARM_PLOT_UPGRADES.reduce(
+    (count, upgrade) =>
+      rep >= upgrade.reputationRequired ? upgrade.plotCount : count,
+    FARM_PLOT_COUNT,
+  );
+}
+
+export function nextFarmPlotUpgrade(
+  reputation: number,
+): FarmPlotUpgrade | null {
+  const count = farmPlotCountForReputation(reputation);
+  return (
+    FARM_PLOT_UPGRADES.find((upgrade) => upgrade.plotCount > count) ?? null
+  );
 }
 
 export function plantCrop(
@@ -312,20 +618,22 @@ export function claimFarmDelivery(
   );
   const seedState = grantFarmSeeds(dailyState, request.rewardSeeds);
 
-  return {
-    state: {
-      ...seedState,
-      inventory,
-      deliveries: {
-        ...dailyState.deliveries,
-        claimedIds: [...dailyState.deliveries.claimedIds, request.id],
-      },
-      stats: {
-        ...dailyState.stats,
-        deliveries: dailyState.stats.deliveries + 1,
-        reputation: dailyState.stats.reputation + request.rewardReputation,
-      },
+  const nextState = normalizeFarmPlotCount({
+    ...seedState,
+    inventory,
+    deliveries: {
+      ...dailyState.deliveries,
+      claimedIds: [...dailyState.deliveries.claimedIds, request.id],
     },
+    stats: {
+      ...dailyState.stats,
+      deliveries: dailyState.stats.deliveries + 1,
+      reputation: dailyState.stats.reputation + request.rewardReputation,
+    },
+  });
+
+  return {
+    state: nextState,
     result: {
       requestId: request.id,
       title: request.title,
@@ -333,6 +641,29 @@ export function claimFarmDelivery(
       rewardReputation: request.rewardReputation,
     },
   };
+}
+
+function normalizeFarmPlotCount(state: FarmState): FarmState {
+  const expected = farmPlotCountForReputation(state.stats.reputation);
+  if (state.plots.length === expected) return state;
+  const base = createFarmPlots(expected);
+  return {
+    ...state,
+    plots: base.map((plot, index) => state.plots[index] ?? plot),
+  };
+}
+
+function createFarmPlots(count: number): FarmPlot[] {
+  const safeCount = Math.max(
+    FARM_PLOT_COUNT,
+    Math.min(FARM_MAX_PLOT_COUNT, nonNegativeInt(count)),
+  );
+  return Array.from({ length: safeCount }, (_, i) => ({
+    id: `plot-${i + 1}`,
+    cropId: null,
+    plantedAt: null,
+    readyAt: null,
+  }));
 }
 
 export function harvestPlot(
@@ -396,7 +727,7 @@ export function isFarmCropId(value: unknown): value is FarmCropId {
   return typeof value === "string" && value in FARM_CROPS;
 }
 
-function parseInventory(raw: unknown): Partial<Record<FarmItemId, number>> {
+function parseInventory(raw: unknown): FarmItemInventory {
   if (!raw || typeof raw !== "object") return {};
   const out: Partial<Record<FarmItemId, number>> = {};
   for (const [key, value] of Object.entries(raw)) {
@@ -434,6 +765,42 @@ function parseDeliveryState(raw: unknown): FarmState["deliveries"] {
   };
 }
 
+function parseWeeklyState(raw: unknown): FarmState["weekly"] {
+  if (!raw || typeof raw !== "object") {
+    return { weekKey: farmWeekKey(), claimedIds: [] };
+  }
+  const value = raw as Partial<FarmState["weekly"]>;
+  const claimedIds = Array.isArray(value.claimedIds)
+    ? value.claimedIds.filter((id): id is string => typeof id === "string")
+    : [];
+  return {
+    weekKey: typeof value.weekKey === "string" ? value.weekKey : farmWeekKey(),
+    claimedIds,
+  };
+}
+
+function hasFarmItems(
+  inventory: FarmItemInventory,
+  requirements: FarmItemInventory,
+): boolean {
+  return Object.entries(requirements).every(([itemId, count]) => {
+    if (!isFarmItemId(itemId)) return true;
+    return (inventory[itemId] ?? 0) >= nonNegativeInt(count);
+  });
+}
+
+function spendFarmItems(
+  inventory: FarmItemInventory,
+  requirements: FarmItemInventory,
+): FarmItemInventory {
+  const next = { ...inventory };
+  for (const [itemId, count] of Object.entries(requirements)) {
+    if (!isFarmItemId(itemId)) continue;
+    setPositiveCount(next, itemId, (next[itemId] ?? 0) - nonNegativeInt(count));
+  }
+  return next;
+}
+
 function isFarmItemId(value: string): value is FarmItemId {
   return FARM_CROP_LIST.some(
     (crop) => crop.itemId === value || crop.rareItemId === value,
@@ -464,4 +831,12 @@ function setPositiveCount<T extends string>(
 
 function farmDayKey(now = Date.now()): string {
   return new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function farmWeekKey(now = Date.now()): string {
+  const date = new Date(now + 9 * 60 * 60 * 1000);
+  const day = date.getUTCDay();
+  const daysSinceMonday = (day + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
+  return date.toISOString().slice(0, 10);
 }

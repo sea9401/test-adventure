@@ -19,6 +19,7 @@ import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { useSystemMessageState } from "./RewardToastProvider";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   effectiveCultivateProfile,
@@ -180,7 +181,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
 
   // 마운트 1회 로드 — setState 동기 호출을 피하려 loading 초기값(true)에서 시작, 완료 시 해제.
   const refresh = useCallback(async () => {
@@ -290,7 +291,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [caps, cultivations, usable, nextCost]);
+  }, [caps, cultivations, usable, nextCost, setMsg]);
 
   const changeElement = useCallback(async () => {
     if (!picker || !elementChanged) return;
@@ -338,6 +339,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     refresh,
     refreshGameState,
     selectedElement,
+    setMsg,
     spendableGold,
   ]);
 

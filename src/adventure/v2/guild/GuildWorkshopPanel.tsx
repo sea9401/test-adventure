@@ -14,7 +14,10 @@ import {
   SETTLEMENT_MATERIAL_ID,
   SETTLEMENT_MATERIALS,
 } from "@/adventure/data/v2/settlementMaterials";
-import { useRewardToast } from "@/adventure/v2/RewardToastProvider";
+import {
+  useRewardToast,
+  useSystemMessageState,
+} from "@/adventure/v2/RewardToastProvider";
 import type {
   GuildWorkshopCraftMode,
   GuildWorkshopRecipeId,
@@ -67,7 +70,7 @@ export function GuildWorkshopPanel({
     localSmithy || info?.hasGuildSmithy === true || smithyCount > 0;
   const [state, setState] = useState<WorkshopState | null>(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useSystemMessageState();
   const [mode, setMode] = useState<"craft" | "ranking">("craft");
   const [workshopMode, setWorkshopMode] = useState<
     "main" | "craft" | "dismantle" | "growth"
@@ -101,11 +104,11 @@ export function GuildWorkshopPanel({
   const [weekly, setWeekly] = useState<WeeklyState | null>(null);
   const [weeklyLoading, setWeeklyLoading] = useState(false);
   const [weeklyClaimingId, setWeeklyClaimingId] = useState<string | null>(null);
-  const [weeklyMessage, setWeeklyMessage] = useState<string | null>(null);
+  const [weeklyMessage, setWeeklyMessage] = useSystemMessageState();
   const [delivery, setDelivery] = useState<DeliveryState | null>(null);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
   const [deliveryBusyId, setDeliveryBusyId] = useState<string | null>(null);
-  const [deliveryMessage, setDeliveryMessage] = useState<string | null>(null);
+  const [deliveryMessage, setDeliveryMessage] = useSystemMessageState();
   // 해체(dismantle) 모드 — 상태/로드/실행 전부 WorkshopDismantlePanel 로 분리.
   const [contributionInfo, setContributionInfo] =
     useState<GuildInfoResponse | null>(null);
@@ -188,7 +191,7 @@ export function GuildWorkshopPanel({
     } finally {
       setWeeklyLoading(false);
     }
-  }, []);
+  }, [setWeeklyMessage]);
 
   useEffect(() => {
     queueMicrotask(() => void loadWeekly());
@@ -212,7 +215,7 @@ export function GuildWorkshopPanel({
     } finally {
       setDeliveryLoading(false);
     }
-  }, []);
+  }, [setDeliveryMessage]);
 
   useEffect(() => {
     queueMicrotask(() => void loadDelivery());
@@ -292,7 +295,7 @@ export function GuildWorkshopPanel({
     return () => {
       alive = false;
     };
-  }, [hasSmithy, workshopEndpoint]);
+  }, [hasSmithy, workshopEndpoint, setMessage]);
 
   const resources = useMemo(() => state?.resources ?? {}, [state?.resources]);
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);

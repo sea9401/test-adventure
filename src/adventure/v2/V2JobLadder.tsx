@@ -10,6 +10,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
+import { useSystemMessageState } from "./RewardToastProvider";
 import {
   JOB_GOAL_STORAGE_KEY,
   JOB_TAG_FILTERS,
@@ -62,7 +63,7 @@ export function V2JobLadder({
 }) {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [query, setQuery] = useState("");
   const [activeTags, setActiveTags] = useState<Set<string>>(() => new Set());
   const [goalJobId, setGoalJobId] = useState<string | null>(null);

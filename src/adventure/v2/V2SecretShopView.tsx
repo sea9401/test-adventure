@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 비밀 상점 — 「비밀 상점 초대장」으로 입장. map 생략 시 서버가 유효한 초대장을 자동 선택한다.
 // 서버(/api/v2/secret-shop)가 초대장 소유/품목 중복을 권위 검증.
@@ -34,7 +35,7 @@ export function V2SecretShopView({
   const [bankedGold, setBankedGold] = useState(0);
   const [activeMapIid, setActiveMapIid] = useState(mapIid);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [denied, setDenied] = useState(false);
 
   const refresh = useCallback(async () => {

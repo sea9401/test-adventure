@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { TabBar } from "@/components/ui/TabBar";
@@ -73,14 +72,13 @@ function rewardText(reward: QuestReward): string {
 
 export function V2QuestView({ onBack }: { onBack: () => void }) {
   const { refreshGameState } = useGameState();
-  const { notifyReward } = useRewardToast();
+  const { notifyReward, notifySystem } = useRewardToast();
   const [lines, setLines] = useState<QuestLine[]>([]);
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [repeat, setRepeat] = useState<RepeatSection | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
   // 초기 탭 — 홈 튜토리얼 배너가 ?tab=tutorial 로 딥링크. 그 외 기본 일일.
   const tabParam = useSearchParams().get("tab");
   const [topTab, setTopTab] = useState<TopTab>(
@@ -115,7 +113,6 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const claim = useCallback(
     async (q: { id: string; reward: QuestReward }) => {
       setBusy(q.id);
-      setMsg(null);
       try {
         const res = await fetch("/api/v2/me/quests/claim", {
           method: "POST",
@@ -127,27 +124,25 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           error?: string;
         } | null;
         if (!j?.ok) {
-          setMsg(`✗ ${claimErr(j?.error, res.status)}`);
+          notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
         const text = rewardText(q.reward);
-        setMsg(`✓ 보상 수령 — ${text}`);
         notifyReward("보상 수령", text);
         await Promise.all([refresh(), refreshGameState()]);
       } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
+        notifySystem(`✗ ${(err as Error).message}`);
       } finally {
         setBusy(null);
       }
     },
-    [notifyReward, refresh, refreshGameState],
+    [notifyReward, notifySystem, refresh, refreshGameState],
   );
 
   // 마일스톤 번들 보상(스태미나 포션) 수령.
   const claimBundle = useCallback(
     async (scope: "daily" | "weekly") => {
       setBundleBusy(scope);
-      setMsg(null);
       try {
         const res = await fetch("/api/v2/me/quests/claim-bundle", {
           method: "POST",
@@ -160,21 +155,20 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           potions?: number;
         } | null;
         if (!j?.ok) {
-          setMsg(`✗ ${claimErr(j?.error, res.status)}`);
+          notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
         const title = `${scope === "daily" ? "일일" : "주간"} 보상`;
         const detail = `스태미나 포션 ${j.potions}개`;
-        setMsg(`✓ ${title} — ${detail}`);
         notifyReward(title, detail);
         await Promise.all([refresh(), refreshGameState()]);
       } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
+        notifySystem(`✗ ${(err as Error).message}`);
       } finally {
         setBundleBusy(null);
       }
     },
-    [notifyReward, refresh, refreshGameState],
+    [notifyReward, notifySystem, refresh, refreshGameState],
   );
 
   return (
@@ -193,12 +187,6 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         ariaLabel="퀘스트 분류"
         size="md"
       />
-
-      {msg && (
-        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
-          {msg}
-        </StatusBanner>
-      )}
 
       {loading ? (
         <Card padding="md">

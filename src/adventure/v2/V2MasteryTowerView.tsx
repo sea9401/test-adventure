@@ -6,6 +6,10 @@ import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import {
+  useSystemMessageState,
+  useSystemToast,
+} from "./RewardToastProvider";
 
 type TowerState = {
   date: string;
@@ -76,11 +80,12 @@ export function V2MasteryTowerView({
   const [status, setStatus] = useState<TowerStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"claim" | "use" | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
   const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const { notifySystem } = useSystemToast();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -99,7 +104,7 @@ export function V2MasteryTowerView({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setMsg]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -131,7 +136,6 @@ export function V2MasteryTowerView({
 
   async function claim() {
     setBusy("claim");
-    setMsg(null);
     setConfirmClaimOpen(false);
     try {
       const res = await fetch("/api/v2/mastery-tower/claim", {
@@ -144,13 +148,13 @@ export function V2MasteryTowerView({
         certificates?: number;
       } | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
-      setMsg(`✓ 숙련 증서 +${(j.gained ?? 0).toLocaleString("ko-KR")}`);
+      notifySystem(`✓ 숙련 증서 +${(j.gained ?? 0).toLocaleString("ko-KR")}`);
       await refresh();
     } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
+      notifySystem(`✗ ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
@@ -160,7 +164,6 @@ export function V2MasteryTowerView({
     if (!selectedJobId) return;
     const useAmount = Math.max(0, Math.floor(Number(amount) || 0));
     setBusy("use");
-    setMsg(null);
     try {
       const res = await fetch("/api/v2/mastery-tower/use-certificate", {
         method: "POST",
@@ -175,10 +178,10 @@ export function V2MasteryTowerView({
         jobMastery?: number;
       } | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
-      setMsg(
+      notifySystem(
         `✓ ${j.jobName ?? "직업"} 숙련도 +${(j.used ?? 0).toLocaleString("ko-KR")}` +
           (typeof j.jobMastery === "number"
             ? ` (현재 ${j.jobMastery.toLocaleString("ko-KR")})`
@@ -187,7 +190,7 @@ export function V2MasteryTowerView({
       await refresh();
       await onRefreshGameState?.();
     } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
+      notifySystem(`✗ ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }

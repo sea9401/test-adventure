@@ -64,6 +64,7 @@ import {
 import { MarketplaceEquipmentTab } from "./marketplace/MarketplaceEquipmentTab";
 import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
 import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // v2 거래소 — 장비 개체 + 재료 + 소모품(희귀 탐사/입장권) 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -156,7 +157,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const beginAction = useSingleFlightGuard();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [error, setError] = useState<string | null>(null);
   const [gold, setGold] = useState<number | null>(null);
   // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
@@ -319,7 +320,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
         setBusy(false);
       }
     },
-    [beginAction],
+    [beginAction, setMsg],
   );
 
   const buy = (l: Listing) =>

@@ -23,11 +23,13 @@ type RewardToast = Required<RewardToastInput> & {
 
 type RewardToastContextValue = {
   notify: (toast: RewardToastInput) => void;
+  notifySystem: (message: string, tone?: RewardToastTone) => void;
   notifyReward: (title: string, detail?: string) => void;
 };
 
 const noopContext: RewardToastContextValue = {
   notify: () => {},
+  notifySystem: () => {},
   notifyReward: () => {},
 };
 
@@ -82,9 +84,31 @@ export function RewardToastProvider({ children }: { children: ReactNode }) {
     [notify],
   );
 
+  const notifySystem = useCallback(
+    (message: string, tone?: RewardToastTone) => {
+      const trimmed = message.trim();
+      if (!trimmed) return;
+      const inferredTone =
+        tone ??
+        (trimmed.startsWith("✗")
+          ? "error"
+          : trimmed.startsWith("✓")
+            ? "success"
+            : "info");
+      const text = trimmed.replace(/^[✓✗]\s*/, "");
+      const [title, ...detailParts] = text.split(/\s+—\s+/);
+      notify({
+        title: title.trim(),
+        detail: detailParts.join(" — ").trim(),
+        tone: inferredTone,
+      });
+    },
+    [notify],
+  );
+
   const value = useMemo(
-    () => ({ notify, notifyReward }),
-    [notify, notifyReward],
+    () => ({ notify, notifySystem, notifyReward }),
+    [notify, notifySystem, notifyReward],
   );
 
   return (
@@ -132,4 +156,22 @@ export function RewardToastProvider({ children }: { children: ReactNode }) {
 
 export function useRewardToast() {
   return useContext(RewardToastContext);
+}
+
+export function useSystemToast() {
+  const { notify, notifySystem } = useContext(RewardToastContext);
+  return { notify, notifySystem };
+}
+
+export function useSystemMessageState(initial: string | null = null) {
+  const [message, setMessageState] = useState<string | null>(initial);
+  const { notifySystem } = useSystemToast();
+  const setMessage = useCallback(
+    (next: string | null) => {
+      setMessageState(next);
+      if (next) notifySystem(next);
+    },
+    [notifySystem],
+  );
+  return [message, setMessage] as const;
 }

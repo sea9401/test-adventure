@@ -24,6 +24,7 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "@/adventure/v2/V2ItemCard";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 type Loadout = {
   id: string;
@@ -97,7 +98,7 @@ export function V2ArenaLoadoutTab() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useSystemMessageState();
   const [card, setCard] = useState<{
     inst: V2EquipInstance;
     anchor: ItemCardAnchor;
@@ -150,7 +151,7 @@ export function V2ArenaLoadoutTab() {
       setNotice("저장에 실패했어요.");
     }
     setBusy(false);
-  }, [busy, post]);
+  }, [busy, post, setNotice]);
 
   const remove = useCallback(async () => {
     if (busy) return;
@@ -164,7 +165,7 @@ export function V2ArenaLoadoutTab() {
       setNotice("삭제에 실패했어요.");
     }
     setBusy(false);
-  }, [busy, post]);
+  }, [busy, post, setNotice]);
 
   if (err) return <LoadErrorBanner onRetry={load} />;
 

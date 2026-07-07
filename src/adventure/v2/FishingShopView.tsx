@@ -24,6 +24,7 @@ import type {
   FishingGearKind,
   FishingShopState,
 } from "./useFishingShop";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 낚시 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useFishingShop 실 API / dev mock).
 // 설계: docs/fishing-content-plan.md §6
@@ -101,16 +102,22 @@ export function FishingShopView({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+  const { notifySystem } = useSystemToast();
+
+  const showMessage = (r: BuyResult) => {
+    setMessage({ ok: r.ok, text: r.message });
+    notifySystem(r.message, r.ok ? "success" : "error");
+  };
 
   const handleBuy = async (titleId: string) => {
     const r = await onBuy(titleId);
-    setMessage({ ok: r.ok, text: r.message });
+    showMessage(r);
   };
 
   const handleBuyConsumable = async (itemId: string) => {
     if (!onBuyConsumable) return;
     const r = await onBuyConsumable(itemId);
-    setMessage({ ok: r.ok, text: r.message });
+    showMessage(r);
   };
 
   const handleBuyGear = async (
@@ -120,7 +127,7 @@ export function FishingShopView({
   ) => {
     if (!onBuyGear) return;
     const r = await onBuyGear(kind, gearId, action);
-    setMessage({ ok: r.ok, text: r.message });
+    showMessage(r);
   };
 
   const coins = state?.coins ?? 0;

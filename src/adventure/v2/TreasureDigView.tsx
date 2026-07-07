@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
+import { useSystemMessageState } from "./RewardToastProvider";
 import {
   TREASURE_ACTION_HELP,
   TREASURE_ACTION_LABEL,
@@ -402,7 +403,7 @@ export function TreasureDigView({
   const [site, setSite] = useState<TreasureSitePublic | null>(null);
   const [result, setResult] = useState<Result>(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useSystemMessageState();
   const [fragments, setFragments] = useState<number | null>(null);
   const [restoring, setRestoring] = useState(Boolean(loadSession));
   const [activeHoldKey, setActiveHoldKey] = useState<DrillDirection["key"] | null>(null);
@@ -494,7 +495,7 @@ export function TreasureDigView({
       busyRef.current = false;
       setBusy(false);
     }
-  }, [open]);
+  }, [open, setNotice]);
 
   const runAction = useCallback(
     async (action: TreasureAction, target?: TreasureActionTarget): Promise<ActionRunStatus> => {
@@ -547,7 +548,7 @@ export function TreasureDigView({
       }
       return "stop";
     },
-    [dig],
+    [dig, setNotice],
   );
 
   const executeDirection = useCallback(

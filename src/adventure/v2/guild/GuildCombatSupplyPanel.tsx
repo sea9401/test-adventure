@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSystemMessageState } from "@/adventure/v2/RewardToastProvider";
 
 type Supply = {
   id: string;
@@ -71,7 +72,7 @@ function errorLabel(error: string): string {
 function useGuildCombatSupply() {
   const [data, setData] = useState<CombatSupplyResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useSystemMessageState();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,7 +93,7 @@ function useGuildCombatSupply() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setMessage]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 연구 상태 fetch

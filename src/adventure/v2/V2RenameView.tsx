@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TextInput } from "@/components/ui/TextInput";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 개명 신전 — 「개명 신전 입장권」으로 입장. 닉네임 변경 1회(성공 시 입장권 소모).
 // 서버(/api/v2/me/rename)가 입장권 소유/이름 중복을 권위 검증.
@@ -25,7 +26,7 @@ export function V2RenameView({
 }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
 
   async function submit() {
     const next = name.trim();

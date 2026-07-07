@@ -9,7 +9,6 @@ import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
-import { StatusBanner } from "@/components/ui/StatusBanner";
 import {
   V2_EQUIPMENT,
   effectiveStats,
@@ -34,6 +33,7 @@ import {
 } from "./V2ItemCard";
 import { useGameState } from "./GameStateProvider";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
+import { useSystemToast } from "./RewardToastProvider";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -127,7 +127,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   >({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const beginAction = useSingleFlightGuard();
-  const [msg, setMsg] = useState<string | null>(null);
+  const { notifySystem } = useSystemToast();
   const [mode, setMode] = useState<Mode>("buy");
   const [loadError, setLoadError] = useState(false);
   const [subTab, setSubTab] = useState<SubTab>("weapon");
@@ -190,7 +190,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const onModeChange = useCallback((m: Mode) => {
     setMode(m);
     setSubTab("weapon");
-    setMsg(null);
     setCard(null);
   }, []);
 
@@ -198,7 +197,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     const release = beginAction();
     if (!release) return;
     setBusyId(id);
-    setMsg(null);
     try {
       const res = await fetch("/api/v2/shop/equipment", {
         method: "POST",
@@ -216,11 +214,11 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           }
         | null;
       if (!j?.ok) {
-        setMsg(`✗ ${shopErrorLabel(j?.error, res.status, j?.retryAfterSec)}`);
+        notifySystem(`✗ ${shopErrorLabel(j?.error, res.status, j?.retryAfterSec)}`);
         return;
       }
       const item = V2_EQUIPMENT[id];
-      setMsg(`✓ ${item.name} 구매`);
+      notifySystem(`✓ ${item.name} 구매`);
       const insts = j.owned ?? [];
       setOwnedInsts(insts);
       setCounts(buildCountMap(insts));
@@ -234,12 +232,12 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           typeof j.bankedGold === "number" ? j.bankedGold : undefined,
       });
     } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
+      notifySystem(`✗ ${(err as Error).message}`);
     } finally {
       release();
       setBusyId(null);
     }
-  }, [applyResourcePatch, beginAction]);
+  }, [applyResourcePatch, beginAction, notifySystem]);
 
   // 판매는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 판다.
   // 장착분만 남은 경우(카드는 locked 라 보통 클릭 불가) 서버가 "equipped" 로 거부(#426).
@@ -252,11 +250,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         ownedInsts.find((i) => i.id === id);
       if (!inst) {
         release();
-        setMsg("✗ 판매할 개체가 없습니다");
+        notifySystem("✗ 판매할 개체가 없습니다");
         return;
       }
       setBusyId(id);
-      setMsg(null);
       try {
         const res = await fetch("/api/v2/shop/equipment/sell", {
           method: "POST",
@@ -278,13 +275,13 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
             j?.error === "equipped"
               ? "장착 중인 장비는 판매할 수 없습니다"
               : shopErrorLabel(j?.error, res.status, j?.retryAfterSec);
-          setMsg(`✗ ${reason}`);
+          notifySystem(`✗ ${reason}`);
           // 서버가 장착분 판매를 막았으면 화면 상태를 최신으로 맞춘다.
           if (j?.error === "equipped") refresh();
           return;
         }
         const item = V2_EQUIPMENT[id];
-        setMsg(`✓ ${item.name} 판매 (+${j.sellPrice ?? 0} G)`);
+        notifySystem(`✓ ${item.name} 판매 (+${j.sellPrice ?? 0} G)`);
         const insts = j.owned ?? [];
         setOwnedInsts(insts);
         setCounts(buildCountMap(insts));
@@ -293,13 +290,20 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           applyResourcePatch({ gold: j.gold });
         }
       } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
+        notifySystem(`✗ ${(err as Error).message}`);
       } finally {
         release();
         setBusyId(null);
       }
     },
-    [ownedInsts, equippedIids, refresh, applyResourcePatch, beginAction],
+    [
+      ownedInsts,
+      equippedIids,
+      refresh,
+      applyResourcePatch,
+      beginAction,
+      notifySystem,
+    ],
   );
 
   // 재료는 보유 스택 전량을 한 번에 환금.
@@ -307,7 +311,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     const release = beginAction();
     if (!release) return;
     setBusyId(id);
-    setMsg(null);
     try {
       const res = await fetch("/api/v2/shop/material/sell", {
         method: "POST",
@@ -325,11 +328,11 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           }
         | null;
       if (!j?.ok) {
-        setMsg(`✗ ${shopErrorLabel(j?.error, res.status, j?.retryAfterSec)}`);
+        notifySystem(`✗ ${shopErrorLabel(j?.error, res.status, j?.retryAfterSec)}`);
         return;
       }
       const mat = V2_MATERIALS[id];
-      setMsg(
+      notifySystem(
         `✓ ${mat.name} ×${j.sold?.count ?? 0} 판매 (+${j.sold?.gold ?? 0} G)`,
       );
       setMaterials(j.materials ?? {});
@@ -338,12 +341,12 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         applyResourcePatch({ gold: j.gold });
       }
     } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
+      notifySystem(`✗ ${(err as Error).message}`);
     } finally {
       release();
       setBusyId(null);
     }
-  }, [applyResourcePatch, beginAction]);
+  }, [applyResourcePatch, beginAction, notifySystem]);
 
   const subTabs = mode === "buy" ? SLOT_TABS : SELL_TABS;
 
@@ -431,11 +434,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         }
       />
       {loadError && <LoadErrorBanner onRetry={refresh} />}
-      {msg && (
-        <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
-          {msg}
-        </StatusBanner>
-      )}
 
       {/* 탭(구매/판매 + 부위) — 지역 배경 위라 라이트모드 가독성 위해 surface 패널로 감쌈. */}
       <HeaderPanel className="space-y-1 py-2">

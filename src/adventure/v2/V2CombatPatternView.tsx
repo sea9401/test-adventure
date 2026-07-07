@@ -20,6 +20,7 @@ import {
   type V2CombatPreset,
   type V2CombatRole,
 } from "@/adventure/v2/combat/combatPattern";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
 // 첫 스킬을 발동(procChance 은퇴=확정). 조건 어휘는 1:1 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
@@ -127,7 +128,7 @@ export function V2CombatPatternView({
   const [presetName, setPresetName] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   // 자동 저장 상태 — idle(아직 편집 없음) → pending(편집됨, 디바운스 대기) → saving → saved/error.
   const [saveState, setSaveState] = useState<
     "idle" | "pending" | "saving" | "saved" | "error"
@@ -175,7 +176,7 @@ export function V2CombatPatternView({
   const markEdited = useCallback(() => {
     setSaveState("pending");
     setMsg(null);
-  }, []);
+  }, [setMsg]);
 
   const update = useCallback(
     (i: number, next: Partial<V2CombatBlock>) => {
@@ -246,7 +247,7 @@ export function V2CombatPatternView({
       }
     }, 700);
     return () => clearTimeout(t);
-  }, [saveState, blocks, loading]);
+  }, [saveState, blocks, loading, setMsg]);
 
   // 프리셋 라이브러리 전체를 서버에 영속(항목 추가/삭제 후 호출). 성공 시 정규화된 결과로 동기화.
   const persistPresets = useCallback(
@@ -276,7 +277,7 @@ export function V2CombatPatternView({
         setBusy(false);
       }
     },
-    [],
+    [setMsg],
   );
 
   // 현재 편집 중인 블록을 이름 붙여 프리셋으로 저장(같은 이름 = 덮어쓰기).
@@ -299,7 +300,7 @@ export function V2CombatPatternView({
       setPresetName("");
       setMsg(`✓ 프리셋 '${name}' 저장`);
     }
-  }, [blocks, presetName, presets, persistPresets]);
+  }, [blocks, presetName, presets, persistPresets, setMsg]);
 
   // 프리셋 불러오기 = 그 블록을 에디터에 싣고 활성 패턴으로 즉시 적용(빠른 스왑).
   const loadPreset = useCallback(
@@ -335,7 +336,7 @@ export function V2CombatPatternView({
         setBusy(false);
       }
     },
-    [],
+    [setMsg],
   );
 
   const deletePreset = useCallback(
@@ -343,7 +344,7 @@ export function V2CombatPatternView({
       const next = presets.filter((p) => p.name !== name);
       if (await persistPresets(next)) setMsg(`✓ 프리셋 '${name}' 삭제`);
     },
-    [presets, persistPresets],
+    [presets, persistPresets, setMsg],
   );
 
   const Wrapper = embedded ? "div" : "main";

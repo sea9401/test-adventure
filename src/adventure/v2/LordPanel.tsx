@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSystemMessageState } from "./RewardToastProvider";
 
 // 정착지 전쟁 — 거점 영주/세금 패널. 설계: docs/v2-settlement-warfare-plan.md §2.4.
 //   모든 길드원: 현재 영주 + 거점 금고 표시. 영주 본인: 세금 수확(6h 쿨·10% 개인/90% 길드).
@@ -38,7 +39,7 @@ export default function LordPanel({
   const [treasury, setTreasury] = useState(0);
   const [members, setMembers] = useState<Member[]>([]);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useSystemMessageState();
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
@@ -98,7 +99,7 @@ export default function LordPanel({
         setBusy(false);
       }
     },
-    [outpostId, load],
+    [outpostId, load, setMsg],
   );
 
   const harvest = useCallback(async () => {
@@ -130,7 +131,7 @@ export default function LordPanel({
     } finally {
       setBusy(false);
     }
-  }, [outpostId, load]);
+  }, [outpostId, load, setMsg]);
 
   if (!loaded) return null;
   const amLord = !!lord && lord.userId === viewerUserId;

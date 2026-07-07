@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CoinTitleShopList } from "./CoinShopLists";
 import { arenaShopEntries } from "./arenaShop";
 import type { BuyResult, ArenaShopState } from "./useArenaShop";
+import { useSystemToast } from "./RewardToastProvider";
 
 // 투기장 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useArenaShop).
 // V2ArenaView 의 "상점" 탭 안에 임베드되므로 자체 헤더(SubViewHeader)는 두지 않고
@@ -27,10 +28,12 @@ export function ArenaShopView({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+  const { notifySystem } = useSystemToast();
 
   const handleBuy = async (titleId: string) => {
     const r = await onBuy(titleId);
     setMessage({ ok: r.ok, text: r.message });
+    notifySystem(r.message, r.ok ? "success" : "error");
   };
 
   const coins = state?.coins ?? 0;

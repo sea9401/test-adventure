@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Clock,
   FlowerTulip,
@@ -11,7 +12,6 @@ import {
 } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import type {
   FarmCrop,
   FarmCropId,
@@ -19,6 +19,7 @@ import type {
   FarmItemId,
   FarmPlot,
   FarmSeedInventory,
+  FarmState,
 } from "./farm";
 import { useFarm } from "./useFarm";
 
@@ -77,17 +78,15 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
         }
       />
 
-      <section className={`${SURFACE_CARD} overflow-hidden`}>
-        <div className="border-b border-zinc-200 bg-emerald-50 px-4 py-3 dark:border-zinc-800 dark:bg-emerald-950">
-          <div className="flex items-center gap-2">
-            <PottedPlant
-              size={22}
-              weight="duotone"
-              className="shrink-0 text-emerald-600 dark:text-emerald-300"
-            />
+      <section className="overflow-hidden rounded-md border border-lime-200 bg-[#f7fbf1] shadow-sm dark:border-emerald-900/70 dark:bg-[#10170f]">
+        <div className="border-b border-lime-200 bg-[#eef8dd] px-4 py-3 dark:border-emerald-900/70 dark:bg-[#152314]">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-lime-200 bg-white text-emerald-600 shadow-sm dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+              <PottedPlant size={24} weight="duotone" />
+            </div>
             <div className="min-w-0">
               <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                작은 밭에서 시작하는 생활 루프
+                아침에 심고, 모험 뒤에 거두는 작은 밭
               </h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
                 씨앗을 심고 작물을 수확한 뒤, 납품으로 다음 씨앗과 농장 명성을 확보합니다.
@@ -102,6 +101,8 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           </div>
         ) : farm ? (
           <div className="space-y-4 p-4">
+            <FarmSummary farm={farm} now={now} />
+
             <CropSelector
               crops={crops}
               seeds={farm.seeds}
@@ -170,6 +171,74 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
   );
 }
 
+function FarmSummary({ farm, now }: { farm: FarmState; now: number }) {
+  const seedCount = Object.values(farm.seeds).reduce(
+    (sum, count) => sum + (count ?? 0),
+    0,
+  );
+  const readyPlots = farm.plots.filter(
+    (plot) => plot.cropId && plot.readyAt && plot.readyAt <= now,
+  ).length;
+  const growingPlots = farm.plots.filter((plot) => plot.cropId).length;
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      <SummaryTile
+        icon={<Leaf size={17} weight="duotone" />}
+        label="씨앗"
+        value={`${seedCount.toLocaleString("ko-KR")}개`}
+        tone="seed"
+      />
+      <SummaryTile
+        icon={<FlowerTulip size={17} weight="duotone" />}
+        label="밭 상태"
+        value={
+          readyPlots > 0
+            ? `수확 가능 ${readyPlots}칸`
+            : `재배 중 ${growingPlots}칸`
+        }
+        tone="field"
+      />
+      <SummaryTile
+        icon={<Sparkle size={17} weight="duotone" />}
+        label="농장 명성"
+        value={farm.stats.reputation.toLocaleString("ko-KR")}
+        tone="reputation"
+      />
+    </div>
+  );
+}
+
+function SummaryTile({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone: "seed" | "field" | "reputation";
+}) {
+  const styles = {
+    seed:
+      "border-lime-200 bg-lime-50 text-lime-800 dark:border-lime-900 dark:bg-lime-950/40 dark:text-lime-200",
+    field:
+      "border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200",
+    reputation:
+      "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200",
+  }[tone];
+  return (
+    <div className={`rounded-md border px-3 py-2 ${styles}`}>
+      <div className="flex items-center gap-1.5 text-xs font-semibold opacity-80">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-1 text-base font-black">{value}</div>
+    </div>
+  );
+}
+
 function CropSelector({
   crops,
   seeds,
@@ -182,8 +251,8 @@ function CropSelector({
   onSelect: (id: FarmCropId) => void;
 }) {
   return (
-    <div className={`${SURFACE_INSET} p-3`}>
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+    <div className="rounded-md border border-lime-200 bg-white/80 p-3 shadow-sm dark:border-emerald-900/70 dark:bg-zinc-950/70">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
         <Leaf size={17} weight="duotone" className="text-emerald-500" />
         씨앗 선택
       </div>
@@ -197,15 +266,15 @@ function CropSelector({
               onClick={() => onSelect(crop.id)}
               className={`rounded-md border px-3 py-2 text-left transition ${
                 active
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                  ? "border-emerald-500 bg-emerald-100 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-100"
+                  : "border-lime-200 bg-[#fffdf4] text-zinc-700 hover:border-emerald-300 hover:bg-lime-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-emerald-950/30"
               }`}
             >
               <span className="block text-sm font-bold">{crop.seedName}</span>
               <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
                 {formatDuration(crop.growMs)} · {crop.yieldMin}-{crop.yieldMax}개
               </span>
-              <span className="mt-1 block text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+              <span className="mt-1 inline-flex rounded bg-white/70 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-950/50 dark:text-emerald-300">
                 보유 {seeds[crop.id] ?? 0}개
               </span>
             </button>
@@ -245,9 +314,9 @@ function PlotCard({
       : 0;
 
   return (
-    <div className={`${SURFACE_CARD} flex min-h-[13rem] flex-col p-3`}>
+    <div className="flex min-h-[13rem] flex-col rounded-md border border-lime-200 bg-[#fffaf0] p-3 shadow-sm dark:border-zinc-800 dark:bg-[#17130d]">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+        <div className="text-sm font-bold text-stone-900 dark:text-stone-100">
           {plotLabel(plot.id)}
         </div>
         <FlowerTulip
@@ -260,7 +329,7 @@ function PlotCard({
       {crop ? (
         <>
           <div className="mt-4">
-            <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+            <div className="text-lg font-black text-stone-900 dark:text-stone-100">
               {crop.name}
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
@@ -268,31 +337,31 @@ function PlotCard({
               {ready ? "수확 가능" : `${formatRemaining((plot.readyAt ?? now) - now)} 남음`}
             </div>
           </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-amber-100 dark:bg-stone-900">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all"
+              className="h-full rounded-full bg-lime-500 transition-all"
               style={{ width: `${ready ? 100 : progress}%` }}
             />
           </div>
-          <p className="mt-3 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          <p className="mt-3 min-h-[2.5rem] text-xs leading-relaxed text-stone-600 dark:text-stone-300">
             {crop.note}
           </p>
           <button
             type="button"
             onClick={onHarvest}
             disabled={!ready || busy}
-            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
+            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
           >
             {busy ? "처리 중..." : ready ? "수확하기" : "재배 중"}
           </button>
         </>
       ) : (
         <>
-          <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-5 text-center dark:border-zinc-700 dark:bg-zinc-950">
-            <div className="text-sm font-bold text-zinc-700 dark:text-zinc-200">
+          <div className="mt-4 rounded-md border border-dashed border-amber-300 bg-[#f7ead6] px-3 py-5 text-center dark:border-stone-700 dark:bg-stone-950">
+            <div className="text-sm font-bold text-stone-700 dark:text-stone-200">
               빈 밭
             </div>
-            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="mt-1 text-xs text-stone-500 dark:text-stone-400">
               선택한 씨앗을 1개 소비해 심습니다.
             </div>
           </div>
@@ -300,7 +369,7 @@ function PlotCard({
             type="button"
             onClick={onPlant}
             disabled={!selectedCrop || selectedSeedCount <= 0 || busy}
-            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
+            className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
           >
             {busy
               ? "심는 중..."
@@ -328,9 +397,9 @@ function DeliveryBoard({
   onDeliver: (requestId: string) => void;
 }) {
   return (
-    <div className={`${SURFACE_INSET} p-3`}>
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-        <Package size={17} weight="duotone" className="text-sky-500" />
+    <div className="rounded-md border border-amber-200 bg-[#fff8e7] p-3 shadow-sm dark:border-amber-900/70 dark:bg-[#18130b]">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
+        <Package size={17} weight="duotone" className="text-amber-500" />
         납품 게시판
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
@@ -342,7 +411,7 @@ function DeliveryBoard({
           return (
             <div
               key={delivery.id}
-              className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+              className="flex min-h-[12rem] flex-col rounded-md border border-amber-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
             >
               <div className="font-bold text-zinc-900 dark:text-zinc-100">
                 {delivery.title}
@@ -350,7 +419,7 @@ function DeliveryBoard({
               <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                 {delivery.note}
               </p>
-              <div className="mt-3 rounded-md bg-zinc-50 px-2.5 py-2 text-xs dark:bg-zinc-950">
+              <div className="mt-3 rounded-md bg-amber-50 px-2.5 py-2 text-xs dark:bg-zinc-950">
                 <div className="flex justify-between gap-2">
                   <span className="text-zinc-500 dark:text-zinc-400">필요</span>
                   <span className="font-semibold text-zinc-800 dark:text-zinc-100">
@@ -370,7 +439,7 @@ function DeliveryBoard({
                 type="button"
                 onClick={() => onDeliver(delivery.id)}
                 disabled={claimed || !enough || busy}
-                className="mt-auto rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
+                className="mt-auto rounded-md bg-sky-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
               >
                 {busy
                   ? "납품 중..."
@@ -398,8 +467,8 @@ function InventoryPanel({
     number,
   ][];
   return (
-    <div className={`${SURFACE_INSET} p-3`}>
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+    <div className="rounded-md border border-sky-200 bg-sky-50 p-3 shadow-sm dark:border-sky-900/70 dark:bg-sky-950/30">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-sky-900 dark:text-sky-100">
         <Sparkle size={17} weight="duotone" className="text-amber-500" />
         농장 보관함
       </div>
@@ -412,7 +481,7 @@ function InventoryPanel({
           {entries.map(([itemId, count]) => (
             <div
               key={itemId}
-              className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+              className="flex items-center justify-between rounded-md border border-sky-100 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
             >
               <span className="font-medium text-zinc-800 dark:text-zinc-100">
                 {ITEM_LABELS[itemId] ?? itemId}

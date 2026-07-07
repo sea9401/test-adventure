@@ -21,6 +21,68 @@ export type V2BuildPreset = {
   weaknesses: readonly string[];
 };
 
+export type V2BuildGoalsState = {
+  activePresetIds: V2BuildPresetId[];
+};
+
+export type V2BuildPresetProgressInput = {
+  ownedEquipmentIds?: ReadonlySet<string>;
+  registeredEquipmentIds?: ReadonlySet<string>;
+  learnedSkillIds?: ReadonlySet<string>;
+  equippedSkillIds?: ReadonlySet<string>;
+  conditions?: Partial<V2BuildPresetConditionFlags>;
+};
+
+export type V2BuildPresetConditionKey =
+  | "equipmentOwned"
+  | "equipmentRegistered"
+  | "skillsLearned"
+  | "skillsEquipped";
+
+export type V2BuildPresetConditionFlags = Record<
+  V2BuildPresetConditionKey,
+  boolean
+>;
+
+export type V2BuildPresetProgress = {
+  equipmentOwned: number;
+  equipmentTotal: number;
+  equipmentRegistered: number;
+  skillsLearned: number;
+  skillsEquipped: number;
+  skillsTotal: number;
+  score: number;
+  maxScore: number;
+  pct: number;
+  missingEquipmentIds: V2EquipmentId[];
+  missingSkillIds: V2SkillId[];
+  unequippedLearnedSkillIds: V2SkillId[];
+  conditions: V2BuildPresetConditionFlags;
+};
+
+export type V2BuildPresetRecommendation = {
+  preset: V2BuildPreset;
+  progress: V2BuildPresetProgress;
+  rank: number;
+  reason: string;
+};
+
+export const BUILD_GOALS_SAVE_KEY = "build-goals.v2";
+export const BUILD_GOALS_EXPORT_KIND = "v2-build-goals";
+export const MAX_ACTIVE_BUILD_GOALS = 3;
+export const DEFAULT_BUILD_PRESET_CONDITIONS: V2BuildPresetConditionFlags = {
+  equipmentOwned: true,
+  equipmentRegistered: true,
+  skillsLearned: true,
+  skillsEquipped: true,
+};
+
+export type V2BuildGoalsExport = {
+  kind: typeof BUILD_GOALS_EXPORT_KIND;
+  version: 1;
+  activePresetIds: V2BuildPresetId[];
+};
+
 export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
   {
     id: "venomlord_dash",
@@ -145,3 +207,218 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
 ];
 
 export const V2_BUILD_PRESET_IDS = V2_BUILD_PRESETS.map((preset) => preset.id);
+
+const V2_BUILD_PRESET_ID_SET = new Set<string>(V2_BUILD_PRESET_IDS);
+
+export function isV2BuildPresetId(value: unknown): value is V2BuildPresetId {
+  return typeof value === "string" && V2_BUILD_PRESET_ID_SET.has(value);
+}
+
+export function emptyBuildGoalsState(): V2BuildGoalsState {
+  return { activePresetIds: [] };
+}
+
+export function parseBuildGoalsState(raw: unknown): V2BuildGoalsState {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return emptyBuildGoalsState();
+  }
+  const ids = Array.isArray((raw as { activePresetIds?: unknown }).activePresetIds)
+    ? (raw as { activePresetIds: unknown[] }).activePresetIds
+    : [];
+  return {
+    activePresetIds: ids
+      .filter(isV2BuildPresetId)
+      .filter((id, index, arr) => arr.indexOf(id) === index)
+      .slice(0, MAX_ACTIVE_BUILD_GOALS),
+  };
+}
+
+export function serializeBuildGoalsExport(state: V2BuildGoalsState): string {
+  const normalized = parseBuildGoalsState(state);
+  const payload: V2BuildGoalsExport = {
+    kind: BUILD_GOALS_EXPORT_KIND,
+    version: 1,
+    activePresetIds: normalized.activePresetIds,
+  };
+  return JSON.stringify(payload);
+}
+
+export function parseBuildGoalsExport(raw: unknown): V2BuildGoalsState | null {
+  let value = raw;
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (Array.isArray(value)) {
+    return parseBuildGoalsState({ activePresetIds: value });
+  }
+  if (value == null || typeof value !== "object") return null;
+  const obj = value as {
+    kind?: unknown;
+    code?: unknown;
+    activePresetIds?: unknown;
+  };
+  if (typeof obj.code === "string") return parseBuildGoalsExport(obj.code);
+  if (obj.kind != null && obj.kind !== BUILD_GOALS_EXPORT_KIND) return null;
+  if (!Array.isArray(obj.activePresetIds)) return null;
+  return parseBuildGoalsState(obj);
+}
+
+export function setBuildGoalActive(
+  state: V2BuildGoalsState,
+  presetId: V2BuildPresetId,
+  active: boolean,
+): V2BuildGoalsState {
+  const current = state.activePresetIds.filter((id) => id !== presetId);
+  if (!active) return { activePresetIds: current };
+  return {
+    activePresetIds: [presetId, ...current].slice(0, MAX_ACTIVE_BUILD_GOALS),
+  };
+}
+
+export function normalizeBuildPresetConditions(
+  raw?: Partial<V2BuildPresetConditionFlags>,
+): V2BuildPresetConditionFlags {
+  const next: V2BuildPresetConditionFlags = {
+    equipmentOwned:
+      raw?.equipmentOwned ?? DEFAULT_BUILD_PRESET_CONDITIONS.equipmentOwned,
+    equipmentRegistered:
+      raw?.equipmentRegistered ??
+      DEFAULT_BUILD_PRESET_CONDITIONS.equipmentRegistered,
+    skillsLearned:
+      raw?.skillsLearned ?? DEFAULT_BUILD_PRESET_CONDITIONS.skillsLearned,
+    skillsEquipped:
+      raw?.skillsEquipped ?? DEFAULT_BUILD_PRESET_CONDITIONS.skillsEquipped,
+  };
+  if (!Object.values(next).some(Boolean)) {
+    return DEFAULT_BUILD_PRESET_CONDITIONS;
+  }
+  return next;
+}
+
+export function buildPresetProgress(
+  preset: V2BuildPreset,
+  input: V2BuildPresetProgressInput,
+): V2BuildPresetProgress {
+  const conditions = normalizeBuildPresetConditions(input.conditions);
+  const ownedEquipmentIds = input.ownedEquipmentIds ?? new Set<string>();
+  const registeredEquipmentIds =
+    input.registeredEquipmentIds ?? new Set<string>();
+  const learnedSkillIds = input.learnedSkillIds ?? new Set<string>();
+  const equippedSkillIds = input.equippedSkillIds ?? new Set<string>();
+  const equipmentOwned = preset.equipmentIds.filter((id) =>
+    ownedEquipmentIds.has(id),
+  ).length;
+  const equipmentRegistered = preset.equipmentIds.filter((id) =>
+    registeredEquipmentIds.has(id),
+  ).length;
+  const skillsLearned = preset.skillIds.filter((id) =>
+    learnedSkillIds.has(id),
+  ).length;
+  const skillsEquipped = preset.skillIds.filter((id) =>
+    equippedSkillIds.has(id),
+  ).length;
+  const maxScore =
+    (conditions.equipmentOwned ? preset.equipmentIds.length : 0) +
+    (conditions.equipmentRegistered ? preset.equipmentIds.length : 0) +
+    (conditions.skillsLearned ? preset.skillIds.length : 0) +
+    (conditions.skillsEquipped ? preset.skillIds.length : 0);
+  const score =
+    (conditions.equipmentOwned ? equipmentOwned : 0) +
+    (conditions.equipmentRegistered ? equipmentRegistered : 0) +
+    (conditions.skillsLearned ? skillsLearned : 0) +
+    (conditions.skillsEquipped ? skillsEquipped : 0);
+  return {
+    equipmentOwned,
+    equipmentTotal: preset.equipmentIds.length,
+    equipmentRegistered,
+    skillsLearned,
+    skillsEquipped,
+    skillsTotal: preset.skillIds.length,
+    score,
+    maxScore,
+    pct: maxScore > 0 ? Math.round((score / maxScore) * 100) : 0,
+    missingEquipmentIds: preset.equipmentIds.filter(
+      (id) => !ownedEquipmentIds.has(id),
+    ),
+    missingSkillIds: preset.skillIds.filter((id) => !learnedSkillIds.has(id)),
+    unequippedLearnedSkillIds: preset.skillIds.filter(
+      (id) => learnedSkillIds.has(id) && !equippedSkillIds.has(id),
+    ),
+    conditions,
+  };
+}
+
+export function buildPresetRecommendationReason(
+  progress: V2BuildPresetProgress,
+): string {
+  if (progress.score >= progress.maxScore) return "완성 상태";
+  const conditions = progress.conditions;
+  if (
+    conditions.skillsLearned &&
+    conditions.skillsEquipped &&
+    progress.skillsLearned >= progress.skillsTotal &&
+    progress.unequippedLearnedSkillIds.length > 0
+  ) {
+    return "스킬 장착만 보강";
+  }
+  if (
+    conditions.equipmentOwned &&
+    conditions.equipmentRegistered &&
+    progress.equipmentOwned >= progress.equipmentTotal &&
+    progress.equipmentRegistered < progress.equipmentTotal
+  ) {
+    return "도감 등록 보강";
+  }
+  if (conditions.skillsLearned && progress.skillsLearned >= progress.skillsTotal) {
+    return "스킬 학습 완료";
+  }
+  if (
+    conditions.equipmentOwned &&
+    progress.equipmentOwned >= progress.equipmentTotal
+  ) {
+    return "장비 보유 완료";
+  }
+  const equipmentScore =
+    (conditions.equipmentOwned ? progress.equipmentOwned : 0) +
+    (conditions.equipmentRegistered ? progress.equipmentRegistered : 0);
+  const skillScore =
+    (conditions.skillsLearned ? progress.skillsLearned : 0) +
+    (conditions.skillsEquipped ? progress.skillsEquipped : 0);
+  if (equipmentScore > skillScore) return "장비 기반 우세";
+  if (skillScore > equipmentScore) return "스킬 기반 우세";
+  return "균형 진행";
+}
+
+export function recommendBuildPresets(
+  presets: readonly V2BuildPreset[],
+  input: V2BuildPresetProgressInput,
+): V2BuildPresetRecommendation[] {
+  return presets
+    .map((preset, index) => {
+      const progress = buildPresetProgress(preset, input);
+      return { preset, progress, index };
+    })
+    .sort((a, b) => {
+      if (a.progress.score !== b.progress.score) {
+        return b.progress.score - a.progress.score;
+      }
+      if (a.progress.pct !== b.progress.pct) return b.progress.pct - a.progress.pct;
+      if (a.progress.skillsEquipped !== b.progress.skillsEquipped) {
+        return b.progress.skillsEquipped - a.progress.skillsEquipped;
+      }
+      if (a.progress.equipmentOwned !== b.progress.equipmentOwned) {
+        return b.progress.equipmentOwned - a.progress.equipmentOwned;
+      }
+      return a.index - b.index;
+    })
+    .map(({ preset, progress }, index) => ({
+      preset,
+      progress,
+      rank: index + 1,
+      reason: buildPresetRecommendationReason(progress),
+    }));
+}

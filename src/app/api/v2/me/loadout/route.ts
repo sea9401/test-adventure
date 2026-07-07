@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   parseProficiencyForChar,
   emptyProficiency,
@@ -27,6 +27,30 @@ import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 //   위반이면 400 + 위반 버킷(UI 안내). learned 불변. 갬빗 pattern 보존(spread).
 //   lock 순서: character.v2 → skills.v2 → proficiency.v2 (다른 스킬 라우트와 동일).
 //   flag off: SP 로드아웃 개념 없음 → disabled(클라가 호출 안 함).
+export async function GET() {
+  if (!V2_CORE_LOOP_V2) {
+    return Response.json({ ok: false, error: "disabled" }, { status: 404 });
+  }
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const skills = parseV2SkillsState(
+    await readSave<V2SkillsState>(
+      db,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState(),
+    ),
+  );
+  return Response.json({
+    ok: true,
+    learned: skills.learned,
+    equipped: skills.equipped,
+  });
+}
+
 export async function POST(req: Request) {
   if (!V2_CORE_LOOP_V2) {
     return Response.json({ ok: false, error: "disabled" }, { status: 404 });

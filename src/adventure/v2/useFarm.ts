@@ -175,9 +175,10 @@ function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : "request_failed";
   return (
     {
-      no_seed: "선택한 씨앗이 부족합니다. 납품으로 씨앗을 확보해 주세요.",
+      no_seed: "선택한 씨앗이 부족합니다.",
       not_enough_items: "납품에 필요한 작물이 부족합니다.",
       delivery_already_claimed: "이미 완료한 납품입니다.",
+      delivery_daily_limit: "오늘 가능한 납품 횟수를 모두 사용했습니다.",
       not_ready: "아직 수확할 수 없습니다.",
       plot_occupied: "이미 작물이 심어진 밭입니다.",
       plot_empty: "수확할 작물이 없습니다.",

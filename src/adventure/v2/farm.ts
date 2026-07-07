@@ -2,9 +2,19 @@ export const FARM_SAVE_KEY = "farm.v2";
 
 export const FARM_PLOT_COUNT = 3;
 
+export const FARM_DAILY_DELIVERY_LIMIT = 2;
+
 export type FarmCropId = "wheat" | "herb" | "corn";
 
 export type FarmSeedInventory = Partial<Record<FarmCropId, number>>;
+
+export const FARM_DAILY_QUEST_SEED_POUCH_NAME = "낡은 씨앗 주머니";
+
+export const FARM_DAILY_QUEST_SEED_REWARD: Record<FarmCropId, number> = {
+  wheat: 4,
+  herb: 2,
+  corn: 1,
+};
 
 export type FarmItemId =
   | "wheat"
@@ -263,6 +273,19 @@ export function plantCrop(
   };
 }
 
+export function grantFarmSeeds(
+  state: FarmState,
+  reward: FarmSeedInventory,
+): FarmState {
+  const seeds = { ...state.seeds };
+  for (const [cropId, count] of Object.entries(reward)) {
+    if (isFarmCropId(cropId)) {
+      setPositiveCount(seeds, cropId, (seeds[cropId] ?? 0) + nonNegativeInt(count));
+    }
+  }
+  return { ...state, seeds };
+}
+
 export function claimFarmDelivery(
   state: FarmState,
   requestId: string,
@@ -274,6 +297,9 @@ export function claimFarmDelivery(
   if (dailyState.deliveries.claimedIds.includes(request.id)) {
     throw new FarmError("delivery_already_claimed");
   }
+  if (dailyState.deliveries.claimedIds.length >= FARM_DAILY_DELIVERY_LIMIT) {
+    throw new FarmError("delivery_daily_limit");
+  }
   if ((dailyState.inventory[request.requiredItemId] ?? 0) < request.requiredQuantity) {
     throw new FarmError("not_enough_items");
   }
@@ -284,18 +310,12 @@ export function claimFarmDelivery(
     request.requiredItemId,
     (inventory[request.requiredItemId] ?? 0) - request.requiredQuantity,
   );
-  const seeds = { ...dailyState.seeds };
-  for (const [cropId, count] of Object.entries(request.rewardSeeds)) {
-    if (isFarmCropId(cropId)) {
-      setPositiveCount(seeds, cropId, (seeds[cropId] ?? 0) + nonNegativeInt(count));
-    }
-  }
+  const seedState = grantFarmSeeds(dailyState, request.rewardSeeds);
 
   return {
     state: {
-      ...dailyState,
+      ...seedState,
       inventory,
-      seeds,
       deliveries: {
         ...dailyState.deliveries,
         claimedIds: [...dailyState.deliveries.claimedIds, request.id],

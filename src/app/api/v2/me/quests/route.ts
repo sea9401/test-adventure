@@ -26,6 +26,10 @@ import {
   parseRepeatSave,
   rolloverRepeatSave,
 } from "@/adventure/data/v2/v2RepeatQuests";
+import {
+  FARM_DAILY_QUEST_SEED_POUCH_NAME,
+  FARM_DAILY_QUEST_SEED_REWARD,
+} from "@/adventure/v2/farm";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
@@ -105,7 +109,13 @@ export async function GET() {
       weekly: repeatViews.filter((q) => q.scope === "weekly"),
       dailyResetAt: nextDailyResetAt(now),
       weeklyResetAt: nextWeeklyResetAt(now),
-      dailyBundle: deriveRepeatBundle(rolled.save, signals, "daily"),
+      dailyBundle: {
+        ...deriveRepeatBundle(rolled.save, signals, "daily"),
+        seedPouch: {
+          name: FARM_DAILY_QUEST_SEED_POUCH_NAME,
+          seeds: FARM_DAILY_QUEST_SEED_REWARD,
+        },
+      },
       weeklyBundle: deriveRepeatBundle(rolled.save, signals, "weekly"),
     },
   });

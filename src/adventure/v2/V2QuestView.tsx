@@ -20,7 +20,7 @@ import {
 } from "@/adventure/data/v2/v2Quests";
 import { TITLES } from "@/adventure/data/titles";
 import type {
-  RepeatBundleView,
+  RepeatBundleView as BaseRepeatBundleView,
   RepeatQuestView,
 } from "@/adventure/data/v2/v2RepeatQuests";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
@@ -36,6 +36,15 @@ type RepeatSection = {
   weeklyResetAt: number;
   dailyBundle: RepeatBundleView;
   weeklyBundle: RepeatBundleView;
+};
+
+type SeedPouchReward = {
+  name: string;
+  seeds: Partial<Record<"wheat" | "herb" | "corn", number>>;
+};
+
+type RepeatBundleView = BaseRepeatBundleView & {
+  seedPouch?: SeedPouchReward | null;
 };
 
 type QuestsResponse = {
@@ -68,6 +77,19 @@ function rewardText(reward: QuestReward): string {
     parts.push(`칭호: ${TITLES[reward.titleId]?.name ?? reward.titleId}`);
   }
   return parts.join(" · ");
+}
+
+function seedPouchText(pouch: SeedPouchReward): string {
+  const labels: Record<keyof SeedPouchReward["seeds"], string> = {
+    wheat: "밀 씨앗",
+    herb: "허브 씨앗",
+    corn: "옥수수 씨앗",
+  };
+  const seeds = Object.entries(pouch.seeds)
+    .filter(([, count]) => (count ?? 0) > 0)
+    .map(([id, count]) => `${labels[id as keyof typeof labels]} ${count}개`)
+    .join(", ");
+  return seeds ? `${pouch.name}(${seeds})` : pouch.name;
 }
 
 export function V2QuestView({ onBack }: { onBack: () => void }) {
@@ -153,13 +175,19 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           ok?: boolean;
           error?: string;
           potions?: number;
+          seedPouch?: SeedPouchReward | null;
         } | null;
         if (!j?.ok) {
           notifySystem(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
         const title = `${scope === "daily" ? "일일" : "주간"} 보상`;
-        const detail = `스태미나 포션 ${j.potions}개`;
+        const detail = [
+          `스태미나 포션 ${j.potions}개`,
+          j.seedPouch ? seedPouchText(j.seedPouch) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
         notifyReward(title, detail);
         await Promise.all([refresh(), refreshGameState()]);
       } catch (err) {
@@ -355,8 +383,14 @@ function BundleCard({
             </span>
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            퀘스트 {bundle.goal}개를 완료하면 스태미나 포션 {bundle.potions}개를
-            받아요.
+            퀘스트 {bundle.goal}개를 완료하면{" "}
+            {[
+              `스태미나 포션 ${bundle.potions}개`,
+              bundle.seedPouch ? seedPouchText(bundle.seedPouch) : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            를 받아요.
           </p>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
             <div

@@ -13,16 +13,19 @@ import {
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
-import type {
-  FarmCrop,
-  FarmCropId,
-  FarmDeliveryRequest,
-  FarmItemId,
-  FarmPlot,
-  FarmSeedInventory,
-  FarmState,
+import {
+  FARM_DAILY_DELIVERY_LIMIT,
+  type FarmCrop,
+  type FarmCropId,
+  type FarmDeliveryRequest,
+  type FarmItemId,
+  type FarmPlot,
+  type FarmSeedInventory,
+  type FarmState,
 } from "./farm";
 import { useFarm } from "./useFarm";
+
+type FarmSectionKey = "grow" | "delivery";
 
 const ITEM_LABELS: Record<FarmItemId, string> = {
   wheat: "밀",
@@ -38,8 +41,6 @@ const SEED_LABELS: Record<FarmCropId, string> = {
   herb: "허브 씨앗",
   corn: "옥수수 씨앗",
 };
-
-type FarmSectionKey = "grow" | "delivery";
 
 export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
   const {
@@ -65,6 +66,8 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     [crops],
   );
   const selectedCrop = cropById.get(selectedCropId) ?? crops[0];
+  const dailyDeliveryCount = farm?.deliveries.claimedIds.length ?? 0;
+  const deliveryLimitReached = dailyDeliveryCount >= FARM_DAILY_DELIVERY_LIMIT;
   const readyPlotCount = useMemo(
     () =>
       farm?.plots.filter((plot) => plot.cropId && plot.readyAt && plot.readyAt <= now)
@@ -77,10 +80,14 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
         ? deliveries.filter((delivery) => {
             const claimed = farm.deliveries.claimedIds.includes(delivery.id);
             const have = farm.inventory[delivery.requiredItemId] ?? 0;
-            return !claimed && have >= delivery.requiredQuantity;
+            return (
+              !deliveryLimitReached &&
+              !claimed &&
+              have >= delivery.requiredQuantity
+            );
           }).length
         : 0,
-    [deliveries, farm],
+    [deliveries, farm, deliveryLimitReached],
   );
   const farmTabs = useMemo(
     () =>
@@ -133,7 +140,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 아침에 심고, 모험 뒤에 거두는 작은 밭
               </h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                씨앗을 심고 작물을 수확한 뒤, 납품으로 다음 씨앗과 농장 명성을 확보합니다.
+                씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 명성을 확보합니다.
               </p>
             </div>
           </div>
@@ -145,7 +152,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           </div>
         ) : farm ? (
           <div className="space-y-4 p-4">
-            <FarmSummary farm={farm} now={now} />
+            <FarmSummary
+              farm={farm}
+              now={now}
+              dailyDeliveryCount={dailyDeliveryCount}
+            />
 
             {error && (
               <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
@@ -164,9 +175,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
 
             {lastDeliveryResult && (
               <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-                {lastDeliveryResult.title} 납품 완료.{" "}
-                {formatSeedRewards(lastDeliveryResult.rewardSeeds)}와 농장 명성{" "}
+                {lastDeliveryResult.title} 납품 완료. 농장 명성{" "}
                 {lastDeliveryResult.rewardReputation}을 받았습니다.
+                {hasSeedRewards(lastDeliveryResult.rewardSeeds)
+                  ? ` 씨앗 보상: ${formatSeedRewards(lastDeliveryResult.rewardSeeds)}.`
+                  : ""}
               </div>
             )}
 
@@ -215,6 +228,8 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 deliveries={deliveries}
                 inventory={farm.inventory}
                 claimedIds={farm.deliveries.claimedIds}
+                dailyDeliveryCount={dailyDeliveryCount}
+                dailyDeliveryLimit={FARM_DAILY_DELIVERY_LIMIT}
                 busyDeliveryId={busyDeliveryId}
                 onDeliver={deliver}
               />
@@ -232,7 +247,15 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
   );
 }
 
-function FarmSummary({ farm, now }: { farm: FarmState; now: number }) {
+function FarmSummary({
+  farm,
+  now,
+  dailyDeliveryCount,
+}: {
+  farm: FarmState;
+  now: number;
+  dailyDeliveryCount: number;
+}) {
   const seedCount = Object.values(farm.seeds).reduce(
     (sum, count) => sum + (count ?? 0),
     0,
@@ -243,7 +266,7 @@ function FarmSummary({ farm, now }: { farm: FarmState; now: number }) {
   const growingPlots = farm.plots.filter((plot) => plot.cropId).length;
 
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <SummaryTile
         icon={<Leaf size={17} weight="duotone" />}
         label="씨앗"
@@ -262,6 +285,11 @@ function FarmSummary({ farm, now }: { farm: FarmState; now: number }) {
         icon={<Sparkle size={17} weight="duotone" />}
         label="농장 명성"
         value={farm.stats.reputation.toLocaleString("ko-KR")}
+      />
+      <SummaryTile
+        icon={<Package size={17} weight="duotone" />}
+        label="오늘 납품"
+        value={`${dailyDeliveryCount}/${FARM_DAILY_DELIVERY_LIMIT}`}
       />
     </div>
   );
@@ -435,20 +463,30 @@ function DeliveryBoard({
   deliveries,
   inventory,
   claimedIds,
+  dailyDeliveryCount,
+  dailyDeliveryLimit,
   busyDeliveryId,
   onDeliver,
 }: {
   deliveries: FarmDeliveryRequest[];
   inventory: Partial<Record<FarmItemId, number>>;
   claimedIds: string[];
+  dailyDeliveryCount: number;
+  dailyDeliveryLimit: number;
   busyDeliveryId: string | null;
   onDeliver: (requestId: string) => void;
 }) {
+  const dailyLimitReached = dailyDeliveryCount >= dailyDeliveryLimit;
   return (
     <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-        <Package size={17} weight="duotone" className="text-emerald-500" />
-        납품 게시판
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <Package size={17} weight="duotone" className="text-emerald-500" />
+          납품 게시판
+        </div>
+        <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+          오늘 {dailyDeliveryCount}/{dailyDeliveryLimit}
+        </span>
       </div>
       <div className="grid gap-2 lg:grid-cols-3">
         {deliveries.map((delivery) => {
@@ -478,20 +516,24 @@ function DeliveryBoard({
                 <div className="mt-1 flex justify-between gap-2">
                   <span className="text-zinc-500 dark:text-zinc-400">보상</span>
                   <span className="text-right font-semibold text-emerald-700 dark:text-emerald-300">
-                    {formatSeedRewards(delivery.rewardSeeds)} · 명성{" "}
-                    {delivery.rewardReputation}
+                    명성 {delivery.rewardReputation}
+                    {hasSeedRewards(delivery.rewardSeeds)
+                      ? ` · ${formatSeedRewards(delivery.rewardSeeds)}`
+                      : ""}
                   </span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => onDeliver(delivery.id)}
-                disabled={claimed || !enough || busy}
+                disabled={dailyLimitReached || claimed || !enough || busy}
                 className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
               >
                 {busy
                   ? "납품 중..."
-                  : claimed
+                  : dailyLimitReached && !claimed
+                    ? "오늘 마감"
+                    : claimed
                     ? "오늘 완료"
                     : enough
                       ? "납품하기"
@@ -554,6 +596,10 @@ function formatSeedRewards(seeds: FarmSeedInventory): string {
   return entries
     .map(([cropId, count]) => `${SEED_LABELS[cropId]} ${count}개`)
     .join(", ");
+}
+
+function hasSeedRewards(seeds: FarmSeedInventory): boolean {
+  return Object.values(seeds).some((count) => (count ?? 0) > 0);
 }
 
 function plotLabel(id: string): string {

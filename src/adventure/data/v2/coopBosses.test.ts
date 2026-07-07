@@ -250,6 +250,7 @@ describe("coopBosses 카탈로그", () => {
 
   it("하드 산군 — 50% 조건부 발악과 약화 상태", () => {
     const b = COOP_BOSSES.mountain_chief_hard;
+    expect(b.enrageStages).toEqual([]);
     expect(b.conditionalEnrage?.hpFraction).toBe(0.5);
     const full = coopBossForBattle(b, b.sharedMaxHp);
     const normal = coopBossForBattle(b, b.sharedMaxHp * 0.5);
@@ -264,31 +265,21 @@ describe("coopBosses 카탈로그", () => {
     expect(weakened.monster.def).toBeGreaterThan(full.monster.def);
   });
 
-  it("하드 산군 — 약화된 최종 구간도 공허의 대사제보다 강한 물리 압박을 준다", () => {
+  it("하드 산군 — 추가 발악 없이 깊이로 공허의 대사제보다 강한 물리 압박을 준다", () => {
     const hard = COOP_BOSSES.mountain_chief_hard;
     const priest = COOP_BOSSES.void_priest;
     const priestFull = coopBossForBattle(priest, priest.sharedMaxHp).monster;
     const priestHalf = coopBossForBattle(priest, priest.sharedMaxHp * 0.5).monster;
-    const priestFinal = coopBossForBattle(
-      priest,
-      priest.sharedMaxHp * 0.25,
-    ).monster;
     const hardFull = coopBossForBattle(hard, hard.sharedMaxHp).monster;
     const hardHalfWeakened = coopBossForBattle(hard, hard.sharedMaxHp * 0.5, {
       conditionalEnrageWeakened: true,
     }).monster;
-    const hardFinalWeakened = coopBossForBattle(hard, hard.sharedMaxHp * 0.25, {
-      conditionalEnrageWeakened: true,
-    }).monster;
 
+    expect(hard.anchorDepth).toBe(68);
+    expect(hard.enrageStages).toEqual([]);
     expect(hardFull.atk).toBeGreaterThan(priestFull.atk);
     expect(hardFull.atk).toBeGreaterThan(priestHalf.atk);
     expect(hardHalfWeakened.atk).toBeGreaterThan(priestHalf.atk);
-    expect(hardFinalWeakened.atk).toBeGreaterThan(priestFinal.atk);
-    expect(hardFinalWeakened.def).toBeGreaterThan(priestFinal.def);
-    expect(hardFinalWeakened.evasionPct ?? 0).toBeGreaterThan(
-      priestFinal.evasionPct ?? 0,
-    );
   });
 
   it("심연어룡 — 낚시 이벤트 HARD 보스 + 치명타 수압 파훼", () => {

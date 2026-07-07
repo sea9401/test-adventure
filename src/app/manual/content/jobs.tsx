@@ -1,10 +1,14 @@
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import {
+  LEGACY_CLASS_SPEC_BY_JOB,
   TIER2_UNLOCK_CUMLEVEL,
   TIER3_UNLOCK_CUMLEVEL,
   TIER4_UNLOCK_CUMLEVEL,
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
+  V2_JOB_CATALOG,
+  V2_JOB_LIST,
+  type V2JobDefinition,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
   MASTERY_TOWER_MAX_FLOOR,
@@ -36,6 +40,7 @@ export function JobsContent() {
         ]}
         caption="상위 직업(방패병·기사·마도사 등)의 계보는 모험의 서 → 직업 탭에서 볼 수 있어요."
       />
+      <JobRoadmap />
 
       <H2>직업이 주는 것</H2>
       <UL>
@@ -162,3 +167,166 @@ export function JobsContent() {
     </>
   );
 }
+
+type RoadmapNode = {
+  id: string;
+  name: string;
+  tier: V2JobDefinition["tier"] | "start";
+  group: string;
+  hybrid: boolean;
+  prereqText: string;
+  children: RoadmapNode[];
+};
+
+const JOB_ORDER = new Map(V2_JOB_LIST.map((job, index) => [job.id, index]));
+
+function JobRoadmap() {
+  const root = buildRoadmap();
+  return (
+    <section className="mt-5">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          간략 전직 로드맵
+        </h3>
+        <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+          {[
+            ["warrior", "전사"],
+            ["martial", "무도가"],
+            ["mage", "마법사"],
+            ["rogue", "도적"],
+            ["survivor", "생존자"],
+            ["hybrid", "하이브리드"],
+          ].map(([key, label]) => (
+            <span
+              key={key}
+              className={`manual-job-legend manual-job-${key}`}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="manual-job-roadmap overflow-x-auto rounded-md border border-zinc-200 bg-zinc-950 p-4 dark:border-zinc-800">
+        <ul className="manual-job-tree">
+          <RoadmapBranch node={root} />
+        </ul>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+        카드에는 이름과 순서만 표시합니다. 복합 표시는 여러 선행 직업 숙련도가 필요한
+        하이브리드 전직입니다.
+      </p>
+      <style>{ROADMAP_CSS}</style>
+    </section>
+  );
+}
+
+function RoadmapBranch({ node }: { node: RoadmapNode }) {
+  const tierLabel =
+    node.tier === "start" ? "" : node.tier === 0 ? "루트" : `${node.tier}차`;
+  return (
+    <li>
+      <div
+        className={`manual-job-node manual-job-${node.group} ${
+          node.hybrid ? "manual-job-hybrid" : ""
+        }`}
+        title={node.prereqText || undefined}
+      >
+        {tierLabel && <span className="manual-job-tier">{tierLabel}</span>}
+        <span className="manual-job-name">{node.name}</span>
+        {node.hybrid && <span className="manual-job-badge">복합</span>}
+      </div>
+      {node.children.length > 0 && (
+        <ul>
+          {node.children.map((child) => (
+            <RoadmapBranch key={child.id} node={child} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function buildRoadmap(): RoadmapNode {
+  const childrenByParent = new Map<string, V2JobDefinition[]>();
+  for (const job of V2_JOB_LIST) {
+    const parent = primaryParentId(job);
+    const children = childrenByParent.get(parent) ?? [];
+    children.push(job);
+    childrenByParent.set(parent, children);
+  }
+
+  const toNode = (job: V2JobDefinition): RoadmapNode => ({
+    id: job.id,
+    name: job.name,
+    tier: job.tier,
+    group: groupForJob(job),
+    hybrid: Object.keys(job.unlock.prereqs).length > 1,
+    prereqText: prereqText(job),
+    children: sortedChildren(childrenByParent.get(job.id) ?? []).map(toNode),
+  });
+
+  return {
+    id: "start",
+    name: "시작",
+    tier: "start",
+    group: "root",
+    hybrid: false,
+    prereqText: "",
+    children: sortedChildren(childrenByParent.get("start") ?? []).map(toNode),
+  };
+}
+
+function primaryParentId(job: V2JobDefinition): string {
+  if (job.id === "none" || job.id === "survivor") return "start";
+  const [firstPrereq] = Object.keys(job.unlock.prereqs);
+  if (firstPrereq) return firstPrereq;
+  return "none";
+}
+
+function sortedChildren(children: V2JobDefinition[]): V2JobDefinition[] {
+  return [...children].sort((a, b) => {
+    if (a.tier !== b.tier) return a.tier - b.tier;
+    return (JOB_ORDER.get(a.id) ?? 0) - (JOB_ORDER.get(b.id) ?? 0);
+  });
+}
+
+function groupForJob(job: V2JobDefinition): string {
+  if (job.id === "none") return "root";
+  return LEGACY_CLASS_SPEC_BY_JOB[job.id]?.class ?? job.id;
+}
+
+function prereqText(job: V2JobDefinition): string {
+  const entries = Object.entries(job.unlock.prereqs);
+  if (entries.length === 0) return "";
+  return entries
+    .map(([id, level]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`)
+    .join(", ");
+}
+
+const ROADMAP_CSS = `
+.manual-job-roadmap{color:#f8fafc;background:#17131d;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:28px 28px}
+.manual-job-tree{display:inline-flex;min-width:100%;justify-content:flex-start;margin:0;padding:18px 24px 0}
+.manual-job-tree ul{position:relative;display:flex;justify-content:center;margin:0;padding:34px 0 0}
+.manual-job-tree li{position:relative;display:flex;flex-direction:column;align-items:center;list-style:none;margin:0;padding:34px 8px 0}
+.manual-job-tree li::before,.manual-job-tree li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:34px;border-top:2px solid #5e526e}
+.manual-job-tree li::after{right:auto;left:50%;border-left:2px solid #5e526e}
+.manual-job-tree li:only-child::before,.manual-job-tree li:only-child::after{display:none}
+.manual-job-tree li:only-child{padding-top:0}
+.manual-job-tree li:first-child::before,.manual-job-tree li:last-child::after{border:0}
+.manual-job-tree li:last-child::before{border-right:2px solid #5e526e;border-radius:0 8px 0 0}
+.manual-job-tree li:first-child::after{border-radius:8px 0 0 0}
+.manual-job-tree>li>ul::before,.manual-job-tree ul ul::before{content:"";position:absolute;top:0;left:50%;width:0;height:34px;border-left:2px solid #5e526e}
+.manual-job-node{--accent:#d9b45a;position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:102px;height:31px;padding:4px 12px 4px 9px;border:1px solid color-mix(in srgb,var(--accent) 74%,#ffffff 8%);border-left:5px solid var(--accent);border-radius:7px;background:#fffaf0;color:#211827;font-size:13px;font-weight:900;line-height:1;white-space:nowrap;box-shadow:0 9px 20px rgba(0,0,0,.28),inset 0 -2px 0 rgba(0,0,0,.08)}
+.manual-job-tier{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:18px;padding:0 5px;border-radius:5px;background:color-mix(in srgb,var(--accent) 22%,#211827);color:#fff;font-size:9px;font-weight:900}
+.manual-job-root{--accent:#f3c64b;background:#fff0a8;color:#2b2105}
+.manual-job-warrior{--accent:#ff5f5f}
+.manual-job-martial{--accent:#41d68a}
+.manual-job-mage{--accent:#5aa8ff}
+.manual-job-rogue{--accent:#c07cff}
+.manual-job-survivor{--accent:#ff9c4a}
+.manual-job-node.manual-job-hybrid{background:#fff2f6;border-color:#ff6b8b;color:#32111d}
+.manual-job-node.manual-job-hybrid::after{content:"";position:absolute;inset:-5px;border:1px dashed #ff89a3;border-radius:8px;pointer-events:none}
+.manual-job-badge{position:absolute;right:7px;top:-18px;display:inline-flex;align-items:center;justify-content:center;height:16px;padding:0 5px;border:1px solid #ff89a3;border-radius:5px;background:#3a1e2a;color:#ffd5df;font-size:9px;font-weight:900;box-shadow:0 7px 14px rgba(0,0,0,.25)}
+.manual-job-legend{display:inline-flex;align-items:center;height:22px;border:1px solid color-mix(in srgb,var(--accent,#d9b45a) 70%,#ffffff 10%);border-left-width:4px;border-radius:6px;background:#211b2a;color:#f7f1ff;padding:0 7px}
+.manual-job-legend.manual-job-hybrid{border-color:#ff6b8b;border-left-color:#ff6b8b;background:#3a1e2a;color:#ffd5df}
+`;

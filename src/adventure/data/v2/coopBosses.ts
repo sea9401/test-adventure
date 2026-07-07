@@ -659,17 +659,24 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   },
   mountain_chief_hard: {
     id: "mountain_chief_hard",
-  difficulty: "hard",
-  name: "흉포한 산군",
-  desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
-  scrollCost: 30,
-  sharedMaxHp: 600_000,
-  anchorDepth: 60,
-  base: MOUNTAIN_CHIEF_HARD_BASE,
-  uniqueIds: [],
-  titleId: "v2_boss_mountain",
+    difficulty: "hard",
+    name: "흉포한 산군",
+    desc: "피 냄새에 날이 선 산군. 산길을 막고 선 자를 끝까지 물어뜯는다.",
+    scrollCost: 30,
+    sharedMaxHp: 600_000,
+    anchorDepth: 68,
+    base: MOUNTAIN_CHIEF_HARD_BASE,
+    uniqueIds: [],
+    titleId: "v2_boss_mountain",
     statusSkill: "mob_rending_claw",
-    enrageStages: [],
+    enrageStages: [
+      {
+        hpFraction: 0.25,
+        note: "산군이 남은 힘을 짜내 마지막으로 달려든다! (공격력·방어력 상승)",
+        atkMult: 1.12,
+        defBonus: 8,
+      },
+    ],
     conditionalEnrage: {
       hpFraction: 0.5,
       normal: {
@@ -685,7 +692,11 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
         defBonus: 8,
       },
     },
-    traits: ["강한 물리 압박", "출혈", "피와 상처에 민감하게 반응"],
+    traits: [
+      "강한 물리 압박",
+      "출혈",
+      "50% 포효는 출혈로 약화 가능, 25% 이하에서는 마지막 광폭화",
+    ],
   },
   abyssal_tyrant: {
     id: "abyssal_tyrant",

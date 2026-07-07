@@ -687,6 +687,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
 
 export const CRAFTED_EQUIP_TAG_SET_IDS = [
   "artisan_bulwark",
+  "artisan_fury",
   "artisan_gale",
   "artisan_arcane",
 ] as const;
@@ -698,7 +699,18 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     buildTags: ["tank"],
     thresholds: [
       { count: 2, bonus: { hp: 220, def: 24, critResist: 8 } },
-      { count: 4, bonus: { hp: 360, def: 42, critResist: 14 } },
+      { count: 4, bonus: { hp: 360, def: 42, magicDef: 16, critResist: 14 } },
+      { count: 6, bonus: { hp: 520, def: 68, magicDef: 28, critResist: 22 } },
+    ],
+  },
+  {
+    id: "artisan_fury",
+    name: "격노각인 장비",
+    buildTags: ["crit", "speed"],
+    thresholds: [
+      { count: 2, bonus: { crit: 5, critMult: 35 } },
+      { count: 4, bonus: { crit: 9, critMult: 75, spd: 5 } },
+      { count: 6, bonus: { crit: 14, critMult: 130, spd: 9 } },
     ],
   },
   {
@@ -708,6 +720,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     thresholds: [
       { count: 2, bonus: { crit: 4, eva: 3, spd: 5 } },
       { count: 4, bonus: { crit: 8, eva: 7, spd: 12, critMult: 35 } },
+      { count: 6, bonus: { crit: 12, eva: 12, spd: 20, critMult: 55 } },
     ],
   },
   {
@@ -717,6 +730,7 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     thresholds: [
       { count: 2, bonus: { mp: 180, magicDef: 20, healPowerPct: 8 } },
       { count: 4, bonus: { mp: 320, magicDef: 34, healPowerPct: 14 } },
+      { count: 6, bonus: { mp: 520, magicDef: 54, healPowerPct: 22, spd: 6 } },
     ],
   },
   {

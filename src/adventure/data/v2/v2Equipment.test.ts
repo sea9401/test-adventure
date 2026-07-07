@@ -264,7 +264,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //     강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 232 = 정규 29 + 유니크 48 + 제작전용 14 + 전문화 스타터 3 + noDrop 138.
+    //     총 246 = 정규 29 + 유니크 48 + 제작전용 28 + 전문화 스타터 3 + noDrop 138.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -273,7 +273,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(14);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(28);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
@@ -320,10 +320,24 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_astral_grimoire",
       "v2_crafted_aurora_crown",
       "v2_crafted_bulwark_shield",
+      "v2_crafted_focus_boots",
+      "v2_crafted_focus_gloves",
+      "v2_crafted_focus_ring",
+      "v2_crafted_focus_robe",
+      "v2_crafted_fury_boots",
+      "v2_crafted_fury_necklace",
+      "v2_crafted_fury_plate",
       "v2_crafted_gale_bow",
+      "v2_crafted_guard_gauntlets",
+      "v2_crafted_guard_greaves",
+      "v2_crafted_guard_ring",
       "v2_crafted_kingbreaker_axe",
       "v2_crafted_master_ring",
       "v2_crafted_oathblade",
+      "v2_crafted_pursuit_coat",
+      "v2_crafted_pursuit_grips",
+      "v2_crafted_pursuit_necklace",
+      "v2_crafted_pursuit_ring",
       "v2_crafted_runic_staff",
       "v2_crafted_spark_gloves",
       "v2_crafted_stormlance",
@@ -393,7 +407,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
   it("제작 전용 장비는 전용 태그 세트 여러 종류로 구성한다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
     const craftedSetIds = new Set<string>(CRAFTED_EQUIP_TAG_SET_IDS);
-    expect(crafted).toHaveLength(14);
+    expect(crafted).toHaveLength(28);
     expect(
       crafted.every((item) =>
         item.setTags?.some((tag) => craftedSetIds.has(tag)),
@@ -414,24 +428,63 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(piecesBySet.get("artisan_bulwark")).toEqual(
       expect.arrayContaining([
         "v2_crafted_oathblade",
+        "v2_crafted_guard_gauntlets",
+        "v2_crafted_guard_greaves",
         "v2_crafted_ward_plate",
+        "v2_crafted_guard_ring",
+        "v2_crafted_aurora_crown",
         "v2_crafted_bulwark_shield",
+      ]),
+    );
+    expect(piecesBySet.get("artisan_fury")).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_spark_gloves",
+        "v2_crafted_fury_boots",
+        "v2_crafted_master_ring",
+        "v2_crafted_fury_plate",
+        "v2_crafted_fury_necklace",
+        "v2_crafted_sunforge_blade",
+        "v2_crafted_kingbreaker_axe",
       ]),
     );
     expect(piecesBySet.get("artisan_gale")).toEqual(
       expect.arrayContaining([
         "v2_crafted_gale_bow",
-        "v2_crafted_spark_gloves",
+        "v2_crafted_pursuit_grips",
         "v2_crafted_windstep_boots",
+        "v2_crafted_pursuit_coat",
+        "v2_crafted_pursuit_ring",
+        "v2_crafted_pursuit_necklace",
+        "v2_crafted_stormlance",
       ]),
     );
     expect(piecesBySet.get("artisan_arcane")).toEqual(
       expect.arrayContaining([
         "v2_crafted_runic_staff",
+        "v2_crafted_focus_gloves",
+        "v2_crafted_focus_boots",
         "v2_crafted_aether_necklace",
+        "v2_crafted_focus_ring",
+        "v2_crafted_focus_robe",
         "v2_crafted_astral_grimoire",
       ]),
     );
+    const allSlots = new Set([
+      "weapon",
+      "armor",
+      "gloves",
+      "boots",
+      "ring",
+      "necklace",
+    ]);
+    for (const setId of CRAFTED_EQUIP_TAG_SET_IDS) {
+      const slots = new Set(
+        crafted
+          .filter((item) => item.setTags?.includes(setId))
+          .map((item) => item.slot),
+      );
+      expect(slots, `${setId} slots`).toEqual(allSlots);
+    }
 
     const thresholdCountsById = Object.fromEntries(
       V2_EQUIP_TAG_SETS.filter((set) => craftedSetIds.has(set.id)).map(
@@ -439,9 +492,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       ),
     );
     expect(thresholdCountsById).toEqual({
-      artisan_bulwark: [2, 4],
-      artisan_gale: [2, 4],
-      artisan_arcane: [2, 4],
+      artisan_bulwark: [2, 4, 6],
+      artisan_fury: [2, 4, 6],
+      artisan_gale: [2, 4, 6],
+      artisan_arcane: [2, 4, 6],
     });
   });
 
@@ -454,12 +508,26 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(tiers).toMatchObject({
       v2_crafted_oathblade: 4,
       v2_crafted_gale_bow: 4,
+      v2_crafted_guard_gauntlets: 4,
+      v2_crafted_guard_greaves: 4,
       v2_crafted_runic_staff: 4,
+      v2_crafted_focus_gloves: 4,
+      v2_crafted_focus_boots: 4,
       v2_crafted_spark_gloves: 4,
+      v2_crafted_fury_boots: 4,
+      v2_crafted_pursuit_grips: 4,
       v2_crafted_windstep_boots: 4,
       v2_crafted_master_ring: 6,
       v2_crafted_ward_plate: 6,
+      v2_crafted_guard_ring: 6,
+      v2_crafted_fury_plate: 6,
+      v2_crafted_pursuit_coat: 6,
+      v2_crafted_pursuit_ring: 6,
       v2_crafted_aether_necklace: 6,
+      v2_crafted_focus_ring: 6,
+      v2_crafted_fury_necklace: 8,
+      v2_crafted_pursuit_necklace: 8,
+      v2_crafted_focus_robe: 8,
       v2_crafted_sunforge_blade: 8,
       v2_crafted_aurora_crown: 10,
     });
@@ -469,6 +537,9 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_oathblade.power).toBe(72);
     expect(V2_EQUIPMENT.v2_crafted_gale_bow.power).toBe(65);
     expect(V2_EQUIPMENT.v2_crafted_runic_staff.power).toBe(76);
+    expect(V2_EQUIPMENT.v2_crafted_guard_gauntlets.power).toBe(11);
+    expect(V2_EQUIPMENT.v2_crafted_fury_plate.power).toBe(56);
+    expect(V2_EQUIPMENT.v2_crafted_focus_robe.power).toBe(55);
     expect(V2_EQUIPMENT.v2_crafted_ward_plate.power).toBe(64);
     expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(22);
     expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(22);

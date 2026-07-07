@@ -7,7 +7,9 @@ import {
   V2_EQUIP_OPTION_KEYS,
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
-  V2_EQUIP_TIER_ORDER,
+  V2_EQUIP_CATALOG_TIER_ORDER,
+  enhanceGoldCostForEquipment,
+  enhancePowerForCost,
   signatureLabel,
   isUnique,
   parseEquipmentSave,
@@ -17,9 +19,9 @@ import {
   sellPriceOf,
   shopPriceOf,
   shopPriceForSell,
-  v2EquipDisplayTierOf,
+  v2EquipCatalogTierToDisplayTier,
   v2EquipStatRows,
-  v2EquipTierDisplayLabel,
+  v2EquipCatalogTierDisplayLabel,
   v2EquipmentBySlot,
   weaponGateOpen,
   weaponTypeOf,
@@ -27,7 +29,7 @@ import {
   type V2EquipConcept,
   type V2EquipmentId,
   type V2EquipSlot,
-  type V2EquipTier,
+  type V2EquipCatalogTier,
   type V2WeaponType,
 } from "./v2Equipment";
 
@@ -76,6 +78,49 @@ describe("powerBandOf — 레거시 절대 위력 구간(부위별 step)", () =>
   });
 });
 
+describe("enhanceGoldCostForEquipment — 표시 티어 비용 바닥", () => {
+  it("하드 보스 5티어 장비는 같은 슬롯 4티어 최고 장비보다 강화비가 낮지 않다", () => {
+    const hardSangoonIds = [
+      "v2_hard_sangoon_cleaver",
+      "v2_hard_sangoon_hide",
+      "v2_hard_sangoon_claws",
+      "v2_hard_sangoon_stride",
+      "v2_hard_sangoon_ring",
+      "v2_hard_sangoon_amulet",
+    ] as const;
+
+    for (const id of hardSangoonIds) {
+      const item = V2_EQUIPMENT[id];
+      const strongestDisplay4 = Object.values(V2_EQUIPMENT)
+        .filter(
+          (candidate) =>
+            candidate.slot === item.slot &&
+            v2EquipCatalogTierToDisplayTier(candidate.tier) === 4,
+        )
+        .reduce<V2Equipment | null>(
+          (best, candidate) =>
+            best == null || candidate.power > best.power ? candidate : best,
+          null,
+        );
+
+      if (!strongestDisplay4) {
+        throw new Error(`missing display 4T comparison for ${item.slot}`);
+      }
+
+      expect(enhancePowerForCost(item, item.power)).toBeGreaterThan(
+        strongestDisplay4.power,
+      );
+      expect(enhanceGoldCostForEquipment(item, item.power, 9)).toBeGreaterThan(
+        enhanceGoldCostForEquipment(
+          strongestDisplay4,
+          strongestDisplay4.power,
+          9,
+        ),
+      );
+    }
+  });
+});
+
 const ALL_SLOTS: V2EquipSlot[] = [
   "weapon",
   "armor",
@@ -93,7 +138,7 @@ const ALL_CONCEPTS: V2EquipConcept[] = [
   "luck",
   "mana",
 ];
-const REGULAR_GRID_TIERS: V2EquipTier[] = [1, 2, 3];
+const REGULAR_GRID_TIERS: V2EquipCatalogTier[] = [1, 2, 3];
 
 describe("V2_EQUIPMENT catalog", () => {
   it("모든 id 는 키와 일치해야 함 (self-id 일관성)", () => {
@@ -165,11 +210,11 @@ describe("V2_EQUIPMENT catalog", () => {
   });
 });
 
-// 한 (슬롯, 컨셉) 라인의 스타터 정규 티어(T1~T3, 티어 정렬).
+// 한 (슬롯, 컨셉) 라인의 스타터 정규 카탈로그 티어(T1~T3, 정렬).
 function slotConceptLine(
   slot: V2EquipSlot,
   concept: V2EquipConcept,
-): V2EquipTier[] {
+): V2EquipCatalogTier[] {
   return v2EquipmentBySlot(slot)
     .filter(
       (i) =>
@@ -185,8 +230,8 @@ function slotConceptLine(
 
 // 무기는 weaponType 별 라인(8 전문화타입). 그리드 검증은 컨셉이 아니라 weaponType 으로.
 const WEAPON_TYPES: V2WeaponType[] = ["greatsword", "staff", "bow", "dagger"];
-// weaponType 라인의 정규 티어(정렬). 스타터·제작·유니크 제외.
-function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipTier[] {
+// weaponType 라인의 정규 카탈로그 티어(정렬). 스타터·제작·유니크 제외.
+function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipCatalogTier[] {
   return v2EquipmentBySlot("weapon")
     .filter(
       (i) =>
@@ -200,13 +245,13 @@ function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipTier[] {
     .sort((a, b) => a - b);
 }
 // 정규 + 스타터(전직 지급, T1) 합집합 — 5 신규타입은 스타터가 T1 을 채운다.
-function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
-  const tiers = new Set<V2EquipTier>();
+function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
+  const catalogTiers = new Set<V2EquipCatalogTier>();
   for (const i of v2EquipmentBySlot("weapon")) {
     if (i.weaponType === wt && !isUnique(i) && !i.craftOnly && !i.noDrop)
-      tiers.add(i.tier);
+      catalogTiers.add(i.tier);
   }
-  return [...tiers].sort((a, b) => a - b);
+  return [...catalogTiers].sort((a, b) => a - b);
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
@@ -486,18 +531,16 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
   });
 
   it("표시 티어는 사냥터 장비 1~4T 압축 + 하드 보스 5T로 노출", () => {
-    expect(V2_EQUIP_TIER_ORDER.map((tier) => v2EquipDisplayTierOf(tier))).toEqual([
-      1, 1, 1,
-      2, 2, 2,
-      3, 3, 3,
-      4, 4, 4,
-      5,
-    ]);
-    expect(v2EquipTierDisplayLabel(1)).toBe("1T");
-    expect(v2EquipTierDisplayLabel(4)).toBe("2T");
-    expect(v2EquipTierDisplayLabel(7)).toBe("3T");
-    expect(v2EquipTierDisplayLabel(12)).toBe("4T");
-    expect(v2EquipTierDisplayLabel(13)).toBe("5T");
+    expect(
+      V2_EQUIP_CATALOG_TIER_ORDER.map((tier) =>
+        v2EquipCatalogTierToDisplayTier(tier),
+      ),
+    ).toEqual([1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5]);
+    expect(v2EquipCatalogTierDisplayLabel(1)).toBe("1T");
+    expect(v2EquipCatalogTierDisplayLabel(4)).toBe("2T");
+    expect(v2EquipCatalogTierDisplayLabel(7)).toBe("3T");
+    expect(v2EquipCatalogTierDisplayLabel(12)).toBe("4T");
+    expect(v2EquipCatalogTierDisplayLabel(13)).toBe("5T");
     expect(Object.keys(V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL)).toHaveLength(5);
   });
 });

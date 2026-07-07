@@ -11,7 +11,7 @@ import {
   V2_EQUIPMENT,
   isUnique,
   type V2EquipmentId,
-  type V2EquipTier,
+  type V2EquipCatalogTier,
 } from "./v2Equipment";
 
 export const COOP_COIN_MATERIAL_ID = "v2_coop_coin";
@@ -42,7 +42,7 @@ export type CoopEquipmentBoxDef = {
   description: string;
   displayTier: 1 | 2 | 3 | 4 | 5;
   source: string;
-  tiers: readonly V2EquipTier[];
+  catalogTiers: readonly V2EquipCatalogTier[];
   itemIds?: readonly V2EquipmentId[];
 };
 
@@ -53,7 +53,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
     description: "사용하면 1T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 1,
     source: "1T 정규 장비",
-    tiers: [1, 2, 3],
+    catalogTiers: [1, 2, 3],
   },
   mountain_chief_hard: {
     id: COOP_EQUIPMENT_BOX_ID.mountain_chief_hard,
@@ -62,7 +62,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
       "사용하면 하드 산군 전용 5T 장비 중 1개를 무작위로 획득한다.",
     displayTier: 5,
     source: "하드 산군",
-    tiers: [13],
+    catalogTiers: [13],
     itemIds: [
       "v2_hard_sangoon_cleaver",
       "v2_hard_sangoon_hide",
@@ -79,7 +79,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
       "사용하면 심연어룡 전용 5T 장비 중 1개를 무작위로 획득한다.",
     displayTier: 5,
     source: "심연어룡",
-    tiers: [13],
+    catalogTiers: [13],
     itemIds: [
       "v2_boss_abyssal_armor",
       "v2_boss_abyssal_ring",
@@ -92,7 +92,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
     description: "사용하면 2T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 2,
     source: "2T 정규 장비",
-    tiers: [4, 5, 6],
+    catalogTiers: [4, 5, 6],
   },
   lake_sovereign: {
     id: COOP_EQUIPMENT_BOX_ID.lake_sovereign,
@@ -100,7 +100,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
     description: "사용하면 3T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 3,
     source: "3T 정규 장비",
-    tiers: [7, 8, 9],
+    catalogTiers: [7, 8, 9],
   },
   void_priest: {
     id: COOP_EQUIPMENT_BOX_ID.void_priest,
@@ -108,7 +108,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
     description: "사용하면 4T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 4,
     source: "4T 정규 장비",
-    tiers: [10, 11, 12],
+    catalogTiers: [10, 11, 12],
   },
 };
 
@@ -274,7 +274,7 @@ export function rollCoopEquipmentBoxItem(
   if (box.itemIds && box.itemIds.length > 0) {
     return box.itemIds[Math.floor(rng() * box.itemIds.length)] ?? null;
   }
-  const allowed = new Set<V2EquipTier>(box.tiers);
+  const allowed = new Set<V2EquipCatalogTier>(box.catalogTiers);
   const candidates = Object.values(V2_EQUIPMENT)
     .filter((item) => {
       if (!allowed.has(item.tier)) return false;

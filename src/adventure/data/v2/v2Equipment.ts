@@ -19,7 +19,11 @@
 import type { V2Element } from "@/adventure/data/v2/elements";
 
 import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
-import { parseEnhance, type V2EnhanceState } from "./v2Enhance";
+import {
+  enhanceGoldCost,
+  parseEnhance,
+  type V2EnhanceState,
+} from "./v2Enhance";
 export { V2_EQUIPMENT };
 // 6슬롯(2026-06): 무기 / 갑옷 / 장갑 / 신발 / 반지 / 목걸이.
 //   - 물리 방어선: 갑옷(주) + 장갑(+크리) + 신발(+회피·경량) → 위력=물방.
@@ -43,7 +47,8 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier =
+/** 내부 카탈로그 단계. 1~3개씩 묶어 유저 표시 티어(1T~5T)로 압축한다. */
+export type V2EquipCatalogTier =
   | 1
   | 2
   | 3
@@ -58,7 +63,7 @@ export type V2EquipTier =
   | 12
   | 13;
 
-export const V2_EQUIP_TIER_ORDER: readonly V2EquipTier[] = [
+export const V2_EQUIP_CATALOG_TIER_ORDER: readonly V2EquipCatalogTier[] = [
   1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
 ];
 
@@ -75,22 +80,28 @@ export const V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL: Record<
   5: "하드 보스",
 };
 
-export function v2EquipDisplayTierOf(
-  tier: V2EquipTier,
+export function v2EquipCatalogTierToDisplayTier(
+  tier: V2EquipCatalogTier,
 ): V2EquipDisplayTier {
   return Math.ceil(tier / 3) as V2EquipDisplayTier;
 }
 
-export function v2EquipTierSourceLabel(tier: V2EquipTier): string {
-  return V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL[v2EquipDisplayTierOf(tier)];
+export function v2EquipCatalogTierSourceLabel(
+  tier: V2EquipCatalogTier,
+): string {
+  return V2_EQUIP_DISPLAY_TIER_SOURCE_LABEL[
+    v2EquipCatalogTierToDisplayTier(tier)
+  ];
 }
 
-export function v2EquipTierLabel(tier: V2EquipTier): string {
-  return `${v2EquipDisplayTierOf(tier)}티어`;
+export function v2EquipCatalogTierLabel(tier: V2EquipCatalogTier): string {
+  return `${v2EquipCatalogTierToDisplayTier(tier)}티어`;
 }
 
-export function v2EquipTierDisplayLabel(tier: V2EquipTier): string {
-  return `${v2EquipDisplayTierOf(tier)}T`;
+export function v2EquipCatalogTierDisplayLabel(
+  tier: V2EquipCatalogTier,
+): string {
+  return `${v2EquipCatalogTierToDisplayTier(tier)}T`;
 }
 
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
@@ -161,7 +172,8 @@ export type V2Equipment = {
   id: V2EquipmentId;
   slot: V2EquipSlot;
   concept: V2EquipConcept;
-  tier: V2EquipTier;
+  /** 내부 카탈로그 단계. 유저 표시는 v2EquipCatalogTierToDisplayTier 로 변환한다. */
+  tier: V2EquipCatalogTier;
   name: string;
   description: string;
   /** 위력 — 슬롯별 분기(무기=weaponType 별 공격력 / 방어구=물방 / 장신구=마방). 항상 ≥ 1. */
@@ -193,13 +205,54 @@ export type V2Equipment = {
   signature?: SignatureEffect;
 };
 
+function maxPowerByDisplayTierAndSlot(
+  displayTier: V2EquipDisplayTier,
+  slot: V2EquipSlot,
+): number {
+  return Math.max(
+    0,
+    ...Object.values(V2_EQUIPMENT)
+      .filter(
+        (item) =>
+          v2EquipCatalogTierToDisplayTier(item.tier) === displayTier &&
+          item.slot === slot,
+      )
+      .map((item) => item.power),
+  );
+}
+
+const ENHANCE_POWER_FLOOR_DISPLAY_TIER_5: Record<V2EquipSlot, number> = {
+  weapon: maxPowerByDisplayTierAndSlot(4, "weapon") + 1,
+  armor: maxPowerByDisplayTierAndSlot(4, "armor") + 1,
+  gloves: maxPowerByDisplayTierAndSlot(4, "gloves") + 1,
+  boots: maxPowerByDisplayTierAndSlot(4, "boots") + 1,
+  ring: maxPowerByDisplayTierAndSlot(4, "ring") + 1,
+  necklace: maxPowerByDisplayTierAndSlot(4, "necklace") + 1,
+};
+
+export function enhancePowerForCost(
+  item: V2Equipment,
+  power: number,
+): number {
+  if (v2EquipCatalogTierToDisplayTier(item.tier) !== 5) return power;
+  return Math.max(power, ENHANCE_POWER_FLOOR_DISPLAY_TIER_5[item.slot]);
+}
+
+export function enhanceGoldCostForEquipment(
+  item: V2Equipment,
+  power: number,
+  level: number,
+): number {
+  return enhanceGoldCost(enhancePowerForCost(item, power), level);
+}
+
 // 마을 상점 판매가 — T1~T3 는 스타터 곡선, T4+ 는 프론티어 밴드 장비 판매가.
 // 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
 //   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
 //   T3 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
 // 2026-06-07 티어 1/3/5 → 1/2/3 리넘버(표기 숨김 후 연속번호). 곡선·매그니튜드는 불변(키만 리키).
 // 2026-06-30 프론티어 드랍을 T4~T12로 재정립. 판매가는 T3 이후 ×2 완만 램프.
-const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
+const SHOP_CATALOG_TIER_BASE: Record<V2EquipCatalogTier, number> = {
   1: 300,
   2: 10800,
   3: 388800,
@@ -223,26 +276,32 @@ const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   necklace: 0.5,
 };
 export function shopPriceFor(
-  tier: V2EquipTier,
+  catalogTier: V2EquipCatalogTier,
   slot: V2EquipSlot,
 ): number | undefined {
-  const base = SHOP_TIER_BASE[tier];
+  const base = SHOP_CATALOG_TIER_BASE[catalogTier];
   if (base == null) return undefined;
   return base * SHOP_SLOT_MULT[slot];
 }
 
 // NPC 판매 기준가 — 상점 구매가와 분리한다. 후반 장비(T4+)는 사냥 골드보다 장비 환금이
 // 커지지 않도록 T3 이후 램프를 ×2 대신 ×1.5 로 압축한다. T1~T3 은 기존 환금 유지.
-const SELL_TIER_ANCHOR = 3 satisfies V2EquipTier;
-const SELL_TIER_POST_ANCHOR_MULT = 1.5;
+const SELL_CATALOG_TIER_ANCHOR = 3 satisfies V2EquipCatalogTier;
+const SELL_CATALOG_TIER_POST_ANCHOR_MULT = 1.5;
 
-function sellTierBase(tier: V2EquipTier): number | undefined {
-  const authored = SHOP_TIER_BASE[tier];
+function sellCatalogTierBase(
+  catalogTier: V2EquipCatalogTier,
+): number | undefined {
+  const authored = SHOP_CATALOG_TIER_BASE[catalogTier];
   if (authored == null) return undefined;
-  if (tier <= SELL_TIER_ANCHOR) return authored;
-  const anchor = SHOP_TIER_BASE[SELL_TIER_ANCHOR];
+  if (catalogTier <= SELL_CATALOG_TIER_ANCHOR) return authored;
+  const anchor = SHOP_CATALOG_TIER_BASE[SELL_CATALOG_TIER_ANCHOR];
   return Math.round(
-    anchor * Math.pow(SELL_TIER_POST_ANCHOR_MULT, tier - SELL_TIER_ANCHOR),
+    anchor *
+      Math.pow(
+        SELL_CATALOG_TIER_POST_ANCHOR_MULT,
+        catalogTier - SELL_CATALOG_TIER_ANCHOR,
+      ),
   );
 }
 
@@ -260,7 +319,7 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 //   전용·전문화 스타터(수련용)도 판매 허용 — 인벤 클러터(전직 지급 수련용 등) 정리. 실수 판매는
 //   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 스타터 T1만(유니크 등 비매=구매 불가 유지).
 export function shopPriceForSell(item: V2Equipment): number | undefined {
-  const base = sellTierBase(item.tier);
+  const base = sellCatalogTierBase(item.tier);
   if (base == null) return undefined;
   return Math.round(base * SHOP_SLOT_MULT[item.slot]);
 }

@@ -181,18 +181,19 @@ function DropChip({
   );
 }
 
-// 스타터 풀(깊이 1~12)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 티어 가중 후 무작위 슬롯·컨셉으로
-//   뽑히므로 그 티어들의 그리드 전 종류가 후보. 유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
+// 스타터 풀(깊이 1~6)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 카탈로그 티어 가중 후
+//   무작위 슬롯·컨셉으로 뽑히므로 해당 카탈로그 티어들의 그리드 전 종류가 후보.
+//   유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
 function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
-  const tiers = new Set(
-    Object.entries(pool.tierWeights)
+  const catalogTiers = new Set(
+    Object.entries(pool.catalogTierWeights)
       .filter(([, w]) => (w ?? 0) > 0)
       .map(([t]) => Number(t)),
   );
   return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[]).filter((id) => {
     const it = V2_EQUIPMENT[id];
     return (
-      tiers.has(it.tier) &&
+      catalogTiers.has(it.tier) &&
       !isUnique(it) &&
       !it.craftOnly &&
       !it.starterOnly &&

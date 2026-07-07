@@ -20,6 +20,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
 import {
   effectiveStats,
+  enhanceGoldCostForEquipment,
   isUnique,
   powerWithBonuses,
   V2_EQUIPMENT,
@@ -44,7 +45,6 @@ import {
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
   enhanceBonusPct,
-  enhanceGoldCost,
   enhanceOutcomeRow,
   enhanceStoneCost,
   type EnhanceChoice,
@@ -235,7 +235,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const outcomeRow = enhanceOutcomeRow(level, stone);
   const successPct = outcomeRow[0];
   const stoneCost = enhanceStoneCost(level) * uniqueMult;
-  const goldCost = item ? enhanceGoldCost(basePower, level) * uniqueMult : 0;
+  const goldCost = item
+    ? enhanceGoldCostForEquipment(item, basePower, level) * uniqueMult
+    : 0;
   // 먹이 후보 — 같은 id·다른 개체·미장착·미잠금.
   const feedCandidates = useMemo(() => {
     if (!selected) return [];

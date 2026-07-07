@@ -16,13 +16,13 @@ function seqRng(values: number[]): () => number {
 const empty = new Set<V2EquipmentId>();
 
 describe("STARTER_DROP_POOL — 스타터 단일 풀 (들판)", () => {
-  it("chance 0.012(2026-06-13 ÷5), tierWeights {1:3, 2:2, 3:1}", () => {
+  it("chance 0.012(2026-06-13 ÷5), catalogTierWeights {1:3, 2:2, 3:1}", () => {
     expect(STARTER_DROP_POOL.chance).toBe(0.012);
-    expect(STARTER_DROP_POOL.tierWeights).toEqual({ 1: 3, 2: 2, 3: 1 });
+    expect(STARTER_DROP_POOL.catalogTierWeights).toEqual({ 1: 3, 2: 2, 3: 1 });
   });
 
   it("티어별 처치당 확률 = chance × weight/총합 — T1 3% / T2 2% / T3 1%", () => {
-    const w = STARTER_DROP_POOL.tierWeights;
+    const w = STARTER_DROP_POOL.catalogTierWeights;
     const total = (w[1] ?? 0) + (w[2] ?? 0) + (w[3] ?? 0);
     expect(STARTER_DROP_POOL.chance * ((w[1] ?? 0) / total)).toBeCloseTo(0.006, 5);
     expect(STARTER_DROP_POOL.chance * ((w[2] ?? 0) / total)).toBeCloseTo(0.004, 5);

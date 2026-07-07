@@ -71,7 +71,7 @@ export function V2ArenaRankingTab() {
 
       {top.length === 0 ? (
         <div className="py-8 text-center text-sm text-zinc-500">
-          아직 순위에 오른 모험가가 없어요. 매치를 치르면 점수가 쌓입니다.
+          아직 순위에 오른 모험가가 없어요. 랭크 매치를 치르면 순위에 등록됩니다.
         </div>
       ) : (
         <ul className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-700">

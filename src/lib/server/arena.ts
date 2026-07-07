@@ -3,7 +3,7 @@
 // docs/v2-arena-design.md 의 9.1 확정안 그대로 구현:
 //   - 매칭: 본인 제외 전 v2 유저 snapshot + 가중 랜덤
 //   - 일일 횟수 제한 폐지 → 매치 간 재도전 쿨타임 10초 (2026-06-08)
-//   - 점수 자연 발산 (천장 X), 0 미만 X
+//   - 점수: Elo 레이팅(K=32), 0 미만 X
 //   - 무승부: 점수 0 / 골드 패배 수준 / 카운터 차감 / recentOpponents 기록
 //   - 풀: 전 v2 유저 자동 (opt-in 없음)
 //
@@ -20,12 +20,10 @@ export const RECENT_OPPONENT_TRACK = 5;
 // 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
 export const ARENA_HISTORY_MAX = 50;
 
-// 점수 공식
-export const SCORE_WIN = 20;
-export const SCORE_LOSS = -10;
-export const SCORE_DRAW = 0;
-export const SCORE_UPSET_BONUS = 5; // 본인보다 점수 높은 상대 승리 시 +
-export const SCORE_UPSET_PENALTY = -5; // 본인보다 점수 낮은 상대 패배 시 -
+// Elo 레이팅. 옛 누적 점수와 의미가 달라서 ratingVersion 으로 구분한다.
+export const ARENA_INITIAL_RATING = 1000;
+export const ARENA_ELO_K = 32;
+export const ARENA_RATING_VERSION = 2;
 
 // 골드 공식 (본인 레벨 ×)
 export const GOLD_WIN_PER_LEVEL = 50;
@@ -54,6 +52,8 @@ export type ArenaOpponentRef = {
 
 export type ArenaState = {
   score: number;
+  /** score 해석 버전. v2부터 Elo rating 이며, 옛 누적 점수는 기본 Elo 점수로 리셋한다. */
+  ratingVersion: number;
   /** 마지막 매치 시각(ISO). 이 시각 + ARENA_MATCH_COOLDOWN_MS 전까지 재도전 불가. */
   lastMatchAt: string;
   recentOpponents: ArenaOpponentRef[];
@@ -120,7 +120,8 @@ export function pushArenaHistory(
 
 export function defaultArenaState(): ArenaState {
   return {
-    score: 0,
+    score: ARENA_INITIAL_RATING,
+    ratingVersion: ARENA_RATING_VERSION,
     lastMatchAt: new Date(0).toISOString(), // 에폭 = 쿨타임 없음(즉시 도전 가능).
     recentOpponents: [],
     milestonesReached: [],
@@ -137,8 +138,14 @@ export function parseArenaState(value: unknown): ArenaState {
   const def = defaultArenaState();
   if (!value || typeof value !== "object") return def;
   const v = value as Record<string, unknown>;
+  const ratingVersion =
+    typeof v.ratingVersion === "number" && Number.isFinite(v.ratingVersion)
+      ? Math.floor(v.ratingVersion)
+      : 1;
   const score =
-    typeof v.score === "number" && Number.isFinite(v.score)
+    ratingVersion === ARENA_RATING_VERSION &&
+    typeof v.score === "number" &&
+    Number.isFinite(v.score)
       ? Math.max(0, Math.floor(v.score))
       : def.score;
   const lastMatchAt =
@@ -163,7 +170,13 @@ export function parseArenaState(value: unknown): ArenaState {
         (n): n is number => typeof n === "number" && Number.isFinite(n),
       )
     : def.milestonesReached;
-  return { score, lastMatchAt, recentOpponents, milestonesReached };
+  return {
+    score,
+    ratingVersion: ARENA_RATING_VERSION,
+    lastMatchAt,
+    recentOpponents,
+    milestonesReached,
+  };
 }
 
 // ─── 재도전 쿨타임 ─────────────────────────────────────────────────────────
@@ -181,18 +194,45 @@ export function arenaCooldownRemainingMs(state: ArenaState, now: Date): number {
 // ─── 점수·골드 ─────────────────────────────────────────────────────────────
 
 /**
- * 경기 결과 → 점수 변동. 0 미만은 0 으로 클램프 (호출 측에서).
+ * 경기 결과 → Elo 점수 변동. 0 미만은 0 으로 클램프 (호출 측에서).
  */
 export function computeScoreDelta(
   myScore: number,
   oppScore: number,
   outcome: ArenaMatchOutcome,
 ): number {
-  if (outcome === "draw") return SCORE_DRAW;
-  if (outcome === "win") {
-    return oppScore > myScore ? SCORE_WIN + SCORE_UPSET_BONUS : SCORE_WIN;
-  }
-  return oppScore < myScore ? SCORE_LOSS + SCORE_UPSET_PENALTY : SCORE_LOSS;
+  const actual = outcome === "win" ? 1 : outcome === "draw" ? 0.5 : 0;
+  const expected = 1 / (1 + 10 ** ((oppScore - myScore) / 400));
+  return Math.round(ARENA_ELO_K * (actual - expected));
+}
+
+export function oppositeArenaOutcome(
+  outcome: ArenaMatchOutcome,
+): ArenaMatchOutcome {
+  if (outcome === "win") return "loss";
+  if (outcome === "loss") return "win";
+  return "draw";
+}
+
+export function settleArenaElo(
+  attackerScore: number,
+  defenderScore: number,
+  attackerOutcome: ArenaMatchOutcome,
+) {
+  const attackerDelta = computeScoreDelta(
+    attackerScore,
+    defenderScore,
+    attackerOutcome,
+  );
+  const defenderDelta = -attackerDelta;
+  return {
+    attackerScoreBefore: attackerScore,
+    attackerScoreAfter: applyScoreDelta(attackerScore, attackerDelta),
+    attackerDelta,
+    defenderScoreBefore: defenderScore,
+    defenderScoreAfter: applyScoreDelta(defenderScore, defenderDelta),
+    defenderDelta,
+  };
 }
 
 export function computeGoldReward(
@@ -206,8 +246,7 @@ export function computeGoldReward(
 }
 
 /**
- * 본인 점수에 delta 를 적용하고 0 미만은 0 으로 클램프. 점수 0 인 신규 유저가
- * 첫 매치에 패배해도 음수로 떨어지지 않도록 매치 라우트가 사용.
+ * 본인 점수에 delta 를 적용하고 0 미만은 0 으로 클램프.
  */
 export function applyScoreDelta(score: number, delta: number): number {
   return Math.max(0, score + delta);

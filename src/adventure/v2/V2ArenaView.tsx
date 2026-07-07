@@ -80,6 +80,10 @@ type MatchResp =
       scoreAfter: number;
       scoreDelta: number;
       goldGained: number;
+      ranked: boolean;
+      opponentScoreBefore: number;
+      opponentScoreAfter: number;
+      opponentScoreDelta: number;
       opponent: {
         name: string;
         level: number;
@@ -409,7 +413,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 state: {
                   ...prev.state,
                   score: j.scoreAfter,
-                  season: prev.state.season
+                  season: j.ranked && prev.state.season
                     ? {
                         ...prev.state.season,
                         rating: prev.state.season.rating + j.scoreDelta,
@@ -509,7 +513,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
                 <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  <Trophy size={14} /> 누적 점수
+                  <Trophy size={14} /> Elo 점수
                 </div>
                 <div className="mt-1 text-2xl font-bold tabular-nums">
                   {state?.state?.score ?? 0}
@@ -575,7 +579,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               <dl className="space-y-2 text-xs text-zinc-600 dark:text-zinc-300">
                 <div className="flex justify-between gap-3">
                   <dt>매칭</dt>
-                  <dd className="text-right">실유저 우선 · 부족하면 연습 상대</dd>
+                  <dd className="text-right">실유저 랭크 · 부족하면 연습 상대</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>쿨타임</dt>
@@ -583,11 +587,11 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>점수</dt>
-                  <dd className="text-right">승 +20 · 패 -10 · 무 0</dd>
+                  <dd className="text-right">Elo K=32 · 승패 양쪽 정산</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt>업셋</dt>
-                  <dd className="text-right">높은 점수 상대 승리 +5 · 낮은 점수 상대 패배 -5</dd>
+                  <dt>방어 기록</dt>
+                  <dd className="text-right">상대가 나를 공격해도 점수/전적 반영</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>골드</dt>

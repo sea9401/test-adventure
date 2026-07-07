@@ -1,12 +1,14 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
+import { pvpRatings, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
-import { parseArenaState } from "@/lib/server/arena";
+import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
+import { ARENA_INITIAL_RATING } from "@/lib/server/arena";
+import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 
-// GET /api/v2/arena/ranking — 점수 순위표. arena-state.v2(매치를 한 번이라도 한 유저) 전체를
-//   점수 내림차순 정렬해 상위 N + 본인 순위를 돌려준다. read-only. 동점은 userId 안정 정렬.
+// GET /api/v2/arena/ranking — 현재 주간 Elo 순위표.
+//   실유저 랭크전으로 적립된 pvp_ratings 만 정렬해 상위 N + 본인 순위를 돌려준다.
+//   봇 연습전은 비랭크라 이 목록에 들어오지 않는다.
 const PROFILE_KEY = "character-profile.v2";
 const TOP_N = 20;
 
@@ -15,14 +17,32 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const season = await getOrCreateCurrentSeason(new Date());
   const rows = await db
-    .select({ userId: savesKv.userId, value: savesKv.value })
-    .from(savesKv)
-    .where(eq(savesKv.key, ARENA_STATE_KEY));
+    .select({
+      userId: pvpRatings.userId,
+      score: pvpRatings.rating,
+      wins: pvpRatings.wins,
+      updatedAt: pvpRatings.updatedAt,
+    })
+    .from(pvpRatings)
+    .where(eq(pvpRatings.seasonId, season.id))
+    .orderBy(desc(pvpRatings.rating), desc(pvpRatings.wins), pvpRatings.updatedAt);
 
   const scored = rows
-    .map((r) => ({ userId: r.userId, score: parseArenaState(r.value).score }))
-    .sort((a, b) => b.score - a.score || (a.userId < b.userId ? -1 : 1));
+    .map((r) => ({
+      userId: r.userId,
+      score: r.score,
+      wins: r.wins,
+      updatedAtMs: new Date(r.updatedAt).getTime(),
+    }))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.wins - a.wins ||
+        a.updatedAtMs - b.updatedAtMs ||
+        (a.userId < b.userId ? -1 : 1),
+    );
 
   const myIndex = scored.findIndex((s) => s.userId === userId);
   const top = scored.slice(0, TOP_N);
@@ -73,7 +93,7 @@ export async function GET() {
     ok: true,
     top: entries,
     myRank: myIndex >= 0 ? myIndex + 1 : null,
-    myScore: myIndex >= 0 ? scored[myIndex]!.score : 0,
+    myScore: myIndex >= 0 ? scored[myIndex]!.score : ARENA_INITIAL_RATING,
     totalRanked: scored.length,
   });
 }

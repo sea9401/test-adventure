@@ -12,7 +12,7 @@ import {
 
 // GET /api/v2/arena/state — 아레나 mount fetch.
 //
-// 본인 점수·재도전 쿨타임 남은 시간·마일스톤 진행도(빈 배열)·이번 주 전적.
+// 본인 Elo 점수·재도전 쿨타임 남은 시간·마일스톤 진행도(빈 배열)·이번 주 전적.
 // 쿨타임은 lastMatchAt 기준 계산 — 새로고침 후에도 남은 쿨타임을 이어서 표시한다.
 
 export async function GET() {

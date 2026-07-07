@@ -567,20 +567,13 @@ describe("POST /api/v2/outpost/village/building/place", () => {
     });
   });
 
-  it("지도 제작소를 배치할 수 있다", async () => {
+  it("지도 제작소는 임시 비활성화되어 배치할 수 없다", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
     const res = await placeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0, buildingId: "map_workshop" }),
     );
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as AnyJson & {
-      buildingId: string;
-      buildings: Record<string, { id: string; level: number }>;
-    };
-    expect(json.buildingId).toBe("map_workshop");
-    expect(json.buildings).toEqual({
-      "0": { id: "map_workshop", level: 1 },
-    });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as AnyJson).error).toBe("building_unavailable");
   });
 
   it("아직 미개방 건물 id → 409 building_unavailable", async () => {

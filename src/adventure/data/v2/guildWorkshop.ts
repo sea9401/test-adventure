@@ -152,9 +152,7 @@ export const GUILD_WORKSHOP_QUALITY_BONUS_PCT: Record<1 | 2, number> = {
   2: 10,
 };
 export const GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT = 25;
-export const GUILD_WORKSHOP_MASTERWORK_QUALITY_BONUS_PCT = 20;
-export const GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT = 45;
-export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 12;
+export const GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT = 20;
 export const GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT = 3;
 export const GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT = 2;
 export const GUILD_WORKSHOP_DISMANTLE_MAX_MATERIALS = 3;
@@ -1163,10 +1161,7 @@ export function guildWorkshopQualityChancePct(
       : guildBonus.qualityChanceBonusPct;
   const basePct = 3 + Math.max(0, level - 1) * 2 + bonusPct;
   if (mode === "masterwork") {
-    return Math.min(
-      GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
-      basePct + GUILD_WORKSHOP_MASTERWORK_QUALITY_BONUS_PCT,
-    );
+    return 100;
   }
   return Math.min(GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT, basePct);
 }
@@ -1178,6 +1173,17 @@ export function rollGuildWorkshopEnhance(
   guildBonus: GuildWorkshopBonus | number = 0,
   mode: GuildWorkshopCraftMode = "normal",
 ): V2CraftQualityState | undefined {
+  const level = artisanLevel(artisan[recipe.profession]);
+  if (mode === "masterwork") {
+    if (
+      level >= BLACKSMITH_PLUS2_QUALITY_LEVEL &&
+      rng() * 100 < GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT
+    ) {
+      return { level: 2, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[2] };
+    }
+    return { level: 1, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[1] };
+  }
+
   const chancePct = guildWorkshopQualityChancePct(
     artisan,
     recipe,
@@ -1185,12 +1191,6 @@ export function rollGuildWorkshopEnhance(
     mode,
   );
   if (rng() * 100 >= chancePct) return undefined;
-  const level = artisanLevel(artisan[recipe.profession]);
-  if (mode === "masterwork" && level >= BLACKSMITH_PLUS2_QUALITY_LEVEL) {
-    if (rng() * 100 < GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT) {
-      return { level: 2, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[2] };
-    }
-  }
   return { level: 1, bonusPct: GUILD_WORKSHOP_QUALITY_BONUS_PCT[1] };
 }
 

@@ -661,25 +661,35 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   },
 ];
 
+export const CRAFTED_EQUIP_TAG_SET_IDS = [
+  "artisan_bulwark",
+  "artisan_gale",
+  "artisan_arcane",
+] as const;
+
 export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
   {
-    id: "artisan_crafted",
-    name: "장인표 장비",
+    id: "artisan_bulwark",
+    name: "수호각인 장비",
     thresholds: [
-      { count: 2, bonus: { hp: 50, mp: 30 } },
-      { count: 4, bonus: { crit: 3, eva: 3, critResist: 3 } },
-      {
-        count: 6,
-        bonus: {
-          hp: 180,
-          mp: 120,
-          crit: 6,
-          eva: 6,
-          spd: 9,
-          critMult: 24,
-          healPowerPct: 4,
-        },
-      },
+      { count: 2, bonus: { hp: 220, def: 24, critResist: 8 } },
+      { count: 4, bonus: { hp: 360, def: 42, critResist: 14 } },
+    ],
+  },
+  {
+    id: "artisan_gale",
+    name: "질풍각인 장비",
+    thresholds: [
+      { count: 2, bonus: { crit: 4, eva: 3, spd: 5 } },
+      { count: 4, bonus: { crit: 8, eva: 7, spd: 12, critMult: 35 } },
+    ],
+  },
+  {
+    id: "artisan_arcane",
+    name: "룬각인 장비",
+    thresholds: [
+      { count: 2, bonus: { mp: 180, magicDef: 20, healPowerPct: 8 } },
+      { count: 4, bonus: { mp: 320, magicDef: 34, healPowerPct: 14 } },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRAFTED_EQUIP_TAG_SET_IDS,
   CONCEPT_LABELS,
   SLOT_CONCEPTS,
   V2_EQUIPMENT,
@@ -389,22 +390,58 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("제작 전용 장비는 장인표 태그 세트를 6장착 기준으로 구성한다", () => {
+  it("제작 전용 장비는 전용 태그 세트 여러 종류로 구성한다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
+    const craftedSetIds = new Set<string>(CRAFTED_EQUIP_TAG_SET_IDS);
     expect(crafted).toHaveLength(14);
-    expect(crafted.every((item) => item.setTags?.includes("artisan_crafted"))).toBe(
-      true,
+    expect(
+      crafted.every((item) =>
+        item.setTags?.some((tag) => craftedSetIds.has(tag)),
+      ),
+    ).toBe(true);
+
+    const piecesBySet = new Map<string, string[]>();
+    for (const setId of CRAFTED_EQUIP_TAG_SET_IDS) {
+      piecesBySet.set(setId, []);
+    }
+    for (const item of crafted) {
+      for (const tag of item.setTags ?? []) {
+        if (craftedSetIds.has(tag)) {
+          piecesBySet.get(tag)?.push(item.id);
+        }
+      }
+    }
+    expect(piecesBySet.get("artisan_bulwark")).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_oathblade",
+        "v2_crafted_ward_plate",
+        "v2_crafted_bulwark_shield",
+      ]),
     );
-    const set = V2_EQUIP_TAG_SETS.find((s) => s.id === "artisan_crafted");
-    expect(set?.thresholds.map((t) => t.count)).toEqual([2, 4, 6]);
-    expect(set?.thresholds.at(-1)?.bonus).toMatchObject({
-      hp: 180,
-      mp: 120,
-      crit: 6,
-      eva: 6,
-      spd: 9,
-      critMult: 24,
-      healPowerPct: 4,
+    expect(piecesBySet.get("artisan_gale")).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_gale_bow",
+        "v2_crafted_spark_gloves",
+        "v2_crafted_windstep_boots",
+      ]),
+    );
+    expect(piecesBySet.get("artisan_arcane")).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_runic_staff",
+        "v2_crafted_aether_necklace",
+        "v2_crafted_astral_grimoire",
+      ]),
+    );
+
+    const thresholdCountsById = Object.fromEntries(
+      V2_EQUIP_TAG_SETS.filter((set) => craftedSetIds.has(set.id)).map(
+        (set) => [set.id, set.thresholds.map((threshold) => threshold.count)],
+      ),
+    );
+    expect(thresholdCountsById).toEqual({
+      artisan_bulwark: [2, 4],
+      artisan_gale: [2, 4],
+      artisan_arcane: [2, 4],
     });
   });
 

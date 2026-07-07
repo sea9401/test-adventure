@@ -20,7 +20,7 @@ import {
   GUILD_WORKSHOP_BONUS_TIERS,
   GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT,
   GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT,
-  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
+  GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
@@ -124,14 +124,14 @@ export function GuildContent() {
       </P>
       <UL>
         <li>
-          일반 제작의 품질 확률 상한은 <Em>{GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%</Em>,
-          명장 제작의 품질 확률 상한은{" "}
-          <Em>{GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}%</Em>입니다.
+          일반 제작의 품질 확률 상한은 <Em>{GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%</Em>이고,
+          명장 제작은 <Em>★ 이상 품질을 확정</Em>합니다.
         </li>
         <li>
           명장 제작은 자원 비용 x{GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT},
           재료 비용 x{GUILD_WORKSHOP_MASTERWORK_MATERIAL_COST_MULT}를 쓰는 대신
-          더 높은 품질과 명장 각인을 노립니다.
+          명장 각인을 남기고, 대장장이 Lv9부터는{" "}
+          <Em>★★ 품질 {GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%</Em>를 노립니다.
         </li>
         <li>
           분해는 제작 재료 일부를 돌려받는 기능입니다. 회수율은 최대{" "}

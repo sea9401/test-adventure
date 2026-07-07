@@ -10,7 +10,6 @@ import {
 } from "@/adventure/data/v2/artisan";
 import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
-  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
 import { CRAFT_QUALITY_BONUS_PCT } from "@/adventure/data/v2/v2Equipment";
@@ -55,8 +54,6 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
   const currentEffectSummary = useMemo(() => {
     const sampleRecipe = state.recipes[0];
     const normalQualityChance = sampleRecipe?.qualityChancePct ?? 0;
-    const masterworkQualityChance =
-      sampleRecipe?.masterwork?.qualityChancePct ?? 0;
     const unlockedRecipes = state.recipes.filter(
       (recipe) => recipe.levelOk && recipe.smithyLevelOk,
     );
@@ -69,7 +66,6 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
     );
     return {
       normalQualityChance,
-      masterworkQualityChance,
       maxTier,
       unlockedRecipeCount: unlockedRecipes.length,
       totalRecipeCount: state.recipes.length,
@@ -242,9 +238,9 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
               {
                 label: "명장 제작",
                 value: currentEffectSummary.masterworkUnlocked
-                  ? `${currentEffectSummary.masterworkQualityChance}%`
+                  ? "★ 확정"
                   : `Lv ${BLACKSMITH_MASTERWORK_LEVEL} 필요`,
-                detail: `품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 명장 각인`,
+                detail: `★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}% · 명장 각인`,
               },
               {
                 label: "★★ 품질",

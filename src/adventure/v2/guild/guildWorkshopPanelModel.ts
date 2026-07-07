@@ -14,7 +14,6 @@ import type {
 import { GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT } from "@/adventure/data/v2/guildWorkshopDelivery";
 import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
-  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_QUALITY_BONUS_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
 import type {
@@ -468,7 +467,7 @@ export function buildWorkshopRecommendation(
   if (craftOnlyCodexRecipe) {
     return {
       title: `${craftOnlyCodexRecipe.itemName} 제작`,
-      detail: "제작 전용 장비 도감 미등록 · 장인표 수집 보상 진행",
+      detail: "제작 전용 장비 도감 미등록 · 제작 세트 보상 진행",
       recipeId: craftOnlyCodexRecipe.id,
       craftMode: "normal",
       tone: "codex",
@@ -481,7 +480,7 @@ export function buildWorkshopRecommendation(
   if (craftableMasterwork) {
     return {
       title: `${craftableMasterwork.itemName} 명장 제작`,
-      detail: `품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 납품 가치 강화`,
+      detail: `★ 확정 · ★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}% · 납품 가치 강화`,
       recipeId: craftableMasterwork.id,
       craftMode: "masterwork",
       tone: "masterwork",
@@ -579,7 +578,7 @@ export function craftResultMasterworkSummary(result: CraftResultView): string | 
       : result.craftQualityLevel >= 1
         ? "★ 품질 성공"
         : "기본 품질";
-  return `명장 각인 적용 · 품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · ${qualityText} · 납품 보너스 +${GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT}%`;
+  return `명장 각인 적용 · ★ 이상 확정 · ★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}% · ${qualityText} · 납품 보너스 +${GUILD_WORKSHOP_MASTERWORK_DELIVERY_BONUS_PCT}%`;
 }
 
 export function craftResultTone(result: CraftResultView): {
@@ -682,7 +681,7 @@ export function masterworkStatusText(recipe: WorkshopRecipeView): string {
   const plus2Text = masterwork?.plus2Unlocked
     ? `★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
     : "★★ Lv9 해금";
-  return `사용 가능: 품질 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% · 명장 각인 · ${plus2Text}`;
+  return `사용 가능: ★ 확정 · 명장 각인 · ${plus2Text}`;
 }
 
 export function dismantleBlockedText(reason?: string): string {

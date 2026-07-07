@@ -348,6 +348,7 @@ const V2_EQUIPMENT_BASE = {
 
   // ── 길드 대장간 제작 전용 고유 장비(craftOnly) ─────────────────────────
   // 드랍·상점 제외. 대장간 레벨별 짝수 티어(T4/T6/T8/T10)에서 시작해 Lv5 명장 구간은 T12까지 확장.
+  // 제작 장비는 드랍 세트와 다른 태그 세트(수호/질풍/룬 각인)로 목표를 분리한다.
   v2_crafted_oathblade: {
     id: "v2_crafted_oathblade",
     weaponType: "greatsword",
@@ -360,7 +361,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 5,
     options: { hp: 100, critResist: 5 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_bulwark"],
   },
   v2_crafted_gale_bow: {
     id: "v2_crafted_gale_bow",
@@ -374,7 +375,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 1,
     options: { crit: 6, spd: 12 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_gale"],
   },
   v2_crafted_runic_staff: {
     id: "v2_crafted_runic_staff",
@@ -388,7 +389,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 2,
     options: { mp: 90, magicDef: 10 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_arcane"],
   },
   v2_crafted_master_ring: {
     id: "v2_crafted_master_ring",
@@ -401,7 +402,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 0,
     options: { critMult: 60, crit: 6 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_gale"],
   },
   v2_crafted_ward_plate: {
     id: "v2_crafted_ward_plate",
@@ -414,7 +415,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 6,
     options: { hp: 160, critResist: 7 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_bulwark"],
   },
   v2_crafted_spark_gloves: {
     id: "v2_crafted_spark_gloves",
@@ -427,7 +428,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 1,
     options: { crit: 8, critMult: 35 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_gale"],
   },
   v2_crafted_windstep_boots: {
     id: "v2_crafted_windstep_boots",
@@ -440,7 +441,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 0,
     options: { eva: 8, spd: 12 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_gale"],
   },
   v2_crafted_aether_necklace: {
     id: "v2_crafted_aether_necklace",
@@ -453,7 +454,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 0,
     options: { mp: 85, magicDef: 12, healPowerPct: 9 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_arcane"],
   },
   v2_crafted_sunforge_blade: {
     id: "v2_crafted_sunforge_blade",
@@ -467,7 +468,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 5,
     options: { crit: 6, critMult: 60, hp: 180 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_bulwark"],
   },
   v2_crafted_aurora_crown: {
     id: "v2_crafted_aurora_crown",
@@ -480,7 +481,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 0,
     options: { mp: 170, magicDef: 18, healPowerPct: 14 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_arcane"],
   },
   v2_crafted_bulwark_shield: {
     id: "v2_crafted_bulwark_shield",
@@ -493,7 +494,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 12,
     options: { hp: 260, def: 36, critResist: 10 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_bulwark"],
   },
   v2_crafted_stormlance: {
     id: "v2_crafted_stormlance",
@@ -506,7 +507,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 6,
     options: { crit: 9, spd: 12, critMult: 55 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_gale"],
   },
   v2_crafted_kingbreaker_axe: {
     id: "v2_crafted_kingbreaker_axe",
@@ -519,7 +520,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 11,
     options: { hp: 220, def: 24, critMult: 115 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_bulwark"],
   },
   v2_crafted_astral_grimoire: {
     id: "v2_crafted_astral_grimoire",
@@ -532,7 +533,7 @@ const V2_EQUIPMENT_BASE = {
     weight: 2,
     options: { mp: 240, magicDef: 28, healPowerPct: 12 },
     craftOnly: true,
-    setTags: ["artisan_crafted"],
+    setTags: ["artisan_arcane"],
   },
 
   // ── 유니크 (드랍 전용) ────────────────────────────────────────────

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  clearMasteryTowerFloor,
+  failMasteryTowerRun,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
   masteryTowerFloorReward,
@@ -24,6 +26,7 @@ describe("masteryTower", () => {
     const preview = masteryTowerClaimPreview({
       date: "2026-07-03",
       todayBestFloor: 50,
+      runFloor: 50,
       claimed: false,
       lifetimeBestFloor: 50,
       firstClearRewardsClaimed: [10],
@@ -42,15 +45,18 @@ describe("masteryTower", () => {
         {
           date: "2026-07-02",
           todayBestFloor: 18,
+          runFloor: 16,
           claimed: true,
           lifetimeBestFloor: 22,
           firstClearRewardsClaimed: [10, 20],
+          cooldownUntil: 123456,
         },
         "2026-07-03",
       ),
     ).toEqual({
       date: "2026-07-03",
       todayBestFloor: 0,
+      runFloor: 0,
       claimed: false,
       lifetimeBestFloor: 22,
       firstClearRewardsClaimed: [10, 20],
@@ -127,6 +133,7 @@ describe("masteryTower", () => {
       resetMasteryTowerDailyProgress({
         date: "2026-07-03",
         todayBestFloor: 18,
+        runFloor: 18,
         claimed: true,
         lifetimeBestFloor: 24,
         firstClearRewardsClaimed: [10, 20],
@@ -134,6 +141,7 @@ describe("masteryTower", () => {
     ).toEqual({
       date: "2026-07-03",
       todayBestFloor: 0,
+      runFloor: 0,
       claimed: false,
       lifetimeBestFloor: 24,
       firstClearRewardsClaimed: [10, 20],
@@ -147,6 +155,7 @@ describe("masteryTower", () => {
       tower: {
         date: "2026-07-03",
         todayBestFloor: 10,
+        runFloor: 10,
         claimed: false,
         lifetimeBestFloor: 10,
         firstClearRewardsClaimed: [],
@@ -174,6 +183,7 @@ describe("masteryTower", () => {
       tower: {
         date: "2026-07-03",
         todayBestFloor: 19,
+        runFloor: 19,
         claimed: false,
         lifetimeBestFloor: 19,
         firstClearRewardsClaimed: [10],
@@ -192,5 +202,38 @@ describe("masteryTower", () => {
     });
     expect(log.map((entry) => entry.kind)).toContain("fail");
     expect(log.some((entry) => entry.text.includes("850"))).toBe(true);
+  });
+
+  it("패배하면 오늘 최고 기록은 유지하고 현재 등반만 초기화한다", () => {
+    const cleared = clearMasteryTowerFloor(
+      {
+        date: "2026-07-03",
+        todayBestFloor: 7,
+        runFloor: 7,
+        claimed: false,
+        lifetimeBestFloor: 12,
+        firstClearRewardsClaimed: [10],
+      },
+      8,
+    );
+
+    expect(cleared).toEqual({
+      date: "2026-07-03",
+      todayBestFloor: 8,
+      runFloor: 8,
+      claimed: false,
+      lifetimeBestFloor: 12,
+      firstClearRewardsClaimed: [10],
+    });
+
+    expect(failMasteryTowerRun(cleared, 1000)).toEqual({
+      date: "2026-07-03",
+      todayBestFloor: 8,
+      runFloor: 0,
+      claimed: false,
+      lifetimeBestFloor: 12,
+      firstClearRewardsClaimed: [10],
+      cooldownUntil: 31_000,
+    });
   });
 });

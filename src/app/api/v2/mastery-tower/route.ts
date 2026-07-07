@@ -59,6 +59,11 @@ export async function GET() {
   const map = new Map(rows.map((r) => [r.key as StatusKey, r.value]));
   const date = kstDateKey();
   const tower = parseMasteryTowerState(map.get(MASTERY_TOWER_SAVE_KEY), date);
+  const now = Date.now();
+  const retryAfterSeconds =
+    tower.cooldownUntil && tower.cooldownUntil > now
+      ? Math.ceil((tower.cooldownUntil - now) / 1000)
+      : 0;
   const preview = masteryTowerClaimPreview(tower);
   const inventory = (map.get("inventory.v2") ?? {}) as Record<string, unknown>;
   const certificates = Math.max(
@@ -99,18 +104,17 @@ export async function GET() {
     certificates,
     claimPreview: preview,
     power,
+    retryAfterSeconds,
     nextFloor:
-      tower.todayBestFloor >= MASTERY_TOWER_MAX_FLOOR
-        ? null
-        : tower.todayBestFloor + 1,
+      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR ? null : tower.runFloor + 1,
     nextRequiredPower:
-      tower.todayBestFloor >= MASTERY_TOWER_MAX_FLOOR
+      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
         ? null
-        : masteryTowerRequiredPower(tower.todayBestFloor + 1),
+        : masteryTowerRequiredPower(tower.runFloor + 1),
     nextGuardian:
-      tower.todayBestFloor >= MASTERY_TOWER_MAX_FLOOR
+      tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
         ? null
-        : masteryTowerGuardianPreview(tower.todayBestFloor + 1),
+        : masteryTowerGuardianPreview(tower.runFloor + 1),
     rewards: {
       maxFloor: MASTERY_TOWER_MAX_FLOOR,
       milestones: MASTERY_TOWER_MILESTONES,

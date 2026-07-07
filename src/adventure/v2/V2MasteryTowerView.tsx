@@ -10,9 +10,11 @@ import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 type TowerState = {
   date: string;
   todayBestFloor: number;
+  runFloor: number;
   claimed: boolean;
   lifetimeBestFloor: number;
   firstClearRewardsClaimed: number[];
+  cooldownUntil?: number;
 };
 
 type TowerJob = {
@@ -51,6 +53,7 @@ type TowerStatus = {
     newlyClaimedMilestones: number[];
   };
   power: number;
+  retryAfterSeconds?: number;
   nextFloor: number | null;
   nextRequiredPower: number | null;
   nextGuardian: TowerGuardian | null;
@@ -77,6 +80,7 @@ export function V2MasteryTowerView({
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
   const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -108,6 +112,22 @@ export function V2MasteryTowerView({
     () => status?.jobs.find((job) => job.id === selectedJobId) ?? null,
     [selectedJobId, status?.jobs],
   );
+  const cooldownUntil =
+    typeof status?.tower.cooldownUntil === "number"
+      ? status.tower.cooldownUntil
+      : null;
+  const cooldownSeconds =
+    cooldownUntil && cooldownUntil > now
+      ? Math.ceil((cooldownUntil - now) / 1000)
+      : cooldownUntil
+        ? 0
+        : Math.max(0, Math.ceil(status?.retryAfterSeconds ?? 0));
+
+  useEffect(() => {
+    if (!cooldownUntil || cooldownUntil <= now) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil, now]);
 
   async function claim() {
     setBusy("claim");
@@ -174,7 +194,9 @@ export function V2MasteryTowerView({
   }
 
   const canClaim = Boolean(status && !status.tower.claimed && status.claimPreview.total > 0);
-  const canAttempt = Boolean(status && status.nextFloor != null);
+  const canAttempt = Boolean(
+    status && status.nextFloor != null && cooldownSeconds <= 0,
+  );
   const canUse =
     Boolean(status && status.certificates > 0 && selectedJobId) &&
     Math.floor(Number(amount) || 0) > 0;
@@ -284,6 +306,12 @@ export function V2MasteryTowerView({
                   {status.claimPreview.total.toLocaleString("ko-KR")}
                 </span>
               </p>
+              {cooldownSeconds > 0 && (
+                <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  패배 후 재입장 대기 중입니다. {cooldownSeconds}초 후 1층부터 다시
+                  시작할 수 있습니다.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -294,7 +322,7 @@ export function V2MasteryTowerView({
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
               >
                 <CastleTurret size={16} weight="duotone" />
-                입장
+                {cooldownSeconds > 0 ? `${cooldownSeconds}초 대기` : "입장"}
               </button>
               <button
                 type="button"

@@ -15,6 +15,7 @@ import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_SAVE_KEY,
   clearMasteryTowerFloor,
+  failMasteryTowerRun,
   kstDateKey,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
@@ -72,8 +73,34 @@ export async function POST(req: Request) {
       MASTERY_TOWER_SAVE_KEY,
       {},
     );
+    const now = Date.now();
     let tower = parseMasteryTowerState(raw, kstDateKey());
-    const floor = tower.todayBestFloor + 1;
+    if (tower.cooldownUntil && tower.cooldownUntil > now) {
+      const retryAfterSeconds = Math.ceil((tower.cooldownUntil - now) / 1000);
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          success: false,
+          error: "cooldown" as const,
+          tower,
+          power,
+          floor: tower.runFloor + 1,
+          requiredPower: null,
+          guardian: null,
+          retryAfterSeconds,
+          claimPreview: masteryTowerClaimPreview(tower),
+          log: [
+            {
+              kind: "fail" as const,
+              text: `재입장 대기 중입니다. ${retryAfterSeconds}초 후 1층부터 다시 시작할 수 있습니다.`,
+            },
+          ],
+        },
+      };
+    }
+
+    const floor = tower.runFloor + 1;
     if (floor > MASTERY_TOWER_MAX_FLOOR) {
       const claimPreview = masteryTowerClaimPreview(tower);
       return {
@@ -87,6 +114,7 @@ export async function POST(req: Request) {
           floor: null,
           requiredPower: null,
           guardian: null,
+          retryAfterSeconds: 0,
           claimPreview,
           log: masteryTowerAttemptLog({
             floor: null,
@@ -123,8 +151,14 @@ export async function POST(req: Request) {
     if (success) {
       tower = clearMasteryTowerFloor(tower, floor);
       await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
+    } else {
+      tower = failMasteryTowerRun(tower, now);
+      await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
     }
     const claimPreview = masteryTowerClaimPreview(tower);
+    const retryAfterSeconds = success
+      ? 0
+      : Math.ceil(((tower.cooldownUntil ?? now) - now) / 1000);
 
     return {
       status: 200,
@@ -136,6 +170,7 @@ export async function POST(req: Request) {
         floor,
         requiredPower,
         guardian: masteryTowerGuardianPreview(floor),
+        retryAfterSeconds,
         turns: battle.turns,
         startPlayerHp: player.maxHp,
         playerName,

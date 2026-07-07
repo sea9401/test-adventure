@@ -981,6 +981,8 @@ export const guildExplorationWeekly = pgTable("guild_exploration_weekly", {
     .references(() => guilds.id, { onDelete: "cascade" }),
   weekKey: text("week_key").notNull(),
   coopEpicProgress: integer("coop_epic_progress").notNull().default(0),
+  huntWinProgress: integer("hunt_win_progress").notNull().default(0),
+  fishingCatchProgress: integer("fishing_catch_progress").notNull().default(0),
   claimed: jsonb("claimed").notNull().default(sql`'[]'::jsonb`),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { db as dbType } from "@/db";
-import { guildExplorationWeekly } from "@/db/schema";
+import { guildExplorationWeekly, guildMembers } from "@/db/schema";
 import {
-  addGuildExplorationCoopProgress,
+  addGuildExplorationProgress,
   guildExplorationWeeklyClaimedPayload,
   parseGuildExplorationWeeklyState,
+  type GuildExplorationWeeklyMetric,
   type GuildExplorationWeeklyState,
 } from "@/adventure/data/v2/guildExploration";
 import { explorationHqUpgradeForLevel } from "@/adventure/data/v2/settlement";
@@ -30,6 +31,8 @@ function rowToState(
     | {
         weekKey?: string | null;
         coopEpicProgress?: number | null;
+        huntWinProgress?: number | null;
+        fishingCatchProgress?: number | null;
         claimed?: unknown;
       }
     | null
@@ -41,6 +44,8 @@ function rowToState(
       ? {
           weekKey: row.weekKey,
           coopEpicProgress: row.coopEpicProgress,
+          huntWinProgress: row.huntWinProgress,
+          fishingCatchProgress: row.fishingCatchProgress,
           claimed: row.claimed,
         }
       : null,
@@ -63,6 +68,8 @@ export async function lockGuildExplorationWeeklyState(
       .select({
         weekKey: guildExplorationWeekly.weekKey,
         coopEpicProgress: guildExplorationWeekly.coopEpicProgress,
+        huntWinProgress: guildExplorationWeekly.huntWinProgress,
+        fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
         claimed: guildExplorationWeekly.claimed,
       })
       .from(guildExplorationWeekly)
@@ -87,6 +94,8 @@ export async function readGuildExplorationWeeklyState(
       .select({
         weekKey: guildExplorationWeekly.weekKey,
         coopEpicProgress: guildExplorationWeekly.coopEpicProgress,
+        huntWinProgress: guildExplorationWeekly.huntWinProgress,
+        fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
         claimed: guildExplorationWeekly.claimed,
       })
       .from(guildExplorationWeekly)
@@ -107,6 +116,8 @@ export async function saveGuildExplorationWeeklyState(
       guildId,
       weekKey: state.weekKey,
       coopEpicProgress: state.coopEpicProgress,
+      huntWinProgress: state.huntWinProgress,
+      fishingCatchProgress: state.fishingCatchProgress,
       claimed: guildExplorationWeeklyClaimedPayload(state),
       updatedAt: new Date(),
     })
@@ -115,6 +126,8 @@ export async function saveGuildExplorationWeeklyState(
       set: {
         weekKey: state.weekKey,
         coopEpicProgress: state.coopEpicProgress,
+        huntWinProgress: state.huntWinProgress,
+        fishingCatchProgress: state.fishingCatchProgress,
         claimed: guildExplorationWeeklyClaimedPayload(state),
         updatedAt: new Date(),
       },
@@ -133,15 +146,57 @@ export async function incrementGuildExplorationCoopProgress(
   guildId: number,
   now: Date = new Date(),
 ): Promise<GuildExplorationWeeklyState | null> {
+  return incrementGuildExplorationProgress(
+    tx,
+    guildId,
+    "coopBossTierClaims",
+    1,
+    now,
+  );
+}
+
+export async function incrementGuildExplorationProgress(
+  tx: Tx,
+  guildId: number,
+  metric: GuildExplorationWeeklyMetric,
+  count = 1,
+  now: Date = new Date(),
+): Promise<GuildExplorationWeeklyState | null> {
   const level = await explorationHqLevelForGuild(tx, guildId);
   if (level <= 0) return null;
   const week = currentGuildExplorationWeek(now);
   const upgrade = explorationHqUpgradeForLevel(level);
   const state = await lockGuildExplorationWeeklyState(tx, guildId, week.key);
-  const next = addGuildExplorationCoopProgress(
+  const next = addGuildExplorationProgress(
     state,
+    metric,
     upgrade.missionProgressBonusPct,
+    count,
   );
   await saveGuildExplorationWeeklyState(tx, guildId, next);
   return next;
+}
+
+export async function incrementGuildExplorationProgressForUser(
+  tx: Tx,
+  userId: string,
+  metric: GuildExplorationWeeklyMetric,
+  count = 1,
+  now: Date = new Date(),
+): Promise<GuildExplorationWeeklyState | null> {
+  const membership = (
+    await tx
+      .select({ guildId: guildMembers.guildId })
+      .from(guildMembers)
+      .where(eq(guildMembers.userId, userId))
+      .limit(1)
+  )[0];
+  if (!membership) return null;
+  return incrementGuildExplorationProgress(
+    tx,
+    membership.guildId,
+    metric,
+    count,
+    now,
+  );
 }

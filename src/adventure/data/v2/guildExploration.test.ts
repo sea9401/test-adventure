@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   GUILD_EXPLORATION_COOP_MIN_TIER,
   GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
+  GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
+  GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
   GUILD_EXPLORATION_PROGRESS_UNIT,
+  GUILD_EXPLORATION_WEEKLY_MISSION_IDS,
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
   addGuildExplorationCoopProgress,
+  addGuildExplorationProgress,
   claimGuildExplorationWeeklyMission,
   coopTierMeetsExplorationRequirement,
   guildExplorationWeeklyMissionViews,
@@ -23,6 +27,28 @@ describe("guild exploration weekly missions", () => {
       minCoopTier: "epic",
       rewardGold: 5_000_000,
       rewardFame: 300,
+    });
+  });
+
+  it("opens hunt and fishing missions after the default coop mission", () => {
+    expect(GUILD_EXPLORATION_WEEKLY_MISSION_IDS).toEqual([
+      "weekly_coop_epic_30",
+      "weekly_hunt_win_500",
+      "weekly_fishing_catch_120",
+    ]);
+    expect(GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_hunt_win_500).toMatchObject({
+      metric: "huntWins",
+      goal: GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
+      rewardGold: 3_000_000,
+      rewardFame: 150,
+    });
+    expect(
+      GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_fishing_catch_120,
+    ).toMatchObject({
+      metric: "fishingCatches",
+      goal: GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
+      rewardGold: 2_000_000,
+      rewardFame: 150,
     });
   });
 
@@ -48,11 +74,35 @@ describe("guild exploration weekly missions", () => {
     });
   });
 
+  it("stores hunt and fishing progress as independent mission metrics", () => {
+    const base = parseGuildExplorationWeeklyState(null, "2026-W27");
+    const hunted = addGuildExplorationProgress(base, "huntWins", 20, 3);
+    const fished = addGuildExplorationProgress(
+      hunted,
+      "fishingCatches",
+      20,
+      2,
+    );
+
+    expect(fished.huntWinProgress).toBe(360);
+    expect(fished.fishingCatchProgress).toBe(240);
+    expect(guildExplorationWeeklyMissionViews(fished, 3).map((v) => v.id))
+      .toEqual([
+        "weekly_coop_epic_30",
+        "weekly_hunt_win_500",
+        "weekly_fishing_catch_120",
+      ]);
+    expect(guildExplorationWeeklyMissionViews(fished, 2).map((v) => v.id))
+      .toEqual(["weekly_coop_epic_30", "weekly_hunt_win_500"]);
+  });
+
   it("marks the coop mission claimable at 30 contribution units and claims once", () => {
     const state = {
       weekKey: "2026-W27",
       coopEpicProgress: GUILD_EXPLORATION_COOP_WEEKLY_TARGET *
         GUILD_EXPLORATION_PROGRESS_UNIT,
+      huntWinProgress: 0,
+      fishingCatchProgress: 0,
       claimed: [],
     };
     const view = guildExplorationWeeklyMissionViews(state, 1)[0];

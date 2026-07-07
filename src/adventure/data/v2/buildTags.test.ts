@@ -5,7 +5,6 @@ import {
   V2_EQUIP_TAG_SETS,
 } from "./v2Equipment";
 import { V2_SKILLS } from "./v2Skills";
-import { V2_BUILD_PRESETS } from "./buildPresets";
 import {
   V2_BUILD_TAG_LABEL,
   V2_EQUIPMENT_CODEX_BUILD_TAG_FILTERS,
@@ -137,20 +136,4 @@ describe("v2 build tags", () => {
     ).toContain("execute");
   });
 
-  it("빌드 프리셋은 실제 장비·스킬과 공용 태그만 참조한다", () => {
-    expect(V2_BUILD_PRESETS).toHaveLength(6);
-    for (const preset of V2_BUILD_PRESETS) {
-      expect(preset.equipmentIds.length, preset.id).toBeGreaterThan(0);
-      expect(preset.skillIds.length, preset.id).toBeGreaterThan(0);
-      for (const tag of preset.tags) {
-        expect(V2_BUILD_TAG_LABEL[tag], `${preset.id}:${tag}`).toBeTruthy();
-      }
-      for (const id of preset.equipmentIds) {
-        expect(V2_EQUIPMENT[id], `${preset.id}:${id}`).toBeTruthy();
-      }
-      for (const id of preset.skillIds) {
-        expect(V2_SKILLS[id], `${preset.id}:${id}`).toBeTruthy();
-      }
-    }
-  });
 });

@@ -21,6 +21,13 @@ export type V2BuildPreset = {
   weaknesses: readonly string[];
 };
 
+export type V2BuildGoalsState = {
+  activePresetIds: V2BuildPresetId[];
+};
+
+export const BUILD_GOALS_SAVE_KEY = "build-goals.v2";
+export const MAX_ACTIVE_BUILD_GOALS = 3;
+
 export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
   {
     id: "venomlord_dash",
@@ -145,3 +152,40 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
 ];
 
 export const V2_BUILD_PRESET_IDS = V2_BUILD_PRESETS.map((preset) => preset.id);
+
+const V2_BUILD_PRESET_ID_SET = new Set<string>(V2_BUILD_PRESET_IDS);
+
+export function isV2BuildPresetId(value: unknown): value is V2BuildPresetId {
+  return typeof value === "string" && V2_BUILD_PRESET_ID_SET.has(value);
+}
+
+export function emptyBuildGoalsState(): V2BuildGoalsState {
+  return { activePresetIds: [] };
+}
+
+export function parseBuildGoalsState(raw: unknown): V2BuildGoalsState {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return emptyBuildGoalsState();
+  }
+  const ids = Array.isArray((raw as { activePresetIds?: unknown }).activePresetIds)
+    ? (raw as { activePresetIds: unknown[] }).activePresetIds
+    : [];
+  return {
+    activePresetIds: ids
+      .filter(isV2BuildPresetId)
+      .filter((id, index, arr) => arr.indexOf(id) === index)
+      .slice(0, MAX_ACTIVE_BUILD_GOALS),
+  };
+}
+
+export function setBuildGoalActive(
+  state: V2BuildGoalsState,
+  presetId: V2BuildPresetId,
+  active: boolean,
+): V2BuildGoalsState {
+  const current = state.activePresetIds.filter((id) => id !== presetId);
+  if (!active) return { activePresetIds: current };
+  return {
+    activePresetIds: [presetId, ...current].slice(0, MAX_ACTIVE_BUILD_GOALS),
+  };
+}

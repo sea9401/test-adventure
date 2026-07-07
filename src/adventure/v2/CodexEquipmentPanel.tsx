@@ -45,7 +45,11 @@ import {
   equipmentHasBuildTag,
   type V2BuildTagId,
 } from "@/adventure/data/v2/buildTags";
-import { V2_BUILD_PRESETS } from "@/adventure/data/v2/buildPresets";
+import {
+  MAX_ACTIVE_BUILD_GOALS,
+  V2_BUILD_PRESETS,
+  type V2BuildPresetId,
+} from "@/adventure/data/v2/buildPresets";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
@@ -68,6 +72,11 @@ type EquipmentCodexResponse = Partial<EquipmentCodexMeta> & {
   craftRecords?: unknown;
   codexRewards?: unknown;
   artisanXpReward?: unknown;
+};
+
+type BuildGoalsResponse = {
+  ok?: boolean;
+  activePresetIds?: unknown;
 };
 
 type EquipmentCraftRecordView = {
@@ -270,6 +279,13 @@ export function CodexEquipmentPanel({
     useState<V2EquipSlot>("weapon");
   const [equipmentBuildFilter, setEquipmentBuildFilter] =
     useState<EquipmentBuildFilter>("all");
+  const [activeBuildGoalIds, setActiveBuildGoalIds] = useState<
+    Set<V2BuildPresetId>
+  >(new Set());
+  const [buildGoalBusy, setBuildGoalBusy] = useState<V2BuildPresetId | null>(
+    null,
+  );
+  const [buildGoalMsg, setBuildGoalMsg] = useState<string | null>(null);
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
     if (!j) return;
@@ -291,6 +307,14 @@ export function CodexEquipmentPanel({
     setEquipmentCraftRecords(parseEquipmentCraftRecords(j.craftRecords));
   }
 
+  function applyBuildGoalsPayload(j: BuildGoalsResponse | null) {
+    if (!j || !Array.isArray(j.activePresetIds)) return;
+    const ids = j.activePresetIds.filter((id): id is V2BuildPresetId =>
+      V2_BUILD_PRESETS.some((preset) => preset.id === id),
+    );
+    setActiveBuildGoalIds(new Set(ids));
+  }
+
   useEffect(() => {
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 장비 탭 진입 시 도감/보유 장비 lazy fetch
@@ -299,10 +323,12 @@ export function CodexEquipmentPanel({
     Promise.all([
       fetch("/api/v2/me/equipment-codex").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/v2/me/build-goals").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([codex, equipment]) => {
+      .then(([codex, equipment, buildGoals]) => {
         if (!alive) return;
         applyEquipmentCodexPayload(codex as EquipmentCodexResponse | null);
+        applyBuildGoalsPayload(buildGoals as BuildGoalsResponse | null);
         if (equipment && Array.isArray(equipment.owned)) {
           setOwnedEquipment(equipment.owned as V2EquipInstance[]);
         }
@@ -322,6 +348,44 @@ export function CodexEquipmentPanel({
       alive = false;
     };
   }, []);
+
+  async function toggleBuildGoal(presetId: V2BuildPresetId) {
+    if (buildGoalBusy) return;
+    const preset = V2_BUILD_PRESETS.find((entry) => entry.id === presetId);
+    const active = !activeBuildGoalIds.has(presetId);
+    const before = new Set(activeBuildGoalIds);
+    setBuildGoalBusy(presetId);
+    setBuildGoalMsg(null);
+    setActiveBuildGoalIds((prev) => {
+      const next = new Set(prev);
+      if (active) {
+        next.delete(presetId);
+        return new Set([presetId, ...next].slice(0, MAX_ACTIVE_BUILD_GOALS));
+      }
+      next.delete(presetId);
+      return next;
+    });
+    try {
+      const res = await fetch("/api/v2/me/build-goals", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ presetId, active }),
+      });
+      const j = (await res.json().catch(() => null)) as BuildGoalsResponse | null;
+      if (!res.ok || !j?.ok) throw new Error("failed");
+      applyBuildGoalsPayload(j);
+      setBuildGoalMsg(
+        active
+          ? `${preset?.name ?? "빌드"} 목표로 지정했어요`
+          : `${preset?.name ?? "빌드"} 목표를 해제했어요`,
+      );
+    } catch {
+      setActiveBuildGoalIds(before);
+      setBuildGoalMsg("빌드 목표를 저장하지 못했어요");
+    } finally {
+      setBuildGoalBusy(null);
+    }
+  }
 
   async function submitEquipmentCodexRegistration(inst: V2EquipInstance) {
     const res = await fetch("/api/v2/me/equipment-codex", {
@@ -592,25 +656,49 @@ export function CodexEquipmentPanel({
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-bold">빌드 프리셋 아이디어</h2>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                장비·스킬 조합 목표
+                목표 {activeBuildGoalIds.size}/{MAX_ACTIVE_BUILD_GOALS}
               </span>
             </div>
+            {buildGoalMsg && (
+              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+                {buildGoalMsg}
+              </p>
+            )}
             <div className="mt-3 grid gap-2 lg:grid-cols-2">
-              {V2_BUILD_PRESETS.map((preset) => (
-                <div
-                  key={preset.id}
-                  className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {preset.name}
+              {V2_BUILD_PRESETS.map((preset) => {
+                const goalActive = activeBuildGoalIds.has(preset.id);
+                const busy = buildGoalBusy === preset.id;
+                return (
+                  <div
+                    key={preset.id}
+                    className={`rounded-lg border p-3 ${
+                      goalActive
+                        ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/25"
+                        : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {preset.name}
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                          {preset.summary}
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {preset.summary}
-                      </p>
+                      <button
+                        type="button"
+                        disabled={Boolean(buildGoalBusy)}
+                        onClick={() => void toggleBuildGoal(preset.id)}
+                        className={`rounded border px-2 py-1 text-[11px] font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
+                          goalActive
+                            ? "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                        }`}
+                      >
+                        {busy ? "저장 중" : goalActive ? "목표 해제" : "목표 지정"}
+                      </button>
                     </div>
-                  </div>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {preset.tags.slice(0, 6).map((tag) => (
                       <span
@@ -677,7 +765,8 @@ export function CodexEquipmentPanel({
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
 

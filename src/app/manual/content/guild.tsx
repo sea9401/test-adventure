@@ -130,7 +130,7 @@ export function GuildContent() {
         <Em>
           {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
         </Em>
-        로 계산합니다.
+        로 계산하고, 완료 시 길드 금고와 길드 명성을 보상으로 받습니다.
       </P>
       <Table
         head={["레벨", "단계", "주간 탐사", "진척 보너스"]}
@@ -143,7 +143,20 @@ export function GuildContent() {
             `+${upgrade.missionProgressBonusPct}%`,
           ];
         })}
-        caption={`탐사 의뢰는 길드원이 사냥·발굴·협동보스 EPIC 이상 기여 ${GUILD_EXPLORATION_COOP_WEEKLY_TARGET}회 같은 활동으로 함께 채우는 주간 목표로 확장됩니다.`}
+        caption={`진척 보너스는 의뢰 진행도에 적용됩니다. 예를 들어 +35%라면 협동보스 EPIC 이상 기여 1회가 1.35회분으로 계산됩니다.`}
+      />
+      <Table
+        head={["주간 의뢰", "목표", "보상"]}
+        rows={[
+          [
+            <Em key="weekly_coop_epic_30">
+              {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
+            </Em>,
+            `${GUILD_EXPLORATION_COOP_WEEKLY_TARGET}회분`,
+            `길드 금고 ${GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.rewardGold.toLocaleString()}G · 명성 ${GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.rewardFame.toLocaleString()}`,
+          ],
+        ]}
+        caption="협동보스 의뢰는 보상 수령 시점에 최초 1회만 집계되며, GOLD 이하는 탐사 진척으로 인정하지 않습니다."
       />
 
       <H2>길드 제작소</H2>

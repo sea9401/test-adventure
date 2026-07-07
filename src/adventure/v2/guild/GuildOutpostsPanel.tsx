@@ -5,10 +5,10 @@ import {
   GUILD_FACILITY_UNLOCK_GOLD_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_BUILDINGS,
-  explorationHqUpgradeForLevel,
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 import type { GuildInfoResponse, Notice } from "./guildShared";
+import { GuildExplorationPanel } from "./GuildExplorationPanel";
 import { GuildTrainingGroundPanel } from "./GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "./GuildWorkshopPanel";
 
@@ -83,47 +83,10 @@ export function GuildFacilitiesPanel({
   }
 
   if (activeFacility === "exploration_hq") {
-    const level = info?.settlementBuildingLevels?.exploration_hq ?? 0;
-    const upgrade = explorationHqUpgradeForLevel(Math.max(1, level));
     return (
       <div className="space-y-3">
         <FacilityBackButton onClick={() => setActiveFacility(null)} />
-        <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span aria-hidden>{SETTLEMENT_BUILDINGS.exploration_hq.icon}</span>
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {SETTLEMENT_BUILDINGS.exploration_hq.name}
-                </h3>
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                길드 단위 주간 탐사 의뢰의 슬롯과 진척 보너스를 관리합니다.
-              </p>
-            </div>
-            <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
-              Lv.{Math.max(1, level)}
-            </span>
-          </div>
-          <dl className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
-              <dt className="text-xs text-zinc-500 dark:text-zinc-400">
-                주간 탐사
-              </dt>
-              <dd className="mt-1 font-semibold text-zinc-900 dark:text-zinc-100">
-                {upgrade.weeklyMissionCount}건
-              </dd>
-            </div>
-            <div className="rounded bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
-              <dt className="text-xs text-zinc-500 dark:text-zinc-400">
-                진척 보너스
-              </dt>
-              <dd className="mt-1 font-semibold text-zinc-900 dark:text-zinc-100">
-                +{upgrade.missionProgressBonusPct}%
-              </dd>
-            </div>
-          </dl>
-        </section>
+        <GuildExplorationPanel onChanged={onChanged} />
       </div>
     );
   }

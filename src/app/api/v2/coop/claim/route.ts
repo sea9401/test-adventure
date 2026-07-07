@@ -1,6 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { coopBossContributors, coopBossSessions } from "@/db/schema";
+import {
+  coopBossContributors,
+  coopBossSessions,
+  guildMembers,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   recordEconomyEventSoon,
@@ -27,6 +31,8 @@ import {
   COOP_COIN_MATERIAL_ID,
   rollCoopExtraRewards,
 } from "@/adventure/data/v2/coopRewards";
+import { coopTierMeetsExplorationRequirement } from "@/adventure/data/v2/guildExploration";
+import { incrementGuildExplorationCoopProgress } from "@/lib/server/guildExplorationWeekly";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -253,9 +259,33 @@ export async function POST(req: Request) {
         ),
       );
 
+    let explorationProgressed = false;
+    if (coopTierMeetsExplorationRequirement(tier)) {
+      const member = (
+        await tx
+          .select({ guildId: guildMembers.guildId })
+          .from(guildMembers)
+          .where(eq(guildMembers.userId, userId))
+          .limit(1)
+      )[0];
+      if (member) {
+        const explorationState = await incrementGuildExplorationCoopProgress(
+          tx,
+          member.guildId,
+          new Date(now),
+        );
+        explorationProgressed = explorationState != null;
+      }
+    }
+
     return {
       status: 200,
-      body: { ok: true as const, alreadyClaimed: false, reward },
+      body: {
+        ok: true as const,
+        alreadyClaimed: false,
+        reward,
+        explorationProgressed,
+      },
     };
   });
 

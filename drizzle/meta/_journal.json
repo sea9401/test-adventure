@@ -729,6 +729,13 @@
       "when": 1783208866412,
       "tag": "0103_hard_sangoon_enrage",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1783212466412,
+      "tag": "0104_guild_exploration_weekly",
+      "breakpoints": true
     }
   ]
 }

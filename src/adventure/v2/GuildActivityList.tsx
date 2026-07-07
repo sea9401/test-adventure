@@ -72,6 +72,8 @@ function describe(a: GuildActivity): string {
       return `${actor} 님이 금고에 ${(a.meta?.amount ?? 0).toLocaleString()} G 입금했어요`;
     case "workshop_weekly_claim":
       return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
+    case "exploration_weekly_claim":
+      return `${actor} 님이 ${a.meta?.questTitle ?? "탐사 의뢰"} 보상을 수령했어요`;
     case "workshop_delivery":
       return `${actor} 님이 ${a.meta?.deliveryTitle ?? "제작품 납품"}을 완료했어요`;
     case "workshop_craft_only":
@@ -108,6 +110,7 @@ const DOT_CLASS: Record<string, string> = {
   role_change: "bg-sky-500",
   gold_deposit: "bg-yellow-500",
   workshop_weekly_claim: "bg-emerald-500",
+  exploration_weekly_claim: "bg-cyan-500",
   workshop_delivery: "bg-teal-500",
   workshop_craft_only: "bg-emerald-500",
   artisan_rank_reward: "bg-amber-500",

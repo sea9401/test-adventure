@@ -13,10 +13,11 @@ import type {
   GuildWorkshopRecipeId,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
-  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
+  GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
 import {
+  CRAFTED_EQUIP_TAG_SET_IDS,
   V2_EQUIP_TAG_SETS,
   V2_SLOT_LABEL,
   type V2EquipSlot,
@@ -44,6 +45,10 @@ import {
 // 레시피 목록 + craft mutation)를 분리(2026-07, dismantle/growth 와 같은 분해 레시피).
 // 서버 응답의 워크숍 상태 반영(자원/재료/숙련도/레시피 재계산)은 부모 소유 상태라
 // onServerSync(성공/실패 공용)로 위임하고, 여기는 fetch·결과 표시·목록만 담당한다.
+
+const CRAFTED_TAG_SET_ID_SET: ReadonlySet<string> = new Set(
+  CRAFTED_EQUIP_TAG_SET_IDS,
+);
 
 /** 제작 응답 중 부모 워크숍 상태에 반영할 조각 — 부모 콜백(applyCraftServerState)의 입력. */
 export type CraftServerSync = {
@@ -142,8 +147,8 @@ export function WorkshopCraftPanel({
     state?.recipes,
     recommendedRecipeId,
   ]);
-  const artisanCraftedSet = V2_EQUIP_TAG_SETS.find(
-    (set) => set.id === "artisan_crafted",
+  const craftedTagSets = V2_EQUIP_TAG_SETS.filter((set) =>
+    CRAFTED_TAG_SET_ID_SET.has(set.id),
   );
   const craftResultQuality = craftResult
     ? craftQualityFromLevel(craftResult.craftQualityLevel)
@@ -348,16 +353,23 @@ export function WorkshopCraftPanel({
               </div>
               <div>
                 <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  장인표 세트 목표
+                  제작 세트 목표
                 </div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {artisanCraftedSet?.thresholds.map((threshold) => (
-                    <span
-                      key={threshold.count}
-                      className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                    >
-                      {threshold.count}세트 보너스
-                    </span>
+                <div className="mt-1 grid gap-1">
+                  {craftedTagSets.map((set) => (
+                    <div key={set.id} className="flex flex-wrap items-center gap-1">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                        {set.name}
+                      </span>
+                      {set.thresholds.map((threshold) => (
+                        <span
+                          key={threshold.count}
+                          className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                        >
+                          {threshold.count}세트
+                        </span>
+                      ))}
+                    </div>
                   ))}
                 </div>
                 <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -534,8 +546,10 @@ export function WorkshopCraftPanel({
                   </div>
                   <div className="mt-0.5 text-zinc-500 dark:text-zinc-500">
                     {masterwork
-                      ? `★ ${masterwork.qualityChancePct}% · 상한 ${GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}%`
-                      : "명장 각인/상한 확장"}
+                      ? masterwork.plus2Unlocked
+                        ? `★ 확정 · ★★ ${GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT}%`
+                        : "★ 확정 · ★★ Lv9 해금"
+                      : "명장 각인/★ 확정"}
                   </div>
                 </div>
               </div>

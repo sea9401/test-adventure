@@ -317,14 +317,14 @@ describe("guild workshop recipes", () => {
     ).toBe(25);
   });
 
-  it("raises crafted quality chance cap for masterwork mode", () => {
+  it("guarantees +1 crafted quality chance for masterwork mode", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
     const artisan = { blacksmith: { xp: 12500, crafts: 200 } };
     const bonus = guildWorkshopBonusFromTotalCrafts(600);
     expect(guildWorkshopQualityChancePct(artisan, recipe, bonus)).toBe(25);
     expect(
       guildWorkshopQualityChancePct(artisan, recipe, bonus, "masterwork"),
-    ).toBe(45);
+    ).toBe(100);
   });
 
   it("exposes masterwork craft costs and gates in recipe views", () => {
@@ -429,6 +429,22 @@ describe("guild workshop recipes", () => {
     ).toEqual({
       level: 2,
       bonusPct: 10,
+    });
+  });
+
+  it("guarantees +1 crafted quality in masterwork mode even on failed +2 roll", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    expect(
+      rollGuildWorkshopEnhance(
+        { blacksmith: { xp: 12500, crafts: 200 } },
+        recipe,
+        () => 0.99,
+        0,
+        "masterwork",
+      ),
+    ).toEqual({
+      level: 1,
+      bonusPct: 5,
     });
   });
 

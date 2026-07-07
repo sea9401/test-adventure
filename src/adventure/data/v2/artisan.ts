@@ -107,7 +107,7 @@ export const BLACKSMITH_ARTISAN_JOBS: readonly ArtisanJobDefinition[] = [
     tier: 3,
     name: "명장 대장장이",
     requiredLevel: BLACKSMITH_MASTERWORK_LEVEL,
-    role: "명장 제작, +2 품질, 명장 납품 가치",
+    role: "명장 제작, ★ 확정, 명장 납품 가치",
     unlockText: `대장장이 Lv ${BLACKSMITH_MASTERWORK_LEVEL}`,
   },
 ];
@@ -180,7 +180,7 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     level: BLACKSMITH_MASTERWORK_LEVEL,
     kind: "craftMode",
     name: "명장 제작",
-    description: "비용을 더 들여 품질 확률 상한과 명장 제작품 표식 획득",
+    description: "비용을 더 들여 ★ 이상 품질과 명장 제작품 표식 획득",
     implemented: true,
   },
   {
@@ -190,7 +190,7 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     level: BLACKSMITH_PLUS2_QUALITY_LEVEL,
     kind: "passive",
     name: "고품질 단조",
-    description: "명장 제작 시 낮은 확률로 +2 품질 제작품 생산",
+    description: "명장 제작 시 확률로 ★★ 품질 제작품 생산",
     implemented: true,
   },
   {
@@ -244,7 +244,7 @@ export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
   {
     level: 8,
     title: "명장 제작",
-    description: "제작 품질 확률 상한 상승 및 명장 제작품 표식",
+    description: "★ 이상 품질 확정 및 명장 제작품 표식",
   },
   {
     level: 9,

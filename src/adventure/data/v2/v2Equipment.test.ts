@@ -251,6 +251,22 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
+  it("NPC 판매 기준가는 후반 티어만 압축하고 T1 구매가는 유지", () => {
+    const starter = V2_EQUIPMENT.v2_iron_sword;
+    expect(shopPriceOf(starter)).toBe(450);
+    expect(shopPriceForSell(starter)).toBe(450);
+    expect(sellPriceOf(starter)).toBe(22);
+
+    const endgameWeapon = V2_EQUIPMENT.v2_plateau_greatsword;
+    const endgameArmor = V2_EQUIPMENT.v2_plateau_bone_armor;
+    const endgameRing = V2_EQUIPMENT.v2_plateau_cairn_ring;
+    expect(shopPriceOf(endgameWeapon)).toBeUndefined();
+    expect(shopPriceForSell(endgameWeapon)).toBe(22_420_167);
+    expect(sellPriceOf(endgameWeapon)).toBe(1_121_008);
+    expect(sellPriceOf(endgameArmor)).toBe(747_338);
+    expect(sellPriceOf(endgameRing)).toBe(373_669);
+  });
+
   it("제작 전용 장비는 상점 구매 불가지만 판매가는 가진다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
     expect(crafted.map((i) => i.id).sort()).toEqual([

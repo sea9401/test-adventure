@@ -38,6 +38,13 @@ import {
 import {
   TITLES,
 } from "@/adventure/data/titles";
+import {
+  V2_BUILD_TAG_LABEL,
+  V2_EQUIPMENT_CODEX_BUILD_TAG_FILTERS,
+  buildTagsForEquipment,
+  equipmentHasBuildTag,
+  type V2BuildTagId,
+} from "@/adventure/data/v2/buildTags";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -104,29 +111,16 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
-type EquipmentBuildFilter =
-  | "all"
-  | "magic"
-  | "crit"
-  | "evasion"
-  | "speed"
-  | "tank"
-  | "heal"
-  | "signature"
-  | "set";
+type EquipmentBuildFilter = "all" | V2BuildTagId;
 const EQUIPMENT_BUILD_FILTERS: readonly {
   key: EquipmentBuildFilter;
   label: string;
 }[] = [
   { key: "all", label: "전체" },
-  { key: "magic", label: "마법" },
-  { key: "crit", label: "치명" },
-  { key: "evasion", label: "회피" },
-  { key: "speed", label: "속도" },
-  { key: "tank", label: "탱커" },
-  { key: "heal", label: "회복" },
-  { key: "signature", label: "시그니처" },
-  { key: "set", label: "세트" },
+  ...V2_EQUIPMENT_CODEX_BUILD_TAG_FILTERS.map((tag) => ({
+    key: tag,
+    label: V2_BUILD_TAG_LABEL[tag],
+  })),
 ];
 
 function compareEquipmentCodexCandidate(
@@ -151,75 +145,12 @@ function compareEquipmentCodexCandidate(
   return a.iid.localeCompare(b.iid);
 }
 
-function equipmentBuildTags(item: V2Equipment): string[] {
-  const tags = new Set<string>();
-  const options = item.options ?? {};
-  if (
-    item.concept === "int" ||
-    item.concept === "mana" ||
-    item.weaponType === "staff" ||
-    (options.mp ?? 0) > 0
-  ) {
-    tags.add("마법");
-  }
-  if ((options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0) {
-    tags.add("치명");
-  }
-  if ((options.eva ?? 0) > 0) tags.add("회피");
-  if ((options.spd ?? 0) > 0) tags.add("속도");
-  if (
-    item.concept === "heavy" ||
-    (options.hp ?? 0) > 0 ||
-    (options.def ?? 0) > 0 ||
-    (options.magicDef ?? 0) > 0 ||
-    (options.critResist ?? 0) > 0
-  ) {
-    tags.add("탱커");
-  }
-  if ((options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0) {
-    tags.add("회복");
-  }
-  if (item.signature) tags.add("시그니처");
-  if (item.setId || (item.setTags?.length ?? 0) > 0) tags.add("세트");
-  return [...tags];
-}
-
 function equipmentMatchesBuildFilter(
   item: V2Equipment,
   filter: EquipmentBuildFilter,
 ): boolean {
   if (filter === "all") return true;
-  const options = item.options ?? {};
-  switch (filter) {
-    case "magic":
-      return (
-        item.concept === "int" ||
-        item.concept === "mana" ||
-        item.weaponType === "staff" ||
-        (options.mp ?? 0) > 0
-      );
-    case "crit":
-      return (options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0;
-    case "evasion":
-      return (options.eva ?? 0) > 0;
-    case "speed":
-      return (options.spd ?? 0) > 0;
-    case "tank":
-      return (
-        item.concept === "heavy" ||
-        (options.hp ?? 0) > 0 ||
-        (options.def ?? 0) > 0 ||
-        (options.magicDef ?? 0) > 0 ||
-        (options.critResist ?? 0) > 0
-      );
-    case "heal":
-      return (options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0;
-    case "signature":
-      return Boolean(item.signature);
-    case "set":
-      return Boolean(item.setId || (item.setTags?.length ?? 0) > 0);
-  }
-  return true;
+  return equipmentHasBuildTag(item, filter);
 }
 
 function parseEquipmentCraftRecord(raw: unknown): EquipmentCraftRecordView | null {
@@ -806,24 +737,24 @@ export function CodexEquipmentPanel({
               ) : (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {equipmentSlotPager.pageItems.map((id) => {
-                  const item = V2_EQUIPMENT[id];
-                  const buildTags = equipmentBuildTags(item).slice(0, 4);
-                  const registered = equipmentRegisteredIds.has(id);
-                  const ownedCount = equipmentCounts.owned.get(id) ?? 0;
-                  const eligible = equipmentCounts.eligible.get(id) ?? [];
-                  const inst = eligible[0] ?? null;
-                  const craftRecord = equipmentCraftRecords[id];
-                  const disabled =
-                    registered || !inst || equipmentCodexBusy !== null;
-                  const buttonLabel = registered
-                    ? "등록됨"
-                    : inst
-                      ? "등록"
-                      : ownedCount > 0
-                        ? "장착·잠금"
-                        : "보유 없음";
-                  const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
-                  return (
+                    const item = V2_EQUIPMENT[id];
+                    const buildTags = buildTagsForEquipment(item).slice(0, 4);
+                    const registered = equipmentRegisteredIds.has(id);
+                    const ownedCount = equipmentCounts.owned.get(id) ?? 0;
+                    const eligible = equipmentCounts.eligible.get(id) ?? [];
+                    const inst = eligible[0] ?? null;
+                    const craftRecord = equipmentCraftRecords[id];
+                    const disabled =
+                      registered || !inst || equipmentCodexBusy !== null;
+                    const buttonLabel = registered
+                      ? "등록됨"
+                      : inst
+                        ? "등록"
+                        : ownedCount > 0
+                          ? "장착·잠금"
+                          : "보유 없음";
+                    const { Icon, color } = EQUIPMENT_SLOT_ICON[item.slot];
+                    return (
                     <div
                       key={id}
                       className={`ui-codex-card ui-lift-card relative flex min-h-[7.25rem] flex-col gap-1 p-3 text-left transition ${
@@ -871,7 +802,7 @@ export function CodexEquipmentPanel({
                                 key={tag}
                                 className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
                               >
-                                {tag}
+                                {V2_BUILD_TAG_LABEL[tag]}
                               </span>
                             ))}
                           </div>

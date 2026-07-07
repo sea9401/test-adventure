@@ -36,6 +36,7 @@ import {
   normalizeSkillEnhancements,
   type V2SkillEnhancements,
 } from "./skillRitual";
+import type { V2BuildTagId } from "./buildTags";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 
@@ -367,6 +368,8 @@ export type V2SkillDefinition = {
     requiredSkillIds?: readonly V2SkillId[];
     effects: readonly V2SkillEffect[];
   }[];
+  /** PoB식 빌드 탐색 태그. 생략 시 스탯·효과·패시브 기반 태그를 자동 추론한다. */
+  buildTags?: readonly V2BuildTagId[];
   /** 속성 장착 시너지 — 특정 패시브를 함께 장착하면 현재 캐릭터 속성의 효과 배열을 강화판으로 교체한다. */
   elementEffectSynergies?: readonly {
     requiredSkillId: V2SkillId;

@@ -8,7 +8,7 @@ import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
-// 좌측: 현재 거점 위치 (없으면 "이동 중") — 클릭 시 모험 탭(/)으로 이동.
+// 좌측: 게임 허브명 — 클릭 시 모험 탭(/)으로 이동.
 // 우측: 알림(미읽음 뱃지 → /notifications)·채팅·설정.
 
 export function V2TopBar({
@@ -19,7 +19,7 @@ export function V2TopBar({
   bankedGold,
   coreLoopOn,
 }: {
-  // 현재 서 있는 위치 라벨(거점명/마을명/빈 땅 좌표). 없으면 "이동 중".
+  // 현재 표시할 허브명. 없으면 기본 문구.
   locationName: string | null;
   gameName: string | null;
   playerName: string;

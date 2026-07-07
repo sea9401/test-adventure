@@ -9,8 +9,6 @@ import {
   CaretDown,
   CastleTurret,
   Compass,
-  CompassRose,
-  Crosshair,
   Fish,
   FirstAid,
   Hammer,
@@ -22,7 +20,6 @@ import {
   Sword,
   Trophy,
   UserCircle,
-  Wall,
   type Icon,
 } from "@phosphor-icons/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -39,7 +36,6 @@ type SubItem = {
   href: string;
   Icon: Icon;
   color: string;
-  requiresDungeonEntrance?: boolean;
 };
 type TabDef = { key: string; label: string; href: string; sub?: SubItem[] };
 
@@ -56,9 +52,6 @@ const TABS: TabDef[] = [
       { label: "아레나", href: "/battle/arena", Icon: Trophy, color: "text-amber-500" },
       { label: "훈련장", href: "/battle/sparring", Icon: Barbell, color: "text-sky-500" },
       { label: "숙련의 탑", href: "/battle/mastery-tower", Icon: CastleTurret, color: "text-emerald-500" },
-      { label: "토벌", href: "/battle/subjugation", Icon: Crosshair, color: "text-orange-500" },
-      { label: "던전 입장", href: "/battle/grid-dungeon", Icon: Wall, color: "text-amber-500", requiresDungeonEntrance: true },
-      { label: "지도", href: "/map", Icon: CompassRose, color: "text-emerald-500" },
     ],
   },
   {
@@ -93,12 +86,10 @@ const TABS: TabDef[] = [
 export function MainTabNav({
   activeKey,
   onNavigate,
-  showGridDungeonEntry = false,
 }: {
   // 현재 활성 탭 key(경로 파생). TABS 에 없는 값(예: plaza)이면 아무 탭도 강조 안 함.
   activeKey: string;
   onNavigate: (href: string) => void;
-  showGridDungeonEntry?: boolean;
 }) {
   // 열린 드롭다운 탭 key — 한 번에 하나만. null=닫힘.
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -106,10 +97,7 @@ export function MainTabNav({
   const close = () => setOpenKey(null);
 
   const openTab = TABS.find((t) => t.key === openKey && t.sub);
-  const openSubItems =
-    openTab?.sub?.filter(
-      (s) => !s.requiresDungeonEntrance || showGridDungeonEntry,
-    ) ?? [];
+  const openSubItems = openTab?.sub ?? [];
 
   return (
     <nav className="relative mx-auto w-full max-w-[720px]" aria-label="메인 메뉴">

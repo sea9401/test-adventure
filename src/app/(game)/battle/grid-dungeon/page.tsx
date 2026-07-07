@@ -9,7 +9,7 @@ export default function GridDungeonPage() {
   const { refreshGameState } = useGameState();
   return (
     <V2GridDungeonView
-      onBackToMap={() => router.push("/map")}
+      onBackToMap={() => router.push("/battle")}
       onRefreshGameState={refreshGameState}
     />
   );

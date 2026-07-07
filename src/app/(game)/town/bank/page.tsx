@@ -5,7 +5,6 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { BankPanel } from "@/adventure/v2/BankPanel";
 
 // /town/bank — 마을 탭 은행. 골드 입금/출금(패배 페널티 완충용 저축).
-// 안전 위치 게이트는 서버(/api/v2/me/bank)가 unsafe_location 으로 최종 판정.
 export default function TownBankPage() {
   const router = useRouter();
   return (
@@ -13,9 +12,7 @@ export default function TownBankPage() {
       <SubViewHeader title="은행" onBack={() => router.push("/town")} />
       <BankPanel />
       <p className="px-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-        은행에 맡긴 골드는 사냥 패배 페널티로 사라지지 않습니다. 남의 영지에서
-        토벌당하면 은행 잔액 일부도 압류될 수 있습니다. 다른 길드가 점령한
-        거점에서는 입출금할 수 없습니다.
+        은행에 맡긴 골드는 사냥 패배 페널티로 사라지지 않습니다.
       </p>
     </main>
   );

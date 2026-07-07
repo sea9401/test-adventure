@@ -6,14 +6,12 @@ import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { StatBar } from "@/components/ui/StatBar";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
-import type { WarVigor } from "@/adventure/data/v2/warVigor";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 
-// v2 치료소 — 만피 회복(무료, 전쟁 건강도 회복 통합) + HP/MP 충전약 구매.
-// 옛 V2ShopView 의 충전 섹션 + 옛 WarVigorCard 의 건강도 회복이 여기로 통합 — 상점은 장비만 취급.
+// v2 치료소 — 만피 회복(무료) + HP/MP 충전약 구매.
+// 옛 V2ShopView 의 충전 섹션을 이관 — 상점은 장비만 취급.
 
 type StateResponse = {
   ok?: boolean;
@@ -45,8 +43,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [bankedGold, setBankedGold] = useState(0);
   const [hpCharges, setHpCharges] = useState<number | null>(null);
   const [mpCharges, setMpCharges] = useState<number | null>(null);
-  // 전쟁 건강도(war vigor) — 정착지 전쟁 플래그 ON 일 때만 표시·회복. 저장값(회복 미적용) 기준.
-  const [warVigor, setWarVigor] = useState<WarVigor | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -80,17 +76,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         : null;
       setHpCharges(invJ?.hpCharges ?? 0);
       setMpCharges(invJ?.mpCharges ?? 0);
-      // 건강도는 표시용으로 현재 저장값(회복 미적용)을 읽는다. 플래그 off 면 404 → 미표시.
-      if (V2_SETTLEMENT_WARFARE) {
-        const vRes = await fetch("/api/v2/me/war-vigor/recover");
-        const vJ = vRes.ok
-          ? ((await vRes.json().catch(() => null)) as {
-              ok?: boolean;
-              warVigor?: WarVigor;
-            } | null)
-          : null;
-        if (vJ?.ok && vJ.warVigor) setWarVigor(vJ.warVigor);
-      }
     } catch {
       setLoadError(true);
     }
@@ -115,14 +100,12 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         gold?: number;
         bankedGold?: number;
         cost?: number;
-        warVigor?: WarVigor;
         error?: string;
       } | null;
       if (!j?.ok) {
         setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
-      if (j.warVigor) setWarVigor(j.warVigor);
       if (typeof j.hp === "number") setHp(j.hp);
       if (typeof j.maxHp === "number") setMaxHp(j.maxHp);
       if (typeof j.mp === "number") setMp(j.mp);
@@ -205,14 +188,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const hpFull = hp != null && maxHp != null && hp >= maxHp;
   const mpFull = mp != null && maxMp != null && mp >= maxMp;
   const isFull = hpFull && mpFull;
-  // 건강도 만충 여부 — 미로드(null) 또는 플래그 off 면 게이트에서 제외(HP/MP 기준만).
-  const vigorFull =
-    !V2_SETTLEMENT_WARFARE ||
-    warVigor == null ||
-    (warVigor.hp >= 1 && warVigor.mp >= 1);
-  // HP/MP·건강도 모두 만충일 때만 "이미 가득". 건강도만 미달이어도 회복 가능.
-  const allFull = isFull && vigorFull;
-  const vigorPct = (x: number) => Math.round(Math.max(0, Math.min(1, x)) * 100);
+  const allFull = isFull;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
@@ -235,30 +211,15 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
               <div className="min-w-0 flex-1">
                 <StatBar label="HP" value={hp} max={maxHp} color="bg-red-500" />
               </div>
-              {warVigor && (
-                <span className="shrink-0 text-xs tabular-nums text-amber-600 dark:text-amber-400">
-                  건강도 {vigorPct(warVigor.hp)}%
-                </span>
-              )}
             </div>
             {maxMp != null && maxMp > 0 && mp != null && (
               <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
                 </div>
-                {warVigor && (
-                  <span className="shrink-0 text-xs tabular-nums text-amber-600 dark:text-amber-400">
-                    건강도 {vigorPct(warVigor.mp)}%
-                  </span>
-                )}
               </div>
             )}
           </div>
-        )}
-        {warVigor && (
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-            건강도(전쟁 전용)는 약탈·정복 전투에 쓰이며, 회복할 때 시간 누적분만큼 함께 차오릅니다.
-          </p>
         )}
         <button
           type="button"

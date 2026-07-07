@@ -18,6 +18,7 @@ import {
   SLOT_UNLOCK_GOLD_STEP,
   UPGRADE_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  explorationHqUpgradeForLevel,
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
@@ -57,6 +58,24 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       trainingRewardBonusPct: 50,
       unlockedDrillCount: 3,
     });
+  });
+
+  it("탐사 본부는 배치 가능 건물이며 Lv5에서 주간 탐사 3건과 진척 +35%를 연다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("exploration_hq");
+    expect(nextSettlementBuildingUpgrade("exploration_hq", 1)).toMatchObject({
+      level: 2,
+      missionProgressBonusPct: 10,
+    });
+    expect(explorationHqUpgradeForLevel(5)).toMatchObject({
+      weeklyMissionCount: 3,
+      missionProgressBonusPct: 35,
+    });
+    expect(
+      settlementBuildingUpgradeSummary(
+        "exploration_hq",
+        explorationHqUpgradeForLevel(5),
+      ),
+    ).toBe("주간 탐사 3건 · 진척 +35%");
   });
 
   it("지도 제작소는 임시 비활성화되어 신규 배치 목록에서 제외된다", () => {

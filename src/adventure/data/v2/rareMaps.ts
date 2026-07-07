@@ -125,7 +125,7 @@ export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
     "secret_shop_map",
     "비밀 상점 초대장",
     "뒷골목 상인의 초대장. 아무에게나 팔지 않는 물건을 살 수 있다 (품목당 1회 구매).",
-    { uses: 6, dropPct: 0.012 },
+    { uses: 6, dropPct: 0.006 },
   ),
   rename_map: utilityKind(
     "rename_map",

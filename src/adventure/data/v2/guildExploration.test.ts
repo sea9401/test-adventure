@@ -22,7 +22,7 @@ describe("guild exploration weekly missions", () => {
       goal: 30,
       minCoopTier: "epic",
       rewardGold: 5_000_000,
-      rewardFame: 1_500,
+      rewardFame: 300,
     });
   });
 

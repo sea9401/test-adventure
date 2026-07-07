@@ -49,7 +49,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     goal: GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
     minCoopTier: GUILD_EXPLORATION_COOP_MIN_TIER,
     rewardGold: 5_000_000,
-    rewardFame: 1_500,
+    rewardFame: 300,
   },
 };
 

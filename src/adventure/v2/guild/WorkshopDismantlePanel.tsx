@@ -164,7 +164,7 @@ export function WorkshopDismantlePanel({
   }
 
   return (
-    <div className="ui-workshop-card ui-smithy-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card ui-smithy-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -193,7 +193,7 @@ export function WorkshopDismantlePanel({
           장착 중인 장비, 잠금 장비, T4 미만 장비
         </div>
       </div>
-      <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+      <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
         보유 제작 재료 ·{" "}
         {GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
           const mat = GUILD_WORKSHOP_MATERIALS[id];
@@ -204,13 +204,13 @@ export function WorkshopDismantlePanel({
           return `${mat.name} ${amount.toLocaleString()}`;
         }).join(" · ")}
       </div>
-      <div className="mb-2 grid gap-1.5 rounded border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-900 sm:grid-cols-3">
+      <div className="mb-2 grid gap-1.5 rounded border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-700 dark:bg-zinc-900 sm:grid-cols-3">
         <select
           value={dismantleScopeFilter}
           onChange={(e) =>
             setDismantleScopeFilter(e.target.value as DismantleScopeFilter)
           }
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="can">해체 가능만</option>
           <option value="plain">일반 품질만</option>
@@ -224,7 +224,7 @@ export function WorkshopDismantlePanel({
           onChange={(e) =>
             setDismantleTierFilter(e.target.value as DismantleTierFilter)
           }
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="all">모든 티어</option>
           <option value="t4">2T 초입</option>
@@ -235,7 +235,7 @@ export function WorkshopDismantlePanel({
         <select
           value={dismantleSort}
           onChange={(e) => setDismantleSort(e.target.value as DismantleSortMode)}
-          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="tier">티어 높은순</option>
           <option value="reward">회수량 많은순</option>
@@ -253,12 +253,12 @@ export function WorkshopDismantlePanel({
         </span>
       </div>
       {dismantleMessage ? (
-        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {dismantleMessage}
         </div>
       ) : null}
       {dismantleResult ? (
-        <div className="mb-2 overflow-hidden rounded border border-rose-200 bg-white text-xs dark:border-rose-900 dark:bg-zinc-950">
+        <div className="mb-2 overflow-hidden rounded border border-rose-200 bg-white text-xs dark:border-rose-900 dark:bg-zinc-900">
           <div className="border-b border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-900 dark:bg-rose-950/30">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold text-rose-950 dark:text-rose-100">
@@ -297,7 +297,7 @@ export function WorkshopDismantlePanel({
           return (
             <div
               key={item.iid}
-              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900 ${
                 item.canDismantle ? "ui-codex-card is-ready" : ""
               }`}
             >

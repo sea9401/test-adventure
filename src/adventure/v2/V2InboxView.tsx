@@ -414,7 +414,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
       />
 
       {/* 받은 우편 / 지난 우편(기록) / 보낸 우편 탭 */}
-      <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-700">
         <TabButton
           active={tab === "inbox"}
           onClick={() => switchTab("inbox")}
@@ -627,7 +627,7 @@ function MailDetailModal({
       <div
         ref={contentRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-2">
           <h2

@@ -292,7 +292,7 @@ export function V2CoopBossDetailView({
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                 내 명중률
               </div>
@@ -304,7 +304,7 @@ export function V2CoopBossDetailView({
                 보스 회피 {fmtPreviewNumber(detail.combatPreview.boss.evasion)}
               </div>
             </div>
-            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                 내 회피율
               </div>
@@ -316,7 +316,7 @@ export function V2CoopBossDetailView({
                 보스 명중 {fmtPreviewNumber(detail.combatPreview.boss.accuracy)}
               </div>
             </div>
-            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                 보스 공격
               </div>
@@ -327,7 +327,7 @@ export function V2CoopBossDetailView({
                 속도 {fmtPreviewNumber(detail.combatPreview.boss.effectiveSpd)}
               </div>
             </div>
-            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+            <div className="rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
               <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                 보스 방어
               </div>
@@ -414,7 +414,7 @@ export function V2CoopBossDetailView({
           <div
             role="dialog"
             aria-label="기여도 기준"
-            className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+            className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">

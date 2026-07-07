@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   Crown,
 } from "@phosphor-icons/react";
-import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
@@ -16,6 +15,8 @@ import {
 // 모험의 서 — 칭호 탭(V2CodexView 에서 분리, 2026-07). 보유/장착 데이터는 부모의
 // /me/state fetch 가 권위라 controlled prop 으로 받고, 장착 mutation(낙관적 갱신)만 소유.
 const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
+const TITLE_CARD_SURFACE =
+  "rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 export function CodexTitlePanel({
   ownedTitleIds,
@@ -72,7 +73,7 @@ export function CodexTitlePanel({
           />
         ) : (
           <div className={`${CODEX_PANEL_SURFACE} space-y-4`}>
-            <Card padding="sm">
+            <div className={TITLE_CARD_SURFACE}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -95,7 +96,7 @@ export function CodexTitlePanel({
                   </button>
                 )}
               </div>
-            </Card>
+            </div>
             {TITLE_CATEGORY_ORDER.filter(
               (cat) => (ownedTitlesByCategory[cat.id]?.length ?? 0) > 0,
             ).map((cat) => (
@@ -115,7 +116,7 @@ export function CodexTitlePanel({
                         onClick={() => equipTitle(isEquipped ? null : id)}
                         className={`rounded-lg border p-3 text-left transition disabled:opacity-60 ${
                           isEquipped
-                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-amber-900/20"
+                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-amber-900"
                             : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                         }`}
                       >

@@ -386,7 +386,7 @@ export function BulletinBoardView() {
           {Array.from({ length: 6 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950/60"
+              className="rounded-lg border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60"
             >
               <Skeleton rows={2} />
             </li>

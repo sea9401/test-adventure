@@ -600,7 +600,7 @@ export function craftResultTone(result: CraftResultView): {
   if (result.craftQualityLevel >= 2) {
     return {
       frame:
-        "border-rose-300 bg-white dark:border-rose-800 dark:bg-zinc-950",
+        "border-rose-300 bg-white dark:border-rose-800 dark:bg-zinc-900",
       header:
         "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40",
       title: "text-rose-950 dark:text-rose-100",
@@ -609,15 +609,15 @@ export function craftResultTone(result: CraftResultView): {
   if (result.craftQualityLevel >= 1 || result.masterwork) {
     return {
       frame:
-        "border-amber-300 bg-white dark:border-amber-800 dark:bg-zinc-950",
+        "border-amber-300 bg-white dark:border-amber-800 dark:bg-zinc-900",
       header:
         "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40",
       title: "text-amber-950 dark:text-amber-100",
     };
   }
   return {
-    frame: "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
-    header: "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
+    frame: "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900",
+    header: "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900",
     title: "text-zinc-950 dark:text-zinc-100",
   };
 }
@@ -641,7 +641,7 @@ export function recipeInfoPillClass(ok: boolean | null = null): string {
   if (ok === false) {
     return "border-zinc-300 bg-zinc-100 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400";
   }
-  return "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300";
+  return "border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300";
 }
 
 export function recipeCanPayText(recipe: WorkshopRecipeView): string {

@@ -30,7 +30,7 @@ function PostListRowImpl({ post, onOpen }: Props) {
       <button
         type="button"
         onClick={() => onOpen(post.id)}
-        className="flex w-full min-h-[44px] flex-col gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/60 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+        className="flex w-full min-h-[44px] flex-col gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
       >
         <div className="flex min-w-0 items-center gap-2">
           <span

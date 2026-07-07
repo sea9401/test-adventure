@@ -142,7 +142,7 @@ export function V2ItemCard({
         role="dialog"
         aria-label={`${item.name} 정보`}
         style={{ position: "fixed", width, left, ...pos }}
-        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
@@ -246,13 +246,13 @@ export function V2ItemCard({
 
         {/* 단품 마퀴 시그니처(세트 아닌 고유 아이템의 발동형 효과) — 장착만 하면 발동. */}
         {item.signature && (
-          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-800 dark:text-amber-400">
+          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-700 dark:text-amber-400">
             ★ {signatureLabel(item.signature)}
           </div>
         )}
 
         {set && (
-          <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+          <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
             <div className="flex items-baseline justify-between gap-2 text-xs">
               {/* 세트명·보너스 — 발동(전 부위 착용) 시 amber, 미발동 시 회색으로 상태 인지. */}
               <span
@@ -337,7 +337,7 @@ export function V2ItemCard({
           return (
             <div
               key={tagSet.id}
-              className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800"
+              className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700"
             >
               <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
                 {tagSet.name} 세트
@@ -367,7 +367,7 @@ export function V2ItemCard({
         })}
 
         {item.description && (
-          <p className="mt-2 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <p className="mt-2 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             {item.description}
           </p>
         )}

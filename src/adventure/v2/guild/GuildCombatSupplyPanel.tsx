@@ -108,8 +108,8 @@ export function GuildCombatSupplySummary() {
   const supplies = data?.supplies ?? [];
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-white text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
+    <div className="rounded-md border border-zinc-200 bg-white text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex items-center justify-between gap-3 border-b border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
         <div>
           <h2 className="text-sm font-semibold">길드 버프</h2>
         </div>
@@ -133,7 +133,7 @@ export function GuildCombatSupplySummary() {
             return (
               <div
                 key={supply.id}
-                className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
@@ -202,7 +202,7 @@ export function GuildCombatSupplyPanel() {
 
   if (loading && !data) {
     return (
-      <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+      <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
         불러오는 중…
       </div>
     );
@@ -210,8 +210,8 @@ export function GuildCombatSupplyPanel() {
 
   return (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold">길드 연구</h2>
@@ -223,7 +223,7 @@ export function GuildCombatSupplyPanel() {
               <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 font-medium tabular-nums text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-300">
                 사용 가능 {(data?.fameAvailable ?? 0).toLocaleString()}
               </span>
-              <span className="rounded-md border border-zinc-200 bg-white px-2 py-1 tabular-nums text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400">
+              <span className="rounded-md border border-zinc-200 bg-white px-2 py-1 tabular-nums text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
                 누적 {(data?.fameTotal ?? 0).toLocaleString()}
               </span>
             </div>
@@ -298,7 +298,7 @@ export function GuildCombatSupplyPanel() {
       </div>
 
       {message && (
-        <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300">
+        <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {message}
         </div>
       )}

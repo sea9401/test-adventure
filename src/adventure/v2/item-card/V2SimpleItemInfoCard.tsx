@@ -58,7 +58,7 @@ export function V2SimpleItemInfoCard({
         role="dialog"
         aria-label={`${title} 정보`}
         style={{ position: "fixed", width, left, ...pos }}
-        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -100,7 +100,7 @@ export function V2SimpleItemInfoCard({
         ) : null}
 
         {description ? (
-          <p className="mt-3 border-t border-zinc-200 pt-3 text-xs leading-relaxed text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+          <p className="mt-3 border-t border-zinc-200 pt-3 text-xs leading-relaxed text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
             {description}
           </p>
         ) : null}

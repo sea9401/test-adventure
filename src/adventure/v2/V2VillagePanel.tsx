@@ -227,7 +227,7 @@ export function V2VillagePanel({
 
   if (exists === null) {
     return (
-      <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+      <section className="rounded-md border border-zinc-200 bg-white p-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
         마을 정보 불러오는 중…
       </section>
     );
@@ -259,7 +259,7 @@ export function V2VillagePanel({
             return (
               <div
                 key={slot}
-                className={`${base} border-dashed border-zinc-200 bg-zinc-50 text-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-700`}
+                className={`${base} border-dashed border-zinc-200 bg-zinc-50 text-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-700`}
                 title="다음 단계로 업그레이드하면 열 수 있어요"
               >
                 <span className="text-xs leading-none">·</span>
@@ -297,7 +297,7 @@ export function V2VillagePanel({
             <div
               key={slot}
               title="비어 있는 건축물 슬롯"
-              className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500`}
+              className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500`}
             >
               <span className="text-base leading-none opacity-60">🏗️</span>
               <span className="mt-0.5 text-[10px]">빈 부지</span>
@@ -628,7 +628,7 @@ export function V2VillagePanel({
           </div>
 
           {village!.unlockedSlots > 0 && (
-            <div className="space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+            <div className="space-y-1.5 border-t border-zinc-200 pt-2 dark:border-zinc-700">
               <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
                 건축물 배치
               </div>
@@ -649,7 +649,7 @@ export function V2VillagePanel({
                 return (
                   <div
                     key={id}
-                    className="rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"
+                    className="rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                   >
                     <button
                       type="button"
@@ -676,7 +676,7 @@ export function V2VillagePanel({
                       </span>
                     </button>
                     {placed?.id === id ? (
-                      <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                      <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
                         {nextUpgrade ? (
                           <>
                             <div className="flex items-center justify-between gap-2">
@@ -722,7 +722,7 @@ export function V2VillagePanel({
                               void act("building/discard", { slot: 0 });
                             }
                           }}
-                          className="mt-2 w-full rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-900 dark:bg-zinc-950 dark:text-rose-300 dark:hover:bg-rose-950/30"
+                          className="mt-2 w-full rounded-md border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-rose-900 dark:bg-zinc-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
                         >
                           {def.name} 폐기
                         </button>
@@ -736,7 +736,7 @@ export function V2VillagePanel({
 
           {/* 단계 업그레이드 */}
           {next && (
-            <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+            <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-700">
               <button
                 type="button"
                 disabled={busy || !canManageActions || !canAffordUpgrade}

@@ -106,7 +106,7 @@ export function V2SparringView({
             return (
               <label
                 key={field}
-                className="block rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-950/40"
+                className="block rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-900/60"
               >
                 <span className="mb-1 block text-zinc-500 dark:text-zinc-400">
                   {limit.label}

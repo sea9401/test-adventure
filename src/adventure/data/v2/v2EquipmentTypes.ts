@@ -1,4 +1,5 @@
 import type { V2Element } from "@/adventure/data/v2/elements";
+import type { V2BuildTagId } from "./buildTags";
 
 // 6슬롯(2026-06): 무기 / 갑옷 / 장갑 / 신발 / 반지 / 목걸이.
 export type V2EquipSlot =
@@ -110,5 +111,7 @@ export type V2EquipmentBase<Id extends string = string> = {
   noDrop?: boolean;
   setId?: string;
   setTags?: readonly string[];
+  /** PoB식 빌드 탐색 태그. 생략 시 옵션·시그니처 기반 태그를 자동 추론한다. */
+  buildTags?: readonly V2BuildTagId[];
   signature?: SignatureEffect;
 };

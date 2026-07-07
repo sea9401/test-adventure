@@ -17,6 +17,7 @@
 // 티어 T1~T3. 3슬롯→6슬롯 확장(2026-06): 총량 중립(갑옷 유지·장갑/신발 소량def, 옛 장신구 분할).
 
 import type { V2Element } from "@/adventure/data/v2/elements";
+import type { V2BuildTagId } from "./buildTags";
 
 import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
 import {
@@ -201,6 +202,8 @@ export type V2Equipment = {
   setId?: string;
   /** 태그 세트 — 같은 태그 아이템 N개 장착 시 단계 보너스(V2_EQUIP_TAG_SETS). */
   setTags?: readonly string[];
+  /** PoB식 빌드 탐색 태그. 생략 시 옵션·시그니처 기반 태그를 자동 추론한다. */
+  buildTags?: readonly V2BuildTagId[];
   /** Phase 2 — 단품 발동형 시그니처 효과(마퀴 단품만; 세트 시그니처는 V2EquipSet.signature). */
   signature?: SignatureEffect;
 };
@@ -476,6 +479,8 @@ export type V2EquipSet = {
   bonus: Readonly<V2EquipOptions>;
   /** Phase 2 — 세트 완성 시 발동하는 시그니처 효과(없으면 스탯 보너스만). */
   signature?: SignatureEffect;
+  /** 세트 자체가 밀어주는 빌드 축. 개별 조각 태그와 별도로 문서/도감 확장용. */
+  buildTags?: readonly V2BuildTagId[];
 };
 
 export type V2EquipTagSet = {
@@ -485,7 +490,9 @@ export type V2EquipTagSet = {
     count: number;
     bonus: Readonly<V2EquipOptions>;
     signature?: SignatureEffect;
+    buildTags?: readonly V2BuildTagId[];
   }[];
+  buildTags?: readonly V2BuildTagId[];
 };
 
 export const V2_EQUIP_SETS: readonly V2EquipSet[] = [

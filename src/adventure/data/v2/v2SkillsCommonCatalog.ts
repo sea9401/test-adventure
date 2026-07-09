@@ -4,7 +4,7 @@
 // 데미지 = 플랫강화(스탯×~1.0 + 큰 flat) — 예측·off스탯 floor. 다단 = damage effect N개.
 // DoT/디버프는 통합 프리셋(V2_DOT_PRESETS/V2_DEBUFF_PRESETS) spread — 다이얼 일관.
 // procChance: 공격=30/40(저-proc·평타 위주, proc 가 게이트). 단, 마력탄은 마법 공격력 직군의
-//   일반 공격 대체라 100%. 유틸/힐/버프=100(조건이 게이트 — HP<50·MP<40·버프 비활성 등.
+//   기본 주문이라 100%지만 MP 를 소모한다. 유틸/힐/버프=100(조건이 게이트 — HP<50·MP<40·버프 비활성 등.
 //   2026-06-21 유저: 조건이 이미 throttle이라 proc 이중게이트 제거).
 // mpCost = 설계 문서값. cooldown 0.
 // 엔진 핸들러(shield/manaRestore/selfRegen/selfBuffPct/heal pctLostHp)는 PR2-B 배선.
@@ -34,7 +34,7 @@ export type V2CommonSkillId =
   | "v2c_mage_barrage" // 마력 탄막
   | "v2c_mage_shield" // 마나 보호막
   | "v2c_mage_meditate" // 명상
-  | "v2c_mage_boltcast" // 마력탄 (0코스트 마법 — 직업 킷 재설계)
+  | "v2c_mage_boltcast" // 마력탄 (기본 주문 — 직업 킷 재설계)
   // 도적 (예기 패시브 제외)
   | "v2c_rogue_poison" // 독침
   // 기본 직업 패시브 스킬(학습+SP 슬롯해야 효과 — 직업 킷 재설계)
@@ -224,7 +224,9 @@ export type V2CommonSkillId =
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
-  | "v2c_vajraarhat_body"; // 나한금신 (최대 HP + 받피감 + 반격)
+  | "v2c_vajraarhat_body" // 나한금신 (최대 HP + 받피감 + 반격)
+  | "v2c_eternal_cycle" // 영겁 순환 (지속 재생 + 활력 증폭)
+  | "v2c_eternal_body"; // 영겁의 육신 (최대 HP + 활력 + 받피감)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -289,18 +291,18 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ═══ 마법사 (INT · 마법) — 캐스터 (마력탄 등 마법 스킬로 마법 공격) ═══
   v2c_mage_fireball: {
     id: "v2c_mage_fireball", name: "화염구", stat: "int", category: "attack", tier: 1,
-    description: "불덩이를 던져 태운다.", mpCost: 38, cooldown: 0, procChance: 30,
-    effects: [dmg(1.0, 180, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }],
+    description: "불덩이를 던져 태운다.", mpCost: 38, fixedMpCost: 90, cooldown: 0, procChance: 30,
+    effects: [dmg(1.25, 260, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }],
   },
   v2c_mage_barrage: {
     id: "v2c_mage_barrage", name: "마력 탄막", stat: "int", category: "attack", tier: 1,
-    description: "마력탄을 세 발 쏜다.", mpCost: 32, cooldown: 0, procChance: 40,
-    effects: hits(3, 0.4, 40, "magic"),
+    description: "마력탄을 세 발 쏜다.", mpCost: 32, fixedMpCost: 70, cooldown: 0, procChance: 40,
+    effects: hits(3, 0.45, 55, "magic"),
   },
   v2c_mage_shield: {
     id: "v2c_mage_shield", name: "마나 보호막", stat: "int", category: "buff", tier: 2,
-    description: "마나로 보호막을 두른다. 마나가 클수록 두껍다.", mpCost: 42, cooldown: 0, procChance: 100,
-    effects: [{ kind: "shield", pctMaxHp: 10, pctMaxMp: 10, turns: 3 }],
+    description: "마나로 보호막을 두른다. 마나가 클수록 두껍다.", mpCost: 42, fixedMpCost: 105, cooldown: 0, procChance: 100,
+    effects: [{ kind: "shield", pctMaxHp: 12, pctMaxMp: 14, turns: 3 }],
   },
   v2c_mage_meditate: {
     id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 2,
@@ -319,7 +321,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 
   // ═══ 직업 킷 재설계 — 기본 직업 시그니처 액티브(2026-06-17) ═══
-  // 무인 하급 권법(단일 딜)·마법사 마력탄(0코스트 마법). 강타/연격/독침은 기존 재사용.
+  // 무인 하급 권법(단일 딜)·마법사 마력탄(기본 주문). 강타/연격/독침은 기존 재사용.
   v2c_martial_steelguard: {
     // 견습 무인 기본기 — 무인 재설계(2026-06-22): 옛 철포(받피감 버프)에서 단일 딜로 교체(철포는 수도승
     //   monk_palm 으로 이전). id 유지(세이브 호환). 강타급 단일타(1.0/140). PvE/PvP 공용.
@@ -329,8 +331,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
-    description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 100,
-    effects: [dmg(1.0, 120, "magic")],
+    description: "마력을 뭉쳐 쏜다.", mpCost: 30, fixedMpCost: 40, cooldown: 0, procChance: 100,
+    effects: [dmg(1.15, 150, "magic")],
   },
 
   // ═══ 기본 직업 패시브 스킬(2026-06-17) — 학습 + SP 슬롯해야 상시 효과(캐스트 아님) ═══
@@ -459,15 +461,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 마법사 갈래 ──
   v2c_caster_bolt: {
     id: "v2c_caster_bolt", name: "마탄", stat: "int", category: "attack", tier: 2,
-    description: "응축한 마력탄을 쏘아 박는다.", mpCost: 40, cooldown: 0, procChance: 30,
-    effects: [dmg(1.2, 175, "magic")],
+    description: "응축한 마력탄을 쏘아 박는다.", mpCost: 40, fixedMpCost: 90, cooldown: 0, procChance: 30,
+    effects: [dmg(1.45, 240, "magic")],
   },
   v2c_acolyte_smite: {
     // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
     //   잃은 체력 비례를 낮추고 마법공격 계수를 붙여 극저HP 폭발 회복을 줄인다.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
-    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 4, statCoef: 0.35, baseFlatByTier: [30, 30, 30], scaling: "magic" }],
+    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, fixedMpCost: 75, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 6, statCoef: 0.45, baseFlatByTier: [50, 50, 50], scaling: "magic" }],
   },
   v2c_warder_barrier: {
     id: "v2c_warder_barrier", name: "결계", stat: "int", category: "buff", tier: 2,
@@ -705,8 +707,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_magus_bolt: {
     // 마도사 = 마법사(마탄) 위 갈래 — 마탄→마력 작렬 리스킨(id 유지·같은 "마탄" 이름 중복 해소).
     id: "v2c_magus_bolt", name: "마력 작렬", stat: "int", category: "attack", tier: 3,
-    description: "응축한 마력을 적 안에서 터뜨린다.", mpCost: 44, cooldown: 0, procChance: 30,
-    effects: [dmg(1.35, 210, "magic")],
+    description: "응축한 마력을 적 안에서 터뜨린다.", mpCost: 44, fixedMpCost: 115, cooldown: 0, procChance: 30,
+    effects: [dmg(1.65, 310, "magic")],
   },
   v2c_ranger_ambush: {
     // 궁사 = 궁술/민첩(dex) — 기습(암살 느낌)→연사 리스킨(id 유지·궁수 라인 테마 정합). 화살을
@@ -769,8 +771,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_shaman_hex: {
     // 주술사 = 마법사 계보의 저주 특화. 직접 피해는 마도사보다 낮지만 약화와 마법취약 패시브로 후속 피해를 키운다.
     id: "v2c_shaman_hex", name: "저주", stat: "int", category: "attack", tier: 3,
-    description: "불길한 주문으로 적을 옭아매고 약화시킨다.", mpCost: 42, cooldown: 0, procChance: 30,
-    effects: [dmg(1.15, 185, "magic"), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.약화 }],
+    description: "불길한 주문으로 적을 옭아매고 약화시킨다.", mpCost: 42, fixedMpCost: 105, cooldown: 0, procChance: 30,
+    effects: [dmg(1.35, 260, "magic"), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.약화 }],
   },
   v2c_warmonk_kick: {
     // 무승(warmonk)=vit/spi 빌드인데 액티브가 atk(str) 스케일이라 정체성 불일치(str 안 키움→딜 죽음).
@@ -782,8 +784,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
-    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 100,
-    effects: [{ kind: "heal", pctLostHp: 6, statCoef: 0.55, baseFlatByTier: [80, 80, 80], scaling: "magic" }],
+    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100,
+    effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "magic" }],
   },
   v2c_shadow_assassinate: {
     // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
@@ -892,9 +894,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   healPowerPct 와 시너지). 힐을 동반하므로 단일 강타(심판 1.3/230)보다 계수 낮춤. 엔진 기존
     //   효과만 사용(damage + heal 혼합 — resolveV2SkillCast 가 effects 순회 처리·신규 배선 0). PvE/PvP 공용.
     id: "v2c_templar_smite", name: "심판의 빛", stat: "str", category: "attack", tier: 3,
-    description: "성스러운 빛을 검에 실어 내리친다. 그 빛이 제 상처마저 어루만진다.", mpCost: 42, cooldown: 0, procChance: 30,
-    // 자힐 = 잃은 HP 의 10%(옛 20% 는 과해 하향, 오너 2026-06-22). 가호 healPowerPct 와 곱연산.
-    effects: [dmg(1.1, 190), { kind: "heal", pctLostHp: 10 }],
+    description: "성스러운 빛을 검에 실어 내리친다. 그 빛이 제 상처마저 어루만진다.", mpCost: 42, fixedMpCost: 90, cooldown: 0, procChance: 30,
+    // 자힐 = 잃은 HP 의 12%. 가호 healPowerPct 와 곱연산.
+    effects: [dmg(1.2, 220), { kind: "heal", pctLostHp: 12 }],
   },
   v2c_templar_aegis: {
     // 어느 단일 직업도 안 가진 조합(방어%+회복강화%) — 순회 수집 메리트. 탱(방어)과 자힐(가호) 결합.
@@ -910,8 +912,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   양쪽 딜이 산다(자연 throttle). 합 ~1.4/240 을 둘로 쪼갬 — 단일 3차 1타보다 단일축 의존 낮음.
     //   resolveV2SkillCast 가 effects 순회로 두 데미지 모두 처리(신규 배선 0). PvE/PvP 공용.
     id: "v2c_spellblade_strike", name: "마검 일섬", stat: "str", category: "attack", tier: 3,
-    description: "검에 마력을 휘감아 베는 순간, 물리와 마법이 한꺼번에 작렬한다.", mpCost: 44, cooldown: 0, procChance: 30,
-    effects: [dmg(0.7, 120), dmg(0.7, 120, "magic")],
+    description: "검에 마력을 휘감아 베는 순간, 물리와 마법이 한꺼번에 작렬한다.", mpCost: 44, fixedMpCost: 110, cooldown: 0, procChance: 30,
+    effects: [dmg(0.8, 150), dmg(0.8, 150, "magic")],
   },
   v2c_spellblade_unity: {
     // 검+마법 이중 공격축(힘%+지능%) — 어느 단일 직업도 안 가진 조합(순회 수집 메리트). 마검 일섬의
@@ -973,10 +975,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_crusader_judgment: {
     id: "v2c_crusader_judgment", name: "성전의 심판", stat: "str", category: "attack", tier: 3,
     description: "성전의 맹세를 담아 내리친다. 빛이 상처를 메우고 몸을 단단히 붙든다.",
-    mpCost: 46, cooldown: 0, procChance: 30,
+    mpCost: 46, fixedMpCost: 110, cooldown: 0, procChance: 30,
     effects: [
-      dmg(1.2, 230),
-      { kind: "heal", pctLostHp: 12 },
+      dmg(1.3, 270),
+      { kind: "heal", pctLostHp: 14 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 6, turns: 3 },
     ],
   },
@@ -990,10 +992,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_runeknight_carve: {
     id: "v2c_runeknight_carve", name: "룬 검격", stat: "str", category: "attack", tier: 3,
     description: "검로에 룬을 새겨 베는 순간, 물리와 마법의 균열을 동시에 터뜨린다.",
-    mpCost: 48, cooldown: 0, procChance: 30,
+    mpCost: 48, fixedMpCost: 120, cooldown: 0, procChance: 30,
     effects: [
-      dmg(0.85, 150),
-      dmg(0.85, 150, "magic"),
+      dmg(0.95, 190),
+      dmg(0.95, 190, "magic"),
       { kind: "enemyVuln", pct: 12, turns: 3 },
     ],
   },
@@ -1030,8 +1032,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_sage_bolt: {
     id: "v2c_sage_bolt", name: "마력 폭사", stat: "int", category: "attack", tier: 3,
-    description: "극대화한 마력을 터뜨린다.", mpCost: 46, cooldown: 0, procChance: 30,
-    effects: [dmg(1.45, 235, "magic")],
+    description: "극대화한 마력을 터뜨린다.", mpCost: 46, fixedMpCost: 130, cooldown: 0, procChance: 30,
+    effects: [dmg(1.85, 380, "magic")],
   },
   v2c_chief_strike: {
     // 신궁(도적 4차·궁수 라인 정점) = 암격(암살 느낌·str)→관통사 리스킨(id 유지). 궁술 테마로
@@ -1155,25 +1157,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   감소(흡혈 제외)·PvE 몹은 회복 드물어 주로 PvP. 무속성(폴백)=순수 마법 딜.
     id: "v2c_elementalist_magic", name: "속성 마법", stat: "int", category: "attack", tier: 3,
     description: "다스리는 원소를 끌어내 적에게 퍼붓는다. 속성에 따라 다른 권능이 깃든다.",
-    mpCost: 46, cooldown: 0, procChance: 30,
+    mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
     elementNamed: true,
-    effects: [dmg(1.3, 200, "magic")], // 무속성 폴백
+    effects: [dmg(1.55, 300, "magic")], // 무속성 폴백
     elementEffects: {
       fire: [
-        dmg(1.3, 200, "magic"),
+        dmg(1.55, 300, "magic"),
         { kind: "dot", ...V2_DOT_PRESETS.연소 },
         { kind: "enemyHealReduce", pct: 50, turns: 3 }, // 화상 — 적 회복 −50%(3턴)
       ],
-      water: [{ kind: "shield", pctMaxHp: 12, pctMaxMp: 0, turns: 3 }],
-      wind: [dmg(1.3, 200, "magic"), { kind: "selfHaste", pct: 50 }], // 바람 — 내 다음 행동 ms −50%
-      earth: [dmg(1.3, 200, "magic"), { kind: "enemyDelay", pct: 50 }], // 대지 — 적 다음 행동 ms +50%
-      lightning: [dmg(1.3, 200, "magic"), { kind: "enemyVuln", pct: 20, turns: 3 }],
+      water: [{ kind: "shield", pctMaxHp: 20, pctMaxMp: 0, turns: 3 }],
+      wind: [dmg(1.55, 300, "magic"), { kind: "selfHaste", pct: 50 }], // 바람 — 내 다음 행동 ms −50%
+      earth: [dmg(1.55, 300, "magic"), { kind: "enemyDelay", pct: 50 }], // 대지 — 적 다음 행동 ms +50%
+      lightning: [dmg(1.55, 300, "magic"), { kind: "enemyVuln", pct: 20, turns: 3 }],
       starlight: [
-        dmg(1.3, 200, "magic"),
+        dmg(1.55, 300, "magic"),
         { kind: "enemyEvasionDown", pct: 20, turns: 3 }, // 실명 — 적 회피↓
       ],
       void: [
-        dmg(1.3, 200, "magic"),
+        dmg(1.55, 300, "magic"),
         { kind: "enemyAccuracyDown", pct: 20, turns: 3 }, // 암흑 — 적 명중↓
       ],
     },
@@ -1191,9 +1193,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_archshaman_rite: {
     id: "v2c_archshaman_rite", name: "금단 의식", stat: "int", category: "attack", tier: 3,
     description: "금단의 의식으로 적의 혼을 찢는다. 누적된 마법취약이 많을수록 더 깊게 파고든다.",
-    mpCost: 46, cooldown: 0, procChance: 30,
+    mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 30,
     effects: [
-      dmg(1.25, 210, "magic"),
+      dmg(1.45, 300, "magic"),
       { kind: "stackPayoffDamage", tag: "magicVuln", statCoef: 0.28, baseFlatByTier: [120, 120, 120], perStackFlat: 36, scaling: "magic" },
     ],
   },
@@ -1207,9 +1209,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_calamitycaller_brand: {
     id: "v2c_calamitycaller_brand", name: "재앙의 낙인", stat: "int", category: "attack", tier: 3,
     description: "재앙의 낙인을 찍어 적의 힘과 주문 흐름을 함께 무너뜨린다.",
-    mpCost: 54, cooldown: 0, procChance: 32, learnCost: 8000,
+    mpCost: 54, fixedMpCost: 155, cooldown: 0, procChance: 32, learnCost: 8000,
     effects: [
-      dmg(1.45, 280, "magic"),
+      dmg(1.8, 420, "magic"),
       { kind: "enemyDamageDown", pct: 14, turns: 3 },
       { kind: "enemySkillProcDown", pct: 18, turns: 3 },
     ],
@@ -1224,9 +1226,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_archbishop_sanctuary: {
     id: "v2c_archbishop_sanctuary", name: "성역 선포", stat: "int", category: "heal", tier: 3,
     description: "성역을 펼쳐 상처를 조금 메우고 잠시 피해를 줄인다.",
-    mpCost: 46, cooldown: 0, procChance: 100,
+    mpCost: 46, fixedMpCost: 125, cooldown: 0, procChance: 100,
     effects: [
-      { kind: "heal", pctLostHp: 5, statCoef: 0.45, baseFlatByTier: [70, 70, 70], scaling: "magic" },
+      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "magic" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
@@ -1369,8 +1371,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_arcanist_burst: {
     id: "v2c_arcanist_burst", name: "비전 폭발", stat: "int", category: "attack", tier: 3,
     description: "응축한 마력을 폭발시켜 큰 마법 피해를 준다.",
-    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
-    effects: [dmg(1.7, 340, "magic")],
+    mpCost: 54, fixedMpCost: 170, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(2.2, 520, "magic")],
   },
   v2c_arcanist_theory: {
     id: "v2c_arcanist_theory", name: "비전 이론", stat: "int", category: "passive", tier: 3,
@@ -1382,27 +1384,27 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_elementallord_surge: {
     id: "v2c_elementallord_surge", name: "원소 폭주", stat: "int", category: "attack", tier: 3,
     description: "선택한 원소를 폭주시켜 강한 마법 피해와 속성별 권능을 함께 발현한다.",
-    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
-    effects: [dmg(1.65, 320, "magic")],
+    mpCost: 54, fixedMpCost: 165, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(2.05, 500, "magic")],
     elementEffects: {
       fire: [
-        dmg(1.65, 320, "magic"),
+        dmg(2.05, 500, "magic"),
         { kind: "dot", ...V2_DOT_PRESETS.연소 },
         { kind: "enemyHealReduce", pct: 55, turns: 3 },
       ],
       water: [
-        dmg(1.65, 320, "magic"),
+        dmg(2.05, 500, "magic"),
         { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
       ],
-      wind: [dmg(1.65, 320, "magic"), { kind: "selfHaste", pct: 55 }],
-      earth: [dmg(1.65, 320, "magic"), { kind: "enemyDelay", pct: 55 }],
-      lightning: [dmg(1.65, 320, "magic"), { kind: "enemyVuln", pct: 22, turns: 3 }],
+      wind: [dmg(2.05, 500, "magic"), { kind: "selfHaste", pct: 55 }],
+      earth: [dmg(2.05, 500, "magic"), { kind: "enemyDelay", pct: 55 }],
+      lightning: [dmg(2.05, 500, "magic"), { kind: "enemyVuln", pct: 22, turns: 3 }],
       starlight: [
-        dmg(1.65, 320, "magic"),
+        dmg(2.05, 500, "magic"),
         { kind: "enemyEvasionDown", pct: 24, turns: 3 },
       ],
       void: [
-        dmg(1.65, 320, "magic"),
+        dmg(2.05, 500, "magic"),
         { kind: "enemyAccuracyDown", pct: 24, turns: 3 },
       ],
     },
@@ -1411,23 +1413,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
         requiredSkillId: "v2c_elementallord_resonance",
         elementEffects: {
           fire: [
-            dmg(1.65, 320, "magic"),
+            dmg(2.05, 500, "magic"),
             { kind: "dot", ...V2_DOT_PRESETS.연소 },
             { kind: "enemyHealReduce", pct: 65, turns: 3 },
           ],
           water: [
-            dmg(1.65, 320, "magic"),
+            dmg(2.05, 500, "magic"),
             { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },
           ],
-          wind: [dmg(1.65, 320, "magic"), { kind: "selfHaste", pct: 65 }],
-          earth: [dmg(1.65, 320, "magic"), { kind: "enemyDelay", pct: 65 }],
-          lightning: [dmg(1.65, 320, "magic"), { kind: "enemyVuln", pct: 28, turns: 3 }],
+          wind: [dmg(2.05, 500, "magic"), { kind: "selfHaste", pct: 65 }],
+          earth: [dmg(2.05, 500, "magic"), { kind: "enemyDelay", pct: 65 }],
+          lightning: [dmg(2.05, 500, "magic"), { kind: "enemyVuln", pct: 28, turns: 3 }],
           starlight: [
-            dmg(1.65, 320, "magic"),
+            dmg(2.05, 500, "magic"),
             { kind: "enemyEvasionDown", pct: 30, turns: 3 },
           ],
           void: [
-            dmg(1.65, 320, "magic"),
+            dmg(2.05, 500, "magic"),
             { kind: "enemyAccuracyDown", pct: 30, turns: 3 },
           ],
         },
@@ -1444,8 +1446,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_inscriber_release: {
     id: "v2c_inscriber_release", name: "각인 해방", stat: "int", category: "attack", tier: 3,
     description: "마력에 새긴 각인을 해방한다. 장착한 문장 재료에 따라 추가 효과가 열린다.",
-    mpCost: 54, cooldown: 0, procChance: 30, learnCost: 8000,
-    effects: [dmg(1.45, 280, "magic")],
+    mpCost: 54, fixedMpCost: 150, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(1.75, 390, "magic")],
     equippedSynergies: [
       {
         requiredSkillId: "v2c_mage_acumen",
@@ -1523,9 +1525,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_saint_miracle: {
     id: "v2c_saint_miracle", name: "기적", stat: "int", category: "heal", tier: 3,
     description: "기적의 빛으로 상처를 메우고 잠시 몸을 보호한다.",
-    mpCost: 54, cooldown: 0, procChance: 100, learnCost: 8000,
+    mpCost: 54, fixedMpCost: 160, cooldown: 0, procChance: 100, learnCost: 8000,
     effects: [
-      { kind: "heal", pctLostHp: 6, statCoef: 0.6, baseFlatByTier: [90, 90, 90], scaling: "magic" },
+      { kind: "heal", pctLostHp: 9, statCoef: 0.8, baseFlatByTier: [140, 140, 140], scaling: "magic" },
       { kind: "shield", pctMaxHp: 10, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 10, turns: 3 },
     ],
@@ -1693,8 +1695,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_archmage_collapse: {
     id: "v2c_archmage_collapse", name: "비전 붕괴", stat: "int", category: "attack", tier: 3,
     description: "고도로 압축한 마력을 무너뜨려 순수한 마법 피해를 준다.",
-    mpCost: 58, cooldown: 0, procChance: 32, learnCost: 12000,
-    effects: [dmg(1.95, 430, "magic"), { kind: "enemyDelay", pct: 35 }],
+    mpCost: 58, fixedMpCost: 190, cooldown: 0, procChance: 32, learnCost: 12000,
+    effects: [dmg(2.45, 620, "magic"), { kind: "enemyDelay", pct: 35 }],
   },
   v2c_archmage_theory: {
     id: "v2c_archmage_theory", name: "대마도 이론", stat: "int", category: "passive", tier: 3,
@@ -1706,9 +1708,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,
     description: "구원의 빛을 심판으로 바꾸어 적을 태우고 빈틈을 드러낸다.",
-    mpCost: 80, cooldown: 0, procChance: 35, learnCost: 12000,
+    mpCost: 80, fixedMpCost: 185, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
-      { kind: "damage", statCoef: 1.85, baseFlat: 430, scaling: "magic" },
+      { kind: "damage", statCoef: 2.2, baseFlat: 560, scaling: "magic" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ],
   },
@@ -1722,9 +1724,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_doomprophet_sentence: {
     id: "v2c_doomprophet_sentence", name: "종말 선고", stat: "int", category: "attack", tier: 3,
     description: "종말을 예언해 적의 영혼을 침식시키고 쌓인 마법취약을 터뜨린다.",
-    mpCost: 84, cooldown: 0, procChance: 32, learnCost: 12000,
+    mpCost: 84, fixedMpCost: 190, cooldown: 0, procChance: 32, learnCost: 12000,
     effects: [
-      dmg(1.75, 420, "magic"),
+      dmg(2.1, 560, "magic"),
       { kind: "enemyDotVuln", pct: 24, turns: 3 },
       { kind: "stackPayoffDamage", tag: "magicVuln", statCoef: 0.42, baseFlatByTier: [220, 220, 220], perStackFlat: 58, scaling: "magic" },
     ],
@@ -1775,6 +1777,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { maxHpPct: 32, damageTakenReductionPct: 8, counterChancePct: 30 },
+  },
+  v2c_eternal_cycle: {
+    id: "v2c_eternal_cycle", name: "영겁 순환", stat: "vit", category: "buff", tier: 3,
+    description: "끊어지지 않는 생명의 순환을 열어, 행동마다 육신을 되살린다.",
+    mpCost: 64, cooldown: 0, procChance: 100, learnCost: 12000,
+    effects: [
+      { kind: "selfRegen", pctMaxHpPerTurn: 10, turns: 4 },
+      { kind: "selfBuff", stat: "vit", pct: 18, turns: 4 },
+    ],
+  },
+  v2c_eternal_body: {
+    id: "v2c_eternal_body", name: "영겁의 육신", stat: "vit", category: "passive", tier: 3,
+    description: "시간에 닳지 않는 육신. 체력의 그릇과 버티는 힘이 깊어진다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { maxHpPct: 34, statPct: { vit: 12 }, damageTakenReductionPct: 9 },
   },
 };
 

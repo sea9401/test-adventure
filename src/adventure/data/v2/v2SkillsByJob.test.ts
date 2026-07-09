@@ -393,7 +393,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnPctPerStack).toBe(8);
     expect(V2_SKILLS.v2c_archshaman_curse.passive?.enemyMagicVulnApplyChancePct).toBe(85);
     expect(V2_SKILLS.v2c_archbishop_sanctuary.effects).toEqual([
-      { kind: "heal", pctLostHp: 5, statCoef: 0.45, baseFlatByTier: [70, 70, 70], scaling: "magic" },
+      { kind: "heal", pctLostHp: 7, statCoef: 0.6, baseFlatByTier: [100, 100, 100], scaling: "magic" },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({
@@ -539,7 +539,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_elementallord_surge.category).toBe("attack");
     expect(V2_SKILLS.v2c_elementallord_surge.effects).toEqual([
-      { kind: "damage", statCoef: 1.65, baseFlat: 320, scaling: "magic" },
+      { kind: "damage", statCoef: 2.05, baseFlat: 500, scaling: "magic" },
     ]);
     expect(V2_SKILLS.v2c_elementallord_surge.elementEffects?.fire?.map((e) => e.kind)).toEqual([
       "damage",
@@ -547,7 +547,7 @@ describe("직업 킷 — 스킬셋", () => {
       "enemyHealReduce",
     ]);
     expect(V2_SKILLS.v2c_elementallord_surge.elementEffects?.water).toEqual([
-      { kind: "damage", statCoef: 1.65, baseFlat: 320, scaling: "magic" },
+      { kind: "damage", statCoef: 2.05, baseFlat: 500, scaling: "magic" },
       { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
     ]);
     expect(
@@ -559,7 +559,7 @@ describe("직업 킷 — 스킬셋", () => {
       V2_SKILLS.v2c_elementallord_surge.elementEffectSynergies?.[0].elementEffects
         .wind,
     ).toEqual([
-      { kind: "damage", statCoef: 1.65, baseFlat: 320, scaling: "magic" },
+      { kind: "damage", statCoef: 2.05, baseFlat: 500, scaling: "magic" },
       { kind: "selfHaste", pct: 65 },
     ]);
     expect(V2_SKILLS.v2c_elementallord_resonance.passive).toMatchObject({
@@ -567,7 +567,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_inscriber_release.category).toBe("attack");
     expect(V2_SKILLS.v2c_inscriber_release.effects).toEqual([
-      { kind: "damage", statCoef: 1.45, baseFlat: 280, scaling: "magic" },
+      { kind: "damage", statCoef: 1.75, baseFlat: 390, scaling: "magic" },
     ]);
     expect(
       V2_SKILLS.v2c_inscriber_release.equippedSynergies?.map((s) => ({
@@ -671,7 +671,7 @@ describe("직업 킷 — 스킬셋", () => {
       damageTakenReductionPct: 6,
     });
     expect(V2_SKILLS.v2c_calamitycaller_brand.effects).toEqual([
-      { kind: "damage", statCoef: 1.45, baseFlat: 280, scaling: "magic" },
+      { kind: "damage", statCoef: 1.8, baseFlat: 420, scaling: "magic" },
       { kind: "enemyDamageDown", pct: 14, turns: 3 },
       { kind: "enemySkillProcDown", pct: 18, turns: 3 },
     ]);
@@ -739,7 +739,7 @@ describe("직업 킷 — 스킬셋", () => {
     ]);
     expect(V2_SKILLS.v2c_archmage_collapse.category).toBe("attack");
     expect(V2_SKILLS.v2c_archmage_collapse.effects).toEqual([
-      { kind: "damage", statCoef: 1.95, baseFlat: 430, scaling: "magic" },
+      { kind: "damage", statCoef: 2.45, baseFlat: 620, scaling: "magic" },
       { kind: "enemyDelay", pct: 35 },
     ]);
     expect(V2_SKILLS.v2c_archmage_theory.category).toBe("passive");
@@ -754,7 +754,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_savior_judgment.category).toBe("attack");
     expect(V2_SKILLS.v2c_savior_judgment.mpCost).toBe(80);
     expect(V2_SKILLS.v2c_savior_judgment.effects).toEqual([
-      { kind: "damage", statCoef: 1.85, baseFlat: 430, scaling: "magic" },
+      { kind: "damage", statCoef: 2.2, baseFlat: 560, scaling: "magic" },
       { kind: "enemyVuln", pct: 16, turns: 3 },
     ]);
     expect(V2_SKILLS.v2c_savior_grace.category).toBe("passive");
@@ -830,6 +830,23 @@ describe("직업 킷 — 스킬셋", () => {
         "v2c_vajraarhat_body",
       ]).counterChancePct,
     ).toBe(54.5);
+    expect(skillsForJob("eternal")).toEqual([
+      "v2c_eternal_cycle",
+      "v2c_eternal_body",
+    ]);
+    expect(V2_SKILLS.v2c_eternal_cycle.category).toBe("buff");
+    expect(V2_SKILLS.v2c_eternal_cycle.effects).toEqual([
+      { kind: "selfRegen", pctMaxHpPerTurn: 10, turns: 4 },
+      { kind: "selfBuff", stat: "vit", pct: 18, turns: 4 },
+    ]);
+    expect(V2_SKILLS.v2c_eternal_body.category).toBe("passive");
+    expect(V2_SKILLS.v2c_eternal_body.passive).toMatchObject({
+      maxHpPct: 34,
+      statPct: { vit: 12 },
+      damageTakenReductionPct: 9,
+    });
+    expect(V2_SKILLS.v2c_eternal_body.passive?.counterChancePct).toBeUndefined();
+    expect(V2_SKILLS.v2c_eternal_body.passive?.thornsDefPct).toBeUndefined();
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {
@@ -943,11 +960,16 @@ describe("직업 킷 — 액티브 스킬", () => {
     expect(eff).toMatchObject({ kind: "damage" });
   });
 
-  it("마력탄 = 0코스트 100% 발동 마법 단일타", () => {
+  it("마력탄 = MP 소모 100% 발동 마법 단일타", () => {
     const s = V2_SKILLS.v2c_mage_boltcast;
-    expect(s.mpCost).toBe(0);
+    expect(s.fixedMpCost).toBe(40);
     expect(s.procChance).toBe(100);
-    expect(s.effects[0]).toMatchObject({ kind: "damage", scaling: "magic" });
+    expect(s.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "magic",
+      statCoef: 1.15,
+      baseFlat: 150,
+    });
   });
 
   it("독침 = 정액 + HP비례 중독", () => {

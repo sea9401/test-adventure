@@ -112,6 +112,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
+  eternal: ["v2c_eternal_cycle", "v2c_eternal_body"], // 영겁자: 영겁 순환 + 영겁의 육신
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기
 };

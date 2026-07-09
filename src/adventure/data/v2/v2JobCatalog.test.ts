@@ -853,9 +853,9 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("survivor", "mastertrainer")).toBe("마스터 트레이너");
     expect(displayName("survivor", "farmer")).toBe("농부");
     expect(displayName("survivor", "horticulturist")).toBe("원예가");
-    expect(displayName("survivor", "masterfarmer")).toBe("농장장");
-    expect(displayName("survivor", "harvestking")).toBe("풍작왕");
-    expect(displayName("survivor", "earthartisan")).toBe("대지 장인");
+    expect(displayName("survivor", "masterfarmer")).toBe("숙련 농부");
+    expect(displayName("survivor", "harvestking")).toBe("농업 장인");
+    expect(displayName("survivor", "earthartisan")).toBe("전설의 농부");
     expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "inscriber")).toBe("각인술사");
     expect(displayName("mage", "archmage")).toBe("대마도사");

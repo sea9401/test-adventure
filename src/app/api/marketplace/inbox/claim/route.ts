@@ -10,7 +10,6 @@ import {
 import { upsertSave } from "@/lib/server/savesKv";
 import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
-import { TREASURE_WALLET_KEY } from "@/lib/server/treasure/coins";
 import { STAMINA_POTIONS_KEY } from "@/adventure/v2/staminaPotions";
 import {
   addGradedEquip,
@@ -108,7 +107,6 @@ export async function POST(req: Request) {
       const coinsBySeason: Record<SeasonRewardSeason, number> = {
         pvp: 0,
         fishing: 0,
-        treasure: 0,
       };
       const itemsToAdd: AddItem[] = [];
       const instancesToAdd: EquipmentInstance[] = [];
@@ -353,15 +351,14 @@ export async function POST(req: Request) {
         }
       }
 
-      // 시즌 순위 보상 코인 — season 별 지갑(pvp/낚시/보물)에 적립. 단일 유저라
+      // 시즌 순위 보상 코인 — season 별 지갑(pvp/낚시)에 적립. 단일 유저라
       // character→inventory→crafting 다음에 지갑을 잠가도 교차 데드락 없음.
       const coinsAdded: { season: SeasonRewardSeason; coins: number }[] = [];
       const WALLET_KEY_BY_SEASON: Record<SeasonRewardSeason, string> = {
         pvp: PVP_WALLET_KEY,
         fishing: FISHING_WALLET_KEY,
-        treasure: TREASURE_WALLET_KEY,
       };
-      for (const season of ["pvp", "fishing", "treasure"] as const) {
+      for (const season of ["pvp", "fishing"] as const) {
         const add = coinsBySeason[season];
         if (add <= 0) continue;
         const key = WALLET_KEY_BY_SEASON[season];

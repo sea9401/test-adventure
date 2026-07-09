@@ -6,7 +6,6 @@ import {
 } from "@/lib/server/pvp/season";
 import { grantPendingSeasonRewards } from "@/lib/server/pvp/seasonRewards";
 import { grantPendingFishingRewards } from "@/lib/server/fishing/seasonRewards";
-import { grantPendingTreasureRewards } from "@/lib/server/treasure/seasonRewards";
 
 // POST /api/admin/season-ops — 관리자 시즌 수동 트리거.
 //
@@ -15,7 +14,6 @@ import { grantPendingTreasureRewards } from "@/lib/server/treasure/seasonRewards
 //   - pvp-rollover     : 만료 아레나 시즌 닫기 + 이번 주 시즌 생성
 //   - pvp-rewards      : 닫힌 아레나 시즌 미지급 보상 지급
 //   - fishing-rewards  : 끝난 낚시 시즌 미지급 보상 지급
-//   - treasure-rewards : 끝난 보물 시즌 미지급 보상 지급
 //
 // cron 라우트(Bearer CRON_SECRET)와 달리 requireAdmin(ADMIN_EMAILS) 게이트.
 
@@ -23,7 +21,6 @@ const OPS = [
   "pvp-rollover",
   "pvp-rewards",
   "fishing-rewards",
-  "treasure-rewards",
 ] as const;
 type SeasonOp = (typeof OPS)[number];
 
@@ -80,17 +77,6 @@ export async function POST(req: Request) {
       }
       case "fishing-rewards": {
         const { results } = await grantPendingFishingRewards(now);
-        return Response.json({
-          ok: true,
-          op,
-          summary: {
-            seasonsProcessed: results.length,
-            granted: results.filter((r) => r.kind === "ok").length,
-          },
-        });
-      }
-      case "treasure-rewards": {
-        const { results } = await grantPendingTreasureRewards(now);
         return Response.json({
           ok: true,
           op,

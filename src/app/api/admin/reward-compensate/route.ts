@@ -10,14 +10,12 @@ import {
 } from "@/lib/server/opsSettings";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { FISHING_WALLET_KEY, fishingWalletWithCoins, walletCoins as fishingCoins } from "@/lib/server/fishing/coins";
-import { TREASURE_WALLET_KEY, walletCoins as treasureCoins } from "@/lib/server/treasure/coins";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import { STAMINA_POTIONS_KEY, staminaPotionCount } from "@/adventure/v2/staminaPotions";
 
 const ITEM_KINDS = [
   "gold",
   "fishing_coin",
-  "treasure_coin",
   "mastery_certificate",
   "stamina_potion",
   "material",
@@ -149,18 +147,6 @@ export async function POST(req: Request) {
       const beforeBalance = fishingCoins(wallet);
       const coins = beforeBalance + quantity;
       await upsertSave(tx, userId, FISHING_WALLET_KEY, fishingWalletWithCoins(wallet, coins));
-      return { beforeBalance, balance: coins };
-    }
-    if (itemKind === "treasure_coin") {
-      const wallet = await lockSaveForUpdate<Record<string, unknown>>(
-        tx,
-        userId,
-        TREASURE_WALLET_KEY,
-        {},
-      );
-      const beforeBalance = treasureCoins(wallet);
-      const coins = beforeBalance + quantity;
-      await upsertSave(tx, userId, TREASURE_WALLET_KEY, { ...wallet, coins });
       return { beforeBalance, balance: coins };
     }
     if (itemKind === "mastery_certificate") {

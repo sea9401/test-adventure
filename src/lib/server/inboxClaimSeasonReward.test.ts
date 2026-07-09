@@ -1,5 +1,5 @@
 // 우편함 수령(POST /api/marketplace/inbox/claim) — season_reward 가 season 별 코인 지갑
-// (pvp/fishing/treasure)에 올바르게 적립되는지 검증. @/db tx.select 체인 모킹 + upsertSave 캡처.
+// (pvp/fishing)에 올바르게 적립되는지 검증. @/db tx.select 체인 모킹 + upsertSave 캡처.
 // (marketplaceInbox select → 청구 우편 / savesKv(지갑) select → 빈 지갑 [] → cur 0 에서 누적.)
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -77,14 +77,8 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
         payload: { season: "fishing", coins: 120 },
         claimedAt: null,
       },
-      {
-        id: 3,
-        kind: "season_reward",
-        payload: { season: "treasure", coins: 80 },
-        claimedAt: null,
-      },
     );
-    const res = await POST(req([1, 2, 3]));
+    const res = await POST(req([1, 2]));
     const j = (await res.json()) as {
       ok: boolean;
       claimed: number[];
@@ -92,12 +86,11 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     };
     expect(res.status).toBe(200);
     expect(j.ok).toBe(true);
-    expect([...j.claimed].sort()).toEqual([1, 2, 3]);
+    expect([...j.claimed].sort()).toEqual([1, 2]);
     expect(savesStore.get("u1::pvp-wallet.v1")).toEqual({ coins: 600 });
     expect(savesStore.get("u1::fishing-wallet.v1")).toEqual({ coins: 120 });
-    expect(savesStore.get("u1::treasure-wallet.v1")).toEqual({ coins: 80 });
     const byS = Object.fromEntries(j.coinsAdded.map((c) => [c.season, c.coins]));
-    expect(byS).toEqual({ pvp: 600, fishing: 120, treasure: 80 });
+    expect(byS).toEqual({ pvp: 600, fishing: 120 });
   });
 
   it("같은 시즌 여러 우편은 합산되어 한 지갑에", async () => {

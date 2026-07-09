@@ -27,7 +27,6 @@ import {
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
-import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import {
   parseGuildWorkshopCraftRecords,
@@ -101,7 +100,6 @@ export async function GET(req: Request) {
       pr.value AS proficiency,
       s.value AS skills,
       fc.value AS fishing_codex,
-      tc.value AS treasure_codex,
       ec.value AS equipment_codex,
       cr.value AS crafting
     FROM users u
@@ -111,7 +109,6 @@ export async function GET(req: Request) {
     LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
     LEFT JOIN saves_kv s ON s.user_id = u.id AND s.key = 'skills.v2'
     LEFT JOIN saves_kv fc ON fc.user_id = u.id AND fc.key = 'fishing-codex.v1'
-    LEFT JOIN saves_kv tc ON tc.user_id = u.id AND tc.key = 'treasure-codex.v1'
     LEFT JOIN saves_kv ec ON ec.user_id = u.id AND ec.key = 'equipment-codex.v1'
     LEFT JOIN saves_kv cr ON cr.user_id = u.id AND cr.key = 'crafting.v2'
   `);
@@ -126,7 +123,6 @@ export async function GET(req: Request) {
     proficiency: unknown;
     skills: unknown;
     fishing_codex: unknown;
-    treasure_codex: unknown;
     equipment_codex: unknown;
     crafting: unknown;
   };
@@ -191,7 +187,6 @@ export async function GET(req: Request) {
     );
     const collectionSp = codexSpBonusFromRaw(
       r.fishing_codex,
-      r.treasure_codex,
       r.equipment_codex,
     ).total;
     const spBudget = calcSpBudget(
@@ -201,7 +196,6 @@ export async function GET(req: Request) {
       jobUnlockSpBonus(prof),
     );
     const fishCodex = parseFishCodex(r.fishing_codex);
-    const treasureCodex = parseTreasureCodex(r.treasure_codex);
     const crafting =
       r.crafting && typeof r.crafting === "object" && !Array.isArray(r.crafting)
         ? (r.crafting as Record<string, unknown>)
@@ -286,7 +280,6 @@ export async function GET(req: Request) {
         0,
       ),
       fishSpecies: Object.keys(fishCodex.fish).length,
-      antiquesFound: Object.keys(treasureCodex.antiques).length,
       equippedIds,
       blacksmithLevel: artisanLevel(blacksmith),
       blacksmithXp: blacksmith.xp,

@@ -40,7 +40,6 @@ function user(p: Partial<TelemetryUser>): TelemetryUser {
     maxEnhanceLevel: 0,
     fishCaught: 0,
     fishSpecies: 0,
-    antiquesFound: 0,
     equippedIds: [],
     blacksmithLevel: 1,
     blacksmithXp: 0,

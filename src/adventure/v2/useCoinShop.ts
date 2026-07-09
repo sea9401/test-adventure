@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 
-// 코인 상점 공용 코어 — 낚시/발굴/투기장 상점 훅이 같은 mount fetch + 구매 사다리
+// 코인 상점 공용 코어 — 낚시/투기장 상점 훅이 같은 mount fetch + 구매 사다리
 // (성공 / insufficient_coins / already_owned)를 각자 복붙하던 것의 단일화(2026-07).
 // 상점별 차이는 옵션으로: endpoint · coinLabel(부족 메시지의 재화 이름) ·
 // parseState(GET 응답 → 상태) · applyServer(구매 응답의 추가 필드 반영 — 스태미나

@@ -24,7 +24,6 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
-import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 
 export type AdminStatsRow = {
@@ -54,7 +53,6 @@ export type AdminStatsRow = {
   maxEnhanceLevel: number;
   fishCaught: number;
   fishSpecies: number;
-  antiquesFound: number;
   battleCount: number;
 };
 
@@ -83,7 +81,6 @@ export async function GET() {
       pr.value AS proficiency,
       sk.value AS skills,
       fc.value AS fishing_codex,
-      tc.value AS treasure_codex,
       ec.value AS equipment_codex,
       (
         COALESCE((
@@ -101,7 +98,6 @@ export async function GET() {
     LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
     LEFT JOIN saves_kv sk ON sk.user_id = u.id AND sk.key = 'skills.v2'
     LEFT JOIN saves_kv fc ON fc.user_id = u.id AND fc.key = 'fishing-codex.v1'
-    LEFT JOIN saves_kv tc ON tc.user_id = u.id AND tc.key = 'treasure-codex.v1'
     LEFT JOIN saves_kv ec ON ec.user_id = u.id AND ec.key = 'equipment-codex.v1'
     ORDER BY u.created_at DESC
     LIMIT 500
@@ -132,7 +128,6 @@ export async function GET() {
     );
     const collectionSp = codexSpBonusFromRaw(
       r.fishing_codex,
-      r.treasure_codex,
       r.equipment_codex,
     ).total;
     const spBudget = calcSpBudget(
@@ -143,7 +138,6 @@ export async function GET() {
     );
     const equipment = parseEquipmentSave(r.equipment);
     const fishCodex = parseFishCodex(r.fishing_codex);
-    const treasureCodex = parseTreasureCodex(r.treasure_codex);
     return {
       userId: String(r.user_id),
       email: r.email == null ? null : String(r.email),
@@ -185,7 +179,6 @@ export async function GET() {
         0,
       ),
       fishSpecies: Object.keys(fishCodex.fish).length,
-      antiquesFound: Object.keys(treasureCodex.antiques).length,
       battleCount: Number(r.battle_count ?? 0),
     };
   }) satisfies AdminStatsRow[];

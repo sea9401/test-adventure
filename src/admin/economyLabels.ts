@@ -6,7 +6,6 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "admin.grant.fishing_coin": "관리자 낚시 코인 지급",
   "admin.grant.mastery": "관리자 직업 숙련도 지급",
   "admin.grant.proficiency_points": "관리자 숙련 포인트 지급",
-  "admin.grant.treasure_coin": "관리자 발굴 코인 지급",
   "admin.reward.compensate": "관리자 보상 보정",
   "admin.reward.failure.compensated": "보상 실패 보정 처리",
   "admin.reward.failure.ignored": "보상 실패 무시 처리",
@@ -30,7 +29,6 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "reward.failure.fishing": "낚시 보상 실패",
   "reward.failure.marketplace": "거래소 보상 실패",
   "reward.failure.quest": "의뢰 보상 실패",
-  "reward.failure.treasure": "발굴 보상 실패",
   "reward.fishing.challenge": "낚시 의뢰 보상",
   "reward.fishing.level": "낚시 레벨 보상",
   "reward.mastery_tower.certificate": "숙련의 탑 증서",
@@ -60,7 +58,6 @@ export const ECONOMY_ITEM_KIND_LABELS: Record<string, string> = {
   material: "재료",
   proficiency: "숙련 포인트",
   stamina_potion: "스태미나 회복약",
-  treasure_coin: "발굴 코인",
 };
 
 export function economyEventLabel(key: string): string {

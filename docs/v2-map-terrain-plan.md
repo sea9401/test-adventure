@@ -250,8 +250,7 @@ kind만 추가하면 끼게 미리 연다.
   (§1 모델). `interactive?: boolean` 단순 플래그 대신 **객체**로 둔 이유(Codex) = 던전마다 진입
   라우트(routeId)·접근 정책(access)이 다를 수 있어 확장 여지를 미리 연다.
 - 동작: 그 칸을 방문/클릭하면 `interaction.routeId`(가칭 `/me/enter-tile-dungeon`)로 → 기존
-  사냥터/던전 시스템 재사용 또는 신규 "필드 던전". 보상 = (개편된)드랍 재료 · 골드 · EXP ·
-  발굴 조각 등.
+  사냥터/던전 시스템 재사용 또는 신규 "필드 던전". 보상 = (개편된)드랍 재료 · 골드 · EXP 등.
 - `access`(미결): `neutral`=누구나 진입(단순·우선) vs `owner`=소유 길드만/소유 시 +%.
 - 지금은 **타입·자리만** 두고 미구현. move/visit 라우트에 `tileFeatureAt(...).interaction` 예약
   분기만 남긴다 → 미래 던전은 "kind 추가 + 라우트 1개"로 끝(새 시스템 아님).

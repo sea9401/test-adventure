@@ -175,7 +175,7 @@ export function StatsTable({
                   <td className="py-1 text-right tabular-nums">
                     {r.fishCaught.toLocaleString()}
                     <div className="text-[10px] text-zinc-500">
-                      종 {r.fishSpecies} · 유물 {r.antiquesFound}
+                      종 {r.fishSpecies}
                     </div>
                   </td>
                   <td className="py-1 text-right tabular-nums">

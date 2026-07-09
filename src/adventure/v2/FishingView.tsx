@@ -74,7 +74,6 @@ export type ReelOutcome =
         best: number;
         buffTier: number;
         coinBonus: number;
-        fragmentChanceBonusPct: number;
       };
       hotTime?: {
         title: string;
@@ -1770,8 +1769,7 @@ export function FishingView({
               {result.streak && result.streak.buffTier > 0 && (
                 <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                   연속 {result.streak.current} 버프 · 코인 +
-                  {result.streak.coinBonus} · 지도 조각 +
-                  {result.streak.fragmentChanceBonusPct}%p
+                  {result.streak.coinBonus}
                 </div>
               )}
               {result.coopBoss && (

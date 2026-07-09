@@ -35,7 +35,6 @@ import {
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
-import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
 import {
   derivePlayerCombatV2FromSaves,
   type SavedCharacterV2,
@@ -92,7 +91,6 @@ const STATE_SAVE_KEYS = [
   "skills.v2",
   "proficiency.v2",
   "fishing-codex.v1",
-  "treasure-fragments.v1",
   "adventure-log.v2",
   STAMINA_POTIONS_KEY,
   "inventory.v2",
@@ -170,7 +168,6 @@ export async function GET(req: Request) {
   const skillsRow = saveRow("skills.v2");
   const proficiencyRow = saveRow("proficiency.v2");
   const fishingCodexRow = saveRow("fishing-codex.v1");
-  const treasureFragmentsRow = saveRow("treasure-fragments.v1");
   const adventureLogRow = saveRow("adventure-log.v2");
   const staminaPotionsRow = saveRow(STAMINA_POTIONS_KEY);
   const inventoryRow = saveRow("inventory.v2");
@@ -450,8 +447,6 @@ export async function GET(req: Request) {
     codex: materialCodexSection(charSave.materials),
     // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
     fishingCodex: fishingCodexSection(fishingCodexRow?.value),
-    // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
-    treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
     // 칭호 — 모험의 서 "칭호" 탭이 보유 목록 표시 + 장착 토글에 사용.
     titles: { ownedTitleIds, equippedTitleId },
     // 프론티어 최고 도달 깊이 — MAX 캡으로 정규화(stateSections.frontierDepthOf).

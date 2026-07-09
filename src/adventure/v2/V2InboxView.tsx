@@ -149,7 +149,6 @@ function rewardLinesOf(it: InboxItem): string[] {
       const coinLabel: Record<string, string> = {
         pvp: "투기장 코인",
         fishing: "낚시 코인",
-        treasure: "보물 코인",
       };
       const season = asId(p.season) ?? "";
       pushReward(lines, coinLabel[season] ?? "코인", asCount(p.coins));
@@ -298,7 +297,6 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         const coinLabel: Record<string, string> = {
           pvp: "투기장 코인",
           fishing: "낚시 코인",
-          treasure: "보물 코인",
         };
         const parts: string[] = [];
         if (gold > 0) parts.push(`+${gold.toLocaleString()} 골드`);

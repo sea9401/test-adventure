@@ -37,7 +37,6 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
   "season-ops.fishing-rewards": "낚시 보상 지급",
   "season-ops.pvp-rewards": "아레나 보상 지급",
   "season-ops.pvp-rollover": "아레나 시즌 정리",
-  "season-ops.treasure-rewards": "발굴 보상 지급",
   "season-ops.war-rollover": "전쟁 시즌 정리",
 };
 
@@ -74,7 +73,6 @@ export const ABUSE_ACTION_LABELS: Record<string, string> = {
   "v2:shop:equipment:sell": "장비 판매",
   "v2:shop:equipment:sell-bulk": "장비 일괄 판매",
   "v2:shop:material:sell": "재료 판매",
-  "v2:treasure:open": "발굴품 개봉",
 };
 
 export const ABUSE_REASON_LABELS: Record<string, string> = {

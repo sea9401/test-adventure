@@ -251,7 +251,6 @@ type RewardCompensationPreset = {
   itemKind:
     | "gold"
     | "fishing_coin"
-    | "treasure_coin"
     | "mastery_certificate"
     | "stamina_potion"
     | "material";
@@ -263,7 +262,6 @@ type RewardCompensationPreset = {
 const COMP_KIND_OPTIONS: RewardCompensationPreset["itemKind"][] = [
   "gold",
   "fishing_coin",
-  "treasure_coin",
   "mastery_certificate",
   "stamina_potion",
   "material",

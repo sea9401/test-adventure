@@ -308,7 +308,7 @@ export function loadoutSection(params: {
   const prof = parseProficiencyForChar(proficiencyRaw, charSave);
   const skillsState = parseV2SkillsState(skillsRaw);
   const equippedSet = new Set<string>(skillsState.equipped);
-  const collectionBonus = codexSpBonusFromRaw(fishingCodexRaw, {});
+  const collectionBonus = codexSpBonusFromRaw(fishingCodexRaw);
   const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
   const spBudgetGroups = Object.fromEntries(
     V2_SELECTABLE_CLASSES.map((id) => [
@@ -420,7 +420,7 @@ export function fishingCodexSection(fishingCodexRaw: unknown) {
     spBonus: fishCodexSpBonus(codex),
     milestones: [...FISHING_CODEX_SP_MILESTONES],
     nextMilestone: nextFishCodexMilestone(ids.length),
-    tierCompletions: codexSpBonusFromRaw(fishingCodexRaw, {}).fishTiers,
+    tierCompletions: codexSpBonusFromRaw(fishingCodexRaw).fishTiers,
   };
 }
 

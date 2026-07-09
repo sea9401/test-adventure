@@ -13,6 +13,7 @@ import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems-icons";
 import { GUILD_COLORS } from "@/adventure/data/guild-colors";
 import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
+import { GuildFacilitiesManagePanel } from "./GuildOutpostsPanel";
 import {
   fmtDate,
   type GuildInfoResponse,
@@ -23,7 +24,7 @@ import {
 
 const MANAGER_LIMIT = 2;
 
-// 길드 관리 탭 — 마스터/관리자 전용. 멤버(초대·신청·직책)·길드 연구·길드 설정(엠블럼·색·해산).
+// 길드 관리 탭 — 마스터/관리자 전용. 멤버(초대·신청·직책)·길드 연구·시설·길드 설정.
 export function GuildManagePanel({
   info,
   guildId,
@@ -356,7 +357,7 @@ export function GuildManagePanel({
     }
   }, [acting, disbandConfirm, stateGuildName, info?.guild?.name, onRefresh, onGuildChanged, setActing, setNotice]);
 
-  // 관리 탭 내부 하위 탭 — 멤버/길드 연구는 관리자+, 길드 설정(엠블럼·색·해산)은 마스터 전용.
+  // 관리 탭 내부 하위 탭 — 멤버/길드 연구/시설은 관리자+, 길드 설정은 마스터 전용.
   //   관리자(비마스터)는 설정 탭 미노출. 멤버 탭에 가입 신청 대기 뱃지.
   const manageTabs: { key: GuildManageTab; label: string }[] = [
     {
@@ -365,6 +366,7 @@ export function GuildManagePanel({
         pendingRequests.length > 0 ? `멤버 (${pendingRequests.length})` : "멤버",
     },
     { key: "research", label: "길드 연구" },
+    { key: "facilities", label: "시설" },
   ];
   if (isMaster) manageTabs.push({ key: "settings", label: "길드 설정" });
   const activeManageTab: GuildManageTab = manageTabs.some(
@@ -394,6 +396,15 @@ export function GuildManagePanel({
       </HeaderPanel>
 
       {activeManageTab === "research" && <GuildCombatSupplyPanel />}
+
+      {activeManageTab === "facilities" && (
+        <GuildFacilitiesManagePanel
+          info={info}
+          canManage
+          onChanged={onRefresh}
+          onNotice={setNotice}
+        />
+      )}
 
       {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
       {/* 멤버 초대 — 길드원 탭에서 이동 */}

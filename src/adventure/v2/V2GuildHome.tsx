@@ -215,9 +215,7 @@ export function V2GuildHome({
         <GuildFacilitiesPanel
           guildId={guildId}
           info={info}
-          canUnlockFacilities={canManage}
           onChanged={refresh}
-          onNotice={setNotice}
         />
       )}
     </main>

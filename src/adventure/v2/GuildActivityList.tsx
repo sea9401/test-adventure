@@ -31,6 +31,7 @@ export type GuildActivity = {
     titleName?: string;
     rewardGold?: number;
     rewardFame?: number;
+    mapFragments?: number;
   } | null;
   createdAt: string;
 };
@@ -74,6 +75,16 @@ function describe(a: GuildActivity): string {
       return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
     case "exploration_weekly_claim":
       return `${actor} 님이 ${a.meta?.questTitle ?? "탐사 의뢰"} 보상을 수령했어요`;
+    case "exploration_expedition_dispatch":
+      return `${actor} 님이 ${a.meta?.questTitle ?? "원정대"}를 파견했어요`;
+    case "exploration_expedition_claim":
+      return `${actor} 님이 ${a.meta?.questTitle ?? "원정대"} 보상을 회수했어요${
+        a.meta?.mapFragments
+          ? ` · 지도 조각 +${a.meta.mapFragments.toLocaleString()}`
+          : ""
+      }`;
+    case "exploration_event_resolve":
+      return `${actor} 님이 ${a.meta?.questTitle ?? "탐사 사건"}에서 ${a.meta?.deliveryTitle ?? "선택지"}을 선택했어요`;
     case "workshop_delivery":
       return `${actor} 님이 ${a.meta?.deliveryTitle ?? "제작품 납품"}을 완료했어요`;
     case "workshop_craft_only":
@@ -111,6 +122,9 @@ const DOT_CLASS: Record<string, string> = {
   gold_deposit: "bg-yellow-500",
   workshop_weekly_claim: "bg-emerald-500",
   exploration_weekly_claim: "bg-cyan-500",
+  exploration_expedition_dispatch: "bg-cyan-500",
+  exploration_expedition_claim: "bg-emerald-500",
+  exploration_event_resolve: "bg-violet-500",
   workshop_delivery: "bg-teal-500",
   workshop_craft_only: "bg-emerald-500",
   artisan_rank_reward: "bg-amber-500",

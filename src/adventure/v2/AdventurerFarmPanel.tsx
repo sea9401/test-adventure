@@ -20,6 +20,7 @@ import {
   canPlantFarmCrop,
   farmAvailableReputation,
   farmingLevelForState,
+  farmingLevelXpThreshold,
   nextFarmPlotUpgrade,
   type FarmCrop,
   type FarmCropId,
@@ -272,11 +273,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           </div>
         ) : farm ? (
           <div className="space-y-4 p-4">
-            <FarmSummary
-              farm={farm}
-              now={now}
-              dailyDeliveryCount={dailyDeliveryCount}
-            />
+            <FarmSummary farm={farm} />
             <FarmGrowthPanel
               farm={farm}
               busy={busyPlotUpgrade}
@@ -397,55 +394,32 @@ function FarmToastMessage({ toast }: { toast: FarmToast }) {
   );
 }
 
-function FarmSummary({
-  farm,
-  now,
-  dailyDeliveryCount,
-}: {
-  farm: FarmState;
-  now: number;
-  dailyDeliveryCount: number;
-}) {
-  const seedCount = Object.values(farm.seeds).reduce(
-    (sum, count) => sum + (count ?? 0),
-    0,
-  );
-  const readyPlots = farm.plots.filter(
-    (plot) => plot.cropId && plot.readyAt && plot.readyAt <= now,
-  ).length;
-  const growingPlots = farm.plots.filter((plot) => plot.cropId).length;
+function FarmSummary({ farm }: { farm: FarmState }) {
   const farmingLevel = farmingLevelForState(farm);
+  const levelStartXp = farmingLevelXpThreshold(farmingLevel);
+  const nextLevelXp = farmingLevelXpThreshold(farmingLevel + 1);
+  const farmingLevelProgress = Math.max(0, farm.stats.farmingXp - levelStartXp);
+  const farmingLevelRequired = Math.max(1, nextLevelXp - levelStartXp);
+  const farmingLevelProgressText = `${farmingLevelProgress.toLocaleString(
+    "ko-KR",
+  )} / ${farmingLevelRequired.toLocaleString("ko-KR")}`;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-      <SummaryTile
-        icon={<Leaf size={17} weight="duotone" />}
-        label="씨앗"
-        value={`${seedCount.toLocaleString("ko-KR")}개`}
-      />
-      <SummaryTile
-        icon={<FlowerTulip size={17} weight="duotone" />}
-        label="밭 상태"
-        value={
-          readyPlots > 0
-            ? `${farm.plots.length}칸 · 수확 ${readyPlots}`
-            : `${farm.plots.length}칸 · 재배 ${growingPlots}`
-        }
-      />
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농사 레벨"
         value={`Lv ${farmingLevel.toLocaleString("ko-KR")}`}
       />
       <SummaryTile
+        icon={<Leaf size={17} weight="duotone" />}
+        label="레벨 EXP"
+        value={farmingLevelProgressText}
+      />
+      <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농장 증표"
         value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}개`}
-      />
-      <SummaryTile
-        icon={<Package size={17} weight="duotone" />}
-        label="오늘 납품"
-        value={`${dailyDeliveryCount}/${FARM_DAILY_DELIVERY_LIMIT}`}
       />
     </div>
   );

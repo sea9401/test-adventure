@@ -5,12 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
-import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
-import { currentLocationLabel } from "@/adventure/v2/currentLocation";
-import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
-import type { OutpostType } from "@/adventure/data/v2/types";
 
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경·스태미나).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
@@ -22,15 +18,10 @@ type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
 const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
 
-// 현재 경로 → 활성 탭. map/outpost 는 전투 탭으로 묶는다(지도=영토/전쟁 동선, 2026-06-25 이관).
+// 현재 경로 → 활성 탭.
 function tabOfPath(pathname: string): TabId {
   if (pathname === "/") return "adventure";
-  if (
-    pathname.startsWith("/battle") ||
-    pathname.startsWith("/map") ||
-    pathname.startsWith("/outpost")
-  )
-    return "battle";
+  if (pathname.startsWith("/battle")) return "battle";
   if (pathname.startsWith("/town")) return "town";
   // 퀘스트(/quests)는 캐릭터 탭의 하위 메뉴 — 캐릭터로 묶어 활성 강조·배경이 안 깨지게.
   if (pathname.startsWith("/character") || pathname.startsWith("/quests"))
@@ -41,8 +32,7 @@ function tabOfPath(pathname: string): TabId {
 }
 
 // 탭 배경 이미지 — fixed full-screen + 위에 반투명 dim 오버레이.
-// 거점 배경은 ui/{type}.webp 를 템플릿 경로로 쓰고(check-images 누락 검사 제외, 없으면
-// 404 시 fallbackSrc=village 로 교체), 길드 배경은 ui/guild.webp 정적 경로.
+// 길드 배경은 ui/guild.webp 정적 경로.
 // src 가 바뀌면 부모가 key 로 remount → errored 리셋.
 function TabBackground({
   src,
@@ -77,9 +67,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const {
-    currentOutpost,
-    tilePos,
-    tileSettlements,
     accountName,
     stamina,
     staminaMax,
@@ -91,12 +78,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     huntStaminaMode,
     refreshGameState,
   } = useGameState();
-  // 좌상단 위치 라벨 — 서 있는 타일(tilePos) 기준(빈 칸이면 리베라 고정 버그 방지).
-  const currentLocationName = currentLocationLabel({
-    tilePos,
-    tileSettlements,
-    currentOutpostName: currentOutpost?.name ?? null,
-  });
+  const currentLocationName = "모험가 길드";
 
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
   const usePotion = async (count: number) => {
@@ -111,16 +93,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   };
 
   const activeTab = tabOfPath(pathname);
-  // 지도/거점 = 전투 탭 귀속이되 영토 화면 — 배경은 지역 이미지 유지·스태미나 바는 제외(전투 탭 이관 전 동작 보존).
-  const onTerritoryScreen =
-    pathname.startsWith("/map") || pathname.startsWith("/outpost");
-  // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
-  const currentOutpostType: OutpostType = currentOutpost
-    ? (OUTPOST_TYPE_BY_ID.get(currentOutpost.id) ?? "village")
-    : "village";
-  // 스태미나 바 — 모험/전투 탭만. 영토 화면(지도/거점)은 전투 탭이지만 스태미나 무관이라 제외.
-  const showStamina =
-    activeTab === "adventure" || (activeTab === "battle" && !onTerritoryScreen);
+  // 스태미나 바 — 모험/전투 탭만.
+  const showStamina = activeTab === "adventure" || activeTab === "battle";
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·상점·대장간·낚시터·사냥터·아레나)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별
@@ -140,11 +114,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
               ? { src: "/images/ui/arena.webp" }
               : pathname.startsWith("/battle/dungeon")
                 ? { src: "/images/ui/hunt.webp" }
-                : BG_TABS.has(activeTab) || onTerritoryScreen
-                  ? {
-                      src: `/images/ui/${currentOutpostType}.webp`,
-                      fallbackSrc: "/images/ui/village.webp",
-                    }
+                : BG_TABS.has(activeTab)
+                  ? { src: "/images/ui/village.webp" }
                   : activeTab === "guild"
                     ? { src: "/images/ui/guild.webp" }
                     : activeTab === "plaza"
@@ -178,8 +149,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           activeKey={activeTab}
           onNavigate={(href) => router.push(href)}
         />
-        {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
-        <WarTicker />
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">

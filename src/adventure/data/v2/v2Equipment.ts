@@ -116,6 +116,20 @@ export type V2EquipmentId =
   | "v2_crafted_spark_gloves"
   | "v2_crafted_windstep_boots"
   | "v2_crafted_aether_necklace"
+  | "v2_crafted_guard_gauntlets"
+  | "v2_crafted_guard_greaves"
+  | "v2_crafted_guard_ring"
+  | "v2_crafted_fury_plate"
+  | "v2_crafted_fury_boots"
+  | "v2_crafted_fury_necklace"
+  | "v2_crafted_pursuit_coat"
+  | "v2_crafted_pursuit_grips"
+  | "v2_crafted_pursuit_ring"
+  | "v2_crafted_pursuit_necklace"
+  | "v2_crafted_focus_robe"
+  | "v2_crafted_focus_gloves"
+  | "v2_crafted_focus_boots"
+  | "v2_crafted_focus_ring"
   | "v2_crafted_sunforge_blade"
   | "v2_crafted_aurora_crown"
   | "v2_crafted_bulwark_shield"
@@ -689,23 +703,39 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
     ],
   },
   {
-    id: "artisan_crafted",
-    name: "장인표 장비",
+    id: "artisan_guard",
+    name: "장인 수호",
     thresholds: [
-      { count: 2, bonus: { hp: 50, mp: 30 } },
-      { count: 4, bonus: { crit: 3, eva: 3, critResist: 3 } },
-      {
-        count: 6,
-        bonus: {
-          hp: 180,
-          mp: 120,
-          crit: 6,
-          eva: 6,
-          spd: 9,
-          critMult: 24,
-          healPowerPct: 4,
-        },
-      },
+      { count: 2, bonus: { hp: 70, def: 10 } },
+      { count: 4, bonus: { hp: 140, magicDef: 14, critResist: 5 } },
+      { count: 6, bonus: { hp: 260, def: 32, magicDef: 24, critResist: 12 } },
+    ],
+  },
+  {
+    id: "artisan_fury",
+    name: "장인 격노",
+    thresholds: [
+      { count: 2, bonus: { crit: 4 } },
+      { count: 4, bonus: { critMult: 45, spd: 4 } },
+      { count: 6, bonus: { crit: 8, critMult: 90, spd: 8 } },
+    ],
+  },
+  {
+    id: "artisan_pursuit",
+    name: "장인 추격",
+    thresholds: [
+      { count: 2, bonus: { eva: 3, spd: 5 } },
+      { count: 4, bonus: { crit: 5, eva: 7, spd: 9 } },
+      { count: 6, bonus: { crit: 8, eva: 12, spd: 16, critMult: 35 } },
+    ],
+  },
+  {
+    id: "artisan_focus",
+    name: "장인 집중",
+    thresholds: [
+      { count: 2, bonus: { mp: 70, healPowerPct: 3 } },
+      { count: 4, bonus: { mp: 130, magicDef: 14, healPowerPct: 6 } },
+      { count: 6, bonus: { mp: 240, magicDef: 28, spd: 6, healPowerPct: 12 } },
     ],
   },
   {

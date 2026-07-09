@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   masteryTowerBossForFloor,
+  clearMasteryTowerFloor,
+  failMasteryTowerRun,
   masteryTowerClaimPreview,
   masteryTowerFloorInfo,
   masteryTowerFloorReward,
@@ -22,6 +24,7 @@ describe("masteryTower", () => {
     const preview = masteryTowerClaimPreview({
       date: "2026-07-03",
       todayBestFloor: 50,
+      runFloor: 50,
       claimed: false,
       lifetimeBestFloor: 50,
       firstClearRewardsClaimed: [10],
@@ -40,18 +43,48 @@ describe("masteryTower", () => {
         {
           date: "2026-07-02",
           todayBestFloor: 18,
+          runFloor: 16,
           claimed: true,
           lifetimeBestFloor: 22,
           firstClearRewardsClaimed: [10, 20],
+          cooldownUntil: 123456,
         },
         "2026-07-03",
       ),
     ).toEqual({
       date: "2026-07-03",
       todayBestFloor: 0,
+      runFloor: 0,
       claimed: false,
       lifetimeBestFloor: 22,
       firstClearRewardsClaimed: [10, 20],
+    });
+  });
+
+  it("패배하면 오늘 최고 기록은 유지하고 현재 등반만 초기화한다", () => {
+    const cleared = clearMasteryTowerFloor(
+      {
+        date: "2026-07-03",
+        todayBestFloor: 7,
+        runFloor: 7,
+        claimed: false,
+        lifetimeBestFloor: 12,
+        firstClearRewardsClaimed: [],
+      },
+      8,
+    );
+    expect(cleared).toMatchObject({
+      todayBestFloor: 8,
+      runFloor: 8,
+      lifetimeBestFloor: 12,
+    });
+
+    const failed = failMasteryTowerRun(cleared, 1_000);
+    expect(failed).toMatchObject({
+      todayBestFloor: 8,
+      runFloor: 0,
+      lifetimeBestFloor: 12,
+      cooldownUntil: 31_000,
     });
   });
 

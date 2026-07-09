@@ -13,7 +13,6 @@ import {
 } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
-import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   V2_EQUIPMENT,
   effectiveStats,
@@ -38,6 +37,9 @@ import {
   QualityPctText,
   type ItemCardAnchor,
 } from "../V2ItemCard";
+
+const INVENTORY_EQUIPMENT_CARD_SURFACE =
+  "rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 // 슬롯별 아이콘/색 — 카드 좌상단 표식.
 const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
@@ -116,7 +118,7 @@ export function EquipmentCardGrid({
             className={`ui-equipment-card ui-item-rarity-t${item.tier} ui-lift-card relative flex min-h-[7.5rem] flex-col gap-1 p-3 text-left transition ${
               highlighted
                 ? "is-active border-emerald-400 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-900"
-                : `${SURFACE_CARD} hover:bg-zinc-50 dark:hover:bg-zinc-800`
+                : `${INVENTORY_EQUIPMENT_CARD_SURFACE} hover:bg-zinc-50 dark:hover:bg-zinc-800`
             }`}
           >
             <div className="flex items-start justify-between gap-1">

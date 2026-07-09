@@ -81,7 +81,7 @@ export function Tooltip({
         <div
           id={id}
           role="tooltip"
-          className={`pointer-events-none absolute w-44 max-w-[60vw] whitespace-normal break-keep rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-normal leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 ${placementClass} ${alignClass}`}
+          className={`pointer-events-none absolute w-44 max-w-[60vw] whitespace-normal break-keep rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-normal leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${placementClass} ${alignClass}`}
         >
           {content}
         </div>

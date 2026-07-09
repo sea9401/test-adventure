@@ -110,17 +110,17 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
         로 계산합니다. 보스가 처치되었을 때 도달한 가장 높은 티어 기준으로 보상을
         받을 수 있습니다.
       </p>
-      <div className="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-800">
+      <div className="overflow-hidden rounded-md border border-zinc-200 dark:border-zinc-700">
         <table className="w-full border-collapse text-left">
           <thead className="bg-zinc-100 text-[11px] text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
             <tr>
-              <th className="border-b border-zinc-200 px-2 py-1.5 dark:border-zinc-800">
+              <th className="border-b border-zinc-200 px-2 py-1.5 dark:border-zinc-700">
                 티어
               </th>
-              <th className="border-b border-zinc-200 px-2 py-1.5 text-right dark:border-zinc-800">
+              <th className="border-b border-zinc-200 px-2 py-1.5 text-right dark:border-zinc-700">
                 비율
               </th>
-              <th className="border-b border-zinc-200 px-2 py-1.5 text-right dark:border-zinc-800">
+              <th className="border-b border-zinc-200 px-2 py-1.5 text-right dark:border-zinc-700">
                 필요 데미지
               </th>
             </tr>
@@ -131,17 +131,17 @@ export function CoopContributionCriteria({ kind }: { kind: CoopBossKind }) {
                 key={tier}
                 className={
                   index % 2 === 0
-                    ? "bg-white dark:bg-zinc-950"
+                    ? "bg-white dark:bg-zinc-900"
                     : "bg-zinc-50 dark:bg-zinc-900"
                 }
               >
-                <td className="border-t border-zinc-100 px-2 py-1.5 font-semibold dark:border-zinc-800">
+                <td className="border-t border-zinc-100 px-2 py-1.5 font-semibold dark:border-zinc-700">
                   {COOP_TIER_LABEL[tier]}
                 </td>
-                <td className="border-t border-zinc-100 px-2 py-1.5 text-right font-mono dark:border-zinc-800">
+                <td className="border-t border-zinc-100 px-2 py-1.5 text-right font-mono dark:border-zinc-700">
                   {pct(COOP_TIER_THRESHOLDS[tier])}+
                 </td>
-                <td className="border-t border-zinc-100 px-2 py-1.5 text-right font-mono dark:border-zinc-800">
+                <td className="border-t border-zinc-100 px-2 py-1.5 text-right font-mono dark:border-zinc-700">
                   {requiredDamage(kind, tier).toLocaleString()}
                 </td>
               </tr>

@@ -203,7 +203,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "warrior_vs_들개",
-    "logSha": "781e33ad365b19c2b6a0f4f8955dccf40d89fd2d",
+    "logSha": "3f2fb8750cf10bd6112f710245b61f9ce7348781",
     "outcome": "win",
     "playerHp": 720,
     "playerMp": 227,
@@ -212,7 +212,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "warrior_vs_골렘",
-    "logSha": "7a39c83de6ff61d3344cc0e519db7938fcbedd39",
+    "logSha": "767370acfacc1ad2b0316a9a548d5d048417d24e",
     "outcome": "win",
     "playerHp": 720,
     "playerMp": 227,
@@ -221,7 +221,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "ninja_crit_vs_늑대",
-    "logSha": "fda37a08aeaa1d05b63fd2319f40ab0e690189d4",
+    "logSha": "9da712210142a2a630d6a7e4c74058aec9824dc7",
     "outcome": "win",
     "playerHp": 640,
     "playerMp": 227,
@@ -230,7 +230,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "archer_pen_vs_골렘",
-    "logSha": "4779424562461f3c188e512c297aabe8aeb18992",
+    "logSha": "4b86a7496df58d282c56f66c2a92c113d76485ac",
     "outcome": "win",
     "playerHp": 635,
     "playerMp": 227,
@@ -239,7 +239,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "magic_vs_약탈자",
-    "logSha": "e5d72d0394cf82de1e61abe59cdc08f0384caed7",
+    "logSha": "244d070bef6aa75ccbcd470a3f86b4bd80ae0918",
     "outcome": "win",
     "playerHp": 640,
     "playerMp": 501,
@@ -248,7 +248,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "counter_tank_vs_들소",
-    "logSha": "36b39de6dfcab27b045774d627242bc1e6cf4ff3",
+    "logSha": "570ac58c5acc39cae69e1ddaba5d191da7d085ae",
     "outcome": "win",
     "playerHp": 820,
     "playerMp": 227,
@@ -257,7 +257,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "heal_vs_들소_boss",
-    "logSha": "220c96404ddde447cd28a43b2382b209eb9e064e",
+    "logSha": "68123cbfa1d5921a97baf84fb90b6186ec87cde9",
     "outcome": "win",
     "playerHp": 835,
     "playerMp": 227,
@@ -266,7 +266,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "mage_skills_vs_골렘",
-    "logSha": "197d3239ef2000ab68a309a00d714944af602ef6",
+    "logSha": "db6ca47073b5b4c2c6892a153ac72beda059e41f",
     "outcome": "win",
     "playerHp": 640,
     "playerMp": 501,
@@ -275,7 +275,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "lowbie_vs_들개",
-    "logSha": "769b5463a69dcbaf09c1271cc38edc60125470b4",
+    "logSha": "16c37ba9f9a775b973ed93dff1bbf0a0cfaa28e1",
     "outcome": "win",
     "playerHp": 190,
     "playerMp": 92,
@@ -312,7 +312,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "enemy_dot_tick",
-    "logSha": "a59f805ccddb15aef45b316111a75ee33a9430b1",
+    "logSha": "720cdb800a806e692007eda0d7af4dac85e03b12",
     "outcome": "win",
     "playerHp": 717,
     "playerMp": 227,
@@ -321,7 +321,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "chill_enemy",
-    "logSha": "50967eda127ce4b25f3bd48c4d538305c589d78e",
+    "logSha": "4e6d74b281c482063f55f7bd6533221b12df7d63",
     "outcome": "win",
     "playerHp": 807,
     "playerMp": 227,
@@ -330,7 +330,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "thorns_reflect",
-    "logSha": "1ac98e8d6a856d15feec19a23624c8b41c092ca6",
+    "logSha": "fc7cd0989673c5cdf9427eeecdc5cb99b0c03423",
     "outcome": "win",
     "playerHp": 835,
     "playerMp": 227,
@@ -339,7 +339,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "evade_reflect",
-    "logSha": "8473585ac5172aa4f4890c43aceeba7d5e31ca52",
+    "logSha": "a365f946243956314f1974de5f9dc7de520c50c6",
     "outcome": "win",
     "playerHp": 625,
     "playerMp": 227,
@@ -348,7 +348,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "enrage_enemy",
-    "logSha": "d93e1870a46bd6f3ed48a3eee939b3dc3cfd93c4",
+    "logSha": "dec2b1890ab66ff0b4d7244afe55f5e49e8a9bf8",
     "outcome": "win",
     "playerHp": 720,
     "playerMp": 227,
@@ -357,7 +357,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "brace_enemy",
-    "logSha": "a28b0d2de3cfcf3c5e279cfabf19e1dd15149b7f",
+    "logSha": "523b1df154784b4ff06015c812f8a49417deeb02",
     "outcome": "win",
     "playerHp": 714,
     "playerMp": 227,
@@ -366,7 +366,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "heavyblow_enemy",
-    "logSha": "6d7dc0a07d3cf7cc386ed9ccfab23a632345f230",
+    "logSha": "4a8c407a93fe7dde5cbb2ed84a3064a1699281bd",
     "outcome": "win",
     "playerHp": 820,
     "playerMp": 227,

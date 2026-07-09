@@ -5,8 +5,6 @@ import { useGameState } from "./GameStateProvider";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 
 // 길드 골드 입금 패널 — 길드원이 개인 골드를 길드 공용 골드 풀에 넣는다.
-// 거점 페이지에서 (마을 탭으로 분리한) 개인 은행 자리를 대체한다.
-// 길드 골드 = 거점 점령/공성 비용·성벽 자동 수리의 단일 재원(거점 금고 회수 + 이 입금으로 충원).
 
 const DEPOSIT_ERROR_TEXT: Record<string, string> = {
   no_guild: "길드에 소속돼 있어야 입금할 수 있습니다",
@@ -109,8 +107,7 @@ export function GuildGoldDepositPanel({
       </div>
 
       <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-        길드 골드는 거점 점령·공성 비용과 성벽 수리의 재원입니다. 은행 잔액부터
-        차감됩니다.
+        길드 골드는 길드 공용 활동에 쓰입니다. 은행 잔액부터 차감됩니다.
       </p>
 
       <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
@@ -121,7 +118,7 @@ export function GuildGoldDepositPanel({
             setMessage(null);
           }}
           placeholder="입금 금액"
-          className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-amber-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         />
         <button
           type="button"

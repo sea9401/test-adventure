@@ -10,6 +10,7 @@ export default function MasteryTowerPage() {
   return (
     <V2MasteryTowerView
       onBack={() => router.push("/battle")}
+      onEnterBattle={() => router.push("/battle/mastery-tower/battle")}
       onRefreshGameState={refreshGameState}
     />
   );

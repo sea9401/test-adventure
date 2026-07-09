@@ -246,24 +246,26 @@ export async function readVillagesOfGuild(
     .select()
     .from(outpostVillages)
     .where(eq(outpostVillages.guildId, guildId));
-  return rows.map((row) => {
-    const tier = parseTier(row.tier);
-    const jobs = parseJobs(row.jobs);
-    const productionKind = parseProductionKind(row.productionKind);
-    const unlockedSlots = parseUnlockedSlots(row.unlockedSlots, tier, jobs);
-    return {
-      outpostId: row.outpostId,
-      guildId: row.guildId,
-      ownerUserId: row.ownerUserId ?? null,
-      tier,
-      name: row.name ?? null,
-      productionKind,
-      unlockedSlots,
-      slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
-      buildings: parseBuildings(row.buildings, unlockedSlots),
-      jobs,
-    };
-  });
+  return rows
+    .filter((row) => !row.outpostId.startsWith("__guild_facilities__:"))
+    .map((row) => {
+      const tier = parseTier(row.tier);
+      const jobs = parseJobs(row.jobs);
+      const productionKind = parseProductionKind(row.productionKind);
+      const unlockedSlots = parseUnlockedSlots(row.unlockedSlots, tier, jobs);
+      return {
+        outpostId: row.outpostId,
+        guildId: row.guildId,
+        ownerUserId: row.ownerUserId ?? null,
+        tier,
+        name: row.name ?? null,
+        productionKind,
+        unlockedSlots,
+        slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
+        buildings: parseBuildings(row.buildings, unlockedSlots),
+        jobs,
+      };
+    });
 }
 
 export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {

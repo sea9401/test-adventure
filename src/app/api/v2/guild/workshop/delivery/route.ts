@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages } from "@/db/schema";
+import { guildMembers } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -17,10 +17,7 @@ import {
   parseGuildWorkshopDeliveryState,
   todayDeliveryKey,
 } from "@/adventure/data/v2/guildWorkshopDelivery";
-import {
-  settlementBuildingIdOf,
-  settlementBuildingLevelOf,
-} from "@/adventure/data/v2/settlement";
+import { readGuildSmithyLevel } from "@/lib/server/guildFacilities";
 import {
   addArtisanXpOnly,
   parseArtisanState,
@@ -38,30 +35,6 @@ async function getGuildIdForUser(userId: string): Promise<number | null> {
   return row?.guildId ?? null;
 }
 
-function guildSmithyLevelFromBuildings(buildings: unknown): number {
-  if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
-    return 0;
-  }
-  let level = 0;
-  for (const raw of Object.values(buildings as Record<string, unknown>)) {
-    if (settlementBuildingIdOf(raw) === "guild_smithy") {
-      level = Math.max(level, settlementBuildingLevelOf(raw));
-    }
-  }
-  return level;
-}
-
-async function guildSmithyLevel(guildId: number): Promise<number> {
-  const rows = await db
-    .select({ buildings: outpostVillages.buildings })
-    .from(outpostVillages)
-    .where(eq(outpostVillages.guildId, guildId));
-  return rows.reduce(
-    (max, row) => Math.max(max, guildSmithyLevelFromBuildings(row.buildings)),
-    0,
-  );
-}
-
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
@@ -71,7 +44,7 @@ export async function GET() {
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
-  const smithyLevel = await guildSmithyLevel(guildId);
+  const smithyLevel = await readGuildSmithyLevel(db, guildId);
   const dayKey = todayDeliveryKey();
   const out = await db.transaction(async (tx) => {
     const equipmentRaw = await lockSaveForUpdate<Record<string, unknown>>(
@@ -125,7 +98,7 @@ export async function POST(req: Request) {
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
-  const smithyLevel = await guildSmithyLevel(guildId);
+  const smithyLevel = await readGuildSmithyLevel(db, guildId);
 
   const result = await db.transaction(async (tx) => {
     const dayKey = todayDeliveryKey();

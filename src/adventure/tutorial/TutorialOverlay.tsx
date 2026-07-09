@@ -43,7 +43,7 @@ export function TutorialOverlayInner({
       <div
         ref={contentRef}
         onClick={(e) => e.stopPropagation()}
-        className="no-scrollbar max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="no-scrollbar max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">

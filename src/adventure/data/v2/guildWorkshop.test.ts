@@ -27,47 +27,59 @@ const ENOUGH_WORKSHOP_MATERIALS = {
 };
 
 describe("guild workshop recipes", () => {
-  it("keeps starter smithy recipes open at blacksmith level 1", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
-    expect(meetsGuildWorkshopRecipeLevel({}, recipe)).toBe(true);
-    expect(guildWorkshopRecipeView(recipe, { crop: 99, ore: 99 }).canCraft).toBe(
-      true,
-    );
-  });
-
-  it("locks advanced recipes behind blacksmith level", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.mithril_sword;
-    expect(guildWorkshopRecipeView(recipe, { crop: 99, ore: 99 }).canCraft).toBe(
-      false,
-    );
+  it("uses craft-only equipment for every workshop recipe", () => {
+    const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
+    expect(recipes).toHaveLength(28);
     expect(
-      guildWorkshopRecipeView(recipe, { crop: 999, ore: 999 }, {
-        blacksmith: { xp: 2200, crafts: 40 },
-      }).canCraft,
+      recipes.every((recipe) => V2_EQUIPMENT[recipe.equipmentId].craftOnly),
     ).toBe(true);
   });
 
-  it("exposes mid and high tier craft recipes", () => {
-    expect(GUILD_WORKSHOP_RECIPES.greatsword.requiredArtisanLevel).toBe(3);
-    expect(GUILD_WORKSHOP_RECIPES.mithril_sword.requiredArtisanLevel).toBe(5);
-    expect(GUILD_WORKSHOP_RECIPES.mana_essence.equipmentId).toBe(
-      "v2_mana_essence",
-    );
+  it("keeps starter craft-only recipes open at blacksmith level 1", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
+    expect(meetsGuildWorkshopRecipeLevel({}, recipe)).toBe(true);
+    expect(
+      guildWorkshopRecipeView(recipe, { crop: 999, ore: 999 }).canCraft,
+    ).toBe(true);
   });
 
-  it("exposes craft-only signature recipes at high blacksmith levels", () => {
+  it("locks advanced craft-only recipes behind blacksmith level", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_guard_ring;
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 999, ore: 999 },
+        { blacksmith: { xp: 260, crafts: 9 } },
+        0,
+        2,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ).canCraft,
+    ).toBe(false);
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 999, ore: 999 },
+        { blacksmith: { xp: 1200, crafts: 30 } },
+        0,
+        2,
+        ENOUGH_WORKSHOP_MATERIALS,
+      ).canCraft,
+    ).toBe(true);
+  });
+
+  it("exposes multiple craft-only set recipe lines", () => {
     expect(GUILD_WORKSHOP_RECIPES.crafted_oathblade).toMatchObject({
       equipmentId: "v2_crafted_oathblade",
-      requiredArtisanLevel: 6,
+      requiredArtisanLevel: 1,
+    });
+    expect(GUILD_WORKSHOP_RECIPES.crafted_guard_ring).toMatchObject({
+      equipmentId: "v2_crafted_guard_ring",
+      requiredArtisanLevel: 4,
       requiredSmithyLevel: 2,
     });
-    expect(GUILD_WORKSHOP_RECIPES.crafted_master_ring).toMatchObject({
-      equipmentId: "v2_crafted_master_ring",
-      requiredArtisanLevel: 7,
-      requiredSmithyLevel: 3,
-    });
-    expect(GUILD_WORKSHOP_RECIPES.crafted_ward_plate).toMatchObject({
-      equipmentId: "v2_crafted_ward_plate",
+    expect(GUILD_WORKSHOP_RECIPES.crafted_fury_necklace).toMatchObject({
+      equipmentId: "v2_crafted_fury_necklace",
+      requiredArtisanLevel: 6,
       requiredSmithyLevel: 3,
     });
     expect(GUILD_WORKSHOP_RECIPES.crafted_sunforge_blade).toMatchObject({
@@ -94,17 +106,15 @@ describe("guild workshop recipes", () => {
       guildWorkshopRecipeView(
         GUILD_WORKSHOP_RECIPES.crafted_oathblade,
         { crop: 999, ore: 999 },
-        { blacksmith: { xp: 3300, crafts: 40 } },
+        {},
         0,
-        2,
-        ENOUGH_WORKSHOP_MATERIALS,
       ).craftOnly,
     ).toBe(true);
   });
 
   it("locks premium recipes behind smithy level", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.crafted_master_ring;
-    const artisan = { blacksmith: { xp: 4700, crafts: 50 } };
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_fury_necklace;
+    const artisan = { blacksmith: { xp: 3100, crafts: 50 } };
     expect(
       guildWorkshopRecipeView(
         recipe,
@@ -187,13 +197,11 @@ describe("guild workshop recipes", () => {
   });
 
   it("keeps craft-only recipe costs and xp stepped by smithy tier", () => {
-    const craftOnly = Object.values(GUILD_WORKSHOP_RECIPES)
-      .filter((recipe) => recipe.id.startsWith("crafted_"))
-      .sort(
-        (a, b) =>
-          (a.requiredSmithyLevel ?? 1) - (b.requiredSmithyLevel ?? 1) ||
-          a.requiredArtisanLevel - b.requiredArtisanLevel,
-      );
+    const craftOnly = Object.values(GUILD_WORKSHOP_RECIPES).sort(
+      (a, b) =>
+        (a.requiredSmithyLevel ?? 1) - (b.requiredSmithyLevel ?? 1) ||
+        a.requiredArtisanLevel - b.requiredArtisanLevel,
+    );
     const totalsBySmithy = new Map<number, number[]>();
     for (const recipe of craftOnly) {
       const smithyLevel = recipe.requiredSmithyLevel ?? 1;
@@ -202,9 +210,10 @@ describe("guild workshop recipes", () => {
         ...(totalsBySmithy.get(smithyLevel) ?? []),
         totalCost,
       ]);
-      expect(recipe.artisanXp).toBeGreaterThanOrEqual(60);
+      expect(recipe.artisanXp).toBeGreaterThanOrEqual(34);
     }
-    expect(Math.min(...(totalsBySmithy.get(2) ?? []))).toBeGreaterThan(350);
+    expect(Math.min(...(totalsBySmithy.get(1) ?? []))).toBeGreaterThan(350);
+    expect(Math.min(...(totalsBySmithy.get(2) ?? []))).toBeGreaterThan(450);
     expect(Math.min(...(totalsBySmithy.get(3) ?? []))).toBeGreaterThan(
       Math.max(...(totalsBySmithy.get(2) ?? [])),
     );
@@ -218,14 +227,13 @@ describe("guild workshop recipes", () => {
 
   it("craft-only equipment tiers follow smithy progression", () => {
     const expectedTierRangeBySmithyLevel = new Map([
-      [2, [4, 4]],
-      [3, [6, 6]],
-      [4, [8, 8]],
-      [5, [10, 12]],
+      [1, [4, 4]],
+      [2, [5, 5]],
+      [3, [5, 5]],
+      [4, [5, 5]],
+      [5, [5, 5]],
     ]);
-    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES).filter((r) =>
-      r.id.startsWith("crafted_"),
-    )) {
+    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES)) {
       const smithyLevel = recipe.requiredSmithyLevel ?? 1;
       const expectedRange = expectedTierRangeBySmithyLevel.get(smithyLevel);
       expect(expectedRange, recipe.id).toBeDefined();
@@ -237,7 +245,7 @@ describe("guild workshop recipes", () => {
   });
 
   it("separates level gate from resource gate", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.leather_gloves;
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_spark_gloves;
     const view = guildWorkshopRecipeView(recipe, { crop: 0, ore: 0 }, {
       blacksmith: { xp: 260, crafts: 9 },
     });
@@ -247,7 +255,7 @@ describe("guild workshop recipes", () => {
   });
 
   it("scales crafted +1 quality chance by artisan level", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
     expect(guildWorkshopQualityChancePct({}, recipe)).toBe(3);
     expect(
       guildWorkshopQualityChancePct(
@@ -258,7 +266,7 @@ describe("guild workshop recipes", () => {
   });
 
   it("adds guild workshop bonus tiers to crafted quality chance", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
     expect(guildWorkshopBonusFromTotalCrafts(49)).toEqual({
       totalCrafts: 49,
       qualityChanceBonusPct: 0,
@@ -275,14 +283,14 @@ describe("guild workshop recipes", () => {
     ).toBe(25);
   });
 
-  it("raises crafted quality chance cap for masterwork mode", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+  it("guarantees +1 crafted quality for masterwork mode", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
     const artisan = { blacksmith: { xp: 12500, crafts: 200 } };
     const bonus = guildWorkshopBonusFromTotalCrafts(600);
     expect(guildWorkshopQualityChancePct(artisan, recipe, bonus)).toBe(25);
     expect(
       guildWorkshopQualityChancePct(artisan, recipe, bonus, "masterwork"),
-    ).toBe(45);
+    ).toBe(100);
   });
 
   it("exposes masterwork craft costs and gates in recipe views", () => {
@@ -302,11 +310,10 @@ describe("guild workshop recipes", () => {
       levelOk: true,
       canCraft: true,
       plus2Unlocked: false,
+      plus2ChancePct: 25,
     });
     expect(view.masterwork.cost.crop).toBe((recipe.cost.crop ?? 0) * 3);
-    expect(
-      view.masterwork.materialCost[GUILD_WORKSHOP_MATERIAL_ID.refinedIron],
-    ).toBe(4);
+    expect(view.masterwork.materialCost).toEqual({});
   });
 
   it("spends increased resources and materials for masterwork craft mode", () => {
@@ -315,18 +322,14 @@ describe("guild workshop recipes", () => {
       crop: (recipe.cost.crop ?? 0) * 3,
       ore: (recipe.cost.ore ?? 0) * 3,
     });
-    expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject(
-      {
-        [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 4,
-      },
-    );
+    expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toEqual({});
     expect(
       hasGuildWorkshopRecipeMaterials(
-        { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+        {},
         recipe,
         "masterwork",
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       spendGuildWorkshopRecipeCost(
         { crop: 9999, ore: 9999 },
@@ -340,7 +343,7 @@ describe("guild workshop recipes", () => {
   });
 
   it("rolls +1 crafted quality using the recipe quality chance", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
     expect(rollGuildWorkshopEnhance({}, recipe, () => 0)).toEqual({
       level: 1,
       bonusPct: 5,
@@ -349,8 +352,8 @@ describe("guild workshop recipes", () => {
   });
 
   it("can roll +2 crafted quality in masterwork mode", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
-    const rolls = [0, 0];
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
+    const rolls = [0];
     const rng = () => rolls.shift() ?? 0.99;
     expect(
       rollGuildWorkshopEnhance(
@@ -367,8 +370,8 @@ describe("guild workshop recipes", () => {
   });
 
   it("does not roll +2 quality before blacksmith Lv9", () => {
-    const recipe = GUILD_WORKSHOP_RECIPES.iron_sword;
-    const rolls = [0, 0];
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
+    const rolls = [0];
     const rng = () => rolls.shift() ?? 0.99;
     expect(
       rollGuildWorkshopEnhance(
@@ -388,17 +391,17 @@ describe("guild workshop recipes", () => {
     const stats = parseGuildWorkshopStats({
       totalCrafts: 2.9,
       qualityCrafts: 1,
-      craftedByRecipe: { iron_sword: 2, unknown: 99 },
+      craftedByRecipe: { crafted_oathblade: 2, unknown: 99 },
     });
     expect(stats).toEqual({
       totalCrafts: 2,
       qualityCrafts: 1,
-      craftedByRecipe: { iron_sword: 2 },
+      craftedByRecipe: { crafted_oathblade: 2 },
     });
-    expect(addGuildWorkshopCraftStat(stats, "silver_ring", true)).toEqual({
+    expect(addGuildWorkshopCraftStat(stats, "crafted_guard_ring", true)).toEqual({
       totalCrafts: 3,
       qualityCrafts: 2,
-      craftedByRecipe: { iron_sword: 2, silver_ring: 1 },
+      craftedByRecipe: { crafted_oathblade: 2, crafted_guard_ring: 1 },
     });
   });
 
@@ -444,9 +447,9 @@ describe("guild workshop recipes", () => {
       9,
     );
     expect(plan.materials).toEqual({
-      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3,
     });
-    expect(plan.artisanXp).toBe(4);
+    expect(plan.artisanXp).toBe(2);
   });
 
   it("adds dismantled materials into inventory", () => {

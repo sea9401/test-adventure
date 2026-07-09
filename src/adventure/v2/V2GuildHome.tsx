@@ -4,57 +4,39 @@ import { useCallback, useEffect, useState } from "react";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
-import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
-import type { Outpost } from "@/adventure/data/v2/types";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
-import HonorShopPanel from "@/adventure/v2/HonorShopPanel";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import type { GuildActivity } from "./GuildActivityList";
 import { GuildFoundCard } from "./GuildFoundCard";
 import { NoticeBanner } from "./guild/NoticeBanner";
 import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
-import { GuildOutpostsPanel } from "./guild/GuildOutpostsPanel";
+import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
+import { GuildWorkshopPanel } from "./guild/GuildWorkshopPanel";
 import {
-  TYPE_LABEL,
-  settleTierLabel,
   type GuildInfoResponse,
   type GuildSubTab,
   type Notice,
-  type Occupation,
   type PendingRequest,
-  type PolicyTarget,
   type StateResponse,
-  type TileSettlementRow,
 } from "./guild/guildShared";
 
-// 길드 탭 — sub-tab nav 분리 (info / members / manage / outposts).
-// 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·거점 정책/세율·직책.
-// 각 탭의 렌더·로컬 상태/핸들러는 ./guild/*Panel 로 추출(거동 불변). 이 파일 = 공유 상태 + 탭 전환 조정자.
+// 길드 탭 — sub-tab nav 분리 (info / members / facilities / manage).
+// 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·직책·길드 설정.
 
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
   { key: "members", label: "길드원" },
-  { key: "outposts", label: "영지" },
+  { key: "facilities", label: "시설" },
 ];
 
 export function V2GuildHome({
   viewerGuildId,
-  viewerUserId,
-  occupations,
   onGuildChanged,
-  onOccupationsChanged,
 }: {
   viewerGuildId: number | null;
-  // 현재 유저 id — 거점 정책 탭의 LordPanel 영주 본인(세금 수확) 판정용.
-  viewerUserId: string | null;
-  occupations: Occupation[];
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
-  // 관리탭에서 거점 정책/세율 저장 후 부모 occupations 재조회.
-  onOccupationsChanged?: () => void;
 }) {
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
   const [state, setState] = useState<StateResponse | null>(null);
@@ -90,48 +72,7 @@ export function V2GuildHome({
   // 자체 fetch 한 state.guild.id 를 우선한다(없으면 prop 폴백).
   const guildId = state?.guild?.id ?? viewerGuildId;
 
-  // 보유 거점.
-  const ownedOutposts: Outpost[] =
-    guildId != null
-      ? OUTPOSTS.filter((o) =>
-          occupations.some(
-            (occ) =>
-              occ.outpostId === o.id && occ.occupiedByGuildId === guildId,
-          ),
-        )
-      : [];
-  const occByOutpost = new Map(occupations.map((o) => [o.outpostId, o]));
-
-  // 우리 길드 영지 = 길드원이 세운 자유 타일 정착지(소유자→현재 길드 귀속은 /me/state 가 파생).
-  const guildSettlements: TileSettlementRow[] =
-    guildId != null
-      ? (state?.tileSettlements ?? []).filter((s) => s.guildId === guildId)
-      : [];
-  const memberNameById = new Map(
-    (info?.members ?? []).map((m) => [m.userId, m.name]),
-  );
-
-  // 거점 정책 탭 대상 — 길드 타일 정착지 + 카탈로그 점령 거점(영주/정책·세율 일원 관리).
-  const policyTargets: PolicyTarget[] = [
-    ...guildSettlements.map((s) => {
-      const sid = tileOutpostId(s.col, s.row);
-      return {
-        outpostId: sid,
-        title: `${s.name ?? "개척 정착지"} (${settleTierLabel(s.tier)})`,
-        occ: occByOutpost.get(sid),
-      };
-    }),
-    ...ownedOutposts.map((o) => {
-      const occ = occByOutpost.get(o.id);
-      return {
-        outpostId: o.id,
-        title: `${occ?.villageName?.trim() || o.name} (${TYPE_LABEL[o.type]})`,
-        occ,
-      };
-    }),
-  ];
-
-  // 무소속이면 창단 + 둘러보기를 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
+  // 무소속이면 창단 + 둘러보기를 노출. 길드원/시설 등 모든 sub-tab 의 prerequisite 가 길드.
   if (!loading && !state?.guild) {
     return (
       <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
@@ -166,14 +107,17 @@ export function V2GuildHome({
   const isManager = info?.isManager ?? false;
   const canManage = isMaster || isManager;
   const pendingRequests: PendingRequest[] = info?.pendingRequests ?? [];
-  // 정착지 전쟁 on = 명예상점 탭 추가(개인 명예 소비처). off = 미표시(byte-identical).
-  const withHonor: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
-    ? [...BASE_SUB_TABS, { key: "honor_shop", label: "명성상점" }]
-    : [...BASE_SUB_TABS];
+  const smithyLevel = info?.settlementBuildingLevels?.guild_smithy ?? 0;
+  const withWorkshop: { key: GuildSubTab; label: string }[] =
+    info?.hasGuildSmithy ||
+    smithyLevel > 0 ||
+    (info?.settlementBuildings?.guild_smithy ?? 0) > 0
+      ? [...BASE_SUB_TABS, { key: "workshop", label: "대장간" }]
+      : BASE_SUB_TABS;
   // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
   const subTabs: { key: GuildSubTab; label: string }[] = canManage
     ? [
-        ...withHonor,
+        ...withWorkshop,
         {
           key: "manage",
           label:
@@ -182,7 +126,7 @@ export function V2GuildHome({
               : "관리",
         },
       ]
-    : withHonor;
+    : withWorkshop;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab
@@ -204,8 +148,6 @@ export function V2GuildHome({
         />
       </HeaderPanel>
 
-      {activeTab === "honor_shop" && <HonorShopPanel />}
-
       {activeTab === "info" && (
         <GuildInfoPanel
           info={info}
@@ -214,6 +156,8 @@ export function V2GuildHome({
           onRefresh={refresh}
         />
       )}
+
+      {activeTab === "workshop" && <GuildWorkshopPanel info={info} />}
 
       {activeTab === "members" && (
         <GuildMembersPanel
@@ -240,23 +184,19 @@ export function V2GuildHome({
           setNotice={setNotice}
           onRefresh={refresh}
           isMaster={isMaster}
-          canManage={canManage}
           pendingRequests={pendingRequests}
           loading={loading}
-          policyTargets={policyTargets}
-          viewerUserId={viewerUserId}
           onGuildChanged={onGuildChanged}
-          onOccupationsChanged={onOccupationsChanged}
         />
       )}
 
-      {activeTab === "outposts" && (
-        <GuildOutpostsPanel
+      {activeTab === "facilities" && (
+        <GuildFacilitiesPanel
           guildId={guildId}
-          guildSettlements={guildSettlements}
-          ownedOutposts={ownedOutposts}
-          occByOutpost={occByOutpost}
-          memberNameById={memberNameById}
+          info={info}
+          onOpenFacility={(id) => {
+            if (id === "guild_smithy") setSubTab("workshop");
+          }}
         />
       )}
     </main>

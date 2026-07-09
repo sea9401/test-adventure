@@ -203,7 +203,7 @@ function BobberScene({ phase }: { phase: Phase }) {
       )}
 
       {phase !== "idle" && (
-        <div className="fish-scene-status relative z-20 mb-3 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-950/70">
+        <div className="fish-scene-status relative z-20 mb-3 rounded bg-white/75 px-3 py-1 text-center shadow-sm backdrop-blur-[1px] dark:bg-zinc-900/70">
           {phase === "casting" && <span className="text-sm">던지는 중…</span>}
           {waiting && (
             <>
@@ -394,7 +394,7 @@ export function FishingView({
       : 0;
 
   return (
-    <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
+    <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100">
       <SubViewHeader title="낚시터" onBack={onBack} />
 
       <FishingSubTabs
@@ -459,7 +459,7 @@ export function FishingView({
               ? "is-biting border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
               : tapActive
                 ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
-                : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
+                : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-500"
           }`}
         >
           <BobberScene phase={phase} />
@@ -468,7 +468,7 @@ export function FishingView({
 
       {/* 결과 */}
       {phase === "result" && (
-        <div className="ui-fishing-result rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-800">
+        <div className="ui-fishing-result rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-700">
           {error ? (
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (

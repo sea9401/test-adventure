@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages, savesKv } from "@/db/schema";
+import { guildMembers, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
@@ -10,11 +10,8 @@ import {
 } from "@/lib/server/guildWorkshopWeekly";
 import { snapshotStaleArtisanLeaderboards } from "@/lib/server/artisanLeaderboardSnapshots";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
-import {
-  guildSmithyUpgradeForLevel,
-  settlementBuildingIdOf,
-  settlementBuildingLevelOf,
-} from "@/adventure/data/v2/settlement";
+import { guildSmithyUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import { readGuildSmithyLevel } from "@/lib/server/guildFacilities";
 import {
   lockGuildSettlement,
   readGuildSettlement,
@@ -72,30 +69,6 @@ async function getGuildIdForUser(userId: string): Promise<number | null> {
       .limit(1)
   )[0];
   return row?.guildId ?? null;
-}
-
-function guildSmithyLevelFromBuildings(buildings: unknown): number {
-  if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
-    return 0;
-  }
-  let level = 0;
-  for (const raw of Object.values(buildings as Record<string, unknown>)) {
-    if (settlementBuildingIdOf(raw) === "guild_smithy") {
-      level = Math.max(level, settlementBuildingLevelOf(raw));
-    }
-  }
-  return level;
-}
-
-async function guildSmithyLevel(guildId: number): Promise<number> {
-  const rows = await db
-    .select({ buildings: outpostVillages.buildings })
-    .from(outpostVillages)
-    .where(eq(outpostVillages.guildId, guildId));
-  return rows.reduce(
-    (max, row) => Math.max(max, guildSmithyLevelFromBuildings(row.buildings)),
-    0,
-  );
 }
 
 async function readGuildWorkshopBonus(
@@ -169,7 +142,7 @@ export async function GET() {
   }
 
   const [smithyLevel, baseGuildBonus] = await Promise.all([
-    guildSmithyLevel(guildId),
+    readGuildSmithyLevel(db, guildId),
     readGuildWorkshopBonus(guildId),
   ]);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
@@ -249,7 +222,7 @@ export async function POST(req: Request) {
   if (guildId == null) {
     return Response.json({ ok: false, error: "no_guild" }, { status: 403 });
   }
-  const smithyLevel = await guildSmithyLevel(guildId);
+  const smithyLevel = await readGuildSmithyLevel(db, guildId);
   if (smithyLevel <= 0) {
     return Response.json(
       { ok: false, error: "smithy_required" },

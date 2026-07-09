@@ -4,6 +4,10 @@ import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   ArrowUUpLeft,
   Bomb,
   Compass,
@@ -11,6 +15,7 @@ import {
   MagnifyingGlass,
   MapTrifold,
   Shield,
+  Shovel,
 } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
@@ -88,6 +93,21 @@ const TOOL_ACTIONS: TreasureAction[] = [
   "retreat",
 ];
 
+type Direction = "up" | "right" | "down" | "left";
+
+const DIRECTION_META: Record<
+  Direction,
+  {
+    label: string;
+    Icon: ComponentType<{ size?: number; weight?: "regular" | "bold" | "fill" }>;
+  }
+> = {
+  up: { label: "위", Icon: ArrowUp },
+  right: { label: "오른쪽", Icon: ArrowRight },
+  down: { label: "아래", Icon: ArrowDown },
+  left: { label: "왼쪽", Icon: ArrowLeft },
+};
+
 const ACTION_ICON: Record<
   TreasureAction,
   ComponentType<{ size?: number; weight?: "regular" | "bold" | "fill" }>
@@ -146,6 +166,37 @@ function cellGlyph(cell: TreasureCellPublic): string {
     case "fissure":
       return "!";
   }
+}
+
+function actionForCell(
+  cell: TreasureCellPublic,
+  mapMode: "excavate" | "bomb",
+): TreasureAction | null {
+  if (cell.current) return null;
+  if (cell.adjacent && cell.revealed) return "move";
+  if (cell.adjacent && !cell.revealed) return mapMode;
+  return null;
+}
+
+function neighborIndex(site: TreasureSitePublic, direction: Direction): number | null {
+  const x = site.position % site.gridSize;
+  const y = Math.floor(site.position / site.gridSize);
+  const next = {
+    up: { x, y: y - 1 },
+    right: { x: x + 1, y },
+    down: { x, y: y + 1 },
+    left: { x: x - 1, y },
+  }[direction];
+  if (next.x < 0 || next.x >= site.gridSize || next.y < 0 || next.y >= site.gridHeight) {
+    return null;
+  }
+  return next.y * site.gridSize + next.x;
+}
+
+function targetLabelForCell(cell: TreasureCellPublic, mapMode: "excavate" | "bomb"): string {
+  if (cell.revealed) return "이동";
+  if (mapMode === "bomb") return "폭약";
+  return "발굴";
 }
 
 type Result =
@@ -219,107 +270,172 @@ function TreasureMap({
   busy,
   result,
   mapMode,
+  activeCell,
   onAction,
 }: {
   site: TreasureSitePublic;
   busy: boolean;
   result: Result;
   mapMode: "excavate" | "bomb";
+  activeCell: number | null;
   onAction: (action: TreasureAction, target?: TreasureActionTarget) => void;
 }) {
+  const directionTargets = (Object.keys(DIRECTION_META) as Direction[]).map((direction) => {
+    const index = neighborIndex(site, direction);
+    const cell = typeof index === "number" ? site.cells[index] : null;
+    const action = cell ? actionForCell(cell, mapMode) : null;
+    const disabled =
+      busy ||
+      !!result ||
+      !cell ||
+      !action ||
+      site.forcedRetreat ||
+      (action === "bomb" && site.tools.bombs <= 0);
+    return { direction, cell, action, disabled };
+  });
+
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="mb-2 flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-        <span className="font-semibold text-zinc-700 dark:text-zinc-200">지하 채굴</span>
-        <span>깊이 {site.depth}/{site.maxDepth}</span>
+    <div className="overflow-hidden rounded-md border border-stone-700 bg-stone-950 text-stone-100 shadow-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-stone-800 bg-zinc-950 px-3 py-2 text-xs">
+        <span className="font-semibold text-amber-200">지하 채굴</span>
+        <div className="flex items-center gap-2 text-stone-400">
+          <span>
+            깊이 <b className="text-stone-100">{site.depth}</b>/{site.maxDepth}
+          </span>
+          <span>
+            위치 <b className="text-stone-100">{site.position + 1}</b>
+          </span>
+        </div>
       </div>
-      <div
-        className="grid overflow-hidden rounded-md border border-stone-800 bg-stone-800 shadow-inner dark:border-stone-950 dark:bg-stone-950"
-        style={{ gridTemplateColumns: `repeat(${site.gridSize}, minmax(0, 1fr))` }}
-      >
-        {site.cells.map((cell) => {
-          const action: TreasureAction | null = cell.current
-            ? null
-            : cell.adjacent && cell.revealed
-              ? "move"
-              : cell.adjacent && !cell.revealed
-                ? mapMode
-                : null;
-          const disabled =
-            busy ||
-            !!result ||
-            !action ||
-            site.forcedRetreat ||
-            (action === "bomb" && site.tools.bombs <= 0);
-          const tone =
-            cell.revealed || cell.scanned || cell.current
-              ? CELL_TONE[cell.kind ?? "hidden"]
-              : CELL_TONE.hidden;
-          const title = cell.kind
-            ? `${cell.label} · ${cell.reward} · 비용 ${cell.cost}`
-            : cell.adjacent
-              ? mapMode === "bomb"
-                ? "흙벽 · 폭약 1개와 연료 1로 뚫습니다"
-                : "흙벽 · 연료 소모는 지층에 따라 달라집니다"
-              : "아직 닿지 않는 흙벽";
-          const isTunnel = cell.revealed || cell.current;
-          const depthShade =
-            cell.y > site.gridHeight * 0.66
-              ? "brightness-[0.82]"
-              : cell.y > site.gridHeight * 0.36
-                ? "brightness-[0.92]"
-                : "";
-          return (
-            <button
-              key={cell.index}
-              type="button"
-              disabled={disabled}
-              title={title}
-              onClick={() => {
-                if (action) onAction(action, { cell: cell.index });
-              }}
-              className={`relative aspect-square text-[10px] font-bold transition disabled:cursor-not-allowed ${tone} ${depthShade} ${
-                cell.current
-                  ? "z-10 ring-2 ring-sky-300 ring-offset-0"
-                  : action
-                    ? "hover:brightness-110"
-                    : ""
-              }`}
-            >
-              {!isTunnel && (
-                <span className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,0.12),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_45%)]" />
-              )}
-              {isTunnel && (
-                <span className="absolute inset-[12%] rounded-sm bg-zinc-950/70 shadow-inner dark:bg-black/70" />
-              )}
-              {cell.kind === "rock" && !isTunnel && (
-                <span className="absolute inset-x-[20%] top-[30%] h-[34%] rounded-full bg-zinc-400/40" />
-              )}
-              {(cell.kind === "cache" || cell.kind === "relic" || cell.kind === "supply" || cell.kind === "clue") && (
-                <span className="absolute inset-[28%] rounded-full bg-current opacity-70 blur-[1px]" />
-              )}
-              {cell.current ? (
-                <span className="absolute inset-[18%] flex items-center justify-center rounded-sm bg-sky-400 text-[9px] font-black text-sky-950 shadow">
-                  DR
-                </span>
-              ) : (
-                <span className="absolute inset-0 flex items-center justify-center">
-                  {cellGlyph(cell)}
-                </span>
-              )}
-              {cell.scanned && !cell.revealed && (
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-cyan-300" />
-              )}
-              {action && (
-                <span className="absolute bottom-0.5 right-0.5 rounded bg-black/45 px-1 text-[9px] text-white">
-                  {cell.kind ? cell.cost : "?"}
-                </span>
-              )}
-            </button>
-          );
-        })}
+
+      <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_144px]">
+        <div
+          className="grid overflow-hidden rounded border border-stone-800 bg-stone-900 shadow-inner"
+          style={{ gridTemplateColumns: `repeat(${site.gridSize}, minmax(0, 1fr))` }}
+        >
+          {site.cells.map((cell) => {
+            const action = actionForCell(cell, mapMode);
+            const disabled =
+              busy ||
+              !!result ||
+              !action ||
+              site.forcedRetreat ||
+              (action === "bomb" && site.tools.bombs <= 0);
+            const visible = cell.revealed || cell.scanned || cell.current;
+            const tone = visible ? CELL_TONE[cell.kind ?? "hidden"] : CELL_TONE.hidden;
+            const title = cell.kind
+              ? `${cell.label} · ${cell.reward} · 비용 ${cell.cost}`
+              : cell.adjacent
+                ? mapMode === "bomb"
+                  ? "흙벽 · 폭약 1개와 연료 1로 뚫습니다"
+                  : "흙벽 · 연료 소모는 지층에 따라 달라집니다"
+                : "아직 닿지 않는 흙벽";
+            const isTunnel = cell.revealed || cell.current;
+            const isTarget = !!action;
+            const isActive = activeCell === cell.index;
+            const depthShade =
+              cell.y > site.gridHeight * 0.66
+                ? "brightness-[0.78]"
+                : cell.y > site.gridHeight * 0.36
+                  ? "brightness-[0.9]"
+                  : "";
+            return (
+              <button
+                key={cell.index}
+                type="button"
+                disabled={disabled}
+                title={title}
+                onClick={() => {
+                  if (action) onAction(action, { cell: cell.index });
+                }}
+                className={`group relative aspect-square min-h-9 overflow-hidden border border-black/20 text-[10px] font-bold transition disabled:cursor-not-allowed ${tone} ${depthShade} ${
+                  cell.current
+                    ? "z-20 ring-2 ring-sky-300"
+                    : isTarget
+                      ? "ring-1 ring-amber-300/60 hover:z-10 hover:brightness-125"
+                      : ""
+                } ${isActive ? "animate-pulse brightness-125" : ""}`}
+              >
+                {!isTunnel && (
+                  <>
+                    <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.16),transparent_25%),radial-gradient(circle_at_70%_75%,rgba(0,0,0,0.18),transparent_30%)]" />
+                    <span className="absolute inset-x-0 bottom-0 h-1/3 bg-black/15" />
+                  </>
+                )}
+                {isTunnel && (
+                  <span className="absolute inset-[12%] rounded-sm bg-zinc-950/80 shadow-inner" />
+                )}
+                {cell.kind === "rock" && !isTunnel && (
+                  <span className="absolute inset-x-[18%] top-[28%] h-[36%] rounded-full bg-zinc-300/35" />
+                )}
+                {(cell.kind === "cache" ||
+                  cell.kind === "relic" ||
+                  cell.kind === "supply" ||
+                  cell.kind === "clue") && (
+                  <span className="absolute inset-[28%] rounded-full bg-current opacity-70 blur-[1px]" />
+                )}
+                {cell.current ? (
+                  <span className="absolute inset-[13%] flex items-center justify-center rounded bg-sky-300 text-sky-950 shadow">
+                    <Shovel size={18} weight="fill" />
+                  </span>
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    {cellGlyph(cell)}
+                  </span>
+                )}
+                {cell.scanned && !cell.revealed && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_8px_rgba(103,232,249,0.9)]" />
+                )}
+                {isTarget && (
+                  <span className="absolute bottom-0.5 right-0.5 rounded bg-black/55 px-1 text-[9px] text-white">
+                    {cell.kind ? cell.cost : "?"}
+                  </span>
+                )}
+                {isTarget && !cell.revealed && (
+                  <span className="absolute left-1 top-1 rounded bg-amber-300/90 px-1 text-[8px] font-black text-stone-950 opacity-0 transition group-hover:opacity-100">
+                    {targetLabelForCell(cell, mapMode)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-3 grid-rows-3 gap-1.5 self-center">
+          {directionTargets.map(({ direction, cell, action, disabled }) => {
+            const { Icon, label } = DIRECTION_META[direction];
+            const positionClass = {
+              up: "col-start-2 row-start-1",
+              right: "col-start-3 row-start-2",
+              down: "col-start-2 row-start-3",
+              left: "col-start-1 row-start-2",
+            }[direction];
+            return (
+              <button
+                key={direction}
+                type="button"
+                disabled={disabled}
+                title={
+                  cell && action
+                    ? `${label} ${targetLabelForCell(cell, mapMode)}`
+                    : `${label} 통로 없음`
+                }
+                onClick={() => {
+                  if (cell && action) onAction(action, { cell: cell.index });
+                }}
+                className={`${positionClass} flex aspect-square items-center justify-center rounded border border-stone-700 bg-stone-800 text-stone-100 transition hover:border-amber-300 hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-30`}
+              >
+                <Icon size={24} weight="bold" />
+              </button>
+            );
+          })}
+          <div className="col-start-2 row-start-2 flex aspect-square items-center justify-center rounded border border-sky-500/60 bg-sky-400 text-sky-950 shadow-[0_0_18px_rgba(56,189,248,0.25)]">
+            <Shovel size={24} weight="fill" />
+          </div>
+        </div>
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400 sm:grid-cols-5">
+
+      <div className="grid grid-cols-4 gap-1.5 border-t border-stone-800 bg-zinc-950 px-3 py-2 text-[10px] text-stone-400 sm:grid-cols-8">
         {(["soil", "dense", "rock", "clue", "cache", "supply", "relic", "fissure"] as TreasureCellKind[]).map(
           (kind) => (
             <div key={kind} className="flex min-w-0 items-center gap-1">
@@ -405,6 +521,7 @@ export function TreasureDigView({
   const [fragments, setFragments] = useState<number | null>(null);
   const [restoring, setRestoring] = useState(Boolean(loadSession));
   const [mapMode, setMapMode] = useState<"excavate" | "bomb">("excavate");
+  const [activeCell, setActiveCell] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loadFragments) return;
@@ -451,6 +568,7 @@ export function TreasureDigView({
         setSite(r.site);
         setResult(null);
         setMapMode("excavate");
+        setActiveCell(null);
       }
     } catch {
       setNotice("발굴 지점을 열 수 없습니다.");
@@ -464,6 +582,7 @@ export function TreasureDigView({
       if (!site || busy || result) return;
       setBusy(true);
       setNotice(null);
+      setActiveCell(typeof target?.cell === "number" ? target.cell : null);
       try {
         const r = await dig(site.siteId, action, target);
         switch (r.outcome) {
@@ -494,6 +613,7 @@ export function TreasureDigView({
         setNotice("발굴 중 오류가 발생했습니다.");
       } finally {
         setBusy(false);
+        window.setTimeout(() => setActiveCell(null), 180);
       }
     },
     [site, busy, result, dig],
@@ -572,6 +692,7 @@ export function TreasureDigView({
             busy={busy}
             result={result}
             mapMode={effectiveMapMode}
+            activeCell={activeCell}
             onAction={handleAction}
           />
 
@@ -580,25 +701,27 @@ export function TreasureDigView({
               <button
                 type="button"
                 onClick={() => setMapMode("excavate")}
-                className={`rounded border px-3 py-2 font-semibold transition ${
+                className={`flex items-center justify-center gap-1.5 rounded border px-3 py-2 font-semibold transition ${
                   effectiveMapMode === "excavate"
                     ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
                     : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 }`}
               >
-                일반 발굴
+                <Shovel size={16} weight="bold" />
+                <span>일반 발굴</span>
               </button>
               <button
                 type="button"
                 disabled={site.tools.bombs <= 0}
                 onClick={() => setMapMode("bomb")}
-                className={`rounded border px-3 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                className={`flex items-center justify-center gap-1.5 rounded border px-3 py-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                   effectiveMapMode === "bomb"
                     ? "border-rose-700 bg-rose-700 text-white dark:border-rose-300 dark:bg-rose-300 dark:text-rose-950"
                     : "border-rose-200 bg-white text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:bg-zinc-900 dark:text-rose-200 dark:hover:bg-rose-950/40"
                 }`}
               >
-                폭약 발굴 {site.tools.bombs}개
+                <Bomb size={16} weight="bold" />
+                <span>폭약 발굴 {site.tools.bombs}개</span>
               </button>
             </div>
           )}

@@ -3,29 +3,22 @@
 import {
   Barbell,
   CastleTurret,
-  CompassRose,
-  Crosshair,
   Skull,
   Sword,
   Trophy,
-  Wall,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/아레나/훈련장 진입.
-// 지도는 전투 탭 최하단(영토/전쟁 동선) — 마을 탭에서 이관(2026-06-25).
 
 export type BattleAction =
   | { kind: "open-dungeons" }
   | { kind: "open-coop" }
-  | { kind: "open-subjugation" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" }
-  | { kind: "open-mastery-tower" }
-  | { kind: "open-grid-dungeon" }
-  | { kind: "open-map" };
+  | { kind: "open-mastery-tower" };
 
 export function V2BattleHome({
   onAction,
@@ -70,35 +63,6 @@ export function V2BattleHome({
           }
           title="숙련의 탑"
           onClick={() => onAction({ kind: "open-mastery-tower" })}
-        />
-        <EntryCard
-          icon={
-            <Crosshair
-              size={28}
-              weight="duotone"
-              className="text-orange-500"
-            />
-          }
-          title="토벌"
-          onClick={() => onAction({ kind: "open-subjugation" })}
-        />
-        <EntryCard
-          icon={
-            <Wall size={28} weight="duotone" className="text-amber-500" />
-          }
-          title="던전 입장"
-          onClick={() => onAction({ kind: "open-grid-dungeon" })}
-        />
-        <EntryCard
-          icon={
-            <CompassRose
-              size={28}
-              weight="duotone"
-              className="text-emerald-500"
-            />
-          }
-          title="지도"
-          onClick={() => onAction({ kind: "open-map" })}
         />
       </div>
     </PageShell>

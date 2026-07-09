@@ -1,13 +1,12 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, outpostVillages } from "@/db/schema";
+import { guildMembers } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   guildSmithyUpgradeForLevel,
-  settlementBuildingIdOf,
-  settlementBuildingLevelOf,
 } from "@/adventure/data/v2/settlement";
+import { readGuildSmithyLevel } from "@/lib/server/guildFacilities";
 import {
   addGuildWorkshopMaterials,
   guildWorkshopDismantlePlan,
@@ -43,30 +42,6 @@ async function getGuildIdForUser(userId: string): Promise<number | null> {
       .limit(1)
   )[0];
   return row?.guildId ?? null;
-}
-
-function guildSmithyLevelFromBuildings(buildings: unknown): number {
-  if (buildings == null || typeof buildings !== "object" || Array.isArray(buildings)) {
-    return 0;
-  }
-  let level = 0;
-  for (const raw of Object.values(buildings as Record<string, unknown>)) {
-    if (settlementBuildingIdOf(raw) === "guild_smithy") {
-      level = Math.max(level, settlementBuildingLevelOf(raw));
-    }
-  }
-  return level;
-}
-
-async function guildSmithyLevel(guildId: number): Promise<number> {
-  const rows = await db
-    .select({ buildings: outpostVillages.buildings })
-    .from(outpostVillages)
-    .where(eq(outpostVillages.guildId, guildId));
-  return rows.reduce(
-    (max, row) => Math.max(max, guildSmithyLevelFromBuildings(row.buildings)),
-    0,
-  );
 }
 
 function artisanView(rawCrafting: unknown) {
@@ -133,7 +108,7 @@ export async function GET() {
 
   const guildId = await getGuildIdForUser(userId);
   if (guildId == null) return bad("no_guild", 403);
-  const smithyLevel = await guildSmithyLevel(guildId);
+  const smithyLevel = await readGuildSmithyLevel(db, guildId);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
   const smithyBonus = guildSmithyUpgradeForLevel(Math.max(1, smithyLevel));
 
@@ -182,7 +157,7 @@ export async function POST(req: Request) {
 
   const guildId = await getGuildIdForUser(userId);
   if (guildId == null) return bad("no_guild", 403);
-  const smithyLevel = await guildSmithyLevel(guildId);
+  const smithyLevel = await readGuildSmithyLevel(db, guildId);
   if (smithyLevel <= 0) return bad("smithy_required", 403);
 
   const result = await db.transaction(async (tx) => {

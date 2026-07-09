@@ -383,7 +383,7 @@ export function V2ItemCard({
         role="dialog"
         aria-label={`${item.name} 정보`}
         style={{ position: "fixed", width, left, ...pos }}
-        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
@@ -698,7 +698,7 @@ export function V2SimpleItemInfoCard({
         role="dialog"
         aria-label={`${title} 정보`}
         style={{ position: "fixed", width, left, ...pos }}
-        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -920,7 +920,7 @@ export function V2ItemCompareCard({
       <div
         role="dialog"
         aria-label={`${candidate.item.name} 비교`}
-        className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-2">
           <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">

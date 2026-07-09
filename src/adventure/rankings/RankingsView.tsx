@@ -121,7 +121,7 @@ function UserRankingsBody({
           {Array.from({ length: 5 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-950/60"
+              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-700 dark:bg-zinc-900/60"
             >
               <Skeleton rows={2} />
             </li>
@@ -160,7 +160,7 @@ function UserRankingsBody({
           <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             내 순위
           </div>
-          <div className="border-t border-zinc-200 dark:border-zinc-800">
+          <div className="border-t border-zinc-200 dark:border-zinc-700">
             <RankingRow
               entry={{ ...me, mine: true }}
               metric={metric}
@@ -191,7 +191,7 @@ function GuildRankingsBody() {
           {Array.from({ length: 5 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-950/60"
+              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-700 dark:bg-zinc-900/60"
             >
               <Skeleton rows={2} />
             </li>
@@ -225,7 +225,7 @@ function GuildRankingsBody() {
           <div className="px-4 py-2 text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             내 길드
           </div>
-          <div className="border-t border-zinc-200 dark:border-zinc-800">
+          <div className="border-t border-zinc-200 dark:border-zinc-700">
             <GuildRankingRow entry={{ ...me, mine: true }} />
           </div>
         </Card>

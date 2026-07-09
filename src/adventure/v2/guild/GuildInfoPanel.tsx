@@ -19,20 +19,19 @@ export function GuildInfoPanel({
   activity: GuildActivity[];
   onRefresh: () => void;
 }) {
-  const smithyCount = info?.settlementBuildings?.guild_smithy ?? 0;
+  const smithyLevel =
+    info?.settlementBuildingLevels?.guild_smithy ??
+    ((info?.settlementBuildings?.guild_smithy ?? 0) > 0 ? 1 : 0);
+  const facilityLabels = [
+    smithyLevel > 0
+      ? `${SETTLEMENT_BUILDINGS.guild_smithy.icon} ${SETTLEMENT_BUILDINGS.guild_smithy.name} Lv ${smithyLevel}`
+      : null,
+  ].filter((label): label is string => Boolean(label));
 
   return info?.guild ? (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900">
         <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
-          {info.guild.nationName && (
-            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-              <dt className="text-zinc-500 dark:text-zinc-400">국가</dt>
-              <dd className="truncate font-semibold text-indigo-600 dark:text-indigo-400">
-                {info.guild.nationName}
-              </dd>
-            </div>
-          )}
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-zinc-500 dark:text-zinc-400">길드마스터</dt>
             <dd className="truncate font-medium">
@@ -58,11 +57,9 @@ export function GuildInfoPanel({
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <dt className="text-zinc-500 dark:text-zinc-400">영지 시설</dt>
+            <dt className="text-zinc-500 dark:text-zinc-400">길드 시설</dt>
             <dd className="truncate font-medium">
-              {smithyCount > 0
-                ? `${SETTLEMENT_BUILDINGS.guild_smithy.icon} ${SETTLEMENT_BUILDINGS.guild_smithy.name} ×${smithyCount}`
-                : "없음"}
+              {facilityLabels.length > 0 ? facilityLabels.join(" · ") : "없음"}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -79,11 +76,11 @@ export function GuildInfoPanel({
         )}
       </div>
 
-      {/* 길드 금고 입금 — 거점 화면에서 이관. 점령/공성 비용 재원 충원.
+      {/* 길드 금고 입금 — 길드 공용 자금 충원.
           입금 후 refresh 로 정보 카드 '길드 자금'·활동 내역도 갱신. */}
       <GuildGoldDepositPanel onChanged={onRefresh} />
 
-      {/* 길드원 활동 내역 — 가입·임명·입금·국가선포·창단. */}
+      {/* 길드원 활동 내역 — 가입·임명·입금·창단. */}
       <GuildActivityList activity={activity} loading={loading} />
     </div>
   ) : (

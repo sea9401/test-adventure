@@ -214,7 +214,7 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
         <section className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <div className="text-sm font-semibold">전투 기록을 찾을 수 없어요.</div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            최근 10판 기록에 남아 있는 전투만 다시 볼 수 있습니다.
+            보관 중인 최근 전투 기록만 다시 볼 수 있습니다.
           </p>
           <button
             type="button"

@@ -7,6 +7,7 @@ import {
   MASTERY_TOWER_MAX_FLOOR,
   MASTERY_TOWER_SAVE_KEY,
   clearMasteryTowerFloor,
+  failMasteryTowerRun,
   kstDateKey,
   masteryTowerClaimPreview,
   type MasteryTowerCombatProfile,
@@ -56,8 +57,28 @@ export async function POST() {
       MASTERY_TOWER_SAVE_KEY,
       {},
     );
+    const now = Date.now();
     let tower = parseMasteryTowerState(raw, kstDateKey());
-    const floor = tower.todayBestFloor + 1;
+    if (tower.cooldownUntil && tower.cooldownUntil > now) {
+      const retryAfterSeconds = Math.ceil((tower.cooldownUntil - now) / 1000);
+      return {
+        status: 429,
+        body: {
+          ok: true as const,
+          success: false,
+          error: "cooldown" as const,
+          tower,
+          power,
+          floor: tower.runFloor + 1,
+          requiredPower: null,
+          encounter: null,
+          retryAfterSeconds,
+          claimPreview: masteryTowerClaimPreview(tower),
+        },
+      };
+    }
+
+    const floor = tower.runFloor + 1;
     if (floor > MASTERY_TOWER_MAX_FLOOR) {
       return {
         status: 200,
@@ -69,6 +90,7 @@ export async function POST() {
           power,
           floor: null,
           requiredPower: null,
+          retryAfterSeconds: 0,
           claimPreview: masteryTowerClaimPreview(tower),
         },
       };
@@ -79,6 +101,9 @@ export async function POST() {
     const success = power >= requiredPower;
     if (success) {
       tower = clearMasteryTowerFloor(tower, floor);
+      await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
+    } else {
+      tower = failMasteryTowerRun(tower, now);
       await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
     }
 
@@ -92,6 +117,9 @@ export async function POST() {
         floor,
         requiredPower,
         encounter,
+        retryAfterSeconds: success
+          ? 0
+          : Math.ceil(((tower.cooldownUntil ?? now) - now) / 1000),
         claimPreview: masteryTowerClaimPreview(tower),
       },
     };

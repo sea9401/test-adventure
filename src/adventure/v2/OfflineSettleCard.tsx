@@ -78,7 +78,7 @@ export function OfflineSettleCard() {
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
     >
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
         <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">
           복귀 정산
         </h2>

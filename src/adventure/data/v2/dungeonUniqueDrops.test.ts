@@ -21,6 +21,7 @@ import {
 } from "./v2Equipment";
 import { rollEquipDrop } from "./dungeonEquipDrops";
 import { BOSS_UNIQUE_IDS } from "./coopBosses";
+import { COOP_EQUIPMENT_BOX } from "./coopRewards";
 import type { DungeonFloorId } from "./types";
 
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -119,9 +120,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (36종 — 고유 아이템 30 + 보스 6)", () => {
-  it("V2_UNIQUE_IDS 36종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(36);
+describe("유니크 카탈로그 (39종 — 고유 아이템 30 + 보스 6 + 심연어룡 세트 3)", () => {
+  it("V2_UNIQUE_IDS 39종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(39);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -142,7 +143,7 @@ describe("UNIQUE_FLOOR_POOLS", () => {
     }
   });
 
-  it("36종 전부 어느 풀엔가 등장(밴드 또는 보스, 고아 없음) — floor 풀은 비었으므로 밴드+보스만", () => {
+  it("39종 전부 어느 풀엔가 등장(밴드·보스·장비 상자, 고아 없음) — floor 풀은 비었으므로 밴드+보스 보상만", () => {
     const inPools = new Set<string>();
     // 심층 밴드 풀(마른 협곡 등)의 유니크 — 깊이 밴드 드랍.
     for (const pool of BAND_UNIQUE_POOLS) {
@@ -155,6 +156,12 @@ describe("UNIQUE_FLOOR_POOLS", () => {
     for (const id of BOSS_UNIQUE_IDS) {
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
       inPools.add(id);
+    }
+    for (const box of Object.values(COOP_EQUIPMENT_BOX)) {
+      for (const id of box.fixedItemIds ?? []) {
+        expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
+        inPools.add(id);
+      }
     }
     for (const id of V2_UNIQUE_IDS) {
       expect(inPools.has(id), `${id} 어느 풀에도 안 떨어짐`).toBe(true);

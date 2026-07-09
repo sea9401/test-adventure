@@ -38,6 +38,7 @@ export function V2SecretShopView({
   const [denied, setDenied] = useState(false);
 
   const refresh = useCallback(async () => {
+    setDenied(false);
     try {
       const res = await fetch(
         `/api/v2/secret-shop?map=${encodeURIComponent(mapIid)}`,

@@ -138,17 +138,28 @@ export function V2CharacterCard({
     return ids;
   }, [equipped, byIid]);
   const artisanSetProgress = useMemo(() => {
-    const set = V2_EQUIP_TAG_SETS.find((s) => s.id === "artisan_crafted");
-    if (!set) return null;
-    let count = 0;
-    for (const id of equippedItemIds) {
-      if (V2_EQUIPMENT[id]?.setTags?.includes(set.id)) count += 1;
-    }
-    const active = [...set.thresholds]
-      .reverse()
-      .find((threshold) => count >= threshold.count);
-    const next = set.thresholds.find((threshold) => count < threshold.count);
-    return { set, count, active, next };
+    const progress = V2_EQUIP_TAG_SETS.filter((set) =>
+      set.id.startsWith("artisan_"),
+    )
+      .map((set) => {
+        let count = 0;
+        for (const id of equippedItemIds) {
+          if (V2_EQUIPMENT[id]?.setTags?.includes(set.id)) count += 1;
+        }
+        const active = [...set.thresholds]
+          .reverse()
+          .find((threshold) => count >= threshold.count);
+        const next = set.thresholds.find((threshold) => count < threshold.count);
+        return { set, count, active, next };
+      })
+      .filter((p) => p.count > 0)
+      .sort(
+        (a, b) =>
+          (b.active?.count ?? 0) - (a.active?.count ?? 0) ||
+          b.count - a.count ||
+          a.set.name.localeCompare(b.set.name, "ko"),
+      );
+    return progress[0] ?? null;
   }, [equippedItemIds]);
 
   // 장착 슬롯 클릭 시 띄울 아이템 + 개체 굴림 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
@@ -283,7 +294,7 @@ export function V2CharacterCard({
         <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
           <div className="flex items-center justify-between gap-2">
             <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-              장인표 {artisanSetProgress.count}세트
+              {artisanSetProgress.set.name} {artisanSetProgress.count}세트
             </span>
             <span className="text-emerald-700 dark:text-emerald-300">
               {artisanSetProgress.active
@@ -294,7 +305,7 @@ export function V2CharacterCard({
           <div className="mt-1 text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
             {artisanSetProgress.next
               ? `다음 ${artisanSetProgress.next.count}세트까지 ${artisanSetProgress.next.count - artisanSetProgress.count}개`
-              : "장인표 세트 목표를 모두 채웠습니다."}
+              : "제작 세트 목표를 모두 채웠습니다."}
           </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {artisanSetProgress.set.thresholds.map((threshold) => (

@@ -150,7 +150,7 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     level: 5,
     kind: "craftMode",
     name: "정밀 단조",
-    description: "고비용 제작 모드와 품질 확률 확장의 기반",
+    description: "상급 제작 전용 장비와 명장 제작 진입 기반",
     implemented: true,
   },
   {
@@ -180,7 +180,7 @@ export const BLACKSMITH_ARTISAN_SKILLS: readonly ArtisanSkillDefinition[] = [
     level: BLACKSMITH_MASTERWORK_LEVEL,
     kind: "craftMode",
     name: "명장 제작",
-    description: "비용을 더 들여 품질 확률 상한과 명장 제작품 표식 획득",
+    description: "비용을 더 들여 ★ 품질을 보장하고 명장 제작품 표식 획득",
     implemented: true,
   },
   {
@@ -209,7 +209,7 @@ export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
   {
     level: 1,
     title: "기본 제작",
-    description: "기본 무기와 방어구 제작",
+    description: "제작 전용 무기 제작",
   },
   {
     level: 2,
@@ -219,32 +219,32 @@ export const BLACKSMITH_REWARD_MILESTONES: readonly ArtisanRewardMilestone[] = [
   {
     level: 3,
     title: "중급 장비",
-    description: "중급 무기, 방어구, 반지 제작 해금",
+    description: "제작 전용 세트 보조 장비 확장",
   },
   {
     level: 4,
     title: "정밀 제작",
-    description: "중급 보조 장비와 목걸이 제작 해금",
+    description: "제작 전용 세트 반지 제작 해금",
   },
   {
     level: 5,
     title: "상급 장비",
-    description: "상급 장비 전반 제작 해금",
+    description: "상급 제작 세트 갑옷과 장신구 제작 해금",
   },
   {
     level: 6,
     title: "전용 무기",
-    description: "제작 전용 고유 무기 레시피 해금",
+    description: "미스릴 소재 제작 세트 부위 해금",
   },
   {
     level: 7,
     title: "명장 장신구",
-    description: "제작 전용 명장 반지 레시피 해금",
+    description: "상위 제작 세트 완성 준비",
   },
   {
     level: 8,
     title: "명장 제작",
-    description: "제작 품질 확률 상한 상승 및 명장 제작품 표식",
+    description: "명장 제작품 ★ 품질 보장 및 제작자 표식",
   },
   {
     level: 9,

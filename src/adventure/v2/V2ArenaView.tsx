@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { timeAgoKo as timeAgo } from "@/lib/timeFormat";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { Pagination } from "@/components/ui/Pagination";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
 import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
 import { ArenaShopPanel } from "@/adventure/v2/ArenaShopPanel";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { usePagination } from "@/lib/usePagination";
 import { Sword, Trophy, FilmStrip } from "@phosphor-icons/react";
 
 // v2 1:1 아레나 — 5탭: 메인(도전·요약) / 전투 기록 / 순위표 / 세팅(로드아웃) / 상점.
@@ -106,6 +108,8 @@ const TABS: { id: Tab; label: string }[] = [
 
 // 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
 const FALLBACK_COOLDOWN_MS = 10_000;
+const ARENA_HISTORY_PAGE_SIZE = 10;
+const ARENA_HISTORY_CLIENT_MAX = 50;
 
 const WEEKLY_REWARDS = [
   { rank: "1위", coins: 1000 },
@@ -161,18 +165,21 @@ function recordText({
 
 function RecentBattleList({
   history,
-  limit,
   title,
   emptyText,
   onOpen,
 }: {
   history: ArenaHistoryEntry[];
-  limit?: number;
   title: string;
   emptyText: string;
   onOpen: (id: string) => void;
 }) {
-  const rows = typeof limit === "number" ? history.slice(0, limit) : history;
+  const pager = usePagination(
+    history,
+    ARENA_HISTORY_PAGE_SIZE,
+    history[0]?.id,
+  );
+  const rows = pager.pageItems;
   if (rows.length === 0) {
     return (
       <div className="py-8 text-center text-sm text-zinc-500">{emptyText}</div>
@@ -180,7 +187,12 @@ function RecentBattleList({
   }
   return (
     <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="mb-2 text-sm font-semibold">{title}</div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold">{title}</div>
+        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+          {history.length.toLocaleString("ko-KR")}전
+        </div>
+      </div>
       <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
         {rows.map((h) => (
           <li key={h.id}>
@@ -220,6 +232,11 @@ function RecentBattleList({
           </li>
         ))}
       </ul>
+      <Pagination
+        page={pager.page}
+        pageCount={pager.pageCount}
+        setPage={pager.setPage}
+      />
     </section>
   );
 }
@@ -375,7 +392,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const res = await fetch("/api/v2/arena/match", { method: "POST" });
       const j = (await res.json().catch(() => null)) as MatchResp | null;
       if (j && j.ok) {
-        setHistory((prev) => [j.historyEntry, ...prev].slice(0, 10));
+        setHistory((prev) =>
+          [j.historyEntry, ...prev].slice(0, ARENA_HISTORY_CLIENT_MAX),
+        );
         setState((prev) =>
           prev?.state
             ? {
@@ -602,7 +621,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
 
           <RecentBattleList
             history={history}
-            limit={5}
             title="최근 전투 기록"
             emptyText="아직 전투 기록이 없어요. 도전 후 기록이 여기에 표시됩니다."
             onOpen={openHistoryEntry}
@@ -615,12 +633,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
         <>
           <WeeklySeasonRecords seasons={seasonHistory} />
           <OpponentRecordList records={opponentRecords} />
-          <RecentBattleList
-            history={history}
-            title="전투 기록 (최근 10판)"
-            emptyText="아직 전투 기록이 없어요. 메인에서 도전해 보세요."
-            onOpen={openHistoryEntry}
-          />
         </>
       )}
 

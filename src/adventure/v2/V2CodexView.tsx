@@ -128,6 +128,10 @@ const TIER_BADGE: Record<FishTier, string> = {
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
 const CODEX_PANEL_SURFACE = `${SURFACE_INSET} p-2.5 sm:p-3`;
+const TITLE_CODEX_PANEL_SURFACE =
+  "rounded-md border border-zinc-200 bg-zinc-50 p-2.5 sm:p-3 dark:border-zinc-700 dark:bg-zinc-900";
+const TITLE_CARD_SURFACE =
+  "rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 type CodexTab =
   | "huntground"
@@ -189,31 +193,6 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
-type EquipmentBuildFilter =
-  | "all"
-  | "magic"
-  | "crit"
-  | "evasion"
-  | "speed"
-  | "tank"
-  | "heal"
-  | "signature"
-  | "set";
-const EQUIPMENT_BUILD_FILTERS: readonly {
-  key: EquipmentBuildFilter;
-  label: string;
-}[] = [
-  { key: "all", label: "전체" },
-  { key: "magic", label: "마법" },
-  { key: "crit", label: "치명" },
-  { key: "evasion", label: "회피" },
-  { key: "speed", label: "속도" },
-  { key: "tank", label: "탱커" },
-  { key: "heal", label: "회복" },
-  { key: "signature", label: "시그니처" },
-  { key: "set", label: "세트" },
-];
-
 function compareEquipmentCodexCandidate(
   a: V2EquipInstance,
   b: V2EquipInstance,
@@ -234,77 +213,6 @@ function compareEquipmentCodexCandidate(
     : 0;
   if (powerA !== powerB) return powerA - powerB;
   return a.iid.localeCompare(b.iid);
-}
-
-function equipmentBuildTags(item: V2Equipment): string[] {
-  const tags = new Set<string>();
-  const options = item.options ?? {};
-  if (
-    item.concept === "int" ||
-    item.concept === "mana" ||
-    item.weaponType === "staff" ||
-    (options.mp ?? 0) > 0
-  ) {
-    tags.add("마법");
-  }
-  if ((options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0) {
-    tags.add("치명");
-  }
-  if ((options.eva ?? 0) > 0) tags.add("회피");
-  if ((options.spd ?? 0) > 0) tags.add("속도");
-  if (
-    item.concept === "heavy" ||
-    (options.hp ?? 0) > 0 ||
-    (options.def ?? 0) > 0 ||
-    (options.magicDef ?? 0) > 0 ||
-    (options.critResist ?? 0) > 0
-  ) {
-    tags.add("탱커");
-  }
-  if ((options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0) {
-    tags.add("회복");
-  }
-  if (item.signature) tags.add("시그니처");
-  if (item.setId || (item.setTags?.length ?? 0) > 0) tags.add("세트");
-  return [...tags];
-}
-
-function equipmentMatchesBuildFilter(
-  item: V2Equipment,
-  filter: EquipmentBuildFilter,
-): boolean {
-  if (filter === "all") return true;
-  const options = item.options ?? {};
-  switch (filter) {
-    case "magic":
-      return (
-        item.concept === "int" ||
-        item.concept === "mana" ||
-        item.weaponType === "staff" ||
-        (options.mp ?? 0) > 0
-      );
-    case "crit":
-      return (options.crit ?? 0) > 0 || (options.critMult ?? 0) > 0;
-    case "evasion":
-      return (options.eva ?? 0) > 0;
-    case "speed":
-      return (options.spd ?? 0) > 0;
-    case "tank":
-      return (
-        item.concept === "heavy" ||
-        (options.hp ?? 0) > 0 ||
-        (options.def ?? 0) > 0 ||
-        (options.magicDef ?? 0) > 0 ||
-        (options.critResist ?? 0) > 0
-      );
-    case "heal":
-      return (options.healPowerPct ?? 0) > 0 || (item.signature?.healPct ?? 0) > 0;
-    case "signature":
-      return Boolean(item.signature);
-    case "set":
-      return Boolean(item.setId || (item.setTags?.length ?? 0) > 0);
-  }
-  return true;
 }
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
@@ -494,8 +402,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
   const [equipmentCodexSlot, setEquipmentCodexSlot] =
     useState<V2EquipSlot>("weapon");
-  const [equipmentBuildFilter, setEquipmentBuildFilter] =
-    useState<EquipmentBuildFilter>("all");
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
     if (!j) return;
@@ -604,9 +510,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     if (equipmentCodexBusy) return;
     const candidates = equipmentEntries
       .filter((id) => V2_EQUIPMENT[id].slot === slot)
-      .filter((id) =>
-        equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
-      )
       .filter((id) => !equipmentRegisteredIds.has(id))
       .map((id) => equipmentCounts.eligible.get(id)?.[0] ?? null)
       .filter((inst): inst is V2EquipInstance => Boolean(inst));
@@ -709,14 +612,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     return { owned, eligible };
   })();
   const equipmentSlotEntries = equipmentEntries
-    .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot)
-    .filter((id) =>
-      equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
-    );
+    .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot);
   const equipmentSlotPager = usePagination(
     equipmentSlotEntries,
     EQUIPMENT_CODEX_PAGE_SIZE,
-    `${equipmentCodexSlot}:${equipmentBuildFilter}`,
+    equipmentCodexSlot,
   );
   const equipmentSlotRegisteredCount = equipmentSlotEntries.filter((id) =>
     equipmentRegisteredIds.has(id),
@@ -1061,13 +961,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               <div className="flex flex-wrap gap-1.5">
                 {EQUIPMENT_SLOT_ORDER.map((slot) => {
                   const slotEntries = equipmentEntries
-                    .filter((id) => V2_EQUIPMENT[id].slot === slot)
-                    .filter((id) =>
-                      equipmentMatchesBuildFilter(
-                        V2_EQUIPMENT[id],
-                        equipmentBuildFilter,
-                      ),
-                    );
+                    .filter((id) => V2_EQUIPMENT[id].slot === slot);
                   const registeredCount = slotEntries.filter((id) =>
                     equipmentRegisteredIds.has(id),
                   ).length;
@@ -1083,34 +977,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       }`}
                     >
                       {V2_SLOT_LABEL[slot]} {registeredCount}/{slotEntries.length}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {EQUIPMENT_BUILD_FILTERS.map((filter) => {
-                  const count =
-                    filter.key === "all"
-                      ? equipmentEntries.length
-                      : equipmentEntries.filter((id) =>
-                          equipmentMatchesBuildFilter(
-                            V2_EQUIPMENT[id],
-                            filter.key,
-                          ),
-                        ).length;
-                  return (
-                    <button
-                      key={filter.key}
-                      type="button"
-                      onClick={() => setEquipmentBuildFilter(filter.key)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        equipmentBuildFilter === filter.key
-                          ? "bg-emerald-700 text-white dark:bg-emerald-400 dark:text-emerald-950"
-                          : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      }`}
-                    >
-                      {filter.label} {count}
                     </button>
                   );
                 })}
@@ -1132,23 +998,20 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 >
                   {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
                     ? "일괄 등록 중"
-                    : equipmentBuildFilter === "all"
-                      ? "보유 장비 일괄 등록"
-                      : "필터 장비 일괄 등록"}
+                    : "보유 장비 일괄 등록"}
                 </button>
               </div>
 
               {equipmentSlotEntries.length === 0 ? (
                 <Card padding="md">
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    이 부위에는 선택한 빌드 축의 장비가 없습니다.
+                    이 부위에는 등록할 장비가 없습니다.
                   </p>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {equipmentSlotPager.pageItems.map((id) => {
                     const item = V2_EQUIPMENT[id];
-                    const buildTags = equipmentBuildTags(item).slice(0, 4);
                     const registered = equipmentRegisteredIds.has(id);
                     const ownedCount = equipmentCounts.owned.get(id) ?? 0;
                     const eligible = equipmentCounts.eligible.get(id) ?? [];
@@ -1206,18 +1069,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                             {v2ItemTypeLabel(item)} · 위력 {item.power} · 보유{" "}
                             {ownedCount} · 등록 가능 {eligible.length}
                           </div>
-                          {buildTags.length > 0 && (
-                            <div className="mt-0.5 flex flex-wrap gap-1">
-                              {buildTags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </button>
                         {!registered && (
                           <button
@@ -1642,8 +1493,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             message="낚시·발굴·투기장 상점과 수집 보상으로 칭호를 모으면 여기서 장착할 수 있어요. 장착한 칭호는 채팅과 접속자 목록에 표시됩니다."
           />
         ) : (
-          <div className={`${CODEX_PANEL_SURFACE} space-y-4`}>
-            <Card padding="sm">
+          <div className={`${TITLE_CODEX_PANEL_SURFACE} space-y-4`}>
+            <div className={`${TITLE_CARD_SURFACE} p-3`}>
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1666,7 +1517,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   </button>
                 )}
               </div>
-            </Card>
+            </div>
             {TITLE_CATEGORY_ORDER.filter(
               (cat) => (ownedTitlesByCategory[cat.id]?.length ?? 0) > 0,
             ).map((cat) => (
@@ -1686,7 +1537,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         onClick={() => equipTitle(isEquipped ? null : id)}
                         className={`rounded-lg border p-3 text-left transition disabled:opacity-60 ${
                           isEquipped
-                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-amber-900/20"
+                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-amber-900"
                             : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                         }`}
                       >

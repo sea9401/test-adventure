@@ -50,7 +50,7 @@ export function ManualLayout({
       </div>
 
       {/* 배너 */}
-      <div className="relative h-32 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 md:h-44">
+      <div className="relative h-32 w-full overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700 md:h-44">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/images/ui/manual.webp"
@@ -89,7 +89,7 @@ export function ManualLayout({
       <div className="flex gap-4 md:flex-row flex-col">
         {/* 데스크탑 — 사이드바 */}
         <aside className="hidden md:block md:w-60 md:shrink-0">
-          <nav className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/90">
+          <nav className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-700 dark:bg-zinc-900/90">
             {grouped.map(({ group, sections }) => (
               <div key={group} className="mb-3 last:mb-0">
                 <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -128,7 +128,7 @@ export function ManualLayout({
 
         {/* 본문 */}
         <main className="min-w-0 flex-1">
-          <div className="rounded-lg border border-zinc-200 bg-white/90 p-5 dark:border-zinc-800 dark:bg-zinc-950/90 md:p-6">
+          <div className="rounded-lg border border-zinc-200 bg-white/90 p-5 dark:border-zinc-700 dark:bg-zinc-900/90 md:p-6">
             <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
               {title}
             </h1>

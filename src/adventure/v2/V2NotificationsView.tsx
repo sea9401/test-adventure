@@ -1,13 +1,12 @@
 "use client";
 
 // 알림 — Bell 클릭 착지점. 최근 NOTIF_FETCH_LIMIT 개 목록 + 진입 시 일괄 읽음 처리.
-// 읽고 끝 채널(첨부 없음) — 우편함과 분리. 거점명 클릭 → 해당 거점 화면.
+// 읽고 끝 채널(첨부 없음) — 우편함과 분리.
 
 import { useEffect, useState } from "react";
 import { Bell, Crown, Flag, ShieldWarning, Skull } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
-import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
 import { formatRelative } from "@/lib/notifications";
 import type {
   V2NotificationEntry,
@@ -47,42 +46,18 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
 
 function entryText(n: V2NotificationEntry): React.ReactNode {
   if (n.type === "outpost_attacked") {
-    const p = n.payload as {
-      outpostId: string;
-      fortHp: number;
-      fortMaxHp: number;
-      attackerLabel?: string | null;
-    };
     return (
       <>
-        <span className="font-medium">{outpostName(p.outpostId)}</span> 성벽이
-        공격받았습니다{" "}
-        <span className="tabular-nums text-amber-600 dark:text-amber-400">
-          ({p.fortHp}/{p.fortMaxHp})
-        </span>
-        {p.attackerLabel ? <> — {p.attackerLabel}</> : null}
+        이전 길드 시설 알림이 도착했습니다. 길드 화면에서 현재 상태를 확인해
+        주세요.
       </>
     );
   }
   if (n.type === "outpost_lost") {
-    const p = n.payload as {
-      outpostId: string;
-      byNpc?: boolean;
-      attackerLabel?: string | null;
-    };
-    return p.byNpc ? (
+    return (
       <>
-        <span className="font-medium">{outpostName(p.outpostId)}</span> 점령이
-        NPC 수비대에 무너졌습니다
-      </>
-    ) : (
-      <>
-        <span className="font-medium">{outpostName(p.outpostId)}</span>
-        을(를){" "}
-        <span className="text-rose-600 dark:text-rose-400">
-          {p.attackerLabel ?? "적"}
-        </span>
-        에게 빼앗겼습니다
+        이전 길드 시설 상태가 변경되었습니다. 길드 화면에서 현재 상태를
+        확인해 주세요.
       </>
     );
   }
@@ -102,37 +77,14 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
-  // ejected
-  const p = n.payload as {
-    outpostId: string;
-    byName: string;
-    gold?: number;
-    heldGold?: number;
-    bankGold?: number;
-    exiledTo?: string;
-  };
+  const p = n.payload as { byName?: string; gold?: number };
   return (
     <>
-      <span className="font-medium">{p.byName}</span> 님이 당신을{" "}
-      <span className="font-medium">{outpostName(p.outpostId)}</span>에서
-      토벌했습니다
+      {p.byName ? <span className="font-medium">{p.byName}</span> : "상대"}와의
+      이전 전투 기록이 있습니다
       {p.gold && p.gold > 0 ? (
         <>
-          {" "}
-          · <span className="font-medium">{p.gold.toLocaleString()}</span>G 압류
-          {p.heldGold || p.bankGold ? (
-            <>
-              {" "}
-              (보유 {(p.heldGold ?? 0).toLocaleString()}G
-              {p.bankGold ? ` + 은행 ${p.bankGold.toLocaleString()}G` : ""})
-            </>
-          ) : null}
-        </>
-      ) : null}
-      {p.exiledTo ? (
-        <>
-          {" "}
-          · <span className="font-medium">{outpostName(p.exiledTo)}</span>로 추방됨
+          {" "}· <span className="font-medium">{p.gold.toLocaleString()}</span>G
         </>
       ) : null}
     </>

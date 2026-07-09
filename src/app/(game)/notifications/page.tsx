@@ -9,7 +9,7 @@ export default function NotificationsPage() {
   return (
     <V2NotificationsView
       onBack={() => router.back()}
-      onOpenOutpost={(id) => router.push(`/outpost/${id}`)}
+      onOpenOutpost={() => router.push("/guild")}
     />
   );
 }

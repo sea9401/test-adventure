@@ -30,7 +30,7 @@ export function V2TopBar({
 }) {
   const router = useRouter();
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/90">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90">
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"

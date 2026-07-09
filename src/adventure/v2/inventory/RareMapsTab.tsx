@@ -101,7 +101,7 @@ export function RareMapsTab({
             return;
           }
           if (m.kind === "secret_shop_map") {
-            router.push("/hidden/shop");
+            router.push(`/hidden/shop?map=${encodeURIComponent(m.iid)}`);
             return;
           }
           const base = UTILITY_MAP_ROUTE[m.kind];

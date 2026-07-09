@@ -28,7 +28,6 @@ import type {
 } from "@/adventure/data/v2/guildWorkshop";
 import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
-  GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
   GUILD_WORKSHOP_QUALITY_BONUS_PCT,
 } from "@/adventure/data/v2/guildWorkshop";
@@ -74,6 +73,7 @@ type WorkshopRecipeView = {
     qualityChancePct: number;
     costText: string;
     plus2Unlocked: boolean;
+    plus2ChancePct: number;
   };
 };
 
@@ -319,7 +319,7 @@ function craftResultTone(result: CraftResultView): {
   if (result.craftQualityLevel >= 2) {
     return {
       frame:
-        "border-rose-300 bg-white dark:border-rose-800 dark:bg-zinc-950",
+        "border-rose-300 bg-white dark:border-rose-800 dark:bg-zinc-900",
       header:
         "border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40",
       title: "text-rose-950 dark:text-rose-100",
@@ -328,15 +328,15 @@ function craftResultTone(result: CraftResultView): {
   if (result.craftQualityLevel >= 1 || result.masterwork) {
     return {
       frame:
-        "border-amber-300 bg-white dark:border-amber-800 dark:bg-zinc-950",
+        "border-amber-300 bg-white dark:border-amber-800 dark:bg-zinc-900",
       header:
         "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40",
       title: "text-amber-950 dark:text-amber-100",
     };
   }
   return {
-    frame: "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
-    header: "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
+    frame: "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900",
+    header: "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900",
     title: "text-zinc-950 dark:text-zinc-100",
   };
 }
@@ -670,8 +670,8 @@ export function GuildWorkshopPanel({
     });
     return recipes;
   }, [recipeScopeFilter, recipeSlotFilter, recipeSort, state?.recipes]);
-  const artisanCraftedSet = V2_EQUIP_TAG_SETS.find(
-    (set) => set.id === "artisan_crafted",
+  const artisanCraftedSets = V2_EQUIP_TAG_SETS.filter((set) =>
+    set.id.startsWith("artisan_"),
   );
   const nextSmithyUnlockRecipes = useMemo(() => {
     if (!state) return [];
@@ -959,7 +959,7 @@ export function GuildWorkshopPanel({
   }
 
   const weeklyCard = (
-    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -978,7 +978,7 @@ export function GuildWorkshopPanel({
         ) : null}
       </div>
       {weeklyMessage ? (
-        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {weeklyMessage}
         </div>
       ) : null}
@@ -997,7 +997,7 @@ export function GuildWorkshopPanel({
             return (
               <div
                 key={quest.id}
-                className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+                className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900 ${
                   quest.canClaim ? "ui-quest-card is-claimable" : ""
                 }`}
               >
@@ -1044,7 +1044,7 @@ export function GuildWorkshopPanel({
   );
 
   const deliveryCard = (
-    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1063,7 +1063,7 @@ export function GuildWorkshopPanel({
         ) : null}
       </div>
       {deliveryMessage ? (
-        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {deliveryMessage}
         </div>
       ) : null}
@@ -1075,7 +1075,7 @@ export function GuildWorkshopPanel({
           return (
             <div
               key={d.id}
-              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900 ${
                 selected ? "ui-codex-card is-ready" : ""
               }`}
             >
@@ -1102,7 +1102,7 @@ export function GuildWorkshopPanel({
                             [d.id]: e.target.value,
                           }))
                         }
-                        className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+                        className="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                       >
                         {d.deliverable.map((item) => (
                           <option key={item.iid} value={item.iid}>
@@ -1169,7 +1169,7 @@ export function GuildWorkshopPanel({
   );
 
   const dismantleCard = (
-    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="ui-workshop-card rounded-md border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -1188,7 +1188,7 @@ export function GuildWorkshopPanel({
           />
         ) : null}
       </div>
-      <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+      <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
         보유 제작 재료 ·{" "}
         {GUILD_WORKSHOP_MATERIAL_IDS.map((id) => {
           const mat = GUILD_WORKSHOP_MATERIALS[id];
@@ -1200,7 +1200,7 @@ export function GuildWorkshopPanel({
         }).join(" · ")}
       </div>
       {dismantleMessage ? (
-        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {dismantleMessage}
         </div>
       ) : null}
@@ -1210,7 +1210,7 @@ export function GuildWorkshopPanel({
           return (
             <div
               key={item.iid}
-              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900 ${
+              className={`ui-recipe-row rounded border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900 ${
                 item.canDismantle ? "ui-codex-card is-ready" : ""
               }`}
             >
@@ -1283,7 +1283,7 @@ export function GuildWorkshopPanel({
     return (
       <section className="space-y-3">
         {weeklyCard}
-        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <LockKey
@@ -1305,7 +1305,7 @@ export function GuildWorkshopPanel({
           <button
             type="button"
             onClick={() => setMode("ranking")}
-            className="shrink-0 rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="shrink-0 rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             랭킹
           </button>
@@ -1316,7 +1316,7 @@ export function GuildWorkshopPanel({
   }
 
   return (
-    <section className="ui-workshop-card space-y-3 rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <section className="ui-workshop-card space-y-3 rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex items-start gap-3">
         <Hammer
           size={24}
@@ -1343,7 +1343,7 @@ export function GuildWorkshopPanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="grid grid-cols-4 gap-1 rounded border border-zinc-200 bg-zinc-50 p-1 text-xs dark:border-zinc-700 dark:bg-zinc-900">
         {(
           [
             ["craft", "제작"],
@@ -1383,7 +1383,7 @@ export function GuildWorkshopPanel({
         </>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-zinc-200 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-300">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-y border-zinc-200 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
         <div className="grid min-w-0 gap-1">
           <span>{resourceText}</span>
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1399,7 +1399,7 @@ export function GuildWorkshopPanel({
       </div>
 
       {state?.artisan.blacksmith ? (
-        <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="grid gap-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 sm:grid-cols-[1fr_auto] sm:items-center">
           <div className="min-w-0">
             <strong>{state.artisan.blacksmith.name}</strong>
             <span className="ml-2 text-zinc-500 dark:text-zinc-400">
@@ -1433,7 +1433,7 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "growth" && state ? (
-        <div className="grid gap-2 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-800 dark:text-zinc-100 md:grid-cols-2">
+        <div className="grid gap-2 border-b border-zinc-200 pb-3 text-xs text-zinc-900 dark:border-zinc-700 dark:text-zinc-100 md:grid-cols-2">
           <div>
             <div className="font-semibold">다음 목표</div>
             <div className="mt-1 text-zinc-600 dark:text-zinc-400">
@@ -1466,15 +1466,14 @@ export function GuildWorkshopPanel({
                   </div>
                   <div className="mt-0.5 font-semibold text-rose-950 dark:text-rose-100">
                     {currentEffectSummary.masterworkUnlocked
-                      ? `${currentEffectSummary.masterworkQualityChance}%`
+                      ? "★ 확정"
                       : `Lv ${BLACKSMITH_MASTERWORK_LEVEL} 필요`}
                   </div>
                   <div className="mt-0.5 text-[11px] text-rose-800 dark:text-rose-200">
-                    품질 상한 {GUILD_WORKSHOP_MASTERWORK_QUALITY_CAP_PCT}% ·
-                    명장 각인
+                    명장 각인 · 일반 제작보다 높은 비용
                   </div>
                 </div>
-                <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+                <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
                   <div className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
                     ★★ 품질
                   </div>
@@ -1532,7 +1531,7 @@ export function GuildWorkshopPanel({
                     className={`rounded border px-2 py-1 ${
                       unlocked
                         ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950"
-                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -1559,8 +1558,8 @@ export function GuildWorkshopPanel({
                     key={skill.id}
                     className={`rounded border px-2 py-1 ${
                       unlocked
-                        ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-950"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                        ? "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -1587,7 +1586,7 @@ export function GuildWorkshopPanel({
                     className={`rounded border px-2 py-1 ${
                       unlocked
                         ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
-                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                        : "border-zinc-200 bg-white text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -1629,7 +1628,7 @@ export function GuildWorkshopPanel({
                 {nextSmithyUnlockRecipes.slice(0, 4).map((recipe) => (
                   <div
                     key={recipe.id}
-                    className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+                    className="rounded border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium">{recipe.itemName}</span>
@@ -1659,7 +1658,7 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {message ? (
-        <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           {message}
         </div>
       ) : null}
@@ -1746,24 +1745,25 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {!hasApiSmithy ? (
-        <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+        <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           서버 기준으로는 아직 길드 대장간이 확인되지 않았습니다.
         </div>
       ) : null}
 
       {workshopMode === "craft" ? (
-      <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="space-y-2 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="rounded border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-900">
           <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-            장인표 세트 목표
+            제작 세트 목표
           </div>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {artisanCraftedSet?.thresholds.map((threshold) => (
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {artisanCraftedSets.map((set) => (
               <span
-                key={threshold.count}
+                key={set.id}
                 className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
               >
-                {threshold.count}세트 보너스
+                {set.name}{" "}
+                {set.thresholds.map((threshold) => threshold.count).join("/")}
               </span>
             ))}
           </div>
@@ -1787,7 +1787,7 @@ export function GuildWorkshopPanel({
               className={`rounded-full px-2.5 py-1 font-medium transition ${
                 recipeSlotFilter === value
                   ? "bg-emerald-700 text-white dark:bg-emerald-500 dark:text-emerald-950"
-                  : "bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  : "bg-white text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               }`}
             >
               {label}
@@ -1802,7 +1802,7 @@ export function GuildWorkshopPanel({
                 e.target.value as "all" | "craftOnly" | "craftable",
               )
             }
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="all">모든 레시피</option>
             <option value="craftable">제작 가능</option>
@@ -1813,7 +1813,7 @@ export function GuildWorkshopPanel({
             onChange={(e) =>
               setRecipeSort(e.target.value as "level" | "tier" | "chance")
             }
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           >
             <option value="level">해금 레벨순</option>
             <option value="tier">티어 높은순</option>
@@ -1824,7 +1824,7 @@ export function GuildWorkshopPanel({
       ) : null}
 
       {workshopMode === "craft" ? (
-      <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="divide-y divide-zinc-200 overflow-hidden rounded border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-700 dark:bg-zinc-900">
         {filteredRecipes.map((recipe) => {
           const busy = craftingId === recipe.id;
           const masterwork = recipe.masterwork;
@@ -1853,9 +1853,10 @@ export function GuildWorkshopPanel({
                 </div>
                 {masterwork ? (
                   <div className="mt-1 text-[11px] text-rose-700 dark:text-rose-300">
-                    명장 제작: {masterwork.costText} · 품질 확률{" "}
-                    {masterwork.qualityChancePct}% ·{" "}
-                    {masterwork.plus2Unlocked ? "★★ 가능" : "Lv9부터 ★★ 가능"}
+                    명장 제작: {masterwork.costText} · ★ 확정 ·{" "}
+                    {masterwork.plus2Unlocked
+                      ? `★★ ${masterwork.plus2ChancePct}%`
+                      : "Lv9부터 ★★ 가능"}
                   </div>
                 ) : null}
               </div>

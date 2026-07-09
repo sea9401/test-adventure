@@ -348,7 +348,7 @@ export function V2CoopBossDetailView({
           <div
             role="dialog"
             aria-label="기여도 기준"
-            className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+            className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,420px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
           >
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">

@@ -47,7 +47,7 @@ export type RepeatSnapshot = {
 };
 
 export type RepeatSignals = RepeatSnapshot & {
-  /** 아레나 기록 시각(epoch ms) 목록 — 최근 10판 트림이라 횟수 차분 불가, 존재 판정만. */
+  /** 아레나 기록 시각(epoch ms) 목록 — 최근 기록만 보관하므로 횟수 차분 불가, 존재 판정만. */
   arenaTimes: number[];
 };
 

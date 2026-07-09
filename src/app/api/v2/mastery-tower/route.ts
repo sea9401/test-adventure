@@ -61,6 +61,11 @@ export async function GET() {
   const date = kstDateKey();
   const tower = parseMasteryTowerState(map.get(MASTERY_TOWER_SAVE_KEY), date);
   const preview = masteryTowerClaimPreview(tower);
+  const now = Date.now();
+  const retryAfterSeconds =
+    tower.cooldownUntil && tower.cooldownUntil > now
+      ? Math.ceil((tower.cooldownUntil - now) / 1000)
+      : 0;
   const inventory = (map.get("inventory.v2") ?? {}) as Record<string, unknown>;
   const certificates = Math.max(
     0,
@@ -90,9 +95,9 @@ export async function GET() {
     extraAttackChancePct: derived.player.extraAttackChancePct ?? 0,
   };
   const nextFloor =
-    tower.todayBestFloor >= MASTERY_TOWER_MAX_FLOOR
+    tower.runFloor >= MASTERY_TOWER_MAX_FLOOR
       ? null
-      : tower.todayBestFloor + 1;
+      : tower.runFloor + 1;
 
   const jobs = V2_JOB_LIST.filter(
     (job) =>
@@ -113,6 +118,7 @@ export async function GET() {
     tower,
     certificates,
     claimPreview: preview,
+    retryAfterSeconds,
     power,
     nextFloor,
     nextRequiredPower:

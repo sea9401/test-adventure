@@ -5,95 +5,25 @@ import { ArrowClockwise, CastleTurret, Certificate, CheckCircle } from "@phospho
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-
-type TowerState = {
-  date: string;
-  todayBestFloor: number;
-  claimed: boolean;
-  lifetimeBestFloor: number;
-  firstClearRewardsClaimed: number[];
-};
-
-type TowerJob = {
-  id: string;
-  name: string;
-  tier: number;
-  group: string;
-  mastery: number;
-};
-
-type TowerBoss = {
-  floor: number;
-  name: string;
-  description: string;
-  powerBonusPercent: number;
-  gimmick?: {
-    name: string;
-    description: string;
-  };
-};
-
-type TowerGimmickCheck = {
-  id: string;
-  label: string;
-  value: number;
-  target: number;
-  passed: boolean;
-};
-
-type TowerGimmick = {
-  name: string;
-  description: string;
-  checks: TowerGimmickCheck[];
-  penaltyPercent: number;
-  hint: string;
-};
-
-type TowerFloorInfo = {
-  floor: number;
-  reward: number;
-  baseRequiredPower: number;
-  requiredPower: number;
-  boss: TowerBoss | null;
-  gimmick: TowerGimmick | null;
-};
-
-type TowerStatus = {
-  ok?: boolean;
-  error?: string;
-  tower: TowerState;
-  certificates: number;
-  claimPreview: {
-    base: number;
-    firstClearBonus: number;
-    total: number;
-    newlyClaimedMilestones: number[];
-  };
-  power: number;
-  nextFloor: number | null;
-  nextRequiredPower: number | null;
-  nextEncounter: TowerFloorInfo | null;
-  rewards: {
-    samples: TowerFloorInfo[];
-    milestones: { floor: number; bonus: number }[];
-    bosses: TowerBoss[];
-  };
-  jobs: TowerJob[];
-};
+import type { TowerGimmick, TowerStatus } from "./masteryTowerClientTypes";
 
 export function V2MasteryTowerView({
   onBack,
+  onEnterBattle,
   onRefreshGameState,
 }: {
   onBack: () => void;
+  onEnterBattle: () => void;
   onRefreshGameState?: () => void | Promise<void>;
 }) {
   const [status, setStatus] = useState<TowerStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<"attempt" | "claim" | "use" | null>(null);
+  const [busy, setBusy] = useState<"claim" | "use" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [amount, setAmount] = useState("");
+  const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -121,55 +51,30 @@ export function V2MasteryTowerView({
     return () => clearTimeout(timer);
   }, [refresh]);
 
+  const cooldownUntil =
+    typeof status?.tower.cooldownUntil === "number"
+      ? status.tower.cooldownUntil
+      : null;
+  const cooldownSeconds =
+    cooldownUntil && cooldownUntil > now
+      ? Math.ceil((cooldownUntil - now) / 1000)
+      : 0;
+
+  useEffect(() => {
+    if (!cooldownUntil || cooldownUntil <= now) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [cooldownUntil, now]);
+
   const selectedJob = useMemo(
     () => status?.jobs.find((job) => job.id === selectedJobId) ?? null,
     [selectedJobId, status?.jobs],
   );
 
-  async function attempt() {
-    setBusy("attempt");
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/mastery-tower/attempt", {
-        method: "POST",
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        success?: boolean;
-        error?: string;
-        floor?: number | null;
-        requiredPower?: number | null;
-        power?: number;
-        encounter?: TowerFloorInfo | null;
-      } | null;
-      if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
-        return;
-      }
-      if (j.success) {
-        setMsg(
-          j.encounter?.boss
-            ? `✓ ${j.floor}층 ${j.encounter.boss.name} 격파`
-            : `✓ ${j.floor}층 돌파`,
-        );
-      } else if (j.error === "max_floor") {
-        setMsg("✓ 오늘 가능한 최고층에 도달했습니다");
-      } else {
-        setMsg(
-          `✗ ${j.floor}층 실패 · 전투력 ${j.power ?? 0}/${j.requiredPower ?? 0}`,
-        );
-      }
-      await refresh();
-    } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function claim() {
     setBusy("claim");
     setMsg(null);
+    setConfirmClaimOpen(false);
     try {
       const res = await fetch("/api/v2/mastery-tower/claim", {
         method: "POST",
@@ -231,7 +136,7 @@ export function V2MasteryTowerView({
   }
 
   const canClaim = Boolean(status && !status.tower.claimed && status.claimPreview.total > 0);
-  const canAttempt = Boolean(status && status.nextFloor != null);
+  const canAttempt = Boolean(status && status.nextFloor != null && cooldownSeconds <= 0);
   const canUse =
     Boolean(status && status.certificates > 0 && selectedJobId) &&
     Math.floor(Number(amount) || 0) > 0;
@@ -257,7 +162,7 @@ export function V2MasteryTowerView({
           <button
             type="button"
             onClick={() => void refresh()}
-            className="rounded-md border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            className="rounded-md border border-zinc-200 p-2 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
             aria-label="새로고침"
           >
             <ArrowClockwise size={16} />
@@ -280,7 +185,7 @@ export function V2MasteryTowerView({
               />
             </div>
 
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/60">
+            <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900/60">
               {status.nextFloor == null ? (
                 <p className="font-medium text-emerald-600 dark:text-emerald-400">
                   오늘 50층까지 돌파했습니다.
@@ -315,21 +220,27 @@ export function V2MasteryTowerView({
                   {status.claimPreview.total.toLocaleString("ko-KR")}
                 </span>
               </p>
+              {cooldownSeconds > 0 && (
+                <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  패배 후 재입장 대기 중입니다. {cooldownSeconds}초 후 1층부터 다시
+                  시작할 수 있습니다.
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => void attempt()}
+                onClick={onEnterBattle}
                 disabled={busy != null || !canAttempt}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
               >
                 <CastleTurret size={16} weight="duotone" />
-                {busy === "attempt" ? "도전 중…" : "다음 층 도전"}
+                {cooldownSeconds > 0 ? `${cooldownSeconds}초 대기` : "입장"}
               </button>
               <button
                 type="button"
-                onClick={() => void claim()}
+                onClick={() => setConfirmClaimOpen(true)}
                 disabled={busy != null || !canClaim}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -345,6 +256,70 @@ export function V2MasteryTowerView({
         )}
       </Card>
 
+      {status && confirmClaimOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mastery-tower-claim-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target && busy == null) {
+              setConfirmClaimOpen(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm rounded-md border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+            <h2 id="mastery-tower-claim-title" className="text-base font-bold">
+              보상 수령 확인
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              현재 오늘 최고 기록은{" "}
+              <b className="text-zinc-900 dark:text-zinc-100">
+                {status.tower.todayBestFloor}층
+              </b>
+              이고, 지금 수령하면 숙련 증서{" "}
+              <b className="text-emerald-700 dark:text-emerald-300">
+                {status.claimPreview.total.toLocaleString("ko-KR")}개
+              </b>
+              를 받습니다.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+              재도전은 계속 가능하지만 오늘 보상은 한 번만 수령합니다. 기록을 더
+              갱신한 뒤 수령하시겠습니까?
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={busy != null || !canAttempt}
+                onClick={() => {
+                  setConfirmClaimOpen(false);
+                  onEnterBattle();
+                }}
+                className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                더 도전하기
+              </button>
+              <button
+                type="button"
+                disabled={busy != null || !canClaim}
+                onClick={() => void claim()}
+                className="h-10 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy === "claim" ? "수령 중…" : "지금 수령"}
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={busy != null}
+              onClick={() => setConfirmClaimOpen(false)}
+              className="mt-2 h-9 w-full rounded-md px-3 text-sm font-medium text-zinc-500 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+
       {status && (
         <Card padding="md" className="space-y-3">
           <div className="flex items-center gap-2">
@@ -355,7 +330,7 @@ export function V2MasteryTowerView({
             <select
               value={selectedJobId}
               onChange={(e) => setSelectedJobId(e.currentTarget.value)}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950"
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
             >
               {status.jobs.map((job) => (
                 <option key={job.id} value={job.id}>
@@ -369,7 +344,7 @@ export function V2MasteryTowerView({
               max={status.certificates}
               value={amount}
               onChange={(e) => setAmount(e.currentTarget.value)}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950"
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
             />
             <button
               type="button"
@@ -398,7 +373,7 @@ export function V2MasteryTowerView({
                 className={
                   row.boss
                     ? "rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/70 dark:bg-amber-950/30"
-                    : "rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900"
+                    : "rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-700 dark:bg-zinc-900"
                 }
               >
                 <div className="font-semibold">
@@ -458,7 +433,7 @@ function BossGimmick({ gimmick }: { gimmick: TowerGimmick }) {
             className={
               check.passed
                 ? "rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-                : "rounded border border-amber-300 bg-white/70 px-1.5 py-0.5 text-amber-800 dark:border-amber-800 dark:bg-zinc-950/40 dark:text-amber-200"
+                : "rounded border border-amber-300 bg-white/70 px-1.5 py-0.5 text-amber-800 dark:border-amber-800 dark:bg-zinc-900/40 dark:text-amber-200"
             }
           >
             {check.label} {check.value.toLocaleString("ko-KR")}/
@@ -475,7 +450,7 @@ function BossGimmick({ gimmick }: { gimmick: TowerGimmick }) {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-700 dark:bg-zinc-900">
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
         {label}
       </div>

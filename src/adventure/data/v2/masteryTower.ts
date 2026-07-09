@@ -2,6 +2,7 @@ export const MASTERY_TOWER_SAVE_KEY = "mastery-tower.v1";
 export const MASTERY_CERTIFICATE_KEY = "masteryCertificates";
 
 export const MASTERY_TOWER_MAX_FLOOR = 50;
+export const MASTERY_TOWER_REENTRY_COOLDOWN_MS = 30_000;
 
 export const MASTERY_TOWER_MILESTONES = [
   { floor: 10, bonus: 100 },
@@ -109,9 +110,11 @@ export type MasteryTowerFloorInfo = {
 export type MasteryTowerState = {
   date: string;
   todayBestFloor: number;
+  runFloor: number;
   claimed: boolean;
   lifetimeBestFloor: number;
   firstClearRewardsClaimed: number[];
+  cooldownUntil?: number;
 };
 
 export function kstDateKey(now: number = Date.now()): string {
@@ -275,16 +278,22 @@ export function parseMasteryTowerState(
   const base: MasteryTowerState = {
     date: savedDate,
     todayBestFloor: clampFloor(obj.todayBestFloor),
+    runFloor: clampFloor(obj.runFloor ?? obj.todayBestFloor),
     claimed: obj.claimed === true,
     lifetimeBestFloor: clampFloor(obj.lifetimeBestFloor),
     firstClearRewardsClaimed: [...new Set(claimedFloors)].sort((a, b) => a - b),
+    ...(typeof obj.cooldownUntil === "number" && Number.isFinite(obj.cooldownUntil)
+      ? { cooldownUntil: Math.max(0, Math.floor(obj.cooldownUntil)) }
+      : {}),
   };
   if (base.date !== date) {
     return {
       ...base,
       date,
       todayBestFloor: 0,
+      runFloor: 0,
       claimed: false,
+      cooldownUntil: undefined,
     };
   }
   return base;
@@ -325,8 +334,21 @@ export function clearMasteryTowerFloor(
   const cleared = clampFloor(floor);
   return {
     ...state,
+    runFloor: Math.max(state.runFloor, cleared),
     todayBestFloor: Math.max(state.todayBestFloor, cleared),
     lifetimeBestFloor: Math.max(state.lifetimeBestFloor, cleared),
+    cooldownUntil: undefined,
+  };
+}
+
+export function failMasteryTowerRun(
+  state: MasteryTowerState,
+  now: number = Date.now(),
+): MasteryTowerState {
+  return {
+    ...state,
+    runFloor: 0,
+    cooldownUntil: now + MASTERY_TOWER_REENTRY_COOLDOWN_MS,
   };
 }
 

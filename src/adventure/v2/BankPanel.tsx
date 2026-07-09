@@ -4,8 +4,7 @@ import { useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 
-// 은행 패널 — 골드 입금/출금. 거점 hub(OutpostView)와 마을 탭(/town/bank) 양쪽에서 재사용.
-// 안전 위치 게이트(다른 길드 점령지 불가)는 서버(/api/v2/me/bank)가 unsafe_location 으로 최종 판정.
+// 은행 패널 — 골드 입금/출금.
 
 type BankAction = "deposit" | "withdraw";
 
@@ -118,7 +117,7 @@ export function BankPanel() {
                 setMessage(null);
               }}
               placeholder="금액"
-              className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-emerald-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+              className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
             <button
               type="button"
@@ -159,8 +158,7 @@ export function BankPanel() {
       )}
       {depositOnly && (
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-          입금한 골드는 사냥 패배 페널티에서 안전합니다. 다만 남의 영지에서
-          토벌당하면 은행 잔액 일부도 압류될 수 있습니다.
+          입금한 골드는 사냥 패배 페널티에서 안전합니다.
         </p>
       )}
       {message && (

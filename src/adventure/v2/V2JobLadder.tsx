@@ -192,7 +192,7 @@ export function V2JobLadder({
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
             placeholder="직업명, 조건, 스탯 검색"
-            className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-8 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-950"
+            className="h-9 w-full rounded-md border border-zinc-300 bg-white pl-8 pr-8 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
           />
           {query && (
             <button
@@ -216,7 +216,7 @@ export function V2JobLadder({
                 className={`h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-[11px] font-medium transition ${
                   active
                     ? "border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
                 }`}
               >
                 {tag.label}
@@ -314,7 +314,7 @@ export function V2JobLadder({
           aria-modal="true"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
             <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">
               {pending.current
                 ? `${pending.name} 재전직`
@@ -422,8 +422,8 @@ function JobRow({
     <li
       className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${
         unlocked
-          ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
-          : "border-zinc-200/70 bg-zinc-50/50 dark:border-zinc-800/70 dark:bg-zinc-900/50"
+          ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
+          : "border-zinc-200/70 bg-zinc-50/50 dark:border-zinc-700/70 dark:bg-zinc-900/50"
       }`}
     >
       <div className="flex min-w-0 flex-col gap-1">
@@ -450,7 +450,7 @@ function JobRow({
           {tags.map((tag) => (
             <span
               key={tag}
-              className="rounded bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400"
+              className="rounded bg-white px-1.5 py-0.5 text-[10px] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400"
             >
               {tag}
             </span>

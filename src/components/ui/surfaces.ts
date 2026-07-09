@@ -16,7 +16,7 @@ export const SURFACE_CARD =
 
 /** 인셋 — 카드 "안에서" 한 단계 파인 영역(슬롯 칸·서브 박스·리스트 행). 카드보다 어둡게 = recessed. */
 export const SURFACE_INSET =
-  "rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950";
+  "rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900";
 
 /** 강조 패널 — 테마색(amber) 카드. 정착지처럼 정체성을 주는 패널. 불투명. */
 export const SURFACE_ACCENT =

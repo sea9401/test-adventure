@@ -365,7 +365,7 @@ export function V2CombatPatternView({
         <p className="text-sm text-zinc-500">불러오는 중…</p>
       ) : (
         <>
-          <section className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+          <section className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
                 프리셋 ({presets.length}/{V2_COMBAT_PATTERN_MAX_PRESETS})
@@ -381,7 +381,7 @@ export function V2CombatPatternView({
                 {presets.map((p) => (
                   <li
                     key={p.name}
-                    className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white py-1 pl-2 pr-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                    className="flex items-center gap-1 rounded-md border border-zinc-300 bg-white py-1 pl-2 pr-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <span className="max-w-[140px] truncate font-medium">{p.name}</span>
                     <button type="button" onClick={() => loadPreset(p)} disabled={busy}
@@ -399,7 +399,7 @@ export function V2CombatPatternView({
                 maxLength={V2_COMBAT_PRESET_NAME_MAXLEN}
                 onChange={(e) => setPresetName(e.target.value)}
                 placeholder="현재 패턴 이름 (예: 보스용)"
-                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-950"
+                className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               />
               <button type="button" onClick={savePreset} disabled={busy}
                 className="shrink-0 rounded-md border border-zinc-300 px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
@@ -422,7 +422,7 @@ export function V2CombatPatternView({
             {blocks.map((b, i) => (
               <li
                 key={i}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900"
               >
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
@@ -725,7 +725,7 @@ function CompoundConditionParams({
       {c.conditions.map((child, idx) => (
         <div
           key={idx}
-          className="flex flex-wrap items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950"
+          className="flex flex-wrap items-center gap-1 rounded-md border border-zinc-200 bg-white px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
         >
           <span className="w-10 text-[11px] text-zinc-400">
             {c.kind === "all" ? "AND" : "OR"} {idx + 1}

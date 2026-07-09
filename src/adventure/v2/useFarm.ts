@@ -7,6 +7,7 @@ import type {
   FarmDeliveryRequest,
   FarmDeliveryResult,
   FarmHarvestResult,
+  FarmPlotUpgradeResult,
   FarmShopItem,
   FarmShopPurchaseResult,
   FarmSpecialDeliveryRequest,
@@ -31,6 +32,7 @@ type FarmResponse = {
   specialDeliveryResult?: FarmSpecialDeliveryResult;
   weeklyDeliveryResult?: FarmWeeklyDeliveryResult;
   shopResult?: FarmShopPurchaseResult;
+  plotUpgradeResult?: FarmPlotUpgradeResult;
 };
 
 export type FarmClientState = {
@@ -40,6 +42,7 @@ export type FarmClientState = {
   busySpecialDeliveryId: string | null;
   busyWeeklyDeliveryId: string | null;
   busyShopItemId: string | null;
+  busyPlotUpgrade: boolean;
   error: string | null;
   notice: FarmNotice | null;
   now: number;
@@ -54,6 +57,7 @@ export type FarmClientState = {
   lastSpecialDeliveryResult: FarmSpecialDeliveryResult | null;
   lastWeeklyDeliveryResult: FarmWeeklyDeliveryResult | null;
   lastShopResult: FarmShopPurchaseResult | null;
+  lastPlotUpgradeResult: FarmPlotUpgradeResult | null;
   clearNotice: () => void;
   refresh: () => Promise<void>;
   plant: (plotId: string, cropId: FarmCropId) => Promise<void>;
@@ -62,6 +66,7 @@ export type FarmClientState = {
   deliverSpecial: (requestId: string) => Promise<void>;
   deliverWeekly: (requestId: string) => Promise<void>;
   buyShopItem: (itemId: string) => Promise<void>;
+  buyPlotUpgrade: () => Promise<void>;
 };
 
 export type FarmNotice =
@@ -70,7 +75,8 @@ export type FarmNotice =
   | { id: number; kind: "delivery"; result: FarmDeliveryResult }
   | { id: number; kind: "specialDelivery"; result: FarmSpecialDeliveryResult }
   | { id: number; kind: "weeklyDelivery"; result: FarmWeeklyDeliveryResult }
-  | { id: number; kind: "shop"; result: FarmShopPurchaseResult };
+  | { id: number; kind: "shop"; result: FarmShopPurchaseResult }
+  | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult };
 
 export function useFarm(): FarmClientState {
   const [loading, setLoading] = useState(true);
@@ -83,6 +89,7 @@ export function useFarm(): FarmClientState {
     null,
   );
   const [busyShopItemId, setBusyShopItemId] = useState<string | null>(null);
+  const [busyPlotUpgrade, setBusyPlotUpgrade] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<FarmNotice | null>(null);
   const [now, setNow] = useState(0);
@@ -105,6 +112,8 @@ export function useFarm(): FarmClientState {
     useState<FarmWeeklyDeliveryResult | null>(null);
   const [lastShopResult, setLastShopResult] =
     useState<FarmShopPurchaseResult | null>(null);
+  const [lastPlotUpgradeResult, setLastPlotUpgradeResult] =
+    useState<FarmPlotUpgradeResult | null>(null);
 
   const reportError = useCallback((e: unknown) => {
     const message = errorMessage(e);
@@ -156,6 +165,14 @@ export function useFarm(): FarmClientState {
     if (data.shopResult) {
       setLastShopResult(data.shopResult);
       setNotice({ id: Date.now(), kind: "shop", result: data.shopResult });
+    }
+    if (data.plotUpgradeResult) {
+      setLastPlotUpgradeResult(data.plotUpgradeResult);
+      setNotice({
+        id: Date.now(),
+        kind: "plotUpgrade",
+        result: data.plotUpgradeResult,
+      });
     }
   }, []);
 
@@ -296,6 +313,22 @@ export function useFarm(): FarmClientState {
     [apply, reportError],
   );
 
+  const buyPlotUpgrade = useCallback(async () => {
+    setBusyPlotUpgrade(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/v2/farm/plot-upgrade", {
+        method: "POST",
+      });
+      const data = (await res.json()) as FarmResponse;
+      apply(data);
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setBusyPlotUpgrade(false);
+    }
+  }, [apply, reportError]);
+
   useEffect(() => {
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- farm state is loaded from the server on mount.
@@ -323,6 +356,7 @@ export function useFarm(): FarmClientState {
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
     busyShopItemId,
+    busyPlotUpgrade,
     error,
     notice,
     now,
@@ -337,6 +371,7 @@ export function useFarm(): FarmClientState {
     lastSpecialDeliveryResult,
     lastWeeklyDeliveryResult,
     lastShopResult,
+    lastPlotUpgradeResult,
     clearNotice,
     refresh,
     plant,
@@ -345,6 +380,7 @@ export function useFarm(): FarmClientState {
     deliverSpecial,
     deliverWeekly,
     buyShopItem,
+    buyPlotUpgrade,
   };
 }
 
@@ -358,6 +394,7 @@ function errorMessage(error: unknown): string {
       delivery_already_claimed: "이미 완료한 납품입니다.",
       delivery_daily_limit: "오늘 가능한 납품 횟수를 모두 사용했습니다.",
       weekly_delivery_already_claimed: "이미 완료한 주간 납품입니다.",
+      plot_upgrade_not_available: "더 늘릴 수 있는 밭이 없습니다.",
       not_ready: "아직 수확할 수 없습니다.",
       plot_occupied: "이미 작물이 심어진 밭입니다.",
       plot_empty: "수확할 작물이 없습니다.",

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   FARM_DAILY_QUEST_SEED_REWARD,
+  buyFarmPlotUpgrade,
   buyFarmShopItem,
   claimFarmSpecialDelivery,
   claimFarmDelivery,
   claimFarmWeeklyDelivery,
   emptyFarmState,
-  farmPlotCountForReputation,
   farmAvailableReputation,
   grantFarmSeeds,
   harvestPlot,
@@ -134,7 +134,7 @@ describe("adventurer farm", () => {
     expect(next.stats.reputation).toBe(3);
   });
 
-  it("spends available farm reputation in the farm shop without shrinking plot unlocks", () => {
+  it("spends available farm reputation in the farm shop without changing plot unlocks", () => {
     const state = {
       ...emptyFarmState(1_000),
       stats: {
@@ -154,7 +154,7 @@ describe("adventurer farm", () => {
     expect(next.stats.reputation).toBe(20);
     expect(next.stats.reputationSpent).toBe(12);
     expect(farmAvailableReputation(next)).toBe(8);
-    expect(farmPlotCountForReputation(next.stats.reputation)).toBe(5);
+    expect(next.plots).toHaveLength(3);
   });
 
   it("rejects farm shop purchases without enough available reputation", () => {
@@ -221,8 +221,7 @@ describe("adventurer farm", () => {
     expect(nextDay.deliveries.claimedIds).toEqual(["market-corn"]);
     expect(nextDay.stats.deliveries).toBe(3);
     expect(nextDay.stats.reputation).toBe(9);
-    expect(nextDay.plots).toHaveLength(4);
-    expect(nextDay.plots[3]).toMatchObject({ id: "plot-4", cropId: null });
+    expect(nextDay.plots).toHaveLength(3);
   });
 
   it("claims a weekly delivery once per farm week and resets next week", () => {
@@ -256,20 +255,67 @@ describe("adventurer farm", () => {
     expect(reset.stats.reputation).toBe(16);
   });
 
-  it("derives farm plot growth from reputation", () => {
-    expect(farmPlotCountForReputation(0)).toBe(3);
-    expect(farmPlotCountForReputation(8)).toBe(4);
-    expect(farmPlotCountForReputation(20)).toBe(5);
-    expect(nextFarmPlotUpgrade(7)).toMatchObject({
+  it("buys farm plot growth with available reputation", () => {
+    const base = {
+      ...emptyFarmState(1_000),
+      stats: {
+        ...emptyFarmState(1_000).stats,
+        reputation: 28,
+      },
+    };
+
+    expect(nextFarmPlotUpgrade(base)).toMatchObject({
       plotCount: 4,
-      reputationRequired: 8,
+      costReputation: 8,
     });
-    expect(nextFarmPlotUpgrade(20)).toBeNull();
+    const { state: first, result: firstResult } = buyFarmPlotUpgrade(base);
+    expect(firstResult).toMatchObject({
+      plotCount: 4,
+      costReputation: 8,
+    });
+    expect(first.plots).toHaveLength(4);
+    expect(first.stats.reputation).toBe(28);
+    expect(first.stats.reputationSpent).toBe(8);
+    expect(farmAvailableReputation(first)).toBe(20);
+
+    const { state: second } = buyFarmPlotUpgrade(first);
+    expect(second.plots).toHaveLength(5);
+    expect(second.stats.reputationSpent).toBe(28);
+    expect(farmAvailableReputation(second)).toBe(0);
+    expect(nextFarmPlotUpgrade(second)).toBeNull();
   });
 
-  it("normalizes high reputation saves with unlocked plots", () => {
+  it("rejects farm plot growth without enough available reputation", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: {
+        ...emptyFarmState(1_000).stats,
+        reputation: 8,
+        reputationSpent: 3,
+      },
+    };
+
+    expect(() => buyFarmPlotUpgrade(state)).toThrow("not_enough_reputation");
+  });
+
+  it("does not unlock plots from high reputation saves without purchase", () => {
     const parsed = parseFarmState({
       stats: { reputation: 20 },
+    });
+
+    expect(parsed.plots).toHaveLength(3);
+  });
+
+  it("preserves purchased plot saves", () => {
+    const parsed = parseFarmState({
+      plots: [
+        { id: "plot-1", cropId: null },
+        { id: "plot-2", cropId: null },
+        { id: "plot-3", cropId: null },
+        { id: "plot-4", cropId: null },
+        { id: "plot-5", cropId: null },
+      ],
+      stats: { reputation: 20, reputationSpent: 8 },
     });
 
     expect(parsed.plots).toHaveLength(5);

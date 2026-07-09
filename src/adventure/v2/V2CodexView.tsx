@@ -194,7 +194,7 @@ function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
 }
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<CodexTab>("huntground");
+  const [tab, setTab] = useState<CodexTab>("spFruit");
   // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
   const [card, setCard] = useState<{
     item: V2Equipment;
@@ -467,12 +467,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       <div className="flex flex-wrap gap-1.5">
         {(
           [
-            ["huntground", "사냥터"],
-            ["equipment", "장비"],
             ["spFruit", "SP 수집"],
+            ["job", "직업"],
+            ["equipment", "장비"],
+            ["huntground", "사냥터"],
             ["fish", "어보"],
             ["title", "칭호"],
-            ["job", "직업"],
           ] as const
         ).map(([key, label]) => (
           <button

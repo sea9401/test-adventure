@@ -88,9 +88,9 @@ export async function POST(req: Request) {
             await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
             charSave,
           );
-          prof = addCumLevel(prof, group, 1);
-          prof = addJobCumLevel(prof, farmJobId ?? "", 1);
-          masteryGained = 1;
+          masteryGained = harvested.result.farmingXpGained;
+          prof = addCumLevel(prof, group, masteryGained);
+          prof = addJobCumLevel(prof, farmJobId ?? "", masteryGained);
           masteryAfter = prof.jobCumLevel?.[farmJobId ?? ""] ?? 0;
           await upsertSave(tx, userId, "proficiency.v2", prof);
         }

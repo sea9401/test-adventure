@@ -8,7 +8,9 @@ import {
   claimFarmDelivery,
   claimFarmWeeklyDelivery,
   emptyFarmState,
+  farmCropMasteryGain,
   farmAvailableReputation,
+  farmingLevelForXp,
   grantFarmSeeds,
   harvestPlot,
   nextFarmPlotUpgrade,
@@ -106,7 +108,11 @@ describe("adventurer farm", () => {
       deliveries: 0,
       reputation: 0,
       reputationSpent: 0,
+      farmingXp: 60,
     });
+    expect(result.farmingXpGained).toBe(60);
+    expect(result.farmingXp).toBe(60);
+    expect(result.farmingLevel).toBe(3);
     expect(state.plots[0].cropId).toBeNull();
   });
 
@@ -129,6 +135,16 @@ describe("adventurer farm", () => {
     expect(result.rareItemId).toBe("golden_wheat");
     expect(state.inventory.wheat).toBe(5);
     expect(state.inventory.golden_wheat).toBe(1);
+    expect(result.farmingXpGained).toBe(5);
+  });
+
+  it("uses crop grow time as farming xp and a curved farming level", () => {
+    expect(farmCropMasteryGain("wheat")).toBe(5);
+    expect(farmCropMasteryGain("herb")).toBe(15);
+    expect(farmCropMasteryGain("corn")).toBe(60);
+    expect(farmingLevelForXp(0)).toBe(1);
+    expect(farmingLevelForXp(810)).toBe(10);
+    expect(farmingLevelForXp(24010)).toBe(50);
   });
 
   it("claims a delivery by consuming crops and granting reputation", () => {
@@ -401,6 +417,7 @@ describe("adventurer farm", () => {
       deliveries: 0,
       reputation: 4,
       reputationSpent: 0,
+      farmingXp: 0,
     });
   });
 });

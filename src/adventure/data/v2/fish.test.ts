@@ -273,6 +273,27 @@ describe("물때 한정 특별 손님 추첨 게이트 (공정성 청정)", () =
       expect(pickFishId(a)).toBe(pickFishId(b, "still"));
     }
   });
+
+  it("낚시터 어종 풀이 지정되면 해당 풀 밖 어종은 나오지 않는다", () => {
+    const rng = mulberry32(91);
+    const allowedFishIds = [
+      "crucian_carp",
+      "carp",
+      "trout",
+      "golden_koi",
+      "platinum_carp",
+      "goldeye",
+    ] as const;
+    const allowed = new Set<string>(allowedFishIds);
+    const seen = new Set<string>();
+    for (let i = 0; i < 20000; i += 1) {
+      const id = pickFishId(rng, "dawn", { allowedFishIds });
+      expect(allowed.has(id)).toBe(true);
+      seen.add(id);
+    }
+    expect(seen.has("goldeye")).toBe(true);
+    expect(seen.has("rainbow_trout")).toBe(false);
+  });
 });
 
 describe("종별 기록 보상 코인", () => {

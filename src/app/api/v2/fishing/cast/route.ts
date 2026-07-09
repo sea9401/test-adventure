@@ -4,6 +4,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
+import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
@@ -49,6 +50,10 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const now = Date.now();
+  const body = (await req.json().catch(() => null)) as { spotId?: unknown } | null;
+  const fishingSpot = getFishingSpot(
+    typeof body?.spotId === "string" ? body.spotId : null,
+  );
   const [skillsRaw, progressRaw, walletRaw] = await Promise.all([
     readSave(db, userId, "skills.v2", emptyV2SkillsState()),
     readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()),
@@ -95,6 +100,7 @@ export async function POST(req: Request) {
   const fishId = pickFishId(Math.random, mt.condition.id, {
     specialWeightBonusPct: fishingBonuses.specialWeightPct,
     tierWeightPct: fishingBonuses.tierWeightPct,
+    allowedFishIds: fishingSpot.fishIds,
   });
   const size = rollFishSize(fishId, Math.random, {
     sizeBonusPct: fishingBonuses.sizeBonusPct,
@@ -109,6 +115,7 @@ export async function POST(req: Request) {
     expiresAt: expiresAtFor(biteAt),
     fishId,
     size,
+    fishingSpotId: fishingSpot.id,
   };
 
   await db.transaction(async (tx) => {
@@ -128,5 +135,9 @@ export async function POST(req: Request) {
     biteDelayMs,
     progression,
     dailyCatchCoins,
+    fishingSpot: {
+      id: fishingSpot.id,
+      name: fishingSpot.name,
+    },
   });
 }

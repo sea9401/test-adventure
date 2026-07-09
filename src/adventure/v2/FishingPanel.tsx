@@ -2,6 +2,11 @@
 
 import { FishingView } from "./FishingView";
 import { useFishing } from "./useFishing";
+import {
+  DEFAULT_FISHING_SPOT_ID,
+  FISHING_SPOTS,
+  type FishingSpotId,
+} from "@/adventure/data/v2/fishingSpots";
 
 // 낚시터 패널 — 실 API 핸들러(useFishing)를 FishingView 에 주입. V2GameFlow 마을 탭에서 마운트.
 export function FishingPanel({
@@ -11,6 +16,7 @@ export function FishingPanel({
   onOpenChallenges,
   onOpenHallOfFame,
   onOpenCoopSession,
+  spotId = DEFAULT_FISHING_SPOT_ID,
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
@@ -18,11 +24,14 @@ export function FishingPanel({
   onOpenChallenges: () => void;
   onOpenHallOfFame: () => void;
   onOpenCoopSession?: (sessionId: string) => void;
+  spotId?: FishingSpotId;
 }) {
-  const handlers = useFishing();
+  const handlers = useFishing(spotId);
+  const spot = FISHING_SPOTS[spotId];
   return (
     <FishingView
       {...handlers}
+      fishingSpot={spot}
       onBack={onBack}
       onOpenLeaderboard={onOpenLeaderboard}
       onOpenShop={onOpenShop}

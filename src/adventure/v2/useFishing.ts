@@ -7,6 +7,7 @@ import {
 } from "./fishingChallengeProgress";
 import { useSingleFlightGuard } from "@/lib/useSingleFlight";
 import type { FishingProgressionView } from "./fishingProgression";
+import type { FishingSpotId } from "@/adventure/data/v2/fishingSpots";
 import type {
   CastOutcome,
   FishingDailyCatchCoins,
@@ -29,7 +30,7 @@ function parseDailyCatchCoins(value: unknown): FishingDailyCatchCoins | undefine
 }
 
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
-export function useFishing(): FishingHandlers {
+export function useFishing(spotId?: FishingSpotId): FishingHandlers {
   const [dailyCatchCoins, setDailyCatchCoins] =
     useState<FishingDailyCatchCoins | null>(null);
   const [progression, setProgression] =
@@ -87,7 +88,11 @@ export function useFishing(): FishingHandlers {
     const release = beginCast();
     if (!release) throw new Error("cast_in_progress");
     try {
-      const res = await fetch("/api/v2/fishing/cast", { method: "POST" });
+      const res = await fetch("/api/v2/fishing/cast", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ spotId }),
+      });
       if (!res.ok) throw new Error("cast_failed");
       const j = await res.json();
       if (
@@ -110,7 +115,7 @@ export function useFishing(): FishingHandlers {
     } finally {
       release();
     }
-  }, [beginCast]);
+  }, [beginCast, spotId]);
 
   const reel = useCallback(
     async (castId: string, reactionMs: number): Promise<ReelOutcome> => {

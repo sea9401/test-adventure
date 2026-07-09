@@ -1,64 +1,107 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
   Compass,
   Fish,
-  Hammer,
+  House,
   MapPin,
-  PottedPlant,
-  Storefront,
-  UserCircle,
+  Waves,
   type Icon,
 } from "@phosphor-icons/react";
+import { FISH } from "@/adventure/data/v2/fish";
 import {
-  WORLD_RUMOR_KIND_LABEL,
-  WORLD_RUMOR_REGIONS,
-  type WorldRumorKind,
-  type WorldRumorRegion,
+  FISHING_SPOTS,
+  fishNames,
+  isFishingSpotId,
+  tierCountsForSpot,
+} from "@/adventure/data/v2/fishingSpots";
+import {
+  WORLD_ACTIVITY_KIND_LABEL,
+  WORLD_ACTIVITY_REGIONS,
+  type WorldActivityKind,
+  type WorldActivityRegion,
 } from "@/adventure/data/v2/worldRumors";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
-const KIND_ICON: Record<WorldRumorKind, Icon> = {
-  rumor: Compass,
-  resource: PottedPlant,
-  npc: UserCircle,
+const KIND_ICON: Record<WorldActivityKind, Icon> = {
+  settlement: House,
+  fishing: Fish,
 };
 
-const REGION_ICON: Record<WorldRumorRegion["id"], Icon> = {
-  village: Storefront,
-  forest: PottedPlant,
-  harbor: Fish,
-  quarry: Hammer,
-};
-
-const KIND_TONE: Record<WorldRumorKind, string> = {
-  rumor:
+const KIND_TONE: Record<WorldActivityKind, string> = {
+  settlement:
+    "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
+  fishing:
     "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
-  resource:
-    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  npc: "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
 };
 
-const NODE_TONE: Record<WorldRumorRegion["id"], string> = {
-  village: "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200",
-  forest:
-    "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
-  harbor: "border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200",
-  quarry:
-    "border-zinc-300 bg-zinc-100 text-zinc-800 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200",
+const TIER_LABEL: Record<string, string> = {
+  common: "흔함",
+  uncommon: "보통",
+  rare: "희귀",
+  epic: "영웅",
+  legendary: "전설",
 };
+
+function activityDescription(region: WorldActivityRegion): string {
+  if (!isFishingSpotId(region.id)) return region.summary;
+  const spot = FISHING_SPOTS[region.id];
+  return `주요 어종: ${fishNames(spot.featuredFishIds).join(", ")}`;
+}
+
+function FishingSpotMeta({ id }: { id: string }) {
+  if (!isFishingSpotId(id)) return null;
+  const spot = FISHING_SPOTS[id];
+  const counts = tierCountsForSpot(spot);
+  const specialFish = spot.fishIds.filter((fishId) => FISH[fishId].condition);
+  return (
+    <div className={`${SURFACE_INSET} space-y-2 p-2`}>
+      <div>
+        <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+          어종 풀
+        </div>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {Object.entries(counts).map(([tier, count]) => (
+            <span
+              key={tier}
+              className="rounded bg-white px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+            >
+              {TIER_LABEL[tier] ?? tier} {count}
+            </span>
+          ))}
+        </div>
+      </div>
+      {specialFish.length > 0 && (
+        <div>
+          <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+            물때 손님
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {specialFish.map((fishId) => (
+              <span
+                key={fishId}
+                className="rounded bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800 dark:bg-sky-900 dark:text-sky-200"
+              >
+                {FISH[fishId].name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
   const [selectedId, setSelectedId] =
-    useState<WorldRumorRegion["id"]>("harbor");
+    useState<WorldActivityRegion["id"]>("village_pier");
   const selected =
-    WORLD_RUMOR_REGIONS.find((region) => region.id === selectedId) ??
-    WORLD_RUMOR_REGIONS[0];
+    WORLD_ACTIVITY_REGIONS.find((region) => region.id === selectedId) ??
+    WORLD_ACTIVITY_REGIONS[0];
   const SelectedKindIcon = KIND_ICON[selected.kind];
 
   return (
@@ -74,49 +117,37 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
               className="shrink-0 text-emerald-600 dark:text-emerald-300"
             />
             <h2 className="min-w-0 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              오늘의 지역 소식
+              지역 현황
             </h2>
           </div>
         </div>
 
-        <div className="grid gap-0 md:grid-cols-[1.15fr_0.85fr]">
-          <div className="relative min-h-[20rem] overflow-hidden border-b border-zinc-200 bg-zinc-100 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-            <Image
-              src="/images/ui/v2-continent.webp"
-              alt=""
-              fill
-              sizes="(max-width: 768px) 100vw, 460px"
-              className="object-cover opacity-80 dark:opacity-55"
-              priority={false}
-            />
-            <div className="absolute inset-0 bg-zinc-950/20" />
-
-            <div className="absolute left-[30%] top-[28%] h-[44%] w-[42%] rounded-[50%] border border-dashed border-white/45" />
-
-            {WORLD_RUMOR_REGIONS.map((region) => {
-              const RegionIcon = REGION_ICON[region.id];
+        <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
+          <div className="space-y-2 border-b border-zinc-200 bg-zinc-50 p-3 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
+            {WORLD_ACTIVITY_REGIONS.map((region) => {
+              const RegionIcon = KIND_ICON[region.kind];
               const active = region.id === selected.id;
               return (
                 <button
                   key={region.id}
                   type="button"
                   onClick={() => setSelectedId(region.id)}
-                  className={`absolute flex min-h-11 min-w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-md border shadow-sm transition ${
-                    NODE_TONE[region.id]
-                  } ${
+                  className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                     active
-                      ? "scale-110 ring-2 ring-emerald-400"
-                      : "hover:scale-105"
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
+                      : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   }`}
-                  style={{
-                    left: `${region.position.x}%`,
-                    top: `${region.position.y}%`,
-                  }}
-                  aria-label={region.name}
                 >
-                  <RegionIcon size={22} weight="duotone" />
-                  <span className="pointer-events-none absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-950 px-1.5 py-0.5 text-[11px] font-medium text-white shadow">
-                    {region.shortName}
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                    <RegionIcon size={20} weight="duotone" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">
+                      {region.name}
+                    </span>
+                    <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                      {WORLD_ACTIVITY_KIND_LABEL[region.kind]}
+                    </span>
                   </span>
                 </button>
               );
@@ -124,22 +155,6 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
           </div>
 
           <div className="space-y-3 p-4">
-            <div className="relative h-28 overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900">
-              <Image
-                src={selected.image}
-                alt=""
-                fill
-                sizes="(max-width: 768px) 100vw, 280px"
-                className="object-cover"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-zinc-950/65 px-3 py-2">
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-white">
-                  <MapPin size={15} weight="fill" />
-                  {selected.name}
-                </div>
-              </div>
-            </div>
-
             <div>
               <div
                 className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold ${
@@ -147,13 +162,23 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                 }`}
               >
                 <SelectedKindIcon size={14} weight="duotone" />
-                {WORLD_RUMOR_KIND_LABEL[selected.kind]}
+                {WORLD_ACTIVITY_KIND_LABEL[selected.kind]}
               </div>
-              <h3 className="mt-2 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              <div className="mt-3 flex items-center gap-2">
+                <MapPin
+                  size={18}
+                  weight="fill"
+                  className="shrink-0 text-zinc-500 dark:text-zinc-400"
+                />
+                <h3 className="min-w-0 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  {selected.name}
+                </h3>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
                 {selected.headline}
-              </h3>
-              <p className="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                {selected.summary}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                {activityDescription(selected)}
               </p>
             </div>
 
@@ -168,10 +193,13 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
               ))}
             </div>
 
+            <FishingSpotMeta id={selected.id} />
+
             <Link
               href={selected.action.href}
-              className="inline-flex w-full items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
             >
+              <Waves size={16} weight="duotone" />
               {selected.action.label}
             </Link>
           </div>

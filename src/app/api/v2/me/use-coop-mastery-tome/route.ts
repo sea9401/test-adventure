@@ -13,6 +13,7 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
+  isFarmingJobId,
   isFishingJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -80,6 +81,12 @@ export async function POST(req: Request) {
       return {
         status: 400,
         body: { ok: false as const, error: "fishing_job" },
+      };
+    }
+    if (isFarmingJobId(jobId)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "farming_job" },
       };
     }
 

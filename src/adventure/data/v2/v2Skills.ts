@@ -125,6 +125,11 @@ export type V2PassiveSkillEffect = {
   guildTrainingRewardBonusPct?: number;
   /** 주간 훈련 보너스가 발동할 때 추가로 받는 직업 숙련도. */
   guildTrainingWeeklyBonusMastery?: number;
+  // ── 농장(비전투) — 수확 서버 판정에서만 소비. 전투 derive 와 무관.
+  /** 수확량 보너스 +%. 작은 수확량에서도 체감되도록 수확 라우트가 최소 +1을 보장한다. */
+  farmYieldBonusPct?: number;
+  /** 희귀 수확 확률 +%p. */
+  farmRareChancePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
@@ -753,6 +758,21 @@ export function equippedFishingBonuses(equipped: readonly V2SkillId[]): {
   };
 }
 
+// 장착 패시브의 농장 보너스 합산. 수확 서버 판정에서만 소비한다.
+export function equippedFarmBonuses(equipped: readonly V2SkillId[]): {
+  yieldBonusPct: number;
+  rareChancePct: number;
+} {
+  let yieldBonusPct = 0;
+  let rareChancePct = 0;
+  for (const id of equipped) {
+    const p = V2_SKILLS[id]?.passive;
+    yieldBonusPct += p?.farmYieldBonusPct ?? 0;
+    rareChancePct += p?.farmRareChancePct ?? 0;
+  }
+  return { yieldBonusPct, rareChancePct };
+}
+
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
 const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction" | "reflectDamage", string> = {
   evasion: "회피",
@@ -913,6 +933,9 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`훈련장 보상 +${p.guildTrainingRewardBonusPct}%`);
   if (p.guildTrainingWeeklyBonusMastery)
     chips.push(`주간 훈련 보너스 +${p.guildTrainingWeeklyBonusMastery}`);
+  if (p.farmYieldBonusPct) chips.push(`농장 수확량 +${p.farmYieldBonusPct}%`);
+  if (p.farmRareChancePct)
+    chips.push(`희귀 수확 확률 +${p.farmRareChancePct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
   if (p.skillCritOverflow)

@@ -15,6 +15,8 @@ import {
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { parseV2Class } from "@/adventure/data/v2/classes";
+import { V2_JOB_CATALOG, jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 
 // POST /api/v2/farm/plant — 빈 밭에 기본 씨앗을 심는다.
 export async function POST(req: Request) {
@@ -35,21 +37,32 @@ export async function POST(req: Request) {
 
   try {
     const now = Date.now();
-    const next = await db.transaction(async (tx) => {
+    const { farm: next, farmJobId } = await db.transaction(async (tx) => {
+      const charSave = await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const farmJobId = currentJobIdFromChar(charSave);
       const farm = normalizeFarmForDay(
         parseFarmState(
           await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, emptyFarmState(now)),
         ),
         now,
       );
-      const planted = plantCrop(farm, plotId, cropId, now);
+      const planted = plantCrop(farm, plotId, cropId, now, {
+        currentJobId: farmJobId,
+      });
       await upsertSave(tx, userId, FARM_SAVE_KEY, planted);
-      return planted;
+      return { farm: planted, farmJobId };
     });
     return Response.json({
       ok: true,
       now,
       farm: next,
+      farmJobId,
+      farmJobName: farmJobId ? V2_JOB_CATALOG[farmJobId]?.name ?? farmJobId : null,
       crops: FARM_CROP_LIST,
       deliveries: getFarmDeliveryRequests(),
       specialDeliveries: getFarmSpecialDeliveryRequests(),
@@ -62,4 +75,12 @@ export async function POST(req: Request) {
     }
     throw e;
   }
+}
+
+function currentJobIdFromChar(charSave: Record<string, unknown>): string | null {
+  const cls = parseV2Class(charSave.class);
+  return jobIdFromLegacy(
+    cls,
+    typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+  );
 }

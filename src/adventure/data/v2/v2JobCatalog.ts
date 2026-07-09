@@ -88,6 +88,16 @@ export const FISHING_TIER5_UNLOCK_CUMLEVEL = 5400;
 export const FISHING_TIER6_UNLOCK_CUMLEVEL = 9000;
 
 /**
+ * 농부 직업 라인 전용 해금 임계 — 농장 수확 성공으로 숙련도가 오른다. 낚시처럼 생활 루프라
+ * 일반 사냥 숙련도 요구치를 그대로 쓰지 않는다.
+ */
+export const FARMING_TIER2_UNLOCK_CUMLEVEL = 900;
+export const FARMING_TIER3_UNLOCK_CUMLEVEL = 1800;
+export const FARMING_TIER4_UNLOCK_CUMLEVEL = 2700;
+export const FARMING_TIER5_UNLOCK_CUMLEVEL = 5400;
+export const FARMING_TIER6_UNLOCK_CUMLEVEL = 9000;
+
+/**
  * 5차 해금 임계 — 바로 아래 4차 직업의 jobCumLevel. 5차는 빠른 전직 계단이 아니라 장기 엔드
  * 성장 목표라 4차보다 간격을 크게 둔다.
  */
@@ -185,6 +195,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
     jobBonus: { vit: 3, str: 2 }, // 훈련장 생활 루트 입문 — 훈련 보너스는 장착 패시브가 담당
     unlock: { prereqs: { survivor: TIER2_UNLOCK_CUMLEVEL } },
+  },
+  farmer: {
+    id: "farmer",
+    name: "농부",
+    tier: 2,
+    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    jobBonus: { vit: 3, luk: 2 }, // 농장 생활 루트 입문 — 수확 보너스는 장착 패시브가 담당
+    unlock: { prereqs: { survivor: FARMING_TIER2_UNLOCK_CUMLEVEL } },
   },
 
   // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
@@ -398,6 +416,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
     jobBonus: { vit: 10, str: 5 },
     unlock: { prereqs: { healthtrainer: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  horticulturist: {
+    id: "horticulturist",
+    name: "원예가",
+    tier: 3,
+    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    jobBonus: { vit: 8, luk: 7 },
+    unlock: { prereqs: { farmer: FARMING_TIER3_UNLOCK_CUMLEVEL } },
   },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
   //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
@@ -613,6 +639,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 15, str: 7 },
     unlock: { prereqs: { physicalcoach: TIER4_UNLOCK_CUMLEVEL } },
   },
+  masterfarmer: {
+    id: "masterfarmer",
+    name: "농장장",
+    tier: 4,
+    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    jobBonus: { vit: 12, luk: 10 },
+    unlock: { prereqs: { horticulturist: FARMING_TIER4_UNLOCK_CUMLEVEL } },
+  },
   crusader: {
     id: "crusader",
     name: "성전사",
@@ -751,6 +785,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 20, spi: 8 },
     unlock: { prereqs: { masterangler: FISHING_TIER5_UNLOCK_CUMLEVEL } },
   },
+  harvestking: {
+    id: "harvestking",
+    name: "풍작왕",
+    tier: 5,
+    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    jobBonus: { vit: 16, luk: 12 },
+    unlock: { prereqs: { masterfarmer: FARMING_TIER5_UNLOCK_CUMLEVEL } },
+  },
   transcendent: {
     id: "transcendent",
     name: "초월자",
@@ -853,6 +895,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { luk: 2, spi: 2 },
     jobBonus: { luk: 28, spi: 12 },
     unlock: { prereqs: { fullcatchking: FISHING_TIER6_UNLOCK_CUMLEVEL } },
+  },
+  earthartisan: {
+    id: "earthartisan",
+    name: "대지 장인",
+    tier: 6,
+    cultivateProfile: { vit: 2, spi: 1, luk: 1 },
+    jobBonus: { vit: 24, luk: 16 },
+    unlock: { prereqs: { harvestking: FARMING_TIER6_UNLOCK_CUMLEVEL } },
   },
 };
 
@@ -966,6 +1016,22 @@ export function isFishingJobId(jobId: string): boolean {
   return V2_FISHING_JOB_IDS.has(jobId);
 }
 
+const V2_FARMING_JOB_IDS = new Set([
+  "farmer",
+  "horticulturist",
+  "masterfarmer",
+  "harvestking",
+  "earthartisan",
+]);
+
+export function isFarmingJobId(jobId: string): boolean {
+  return V2_FARMING_JOB_IDS.has(jobId);
+}
+
+export function isLifestyleMasteryJobId(jobId: string): boolean {
+  return isFishingJobId(jobId) || isFarmingJobId(jobId);
+}
+
 export function isRootJobSelectable(job: V2JobDefinition): boolean {
   return job.tier > 0 || job.id === "none" || job.id === "survivor";
 }
@@ -1002,10 +1068,12 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   ironman: { class: "survivor", spec: "ironman" },
   fisher: { class: "survivor", spec: "fisher" },
   healthtrainer: { class: "survivor", spec: "healthtrainer" },
+  farmer: { class: "survivor", spec: "farmer" },
   fieldmedic: { class: "survivor", spec: "fieldmedic" },
   extremesurvivor: { class: "survivor", spec: "extremesurvivor" },
   angler: { class: "survivor", spec: "angler" },
   physicalcoach: { class: "survivor", spec: "physicalcoach" },
+  horticulturist: { class: "survivor", spec: "horticulturist" },
   shieldman: { class: "warrior", spec: "knight" },
   squire: { class: "warrior", spec: "gwang" },
   boxer: { class: "martial", spec: "gigong" },
@@ -1055,6 +1123,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   returner: { class: "survivor", spec: "returner" },
   masterangler: { class: "survivor", spec: "masterangler" },
   mastertrainer: { class: "survivor", spec: "mastertrainer" },
+  masterfarmer: { class: "survivor", spec: "masterfarmer" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 피와 회복의 탱딜
@@ -1073,6 +1142,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   adamantmonk: { class: "martial", spec: "adamantmonk" },
   immortal: { class: "survivor", spec: "immortal" },
   fullcatchking: { class: "survivor", spec: "fullcatchking" },
+  harvestking: { class: "survivor", spec: "harvestking" },
   transcendent: { class: "warrior", spec: "transcendent" },
   bloodlord: { class: "warrior", spec: "bloodlord" },
   calamitycaller: { class: "mage", spec: "calamitycaller" },
@@ -1086,6 +1156,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   celestialdragon: { class: "martial", spec: "celestialdragon" },
   vajraarhat: { class: "martial", spec: "vajraarhat" },
   seagod: { class: "survivor", spec: "seagod" },
+  earthartisan: { class: "survivor", spec: "earthartisan" },
 };
 
 /**

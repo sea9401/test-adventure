@@ -10,6 +10,7 @@ import {
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
   aggregateEquippedPassives,
+  equippedFarmBonuses,
   equippedFishingBonuses,
   spCostOf,
   rubricSpCost,
@@ -115,6 +116,31 @@ describe("낚시 생활 패시브", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_seagod_deepcurrent)).toContain(
       "희귀 이상 물고기 크기 +4%",
     );
+  });
+});
+
+describe("농부 생활 패시브", () => {
+  it("농장 패시브는 수확량과 희귀 수확 보너스로 합산된다", () => {
+    expect(
+      equippedFarmBonuses([
+        "v2c_farmer_seedselection",
+        "v2c_horticulturist_soilreading",
+        "v2c_harvestking_abundance",
+      ]),
+    ).toEqual({ yieldBonusPct: 22, rareChancePct: 6 });
+    expect(equippedFarmBonuses([])).toEqual({
+      yieldBonusPct: 0,
+      rareChancePct: 0,
+    });
+  });
+
+  it("describeV2Skill 가 농장 효과 칩을 낸다", () => {
+    expect(describeV2Skill(V2_SKILLS.v2c_farmer_seedselection)).toContain(
+      "농장 수확량 +10%",
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_horticulturist_soilreading),
+    ).toContain("희귀 수확 확률 +3%");
   });
 });
 

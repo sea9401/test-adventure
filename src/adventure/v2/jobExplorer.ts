@@ -155,6 +155,11 @@ const LIFE_JOB_IDS = new Set([
   "healthtrainer",
   "physicalcoach",
   "mastertrainer",
+  "farmer",
+  "horticulturist",
+  "masterfarmer",
+  "harvestking",
+  "earthartisan",
 ]);
 
 function jobUsesStat(jobId: string, stat: V2StatKey): boolean {

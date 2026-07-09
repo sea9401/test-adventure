@@ -4,6 +4,7 @@ import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
 import {
   V2_SKILLS,
   aggregateEquippedPassives,
+  equippedFarmBonuses,
   equippedProfPerKillBonus,
   spCostOf,
   type V2SkillId,
@@ -185,6 +186,40 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingWeeklyBonusMastery).toBe(10);
     expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingRewardBonusPct).toBe(12);
     expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingWeeklyBonusMastery).toBe(15);
+  });
+
+  it("농부 생활 직업 라인은 장착형 농장 패시브를 배운다", () => {
+    expect(skillsForJob("farmer")).toEqual(["v2c_farmer_seedselection"]);
+    expect(skillsForJob("horticulturist")).toEqual([
+      "v2c_horticulturist_soilreading",
+    ]);
+    expect(skillsForJob("masterfarmer")).toEqual([
+      "v2c_masterfarmer_composting",
+    ]);
+    expect(skillsForJob("harvestking")).toEqual([
+      "v2c_harvestking_abundance",
+    ]);
+    expect(skillsForJob("earthartisan")).toEqual([
+      "v2c_earthartisan_landcare",
+    ]);
+    for (const jobId of [
+      "farmer",
+      "horticulturist",
+      "masterfarmer",
+      "harvestking",
+      "earthartisan",
+    ]) {
+      for (const id of skillsForJob(jobId)) {
+        expect(V2_SKILLS[id].category, id).toBe("passive");
+      }
+    }
+    expect(
+      equippedFarmBonuses([
+        "v2c_farmer_seedselection",
+        "v2c_horticulturist_soilreading",
+        "v2c_masterfarmer_composting",
+      ]),
+    ).toEqual({ yieldBonusPct: 18, rareChancePct: 5 });
   });
 
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {

@@ -12,6 +12,11 @@ import {
   FISHING_TIER4_UNLOCK_CUMLEVEL,
   FISHING_TIER5_UNLOCK_CUMLEVEL,
   FISHING_TIER6_UNLOCK_CUMLEVEL,
+  FARMING_TIER2_UNLOCK_CUMLEVEL,
+  FARMING_TIER3_UNLOCK_CUMLEVEL,
+  FARMING_TIER4_UNLOCK_CUMLEVEL,
+  FARMING_TIER5_UNLOCK_CUMLEVEL,
+  FARMING_TIER6_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
@@ -23,7 +28,9 @@ import {
   jobUnlockSpBonus,
   jobUnlockConditionText,
   cumLevelForJob,
+  isFarmingJobId,
   isFishingJobId,
+  isLifestyleMasteryJobId,
   type V2JobDefinition,
   type ExtraJobCondition,
   type JobUnlockContext,
@@ -44,7 +51,7 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   martial: ["boxer", "monk"],
   mage: ["caster", "acolyte", "warder"],
   rogue: ["assassin", "archer", "venomist"],
-  survivor: ["camper", "ironman", "fisher", "healthtrainer"],
+  survivor: ["camper", "ironman", "fisher", "healthtrainer", "farmer"],
 };
 // 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
 const TIER3_LINEAGE: Record<string, string> = {
@@ -63,6 +70,7 @@ const TIER3_LINEAGE: Record<string, string> = {
   extremesurvivor: "ironman",
   angler: "fisher",
   physicalcoach: "healthtrainer",
+  horticulturist: "farmer",
 };
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
@@ -80,6 +88,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   returner: "extremesurvivor",
   masterangler: "angler",
   mastertrainer: "physicalcoach",
+  masterfarmer: "horticulturist",
   crusader: "templar",
   runeknight: "spellblade",
   crimsontemplar: "bloodtemplar",
@@ -99,6 +108,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   adamantmonk: "battlemonk",
   immortal: "returner",
   fullcatchking: "masterangler",
+  harvestking: "masterfarmer",
   bloodlord: "crimsontemplar",
   calamitycaller: "archshaman",
 };
@@ -112,6 +122,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   celestialdragon: "dragonfist",
   vajraarhat: "adamantmonk",
   seagod: "fullcatchking",
+  earthartisan: "harvestking",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -137,16 +148,16 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("85개 직업(루트 2 + 기본 4 + 상위 14 + 고차 19 + 심화 20 + 5차 17 + 6차 9)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(85);
+  it("90개 직업(루트 2 + 기본 4 + 상위 15 + 고차 20 + 심화 21 + 5차 18 + 6차 10)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(90);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(14);
-    expect(byTier(3)).toBe(19);
-    expect(byTier(4)).toBe(20);
-    expect(byTier(5)).toBe(17);
-    expect(byTier(6)).toBe(9);
+    expect(byTier(2)).toBe(15);
+    expect(byTier(3)).toBe(20);
+    expect(byTier(4)).toBe(21);
+    expect(byTier(5)).toBe(18);
+    expect(byTier(6)).toBe(10);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -252,6 +263,8 @@ describe("해금 트리", () => {
         const required =
           childId === "fisher"
             ? FISHING_TIER2_UNLOCK_CUMLEVEL
+            : childId === "farmer"
+              ? FARMING_TIER2_UNLOCK_CUMLEVEL
             : TIER2_UNLOCK_CUMLEVEL;
         expect(job.unlock.prereqs).toEqual({ [parent]: required });
       }
@@ -265,6 +278,8 @@ describe("해금 트리", () => {
       const required =
         childId === "angler"
           ? FISHING_TIER3_UNLOCK_CUMLEVEL
+          : childId === "horticulturist"
+            ? FARMING_TIER3_UNLOCK_CUMLEVEL
           : TIER3_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       // 계보 부모는 tier-2 직업 → isJobUnlocked 가 jobCumLevel 로 분기(직군 cumLevel 아님).
@@ -279,6 +294,8 @@ describe("해금 트리", () => {
       const required =
         childId === "masterangler"
           ? FISHING_TIER4_UNLOCK_CUMLEVEL
+          : childId === "masterfarmer"
+            ? FARMING_TIER4_UNLOCK_CUMLEVEL
           : TIER4_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(3);
@@ -306,6 +323,24 @@ describe("해금 트리", () => {
     });
   });
 
+  it("농부 계열은 수확 성공 기반 숙련도라 생활 직업 전용 요구치를 쓴다", () => {
+    expect(V2_JOB_CATALOG.farmer.unlock.prereqs).toEqual({
+      survivor: 900,
+    });
+    expect(V2_JOB_CATALOG.horticulturist.unlock.prereqs).toEqual({
+      farmer: 1800,
+    });
+    expect(V2_JOB_CATALOG.masterfarmer.unlock.prereqs).toEqual({
+      horticulturist: 2700,
+    });
+    expect(V2_JOB_CATALOG.harvestking.unlock.prereqs).toEqual({
+      masterfarmer: 5400,
+    });
+    expect(V2_JOB_CATALOG.earthartisan.unlock.prereqs).toEqual({
+      harvestking: 9000,
+    });
+  });
+
   it("5차 직업은 계보(바로 아래 4차 부모) jobCumLevel ≥ TIER5 을 요구한다", () => {
     for (const [childId, parent] of Object.entries(TIER5_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
@@ -313,6 +348,8 @@ describe("해금 트리", () => {
       const required =
         childId === "fullcatchking"
           ? FISHING_TIER5_UNLOCK_CUMLEVEL
+          : childId === "harvestking"
+            ? FARMING_TIER5_UNLOCK_CUMLEVEL
           : TIER5_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(4);
@@ -329,6 +366,8 @@ describe("해금 트리", () => {
       const required =
         childId === "seagod"
           ? FISHING_TIER6_UNLOCK_CUMLEVEL
+          : childId === "earthartisan"
+            ? FARMING_TIER6_UNLOCK_CUMLEVEL
           : TIER6_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(5);
@@ -771,6 +810,11 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("survivor", "fullcatchking")).toBe("fullcatchking");
     expect(jobIdFromLegacy("survivor", "seagod")).toBe("seagod");
     expect(jobIdFromLegacy("survivor", "mastertrainer")).toBe("mastertrainer");
+    expect(jobIdFromLegacy("survivor", "farmer")).toBe("farmer");
+    expect(jobIdFromLegacy("survivor", "horticulturist")).toBe("horticulturist");
+    expect(jobIdFromLegacy("survivor", "masterfarmer")).toBe("masterfarmer");
+    expect(jobIdFromLegacy("survivor", "harvestking")).toBe("harvestking");
+    expect(jobIdFromLegacy("survivor", "earthartisan")).toBe("earthartisan");
     expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
     expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
     expect(jobIdFromLegacy("mage", "runecaster")).toBe("runecaster"); // 문장술사 4차
@@ -807,6 +851,11 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("survivor", "fullcatchking")).toBe("만선왕");
     expect(displayName("survivor", "seagod")).toBe("해신");
     expect(displayName("survivor", "mastertrainer")).toBe("마스터 트레이너");
+    expect(displayName("survivor", "farmer")).toBe("농부");
+    expect(displayName("survivor", "horticulturist")).toBe("원예가");
+    expect(displayName("survivor", "masterfarmer")).toBe("농장장");
+    expect(displayName("survivor", "harvestking")).toBe("풍작왕");
+    expect(displayName("survivor", "earthartisan")).toBe("대지 장인");
     expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "inscriber")).toBe("각인술사");
     expect(displayName("mage", "archmage")).toBe("대마도사");
@@ -819,13 +868,22 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
 });
 
 describe("생활 직업 숙련도 획득 분기", () => {
-  it("헬스 트레이너는 낚시 숙련도 예외가 아니므로 사냥 숙련도 대상이다", () => {
+  it("낚시·농부 계열은 생활 루프에서만 직업 숙련도를 얻는다", () => {
     expect(isFishingJobId("fisher")).toBe(true);
     expect(isFishingJobId("angler")).toBe(true);
     expect(isFishingJobId("masterangler")).toBe(true);
     expect(isFishingJobId("fullcatchking")).toBe(true);
     expect(isFishingJobId("seagod")).toBe(true);
+    expect(isFarmingJobId("farmer")).toBe(true);
+    expect(isFarmingJobId("horticulturist")).toBe(true);
+    expect(isFarmingJobId("masterfarmer")).toBe(true);
+    expect(isFarmingJobId("harvestking")).toBe(true);
+    expect(isFarmingJobId("earthartisan")).toBe(true);
+    expect(isLifestyleMasteryJobId("fisher")).toBe(true);
+    expect(isLifestyleMasteryJobId("farmer")).toBe(true);
     expect(isFishingJobId("healthtrainer")).toBe(false);
+    expect(isFarmingJobId("healthtrainer")).toBe(false);
+    expect(isLifestyleMasteryJobId("healthtrainer")).toBe(false);
     expect(isFishingJobId("physicalcoach")).toBe(false);
     expect(isFishingJobId("mastertrainer")).toBe(false);
   });

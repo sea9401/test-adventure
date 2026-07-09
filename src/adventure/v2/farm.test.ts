@@ -3,6 +3,7 @@ import {
   FARM_DAILY_QUEST_SEED_REWARD,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
+  canPlantFarmCrop,
   claimFarmSpecialDelivery,
   claimFarmDelivery,
   claimFarmWeeklyDelivery,
@@ -41,6 +42,22 @@ describe("adventurer farm", () => {
     );
   });
 
+  it("locks farmer-only crops unless the current job is in the farmer line", () => {
+    const state = { ...emptyFarmState(), seeds: { corn: 1 } };
+
+    expect(canPlantFarmCrop("corn", null)).toBe(false);
+    expect(canPlantFarmCrop("corn", "farmer")).toBe(true);
+    expect(canPlantFarmCrop("corn", "horticulturist")).toBe(true);
+    expect(() => plantCrop(state, "plot-1", "corn", 1_000)).toThrow(
+      "crop_locked",
+    );
+
+    const planted = plantCrop(state, "plot-1", "corn", 1_000, {
+      currentJobId: "farmer",
+    });
+    expect(planted.plots[0].cropId).toBe("corn");
+  });
+
   it("grants farm seeds from the daily quest seed pouch", () => {
     const state = {
       ...emptyFarmState(1_000),
@@ -65,6 +82,7 @@ describe("adventurer farm", () => {
       "plot-1",
       "corn",
       1_000,
+      { currentJobId: "farmer" },
     );
     const { state, result } = harvestPlot(
       planted,
@@ -90,6 +108,27 @@ describe("adventurer farm", () => {
       reputationSpent: 0,
     });
     expect(state.plots[0].cropId).toBeNull();
+  });
+
+  it("applies farm harvest bonuses from farmer passives", () => {
+    const planted = plantCrop(
+      { ...emptyFarmState(), seeds: { wheat: 1 } },
+      "plot-1",
+      "wheat",
+      1_000,
+    );
+    const { state, result } = harvestPlot(
+      planted,
+      "plot-1",
+      1_000 + 5 * 60 * 1000,
+      () => 0.5,
+      { yieldBonusPct: 10, rareChancePct: 50 },
+    );
+
+    expect(result.quantity).toBe(5);
+    expect(result.rareItemId).toBe("golden_wheat");
+    expect(state.inventory.wheat).toBe(5);
+    expect(state.inventory.golden_wheat).toBe(1);
   });
 
   it("claims a delivery by consuming crops and granting reputation", () => {

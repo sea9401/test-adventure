@@ -9,6 +9,7 @@ import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_CATALOG,
+  isFarmingJobId,
   isFishingJobId,
   isJobUnlocked,
   isRootJobSelectable,
@@ -71,6 +72,12 @@ export async function POST(req: Request) {
       return {
         status: 400,
         body: { ok: false as const, error: "fishing_job" },
+      };
+    }
+    if (isFarmingJobId(job.id)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "farming_job" },
       };
     }
 

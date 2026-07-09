@@ -5,7 +5,6 @@ import {
   GUILD_FACILITY_UNLOCK_GOLD_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
   PRODUCTION_KINDS,
-  SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_BUILDINGS,
   nextGuildSmithyUpgrade,
   settlementBuildingUpgradeCostText,
@@ -22,6 +21,14 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   training_ground: "길드원이 매일 직업 숙련도 훈련을 받을 수 있는 시설입니다.",
   exploration_hq: "주간 길드 탐사 의뢰와 원정 진척을 관리하는 시설입니다.",
 };
+
+const VISIBLE_GUILD_FACILITY_IDS = [
+  "guild_smithy",
+  "training_ground",
+  "exploration_hq",
+  "alchemy_workshop",
+  "woodworks",
+] satisfies SettlementBuildingId[];
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
 export function GuildFacilitiesPanel({
@@ -44,7 +51,7 @@ export function GuildFacilitiesPanel({
     );
   }
 
-  const rows = SETTLEMENT_BUILDING_IDS.map((id) => {
+  const rows = VISIBLE_GUILD_FACILITY_IDS.map((id) => {
     const def = SETTLEMENT_BUILDINGS[id];
     const count = info?.settlementBuildings?.[id] ?? 0;
     const level = info?.settlementBuildingLevels?.[id] ?? (count > 0 ? 1 : 0);
@@ -94,11 +101,11 @@ export function GuildFacilitiesPanel({
         <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           길드 시설
         </h3>
-        <div className="grid gap-2">
+        <div className="grid gap-2 md:grid-cols-2">
           {rows.map((row) => (
             <div
               key={row.id}
-              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
+              className="flex min-h-[96px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -191,7 +198,7 @@ export function GuildFacilitiesManagePanel({
   const guildGold = info?.guildGold ?? 0;
   const guildFame = info?.guild?.fameAvailable ?? 0;
   const settlementResources = info?.settlementResources ?? {};
-  const rows = SETTLEMENT_BUILDING_IDS.map((id) => {
+  const rows = VISIBLE_GUILD_FACILITY_IDS.map((id) => {
     const def = SETTLEMENT_BUILDINGS[id];
     const count = info?.settlementBuildings?.[id] ?? 0;
     const level = info?.settlementBuildingLevels?.[id] ?? (count > 0 ? 1 : 0);
@@ -269,7 +276,7 @@ export function GuildFacilitiesManagePanel({
       <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
         시설 관리
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-2 md:grid-cols-2">
         {rows.map((row) => {
           const canUnlock = PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id);
           const next =
@@ -287,7 +294,7 @@ export function GuildFacilitiesManagePanel({
           return (
             <div
               key={row.id}
-              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
+              className="flex min-h-[112px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

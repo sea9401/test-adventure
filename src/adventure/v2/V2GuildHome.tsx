@@ -15,7 +15,6 @@ import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
 import { fetchGuildTrainingClaimableCount } from "./guild/trainingGroundClient";
 import {
   type GuildInfoResponse,
-  type GuildManageTab,
   type GuildSubTab,
   type Notice,
   type PendingRequest,
@@ -45,7 +44,6 @@ export function V2GuildHome({
   onGuildChanged?: () => void;
 }) {
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
-  const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
   const [activity, setActivity] = useState<GuildActivity[]>([]);
@@ -207,8 +205,6 @@ export function V2GuildHome({
           setNotice={setNotice}
           onRefresh={refresh}
           isMaster={isMaster}
-          manageTab={manageTab}
-          setManageTab={setManageTab}
           pendingRequests={pendingRequests}
           loading={loading}
           onGuildChanged={onGuildChanged}
@@ -221,14 +217,6 @@ export function V2GuildHome({
           info={info}
           canManage={canManage}
           onChanged={refresh}
-          onOpenManage={
-            canManage
-              ? () => {
-                  setManageTab("facilities");
-                  setSubTab("manage");
-                }
-              : undefined
-          }
         />
       )}
     </main>

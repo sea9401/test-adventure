@@ -6,7 +6,7 @@ import {
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
   PRODUCTION_KINDS,
   SETTLEMENT_BUILDINGS,
-  nextGuildSmithyUpgrade,
+  nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeCostText,
   settlementBuildingUpgradeSummary,
   type SettlementBuildingId,
@@ -36,13 +36,11 @@ export function GuildFacilitiesPanel({
   info,
   canManage,
   onChanged,
-  onOpenManage,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
   canManage?: boolean;
   onChanged?: () => void;
-  onOpenManage?: () => void;
 }) {
   const [activeFacility, setActiveFacility] =
     useState<SettlementBuildingId | null>(null);
@@ -75,18 +73,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "guild_smithy") {
     return (
       <div className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <FacilityBackButton onClick={() => setActiveFacility(null)} />
-          {onOpenManage && (
-            <button
-              type="button"
-              onClick={onOpenManage}
-              className="h-9 rounded-md border border-emerald-700 bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-            >
-              업그레이드
-            </button>
-          )}
-        </div>
+        <FacilityBackButton onClick={() => setActiveFacility(null)} />
         <GuildWorkshopPanel info={info} />
       </div>
     );
@@ -113,20 +100,9 @@ export function GuildFacilitiesPanel({
   return (
     <div className="space-y-3">
       <section className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            길드 시설
-          </h3>
-          {onOpenManage && (
-            <button
-              type="button"
-              onClick={onOpenManage}
-              className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-            >
-              시설 관리
-            </button>
-          )}
-        </div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          길드 시설
+        </h3>
         <div className="grid gap-2 md:grid-cols-2">
           {rows.map((row) => (
             <div
@@ -167,54 +143,27 @@ export function GuildFacilitiesPanel({
               {row.count > 0 && (
                 <div className="mt-2 space-y-2">
                   {isOpenableFacility(row.id) ? (
-                    <div
-                      className={`grid gap-1.5 ${
-                        row.id === "guild_smithy" && onOpenManage
-                          ? "grid-cols-2"
-                          : "grid-cols-1"
-                      }`}
+                    <button
+                      type="button"
+                      onClick={() => setActiveFacility(row.id)}
+                      className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                     >
-                      <button
-                        type="button"
-                        onClick={() => setActiveFacility(row.id)}
-                        className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-                      >
-                        {row.name} {row.actionLabel}
-                      </button>
-                      {row.id === "guild_smithy" && onOpenManage && (
-                        <button
-                          type="button"
-                          onClick={onOpenManage}
-                          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
-                        >
-                          업그레이드
-                        </button>
-                      )}
-                    </div>
+                      {row.name} {row.actionLabel}
+                    </button>
                   ) : (
-                    <p className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
+                    <p className="mx-auto w-[70%] rounded-md border border-zinc-200 bg-white px-3 py-2 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
                       준비 중인 시설입니다.
                     </p>
                   )}
                 </div>
               )}
               {row.count <= 0 && (
-                <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="mt-2 space-y-1.5 text-center">
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id)
                       ? "관리 탭에서 개방할 수 있습니다."
                       : "아직 개방할 수 없는 시설입니다."}
                   </p>
-                  {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id) &&
-                    onOpenManage && (
-                      <button
-                        type="button"
-                        onClick={onOpenManage}
-                        className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-                      >
-                        개방
-                      </button>
-                    )}
                 </div>
               )}
             </div>
@@ -293,17 +242,18 @@ export function GuildFacilitiesManagePanel({
     }
   }
 
-  async function upgradeSmithy() {
+  async function upgradeFacility(id: SettlementBuildingId) {
     if (upgradingId) return;
-    setUpgradingId("guild_smithy");
+    setUpgradingId(id);
     try {
-      const res = await fetch("/api/v2/guild/facilities/smithy/upgrade", {
+      const res = await fetch(`/api/v2/guild/facilities/${id}/upgrade`, {
         method: "POST",
       });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
-        smithyLevel?: number;
+        buildingId?: SettlementBuildingId;
+        buildingLevel?: number;
       } | null;
       if (!res.ok || !json?.ok) {
         onNotice?.({
@@ -312,9 +262,10 @@ export function GuildFacilitiesManagePanel({
         });
         return;
       }
+      const def = SETTLEMENT_BUILDINGS[id];
       onNotice?.({
         kind: "ok",
-        text: `길드 대장간 Lv ${json.smithyLevel ?? ""} 업그레이드 완료`,
+        text: `${def.name} Lv ${json.buildingLevel ?? ""} 업그레이드 완료`,
       });
       onChanged?.();
     } catch {
@@ -333,8 +284,8 @@ export function GuildFacilitiesManagePanel({
         {rows.map((row) => {
           const canUnlock = PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id);
           const next =
-            row.id === "guild_smithy" && row.count > 0
-              ? nextGuildSmithyUpgrade(row.level)
+            row.count > 0
+              ? nextSettlementBuildingUpgrade(row.id, row.level)
               : null;
           const canAffordUpgrade =
             next != null &&
@@ -373,8 +324,8 @@ export function GuildFacilitiesManagePanel({
               </div>
 
               {row.count <= 0 ? (
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <p className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="mt-2 space-y-1.5 text-center">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {canUnlock && row.cost > 0
                       ? `비용 ${row.cost.toLocaleString()}G · 길드 금고 ${guildGold.toLocaleString()}G`
                       : "준비 중"}
@@ -384,13 +335,13 @@ export function GuildFacilitiesManagePanel({
                       type="button"
                       onClick={() => void unlockFacility(row.id)}
                       disabled={unlockingId != null || guildGold < row.cost}
-                      className="shrink-0 rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mx-auto block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {unlockingId === row.id ? "개방 중" : "개방"}
                     </button>
                   )}
                 </div>
-              ) : row.id === "guild_smithy" ? (
+              ) : (
                 <div className="mt-2 rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950">
                   {next ? (
                     <>
@@ -408,23 +359,23 @@ export function GuildFacilitiesManagePanel({
                       {canManage && (
                         <button
                           type="button"
-                          onClick={() => void upgradeSmithy()}
+                          onClick={() => void upgradeFacility(row.id)}
                           disabled={upgradingId != null || !canAffordUpgrade}
-                          className="mt-2 w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="mx-auto mt-2 block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {upgradingId === row.id
                             ? "업그레이드 중"
-                            : "대장간 업그레이드"}
+                            : `${row.name} 업그레이드`}
                         </button>
                       )}
                     </>
                   ) : (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      대장간 최고 레벨입니다.
+                      추가 업그레이드가 없습니다.
                     </p>
                   )}
                 </div>
-              ) : null}
+              )}
             </div>
           );
         })}
@@ -478,7 +429,10 @@ function facilityUpgradeErrorText(error?: string): string {
     case "not_authorized":
       return "시설 업그레이드 권한이 없습니다.";
     case "smithy_required":
-      return "먼저 길드 대장간을 개방해야 합니다.";
+    case "building_required":
+      return "먼저 해당 시설을 개방해야 합니다.";
+    case "invalid_building":
+      return "업그레이드할 수 없는 시설입니다.";
     case "max_level":
       return "이미 최고 레벨입니다.";
     case "insufficient_resources":

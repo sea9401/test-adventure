@@ -17,6 +17,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
   FARM_MAX_PLOT_COUNT,
+  farmAvailableReputation,
   nextFarmPlotUpgrade,
   type FarmCrop,
   type FarmCropId,
@@ -74,6 +75,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
     busyShopItemId,
+    busyPlotUpgrade,
     notice,
     now,
     farm,
@@ -90,6 +92,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     deliverSpecial,
     deliverWeekly,
     buyShopItem,
+    buyPlotUpgrade,
   } = useFarm();
   const [selectedCropId, setSelectedCropId] = useState<FarmCropId>("wheat");
   const [activeSection, setActiveSection] = useState<FarmSectionKey>("grow");
@@ -191,6 +194,14 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
         }`,
       };
     }
+    if (notice.kind === "plotUpgrade") {
+      const { result } = notice;
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${result.title} 구매 완료. 농장 명성 ${result.costReputation}을 사용해 밭 ${result.plotCount}칸을 열었습니다.`,
+      };
+    }
     const { result } = notice;
     return {
       id: notice.id,
@@ -262,7 +273,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               now={now}
               dailyDeliveryCount={dailyDeliveryCount}
             />
-            <FarmGrowthPanel farm={farm} />
+            <FarmGrowthPanel
+              farm={farm}
+              busy={busyPlotUpgrade}
+              onBuy={buyPlotUpgrade}
+            />
 
             <TabBar
               tabs={farmTabs}
@@ -419,9 +434,19 @@ function FarmSummary({
   );
 }
 
-function FarmGrowthPanel({ farm }: { farm: FarmState }) {
-  const next = nextFarmPlotUpgrade(farm.stats.reputation);
+function FarmGrowthPanel({
+  farm,
+  busy,
+  onBuy,
+}: {
+  farm: FarmState;
+  busy: boolean;
+  onBuy: () => void;
+}) {
+  const next = nextFarmPlotUpgrade(farm);
   const unlocked = farm.plots.length;
+  const availableReputation = farmAvailableReputation(farm);
+  const affordable = next ? availableReputation >= next.costReputation : false;
   return (
     <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -433,11 +458,26 @@ function FarmGrowthPanel({ farm }: { farm: FarmState }) {
           밭 {unlocked}/{FARM_MAX_PLOT_COUNT}칸
         </span>
       </div>
-      <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
-        {next
-          ? `농장 명성 ${next.reputationRequired} 달성 시 ${next.title}이 열려 밭 ${next.plotCount}칸을 사용할 수 있습니다.`
-          : "현재 준비된 모든 밭을 사용할 수 있습니다."}
-      </p>
+      {next ? (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+            {next.title} 구매 시 밭 {next.plotCount}칸을 사용할 수 있습니다. 비용
+            명성 {next.costReputation} · 보유 {availableReputation}
+          </p>
+          <button
+            type="button"
+            onClick={onBuy}
+            disabled={!affordable || busy}
+            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
+          >
+            {busy ? "확장 중..." : affordable ? "밭 확장" : "명성 부족"}
+          </button>
+        </div>
+      ) : (
+        <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+          현재 준비된 모든 밭을 사용할 수 있습니다.
+        </p>
+      )}
     </div>
   );
 }
@@ -1083,10 +1123,6 @@ function firstItemId(items: FarmItemInventory): FarmItemId | null {
 
 function hasSeedRewards(seeds: FarmSeedInventory): boolean {
   return Object.values(seeds).some((count) => (count ?? 0) > 0);
-}
-
-function farmAvailableReputation(farm: FarmState): number {
-  return Math.max(0, farm.stats.reputation - farm.stats.reputationSpent);
 }
 
 function hasRequiredItems(

@@ -26,6 +26,8 @@ export type CoopSessionSummary = {
   kind: CoopBossKindId;
   hp: number;
   maxHp: number;
+  bossMp: number;
+  bossMaxMp: number;
   expiresAt: number;
   summonedByName: string | null;
   participantCount: number;
@@ -49,6 +51,10 @@ export type CoopAttackResult = {
   turns: number;
   bossHp: number;
   bossMaxHp: number;
+  bossMp: number;
+  bossMaxMp: number;
+  bossMpDamage: number;
+  bossMpDepleted: boolean;
   defeated: boolean;
   myDamage: number;
   myTier: CoopRewardTier | null;
@@ -86,6 +92,8 @@ export type CoopSessionDetail = {
     kind: CoopBossKindId;
     hp: number;
     maxHp: number;
+    bossMp: number;
+    bossMaxMp: number;
     expiresAt: number;
     defeatedAt: number | null;
     defeated: boolean;
@@ -365,6 +373,8 @@ export function useCoopSessionState({
                 session: {
                   ...prev.session,
                   hp: r.bossHp,
+                  bossMp: r.bossMp,
+                  bossMaxMp: r.bossMaxMp,
                   defeated: prev.session.defeated || r.defeated,
                 },
               }

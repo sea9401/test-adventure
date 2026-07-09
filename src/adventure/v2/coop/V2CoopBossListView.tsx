@@ -261,6 +261,9 @@ export function V2CoopBossListView({
             0,
             Math.min(100, (s.hp / s.maxHp) * 100),
           );
+          const bossMpMax = Math.max(0, s.bossMaxMp);
+          const bossMp = Math.max(0, Math.min(bossMpMax, s.bossMp));
+          const mpPct = bossMpMax > 0 ? (bossMp / bossMpMax) * 100 : 0;
           return (
             <button
               key={s.id}
@@ -303,6 +306,22 @@ export function V2CoopBossListView({
                         style={{ width: `${hpPct}%` }}
                       />
                     </span>
+                    {bossMpMax > 0 && (
+                      <span className="block space-y-0.5">
+                        <span className="block h-1.5 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                          <span
+                            className={`block h-full rounded transition-[width] ${
+                              bossMp === 0 ? "bg-zinc-400" : "bg-sky-500"
+                            }`}
+                            style={{ width: `${mpPct}%` }}
+                          />
+                        </span>
+                        <span className="flex justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                          <span>MP {bossMp.toLocaleString()}</span>
+                          {bossMp === 0 && <span>탈진</span>}
+                        </span>
+                      </span>
+                    )}
                     <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
                       <span>
                         {s.hp.toLocaleString()} / {s.maxHp.toLocaleString()}

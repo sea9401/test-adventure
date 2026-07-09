@@ -727,6 +727,10 @@ export const coopBossSessions = pgTable(
     hardEnrageWeakened: boolean("hard_enrage_weakened")
       .notNull()
       .default(false),
+    // 보스별 숨겨진 기믹 상태. 예: 공유 MP 잔량.
+    mechanicState: jsonb("mechanic_state")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
   },
   (t) => [
     // 활성 세션 조회용(kind + defeatedAt IS NULL) — 같은 종류 동시 다수 소환 허용으로

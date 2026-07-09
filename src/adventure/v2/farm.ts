@@ -7,6 +7,7 @@ export const FARM_MAX_PLOT_COUNT = 6;
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 
 export const FARMING_LEVEL_XP_SCALE = 10;
+export const FARMING_XP_MS_PER_POINT = 5 * 60 * 1000;
 
 export type FarmCropId = "wheat" | "herb" | "corn";
 
@@ -460,7 +461,7 @@ export function farmAvailableReputation(state: FarmState): number {
 
 export function farmCropMasteryGain(cropId: FarmCropId): number {
   const crop = FARM_CROPS[cropId];
-  return Math.max(1, Math.round(crop.growMs / 60_000));
+  return Math.max(1, Math.round(crop.growMs / FARMING_XP_MS_PER_POINT));
 }
 
 export function farmingLevelXpThreshold(level: number): number {

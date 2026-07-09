@@ -133,6 +133,90 @@ function missMessage(reason: string): string {
   return MISS_MESSAGE[reason] ?? "물고기를 놓쳤다.";
 }
 
+function FishingStatusStrip({
+  dailyCatchCoins,
+  dailyCoinPct,
+  dailyCoinRemaining,
+  sessionCount,
+  sessionBest,
+  streak,
+  fishingSpot,
+}: {
+  dailyCatchCoins?: FishingDailyCatchCoins | null;
+  dailyCoinPct: number;
+  dailyCoinRemaining: number | null;
+  sessionCount: number;
+  sessionBest: number;
+  streak: number;
+  fishingSpot?: FishingSpot;
+}) {
+  return (
+    <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-2 text-xs text-zinc-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-zinc-200">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="min-w-0 flex-1">
+          <MulttaeBadge compact />
+        </div>
+        {fishingSpot && (
+          <span className="shrink-0 rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
+            {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
+          </span>
+        )}
+        {dailyCatchCoins && (
+          <span className="shrink-0 font-medium tabular-nums text-amber-700 dark:text-amber-300">
+            코인 {dailyCatchCoins.earned.toLocaleString()}/
+            {dailyCatchCoins.cap.toLocaleString()}
+          </span>
+        )}
+        {sessionCount > 0 && (
+          <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+            이번 판{" "}
+            <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>마리
+            {sessionBest > 0 && (
+              <>
+                {" "}
+                · 최대{" "}
+                <b className="text-zinc-700 dark:text-zinc-200">
+                  {formatFishSize(sessionBest)}
+                </b>
+              </>
+            )}
+            {streak > 1 && (
+              <b className="ml-1 text-amber-600 dark:text-amber-400">
+                연속 {streak}
+              </b>
+            )}
+          </span>
+        )}
+      </div>
+      {fishingSpot && (
+        <div className="mt-0.5 truncate text-[10px] text-sky-700 dark:text-sky-300">
+          {fishingSpot.description}
+        </div>
+      )}
+      {dailyCatchCoins && (
+        <>
+          <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-amber-800/80 dark:text-amber-100/80">
+            <span>
+              {dailyCoinRemaining === 0
+                ? "일일 획득 제한 도달"
+                : dailyCoinRemaining == null
+                  ? "일일 획득 제한 확인 중"
+                  : `남은 ${dailyCoinRemaining.toLocaleString()} 코인`}
+            </span>
+            <span className="hidden sm:inline">제한 초과분 미지급</span>
+          </div>
+          <div className="mt-1 h-1 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-[width]"
+              style={{ width: `${dailyCoinPct}%` }}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const TAU = Math.PI * 2;
 const FISHING_POND_SRC = "/images/ui/fishing-pond.webp";
 
@@ -1508,13 +1592,13 @@ export function FishingView({
       ? Math.max(0, dailyCatchCoins.cap - dailyCatchCoins.earned)
       : null;
   const idleActionClass =
-    "w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99]";
+    "w-full rounded-xl bg-sky-600 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-700 active:scale-[0.99] sm:py-3";
   const resultActionClass =
     "fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[720px] -translate-x-1/2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-950/20 transition hover:bg-sky-700 active:scale-[0.99]";
 
   return (
     <>
-      <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[720px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100">
+      <main className="mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl border border-zinc-200 bg-white/90 p-3 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5">
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
 
         <FishingSubTabs
@@ -1526,65 +1610,63 @@ export function FishingView({
           onOpenShop={onOpenShop}
         />
 
-      <MulttaeBadge />
+        <FishingStatusStrip
+          dailyCatchCoins={dailyCatchCoins}
+          dailyCoinPct={dailyCoinPct}
+          dailyCoinRemaining={dailyCoinRemaining}
+          sessionCount={sessionCount}
+          sessionBest={sessionBest}
+          streak={streak}
+          fishingSpot={fishingSpot}
+        />
 
-      {fishingSpot && (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/70 dark:bg-sky-950 dark:text-sky-100">
-          <div className="flex flex-wrap items-center gap-1.5 font-semibold">
-            <span>{fishingSpot.description}</span>
-            <span className="rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
-              난이도 {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
-            </span>
-          </div>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {fishingSpot.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900 dark:text-sky-200"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+        {progression ? (
+          <>
+            <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-sky-950/30 sm:hidden">
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 font-bold text-sky-900 dark:text-sky-100">
+                  Lv {progression.level}
+                </span>
+                <div className="h-1 flex-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
+                  <div
+                    className="h-full rounded-full bg-sky-500 transition-[width]"
+                    style={{
+                      width: `${Math.round(
+                        (progression.xpIntoLevel / progression.xpForNext) * 100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
+                  크기 +{progression.levelBonuses.sizeBonusPct}%
+                </span>
+                <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
+                  손님 +{progression.levelBonuses.specialWeightPct}%
+                </span>
+              </div>
+            </div>
 
-      {dailyCatchCoins && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium">오늘 챔질 코인</span>
-            <span className="tabular-nums">
-              {dailyCatchCoins.earned.toLocaleString()}/
-              {dailyCatchCoins.cap.toLocaleString()}
-            </span>
-          </div>
-          <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-amber-800/80 dark:text-amber-100/80">
-            <span>
-              {dailyCoinRemaining === 0
-                ? "일일 획득 제한 도달"
-                : dailyCoinRemaining == null
-                  ? "일일 획득 제한 확인 중"
-                  : `남은 획득 가능 ${dailyCoinRemaining.toLocaleString()} 코인`}
-            </span>
-            <span>제한 초과분 미지급</span>
-          </div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-amber-200/60 dark:bg-amber-950">
-            <div
-              className="h-full rounded-full bg-amber-500 transition-[width]"
-              style={{ width: `${dailyCoinPct}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {progression ? (
-        <>
-          <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-1.5 text-[11px] dark:border-sky-900/60 dark:bg-sky-950/30 sm:hidden">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 font-bold text-sky-900 dark:text-sky-100">
-                Lv {progression.level}
-              </span>
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
+            <div className="hidden rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-900/60 dark:bg-sky-950/30 sm:block">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
+                    낚시 Lv {progression.level}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {progression.catches.toLocaleString()}마리 ·{" "}
+                    {progression.xpIntoLevel}/{progression.xpForNext} XP
+                  </div>
+                </div>
+                <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
+                  <div className="truncate">
+                    {FISHING_RODS[progression.equippedRodId].name}
+                  </div>
+                  <div className="truncate">
+                    {FISHING_LURES[progression.equippedLureId].name}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
                 <div
                   className="h-full rounded-full bg-sky-500 transition-[width]"
                   style={{
@@ -1594,84 +1676,23 @@ export function FishingView({
                   }}
                 />
               </div>
-              <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
-                크기 +{progression.levelBonuses.sizeBonusPct}%
-              </span>
-              <span className="shrink-0 font-medium text-sky-800 dark:text-sky-200">
-                손님 +{progression.levelBonuses.specialWeightPct}%
-              </span>
-            </div>
-          </div>
-
-          <div className="hidden rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs dark:border-sky-900/60 dark:bg-sky-950/30 sm:block">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-bold text-sky-900 dark:text-sky-100">
-                  낚시 Lv {progression.level}
-                </div>
-                <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {progression.catches.toLocaleString()}마리 ·{" "}
-                  {progression.xpIntoLevel}/{progression.xpForNext} XP
-                </div>
-              </div>
-              <div className="min-w-0 text-right text-[11px] text-zinc-600 dark:text-zinc-300">
-                <div className="truncate">
-                  {FISHING_RODS[progression.equippedRodId].name}
-                </div>
-                <div className="truncate">
-                  {FISHING_LURES[progression.equippedLureId].name}
-                </div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {levelBonusLabels(progression).map((label) => (
+                  <span
+                    key={label}
+                    className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200"
+                  >
+                    숙련도 효과 · {label}
+                  </span>
+                ))}
               </div>
             </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100 dark:bg-sky-900">
-              <div
-                className="h-full rounded-full bg-sky-500 transition-[width]"
-                style={{
-                  width: `${Math.round(
-                    (progression.xpIntoLevel / progression.xpForNext) * 100,
-                  )}%`,
-                }}
-              />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {levelBonusLabels(progression).map((label) => (
-                <span
-                  key={label}
-                  className="rounded bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200"
-                >
-                  숙련도 효과 · {label}
-                </span>
-              ))}
-            </div>
+          </>
+        ) : progressionLoading ? (
+          <div className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-center text-[11px] text-zinc-400 dark:border-zinc-700 sm:rounded-xl sm:p-3 sm:text-xs">
+            낚시 숙련도 불러오는 중…
           </div>
-        </>
-      ) : progressionLoading ? (
-        <div className="rounded-lg border border-zinc-200 px-2.5 py-1.5 text-center text-[11px] text-zinc-400 dark:border-zinc-700 sm:rounded-xl sm:p-3 sm:text-xs">
-          낚시 숙련도 불러오는 중…
-        </div>
-      ) : null}
-
-      {sessionCount > 0 && (
-        <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span>
-            이번 판{" "}
-            <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>마리
-          </span>
-          {sessionBest > 0 && (
-            <span>
-              최대{" "}
-              <b className="text-zinc-700 dark:text-zinc-200">
-                {formatFishSize(sessionBest)}
-              </b>
-            </span>
-          )}
-          {streak > 1 && (
-            <span className="text-amber-600 dark:text-amber-400">
-              🔥 연속 {streak}
-            </span>
-          )}
-        </div>
-      )}
+        ) : null}
 
       {/* 탭 존 — 대기 중엔 찌가 잔잔히 까닥, 입질엔 확 빨려들며 떨린다.
           결과 화면(result)에선 숨김 — 그땐 아래 결과 박스가 본문이라 탭존은 빈 박스가 됨. */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { TabBar } from "@/components/ui/TabBar";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SURFACE_FROSTED } from "@/components/ui/surfaces";
 
 // 낚시터 5화면 공용 서브 탭바 — 낚시 / 일일 과제 / 주간 순위 / 명예의 전당 / 상점.
 // 보물 발굴(TreasureSubTabs)과 같은 패턴: 우상단 작은 버튼 메뉴를 탭바로 승격.
@@ -57,7 +57,7 @@ export function FishingSubTabs({
   if (tabs.length <= 1) return null;
   // 지역 배경 위라 라이트모드 가독성 위해 surface 패널로 감쌈. 탭이 5개라 가로 스크롤 허용.
   return (
-    <HeaderPanel className="py-2">
+    <div className={`${SURFACE_FROSTED} px-2 py-1`}>
       <TabBar
         tabs={tabs}
         active={active}
@@ -74,6 +74,6 @@ export function FishingSubTabs({
         variant="highlight"
         scrollable
       />
-    </HeaderPanel>
+    </div>
   );
 }

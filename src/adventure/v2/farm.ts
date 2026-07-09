@@ -39,10 +39,10 @@ export type FarmPlotUpgrade = {
 };
 
 export const FARM_PLOT_UPGRADES: readonly FarmPlotUpgrade[] = [
-  { plotCount: 3, costReputation: 10, title: "작은 밭두렁" },
-  { plotCount: 4, costReputation: 25, title: "두 번째 밭두렁" },
-  { plotCount: 5, costReputation: 45, title: "작은 공동 텃밭" },
-  { plotCount: 6, costReputation: 70, title: "넓은 공동 텃밭" },
+  { plotCount: 3, costReputation: 20, title: "작은 밭두렁" },
+  { plotCount: 4, costReputation: 50, title: "두 번째 밭두렁" },
+  { plotCount: 5, costReputation: 100, title: "작은 공동 텃밭" },
+  { plotCount: 6, costReputation: 180, title: "넓은 공동 텃밭" },
 ];
 
 export type FarmItemId =

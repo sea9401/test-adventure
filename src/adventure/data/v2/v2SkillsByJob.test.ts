@@ -788,12 +788,16 @@ describe("직업 킷 — 스킬셋", () => {
       "damage",
       "damage",
       "enemyVuln",
-      "enemyDelay",
     ]);
     expect(V2_SKILLS.v2c_heavenlybow_orbit.effects[0]).toMatchObject({
       kind: "damage",
       scaling: "dex",
       pierceDamagePct: 22,
+    });
+    expect(V2_SKILLS.v2c_heavenlybow_orbit.effects[2]).toMatchObject({
+      kind: "damage",
+      scaling: "dex",
+      pierceDamagePct: 34,
     });
     expect(V2_SKILLS.v2c_heavenlybow_starpath.category).toBe("passive");
     expect(V2_SKILLS.v2c_heavenlybow_starpath.passive).toMatchObject({

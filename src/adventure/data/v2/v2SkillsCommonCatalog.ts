@@ -221,7 +221,7 @@ export type V2CommonSkillId =
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
-  | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + ATB 지연)
+  | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
   | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 치명 한계 초과)
   | "v2c_myriadvenom_mutation" // 만독변이 (중독 + 침식 + 중독 폭발)
   | "v2c_myriadvenom_body" // 만독지체 (부식 + 체력 + 회피)
@@ -1744,14 +1744,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_heavenlybow_orbit: {
     id: "v2c_heavenlybow_orbit", name: "천궁궤적", stat: "dex", category: "attack", tier: 3,
-    description: "하늘에 궤적을 그려 세 발을 순서대로 떨어뜨린다. 맞은 적은 다음 움직임과 빈틈까지 계산당한다.",
+    description: "하늘에 궤적을 그려 세 발을 순서대로 떨어뜨린다. 마지막 화살은 먼저 생긴 빈틈을 더 깊게 꿰뚫는다.",
     mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
       { kind: "damage", statCoef: 0.5, baseFlat: 190, scaling: "dex", pierceDamagePct: 22 },
       { kind: "damage", statCoef: 0.5, baseFlat: 190, scaling: "dex", pierceDamagePct: 22 },
-      { kind: "damage", statCoef: 0.5, baseFlat: 190, scaling: "dex", pierceDamagePct: 22 },
+      { kind: "damage", statCoef: 0.62, baseFlat: 230, scaling: "dex", pierceDamagePct: 34 },
       { kind: "enemyVuln", pct: 18, turns: 3 },
-      { kind: "enemyDelay", pct: 45 },
     ],
   },
   v2c_heavenlybow_starpath: {

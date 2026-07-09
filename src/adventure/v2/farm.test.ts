@@ -264,37 +264,37 @@ describe("adventurer farm", () => {
       ...emptyFarmState(1_000),
       stats: {
         ...emptyFarmState(1_000).stats,
-        reputation: 150,
+        reputation: 350,
       },
     };
 
     expect(nextFarmPlotUpgrade(base)).toMatchObject({
       plotCount: 3,
-      costReputation: 10,
+      costReputation: 20,
     });
     const { state: first, result: firstResult } = buyFarmPlotUpgrade(base);
     expect(firstResult).toMatchObject({
       plotCount: 3,
-      costReputation: 10,
+      costReputation: 20,
     });
     expect(first.plots).toHaveLength(3);
-    expect(first.stats.reputation).toBe(150);
-    expect(first.stats.reputationSpent).toBe(10);
-    expect(farmAvailableReputation(first)).toBe(140);
+    expect(first.stats.reputation).toBe(350);
+    expect(first.stats.reputationSpent).toBe(20);
+    expect(farmAvailableReputation(first)).toBe(330);
 
     const { state: second } = buyFarmPlotUpgrade(first);
     expect(second.plots).toHaveLength(4);
-    expect(second.stats.reputationSpent).toBe(35);
-    expect(farmAvailableReputation(second)).toBe(115);
+    expect(second.stats.reputationSpent).toBe(70);
+    expect(farmAvailableReputation(second)).toBe(280);
 
     const { state: third } = buyFarmPlotUpgrade(second);
     expect(third.plots).toHaveLength(5);
-    expect(third.stats.reputationSpent).toBe(80);
-    expect(farmAvailableReputation(third)).toBe(70);
+    expect(third.stats.reputationSpent).toBe(170);
+    expect(farmAvailableReputation(third)).toBe(180);
 
     const { state: fourth } = buyFarmPlotUpgrade(third);
     expect(fourth.plots).toHaveLength(6);
-    expect(fourth.stats.reputationSpent).toBe(150);
+    expect(fourth.stats.reputationSpent).toBe(350);
     expect(farmAvailableReputation(fourth)).toBe(0);
     expect(nextFarmPlotUpgrade(fourth)).toBeNull();
   });
@@ -304,7 +304,7 @@ describe("adventurer farm", () => {
       ...emptyFarmState(1_000),
       stats: {
         ...emptyFarmState(1_000).stats,
-        reputation: 10,
+        reputation: 20,
         reputationSpent: 3,
       },
     };

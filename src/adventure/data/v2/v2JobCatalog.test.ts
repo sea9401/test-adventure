@@ -17,9 +17,11 @@ import {
   FARMING_TIER4_UNLOCK_CUMLEVEL,
   FARMING_TIER5_UNLOCK_CUMLEVEL,
   FARMING_TIER6_UNLOCK_CUMLEVEL,
+  FARMING_LEVEL_REQUIREMENTS,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
+  CATALOG_USES_FARMING_LEVEL_CONDITION,
   jobIdFromLegacy,
   isJobUnlocked,
   isDirectNextJob,
@@ -323,22 +325,34 @@ describe("해금 트리", () => {
     });
   });
 
-  it("농부 계열은 수확 성공 기반 숙련도라 생활 직업 전용 요구치를 쓴다", () => {
+  it("농부 계열은 농사 XP 기반 숙련도라 생활 직업 전용 요구치를 쓴다", () => {
     expect(V2_JOB_CATALOG.farmer.unlock.prereqs).toEqual({
       survivor: 900,
     });
     expect(V2_JOB_CATALOG.horticulturist.unlock.prereqs).toEqual({
       farmer: 1800,
     });
+    expect(V2_JOB_CATALOG.horticulturist.unlock.extraConditions).toEqual([
+      { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.horticulturist },
+    ]);
     expect(V2_JOB_CATALOG.masterfarmer.unlock.prereqs).toEqual({
       horticulturist: 2700,
     });
+    expect(V2_JOB_CATALOG.masterfarmer.unlock.extraConditions).toEqual([
+      { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.masterfarmer },
+    ]);
     expect(V2_JOB_CATALOG.harvestking.unlock.prereqs).toEqual({
       masterfarmer: 5400,
     });
+    expect(V2_JOB_CATALOG.harvestking.unlock.extraConditions).toEqual([
+      { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.harvestking },
+    ]);
     expect(V2_JOB_CATALOG.earthartisan.unlock.prereqs).toEqual({
       harvestking: 9000,
     });
+    expect(V2_JOB_CATALOG.earthartisan.unlock.extraConditions).toEqual([
+      { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.earthartisan },
+    ]);
   });
 
   it("5차 직업은 계보(바로 아래 4차 부모) jobCumLevel ≥ TIER5 을 요구한다", () => {
@@ -353,8 +367,11 @@ describe("해금 트리", () => {
           : TIER5_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(4);
-      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }))).toBe(false);
-      expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
+      const ctx = isFarmingJobId(childId) ? { farmingLevel: 999 } : undefined;
+      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }), ctx)).toBe(
+        false,
+      );
+      expect(isJobUnlocked(job, profJobs({ [parent]: required }), ctx)).toBe(true);
     }
     expect(TIER4_UNLOCK_CUMLEVEL).toBeLessThan(TIER5_UNLOCK_CUMLEVEL);
   });
@@ -371,8 +388,11 @@ describe("해금 트리", () => {
           : TIER6_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(5);
-      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }))).toBe(false);
-      expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
+      const ctx = isFarmingJobId(childId) ? { farmingLevel: 999 } : undefined;
+      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }), ctx)).toBe(
+        false,
+      );
+      expect(isJobUnlocked(job, profJobs({ [parent]: required }), ctx)).toBe(true);
     }
     expect(TIER5_UNLOCK_CUMLEVEL).toBeLessThan(TIER6_UNLOCK_CUMLEVEL);
     expect(LEGACY_CLASS_SPEC_BY_JOB.fortressknight).toEqual({
@@ -604,6 +624,23 @@ describe("isJobUnlocked / unlockedJobs", () => {
     ).toBe(false);
   });
 
+  it("농부 상위 직업은 부모 숙련도와 농사 레벨을 모두 요구한다", () => {
+    expect(
+      isJobUnlocked(
+        V2_JOB_CATALOG.horticulturist,
+        profJobs({ farmer: FARMING_TIER3_UNLOCK_CUMLEVEL }),
+        { farmingLevel: FARMING_LEVEL_REQUIREMENTS.horticulturist - 1 },
+      ),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(
+        V2_JOB_CATALOG.horticulturist,
+        profJobs({ farmer: FARMING_TIER3_UNLOCK_CUMLEVEL }),
+        { farmingLevel: FARMING_LEVEL_REQUIREMENTS.horticulturist },
+      ),
+    ).toBe(true);
+  });
+
   it("심화 직업은 계보(3차 부모) jobCumLevel TIER4 전엔 잠김, 도달 시 해금(고차보다 더 깊다)", () => {
     // 정예 기사(veteran) ← 기사(paladin). paladin jobCumLevel 로 게이트.
     expect(
@@ -714,13 +751,18 @@ describe("extraConditions 추가 해금 조건 (#818)", () => {
     expect(isJobUnlocked(job, profWithCaps({ str: 49 }), ctx)).toBe(false);
   });
 
-  it("현 카탈로그 직업은 extraConditions 를 쓰지 않는다 → CATALOG_USES_QUEST_CONDITION=false(호출부 무쿼리)", () => {
+  it("현 카탈로그는 퀘스트 조건 없이 농사 레벨 조건만 쓴다", () => {
     expect(CATALOG_USES_QUEST_CONDITION).toBe(false);
+    expect(CATALOG_USES_FARMING_LEVEL_CONDITION).toBe(true);
     for (const job of V2_JOB_LIST) {
-      expect(
-        job.unlock.extraConditions ?? [],
-        `${job.id} 는 아직 extraConditions 미사용`,
-      ).toEqual([]);
+      const extra = job.unlock.extraConditions ?? [];
+      if (isFarmingJobId(job.id) && job.id !== "farmer") {
+        expect(extra, `${job.id} 는 농사 레벨 조건을 사용`).toEqual([
+          expect.objectContaining({ type: "farmingLevel" }),
+        ]);
+      } else {
+        expect(extra, `${job.id} 는 extraConditions 미사용`).toEqual([]);
+      }
     }
   });
 });
@@ -942,6 +984,11 @@ describe("jobUnlockConditionText (해금 조건 표기 — 전직 화면·도감
     expect(txt).toContain(V2_JOB_CATALOG.paladin.name);
     expect(txt).toContain(V2_JOB_CATALOG.acolyte.name);
     expect(txt).toContain(`숙련도 ${TIER3_UNLOCK_CUMLEVEL}`);
+  });
+
+  it("농부 상위 직업은 농사 레벨 조건을 함께 표기", () => {
+    const txt = jobUnlockConditionText(V2_JOB_CATALOG.horticulturist);
+    expect(txt).toContain(`농사 Lv ${FARMING_LEVEL_REQUIREMENTS.horticulturist}`);
   });
 });
 

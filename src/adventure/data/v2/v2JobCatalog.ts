@@ -25,7 +25,8 @@ import { V2_LEVEL_CAP } from "./coreLoopConfig";
 export type ExtraJobCondition =
   | { type: "questCompleted"; questId: string }
   | { type: "monsterKilled"; monsterId: string; minCount: number }
-  | { type: "statThreshold"; stat: V2StatKey; min: number };
+  | { type: "statThreshold"; stat: V2StatKey; min: number }
+  | { type: "farmingLevel"; min: number };
 
 /** isJobUnlocked 의 추가 조건 평가용 컨텍스트(없으면 quest/kill 조건은 미충족 처리). */
 export type JobUnlockContext = {
@@ -33,6 +34,8 @@ export type JobUnlockContext = {
   completedQuestIds?: ReadonlySet<string>;
   /** per-monster 킬수(monsterKilled 용). ⚠️ 킬 트래커 미신설 — 현재 미제공(별도 작업). */
   killCounts?: Readonly<Record<string, number>>;
+  /** 농장 콘텐츠 전체 숙련 레벨(farm.v2 stats.farmingXp 에서 파생). */
+  farmingLevel?: number;
 };
 
 /** 직업 해금 조건. */
@@ -96,6 +99,12 @@ export const FARMING_TIER3_UNLOCK_CUMLEVEL = 1800;
 export const FARMING_TIER4_UNLOCK_CUMLEVEL = 2700;
 export const FARMING_TIER5_UNLOCK_CUMLEVEL = 5400;
 export const FARMING_TIER6_UNLOCK_CUMLEVEL = 9000;
+export const FARMING_LEVEL_REQUIREMENTS = {
+  horticulturist: 10,
+  masterfarmer: 20,
+  harvestking: 35,
+  earthartisan: 50,
+} as const;
 
 /**
  * 5차 해금 임계 — 바로 아래 4차 직업의 jobCumLevel. 5차는 빠른 전직 계단이 아니라 장기 엔드
@@ -423,7 +432,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 3,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 8, luk: 7 },
-    unlock: { prereqs: { farmer: FARMING_TIER3_UNLOCK_CUMLEVEL } },
+    unlock: {
+      prereqs: { farmer: FARMING_TIER3_UNLOCK_CUMLEVEL },
+      extraConditions: [
+        { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.horticulturist },
+      ],
+    },
   },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
   //   (기사·사제)을 각각 jobCumLevel ≥ TIER3_UNLOCK_CUMLEVEL 키워야 열린다. 직업별 숙련도
@@ -645,7 +659,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 4,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 12, luk: 10 },
-    unlock: { prereqs: { horticulturist: FARMING_TIER4_UNLOCK_CUMLEVEL } },
+    unlock: {
+      prereqs: { horticulturist: FARMING_TIER4_UNLOCK_CUMLEVEL },
+      extraConditions: [
+        { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.masterfarmer },
+      ],
+    },
   },
   crusader: {
     id: "crusader",
@@ -791,7 +810,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 5,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 16, luk: 12 },
-    unlock: { prereqs: { masterfarmer: FARMING_TIER5_UNLOCK_CUMLEVEL } },
+    unlock: {
+      prereqs: { masterfarmer: FARMING_TIER5_UNLOCK_CUMLEVEL },
+      extraConditions: [
+        { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.harvestking },
+      ],
+    },
   },
   transcendent: {
     id: "transcendent",
@@ -902,7 +926,12 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 6,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 24, luk: 16 },
-    unlock: { prereqs: { harvestking: FARMING_TIER6_UNLOCK_CUMLEVEL } },
+    unlock: {
+      prereqs: { harvestking: FARMING_TIER6_UNLOCK_CUMLEVEL },
+      extraConditions: [
+        { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.earthartisan },
+      ],
+    },
   },
 };
 
@@ -916,6 +945,11 @@ export const V2_JOB_LIST: V2JobDefinition[] = Object.values(V2_JOB_CATALOG);
  */
 export const CATALOG_USES_QUEST_CONDITION: boolean = V2_JOB_LIST.some((job) =>
   (job.unlock.extraConditions ?? []).some((c) => c.type === "questCompleted"),
+);
+
+export const CATALOG_USES_FARMING_LEVEL_CONDITION: boolean = V2_JOB_LIST.some(
+  (job) =>
+    (job.unlock.extraConditions ?? []).some((c) => c.type === "farmingLevel"),
 );
 
 /** id → 정의 조회(없으면 undefined). */
@@ -941,6 +975,8 @@ function extraConditionMet(
       return ctx?.completedQuestIds?.has(cond.questId) ?? false;
     case "monsterKilled":
       return (ctx?.killCounts?.[cond.monsterId] ?? 0) >= cond.minCount;
+    case "farmingLevel":
+      return (ctx?.farmingLevel ?? 1) >= cond.min;
   }
 }
 
@@ -979,10 +1015,14 @@ export function jobUnlockSpBonus(
 //   예: "Lv 100 달성" / "사제 숙련도 1800" / "기사 숙련도 1800, 사제 숙련도 1800"(하이브리드).
 export function jobUnlockConditionText(job: V2JobDefinition): string {
   const prereqs = Object.entries(job.unlock.prereqs);
-  if (prereqs.length === 0) return `Lv ${V2_LEVEL_CAP} 달성`;
-  return prereqs
-    .map(([pid, lv]) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 숙련도 ${lv ?? 0}`)
-    .join(", ");
+  const conditions = prereqs.map(
+    ([pid, lv]) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 숙련도 ${lv ?? 0}`,
+  );
+  for (const cond of job.unlock.extraConditions ?? []) {
+    if (cond.type === "farmingLevel") conditions.push(`농사 Lv ${cond.min}`);
+  }
+  if (conditions.length === 0) return `Lv ${V2_LEVEL_CAP} 달성`;
+  return conditions.join(", ");
 }
 
 export function isDirectNextJob(

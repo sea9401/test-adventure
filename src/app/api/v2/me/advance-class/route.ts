@@ -40,11 +40,17 @@ import {
   jobUnlockSpBonus,
   jobIdFromLegacy,
   CATALOG_USES_QUEST_CONDITION,
+  CATALOG_USES_FARMING_LEVEL_CONDITION,
   LEGACY_CLASS_SPEC_BY_JOB,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import {
+  FARM_SAVE_KEY,
+  farmingLevelForState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 V2_LEVEL_CAP + v2JobCatalog
@@ -92,7 +98,12 @@ export async function POST(req: Request) {
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
     const skills = parseV2SkillsState(skillsRaw);
-    // 게이트(누적 숙련도)에 쓰므로 락 순서(character→skills→proficiency)대로 미리 잠가 읽는다.
+    const farmingLevel = CATALOG_USES_FARMING_LEVEL_CONDITION
+      ? farmingLevelForState(
+          parseFarmState(await lockSaveForUpdate(tx, userId, FARM_SAVE_KEY, {})),
+        )
+      : undefined;
+    // 게이트(누적 숙련도)에 쓰므로 락 순서(character→skills→farm→proficiency)대로 미리 잠가 읽는다.
     const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
         tx,
@@ -143,9 +154,12 @@ export async function POST(req: Request) {
       const isReJobToCurrent = targetJobId === currentJobId;
       // 해금 게이트 = 직업 숙련도 prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
       //   prereqs 비어 통과(위 레벨 한계가 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
-      const jobCtx: JobUnlockContext | undefined = CATALOG_USES_QUEST_CONDITION
-        ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
-        : undefined;
+      const jobCtx: JobUnlockContext | undefined = {
+        ...(CATALOG_USES_QUEST_CONDITION
+          ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
+          : {}),
+        ...(farmingLevel != null ? { farmingLevel } : {}),
+      };
       if (!isReJobToCurrent && !isJobUnlocked(jobDef, prof, jobCtx)) {
         return {
           status: 400,

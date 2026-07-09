@@ -6,6 +6,8 @@ export const FARM_MAX_PLOT_COUNT = 6;
 
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 
+export const FARMING_LEVEL_XP_SCALE = 10;
+
 export type FarmCropId = "wheat" | "herb" | "corn";
 
 export const FARM_CROP_REQUIRED_JOB_ID = "farmer";
@@ -99,6 +101,7 @@ export type FarmState = {
     deliveries: number;
     reputation: number;
     reputationSpent: number;
+    farmingXp: number;
   };
 };
 
@@ -111,6 +114,9 @@ export type FarmHarvestResult = {
   rareItemId: FarmItemId | null;
   rareItemName: string | null;
   rareQuantity: number;
+  farmingXpGained: number;
+  farmingXp: number;
+  farmingLevel: number;
 };
 
 export type FarmHarvestOptions = {
@@ -258,6 +264,7 @@ export function emptyFarmState(now = Date.now()): FarmState {
       deliveries: 0,
       reputation: 0,
       reputationSpent: 0,
+      farmingXp: 0,
     },
   };
 }
@@ -272,6 +279,7 @@ export function parseFarmState(raw: unknown): FarmState {
     deliveries: nonNegativeInt(value.stats?.deliveries),
     reputation: nonNegativeInt(value.stats?.reputation),
     reputationSpent: nonNegativeInt(value.stats?.reputationSpent),
+    farmingXp: nonNegativeInt(value.stats?.farmingXp),
   };
   const savedPlots = Array.isArray(value.plots) ? value.plots : [];
   const plotCount = Math.max(
@@ -448,6 +456,25 @@ export function normalizeFarmForDay(
 
 export function farmAvailableReputation(state: FarmState): number {
   return Math.max(0, state.stats.reputation - state.stats.reputationSpent);
+}
+
+export function farmCropMasteryGain(cropId: FarmCropId): number {
+  const crop = FARM_CROPS[cropId];
+  return Math.max(1, Math.round(crop.growMs / 60_000));
+}
+
+export function farmingLevelXpThreshold(level: number): number {
+  const safeLevel = Math.max(1, Math.floor(level));
+  return (safeLevel - 1) * (safeLevel - 1) * FARMING_LEVEL_XP_SCALE;
+}
+
+export function farmingLevelForXp(xp: number): number {
+  const safeXp = Math.max(0, Math.floor(xp));
+  return Math.floor(Math.sqrt(safeXp / FARMING_LEVEL_XP_SCALE)) + 1;
+}
+
+export function farmingLevelForState(state: FarmState): number {
+  return farmingLevelForXp(state.stats.farmingXp);
 }
 
 export function buyFarmShopItem(
@@ -747,6 +774,9 @@ export function harvestPlot(
   if (gotRare) {
     inventory[crop.rareItemId] = (inventory[crop.rareItemId] ?? 0) + 1;
   }
+  const farmingXpGained = farmCropMasteryGain(crop.id);
+  const farmingXp = state.stats.farmingXp + farmingXpGained;
+  const farmingLevel = farmingLevelForXp(farmingXp);
 
   return {
     state: {
@@ -761,6 +791,7 @@ export function harvestPlot(
         ...state.stats,
         harvests: state.stats.harvests + 1,
         rareHarvests: state.stats.rareHarvests + rareQuantity,
+        farmingXp,
       },
     },
     result: {
@@ -772,6 +803,9 @@ export function harvestPlot(
       rareItemId: gotRare ? crop.rareItemId : null,
       rareItemName: gotRare ? crop.rareItemName : null,
       rareQuantity,
+      farmingXpGained,
+      farmingXp,
+      farmingLevel,
     },
   };
 }

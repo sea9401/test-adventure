@@ -19,6 +19,7 @@ import {
   FARM_MAX_PLOT_COUNT,
   canPlantFarmCrop,
   farmAvailableReputation,
+  farmingLevelForState,
   nextFarmPlotUpgrade,
   type FarmCrop,
   type FarmCropId,
@@ -182,7 +183,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           result.rareItemName
             ? ` 희귀 수확: ${result.rareItemName} ${result.rareQuantity}개.`
             : ""
-        }`,
+        } 농사 XP +${result.farmingXpGained}.`,
       };
     }
     if (notice.kind === "shop") {
@@ -413,9 +414,10 @@ function FarmSummary({
     (plot) => plot.cropId && plot.readyAt && plot.readyAt <= now,
   ).length;
   const growingPlots = farm.plots.filter((plot) => plot.cropId).length;
+  const farmingLevel = farmingLevelForState(farm);
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
       <SummaryTile
         icon={<Leaf size={17} weight="duotone" />}
         label="씨앗"
@@ -429,6 +431,11 @@ function FarmSummary({
             ? `${farm.plots.length}칸 · 수확 ${readyPlots}`
             : `${farm.plots.length}칸 · 재배 ${growingPlots}`
         }
+      />
+      <SummaryTile
+        icon={<Sparkle size={17} weight="duotone" />}
+        label="농사 레벨"
+        value={`Lv ${farmingLevel.toLocaleString("ko-KR")}`}
       />
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}

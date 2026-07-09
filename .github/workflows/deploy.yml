@@ -57,7 +57,15 @@ jobs:
             echo "▶ [prod] clean previous Next build"
             rm -rf .next
             echo "▶ [prod] build"
+            ( while true; do sleep 60; echo "  build still running"; done ) &
+            build_heartbeat_pid=$!
+            set +e
             NODE_OPTIONS=--max-old-space-size=2048 npm run build
+            build_status=$?
+            set -e
+            kill "$build_heartbeat_pid" 2>/dev/null || true
+            wait "$build_heartbeat_pid" 2>/dev/null || true
+            [ "$build_status" -eq 0 ] || exit "$build_status"
             echo "▶ [prod] restart"
             sudo systemctl restart adventure-rpg
             sleep 2

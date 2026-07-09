@@ -1,8 +1,8 @@
 export const FARM_SAVE_KEY = "farm.v2";
 
-export const FARM_PLOT_COUNT = 3;
+export const FARM_PLOT_COUNT = 2;
 
-export const FARM_MAX_PLOT_COUNT = 5;
+export const FARM_MAX_PLOT_COUNT = 6;
 
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 
@@ -39,8 +39,10 @@ export type FarmPlotUpgrade = {
 };
 
 export const FARM_PLOT_UPGRADES: readonly FarmPlotUpgrade[] = [
-  { plotCount: 4, costReputation: 8, title: "두 번째 밭두렁" },
-  { plotCount: 5, costReputation: 20, title: "작은 공동 텃밭" },
+  { plotCount: 3, costReputation: 10, title: "작은 밭두렁" },
+  { plotCount: 4, costReputation: 25, title: "두 번째 밭두렁" },
+  { plotCount: 5, costReputation: 45, title: "작은 공동 텃밭" },
+  { plotCount: 6, costReputation: 70, title: "넓은 공동 텃밭" },
 ];
 
 export type FarmItemId =

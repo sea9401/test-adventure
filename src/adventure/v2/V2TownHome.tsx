@@ -4,7 +4,6 @@ import {
   Bank,
   Compass,
   FirstAid,
-  Fish,
   Hammer,
   PottedPlant,
   Storefront,
@@ -14,7 +13,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 생활 지도·치료소·은행·상점·대장간·낚시·농장.
+// 생활 지도·치료소·은행·상점·대장간·농장.
 // 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
 // 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
@@ -22,7 +21,6 @@ export type TownAction =
   | { kind: "open-healing" }
   | { kind: "open-shop" }
   | { kind: "open-smithy" }
-  | { kind: "open-fishing" }
   | { kind: "open-farm" }
   | { kind: "open-bank" }
   | { kind: "open-map" };
@@ -62,11 +60,6 @@ export function V2TownHome({
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
           title="대장간"
           onClick={() => onAction({ kind: "open-smithy" })}
-        />
-        <EntryCard
-          icon={<Fish size={28} weight="duotone" className="text-cyan-500" />}
-          title="낚시터"
-          onClick={() => onAction({ kind: "open-fishing" })}
         />
         <EntryCard
           icon={

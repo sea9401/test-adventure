@@ -221,6 +221,10 @@ export type V2CommonSkillId =
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
+  | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + ATB 지연)
+  | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 치명 한계 초과)
+  | "v2c_myriadvenom_mutation" // 만독변이 (중독 + 침식 + 중독 폭발)
+  | "v2c_myriadvenom_body" // 만독지체 (부식 + 체력 + 회피)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
@@ -1737,6 +1741,42 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { enemyMagicVulnPctPerStack: 12, enemyMagicVulnApplyChancePct: 100 },
+  },
+  v2c_heavenlybow_orbit: {
+    id: "v2c_heavenlybow_orbit", name: "천궁궤적", stat: "dex", category: "attack", tier: 3,
+    description: "하늘에 궤적을 그려 세 발을 순서대로 떨어뜨린다. 맞은 적은 다음 움직임과 빈틈까지 계산당한다.",
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      { kind: "damage", statCoef: 0.5, baseFlat: 190, scaling: "dex", pierceDamagePct: 22 },
+      { kind: "damage", statCoef: 0.5, baseFlat: 190, scaling: "dex", pierceDamagePct: 22 },
+      { kind: "damage", statCoef: 0.5, baseFlat: 190, scaling: "dex", pierceDamagePct: 22 },
+      { kind: "enemyVuln", pct: 18, turns: 3 },
+      { kind: "enemyDelay", pct: 45 },
+    ],
+  },
+  v2c_heavenlybow_starpath: {
+    id: "v2c_heavenlybow_starpath", name: "성도 조준", stat: "dex", category: "passive", tier: 3,
+    description: "화살이 별자리처럼 이어진다. 민첩과 명중이 오르고, 치명 한계를 넘긴 조준이 스킬에도 실린다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 20, critPct: 8, skillCritOverflow: true },
+  },
+  v2c_myriadvenom_mutation: {
+    id: "v2c_myriadvenom_mutation", name: "만독변이", stat: "luk", category: "attack", tier: 3,
+    description: "몸 안의 독을 전장에 맞춰 변이시킨다. 중독을 심고, 독이 깊을수록 더 큰 붕괴를 일으킨다.",
+    mpCost: 58, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 30, stacks: 6 },
+      { kind: "enemyDotVuln", pct: 28, turns: 3 },
+      { kind: "stackPayoffDamage", tag: "poison", statCoef: 0.3, baseFlatByTier: [260, 260, 260], perStackFlat: 48, scaling: "luk" },
+    ],
+  },
+  v2c_myriadvenom_body: {
+    id: "v2c_myriadvenom_body", name: "만독지체", stat: "luk", category: "passive", tier: 3,
+    description: "몸이 독의 그릇이 된다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { poisonedEnemyDefReductionPct: 45, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },
   },
   v2c_celestialdragon_combo: {
     id: "v2c_celestialdragon_combo", name: "천룡난무", stat: "str", category: "attack", tier: 3,

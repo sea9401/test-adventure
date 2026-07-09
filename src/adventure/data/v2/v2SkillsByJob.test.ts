@@ -778,6 +778,52 @@ describe("직업 킷 — 스킬셋", () => {
       enemyMagicVulnPctPerStack: 12,
       enemyMagicVulnApplyChancePct: 100,
     });
+    expect(skillsForJob("heavenlybow")).toEqual([
+      "v2c_heavenlybow_orbit",
+      "v2c_heavenlybow_starpath",
+    ]);
+    expect(V2_SKILLS.v2c_heavenlybow_orbit.category).toBe("attack");
+    expect(V2_SKILLS.v2c_heavenlybow_orbit.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "damage",
+      "damage",
+      "enemyVuln",
+      "enemyDelay",
+    ]);
+    expect(V2_SKILLS.v2c_heavenlybow_orbit.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "dex",
+      pierceDamagePct: 22,
+    });
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.category).toBe("passive");
+    expect(V2_SKILLS.v2c_heavenlybow_starpath.passive).toMatchObject({
+      statPct: { dex: 22, luk: 8 },
+      accuracyPct: 20,
+      critPct: 8,
+      skillCritOverflow: true,
+    });
+    expect(skillsForJob("myriadvenom")).toEqual([
+      "v2c_myriadvenom_mutation",
+      "v2c_myriadvenom_body",
+    ]);
+    expect(V2_SKILLS.v2c_myriadvenom_mutation.category).toBe("attack");
+    expect(V2_SKILLS.v2c_myriadvenom_mutation.effects.map((e) => e.kind)).toEqual([
+      "dot",
+      "enemyDotVuln",
+      "stackPayoffDamage",
+    ]);
+    expect(V2_SKILLS.v2c_myriadvenom_mutation.effects[0]).toMatchObject({
+      kind: "dot",
+      tag: "poison",
+      stacks: 6,
+    });
+    expect(V2_SKILLS.v2c_myriadvenom_body.category).toBe("passive");
+    expect(V2_SKILLS.v2c_myriadvenom_body.passive).toMatchObject({
+      poisonedEnemyDefReductionPct: 45,
+      maxHpPct: 12,
+      evasionPct: 12,
+      critDmgPct: 15,
+    });
     expect(skillsForJob("celestialdragon")).toEqual([
       "v2c_celestialdragon_combo",
       "v2c_celestialdragon_breath",

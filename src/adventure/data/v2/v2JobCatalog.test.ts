@@ -119,6 +119,8 @@ const TIER6_LINEAGE: Record<string, string> = {
   archmage: "arcanist",
   savior: "saint",
   doomprophet: "calamitycaller",
+  heavenlybow: "marksman",
+  myriadvenom: "plaguebringer",
   celestialdragon: "dragonfist",
   vajraarhat: "adamantmonk",
   eternal: "immortal",
@@ -149,8 +151,8 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("91개 직업(루트 2 + 기본 4 + 상위 15 + 고차 20 + 심화 21 + 5차 18 + 6차 11)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(91);
+  it("93개 직업(루트 2 + 기본 4 + 상위 15 + 고차 20 + 심화 21 + 5차 18 + 6차 13)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(93);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
@@ -158,7 +160,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(20);
     expect(byTier(4)).toBe(21);
     expect(byTier(5)).toBe(18);
-    expect(byTier(6)).toBe(11);
+    expect(byTier(6)).toBe(13);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -406,6 +408,16 @@ describe("해금 트리", () => {
       spec: "doomprophet",
     });
     expect(jobIdFromLegacy("mage", "doomprophet")).toBe("doomprophet");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.heavenlybow).toEqual({
+      class: "rogue",
+      spec: "heavenlybow",
+    });
+    expect(jobIdFromLegacy("rogue", "heavenlybow")).toBe("heavenlybow");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.myriadvenom).toEqual({
+      class: "rogue",
+      spec: "myriadvenom",
+    });
+    expect(jobIdFromLegacy("rogue", "myriadvenom")).toBe("myriadvenom");
     expect(LEGACY_CLASS_SPEC_BY_JOB.celestialdragon).toEqual({
       class: "martial",
       spec: "celestialdragon",

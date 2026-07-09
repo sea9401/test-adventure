@@ -848,8 +848,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
   });
 
   it("resolveV2SkillCast — 화염구(scaling magic)은 magicAtk 로 스케일", () => {
-    // 화염구: statCoef 1.0, baseFlat 180, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 1.0 + 180) - def 0 = 260. (procChance 30 이나 procRoll 미지정 = 항상 발동)
+    // 화염구: statCoef 1.25, baseFlat 260, scaling magic. atk 는 약하지만(5) magicAtk 80.
+    // 기대 직격: floor(80 × 1.25 + 260) - def 0 = 360. (procChance 30 이나 procRoll 미지정 = 항상 발동)
     const result = resolveV2SkillCast({
       skills: { learned: ["v2c_mage_fireball"], equipped: ["v2c_mage_fireball"] },
       cooldowns: {},

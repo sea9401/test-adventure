@@ -968,7 +968,8 @@ const MP_MARTIAL_JOBS = new Set([
 // 도적 ×0.7 — 물리/술수·MP 가벼움.
 const MP_ROGUE_JOBS = new Set([
   "rogue", "assassin", "archer", "venomist", "shadow", "ranger", "venomancer",
-  "phantom", "chief", "venomlord",
+  "phantom", "chief", "venomlord", "marksman", "nightshade", "plaguebringer",
+  "heavenlybow", "myriadvenom",
 ]);
 // default 1.0 = 병사 계보(warrior/shieldman/squire/paladin/guardian/veteran/warden)
 //   + 하이브리드(templar/spellblade) + none·스타터(v2_skill_).

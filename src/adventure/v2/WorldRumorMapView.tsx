@@ -57,6 +57,24 @@ const DIFFICULTY_TONE: Record<string, string> = {
     "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200",
 };
 
+type RegionFilter = "all" | WorldActivityKind | "other";
+
+const REGION_FILTERS: readonly { id: RegionFilter; label: string }[] = [
+  { id: "all", label: "전체" },
+  { id: "settlement", label: "마을" },
+  { id: "fishing", label: "낚시터" },
+  { id: "other", label: "기타" },
+];
+
+function regionMatchesFilter(
+  region: WorldActivityRegion,
+  filter: RegionFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "other") return region.kind !== "settlement" && region.kind !== "fishing";
+  return region.kind === filter;
+}
+
 function activityDescription(region: WorldActivityRegion): string {
   if (!isFishingSpotId(region.id)) return region.summary;
   const spot = FISHING_SPOTS[region.id];
@@ -116,12 +134,17 @@ function FishingSpotMeta({ id }: { id: string }) {
 }
 
 export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
   const [selectedId, setSelectedId] =
     useState<WorldActivityRegion["id"]>("village_pier");
+  const filteredRegions = WORLD_ACTIVITY_REGIONS.filter((region) =>
+    regionMatchesFilter(region, regionFilter),
+  );
   const selected =
-    WORLD_ACTIVITY_REGIONS.find((region) => region.id === selectedId) ??
-    WORLD_ACTIVITY_REGIONS[0];
-  const SelectedKindIcon = KIND_ICON[selected.kind];
+    filteredRegions.find((region) => region.id === selectedId) ??
+    filteredRegions[0] ??
+    null;
+  const SelectedKindIcon = selected ? KIND_ICON[selected.kind] : null;
 
   return (
     <PageShell spacing="normal">
@@ -143,9 +166,48 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
 
         <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
           <div className="space-y-2 border-b border-zinc-200 bg-zinc-50 p-3 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-            {WORLD_ACTIVITY_REGIONS.map((region) => {
+            <div className="grid grid-cols-4 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
+              {REGION_FILTERS.map((filter) => {
+                const active = regionFilter === filter.id;
+                const count = WORLD_ACTIVITY_REGIONS.filter((region) =>
+                  regionMatchesFilter(region, filter.id),
+                ).length;
+                return (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setRegionFilter(filter.id);
+                      const first = WORLD_ACTIVITY_REGIONS.find((region) =>
+                        regionMatchesFilter(region, filter.id),
+                      );
+                      if (first) setSelectedId(first.id);
+                    }}
+                    className={`min-w-0 rounded-md px-2 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-950 dark:text-zinc-100"
+                        : "text-zinc-500 hover:bg-white/60 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                    }`}
+                  >
+                    <span className="block truncate">{filter.label}</span>
+                    <span className="mt-0.5 block text-[10px] tabular-nums opacity-70">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {filteredRegions.length === 0 ? (
+              <div className="rounded-md border border-dashed border-zinc-300 bg-white px-3 py-8 text-center text-xs font-medium text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500">
+                표시할 지역 없음
+              </div>
+            ) : null}
+
+            {filteredRegions.map((region) => {
               const RegionIcon = KIND_ICON[region.kind];
-              const active = region.id === selected.id;
+              const active = region.id === selected?.id;
               return (
                 <button
                   key={region.id}
@@ -180,53 +242,63 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
           </div>
 
           <div className="space-y-3 p-4">
-            <div>
-              <div
-                className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold ${
-                  KIND_TONE[selected.kind]
-                }`}
-              >
-                <SelectedKindIcon size={14} weight="duotone" />
-                {WORLD_ACTIVITY_KIND_LABEL[selected.kind]}
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <MapPin
-                  size={18}
-                  weight="fill"
-                  className="shrink-0 text-zinc-500 dark:text-zinc-400"
-                />
-                <h3 className="min-w-0 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                  {selected.name}
-                </h3>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                {selected.headline}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                {activityDescription(selected)}
-              </p>
-            </div>
+            {selected && SelectedKindIcon ? (
+              <>
+                <div>
+                  <div
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold ${
+                      KIND_TONE[selected.kind]
+                    }`}
+                  >
+                    <SelectedKindIcon size={14} weight="duotone" />
+                    {WORLD_ACTIVITY_KIND_LABEL[selected.kind]}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <MapPin
+                      size={18}
+                      weight="fill"
+                      className="shrink-0 text-zinc-500 dark:text-zinc-400"
+                    />
+                    <h3 className="min-w-0 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                      {selected.name}
+                    </h3>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                    {selected.headline}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                    {activityDescription(selected)}
+                  </p>
+                </div>
 
-            <div className={`${SURFACE_INSET} flex flex-wrap gap-1.5 p-2`}>
-              {selected.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded bg-white px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                <div className={`${SURFACE_INSET} flex flex-wrap gap-1.5 p-2`}>
+                  {selected.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded bg-white px-2 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <FishingSpotMeta id={selected.id} />
+
+                <Link
+                  href={selected.action.href}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                 >
-                  {tag}
-                </span>
-              ))}
-            </div>
-
-            <FishingSpotMeta id={selected.id} />
-
-            <Link
-              href={selected.action.href}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-            >
-              <Waves size={16} weight="duotone" />
-              {selected.action.label}
-            </Link>
+                  <Waves size={16} weight="duotone" />
+                  {selected.action.label}
+                </Link>
+              </>
+            ) : (
+              <div className={`${SURFACE_INSET} px-4 py-10 text-center`}>
+                <div className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
+                  표시할 지역 없음
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>

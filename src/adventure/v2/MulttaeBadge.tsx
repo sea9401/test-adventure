@@ -10,7 +10,7 @@ import { FISH } from "@/adventure/data/v2/fish";
 
 const fmtRemain = (ms: number) => `${formatRemainingMinutesFloor(ms)} 뒤`;
 
-export function MulttaeBadge() {
+export function MulttaeBadge({ compact = false }: { compact?: boolean }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -20,6 +20,22 @@ export function MulttaeBadge() {
   const [cur, next] = multtaeForecast(now, 2);
   const c = cur.condition;
   const special = c.specialFishId ? FISH[c.specialFishId] : null;
+
+  if (compact) {
+    return (
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className="shrink-0 font-medium">
+          {c.emoji} {c.label}
+        </span>
+        <span className="min-w-0 truncate text-[11px] text-sky-700 dark:text-sky-300">
+          {special ? `특별한 손님 · ${special.name}` : c.effect.label}
+        </span>
+        <span className="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
+          {next.condition.emoji} {fmtRemain(cur.endsAt - now)}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-md border border-sky-200 bg-sky-50/60 px-2.5 py-1.5 text-xs dark:border-sky-900/60 dark:bg-sky-950/30">

@@ -13,6 +13,7 @@ import {
 import { FISH } from "@/adventure/data/v2/fish";
 import {
   FISHING_SPOTS,
+  FISHING_SPOT_DIFFICULTY_LABEL,
   fishNames,
   isFishingSpotId,
   tierCountsForSpot,
@@ -47,6 +48,15 @@ const TIER_LABEL: Record<string, string> = {
   legendary: "전설",
 };
 
+const DIFFICULTY_TONE: Record<string, string> = {
+  easy: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
+  normal:
+    "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-200",
+  hard: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200",
+  expert:
+    "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200",
+};
+
 function activityDescription(region: WorldActivityRegion): string {
   if (!isFishingSpotId(region.id)) return region.summary;
   const spot = FISHING_SPOTS[region.id];
@@ -61,8 +71,17 @@ function FishingSpotMeta({ id }: { id: string }) {
   return (
     <div className={`${SURFACE_INSET} space-y-2 p-2`}>
       <div>
-        <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-          어종 풀
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+            어종 풀
+          </div>
+          <span
+            className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${
+              DIFFICULTY_TONE[spot.difficulty]
+            }`}
+          >
+            난이도 {FISHING_SPOT_DIFFICULTY_LABEL[spot.difficulty]}
+          </span>
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
           {Object.entries(counts).map(([tier, count]) => (
@@ -146,7 +165,13 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                       {region.name}
                     </span>
                     <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
-                      {WORLD_ACTIVITY_KIND_LABEL[region.kind]}
+                      {isFishingSpotId(region.id)
+                        ? `낚시터 · ${
+                            FISHING_SPOT_DIFFICULTY_LABEL[
+                              FISHING_SPOTS[region.id].difficulty
+                            ]
+                          }`
+                        : WORLD_ACTIVITY_KIND_LABEL[region.kind]}
                     </span>
                   </span>
                 </button>

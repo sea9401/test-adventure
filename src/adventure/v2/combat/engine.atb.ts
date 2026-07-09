@@ -31,7 +31,7 @@ import {
 } from "./combatShared";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
-export const ATB_TICK_CAP = 50 * 26;
+export const ATB_TICK_CAP = 50 * 40;
 export const ATB_ACTION_GUARD = 1000;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {

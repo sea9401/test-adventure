@@ -82,7 +82,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "enhance",
     title: "장비 강화",
-    summary: "+0~+10 강화, 4갈래 결과, 강화석(붉은/푸른).",
+    summary: "무제한 강화, 4갈래 결과, 강화석(붉은/푸른).",
     group: "growth",
   },
   {

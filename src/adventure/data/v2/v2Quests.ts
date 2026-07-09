@@ -704,7 +704,7 @@ const ENHANCE: QuestDef[] = [
     chain: "enhance_level",
     line: "enhance",
     title: "전설의 +10",
-    desc: "장비 하나를 +10(최대)까지 강화하세요.",
+    desc: "장비 하나를 +10까지 강화하세요. 이후에도 더 올릴 수 있습니다.",
     reward: { gold: 5000, titleId: "ach_plus_ten" },
     check: (c) => c.maxEnhanceLevel >= 10,
   },
@@ -800,7 +800,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "enhance",
     name: "강화의 길",
-    subtitle: "대장간에서 장비를 단련하세요 — +10 전설까지.",
+    subtitle: "대장간에서 장비를 계속 단련하세요 — +10 이후는 장기 목표.",
     sequential: false,
   },
   {

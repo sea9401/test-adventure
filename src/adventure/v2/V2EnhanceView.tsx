@@ -3,7 +3,7 @@
 // 대장간 — 장비 강화 + 재련 화면 (docs/v2-equipment-enhance-plan.md PR-3).
 // 제작 콘텐츠 삭제(#621) 후 반쯤 죽어 있던 대장간을 강화 허브로 부활.
 // 모드 2종(상단 토글):
-//  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화(레벨 +0~10).
+//  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
 //  · 재련 — 장비 선택 → 골드로 옵션 굴림 재시도(항상 적용 = 도박). 엔드게임 골드 sink.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
@@ -40,7 +40,6 @@ import {
   type ReforgeStoneId,
 } from "@/adventure/data/v2/v2EquipVariance";
 import {
-  ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
@@ -218,7 +217,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const selected = owned.find((o) => o.iid === selectedIid) ?? null;
   const item = selected ? V2_EQUIPMENT[selected.id] : null;
   const level = selected?.enhance?.level ?? 0;
-  const maxed = level >= ENHANCE_MAX_LEVEL;
   const uniqueMult = item && isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
   const basePower =
     selected && item ? effectiveStats(item, selected.roll).power : 0;
@@ -465,7 +463,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       ? `${REFORGE_STONES[reforgeStone].name} 부족`
       : `재련 (${reforgeCost.toLocaleString()} G + 재련석 1)`;
   const mobileAction =
-    mode === "enhance" && selected && item && !maxed
+    mode === "enhance" && selected && item
       ? {
           title: `${selectedLevelLabel}${item.name}`,
           subtitle: `위력 ${curPower} → ${nextPower} · ${enhanceCostLabel}`,
@@ -584,23 +582,16 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
                   <div className="text-zinc-500 dark:text-zinc-400">다음 위력</div>
                   <div className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {maxed ? curPower : nextPower}
+                    {nextPower}
                   </div>
                 </div>
                 <div className="rounded bg-white/80 px-2 py-1 dark:bg-zinc-900/60">
                   <div className="text-zinc-500 dark:text-zinc-400">성공률</div>
-                  <div className="font-semibold">
-                    {maxed ? "완료" : `${successPct}%`}
-                  </div>
+                  <div className="font-semibold">{successPct}%</div>
                 </div>
               </div>
             </div>
-            {maxed ? (
-              <p className="text-sm text-amber-600 dark:text-amber-400">
-                최대 강화(+{ENHANCE_MAX_LEVEL}) 달성!
-              </p>
-            ) : (
-              <>
+            <>
                 <div className="text-sm tabular-nums">
                   위력 {curPower} →{" "}
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">
@@ -610,7 +601,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     (성공 시 +{level + 1})
                   </span>
                 </div>
-                {/* 강화 방식 — 골드(+7까지) / 강화석. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 방지 */}
+                {/* 강화 방식 — 골드(+7까지) / 강화석. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 완화 */}
                 <div className="flex gap-2">
                   {(["none", "blue", "red"] as const).map((s) => {
                     const disabled = s === "none" && stoneRequired;
@@ -698,7 +689,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   </span>
                   {outcomeRow[3] > 0 && stone !== "blue" && (
                     <span className="ui-quest-card is-claimable font-semibold text-rose-500">
-                      ⚠️ 파괴 위험 — 푸른 돌이 막아줍니다
+                      ⚠️ 파괴 위험
+                    </span>
+                  )}
+                  {outcomeRow[3] > 0 && stone === "blue" && (
+                    <span className="ui-quest-card is-claimable font-semibold text-rose-500">
+                      ⚠️ 푸른 돌: 파괴 완화
                     </span>
                   )}
                 </div>
@@ -711,8 +707,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 >
                   {enhanceActionLabel}
                 </Button>
-              </>
-            )}
+            </>
             {msg && (
               <StatusBanner tone={statusToneOf(msg.kind)}>
                 {msg.text}

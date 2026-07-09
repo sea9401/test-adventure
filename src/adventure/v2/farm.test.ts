@@ -16,6 +16,10 @@ import {
 } from "./farm";
 
 describe("adventurer farm", () => {
+  it("starts with two farm plots", () => {
+    expect(emptyFarmState().plots).toHaveLength(2);
+  });
+
   it("plants a crop into an empty plot", () => {
     const now = 1_000;
     const state = plantCrop(emptyFarmState(), "plot-1", "wheat", now);
@@ -154,7 +158,7 @@ describe("adventurer farm", () => {
     expect(next.stats.reputation).toBe(20);
     expect(next.stats.reputationSpent).toBe(12);
     expect(farmAvailableReputation(next)).toBe(8);
-    expect(next.plots).toHaveLength(3);
+    expect(next.plots).toHaveLength(2);
   });
 
   it("rejects farm shop purchases without enough available reputation", () => {
@@ -221,7 +225,7 @@ describe("adventurer farm", () => {
     expect(nextDay.deliveries.claimedIds).toEqual(["market-corn"]);
     expect(nextDay.stats.deliveries).toBe(3);
     expect(nextDay.stats.reputation).toBe(9);
-    expect(nextDay.plots).toHaveLength(3);
+    expect(nextDay.plots).toHaveLength(2);
   });
 
   it("claims a weekly delivery once per farm week and resets next week", () => {
@@ -260,29 +264,39 @@ describe("adventurer farm", () => {
       ...emptyFarmState(1_000),
       stats: {
         ...emptyFarmState(1_000).stats,
-        reputation: 28,
+        reputation: 150,
       },
     };
 
     expect(nextFarmPlotUpgrade(base)).toMatchObject({
-      plotCount: 4,
-      costReputation: 8,
+      plotCount: 3,
+      costReputation: 10,
     });
     const { state: first, result: firstResult } = buyFarmPlotUpgrade(base);
     expect(firstResult).toMatchObject({
-      plotCount: 4,
-      costReputation: 8,
+      plotCount: 3,
+      costReputation: 10,
     });
-    expect(first.plots).toHaveLength(4);
-    expect(first.stats.reputation).toBe(28);
-    expect(first.stats.reputationSpent).toBe(8);
-    expect(farmAvailableReputation(first)).toBe(20);
+    expect(first.plots).toHaveLength(3);
+    expect(first.stats.reputation).toBe(150);
+    expect(first.stats.reputationSpent).toBe(10);
+    expect(farmAvailableReputation(first)).toBe(140);
 
     const { state: second } = buyFarmPlotUpgrade(first);
-    expect(second.plots).toHaveLength(5);
-    expect(second.stats.reputationSpent).toBe(28);
-    expect(farmAvailableReputation(second)).toBe(0);
-    expect(nextFarmPlotUpgrade(second)).toBeNull();
+    expect(second.plots).toHaveLength(4);
+    expect(second.stats.reputationSpent).toBe(35);
+    expect(farmAvailableReputation(second)).toBe(115);
+
+    const { state: third } = buyFarmPlotUpgrade(second);
+    expect(third.plots).toHaveLength(5);
+    expect(third.stats.reputationSpent).toBe(80);
+    expect(farmAvailableReputation(third)).toBe(70);
+
+    const { state: fourth } = buyFarmPlotUpgrade(third);
+    expect(fourth.plots).toHaveLength(6);
+    expect(fourth.stats.reputationSpent).toBe(150);
+    expect(farmAvailableReputation(fourth)).toBe(0);
+    expect(nextFarmPlotUpgrade(fourth)).toBeNull();
   });
 
   it("rejects farm plot growth without enough available reputation", () => {
@@ -290,7 +304,7 @@ describe("adventurer farm", () => {
       ...emptyFarmState(1_000),
       stats: {
         ...emptyFarmState(1_000).stats,
-        reputation: 8,
+        reputation: 10,
         reputationSpent: 3,
       },
     };
@@ -303,7 +317,7 @@ describe("adventurer farm", () => {
       stats: { reputation: 20 },
     });
 
-    expect(parsed.plots).toHaveLength(3);
+    expect(parsed.plots).toHaveLength(2);
   });
 
   it("preserves purchased plot saves", () => {
@@ -314,15 +328,16 @@ describe("adventurer farm", () => {
         { id: "plot-3", cropId: null },
         { id: "plot-4", cropId: null },
         { id: "plot-5", cropId: null },
+        { id: "plot-6", cropId: null },
       ],
       stats: { reputation: 20, reputationSpent: 8 },
     });
 
-    expect(parsed.plots).toHaveLength(5);
-    expect(parsed.plots[4]).toMatchObject({ id: "plot-5", cropId: null });
+    expect(parsed.plots).toHaveLength(6);
+    expect(parsed.plots[5]).toMatchObject({ id: "plot-6", cropId: null });
   });
 
-  it("normalizes malformed saves to three stable plots", () => {
+  it("normalizes malformed saves to two stable plots", () => {
     const parsed = parseFarmState({
       plots: [{ id: "bad", cropId: "unknown", plantedAt: -1, readyAt: -1 }],
       inventory: { wheat: 2, nope: 10 },
@@ -331,7 +346,7 @@ describe("adventurer farm", () => {
       stats: { harvests: 3, reputation: 4 },
     });
 
-    expect(parsed.plots).toHaveLength(3);
+    expect(parsed.plots).toHaveLength(2);
     expect(parsed.plots[0].id).toBe("plot-1");
     expect(parsed.plots[0].cropId).toBeNull();
     expect(parsed.inventory).toEqual({ wheat: 2 });

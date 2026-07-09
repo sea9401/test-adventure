@@ -641,7 +641,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   masterfarmer: {
     id: "masterfarmer",
-    name: "농장장",
+    name: "숙련 농부",
     tier: 4,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 12, luk: 10 },
@@ -787,7 +787,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   harvestking: {
     id: "harvestking",
-    name: "풍작왕",
+    name: "농업 장인",
     tier: 5,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 16, luk: 12 },
@@ -898,7 +898,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   earthartisan: {
     id: "earthartisan",
-    name: "대지 장인",
+    name: "전설의 농부",
     tier: 6,
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 24, luk: 16 },

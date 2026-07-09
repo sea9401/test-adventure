@@ -58,11 +58,11 @@ const TABS: TabDef[] = [
     label: "마을",
     href: "/town",
     sub: [
-      { label: "생활 지도", href: "/map", Icon: Compass, color: "text-emerald-600" },
       { label: "치료소", href: "/town/healing", Icon: FirstAid, color: "text-rose-500" },
       { label: "은행", href: "/town/bank", Icon: Bank, color: "text-yellow-600" },
       { label: "상점", href: "/town/shop", Icon: Storefront, color: "text-emerald-600" },
       { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
+      { label: "생활 지도", href: "/map", Icon: Compass, color: "text-emerald-600" },
       { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
     ],
   },

@@ -64,9 +64,11 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("exploration_hq");
     expect(nextSettlementBuildingUpgrade("exploration_hq", 1)).toMatchObject({
       level: 2,
+      cost: { crop: 60, ore: 60, gold: 12_000_000, fame: 600 },
       missionProgressBonusPct: 10,
     });
     expect(explorationHqUpgradeForLevel(5)).toMatchObject({
+      cost: { crop: 600, ore: 600, gold: 80_000_000, fame: 5600 },
       weeklyMissionCount: 4,
       missionProgressBonusPct: 35,
     });

@@ -6,7 +6,6 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { Button } from "@/components/ui/Button";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   V2_EQUIP_SETS,
   V2_EQUIP_TAG_SETS,
@@ -42,6 +41,8 @@ import {
   type ItemCardEquipAction,
   type ItemCardLockAction,
 } from "./shared";
+
+const STAT_PANEL = "rounded-md bg-zinc-50 dark:bg-zinc-800";
 
 export function V2ItemCard({
   item,
@@ -142,7 +143,7 @@ export function V2ItemCard({
         role="dialog"
         aria-label={`${item.name} 정보`}
         style={{ position: "fixed", width, left, ...pos }}
-        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">
@@ -225,16 +226,16 @@ export function V2ItemCard({
         ) : (
           <>
             {baseRows.length > 0 && (
-              <div className={`${SURFACE_INSET} mt-3 space-y-0.5 p-2`}>
+              <div className={`${STAT_PANEL} mt-3 space-y-0.5 p-2.5`}>
                 {baseRows.map((s) => (
                   <StatRow key={s.label} row={s} />
                 ))}
               </div>
             )}
-            {/* 옵션 — 기본 스탯과 구분선으로 분리(품질 아래 선과 동일). */}
+            {/* 옵션 — 기본 스탯과 배경 블록으로 분리. */}
             {optionRows.length > 0 && (
               <div
-                className={`${SURFACE_INSET} mt-2 space-y-0.5 p-2`}
+                className={`${STAT_PANEL} mt-2 space-y-0.5 p-2.5`}
               >
                 {optionRows.map((s) => (
                   <StatRow key={s.label} row={s} />

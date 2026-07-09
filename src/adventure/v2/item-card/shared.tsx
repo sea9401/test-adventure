@@ -376,7 +376,7 @@ export function anchorOf(el: HTMLElement): ItemCardAnchor {
   return { top: r.top, bottom: r.bottom, left: r.left };
 }
 
-export const WIDTH = 256; // 카드 폭(px)
+export const WIDTH = 288; // 카드 폭(px)
 export const GAP = 6; // 앵커와 카드 사이 간격
 export const MARGIN = 8; // 뷰포트 가장자리 여백
 

@@ -66,7 +66,6 @@ import {
   proficiencySection,
   spFruitSection,
   tilePosOf,
-  treasureCodexSection,
 } from "./stateSections";
 import {
   loadCurrentOutpost,
@@ -87,7 +86,6 @@ const STATE_SAVE_KEYS = [
   "skills.v2",
   "proficiency.v2",
   "fishing-codex.v1",
-  "treasure-codex.v1",
   "treasure-fragments.v1",
   "adventure-log.v2",
   STAMINA_POTIONS_KEY,
@@ -165,7 +163,6 @@ export async function GET(req: Request) {
   const skillsRow = saveRow("skills.v2");
   const proficiencyRow = saveRow("proficiency.v2");
   const fishingCodexRow = saveRow("fishing-codex.v1");
-  const treasureCodexRow = saveRow("treasure-codex.v1");
   const treasureFragmentsRow = saveRow("treasure-fragments.v1");
   const adventureLogRow = saveRow("adventure-log.v2");
   const staminaPotionsRow = saveRow(STAMINA_POTIONS_KEY);
@@ -424,7 +421,6 @@ export async function GET(req: Request) {
             proficiencyRaw: proficiencyRow?.value,
             skillsRaw: skillsRow?.value,
             fishingCodexRaw: fishingCodexRow?.value,
-            treasureCodexRaw: treasureCodexRow?.value,
             equipmentCodexSpBonus: equipmentCodex.spBonus,
             jobUnlockCtx,
           }),
@@ -436,15 +432,7 @@ export async function GET(req: Request) {
     // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
     codex: materialCodexSection(charSave.materials),
     // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
-    fishingCodex: fishingCodexSection(
-      fishingCodexRow?.value,
-      treasureCodexRow?.value,
-    ),
-    // 유물 도감 진척 — V2CodexView 유물 탭 표시용. 종별 개인 최고 보존상태 동봉.
-    treasureCodex: treasureCodexSection(
-      fishingCodexRow?.value,
-      treasureCodexRow?.value,
-    ),
+    fishingCodex: fishingCodexSection(fishingCodexRow?.value),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
     // 칭호 — 모험의 서 "칭호" 탭이 보유 목록 표시 + 장착 토글에 사용.

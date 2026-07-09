@@ -99,8 +99,8 @@ describe("discovered 헬퍼", () => {
   });
 });
 
-describe("유물 도감 — 등급 완성 SP", () => {
-  it("등급별 전종 발견 시 1 SP, 일부 발견은 0 SP", () => {
+describe("유물 도감 — SP 보상 없음", () => {
+  it("등급별 전종 발견 시에도 SP 를 지급하지 않는다", () => {
     const commonIds = ANTIQUE_IDS.filter(
       (id) => ANTIQUES[id].tier === "common",
     );
@@ -108,14 +108,14 @@ describe("유물 도감 — 등급 완성 SP", () => {
     for (const [i, id] of commonIds.entries()) {
       codex = recordFind(codex, id, 30 + i, 1000 + i);
     }
-    expect(treasureCodexSpBonus(codex)).toBe(1);
+    expect(treasureCodexSpBonus(codex)).toBe(0);
     expect(
       antiqueTierCompletions(codex).find((tier) => tier.tier === "common"),
     ).toMatchObject({
       discovered: commonIds.length,
       total: commonIds.length,
       complete: true,
-      sp: 1,
+      sp: 0,
     });
 
     const firstCommon = commonIds[0];

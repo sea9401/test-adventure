@@ -85,11 +85,6 @@ import {
   nextFishCodexMilestone,
   parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
-import { ANTIQUE_TOTAL } from "@/adventure/data/v2/antique";
-import {
-  discoveredAntiqueIds,
-  parseTreasureCodex,
-} from "@/adventure/v2/treasureCodex";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 import type { derivePlayerCombatV2FromSaves } from "@/lib/server/derivePlayerCombatV2";
 
@@ -299,7 +294,6 @@ export function loadoutSection(params: {
   proficiencyRaw: unknown;
   skillsRaw: unknown;
   fishingCodexRaw: unknown;
-  treasureCodexRaw: unknown;
   equipmentCodexSpBonus: number;
   jobUnlockCtx?: JobUnlockContext;
 }) {
@@ -308,14 +302,13 @@ export function loadoutSection(params: {
     proficiencyRaw,
     skillsRaw,
     fishingCodexRaw,
-    treasureCodexRaw,
     equipmentCodexSpBonus: equipmentCodexBonus,
     jobUnlockCtx,
   } = params;
   const prof = parseProficiencyForChar(proficiencyRaw, charSave);
   const skillsState = parseV2SkillsState(skillsRaw);
   const equippedSet = new Set<string>(skillsState.equipped);
-  const collectionBonus = codexSpBonusFromRaw(fishingCodexRaw, treasureCodexRaw);
+  const collectionBonus = codexSpBonusFromRaw(fishingCodexRaw, {});
   const spFruitBonus = spCapBonusFromRaw(charSave.spFruitUsed);
   const spBudgetGroups = Object.fromEntries(
     V2_SELECTABLE_CLASSES.map((id) => [
@@ -396,7 +389,6 @@ export function loadoutSection(params: {
       collectionBonusSp: collectionBonus.total,
       collectionBonus: {
         fishSp: collectionBonus.fishSp,
-        treasureSp: collectionBonus.treasureSp,
       },
       groups,
     },
@@ -416,10 +408,7 @@ export function materialCodexSection(materialsRaw: unknown) {
 }
 
 // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
-export function fishingCodexSection(
-  fishingCodexRaw: unknown,
-  treasureCodexRaw: unknown,
-) {
+export function fishingCodexSection(fishingCodexRaw: unknown) {
   const codex = parseFishCodex(fishingCodexRaw);
   const ids = discoveredFishIds(codex);
   const best: Record<string, number> = {};
@@ -431,26 +420,7 @@ export function fishingCodexSection(
     spBonus: fishCodexSpBonus(codex),
     milestones: [...FISHING_CODEX_SP_MILESTONES],
     nextMilestone: nextFishCodexMilestone(ids.length),
-    tierCompletions: codexSpBonusFromRaw(fishingCodexRaw, treasureCodexRaw)
-      .fishTiers,
-  };
-}
-
-// 유물 도감 진척 — V2CodexView 유물 탭 표시용. 종별 개인 최고 보존상태 동봉.
-export function treasureCodexSection(
-  fishingCodexRaw: unknown,
-  treasureCodexRaw: unknown,
-) {
-  const codex = parseTreasureCodex(treasureCodexRaw);
-  const ids = discoveredAntiqueIds(codex);
-  const best: Record<string, number> = {};
-  for (const id of ids) best[id] = codex.antiques[id].bestCondition;
-  return {
-    discoveredIds: ids,
-    total: ANTIQUE_TOTAL,
-    best,
-    tierCompletions: codexSpBonusFromRaw(fishingCodexRaw, treasureCodexRaw)
-      .treasureTiers,
+    tierCompletions: codexSpBonusFromRaw(fishingCodexRaw, {}).fishTiers,
   };
 }
 

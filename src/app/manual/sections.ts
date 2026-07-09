@@ -118,7 +118,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "compendium",
     title: "모험의 서",
-    summary: "재료·어보·유물 도감과 전직 게이트.",
+    summary: "재료·어보 도감과 전직 게이트.",
     group: "world",
   },
   {

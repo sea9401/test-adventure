@@ -59,14 +59,6 @@ import {
   formatFishSize,
   type FishTier,
 } from "@/adventure/data/v2/fish";
-import {
-  ANTIQUES,
-  ANTIQUE_IDS,
-  ANTIQUE_TIERS,
-  ANTIQUE_TIER_ORDER,
-  ANTIQUE_THEME_LABEL,
-  formatCondition,
-} from "@/adventure/data/v2/antique";
 import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 import type { V2LoadoutSpBreakdown } from "./V2LoadoutPanel";
@@ -80,7 +72,7 @@ import { COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { CodexEquipmentPanel } from "./CodexEquipmentPanel";
 import { CodexTitlePanel } from "./CodexTitlePanel";
 
-// v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 유물(골동품) + 직업(거쳐온 직업/스킬 수집) 탭.
+// v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 직업(거쳐온 직업/스킬 수집) 탭.
 // 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
 
 // floor id → "들판 (Lv 1~5)" 식 표시명. MAIN_DUNGEON 이 단일 출처.
@@ -106,7 +98,7 @@ function formatAmount(s: MaterialDropSource): string {
     : `×${s.amountMin}~${s.amountMax}`;
 }
 
-// 도감 티어 배지 색 — 어보·유물 공용(티어 키가 동일).
+// 도감 티어 배지 색 — 어보 티어.
 const TIER_BADGE: Record<FishTier, string> = {
   common:
     "bg-zinc-200/70 text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300",
@@ -139,7 +131,6 @@ type CodexTab =
   | "equipment"
   | "spFruit"
   | "fish"
-  | "treasure"
   | "title"
   | "job";
 
@@ -211,15 +202,12 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   // 내 도감 진척 — /me/state 가 권위. 재료: 수집한 id 집합. 어보: 발견 id + 종별 최대어.
-  // 유물: 발견 id + 종별 최고 보존상태.
   const [discovered, setDiscovered] = useState<Set<string>>(new Set());
   const [fishDiscovered, setFishDiscovered] = useState<Set<string>>(new Set());
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
   const [fishingCodexMeta, setFishingCodexMeta] = useState<FishingCodexMeta>(
     () => defaultFishingCodexMeta(),
   );
-  const [antiqueDiscovered, setAntiqueDiscovered] = useState<Set<string>>(new Set());
-  const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
   const [frontierDepth, setFrontierDepth] = useState(0);
   const [spFruitUsed, setSpFruitUsed] = useState<Record<SpFruitTier, number>>(
@@ -280,13 +268,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         });
         if (j?.fishingCodex?.best && typeof j.fishingCodex.best === "object") {
           setFishBest(j.fishingCodex.best as Record<string, number>);
-        }
-        // 유물 진척은 발굴 PR 에서 라우트가 채운다. 없으면 빈 상태(전종 미발견).
-        if (Array.isArray(j?.treasureCodex?.discoveredIds)) {
-          setAntiqueDiscovered(new Set(j.treasureCodex.discoveredIds as string[]));
-        }
-        if (j?.treasureCodex?.best && typeof j.treasureCodex.best === "object") {
-          setAntiqueBest(j.treasureCodex.best as Record<string, number>);
         }
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
@@ -381,7 +362,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   );
   const spFishBonus =
     spBreakdown?.collectionBonus?.fishSp ?? fishingCodexMeta.spBonus;
-  const spTreasureBonus = spBreakdown?.collectionBonus?.treasureSp ?? 0;
   const spEquipmentBonus = spBreakdown?.equipmentCodexBonus ?? 0;
   const spJobUnlockBonus = spBreakdown?.jobUnlockSp ?? 0;
   const spSoftCapReduction = spBreakdown?.softCapReduction ?? 0;
@@ -393,7 +373,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         spSoftCapReduction +
         spBreakdown.spFruitBonus +
         spFishBonus +
-        spTreasureBonus +
         spEquipmentBonus;
   const spSourceRows = [
     {
@@ -411,12 +390,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       label: "어보",
       value: spFishBonus,
       detail: "낚시 도감 보상",
-      signed: true,
-    },
-    {
-      label: "유물",
-      value: spTreasureBonus,
-      detail: "발굴 도감 보상",
       signed: true,
     },
     {
@@ -455,17 +428,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                 jobUnlockProgress.total || Math.max(spJobUnlockBonus, 1)
               }직업`,
             }
-          : row.label === "어보"
-            ? {
-                current: fishDiscovered.size,
-                total: fishingCodexMeta.total,
-                label: `수집 ${fishDiscovered.size}/${fishingCodexMeta.total}종`,
-              }
-            : row.label === "유물"
+            : row.label === "어보"
               ? {
-                  current: antiqueDiscovered.size,
-                  total: ANTIQUE_IDS.length,
-                  label: `수집 ${antiqueDiscovered.size}/${ANTIQUE_IDS.length}종`,
+                  current: fishDiscovered.size,
+                  total: fishingCodexMeta.total,
+                  label: `수집 ${fishDiscovered.size}/${fishingCodexMeta.total}종`,
                 }
               : row.label === "장비 도감"
                 ? {
@@ -504,7 +471,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ["equipment", "장비"],
             ["spFruit", "SP 수집"],
             ["fish", "어보"],
-            ["treasure", "유물"],
             ["title", "칭호"],
             ["job", "직업"],
           ] as const
@@ -1037,88 +1003,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                         {found && fish.description && (
                           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                             {fish.description}
-                          </p>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-      {tab === "treasure" && (
-        <div className="space-y-3">
-          {ANTIQUE_TIER_ORDER.map((tier) => {
-            const meta = ANTIQUE_TIERS[tier];
-            const kinds = ANTIQUE_IDS.filter((id) => ANTIQUES[id].tier === tier);
-            const discoveredCount = kinds.filter((id) =>
-              antiqueDiscovered.has(id),
-            ).length;
-            const complete =
-              kinds.length > 0 && discoveredCount === kinds.length;
-            return (
-              <Card key={tier} padding="none" className="overflow-hidden">
-                <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40">
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${TIER_BADGE[tier]}`}
-                  >
-                    {meta.label}
-                  </span>
-                  <div className="flex flex-wrap justify-end gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    <span>
-                      {discoveredCount}/{kinds.length}
-                    </span>
-                    <span
-                      className={
-                        complete
-                          ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                          : ""
-                      }
-                    >
-                      {complete ? "SP +1 획득" : "완성 시 SP +1"}
-                    </span>
-                  </div>
-                </div>
-                <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {kinds.map((id) => {
-                    const antique = ANTIQUES[id];
-                    const found = antiqueDiscovered.has(id);
-                    const best = antiqueBest[id];
-                    return (
-                      <li
-                        key={id}
-                        className={`px-3 py-2.5 ${found ? "" : "opacity-50"}`}
-                      >
-                        <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            🏺 {found ? antique.name : "???"}
-                            {found ? (
-                              <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                                등재
-                              </span>
-                            ) : (
-                              <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
-                                미발견
-                              </span>
-                            )}
-                          </span>
-                          {found && typeof best === "number" && best > 0 && (
-                            <span className="shrink-0 text-[11px] font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                              최고 {formatCondition(best)}
-                            </span>
-                          )}
-                        </div>
-                        {found && (
-                          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                            {ANTIQUE_THEME_LABEL[antique.theme]} · 감정가 기준{" "}
-                            {antique.baseValue}골드
-                          </p>
-                        )}
-                        {found && antique.description && (
-                          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                            {antique.description}
                           </p>
                         )}
                       </li>

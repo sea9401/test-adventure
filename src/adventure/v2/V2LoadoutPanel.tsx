@@ -54,7 +54,6 @@ export type V2LoadoutSpBreakdown = {
   collectionBonusSp: number;
   collectionBonus?: {
     fishSp: number;
-    treasureSp: number;
   };
   groups: Array<{
     id: string;

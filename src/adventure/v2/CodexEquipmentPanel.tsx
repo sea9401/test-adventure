@@ -5,12 +5,10 @@ import {
   CheckCircle,
   Circle,
   Diamond,
-  DownloadSimple,
   HandFist,
   Shield,
   Sneaker,
   Sword,
-  UploadSimple,
   type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -40,25 +38,6 @@ import {
 import {
   TITLES,
 } from "@/adventure/data/titles";
-import {
-  V2_BUILD_TAG_LABEL,
-  V2_EQUIPMENT_CODEX_BUILD_TAG_FILTERS,
-  buildTagsForEquipment,
-  equipmentHasBuildTag,
-  type V2BuildTagId,
-} from "@/adventure/data/v2/buildTags";
-import {
-  DEFAULT_BUILD_PRESET_CONDITIONS,
-  MAX_ACTIVE_BUILD_GOALS,
-  V2_BUILD_PRESETS,
-  normalizeBuildPresetConditions,
-  parseBuildGoalsExport,
-  recommendBuildPresets,
-  serializeBuildGoalsExport,
-  type V2BuildPresetConditionKey,
-  type V2BuildPresetId,
-} from "@/adventure/data/v2/buildPresets";
-import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 // 모험의 서 — 장비 도감 탭(V2CodexView 에서 분리, 2026-07). 탭 진입 시 lazy fetch(도감+보유)
 // + 개별/일괄 등록 mutation 까지 자립. 부모 의존은 아이템 상세 카드 팝오버(onShowCard)뿐.
@@ -81,19 +60,6 @@ type EquipmentCodexResponse = Partial<EquipmentCodexMeta> & {
   codexRewards?: unknown;
   artisanXpReward?: unknown;
 };
-
-type BuildGoalsResponse = {
-  ok?: boolean;
-  activePresetIds?: unknown;
-};
-
-type LoadoutResponse = {
-  ok?: boolean;
-  learned?: unknown;
-  equipped?: unknown;
-};
-
-type BuildGoalBusy = V2BuildPresetId | "import";
 
 type EquipmentCraftRecordView = {
   recipeId?: string;
@@ -128,15 +94,6 @@ const DEFAULT_EQUIPMENT_CODEX_META: EquipmentCodexMeta = {
   milestones: [],
   nextMilestone: null,
 };
-const BUILD_CONDITION_CONTROLS: readonly {
-  key: V2BuildPresetConditionKey;
-  label: string;
-}[] = [
-  { key: "equipmentOwned", label: "보유" },
-  { key: "equipmentRegistered", label: "도감" },
-  { key: "skillsLearned", label: "학습" },
-  { key: "skillsEquipped", label: "장착" },
-];
 const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
   const ia = V2_EQUIPMENT[a];
   const ib = V2_EQUIPMENT[b];
@@ -147,17 +104,6 @@ const EQUIPMENT_CODEX_ENTRIES = [...EQUIPMENT_IDS].sort((a, b) => {
     ia.name.localeCompare(ib.name, "ko")
   );
 });
-type EquipmentBuildFilter = "all" | V2BuildTagId;
-const EQUIPMENT_BUILD_FILTERS: readonly {
-  key: EquipmentBuildFilter;
-  label: string;
-}[] = [
-  { key: "all", label: "전체" },
-  ...V2_EQUIPMENT_CODEX_BUILD_TAG_FILTERS.map((tag) => ({
-    key: tag,
-    label: V2_BUILD_TAG_LABEL[tag],
-  })),
-];
 
 function compareEquipmentCodexCandidate(
   a: V2EquipInstance,
@@ -179,14 +125,6 @@ function compareEquipmentCodexCandidate(
     : 0;
   if (powerA !== powerB) return powerA - powerB;
   return a.iid.localeCompare(b.iid);
-}
-
-function equipmentMatchesBuildFilter(
-  item: V2Equipment,
-  filter: EquipmentBuildFilter,
-): boolean {
-  if (filter === "all") return true;
-  return equipmentHasBuildTag(item, filter);
 }
 
 function parseEquipmentCraftRecord(raw: unknown): EquipmentCraftRecordView | null {
@@ -302,22 +240,6 @@ export function CodexEquipmentPanel({
   const [equipmentCodexMsg, setEquipmentCodexMsg] = useState<string | null>(null);
   const [equipmentCodexSlot, setEquipmentCodexSlot] =
     useState<V2EquipSlot>("weapon");
-  const [equipmentBuildFilter, setEquipmentBuildFilter] =
-    useState<EquipmentBuildFilter>("all");
-  const [buildProgressConditions, setBuildProgressConditions] = useState(
-    DEFAULT_BUILD_PRESET_CONDITIONS,
-  );
-  const [activeBuildGoalIds, setActiveBuildGoalIds] = useState<
-    Set<V2BuildPresetId>
-  >(new Set());
-  const [learnedBuildSkillIds, setLearnedBuildSkillIds] = useState<
-    Set<V2SkillId>
-  >(new Set());
-  const [equippedBuildSkillIds, setEquippedBuildSkillIds] = useState<
-    Set<V2SkillId>
-  >(new Set());
-  const [buildGoalBusy, setBuildGoalBusy] = useState<BuildGoalBusy | null>(null);
-  const [buildGoalMsg, setBuildGoalMsg] = useState<string | null>(null);
 
   function applyEquipmentCodexPayload(j: EquipmentCodexResponse | null) {
     if (!j) return;
@@ -339,40 +261,6 @@ export function CodexEquipmentPanel({
     setEquipmentCraftRecords(parseEquipmentCraftRecords(j.craftRecords));
   }
 
-  function applyBuildGoalsPayload(j: BuildGoalsResponse | null) {
-    if (!j || !Array.isArray(j.activePresetIds)) return;
-    const ids = j.activePresetIds.filter((id): id is V2BuildPresetId =>
-      V2_BUILD_PRESETS.some((preset) => preset.id === id),
-    );
-    setActiveBuildGoalIds(new Set(ids));
-  }
-
-  function applyLoadoutPayload(j: LoadoutResponse | null) {
-    const learnedRaw = Array.isArray(j?.learned) ? j.learned : [];
-    const learned = learnedRaw.filter(
-      (id): id is V2SkillId =>
-        typeof id === "string" && Boolean(V2_SKILLS[id as V2SkillId]),
-    );
-    const learnedSet = new Set(learned);
-    const equippedRaw = Array.isArray(j?.equipped) ? j.equipped : [];
-    const equipped = equippedRaw.filter(
-      (id): id is V2SkillId =>
-        typeof id === "string" &&
-        Boolean(V2_SKILLS[id as V2SkillId]) &&
-        learnedSet.has(id as V2SkillId),
-    );
-    setLearnedBuildSkillIds(learnedSet);
-    setEquippedBuildSkillIds(new Set(equipped));
-  }
-
-  function toggleBuildProgressCondition(key: V2BuildPresetConditionKey) {
-    setBuildProgressConditions((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      if (!Object.values(next).some(Boolean)) return prev;
-      return normalizeBuildPresetConditions(next);
-    });
-  }
-
   useEffect(() => {
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 장비 탭 진입 시 도감/보유 장비 lazy fetch
@@ -381,14 +269,10 @@ export function CodexEquipmentPanel({
     Promise.all([
       fetch("/api/v2/me/equipment-codex").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/v2/me/build-goals").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/v2/me/loadout").then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([codex, equipment, buildGoals, loadout]) => {
+      .then(([codex, equipment]) => {
         if (!alive) return;
         applyEquipmentCodexPayload(codex as EquipmentCodexResponse | null);
-        applyBuildGoalsPayload(buildGoals as BuildGoalsResponse | null);
-        applyLoadoutPayload(loadout as LoadoutResponse | null);
         if (equipment && Array.isArray(equipment.owned)) {
           setOwnedEquipment(equipment.owned as V2EquipInstance[]);
         }
@@ -408,93 +292,6 @@ export function CodexEquipmentPanel({
       alive = false;
     };
   }, []);
-
-  async function toggleBuildGoal(presetId: V2BuildPresetId) {
-    if (buildGoalBusy) return;
-    const preset = V2_BUILD_PRESETS.find((entry) => entry.id === presetId);
-    const active = !activeBuildGoalIds.has(presetId);
-    const before = new Set(activeBuildGoalIds);
-    setBuildGoalBusy(presetId);
-    setBuildGoalMsg(null);
-    setActiveBuildGoalIds((prev) => {
-      const next = new Set(prev);
-      if (active) {
-        next.delete(presetId);
-        return new Set([presetId, ...next].slice(0, MAX_ACTIVE_BUILD_GOALS));
-      }
-      next.delete(presetId);
-      return next;
-    });
-    try {
-      const res = await fetch("/api/v2/me/build-goals", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ presetId, active }),
-      });
-      const j = (await res.json().catch(() => null)) as BuildGoalsResponse | null;
-      if (!res.ok || !j?.ok) throw new Error("failed");
-      applyBuildGoalsPayload(j);
-      setBuildGoalMsg(
-        active
-          ? `${preset?.name ?? "빌드"} 목표로 지정했어요`
-          : `${preset?.name ?? "빌드"} 목표를 해제했어요`,
-      );
-    } catch {
-      setActiveBuildGoalIds(before);
-      setBuildGoalMsg("빌드 목표를 저장하지 못했어요");
-    } finally {
-      setBuildGoalBusy(null);
-    }
-  }
-
-  async function exportBuildGoals() {
-    const code = serializeBuildGoalsExport({
-      activePresetIds: [...activeBuildGoalIds],
-    });
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("clipboard");
-      await navigator.clipboard.writeText(code);
-      setBuildGoalMsg("빌드 목표 코드를 복사했어요");
-    } catch {
-      window.prompt("빌드 목표 코드", code);
-      setBuildGoalMsg("빌드 목표 코드를 만들었어요");
-    }
-  }
-
-  async function importBuildGoals() {
-    if (buildGoalBusy) return;
-    const code = window.prompt("가져올 빌드 목표 코드");
-    if (!code) return;
-    const parsed = parseBuildGoalsExport(code);
-    if (!parsed) {
-      setBuildGoalMsg("빌드 목표 코드를 읽지 못했어요");
-      return;
-    }
-    const before = new Set(activeBuildGoalIds);
-    setBuildGoalBusy("import");
-    setBuildGoalMsg(null);
-    setActiveBuildGoalIds(new Set(parsed.activePresetIds));
-    try {
-      const res = await fetch("/api/v2/me/build-goals", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(parsed),
-      });
-      const j = (await res.json().catch(() => null)) as BuildGoalsResponse | null;
-      if (!res.ok || !j?.ok) throw new Error("failed");
-      applyBuildGoalsPayload(j);
-      setBuildGoalMsg(
-        parsed.activePresetIds.length > 0
-          ? "빌드 목표를 가져왔어요"
-          : "빌드 목표를 비웠어요",
-      );
-    } catch {
-      setActiveBuildGoalIds(before);
-      setBuildGoalMsg("빌드 목표를 가져오지 못했어요");
-    } finally {
-      setBuildGoalBusy(null);
-    }
-  }
 
   async function submitEquipmentCodexRegistration(inst: V2EquipInstance) {
     const res = await fetch("/api/v2/me/equipment-codex", {
@@ -555,9 +352,6 @@ export function CodexEquipmentPanel({
     if (equipmentCodexBusy) return;
     const candidates = equipmentEntries
       .filter((id) => V2_EQUIPMENT[id].slot === slot)
-      .filter((id) =>
-        equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
-      )
       .filter((id) => !equipmentRegisteredIds.has(id))
       .map((id) => equipmentCounts.eligible.get(id)?.[0] ?? null)
       .filter((inst): inst is V2EquipInstance => Boolean(inst));
@@ -621,24 +415,12 @@ export function CodexEquipmentPanel({
     }
     return { owned, eligible };
   })();
-  const ownedBuildEquipmentIds = new Set(equipmentCounts.owned.keys());
-  const buildRecommendations = recommendBuildPresets(V2_BUILD_PRESETS, {
-    ownedEquipmentIds: ownedBuildEquipmentIds,
-    registeredEquipmentIds: equipmentRegisteredIds,
-    learnedSkillIds: learnedBuildSkillIds,
-    equippedSkillIds: equippedBuildSkillIds,
-    conditions: buildProgressConditions,
-  });
-  const topBuildRecommendations = buildRecommendations.slice(0, 3);
   const equipmentSlotEntries = equipmentEntries
-    .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot)
-    .filter((id) =>
-      equipmentMatchesBuildFilter(V2_EQUIPMENT[id], equipmentBuildFilter),
-    );
+    .filter((id) => V2_EQUIPMENT[id].slot === equipmentCodexSlot);
   const equipmentSlotPager = usePagination(
     equipmentSlotEntries,
     EQUIPMENT_CODEX_PAGE_SIZE,
-    `${equipmentCodexSlot}:${equipmentBuildFilter}`,
+    equipmentCodexSlot,
   );
   const equipmentSlotRegisteredCount = equipmentSlotEntries.filter((id) =>
     equipmentRegisteredIds.has(id),
@@ -771,303 +553,6 @@ export function CodexEquipmentPanel({
           </Card>
 
           <Card padding="md">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <h2 className="text-sm font-bold">빌드 프리셋 아이디어</h2>
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => void exportBuildGoals()}
-                  className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <DownloadSimple size={13} weight="bold" />
-                  내보내기
-                </button>
-                <button
-                  type="button"
-                  disabled={Boolean(buildGoalBusy)}
-                  onClick={() => void importBuildGoals()}
-                  className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  <UploadSimple size={13} weight="bold" />
-                  {buildGoalBusy === "import" ? "가져오는 중" : "가져오기"}
-                </button>
-                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  목표 {activeBuildGoalIds.size}/{MAX_ACTIVE_BUILD_GOALS}
-                </span>
-              </div>
-            </div>
-            {buildGoalMsg && (
-              <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-                {buildGoalMsg}
-              </p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                계산 조건
-              </span>
-              {BUILD_CONDITION_CONTROLS.map((condition) => {
-                const active = buildProgressConditions[condition.key];
-                return (
-                  <label
-                    key={condition.key}
-                    className={`inline-flex cursor-pointer items-center gap-1 rounded border px-2 py-1 text-[11px] font-semibold transition ${
-                      active
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={() => toggleBuildProgressCondition(condition.key)}
-                      className="h-3 w-3 accent-emerald-600"
-                    />
-                    {condition.label}
-                  </label>
-                );
-              })}
-            </div>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              {topBuildRecommendations.map(({ preset, progress, rank, reason }) => (
-                <div
-                  key={preset.id}
-                  className="rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/40"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                      추천 {rank}
-                    </span>
-                    <span className="text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                      {progress.pct}%
-                    </span>
-                  </div>
-                  <div className="mt-1 truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">
-                    {preset.name}
-                  </div>
-                  <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {reason}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 grid gap-2 lg:grid-cols-2">
-              {buildRecommendations.map(({ preset, progress, rank, reason }) => {
-                const goalActive = activeBuildGoalIds.has(preset.id);
-                const busy = buildGoalBusy === preset.id;
-                const missingEquipmentText = progress.conditions.equipmentOwned
-                  ? progress.missingEquipmentIds
-                      .slice(0, 2)
-                      .map((id) => V2_EQUIPMENT[id]?.name ?? id)
-                      .join(" · ")
-                  : "";
-                const missingSkillText = progress.conditions.skillsLearned
-                  ? progress.missingSkillIds
-                      .slice(0, 2)
-                      .map((id) => V2_SKILLS[id]?.name ?? id)
-                      .join(" · ")
-                  : "";
-                const unequippedSkillText = progress.conditions.skillsEquipped
-                  ? progress.unequippedLearnedSkillIds
-                      .slice(0, 2)
-                      .map((id) => V2_SKILLS[id]?.name ?? id)
-                      .join(" · ")
-                  : "";
-                return (
-                  <div
-                    key={preset.id}
-                    className={`rounded-lg border p-3 ${
-                      goalActive
-                        ? "border-emerald-300 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/25"
-                        : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
-                    }`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                            {preset.name}
-                          </span>
-                          <span className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                            추천 {rank} · {reason}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                          {preset.summary}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={Boolean(buildGoalBusy)}
-                        onClick={() => void toggleBuildGoal(preset.id)}
-                        className={`rounded border px-2 py-1 text-[11px] font-semibold transition disabled:cursor-wait disabled:opacity-60 ${
-                          goalActive
-                            ? "border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200 dark:hover:bg-emerald-900"
-                            : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                        }`}
-                      >
-                        {busy ? "저장 중" : goalActive ? "목표 해제" : "목표 지정"}
-                      </button>
-                    </div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {preset.tags.slice(0, 6).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded bg-emerald-100 px-1.5 py-px text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                      >
-                        {V2_BUILD_TAG_LABEL[tag]}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-3 rounded border border-zinc-200 bg-zinc-50 px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-950/40">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
-                        빌드 완성도
-                      </span>
-                      <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                        {progress.pct}% · {progress.score}/{progress.maxScore}
-                      </span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                      <div
-                        className="h-full rounded-full bg-emerald-500 transition-[width]"
-                        style={{ width: `${progress.pct}%` }}
-                      />
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-4">
-                      {[
-                        [
-                          "equipmentOwned",
-                          "보유",
-                          progress.equipmentOwned,
-                          progress.equipmentTotal,
-                        ],
-                        [
-                          "equipmentRegistered",
-                          "도감",
-                          progress.equipmentRegistered,
-                          progress.equipmentTotal,
-                        ],
-                        [
-                          "skillsLearned",
-                          "학습",
-                          progress.skillsLearned,
-                          progress.skillsTotal,
-                        ],
-                        [
-                          "skillsEquipped",
-                          "장착",
-                          progress.skillsEquipped,
-                          progress.skillsTotal,
-                        ],
-                      ].map(([key, label, current, total]) => (
-                        <div
-                          key={key}
-                          className={`rounded bg-white px-2 py-1 dark:bg-zinc-900 ${
-                            progress.conditions[key as V2BuildPresetConditionKey]
-                              ? "text-zinc-600 dark:text-zinc-300"
-                              : "text-zinc-400 dark:text-zinc-600"
-                          }`}
-                        >
-                          <span className="text-zinc-400 dark:text-zinc-500">
-                            {label}
-                          </span>{" "}
-                          <span className="font-semibold tabular-nums">
-                            {progress.conditions[key as V2BuildPresetConditionKey]
-                              ? `${current}/${total}`
-                              : "제외"}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    {(missingEquipmentText ||
-                      missingSkillText ||
-                      unequippedSkillText) && (
-                      <div className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {missingEquipmentText && (
-                          <p>
-                            부족 장비: {missingEquipmentText}
-                            {progress.missingEquipmentIds.length > 2 ? " 외" : ""}
-                          </p>
-                        )}
-                        {missingSkillText && (
-                          <p>
-                            부족 스킬: {missingSkillText}
-                            {progress.missingSkillIds.length > 2 ? " 외" : ""}
-                          </p>
-                        )}
-                        {unequippedSkillText && (
-                          <p>
-                            장착 후보: {unequippedSkillText}
-                            {progress.unequippedLearnedSkillIds.length > 2
-                              ? " 외"
-                              : ""}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <div>
-                      <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                        핵심 장비
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {preset.equipmentIds.map((id) => {
-                          const item = V2_EQUIPMENT[id];
-                          if (!item) return null;
-                          return (
-                            <button
-                              key={id}
-                              type="button"
-                              onClick={(e) =>
-                                onShowCard({
-                                  item,
-                                  anchor: anchorOf(e.currentTarget),
-                                })
-                              }
-                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 transition hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                            >
-                              {item.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                        권장 스킬
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {preset.skillIds.map((id) => {
-                          const skill = V2_SKILLS[id];
-                          if (!skill) return null;
-                          return (
-                            <span
-                              key={id}
-                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                            >
-                              {skill.name}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2 text-[11px] sm:grid-cols-2">
-                    <div className="rounded bg-emerald-50 px-2 py-1.5 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">
-                      {preset.strengths.join(" · ")}
-                    </div>
-                    <div className="rounded bg-zinc-100 px-2 py-1.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                      {preset.weaknesses.join(" · ")}
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          <Card padding="md">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-bold">제작 장비 목표</h2>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -1132,13 +617,7 @@ export function CodexEquipmentPanel({
               <div className="flex flex-wrap gap-1.5">
                 {EQUIPMENT_SLOT_ORDER.map((slot) => {
                   const slotEntries = equipmentEntries
-                    .filter((id) => V2_EQUIPMENT[id].slot === slot)
-                    .filter((id) =>
-                      equipmentMatchesBuildFilter(
-                        V2_EQUIPMENT[id],
-                        equipmentBuildFilter,
-                      ),
-                    );
+                    .filter((id) => V2_EQUIPMENT[id].slot === slot);
                   const registeredCount = slotEntries.filter((id) =>
                     equipmentRegisteredIds.has(id),
                   ).length;
@@ -1154,34 +633,6 @@ export function CodexEquipmentPanel({
                       }`}
                     >
                       {V2_SLOT_LABEL[slot]} {registeredCount}/{slotEntries.length}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {EQUIPMENT_BUILD_FILTERS.map((filter) => {
-                  const count =
-                    filter.key === "all"
-                      ? equipmentEntries.length
-                      : equipmentEntries.filter((id) =>
-                          equipmentMatchesBuildFilter(
-                            V2_EQUIPMENT[id],
-                            filter.key,
-                          ),
-                        ).length;
-                  return (
-                    <button
-                      key={filter.key}
-                      type="button"
-                      onClick={() => setEquipmentBuildFilter(filter.key)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                        equipmentBuildFilter === filter.key
-                          ? "bg-emerald-700 text-white dark:bg-emerald-400 dark:text-emerald-950"
-                          : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                      }`}
-                    >
-                      {filter.label} {count}
                     </button>
                   );
                 })}
@@ -1203,23 +654,20 @@ export function CodexEquipmentPanel({
                 >
                   {equipmentCodexBusy === `bulk:${equipmentCodexSlot}`
                     ? "일괄 등록 중"
-                    : equipmentBuildFilter === "all"
-                      ? "보유 장비 일괄 등록"
-                      : "필터 장비 일괄 등록"}
+                    : "보유 장비 일괄 등록"}
                 </button>
               </div>
 
               {equipmentSlotEntries.length === 0 ? (
                 <Card padding="md">
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    이 부위에는 선택한 빌드 축의 장비가 없습니다.
+                    이 부위에는 등록할 장비가 없습니다.
                   </p>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {equipmentSlotPager.pageItems.map((id) => {
                     const item = V2_EQUIPMENT[id];
-                    const buildTags = buildTagsForEquipment(item).slice(0, 4);
                     const registered = equipmentRegisteredIds.has(id);
                     const ownedCount = equipmentCounts.owned.get(id) ?? 0;
                     const eligible = equipmentCounts.eligible.get(id) ?? [];
@@ -1276,18 +724,6 @@ export function CodexEquipmentPanel({
                           {v2ItemTypeLabel(item)} · 위력 {item.power} · 보유{" "}
                           {ownedCount} · 등록 가능 {eligible.length}
                         </div>
-                        {buildTags.length > 0 && (
-                          <div className="mt-0.5 flex flex-wrap gap-1">
-                            {buildTags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                              >
-                                {V2_BUILD_TAG_LABEL[tag]}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                         {craftRecord ? (
                           <div className="mt-0.5 flex flex-wrap gap-1 text-[10px]">
                             <span className="rounded bg-amber-100 px-1.5 py-px font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">

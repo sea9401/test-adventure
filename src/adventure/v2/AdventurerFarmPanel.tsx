@@ -518,7 +518,10 @@ function RareDeliveryBoard({
                 delivery.requiredItems,
                 inventory,
               )}
-              rewardText={`명성 ${delivery.rewardReputation} · ${formatSeedRewards(delivery.rewardSeeds)}`}
+              rewardText={formatFarmDeliveryReward(
+                delivery.rewardReputation,
+                delivery.rewardSeeds,
+              )}
               buttonText={
                 busy ? "납품 중..." : enough ? "희귀 납품" : "재료 부족"
               }
@@ -567,7 +570,10 @@ function WeeklyDeliveryBoard({
                 delivery.requiredItems,
                 inventory,
               )}
-              rewardText={`명성 ${delivery.rewardReputation} · ${formatSeedRewards(delivery.rewardSeeds)}`}
+              rewardText={formatFarmDeliveryReward(
+                delivery.rewardReputation,
+                delivery.rewardSeeds,
+              )}
               buttonText={
                 busy
                   ? "납품 중..."
@@ -1048,6 +1054,14 @@ function formatSeedRewards(seeds: FarmSeedInventory): string {
   return entries
     .map(([cropId, count]) => `${SEED_LABELS[cropId]} ${count}개`)
     .join(", ");
+}
+
+function formatFarmDeliveryReward(
+  reputation: number,
+  seeds: FarmSeedInventory,
+): string {
+  const seedText = hasSeedRewards(seeds) ? formatSeedRewards(seeds) : "";
+  return seedText ? `명성 ${reputation} · ${seedText}` : `명성 ${reputation}`;
 }
 
 function firstSeedCropId(seeds: FarmSeedInventory): FarmCropId | null {

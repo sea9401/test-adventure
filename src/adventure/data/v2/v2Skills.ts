@@ -340,6 +340,8 @@ export type V2SkillDefinition = {
   tier: 1 | 2 | 3;
   description: string;
   mpCost: number;
+  /** 공식 대신 쓰는 절대 MP 비용. 고비용 주문/회복처럼 직업별 수동 튜닝이 필요한 스킬용. */
+  fixedMpCost?: number;
   /** 발동 후 N턴 동안 재발동 불가. 0 = 매 턴 가능. */
   cooldown: number;
   /** 발동 확률 % (0~100). 미지정=100=조건 충족 시 항상 발동. <100 이면 매 발동 판정마다
@@ -981,6 +983,7 @@ function mpArchetypeMult(id: string): number {
 // 플레이어 학습 스킬 1회 시전 MP 비용(고정 절대값). 무료·몬스터 스킬은 그 literal 그대로.
 export function v2SkillMpCostValue(def: V2SkillDefinition): number {
   if (def.mpCost === 0 || def.monsterOnly) return def.mpCost;
+  if (typeof def.fixedMpCost === "number") return Math.max(1, Math.floor(def.fixedMpCost));
   const pct = MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier];
   return Math.max(1, Math.round(MP_REFERENCE_POOL * pct));
 }

@@ -58,7 +58,10 @@ import {
   usablePoints,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Class } from "@/adventure/data/v2/classes";
-import { TIER5_UNLOCK_CUMLEVEL } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  TIER5_UNLOCK_CUMLEVEL,
+  TIER6_UNLOCK_CUMLEVEL,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 function advanceReq(targetJobId: string): Request {
   return new Request("http://t/api/v2/me/advance-class", {
@@ -237,5 +240,49 @@ describe("advance-class — 5차 전직 조건", () => {
     const passedJson = (await passed.json()) as { ok?: boolean };
     expect(passed.status).toBe(200);
     expect(passedJson.ok).toBe(true);
+  });
+});
+
+describe("advance-class — 6차 전직 조건", () => {
+  function seedTier6Candidate(): void {
+    store.clear();
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "immortal",
+      level: 100,
+      materials: {},
+    });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: { survivor: { cultivations: 0, tier: 1, cumLevel: 0 } },
+      jobCumLevel: { immortal: TIER6_UNLOCK_CUMLEVEL },
+      caps: {},
+      grown: {},
+    });
+    store.set("skills.v2", { learned: [], equipped: [] });
+  }
+
+  it("영겁자는 불멸자 숙련도 TIER6 충족 시 전직된다", async () => {
+    seedTier6Candidate();
+    const res = await POST(advanceReq("eternal"));
+    const json = (await res.json()) as {
+      ok?: boolean;
+      class?: string;
+      spec?: string | null;
+    };
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.class).toBe("survivor");
+    expect(json.spec).toBe("eternal");
+
+    const char = store.get("character.v2") as {
+      class?: string;
+      specChoice?: string | null;
+      level?: number;
+    };
+    expect(char.class).toBe("survivor");
+    expect(char.specChoice).toBe("eternal");
+    expect(char.level).toBe(1);
   });
 });

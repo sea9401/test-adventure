@@ -445,7 +445,7 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 
   it("회복 스킬은 계수·피해량 회복·전투당 1회를 표시한다", () => {
     expect(describeV2Skill(V2_SKILLS.v2c_acolyte_smite)).toContain(
-      "회복 잃은 체력 4% + 공격력×0.35 +30~30 (마법)",
+      "회복 잃은 체력 6% + 공격력×0.45 +50~50 (마법)",
     );
     expect(describeV2Skill(V2_SKILLS.v2c_darkpriest_reap)).toContain(
       "피해량 14% 회복",
@@ -471,19 +471,14 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("MP 칩 = 고정 절대값 — 계열 차등 + 차수 스케일", () => {
-    // 비용 = 기준풀 600 × 7% × 계열 × 차수. 같은 t1 에서 캐스터(×1.3·55) > 병사(×1.0·42):
-    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 55"); // 캐스터 t1
+    // fixedMpCost 가 있으면 절대값을 우선 사용하고, 없으면 기존 공식 비용을 사용한다.
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 90"); // 고비용 주문
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_strike)).toContain("MP 42"); // 병사 t1
     // 같은 병사 계열에서 차수 스케일 t1(42) < t2(600×7%×1.4=58.8→59):
     expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 59");
     // 같은 t2 에서 도적(×0.7·41) < 병사(59) — 계열 차등 재확인:
     expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 41");
-    // 무료 스킬(마력탄 mpCost 0)은 MP 칩 생략:
-    expect(
-      describeV2Skill(V2_SKILLS.v2c_mage_boltcast).some((c) =>
-        c.startsWith("MP"),
-      ),
-    ).toBe(false);
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_boltcast)).toContain("MP 40");
   });
 });
 

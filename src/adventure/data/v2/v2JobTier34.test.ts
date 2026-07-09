@@ -181,9 +181,9 @@ describe("성기사 스펙 체인 — 브리지 왕복 + 킷 + 킷 id 실재", (
     expect(smite.effects.some((e) => e.kind === "damage")).toBe(true);
     const heal = smite.effects.find((e) => e.kind === "heal");
     expect(heal).toBeDefined();
-    // 자힐 = 잃은 HP 의 10%(오너 하향, 옛 20%) · 마나 42. 의도값 잠금.
-    expect(heal?.kind === "heal" ? heal.pctLostHp : undefined).toBe(10);
-    expect(smite.mpCost).toBe(42);
+    // 자힐 = 잃은 HP 의 12% · 고정 MP 90. 하이브리드는 순수 마법보다 낮게 올린다.
+    expect(heal?.kind === "heal" ? heal.pctLostHp : undefined).toBe(12);
+    expect(smite.fixedMpCost).toBe(90);
     const aegis = V2_SKILLS.v2c_templar_aegis.passive!;
     expect((aegis.defPct ?? 0) > 0 && (aegis.healPowerPct ?? 0) > 0).toBe(true);
   });

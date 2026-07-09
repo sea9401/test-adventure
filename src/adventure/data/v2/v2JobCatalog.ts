@@ -904,6 +904,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 28, spi: 8 },
     unlock: { prereqs: { adamantmonk: TIER6_UNLOCK_CUMLEVEL } },
   },
+  eternal: {
+    id: "eternal",
+    name: "영겁자",
+    tier: 6,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { vit: 30, spi: 8, str: 4 },
+    unlock: { prereqs: { immortal: TIER6_UNLOCK_CUMLEVEL } },
+  },
   seagod: {
     id: "seagod",
     name: "해신",
@@ -1173,6 +1181,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   myriadvenom: { class: "rogue", spec: "myriadvenom" },
   celestialdragon: { class: "martial", spec: "celestialdragon" },
   vajraarhat: { class: "martial", spec: "vajraarhat" },
+  eternal: { class: "survivor", spec: "eternal" },
   seagod: { class: "survivor", spec: "seagod" },
   earthartisan: { class: "survivor", spec: "earthartisan" },
 };

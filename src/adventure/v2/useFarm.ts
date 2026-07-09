@@ -41,6 +41,7 @@ export type FarmClientState = {
   busyWeeklyDeliveryId: string | null;
   busyShopItemId: string | null;
   error: string | null;
+  notice: FarmNotice | null;
   now: number;
   farm: FarmState | null;
   crops: FarmCrop[];
@@ -53,6 +54,7 @@ export type FarmClientState = {
   lastSpecialDeliveryResult: FarmSpecialDeliveryResult | null;
   lastWeeklyDeliveryResult: FarmWeeklyDeliveryResult | null;
   lastShopResult: FarmShopPurchaseResult | null;
+  clearNotice: () => void;
   refresh: () => Promise<void>;
   plant: (plotId: string, cropId: FarmCropId) => Promise<void>;
   harvest: (plotId: string) => Promise<void>;
@@ -61,6 +63,14 @@ export type FarmClientState = {
   deliverWeekly: (requestId: string) => Promise<void>;
   buyShopItem: (itemId: string) => Promise<void>;
 };
+
+export type FarmNotice =
+  | { id: number; kind: "error"; text: string }
+  | { id: number; kind: "harvest"; result: FarmHarvestResult }
+  | { id: number; kind: "delivery"; result: FarmDeliveryResult }
+  | { id: number; kind: "specialDelivery"; result: FarmSpecialDeliveryResult }
+  | { id: number; kind: "weeklyDelivery"; result: FarmWeeklyDeliveryResult }
+  | { id: number; kind: "shop"; result: FarmShopPurchaseResult };
 
 export function useFarm(): FarmClientState {
   const [loading, setLoading] = useState(true);
@@ -74,6 +84,7 @@ export function useFarm(): FarmClientState {
   );
   const [busyShopItemId, setBusyShopItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<FarmNotice | null>(null);
   const [now, setNow] = useState(0);
   const [farm, setFarm] = useState<FarmState | null>(null);
   const [crops, setCrops] = useState<FarmCrop[]>([]);
@@ -95,6 +106,14 @@ export function useFarm(): FarmClientState {
   const [lastShopResult, setLastShopResult] =
     useState<FarmShopPurchaseResult | null>(null);
 
+  const reportError = useCallback((e: unknown) => {
+    const message = errorMessage(e);
+    setError(message);
+    setNotice({ id: Date.now(), kind: "error", text: message });
+  }, []);
+
+  const clearNotice = useCallback(() => setNotice(null), []);
+
   const apply = useCallback((data: FarmResponse) => {
     if (!data.ok || !data.farm || !data.crops || !data.deliveries) {
       throw new Error(data.error ?? "farm_failed");
@@ -106,21 +125,50 @@ export function useFarm(): FarmClientState {
     setWeeklyDeliveries(data.weeklyDeliveries ?? []);
     setShopItems(data.shopItems ?? []);
     setNow(data.now ?? Date.now());
-    if (data.result) setLastResult(data.result);
-    if (data.deliveryResult) setLastDeliveryResult(data.deliveryResult);
+    if (data.result) {
+      setLastResult(data.result);
+      setNotice({ id: Date.now(), kind: "harvest", result: data.result });
+    }
+    if (data.deliveryResult) {
+      setLastDeliveryResult(data.deliveryResult);
+      setNotice({
+        id: Date.now(),
+        kind: "delivery",
+        result: data.deliveryResult,
+      });
+    }
     if (data.specialDeliveryResult) {
       setLastSpecialDeliveryResult(data.specialDeliveryResult);
+      setNotice({
+        id: Date.now(),
+        kind: "specialDelivery",
+        result: data.specialDeliveryResult,
+      });
     }
-    if (data.weeklyDeliveryResult) setLastWeeklyDeliveryResult(data.weeklyDeliveryResult);
-    if (data.shopResult) setLastShopResult(data.shopResult);
+    if (data.weeklyDeliveryResult) {
+      setLastWeeklyDeliveryResult(data.weeklyDeliveryResult);
+      setNotice({
+        id: Date.now(),
+        kind: "weeklyDelivery",
+        result: data.weeklyDeliveryResult,
+      });
+    }
+    if (data.shopResult) {
+      setLastShopResult(data.shopResult);
+      setNotice({ id: Date.now(), kind: "shop", result: data.shopResult });
+    }
   }, []);
 
   const refresh = useCallback(async () => {
     setError(null);
-    const res = await fetch("/api/v2/farm", { cache: "no-store" });
-    const data = (await res.json()) as FarmResponse;
-    apply(data);
-  }, [apply]);
+    try {
+      const res = await fetch("/api/v2/farm", { cache: "no-store" });
+      const data = (await res.json()) as FarmResponse;
+      apply(data);
+    } catch (e) {
+      reportError(e);
+    }
+  }, [apply, reportError]);
 
   const plant = useCallback(
     async (plotId: string, cropId: FarmCropId) => {
@@ -135,12 +183,12 @@ export function useFarm(): FarmClientState {
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
-        setError(errorMessage(e));
+        reportError(e);
       } finally {
         setBusyPlotId(null);
       }
     },
-    [apply],
+    [apply, reportError],
   );
 
   const harvest = useCallback(
@@ -156,12 +204,12 @@ export function useFarm(): FarmClientState {
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
-        setError(errorMessage(e));
+        reportError(e);
       } finally {
         setBusyPlotId(null);
       }
     },
-    [apply],
+    [apply, reportError],
   );
 
   const deliver = useCallback(
@@ -177,12 +225,12 @@ export function useFarm(): FarmClientState {
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
-        setError(errorMessage(e));
+        reportError(e);
       } finally {
         setBusyDeliveryId(null);
       }
     },
-    [apply],
+    [apply, reportError],
   );
 
   const deliverSpecial = useCallback(
@@ -198,12 +246,12 @@ export function useFarm(): FarmClientState {
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
-        setError(errorMessage(e));
+        reportError(e);
       } finally {
         setBusySpecialDeliveryId(null);
       }
     },
-    [apply],
+    [apply, reportError],
   );
 
   const deliverWeekly = useCallback(
@@ -219,12 +267,12 @@ export function useFarm(): FarmClientState {
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
-        setError(errorMessage(e));
+        reportError(e);
       } finally {
         setBusyWeeklyDeliveryId(null);
       }
     },
-    [apply],
+    [apply, reportError],
   );
 
   const buyShopItem = useCallback(
@@ -240,12 +288,12 @@ export function useFarm(): FarmClientState {
         const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
-        setError(errorMessage(e));
+        reportError(e);
       } finally {
         setBusyShopItemId(null);
       }
     },
-    [apply],
+    [apply, reportError],
   );
 
   useEffect(() => {
@@ -253,7 +301,7 @@ export function useFarm(): FarmClientState {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- farm state is loaded from the server on mount.
     refresh()
       .catch((e) => {
-        if (!cancelled) setError(errorMessage(e));
+        if (!cancelled) reportError(e);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -261,7 +309,7 @@ export function useFarm(): FarmClientState {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [refresh, reportError]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -276,6 +324,7 @@ export function useFarm(): FarmClientState {
     busyWeeklyDeliveryId,
     busyShopItemId,
     error,
+    notice,
     now,
     farm,
     crops,
@@ -288,6 +337,7 @@ export function useFarm(): FarmClientState {
     lastSpecialDeliveryResult,
     lastWeeklyDeliveryResult,
     lastShopResult,
+    clearNotice,
     refresh,
     plant,
     harvest,

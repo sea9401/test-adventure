@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Clock,
@@ -33,6 +33,14 @@ import { useFarm } from "./useFarm";
 
 type FarmSectionKey = "grow" | "delivery" | "shop";
 
+type FarmToast = {
+  id: number;
+  tone: "ok" | "warn";
+  text: string;
+};
+
+const FARM_TOAST_MS = 2800;
+
 const ITEM_LABELS: Record<FarmItemId, string> = {
   wheat: "밀",
   golden_wheat: "황금 밀",
@@ -56,7 +64,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     busySpecialDeliveryId,
     busyWeeklyDeliveryId,
     busyShopItemId,
-    error,
+    notice,
     now,
     farm,
     crops,
@@ -64,11 +72,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     specialDeliveries,
     weeklyDeliveries,
     shopItems,
-    lastResult,
-    lastDeliveryResult,
-    lastSpecialDeliveryResult,
-    lastWeeklyDeliveryResult,
-    lastShopResult,
+    clearNotice,
     refresh,
     plant,
     harvest,
@@ -148,6 +152,52 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
       }>,
     [affordableShopCount, deliverableCount, readyPlotCount],
   );
+  const toast = useMemo<FarmToast | null>(() => {
+    if (!notice) return null;
+    if (notice.kind === "error") {
+      return { id: notice.id, tone: "warn", text: notice.text };
+    }
+    if (notice.kind === "harvest") {
+      const { result } = notice;
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${result.itemName} ${result.quantity}개를 수확했습니다.${
+          result.rareItemName
+            ? ` 희귀 수확: ${result.rareItemName} ${result.rareQuantity}개.`
+            : ""
+        }`,
+      };
+    }
+    if (notice.kind === "shop") {
+      const { result } = notice;
+      return {
+        id: notice.id,
+        tone: "ok",
+        text: `${result.title} 구매 완료. 농장 명성 ${result.costReputation}을 사용했습니다.${
+          hasSeedRewards(result.rewardSeeds)
+            ? ` 씨앗 보상: ${formatSeedRewards(result.rewardSeeds)}.`
+            : ""
+        }`,
+      };
+    }
+    const { result } = notice;
+    return {
+      id: notice.id,
+      tone: "ok",
+      text: `${result.title} 납품 완료. 농장 명성 ${result.rewardReputation}을 받았습니다.${
+        hasSeedRewards(result.rewardSeeds)
+          ? ` 씨앗 보상: ${formatSeedRewards(result.rewardSeeds)}.`
+          : ""
+      }`,
+    };
+  }, [notice]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeoutId = window.setTimeout(clearNotice, FARM_TOAST_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [clearNotice, notice]);
 
   return (
     <PageShell spacing="tight">
@@ -194,57 +244,6 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               dailyDeliveryCount={dailyDeliveryCount}
             />
             <FarmGrowthPanel farm={farm} />
-
-            {error && (
-              <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">
-                {error}
-              </div>
-            )}
-
-            {lastResult && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-                {lastResult.itemName} {lastResult.quantity}개를 수확했습니다.
-                {lastResult.rareItemName
-                  ? ` 희귀 수확: ${lastResult.rareItemName} ${lastResult.rareQuantity}개.`
-                  : ""}
-              </div>
-            )}
-
-            {lastDeliveryResult && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-                {lastDeliveryResult.title} 납품 완료. 농장 명성{" "}
-                {lastDeliveryResult.rewardReputation}을 받았습니다.
-                {hasSeedRewards(lastDeliveryResult.rewardSeeds)
-                  ? ` 씨앗 보상: ${formatSeedRewards(lastDeliveryResult.rewardSeeds)}.`
-                  : ""}
-              </div>
-            )}
-
-            {lastSpecialDeliveryResult && (
-              <ResultNotice
-                title={`${lastSpecialDeliveryResult.title} 납품 완료`}
-                rewardReputation={lastSpecialDeliveryResult.rewardReputation}
-                rewardSeeds={lastSpecialDeliveryResult.rewardSeeds}
-              />
-            )}
-
-            {lastWeeklyDeliveryResult && (
-              <ResultNotice
-                title={`${lastWeeklyDeliveryResult.title} 납품 완료`}
-                rewardReputation={lastWeeklyDeliveryResult.rewardReputation}
-                rewardSeeds={lastWeeklyDeliveryResult.rewardSeeds}
-              />
-            )}
-
-            {lastShopResult && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-                {lastShopResult.title} 구매 완료. 농장 명성{" "}
-                {lastShopResult.costReputation}을 사용했습니다.
-                {hasSeedRewards(lastShopResult.rewardSeeds)
-                  ? ` 씨앗 보상: ${formatSeedRewards(lastShopResult.rewardSeeds)}.`
-                  : ""}
-              </div>
-            )}
 
             <TabBar
               tabs={farmTabs}
@@ -330,7 +329,26 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           </div>
         )}
       </section>
+      {toast ? <FarmToastMessage toast={toast} /> : null}
     </PageShell>
+  );
+}
+
+function FarmToastMessage({ toast }: { toast: FarmToast }) {
+  const ok = toast.tone === "ok";
+  return (
+    <div
+      key={toast.id}
+      role="status"
+      aria-live="polite"
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-50 max-w-[min(24rem,calc(100vw-2rem))] rounded-md border px-4 py-3 text-base font-semibold leading-relaxed shadow-xl sm:left-6 ${
+        ok
+          ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-100"
+          : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100"
+      }`}
+    >
+      {toast.text}
+    </div>
   );
 }
 
@@ -401,25 +419,6 @@ function FarmGrowthPanel({ farm }: { farm: FarmState }) {
           ? `농장 명성 ${next.reputationRequired} 달성 시 ${next.title}이 열려 밭 ${next.plotCount}칸을 사용할 수 있습니다.`
           : "현재 준비된 모든 밭을 사용할 수 있습니다."}
       </p>
-    </div>
-  );
-}
-
-function ResultNotice({
-  title,
-  rewardReputation,
-  rewardSeeds,
-}: {
-  title: string;
-  rewardReputation: number;
-  rewardSeeds: FarmSeedInventory;
-}) {
-  return (
-    <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-      {title}. 농장 명성 {rewardReputation}을 받았습니다.
-      {hasSeedRewards(rewardSeeds)
-        ? ` 씨앗 보상: ${formatSeedRewards(rewardSeeds)}.`
-        : ""}
     </div>
   );
 }

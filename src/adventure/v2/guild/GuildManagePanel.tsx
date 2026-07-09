@@ -35,6 +35,8 @@ export function GuildManagePanel({
   setNotice,
   onRefresh,
   isMaster,
+  manageTab,
+  setManageTab,
   pendingRequests,
   loading,
   onGuildChanged,
@@ -48,12 +50,12 @@ export function GuildManagePanel({
   setNotice: (n: Notice | null) => void;
   onRefresh: () => Promise<void>;
   isMaster: boolean;
+  manageTab: GuildManageTab;
+  setManageTab: (tab: GuildManageTab) => void;
   pendingRequests: PendingRequest[];
   loading: boolean;
   onGuildChanged?: () => void;
 }) {
-  // 관리 탭 내부 하위 탭 선택.
-  const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [inviteName, setInviteName] = useState("");
   // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
   const [disbandConfirm, setDisbandConfirm] = useState("");

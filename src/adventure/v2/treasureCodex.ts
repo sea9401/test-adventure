@@ -124,6 +124,7 @@ export type AntiqueTierCompletion = {
   discovered: number;
   total: number;
   complete: boolean;
+  /** 유물 도감은 더 이상 SP 를 지급하지 않는다. */
   sp: number;
 };
 
@@ -141,11 +142,11 @@ export function antiqueTierCompletions(
       discovered: count,
       total: ids.length,
       complete,
-      sp: complete ? 1 : 0,
+      sp: 0,
     };
   });
 }
 
-export function treasureCodexSpBonus(codex: TreasureCodex): number {
-  return antiqueTierCompletions(codex).reduce((sum, t) => sum + t.sp, 0);
+export function treasureCodexSpBonus(_codex: TreasureCodex): number {
+  return 0;
 }

@@ -90,7 +90,7 @@ export type GuildSubTab =
   | "members"
   | "manage"
   | "facilities";
-// 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·길드 연구·길드 설정.
-export type GuildManageTab = "members" | "research" | "settings";
+// 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·길드 연구·시설·길드 설정.
+export type GuildManageTab = "members" | "research" | "facilities" | "settings";
 
 export type Notice = { kind: "ok" | "err"; text: string };

@@ -35,7 +35,7 @@ export function V2TownHome({
       <SubViewHeader title="마을" />
       <div className="space-y-2">
         <EntryCard
-          icon={<Compass size={28} weight="duotone" className="text-emerald-600" />}
+          icon={<Compass size={28} weight="duotone" className="text-sky-600" />}
           title="생활 지도"
           onClick={() => onAction({ kind: "open-map" })}
         />
@@ -51,7 +51,7 @@ export function V2TownHome({
         />
         <EntryCard
           icon={
-            <Storefront size={28} weight="duotone" className="text-emerald-600" />
+            <Storefront size={28} weight="duotone" className="text-orange-600" />
           }
           title="상점"
           onClick={() => onAction({ kind: "open-shop" })}

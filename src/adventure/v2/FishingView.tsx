@@ -22,6 +22,7 @@ import {
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
 import type { FishingProgressNotice } from "@/adventure/v2/fishingChallengeProgress";
+import type { FishingSpot } from "@/adventure/data/v2/fishingSpots";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -99,6 +100,7 @@ export type FishingHandlers = {
   progression?: FishingProgressionView | null;
   progressionLoading?: boolean;
   challengeBadgeCount?: number;
+  fishingSpot?: FishingSpot;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
@@ -1340,6 +1342,7 @@ export function FishingView({
   progression,
   progressionLoading,
   challengeBadgeCount,
+  fishingSpot,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
@@ -1509,7 +1512,7 @@ export function FishingView({
   return (
     <>
       <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[720px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100">
-        <SubViewHeader title="낚시터" onBack={onBack} />
+        <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
 
         <FishingSubTabs
           active="fishing"
@@ -1521,6 +1524,22 @@ export function FishingView({
         />
 
       <MulttaeBadge />
+
+      {fishingSpot && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/70 dark:bg-sky-950 dark:text-sky-100">
+          <div className="font-semibold">{fishingSpot.description}</div>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {fishingSpot.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:bg-sky-900 dark:text-sky-200"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {dailyCatchCoins && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">

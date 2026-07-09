@@ -617,6 +617,8 @@ export type FishPickOptions = {
   specialWeightBonusPct?: number;
   /** 티어 자체의 추첨 가중치 보정. 50 = 1.5배, -35 = 0.65배. */
   tierWeightPct?: FishTierWeightBonuses;
+  /** 지정하면 이 어종 풀 안에서만 추첨한다. 낚시터별 어종 분리에 사용. */
+  allowedFishIds?: readonly FishId[];
 };
 
 function tierEncounterWeight(tier: FishTier, options: FishPickOptions): number {
@@ -636,13 +638,27 @@ export function pickFishId(
   activeCondition?: MulttaeConditionId,
   options: FishPickOptions = {},
 ): FishId {
-  const totalWeight = FISH_TIER_ORDER.reduce(
+  const allowedSet =
+    options.allowedFishIds && options.allowedFishIds.length > 0
+      ? new Set<FishId>(options.allowedFishIds)
+      : null;
+  const eligibleSpecies = FISH_IDS.filter(
+    (id) =>
+      (!allowedSet || allowedSet.has(id)) &&
+      (FISH[id].condition === undefined ||
+        FISH[id].condition === activeCondition),
+  );
+  const eligibleTiers = FISH_TIER_ORDER.filter((tier) =>
+    eligibleSpecies.some((id) => FISH[id].tier === tier),
+  );
+  const tierPool = eligibleTiers.length > 0 ? eligibleTiers : FISH_TIER_ORDER;
+  const totalWeight = tierPool.reduce(
     (sum, t) => sum + tierEncounterWeight(t, options),
     0,
   );
   let roll = rng() * totalWeight;
-  let tier: FishTier = FISH_TIER_ORDER[FISH_TIER_ORDER.length - 1];
-  for (const t of FISH_TIER_ORDER) {
+  let tier: FishTier = tierPool[tierPool.length - 1];
+  for (const t of tierPool) {
     const weight = tierEncounterWeight(t, options);
     if (roll < weight) {
       tier = t;
@@ -652,6 +668,7 @@ export function pickFishId(
   }
   const species = FISH_IDS.filter(
     (id) =>
+      (!allowedSet || allowedSet.has(id)) &&
       FISH[id].tier === tier &&
       (FISH[id].condition === undefined ||
         FISH[id].condition === activeCondition),

@@ -10,6 +10,10 @@
 // 클라 보고 reactionMs 는 성공/실패 연출 게이트로만 쓴다.
 
 import { isFishId, type FishId } from "@/adventure/data/v2/fish";
+import {
+  isFishingSpotId,
+  type FishingSpotId,
+} from "@/adventure/data/v2/fishingSpots";
 
 export const FISHING_SESSION_KEY = "fishing-session.v1";
 
@@ -34,6 +38,7 @@ export type FishingSession = {
   /** cast 때 굴려 박제한 예정 어획 — reel 성공 시 그대로 지급. */
   fishId: FishId;
   size: number;
+  fishingSpotId?: FishingSpotId;
 };
 
 export function expiresAtFor(biteAt: number): number {
@@ -57,7 +62,11 @@ export function parseFishingSession(raw: unknown): FishingSession | null {
   if (typeof biteAt !== "number" || !Number.isFinite(biteAt)) return null;
   if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) return null;
   if (typeof size !== "number" || !Number.isFinite(size)) return null;
-  return { castId: r.castId, biteAt, expiresAt, fishId: r.fishId, size };
+  const fishingSpotId =
+    typeof r.fishingSpotId === "string" && isFishingSpotId(r.fishingSpotId)
+      ? r.fishingSpotId
+      : undefined;
+  return { castId: r.castId, biteAt, expiresAt, fishId: r.fishId, size, fishingSpotId };
 }
 
 export type CatchJudgment = {

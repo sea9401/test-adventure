@@ -45,13 +45,6 @@ import {
   rolloverFishingDaily,
 } from "@/adventure/data/v2/fishingDailyChallenges";
 import {
-  TREASURE_FRAGMENTS_KEY,
-  FISHING_FRAGMENT_DROP_CHANCE,
-  addFragments,
-  parseTreasureFragments,
-  rollFragmentDrop,
-} from "@/adventure/v2/treasureFragments";
-import {
   FISHING_STREAK_KEY,
   fishingStreakBuff,
   nextFishingStreak,
@@ -146,7 +139,7 @@ export async function POST(req: Request) {
     const multtaeEffect = multtaeAt(now).condition.effect;
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
-    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 코덱스 → 일일트래커 → 지갑 → 조각.
+    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 코덱스 → 일일트래커 → 지갑.
     const progressBefore = parseFishingProgression(
       await lockSaveForUpdate(
         tx,
@@ -294,24 +287,6 @@ export async function POST(req: Request) {
         : coinResult.next;
     await upsertSave(tx, userId, FISHING_WALLET_KEY, walletAfterCoins);
 
-    // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
-    // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
-    const fragmentDrop = rollFragmentDrop(
-      Math.random,
-      FISHING_FRAGMENT_DROP_CHANCE +
-        streakBuff.fragmentChanceBonus +
-        (multtaeEffect.fragmentChanceBonus ?? 0),
-    );
-    let fragmentsTotal = 0;
-    if (fragmentDrop > 0) {
-      const frags = parseTreasureFragments(
-        await lockSaveForUpdate(tx, userId, TREASURE_FRAGMENTS_KEY, {}),
-      );
-      const nextFrags = addFragments(frags, fragmentDrop);
-      await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, nextFrags);
-      fragmentsTotal = nextFrags.fragments;
-    }
-
     const coopBoss = await trySpawnFishingCoopBoss(tx, {
       userId,
       summonerName: "모험가",
@@ -346,8 +321,6 @@ export async function POST(req: Request) {
       challengeClaimableCount,
       masteryGained,
       masteryAfter,
-      fragmentDrop,
-      fragmentsTotal,
       coopBoss,
       streak,
       streakBuff,
@@ -439,18 +412,12 @@ export async function POST(req: Request) {
     masteryGained: result.masteryGained,
     masteryAfter: result.masteryAfter,
     special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,
-    // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
-    fragmentDrop: result.fragmentDrop,
-    fragmentsTotal: result.fragmentsTotal,
     coopBoss: result.coopBoss,
     streak: {
       current: result.streak.current,
       best: result.streak.best,
       buffTier: result.streakBuff.tier,
       coinBonus: result.streakBuff.coinBonus,
-      fragmentChanceBonusPct: Math.round(
-        result.streakBuff.fragmentChanceBonus * 100,
-      ),
     },
     hotTime: result.hotTime,
   });

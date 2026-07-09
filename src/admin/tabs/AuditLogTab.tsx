@@ -39,7 +39,6 @@ const GRANT_KEY_LABELS: Record<string, string> = {
   staminaRefilled: "스태미나 회복",
   rareMapGranted: "레어맵",
   fishingCoins: "낚시 코인",
-  treasureCoins: "발굴 코인",
 };
 
 // 관리자 감사 로그 — 모든 admin 변경 행동의 최신순 기록(읽기 전용).

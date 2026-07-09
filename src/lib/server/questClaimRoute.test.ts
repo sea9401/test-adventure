@@ -38,7 +38,6 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     fishCaught: 0,
     arenaTimes: [],
     fishSpecies: 0,
-    antiquesFound: 0,
   })),
   buildQuestCtx: vi.fn(({ charRaw }) => ({
     class: "none",
@@ -67,7 +66,6 @@ vi.mock("@/lib/server/v2QuestContext", () => ({
     warEjectWins: 0,
     warTreasuryGold: 0,
     fishSpecies: 0,
-    antiquesFound: 0,
     maxEnhanceLevel: 0,
     enhanceStones: 0,
     bankedGold: Number((charRaw as { bankedGold?: number }).bankedGold ?? 0),

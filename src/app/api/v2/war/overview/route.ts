@@ -41,7 +41,7 @@ import { tileKey } from "@/adventure/data/v2/tileConfig";
 // 모든 read 는 비잠금 — 표시 전용 스냅샷이라 정합 race 허용.
 
 const RECENT_ATTACKS_PER_OUTPOST = 5;
-const TREASURE_LIST_LIMIT = 8;
+const UNCLAIMED_TREASURY_LIST_LIMIT = 8;
 
 type AttackEntry = {
   attackerName: string;
@@ -313,7 +313,7 @@ export async function GET() {
   const treasures = treasuryRows
     .filter((t) => !occupiedIds.has(t.outpostId))
     .sort((a, b) => b.gold - a.gold)
-    .slice(0, TREASURE_LIST_LIMIT);
+    .slice(0, UNCLAIMED_TREASURY_LIST_LIMIT);
 
   return Response.json({
     ok: true,

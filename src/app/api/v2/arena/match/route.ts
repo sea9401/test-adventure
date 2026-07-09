@@ -383,7 +383,6 @@ export async function POST() {
               "skills.v2",
               "proficiency.v2",
               "fishing-codex.v1",
-              "treasure-codex.v1",
               ARENA_LOADOUTS_KEY,
             ]),
           ),
@@ -402,10 +401,7 @@ export async function POST() {
           oppSkills,
           oppCharSave ?? {},
           oppRow("proficiency.v2"),
-          codexSpBonusFromRaw(
-            oppRow("fishing-codex.v1"),
-            oppRow("treasure-codex.v1"),
-          ).total,
+          codexSpBonusFromRaw(oppRow("fishing-codex.v1")).total,
         );
       }
       opponentCombat = await derivePlayerCombatV2(pickedUserId, tx, {

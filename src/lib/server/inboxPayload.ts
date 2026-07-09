@@ -20,8 +20,8 @@ export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
 
 // 주간 시즌 순위 보상이 적립될 지갑 종류. claim 시 이 값으로 해당 코인 지갑에 적립.
-export type SeasonRewardSeason = "pvp" | "fishing" | "treasure";
-const SEASON_REWARD_SEASONS = new Set<string>(["pvp", "fishing", "treasure"]);
+export type SeasonRewardSeason = "pvp" | "fishing";
+const SEASON_REWARD_SEASONS = new Set<string>(["pvp", "fishing"]);
 export function isSeasonRewardSeason(s: string): s is SeasonRewardSeason {
   return SEASON_REWARD_SEASONS.has(s);
 }
@@ -76,7 +76,7 @@ export type InboxPayload =
       /** 시즌 종류 — claim 시 보상이 적립될 코인 지갑 결정. */
       season: SeasonRewardSeason;
       coins: number;
-      /** 최종 순위(1-based) — 표시용. 낚시/보물은 종합 집계라 없을 수 있음(옵셔널). */
+      /** 최종 순위(1-based) — 표시용. 낚시는 종합 집계라 없을 수 있음(옵셔널). */
       rank?: number;
     }
   | {

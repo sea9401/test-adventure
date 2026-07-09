@@ -32,7 +32,6 @@ type OpsSummary = {
     gold: number;
     bankedGold: number;
     fishingCoins: number;
-    treasureCoins: number;
     masteryCertificates: number;
     staminaPotions: number;
   };
@@ -115,7 +114,6 @@ type TimelineFilter = (typeof TIMELINE_FILTERS)[number]["value"];
 const COMP_KIND_OPTIONS = [
   "gold",
   "fishing_coin",
-  "treasure_coin",
   "mastery_certificate",
   "stamina_potion",
   "material",
@@ -136,14 +134,6 @@ const COMP_PRESETS: Array<{
     itemId: "",
     quantity: 100,
     reason: "낚시 코인 미지급 보정",
-  },
-  {
-    id: "treasure-coin-missing",
-    label: "발굴 코인 미지급",
-    itemKind: "treasure_coin",
-    itemId: "",
-    quantity: 100,
-    reason: "발굴 코인 미지급 보정",
   },
   {
     id: "mastery-certificate-missing",
@@ -321,7 +311,6 @@ export function OpsUserSummarySection({
             <Metric label="보유 골드" value={data.summary.gold} />
             <Metric label="은행 골드" value={data.summary.bankedGold} />
             <Metric label="낚시 코인" value={data.summary.fishingCoins} />
-            <Metric label="발굴 코인" value={data.summary.treasureCoins} />
             <Metric label="숙련 증서" value={data.summary.masteryCertificates} />
             <Metric label="스태미나 회복약" value={data.summary.staminaPotions} />
             <Metric

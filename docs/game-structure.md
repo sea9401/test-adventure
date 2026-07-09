@@ -36,7 +36,6 @@ flowchart TD
         Town --> Train["훈련장<br/>수행(cap↑) · 대련"]
         Town --> Smithy["대장간<br/>제작 · 강화 · 부여 · 분해"]
         Town --> Fish["낚시터<br/>미니게임 · 주간대회"]
-        Town --> Treasure["발굴 감정소<br/>골동품 발굴 · 도감"]
     end
 
     %% ===== 캐릭터 =====

@@ -90,8 +90,6 @@ export type QuestCtx = {
   warTreasuryGold: number;
   /** 낚시 도감 어종 수. fishing-codex.v1. */
   fishSpecies: number;
-  /** 보물 도감 골동품 종 수. treasure-codex.v1. */
-  antiquesFound: number;
   /** 보유 장비 중 최고 강화 레벨. equipment.v2 owned[].enhance. */
   maxEnhanceLevel: number;
   /** 보유 강화석 합(붉은+푸른). character.v2.materials. */
@@ -528,7 +526,7 @@ const REBIRTH: QuestDef[] = [
   },
 ];
 
-// ── 생활의 달인 — 낚시·보물 도감(독립) ──────────────────────────────────────
+// ── 생활의 달인 — 낚시 도감(독립) ──────────────────────────────────────
 const LIFE: QuestDef[] = [
   {
     id: "l_fish1",
@@ -556,33 +554,6 @@ const LIFE: QuestDef[] = [
     desc: "어종 도감 25종을 채우세요 (전체 34종).",
     reward: { gold: 1200, titleId: "ach_codex_angler" },
     check: (c) => c.fishSpecies >= 25,
-  },
-  {
-    id: "l_dig1",
-    chain: "life_antique",
-    line: "life",
-    title: "첫 발굴",
-    desc: "보물 탐사에서 첫 골동품을 발굴하세요.",
-    reward: { gold: 200 },
-    check: (c) => c.antiquesFound >= 1,
-  },
-  {
-    id: "l_antique8",
-    chain: "life_antique",
-    line: "life",
-    title: "감정가",
-    desc: "골동품 도감 8종을 채우세요.",
-    reward: { gold: 500 },
-    check: (c) => c.antiquesFound >= 8,
-  },
-  {
-    id: "l_antique20",
-    chain: "life_antique",
-    line: "life",
-    title: "고고학자",
-    desc: "골동품 도감 20종을 채우세요 (전체 24종).",
-    reward: { gold: 1200, titleId: "ach_field_archaeologist" },
-    check: (c) => c.antiquesFound >= 20,
   },
 ];
 
@@ -788,7 +759,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "life",
     name: "생활의 달인",
-    subtitle: "낚시와 보물 발굴 — 전장 밖의 즐거움.",
+    subtitle: "낚시 — 전장 밖의 즐거움.",
     sequential: false,
   },
   {

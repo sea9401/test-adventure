@@ -143,7 +143,6 @@ describe("POST /api/v2/fishing/reel", () => {
         best: number;
         buffTier: number;
         coinBonus: number;
-        fragmentChanceBonusPct: number;
       };
     };
     expect(json.ok).toBe(true);
@@ -154,7 +153,6 @@ describe("POST /api/v2/fishing/reel", () => {
       best: 5,
       buffTier: 1,
       coinBonus: 1,
-      fragmentChanceBonusPct: 2,
     });
     expect(store.get(FISHING_STREAK_KEY)).toEqual({ current: 5, best: 5 });
     expect(store.get(FISHING_WALLET_KEY)).toMatchObject({

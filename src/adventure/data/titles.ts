@@ -23,7 +23,6 @@ export type TitleCategory =
   | "endgame"
   | "pvp"
   | "fishing"
-  | "treasure"
   | "collection";
 
 export type Title = {
@@ -55,7 +54,6 @@ export const TITLE_CATEGORY_ORDER: readonly {
   { id: "endgame", label: "별의 옥좌" },
   { id: "pvp", label: "투기장" },
   { id: "fishing", label: "낚시" },
-  { id: "treasure", label: "발굴" },
   { id: "collection", label: "수집" },
 ];
 
@@ -739,70 +737,6 @@ export const TITLES: Record<TitleId, Title> = {
   //   (2026-06-25 과다 정리). TitleId=string 이라 타입 영향 없음. 표시 경로는 미정의 id 를
   //   가드(resolveActor·V2Codex 의 `if(!t)`) — 옛 보유분은 칭호만 비표시(데이터 무손실·정의
   //   재추가 시 복원). 새 칭호로 같은 id 재사용 금지(옛 보유자에게 엉뚱하게 붙음).
-  treasure_digger: {
-    id: "treasure_digger",
-    name: "흙먼지 사냥꾼",
-    description: "흙을 뒤져 옛 시대의 부스러기를 모으는 부지런한 손.",
-    condition: "발굴 코인 상점에서 발굴 코인 60으로 구매",
-    category: "treasure",
-  },
-  treasure_curator: {
-    id: "treasure_curator",
-    name: "골동품 수집가",
-    description: "남들이 흘려보낸 물건의 가치를 알아보는 눈.",
-    condition: "발굴 코인 상점에서 발굴 코인 250으로 구매",
-    category: "treasure",
-  },
-  treasure_relic: {
-    id: "treasure_relic",
-    name: "유물 추적자",
-    description: "지도 한 조각으로 잊힌 보물의 행방을 좇는 자.",
-    condition: "발굴 코인 상점에서 발굴 코인 700으로 구매",
-    category: "treasure",
-  },
-  treasure_legend: {
-    id: "treasure_legend",
-    name: "트레져 헌터",
-    description: "전설로만 전하던 유물을 끝내 땅속에서 끌어올린 발굴의 대가.",
-    condition: "발굴 코인 상점에서 발굴 코인 2000으로 구매",
-    category: "treasure",
-  },
-  // ── 발굴 업적 칭호 (발굴 성공 기록으로 자동 지급) ───────────────────────
-  treasure_first_find: {
-    id: "treasure_first_find",
-    name: "첫 삽의 주인",
-    description: "처음으로 땅속의 흔적을 제대로 건져 올린 자.",
-    condition: "발굴 1회 성공",
-    category: "treasure",
-  },
-  treasure_veteran_excavator: {
-    id: "treasure_veteran_excavator",
-    name: "노련한 발굴가",
-    description: "단서의 온도를 읽고 흙 밑의 길을 반복해서 찾아낸 손.",
-    condition: "발굴 10회 성공",
-    category: "treasure",
-  },
-  treasure_pristine_keeper: {
-    id: "treasure_pristine_keeper",
-    name: "보존의 손",
-    description: "오래 묻힌 물건을 상처 없이 깨워 내는 섬세한 손길.",
-    condition: "보존상태 90 이상 골동품 발굴",
-    category: "treasure",
-  },
-  treasure_probe_pathfinder: {
-    id: "treasure_probe_pathfinder",
-    name: "탐침술사",
-    description: "흙을 크게 헤집지 않고도 묻힌 방향을 읽어내는 자.",
-    condition: "탐침을 사용한 발굴 5회 성공",
-    category: "treasure",
-  },
-  treasure_three_site_surveyor: {
-    id: "treasure_three_site_surveyor",
-    name: "삼지 답사자",
-    description: "서로 다른 세 탐사지의 흙냄새를 모두 기억하는 사람.",
-    condition: "세 탐사지에서 각각 발굴 성공",
-    category: "treasure",
-  },
   // ── 업적 보상 칭호 (퀘스트/업적 보상 수령 시 자동 지급) ──────────────────
   ach_full_gear: {
     id: "ach_full_gear",
@@ -859,13 +793,6 @@ export const TITLES: Record<TitleId, Title> = {
     description: "낚는 김에 도감도 알차게 채우는 낚시꾼.",
     condition: "업적 '강태공' 보상 수령",
     category: "fishing",
-  },
-  ach_field_archaeologist: {
-    id: "ach_field_archaeologist",
-    name: "느긋한 발굴가",
-    description: "서두르지 않고 하나씩 찾아내는 발굴가.",
-    condition: "업적 '고고학자' 보상 수령",
-    category: "treasure",
   },
   ach_bestiary_master: {
     id: "ach_bestiary_master",

@@ -63,7 +63,6 @@ export async function POST(req: Request) {
         "character.v2",
         "proficiency.v2",
         "fishing-codex.v1",
-        "treasure-codex.v1",
       ]
     : ["character-profile.v2", "skills.v2"];
   const rows = await db
@@ -75,7 +74,6 @@ export async function POST(req: Request) {
   let charSave: unknown = {};
   let proficiencyRaw: unknown = undefined;
   let fishingCodexRaw: unknown = undefined;
-  let treasureCodexRaw: unknown = undefined;
   for (const r of rows) {
     if (r.key === "character-profile.v2") {
       profile = (r.value ?? null) as { name?: string } | null;
@@ -87,8 +85,6 @@ export async function POST(req: Request) {
       proficiencyRaw = r.value;
     } else if (r.key === "fishing-codex.v1") {
       fishingCodexRaw = r.value;
-    } else if (r.key === "treasure-codex.v1") {
-      treasureCodexRaw = r.value;
     }
   }
   const playerName = profile?.name?.trim() || "모험가";
@@ -98,7 +94,7 @@ export async function POST(req: Request) {
         parseV2SkillsState(skillsRaw),
         charSave,
         proficiencyRaw,
-        codexSpBonusFromRaw(fishingCodexRaw, treasureCodexRaw).total,
+        codexSpBonusFromRaw(fishingCodexRaw).total,
       )
     : parseV2SkillsState(skillsRaw);
 

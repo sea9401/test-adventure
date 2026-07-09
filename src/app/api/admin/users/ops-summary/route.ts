@@ -13,7 +13,6 @@ import {
   fishingCatchCoinProgress,
   walletCoins as fishingCoins,
 } from "@/lib/server/fishing/coins";
-import { TREASURE_WALLET_KEY, walletCoins as treasureCoins } from "@/lib/server/treasure/coins";
 import { MASTERY_CERTIFICATE_KEY } from "@/adventure/data/v2/masteryTower";
 import { STAMINA_POTIONS_KEY, staminaPotionCount } from "@/adventure/v2/staminaPotions";
 import { MAX_STAMINA, parseStaminaFromSave } from "@/adventure/v2/stamina";
@@ -23,7 +22,6 @@ const SUMMARY_KEYS = [
   "character.v2",
   "character-profile.v2",
   FISHING_WALLET_KEY,
-  TREASURE_WALLET_KEY,
   "inventory.v2",
   "equipment.v2",
   "proficiency.v2",
@@ -109,7 +107,6 @@ export async function GET(req: Request) {
     gold: intValue(character.gold),
     bankedGold: intValue(character.bankedGold),
     fishingCoins: fishingCoins(saves.get(FISHING_WALLET_KEY)),
-    treasureCoins: treasureCoins(saves.get(TREASURE_WALLET_KEY)),
     masteryCertificates: intValue(inventory[MASTERY_CERTIFICATE_KEY]),
     staminaPotions: staminaPotionCount(saves.get(STAMINA_POTIONS_KEY)),
   };

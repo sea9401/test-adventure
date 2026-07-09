@@ -116,7 +116,7 @@ export const SETTLEMENT_BUILDINGS: Record<
     id: "map_workshop",
     name: "지도 제작소",
     icon: "🗺️",
-    desc: "발굴 지점을 여는 데 필요한 지도 조각을 줄여주는 영지 시설입니다.",
+    desc: "길드 탐사 지도를 복원하는 데 필요한 지도 조각을 줄여주는 영지 시설입니다.",
   },
   alchemy_workshop: {
     id: "alchemy_workshop",

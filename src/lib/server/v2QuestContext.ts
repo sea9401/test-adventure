@@ -39,7 +39,6 @@ import {
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
-import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
 import { artisanLevel, parseArtisanState } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 
@@ -78,9 +77,8 @@ export type QuestExtras = {
   claimAttempted: boolean;
   hasOutpost: boolean;
   siegeWins: number;
-  // 생활의 달인 — 도감 세이브 파생(fishing-codex.v1 / treasure-codex.v1).
+  // 생활의 달인 — 도감 세이브 파생(fishing-codex.v1).
   fishSpecies: number;
-  antiquesFound: number;
   // 반복 퀘스트(차분 판정) — 누적치/타임스탬프.
   siegeAttempts: number;
   fishCaught: number;
@@ -234,7 +232,6 @@ export function buildQuestCtx(args: {
     warEjectWins,
     warTreasuryGold,
     fishSpecies: args.extras.fishSpecies,
-    antiquesFound: args.extras.antiquesFound,
     maxEnhanceLevel,
     enhanceStones,
     bankedGold,
@@ -255,7 +252,7 @@ export async function assembleQuestExtras(
   ex: DbExecutor,
   userId: string,
 ): Promise<QuestExtras> {
-  const [guildRows, tradeRows, arenaRaw, claimAgg, fishRaw, treasureRaw] =
+  const [guildRows, tradeRows, arenaRaw, claimAgg, fishRaw] =
     await Promise.all([
       ex
         .select({ id: guildMembers.guildId })
@@ -285,7 +282,6 @@ export async function assembleQuestExtras(
         .from(outpostClaimAttempts)
         .where(eq(outpostClaimAttempts.attackerUserId, userId)),
       readSave(ex, userId, "fishing-codex.v1", {}),
-      readSave(ex, userId, "treasure-codex.v1", {}),
     ]);
   const arenaHistory = parseArenaHistory(arenaRaw);
 
@@ -311,7 +307,6 @@ export async function assembleQuestExtras(
     hasOutpost,
     siegeWins: Number(claimAgg[0]?.wins ?? 0),
     fishSpecies: Object.keys(fishCodex.fish).length,
-    antiquesFound: Object.keys(parseTreasureCodex(treasureRaw).antiques).length,
     siegeAttempts: Number(claimAgg[0]?.total ?? 0),
     fishCaught: Object.values(fishCodex.fish).reduce(
       (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),

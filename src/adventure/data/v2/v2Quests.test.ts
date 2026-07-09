@@ -42,7 +42,6 @@ const ZERO: QuestCtx = {
   warEjectWins: 0,
   warTreasuryGold: 0,
   fishSpecies: 0,
-  antiquesFound: 0,
   maxEnhanceLevel: 0,
   enhanceStones: 0,
   bankedGold: 0,
@@ -466,7 +465,6 @@ describe("currentGuideQuest (홈 배너)", () => {
       warEjectWins: 3,
       warTreasuryGold: 99999,
       fishSpecies: 30,
-      antiquesFound: 24,
       maxEnhanceLevel: 10,
       enhanceStones: 99,
       bankedGold: 99999,
@@ -561,7 +559,6 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
   it("생활의 달인 — 도감 카운트", () => {
     expect(questById("l_fish25")!.check({ ...ZERO, fishSpecies: 24 })).toBe(false);
     expect(questById("l_fish25")!.check({ ...ZERO, fishSpecies: 25 })).toBe(true);
-    expect(questById("l_antique20")!.check({ ...ZERO, antiquesFound: 20 })).toBe(true);
   });
 
   it("토벌 도감 — 종 수·밴드·누적 전투", () => {

@@ -169,9 +169,6 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
                     best: Number(j.streak.best ?? 0),
                     buffTier: Number(j.streak.buffTier ?? 0),
                     coinBonus: Number(j.streak.coinBonus ?? 0),
-                    fragmentChanceBonusPct: Number(
-                      j.streak.fragmentChanceBonusPct ?? 0,
-                    ),
                   }
                 : undefined,
             hotTime:

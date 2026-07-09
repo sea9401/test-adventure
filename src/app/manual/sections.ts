@@ -94,7 +94,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "town",
     title: "마을 시설",
-    summary: "치료소·상점·대장간·낚시터·발굴 감정소.",
+    summary: "치료소·상점·대장간·낚시터.",
     group: "world",
   },
   {
@@ -129,8 +129,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   },
   {
     slug: "pastimes",
-    title: "낚시와 발굴",
-    summary: "낚시 레벨·물때·어보·코인 보상, 보물 발굴과 거래.",
+    title: "낚시",
+    summary: "낚시 레벨·물때·어보·코인 보상.",
     group: "versus",
   },
 ];

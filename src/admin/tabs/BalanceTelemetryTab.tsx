@@ -565,13 +565,11 @@ export function BalanceTelemetryTab() {
           </Card>
 
           <Card title="생활 콘텐츠 진행">
-            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
               {[
                 { label: "낚시 참여", value: data.lifeProgress.fishingPlayers },
                 { label: "평균 어획", value: data.lifeProgress.avgFishCaught },
                 { label: "평균 어종", value: data.lifeProgress.avgFishSpecies },
-                { label: "발굴 참여", value: data.lifeProgress.treasurePlayers },
-                { label: "평균 유물", value: data.lifeProgress.avgAntiquesFound },
               ].map((item) => (
                 <div
                   key={item.label}

@@ -48,7 +48,6 @@ export type TelemetryUser = {
   maxEnhanceLevel: number;
   fishCaught: number;
   fishSpecies: number;
-  antiquesFound: number;
   equippedIds: string[];
   blacksmithLevel: number;
   blacksmithXp: number;
@@ -126,8 +125,6 @@ export type BalanceTelemetry = {
     fishingPlayers: number;
     avgFishCaught: number;
     avgFishSpecies: number;
-    treasurePlayers: number;
-    avgAntiquesFound: number;
   };
   workshopEconomy: {
     summary: {
@@ -308,8 +305,6 @@ export function aggregateBalanceTelemetry(
   let fishCaughtSum = 0;
   let fishSpeciesSum = 0;
   let fishingPlayers = 0;
-  let antiquesFoundSum = 0;
-  let treasurePlayers = 0;
   let activeBlacksmiths = 0;
   let blacksmithLevelSum = 0;
   let workshopTotalCrafts = 0;
@@ -408,8 +403,6 @@ export function aggregateBalanceTelemetry(
     fishCaughtSum += u.fishCaught;
     fishSpeciesSum += u.fishSpecies;
     if (u.fishCaught > 0) fishingPlayers++;
-    antiquesFoundSum += u.antiquesFound;
-    if (u.antiquesFound > 0) treasurePlayers++;
 
     if (u.blacksmithXp > 0 || u.workshopTotalCrafts > 0) {
       activeBlacksmiths++;
@@ -627,8 +620,6 @@ export function aggregateBalanceTelemetry(
       fishingPlayers,
       avgFishCaught: players ? Math.round(fishCaughtSum / players) : 0,
       avgFishSpecies: players ? Math.round(fishSpeciesSum / players) : 0,
-      treasurePlayers,
-      avgAntiquesFound: players ? Math.round(antiquesFoundSum / players) : 0,
     },
     workshopEconomy: {
       summary: {

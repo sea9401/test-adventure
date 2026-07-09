@@ -73,13 +73,6 @@ import {
 } from "@/adventure/v2/hpRegen";
 import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import {
-  TREASURE_FRAGMENTS_KEY,
-  HUNT_FRAGMENT_DROP_CHANCE,
-  addFragments,
-  parseTreasureFragments,
-  rollFragmentDrop,
-} from "@/adventure/v2/treasureFragments";
-import {
   parseEquipmentSave,
   type EquipmentSave,
   type V2EquipmentId,
@@ -864,21 +857,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         })
       : { hp: 0, mp: 0 };
 
-  // 보물 탐사 — 사냥 승리 시 낮은 확률로 지도 조각 드랍(트리클). 굴림은 100% 서버.
-  // 드랍 났을 때만 키를 잠근다 — 락 순서상 가장 마지막. 조각 소비(발굴)는 PR-3.
-  const fragmentDrop = won
-    ? rollFragmentDrop(Math.random, HUNT_FRAGMENT_DROP_CHANCE)
-    : 0;
-  let fragmentsTotal = 0;
-  if (fragmentDrop > 0) {
-    const frags = parseTreasureFragments(
-      await lockSaveForUpdate(tx, userId, TREASURE_FRAGMENTS_KEY, {}),
-    );
-    const nextFrags = addFragments(frags, fragmentDrop);
-    await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, nextFrags);
-    fragmentsTotal = nextFrags.fragments;
-  }
-
   // 세금 transfer. 정착지 전쟁(flag) on = 점령지 세금도 거점 금고에 누적(영주 수확·약탈 대상화);
   //   off = 점령자 개인 골드 직행(현행·byte-identical). 큐/락 순서 불변(ownerSave 는 위에서 lock 유지).
   if (goldTaxed > 0 && taxOwnerId) {
@@ -978,9 +956,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         mpCharges,
         drops,
         droppedEquipment,
-        // 보물 탐사 — 이번 사냥 지도 조각 드랍 수 + 누적(0 = 안 떨어짐).
-        fragmentDrop,
-        fragmentsTotal,
         droppedUnique,
         ejected: ejectedNotice,
         // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출

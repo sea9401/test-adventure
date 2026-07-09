@@ -77,7 +77,6 @@ export type RewardCompensationPreset = {
   itemKind:
     | "gold"
     | "fishing_coin"
-    | "treasure_coin"
     | "mastery_certificate"
     | "stamina_potion"
     | "material";
@@ -125,14 +124,6 @@ export const DEFAULT_REWARD_COMPENSATION_PRESETS: RewardCompensationPreset[] = [
     itemId: "",
     quantity: 100,
     reason: "낚시 코인 미지급 보정",
-  },
-  {
-    id: "treasure-coin-missing",
-    label: "발굴 코인 미지급",
-    itemKind: "treasure_coin",
-    itemId: "",
-    quantity: 100,
-    reason: "발굴 코인 미지급 보정",
   },
   {
     id: "mastery-certificate-missing",
@@ -617,7 +608,6 @@ function parseRewardFailureStatus(raw: unknown): RewardFailureStatus | null {
 function parseRewardItemKind(raw: unknown): RewardCompensationPreset["itemKind"] | null {
   return raw === "gold" ||
     raw === "fishing_coin" ||
-    raw === "treasure_coin" ||
     raw === "mastery_certificate" ||
     raw === "stamina_potion" ||
     raw === "material"

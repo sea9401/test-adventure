@@ -108,7 +108,6 @@ function rateLimitAlertGroup(action: string): string {
   if (action.includes(":marketplace:")) return "marketplace";
   if (action.includes(":shop:")) return "shop";
   if (action.includes(":fishing:")) return "fishing";
-  if (action.includes(":treasure:")) return "treasure";
   if (action.includes(":dungeon:") || action.includes(":coop:")) return "battle";
   if (action.includes(":me:state")) return "state";
   return "general";

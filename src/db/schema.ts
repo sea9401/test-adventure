@@ -996,6 +996,7 @@ export const guildExplorationWeekly = pgTable("guild_exploration_weekly", {
   deepHuntWinProgress: integer("deep_hunt_win_progress").notNull().default(0),
   fishingCatchProgress: integer("fishing_catch_progress").notNull().default(0),
   claimed: jsonb("claimed").notNull().default(sql`'[]'::jsonb`),
+  content: jsonb("content").notNull().default(sql`'{}'::jsonb`),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

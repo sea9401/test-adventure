@@ -4,6 +4,8 @@ import {
   GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
   GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH,
   GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
+  GUILD_EXPLORATION_EVENTS,
+  GUILD_EXPLORATION_MAP_FRAGMENT_TARGET,
   GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
   GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
   GUILD_EXPLORATION_PROGRESS_UNIT,
@@ -15,6 +17,10 @@ import {
   coopTierMeetsExplorationRequirement,
   guildExplorationWeeklyMissionViews,
   parseGuildExplorationWeeklyState,
+  resolveGuildExplorationEvent,
+  restoreGuildExplorationMap,
+  startGuildExplorationExpedition,
+  claimGuildExplorationExpedition,
 } from "./guildExploration";
 
 describe("guild exploration weekly missions", () => {
@@ -78,6 +84,7 @@ describe("guild exploration weekly missions", () => {
     expect(progressed.coopEpicProgress).toBe(
       GUILD_EXPLORATION_PROGRESS_UNIT + 35,
     );
+    expect(progressed.content.mapFragments).toBe(8);
     expect(guildExplorationWeeklyMissionViews(progressed, 1)[0]).toMatchObject({
       progress: 135,
       progressText: "1.35",
@@ -105,6 +112,7 @@ describe("guild exploration weekly missions", () => {
     expect(deepHunted.huntWinProgress).toBe(360);
     expect(deepHunted.fishingCatchProgress).toBe(240);
     expect(deepHunted.deepHuntWinProgress).toBe(480);
+    expect(deepHunted.content.mapFragments).toBe(13);
     expect(guildExplorationWeeklyMissionViews(deepHunted, 4).map((v) => v.id))
       .toEqual([
         "weekly_coop_epic_30",
@@ -125,6 +133,7 @@ describe("guild exploration weekly missions", () => {
       deepHuntWinProgress: 0,
       fishingCatchProgress: 0,
       claimed: [],
+      content: parseGuildExplorationWeeklyState(null, "2026-W27").content,
     };
     const view = guildExplorationWeeklyMissionViews(state, 1)[0];
 
@@ -132,5 +141,61 @@ describe("guild exploration weekly missions", () => {
     expect(
       claimGuildExplorationWeeklyMission(state, "weekly_coop_epic_30").claimed,
     ).toEqual(["weekly_coop_epic_30"]);
+  });
+
+  it("restores maps into event cards and resolves event rewards", () => {
+    const base = parseGuildExplorationWeeklyState(
+      {
+        weekKey: "2026-W27",
+        content: { mapFragments: GUILD_EXPLORATION_MAP_FRAGMENT_TARGET },
+      },
+      "2026-W27",
+    );
+    const restored = restoreGuildExplorationMap(base);
+
+    expect(restored?.content.mapFragments).toBe(0);
+    expect(restored?.content.pendingEvent?.eventId).toBe("collapsed_bridge");
+
+    const choice = GUILD_EXPLORATION_EVENTS.collapsed_bridge.choices[0];
+    const resolved = restored
+      ? resolveGuildExplorationEvent(restored, choice.id)
+      : null;
+
+    expect(resolved?.event.id).toBe("collapsed_bridge");
+    expect(resolved?.state.content.pendingEvent).toBeNull();
+    expect(resolved?.state.content.resolvedEvents).toEqual([
+      "collapsed_bridge",
+    ]);
+  });
+
+  it("starts and claims expedition rewards after the end time", () => {
+    const base = parseGuildExplorationWeeklyState(null, "2026-W27");
+    const started = startGuildExplorationExpedition(
+      base,
+      "ancient_ruins",
+      new Date("2026-07-01T00:00:00Z"),
+    );
+
+    expect(started.content.activeExpedition?.expeditionId).toBe(
+      "ancient_ruins",
+    );
+    expect(
+      claimGuildExplorationExpedition(
+        started,
+        new Date("2026-07-01T00:30:00Z"),
+      ),
+    ).toBeNull();
+
+    const claimed = claimGuildExplorationExpedition(
+      started,
+      new Date("2026-07-01T01:01:00Z"),
+    );
+
+    expect(claimed?.reward).toMatchObject({
+      expeditionId: "ancient_ruins",
+      mapFragments: 24,
+    });
+    expect(claimed?.state.content.activeExpedition).toBeNull();
+    expect(claimed?.state.content.mapFragments).toBe(24);
   });
 });

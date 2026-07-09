@@ -3,6 +3,7 @@ import type { db as dbType } from "@/db";
 import { guildExplorationWeekly, guildMembers } from "@/db/schema";
 import {
   addGuildExplorationProgress,
+  guildExplorationContentPayload,
   guildExplorationWeeklyClaimedPayload,
   parseGuildExplorationWeeklyState,
   type GuildExplorationWeeklyMetric,
@@ -35,6 +36,7 @@ function rowToState(
         deepHuntWinProgress?: number | null;
         fishingCatchProgress?: number | null;
         claimed?: unknown;
+        content?: unknown;
       }
     | null
     | undefined,
@@ -49,6 +51,7 @@ function rowToState(
           deepHuntWinProgress: row.deepHuntWinProgress,
           fishingCatchProgress: row.fishingCatchProgress,
           claimed: row.claimed,
+          content: row.content,
         }
       : null,
     weekKey,
@@ -74,6 +77,7 @@ export async function lockGuildExplorationWeeklyState(
         deepHuntWinProgress: guildExplorationWeekly.deepHuntWinProgress,
         fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
         claimed: guildExplorationWeekly.claimed,
+        content: guildExplorationWeekly.content,
       })
       .from(guildExplorationWeekly)
       .where(eq(guildExplorationWeekly.guildId, guildId))
@@ -101,6 +105,7 @@ export async function readGuildExplorationWeeklyState(
         deepHuntWinProgress: guildExplorationWeekly.deepHuntWinProgress,
         fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
         claimed: guildExplorationWeekly.claimed,
+        content: guildExplorationWeekly.content,
       })
       .from(guildExplorationWeekly)
       .where(eq(guildExplorationWeekly.guildId, guildId))
@@ -124,6 +129,7 @@ export async function saveGuildExplorationWeeklyState(
       deepHuntWinProgress: state.deepHuntWinProgress,
       fishingCatchProgress: state.fishingCatchProgress,
       claimed: guildExplorationWeeklyClaimedPayload(state),
+      content: guildExplorationContentPayload(state),
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
@@ -135,6 +141,7 @@ export async function saveGuildExplorationWeeklyState(
         deepHuntWinProgress: state.deepHuntWinProgress,
         fishingCatchProgress: state.fishingCatchProgress,
         claimed: guildExplorationWeeklyClaimedPayload(state),
+        content: guildExplorationContentPayload(state),
         updatedAt: new Date(),
       },
     });

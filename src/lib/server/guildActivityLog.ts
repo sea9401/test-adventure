@@ -16,6 +16,9 @@ export type GuildActivityType =
   | "gold_deposit"
   | "workshop_weekly_claim"
   | "exploration_weekly_claim"
+  | "exploration_expedition_dispatch"
+  | "exploration_expedition_claim"
+  | "exploration_event_resolve"
   | "workshop_delivery"
   | "workshop_craft_only"
   | "artisan_rank_reward"
@@ -46,6 +49,7 @@ export type GuildActivityMeta = {
   titleName?: string; // artisan_rank_reward
   rewardGold?: number; // workshop_weekly_claim | exploration_weekly_claim | workshop_delivery
   rewardFame?: number; // workshop_weekly_claim | exploration_weekly_claim
+  mapFragments?: number; // exploration_expedition_claim | exploration_event_resolve
 };
 
 export async function logGuildActivity(

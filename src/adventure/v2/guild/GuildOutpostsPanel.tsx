@@ -34,10 +34,12 @@ const VISIBLE_GUILD_FACILITY_IDS = [
 export function GuildFacilitiesPanel({
   guildId,
   info,
+  canManage,
   onChanged,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
+  canManage?: boolean;
   onChanged?: () => void;
 }) {
   const [activeFacility, setActiveFacility] =
@@ -90,7 +92,7 @@ export function GuildFacilitiesPanel({
     return (
       <div className="space-y-3">
         <FacilityBackButton onClick={() => setActiveFacility(null)} />
-        <GuildExplorationPanel onChanged={onChanged} />
+        <GuildExplorationPanel canManage={canManage} onChanged={onChanged} />
       </div>
     );
   }

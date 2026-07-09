@@ -115,7 +115,7 @@ export async function reconcileV2EquippedSkills(
   const same = (a: readonly string[], b: readonly string[]) =>
     a.length === b.length && a.every((x, i) => x === b[i]);
   if (same(current.equipped, equipped)) return current;
-  const next: V2SkillsState = { learned: current.learned, equipped };
+  const next: V2SkillsState = { ...current, equipped };
   await upsertSave(executor, userId, "skills.v2", next);
   return next;
 }

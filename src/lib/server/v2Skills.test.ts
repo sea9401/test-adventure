@@ -32,6 +32,15 @@ const FRUIT_BUDGET_LOADOUT = [
   "v2c_warrior_might", // 3
 ] as const;
 
+const OVER_BUDGET_LOADOUT = [
+  "v2c_warrior_strike",
+  "v2c_mage_fireball",
+  "v2c_mage_barrage",
+  "v2c_mage_shield",
+  "v2c_martial_combo",
+  "v2c_rogue_poison",
+] as const;
+
 describe("v2Skills — SP 열매 보너스 예산", () => {
   it("state reconcile 이 spFruitUsed 보너스를 반영해 수동 로드아웃을 보존한다", async () => {
     store.clear();
@@ -57,6 +66,43 @@ describe("v2Skills — SP 열매 보너스 예산", () => {
     expect((store.get("skills.v2") as { equipped: string[] }).equipped).toEqual(
       [...FRUIT_BUDGET_LOADOUT],
     );
+  });
+
+  it("state reconcile 이 장착 목록을 정리해도 로드아웃 프리셋은 보존한다", async () => {
+    store.clear();
+    store.set("character.v2", {
+      class: "warrior",
+      level: 100,
+    });
+    store.set("skills.v2", {
+      learned: [...OVER_BUDGET_LOADOUT],
+      equipped: [...OVER_BUDGET_LOADOUT],
+      loadoutPresets: [
+        {
+          name: "보스용",
+          skills: ["v2c_warrior_strike", "v2c_mage_boltcast"],
+        },
+      ],
+    });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: {},
+      caps: {},
+      grown: {},
+    });
+
+    const next = await reconcileV2EquippedSkills({} as DbExecutor, "u-test");
+
+    expect(next.equipped.length).toBeLessThan(OVER_BUDGET_LOADOUT.length);
+    expect(next.loadoutPresets).toEqual([
+      {
+        name: "보스용",
+        skills: ["v2c_warrior_strike", "v2c_mage_boltcast"],
+      },
+    ]);
+    expect(
+      (store.get("skills.v2") as { loadoutPresets?: unknown }).loadoutPresets,
+    ).toEqual(next.loadoutPresets);
   });
 
   it("전투 직전 sanitize 도 spFruitUsed 보너스를 반영한다", () => {

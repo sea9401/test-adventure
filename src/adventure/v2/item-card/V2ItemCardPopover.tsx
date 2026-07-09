@@ -12,7 +12,6 @@ import {
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
   signatureLabel,
-  v2EquipPowerLabel,
   v2EquipStatRows,
   type V2CraftQualityState,
   type V2CraftedBy,
@@ -91,17 +90,9 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  // 기본 스탯(공격력/방어력 계열·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다.
-  //   강화 수치는 이름 옆 "+N" 으로만 표기.
+  // 강화 수치는 이름 옆 "+N" 으로만 표기하고, 모든 스탯/옵션은 한 패널에 모은다.
   const statRows = v2EquipStatRows(item, roll, enhance, craftQuality).map((row) =>
     statRowWithRollRange(item, row, roll, enhance, craftQuality),
-  );
-  const powerLabel = v2EquipPowerLabel(item);
-  const baseRows = statRows.filter(
-    (r) => r.label === powerLabel || r.label === "무게",
-  );
-  const optionRows = statRows.filter(
-    (r) => r.label !== powerLabel && r.label !== "무게",
   );
   const pct = rollQualityPct(item, roll);
   const set = item.setId
@@ -224,25 +215,11 @@ export function V2ItemCard({
             </span>
           </div>
         ) : (
-          <>
-            {baseRows.length > 0 && (
-              <div className={`${STAT_PANEL} mt-3 space-y-0.5 p-2.5`}>
-                {baseRows.map((s) => (
-                  <StatRow key={s.label} row={s} />
-                ))}
-              </div>
-            )}
-            {/* 옵션 — 기본 스탯과 배경 블록으로 분리. */}
-            {optionRows.length > 0 && (
-              <div
-                className={`${STAT_PANEL} mt-2 space-y-0.5 p-2.5`}
-              >
-                {optionRows.map((s) => (
-                  <StatRow key={s.label} row={s} />
-                ))}
-              </div>
-            )}
-          </>
+          <div className={`${STAT_PANEL} mt-3 space-y-0.5 p-2.5`}>
+            {statRows.map((s) => (
+              <StatRow key={s.label} row={s} />
+            ))}
+          </div>
         )}
 
         {/* 단품 마퀴 시그니처(세트 아닌 고유 아이템의 발동형 효과) — 장착만 하면 발동. */}

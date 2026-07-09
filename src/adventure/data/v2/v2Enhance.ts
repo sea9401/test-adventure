@@ -1,16 +1,13 @@
 // v2 장비 강화 — 다이얼 + 순수 헬퍼. 설계: docs/v2-equipment-enhance-plan.md
 //
-// 장비 개체(iid)당 +0→+ENHANCE_MAX_LEVEL. 효과는 위력만 곱연산(옵션·무게 불변) —
+// 장비 개체(iid)당 제한 없이 강화. 효과는 위력만 곱연산(옵션·무게 불변) —
 // 굴림(옵션 편차)과 직교하는 별도 진척 축. 매 강화마다 강화석 색을 선택:
-//   붉은(맹렬) = 성공 시 +3%p·성공률 −10%p / 푸른(단단) = +2%p·보정 없음.
-// 같은 +10 이라도 돌 구성에 따라 +20~30% — 개체 정체성·거래 가치.
+//   붉은(맹렬) = 성공률을 끌어올리는 도박 / 푸른(단단) = 파괴 위험 완화.
 //
-// 실패 = 재료만 소실(레벨 하락·파괴 없음 — 소수 모수 캐주얼 서버 정책).
+// 결과 = 성공 / 유지 / 하락 / 파괴. +10 이후부터는 보상도 비용·리스크도 확실히 커진다.
 // 수급 = 사냥 드랍 전용(PR-2) — 초보자도 줍고 거래소에서 환금(베테랑 수요).
 
 // ── 다이얼 (라이브 실측 후 캘리브) ──────────────────────────────────────────
-export const ENHANCE_MAX_LEVEL = 10;
-
 export type EnhanceStoneId = "red" | "blue";
 // 강화 방식 — 골드만(기본, +7까지) 또는 돌. +8부터는 돌 필수(고강 입장권 — 돌 시장가의 근거).
 export type EnhanceChoice = EnhanceStoneId | "none";
@@ -23,46 +20,85 @@ export const ENHANCE_STONES: Record<EnhanceStoneId, { name: string }> = {
 // 골드만 한계 — 이 레벨 이상에서의 시도는 강화석 필수.
 export const ENHANCE_STONE_REQUIRED_FROM = 7;
 
-// 4결과 모델(2026-06-11 리밸런스, 사용자) — n→n+1 시도의 [성공, 유지, 하락, 파괴] %.
+// 4결과 모델 — n→n+1 시도의 [성공, 유지, 하락, 파괴] %.
 // 골드만 기준표. +5부터 성공 얇고 유지 두텁게(제자리걸음에 골드가 녹는 클래식 고강 체감),
-// 파괴는 +7부터 5/10/15% — 푸른 돌이 완전 방어하므로 골드만/붉은 도박꾼만의 리스크.
+// +10 이후는 성공률을 더 낮추고 하락·파괴를 올려 장기 엔드 sink 로 둔다.
 export type EnhanceOutcome = "success" | "keep" | "demote" | "destroy";
 export const ENHANCE_OUTCOME_TABLE: readonly (readonly [
   number, number, number, number,
 ])[] = [
-  [90, 10, 0, 0],
-  [85, 15, 0, 0],
-  [80, 20, 0, 0],
-  [75, 25, 0, 0],
-  [70, 30, 0, 0],
+  [92, 8, 0, 0],
+  [88, 12, 0, 0],
+  [84, 16, 0, 0],
+  [78, 22, 0, 0],
+  [72, 28, 0, 0],
   [50, 40, 10, 0],
   [40, 42, 18, 0],
   [30, 42, 23, 5],
-  [22, 42, 26, 10],
-  [15, 42, 28, 15],
+  [22, 42, 27, 9],
+  [18, 42, 27, 13],
+  [14, 36, 32, 18],
+  [12, 34, 34, 20],
+  [10, 32, 36, 22],
+  [9, 30, 38, 23],
+  [8, 28, 40, 24],
+  [7, 26, 42, 25],
+  [6, 24, 44, 26],
+  [5, 22, 46, 27],
+  [4, 21, 48, 27],
+  [3, 20, 50, 27],
+  [3, 19, 50, 28],
 ];
 
+function baseEnhanceOutcomeRow(level: number): [number, number, number, number] {
+  const safeLevel = Math.max(0, Math.floor(level));
+  const fixed = ENHANCE_OUTCOME_TABLE[safeLevel];
+  if (fixed) return [...fixed] as [number, number, number, number];
+
+  const over = safeLevel - 19;
+  const success = Math.max(1, 3 - Math.floor(over / 5));
+  const destroy = Math.min(35, 27 + Math.floor((over + 1) / 2));
+  const demote = Math.min(55, 50 + Math.floor(over / 3));
+  const keep = Math.max(0, 100 - success - demote - destroy);
+  return [success, keep, demote, destroy];
+}
+
 // 돌 효과 — 결과표 변환.
-//   🔴 붉은(맹렬): 성공 +15%p (유지에서 차감, 부족분은 하락에서. 파괴 불변 — 도박).
-//   🔵 푸른(단단): 파괴 → 하락으로 완전 전환 + 하락 −10%p(유지로). 지키는 돌.
+//   +9까지:
+//     🔴 붉은: 성공 +15%p (유지에서 차감, 부족분은 하락에서. 파괴 불변)
+//     🔵 푸른: 파괴 → 하락으로 완전 전환 + 하락 −10%p(유지로)
+//   +10부터:
+//     🔴 붉은: 성공 +10%p, 파괴 +5%p (유지에서 차감, 부족분은 하락에서)
+//     🔵 푸른: 파괴 −10%p, 하락 +5%p, 유지 +5%p. 완전 방어가 아니라 완화.
 export function enhanceOutcomeRow(
   level: number,
   choice: EnhanceChoice,
 ): readonly [number, number, number, number] {
-  const idx = Math.min(Math.max(0, level), ENHANCE_OUTCOME_TABLE.length - 1);
-  let [s, k, d, x] = ENHANCE_OUTCOME_TABLE[idx];
-  if (choice === "red") {
-    const fromKeep = Math.min(15, k);
-    const fromDemote = Math.min(15 - fromKeep, d);
-    s += fromKeep + fromDemote;
+  const safeLevel = Math.max(0, Math.floor(level));
+  let [s, k, d, x] = baseEnhanceOutcomeRow(safeLevel);
+  const takeRiskPool = (amount: number): number => {
+    const fromKeep = Math.min(amount, k);
     k -= fromKeep;
+    const fromDemote = Math.min(amount - fromKeep, d);
     d -= fromDemote;
+    return fromKeep + fromDemote;
+  };
+  if (choice === "red") {
+    s += takeRiskPool(safeLevel >= 10 ? 10 : 15);
+    if (safeLevel >= 10) x += takeRiskPool(5);
   } else if (choice === "blue") {
-    d += x;
-    x = 0;
-    const calmed = Math.min(10, d);
-    d -= calmed;
-    k += calmed;
+    if (safeLevel >= 10) {
+      const guarded = Math.min(10, x);
+      x -= guarded;
+      k += Math.floor(guarded / 2);
+      d += guarded - Math.floor(guarded / 2);
+    } else {
+      d += x;
+      x = 0;
+      const calmed = Math.min(10, d);
+      d -= calmed;
+      k += calmed;
+    }
   }
   return [s, k, d, x];
 }
@@ -81,17 +117,28 @@ export function rollEnhanceOutcome(
   return "destroy";
 }
 
-// 회당 강화석 비용(개) — +0~2: 1, +3~5: 2, +6~8: 3, +9: 4.
+// 회당 강화석 비용(개) — +10 이후는 직접 지정, +20 이후는 +3개씩 증가.
+const ENHANCE_STONE_COST_HIGH: readonly number[] = [
+  5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23,
+];
 export function enhanceStoneCost(level: number): number {
-  return 1 + Math.floor(Math.max(0, level) / 3);
+  const safeLevel = Math.max(0, Math.floor(level));
+  if (safeLevel < 10) return 1 + Math.floor(safeLevel / 3);
+  const high = ENHANCE_STONE_COST_HIGH[safeLevel - 10];
+  if (high != null) return high;
+  return 23 + (safeLevel - 20) * 3;
 }
 
-// 회당 골드 수수료 — 제곱 램프(2026-06-11 리밸런스: 옛 ×2 선형은 수입 대비 20승 분량으로
-// 너무 쌌음). 위력 322 기준 +0→1 ≈ 4.8k, +9→10 ≈ 483k. +10 기대 누적 ≈ 1,400만~1,600만 G
-// (깊이 48 수입 ~3,300승 분량) — 묵직한 골드 sink.
+// 회당 골드 수수료 — +9까지 제곱 램프, +10 이후 1.45 지수 배율.
+// 위력 322 기준 +9→10 ≈ 483k, +10→11 ≈ 847k, +19→20 ≈ 79.4M.
 export const ENHANCE_GOLD_K = 15;
 export function enhanceGoldCost(power: number, level: number): number {
-  return Math.max(1, Math.floor(power * ENHANCE_GOLD_K * (level + 1) ** 2));
+  const safePower = Math.max(1, Math.floor(power));
+  const safeLevel = Math.max(0, Math.floor(level));
+  const highMult = safeLevel >= 10 ? 1.45 ** (safeLevel - 9) : 1;
+  const raw = safePower * ENHANCE_GOLD_K * (safeLevel + 1) ** 2 * highMult;
+  if (!Number.isFinite(raw)) return Number.MAX_SAFE_INTEGER;
+  return Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(raw)));
 }
 
 // 유니크 강화 비용 배수(강화석·골드 공통) — chase 는 드랍에서, 강화는 장기 투자.
@@ -101,8 +148,8 @@ export const ENHANCE_UNIQUE_COST_MULT = 2;
 
 // ── 개체 강화 상태 ──────────────────────────────────────────────────────────
 // equipment.v2.owned[].enhance — 옵셔널(옛 세이브·미강화 = 부재 = 0). 표기 "+7 (16%)".
-// 2026-06-11 리밸런스: 보너스 = 레벨 구간제(돌 무관) — +1~5: 2%/강, +6~7: 3%, +8~9: 4%,
-// +10: 10% 점프(확실한 리턴). 누적: +5=10% +7=16% +9=24% +10=34%.
+// 2026-07-09 리밸런스: +10 이전 보너스를 낮추고, +10 이후 고비용 고리스크 구간에서
+// 확실한 체감 폭을 준다. 누적: +10=24%, +12=34%(옛 +10), +20=69%.
 // bonusPct 필드는 세이브/페이로드 호환을 위해 유지하되 파스 시 레벨 기반으로 정규화
 // (구 모델 돌별 누적치는 폐기 — 라이브 도입 수시간 내라 마이그 무해).
 export type V2EnhanceState = {
@@ -112,25 +159,25 @@ export type V2EnhanceState = {
 };
 
 export const ENHANCE_LEVEL_BONUS_CUM: readonly number[] = [
-  0, 2, 4, 6, 8, 10, 13, 16, 20, 24, 34,
+  0, 1, 2, 4, 6, 8, 10, 12, 15, 18, 24, 29, 34, 39, 44, 49, 53, 57, 61, 65, 69,
 ];
 
 export function enhanceBonusPct(level: number): number {
-  const idx = Math.min(
-    Math.max(0, Math.floor(level)),
-    ENHANCE_LEVEL_BONUS_CUM.length - 1,
-  );
-  return ENHANCE_LEVEL_BONUS_CUM[idx];
+  const safeLevel = Math.max(0, Math.floor(level));
+  const fixed = ENHANCE_LEVEL_BONUS_CUM[safeLevel];
+  if (fixed != null) return fixed;
+  if (safeLevel <= 30) return 69 + (safeLevel - 20) * 2;
+  return 89 + (safeLevel - 30);
 }
 
-// 방어 파스 — 손상/위조 세이브에서 클램프 + 보너스 레벨 정규화.
+// 방어 파스 — 손상/위조 세이브에서 정수화 + 보너스 레벨 정규화.
 // 무의미(level 0 이하)면 undefined(=미강화).
 export function parseEnhance(raw: unknown): V2EnhanceState | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as { level?: unknown };
   const levelN = typeof r.level === "number" ? r.level : Number(r.level);
   if (!Number.isFinite(levelN) || levelN <= 0) return undefined;
-  const level = Math.min(ENHANCE_MAX_LEVEL, Math.floor(levelN));
+  const level = Math.floor(levelN);
   return { level, bonusPct: enhanceBonusPct(level) };
 }
 
@@ -145,7 +192,7 @@ export const ENHANCE_STONE_MATERIAL_ID: Record<EnhanceStoneId, string> = {
 
 // 승리당 드랍 확률(%) — 의도적으로 매우 희소(사용자 결정: "훨씬 귀하게").
 // NPC 판매 없음 — 환금/수급은 거래소 유저 거래 전용(시세는 수요가 결정).
-// 푸른 1개 ≈ 333승, 붉은 1개 ≈ 1,000승. +10 1부위 ≈ 돌 ~27개(성공률 반영 기대값).
+// 푸른 1개 ≈ 333승, 붉은 1개 ≈ 1,000승.
 export const ENHANCE_STONE_DROP_PCT: Record<EnhanceStoneId, number> = {
   red: 0.1,
   blue: 0.3,

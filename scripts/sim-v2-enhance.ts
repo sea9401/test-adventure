@@ -1,8 +1,8 @@
-// 장비 강화 밸런스 sim — 풀강(+10)이 PvE 승률·PvP 매치업에 주는 격차 측정.
+// 장비 강화 밸런스 sim — 고강 단계가 PvE 승률·PvP 매치업에 주는 격차 측정.
 // 설계 docs/v2-equipment-enhance-plan.md PR-4. ENHANCE 보너스 %p 캘리브 입력.
 //
 // 레퍼런스: 전사 4차(누적 2000·보통 수행)·소굴 BiS. 강화 = 구간제 누적 보너스
-// (+5=10% +7=16% +10=34%) — 6슬롯 전부 동일 적용.
+// (+5=8% +10=24% +12=34% +20=69%) — 6슬롯 전부 동일 적용.
 //
 // 실행: node --import tsx scripts/sim-v2-enhance.ts
 
@@ -105,9 +105,10 @@ function pveWr(d: ReturnType<typeof makeRef>["d"], depth: number): number {
 
 const SCENARIOS: { label: string; enhance: V2EnhanceState | undefined }[] = [
   { label: "무강", enhance: undefined },
-  { label: "+5 (10%)", enhance: { level: 5, bonusPct: 10 } },
-  { label: "+7 (16%)", enhance: { level: 7, bonusPct: 16 } },
-  { label: "+10 (34%)", enhance: { level: 10, bonusPct: 34 } },
+  { label: "+5 (8%)", enhance: { level: 5, bonusPct: 8 } },
+  { label: "+10 (24%)", enhance: { level: 10, bonusPct: 24 } },
+  { label: "+12 (34%)", enhance: { level: 12, bonusPct: 34 } },
+  { label: "+20 (69%)", enhance: { level: 20, bonusPct: 69 } },
 ];
 
 console.log("시나리오 | power | 깊이48 | 깊이56 | 깊이64 | 깊이72");
@@ -118,8 +119,8 @@ for (const s of refs) {
 }
 console.log(`\n권장 파워 게이트: 깊이48=${floorPowerGate(48)} · 56=${floorPowerGate(56)} · 64=${floorPowerGate(64)} · 72=${floorPowerGate(72)}`);
 
-// PvP — 풀강(+30%) vs 무강 직접 대결 (동일 빌드).
-const a = refs[3].ref; // +10 순붉
+// PvP — +12(옛 +10 체감) vs 무강 직접 대결 (동일 빌드).
+const a = refs[3].ref;
 const b = refs[0].ref; // 무강
 let aw = 0;
 const N = 400;
@@ -127,9 +128,9 @@ for (let i = 0; i < N; i++) {
   const r = resolveBattlePvP(
     { ...a.d.player, hp: a.d.maxHp },
     { ...b.d.player, hp: b.d.maxHp },
-    "풀강", "무강",
+    "+12", "무강",
     { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
   );
   if (r.outcome === "p1_win") aw++;
 }
-console.log(`\nPvP 동빌드: +10 순붉 vs 무강 → 풀강 승률 ${Math.round((aw / N) * 100)}% (${N}판)`);
+console.log(`\nPvP 동빌드: +12 vs 무강 → +12 승률 ${Math.round((aw / N) * 100)}% (${N}판)`);

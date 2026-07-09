@@ -12,7 +12,6 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   ENHANCE_FEED_MIN_LEVEL,
-  ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
@@ -31,11 +30,12 @@ import {
 //
 // body: { iid: string, stone?: "red" | "blue" | "none", feedIid?: string }
 //   stone   — 골드만("none"/생략, +7까지) 또는 돌. **+8부터(레벨 ≥7 시도)는 돌 필수.**
-//             🔴 붉은 = 성공 +15%p(파괴 불변 — 도박) / 🔵 푸른 = 파괴→하락 전환+하락 −10%p.
+//             🔴 붉은 = 성공↑ 도박 / 🔵 푸른 = 파괴 위험 완화.
 //   feedIid — 같은 id 의 다른 보유 개체(미장착·미잠금)를 먹이면 그 회차 강화석 면제.
 //             골드만 모드에선 의미가 없어 거부(개체 보호).
 //
 // 결과(4종, enhanceOutcomeRow): 성공(+1·구간 보너스) / 유지 / 하락(−1) / 파괴(개체 소멸).
+// 강화 단계에는 하드 캡이 없고, +10 이후부터 비용·리스크가 크게 오른다.
 // 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCostForEquipment(티어 보정 제곱 램프), 유니크 ×2 —
 // 성공/실패 무관 선차감.
 // 락 순서: character.v2 → equipment.v2 (처분 라우트들과 동일).
@@ -113,12 +113,6 @@ export async function POST(req: Request) {
     }
     const item = V2_EQUIPMENT[inst.id];
     const level = inst.enhance?.level ?? 0;
-    if (level >= ENHANCE_MAX_LEVEL) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "max_level" as const },
-      };
-    }
     // 고강(+8부터) 돌 필수 — 골드만으로는 +7 이 천장(돌 = 고강 입장권).
     if (level >= ENHANCE_STONE_REQUIRED_FROM && stone === "none") {
       return {

@@ -890,7 +890,7 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.find((i) => i.iid === "crafted")?.enhance).toBeUndefined();
     expect(r.owned.find((i) => i.iid === "normal")?.enhance).toEqual({
       level: 1,
-      bonusPct: 2,
+      bonusPct: 1,
     });
   });
 

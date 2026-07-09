@@ -187,7 +187,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
       return {
         id: notice.id,
         tone: "ok",
-        text: `${result.title} 구매 완료. 농장 명성 ${result.costReputation}을 사용했습니다.${
+        text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation}개를 사용했습니다.${
           hasSeedRewards(result.rewardSeeds)
             ? ` 씨앗 보상: ${formatSeedRewards(result.rewardSeeds)}.`
             : ""
@@ -199,14 +199,14 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
       return {
         id: notice.id,
         tone: "ok",
-        text: `${result.title} 구매 완료. 농장 명성 ${result.costReputation}을 사용해 밭 ${result.plotCount}칸을 열었습니다.`,
+        text: `${result.title} 구매 완료. 농장 증표 ${result.costReputation}개를 사용해 밭 ${result.plotCount}칸을 열었습니다.`,
       };
     }
     const { result } = notice;
     return {
       id: notice.id,
       tone: "ok",
-      text: `${result.title} 납품 완료. 농장 명성 ${result.rewardReputation}을 받았습니다.${
+      text: `${result.title} 납품 완료. 농장 증표 ${result.rewardReputation}개를 받았습니다.${
         hasSeedRewards(result.rewardSeeds)
           ? ` 씨앗 보상: ${formatSeedRewards(result.rewardSeeds)}.`
           : ""
@@ -256,7 +256,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                 아침에 심고, 모험 뒤에 거두는 작은 밭
               </h2>
               <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-                씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 명성을 확보합니다.
+                씨앗을 심고 작물을 수확한 뒤, 납품으로 농장 증표를 확보합니다.
               </p>
             </div>
           </div>
@@ -422,7 +422,7 @@ function FarmSummary({
       />
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
-        label="사용 명성"
+        label="농장 증표"
         value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}/${farm.stats.reputation.toLocaleString("ko-KR")}`}
       />
       <SummaryTile
@@ -462,7 +462,7 @@ function FarmGrowthPanel({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
             {next.title} 구매 시 밭 {next.plotCount}칸을 사용할 수 있습니다. 비용
-            명성 {next.costReputation} · 보유 {availableReputation}
+            증표 {next.costReputation}개 · 보유 {availableReputation}개
           </p>
           <button
             type="button"
@@ -470,7 +470,7 @@ function FarmGrowthPanel({
             disabled={!affordable || busy}
             className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
           >
-            {busy ? "확장 중..." : affordable ? "밭 확장" : "명성 부족"}
+            {busy ? "확장 중..." : affordable ? "밭 확장" : "증표 부족"}
           </button>
         </div>
       ) : (
@@ -750,7 +750,7 @@ function FarmShopPanel({
                 <div className="flex justify-between gap-2">
                   <span className="text-zinc-500 dark:text-zinc-400">비용</span>
                   <span className="font-semibold text-zinc-800 dark:text-zinc-100">
-                    명성 {item.costReputation}
+                    증표 {item.costReputation}개
                   </span>
                 </div>
                 <div className="mt-1 flex justify-between gap-2">
@@ -766,7 +766,7 @@ function FarmShopPanel({
                 disabled={!affordable || busy}
                 className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
               >
-                {busy ? "구매 중..." : affordable ? "구매하기" : "명성 부족"}
+                {busy ? "구매 중..." : affordable ? "구매하기" : "증표 부족"}
               </button>
             </div>
           );
@@ -1002,7 +1002,7 @@ function DeliveryBoard({
                 <div className="mt-1 flex justify-between gap-2">
                   <span className="text-zinc-500 dark:text-zinc-400">보상</span>
                   <span className="text-right font-semibold text-emerald-700 dark:text-emerald-300">
-                    명성 {delivery.rewardReputation}
+                    증표 {delivery.rewardReputation}개
                     {hasSeedRewards(delivery.rewardSeeds)
                       ? ` · ${formatSeedRewards(delivery.rewardSeeds)}`
                       : ""}
@@ -1102,7 +1102,9 @@ function formatFarmDeliveryReward(
   seeds: FarmSeedInventory,
 ): string {
   const seedText = hasSeedRewards(seeds) ? formatSeedRewards(seeds) : "";
-  return seedText ? `명성 ${reputation} · ${seedText}` : `명성 ${reputation}`;
+  return seedText
+    ? `농장 증표 ${reputation}개 · ${seedText}`
+    : `농장 증표 ${reputation}개`;
 }
 
 function firstSeedCropId(seeds: FarmSeedInventory): FarmCropId | null {

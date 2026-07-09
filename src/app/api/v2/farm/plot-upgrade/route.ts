@@ -15,7 +15,7 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
-// POST /api/v2/farm/plot-upgrade — 농장 명성을 사용해 밭을 확장한다.
+// POST /api/v2/farm/plot-upgrade — 농장 증표를 사용해 밭을 확장한다.
 export async function POST() {
   const userId = await ensureUser();
   if (!userId) {

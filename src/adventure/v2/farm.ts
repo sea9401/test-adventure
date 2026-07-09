@@ -317,7 +317,7 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
     {
       id: "market-corn",
       title: "장터 간식 상자",
-      note: "오래 자라는 작물을 요구하지만 농장 명성을 크게 올립니다.",
+      note: "오래 자라는 작물을 요구하지만 농장 증표를 더 줍니다.",
       requiredItemId: "corn",
       requiredItemName: "옥수수",
       requiredQuantity: 5,

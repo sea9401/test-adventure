@@ -15,7 +15,7 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
-// POST /api/v2/farm/shop — 농장 명성으로 씨앗 상자를 구매한다.
+// POST /api/v2/farm/shop — 농장 증표로 씨앗 상자를 구매한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {

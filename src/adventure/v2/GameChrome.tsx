@@ -110,21 +110,23 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         ? { src: "/images/ui/shop.webp" }
         : pathname.startsWith("/town/smithy")
           ? { src: "/images/ui/forge.webp" }
-          : pathname.startsWith("/town/fishing")
-            ? { src: "/images/ui/fishing.webp" }
-            : pathname.startsWith("/battle/arena")
-              ? { src: "/images/ui/arena.webp" }
-              : pathname.startsWith("/battle/dungeon")
-                ? { src: "/images/ui/hunt.webp" }
-                : BG_TABS.has(activeTab)
-                  ? { src: "/images/ui/village.webp" }
-                  : activeTab === "guild"
-                    ? { src: "/images/ui/guild.webp" }
-                    : activeTab === "plaza"
-                      ? { src: "/images/ui/townhall.webp" }
-                      : activeTab === "battle"
-                        ? { src: "/images/ui/battle.webp" }
-                        : null;
+          : pathname.startsWith("/town/farm")
+            ? { src: "/images/ui/farm.webp" }
+            : pathname.startsWith("/town/fishing")
+              ? { src: "/images/ui/fishing.webp" }
+              : pathname.startsWith("/battle/arena")
+                ? { src: "/images/ui/arena.webp" }
+                : pathname.startsWith("/battle/dungeon")
+                  ? { src: "/images/ui/hunt.webp" }
+                  : BG_TABS.has(activeTab)
+                    ? { src: "/images/ui/village.webp" }
+                    : activeTab === "guild"
+                      ? { src: "/images/ui/guild.webp" }
+                      : activeTab === "plaza"
+                        ? { src: "/images/ui/townhall.webp" }
+                        : activeTab === "battle"
+                          ? { src: "/images/ui/battle.webp" }
+                          : null;
 
   return (
     <div>

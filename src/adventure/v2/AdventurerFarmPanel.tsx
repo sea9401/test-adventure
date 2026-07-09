@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -40,6 +41,15 @@ type FarmToast = {
 };
 
 const FARM_TOAST_MS = 2800;
+
+const FARM_ITEM_IMAGE_SRC: Record<FarmItemId, string> = {
+  wheat: "/images/items/farm/wheat.webp",
+  golden_wheat: "/images/items/farm/golden_wheat.webp",
+  herb: "/images/items/farm/herb.webp",
+  silverleaf: "/images/items/farm/silverleaf.webp",
+  corn: "/images/items/farm/corn.webp",
+  sweet_corn: "/images/items/farm/sweet_corn.webp",
+};
 
 const ITEM_LABELS: Record<FarmItemId, string> = {
   wheat: "밀",
@@ -216,8 +226,17 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
       />
 
       <section className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-        <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="flex items-center gap-3">
+        <div className="relative border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <Image
+            src="/images/ui/farm.webp"
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 720px"
+            className="object-cover opacity-20 dark:opacity-25"
+            priority={false}
+          />
+          <div className="absolute inset-0 bg-white/75 dark:bg-zinc-950/75" />
+          <div className="relative flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
               <PottedPlant size={24} weight="duotone" />
             </div>
@@ -443,6 +462,30 @@ function SummaryTile({
   );
 }
 
+function FarmItemImage({
+  itemId,
+  alt,
+  className = "h-12 w-12",
+}: {
+  itemId: FarmItemId;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`relative block shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${className}`}
+    >
+      <Image
+        src={FARM_ITEM_IMAGE_SRC[itemId]}
+        alt={alt}
+        fill
+        sizes="64px"
+        className="object-cover"
+      />
+    </span>
+  );
+}
+
 function RareDeliveryBoard({
   deliveries,
   inventory,
@@ -464,9 +507,11 @@ function RareDeliveryBoard({
         {deliveries.map((delivery) => {
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
+          const previewItemId = firstItemId(delivery.requiredItems);
           return (
             <DeliveryRequestCard
               key={delivery.id}
+              imageItemId={previewItemId}
               title={delivery.title}
               note={delivery.note}
               requirementText={formatItemRequirements(
@@ -511,9 +556,11 @@ function WeeklyDeliveryBoard({
           const claimed = claimedIds.includes(delivery.id);
           const enough = hasRequiredItems(inventory, delivery.requiredItems);
           const busy = busyDeliveryId === delivery.id;
+          const previewItemId = firstItemId(delivery.requiredItems);
           return (
             <DeliveryRequestCard
               key={delivery.id}
+              imageItemId={previewItemId}
               title={delivery.title}
               note={delivery.note}
               requirementText={formatItemRequirements(
@@ -541,6 +588,7 @@ function WeeklyDeliveryBoard({
 }
 
 function DeliveryRequestCard({
+  imageItemId,
   title,
   note,
   requirementText,
@@ -549,6 +597,7 @@ function DeliveryRequestCard({
   disabled,
   onClick,
 }: {
+  imageItemId: FarmItemId | null;
   title: string;
   note: string;
   requirementText: string;
@@ -559,7 +608,18 @@ function DeliveryRequestCard({
 }) {
   return (
     <div className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="font-bold text-zinc-900 dark:text-zinc-100">{title}</div>
+      <div className="flex items-start gap-3">
+        {imageItemId ? (
+          <FarmItemImage
+            itemId={imageItemId}
+            alt={ITEM_LABELS[imageItemId] ?? title}
+            className="h-11 w-11"
+          />
+        ) : null}
+        <div className="min-w-0 font-bold text-zinc-900 dark:text-zinc-100">
+          {title}
+        </div>
+      </div>
       <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
         {note}
       </p>
@@ -615,13 +675,26 @@ function FarmShopPanel({
         {items.map((item) => {
           const affordable = availableReputation >= item.costReputation;
           const busy = busyShopItemId === item.id;
+          const previewCropId = firstSeedCropId(item.rewardSeeds);
+          const previewItemId = previewCropId
+            ? FARM_CROP_ITEM_ID[previewCropId]
+            : null;
           return (
             <div
               key={item.id}
               className="flex min-h-[11rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
-              <div className="font-bold text-zinc-900 dark:text-zinc-100">
-                {item.title}
+              <div className="flex items-start gap-3">
+                {previewItemId ? (
+                  <FarmItemImage
+                    itemId={previewItemId}
+                    alt={ITEM_LABELS[previewItemId]}
+                    className="h-11 w-11"
+                  />
+                ) : null}
+                <div className="min-w-0 font-bold text-zinc-900 dark:text-zinc-100">
+                  {item.title}
+                </div>
               </div>
               <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                 {item.note}
@@ -681,18 +754,22 @@ function CropSelector({
               key={crop.id}
               type="button"
               onClick={() => onSelect(crop.id)}
-              className={`rounded-md border px-3 py-2 text-left transition ${
+              className={`flex min-h-[6.25rem] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                 active
                   ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
                   : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
               }`}
             >
-              <span className="block text-sm font-bold">{crop.seedName}</span>
-              <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                {formatDuration(crop.growMs)} · {crop.yieldMin}-{crop.yieldMax}개
-              </span>
-              <span className="mt-1 inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
-                보유 {seeds[crop.id] ?? 0}개
+              <FarmItemImage itemId={crop.itemId} alt={crop.itemName} />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">{crop.seedName}</span>
+                <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                  {formatDuration(crop.growMs)} · {crop.yieldMin}-{crop.yieldMax}
+                  개
+                </span>
+                <span className="mt-1 inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
+                  보유 {seeds[crop.id] ?? 0}개
+                </span>
               </span>
             </button>
           );
@@ -745,13 +822,18 @@ function PlotCard({
 
       {crop ? (
         <>
-          <div className="mt-4">
-            <div className="text-lg font-black text-stone-900 dark:text-stone-100">
-              {crop.name}
-            </div>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-              <Clock size={13} weight="bold" />
-              {ready ? "수확 가능" : `${formatRemaining((plot.readyAt ?? now) - now)} 남음`}
+          <div className="mt-4 flex items-start gap-3">
+            <FarmItemImage itemId={crop.itemId} alt={crop.itemName} />
+            <div className="min-w-0">
+              <div className="text-lg font-black text-stone-900 dark:text-stone-100">
+                {crop.name}
+              </div>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <Clock size={13} weight="bold" />
+                {ready
+                  ? "수확 가능"
+                  : `${formatRemaining((plot.readyAt ?? now) - now)} 남음`}
+              </div>
             </div>
           </div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
@@ -774,12 +856,21 @@ function PlotCard({
         </>
       ) : (
         <>
-          <div className="mt-4 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-5 text-center dark:border-zinc-700 dark:bg-zinc-900">
-            <div className="text-sm font-bold text-stone-700 dark:text-stone-200">
-              빈 밭
-            </div>
-            <div className="mt-1 text-xs text-stone-500 dark:text-stone-400">
-              선택한 씨앗을 1개 소비해 심습니다.
+          <div className="mt-4 flex items-center gap-3 rounded-md border border-dashed border-zinc-300 bg-zinc-50 px-3 py-4 dark:border-zinc-700 dark:bg-zinc-900">
+            {selectedCrop ? (
+              <FarmItemImage
+                itemId={selectedCrop.itemId}
+                alt={selectedCrop.itemName}
+                className="h-11 w-11 opacity-60"
+              />
+            ) : null}
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-stone-700 dark:text-stone-200">
+                빈 밭
+              </div>
+              <div className="mt-1 text-xs text-stone-500 dark:text-stone-400">
+                선택한 씨앗을 1개 소비해 심습니다.
+              </div>
             </div>
           </div>
           <button
@@ -840,8 +931,15 @@ function DeliveryBoard({
               key={delivery.id}
               className="flex min-h-[12rem] flex-col rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
-              <div className="font-bold text-zinc-900 dark:text-zinc-100">
-                {delivery.title}
+              <div className="flex items-start gap-3">
+                <FarmItemImage
+                  itemId={delivery.requiredItemId}
+                  alt={delivery.requiredItemName}
+                  className="h-11 w-11"
+                />
+                <div className="min-w-0 font-bold text-zinc-900 dark:text-zinc-100">
+                  {delivery.title}
+                </div>
               </div>
               <p className="mt-1 min-h-[2.5rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                 {delivery.note}
@@ -912,10 +1010,17 @@ function InventoryPanel({
           {entries.map(([itemId, count]) => (
             <div
               key={itemId}
-              className="flex items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
-              <span className="font-medium text-zinc-800 dark:text-zinc-100">
-                {ITEM_LABELS[itemId] ?? itemId}
+              <span className="flex min-w-0 items-center gap-2.5">
+                <FarmItemImage
+                  itemId={itemId}
+                  alt={ITEM_LABELS[itemId] ?? itemId}
+                  className="h-9 w-9"
+                />
+                <span className="truncate font-medium text-zinc-800 dark:text-zinc-100">
+                  {ITEM_LABELS[itemId] ?? itemId}
+                </span>
               </span>
               <span className="font-bold text-emerald-700 dark:text-emerald-300">
                 {count.toLocaleString("ko-KR")}
@@ -928,6 +1033,12 @@ function InventoryPanel({
   );
 }
 
+const FARM_CROP_ITEM_ID: Record<FarmCropId, FarmItemId> = {
+  wheat: "wheat",
+  herb: "herb",
+  corn: "corn",
+};
+
 function formatSeedRewards(seeds: FarmSeedInventory): string {
   const entries = Object.entries(seeds).filter(([, count]) => (count ?? 0) > 0) as [
     FarmCropId,
@@ -937,6 +1048,22 @@ function formatSeedRewards(seeds: FarmSeedInventory): string {
   return entries
     .map(([cropId, count]) => `${SEED_LABELS[cropId]} ${count}개`)
     .join(", ");
+}
+
+function firstSeedCropId(seeds: FarmSeedInventory): FarmCropId | null {
+  return (
+    (Object.entries(seeds).find(([, count]) => (count ?? 0) > 0)?.[0] as
+      | FarmCropId
+      | undefined) ?? null
+  );
+}
+
+function firstItemId(items: FarmItemInventory): FarmItemId | null {
+  return (
+    (Object.entries(items).find(([, count]) => (count ?? 0) > 0)?.[0] as
+      | FarmItemId
+      | undefined) ?? null
+  );
 }
 
 function hasSeedRewards(seeds: FarmSeedInventory): boolean {

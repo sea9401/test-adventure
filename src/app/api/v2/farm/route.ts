@@ -12,8 +12,10 @@ import {
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
-import { parseV2Class } from "@/adventure/data/v2/classes";
-import { V2_JOB_CATALOG, jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 
 // GET /api/v2/farm — 모험가 농장 상태.
 export async function GET() {
@@ -23,30 +25,21 @@ export async function GET() {
   }
 
   const now = Date.now();
-  const [farmRaw, charSave] = await Promise.all([
+  const [farmRaw, skillsRaw] = await Promise.all([
     readSave(db, userId, FARM_SAVE_KEY, emptyFarmState(now)),
-    readSave<Record<string, unknown>>(db, userId, "character.v2", {}),
+    readSave(db, userId, "skills.v2", emptyV2SkillsState()),
   ]);
   const farm = normalizeFarmForDay(parseFarmState(farmRaw), now);
-  const farmJobId = currentJobIdFromChar(charSave);
+  const skills = parseV2SkillsState(skillsRaw);
   return Response.json({
     ok: true,
     now,
     farm,
-    farmJobId,
-    farmJobName: farmJobId ? V2_JOB_CATALOG[farmJobId]?.name ?? farmJobId : null,
+    learnedSkillIds: skills.learned,
     crops: FARM_CROP_LIST,
     deliveries: getFarmDeliveryRequests(),
     specialDeliveries: getFarmSpecialDeliveryRequests(),
     weeklyDeliveries: getFarmWeeklyDeliveryRequests(),
     shopItems: getFarmShopItems(),
   });
-}
-
-function currentJobIdFromChar(charSave: Record<string, unknown>): string | null {
-  const cls = parseV2Class(charSave.class);
-  return jobIdFromLegacy(
-    cls,
-    typeof charSave.specChoice === "string" ? charSave.specChoice : null,
-  );
 }

@@ -82,8 +82,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     notice,
     now,
     farm,
-    farmJobId,
-    farmJobName,
+    learnedSkillIds,
     crops,
     deliveries,
     specialDeliveries,
@@ -295,8 +294,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               <CropSelector
                 crops={crops}
                 seeds={farm.seeds}
-                farmJobId={farmJobId}
-                farmJobName={farmJobName}
+                learnedSkillIds={learnedSkillIds}
                 selectedCropId={selectedCrop?.id ?? selectedCropId}
                 onSelect={setSelectedCropId}
               />
@@ -311,7 +309,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                     selectedCrop={selectedCrop}
                     selectedCropLocked={
                       selectedCrop
-                        ? !canPlantFarmCrop(selectedCrop.id, farmJobId)
+                        ? !canPlantFarmCrop(selectedCrop.id, learnedSkillIds)
                         : false
                     }
                     selectedSeedCount={
@@ -770,15 +768,13 @@ function FarmShopPanel({
 function CropSelector({
   crops,
   seeds,
-  farmJobId,
-  farmJobName,
+  learnedSkillIds,
   selectedCropId,
   onSelect,
 }: {
   crops: FarmCrop[];
   seeds: FarmSeedInventory;
-  farmJobId: string | null;
-  farmJobName: string | null;
+  learnedSkillIds: readonly string[];
   selectedCropId: FarmCropId;
   onSelect: (id: FarmCropId) => void;
 }) {
@@ -791,7 +787,7 @@ function CropSelector({
       <div className="grid gap-2 sm:grid-cols-3">
         {crops.map((crop) => {
           const active = crop.id === selectedCropId;
-          const locked = !canPlantFarmCrop(crop.id, farmJobId);
+          const locked = !canPlantFarmCrop(crop.id, learnedSkillIds);
           return (
             <button
               key={crop.id}
@@ -813,9 +809,7 @@ function CropSelector({
                 <span className="block text-sm font-bold">{crop.seedName}</span>
                 <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
                   {locked
-                    ? `${crop.requiredJobName ?? "농부"} 필요${
-                        farmJobName ? ` · 현재 ${farmJobName}` : ""
-                      }`
+                    ? `${crop.requiredSkillName ?? "농부 패시브"} 필요`
                     : `${formatDuration(crop.growMs)} · ${crop.yieldMin}-${crop.yieldMax}개`}
                 </span>
                 <span className="mt-1 inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
@@ -937,7 +931,7 @@ function PlotCard({
             {busy
               ? "심는 중..."
               : selectedCropLocked
-                ? `${selectedCrop?.requiredJobName ?? "농부"} 필요`
+                ? `${selectedCrop?.requiredSkillName ?? "농부 패시브"} 필요`
                 : selectedSeedCount <= 0
                 ? "씨앗 부족"
                 : `${selectedCrop?.name ?? "작물"} 심기`}

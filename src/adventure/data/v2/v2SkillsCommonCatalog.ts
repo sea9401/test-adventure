@@ -52,6 +52,11 @@ export type V2CommonSkillId =
   | "v2c_healthtrainer_routine" // 운동 루틴 (길드 훈련장 보상)
   | "v2c_physicalcoach_conditioning" // 컨디셔닝 프로그램 (길드 훈련장 보상)
   | "v2c_mastertrainer_elitetraining" // 엘리트 트레이닝 (길드 훈련장 보상)
+  | "v2c_farmer_seedselection" // 씨앗 선별 (농장 수확량)
+  | "v2c_horticulturist_soilreading" // 토양 읽기 (희귀 수확)
+  | "v2c_masterfarmer_composting" // 퇴비 배합 (수확량 + 희귀 수확)
+  | "v2c_harvestking_abundance" // 풍작 감각 (수확량 + 희귀 수확)
+  | "v2c_earthartisan_landcare" // 대지 돌보기 (수확량 + 희귀 수확)
   // 모험가(none) 킷 — 착용형 패시브 2종
   | "v2c_none_toughness" // 강인함 (최대 HP +10%)
   | "v2c_none_diligence" // 수련 (승리당 숙달 +1)
@@ -634,6 +639,46 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { guildTrainingRewardBonusPct: 12, guildTrainingWeeklyBonusMastery: 15 },
+  },
+  v2c_farmer_seedselection: {
+    id: "v2c_farmer_seedselection", name: "씨앗 선별", stat: "luk", category: "passive", tier: 2,
+    description: "심기 전 씨앗을 골라 같은 밭에서도 수확량을 조금 더 끌어낸다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { farmYieldBonusPct: 10 },
+  },
+  v2c_horticulturist_soilreading: {
+    id: "v2c_horticulturist_soilreading", name: "토양 읽기", stat: "luk", category: "passive", tier: 3,
+    description: "흙의 상태를 읽어 희귀 수확이 나올 가능성을 높인다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { farmRareChancePct: 3 },
+  },
+  v2c_masterfarmer_composting: {
+    id: "v2c_masterfarmer_composting", name: "퇴비 배합", stat: "vit", category: "passive", tier: 3,
+    description: "작물마다 맞는 퇴비를 배합해 수확량과 희귀 수확 가능성을 함께 높인다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { farmYieldBonusPct: 8, farmRareChancePct: 2 },
+  },
+  v2c_harvestking_abundance: {
+    id: "v2c_harvestking_abundance", name: "풍작 감각", stat: "luk", category: "passive", tier: 3,
+    description: "밭의 흐름을 읽어 수확량과 희귀 수확을 더 안정적으로 끌어올린다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { farmYieldBonusPct: 12, farmRareChancePct: 3 },
+  },
+  v2c_earthartisan_landcare: {
+    id: "v2c_earthartisan_landcare", name: "대지 돌보기", stat: "luk", category: "passive", tier: 3,
+    description: "밭의 힘을 오래 보존해 수확량과 희귀 수확 가능성을 크게 높인다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { farmYieldBonusPct: 15, farmRareChancePct: 5 },
   },
   v2c_ironman_body: {
     id: "v2c_ironman_body", name: "단련된 몸", stat: "vit", category: "passive", tier: 2,

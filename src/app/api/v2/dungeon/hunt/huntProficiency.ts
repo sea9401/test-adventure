@@ -14,7 +14,7 @@ import {
 import {
   V2_JOB_CATALOG,
   cumLevelForJob,
-  isFishingJobId,
+  isLifestyleMasteryJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -95,7 +95,7 @@ export function applyHuntProficiency(params: {
         prof = nextProf;
         proficiencyGained = perKill;
       }
-      if (group !== "none" && !isFishingJobId(v2JobId)) {
+      if (group !== "none" && !isLifestyleMasteryJobId(v2JobId)) {
         prof = addCumLevel(prof, group, 1);
         prof = addJobCumLevel(prof, v2JobId, 1);
         masteryGained = 1;

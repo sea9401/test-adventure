@@ -17,6 +17,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
   FARM_MAX_PLOT_COUNT,
+  canPlantFarmCrop,
   farmAvailableReputation,
   nextFarmPlotUpgrade,
   type FarmCrop,
@@ -79,6 +80,8 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
     notice,
     now,
     farm,
+    farmJobId,
+    farmJobName,
     crops,
     deliveries,
     specialDeliveries,
@@ -294,6 +297,8 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               <CropSelector
                 crops={crops}
                 seeds={farm.seeds}
+                farmJobId={farmJobId}
+                farmJobName={farmJobName}
                 selectedCropId={selectedCrop?.id ?? selectedCropId}
                 onSelect={setSelectedCropId}
               />
@@ -306,6 +311,11 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
                     now={now}
                     crop={plot.cropId ? cropById.get(plot.cropId) : null}
                     selectedCrop={selectedCrop}
+                    selectedCropLocked={
+                      selectedCrop
+                        ? !canPlantFarmCrop(selectedCrop.id, farmJobId)
+                        : false
+                    }
                     selectedSeedCount={
                       selectedCrop ? (farm.seeds[selectedCrop.id] ?? 0) : 0
                     }
@@ -779,11 +789,15 @@ function FarmShopPanel({
 function CropSelector({
   crops,
   seeds,
+  farmJobId,
+  farmJobName,
   selectedCropId,
   onSelect,
 }: {
   crops: FarmCrop[];
   seeds: FarmSeedInventory;
+  farmJobId: string | null;
+  farmJobName: string | null;
   selectedCropId: FarmCropId;
   onSelect: (id: FarmCropId) => void;
 }) {
@@ -796,23 +810,32 @@ function CropSelector({
       <div className="grid gap-2 sm:grid-cols-3">
         {crops.map((crop) => {
           const active = crop.id === selectedCropId;
+          const locked = !canPlantFarmCrop(crop.id, farmJobId);
           return (
             <button
               key={crop.id}
               type="button"
-              onClick={() => onSelect(crop.id)}
+              onClick={() => {
+                if (!locked) onSelect(crop.id);
+              }}
+              disabled={locked}
               className={`flex min-h-[6.25rem] items-center gap-3 rounded-md border px-3 py-2 text-left transition ${
                 active
                   ? "border-emerald-500 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500 dark:bg-emerald-950/40 dark:text-emerald-100"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
+                  : locked
+                    ? "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400 opacity-75 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-emerald-700 dark:hover:bg-zinc-900"
               }`}
             >
               <FarmItemImage itemId={crop.itemId} alt={crop.itemName} />
               <span className="min-w-0">
                 <span className="block text-sm font-bold">{crop.seedName}</span>
                 <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                  {formatDuration(crop.growMs)} · {crop.yieldMin}-{crop.yieldMax}
-                  개
+                  {locked
+                    ? `${crop.requiredJobName ?? "농부"} 필요${
+                        farmJobName ? ` · 현재 ${farmJobName}` : ""
+                      }`
+                    : `${formatDuration(crop.growMs)} · ${crop.yieldMin}-${crop.yieldMax}개`}
                 </span>
                 <span className="mt-1 inline-flex rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-zinc-900 dark:text-emerald-300">
                   보유 {seeds[crop.id] ?? 0}개
@@ -831,6 +854,7 @@ function PlotCard({
   now,
   crop,
   selectedCrop,
+  selectedCropLocked,
   selectedSeedCount,
   busy,
   onPlant,
@@ -840,6 +864,7 @@ function PlotCard({
   now: number;
   crop: FarmCrop | null | undefined;
   selectedCrop: FarmCrop | undefined;
+  selectedCropLocked: boolean;
   selectedSeedCount: number;
   busy: boolean;
   onPlant: () => void;
@@ -923,12 +948,16 @@ function PlotCard({
           <button
             type="button"
             onClick={onPlant}
-            disabled={!selectedCrop || selectedSeedCount <= 0 || busy}
+            disabled={
+              !selectedCrop || selectedCropLocked || selectedSeedCount <= 0 || busy
+            }
             className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
           >
             {busy
               ? "심는 중..."
-              : selectedSeedCount <= 0
+              : selectedCropLocked
+                ? `${selectedCrop?.requiredJobName ?? "농부"} 필요`
+                : selectedSeedCount <= 0
                 ? "씨앗 부족"
                 : `${selectedCrop?.name ?? "작물"} 심기`}
           </button>

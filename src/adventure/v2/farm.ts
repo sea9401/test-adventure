@@ -8,6 +8,9 @@ export const FARM_DAILY_DELIVERY_LIMIT = 2;
 
 export type FarmCropId = "wheat" | "herb" | "corn";
 
+export const FARM_CROP_REQUIRED_JOB_ID = "farmer";
+export const FARM_CROP_REQUIRED_JOB_NAME = "농부";
+
 export type FarmSeedInventory = Partial<Record<FarmCropId, number>>;
 export type FarmItemInventory = Partial<Record<FarmItemId, number>>;
 
@@ -65,6 +68,8 @@ export type FarmCrop = {
   yieldMin: number;
   yieldMax: number;
   rareChance: number;
+  requiredJobId?: string;
+  requiredJobName?: string;
   note: string;
 };
 
@@ -106,6 +111,11 @@ export type FarmHarvestResult = {
   rareItemId: FarmItemId | null;
   rareItemName: string | null;
   rareQuantity: number;
+};
+
+export type FarmHarvestOptions = {
+  yieldBonusPct?: number;
+  rareChancePct?: number;
 };
 
 export type FarmDeliveryRequest = {
@@ -220,7 +230,9 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     yieldMin: 5,
     yieldMax: 8,
     rareChance: 0.1,
-    note: "오래 걸리지만 수확량이 좋습니다. 미끼·간식 재료로 이어가기 쉽습니다.",
+    requiredJobId: FARM_CROP_REQUIRED_JOB_ID,
+    requiredJobName: FARM_CROP_REQUIRED_JOB_NAME,
+    note: "농부가 다룰 수 있는 장기 작물입니다. 오래 걸리지만 수확량이 좋습니다.",
   },
 };
 
@@ -584,11 +596,15 @@ export function plantCrop(
   plotId: string,
   cropId: FarmCropId,
   now = Date.now(),
+  options: { currentJobId?: string | null } = {},
 ): FarmState {
   const crop = FARM_CROPS[cropId];
   const found = state.plots.find((p) => p.id === plotId);
   if (!found) throw new FarmError("plot_not_found");
   if (found.cropId) throw new FarmError("plot_occupied");
+  if (!canPlantFarmCrop(cropId, options.currentJobId)) {
+    throw new FarmError("crop_locked");
+  }
   if ((state.seeds[cropId] ?? 0) <= 0) throw new FarmError("no_seed");
   const seeds = { ...state.seeds };
   setPositiveCount(seeds, cropId, (seeds[cropId] ?? 0) - 1);
@@ -703,6 +719,7 @@ export function harvestPlot(
   plotId: string,
   now = Date.now(),
   rng = Math.random,
+  options: FarmHarvestOptions = {},
 ): { state: FarmState; result: FarmHarvestResult } {
   const plot = state.plots.find((p) => p.id === plotId);
   if (!plot) throw new FarmError("plot_not_found");
@@ -710,10 +727,20 @@ export function harvestPlot(
   if (plot.readyAt > now) throw new FarmError("not_ready");
 
   const crop = FARM_CROPS[plot.cropId];
-  const quantity =
+  const baseQuantity =
     crop.yieldMin +
     Math.floor(rng() * (crop.yieldMax - crop.yieldMin + 1));
-  const gotRare = rng() < crop.rareChance;
+  const yieldBonusPct = Math.max(0, options.yieldBonusPct ?? 0);
+  const quantity =
+    baseQuantity +
+    (yieldBonusPct > 0
+      ? Math.max(1, Math.floor((baseQuantity * yieldBonusPct) / 100))
+      : 0);
+  const rareChance = Math.min(
+    0.75,
+    crop.rareChance + Math.max(0, options.rareChancePct ?? 0) / 100,
+  );
+  const gotRare = rng() < rareChance;
   const rareQuantity = gotRare ? 1 : 0;
   const inventory = { ...state.inventory };
   inventory[crop.itemId] = (inventory[crop.itemId] ?? 0) + quantity;
@@ -757,6 +784,27 @@ export class FarmError extends Error {
 
 export function isFarmCropId(value: unknown): value is FarmCropId {
   return typeof value === "string" && value in FARM_CROPS;
+}
+
+export function canPlantFarmCrop(
+  cropId: FarmCropId,
+  currentJobId: string | null | undefined,
+): boolean {
+  const requiredJobId = FARM_CROPS[cropId]?.requiredJobId;
+  if (!requiredJobId) return true;
+  return isFarmCropRequiredJob(currentJobId);
+}
+
+export function isFarmCropRequiredJob(
+  currentJobId: string | null | undefined,
+): boolean {
+  return (
+    currentJobId === "farmer" ||
+    currentJobId === "horticulturist" ||
+    currentJobId === "masterfarmer" ||
+    currentJobId === "harvestking" ||
+    currentJobId === "earthartisan"
+  );
 }
 
 function parseInventory(raw: unknown): FarmItemInventory {

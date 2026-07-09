@@ -22,6 +22,8 @@ type FarmResponse = {
   error?: string;
   now?: number;
   farm?: FarmState;
+  farmJobId?: string | null;
+  farmJobName?: string | null;
   crops?: FarmCrop[];
   deliveries?: FarmDeliveryRequest[];
   specialDeliveries?: FarmSpecialDeliveryRequest[];
@@ -47,6 +49,8 @@ export type FarmClientState = {
   notice: FarmNotice | null;
   now: number;
   farm: FarmState | null;
+  farmJobId: string | null;
+  farmJobName: string | null;
   crops: FarmCrop[];
   deliveries: FarmDeliveryRequest[];
   specialDeliveries: FarmSpecialDeliveryRequest[];
@@ -94,6 +98,8 @@ export function useFarm(): FarmClientState {
   const [notice, setNotice] = useState<FarmNotice | null>(null);
   const [now, setNow] = useState(0);
   const [farm, setFarm] = useState<FarmState | null>(null);
+  const [farmJobId, setFarmJobId] = useState<string | null>(null);
+  const [farmJobName, setFarmJobName] = useState<string | null>(null);
   const [crops, setCrops] = useState<FarmCrop[]>([]);
   const [deliveries, setDeliveries] = useState<FarmDeliveryRequest[]>([]);
   const [specialDeliveries, setSpecialDeliveries] = useState<
@@ -128,6 +134,8 @@ export function useFarm(): FarmClientState {
       throw new Error(data.error ?? "farm_failed");
     }
     setFarm(data.farm);
+    if ("farmJobId" in data) setFarmJobId(data.farmJobId ?? null);
+    if ("farmJobName" in data) setFarmJobName(data.farmJobName ?? null);
     setCrops(data.crops);
     setDeliveries(data.deliveries);
     setSpecialDeliveries(data.specialDeliveries ?? []);
@@ -361,6 +369,8 @@ export function useFarm(): FarmClientState {
     notice,
     now,
     farm,
+    farmJobId,
+    farmJobName,
     crops,
     deliveries,
     specialDeliveries,
@@ -395,6 +405,7 @@ function errorMessage(error: unknown): string {
       delivery_daily_limit: "오늘 가능한 납품 횟수를 모두 사용했습니다.",
       weekly_delivery_already_claimed: "이미 완료한 주간 납품입니다.",
       plot_upgrade_not_available: "더 늘릴 수 있는 밭이 없습니다.",
+      crop_locked: "해당 작물을 심으려면 농부 직업이 필요합니다.",
       not_ready: "아직 수확할 수 없습니다.",
       plot_occupied: "이미 작물이 심어진 밭입니다.",
       plot_empty: "수확할 작물이 없습니다.",

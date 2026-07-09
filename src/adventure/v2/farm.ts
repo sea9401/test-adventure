@@ -11,8 +11,8 @@ export const FARMING_XP_MS_PER_POINT = 5 * 60 * 1000;
 
 export type FarmCropId = "wheat" | "herb" | "corn";
 
-export const FARM_CROP_REQUIRED_JOB_ID = "farmer";
-export const FARM_CROP_REQUIRED_JOB_NAME = "농부";
+export const FARM_CROP_REQUIRED_SKILL_ID = "v2c_farmer_seedselection";
+export const FARM_CROP_REQUIRED_SKILL_NAME = "씨앗 선별";
 
 export type FarmSeedInventory = Partial<Record<FarmCropId, number>>;
 export type FarmItemInventory = Partial<Record<FarmItemId, number>>;
@@ -71,8 +71,8 @@ export type FarmCrop = {
   yieldMin: number;
   yieldMax: number;
   rareChance: number;
-  requiredJobId?: string;
-  requiredJobName?: string;
+  requiredSkillId?: string;
+  requiredSkillName?: string;
   note: string;
 };
 
@@ -237,9 +237,9 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     yieldMin: 5,
     yieldMax: 8,
     rareChance: 0.1,
-    requiredJobId: FARM_CROP_REQUIRED_JOB_ID,
-    requiredJobName: FARM_CROP_REQUIRED_JOB_NAME,
-    note: "농부가 다룰 수 있는 장기 작물입니다. 오래 걸리지만 수확량이 좋습니다.",
+    requiredSkillId: FARM_CROP_REQUIRED_SKILL_ID,
+    requiredSkillName: FARM_CROP_REQUIRED_SKILL_NAME,
+    note: "농부 패시브를 배운 뒤 다룰 수 있는 장기 작물입니다. 오래 걸리지만 수확량이 좋습니다.",
   },
 };
 
@@ -624,13 +624,13 @@ export function plantCrop(
   plotId: string,
   cropId: FarmCropId,
   now = Date.now(),
-  options: { currentJobId?: string | null } = {},
+  options: { learnedSkillIds?: Iterable<string> | null } = {},
 ): FarmState {
   const crop = FARM_CROPS[cropId];
   const found = state.plots.find((p) => p.id === plotId);
   if (!found) throw new FarmError("plot_not_found");
   if (found.cropId) throw new FarmError("plot_occupied");
-  if (!canPlantFarmCrop(cropId, options.currentJobId)) {
+  if (!canPlantFarmCrop(cropId, options.learnedSkillIds)) {
     throw new FarmError("crop_locked");
   }
   if ((state.seeds[cropId] ?? 0) <= 0) throw new FarmError("no_seed");
@@ -823,23 +823,22 @@ export function isFarmCropId(value: unknown): value is FarmCropId {
 
 export function canPlantFarmCrop(
   cropId: FarmCropId,
-  currentJobId: string | null | undefined,
+  learnedSkillIds: Iterable<string> | null | undefined,
 ): boolean {
-  const requiredJobId = FARM_CROPS[cropId]?.requiredJobId;
-  if (!requiredJobId) return true;
-  return isFarmCropRequiredJob(currentJobId);
+  const requiredSkillId = FARM_CROPS[cropId]?.requiredSkillId;
+  if (!requiredSkillId) return true;
+  return hasFarmCropRequiredSkill(learnedSkillIds, requiredSkillId);
 }
 
-export function isFarmCropRequiredJob(
-  currentJobId: string | null | undefined,
+export function hasFarmCropRequiredSkill(
+  learnedSkillIds: Iterable<string> | null | undefined,
+  requiredSkillId = FARM_CROP_REQUIRED_SKILL_ID,
 ): boolean {
-  return (
-    currentJobId === "farmer" ||
-    currentJobId === "horticulturist" ||
-    currentJobId === "masterfarmer" ||
-    currentJobId === "harvestking" ||
-    currentJobId === "earthartisan"
-  );
+  if (!learnedSkillIds) return false;
+  for (const skillId of learnedSkillIds) {
+    if (skillId === requiredSkillId) return true;
+  }
+  return false;
 }
 
 function parseInventory(raw: unknown): FarmItemInventory {

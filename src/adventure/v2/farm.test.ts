@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FARM_DAILY_QUEST_SEED_REWARD,
+  FARM_CROP_REQUIRED_SKILL_ID,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
   canPlantFarmCrop,
@@ -44,18 +45,18 @@ describe("adventurer farm", () => {
     );
   });
 
-  it("locks farmer-only crops unless the current job is in the farmer line", () => {
+  it("locks advanced crops unless the farmer passive has been learned", () => {
     const state = { ...emptyFarmState(), seeds: { corn: 1 } };
 
     expect(canPlantFarmCrop("corn", null)).toBe(false);
-    expect(canPlantFarmCrop("corn", "farmer")).toBe(true);
-    expect(canPlantFarmCrop("corn", "horticulturist")).toBe(true);
+    expect(canPlantFarmCrop("corn", ["farmer"])).toBe(false);
+    expect(canPlantFarmCrop("corn", [FARM_CROP_REQUIRED_SKILL_ID])).toBe(true);
     expect(() => plantCrop(state, "plot-1", "corn", 1_000)).toThrow(
       "crop_locked",
     );
 
     const planted = plantCrop(state, "plot-1", "corn", 1_000, {
-      currentJobId: "farmer",
+      learnedSkillIds: [FARM_CROP_REQUIRED_SKILL_ID],
     });
     expect(planted.plots[0].cropId).toBe("corn");
   });
@@ -84,7 +85,7 @@ describe("adventurer farm", () => {
       "plot-1",
       "corn",
       1_000,
-      { currentJobId: "farmer" },
+      { learnedSkillIds: [FARM_CROP_REQUIRED_SKILL_ID] },
     );
     const { state, result } = harvestPlot(
       planted,

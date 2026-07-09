@@ -480,6 +480,7 @@ function FarmItemImage({
         alt={alt}
         fill
         sizes="64px"
+        unoptimized
         className="object-cover"
       />
     </span>

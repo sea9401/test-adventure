@@ -455,8 +455,8 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    // 치유: 잃은 HP 100의 4% + magicAtk 100×0.35 + flat 30 = 69.
-    expect(result.selfHeal).toBe(69);
+    // 치유: 잃은 HP 100의 6% + magicAtk 100×0.45 + flat 50 = 101.
+    expect(result.selfHeal).toBe(101);
   });
 
   it("oncePerBattle 스킬은 시전 뒤 전투 내 재사용 불가 쿨다운으로 잠긴다", () => {
@@ -864,8 +864,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.castSkillName).toBe("화염구");
-    expect(result.enemyDamage).toBe(260);
-    expect(result.magicEnemyDamage).toBe(260);
+    expect(result.enemyDamage).toBe(360);
+    expect(result.magicEnemyDamage).toBe(360);
   });
 
   it("resolveV2SkillCast — 생명 강타(scaling maxHp)는 최대 HP 로 스케일", () => {

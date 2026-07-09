@@ -21,6 +21,7 @@ import {
   isScrollSummonableCoopBossKind,
   parseCoopBossKindId,
   parseCoopVisibility,
+  coopBossMaxMp,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -149,6 +150,7 @@ export async function POST(req: Request) {
         summonerId: userId,
         summonerGuildId,
         visibility: storedVisibility,
+        mechanicState: { bossMp: coopBossMaxMp(kind) },
       });
       summoned = true;
       return {

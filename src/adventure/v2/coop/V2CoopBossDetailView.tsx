@@ -117,6 +117,9 @@ export function V2CoopBossDetailView({
     session.defeated || session.expired || session.expiresAt <= now;
   const active = !ended;
   const hpPct = Math.max(0, Math.min(100, (session.hp / session.maxHp) * 100));
+  const bossMpMax = Math.max(0, session.bossMaxMp);
+  const bossMp = Math.max(0, Math.min(bossMpMax, session.bossMp));
+  const mpPct = bossMpMax > 0 ? (bossMp / bossMpMax) * 100 : 0;
   // 발악 단계 라이브 상태 — 현재 공유 HP 기준 발동/임박 단계(활성 보스만 표시).
   const enrage = active
     ? coopEnrageStatus(def, session.hp / session.maxHp)
@@ -173,13 +176,34 @@ export function V2CoopBossDetailView({
             {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}
           </p>
         </div>
-        <div className="war-meter-track h-3 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-          <div
-            className={`war-meter-fill h-full rounded transition-[width] ${
-              session.defeated ? "bg-zinc-400" : "bg-rose-500"
-            }`}
-            style={{ width: `${hpPct}%` }}
-          />
+        <div className="space-y-1.5">
+          <div className="war-meter-track h-3 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+            <div
+              className={`war-meter-fill h-full rounded transition-[width] ${
+                session.defeated ? "bg-zinc-400" : "bg-rose-500"
+              }`}
+              style={{ width: `${hpPct}%` }}
+            />
+          </div>
+          {bossMpMax > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span>보스 MP</span>
+                <span className="font-mono">
+                  {bossMp.toLocaleString()} / {bossMpMax.toLocaleString()}
+                  {bossMp === 0 && " · 탈진"}
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                <div
+                  className={`h-full rounded transition-[width] ${
+                    bossMp === 0 ? "bg-zinc-400" : "bg-sky-500"
+                  }`}
+                  style={{ width: `${mpPct}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 발악 단계 트래커 — 현재 HP 기준 발동(🔥)/임박(⚠)/예정 단계를 라이브로. 토벌이
@@ -479,6 +503,9 @@ export function V2CoopBossDetailView({
               {lastAttack.damageDealt.toLocaleString()}
             </span>{" "}
             데미지 ({lastAttack.turns}행동{lastAttack.diedEarly && " · 쓰러짐"}
+            {lastAttack.bossMpDamage > 0 &&
+              ` · MP -${lastAttack.bossMpDamage.toLocaleString()}`}
+            {lastAttack.bossMpDepleted && " · 보스 탈진"}
             {lastAttack.defeated && " · 처치 확정타!"})
           </div>
           {lastAttack.replay && (

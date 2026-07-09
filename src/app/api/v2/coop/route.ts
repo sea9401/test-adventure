@@ -14,6 +14,9 @@ import {
   coopTierForRatio,
   parseCoopBossKindId,
   canAccessCoopBoss,
+  COOP_BOSSES,
+  coopBossCurrentMp,
+  coopBossMaxMp,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -114,12 +117,15 @@ export async function GET() {
     .map((s) => {
       const kind = parseCoopBossKindId(s.regionId);
       if (!kind) return null;
+      const def = COOP_BOSSES[kind];
       const myDamage = myBySession.get(s.id) ?? 0;
       return {
         id: s.id,
         kind,
         hp: s.hp,
         maxHp: s.maxHp,
+        bossMp: coopBossCurrentMp(def, s.mechanicState),
+        bossMaxMp: coopBossMaxMp(def),
         expiresAt: s.expiresAt.getTime(),
         summonedByName: s.summonedByName,
         participantCount: countBySession.get(s.id) ?? 0,

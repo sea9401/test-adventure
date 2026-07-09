@@ -207,6 +207,14 @@ export function coopAttackCooldownMs(): number {
   return V2_CORE_LOOP_V2 ? COOP_ATTACK_COOLDOWN_MS_V2 : COOP_ATTACK_COOLDOWN_MS;
 }
 
+// 협동 보스 공유 MP — 전투 1회가 아니라 세션 전체가 같이 깎는 자원.
+// base.v2MaxMp 는 솔로 전투 기준 시전 2~4회분이라, 공유 풀은 넉넉히 키워 여러 명이
+// "먼저 탈진시키는" 선택지를 갖게 한다.
+export const COOP_BOSS_MP_POOL_MULTIPLIER = 8;
+export const COOP_BOSS_MP_DAMAGE_RATIO = 1.2;
+export const COOP_BOSS_MP_ATTACK_DRAIN = 2;
+export const COOP_BOSS_MP_CRIT_DRAIN = 2;
+
 // === 가시성/공격 권한 — 코어루프 협동보스 리워크 ===========================
 // 소환 시 소환자가 공개 범위를 고른다. 공격 비용은 스태미나가 담당한다.
 export type CoopVisibility = "public" | "guild_only" | "summoner_only";
@@ -316,6 +324,86 @@ export type CoopBossKind = {
   traits: string[];
 };
 
+export type CoopMechanicState = {
+  bossMp?: number;
+};
+
+export function parseCoopMechanicState(value: unknown): CoopMechanicState {
+  if (!value || typeof value !== "object") return {};
+  const src = value as {
+    bossMp?: unknown;
+  };
+  const next: CoopMechanicState = {};
+  if (typeof src.bossMp === "number" && Number.isFinite(src.bossMp)) {
+    next.bossMp = Math.max(0, Math.floor(src.bossMp));
+  }
+  return next;
+}
+
+export function coopBossMaxMp(kind: CoopBossKind): number {
+  return Math.max(
+    0,
+    Math.floor((kind.base.v2MaxMp ?? 0) * COOP_BOSS_MP_POOL_MULTIPLIER),
+  );
+}
+
+export function coopBossCurrentMp(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+): number {
+  const maxMp = coopBossMaxMp(kind);
+  const parsed = parseCoopMechanicState(stateRaw);
+  return Math.max(0, Math.min(maxMp, parsed.bossMp ?? maxMp));
+}
+
+export function withCoopBossMp(
+  kind: CoopBossKind,
+  stateRaw: unknown,
+  bossMp: number,
+): CoopMechanicState {
+  const maxMp = coopBossMaxMp(kind);
+  return {
+    ...parseCoopMechanicState(stateRaw),
+    bossMp: Math.max(0, Math.min(maxMp, Math.floor(bossMp))),
+  };
+}
+
+export function coopBossMpPressureDamage(
+  log: readonly BattleLogEntry[],
+  args: {
+    damageDealt: number;
+    bossMaxHp: number;
+    bossMaxMp: number;
+  },
+): number {
+  const bossMaxHp = Math.max(1, args.bossMaxHp);
+  const bossMaxMp = Math.max(0, args.bossMaxMp);
+  if (bossMaxMp <= 0) return 0;
+  let hits = 0;
+  let crits = 0;
+  for (const entry of log) {
+    if (entry.kind !== "player_attack") continue;
+    const match = entry.text.match(/(\d+)\s*피해/);
+    const damage = match ? Number(match[1]) : 0;
+    if (!Number.isFinite(damage) || damage <= 0) continue;
+    hits += 1;
+    if (entry.text.includes("[크리티컬]")) crits += 1;
+  }
+  const damageRatioDrain = Math.floor(
+    (Math.max(0, args.damageDealt) / bossMaxHp) *
+      bossMaxMp *
+      COOP_BOSS_MP_DAMAGE_RATIO,
+  );
+  return Math.max(
+    0,
+    Math.min(
+      bossMaxMp,
+      damageRatioDrain +
+        hits * COOP_BOSS_MP_ATTACK_DRAIN +
+        crits * COOP_BOSS_MP_CRIT_DRAIN,
+    ),
+  );
+}
 // 보스 베이스 — 옛 dungeonBosses.ts(#622 파일럿) 승계 + 협동 레이드 킷(#715).
 // phaseTrigger(시뮬 내부 HP 비율 트리거)는 폐기 — 시뮬이 전역 잔여 HP 에서 시작하므로
 // 발악은 CoopBossKind.enrageStages(전역 비율)로 coopBossForBattle 이 미리 구워 넣는다.
@@ -755,7 +843,7 @@ export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
 export function coopBossForBattle(
   kind: CoopBossKind,
   currentHp: number,
-  opts?: { conditionalEnrageWeakened?: boolean },
+  options: { conditionalEnrageWeakened?: boolean; bossMp?: number } = {},
 ): { monster: Monster; enrageNotes: string[] } {
   // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
   //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
@@ -782,7 +870,7 @@ export function coopBossForBattle(
   }
   if (kind.conditionalEnrage && frac <= kind.conditionalEnrage.hpFraction) {
     applyEnrage(
-      opts?.conditionalEnrageWeakened
+      options.conditionalEnrageWeakened
         ? kind.conditionalEnrage.weakened
         : kind.conditionalEnrage.normal,
     );
@@ -794,14 +882,23 @@ export function coopBossForBattle(
     def,
     ...(magicDef != null ? { magicDef } : {}),
     ...(evasion > 0 ? { evasionPct: evasion } : {}),
-    ...(kind.statusSkill
+    v2Skills: kind.statusSkill
       ? {
-          v2Skills: {
-            learned: [kind.statusSkill],
-            equipped: [kind.statusSkill],
-          },
+          learned: Array.from(
+            new Set([...(scaled.v2Skills?.learned ?? []), kind.statusSkill]),
+          ),
+          equipped: Array.from(
+            new Set([...(scaled.v2Skills?.equipped ?? []), kind.statusSkill]),
+          ),
         }
-      : {}),
+      : scaled.v2Skills,
+    v2MaxMp: Math.max(
+      0,
+      Math.min(
+        coopBossMaxMp(kind),
+        Math.floor(options.bossMp ?? scaled.v2MaxMp ?? coopBossMaxMp(kind)),
+      ),
+    ),
   };
   return { monster, enrageNotes };
 }

@@ -27,6 +27,11 @@ import {
   type CoopBossKindId,
   coopAttackCooldownMs,
   canAccessCoopBoss,
+  parseCoopMechanicState,
+  coopBossCurrentMp,
+  coopBossMaxMp,
+  coopBossMpPressureDamage,
+  withCoopBossMp,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -178,6 +183,13 @@ export async function POST(req: Request) {
       };
     }
     const kind = COOP_BOSSES[kindId];
+    const peekMechanicState = parseCoopMechanicState(sessionPeek.mechanicState);
+    const bossMaxMp = coopBossMaxMp(kind);
+    const bossStartMp = coopBossCurrentMp(kind, peekMechanicState);
+    const bossBattleStartMp = Math.min(
+      bossStartMp,
+      kind.base.v2MaxMp ?? bossStartMp,
+    );
 
     // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 전역 잔여
     // (#715 — 막타 처치가 리플레이에 보이고 damageDealt 자연 클램프. 동시 공격의 stale
@@ -188,7 +200,10 @@ export async function POST(req: Request) {
     const { monster: bossMonsterForCurrentHp, enrageNotes } = coopBossForBattle(
       kind,
       sessionPeek.hp,
-      { conditionalEnrageWeakened: sessionPeek.hardEnrageWeakened },
+      {
+        conditionalEnrageWeakened: sessionPeek.hardEnrageWeakened,
+        bossMp: bossBattleStartMp,
+      },
     );
     const bossStartHp = Math.max(
       1,
@@ -251,6 +266,14 @@ export async function POST(req: Request) {
     const damageTaken = Math.max(
       0,
       battleMaxHp - battleResult.finalState.playerHp,
+    );
+    const simulatedBossMpAfter = Math.max(
+      0,
+      Math.min(bossBattleStartMp, battleResult.finalState.enemyMp),
+    );
+    const bossMpSpentByCasts = Math.max(
+      0,
+      bossBattleStartMp - simulatedBossMpAfter,
     );
     const diedEarly = battleResult.finalState.playerHp <= 0;
     const replay = toReplayPayload(battleResult.finalState, 200);
@@ -329,12 +352,32 @@ export async function POST(req: Request) {
       (kindId === "abyssal_tyrant"
         ? appliedCriticalDamage > 0
         : bossBleedingAtEnd);
+    const currentBossMp = coopBossCurrentMp(kind, s.mechanicState);
+    const bossMpPressureDamage = coopBossMpPressureDamage(
+      battleResult.finalState.log,
+      {
+        damageDealt: appliedDamage,
+        bossMaxHp: s.maxHp,
+        bossMaxMp,
+      },
+    );
+    const appliedBossMpDamage = Math.min(
+      currentBossMp,
+      bossMpSpentByCasts + bossMpPressureDamage,
+    );
+    const nextBossMp = Math.max(0, currentBossMp - appliedBossMpDamage);
+    const nextMechanicStateWithMp = withCoopBossMp(
+      kind,
+      s.mechanicState,
+      nextBossMp,
+    );
     const nowDate = new Date(now);
     const [updated] = await tx
       .update(coopBossSessions)
       .set({
         hp: sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
         ...(weakenConditionalEnrage ? { hardEnrageWeakened: true } : {}),
+        mechanicState: nextMechanicStateWithMp,
       })
       .where(eq(coopBossSessions.id, s.id))
       .returning({ hp: coopBossSessions.hp });
@@ -405,6 +448,10 @@ export async function POST(req: Request) {
           turns: battleResult.turns,
           bossHp,
           bossMaxHp: s.maxHp,
+          bossMp: nextBossMp,
+          bossMaxMp,
+          bossMpDamage: appliedBossMpDamage,
+          bossMpDepleted: currentBossMp > 0 && nextBossMp === 0,
           defeated: bossHp === 0,
           myDamage,
           myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp), kindId),

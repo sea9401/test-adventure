@@ -33,6 +33,11 @@ import {
   isScrollSummonableCoopBossKind,
   coopCriticalDamageFromLog,
   rollFishingCoopBossSpawn,
+  coopBossCurrentMp,
+  coopBossMaxMp,
+  coopBossMpPressureDamage,
+  withCoopBossMp,
+  parseCoopMechanicState,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -205,6 +210,13 @@ describe("coopBosses 카탈로그", () => {
       if (b.statusSkill) {
         expect(full.monster.v2Skills?.equipped).toContain(b.statusSkill);
       }
+      for (const skill of b.base.v2Skills?.equipped ?? []) {
+        expect(full.monster.v2Skills?.equipped).toContain(skill);
+      }
+      expect(full.monster.v2MaxMp).toBe(b.base.v2MaxMp);
+      expect(
+        coopBossForBattle(b, b.sharedMaxHp, { bossMp: 7 }).monster.v2MaxMp,
+      ).toBe(7);
       // 잔여 HP 클램프 — 0 이하/초과 입력 방어.
       expect(coopBossForBattle(b, 0).monster.hp).toBe(1);
       expect(
@@ -394,6 +406,31 @@ describe("coopBosses 카탈로그", () => {
     expect(parseCoopBossKindId("nope")).toBeNull();
     expect(parseCoopBossKindId(42)).toBeNull();
     expect(parseCoopBossKindId(null)).toBeNull();
+  });
+  it("공유 MP — 기본 풀은 base MP의 공유 배율이며 mechanicState 로 보존된다", () => {
+    const boss = COOP_BOSSES.mountain_chief;
+    const maxMp = coopBossMaxMp(boss);
+    expect(maxMp).toBe((boss.base.v2MaxMp ?? 0) * 8);
+    expect(coopBossCurrentMp(boss, {})).toBe(maxMp);
+    const state = withCoopBossMp(boss, {}, 123);
+    expect(parseCoopMechanicState(state).bossMp).toBe(123);
+  });
+
+  it("공유 MP — 플레이어 공격 로그와 기여 피해로 압박 피해를 계산한다", () => {
+    const boss = COOP_BOSSES.mountain_chief;
+    const damage = coopBossMpPressureDamage(
+      [
+        { kind: "player_attack", text: "공격! 10 피해를 입혔다." },
+        { kind: "player_attack", text: "공격! [크리티컬] 20 피해를 입혔다." },
+        { kind: "enemy_attack", text: "반격! 5 피해를 입혔다." },
+      ],
+      {
+        damageDealt: Math.floor(boss.sharedMaxHp * 0.05),
+        bossMaxHp: boss.sharedMaxHp,
+        bossMaxMp: coopBossMaxMp(boss),
+      },
+    );
+    expect(damage).toBeGreaterThan(0);
   });
 });
 

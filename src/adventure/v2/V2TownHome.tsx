@@ -39,7 +39,6 @@ export function V2TownHome({
         <EntryCard
           icon={<Compass size={28} weight="duotone" className="text-emerald-600" />}
           title="생활 지도"
-          description="오늘의 소문과 자원 소식"
           onClick={() => onAction({ kind: "open-map" })}
         />
         <EntryCard
@@ -78,7 +77,6 @@ export function V2TownHome({
             />
           }
           title="모험가 농장"
-          description="씨앗을 심고 기다렸다 수확하는 생활 콘텐츠"
           onClick={() => onAction({ kind: "open-farm" })}
         />
       </div>

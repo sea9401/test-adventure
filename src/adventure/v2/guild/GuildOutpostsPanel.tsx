@@ -36,11 +36,13 @@ export function GuildFacilitiesPanel({
   info,
   canManage,
   onChanged,
+  onOpenManage,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
   canManage?: boolean;
   onChanged?: () => void;
+  onOpenManage?: () => void;
 }) {
   const [activeFacility, setActiveFacility] =
     useState<SettlementBuildingId | null>(null);
@@ -73,7 +75,18 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "guild_smithy") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <div className="flex items-center justify-between gap-2">
+          <FacilityBackButton onClick={() => setActiveFacility(null)} />
+          {onOpenManage && (
+            <button
+              type="button"
+              onClick={onOpenManage}
+              className="h-9 rounded-md border border-emerald-700 bg-emerald-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              업그레이드
+            </button>
+          )}
+        </div>
         <GuildWorkshopPanel info={info} />
       </div>
     );
@@ -100,9 +113,20 @@ export function GuildFacilitiesPanel({
   return (
     <div className="space-y-3">
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          길드 시설
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            길드 시설
+          </h3>
+          {onOpenManage && (
+            <button
+              type="button"
+              onClick={onOpenManage}
+              className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+            >
+              시설 관리
+            </button>
+          )}
+        </div>
         <div className="grid gap-2 md:grid-cols-2">
           {rows.map((row) => (
             <div
@@ -143,13 +167,30 @@ export function GuildFacilitiesPanel({
               {row.count > 0 && (
                 <div className="mt-2 space-y-2">
                   {isOpenableFacility(row.id) ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveFacility(row.id)}
-                      className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                    <div
+                      className={`grid gap-1.5 ${
+                        row.id === "guild_smithy" && onOpenManage
+                          ? "grid-cols-2"
+                          : "grid-cols-1"
+                      }`}
                     >
-                      {row.name} {row.actionLabel}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveFacility(row.id)}
+                        className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                      >
+                        {row.name} {row.actionLabel}
+                      </button>
+                      {row.id === "guild_smithy" && onOpenManage && (
+                        <button
+                          type="button"
+                          onClick={onOpenManage}
+                          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                        >
+                          업그레이드
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <p className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
                       준비 중인 시설입니다.
@@ -158,12 +199,22 @@ export function GuildFacilitiesPanel({
                 </div>
               )}
               {row.count <= 0 && (
-                <div className="mt-2">
+                <div className="mt-2 flex items-center justify-between gap-2">
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id)
                       ? "관리 탭에서 개방할 수 있습니다."
                       : "아직 개방할 수 없는 시설입니다."}
                   </p>
+                  {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id) &&
+                    onOpenManage && (
+                      <button
+                        type="button"
+                        onClick={onOpenManage}
+                        className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                      >
+                        개방
+                      </button>
+                    )}
                 </div>
               )}
             </div>

@@ -22,7 +22,10 @@ import {
   type FishingProgressionView,
 } from "@/adventure/v2/fishingProgression";
 import type { FishingProgressNotice } from "@/adventure/v2/fishingChallengeProgress";
-import type { FishingSpot } from "@/adventure/data/v2/fishingSpots";
+import {
+  FISHING_SPOT_DIFFICULTY_LABEL,
+  type FishingSpot,
+} from "@/adventure/data/v2/fishingSpots";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -1527,7 +1530,12 @@ export function FishingView({
 
       {fishingSpot && (
         <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/70 dark:bg-sky-950 dark:text-sky-100">
-          <div className="font-semibold">{fishingSpot.description}</div>
+          <div className="flex flex-wrap items-center gap-1.5 font-semibold">
+            <span>{fishingSpot.description}</span>
+            <span className="rounded border border-sky-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-800 dark:bg-sky-900 dark:text-sky-200">
+              난이도 {FISHING_SPOT_DIFFICULTY_LABEL[fishingSpot.difficulty]}
+            </span>
+          </div>
           <div className="mt-1 flex flex-wrap gap-1">
             {fishingSpot.tags.map((tag) => (
               <span

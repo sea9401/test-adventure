@@ -423,7 +423,7 @@ function FarmSummary({
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
         label="농장 증표"
-        value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}/${farm.stats.reputation.toLocaleString("ko-KR")}`}
+        value={`${farmAvailableReputation(farm).toLocaleString("ko-KR")}개`}
       />
       <SummaryTile
         icon={<Package size={17} weight="duotone" />}

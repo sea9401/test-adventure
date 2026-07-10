@@ -904,6 +904,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 28, luk: 12 },
     unlock: { prereqs: { marksman: TIER6_UNLOCK_CUMLEVEL } },
   },
+  blackmoon: {
+    id: "blackmoon",
+    name: "흑월",
+    tier: 6,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 28, dex: 12 },
+    unlock: { prereqs: { nightshade: TIER6_UNLOCK_CUMLEVEL } },
+  },
   myriadvenom: {
     id: "myriadvenom",
     name: "독황",
@@ -1248,6 +1256,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   savior: { class: "mage", spec: "savior" },
   doomprophet: { class: "mage", spec: "doomprophet" },
   heavenlybow: { class: "rogue", spec: "heavenlybow" },
+  blackmoon: { class: "rogue", spec: "blackmoon" },
   myriadvenom: { class: "rogue", spec: "myriadvenom" },
   celestialdragon: { class: "martial", spec: "celestialdragon" },
   vajraarhat: { class: "martial", spec: "vajraarhat" },

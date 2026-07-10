@@ -969,7 +969,7 @@ const MP_MARTIAL_JOBS = new Set([
 const MP_ROGUE_JOBS = new Set([
   "rogue", "assassin", "archer", "venomist", "shadow", "ranger", "venomancer",
   "phantom", "chief", "venomlord", "marksman", "nightshade", "plaguebringer",
-  "heavenlybow", "myriadvenom",
+  "heavenlybow", "blackmoon", "myriadvenom",
 ]);
 // default 1.0 = 병사 계보(warrior/shieldman/squire/paladin/guardian/veteran/warden)
 //   + 하이브리드(templar/spellblade) + none·스타터(v2_skill_).

@@ -806,6 +806,37 @@ describe("직업 킷 — 스킬셋", () => {
       critPct: 8,
       skillCritOverflow: true,
     });
+    expect(skillsForJob("blackmoon")).toEqual([
+      "v2c_blackmoon_flurry",
+      "v2c_blackmoon_dominion",
+    ]);
+    expect(V2_SKILLS.v2c_blackmoon_flurry.name).toBe("암월난무");
+    expect(V2_SKILLS.v2c_blackmoon_flurry.category).toBe("attack");
+    expect(V2_SKILLS.v2c_blackmoon_flurry.effects.map((e) => e.kind)).toEqual([
+      "damage",
+      "damage",
+      "damage",
+      "enemyAccuracyDown",
+      "selfBuffPct",
+    ]);
+    expect(V2_SKILLS.v2c_blackmoon_flurry.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "luk",
+      pierceDamagePct: 12,
+    });
+    expect(V2_SKILLS.v2c_blackmoon_flurry.effects[3]).toMatchObject({
+      kind: "enemyAccuracyDown",
+      pct: 24,
+      turns: 3,
+    });
+    expect(V2_SKILLS.v2c_blackmoon_dominion.name).toBe("흑월지배");
+    expect(V2_SKILLS.v2c_blackmoon_dominion.category).toBe("passive");
+    expect(V2_SKILLS.v2c_blackmoon_dominion.passive).toMatchObject({
+      statPct: { luk: 22, dex: 8 },
+      evasionPct: 18,
+      critDmgPct: 24,
+      skillCritOverflow: true,
+    });
     expect(skillsForJob("myriadvenom")).toEqual([
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",

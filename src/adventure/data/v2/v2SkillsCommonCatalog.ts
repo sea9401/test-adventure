@@ -223,6 +223,8 @@ export type V2CommonSkillId =
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
   | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 치명 한계 초과)
+  | "v2c_blackmoon_flurry" // 암월난무 (연격 + 명중 교란 + 회피)
+  | "v2c_blackmoon_dominion" // 흑월지배 (행운 + 민첩 + 회피)
   | "v2c_myriadvenom_mutation" // 만독개화 (중독 + 침식 + 중독 폭발)
   | "v2c_myriadvenom_body" // 만독지배 (부식 + 체력 + 회피)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
@@ -1759,6 +1761,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 20, critPct: 8, skillCritOverflow: true },
+  },
+  v2c_blackmoon_flurry: {
+    id: "v2c_blackmoon_flurry", name: "암월난무", stat: "luk", category: "attack", tier: 3,
+    description: "검은 달빛 아래서 연격을 흩뿌린다. 적의 조준을 흐트러뜨리고 다시 어둠 속으로 미끄러진다.",
+    mpCost: 60, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      { kind: "damage", statCoef: 0.46, baseFlat: 185, scaling: "luk", pierceDamagePct: 12 },
+      { kind: "damage", statCoef: 0.4, baseFlat: 170, scaling: "dex", pierceDamagePct: 12 },
+      { kind: "damage", statCoef: 0.52, baseFlat: 210, scaling: "luk", pierceDamagePct: 18 },
+      { kind: "enemyAccuracyDown", pct: 24, turns: 3 },
+      { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 3 },
+    ],
+  },
+  v2c_blackmoon_dominion: {
+    id: "v2c_blackmoon_dominion", name: "흑월지배", stat: "luk", category: "passive", tier: 3,
+    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 치명 한계를 넘긴 감각이 스킬에도 실린다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 18, critDmgPct: 24, skillCritOverflow: true },
   },
   v2c_myriadvenom_mutation: {
     id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,

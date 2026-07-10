@@ -810,6 +810,7 @@ describe("직업 킷 — 스킬셋", () => {
       "v2c_myriadvenom_mutation",
       "v2c_myriadvenom_body",
     ]);
+    expect(V2_SKILLS.v2c_myriadvenom_mutation.name).toBe("만독개화");
     expect(V2_SKILLS.v2c_myriadvenom_mutation.category).toBe("attack");
     expect(V2_SKILLS.v2c_myriadvenom_mutation.effects.map((e) => e.kind)).toEqual([
       "dot",
@@ -821,6 +822,7 @@ describe("직업 킷 — 스킬셋", () => {
       tag: "poison",
       stacks: 6,
     });
+    expect(V2_SKILLS.v2c_myriadvenom_body.name).toBe("만독지배");
     expect(V2_SKILLS.v2c_myriadvenom_body.category).toBe("passive");
     expect(V2_SKILLS.v2c_myriadvenom_body.passive).toMatchObject({
       poisonedEnemyDefReductionPct: 45,

@@ -223,8 +223,8 @@ export type V2CommonSkillId =
   | "v2c_doomprophet_revelation" // 불길한 계시 (마법취약 + 저주 디버프 강화)
   | "v2c_heavenlybow_orbit" // 천궁궤적 (관통 연사 + 취약 + 궤도 마무리)
   | "v2c_heavenlybow_starpath" // 성도 조준 (민첩 + 명중 + 치명 한계 초과)
-  | "v2c_myriadvenom_mutation" // 만독변이 (중독 + 침식 + 중독 폭발)
-  | "v2c_myriadvenom_body" // 만독지체 (부식 + 체력 + 회피)
+  | "v2c_myriadvenom_mutation" // 만독개화 (중독 + 침식 + 중독 폭발)
+  | "v2c_myriadvenom_body" // 만독지배 (부식 + 체력 + 회피)
   | "v2c_celestialdragon_combo" // 천룡난무 (연격 + 취약 + 보법 + ATB 지연)
   | "v2c_celestialdragon_breath" // 천룡의 호흡 (힘 + 민첩 + 회피)
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
@@ -1761,8 +1761,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 20, critPct: 8, skillCritOverflow: true },
   },
   v2c_myriadvenom_mutation: {
-    id: "v2c_myriadvenom_mutation", name: "만독변이", stat: "luk", category: "attack", tier: 3,
-    description: "몸 안의 독을 전장에 맞춰 변이시킨다. 중독을 심고, 독이 깊을수록 더 큰 붕괴를 일으킨다.",
+    id: "v2c_myriadvenom_mutation", name: "만독개화", stat: "luk", category: "attack", tier: 3,
+    description: "몸속에 스민 독을 한꺼번에 피워 올린다. 중독을 심고, 독이 깊을수록 더 큰 붕괴를 일으킨다.",
     mpCost: 58, cooldown: 0, procChance: 35, learnCost: 12000,
     effects: [
       { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 30, stacks: 6 },
@@ -1771,8 +1771,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_myriadvenom_body: {
-    id: "v2c_myriadvenom_body", name: "만독지체", stat: "luk", category: "passive", tier: 3,
-    description: "몸이 독의 그릇이 된다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
+    id: "v2c_myriadvenom_body", name: "만독지배", stat: "luk", category: "passive", tier: 3,
+    description: "모든 독의 흐름을 장악한다. 중독된 적의 방어를 무너뜨리고, 독성 순환으로 버티며 빈틈을 피한다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { poisonedEnemyDefReductionPct: 45, maxHpPct: 12, evasionPct: 12, critDmgPct: 15 },

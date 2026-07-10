@@ -14,6 +14,7 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
   FISHING_WALLET_KEY,
   walletCoins,
@@ -21,14 +22,29 @@ import {
 } from "@/lib/server/fishing/coins";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
+  FISHING_SEED_POUCH_CONTENTS,
+  FISHING_SEED_POUCH_ITEM_ID,
+  FISHING_SHOP_STATE_KEY,
   FISHING_SHOP_TITLES,
+  fishingSeedPouchPriceForPurchase,
+  fishingSeedPouchView,
   fishingShopConsumablePriceFor,
+  fishingShopPurchaseCount,
   fishingShopPriceFor,
+  parseFishingShopState,
+  recordFishingShopPurchase,
+  type FishingShopState,
 } from "@/adventure/v2/fishingShop";
 import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
+import {
+  FARM_SAVE_KEY,
+  addFarmSeeds,
+  emptyFarmState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
 
 async function ownedShopTitleIds(userId: string): Promise<string[]> {
   const rows = await db
@@ -42,27 +58,64 @@ async function ownedShopTitleIds(userId: string): Promise<string[]> {
   return FISHING_SHOP_TITLES.map((t) => t.titleId).filter((id) => id in titles);
 }
 
+function walletWithCoins(wallet: FishingWallet, coins: number): FishingWallet {
+  return { ...wallet, coins };
+}
+
+function seedPouchResponse(shop: FishingShopState) {
+  return fishingSeedPouchView(shop);
+}
+
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [coins, ownedTitleIds, staminaPotions] = await Promise.all([
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, FISHING_WALLET_KEY)))
-      .limit(1)
-      .then((rows) => walletCoins(rows[0]?.value)),
-    ownedShopTitleIds(userId),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)))
-      .limit(1)
-      .then((rows) => staminaPotionCount(rows[0]?.value)),
-  ]);
-  return Response.json({ ok: true, coins, ownedTitleIds, staminaPotions });
+  const dailyKey = kstDailyKey(new Date());
+  const [coins, ownedTitleIds, staminaPotions, shopRaw, farmRaw] =
+    await Promise.all([
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, FISHING_WALLET_KEY)),
+        )
+        .limit(1)
+        .then((rows) => walletCoins(rows[0]?.value)),
+      ownedShopTitleIds(userId),
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)),
+        )
+        .limit(1)
+        .then((rows) => staminaPotionCount(rows[0]?.value)),
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, FISHING_SHOP_STATE_KEY)),
+        )
+        .limit(1)
+        .then((rows) => rows[0]?.value),
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(and(eq(savesKv.userId, userId), eq(savesKv.key, FARM_SAVE_KEY)))
+        .limit(1)
+        .then((rows) => rows[0]?.value),
+    ]);
+  const shop = parseFishingShopState(shopRaw, dailyKey);
+  const farm = parseFarmState(farmRaw);
+  return Response.json({
+    ok: true,
+    coins,
+    ownedTitleIds,
+    staminaPotions,
+    farmSeeds: farm.seeds,
+    seedPouch: seedPouchResponse(shop),
+  });
 }
 
 export async function POST(req: Request) {
@@ -81,6 +134,9 @@ export async function POST(req: Request) {
   // 소비템 구매(itemId) — 칭호와 별개 분기. 반복 구매(보유 상태 없음).
   const itemId = typeof body.itemId === "string" ? body.itemId : null;
   if (itemId) {
+    if (itemId === FISHING_SEED_POUCH_ITEM_ID) {
+      return buySeedPouch(userId);
+    }
     return buyConsumable(userId, itemId);
   }
 
@@ -109,7 +165,12 @@ export async function POST(req: Request) {
     const granted = await grantTitleIfMissingInTx(tx, userId, titleId, Date.now());
     if (!granted) return { kind: "owned" as const, coins };
     const coinBalance = coins - price;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins: coinBalance });
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      walletWithCoins(wallet, coinBalance),
+    );
     return { kind: "ok" as const, coinBalance };
   });
 
@@ -155,7 +216,12 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     const nextCount = staminaPotionCount(potSave) + 1;
     await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: nextCount });
     const coinBalance = coins - price;
-    await upsertSave(tx, userId, FISHING_WALLET_KEY, { coins: coinBalance });
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      walletWithCoins(wallet, coinBalance),
+    );
     return { kind: "ok" as const, coinBalance, staminaPotions: nextCount };
   });
 
@@ -170,5 +236,101 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     itemId,
     coins: outcome.coinBalance,
     staminaPotions: outcome.staminaPotions,
+  });
+}
+
+// 씨앗주머니 구매 — 하루 3개, 당일 구매 횟수에 따라 80→160→320 코인.
+//   락 순서: fishing-wallet.v1 → fishing-shop.v1 → farm.v2.
+async function buySeedPouch(userId: string): Promise<Response> {
+  const dailyKey = kstDailyKey(new Date());
+
+  const outcome = await db.transaction(async (tx) => {
+    const wallet = await lockSaveForUpdate<FishingWallet>(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      { coins: 0 },
+    );
+    const shopRaw = await lockSaveForUpdate<unknown>(
+      tx,
+      userId,
+      FISHING_SHOP_STATE_KEY,
+      {},
+    );
+    const shop = parseFishingShopState(shopRaw, dailyKey);
+    const boughtToday = fishingShopPurchaseCount(
+      shop,
+      FISHING_SEED_POUCH_ITEM_ID,
+    );
+    const price = fishingSeedPouchPriceForPurchase(boughtToday);
+    if (price === undefined) {
+      return {
+        kind: "limit" as const,
+        coins: walletCoins(wallet),
+        shop,
+      };
+    }
+
+    const coins = walletCoins(wallet);
+    if (coins < price) {
+      return { kind: "insufficient" as const, coins, shop };
+    }
+
+    const farmRaw = await lockSaveForUpdate<unknown>(
+      tx,
+      userId,
+      FARM_SAVE_KEY,
+      emptyFarmState(),
+    );
+    const farm = addFarmSeeds(
+      parseFarmState(farmRaw),
+      FISHING_SEED_POUCH_CONTENTS,
+    );
+    const nextShop = recordFishingShopPurchase(shop, FISHING_SEED_POUCH_ITEM_ID);
+    const coinBalance = coins - price;
+    await upsertSave(tx, userId, FARM_SAVE_KEY, farm);
+    await upsertSave(tx, userId, FISHING_SHOP_STATE_KEY, nextShop);
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      walletWithCoins(wallet, coinBalance),
+    );
+    return {
+      kind: "ok" as const,
+      coinBalance,
+      shop: nextShop,
+      farmSeeds: farm.seeds,
+    };
+  });
+
+  if (outcome.kind === "limit") {
+    return Response.json(
+      {
+        ok: false,
+        error: "limit_reached",
+        coins: outcome.coins,
+        seedPouch: seedPouchResponse(outcome.shop),
+      },
+      { status: 409 },
+    );
+  }
+  if (outcome.kind === "insufficient") {
+    return Response.json(
+      {
+        ok: false,
+        error: "insufficient_coins",
+        coins: outcome.coins,
+        seedPouch: seedPouchResponse(outcome.shop),
+      },
+      { status: 402 },
+    );
+  }
+  return Response.json({
+    ok: true,
+    itemId: FISHING_SEED_POUCH_ITEM_ID,
+    coins: outcome.coinBalance,
+    farmSeeds: outcome.farmSeeds,
+    seedPouch: seedPouchResponse(outcome.shop),
   });
 }

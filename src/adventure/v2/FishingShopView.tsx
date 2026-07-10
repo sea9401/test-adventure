@@ -4,7 +4,11 @@ import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { FishingSubTabs } from "./FishingSubTabs";
-import { fishingShopEntries, FISHING_SHOP_CONSUMABLES } from "./fishingShop";
+import {
+  FISHING_SEED_POUCH_ITEM_ID,
+  FISHING_SHOP_CONSUMABLES,
+  fishingShopEntries,
+} from "./fishingShop";
 import type { BuyResult, FishingShopState } from "./useFishingShop";
 
 // 낚시 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useFishingShop 실 API / dev mock).
@@ -57,6 +61,7 @@ export function FishingShopView({
   const coins = state?.coins ?? 0;
   const owned = new Set(state?.ownedTitleIds ?? []);
   const staminaPotions = state?.staminaPotions ?? 0;
+  const seedPouch = state?.seedPouch;
 
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -152,7 +157,14 @@ export function FishingShopView({
           <Card padding="none" className="overflow-hidden">
             <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {FISHING_SHOP_CONSUMABLES.map((c) => {
-                const affordable = coins >= c.price;
+                const isSeedPouch = c.itemId === FISHING_SEED_POUCH_ITEM_ID;
+                const price =
+                  isSeedPouch && seedPouch ? seedPouch.nextPrice : c.price;
+                const limitReached =
+                  isSeedPouch &&
+                  seedPouch != null &&
+                  seedPouch.boughtToday >= seedPouch.dailyLimit;
+                const affordable = price != null && coins >= price;
                 const inFlight = buying === c.itemId;
                 const anyInFlight = buying !== null;
                 return (
@@ -162,24 +174,40 @@ export function FishingShopView({
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 text-sm font-semibold">
-                        🧪 {c.name}
+                        {isSeedPouch ? "🌱" : "🧪"} {c.name}
                         {c.itemId === "stamina_potion" && staminaPotions > 0 && (
                           <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
                             보유 {staminaPotions}
+                          </span>
+                        )}
+                        {isSeedPouch && seedPouch && (
+                          <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                            오늘 {seedPouch.boughtToday}/{seedPouch.dailyLimit}
                           </span>
                         )}
                       </div>
                       <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
                         {c.description}
                       </p>
+                      {isSeedPouch && state && (
+                        <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-500">
+                          보유 씨앗 밀 {state.farmSeeds.wheat ?? 0} · 허브{" "}
+                          {state.farmSeeds.herb ?? 0} · 옥수수{" "}
+                          {state.farmSeeds.corn ?? 0}
+                        </p>
+                      )}
                     </div>
                     <button
                       type="button"
-                      disabled={!affordable || anyInFlight}
+                      disabled={limitReached || !affordable || anyInFlight}
                       onClick={() => handleBuyConsumable(c.itemId)}
                       className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
                     >
-                      {inFlight ? "구매 중…" : `🪙 ${c.price.toLocaleString()}`}
+                      {limitReached
+                        ? "한도 도달"
+                        : inFlight
+                          ? "구매 중…"
+                          : `🪙 ${(price ?? c.price).toLocaleString()}`}
                     </button>
                   </li>
                 );

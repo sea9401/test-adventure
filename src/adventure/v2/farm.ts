@@ -315,6 +315,19 @@ export function claimFarmDelivery(
   };
 }
 
+export function addFarmSeeds(
+  state: FarmState,
+  gains: FarmSeedInventory,
+): FarmState {
+  const seeds = { ...state.seeds };
+  for (const [cropId, count] of Object.entries(gains)) {
+    if (isFarmCropId(cropId)) {
+      setPositiveCount(seeds, cropId, (seeds[cropId] ?? 0) + nonNegativeInt(count));
+    }
+  }
+  return { ...state, seeds };
+}
+
 export function harvestPlot(
   state: FarmState,
   plotId: string,

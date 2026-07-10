@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { FishingShopView } from "@/adventure/v2/FishingShopView";
 import {
+  FISHING_SEED_POUCH_CONTENTS,
+  FISHING_SEED_POUCH_DAILY_LIMIT,
+  FISHING_SEED_POUCH_ITEM_ID,
+  fishingSeedPouchPriceForPurchase,
   fishingShopConsumablePriceFor,
   fishingShopPriceFor,
 } from "@/adventure/v2/fishingShop";
@@ -14,6 +18,13 @@ export function FishingShopHarness() {
     coins: 800,
     ownedTitleIds: ["fishing_taegong"],
     staminaPotions: 0,
+    farmSeeds: { wheat: 3, herb: 1 },
+    seedPouch: {
+      boughtToday: 0,
+      dailyLimit: FISHING_SEED_POUCH_DAILY_LIMIT,
+      nextPrice: fishingSeedPouchPriceForPurchase(0) ?? null,
+      contents: FISHING_SEED_POUCH_CONTENTS,
+    },
   });
 
   const buy = async (titleId: string): Promise<BuyResult> => {
@@ -22,7 +33,9 @@ export function FishingShopHarness() {
     if (state.ownedTitleIds.includes(titleId)) {
       return { ok: false, message: "이미 보유한 칭호다." };
     }
-    if (state.coins < price) return { ok: false, message: "낚시 코인이 부족하다." };
+    if (state.coins < price) {
+      return { ok: false, message: "낚시 코인이 부족하다." };
+    }
     setState((s) => ({
       ...s,
       coins: s.coins - price,
@@ -32,9 +45,41 @@ export function FishingShopHarness() {
   };
 
   const buyConsumable = async (itemId: string): Promise<BuyResult> => {
-    const price = fishingShopConsumablePriceFor(itemId);
+    const price =
+      itemId === FISHING_SEED_POUCH_ITEM_ID
+        ? state.seedPouch.nextPrice
+        : fishingShopConsumablePriceFor(itemId);
     if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
-    if (state.coins < price) return { ok: false, message: "낚시 코인이 부족하다." };
+    if (price === null) {
+      return { ok: false, message: "오늘 구매 한도에 도달했다." };
+    }
+    if (state.coins < price) {
+      return { ok: false, message: "낚시 코인이 부족하다." };
+    }
+    if (itemId === FISHING_SEED_POUCH_ITEM_ID) {
+      setState((s) => {
+        const boughtToday = s.seedPouch.boughtToday + 1;
+        return {
+          ...s,
+          coins: s.coins - price,
+          farmSeeds: {
+            wheat:
+              (s.farmSeeds.wheat ?? 0) +
+              (FISHING_SEED_POUCH_CONTENTS.wheat ?? 0),
+            herb:
+              (s.farmSeeds.herb ?? 0) + (FISHING_SEED_POUCH_CONTENTS.herb ?? 0),
+            corn:
+              (s.farmSeeds.corn ?? 0) + (FISHING_SEED_POUCH_CONTENTS.corn ?? 0),
+          },
+          seedPouch: {
+            ...s.seedPouch,
+            boughtToday,
+            nextPrice: fishingSeedPouchPriceForPurchase(boughtToday) ?? null,
+          },
+        };
+      });
+      return { ok: true, message: "씨앗주머니를 구매했다." };
+    }
     setState((s) => ({
       ...s,
       coins: s.coins - price,

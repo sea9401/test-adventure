@@ -1,6 +1,6 @@
 // 낚시 코인 상점 카탈로그 — 낚시 코인(fishing-wallet.v1)으로 구매. 주력은 코스메틱(칭호) —
 // 주간 정산 보상 화폐의 소비처. 영구 파워템은 두지 않는다(보조적 사이드 컨텐츠 취지). 단
-// 소비템(스태미나 회복약)은 예외로 취급 — 발굴/명예 상점 선례와 동일한 보관형 소비템.
+// 소비템(스태미나 회복약)은 예외로 취급 — 보관형 소비템.
 // 서버(구매 검증)와 클라(상점 UI)가 같은 표를 본다.
 //
 // 새 칭호 추가 시: titles.ts 에 칭호 정의(category "fishing") + 여기 { titleId, price } 한 줄.
@@ -10,7 +10,18 @@
 //   활성 3종만 등재.
 
 import { TITLES, type TitleId } from "@/adventure/data/titles";
+import type { FarmSeedInventory } from "@/adventure/v2/farm";
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
+
+export const FISHING_SHOP_STATE_KEY = "fishing-shop.v1";
+export const FISHING_SEED_POUCH_ITEM_ID = "seed_pouch";
+export const FISHING_SEED_POUCH_DAILY_LIMIT = 3;
+export const FISHING_SEED_POUCH_BASE_PRICE = 80;
+export const FISHING_SEED_POUCH_CONTENTS = {
+  wheat: 3,
+  herb: 2,
+  corn: 1,
+} as const satisfies FarmSeedInventory;
 
 export type FishingShopTitle = {
   titleId: TitleId;
@@ -38,7 +49,96 @@ export const FISHING_SHOP_CONSUMABLES: readonly FishingShopConsumable[] = [
     description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 보관했다 필요할 때 쓴다.`,
     price: 200, // 2026-06-27 사용자 결정 100→200.
   },
+  {
+    itemId: FISHING_SEED_POUCH_ITEM_ID,
+    name: "씨앗주머니",
+    description:
+      "밀 씨앗 3개, 허브 씨앗 2개, 옥수수 씨앗 1개. 하루 3개까지, 살 때마다 오늘 가격이 오른다.",
+    price: FISHING_SEED_POUCH_BASE_PRICE,
+  },
 ];
+
+export type FishingShopState = {
+  daily: { key: string; purchases: Record<string, number> };
+};
+
+function countsOf(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (raw && typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      const n = Math.floor(Number(v));
+      if (Number.isFinite(n) && n > 0) out[k] = n;
+    }
+  }
+  return out;
+}
+
+export function parseFishingShopState(
+  raw: unknown,
+  dailyKey: string,
+): FishingShopState {
+  const obj =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const dailyRaw =
+    obj.daily && typeof obj.daily === "object"
+      ? (obj.daily as Record<string, unknown>)
+      : {};
+  return {
+    daily: {
+      key: dailyKey,
+      purchases: dailyRaw.key === dailyKey ? countsOf(dailyRaw.purchases) : {},
+    },
+  };
+}
+
+export function fishingShopPurchaseCount(
+  state: FishingShopState,
+  itemId: string,
+): number {
+  return state.daily.purchases[itemId] ?? 0;
+}
+
+export function recordFishingShopPurchase(
+  state: FishingShopState,
+  itemId: string,
+): FishingShopState {
+  return {
+    ...state,
+    daily: {
+      ...state.daily,
+      purchases: {
+        ...state.daily.purchases,
+        [itemId]: (state.daily.purchases[itemId] ?? 0) + 1,
+      },
+    },
+  };
+}
+
+export function fishingSeedPouchPriceForPurchase(
+  purchasedToday: number,
+): number | undefined {
+  const count = Math.max(0, Math.floor(Number(purchasedToday) || 0));
+  if (count >= FISHING_SEED_POUCH_DAILY_LIMIT) return undefined;
+  return FISHING_SEED_POUCH_BASE_PRICE * 2 ** count;
+}
+
+export function fishingSeedPouchView(state: FishingShopState): {
+  boughtToday: number;
+  dailyLimit: number;
+  nextPrice: number | null;
+  contents: FarmSeedInventory;
+} {
+  const boughtToday = fishingShopPurchaseCount(
+    state,
+    FISHING_SEED_POUCH_ITEM_ID,
+  );
+  return {
+    boughtToday,
+    dailyLimit: FISHING_SEED_POUCH_DAILY_LIMIT,
+    nextPrice: fishingSeedPouchPriceForPurchase(boughtToday) ?? null,
+    contents: FISHING_SEED_POUCH_CONTENTS,
+  };
+}
 
 /** 소비템 카탈로그에 등재된 itemId → 가격. 미등재면 undefined(구매 불가). */
 export function fishingShopConsumablePriceFor(itemId: string): number | undefined {

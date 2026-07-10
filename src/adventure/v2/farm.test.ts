@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addFarmSeeds,
   claimFarmDelivery,
   emptyFarmState,
   harvestPlot,
@@ -91,6 +92,15 @@ describe("adventurer farm", () => {
     expect(next.deliveries.claimedIds).toEqual(["bakery-wheat"]);
     expect(next.stats.deliveries).toBe(1);
     expect(next.stats.reputation).toBe(2);
+  });
+
+  it("adds seed pouch contents to existing seed inventory", () => {
+    const next = addFarmSeeds(
+      { ...emptyFarmState(), seeds: { wheat: 1, corn: 2 } },
+      { wheat: 3, herb: 2, corn: 1 },
+    );
+
+    expect(next.seeds).toEqual({ wheat: 4, herb: 2, corn: 3 });
   });
 
   it("rejects claiming the same daily delivery twice", () => {

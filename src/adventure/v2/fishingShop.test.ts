@@ -1,10 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import { TITLES } from "@/adventure/data/titles";
 import {
+  FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_TITLES,
+  fishingSeedPouchPriceForPurchase,
+  fishingSeedPouchView,
   fishingShopEntries,
   fishingShopPriceFor,
+  parseFishingShopState,
+  recordFishingShopPurchase,
 } from "./fishingShop";
-import { TITLES } from "@/adventure/data/titles";
 
 describe("낚시 코인 상점 카탈로그", () => {
   it("모든 품목이 titles.ts 에 정의되고 category 가 fishing", () => {
@@ -15,7 +20,7 @@ describe("낚시 코인 상점 카탈로그", () => {
     }
   });
 
-  it("가격은 양수이고 오름차순", () => {
+  it("칭호 가격은 양수이고 오름차순", () => {
     let prev = 0;
     for (const t of FISHING_SHOP_TITLES) {
       expect(t.price).toBeGreaterThan(0);
@@ -54,5 +59,31 @@ describe("낚시 코인 상점 카탈로그", () => {
     ]) {
       expect(removed[id], id).toBeUndefined();
     }
+  });
+
+  it("increases seed pouch price per daily purchase and stops at the limit", () => {
+    expect(fishingSeedPouchPriceForPurchase(0)).toBe(80);
+    expect(fishingSeedPouchPriceForPurchase(1)).toBe(160);
+    expect(fishingSeedPouchPriceForPurchase(2)).toBe(320);
+    expect(fishingSeedPouchPriceForPurchase(3)).toBeUndefined();
+  });
+
+  it("tracks seed pouch purchases per KST day key", () => {
+    const first = parseFishingShopState({}, "2026-07-10");
+    const second = recordFishingShopPurchase(first, FISHING_SEED_POUCH_ITEM_ID);
+    const third = recordFishingShopPurchase(second, FISHING_SEED_POUCH_ITEM_ID);
+
+    expect(fishingSeedPouchView(third)).toMatchObject({
+      boughtToday: 2,
+      dailyLimit: 3,
+      nextPrice: 320,
+      contents: { wheat: 3, herb: 2, corn: 1 },
+    });
+
+    const reset = parseFishingShopState(third, "2026-07-11");
+    expect(fishingSeedPouchView(reset)).toMatchObject({
+      boughtToday: 0,
+      nextPrice: 80,
+    });
   });
 });

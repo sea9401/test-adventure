@@ -747,6 +747,25 @@ describe("직업 킷 — 스킬셋", () => {
       statPct: { int: 22 },
       magicSkillDamagePct: 12,
     });
+    expect(skillsForJob("primordialmage")).toEqual([
+      "v2c_primordialmage_return",
+      "v2c_primordialmage_resonance",
+    ]);
+    expect(V2_SKILLS.v2c_primordialmage_return.name).toBe("태초회귀");
+    expect(V2_SKILLS.v2c_primordialmage_return.category).toBe("attack");
+    expect(V2_SKILLS.v2c_primordialmage_return.effects).toEqual([
+      { kind: "damage", statCoef: 2.05, baseFlat: 560, scaling: "magic" },
+      { kind: "enemyVuln", pct: 14, turns: 3 },
+      { kind: "enemyDelay", pct: 35 },
+      { kind: "enemyHealReduce", pct: 45, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_primordialmage_resonance.name).toBe("근원공명");
+    expect(V2_SKILLS.v2c_primordialmage_resonance.category).toBe("passive");
+    expect(V2_SKILLS.v2c_primordialmage_resonance.passive).toMatchObject({
+      statPct: { int: 20, spi: 8 },
+      magicSkillDamagePct: 10,
+      maxMpPct: 14,
+    });
     expect(skillsForJob("savior")).toEqual([
       "v2c_savior_judgment",
       "v2c_savior_grace",

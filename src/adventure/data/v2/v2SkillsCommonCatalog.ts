@@ -217,6 +217,8 @@ export type V2CommonSkillId =
   | "v2c_hegemon_dominion" // 패황의 지배 (광전 + 치명피해 + 최대 HP)
   | "v2c_archmage_collapse" // 비전 붕괴 (순수 마법 피해 + ATB 지연)
   | "v2c_archmage_theory" // 대마도 이론 (지능 + 마법 스킬 피해)
+  | "v2c_primordialmage_return" // 태초회귀 (근원 마법 피해 + 취약 + 지연)
+  | "v2c_primordialmage_resonance" // 근원공명 (지능 + 정신 + 마법 운용)
   | "v2c_savior_judgment" // 구원의 심판 (마법 피해 + 취약)
   | "v2c_savior_grace" // 구원의 은총 (회복 + 내구)
   | "v2c_doomprophet_sentence" // 종말 선고 (마법취약 폭발 + 침식)
@@ -1710,6 +1712,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { int: 22 }, magicSkillDamagePct: 12 },
+  },
+  v2c_primordialmage_return: {
+    id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
+    description: "원소가 갈라지기 전의 근원 마력을 되감아 적의 방어 흐름과 회복을 함께 무너뜨린다.",
+    mpCost: 82, fixedMpCost: 190, cooldown: 0, procChance: 32, learnCost: 12000,
+    effects: [
+      dmg(2.05, 560, "magic"),
+      { kind: "enemyVuln", pct: 14, turns: 3 },
+      { kind: "enemyDelay", pct: 35 },
+      { kind: "enemyHealReduce", pct: 45, turns: 3 },
+    ],
+  },
+  v2c_primordialmage_resonance: {
+    id: "v2c_primordialmage_resonance", name: "근원공명", stat: "int", category: "passive", tier: 3,
+    description: "원소의 근원을 몸에 새긴다. 마법 위력과 마나의 그릇, 정신력을 함께 끌어올린다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { statPct: { int: 20, spi: 8 }, magicSkillDamagePct: 10, maxMpPct: 14 },
   },
   v2c_savior_judgment: {
     id: "v2c_savior_judgment", name: "구원의 심판", stat: "int", category: "attack", tier: 3,

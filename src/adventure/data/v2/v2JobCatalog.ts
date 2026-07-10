@@ -880,6 +880,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 28, spi: 12 },
     unlock: { prereqs: { arcanist: TIER6_UNLOCK_CUMLEVEL } },
   },
+  primordialmage: {
+    id: "primordialmage",
+    name: "태초술사",
+    tier: 6,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 28, spi: 12 },
+    unlock: { prereqs: { elementallord: TIER6_UNLOCK_CUMLEVEL } },
+  },
   savior: {
     id: "savior",
     name: "구원자",
@@ -1253,6 +1261,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   swordsaint: { class: "warrior", spec: "swordsaint" },
   hegemon: { class: "warrior", spec: "hegemon" },
   archmage: { class: "mage", spec: "archmage" },
+  primordialmage: { class: "mage", spec: "primordialmage" },
   savior: { class: "mage", spec: "savior" },
   doomprophet: { class: "mage", spec: "doomprophet" },
   heavenlybow: { class: "rogue", spec: "heavenlybow" },

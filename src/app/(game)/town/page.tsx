@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 
-// /town — 마을 탭 home. 생활 지도/치료소/은행/상점/대장간/농장 진입.
+// /town — 마을 탭 home. 생활 지도/치료소/은행/상점/대장간/벌목장/농장 진입.
 export default function TownPage() {
   const router = useRouter();
   return (
@@ -18,6 +18,9 @@ export default function TownPage() {
             break;
           case "open-smithy":
             router.push("/town/smithy");
+            break;
+          case "open-logging":
+            router.push("/town/logging");
             break;
           case "open-farm":
             router.push("/town/farm");

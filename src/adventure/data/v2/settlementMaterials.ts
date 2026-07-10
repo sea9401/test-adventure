@@ -1,8 +1,8 @@
 import type { ProductionKind } from "./settlement";
 
-// 정착지 재료 = 통나무(crop)·철광석(ore). 길드 생산슬롯 대신 사냥 드랍으로 수급(개편 PR-2).
-//   개인 인벤에 떨어져 → 기부(길드/솔로 풀 crop/ore 적립·PR-2b) / 거래소 판매 / 조합식(PR-5).
-//   강화석과 같은 "독립 드랍"(전 깊이 공통·V2_MATERIALS_ENABLED 무관). NPC 환금 없음(거래소 전용).
+// 정착지 재료 = 통나무(crop)·철광석(ore). 개인 인벤에 누적되어 → 기부(길드/솔로 풀
+// crop/ore 적립·PR-2b) / 거래소 판매 / 조합식(PR-5)에 쓰인다. 통나무는 벌목장
+// 미니게임을 주 수급처로 두고, 철광석은 채광 미니게임 도입 전까지 사냥 드랍을 유지한다.
 export const SETTLEMENT_MATERIAL_ID = {
   timber: "v2_timber",
   ironOre: "v2_iron_ore",
@@ -13,7 +13,7 @@ export const SETTLEMENT_MATERIALS = {
     id: SETTLEMENT_MATERIAL_ID.timber,
     name: "통나무",
     description:
-      "사냥터에서 베어 모은 통나무. 정착지(길드·개인) 발전에 기부하거나, 거래소에 내다 팔 수 있다.",
+      "벌목으로 모은 통나무. 정착지(길드·개인) 발전에 기부하거나, 거래소에 내다 팔 수 있다.",
   },
   [SETTLEMENT_MATERIAL_ID.ironOre]: {
     id: SETTLEMENT_MATERIAL_ID.ironOre,
@@ -47,12 +47,11 @@ export const SETTLEMENT_MATERIAL_TO_KIND: Record<string, ProductionKind> = {
   [SETTLEMENT_MATERIAL_ID.ironOre]: "ore",
 };
 
-// 🔧 다이얼 — 사냥 1판(승리)당 독립 드랍 확률(0~1 분수). 희소(자급자족은 한참 걸리게 →
-//   거래소 수요 유도). qty=1 고정이라 확률 = 판당 기대 개수. 라이브 튜닝 한 줄.
-//   ⚠️ 값은 분수(rng()<값), 퍼센트 아님 — 0.003 = 0.3%(강화석/재련석 _DROP_PCT 와 단위 다름).
-//   현 수치: 통나무·철광석 각 0.3%(≈1개당 333승).
+// 사냥 드랍 다이얼. 2026-07: 통나무는 벌목장으로 주 수급처를 옮기며 0으로 잠근다.
+// 철광석은 채광 미니게임 도입 전까지 기존 사냥 드랍을 유지한다. huntDrops 는 기존
+// Math.random 호출 순서 보존을 위해 rollSettlementMaterialDrops 자체는 계속 호출한다.
 export const SETTLEMENT_MATERIAL_DROP_PCT: Record<string, number> = {
-  [SETTLEMENT_MATERIAL_ID.timber]: 0.003,
+  [SETTLEMENT_MATERIAL_ID.timber]: 0,
   [SETTLEMENT_MATERIAL_ID.ironOre]: 0.003,
 };
 

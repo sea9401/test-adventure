@@ -17,8 +17,8 @@ function seqRng(values: number[]): () => number {
 
 const { timber, ironOre } = SETTLEMENT_MATERIAL_ID;
 
-describe("정착지 재료 — 통나무/철광석 독립 드랍", () => {
-  it("rollSettlementMaterialDrops — 둘 다 pct 미만이면 각 1개(정확히 2 draw 소비)", () => {
+describe("정착지 재료 — 통나무/철광석 수급", () => {
+  it("rollSettlementMaterialDrops — 통나무 드랍은 잠금, 철광석 draw 는 유지", () => {
     const draws: number[] = [];
     const rng = (() => {
       const seq = seqRng([0.0, 0.0]);
@@ -28,10 +28,7 @@ describe("정착지 재료 — 통나무/철광석 독립 드랍", () => {
         return v;
       };
     })();
-    expect(rollSettlementMaterialDrops(rng)).toEqual({
-      [timber]: 1,
-      [ironOre]: 1,
-    });
+    expect(rollSettlementMaterialDrops(rng)).toEqual({ [ironOre]: 1 });
     expect(draws).toHaveLength(2); // 종류별 1 draw
   });
 
@@ -39,32 +36,29 @@ describe("정착지 재료 — 통나무/철광석 독립 드랍", () => {
     expect(rollSettlementMaterialDrops(seqRng([0.9, 0.9]))).toEqual({});
   });
 
-  it("부분 통과 — 통나무만 / 철광석만", () => {
-    // 드랍률 다이얼에 무관하게 — pct 미만이면 통과, pct 이상이면 실패.
-    const tp = SETTLEMENT_MATERIAL_DROP_PCT[timber];
+  it("드랍률 다이얼 — 통나무는 0, 철광석은 기존 드랍 유지", () => {
+    expect(SETTLEMENT_MATERIAL_DROP_PCT[timber]).toBe(0);
+    expect(SETTLEMENT_MATERIAL_DROP_PCT[ironOre]).toBe(0.003);
+  });
+
+  it("철광석만 부분 통과한다", () => {
     const op = SETTLEMENT_MATERIAL_DROP_PCT[ironOre];
-    // timber 통과(< tp), ironOre 실패(= op)
-    expect(rollSettlementMaterialDrops(seqRng([tp - 1e-9, op]))).toEqual({
-      [timber]: 1,
-    });
-    // timber 실패(= tp), ironOre 통과(< op)
-    expect(rollSettlementMaterialDrops(seqRng([tp, op - 1e-9]))).toEqual({
+    expect(rollSettlementMaterialDrops(seqRng([0, op - 1e-9]))).toEqual({
       [ironOre]: 1,
     });
   });
 
-  it("경계 — rng === pct 면 실패(< 비교), pct-ε 면 통과", () => {
-    const tp = SETTLEMENT_MATERIAL_DROP_PCT[timber];
+  it("철광석 경계 — rng === pct 면 실패(< 비교), pct-ε 면 통과", () => {
     const op = SETTLEMENT_MATERIAL_DROP_PCT[ironOre];
-    expect(rollSettlementMaterialDrops(seqRng([tp, op]))).toEqual({}); // 동일값=실패
-    expect(
-      rollSettlementMaterialDrops(seqRng([tp - 1e-9, op - 1e-9])),
-    ).toEqual({ [timber]: 1, [ironOre]: 1 });
+    expect(rollSettlementMaterialDrops(seqRng([0, op]))).toEqual({});
+    expect(rollSettlementMaterialDrops(seqRng([0, op - 1e-9]))).toEqual({
+      [ironOre]: 1,
+    });
   });
 
-  it("수량은 항상 1 (qty>1 없음)", () => {
+  it("철광석 수량은 항상 1 (qty>1 없음)", () => {
     const r = rollSettlementMaterialDrops(seqRng([0, 0]));
-    expect(r[timber]).toBe(1);
+    expect(r[timber]).toBeUndefined();
     expect(r[ironOre]).toBe(1);
   });
 

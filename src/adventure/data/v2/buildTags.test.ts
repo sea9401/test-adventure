@@ -115,8 +115,6 @@ describe("v2 build tags", () => {
     ]);
     expectTags(buildTagsForSkill(V2_SKILLS.v2c_crimsontemplar_oath), [
       "str",
-      "low_hp",
-      "heal",
       "tank",
     ]);
   });

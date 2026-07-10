@@ -125,16 +125,16 @@ export type V2CommonSkillId =
   | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
   | "v2c_spellblade_strike" // 마검사: 마검 일섬 (물리 + 마법 이중 타격)
   | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +12% & 지능 +12%)
-  | "v2c_bloodtemplar_stigma" // 혈성기사: 피의 성흔 (HP 소모 피해 + 회복)
-  | "v2c_bloodtemplar_martyr" // 혈성기사: 순교의 광기 (광전 + 회복강화)
+  | "v2c_bloodtemplar_stigma" // 혈성기사: 피의 성흔 (HP 소모 + 보호막/약화)
+  | "v2c_bloodtemplar_martyr" // 혈성기사: 순교의 맹세 (최대 HP + 받피감)
   | "v2c_darkpriest_reap" // 암흑사제: 영혼 수확 (처형 + 회복)
   | "v2c_darkpriest_blessing" // 암흑사제: 검은 축복 (회복강화 + 치명피해)
   | "v2c_crusader_judgment" // 성전사: 성전의 심판 (물리 타격 + 자힐 + 받피감)
   | "v2c_crusader_oath" // 성전사: 불굴의 맹세 (방어 + 회복강화 + 받피감)
   | "v2c_runeknight_carve" // 룬 기사: 룬 검격 (물리 + 마법 이중 타격 + 취약)
   | "v2c_runeknight_inscription" // 룬 기사: 룬 각인 (힘 + 지능 + 치명확률)
-  | "v2c_crimsontemplar_judgment" // 진홍성기사: 진홍 심판 (HP 소모 + 회복)
-  | "v2c_crimsontemplar_oath" // 진홍성기사: 피의 서약 (광전 + 회복강화 + 받피감)
+  | "v2c_crimsontemplar_judgment" // 진홍성기사: 진홍 심판 (HP 소모 + 회복 억제/받피감)
+  | "v2c_crimsontemplar_oath" // 진홍성기사: 피의 서약 (방어 + 최대 HP + 받피감)
   // ── 심화 직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
   | "v2c_sensei_combo" // 권룡연파 (방깎 연격 — 무력 디버프·권룡)
@@ -204,8 +204,8 @@ export type V2CommonSkillId =
   | "v2c_immortal_heart" // 불멸의 심장 (최대 HP + 받피감)
   | "v2c_transcendent_mandala" // 만상검 (올스탯 비례)
   | "v2c_transcendent_harmony" // 초월 조화 (올스탯 패시브)
-  | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형 + 회복)
-  | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 광전 + 회복강화)
+  | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형 + 약화/보호막)
+  | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 받피감 + 반사)
   | "v2c_calamitycaller_brand" // 재앙의 낙인 (마법 피해 + 쇠약 + 금제)
   | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
@@ -933,35 +933,37 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bloodtemplar_stigma: {
     id: "v2c_bloodtemplar_stigma", name: "피의 성흔", stat: "str", category: "attack", tier: 3,
-    description: "피를 성흔처럼 새겨 적을 베고, 흘린 만큼 상처를 봉합한다.",
+    description: "피를 성흔처럼 새겨 적을 베고, 맹세의 방벽으로 반격을 버틴다.",
     mpCost: 44, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.15, baseFlatByTier: [190, 190, 190], soakRatio: 1.2 },
-      { kind: "healFromDamage", pct: 18 },
+      { kind: "hpCostDamage", pctCurrentHp: 8, statCoef: 1.05, baseFlatByTier: [180, 180, 180], soakRatio: 1.0 },
+      { kind: "enemyDamageDown", pct: 10, turns: 3 },
+      { kind: "shield", pctMaxHp: 6, turns: 3 },
     ],
   },
   v2c_bloodtemplar_martyr: {
-    id: "v2c_bloodtemplar_martyr", name: "순교의 광기", stat: "str", category: "passive", tier: 3,
-    description: "상처와 신념이 뒤섞인다. 잃은 체력에 따라 공격력이 오르고 회복량도 늘어난다.",
+    id: "v2c_bloodtemplar_martyr", name: "순교의 맹세", stat: "vit", category: "passive", tier: 3,
+    description: "상처를 광기로 삼지 않고 맹세로 붙든다. 최대 체력과 피해 저항이 오른다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.35, healPowerPct: 12 },
+    passive: { maxHpPct: 8, damageTakenReductionPct: 3 },
   },
   v2c_crimsontemplar_judgment: {
     id: "v2c_crimsontemplar_judgment", name: "진홍 심판", stat: "str", category: "attack", tier: 3,
-    description: "피를 성화처럼 태워 적을 짓누르고, 상처를 다시 힘으로 붙든다.",
+    description: "피를 성화처럼 태워 적을 짓누르고, 회복의 흐름을 끊는다.",
     mpCost: 48, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 9, statCoef: 1.35, baseFlatByTier: [280, 280, 280], soakRatio: 1.6 },
-      { kind: "heal", pctLostHp: 14 },
+      { kind: "hpCostDamage", pctCurrentHp: 9, statCoef: 1.15, baseFlatByTier: [260, 260, 260], soakRatio: 1.2 },
+      { kind: "enemyHealReduce", pct: 45, turns: 3 },
+      { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
   },
   v2c_crimsontemplar_oath: {
     id: "v2c_crimsontemplar_oath", name: "피의 서약", stat: "str", category: "passive", tier: 3,
-    description: "흘린 피가 맹세가 된다. 상처가 깊을수록 강해지고 회복도 더 크게 돈다.",
+    description: "흘린 피가 방벽의 맹세가 된다. 더 단단하게 버티며 적의 공세를 받아낸다.",
     mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { berserkAtkPctPerLostHpPct: 0.45, healPowerPct: 16, damageTakenReductionPct: 5 },
+    passive: { maxHpPct: 12, defPct: 10, damageTakenReductionPct: 6 },
   },
   v2c_darkpriest_reap: {
     id: "v2c_darkpriest_reap", name: "영혼 수확", stat: "luk", category: "attack", tier: 3,
@@ -1631,24 +1633,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bloodlord_brand: {
     id: "v2c_bloodlord_brand", name: "왕혈 낙인", stat: "str", category: "attack", tier: 3,
-    description: "군주의 피로 낙인을 찍는다. 상처를 대가로 적을 몰아붙이고 다시 피를 되찾는다.",
+    description: "군주의 피로 낙인을 찍는다. 상처를 대가로 적을 누르고 왕혈의 장벽을 세운다.",
     mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.55, baseFlatByTier: [330, 330, 330], soakRatio: 2.0 },
+      { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.6 },
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [160, 160, 160], hpThresholdPct: 30, bonusMult: 2.2 },
-      { kind: "heal", pctLostHp: 16 },
+      { kind: "enemyDamageDown", pct: 16, turns: 3 },
+      { kind: "shield", pctMaxHp: 12, turns: 3 },
     ],
   },
   v2c_bloodlord_martyrdom: {
     id: "v2c_bloodlord_martyrdom", name: "불사의 순교", stat: "vit", category: "passive", tier: 3,
-    description: "순교는 끝나지 않는다. 더 오래 버티고, 상처가 깊을수록 더 세게 되받는다.",
+    description: "순교는 끝나지 않는다. 더 오래 버티고, 맞받은 피를 되돌려준다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: {
       maxHpPct: 20,
-      berserkAtkPctPerLostHpPct: 0.55,
-      healPowerPct: 20,
-      damageTakenReductionPct: 6,
+      defPct: 12,
+      damageTakenReductionPct: 8,
+      thornsDefPct: 60,
     },
   },
 

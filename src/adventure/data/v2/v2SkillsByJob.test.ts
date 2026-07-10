@@ -451,16 +451,20 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",
-      "heal",
+      "enemyHealReduce",
+      "selfBuffPct",
     ]);
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects[0]).toMatchObject({
       kind: "hpCostDamage",
       pctCurrentHp: 9,
     });
+    expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects).not.toContainEqual(
+      expect.objectContaining({ kind: "heal" }),
+    );
     expect(V2_SKILLS.v2c_crimsontemplar_oath.passive).toMatchObject({
-      berserkAtkPctPerLostHpPct: 0.45,
-      healPowerPct: 16,
-      damageTakenReductionPct: 5,
+      maxHpPct: 12,
+      defPct: 10,
+      damageTakenReductionPct: 6,
     });
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
@@ -654,7 +658,8 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_bloodlord_brand.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",
       "executeDamage",
-      "heal",
+      "enemyDamageDown",
+      "shield",
     ]);
     expect(V2_SKILLS.v2c_bloodlord_brand.effects[0]).toMatchObject({
       kind: "hpCostDamage",
@@ -666,9 +671,9 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_bloodlord_martyrdom.passive).toMatchObject({
       maxHpPct: 20,
-      berserkAtkPctPerLostHpPct: 0.55,
-      healPowerPct: 20,
-      damageTakenReductionPct: 6,
+      defPct: 12,
+      damageTakenReductionPct: 8,
+      thornsDefPct: 60,
     });
     expect(V2_SKILLS.v2c_calamitycaller_brand.effects).toEqual([
       { kind: "damage", statCoef: 1.8, baseFlat: 420, scaling: "magic" },
@@ -990,14 +995,14 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "hpCostDamage",
       pctCurrentHp: 8,
     });
-    expect(
-      V2_SKILLS.v2c_bloodtemplar_stigma.effects.some(
-        (e) => e.kind === "healFromDamage" && e.pct === 18,
-      ),
-    ).toBe(true);
+    expect(V2_SKILLS.v2c_bloodtemplar_stigma.effects.map((e) => e.kind)).toEqual([
+      "hpCostDamage",
+      "enemyDamageDown",
+      "shield",
+    ]);
     expect(V2_SKILLS.v2c_bloodtemplar_martyr.passive).toMatchObject({
-      berserkAtkPctPerLostHpPct: 0.35,
-      healPowerPct: 12,
+      maxHpPct: 8,
+      damageTakenReductionPct: 3,
     });
 
     expect(skillsForJob("darkpriest")).toEqual([

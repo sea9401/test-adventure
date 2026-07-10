@@ -6,10 +6,11 @@ import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials"
 import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
+  WOODCUTTING_TREES,
+  createWoodcuttingRound,
   parseWoodcuttingLog,
   pickWoodcuttingTreeId,
-  rollChopReadyDelayMs,
-  woodcuttingExpiresAtFor,
+  woodcuttingRoundView,
   type WoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
 
@@ -20,13 +21,14 @@ export async function POST() {
   }
 
   const now = Date.now();
-  const readyDelayMs = rollChopReadyDelayMs(Math.random);
-  const readyAt = now + readyDelayMs;
+  const treeId = pickWoodcuttingTreeId(Math.random);
   const session: WoodcuttingSession = {
     sessionId: randomUUID(),
-    readyAt,
-    expiresAt: woodcuttingExpiresAtFor(readyAt),
-    treeId: pickWoodcuttingTreeId(Math.random),
+    treeId,
+    round: createWoodcuttingRound({ index: 1, now, rng: Math.random }),
+    hits: [],
+    combo: 0,
+    bestCombo: 0,
   };
 
   await db.transaction(async (tx) => {
@@ -46,7 +48,8 @@ export async function POST() {
   return Response.json({
     ok: true,
     sessionId: session.sessionId,
-    readyDelayMs,
+    tree: WOODCUTTING_TREES[treeId],
+    round: woodcuttingRoundView(session.round, now),
     timber,
     log: parseWoodcuttingLog(logRaw),
   });

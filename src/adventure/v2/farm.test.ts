@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FARM_DAILY_QUEST_SEED_REWARD,
+  FARM_FISHING_SHOP_SEED_REWARD,
   FARM_CROP_REQUIRED_SKILL_ID,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
@@ -69,6 +70,15 @@ describe("adventurer farm", () => {
     const next = grantFarmSeeds(state, FARM_DAILY_QUEST_SEED_REWARD);
 
     expect(next.seeds).toEqual({ wheat: 5, herb: 2, corn: 1 });
+  });
+
+  it("grants farm seeds from the fishing coin shop pouch", () => {
+    const next = grantFarmSeeds(
+      emptyFarmState(1_000),
+      FARM_FISHING_SHOP_SEED_REWARD,
+    );
+
+    expect(next.seeds).toEqual({ wheat: 6, herb: 3, corn: 1 });
   });
 
   it("rejects harvesting before the crop is ready", () => {

@@ -3,9 +3,14 @@
 import { useState } from "react";
 import { FishingShopView } from "@/adventure/v2/FishingShopView";
 import {
+  FISHING_SEED_POUCH_BASE_PRICE,
+  FISHING_SEED_POUCH_DAILY_LIMIT,
+  FISHING_SEED_POUCH_ITEM_ID,
   fishingShopConsumablePriceFor,
+  fishingSeedPouchPriceForPurchase,
   fishingShopPriceFor,
 } from "@/adventure/v2/fishingShop";
+import { FARM_FISHING_SHOP_SEED_REWARD } from "@/adventure/v2/farm";
 import {
   buyFishingLure,
   buyFishingRod,
@@ -32,6 +37,13 @@ export function FishingShopHarness() {
     ownedTitleIds: ["fishing_taegong"],
     staminaPotions: 0,
     progression: fishingProgressionView(emptyFishingProgression()),
+    seedPouch: {
+      boughtToday: 0,
+      dailyLimit: FISHING_SEED_POUCH_DAILY_LIMIT,
+      remainingToday: FISHING_SEED_POUCH_DAILY_LIMIT,
+      nextPrice: FISHING_SEED_POUCH_BASE_PRICE,
+      contents: FARM_FISHING_SHOP_SEED_REWARD,
+    },
   });
 
   const buy = async (titleId: string): Promise<BuyResult> => {
@@ -50,6 +62,35 @@ export function FishingShopHarness() {
   };
 
   const buyConsumable = async (itemId: string): Promise<BuyResult> => {
+    if (itemId === FISHING_SEED_POUCH_ITEM_ID) {
+      const pouch = state.seedPouch;
+      const price = pouch?.nextPrice ?? null;
+      if (price === null) {
+        return { ok: false, message: "오늘 구매 한도에 도달했다." };
+      }
+      if (state.coins < price) {
+        return { ok: false, message: "낚시 코인이 부족하다." };
+      }
+      setState((s) => {
+        const boughtToday = (s.seedPouch?.boughtToday ?? 0) + 1;
+        const nextPrice = fishingSeedPouchPriceForPurchase(boughtToday) ?? null;
+        return {
+          ...s,
+          coins: s.coins - price,
+          seedPouch: {
+            boughtToday,
+            dailyLimit: FISHING_SEED_POUCH_DAILY_LIMIT,
+            remainingToday: Math.max(
+              0,
+              FISHING_SEED_POUCH_DAILY_LIMIT - boughtToday,
+            ),
+            nextPrice,
+            contents: FARM_FISHING_SHOP_SEED_REWARD,
+          },
+        };
+      });
+      return { ok: true, message: "물가 씨앗 주머니를 구매했다." };
+    }
     const price = fishingShopConsumablePriceFor(itemId);
     if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
     if (state.coins < price) return { ok: false, message: "낚시 코인이 부족하다." };

@@ -23,10 +23,19 @@ import {
   type FishingWallet,
 } from "@/lib/server/fishing/coins";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
+  FISHING_SEED_POUCH_ITEM_ID,
+  FISHING_SHOP_STATE_KEY,
   FISHING_SHOP_TITLES,
+  fishingSeedPouchPriceForPurchase,
+  fishingSeedPouchView,
+  fishingShopPurchaseCount,
   fishingShopConsumablePriceFor,
   fishingShopPriceFor,
+  parseFishingShopState,
+  recordFishingShopPurchase,
+  type FishingShopState,
 } from "@/adventure/v2/fishingShop";
 import {
   FARM_FISHING_SEED_POUCH_NAME,
@@ -117,30 +126,49 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [coins, ownedTitleIds, staminaPotions, progression] = await Promise.all([
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, FISHING_WALLET_KEY)))
-      .limit(1)
-      .then((rows) => walletCoins(rows[0]?.value)),
-    ownedShopTitleIds(userId),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)))
-      .limit(1)
-      .then((rows) => staminaPotionCount(rows[0]?.value)),
-    readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()).then(
-      (raw) => fishingProgressionView(parseFishingProgression(raw)),
-    ),
-  ]);
+  const dailyKey = kstDailyKey(new Date());
+  const [coins, ownedTitleIds, staminaPotions, progression, shopRaw] =
+    await Promise.all([
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, FISHING_WALLET_KEY)),
+        )
+        .limit(1)
+        .then((rows) => walletCoins(rows[0]?.value)),
+      ownedShopTitleIds(userId),
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)),
+        )
+        .limit(1)
+        .then((rows) => staminaPotionCount(rows[0]?.value)),
+      readSave(db, userId, FISHING_PROGRESS_KEY, emptyFishingProgression()).then(
+        (raw) => fishingProgressionView(parseFishingProgression(raw)),
+      ),
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(
+            eq(savesKv.userId, userId),
+            eq(savesKv.key, FISHING_SHOP_STATE_KEY),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0]?.value),
+    ]);
+  const shop = parseFishingShopState(shopRaw, dailyKey);
   return Response.json({
     ok: true,
     coins,
     ownedTitleIds,
     staminaPotions,
     progression,
+    seedPouch: fishingSeedPouchView(shop),
   });
 }
 
@@ -338,11 +366,18 @@ async function buyFishingGear(
 }
 
 // 소비템 구매 — 보관형 소비템이라 반복 구매.
-//   락 순서: fishing-wallet.v1 → 지급 대상 저장소 (지갑 먼저 — 칭호 흐름과 동일 시작).
-//   두 키를 함께 잡는 다른 라우트가 없어 교차 데드락 없음.
+//   락 순서: fishing-wallet.v1 → 상점/지급 대상 저장소.
+//   씨앗 주머니는 fishing-wallet.v1 → fishing-shop.v1 → farm.v2 로 잡는다.
 async function buyConsumable(userId: string, itemId: string): Promise<Response> {
+  if (itemId === FISHING_SEED_POUCH_ITEM_ID) {
+    return buySeedPouch(userId);
+  }
+
   const price = fishingShopConsumablePriceFor(itemId);
   if (price === undefined) {
+    return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
+  }
+  if (itemId !== "stamina_potion") {
     return Response.json({ ok: false, error: "unknown_item" }, { status: 400 });
   }
 
@@ -356,43 +391,14 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     const coins = walletCoins(wallet);
     if (coins < price) return { kind: "insufficient" as const, coins };
 
-    let staminaPotions: number | undefined;
-    let seedPouch:
-      | { name: string; seeds: typeof FARM_FISHING_SHOP_SEED_REWARD }
-      | undefined;
-    if (itemId === "stamina_potion") {
-      const potSave = await lockSaveForUpdate<{ count: number }>(
-        tx,
-        userId,
-        STAMINA_POTIONS_KEY,
-        { count: 0 },
-      );
-      staminaPotions = staminaPotionCount(potSave) + 1;
-      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: staminaPotions });
-    } else if (itemId === "farm_seed_pouch") {
-      const now = Date.now();
-      const farm = normalizeFarmForDay(
-        parseFarmState(
-          await lockSaveForUpdate(
-            tx,
-            userId,
-            FARM_SAVE_KEY,
-            emptyFarmState(now),
-          ),
-        ),
-        now,
-      );
-      await upsertSave(
-        tx,
-        userId,
-        FARM_SAVE_KEY,
-        grantFarmSeeds(farm, FARM_FISHING_SHOP_SEED_REWARD),
-      );
-      seedPouch = {
-        name: FARM_FISHING_SEED_POUCH_NAME,
-        seeds: FARM_FISHING_SHOP_SEED_REWARD,
-      };
-    }
+    const potSave = await lockSaveForUpdate<{ count: number }>(
+      tx,
+      userId,
+      STAMINA_POTIONS_KEY,
+      { count: 0 },
+    );
+    const staminaPotions = staminaPotionCount(potSave) + 1;
+    await upsertSave(tx, userId, STAMINA_POTIONS_KEY, { count: staminaPotions });
 
     const coinBalance = coins - price;
     await upsertSave(
@@ -401,7 +407,7 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
       FISHING_WALLET_KEY,
       fishingWalletWithCoins(wallet, coinBalance),
     );
-    return { kind: "ok" as const, coinBalance, staminaPotions, seedPouch };
+    return { kind: "ok" as const, coinBalance, staminaPotions };
   });
 
   if (outcome.kind === "insufficient") {
@@ -415,6 +421,117 @@ async function buyConsumable(userId: string, itemId: string): Promise<Response> 
     itemId,
     coins: outcome.coinBalance,
     staminaPotions: outcome.staminaPotions,
+  });
+}
+
+async function buySeedPouch(userId: string): Promise<Response> {
+  const now = Date.now();
+  const dailyKey = kstDailyKey(new Date(now));
+
+  const outcome = await db.transaction(async (tx) => {
+    const wallet = await lockSaveForUpdate<FishingWallet>(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      { coins: 0 },
+    );
+    const shop = parseFishingShopState(
+      await lockSaveForUpdate<FishingShopState>(
+        tx,
+        userId,
+        FISHING_SHOP_STATE_KEY,
+        { daily: { key: dailyKey, purchases: {} } },
+      ),
+      dailyKey,
+    );
+    const boughtToday = fishingShopPurchaseCount(
+      shop,
+      FISHING_SEED_POUCH_ITEM_ID,
+    );
+    const price = fishingSeedPouchPriceForPurchase(boughtToday);
+    if (price === undefined) {
+      return {
+        kind: "limit" as const,
+        coins: walletCoins(wallet),
+        seedPouch: fishingSeedPouchView(shop),
+      };
+    }
+
+    const coins = walletCoins(wallet);
+    if (coins < price) {
+      return {
+        kind: "insufficient" as const,
+        coins,
+        seedPouch: fishingSeedPouchView(shop),
+      };
+    }
+
+    const farm = normalizeFarmForDay(
+      parseFarmState(
+        await lockSaveForUpdate(
+          tx,
+          userId,
+          FARM_SAVE_KEY,
+          emptyFarmState(now),
+        ),
+      ),
+      now,
+    );
+    await upsertSave(
+      tx,
+      userId,
+      FARM_SAVE_KEY,
+      grantFarmSeeds(farm, FARM_FISHING_SHOP_SEED_REWARD),
+    );
+
+    const nextShop = recordFishingShopPurchase(shop, FISHING_SEED_POUCH_ITEM_ID);
+    const coinBalance = coins - price;
+    await upsertSave(tx, userId, FISHING_SHOP_STATE_KEY, nextShop);
+    await upsertSave(
+      tx,
+      userId,
+      FISHING_WALLET_KEY,
+      fishingWalletWithCoins(wallet, coinBalance),
+    );
+
+    return {
+      kind: "ok" as const,
+      coinBalance,
+      seedPouch: fishingSeedPouchView(nextShop),
+      granted: {
+        name: FARM_FISHING_SEED_POUCH_NAME,
+        seeds: FARM_FISHING_SHOP_SEED_REWARD,
+      },
+    };
+  });
+
+  if (outcome.kind === "limit") {
+    return Response.json(
+      {
+        ok: false,
+        error: "limit_reached",
+        coins: outcome.coins,
+        seedPouch: outcome.seedPouch,
+      },
+      { status: 409 },
+    );
+  }
+  if (outcome.kind === "insufficient") {
+    return Response.json(
+      {
+        ok: false,
+        error: "insufficient_coins",
+        coins: outcome.coins,
+        seedPouch: outcome.seedPouch,
+      },
+      { status: 402 },
+    );
+  }
+  return Response.json({
+    ok: true,
+    itemId: FISHING_SEED_POUCH_ITEM_ID,
+    coins: outcome.coinBalance,
     seedPouch: outcome.seedPouch,
+    seedPouchGrant: outcome.granted,
   });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import type { FishingSeedPouchView } from "./fishingShop";
 import type { FishingProgressionView } from "./fishingProgression";
 import { useCoinShop, type BuyResult } from "./useCoinShop";
 
@@ -10,12 +11,17 @@ export type FishingShopState = {
   ownedTitleIds: string[];
   staminaPotions: number;
   progression: FishingProgressionView | null;
+  seedPouch: FishingSeedPouchView | null;
 };
 export type FishingGearKind = "rod" | "lure";
 export type FishingGearAction = "buy" | "equip";
 
 function parseProgression(v: unknown): FishingProgressionView | null {
   return v && typeof v === "object" ? (v as FishingProgressionView) : null;
+}
+
+function parseSeedPouch(v: unknown): FishingSeedPouchView | null {
+  return v && typeof v === "object" ? (v as FishingSeedPouchView) : null;
 }
 
 // 낚시 코인 상점 상태(코인·보유 칭호·낚시 진행) fetch + 구매 mutation. FishingShopView 에 주입.
@@ -33,6 +39,7 @@ export function useFishingShop() {
         staminaPotions:
           typeof j.staminaPotions === "number" ? j.staminaPotions : 0,
         progression: parseProgression(j.progression),
+        seedPouch: parseSeedPouch(j.seedPouch),
       }),
       applyServer: (s, j) => ({
         ...s,
@@ -41,6 +48,9 @@ export function useFishingShop() {
           : {}),
         ...(j.progression && typeof j.progression === "object"
           ? { progression: j.progression as FishingProgressionView }
+          : {}),
+        ...(j.seedPouch && typeof j.seedPouch === "object"
+          ? { seedPouch: j.seedPouch as FishingSeedPouchView }
           : {}),
       }),
     });

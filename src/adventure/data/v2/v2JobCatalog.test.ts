@@ -13,10 +13,6 @@ import {
   FISHING_TIER5_UNLOCK_CUMLEVEL,
   FISHING_TIER6_UNLOCK_CUMLEVEL,
   FARMING_TIER2_UNLOCK_CUMLEVEL,
-  FARMING_TIER3_UNLOCK_CUMLEVEL,
-  FARMING_TIER4_UNLOCK_CUMLEVEL,
-  FARMING_TIER5_UNLOCK_CUMLEVEL,
-  FARMING_TIER6_UNLOCK_CUMLEVEL,
   FARMING_LEVEL_REQUIREMENTS,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
@@ -280,11 +276,18 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER3_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(3);
+      if (isFarmingJobId(childId)) {
+        expect(job.unlock.prereqs).toEqual({});
+        expect(job.unlock.extraConditions).toContainEqual({
+          type: "jobUnlocked",
+          jobId: parent,
+        });
+        expect(V2_JOB_CATALOG[parent].tier).toBe(2);
+        continue;
+      }
       const required =
         childId === "angler"
           ? FISHING_TIER3_UNLOCK_CUMLEVEL
-          : childId === "horticulturist"
-            ? FARMING_TIER3_UNLOCK_CUMLEVEL
           : TIER3_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       // 계보 부모는 tier-2 직업 → isJobUnlocked 가 jobCumLevel 로 분기(직군 cumLevel 아님).
@@ -296,11 +299,18 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(4);
+      if (isFarmingJobId(childId)) {
+        expect(job.unlock.prereqs).toEqual({});
+        expect(job.unlock.extraConditions).toContainEqual({
+          type: "jobUnlocked",
+          jobId: parent,
+        });
+        expect(V2_JOB_CATALOG[parent].tier).toBe(3);
+        continue;
+      }
       const required =
         childId === "masterangler"
           ? FISHING_TIER4_UNLOCK_CUMLEVEL
-          : childId === "masterfarmer"
-            ? FARMING_TIER4_UNLOCK_CUMLEVEL
           : TIER4_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(3);
@@ -328,32 +338,28 @@ describe("해금 트리", () => {
     });
   });
 
-  it("농부 계열은 농사 XP 기반 숙련도라 생활 직업 전용 요구치를 쓴다", () => {
+  it("농부 상위 직업은 숙련도 숫자 없이 선행 직업 해금과 농사 레벨만 요구한다", () => {
     expect(V2_JOB_CATALOG.farmer.unlock.prereqs).toEqual({
       survivor: 900,
     });
-    expect(V2_JOB_CATALOG.horticulturist.unlock.prereqs).toEqual({
-      farmer: 1800,
-    });
+    expect(V2_JOB_CATALOG.horticulturist.unlock.prereqs).toEqual({});
     expect(V2_JOB_CATALOG.horticulturist.unlock.extraConditions).toEqual([
+      { type: "jobUnlocked", jobId: "farmer" },
       { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.horticulturist },
     ]);
-    expect(V2_JOB_CATALOG.masterfarmer.unlock.prereqs).toEqual({
-      horticulturist: 2700,
-    });
+    expect(V2_JOB_CATALOG.masterfarmer.unlock.prereqs).toEqual({});
     expect(V2_JOB_CATALOG.masterfarmer.unlock.extraConditions).toEqual([
+      { type: "jobUnlocked", jobId: "horticulturist" },
       { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.masterfarmer },
     ]);
-    expect(V2_JOB_CATALOG.harvestking.unlock.prereqs).toEqual({
-      masterfarmer: 5400,
-    });
+    expect(V2_JOB_CATALOG.harvestking.unlock.prereqs).toEqual({});
     expect(V2_JOB_CATALOG.harvestking.unlock.extraConditions).toEqual([
+      { type: "jobUnlocked", jobId: "masterfarmer" },
       { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.harvestking },
     ]);
-    expect(V2_JOB_CATALOG.earthartisan.unlock.prereqs).toEqual({
-      harvestking: 9000,
-    });
+    expect(V2_JOB_CATALOG.earthartisan.unlock.prereqs).toEqual({});
     expect(V2_JOB_CATALOG.earthartisan.unlock.extraConditions).toEqual([
+      { type: "jobUnlocked", jobId: "harvestking" },
       { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.earthartisan },
     ]);
   });
@@ -362,19 +368,35 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER5_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(5);
+      if (isFarmingJobId(childId)) {
+        expect(job.unlock.prereqs).toEqual({});
+        expect(job.unlock.extraConditions).toContainEqual({
+          type: "jobUnlocked",
+          jobId: parent,
+        });
+        expect(V2_JOB_CATALOG[parent].tier).toBe(4);
+        expect(
+          isJobUnlocked(job, profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL }), {
+            farmingLevel: FARMING_LEVEL_REQUIREMENTS.harvestking - 1,
+          }),
+        ).toBe(false);
+        expect(
+          isJobUnlocked(job, profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL }), {
+            farmingLevel: FARMING_LEVEL_REQUIREMENTS.harvestking,
+          }),
+        ).toBe(true);
+        continue;
+      }
       const required =
         childId === "fullcatchking"
           ? FISHING_TIER5_UNLOCK_CUMLEVEL
-          : childId === "harvestking"
-            ? FARMING_TIER5_UNLOCK_CUMLEVEL
           : TIER5_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(4);
-      const ctx = isFarmingJobId(childId) ? { farmingLevel: 999 } : undefined;
-      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }), ctx)).toBe(
+      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }))).toBe(
         false,
       );
-      expect(isJobUnlocked(job, profJobs({ [parent]: required }), ctx)).toBe(true);
+      expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
     }
     expect(TIER4_UNLOCK_CUMLEVEL).toBeLessThan(TIER5_UNLOCK_CUMLEVEL);
   });
@@ -383,19 +405,35 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER6_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(6);
+      if (isFarmingJobId(childId)) {
+        expect(job.unlock.prereqs).toEqual({});
+        expect(job.unlock.extraConditions).toContainEqual({
+          type: "jobUnlocked",
+          jobId: parent,
+        });
+        expect(V2_JOB_CATALOG[parent].tier).toBe(5);
+        expect(
+          isJobUnlocked(job, profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL }), {
+            farmingLevel: FARMING_LEVEL_REQUIREMENTS.earthartisan - 1,
+          }),
+        ).toBe(false);
+        expect(
+          isJobUnlocked(job, profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL }), {
+            farmingLevel: FARMING_LEVEL_REQUIREMENTS.earthartisan,
+          }),
+        ).toBe(true);
+        continue;
+      }
       const required =
         childId === "seagod"
           ? FISHING_TIER6_UNLOCK_CUMLEVEL
-          : childId === "earthartisan"
-            ? FARMING_TIER6_UNLOCK_CUMLEVEL
           : TIER6_UNLOCK_CUMLEVEL;
       expect(job.unlock.prereqs).toEqual({ [parent]: required });
       expect(V2_JOB_CATALOG[parent].tier).toBe(5);
-      const ctx = isFarmingJobId(childId) ? { farmingLevel: 999 } : undefined;
-      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }), ctx)).toBe(
+      expect(isJobUnlocked(job, profJobs({ [parent]: required - 1 }))).toBe(
         false,
       );
-      expect(isJobUnlocked(job, profJobs({ [parent]: required }), ctx)).toBe(true);
+      expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
     }
     expect(TIER5_UNLOCK_CUMLEVEL).toBeLessThan(TIER6_UNLOCK_CUMLEVEL);
     expect(LEGACY_CLASS_SPEC_BY_JOB.fortressknight).toEqual({
@@ -637,18 +675,25 @@ describe("isJobUnlocked / unlockedJobs", () => {
     ).toBe(false);
   });
 
-  it("농부 상위 직업은 부모 숙련도와 농사 레벨을 모두 요구한다", () => {
+  it("농부 상위 직업은 선행 직업 해금과 농사 레벨을 모두 요구한다", () => {
     expect(
       isJobUnlocked(
         V2_JOB_CATALOG.horticulturist,
-        profJobs({ farmer: FARMING_TIER3_UNLOCK_CUMLEVEL }),
+        profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL - 1 }),
+        { farmingLevel: FARMING_LEVEL_REQUIREMENTS.horticulturist },
+      ),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(
+        V2_JOB_CATALOG.horticulturist,
+        profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL }),
         { farmingLevel: FARMING_LEVEL_REQUIREMENTS.horticulturist - 1 },
       ),
     ).toBe(false);
     expect(
       isJobUnlocked(
         V2_JOB_CATALOG.horticulturist,
-        profJobs({ farmer: FARMING_TIER3_UNLOCK_CUMLEVEL }),
+        profWith({ survivor: FARMING_TIER2_UNLOCK_CUMLEVEL }),
         { farmingLevel: FARMING_LEVEL_REQUIREMENTS.horticulturist },
       ),
     ).toBe(true);
@@ -764,15 +809,18 @@ describe("extraConditions 추가 해금 조건 (#818)", () => {
     expect(isJobUnlocked(job, profWithCaps({ str: 49 }), ctx)).toBe(false);
   });
 
-  it("현 카탈로그는 퀘스트 조건 없이 농사 레벨 조건만 쓴다", () => {
+  it("현 카탈로그는 퀘스트 조건 없이 농부 상위 직업에만 선행 전직과 농사 레벨 조건을 쓴다", () => {
     expect(CATALOG_USES_QUEST_CONDITION).toBe(false);
     expect(CATALOG_USES_FARMING_LEVEL_CONDITION).toBe(true);
     for (const job of V2_JOB_LIST) {
       const extra = job.unlock.extraConditions ?? [];
       if (isFarmingJobId(job.id) && job.id !== "farmer") {
-        expect(extra, `${job.id} 는 농사 레벨 조건을 사용`).toEqual([
-          expect.objectContaining({ type: "farmingLevel" }),
-        ]);
+        expect(extra, `${job.id} 는 농사 레벨 조건을 사용`).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ type: "jobUnlocked" }),
+            expect.objectContaining({ type: "farmingLevel" }),
+          ]),
+        );
       } else {
         expect(extra, `${job.id} 는 extraConditions 미사용`).toEqual([]);
       }
@@ -826,7 +874,10 @@ describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
       const legacy = LEGACY_CLASS_SPEC_BY_JOB[job.id];
       // 매핑된 class 는 첫 prereq 의 직군과 일치해야 한다. 단일 부모는 첫 키가 직군(tier1)이라
       //   그대로, 하이브리드(기사·사제 prereq)는 첫 키가 상위 직업이라 그 직업의 직군으로 환산.
-      const parentKey = Object.keys(job.unlock.prereqs)[0];
+      const parentKey =
+        Object.keys(job.unlock.prereqs)[0] ??
+        job.unlock.extraConditions?.find((cond) => cond.type === "jobUnlocked")
+          ?.jobId;
       const parentClass = LEGACY_CLASS_SPEC_BY_JOB[parentKey]?.class ?? parentKey;
       expect(legacy.class).toBe(parentClass);
       expect(typeof legacy.spec).toBe("string");

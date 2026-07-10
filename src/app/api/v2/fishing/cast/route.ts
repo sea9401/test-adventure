@@ -8,6 +8,11 @@ import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
+  FISHING_ANTI_MACRO_KEY,
+  fishingAntiMacroFriction,
+  parseFishingAntiMacroState,
+} from "@/adventure/v2/fishingAntiMacro";
+import {
   emptyV2SkillsState,
   equippedFishingBonuses,
   parseV2SkillsState,
@@ -50,6 +55,26 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const now = Date.now();
+  const antiMacro = fishingAntiMacroFriction(
+    parseFishingAntiMacroState(
+      await readSave(db, userId, FISHING_ANTI_MACRO_KEY, {}),
+    ),
+    now,
+  );
+  if (antiMacro.active) {
+    return Response.json(
+      {
+        ok: false,
+        error: "fishing_friction",
+        retryAfterSec: antiMacro.retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(antiMacro.retryAfterSec) },
+      },
+    );
+  }
+
   const body = (await req.json().catch(() => null)) as { spotId?: unknown } | null;
   const fishingSpot = getFishingSpot(
     typeof body?.spotId === "string" ? body.spotId : null,

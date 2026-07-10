@@ -4,6 +4,7 @@ import {
   BITE_MIN_MS,
   REACTION_MIN_MS,
   REACTION_WINDOW_MS,
+  SERVER_REACTION_WINDOW_MS,
   expiresAtFor,
   judgeCatch,
   parseFishingSession,
@@ -60,7 +61,11 @@ describe("judgeCatch", () => {
       biteAt,
       expiresAt,
     });
-    expect(j).toEqual({ caught: true, reason: "ok" });
+    expect(j).toMatchObject({
+      caught: true,
+      reason: "ok",
+      serverReactionMs: 350,
+    });
   });
 
   it("만료 후 reel → expired", () => {
@@ -118,14 +123,18 @@ describe("judgeCatch", () => {
     expect(j.reason).toBe("too_early");
   });
 
-  it("biteAt 정각 도착은 통과(경계)", () => {
+  it("biteAt 정각 도착은 서버 기준으로도 너무 빨라 거부", () => {
     const j = judgeCatch({
       reactionMs: 200,
       serverNow: biteAt,
       biteAt,
       expiresAt,
     });
-    expect(j.caught).toBe(true);
+    expect(j).toMatchObject({
+      caught: false,
+      reason: "too_early",
+      serverReactionMs: 0,
+    });
   });
 
   it("경계: reactionMs === WINDOW 는 성공, MIN 은 성공", () => {
@@ -140,10 +149,24 @@ describe("judgeCatch", () => {
     expect(
       judgeCatch({
         reactionMs: REACTION_MIN_MS,
-        serverNow: biteAt + 100,
+        serverNow: biteAt + REACTION_MIN_MS,
         biteAt,
         expiresAt,
       }).caught,
     ).toBe(true);
+  });
+
+  it("클라 reactionMs 가 정상이어도 서버 기준으로 너무 늦으면 실패", () => {
+    const j = judgeCatch({
+      reactionMs: 200,
+      serverNow: biteAt + SERVER_REACTION_WINDOW_MS + 1,
+      biteAt,
+      expiresAt,
+    });
+    expect(j).toMatchObject({
+      caught: false,
+      reason: "missed_window",
+      serverReactionMs: SERVER_REACTION_WINDOW_MS + 1,
+    });
   });
 });

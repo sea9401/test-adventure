@@ -25,6 +25,11 @@ export const BITE_MAX_MS = 7000;
 export const REACTION_WINDOW_MS = 900;
 // 사람이 낼 수 없는 반응 속도 — 프리파이어/봇 신호로 보고 실패 처리.
 export const REACTION_MIN_MS = 60;
+// 서버 관측 반응 윈도우 — 응답/요청 지연을 감안해 클라 윈도우보다 넓게 보지만,
+// 한참 뒤에 fake reactionMs 를 보내는 매크로는 여기서 실패시킨다.
+export const SERVER_REACTION_GRACE_MS = 1200;
+export const SERVER_REACTION_WINDOW_MS =
+  REACTION_WINDOW_MS + SERVER_REACTION_GRACE_MS;
 
 // 세션 만료 여유 — biteAt + 윈도우 이후로도 넉넉히 둔다. replay/stale 차단이 목적이라 넓게.
 export const SESSION_GRACE_MS = 15000;
@@ -72,6 +77,7 @@ export function parseFishingSession(raw: unknown): FishingSession | null {
 export type CatchJudgment = {
   caught: boolean;
   reason: "ok" | "expired" | "too_early" | "missed_window";
+  serverReactionMs: number;
 };
 
 // reel 판정(순수). reactionMs 는 클라가 "입질 표시→탭"으로 잰 값. serverNow 는 reel 도착 시각.
@@ -82,15 +88,29 @@ export function judgeCatch(args: {
   expiresAt: number;
 }): CatchJudgment {
   const { reactionMs, serverNow, biteAt, expiresAt } = args;
+  const serverReactionMs = serverNow - biteAt;
   // 만료 — 한참 뒤 reel(또는 replay).
-  if (serverNow > expiresAt) return { caught: false, reason: "expired" };
+  if (serverNow > expiresAt) {
+    return { caught: false, reason: "expired", serverReactionMs };
+  }
   // 입질 전에 도착 = 대기를 안 함(즉시-reel 봇). biteAt·serverNow 둘 다 서버 시계라
   // 정상 플레이는 왕복 지연+반응만큼 항상 biteAt 이후에 도착 → 오차 허용 없이 하드 게이트.
-  if (serverNow < biteAt) return { caught: false, reason: "too_early" };
+  if (serverNow < biteAt) {
+    return { caught: false, reason: "too_early", serverReactionMs };
+  }
+  if (serverReactionMs < REACTION_MIN_MS) {
+    return { caught: false, reason: "too_early", serverReactionMs };
+  }
   // 사람이 못 낼 반응 속도 — 프리파이어.
-  if (reactionMs < REACTION_MIN_MS) return { caught: false, reason: "too_early" };
+  if (reactionMs < REACTION_MIN_MS) {
+    return { caught: false, reason: "too_early", serverReactionMs };
+  }
   // 윈도우 초과 — 놓침.
-  if (reactionMs > REACTION_WINDOW_MS)
-    return { caught: false, reason: "missed_window" };
-  return { caught: true, reason: "ok" };
+  if (
+    reactionMs > REACTION_WINDOW_MS ||
+    serverReactionMs > SERVER_REACTION_WINDOW_MS
+  ) {
+    return { caught: false, reason: "missed_window", serverReactionMs };
+  }
+  return { caught: true, reason: "ok", serverReactionMs };
 }

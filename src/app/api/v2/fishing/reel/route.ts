@@ -2,6 +2,10 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  clientIpFromRequest,
+  recordAbuseEventSoon,
+} from "@/lib/server/abuseLog";
 import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -20,6 +24,11 @@ import {
   judgeCatch,
   parseFishingSession,
 } from "@/adventure/v2/fishingSession";
+import {
+  FISHING_ANTI_MACRO_KEY,
+  parseFishingAntiMacroState,
+  recordFishingAntiMacroSample,
+} from "@/adventure/v2/fishingAntiMacro";
 import {
   FISHING_CODEX_KEY,
   countDiscoveredFish,
@@ -123,12 +132,35 @@ export async function POST(req: Request) {
       biteAt: session.biteAt,
       expiresAt: session.expiresAt,
     });
+    const antiMacro = recordFishingAntiMacroSample(
+      parseFishingAntiMacroState(
+        await lockSaveForUpdate(tx, userId, FISHING_ANTI_MACRO_KEY, {}),
+      ),
+      {
+        at: now,
+        caught: judgment.caught,
+        reason: judgment.reason,
+        clientReactionMs: reactionMs,
+        serverReactionMs: Math.max(0, judgment.serverReactionMs),
+      },
+      now,
+    );
+    await upsertSave(tx, userId, FISHING_ANTI_MACRO_KEY, antiMacro.state);
     if (!judgment.caught) {
       const streak = resetFishingStreak(
         await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
       );
       await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
-      return { caught: false as const, reason: judgment.reason };
+      return {
+        caught: false as const,
+        reason: judgment.reason,
+        antiMacro: {
+          flagged: antiMacro.flagged,
+          suspicion: antiMacro.state.suspicion,
+          signals: antiMacro.signals,
+          frictionMs: antiMacro.frictionMs,
+        },
+      };
     }
 
     const streak = nextFishingStreak(
@@ -333,8 +365,28 @@ export async function POST(req: Request) {
               levelBonus: hotTimeLevelBonus,
             }
           : null,
+      antiMacro: {
+        flagged: antiMacro.flagged,
+        suspicion: antiMacro.state.suspicion,
+        signals: antiMacro.signals,
+        frictionMs: antiMacro.frictionMs,
+      },
     };
   });
+
+  if (result.antiMacro?.flagged) {
+    recordAbuseEventSoon({
+      userId,
+      ip: clientIpFromRequest(req),
+      action: "v2:fishing:reel",
+      reason: "fishing_macro_pattern",
+      detail: {
+        suspicion: result.antiMacro.suspicion,
+        signals: result.antiMacro.signals,
+        frictionMs: result.antiMacro.frictionMs,
+      },
+    });
+  }
 
   if (!result.caught) {
     return Response.json({ ok: true, caught: false, reason: result.reason });

@@ -18,6 +18,9 @@ export type CoinConsumableEntry = {
   name: string;
   description: string;
   price: number;
+  badge?: string;
+  disabled?: boolean;
+  buttonLabel?: string;
 };
 
 const BUY_BTN: Record<CoinShopAccent, string> = {
@@ -111,6 +114,7 @@ export function CoinConsumableShopList({
         {consumables.map((c) => {
           const affordable = coins >= c.price;
           const inFlight = buying === c.itemId;
+          const disabled = Boolean(c.disabled) || !affordable || anyInFlight;
           return (
             <li
               key={c.itemId}
@@ -124,6 +128,11 @@ export function CoinConsumableShopList({
                       보유 {staminaPotions}
                     </span>
                   )}
+                  {c.badge && (
+                    <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                      {c.badge}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
                   {c.description}
@@ -131,11 +140,13 @@ export function CoinConsumableShopList({
               </div>
               <button
                 type="button"
-                disabled={!affordable || anyInFlight}
+                disabled={disabled}
                 onClick={() => onBuyConsumable(c.itemId)}
                 className={BUY_BTN[accent]}
               >
-                {inFlight ? "구매 중…" : `🪙 ${c.price.toLocaleString()}`}
+                {inFlight
+                  ? "구매 중…"
+                  : c.buttonLabel ?? `🪙 ${c.price.toLocaleString()}`}
               </button>
             </li>
           );

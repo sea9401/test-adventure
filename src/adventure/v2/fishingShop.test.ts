@@ -1,11 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
+  FISHING_SEED_POUCH_BASE_PRICE,
+  FISHING_SEED_POUCH_DAILY_LIMIT,
+  FISHING_SEED_POUCH_ITEM_ID,
   FISHING_SHOP_CONSUMABLES,
   FISHING_SHOP_TITLES,
+  fishingSeedPouchPriceForPurchase,
+  fishingSeedPouchView,
   fishingShopConsumablePriceFor,
   fishingShopEntries,
   fishingShopPriceFor,
+  parseFishingShopState,
+  recordFishingShopPurchase,
 } from "./fishingShop";
+import { FARM_FISHING_SHOP_SEED_REWARD } from "./farm";
 import {
   FISHING_LURE_IDS,
   FISHING_LURES,
@@ -56,11 +64,45 @@ describe("낚시 코인 상점 카탈로그", () => {
   it("소비품에 스태미나 회복약과 농장 씨앗 주머니를 둔다", () => {
     expect(FISHING_SHOP_CONSUMABLES.map((item) => item.itemId)).toEqual([
       "stamina_potion",
-      "farm_seed_pouch",
+      FISHING_SEED_POUCH_ITEM_ID,
     ]);
     expect(fishingShopConsumablePriceFor("stamina_potion")).toBe(200);
-    expect(fishingShopConsumablePriceFor("farm_seed_pouch")).toBe(160);
+    expect(fishingShopConsumablePriceFor(FISHING_SEED_POUCH_ITEM_ID)).toBe(
+      FISHING_SEED_POUCH_BASE_PRICE,
+    );
     expect(fishingShopConsumablePriceFor("not_an_item")).toBeUndefined();
+  });
+
+  it("씨앗 주머니는 하루 3개까지 80→160→320 가격으로 오른다", () => {
+    expect(FISHING_SEED_POUCH_DAILY_LIMIT).toBe(3);
+    expect(fishingSeedPouchPriceForPurchase(0)).toBe(80);
+    expect(fishingSeedPouchPriceForPurchase(1)).toBe(160);
+    expect(fishingSeedPouchPriceForPurchase(2)).toBe(320);
+    expect(fishingSeedPouchPriceForPurchase(3)).toBeUndefined();
+  });
+
+  it("씨앗 주머니 구매 횟수는 KST 일자 키가 바뀌면 리셋된다", () => {
+    const today = parseFishingShopState({}, "2026-07-10");
+    const boughtOnce = recordFishingShopPurchase(
+      today,
+      FISHING_SEED_POUCH_ITEM_ID,
+    );
+    expect(fishingSeedPouchView(boughtOnce)).toMatchObject({
+      boughtToday: 1,
+      remainingToday: 2,
+      nextPrice: 160,
+      contents: FARM_FISHING_SHOP_SEED_REWARD,
+    });
+
+    const loadedToday = parseFishingShopState(boughtOnce, "2026-07-10");
+    expect(fishingSeedPouchView(loadedToday).boughtToday).toBe(1);
+
+    const tomorrow = parseFishingShopState(boughtOnce, "2026-07-11");
+    expect(fishingSeedPouchView(tomorrow)).toMatchObject({
+      boughtToday: 0,
+      remainingToday: 3,
+      nextPrice: 80,
+    });
   });
 
   it("제거된 칭호는 정의도 삭제(표시 경로가 미정의 id 를 가드)", () => {

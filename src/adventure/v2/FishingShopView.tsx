@@ -9,7 +9,11 @@ import {
   CoinConsumableShopList,
   CoinTitleShopList,
 } from "./CoinShopLists";
-import { fishingShopEntries, FISHING_SHOP_CONSUMABLES } from "./fishingShop";
+import {
+  FISHING_SEED_POUCH_ITEM_ID,
+  FISHING_SHOP_CONSUMABLES,
+  fishingShopEntries,
+} from "./fishingShop";
 import {
   FISHING_LURE_IDS,
   FISHING_LURES,
@@ -133,6 +137,19 @@ export function FishingShopView({
   const coins = state?.coins ?? 0;
   const staminaPotions = state?.staminaPotions ?? 0;
   const progression = state?.progression ?? null;
+  const seedPouch = state?.seedPouch ?? null;
+  const consumables = FISHING_SHOP_CONSUMABLES.map((item) => {
+    if (item.itemId !== FISHING_SEED_POUCH_ITEM_ID || !seedPouch) return item;
+    const nextPrice = seedPouch.nextPrice;
+    return {
+      ...item,
+      price: nextPrice ?? item.price,
+      badge: `오늘 ${seedPouch.boughtToday}/${seedPouch.dailyLimit}`,
+      disabled: nextPrice === null,
+      buttonLabel:
+        nextPrice === null ? "오늘 한도" : `🪙 ${nextPrice.toLocaleString()}`,
+    };
+  });
   const ownedRods = new Set(progression?.ownedRods ?? []);
   const ownedLures = new Set(progression?.ownedLures ?? []);
   const anyInFlight = buying !== null;
@@ -396,7 +413,7 @@ export function FishingShopView({
             소비품
           </p>
           <CoinConsumableShopList
-            consumables={FISHING_SHOP_CONSUMABLES}
+            consumables={consumables}
             coins={coins}
             staminaPotions={staminaPotions}
             buying={buying}

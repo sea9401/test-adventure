@@ -142,11 +142,12 @@ export function useCoinShop<S extends CoinShopCoreState>(opts: {
           return { ok: true, message: consumableSuccessMessage(j, itemId) };
         }
         if (j?.error === "insufficient_coins") {
-          if (typeof j.coins === "number") {
-            const coins = j.coins;
-            setState((s) => (s ? { ...s, coins } : s));
-          }
+          setState((s) => (s ? applyResponse(s, j) : s));
           return { ok: false, message: `${coinLabel}이 부족하다.` };
+        }
+        if (j?.error === "limit_reached") {
+          setState((s) => (s ? applyResponse(s, j) : s));
+          return { ok: false, message: "오늘 구매 한도에 도달했다." };
         }
         return { ok: false, message: "구매하지 못했다." };
       } catch {

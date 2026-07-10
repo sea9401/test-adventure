@@ -906,7 +906,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   myriadvenom: {
     id: "myriadvenom",
-    name: "만독지체",
+    name: "독황",
     tier: 6,
     cultivateProfile: { luk: 2, dex: 1, vit: 1 },
     jobBonus: { luk: 28, dex: 8, vit: 4 },

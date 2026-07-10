@@ -108,6 +108,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   swordsaint: ["v2c_swordsaint_flash", "v2c_swordsaint_transcendence"], // 검성: 무심검 + 검성의 경지
   hegemon: ["v2c_hegemon_annihilation", "v2c_hegemon_dominion"], // 패황: 멸왕난무 + 패황의 지배
   archmage: ["v2c_archmage_collapse", "v2c_archmage_theory"], // 대마도사: 비전 붕괴 + 대마도 이론
+  primordialmage: ["v2c_primordialmage_return", "v2c_primordialmage_resonance"], // 태초술사: 태초회귀 + 근원공명
   savior: ["v2c_savior_judgment", "v2c_savior_grace"], // 구원자: 구원의 심판 + 구원의 은총
   doomprophet: ["v2c_doomprophet_sentence", "v2c_doomprophet_revelation"], // 종말예언자: 종말 선고 + 불길한 계시
   heavenlybow: ["v2c_heavenlybow_orbit", "v2c_heavenlybow_starpath"], // 천궁: 천궁궤적 + 성도 조준

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, ChatCenteredText } from "@phosphor-icons/react/dist/ssr";
-import { FeedbackForm } from "@/components/FeedbackForm";
+import { FeedbackCenter } from "@/components/FeedbackCenter";
 
 export const metadata = {
   title: "건의사항 — 무슨무슨게임",
@@ -27,7 +27,7 @@ export default function FeedbackPage() {
         </Link>
       </div>
 
-      <FeedbackForm />
+      <FeedbackCenter />
     </main>
   );
 }

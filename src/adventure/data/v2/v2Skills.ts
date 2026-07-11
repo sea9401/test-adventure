@@ -389,10 +389,12 @@ export type V2SkillDefinition = {
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
 // 옛 (category, tier) 표는 차수만으로 가격을 매겨, 같은 차수의 강·약 스킬이 같은 값이고 차수 간
 // 격차도 작았다(저렴=약함 트레이드오프 붕괴, 오너 피드백 "성능에 비례해 책정하라"). 대신 각 스킬의
-// effects/passive 를 합산한 power 점수를 산출해 그에 비례하는 코스트(1~10)를 도출한다.
+// effects/passive 를 합산한 power 점수를 산출해 그에 비례하는 코스트(최소 1·상한 없음)를 도출한다.
 //   - power 단위 ≈ "ATK 한 방 가치"(dmg(1.0,140) ≈ 1.0). 카테고리 교차 정규화.
 //   - 액티브는 발동확률(procChance)로 가중(신뢰성=성능) — 단 √소프트닝으로, 큰 한방·저확률
 //     스킬이 "기댓값 낮음"으로 너무 싸지지 않게(원시 ×proc 면 최강 누크가 최저가가 되는 역전 방지).
+//   - 실제 MP 비용도 같은 직업군·차수의 기준 비용과 비교한다. 저비용/무료 액티브는 효율 할증,
+//     고비용 액티브는 자원 제약 할인. 극단값이 효과 점수를 압도하지 않도록 0.8~1.2로 제한한다.
 //   - 패시브는 상시 효과라 발동 가중 없이 효과 크기 합산.
 //   🔑 SP 보유량(calcSpBudget)은 별도로 끌어올릴 예정(오너) — 코스트만 성능비례로 재조정.
 const SP_FLAT_NORM = 140; // baseFlat ~140 ≈ statCoef 1.0 (정규화 기준).
@@ -402,6 +404,19 @@ const SP_PASSIVE_DISCOUNT = 0.75;
 
 function spAvgTier(byTier?: readonly [number, number, number]): number {
   return byTier ? (byTier[0] + byTier[1] + byTier[2]) / 3 : 0;
+}
+
+function spMpEfficiencyMultiplier(def: V2SkillDefinition): number {
+  if (def.passive) return 1;
+  const actual = v2SkillMpCostValue(def);
+  if (actual <= 0) return 1.12;
+  const baseline = Math.max(
+    1,
+    Math.round(
+      MP_REFERENCE_POOL * MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier],
+    ),
+  );
+  return Math.min(1.2, Math.max(0.8, Math.sqrt(baseline / actual)));
 }
 
 // 액티브 effect 1개의 가치(statCoef-등가 단위).
@@ -435,7 +450,10 @@ function spEffectValue(e: V2SkillEffect): number {
     case "dot": {
       const perStack =
         e.flatPerStack / SP_FLAT_NORM + e.atkCoefPerStack + e.pctMaxHpPerStack / 12;
-      return e.stacks * e.turns * perStack;
+      // 중독은 5턴 완주 전에 적이 쓰러지거나 재시전으로 지속시간이 갱신되는 비중이 크다.
+      // 전 틱을 신규 피해처럼 합산하면 고차 독 스킬 비용을 과대평가하므로 실현율을 반영한다.
+      const durationRealization = e.tag === "poison" ? 0.55 : 1;
+      return e.stacks * e.turns * perStack * durationRealization;
     }
     case "heal":
       return (
@@ -477,7 +495,7 @@ function spEffectValue(e: V2SkillEffect): number {
   return _ex;
 }
 
-// 스킬 power 점수 — 액티브는 effects 합×proc소프트닝×쿨다운, 패시브는 효과 크기 합.
+// 스킬 power 점수 — 액티브는 effects 합×proc×MP효율×쿨다운, 패시브는 효과 크기 합.
 export function skillPowerScore(def: V2SkillDefinition): number {
   if (def.passive) {
     const p = def.passive;
@@ -503,7 +521,8 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.elementDisPctBonus ?? 0) / 20;
     if (p.elementResonance) mag += 2;
     if (p.inscriptionAmplification) mag += 2;
-    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 8;
+    // 부식은 중독이 먼저 걸린 적에게만 유효하다. 상시 방어 감소보다 낮은 조건부 가치로 평가한다.
+    mag += (p.poisonedEnemyDefReductionPct ?? 0) / 12;
     mag += (p.berserkAtkPctPerLostHpPct ?? 0) / 0.25;
     mag += (p.enemyMagicVulnPctPerStack ?? 0) / 5;
     mag += (p.magicSkillDamagePct ?? 0) / 8;
@@ -535,22 +554,23 @@ export function skillPowerScore(def: V2SkillDefinition): number {
       }
     }
   }
-  // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.55): 저확률 스킬에
-  //   일부 할인은 주되 최강 누크가 최저가가 되지 않게. 10%→0.69 · 30%→0.80 · 100%→1.0.
+  // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.35): 저확률 스킬에
+  //   의미 있는 할인을 주되 최강 누크가 최저가가 되지 않게. 10%→0.56 · 30%→0.71 · 100%→1.0.
   const proc = Math.min(1, Math.max(0, (def.procChance ?? 100) / 100));
-  raw *= 0.55 + 0.45 * Math.sqrt(proc);
+  raw *= 0.35 + 0.65 * Math.sqrt(proc);
+  raw *= spMpEfficiencyMultiplier(def);
   if (def.oncePerBattle) raw *= 0.65;
   if (def.cooldown > 0) raw /= 1 + def.cooldown / 4;
   return raw;
 }
 
-// 성능비례 코스트 바닥(루브릭) — power 점수 → SP(1~10 선형). override 트립와이어 기준.
+// 성능비례 코스트 바닥(루브릭) — power 점수 → SP(최소 1·상한 없는 선형). override 트립와이어 기준.
 //   기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
 export function rubricSpCost(skill: V2SkillDefinition): number {
   // 패시브는 코스트만 ×SP_PASSIVE_DISCOUNT 할인(상시 효과 과청구 완화). power 점수 자체는 불변.
   const power = skillPowerScore(skill) * (skill.passive ? SP_PASSIVE_DISCOUNT : 1);
   const sp = Math.round(0.7 + 3.0 * power);
-  return Math.max(1, Math.min(10, sp));
+  return Math.max(1, sp);
 }
 
 // 스킬 1종의 SP 코스트 — 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).

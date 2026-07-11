@@ -661,6 +661,7 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "damage",
       scaling: "all",
     });
+    expect(spCostOf(V2_SKILLS.v2c_transcendent_mandala)).toBe(8);
     expect(V2_SKILLS.v2c_transcendent_harmony.passive).toMatchObject({
       statPct: { str: 8, vit: 8, dex: 8, int: 8, spi: 8, luk: 8 },
       maxHpPct: 8,
@@ -966,6 +967,34 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_eternal_body.passive?.counterChancePct).toBeUndefined();
     expect(V2_SKILLS.v2c_eternal_body.passive?.thornsDefPct).toBeUndefined();
+    expect(skillsForJob("absolute")).toEqual([
+      "v2c_absolute_unity",
+      "v2c_absolute_harmony",
+    ]);
+    expect(V2_SKILLS.v2c_absolute_unity.category).toBe("attack");
+    expect(V2_SKILLS.v2c_absolute_unity.effects).toEqual([
+      { kind: "damage", statCoef: 0.22, baseFlat: 480, scaling: "all" },
+      { kind: "enemyVuln", pct: 14, turns: 3 },
+      { kind: "selfHaste", pct: 25 },
+    ]);
+    expect(V2_SKILLS.v2c_absolute_harmony.category).toBe("passive");
+    expect(V2_SKILLS.v2c_absolute_harmony.passive).toMatchObject({
+      statPct: { str: 10, vit: 10, dex: 10, int: 10, spi: 10, luk: 10 },
+      maxHpPct: 10,
+      maxMpPct: 10,
+    });
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(12);
+  });
+
+  it("독 계보 SP 비용은 조건부 중독·부식 가치를 반영해 단계적으로 오른다", () => {
+    const costs = (jobId: string) =>
+      skillsForJob(jobId).map((id) => spCostOf(V2_SKILLS[id]));
+
+    expect(costs("venomist")).toEqual([4, 3]);
+    expect(costs("venomancer")).toEqual([6, 4]);
+    expect(costs("venomlord")).toEqual([8, 6]);
+    expect(costs("plaguebringer")).toEqual([11, 8]);
+    expect(costs("myriadvenom")).toEqual([17, 17]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {

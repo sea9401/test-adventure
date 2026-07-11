@@ -903,6 +903,27 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     expect(result.enemyDamage).toBe(372);
   });
 
+  it("resolveV2SkillCast — 만상귀일은 올스탯 피해와 취약·행동 가속을 함께 적용", () => {
+    const result = resolveV2SkillCast({
+      skills: { learned: ["v2c_absolute_unity"], equipped: ["v2c_absolute_unity"] },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        maxHp: 1000,
+        allStatTotal: 700,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+
+    expect(result.castSkillName).toBe("만상귀일");
+    expect(result.enemyDamage).toBe(634);
+    expect(result.enemyVulnToApply).toEqual({ pct: 14, turns: 3 });
+    expect(result.selfHasteToApply).toEqual({ pct: 25 });
+  });
+
   it("resolveV2SkillCast — dot 효과 스킬은 dotsToApplyToTarget 에 적재(출혈)", () => {
     // mob_rending_claw(살점 뜯기): kind:"dot" 출혈만. sourceAtk 은 시전자 atk 로 채워진다.
     const result = resolveV2SkillCast({

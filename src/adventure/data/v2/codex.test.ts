@@ -14,8 +14,8 @@ import {
 // 2026-07-05: 하드 산군 보상 2종(흔적/5T 장비 상자), 심연어룡 보상 2종 추가.
 
 describe("v2 코덱스(재료 도감) 진척 — 등재 재료·요건은 플래그 잠금", () => {
-  it("V2_CODEX_TOTAL = 36 (기존 31종 + 수종별 원목 5종 등재)", () => {
-    expect(V2_CODEX_TOTAL).toBe(36);
+  it("V2_CODEX_TOTAL은 채광 광석과 부산물을 포함한다", () => {
+    expect(V2_CODEX_TOTAL).toBe(44);
   });
 
   it("discoveredMaterialIds — 미등재 보유분은 진척에 안 잡힘", () => {

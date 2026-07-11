@@ -1,0 +1,162 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type {
+  MiningHandlers,
+  MiningLogView,
+  MiningNodeView,
+  MiningOutcome,
+  MiningStart,
+} from "./MiningView";
+import type { MiningSpotId } from "@/adventure/data/v2/miningSpots";
+import { useActivityVerification } from "./useActivityVerification";
+
+function parseLog(value: unknown): MiningLogView {
+  const item = (value ?? {}) as Record<string, unknown>;
+  const successes = Math.max(0, Math.floor(Number(item.successes) || 0));
+  const storedXp = Number(item.xp);
+  return {
+    successes,
+    xp:
+      Object.prototype.hasOwnProperty.call(item, "xp") && Number.isFinite(storedXp)
+        ? Math.max(0, Math.floor(storedXp))
+        : successes * 10,
+    oreEarned: Math.max(0, Math.floor(Number(item.oreEarned) || 0)),
+    byproductsEarned: Math.max(
+      0,
+      Math.floor(Number(item.byproductsEarned) || 0),
+    ),
+  };
+}
+
+function parseNode(value: unknown): MiningNodeView {
+  const item = (value ?? {}) as Record<string, unknown>;
+  return {
+    id: String(item.id ?? ""),
+    name: String(item.name ?? "광맥"),
+    materialId: String(item.materialId ?? "v2_iron_ore"),
+    xp: Math.max(0, Math.floor(Number(item.xp) || 5)),
+  };
+}
+
+function parseMaterials(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([id, count]) => [
+      id,
+      Math.max(0, Math.floor(Number(count) || 0)),
+    ]),
+  );
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function useMining(): MiningHandlers {
+  const { verification, verifyHuman, readJson } = useActivityVerification("mining");
+  const [materials, setMaterials] = useState<Record<string, number>>({});
+  const [log, setLog] = useState<MiningLogView>({
+    successes: 0,
+    xp: 0,
+    oreEarned: 0,
+    byproductsEarned: 0,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/v2/mining/status");
+        if (!response.ok) return;
+        const json = await response.json();
+        if (!alive || !json?.ok) return;
+        setMaterials(parseMaterials(json.materials));
+        setLog(parseLog(json.log));
+      } catch {
+        // 표시용 상태라 실패해도 화면 진입은 유지한다.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const start = useCallback(
+    async (spotId: MiningSpotId): Promise<MiningStart> => {
+      const response = await fetch("/api/v2/mining/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ spotId }),
+      });
+      const json = await readJson(response);
+      if (!response.ok) throw new Error("mining_start_failed");
+      const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
+      const strikes = Math.max(1, Math.floor(Number(json?.strikes) || 0));
+      if (!json?.ok || typeof json.sessionId !== "string" || !durationMs || !strikes) {
+        throw new Error("mining_start_failed");
+      }
+      setMaterials(parseMaterials(json.materials));
+      setLog(parseLog(json.log));
+      return {
+        sessionId: json.sessionId,
+        spotId,
+        node: parseNode(json.node),
+        durationMs,
+        strikes,
+        failureRate: Math.min(1, Math.max(0, Number(json.failureRate) || 0)),
+      };
+    },
+    [readJson],
+  );
+
+  const finish = useCallback(
+    async (sessionId: string): Promise<MiningOutcome> => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const response = await fetch("/api/v2/mining/strike", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+        const json = await readJson(response);
+        if (!response.ok || !json?.ok) throw new Error("mining_finish_failed");
+        if (!json.success && json.reason === "not_ready" && attempt === 0) {
+          await wait(Math.max(25, Math.floor(Number(json.retryAfterMs) || 0) + 25));
+          continue;
+        }
+        if (!json.success) {
+          return {
+            success: false,
+            reason: typeof json.reason === "string" ? json.reason : "unknown",
+          };
+        }
+        const nextMaterials = parseMaterials(json.materials);
+        const nextLog = parseLog(json.log);
+        setMaterials(nextMaterials);
+        setLog(nextLog);
+        return {
+          success: true,
+          node: parseNode(json.node),
+          materialName: String(json.materialName ?? "광석"),
+          materialGained: Math.max(0, Math.floor(Number(json.materialGained) || 0)),
+          byproducts: Array.isArray(json.byproducts)
+            ? json.byproducts.map((item: unknown) => {
+                const entry = (item ?? {}) as Record<string, unknown>;
+                return {
+                  materialId: String(entry.materialId ?? ""),
+                  name: String(entry.name ?? "부산물"),
+                  amount: Math.max(0, Math.floor(Number(entry.amount) || 0)),
+                };
+              })
+            : [],
+          xpGained: Math.max(0, Math.floor(Number(json.xpGained) || 0)),
+          log: nextLog,
+        };
+      }
+      throw new Error("mining_finish_failed");
+    },
+    [readJson],
+  );
+
+  return { start, finish, materials, log, verification, verifyHuman };
+}

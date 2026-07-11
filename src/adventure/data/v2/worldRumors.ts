@@ -9,10 +9,16 @@ import {
   woodcuttingTreeForSpot,
   type WoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
+import {
+  MINING_SPOT_IDS,
+  MINING_SPOTS,
+  miningNodeForSpot,
+  type MiningSpotId,
+} from "@/adventure/data/v2/miningSpots";
 
-export type WorldActivityKind = "fishing" | "woodcutting";
+export type WorldActivityKind = "fishing" | "woodcutting" | "mining";
 
-export type WorldActivityRegionId = FishingSpotId | WoodcuttingSpotId;
+export type WorldActivityRegionId = FishingSpotId | WoodcuttingSpotId | MiningSpotId;
 
 export type WorldActivityRegion = {
   id: WorldActivityRegionId;
@@ -31,6 +37,7 @@ export type WorldActivityRegion = {
 export const WORLD_ACTIVITY_KIND_LABEL: Record<WorldActivityKind, string> = {
   fishing: "낚시터",
   woodcutting: "벌목지",
+  mining: "채광지",
 };
 
 export const WORLD_ACTIVITY_REGIONS: readonly WorldActivityRegion[] = [
@@ -65,4 +72,20 @@ export const WORLD_ACTIVITY_REGIONS: readonly WorldActivityRegion[] = [
       };
     },
   ),
+  ...MINING_SPOT_IDS.map((spotId): WorldActivityRegion => {
+    const spot = MINING_SPOTS[spotId];
+    return {
+      id: spot.id,
+      name: spot.name,
+      shortName: spot.shortName,
+      kind: "mining",
+      headline: spot.description,
+      summary: `채광 광맥: ${miningNodeForSpot(spot).name}`,
+      tags: spot.tags,
+      action: {
+        label: "채광하러 가기",
+        href: `/town/mining?spot=${spot.id}`,
+      },
+    };
+  }),
 ];

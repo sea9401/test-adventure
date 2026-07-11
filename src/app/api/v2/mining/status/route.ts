@@ -1,0 +1,29 @@
+import { db } from "@/db";
+import { ensureUser } from "@/lib/server/ensureUser";
+import { readSave } from "@/lib/server/savesKv";
+import {
+  MINING_LOG_KEY,
+  miningMaterialBalances,
+  parseMiningLog,
+} from "@/adventure/v2/miningSession";
+
+export async function GET() {
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const [charSave, logRaw] = await Promise.all([
+    readSave<{ materials?: Record<string, unknown> }>(
+      db,
+      userId,
+      "character.v2",
+      {},
+    ),
+    readSave(db, userId, MINING_LOG_KEY, {}),
+  ]);
+  return Response.json({
+    ok: true,
+    materials: miningMaterialBalances(charSave.materials),
+    log: parseMiningLog(logRaw),
+  });
+}

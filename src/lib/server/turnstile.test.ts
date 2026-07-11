@@ -16,6 +16,7 @@ describe("turnstile", () => {
   it("활동별 action 값을 분리한다", () => {
     expect(turnstileAction("fishing")).toBe("activity_fishing");
     expect(turnstileAction("woodcutting")).toBe("activity_woodcutting");
+    expect(turnstileAction("mining")).toBe("activity_mining");
   });
 
   it("서버 검증 성공과 action 일치를 모두 요구한다", async () => {

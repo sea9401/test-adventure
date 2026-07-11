@@ -22,6 +22,7 @@ describe("activityGuard", () => {
     }
     expect(activityVerificationRequired(state, "woodcutting", true)).toBe(true);
     expect(activityVerificationRequired(state, "fishing", true)).toBe(false);
+    expect(activityVerificationRequired(state, "mining", true)).toBe(false);
     expect(activityVerificationRequired(state, "woodcutting", false)).toBe(false);
   });
 

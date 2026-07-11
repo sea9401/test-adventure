@@ -13,8 +13,8 @@ import {
 // 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
 describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
-  it("등재 재료 = 기존 31종 + 수종별 원목 5종 — NPC 판매가는 비등재(유저 거래 전용)", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(36);
+  it("채광 광석과 부산물까지 등재하며 NPC 판매가는 비등재한다", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(44);
     expect(V2_MATERIALS.v2_reforge_stone).toBeDefined();
     expect(V2_MATERIALS.v2_reforge_stone_high).toBeDefined();
     expect(V2_MATERIALS.v2_timber).toBeDefined();
@@ -24,6 +24,14 @@ describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
     expect(V2_MATERIALS.v2_willow_log).toBeDefined();
     expect(V2_MATERIALS.v2_cypress_log).toBeDefined();
     expect(V2_MATERIALS.v2_iron_ore).toBeDefined();
+    expect(V2_MATERIALS.v2_copper_ore).toBeDefined();
+    expect(V2_MATERIALS.v2_silver_ore).toBeDefined();
+    expect(V2_MATERIALS.v2_gold_ore).toBeDefined();
+    expect(V2_MATERIALS.v2_mythril_ore).toBeDefined();
+    expect(V2_MATERIALS.v2_adamantite_ore).toBeDefined();
+    expect(V2_MATERIALS.v2_mining_stone).toBeDefined();
+    expect(V2_MATERIALS.v2_coal).toBeDefined();
+    expect(V2_MATERIALS.v2_rough_gem).toBeDefined();
     expect(V2_MATERIALS.v2_wall_repair_kit).toBeDefined();
     expect(V2_MATERIALS.v2_craft_refined_iron).toBeDefined();
     expect(V2_MATERIALS.v2_craft_mithril_shard).toBeDefined();

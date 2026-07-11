@@ -114,6 +114,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           ? { src: "/images/ui/forge.webp" }
           : pathname.startsWith("/town/logging")
             ? { src: "/images/ui/forest.webp" }
+            : pathname.startsWith("/town/mining")
+              ? { src: "/images/ui/quarry.webp" }
             : pathname.startsWith("/town/farm")
               ? { src: "/images/ui/farm.webp" }
               : pathname.startsWith("/town/fishing")

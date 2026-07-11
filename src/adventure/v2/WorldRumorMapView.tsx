@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   Compass,
   Fish,
+  Hammer,
   MapPin,
   TreeEvergreen,
   type Icon,
@@ -22,7 +23,14 @@ import {
   isWoodcuttingSpotId,
   woodcuttingTreeForSpot,
 } from "@/adventure/data/v2/woodcuttingSpots";
+import {
+  MINING_MATERIALS,
+  MINING_SPOTS,
+  isMiningSpotId,
+  miningNodeForSpot,
+} from "@/adventure/data/v2/miningSpots";
 import { woodcuttingFailureRate } from "@/adventure/v2/woodcuttingProgression";
+import { miningFailureRate } from "@/adventure/v2/miningProgression";
 import {
   WORLD_ACTIVITY_KIND_LABEL,
   WORLD_ACTIVITY_REGIONS,
@@ -36,6 +44,7 @@ import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 const KIND_ICON: Record<WorldActivityKind, Icon> = {
   fishing: Fish,
   woodcutting: TreeEvergreen,
+  mining: Hammer,
 };
 
 const KIND_TONE: Record<WorldActivityKind, string> = {
@@ -43,6 +52,8 @@ const KIND_TONE: Record<WorldActivityKind, string> = {
     "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
   woodcutting:
     "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+  mining:
+    "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
 };
 
 const TIER_LABEL: Record<string, string> = {
@@ -67,6 +78,7 @@ type RegionFilter = WorldActivityKind;
 const REGION_FILTERS: readonly { id: RegionFilter; label: string }[] = [
   { id: "fishing", label: "낚시터" },
   { id: "woodcutting", label: "벌목지" },
+  { id: "mining", label: "채광지" },
 ];
 
 function regionMatchesFilter(
@@ -84,6 +96,10 @@ function activityDescription(region: WorldActivityRegion): string {
   if (isWoodcuttingSpotId(region.id)) {
     const spot = WOODCUTTING_SPOTS[region.id];
     return `벌목 수종: ${woodcuttingTreeForSpot(spot).name}`;
+  }
+  if (isMiningSpotId(region.id)) {
+    const spot = MINING_SPOTS[region.id];
+    return `채광 광맥: ${miningNodeForSpot(spot).name}`;
   }
   return region.summary;
 }
@@ -162,6 +178,35 @@ function WoodcuttingSpotMeta({ id }: { id: string }) {
   );
 }
 
+function MiningSpotMeta({ id }: { id: string }) {
+  if (!isMiningSpotId(id)) return null;
+  const spot = MINING_SPOTS[id];
+  const node = miningNodeForSpot(spot);
+  const byproductNames = node.byproducts.map(
+    (rule) => MINING_MATERIALS[rule.materialId].name,
+  );
+  return (
+    <div className={`${SURFACE_INSET} space-y-1.5 p-2`}>
+      <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+        채광 광맥
+      </div>
+      <div className="flex flex-wrap gap-1">
+        <span className="rounded bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+          {node.name}
+        </span>
+      </div>
+      <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+        {node.grade}등급 · Lv.1 성공률{" "}
+        {((1 - miningFailureRate(node.baseFailureRate, 1)) * 100).toFixed(1)}%
+        {" · "}기본 {(node.durationMs / 1_000).toFixed(1)}초 · XP +{node.xp}
+      </div>
+      <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+        발견 가능 부산물: {byproductNames.join(", ")}
+      </div>
+    </div>
+  );
+}
+
 export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("fishing");
   const [selectedId, setSelectedId] =
@@ -195,7 +240,7 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
 
         <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
           <div className="space-y-2 border-b border-zinc-200 bg-zinc-50 p-3 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
               {REGION_FILTERS.map((filter) => {
                 const active = regionFilter === filter.id;
                 const count = WORLD_ACTIVITY_REGIONS.filter((region) =>
@@ -266,6 +311,10 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                           ? `벌목지 · ${woodcuttingTreeForSpot(
                               WOODCUTTING_SPOTS[region.id],
                             ).name}`
+                          : isMiningSpotId(region.id)
+                            ? `채광지 · ${miningNodeForSpot(
+                                MINING_SPOTS[region.id],
+                              ).name}`
                         : WORLD_ACTIVITY_KIND_LABEL[region.kind]}
                     </span>
                   </span>
@@ -317,6 +366,7 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
 
                 <FishingSpotMeta id={selected.id} />
                 <WoodcuttingSpotMeta id={selected.id} />
+                <MiningSpotMeta id={selected.id} />
 
                 <Link
                   href={selected.action.href}

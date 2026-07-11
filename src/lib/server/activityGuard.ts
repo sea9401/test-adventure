@@ -8,7 +8,7 @@ export const ACTIVITY_STRONG_SIGNAL_THRESHOLD = 3;
 export const ACTIVITY_STRONG_SIGNAL_WINDOW_MS = 10 * 60_000;
 export const ACTIVITY_DAILY_ALERT_COMPLETIONS = 500;
 
-export type GuardedActivity = "fishing" | "woodcutting";
+export type GuardedActivity = "fishing" | "woodcutting" | "mining";
 
 type ActivityGuardEntry = {
   sequenceStartedAt: number | null;
@@ -53,6 +53,7 @@ export function emptyActivityGuardState(): ActivityGuardState {
     activities: {
       fishing: emptyEntry(),
       woodcutting: emptyEntry(),
+      mining: emptyEntry(),
     },
   };
 }
@@ -95,6 +96,7 @@ export function parseActivityGuardState(raw: unknown): ActivityGuardState {
     activities: {
       fishing: parseEntry(source.fishing),
       woodcutting: parseEntry(source.woodcutting),
+      mining: parseEntry(source.mining),
     },
   };
 }

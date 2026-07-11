@@ -18,7 +18,7 @@ function seqRng(values: number[]): () => number {
 const { timber, ironOre } = SETTLEMENT_MATERIAL_ID;
 
 describe("정착지 재료 — 통나무/철광석 수급", () => {
-  it("rollSettlementMaterialDrops — 통나무 드랍은 잠금, 철광석 draw 는 유지", () => {
+  it("rollSettlementMaterialDrops — 생활 채집 전환 후 두 재료 모두 잠그되 draw 수는 유지", () => {
     const draws: number[] = [];
     const rng = (() => {
       const seq = seqRng([0.0, 0.0]);
@@ -28,7 +28,7 @@ describe("정착지 재료 — 통나무/철광석 수급", () => {
         return v;
       };
     })();
-    expect(rollSettlementMaterialDrops(rng)).toEqual({ [ironOre]: 1 });
+    expect(rollSettlementMaterialDrops(rng)).toEqual({});
     expect(draws).toHaveLength(2); // 종류별 1 draw
   });
 
@@ -36,30 +36,15 @@ describe("정착지 재료 — 통나무/철광석 수급", () => {
     expect(rollSettlementMaterialDrops(seqRng([0.9, 0.9]))).toEqual({});
   });
 
-  it("드랍률 다이얼 — 통나무는 0, 철광석은 기존 드랍 유지", () => {
+  it("드랍률 다이얼 — 통나무와 철광석 모두 생활 채집으로 이동", () => {
     expect(SETTLEMENT_MATERIAL_DROP_PCT[timber]).toBe(0);
-    expect(SETTLEMENT_MATERIAL_DROP_PCT[ironOre]).toBe(0.003);
+    expect(SETTLEMENT_MATERIAL_DROP_PCT[ironOre]).toBe(0);
   });
 
-  it("철광석만 부분 통과한다", () => {
-    const op = SETTLEMENT_MATERIAL_DROP_PCT[ironOre];
-    expect(rollSettlementMaterialDrops(seqRng([0, op - 1e-9]))).toEqual({
-      [ironOre]: 1,
-    });
-  });
-
-  it("철광석 경계 — rng === pct 면 실패(< 비교), pct-ε 면 통과", () => {
-    const op = SETTLEMENT_MATERIAL_DROP_PCT[ironOre];
-    expect(rollSettlementMaterialDrops(seqRng([0, op]))).toEqual({});
-    expect(rollSettlementMaterialDrops(seqRng([0, op - 1e-9]))).toEqual({
-      [ironOre]: 1,
-    });
-  });
-
-  it("철광석 수량은 항상 1 (qty>1 없음)", () => {
+  it("최저 굴림에도 사냥 보상으로 나오지 않는다", () => {
     const r = rollSettlementMaterialDrops(seqRng([0, 0]));
     expect(r[timber]).toBeUndefined();
-    expect(r[ironOre]).toBe(1);
+    expect(r[ironOre]).toBeUndefined();
   });
 
   it("카탈로그 등재 → 거래소 거래 가능, NPC 판매가 비등재", () => {

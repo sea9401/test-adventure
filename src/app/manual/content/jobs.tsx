@@ -261,7 +261,7 @@ function buildRoadmap(): RoadmapNode {
     name: job.name,
     tier: job.tier,
     group: groupForJob(job),
-    hybrid: Object.keys(job.unlock.prereqs).length > 1,
+    hybrid: prerequisiteJobIds(job).length > 1,
     prereqText: prereqText(job),
     children: sortedChildren(childrenByParent.get(job.id) ?? []).map(toNode),
   });
@@ -279,9 +279,19 @@ function buildRoadmap(): RoadmapNode {
 
 function primaryParentId(job: V2JobDefinition): string {
   if (job.id === "none" || job.id === "survivor") return "start";
-  const [firstPrereq] = Object.keys(job.unlock.prereqs);
+  const [firstPrereq] = prerequisiteJobIds(job);
   if (firstPrereq) return firstPrereq;
   return "none";
+}
+
+function prerequisiteJobIds(job: V2JobDefinition): string[] {
+  const ids = Object.keys(job.unlock.prereqs);
+  for (const condition of job.unlock.extraConditions ?? []) {
+    if (condition.type === "jobUnlocked" && !ids.includes(condition.jobId)) {
+      ids.push(condition.jobId);
+    }
+  }
+  return ids;
 }
 
 function sortedChildren(children: V2JobDefinition[]): V2JobDefinition[] {
@@ -298,10 +308,32 @@ function groupForJob(job: V2JobDefinition): string {
 
 function prereqText(job: V2JobDefinition): string {
   const entries = Object.entries(job.unlock.prereqs);
-  if (entries.length === 0) return "";
-  return entries
-    .map(([id, level]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`)
-    .join(", ");
+  const parts = entries.map(
+    ([id, level]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${level}`,
+  );
+  for (const condition of job.unlock.extraConditions ?? []) {
+    switch (condition.type) {
+      case "jobUnlocked":
+        parts.push(`${V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`);
+        break;
+      case "farmingLevel":
+        parts.push(`농사 Lv.${condition.min}`);
+        break;
+      case "woodcuttingLevel":
+        parts.push(`벌목 Lv.${condition.min}`);
+        break;
+      case "statThreshold":
+        parts.push(`${condition.stat.toUpperCase()} 한계 ${condition.min}`);
+        break;
+      case "questCompleted":
+        parts.push(`퀘스트 ${condition.questId} 완료`);
+        break;
+      case "monsterKilled":
+        parts.push(`${condition.monsterId} ${condition.minCount}회 처치`);
+        break;
+    }
+  }
+  return parts.join(", ");
 }
 
 const ROADMAP_CSS = `

@@ -59,14 +59,44 @@ function focus(job) {
     .join("/");
 }
 
+function prerequisiteJobIds(job) {
+  const ids = Object.keys(job.unlock.prereqs ?? {});
+  for (const condition of job.unlock.extraConditions ?? []) {
+    if (condition.type === "jobUnlocked" && !ids.includes(condition.jobId)) {
+      ids.push(condition.jobId);
+    }
+  }
+  return ids;
+}
+
+function extraConditionText(condition) {
+  switch (condition.type) {
+    case "jobUnlocked":
+      return `${V2_JOB_CATALOG[condition.jobId]?.name ?? condition.jobId} 해금`;
+    case "farmingLevel":
+      return `농사 Lv.${condition.min}`;
+    case "woodcuttingLevel":
+      return `벌목 Lv.${condition.min}`;
+    case "statThreshold":
+      return `${STAT_LABEL[condition.stat] ?? condition.stat.toUpperCase()} 한계 ${condition.min}`;
+    case "questCompleted":
+      return `퀘스트 ${condition.questId} 완료`;
+    case "monsterKilled":
+      return `${condition.monsterId} ${condition.minCount}회 처치`;
+  }
+}
+
 function unlockText(job) {
   if (job.id === "__start") return "🔓 시작점";
   if (job.id === "none") return "🔓 기본 루트 · 착용형 패시브 2종";
   if (job.id === "survivor") return "🔓 베이스 루트 · HP/회복";
   const entries = Object.entries(job.unlock.prereqs ?? {});
-  if (entries.length === 0) return "🔓 시작 직업";
-  const parts = entries.map(([id, n]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${n}`);
-  const hybrid = entries.length > 1 ? ' <span class="hyb">하이브리드</span>' : "";
+  const parts = [
+    ...entries.map(([id, n]) => `${V2_JOB_CATALOG[id]?.name ?? id} 숙련도 ${n}`),
+    ...(job.unlock.extraConditions ?? []).map(extraConditionText),
+  ];
+  if (parts.length === 0) return "🔓 시작 직업";
+  const hybrid = prerequisiteJobIds(job).length > 1 ? ' <span class="hyb">하이브리드</span>' : "";
   return `🔒 ${parts.join(", ")}${hybrid}`;
 }
 
@@ -86,7 +116,7 @@ function skillChip(skillId) {
 }
 
 function card(job) {
-  const isHybrid = Object.keys(job.unlock?.prereqs ?? {}).length > 1;
+  const isHybrid = prerequisiteJobIds(job).length > 1;
   const skills = (V2_SKILLS_BY_JOB[job.id] ?? []).map(skillChip).join("");
   const t = tierText(job);
   const focusText = job.id === "__start" ? "" : focus(job);
@@ -125,7 +155,7 @@ function buildTree() {
 
   for (const job of V2_JOB_LIST) {
     if (job.id === "none" || job.id === "survivor") continue;
-    const prereqs = Object.keys(job.unlock.prereqs ?? {});
+    const prereqs = prerequisiteJobIds(job);
     if (job.tier === 1 && prereqs.length === 0) {
       addChild("none", job.id);
       continue;

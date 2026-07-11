@@ -13,7 +13,7 @@ import {
 import { turnstileConfig, verifyTurnstileToken } from "@/lib/server/turnstile";
 
 function isGuardedActivity(value: unknown): value is GuardedActivity {
-  return value === "fishing" || value === "woodcutting";
+  return value === "fishing" || value === "woodcutting" || value === "mining";
 }
 
 export async function POST(req: Request) {

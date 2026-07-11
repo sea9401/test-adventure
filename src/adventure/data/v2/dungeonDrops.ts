@@ -30,6 +30,7 @@ import {
 import { GUILD_WORKSHOP_MATERIALS } from "./guildWorkshopMaterials";
 import { COOP_REWARD_MATERIALS } from "./coopRewards";
 import { WOODCUTTING_MATERIALS } from "./woodcuttingSpots";
+import { MINING_MATERIALS } from "./miningSpots";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -96,6 +97,8 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 벌목 수종별 원목 — 소나무 원목(v2_timber)은 기존 정착지 재료 ID를 그대로 사용하고,
   // 나머지 5종은 각 숲에서만 획득한다. 향후 길드 대장간 제작식에서 독립 재료로 사용한다.
   ...WOODCUTTING_MATERIALS,
+  // 채광 광석·부산물 — 생활 지도 채광지에서 획득하며 인벤토리와 거래소에 노출한다.
+  ...MINING_MATERIALS,
   // 성벽 수리 키트(settlementMaterials) — 통나무3+철광석3 조합 소모품. 카탈로그 등재로 인벤/거래소
   //   노출 + 키트 보유수가 거점 수리 UI 로 surface 된다. 드랍 아님(조합 전용).
   ...WALL_REPAIR_KIT_MATERIAL,

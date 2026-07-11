@@ -2,7 +2,7 @@ import type { ProductionKind } from "./settlement";
 
 // 정착지 재료 = 통나무(crop)·철광석(ore). 개인 인벤에 누적되어 → 기부(길드/솔로 풀
 // crop/ore 적립·PR-2b) / 거래소 판매 / 조합식(PR-5)에 쓰인다. 통나무는 벌목장
-// 미니게임을 주 수급처로 두고, 철광석은 채광 미니게임 도입 전까지 사냥 드랍을 유지한다.
+// 미니게임을 주 수급처로 둔다. 철광석도 채광 도입 후 사냥 드랍을 잠갔다.
 export const SETTLEMENT_MATERIAL_ID = {
   timber: "v2_timber",
   ironOre: "v2_iron_ore",
@@ -19,7 +19,7 @@ export const SETTLEMENT_MATERIALS = {
     id: SETTLEMENT_MATERIAL_ID.ironOre,
     name: "철광석",
     description:
-      "사냥터에서 캐낸 철광석. 정착지(길드·개인) 발전에 기부하거나, 거래소에 내다 팔 수 있다.",
+      "채석장에서 캐낸 철광석. 정착지(길드·개인) 발전에 기부하거나 거래소에 내다 팔 수 있다.",
   },
 } as const;
 
@@ -48,11 +48,11 @@ export const SETTLEMENT_MATERIAL_TO_KIND: Record<string, ProductionKind> = {
 };
 
 // 사냥 드랍 다이얼. 2026-07: 통나무는 벌목장으로 주 수급처를 옮기며 0으로 잠근다.
-// 철광석은 채광 미니게임 도입 전까지 기존 사냥 드랍을 유지한다. huntDrops 는 기존
+// 철광석도 채광 미니게임으로 주 수급처를 옮기며 0으로 잠근다. huntDrops 는 기존
 // Math.random 호출 순서 보존을 위해 rollSettlementMaterialDrops 자체는 계속 호출한다.
 export const SETTLEMENT_MATERIAL_DROP_PCT: Record<string, number> = {
   [SETTLEMENT_MATERIAL_ID.timber]: 0,
-  [SETTLEMENT_MATERIAL_ID.ironOre]: 0.003,
+  [SETTLEMENT_MATERIAL_ID.ironOre]: 0,
 };
 
 // 독립 드랍 굴림(순수). rng()∈[0,1). 강화석/재련석 롤 패턴 미러. 레어맵 배수 미적용.

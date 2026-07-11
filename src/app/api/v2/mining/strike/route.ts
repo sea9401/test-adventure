@@ -1,0 +1,205 @@
+import { db } from "@/db";
+import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  ACTIVITY_GUARD_KEY,
+  parseActivityGuardState,
+  recordActivityCompletion,
+  recordActivityStrongSignal,
+} from "@/lib/server/activityGuard";
+import {
+  recordExtremeActivityAlertSoon,
+  recordStrongActivitySignalSoon,
+} from "@/lib/server/activityGuardServer";
+import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import {
+  MINING_MATERIALS,
+  MINING_NODES,
+  rollMiningByproducts,
+  type MiningMaterialId,
+} from "@/adventure/data/v2/miningSpots";
+import {
+  MINING_LOG_KEY,
+  MINING_ORE_REWARD,
+  MINING_SESSION_KEY,
+  miningAttemptSucceeds,
+  miningMaterialBalances,
+  parseMiningLog,
+  parseMiningSession,
+  recordMiningSuccess,
+} from "@/adventure/v2/miningSession";
+import {
+  miningFailureRate,
+  miningProgressionView,
+} from "@/adventure/v2/miningProgression";
+
+type CharSave = {
+  materials?: unknown;
+  [key: string]: unknown;
+};
+
+export async function POST(req: Request) {
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:mining:strike",
+    userLimit: 20,
+    ipLimit: 120,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
+
+  const body = await req.json().catch(() => null);
+  const sessionId = (body as { sessionId?: unknown } | null)?.sessionId;
+  if (typeof sessionId !== "string") {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+
+  const now = Date.now();
+  const result = await db.transaction(async (tx) => {
+    const session = parseMiningSession(
+      await lockSaveForUpdate(tx, userId, MINING_SESSION_KEY, {}),
+    );
+    if (!session) return { success: false as const, reason: "no_session" as const };
+    if (session.sessionId !== sessionId) {
+      return { success: false as const, reason: "stale" as const };
+    }
+    if (now < session.readyAt) {
+      const retryAfterMs = session.readyAt - now;
+      if (retryAfterMs >= 250) {
+        const guardUpdate = recordActivityStrongSignal(
+          parseActivityGuardState(
+            await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+          ),
+          "mining",
+          now,
+        );
+        await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+        return {
+          success: false as const,
+          reason: "not_ready" as const,
+          retryAfterMs,
+          guardStrongSignal: "early_finish" as const,
+          guardState: guardUpdate.state,
+        };
+      }
+      return { success: false as const, reason: "not_ready" as const, retryAfterMs };
+    }
+    if (now > session.expiresAt) {
+      await upsertSave(tx, userId, MINING_SESSION_KEY, {});
+      return { success: false as const, reason: "expired" as const };
+    }
+
+    await upsertSave(tx, userId, MINING_SESSION_KEY, {});
+    const guardUpdate = recordActivityCompletion(
+      parseActivityGuardState(
+        await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+      ),
+      "mining",
+      now,
+    );
+    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+
+    const node = MINING_NODES[session.nodeId];
+    const logRaw = await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {});
+    const currentLog = parseMiningLog(logRaw);
+    const progression = miningProgressionView(
+      currentLog.successes,
+      currentLog.xp,
+    );
+    const failureRate =
+      session.failureRate ??
+      miningFailureRate(node.baseFailureRate, progression.level);
+    if (!miningAttemptSucceeds(failureRate)) {
+      return {
+        success: false as const,
+        reason: "failed" as const,
+        failureRate,
+        guardState: guardUpdate.state,
+        guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+      };
+    }
+
+    const charSave = await lockSaveForUpdate<CharSave>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
+    const byproductDrops = rollMiningByproducts(node);
+    const byproductTotal = Object.values(byproductDrops).reduce(
+      (sum, count) => sum + (count ?? 0),
+      0,
+    );
+    const materials = mergeDrops(charSave.materials, {
+      [node.materialId]: MINING_ORE_REWARD,
+      ...byproductDrops,
+    });
+    await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+
+    const log = recordMiningSuccess(currentLog, {
+      nodeId: session.nodeId,
+      ore: MINING_ORE_REWARD,
+      byproducts: byproductTotal,
+      xp: node.xp,
+    });
+    await upsertSave(tx, userId, MINING_LOG_KEY, log);
+
+    return {
+      success: true as const,
+      node,
+      materialId: node.materialId,
+      materialName: MINING_MATERIALS[node.materialId].name,
+      materialGained: MINING_ORE_REWARD,
+      byproducts: (
+        Object.entries(byproductDrops) as [MiningMaterialId, number][]
+      ).map(([materialId, amount]) => ({
+        materialId,
+        name: MINING_MATERIALS[materialId].name,
+        amount,
+      })),
+      xpGained: node.xp,
+      materials: miningMaterialBalances(materials),
+      log,
+      guardState: guardUpdate.state,
+      guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+    };
+  });
+
+  if ("guardStrongSignal" in result && result.guardStrongSignal && "guardState" in result) {
+    recordStrongActivitySignalSoon({
+      req,
+      userId,
+      activity: "mining",
+      signal: result.guardStrongSignal,
+      state: result.guardState,
+    });
+  }
+  if (
+    "guardExtremeVolumeAlert" in result &&
+    result.guardExtremeVolumeAlert &&
+    "guardState" in result
+  ) {
+    recordExtremeActivityAlertSoon({
+      req,
+      userId,
+      activity: "mining",
+      state: result.guardState,
+    });
+  }
+
+  if (!result.success) {
+    return Response.json({
+      ok: true,
+      success: false,
+      reason: result.reason,
+      retryAfterMs: "retryAfterMs" in result ? result.retryAfterMs : undefined,
+      failureRate: "failureRate" in result ? result.failureRate : undefined,
+    });
+  }
+  return Response.json({ ok: true, ...result });
+}

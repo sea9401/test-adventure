@@ -16,6 +16,7 @@ import { OpsUserNotesSection } from "./OpsUserNotesSection";
 import { OpsUserSummarySection } from "./OpsUserSummarySection";
 import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
+import { CharacterPreviewSection } from "./CharacterPreviewSection";
 
 export function SelectedUserPanel({
   user,
@@ -48,6 +49,12 @@ export function SelectedUserPanel({
     gender: "male1" as const,
   };
   const requiredExp = requiredExpToNext(character.level) ?? 0;
+  const previewDepth = Math.max(
+    1,
+    Math.floor(
+      Number((character as CharacterDynamicState & { frontierDepth?: number }).frontierDepth) || 2,
+    ) + 1,
+  );
 
   return (
     <>
@@ -84,6 +91,12 @@ export function SelectedUserPanel({
       <OpsUserNotesSection userId={user.id} readOnly={readOnly} />
 
       <OpsUserSummarySection userId={user.id} readOnly={readOnly} />
+
+      <CharacterPreviewSection
+        key={`${user.id}:${previewDepth}`}
+        userId={user.id}
+        initialDepth={previewDepth}
+      />
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
 

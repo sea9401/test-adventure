@@ -107,6 +107,7 @@ export type V2EquipmentBase<Id extends string = string> = {
   weaponType?: V2WeaponType;
   rarity?: V2EquipRarity;
   craftOnly?: boolean;
+  /** 정규 드랍 제외. T1 수련용 장비는 상점에서 구매할 수 있다. */
   starterOnly?: boolean;
   noDrop?: boolean;
   setId?: string;

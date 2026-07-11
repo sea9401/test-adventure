@@ -313,6 +313,17 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(sellPriceOf(endgameRing)).toBe(373_669);
   });
 
+  it("수련용 무기 3종은 T1 무기 가격으로 상점에서 구매할 수 있다", () => {
+    const trainingIds = [
+      "v2_starter_staff",
+      "v2_starter_bow",
+      "v2_starter_dagger",
+    ] as const;
+    for (const id of trainingIds) {
+      expect(shopPriceOf(V2_EQUIPMENT[id]), id).toBe(450);
+    }
+  });
+
   it("제작 전용 장비는 상점 구매 불가지만 판매가는 가진다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
     expect(crafted.map((i) => i.id).sort()).toEqual([
@@ -351,9 +362,9 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     }
   });
 
-  it("전 장비 판매 가능 — 유니크·제작전용·수련용도 판매 OK (구매는 여전히 불가)", () => {
-    // 2026-06-07 사용자 결정: 인벤 클러터(전직 지급 수련용 등) 정리 위해 전 장비 판매 허용.
-    //   실수 판매는 잠금으로 방지. 단 구매(상점 비치)는 여전히 스타터 T1 만.
+  it("전 장비 판매 가능 — 유니크·제작전용은 비매, 수련용은 구매 가능", () => {
+    // 인벤 클러터 정리를 위해 전 장비 판매 허용. 실수 판매는 잠금으로 방지한다.
+    // 구매는 T1 정규 장비와 수련용 무기만 가능하다.
     const offGrid = Object.values(V2_EQUIPMENT).filter(
       (i) => isUnique(i) || i.craftOnly || i.starterOnly,
     );
@@ -361,7 +372,11 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     for (const it of offGrid) {
       expect(shopPriceForSell(it), `${it.id} 판매가능`).toBeGreaterThan(0);
       expect(sellPriceOf(it), `${it.id} sellPrice 비-null`).not.toBeNull();
-      expect(shopPriceOf(it), `${it.id} 구매불가 유지`).toBeUndefined();
+      if (it.starterOnly) {
+        expect(shopPriceOf(it), `${it.id} 구매가능`).toBeGreaterThan(0);
+      } else {
+        expect(shopPriceOf(it), `${it.id} 구매불가 유지`).toBeUndefined();
+      }
     }
   });
 

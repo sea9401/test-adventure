@@ -11,7 +11,7 @@ import {
 } from "../src/adventure/data/v2/v2JobCatalog.ts";
 import { V2_SKILLS_BY_JOB } from "../src/adventure/data/v2/v2SkillsByJob.ts";
 import { V2_COMMON_SKILLS } from "../src/adventure/data/v2/v2SkillsCommonCatalog.ts";
-import { describeV2Skill } from "../src/adventure/data/v2/v2Skills.ts";
+import { describeV2Skill, spCostOf } from "../src/adventure/data/v2/v2Skills.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = "/mnt/c/Users/sea94/OneDrive/바탕 화면/job-org-chart.html";
@@ -154,7 +154,7 @@ function catLabel(cat) {
 
 function skillTip(def) {
   const tag = def.category === "passive" ? "tk-p" : "tk-a";
-  const lines = describeV2Skill(def);
+  const lines = [`필요 SP ${spCostOf(def)}`, ...describeV2Skill(def)];
   return `<b>${esc(def.name)}</b> <span class="tk ${tag}">${catLabel(def.category)}</span>` +
     `<ul>${lines.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` +
     `<div class="td">${esc(def.description)}</div>`;
@@ -212,7 +212,7 @@ body.dark .theme-toggle{background:#1f1f23;color:#e4e4e7;border-color:#3f3f46}
 </style></head><body>
 <button type="button" class="theme-toggle" id="themeToggle" aria-label="테마 전환">🌙 다크</button>
 <h1>직업 전직 조직도 — v2</h1>
-<p class="sub">총 ${total}개 직업 · 모험가/생존자 루트와 1~6차 전직. 🔒=해금 조건(숙련도). <b>하이브리드</b>(점선 카드)=조건 2개 직업. 스킬 칩 <b>마우스 오버</b>=효과·수치·마나 소모량·발동 확률.</p>
+<p class="sub">총 ${total}개 직업 · 모험가/생존자 루트와 1~6차 전직. 🔒=해금 조건(숙련도). <b>하이브리드</b>(점선 카드)=조건 2개 직업. 스킬 칩 <b>마우스 오버</b>=필요 SP·효과·수치·마나 소모량·발동 확률.</p>
 <div class="legend">${Object.entries(GROUP_LABEL).map(([k, v]) => `<span class="lg g-${k}">${v}</span>`).join("")}<span class="lg lg-hyb">하이브리드(조건 2개)</span></div>
 <div class="scroll"><ul class="chart">${chart}</ul></div>
 <div id="tip"></div>

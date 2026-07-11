@@ -5,10 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
-  DEFAULT_WOODCUTTING_SPOT_ID,
   WOODCUTTING_SPOTS,
-  WOODCUTTING_SPOT_IDS,
-  woodcuttingTreeForSpot,
   type WoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
 import { woodcuttingProgressionView } from "./woodcuttingProgression";
@@ -360,17 +357,12 @@ export function WoodcuttingView({
   timber,
   log,
   onBack,
-  initialSpotId = DEFAULT_WOODCUTTING_SPOT_ID,
-  onSpotChange,
+  spotId,
 }: WoodcuttingHandlers & {
   onBack: () => void;
-  initialSpotId?: WoodcuttingSpotId;
-  onSpotChange?: (spotId: WoodcuttingSpotId) => void;
+  spotId: WoodcuttingSpotId;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
-  const [selectedSpotId, setSelectedSpotId] = useState<WoodcuttingSpotId>(
-    initialSpotId,
-  );
   const [run, setRun] = useState<WoodcuttingStart | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -384,7 +376,7 @@ export function WoodcuttingView({
     setRun(null);
     setElapsedMs(0);
     try {
-      const next = await start(selectedSpotId);
+      const next = await start(spotId);
       const now = performance.now();
       setRun(next);
       setStartedAt(now);
@@ -393,7 +385,7 @@ export function WoodcuttingView({
       setError("벌목을 시작하지 못했습니다.");
       setPhase("idle");
     }
-  }, [selectedSpotId, start]);
+  }, [spotId, start]);
 
   useEffect(() => {
     if (!run) return;
@@ -436,8 +428,7 @@ export function WoodcuttingView({
     () => (run ? Math.min(run.chops, Math.floor(progress * run.chops) + (progress < 1 ? 1 : 0)) : 0),
     [progress, run],
   );
-  const selectedSpot = WOODCUTTING_SPOTS[selectedSpotId];
-  const busy = phase === "loading" || phase === "cutting" || phase === "finishing";
+  const selectedSpot = WOODCUTTING_SPOTS[spotId];
   const progression = woodcuttingProgressionView(log.cuts);
   const levelProgressPct = progression.maxLevel
     ? 100
@@ -484,39 +475,6 @@ export function WoodcuttingView({
             style={{ width: `${levelProgressPct}%` }}
           />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        {WOODCUTTING_SPOT_IDS.map((spotId) => {
-          const spot = WOODCUTTING_SPOTS[spotId];
-          const selected = selectedSpotId === spotId;
-          return (
-            <button
-              key={spotId}
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setSelectedSpotId(spotId);
-                onSpotChange?.(spotId);
-              }}
-              className={`rounded-xl border p-2.5 text-left transition ${
-                selected
-                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400 dark:border-emerald-500 dark:bg-emerald-950/40"
-                  : "border-zinc-200 bg-white/75 hover:border-emerald-300 dark:border-zinc-700 dark:bg-zinc-800/70"
-              } disabled:cursor-not-allowed disabled:opacity-65`}
-            >
-              <div className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100">
-                {spot.name}
-              </div>
-              <div className="mt-1 text-[10px] leading-4 text-emerald-700 dark:text-emerald-300">
-                {woodcuttingTreeForSpot(spot).name}
-              </div>
-              <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
-                {spot.description}
-              </div>
-            </button>
-          );
-        })}
       </div>
 
       {run ? (

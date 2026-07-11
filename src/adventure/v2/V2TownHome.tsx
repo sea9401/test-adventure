@@ -7,14 +7,13 @@ import {
   Hammer,
   PottedPlant,
   Storefront,
-  TreeEvergreen,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 생활 지도·치료소·은행·상점·대장간·벌목장·농장.
+// 생활 지도·치료소·은행·상점·대장간·농장.
 // 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
 // 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
@@ -22,7 +21,6 @@ export type TownAction =
   | { kind: "open-healing" }
   | { kind: "open-shop" }
   | { kind: "open-smithy" }
-  | { kind: "open-logging" }
   | { kind: "open-farm" }
   | { kind: "open-bank" }
   | { kind: "open-map" };
@@ -62,18 +60,6 @@ export function V2TownHome({
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
           title="대장간"
           onClick={() => onAction({ kind: "open-smithy" })}
-        />
-        <EntryCard
-          icon={
-            <TreeEvergreen
-              size={28}
-              weight="duotone"
-              className="text-emerald-600"
-            />
-          }
-          title="벌목장"
-          description="숲을 골라 다양한 나무를 베고 통나무를 얻는 생활 콘텐츠"
-          onClick={() => onAction({ kind: "open-logging" })}
         />
         <EntryCard
           icon={

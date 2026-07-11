@@ -43,6 +43,19 @@ describe("fishing anti macro", () => {
     expect(fishingAntiMacroFriction(state, 10_000).active).toBe(false);
   });
 
+  it("perfect success and uniform but human-range reactions are observation-only", () => {
+    const state = recordMany(
+      emptyFishingAntiMacroState(),
+      Array.from({ length: 30 }, () => ({
+        client: 360,
+        server: 420,
+      })),
+    );
+
+    expect(state.suspicion).toBe(0);
+    expect(fishingAntiMacroFriction(state, 10_000).active).toBe(false);
+  });
+
   it("uniform impossible-fast patterns trigger temporary friction", () => {
     let state = emptyFishingAntiMacroState();
     let flagged = false;

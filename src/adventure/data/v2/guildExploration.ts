@@ -8,13 +8,17 @@ export type GuildExplorationWeeklyMissionId =
   | "weekly_coop_epic_30"
   | "weekly_hunt_win_500"
   | "weekly_fishing_catch_120"
+  | "weekly_woodcutting_success_80"
+  | "weekly_farm_harvest_40"
   | "weekly_deep_hunt_win_100";
 
 export type GuildExplorationWeeklyMetric =
   | "coopBossTierClaims"
   | "huntWins"
   | "deepHuntWins"
-  | "fishingCatches";
+  | "fishingCatches"
+  | "woodcuttingSuccesses"
+  | "farmHarvests";
 
 export type GuildExplorationWeeklyMission = {
   id: GuildExplorationWeeklyMissionId;
@@ -23,7 +27,7 @@ export type GuildExplorationWeeklyMission = {
   goal: number;
   minCoopTier?: CoopRewardTier;
   rewardGold: number;
-  rewardFame: number;
+  rewardMapFragments: number;
 };
 
 export type GuildExplorationWeeklyState = {
@@ -32,6 +36,8 @@ export type GuildExplorationWeeklyState = {
   huntWinProgress: number;
   deepHuntWinProgress: number;
   fishingCatchProgress: number;
+  woodcuttingSuccessProgress: number;
+  farmHarvestProgress: number;
   claimed: GuildExplorationWeeklyMissionId[];
   content: GuildExplorationContentState;
 };
@@ -82,7 +88,6 @@ export type GuildExplorationEventChoice = {
   desc: string;
   rewardGold?: number;
   rewardFame?: number;
-  mapFragments?: number;
 };
 
 export type GuildExplorationEventDef = {
@@ -121,6 +126,8 @@ export const GUILD_EXPLORATION_COOP_MIN_TIER: CoopRewardTier = "epic";
 export const GUILD_EXPLORATION_COOP_WEEKLY_TARGET = 30;
 export const GUILD_EXPLORATION_HUNT_WEEKLY_TARGET = 500;
 export const GUILD_EXPLORATION_FISHING_WEEKLY_TARGET = 120;
+export const GUILD_EXPLORATION_WOODCUTTING_WEEKLY_TARGET = 80;
+export const GUILD_EXPLORATION_FARM_HARVEST_WEEKLY_TARGET = 40;
 export const GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH = 49;
 export const GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET = 100;
 export const GUILD_EXPLORATION_PROGRESS_UNIT = 100;
@@ -137,7 +144,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     goal: GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
     minCoopTier: GUILD_EXPLORATION_COOP_MIN_TIER,
     rewardGold: 5_000_000,
-    rewardFame: 300,
+    rewardMapFragments: 25,
   },
   weekly_hunt_win_500: {
     id: "weekly_hunt_win_500",
@@ -145,7 +152,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     metric: "huntWins",
     goal: GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
     rewardGold: 3_000_000,
-    rewardFame: 150,
+    rewardMapFragments: 25,
   },
   weekly_fishing_catch_120: {
     id: "weekly_fishing_catch_120",
@@ -153,7 +160,23 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     metric: "fishingCatches",
     goal: GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
     rewardGold: 2_000_000,
-    rewardFame: 150,
+    rewardMapFragments: 25,
+  },
+  weekly_woodcutting_success_80: {
+    id: "weekly_woodcutting_success_80",
+    title: `벌목 성공 ${GUILD_EXPLORATION_WOODCUTTING_WEEKLY_TARGET}회`,
+    metric: "woodcuttingSuccesses",
+    goal: GUILD_EXPLORATION_WOODCUTTING_WEEKLY_TARGET,
+    rewardGold: 2_000_000,
+    rewardMapFragments: 25,
+  },
+  weekly_farm_harvest_40: {
+    id: "weekly_farm_harvest_40",
+    title: `농장 수확 ${GUILD_EXPLORATION_FARM_HARVEST_WEEKLY_TARGET}회`,
+    metric: "farmHarvests",
+    goal: GUILD_EXPLORATION_FARM_HARVEST_WEEKLY_TARGET,
+    rewardGold: 2_000_000,
+    rewardMapFragments: 25,
   },
   weekly_deep_hunt_win_100: {
     id: "weekly_deep_hunt_win_100",
@@ -161,7 +184,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     metric: "deepHuntWins",
     goal: GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
     rewardGold: 3_000_000,
-    rewardFame: 150,
+    rewardMapFragments: 25,
   },
 };
 
@@ -178,9 +201,9 @@ export const GUILD_EXPLORATION_EXPEDITIONS: Record<
     name: "고대 유적 답사",
     desc: "짧은 원정. 지도 조각과 소량의 명성을 안정적으로 회수합니다.",
     durationMinutes: 60,
-    costGold: 1_000_000,
+    costGold: 500_000,
     rewardGold: 1_400_000,
-    rewardFame: 80,
+    rewardFame: 40,
     mapFragments: 24,
     minLevel: 1,
   },
@@ -189,9 +212,9 @@ export const GUILD_EXPLORATION_EXPEDITIONS: Record<
     name: "안개 숲 수색",
     desc: "중거리 원정. 지도 조각 회수량이 높고 사건 발견에 유리합니다.",
     durationMinutes: 180,
-    costGold: 2_500_000,
+    costGold: 1_250_000,
     rewardGold: 3_400_000,
-    rewardFame: 180,
+    rewardFame: 90,
     mapFragments: 52,
     minLevel: 2,
   },
@@ -200,9 +223,9 @@ export const GUILD_EXPLORATION_EXPEDITIONS: Record<
     name: "가라앉은 기록보관소",
     desc: "장거리 원정. 많은 지도 조각과 큰 길드 보상을 노립니다.",
     durationMinutes: 360,
-    costGold: 5_000_000,
+    costGold: 2_500_000,
     rewardGold: 7_200_000,
-    rewardFame: 420,
+    rewardFame: 210,
     mapFragments: 115,
     minLevel: 4,
   },
@@ -225,15 +248,13 @@ export const GUILD_EXPLORATION_EVENTS: Record<
         id: "safe_route",
         label: "우회로 확보",
         desc: "손실 없이 다음 탐사를 준비합니다.",
-        rewardFame: 120,
-        mapFragments: 12,
+        rewardFame: 60,
       },
       {
         id: "spend_supplies",
         label: "가교 설치",
         desc: "빠르게 통로를 열어 회수품을 늘립니다.",
         rewardGold: 2_800_000,
-        mapFragments: 24,
       },
     ],
   },
@@ -245,9 +266,8 @@ export const GUILD_EXPLORATION_EVENTS: Record<
       {
         id: "study",
         label: "기록 해독",
-        desc: "길드 명성을 얻고 다음 탐사 단서를 확보합니다.",
-        rewardFame: 260,
-        mapFragments: 18,
+        desc: "기록을 해독해 길드 명성을 얻습니다.",
+        rewardFame: 130,
       },
       {
         id: "salvage",
@@ -267,14 +287,12 @@ export const GUILD_EXPLORATION_EVENTS: Record<
         label: "금고로 회수",
         desc: "쓸 만한 물자를 정리해 길드 금고에 넣습니다.",
         rewardGold: 3_200_000,
-        mapFragments: 10,
       },
       {
         id: "share",
         label: "단서 공유",
-        desc: "보급품 안의 탐사 기록을 나눠 다음 지도를 앞당깁니다.",
-        rewardFame: 160,
-        mapFragments: 34,
+        desc: "보급품 안의 탐사 기록을 나눠 길드 명성을 얻습니다.",
+        rewardFame: 80,
       },
     ],
   },
@@ -395,6 +413,8 @@ function emptyExplorationWeeklyState(
     huntWinProgress: 0,
     deepHuntWinProgress: 0,
     fishingCatchProgress: 0,
+    woodcuttingSuccessProgress: 0,
+    farmHarvestProgress: 0,
     claimed: [],
     content: emptyExplorationContentState(),
   };
@@ -436,6 +456,14 @@ export function parseGuildExplorationWeeklyState(
       0,
       Math.floor(Number(obj.fishingCatchProgress) || 0),
     ),
+    woodcuttingSuccessProgress: Math.max(
+      0,
+      Math.floor(Number(obj.woodcuttingSuccessProgress) || 0),
+    ),
+    farmHarvestProgress: Math.max(
+      0,
+      Math.floor(Number(obj.farmHarvestProgress) || 0),
+    ),
     claimed,
     content: parseGuildExplorationContentState(obj.content),
   };
@@ -471,18 +499,11 @@ function progressForMetric(
   if (metric === "huntWins") return state.huntWinProgress;
   if (metric === "deepHuntWins") return state.deepHuntWinProgress;
   if (metric === "fishingCatches") return state.fishingCatchProgress;
+  if (metric === "woodcuttingSuccesses") {
+    return state.woodcuttingSuccessProgress;
+  }
+  if (metric === "farmHarvests") return state.farmHarvestProgress;
   return 0;
-}
-
-function fragmentGainForMetric(
-  metric: GuildExplorationWeeklyMetric,
-  count: number,
-): number {
-  const safeCount = Math.max(0, Math.floor(Number(count) || 0));
-  if (safeCount <= 0) return 0;
-  if (metric === "coopBossTierClaims") return safeCount * 8;
-  if (metric === "deepHuntWins") return safeCount * 2;
-  return safeCount;
 }
 
 function withMapFragments(
@@ -534,32 +555,40 @@ export function addGuildExplorationProgress(
     Math.max(0, Math.floor(Number(count) || 0)) *
     (GUILD_EXPLORATION_PROGRESS_UNIT + bonus);
   if (amount <= 0) return state;
-  const withFragments = withMapFragments(
-    state,
-    fragmentGainForMetric(metric, count),
-  );
   if (metric === "coopBossTierClaims") {
     return {
-      ...withFragments,
-      coopEpicProgress: withFragments.coopEpicProgress + amount,
+      ...state,
+      coopEpicProgress: state.coopEpicProgress + amount,
     };
   }
   if (metric === "huntWins") {
     return {
-      ...withFragments,
-      huntWinProgress: withFragments.huntWinProgress + amount,
+      ...state,
+      huntWinProgress: state.huntWinProgress + amount,
     };
   }
   if (metric === "fishingCatches") {
     return {
-      ...withFragments,
-      fishingCatchProgress: withFragments.fishingCatchProgress + amount,
+      ...state,
+      fishingCatchProgress: state.fishingCatchProgress + amount,
+    };
+  }
+  if (metric === "woodcuttingSuccesses") {
+    return {
+      ...state,
+      woodcuttingSuccessProgress: state.woodcuttingSuccessProgress + amount,
+    };
+  }
+  if (metric === "farmHarvests") {
+    return {
+      ...state,
+      farmHarvestProgress: state.farmHarvestProgress + amount,
     };
   }
   if (metric === "deepHuntWins") {
     return {
-      ...withFragments,
-      deepHuntWinProgress: withFragments.deepHuntWinProgress + amount,
+      ...state,
+      deepHuntWinProgress: state.deepHuntWinProgress + amount,
     };
   }
   return state;
@@ -581,7 +610,10 @@ export function claimGuildExplorationWeeklyMission(
   missionId: GuildExplorationWeeklyMissionId,
 ): GuildExplorationWeeklyState {
   if (state.claimed.includes(missionId)) return state;
-  return { ...state, claimed: [...state.claimed, missionId] };
+  return withMapFragments(
+    { ...state, claimed: [...state.claimed, missionId] },
+    GUILD_EXPLORATION_WEEKLY_MISSIONS[missionId].rewardMapFragments,
+  );
 }
 
 export function startGuildExplorationExpedition(
@@ -673,16 +705,13 @@ export function resolveGuildExplorationEvent(
   const event = GUILD_EXPLORATION_EVENTS[pending.eventId];
   const choice = event.choices.find((item) => item.id === choiceId);
   if (!choice) return null;
-  const next = withMapFragments(
-    {
-      ...state,
-      content: {
-        ...state.content,
-        pendingEvent: null,
-        resolvedEvents: [...state.content.resolvedEvents, event.id],
-      },
+  const next = {
+    ...state,
+    content: {
+      ...state.content,
+      pendingEvent: null,
+      resolvedEvents: [...state.content.resolvedEvents, event.id],
     },
-    choice.mapFragments ?? 0,
-  );
+  };
   return { state: next, event, choice };
 }

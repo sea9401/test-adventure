@@ -999,6 +999,10 @@ export const guildExplorationWeekly = pgTable("guild_exploration_weekly", {
   huntWinProgress: integer("hunt_win_progress").notNull().default(0),
   deepHuntWinProgress: integer("deep_hunt_win_progress").notNull().default(0),
   fishingCatchProgress: integer("fishing_catch_progress").notNull().default(0),
+  woodcuttingSuccessProgress: integer("woodcutting_success_progress")
+    .notNull()
+    .default(0),
+  farmHarvestProgress: integer("farm_harvest_progress").notNull().default(0),
   claimed: jsonb("claimed").notNull().default(sql`'[]'::jsonb`),
   content: jsonb("content").notNull().default(sql`'{}'::jsonb`),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -74,7 +74,11 @@ function describe(a: GuildActivity): string {
     case "workshop_weekly_claim":
       return `${actor} 님이 ${a.meta?.questTitle ?? "제작 의뢰"} 보상을 수령했어요`;
     case "exploration_weekly_claim":
-      return `${actor} 님이 ${a.meta?.questTitle ?? "탐사 의뢰"} 보상을 수령했어요`;
+      return `${actor} 님이 ${a.meta?.questTitle ?? "탐사 의뢰"} 보상을 수령했어요${
+        a.meta?.mapFragments
+          ? ` · 지도 조각 +${a.meta.mapFragments.toLocaleString()}`
+          : ""
+      }`;
     case "exploration_expedition_dispatch":
       return `${actor} 님이 ${a.meta?.questTitle ?? "원정대"}를 파견했어요`;
     case "exploration_expedition_claim":

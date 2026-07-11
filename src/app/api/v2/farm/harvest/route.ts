@@ -13,6 +13,7 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -94,6 +95,14 @@ export async function POST(req: Request) {
           masteryAfter = prof.jobCumLevel?.[farmJobId ?? ""] ?? 0;
           await upsertSave(tx, userId, "proficiency.v2", prof);
         }
+
+        await incrementGuildExplorationProgressForUser(
+          tx,
+          userId,
+          "farmHarvests",
+          1,
+          new Date(now),
+        );
 
         return {
           farm: harvested.state,

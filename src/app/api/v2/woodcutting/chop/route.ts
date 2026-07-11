@@ -3,6 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
+import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
@@ -70,6 +71,13 @@ export async function POST(req: Request) {
       timber: timberGained,
     });
     await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
+    await incrementGuildExplorationProgressForUser(
+      tx,
+      userId,
+      "woodcuttingSuccesses",
+      1,
+      new Date(now),
+    );
     return {
       success: true as const,
       tree,

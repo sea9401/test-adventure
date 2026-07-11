@@ -771,6 +771,13 @@
       "when": 1783656000000,
       "tag": "0109_coop_boss_mechanic_state",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1783659600000,
+      "tag": "0110_guild_exploration_life_missions",
+      "breakpoints": true
     }
   ]
 }

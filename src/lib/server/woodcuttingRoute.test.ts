@@ -2,10 +2,16 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
+const { store, incrementGuildExplorationProgressForUser } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  incrementGuildExplorationProgressForUser: vi.fn(async () => null),
+}));
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
+}));
+vi.mock("@/lib/server/guildExplorationWeekly", () => ({
+  incrementGuildExplorationProgressForUser,
 }));
 vi.mock("@/db", () => ({
   db: { transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})) },
@@ -49,6 +55,7 @@ function charOf() {
 
 afterEach(() => {
   store.clear();
+  incrementGuildExplorationProgressForUser.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -116,6 +123,13 @@ describe("woodcutting routes", () => {
       timberEarned: 3,
       trees: { oak: 1 },
     });
+    expect(incrementGuildExplorationProgressForUser).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-test",
+      "woodcuttingSuccesses",
+      1,
+      new Date(NOW + 4_600),
+    );
   });
 
   it("status — 통나무와 누적 기록을 반환한다", async () => {

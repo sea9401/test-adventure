@@ -341,7 +341,6 @@ export async function POST(req: Request) {
           deliveryTitle: resolved.choice.label,
           rewardGold: resolved.choice.rewardGold,
           rewardFame: resolved.choice.rewardFame,
-          mapFragments: resolved.choice.mapFragments,
         },
       });
       return {
@@ -357,7 +356,6 @@ export async function POST(req: Request) {
           ),
           rewardGold: resolved.choice.rewardGold,
           rewardFame: resolved.choice.rewardFame,
-          mapFragments: resolved.choice.mapFragments,
         },
       };
     }
@@ -390,7 +388,6 @@ export async function POST(req: Request) {
     await upsertGuildResources(tx, guildId, {
       gold: resources.gold + view.rewardGold,
     });
-    await addGuildFame(tx, guildId, view.rewardFame);
     const nextState = claimGuildExplorationWeeklyMission(state, view.id);
     await saveGuildExplorationWeeklyState(tx, guildId, nextState);
     await logGuildActivity(tx, {
@@ -400,7 +397,7 @@ export async function POST(req: Request) {
       meta: {
         questTitle: GUILD_EXPLORATION_WEEKLY_MISSIONS[view.id].title,
         rewardGold: view.rewardGold,
-        rewardFame: view.rewardFame,
+        mapFragments: view.rewardMapFragments,
       },
     });
 
@@ -423,7 +420,7 @@ export async function POST(req: Request) {
           upgrade.weeklyMissionCount,
         ),
         rewardGold: view.rewardGold,
-        rewardFame: view.rewardFame,
+        mapFragments: view.rewardMapFragments,
       },
     };
   });

@@ -147,6 +147,36 @@ describe("woodcutting routes", () => {
     });
   });
 
+  it("start — 장착한 나무꾼 패시브를 세션 실패율에 고정한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const equipped = [
+      "v2c_lumberjack_woodreading",
+      "v2c_foresttechnician_axecare",
+      "v2c_masterlumberjack_recoverycut",
+      "v2c_forestmaster_efficientwork",
+      "v2c_legendarylumberjack_bountifulcut",
+    ];
+    store.set("skills.v2", { learned: equipped, equipped });
+
+    const response = await START(startReq("cypress_grove"));
+    const json = await response.json();
+
+    expect(json.failureReductionPct).toBe(20);
+    expect(json.durationReductionPct).toBe(18);
+    expect(json.failureRecoveryPct).toBe(20);
+    expect(json.bonusLogChancePct).toBe(30);
+    expect(json.durationMs).toBe(14_800);
+    expect(json.failureRate).toBeCloseTo(0.56);
+    expect(json.successRate).toBeCloseTo(0.44);
+    expect(
+      (store.get(WOODCUTTING_SESSION_KEY) as { failureRate: number }).failureRate,
+    ).toBeCloseTo(0.56);
+    expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
+      failureRecoveryRate: 0.2,
+      bonusLogRate: 0.3,
+    });
+  });
+
   it("chop — 완료 시각 전에는 보상과 세션을 그대로 둔다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 1_000);
     store.set(WOODCUTTING_SESSION_KEY, {
@@ -236,6 +266,88 @@ describe("woodcutting routes", () => {
     });
     expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
     expect(incrementGuildExplorationProgressForUser).not.toHaveBeenCalled();
+  });
+
+  it("chop — 나무꾼은 성공 시 생존자·직업 숙련도를 함께 얻는다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "lumberjack-done",
+      spotId: "pine_grove",
+      treeId: "pine",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+      failureRate: 0.05,
+    });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "lumberjack",
+      materials: {},
+    });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: { survivor: { tier: 1, cumLevel: 900, runs: 0 } },
+      jobCumLevel: { lumberjack: 12 },
+    });
+
+    const response = await CHOP(chopReq("lumberjack-done"));
+    const json = await response.json();
+
+    expect(json).toMatchObject({
+      success: true,
+      jobId: "lumberjack",
+      jobName: "나무꾼",
+      masteryGained: 1,
+      masteryAfter: 13,
+    });
+    expect(store.get("proficiency.v2")).toMatchObject({
+      groups: { survivor: { cumLevel: 901 } },
+      jobCumLevel: { lumberjack: 13 },
+    });
+  });
+
+  it("chop — 벌목 명인 패시브가 실패를 20% 확률로 성공 처리한다", async () => {
+    vi.mocked(Math.random).mockReturnValueOnce(0.1).mockReturnValueOnce(0.1);
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "recovered-cut",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+      failureRate: 0.22,
+      failureRecoveryRate: 0.2,
+      bonusLogRate: 0,
+    });
+    store.set("character.v2", { materials: {} });
+
+    const json = await (await CHOP(chopReq("recovered-cut"))).json();
+
+    expect(json).toMatchObject({ success: true, recovered: true, materialGained: 1 });
+  });
+
+  it("chop — 전설의 나무꾼 패시브가 성공 시 30% 확률로 원목을 하나 더 준다", async () => {
+    vi.mocked(Math.random).mockReturnValueOnce(0.99).mockReturnValueOnce(0.1);
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "legendary-cut",
+      spotId: "cypress_grove",
+      treeId: "cypress",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+      failureRate: 0.4,
+      failureRecoveryRate: 0,
+      bonusLogRate: 0.3,
+    });
+    store.set("character.v2", { materials: {} });
+
+    const json = await (await CHOP(chopReq("legendary-cut"))).json();
+
+    expect(json).toMatchObject({
+      success: true,
+      materialGained: 2,
+      bonusMaterialGained: 1,
+      recovered: false,
+    });
   });
 
   it("status — 통나무와 누적 기록을 반환한다", async () => {

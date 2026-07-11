@@ -53,6 +53,11 @@ export type V2CommonSkillId =
   | "v2c_physicalcoach_conditioning" // 컨디셔닝 프로그램 (길드 훈련장 보상)
   | "v2c_mastertrainer_elitetraining" // 엘리트 트레이닝 (길드 훈련장 보상)
   | "v2c_farmer_seedselection" // 씨앗 선별 (농장 수확량)
+  | "v2c_lumberjack_woodreading" // 나무결 읽기 (벌목 실패율 감소)
+  | "v2c_foresttechnician_axecare" // 도끼날 세우기 (벌목 시간 단축)
+  | "v2c_masterlumberjack_recoverycut" // 위기 수습 (실패 구제)
+  | "v2c_forestmaster_efficientwork" // 능숙한 벌목 (추가 시간 단축)
+  | "v2c_legendarylumberjack_bountifulcut" // 전설의 벌목 (추가 원목)
   | "v2c_horticulturist_soilreading" // 토양 읽기 (희귀 수확)
   | "v2c_masterfarmer_composting" // 퇴비 배합 (수확량 + 희귀 수확)
   | "v2c_harvestking_abundance" // 풍작 감각 (수확량 + 희귀 수확)
@@ -663,6 +668,38 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [],
     spCost: 1,
     passive: { farmYieldBonusPct: 10 },
+  },
+  v2c_lumberjack_woodreading: {
+    id: "v2c_lumberjack_woodreading", name: "나무결 읽기", stat: "str", category: "passive", tier: 2,
+    description: "나무의 결이나 기울기를 미리 읽어 벌목에 실패할 가능성을 낮춘다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { woodcuttingFailureReductionPct: 20 },
+  },
+  v2c_foresttechnician_axecare: {
+    id: "v2c_foresttechnician_axecare", name: "도끼날 세우기", stat: "dex", category: "passive", tier: 3,
+    description: "도끼날과 타격 각도를 정교하게 다듬어 벌목 시간을 줄인다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { woodcuttingDurationReductionPct: 8 },
+  },
+  v2c_masterlumberjack_recoverycut: {
+    id: "v2c_masterlumberjack_recoverycut", name: "위기 수습", stat: "str", category: "passive", tier: 3,
+    description: "잘못 들어간 도끼질을 바로잡아 실패한 벌목을 성공으로 되돌릴 기회를 얻는다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { woodcuttingFailureRecoveryPct: 20 },
+  },
+  v2c_forestmaster_efficientwork: {
+    id: "v2c_forestmaster_efficientwork", name: "능숙한 벌목", stat: "dex", category: "passive", tier: 3,
+    description: "불필요한 동작을 없애 벌목 시간을 한 번 더 단축한다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { woodcuttingDurationReductionPct: 10 },
+  },
+  v2c_legendarylumberjack_bountifulcut: {
+    id: "v2c_legendarylumberjack_bountifulcut", name: "전설의 벌목", stat: "luk", category: "passive", tier: 3,
+    description: "나무를 온전히 쓰러뜨려 성공 시 추가 원목을 얻을 가능성을 만든다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { woodcuttingBonusLogChancePct: 30 },
   },
   v2c_horticulturist_soilreading: {
     id: "v2c_horticulturist_soilreading", name: "토양 읽기", stat: "luk", category: "passive", tier: 3,

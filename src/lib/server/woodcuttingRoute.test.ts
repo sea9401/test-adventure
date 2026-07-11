@@ -153,13 +153,13 @@ describe("woodcutting routes", () => {
     expect(json.materialId).toBe(OAK);
     expect(json.materialName).toBe("참나무 원목");
     expect(json.materialGained).toBe(WOODCUTTING_TIMBER_REWARD);
-    expect(json.xpGained).toBe(19);
+    expect(json.xpGained).toBe(10);
     expect(charOf().materials?.[OAK]).toBe(1);
     expect(charOf().materials?.[TIMBER]).toBe(3);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
     expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
       cuts: 1,
-      xp: 19,
+      xp: 10,
       timberEarned: 1,
       trees: { oak: 1 },
     });

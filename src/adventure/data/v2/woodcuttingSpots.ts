@@ -73,7 +73,7 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
     materialId: WOODCUTTING_MATERIAL_ID.pine,
     durationMs: 7_000,
     chops: 5,
-    xp: 10,
+    xp: 5,
   },
   birch: {
     id: "birch",
@@ -81,7 +81,7 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
     materialId: WOODCUTTING_MATERIAL_ID.birch,
     durationMs: 8_000,
     chops: 6,
-    xp: 12,
+    xp: 6,
   },
   oak: {
     id: "oak",
@@ -89,7 +89,7 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
     materialId: WOODCUTTING_MATERIAL_ID.oak,
     durationMs: 12_000,
     chops: 8,
-    xp: 19,
+    xp: 10,
   },
   cedar: {
     id: "cedar",
@@ -97,7 +97,7 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
     materialId: WOODCUTTING_MATERIAL_ID.cedar,
     durationMs: 15_000,
     chops: 9,
-    xp: 24,
+    xp: 12,
   },
   willow: {
     id: "willow",
@@ -105,7 +105,7 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
     materialId: WOODCUTTING_MATERIAL_ID.willow,
     durationMs: 10_000,
     chops: 7,
-    xp: 15,
+    xp: 8,
   },
   cypress: {
     id: "cypress",
@@ -113,7 +113,7 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
     materialId: WOODCUTTING_MATERIAL_ID.cypress,
     durationMs: 18_000,
     chops: 10,
-    xp: 30,
+    xp: 15,
   },
 };
 

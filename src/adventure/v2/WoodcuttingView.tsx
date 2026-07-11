@@ -415,11 +415,9 @@ function drawTreeSprite(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  damage: number,
   fall: number,
   impact: number,
   time: number,
-  visual: TreeVisual,
   treeImage: HTMLImageElement,
   treeId: string,
 ) {
@@ -429,10 +427,8 @@ function drawTreeSprite(
   const size = Math.min(height * 0.8, width * 0.58);
   const trunkX = width * 0.5;
   const groundY = height * 0.85;
-  const cutY = height * 0.69;
   const destinationX = trunkX - size / 2;
   const destinationY = groundY - size;
-  const trunkWidth = Math.max(18, size * 0.075 * visual.trunkScale);
   const fallAngle = easeOutCubic(fall) * 1.4;
 
   ctx.fillStyle = `rgba(15,23,42,${0.18 + fall * 0.08})`;
@@ -448,37 +444,10 @@ function drawTreeSprite(
   );
   ctx.fill();
 
-  const stump = ctx.createLinearGradient(trunkX - trunkWidth, 0, trunkX + trunkWidth, 0);
-  stump.addColorStop(0, visual.barkDark);
-  stump.addColorStop(0.42, visual.barkMid);
-  stump.addColorStop(0.72, visual.barkLight);
-  stump.addColorStop(1, visual.barkDark);
-  ctx.fillStyle = stump;
-  ctx.beginPath();
-  ctx.moveTo(trunkX - trunkWidth * 0.72, groundY);
-  ctx.lineTo(trunkX - trunkWidth * 0.52, cutY);
-  ctx.lineTo(trunkX + trunkWidth * 0.52, cutY);
-  ctx.lineTo(trunkX + trunkWidth * 0.72, groundY);
-  ctx.closePath();
-  ctx.fill();
-
-  if (fall > 0.02) {
-    ctx.fillStyle = visual.heartwood;
-    ctx.strokeStyle = visual.barkDark;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(trunkX, cutY, trunkWidth * 0.54, 5.5, 0, 0, TAU);
-    ctx.fill();
-    ctx.stroke();
-  }
-
   ctx.save();
-  ctx.translate(trunkX, cutY);
+  ctx.translate(trunkX, groundY);
   ctx.rotate(fallAngle + Math.sin(time * 20) * impact * 0.006);
-  ctx.translate(-trunkX, -cutY);
-  ctx.beginPath();
-  ctx.rect(destinationX, destinationY, size, cutY - destinationY + 4);
-  ctx.clip();
+  ctx.translate(-trunkX, -groundY);
   ctx.drawImage(
     treeImage,
     cell.column * sourceWidth,
@@ -491,20 +460,6 @@ function drawTreeSprite(
     size,
   );
   ctx.restore();
-
-  if (fall < 0.98) {
-    const cutDepth = trunkWidth * 1.35 * damage;
-    ctx.fillStyle = visual.heartwood;
-    ctx.beginPath();
-    ctx.moveTo(trunkX + trunkWidth * 0.6, cutY - 10);
-    ctx.lineTo(trunkX + trunkWidth * 0.6 - cutDepth, cutY);
-    ctx.lineTo(trunkX + trunkWidth * 0.6, cutY + 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = visual.barkDark;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
 }
 
 function drawTree(
@@ -524,11 +479,9 @@ function drawTree(
       ctx,
       width,
       height,
-      damage,
       fall,
       impact,
       time,
-      visual,
       treeImage,
       treeId,
     );

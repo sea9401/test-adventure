@@ -323,6 +323,7 @@ describe("직업 킷 — 스킬셋", () => {
       berserker: ["v2c_berserker_bloodslash", "v2c_berserker_madness3"],
       warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"],
       bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"],
+      ritualist: ["v2c_ritualist_guardingarray", "v2c_ritualist_wardcraft"],
       shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"],
       venomancer: ["v2c_venomancer_miasma", "v2c_venomancer_corrosion3"],
     };
@@ -362,6 +363,7 @@ describe("직업 킷 — 스킬셋", () => {
       runecaster: ["v2c_runecaster_grandsigil", "v2c_runecaster_circuit"],
       archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"],
       archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"],
+      spellsealer: ["v2c_spellsealer_sealingfield", "v2c_spellsealer_greatward"],
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
       phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"],
       venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"],
@@ -399,6 +401,15 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_archbishop_grace.passive).toMatchObject({
       healPowerPct: 12,
       maxHpPct: 8,
+    });
+    expect(V2_SKILLS.v2c_spellsealer_sealingfield.effects).toEqual([
+      { kind: "enemyDamageDown", pct: 12, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 22, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_spellsealer_greatward.passive).toMatchObject({
+      magicDefPct: 35,
+      openingMagicDamageReductionPct: 20,
+      openingMagicDamageReductionPhases: 5,
     });
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
     expect(V2_SKILLS.v2c_phantom_stealth.passive?.evasionPct).toBe(16); // 은신 — 회피(암살자·tier4 유일 회피축)

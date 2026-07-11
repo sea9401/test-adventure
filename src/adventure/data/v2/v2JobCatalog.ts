@@ -374,6 +374,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { spi: 15, int: 5 }, // 마법 고차(사제 계승) — 정신/지원
     unlock: { prereqs: { acolyte: TIER3_UNLOCK_CUMLEVEL } }, // 사제 계보
   },
+  ritualist: {
+    id: "ritualist",
+    name: "진법사",
+    tier: 3,
+    cultivateProfile: { spi: 2, vit: 1, int: 1 },
+    jobBonus: { spi: 15, vit: 6, int: 3 }, // 결계사 계승 — 정신 중심 마법 방어
+    unlock: { prereqs: { warder: TIER3_UNLOCK_CUMLEVEL } }, // 결계사 계보
+  },
   shadow: {
     id: "shadow",
     name: "그림자",
@@ -562,6 +570,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { spi: 2, int: 1, vit: 1 },
     jobBonus: { spi: 15, vit: 5, int: 2 }, // 사제 심화(대사제 계승) — 낮은 회복 + 보호 축
     unlock: { prereqs: { bishop: TIER4_UNLOCK_CUMLEVEL } }, // 대사제 계보
+  },
+  spellsealer: {
+    id: "spellsealer",
+    name: "봉마사",
+    tier: 4,
+    cultivateProfile: { spi: 2, vit: 1, int: 1 },
+    jobBonus: { spi: 17, vit: 7, int: 2 }, // 진법사 계승 — 결계·봉마 라인 정점
+    unlock: { prereqs: { ritualist: TIER4_UNLOCK_CUMLEVEL } }, // 진법사 계보
   },
   chief: {
     id: "chief",
@@ -1205,6 +1221,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   berserker: { class: "warrior", spec: "berserker" },
   warmonk: { class: "martial", spec: "warmonk" },
   bishop: { class: "mage", spec: "bishop" },
+  ritualist: { class: "mage", spec: "ritualist" },
   shadow: { class: "rogue", spec: "shadow" },
   venomancer: { class: "rogue", spec: "venomancer" },
   // tier 3 하이브리드(전사×마법) — 저장 class=전사(첫 prereq), spec=고유 id. 마법 prereq 은
@@ -1223,6 +1240,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   runecaster: { class: "mage", spec: "runecaster" }, // 마법 4차 세 번째 갈래(문장 시너지)
   archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 네 번째 갈래(주술사 계승·마법취약)
   archbishop: { class: "mage", spec: "archbishop" }, // 마법 4차 다섯 번째 갈래(대사제 계승·성직자)
+  spellsealer: { class: "mage", spec: "spellsealer" }, // 결계사 4차 — 진법사 계승·봉마 특화
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
   warlord: { class: "warrior", spec: "warlord" }, // 전사 4차 세 번째 갈래(광전사 계승·저HP 딜)

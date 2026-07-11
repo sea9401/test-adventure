@@ -106,6 +106,7 @@ export type V2CommonSkillId =
   | "v2c_shaman_hex" // 저주 (마법 피해 + 약화)
   | "v2c_warmonk_kick" // 연환각 (물리 다단)
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
+  | "v2c_ritualist_guardingarray" // 호법진 (받는 피해 감소)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
   | "v2c_venomancer_miasma" // 맹독 확산 (중독 심화 + 중독 스택 비례딜)
   | "v2c_fieldmedic_treatment" // 현장 처치 (큰 자힐)
@@ -116,6 +117,7 @@ export type V2CommonSkillId =
   | "v2c_shaman_omen3" // 흉조 (마법취약 누적)
   | "v2c_warmonk_evasion3" // 강건 III (활력 +30%·무승)
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
+  | "v2c_ritualist_wardcraft" // 진법술 (마법 방어력 + 초반 마법 피해 감소)
   | "v2c_shadow_lethality3" // 필살 (치명 피해 +25%)
   | "v2c_venomancer_corrosion3" // 부식 II (중독된 적 방어 감소)
   | "v2c_fieldmedic_training" // 구급 숙련 (회복 + 최대 HP)
@@ -161,6 +163,8 @@ export type V2CommonSkillId =
   // ── 마법 4차 네 번째 갈래(주교·대사제 계승) ──
   | "v2c_archbishop_sanctuary" // 성역 선포 (낮은 회복 + 받피감)
   | "v2c_archbishop_grace" // 성직 권위 (회복 + 최대 HP)
+  | "v2c_spellsealer_sealingfield" // 봉마진 (적 공격·스킬 발동 봉쇄)
+  | "v2c_spellsealer_greatward" // 봉마대법 (최상위 마법 방어)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
   | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
@@ -795,6 +799,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, fixedMpCost: 110, cooldown: 0, procChance: 100,
     effects: [{ kind: "heal", pctLostHp: 9, statCoef: 0.75, baseFlatByTier: [120, 120, 120], scaling: "magic" }],
   },
+  v2c_ritualist_guardingarray: {
+    id: "v2c_ritualist_guardingarray", name: "호법진", stat: "int", category: "buff", tier: 3,
+    description: "호신의 진을 펼쳐 한동안 받는 피해를 줄인다. 결계 보호막과 함께 유지할 수 있다.",
+    mpCost: 36, cooldown: 0, procChance: 100,
+    effects: [{ kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 }],
+  },
   v2c_shadow_assassinate: {
     // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
     //   한 단계 강(계수·기본·배수↑). 적 HP 15%↓ ×2.2. PvE/PvP 공용. (처단과 동일 사유로 30%→15%.)
@@ -867,6 +877,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "치유의 비결을 더 깊이 깨우쳐 회복량이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { healPowerPct: 30 },
+  },
+  v2c_ritualist_wardcraft: {
+    id: "v2c_ritualist_wardcraft", name: "진법술", stat: "int", category: "passive", tier: 3,
+    description: "마력을 흘려내는 진법을 완성한다. 마법 방어력이 오르고 전투 초반 마법 피해가 크게 줄어든다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: {
+      magicDefPct: 25,
+      openingMagicDamageReductionPct: 15,
+      openingMagicDamageReductionPhases: 4,
+    },
   },
   v2c_shadow_lethality3: {
     id: "v2c_shadow_lethality3", name: "필살", stat: "luk", category: "passive", tier: 3,
@@ -1248,6 +1269,26 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0,
     effects: [],
     passive: { healPowerPct: 12, maxHpPct: 8 },
+  },
+  v2c_spellsealer_sealingfield: {
+    id: "v2c_spellsealer_sealingfield", name: "봉마진", stat: "int", category: "buff", tier: 3,
+    description: "적의 힘과 술식을 봉하는 진을 펼쳐 주는 피해와 스킬 발동률을 함께 낮춘다.",
+    mpCost: 44, cooldown: 0, procChance: 100,
+    effects: [
+      { kind: "enemyDamageDown", pct: 12, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 22, turns: 3 },
+    ],
+  },
+  v2c_spellsealer_greatward: {
+    id: "v2c_spellsealer_greatward", name: "봉마대법", stat: "int", category: "passive", tier: 3,
+    description: "적의 주문을 꺾는 봉마의 극의. 마법 방어력이 크게 오르고 전투 초반 마법 피해를 억누른다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: {
+      magicDefPct: 35,
+      openingMagicDamageReductionPct: 20,
+      openingMagicDamageReductionPhases: 5,
+    },
   },
 
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 액티브 보호막 + 반사 패시브 ──

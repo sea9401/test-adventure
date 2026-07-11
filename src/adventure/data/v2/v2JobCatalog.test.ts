@@ -61,6 +61,7 @@ const TIER3_LINEAGE: Record<string, string> = {
   magus: "caster",
   shaman: "caster",
   bishop: "acolyte",
+  ritualist: "warder",
   ranger: "archer",
   shadow: "assassin",
   venomancer: "venomist",
@@ -79,6 +80,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   runecaster: "magus",
   archshaman: "shaman",
   archbishop: "bishop",
+  spellsealer: "ritualist",
   chief: "ranger",
   venomlord: "venomancer",
   battlemonk: "warmonk", // 무도 4차 두 번째 갈래 — 무승 계보
@@ -151,14 +153,14 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("95개 직업(루트 2 + 기본 4 + 상위 15 + 고차 20 + 심화 21 + 5차 18 + 6차 15)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(95);
+  it("97개 직업(루트 2 + 기본 4 + 상위 15 + 고차 21 + 심화 22 + 5차 18 + 6차 15)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(97);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(15);
-    expect(byTier(3)).toBe(20);
-    expect(byTier(4)).toBe(21);
+    expect(byTier(3)).toBe(21);
+    expect(byTier(4)).toBe(22);
     expect(byTier(5)).toBe(18);
     expect(byTier(6)).toBe(15);
   });

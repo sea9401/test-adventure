@@ -95,8 +95,10 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   };
 
   const activeTab = tabOfPath(pathname);
-  // 스태미나 바 — 모험/전투 탭만.
-  const showStamina = activeTab === "adventure" || activeTab === "battle";
+  // 스태미나 바 — 모험/전투 탭만. 생활 지도는 생활 지역 선택에 집중하도록 숨긴다.
+  const showStamina =
+    pathname !== "/map" &&
+    (activeTab === "adventure" || activeTab === "battle");
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·상점·대장간·낚시터·사냥터·아레나)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별

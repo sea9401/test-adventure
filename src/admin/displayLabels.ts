@@ -8,6 +8,7 @@ import {
 } from "./economyLabels";
 
 export const ADMIN_ACTION_LABELS: Record<string, string> = {
+  "character.preview": "캐릭터 체험",
   "grant.v2": "아이템 지급",
   "guild-cooldown.clear": "길드 쿨다운 해제",
   "mail.broadcast": "전체 우편",

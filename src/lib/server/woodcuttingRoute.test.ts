@@ -35,7 +35,7 @@ import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials"
 import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
-  WOODCUTTING_TREES,
+  WOODCUTTING_TIMBER_REWARD,
 } from "@/adventure/v2/woodcuttingSession";
 
 const NOW = 1_700_000_000_000;
@@ -46,6 +46,14 @@ function chopReq(sessionId: string) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ sessionId }),
+  });
+}
+
+function startReq(spotId: string) {
+  return new Request("http://test.local/api/v2/woodcutting/start", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ spotId }),
   });
 }
 
@@ -60,12 +68,18 @@ afterEach(() => {
 });
 
 describe("woodcutting routes", () => {
+  it("start — 등록되지 않은 숲은 거부한다", async () => {
+    const response = await START(startReq("unknown_grove"));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ ok: false, error: "bad_spot" });
+  });
+
   it("start — 자동 벌목 시간과 도끼질 횟수를 반환한다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW);
     store.set("character.v2", { materials: { [TIMBER]: 7 } });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 2, timberEarned: 9 });
 
-    const response = await START();
+    const response = await START(startReq("pine_grove"));
     const json = await response.json();
 
     expect(response.status).toBe(200);
@@ -73,10 +87,12 @@ describe("woodcutting routes", () => {
     expect(typeof json.sessionId).toBe("string");
     expect(json.durationMs).toBeGreaterThanOrEqual(3_000);
     expect(json.chops).toBeGreaterThanOrEqual(5);
+    expect(json.spot.id).toBe("pine_grove");
     expect(json.timber).toBe(7);
     expect(json.log.cuts).toBe(2);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
       sessionId: json.sessionId,
+      spotId: "pine_grove",
       readyAt: NOW + json.durationMs,
     });
   });
@@ -85,6 +101,7 @@ describe("woodcutting routes", () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 1_000);
     store.set(WOODCUTTING_SESSION_KEY, {
       sessionId: "cut-early",
+      spotId: "oak_grove",
       treeId: "oak",
       readyAt: NOW + 4_500,
       expiresAt: NOW + 34_500,
@@ -104,6 +121,7 @@ describe("woodcutting routes", () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
     store.set(WOODCUTTING_SESSION_KEY, {
       sessionId: "cut-done",
+      spotId: "oak_grove",
       treeId: "oak",
       readyAt: NOW + 4_500,
       expiresAt: NOW + 34_500,
@@ -115,12 +133,12 @@ describe("woodcutting routes", () => {
 
     expect(json.success).toBe(true);
     expect(json.tree.name).toBe("참나무");
-    expect(json.timberGained).toBe(WOODCUTTING_TREES.oak.baseTimber);
-    expect(charOf().materials?.[TIMBER]).toBe(6);
+    expect(json.timberGained).toBe(WOODCUTTING_TIMBER_REWARD);
+    expect(charOf().materials?.[TIMBER]).toBe(4);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
     expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
       cuts: 1,
-      timberEarned: 3,
+      timberEarned: 1,
       trees: { oak: 1 },
     });
     expect(incrementGuildExplorationProgressForUser).toHaveBeenCalledWith(

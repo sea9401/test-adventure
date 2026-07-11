@@ -4,6 +4,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import {
+  WOODCUTTING_SPOTS,
+  isWoodcuttingSpotId,
+} from "@/adventure/data/v2/woodcuttingSpots";
+import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_TREES,
@@ -13,16 +17,23 @@ import {
   type WoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const body = (await req.json().catch(() => null)) as { spotId?: unknown } | null;
+  if (typeof body?.spotId !== "string" || !isWoodcuttingSpotId(body.spotId)) {
+    return Response.json({ ok: false, error: "bad_spot" }, { status: 400 });
+  }
+
   const now = Date.now();
-  const treeId = pickWoodcuttingTreeId(Math.random);
+  const spotId = body.spotId;
+  const treeId = pickWoodcuttingTreeId(spotId, Math.random);
   const session: WoodcuttingSession = createWoodcuttingSession({
     sessionId: randomUUID(),
+    spotId,
     treeId,
     now,
   });
@@ -44,6 +55,7 @@ export async function POST() {
   return Response.json({
     ok: true,
     sessionId: session.sessionId,
+    spot: WOODCUTTING_SPOTS[spotId],
     tree: WOODCUTTING_TREES[treeId],
     durationMs: WOODCUTTING_TREES[treeId].durationMs,
     chops: WOODCUTTING_TREES[treeId].chops,

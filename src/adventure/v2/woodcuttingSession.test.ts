@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   WOODCUTTING_CLAIM_GRACE_MS,
+  WOODCUTTING_TIMBER_REWARD,
   WOODCUTTING_TREES,
   createWoodcuttingSession,
   parseWoodcuttingLog,
@@ -10,44 +11,46 @@ import {
 } from "./woodcuttingSession";
 
 describe("woodcuttingSession", () => {
-  it("가중치에 따라 나무를 고른다", () => {
-    expect(pickWoodcuttingTreeId(() => 0)).toBe("pine");
-    expect(WOODCUTTING_TREES[pickWoodcuttingTreeId(() => 0.999)].tier).toBe("ancient");
+  it("선택한 숲의 가중치 안에서만 나무를 고른다", () => {
+    expect(pickWoodcuttingTreeId("pine_grove", () => 0)).toBe("pine");
+    expect(pickWoodcuttingTreeId("pine_grove", () => 0.999)).toBe("nut_pine");
+    expect(pickWoodcuttingTreeId("oak_grove", () => 0)).toBe("oak");
+    expect(pickWoodcuttingTreeId("oak_grove", () => 0.999)).toBe("zelkova");
   });
 
-  it("나무별 자동 벌목 시간과 도끼질 횟수를 둔다", () => {
-    expect(WOODCUTTING_TREES.pine).toMatchObject({ durationMs: 3_000, chops: 5 });
-    expect(WOODCUTTING_TREES.old_cedar).toMatchObject({ durationMs: 5_400, chops: 9 });
+  it("모든 나무의 벌목 보상은 통나무 1개다", () => {
+    expect(WOODCUTTING_TIMBER_REWARD).toBe(1);
+    expect(Object.values(WOODCUTTING_TREES)).toHaveLength(12);
   });
 
-  it("완료 시각과 수령 유예가 포함된 세션을 만든다", () => {
-    const session = createWoodcuttingSession({ sessionId: "s1", treeId: "oak", now: 1_000 });
+  it("숲·나무·완료 시각이 포함된 세션을 만든다", () => {
+    const session = createWoodcuttingSession({
+      sessionId: "s1",
+      spotId: "oak_grove",
+      treeId: "oak",
+      now: 1_000,
+    });
     expect(session.readyAt).toBe(1_000 + WOODCUTTING_TREES.oak.durationMs);
     expect(session.expiresAt).toBe(session.readyAt + WOODCUTTING_CLAIM_GRACE_MS);
     expect(parseWoodcuttingSession(session)).toEqual(session);
   });
 
-  it("예전 방향 선택 세션은 자동 벌목 세션으로 읽지 않는다", () => {
+  it("장소가 없는 예전 자동 벌목 세션은 읽지 않는다", () => {
     expect(
       parseWoodcuttingSession({
         sessionId: "old",
         treeId: "pine",
-        challenge: { wind: 0, safeLane: 0, idealBackCut: "level" },
+        readyAt: 1_000,
         expiresAt: 9_999,
       }),
     ).toBeNull();
   });
 
-  it("성공 시 통나무와 나무별 완료 기록을 누적한다", () => {
-    const log = recordWoodcuttingSuccess(parseWoodcuttingLog({ perfectCuts: 3 }), {
-      treeId: "oak",
-      timber: 3,
+  it("성공 시 통나무와 새 수종별 완료 기록을 누적한다", () => {
+    const log = recordWoodcuttingSuccess(parseWoodcuttingLog({}), {
+      treeId: "maple",
+      timber: WOODCUTTING_TIMBER_REWARD,
     });
-    expect(log).toMatchObject({
-      cuts: 1,
-      perfectCuts: 3,
-      timberEarned: 3,
-      trees: { oak: 1 },
-    });
+    expect(log).toMatchObject({ cuts: 1, timberEarned: 1, trees: { maple: 1 } });
   });
 });

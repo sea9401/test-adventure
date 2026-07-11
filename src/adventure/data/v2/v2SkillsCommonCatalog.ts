@@ -1942,7 +1942,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_vajraarhat_seal: {
     id: "v2c_vajraarhat_seal", name: "금강인", stat: "vit", category: "buff", tier: 3,
-    description: "금강의 인을 맺어 몸을 잠그고, 들어오는 공격을 되돌릴 준비를 한다.",
+    description: "금강의 인을 맺어 보호막을 얻고 받는 피해를 줄인다. 지속 중 모든 반사 피해와 나한금신의 반격 피해가 증가한다.",
     mpCost: 58, cooldown: 0, procChance: 100, learnCost: 12000,
     effects: [
       { kind: "shield", pctMaxHp: 18, turns: 3 },
@@ -1955,7 +1955,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "나한의 금빛 몸으로 버틴다. 최대 체력과 피해 저항, 반격 확률이 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
-    passive: { maxHpPct: 32, damageTakenReductionPct: 8, counterChancePct: 30 },
+    passive: {
+      maxHpPct: 32,
+      damageTakenReductionPct: 8,
+      counterChancePct: 30,
+      counterDamageUsesReflectBoost: true,
+    },
   },
   v2c_eternal_cycle: {
     id: "v2c_eternal_cycle", name: "영겁 순환", stat: "vit", category: "buff", tier: 3,

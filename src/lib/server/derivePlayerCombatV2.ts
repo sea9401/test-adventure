@@ -261,6 +261,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveLifestealPct?: number;
   /** 반격 확률 +%p(절정 반격) — passiveCounterChancePct 에 가산(클래스 패시브·전문화와 합산). */
   passiveCounterChancePct?: number;
+  /** 금강나한 연계 — 활성 반사 증폭을 나한금신 반격 피해에도 적용. */
+  passiveCounterDamageUsesReflectBoost?: boolean;
   /** 방어력 +%(철벽, 다양성 2차) — def 와 magicDef 에 곱연산. PvE/PvP 양쪽. */
   passiveDefPct?: number;
   /** 반사(수호자) — 피격 시 내 방어력의 이 %만큼 고정 데미지 반사. def 확정 후 thornsFlatFromDef 로 환산. */
@@ -622,6 +624,9 @@ export function derivePlayerCombatV2Pure(
       input.passiveCounterChancePct,
       sumOrUndef(undefined, specEff.counterChancePct),
     ), // 절정 반격(장착 패시브·input) + 철벽검류(전문화)
+    ...(input.passiveCounterDamageUsesReflectBoost
+      ? { passiveCounterDamageUsesReflectBoost: true }
+      : {}),
     // 직업 효과 패시브 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }
@@ -837,6 +842,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveEvasionPct: passiveAgg.evasionPct,
     passiveLifestealPct: passiveAgg.lifestealPct,
     passiveCounterChancePct: passiveAgg.counterChancePct,
+    passiveCounterDamageUsesReflectBoost:
+      passiveAgg.counterDamageUsesReflectBoost,
     passiveDefPct: passiveAgg.defPct,
     passiveThornsDefPct: passiveAgg.thornsDefPct,
     passiveAccuracyPct: passiveAgg.accuracyPct,

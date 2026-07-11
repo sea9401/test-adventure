@@ -321,6 +321,8 @@ export type PlayerCombat = {
   guaranteedEvades?: number;
   // 반격 — 회피 성공 시 즉시 카운터 1회, ATK + bonus 데미지. 0/undefined = 스킬 미보유.
   counterAtkBonus?: number;
+  // 금강나한 — 활성 반사 증폭을 나한금신의 확률 반격 피해에만 적용한다.
+  passiveCounterDamageUsesReflectBoost?: boolean;
   // 연타 — N턴마다 그 턴 마지막 공격 후 추가 1회 공격. undefined = 스킬 미보유.
   extraAttackEveryNTurns?: number;
   // 기습 — 전투 첫 플레이어 턴 추가 공격. 0/undefined = 스킬 미보유.

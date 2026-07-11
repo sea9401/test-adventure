@@ -1072,8 +1072,18 @@ export function maybeApplyMartialCounter(
   const v2DefMultMC = v2DefBuffMult(attacker.v2SelfBuffs, attacker.v2SelfDebuffs);
   const mcAtk = effectiveAttackerAtk(defender, attacker);
   const mcDef = attackerFacingDef(defender, attacker);
+  const counterBoostPct =
+    defender.player.passiveCounterDamageUsesReflectBoost &&
+    defender.stacks.skillReflectBoostTurns > 0
+      ? defender.stacks.skillReflectBoostPct
+      : 0;
+  const counterAtk = v2AtkMultMC !== 1 ? Math.floor(mcAtk * v2AtkMultMC) : mcAtk;
+  const boostedCounterAtk =
+    counterBoostPct > 0
+      ? Math.floor(counterAtk * (1 + counterBoostPct / 100))
+      : counterAtk;
   const dmg = damageBetween(
-    v2AtkMultMC !== 1 ? Math.floor(mcAtk * v2AtkMultMC) : mcAtk,
+    boostedCounterAtk,
     v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef,
   );
   const newAtkHp = Math.max(0, attacker.hp - dmg);
@@ -1082,7 +1092,7 @@ export function maybeApplyMartialCounter(
     ...st,
     log: appendLog(st.log, {
       kind: "player_attack",
-      text: `[반격] ${attacker.name}에게 ${dmg} 반격 피해.`,
+      text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${attacker.name}에게 ${dmg} 반격 피해.`,
     }),
   };
   if (newAtkHp <= 0) {

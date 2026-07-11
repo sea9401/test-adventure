@@ -349,6 +349,10 @@ export function V2SkillLearnView({
     typeof ritualSkill?.procChance === "number" ? ritualSkill.procChance : 100;
   const focusCurrentChance = Math.min(100, baseProcChance + currentBonus);
   const focusNextChance = Math.min(100, baseProcChance + nextBonus);
+  const displayedNextDelta =
+    ritualMode === "focus"
+      ? focusNextChance - focusCurrentChance
+      : nextBonus - currentBonus;
 
   const Wrapper = embedded ? "div" : "main";
   return (
@@ -591,7 +595,14 @@ export function V2SkillLearnView({
                   {modeLocked
                     ? "다른 의식은 초기화 후 진행 가능"
                     : selectedNext
-                      ? `+${selectedCurrentLevel} → +${selectedNext.level}`
+                      ? (
+                          <>
+                            +{selectedCurrentLevel} →{" "}
+                            <strong className="text-emerald-700 dark:text-emerald-400">
+                              +{selectedNext.level}
+                            </strong>
+                          </>
+                        )
                       : "다음 단계 없음"}
                 </span>
               </div>
@@ -607,16 +618,48 @@ export function V2SkillLearnView({
                     </div>
                   )}
                 </div>
-                <div className="rounded-md bg-white px-3 py-2 dark:bg-zinc-900">
-                  <div className="text-zinc-500 dark:text-zinc-400">다음</div>
-                  <div className="mt-1 font-semibold">
-                    {selectedNext
-                      ? modeBonusLabel(ritualMode, nextBonus)
-                      : "진행 불가"}
+                <div
+                  className={[
+                    "rounded-md border px-3 py-2",
+                    selectedNext
+                      ? "border-emerald-200 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/35"
+                      : "border-transparent bg-white dark:bg-zinc-900",
+                  ].join(" ")}
+                >
+                  <div
+                    className={
+                      selectedNext
+                        ? "font-medium text-emerald-700 dark:text-emerald-400"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }
+                  >
+                    다음
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1 font-semibold">
+                    <span
+                      className={
+                        selectedNext
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : undefined
+                      }
+                    >
+                      {selectedNext
+                        ? modeBonusLabel(ritualMode, nextBonus)
+                        : "진행 불가"}
+                    </span>
+                    {selectedNext && displayedNextDelta > 0 && (
+                      <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        ▲ +{displayedNextDelta}
+                        {ritualMode === "focus" ? "%p" : "%"}
+                      </span>
+                    )}
                   </div>
                   {ritualMode === "focus" && selectedNext && (
                     <div className="mt-1 text-zinc-500 dark:text-zinc-400">
-                      발동률 {baseProcChance}% → {focusNextChance}%
+                      발동률 {baseProcChance}% →{" "}
+                      <strong className="text-emerald-700 dark:text-emerald-400">
+                        {focusNextChance}%
+                      </strong>
                     </div>
                   )}
                 </div>

@@ -7,6 +7,7 @@ import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExpl
 import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
+  WOODCUTTING_TIMBER_REWARD,
   WOODCUTTING_TREES,
   parseWoodcuttingLog,
   parseWoodcuttingSession,
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
     const tree = WOODCUTTING_TREES[session.treeId];
-    const timberGained = tree.baseTimber;
+    const timberGained = WOODCUTTING_TIMBER_REWARD;
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,

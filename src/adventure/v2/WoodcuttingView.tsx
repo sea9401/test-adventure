@@ -4,6 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import {
+  DEFAULT_WOODCUTTING_SPOT_ID,
+  WOODCUTTING_SPOTS,
+  WOODCUTTING_SPOT_IDS,
+  woodcuttingTreeNames,
+  type WoodcuttingSpotId,
+} from "@/adventure/data/v2/woodcuttingSpots";
+import { woodcuttingProgressionView } from "./woodcuttingProgression";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -18,6 +26,7 @@ export type WoodcuttingTreeView = {
 
 export type WoodcuttingStart = {
   sessionId: string;
+  spotId: WoodcuttingSpotId;
   tree: WoodcuttingTreeView;
   durationMs: number;
   chops: number;
@@ -37,7 +46,7 @@ export type WoodcuttingOutcome =
     };
 
 export type WoodcuttingHandlers = {
-  start: () => Promise<WoodcuttingStart>;
+  start: (spotId: WoodcuttingSpotId) => Promise<WoodcuttingStart>;
   finish: (sessionId: string) => Promise<WoodcuttingOutcome>;
   timber: number;
   log: WoodcuttingLogView;
@@ -353,6 +362,9 @@ export function WoodcuttingView({
   onBack,
 }: WoodcuttingHandlers & { onBack: () => void }) {
   const [phase, setPhase] = useState<Phase>("idle");
+  const [selectedSpotId, setSelectedSpotId] = useState<WoodcuttingSpotId>(
+    DEFAULT_WOODCUTTING_SPOT_ID,
+  );
   const [run, setRun] = useState<WoodcuttingStart | null>(null);
   const [startedAt, setStartedAt] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -366,7 +378,7 @@ export function WoodcuttingView({
     setRun(null);
     setElapsedMs(0);
     try {
-      const next = await start();
+      const next = await start(selectedSpotId);
       const now = performance.now();
       setRun(next);
       setStartedAt(now);
@@ -375,7 +387,7 @@ export function WoodcuttingView({
       setError("벌목을 시작하지 못했습니다.");
       setPhase("idle");
     }
-  }, [start]);
+  }, [selectedSpotId, start]);
 
   useEffect(() => {
     if (!run) return;
@@ -418,6 +430,12 @@ export function WoodcuttingView({
     () => (run ? Math.min(run.chops, Math.floor(progress * run.chops) + (progress < 1 ? 1 : 0)) : 0),
     [progress, run],
   );
+  const selectedSpot = WOODCUTTING_SPOTS[selectedSpotId];
+  const busy = phase === "loading" || phase === "cutting" || phase === "finishing";
+  const progression = woodcuttingProgressionView(log.cuts);
+  const levelProgressPct = progression.maxLevel
+    ? 100
+    : Math.min(100, (progression.xpIntoLevel / progression.xpForNext) * 100);
 
   return (
     <main className="mx-auto my-2 w-[calc(100%-1rem)] max-w-[560px] space-y-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 text-zinc-900 shadow-lg backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-5">
@@ -438,13 +456,67 @@ export function WoodcuttingView({
         </Card>
       </div>
 
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-extrabold text-emerald-900 dark:text-emerald-100">
+              벌목 Lv {progression.level}
+            </div>
+            <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              벌목 1회당 +10 XP · 최대 Lv 50
+            </div>
+          </div>
+          <span className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
+            {progression.maxLevel
+              ? "최고 레벨"
+              : `${progression.xpIntoLevel}/${progression.xpForNext} XP`}
+          </span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-emerald-100 dark:bg-emerald-900">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+            style={{ width: `${levelProgressPct}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {WOODCUTTING_SPOT_IDS.map((spotId) => {
+          const spot = WOODCUTTING_SPOTS[spotId];
+          const selected = selectedSpotId === spotId;
+          return (
+            <button
+              key={spotId}
+              type="button"
+              disabled={busy}
+              onClick={() => setSelectedSpotId(spotId)}
+              className={`rounded-xl border p-2.5 text-left transition ${
+                selected
+                  ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400 dark:border-emerald-500 dark:bg-emerald-950/40"
+                  : "border-zinc-200 bg-white/75 hover:border-emerald-300 dark:border-zinc-700 dark:bg-zinc-800/70"
+              } disabled:cursor-not-allowed disabled:opacity-65`}
+            >
+              <div className="text-xs font-extrabold text-zinc-900 dark:text-zinc-100">
+                {spot.name}
+              </div>
+              <div className="mt-1 text-[10px] leading-4 text-emerald-700 dark:text-emerald-300">
+                {woodcuttingTreeNames(spot).join(" · ")}
+              </div>
+              <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
+                {spot.description}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
       {run ? (
         <div className="space-y-2">
           <div className="relative h-80 w-full overflow-hidden rounded-xl border-2 border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30">
             <AutoWoodcuttingCanvas durationMs={run.durationMs} startedAt={startedAt} phase={phase} />
             <div className="absolute inset-x-3 top-3 z-10 flex items-center justify-between gap-2">
               <span className="rounded-full bg-white/90 px-3 py-1.5 text-sm font-extrabold text-zinc-800 shadow dark:bg-zinc-900/90 dark:text-zinc-100">
-                {run.tree.name}
+                {WOODCUTTING_SPOTS[run.spotId].shortName} · {run.tree.name}
               </span>
               <span className="rounded-full bg-emerald-700/90 px-3 py-1.5 text-xs font-extrabold text-white shadow">
                 {phase === "cutting"
@@ -485,7 +557,7 @@ export function WoodcuttingView({
 
       {(phase === "idle" || phase === "result") && (
         <Button onClick={() => void startCut()} variant="success" size="md" fullWidth>
-          {phase === "result" ? "다시 벌목" : "벌목 시작"}
+          {phase === "result" ? `${selectedSpot.shortName}에서 다시 벌목` : `${selectedSpot.shortName}에서 벌목 시작`}
         </Button>
       )}
       {(phase === "loading" || phase === "cutting" || phase === "finishing") && (

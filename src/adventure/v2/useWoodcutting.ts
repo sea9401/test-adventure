@@ -8,6 +8,7 @@ import type {
   WoodcuttingStart,
   WoodcuttingTreeView,
 } from "./WoodcuttingView";
+import type { WoodcuttingSpotId } from "@/adventure/data/v2/woodcuttingSpots";
 
 function parseLog(value: unknown): WoodcuttingLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -53,8 +54,12 @@ export function useWoodcutting(): WoodcuttingHandlers {
     };
   }, []);
 
-  const start = useCallback(async (): Promise<WoodcuttingStart> => {
-    const response = await fetch("/api/v2/woodcutting/start", { method: "POST" });
+  const start = useCallback(async (spotId: WoodcuttingSpotId): Promise<WoodcuttingStart> => {
+    const response = await fetch("/api/v2/woodcutting/start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ spotId }),
+    });
     if (!response.ok) throw new Error("woodcutting_start_failed");
     const json = await response.json();
     const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
@@ -66,6 +71,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
     setLog(parseLog(json.log));
     return {
       sessionId: json.sessionId,
+      spotId,
       tree: parseTree(json.tree),
       durationMs,
       chops,

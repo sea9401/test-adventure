@@ -10,8 +10,11 @@ import {
   COOP_MASTERY_TOME_GAIN,
   COOP_MASTERY_TOME_MATERIAL_ID,
   COOP_REWARD_MATERIALS,
+  COOP_TIER5_EQUIPMENT_BOX,
+  coopEquipmentBoxById,
   coopExtraRewardRuleFor,
   parseCoopEquipmentBoxId,
+  rollCoopEquipmentBoxDefItem,
   rollCoopEquipmentBoxItem,
   rollCoopExtraRewards,
 } from "./coopRewards";
@@ -30,6 +33,27 @@ describe("coopRewards", () => {
     });
     expect(COOP_MASTERY_TOME_GAIN).toBeGreaterThanOrEqual(50);
     expect(parseCoopEquipmentBoxId("nope")).toBeNull();
+    expect(COOP_REWARD_MATERIALS[COOP_TIER5_EQUIPMENT_BOX.id]).toBeDefined();
+    expect(coopEquipmentBoxById(COOP_TIER5_EQUIPMENT_BOX.id)).toBe(
+      COOP_TIER5_EQUIPMENT_BOX,
+    );
+  });
+
+  it("공용 5T 상자는 산군·어룡 5T 장비 풀을 합쳐서 굴린다", () => {
+    const itemIds = COOP_TIER5_EQUIPMENT_BOX.itemIds ?? [];
+    expect(itemIds).toHaveLength(9);
+    expect(itemIds).toEqual(
+      expect.arrayContaining([
+        ...(COOP_EQUIPMENT_BOX.mountain_chief_hard.itemIds ?? []),
+        ...(COOP_EQUIPMENT_BOX.abyssal_tyrant.itemIds ?? []),
+      ]),
+    );
+    expect(rollCoopEquipmentBoxDefItem(COOP_TIER5_EQUIPMENT_BOX, () => 0)).toBe(
+      itemIds[0],
+    );
+    expect(rollCoopEquipmentBoxDefItem(COOP_TIER5_EQUIPMENT_BOX, () => 0.999)).toBe(
+      itemIds.at(-1),
+    );
   });
 
   it("티어별 확정 보상은 단조 증가하고 상자는 SILVER부터 확률", () => {

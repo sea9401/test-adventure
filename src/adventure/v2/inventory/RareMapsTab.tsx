@@ -21,7 +21,7 @@ import {
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 import {
-  COOP_EQUIPMENT_BOX,
+  COOP_ALL_EQUIPMENT_BOXES,
   COOP_MASTERY_TOME_GAIN,
   COOP_MASTERY_TOME_MATERIAL_ID,
 } from "@/adventure/data/v2/coopRewards";
@@ -60,7 +60,7 @@ export function RareMapsTab({
   const hasSpFruit = SP_FRUIT_TIERS.some(
     (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
   );
-  const hasEquipmentBox = Object.values(COOP_EQUIPMENT_BOX).some(
+  const hasEquipmentBox = COOP_ALL_EQUIPMENT_BOXES.some(
     (box) => (materials[box.id] ?? 0) > 0,
   );
   const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
@@ -318,7 +318,7 @@ function CoopEquipmentBoxSection({
     anchor: ItemCardAnchor;
   } | null>(null);
 
-  const boxes = Object.values(COOP_EQUIPMENT_BOX)
+  const boxes = COOP_ALL_EQUIPMENT_BOXES
     .map((box) => ({ box, held: materials[box.id] ?? 0 }))
     .filter((entry) => entry.held > 0);
   if (boxes.length === 0) return null;

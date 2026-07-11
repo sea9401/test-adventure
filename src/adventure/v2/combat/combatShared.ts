@@ -1052,7 +1052,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   //   스킬 주피해 속성(마법/물리)·attackCount 로 산출(damageBetween — 엔진 평타와 동일 공식).
   //   hitDamages 는 비율용이라 미스케일(엔진이 enemyDamage 총합을 distributeBoostedHits 로 재분배).
   //   DoT 는 평타 등가가 없어 위 모델 대신 V2_PATTERN_DOT_POWER_MULT 로 별도 throttle(위 dot 분기).
-  //   selfHeal 도 동일 ×skillMult throttle. 버프/디버프/마나회복은 미적용.
+  //   selfHeal 도 동일 ×skillMult throttle. 단 oncePerBattle 회복은 패턴이 발동 빈도를
+  //   늘리지 않으므로 풀 위력을 유지한다. 버프/디버프/마나회복은 미적용.
   // 차수별 위력 통과율 — 고차 스킬일수록 평타 초과분을 더 많이 반영(쓸 가치). t1=중립 기본값.
   const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT_BY_TIER[def.tier] : 1;
   // 기습(ambushDamage) = 빈도 제한 오프너 — 첫 턴 풀피에서만 큰 값이고(그 외엔 낮은 기본딜·평타 이하)
@@ -1100,10 +1101,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const damageBasedHeal = Math.floor(
     ((scaledEnemyDamage * healFromDamagePct) / 100) * (input.attacker.healMult ?? 1),
   );
+  const directHealMult = def.oncePerBattle ? 1 : skillMult;
   const scaledSelfHeal =
-    skillMult === 1
+    directHealMult === 1
       ? selfHeal + damageBasedHeal
-      : Math.round(selfHeal * skillMult) + damageBasedHeal;
+      : Math.round(selfHeal * directHealMult) + damageBasedHeal;
   const boostedShield = shieldToApply
     ? {
         ...shieldToApply,

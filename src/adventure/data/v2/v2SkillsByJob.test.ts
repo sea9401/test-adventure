@@ -983,7 +983,16 @@ describe("직업 킷 — 스킬셋", () => {
       maxHpPct: 32,
       damageTakenReductionPct: 8,
       counterChancePct: 30,
+      counterDamageUsesReflectBoost: true,
     });
+    expect(
+      aggregateEquippedPassives(["v2c_vajraarhat_body"])
+        .counterDamageUsesReflectBoost,
+    ).toBe(true);
+    expect(
+      aggregateEquippedPassives(["v2c_adamantmonk_body"])
+        .counterDamageUsesReflectBoost,
+    ).toBe(false);
     expect(
       aggregateEquippedPassives([
         "v2c_adamantmonk_body",

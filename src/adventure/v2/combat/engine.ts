@@ -366,8 +366,19 @@ export function applyPassiveCounterOnHitIfAny(
   const v2AtkMult = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
   const v2DefMult = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
   const counterDef = playerFacingEnemyDef(state, player);
+  const counterBoostPct =
+    player.passiveCounterDamageUsesReflectBoost &&
+    state.stacks.skillReflectBoostTurns > 0
+      ? state.stacks.skillReflectBoostPct
+      : 0;
+  const counterAtk =
+    v2AtkMult !== 1 ? Math.floor(player.atk * v2AtkMult) : player.atk;
+  const boostedCounterAtk =
+    counterBoostPct > 0
+      ? Math.floor(counterAtk * (1 + counterBoostPct / 100))
+      : counterAtk;
   const dmg = damageBetween(
-    v2AtkMult !== 1 ? Math.floor(player.atk * v2AtkMult) : player.atk,
+    boostedCounterAtk,
     v2DefMult !== 1 ? Math.floor(counterDef * v2DefMult) : counterDef,
   );
   const enemyHp = Math.max(0, state.enemyHp - dmg);
@@ -376,7 +387,7 @@ export function applyPassiveCounterOnHitIfAny(
     enemyHp,
     log: appendLog(state.log, {
       kind: "player_attack",
-      text: `[반격] ${state.enemy.name}에게 ${dmg} 반격 피해.`,
+      text: `[${counterBoostPct > 0 ? "반격 + 금강인" : "반격"}] ${state.enemy.name}에게 ${dmg} 반격 피해.`,
     }),
   };
   if (enemyHp <= 0) {

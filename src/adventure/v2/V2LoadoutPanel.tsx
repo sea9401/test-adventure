@@ -597,12 +597,12 @@ export function V2LoadoutPanel({
               초기화
             </button>
           </div>
-          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+          <div className="mt-2 flex min-w-0 flex-wrap gap-1.5 pb-1">
             {equippedSkills.map((s, idx) => (
               <div
                 key={s.skillId}
                 data-equipped-drop-id={s.skillId}
-                className={`ui-lift-card relative inline-flex h-8 max-w-44 shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200 ${
+                className={`ui-lift-card relative inline-flex h-8 max-w-full shrink-0 items-center gap-1 rounded-md border border-violet-300 bg-violet-50 px-1.5 text-xs font-medium text-violet-800 sm:max-w-44 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200 ${
                   draggingId === s.skillId ? "opacity-55" : ""
                 }`}
               >

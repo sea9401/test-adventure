@@ -33,6 +33,7 @@ import {
   miningFailureRate,
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
+import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 
 type CharSave = {
   materials?: unknown;
@@ -118,6 +119,7 @@ export async function POST(req: Request) {
       return {
         success: false as const,
         reason: "failed" as const,
+        node,
         failureRate,
         guardState: guardUpdate.state,
         guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
@@ -155,6 +157,7 @@ export async function POST(req: Request) {
       materialId: node.materialId,
       materialName: MINING_MATERIALS[node.materialId].name,
       materialGained: MINING_ORE_REWARD,
+      failureRate,
       byproducts: (
         Object.entries(byproductDrops) as [MiningMaterialId, number][]
       ).map(([materialId, amount]) => ({
@@ -189,6 +192,44 @@ export async function POST(req: Request) {
       userId,
       activity: "mining",
       state: result.guardState,
+    });
+  }
+
+  if (!result.success && result.reason === "failed" && "node" in result) {
+    recordLifeGatheringTelemetrySoon({
+      userId,
+      activity: "mining",
+      sourceId: result.node.id,
+      sourceName: result.node.name,
+      grade: result.node.grade,
+      success: false,
+      failureRate: result.failureRate,
+      xpGained: 0,
+      drops: [],
+    });
+  }
+  if (result.success) {
+    recordLifeGatheringTelemetrySoon({
+      userId,
+      activity: "mining",
+      sourceId: result.node.id,
+      sourceName: result.node.name,
+      grade: result.node.grade,
+      success: true,
+      failureRate: result.failureRate,
+      xpGained: result.xpGained,
+      drops: [
+        {
+          materialId: result.materialId,
+          quantity: result.materialGained,
+          primary: true,
+        },
+        ...result.byproducts.map((drop) => ({
+          materialId: drop.materialId,
+          quantity: drop.amount,
+          primary: false,
+        })),
+      ],
     });
   }
 

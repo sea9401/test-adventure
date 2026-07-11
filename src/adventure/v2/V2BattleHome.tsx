@@ -33,7 +33,7 @@ export function V2BattleHome({ onAction }: {
           icon={
             <CloudLightning size={28} weight="duotone" className="text-sky-500" />
           }
-          title="폭풍 부유도 원정"
+          title="원정"
           description="항로를 골라 연속 전투와 중도 귀환에 도전"
           onClick={() => onAction({ kind: "open-storm-expedition" })}
         />

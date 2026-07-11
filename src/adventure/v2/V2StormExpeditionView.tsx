@@ -53,7 +53,7 @@ type ExpeditionStatus = {
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  locked: "심해 폐허 6을 돌파하면 폭풍 부유도 원정이 열립니다.",
+  locked: "심해 폐허 6을 돌파하면 원정이 열립니다.",
   no_attempts: "오늘의 원정 입장 횟수를 모두 사용했습니다.",
   already_active: "이미 진행 중인 원정이 있습니다.",
   no_active: "진행 중인 원정이 없습니다.",
@@ -133,7 +133,7 @@ export function V2StormExpeditionView() {
         title={
           <>
             <CloudLightning size={21} weight="duotone" className="text-sky-500" />
-            폭풍 부유도 원정
+            원정
           </>
         }
         onBack={() => router.push("/battle")}
@@ -228,7 +228,7 @@ export function V2StormExpeditionView() {
           gender={replay.gender}
           exp={0}
           maxExp={1}
-          playerSubtitle={`${activeRoute?.name ?? "폭풍 부유도"} ${(result?.stage ?? 0) + 1}구간`}
+          playerSubtitle={`${activeRoute?.name ?? "원정"} ${(result?.stage ?? 0) + 1}구간`}
           outcome={replay.outcome}
           outcomeAction={{
             label: active ? "원정 상황 확인" : "원정대로 돌아가기",

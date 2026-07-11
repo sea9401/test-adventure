@@ -129,7 +129,7 @@ export async function POST(req: Request) {
       v2Skills: prepared.skills,
       maxTurns: 100,
       isBoss: active.stage === STORM_EXPEDITION_STAGE_COUNT - 1,
-      openingNote: `${stormExpeditionRoute(active.routeId)?.name ?? "폭풍 부유도"} ${active.stage + 1}구간`,
+      openingNote: `${stormExpeditionRoute(active.routeId)?.name ?? "원정"} ${active.stage + 1}구간`,
     });
     const success = battle.outcome === "win";
     const reward = success ? stormExpeditionStageReward(active.stage) : 0;

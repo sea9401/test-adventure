@@ -174,7 +174,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 ## 7. 시크릿 · 설정 위치
 | 항목 | 위치 |
 |---|---|
-| `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET` 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
+| `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET`, Turnstile 키 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
 | 배포 SSH | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` |
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
@@ -184,6 +184,13 @@ bash deploy/maintenance.sh status   # 현재 상태
 - `OPS_READONLY_EMAILS`: 관리자 조회만 가능.
 - `OPS_REWARD_EMAILS`: 보상 보정 지급 가능.
 - `OPS_SANCTION_EMAILS`: 제재 변경 가능.
+
+장시간 생활 콘텐츠 사람 확인:
+- Cloudflare Turnstile 위젯에 `msmsge.com`을 등록하고 `TURNSTILE_SITE_KEY`,
+  `TURNSTILE_SECRET_KEY`를 EC2 `.env.production.local`에 설정한다.
+- 둘 중 하나라도 없으면 이용자를 차단하지 않고 요청 강신호·일일 극단 수급 감시만 동작한다.
+- 키를 설정하면 벌목·낚시가 연속 100회 또는 60분에 도달했을 때 다음 시작 요청에서
+  사람 확인을 요구한다. 토큰은 서버 Siteverify에서 action 일치까지 검증한 뒤 즉시 소비한다.
 
 인증: **카카오 OAuth만**(구글은 베타 동안 제외 #1216). NextAuth/Auth.js + Drizzle 어댑터.
 

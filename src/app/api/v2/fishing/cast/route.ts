@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  ACTIVITY_GUARD_KEY,
+  parseActivityGuardState,
+} from "@/lib/server/activityGuard";
+import { activityVerificationGateResponse } from "@/lib/server/activityGuardServer";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
 import { getFishingSpot } from "@/adventure/data/v2/fishingSpots";
 import { multtaeAt } from "@/adventure/data/v2/multtae";
@@ -55,10 +60,17 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const now = Date.now();
+  const [antiMacroRaw, guardRaw] = await Promise.all([
+    readSave(db, userId, FISHING_ANTI_MACRO_KEY, {}),
+    readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
+  ]);
+  const verificationRequired = activityVerificationGateResponse(
+    parseActivityGuardState(guardRaw),
+    "fishing",
+  );
+  if (verificationRequired) return verificationRequired;
   const antiMacro = fishingAntiMacroFriction(
-    parseFishingAntiMacroState(
-      await readSave(db, userId, FISHING_ANTI_MACRO_KEY, {}),
-    ),
+    parseFishingAntiMacroState(antiMacroRaw),
     now,
   );
   if (antiMacro.active) {

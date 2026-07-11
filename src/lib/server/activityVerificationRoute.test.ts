@@ -1,0 +1,112 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { store, verifyTurnstileToken, recordAbuseEventSoon } = vi.hoisted(() => ({
+  store: new Map<string, unknown>(),
+  verifyTurnstileToken: vi.fn(),
+  recordAbuseEventSoon: vi.fn(),
+}));
+
+vi.mock("@/lib/server/ensureUser", () => ({
+  ensureUser: vi.fn(async () => "u-test"),
+}));
+vi.mock("@/db", () => ({
+  db: { transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})) },
+}));
+vi.mock("@/lib/server/savesKv", () => ({
+  lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
+    store.has(key) ? store.get(key) : fallback,
+  ),
+  upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
+    store.set(key, value);
+  }),
+}));
+vi.mock("@/lib/server/abuseLog", () => ({
+  clientIpFromRequest: vi.fn(() => "127.0.0.1"),
+  recordAbuseEventSoon,
+}));
+vi.mock("@/lib/server/turnstile", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/server/turnstile")>();
+  return { ...original, verifyTurnstileToken };
+});
+
+import { POST } from "@/app/api/v2/activity-verification/route";
+import {
+  ACTIVITY_GUARD_KEY,
+  activityGuardView,
+  parseActivityGuardState,
+} from "@/lib/server/activityGuard";
+import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+
+function request(activity = "fishing", token = "token") {
+  return new Request("http://test.local/api/v2/activity-verification", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ activity, token }),
+  });
+}
+
+beforeEach(() => {
+  vi.stubEnv("TURNSTILE_SITE_KEY", "site");
+  vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+  store.set(ACTIVITY_GUARD_KEY, {
+    version: 1,
+    activities: {
+      fishing: {
+        completedSinceVerification: 100,
+        verificationRequiredAt: 10_000,
+        strongSignals: 3,
+      },
+    },
+  });
+});
+
+afterEach(() => {
+  store.clear();
+  verifyTurnstileToken.mockReset();
+  recordAbuseEventSoon.mockReset();
+  resetUserRateLimitForTests();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
+
+describe("POST /api/v2/activity-verification", () => {
+  it("검증 성공 시 해당 활동 체크포인트를 초기화한다", async () => {
+    verifyTurnstileToken.mockResolvedValue({ ok: true, hostname: "test.local" });
+    const response = await POST(request());
+    expect(response.status).toBe(200);
+    const state = parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY));
+    expect(activityGuardView(state, "fishing")).toMatchObject({
+      completedSinceVerification: 0,
+      verificationRequiredAt: null,
+      strongSignals: 0,
+    });
+  });
+
+  it("검증 실패는 상태를 유지하고 운영 로그를 남긴다", async () => {
+    verifyTurnstileToken.mockResolvedValue({
+      ok: false,
+      error: "invalid",
+      codes: ["invalid-input-response"],
+    });
+    const response = await POST(request());
+    expect(response.status).toBe(400);
+    expect(recordAbuseEventSoon).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "human_verification_failed" }),
+    );
+    const state = parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY));
+    expect(activityGuardView(state, "fishing").verificationRequiredAt).toBe(10_000);
+  });
+
+  it("체크포인트가 없으면 미리 검증해 활동 횟수를 초기화할 수 없다", async () => {
+    store.set(ACTIVITY_GUARD_KEY, {});
+    verifyTurnstileToken.mockResolvedValue({ ok: true, hostname: "test.local" });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    expect(activityGuardView(
+      parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+      "fishing",
+    ).completedSinceVerification).toBe(0);
+  });
+});

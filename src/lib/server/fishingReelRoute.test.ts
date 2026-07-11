@@ -44,6 +44,11 @@ import {
   FISHING_PROGRESS_KEY,
   emptyFishingProgression,
 } from "@/adventure/v2/fishingProgression";
+import {
+  ACTIVITY_GUARD_KEY,
+  activityGuardView,
+  parseActivityGuardState,
+} from "@/lib/server/activityGuard";
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -125,6 +130,12 @@ describe("POST /api/v2/fishing/reel", () => {
     });
     expect(store.get(FISHING_SESSION_KEY)).toEqual({});
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "fishing",
+      ).completedSinceVerification,
+    ).toBe(1);
   });
 
   it("5연속 성공부터 코인 보너스와 연속 버프를 적용한다", async () => {

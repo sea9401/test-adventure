@@ -26,6 +26,11 @@ import {
   FISHING_SPOT_DIFFICULTY_LABEL,
   type FishingSpot,
 } from "@/adventure/data/v2/fishingSpots";
+import { ActivityVerificationGate } from "./ActivityVerificationGate";
+import {
+  ActivityVerificationRequiredError,
+  type ActivityVerificationChallenge,
+} from "./useActivityVerification";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -103,6 +108,8 @@ export type FishingHandlers = {
   progressionLoading?: boolean;
   challengeBadgeCount?: number;
   fishingSpot?: FishingSpot;
+  verification?: ActivityVerificationChallenge | null;
+  verifyHuman?: (token: string) => Promise<boolean>;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
@@ -1429,6 +1436,8 @@ export function FishingView({
   progressionLoading,
   challengeBadgeCount,
   fishingSpot,
+  verification,
+  verifyHuman,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
@@ -1539,8 +1548,12 @@ export function FishingView({
         Math.max(0, biteDelayMs - 360),
       );
       biteTimer.current = setTimeout(onBite, biteDelayMs);
-    } catch {
+    } catch (caught) {
       if (!mounted.current) return;
+      if (caught instanceof ActivityVerificationRequiredError) {
+        setPhase("idle");
+        return;
+      }
       setError("찌를 던지지 못했다. 잠시 후 다시 시도해 보자.");
       setPhase("idle");
     }
@@ -1561,6 +1574,7 @@ export function FishingView({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (verification) return;
       if (event.repeat || isTextEntryTarget(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
 
@@ -1575,7 +1589,7 @@ export function FishingView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [phase, startCast, onTapZone]);
+  }, [onTapZone, phase, startCast, verification]);
 
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
@@ -1599,6 +1613,13 @@ export function FishingView({
     <>
       <main className="mx-auto my-2 w-[calc(100%-1rem)] max-w-[720px] space-y-2.5 rounded-2xl border border-zinc-200 bg-white/90 p-3 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:space-y-3 sm:p-5">
         <SubViewHeader title={fishingSpot?.name ?? "낚시터"} onBack={onBack} />
+
+        {verification && verifyHuman ? (
+          <ActivityVerificationGate
+            challenge={verification}
+            onVerify={verifyHuman}
+          />
+        ) : null}
 
         <FishingSubTabs
           active="fishing"
@@ -1822,7 +1843,7 @@ export function FishingView({
       )}
 
         {/* 액션 */}
-        {phase === "idle" && (
+        {phase === "idle" && !verification && (
           <button type="button" onClick={startCast} className={idleActionClass}>
             찌 던지기
           </button>
@@ -1830,7 +1851,7 @@ export function FishingView({
         {phase === "result" && <div aria-hidden className="h-16" />}
       </main>
 
-      {phase === "result" && (
+      {phase === "result" && !verification && (
         <button type="button" onClick={startCast} className={resultActionClass}>
           다시 던지기
         </button>

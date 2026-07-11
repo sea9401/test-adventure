@@ -513,7 +513,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div>
                 <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  <Trophy size={14} /> Elo 점수
+                  <Trophy size={14} /> 주간 Elo
                 </div>
                 <div className="mt-1 text-2xl font-bold tabular-nums">
                   {state?.state?.score ?? 0}
@@ -535,10 +535,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               </div>
               <div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  주간 레이팅
+                  참가 경기
                 </div>
                 <div className="mt-1 text-lg font-bold tabular-nums">
-                  {season?.rating ?? 1000}
+                  {seasonMatches}전
                 </div>
               </div>
             </div>

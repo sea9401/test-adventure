@@ -23,15 +23,17 @@ import {
   GUILD_WORKSHOP_MATERIAL_ID,
   type GuildWorkshopMaterialId,
 } from "./guildWorkshopMaterials";
-import {
-  SETTLEMENT_MATERIAL_ID,
-  SETTLEMENT_MATERIALS,
-} from "./settlementMaterials";
+import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
 import {
   WOODCUTTING_MATERIAL_ID,
   WOODCUTTING_MATERIALS,
   type WoodcuttingMaterialId,
 } from "./woodcuttingSpots";
+import {
+  MINING_MATERIAL_ID,
+  MINING_MATERIALS,
+  type MiningMaterialId,
+} from "./miningSpots";
 
 export type GuildWorkshopRecipeId =
   | "crafted_oathblade"
@@ -75,14 +77,6 @@ export type GuildWorkshopRecipe = {
   note: string;
 };
 
-export const GUILD_WORKSHOP_RESOURCE_MATERIAL_ID: Record<
-  ProductionKind,
-  string
-> = {
-  crop: SETTLEMENT_MATERIAL_ID.timber,
-  ore: SETTLEMENT_MATERIAL_ID.ironOre,
-};
-
 export function guildWorkshopWoodMaterialForTier(
   tierRaw: number,
 ): WoodcuttingMaterialId {
@@ -93,6 +87,18 @@ export function guildWorkshopWoodMaterialForTier(
   if (tier >= 8) return WOODCUTTING_MATERIAL_ID.willow;
   if (tier >= 6) return WOODCUTTING_MATERIAL_ID.birch;
   return WOODCUTTING_MATERIAL_ID.pine;
+}
+
+export function guildWorkshopMiningMaterialForTier(
+  tierRaw: number,
+): MiningMaterialId {
+  const tier = Math.max(1, Math.floor(Number(tierRaw) || 1));
+  if (tier >= 12) return MINING_MATERIAL_ID.adamantite;
+  if (tier >= 11) return MINING_MATERIAL_ID.mythril;
+  if (tier >= 10) return MINING_MATERIAL_ID.gold;
+  if (tier >= 8) return MINING_MATERIAL_ID.silver;
+  if (tier >= 6) return MINING_MATERIAL_ID.copper;
+  return MINING_MATERIAL_ID.iron;
 }
 
 export type GuildWorkshopStats = {
@@ -863,13 +869,14 @@ export function guildWorkshopRecipeResourceMaterialCost(
   mode: GuildWorkshopCraftMode = "normal",
 ): Partial<Record<string, number>> {
   const out: Partial<Record<string, number>> = {};
+  const equipmentTier = V2_EQUIPMENT[recipe.equipmentId].tier;
   for (const [kind, amount] of Object.entries(
     guildWorkshopRecipeResourceCost(recipe, mode),
   )) {
     const materialId =
       kind === "crop"
-        ? guildWorkshopWoodMaterialForTier(V2_EQUIPMENT[recipe.equipmentId].tier)
-        : GUILD_WORKSHOP_RESOURCE_MATERIAL_ID[kind as ProductionKind];
+        ? guildWorkshopWoodMaterialForTier(equipmentTier)
+        : guildWorkshopMiningMaterialForTier(equipmentTier);
     out[materialId] = (out[materialId] ?? 0) + Math.max(0, amount ?? 0);
   }
   return out;
@@ -879,6 +886,7 @@ function guildWorkshopMaterialName(id: string): string {
   return (
     (SETTLEMENT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (WOODCUTTING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
+    (MINING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (GUILD_WORKSHOP_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     id
   );

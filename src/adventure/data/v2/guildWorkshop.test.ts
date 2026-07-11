@@ -15,6 +15,7 @@ import {
   guildWorkshopRecipeView,
   guildWorkshopRecipeResourceMaterialCost,
   guildWorkshopRecipeResourceCost,
+  guildWorkshopMiningMaterialForTier,
   guildWorkshopWoodMaterialForTier,
   guildWorkshopRecipeMaterialCost,
   hasGuildWorkshopRecipeMaterials,
@@ -28,13 +29,16 @@ import {
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
 import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
+import { MINING_MATERIAL_ID } from "./miningSpots";
 import { V2_EQUIPMENT } from "./v2Equipment";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
   ...Object.fromEntries(
     Object.values(WOODCUTTING_MATERIAL_ID).map((id) => [id, 99999]),
   ),
-  [SETTLEMENT_MATERIAL_ID.ironOre]: 99999,
+  ...Object.fromEntries(
+    Object.values(MINING_MATERIAL_ID).map((id) => [id, 99999]),
+  ),
   [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
@@ -66,6 +70,42 @@ describe("guild workshop recipes", () => {
       expect(materialCost[expectedWood]).toBe(recipe.cost.crop);
       for (const woodId of Object.values(WOODCUTTING_MATERIAL_ID)) {
         if (woodId !== expectedWood) expect(materialCost[woodId]).toBeUndefined();
+      }
+    }
+  });
+
+  it("uses one distinct mined ore for each crafted equipment tier", () => {
+    expect([
+      guildWorkshopMiningMaterialForTier(4),
+      guildWorkshopMiningMaterialForTier(6),
+      guildWorkshopMiningMaterialForTier(8),
+      guildWorkshopMiningMaterialForTier(10),
+      guildWorkshopMiningMaterialForTier(11),
+      guildWorkshopMiningMaterialForTier(12),
+    ]).toEqual([
+      MINING_MATERIAL_ID.iron,
+      MINING_MATERIAL_ID.copper,
+      MINING_MATERIAL_ID.silver,
+      MINING_MATERIAL_ID.gold,
+      MINING_MATERIAL_ID.mythril,
+      MINING_MATERIAL_ID.adamantite,
+    ]);
+
+    const oreIds = [
+      MINING_MATERIAL_ID.iron,
+      MINING_MATERIAL_ID.copper,
+      MINING_MATERIAL_ID.silver,
+      MINING_MATERIAL_ID.gold,
+      MINING_MATERIAL_ID.mythril,
+      MINING_MATERIAL_ID.adamantite,
+    ];
+    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES)) {
+      const tier = V2_EQUIPMENT[recipe.equipmentId].tier;
+      const expectedOre = guildWorkshopMiningMaterialForTier(tier);
+      const materialCost = guildWorkshopRecipeResourceMaterialCost(recipe);
+      expect(materialCost[expectedOre]).toBe(recipe.cost.ore);
+      for (const oreId of oreIds) {
+        if (oreId !== expectedOre) expect(materialCost[oreId]).toBeUndefined();
       }
     }
   });
@@ -245,7 +285,7 @@ describe("guild workshop recipes", () => {
         4,
         {
           [WOODCUTTING_MATERIAL_ID.willow]: 99999,
-          [SETTLEMENT_MATERIAL_ID.ironOre]: 99999,
+          [MINING_MATERIAL_ID.silver]: 99999,
           [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
         },
       ),

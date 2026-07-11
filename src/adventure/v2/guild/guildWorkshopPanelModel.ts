@@ -676,7 +676,7 @@ export function recipeInfoPillClass(ok: boolean | null = null): string {
 
 export function recipeCanPayText(recipe: WorkshopRecipeView): string {
   if (!recipe.resourceOk && recipe.materialOk === false) return "재료 부족";
-  if (!recipe.resourceOk) return "통나무/철광석 부족";
+  if (!recipe.resourceOk) return "등급 원목/광석 부족";
   if (recipe.materialOk === false) return "재료 부족";
   return "비용 충족";
 }
@@ -685,7 +685,7 @@ export function masterworkCanPayText(recipe: WorkshopRecipeView): string {
   const masterwork = recipe.masterwork;
   if (!masterwork) return "명장 정보 없음";
   if (!masterwork.resourceOk && !masterwork.materialOk) return "재료 부족";
-  if (!masterwork.resourceOk) return "통나무/철광석 부족";
+  if (!masterwork.resourceOk) return "등급 원목/광석 부족";
   if (!masterwork.materialOk) return "재료 부족";
   return "비용 충족";
 }

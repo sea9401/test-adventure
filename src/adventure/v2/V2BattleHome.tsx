@@ -3,6 +3,7 @@
 import {
   Barbell,
   CastleTurret,
+  CloudLightning,
   Skull,
   Sword,
   Trophy,
@@ -18,7 +19,8 @@ export type BattleAction =
   | { kind: "open-coop" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" }
-  | { kind: "open-mastery-tower" };
+  | { kind: "open-mastery-tower" }
+  | { kind: "open-storm-expedition" };
 
 export function V2BattleHome({ onAction }: {
   onAction: (action: BattleAction) => void;
@@ -27,6 +29,14 @@ export function V2BattleHome({ onAction }: {
     <PageShell spacing="tight">
       <SubViewHeader title="전투" />
       <div className="space-y-2">
+        <EntryCard
+          icon={
+            <CloudLightning size={28} weight="duotone" className="text-sky-500" />
+          }
+          title="폭풍 부유도 원정"
+          description="항로를 골라 연속 전투와 중도 귀환에 도전"
+          onClick={() => onAction({ kind: "open-storm-expedition" })}
+        />
         <EntryCard
           icon={
             <Sword size={28} weight="duotone" className="text-rose-500" />

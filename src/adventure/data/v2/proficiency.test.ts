@@ -237,10 +237,10 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(addPoints(p1, "warrior", 0)).toBe(p1);
   });
 
-  it("cultivationCost — 올린 cap 총합 비례(8 + 합×10)", () => {
+  it("cultivationCost — 올린 cap 총합 비례(8 + 합×15)", () => {
     expect(cultivationCost(0)).toBe(8);
-    expect(cultivationCost(1)).toBe(18);
-    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 10));
+    expect(cultivationCost(1)).toBe(23);
+    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 15));
     expect(cultivationCost(100)).toBeGreaterThan(cultivationCost(10));
     expect(cultivationCost(-5)).toBe(8);
   });
@@ -272,9 +272,9 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r!.next.caps.dex).toBe(1);
     expect(r!.next.caps.luk).toBeUndefined(); // 프로필 외 미변
     expect(cultivationCount(r!.next, "warrior")).toBe(1);
-    // 2회차 비용 = 8 + (올린 cap합 4)×10 = 48
+    // 2회차 비용 = 8 + (올린 cap합 4)×15 = 68
     const r2 = applyCultivation(r!.next, "warrior");
-    expect(r2!.cost).toBe(48);
+    expect(r2!.cost).toBe(68);
     expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
@@ -302,7 +302,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r!.next.caps.str).toBeUndefined();
     expect(r!.next.caps.vit).toBeUndefined();
     const r2 = applyCultivation(r!.next, "warrior", undefined, "int");
-    expect(r2!.cost).toBe(48);
+    expect(r2!.cost).toBe(68);
     expect(r2!.next.caps.int).toBe(8);
   });
 
@@ -371,7 +371,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       expect(r!.next.caps[stat]).toBe(1);
     }
     expect(totalCapGains(r!.next)).toBe(6);
-    expect(cultivationCost(totalCapGains(r!.next))).toBe(68);
+    expect(cultivationCost(totalCapGains(r!.next))).toBe(98);
   });
 
   it("applyCultivation — 절대자도 초월자의 올스탯 수행을 계승한다", () => {

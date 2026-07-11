@@ -36,6 +36,10 @@ describe("벌목 장소 카탈로그", () => {
     for (let index = 1; index < trees.length; index += 1) {
       expect(trees[index].durationMs).toBeGreaterThan(trees[index - 1].durationMs);
       expect(trees[index].xp).toBeGreaterThan(trees[index - 1].xp);
+      expect(trees[index].grade).toBeGreaterThan(trees[index - 1].grade);
+      expect(trees[index].baseFailureRate).toBeGreaterThan(
+        trees[index - 1].baseFailureRate,
+      );
     }
   });
 });

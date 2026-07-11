@@ -782,6 +782,21 @@ describe("방어자 측 on-hit reflect / counter", () => {
     expect(s1.log.some((e) => e.text.includes("반사 갑주"))).toBe(true);
   });
 
+  it("반사 피해에 공격자의 방어력을 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 100, def: 25, hp: 500, maxHp: 500 }),
+      makePlayer({ spd: 5, atk: 1, def: 0, thornsPct: 50, hp: 500, maxHp: 500 }),
+      "P1",
+      "P2",
+    );
+    const s1 = advanceTurnPvP(s0);
+
+    // 반사 원량 50에 공격자 방어력 25 적용: damageBetween(50, 25) = 25.
+    expect(s1.p1.hp).toBe(475);
+    expect(s1.log.some((e) => e.text.includes("25 반사 피해"))).toBe(true);
+  });
+
   it("가시 갑옷 (bramblePct, 5tier) — 받은 HP 피해의 N% 추가 반사 (반사 갑주와 별개)", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(

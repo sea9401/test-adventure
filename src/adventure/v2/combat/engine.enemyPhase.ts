@@ -272,13 +272,20 @@ export function resolveEnemyPhase(
     reflexEvadeMult > 0
       ? Math.floor(estimatedRawEnemyDmg * reflexEvadeMult)
       : 0;
-  // 회피/무피격 분기에서 공통으로 적용할 반사 피해(무한 가시 + 반사 회피) — 적 HP 갱신용.
+  // 회피/무피격 분기에서 공통으로 적용할 반사 원량(무한 가시 + 반사 회피).
+  // 최종 피해는 일반 공격과 같은 대상 방어력 공식을 거친다.
   const applyDodgeReflect = (
     log0: BattleLogEntry[],
     enemyHp0: number,
   ): { log: BattleLogEntry[]; enemyHp: number; killed: boolean } => {
-    const totalReflect = infiniteThornsDmg + reflexEvadeDmg;
-    if (totalReflect <= 0) return { log: log0, enemyHp: enemyHp0, killed: false };
+    const rawReflect = infiniteThornsDmg + reflexEvadeDmg;
+    if (rawReflect <= 0) return { log: log0, enemyHp: enemyHp0, killed: false };
+    const v2DefMult = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
+    const targetDef = playerFacingEnemyDef(state, player);
+    const totalReflect = damageBetween(
+      rawReflect,
+      v2DefMult !== 1 ? Math.floor(targetDef * v2DefMult) : targetDef,
+    );
     let nextLog = log0;
     const labels: string[] = [];
     if (infiniteThornsDmg > 0) labels.push("무한 가시");
@@ -932,10 +939,24 @@ export function resolveEnemyPhase(
     wardenReflectDmg;
   const reflectBoostPct =
     state.stacks.skillReflectBoostTurns > 0 ? state.stacks.skillReflectBoostPct : 0;
-  const reflectDmg =
+  const rawReflectDmg =
     reflectBoostPct > 0
       ? Math.floor(baseReflectDmg * (1 + reflectBoostPct / 100))
       : baseReflectDmg;
+  const reflectTargetDef = playerFacingEnemyDef(state, player);
+  const reflectTargetDefMult = v2DefBuffMult(
+    state.enemyV2SelfBuffs,
+    state.enemyV2Debuffs,
+  );
+  const reflectDmg =
+    rawReflectDmg > 0
+      ? damageBetween(
+          rawReflectDmg,
+          reflectTargetDefMult !== 1
+            ? Math.floor(reflectTargetDef * reflectTargetDefMult)
+            : reflectTargetDef,
+        )
+      : 0;
   const enemyHpAfterThorns = Math.max(0, state.enemyHp - reflectDmg);
   if (reflectDmg > 0) {
     const reflectLabels: string[] = [];

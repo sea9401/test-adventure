@@ -113,6 +113,25 @@ describe("특기 — 반사 갑주", () => {
     expect(s.stacks.damageTakenThisCombat).toBe(3);
   });
 
+  it("반사 피해에 적 방어력을 적용한다", () => {
+    const p: PlayerCombat = { ...PLAYER, def: 0, thornsPct: 50 };
+    const armored: Monster = {
+      name: "중갑 적",
+      tags: ["beast"],
+      hp: 200,
+      atk: 60,
+      def: 20,
+      spd: 5,
+      exp: 5,
+    };
+    let s = initialBattleState(p, armored, "용사");
+    s = advanceTurn(s, p, "용사");
+    s = advanceTurn(s, p, "용사");
+
+    // 반사 원량 30에 적 방어력 20 적용: damageBetween(30, 20) = 10.
+    expect(s.log.some((e) => e.text.includes("10 반사 피해"))).toBe(true);
+  });
+
   it("가드로 피해 0 이 되어도 pre-mit 베이스로 반사가 살아남는다", () => {
     // 적 atk 20, 플레이어 def 0 → damageBetween=20. 가드 reduction 50 → dmgToHp=0.
     // 반사 베이스는 rawDmgBeforeReduction=20 이므로 thornsPct 50 = floor(20*0.5)=10.
@@ -254,13 +273,13 @@ describe("2티어 특기 — 행운의 흡혈", () => {
 
 describe("2티어 특기 — 무한 가시", () => {
   it("적 공격 시 적 ATK 의 N% 를 반사 (피격 무관)", () => {
-    // 무한 가시 25%: 적 atk 8 → 반사 2 → 적 -2
+    // 무한 가시 25%: 적 atk 8 → 반사 원량 2 → 적 DEF 3 적용 후 1.
     const p: PlayerCombat = { ...PLAYER, infiniteThornsAtkPct: 25 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 1턴: 7 → 93
-    s = advanceTurn(s, p, "용사"); // 적 턴 피격 3, 반사 floor(8*0.25)=2 → 적 91
+    s = advanceTurn(s, p, "용사"); // 적 턴 피격 3, 방어 적용 반사 1 → 적 92
     expect(s.playerHp).toBe(47);
-    expect(s.enemyHp).toBe(91);
+    expect(s.enemyHp).toBe(92);
   });
 });
 

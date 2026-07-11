@@ -773,7 +773,8 @@ function applyDodgeEffects(
       });
     }
   }
-  // 무한 가시 + 반사 회피 — 적 ATK 기반 / 추정 raw 데미지 기반 반사.
+  // 무한 가시 + 반사 회피 — 적 ATK 기반 / 추정 raw 데미지 기반 원량을 구한 뒤
+  // 공격자의 방어력을 적용한다.
   const attackerNow = st[atkKey];
   const defenderNow = st[defKey];
   const infiniteThornsPct = defenderNow.player.infiniteThornsAtkPct ?? 0;
@@ -799,8 +800,17 @@ function applyDodgeEffects(
       : 0;
   const reflexEvadeDmg =
     reflexEvadeMult > 0 ? Math.floor(estimatedRawDmg * reflexEvadeMult) : 0;
-  const totalReflect = infiniteThornsDmg + reflexEvadeDmg;
-  if (totalReflect > 0) {
+  const rawReflect = infiniteThornsDmg + reflexEvadeDmg;
+  if (rawReflect > 0) {
+    const reflectDefMult = v2DefBuffMult(
+      attackerNow.v2SelfBuffs,
+      attackerNow.v2SelfDebuffs,
+    );
+    const reflectDef = attackerFacingDef(defenderNow, attackerNow);
+    const totalReflect = damageBetween(
+      rawReflect,
+      reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
+    );
     const newAtkHp = Math.max(0, attackerNow.hp - totalReflect);
     st = setSide(st, atkKey, { ...attackerNow, hp: newAtkHp });
     const labels: string[] = [];
@@ -923,7 +933,7 @@ export function applyPerAttackDodge(
 
 // 데미지 적중 시 반사 (반사 갑주 + 가시 갑옷 + 무한 가시). 공격자가 죽으면 attackerKilled=true.
 // 반사 갑주/가시 갑옷 베이스는 공격자가 넣은 피해(결의/가드/굳건/철벽 감산 전, 모든 공격 보너스 후) —
-// 탱커 빌드가 막으면서 동시에 반사할 수 있도록.
+// 탱커 빌드가 막으면서 동시에 반사할 수 있도록. 산정된 원량에는 공격자의 방어력을 적용한다.
 export function applyOnHitReflect(
   state: PvPBattleState,
   atkKey: "p1" | "p2",
@@ -955,11 +965,20 @@ export function applyOnHitReflect(
     defender.stacks.skillReflectBoostTurns > 0
       ? defender.stacks.skillReflectBoostPct
       : 0;
-  const total =
+  const rawTotal =
     reflectBoostPct > 0
       ? Math.floor(baseTotal * (1 + reflectBoostPct / 100))
       : baseTotal;
-  if (total <= 0) return { state, attackerKilled: false };
+  if (rawTotal <= 0) return { state, attackerKilled: false };
+  const reflectDefMult = v2DefBuffMult(
+    attacker.v2SelfBuffs,
+    attacker.v2SelfDebuffs,
+  );
+  const reflectDef = attackerFacingDef(defender, attacker);
+  const total = damageBetween(
+    rawTotal,
+    reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
+  );
   const newAtkHp = Math.max(0, attacker.hp - total);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
   const labels: string[] = [];

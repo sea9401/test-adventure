@@ -5,9 +5,8 @@ import { useState } from "react";
 import {
   Compass,
   Fish,
-  House,
   MapPin,
-  Waves,
+  TreeEvergreen,
   type Icon,
 } from "@phosphor-icons/react";
 import { FISH } from "@/adventure/data/v2/fish";
@@ -19,6 +18,11 @@ import {
   tierCountsForSpot,
 } from "@/adventure/data/v2/fishingSpots";
 import {
+  WOODCUTTING_SPOTS,
+  isWoodcuttingSpotId,
+  woodcuttingTreeForSpot,
+} from "@/adventure/data/v2/woodcuttingSpots";
+import {
   WORLD_ACTIVITY_KIND_LABEL,
   WORLD_ACTIVITY_REGIONS,
   type WorldActivityKind,
@@ -29,15 +33,15 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 
 const KIND_ICON: Record<WorldActivityKind, Icon> = {
-  settlement: House,
   fishing: Fish,
+  woodcutting: TreeEvergreen,
 };
 
 const KIND_TONE: Record<WorldActivityKind, string> = {
-  settlement:
-    "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
   fishing:
     "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
+  woodcutting:
+    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
 };
 
 const TIER_LABEL: Record<string, string> = {
@@ -57,13 +61,12 @@ const DIFFICULTY_TONE: Record<string, string> = {
     "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200",
 };
 
-type RegionFilter = "all" | WorldActivityKind | "other";
+type RegionFilter = "all" | WorldActivityKind;
 
 const REGION_FILTERS: readonly { id: RegionFilter; label: string }[] = [
   { id: "all", label: "전체" },
-  { id: "settlement", label: "마을" },
   { id: "fishing", label: "낚시터" },
-  { id: "other", label: "기타" },
+  { id: "woodcutting", label: "벌목지" },
 ];
 
 function regionMatchesFilter(
@@ -71,14 +74,19 @@ function regionMatchesFilter(
   filter: RegionFilter,
 ): boolean {
   if (filter === "all") return true;
-  if (filter === "other") return region.kind !== "settlement" && region.kind !== "fishing";
   return region.kind === filter;
 }
 
 function activityDescription(region: WorldActivityRegion): string {
-  if (!isFishingSpotId(region.id)) return region.summary;
-  const spot = FISHING_SPOTS[region.id];
-  return `주요 어종: ${fishNames(spot.featuredFishIds).join(", ")}`;
+  if (isFishingSpotId(region.id)) {
+    const spot = FISHING_SPOTS[region.id];
+    return `주요 어종: ${fishNames(spot.featuredFishIds).join(", ")}`;
+  }
+  if (isWoodcuttingSpotId(region.id)) {
+    const spot = WOODCUTTING_SPOTS[region.id];
+    return `벌목 수종: ${woodcuttingTreeForSpot(spot).name}`;
+  }
+  return region.summary;
 }
 
 function FishingSpotMeta({ id }: { id: string }) {
@@ -133,6 +141,27 @@ function FishingSpotMeta({ id }: { id: string }) {
   );
 }
 
+function WoodcuttingSpotMeta({ id }: { id: string }) {
+  if (!isWoodcuttingSpotId(id)) return null;
+  const spot = WOODCUTTING_SPOTS[id];
+  const tree = woodcuttingTreeForSpot(spot);
+  return (
+    <div className={`${SURFACE_INSET} space-y-1.5 p-2`}>
+      <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+        벌목 수종
+      </div>
+      <div className="flex flex-wrap gap-1">
+        <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+          {tree.name}
+        </span>
+      </div>
+      <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+        모든 수종 벌목 보상: 통나무 1개
+      </div>
+    </div>
+  );
+}
+
 export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
   const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
   const [selectedId, setSelectedId] =
@@ -166,7 +195,7 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
 
         <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
           <div className="space-y-2 border-b border-zinc-200 bg-zinc-50 p-3 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="grid grid-cols-4 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
               {REGION_FILTERS.map((filter) => {
                 const active = regionFilter === filter.id;
                 const count = WORLD_ACTIVITY_REGIONS.filter((region) =>
@@ -233,6 +262,10 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                               FISHING_SPOTS[region.id].difficulty
                             ]
                           }`
+                        : isWoodcuttingSpotId(region.id)
+                          ? `벌목지 · ${woodcuttingTreeForSpot(
+                              WOODCUTTING_SPOTS[region.id],
+                            ).name}`
                         : WORLD_ACTIVITY_KIND_LABEL[region.kind]}
                     </span>
                   </span>
@@ -283,12 +316,13 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
                 </div>
 
                 <FishingSpotMeta id={selected.id} />
+                <WoodcuttingSpotMeta id={selected.id} />
 
                 <Link
                   href={selected.action.href}
                   className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                 >
-                  <Waves size={16} weight="duotone" />
+                  <SelectedKindIcon size={16} weight="duotone" />
                   {selected.action.label}
                 </Link>
               </>

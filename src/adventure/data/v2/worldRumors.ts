@@ -3,10 +3,15 @@ import {
   fishNames,
   type FishingSpotId,
 } from "@/adventure/data/v2/fishingSpots";
+import {
+  WOODCUTTING_SPOTS,
+  woodcuttingTreeForSpot,
+  type WoodcuttingSpotId,
+} from "@/adventure/data/v2/woodcuttingSpots";
 
-export type WorldActivityKind = "settlement" | "fishing";
+export type WorldActivityKind = "fishing" | "woodcutting";
 
-export type WorldActivityRegionId = "village" | FishingSpotId;
+export type WorldActivityRegionId = FishingSpotId | WoodcuttingSpotId;
 
 export type WorldActivityRegion = {
   id: WorldActivityRegionId;
@@ -23,21 +28,11 @@ export type WorldActivityRegion = {
 };
 
 export const WORLD_ACTIVITY_KIND_LABEL: Record<WorldActivityKind, string> = {
-  settlement: "거점",
   fishing: "낚시터",
+  woodcutting: "벌목지",
 };
 
 export const WORLD_ACTIVITY_REGIONS: readonly WorldActivityRegion[] = [
-  {
-    id: "village",
-    name: "마을",
-    shortName: "마을",
-    kind: "settlement",
-    headline: "현재 거점",
-    summary: "상점, 은행, 대장간과 생활 시설이 모여 있는 기본 거점.",
-    tags: ["상점", "은행", "대장간"],
-    action: { label: "마을로 가기", href: "/town" },
-  },
   ...Object.values(FISHING_SPOTS).map((spot): WorldActivityRegion => ({
     id: spot.id,
     name: spot.name,
@@ -49,6 +44,19 @@ export const WORLD_ACTIVITY_REGIONS: readonly WorldActivityRegion[] = [
     action: {
       label: "낚시하러 가기",
       href: `/town/fishing?spot=${spot.id}`,
+    },
+  })),
+  ...Object.values(WOODCUTTING_SPOTS).map((spot): WorldActivityRegion => ({
+    id: spot.id,
+    name: spot.name,
+    shortName: spot.shortName,
+    kind: "woodcutting",
+    headline: spot.description,
+    summary: `벌목 수종: ${woodcuttingTreeForSpot(spot).name}`,
+    tags: spot.tags,
+    action: {
+      label: "벌목하러 가기",
+      href: `/town/logging?spot=${spot.id}`,
     },
   })),
 ];

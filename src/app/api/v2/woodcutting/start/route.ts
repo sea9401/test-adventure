@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const spotId = body.spotId;
-  const treeId = pickWoodcuttingTreeId(spotId, Math.random);
+  const treeId = pickWoodcuttingTreeId(spotId);
   const session: WoodcuttingSession = createWoodcuttingSession({
     sessionId: randomUUID(),
     spotId,

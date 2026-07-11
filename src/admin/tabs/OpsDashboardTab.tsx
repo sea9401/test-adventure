@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
@@ -17,6 +17,11 @@ import {
   economyKnownItemName,
 } from "../economyLabels";
 import { Button } from "../ui/Field";
+import { AdminUserLink } from "../ui/AdminUserLink";
+import {
+  useAdminUserDirectory,
+  type AdminUserIdentity,
+} from "../useAdminUserDirectory";
 import { useAsyncData } from "@/lib/useAsyncData";
 
 type CountRow = { key: string; count: number };
@@ -275,6 +280,18 @@ export function OpsDashboardTab() {
     [hours],
   );
   const [testingWebhook, setTestingWebhook] = useState(false);
+  const visibleUserIds = useMemo(() => {
+    if (!data) return [];
+    return [
+      ...data.suspiciousUsers.map((row) => row.userId),
+      ...data.sanctionRecommendations.map((row) => row.userId),
+      ...data.connectedIps.flatMap((row) => row.userIds),
+      ...data.rewardFailureCandidates.map((row) => row.userId),
+      ...data.opsChangeHistory.map((row) => row.targetUserId),
+      ...data.abuse.topUsers.map((row) => row.key),
+    ];
+  }, [data]);
+  const userDirectory = useAdminUserDirectory(visibleUserIds);
 
   useEffect(() => {
     if (error) showToast(`조회 실패: ${error}`);
@@ -376,7 +393,16 @@ export function OpsDashboardTab() {
               />
               <div className="mt-2 grid gap-2 md:grid-cols-2">
                 <MiniList title="IP" rows={data.abuse.topIps} />
-                <MiniList title="유저" rows={data.abuse.topUsers} />
+                <MiniList
+                  title="유저"
+                  rows={data.abuse.topUsers.map((row) => ({
+                    ...row,
+                    key:
+                      userDirectory[row.key]?.gameName ??
+                      userDirectory[row.key]?.email ??
+                      `유저 ${row.key.slice(0, 8)}`,
+                  }))}
+                />
               </div>
             </Panel>
             <Panel title="경제 이벤트">
@@ -442,7 +468,7 @@ export function OpsDashboardTab() {
                 <table className="w-full text-left text-xs">
                   <thead className="text-zinc-500 dark:text-zinc-400">
                     <tr>
-                      <th className="py-1 pr-3 font-medium">userId</th>
+                      <th className="py-1 pr-3 font-medium">유저</th>
                       <th className="py-1 pr-3 font-medium">점수</th>
                       <th className="py-1 pr-3 font-medium">단계</th>
                       <th className="py-1 pr-3 font-medium">제한</th>
@@ -454,13 +480,12 @@ export function OpsDashboardTab() {
                   <tbody>
                     {data.suspiciousUsers.map((row) => (
                       <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
-                        <td className="py-1 pr-3 font-mono">
-                          <Link
-                            href={`/admin?tab=abuse&userId=${encodeURIComponent(row.userId)}`}
-                            className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
-                          >
-                            {row.userId.slice(0, 12)}
-                          </Link>
+                        <td className="py-1 pr-3">
+                          <AdminUserLink
+                            userId={row.userId}
+                            gameName={userDirectory[row.userId]?.gameName}
+                            email={userDirectory[row.userId]?.email}
+                          />
                         </td>
                         <td className="py-1 pr-3 tabular-nums">{row.score}</td>
                         <td className="py-1 pr-3">
@@ -527,7 +552,7 @@ export function OpsDashboardTab() {
                       <th className="py-1 pr-3 font-medium">IP</th>
                       <th className="py-1 pr-3 font-medium">계정</th>
                       <th className="py-1 pr-3 font-medium">제한/이벤트</th>
-                      <th className="py-1 pr-3 font-medium">userIds</th>
+                      <th className="py-1 pr-3 font-medium">연결 유저</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -545,8 +570,18 @@ export function OpsDashboardTab() {
                         <td className="py-1 pr-3 tabular-nums">
                           {row.rateLimited}/{row.events}
                         </td>
-                        <td className="py-1 pr-3 font-mono text-[11px] text-zinc-500">
-                          {row.userIds.map((id) => id.slice(0, 8)).join(", ")}
+                        <td className="py-1 pr-3 text-[11px] text-zinc-500">
+                          <div className="flex flex-wrap gap-x-2 gap-y-1">
+                            {row.userIds.map((id) => (
+                              <AdminUserLink
+                                key={id}
+                                userId={id}
+                                gameName={userDirectory[id]?.gameName}
+                                email={userDirectory[id]?.email}
+                                compact
+                              />
+                            ))}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -556,8 +591,8 @@ export function OpsDashboardTab() {
             )}
           </Panel>
 
-          <SanctionRecommendationPanel rows={data.sanctionRecommendations} />
-          <RewardFailurePanel rows={data.rewardFailureCandidates} onDone={refetch} />
+          <SanctionRecommendationPanel rows={data.sanctionRecommendations} userDirectory={userDirectory} />
+          <RewardFailurePanel rows={data.rewardFailureCandidates} onDone={refetch} userDirectory={userDirectory} />
           <RewardFailureStatusPanel rows={data.rewardFailureStatusRecent} onDone={refetch} />
           <CompensationPresetPanel />
 
@@ -568,7 +603,7 @@ export function OpsDashboardTab() {
           />
           <SanctionReportPanel report={data.sanctionReport} />
           <AlertChannelsPanel value={data.alertChannels} />
-          <OpsChangeHistoryPanel rows={data.opsChangeHistory} />
+          <OpsChangeHistoryPanel rows={data.opsChangeHistory} userDirectory={userDirectory} />
           <AlertHistoryPanel rows={data.alertHistory} />
           <HotTimePanel />
         </>
@@ -757,8 +792,10 @@ function slowQueryStatusLabel(status: string): string {
 
 function SanctionRecommendationPanel({
   rows,
+  userDirectory,
 }: {
   rows: Dashboard["sanctionRecommendations"];
+  userDirectory: Record<string, AdminUserIdentity>;
 }) {
   const { showToast, adminMe } = useAdmin();
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
@@ -771,7 +808,9 @@ function SanctionRecommendationPanel({
     reason: string,
   ) => {
     const label = action === "warn" ? "경고" : `${days}일 정지`;
-    if (!window.confirm(`${userId.slice(0, 12)} 계정에 ${label}를 적용할까요?`)) return;
+    const identity = userDirectory[userId];
+    const target = identity?.gameName || identity?.email || `유저 ${userId.slice(0, 8)}`;
+    if (!window.confirm(`${target} 계정에 ${label}를 적용할까요?`)) return;
     setSavingUserId(userId);
     try {
       await adminPost("/api/admin/sanctions", {
@@ -798,7 +837,7 @@ function SanctionRecommendationPanel({
           <table className="w-full text-left text-xs">
             <thead className="text-zinc-500 dark:text-zinc-400">
               <tr>
-                <th className="py-1 pr-3 font-medium">userId</th>
+                <th className="py-1 pr-3 font-medium">유저</th>
                 <th className="py-1 pr-3 font-medium">점수</th>
                 <th className="py-1 pr-3 font-medium">추천</th>
                 <th className="py-1 pr-3 font-medium">근거</th>
@@ -808,13 +847,12 @@ function SanctionRecommendationPanel({
             <tbody>
               {rows.map((row) => (
                 <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
-                  <td className="py-1 pr-3 font-mono">
-                    <Link
-                      href={row.href}
-                      className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
-                    >
-                      {row.userId.slice(0, 12)}
-                    </Link>
+                  <td className="py-1 pr-3">
+                    <AdminUserLink
+                      userId={row.userId}
+                      gameName={userDirectory[row.userId]?.gameName}
+                      email={userDirectory[row.userId]?.email}
+                    />
                   </td>
                   <td className="py-1 pr-3 tabular-nums">{row.score.toLocaleString()}</td>
                   <td className="py-1 pr-3">{row.recommendation}</td>
@@ -854,9 +892,11 @@ function SanctionRecommendationPanel({
 function RewardFailurePanel({
   rows,
   onDone,
+  userDirectory,
 }: {
   rows: Dashboard["rewardFailureCandidates"];
   onDone: () => void;
+  userDirectory: Record<string, AdminUserIdentity>;
 }) {
   const { showToast } = useAdmin();
   const [selected, setSelected] = useState<number[]>([]);
@@ -946,14 +986,13 @@ function RewardFailurePanel({
                       />
                     </td>
                     <td className="py-1 pr-3 font-mono">{row.id}</td>
-                    <td className="py-1 pr-3 font-mono">
+                    <td className="py-1 pr-3">
                       {row.userId ? (
-                        <Link
-                          href={`/admin?tab=economy&userId=${encodeURIComponent(row.userId)}&eventType=${encodeURIComponent(row.eventType)}`}
-                          className="underline decoration-zinc-300 underline-offset-2 hover:text-zinc-900 dark:decoration-zinc-700 dark:hover:text-white"
-                        >
-                          {row.userId.slice(0, 12)}
-                        </Link>
+                        <AdminUserLink
+                          userId={row.userId}
+                          gameName={userDirectory[row.userId]?.gameName}
+                          email={userDirectory[row.userId]?.email}
+                        />
                       ) : (
                         "-"
                       )}
@@ -1474,7 +1513,13 @@ function AlertChannelsPanel({ value }: { value: Dashboard["alertChannels"] }) {
   );
 }
 
-function OpsChangeHistoryPanel({ rows }: { rows: Dashboard["opsChangeHistory"] }) {
+function OpsChangeHistoryPanel({
+  rows,
+  userDirectory,
+}: {
+  rows: Dashboard["opsChangeHistory"];
+  userDirectory: Record<string, AdminUserIdentity>;
+}) {
   return (
     <Panel title="운영 변경 이력">
       {rows.length === 0 ? (
@@ -1498,8 +1543,15 @@ function OpsChangeHistoryPanel({ rows }: { rows: Dashboard["opsChangeHistory"] }
                     {new Date(row.createdAt).toLocaleString("ko-KR")}
                   </td>
                   <td className="py-1 pr-3">{adminActionLabel(row.action)}</td>
-                  <td className="hidden py-1 pr-3 font-mono text-zinc-500 md:table-cell">
-                    {row.targetUserId?.slice(0, 12) ?? "-"}
+                  <td className="hidden py-1 pr-3 text-zinc-500 md:table-cell">
+                    {row.targetUserId ? (
+                      <AdminUserLink
+                        userId={row.targetUserId}
+                        gameName={userDirectory[row.targetUserId]?.gameName}
+                        email={userDirectory[row.targetUserId]?.email}
+                        compact
+                      />
+                    ) : "-"}
                   </td>
                   <td className="py-1 pr-3">{row.adminEmail}</td>
                   <td className="hidden py-1 pr-3 text-zinc-500 md:table-cell">

@@ -6,6 +6,11 @@ import { useAdmin } from "../AdminContext";
 import { adminGet, adminPost } from "../api";
 import { economyItemKindLabel, economyItemLabel } from "../economyLabels";
 import { Button } from "../ui/Field";
+import { AdminUserLink } from "../ui/AdminUserLink";
+import {
+  useAdminUserDirectory,
+  type AdminUserIdentity,
+} from "../useAdminUserDirectory";
 import { useAsyncData } from "@/lib/useAsyncData";
 
 type CountRow = { key: string; count: number };
@@ -192,6 +197,14 @@ export function OpsWorkflowsTab() {
     const rows = dashboard.data?.alertHistory ?? [];
     return rows.filter((row) => alertHistoryFilter === "all" || row.status === alertHistoryFilter);
   }, [alertHistoryFilter, dashboard.data?.alertHistory]);
+  const visibleUserIds = useMemo(() => {
+    const ids = (notes.data?.notes ?? []).map((note) => note.userId);
+    const report = dashboard.data?.compensationReport;
+    for (const row of report?.recent ?? []) if (row.userId) ids.push(row.userId);
+    for (const row of report?.byUser ?? []) ids.push(row.key);
+    return ids;
+  }, [dashboard.data?.compensationReport, notes.data?.notes]);
+  const userDirectory = useAdminUserDirectory(visibleUserIds);
 
   const saveTemplates = async () => {
     setSavingTemplates(true);
@@ -286,6 +299,7 @@ export function OpsWorkflowsTab() {
         updatingNoteId={updatingNoteId}
         onSearch={() => setNoteQuery(noteQueryDraft.trim())}
         onWorkflowChange={updateNoteWorkflow}
+        userDirectory={userDirectory}
       />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
@@ -293,6 +307,7 @@ export function OpsWorkflowsTab() {
           report={dashboard.data?.compensationReport ?? null}
           hours={dashboardHours}
           onHoursChange={setDashboardHours}
+          userDirectory={userDirectory}
         />
         <PeriodComparisonPanel comparison={dashboard.data?.periodComparison ?? null} />
       </div>
@@ -408,6 +423,7 @@ function GlobalNotesPanel({
   updatingNoteId,
   onSearch,
   onWorkflowChange,
+  userDirectory,
 }: {
   q: string;
   onQChange: (value: string) => void;
@@ -425,6 +441,7 @@ function GlobalNotesPanel({
     note: OpsNote,
     workflowStatus: Exclude<NoteWorkflowFilter, "all">,
   ) => void | Promise<void>;
+  userDirectory: Record<string, AdminUserIdentity>;
 }) {
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -521,13 +538,13 @@ function GlobalNotesPanel({
                       )}
                     </select>
                   </td>
-                  <td className="whitespace-nowrap px-2 py-1.5 font-mono">
-                    <Link
-                      href={`/admin?tab=users&q=${encodeURIComponent(note.userId)}`}
-                      className="text-sky-700 hover:underline dark:text-sky-300"
-                    >
-                      {note.userId}
-                    </Link>
+                  <td className="whitespace-nowrap px-2 py-1.5">
+                    <AdminUserLink
+                      userId={note.userId}
+                      gameName={userDirectory[note.userId]?.gameName}
+                      email={userDirectory[note.userId]?.email}
+                      compact
+                    />
                   </td>
                   <td className="max-w-[520px] px-2 py-1.5">
                     <p className="line-clamp-3 whitespace-pre-wrap break-words">{note.text}</p>
@@ -550,10 +567,12 @@ function CompensationReportPanel({
   report,
   hours,
   onHoursChange,
+  userDirectory,
 }: {
   report: OpsDashboard["compensationReport"] | null;
   hours: number;
   onHoursChange: (hours: number) => void;
+  userDirectory: Record<string, AdminUserIdentity>;
 }) {
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -595,7 +614,7 @@ function CompensationReportPanel({
           <div className="grid gap-2 md:grid-cols-3">
             <CountBox title="품목별" rows={report.byKind} labelKey={economyItemKindLabel} />
             <CountBox title="운영자별" rows={report.byAdmin} />
-            <CountBox title="유저별" rows={report.byUser} linkUsers />
+            <CountBox title="유저별" rows={report.byUser} linkUsers userDirectory={userDirectory} />
           </div>
           <div className="max-h-56 overflow-y-auto rounded-md border border-zinc-100 dark:border-zinc-800">
             <table className="w-full text-left text-[11px]">
@@ -613,14 +632,14 @@ function CompensationReportPanel({
                       <td className="whitespace-nowrap px-2 py-1.5 text-zinc-500">
                         {new Date(row.createdAt).toLocaleString("ko-KR")}
                       </td>
-                      <td className="px-2 py-1.5 font-mono">
+                      <td className="px-2 py-1.5">
                         {row.userId ? (
-                          <Link
-                            href={`/admin?tab=users&q=${encodeURIComponent(row.userId)}`}
-                            className="text-sky-700 hover:underline dark:text-sky-300"
-                          >
-                            {row.userId}
-                          </Link>
+                          <AdminUserLink
+                            userId={row.userId}
+                            gameName={userDirectory[row.userId]?.gameName}
+                            email={userDirectory[row.userId]?.email}
+                            compact
+                          />
                         ) : (
                           "-"
                         )}
@@ -1057,11 +1076,13 @@ function CountBox({
   rows,
   linkUsers = false,
   labelKey = (key) => key,
+  userDirectory = {},
 }: {
   title: string;
   rows: CountRow[];
   linkUsers?: boolean;
   labelKey?: (key: string) => string;
+  userDirectory?: Record<string, AdminUserIdentity>;
 }) {
   return (
     <div className="rounded-md border border-zinc-100 p-2 text-xs dark:border-zinc-800">
@@ -1073,12 +1094,12 @@ function CountBox({
           {rows.map((row) => (
             <li key={row.key} className="flex items-center justify-between gap-2">
               {linkUsers ? (
-                <Link
-                  href={`/admin?tab=users&q=${encodeURIComponent(row.key)}`}
-                  className="min-w-0 truncate font-mono text-sky-700 hover:underline dark:text-sky-300"
-                >
-                  {row.key}
-                </Link>
+                <AdminUserLink
+                  userId={row.key}
+                  gameName={userDirectory[row.key]?.gameName}
+                  email={userDirectory[row.key]?.email}
+                  compact
+                />
               ) : (
                 <span className="min-w-0 truncate">{labelKey(row.key)}</span>
               )}

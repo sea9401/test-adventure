@@ -25,6 +25,7 @@ const originalEnv = {
 };
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const [key, value] of Object.entries(originalEnv)) {
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
@@ -78,14 +79,14 @@ describe("admin impersonation environment gate", () => {
   it("스테이징은 AUTH_SECRET 있으면 자동 활성화한다", () => {
     process.env.AUTH_SECRET = "test-secret-at-least-16";
     process.env.IS_STAGING = "true";
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     expect(isAdminImpersonationEnabled()).toBe(true);
   });
 
   it("운영은 두 가지 명시적 허용이 모두 필요하다", () => {
     process.env.AUTH_SECRET = "test-secret-at-least-16";
     process.env.IS_STAGING = "false";
-    process.env.NODE_ENV = "production";
+    vi.stubEnv("NODE_ENV", "production");
     process.env.ADMIN_IMPERSONATION_ENABLED = "true";
     process.env.ALLOW_PRODUCTION_ADMIN_IMPERSONATION = "false";
     expect(isAdminImpersonationEnabled()).toBe(false);

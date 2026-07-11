@@ -135,7 +135,7 @@ export type V2CommonSkillId =
   | "v2c_crusader_oath" // 성전사: 불굴의 맹세 (방어 + 회복강화 + 받피감)
   | "v2c_runeknight_carve" // 룬 기사: 룬 검격 (물리 + 마법 이중 타격 + 취약)
   | "v2c_runeknight_inscription" // 룬 기사: 룬 각인 (힘 + 지능 + 치명확률)
-  | "v2c_crimsontemplar_judgment" // 진홍성기사: 진홍 심판 (HP 소모 + 회복 억제/받피감)
+  | "v2c_crimsontemplar_judgment" // 진홍성기사: 진홍 심판 (방어 비례 + 회복 억제/받피감)
   | "v2c_crimsontemplar_oath" // 진홍성기사: 피의 서약 (방어 + 최대 HP + 받피감)
   // ── 심화 직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
@@ -208,8 +208,8 @@ export type V2CommonSkillId =
   | "v2c_immortal_heart" // 불멸의 심장 (최대 HP + 받피감)
   | "v2c_transcendent_mandala" // 만상검 (올스탯 비례)
   | "v2c_transcendent_harmony" // 초월 조화 (올스탯 패시브)
-  | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형 + 약화/보호막)
-  | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 받피감 + 반사)
+  | "v2c_bloodlord_brand" // 왕혈 낙인 (HP 소모 + 처형)
+  | "v2c_bloodlord_martyrdom" // 불사의 순교 (최대 HP + 받피감 + 흡혈)
   | "v2c_calamitycaller_brand" // 재앙의 낙인 (마법 피해 + 쇠약 + 금제)
   | "v2c_calamitycaller_omen" // 흉조 III (마법취약 심화)
   // ── 6차 직업 ──
@@ -970,11 +970,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxHpPct: 8, damageTakenReductionPct: 3 },
   },
   v2c_crimsontemplar_judgment: {
-    id: "v2c_crimsontemplar_judgment", name: "진홍 심판", stat: "str", category: "attack", tier: 3,
-    description: "피를 성화처럼 태워 적을 짓누르고, 회복의 흐름을 끊는다.",
+    id: "v2c_crimsontemplar_judgment", name: "진홍 심판", stat: "vit", category: "attack", tier: 3,
+    description: "진홍빛 심판으로 적을 짓누르고, 회복의 흐름과 반격의 기세를 끊는다.",
     mpCost: 48, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "hpCostDamage", pctCurrentHp: 9, statCoef: 1.15, baseFlatByTier: [260, 260, 260], soakRatio: 1.2 },
+      dmg(1.35, 260, "def"),
       { kind: "enemyHealReduce", pct: 45, turns: 3 },
       { kind: "selfBuffPct", target: "damageReduction", pct: 8, turns: 3 },
     ],
@@ -1674,25 +1674,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bloodlord_brand: {
     id: "v2c_bloodlord_brand", name: "왕혈 낙인", stat: "str", category: "attack", tier: 3,
-    description: "군주의 피로 낙인을 찍는다. 상처를 대가로 적을 누르고 왕혈의 장벽을 세운다.",
+    description: "군주의 피로 낙인을 찍는다. 상처를 대가로 약해진 적에게 최후를 선고한다.",
     mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
     effects: [
       { kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.35, baseFlatByTier: [310, 310, 310], soakRatio: 1.6 },
       { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [160, 160, 160], hpThresholdPct: 30, bonusMult: 2.2 },
-      { kind: "enemyDamageDown", pct: 16, turns: 3 },
-      { kind: "shield", pctMaxHp: 12, turns: 3 },
     ],
   },
   v2c_bloodlord_martyrdom: {
     id: "v2c_bloodlord_martyrdom", name: "불사의 순교", stat: "vit", category: "passive", tier: 3,
-    description: "순교는 끝나지 않는다. 더 오래 버티고, 맞받은 피를 되돌려준다.",
+    description: "순교는 끝나지 않는다. 빼앗은 생명으로 피의 대가를 메우며 버틴다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: {
       maxHpPct: 20,
-      defPct: 12,
+      lifestealPct: 8,
       damageTakenReductionPct: 8,
-      thornsDefPct: 60,
     },
   },
 

@@ -187,8 +187,8 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
   {
     id: "blood_templar",
     name: "혈성기사",
-    summary: "HP를 비용으로 쓰고 저체력 피해 감소와 회복 강화로 위기 폭발력을 얻는 빌드.",
-    tags: ["str", "vit", "physical", "heal", "low_hp", "tank"],
+    summary: "피의 대가로 방벽을 세우고 적의 공격과 회복을 억누르는 제압형 탱커 빌드.",
+    tags: ["str", "vit", "physical", "shield", "tank"],
     equipmentIds: [
       "v2_redfield_sig_ember_ring",
       "v2_abyssruin_sig_sunken_robe",
@@ -201,8 +201,8 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
       "v2c_crimsontemplar_judgment",
       "v2c_crimsontemplar_oath",
     ],
-    strengths: ["위기 상황 폭발력", "저체력 피해 감소", "자가 회복"],
-    weaknesses: ["회복 차단에 취약", "HP 비용 관리 필요"],
+    strengths: ["보호막과 피해 억제", "회복형 적 제압", "안정적인 생존력"],
+    weaknesses: ["HP 비용 관리 필요", "순간 화력이 낮음"],
   },
 ];
 

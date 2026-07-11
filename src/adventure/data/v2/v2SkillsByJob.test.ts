@@ -461,16 +461,16 @@ describe("직업 킷 — 스킬셋", () => {
       critPct: 5,
     });
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects.map((e) => e.kind)).toEqual([
-      "hpCostDamage",
+      "damage",
       "enemyHealReduce",
       "selfBuffPct",
     ]);
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects[0]).toMatchObject({
-      kind: "hpCostDamage",
-      pctCurrentHp: 9,
+      kind: "damage",
+      scaling: "def",
     });
     expect(V2_SKILLS.v2c_crimsontemplar_judgment.effects).not.toContainEqual(
-      expect.objectContaining({ kind: "heal" }),
+      expect.objectContaining({ kind: "hpCostDamage" }),
     );
     expect(V2_SKILLS.v2c_crimsontemplar_oath.passive).toMatchObject({
       maxHpPct: 12,
@@ -669,8 +669,6 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_bloodlord_brand.effects.map((e) => e.kind)).toEqual([
       "hpCostDamage",
       "executeDamage",
-      "enemyDamageDown",
-      "shield",
     ]);
     expect(V2_SKILLS.v2c_bloodlord_brand.effects[0]).toMatchObject({
       kind: "hpCostDamage",
@@ -682,10 +680,13 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_bloodlord_martyrdom.passive).toMatchObject({
       maxHpPct: 20,
-      defPct: 12,
+      lifestealPct: 8,
       damageTakenReductionPct: 8,
-      thornsDefPct: 60,
     });
+    expect(V2_SKILLS.v2c_bloodlord_martyrdom.passive?.thornsDefPct).toBeUndefined();
+    expect(
+      V2_SKILLS.v2c_bloodlord_martyrdom.passive?.berserkAtkPctPerLostHpPct,
+    ).toBeUndefined();
     expect(V2_SKILLS.v2c_calamitycaller_brand.effects).toEqual([
       { kind: "damage", statCoef: 1.8, baseFlat: 420, scaling: "magic" },
       { kind: "enemyDamageDown", pct: 14, turns: 3 },

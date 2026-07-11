@@ -702,7 +702,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "진홍성기사",
     tier: 4,
     cultivateProfile: { str: 2, vit: 1, spi: 1 },
-    jobBonus: { str: 10, vit: 9, spi: 5 }, // 혈성기사 심화 — 피를 쓰고 방벽과 약화로 버티는 탱딜
+    jobBonus: { str: 10, vit: 9, spi: 5 }, // 혈성기사 심화 — 방어로 누르고 회복을 억제하는 탱딜
     unlock: { prereqs: { bloodtemplar: TIER4_UNLOCK_CUMLEVEL } },
   },
 
@@ -1254,7 +1254,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   masterfarmer: { class: "survivor", spec: "masterfarmer" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
-  crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 피와 방벽의 탱딜
+  crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 방어와 회복 억제의 탱딜
   // tier 5 — 핵심 5개 상급 심화 직업.
   swordmaster: { class: "warrior", spec: "swordmaster" },
   ironknight: { class: "warrior", spec: "ironknight" },

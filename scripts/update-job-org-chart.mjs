@@ -11,7 +11,7 @@ import {
 } from "../src/adventure/data/v2/v2JobCatalog.ts";
 import { V2_SKILLS_BY_JOB } from "../src/adventure/data/v2/v2SkillsByJob.ts";
 import { V2_COMMON_SKILLS } from "../src/adventure/data/v2/v2SkillsCommonCatalog.ts";
-import { v2SkillMpCostValue } from "../src/adventure/data/v2/v2Skills.ts";
+import { describeV2Skill } from "../src/adventure/data/v2/v2Skills.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUT = "/mnt/c/Users/sea94/OneDrive/바탕 화면/job-org-chart.html";
@@ -152,145 +152,10 @@ function catLabel(cat) {
   }[cat] ?? cat;
 }
 
-function meta(def) {
-  if (def.category === "passive") return "";
-  return `<div class="tm">MP ${v2SkillMpCostValue(def)} · 발동 ${def.procChance ?? 100}%</div>`;
-}
-
-function effectText(e) {
-  switch (e.kind) {
-    case "damage":
-      return `피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)}${scalingTag(e.scaling)}${e.pierceDamagePct ? ` · 관통 ${e.pierceDamagePct}%` : ""}`;
-    case "heal":
-      return `회복 ${e.pctLostHp ? `잃은 체력 ${e.pctLostHp}%` : e.pctMaxHp ? `최대 HP ${e.pctMaxHp}%` : `${e.flat ?? 0}`}`;
-    case "shield":
-      return `보호막 ${e.pctMaxHp ? `최대 HP ${e.pctMaxHp}%` : `최대 MP ${e.pctMaxMp ?? 0}%`} (소진까지)`;
-    case "selfBuff":
-      return `자신 ${STAT_LABEL[e.stat] ?? e.stat} +${e.pct}% (${e.turns}행동)`;
-    case "selfBuffPct":
-      return `${targetLabel(e.target)} +${e.pct}% (${e.turns}행동)`;
-    case "selfRegen":
-      return `행동마다 최대 HP ${e.pctMaxHpPerTurn}% 회복 (${e.turns}행동)`;
-    case "manaRestore":
-      return `마나 ${e.pctMaxMp}% 회복`;
-    case "enemyDebuff":
-      return `적 ${STAT_LABEL[e.stat] ?? e.stat} -${e.pct}% (${e.turns}행동)`;
-    case "enemyVuln":
-      return `적 받는 피해 +${e.pct}% (${e.turns}행동)`;
-    case "enemyEvasionDown":
-      return `적 회피 -${e.pct}% (${e.turns}행동)`;
-    case "enemyAccuracyDown":
-      return `적 명중 -${e.pct}% (${e.turns}행동)`;
-    case "selfHaste":
-      return `다음 행동 가속 ${e.pct}%`;
-    case "enemyDelay":
-      return `적 다음 행동 지연 ${e.pct}%`;
-    case "enemyHealReduce":
-      return `적 회복량 -${e.pct}% (${e.turns}행동)`;
-    case "enemyDamageDown":
-      return `적 주는 피해 -${e.pct}% (${e.turns}행동)`;
-    case "enemySkillProcDown":
-      return `적 스킬 발동률 -${e.pct}%p (${e.turns}행동)`;
-    case "enemyDotVuln":
-      return `적 지속/저주 피해 +${e.pct}% (${e.turns}행동)`;
-    case "hpCostDamage":
-      return `현재 HP ${e.pctCurrentHp}% 소모 · 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)}, 소모 HP의 ${e.soakRatio * 100}% 추가`;
-    case "healToDamage":
-      return `회복 후 회복량의 ${e.damageRatio * 100}% 피해`;
-    case "executeDamage":
-      return `처형 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${num(e.bonusMult)})`;
-    case "ambushDamage":
-      return `기습 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${num(e.bonusMult)})`;
-    case "stackPayoffDamage":
-      return `${stackLabel(e.tag)} 스택 비례 피해 ${scaleName(e.scaling)}×${num(e.statCoef)}${flatText(e)}, 스택당 +${e.perStackFlat}`;
-    case "dot":
-      return `${e.label} +${e.stacks}스택 (${e.turns}행동, 스택당 ${e.flatPerStack})`;
-    default:
-      return e.kind;
-  }
-}
-
-function num(v) {
-  return Number(v).toLocaleString("ko-KR", { maximumFractionDigits: 2 });
-}
-
-function scaleName(scaling) {
-  return {
-    physical: "공격력",
-    magic: "마법",
-    def: "방어",
-    vit: "활력",
-    dex: "민첩",
-    luk: "행운",
-    all: "올스탯",
-    maxHp: "최대HP",
-    undefined: "공격력",
-  }[String(scaling)] ?? "공격력";
-}
-
-function scalingTag(scaling) {
-  if (!scaling || scaling === "physical") return "";
-  return ` (${scaleName(scaling)}비례)`;
-}
-
-function flatText(e) {
-  if (e.baseFlatByTier) {
-    const a = e.baseFlatByTier;
-    return ` +${a[0]}~${a[2]}`;
-  }
-  return e.baseFlat ? ` +${e.baseFlat}` : "";
-}
-
-function targetLabel(target) {
-  return {
-    evasion: "회피",
-    crit: "치명타 확률",
-    damageReduction: "받는 피해 감소",
-    reflectDamage: "반사 피해",
-  }[target] ?? target;
-}
-
-function stackLabel(tag) {
-  return {
-    bleed: "출혈",
-    poison: "중독",
-    magicVuln: "마법취약",
-  }[tag] ?? tag;
-}
-
-function passiveLines(p) {
-  const out = [];
-  for (const [k, v] of Object.entries(p.stat ?? {})) out.push(`${STAT_LABEL[k] ?? k} +${v}`);
-  for (const [k, v] of Object.entries(p.statPct ?? {})) out.push(`${STAT_LABEL[k] ?? k} +${v}%`);
-  if (p.maxHpPct) out.push(`최대 HP +${p.maxHpPct}%`);
-  if (p.maxMpPct) out.push(`최대 MP +${p.maxMpPct}%`);
-  if (p.atkPerDexCoef) out.push(`민첩이 공격력을 보조`);
-  if (p.critPct) out.push(`치명타 확률 +${p.critPct}%`);
-  if (p.critDmgPct) out.push(`치명타 피해 +${p.critDmgPct}%`);
-  if (p.evasionPct) out.push(`회피 +${p.evasionPct}%`);
-  if (p.lifestealPct) out.push(`흡혈 +${p.lifestealPct}%`);
-  if (p.counterChancePct) out.push(`피격 시 ${p.counterChancePct}% 반격`);
-  if (p.defPct) out.push(`방어력 +${p.defPct}%`);
-  if (p.thornsDefPct) out.push(`피격 시 방어력의 ${p.thornsDefPct}% 반사`);
-  if (p.accuracyPct) out.push(`명중 +${p.accuracyPct}`);
-  if (p.healPowerPct) out.push(`회복 +${p.healPowerPct}%`);
-  if (p.damageTakenReductionPct) out.push(`받는 피해 -${p.damageTakenReductionPct}%`);
-  if (p.elementAdvPctBonus) out.push(`속성 유리 피해 +${p.elementAdvPctBonus}%`);
-  if (p.elementDisPctBonus) out.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
-  if (p.poisonedEnemyDefReductionPct) out.push(`중독된 적 방어 -${p.poisonedEnemyDefReductionPct}%`);
-  if (p.berserkAtkPctPerLostHpPct) out.push(`잃은 HP 1%당 공격력 +${p.berserkAtkPctPerLostHpPct}%`);
-  if (p.enemyMagicVulnPctPerStack) out.push(`스킬 적중 시 마법취약 스택당 +${p.enemyMagicVulnPctPerStack}%`);
-  if (p.profPerKillBonus) out.push(`처치당 숙달 포인트 +${p.profPerKillBonus}`);
-  if (p.spdOverflowToAtkPct) out.push(`속도 한계 초과분 → 공격력 (점근, 최대 +${p.spdOverflowToAtkPct}%)`);
-  if (p.skillCritOverflow) out.push(`치명 한계(75%) 초과 보너스를 스킬에도 적용`);
-  return out;
-}
-
 function skillTip(def) {
   const tag = def.category === "passive" ? "tk-p" : "tk-a";
-  const lines = def.passive ? passiveLines(def.passive) : def.effects.map(effectText);
+  const lines = describeV2Skill(def);
   return `<b>${esc(def.name)}</b> <span class="tk ${tag}">${catLabel(def.category)}</span>` +
-    meta(def) +
     `<ul>${lines.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` +
     `<div class="td">${esc(def.description)}</div>`;
 }

@@ -125,7 +125,18 @@ export function useWoodcutting(): WoodcuttingHandlers {
         tree: parseTree(json.tree),
         materialName: String(json.materialName ?? "원목"),
         materialGained: Math.max(0, Math.floor(Number(json.materialGained) || 0)),
+        bonusMaterialGained: Math.max(
+          0,
+          Math.floor(Number(json.bonusMaterialGained) || 0),
+        ),
+        recovered: json.recovered === true,
         xpGained: Math.max(0, Math.floor(Number(json.xpGained) || 0)),
+        jobName: typeof json.jobName === "string" ? json.jobName : null,
+        masteryGained: Math.max(0, Math.floor(Number(json.masteryGained) || 0)),
+        masteryAfter:
+          json.masteryAfter == null
+            ? null
+            : Math.max(0, Math.floor(Number(json.masteryAfter) || 0)),
         log: nextLog,
       };
     }

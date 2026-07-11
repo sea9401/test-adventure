@@ -34,6 +34,8 @@ export type WoodcuttingSession = {
   readyAt: number;
   expiresAt: number;
   failureRate?: number;
+  failureRecoveryRate?: number;
+  bonusLogRate?: number;
 };
 
 export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
@@ -65,6 +67,8 @@ export function createWoodcuttingSession(args: {
   now: number;
   durationMs?: number;
   failureRate?: number;
+  failureRecoveryRate?: number;
+  bonusLogRate?: number;
 }): WoodcuttingSession {
   const durationMs = Math.max(
     1_000,
@@ -80,6 +84,11 @@ export function createWoodcuttingSession(args: {
     failureRate:
       args.failureRate ??
       woodcuttingFailureRate(WOODCUTTING_TREES[args.treeId].baseFailureRate, 1),
+    failureRecoveryRate: Math.min(
+      1,
+      Math.max(0, Number(args.failureRecoveryRate) || 0),
+    ),
+    bonusLogRate: Math.min(1, Math.max(0, Number(args.bonusLogRate) || 0)),
   };
 }
 
@@ -92,6 +101,8 @@ export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null
   if (typeof value.readyAt !== "number" || !Number.isFinite(value.readyAt)) return null;
   if (typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) return null;
   const storedFailureRate = Number(value.failureRate);
+  const storedFailureRecoveryRate = Number(value.failureRecoveryRate);
+  const storedBonusLogRate = Number(value.bonusLogRate);
   return {
     sessionId: value.sessionId,
     spotId: value.spotId,
@@ -100,6 +111,12 @@ export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null
     expiresAt: value.expiresAt,
     failureRate: Number.isFinite(storedFailureRate)
       ? Math.min(1, Math.max(0, storedFailureRate))
+      : undefined,
+    failureRecoveryRate: Number.isFinite(storedFailureRecoveryRate)
+      ? Math.min(1, Math.max(0, storedFailureRecoveryRate))
+      : undefined,
+    bonusLogRate: Number.isFinite(storedBonusLogRate)
+      ? Math.min(1, Math.max(0, storedBonusLogRate))
       : undefined,
   };
 }

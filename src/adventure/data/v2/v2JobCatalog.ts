@@ -28,6 +28,7 @@ export type ExtraJobCondition =
   | { type: "monsterKilled"; monsterId: string; minCount: number }
   | { type: "statThreshold"; stat: V2StatKey; min: number }
   | { type: "farmingLevel"; min: number }
+  | { type: "woodcuttingLevel"; min: number }
   | { type: "jobUnlocked"; jobId: string };
 
 /** isJobUnlocked 의 추가 조건 평가용 컨텍스트(없으면 quest/kill 조건은 미충족 처리). */
@@ -38,6 +39,8 @@ export type JobUnlockContext = {
   killCounts?: Readonly<Record<string, number>>;
   /** 농장 콘텐츠 전체 숙련 레벨(farm.v2 stats.farmingXp 에서 파생). */
   farmingLevel?: number;
+  /** 벌목 콘텐츠 레벨(woodcutting-log.v1 XP에서 파생). */
+  woodcuttingLevel?: number;
 };
 
 /** 직업 해금 조건. */
@@ -96,6 +99,13 @@ export const FISHING_TIER6_UNLOCK_CUMLEVEL = 9000;
  * 농부 2차 해금 임계. 상위 농부 직업은 선행 직업 해금과 농사 레벨을 본다.
  */
 export const FARMING_TIER2_UNLOCK_CUMLEVEL = 900;
+export const WOODCUTTING_TIER2_UNLOCK_CUMLEVEL = 900;
+export const WOODCUTTING_LEVEL_REQUIREMENTS = {
+  foresttechnician: 10,
+  masterlumberjack: 20,
+  forestmaster: 35,
+  legendarylumberjack: 50,
+} as const;
 export const FARMING_LEVEL_REQUIREMENTS = {
   horticulturist: 10,
   masterfarmer: 20,
@@ -209,6 +219,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { vit: 2, spi: 1, luk: 1 },
     jobBonus: { vit: 3, luk: 2 }, // 농장 생활 루트 입문 — 수확 보너스는 장착 패시브가 담당
     unlock: { prereqs: { survivor: FARMING_TIER2_UNLOCK_CUMLEVEL } },
+  },
+  lumberjack: {
+    id: "lumberjack",
+    name: "나무꾼",
+    tier: 2,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 3, vit: 2 },
+    unlock: { prereqs: { survivor: WOODCUTTING_TIER2_UNLOCK_CUMLEVEL } },
   },
 
   // ─── Tier 2: 상위 직업 — 부모 cumLevel ≥ TIER2_UNLOCK_CUMLEVEL ───
@@ -442,6 +460,20 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       extraConditions: [
         { type: "jobUnlocked", jobId: "farmer" },
         { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.horticulturist },
+      ],
+    },
+  },
+  foresttechnician: {
+    id: "foresttechnician",
+    name: "산림 기술자",
+    tier: 3,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 8, dex: 7 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "lumberjack" },
+        { type: "woodcuttingLevel", min: WOODCUTTING_LEVEL_REQUIREMENTS.foresttechnician },
       ],
     },
   },
@@ -681,6 +713,20 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  masterlumberjack: {
+    id: "masterlumberjack",
+    name: "벌목 명인",
+    tier: 4,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 12, vit: 10 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "foresttechnician" },
+        { type: "woodcuttingLevel", min: WOODCUTTING_LEVEL_REQUIREMENTS.masterlumberjack },
+      ],
+    },
+  },
   crusader: {
     id: "crusader",
     name: "성전사",
@@ -830,6 +876,20 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       extraConditions: [
         { type: "jobUnlocked", jobId: "masterfarmer" },
         { type: "farmingLevel", min: FARMING_LEVEL_REQUIREMENTS.harvestking },
+      ],
+    },
+  },
+  forestmaster: {
+    id: "forestmaster",
+    name: "산림 대가",
+    tier: 5,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 16, dex: 12 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "masterlumberjack" },
+        { type: "woodcuttingLevel", min: WOODCUTTING_LEVEL_REQUIREMENTS.forestmaster },
       ],
     },
   },
@@ -990,6 +1050,20 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  legendarylumberjack: {
+    id: "legendarylumberjack",
+    name: "전설의 나무꾼",
+    tier: 6,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 24, vit: 16 },
+    unlock: {
+      prereqs: {},
+      extraConditions: [
+        { type: "jobUnlocked", jobId: "forestmaster" },
+        { type: "woodcuttingLevel", min: WOODCUTTING_LEVEL_REQUIREMENTS.legendarylumberjack },
+      ],
+    },
+  },
   absolute: {
     id: "absolute",
     name: "절대자",
@@ -1015,6 +1089,11 @@ export const CATALOG_USES_QUEST_CONDITION: boolean = V2_JOB_LIST.some((job) =>
 export const CATALOG_USES_FARMING_LEVEL_CONDITION: boolean = V2_JOB_LIST.some(
   (job) =>
     (job.unlock.extraConditions ?? []).some((c) => c.type === "farmingLevel"),
+);
+
+export const CATALOG_USES_WOODCUTTING_LEVEL_CONDITION: boolean = V2_JOB_LIST.some(
+  (job) =>
+    (job.unlock.extraConditions ?? []).some((c) => c.type === "woodcuttingLevel"),
 );
 
 /** id → 정의 조회(없으면 undefined). */
@@ -1043,6 +1122,8 @@ function extraConditionMet(
       return (ctx?.killCounts?.[cond.monsterId] ?? 0) >= cond.minCount;
     case "farmingLevel":
       return (ctx?.farmingLevel ?? 1) >= cond.min;
+    case "woodcuttingLevel":
+      return (ctx?.woodcuttingLevel ?? 1) >= cond.min;
     case "jobUnlocked": {
       if (seen.has(cond.jobId)) return false;
       const prereqJob = V2_JOB_CATALOG[cond.jobId];
@@ -1106,6 +1187,7 @@ export function jobUnlockConditionText(job: V2JobDefinition): string {
   );
   for (const cond of job.unlock.extraConditions ?? []) {
     if (cond.type === "farmingLevel") conditions.push(`농사 Lv ${cond.min}`);
+    if (cond.type === "woodcuttingLevel") conditions.push(`벌목 Lv ${cond.min}`);
     if (cond.type === "jobUnlocked") {
       conditions.push(`${V2_JOB_CATALOG[cond.jobId]?.name ?? cond.jobId} 전직`);
     }
@@ -1162,8 +1244,20 @@ export function isFarmingJobId(jobId: string): boolean {
   return V2_FARMING_JOB_IDS.has(jobId);
 }
 
+const V2_WOODCUTTING_JOB_IDS = new Set([
+  "lumberjack",
+  "foresttechnician",
+  "masterlumberjack",
+  "forestmaster",
+  "legendarylumberjack",
+]);
+
+export function isWoodcuttingJobId(jobId: string): boolean {
+  return V2_WOODCUTTING_JOB_IDS.has(jobId);
+}
+
 export function isLifestyleMasteryJobId(jobId: string): boolean {
-  return isFishingJobId(jobId) || isFarmingJobId(jobId);
+  return isFishingJobId(jobId) || isFarmingJobId(jobId) || isWoodcuttingJobId(jobId);
 }
 
 export function isRootJobSelectable(job: V2JobDefinition): boolean {
@@ -1203,11 +1297,13 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   fisher: { class: "survivor", spec: "fisher" },
   healthtrainer: { class: "survivor", spec: "healthtrainer" },
   farmer: { class: "survivor", spec: "farmer" },
+  lumberjack: { class: "survivor", spec: "lumberjack" },
   fieldmedic: { class: "survivor", spec: "fieldmedic" },
   extremesurvivor: { class: "survivor", spec: "extremesurvivor" },
   angler: { class: "survivor", spec: "angler" },
   physicalcoach: { class: "survivor", spec: "physicalcoach" },
   horticulturist: { class: "survivor", spec: "horticulturist" },
+  foresttechnician: { class: "survivor", spec: "foresttechnician" },
   shieldman: { class: "warrior", spec: "knight" },
   squire: { class: "warrior", spec: "gwang" },
   boxer: { class: "martial", spec: "gigong" },
@@ -1260,6 +1356,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   masterangler: { class: "survivor", spec: "masterangler" },
   mastertrainer: { class: "survivor", spec: "mastertrainer" },
   masterfarmer: { class: "survivor", spec: "masterfarmer" },
+  masterlumberjack: { class: "survivor", spec: "masterlumberjack" },
   crusader: { class: "warrior", spec: "crusader" }, // 성기사 4차 — 저장 class=전사, spec=고유 id
   runeknight: { class: "warrior", spec: "runeknight" }, // 마검사 4차 — 저장 class=전사, spec=고유 id
   crimsontemplar: { class: "warrior", spec: "crimsontemplar" }, // 혈성기사 4차 — 방어와 회복 억제의 탱딜
@@ -1279,6 +1376,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   immortal: { class: "survivor", spec: "immortal" },
   fullcatchking: { class: "survivor", spec: "fullcatchking" },
   harvestking: { class: "survivor", spec: "harvestking" },
+  forestmaster: { class: "survivor", spec: "forestmaster" },
   transcendent: { class: "warrior", spec: "transcendent" },
   bloodlord: { class: "warrior", spec: "bloodlord" },
   calamitycaller: { class: "mage", spec: "calamitycaller" },
@@ -1298,6 +1396,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   eternal: { class: "survivor", spec: "eternal" },
   seagod: { class: "survivor", spec: "seagod" },
   earthartisan: { class: "survivor", spec: "earthartisan" },
+  legendarylumberjack: { class: "survivor", spec: "legendarylumberjack" },
   absolute: { class: "warrior", spec: "absolute" },
 };
 

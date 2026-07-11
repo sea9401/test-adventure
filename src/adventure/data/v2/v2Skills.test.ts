@@ -11,6 +11,8 @@ import {
   smartDefaultPatternFromEquipped,
   aggregateEquippedPassives,
   equippedFarmBonuses,
+  equippedWoodcuttingBonuses,
+  equippedWoodcuttingFailureReductionPct,
   equippedFishingBonuses,
   spCostOf,
   rubricSpCost,
@@ -185,6 +187,47 @@ describe("농부 생활 패시브", () => {
     expect(
       describeV2Skill(V2_SKILLS.v2c_horticulturist_soilreading),
     ).toContain("희귀 수확 확률 +3%");
+  });
+});
+
+describe("나무꾼 생활 패시브", () => {
+  it("나무결 읽기는 장착 시 벌목 실패율을 상대적으로 낮춘다", () => {
+    expect(
+      equippedWoodcuttingFailureReductionPct(["v2c_lumberjack_woodreading"]),
+    ).toBe(20);
+    expect(equippedWoodcuttingFailureReductionPct([])).toBe(0);
+    expect(describeV2Skill(V2_SKILLS.v2c_lumberjack_woodreading)).toContain(
+      "벌목 실패율 -20%",
+    );
+  });
+
+  it("상위 나무꾼 패시브는 시간·실패 구제·추가 원목으로 합산된다", () => {
+    expect(
+      equippedWoodcuttingBonuses([
+        "v2c_lumberjack_woodreading",
+        "v2c_foresttechnician_axecare",
+        "v2c_masterlumberjack_recoverycut",
+        "v2c_forestmaster_efficientwork",
+        "v2c_legendarylumberjack_bountifulcut",
+      ]),
+    ).toEqual({
+      failureReductionPct: 20,
+      durationReductionPct: 18,
+      failureRecoveryPct: 20,
+      bonusLogChancePct: 30,
+    });
+    expect(describeV2Skill(V2_SKILLS.v2c_foresttechnician_axecare)).toContain(
+      "벌목 시간 -8%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_masterlumberjack_recoverycut)).toContain(
+      "벌목 실패 구제 20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_forestmaster_efficientwork)).toContain(
+      "벌목 시간 -10%",
+    );
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_legendarylumberjack_bountifulcut),
+    ).toContain("추가 원목 확률 30%");
   });
 });
 

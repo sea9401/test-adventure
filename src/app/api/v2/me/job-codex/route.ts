@@ -10,9 +10,21 @@ import {
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
 import {
+  CATALOG_USES_FARMING_LEVEL_CONDITION,
   CATALOG_USES_QUEST_CONDITION,
+  CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  FARM_SAVE_KEY,
+  farmingLevelForState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  WOODCUTTING_LOG_KEY,
+  parseWoodcuttingLog,
+} from "@/adventure/v2/woodcuttingSession";
+import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
 import {
   GUIDE_QUESTS_KEY,
   parseClaimed,
@@ -26,18 +38,19 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
+  const saveKeys = ["character.v2", "proficiency.v2", "skills.v2"];
+  if (CATALOG_USES_QUEST_CONDITION) saveKeys.push(GUIDE_QUESTS_KEY);
+  if (CATALOG_USES_FARMING_LEVEL_CONDITION) saveKeys.push(FARM_SAVE_KEY);
+  if (CATALOG_USES_WOODCUTTING_LEVEL_CONDITION) {
+    saveKeys.push(WOODCUTTING_LOG_KEY);
+  }
   const rows = await db
     .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
     .where(
       and(
         eq(savesKv.userId, userId),
-        inArray(
-          savesKv.key,
-          CATALOG_USES_QUEST_CONDITION
-            ? ["character.v2", "proficiency.v2", "skills.v2", GUIDE_QUESTS_KEY]
-            : ["character.v2", "proficiency.v2", "skills.v2"],
-        ),
+        inArray(savesKv.key, saveKeys),
       ),
     );
   const byKey = new Map(rows.map((r) => [r.key, r.value]));
@@ -56,9 +69,27 @@ export async function GET() {
   const skillsState = parseV2SkillsState(byKey.get("skills.v2"));
 
   // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋을 ctx 로 — 해금 표시 일치.
-  const unlockCtx: JobUnlockContext | undefined = CATALOG_USES_QUEST_CONDITION
-    ? { completedQuestIds: parseClaimed(byKey.get(GUIDE_QUESTS_KEY)) }
-    : undefined;
+  const woodcuttingLog = parseWoodcuttingLog(byKey.get(WOODCUTTING_LOG_KEY));
+  const unlockCtx: JobUnlockContext = {
+    ...(CATALOG_USES_QUEST_CONDITION
+      ? { completedQuestIds: parseClaimed(byKey.get(GUIDE_QUESTS_KEY)) }
+      : {}),
+    ...(CATALOG_USES_FARMING_LEVEL_CONDITION
+      ? {
+          farmingLevel: farmingLevelForState(
+            parseFarmState(byKey.get(FARM_SAVE_KEY)),
+          ),
+        }
+      : {}),
+    ...(CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
+      ? {
+          woodcuttingLevel: woodcuttingProgressionView(
+            woodcuttingLog.cuts,
+            woodcuttingLog.xp,
+          ).level,
+        }
+      : {}),
+  };
 
   const codex = buildJobCodex(
     prof,

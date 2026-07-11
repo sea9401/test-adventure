@@ -7,13 +7,9 @@ import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_TREES,
-  isWoodcuttingBackCut,
-  isWoodcuttingLane,
-  judgeWoodcuttingPlan,
   parseWoodcuttingLog,
   parseWoodcuttingSession,
   recordWoodcuttingSuccess,
-  woodcuttingTimberReward,
 } from "@/adventure/v2/woodcuttingSession";
 
 type CharSave = {
@@ -28,23 +24,12 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const value = (body ?? {}) as {
-    sessionId?: unknown;
-    selectedLane?: unknown;
-    backCut?: unknown;
-  };
-  if (
-    typeof value.sessionId !== "string" ||
-    !isWoodcuttingLane(value.selectedLane) ||
-    !isWoodcuttingBackCut(value.backCut)
-  ) {
+  const sessionId = (body as { sessionId?: unknown } | null)?.sessionId;
+  if (typeof sessionId !== "string") {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
   const now = Date.now();
-  const sessionId = value.sessionId;
-  const selectedLane = value.selectedLane;
-  const backCut = value.backCut;
   const result = await db.transaction(async (tx) => {
     const session = parseWoodcuttingSession(
       await lockSaveForUpdate(tx, userId, WOODCUTTING_SESSION_KEY, {}),
@@ -53,31 +38,21 @@ export async function POST(req: Request) {
     if (session.sessionId !== sessionId) {
       return { success: false as const, reason: "stale" as const };
     }
+    if (now < session.readyAt) {
+      return {
+        success: false as const,
+        reason: "not_ready" as const,
+        retryAfterMs: session.readyAt - now,
+      };
+    }
     if (now > session.expiresAt) {
       await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
       return { success: false as const, reason: "expired" as const };
     }
 
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
-    const judgment = judgeWoodcuttingPlan({
-      challenge: session.challenge,
-      selectedLane,
-      backCut,
-    });
     const tree = WOODCUTTING_TREES[session.treeId];
-    const reward = woodcuttingTimberReward(tree, judgment);
-    const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
-
-    if (reward.timber <= 0 || reward.grade == null) {
-      return {
-        success: false as const,
-        reason: judgment.reason,
-        tree,
-        judgment,
-        log: parseWoodcuttingLog(logRaw),
-      };
-    }
-
+    const timberGained = tree.baseTimber;
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -85,24 +60,21 @@ export async function POST(req: Request) {
       {},
     );
     const materials = mergeDrops(charSave.materials, {
-      [SETTLEMENT_MATERIAL_ID.timber]: reward.timber,
+      [SETTLEMENT_MATERIAL_ID.timber]: timberGained,
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
+    const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
     const log = recordWoodcuttingSuccess(parseWoodcuttingLog(logRaw), {
       treeId: session.treeId,
-      timber: reward.timber,
-      grade: reward.grade,
+      timber: timberGained,
     });
     await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
-
     return {
       success: true as const,
       tree,
-      grade: reward.grade,
-      timberGained: reward.timber,
-      timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? reward.timber,
-      judgment,
+      timberGained,
+      timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? timberGained,
       log,
     };
   });
@@ -110,24 +82,11 @@ export async function POST(req: Request) {
   if (!result.success) {
     return Response.json({
       ok: true,
-      complete: true,
       success: false,
       reason: result.reason,
-      tree: "tree" in result ? result.tree : null,
-      judgment: "judgment" in result ? result.judgment : null,
-      log: "log" in result ? result.log : undefined,
+      retryAfterMs: "retryAfterMs" in result ? result.retryAfterMs : undefined,
     });
   }
 
-  return Response.json({
-    ok: true,
-    complete: true,
-    success: true,
-    tree: result.tree,
-    grade: result.grade,
-    timberGained: result.timberGained,
-    timber: result.timber,
-    judgment: result.judgment,
-    log: result.log,
-  });
+  return Response.json({ ok: true, ...result });
 }

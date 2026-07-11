@@ -72,7 +72,7 @@ export function V2TownHome({
             />
           }
           title="벌목장"
-          description="나무결에 맞춰 통나무를 얻는 생활 콘텐츠"
+          description="버튼 한 번으로 나무를 베고 통나무를 얻는 생활 콘텐츠"
           onClick={() => onAction({ kind: "open-logging" })}
         />
         <EntryCard

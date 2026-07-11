@@ -36,6 +36,7 @@ type ExplorationMissionView = {
   goalProgress: number;
   complete: boolean;
   claimed: boolean;
+  unlocked: boolean;
   canClaim: boolean;
 };
 
@@ -67,6 +68,7 @@ const ERROR_TEXT: Record<string, string> = {
   invalid_event_choice: "탐사 사건 선택지를 확인할 수 없어요.",
   already_claimed: "이미 수령한 탐사 의뢰입니다.",
   not_complete: "아직 완료되지 않은 탐사 의뢰입니다.",
+  mission_locked: "탐사 본부를 업그레이드해야 수령할 수 있는 의뢰입니다.",
   not_authorized: "길드 관리 권한이 필요해요.",
   level_required: "탐사 본부 레벨이 부족해요.",
   expedition_active: "이미 진행 중인 원정이 있어요.",
@@ -270,9 +272,9 @@ export function GuildExplorationPanel({
           </dt>
           <dd className="mt-1 font-semibold text-zinc-900 dark:text-zinc-100">
             {state?.ok
-              ? `${missions.length}/${state.weeklyMissionCount ?? 1}`
+              ? `${state.weeklyMissionCount ?? 1}/${missions.length}`
               : "1"}
-            건
+            건 활성
           </dd>
         </div>
         <div className="rounded bg-zinc-50 px-3 py-2 dark:bg-zinc-900">
@@ -469,7 +471,9 @@ export function GuildExplorationPanel({
             return (
               <div
                 key={mission.id}
-                className="rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900"
+                className={`rounded-md border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900 ${
+                  mission.unlocked ? "" : "opacity-60"
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -480,6 +484,11 @@ export function GuildExplorationPanel({
                         <Compass size={16} className="text-cyan-500" />
                       )}
                       <span>{mission.title}</span>
+                      {!mission.unlocked ? (
+                        <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                          잠김
+                        </span>
+                      ) : null}
                     </div>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                       보상 길드 금고 {mission.rewardGold.toLocaleString()}G · 지도 조각 +
@@ -504,6 +513,8 @@ export function GuildExplorationPanel({
                 >
                   {mission.claimed
                     ? "수령 완료"
+                    : !mission.unlocked
+                      ? "시설 업그레이드 필요"
                     : busy
                       ? "수령 중"
                       : mission.canClaim

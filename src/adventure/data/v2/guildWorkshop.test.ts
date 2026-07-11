@@ -15,6 +15,7 @@ import {
   guildWorkshopRecipeView,
   guildWorkshopRecipeResourceMaterialCost,
   guildWorkshopRecipeResourceCost,
+  guildWorkshopWoodMaterialForTier,
   guildWorkshopRecipeMaterialCost,
   hasGuildWorkshopRecipeMaterials,
   meetsGuildWorkshopRecipeLevel,
@@ -26,10 +27,13 @@ import {
 } from "./guildWorkshop";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
+import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
 import { V2_EQUIPMENT } from "./v2Equipment";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
-  [SETTLEMENT_MATERIAL_ID.timber]: 99999,
+  ...Object.fromEntries(
+    Object.values(WOODCUTTING_MATERIAL_ID).map((id) => [id, 99999]),
+  ),
   [SETTLEMENT_MATERIAL_ID.ironOre]: 99999,
   [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
@@ -38,6 +42,34 @@ const ENOUGH_WORKSHOP_MATERIALS = {
 };
 
 describe("guild workshop recipes", () => {
+  it("uses one distinct wood material for each crafted equipment tier", () => {
+    expect([
+      guildWorkshopWoodMaterialForTier(4),
+      guildWorkshopWoodMaterialForTier(6),
+      guildWorkshopWoodMaterialForTier(8),
+      guildWorkshopWoodMaterialForTier(10),
+      guildWorkshopWoodMaterialForTier(11),
+      guildWorkshopWoodMaterialForTier(12),
+    ]).toEqual([
+      WOODCUTTING_MATERIAL_ID.pine,
+      WOODCUTTING_MATERIAL_ID.birch,
+      WOODCUTTING_MATERIAL_ID.willow,
+      WOODCUTTING_MATERIAL_ID.oak,
+      WOODCUTTING_MATERIAL_ID.cedar,
+      WOODCUTTING_MATERIAL_ID.cypress,
+    ]);
+
+    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES)) {
+      const tier = V2_EQUIPMENT[recipe.equipmentId].tier;
+      const expectedWood = guildWorkshopWoodMaterialForTier(tier);
+      const materialCost = guildWorkshopRecipeResourceMaterialCost(recipe);
+      expect(materialCost[expectedWood]).toBe(recipe.cost.crop);
+      for (const woodId of Object.values(WOODCUTTING_MATERIAL_ID)) {
+        if (woodId !== expectedWood) expect(materialCost[woodId]).toBeUndefined();
+      }
+    }
+  });
+
   it("keeps starter craft-only recipes open at blacksmith level 1", () => {
     const recipe = GUILD_WORKSHOP_RECIPES.crafted_oathblade;
     expect(meetsGuildWorkshopRecipeLevel({}, recipe)).toBe(true);
@@ -212,7 +244,7 @@ describe("guild workshop recipes", () => {
         0,
         4,
         {
-          [SETTLEMENT_MATERIAL_ID.timber]: 99999,
+          [WOODCUTTING_MATERIAL_ID.willow]: 99999,
           [SETTLEMENT_MATERIAL_ID.ironOre]: 99999,
           [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
         },

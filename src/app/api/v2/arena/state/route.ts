@@ -46,7 +46,8 @@ export async function GET() {
   return Response.json({
     ok: true,
     state: {
-      score: state.score,
+      // 순위표·매치 정산과 같은 현재 시즌 레이팅을 메인 점수로 표시한다.
+      score: ratingRow?.rating ?? 1000,
       cooldownRemainingMs: arenaCooldownRemainingMs(state, now),
       recentOpponents: state.recentOpponents,
       milestonesReached: state.milestonesReached,

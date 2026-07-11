@@ -177,6 +177,17 @@ describe("computeScoreDelta", () => {
     );
   });
 
+  it("같은 공격자라면 주간 순위 레이팅이 높은 상대에게 더 많은 점수를 받는다", () => {
+    const myWeeklyRating = 1400;
+    const firstPlaceRating = 1300;
+    const thirdPlaceRating = 1200;
+    expect(
+      computeScoreDelta(myWeeklyRating, firstPlaceRating, "win"),
+    ).toBeGreaterThan(
+      computeScoreDelta(myWeeklyRating, thirdPlaceRating, "win"),
+    );
+  });
+
   it("낮은 레이팅 상대를 이기면 덜 오른다", () => {
     expect(computeScoreDelta(1200, 1000, "win")).toBeLessThan(
       computeScoreDelta(1000, 1000, "win"),

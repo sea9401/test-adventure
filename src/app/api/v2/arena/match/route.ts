@@ -1,4 +1,4 @@
-import { and, eq, ne, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, ne, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, pvpRatings } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -84,13 +84,13 @@ import {
 //   2. 재도전 쿨타임 검사. lastMatchAt + ARENA_MATCH_COOLDOWN_MS 전이면 429 (cooldown).
 //   3. 본인 derivePlayerCombatV2.
 //   4. 후보 풀 — 본인 제외 character.v2 보유 유저 (snapshot). 각 candidate 의
-//      Elo score(미존재면 1000) 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
+//      현재 주간 Elo(미존재면 1000) 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
 //   5. 실유저 우선 매칭 — 후보가 없거나 상대 derive 실패 시 비랭크 봇으로 폴백.
 //   6. weightForCandidate 가중 랜덤 추첨.
 //   7. 선정된 상대만 derive (real user snapshot) 또는 봇 snapshot 사용.
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
 //   9. outcome → 실유저전은 양쪽 Elo 정산(K=32), 봇전은 비랭크.
-//  10. 공격자/방어자 arena-state.v2(score/recentOpponents) + 공격자 gold 저장.
+//  10. 공격자/방어자 pvp_ratings(Elo/전적) + arena-state.v2(쿨타임/최근 상대) 저장.
 //  11. 양쪽 전투 로그(각자 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX).
 
 type CharSaveShape = {
@@ -168,6 +168,8 @@ export async function POST() {
   }
 
   const now = new Date();
+  // 순위표와 매치가 같은 주간 시즌을 보도록 트랜잭션 전에 한 번 확정한다.
+  const season = await getOrCreateCurrentSeason(now);
 
   const result = await db.transaction(async (tx) => {
     // 1. 본인 character.v2 lock — 같은 유저의 동시 매치 요청을 직렬화한다.
@@ -254,7 +256,6 @@ export async function POST() {
       };
     }
     const myLevel = levelOf(charSave);
-    const myScore = parsedArena.score;
 
     // 5. 본인 프로필 이름 — 전투 로그·결과 카드용.
     const viewerProfileRow = await tx
@@ -287,24 +288,25 @@ export async function POST() {
       viewerArenaLoadout?.element ??
       parseV2Element((charSave as { element?: unknown }).element);
 
-    // 6a. Elo 점수 (arena-state.v2) 일괄 조회. 미존재면 초기 레이팅.
+    // 6a. 순위표와 동일한 현재 시즌 pvp_ratings를 일괄 조회. 미참가자는 1000점.
+    // arena-state.v2.score는 이전 누적 레이팅 호환 필드이며 매칭 기준으로 쓰지 않는다.
     const scoreByUser = new Map<string, number>();
-    if (candidateIds.length > 0) {
-      const arenaRows = await tx
-        .select({ userId: savesKv.userId, value: savesKv.value })
-        .from(savesKv)
+    const ratingUserIds = [...new Set([userId, ...candidateIds])];
+    if (ratingUserIds.length > 0) {
+      const ratingRows = await tx
+        .select({ userId: pvpRatings.userId, rating: pvpRatings.rating })
+        .from(pvpRatings)
         .where(
           and(
-            eq(savesKv.key, ARENA_STATE_KEY),
-            inArray(savesKv.userId, candidateIds),
+            eq(pvpRatings.seasonId, season.id),
+            inArray(pvpRatings.userId, ratingUserIds),
           ),
         );
-      for (const r of arenaRows) {
-        const parsed = parseArenaState(r.value);
-        // 후보는 score 만 사용(쿨타임/매칭 무관).
-        scoreByUser.set(r.userId, parsed.score);
+      for (const row of ratingRows) {
+        scoreByUser.set(row.userId, row.rating);
       }
     }
+    const myScore = scoreByUser.get(userId) ?? ARENA_INITIAL_RATING;
 
     // 6b. 이름 (character-profile.v2) — 추첨 후 한 명만 사용하므로 일괄 조회는
     //    선택지. 추첨 직후 단건 조회로 충분 — 풀 크면 일괄 조회가 더 무거움.
@@ -575,6 +577,34 @@ export async function POST() {
       }
       return out;
     };
+    const lockSeasonRatingsForSettlement = async (ids: string[]) => {
+      const uniqueIds = [...new Set(ids)].sort();
+      if (uniqueIds.length === 0) return new Map<string, number>();
+      await tx
+        .insert(pvpRatings)
+        .values(
+          uniqueIds.map((id) => ({
+            userId: id,
+            seasonId: season.id,
+            rating: ARENA_INITIAL_RATING,
+          })),
+        )
+        .onConflictDoNothing({
+          target: [pvpRatings.userId, pvpRatings.seasonId],
+        });
+      const rows = await tx
+        .select({ userId: pvpRatings.userId, rating: pvpRatings.rating })
+        .from(pvpRatings)
+        .where(
+          and(
+            eq(pvpRatings.seasonId, season.id),
+            inArray(pvpRatings.userId, uniqueIds),
+          ),
+        )
+        .orderBy(asc(pvpRatings.userId))
+        .for("update");
+      return new Map(rows.map((row) => [row.userId, row.rating]));
+    };
 
     const settlementUserIds =
       ranked && oppUserId ? [userId, oppUserId] : [userId];
@@ -586,11 +616,20 @@ export async function POST() {
       ranked && oppUserId
         ? (lockedArenaStates?.get(oppUserId) ?? defaultArenaState())
         : null;
-    const elo = defenderArena
-      ? settleArenaElo(attackerArena.score, defenderArena.score, outcome)
+    const lockedSeasonRatings =
+      ranked && oppUserId
+        ? await lockSeasonRatingsForSettlement([userId, oppUserId])
+        : new Map<string, number>();
+    const attackerWeeklyRating =
+      lockedSeasonRatings.get(userId) ?? myScore;
+    const defenderWeeklyRating = oppUserId
+      ? (lockedSeasonRatings.get(oppUserId) ?? ARENA_INITIAL_RATING)
+      : oppScore;
+    const elo = defenderArena && oppUserId
+      ? settleArenaElo(attackerWeeklyRating, defenderWeeklyRating, outcome)
       : {
-          attackerScoreBefore: attackerArena.score,
-          attackerScoreAfter: attackerArena.score,
+          attackerScoreBefore: myScore,
+          attackerScoreAfter: myScore,
           attackerDelta: 0,
           defenderScoreBefore: oppScore,
           defenderScoreAfter: oppScore,
@@ -599,6 +638,36 @@ export async function POST() {
     const scoreDelta = elo.attackerDelta;
     const newScore = elo.attackerScoreAfter;
     const goldGain = computeGoldReward(myLevel, outcome);
+
+    // 주간 레이팅이 순위표·점수 계산의 단일 권위다. Elo와 전적을 매치와 같은
+    // 트랜잭션에서 갱신해 어느 한쪽만 반영되는 드리프트를 막는다.
+    if (ranked && oppUserId) {
+      const ratingUpdates = [
+        { id: userId, rating: elo.attackerScoreAfter, outcome },
+        {
+          id: oppUserId,
+          rating: elo.defenderScoreAfter,
+          outcome: oppositeArenaOutcome(outcome),
+        },
+      ];
+      for (const update of ratingUpdates) {
+        await tx
+          .update(pvpRatings)
+          .set({
+            rating: update.rating,
+            wins: sql`${pvpRatings.wins} + ${update.outcome === "win" ? 1 : 0}`,
+            losses: sql`${pvpRatings.losses} + ${update.outcome === "loss" ? 1 : 0}`,
+            draws: sql`${pvpRatings.draws} + ${update.outcome === "draw" ? 1 : 0}`,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(pvpRatings.userId, update.id),
+              eq(pvpRatings.seasonId, season.id),
+            ),
+          );
+      }
+    }
 
     // 11b. 전투 로그(다시보기) — 나=p1 관점 ReplayPayload + 전투 기록 1판.
     const replay = toPvpReplayPayload(battle.finalState, oppName, ARENA_REPLAY_LOG_CAP);
@@ -716,60 +785,6 @@ export async function POST() {
       },
     };
   });
-
-  // 주간 시즌 순위 적립 — 매치 tx 밖 best-effort(실패해도 매치엔 영향 없음). 이번 주 시즌
-  //   pvp_ratings 에 양쪽 점수 변동/전적을 누적해 주간 순위를 만든다(매주 새 seasonId = 리셋).
-  //   기존 pvp 시즌 보상 인프라(pvp-season-rewards 크론·티어·우편·투기장 코인)를 그대로 활용 —
-  //   v2 아레나가 점수를 arena-state 에만 쓰던 탓에 비어 있던 pvp_ratings 를 채워 부활시킨다.
-  //   ⚠️ tx 안에 두면 적립 실패 시 매치가 통째 롤백되므로(PG: tx 내 에러=전체 abort) 밖에서 처리.
-  if (result.body.ok && result.body.ranked && result.body.opponent.userId) {
-    try {
-      const { scoreDelta, outcome, opponentScoreDelta } = result.body;
-      const defenderUserId = result.body.opponent.userId;
-      const defenderOutcome = oppositeArenaOutcome(outcome);
-      // 정산 시각은 fresh now — 매치가 주 경계(일 15:00 UTC)를 넘나들어도 적립 시점의
-      //   "현재(열린) 시즌" 에 정확히 귀속(닫힌/보상완료 시즌에 쓰지 않음).
-      const settleNow = new Date();
-      const season = await getOrCreateCurrentSeason(settleNow);
-      const ratingRows = [
-        { userId, delta: scoreDelta, outcome },
-        {
-          userId: defenderUserId,
-          delta: opponentScoreDelta,
-          outcome: defenderOutcome,
-        },
-      ];
-      await db.transaction(async (tx) => {
-        for (const row of ratingRows) {
-          const w = row.outcome === "win" ? 1 : 0;
-          const l = row.outcome === "loss" ? 1 : 0;
-          const d = row.outcome === "draw" ? 1 : 0;
-          await tx
-            .insert(pvpRatings)
-            .values({
-              userId: row.userId,
-              seasonId: season.id,
-              rating: ARENA_INITIAL_RATING + row.delta,
-              wins: w,
-              losses: l,
-              draws: d,
-            })
-            .onConflictDoUpdate({
-              target: [pvpRatings.userId, pvpRatings.seasonId],
-              set: {
-                rating: sql`${pvpRatings.rating} + ${row.delta}`,
-                wins: sql`${pvpRatings.wins} + ${w}`,
-                losses: sql`${pvpRatings.losses} + ${l}`,
-                draws: sql`${pvpRatings.draws} + ${d}`,
-                updatedAt: settleNow,
-              },
-            });
-        }
-      });
-    } catch (e) {
-      console.error("[arena] 주간 시즌 레이팅 적립 실패", e);
-    }
-  }
 
   return Response.json(result.body, { status: result.status });
 }

@@ -14,7 +14,7 @@ const CATEGORY_OPTIONS = [
 
 type SubmitState = "idle" | "submitting" | "sent" | "error";
 
-export function FeedbackForm() {
+export function FeedbackForm({ onSent }: { onSent?: () => void }) {
   const [category, setCategory] =
     useState<(typeof CATEGORY_OPTIONS)[number]["id"]>("suggestion");
   const [content, setContent] = useState("");
@@ -59,6 +59,7 @@ export function FeedbackForm() {
       setState("sent");
       setMessage("접수됐어요.");
       setContent("");
+      onSent?.();
     } catch {
       setState("error");
       setMessage("전송하지 못했어요.");

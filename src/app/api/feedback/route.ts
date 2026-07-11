@@ -23,6 +23,32 @@ function normalizePath(value: unknown) {
   return path.slice(0, PATH_MAX);
 }
 
+// GET /api/feedback — 로그인 유저 본인의 최근 건의와 공개 답변을 조회한다.
+export async function GET() {
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const entries = await db
+    .select({
+      id: feedbackReports.id,
+      category: feedbackReports.category,
+      content: feedbackReports.content,
+      status: feedbackReports.status,
+      adminReply: feedbackReports.adminReply,
+      reviewedAt: feedbackReports.reviewedAt,
+      repliedAt: feedbackReports.repliedAt,
+      createdAt: feedbackReports.createdAt,
+    })
+    .from(feedbackReports)
+    .where(eq(feedbackReports.userId, userId))
+    .orderBy(desc(feedbackReports.id))
+    .limit(50);
+
+  return Response.json({ ok: true, entries });
+}
+
 // POST /api/feedback — 설정 메뉴의 건의사항 접수.
 // 로그인 유저만 가능하며, 원문/카테고리/현재 경로/당시 표시 이름을 보존한다.
 export async function POST(req: Request) {

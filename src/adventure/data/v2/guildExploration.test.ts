@@ -52,7 +52,7 @@ describe("guild exploration weekly missions", () => {
     ]);
     expect(GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_hunt_win_500).toMatchObject({
       metric: "huntWins",
-      goal: GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
+      goal: 10_000,
       rewardGold: 3_000_000,
       rewardMapFragments: 25,
     });
@@ -84,10 +84,12 @@ describe("guild exploration weekly missions", () => {
       GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_deep_hunt_win_100,
     ).toMatchObject({
       metric: "deepHuntWins",
-      goal: GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
+      goal: 2_500,
       rewardGold: 3_000_000,
       rewardMapFragments: 25,
     });
+    expect(GUILD_EXPLORATION_HUNT_WEEKLY_TARGET).toBe(10_000);
+    expect(GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET).toBe(2_500);
     expect(GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH).toBe(49);
   });
 

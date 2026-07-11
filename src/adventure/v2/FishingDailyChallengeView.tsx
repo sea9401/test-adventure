@@ -11,19 +11,17 @@ import type {
   FishingChallengesState,
 } from "./useFishingDailyChallenge";
 import { useRewardToast, useSystemMessageState } from "./RewardToastProvider";
-import type { FarmCropId, FarmSeedInventory } from "./farm";
+import {
+  FARM_CROPS,
+  type FarmCropId,
+  type FarmSeedInventory,
+} from "./farm";
 
 type ChallengeItemView = FishingProgressTaskView & {
   desc: string;
   rewardCoins: number;
   rewardSeeds?: FarmSeedInventory;
   rewardSeedPouchName?: string;
-};
-
-const SEED_LABELS: Record<FarmCropId, string> = {
-  wheat: "밀 씨앗",
-  herb: "허브 씨앗",
-  corn: "옥수수 씨앗",
 };
 
 function fmtRemain(nextResetAt: number): string {
@@ -126,7 +124,7 @@ function formatSeedRewards(seeds?: FarmSeedInventory): string {
     ([, count]) => (count ?? 0) > 0,
   ) as [FarmCropId, number][];
   return entries
-    .map(([cropId, count]) => `${SEED_LABELS[cropId]} ${count}개`)
+    .map(([cropId, count]) => `${FARM_CROPS[cropId].seedName} ${count}개`)
     .join(", ");
 }
 

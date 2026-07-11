@@ -9,17 +9,51 @@ export const FARM_DAILY_DELIVERY_LIMIT = 2;
 export const FARMING_LEVEL_XP_SCALE = 10;
 export const FARMING_XP_MS_PER_POINT = 5 * 60 * 1000;
 
-export type FarmCropId = "wheat" | "herb" | "corn";
+export type FarmCropId =
+  | "wheat"
+  | "herb"
+  | "corn"
+  | "tomato"
+  | "strawberry"
+  | "potato"
+  | "onion"
+  | "rice"
+  | "soybean"
+  | "sugarcane"
+  | "cacao";
 
 export const FARM_CROP_REQUIRED_SKILL_ID = "v2c_farmer_seedselection";
 export const FARM_CROP_REQUIRED_SKILL_NAME = "씨앗 선별";
+
+export const FARM_CROP_UNLOCK_SKILLS = {
+  farmer: {
+    id: FARM_CROP_REQUIRED_SKILL_ID,
+    name: FARM_CROP_REQUIRED_SKILL_NAME,
+  },
+  horticulturist: {
+    id: "v2c_horticulturist_soilreading",
+    name: "토양 읽기",
+  },
+  masterfarmer: {
+    id: "v2c_masterfarmer_composting",
+    name: "퇴비 배합",
+  },
+  harvestking: {
+    id: "v2c_harvestking_abundance",
+    name: "풍작 감각",
+  },
+  earthartisan: {
+    id: "v2c_earthartisan_landcare",
+    name: "대지 돌보기",
+  },
+} as const;
 
 export type FarmSeedInventory = Partial<Record<FarmCropId, number>>;
 export type FarmItemInventory = Partial<Record<FarmItemId, number>>;
 
 export const FARM_DAILY_QUEST_SEED_POUCH_NAME = "낡은 씨앗 주머니";
 
-export const FARM_DAILY_QUEST_SEED_REWARD: Record<FarmCropId, number> = {
+export const FARM_DAILY_QUEST_SEED_REWARD: FarmSeedInventory = {
   wheat: 4,
   herb: 2,
   corn: 1,
@@ -32,7 +66,7 @@ export const FARM_FISHING_CONTRACT_SEED_REWARD: FarmSeedInventory = {
   herb: 1,
 };
 
-export const FARM_FISHING_SHOP_SEED_REWARD: Record<FarmCropId, number> = {
+export const FARM_FISHING_SHOP_SEED_REWARD: FarmSeedInventory = {
   wheat: 3,
   herb: 2,
   corn: 1,
@@ -57,7 +91,66 @@ export type FarmItemId =
   | "herb"
   | "silverleaf"
   | "corn"
-  | "sweet_corn";
+  | "sweet_corn"
+  | "tomato"
+  | "heirloom_tomato"
+  | "strawberry"
+  | "white_strawberry"
+  | "potato"
+  | "golden_potato"
+  | "onion"
+  | "pearl_onion"
+  | "rice"
+  | "golden_rice"
+  | "soybean"
+  | "black_soybean"
+  | "sugarcane"
+  | "crystal_sugarcane"
+  | "cacao"
+  | "royal_cacao";
+
+export type FarmItemDefinition = {
+  name: string;
+  icon: string;
+  imageSrc?: string;
+};
+
+export const FARM_ITEMS: Record<FarmItemId, FarmItemDefinition> = {
+  wheat: { name: "밀", icon: "🌾", imageSrc: "/images/items/farm/wheat.webp" },
+  golden_wheat: {
+    name: "황금 밀",
+    icon: "✨",
+    imageSrc: "/images/items/farm/golden_wheat.webp",
+  },
+  herb: { name: "허브", icon: "🌿", imageSrc: "/images/items/farm/herb.webp" },
+  silverleaf: {
+    name: "은빛잎",
+    icon: "🍃",
+    imageSrc: "/images/items/farm/silverleaf.webp",
+  },
+  corn: { name: "옥수수", icon: "🌽", imageSrc: "/images/items/farm/corn.webp" },
+  sweet_corn: {
+    name: "달콤 옥수수",
+    icon: "🌽",
+    imageSrc: "/images/items/farm/sweet_corn.webp",
+  },
+  tomato: { name: "토마토", icon: "🍅" },
+  heirloom_tomato: { name: "고대종 토마토", icon: "🍅" },
+  strawberry: { name: "딸기", icon: "🍓" },
+  white_strawberry: { name: "설향 딸기", icon: "🍓" },
+  potato: { name: "감자", icon: "🥔" },
+  golden_potato: { name: "황금 감자", icon: "🥔" },
+  onion: { name: "양파", icon: "🧅" },
+  pearl_onion: { name: "진주 양파", icon: "🧅" },
+  rice: { name: "쌀", icon: "🍚" },
+  golden_rice: { name: "황금 쌀", icon: "🌾" },
+  soybean: { name: "콩", icon: "🫘" },
+  black_soybean: { name: "검은콩", icon: "🫘" },
+  sugarcane: { name: "사탕수수", icon: "🎋" },
+  crystal_sugarcane: { name: "수정 사탕수수", icon: "💎" },
+  cacao: { name: "카카오", icon: "🍫" },
+  royal_cacao: { name: "왕실 카카오", icon: "🍫" },
+};
 
 export type FarmCrop = {
   id: FarmCropId;
@@ -181,6 +274,8 @@ export type FarmShopItem = {
   note: string;
   costReputation: number;
   rewardSeeds: FarmSeedInventory;
+  requiredSkillId?: string;
+  requiredSkillName?: string;
 };
 
 export type FarmShopPurchaseResult = {
@@ -241,14 +336,141 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     requiredSkillName: FARM_CROP_REQUIRED_SKILL_NAME,
     note: "농부 패시브를 배운 뒤 다룰 수 있는 장기 작물입니다. 오래 걸리지만 수확량이 좋습니다.",
   },
+  tomato: {
+    id: "tomato",
+    name: "토마토",
+    seedName: "토마토 씨앗",
+    itemId: "tomato",
+    itemName: "토마토",
+    rareItemId: "heirloom_tomato",
+    rareItemName: "고대종 토마토",
+    growMs: 30 * 60 * 1000,
+    yieldMin: 3,
+    yieldMax: 5,
+    rareChance: 0.08,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.horticulturist.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.horticulturist.name,
+    note: "수프, 소스, 샐러드로 폭넓게 이어지는 원예 작물입니다.",
+  },
+  strawberry: {
+    id: "strawberry",
+    name: "딸기",
+    seedName: "딸기 씨앗",
+    itemId: "strawberry",
+    itemName: "딸기",
+    rareItemId: "white_strawberry",
+    rareItemName: "설향 딸기",
+    growMs: 45 * 60 * 1000,
+    yieldMin: 2,
+    yieldMax: 4,
+    rareChance: 0.1,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.horticulturist.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.horticulturist.name,
+    note: "잼, 주스, 제과류에 활용하기 좋은 과일 작물입니다.",
+  },
+  potato: {
+    id: "potato",
+    name: "감자",
+    seedName: "씨감자",
+    itemId: "potato",
+    itemName: "감자",
+    rareItemId: "golden_potato",
+    rareItemName: "황금 감자",
+    growMs: 90 * 60 * 1000,
+    yieldMin: 4,
+    yieldMax: 7,
+    rareChance: 0.07,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.masterfarmer.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.masterfarmer.name,
+    note: "구이, 수프, 전분 가공에 두루 쓰이는 든든한 뿌리작물입니다.",
+  },
+  onion: {
+    id: "onion",
+    name: "양파",
+    seedName: "양파 씨앗",
+    itemId: "onion",
+    itemName: "양파",
+    rareItemId: "pearl_onion",
+    rareItemName: "진주 양파",
+    growMs: 2 * 60 * 60 * 1000,
+    yieldMin: 3,
+    yieldMax: 6,
+    rareChance: 0.08,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.masterfarmer.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.masterfarmer.name,
+    note: "볶음, 수프, 육류 요리의 맛을 받쳐 주는 핵심 향채입니다.",
+  },
+  rice: {
+    id: "rice",
+    name: "쌀",
+    seedName: "볍씨",
+    itemId: "rice",
+    itemName: "쌀",
+    rareItemId: "golden_rice",
+    rareItemName: "황금 쌀",
+    growMs: 3 * 60 * 60 * 1000,
+    yieldMin: 5,
+    yieldMax: 8,
+    rareChance: 0.06,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.harvestking.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.harvestking.name,
+    note: "밥, 죽, 떡과 발효식까지 확장되는 상급 주식 작물입니다.",
+  },
+  soybean: {
+    id: "soybean",
+    name: "콩",
+    seedName: "콩 씨앗",
+    itemId: "soybean",
+    itemName: "콩",
+    rareItemId: "black_soybean",
+    rareItemName: "검은콩",
+    growMs: 4 * 60 * 60 * 1000,
+    yieldMin: 4,
+    yieldMax: 7,
+    rareChance: 0.08,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.harvestking.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.harvestking.name,
+    note: "두부, 장류, 기름과 단백질 요리로 가공하기 좋은 작물입니다.",
+  },
+  sugarcane: {
+    id: "sugarcane",
+    name: "사탕수수",
+    seedName: "사탕수수 묘목",
+    itemId: "sugarcane",
+    itemName: "사탕수수",
+    rareItemId: "crystal_sugarcane",
+    rareItemName: "수정 사탕수수",
+    growMs: 6 * 60 * 60 * 1000,
+    yieldMin: 4,
+    yieldMax: 6,
+    rareChance: 0.07,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.earthartisan.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.earthartisan.name,
+    note: "설탕, 시럽, 음료와 고급 디저트의 기반이 되는 가공 작물입니다.",
+  },
+  cacao: {
+    id: "cacao",
+    name: "카카오",
+    seedName: "카카오 묘목",
+    itemId: "cacao",
+    itemName: "카카오",
+    rareItemId: "royal_cacao",
+    rareItemName: "왕실 카카오",
+    growMs: 8 * 60 * 60 * 1000,
+    yieldMin: 3,
+    yieldMax: 5,
+    rareChance: 0.1,
+    requiredSkillId: FARM_CROP_UNLOCK_SKILLS.earthartisan.id,
+    requiredSkillName: FARM_CROP_UNLOCK_SKILLS.earthartisan.name,
+    note: "초콜릿, 음료, 제과류에 쓰이는 전설 등급의 고급 작물입니다.",
+  },
 };
 
 export const FARM_CROP_LIST = Object.values(FARM_CROPS);
 
-export const FARM_STARTER_SEEDS: Record<FarmCropId, number> = {
+export const FARM_STARTER_SEEDS: FarmSeedInventory = {
   wheat: 3,
   herb: 1,
-  corn: 0,
 };
 
 export function emptyFarmState(now = Date.now()): FarmState {
@@ -347,6 +569,86 @@ export function getFarmDeliveryRequests(): FarmDeliveryRequest[] {
       rewardSeeds: {},
       rewardReputation: 4,
     },
+    {
+      id: "inn-tomato",
+      title: "여관 토마토 바구니",
+      note: "여관 주방에서 소스와 수프에 쓸 잘 익은 토마토를 찾습니다.",
+      requiredItemId: "tomato",
+      requiredItemName: "토마토",
+      requiredQuantity: 3,
+      rewardSeeds: {},
+      rewardReputation: 3,
+    },
+    {
+      id: "bakery-strawberry",
+      title: "제빵소 딸기 상자",
+      note: "잼과 과일 타르트를 시험할 제빵소의 주문입니다.",
+      requiredItemId: "strawberry",
+      requiredItemName: "딸기",
+      requiredQuantity: 2,
+      rewardSeeds: {},
+      rewardReputation: 4,
+    },
+    {
+      id: "tavern-potato",
+      title: "주점 감자 자루",
+      note: "든든한 모험가 식사를 준비하기 위한 감자 주문입니다.",
+      requiredItemId: "potato",
+      requiredItemName: "감자",
+      requiredQuantity: 5,
+      rewardSeeds: {},
+      rewardReputation: 5,
+    },
+    {
+      id: "kitchen-onion",
+      title: "공동 주방 양파 망",
+      note: "여러 요리의 밑맛을 낼 양파를 공동 주방에 납품합니다.",
+      requiredItemId: "onion",
+      requiredItemName: "양파",
+      requiredQuantity: 4,
+      rewardSeeds: {},
+      rewardReputation: 5,
+    },
+    {
+      id: "granary-rice",
+      title: "마을 곡물창고 쌀 포대",
+      note: "마을의 주식 비축분으로 쓸 쌀을 곡물창고에서 매입합니다.",
+      requiredItemId: "rice",
+      requiredItemName: "쌀",
+      requiredQuantity: 6,
+      rewardSeeds: {},
+      rewardReputation: 6,
+    },
+    {
+      id: "fermenter-soybean",
+      title: "발효장 콩 자루",
+      note: "장류와 두부를 연구하는 발효장의 정기 주문입니다.",
+      requiredItemId: "soybean",
+      requiredItemName: "콩",
+      requiredQuantity: 5,
+      rewardSeeds: {},
+      rewardReputation: 6,
+    },
+    {
+      id: "confectioner-sugarcane",
+      title: "제과점 사탕수수 묶음",
+      note: "설탕과 시럽을 만들기 위한 고급 제과점 주문입니다.",
+      requiredItemId: "sugarcane",
+      requiredItemName: "사탕수수",
+      requiredQuantity: 5,
+      rewardSeeds: {},
+      rewardReputation: 7,
+    },
+    {
+      id: "chocolatier-cacao",
+      title: "왕실 제과사 카카오 상자",
+      note: "고급 초콜릿과 음료를 연구할 카카오를 구하고 있습니다.",
+      requiredItemId: "cacao",
+      requiredItemName: "카카오",
+      requiredQuantity: 4,
+      rewardSeeds: {},
+      rewardReputation: 8,
+    },
   ];
 }
 
@@ -376,6 +678,16 @@ export function getFarmSpecialDeliveryRequests(): FarmSpecialDeliveryRequest[] {
       rewardSeeds: {},
       rewardReputation: 5,
     },
+    ...FARM_CROP_LIST.filter(
+      (crop) => crop.id !== "corn" && crop.requiredSkillId,
+    ).map((crop, index) => ({
+      id: `rare-${crop.rareItemId}`,
+      title: `${crop.rareItemName} 연구 납품`,
+      note: `${crop.rareItemName}의 맛과 가공 특성을 연구하기 위한 희귀 수확 주문입니다.`,
+      requiredItems: { [crop.rareItemId]: 1 },
+      rewardSeeds: {},
+      rewardReputation: 5 + index,
+    })),
   ];
 }
 
@@ -430,6 +742,44 @@ export function getFarmShopItems(): FarmShopItem[] {
       note: "옥수수 재배를 이어가기 위한 비싼 장터 보충품입니다.",
       costReputation: 12,
       rewardSeeds: { corn: 2 },
+      requiredSkillId: FARM_CROP_UNLOCK_SKILLS.farmer.id,
+      requiredSkillName: FARM_CROP_UNLOCK_SKILLS.farmer.name,
+    },
+    {
+      id: "horticulture-seed-box",
+      title: "원예가 씨앗 상자",
+      note: "소스와 제과 요리의 기반이 될 토마토와 딸기 씨앗입니다.",
+      costReputation: 16,
+      rewardSeeds: { tomato: 2, strawberry: 1 },
+      requiredSkillId: FARM_CROP_UNLOCK_SKILLS.horticulturist.id,
+      requiredSkillName: FARM_CROP_UNLOCK_SKILLS.horticulturist.name,
+    },
+    {
+      id: "staple-seed-box",
+      title: "숙련 농부 밭작물 상자",
+      note: "다양한 식사에 쓰이는 감자와 양파를 함께 보충합니다.",
+      costReputation: 20,
+      rewardSeeds: { potato: 2, onion: 2 },
+      requiredSkillId: FARM_CROP_UNLOCK_SKILLS.masterfarmer.id,
+      requiredSkillName: FARM_CROP_UNLOCK_SKILLS.masterfarmer.name,
+    },
+    {
+      id: "artisan-seed-box",
+      title: "농업 장인 곡물 상자",
+      note: "주식과 발효 요리로 확장되는 볍씨와 콩 씨앗입니다.",
+      costReputation: 26,
+      rewardSeeds: { rice: 2, soybean: 2 },
+      requiredSkillId: FARM_CROP_UNLOCK_SKILLS.harvestking.id,
+      requiredSkillName: FARM_CROP_UNLOCK_SKILLS.harvestking.name,
+    },
+    {
+      id: "legendary-seed-box",
+      title: "전설의 농부 가공작물 상자",
+      note: "설탕과 초콜릿 계열 요리를 위한 사탕수수와 카카오 묘목입니다.",
+      costReputation: 34,
+      rewardSeeds: { sugarcane: 2, cacao: 1 },
+      requiredSkillId: FARM_CROP_UNLOCK_SKILLS.earthartisan.id,
+      requiredSkillName: FARM_CROP_UNLOCK_SKILLS.earthartisan.name,
     },
   ];
 }
@@ -481,9 +831,16 @@ export function farmingLevelForState(state: FarmState): number {
 export function buyFarmShopItem(
   state: FarmState,
   itemId: string,
+  options: { learnedSkillIds?: Iterable<string> | null } = {},
 ): { state: FarmState; result: FarmShopPurchaseResult } {
   const item = getFarmShopItems().find((entry) => entry.id === itemId);
   if (!item) throw new FarmError("shop_item_not_found");
+  if (
+    item.requiredSkillId &&
+    !hasFarmCropRequiredSkill(options.learnedSkillIds, item.requiredSkillId)
+  ) {
+    throw new FarmError("shop_item_locked");
+  }
   if (farmAvailableReputation(state) < item.costReputation) {
     throw new FarmError("not_enough_reputation");
   }
@@ -832,8 +1189,9 @@ export function canPlantFarmCrop(
 
 export function hasFarmCropRequiredSkill(
   learnedSkillIds: Iterable<string> | null | undefined,
-  requiredSkillId = FARM_CROP_REQUIRED_SKILL_ID,
+  requiredSkillId: string | undefined = FARM_CROP_REQUIRED_SKILL_ID,
 ): boolean {
+  if (!requiredSkillId) return true;
   if (!learnedSkillIds) return false;
   for (const skillId of learnedSkillIds) {
     if (skillId === requiredSkillId) return true;

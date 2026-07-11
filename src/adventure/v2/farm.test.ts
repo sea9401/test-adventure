@@ -3,6 +3,7 @@ import {
   FARM_DAILY_QUEST_SEED_REWARD,
   FARM_FISHING_SHOP_SEED_REWARD,
   FARM_CROP_REQUIRED_SKILL_ID,
+  FARM_CROP_UNLOCK_SKILLS,
   buyFarmPlotUpgrade,
   buyFarmShopItem,
   canPlantFarmCrop,
@@ -214,7 +215,9 @@ describe("adventurer farm", () => {
       seeds: {},
     };
 
-    const { state: next, result } = buyFarmShopItem(state, "market-seed-box");
+    const { state: next, result } = buyFarmShopItem(state, "market-seed-box", {
+      learnedSkillIds: [FARM_CROP_REQUIRED_SKILL_ID],
+    });
 
     expect(result).toMatchObject({
       itemId: "market-seed-box",
@@ -225,6 +228,39 @@ describe("adventurer farm", () => {
     expect(next.stats.reputationSpent).toBe(12);
     expect(farmAvailableReputation(next)).toBe(8);
     expect(next.plots).toHaveLength(2);
+  });
+
+  it("unlocks two cooking-oriented crops at each advanced farmer skill", () => {
+    const unlocks = [
+      [FARM_CROP_UNLOCK_SKILLS.horticulturist.id, ["tomato", "strawberry"]],
+      [FARM_CROP_UNLOCK_SKILLS.masterfarmer.id, ["potato", "onion"]],
+      [FARM_CROP_UNLOCK_SKILLS.harvestking.id, ["rice", "soybean"]],
+      [FARM_CROP_UNLOCK_SKILLS.earthartisan.id, ["sugarcane", "cacao"]],
+    ] as const;
+
+    for (const [skillId, cropIds] of unlocks) {
+      for (const cropId of cropIds) {
+        expect(canPlantFarmCrop(cropId, [])).toBe(false);
+        expect(canPlantFarmCrop(cropId, [skillId])).toBe(true);
+      }
+    }
+  });
+
+  it("prevents buying an advanced seed box before learning its skill", () => {
+    const state = {
+      ...emptyFarmState(1_000),
+      stats: { ...emptyFarmState(1_000).stats, reputation: 100 },
+    };
+
+    expect(() => buyFarmShopItem(state, "horticulture-seed-box")).toThrow(
+      "shop_item_locked",
+    );
+
+    const { state: next } = buyFarmShopItem(state, "horticulture-seed-box", {
+      learnedSkillIds: [FARM_CROP_UNLOCK_SKILLS.horticulturist.id],
+    });
+    expect(next.seeds.tomato).toBe(2);
+    expect(next.seeds.strawberry).toBe(1);
   });
 
   it("rejects farm shop purchases without enough available reputation", () => {

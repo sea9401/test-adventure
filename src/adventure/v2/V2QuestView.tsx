@@ -24,6 +24,11 @@ import type {
   RepeatQuestView,
 } from "@/adventure/data/v2/v2RepeatQuests";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  FARM_CROPS,
+  type FarmCropId,
+  type FarmSeedInventory,
+} from "./farm";
 
 // 퀘스트 — 일일/주간/업적 3탭.
 //   업적(가이드 퀘스트): 튜토리얼 겸 성장 안내. 완료 자동 감지, 개별 보상 "받기".
@@ -40,7 +45,7 @@ type RepeatSection = {
 
 type SeedPouchReward = {
   name: string;
-  seeds: Partial<Record<"wheat" | "herb" | "corn", number>>;
+  seeds: FarmSeedInventory;
 };
 
 type RepeatBundleView = BaseRepeatBundleView & {
@@ -80,14 +85,12 @@ function rewardText(reward: QuestReward): string {
 }
 
 function seedPouchText(pouch: SeedPouchReward): string {
-  const labels: Record<keyof SeedPouchReward["seeds"], string> = {
-    wheat: "밀 씨앗",
-    herb: "허브 씨앗",
-    corn: "옥수수 씨앗",
-  };
   const seeds = Object.entries(pouch.seeds)
     .filter(([, count]) => (count ?? 0) > 0)
-    .map(([id, count]) => `${labels[id as keyof typeof labels]} ${count}개`)
+    .map(
+      ([id, count]) =>
+        `${FARM_CROPS[id as FarmCropId].seedName} ${count}개`,
+    )
     .join(", ");
   return seeds ? `${pouch.name}(${seeds})` : pouch.name;
 }

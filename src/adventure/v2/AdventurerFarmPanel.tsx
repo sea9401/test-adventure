@@ -16,6 +16,8 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import {
   FARM_DAILY_DELIVERY_LIMIT,
+  FARM_CROPS,
+  FARM_ITEMS,
   FARM_MAX_PLOT_COUNT,
   canPlantFarmCrop,
   farmAvailableReputation,
@@ -46,29 +48,9 @@ type FarmToast = {
 
 const FARM_TOAST_MS = 2800;
 
-const FARM_ITEM_IMAGE_SRC: Record<FarmItemId, string> = {
-  wheat: "/images/items/farm/wheat.webp",
-  golden_wheat: "/images/items/farm/golden_wheat.webp",
-  herb: "/images/items/farm/herb.webp",
-  silverleaf: "/images/items/farm/silverleaf.webp",
-  corn: "/images/items/farm/corn.webp",
-  sweet_corn: "/images/items/farm/sweet_corn.webp",
-};
-
-const ITEM_LABELS: Record<FarmItemId, string> = {
-  wheat: "밀",
-  golden_wheat: "황금 밀",
-  herb: "허브",
-  silverleaf: "은빛잎",
-  corn: "옥수수",
-  sweet_corn: "달콤 옥수수",
-};
-
-const SEED_LABELS: Record<FarmCropId, string> = {
-  wheat: "밀 씨앗",
-  herb: "허브 씨앗",
-  corn: "옥수수 씨앗",
-};
+const ITEM_LABELS = Object.fromEntries(
+  Object.entries(FARM_ITEMS).map(([id, item]) => [id, item.name]),
+) as Record<FarmItemId, string>;
 
 export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
   const {
@@ -358,6 +340,7 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
               <FarmShopPanel
                 items={shopItems}
                 availableReputation={availableReputation}
+                learnedSkillIds={learnedSkillIds}
                 busyShopItemId={busyShopItemId}
                 onBuy={buyShopItem}
               />
@@ -500,18 +483,30 @@ function FarmItemImage({
   alt: string;
   className?: string;
 }) {
+  const item = FARM_ITEMS[itemId];
   return (
     <span
+      role="img"
+      aria-label={alt}
       className={`relative block shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${className}`}
     >
-      <Image
-        src={FARM_ITEM_IMAGE_SRC[itemId]}
-        alt={alt}
-        fill
-        sizes="64px"
-        unoptimized
-        className="object-cover"
-      />
+      {item.imageSrc ? (
+        <Image
+          src={item.imageSrc}
+          alt=""
+          fill
+          sizes="64px"
+          unoptimized
+          className="object-cover"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50 to-amber-50 text-[1.75rem] dark:from-emerald-950 dark:to-amber-950"
+        >
+          {item.icon}
+        </span>
+      )}
     </span>
   );
 }
@@ -688,11 +683,13 @@ function DeliveryRequestCard({
 function FarmShopPanel({
   items,
   availableReputation,
+  learnedSkillIds,
   busyShopItemId,
   onBuy,
 }: {
   items: FarmShopItem[];
   availableReputation: number;
+  learnedSkillIds: readonly string[];
   busyShopItemId: string | null;
   onBuy: (itemId: string) => void;
 }) {
@@ -710,10 +707,14 @@ function FarmShopPanel({
       <div className="grid gap-2 lg:grid-cols-3">
         {items.map((item) => {
           const affordable = availableReputation >= item.costReputation;
+          const locked = Boolean(
+            item.requiredSkillId &&
+              !learnedSkillIds.includes(item.requiredSkillId),
+          );
           const busy = busyShopItemId === item.id;
           const previewCropId = firstSeedCropId(item.rewardSeeds);
           const previewItemId = previewCropId
-            ? FARM_CROP_ITEM_ID[previewCropId]
+            ? FARM_CROPS[previewCropId].itemId
             : null;
           return (
             <div
@@ -752,10 +753,16 @@ function FarmShopPanel({
               <button
                 type="button"
                 onClick={() => onBuy(item.id)}
-                disabled={!affordable || busy}
+                disabled={locked || !affordable || busy}
                 className="mt-auto rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-stone-200 disabled:text-stone-500 dark:disabled:bg-zinc-800"
               >
-                {busy ? "구매 중..." : affordable ? "구매하기" : "증표 부족"}
+                {busy
+                  ? "구매 중..."
+                  : locked
+                    ? `${item.requiredSkillName ?? "농부 기술"} 필요`
+                    : affordable
+                      ? "구매하기"
+                      : "증표 부족"}
               </button>
             </div>
           );
@@ -1084,12 +1091,6 @@ function InventoryPanel({
   );
 }
 
-const FARM_CROP_ITEM_ID: Record<FarmCropId, FarmItemId> = {
-  wheat: "wheat",
-  herb: "herb",
-  corn: "corn",
-};
-
 function formatSeedRewards(seeds: FarmSeedInventory): string {
   const entries = Object.entries(seeds).filter(([, count]) => (count ?? 0) > 0) as [
     FarmCropId,
@@ -1097,7 +1098,7 @@ function formatSeedRewards(seeds: FarmSeedInventory): string {
   ][];
   if (entries.length === 0) return "씨앗 없음";
   return entries
-    .map(([cropId, count]) => `${SEED_LABELS[cropId]} ${count}개`)
+    .map(([cropId, count]) => `${FARM_CROPS[cropId].seedName} ${count}개`)
     .join(", ");
 }
 
@@ -1164,7 +1165,10 @@ function plotLabel(id: string): string {
 
 function formatDuration(ms: number): string {
   const minutes = Math.round(ms / 60000);
-  return minutes >= 60 ? `${Math.round(minutes / 60)}시간` : `${minutes}분`;
+  if (minutes < 60) return `${minutes}분`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder > 0 ? `${hours}시간 ${remainder}분` : `${hours}시간`;
 }
 
 function formatRemaining(ms: number): string {

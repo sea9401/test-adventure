@@ -1,7 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users, savesKv } from "@/db/schema";
-import { ensureUser } from "@/lib/server/ensureUser";
+import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
@@ -39,7 +39,7 @@ class TakenError extends Error {
 export async function POST(req: Request) {
   let userId: string | null;
   try {
-    userId = await ensureUser();
+    userId = await ensureOriginalUser();
   } catch (e) {
     const err = e as { code?: string; name?: string; message?: string };
     console.error("[/api/profile/setup] ensureUser threw", {

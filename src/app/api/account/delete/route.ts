@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, users } from "@/db/schema";
-import { ensureUser } from "@/lib/server/ensureUser";
+import { ensureOriginalUser } from "@/lib/server/ensureUser";
+import { getActiveAdminImpersonation } from "@/lib/server/adminImpersonation";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 
 // POST /api/account/delete — body { confirm: string }
@@ -20,7 +21,13 @@ import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
 const FALLBACK_PHRASE = "탈퇴";
 
 export async function POST(req: Request) {
-  const userId = await ensureUser();
+  if (await getActiveAdminImpersonation()) {
+    return Response.json(
+      { error: "impersonation_active" },
+      { status: 409 },
+    );
+  }
+  const userId = await ensureOriginalUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
 
   let body: { confirm?: unknown };

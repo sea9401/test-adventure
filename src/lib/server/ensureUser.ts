@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { readAdminImpersonationFor } from "@/lib/server/adminImpersonation";
 
 // API 라우트 진입 시 호출 — Auth.js 세션에서 userId 반환.
 // 비인증 + stale JWT(=DB 와 어긋난 session.user.id) 둘 다 null 로 응답 → 호출 측은 401.
@@ -14,7 +15,10 @@ import { users } from "@/db/schema";
 //     모두 이 경로로 떨어져 캐릭터 생성이 막혔던 사례 — AUTH_SECRET 로테이션으로 일단 unblock.)
 //   - email 충돌은 "JWT 가 가리키는 user_id 가 DB 에 없는데, 같은 email 의 다른 user 행은 있다"
 //     는 신호 = stale JWT. null 반환해서 호출 측에서 401 처리.
-export async function ensureUser(): Promise<string | null> {
+async function ensureOriginalUserContext(): Promise<{
+  id: string;
+  email: string | null;
+} | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
 
@@ -48,5 +52,31 @@ export async function ensureUser(): Promise<string | null> {
     return null;
   }
 
-  return session.user.id;
+  return { id: session.user.id, email: session.user.email ?? null };
+}
+
+/** 계정 삭제·OAuth·단일 세션 같은 보안 기능이 사용할 원래 로그인 유저. */
+export async function ensureOriginalUser(): Promise<string | null> {
+  return (await ensureOriginalUserContext())?.id ?? null;
+}
+
+export async function ensureUser(): Promise<string | null> {
+  const original = await ensureOriginalUserContext();
+  if (!original) return null;
+
+  const impersonation = await readAdminImpersonationFor(
+    original.id,
+    original.email,
+  );
+  if (!impersonation) return original.id;
+
+  // 서명 쿠키가 유효해도 대상 계정이 삭제됐으면 원래 관리자로
+  // 조용히 폴백하지 않는다. 폴백하면 대상에게 쓸 요청이 관리자
+  // 자신의 세이브에 적용될 수 있다.
+  const [target] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, impersonation.targetUserId))
+    .limit(1);
+  return target?.id ?? null;
 }

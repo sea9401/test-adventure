@@ -17,6 +17,7 @@ import { OpsUserSummarySection } from "./OpsUserSummarySection";
 import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
 import { CharacterPreviewSection } from "./CharacterPreviewSection";
+import { UserImpersonationSection } from "./UserImpersonationSection";
 
 export function SelectedUserPanel({
   user,
@@ -91,6 +92,12 @@ export function SelectedUserPanel({
       <OpsUserNotesSection userId={user.id} readOnly={readOnly} />
 
       <OpsUserSummarySection userId={user.id} readOnly={readOnly} />
+
+      <UserImpersonationSection
+        key={`impersonation:${user.id}`}
+        userId={user.id}
+        gameName={profile.name}
+      />
 
       <CharacterPreviewSection
         key={`${user.id}:${previewDepth}`}

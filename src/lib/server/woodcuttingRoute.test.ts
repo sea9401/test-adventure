@@ -87,7 +87,7 @@ describe("woodcutting routes", () => {
     expect(response.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(typeof json.sessionId).toBe("string");
-    expect(json.durationMs).toBeGreaterThanOrEqual(3_000);
+    expect(json.durationMs).toBeGreaterThanOrEqual(7_000);
     expect(json.chops).toBeGreaterThanOrEqual(5);
     expect(json.spot.id).toBe("pine_grove");
     expect(json.timber).toBe(7);
@@ -107,10 +107,10 @@ describe("woodcutting routes", () => {
     const response = await START(startReq("birch_grove"));
     const json = await response.json();
 
-    expect(json.baseDurationMs).toBe(3_800);
-    expect(json.durationMs).toBe(3_700);
+    expect(json.baseDurationMs).toBe(8_000);
+    expect(json.durationMs).toBe(7_800);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
-      readyAt: NOW + 3_700,
+      readyAt: NOW + 7_800,
     });
   });
 

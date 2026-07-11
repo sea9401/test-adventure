@@ -54,7 +54,18 @@ describe("woodcuttingSession", () => {
     const log = recordWoodcuttingSuccess(parseWoodcuttingLog({}), {
       treeId: "birch",
       timber: WOODCUTTING_TIMBER_REWARD,
+      xp: WOODCUTTING_TREES.birch.xp,
     });
-    expect(log).toMatchObject({ cuts: 1, timberEarned: 1, trees: { birch: 1 } });
+    expect(log).toMatchObject({
+      cuts: 1,
+      xp: WOODCUTTING_TREES.birch.xp,
+      timberEarned: 1,
+      trees: { birch: 1 },
+    });
+  });
+
+  it("기존 기록은 완료 횟수당 10 XP로 이어받는다", () => {
+    expect(parseWoodcuttingLog({ cuts: 7 }).xp).toBe(70);
+    expect(parseWoodcuttingLog({ cuts: 7, xp: 93 }).xp).toBe(93);
   });
 });

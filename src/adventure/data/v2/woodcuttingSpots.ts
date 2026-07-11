@@ -17,6 +17,7 @@ export type WoodcuttingTree = {
   materialId: WoodcuttingMaterialId;
   durationMs: number;
   chops: number;
+  xp: number;
 };
 
 export const WOODCUTTING_MATERIAL_ID = {
@@ -66,12 +67,54 @@ export const WOODCUTTING_MATERIALS: Record<
 };
 
 export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
-  pine: { id: "pine", name: "소나무", materialId: WOODCUTTING_MATERIAL_ID.pine, durationMs: 3_000, chops: 5 },
-  birch: { id: "birch", name: "자작나무", materialId: WOODCUTTING_MATERIAL_ID.birch, durationMs: 3_200, chops: 5 },
-  oak: { id: "oak", name: "참나무", materialId: WOODCUTTING_MATERIAL_ID.oak, durationMs: 3_800, chops: 7 },
-  cedar: { id: "cedar", name: "삼나무", materialId: WOODCUTTING_MATERIAL_ID.cedar, durationMs: 4_000, chops: 7 },
-  willow: { id: "willow", name: "버드나무", materialId: WOODCUTTING_MATERIAL_ID.willow, durationMs: 3_400, chops: 6 },
-  cypress: { id: "cypress", name: "편백나무", materialId: WOODCUTTING_MATERIAL_ID.cypress, durationMs: 4_100, chops: 7 },
+  pine: {
+    id: "pine",
+    name: "소나무",
+    materialId: WOODCUTTING_MATERIAL_ID.pine,
+    durationMs: 3_000,
+    chops: 5,
+    xp: 10,
+  },
+  birch: {
+    id: "birch",
+    name: "자작나무",
+    materialId: WOODCUTTING_MATERIAL_ID.birch,
+    durationMs: 3_800,
+    chops: 6,
+    xp: 12,
+  },
+  oak: {
+    id: "oak",
+    name: "참나무",
+    materialId: WOODCUTTING_MATERIAL_ID.oak,
+    durationMs: 6_000,
+    chops: 8,
+    xp: 19,
+  },
+  cedar: {
+    id: "cedar",
+    name: "삼나무",
+    materialId: WOODCUTTING_MATERIAL_ID.cedar,
+    durationMs: 7_500,
+    chops: 9,
+    xp: 24,
+  },
+  willow: {
+    id: "willow",
+    name: "버드나무",
+    materialId: WOODCUTTING_MATERIAL_ID.willow,
+    durationMs: 4_800,
+    chops: 7,
+    xp: 15,
+  },
+  cypress: {
+    id: "cypress",
+    name: "편백나무",
+    materialId: WOODCUTTING_MATERIAL_ID.cypress,
+    durationMs: 9_000,
+    chops: 10,
+    xp: 30,
+  },
 };
 
 export type WoodcuttingSpotId =

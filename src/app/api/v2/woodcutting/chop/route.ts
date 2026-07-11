@@ -73,6 +73,7 @@ export async function POST(req: Request) {
     const log = recordWoodcuttingSuccess(parseWoodcuttingLog(logRaw), {
       treeId: session.treeId,
       timber: materialGained,
+      xp: tree.xp,
     });
     await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
     await incrementGuildExplorationProgressForUser(
@@ -88,6 +89,7 @@ export async function POST(req: Request) {
       materialId,
       materialName: WOODCUTTING_MATERIALS[materialId].name,
       materialGained,
+      xpGained: tree.xp,
       materials: woodcuttingMaterialBalances(materials),
       // 구버전 클라이언트가 배포 중 응답을 받아도 깨지지 않도록 한동안 유지한다.
       timberGained: materialGained,

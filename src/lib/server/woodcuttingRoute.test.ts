@@ -92,10 +92,25 @@ describe("woodcutting routes", () => {
     expect(json.spot.id).toBe("pine_grove");
     expect(json.timber).toBe(7);
     expect(json.log.cuts).toBe(2);
+    expect(json.log.xp).toBe(20);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
       sessionId: json.sessionId,
       spotId: "pine_grove",
       readyAt: NOW + json.durationMs,
+    });
+  });
+
+  it("start — 벌목 레벨에 따라 서버 완료 시간을 보수적으로 단축한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 100, xp: 4_000 });
+
+    const response = await START(startReq("birch_grove"));
+    const json = await response.json();
+
+    expect(json.baseDurationMs).toBe(3_800);
+    expect(json.durationMs).toBe(3_700);
+    expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
+      readyAt: NOW + 3_700,
     });
   });
 
@@ -138,11 +153,13 @@ describe("woodcutting routes", () => {
     expect(json.materialId).toBe(OAK);
     expect(json.materialName).toBe("참나무 원목");
     expect(json.materialGained).toBe(WOODCUTTING_TIMBER_REWARD);
+    expect(json.xpGained).toBe(19);
     expect(charOf().materials?.[OAK]).toBe(1);
     expect(charOf().materials?.[TIMBER]).toBe(3);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
     expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
       cuts: 1,
+      xp: 19,
       timberEarned: 1,
       trees: { oak: 1 },
     });
@@ -163,6 +180,7 @@ describe("woodcutting routes", () => {
     expect(json.ok).toBe(true);
     expect(json.timber).toBe(11);
     expect(json.log.cuts).toBe(3);
+    expect(json.log.xp).toBe(30);
     expect(json.log.timberEarned).toBe(12);
   });
 });

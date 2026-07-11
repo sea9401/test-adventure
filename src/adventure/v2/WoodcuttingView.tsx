@@ -10,10 +10,15 @@ import {
   WOODCUTTING_TREES,
   type WoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
-import { woodcuttingProgressionView } from "./woodcuttingProgression";
+import {
+  woodcuttingDurationForLevel,
+  woodcuttingProgressionView,
+  woodcuttingTimeReduction,
+} from "./woodcuttingProgression";
 
 export type WoodcuttingLogView = {
   cuts: number;
+  xp: number;
   timberEarned: number;
 };
 
@@ -21,6 +26,7 @@ export type WoodcuttingTreeView = {
   id: string;
   name: string;
   materialId: string;
+  xp: number;
 };
 
 export type WoodcuttingStart = {
@@ -37,6 +43,7 @@ export type WoodcuttingOutcome =
       tree: WoodcuttingTreeView;
       materialName: string;
       materialGained: number;
+      xpGained: number;
       log: WoodcuttingLogView;
     }
   | {
@@ -58,6 +65,11 @@ const TREE_FALL_MS = 700;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+function formatDuration(durationMs: number): string {
+  const seconds = durationMs / 1_000;
+  return `${Number.isInteger(seconds) ? seconds.toFixed(0) : seconds.toFixed(1)}초`;
 }
 
 function easeOutCubic(value: number): number {
@@ -434,7 +446,12 @@ export function WoodcuttingView({
   const selectedTree = WOODCUTTING_TREES[selectedSpot.treeId];
   const selectedMaterial = WOODCUTTING_MATERIALS[selectedTree.materialId];
   const selectedMaterialCount = materials[selectedTree.materialId] ?? 0;
-  const progression = woodcuttingProgressionView(log.cuts);
+  const progression = woodcuttingProgressionView(log.cuts, log.xp);
+  const expectedDurationMs = woodcuttingDurationForLevel(
+    selectedTree.durationMs,
+    progression.level,
+  );
+  const timeReductionPct = woodcuttingTimeReduction(progression.level) * 100;
   const levelProgressPct = progression.maxLevel
     ? 100
     : Math.min(100, (progression.xpIntoLevel / progression.xpForNext) * 100);
@@ -467,7 +484,7 @@ export function WoodcuttingView({
               벌목 Lv {progression.level}
             </div>
             <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-              벌목 1회당 +10 XP · 최대 Lv 50
+              시간 단축 {timeReductionPct.toFixed(1)}% · 최대 Lv 50
             </div>
           </div>
           <span className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-300">
@@ -518,6 +535,9 @@ export function WoodcuttingView({
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
+                  <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                    벌목 XP +{result.xpGained}
+                  </div>
                 </div>
               ) : null}
             </Card>
@@ -525,7 +545,11 @@ export function WoodcuttingView({
         </div>
       ) : (
         <Card padding="md" className="text-center text-sm text-zinc-600 dark:text-zinc-300">
-          버튼을 누르면 나무가 쓰러질 때까지 자동으로 벌목합니다.
+          <div>버튼을 누르면 나무가 쓰러질 때까지 자동으로 벌목합니다.</div>
+          <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            {selectedMaterial.name} 1개 · 예상 {formatDuration(expectedDurationMs)} · XP +
+            {selectedTree.xp}
+          </div>
         </Card>
       )}
 

@@ -12,8 +12,14 @@ import type { WoodcuttingSpotId } from "@/adventure/data/v2/woodcuttingSpots";
 
 function parseLog(value: unknown): WoodcuttingLogView {
   const item = (value ?? {}) as Record<string, unknown>;
+  const cuts = Math.max(0, Math.floor(Number(item.cuts) || 0));
+  const storedXp = Number(item.xp);
   return {
-    cuts: Math.max(0, Math.floor(Number(item.cuts) || 0)),
+    cuts,
+    xp:
+      Object.prototype.hasOwnProperty.call(item, "xp") && Number.isFinite(storedXp)
+        ? Math.max(0, Math.floor(storedXp))
+        : cuts * 10,
     timberEarned: Math.max(0, Math.floor(Number(item.timberEarned) || 0)),
   };
 }
@@ -24,6 +30,7 @@ function parseTree(value: unknown): WoodcuttingTreeView {
     id: String(item.id ?? ""),
     name: String(item.name ?? "나무"),
     materialId: String(item.materialId ?? "v2_timber"),
+    xp: Math.max(0, Math.floor(Number(item.xp) || 10)),
   };
 }
 
@@ -43,7 +50,7 @@ function wait(ms: number): Promise<void> {
 
 export function useWoodcutting(): WoodcuttingHandlers {
   const [materials, setMaterials] = useState<Record<string, number>>({});
-  const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, timberEarned: 0 });
+  const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, xp: 0, timberEarned: 0 });
 
   useEffect(() => {
     let alive = true;
@@ -117,6 +124,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
         tree: parseTree(json.tree),
         materialName: String(json.materialName ?? "원목"),
         materialGained: Math.max(0, Math.floor(Number(json.materialGained) || 0)),
+        xpGained: Math.max(0, Math.floor(Number(json.xpGained) || 0)),
         log: nextLog,
       };
     }

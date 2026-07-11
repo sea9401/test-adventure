@@ -18,6 +18,10 @@ import {
   woodcuttingMaterialBalances,
   type WoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
+import {
+  woodcuttingDurationForLevel,
+  woodcuttingProgressionView,
+} from "@/adventure/v2/woodcuttingProgression";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -30,14 +34,23 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_spot" }, { status: 400 });
   }
 
-  const now = Date.now();
   const spotId = body.spotId;
   const treeId = pickWoodcuttingTreeId(spotId);
+  const tree = WOODCUTTING_TREES[treeId];
+  const [charSave, logRaw] = await Promise.all([
+    readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
+    readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
+  ]);
+  const log = parseWoodcuttingLog(logRaw);
+  const progression = woodcuttingProgressionView(log.cuts, log.xp);
+  const durationMs = woodcuttingDurationForLevel(tree.durationMs, progression.level);
+  const now = Date.now();
   const session: WoodcuttingSession = createWoodcuttingSession({
     sessionId: randomUUID(),
     spotId,
     treeId,
     now,
+    durationMs,
   });
 
   await db.transaction(async (tx) => {
@@ -45,12 +58,7 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, session);
   });
 
-  const [charSave, logRaw] = await Promise.all([
-    readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
-    readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
-  ]);
   const materials = woodcuttingMaterialBalances(charSave.materials);
-  const tree = WOODCUTTING_TREES[treeId];
 
   return Response.json({
     ok: true,
@@ -58,10 +66,11 @@ export async function POST(req: Request) {
     spot: WOODCUTTING_SPOTS[spotId],
     tree,
     material: WOODCUTTING_MATERIALS[tree.materialId],
-    durationMs: tree.durationMs,
+    baseDurationMs: tree.durationMs,
+    durationMs,
     chops: tree.chops,
     materials,
     timber: materials[SETTLEMENT_MATERIAL_ID.timber],
-    log: parseWoodcuttingLog(logRaw),
+    log,
   });
 }

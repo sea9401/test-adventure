@@ -154,7 +154,8 @@ function WoodcuttingSpotMeta({ id }: { id: string }) {
         </span>
       </div>
       <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-        벌목 보상: {tree.name} 원목 1개
+        벌목 보상: {tree.name} 원목 1개 · 기본 {(tree.durationMs / 1_000).toFixed(1)}초 · XP +
+        {tree.xp}
       </div>
     </div>
   );

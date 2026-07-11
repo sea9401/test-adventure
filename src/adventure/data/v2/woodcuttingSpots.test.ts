@@ -29,4 +29,13 @@ describe("벌목 장소 카탈로그", () => {
     expect(seen.size).toBe(6);
     expect(materials.size).toBe(6);
   });
+
+  it("상위 제작 원목일수록 기본 시간과 경험치가 증가한다", () => {
+    const tierOrder = ["pine", "birch", "willow", "oak", "cedar", "cypress"] as const;
+    const trees = tierOrder.map((id) => WOODCUTTING_TREES[id]);
+    for (let index = 1; index < trees.length; index += 1) {
+      expect(trees[index].durationMs).toBeGreaterThan(trees[index - 1].durationMs);
+      expect(trees[index].xp).toBeGreaterThan(trees[index - 1].xp);
+    }
+  });
 });

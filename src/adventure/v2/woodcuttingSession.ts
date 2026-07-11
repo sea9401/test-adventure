@@ -9,6 +9,7 @@ import {
   type WoodcuttingSpotId,
   type WoodcuttingTreeId,
 } from "@/adventure/data/v2/woodcuttingSpots";
+import { WOODCUTTING_XP_PER_CUT } from "./woodcuttingProgression";
 
 export {
   WOODCUTTING_MATERIALS,
@@ -58,8 +59,13 @@ export function createWoodcuttingSession(args: {
   spotId: WoodcuttingSpotId;
   treeId: WoodcuttingTreeId;
   now: number;
+  durationMs?: number;
 }): WoodcuttingSession {
-  const readyAt = args.now + WOODCUTTING_TREES[args.treeId].durationMs;
+  const durationMs = Math.max(
+    1_000,
+    Math.floor(args.durationMs ?? WOODCUTTING_TREES[args.treeId].durationMs),
+  );
+  const readyAt = args.now + durationMs;
   return {
     sessionId: args.sessionId,
     spotId: args.spotId,
@@ -88,6 +94,7 @@ export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null
 
 export type WoodcuttingLog = {
   cuts: number;
+  xp: number;
   perfectCuts: number;
   timberEarned: number;
   bestReactionMs: number | null;
@@ -98,6 +105,7 @@ export type WoodcuttingLog = {
 export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
   const empty: WoodcuttingLog = {
     cuts: 0,
+    xp: 0,
     perfectCuts: 0,
     timberEarned: 0,
     bestReactionMs: null,
@@ -115,8 +123,15 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
     }
   }
   const best = Number(value.bestReactionMs);
+  const cuts = Math.max(0, Math.floor(Number(value.cuts) || 0));
+  const hasStoredXp = Object.prototype.hasOwnProperty.call(value, "xp");
+  const storedXp = Number(value.xp);
   return {
-    cuts: Math.max(0, Math.floor(Number(value.cuts) || 0)),
+    cuts,
+    xp:
+      hasStoredXp && Number.isFinite(storedXp)
+        ? Math.max(0, Math.floor(storedXp))
+        : cuts * WOODCUTTING_XP_PER_CUT,
     perfectCuts: Math.max(0, Math.floor(Number(value.perfectCuts) || 0)),
     timberEarned: Math.max(0, Math.floor(Number(value.timberEarned) || 0)),
     bestReactionMs: Number.isFinite(best) && best > 0 ? Math.floor(best) : null,
@@ -127,11 +142,12 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
 
 export function recordWoodcuttingSuccess(
   log: WoodcuttingLog,
-  args: { treeId: WoodcuttingTreeId; timber: number },
+  args: { treeId: WoodcuttingTreeId; timber: number; xp: number },
 ): WoodcuttingLog {
   return {
     ...log,
     cuts: log.cuts + 1,
+    xp: log.xp + Math.max(0, Math.floor(args.xp)),
     timberEarned: log.timberEarned + args.timber,
     trees: {
       ...log.trees,

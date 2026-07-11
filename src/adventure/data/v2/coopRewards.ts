@@ -17,6 +17,7 @@ import {
 export const COOP_COIN_MATERIAL_ID = "v2_coop_coin";
 export const COOP_MASTERY_TOME_MATERIAL_ID = "v2_coop_mastery_tome";
 export const COOP_MASTERY_TOME_GAIN = 50;
+export const COOP_TIER5_EQUIPMENT_BOX_ID = "v2_coop_tier5_equipment_box";
 
 export const COOP_BOSS_MATERIAL_ID: Record<CoopBossKindId, string> = {
   mountain_chief: "v2_coop_mountain_claw",
@@ -49,7 +50,7 @@ export type CoopEquipmentBoxDef = {
 export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
   mountain_chief: {
     id: COOP_EQUIPMENT_BOX_ID.mountain_chief,
-    name: "산군 1티어 장비 상자",
+    name: "1T 장비 상자",
     description: "사용하면 1T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 1,
     source: "1T 정규 장비",
@@ -88,7 +89,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
   },
   canyon_predator: {
     id: COOP_EQUIPMENT_BOX_ID.canyon_predator,
-    name: "스콜피온 2티어 장비 상자",
+    name: "2T 장비 상자",
     description: "사용하면 2T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 2,
     source: "2T 정규 장비",
@@ -96,7 +97,7 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
   },
   lake_sovereign: {
     id: COOP_EQUIPMENT_BOX_ID.lake_sovereign,
-    name: "호수 3티어 장비 상자",
+    name: "3T 장비 상자",
     description: "사용하면 3T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 3,
     source: "3T 정규 장비",
@@ -104,13 +105,33 @@ export const COOP_EQUIPMENT_BOX: Record<CoopBossKindId, CoopEquipmentBoxDef> = {
   },
   void_priest: {
     id: COOP_EQUIPMENT_BOX_ID.void_priest,
-    name: "공허 4티어 장비 상자",
+    name: "4T 장비 상자",
     description: "사용하면 4T 정규 장비 중 1개를 무작위로 획득한다.",
     displayTier: 4,
     source: "4T 정규 장비",
     catalogTiers: [10, 11, 12],
   },
 };
+
+// 교환소용 공용 5T 상자. 보스 드롭으로 이미 풀린 전용 상자는 기존 id·풀을
+// 유지하고, 교환소에서만 두 5T 풀을 합친 상자 하나를 제공한다.
+export const COOP_TIER5_EQUIPMENT_BOX: CoopEquipmentBoxDef = {
+  id: COOP_TIER5_EQUIPMENT_BOX_ID,
+  name: "5T 장비 상자",
+  description: "사용하면 5T 장비 중 1개를 무작위로 획득한다.",
+  displayTier: 5,
+  source: "5T 협동 장비",
+  catalogTiers: [13],
+  itemIds: [
+    ...(COOP_EQUIPMENT_BOX.mountain_chief_hard.itemIds ?? []),
+    ...(COOP_EQUIPMENT_BOX.abyssal_tyrant.itemIds ?? []),
+  ],
+};
+
+export const COOP_ALL_EQUIPMENT_BOXES: readonly CoopEquipmentBoxDef[] = [
+  ...Object.values(COOP_EQUIPMENT_BOX),
+  COOP_TIER5_EQUIPMENT_BOX,
+];
 
 export const COOP_BOSS_MATERIAL: Record<
   CoopBossKindId,
@@ -172,7 +193,7 @@ export const COOP_REWARD_MATERIALS: Record<
   ...Object.fromEntries(
     Object.values(COOP_BOSS_MATERIAL).map((m) => [m.id, m]),
   ),
-  ...Object.fromEntries(Object.values(COOP_EQUIPMENT_BOX).map((b) => [b.id, b])),
+  ...Object.fromEntries(COOP_ALL_EQUIPMENT_BOXES.map((b) => [b.id, b])),
 };
 
 export type CoopExtraRewardRule = {
@@ -266,11 +287,17 @@ export function parseCoopEquipmentBoxId(
   return null;
 }
 
-export function rollCoopEquipmentBoxItem(
-  boss: CoopBossKindId,
+export function coopEquipmentBoxById(
+  value: unknown,
+): CoopEquipmentBoxDef | null {
+  if (typeof value !== "string") return null;
+  return COOP_ALL_EQUIPMENT_BOXES.find((box) => box.id === value) ?? null;
+}
+
+export function rollCoopEquipmentBoxDefItem(
+  box: CoopEquipmentBoxDef,
   rng: () => number,
 ): V2EquipmentId | null {
-  const box = COOP_EQUIPMENT_BOX[boss];
   if (box.itemIds && box.itemIds.length > 0) {
     return box.itemIds[Math.floor(rng() * box.itemIds.length)] ?? null;
   }
@@ -285,4 +312,11 @@ export function rollCoopEquipmentBoxItem(
     .map((item) => item.id);
   if (candidates.length === 0) return null;
   return candidates[Math.floor(rng() * candidates.length)] ?? null;
+}
+
+export function rollCoopEquipmentBoxItem(
+  boss: CoopBossKindId,
+  rng: () => number,
+): V2EquipmentId | null {
+  return rollCoopEquipmentBoxDefItem(COOP_EQUIPMENT_BOX[boss], rng);
 }

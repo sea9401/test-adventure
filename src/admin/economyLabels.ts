@@ -1,6 +1,6 @@
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
-import { COOP_EQUIPMENT_BOX } from "@/adventure/data/v2/coopRewards";
+import { COOP_ALL_EQUIPMENT_BOXES } from "@/adventure/data/v2/coopRewards";
 
 export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "admin.grant.fishing_coin": "관리자 낚시 코인 지급",
@@ -162,5 +162,5 @@ function equipmentName(id: string): string {
 }
 
 function coopEquipmentBoxName(id: string): string {
-  return Object.values(COOP_EQUIPMENT_BOX).find((box) => box.id === id)?.name ?? "";
+  return COOP_ALL_EQUIPMENT_BOXES.find((box) => box.id === id)?.name ?? "";
 }

@@ -12,6 +12,7 @@ import {
   COOP_COIN_MATERIAL_ID,
   COOP_EQUIPMENT_BOX,
   COOP_MASTERY_TOME_MATERIAL_ID,
+  COOP_TIER5_EQUIPMENT_BOX,
 } from "@/adventure/data/v2/coopRewards";
 import type { CoopBossKindId } from "@/adventure/data/v2/coopBosses";
 
@@ -23,18 +24,44 @@ describe("coopShop", () => {
     }
   });
 
-  it("보스 장비 상자 교환은 보스 보상 카탈로그에서 자동 생성된다", () => {
+  it("장비 상자는 보스명 없이 1T~5T 한 종류씩 노출된다", () => {
     const entries = COOP_SHOP_ENTRIES.filter((e) => e.category === "equipment_box");
-    expect(entries).toHaveLength(Object.keys(COOP_EQUIPMENT_BOX).length);
-    for (const [boss, box] of Object.entries(COOP_EQUIPMENT_BOX)) {
-      const bossId = boss as CoopBossKindId;
+    expect(entries.map((entry) => entry.name)).toEqual([
+      "1T 장비 상자",
+      "2T 장비 상자",
+      "3T 장비 상자",
+      "4T 장비 상자",
+      "5T 장비 상자",
+    ]);
+    for (const bossId of [
+      "mountain_chief",
+      "canyon_predator",
+      "lake_sovereign",
+      "void_priest",
+    ] as CoopBossKindId[]) {
+      const box = COOP_EQUIPMENT_BOX[bossId];
       const entry = entries.find(
         (e) => e.output.kind === "material" && e.output.materialId === box.id,
       );
-      expect(entry, boss).toBeDefined();
+      expect(entry, bossId).toBeDefined();
       expect(entry?.name).toBe(box.name);
       expect(entry?.cost.materials[COOP_BOSS_MATERIAL[bossId].id]).toBeGreaterThan(0);
     }
+    expect(entries.some((entry) => entry.itemId === "mountain_chief_hard_equipment_box"))
+      .toBe(false);
+    expect(entries.some((entry) => entry.itemId === "abyssal_tyrant_equipment_box"))
+      .toBe(false);
+    expect(entries.at(-1)?.output).toEqual({
+      kind: "material",
+      materialId: COOP_TIER5_EQUIPMENT_BOX.id,
+      count: 1,
+    });
+    expect(
+      entries.at(-1)?.cost.materials[COOP_BOSS_MATERIAL.mountain_chief_hard.id],
+    ).toBe(15);
+    expect(
+      entries.at(-1)?.cost.materials[COOP_BOSS_MATERIAL.abyssal_tyrant.id],
+    ).toBe(15);
   });
 
   it("일/주간 제한은 주기 키가 바뀌면 lazy reset 된다", () => {

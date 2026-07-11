@@ -3,9 +3,8 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  COOP_EQUIPMENT_BOX,
-  parseCoopEquipmentBoxId,
-  rollCoopEquipmentBoxItem,
+  coopEquipmentBoxById,
+  rollCoopEquipmentBoxDefItem,
 } from "@/adventure/data/v2/coopRewards";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
@@ -46,11 +45,10 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  const boss = parseCoopEquipmentBoxId(boxId);
-  if (!boss) {
+  const box = coopEquipmentBoxById(boxId);
+  if (!box) {
     return Response.json({ ok: false, error: "bad_box" }, { status: 400 });
   }
-  const box = COOP_EQUIPMENT_BOX[boss];
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -65,7 +63,7 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "no_box" } };
     }
 
-    const equipmentId = rollCoopEquipmentBoxItem(boss, Math.random);
+    const equipmentId = rollCoopEquipmentBoxDefItem(box, Math.random);
     if (!equipmentId) {
       return {
         status: 500,

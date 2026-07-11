@@ -9,6 +9,7 @@ import {
   COOP_EQUIPMENT_BOX,
   COOP_MASTERY_TOME_GAIN,
   COOP_MASTERY_TOME_MATERIAL_ID,
+  COOP_TIER5_EQUIPMENT_BOX,
 } from "@/adventure/data/v2/coopRewards";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
@@ -56,7 +57,13 @@ const EQUIPMENT_BOX_SHOP_COST_BY_TIER: Record<
 };
 
 function equipmentBoxShopEntries(): CoopShopEntry[] {
-  return (Object.keys(COOP_EQUIPMENT_BOX) as CoopBossKindId[]).map((boss) => {
+  const regularBosses: CoopBossKindId[] = [
+    "mountain_chief",
+    "canyon_predator",
+    "lake_sovereign",
+    "void_priest",
+  ];
+  const regularEntries = regularBosses.map<CoopShopEntry>((boss) => {
     const box = COOP_EQUIPMENT_BOX[boss];
     const material = COOP_BOSS_MATERIAL[boss];
     const cost = EQUIPMENT_BOX_SHOP_COST_BY_TIER[box.displayTier];
@@ -73,6 +80,23 @@ function equipmentBoxShopEntries(): CoopShopEntry[] {
       },
     };
   });
+  const tier5Cost = EQUIPMENT_BOX_SHOP_COST_BY_TIER[5];
+  const tier5Entry: CoopShopEntry = {
+    itemId: "tier5_equipment_box",
+    category: "equipment_box",
+    name: COOP_TIER5_EQUIPMENT_BOX.name,
+    description: COOP_TIER5_EQUIPMENT_BOX.description,
+    cost: coinCost(tier5Cost.coins, {
+      [COOP_BOSS_MATERIAL.mountain_chief_hard.id]: tier5Cost.bossMaterial / 2,
+      [COOP_BOSS_MATERIAL.abyssal_tyrant.id]: tier5Cost.bossMaterial / 2,
+    }),
+    output: {
+      kind: "material",
+      materialId: COOP_TIER5_EQUIPMENT_BOX.id,
+      count: 1,
+    },
+  };
+  return [...regularEntries, tier5Entry];
 }
 
 function allBossMaterialCost(count: number): Record<string, number> {

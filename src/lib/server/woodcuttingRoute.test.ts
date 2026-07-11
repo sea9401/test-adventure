@@ -140,11 +140,11 @@ describe("woodcutting routes", () => {
     expect(json.failureRecoveryPct).toBe(20);
     expect(json.bonusLogChancePct).toBe(30);
     expect(json.durationMs).toBe(14_800);
-    expect(json.failureRate).toBeCloseTo(0.32);
-    expect(json.successRate).toBeCloseTo(0.68);
+    expect(json.failureRate).toBeCloseTo(0.56);
+    expect(json.successRate).toBeCloseTo(0.44);
     expect(
       (store.get(WOODCUTTING_SESSION_KEY) as { failureRate: number }).failureRate,
-    ).toBeCloseTo(0.32);
+    ).toBeCloseTo(0.56);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
       failureRecoveryRate: 0.2,
       bonusLogRate: 0.3,

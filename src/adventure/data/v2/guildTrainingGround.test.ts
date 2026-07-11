@@ -175,7 +175,7 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     });
   });
 
-  it("장착 패시브의 훈련장 보상 보너스를 추가 반영한다", () => {
+  it("트레이너 패시브의 훈련장 보상 보너스를 추가 반영한다", () => {
     const views = guildTrainingDrillViews({
       state: { dayKey: "2026-07-01", claimed: [] },
       buildingLevel: 3,
@@ -191,6 +191,21 @@ describe("guildTrainingGround — 일일 직업 숙련도 훈련", () => {
     expect(views.find((v) => v.id === "weapon_flow")).toMatchObject({
       rewardMastery: 20,
     });
+  });
+
+  it("6차 트레이너 누적 보너스와 5레벨 훈련장으로 하루 최대 121 숙련도를 준다", () => {
+    const views = guildTrainingDrillViews({
+      state: { dayKey: "2026-07-01", claimed: [] },
+      buildingLevel: 5,
+      characterLevel: 100,
+      hasJob: true,
+      currentClass: "survivor",
+      rewardBonusPct: 30,
+    });
+
+    expect(views.find((v) => v.id === "master_trial")?.rewardMastery).toBe(54);
+    expect(views.find((v) => v.id === "field_rotation")?.rewardMastery).toBe(39);
+    expect(views.find((v) => v.id === "recovery_camp")?.rewardMastery).toBe(28);
   });
 
   it("훈련장 레벨별 일일 훈련 횟수를 초과하면 남은 훈련을 잠근다", () => {

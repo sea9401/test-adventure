@@ -307,7 +307,7 @@ export function GuildTrainingGroundPanel({
           )}
           {hasPassiveTrainingBonus && (
             <div className="rounded border border-violet-100 bg-violet-50 px-2 py-1.5 text-[11px] text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/30 dark:text-violet-300">
-              장착 패시브: 훈련장 보상 +
+              학습 패시브: 훈련장 보상 +
               {(trainingBonuses?.rewardBonusPct ?? 0).toLocaleString()}% · 주간
               보너스 +{(trainingBonuses?.weeklyBonusMastery ?? 0).toLocaleString()}
             </div>

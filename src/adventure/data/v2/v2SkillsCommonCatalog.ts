@@ -52,6 +52,8 @@ export type V2CommonSkillId =
   | "v2c_healthtrainer_routine" // 운동 루틴 (길드 훈련장 보상)
   | "v2c_physicalcoach_conditioning" // 컨디셔닝 프로그램 (길드 훈련장 보상)
   | "v2c_mastertrainer_elitetraining" // 엘리트 트레이닝 (길드 훈련장 보상)
+  | "v2c_championmaker_championprogram" // 챔피언 프로그램 (길드 훈련장 보상)
+  | "v2c_legendarytrainer_mentorship" // 전설의 지도 (길드 훈련장 보상)
   | "v2c_farmer_seedselection" // 씨앗 선별 (농장 수확량)
   | "v2c_lumberjack_woodreading" // 나무결 읽기 (벌목 실패율 감소)
   | "v2c_foresttechnician_axecare" // 도끼날 세우기 (벌목 시간 단축)
@@ -639,27 +641,43 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_healthtrainer_routine: {
     id: "v2c_healthtrainer_routine", name: "운동 루틴", stat: "vit", category: "passive", tier: 2,
-    description: "개인 훈련 루틴을 잡아 길드 훈련장 보상과 주간 훈련 보너스를 조금 높인다.",
+    description: "개인 훈련 루틴을 잡아 길드 훈련장 보상과 주간 훈련 보너스를 조금 높인다. 학습 즉시 적용되며 장착할 필요가 없다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { guildTrainingRewardBonusPct: 3, guildTrainingWeeklyBonusMastery: 3 },
+  },
+  v2c_physicalcoach_conditioning: {
+    id: "v2c_physicalcoach_conditioning", name: "컨디셔닝 프로그램", stat: "vit", category: "passive", tier: 3,
+    description: "훈련 강도와 회복 주기를 맞춰 길드 훈련장 보상과 주간 훈련 보너스를 높인다. 학습 즉시 적용되며 장착할 필요가 없다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
     passive: { guildTrainingRewardBonusPct: 5, guildTrainingWeeklyBonusMastery: 5 },
   },
-  v2c_physicalcoach_conditioning: {
-    id: "v2c_physicalcoach_conditioning", name: "컨디셔닝 프로그램", stat: "vit", category: "passive", tier: 3,
-    description: "훈련 강도와 회복 주기를 맞춰 길드 훈련장 보상과 주간 훈련 보너스를 높인다.",
-    mpCost: 0, cooldown: 0,
-    effects: [],
-    spCost: 1,
-    passive: { guildTrainingRewardBonusPct: 8, guildTrainingWeeklyBonusMastery: 10 },
-  },
   v2c_mastertrainer_elitetraining: {
     id: "v2c_mastertrainer_elitetraining", name: "엘리트 트레이닝", stat: "vit", category: "passive", tier: 3,
-    description: "상위 전직자를 위한 고강도 훈련 설계로 길드 훈련장 보상을 크게 끌어올린다.",
+    description: "상위 전직자를 위한 고강도 훈련 설계로 길드 훈련장 보상을 크게 끌어올린다. 학습 즉시 적용되며 장착할 필요가 없다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
-    passive: { guildTrainingRewardBonusPct: 12, guildTrainingWeeklyBonusMastery: 15 },
+    passive: { guildTrainingRewardBonusPct: 6, guildTrainingWeeklyBonusMastery: 7 },
+  },
+  v2c_championmaker_championprogram: {
+    id: "v2c_championmaker_championprogram", name: "챔피언 프로그램", stat: "vit", category: "passive", tier: 3,
+    description: "최정상급 훈련 과정을 설계해 길드 훈련장 보상과 주간 훈련 보너스를 더욱 높인다. 학습 즉시 적용되며 장착할 필요가 없다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { guildTrainingRewardBonusPct: 7, guildTrainingWeeklyBonusMastery: 10 },
+  },
+  v2c_legendarytrainer_mentorship: {
+    id: "v2c_legendarytrainer_mentorship", name: "전설의 지도", stat: "vit", category: "passive", tier: 3,
+    description: "전설로 남은 지도법으로 길드 훈련장 보상과 주간 훈련 보너스를 최고 수준으로 끌어올린다. 학습 즉시 적용되며 장착할 필요가 없다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { guildTrainingRewardBonusPct: 9, guildTrainingWeeklyBonusMastery: 15 },
   },
   v2c_farmer_seedselection: {
     id: "v2c_farmer_seedselection", name: "씨앗 선별", stat: "luk", category: "passive", tier: 2,

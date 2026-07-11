@@ -747,14 +747,14 @@ export function equippedProfPerKillBonus(equipped: readonly V2SkillId[]): number
   return n;
 }
 
-// 장착 패시브의 길드 훈련장 보너스 합산. 개인 훈련 수령 서버 판정에서만 소비한다.
-export function equippedGuildTrainingBonuses(equipped: readonly V2SkillId[]): {
+// 학습한 트레이너 패시브의 길드 훈련장 보너스 합산. 장착 슬롯과 무관하게 항상 적용한다.
+export function learnedGuildTrainingBonuses(learned: readonly V2SkillId[]): {
   rewardBonusPct: number;
   weeklyBonusMastery: number;
 } {
   let rewardBonusPct = 0;
   let weeklyBonusMastery = 0;
-  for (const id of equipped) {
+  for (const id of new Set(learned)) {
     const passive = V2_SKILLS[id]?.passive;
     rewardBonusPct += passive?.guildTrainingRewardBonusPct ?? 0;
     weeklyBonusMastery += passive?.guildTrainingWeeklyBonusMastery ?? 0;

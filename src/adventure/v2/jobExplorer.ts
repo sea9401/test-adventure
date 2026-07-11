@@ -155,6 +155,8 @@ const LIFE_JOB_IDS = new Set([
   "healthtrainer",
   "physicalcoach",
   "mastertrainer",
+  "championmaker",
+  "legendarytrainer",
   "farmer",
   "horticulturist",
   "masterfarmer",

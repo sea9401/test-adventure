@@ -104,6 +104,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   dragonfist: ["v2c_dragonfist_rupture", "v2c_dragonfist_footwork"], // 권황: 용린파쇄 + 무극보법
   adamantmonk: ["v2c_adamantmonk_stance", "v2c_adamantmonk_body"], // 금강승: 금강 자세 + 금강불괴
   immortal: ["v2c_immortal_lifestrike", "v2c_immortal_heart"], // 불멸자: 생명 강타 + 불멸의 심장
+  championmaker: ["v2c_championmaker_championprogram"], // 챔피언 메이커 — 챔피언 프로그램
   fullcatchking: ["v2c_fullcatchking_bountyhaul"], // 만선왕 — 만선 조업
   harvestking: ["v2c_harvestking_abundance"], // 농업 장인 — 풍작 감각
   transcendent: ["v2c_transcendent_mandala", "v2c_transcendent_harmony"], // 초월자: 만상검 + 초월 조화
@@ -123,6 +124,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   celestialdragon: ["v2c_celestialdragon_combo", "v2c_celestialdragon_breath"], // 천룡권성: 천룡난무 + 천룡의 호흡
   vajraarhat: ["v2c_vajraarhat_seal", "v2c_vajraarhat_body"], // 금강나한: 금강인 + 나한금신
   eternal: ["v2c_eternal_cycle", "v2c_eternal_body"], // 영겁자: 영겁 순환 + 영겁의 육신
+  legendarytrainer: ["v2c_legendarytrainer_mentorship"], // 전설의 트레이너 — 전설의 지도
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기
   legendarylumberjack: ["v2c_legendarylumberjack_bountifulcut"], // 전설의 나무꾼 — 전설의 벌목

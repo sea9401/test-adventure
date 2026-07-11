@@ -69,9 +69,9 @@ describe("jobExplorer tags", () => {
 
   it("생활 matches explicit non-combat job lines", () => {
     const lifeTag = new Set(["life"]);
-    expect(matchesJobExplorerFilters(job("healthtrainer"), "", lifeTag)).toBe(
-      true,
-    );
+    expect(matchesJobExplorerFilters(job("healthtrainer"), "", lifeTag)).toBe(true);
+    expect(matchesJobExplorerFilters(job("championmaker"), "", lifeTag)).toBe(true);
+    expect(matchesJobExplorerFilters(job("legendarytrainer"), "", lifeTag)).toBe(true);
     expect(matchesJobExplorerFilters(job("warrior"), "", lifeTag)).toBe(false);
   });
 

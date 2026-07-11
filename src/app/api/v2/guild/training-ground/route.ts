@@ -28,7 +28,7 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
   emptyV2SkillsState,
-  equippedGuildTrainingBonuses,
+  learnedGuildTrainingBonuses,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
@@ -224,8 +224,8 @@ export async function GET(req: Request) {
   const current = currentJobInfo(charSave, profRaw);
   const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
   const state = parseGuildTrainingState(trainingRaw, dayKey, weekKey);
-  const trainingBonuses = equippedGuildTrainingBonuses(
-    parseV2SkillsState(skillsRaw).equipped,
+  const trainingBonuses = learnedGuildTrainingBonuses(
+    parseV2SkillsState(skillsRaw).learned,
   );
   const upgrade = trainingGroundUpgradeForLevel(Math.max(1, trainingGroundLevel));
   const nextUpgrade = nextTrainingGroundUpgrade(trainingGroundLevel);
@@ -366,8 +366,8 @@ export async function POST(req: Request) {
     const current = currentJobInfo(charSave, profRaw);
     const characterLevel = Math.max(1, Math.floor(Number(charSave.level) || 1));
     const state = parseGuildTrainingState(trainingRaw, dayKey, weekKey);
-    const trainingBonuses = equippedGuildTrainingBonuses(
-      parseV2SkillsState(skillsRaw).equipped,
+    const trainingBonuses = learnedGuildTrainingBonuses(
+      parseV2SkillsState(skillsRaw).learned,
     );
     if (state.claimed.includes(drillId)) {
       return {

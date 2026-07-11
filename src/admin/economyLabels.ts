@@ -13,6 +13,10 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "bank.deposit": "은행 입금",
   "bank.withdraw": "은행 출금",
   "currency.fishing.catch": "낚시 어획 코인",
+  "life.mining.attempt": "채광 시도",
+  "life.mining.gather": "채광 재료 획득",
+  "life.woodcutting.attempt": "벌목 시도",
+  "life.woodcutting.gather": "벌목 재료 획득",
   "mail.claim": "우편 수령",
   "marketplace.buy": "거래소 구매",
   "marketplace.cancel": "거래소 취소",
@@ -45,6 +49,7 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
 };
 
 export const ECONOMY_ITEM_KIND_LABELS: Record<string, string> = {
+  activity: "생활 활동",
   consumable: "소비 아이템",
   coop_reward: "협동 보상",
   equip: "장비",
@@ -111,12 +116,24 @@ export function economyDetailKeyLabel(key: string): string {
     quantity: "수량",
     reason: "사유",
     source: "출처",
+    activity: "생활 활동",
+    failureRate: "실패율",
+    grade: "등급",
+    primary: "주 재료",
+    sourceId: "채집 대상 ID",
+    sourceName: "채집 대상",
+    success: "성공",
+    xpGained: "획득 경험치",
   };
   return labels[key] ?? key;
 }
 
 export function economyDetailValueLabel(key: string, value: unknown): string {
   if (typeof value === "string") {
+    if (key === "activity") {
+      if (value === "woodcutting") return "벌목";
+      if (value === "mining") return "채광";
+    }
     if (key === "eventType") return economyEventLabel(value);
     if (key === "itemKind") return economyItemKindLabel(value);
     if (key === "materialId" || key === "bossMaterialId" || key === "spFruitMaterialId") {

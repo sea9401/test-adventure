@@ -42,6 +42,7 @@ import {
   isWoodcuttingJobId,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 
 type CharSave = {
   class?: unknown;
@@ -135,6 +136,7 @@ export async function POST(req: Request) {
       return {
         success: false as const,
         reason: "failed" as const,
+        tree,
         failureRate,
         guardState: guardUpdate.state,
         guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
@@ -200,6 +202,7 @@ export async function POST(req: Request) {
       materialGained,
       bonusMaterialGained,
       recovered,
+      failureRate,
       xpGained: tree.xp,
       jobId: isWoodcuttingJobId(jobId) ? jobId : null,
       jobName: isWoodcuttingJobId(jobId)
@@ -236,6 +239,39 @@ export async function POST(req: Request) {
       userId,
       activity: "woodcutting",
       state: result.guardState,
+    });
+  }
+
+  if (!result.success && result.reason === "failed" && "tree" in result) {
+    recordLifeGatheringTelemetrySoon({
+      userId,
+      activity: "woodcutting",
+      sourceId: result.tree.id,
+      sourceName: result.tree.name,
+      grade: result.tree.grade,
+      success: false,
+      failureRate: result.failureRate,
+      xpGained: 0,
+      drops: [],
+    });
+  }
+  if (result.success) {
+    recordLifeGatheringTelemetrySoon({
+      userId,
+      activity: "woodcutting",
+      sourceId: result.tree.id,
+      sourceName: result.tree.name,
+      grade: result.tree.grade,
+      success: true,
+      failureRate: result.failureRate,
+      xpGained: result.xpGained,
+      drops: [
+        {
+          materialId: result.materialId,
+          quantity: result.materialGained,
+          primary: true,
+        },
+      ],
     });
   }
 

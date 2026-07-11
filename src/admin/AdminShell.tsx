@@ -13,6 +13,7 @@ import { OpsDashboardTab } from "./tabs/OpsDashboardTab";
 import { OpsWorkflowsTab } from "./tabs/OpsWorkflowsTab";
 import { AbuseLogTab } from "./tabs/AbuseLogTab";
 import { EconomyLogTab } from "./tabs/EconomyLogTab";
+import { LifeGatheringTelemetryTab } from "./tabs/LifeGatheringTelemetryTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
 import { BroadcastTab } from "./tabs/BroadcastTab";
 import { FeedbackTab } from "./tabs/FeedbackTab";
@@ -31,6 +32,7 @@ type TabKey =
   | "season"
   | "abuse"
   | "economy"
+  | "lifeGathering"
   | "opsSearch"
   | "broadcast"
   | "feedback"
@@ -59,6 +61,7 @@ const TABS: AdminTab[] = [
   { key: "balance", label: "밸런스 지표", description: "재화와 성장 분포 분석", group: "analytics" },
   { key: "gridDungeon", label: "격자 던전", description: "던전 진입·완주·실패 원인 분석", group: "analytics", keywords: "던전 분석" },
   { key: "economy", label: "경제 로그", description: "골드와 아이템 증감 기록", group: "analytics", keywords: "재화 아이템" },
+  { key: "lifeGathering", label: "생활 수급", description: "벌목·채광 재화 수급량 분석", group: "analytics", keywords: "생활 벌목 채광 원목 광석 부산물" },
   { key: "abuse", label: "이상 행동", description: "요청 제한과 비정상 행동 기록", group: "analytics", keywords: "제재 어뷰징" },
   { key: "audit", label: "관리자 기록", description: "관리자 변경과 처리 이력", group: "analytics", keywords: "감사 로그" },
   { key: "opsManual", label: "운영 안내", description: "권한과 상황별 처리 절차", group: "guide", keywords: "매뉴얼 도움말" },
@@ -218,6 +221,7 @@ function ShellInner() {
           {tab === "season" && <SeasonOpsTab />}
           {tab === "abuse" && <AbuseLogTab />}
           {tab === "economy" && <EconomyLogTab />}
+          {tab === "lifeGathering" && <LifeGatheringTelemetryTab />}
           {tab === "opsSearch" && <OpsSearchTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "feedback" && <FeedbackTab />}

@@ -44,6 +44,7 @@ export type CoopClaimable = {
 };
 
 export type CoopAttackResult = {
+  attackId: number;
   kind: CoopBossKindId;
   damageDealt: number;
   damageTaken: number;
@@ -303,7 +304,6 @@ export function useCoopSessionState({
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [lastAttack, setLastAttack] = useState<CoopAttackResult | null>(null);
   const [lastReward, setLastReward] = useState<CoopClaimReward | null>(null);
 
   const refresh = useCallback(async () => {
@@ -342,11 +342,10 @@ export function useCoopSessionState({
     return () => clearInterval(id);
   }, [refresh, stopPolling]);
 
-  const attack = useCallback(async () => {
-    if (busy) return;
+  const attack = useCallback(async (): Promise<CoopAttackResult | null> => {
+    if (busy) return null;
     setBusy(true);
     setNotice(null);
-    setLastAttack(null);
     try {
       const res = await fetch("/api/v2/coop/attack", {
         method: "POST",
@@ -363,7 +362,6 @@ export function useCoopSessionState({
       if (j.stamina) setStamina(j.stamina);
       if (j.ok && j.result) {
         const r = j.result;
-        setLastAttack(r);
         // 공격 직후 즉시 — 보스 공유 HP 바를 응답값으로 낙관적 갱신(refresh 왕복 전 체감).
         //   finally 의 refresh 가 곧 서버 권위로 확정(다른 사람 공격분도 반영).
         setDetail((prev) =>
@@ -380,6 +378,7 @@ export function useCoopSessionState({
               }
             : prev,
         );
+        return r;
       } else {
         setNotice(
           j.error === "cooldown"
@@ -392,9 +391,11 @@ export function useCoopSessionState({
                   ? "이미 처치된 보스입니다."
                   : `공격 실패 (${j.error ?? "unknown"})`,
         );
+        return null;
       }
     } catch {
       setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+      return null;
     } finally {
       await refresh();
       setBusy(false);
@@ -455,7 +456,6 @@ export function useCoopSessionState({
     missing,
     busy,
     notice,
-    lastAttack,
     lastReward,
     refresh,
     attack,

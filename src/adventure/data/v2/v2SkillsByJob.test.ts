@@ -165,7 +165,7 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
-  it("헬스 트레이너 생활 직업 라인은 장착형 훈련장 패시브를 배운다", () => {
+  it("헬스 트레이너 생활 직업 라인은 학습 즉시 적용되는 훈련장 패시브를 배운다", () => {
     expect(skillsForJob("healthtrainer")).toEqual([
       "v2c_healthtrainer_routine",
     ]);
@@ -175,17 +175,37 @@ describe("직업 킷 — 스킬셋", () => {
     expect(skillsForJob("mastertrainer")).toEqual([
       "v2c_mastertrainer_elitetraining",
     ]);
-    for (const jobId of ["healthtrainer", "physicalcoach", "mastertrainer"]) {
+    expect(skillsForJob("championmaker")).toEqual([
+      "v2c_championmaker_championprogram",
+    ]);
+    expect(skillsForJob("legendarytrainer")).toEqual([
+      "v2c_legendarytrainer_mentorship",
+    ]);
+    for (const jobId of [
+      "healthtrainer",
+      "physicalcoach",
+      "mastertrainer",
+      "championmaker",
+      "legendarytrainer",
+    ]) {
       for (const id of skillsForJob(jobId)) {
         expect(V2_SKILLS[id].category, id).toBe("passive");
       }
     }
-    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingRewardBonusPct).toBe(5);
-    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingWeeklyBonusMastery).toBe(5);
-    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingRewardBonusPct).toBe(8);
-    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingWeeklyBonusMastery).toBe(10);
-    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingRewardBonusPct).toBe(12);
-    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingWeeklyBonusMastery).toBe(15);
+    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingRewardBonusPct).toBe(3);
+    expect(V2_SKILLS.v2c_healthtrainer_routine.passive?.guildTrainingWeeklyBonusMastery).toBe(3);
+    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingRewardBonusPct).toBe(5);
+    expect(V2_SKILLS.v2c_physicalcoach_conditioning.passive?.guildTrainingWeeklyBonusMastery).toBe(5);
+    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingRewardBonusPct).toBe(6);
+    expect(V2_SKILLS.v2c_mastertrainer_elitetraining.passive?.guildTrainingWeeklyBonusMastery).toBe(7);
+    expect(V2_SKILLS.v2c_championmaker_championprogram.passive).toMatchObject({
+      guildTrainingRewardBonusPct: 7,
+      guildTrainingWeeklyBonusMastery: 10,
+    });
+    expect(V2_SKILLS.v2c_legendarytrainer_mentorship.passive).toMatchObject({
+      guildTrainingRewardBonusPct: 9,
+      guildTrainingWeeklyBonusMastery: 15,
+    });
   });
 
   it("농부 생활 직업 라인은 장착형 농장 패시브를 배운다", () => {

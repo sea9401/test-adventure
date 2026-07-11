@@ -14,10 +14,30 @@ import {
   equippedWoodcuttingBonuses,
   equippedWoodcuttingFailureReductionPct,
   equippedFishingBonuses,
+  learnedGuildTrainingBonuses,
   spCostOf,
   rubricSpCost,
   type V2SkillId,
 } from "./v2Skills";
+
+describe("트레이너 상시 패시브", () => {
+  it("학습 목록만으로 훈련장 보너스를 합산하고 중복은 한 번만 적용한다", () => {
+    expect(
+      learnedGuildTrainingBonuses([
+        "v2c_healthtrainer_routine",
+        "v2c_physicalcoach_conditioning",
+        "v2c_mastertrainer_elitetraining",
+        "v2c_championmaker_championprogram",
+        "v2c_legendarytrainer_mentorship",
+        "v2c_healthtrainer_routine",
+      ]),
+    ).toEqual({ rewardBonusPct: 30, weeklyBonusMastery: 40 });
+    expect(learnedGuildTrainingBonuses([])).toEqual({
+      rewardBonusPct: 0,
+      weeklyBonusMastery: 0,
+    });
+  });
+});
 
 describe("사제 회복 패시브 (SPI PR-4 — v2c_acolyte_mana 리스킨)", () => {
   it("v2c_acolyte_mana 는 회복강화(healPowerPct) 패시브 — 옛 마나(maxMpPct) 아님", () => {

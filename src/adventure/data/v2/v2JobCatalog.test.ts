@@ -113,6 +113,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   dragonfist: "sensei",
   adamantmonk: "battlemonk",
   immortal: "returner",
+  championmaker: "mastertrainer",
   fullcatchking: "masterangler",
   harvestking: "masterfarmer",
   forestmaster: "masterlumberjack",
@@ -133,6 +134,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   celestialdragon: "dragonfist",
   vajraarhat: "adamantmonk",
   eternal: "immortal",
+  legendarytrainer: "championmaker",
   seagod: "fullcatchking",
   earthartisan: "harvestking",
   legendarylumberjack: "forestmaster",
@@ -162,16 +164,16 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("103개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 23 + 5차 19 + 6차 17)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(103);
+  it("105개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 23 + 5차 20 + 6차 18)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(105);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(16);
     expect(byTier(3)).toBe(22);
     expect(byTier(4)).toBe(23);
-    expect(byTier(5)).toBe(19);
-    expect(byTier(6)).toBe(17);
+    expect(byTier(5)).toBe(20);
+    expect(byTier(6)).toBe(18);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -999,6 +1001,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("survivor", "fullcatchking")).toBe("fullcatchking");
     expect(jobIdFromLegacy("survivor", "seagod")).toBe("seagod");
     expect(jobIdFromLegacy("survivor", "mastertrainer")).toBe("mastertrainer");
+    expect(jobIdFromLegacy("survivor", "championmaker")).toBe("championmaker");
+    expect(jobIdFromLegacy("survivor", "legendarytrainer")).toBe("legendarytrainer");
     expect(jobIdFromLegacy("survivor", "farmer")).toBe("farmer");
     expect(jobIdFromLegacy("survivor", "horticulturist")).toBe("horticulturist");
     expect(jobIdFromLegacy("survivor", "masterfarmer")).toBe("masterfarmer");
@@ -1040,6 +1044,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("survivor", "fullcatchking")).toBe("만선왕");
     expect(displayName("survivor", "seagod")).toBe("해신");
     expect(displayName("survivor", "mastertrainer")).toBe("마스터 트레이너");
+    expect(displayName("survivor", "championmaker")).toBe("챔피언 메이커");
+    expect(displayName("survivor", "legendarytrainer")).toBe("전설의 트레이너");
     expect(displayName("survivor", "farmer")).toBe("농부");
     expect(displayName("survivor", "horticulturist")).toBe("원예가");
     expect(displayName("survivor", "masterfarmer")).toBe("숙련 농부");

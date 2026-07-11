@@ -1,5 +1,9 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { WorldRumorMapView } from "@/adventure/v2/WorldRumorMapView";
 
 export default function MapPage() {
-  return <WorldRumorMapView />;
+  const router = useRouter();
+  return <WorldRumorMapView onBack={() => router.push("/town")} />;
 }

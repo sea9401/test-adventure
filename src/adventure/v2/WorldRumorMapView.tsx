@@ -61,10 +61,9 @@ const DIFFICULTY_TONE: Record<string, string> = {
     "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200",
 };
 
-type RegionFilter = "all" | WorldActivityKind;
+type RegionFilter = WorldActivityKind;
 
 const REGION_FILTERS: readonly { id: RegionFilter; label: string }[] = [
-  { id: "all", label: "전체" },
   { id: "fishing", label: "낚시터" },
   { id: "woodcutting", label: "벌목지" },
 ];
@@ -73,7 +72,6 @@ function regionMatchesFilter(
   region: WorldActivityRegion,
   filter: RegionFilter,
 ): boolean {
-  if (filter === "all") return true;
   return region.kind === filter;
 }
 
@@ -163,7 +161,7 @@ function WoodcuttingSpotMeta({ id }: { id: string }) {
 }
 
 export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
-  const [regionFilter, setRegionFilter] = useState<RegionFilter>("all");
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>("fishing");
   const [selectedId, setSelectedId] =
     useState<WorldActivityRegion["id"]>("village_pier");
   const filteredRegions = WORLD_ACTIVITY_REGIONS.filter((region) =>
@@ -195,7 +193,7 @@ export function WorldRumorMapView({ onBack }: { onBack?: () => void }) {
 
         <div className="grid gap-0 md:grid-cols-[0.92fr_1.08fr]">
           <div className="space-y-2 border-b border-zinc-200 bg-zinc-50 p-3 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-zinc-200/70 p-1 dark:bg-zinc-800">
               {REGION_FILTERS.map((filter) => {
                 const active = regionFilter === filter.id;
                 const count = WORLD_ACTIVITY_REGIONS.filter((region) =>

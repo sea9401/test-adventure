@@ -49,7 +49,7 @@ export type GuildActivityMeta = {
   titleName?: string; // artisan_rank_reward
   rewardGold?: number; // workshop_weekly_claim | exploration_weekly_claim | workshop_delivery
   rewardFame?: number; // workshop_weekly_claim | exploration_weekly_claim
-  mapFragments?: number; // exploration_expedition_claim | exploration_event_resolve
+  mapFragments?: number; // exploration_weekly_claim | exploration_expedition_claim
 };
 
 export async function logGuildActivity(

@@ -60,16 +60,17 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     });
   });
 
-  it("탐사 본부는 배치 가능 건물이며 Lv5에서 주간 탐사 4건과 진척 +35%를 연다", () => {
+  it("탐사 본부는 배치 가능 건물이며 Lv5에서 주간 탐사 6건과 진척 +35%를 연다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("exploration_hq");
     expect(nextSettlementBuildingUpgrade("exploration_hq", 1)).toMatchObject({
       level: 2,
       cost: { crop: 60, ore: 60, gold: 12_000_000, fame: 600 },
+      weeklyMissionCount: 2,
       missionProgressBonusPct: 10,
     });
     expect(explorationHqUpgradeForLevel(5)).toMatchObject({
       cost: { crop: 600, ore: 600, gold: 80_000_000, fame: 5600 },
-      weeklyMissionCount: 4,
+      weeklyMissionCount: 6,
       missionProgressBonusPct: 35,
     });
     expect(
@@ -77,7 +78,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "exploration_hq",
         explorationHqUpgradeForLevel(5),
       ),
-    ).toBe("주간 탐사 4건 · 진척 +35%");
+    ).toBe("주간 탐사 6건 · 진척 +35%");
   });
 
   it("지도 제작소는 임시 비활성화되어 신규 배치 목록에서 제외된다", () => {

@@ -30,7 +30,7 @@ type ExplorationMissionView = {
   title: string;
   goal: number;
   rewardGold: number;
-  rewardFame: number;
+  rewardMapFragments: number;
   progress: number;
   progressText: string;
   goalProgress: number;
@@ -140,7 +140,7 @@ export function GuildExplorationPanel({
       setState(json);
       const rewardText = [
         json.rewardGold ? `길드 금고 +${json.rewardGold.toLocaleString()}G` : null,
-        json.rewardFame ? `명성 +${json.rewardFame.toLocaleString()}` : null,
+        json.mapFragments ? `지도 조각 +${json.mapFragments.toLocaleString()}` : null,
       ].filter(Boolean).join(" · ");
       notifyReward("탐사 의뢰 보상", rewardText || "보상 수령 완료");
       onChanged?.();
@@ -411,7 +411,7 @@ export function GuildExplorationPanel({
           ) : (
             <div className="mt-3 flex items-center justify-between gap-2">
               <p className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
-                길드 활동과 원정 보상으로 지도 조각을 모아 사건 카드를 엽니다.
+                원정과 주간 탐사 의뢰 보상으로 지도 조각을 모아 사건 카드를 엽니다.
               </p>
               <button
                 type="button"
@@ -482,8 +482,8 @@ export function GuildExplorationPanel({
                       <span>{mission.title}</span>
                     </div>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      보상 길드 금고 {mission.rewardGold.toLocaleString()}G · 명성{" "}
-                      {mission.rewardFame.toLocaleString()}
+                      보상 길드 금고 {mission.rewardGold.toLocaleString()}G · 지도 조각 +
+                      {mission.rewardMapFragments.toLocaleString()}
                     </p>
                   </div>
                   <span className="shrink-0 text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300">

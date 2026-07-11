@@ -130,8 +130,8 @@ export function GuildContent() {
         <Em>
           {GUILD_EXPLORATION_WEEKLY_MISSIONS.weekly_coop_epic_30.title}
         </Em>
-        로 계산하고, 이후 사냥·낚시·고난도 사냥 의뢰가 추가로 열립니다. 완료 시
-        길드 금고와 길드 명성을 보상으로 받습니다.
+        로 계산하고, 이후 사냥·낚시·벌목·농장 수확·고난도 사냥 의뢰가 추가로
+        열립니다. 완료 시 길드 금고 골드와 탐사 지도 조각을 보상으로 받습니다.
       </P>
       <Table
         head={["레벨", "단계", "주간 탐사", "진척 보너스"]}
@@ -153,7 +153,7 @@ export function GuildContent() {
           return [
             <Em key={id}>{mission.title}</Em>,
             `${mission.goal.toLocaleString("ko-KR")}회분`,
-            `길드 금고 ${mission.rewardGold.toLocaleString()}G · 명성 ${mission.rewardFame.toLocaleString()}`,
+            `길드 금고 ${mission.rewardGold.toLocaleString()}G · 지도 조각 +${mission.rewardMapFragments.toLocaleString()}`,
           ];
         })}
         caption="협동보스 의뢰는 보상 수령 시점에 최초 1회만 집계되며, GOLD 이하는 탐사 진척으로 인정하지 않습니다."

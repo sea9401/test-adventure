@@ -35,6 +35,8 @@ function rowToState(
         huntWinProgress?: number | null;
         deepHuntWinProgress?: number | null;
         fishingCatchProgress?: number | null;
+        woodcuttingSuccessProgress?: number | null;
+        farmHarvestProgress?: number | null;
         claimed?: unknown;
         content?: unknown;
       }
@@ -50,6 +52,8 @@ function rowToState(
           huntWinProgress: row.huntWinProgress,
           deepHuntWinProgress: row.deepHuntWinProgress,
           fishingCatchProgress: row.fishingCatchProgress,
+          woodcuttingSuccessProgress: row.woodcuttingSuccessProgress,
+          farmHarvestProgress: row.farmHarvestProgress,
           claimed: row.claimed,
           content: row.content,
         }
@@ -76,6 +80,9 @@ export async function lockGuildExplorationWeeklyState(
         huntWinProgress: guildExplorationWeekly.huntWinProgress,
         deepHuntWinProgress: guildExplorationWeekly.deepHuntWinProgress,
         fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
+        woodcuttingSuccessProgress:
+          guildExplorationWeekly.woodcuttingSuccessProgress,
+        farmHarvestProgress: guildExplorationWeekly.farmHarvestProgress,
         claimed: guildExplorationWeekly.claimed,
         content: guildExplorationWeekly.content,
       })
@@ -104,6 +111,9 @@ export async function readGuildExplorationWeeklyState(
         huntWinProgress: guildExplorationWeekly.huntWinProgress,
         deepHuntWinProgress: guildExplorationWeekly.deepHuntWinProgress,
         fishingCatchProgress: guildExplorationWeekly.fishingCatchProgress,
+        woodcuttingSuccessProgress:
+          guildExplorationWeekly.woodcuttingSuccessProgress,
+        farmHarvestProgress: guildExplorationWeekly.farmHarvestProgress,
         claimed: guildExplorationWeekly.claimed,
         content: guildExplorationWeekly.content,
       })
@@ -128,6 +138,8 @@ export async function saveGuildExplorationWeeklyState(
       huntWinProgress: state.huntWinProgress,
       deepHuntWinProgress: state.deepHuntWinProgress,
       fishingCatchProgress: state.fishingCatchProgress,
+      woodcuttingSuccessProgress: state.woodcuttingSuccessProgress,
+      farmHarvestProgress: state.farmHarvestProgress,
       claimed: guildExplorationWeeklyClaimedPayload(state),
       content: guildExplorationContentPayload(state),
       updatedAt: new Date(),
@@ -140,6 +152,8 @@ export async function saveGuildExplorationWeeklyState(
         huntWinProgress: state.huntWinProgress,
         deepHuntWinProgress: state.deepHuntWinProgress,
         fishingCatchProgress: state.fishingCatchProgress,
+        woodcuttingSuccessProgress: state.woodcuttingSuccessProgress,
+        farmHarvestProgress: state.farmHarvestProgress,
         claimed: guildExplorationWeeklyClaimedPayload(state),
         content: guildExplorationContentPayload(state),
         updatedAt: new Date(),

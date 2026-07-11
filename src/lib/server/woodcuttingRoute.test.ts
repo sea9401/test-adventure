@@ -38,6 +38,8 @@ import {
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_TIMBER_REWARD,
 } from "@/adventure/v2/woodcuttingSession";
+import { ACTIVITY_GUARD_KEY } from "@/lib/server/activityGuard";
+import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -70,10 +72,34 @@ beforeEach(() => {
 afterEach(() => {
   store.clear();
   incrementGuildExplorationProgressForUser.mockClear();
+  resetUserRateLimitForTests();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
 describe("woodcutting routes", () => {
+  it("start — 체크포인트가 걸리면 관리형 사람 확인을 요구한다", async () => {
+    vi.stubEnv("TURNSTILE_SITE_KEY", "site");
+    vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+    store.set(ACTIVITY_GUARD_KEY, {
+      version: 1,
+      activities: {
+        woodcutting: {
+          verificationRequiredAt: NOW,
+          completedSinceVerification: 100,
+        },
+      },
+    });
+    const response = await START(startReq("pine_grove"));
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: "human_verification_required",
+      activity: "woodcutting",
+      siteKey: "site",
+    });
+    expect(response.status).toBe(403);
+  });
+
   it("start — 등록되지 않은 숲은 거부한다", async () => {
     const response = await START(startReq("unknown_grove"));
     expect(response.status).toBe(400);

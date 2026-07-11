@@ -9,6 +9,7 @@ import type {
   WoodcuttingTreeView,
 } from "./WoodcuttingView";
 import type { WoodcuttingSpotId } from "@/adventure/data/v2/woodcuttingSpots";
+import { useActivityVerification } from "./useActivityVerification";
 
 function parseLog(value: unknown): WoodcuttingLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -49,6 +50,7 @@ function wait(ms: number): Promise<void> {
 }
 
 export function useWoodcutting(): WoodcuttingHandlers {
+  const { verification, verifyHuman, readJson } = useActivityVerification("woodcutting");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, xp: 0, timberEarned: 0 });
 
@@ -77,8 +79,8 @@ export function useWoodcutting(): WoodcuttingHandlers {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ spotId }),
     });
+    const json = await readJson(response);
     if (!response.ok) throw new Error("woodcutting_start_failed");
-    const json = await response.json();
     const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
     const chops = Math.max(1, Math.floor(Number(json?.chops) || 0));
     if (!json?.ok || typeof json.sessionId !== "string" || !durationMs || !chops) {
@@ -94,7 +96,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       chops,
       failureRate: Math.min(1, Math.max(0, Number(json.failureRate) || 0)),
     };
-  }, []);
+  }, [readJson]);
 
   const finish = useCallback(async (sessionId: string): Promise<WoodcuttingOutcome> => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -103,8 +105,8 @@ export function useWoodcutting(): WoodcuttingHandlers {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId }),
       });
+      const json = await readJson(response);
       if (!response.ok) throw new Error("woodcutting_finish_failed");
-      const json = await response.json();
       if (!json?.ok) throw new Error("woodcutting_finish_failed");
       if (!json.success && json.reason === "not_ready" && attempt === 0) {
         await wait(Math.max(25, Math.floor(Number(json.retryAfterMs) || 0) + 25));
@@ -141,7 +143,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       };
     }
     throw new Error("woodcutting_finish_failed");
-  }, []);
+  }, [readJson]);
 
-  return { start, finish, materials, log };
+  return { start, finish, materials, log, verification, verifyHuman };
 }

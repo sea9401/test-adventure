@@ -20,6 +20,11 @@ import {
   WOODCUTTING_TREE_FALL_MS,
   woodcuttingAnimationFrame,
 } from "./woodcuttingAnimation";
+import { ActivityVerificationGate } from "./ActivityVerificationGate";
+import {
+  ActivityVerificationRequiredError,
+  type ActivityVerificationChallenge,
+} from "./useActivityVerification";
 
 export type WoodcuttingLogView = {
   cuts: number;
@@ -67,6 +72,8 @@ export type WoodcuttingHandlers = {
   finish: (sessionId: string) => Promise<WoodcuttingOutcome>;
   materials: Record<string, number>;
   log: WoodcuttingLogView;
+  verification?: ActivityVerificationChallenge | null;
+  verifyHuman?: (token: string) => Promise<boolean>;
 };
 
 type Phase = "idle" | "loading" | "cutting" | "finishing" | "result";
@@ -979,6 +986,8 @@ export function WoodcuttingView({
   finish,
   materials,
   log,
+  verification,
+  verifyHuman,
   onBack,
   spotId,
 }: WoodcuttingHandlers & {
@@ -1004,7 +1013,11 @@ export function WoodcuttingView({
       setRun(next);
       setStartedAt(now);
       setPhase("cutting");
-    } catch {
+    } catch (caught) {
+      if (caught instanceof ActivityVerificationRequiredError) {
+        setPhase("idle");
+        return;
+      }
       setError("벌목을 시작하지 못했습니다.");
       setPhase("idle");
     }
@@ -1089,6 +1102,13 @@ export function WoodcuttingView({
   return (
     <main className="mx-auto my-2 w-[calc(100%-1rem)] max-w-[560px] space-y-3 rounded-2xl border border-zinc-200 bg-white/90 p-3 text-zinc-900 shadow-lg backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100 sm:my-4 sm:w-[calc(100%-2rem)] sm:p-5">
       <SubViewHeader title="벌목장" onBack={onBack} />
+
+      {verification && verifyHuman ? (
+        <ActivityVerificationGate
+          challenge={verification}
+          onVerify={verifyHuman}
+        />
+      ) : null}
 
       <div className="grid grid-cols-3 gap-2 text-center text-xs">
         <Card padding="sm">
@@ -1211,7 +1231,7 @@ export function WoodcuttingView({
         </Card>
       )}
 
-      {(phase === "idle" || phase === "result") && (
+      {(phase === "idle" || phase === "result") && !verification && (
         <Button onClick={() => void startCut()} variant="success" size="md" fullWidth>
           {phase === "result" ? `${selectedSpot.shortName}에서 다시 벌목` : `${selectedSpot.shortName}에서 벌목 시작`}
         </Button>

@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
+import {
+  ACTIVITY_GUARD_KEY,
+  parseActivityGuardState,
+} from "@/lib/server/activityGuard";
+import { activityVerificationGateResponse } from "@/lib/server/activityGuardServer";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import {
   WOODCUTTING_MATERIALS,
@@ -33,6 +39,14 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:woodcutting:start",
+    userLimit: 20,
+    ipLimit: 120,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const body = (await req.json().catch(() => null)) as { spotId?: unknown } | null;
   if (typeof body?.spotId !== "string" || !isWoodcuttingSpotId(body.spotId)) {
@@ -42,11 +56,17 @@ export async function POST(req: Request) {
   const spotId = body.spotId;
   const treeId = pickWoodcuttingTreeId(spotId);
   const tree = WOODCUTTING_TREES[treeId];
-  const [charSave, logRaw, skillsRaw] = await Promise.all([
+  const [charSave, logRaw, skillsRaw, guardRaw] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
     readSave(db, userId, "skills.v2", {}),
+    readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
   ]);
+  const verificationRequired = activityVerificationGateResponse(
+    parseActivityGuardState(guardRaw),
+    "woodcutting",
+  );
+  if (verificationRequired) return verificationRequired;
   const log = parseWoodcuttingLog(logRaw);
   const progression = woodcuttingProgressionView(log.cuts, log.xp);
   const levelDurationMs = woodcuttingDurationForLevel(

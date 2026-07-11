@@ -14,6 +14,7 @@ import type {
   FishingHandlers,
   ReelOutcome,
 } from "./FishingView";
+import { useActivityVerification } from "./useActivityVerification";
 
 function parseDailyCatchCoins(value: unknown): FishingDailyCatchCoins | undefined {
   if (!value || typeof value !== "object") return undefined;
@@ -31,6 +32,7 @@ function parseDailyCatchCoins(value: unknown): FishingDailyCatchCoins | undefine
 
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(spotId?: FishingSpotId): FishingHandlers {
+  const { verification, verifyHuman, readJson } = useActivityVerification("fishing");
   const [dailyCatchCoins, setDailyCatchCoins] =
     useState<FishingDailyCatchCoins | null>(null);
   const [progression, setProgression] =
@@ -93,8 +95,8 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ spotId }),
       });
+      const j = await readJson(res);
       if (!res.ok) throw new Error("cast_failed");
-      const j = await res.json();
       if (
         !j?.ok ||
         typeof j.castId !== "string" ||
@@ -115,7 +117,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
     } finally {
       release();
     }
-  }, [beginCast, spotId]);
+  }, [beginCast, readJson, spotId]);
 
   const reel = useCallback(
     async (castId: string, reactionMs: number): Promise<ReelOutcome> => {
@@ -127,8 +129,8 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ castId, reactionMs }),
         });
+        const j = await readJson(res);
         if (!res.ok) throw new Error("reel_failed");
-        const j = await res.json();
         if (!j?.ok) throw new Error("reel_failed");
         const nextDailyCatchCoins = parseDailyCatchCoins(j.dailyCatchCoins);
         if (nextDailyCatchCoins) setDailyCatchCoins(nextDailyCatchCoins);
@@ -206,7 +208,7 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
         release();
       }
     },
-    [beginReel],
+    [beginReel, readJson],
   );
 
   return {
@@ -216,6 +218,8 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
     progression,
     progressionLoading,
     challengeBadgeCount,
+    verification,
+    verifyHuman,
   };
 }
 

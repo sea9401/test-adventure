@@ -3,6 +3,16 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
+  ACTIVITY_GUARD_KEY,
+  parseActivityGuardState,
+  recordActivityCompletion,
+  recordActivityStrongSignal,
+} from "@/lib/server/activityGuard";
+import {
+  recordExtremeActivityAlertSoon,
+  recordStrongActivitySignalSoon,
+} from "@/lib/server/activityGuardServer";
+import {
   clientIpFromRequest,
   recordAbuseEventSoon,
 } from "@/lib/server/abuseLog";
@@ -146,6 +156,33 @@ export async function POST(req: Request) {
       now,
     );
     await upsertSave(tx, userId, FISHING_ANTI_MACRO_KEY, antiMacro.state);
+    let guardUpdate = recordActivityCompletion(
+      parseActivityGuardState(
+        await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+      ),
+      "fishing",
+      now,
+    );
+    const strongSignal = antiMacro.signals.find(
+      (signal) =>
+        signal === "impossibly_fast_server_reel" || signal === "repeated_prefire",
+    );
+    let guardStrongSignal: string | null = null;
+    if (strongSignal) {
+      const strongUpdate = recordActivityStrongSignal(
+        guardUpdate.state,
+        "fishing",
+        now,
+      );
+      guardUpdate = {
+        ...guardUpdate,
+        state: strongUpdate.state,
+        checkpointNewlyRequired:
+          guardUpdate.checkpointNewlyRequired || strongUpdate.checkpointNewlyRequired,
+      };
+      if (strongUpdate.checkpointNewlyRequired) guardStrongSignal = strongSignal;
+    }
+    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
     if (!judgment.caught) {
       const streak = resetFishingStreak(
         await lockSaveForUpdate(tx, userId, FISHING_STREAK_KEY, {}),
@@ -160,6 +197,9 @@ export async function POST(req: Request) {
           signals: antiMacro.signals,
           frictionMs: antiMacro.frictionMs,
         },
+        guardState: guardUpdate.state,
+        guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+        guardStrongSignal,
       };
     }
 
@@ -371,8 +411,29 @@ export async function POST(req: Request) {
         signals: antiMacro.signals,
         frictionMs: antiMacro.frictionMs,
       },
+      guardState: guardUpdate.state,
+      guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+      guardStrongSignal,
     };
   });
+
+  if (result.guardStrongSignal) {
+    recordStrongActivitySignalSoon({
+      req,
+      userId,
+      activity: "fishing",
+      signal: result.guardStrongSignal,
+      state: result.guardState,
+    });
+  }
+  if (result.guardExtremeVolumeAlert) {
+    recordExtremeActivityAlertSoon({
+      req,
+      userId,
+      activity: "fishing",
+      state: result.guardState,
+    });
+  }
 
   if (result.antiMacro?.flagged) {
     recordAbuseEventSoon({

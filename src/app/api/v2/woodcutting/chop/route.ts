@@ -1,6 +1,17 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  ACTIVITY_GUARD_KEY,
+  parseActivityGuardState,
+  recordActivityCompletion,
+  recordActivityStrongSignal,
+} from "@/lib/server/activityGuard";
+import {
+  recordExtremeActivityAlertSoon,
+  recordStrongActivitySignalSoon,
+} from "@/lib/server/activityGuardServer";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import { WOODCUTTING_MATERIALS } from "@/adventure/data/v2/woodcuttingSpots";
@@ -45,6 +56,14 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const limited = enforceUserAndIpRateLimit(req, {
+    userId,
+    action: "v2:woodcutting:chop",
+    userLimit: 20,
+    ipLimit: 120,
+    windowMs: 60_000,
+  });
+  if (limited) return limited;
 
   const body = await req.json().catch(() => null);
   const sessionId = (body as { sessionId?: unknown } | null)?.sessionId;
@@ -62,10 +81,28 @@ export async function POST(req: Request) {
       return { success: false as const, reason: "stale" as const };
     }
     if (now < session.readyAt) {
+      const retryAfterMs = session.readyAt - now;
+      if (retryAfterMs >= 250) {
+        const guardUpdate = recordActivityStrongSignal(
+          parseActivityGuardState(
+            await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+          ),
+          "woodcutting",
+          now,
+        );
+        await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+        return {
+          success: false as const,
+          reason: "not_ready" as const,
+          retryAfterMs,
+          guardStrongSignal: "early_finish" as const,
+          guardState: guardUpdate.state,
+        };
+      }
       return {
         success: false as const,
         reason: "not_ready" as const,
-        retryAfterMs: session.readyAt - now,
+        retryAfterMs,
       };
     }
     if (now > session.expiresAt) {
@@ -74,6 +111,14 @@ export async function POST(req: Request) {
     }
 
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
+    const guardUpdate = recordActivityCompletion(
+      parseActivityGuardState(
+        await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+      ),
+      "woodcutting",
+      now,
+    );
+    await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
     const tree = WOODCUTTING_TREES[session.treeId];
     const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
     const currentLog = parseWoodcuttingLog(logRaw);
@@ -91,6 +136,8 @@ export async function POST(req: Request) {
         success: false as const,
         reason: "failed" as const,
         failureRate,
+        guardState: guardUpdate.state,
+        guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
       };
     }
 
@@ -165,8 +212,32 @@ export async function POST(req: Request) {
       timberGained: materialGained,
       timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? 0,
       log,
+      guardState: guardUpdate.state,
+      guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
     };
   });
+
+  if ("guardStrongSignal" in result && result.guardStrongSignal && "guardState" in result) {
+    recordStrongActivitySignalSoon({
+      req,
+      userId,
+      activity: "woodcutting",
+      signal: result.guardStrongSignal,
+      state: result.guardState,
+    });
+  }
+  if (
+    "guardExtremeVolumeAlert" in result &&
+    result.guardExtremeVolumeAlert &&
+    "guardState" in result
+  ) {
+    recordExtremeActivityAlertSoon({
+      req,
+      userId,
+      activity: "woodcutting",
+      state: result.guardState,
+    });
+  }
 
   if (!result.success) {
     return Response.json({

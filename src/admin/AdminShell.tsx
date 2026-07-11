@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
 import { AdminProvider, useAdmin } from "./AdminContext";
 import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
@@ -36,28 +37,38 @@ type TabKey =
   | "opsManual"
   | "audit";
 
-type TabGroup = "system" | "ops";
+type TabGroup = "daily" | "community" | "analytics" | "guide";
 
-const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
-  { key: "users", label: "유저", group: "system" },
-  { key: "stats", label: "통계", group: "system" },
-  { key: "balance", label: "밸런스", group: "system" },
-  { key: "gridDungeon", label: "던전", group: "system" },
-  { key: "opsDashboard", label: "운영 현황", group: "ops" },
-  { key: "opsWorkflows", label: "운영 워크플로", group: "ops" },
-  { key: "season", label: "시즌", group: "ops" },
-  { key: "abuse", label: "이상 행동", group: "ops" },
-  { key: "economy", label: "경제 로그", group: "ops" },
-  { key: "opsSearch", label: "통합 검색", group: "ops" },
-  { key: "broadcast", label: "공지·우편", group: "ops" },
-  { key: "feedback", label: "건의사항", group: "ops" },
-  { key: "opsManual", label: "운영 매뉴얼", group: "ops" },
-  { key: "audit", label: "감사 로그", group: "ops" },
+type AdminTab = {
+  key: TabKey;
+  label: string;
+  description: string;
+  group: TabGroup;
+  keywords?: string;
+};
+
+const TABS: AdminTab[] = [
+  { key: "opsDashboard", label: "운영 홈", description: "오늘 확인할 위험 신호와 주요 지표", group: "daily", keywords: "현황 대시보드 알림" },
+  { key: "opsSearch", label: "통합 검색", description: "유저·이벤트·IP를 한 번에 검색", group: "daily", keywords: "로그 이벤트" },
+  { key: "opsWorkflows", label: "처리 작업", description: "문의·보상 실패·반복 업무 처리", group: "daily", keywords: "워크플로 메모 보상" },
+  { key: "users", label: "유저 관리", description: "유저 조회, 지급, 제재와 데이터 수정", group: "daily", keywords: "닉네임 계정 캐릭터" },
+  { key: "broadcast", label: "공지·우편", description: "공지 등록과 개인·전체 우편 발송", group: "community", keywords: "메일 보상" },
+  { key: "feedback", label: "건의사항", description: "버그 제보와 유저 의견 확인", group: "community", keywords: "문의 피드백" },
+  { key: "season", label: "시즌 운영", description: "시즌 정산과 운영 스케줄 관리", group: "community" },
+  { key: "stats", label: "전체 통계", description: "접속·성장·보유 현황 통계", group: "analytics" },
+  { key: "balance", label: "밸런스 지표", description: "재화와 성장 분포 분석", group: "analytics" },
+  { key: "gridDungeon", label: "격자 던전", description: "던전 진입·완주·실패 원인 분석", group: "analytics", keywords: "던전 분석" },
+  { key: "economy", label: "경제 로그", description: "골드와 아이템 증감 기록", group: "analytics", keywords: "재화 아이템" },
+  { key: "abuse", label: "이상 행동", description: "요청 제한과 비정상 행동 기록", group: "analytics", keywords: "제재 어뷰징" },
+  { key: "audit", label: "관리자 기록", description: "관리자 변경과 처리 이력", group: "analytics", keywords: "감사 로그" },
+  { key: "opsManual", label: "운영 안내", description: "권한과 상황별 처리 절차", group: "guide", keywords: "매뉴얼 도움말" },
 ];
 
 const GROUP_LABELS: Record<TabGroup, string> = {
-  system: "시스템",
-  ops: "운영",
+  daily: "자주 쓰는 메뉴",
+  community: "소통과 운영",
+  analytics: "분석과 기록",
+  guide: "도움말",
 };
 
 // 인접 동일 그룹 묶기 — 사이드바 그룹 헤더용. 순서는 TABS 정의 순 그대로.
@@ -78,7 +89,18 @@ function ShellInner() {
   const searchParams = useSearchParams();
   const tab = tabFromParam(searchParams.get("tab"));
   const { readOnly, setReadOnly, toast, adminMe, loadingAdminMe } = useAdmin();
-  const groups = groupTabs(TABS);
+  const [navQuery, setNavQuery] = useState("");
+  const filteredTabs = useMemo(() => {
+    const query = navQuery.trim().toLocaleLowerCase("ko-KR");
+    if (!query) return TABS;
+    return TABS.filter((item) =>
+      `${item.label} ${item.description} ${item.keywords ?? ""}`
+        .toLocaleLowerCase("ko-KR")
+        .includes(query),
+    );
+  }, [navQuery]);
+  const groups = groupTabs(filteredTabs);
+  const activeTab = TABS.find((item) => item.key === tab) ?? TABS[0];
   const openTab = (next: TabKey) => {
     const sp = new URLSearchParams(searchParams.toString());
     sp.set("tab", next);
@@ -88,7 +110,7 @@ function ShellInner() {
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -113,66 +135,46 @@ function ShellInner() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-4 py-3">
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          ⚠️ 이 페이지는 게임 진행 상태를 직접 변경합니다. 변경 후 게임 라우트는
-          새로고침이 필요할 수 있습니다.
-          {adminMe ? (
-            <span className="mt-1 block text-xs">
-              현재 계정 {adminMe.email} · 가능 작업 {capabilityLabel(adminMe.capabilities)}
-              {" · "}권한 설정 super {adminMe.roleConfig.super}, reward{" "}
-              {adminMe.roleConfig.reward}, sanction {adminMe.roleConfig.sanction},
-              readonly {adminMe.roleConfig.readonly}
-            </span>
-          ) : null}
-        </div>
-        {adminMe ? (
-          <div className="mt-2 grid gap-2 text-xs md:grid-cols-4">
-            <RoleCard
-              label="readonly"
-              active={adminMe.role === "readonly"}
-              text="조회와 문의 확인만 가능"
-            />
-            <RoleCard
-              label="reward"
-              active={adminMe.role === "reward"}
-              text="보상 지급과 운영 메모 가능"
-            />
-            <RoleCard
-              label="sanction"
-              active={adminMe.role === "sanction"}
-              text="제재와 운영 메모 가능"
-            />
-            <RoleCard
-              label="super"
-              active={adminMe.role === "super"}
-              text="모든 운영 작업 가능"
-            />
+      <div className="mx-auto max-w-[1440px] px-4 py-3">
+        <details className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <summary className="cursor-pointer list-none font-medium text-zinc-800 dark:text-zinc-100">
+            {adminMe ? `${adminMe.email} · ${capabilityLabel(adminMe.capabilities)} 권한` : "권한 확인 중"}
+            <span className="ml-2 font-normal text-zinc-400">주의사항과 권한 상세 보기</span>
+          </summary>
+          <div className="mt-2 border-t border-zinc-100 pt-2 leading-5 dark:border-zinc-800">
+            게임 진행 상태를 직접 변경하는 화면입니다. 저장 후 대상 유저의 새로고침이 필요할 수 있습니다.
+            {adminMe ? (
+              <span className="block font-mono text-[10px] text-zinc-400">
+                role {adminMe.role ?? "none"} · super {adminMe.roleConfig.super} · reward {adminMe.roleConfig.reward} · sanction {adminMe.roleConfig.sanction} · readonly {adminMe.roleConfig.readonly}
+              </span>
+            ) : null}
           </div>
-        ) : null}
+        </details>
       </div>
 
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 pb-12 md:flex-row">
-        <nav className="md:w-48 md:shrink-0">
-          {/* 모바일: 그룹 헤더 숨기고 가로 스크롤 / 데스크탑: 세로 + 그룹 헤더 */}
-          <ul className="flex flex-row flex-wrap gap-1 md:hidden">
-            {TABS.map((t) => (
-              <li key={t.key}>
-                <button
-                  type="button"
-                  onClick={() => openTab(t.key)}
-                  className={
-                    tab === t.key
-                      ? "rounded-md border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-left text-sm font-medium text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                      : "rounded-md border border-transparent px-3 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  }
-                >
-                  {t.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="hidden flex-col gap-3 md:flex">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 pb-12 md:flex-row">
+        <nav className="md:w-64 md:shrink-0" aria-label="관리자 메뉴">
+          <label className="md:hidden">
+            <span className="sr-only">관리자 메뉴 선택</span>
+            <select
+              value={tab}
+              onChange={(event) => openTab(event.target.value as TabKey)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            >
+              {groupTabs(TABS).map(({ group, items }) => (
+                <optgroup key={group} label={GROUP_LABELS[group]}>
+                  {items.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <div className="hidden flex-col gap-4 md:flex">
+            <input
+              value={navQuery}
+              onChange={(event) => setNavQuery(event.target.value)}
+              placeholder="메뉴 검색"
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-900"
+            />
             {groups.map(({ group, items }) => (
               <div key={group}>
                 <div className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
@@ -186,21 +188,27 @@ function ShellInner() {
                         onClick={() => openTab(t.key)}
                         className={
                           tab === t.key
-                            ? "w-full rounded-md border border-zinc-900 bg-zinc-900 px-3 py-1.5 text-left text-sm font-medium text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-                            : "w-full rounded-md border border-transparent px-3 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            ? "w-full rounded-md border border-zinc-900 bg-zinc-900 px-3 py-2 text-left text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
+                            : "w-full rounded-md border border-transparent px-3 py-2 text-left text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                         }
                       >
-                        {t.label}
+                        <span className="block text-sm font-medium">{t.label}</span>
+                        <span className={tab === t.key ? "block text-[10px] text-zinc-300 dark:text-zinc-600" : "block text-[10px] text-zinc-400"}>{t.description}</span>
                       </button>
                     </li>
                   ))}
                 </ul>
               </div>
             ))}
+            {groups.length === 0 ? <p className="px-2 text-xs text-zinc-500">일치하는 메뉴가 없습니다.</p> : null}
           </div>
         </nav>
 
         <main className="flex-1 space-y-4">
+          <div className="border-b border-zinc-200 pb-3 dark:border-zinc-800">
+            <h2 className="text-lg font-semibold">{activeTab.label}</h2>
+            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{activeTab.description}</p>
+          </div>
           {tab === "users" && <UsersTab />}
           {tab === "stats" && <StatsTab />}
           {tab === "balance" && <BalanceTelemetryTab />}
@@ -228,7 +236,7 @@ function ShellInner() {
 }
 
 function tabFromParam(raw: string | null): TabKey {
-  return TABS.some((tab) => tab.key === raw) ? (raw as TabKey) : "users";
+  return TABS.some((tab) => tab.key === raw) ? (raw as TabKey) : "opsDashboard";
 }
 
 function roleLabel(role: string | null) {
@@ -237,29 +245,6 @@ function roleLabel(role: string | null) {
   if (role === "sanction") return "sanction";
   if (role === "readonly") return "readonly";
   return "no-role";
-}
-
-function RoleCard({
-  label,
-  text,
-  active,
-}: {
-  label: string;
-  text: string;
-  active: boolean;
-}) {
-  return (
-    <div
-      className={
-        active
-          ? "rounded-md border border-zinc-900 bg-zinc-900 px-2 py-1.5 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-          : "rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-      }
-    >
-      <div className="font-mono font-semibold">{label}</div>
-      <div className="mt-0.5">{text}</div>
-    </div>
-  );
 }
 
 function capabilityLabel(capabilities: {

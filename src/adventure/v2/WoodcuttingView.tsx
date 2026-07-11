@@ -8,7 +8,7 @@ import {
   DEFAULT_WOODCUTTING_SPOT_ID,
   WOODCUTTING_SPOTS,
   WOODCUTTING_SPOT_IDS,
-  woodcuttingTreeNames,
+  woodcuttingTreeForSpot,
   type WoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
 import { woodcuttingProgressionView } from "./woodcuttingProgression";
@@ -360,10 +360,16 @@ export function WoodcuttingView({
   timber,
   log,
   onBack,
-}: WoodcuttingHandlers & { onBack: () => void }) {
+  initialSpotId = DEFAULT_WOODCUTTING_SPOT_ID,
+  onSpotChange,
+}: WoodcuttingHandlers & {
+  onBack: () => void;
+  initialSpotId?: WoodcuttingSpotId;
+  onSpotChange?: (spotId: WoodcuttingSpotId) => void;
+}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [selectedSpotId, setSelectedSpotId] = useState<WoodcuttingSpotId>(
-    DEFAULT_WOODCUTTING_SPOT_ID,
+    initialSpotId,
   );
   const [run, setRun] = useState<WoodcuttingStart | null>(null);
   const [startedAt, setStartedAt] = useState(0);
@@ -489,7 +495,10 @@ export function WoodcuttingView({
               key={spotId}
               type="button"
               disabled={busy}
-              onClick={() => setSelectedSpotId(spotId)}
+              onClick={() => {
+                setSelectedSpotId(spotId);
+                onSpotChange?.(spotId);
+              }}
               className={`rounded-xl border p-2.5 text-left transition ${
                 selected
                   ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-400 dark:border-emerald-500 dark:bg-emerald-950/40"
@@ -500,7 +509,7 @@ export function WoodcuttingView({
                 {spot.name}
               </div>
               <div className="mt-1 text-[10px] leading-4 text-emerald-700 dark:text-emerald-300">
-                {woodcuttingTreeNames(spot).join(" · ")}
+                {woodcuttingTreeForSpot(spot).name}
               </div>
               <div className="mt-1 line-clamp-2 text-[10px] leading-4 text-zinc-500 dark:text-zinc-400">
                 {spot.description}

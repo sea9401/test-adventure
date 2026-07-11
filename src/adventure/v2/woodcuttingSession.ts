@@ -30,16 +30,8 @@ export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
 
 export function pickWoodcuttingTreeId(
   spotId: WoodcuttingSpotId,
-  rng: () => number,
 ): WoodcuttingTreeId {
-  const trees = WOODCUTTING_SPOTS[spotId].trees;
-  const total = trees.reduce((sum, tree) => sum + tree.weight, 0);
-  let roll = rng() * total;
-  for (const tree of trees) {
-    roll -= tree.weight;
-    if (roll <= 0) return tree.treeId;
-  }
-  return trees[trees.length - 1].treeId;
+  return WOODCUTTING_SPOTS[spotId].treeId;
 }
 
 export function createWoodcuttingSession(args: {

@@ -106,12 +106,16 @@ describe("guild exploration weekly missions", () => {
       GUILD_EXPLORATION_PROGRESS_UNIT + 35,
     );
     expect(progressed.content.mapFragments).toBe(0);
-    expect(guildExplorationWeeklyMissionViews(progressed, 1)[0]).toMatchObject({
+    const views = guildExplorationWeeklyMissionViews(progressed, 1);
+    expect(views).toHaveLength(6);
+    expect(views[0]).toMatchObject({
       progress: 135,
       progressText: "1.35",
       complete: false,
+      unlocked: true,
       canClaim: false,
     });
+    expect(views.slice(1).every((view) => !view.unlocked)).toBe(true);
   });
 
   it("stores combat and life progress as independent mission metrics", () => {
@@ -157,8 +161,9 @@ describe("guild exploration weekly missions", () => {
         "weekly_farm_harvest_40",
         "weekly_deep_hunt_win_100",
       ]);
-    expect(guildExplorationWeeklyMissionViews(harvested, 2).map((v) => v.id))
-      .toEqual(["weekly_coop_epic_30", "weekly_hunt_win_500"]);
+    expect(
+      guildExplorationWeeklyMissionViews(harvested, 2).map((v) => v.unlocked),
+    ).toEqual([true, true, false, false, false, false]);
   });
 
   it("marks the coop mission claimable at 30 contribution units and claims once", () => {

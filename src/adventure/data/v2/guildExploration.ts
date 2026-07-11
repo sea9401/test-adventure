@@ -49,6 +49,7 @@ export type GuildExplorationWeeklyMissionView =
     goalProgress: number;
     complete: boolean;
     claimed: boolean;
+    unlocked: boolean;
     canClaim: boolean;
   };
 
@@ -526,12 +527,13 @@ export function guildExplorationWeeklyMissionViews(
   missionLimit: number,
 ): GuildExplorationWeeklyMissionView[] {
   const limit = Math.max(0, Math.floor(missionLimit));
-  return GUILD_EXPLORATION_WEEKLY_MISSION_IDS.slice(0, limit).map((id) => {
+  return GUILD_EXPLORATION_WEEKLY_MISSION_IDS.map((id, index) => {
     const mission = GUILD_EXPLORATION_WEEKLY_MISSIONS[id];
     const progress = progressForMetric(state, mission.metric);
     const goalProgress = mission.goal * GUILD_EXPLORATION_PROGRESS_UNIT;
     const claimed = state.claimed.includes(id);
     const complete = progress >= goalProgress;
+    const unlocked = index < limit;
     return {
       ...mission,
       progress,
@@ -539,7 +541,8 @@ export function guildExplorationWeeklyMissionViews(
       goalProgress,
       complete,
       claimed,
-      canClaim: complete && !claimed,
+      unlocked,
+      canClaim: unlocked && complete && !claimed,
     };
   });
 }

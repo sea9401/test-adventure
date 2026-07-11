@@ -373,6 +373,12 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "already_claimed" as const },
       };
     }
+    if (!view.unlocked) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "mission_locked" as const },
+      };
+    }
     if (!view.complete) {
       return {
         status: 409,

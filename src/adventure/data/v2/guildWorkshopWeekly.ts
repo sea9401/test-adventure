@@ -109,7 +109,7 @@ export const GUILD_WORKSHOP_WEEKLY_QUESTS: Record<
   },
   weekly_high_tier_5: {
     id: "weekly_high_tier_5",
-    title: "T8 이상 제작 5회",
+    title: "3T 이상 제작 5회",
     metric: "highTierCrafts",
     goal: 5,
     rewardGold: 1_200_000,
@@ -299,7 +299,7 @@ export function addGuildWorkshopWeeklyProgress(
     armorCount: state.armorCount + (armorSlot ? 1 : 0),
     craftOnlyCount: state.craftOnlyCount + (event.craftOnly ? 1 : 0),
     masterworkCount: state.masterworkCount + (event.masterwork ? 1 : 0),
-    highTierCount: state.highTierCount + (tier >= 8 ? 1 : 0),
+    highTierCount: state.highTierCount + (tier >= 7 ? 1 : 0),
   };
 }
 

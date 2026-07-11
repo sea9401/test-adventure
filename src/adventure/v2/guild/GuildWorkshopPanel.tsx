@@ -47,6 +47,7 @@ import {
   emptyWorkshopRecords,
   emptyWorkshopStats,
   weeklyMetricLabel,
+  workshopEquipmentTierLabel,
   workshopRecordQualityText,
   type DeliveryState,
   type WorkshopState,
@@ -794,7 +795,7 @@ export function GuildWorkshopPanel({
           </div>
           <div className="font-semibold">
             {workshopRecords.highestTier > 0
-              ? `T${workshopRecords.highestTier}`
+              ? workshopEquipmentTierLabel(workshopRecords.highestTier)
               : "-"}
           </div>
         </div>

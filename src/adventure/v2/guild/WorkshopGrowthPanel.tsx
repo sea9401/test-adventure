@@ -17,6 +17,7 @@ import {
   emptyWorkshopRecords,
   nextWorkshopGoal,
   titleGoalLine,
+  workshopEquipmentTierLabel,
   workshopRecordQualityText,
   type WorkshopRecipeView,
   type WorkshopRecordEntry,
@@ -228,7 +229,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 label: "제작 해금",
                 value:
                   currentEffectSummary.maxTier > 0
-                    ? `T${currentEffectSummary.maxTier}`
+                    ? workshopEquipmentTierLabel(currentEffectSummary.maxTier)
                     : "없음",
                 detail: `제작 세트 ${currentEffectSummary.craftOnlyUnlocked}/${currentEffectSummary.totalRecipeCount}종 · 수련 ${currentEffectSummary.trainingRecipeCount}종 분리`,
               },
@@ -295,7 +296,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
               </div>
               <div className="mt-1 font-semibold">
                 {workshopRecords.highestTier > 0
-                  ? `T${workshopRecords.highestTier}`
+                  ? workshopEquipmentTierLabel(workshopRecords.highestTier)
                   : "없음"}{" "}
                 · {workshopRecordQualityText(workshopRecords.bestQualityLevel)}
               </div>

@@ -18,7 +18,6 @@ import {
   Storefront,
   Sword,
   Trophy,
-  TreeEvergreen,
   UserCircle,
   type Icon,
 } from "@phosphor-icons/react";
@@ -63,7 +62,6 @@ const TABS: TabDef[] = [
       { label: "은행", href: "/town/bank", Icon: Bank, color: "text-yellow-600" },
       { label: "상점", href: "/town/shop", Icon: Storefront, color: "text-orange-600" },
       { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
-      { label: "벌목장", href: "/town/logging", Icon: TreeEvergreen, color: "text-emerald-600" },
       { label: "생활 지도", href: "/map", Icon: Compass, color: "text-sky-600" },
       { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
     ],

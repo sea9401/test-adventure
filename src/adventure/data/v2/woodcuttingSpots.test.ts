@@ -42,4 +42,16 @@ describe("벌목 장소 카탈로그", () => {
       );
     }
   });
+
+  it("수종 등급별 기본 성공률을 제공한다", () => {
+    expect(
+      ["pine", "birch", "willow", "oak", "cedar", "cypress"].map(
+        (id) =>
+          Math.round(
+            (1 - WOODCUTTING_TREES[id as keyof typeof WOODCUTTING_TREES].baseFailureRate) *
+              100,
+          ),
+      ),
+    ).toEqual([90, 80, 65, 50, 40, 30]);
+  });
 });

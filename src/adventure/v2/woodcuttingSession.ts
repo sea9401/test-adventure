@@ -1,20 +1,15 @@
-// 벌목 세션 + 약점/리듬 판정 — 서버가 각 타격의 약점과 박자를 검증한다.
+// 벌목 세션 + 낙하 방향 판정 — 서버가 바람, 안전 구역, 뒤베기 정확도를 검증한다.
 
-export const WOODCUTTING_SESSION_KEY = "woodcutting-session.v1";
+export const WOODCUTTING_SESSION_KEY = "woodcutting-session.v2";
 export const WOODCUTTING_LOG_KEY = "woodcutting-log.v1";
-
-export const WOODCUTTING_ROUNDS = 3;
-export const CHOP_READY_MIN_MS = 900;
-export const CHOP_READY_MAX_MS = 2200;
-export const CHOP_REACTION_WINDOW_MS = 900;
-export const CHOP_REACTION_MIN_MS = 60;
-export const CHOP_SESSION_GRACE_MS = 7000;
+export const WOODCUTTING_SESSION_MS = 90_000;
 export const CHOP_MIN_FELL_SCORE = 3;
 
 export type WoodcuttingTreeTier = "softwood" | "hardwood" | "ancient";
 export type WoodcuttingTreeId = "pine" | "birch" | "oak" | "old_cedar";
-export type WoodcuttingSpot = "root" | "left" | "center" | "right";
-export type WoodcuttingHitGrade = "perfect" | "good" | "clean" | "miss";
+export type WoodcuttingLane = -2 | -1 | 0 | 1 | 2;
+export type WoodcuttingWind = -1 | 0 | 1;
+export type WoodcuttingBackCut = "low" | "level" | "high";
 export type WoodcuttingOverallGrade = "perfect" | "good" | "clean";
 
 export type WoodcuttingTree = {
@@ -38,68 +33,52 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   },
 };
 
-export const WOODCUTTING_SPOTS: WoodcuttingSpot[] = [
-  "root",
-  "left",
-  "center",
-  "right",
-];
+export const WOODCUTTING_LANES: WoodcuttingLane[] = [-2, -1, 0, 1, 2];
+export const WOODCUTTING_BACK_CUTS: WoodcuttingBackCut[] = ["low", "level", "high"];
 
-export type WoodcuttingRound = {
-  index: number;
-  weakSpot: WoodcuttingSpot;
-  readyAt: number;
-  expiresAt: number;
-};
-
-export type WoodcuttingHit = {
-  round: number;
-  spot: WoodcuttingSpot;
-  weakSpot: WoodcuttingSpot;
-  reactionMs: number;
-  grade: WoodcuttingHitGrade;
-  score: number;
-  reason: "ok" | "expired" | "too_early" | "missed_window" | "wrong_spot";
+export type WoodcuttingChallenge = {
+  wind: WoodcuttingWind;
+  safeLane: WoodcuttingLane;
+  idealBackCut: WoodcuttingBackCut;
 };
 
 export type WoodcuttingSession = {
   sessionId: string;
   treeId: WoodcuttingTreeId;
-  round: WoodcuttingRound;
-  hits: WoodcuttingHit[];
-  combo: number;
-  bestCombo: number;
+  challenge: WoodcuttingChallenge;
+  expiresAt: number;
 };
 
-export type WoodcuttingRoundView = {
-  index: number;
-  total: number;
-  weakSpot: WoodcuttingSpot;
-  readyDelayMs: number;
-  windowMs: number;
+export type WoodcuttingJudgment = {
+  selectedLane: WoodcuttingLane;
+  backCut: WoodcuttingBackCut;
+  landingLane: WoodcuttingLane;
+  safeLane: WoodcuttingLane;
+  wind: WoodcuttingWind;
+  idealBackCut: WoodcuttingBackCut;
+  directionError: number;
+  backCutError: number;
+  score: number;
+  grade: WoodcuttingOverallGrade | null;
+  reason: "ok" | "unsafe_fall";
 };
 
 export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
   return Object.prototype.hasOwnProperty.call(WOODCUTTING_TREES, id);
 }
 
-export function isWoodcuttingSpot(value: string): value is WoodcuttingSpot {
-  return (WOODCUTTING_SPOTS as string[]).includes(value);
+export function isWoodcuttingLane(value: unknown): value is WoodcuttingLane {
+  return typeof value === "number" && WOODCUTTING_LANES.includes(value as WoodcuttingLane);
 }
 
-export function woodcuttingExpiresAtFor(readyAt: number): number {
-  return readyAt + CHOP_REACTION_WINDOW_MS + CHOP_SESSION_GRACE_MS;
-}
-
-export function rollChopReadyDelayMs(rng: () => number): number {
-  return Math.round(
-    CHOP_READY_MIN_MS + rng() * (CHOP_READY_MAX_MS - CHOP_READY_MIN_MS),
-  );
+export function isWoodcuttingBackCut(value: unknown): value is WoodcuttingBackCut {
+  return typeof value === "string" &&
+    WOODCUTTING_BACK_CUTS.includes(value as WoodcuttingBackCut);
 }
 
 export function pickWoodcuttingTreeId(rng: () => number): WoodcuttingTreeId {
   const entries = Object.values(WOODCUTTING_TREES);
-  const total = entries.reduce((sum, t) => sum + t.weight, 0);
+  const total = entries.reduce((sum, tree) => sum + tree.weight, 0);
   let roll = rng() * total;
   for (const tree of entries) {
     roll -= tree.weight;
@@ -108,198 +87,103 @@ export function pickWoodcuttingTreeId(rng: () => number): WoodcuttingTreeId {
   return entries[entries.length - 1].id;
 }
 
-export function pickWoodcuttingSpot(rng: () => number): WoodcuttingSpot {
-  const idx = Math.min(WOODCUTTING_SPOTS.length - 1, Math.floor(rng() * WOODCUTTING_SPOTS.length));
-  return WOODCUTTING_SPOTS[idx];
+function pickOne<T>(values: readonly T[], rng: () => number): T {
+  return values[Math.min(values.length - 1, Math.floor(rng() * values.length))];
 }
 
-export function createWoodcuttingRound(args: {
-  index: number;
-  now: number;
-  rng: () => number;
-}): WoodcuttingRound {
-  const readyAt = args.now + rollChopReadyDelayMs(args.rng);
+export function createWoodcuttingChallenge(rng: () => number): WoodcuttingChallenge {
+  const wind = pickOne([-1, 0, 1] as const, rng);
+  // 바람을 보정할 앞베기 방향이 항상 5개 선택지 안에 남도록 안전 구역을 제한한다.
+  const safeLanes = WOODCUTTING_LANES.filter((lane) => isWoodcuttingLane(lane - wind));
   return {
-    index: args.index,
-    weakSpot: pickWoodcuttingSpot(args.rng),
-    readyAt,
-    expiresAt: woodcuttingExpiresAtFor(readyAt),
+    wind,
+    safeLane: pickOne(safeLanes, rng),
+    idealBackCut: pickOne(WOODCUTTING_BACK_CUTS, rng),
   };
 }
 
-export function woodcuttingRoundView(
-  round: WoodcuttingRound,
-  now: number,
-): WoodcuttingRoundView {
-  return {
-    index: round.index,
-    total: WOODCUTTING_ROUNDS,
-    weakSpot: round.weakSpot,
-    readyDelayMs: Math.max(0, round.readyAt - now),
-    windowMs: CHOP_REACTION_WINDOW_MS,
-  };
-}
-
-export function parseWoodcuttingRound(raw: unknown): WoodcuttingRound | null {
+export function parseWoodcuttingChallenge(raw: unknown): WoodcuttingChallenge | null {
   if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.index !== "number" || !Number.isFinite(r.index)) return null;
-  if (typeof r.weakSpot !== "string" || !isWoodcuttingSpot(r.weakSpot)) return null;
-  if (typeof r.readyAt !== "number" || !Number.isFinite(r.readyAt)) return null;
-  if (typeof r.expiresAt !== "number" || !Number.isFinite(r.expiresAt)) return null;
-  const index = Math.floor(r.index);
-  if (index < 1 || index > WOODCUTTING_ROUNDS) return null;
+  const value = raw as Record<string, unknown>;
+  if (!isWoodcuttingLane(value.wind) || Math.abs(value.wind) > 1) return null;
+  if (!isWoodcuttingLane(value.safeLane)) return null;
+  if (!isWoodcuttingBackCut(value.idealBackCut)) return null;
   return {
-    index,
-    weakSpot: r.weakSpot,
-    readyAt: r.readyAt,
-    expiresAt: r.expiresAt,
-  };
-}
-
-export function parseWoodcuttingHit(raw: unknown): WoodcuttingHit | null {
-  if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.spot !== "string" || !isWoodcuttingSpot(r.spot)) return null;
-  if (typeof r.weakSpot !== "string" || !isWoodcuttingSpot(r.weakSpot)) return null;
-  const grade = String(r.grade);
-  const reason = String(r.reason);
-  if (!["perfect", "good", "clean", "miss"].includes(grade)) return null;
-  if (!["ok", "expired", "too_early", "missed_window", "wrong_spot"].includes(reason)) {
-    return null;
-  }
-  return {
-    round: Math.max(1, Math.floor(Number(r.round) || 1)),
-    spot: r.spot,
-    weakSpot: r.weakSpot,
-    reactionMs: Math.floor(Number(r.reactionMs) || 0),
-    grade: grade as WoodcuttingHitGrade,
-    score: Math.max(0, Math.floor(Number(r.score) || 0)),
-    reason: reason as WoodcuttingHit["reason"],
+    wind: value.wind as WoodcuttingWind,
+    safeLane: value.safeLane,
+    idealBackCut: value.idealBackCut,
   };
 }
 
 export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null {
   if (!raw || typeof raw !== "object") return null;
-  const r = raw as Record<string, unknown>;
-  if (typeof r.sessionId !== "string" || r.sessionId.length === 0) return null;
-  if (typeof r.treeId !== "string" || !isWoodcuttingTreeId(r.treeId)) return null;
-  const round = parseWoodcuttingRound(r.round);
-  if (!round) return null;
-  const hits = Array.isArray(r.hits)
-    ? r.hits.map(parseWoodcuttingHit).filter((h): h is WoodcuttingHit => h != null)
-    : [];
-  return {
-    sessionId: r.sessionId,
-    treeId: r.treeId,
-    round,
-    hits: hits.slice(0, WOODCUTTING_ROUNDS),
-    combo: Math.max(0, Math.floor(Number(r.combo) || 0)),
-    bestCombo: Math.max(0, Math.floor(Number(r.bestCombo) || 0)),
-  };
-}
-
-export type ChopJudgment = {
-  grade: WoodcuttingHitGrade;
-  score: number;
-  reason: WoodcuttingHit["reason"];
-};
-
-export function judgeChop(args: {
-  spot: WoodcuttingSpot;
-  weakSpot: WoodcuttingSpot;
-  reactionMs: number;
-  serverNow: number;
-  readyAt: number;
-  expiresAt: number;
-}): ChopJudgment {
-  const { spot, weakSpot, reactionMs, serverNow, readyAt, expiresAt } = args;
-  if (serverNow > expiresAt) return { grade: "miss", score: 0, reason: "expired" };
-  if (serverNow < readyAt) return { grade: "miss", score: 0, reason: "too_early" };
-  if (reactionMs < CHOP_REACTION_MIN_MS) {
-    return { grade: "miss", score: 0, reason: "too_early" };
+  const value = raw as Record<string, unknown>;
+  if (typeof value.sessionId !== "string" || value.sessionId.length === 0) return null;
+  if (typeof value.treeId !== "string" || !isWoodcuttingTreeId(value.treeId)) return null;
+  const challenge = parseWoodcuttingChallenge(value.challenge);
+  if (!challenge || typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) {
+    return null;
   }
-  if (reactionMs > CHOP_REACTION_WINDOW_MS) {
-    return { grade: "miss", score: 0, reason: "missed_window" };
-  }
-  if (spot !== weakSpot) return { grade: "miss", score: 0, reason: "wrong_spot" };
-  if (reactionMs <= 230) return { grade: "perfect", score: 3, reason: "ok" };
-  if (reactionMs <= 520) return { grade: "good", score: 2, reason: "ok" };
-  return { grade: "clean", score: 1, reason: "ok" };
-}
-
-export function applyWoodcuttingHit(
-  session: WoodcuttingSession,
-  args: {
-    spot: WoodcuttingSpot;
-    reactionMs: number;
-    serverNow: number;
-  },
-): { session: WoodcuttingSession; hit: WoodcuttingHit; complete: boolean } {
-  const judgment = judgeChop({
-    spot: args.spot,
-    weakSpot: session.round.weakSpot,
-    reactionMs: args.reactionMs,
-    serverNow: args.serverNow,
-    readyAt: session.round.readyAt,
-    expiresAt: session.round.expiresAt,
-  });
-  const hit: WoodcuttingHit = {
-    round: session.round.index,
-    spot: args.spot,
-    weakSpot: session.round.weakSpot,
-    reactionMs: Math.max(0, Math.floor(args.reactionMs)),
-    grade: judgment.grade,
-    score: judgment.score,
-    reason: judgment.reason,
-  };
-  const combo = judgment.score > 0 ? session.combo + 1 : 0;
-  const hits = [...session.hits, hit].slice(0, WOODCUTTING_ROUNDS);
   return {
-    session: {
-      ...session,
-      hits,
-      combo,
-      bestCombo: Math.max(session.bestCombo, combo),
-    },
-    hit,
-    complete: hits.length >= WOODCUTTING_ROUNDS,
+    sessionId: value.sessionId,
+    treeId: value.treeId,
+    challenge,
+    expiresAt: value.expiresAt,
   };
 }
 
-export function totalWoodcuttingScore(hits: WoodcuttingHit[]): number {
-  return hits.reduce((sum, h) => sum + Math.max(0, h.score), 0);
+function clampLane(value: number): WoodcuttingLane {
+  return Math.max(-2, Math.min(2, value)) as WoodcuttingLane;
 }
 
-export function bestWoodcuttingReactionMs(hits: WoodcuttingHit[]): number | null {
-  const values = hits
-    .filter((h) => h.score > 0 && h.reactionMs > 0)
-    .map((h) => h.reactionMs);
-  if (values.length === 0) return null;
-  return Math.min(...values);
-}
-
-export function woodcuttingOverallGrade(
-  score: number,
-): WoodcuttingOverallGrade {
+export function woodcuttingOverallGrade(score: number): WoodcuttingOverallGrade {
   if (score >= 8) return "perfect";
   if (score >= 6) return "good";
   return "clean";
 }
 
+export function judgeWoodcuttingPlan(args: {
+  challenge: WoodcuttingChallenge;
+  selectedLane: WoodcuttingLane;
+  backCut: WoodcuttingBackCut;
+}): WoodcuttingJudgment {
+  const { challenge, selectedLane, backCut } = args;
+  const landingLane = clampLane(selectedLane + challenge.wind);
+  const directionError = Math.abs(landingLane - challenge.safeLane);
+  const backCutError = Math.abs(
+    WOODCUTTING_BACK_CUTS.indexOf(backCut) -
+      WOODCUTTING_BACK_CUTS.indexOf(challenge.idealBackCut),
+  );
+  const directionScore = directionError === 0 ? 6 : directionError === 1 ? 3 : 0;
+  const backCutScore = backCutError === 0 ? 3 : backCutError === 1 ? 1 : 0;
+  const score = directionScore + backCutScore;
+  const safe = directionError <= 1 && score >= CHOP_MIN_FELL_SCORE;
+  return {
+    selectedLane,
+    backCut,
+    landingLane,
+    safeLane: challenge.safeLane,
+    wind: challenge.wind,
+    idealBackCut: challenge.idealBackCut,
+    directionError,
+    backCutError,
+    score,
+    grade: safe ? woodcuttingOverallGrade(score) : null,
+    reason: safe ? "ok" : "unsafe_fall",
+  };
+}
+
 export function woodcuttingTimberReward(
   tree: WoodcuttingTree,
-  hits: WoodcuttingHit[],
-  bestCombo: number,
+  judgment: WoodcuttingJudgment,
 ): { timber: number; grade: WoodcuttingOverallGrade | null; score: number } {
-  const score = totalWoodcuttingScore(hits);
-  if (score < CHOP_MIN_FELL_SCORE) return { timber: 0, grade: null, score };
-  const scoreBonus = Math.floor((score - CHOP_MIN_FELL_SCORE) / 3);
-  const comboBonus = bestCombo >= WOODCUTTING_ROUNDS ? 1 : 0;
+  if (judgment.grade == null) return { timber: 0, grade: null, score: judgment.score };
+  const scoreBonus = Math.floor((judgment.score - CHOP_MIN_FELL_SCORE) / 3);
+  const precisionBonus = judgment.directionError === 0 && judgment.backCutError === 0 ? 1 : 0;
   return {
-    timber: tree.baseTimber + scoreBonus + comboBonus,
-    grade: woodcuttingOverallGrade(score),
-    score,
+    timber: tree.baseTimber + scoreBonus + precisionBonus,
+    grade: judgment.grade,
+    score: judgment.score,
   };
 }
 
@@ -322,22 +206,22 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
     trees: {},
   };
   if (!raw || typeof raw !== "object") return empty;
-  const r = raw as Record<string, unknown>;
+  const value = raw as Record<string, unknown>;
   const trees: Record<string, number> = {};
-  if (r.trees && typeof r.trees === "object") {
-    for (const [id, value] of Object.entries(r.trees as Record<string, unknown>)) {
+  if (value.trees && typeof value.trees === "object") {
+    for (const [id, count] of Object.entries(value.trees as Record<string, unknown>)) {
       if (!isWoodcuttingTreeId(id)) continue;
-      const n = Number(value);
-      if (Number.isFinite(n) && n > 0) trees[id] = Math.floor(n);
+      const number = Number(count);
+      if (Number.isFinite(number) && number > 0) trees[id] = Math.floor(number);
     }
   }
-  const best = Number(r.bestReactionMs);
+  const best = Number(value.bestReactionMs);
   return {
-    cuts: Math.max(0, Math.floor(Number(r.cuts) || 0)),
-    perfectCuts: Math.max(0, Math.floor(Number(r.perfectCuts) || 0)),
-    timberEarned: Math.max(0, Math.floor(Number(r.timberEarned) || 0)),
+    cuts: Math.max(0, Math.floor(Number(value.cuts) || 0)),
+    perfectCuts: Math.max(0, Math.floor(Number(value.perfectCuts) || 0)),
+    timberEarned: Math.max(0, Math.floor(Number(value.timberEarned) || 0)),
     bestReactionMs: Number.isFinite(best) && best > 0 ? Math.floor(best) : null,
-    bestCombo: Math.max(0, Math.floor(Number(r.bestCombo) || 0)),
+    bestCombo: Math.max(0, Math.floor(Number(value.bestCombo) || 0)),
     trees,
   };
 }
@@ -347,23 +231,14 @@ export function recordWoodcuttingSuccess(
   args: {
     treeId: WoodcuttingTreeId;
     timber: number;
-    bestReactionMs: number | null;
     grade: WoodcuttingOverallGrade;
-    bestCombo: number;
   },
 ): WoodcuttingLog {
-  const nextBest =
-    args.bestReactionMs == null
-      ? log.bestReactionMs
-      : log.bestReactionMs == null
-        ? args.bestReactionMs
-        : Math.min(log.bestReactionMs, args.bestReactionMs);
   return {
+    ...log,
     cuts: log.cuts + 1,
     perfectCuts: log.perfectCuts + (args.grade === "perfect" ? 1 : 0),
     timberEarned: log.timberEarned + args.timber,
-    bestReactionMs: nextBest,
-    bestCombo: Math.max(log.bestCombo, args.bestCombo),
     trees: {
       ...log.trees,
       [args.treeId]: (log.trees[args.treeId] ?? 0) + 1,

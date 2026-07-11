@@ -5,12 +5,12 @@ import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import {
   WOODCUTTING_LOG_KEY,
+  WOODCUTTING_SESSION_MS,
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_TREES,
-  createWoodcuttingRound,
+  createWoodcuttingChallenge,
   parseWoodcuttingLog,
   pickWoodcuttingTreeId,
-  woodcuttingRoundView,
   type WoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
 
@@ -25,10 +25,8 @@ export async function POST() {
   const session: WoodcuttingSession = {
     sessionId: randomUUID(),
     treeId,
-    round: createWoodcuttingRound({ index: 1, now, rng: Math.random }),
-    hits: [],
-    combo: 0,
-    bestCombo: 0,
+    challenge: createWoodcuttingChallenge(Math.random),
+    expiresAt: now + WOODCUTTING_SESSION_MS,
   };
 
   await db.transaction(async (tx) => {
@@ -49,7 +47,7 @@ export async function POST() {
     ok: true,
     sessionId: session.sessionId,
     tree: WOODCUTTING_TREES[treeId],
-    round: woodcuttingRoundView(session.round, now),
+    challenge: session.challenge,
     timber,
     log: parseWoodcuttingLog(logRaw),
   });

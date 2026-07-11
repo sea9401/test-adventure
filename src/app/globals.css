@@ -1206,6 +1206,25 @@ body {
   border: 1px solid rgba(14, 116, 144, 0.18);
 }
 
+/* ── 벌목 미니게임 Canvas 장면 ─────────────────────────────────────
+   숲 배경·나무결·안전 구역·낙하 연출은 canvas에서 그리고, 실제 입력 버튼은
+   React overlay로 유지해 모바일 탭 영역과 서버 판정을 안정적으로 맞춘다. */
+
+.woodcutting-canvas-scene {
+  background: #bbf7d0;
+}
+
+.dark .woodcutting-canvas-scene {
+  background: #14331f;
+}
+
+.woodcutting-scene-canvas {
+  display: block;
+  height: 100%;
+  image-rendering: auto;
+  width: 100%;
+}
+
 /* 잡는 순간: 물고기가 튀어오르듯 등장 + 물보라 + (희귀) 발광. */
 @keyframes fish-reveal {
   0% {

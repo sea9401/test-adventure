@@ -18,14 +18,20 @@ import {
 } from "@/adventure/data/v2/guildWorkshop";
 import {
   CRAFTED_EQUIP_TAG_SET_IDS,
+  V2_EQUIPMENT,
   V2_EQUIP_TAG_SETS,
   V2_SLOT_LABEL,
+  type V2Equipment,
+  type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
   MasterworkBadge,
+  V2ItemCard,
+  anchorOf,
+  type ItemCardAnchor,
 } from "../V2ItemCard";
 import {
   ERROR_TEXT,
@@ -35,6 +41,7 @@ import {
   craftResultMessage,
   craftResultTone,
   masterworkButtonText,
+  workshopEquipmentTierLabel,
   weeklyRecipeHints,
   type CraftResultView,
   type WeeklyState,
@@ -99,6 +106,10 @@ export function WorkshopCraftPanel({
     null,
   );
   const [craftResult, setCraftResult] = useState<CraftResultView | null>(null);
+  const [previewCard, setPreviewCard] = useState<{
+    item: V2Equipment;
+    anchor: ItemCardAnchor;
+  } | null>(null);
   const [recipeSlotFilter, setRecipeSlotFilter] = useState<"all" | V2EquipSlot>(
     "all",
   );
@@ -181,6 +192,7 @@ export function WorkshopCraftPanel({
     const masterwork = recipe.masterwork;
     const weeklyHints = weeklyRecipeHints(recipe, weekly);
     const recommended = recommendedRecipeId === recipe.id;
+    const equipment = V2_EQUIPMENT[recipe.equipmentId as V2EquipmentId];
     return (
       <div
         key={recipe.id}
@@ -191,16 +203,39 @@ export function WorkshopCraftPanel({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
-              <strong className="text-sm text-zinc-950 dark:text-zinc-50">
-                {recipe.itemName}
-              </strong>
+              {equipment ? (
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-label={`${recipe.itemName} 옵션 미리보기`}
+                  onClick={(event) =>
+                    setPreviewCard({
+                      item: equipment,
+                      anchor: anchorOf(event.currentTarget),
+                    })
+                  }
+                  className="group inline-flex items-center gap-1.5 text-left"
+                >
+                  <strong className="text-sm text-zinc-950 underline decoration-dotted underline-offset-4 group-hover:text-emerald-700 dark:text-zinc-50 dark:group-hover:text-emerald-300">
+                    {recipe.itemName}
+                  </strong>
+                  <span className="text-[10px] font-medium text-emerald-700 group-hover:underline dark:text-emerald-300">
+                    옵션 보기
+                  </span>
+                </button>
+              ) : (
+                <strong className="text-sm text-zinc-950 dark:text-zinc-50">
+                  {recipe.itemName}
+                </strong>
+              )}
               {recommended ? (
                 <span className="rounded bg-emerald-700 px-1.5 py-px text-[10px] font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
                   추천
                 </span>
               ) : null}
               <span className="rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                T{recipe.tier} · {V2_SLOT_LABEL[recipe.slot]}
+                {workshopEquipmentTierLabel(recipe.tier)} ·{" "}
+                {V2_SLOT_LABEL[recipe.slot]}
               </span>
               {recipe.craftOnly ? <CraftOnlyBadge /> : null}
               {weeklyHints.slice(0, 2).map((hint) => (
@@ -389,7 +424,8 @@ export function WorkshopCraftPanel({
                 {craftResult.itemName}
               </div>
               <div className="mt-1 text-zinc-500 dark:text-zinc-400">
-                {V2_SLOT_LABEL[craftResult.slot]} · T{craftResult.tier} ·
+                {V2_SLOT_LABEL[craftResult.slot]} ·{" "}
+                {workshopEquipmentTierLabel(craftResult.tier)} ·
                 대장장이 숙련도 +{craftResult.artisanXpGained.toLocaleString()}
               </div>
             </div>
@@ -591,6 +627,14 @@ export function WorkshopCraftPanel({
             ) : null}
           </div>
         </details>
+      ) : null}
+
+      {previewCard ? (
+        <V2ItemCard
+          item={previewCard.item}
+          anchor={previewCard.anchor}
+          onClose={() => setPreviewCard(null)}
+        />
       ) : null}
     </>
   );

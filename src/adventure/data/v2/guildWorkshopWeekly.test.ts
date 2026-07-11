@@ -5,6 +5,7 @@ import {
   guildWorkshopWeeklyQuestViews,
   guildWorkshopWeeklyRewardTotals,
   GUILD_WORKSHOP_WEEKLY_REWARD_CAP,
+  GUILD_WORKSHOP_WEEKLY_QUESTS,
   parseGuildWorkshopWeeklyState,
 } from "./guildWorkshopWeekly";
 
@@ -80,6 +81,28 @@ describe("guild workshop weekly quests", () => {
     expect(
       claimGuildWorkshopWeeklyQuest(progressed, "weekly_craft_20").claimed,
     ).toEqual(["weekly_craft_20"]);
+  });
+
+  it("counts the displayed 3T boundary as high-tier crafting", () => {
+    const base = {
+      weekKey: "2026-W26",
+      craftCount: 0,
+      qualityCount: 0,
+      weaponCount: 0,
+      armorCount: 0,
+      craftOnlyCount: 0,
+      masterworkCount: 0,
+      highTierCount: 0,
+      claimed: [],
+    };
+    const tier2 = addGuildWorkshopWeeklyProgress(base, { tier: 6 });
+    const tier3 = addGuildWorkshopWeeklyProgress(base, { tier: 7 });
+
+    expect(tier2.highTierCount).toBe(0);
+    expect(tier3.highTierCount).toBe(1);
+    expect(GUILD_WORKSHOP_WEEKLY_QUESTS.weekly_high_tier_5.title).toBe(
+      "3T 이상 제작 5회",
+    );
   });
 
   it("keeps old claimed arrays compatible and stores extra progress in payloads", () => {

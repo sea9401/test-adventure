@@ -18,6 +18,7 @@ import {
   dismantleRewardTotal,
   matchesDismantleScopeFilter,
   matchesDismantleTierFilter,
+  workshopEquipmentTierLabel,
   workshopMaterialRewardText,
   type DismantleCandidateView,
   type DismantleResultView,
@@ -171,7 +172,7 @@ export function WorkshopDismantlePanel({
             장비 해체
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            대장장이 Lv {dismantle?.requiredBlacksmithLevel ?? 6}부터 T4 이상
+            대장장이 Lv {dismantle?.requiredBlacksmithLevel ?? 6}부터 2T 이상
             대장장이 제작품을 제작 재료로 회수합니다.
           </div>
         </div>
@@ -190,7 +191,7 @@ export function WorkshopDismantlePanel({
         </div>
         <div>
           <span className="font-semibold">해체 불가</span> · 필드/상점 장비,
-          장착 중인 장비, 잠금 장비, T4 미만 장비
+          장착 중인 장비, 잠금 장비, 2T 미만 장비
         </div>
       </div>
       <div className="mb-2 rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
@@ -227,10 +228,11 @@ export function WorkshopDismantlePanel({
           className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="all">모든 티어</option>
-          <option value="t4">2T 초입</option>
-          <option value="t6">2T 후반~3T 초입</option>
-          <option value="t8">3T 후반</option>
-          <option value="t10">4T</option>
+          <option value="display1">1T</option>
+          <option value="display2">2T</option>
+          <option value="display3">3T</option>
+          <option value="display4">4T</option>
+          <option value="display5">5T</option>
         </select>
         <select
           value={dismantleSort}
@@ -275,7 +277,8 @@ export function WorkshopDismantlePanel({
                 {dismantleResult.itemName}
               </div>
               <div className="mt-1 text-zinc-500 dark:text-zinc-400">
-                {V2_SLOT_LABEL[dismantleResult.slot]} · T{dismantleResult.tier}
+                {V2_SLOT_LABEL[dismantleResult.slot]} ·{" "}
+                {workshopEquipmentTierLabel(dismantleResult.tier)}
               </div>
             </div>
             <div className="flex flex-wrap gap-1 sm:justify-end">
@@ -311,7 +314,8 @@ export function WorkshopDismantlePanel({
                     {item.masterwork ? <MasterworkBadge /> : null}
                   </div>
                   <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {V2_SLOT_LABEL[item.slot]} · T{item.tier} ·{" "}
+                    {V2_SLOT_LABEL[item.slot]} ·{" "}
+                    {workshopEquipmentTierLabel(item.tier)} ·{" "}
                     {workshopMaterialRewardText(item.rewards)}
                   </div>
                   {item.artisanXp > 0 ? (

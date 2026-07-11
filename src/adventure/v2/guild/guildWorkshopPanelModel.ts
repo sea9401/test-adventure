@@ -18,7 +18,13 @@ import {
 } from "@/adventure/data/v2/guildWorkshop";
 import type {
   V2CraftQualityState,
+  V2EquipCatalogTier,
+  V2EquipDisplayTier,
   V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
+import {
+  v2EquipCatalogTierDisplayLabel,
+  v2EquipCatalogTierToDisplayTier,
 } from "@/adventure/data/v2/v2Equipment";
 
 export type WorkshopRecipeView = {
@@ -216,7 +222,13 @@ export type DismantleScopeFilter =
   | "quality"
   | "craftOnly"
   | "masterwork";
-export type DismantleTierFilter = "all" | "t4" | "t6" | "t8" | "t10";
+export type DismantleTierFilter =
+  | "all"
+  | "display1"
+  | "display2"
+  | "display3"
+  | "display4"
+  | "display5";
 export type DismantleSortMode = "tier" | "reward" | "name";
 
 export type CraftResultView = {
@@ -267,7 +279,7 @@ export const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   locked: "잠금 장비는 해체할 수 없습니다.",
   not_crafted:
     "필드/상점 장비는 해체 재료 회수 대상이 아닙니다. 대장장이 제작품이나 제작 전용 장비만 해체할 수 있습니다.",
-  low_tier: "T4 미만 장비는 제작 재료를 회수할 수 없습니다.",
+  low_tier: "2T 미만 장비는 제작 재료를 회수할 수 없습니다.",
   no_material: "회수할 제작 재료가 없습니다.",
 };
 
@@ -304,7 +316,22 @@ export function weeklyMetricLabel(metric: WeeklyQuestView["metric"]): string {
   if (metric === "armorCrafts") return "방어구";
   if (metric === "craftOnlyCrafts") return "제작 전용";
   if (metric === "masterworkCrafts") return "명장";
-  return "T8+";
+  return "3T 이상";
+}
+
+function normalizeWorkshopEquipmentTier(tierRaw: number): V2EquipCatalogTier {
+  return Math.min(
+    13,
+    Math.max(1, Math.floor(Number(tierRaw) || 1)),
+  ) as V2EquipCatalogTier;
+}
+
+export function workshopEquipmentDisplayTier(tier: number): V2EquipDisplayTier {
+  return v2EquipCatalogTierToDisplayTier(normalizeWorkshopEquipmentTier(tier));
+}
+
+export function workshopEquipmentTierLabel(tier: number): string {
+  return v2EquipCatalogTierDisplayLabel(normalizeWorkshopEquipmentTier(tier));
 }
 
 export function workshopRecordQualityText(levelRaw: number): string {
@@ -372,7 +399,7 @@ export function weeklyQuestMatchesRecipe(
   }
   if (quest.metric === "craftOnlyCrafts") return recipe.craftOnly === true;
   if (quest.metric === "masterworkCrafts") return recipe.masterwork != null;
-  return recipe.tier >= 8;
+  return workshopEquipmentDisplayTier(recipe.tier) >= 3;
 }
 
 export function recipePriority(a: WorkshopRecipeView, b: WorkshopRecipeView): number {
@@ -536,8 +563,11 @@ export function weeklyRecipeHints(
       hints.push("주간 전용");
     } else if (quest.metric === "masterworkCrafts" && recipe.masterwork) {
       hints.push("주간 명장");
-    } else if (quest.metric === "highTierCrafts" && recipe.tier >= 8) {
-      hints.push("주간 T8+");
+    } else if (
+      quest.metric === "highTierCrafts" &&
+      workshopEquipmentDisplayTier(recipe.tier) >= 3
+    ) {
+      hints.push("주간 3T+");
     } else if (quest.metric === "qualityCrafts") {
       hints.push("품질 목표");
     } else if (quest.metric === "crafts") {
@@ -700,7 +730,7 @@ export function dismantleBlockedText(reason?: string): string {
     case "locked_level":
       return "Lv 부족";
     case "low_tier":
-      return "T4 미만";
+      return "2T 미만";
     case "equipped":
       return "장착 중";
     case "locked":
@@ -724,10 +754,7 @@ export function matchesDismantleTierFilter(
   filter: DismantleTierFilter,
 ): boolean {
   if (filter === "all") return true;
-  if (filter === "t4") return item.tier >= 4 && item.tier <= 5;
-  if (filter === "t6") return item.tier >= 6 && item.tier <= 7;
-  if (filter === "t8") return item.tier >= 8 && item.tier <= 9;
-  return item.tier >= 10;
+  return workshopEquipmentDisplayTier(item.tier) === Number(filter.slice(-1));
 }
 
 export function matchesDismantleScopeFilter(

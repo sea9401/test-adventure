@@ -76,8 +76,8 @@ describe("정착지 재료 — 통나무/철광석 수급", () => {
     expect(SETTLEMENT_MATERIAL_TO_KIND[ironOre]).toBe("ore");
   });
 
-  it("이름 — 통나무/철광석", () => {
-    expect(SETTLEMENT_MATERIALS[timber].name).toBe("통나무");
+  it("이름 — 소나무 원목/철광석", () => {
+    expect(SETTLEMENT_MATERIALS[timber].name).toBe("소나무 원목");
     expect(SETTLEMENT_MATERIALS[ironOre].name).toBe("철광석");
   });
 });

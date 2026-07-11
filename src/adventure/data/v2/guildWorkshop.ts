@@ -27,6 +27,11 @@ import {
   SETTLEMENT_MATERIAL_ID,
   SETTLEMENT_MATERIALS,
 } from "./settlementMaterials";
+import {
+  WOODCUTTING_MATERIAL_ID,
+  WOODCUTTING_MATERIALS,
+  type WoodcuttingMaterialId,
+} from "./woodcuttingSpots";
 
 export type GuildWorkshopRecipeId =
   | "crafted_oathblade"
@@ -77,6 +82,18 @@ export const GUILD_WORKSHOP_RESOURCE_MATERIAL_ID: Record<
   crop: SETTLEMENT_MATERIAL_ID.timber,
   ore: SETTLEMENT_MATERIAL_ID.ironOre,
 };
+
+export function guildWorkshopWoodMaterialForTier(
+  tierRaw: number,
+): WoodcuttingMaterialId {
+  const tier = Math.max(1, Math.floor(Number(tierRaw) || 1));
+  if (tier >= 12) return WOODCUTTING_MATERIAL_ID.cypress;
+  if (tier >= 11) return WOODCUTTING_MATERIAL_ID.cedar;
+  if (tier >= 10) return WOODCUTTING_MATERIAL_ID.oak;
+  if (tier >= 8) return WOODCUTTING_MATERIAL_ID.willow;
+  if (tier >= 6) return WOODCUTTING_MATERIAL_ID.birch;
+  return WOODCUTTING_MATERIAL_ID.pine;
+}
 
 export type GuildWorkshopStats = {
   totalCrafts: number;
@@ -850,7 +867,9 @@ export function guildWorkshopRecipeResourceMaterialCost(
     guildWorkshopRecipeResourceCost(recipe, mode),
   )) {
     const materialId =
-      GUILD_WORKSHOP_RESOURCE_MATERIAL_ID[kind as ProductionKind];
+      kind === "crop"
+        ? guildWorkshopWoodMaterialForTier(V2_EQUIPMENT[recipe.equipmentId].tier)
+        : GUILD_WORKSHOP_RESOURCE_MATERIAL_ID[kind as ProductionKind];
     out[materialId] = (out[materialId] ?? 0) + Math.max(0, amount ?? 0);
   }
   return out;
@@ -859,6 +878,7 @@ export function guildWorkshopRecipeResourceMaterialCost(
 function guildWorkshopMaterialName(id: string): string {
   return (
     (SETTLEMENT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
+    (WOODCUTTING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (GUILD_WORKSHOP_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     id
   );

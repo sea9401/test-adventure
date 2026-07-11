@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_WOODCUTTING_SPOT_ID,
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_SPOTS,
   WOODCUTTING_SPOT_IDS,
   WOODCUTTING_TREES,
@@ -16,11 +17,25 @@ describe("벌목 장소 카탈로그", () => {
 
   it("각 숲은 서로 다른 나무 1종만 가진다", () => {
     const seen = new Set<string>();
+    const materials = new Set<string>();
     for (const spot of Object.values(WOODCUTTING_SPOTS)) {
-      expect(woodcuttingTreeForSpot(spot)).toBe(WOODCUTTING_TREES[spot.treeId]);
+      const tree = woodcuttingTreeForSpot(spot);
+      expect(tree).toBe(WOODCUTTING_TREES[spot.treeId]);
       expect(seen.has(spot.treeId)).toBe(false);
+      expect(WOODCUTTING_MATERIALS[tree.materialId]).toBeDefined();
       seen.add(spot.treeId);
+      materials.add(tree.materialId);
     }
     expect(seen.size).toBe(6);
+    expect(materials.size).toBe(6);
+  });
+
+  it("상위 제작 원목일수록 기본 시간과 경험치가 증가한다", () => {
+    const tierOrder = ["pine", "birch", "willow", "oak", "cedar", "cypress"] as const;
+    const trees = tierOrder.map((id) => WOODCUTTING_TREES[id]);
+    for (let index = 1; index < trees.length; index += 1) {
+      expect(trees[index].durationMs).toBeGreaterThan(trees[index - 1].durationMs);
+      expect(trees[index].xp).toBeGreaterThan(trees[index - 1].xp);
+    }
   });
 });

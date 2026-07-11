@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   WOODCUTTING_LEVEL_CAP,
   WOODCUTTING_XP_PER_CUT,
+  woodcuttingDurationForLevel,
   woodcuttingLevelForXp,
   woodcuttingProgressionView,
+  woodcuttingTimeReduction,
   woodcuttingXpForLevel,
 } from "./woodcuttingProgression";
 
@@ -27,6 +29,18 @@ describe("벌목 진행도", () => {
     expect(woodcuttingLevelForXp(39)).toBe(1);
     expect(woodcuttingLevelForXp(40)).toBe(2);
     expect(woodcuttingLevelForXp(160)).toBe(3);
+  });
+
+  it("수종별 XP를 직접 반영할 수 있다", () => {
+    expect(woodcuttingProgressionView(1, 160)).toMatchObject({ level: 3, xp: 160 });
+  });
+
+  it("레벨당 0.2%씩 벌목 시간을 줄이되 약 10% 이내로 제한한다", () => {
+    expect(woodcuttingTimeReduction(1)).toBe(0);
+    expect(woodcuttingTimeReduction(11)).toBeCloseTo(0.02);
+    expect(woodcuttingTimeReduction(50)).toBeCloseTo(0.098);
+    expect(woodcuttingDurationForLevel(9_000, 1)).toBe(9_000);
+    expect(woodcuttingDurationForLevel(9_000, 50)).toBe(8_100);
   });
 
   it("50레벨에서 멈추고 다음 경험치를 요구하지 않는다", () => {

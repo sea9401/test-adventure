@@ -418,7 +418,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           kind: "error",
           text:
             json.error === "insufficient_material"
-              ? `재료가 부족합니다 (통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 필요)`
+              ? `재료가 부족합니다 (소나무 원목 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 필요)`
               : json.error === "insufficient_gold"
                 ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
                 : `실패: ${json.error ?? "unknown"}`,
@@ -427,7 +427,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       setMsg({
         kind: "success",
-        text: `🛡️ 통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `🛡️ 소나무 원목 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -870,7 +870,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     cost: COMBINE_GOLD_COST,
                     mats: [
                       {
-                        label: "🪵 통나무",
+                        label: "🪵 소나무 원목",
                         have: kitMats.timber,
                         need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber],
                       },

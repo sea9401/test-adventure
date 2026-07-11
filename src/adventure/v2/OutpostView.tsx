@@ -527,7 +527,7 @@ export function OutpostView({
         setRepairResult(
           json.fortHp >= json.fortMaxHp
             ? "이미 성벽이 가득 찼습니다."
-            : "성벽 수리 키트가 없습니다 — 통나무·철광석으로 조합하세요.",
+            : "성벽 수리 키트가 없습니다 — 소나무 원목·철광석으로 조합하세요.",
         );
       }
       // 성벽 HP 갱신을 헤더 바에 즉시 반영.

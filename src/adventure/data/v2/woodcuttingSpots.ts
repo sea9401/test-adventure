@@ -1,3 +1,8 @@
+import {
+  SETTLEMENT_MATERIAL_ID,
+  SETTLEMENT_MATERIALS,
+} from "./settlementMaterials";
+
 export type WoodcuttingTreeId =
   | "pine"
   | "birch"
@@ -9,17 +14,107 @@ export type WoodcuttingTreeId =
 export type WoodcuttingTree = {
   id: WoodcuttingTreeId;
   name: string;
+  materialId: WoodcuttingMaterialId;
   durationMs: number;
   chops: number;
+  xp: number;
+};
+
+export const WOODCUTTING_MATERIAL_ID = {
+  pine: SETTLEMENT_MATERIAL_ID.timber,
+  birch: "v2_birch_log",
+  oak: "v2_oak_log",
+  cedar: "v2_cedar_log",
+  willow: "v2_willow_log",
+  cypress: "v2_cypress_log",
+} as const;
+
+export type WoodcuttingMaterialId =
+  (typeof WOODCUTTING_MATERIAL_ID)[keyof typeof WOODCUTTING_MATERIAL_ID];
+
+export const WOODCUTTING_MATERIALS: Record<
+  WoodcuttingMaterialId,
+  { id: WoodcuttingMaterialId; name: string; description: string }
+> = {
+  [WOODCUTTING_MATERIAL_ID.pine]: {
+    ...SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.timber],
+  },
+  [WOODCUTTING_MATERIAL_ID.birch]: {
+    id: WOODCUTTING_MATERIAL_ID.birch,
+    name: "자작나무 원목",
+    description: "은빛 자작나무숲에서 얻는 밝고 가벼운 목재. 정교한 제작 재료로 쓰인다.",
+  },
+  [WOODCUTTING_MATERIAL_ID.oak]: {
+    id: WOODCUTTING_MATERIAL_ID.oak,
+    name: "참나무 원목",
+    description: "깊은 참나무숲에서 얻는 단단한 목재. 튼튼한 장비 제작에 알맞다.",
+  },
+  [WOODCUTTING_MATERIAL_ID.cedar]: {
+    id: WOODCUTTING_MATERIAL_ID.cedar,
+    name: "삼나무 원목",
+    description: "고요한 삼나무숲에서 얻는 향기로운 목재. 상급 제작 재료로 쓰인다.",
+  },
+  [WOODCUTTING_MATERIAL_ID.willow]: {
+    id: WOODCUTTING_MATERIAL_ID.willow,
+    name: "버드나무 원목",
+    description: "물안개 버드나무숲에서 얻는 유연한 목재. 탄성이 필요한 제작에 알맞다.",
+  },
+  [WOODCUTTING_MATERIAL_ID.cypress]: {
+    id: WOODCUTTING_MATERIAL_ID.cypress,
+    name: "편백나무 원목",
+    description: "바람재 편백나무숲에서 얻는 귀한 목재. 최고급 장비 제작에 쓰인다.",
+  },
 };
 
 export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
-  pine: { id: "pine", name: "소나무", durationMs: 3_000, chops: 5 },
-  birch: { id: "birch", name: "자작나무", durationMs: 3_200, chops: 5 },
-  oak: { id: "oak", name: "참나무", durationMs: 3_800, chops: 7 },
-  cedar: { id: "cedar", name: "삼나무", durationMs: 4_000, chops: 7 },
-  willow: { id: "willow", name: "버드나무", durationMs: 3_400, chops: 6 },
-  cypress: { id: "cypress", name: "편백나무", durationMs: 4_100, chops: 7 },
+  pine: {
+    id: "pine",
+    name: "소나무",
+    materialId: WOODCUTTING_MATERIAL_ID.pine,
+    durationMs: 7_000,
+    chops: 5,
+    xp: 5,
+  },
+  birch: {
+    id: "birch",
+    name: "자작나무",
+    materialId: WOODCUTTING_MATERIAL_ID.birch,
+    durationMs: 8_000,
+    chops: 6,
+    xp: 6,
+  },
+  oak: {
+    id: "oak",
+    name: "참나무",
+    materialId: WOODCUTTING_MATERIAL_ID.oak,
+    durationMs: 12_000,
+    chops: 8,
+    xp: 10,
+  },
+  cedar: {
+    id: "cedar",
+    name: "삼나무",
+    materialId: WOODCUTTING_MATERIAL_ID.cedar,
+    durationMs: 15_000,
+    chops: 9,
+    xp: 12,
+  },
+  willow: {
+    id: "willow",
+    name: "버드나무",
+    materialId: WOODCUTTING_MATERIAL_ID.willow,
+    durationMs: 10_000,
+    chops: 7,
+    xp: 8,
+  },
+  cypress: {
+    id: "cypress",
+    name: "편백나무",
+    materialId: WOODCUTTING_MATERIAL_ID.cypress,
+    durationMs: 18_000,
+    chops: 10,
+    xp: 15,
+  },
 };
 
 export type WoodcuttingSpotId =

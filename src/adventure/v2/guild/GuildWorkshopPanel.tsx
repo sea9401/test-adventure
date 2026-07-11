@@ -15,6 +15,10 @@ import {
   SETTLEMENT_MATERIALS,
 } from "@/adventure/data/v2/settlementMaterials";
 import {
+  WOODCUTTING_MATERIALS,
+  WOODCUTTING_MATERIAL_ID,
+} from "@/adventure/data/v2/woodcuttingSpots";
+import {
   useRewardToast,
   useSystemMessageState,
 } from "@/adventure/v2/RewardToastProvider";
@@ -331,12 +335,13 @@ export function GuildWorkshopPanel({
   const materialEntries = useMemo(
     () =>
       [
-        SETTLEMENT_MATERIAL_ID.timber,
+        ...Object.values(WOODCUTTING_MATERIAL_ID),
         SETTLEMENT_MATERIAL_ID.ironOre,
         ...GUILD_WORKSHOP_MATERIAL_IDS,
       ].map((id) => {
         const mat =
           (SETTLEMENT_MATERIALS as Record<string, { name: string }>)[id] ??
+          (WOODCUTTING_MATERIALS as Record<string, { name: string }>)[id] ??
           (GUILD_WORKSHOP_MATERIALS as Record<string, { name: string }>)[id];
         const amount = Math.max(0, Math.floor(materials[id] ?? 0));
         return {

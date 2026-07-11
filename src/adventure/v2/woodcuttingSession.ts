@@ -2,19 +2,27 @@
 
 import {
   WOODCUTTING_SPOTS,
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_TREES,
   isWoodcuttingSpotId,
+  type WoodcuttingMaterialId,
   type WoodcuttingSpotId,
   type WoodcuttingTreeId,
 } from "@/adventure/data/v2/woodcuttingSpots";
+import { WOODCUTTING_XP_PER_CUT } from "./woodcuttingProgression";
 
-export { WOODCUTTING_TREES } from "@/adventure/data/v2/woodcuttingSpots";
+export {
+  WOODCUTTING_MATERIALS,
+  WOODCUTTING_TREES,
+} from "@/adventure/data/v2/woodcuttingSpots";
 export type { WoodcuttingTreeId } from "@/adventure/data/v2/woodcuttingSpots";
 
 export const WOODCUTTING_SESSION_KEY = "woodcutting-session.v4";
 export const WOODCUTTING_LOG_KEY = "woodcutting-log.v1";
 export const WOODCUTTING_CLAIM_GRACE_MS = 30_000;
-export const WOODCUTTING_TIMBER_REWARD = 1;
+export const WOODCUTTING_MATERIAL_REWARD = 1;
+// 기존 호출처와 세이브 테스트가 사용하는 이름. 보상 단위는 이제 수종별 원목이다.
+export const WOODCUTTING_TIMBER_REWARD = WOODCUTTING_MATERIAL_REWARD;
 
 export type WoodcuttingSession = {
   sessionId: string;
@@ -28,6 +36,18 @@ export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
   return Object.prototype.hasOwnProperty.call(WOODCUTTING_TREES, id);
 }
 
+export function woodcuttingMaterialBalances(
+  raw: unknown,
+): Record<WoodcuttingMaterialId, number> {
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return Object.fromEntries(
+    (Object.keys(WOODCUTTING_MATERIALS) as WoodcuttingMaterialId[]).map((id) => [
+      id,
+      Math.max(0, Math.floor(Number(source[id]) || 0)),
+    ]),
+  ) as Record<WoodcuttingMaterialId, number>;
+}
+
 export function pickWoodcuttingTreeId(
   spotId: WoodcuttingSpotId,
 ): WoodcuttingTreeId {
@@ -39,8 +59,13 @@ export function createWoodcuttingSession(args: {
   spotId: WoodcuttingSpotId;
   treeId: WoodcuttingTreeId;
   now: number;
+  durationMs?: number;
 }): WoodcuttingSession {
-  const readyAt = args.now + WOODCUTTING_TREES[args.treeId].durationMs;
+  const durationMs = Math.max(
+    1_000,
+    Math.floor(args.durationMs ?? WOODCUTTING_TREES[args.treeId].durationMs),
+  );
+  const readyAt = args.now + durationMs;
   return {
     sessionId: args.sessionId,
     spotId: args.spotId,
@@ -69,6 +94,7 @@ export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null
 
 export type WoodcuttingLog = {
   cuts: number;
+  xp: number;
   perfectCuts: number;
   timberEarned: number;
   bestReactionMs: number | null;
@@ -79,6 +105,7 @@ export type WoodcuttingLog = {
 export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
   const empty: WoodcuttingLog = {
     cuts: 0,
+    xp: 0,
     perfectCuts: 0,
     timberEarned: 0,
     bestReactionMs: null,
@@ -96,8 +123,15 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
     }
   }
   const best = Number(value.bestReactionMs);
+  const cuts = Math.max(0, Math.floor(Number(value.cuts) || 0));
+  const hasStoredXp = Object.prototype.hasOwnProperty.call(value, "xp");
+  const storedXp = Number(value.xp);
   return {
-    cuts: Math.max(0, Math.floor(Number(value.cuts) || 0)),
+    cuts,
+    xp:
+      hasStoredXp && Number.isFinite(storedXp)
+        ? Math.max(0, Math.floor(storedXp))
+        : cuts * WOODCUTTING_XP_PER_CUT,
     perfectCuts: Math.max(0, Math.floor(Number(value.perfectCuts) || 0)),
     timberEarned: Math.max(0, Math.floor(Number(value.timberEarned) || 0)),
     bestReactionMs: Number.isFinite(best) && best > 0 ? Math.floor(best) : null,
@@ -108,11 +142,12 @@ export function parseWoodcuttingLog(raw: unknown): WoodcuttingLog {
 
 export function recordWoodcuttingSuccess(
   log: WoodcuttingLog,
-  args: { treeId: WoodcuttingTreeId; timber: number },
+  args: { treeId: WoodcuttingTreeId; timber: number; xp: number },
 ): WoodcuttingLog {
   return {
     ...log,
     cuts: log.cuts + 1,
+    xp: log.xp + Math.max(0, Math.floor(args.xp)),
     timberEarned: log.timberEarned + args.timber,
     trees: {
       ...log.trees,

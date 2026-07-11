@@ -4,6 +4,7 @@ import { SessionProvider } from "next-auth/react";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StaleBuildAutoReload } from "@/components/StaleBuildAutoReload";
 import { VersionCheck } from "@/components/VersionCheck";
+import { AdminImpersonationBanner } from "@/components/AdminImpersonationBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -73,6 +74,7 @@ export default function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         </head>
         <body className="min-h-full flex flex-col font-sans">
+          <AdminImpersonationBanner />
           <StaleBuildAutoReload />
           <ServiceWorkerRegistrar />
           <VersionCheck />

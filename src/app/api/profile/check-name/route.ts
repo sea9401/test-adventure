@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users, savesKv } from "@/db/schema";
-import { ensureUser } from "@/lib/server/ensureUser";
+import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 
 const NAME_MIN = 1;
@@ -12,7 +12,7 @@ const NAME_MAX = 16;
 // users.gameName + savesKv 의 character-profile.v2 양쪽 모두 검사.
 // 본인 소유 닉네임은 available=true 로 반환.
 export async function GET(req: Request) {
-  const userId = await ensureUser();
+  const userId = await ensureOriginalUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
 
   const url = new URL(req.url);

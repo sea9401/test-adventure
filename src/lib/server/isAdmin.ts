@@ -10,6 +10,11 @@ function getAdminEmails(): Set<string> {
   );
 }
 
+/** 가장·계정 작업처럼 최고 권한이 필요한 경로의 동기 검사용. */
+export function isSuperAdminEmail(email: string | null | undefined): boolean {
+  return typeof email === "string" && getAdminEmails().has(email.toLowerCase());
+}
+
 export type AdminRole = "readonly" | "reward" | "sanction" | "super";
 
 export type AdminCapabilities = {
@@ -33,7 +38,7 @@ export async function currentAdminRole(): Promise<AdminRole | null> {
   const session = await auth();
   const email = session?.user?.email?.toLowerCase();
   if (!email) return null;
-  if (getAdminEmails().has(email)) return "super";
+  if (isSuperAdminEmail(email)) return "super";
   if (getRoleEmails("OPS_REWARD_EMAILS").has(email)) return "reward";
   if (getRoleEmails("OPS_SANCTION_EMAILS").has(email)) return "sanction";
   if (getRoleEmails("OPS_READONLY_EMAILS").has(email)) return "readonly";
@@ -59,7 +64,7 @@ export async function currentAdminCapabilities(): Promise<AdminCapabilities> {
     super: false,
   };
   if (!email) return empty;
-  const superAdmin = getAdminEmails().has(email);
+  const superAdmin = isSuperAdminEmail(email);
   const reward = superAdmin || getRoleEmails("OPS_REWARD_EMAILS").has(email);
   const sanction = superAdmin || getRoleEmails("OPS_SANCTION_EMAILS").has(email);
   const readonly =
@@ -96,7 +101,7 @@ export async function requireAdminRole(role: AdminRole): Promise<Response | null
   if (!session?.user?.id) return new Response("unauthorized", { status: 401 });
   const email = session.user.email?.toLowerCase();
   if (!email) return new Response("forbidden", { status: 403 });
-  if (getAdminEmails().has(email)) return null;
+  if (isSuperAdminEmail(email)) return null;
   if (role === "readonly" && (await isCurrentUserAdmin())) return null;
   if (role === "reward" && getRoleEmails("OPS_REWARD_EMAILS").has(email)) return null;
   if (role === "sanction" && getRoleEmails("OPS_SANCTION_EMAILS").has(email)) return null;

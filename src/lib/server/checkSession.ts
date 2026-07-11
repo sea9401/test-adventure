@@ -3,6 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { getActiveAdminImpersonation } from "@/lib/server/adminImpersonation";
 
 // 단일 세션 enforce — 새 디바이스가 /api/session/claim 으로 새 토큰을 박으면
 // 기존 디바이스의 다음 요청은 X-Session-Id 가 일치하지 않아 410 으로 거절된다.
@@ -16,6 +17,8 @@ export async function checkSession(
   userId: string,
   req: Request,
 ): Promise<Response | null> {
+  const impersonation = await getActiveAdminImpersonation();
+  if (impersonation?.targetUserId === userId) return null;
   const incoming = req.headers.get("x-session-id");
   if (!incoming) {
     // 헤더 미동봉 — claim 전 부트스트랩 GET 등에 허용. 정상 클라이언트는 claim 후

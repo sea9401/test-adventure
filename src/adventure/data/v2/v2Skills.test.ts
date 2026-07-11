@@ -44,6 +44,50 @@ describe("결계사 마법 방어 패시브", () => {
       openingMagicDamageReductionPhases: 3,
     });
   });
+
+  it("결계사·진법사·봉마사 액티브는 보호막·받피감·봉쇄로 역할이 겹치지 않는다", () => {
+    expect(V2_SKILLS.v2c_warder_barrier?.effects).toEqual([
+      { kind: "shield", pctMaxHp: 8, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_ritualist_guardingarray?.effects).toEqual([
+      { kind: "selfBuffPct", target: "damageReduction", pct: 14, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_ritualist_wardcraft?.passive).toMatchObject({
+      magicDefPct: 25,
+      openingMagicDamageReductionPct: 15,
+      openingMagicDamageReductionPhases: 4,
+    });
+    expect(V2_SKILLS.v2c_spellsealer_sealingfield?.effects).toEqual([
+      { kind: "enemyDamageDown", pct: 12, turns: 3 },
+      { kind: "enemySkillProcDown", pct: 22, turns: 3 },
+    ]);
+    expect(V2_SKILLS.v2c_spellsealer_greatward?.passive).toMatchObject({
+      magicDefPct: 35,
+      openingMagicDamageReductionPct: 20,
+      openingMagicDamageReductionPhases: 5,
+    });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warder_barrier)).toMatchObject({
+      kind: "all",
+      conditions: expect.arrayContaining([{ kind: "self_shield", active: false }]),
+    });
+    expect(
+      smartDefaultConditionForSkill(V2_SKILLS.v2c_ritualist_guardingarray),
+    ).toEqual({ kind: "self_buff_pct", target: "damageReduction", active: false });
+    expect(
+      smartDefaultConditionForSkill(V2_SKILLS.v2c_spellsealer_sealingfield),
+    ).toEqual({ kind: "turn", op: "atMost", value: 1 });
+    expect(
+      aggregateEquippedPassives([
+        "v2c_warder_ward",
+        "v2c_ritualist_wardcraft",
+        "v2c_spellsealer_greatward",
+      ]),
+    ).toMatchObject({
+      magicDefPct: 75,
+      openingMagicDamageReductionPct: 45,
+      openingMagicDamageReductionPhases: 5,
+    });
+  });
 });
 
 describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 시너지)", () => {

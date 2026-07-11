@@ -28,6 +28,7 @@ import {
 type ExplorationMissionView = {
   id: GuildExplorationWeeklyMissionId;
   title: string;
+  category: "combat" | "life";
   goal: number;
   rewardGold: number;
   rewardMapFragments: number;
@@ -90,6 +91,7 @@ export function GuildExplorationPanel({
     useState<GuildExplorationWeeklyMissionId | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(0);
+  const [missionTab, setMissionTab] = useState<"combat" | "life">("combat");
   const [message, setMessage] = useSystemMessageState();
   const { notifyReward } = useRewardToast();
 
@@ -226,6 +228,9 @@ export function GuildExplorationPanel({
   }
 
   const missions = state?.missions ?? [];
+  const visibleMissions = missions.filter(
+    (mission) => mission.category === missionTab,
+  );
   const endsAt = state?.endsAt ? new Date(state.endsAt) : null;
   const content = state?.content ?? state?.state?.content;
   const mapFragmentTarget =
@@ -461,8 +466,37 @@ export function GuildExplorationPanel({
           </div>
         ) : null}
 
+        <div
+          className="mt-3 grid grid-cols-2 rounded-md bg-zinc-100 p-1 dark:bg-zinc-800"
+          role="tablist"
+          aria-label="주간 탐사 의뢰 종류"
+        >
+          {(["combat", "life"] as const).map((tab) => {
+            const selected = missionTab === tab;
+            const count = missions.filter(
+              (mission) => mission.category === tab,
+            ).length;
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setMissionTab(tab)}
+                className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  selected
+                    ? "bg-white text-cyan-700 shadow-sm dark:bg-zinc-950 dark:text-cyan-300"
+                    : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
+                }`}
+              >
+                {tab === "combat" ? "전투 의뢰" : "생활 의뢰"} {count}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="mt-2 space-y-2">
-          {missions.map((mission) => {
+          {visibleMissions.map((mission) => {
             const pct =
               mission.goalProgress > 0
                 ? Math.min(100, (mission.progress / mission.goalProgress) * 100)

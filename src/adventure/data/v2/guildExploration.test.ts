@@ -164,6 +164,11 @@ describe("guild exploration weekly missions", () => {
     expect(
       guildExplorationWeeklyMissionViews(harvested, 2).map((v) => v.unlocked),
     ).toEqual([true, true, false, false, false, false]);
+    expect(
+      guildExplorationWeeklyMissionViews(harvested, 6).map(
+        (view) => view.category,
+      ),
+    ).toEqual(["combat", "combat", "life", "life", "life", "combat"]);
   });
 
   it("marks the coop mission claimable at 30 contribution units and claims once", () => {

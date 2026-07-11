@@ -20,10 +20,13 @@ export type GuildExplorationWeeklyMetric =
   | "woodcuttingSuccesses"
   | "farmHarvests";
 
+export type GuildExplorationWeeklyMissionCategory = "combat" | "life";
+
 export type GuildExplorationWeeklyMission = {
   id: GuildExplorationWeeklyMissionId;
   title: string;
   metric: GuildExplorationWeeklyMetric;
+  category: GuildExplorationWeeklyMissionCategory;
   goal: number;
   minCoopTier?: CoopRewardTier;
   rewardGold: number;
@@ -142,6 +145,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     id: "weekly_coop_epic_30",
     title: `협동보스 ${COOP_TIER_LABEL[GUILD_EXPLORATION_COOP_MIN_TIER]} 이상 기여 ${GUILD_EXPLORATION_COOP_WEEKLY_TARGET}회`,
     metric: "coopBossTierClaims",
+    category: "combat",
     goal: GUILD_EXPLORATION_COOP_WEEKLY_TARGET,
     minCoopTier: GUILD_EXPLORATION_COOP_MIN_TIER,
     rewardGold: 5_000_000,
@@ -151,6 +155,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     id: "weekly_hunt_win_500",
     title: `사냥 승리 ${GUILD_EXPLORATION_HUNT_WEEKLY_TARGET}회`,
     metric: "huntWins",
+    category: "combat",
     goal: GUILD_EXPLORATION_HUNT_WEEKLY_TARGET,
     rewardGold: 3_000_000,
     rewardMapFragments: 25,
@@ -159,6 +164,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     id: "weekly_fishing_catch_120",
     title: `낚시 성공 ${GUILD_EXPLORATION_FISHING_WEEKLY_TARGET}회`,
     metric: "fishingCatches",
+    category: "life",
     goal: GUILD_EXPLORATION_FISHING_WEEKLY_TARGET,
     rewardGold: 2_000_000,
     rewardMapFragments: 25,
@@ -167,6 +173,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     id: "weekly_woodcutting_success_80",
     title: `벌목 성공 ${GUILD_EXPLORATION_WOODCUTTING_WEEKLY_TARGET}회`,
     metric: "woodcuttingSuccesses",
+    category: "life",
     goal: GUILD_EXPLORATION_WOODCUTTING_WEEKLY_TARGET,
     rewardGold: 2_000_000,
     rewardMapFragments: 25,
@@ -175,6 +182,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     id: "weekly_farm_harvest_40",
     title: `농장 수확 ${GUILD_EXPLORATION_FARM_HARVEST_WEEKLY_TARGET}회`,
     metric: "farmHarvests",
+    category: "life",
     goal: GUILD_EXPLORATION_FARM_HARVEST_WEEKLY_TARGET,
     rewardGold: 2_000_000,
     rewardMapFragments: 25,
@@ -183,6 +191,7 @@ export const GUILD_EXPLORATION_WEEKLY_MISSIONS: Record<
     id: "weekly_deep_hunt_win_100",
     title: `${GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH}층 이상 사냥 승리 ${GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET}회`,
     metric: "deepHuntWins",
+    category: "combat",
     goal: GUILD_EXPLORATION_DEEP_HUNT_WEEKLY_TARGET,
     rewardGold: 3_000_000,
     rewardMapFragments: 25,

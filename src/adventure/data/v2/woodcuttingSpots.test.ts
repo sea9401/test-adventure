@@ -15,6 +15,22 @@ describe("벌목 장소 카탈로그", () => {
     expect(isWoodcuttingSpotId(DEFAULT_WOODCUTTING_SPOT_ID)).toBe(true);
   });
 
+  it("벌목지 목록을 1등급부터 6등급 순으로 제공한다", () => {
+    expect(WOODCUTTING_SPOT_IDS).toEqual([
+      "pine_grove",
+      "birch_grove",
+      "willow_grove",
+      "oak_grove",
+      "cedar_grove",
+      "cypress_grove",
+    ]);
+    expect(
+      WOODCUTTING_SPOT_IDS.map(
+        (spotId) => woodcuttingTreeForSpot(WOODCUTTING_SPOTS[spotId]).grade,
+      ),
+    ).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
   it("각 숲은 서로 다른 나무 1종만 가진다", () => {
     const seen = new Set<string>();
     const materials = new Set<string>();

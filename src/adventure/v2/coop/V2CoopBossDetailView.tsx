@@ -2,7 +2,7 @@
 
 // 협동 보스 상세 — 소환된 보스 인스턴스 하나의 토벌 화면(sessionId 단위, #714).
 // 구조(옛 레이드 화면의 v2 이식): 보스 일러스트·이름·HP 숫자/바·플레이버 → 공격 버튼 →
-// 참전자 명단(내 줄 강조) → 최근 공격 → 내 공격 다시보기. 끝난 세션은 결과 + 보상 수령.
+// 참전자 명단(내 줄 강조) → 최근 공격. 전투 로그는 별도 페이지에서 본다.
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -10,7 +10,6 @@ import { useEffect, useState } from "react";
 import { FilmStrip } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
-import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -24,7 +23,6 @@ import {
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   fmtCoopRemain,
-  type CoopRecentAttack,
   useCoopSessionState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import {
@@ -32,7 +30,6 @@ import {
   CoopRewardTable,
 } from "@/adventure/v2/coop/CoopRewardTable";
 import { useEscapeKey } from "@/lib/useEscapeKey";
-import type { Gender } from "@/adventure/profile/avatars";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -44,29 +41,24 @@ function fmtPreviewPct(value: number): string {
 
 export function V2CoopBossDetailView({
   sessionId,
-  playerName,
-  playerGender,
-  playerSubtitle,
   stamina,
   staminaMax,
   setStamina,
   onBack,
+  onOpenAttackLog,
 }: {
   sessionId: string;
-  playerName: string;
-  playerGender: Gender;
-  playerSubtitle?: string;
   stamina: StaminaState;
   staminaMax: number;
   setStamina: (s: StaminaState) => void;
   onBack: () => void;
+  onOpenAttackLog: (attackId: number) => void;
 }) {
   const {
     detail,
     missing,
     busy,
     notice,
-    lastAttack,
     lastReward,
     attack,
     claim,
@@ -78,13 +70,16 @@ export function V2CoopBossDetailView({
   const [now, setNow] = useState(() => Date.now());
   // 기여도 기준 안내 모달 — 헤더 우측 버튼으로 연다.
   const [criteriaOpen, setCriteriaOpen] = useState(false);
-  const [selectedAttackReplay, setSelectedAttackReplay] =
-    useState<CoopRecentAttack | null>(null);
   useEscapeKey(() => setCriteriaOpen(false));
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  const handleAttack = async () => {
+    const result = await attack();
+    if (result) onOpenAttackLog(result.attackId);
+  };
 
   if (missing) {
     return (
@@ -260,7 +255,7 @@ export function V2CoopBossDetailView({
           <button
             type="button"
             disabled={busy || onCooldown || lowStamina}
-            onClick={() => void attack()}
+            onClick={() => void handleAttack()}
             className="ui-game-button ui-lift-card mx-auto min-h-11 w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
           >
             {busy
@@ -494,33 +489,6 @@ export function V2CoopBossDetailView({
         </div>
       )}
 
-      {/* 내 공격 결과 — 요약 + 전투 다시보기 */}
-      {lastAttack && (
-        <Card padding="md" className="space-y-2">
-          <div className="text-sm font-semibold">
-            ⚔{" "}
-            <span className="text-rose-600 dark:text-rose-400">
-              {lastAttack.damageDealt.toLocaleString()}
-            </span>{" "}
-            데미지 ({lastAttack.turns}행동{lastAttack.diedEarly && " · 쓰러짐"}
-            {lastAttack.bossMpDamage > 0 &&
-              ` · MP -${lastAttack.bossMpDamage.toLocaleString()}`}
-            {lastAttack.bossMpDepleted && " · 보스 탈진"}
-            {lastAttack.defeated && " · 처치 확정타!"})
-          </div>
-          {lastAttack.replay && (
-            <ReplayBattleScene
-              payload={lastAttack.replay}
-              playerName={playerName}
-              gender={playerGender}
-              exp={0}
-              maxExp={1}
-              playerSubtitle={playerSubtitle}
-            />
-          )}
-        </Card>
-      )}
-
       {/* 참전자 명단 — 데미지 내림차순, 내 줄 강조 */}
       {detail.top.length > 0 && (
         <Card padding="md" className="space-y-1.5">
@@ -576,13 +544,11 @@ export function V2CoopBossDetailView({
               key={a.id || `${a.at}-${i}`}
               type="button"
               disabled={!a.replay}
-              onClick={() => a.replay && setSelectedAttackReplay(a)}
+              onClick={() => a.replay && onOpenAttackLog(a.id)}
               className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition ${
-                selectedAttackReplay?.id === a.id
-                  ? "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
-                  : a.replay
-                    ? "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                    : "cursor-default text-zinc-400 dark:text-zinc-500"
+                a.replay
+                  ? "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                  : "cursor-default text-zinc-400 dark:text-zinc-500"
               }`}
             >
               <span className="min-w-0 truncate">
@@ -606,37 +572,6 @@ export function V2CoopBossDetailView({
               </span>
             </button>
           ))}
-        </Card>
-      )}
-
-      {selectedAttackReplay?.replay && (
-        <Card padding="md" className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0 text-sm font-semibold">
-              <span className="truncate">{selectedAttackReplay.name}</span> 공격 기록
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedAttackReplay(null)}
-              className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
-            >
-              닫기
-            </button>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            준 피해 {selectedAttackReplay.damageDealt.toLocaleString()} · 받은 피해{" "}
-            {selectedAttackReplay.damageTaken.toLocaleString()}
-            {selectedAttackReplay.diedEarly && " · 전투불능"}
-          </p>
-          <ReplayBattleScene
-            key={selectedAttackReplay.id}
-            payload={selectedAttackReplay.replay}
-            playerName={selectedAttackReplay.name}
-            gender={selectedAttackReplay.isMe ? playerGender : "male1"}
-            exp={0}
-            maxExp={1}
-            playerSubtitle={selectedAttackReplay.isMe ? playerSubtitle : undefined}
-          />
         </Card>
       )}
     </main>

@@ -418,16 +418,19 @@ export async function POST(req: Request) {
         ),
       );
     const myDamage = myRow?.damage ?? appliedDamage;
-    await tx.insert(coopBossAttackLog).values({
-      sessionId: s.id,
-      userId,
-      name: playerName,
-      damageDealt: appliedDamage,
-      damageTaken,
-      diedEarly,
-      log: replay,
-      createdAt: nowDate,
-    });
+    const [attackLog] = await tx
+      .insert(coopBossAttackLog)
+      .values({
+        sessionId: s.id,
+        userId,
+        name: playerName,
+        damageDealt: appliedDamage,
+        damageTaken,
+        diedEarly,
+        log: replay,
+        createdAt: nowDate,
+      })
+      .returning({ id: coopBossAttackLog.id });
 
     // === 6. character.v2 스태미너만 기록 — HP/MP·회복약은 협동 보스 전투와 분리 ===
     await upsertSave(tx, userId, "character.v2", {
@@ -441,6 +444,7 @@ export async function POST(req: Request) {
         ok: true as const,
         stamina: afterStamina,
         result: {
+          attackId: attackLog.id,
           kind: kindId,
           damageDealt: appliedDamage,
           damageTaken,

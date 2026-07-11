@@ -16,6 +16,8 @@ export default function BattlePage() {
         else if (a.kind === "open-sparring") router.push("/battle/sparring");
         else if (a.kind === "open-mastery-tower")
           router.push("/battle/mastery-tower");
+        else if (a.kind === "open-storm-expedition")
+          router.push("/battle/storm-expedition");
       }}
     />
   );

@@ -201,7 +201,14 @@ export const WOODCUTTING_SPOTS: Record<WoodcuttingSpotId, WoodcuttingSpot> = {
   },
 };
 
-export const WOODCUTTING_SPOT_IDS = Object.keys(WOODCUTTING_SPOTS) as WoodcuttingSpotId[];
+export const WOODCUTTING_SPOT_IDS: readonly WoodcuttingSpotId[] = [
+  "pine_grove",
+  "birch_grove",
+  "willow_grove",
+  "oak_grove",
+  "cedar_grove",
+  "cypress_grove",
+];
 
 export function isWoodcuttingSpotId(id: string): id is WoodcuttingSpotId {
   return Object.prototype.hasOwnProperty.call(WOODCUTTING_SPOTS, id);

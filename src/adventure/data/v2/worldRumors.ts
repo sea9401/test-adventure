@@ -4,6 +4,7 @@ import {
   type FishingSpotId,
 } from "@/adventure/data/v2/fishingSpots";
 import {
+  WOODCUTTING_SPOT_IDS,
   WOODCUTTING_SPOTS,
   woodcuttingTreeForSpot,
   type WoodcuttingSpotId,
@@ -46,17 +47,22 @@ export const WORLD_ACTIVITY_REGIONS: readonly WorldActivityRegion[] = [
       href: `/town/fishing?spot=${spot.id}`,
     },
   })),
-  ...Object.values(WOODCUTTING_SPOTS).map((spot): WorldActivityRegion => ({
-    id: spot.id,
-    name: spot.name,
-    shortName: spot.shortName,
-    kind: "woodcutting",
-    headline: spot.description,
-    summary: `벌목 수종: ${woodcuttingTreeForSpot(spot).name}`,
-    tags: spot.tags,
-    action: {
-      label: "벌목하러 가기",
-      href: `/town/logging?spot=${spot.id}`,
+  ...WOODCUTTING_SPOT_IDS.map(
+    (spotId): WorldActivityRegion => {
+      const spot = WOODCUTTING_SPOTS[spotId];
+      return {
+        id: spot.id,
+        name: spot.name,
+        shortName: spot.shortName,
+        kind: "woodcutting",
+        headline: spot.description,
+        summary: `벌목 수종: ${woodcuttingTreeForSpot(spot).name}`,
+        tags: spot.tags,
+        action: {
+          label: "벌목하러 가기",
+          href: `/town/logging?spot=${spot.id}`,
+        },
+      };
     },
-  })),
+  ),
 ];

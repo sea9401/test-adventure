@@ -538,6 +538,22 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
   });
 
+  it("액티브 효율 보정 — 높은 발동률·낮은 MP 비용일수록 같은 효과의 SP가 높다", () => {
+    const base = V2_SKILLS.v2_skill_strike;
+    const lowProc = { ...base, procChance: 30 };
+    const highProc = { ...base, procChance: 100 };
+    const strong = {
+      ...base,
+      effects: [{ kind: "damage" as const, statCoef: 3, baseFlat: 0 }],
+    };
+    const free = { ...strong, mpCost: 0 };
+    const expensive = { ...strong, fixedMpCost: 180 };
+
+    expect(rubricSpCost(highProc)).toBeGreaterThan(rubricSpCost(lowProc));
+    expect(rubricSpCost(free)).toBeGreaterThan(rubricSpCost(strong));
+    expect(rubricSpCost(expensive)).toBeLessThan(rubricSpCost(strong));
+  });
+
   it("명시 spCost override 는 루브릭 위로만(max) 적용", () => {
     // 강타 루브릭 = 4. override 7 > 4 → 7. override 0/소수는 무시→루브릭. 5.9→floor 5(>4).
     expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 7 })).toBe(7);
@@ -551,6 +567,14 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       expect(Number.isFinite(c), def.id).toBe(true);
       expect(c, def.id).toBeGreaterThanOrEqual(1);
     }
+  });
+
+  it("고성능 스킬은 10 SP 상한 없이 성능 점수만큼 비용이 오른다", () => {
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(12);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(22);
+    expect(
+      Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
+    ).toBeGreaterThan(10);
   });
 
   it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {

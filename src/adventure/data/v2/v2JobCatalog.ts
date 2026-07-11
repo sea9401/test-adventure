@@ -990,6 +990,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  absolute: {
+    id: "absolute",
+    name: "절대자",
+    tier: 6,
+    cultivateProfile: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 },
+    jobBonus: { str: 6, vit: 6, dex: 6, int: 6, spi: 6, luk: 6 },
+    unlock: { prereqs: { transcendent: TIER6_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -1290,6 +1298,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   eternal: { class: "survivor", spec: "eternal" },
   seagod: { class: "survivor", spec: "seagod" },
   earthartisan: { class: "survivor", spec: "earthartisan" },
+  absolute: { class: "warrior", spec: "absolute" },
 };
 
 /**

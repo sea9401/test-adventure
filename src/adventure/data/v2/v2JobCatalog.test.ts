@@ -128,6 +128,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   eternal: "immortal",
   seagod: "fullcatchking",
   earthartisan: "harvestking",
+  absolute: "transcendent",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -153,8 +154,8 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("97개 직업(루트 2 + 기본 4 + 상위 15 + 고차 21 + 심화 22 + 5차 18 + 6차 15)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(97);
+  it("98개 직업(루트 2 + 기본 4 + 상위 15 + 고차 21 + 심화 22 + 5차 18 + 6차 16)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(98);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
@@ -162,7 +163,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(21);
     expect(byTier(4)).toBe(22);
     expect(byTier(5)).toBe(18);
-    expect(byTier(6)).toBe(15);
+    expect(byTier(6)).toBe(16);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -233,7 +234,9 @@ describe("스탯 맵 무결성", () => {
         (s, v) => s + (v ?? 0),
         0,
       );
-      expect(sum, `${id} 프로필 합`).toBe(id === "transcendent" ? 6 : 4);
+      expect(sum, `${id} 프로필 합`).toBe(
+        id === "transcendent" || id === "absolute" ? 6 : 4,
+      );
     }
   });
 
@@ -505,6 +508,11 @@ describe("해금 트리", () => {
       spec: "seagod",
     });
     expect(jobIdFromLegacy("survivor", "seagod")).toBe("seagod");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.absolute).toEqual({
+      class: "warrior",
+      spec: "absolute",
+    });
+    expect(jobIdFromLegacy("warrior", "absolute")).toBe("absolute");
   });
 
   it("5차 하이브리드(초월자) — 성전사·룬 기사를 각각 TIER5 키워야 해금된다", () => {

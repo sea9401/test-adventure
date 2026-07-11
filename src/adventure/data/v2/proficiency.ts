@@ -92,7 +92,7 @@ export const V2_CULTIVATE_PROFILE: Record<
 //   정체성 축을 수행으로 못 키운다(마검사는 검+마법인데 전사 프로필이라 INT 가 안 오르고, 성기사는
 //   기사+사제인데 SPI 대신 DEX 가 오름). 직업 id 별 오버라이드로 정체성 축의 cap 을 올린다.
 //   합 4 고정(= 비용 곡선·economy 불변). 값은 V2_JOB_CATALOG[id].cultivateProfile 와 동일해야 하며
-//   v2JobCatalog.test 가 동기화를 보증한다. 합 4 고정이 기본이며, 초월자는 올스탯 정체성 때문에
+//   v2JobCatalog.test 가 동기화를 보증한다. 합 4 고정이 기본이며, 초월자 계보는 올스탯 정체성 때문에
 //   예외적으로 합 6을 허용한다.
 export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   string,
@@ -109,6 +109,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   crusader: { str: 2, vit: 1, spi: 1 }, // 성전사 — 성기사 심화, 방어·회복 축 유지
   runeknight: { str: 2, int: 2 }, // 룬 기사 — 마검사 심화, 검(str) + 마법(int)
   transcendent: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 초월자 — 모든 능력 균형
+  absolute: { str: 1, vit: 1, dex: 1, int: 1, spi: 1, luk: 1 }, // 절대자 — 초월자의 올스탯 균형 완성
   fortressknight: { vit: 2, str: 1, dex: 1 }, // 성채기사 — 철벽기사 최종형, 방어 중심
   swordsaint: { str: 2, dex: 1, vit: 1 }, // 검성 — 검호 최종형, 힘과 정밀 중심
   hegemon: { str: 2, vit: 1, luk: 1 }, // 패황 — 패왕 최종형, 힘·광기·치명 중심

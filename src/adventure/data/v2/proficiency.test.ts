@@ -374,6 +374,18 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(cultivationCost(totalCapGains(r!.next))).toBe(68);
   });
 
+  it("applyCultivation — 절대자도 초월자의 올스탯 수행을 계승한다", () => {
+    const p = parseProficiency({ groups: { warrior: { points: 1000 } } });
+    const r = applyCultivation(p, "warrior", undefined, undefined, "absolute");
+
+    expect(r).not.toBeNull();
+    expect(r!.cost).toBe(8);
+    for (const stat of ["str", "vit", "dex", "int", "spi", "luk"] as const) {
+      expect(r!.next.caps[stat]).toBe(1);
+    }
+    expect(totalCapGains(r!.next)).toBe(6);
+  });
+
   it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none=균형 4스탯·무효는 빈 배열", () => {
     const w = recommendedCultivationStats("warrior");
     expect(w[0]).toBe("str");

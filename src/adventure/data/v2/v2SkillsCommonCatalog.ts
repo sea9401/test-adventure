@@ -238,7 +238,9 @@ export type V2CommonSkillId =
   | "v2c_vajraarhat_seal" // 금강인 (보호막 + 받피감 + 반격 태세)
   | "v2c_vajraarhat_body" // 나한금신 (최대 HP + 받피감 + 반격)
   | "v2c_eternal_cycle" // 영겁 순환 (지속 재생 + 활력 증폭)
-  | "v2c_eternal_body"; // 영겁의 육신 (최대 HP + 활력 + 받피감)
+  | "v2c_eternal_body" // 영겁의 육신 (최대 HP + 활력 + 받피감)
+  | "v2c_absolute_unity" // 만상귀일 (올스탯 피해 + 취약 + 행동 가속)
+  | "v2c_absolute_harmony"; // 절대 조화 (올스탯 + HP·MP)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -1038,8 +1040,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 14, int: 14 }, critPct: 5 },
   },
 
-  // ── 심화 직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
-  //   rubricSpCost 가 클램프) — 직업은 4차지만 스킬 파워버킷은 상급. ──
+  // ── 심화 직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지하되
+  //   실제 SP는 rubricSpCost 가 효과 성능에 따라 산정한다. ──
   v2c_veteran_cleave: {
     // 정예 기사 = 기사 라인 정점. 참격→왕실 검술 리스킨(id 유지). 처형 딜(공격력 기반·scaling 생략=
     //   atk) — 적 HP 낮을수록 치명(필살 치명피해 패시브와 시너지). 적 HP 15%↓ ×2.0(옛 30% 과해 하향,
@@ -1658,7 +1660,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_transcendent_mandala: {
     id: "v2c_transcendent_mandala", name: "만상검", stat: "str", category: "attack", tier: 3,
     description: "쌓아온 모든 능력을 한 검로에 모아 베어낸다.",
-    mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000,
+    // allStatTotal 스케일은 일반 ATK 계수 루브릭이 실제 위력을 낮게 평가하므로 상향 보정.
+    mpCost: 56, cooldown: 0, procChance: 30, learnCost: 8000, spCost: 8,
     effects: [dmg(0.16, 260, "all")],
   },
   v2c_transcendent_harmony: {
@@ -1914,6 +1917,27 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { maxHpPct: 34, statPct: { vit: 12 }, damageTakenReductionPct: 9 },
+  },
+  v2c_absolute_unity: {
+    id: "v2c_absolute_unity", name: "만상귀일", stat: "str", category: "attack", tier: 3,
+    description: "흩어진 모든 능력을 하나의 절대적인 흐름으로 모아 적을 꿰뚫고 전장의 주도권을 장악한다.",
+    mpCost: 64, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      dmg(0.22, 480, "all"),
+      { kind: "enemyVuln", pct: 14, turns: 3 },
+      { kind: "selfHaste", pct: 25 },
+    ],
+  },
+  v2c_absolute_harmony: {
+    id: "v2c_absolute_harmony", name: "절대 조화", stat: "int", category: "passive", tier: 3,
+    description: "육신과 정신, 운과 기예가 완전한 균형을 이룬다. 모든 능력과 생명력, 마력이 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: {
+      statPct: { str: 10, vit: 10, dex: 10, int: 10, spi: 10, luk: 10 },
+      maxHpPct: 10,
+      maxMpPct: 10,
+    },
   },
 };
 

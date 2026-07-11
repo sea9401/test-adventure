@@ -67,6 +67,8 @@ export type V2PassiveSkillEffect = {
   /** 반격 확률 +%p — 피격 생존 시 이 확률로 적에게 ATK 반격(절정 반격). 엔진 passiveCounterChancePct
    *  훅에 합산(PvE enemyPhase 전용·반격의 룬과 동일 패턴). 미지정=무적용. */
   counterChancePct?: number;
+  /** 활성 반사 피해 증폭을 이 패시브의 반격 피해에도 적용한다. 금강나한 고유 연계. */
+  counterDamageUsesReflectBoost?: boolean;
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
   /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
   defPct?: number;
@@ -614,6 +616,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   evasionPct: number;
   lifestealPct: number;
   counterChancePct: number;
+  counterDamageUsesReflectBoost: boolean;
   defPct: number;
   thornsDefPct: number;
   accuracyPct: number;
@@ -643,6 +646,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let evasionPct = 0;
   let lifestealPct = 0;
   let counterFailChance = 1;
+  let counterDamageUsesReflectBoost = false;
   let defPct = 0;
   let thornsDefPct = 0;
   let accuracyPct = 0;
@@ -681,6 +685,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
       const chance = Math.max(0, Math.min(100, p.counterChancePct));
       counterFailChance *= 1 - chance / 100;
     }
+    if (p.counterDamageUsesReflectBoost) counterDamageUsesReflectBoost = true;
     defPct += p.defPct ?? 0;
     thornsDefPct += p.thornsDefPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
@@ -719,6 +724,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     evasionPct,
     lifestealPct,
     counterChancePct: Math.round((1 - counterFailChance) * 10000) / 100,
+    counterDamageUsesReflectBoost,
     defPct,
     thornsDefPct,
     accuracyPct,

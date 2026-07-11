@@ -48,6 +48,61 @@ describe("PvP 반격(maybeApplyMartialCounter) — 유닛", () => {
     expect(out.attackerKilled).toBe(false);
     expect(out.state).toBe(state); // 동일 참조 — 아무 변경 없음
   });
+
+  it("금강인 활성 중 나한금신 반격 피해만 반사 증폭 수치만큼 증가한다", () => {
+    const defender = {
+      ...base,
+      passiveCounterChancePct: 100,
+      passiveCounterDamageUsesReflectBoost: true,
+    };
+    const state = initialBattleStatePvP(base, defender, "P1", "P2");
+    const active = {
+      ...state,
+      p2: {
+        ...state.p2,
+        stacks: {
+          ...state.p2.stacks,
+          skillReflectBoostPct: 45,
+          skillReflectBoostTurns: 3,
+        },
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const normal = maybeApplyMartialCounter(state, "p1", "p2");
+    const boosted = maybeApplyMartialCounter(active, "p1", "p2");
+
+    expect(boosted.state.p1.hp).toBeLessThan(normal.state.p1.hp);
+    expect(
+      boosted.state.log.some((entry) => entry.text.includes("[반격 + 금강인]")),
+    ).toBe(true);
+  });
+
+  it("금강나한 연계가 없으면 반사 증폭 중에도 일반 반격 피해는 증가하지 않는다", () => {
+    const state = initialBattleStatePvP(
+      base,
+      { ...base, passiveCounterChancePct: 100 },
+      "P1",
+      "P2",
+    );
+    const active = {
+      ...state,
+      p2: {
+        ...state.p2,
+        stacks: {
+          ...state.p2.stacks,
+          skillReflectBoostPct: 45,
+          skillReflectBoostTurns: 3,
+        },
+      },
+    };
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const normal = maybeApplyMartialCounter(state, "p1", "p2");
+    const unrelated = maybeApplyMartialCounter(active, "p1", "p2");
+
+    expect(unrelated.state.p1.hp).toBe(normal.state.p1.hp);
+  });
 });
 
 describe("PvP 반격 — 통합(resolveBattlePvP)", () => {

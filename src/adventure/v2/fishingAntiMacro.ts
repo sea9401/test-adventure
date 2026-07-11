@@ -139,13 +139,12 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
   return signals;
 }
 
-function signalScore(signals: string[]): number {
+// 실제 대기 페널티는 서버 시계로 확인되는 강한 신호에만 부여한다.
+// 성공률과 반응 편차는 정상 숙련자도 만들 수 있으므로 관찰 로그에는 남기되 점수에는 넣지 않는다.
+function enforcementSignalScore(signals: string[]): number {
   return signals.reduce((score, signal) => {
     if (signal === "impossibly_fast_server_reel") return score + 6;
     if (signal === "repeated_prefire") return score + 4;
-    if (signal === "uniform_client_reaction") return score + 4;
-    if (signal === "uniform_server_reaction") return score + 3;
-    if (signal === "near_perfect_success_rate") return score + 1;
     return score;
   }, 0);
 }
@@ -157,7 +156,7 @@ export function recordFishingAntiMacroSample(
 ): FishingAntiMacroRecordResult {
   const recent = [...state.recent, sample].slice(-FISHING_ANTI_MACRO_RECENT_LIMIT);
   const signals = suspiciousSignals(recent);
-  const score = signalScore(signals);
+  const score = enforcementSignalScore(signals);
   const suspicion = Math.max(0, Math.min(30, state.suspicion * 0.85 + score));
   const frictionMs =
     suspicion >= FISHING_ANTI_MACRO_HIGH_THRESHOLD

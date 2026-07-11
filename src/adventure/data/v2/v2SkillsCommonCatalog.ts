@@ -658,7 +658,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_farmer_seedselection: {
     id: "v2c_farmer_seedselection", name: "씨앗 선별", stat: "luk", category: "passive", tier: 2,
-    description: "심기 전 씨앗을 골라 같은 밭에서도 수확량을 조금 더 끌어낸다.",
+    description: "심기 전 씨앗을 골라 수확량을 높이고 옥수수 재배법을 익힌다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
@@ -666,7 +666,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_horticulturist_soilreading: {
     id: "v2c_horticulturist_soilreading", name: "토양 읽기", stat: "luk", category: "passive", tier: 3,
-    description: "흙의 상태를 읽어 희귀 수확이 나올 가능성을 높인다.",
+    description: "흙의 상태를 읽어 희귀 수확 가능성을 높이고 토마토와 딸기를 재배한다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
@@ -674,7 +674,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_masterfarmer_composting: {
     id: "v2c_masterfarmer_composting", name: "퇴비 배합", stat: "vit", category: "passive", tier: 3,
-    description: "작물마다 맞는 퇴비를 배합해 수확량과 희귀 수확 가능성을 함께 높인다.",
+    description: "맞춤 퇴비로 수확량과 희귀 수확 가능성을 높이고 감자와 양파를 재배한다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
@@ -682,7 +682,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_harvestking_abundance: {
     id: "v2c_harvestking_abundance", name: "풍작 감각", stat: "luk", category: "passive", tier: 3,
-    description: "밭의 흐름을 읽어 수확량과 희귀 수확을 더 안정적으로 끌어올린다.",
+    description: "밭의 흐름을 읽어 수확을 안정시키고 쌀과 콩을 재배한다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,
@@ -690,7 +690,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_earthartisan_landcare: {
     id: "v2c_earthartisan_landcare", name: "대지 돌보기", stat: "luk", category: "passive", tier: 3,
-    description: "밭의 힘을 오래 보존해 수확량과 희귀 수확 가능성을 크게 높인다.",
+    description: "밭의 힘을 보존해 수확을 크게 높이고 사탕수수와 카카오를 재배한다.",
     mpCost: 0, cooldown: 0,
     effects: [],
     spCost: 1,

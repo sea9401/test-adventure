@@ -152,6 +152,32 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(scaled.enemyDamage).toBeGreaterThanOrEqual(basicFloor);
   });
 
+  it("전투당 1회 회복은 패턴 빈도 보정 없이 설명대로 적용된다", () => {
+    const skillId = "v2c_survivor_firstaid";
+    const pattern: V2CombatPattern = {
+      blocks: [
+        {
+          condition: { kind: "always" },
+          action: { kind: "skill", skillId },
+        },
+      ],
+    };
+    const result = resolveV2SkillCast(
+      castInput([skillId], {
+        combatPattern: pattern,
+        attacker: {
+          ...castInput([skillId]).attacker,
+          maxHp: 200,
+          currentHp: 100,
+          healMult: 1,
+        },
+      }),
+    );
+
+    expect(result.castSkillId).toBe(skillId);
+    expect(result.selfHeal).toBe(20);
+  });
+
   it("PR2 — 고차(t3) 스킬은 통과율이 더 커 초과분을 더 많이 반영(t1<t3)", () => {
     const T3 = "v2c_brawler_combo"; // 벽력권 t3 — 순수 데미지(디버프/힐 없음)
     expect(V2_SKILLS[T3]?.tier).toBe(3);

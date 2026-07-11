@@ -193,6 +193,24 @@ const TREE_VISUALS: Record<string, TreeVisual> = {
 
 const DEFAULT_TREE_VISUAL = TREE_VISUALS.oak;
 
+const WOODCUTTING_FOREST_SRC = "/images/ui/forest.webp";
+const WOODCUTTING_TREE_SHEET_SRC = "/images/ui/woodcutting-trees.webp";
+const WOODCUTTING_AXE_SRC = "/images/ui/woodcutting-axe.webp";
+const TREE_SPRITE_CELL: Record<string, { column: number; row: number }> = {
+  pine: { column: 0, row: 0 },
+  birch: { column: 1, row: 0 },
+  willow: { column: 2, row: 0 },
+  oak: { column: 0, row: 1 },
+  cedar: { column: 1, row: 1 },
+  cypress: { column: 2, row: 1 },
+};
+
+type WoodcuttingSceneAssets = {
+  forest: HTMLImageElement | null;
+  trees: HTMLImageElement | null;
+  axe: HTMLImageElement | null;
+};
+
 function drawLeafCluster(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -280,7 +298,42 @@ function drawBackdrop(
   height: number,
   time: number,
   visual: TreeVisual,
+  forestImage: HTMLImageElement | null,
 ) {
+  if (forestImage?.complete && forestImage.naturalWidth > 0) {
+    const sourceRatio = forestImage.naturalWidth / forestImage.naturalHeight;
+    const targetRatio = width / height;
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceWidth = forestImage.naturalWidth;
+    let sourceHeight = forestImage.naturalHeight;
+    if (sourceRatio > targetRatio) {
+      sourceWidth = forestImage.naturalHeight * targetRatio;
+      sourceX = (forestImage.naturalWidth - sourceWidth) / 2;
+    } else {
+      sourceHeight = forestImage.naturalWidth / targetRatio;
+      sourceY = (forestImage.naturalHeight - sourceHeight) / 2;
+    }
+    ctx.drawImage(
+      forestImage,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      width,
+      height,
+    );
+    const atmosphere = ctx.createLinearGradient(0, 0, 0, height);
+    atmosphere.addColorStop(0, "rgba(15,23,42,0.04)");
+    atmosphere.addColorStop(0.58, "rgba(255,255,255,0.03)");
+    atmosphere.addColorStop(1, "rgba(20,83,45,0.24)");
+    ctx.fillStyle = atmosphere;
+    ctx.fillRect(0, 0, width, height);
+    return;
+  }
+
   const sky = ctx.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, visual.skyTop);
   sky.addColorStop(0.62, visual.skyBottom);
@@ -358,6 +411,102 @@ function drawBackdrop(
   }
 }
 
+function drawTreeSprite(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  damage: number,
+  fall: number,
+  impact: number,
+  time: number,
+  visual: TreeVisual,
+  treeImage: HTMLImageElement,
+  treeId: string,
+) {
+  const cell = TREE_SPRITE_CELL[treeId] ?? TREE_SPRITE_CELL.oak;
+  const sourceWidth = treeImage.naturalWidth / 3;
+  const sourceHeight = treeImage.naturalHeight / 2;
+  const size = Math.min(height * 0.8, width * 0.58);
+  const trunkX = width * 0.5;
+  const groundY = height * 0.85;
+  const cutY = height * 0.69;
+  const destinationX = trunkX - size / 2;
+  const destinationY = groundY - size;
+  const trunkWidth = Math.max(18, size * 0.075 * visual.trunkScale);
+  const fallAngle = easeOutCubic(fall) * 1.4;
+
+  ctx.fillStyle = `rgba(15,23,42,${0.18 + fall * 0.08})`;
+  ctx.beginPath();
+  ctx.ellipse(
+    trunkX + fall * size * 0.3,
+    groundY + 5,
+    size * (0.18 + fall * 0.28),
+    8 + fall * 5,
+    0,
+    0,
+    TAU,
+  );
+  ctx.fill();
+
+  const stump = ctx.createLinearGradient(trunkX - trunkWidth, 0, trunkX + trunkWidth, 0);
+  stump.addColorStop(0, visual.barkDark);
+  stump.addColorStop(0.42, visual.barkMid);
+  stump.addColorStop(0.72, visual.barkLight);
+  stump.addColorStop(1, visual.barkDark);
+  ctx.fillStyle = stump;
+  ctx.beginPath();
+  ctx.moveTo(trunkX - trunkWidth * 0.72, groundY);
+  ctx.lineTo(trunkX - trunkWidth * 0.52, cutY);
+  ctx.lineTo(trunkX + trunkWidth * 0.52, cutY);
+  ctx.lineTo(trunkX + trunkWidth * 0.72, groundY);
+  ctx.closePath();
+  ctx.fill();
+
+  if (fall > 0.02) {
+    ctx.fillStyle = visual.heartwood;
+    ctx.strokeStyle = visual.barkDark;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(trunkX, cutY, trunkWidth * 0.54, 5.5, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  ctx.save();
+  ctx.translate(trunkX, cutY);
+  ctx.rotate(fallAngle + Math.sin(time * 20) * impact * 0.006);
+  ctx.translate(-trunkX, -cutY);
+  ctx.beginPath();
+  ctx.rect(destinationX, destinationY, size, cutY - destinationY + 4);
+  ctx.clip();
+  ctx.drawImage(
+    treeImage,
+    cell.column * sourceWidth,
+    cell.row * sourceHeight,
+    sourceWidth,
+    sourceHeight,
+    destinationX,
+    destinationY,
+    size,
+    size,
+  );
+  ctx.restore();
+
+  if (fall < 0.98) {
+    const cutDepth = trunkWidth * 1.35 * damage;
+    ctx.fillStyle = visual.heartwood;
+    ctx.beginPath();
+    ctx.moveTo(trunkX + trunkWidth * 0.6, cutY - 10);
+    ctx.lineTo(trunkX + trunkWidth * 0.6 - cutDepth, cutY);
+    ctx.lineTo(trunkX + trunkWidth * 0.6, cutY + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = visual.barkDark;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
 function drawTree(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -367,7 +516,25 @@ function drawTree(
   impact: number,
   time: number,
   visual: TreeVisual,
+  treeImage: HTMLImageElement | null,
+  treeId: string,
 ) {
+  if (treeImage?.complete && treeImage.naturalWidth > 0) {
+    drawTreeSprite(
+      ctx,
+      width,
+      height,
+      damage,
+      fall,
+      impact,
+      time,
+      visual,
+      treeImage,
+      treeId,
+    );
+    return;
+  }
+
   const trunkX = width * 0.5;
   const groundY = height * 0.84;
   const cutY = height * 0.69;
@@ -506,54 +673,86 @@ function drawAxe(
   impact: number,
   visible: boolean,
   visual: TreeVisual,
+  axeImage: HTMLImageElement | null,
 ) {
   if (!visible) return;
   const strike = cycle < 0.66 ? easeOutCubic(cycle / 0.66) : 1 - (cycle - 0.66) / 0.34;
-  const angle = -0.35 - strike * 1.25;
-  const x = width * (0.84 - strike * 0.21);
-  const y = height * (0.6 + strike * 0.08);
+  if (axeImage?.complete && axeImage.naturalWidth > 0) {
+    const axeWidth = Math.min(160, width * 0.32);
+    const axeHeight = axeWidth * (axeImage.naturalHeight / axeImage.naturalWidth);
+    const gripX = width * 0.8;
+    const gripY = height * 0.42;
+    const rotation = 0.04 - strike * 1.08;
 
-  if (cycle > 0.22 && cycle < 0.68) {
+    if (cycle > 0.18 && cycle < 0.68) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${0.08 + strike * 0.2})`;
+      ctx.lineWidth = 7;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(gripX, gripY, axeWidth * 0.82, 3.85, 2.42, true);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.save();
-    ctx.strokeStyle = `rgba(255,255,255,${0.1 + strike * 0.24})`;
+    ctx.translate(gripX, gripY);
+    ctx.rotate(rotation);
+    ctx.drawImage(
+      axeImage,
+      -axeWidth * 0.94,
+      -axeHeight * 0.91,
+      axeWidth,
+      axeHeight,
+    );
+    ctx.restore();
+  } else {
+    const angle = -0.35 - strike * 1.25;
+    const x = width * (0.84 - strike * 0.21);
+    const y = height * (0.6 + strike * 0.08);
+
+    if (cycle > 0.22 && cycle < 0.68) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${0.1 + strike * 0.24})`;
+      ctx.lineWidth = 9;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(width * 0.72, height * 0.59, 58, 3.72, 2.12, true);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    const handle = ctx.createLinearGradient(-64, 0, 0, 0);
+    handle.addColorStop(0, "#713f12");
+    handle.addColorStop(0.5, "#d97706");
+    handle.addColorStop(1, "#92400e");
+    ctx.strokeStyle = handle;
     ctx.lineWidth = 9;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.arc(width * 0.72, height * 0.59, 58, 3.72, 2.12, true);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-58, -8);
+    ctx.stroke();
+    const steel = ctx.createLinearGradient(-74, -25, -39, 4);
+    steel.addColorStop(0, "#f8fafc");
+    steel.addColorStop(0.48, "#cbd5e1");
+    steel.addColorStop(1, "#64748b");
+    ctx.fillStyle = steel;
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-67, -25);
+    ctx.lineTo(-38, -20);
+    ctx.lineTo(-44, 4);
+    ctx.lineTo(-74, -1);
+    ctx.closePath();
+    ctx.fill();
     ctx.stroke();
     ctx.restore();
   }
-
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  const handle = ctx.createLinearGradient(-64, 0, 0, 0);
-  handle.addColorStop(0, "#713f12");
-  handle.addColorStop(0.5, "#d97706");
-  handle.addColorStop(1, "#92400e");
-  ctx.strokeStyle = handle;
-  ctx.lineWidth = 9;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-58, -8);
-  ctx.stroke();
-  const steel = ctx.createLinearGradient(-74, -25, -39, 4);
-  steel.addColorStop(0, "#f8fafc");
-  steel.addColorStop(0.48, "#cbd5e1");
-  steel.addColorStop(1, "#64748b");
-  ctx.fillStyle = steel;
-  ctx.strokeStyle = "#334155";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-67, -25);
-  ctx.lineTo(-38, -20);
-  ctx.lineTo(-44, 4);
-  ctx.lineTo(-74, -1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.restore();
 
   if (impact > 0) {
     const cutX = width * 0.56;
@@ -693,6 +892,11 @@ function AutoWoodcuttingCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const assetsRef = useRef<WoodcuttingSceneAssets>({
+    forest: null,
+    trees: null,
+    axe: null,
+  });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -703,6 +907,17 @@ function AutoWoodcuttingCanvas({
     const sceneStartedAt = performance.now();
     let frame = 0;
     const visual = TREE_VISUALS[treeId] ?? DEFAULT_TREE_VISUAL;
+
+    const loadImage = (key: keyof WoodcuttingSceneAssets, src: string) => {
+      if (assetsRef.current[key]) return;
+      const image = new Image();
+      image.decoding = "async";
+      assetsRef.current = { ...assetsRef.current, [key]: image };
+      image.src = src;
+    };
+    loadImage("forest", WOODCUTTING_FOREST_SRC);
+    loadImage("trees", WOODCUTTING_TREE_SHEET_SRC);
+    loadImage("axe", WOODCUTTING_AXE_SRC);
 
     const draw = (now: number) => {
       const rect = wrap.getBoundingClientRect();
@@ -724,12 +939,24 @@ function AutoWoodcuttingCanvas({
         const animation = woodcuttingAnimationFrame(elapsed, durationMs, chops, reducedMotion);
         const { cycle, damage, fall, impact } = animation;
         const sceneTime = reducedMotion ? 0 : (now - sceneStartedAt) / 1_000;
-        drawBackdrop(ctx, width, height, sceneTime, visual);
+        const assets = assetsRef.current;
+        drawBackdrop(ctx, width, height, sceneTime, visual, assets.forest);
         const shakeX = impact * Math.sin(now * 0.13) * 4;
         const shakeY = impact * Math.cos(now * 0.17) * 2.5;
         ctx.save();
         ctx.translate(shakeX, shakeY);
-        drawTree(ctx, width, height, damage, fall, impact, sceneTime, visual);
+        drawTree(
+          ctx,
+          width,
+          height,
+          damage,
+          fall,
+          impact,
+          sceneTime,
+          visual,
+          assets.trees,
+          treeId,
+        );
         drawAxe(
           ctx,
           width,
@@ -738,6 +965,7 @@ function AutoWoodcuttingCanvas({
           impact,
           phase === "cutting" && elapsed < durationMs,
           visual,
+          assets.axe,
         );
         drawFallingDebris(ctx, width, height, sceneTime, impact, fall, visual);
         drawFallImpact(ctx, width, height, fall);

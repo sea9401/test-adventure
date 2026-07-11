@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   WOODCUTTING_CLAIM_GRACE_MS,
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_TIMBER_REWARD,
   WOODCUTTING_TREES,
   createWoodcuttingSession,
@@ -17,9 +18,13 @@ describe("woodcuttingSession", () => {
     expect(pickWoodcuttingTreeId("cypress_grove")).toBe("cypress");
   });
 
-  it("모든 나무의 벌목 보상은 통나무 1개다", () => {
+  it("모든 나무는 서로 다른 원목 재료 1개를 보상한다", () => {
     expect(WOODCUTTING_TIMBER_REWARD).toBe(1);
     expect(Object.values(WOODCUTTING_TREES)).toHaveLength(6);
+    expect(new Set(Object.values(WOODCUTTING_TREES).map((tree) => tree.materialId)).size).toBe(6);
+    for (const tree of Object.values(WOODCUTTING_TREES)) {
+      expect(WOODCUTTING_MATERIALS[tree.materialId]).toBeDefined();
+    }
   });
 
   it("숲·나무·완료 시각이 포함된 세션을 만든다", () => {
@@ -45,7 +50,7 @@ describe("woodcuttingSession", () => {
     ).toBeNull();
   });
 
-  it("성공 시 통나무와 새 수종별 완료 기록을 누적한다", () => {
+  it("성공 시 원목과 새 수종별 완료 기록을 누적한다", () => {
     const log = recordWoodcuttingSuccess(parseWoodcuttingLog({}), {
       treeId: "birch",
       timber: WOODCUTTING_TIMBER_REWARD,

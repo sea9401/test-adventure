@@ -4,6 +4,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import {
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_SPOTS,
   isWoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
@@ -14,6 +15,7 @@ import {
   createWoodcuttingSession,
   parseWoodcuttingLog,
   pickWoodcuttingTreeId,
+  woodcuttingMaterialBalances,
   type WoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
 
@@ -47,19 +49,19 @@ export async function POST(req: Request) {
     readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
   ]);
-  const timber = Math.max(
-    0,
-    Math.floor(Number(charSave.materials?.[SETTLEMENT_MATERIAL_ID.timber]) || 0),
-  );
+  const materials = woodcuttingMaterialBalances(charSave.materials);
+  const tree = WOODCUTTING_TREES[treeId];
 
   return Response.json({
     ok: true,
     sessionId: session.sessionId,
     spot: WOODCUTTING_SPOTS[spotId],
-    tree: WOODCUTTING_TREES[treeId],
-    durationMs: WOODCUTTING_TREES[treeId].durationMs,
-    chops: WOODCUTTING_TREES[treeId].chops,
-    timber,
+    tree,
+    material: WOODCUTTING_MATERIALS[tree.materialId],
+    durationMs: tree.durationMs,
+    chops: tree.chops,
+    materials,
+    timber: materials[SETTLEMENT_MATERIAL_ID.timber],
     log: parseWoodcuttingLog(logRaw),
   });
 }

@@ -3,15 +3,17 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
+import { WOODCUTTING_MATERIALS } from "@/adventure/data/v2/woodcuttingSpots";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
-  WOODCUTTING_TIMBER_REWARD,
+  WOODCUTTING_MATERIAL_REWARD,
   WOODCUTTING_TREES,
   parseWoodcuttingLog,
   parseWoodcuttingSession,
   recordWoodcuttingSuccess,
+  woodcuttingMaterialBalances,
 } from "@/adventure/v2/woodcuttingSession";
 
 type CharSave = {
@@ -54,22 +56,23 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
     const tree = WOODCUTTING_TREES[session.treeId];
-    const timberGained = WOODCUTTING_TIMBER_REWARD;
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
       "character.v2",
       {},
     );
+    const materialId = tree.materialId;
+    const materialGained = WOODCUTTING_MATERIAL_REWARD;
     const materials = mergeDrops(charSave.materials, {
-      [SETTLEMENT_MATERIAL_ID.timber]: timberGained,
+      [materialId]: materialGained,
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
     const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
     const log = recordWoodcuttingSuccess(parseWoodcuttingLog(logRaw), {
       treeId: session.treeId,
-      timber: timberGained,
+      timber: materialGained,
     });
     await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
     await incrementGuildExplorationProgressForUser(
@@ -82,8 +85,13 @@ export async function POST(req: Request) {
     return {
       success: true as const,
       tree,
-      timberGained,
-      timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? timberGained,
+      materialId,
+      materialName: WOODCUTTING_MATERIALS[materialId].name,
+      materialGained,
+      materials: woodcuttingMaterialBalances(materials),
+      // 구버전 클라이언트가 배포 중 응답을 받아도 깨지지 않도록 한동안 유지한다.
+      timberGained: materialGained,
+      timber: materials[SETTLEMENT_MATERIAL_ID.timber] ?? 0,
       log,
     };
   });

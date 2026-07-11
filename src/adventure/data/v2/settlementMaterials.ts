@@ -11,9 +11,9 @@ export const SETTLEMENT_MATERIAL_ID = {
 export const SETTLEMENT_MATERIALS = {
   [SETTLEMENT_MATERIAL_ID.timber]: {
     id: SETTLEMENT_MATERIAL_ID.timber,
-    name: "통나무",
+    name: "소나무 원목",
     description:
-      "벌목으로 모은 통나무. 정착지(길드·개인) 발전에 기부하거나, 거래소에 내다 팔 수 있다.",
+      "솔바람 소나무숲에서 얻는 기초 목재. 정착지(길드·개인) 발전에 기부하거나 수리 키트 제작에 쓴다.",
   },
   [SETTLEMENT_MATERIAL_ID.ironOre]: {
     id: SETTLEMENT_MATERIAL_ID.ironOre,
@@ -37,7 +37,7 @@ export const WALL_REPAIR_KIT_MATERIAL = {
     id: WALL_REPAIR_KIT_ID,
     name: "성벽 수리 키트",
     description:
-      "통나무 3 + 철광석 3으로 짜 맞춘 수리 키트. 점령 거점 성벽을 1개당 100 보강한다. 사냥 드랍 재료로 만들어 능동 방어에 쓴다.",
+      "소나무 원목 3 + 철광석 3으로 짜 맞춘 수리 키트. 점령 거점 성벽을 1개당 100 보강한다. 사냥 드랍 재료로 만들어 능동 방어에 쓴다.",
   },
 } as const;
 

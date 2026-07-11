@@ -5,6 +5,7 @@ import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials"
 import {
   WOODCUTTING_LOG_KEY,
   parseWoodcuttingLog,
+  woodcuttingMaterialBalances,
 } from "@/adventure/v2/woodcuttingSession";
 
 export async function GET() {
@@ -17,10 +18,12 @@ export async function GET() {
     readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
   ]);
-  const timber = Math.max(
-    0,
-    Math.floor(Number(charSave.materials?.[SETTLEMENT_MATERIAL_ID.timber]) || 0),
-  );
+  const materials = woodcuttingMaterialBalances(charSave.materials);
 
-  return Response.json({ ok: true, timber, log: parseWoodcuttingLog(logRaw) });
+  return Response.json({
+    ok: true,
+    materials,
+    timber: materials[SETTLEMENT_MATERIAL_ID.timber],
+    log: parseWoodcuttingLog(logRaw),
+  });
 }

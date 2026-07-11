@@ -2,19 +2,26 @@
 
 import {
   WOODCUTTING_SPOTS,
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_TREES,
   isWoodcuttingSpotId,
+  type WoodcuttingMaterialId,
   type WoodcuttingSpotId,
   type WoodcuttingTreeId,
 } from "@/adventure/data/v2/woodcuttingSpots";
 
-export { WOODCUTTING_TREES } from "@/adventure/data/v2/woodcuttingSpots";
+export {
+  WOODCUTTING_MATERIALS,
+  WOODCUTTING_TREES,
+} from "@/adventure/data/v2/woodcuttingSpots";
 export type { WoodcuttingTreeId } from "@/adventure/data/v2/woodcuttingSpots";
 
 export const WOODCUTTING_SESSION_KEY = "woodcutting-session.v4";
 export const WOODCUTTING_LOG_KEY = "woodcutting-log.v1";
 export const WOODCUTTING_CLAIM_GRACE_MS = 30_000;
-export const WOODCUTTING_TIMBER_REWARD = 1;
+export const WOODCUTTING_MATERIAL_REWARD = 1;
+// 기존 호출처와 세이브 테스트가 사용하는 이름. 보상 단위는 이제 수종별 원목이다.
+export const WOODCUTTING_TIMBER_REWARD = WOODCUTTING_MATERIAL_REWARD;
 
 export type WoodcuttingSession = {
   sessionId: string;
@@ -26,6 +33,18 @@ export type WoodcuttingSession = {
 
 export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
   return Object.prototype.hasOwnProperty.call(WOODCUTTING_TREES, id);
+}
+
+export function woodcuttingMaterialBalances(
+  raw: unknown,
+): Record<WoodcuttingMaterialId, number> {
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  return Object.fromEntries(
+    (Object.keys(WOODCUTTING_MATERIALS) as WoodcuttingMaterialId[]).map((id) => [
+      id,
+      Math.max(0, Math.floor(Number(source[id]) || 0)),
+    ]),
+  ) as Record<WoodcuttingMaterialId, number>;
 }
 
 export function pickWoodcuttingTreeId(

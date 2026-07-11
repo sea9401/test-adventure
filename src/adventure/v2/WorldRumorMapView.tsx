@@ -154,7 +154,7 @@ function WoodcuttingSpotMeta({ id }: { id: string }) {
         </span>
       </div>
       <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-        모든 수종 벌목 보상: 통나무 1개
+        벌목 보상: {tree.name} 원목 1개
       </div>
     </div>
   );

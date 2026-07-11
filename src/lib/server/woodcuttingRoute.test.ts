@@ -32,6 +32,7 @@ import { POST as START } from "@/app/api/v2/woodcutting/start/route";
 import { POST as CHOP } from "@/app/api/v2/woodcutting/chop/route";
 import { GET as STATUS } from "@/app/api/v2/woodcutting/status/route";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
+import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
 import {
   WOODCUTTING_LOG_KEY,
   WOODCUTTING_SESSION_KEY,
@@ -40,6 +41,7 @@ import {
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
+const OAK = WOODCUTTING_MATERIAL_ID.oak;
 
 function chopReq(sessionId: string) {
   return new Request("http://test.local/api/v2/woodcutting/chop", {
@@ -117,7 +119,7 @@ describe("woodcutting routes", () => {
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({ sessionId: "cut-early" });
   });
 
-  it("chop — 완료 뒤 세션을 소비하고 기본 통나무와 기록을 지급한다", async () => {
+  it("chop — 완료 뒤 선택한 수종의 원목과 기록을 지급한다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
     store.set(WOODCUTTING_SESSION_KEY, {
       sessionId: "cut-done",
@@ -133,8 +135,11 @@ describe("woodcutting routes", () => {
 
     expect(json.success).toBe(true);
     expect(json.tree.name).toBe("참나무");
-    expect(json.timberGained).toBe(WOODCUTTING_TIMBER_REWARD);
-    expect(charOf().materials?.[TIMBER]).toBe(4);
+    expect(json.materialId).toBe(OAK);
+    expect(json.materialName).toBe("참나무 원목");
+    expect(json.materialGained).toBe(WOODCUTTING_TIMBER_REWARD);
+    expect(charOf().materials?.[OAK]).toBe(1);
+    expect(charOf().materials?.[TIMBER]).toBe(3);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
     expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
       cuts: 1,

@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
+  WOODCUTTING_MATERIALS,
   WOODCUTTING_SPOTS,
+  WOODCUTTING_TREES,
   type WoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
 import { woodcuttingProgressionView } from "./woodcuttingProgression";
@@ -18,7 +20,7 @@ export type WoodcuttingLogView = {
 export type WoodcuttingTreeView = {
   id: string;
   name: string;
-  tier: string;
+  materialId: string;
 };
 
 export type WoodcuttingStart = {
@@ -33,8 +35,8 @@ export type WoodcuttingOutcome =
   | {
       success: true;
       tree: WoodcuttingTreeView;
-      timberGained: number;
-      timber: number;
+      materialName: string;
+      materialGained: number;
       log: WoodcuttingLogView;
     }
   | {
@@ -45,7 +47,7 @@ export type WoodcuttingOutcome =
 export type WoodcuttingHandlers = {
   start: (spotId: WoodcuttingSpotId) => Promise<WoodcuttingStart>;
   finish: (sessionId: string) => Promise<WoodcuttingOutcome>;
-  timber: number;
+  materials: Record<string, number>;
   log: WoodcuttingLogView;
 };
 
@@ -348,13 +350,13 @@ function AutoWoodcuttingCanvas({
 const FAILURE_MESSAGE: Record<string, string> = {
   no_session: "벌목 작업을 찾지 못했습니다.",
   stale: "다른 벌목 작업이 시작되었습니다.",
-  expired: "통나무를 거둘 시간이 지나버렸습니다.",
+  expired: "원목을 거둘 시간이 지나버렸습니다.",
 };
 
 export function WoodcuttingView({
   start,
   finish,
-  timber,
+  materials,
   log,
   onBack,
   spotId,
@@ -429,6 +431,9 @@ export function WoodcuttingView({
     [progress, run],
   );
   const selectedSpot = WOODCUTTING_SPOTS[spotId];
+  const selectedTree = WOODCUTTING_TREES[selectedSpot.treeId];
+  const selectedMaterial = WOODCUTTING_MATERIALS[selectedTree.materialId];
+  const selectedMaterialCount = materials[selectedTree.materialId] ?? 0;
   const progression = woodcuttingProgressionView(log.cuts);
   const levelProgressPct = progression.maxLevel
     ? 100
@@ -440,8 +445,10 @@ export function WoodcuttingView({
 
       <div className="grid grid-cols-3 gap-2 text-center text-xs">
         <Card padding="sm">
-          <div className="text-zinc-500 dark:text-zinc-400">통나무</div>
-          <div className="mt-1 text-lg font-bold tabular-nums">{timber}</div>
+          <div className="truncate text-zinc-500 dark:text-zinc-400">
+            {selectedMaterial.name}
+          </div>
+          <div className="mt-1 text-lg font-bold tabular-nums">{selectedMaterialCount}</div>
         </Card>
         <Card padding="sm">
           <div className="text-zinc-500 dark:text-zinc-400">벌목 완료</div>
@@ -509,7 +516,7 @@ export function WoodcuttingView({
                 <div className="space-y-1">
                   <div className="font-bold">{result.tree.name} 벌목 완료</div>
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
-                    통나무 +{result.timberGained}
+                    {result.materialName} +{result.materialGained}
                   </div>
                 </div>
               ) : null}

@@ -86,6 +86,14 @@ function formatRate(rate: number): string {
   return `${(clamp01(rate) * 100).toFixed(1)}%`;
 }
 
+function isWoodcuttingShortcutTargetIgnored(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return Boolean(
+    target.closest("input, textarea, select, button, a, [role='button'], [role='link']"),
+  );
+}
+
 function easeOutCubic(value: number): number {
   const t = clamp01(value);
   return 1 - (1 - t) ** 3;
@@ -1003,6 +1011,20 @@ export function WoodcuttingView({
   }, [spotId, start]);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || isWoodcuttingShortcutTargetIgnored(event.target)) return;
+      if (event.key !== " " && event.key !== "Enter") return;
+      if (phase !== "idle" && phase !== "result") return;
+
+      event.preventDefault();
+      void startCut();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [phase, startCut]);
+
+  useEffect(() => {
     if (!run) return;
     let alive = true;
     const ticker = window.setInterval(() => {
@@ -1178,7 +1200,7 @@ export function WoodcuttingView({
         </div>
       ) : (
         <Card padding="md" className="text-center text-sm text-zinc-600 dark:text-zinc-300">
-          <div>버튼을 누르면 나무가 쓰러질 때까지 자동으로 벌목합니다.</div>
+          <div>버튼·Space·Enter로 나무가 쓰러질 때까지 자동 벌목합니다.</div>
           <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             {selectedTree.grade}등급 · 성공률 {formatRate(1 - expectedFailureRate)} · 예상{" "}
             {formatDuration(expectedDurationMs)}

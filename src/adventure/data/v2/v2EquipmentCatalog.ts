@@ -722,7 +722,7 @@ const V2_EQUIPMENT_BASE = {
   // 옵션 프로필로 슬롯 시그니처를 깬다(파워크리프 회피 사이드그레이드). tier 는 위력 밴드·드랍
   // 층 기준. 상점·제작 제외(rarity), rollUniqueDrop 전용. 수치는 sim 다이얼.
 
-  // ── 전문화 스타터 무기 (전직 시 지급, weaponType 게이트 활성화용) — off-grid(starterOnly), 수치 임시 ──
+  // ── 전문화 스타터 무기 (T1 상점 구매 가능) — off-grid(starterOnly), 수치 임시 ──
   v2_starter_staff: {
     id: "v2_starter_staff",
     slot: "weapon",

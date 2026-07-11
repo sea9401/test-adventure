@@ -193,7 +193,7 @@ export type V2Equipment = {
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
   craftOnly?: boolean;
-  /** 전문화 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
+  /** 전문화 스타터 — 정규 드랍에서는 제외하며 T1 장비 상점에서 구매할 수 있다. */
   starterOnly?: boolean;
   /** 드랍 제외 — true 면 정규 드랍 풀에서 빠진다(상점·그리드는 유지). 전문화 무기=상점 전용,
    *  드랍은 후속 추가 예정. starterOnly/craftOnly 와 달리 상점 판매는 그대로. */
@@ -308,11 +308,11 @@ function sellCatalogTierBase(
   );
 }
 
-// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·전문화스타터는 비매품. T2/T3 는
+// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용은 비매품. 수련용 전문화 스타터도
+//   도감 등록·재구매가 가능하도록 같은 T1 무기 가격으로 판매한다. T2/T3 는
 //   드랍 전용(상점=처음 갖추는 구간만, 진짜 장비는 파밍). 판매가는 shopPriceForSell(티어 무관).
 export function shopPriceOf(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
-    return undefined;
+  if (item.rarity === "unique" || item.craftOnly) return undefined;
   if (item.tier !== 1) return undefined; // 상점 구매는 스타터 티어(T1)만
   return shopPriceFor(item.tier, item.slot);
 }
@@ -320,7 +320,7 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 // 판매가 산정용 — 구매 가능(상점 비치) 여부와 무관. 드랍으로 얻은 T2/T3 도 팔 수 있어야 하므로
 //   티어 게이트 없이 (티어, 슬롯) 곡선. **전 장비 판매 가능**(2026-06-07 사용자 결정): 유니크·제작
 //   전용·전문화 스타터(수련용)도 판매 허용 — 인벤 클러터(전직 지급 수련용 등) 정리. 실수 판매는
-//   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 스타터 T1만(유니크 등 비매=구매 불가 유지).
+//   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 T1만(수련용 포함, 유니크 등 비매 유지).
 export function shopPriceForSell(item: V2Equipment): number | undefined {
   const base = sellCatalogTierBase(item.tier);
   if (base == null) return undefined;

@@ -23,6 +23,10 @@ import {
   woodcuttingFailureRate,
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
+import {
+  equippedWoodcuttingBonuses,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -38,14 +42,28 @@ export async function POST(req: Request) {
   const spotId = body.spotId;
   const treeId = pickWoodcuttingTreeId(spotId);
   const tree = WOODCUTTING_TREES[treeId];
-  const [charSave, logRaw] = await Promise.all([
+  const [charSave, logRaw, skillsRaw] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(db, userId, "character.v2", {}),
     readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
+    readSave(db, userId, "skills.v2", {}),
   ]);
   const log = parseWoodcuttingLog(logRaw);
   const progression = woodcuttingProgressionView(log.cuts, log.xp);
-  const durationMs = woodcuttingDurationForLevel(tree.durationMs, progression.level);
-  const failureRate = woodcuttingFailureRate(tree.baseFailureRate, progression.level);
+  const levelDurationMs = woodcuttingDurationForLevel(
+    tree.durationMs,
+    progression.level,
+  );
+  const bonuses = equippedWoodcuttingBonuses(
+    parseV2SkillsState(skillsRaw).equipped,
+  );
+  const durationMs = Math.max(
+    1_000,
+    Math.round((levelDurationMs * (1 - bonuses.durationReductionPct / 100)) / 100) *
+      100,
+  );
+  const failureRate =
+    woodcuttingFailureRate(tree.baseFailureRate, progression.level) *
+    (1 - bonuses.failureReductionPct / 100);
   const now = Date.now();
   const session: WoodcuttingSession = createWoodcuttingSession({
     sessionId: randomUUID(),
@@ -54,6 +72,8 @@ export async function POST(req: Request) {
     now,
     durationMs,
     failureRate,
+    failureRecoveryRate: bonuses.failureRecoveryPct / 100,
+    bonusLogRate: bonuses.bonusLogChancePct / 100,
   });
 
   await db.transaction(async (tx) => {
@@ -73,6 +93,10 @@ export async function POST(req: Request) {
     durationMs,
     failureRate,
     successRate: 1 - failureRate,
+    failureReductionPct: bonuses.failureReductionPct,
+    durationReductionPct: bonuses.durationReductionPct,
+    failureRecoveryPct: bonuses.failureRecoveryPct,
+    bonusLogChancePct: bonuses.bonusLogChancePct,
     chops: tree.chops,
     materials,
     timber: materials[SETTLEMENT_MATERIAL_ID.timber],

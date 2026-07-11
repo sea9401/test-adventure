@@ -25,6 +25,7 @@ import {
 import {
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
 import {
@@ -32,6 +33,11 @@ import {
   farmingLevelForState,
   parseFarmState,
 } from "@/adventure/v2/farm";
+import {
+  WOODCUTTING_LOG_KEY,
+  parseWoodcuttingLog,
+} from "@/adventure/v2/woodcuttingSession";
+import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
@@ -96,6 +102,7 @@ const STATE_SAVE_KEYS = [
   "inventory.v2",
   EQUIPMENT_CODEX_KEY,
   FARM_SAVE_KEY,
+  WOODCUTTING_LOG_KEY,
 ] as const;
 
 type StateSaveKey = (typeof STATE_SAVE_KEYS)[number];
@@ -293,6 +300,9 @@ export async function GET(req: Request) {
       : null;
 
   const cls = parseV2Class((charSave as { class?: unknown }).class);
+  const woodcuttingLog = parseWoodcuttingLog(
+    stateSaves.get(WOODCUTTING_LOG_KEY),
+  );
   // 직업 시스템 v2(직업 숙련도 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
   // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋 로드(현 카탈로그=무쿼리).
   const jobUnlockCtx: JobUnlockContext | undefined = V2_CORE_LOOP_V2
@@ -305,6 +315,14 @@ export async function GET(req: Request) {
               farmingLevel: farmingLevelForState(
                 parseFarmState(stateSaves.get(FARM_SAVE_KEY)),
               ),
+            }
+          : {}),
+        ...(CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
+          ? {
+              woodcuttingLevel: woodcuttingProgressionView(
+                woodcuttingLog.cuts,
+                woodcuttingLog.xp,
+              ).level,
             }
           : {}),
       }

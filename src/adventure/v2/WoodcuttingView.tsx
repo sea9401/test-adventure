@@ -49,7 +49,12 @@ export type WoodcuttingOutcome =
       tree: WoodcuttingTreeView;
       materialName: string;
       materialGained: number;
+      bonusMaterialGained: number;
+      recovered: boolean;
       xpGained: number;
+      jobName: string | null;
+      masteryGained: number;
+      masteryAfter: number | null;
       log: WoodcuttingLogView;
     }
   | {
@@ -1144,12 +1149,28 @@ export function WoodcuttingView({
               ) : result?.success ? (
                 <div className="space-y-1">
                   <div className="font-bold">{result.tree.name} 벌목 완료</div>
+                  {result.recovered && (
+                    <div className="text-xs font-bold text-sky-700 dark:text-sky-300">
+                      벌목 명인의 위기 수습으로 실패를 만회했습니다.
+                    </div>
+                  )}
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
+                  {result.bonusMaterialGained > 0 && (
+                    <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      전설의 벌목 추가 원목 +{result.bonusMaterialGained}
+                    </div>
+                  )}
                   <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     벌목 XP +{result.xpGained}
                   </div>
+                  {result.masteryGained > 0 && (
+                    <div className="text-xs font-semibold text-sky-700 dark:text-sky-300">
+                      {result.jobName ?? "나무꾼"} 숙련도 +{result.masteryGained}
+                      {result.masteryAfter == null ? "" : ` · 누적 ${result.masteryAfter}`}
+                    </div>
+                  )}
                 </div>
               ) : null}
             </Card>

@@ -28,9 +28,9 @@ export const ROGUE_ATK_PER_DEX = 0.08;
 // 순수 STR/INT 는 정확히 중립(winT 불변), off-STR(DEX/LUK/SPI)·중반 골짜기는 상향(격차 압축).
 // sim-v2-progression --skills + sim-v2-pvp-weapon 검증: 천장 빌드 불변, 신규 지배자 없음.
 
-// 속도 = 민첩 파생 (1차 아님). 초반부 템포 완화(2026-06-28): 2.0 → 1.5.
-// EXTRA_ATTACK_PCT_PER_SPD=0.5 유지 시 DEX 1 = 추가공격 +0.75%p 로 낮아진다.
-export const SPD_PER_DEX = 1.5;
+// 속도 = 민첩 파생 (1차 아님). 민첩 과효율 완화(2026-07-11): 1.5 → 0.95.
+// EXTRA_ATTACK_PCT_PER_SPD=0.5 유지 시 DEX 1 = 추가공격 +0.475%p.
+export const SPD_PER_DEX = 0.95;
 // 무게 → 속도 페널티 (선형). 표시 무게(effectiveStats=scaledEquipWeight) 1 = 속도 −WEIGHT_SPD_PENALTY.
 // 1.0→2.0 (2026-06-08): 전 장비 위력 ×2 됐는데 무게는 그대로라 "무게당 위력"이 2배 = 무거운
 //   장비의 속도 대가가 상대적으로 절반으로 약해짐. 페널티 2.0 으로 ×2 위력에 맞춰 트레이드오프 복원.

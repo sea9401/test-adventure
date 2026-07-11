@@ -1,6 +1,6 @@
 // 자동 벌목 start/chop/status route 통합 테스트 — savesKv/db 경계만 in-memory/mock 처리.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { store, incrementGuildExplorationProgressForUser } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
@@ -63,6 +63,10 @@ function charOf() {
   return store.get("character.v2") as { materials?: Record<string, number> };
 }
 
+beforeEach(() => {
+  vi.spyOn(Math, "random").mockReturnValue(0.99);
+});
+
 afterEach(() => {
   store.clear();
   incrementGuildExplorationProgressForUser.mockClear();
@@ -89,6 +93,8 @@ describe("woodcutting routes", () => {
     expect(typeof json.sessionId).toBe("string");
     expect(json.durationMs).toBeGreaterThanOrEqual(7_000);
     expect(json.chops).toBeGreaterThanOrEqual(5);
+    expect(json.failureRate).toBeCloseTo(0.05);
+    expect(json.successRate).toBeCloseTo(0.95);
     expect(json.spot.id).toBe("pine_grove");
     expect(json.timber).toBe(7);
     expect(json.log.cuts).toBe(2);
@@ -109,6 +115,7 @@ describe("woodcutting routes", () => {
 
     expect(json.baseDurationMs).toBe(8_000);
     expect(json.durationMs).toBe(7_800);
+    expect(json.failureRate).toBeCloseTo(0.085);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
       readyAt: NOW + 7_800,
     });
@@ -170,6 +177,39 @@ describe("woodcutting routes", () => {
       1,
       new Date(NOW + 4_600),
     );
+  });
+
+  it("chop — 실패 판정이면 원목·XP·주간 의뢰 진척을 지급하지 않는다", async () => {
+    vi.mocked(Math.random).mockReturnValue(0.1);
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "cut-failed",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+      failureRate: 0.22,
+    });
+    store.set("character.v2", { materials: { [TIMBER]: 3 } });
+    store.set(WOODCUTTING_LOG_KEY, { cuts: 4, xp: 40, timberEarned: 4 });
+
+    const response = await CHOP(chopReq("cut-failed"));
+    const json = await response.json();
+
+    expect(json).toMatchObject({
+      ok: true,
+      success: false,
+      reason: "failed",
+      failureRate: 0.22,
+    });
+    expect(charOf().materials).toEqual({ [TIMBER]: 3 });
+    expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
+      cuts: 4,
+      xp: 40,
+      timberEarned: 4,
+    });
+    expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
+    expect(incrementGuildExplorationProgressForUser).not.toHaveBeenCalled();
   });
 
   it("status — 통나무와 누적 기록을 반환한다", async () => {

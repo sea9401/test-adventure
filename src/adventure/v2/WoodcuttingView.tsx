@@ -12,6 +12,7 @@ import {
 } from "@/adventure/data/v2/woodcuttingSpots";
 import {
   woodcuttingDurationForLevel,
+  woodcuttingFailureRate,
   woodcuttingProgressionView,
   woodcuttingTimeReduction,
 } from "./woodcuttingProgression";
@@ -39,6 +40,7 @@ export type WoodcuttingStart = {
   tree: WoodcuttingTreeView;
   durationMs: number;
   chops: number;
+  failureRate: number;
 };
 
 export type WoodcuttingOutcome =
@@ -73,6 +75,10 @@ function clamp01(value: number): number {
 function formatDuration(durationMs: number): string {
   const seconds = durationMs / 1_000;
   return `${Number.isInteger(seconds) ? seconds.toFixed(0) : seconds.toFixed(1)}초`;
+}
+
+function formatRate(rate: number): string {
+  return `${(clamp01(rate) * 100).toFixed(1)}%`;
 }
 
 function easeOutCubic(value: number): number {
@@ -952,6 +958,7 @@ const FAILURE_MESSAGE: Record<string, string> = {
   no_session: "벌목 작업을 찾지 못했습니다.",
   stale: "다른 벌목 작업이 시작되었습니다.",
   expired: "원목을 거둘 시간이 지나버렸습니다.",
+  failed: "벌목에 실패했습니다. 원목과 벌목 XP를 획득하지 못했습니다.",
 };
 
 export function WoodcuttingView({
@@ -1043,6 +1050,10 @@ export function WoodcuttingView({
     selectedTree.durationMs,
     progression.level,
   );
+  const expectedFailureRate = woodcuttingFailureRate(
+    selectedTree.baseFailureRate,
+    progression.level,
+  );
   const timeReductionPct = woodcuttingTimeReduction(progression.level) * 100;
   const levelProgressPct = progression.maxLevel
     ? 100
@@ -1115,6 +1126,9 @@ export function WoodcuttingView({
                     : "벌목 완료"}
               </span>
             </div>
+            <div className="absolute right-3 top-14 z-10 rounded-full bg-zinc-900/75 px-2.5 py-1 text-[10px] font-bold text-white shadow">
+              성공률 {formatRate(1 - run.failureRate)}
+            </div>
             <div className="absolute inset-x-4 bottom-4 z-10 overflow-hidden rounded-full border border-white/70 bg-black/25 p-0.5 shadow">
               <div
                 className="h-2.5 rounded-full bg-amber-400 transition-[width] duration-100"
@@ -1145,8 +1159,11 @@ export function WoodcuttingView({
         <Card padding="md" className="text-center text-sm text-zinc-600 dark:text-zinc-300">
           <div>버튼을 누르면 나무가 쓰러질 때까지 자동으로 벌목합니다.</div>
           <div className="mt-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-            {selectedMaterial.name} 1개 · 예상 {formatDuration(expectedDurationMs)} · XP +
-            {selectedTree.xp}
+            {selectedTree.grade}등급 · 성공률 {formatRate(1 - expectedFailureRate)} · 예상{" "}
+            {formatDuration(expectedDurationMs)}
+          </div>
+          <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            성공 시 {selectedMaterial.name} 1개 · XP +{selectedTree.xp}
           </div>
         </Card>
       )}

@@ -9,6 +9,7 @@ import {
   parseWoodcuttingSession,
   pickWoodcuttingTreeId,
   recordWoodcuttingSuccess,
+  woodcuttingAttemptSucceeds,
 } from "./woodcuttingSession";
 
 describe("woodcuttingSession", () => {
@@ -36,7 +37,15 @@ describe("woodcuttingSession", () => {
     });
     expect(session.readyAt).toBe(1_000 + WOODCUTTING_TREES.oak.durationMs);
     expect(session.expiresAt).toBe(session.readyAt + WOODCUTTING_CLAIM_GRACE_MS);
+    expect(session.failureRate).toBe(WOODCUTTING_TREES.oak.baseFailureRate);
     expect(parseWoodcuttingSession(session)).toEqual(session);
+  });
+
+  it("실패율 경계에 따라 서버 판정을 고정한다", () => {
+    expect(woodcuttingAttemptSucceeds(0.22, 0.219)).toBe(false);
+    expect(woodcuttingAttemptSucceeds(0.22, 0.22)).toBe(true);
+    expect(woodcuttingAttemptSucceeds(0, 0)).toBe(true);
+    expect(woodcuttingAttemptSucceeds(1, 0.999)).toBe(false);
   });
 
   it("장소가 없는 예전 자동 벌목 세션은 읽지 않는다", () => {

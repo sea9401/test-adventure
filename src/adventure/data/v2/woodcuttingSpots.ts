@@ -14,6 +14,8 @@ export type WoodcuttingTreeId =
 export type WoodcuttingTree = {
   id: WoodcuttingTreeId;
   name: string;
+  grade: 1 | 2 | 3 | 4 | 5 | 6;
+  baseFailureRate: number;
   materialId: WoodcuttingMaterialId;
   durationMs: number;
   chops: number;
@@ -70,6 +72,8 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   pine: {
     id: "pine",
     name: "소나무",
+    grade: 1,
+    baseFailureRate: 0.05,
     materialId: WOODCUTTING_MATERIAL_ID.pine,
     durationMs: 7_000,
     chops: 5,
@@ -78,6 +82,8 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   birch: {
     id: "birch",
     name: "자작나무",
+    grade: 2,
+    baseFailureRate: 0.1,
     materialId: WOODCUTTING_MATERIAL_ID.birch,
     durationMs: 8_000,
     chops: 6,
@@ -86,6 +92,8 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   oak: {
     id: "oak",
     name: "참나무",
+    grade: 4,
+    baseFailureRate: 0.22,
     materialId: WOODCUTTING_MATERIAL_ID.oak,
     durationMs: 12_000,
     chops: 8,
@@ -94,6 +102,8 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   cedar: {
     id: "cedar",
     name: "삼나무",
+    grade: 5,
+    baseFailureRate: 0.3,
     materialId: WOODCUTTING_MATERIAL_ID.cedar,
     durationMs: 15_000,
     chops: 9,
@@ -102,6 +112,8 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   willow: {
     id: "willow",
     name: "버드나무",
+    grade: 3,
+    baseFailureRate: 0.15,
     materialId: WOODCUTTING_MATERIAL_ID.willow,
     durationMs: 10_000,
     chops: 7,
@@ -110,6 +122,8 @@ export const WOODCUTTING_TREES: Record<WoodcuttingTreeId, WoodcuttingTree> = {
   cypress: {
     id: "cypress",
     name: "편백나무",
+    grade: 6,
+    baseFailureRate: 0.4,
     materialId: WOODCUTTING_MATERIAL_ID.cypress,
     durationMs: 18_000,
     chops: 10,

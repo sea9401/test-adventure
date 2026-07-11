@@ -92,6 +92,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
       tree: parseTree(json.tree),
       durationMs,
       chops,
+      failureRate: Math.min(1, Math.max(0, Number(json.failureRate) || 0)),
     };
   }, []);
 

@@ -3,6 +3,7 @@ import {
   WOODCUTTING_LEVEL_CAP,
   WOODCUTTING_XP_PER_CUT,
   woodcuttingDurationForLevel,
+  woodcuttingFailureRate,
   woodcuttingLevelForXp,
   woodcuttingProgressionView,
   woodcuttingTimeReduction,
@@ -41,6 +42,14 @@ describe("벌목 진행도", () => {
     expect(woodcuttingTimeReduction(50)).toBeCloseTo(0.098);
     expect(woodcuttingDurationForLevel(9_000, 1)).toBe(9_000);
     expect(woodcuttingDurationForLevel(9_000, 50)).toBe(8_100);
+  });
+
+  it("벌목 레벨이 오를수록 실패율을 상대적으로 낮춘다", () => {
+    expect(woodcuttingFailureRate(0.4, 1)).toBeCloseTo(0.4);
+    expect(woodcuttingFailureRate(0.4, 21)).toBeCloseTo(0.28);
+    expect(woodcuttingFailureRate(0.4, 50)).toBeCloseTo(0.106);
+    expect(woodcuttingFailureRate(2, 1)).toBe(1);
+    expect(woodcuttingFailureRate(-1, 1)).toBe(0);
   });
 
   it("50레벨에서 멈추고 다음 경험치를 요구하지 않는다", () => {

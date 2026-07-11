@@ -13,8 +13,13 @@ import {
   parseWoodcuttingLog,
   parseWoodcuttingSession,
   recordWoodcuttingSuccess,
+  woodcuttingAttemptSucceeds,
   woodcuttingMaterialBalances,
 } from "@/adventure/v2/woodcuttingSession";
+import {
+  woodcuttingFailureRate,
+  woodcuttingProgressionView,
+} from "@/adventure/v2/woodcuttingProgression";
 
 type CharSave = {
   materials?: unknown;
@@ -56,6 +61,20 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, WOODCUTTING_SESSION_KEY, {});
     const tree = WOODCUTTING_TREES[session.treeId];
+    const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
+    const currentLog = parseWoodcuttingLog(logRaw);
+    const progression = woodcuttingProgressionView(currentLog.cuts, currentLog.xp);
+    const failureRate =
+      session.failureRate ??
+      woodcuttingFailureRate(tree.baseFailureRate, progression.level);
+    if (!woodcuttingAttemptSucceeds(failureRate)) {
+      return {
+        success: false as const,
+        reason: "failed" as const,
+        failureRate,
+      };
+    }
+
     const charSave = await lockSaveForUpdate<CharSave>(
       tx,
       userId,
@@ -69,8 +88,7 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
-    const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
-    const log = recordWoodcuttingSuccess(parseWoodcuttingLog(logRaw), {
+    const log = recordWoodcuttingSuccess(currentLog, {
       treeId: session.treeId,
       timber: materialGained,
       xp: tree.xp,
@@ -104,6 +122,7 @@ export async function POST(req: Request) {
       success: false,
       reason: result.reason,
       retryAfterMs: "retryAfterMs" in result ? result.retryAfterMs : undefined,
+      failureRate: "failureRate" in result ? result.failureRate : undefined,
     });
   }
 

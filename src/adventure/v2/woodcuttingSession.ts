@@ -9,7 +9,10 @@ import {
   type WoodcuttingSpotId,
   type WoodcuttingTreeId,
 } from "@/adventure/data/v2/woodcuttingSpots";
-import { WOODCUTTING_XP_PER_CUT } from "./woodcuttingProgression";
+import {
+  WOODCUTTING_XP_PER_CUT,
+  woodcuttingFailureRate,
+} from "./woodcuttingProgression";
 
 export {
   WOODCUTTING_MATERIALS,
@@ -30,6 +33,7 @@ export type WoodcuttingSession = {
   treeId: WoodcuttingTreeId;
   readyAt: number;
   expiresAt: number;
+  failureRate?: number;
 };
 
 export function isWoodcuttingTreeId(id: string): id is WoodcuttingTreeId {
@@ -60,6 +64,7 @@ export function createWoodcuttingSession(args: {
   treeId: WoodcuttingTreeId;
   now: number;
   durationMs?: number;
+  failureRate?: number;
 }): WoodcuttingSession {
   const durationMs = Math.max(
     1_000,
@@ -72,6 +77,9 @@ export function createWoodcuttingSession(args: {
     treeId: args.treeId,
     readyAt,
     expiresAt: readyAt + WOODCUTTING_CLAIM_GRACE_MS,
+    failureRate:
+      args.failureRate ??
+      woodcuttingFailureRate(WOODCUTTING_TREES[args.treeId].baseFailureRate, 1),
   };
 }
 
@@ -83,13 +91,26 @@ export function parseWoodcuttingSession(raw: unknown): WoodcuttingSession | null
   if (typeof value.treeId !== "string" || !isWoodcuttingTreeId(value.treeId)) return null;
   if (typeof value.readyAt !== "number" || !Number.isFinite(value.readyAt)) return null;
   if (typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) return null;
+  const storedFailureRate = Number(value.failureRate);
   return {
     sessionId: value.sessionId,
     spotId: value.spotId,
     treeId: value.treeId,
     readyAt: value.readyAt,
     expiresAt: value.expiresAt,
+    failureRate: Number.isFinite(storedFailureRate)
+      ? Math.min(1, Math.max(0, storedFailureRate))
+      : undefined,
   };
+}
+
+export function woodcuttingAttemptSucceeds(
+  failureRate: number,
+  roll = Math.random(),
+): boolean {
+  const safeFailureRate = Math.min(1, Math.max(0, Number(failureRate) || 0));
+  const safeRoll = Math.min(1, Math.max(0, Number(roll) || 0));
+  return safeRoll >= safeFailureRate;
 }
 
 export type WoodcuttingLog = {

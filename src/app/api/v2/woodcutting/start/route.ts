@@ -20,6 +20,7 @@ import {
 } from "@/adventure/v2/woodcuttingSession";
 import {
   woodcuttingDurationForLevel,
+  woodcuttingFailureRate,
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
 
@@ -44,6 +45,7 @@ export async function POST(req: Request) {
   const log = parseWoodcuttingLog(logRaw);
   const progression = woodcuttingProgressionView(log.cuts, log.xp);
   const durationMs = woodcuttingDurationForLevel(tree.durationMs, progression.level);
+  const failureRate = woodcuttingFailureRate(tree.baseFailureRate, progression.level);
   const now = Date.now();
   const session: WoodcuttingSession = createWoodcuttingSession({
     sessionId: randomUUID(),
@@ -51,6 +53,7 @@ export async function POST(req: Request) {
     treeId,
     now,
     durationMs,
+    failureRate,
   });
 
   await db.transaction(async (tx) => {
@@ -68,6 +71,8 @@ export async function POST(req: Request) {
     material: WOODCUTTING_MATERIALS[tree.materialId],
     baseDurationMs: tree.durationMs,
     durationMs,
+    failureRate,
+    successRate: 1 - failureRate,
     chops: tree.chops,
     materials,
     timber: materials[SETTLEMENT_MATERIAL_ID.timber],

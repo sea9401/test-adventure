@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveFeedbackAdminState,
   parseFeedbackAdminPatch,
+  shouldNotifyFeedbackReply,
   type FeedbackAdminState,
 } from "./feedbackAdminUpdate";
 
@@ -61,5 +62,20 @@ describe("feedback admin update", () => {
       ok: false,
       error: "reply_too_long",
     });
+  });
+
+  it("새 답변이나 변경된 답변에만 알림을 만든다", () => {
+    expect(
+      shouldNotifyFeedbackReply(null, { id: 1, reply: "답변" }, "답변"),
+    ).toBe(true);
+    expect(
+      shouldNotifyFeedbackReply("답변", { id: 1, reply: "답변" }, "답변"),
+    ).toBe(false);
+    expect(
+      shouldNotifyFeedbackReply("답변", { id: 1, reply: "" }, null),
+    ).toBe(false);
+    expect(
+      shouldNotifyFeedbackReply(null, { id: 1, reviewed: true }, null),
+    ).toBe(false);
   });
 });

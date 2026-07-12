@@ -25,6 +25,7 @@ export const V2_NOTIFICATION_TYPES = [
   "guild_join_accepted",
   "guild_join_declined",
   "coop_defeated",
+  "feedback_replied",
 ] as const;
 export type V2NotificationType = (typeof V2_NOTIFICATION_TYPES)[number];
 
@@ -73,6 +74,10 @@ export type V2NotificationPayload =
       sessionId: string;
       kindId: string;
       bossName: string;
+    }
+  // feedback_replied — 내 건의에 관리자 답변이 새로 등록되거나 변경됨.
+  | {
+      feedbackId: number;
     };
 
 // 클라/서버가 주고받는 한 항목.

@@ -72,3 +72,15 @@ export function deriveFeedbackAdminState(
 
   return { adminReply, reviewedAt, repliedAt, resolvedAt, status };
 }
+
+export function shouldNotifyFeedbackReply(
+  currentReply: string | null,
+  patch: FeedbackAdminPatch,
+  nextReply: string | null,
+): boolean {
+  return (
+    patch.reply !== undefined &&
+    nextReply !== null &&
+    nextReply !== currentReply
+  );
+}

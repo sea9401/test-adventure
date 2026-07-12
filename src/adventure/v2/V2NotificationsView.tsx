@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import {
   Bell,
+  ChatCenteredText,
   Crown,
   Flag,
   Handshake,
@@ -77,6 +78,13 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
       size={16}
       weight="duotone"
       className="shrink-0 text-violet-500 dark:text-violet-400"
+    />
+  ),
+  feedback_replied: (
+    <ChatCenteredText
+      size={16}
+      weight="duotone"
+      className="shrink-0 text-sky-500 dark:text-sky-400"
     />
   ),
 };
@@ -154,6 +162,15 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       </>
     );
   }
+  if (n.type === "feedback_replied") {
+    const p = n.payload as { feedbackId: number };
+    return (
+      <>
+        내 건의 <span className="font-medium">#{p.feedbackId}</span>에 관리자
+        답변이 등록되었습니다
+      </>
+    );
+  }
   const p = n.payload as { byName?: string; gold?: number };
   return (
     <>
@@ -171,9 +188,11 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
 export function V2NotificationsView({
   onBack,
   onOpenOutpost,
+  onOpenFeedback,
 }: {
   onBack: () => void;
   onOpenOutpost: (outpostId: string) => void;
+  onOpenFeedback: (feedbackId: number) => void;
 }) {
   const [items, setItems] = useState<V2NotificationEntry[] | null>(null);
 
@@ -225,11 +244,18 @@ export function V2NotificationsView({
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {items.map((n) => {
               const outpostId = (n.payload as { outpostId?: string }).outpostId;
+              const feedbackId =
+                n.type === "feedback_replied"
+                  ? (n.payload as { feedbackId: number }).feedbackId
+                  : null;
               return (
                 <li key={n.id}>
                   <button
                     type="button"
-                    onClick={() => outpostId && onOpenOutpost(outpostId)}
+                    onClick={() => {
+                      if (outpostId) onOpenOutpost(outpostId);
+                      else if (feedbackId) onOpenFeedback(feedbackId);
+                    }}
                     className={`flex w-full items-start gap-2 px-3 py-2.5 text-left ${
                       n.readAt == null
                         ? "bg-amber-50/60 dark:bg-amber-950/20"

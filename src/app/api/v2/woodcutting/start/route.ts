@@ -25,7 +25,7 @@ import {
   type WoodcuttingSession,
 } from "@/adventure/v2/woodcuttingSession";
 import {
-  woodcuttingDurationForLevel,
+  woodcuttingDurationWithPassive,
   woodcuttingFailureRate,
   woodcuttingProgressionView,
 } from "@/adventure/v2/woodcuttingProgression";
@@ -69,17 +69,13 @@ export async function POST(req: Request) {
   if (verificationRequired) return verificationRequired;
   const log = parseWoodcuttingLog(logRaw);
   const progression = woodcuttingProgressionView(log.cuts, log.xp);
-  const levelDurationMs = woodcuttingDurationForLevel(
-    tree.durationMs,
-    progression.level,
-  );
   const bonuses = equippedWoodcuttingBonuses(
     parseV2SkillsState(skillsRaw).equipped,
   );
-  const durationMs = Math.max(
-    1_000,
-    Math.round((levelDurationMs * (1 - bonuses.durationReductionPct / 100)) / 100) *
-      100,
+  const durationMs = woodcuttingDurationWithPassive(
+    tree.durationMs,
+    progression.level,
+    bonuses.durationReductionPct,
   );
   const failureRate =
     woodcuttingFailureRate(tree.baseFailureRate, progression.level) *

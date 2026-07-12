@@ -1233,7 +1233,7 @@ export function WoodcuttingView({
 
       {(phase === "idle" || phase === "result") && !verification && (
         <Button onClick={() => void startCut()} variant="success" size="md" fullWidth>
-          {phase === "result" ? `${selectedSpot.shortName}에서 다시 벌목` : `${selectedSpot.shortName}에서 벌목 시작`}
+          {phase === "result" ? `${selectedSpot.shortName}에서 다시 벌목` : "벌목 시작"}
         </Button>
       )}
       {(phase === "loading" || phase === "cutting" || phase === "finishing") && (

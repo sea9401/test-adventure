@@ -679,7 +679,7 @@ export function MiningView({
         <Button onClick={() => void startMining()} variant="warning" size="md" fullWidth>
           {phase === "result"
             ? `${selectedSpot.shortName}에서 다시 채광`
-            : `${selectedSpot.shortName}에서 채광 시작`}
+            : "채광 시작"}
         </Button>
       )}
       {(phase === "loading" || phase === "mining" || phase === "finishing") && (

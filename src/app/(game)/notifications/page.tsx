@@ -10,6 +10,9 @@ export default function NotificationsPage() {
     <V2NotificationsView
       onBack={() => router.back()}
       onOpenOutpost={() => router.push("/guild")}
+      onOpenFeedback={(feedbackId) =>
+        router.push(`/feedback#feedback-${feedbackId}`)
+      }
     />
   );
 }

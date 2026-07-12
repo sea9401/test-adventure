@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAsyncData } from "@/lib/useAsyncData";
 
 type FeedbackHistoryEntry = {
@@ -38,6 +39,12 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
   );
   const entries = data?.entries ?? [];
 
+  useEffect(() => {
+    if (!data || !window.location.hash.startsWith("#feedback-")) return;
+    const target = document.getElementById(window.location.hash.slice(1));
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [data]);
+
   return (
     <section className="space-y-2">
       <div>
@@ -62,8 +69,9 @@ export function FeedbackHistory({ refreshToken }: { refreshToken: number }) {
         <ul className="space-y-2">
           {entries.map((entry) => (
             <li
+              id={`feedback-${entry.id}`}
               key={entry.id}
-              className="space-y-2 rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
+              className="scroll-mt-6 space-y-2 rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900"
             >
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">

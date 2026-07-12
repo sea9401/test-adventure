@@ -10,7 +10,9 @@ import { logAdminAction } from "@/lib/server/adminAudit";
 import {
   deriveFeedbackAdminState,
   parseFeedbackAdminPatch,
+  shouldNotifyFeedbackReply,
 } from "@/lib/feedbackAdminUpdate";
+import { insertNotification } from "@/lib/server/v2Notifications";
 
 // GET /api/admin/feedback — 유저 건의사항 최신순 조회. requireAdmin 게이트.
 //   ?limit=  (기본 100, 최대 500)
@@ -99,6 +101,18 @@ export async function PATCH(req: Request) {
       reviewedAt: feedbackReports.reviewedAt,
       repliedAt: feedbackReports.repliedAt,
     });
+
+  if (
+    shouldNotifyFeedbackReply(
+      current.adminReply,
+      parsed.value,
+      next.adminReply,
+    )
+  ) {
+    await insertNotification(current.userId, "feedback_replied", {
+      feedbackId: parsed.value.id,
+    });
+  }
 
   await logAdminAction({
     adminEmail: await currentAdminEmail(),

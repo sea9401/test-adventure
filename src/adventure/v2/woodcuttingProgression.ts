@@ -49,6 +49,37 @@ export function woodcuttingDurationForLevel(baseDurationMs: number, level: numbe
   );
 }
 
+function woodcuttingPassiveTimeReduction(durationReductionPct: number): number {
+  const safePct = Number(durationReductionPct) || 0;
+  return Math.min(0.5, Math.max(0, safePct / 100));
+}
+
+export function woodcuttingDurationWithPassive(
+  baseDurationMs: number,
+  level: number,
+  durationReductionPct: number,
+): number {
+  const levelDurationMs = woodcuttingDurationForLevel(baseDurationMs, level);
+  return Math.max(
+    1_000,
+    Math.round(
+      (levelDurationMs * (1 - woodcuttingPassiveTimeReduction(durationReductionPct))) /
+        100,
+    ) * 100,
+  );
+}
+
+export function woodcuttingTotalTimeReduction(
+  level: number,
+  durationReductionPct: number,
+): number {
+  return (
+    1 -
+    (1 - woodcuttingTimeReduction(level)) *
+      (1 - woodcuttingPassiveTimeReduction(durationReductionPct))
+  );
+}
+
 export function woodcuttingFailureRate(baseFailureRate: number, level: number): number {
   const safeBase = Math.min(1, Math.max(0, Number(baseFailureRate) || 0));
   const safeLevel = Math.max(1, Math.min(WOODCUTTING_LEVEL_CAP, Math.floor(level) || 1));

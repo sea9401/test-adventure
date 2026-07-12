@@ -11,10 +11,10 @@ import {
   type WoodcuttingSpotId,
 } from "@/adventure/data/v2/woodcuttingSpots";
 import {
-  woodcuttingDurationForLevel,
+  woodcuttingDurationWithPassive,
   woodcuttingFailureRate,
   woodcuttingProgressionView,
-  woodcuttingTimeReduction,
+  woodcuttingTotalTimeReduction,
 } from "./woodcuttingProgression";
 import {
   WOODCUTTING_TREE_FALL_MS,
@@ -72,6 +72,7 @@ export type WoodcuttingHandlers = {
   finish: (sessionId: string) => Promise<WoodcuttingOutcome>;
   materials: Record<string, number>;
   log: WoodcuttingLogView;
+  durationReductionPct: number;
   verification?: ActivityVerificationChallenge | null;
   verifyHuman?: (token: string) => Promise<boolean>;
 };
@@ -986,6 +987,7 @@ export function WoodcuttingView({
   finish,
   materials,
   log,
+  durationReductionPct,
   verification,
   verifyHuman,
   onBack,
@@ -1086,15 +1088,17 @@ export function WoodcuttingView({
   const selectedMaterial = WOODCUTTING_MATERIALS[selectedTree.materialId];
   const selectedMaterialCount = materials[selectedTree.materialId] ?? 0;
   const progression = woodcuttingProgressionView(log.cuts, log.xp);
-  const expectedDurationMs = woodcuttingDurationForLevel(
+  const expectedDurationMs = woodcuttingDurationWithPassive(
     selectedTree.durationMs,
     progression.level,
+    durationReductionPct,
   );
   const expectedFailureRate = woodcuttingFailureRate(
     selectedTree.baseFailureRate,
     progression.level,
   );
-  const timeReductionPct = woodcuttingTimeReduction(progression.level) * 100;
+  const timeReductionPct =
+    woodcuttingTotalTimeReduction(progression.level, durationReductionPct) * 100;
   const levelProgressPct = progression.maxLevel
     ? 100
     : Math.min(100, (progression.xpIntoLevel / progression.xpForNext) * 100);

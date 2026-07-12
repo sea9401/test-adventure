@@ -3,10 +3,12 @@ import {
   WOODCUTTING_LEVEL_CAP,
   WOODCUTTING_XP_PER_CUT,
   woodcuttingDurationForLevel,
+  woodcuttingDurationWithPassive,
   woodcuttingFailureRate,
   woodcuttingLevelForXp,
   woodcuttingProgressionView,
   woodcuttingTimeReduction,
+  woodcuttingTotalTimeReduction,
   woodcuttingXpForLevel,
 } from "./woodcuttingProgression";
 
@@ -42,6 +44,13 @@ describe("벌목 진행도", () => {
     expect(woodcuttingTimeReduction(50)).toBeCloseTo(0.098);
     expect(woodcuttingDurationForLevel(9_000, 1)).toBe(9_000);
     expect(woodcuttingDurationForLevel(9_000, 50)).toBe(8_100);
+  });
+
+  it("장착 패시브 시간 단축을 서버 세션과 예상 시간에 동일하게 적용한다", () => {
+    expect(woodcuttingDurationWithPassive(9_000, 1, 8)).toBe(8_300);
+    expect(woodcuttingDurationWithPassive(9_000, 50, 8)).toBe(7_500);
+    expect(woodcuttingTotalTimeReduction(1, 8)).toBeCloseTo(0.08);
+    expect(woodcuttingTotalTimeReduction(50, 8)).toBeCloseTo(0.17016);
   });
 
   it("벌목 레벨이 오를수록 실패율을 상대적으로 낮춘다", () => {

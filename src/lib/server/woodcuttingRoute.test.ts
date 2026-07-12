@@ -353,6 +353,10 @@ describe("woodcutting routes", () => {
   it("status — 통나무와 누적 기록을 반환한다", async () => {
     store.set("character.v2", { materials: { [TIMBER]: 11 } });
     store.set(WOODCUTTING_LOG_KEY, { cuts: 3, timberEarned: 12 });
+    store.set("skills.v2", {
+      learned: ["v2c_foresttechnician_axecare"],
+      equipped: ["v2c_foresttechnician_axecare"],
+    });
     const response = await STATUS();
     const json = await response.json();
     expect(json.ok).toBe(true);
@@ -360,5 +364,6 @@ describe("woodcutting routes", () => {
     expect(json.log.cuts).toBe(3);
     expect(json.log.xp).toBe(30);
     expect(json.log.timberEarned).toBe(12);
+    expect(json.durationReductionPct).toBe(8);
   });
 });

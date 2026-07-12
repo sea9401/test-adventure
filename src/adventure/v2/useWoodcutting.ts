@@ -53,6 +53,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
   const { verification, verifyHuman, readJson } = useActivityVerification("woodcutting");
   const [materials, setMaterials] = useState<Record<string, number>>({});
   const [log, setLog] = useState<WoodcuttingLogView>({ cuts: 0, xp: 0, timberEarned: 0 });
+  const [durationReductionPct, setDurationReductionPct] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -64,6 +65,9 @@ export function useWoodcutting(): WoodcuttingHandlers {
         if (!alive || !json?.ok) return;
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
+        setDurationReductionPct(
+          Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
+        );
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -88,6 +92,9 @@ export function useWoodcutting(): WoodcuttingHandlers {
     }
     setMaterials(parseMaterials(json.materials));
     setLog(parseLog(json.log));
+    setDurationReductionPct(
+      Math.min(50, Math.max(0, Number(json.durationReductionPct) || 0)),
+    );
     return {
       sessionId: json.sessionId,
       spotId,
@@ -145,5 +152,13 @@ export function useWoodcutting(): WoodcuttingHandlers {
     throw new Error("woodcutting_finish_failed");
   }, [readJson]);
 
-  return { start, finish, materials, log, verification, verifyHuman };
+  return {
+    start,
+    finish,
+    materials,
+    log,
+    durationReductionPct,
+    verification,
+    verifyHuman,
+  };
 }

@@ -47,12 +47,12 @@ const TABS: TabDef[] = [
     label: "전투",
     href: "/battle",
     sub: [
-      { label: "원정", href: "/battle/storm-expedition", Icon: CloudLightning, color: "text-sky-500" },
       { label: "사냥터", href: "/battle/dungeon", Icon: Sword, color: "text-rose-500" },
       { label: "협동 보스", href: "/battle/coop", Icon: Skull, color: "text-rose-500" },
       { label: "아레나", href: "/battle/arena", Icon: Trophy, color: "text-amber-500" },
       { label: "훈련장", href: "/battle/sparring", Icon: Barbell, color: "text-sky-500" },
       { label: "숙련의 탑", href: "/battle/mastery-tower", Icon: CastleTurret, color: "text-emerald-500" },
+      { label: "원정", href: "/battle/storm-expedition", Icon: CloudLightning, color: "text-sky-500" },
     ],
   },
   {

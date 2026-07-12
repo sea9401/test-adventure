@@ -31,14 +31,6 @@ export function V2BattleHome({ onAction }: {
       <div className="space-y-2">
         <EntryCard
           icon={
-            <CloudLightning size={28} weight="duotone" className="text-sky-500" />
-          }
-          title="원정"
-          description="항로를 골라 연속 전투와 중도 귀환에 도전"
-          onClick={() => onAction({ kind: "open-storm-expedition" })}
-        />
-        <EntryCard
-          icon={
             <Sword size={28} weight="duotone" className="text-rose-500" />
           }
           title="사냥터"
@@ -71,6 +63,14 @@ export function V2BattleHome({ onAction }: {
           }
           title="숙련의 탑"
           onClick={() => onAction({ kind: "open-mastery-tower" })}
+        />
+        <EntryCard
+          icon={
+            <CloudLightning size={28} weight="duotone" className="text-sky-500" />
+          }
+          title="원정"
+          description="항로를 골라 연속 전투와 중도 귀환에 도전"
+          onClick={() => onAction({ kind: "open-storm-expedition" })}
         />
       </div>
     </PageShell>

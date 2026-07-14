@@ -216,6 +216,16 @@ export function parseRepeatSave(raw: unknown): RepeatSave {
   return { daily: parsePeriod(r.daily), weekly: parsePeriod(r.weekly) };
 }
 
+export function repeatSaveNeedsRollover(
+  save: RepeatSave,
+  now: Date,
+): boolean {
+  return (
+    save.daily?.key !== kstDailyKey(now) ||
+    save.weekly?.key !== kstWeeklyKey(now)
+  );
+}
+
 // 롤오버 — 주기 키가 바뀌었으면 현재 누적치로 재스냅샷 + claimed 비움.
 // changed=true 면 호출부가 upsert (GET 은 무락 lazy write — 동시 호출도 같은 값이라 무해).
 export function rolloverRepeatSave(

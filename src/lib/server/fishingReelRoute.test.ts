@@ -23,11 +23,22 @@ vi.mock("@/lib/server/guildExplorationWeekly", () => ({
 }));
 vi.mock("@/db", () => ({
   db: {
-    transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({})),
+    transaction: vi.fn(async (cb: (tx: unknown) => unknown) => {
+      const query: Record<string, unknown> = {};
+      query.from = () => query;
+      query.where = () => query;
+      query.limit = async () => [];
+      query.then = (resolve: (rows: unknown[]) => unknown) =>
+        Promise.resolve([]).then(resolve);
+      return cb({ select: vi.fn(() => query) });
+    }),
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
+    store.has(key) ? store.get(key) : fallback,
+  ),
+  readSave: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
@@ -49,6 +60,11 @@ import {
   activityGuardView,
   parseActivityGuardState,
 } from "@/lib/server/activityGuard";
+import {
+  kstDailyKey,
+  kstWeeklyKey,
+} from "@/adventure/data/v2/v2RepeatQuests";
+import { REPEAT_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -80,6 +96,27 @@ function seedFisherSession(now: number) {
   });
   store.set(FISHING_CODEX_KEY, { fish: {} });
   store.set(FISHING_WALLET_KEY, { coins: 0 });
+  const baseline = {
+    battleCount: 0,
+    siegeAttempts: 0,
+    siegeWins: 0,
+    warTreasuryGold: 0,
+    fishCaught: 0,
+    enhanceAttempts: 0,
+  };
+  const date = new Date(now);
+  store.set(REPEAT_QUESTS_KEY, {
+    daily: {
+      key: kstDailyKey(date),
+      baseline,
+      claimed: [],
+    },
+    weekly: {
+      key: kstWeeklyKey(date),
+      baseline,
+      claimed: [],
+    },
+  });
 }
 
 describe("POST /api/v2/fishing/reel", () => {
@@ -136,6 +173,60 @@ describe("POST /api/v2/fishing/reel", () => {
         "fishing",
       ).completedSinceVerification,
     ).toBe(1);
+  });
+
+  it("자정 뒤 첫 낚시 전에 일일 퀘스트 기준값을 갱신한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(FISHING_CODEX_KEY, {
+      fish: {
+        carp: {
+          discovered: true,
+          bestSize: 40,
+          totalCaught: 7,
+          firstCaughtAt: now - 100_000,
+          bestCaughtAt: now - 100_000,
+        },
+      },
+    });
+    const repeat = store.get(REPEAT_QUESTS_KEY) as {
+      daily: { key: string };
+      weekly: unknown;
+    };
+    store.set(REPEAT_QUESTS_KEY, {
+      ...repeat,
+      daily: {
+        key: kstDailyKey(new Date(now - 24 * 3600_000)),
+        baseline: {
+          battleCount: 0,
+          siegeAttempts: 0,
+          siegeWins: 0,
+          warTreasuryGold: 0,
+          fishCaught: 4,
+          enhanceAttempts: 0,
+        },
+        claimed: ["d_fish"],
+      },
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+
+    expect(res.status).toBe(200);
+    const rolled = store.get(REPEAT_QUESTS_KEY) as {
+      daily: {
+        key: string;
+        baseline: { fishCaught: number };
+        claimed: string[];
+      };
+    };
+    expect(rolled.daily).toMatchObject({
+      key: kstDailyKey(new Date(now)),
+      baseline: { fishCaught: 7 },
+      claimed: [],
+    });
+    expect(store.get(FISHING_CODEX_KEY)).toMatchObject({
+      fish: { carp: { totalCaught: 8 } },
+    });
   });
 
   it("5연속 성공부터 코인 보너스와 연속 버프를 적용한다", async () => {

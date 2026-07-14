@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowClockwise, CastleTurret, Certificate, CheckCircle } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import {
+  formatThousands,
+  NumberInput,
+  parseAmount,
+} from "@/components/ui/NumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
@@ -98,7 +103,7 @@ export function V2MasteryTowerView({
       }
       setStatus(j);
       setSelectedJobId((prev) => prev || j.jobs[0]?.id || "");
-      setAmount((prev) => prev || String(j.certificates || 0));
+      setAmount((prev) => prev || formatThousands(String(j.certificates || 0)));
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
@@ -162,7 +167,7 @@ export function V2MasteryTowerView({
 
   async function spendCertificates() {
     if (!selectedJobId) return;
-    const useAmount = Math.max(0, Math.floor(Number(amount) || 0));
+    const useAmount = Math.max(0, Math.floor(parseAmount(amount)));
     setBusy("use");
     try {
       const res = await fetch("/api/v2/mastery-tower/use-certificate", {
@@ -202,7 +207,7 @@ export function V2MasteryTowerView({
   );
   const canUse =
     Boolean(status && status.certificates > 0 && selectedJobId) &&
-    Math.floor(Number(amount) || 0) > 0;
+    Math.floor(parseAmount(amount)) > 0;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -453,12 +458,12 @@ export function V2MasteryTowerView({
                 </option>
               ))}
             </select>
-            <input
-              type="number"
+            <NumberInput
               min={1}
               max={status.certificates}
               value={amount}
-              onChange={(e) => setAmount(e.currentTarget.value)}
+              onValueChange={setAmount}
+              aria-label="사용할 숙련 증서 수량"
               className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
             />
             <button

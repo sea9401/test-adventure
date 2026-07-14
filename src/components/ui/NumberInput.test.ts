@@ -14,6 +14,7 @@ describe("formatThousands", () => {
   });
   it("선행 0 정규화 / 빈값", () => {
     expect(formatThousands("007")).toBe("7");
+    expect(formatThousands("02913")).toBe("2,913");
     expect(formatThousands("")).toBe("");
     expect(formatThousands("abc")).toBe("");
   });

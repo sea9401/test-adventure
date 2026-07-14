@@ -15,7 +15,6 @@ import {
   V2_CULTIVATE_PROFILE,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 
 // POST /api/v2/me/cultivate — 수행 1회. 공용 숙달 포인트로 현 직업 프로필의 stat cap 상승.
@@ -65,11 +64,10 @@ export async function POST() {
     }
     await upsertSave(tx, userId, "proficiency.v2", applied.next);
     const nextCult = applied.next.groups[group].cultivations;
-    // 유효 cap(= floor + 헤드룸 + 수행이득) 으로 반환 — state 와 일치.
-    const floors = computeStatFloors(applied.next);
+    // 유효 cap(= 기본 60 + 수행 이득)으로 반환 — state 와 일치.
     const effectiveCaps: Partial<Record<string, number>> = {};
     for (const k of V2_STAT_KEYS) {
-      effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(applied.next, k));
+      effectiveCaps[k] = effectiveStatCap(capGain(applied.next, k));
     }
     return {
       status: 200,

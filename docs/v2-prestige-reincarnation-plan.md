@@ -18,10 +18,9 @@
 - **floor(저점)** = `base + 전역항 + 직군항`
   - 전역항 = `totalCumLevel × V2_FLOOR_GLOBAL(0.015)` — 전 스탯 공통.
   - 직군항 = `groupCumLevel × V2_FLOOR_PER_PROF(0.05) × tierMult × weight`.
-- **cap = floor 상대** — `effectiveStatCap = floor + V2_CAP_HEADROOM_BASE(45) + 수행이득`.
-  floor 가 올라도 cap 이 항상 그 위 → **성장 밴드(45+수행)가 보존**된다.
-  → 이것이 환생 루프의 핵심 토대: cumLevel 무한 누적 시 floor·cap 이 같이 올라가
-  밴드가 안 깨진다.
+- **cap = 절대 한계치** — `effectiveStatCap = V2_STAT_CAP_BASE(60) + 수행이득`.
+  floor 가 올라도 cap 은 같이 올라가지 않는다. 환생 루프는 고정된 cap 안에서 저점을
+  높이고, 추가 천장은 수행으로만 연다.
 - **cumLevel** — 레벨업당 +1, 전직/환생 리셋 불변(영구). 현재 단일 직군 자연 천장 ~250-300
   (레벨캡·차수 유한 때문, "runaway 해소"의 정체).
 - **4직군 앵커** — warrior→str / martial→vit / mage→int / rogue→dex.

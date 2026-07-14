@@ -102,13 +102,13 @@ function maturePower(
   const job = V2_JOB_CATALOG[jobId];
   const legacy = LEGACY_CLASS_SPEC_BY_JOB[jobId];
   const playerClass = (legacy?.class ?? jobId) as V2Class;
-  // caps = 수행 이득(gains). grown = 유효cap - floor (= 헤드룸+이득) 로 채워 stat=유효cap.
+  // caps = 수행 이득(gains). grown = 절대 cap - floor 로 채워 stat=cap.
   const gains: Partial<Record<V2StatKey, number>> = {};
   const allocated: Partial<Record<V2StatKey, number>> = {};
   for (const k of V2_STAT_KEYS) {
     const gain = prof.caps[k] ?? 0;
     gains[k] = gain;
-    const effCap = effectiveStatCap(floors[k] ?? 0, gain);
+    const effCap = effectiveStatCap(gain);
     allocated[k] = Math.max(0, effCap - (floors[k] ?? 0));
   }
   const d = derivePlayerCombatV2Pure({
@@ -228,7 +228,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
     const floors = computeStatFloors(prof);
     const anchorFloor = floors[anchor] ?? 0;
-    const anchorCap = effectiveStatCap(anchorFloor, capGain(prof, anchor));
+    const anchorCap = effectiveStatCap(capGain(prof, anchor));
     rows.push({
       tier: job.tier,
       cls: job.name,

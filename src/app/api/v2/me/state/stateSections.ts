@@ -55,7 +55,6 @@ import {
   effectiveStatCap,
   effectiveLevelCap,
 } from "@/adventure/data/v2/proficiency";
-import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
 import {
@@ -457,11 +456,11 @@ export function proficiencySection(
     typeof charSave.specChoice === "string" ? charSave.specChoice : null;
   const currentJobId = jobIdFromLegacy(curClass, specChoice);
   const currentJob = V2_JOB_CATALOG[currentJobId];
-  // caps 는 유효 cap(= floor + 헤드룸 + 수행이득)으로 노출 — UI "한계" 표시용.
-  const floors = computeStatFloors(prof);
+  // caps 는 절대 한계치(= 기본 60 + 수행 이득)로 노출. 사냥 숙련도로 오르는
+  // 저점(floor)은 한계치를 변경하지 않는다.
   const effectiveCaps: Partial<Record<string, number>> = {};
   for (const k of V2_STAT_KEYS) {
-    effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(prof, k));
+    effectiveCaps[k] = effectiveStatCap(capGain(prof, k));
   }
   return {
     groups: prof.groups,

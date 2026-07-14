@@ -8,6 +8,7 @@ import {
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   REFORGE_STONE_MATERIAL_ID,
+  V2_REFORGE_ENABLED,
   catalogItemStats,
   type ReforgeStoneId,
   canReforge,
@@ -33,6 +34,9 @@ type CharSave = {
 };
 
 export async function POST(req: Request) {
+  if (!V2_REFORGE_ENABLED) {
+    return Response.json({ ok: false, error: "disabled" }, { status: 404 });
+  }
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });

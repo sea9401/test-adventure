@@ -5,6 +5,7 @@ import {
   COMBINE_GOLD_COST,
   REFORGE_COMBINE_COST,
   REFORGE_STONE_MATERIAL_ID,
+  V2_REFORGE_ENABLED,
 } from "@/adventure/data/v2/v2EquipVariance";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -20,6 +21,9 @@ type CharSave = {
 };
 
 export async function POST() {
+  if (!V2_REFORGE_ENABLED) {
+    return Response.json({ ok: false, error: "disabled" }, { status: 404 });
+  }
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });

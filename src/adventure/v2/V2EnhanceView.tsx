@@ -1,10 +1,9 @@
 "use client";
 
-// 대장간 — 장비 강화 + 재련 화면 (docs/v2-equipment-enhance-plan.md PR-3).
+// 대장간 — 장비 강화 화면 (docs/v2-equipment-enhance-plan.md PR-3).
 // 제작 콘텐츠 삭제(#621) 후 반쯤 죽어 있던 대장간을 강화 허브로 부활.
-// 모드 2종(상단 토글):
+// 재련은 V2_REFORGE_ENABLED 플래그로 임시 비활성화하고, 강화·기타 조합만 노출한다.
 //  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
-//  · 재련 — 장비 선택 → 골드로 옵션 굴림 재시도(항상 적용 = 도박). 엔드게임 골드 sink.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -36,6 +35,7 @@ import {
   REFORGE_COMBINE_COST,
   REFORGE_STONE_MATERIAL_ID,
   REFORGE_STONES,
+  V2_REFORGE_ENABLED,
   rollQualityPct,
   type ReforgeStoneId,
 } from "@/adventure/data/v2/v2EquipVariance";
@@ -503,14 +503,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 <span className="text-rose-500">🔴 {stones.red}</span>
                 <span className="text-sky-500">🔵 {stones.blue}</span>
               </>
-            ) : (
+            ) : mode === "reforge" && V2_REFORGE_ENABLED ? (
               <>
                 <span className="text-zinc-500 dark:text-zinc-400">
                   🔧 {reforgeStones.basic}
                 </span>
                 <span className="text-indigo-500">✨ {reforgeStones.high}</span>
               </>
-            )}
+            ) : null}
           </div>
         }
       />
@@ -526,8 +526,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       <TabBar
         tabs={[
           { key: "enhance" as ForgeMode, label: "강화" },
-          { key: "reforge" as ForgeMode, label: "재련" },
-          { key: "combine" as ForgeMode, label: "조합" },
+          ...(V2_REFORGE_ENABLED
+            ? [{ key: "reforge" as ForgeMode, label: "재련" }]
+            : []),
+          ...(V2_REFORGE_ENABLED || V2_SETTLEMENT_WARFARE
+            ? [{ key: "combine" as ForgeMode, label: "조합" }]
+            : []),
         ]}
         active={mode}
         onChange={(m) => {
@@ -847,20 +851,24 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       {mode === "combine" && (
         <section className="space-y-2">
           {[
-            {
-              key: "reforge-stone",
-              icon: "✨",
-              output: "상급 재련석",
-              cost: COMBINE_GOLD_COST,
-              mats: [
-                {
-                  label: "🔧 재련석",
-                  have: reforgeStones.basic,
-                  need: REFORGE_COMBINE_COST,
-                },
-              ],
-              onCombine: doCombine,
-            },
+            ...(V2_REFORGE_ENABLED
+              ? [
+                  {
+                    key: "reforge-stone",
+                    icon: "✨",
+                    output: "상급 재련석",
+                    cost: COMBINE_GOLD_COST,
+                    mats: [
+                      {
+                        label: "🔧 재련석",
+                        have: reforgeStones.basic,
+                        need: REFORGE_COMBINE_COST,
+                      },
+                    ],
+                    onCombine: doCombine,
+                  },
+                ]
+              : []),
             ...(V2_SETTLEMENT_WARFARE
               ? [
                   {

@@ -87,10 +87,12 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(isTradableEquip("constructor")).toBe(false);
   });
 
-  it("채광 재료를 포함해 등재된 재료만 tradable", () => {
+  it("채광 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {
     expect(Object.keys(V2_MATERIALS)).toHaveLength(44);
     for (const id of Object.keys(V2_MATERIALS)) {
-      expect(isTradableMaterial(id)).toBe(true);
+      expect(isTradableMaterial(id)).toBe(
+        id !== "v2_reforge_stone" && id !== "v2_reforge_stone_high",
+      );
     }
     expect(isTradableMaterial("nope")).toBe(false);
     expect(isTradableMaterial("toString")).toBe(false);

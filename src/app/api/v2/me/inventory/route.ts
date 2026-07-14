@@ -8,6 +8,10 @@ import {
   parseSpFruitUsed,
   spCapBonusFromRaw,
 } from "@/adventure/data/v2/spFruit";
+import {
+  V2_REFORGE_ENABLED,
+  isReforgeStoneMaterialId,
+} from "@/adventure/data/v2/v2EquipVariance";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //
@@ -48,6 +52,7 @@ export async function GET() {
       : {};
   const materials: Partial<Record<V2MaterialId, number>> = {};
   for (const id of Object.keys(V2_MATERIALS) as V2MaterialId[]) {
+    if (!V2_REFORGE_ENABLED && isReforgeStoneMaterialId(id)) continue;
     const v = rawMaterials[id];
     if (typeof v === "number" && Number.isFinite(v) && v > 0) {
       materials[id] = Math.floor(v);

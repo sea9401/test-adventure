@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   V2_EQUIPMENT,
   isUnique,
@@ -11,8 +11,8 @@ import {
   REFORGE_HIGH_ROLLS,
   REFORGE_MIN_COST,
   REFORGE_STONE_DROP_PCT,
-  REFORGE_STONE_MATERIAL_ID,
   REFORGE_UNIQUE_COST_MULT,
+  V2_REFORGE_ENABLED,
   VARIANCE_FRACTION,
   canReforge,
   effectiveStats,
@@ -240,19 +240,14 @@ describe("reforgeGoldCost", () => {
 describe("canReforge", () => {
   const bow = V2_EQUIPMENT.v2_starsong_bow;
 
-  it("굴림 있고 변동 가능 → true", () => {
+  it("재련 비활성 중에는 굴림·제작 장비도 모두 false", () => {
+    expect(V2_REFORGE_ENABLED).toBe(false);
     expect(
       canReforge(bow, { power: bow.power, weight: 2, options: { crit: 2 } }),
-    ).toBe(true);
-  });
-
-  it("굴림 없으면(상점 정가템) → false", () => {
+    ).toBe(false);
     expect(canReforge(bow, undefined)).toBe(false);
-  });
-
-  it("기존 제작품이 굴림 없이 저장됐어도 카탈로그 기준에서 재련 가능", () => {
     const crafted = V2_EQUIPMENT.v2_crafted_aurora_crown;
-    expect(canReforge(crafted, undefined)).toBe(true);
+    expect(canReforge(crafted, undefined)).toBe(false);
     expect(
       canReforge(bow, undefined, {
         craftedBy: {
@@ -262,7 +257,7 @@ describe("canReforge", () => {
           craftedAt: "2026-06-30T00:00:00.000Z",
         },
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 
@@ -317,27 +312,13 @@ describe("selectBulkSell", () => {
 });
 
 describe("rollReforgeStoneDrops", () => {
-  it("드랍률(%) — 일반 0.15·상급 0.04 (강화석보다 희소)", () => {
+  it("드랍 다이얼은 보존하되 비활성 중에는 RNG 소모 없이 빈 결과", () => {
+    expect(V2_REFORGE_ENABLED).toBe(false);
     expect(REFORGE_STONE_DROP_PCT.basic).toBe(0.15);
     expect(REFORGE_STONE_DROP_PCT.high).toBe(0.04);
-  });
-
-  it("rng×100 이 임계 미만인 종류만 1개 드랍", () => {
-    // rng()=0.001 → rng×100=0.1: 일반(0.15) 통과·상급(0.04) 불통.
-    const out = rollReforgeStoneDrops(() => 0.001);
-    expect(out[REFORGE_STONE_MATERIAL_ID.basic]).toBe(1);
-    expect(out[REFORGE_STONE_MATERIAL_ID.high]).toBeUndefined();
-  });
-
-  it("rng 이 임계 이상이면 빈 결과", () => {
-    expect(rollReforgeStoneDrops(() => 0.5)).toEqual({});
-  });
-
-  it("chanceMult 가 확률을 키운다 (상급도 통과)", () => {
-    // 0.1 < 0.04 불통이지만, mult 5 면 0.04×5=0.2 > 0.1 → 통과.
-    expect(
-      rollReforgeStoneDrops(() => 0.001, 5)[REFORGE_STONE_MATERIAL_ID.high],
-    ).toBe(1);
+    const rng = vi.fn(() => 0);
+    expect(rollReforgeStoneDrops(rng, 5)).toEqual({});
+    expect(rng).not.toHaveBeenCalled();
   });
 });
 

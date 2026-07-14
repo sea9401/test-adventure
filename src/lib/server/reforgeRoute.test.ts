@@ -30,6 +30,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   REFORGE_STONE_MATERIAL_ID,
+  V2_REFORGE_ENABLED,
   reforgeGoldCost,
   rollItemStats,
   rollItemStatsBest,
@@ -78,7 +79,20 @@ const charOf = () =>
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("POST /api/v2/me/reforge", () => {
+describe("POST /api/v2/me/reforge 비활성", () => {
+  it("404 disabled를 반환하고 세이브를 바꾸지 않는다", async () => {
+    expect(V2_REFORGE_ENABLED).toBe(false);
+    seed({ basic: 3 });
+    const before = JSON.stringify([...store.entries()]);
+    const res = await POST(req({ iid: "w1", stone: "basic" }));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ ok: false, error: "disabled" });
+    expect(JSON.stringify([...store.entries()])).toBe(before);
+  });
+});
+
+const describeEnabled = V2_REFORGE_ENABLED ? describe : describe.skip;
+describeEnabled("POST /api/v2/me/reforge 활성 로직", () => {
   it("성공(일반) — 골드 + 재련석1 차감 + 굴림 교체(장착 유지)", async () => {
     seed({ gold: 10_000_000, basic: 3 });
     vi.spyOn(Math, "random").mockReturnValue(0); // 결정적: 최저 굴림

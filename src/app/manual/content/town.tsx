@@ -44,10 +44,6 @@ export function TownContent() {
         <li>
           보유 장비를 <Em>강화</Em>해 위력을 계속 올립니다.
         </li>
-        <li>
-          <Em>재련</Em>으로 옵션을 다시 굴립니다. 자세한 건 <Em>장비 강화</Em>·
-          <Em>장비</Em> 페이지를 보세요.
-        </li>
       </UL>
 
       <H2>낚시터</H2>

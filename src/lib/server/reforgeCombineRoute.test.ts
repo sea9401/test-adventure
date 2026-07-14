@@ -27,6 +27,7 @@ import {
   COMBINE_GOLD_COST,
   REFORGE_COMBINE_COST,
   REFORGE_STONE_MATERIAL_ID,
+  V2_REFORGE_ENABLED,
 } from "@/adventure/data/v2/v2EquipVariance";
 
 const BASIC = REFORGE_STONE_MATERIAL_ID.basic;
@@ -48,7 +49,20 @@ const charOf = () =>
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("POST /api/v2/me/reforge-stone-combine", () => {
+describe("POST /api/v2/me/reforge-stone-combine 비활성", () => {
+  it("404 disabled를 반환하고 재료·골드를 바꾸지 않는다", async () => {
+    expect(V2_REFORGE_ENABLED).toBe(false);
+    seed(5, 1);
+    const before = JSON.stringify(charOf());
+    const res = await POST();
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ ok: false, error: "disabled" });
+    expect(JSON.stringify(charOf())).toBe(before);
+  });
+});
+
+const describeEnabled = V2_REFORGE_ENABLED ? describe : describe.skip;
+describeEnabled("POST /api/v2/me/reforge-stone-combine 활성 로직", () => {
   it("일반 N개 차감 + 상급 1 적립", async () => {
     seed(5, 1);
     const res = await POST();

@@ -1032,7 +1032,7 @@ describe("직업 킷 — 스킬셋", () => {
       maxHpPct: 10,
       maxMpPct: 10,
     });
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(12);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
   });
 
   it("독 계보 SP 비용은 조건부 중독·부식 가치를 반영해 단계적으로 오른다", () => {
@@ -1041,9 +1041,9 @@ describe("직업 킷 — 스킬셋", () => {
 
     expect(costs("venomist")).toEqual([4, 3]);
     expect(costs("venomancer")).toEqual([6, 4]);
-    expect(costs("venomlord")).toEqual([8, 6]);
-    expect(costs("plaguebringer")).toEqual([11, 8]);
-    expect(costs("myriadvenom")).toEqual([17, 17]);
+    expect(costs("venomlord")).toEqual([7, 6]);
+    expect(costs("plaguebringer")).toEqual([9, 7]);
+    expect(costs("myriadvenom")).toEqual([13, 13]);
   });
 
   it("권룡(sensei) = 권룡연파(연격+방깎+취약) + 근력 III(힘%) — 연격형 재설계", () => {

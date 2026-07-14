@@ -235,23 +235,23 @@ describe("숙련도 SP 마일스톤 — deprecated", () => {
 });
 
 describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () => {
-  it("기본 SP 는 25이고 숙련도 groups 는 예산에 직접 영향을 주지 않는다", () => {
-    expect(calcSpBudget({})).toBe(25);
-    expect(calcSpBudget(null)).toBe(25);
-    expect(calcSpBudget({ warrior: { cumLevel: 100_000 } })).toBe(25);
+  it("기본 SP 는 28이고 숙련도 groups 는 예산에 직접 영향을 주지 않는다", () => {
+    expect(calcSpBudget({})).toBe(28);
+    expect(calcSpBudget(null)).toBe(28);
+    expect(calcSpBudget({ warrior: { cumLevel: 100_000 } })).toBe(28);
   });
 
   it("해금 직업 수집 보너스는 직업 하나당 SP +1", () => {
-    expect(calcSpBudget({}, 0, 0, 4)).toBe(29);
+    expect(calcSpBudget({}, 0, 0, 4)).toBe(32);
     expect(calcSpBudget({ a: { cumLevel: 100_000, tier: 4 } }, 0, 0, 76)).toBe(
-      101,
+      104,
     );
   });
 
   it("소프트캡 없이 도감/열매 보너스를 그대로 더한다", () => {
-    expect(calcSpBudget({}, 0, 2, 4)).toBe(31);
+    expect(calcSpBudget({}, 0, 2, 4)).toBe(34);
     expect(calcSpBudget({ a: { cumLevel: 100_000, tier: 4 } }, 5, 10, 76)).toBe(
-      116,
+      119,
     );
   });
 
@@ -274,8 +274,8 @@ describe("calcSpBudget — 스킬포인트 예산 (직업 해금 수집)", () =>
   });
 
   it("손상 입력 방어", () => {
-    expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(25);
-    expect(calcSpBudget({}, 0, 0, NaN)).toBe(25);
+    expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(28);
+    expect(calcSpBudget({}, 0, 0, NaN)).toBe(28);
   });
 });
 

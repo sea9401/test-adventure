@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { useSystemMessageState } from "./RewardToastProvider";
 
-// 로드아웃 프리셋 패널 — 이름 붙인 로드아웃을 저장/적용/삭제. 슬롯은 무료 고정(수집 포인트 경제
+// 로드아웃 프리셋 패널 — 이름 붙인 로드아웃을 저장/적용/덮어쓰기/삭제. 슬롯은 무료 고정(수집 포인트 경제
 //   폐지). 적용은 POST /api/v2/me/loadout(예산/직업고정 검증 재사용) → 부모 refresh. 저장/현황은
 //   /api/v2/me/loadout-presets. 데이터는 자체 fetch(코어루프 전용 — 로드아웃 패널과 나란히 렌더).
 
@@ -93,6 +93,19 @@ export function V2LoadoutPresetsPanel({
   async function deletePreset(idx: number) {
     if (!state) return;
     await postPresets(state.presets.filter((_, i) => i !== idx));
+  }
+
+  async function overwritePreset(idx: number) {
+    if (!state) return;
+    if (currentEquipped.length === 0) {
+      setMsg("장착한 스킬이 없어요.");
+      return;
+    }
+    await postPresets(
+      state.presets.map((preset, i) =>
+        i === idx ? { ...preset, skills: [...currentEquipped] } : preset,
+      ),
+    );
   }
 
   async function applyPreset(skills: string[]) {
@@ -188,6 +201,15 @@ export function V2LoadoutPresetsPanel({
                   className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   적용
+                </button>
+                <button
+                  type="button"
+                  onClick={() => overwritePreset(i)}
+                  disabled={busy}
+                  aria-label={`${p.name} 프리셋을 현재 스킬로 덮어쓰기`}
+                  className="rounded-md border border-amber-500 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950"
+                >
+                  덮어쓰기
                 </button>
                 <button
                   type="button"

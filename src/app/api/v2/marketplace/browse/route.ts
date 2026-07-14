@@ -8,6 +8,7 @@ import {
   MARKETPLACE_V2_LISTING_TTL_DAYS,
   currentMarketplaceItemName,
   isMarketKind,
+  isTradableMaterial,
 } from "@/lib/server/marketplaceV2";
 
 // GET /api/v2/marketplace/browse — 활성 매물 목록.
@@ -72,13 +73,18 @@ export async function GET(req: Request) {
     viewerId: userId,
     viewerGold,
     ttlDays: MARKETPLACE_V2_LISTING_TTL_DAYS,
-    listings: rows.map((row) => ({
-      ...row,
-      itemName: currentMarketplaceItemName(
-        row.kind,
-        row.itemId,
-        row.itemName,
-      ),
-    })),
+    listings: rows
+      .filter(
+        (row) =>
+          mine || row.kind !== "material" || isTradableMaterial(row.itemId),
+      )
+      .map((row) => ({
+        ...row,
+        itemName: currentMarketplaceItemName(
+          row.kind,
+          row.itemId,
+          row.itemName,
+        ),
+      })),
   });
 }

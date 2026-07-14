@@ -10,6 +10,7 @@ import { inboxValues } from "@/lib/server/inboxPayload";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import {
+  isTradableMaterial,
   resolvePlayerName,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
@@ -74,6 +75,12 @@ export async function POST(req: Request) {
     }
     if (listing.sellerId === userId) {
       return { status: 400, body: { ok: false as const, error: "own_listing" } };
+    }
+    if (listing.kind === "material" && !isTradableMaterial(listing.itemId)) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "not_available" },
+      };
     }
 
     // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량

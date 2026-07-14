@@ -68,14 +68,23 @@ describe("coopShop", () => {
     const stamina = COOP_SHOP_ENTRIES.find((e) => e.itemId === "stamina_potion")!;
     const raw = {
       daily: { key: "2026-06-30", purchases: { stamina_potion: 3 } },
-      weekly: { key: "2026-06-29", purchases: { reforge_stone: 10 } },
+      weekly: { key: "2026-06-29", purchases: { mastery_tome: 5 } },
     };
     const reset = parseCoopShopState(raw, "2026-07-01", "2026-06-29");
     expect(coopShopPurchaseCount(reset, stamina)).toBe(0);
 
-    const weekly = COOP_SHOP_ENTRIES.find((e) => e.itemId === "reforge_stone")!;
-    expect(coopShopPurchaseCount(reset, weekly)).toBe(10);
+    const weekly = COOP_SHOP_ENTRIES.find((e) => e.itemId === "mastery_tome")!;
+    expect(coopShopPurchaseCount(reset, weekly)).toBe(5);
     expect(isCoopShopLimitReached(reset, weekly)).toBe(true);
+  });
+
+  it("재련 비활성 중에는 재련석 교환 상품을 노출하지 않는다", () => {
+    expect(
+      COOP_SHOP_ENTRIES.some((e) => e.itemId === "reforge_stone"),
+    ).toBe(false);
+    expect(
+      COOP_SHOP_ENTRIES.some((e) => e.itemId === "reforge_stone_high"),
+    ).toBe(false);
   });
 
   it("구매 기록은 해당 제한 버킷에만 누적된다", () => {

@@ -117,6 +117,10 @@ export function rollQualityPct(
 // 비용 = max(MIN, floor(카탈로그 위력 × K)) × 유니크배수. 강화 ≠ 재련(강화 레벨 불변).
 // 강화는 개체 굴림 위력 기준이라 회마다 흔들리지만, 재련은 **카탈로그 기준 위력**으로
 // 비용을 고정해 예측 가능하게(가격이 굴림 결과에 안 휘둘림). K·MIN·배수는 다이얼.
+// 초·중반 장비 파밍과 성장 속도에 주는 영향을 줄이기 위해 임시 비활성화.
+// 기존 세이브의 재련석·재련된 굴림은 보존하고 UI·API·신규 수급처만 잠근다.
+export const V2_REFORGE_ENABLED = false;
+
 export const REFORGE_GOLD_K = 500; // 하이브리드(재료+골드) 전환으로 골드분 절반(PR-2).
 export const REFORGE_MIN_COST = 20_000;
 export const REFORGE_UNIQUE_COST_MULT = 2;
@@ -136,6 +140,7 @@ export function canReforge(
   roll: V2EquipRoll | undefined,
   inst?: Pick<V2EquipInstance, "craftedBy">,
 ): boolean {
+  if (!V2_REFORGE_ENABLED) return false;
   const effectiveRoll =
     roll ?? (item.craftOnly || inst?.craftedBy ? catalogItemStats(item) : undefined);
   return effectiveRoll != null && rollQualityPct(item, effectiveRoll) !== null;
@@ -159,6 +164,10 @@ export const REFORGE_STONE_MATERIAL_ID: Record<ReforgeStoneId, string> = {
   high: "v2_reforge_stone_high",
 };
 
+export function isReforgeStoneMaterialId(id: string): boolean {
+  return Object.values(REFORGE_STONE_MATERIAL_ID).includes(id);
+}
+
 // 승리당 드랍 확률(%) — 일반 ≈670승/개·상급 ≈2,500승/개(강화석보다 희소). 다이얼.
 export const REFORGE_STONE_DROP_PCT: Record<ReforgeStoneId, number> = {
   basic: 0.15,
@@ -171,6 +180,7 @@ export function rollReforgeStoneDrops(
   // 확률 배수 — 레어맵 등 부스트용. 기본 1 = 무변경.
   chanceMult: number = 1,
 ): Record<string, number> {
+  if (!V2_REFORGE_ENABLED) return {};
   const out: Record<string, number> = {};
   for (const stone of ["basic", "high"] as const) {
     if (rng() * 100 < REFORGE_STONE_DROP_PCT[stone] * chanceMult) {

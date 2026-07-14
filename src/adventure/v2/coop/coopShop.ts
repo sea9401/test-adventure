@@ -12,7 +12,10 @@ import {
   COOP_TIER5_EQUIPMENT_BOX,
 } from "@/adventure/data/v2/coopRewards";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
-import { REFORGE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  REFORGE_STONE_MATERIAL_ID,
+  V2_REFORGE_ENABLED,
+} from "@/adventure/data/v2/v2EquipVariance";
 import { STAMINA_POTION_RESTORE } from "@/adventure/v2/staminaPotions";
 
 export const COOP_SHOP_STATE_KEY = "coop-shop.v1";
@@ -125,32 +128,41 @@ export const COOP_SHOP_ENTRIES: readonly CoopShopEntry[] = [
     output: { kind: "material", materialId: SUMMON_SCROLL_MATERIAL_ID, count: 1 },
     limit: { scope: "daily", count: 2 },
   },
-  {
-    itemId: "reforge_stone",
-    category: "consumable",
-    name: V2_MATERIALS[REFORGE_STONE_MATERIAL_ID.basic]?.name ?? "재련석",
-    description: "장비 옵션 재굴림에 쓰는 재료. 주 10개까지 교환한다.",
-    cost: coinCost(45),
-    output: {
-      kind: "material",
-      materialId: REFORGE_STONE_MATERIAL_ID.basic,
-      count: 1,
-    },
-    limit: { scope: "weekly", count: 10 },
-  },
-  {
-    itemId: "reforge_stone_high",
-    category: "consumable",
-    name: V2_MATERIALS[REFORGE_STONE_MATERIAL_ID.high]?.name ?? "상급 재련석",
-    description: "고품질 옵션 재굴림 확률을 높이는 재료. 주 3개까지 교환한다.",
-    cost: coinCost(120),
-    output: {
-      kind: "material",
-      materialId: REFORGE_STONE_MATERIAL_ID.high,
-      count: 1,
-    },
-    limit: { scope: "weekly", count: 3 },
-  },
+  ...(V2_REFORGE_ENABLED
+    ? [
+        {
+          itemId: "reforge_stone",
+          category: "consumable" as const,
+          name:
+            V2_MATERIALS[REFORGE_STONE_MATERIAL_ID.basic]?.name ?? "재련석",
+          description:
+            "장비 옵션 재굴림에 쓰는 재료. 주 10개까지 교환한다.",
+          cost: coinCost(45),
+          output: {
+            kind: "material" as const,
+            materialId: REFORGE_STONE_MATERIAL_ID.basic,
+            count: 1,
+          },
+          limit: { scope: "weekly" as const, count: 10 },
+        },
+        {
+          itemId: "reforge_stone_high",
+          category: "consumable" as const,
+          name:
+            V2_MATERIALS[REFORGE_STONE_MATERIAL_ID.high]?.name ??
+            "상급 재련석",
+          description:
+            "고품질 옵션 재굴림 확률을 높이는 재료. 주 3개까지 교환한다.",
+          cost: coinCost(120),
+          output: {
+            kind: "material" as const,
+            materialId: REFORGE_STONE_MATERIAL_ID.high,
+            count: 1,
+          },
+          limit: { scope: "weekly" as const, count: 3 },
+        },
+      ]
+    : []),
   {
     itemId: "mastery_tome",
     category: "consumable",

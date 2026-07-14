@@ -8,6 +8,10 @@ import type { DbExecutor } from "@/lib/server/savesKv";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import {
+  V2_REFORGE_ENABLED,
+  isReforgeStoneMaterialId,
+} from "@/adventure/data/v2/v2EquipVariance";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -67,7 +71,10 @@ export function isTradableEquip(id: string): id is V2EquipmentId {
   return Object.prototype.hasOwnProperty.call(V2_EQUIPMENT, id);
 }
 export function isTradableMaterial(id: string): id is V2MaterialId {
-  return Object.prototype.hasOwnProperty.call(V2_MATERIALS, id);
+  return (
+    Object.prototype.hasOwnProperty.call(V2_MATERIALS, id) &&
+    (V2_REFORGE_ENABLED || !isReforgeStoneMaterialId(id))
+  );
 }
 
 // 등록 시점 이름 스냅샷용 — 카탈로그 표시명.

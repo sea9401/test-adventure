@@ -8,8 +8,8 @@ describe("codexSpBonusFromRaw", () => {
     const bonus = codexSpBonusFromRaw({}, { registeredIds });
 
     expect(bonus.fishSp).toBe(0);
-    expect(bonus.equipmentSp).toBe(1);
-    expect(bonus.total).toBe(1);
+    expect(bonus.equipmentSp).toBe(2);
+    expect(bonus.total).toBe(2);
   });
 
   it("장비 raw 를 넘기지 않으면 어보 도감 total 만 계산한다", () => {

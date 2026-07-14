@@ -101,15 +101,16 @@ describe("낚시 도감 — parse / count", () => {
 
 describe("낚시 도감 — 발견 수 마일스톤 SP", () => {
   it("고정 마일스톤마다 1 SP를 지급하고 다음 단계도 반환한다", () => {
-    expect(FISHING_CODEX_SP_MILESTONES).toEqual([10, 20, 30, 40, 46, 50]);
-    expect(fishCodexSpBonusForCount(9)).toBe(0);
-    expect(fishCodexSpBonusForCount(10)).toBe(1);
-    expect(fishCodexSpBonusForCount(39)).toBe(3);
-    expect(fishCodexSpBonusForCount(40)).toBe(4);
-    expect(fishCodexSpBonusForCount(46)).toBe(5);
-    expect(fishCodexSpBonusForCount(49)).toBe(5);
-    expect(fishCodexSpBonusForCount(50)).toBe(6);
-    expect(fishCodexSpBonusForCount(51)).toBe(6);
+    expect(FISHING_CODEX_SP_MILESTONES).toEqual([5, 10, 20, 30, 40, 46, 50]);
+    expect(fishCodexSpBonusForCount(4)).toBe(0);
+    expect(fishCodexSpBonusForCount(5)).toBe(1);
+    expect(fishCodexSpBonusForCount(10)).toBe(2);
+    expect(fishCodexSpBonusForCount(39)).toBe(4);
+    expect(fishCodexSpBonusForCount(40)).toBe(5);
+    expect(fishCodexSpBonusForCount(46)).toBe(6);
+    expect(fishCodexSpBonusForCount(49)).toBe(6);
+    expect(fishCodexSpBonusForCount(50)).toBe(7);
+    expect(fishCodexSpBonusForCount(51)).toBe(7);
     expect(nextFishCodexMilestone(39)).toBe(40);
     expect(nextFishCodexMilestone(46)).toBe(50);
     expect(nextFishCodexMilestone(50)).toBeNull();
@@ -121,14 +122,16 @@ describe("낚시 도감 — 발견 수 마일스톤 SP", () => {
     for (const [i, id] of firstTenIds.entries()) {
       codex = recordCatch(codex, id, 10 + i, 1000 + i);
     }
-    expect(fishCodexSpBonus(codex)).toBe(1);
+    expect(fishCodexSpBonus(codex)).toBe(2);
 
     const legendaryIds = FISH_IDS.filter((id) => FISH[id].tier === "legendary");
     let legendaryCodex = emptyFishCodex();
     for (const [i, id] of legendaryIds.entries()) {
       legendaryCodex = recordCatch(legendaryCodex, id, 10 + i, 1000 + i);
     }
-    expect(fishCodexSpBonus(legendaryCodex)).toBe(0);
+    expect(fishCodexSpBonus(legendaryCodex)).toBe(
+      fishCodexSpBonusForCount(legendaryIds.length),
+    );
     expect(
       fishTierCompletions(legendaryCodex).find((tier) => tier.tier === "legendary"),
     ).toMatchObject({

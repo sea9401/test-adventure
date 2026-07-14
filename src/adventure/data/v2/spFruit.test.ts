@@ -24,12 +24,12 @@ describe("SP_FRUIT config 일관성", () => {
     }
   });
 
-  it("사용 캡 합 = 14 (I 3·II 3·III 5·IV 3 → 최대 +14 SP)", () => {
+  it("사용 캡 합 = 18 (I 4·II 4·III 6·IV 4 → 최대 +18 SP)", () => {
     const sum = SP_FRUIT_TIERS.reduce(
       (s, t) => s + SP_FRUIT[t].useCap * SP_FRUIT[t].spPerUse,
       0,
     );
-    expect(sum).toBe(14);
+    expect(sum).toBe(18);
   });
 
   it("보스 kind 가 등급별로 유일", () => {
@@ -57,10 +57,10 @@ describe("parseSpFruitUsed", () => {
 
   it("캡 초과·음수·소수 클램프", () => {
     expect(parseSpFruitUsed({ 1: 99, 2: -5, 3: 4.9, 4: 99 })).toEqual({
-      1: SP_FRUIT[1].useCap, // 3
+      1: SP_FRUIT[1].useCap, // 4
       2: 0,
       3: 4,
-      4: SP_FRUIT[4].useCap, // 3
+      4: SP_FRUIT[4].useCap, // 4
     });
   });
 });
@@ -76,12 +76,12 @@ describe("spCapBonusFromFruits / spCapBonusFromRaw", () => {
     expect(spCapBonusFromFruits({ 1: 2, 2: 0, 3: 1, 4: 1 })).toBe(4);
   });
 
-  it("전부 캡 = 최대 14", () => {
-    expect(spCapBonusFromFruits({ 1: 3, 2: 3, 3: 5, 4: 3 })).toBe(14);
+  it("전부 캡 = 최대 18", () => {
+    expect(spCapBonusFromFruits({ 1: 4, 2: 4, 3: 6, 4: 4 })).toBe(18);
   });
 
-  it("캡 초과 입력도 14 로 클램프", () => {
-    expect(spCapBonusFromFruits({ 1: 99, 2: 99, 3: 99, 4: 99 })).toBe(14);
+  it("캡 초과 입력도 18 로 클램프", () => {
+    expect(spCapBonusFromFruits({ 1: 99, 2: 99, 3: 99, 4: 99 })).toBe(18);
   });
 
   it("spCapBonusFromRaw = parse + 합산", () => {
@@ -121,7 +121,7 @@ describe("calcSpBudget spCapBonus 배선 (byte-identical 가드)", () => {
   it("보너스는 예산에 그대로 더해진다", () => {
     const base = calcSpBudget(groups);
     expect(calcSpBudget(groups, 5)).toBe(base + 5);
-    expect(calcSpBudget(groups, 14)).toBe(base + 14);
+    expect(calcSpBudget(groups, 18)).toBe(base + 18);
   });
 
   it("음수 보너스는 0 으로 가드(예산 깎이지 않음)", () => {
@@ -130,7 +130,7 @@ describe("calcSpBudget spCapBonus 배선 (byte-identical 가드)", () => {
 
   it("실제 SP 열매 사용분 → 예산 증가", () => {
     const base = calcSpBudget(groups);
-    const used: Record<SpFruitTier, number> = { 1: 3, 2: 3, 3: 5, 4: 3 };
-    expect(calcSpBudget(groups, spCapBonusFromFruits(used))).toBe(base + 14);
+    const used: Record<SpFruitTier, number> = { 1: 4, 2: 4, 3: 6, 4: 4 };
+    expect(calcSpBudget(groups, spCapBonusFromFruits(used))).toBe(base + 18);
   });
 });

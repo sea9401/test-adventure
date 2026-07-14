@@ -205,7 +205,7 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 // 기본 예산 + 해금한 실제 직업 수 + 별도 수집/소모품 보너스로 쌓인다. 숙련도 자체는 더 이상
 // SP 를 직접 주지 않고, 직업 해금 조건을 채우는 간접 동기로만 남긴다.
 //
-export const SP_BASE = 25; // 시작 SP.
+export const SP_BASE = 28; // 시작 SP. 기본 조합 선택지를 넓히기 위해 25 → 28.
 export const SP_MILESTONE_BASE = 45; // deprecated: 숙련도 SP 마일스톤은 더 이상 사용하지 않는다.
 export const SP_MILESTONE_WIDEN = 25; // deprecated.
 export const SP_MASTERED_JOB_BONUS = 0; // deprecated: 직업군 정복 SP 보너스 제거.

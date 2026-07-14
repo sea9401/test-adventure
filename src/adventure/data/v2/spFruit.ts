@@ -24,12 +24,12 @@ type SpFruitDef = {
   spPerUse: number;
 };
 
-// 등급 → 정의. 사용 캡 I=3·II=3·III=5·IV=3 → 캐릭터당 최대 +14 SP(오너 확정).
+// 등급 → 정의. 사용 캡 I=4·II=4·III=6·IV=4 → 캐릭터당 최대 +18 SP.
 export const SP_FRUIT: Record<SpFruitTier, SpFruitDef> = {
-  1: { materialId: "sp_fruit_1", name: "SP 열매 I", useCap: 3, bossKind: "mountain_chief", spPerUse: 1 },
-  2: { materialId: "sp_fruit_2", name: "SP 열매 II", useCap: 3, bossKind: "canyon_predator", spPerUse: 1 },
-  3: { materialId: "sp_fruit_3", name: "SP 열매 III", useCap: 5, bossKind: "lake_sovereign", spPerUse: 1 },
-  4: { materialId: "sp_fruit_4", name: "SP 열매 IV", useCap: 3, bossKind: "void_priest", spPerUse: 1 },
+  1: { materialId: "sp_fruit_1", name: "SP 열매 I", useCap: 4, bossKind: "mountain_chief", spPerUse: 1 },
+  2: { materialId: "sp_fruit_2", name: "SP 열매 II", useCap: 4, bossKind: "canyon_predator", spPerUse: 1 },
+  3: { materialId: "sp_fruit_3", name: "SP 열매 III", useCap: 6, bossKind: "lake_sovereign", spPerUse: 1 },
+  4: { materialId: "sp_fruit_4", name: "SP 열매 IV", useCap: 4, bossKind: "void_priest", spPerUse: 1 },
 };
 
 // V2_MATERIALS 에 spread 등재(거래소 자동 거래·NPC 비매 — V2_MATERIAL_SELL_PRICE 미등록).
@@ -38,25 +38,25 @@ export const SP_FRUIT_MATERIALS: Record<string, V2Material> = {
     id: "sp_fruit_1",
     name: "SP 열매 I",
     description:
-      "산군을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
+      "산군을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 4회). 거래 가능.",
   },
   sp_fruit_2: {
     id: "sp_fruit_2",
     name: "SP 열매 II",
     description:
-      "스콜피온 킹을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
+      "스콜피온 킹을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 4회). 거래 가능.",
   },
   sp_fruit_3: {
     id: "sp_fruit_3",
     name: "SP 열매 III",
     description:
-      "호수의 괴물을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 5회). 거래 가능.",
+      "호수의 괴물을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 6회). 거래 가능.",
   },
   sp_fruit_4: {
     id: "sp_fruit_4",
     name: "SP 열매 IV",
     description:
-      "공허의 대사제를 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
+      "공허의 대사제를 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 4회). 거래 가능.",
   },
 };
 
@@ -76,7 +76,7 @@ export function parseSpFruitUsed(raw: unknown): SpFruitUsed {
   return out;
 }
 
-// 사용 횟수 → SP 최대치 보너스(각 등급 캡 클램프 후 × spPerUse 합). 미장착/없음=0. 최대 14.
+// 사용 횟수 → SP 최대치 보너스(각 등급 캡 클램프 후 × spPerUse 합). 미장착/없음=0. 최대 18.
 export function spCapBonusFromFruits(used: SpFruitUsed | null | undefined): number {
   if (!used) return 0;
   let sum = 0;

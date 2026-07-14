@@ -24,12 +24,14 @@ describe("equipmentCodex", () => {
   });
 
   it("마일스톤마다 SP 1씩 지급하고 다음 단계도 반환한다", () => {
-    expect(equipmentCodexSpBonusForCount(14)).toBe(0);
-    expect(equipmentCodexSpBonusForCount(15)).toBe(1);
-    expect(equipmentCodexSpBonusForCount(65)).toBe(3);
-    expect(equipmentCodexSpBonusForCount(130)).toBe(5);
-    expect(equipmentCodexSpBonusForCount(150)).toBe(6);
-    expect(equipmentCodexSpBonusForCount(180)).toBe(7);
+    expect(equipmentCodexSpBonusForCount(4)).toBe(0);
+    expect(equipmentCodexSpBonusForCount(5)).toBe(1);
+    expect(equipmentCodexSpBonusForCount(15)).toBe(2);
+    expect(equipmentCodexSpBonusForCount(65)).toBe(4);
+    expect(equipmentCodexSpBonusForCount(130)).toBe(6);
+    expect(equipmentCodexSpBonusForCount(150)).toBe(7);
+    expect(equipmentCodexSpBonusForCount(180)).toBe(8);
+    expect(nextEquipmentCodexMilestone(0)).toBe(5);
     expect(nextEquipmentCodexMilestone(35)).toBe(65);
     expect(nextEquipmentCodexMilestone(130)).toBe(150);
     expect(nextEquipmentCodexMilestone(150)).toBe(180);

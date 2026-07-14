@@ -632,12 +632,13 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
     }
   });
 
-  it("고성능 스킬은 10 SP 상한 없이 성능 점수만큼 비용이 오른다", () => {
-    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(12);
-    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(22);
+  it("5 SP 이하는 유지하고 중·고성능 스킬의 초과 비용은 완만하게 오른다", () => {
+    expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
+    expect(spCostOf(V2_SKILLS.v2c_absolute_unity)).toBe(10);
+    expect(spCostOf(V2_SKILLS.v2c_celestialdragon_combo)).toBe(16);
     expect(
       Math.max(...Object.values(V2_SKILLS).map((def) => spCostOf(def))),
-    ).toBeGreaterThan(10);
+    ).toBe(16);
   });
 
   it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {

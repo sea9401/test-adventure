@@ -399,14 +399,14 @@ export type V2SkillDefinition = {
 // === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
 // 옛 (category, tier) 표는 차수만으로 가격을 매겨, 같은 차수의 강·약 스킬이 같은 값이고 차수 간
 // 격차도 작았다(저렴=약함 트레이드오프 붕괴, 오너 피드백 "성능에 비례해 책정하라"). 대신 각 스킬의
-// effects/passive 를 합산한 power 점수를 산출해 그에 비례하는 코스트(최소 1·상한 없음)를 도출한다.
+// effects/passive 를 합산한 power 점수를 산출해 그에 비례하는 원시 코스트를 도출한다.
 //   - power 단위 ≈ "ATK 한 방 가치"(dmg(1.0,140) ≈ 1.0). 카테고리 교차 정규화.
 //   - 액티브는 발동확률(procChance)로 가중(신뢰성=성능) — 단 √소프트닝으로, 큰 한방·저확률
 //     스킬이 "기댓값 낮음"으로 너무 싸지지 않게(원시 ×proc 면 최강 누크가 최저가가 되는 역전 방지).
 //   - 실제 MP 비용도 같은 직업군·차수의 기준 비용과 비교한다. 저비용/무료 액티브는 효율 할증,
 //     고비용 액티브는 자원 제약 할인. 극단값이 효과 점수를 압도하지 않도록 0.8~1.2로 제한한다.
 //   - 패시브는 상시 효과라 발동 가중 없이 효과 크기 합산.
-//   🔑 SP 보유량(calcSpBudget)은 별도로 끌어올릴 예정(오너) — 코스트만 성능비례로 재조정.
+//   - 1~5 SP는 그대로 두고, 5 초과분은 60%만 반영해 중·고비용 구간의 조합 경직을 완화한다.
 const SP_FLAT_NORM = 140; // baseFlat ~140 ≈ statCoef 1.0 (정규화 기준).
 // 패시브 SP 할인 — 패시브는 상시 효과라 성능비례 루브릭이 다소 과청구되는 면(같은 power 라도
 //   액티브는 발동 조건/빈도 제약이 있으나 패시브는 항상 켜짐). 코스트만 할인(power 점수는 불변).
@@ -574,13 +574,14 @@ export function skillPowerScore(def: V2SkillDefinition): number {
   return raw;
 }
 
-// 성능비례 코스트 바닥(루브릭) — power 점수 → SP(최소 1·상한 없는 선형). override 트립와이어 기준.
+// 성능비례 코스트 바닥(루브릭) — power 점수 → 원시 SP 뒤 중·고비용 구간만 압축.
 //   기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
 export function rubricSpCost(skill: V2SkillDefinition): number {
   // 패시브는 코스트만 ×SP_PASSIVE_DISCOUNT 할인(상시 효과 과청구 완화). power 점수 자체는 불변.
   const power = skillPowerScore(skill) * (skill.passive ? SP_PASSIVE_DISCOUNT : 1);
-  const sp = Math.round(0.7 + 3.0 * power);
-  return Math.max(1, sp);
+  const rawSp = Math.max(1, Math.round(0.7 + 3.0 * power));
+  if (rawSp <= 5) return rawSp;
+  return 5 + Math.ceil((rawSp - 5) * 0.6);
 }
 
 // 스킬 1종의 SP 코스트 — 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).

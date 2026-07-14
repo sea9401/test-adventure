@@ -35,6 +35,21 @@ describe("v2 랜덤 레벨 성장", () => {
     expect(total).toBe(60 - base + V2_GROWTH_POINTS_PER_LEVEL); // 5점 다른 스탯
   });
 
+  it("숙련도 저점이 올라도 절대 한계 60 안에서 성장한다", () => {
+    const prof = parseProficiency({
+      groups: {
+        warrior: { cultivations: 0, tier: 1, cumLevel: 1800 },
+      },
+      caps: {},
+    });
+    const floor = computeStatFloors(prof).str;
+    const grown0 = { str: 60 - floor };
+    const grown = rollLevelGrowth(grown0, "warrior", prof, () => 0.1);
+
+    expect(floor).toBeGreaterThan(V2_BASE_STATS.str);
+    expect(grown.str).toBe(grown0.str);
+  });
+
   it("none(모험가) = 균등 가중, 비파괴", () => {
     const grown0 = { str: 2 };
     const grown = rollLevelGrowth(grown0, "none", emptyProficiency(), () => 0.99);

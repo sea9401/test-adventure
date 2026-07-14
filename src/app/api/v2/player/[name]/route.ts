@@ -19,7 +19,6 @@ import {
   effectiveStatCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
-import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import {
@@ -131,10 +130,9 @@ export async function GET(_req: Request, ctx: Ctx) {
     byKey.get("proficiency.v2") as V2ProficiencyState | undefined,
     charSave,
   );
-  const floors = computeStatFloors(prof);
   const effectiveCaps: Partial<Record<string, number>> = {};
   for (const k of V2_STAT_KEYS) {
-    effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(prof, k));
+    effectiveCaps[k] = effectiveStatCap(capGain(prof, k));
   }
   const group = tier1ClassOf(playerClass);
   const currentGroup = prof.groups[group];

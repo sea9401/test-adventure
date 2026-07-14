@@ -205,6 +205,20 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
 
 });
 
+describe("derivePlayerCombatV2Pure 스탯 저점/한계치", () => {
+  it("저점이 기본 한계치보다 높아도 스탯과 한계치를 끌어올리지 않는다", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 45 },
+      statFloors: { str: 72 },
+      statCaps: {},
+      v2Equipped: {},
+    });
+
+    expect(d.baseAllocatedStats.str).toBe(60);
+  });
+});
+
 describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   it("기본 int 15 신캐 (빈 장비) → maxMp = V2_BASE_MP + 15×2", () => {
     const d = derivePlayerCombatV2Pure({

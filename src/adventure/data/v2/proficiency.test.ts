@@ -245,13 +245,13 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(cultivationCost(-5)).toBe(8);
   });
 
-  it("effectiveStatCap — floor + 헤드룸(45) + 수행이득, capGain", () => {
+  it("effectiveStatCap — 저점과 무관한 기본 60 + 수행이득, capGain", () => {
     const p = parseProficiency({ groups: {}, caps: { str: 30 } });
     expect(capGain(p, "str")).toBe(30);
     expect(capGain(p, "dex")).toBe(0);
-    expect(effectiveStatCap(15, capGain(p, "str"))).toBe(90);
-    expect(effectiveStatCap(15, capGain(p, "dex"))).toBe(60);
-    expect(effectiveStatCap(72, 0)).toBe(117);
+    expect(effectiveStatCap(capGain(p, "str"))).toBe(90);
+    expect(effectiveStatCap(capGain(p, "dex"))).toBe(60);
+    expect(effectiveStatCap(0)).toBe(60);
   });
 
   it("applyCultivation — 숙달 포인트 소모 + 프로필 cap 이득(앵커+2/관련+1) + cultivations++", () => {

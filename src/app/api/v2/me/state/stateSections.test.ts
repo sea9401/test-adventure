@@ -81,4 +81,19 @@ describe("proficiencySection", () => {
       expect(typeof s.caps[k]).toBe("number");
     }
   });
+
+  it("사냥 숙련도가 높아도 표시 한계치는 기본 60 + 수행 이득만 반영한다", () => {
+    const s = proficiencySection(
+      {
+        groups: {
+          warrior: { cultivations: 0, tier: 1, cumLevel: 1800 },
+        },
+        caps: { str: 10 },
+      },
+      { class: "warrior" },
+    );
+
+    expect(s.caps.str).toBe(70);
+    expect(s.caps.dex).toBe(60);
+  });
 });

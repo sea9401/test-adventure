@@ -61,12 +61,9 @@ export function proficiencyPerKillAtDepth(depth: number): number {
     V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 4),
   );
 }
-// cap 은 floor 상대(저점 위 성장 여유). 유효 cap = floor + V2_CAP_HEADROOM_BASE + 수행이득.
-// fresh(floor=base15) → 15+45 = 60(옛 시작 cap 과 동일). floor 가 높아져도 cap 이 항상 그 위라
-// floor>cap 핀(수행 시 스탯 즉시 점프) 이 생기지 않는다 — 수행은 "여유(헤드룸)"만 늘리고
-// 실제 스탯은 레벨업 랜덤성장(grown)이 floor→cap 사이를 채운다.
-export const V2_CAP_HEADROOM_BASE = 45;
-// 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
+// 스탯 한계치는 저점(floor)과 독립적인 절대치다. 신규 캐릭터는 60에서 시작하고,
+// 수행으로 올린 이득만 더해진다. 직업 숙련도로 저점이 올라가더라도 한계치는 올라가지
+// 않으며, 실제 스탯은 floor + grown 결과를 이 한계치로 클램프한다.
 export const V2_STAT_CAP_BASE = 60;
 
 // 수행 1회 cap 헤드룸 상승 — 직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
@@ -483,9 +480,9 @@ export function capGain(p: V2ProficiencyState, stat: V2StatKey): number {
   return p.caps[stat] ?? 0;
 }
 
-// 유효 cap = floor + 기본 헤드룸 + 수행 이득. floor 가 높아져도 cap 이 항상 그 위.
-export function effectiveStatCap(floorVal: number, gain: number): number {
-  return Math.floor(floorVal + V2_CAP_HEADROOM_BASE + Math.max(0, gain));
+// 유효 cap = 기본 절대 한계치 + 수행 이득. 저점/숙련도와는 독립적이다.
+export function effectiveStatCap(gain: number): number {
+  return Math.floor(V2_STAT_CAP_BASE + Math.max(0, gain));
 }
 
 // 전 스탯 수행 이득 총합 — 수행 비용 산정(cap 비례)에 사용.

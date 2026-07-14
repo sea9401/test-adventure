@@ -8,7 +8,7 @@ import type { V2Class } from "./classes";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import {
   capGain,
-  V2_CAP_HEADROOM_BASE,
+  effectiveStatCap,
   balanceCumLevel,
   diminishedCumLevel,
   V2_CULTIVATE_PROFILE,
@@ -98,15 +98,20 @@ function growthRoom(
   grown: Partial<Record<V2StatKey, number>>,
   prof: V2ProficiencyState,
   stat: V2StatKey,
+  floors: Record<V2StatKey, number>,
 ): number {
-  return V2_CAP_HEADROOM_BASE + capGain(prof, stat) - (grown[stat] ?? 0);
+  const current = (floors[stat] ?? V2_BASE_STATS[stat]) + (grown[stat] ?? 0);
+  return effectiveStatCap(capGain(prof, stat)) - current;
 }
 
 export function hasGrowthRoom(
   grown: Partial<Record<V2StatKey, number>>,
   prof: V2ProficiencyState,
 ): boolean {
-  return V2_STAT_KEYS.some((stat) => growthRoom(grown, prof, stat) > 0);
+  const floors = computeStatFloors(prof);
+  return V2_STAT_KEYS.some(
+    (stat) => growthRoom(grown, prof, stat, floors) > 0,
+  );
 }
 
 function growthWeight(
@@ -193,13 +198,14 @@ export function rollLevelGrowth(
     Math.floor(options.points ?? V2_GROWTH_POINTS_PER_LEVEL),
   );
   const masteryTotals = statGrowthMasteryTotals(prof);
+  const floors = computeStatFloors(prof);
   for (let i = 0; i < points; i++) {
-    // 헤드룸(= 기본 헤드룸 + 수행 이득) 미달 스탯만 후보. grown 이 floor→cap 사이를 채우므로
-    // cap 미달 = grown < 헤드룸+이득 (floor 상쇄, stat=floor+grown<cap 와 동치).
+    // 현재 스탯(저점 + 성장분)이 절대 한계치(기본 60 + 수행 이득) 미만인 경우만
+    // 성장 후보에 넣는다. 저점이 오르면 남은 성장 여유는 그만큼 줄어든다.
     const pool: { k: V2StatKey; w: number }[] = [];
     let totalW = 0;
     for (const k of V2_STAT_KEYS) {
-      if (growthRoom(next, prof, k) > 0) {
+      if (growthRoom(next, prof, k, floors) > 0) {
         const w = growthWeight(k, playerClass, masteryTotals, options);
         pool.push({ k, w });
         totalW += w;

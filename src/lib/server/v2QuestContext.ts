@@ -28,8 +28,18 @@ import {
   BOSS_TITLE_TO_KIND,
 } from "@/adventure/data/v2/coopBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
-import type { RepeatSignals } from "@/adventure/data/v2/v2RepeatQuests";
-import { readSave, type DbExecutor } from "@/lib/server/savesKv";
+import {
+  parseRepeatSave,
+  repeatSaveNeedsRollover,
+  rolloverRepeatSave,
+  type RepeatSignals,
+} from "@/adventure/data/v2/v2RepeatQuests";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+  type DbExecutor,
+} from "@/lib/server/savesKv";
 import {
   guildMembers,
   marketplaceListingsV2,
@@ -365,4 +375,34 @@ export function buildRepeatSignals(
     enhanceAttempts: n(advLog.enhanceAttempts),
     arenaTimes: extras.arenaTimes,
   };
+}
+
+// 반복 퀘스트 누적 신호를 올리는 행동 전에 호출한다. 자정/주간 경계 뒤 첫 행동이
+// 새 baseline 에 흡수되지 않도록, 해당 행동의 카운터를 변경하기 전에 주기를 확정한다.
+// 빠른 경로는 무락 read 1회이며, 실제 롤오버가 필요할 때만 행 잠금과 전체 신호 조립을 한다.
+export async function rolloverRepeatQuestsBeforeProgress(
+  ex: DbExecutor,
+  userId: string,
+  now: Date,
+): Promise<boolean> {
+  const current = parseRepeatSave(
+    await readSave(ex, userId, REPEAT_QUESTS_KEY, {}),
+  );
+  if (!repeatSaveNeedsRollover(current, now)) return false;
+
+  const locked = parseRepeatSave(
+    await lockSaveForUpdate(ex, userId, REPEAT_QUESTS_KEY, {}),
+  );
+  if (!repeatSaveNeedsRollover(locked, now)) return false;
+
+  const [advLogRaw, extras] = await Promise.all([
+    readSave(ex, userId, "adventure-log.v2", {}),
+    assembleQuestExtras(ex, userId),
+  ]);
+  const signals = buildRepeatSignals(advLogRaw, extras);
+  const rolled = rolloverRepeatSave(locked, now, signals);
+  if (rolled.changed) {
+    await upsertSave(ex, userId, REPEAT_QUESTS_KEY, rolled.save);
+  }
+  return rolled.changed;
 }

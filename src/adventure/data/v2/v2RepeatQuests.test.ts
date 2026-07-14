@@ -11,6 +11,7 @@ import {
   parseRepeatSave,
   periodStartMs,
   REPEAT_QUESTS,
+  repeatSaveNeedsRollover,
   repeatQuestById,
   rolloverRepeatSave,
   snapshotOf,
@@ -80,6 +81,19 @@ describe("롤오버", () => {
     const first = rolloverRepeatSave({}, now, SIG()).save;
     const { changed } = rolloverRepeatSave(first, now, SIG({ battleCount: 9999 }));
     expect(changed).toBe(false);
+  });
+  it("현재 주기와 다른 일일·주간 키를 사전 감지", () => {
+    const current = rolloverRepeatSave({}, now, SIG()).save;
+    expect(repeatSaveNeedsRollover(current, now)).toBe(false);
+    expect(
+      repeatSaveNeedsRollover(
+        {
+          ...current,
+          daily: { ...current.daily!, key: "2026-06-11" },
+        },
+        now,
+      ),
+    ).toBe(true);
   });
 });
 

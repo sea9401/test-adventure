@@ -89,6 +89,7 @@ import {
   trySpawnFishingCoopBoss,
 } from "@/lib/server/v2Coop";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
+import { rolloverRepeatQuestsBeforeProgress } from "@/lib/server/v2QuestContext";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -211,7 +212,7 @@ export async function POST(req: Request) {
     const multtaeEffect = multtaeAt(now).condition.effect;
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
-    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 코덱스 → 일일트래커 → 지갑.
+    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
     const progressBefore = parseFishingProgression(
       await lockSaveForUpdate(
         tx,
@@ -257,6 +258,10 @@ export async function POST(req: Request) {
       masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
       await upsertSave(tx, userId, "proficiency.v2", prof);
     }
+
+    // 자정/주간 경계 뒤 첫 낚시도 반복 퀘스트에 포함되도록, 누적 어획 신호를
+    // 변경하기 전에 새 주기의 baseline 을 확정한다. repeat → codex 순서는 번들 수령과 동일하다.
+    await rolloverRepeatQuestsBeforeProgress(tx, userId, new Date(now));
 
     // 도감 등록 — 같은 트랜잭션에서 코덱스 키를 잠그고 갱신.
     const codex = parseFishCodex(

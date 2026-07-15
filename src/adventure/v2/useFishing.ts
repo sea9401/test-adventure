@@ -30,6 +30,11 @@ function parseDailyCatchCoins(value: unknown): FishingDailyCatchCoins | undefine
   };
 }
 
+function parseNextActionAt(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
 // 실게임용 cast/reel — /api/v2/fishing/* 권위 라우트 래퍼. FishingView 에 주입한다.
 export function useFishing(spotId?: FishingSpotId): FishingHandlers {
   const { verification, verifyHuman, readJson } = useActivityVerification("fishing");
@@ -237,11 +242,13 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
             fishingCatches:
               typeof j.fishingCatches === "number" ? j.fishingCatches : undefined,
             challengeProgress: parseFishingProgressNotices(j.challengeProgress),
+            nextActionAt: parseNextActionAt(j.nextActionAt),
           };
         }
         return {
           caught: false,
           reason: typeof j.reason === "string" ? j.reason : "unknown",
+          nextActionAt: parseNextActionAt(j.nextActionAt),
         };
       } finally {
         release();

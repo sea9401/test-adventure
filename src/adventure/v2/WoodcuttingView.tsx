@@ -24,6 +24,8 @@ import { ActivityVerificationGate } from "./ActivityVerificationGate";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
+  type ActivityVerificationSubmission,
+  useActivityCooldown,
 } from "./useActivityVerification";
 
 export type WoodcuttingLogView = {
@@ -55,7 +57,7 @@ export type WoodcuttingOutcome =
       materialName: string;
       materialGained: number;
       bonusMaterialGained: number;
-      yieldReduced: boolean;
+      nextActionAt?: number | null;
       recovered: boolean;
       xpGained: number;
       jobName: string | null;
@@ -66,6 +68,7 @@ export type WoodcuttingOutcome =
   | {
       success: false;
       reason: string;
+      nextActionAt?: number | null;
     };
 
 export type WoodcuttingHandlers = {
@@ -75,7 +78,7 @@ export type WoodcuttingHandlers = {
   log: WoodcuttingLogView;
   durationReductionPct: number;
   verification?: ActivityVerificationChallenge | null;
-  verifyHuman?: (token: string) => Promise<boolean>;
+  verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
 
 type Phase = "idle" | "loading" | "cutting" | "finishing" | "result";
@@ -1003,8 +1006,14 @@ export function WoodcuttingView({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [result, setResult] = useState<WoodcuttingOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const {
+    applyNextActionAt,
+    handleCooldownError,
+    cooldownRemainingSec,
+  } = useActivityCooldown();
 
   const startCut = useCallback(async () => {
+    if (cooldownRemainingSec > 0) return;
     setPhase("loading");
     setError(null);
     setResult(null);
@@ -1021,16 +1030,21 @@ export function WoodcuttingView({
         setPhase("idle");
         return;
       }
+      if (handleCooldownError(caught)) {
+        setPhase("idle");
+        return;
+      }
       setError("벌목을 시작하지 못했습니다.");
       setPhase("idle");
     }
-  }, [spotId, start]);
+  }, [cooldownRemainingSec, handleCooldownError, spotId, start]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isWoodcuttingShortcutTargetIgnored(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
       if (phase !== "idle" && phase !== "result") return;
+      if (cooldownRemainingSec > 0) return;
 
       event.preventDefault();
       void startCut();
@@ -1038,7 +1052,7 @@ export function WoodcuttingView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [phase, startCut]);
+  }, [cooldownRemainingSec, phase, startCut]);
 
   useEffect(() => {
     if (!run) return;
@@ -1054,6 +1068,7 @@ export function WoodcuttingView({
       void finish(run.sessionId)
         .then((outcome) => {
           if (!alive) return;
+          applyNextActionAt(outcome.nextActionAt);
           setResult(outcome);
           if (!outcome.success) {
             setError(FAILURE_MESSAGE[outcome.reason] ?? "벌목 처리 중 문제가 생겼습니다.");
@@ -1074,7 +1089,7 @@ export function WoodcuttingView({
       window.clearTimeout(fallTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [finish, run, startedAt]);
+  }, [applyNextActionAt, finish, run, startedAt]);
 
   const progress = run ? clamp01(elapsedMs / run.durationMs) : 0;
   const chopCount = useMemo(
@@ -1204,11 +1219,6 @@ export function WoodcuttingView({
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
-                  {result.yieldReduced ? (
-                    <div className="text-xs font-semibold text-rose-600 dark:text-rose-300">
-                      오늘의 과도한 생산량으로 재료 획득률이 감소했습니다.
-                    </div>
-                  ) : null}
                   {result.bonusMaterialGained > 0 && (
                     <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                       전설의 벌목 추가 원목 +{result.bonusMaterialGained}
@@ -1242,8 +1252,18 @@ export function WoodcuttingView({
       )}
 
       {(phase === "idle" || phase === "result") && !verification && (
-        <Button onClick={() => void startCut()} variant="success" size="md" fullWidth>
-          {phase === "result" ? `${selectedSpot.shortName}에서 다시 벌목` : "벌목 시작"}
+        <Button
+          disabled={cooldownRemainingSec > 0}
+          onClick={() => void startCut()}
+          variant="success"
+          size="md"
+          fullWidth
+        >
+          {cooldownRemainingSec > 0
+            ? `다음 벌목까지 ${cooldownRemainingSec}초`
+            : phase === "result"
+              ? `${selectedSpot.shortName}에서 다시 벌목`
+              : "벌목 시작"}
         </Button>
       )}
       {(phase === "loading" || phase === "cutting" || phase === "finishing") && (

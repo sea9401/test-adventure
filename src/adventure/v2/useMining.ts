@@ -49,6 +49,11 @@ function parseMaterials(value: unknown): Record<string, number> {
   );
 }
 
+function parseNextActionAt(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -128,6 +133,7 @@ export function useMining(): MiningHandlers {
           return {
             success: false,
             reason: typeof json.reason === "string" ? json.reason : "unknown",
+            nextActionAt: parseNextActionAt(json.nextActionAt),
           };
         }
         const nextMaterials = parseMaterials(json.materials);
@@ -139,7 +145,7 @@ export function useMining(): MiningHandlers {
           node: parseNode(json.node),
           materialName: String(json.materialName ?? "광석"),
           materialGained: Math.max(0, Math.floor(Number(json.materialGained) || 0)),
-          yieldReduced: json.yieldReduced === true,
+          nextActionAt: parseNextActionAt(json.nextActionAt),
           byproducts: Array.isArray(json.byproducts)
             ? json.byproducts.map((item: unknown) => {
                 const entry = (item ?? {}) as Record<string, unknown>;

@@ -37,7 +37,6 @@ import {
   type FarmWeeklyDeliveryRequest,
 } from "./farm";
 import { useFarm } from "./useFarm";
-import { ActivityVerificationGate } from "./ActivityVerificationGate";
 
 type FarmSectionKey = "grow" | "delivery" | "shop";
 
@@ -55,8 +54,6 @@ const ITEM_LABELS = Object.fromEntries(
 
 export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
   const {
-    verification,
-    verifyHuman,
     loading,
     busyPlotId,
     busyDeliveryId,
@@ -224,13 +221,6 @@ export function AdventurerFarmPanel({ onBack }: { onBack: () => void }) {
           </button>
         }
       />
-
-      {verification ? (
-        <ActivityVerificationGate
-          challenge={verification}
-          onVerify={verifyHuman}
-        />
-      ) : null}
 
       <section className="overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
         <div className="relative border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">

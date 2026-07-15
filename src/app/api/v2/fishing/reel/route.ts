@@ -6,6 +6,7 @@ import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
+  activityGuardView,
   parseActivityGuardState,
   recordActivityCompletion,
   recordActivityStrongSignal,
@@ -164,6 +165,7 @@ export async function POST(req: Request) {
         reason: judgment.reason,
         clientReactionMs: reactionMs,
         serverReactionMs: Math.max(0, judgment.serverReactionMs),
+        earlyByMs: Math.max(0, -judgment.serverReactionMs),
       },
       now,
     );
@@ -174,11 +176,15 @@ export async function POST(req: Request) {
       ),
       "fishing",
       now,
-      { patternSignals: antiMacro.signals },
+      {
+        patternSignals: antiMacro.signals,
+      },
     );
     const strongSignal = antiMacro.signals.find(
       (signal) =>
-        signal === "impossibly_fast_server_reel" || signal === "repeated_prefire",
+        signal === "impossibly_fast_server_reel" ||
+        signal === "impossibly_fast_post_bite_reel" ||
+        signal === "repeated_prefire",
     );
     let guardStrongSignal: string | null = null;
     if (strongSignal) {
@@ -195,6 +201,10 @@ export async function POST(req: Request) {
       };
       if (strongUpdate.checkpointNewlyRequired) guardStrongSignal = strongSignal;
     }
+    const nextActionAt = Math.max(
+      activityGuardView(guardUpdate.state, "fishing").nextActionAt ?? 0,
+      antiMacro.state.frictionUntil ?? 0,
+    ) || null;
     await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
     if (!judgment.caught) {
       const streak = resetFishingStreak(
@@ -215,6 +225,7 @@ export async function POST(req: Request) {
         guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
         guardBehaviorSignal: guardUpdate.behaviorSignal,
         guardStrongSignal,
+        nextActionAt,
       };
     }
 
@@ -480,6 +491,7 @@ export async function POST(req: Request) {
       guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
       guardBehaviorSignal: guardUpdate.behaviorSignal,
       guardStrongSignal,
+      nextActionAt,
     };
   });
 
@@ -546,7 +558,12 @@ export async function POST(req: Request) {
         drops: [],
       });
     }
-    return Response.json({ ok: true, caught: false, reason: result.reason });
+    return Response.json({
+      ok: true,
+      caught: false,
+      reason: result.reason,
+      nextActionAt: result.nextActionAt,
+    });
   }
   const fish = FISH[result.fishId];
   const fishGrade =
@@ -662,5 +679,6 @@ export async function POST(req: Request) {
       coinBonus: result.streakBuff.coinBonus,
     },
     hotTime: result.hotTime,
+    nextActionAt: result.nextActionAt,
   });
 }

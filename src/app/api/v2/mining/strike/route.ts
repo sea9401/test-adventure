@@ -4,10 +4,10 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
-  activityRewardMultiplier,
+  activityGuardView,
   parseActivityGuardState,
   recordActivityCompletion,
-  recordActivityStrongSignal,
+  recordActivityEarlyAttempt,
 } from "@/lib/server/activityGuard";
 import {
   recordActivityVerificationRequiredSoon,
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     if (now < session.readyAt) {
       const retryAfterMs = session.readyAt - now;
       if (retryAfterMs >= 250) {
-        const guardUpdate = recordActivityStrongSignal(
+        const guardUpdate = recordActivityEarlyAttempt(
           parseActivityGuardState(
             await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
           ),
@@ -88,7 +88,9 @@ export async function POST(req: Request) {
           success: false as const,
           reason: "not_ready" as const,
           retryAfterMs,
-          guardStrongSignal: "early_finish" as const,
+          guardStrongSignal: guardUpdate.strongSignalPromoted
+            ? "repeated_early_finish" as const
+            : null,
           guardState: guardUpdate.state,
           guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
         };
@@ -109,6 +111,10 @@ export async function POST(req: Request) {
       now,
     );
     await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+    const nextActionAt = activityGuardView(
+      guardUpdate.state,
+      "mining",
+    ).nextActionAt;
 
     const node = MINING_NODES[session.nodeId];
     const logRaw = await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {});
@@ -130,6 +136,7 @@ export async function POST(req: Request) {
         guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
         guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
         guardBehaviorSignal: guardUpdate.behaviorSignal,
+        nextActionAt,
       };
     }
 
@@ -139,11 +146,8 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
-    const rewardMultiplier = activityRewardMultiplier(guardUpdate.state);
-    const rewardGranted =
-      rewardMultiplier >= 1 || Math.random() < rewardMultiplier;
-    const byproductDrops = rewardGranted ? rollMiningByproducts(node) : {};
-    const materialGained = rewardGranted ? MINING_ORE_REWARD : 0;
+    const byproductDrops = rollMiningByproducts(node);
+    const materialGained = MINING_ORE_REWARD;
     const byproductTotal = Object.values(byproductDrops).reduce(
       (sum, count) => sum + (count ?? 0),
       0,
@@ -176,8 +180,7 @@ export async function POST(req: Request) {
       materialId: node.materialId,
       materialName: MINING_MATERIALS[node.materialId].name,
       materialGained,
-      rewardMultiplier,
-      yieldReduced: !rewardGranted,
+      nextActionAt,
       failureRate,
       byproducts: (
         Object.entries(byproductDrops) as [MiningMaterialId, number][]
@@ -288,6 +291,7 @@ export async function POST(req: Request) {
       reason: result.reason,
       retryAfterMs: "retryAfterMs" in result ? result.retryAfterMs : undefined,
       failureRate: "failureRate" in result ? result.failureRate : undefined,
+      nextActionAt: "nextActionAt" in result ? result.nextActionAt : undefined,
     });
   }
   return Response.json({ ok: true, ...result });

@@ -38,7 +38,11 @@ import {
   WOODCUTTING_SESSION_KEY,
   WOODCUTTING_TIMBER_REWARD,
 } from "@/adventure/v2/woodcuttingSession";
-import { ACTIVITY_GUARD_KEY } from "@/lib/server/activityGuard";
+import {
+  ACTIVITY_GUARD_KEY,
+  activityGuardView,
+  parseActivityGuardState,
+} from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
@@ -197,6 +201,21 @@ describe("woodcutting routes", () => {
     expect(json.retryAfterMs).toBe(3_500);
     expect(charOf().materials?.[TIMBER]).toBe(3);
     expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({ sessionId: "cut-early" });
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "woodcutting",
+      ),
+    ).toMatchObject({ earlyAttempts: 1, riskScore: 0 });
+
+    await CHOP(chopReq("cut-early"));
+    await CHOP(chopReq("cut-early"));
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "woodcutting",
+      ),
+    ).toMatchObject({ earlyAttempts: 0, strongSignals: 1, riskScore: 18 });
   });
 
   it("chop — 완료 뒤 선택한 수종의 원목과 기록을 지급한다", async () => {
@@ -237,7 +256,7 @@ describe("woodcutting routes", () => {
     );
   });
 
-  it("chop — 일일 과다 생산 구간에서는 성공 진척과 XP를 유지하고 원목만 감쇠한다", async () => {
+  it("chop — 일일 활동량만 많으면 원목을 전량 지급하고 대기를 추가하지 않는다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
     store.set(WOODCUTTING_SESSION_KEY, {
       sessionId: "cut-volume-limited",
@@ -264,18 +283,19 @@ describe("woodcutting routes", () => {
 
     expect(json).toMatchObject({
       success: true,
-      materialGained: 0,
+      materialGained: 1,
       xpGained: 10,
-      rewardMultiplier: 0.75,
-      yieldReduced: true,
+      nextActionAt: null,
     });
-    expect(charOf().materials).toEqual({});
+    expect(charOf().materials).toEqual({ [OAK]: 1 });
     expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
       cuts: 1,
       xp: 10,
-      timberEarned: 0,
+      timberEarned: 1,
     });
     expect(incrementGuildExplorationProgressForUser).toHaveBeenCalledTimes(1);
+
+    expect((await START(startReq("pine_grove"))).status).toBe(200);
   });
 
   it("chop — 실패 판정이면 원목·XP·주간 의뢰 진척을 지급하지 않는다", async () => {

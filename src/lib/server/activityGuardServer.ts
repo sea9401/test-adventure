@@ -5,6 +5,7 @@ import {
   activityVerificationRequired,
 } from "./activityGuard";
 import { turnstileConfig } from "./turnstile";
+import { hcaptchaConfig } from "./hcaptcha";
 import { clientIpFromRequest, recordAbuseEventSoon } from "./abuseLog";
 import { recordOpsSignal } from "./opsAlert";
 
@@ -40,14 +41,20 @@ export function activityVerificationGateResponse(
   ) {
     return null;
   }
+  const reason = activityVerificationReason(state, activity);
+  const captcha = hcaptchaConfig();
   return Response.json(
     {
       ok: false,
       error: "human_verification_required",
       activity,
       siteKey: config.siteKey,
-      reason: activityVerificationReason(state, activity),
+      reason,
       riskLevel: view.riskLevel,
+      captchaSiteKey:
+        reason === "strong_signal" && captcha.configured
+          ? captcha.siteKey
+          : null,
     },
     { status: 403 },
   );

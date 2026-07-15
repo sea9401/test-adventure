@@ -13,7 +13,7 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceFarmingMutation } from "@/lib/server/farmingActivityGuard";
+import { enforceFarmingRateLimit } from "@/lib/server/farmingRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
 // POST /api/v2/farm/deliver — 오늘의 농장 납품을 완료한다.
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const guarded = await enforceFarmingMutation(req, userId);
+  const guarded = enforceFarmingRateLimit(req, userId);
   if (guarded) return guarded;
 
   const body = (await req.json().catch(() => null)) as {

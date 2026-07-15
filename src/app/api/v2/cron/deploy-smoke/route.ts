@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents, opsSettings } from "@/db/schema";
 import { requireCronAuth } from "@/lib/server/cronAuth";
 import { turnstileConfig } from "@/lib/server/turnstile";
+import { hcaptchaConfig } from "@/lib/server/hcaptcha";
 import {
   readAlertThresholdSettings,
   readHotTimeSchedules,
@@ -16,6 +17,7 @@ export async function POST(req: Request) {
   if (unauthorized) return unauthorized;
 
   const turnstile = turnstileConfig();
+  const hcaptcha = hcaptchaConfig();
   if (!turnstile.configured) {
     return Response.json(
       { ok: false, error: "turnstile_unconfigured" },
@@ -70,6 +72,7 @@ export async function POST(req: Request) {
   return Response.json({
     ok: true,
     turnstileConfigured: true,
+    hcaptchaConfigured: hcaptcha.configured,
     hotTimeEnabled: hotTime.hotTime.enabled,
     economyReadable: Array.isArray(economy),
     abuseReadable: Array.isArray(abuse),

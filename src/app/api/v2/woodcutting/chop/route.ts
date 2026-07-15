@@ -4,10 +4,10 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
-  activityRewardMultiplier,
+  activityGuardView,
   parseActivityGuardState,
   recordActivityCompletion,
-  recordActivityStrongSignal,
+  recordActivityEarlyAttempt,
 } from "@/lib/server/activityGuard";
 import {
   recordActivityVerificationRequiredSoon,
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     if (now < session.readyAt) {
       const retryAfterMs = session.readyAt - now;
       if (retryAfterMs >= 250) {
-        const guardUpdate = recordActivityStrongSignal(
+        const guardUpdate = recordActivityEarlyAttempt(
           parseActivityGuardState(
             await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
           ),
@@ -100,7 +100,9 @@ export async function POST(req: Request) {
           success: false as const,
           reason: "not_ready" as const,
           retryAfterMs,
-          guardStrongSignal: "early_finish" as const,
+          guardStrongSignal: guardUpdate.strongSignalPromoted
+            ? "repeated_early_finish" as const
+            : null,
           guardState: guardUpdate.state,
           guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
         };
@@ -125,6 +127,10 @@ export async function POST(req: Request) {
       now,
     );
     await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
+    const nextActionAt = activityGuardView(
+      guardUpdate.state,
+      "woodcutting",
+    ).nextActionAt;
     const tree = WOODCUTTING_TREES[session.treeId];
     const logRaw = await lockSaveForUpdate(tx, userId, WOODCUTTING_LOG_KEY, {});
     const currentLog = parseWoodcuttingLog(logRaw);
@@ -147,6 +153,7 @@ export async function POST(req: Request) {
         guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
         guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
         guardBehaviorSignal: guardUpdate.behaviorSignal,
+        nextActionAt,
       };
     }
 
@@ -157,17 +164,12 @@ export async function POST(req: Request) {
       {},
     );
     const materialId = tree.materialId;
-    const rewardMultiplier = activityRewardMultiplier(guardUpdate.state);
-    const rewardGranted =
-      rewardMultiplier >= 1 || Math.random() < rewardMultiplier;
     const bonusMaterialGained =
-      rewardGranted &&
       (session.bonusLogRate ?? 0) > 0 &&
       Math.random() < (session.bonusLogRate ?? 0)
         ? 1
         : 0;
-    const materialGained =
-      (rewardGranted ? WOODCUTTING_MATERIAL_REWARD : 0) + bonusMaterialGained;
+    const materialGained = WOODCUTTING_MATERIAL_REWARD + bonusMaterialGained;
     const materials = mergeDrops(charSave.materials, {
       [materialId]: materialGained,
     });
@@ -222,8 +224,7 @@ export async function POST(req: Request) {
       materialName: WOODCUTTING_MATERIALS[materialId].name,
       materialGained,
       bonusMaterialGained,
-      rewardMultiplier,
-      yieldReduced: !rewardGranted,
+      nextActionAt,
       recovered,
       failureRate,
       xpGained,
@@ -332,6 +333,7 @@ export async function POST(req: Request) {
       reason: result.reason,
       retryAfterMs: "retryAfterMs" in result ? result.retryAfterMs : undefined,
       failureRate: "failureRate" in result ? result.failureRate : undefined,
+      nextActionAt: "nextActionAt" in result ? result.nextActionAt : undefined,
     });
   }
 

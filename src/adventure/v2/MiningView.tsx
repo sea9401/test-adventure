@@ -21,6 +21,8 @@ import { ActivityVerificationGate } from "./ActivityVerificationGate";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
+  type ActivityVerificationSubmission,
+  useActivityCooldown,
 } from "./useActivityVerification";
 
 export type MiningLogView = {
@@ -58,12 +60,12 @@ export type MiningOutcome =
       node: MiningNodeView;
       materialName: string;
       materialGained: number;
-      yieldReduced: boolean;
+      nextActionAt?: number | null;
       byproducts: MiningByproductView[];
       xpGained: number;
       log: MiningLogView;
     }
-  | { success: false; reason: string };
+  | { success: false; reason: string; nextActionAt?: number | null };
 
 export type MiningHandlers = {
   start: (spotId: MiningSpotId) => Promise<MiningStart>;
@@ -71,7 +73,7 @@ export type MiningHandlers = {
   materials: Record<string, number>;
   log: MiningLogView;
   verification?: ActivityVerificationChallenge | null;
-  verifyHuman?: (token: string) => Promise<boolean>;
+  verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
 
 type Phase = "idle" | "loading" | "mining" | "finishing" | "result";
@@ -451,8 +453,14 @@ export function MiningView({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [result, setResult] = useState<MiningOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const {
+    applyNextActionAt,
+    handleCooldownError,
+    cooldownRemainingSec,
+  } = useActivityCooldown();
 
   const startMining = useCallback(async () => {
+    if (cooldownRemainingSec > 0) return;
     setPhase("loading");
     setError(null);
     setResult(null);
@@ -469,22 +477,27 @@ export function MiningView({
         setPhase("idle");
         return;
       }
+      if (handleCooldownError(caught)) {
+        setPhase("idle");
+        return;
+      }
       setError("채광을 시작하지 못했습니다.");
       setPhase("idle");
     }
-  }, [spotId, start]);
+  }, [cooldownRemainingSec, handleCooldownError, spotId, start]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat || isMiningShortcutTargetIgnored(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
       if (phase !== "idle" && phase !== "result") return;
+      if (cooldownRemainingSec > 0) return;
       event.preventDefault();
       void startMining();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [phase, startMining]);
+  }, [cooldownRemainingSec, phase, startMining]);
 
   useEffect(() => {
     if (!run) return;
@@ -500,6 +513,7 @@ export function MiningView({
       void finish(run.sessionId)
         .then((outcome) => {
           if (!alive) return;
+          applyNextActionAt(outcome.nextActionAt);
           setResult(outcome);
           if (!outcome.success) {
             setError(FAILURE_MESSAGE[outcome.reason] ?? "채광 처리 중 문제가 생겼습니다.");
@@ -520,7 +534,7 @@ export function MiningView({
       window.clearTimeout(settleTimer);
       window.clearTimeout(finishTimer);
     };
-  }, [finish, run, startedAt]);
+  }, [applyNextActionAt, finish, run, startedAt]);
 
   const selectedSpot = MINING_SPOTS[spotId];
   const selectedNode = MINING_NODES[selectedSpot.nodeId];
@@ -642,11 +656,6 @@ export function MiningView({
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
-                  {result.yieldReduced ? (
-                    <div className="text-xs font-semibold text-rose-600 dark:text-rose-300">
-                      오늘의 과도한 생산량으로 재료 획득률이 감소했습니다.
-                    </div>
-                  ) : null}
                   {result.byproducts.map((item) => (
                     <div
                       key={item.materialId}
@@ -682,10 +691,18 @@ export function MiningView({
       )}
 
       {(phase === "idle" || phase === "result") && !verification && (
-        <Button onClick={() => void startMining()} variant="warning" size="md" fullWidth>
-          {phase === "result"
-            ? `${selectedSpot.shortName}에서 다시 채광`
-            : "채광 시작"}
+        <Button
+          disabled={cooldownRemainingSec > 0}
+          onClick={() => void startMining()}
+          variant="warning"
+          size="md"
+          fullWidth
+        >
+          {cooldownRemainingSec > 0
+            ? `다음 채광까지 ${cooldownRemainingSec}초`
+            : phase === "result"
+              ? `${selectedSpot.shortName}에서 다시 채광`
+              : "채광 시작"}
         </Button>
       )}
       {(phase === "loading" || phase === "mining" || phase === "finishing") && (

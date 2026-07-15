@@ -45,6 +45,11 @@ function parseMaterials(value: unknown): Record<string, number> {
   );
 }
 
+function parseNextActionAt(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -123,6 +128,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
         return {
           success: false,
           reason: typeof json.reason === "string" ? json.reason : "unknown",
+          nextActionAt: parseNextActionAt(json.nextActionAt),
         };
       }
       const nextMaterials = parseMaterials(json.materials);
@@ -138,7 +144,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
           0,
           Math.floor(Number(json.bonusMaterialGained) || 0),
         ),
-        yieldReduced: json.yieldReduced === true,
+        nextActionAt: parseNextActionAt(json.nextActionAt),
         recovered: json.recovered === true,
         xpGained: Math.max(0, Math.floor(Number(json.xpGained) || 0)),
         jobName: typeof json.jobName === "string" ? json.jobName : null,

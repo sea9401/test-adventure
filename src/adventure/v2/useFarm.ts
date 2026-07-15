@@ -16,11 +16,6 @@ import type {
   FarmWeeklyDeliveryRequest,
   FarmWeeklyDeliveryResult,
 } from "./farm";
-import {
-  ActivityVerificationRequiredError,
-  useActivityVerification,
-  type ActivityVerificationChallenge,
-} from "./useActivityVerification";
 
 type FarmResponse = {
   ok: boolean;
@@ -44,8 +39,6 @@ type FarmResponse = {
 };
 
 export type FarmClientState = {
-  verification: ActivityVerificationChallenge | null;
-  verifyHuman: (token: string) => Promise<boolean>;
   loading: boolean;
   busyPlotId: string | null;
   busyDeliveryId: string | null;
@@ -92,8 +85,6 @@ export type FarmNotice =
   | { id: number; kind: "plotUpgrade"; result: FarmPlotUpgradeResult };
 
 export function useFarm(): FarmClientState {
-  const { verification, verifyHuman, readJson } =
-    useActivityVerification("farming");
   const [loading, setLoading] = useState(true);
   const [busyPlotId, setBusyPlotId] = useState<string | null>(null);
   const [busyDeliveryId, setBusyDeliveryId] = useState<string | null>(null);
@@ -134,7 +125,6 @@ export function useFarm(): FarmClientState {
     useState<FarmPlotUpgradeResult | null>(null);
 
   const reportError = useCallback((e: unknown) => {
-    if (e instanceof ActivityVerificationRequiredError) return;
     const message = errorMessage(e);
     setError(message);
     setNotice({ id: Date.now(), kind: "error", text: message });
@@ -219,7 +209,7 @@ export function useFarm(): FarmClientState {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ plotId, cropId }),
         });
-        const data = (await readJson(res)) as FarmResponse;
+        const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
@@ -227,7 +217,7 @@ export function useFarm(): FarmClientState {
         setBusyPlotId(null);
       }
     },
-    [apply, readJson, reportError],
+    [apply, reportError],
   );
 
   const harvest = useCallback(
@@ -240,7 +230,7 @@ export function useFarm(): FarmClientState {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ plotId }),
         });
-        const data = (await readJson(res)) as FarmResponse;
+        const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
@@ -248,7 +238,7 @@ export function useFarm(): FarmClientState {
         setBusyPlotId(null);
       }
     },
-    [apply, readJson, reportError],
+    [apply, reportError],
   );
 
   const deliver = useCallback(
@@ -261,7 +251,7 @@ export function useFarm(): FarmClientState {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ requestId }),
         });
-        const data = (await readJson(res)) as FarmResponse;
+        const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
@@ -269,7 +259,7 @@ export function useFarm(): FarmClientState {
         setBusyDeliveryId(null);
       }
     },
-    [apply, readJson, reportError],
+    [apply, reportError],
   );
 
   const deliverSpecial = useCallback(
@@ -282,7 +272,7 @@ export function useFarm(): FarmClientState {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ requestId }),
         });
-        const data = (await readJson(res)) as FarmResponse;
+        const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
@@ -290,7 +280,7 @@ export function useFarm(): FarmClientState {
         setBusySpecialDeliveryId(null);
       }
     },
-    [apply, readJson, reportError],
+    [apply, reportError],
   );
 
   const deliverWeekly = useCallback(
@@ -303,7 +293,7 @@ export function useFarm(): FarmClientState {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ requestId }),
         });
-        const data = (await readJson(res)) as FarmResponse;
+        const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
@@ -311,7 +301,7 @@ export function useFarm(): FarmClientState {
         setBusyWeeklyDeliveryId(null);
       }
     },
-    [apply, readJson, reportError],
+    [apply, reportError],
   );
 
   const buyShopItem = useCallback(
@@ -324,7 +314,7 @@ export function useFarm(): FarmClientState {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ itemId }),
         });
-        const data = (await readJson(res)) as FarmResponse;
+        const data = (await res.json()) as FarmResponse;
         apply(data);
       } catch (e) {
         reportError(e);
@@ -332,7 +322,7 @@ export function useFarm(): FarmClientState {
         setBusyShopItemId(null);
       }
     },
-    [apply, readJson, reportError],
+    [apply, reportError],
   );
 
   const buyPlotUpgrade = useCallback(async () => {
@@ -342,14 +332,14 @@ export function useFarm(): FarmClientState {
       const res = await fetch("/api/v2/farm/plot-upgrade", {
         method: "POST",
       });
-      const data = (await readJson(res)) as FarmResponse;
+      const data = (await res.json()) as FarmResponse;
       apply(data);
     } catch (e) {
       reportError(e);
     } finally {
       setBusyPlotUpgrade(false);
     }
-  }, [apply, readJson, reportError]);
+  }, [apply, reportError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -372,8 +362,6 @@ export function useFarm(): FarmClientState {
   }, []);
 
   return {
-    verification,
-    verifyHuman,
     loading,
     busyPlotId,
     busyDeliveryId,

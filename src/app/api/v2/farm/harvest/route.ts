@@ -14,19 +14,7 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { enforceFarmingMutation } from "@/lib/server/farmingActivityGuard";
-import {
-  ACTIVITY_GUARD_KEY,
-  parseActivityGuardState,
-  recordActivityCompletion,
-  recordActivityStrongSignal,
-} from "@/lib/server/activityGuard";
-import {
-  recordActivityVerificationRequiredSoon,
-  recordBehaviorActivitySignalSoon,
-  recordExtremeActivityAlertSoon,
-  recordStrongActivitySignalSoon,
-} from "@/lib/server/activityGuardServer";
+import { enforceFarmingRateLimit } from "@/lib/server/farmingRateLimit";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
@@ -54,7 +42,7 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const guarded = await enforceFarmingMutation(req, userId);
+  const guarded = enforceFarmingRateLimit(req, userId);
   if (guarded) return guarded;
 
   const body = (await req.json().catch(() => null)) as { plotId?: unknown } | null;
@@ -65,7 +53,7 @@ export async function POST(req: Request) {
 
   try {
     const now = Date.now();
-    const { farm, result, farmJobId, masteryGained, masteryAfter, guardUpdate } =
+    const { farm, result, farmJobId, masteryGained, masteryAfter } =
       await db.transaction(async (tx) => {
         const charSave = await lockSaveForUpdate<Record<string, unknown>>(
           tx,
@@ -122,14 +110,6 @@ export async function POST(req: Request) {
                 farmingLevel: farmingLevelForXp(farmingXp),
               }
             : harvested.result;
-        const guardUpdate = recordActivityCompletion(
-          parseActivityGuardState(
-            await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
-          ),
-          "farming",
-          now,
-        );
-        await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
         await upsertSave(tx, userId, FARM_SAVE_KEY, harvestedState);
 
         let masteryGained = 0;
@@ -162,34 +142,8 @@ export async function POST(req: Request) {
           farmJobId,
           masteryGained,
           masteryAfter,
-          guardUpdate,
         };
       });
-    if (guardUpdate.extremeVolumeAlert) {
-      recordExtremeActivityAlertSoon({
-        req,
-        userId,
-        activity: "farming",
-        state: guardUpdate.state,
-      });
-    }
-    if (guardUpdate.checkpointNewlyRequired) {
-      recordActivityVerificationRequiredSoon({
-        req,
-        userId,
-        activity: "farming",
-        state: guardUpdate.state,
-      });
-    }
-    if (guardUpdate.behaviorSignal) {
-      recordBehaviorActivitySignalSoon({
-        req,
-        userId,
-        activity: "farming",
-        signal: guardUpdate.behaviorSignal,
-        state: guardUpdate.state,
-      });
-    }
     recordLifeGatheringTelemetrySoon({
       userId,
       activity: "farming",
@@ -235,35 +189,6 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     if (e instanceof FarmError) {
-      if (e.code === "not_ready") {
-        const now = Date.now();
-        const guardUpdate = await db.transaction(async (tx) => {
-          const update = recordActivityStrongSignal(
-            parseActivityGuardState(
-              await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
-            ),
-            "farming",
-            now,
-          );
-          await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, update.state);
-          return update;
-        });
-        recordStrongActivitySignalSoon({
-          req,
-          userId,
-          activity: "farming",
-          signal: "early_harvest",
-          state: guardUpdate.state,
-        });
-        if (guardUpdate.checkpointNewlyRequired) {
-          recordActivityVerificationRequiredSoon({
-            req,
-            userId,
-            activity: "farming",
-            state: guardUpdate.state,
-          });
-        }
-      }
       return Response.json({ ok: false, error: e.code }, { status: 409 });
     }
     throw e;

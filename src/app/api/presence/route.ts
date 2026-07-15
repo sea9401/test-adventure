@@ -4,6 +4,8 @@ import { presence } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { APP_BUILD_VERSION } from "@/lib/clientVersion";
+import { clientIpFromRequest } from "@/lib/server/abuseLog";
+import { recordSameIpPresenceSoon } from "@/lib/server/sameIpPresence";
 
 const ONLINE_WINDOW_SECONDS = 60;
 
@@ -33,7 +35,7 @@ export async function GET() {
   );
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
 
@@ -49,6 +51,11 @@ export async function POST() {
       target: presence.userId,
       set: { name, className, title, lastSeenAt: sql`now()` },
     });
+
+  const ip = clientIpFromRequest(req);
+  if (ip) {
+    recordSameIpPresenceSoon({ ip, userId, name });
+  }
 
   // build version 동봉 — 옛 클라이언트가 새 deploy 후 이 응답으로 자기 버전과
   // 비교해 강제 reload. 30초 heartbeat 주기로 모든 활성 유저가 분 단위로 갱신됨.

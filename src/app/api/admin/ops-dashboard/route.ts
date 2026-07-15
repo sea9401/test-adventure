@@ -1047,6 +1047,7 @@ function scoreSuspiciousUsers(
 
 function abuseReasonWeight(reason: string): number {
   if (reason === "multi_account_ip_fanout") return 30;
+  if (reason === "persistent_same_ip_accounts") return 20;
   if (reason === "fishing_macro_pattern") return 24;
   if (reason === "strong_activity_signal") return 18;
   if (reason === "extreme_daily_activity") return 15;

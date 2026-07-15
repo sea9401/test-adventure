@@ -69,6 +69,15 @@ export type ReelOutcome =
         icon: string;
         quantity: number;
         balance: number;
+        dailyAwarded: number;
+        dailyCap: number;
+      };
+      catchItemStatus?: "awarded" | "roll_miss" | "daily_cap";
+      catchItemDaily?: {
+        itemId: string;
+        name: string;
+        awarded: number;
+        cap: number;
       };
       /** 오늘 챔질로 획득한 낚시 코인 진행도. */
       dailyCatchCoins?: FishingDailyCatchCoins;
@@ -1347,7 +1356,14 @@ function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
   const labels: string[] = [];
   if (result.catchItem && result.catchItem.quantity > 0) {
     labels.push(
-      `${result.catchItem.icon} ${result.catchItem.name} +${result.catchItem.quantity} · 보유 ${result.catchItem.balance}`,
+      `${result.catchItem.icon} ${result.catchItem.name} +${result.catchItem.quantity} · 보유 ${result.catchItem.balance} · 오늘 ${result.catchItem.dailyAwarded}/${result.catchItem.dailyCap}`,
+    );
+  } else if (
+    result.catchItemStatus === "daily_cap" &&
+    result.catchItemDaily
+  ) {
+    labels.push(
+      `${result.catchItemDaily.name} 오늘 획득 한도 ${result.catchItemDaily.awarded}/${result.catchItemDaily.cap}`,
     );
   }
   if (result.coinsGained != null && result.coinsGained > 0) {

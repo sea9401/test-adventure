@@ -30,6 +30,11 @@ import {
   GUILD_DINING_POINTS_PER_TICKET,
 } from "@/adventure/data/v2/guildDining";
 import {
+  FISHING_CATCH_ITEM_CHANCE_PCT,
+  FISHING_CATCH_ITEM_DAILY_CAP,
+  FISHING_CATCH_ITEM_LIST,
+} from "@/adventure/v2/fishingStock";
+import {
   GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_DRILL_IDS,
   GUILD_TRAINING_WEEKLY_BONUS_MASTERY,
@@ -235,7 +240,8 @@ export function GuildContent() {
         길드 식당은 농장과 낚시에서 얻은 식재료를 길드원이 함께 준비하고 주간
         식권으로 식사하는 시설입니다. 낚은 어종과 크기는 어보·기록에 남고,
         식재료 보관함에는 물고기 등급에 맞는 어획물 한 종류가 자동으로 쌓입니다.
-        어획물은 현재 공동 식재료 기부에만 사용합니다.
+        성공한 낚시마다 서버에서 <Em>{FISHING_CATCH_ITEM_CHANCE_PCT}%</Em>
+        확률을 판정하며, 어획물은 현재 공동 식재료 기부에만 사용합니다.
       </P>
       <UL>
         <li>
@@ -253,15 +259,20 @@ export function GuildContent() {
         </li>
       </UL>
       <Table
-        head={["낚시 식재료", "기부 단위", "공동 준비"]}
-        rows={GUILD_DINING_INGREDIENTS.filter(
-          (ingredient) => ingredient.source === "fishing_item",
-        ).map((ingredient) => [
-          <Em key={ingredient.id}>{ingredient.name}</Em>,
-          `${ingredient.batchSize}개`,
-          `${ingredient.pointValue}점`,
-        ])}
-        caption="어획물은 정해진 묶음 단위로 기부합니다. 어종별 물고기 아이템이나 개인 요리 재료로는 아직 분리하지 않습니다."
+        head={["낚시 식재료", "기부 단위", "공동 준비", "일일 획득"]}
+        rows={FISHING_CATCH_ITEM_LIST.map((item) => {
+          const ingredient = GUILD_DINING_INGREDIENTS.find(
+            (entry) =>
+              entry.source === "fishing_item" && entry.sourceItemId === item.id,
+          );
+          return [
+            <Em key={item.id}>{item.name}</Em>,
+            `${ingredient?.batchSize ?? 1}개`,
+            `${ingredient?.pointValue ?? 0}점`,
+            `${FISHING_CATCH_ITEM_DAILY_CAP[item.id]}개`,
+          ];
+        })}
+        caption="낮은 등급이 획득량을 먼저 채우지 않도록 일일 한도는 등급별로 독립 적용됩니다. 어종별 물고기 아이템이나 개인 요리 재료로는 아직 분리하지 않습니다."
       />
       <Table
         head={["메뉴", "시설", "효과"]}

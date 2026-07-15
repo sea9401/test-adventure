@@ -132,6 +132,7 @@ describe("POST /api/v2/fishing/reel", () => {
   it("낚시 계열 직업은 성공한 챔질로 직업 숙련도가 오른다", async () => {
     const now = Date.now();
     seedFisherSession(now);
+    vi.mocked(Math.random).mockReturnValueOnce(0.05);
 
     const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
     expect(res.status).toBe(200);
@@ -158,6 +159,8 @@ describe("POST /api/v2/fishing/reel", () => {
       icon: "🐠",
       quantity: 1,
       balance: 1,
+      dailyAwarded: 1,
+      dailyCap: 30,
     });
 
     const prof = store.get("proficiency.v2") as {
@@ -178,6 +181,10 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(store.get(FISHING_STOCK_KEY)).toEqual({
       version: 1,
       items: { catch_fresh: 1 },
+      daily: {
+        date: kstDailyKey(new Date(now)),
+        awarded: { catch_fresh: 1 },
+      },
     });
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
     expect(

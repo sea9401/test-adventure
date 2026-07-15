@@ -861,6 +861,9 @@ function buildAlerts({
     level: "danger" | "warning" | "info";
     title: string;
     message: string;
+    detail?:
+      | { kind: "suspicious_user"; userId: string }
+      | { kind: "connected_ip"; ip: string };
   }> = [];
 
   if (abuse.last5m >= thresholds.abuseLast5m) {
@@ -907,6 +910,7 @@ function buildAlerts({
       level: "warning",
       title: "동일 계정 반복 이벤트",
       message: `${topUser.userId.slice(0, 12)} · 이벤트 ${topUser.events.toLocaleString()}건 · 점수 ${topUser.score.toLocaleString()}`,
+      detail: { kind: "suspicious_user", userId: topUser.userId },
     });
   }
 
@@ -916,6 +920,7 @@ function buildAlerts({
       level: "warning",
       title: "동일 IP 다계정 연결",
       message: `${topIp.ip} · 계정 ${topIp.userCount.toLocaleString()}개 · 제한 ${topIp.rateLimited.toLocaleString()}건`,
+      detail: { kind: "connected_ip", ip: topIp.ip },
     });
   }
 
@@ -1079,7 +1084,16 @@ function scoreConnectedIps(
     {
       events: number;
       rateLimited: number;
-      users: Set<string>;
+      users: Map<
+        string,
+        {
+          events: number;
+          rateLimited: number;
+          actions: Map<string, number>;
+          firstAt: number;
+          lastAt: number;
+        }
+      >;
       actions: Set<string>;
       lastAt: number;
     }
@@ -1090,27 +1104,59 @@ function scoreConnectedIps(
       ips.get(row.ip) ?? {
         events: 0,
         rateLimited: 0,
-        users: new Set<string>(),
+        users: new Map(),
         actions: new Set<string>(),
         lastAt: 0,
       };
     value.events += 1;
     if (row.reason === "rate_limited") value.rateLimited += 1;
-    if (row.userId) value.users.add(row.userId);
+    if (row.userId) {
+      const user = value.users.get(row.userId) ?? {
+        events: 0,
+        rateLimited: 0,
+        actions: new Map<string, number>(),
+        firstAt: row.createdAt.getTime(),
+        lastAt: 0,
+      };
+      user.events += 1;
+      if (row.reason === "rate_limited") user.rateLimited += 1;
+      user.actions.set(row.action, (user.actions.get(row.action) ?? 0) + 1);
+      user.firstAt = Math.min(user.firstAt, row.createdAt.getTime());
+      user.lastAt = Math.max(user.lastAt, row.createdAt.getTime());
+      value.users.set(row.userId, user);
+    }
     value.actions.add(row.action);
     value.lastAt = Math.max(value.lastAt, row.createdAt.getTime());
     ips.set(row.ip, value);
   }
   return [...ips.entries()]
-    .map(([ip, value]) => ({
-      ip,
-      events: value.events,
-      rateLimited: value.rateLimited,
-      userCount: value.users.size,
-      actionCount: value.actions.size,
-      userIds: [...value.users].sort().slice(0, 8),
-      lastAt: new Date(value.lastAt).toISOString(),
-    }))
+    .map(([ip, value]) => {
+      const connectedUsers = [...value.users.entries()]
+        .map(([userId, user]) => ({
+          userId,
+          events: user.events,
+          rateLimited: user.rateLimited,
+          actionCount: user.actions.size,
+          topActions: [...user.actions.entries()]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 3)
+            .map(([key, count]) => ({ key, count })),
+          firstAt: new Date(user.firstAt).toISOString(),
+          lastAt: new Date(user.lastAt).toISOString(),
+        }))
+        .sort((a, b) => b.events - a.events || a.userId.localeCompare(b.userId))
+        .slice(0, 12);
+      return {
+        ip,
+        events: value.events,
+        rateLimited: value.rateLimited,
+        userCount: value.users.size,
+        actionCount: value.actions.size,
+        userIds: connectedUsers.map((user) => user.userId),
+        users: connectedUsers,
+        lastAt: new Date(value.lastAt).toISOString(),
+      };
+    })
     .filter((row) => row.userCount >= 2 || row.rateLimited >= 5)
     .sort((a, b) => b.userCount - a.userCount || b.rateLimited - a.rateLimited)
     .slice(0, 12);

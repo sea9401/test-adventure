@@ -96,6 +96,9 @@ type Dashboard = {
     level: "danger" | "warning" | "info";
     title: string;
     message: string;
+    detail?:
+      | { kind: "suspicious_user"; userId: string }
+      | { kind: "connected_ip"; ip: string };
   }>;
   abuse: {
     last5m: number;
@@ -167,6 +170,15 @@ type Dashboard = {
     userCount: number;
     actionCount: number;
     userIds: string[];
+    users: Array<{
+      userId: string;
+      events: number;
+      rateLimited: number;
+      actionCount: number;
+      topActions: CountRow[];
+      firstAt: string;
+      lastAt: string;
+    }>;
     lastAt: string;
   }>;
   rewardFailureCandidates: Array<{
@@ -366,7 +378,15 @@ export function OpsDashboardTab() {
                   level={alert.level}
                   title={alert.title}
                   message={alert.message}
-                />
+                >
+                  {alert.detail ? (
+                    <OpsAlertDetail
+                      alert={alert}
+                      data={data}
+                      userDirectory={userDirectory}
+                    />
+                  ) : null}
+                </AlertCard>
               ))
             )}
           </div>
@@ -609,6 +629,167 @@ export function OpsDashboardTab() {
         </>
       )}
     </section>
+  );
+}
+
+function OpsAlertDetail({
+  alert,
+  data,
+  userDirectory,
+}: {
+  alert: Dashboard["alerts"][number];
+  data: Dashboard;
+  userDirectory: Record<string, AdminUserIdentity>;
+}) {
+  const detail = alert.detail;
+  if (!detail) return null;
+
+  if (detail.kind === "suspicious_user") {
+    const row = data.suspiciousUsers.find(
+      (candidate) => candidate.userId === detail.userId,
+    );
+    if (!row) return <p>현재 선택 기간에서 상세 이벤트를 찾지 못했습니다.</p>;
+    const identity = userDirectory[row.userId];
+    return (
+      <div className="space-y-2">
+        <div className="rounded border border-current/15 bg-white/40 p-2 dark:bg-black/10">
+          <AdminUserLink
+            userId={row.userId}
+            gameName={identity?.gameName}
+            email={identity?.email}
+          />
+          {identity?.gameName && identity.email ? (
+            <div className="mt-1 text-[11px] opacity-75">{identity.email}</div>
+          ) : null}
+          <div className="mt-1 break-all font-mono text-[10px] opacity-70">{row.userId}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <AlertDetailMetric label="의심 점수" value={row.score} />
+          <AlertDetailMetric label="이벤트" value={row.events} />
+          <AlertDetailMetric label="제한" value={row.rateLimited} />
+          <AlertDetailMetric label="보상 실패" value={row.rewardFailures} />
+          <AlertDetailMetric label="행동 종류" value={row.actionCount} />
+          <AlertDetailMetric label="연결 IP" value={row.ipCount} />
+          <AlertDetailMetric
+            label="평균 간격"
+            value={row.avgIntervalSec ? `${row.avgIntervalSec}초` : "-"}
+          />
+          <AlertDetailMetric
+            label="최근 발생"
+            value={new Date(row.lastAt).toLocaleString("ko-KR")}
+          />
+        </div>
+        {row.ips.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span className="font-medium">연결 IP</span>
+            {row.ips.map((ip) => (
+              <Link
+                key={ip}
+                href={`/admin?tab=abuse&ip=${encodeURIComponent(ip)}`}
+                className="rounded border border-current/20 px-1.5 py-0.5 font-mono underline underline-offset-2"
+              >
+                {ip}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+        <div>
+          <div className="mb-1 text-[11px] font-medium">최근 이벤트</div>
+          <ul className="space-y-1">
+            {row.recentEvents.map((event, index) => (
+              <li
+                key={`${event.createdAt}:${event.action}:${index}`}
+                className="rounded border border-current/15 bg-white/40 px-2 py-1.5 text-[11px] dark:bg-black/10"
+              >
+                <div className="flex flex-wrap justify-between gap-x-3 gap-y-0.5">
+                  <span className="font-medium">
+                    {abuseActionLabel(event.action)} · {abuseReasonLabel(event.reason)}
+                  </span>
+                  <span className="opacity-70">
+                    {new Date(event.createdAt).toLocaleString("ko-KR")}
+                  </span>
+                </div>
+                {event.ip ? <div className="mt-0.5 font-mono opacity-70">{event.ip}</div> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
+
+  const row = data.connectedIps.find((candidate) => candidate.ip === detail.ip);
+  if (!row) return <p>현재 선택 기간에서 연결 계정 상세를 찾지 못했습니다.</p>;
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+        <Link
+          href={`/admin?tab=abuse&ip=${encodeURIComponent(row.ip)}`}
+          className="font-mono font-medium underline underline-offset-2"
+        >
+          {row.ip} 로그 전체 보기
+        </Link>
+        <span>
+          이벤트 {row.events.toLocaleString()}건 · 행동 {row.actionCount.toLocaleString()}종 · 최근{" "}
+          {new Date(row.lastAt).toLocaleString("ko-KR")}
+        </span>
+      </div>
+      <div className="grid gap-1.5 md:grid-cols-2">
+        {row.users.map((user) => {
+          const identity = userDirectory[user.userId];
+          return (
+            <div
+              key={user.userId}
+              className="rounded border border-current/15 bg-white/40 p-2 dark:bg-black/10"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <AdminUserLink
+                    userId={user.userId}
+                    gameName={identity?.gameName}
+                    email={identity?.email}
+                  />
+                  {identity?.gameName && identity.email ? (
+                    <div className="mt-0.5 truncate text-[10px] opacity-70">
+                      {identity.email}
+                    </div>
+                  ) : null}
+                </div>
+                <span className="whitespace-nowrap text-[11px]">
+                  이벤트 {user.events.toLocaleString()} · 제한 {user.rateLimited.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-1 break-all font-mono text-[10px] opacity-70">
+                {user.userId}
+              </div>
+              <div className="mt-1 text-[10px] opacity-75">
+                {user.topActions
+                  .map((action) => `${abuseActionLabel(action.key)} ${action.count}`)
+                  .join(", ") || "행동 기록 없음"}
+              </div>
+              <div className="mt-0.5 text-[10px] opacity-70">
+                최초 {new Date(user.firstAt).toLocaleString("ko-KR")} · 최근{" "}
+                {new Date(user.lastAt).toLocaleString("ko-KR")}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {row.userCount > row.users.length ? (
+        <p className="text-[11px] opacity-70">
+          전체 {row.userCount.toLocaleString()}개 중 활동량이 많은 {row.users.length.toLocaleString()}개 계정만 표시합니다.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function AlertDetailMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded border border-current/15 bg-white/40 px-2 py-1.5 dark:bg-black/10">
+      <div className="text-[10px] opacity-65">{label}</div>
+      <div className="mt-0.5 tabular-nums">{value}</div>
+    </div>
   );
 }
 
@@ -2081,10 +2262,12 @@ function AlertCard({
   level,
   title,
   message,
+  children,
 }: {
   level: "danger" | "warning" | "info";
   title: string;
   message: string;
+  children?: ReactNode;
 }) {
   const tone =
     level === "danger"
@@ -2096,6 +2279,14 @@ function AlertCard({
     <div className={`rounded-md border px-3 py-2 text-xs ${tone}`}>
       <div className="font-semibold">{title}</div>
       <div className="mt-0.5">{message}</div>
+      {children ? (
+        <details className="mt-2 border-t border-current/15 pt-2">
+          <summary className="cursor-pointer select-none text-[11px] font-medium underline decoration-current/30 underline-offset-2">
+            세부 내용 보기
+          </summary>
+          <div className="mt-2">{children}</div>
+        </details>
+      ) : null}
     </div>
   );
 }

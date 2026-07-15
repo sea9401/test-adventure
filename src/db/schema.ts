@@ -1220,6 +1220,7 @@ export const v2Notifications = pgTable(
 // (비정규화)로 빠르게 검사하고, 이 테이블은 누가·언제·왜·얼마나 + 해제 이력을 보존한다.
 //   type:       'ban'(영구) | 'suspend'(기간) | 'warn'(경고, enforcement 없음)
 //   expiresAt:  suspend 만료 시각. ban=먼 미래, warn=null.
+//   acknowledgedAt: 유저가 경고 팝업 내용을 확인한 시각. warn 에서만 사용.
 //   liftedAt:   관리자가 조기 해제하면 채워짐(이력 유지 — row 삭제 안 함).
 export const userSanctions = pgTable(
   "user_sanctions",
@@ -1233,6 +1234,7 @@ export const userSanctions = pgTable(
     expiresAt: timestamp("expires_at"),
     createdByEmail: text("created_by_email").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    acknowledgedAt: timestamp("acknowledged_at"),
     liftedAt: timestamp("lifted_at"),
     liftedByEmail: text("lifted_by_email"),
   },

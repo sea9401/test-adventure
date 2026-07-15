@@ -13,6 +13,7 @@ type SanctionRow = {
   expiresAt: string | null;
   createdByEmail: string;
   createdAt: string;
+  acknowledgedAt: string | null;
   liftedAt: string | null;
   liftedByEmail: string | null;
 };
@@ -271,6 +272,12 @@ export function SanctionsSection({
                 {s.expiresAt ? (
                   <span className="ml-1 text-zinc-400">
                     · 만료 {new Date(s.expiresAt).toLocaleString("ko-KR")}
+                  </span>
+                ) : null}
+                {s.acknowledgedAt ? (
+                  <span className="text-sky-600 dark:text-sky-400">
+                    {" "}
+                    · 유저 확인 {new Date(s.acknowledgedAt).toLocaleString("ko-KR")}
                   </span>
                 ) : null}
                 {s.liftedAt ? (

@@ -493,8 +493,8 @@ export function OpsDashboardTab() {
                       <th className="py-1 pr-3 font-medium">단계</th>
                       <th className="py-1 pr-3 font-medium">제한</th>
                       <th className="py-1 pr-3 font-medium">이벤트</th>
-                      <th className="hidden py-1 pr-3 font-medium md:table-cell">action/IP</th>
-                      <th className="py-1 pr-3 font-medium">최근·상세</th>
+                      <th className="hidden py-1 pr-3 font-medium md:table-cell">행동/IP</th>
+                      <th className="py-1 pr-3 font-medium">탐지 상세</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -528,30 +528,52 @@ export function OpsDashboardTab() {
                             row.ipCount
                           )}
                         </td>
-                        <td className="py-1 pr-3 text-zinc-500">
-                          <div>{new Date(row.lastAt).toLocaleString("ko-KR")}</div>
-                          <div className="mt-0.5 max-w-[320px] text-[11px]">
-                            {row.topActions
-                              .map((action) => `${abuseActionLabel(action.key)} ${action.count}`)
-                              .join(", ") || "-"}
+                        <td className="min-w-[360px] py-2 pr-3 align-top text-zinc-600 dark:text-zinc-300">
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px]">
+                            <span className="font-medium text-zinc-700 dark:text-zinc-200">최근 발생</span>
+                            <span>{new Date(row.lastAt).toLocaleString("ko-KR")}</span>
                           </div>
-                          <div className="mt-0.5 text-[11px]">
-                            보상실패 {row.rewardFailures.toLocaleString()} · 평균간격{" "}
-                            {row.avgIntervalSec ? `${row.avgIntervalSec}s` : "-"}
+
+                          <div className="mt-2">
+                            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                              탐지 요약
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {row.topActions.length > 0 ? (
+                                row.topActions.map((action) => (
+                                  <span
+                                    key={action.key}
+                                    className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                                  >
+                                    {abuseActionLabel(action.key)}{" "}
+                                    <strong className="tabular-nums">{action.count.toLocaleString()}</strong>
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[11px] text-zinc-400">탐지 내역 없음</span>
+                              )}
+                            </div>
                           </div>
-                          <div className="mt-0.5 hidden max-w-[360px] text-[11px] md:block">
-                            {row.recentEvents
-                              .map((event) =>
-                                [
-                                  abuseActionLabel(event.action),
-                                  abuseReasonLabel(event.reason),
-                                  event.ip,
-                                ]
-                                  .filter(Boolean)
-                                  .join(" / "),
-                              )
-                              .join(" · ") || "-"}
+
+                          <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
+                            <SuspicionMetric
+                              label="보상 실패"
+                              value={`${row.rewardFailures.toLocaleString()}건`}
+                            />
+                            <SuspicionMetric
+                              label="평균 간격"
+                              value={formatIntervalSec(row.avgIntervalSec)}
+                            />
                           </div>
+
+                          <details className="group mt-2 hidden rounded border border-zinc-200 bg-zinc-50/70 md:block dark:border-zinc-700 dark:bg-zinc-900/40">
+                            <summary className="cursor-pointer list-none px-2 py-1.5 text-[11px] font-medium text-zinc-700 marker:hidden dark:text-zinc-200">
+                              최근 이벤트 {row.recentEvents.length.toLocaleString()}건{" "}
+                              <span className="text-zinc-400 group-open:hidden">펼쳐보기</span>
+                              <span className="hidden text-zinc-400 group-open:inline">접기</span>
+                            </summary>
+                            <RecentSuspicionEvents events={row.recentEvents} />
+                          </details>
                         </td>
                       </tr>
                     ))}
@@ -632,6 +654,73 @@ export function OpsDashboardTab() {
   );
 }
 
+function SuspicionMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded bg-zinc-100/80 px-2 py-1 dark:bg-zinc-800/70">
+      <div className="text-[10px] text-zinc-400">{label}</div>
+      <div className="mt-0.5 font-medium tabular-nums text-zinc-700 dark:text-zinc-200">{value}</div>
+    </div>
+  );
+}
+
+function RecentSuspicionEvents({
+  events,
+}: {
+  events: Dashboard["suspiciousUsers"][number]["recentEvents"];
+}) {
+  if (events.length === 0) {
+    return <div className="border-t border-zinc-200 px-2 py-2 text-[11px] text-zinc-400 dark:border-zinc-700">최근 이벤트 없음</div>;
+  }
+
+  return (
+    <ul className="divide-y divide-zinc-200 border-t border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+      {events.map((event, index) => (
+        <li key={`${event.createdAt}:${event.action}:${index}`} className="space-y-1 px-2 py-2 text-[11px]">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-0.5">
+            <span className="font-medium text-zinc-700 dark:text-zinc-200">
+              {abuseActionLabel(event.action)}
+            </span>
+            <span className="whitespace-nowrap text-[10px] text-zinc-400">
+              {new Date(event.createdAt).toLocaleString("ko-KR")}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {abuseReasonLabel(event.reason)}
+            </span>
+            {event.ip ? (
+              <Link
+                href={`/admin?tab=abuse&ip=${encodeURIComponent(event.ip)}`}
+                className="font-mono text-[10px] text-zinc-500 underline decoration-zinc-300 underline-offset-2 dark:text-zinc-400 dark:decoration-zinc-700"
+              >
+                {event.ip}
+              </Link>
+            ) : (
+              <span className="text-[10px] text-zinc-400">IP 없음</span>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function formatIntervalSec(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "-";
+  if (seconds < 60) return `${seconds}초`;
+
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  const remainSeconds = seconds % 60;
+  return [
+    hours > 0 ? `${hours}시간` : null,
+    minutes > 0 ? `${minutes}분` : null,
+    remainSeconds > 0 ? `${remainSeconds}초` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function OpsAlertDetail({
   alert,
   data,
@@ -672,12 +761,26 @@ function OpsAlertDetail({
           <AlertDetailMetric label="연결 IP" value={row.ipCount} />
           <AlertDetailMetric
             label="평균 간격"
-            value={row.avgIntervalSec ? `${row.avgIntervalSec}초` : "-"}
+            value={formatIntervalSec(row.avgIntervalSec)}
           />
           <AlertDetailMetric
             label="최근 발생"
             value={new Date(row.lastAt).toLocaleString("ko-KR")}
           />
+        </div>
+        <div>
+          <div className="mb-1 text-[11px] font-medium">탐지 요약</div>
+          <div className="flex flex-wrap gap-1">
+            {row.topActions.map((action) => (
+              <span
+                key={action.key}
+                className="rounded border border-current/15 bg-white/40 px-1.5 py-0.5 text-[11px] dark:bg-black/10"
+              >
+                {abuseActionLabel(action.key)}{" "}
+                <strong className="tabular-nums">{action.count.toLocaleString()}</strong>
+              </span>
+            ))}
+          </div>
         </div>
         {row.ips.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -695,24 +798,9 @@ function OpsAlertDetail({
         ) : null}
         <div>
           <div className="mb-1 text-[11px] font-medium">최근 이벤트</div>
-          <ul className="space-y-1">
-            {row.recentEvents.map((event, index) => (
-              <li
-                key={`${event.createdAt}:${event.action}:${index}`}
-                className="rounded border border-current/15 bg-white/40 px-2 py-1.5 text-[11px] dark:bg-black/10"
-              >
-                <div className="flex flex-wrap justify-between gap-x-3 gap-y-0.5">
-                  <span className="font-medium">
-                    {abuseActionLabel(event.action)} · {abuseReasonLabel(event.reason)}
-                  </span>
-                  <span className="opacity-70">
-                    {new Date(event.createdAt).toLocaleString("ko-KR")}
-                  </span>
-                </div>
-                {event.ip ? <div className="mt-0.5 font-mono opacity-70">{event.ip}</div> : null}
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-hidden rounded border border-current/15 bg-white/40 dark:bg-black/10">
+            <RecentSuspicionEvents events={row.recentEvents} />
+          </div>
         </div>
       </div>
     );
@@ -994,12 +1082,16 @@ function SanctionRecommendationPanel({
     if (!window.confirm(`${target} 계정에 ${label}를 적용할까요?`)) return;
     setSavingUserId(userId);
     try {
+      const userFacingReason =
+        action === "warn"
+          ? "비정상 반복 플레이 패턴이 확인되어 경고 처리되었습니다."
+          : `자동화 의심 행위가 반복되어 ${days}일 이용 제한이 적용되었습니다.`;
       await adminPost("/api/admin/sanctions", {
         userId,
         action,
         days,
-        reason,
-        adminMemo: "운영 현황 제재 추천에서 실행",
+        reason: userFacingReason,
+        adminMemo: `운영 현황 제재 추천에서 실행 · ${reason}`,
       });
       showToast(`제재 처리 완료: ${label}`);
     } catch (e) {

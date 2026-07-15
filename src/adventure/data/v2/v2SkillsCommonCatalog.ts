@@ -246,6 +246,8 @@ export type V2CommonSkillId =
   | "v2c_vajraarhat_body" // 나한금신 (최대 HP + 받피감 + 반격)
   | "v2c_eternal_cycle" // 영겁 순환 (지속 재생 + 활력 증폭)
   | "v2c_eternal_body" // 영겁의 육신 (최대 HP + 활력 + 받피감)
+  | "v2c_blooddemon_reign" // 혈마군림 (HP 소모 + 처형 + 피해 회복)
+  | "v2c_blooddemon_immortalblood" // 불사마혈 (최대 HP + 흡혈 + 방어)
   | "v2c_absolute_unity" // 만상귀일 (올스탯 피해 + 취약 + 행동 가속)
   | "v2c_absolute_harmony"; // 절대 조화 (올스탯 + HP·MP)
 
@@ -1977,6 +1979,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { maxHpPct: 34, statPct: { vit: 12 }, damageTakenReductionPct: 9 },
+  },
+  v2c_blooddemon_reign: {
+    id: "v2c_blooddemon_reign", name: "혈마군림", stat: "str", category: "attack", tier: 3,
+    description: "피를 태워 마성을 해방한다. 약해진 적을 짓밟고 빼앗은 생명으로 상처를 되메운다.",
+    mpCost: 62, cooldown: 0, procChance: 35, learnCost: 12000,
+    effects: [
+      { kind: "hpCostDamage", pctCurrentHp: 14, statCoef: 1.85, baseFlatByTier: [430, 430, 430], soakRatio: 2.3 },
+      { kind: "executeDamage", statCoef: 0.32, baseFlatByTier: [220, 220, 220], hpThresholdPct: 35, bonusMult: 2.3 },
+      { kind: "healFromDamage", pct: 20 },
+    ],
+  },
+  v2c_blooddemon_immortalblood: {
+    id: "v2c_blooddemon_immortalblood", name: "불사마혈", stat: "vit", category: "passive", tier: 3,
+    description: "마혈이 상처를 삼키고 육신을 다시 일으킨다. 생명력과 방어, 피해 저항과 흡혈이 오른다.",
+    mpCost: 0, cooldown: 0, learnCost: 12000,
+    effects: [],
+    passive: { maxHpPct: 28, lifestealPct: 5, damageTakenReductionPct: 9, defPct: 12 },
   },
   v2c_absolute_unity: {
     id: "v2c_absolute_unity", name: "만상귀일", stat: "str", category: "attack", tier: 3,

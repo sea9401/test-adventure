@@ -128,6 +128,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기
   legendarylumberjack: ["v2c_legendarylumberjack_bountifulcut"], // 전설의 나무꾼 — 전설의 벌목
+  blooddemon: ["v2c_blooddemon_reign", "v2c_blooddemon_immortalblood"], // 혈마: 혈마군림 + 불사마혈
   absolute: ["v2c_absolute_unity", "v2c_absolute_harmony"], // 절대자: 만상귀일 + 절대 조화
 };
 

@@ -1016,6 +1016,33 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_eternal_body.passive?.counterChancePct).toBeUndefined();
     expect(V2_SKILLS.v2c_eternal_body.passive?.thornsDefPct).toBeUndefined();
+    expect(skillsForJob("blooddemon")).toEqual([
+      "v2c_blooddemon_reign",
+      "v2c_blooddemon_immortalblood",
+    ]);
+    expect(V2_SKILLS.v2c_blooddemon_reign.effects).toEqual([
+      {
+        kind: "hpCostDamage",
+        pctCurrentHp: 14,
+        statCoef: 1.85,
+        baseFlatByTier: [430, 430, 430],
+        soakRatio: 2.3,
+      },
+      {
+        kind: "executeDamage",
+        statCoef: 0.32,
+        baseFlatByTier: [220, 220, 220],
+        hpThresholdPct: 35,
+        bonusMult: 2.3,
+      },
+      { kind: "healFromDamage", pct: 20 },
+    ]);
+    expect(V2_SKILLS.v2c_blooddemon_immortalblood.passive).toMatchObject({
+      maxHpPct: 28,
+      lifestealPct: 5,
+      damageTakenReductionPct: 9,
+      defPct: 12,
+    });
     expect(skillsForJob("absolute")).toEqual([
       "v2c_absolute_unity",
       "v2c_absolute_harmony",

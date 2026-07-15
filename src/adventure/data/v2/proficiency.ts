@@ -100,6 +100,7 @@ export const V2_HYBRID_CULTIVATE_PROFILE: Record<
   bloodtemplar: { str: 2, vit: 1, spi: 1 }, // 혈성기사 — 광전사의 힘·활력 + 사제 정신
   crimsontemplar: { str: 2, vit: 1, spi: 1 }, // 진홍성기사 — 혈성기사 심화
   bloodlord: { str: 2, vit: 1, spi: 1 }, // 혈성군주 — 혈성기사 최종형
+  blooddemon: { str: 2, vit: 1, spi: 1 }, // 혈마 — 혈성군주 최종형, 피의 순환 탱딜
   darkpriest: { luk: 2, spi: 1, int: 1 }, // 암흑사제 — 그림자의 행운 + 사제 정신·지능
   elementallord: { int: 2, spi: 2 }, // 원소군주 — 원소술사 심화, 순수 속성 마법 중심
   inscriber: { int: 2, spi: 2 }, // 각인술사 — 문장술사 심화, 문장 조합형 마법 중심

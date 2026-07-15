@@ -138,6 +138,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   seagod: "fullcatchking",
   earthartisan: "harvestking",
   legendarylumberjack: "forestmaster",
+  blooddemon: "bloodlord",
   absolute: "transcendent",
 };
 
@@ -164,8 +165,8 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("105개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 23 + 5차 20 + 6차 18)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(105);
+  it("106개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 23 + 5차 20 + 6차 19)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(106);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
@@ -173,7 +174,7 @@ describe("v2JobCatalog 구조", () => {
     expect(byTier(3)).toBe(22);
     expect(byTier(4)).toBe(23);
     expect(byTier(5)).toBe(20);
-    expect(byTier(6)).toBe(18);
+    expect(byTier(6)).toBe(19);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -563,6 +564,11 @@ describe("해금 트리", () => {
       spec: "seagod",
     });
     expect(jobIdFromLegacy("survivor", "seagod")).toBe("seagod");
+    expect(LEGACY_CLASS_SPEC_BY_JOB.blooddemon).toEqual({
+      class: "warrior",
+      spec: "blooddemon",
+    });
+    expect(jobIdFromLegacy("warrior", "blooddemon")).toBe("blooddemon");
     expect(LEGACY_CLASS_SPEC_BY_JOB.absolute).toEqual({
       class: "warrior",
       spec: "absolute",

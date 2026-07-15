@@ -1080,6 +1080,14 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       ],
     },
   },
+  blooddemon: {
+    id: "blooddemon",
+    name: "혈마",
+    tier: 6,
+    cultivateProfile: { str: 2, vit: 1, spi: 1 },
+    jobBonus: { str: 22, vit: 14, spi: 6 },
+    unlock: { prereqs: { bloodlord: TIER6_UNLOCK_CUMLEVEL } },
+  },
   absolute: {
     id: "absolute",
     name: "절대자",
@@ -1415,6 +1423,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   seagod: { class: "survivor", spec: "seagod" },
   earthartisan: { class: "survivor", spec: "earthartisan" },
   legendarylumberjack: { class: "survivor", spec: "legendarylumberjack" },
+  blooddemon: { class: "warrior", spec: "blooddemon" },
   absolute: { class: "warrior", spec: "absolute" },
 };
 

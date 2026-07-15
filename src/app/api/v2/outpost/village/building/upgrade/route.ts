@@ -16,38 +16,14 @@ import {
 } from "@/lib/server/v2Settlement";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import {
-  PRODUCTION_KINDS,
   SETTLEMENT_BUILDINGS,
+  canAffordSettlementBuildingUpgrade,
   nextSettlementBuildingUpgrade,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
   settlementBuildingSlot,
-  type SettlementBuildingUpgradeCost,
-  type SettlementResources,
+  spendSettlementBuildingUpgradeCost,
 } from "@/adventure/data/v2/settlement";
-
-function canAffordMaterials(
-  resources: SettlementResources,
-  cost: SettlementBuildingUpgradeCost,
-): boolean {
-  return PRODUCTION_KINDS.every(
-    (kind) => Math.max(0, resources[kind] ?? 0) >= Math.max(0, cost[kind] ?? 0),
-  );
-}
-
-function spendCost(
-  resources: SettlementResources,
-  cost: SettlementBuildingUpgradeCost,
-): SettlementResources {
-  const next: SettlementResources = { ...resources };
-  for (const kind of PRODUCTION_KINDS) {
-    const amount = Math.max(0, cost[kind] ?? 0);
-    if (amount > 0) {
-      next[kind] = Math.max(0, Math.floor((next[kind] ?? 0) - amount));
-    }
-  }
-  return next;
-}
 
 // POST /api/v2/outpost/village/building/upgrade — body { outpostId, slot }
 // 영지 건축물 업그레이드. 비용은 길드 정착지 재화·길드 금고·사용 가능 명성에서 차감한다.
@@ -104,7 +80,7 @@ export async function POST(req: Request) {
       }
 
       const resources = await lockGuildSettlement(tx, guildId);
-      if (!canAffordMaterials(resources, nextUpgrade.cost)) {
+      if (!canAffordSettlementBuildingUpgrade(resources, nextUpgrade.cost)) {
         return {
           status: 409,
           body: {
@@ -147,7 +123,10 @@ export async function POST(req: Request) {
         };
       }
 
-      const nextResources = spendCost(resources, nextUpgrade.cost);
+      const nextResources = spendSettlementBuildingUpgradeCost(
+        resources,
+        nextUpgrade.cost,
+      );
       const nextGold = guildGold.gold - goldCost;
       const nextFameAvailable = guildFame.fameAvailable - fameCost;
       village.buildings = {

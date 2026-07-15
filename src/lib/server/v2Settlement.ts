@@ -20,6 +20,7 @@ import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   VILLAGE_TIERS,
   PRODUCTION_KINDS,
+  SETTLEMENT_RESOURCE_KEYS,
   INITIAL_UNLOCKED_SLOTS,
   MAX_SLOTS_BY_TIER,
   clampUnlockedSlots,
@@ -368,7 +369,7 @@ export async function readGuildSettlementBuildingLevel(
 function parseResources(v: unknown): SettlementResources {
   if (typeof v !== "object" || v === null) return {};
   const out: SettlementResources = {};
-  for (const k of PRODUCTION_KINDS) {
+  for (const k of SETTLEMENT_RESOURCE_KEYS) {
     const n = (v as Record<string, unknown>)[k];
     if (typeof n === "number" && Number.isFinite(n) && n > 0) {
       out[k] = Math.floor(n);

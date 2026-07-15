@@ -44,27 +44,27 @@ export const WOODCUTTING_MATERIALS: Record<
   [WOODCUTTING_MATERIAL_ID.birch]: {
     id: WOODCUTTING_MATERIAL_ID.birch,
     name: "자작나무 원목",
-    description: "은빛 자작나무숲에서 얻는 밝고 가벼운 목재. 정교한 제작 재료로 쓰인다.",
+    description: "은빛 자작나무숲에서 얻는 밝고 가벼운 목재. 정교한 제작과 길드 시설 발전에 쓰인다.",
   },
   [WOODCUTTING_MATERIAL_ID.oak]: {
     id: WOODCUTTING_MATERIAL_ID.oak,
     name: "참나무 원목",
-    description: "깊은 참나무숲에서 얻는 단단한 목재. 튼튼한 장비 제작에 알맞다.",
+    description: "깊은 참나무숲에서 얻는 단단한 목재. 튼튼한 장비 제작과 길드 시설 발전에 알맞다.",
   },
   [WOODCUTTING_MATERIAL_ID.cedar]: {
     id: WOODCUTTING_MATERIAL_ID.cedar,
     name: "삼나무 원목",
-    description: "고요한 삼나무숲에서 얻는 향기로운 목재. 상급 제작 재료로 쓰인다.",
+    description: "고요한 삼나무숲에서 얻는 향기로운 목재. 상급 제작과 길드 시설 발전에 쓰인다.",
   },
   [WOODCUTTING_MATERIAL_ID.willow]: {
     id: WOODCUTTING_MATERIAL_ID.willow,
     name: "버드나무 원목",
-    description: "물안개 버드나무숲에서 얻는 유연한 목재. 탄성이 필요한 제작에 알맞다.",
+    description: "물안개 버드나무숲에서 얻는 유연한 목재. 탄성이 필요한 제작과 길드 시설 발전에 알맞다.",
   },
   [WOODCUTTING_MATERIAL_ID.cypress]: {
     id: WOODCUTTING_MATERIAL_ID.cypress,
     name: "편백나무 원목",
-    description: "바람재 편백나무숲에서 얻는 귀한 목재. 최고급 장비 제작에 쓰인다.",
+    description: "바람재 편백나무숲에서 얻는 귀한 목재. 최고급 장비 제작과 길드 시설 발전에 쓰인다.",
   },
 };
 

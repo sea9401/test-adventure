@@ -21,6 +21,8 @@ import {
   GUILD_SMITHY_UPGRADES,
   TRAINING_GROUND_UPGRADES,
   MAP_WORKSHOP_UPGRADES,
+  SETTLEMENT_RESOURCE_KEYS,
+  type SettlementBuildingUpgradeCost,
 } from "@/adventure/data/v2/settlement";
 
 // ── 공유 인메모리 스토어(호이스팅) ───────────────────────────────────────────
@@ -49,6 +51,16 @@ const MY_GUILD = 42;
 // 내 길드가 점령했다고 가정하는 거점들 — 지형 특성별 1개씩(REAL terrainTraitOf 기준).
 const PLAIN_OUTPOST = "outpost_plain_fort"; // fort → plain
 const FARM_OUTPOST = "village_wheatfield"; // village → farmland
+
+function resourcesForBuildingCost(
+  cost: SettlementBuildingUpgradeCost,
+): Record<string, number> {
+  return Object.fromEntries(
+    SETTLEMENT_RESOURCE_KEYS.flatMap((key) =>
+      (cost[key] ?? 0) > 0 ? [[key, cost[key] ?? 0]] : [],
+    ),
+  );
+}
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => ME_USER as string | null),
@@ -764,10 +776,7 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
       buildings: { "0": { id: "guild_smithy", level: 4 } },
     });
     const cost = GUILD_SMITHY_UPGRADES[4].cost;
-    resourcesByGuild.set(MY_GUILD, {
-      crop: cost.crop ?? 0,
-      ore: cost.ore ?? 0,
-    });
+    resourcesByGuild.set(MY_GUILD, resourcesForBuildingCost(cost));
     guildGold.set(MY_GUILD, cost.gold ?? 0);
     guildFame.set(MY_GUILD, cost.fame ?? 0);
     const res = await upgradeBuildingPOST(
@@ -826,16 +835,13 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
     expect(((await res.json()) as AnyJson).error).toBe("insufficient_gold");
   });
 
-  it("길드 명성 부족 → 409 insufficient_fame", async () => {
+  it("Lv3 업그레이드 길드 명성 부족 → 409 insufficient_fame", async () => {
     seedBuiltVillage(FARM_OUTPOST, {
       unlockedSlots: 1,
-      buildings: { "0": { id: "guild_smithy", level: 1 } },
+      buildings: { "0": { id: "guild_smithy", level: 2 } },
     });
-    const cost = GUILD_SMITHY_UPGRADES[1].cost;
-    resourcesByGuild.set(MY_GUILD, {
-      crop: cost.crop ?? 0,
-      ore: cost.ore ?? 0,
-    });
+    const cost = GUILD_SMITHY_UPGRADES[2].cost;
+    resourcesByGuild.set(MY_GUILD, resourcesForBuildingCost(cost));
     guildGold.set(MY_GUILD, cost.gold ?? 0);
     guildFame.set(MY_GUILD, Math.max(0, (cost.fame ?? 0) - 1));
 

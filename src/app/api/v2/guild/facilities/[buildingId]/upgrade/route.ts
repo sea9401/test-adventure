@@ -8,24 +8,24 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { lockGuildFame, spendGuildFame } from "@/lib/server/v2GuildFame";
 import {
-  lockGuildSettlement,
   lockVillage,
   rememberGuildSettlementBuildingLevel,
-  upsertGuildSettlement,
   upsertVillage,
 } from "@/lib/server/v2Settlement";
+import {
+  clearGuildFacilityDonationProgress,
+  lockGuildFacilityDonationProgress,
+} from "@/lib/server/guildFacilityUpgradeDonations";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import {
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
-  PRODUCTION_KINDS,
   SETTLEMENT_BUILDINGS,
   isSettlementBuildingId,
   nextSettlementBuildingUpgrade,
   settlementBuildingLevelOf,
+  settlementBuildingMaterialsComplete,
   settlementBuildingSlot,
   type SettlementBuildingId,
-  type SettlementBuildingUpgradeCost,
-  type SettlementResources,
 } from "@/adventure/data/v2/settlement";
 
 type Ctx = { params: Promise<{ buildingId: string }> };
@@ -37,31 +37,8 @@ function guildFacilityOutpostId(
   return `guild-facility:${guildId}:${buildingId}`;
 }
 
-function canAffordMaterials(
-  resources: SettlementResources,
-  cost: SettlementBuildingUpgradeCost,
-): boolean {
-  return PRODUCTION_KINDS.every(
-    (kind) => Math.max(0, resources[kind] ?? 0) >= Math.max(0, cost[kind] ?? 0),
-  );
-}
-
-function spendCost(
-  resources: SettlementResources,
-  cost: SettlementBuildingUpgradeCost,
-): SettlementResources {
-  const next: SettlementResources = { ...resources };
-  for (const kind of PRODUCTION_KINDS) {
-    const amount = Math.max(0, cost[kind] ?? 0);
-    if (amount > 0) {
-      next[kind] = Math.max(0, Math.floor((next[kind] ?? 0) - amount));
-    }
-  }
-  return next;
-}
-
 // POST /api/v2/guild/facilities/[buildingId]/upgrade
-// 현재 길드의 공용 시설을 다음 레벨로 업그레이드한다.
+// 모든 기부 재료가 모인 공용 시설을 관리자가 다음 레벨로 완료한다.
 export async function POST(_req: Request, { params }: Ctx) {
   const userId = await ensureUser();
   if (!userId) {
@@ -113,14 +90,19 @@ export async function POST(_req: Request, { params }: Ctx) {
         return { status: 409, body: { ok: false as const, error: "max_level" } };
       }
 
-      const resources = await lockGuildSettlement(tx, guildId);
-      if (!canAffordMaterials(resources, nextUpgrade.cost)) {
+      const donated = await lockGuildFacilityDonationProgress(
+        tx,
+        guildId,
+        buildingId,
+        nextUpgrade.level,
+      );
+      if (!settlementBuildingMaterialsComplete(donated, nextUpgrade.cost)) {
         return {
           status: 409,
           body: {
             ok: false as const,
             error: "insufficient_resources",
-            resources,
+            progress: donated,
           },
         };
       }
@@ -159,7 +141,6 @@ export async function POST(_req: Request, { params }: Ctx) {
         };
       }
 
-      const nextResources = spendCost(resources, nextUpgrade.cost);
       const nextGold = guildGold.gold - goldCost;
       const nextFameAvailable = guildFame.fameAvailable - fameCost;
       const nextBuilding = settlementBuildingSlot(buildingId, nextUpgrade.level);
@@ -172,7 +153,7 @@ export async function POST(_req: Request, { params }: Ctx) {
         buildingId,
         nextUpgrade.level,
       );
-      await upsertGuildSettlement(tx, guildId, nextResources);
+      await clearGuildFacilityDonationProgress(tx, guildId, buildingId);
       if (goldCost > 0) {
         await upsertGuildResources(tx, guildId, { gold: nextGold });
       }
@@ -200,7 +181,7 @@ export async function POST(_req: Request, { params }: Ctx) {
           buildingId,
           buildingLevel: nextUpgrade.level,
           building: nextBuilding,
-          resources: nextResources,
+          progress: {},
           gold: nextGold,
           fameAvailable: nextFameAvailable,
         },

@@ -48,6 +48,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/fishing/reel/route";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
+import { FISHING_ANTI_MACRO_KEY } from "@/adventure/v2/fishingAntiMacro";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
 import { FISHING_STOCK_KEY } from "@/adventure/v2/fishingStock";
@@ -326,7 +327,68 @@ describe("POST /api/v2/fishing/reel", () => {
       caught: boolean;
       reason: string;
     };
-    expect(json).toEqual({ ok: true, caught: false, reason: "too_early" });
+    expect(json).toEqual({
+      ok: true,
+      caught: false,
+      reason: "too_early",
+      nextActionAt: null,
+    });
     expect(store.get(FISHING_STREAK_KEY)).toEqual({ current: 0, best: 9 });
+  });
+
+  it("입질보다 300ms 이상 빠른 입력은 최근 다섯 번째부터 강신호로 승격한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+
+    for (let index = 1; index <= 5; index += 1) {
+      store.set(FISHING_SESSION_KEY, {
+        castId: `cast-${index}`,
+        biteAt: now + 300,
+        expiresAt: now + 10_000,
+        fishId: "carp",
+        size: 42,
+      });
+      await POST(reelReq({ castId: `cast-${index}`, reactionMs: 0 }));
+      const risk = activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "fishing",
+      ).riskScore;
+      expect(risk).toBe(index < 5 ? 0 : 18);
+    }
+
+    expect(store.get(FISHING_ANTI_MACRO_KEY)).toMatchObject({
+      recent: expect.arrayContaining([
+        expect.objectContaining({ earlyByMs: 300 }),
+      ]),
+    });
+  });
+
+  it("일일 활동량만 많으면 어획 보상을 유지하고 대기를 추가하지 않는다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(ACTIVITY_GUARD_KEY, {
+      version: 3,
+      activities: {},
+      risk: {
+        score: 0,
+        updatedAt: now,
+        dailyKey: kstDailyKey(new Date(now)),
+        dailyCompleted: 1_499,
+        dailyVolumeStage: 2,
+      },
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+    const json = (await res.json()) as {
+      caught: boolean;
+      fishId: string;
+      nextActionAt: number | null;
+    };
+
+    expect(json).toMatchObject({
+      caught: true,
+      fishId: "carp",
+      nextActionAt: null,
+    });
   });
 });

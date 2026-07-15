@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { store, verifyTurnstileToken, recordAbuseEventSoon } = vi.hoisted(() => ({
+const { store, verifyTurnstileToken, verifyHcaptchaToken, recordAbuseEventSoon } = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   verifyTurnstileToken: vi.fn(),
+  verifyHcaptchaToken: vi.fn(),
   recordAbuseEventSoon: vi.fn(),
 }));
 
@@ -14,6 +15,9 @@ vi.mock("@/db", () => ({
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
+    store.has(key) ? store.get(key) : fallback,
+  ),
+  readSave: vi.fn(async (_db, _uid, key: string, fallback: unknown) =>
     store.has(key) ? store.get(key) : fallback,
   ),
   upsertSave: vi.fn(async (_tx, _uid, key: string, value: unknown) => {
@@ -28,6 +32,10 @@ vi.mock("@/lib/server/turnstile", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/server/turnstile")>();
   return { ...original, verifyTurnstileToken };
 });
+vi.mock("@/lib/server/hcaptcha", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/server/hcaptcha")>();
+  return { ...original, verifyHcaptchaToken };
+});
 
 import { POST } from "@/app/api/v2/activity-verification/route";
 import {
@@ -39,11 +47,11 @@ import {
 } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 
-function request(activity = "fishing", token = "token") {
+function request(activity = "fishing", token = "token", captchaToken?: string) {
   return new Request("http://test.local/api/v2/activity-verification", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ activity, token }),
+    body: JSON.stringify({ activity, token, captchaToken }),
   });
 }
 
@@ -66,6 +74,7 @@ beforeEach(() => {
 afterEach(() => {
   store.clear();
   verifyTurnstileToken.mockReset();
+  verifyHcaptchaToken.mockReset();
   recordAbuseEventSoon.mockReset();
   resetUserRateLimitForTests();
   vi.unstubAllEnvs();
@@ -113,7 +122,7 @@ describe("POST /api/v2/activity-verification", () => {
     ).completedSinceVerification).toBe(0);
   });
 
-  it("다른 생활 활동에서 쌓인 공통 위험도도 농장 확인으로 해제할 수 있다", async () => {
+  it("다른 생활 활동에서 쌓인 공통 위험도도 보호 대상 활동 확인으로 해제할 수 있다", async () => {
     let state = emptyActivityGuardState();
     state = recordActivityStrongSignal(state, "fishing", 1_000).state;
     state = recordActivityStrongSignal(state, "woodcutting", 2_000).state;
@@ -121,14 +130,35 @@ describe("POST /api/v2/activity-verification", () => {
     store.set(ACTIVITY_GUARD_KEY, state);
     verifyTurnstileToken.mockResolvedValue({ ok: true, hostname: "test.local" });
 
-    const response = await POST(request("farming"));
+    const response = await POST(request("fishing"));
 
     expect(response.status).toBe(200);
     expect(
       activityGuardView(
         parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
-        "farming",
+        "fishing",
       ).riskScore,
     ).toBeLessThan(50);
+  });
+
+  it("강한 의심 신호이고 hCaptcha가 설정되면 2단계 토큰을 함께 요구한다", async () => {
+    vi.stubEnv("HCAPTCHA_SITE_KEY", "captcha-site");
+    vi.stubEnv("HCAPTCHA_SECRET_KEY", "captcha-secret");
+    vi.stubEnv("HCAPTCHA_EXPECTED_HOSTNAMES", "test.local");
+
+    const missing = await POST(request());
+    expect(missing.status).toBe(400);
+    await expect(missing.json()).resolves.toMatchObject({
+      error: "captcha_verification_required",
+    });
+
+    verifyTurnstileToken.mockResolvedValue({ ok: true, hostname: "test.local" });
+    verifyHcaptchaToken.mockResolvedValue({ ok: true, hostname: "test.local" });
+    const response = await POST(request("fishing", "turnstile", "captcha"));
+
+    expect(response.status).toBe(200);
+    expect(verifyHcaptchaToken).toHaveBeenCalledWith(
+      expect.objectContaining({ token: "captcha" }),
+    );
   });
 });

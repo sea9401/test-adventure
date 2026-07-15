@@ -175,7 +175,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 | 항목 | 위치 |
 |---|---|
 | `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET` 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
-| 배포 SSH·Turnstile | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` · `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` (Turnstile 키는 배포 시 EC2 env로 동기화) |
+| 배포 SSH·사람 확인 | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` · `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` · 선택 항목 `HCAPTCHA_SITE_KEY` · `HCAPTCHA_SECRET_KEY` (배포 시 EC2 env로 동기화) |
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
 
@@ -189,9 +189,17 @@ bash deploy/maintenance.sh status   # 현재 상태
 - Cloudflare Turnstile 위젯에 `msmsge.com`을 등록하고 `TURNSTILE_SITE_KEY`,
   `TURNSTILE_SECRET_KEY`, `TURNSTILE_EXPECTED_HOSTNAMES=msmsge.com,www.msmsge.com`을
   EC2 `.env.production.local`에 설정한다. 세 값 중 하나라도 비어 있으면 배포 사전 검사가 실패한다.
-- 키를 설정하면 낚시·벌목·채광·농장이 적응형 완료 횟수 또는 연속 60분에
+- 키를 설정하면 낚시·벌목·채광이 적응형 완료 횟수 또는 연속 60분에
   도달했을 때 다음 변경 요청에서 사람 확인을 요구한다. 토큰은 서버 Siteverify에서
   action과 hostname 일치를 검증한 뒤 즉시 소비한다.
+- 강한 자동화 의심 신호에는 hCaptcha를 2단계로 붙일 수 있다. hCaptcha 대시보드에서
+  운영 호스트를 등록한 별도 sitekey를 만들고 필요하면 `Always Challenge` 난이도를
+  사용한다. GitHub 시크릿 `HCAPTCHA_SITE_KEY`,
+  `HCAPTCHA_SECRET_KEY`를 함께 설정한다. 필요하면
+  `HCAPTCHA_EXPECTED_HOSTNAMES`를 EC2 env에 별도로 두며, 생략하면 Turnstile 호스트
+  목록을 재사용한다. 키가 없으면 기존 Turnstile 단독 확인으로 안전하게 폴백한다.
+- 농장은 활동 위험도·사람 확인에서 제외한다. 요청 폭주를 막는 일반 429 제한만
+  적용하며, 미리 수확을 눌러도 위험 점수나 강신호가 기록되지 않는다.
 
 인증: **카카오 OAuth만**(구글은 베타 동안 제외 #1216). NextAuth/Auth.js + Drizzle 어댑터.
 
@@ -215,20 +223,25 @@ bash deploy/maintenance.sh status   # 현재 상태
 
 ### 매크로/부하 의심
 0. Turnstile 상태를 먼저 확인한다. 배포 스모크의 `turnstileConfigured: true`가
-   아니면 활동 체크포인트가 강제되지 않는다.
+   아니면 활동 체크포인트가 강제되지 않는다. 2단계 CAPTCHA를 운영할 때는
+   `hcaptchaConfigured: true`도 함께 확인한다.
 1. `운영 현황` 알림 카드에서 요청 제한 급증 여부 확인.
 2. `이상 행동` 탭에서 action/IP/userId/reason 필터 적용.
 3. 동일 IP 다계정 반복이면 IP 제한 또는 제재 검토. 단일 유저 반복이면 유저 제재 또는 API limit/window 조정 검토.
 4. 차단 중인 유저는 제재 패널에서 1일/3일 연장 또는 해제를 처리한다.
 5. 정상 유저가 반복적으로 걸리면 해당 콘텐츠의 정상 클릭 속도를 다시 측정하고 제한값을 조정.
 
-자동 방어 기준(낚시·벌목·채광·농장 공통):
+자동 방어 기준(낚시·벌목·채광):
 - 다음 사람 확인은 정상 80~140회, 관찰 50~80회, 고위험 25~50회,
   임계 10~25회 사이에서 무작위로 잡힌다.
-- 조기 완료·인간 불가능 반응 강신호는 공통 위험도 +18. 고위험은 30초,
-  임계 위험은 2분 대기 후 Turnstile을 요구한다.
-- 하루 전체 생활 완료 1,500회부터 벌목·채광 거래 재료 획득 기대값은
-  75%, 2,500회부터 50%, 4,000회부터 25%다. XP·숙련도는 유지한다.
+- 벌목·채광 조기 완료는 10분 안에 3회 반복됐을 때만 강신호 한 건으로 승격한다.
+  낚시는 입질보다 300ms 이상 빠른 입력이 최근 30회 중 5회일 때 선입력 강신호로
+  보며, 입질 후 60ms 미만 반응은 인간 불가능 반응으로 유지한다.
+- 승격된 강신호는 공통 위험도 +18. 고위험은 30초, 임계 위험은 2분 대기 후
+  Turnstile을 요구하며, hCaptcha가 설정된 경우 추가 CAPTCHA도 통과해야 한다.
+- 하루 전체 생활 완료량만으로 보상이나 다음 행동 시간을 감쇠하지 않는다.
+  정상 고활동 이용자는 사람 확인 주기만 짧아지며, 서버 시계로 확인된 조기 완료·
+  인간 불가능 반응 같은 강신호가 있을 때만 30초~2분 대기를 적용한다.
 - 10분 내 동일 IP에서 6번째 계정이 생활 API를 쓰면 429로 제한하고
   이상 행동 이벤트를 남긴다.
 - nginx는 생활 API 전체를 IP당 5r/s, burst 30으로 제한한다.

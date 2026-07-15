@@ -10,6 +10,16 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+const captchaKeys = ["HCAPTCHA_SITE_KEY", "HCAPTCHA_SECRET_KEY"];
+const configuredCaptchaKeys = captchaKeys.filter((key) => process.env[key]?.trim());
+if (
+  configuredCaptchaKeys.length > 0 &&
+  configuredCaptchaKeys.length !== captchaKeys.length
+) {
+  console.error("✗ production hCaptcha env must be configured together");
+  process.exit(1);
+}
+
 const expectedHostnames = new Set(
   process.env.TURNSTILE_EXPECTED_HOSTNAMES.split(",")
     .map((value) => value.trim().toLowerCase())

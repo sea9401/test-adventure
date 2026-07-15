@@ -32,7 +32,11 @@ import {
   MINING_LOG_KEY,
   MINING_SESSION_KEY,
 } from "@/adventure/v2/miningSession";
-import { ACTIVITY_GUARD_KEY } from "@/lib/server/activityGuard";
+import {
+  ACTIVITY_GUARD_KEY,
+  activityGuardView,
+  parseActivityGuardState,
+} from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
@@ -124,6 +128,21 @@ describe("mining routes", () => {
     expect(store.get(MINING_SESSION_KEY)).toMatchObject({
       sessionId: "mine-early",
     });
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "mining",
+      ),
+    ).toMatchObject({ earlyAttempts: 1, riskScore: 0 });
+
+    await STRIKE(request("strike", { sessionId: "mine-early" }));
+    await STRIKE(request("strike", { sessionId: "mine-early" }));
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "mining",
+      ),
+    ).toMatchObject({ earlyAttempts: 0, strongSignals: 1, riskScore: 18 });
   });
 
   it("strike — 성공 시 주 광석·부산물·XP를 지급한다", async () => {
@@ -168,7 +187,7 @@ describe("mining routes", () => {
     });
   });
 
-  it("strike — 일일 과다 생산 구간에서는 성공 기록과 XP를 유지하고 재료만 감쇠한다", async () => {
+  it("strike — 일일 활동량만 많으면 광석을 전량 지급하고 대기를 추가하지 않는다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
     store.set(MINING_SESSION_KEY, {
       sessionId: "mine-volume-limited",
@@ -197,18 +216,23 @@ describe("mining routes", () => {
 
     expect(json).toMatchObject({
       success: true,
-      materialGained: 0,
+      materialGained: 1,
       xpGained: 5,
-      rewardMultiplier: 0.75,
-      yieldReduced: true,
+      nextActionAt: null,
     });
     expect(json.byproducts).toEqual([]);
-    expect(store.get("character.v2")).toMatchObject({ materials: {} });
+    expect(store.get("character.v2")).toMatchObject({
+      materials: { [MINING_MATERIAL_ID.iron]: 1 },
+    });
     expect(store.get(MINING_LOG_KEY)).toMatchObject({
       successes: 1,
       xp: 5,
-      oreEarned: 0,
+      oreEarned: 1,
     });
+
+    expect(
+      (await START(request("start", { spotId: "iron_quarry" }))).status,
+    ).toBe(200);
   });
 
   it("strike — 실패하면 광석과 XP를 지급하지 않는다", async () => {

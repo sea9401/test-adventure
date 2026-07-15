@@ -30,6 +30,8 @@ import { ActivityVerificationGate } from "./ActivityVerificationGate";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
+  type ActivityVerificationSubmission,
+  useActivityCooldown,
 } from "./useActivityVerification";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
@@ -112,8 +114,9 @@ export type ReelOutcome =
       } | null;
       /** 이번 어획으로 오른 오늘의 의뢰/일일 과제/누적 목표. */
       challengeProgress?: FishingProgressNotice[];
+      nextActionAt?: number | null;
     }
-  | { caught: false; reason: string };
+  | { caught: false; reason: string; nextActionAt?: number | null };
 
 type CaughtReelOutcome = Extract<ReelOutcome, { caught: true }>;
 
@@ -126,7 +129,7 @@ export type FishingHandlers = {
   challengeBadgeCount?: number;
   fishingSpot?: FishingSpot;
   verification?: ActivityVerificationChallenge | null;
-  verifyHuman?: (token: string) => Promise<boolean>;
+  verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
 
 type Phase = "idle" | "casting" | "waiting" | "biting" | "resolving" | "result";
@@ -1486,6 +1489,11 @@ export function FishingView({
   const [streak, setStreak] = useState(0);
   const [preBite, setPreBite] = useState(false);
   const [tapSignal, setTapSignal] = useState(0);
+  const {
+    applyNextActionAt,
+    handleCooldownError,
+    cooldownRemainingSec,
+  } = useActivityCooldown();
   const currentTideId = useCurrentMulttaeConditionId();
 
   const biteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1525,6 +1533,7 @@ export function FishingView({
       try {
         const outcome = await reel(castId.current, reactionMs);
         if (!mounted.current) return;
+        applyNextActionAt(outcome.nextActionAt);
         if (outcome.caught) {
           setSessionCount((c) => c + 1);
           setSessionBest((b) => Math.max(b, outcome.size));
@@ -1540,7 +1549,7 @@ export function FishingView({
         setPhase("result");
       }
     },
-    [reel, clearTimers],
+    [applyNextActionAt, reel, clearTimers],
   );
 
   const onBite = useCallback(() => {
@@ -1559,6 +1568,7 @@ export function FishingView({
   }, [resolveReel]);
 
   const startCast = useCallback(async () => {
+    if (cooldownRemainingSec > 0) return;
     setError(null);
     setResult(null);
     setLastReactionMs(null);
@@ -1583,10 +1593,14 @@ export function FishingView({
         setPhase("idle");
         return;
       }
+      if (handleCooldownError(caught)) {
+        setPhase("idle");
+        return;
+      }
       setError("찌를 던지지 못했다. 잠시 후 다시 시도해 보자.");
       setPhase("idle");
     }
-  }, [cast, onBite]);
+  }, [cast, cooldownRemainingSec, handleCooldownError, onBite]);
 
   // 큰 탭 존 클릭 — 단계에 따라 의미가 다르다.
   const onTapZone = useCallback(() => {
@@ -1607,7 +1621,7 @@ export function FishingView({
       if (event.repeat || isTextEntryTarget(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
 
-      if (phase === "idle" || phase === "result") {
+      if ((phase === "idle" || phase === "result") && cooldownRemainingSec <= 0) {
         event.preventDefault();
         startCast();
       } else if (phase === "waiting" || phase === "biting") {
@@ -1618,7 +1632,7 @@ export function FishingView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onTapZone, phase, startCast, verification]);
+  }, [cooldownRemainingSec, onTapZone, phase, startCast, verification]);
 
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
@@ -1873,16 +1887,30 @@ export function FishingView({
 
         {/* 액션 */}
         {phase === "idle" && !verification && (
-          <button type="button" onClick={startCast} className={idleActionClass}>
-            찌 던지기
+          <button
+            type="button"
+            disabled={cooldownRemainingSec > 0}
+            onClick={startCast}
+            className={`${idleActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {cooldownRemainingSec > 0
+              ? `다음 낚시까지 ${cooldownRemainingSec}초`
+              : "찌 던지기"}
           </button>
         )}
         {phase === "result" && <div aria-hidden className="h-16" />}
       </main>
 
       {phase === "result" && !verification && (
-        <button type="button" onClick={startCast} className={resultActionClass}>
-          다시 던지기
+        <button
+          type="button"
+          disabled={cooldownRemainingSec > 0}
+          onClick={startCast}
+          className={`${resultActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
+        >
+          {cooldownRemainingSec > 0
+            ? `다음 낚시까지 ${cooldownRemainingSec}초`
+            : "다시 던지기"}
         </button>
       )}
     </>

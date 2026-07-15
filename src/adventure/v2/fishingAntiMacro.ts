@@ -6,6 +6,9 @@ export const FISHING_ANTI_MACRO_HIGH_THRESHOLD = 20;
 export const FISHING_ANTI_MACRO_FRICTION_MS = 30_000;
 export const FISHING_ANTI_MACRO_HIGH_FRICTION_MS = 90_000;
 export const FISHING_ANTI_MACRO_UNIFORM_CLIENT_STDDEV_MS = 25;
+export const FISHING_ANTI_MACRO_PREFIRE_MIN_EARLY_MS = 300;
+export const FISHING_ANTI_MACRO_PREFIRE_COUNT = 5;
+export const FISHING_ANTI_MACRO_IMPOSSIBLE_REACTION_MS = 60;
 
 export type FishingAntiMacroReason =
   | "ok"
@@ -19,6 +22,7 @@ export type FishingAntiMacroSample = {
   reason: FishingAntiMacroReason;
   clientReactionMs: number;
   serverReactionMs: number;
+  earlyByMs: number;
 };
 
 export type FishingAntiMacroState = {
@@ -69,6 +73,7 @@ function sampleOf(raw: unknown): FishingAntiMacroSample | null {
     reason,
     clientReactionMs: nonNegativeMs(r.clientReactionMs),
     serverReactionMs: nonNegativeMs(r.serverReactionMs),
+    earlyByMs: nonNegativeMs(r.earlyByMs),
   };
 }
 
@@ -119,6 +124,7 @@ function stddev(values: number[]): number {
 function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
   const signals: string[] = [];
   const checked = recent.slice(-30);
+  const latest = checked.at(-1);
   const caught = checked.filter((sample) => sample.caught);
   if (checked.length >= 24 && caught.length / checked.length >= 0.98) {
     signals.push("near_perfect_success_rate");
@@ -136,9 +142,22 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
     if (veryFastServerRatio >= 0.75) signals.push("impossibly_fast_server_reel");
   }
   const recentTooEarly = checked.filter(
-    (sample) => sample.reason === "too_early" && sample.serverReactionMs <= 80,
+    (sample) =>
+      sample.reason === "too_early" &&
+      sample.earlyByMs >= FISHING_ANTI_MACRO_PREFIRE_MIN_EARLY_MS,
   ).length;
-  if (recentTooEarly >= 3) signals.push("repeated_prefire");
+  if (
+    recentTooEarly >= FISHING_ANTI_MACRO_PREFIRE_COUNT &&
+    latest?.reason === "too_early" &&
+    latest.earlyByMs >= FISHING_ANTI_MACRO_PREFIRE_MIN_EARLY_MS
+  ) {
+    signals.push("repeated_prefire");
+  }
+  const impossiblePostBite =
+    latest?.reason === "too_early" &&
+    latest.earlyByMs === 0 &&
+    latest.serverReactionMs < FISHING_ANTI_MACRO_IMPOSSIBLE_REACTION_MS;
+  if (impossiblePostBite) signals.push("impossibly_fast_post_bite_reel");
   return signals;
 }
 
@@ -147,6 +166,7 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
 function enforcementSignalScore(signals: string[]): number {
   return signals.reduce((score, signal) => {
     if (signal === "impossibly_fast_server_reel") return score + 6;
+    if (signal === "impossibly_fast_post_bite_reel") return score + 6;
     if (signal === "repeated_prefire") return score + 4;
     return score;
   }, 0);

@@ -13,6 +13,12 @@ const required = {
   TURNSTILE_EXPECTED_HOSTNAMES:
     process.env.TURNSTILE_EXPECTED_HOSTNAMES?.trim(),
 };
+const optionalCaptcha = {
+  HCAPTCHA_SITE_KEY: process.env.HCAPTCHA_SITE_KEY?.trim(),
+  HCAPTCHA_SECRET_KEY: process.env.HCAPTCHA_SECRET_KEY?.trim(),
+  HCAPTCHA_EXPECTED_HOSTNAMES:
+    process.env.HCAPTCHA_EXPECTED_HOSTNAMES?.trim(),
+};
 
 for (const [key, value] of Object.entries(required)) {
   if (!value) {
@@ -25,10 +31,41 @@ for (const [key, value] of Object.entries(required)) {
   }
 }
 
+const suppliedCaptchaCredentials = [
+  optionalCaptcha.HCAPTCHA_SITE_KEY,
+  optionalCaptcha.HCAPTCHA_SECRET_KEY,
+].filter(Boolean);
+if (suppliedCaptchaCredentials.length === 1) {
+  console.error("✗ hCaptcha deployment secrets must be supplied together");
+  process.exit(1);
+}
+for (const [key, value] of Object.entries(optionalCaptcha)) {
+  if (value && /[\r\n\0]/.test(value)) {
+    console.error(`✗ deployment secret contains invalid characters: ${key}`);
+    process.exit(1);
+  }
+}
+
+const synchronized = {
+  ...required,
+  ...(suppliedCaptchaCredentials.length === 2
+    ? {
+        HCAPTCHA_SITE_KEY: optionalCaptcha.HCAPTCHA_SITE_KEY,
+        HCAPTCHA_SECRET_KEY: optionalCaptcha.HCAPTCHA_SECRET_KEY,
+        ...(optionalCaptcha.HCAPTCHA_EXPECTED_HOSTNAMES
+          ? {
+              HCAPTCHA_EXPECTED_HOSTNAMES:
+                optionalCaptcha.HCAPTCHA_EXPECTED_HOSTNAMES,
+            }
+          : {}),
+      }
+    : {}),
+};
+
 const original = readFileSync(envPath, "utf8");
 let lines = original.split(/\r?\n/);
 
-for (const [key, value] of Object.entries(required)) {
+for (const [key, value] of Object.entries(synchronized)) {
   let replaced = false;
   const rendered = `${key}=${JSON.stringify(value)}`;
   lines = lines.flatMap((line) => {
@@ -50,4 +87,8 @@ writeFileSync(temporaryPath, next, { encoding: "utf8", mode });
 chmodSync(temporaryPath, mode);
 renameSync(temporaryPath, envPath);
 
-console.log("✓ production Turnstile environment synchronized");
+console.log(
+  suppliedCaptchaCredentials.length > 0
+    ? "✓ production Turnstile and hCaptcha environment synchronized"
+    : "✓ production Turnstile environment synchronized",
+);

@@ -2,23 +2,24 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { clientIpFromRequest, recordAbuseEventSoon } from "@/lib/server/abuseLog";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
   activityGuardView,
+  activityVerificationReason,
   activityVerificationRequired,
   clearActivityVerification,
   parseActivityGuardState,
   type GuardedActivity,
 } from "@/lib/server/activityGuard";
 import { turnstileConfig, verifyTurnstileToken } from "@/lib/server/turnstile";
+import { hcaptchaConfig, verifyHcaptchaToken } from "@/lib/server/hcaptcha";
 
 function isGuardedActivity(value: unknown): value is GuardedActivity {
   return (
     value === "fishing" ||
     value === "woodcutting" ||
-    value === "mining" ||
-    value === "farming"
+    value === "mining"
   );
 }
 
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     activity?: unknown;
     token?: unknown;
+    captchaToken?: unknown;
   } | null;
   if (!isGuardedActivity(body?.activity) || typeof body?.token !== "string") {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
@@ -49,6 +51,28 @@ export async function POST(req: Request) {
     return Response.json(
       { ok: false, error: "verification_unconfigured" },
       { status: 503 },
+    );
+  }
+
+  const currentState = parseActivityGuardState(
+    await readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
+  );
+  if (!activityVerificationRequired(currentState, activity, true)) {
+    return Response.json(
+      { ok: false, error: "verification_not_required" },
+      { status: 409 },
+    );
+  }
+  const captcha = hcaptchaConfig();
+  const captchaRequired =
+    activityVerificationReason(currentState, activity) === "strong_signal" &&
+    captcha.configured;
+  const captchaToken =
+    typeof body.captchaToken === "string" ? body.captchaToken : "";
+  if (captchaRequired && !captchaToken) {
+    return Response.json(
+      { ok: false, error: "captcha_verification_required" },
+      { status: 400 },
     );
   }
 
@@ -75,6 +99,36 @@ export async function POST(req: Request) {
       },
       { status: verification.error === "unavailable" ? 503 : 400 },
     );
+  }
+
+  if (captchaRequired) {
+    const captchaVerification = await verifyHcaptchaToken({
+      token: captchaToken,
+      remoteIp: clientIpFromRequest(req),
+    });
+    if (!captchaVerification.ok) {
+      recordAbuseEventSoon({
+        userId,
+        ip: clientIpFromRequest(req),
+        action: `v2:${activity}:human-check`,
+        reason: "human_verification_failed",
+        detail: {
+          provider: "hcaptcha",
+          error: captchaVerification.error,
+          codes: captchaVerification.codes ?? [],
+        },
+      });
+      return Response.json(
+        {
+          ok: false,
+          error:
+            captchaVerification.error === "unavailable"
+              ? "captcha_verification_unavailable"
+              : "captcha_verification_failed",
+        },
+        { status: captchaVerification.error === "unavailable" ? 503 : 400 },
+      );
+    }
   }
 
   const now = Date.now();

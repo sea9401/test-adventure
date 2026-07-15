@@ -3,18 +3,20 @@ import {
   ACTIVITY_CHECKPOINT_COMPLETIONS,
   ACTIVITY_CHECKPOINT_CONTINUOUS_MS,
   ACTIVITY_DAILY_ALERT_COMPLETIONS,
+  ACTIVITY_EARLY_ATTEMPT_THRESHOLD,
   ACTIVITY_RISK_CRITICAL_COOLDOWN_MS,
   ACTIVITY_RISK_HIGH_THRESHOLD,
   ACTIVITY_SEQUENCE_RESET_MS,
   ACTIVITY_STRONG_SIGNAL_THRESHOLD,
   activityCheckpointTarget,
   activityGuardView,
-  activityRewardMultiplier,
+  activityVerificationReason,
   activityVerificationRequired,
   clearActivityVerification,
   emptyActivityGuardState,
   parseActivityGuardState,
   recordActivityCompletion,
+  recordActivityEarlyAttempt,
   recordActivityStrongSignal,
 } from "./activityGuard";
 
@@ -69,6 +71,26 @@ describe("activityGuard", () => {
     expect(activityGuardView(state, "woodcutting").strongSignals).toBe(3);
     expect(activityGuardView(state, "woodcutting")).toMatchObject({
       riskLevel: "high",
+    });
+  });
+
+  it("벌목·채광 조기 완료는 세 번째 반복부터 강신호 한 건으로 승격한다", () => {
+    let state = emptyActivityGuardState();
+    for (let index = 1; index <= ACTIVITY_EARLY_ATTEMPT_THRESHOLD; index += 1) {
+      const update = recordActivityEarlyAttempt(
+        state,
+        "woodcutting",
+        1_000 + index * 1_000,
+      );
+      state = update.state;
+      expect(update.strongSignalPromoted).toBe(
+        index === ACTIVITY_EARLY_ATTEMPT_THRESHOLD,
+      );
+    }
+    expect(activityGuardView(state, "woodcutting")).toMatchObject({
+      earlyAttempts: 0,
+      strongSignals: 1,
+      riskScore: 18,
     });
   });
 
@@ -138,23 +160,20 @@ describe("activityGuard", () => {
     expect(activityGuardView(state, "woodcutting").intervalStddevMs).toBe(0);
   });
 
-  it("운영 상단을 크게 넘는 일일 생산량만 거래 재료 기대값을 줄인다", () => {
-    expect(activityRewardMultiplier(parseActivityGuardState({}))).toBe(1);
-    expect(
-      activityRewardMultiplier(
-        parseActivityGuardState({ risk: { dailyCompleted: 1_500 } }),
-      ),
-    ).toBe(0.75);
-    expect(
-      activityRewardMultiplier(
-        parseActivityGuardState({ risk: { dailyCompleted: 2_500 } }),
-      ),
-    ).toBe(0.5);
-    expect(
-      activityRewardMultiplier(
-        parseActivityGuardState({ risk: { dailyCompleted: 4_000 } }),
-      ),
-    ).toBe(0.25);
+  it("일일 활동량만 많으면 다음 행동 대기를 추가하지 않는다", () => {
+    let state = emptyActivityGuardState();
+    for (let i = 0; i < 2_500; i += 1) {
+      state = recordActivityCompletion(
+        state,
+        "woodcutting",
+        10_000 + i * 7_000,
+      ).state;
+    }
+    expect(activityGuardView(state, "woodcutting")).toMatchObject({
+      globalDailyCompleted: 2_500,
+      nextActionAt: null,
+    });
+    expect(activityVerificationReason(state, "woodcutting")).toBe("volume");
   });
 
   it("강신호가 쌓이면 활동 종류와 무관하게 공통 위험도와 대기를 적용한다", () => {
@@ -166,7 +185,7 @@ describe("activityGuard", () => {
     const mining = activityGuardView(state, "mining");
     expect(mining.riskScore).toBeGreaterThanOrEqual(ACTIVITY_RISK_HIGH_THRESHOLD);
     expect(mining.cooldownUntil).toBeGreaterThan(12_000);
-    expect(activityVerificationRequired(state, "farming", true)).toBe(true);
+    expect(activityVerificationRequired(state, "fishing", true)).toBe(true);
   });
 
   it("임계 이상 강신호는 최대 2분 대기로 상향된다", () => {
@@ -207,12 +226,18 @@ describe("activityGuard", () => {
   });
 
   it("손상된 저장값은 안전하게 파싱한다", () => {
-    expect(parseActivityGuardState({ activities: { fishing: { strongSignals: -2 } } }))
+    expect(parseActivityGuardState({
+      version: 3,
+      activities: {
+        fishing: { strongSignals: -2 },
+        farming: { strongSignals: 3 },
+      },
+      risk: { score: 80 },
+    }))
       .toMatchObject({
-        version: 3,
+        version: 4,
         activities: {
           fishing: { strongSignals: 0 },
-          farming: { strongSignals: 0 },
         },
         risk: { score: 0 },
       });

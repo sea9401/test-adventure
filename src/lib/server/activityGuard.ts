@@ -6,6 +6,8 @@ export const ACTIVITY_CHECKPOINT_CONTINUOUS_MS = 60 * 60_000;
 export const ACTIVITY_SEQUENCE_RESET_MS = 10 * 60_000;
 export const ACTIVITY_STRONG_SIGNAL_THRESHOLD = 3;
 export const ACTIVITY_STRONG_SIGNAL_WINDOW_MS = 10 * 60_000;
+export const ACTIVITY_EARLY_ATTEMPT_THRESHOLD = 3;
+export const ACTIVITY_EARLY_ATTEMPT_WINDOW_MS = 10 * 60_000;
 export const ACTIVITY_DAILY_ALERT_COMPLETIONS = 500;
 export const ACTIVITY_RISK_DECAY_PER_HOUR = 2;
 export const ACTIVITY_RISK_STRONG_SIGNAL = 18;
@@ -28,7 +30,7 @@ const ACTIVITY_GLOBAL_VOLUME_STAGES = [
   { completions: 4_000, score: 35 },
 ] as const;
 
-export type GuardedActivity = "fishing" | "woodcutting" | "mining" | "farming";
+export type GuardedActivity = "fishing" | "woodcutting" | "mining";
 export type ActivityRiskLevel = "normal" | "watch" | "high" | "critical";
 
 type ActivityGuardEntry = {
@@ -38,6 +40,8 @@ type ActivityGuardEntry = {
   verificationRequiredAt: number | null;
   strongSignalWindowStartedAt: number | null;
   strongSignals: number;
+  earlyAttemptWindowStartedAt: number | null;
+  earlyAttempts: number;
   dailyKey: string;
   dailyCompleted: number;
   dailyAlerted: boolean;
@@ -60,7 +64,7 @@ type ActivityRiskState = {
 };
 
 export type ActivityGuardState = {
-  version: 3;
+  version: 4;
   activities: Record<GuardedActivity, ActivityGuardEntry>;
   risk: ActivityRiskState;
 };
@@ -84,6 +88,8 @@ function emptyEntry(): ActivityGuardEntry {
     verificationRequiredAt: null,
     strongSignalWindowStartedAt: null,
     strongSignals: 0,
+    earlyAttemptWindowStartedAt: null,
+    earlyAttempts: 0,
     dailyKey: "",
     dailyCompleted: 0,
     dailyAlerted: false,
@@ -110,12 +116,11 @@ function emptyRisk(): ActivityRiskState {
 
 export function emptyActivityGuardState(): ActivityGuardState {
   return {
-    version: 3,
+    version: 4,
     activities: {
       fishing: emptyEntry(),
       woodcutting: emptyEntry(),
       mining: emptyEntry(),
-      farming: emptyEntry(),
     },
     risk: emptyRisk(),
   };
@@ -146,6 +151,8 @@ function parseEntry(raw: unknown): ActivityGuardEntry {
     verificationRequiredAt: nullableTimestamp(value.verificationRequiredAt),
     strongSignalWindowStartedAt: nullableTimestamp(value.strongSignalWindowStartedAt),
     strongSignals: nonNegativeInt(value.strongSignals),
+    earlyAttemptWindowStartedAt: nullableTimestamp(value.earlyAttemptWindowStartedAt),
+    earlyAttempts: nonNegativeInt(value.earlyAttempts),
     dailyKey: typeof value.dailyKey === "string" ? value.dailyKey.slice(0, 16) : "",
     dailyCompleted: nonNegativeInt(value.dailyCompleted),
     dailyAlerted: value.dailyAlerted === true,
@@ -180,20 +187,24 @@ function parseRisk(raw: unknown): ActivityRiskState {
 
 export function parseActivityGuardState(raw: unknown): ActivityGuardState {
   if (!raw || typeof raw !== "object") return emptyActivityGuardState();
+  const storedVersion = nonNegativeInt((raw as { version?: unknown }).version);
   const activities = (raw as { activities?: unknown }).activities;
   const source =
     activities && typeof activities === "object"
       ? (activities as Record<string, unknown>)
       : {};
   return {
-    version: 3,
+    version: 4,
     activities: {
       fishing: parseEntry(source.fishing),
       woodcutting: parseEntry(source.woodcutting),
       mining: parseEntry(source.mining),
-      farming: parseEntry(source.farming),
     },
-    risk: parseRisk((raw as { risk?: unknown }).risk),
+    // v3까지는 농장 활동도 공통 위험도에 섞였다. 농장을 제외하는 v4로 처음
+    // 읽을 때 기존 공통 점수를 초기화해 과거 농장 기록이 다른 활동에 남지 않게 한다.
+    risk: storedVersion >= 4
+      ? parseRisk((raw as { risk?: unknown }).risk)
+      : emptyRisk(),
   };
 }
 
@@ -312,14 +323,14 @@ function withEntry(
   entry: ActivityGuardEntry,
 ): ActivityGuardState {
   return {
-    version: 3,
+    version: 4,
     activities: { ...state.activities, [activity]: entry },
     risk: state.risk,
   };
 }
 
 function withRisk(state: ActivityGuardState, risk: ActivityRiskState): ActivityGuardState {
-  return { ...state, version: 3, risk };
+  return { ...state, version: 4, risk };
 }
 
 function volumeRiskUpdate(
@@ -547,6 +558,59 @@ export function recordActivityStrongSignal(
   };
 }
 
+export type ActivityEarlyAttemptUpdate = ActivityGuardUpdate & {
+  earlyAttempts: number;
+  strongSignalPromoted: boolean;
+};
+
+// 정상 이용자의 단발성 선입력은 점수에 반영하지 않는다. 같은 활동에서 짧은 시간
+// 안에 반복될 때만 강한 신호 한 건으로 승격하고 카운터를 다시 시작한다.
+export function recordActivityEarlyAttempt(
+  state: ActivityGuardState,
+  activity: Exclude<GuardedActivity, "fishing">,
+  now: number,
+): ActivityEarlyAttemptUpdate {
+  const previous = state.activities[activity];
+  const windowExpired =
+    previous.earlyAttemptWindowStartedAt === null ||
+    now < previous.earlyAttemptWindowStartedAt ||
+    now - previous.earlyAttemptWindowStartedAt > ACTIVITY_EARLY_ATTEMPT_WINDOW_MS;
+  const earlyAttemptWindowStartedAt = windowExpired
+    ? now
+    : previous.earlyAttemptWindowStartedAt;
+  const earlyAttempts = (windowExpired ? 0 : previous.earlyAttempts) + 1;
+
+  if (earlyAttempts < ACTIVITY_EARLY_ATTEMPT_THRESHOLD) {
+    return {
+      state: withEntry(state, activity, {
+        ...previous,
+        earlyAttemptWindowStartedAt,
+        earlyAttempts,
+      }),
+      checkpointNewlyRequired: false,
+      extremeVolumeAlert: false,
+      behaviorSignal: null,
+      earlyAttempts,
+      strongSignalPromoted: false,
+    };
+  }
+
+  const promoted = recordActivityStrongSignal(
+    withEntry(state, activity, {
+      ...previous,
+      earlyAttemptWindowStartedAt: null,
+      earlyAttempts: 0,
+    }),
+    activity,
+    now,
+  );
+  return {
+    ...promoted,
+    earlyAttempts,
+    strongSignalPromoted: true,
+  };
+}
+
 export function clearActivityVerification(
   state: ActivityGuardState,
   activity: GuardedActivity,
@@ -573,6 +637,8 @@ export function clearActivityVerification(
     verificationRequiredAt: null,
     strongSignalWindowStartedAt: null,
     strongSignals: 0,
+    earlyAttemptWindowStartedAt: null,
+    earlyAttempts: 0,
     checkpointTarget: activityCheckpointTarget(risk.score, Math.random, {
       dailyCompleted: risk.dailyCompleted,
       dailyVerifications: risk.dailyVerifications,
@@ -594,11 +660,13 @@ export function activityGuardView(
     completedSinceVerification: entry.completedSinceVerification,
     verificationRequiredAt: entry.verificationRequiredAt,
     strongSignals: entry.strongSignals,
+    earlyAttempts: entry.earlyAttempts,
     dailyCompleted: entry.dailyCompleted,
     checkpointTarget: entry.checkpointTarget,
     riskScore: Math.round(state.risk.score * 100) / 100,
     riskLevel: activityRiskLevel(state.risk.score),
     cooldownUntil: state.risk.cooldownUntil,
+    nextActionAt: state.risk.cooldownUntil,
     globalDailyCompleted: state.risk.dailyCompleted,
     dailyVerifications: state.risk.dailyVerifications,
     behaviorSignals: entry.behaviorSignals,
@@ -611,20 +679,16 @@ export function activityGuardView(
   };
 }
 
-export function activityRewardMultiplier(state: ActivityGuardState): number {
-  const completed = state.risk.dailyCompleted;
-  if (completed >= 4_000) return 0.25;
-  if (completed >= 2_500) return 0.5;
-  if (completed >= 1_500) return 0.75;
-  return 1;
-}
-
 export function activityVerificationReason(
   state: ActivityGuardState,
   activity: GuardedActivity,
 ): "volume" | "strong_signal" {
+  const totalStrongSignals = Object.values(state.activities).reduce(
+    (sum, entry) => sum + entry.strongSignals,
+    0,
+  );
   return state.activities[activity].strongSignals >= ACTIVITY_STRONG_SIGNAL_THRESHOLD ||
-    state.risk.score >= ACTIVITY_RISK_HIGH_THRESHOLD
+    totalStrongSignals >= ACTIVITY_STRONG_SIGNAL_THRESHOLD
     ? "strong_signal"
     : "volume";
 }

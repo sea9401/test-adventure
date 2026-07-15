@@ -15,12 +15,14 @@ import {
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
 } from "@/adventure/data/v2/guildExploration";
 import {
+  ALCHEMY_WORKSHOP_UPGRADES,
   EXPLORATION_HQ_UPGRADES,
   GUILD_SMITHY_UPGRADES,
   TRAINING_GROUND_UPGRADES,
   explorationHqUpgradeForLevel,
   settlementBuildingUpgradeCostText,
 } from "@/adventure/data/v2/settlement";
+import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
 import {
   GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_DRILL_IDS,
@@ -97,7 +99,7 @@ export function GuildContent() {
             fame: 0,
           }),
         ])}
-        caption="제작소·훈련장·탐사 본부가 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
+        caption="제작소·훈련장·탐사 본부·연금 공방이 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
       />
       <Table
         head={["시설", "Lv2", "Lv3", "Lv4", "Lv5"]}
@@ -105,6 +107,7 @@ export function GuildContent() {
           ["제작소", GUILD_SMITHY_UPGRADES],
           ["훈련장", TRAINING_GROUND_UPGRADES],
           ["탐사 본부", EXPLORATION_HQ_UPGRADES],
+          ["연금 공방", ALCHEMY_WORKSHOP_UPGRADES],
         ].map(([name, upgrades]) => [
           <Em key={String(name)}>{String(name)}</Em>,
           ...(upgrades as typeof GUILD_SMITHY_UPGRADES).slice(1).map(
@@ -199,6 +202,25 @@ export function GuildContent() {
           ];
         })}
         caption="협동보스 의뢰는 보상 수령 시점에 최초 1회만 집계되며, GOLD 이하는 탐사 진척으로 인정하지 않습니다."
+      />
+
+      <H2>연금 공방</H2>
+      <P>
+        연금 공방은 개인 농장에서 수확한 <Em>허브·은빛잎</Em>을 HP 또는 MP
+        충전량으로 조제하는 길드 시설입니다. 결과는 즉시 개인 충전약에 더해지며
+        거래할 수 없습니다. 연성력은 계정 단위로 매주 월요일 00:00 KST에
+        초기화되고, 길드를 옮겨도 같은 주의 사용량은 유지됩니다.
+      </P>
+      <Table
+        head={["레시피", "시설", "재료", "연성력", "충전량"]}
+        rows={GUILD_ALCHEMY_RECIPES.map((recipe) => [
+          <Em key={recipe.id}>{recipe.name}</Em>,
+          `Lv.${recipe.minFacilityLevel}`,
+          `허브 ${recipe.ingredients.herb}${recipe.ingredients.silverleaf > 0 ? ` · 은빛잎 ${recipe.ingredients.silverleaf}` : ""}`,
+          recipe.energyCost.toLocaleString("ko-KR"),
+          `+${recipe.chargeAmount.toLocaleString("ko-KR")}`,
+        ])}
+        caption="조제할 때 HP·MP·반반 충전 중 하나를 선택합니다. HP와 MP 충전량은 각각 최대 10,000,000을 넘을 수 없습니다."
       />
 
       <H2>길드 제작소</H2>

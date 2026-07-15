@@ -14,11 +14,13 @@ import { GuildExplorationPanel } from "./GuildExplorationPanel";
 import { GuildTrainingGroundPanel } from "./GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "./GuildWorkshopPanel";
 import { GuildFacilityUpgradeFund } from "./GuildFacilityUpgradeFund";
+import { GuildAlchemyWorkshopPanel } from "./GuildAlchemyWorkshopPanel";
 
 const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_smithy: "장비 제작과 대장장이 성장을 지원하는 길드 공용 시설입니다.",
   training_ground: "길드원이 매일 직업 숙련도 훈련을 받을 수 있는 시설입니다.",
   exploration_hq: "주간 길드 탐사 의뢰와 원정 진척을 관리하는 시설입니다.",
+  alchemy_workshop: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 시설입니다.",
 };
 
 const VISIBLE_GUILD_FACILITY_IDS = [
@@ -92,6 +94,15 @@ export function GuildFacilitiesPanel({
       <div className="space-y-3">
         <FacilityBackButton onClick={() => setActiveFacility(null)} />
         <GuildExplorationPanel canManage={canManage} onChanged={onChanged} />
+      </div>
+    );
+  }
+
+  if (activeFacility === "alchemy_workshop") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <GuildAlchemyWorkshopPanel />
       </div>
     );
   }
@@ -397,7 +408,8 @@ function isOpenableFacility(id: SettlementBuildingId): boolean {
   return (
     id === "guild_smithy" ||
     id === "training_ground" ||
-    id === "exploration_hq"
+    id === "exploration_hq" ||
+    id === "alchemy_workshop"
   );
 }
 

@@ -32,6 +32,8 @@ export type GuildActivity = {
     rewardGold?: number;
     rewardFame?: number;
     mapFragments?: number;
+    chargeTarget?: "hp" | "mp" | "balanced";
+    chargeAmount?: number;
   } | null;
   createdAt: string;
 };
@@ -111,6 +113,8 @@ function describe(a: GuildActivity): string {
           ? ` · 숙련도 +${a.meta.rewardMastery.toLocaleString()}`
           : ""
       }`;
+    case "alchemy_craft":
+      return `${actor} 님이 ${a.meta?.itemName ?? "충전액"}을 조제했어요 · ${alchemyTargetLabel(a.meta?.chargeTarget)} +${(a.meta?.chargeAmount ?? 0).toLocaleString()}`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -118,9 +122,16 @@ function describe(a: GuildActivity): string {
   }
 }
 
+function alchemyTargetLabel(target?: "hp" | "mp" | "balanced"): string {
+  if (target === "hp") return "HP 충전";
+  if (target === "mp") return "MP 충전";
+  return "HP·MP 충전";
+}
+
 // 타입별 좌측 점 색 — 가벼운 시각 구분.
 const DOT_CLASS: Record<string, string> = {
   guild_create: "bg-amber-500",
+  alchemy_craft: "bg-violet-500",
   member_join: "bg-emerald-500",
   role_change: "bg-sky-500",
   gold_deposit: "bg-yellow-500",

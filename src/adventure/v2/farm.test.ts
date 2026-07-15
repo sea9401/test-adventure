@@ -34,7 +34,7 @@ describe("adventurer farm", () => {
       id: "plot-1",
       cropId: "wheat",
       plantedAt: now,
-      readyAt: now + 5 * 60 * 1000,
+      readyAt: now + 60 * 60 * 1000,
     });
     expect(state.seeds.wheat).toBe(2);
   });
@@ -101,7 +101,7 @@ describe("adventurer farm", () => {
     const { state, result } = harvestPlot(
       planted,
       "plot-1",
-      1_000 + 60 * 60 * 1000,
+      1_000 + 4 * 60 * 60 * 1000,
       () => 0,
     );
 
@@ -120,11 +120,11 @@ describe("adventurer farm", () => {
       deliveries: 0,
       reputation: 0,
       reputationSpent: 0,
-      farmingXp: 12,
+      farmingXp: 60,
     });
-    expect(result.farmingXpGained).toBe(12);
-    expect(result.farmingXp).toBe(12);
-    expect(result.farmingLevel).toBe(2);
+    expect(result.farmingXpGained).toBe(60);
+    expect(result.farmingXp).toBe(60);
+    expect(result.farmingLevel).toBe(3);
     expect(state.plots[0].cropId).toBeNull();
   });
 
@@ -138,7 +138,7 @@ describe("adventurer farm", () => {
     const { state, result } = harvestPlot(
       planted,
       "plot-1",
-      1_000 + 5 * 60 * 1000,
+      1_000 + 60 * 60 * 1000,
       () => 0.5,
       { yieldBonusPct: 10, rareChancePct: 50 },
     );
@@ -147,13 +147,21 @@ describe("adventurer farm", () => {
     expect(result.rareItemId).toBe("golden_wheat");
     expect(state.inventory.wheat).toBe(5);
     expect(state.inventory.golden_wheat).toBe(1);
-    expect(result.farmingXpGained).toBe(1);
+    expect(result.farmingXpGained).toBe(15);
   });
 
-  it("uses conservative crop grow time farming xp and a curved farming level", () => {
-    expect(farmCropMasteryGain("wheat")).toBe(1);
-    expect(farmCropMasteryGain("herb")).toBe(3);
-    expect(farmCropMasteryGain("corn")).toBe(12);
+  it("reduces the hourly farming xp rate after four hours", () => {
+    expect(farmCropMasteryGain("wheat")).toBe(15);
+    expect(farmCropMasteryGain("herb")).toBe(30);
+    expect(farmCropMasteryGain("tomato")).toBe(60);
+    expect(farmCropMasteryGain("strawberry")).toBe(76);
+    expect(farmCropMasteryGain("corn")).toBe(60);
+    expect(farmCropMasteryGain("potato")).toBe(92);
+    expect(farmCropMasteryGain("onion")).toBe(108);
+    expect(farmCropMasteryGain("rice")).toBe(124);
+    expect(farmCropMasteryGain("soybean")).toBe(156);
+    expect(farmCropMasteryGain("sugarcane")).toBe(188);
+    expect(farmCropMasteryGain("cacao")).toBe(220);
     expect(farmingLevelForXp(0)).toBe(1);
     expect(farmingLevelForXp(810)).toBe(10);
     expect(farmingLevelForXp(24010)).toBe(50);

@@ -7,7 +7,11 @@ export const FARM_MAX_PLOT_COUNT = 6;
 export const FARM_DAILY_DELIVERY_LIMIT = 2;
 
 export const FARMING_LEVEL_XP_SCALE = 10;
-export const FARMING_XP_MS_PER_POINT = 5 * 60 * 1000;
+// 짧은 작물은 4분당 1점을 주되, 4시간을 넘는 장기 작물은 초과 시간의 효율을
+// 7분 30초당 1점으로 낮춰 후반 작물의 경험치가 지나치게 커지지 않게 한다.
+export const FARMING_XP_MS_PER_POINT = 4 * 60 * 1000;
+export const FARMING_XP_FULL_RATE_MS = 4 * 60 * 60 * 1000;
+export const FARMING_XP_LATE_MS_PER_POINT = 7.5 * 60 * 1000;
 
 export type FarmCropId =
   | "wheat"
@@ -300,7 +304,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "밀",
     rareItemId: "golden_wheat",
     rareItemName: "황금 밀",
-    growMs: 5 * 60 * 1000,
+    growMs: 60 * 60 * 1000,
     yieldMin: 3,
     yieldMax: 5,
     rareChance: 0.05,
@@ -314,7 +318,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "허브",
     rareItemId: "silverleaf",
     rareItemName: "은빛잎",
-    growMs: 15 * 60 * 1000,
+    growMs: 2 * 60 * 60 * 1000,
     yieldMin: 2,
     yieldMax: 4,
     rareChance: 0.08,
@@ -328,7 +332,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "옥수수",
     rareItemId: "sweet_corn",
     rareItemName: "달콤 옥수수",
-    growMs: 60 * 60 * 1000,
+    growMs: 4 * 60 * 60 * 1000,
     yieldMin: 5,
     yieldMax: 8,
     rareChance: 0.1,
@@ -344,7 +348,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "토마토",
     rareItemId: "heirloom_tomato",
     rareItemName: "고대종 토마토",
-    growMs: 30 * 60 * 1000,
+    growMs: 4 * 60 * 60 * 1000,
     yieldMin: 3,
     yieldMax: 5,
     rareChance: 0.08,
@@ -360,7 +364,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "딸기",
     rareItemId: "white_strawberry",
     rareItemName: "설향 딸기",
-    growMs: 45 * 60 * 1000,
+    growMs: 6 * 60 * 60 * 1000,
     yieldMin: 2,
     yieldMax: 4,
     rareChance: 0.1,
@@ -376,7 +380,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "감자",
     rareItemId: "golden_potato",
     rareItemName: "황금 감자",
-    growMs: 90 * 60 * 1000,
+    growMs: 8 * 60 * 60 * 1000,
     yieldMin: 4,
     yieldMax: 7,
     rareChance: 0.07,
@@ -392,7 +396,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "양파",
     rareItemId: "pearl_onion",
     rareItemName: "진주 양파",
-    growMs: 2 * 60 * 60 * 1000,
+    growMs: 10 * 60 * 60 * 1000,
     yieldMin: 3,
     yieldMax: 6,
     rareChance: 0.08,
@@ -408,7 +412,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "쌀",
     rareItemId: "golden_rice",
     rareItemName: "황금 쌀",
-    growMs: 3 * 60 * 60 * 1000,
+    growMs: 12 * 60 * 60 * 1000,
     yieldMin: 5,
     yieldMax: 8,
     rareChance: 0.06,
@@ -424,7 +428,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "콩",
     rareItemId: "black_soybean",
     rareItemName: "검은콩",
-    growMs: 4 * 60 * 60 * 1000,
+    growMs: 16 * 60 * 60 * 1000,
     yieldMin: 4,
     yieldMax: 7,
     rareChance: 0.08,
@@ -440,7 +444,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "사탕수수",
     rareItemId: "crystal_sugarcane",
     rareItemName: "수정 사탕수수",
-    growMs: 6 * 60 * 60 * 1000,
+    growMs: 20 * 60 * 60 * 1000,
     yieldMin: 4,
     yieldMax: 6,
     rareChance: 0.07,
@@ -456,7 +460,7 @@ export const FARM_CROPS: Record<FarmCropId, FarmCrop> = {
     itemName: "카카오",
     rareItemId: "royal_cacao",
     rareItemName: "왕실 카카오",
-    growMs: 8 * 60 * 60 * 1000,
+    growMs: 24 * 60 * 60 * 1000,
     yieldMin: 3,
     yieldMax: 5,
     rareChance: 0.1,
@@ -811,7 +815,15 @@ export function farmAvailableReputation(state: FarmState): number {
 
 export function farmCropMasteryGain(cropId: FarmCropId): number {
   const crop = FARM_CROPS[cropId];
-  return Math.max(1, Math.round(crop.growMs / FARMING_XP_MS_PER_POINT));
+  const fullRateMs = Math.min(crop.growMs, FARMING_XP_FULL_RATE_MS);
+  const lateRateMs = Math.max(0, crop.growMs - FARMING_XP_FULL_RATE_MS);
+  return Math.max(
+    1,
+    Math.round(
+      fullRateMs / FARMING_XP_MS_PER_POINT +
+        lateRateMs / FARMING_XP_LATE_MS_PER_POINT,
+    ),
+  );
 }
 
 export function farmingLevelXpThreshold(level: number): number {

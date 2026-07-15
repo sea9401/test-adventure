@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users, savesKv } from "@/db/schema";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
-import { checkSession } from "@/lib/server/checkSession";
+import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     return new Response("server error (auth)", { status: 500 });
   }
   if (!userId) return new Response("unauthorized", { status: 401 });
-  const sessionFail = await checkSession(userId, req);
+  const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
   const uid = userId;
 

@@ -2,7 +2,7 @@ import { and, count, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceInbox, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { checkSession } from "@/lib/server/checkSession";
+import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { upsertSave } from "@/lib/server/savesKv";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
@@ -92,9 +92,9 @@ async function findRecipientByName(
 // 검증: 본인 차단, 길이, rate limit (마지막 발송 + 24h 누적), 수신자 존재.
 // attachedRecipeId 가 있으면 inbox kind='recipe_gift' 로 적재 (text 는 message).
 export async function POST(req: Request) {
-  const senderId = await ensureUser();
+  const senderId = await ensureUser({ skipDeviceCheck: true });
   if (!senderId) return new Response("unauthorized", { status: 401 });
-  const sessionFail = await checkSession(senderId, req);
+  const sessionFail = await requireActiveDeviceSession(senderId, req);
   if (sessionFail) return sessionFail;
 
   let body: {

@@ -128,6 +128,20 @@ describe("createRemoteSave", () => {
     vi.useRealTimers();
   });
 
+  it("하트비트가 기기 무효화를 알리면 session-invalidated 로 전환한다", () => {
+    const { fakeFetch } = makeFakeFetch({});
+    const remote = createRemoteSave({
+      fetchImpl: fakeFetch as unknown as typeof fetch,
+    });
+    const listener = vi.fn();
+    remote.subscribe(listener);
+
+    remote.invalidateSession();
+
+    expect(remote.status().kind).toBe("session-invalidated");
+    expect(listener).toHaveBeenCalledWith({ kind: "session-invalidated" });
+  });
+
   it("loadAll — 알 수 없는 키 필터링 + version 추출", async () => {
     const { fakeFetch } = makeFakeFetch({
       loadResponse: {

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRemoteSave } from "./storage/SaveProvider";
 import { APP_BUILD_VERSION } from "./clientVersion";
 
-const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_INTERVAL_MS = 15_000;
 // buildVersion 불일치 감지 후 reload 까지 대기 시간. PATCH 디바운스(500ms) +
 // 네트워크 RTT + 안전 마진. 그 사이 status idle 이 관찰되면 즉시 reload.
 const RELOAD_GRACE_MS = 2_000;
@@ -81,9 +81,20 @@ export function usePresenceHeartbeat({
           body: JSON.stringify({ name, className, title: title ?? null }),
           keepalive: true,
         });
+        if (res.status === 410) {
+          remote.invalidateSession();
+          return;
+        }
         if (cancelled || !res.ok) return;
         try {
-          const body = (await res.json()) as { buildVersion?: string };
+          const body = (await res.json()) as {
+            buildVersion?: string;
+            sessionInvalidated?: boolean;
+          };
+          if (body.sessionInvalidated) {
+            remote.invalidateSession();
+            return;
+          }
           if (
             typeof body.buildVersion === "string" &&
             body.buildVersion !== APP_BUILD_VERSION
@@ -101,9 +112,15 @@ export function usePresenceHeartbeat({
     const id = setInterval(() => {
       if (!cancelled) ping();
     }, HEARTBEAT_INTERVAL_MS);
+    // 백그라운드 모바일은 타이머가 멈출 수 있다. 다시 화면을 보는 순간 바로 검증한다.
+    const onVisibilityChange = () => {
+      if (!cancelled && document.visibilityState === "visible") void ping();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
     // remote 는 SaveProvider context — render 마다 새 reference 일 수 있어 의도적으로 deps 제외.
     // 같은 세션 안에서 remote instance 는 사실상 안정적.

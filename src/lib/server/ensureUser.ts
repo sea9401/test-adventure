@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import {
+  DEVICE_SESSION_COOKIE,
+  isValidDeviceSessionId,
+} from "@/lib/deviceSessionConfig";
 import { readAdminImpersonationFor } from "@/lib/server/adminImpersonation";
 
 // API 라우트 진입 시 호출 — Auth.js 세션에서 userId 반환.
@@ -18,6 +23,7 @@ import { readAdminImpersonationFor } from "@/lib/server/adminImpersonation";
 async function ensureOriginalUserContext(): Promise<{
   id: string;
   email: string | null;
+  activeSessionId: string | null;
 } | null> {
   const session = await auth();
   if (!session?.user?.id) return null;
@@ -44,7 +50,10 @@ async function ensureOriginalUserContext(): Promise<{
   //   ⚠️ 현재는 401 → 클라가 "세션 만료" 화면을 띄움(전용 밴 안내 화면은 후속). 차단 자체는
   //      확실(밴 유저는 어떤 게임 행동도 불가). 관리자 페이지(requireAdmin)는 이 경로와 무관.
   const [row] = await db
-    .select({ bannedUntil: users.bannedUntil })
+    .select({
+      bannedUntil: users.bannedUntil,
+      activeSessionId: users.activeSessionId,
+    })
     .from(users)
     .where(eq(users.id, session.user.id))
     .limit(1);
@@ -52,7 +61,11 @@ async function ensureOriginalUserContext(): Promise<{
     return null;
   }
 
-  return { id: session.user.id, email: session.user.email ?? null };
+  return {
+    id: session.user.id,
+    email: session.user.email ?? null,
+    activeSessionId: row?.activeSessionId ?? null,
+  };
 }
 
 /** 계정 삭제·OAuth·단일 세션 같은 보안 기능이 사용할 원래 로그인 유저. */
@@ -60,9 +73,23 @@ export async function ensureOriginalUser(): Promise<string | null> {
   return (await ensureOriginalUserContext())?.id ?? null;
 }
 
-export async function ensureUser(): Promise<string | null> {
+export async function ensureUser(options?: {
+  // checkSession 이 직접 410을 반환해야 하는 기존 라우트에서만 사용한다.
+  skipDeviceCheck?: boolean;
+}): Promise<string | null> {
   const original = await ensureOriginalUserContext();
   if (!original) return null;
+
+  if (!options?.skipDeviceCheck) {
+    const incoming = (await cookies()).get(DEVICE_SESSION_COOKIE)?.value;
+    if (
+      !isValidDeviceSessionId(incoming) ||
+      original.activeSessionId === null ||
+      original.activeSessionId !== incoming
+    ) {
+      return null;
+    }
+  }
 
   const impersonation = await readAdminImpersonationFor(
     original.id,

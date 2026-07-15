@@ -81,6 +81,7 @@ describe("woodcutting routes", () => {
   it("start — 체크포인트가 걸리면 관리형 사람 확인을 요구한다", async () => {
     vi.stubEnv("TURNSTILE_SITE_KEY", "site");
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+    vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
       version: 1,
       activities: {

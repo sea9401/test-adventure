@@ -88,6 +88,7 @@ describe("mining routes", () => {
   it("start — 채광 사람 확인 체크포인트를 적용한다", async () => {
     vi.stubEnv("TURNSTILE_SITE_KEY", "site");
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+    vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
       version: 1,
       activities: { mining: { verificationRequiredAt: NOW } },

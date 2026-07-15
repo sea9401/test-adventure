@@ -187,7 +187,8 @@ bash deploy/maintenance.sh status   # 현재 상태
 
 장시간 생활 콘텐츠 사람 확인:
 - Cloudflare Turnstile 위젯에 `msmsge.com`을 등록하고 `TURNSTILE_SITE_KEY`,
-  `TURNSTILE_SECRET_KEY`를 EC2 `.env.production.local`에 설정한다.
+  `TURNSTILE_SECRET_KEY`, `TURNSTILE_EXPECTED_HOSTNAMES=msmsge.com,www.msmsge.com`을
+  EC2 `.env.production.local`에 설정한다. 세 값 중 하나라도 비어 있으면 배포 사전 검사가 실패한다.
 - 둘 중 하나라도 없으면 이용자를 차단하지 않고 요청 강신호·일일 극단 수급 감시만 동작한다.
 - 키를 설정하면 벌목·낚시가 연속 100회 또는 60분에 도달했을 때 다음 시작 요청에서
   사람 확인을 요구한다. 토큰은 서버 Siteverify에서 action 일치까지 검증한 뒤 즉시 소비한다.

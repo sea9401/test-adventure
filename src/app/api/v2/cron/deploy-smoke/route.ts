@@ -2,6 +2,7 @@ import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { abuseEvents, adminAuditLog, economyEvents, opsSettings } from "@/db/schema";
 import { requireCronAuth } from "@/lib/server/cronAuth";
+import { turnstileConfig } from "@/lib/server/turnstile";
 import {
   readAlertThresholdSettings,
   readHotTimeSchedules,
@@ -13,6 +14,14 @@ import {
 export async function POST(req: Request) {
   const unauthorized = requireCronAuth(req);
   if (unauthorized) return unauthorized;
+
+  const turnstile = turnstileConfig();
+  if (!turnstile.configured) {
+    return Response.json(
+      { ok: false, error: "turnstile_unconfigured" },
+      { status: 503 },
+    );
+  }
 
   const [
     hotTime,
@@ -60,6 +69,7 @@ export async function POST(req: Request) {
 
   return Response.json({
     ok: true,
+    turnstileConfigured: true,
     hotTimeEnabled: hotTime.hotTime.enabled,
     economyReadable: Array.isArray(economy),
     abuseReadable: Array.isArray(abuse),

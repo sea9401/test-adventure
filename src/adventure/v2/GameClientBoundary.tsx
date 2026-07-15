@@ -10,6 +10,7 @@ import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { GameStateProvider } from "./GameStateProvider";
 import { GameChrome } from "./GameChrome";
 import { RewardToastProvider } from "./RewardToastProvider";
+import { PlayerSanctionGate } from "./PlayerSanctionGate";
 
 // 게임 라우트 그룹 (app/(game)) 의 클라이언트 경계.
 // SaveProvider / STARTER_SAVES 등 client hook chain (useCharacterState → useRemotePatch)
@@ -25,15 +26,17 @@ export function GameClientBoundary({
   children: React.ReactNode;
 }) {
   return (
-    <SaveProvider starters={STARTER_SAVES}>
-      <OnboardingGate>
-        <GameStateProvider>
-          <RewardToastProvider>
-            <GameChrome>{children}</GameChrome>
-          </RewardToastProvider>
-        </GameStateProvider>
-      </OnboardingGate>
-    </SaveProvider>
+    <PlayerSanctionGate>
+      <SaveProvider starters={STARTER_SAVES}>
+        <OnboardingGate>
+          <GameStateProvider>
+            <RewardToastProvider>
+              <GameChrome>{children}</GameChrome>
+            </RewardToastProvider>
+          </GameStateProvider>
+        </OnboardingGate>
+      </SaveProvider>
+    </PlayerSanctionGate>
   );
 }
 

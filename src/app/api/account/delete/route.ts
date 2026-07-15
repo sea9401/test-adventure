@@ -4,6 +4,7 @@ import { guildMembers, users } from "@/db/schema";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import { getActiveAdminImpersonation } from "@/lib/server/adminImpersonation";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
+import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 
 // POST /api/account/delete — body { confirm: string }
 // 회원 탈퇴. confirm 은 본인 인게임 닉네임(gameName)과 정확히 일치해야 한다 — 오작동/오클릭 방어.
@@ -29,6 +30,8 @@ export async function POST(req: Request) {
   }
   const userId = await ensureOriginalUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
+  const sessionFail = await requireActiveDeviceSession(userId, req);
+  if (sessionFail) return sessionFail;
 
   let body: { confirm?: unknown };
   try {

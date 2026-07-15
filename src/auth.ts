@@ -12,6 +12,7 @@ import {
   verificationTokens,
 } from "@/db/schema";
 import { authConfig } from "@/auth.config";
+import { DEVICE_SESSION_TAKEOVER_COOKIE } from "@/lib/deviceSessionConfig";
 
 declare module "next-auth" {
   interface Session {
@@ -67,6 +68,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       if (!account) return true;
 
       const cookieStore = await cookies();
+      // OAuth 로그인을 실제로 마친 브라우저만 기존 활성 기기를 교체할 수 있다.
+      // 단순 새로고침은 이 표식이 없으므로 다른 기기의 세션을 되찾아가지 못한다.
+      cookieStore.set(DEVICE_SESSION_TAKEOVER_COOKIE, "1", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 5 * 60,
+        priority: "high",
+      });
       const linkUserId = cookieStore.get("link_user_id")?.value;
       if (!linkUserId) return true;
 

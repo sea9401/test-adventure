@@ -20,7 +20,7 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { checkSession, requireSessionHeader } from "./checkSession";
+import { checkSession, requireActiveDeviceSession } from "./checkSession";
 
 function request(sessionId?: string): Request {
   return new Request("http://test/api/save", {
@@ -40,6 +40,17 @@ describe("checkSession impersonation", () => {
     expect(response?.status).toBe(410);
   });
 
+  it("HttpOnly 기기 쿠키가 일치하면 통과한다", async () => {
+    mocks.stored = "cookie-device";
+    const response = await checkSession(
+      "target",
+      new Request("http://test/api/save", {
+        headers: { cookie: "game-device-session.v1=cookie-device" },
+      }),
+    );
+    expect(response).toBeNull();
+  });
+
   it("관리자 가장 중에는 대상의 실제 접속을 끊지 않고 통과한다", async () => {
     mocks.active.mockResolvedValue({ targetUserId: "target" });
     await expect(
@@ -49,7 +60,7 @@ describe("checkSession impersonation", () => {
 
   it("변경 API의 세션 헤더 요구는 가장 중에도 유지한다", async () => {
     mocks.active.mockResolvedValue({ targetUserId: "target" });
-    const response = await requireSessionHeader("target", request());
+    const response = await requireActiveDeviceSession("target", request());
     expect(response?.status).toBe(401);
   });
 });

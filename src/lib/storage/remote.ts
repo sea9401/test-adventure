@@ -44,6 +44,8 @@ export type RemoteSave = {
   flushSync(): void;
   status(): RemoteSaveStatus;
   subscribe(listener: RemoteSaveListener): () => void;
+  // presence heartbeat 등 저장 요청 밖에서 비활성 기기임을 감지했을 때 사용.
+  invalidateSession(): void;
 };
 
 type Options = {
@@ -359,6 +361,14 @@ export function createRemoteSave(options: Options = {}): RemoteSave {
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    invalidateSession() {
+      pending.clear();
+      if (flushTimer !== null) {
+        _clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      setStatus({ kind: "session-invalidated" });
     },
   };
 }

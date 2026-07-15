@@ -51,6 +51,7 @@ export function SaveProvider({
 }) {
   const [state, setState] = useState<ProviderState>({ status: "loading" });
   const remoteRef = useRef<RemoteSave | null>(null);
+  const invalidatedLogoutRef = useRef(false);
   // 부트스트랩 effect 는 한 번만 실행 (deps []) — starters 도 mount 시점 값만 보면 충분.
   // useRef 의 initial argument 가 그 스냅샷 역할 (이후 prop 변경은 무시).
   const startersAtMountRef = useRef(starters);
@@ -62,18 +63,44 @@ export function SaveProvider({
     const detach = attachUnloadFlush(remote);
 
     let cancelled = false;
+    const invalidateAndLogout = () => {
+      if (invalidatedLogoutRef.current) return;
+      invalidatedLogoutRef.current = true;
+      setState({ status: "session-invalidated" });
+      void (async () => {
+        try {
+          await signOut({ redirect: false });
+        } catch {}
+        if (typeof window !== "undefined") {
+          window.location.replace("/sign-in?reason=other-device");
+        }
+      })();
+    };
     (async () => {
       try {
-        // 1) 이 디바이스를 활성 세션으로 claim. 다른 디바이스의 다음 호출은 410.
-        //    실패해도 (네트워크 등) 진행 — 첫 GET 도 헤더는 보내니 다른 디바이스가
-        //    먼저 claim 한 상태면 그 GET 이 410 으로 바로 처리됨.
+        // 1) 이 디바이스를 활성 세션으로 claim. 성공하면 서버가 HttpOnly 기기 쿠키를
+        //    발급한다. 다른 기기가 활성 상태면 409를 받아 자동 로그아웃한다.
+        let claimResponse: Response;
         try {
-          await fetch("/api/session/claim", {
+          claimResponse = await fetch("/api/session/claim", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sessionId }),
           });
-        } catch {}
+        } catch {
+          throw new Error("기기 세션을 확인하지 못했습니다.");
+        }
+        if (claimResponse.status === 409 || claimResponse.status === 410) {
+          invalidateAndLogout();
+          return;
+        }
+        if (claimResponse.status === 401) {
+          setState({ status: "session-expired" });
+          return;
+        }
+        if (!claimResponse.ok) {
+          throw new Error(`기기 세션 확인 실패 (${claimResponse.status})`);
+        }
         if (cancelled) return;
 
         const { data: serverData, versions } = await remote.loadAll();
@@ -176,7 +203,7 @@ export function SaveProvider({
         setState({ status: "session-expired" });
       }
       if (s.kind === "session-invalidated") {
-        setState({ status: "session-invalidated" });
+        invalidateAndLogout();
       }
     });
 
@@ -255,8 +282,7 @@ export function SaveProvider({
             다른 디바이스에서 로그인됐습니다
           </div>
           <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            동시 접속을 막기 위해 이 세션은 종료됩니다. 이 디바이스에서 계속 플레이하려면
-            로그아웃 후 다시 로그인하세요.
+            동시 접속을 막기 위해 이 세션을 종료하고 로그인 화면으로 이동합니다.
           </div>
         </div>
         <button

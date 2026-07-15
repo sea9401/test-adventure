@@ -2,7 +2,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { checkSession } from "@/lib/server/checkSession";
+import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import { sanitizeSavePayload } from "@/lib/server/saveSanitize";
 import { isSyncedKey } from "@/lib/storage/synced-keys";
 
@@ -11,9 +11,9 @@ import { isSyncedKey } from "@/lib/storage/synced-keys";
 // 응답: { <key>: <value>, ..., "_version": { <key>: <number> } }
 //        _version 은 동기화 키가 아니므로 클라이언트의 isSyncedKey 필터에서 자연스럽게 제외됨.
 export async function GET(req: Request) {
-  const userId = await ensureUser();
+  const userId = await ensureUser({ skipDeviceCheck: true });
   if (!userId) return new Response("unauthorized", { status: 401 });
-  const sessionFail = await checkSession(userId, req);
+  const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
 
   const rows = await db
@@ -45,9 +45,9 @@ export async function GET(req: Request) {
 // 성공 응답: { ok: true, version: <new number> }
 // 충돌 응답 (409): { error: "stale", currentVersion: <number | null> }
 export async function PATCH(req: Request) {
-  const userId = await ensureUser();
+  const userId = await ensureUser({ skipDeviceCheck: true });
   if (!userId) return new Response("unauthorized", { status: 401 });
-  const sessionFail = await checkSession(userId, req);
+  const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
 
   const url = new URL(req.url);
@@ -206,9 +206,9 @@ export async function PATCH(req: Request) {
 // DELETE /api/save — 사용자의 모든 동기화 데이터 제거 (관리자 페이지에서 사용).
 // DELETE /api/save?key=character.v1 — 단일 키만 제거.
 export async function DELETE(req: Request) {
-  const userId = await ensureUser();
+  const userId = await ensureUser({ skipDeviceCheck: true });
   if (!userId) return new Response("unauthorized", { status: 401 });
-  const sessionFail = await checkSession(userId, req);
+  const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
 
   const url = new URL(req.url);
@@ -227,4 +227,3 @@ export async function DELETE(req: Request) {
 
   return Response.json({ ok: true });
 }
-

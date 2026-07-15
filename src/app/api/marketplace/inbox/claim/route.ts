@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceInbox, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { checkSession } from "@/lib/server/checkSession";
+import { requireActiveDeviceSession } from "@/lib/server/checkSession";
 import {
   parseInboxPayload,
   type SeasonRewardSeason,
@@ -58,9 +58,9 @@ type AddRecipe = {
 //   4) inbox claimed_at = NOW
 // 응답: 새 골드, 새 인벤토리, 추가된 항목 — 클라이언트가 즉시 반영.
 export async function POST(req: Request) {
-  const userId = await ensureUser();
+  const userId = await ensureUser({ skipDeviceCheck: true });
   if (!userId) return new Response("unauthorized", { status: 401 });
-  const sessionFail = await checkSession(userId, req);
+  const sessionFail = await requireActiveDeviceSession(userId, req);
   if (sessionFail) return sessionFail;
 
   let body: { ids?: unknown };

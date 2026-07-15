@@ -13,7 +13,7 @@ vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u1"),
 }));
 vi.mock("@/lib/server/checkSession", () => ({
-  checkSession: vi.fn(async () => null),
+  requireActiveDeviceSession: vi.fn(async () => null),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   upsertSave: vi.fn(async (_tx: unknown, u: string, key: string, v: unknown) => {

@@ -68,8 +68,9 @@ export const COOP_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
   bronze: 0.03,
   silver: 0.1,
   gold: 0.2,
-  epic: 0.4,
-  legend: 0.45,
+  epic: 0.3,
+  // 선공자가 기여도를 쌓은 뒤 공개한 보스도 다른 이용자가 마무리할 동기를 얻도록 완화한다.
+  legend: 0.35,
 };
 
 export const COOP_HARD_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
@@ -77,7 +78,7 @@ export const COOP_HARD_TIER_THRESHOLDS: Record<CoopRewardTier, number> = {
   silver: 0.1,
   gold: 0.18,
   epic: 0.3,
-  legend: 0.45,
+  legend: 0.35,
 };
 
 export const COOP_TIER_LABEL: Record<CoopRewardTier, string> = {

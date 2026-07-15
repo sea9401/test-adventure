@@ -406,6 +406,10 @@ function FarmSummary({ farm }: { farm: FarmState }) {
         icon={<Leaf size={17} weight="duotone" />}
         label="레벨 EXP"
         value={farmingLevelProgressText}
+        progress={{
+          value: farmingLevelProgress,
+          max: farmingLevelRequired,
+        }}
       />
       <SummaryTile
         icon={<Sparkle size={17} weight="duotone" />}
@@ -468,18 +472,40 @@ function SummaryTile({
   icon,
   label,
   value,
+  progress,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
+  progress?: { value: number; max: number };
 }) {
+  const progressPct = progress
+    ? Math.max(0, Math.min(100, (progress.value / Math.max(1, progress.max)) * 100))
+    : 0;
+
   return (
     <div className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-zinc-900 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
         {icon}
         {label}
       </div>
-      <div className="mt-1 text-base font-black">{value}</div>
+      <div className="mt-1 text-base font-black tabular-nums">{value}</div>
+      {progress ? (
+        <div
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={progress.max}
+          aria-valuenow={progress.value}
+          aria-valuetext={value}
+          className="mt-2 h-2 overflow-hidden rounded-full bg-emerald-100 dark:bg-emerald-900"
+        >
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-[width] duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

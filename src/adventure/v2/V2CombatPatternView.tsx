@@ -110,6 +110,63 @@ const sel =
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
+function PatternNumberInput({
+  value,
+  min,
+  max,
+  onValueChange,
+}: {
+  value: number;
+  min: number;
+  max?: number;
+  onValueChange: (value: number) => void;
+}) {
+  // 패턴 데이터는 항상 유효한 number 로 유지하되, 입력 중에만 빈 문자열을 허용한다.
+  // 기존 값을 모두 지운 뒤 새 수를 입력할 때 0/1이 즉시 끼어드는 문제를 피한다.
+  const [draft, setDraft] = useState<string | null>(null);
+  const displayedValue = draft ?? String(value);
+
+  const normalize = (raw: string) => {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(
+      min,
+      Math.min(max ?? Number.POSITIVE_INFINITY, Math.floor(parsed)),
+    );
+  };
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={min}
+      max={max}
+      className={num}
+      value={displayedValue}
+      onChange={(event) => {
+        const raw = event.target.value;
+        if (raw === "") {
+          setDraft("");
+          return;
+        }
+        const next = normalize(raw);
+        if (next == null) {
+          setDraft(raw);
+          return;
+        }
+        setDraft(String(next));
+        onValueChange(next);
+      }}
+      onBlur={() => {
+        const next = normalize(displayedValue);
+        setDraft(null);
+        if (next == null || displayedValue === "") return;
+        if (next !== value) onValueChange(next);
+      }}
+    />
+  );
+}
+
 function actionSkillId(action: V2CombatAction): string | null {
   return action.kind === "skill" ? action.skillId : null;
 }
@@ -614,8 +671,13 @@ function ConditionParams({
             <option value="below">이하</option>
             <option value="above">이상</option>
           </select>
-          <input type="number" min={0} max={100} className={num} value={c.pct}
-            onChange={(e) => onChange({ ...c, pct: clampPct(e.target.value) })} />
+          <PatternNumberInput
+            key={`${c.kind}-pct`}
+            min={0}
+            max={100}
+            value={c.pct}
+            onValueChange={(pct) => onChange({ ...c, pct })}
+          />
           <span className="text-zinc-400">%</span>
         </>
       );
@@ -675,8 +737,12 @@ function ConditionParams({
             <option value="none">없을 때</option>
           </select>
           {c.op === "atLeast" && (
-            <input type="number" min={1} className={num} value={c.stacks}
-              onChange={(e) => onChange({ ...c, stacks: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} />
+            <PatternNumberInput
+              key="enemy-status-stacks"
+              min={1}
+              value={c.stacks}
+              onValueChange={(stacks) => onChange({ ...c, stacks })}
+            />
           )}
         </>
       );
@@ -689,8 +755,12 @@ function ConditionParams({
             <option value="atLeast">이상</option>
             <option value="every">매 (배수)</option>
           </select>
-          <input type="number" min={1} className={num} value={c.value}
-            onChange={(e) => onChange({ ...c, value: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} />
+          <PatternNumberInput
+            key="turn-value"
+            min={1}
+            value={c.value}
+            onValueChange={(value) => onChange({ ...c, value })}
+          />
           <span className="text-zinc-400">턴</span>
         </>
       );
@@ -764,8 +834,4 @@ function CompoundConditionParams({
       )}
     </div>
   );
-}
-
-function clampPct(v: string): number {
-  return Math.max(0, Math.min(100, Math.floor(Number(v) || 0)));
 }

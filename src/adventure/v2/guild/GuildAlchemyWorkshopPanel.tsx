@@ -36,6 +36,9 @@ const TARGETS: Array<{ id: GuildAlchemyChargeTarget; label: string }> = [
   { id: "balanced", label: "반반 충전" },
 ];
 
+const ALCHEMY_PANEL_CLASS =
+  "space-y-3 rounded-md border border-violet-200 bg-white p-3 text-sm text-zinc-900 shadow-sm dark:border-violet-900/60 dark:bg-zinc-950 dark:text-zinc-100";
+
 export function GuildAlchemyWorkshopPanel() {
   const { applyResourcePatch } = useGameState();
   const [state, setState] = useState<WorkshopState | null>(null);
@@ -112,12 +115,16 @@ export function GuildAlchemyWorkshopPanel() {
   const stageName = useMemo(() => state?.stageLabel, [state]);
 
   if (loading && !state) {
-    return <p className="text-sm text-zinc-500 dark:text-zinc-400">연금 공방 확인 중…</p>;
+    return (
+      <section className={ALCHEMY_PANEL_CLASS}>
+        <p className="text-zinc-500 dark:text-zinc-400">연금 공방 확인 중…</p>
+      </section>
+    );
   }
   if (!state) {
     return (
-      <div className="space-y-2">
-        <p className="text-sm text-red-600 dark:text-red-300">
+      <section className={ALCHEMY_PANEL_CLASS}>
+        <p className="text-red-600 dark:text-red-300">
           {notice?.text ?? "연금 공방을 이용할 수 없습니다."}
         </p>
         <button
@@ -130,13 +137,13 @@ export function GuildAlchemyWorkshopPanel() {
         >
           다시 시도
         </button>
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <section className="rounded-lg border border-violet-200 bg-violet-50/70 p-4 dark:border-violet-900 dark:bg-violet-950/20">
+    <section className={ALCHEMY_PANEL_CLASS}>
+      <section className="rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -192,8 +199,8 @@ export function GuildAlchemyWorkshopPanel() {
         <p
           className={`rounded-md border px-3 py-2 text-sm ${
             notice.kind === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
-              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
           }`}
         >
           {notice.text}
@@ -211,7 +218,7 @@ export function GuildAlchemyWorkshopPanel() {
               className={`rounded-lg border p-3 ${
                 recipe.unlocked
                   ? "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
-                  : "border-zinc-200 bg-zinc-100 opacity-70 dark:border-zinc-800 dark:bg-zinc-900/50"
+                  : "border-zinc-200 bg-zinc-100 opacity-70 dark:border-zinc-800 dark:bg-zinc-900"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -269,7 +276,7 @@ export function GuildAlchemyWorkshopPanel() {
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         연성력은 매주 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도 이번 주 사용량은 유지됩니다.
       </p>
-    </div>
+    </section>
   );
 }
 

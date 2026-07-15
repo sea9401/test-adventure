@@ -383,6 +383,8 @@ export const MARGIN = 8; // 뷰포트 가장자리 여백
 export type ItemCardEquipAction = {
   isEquipped: boolean;
   busy: boolean;
+  /** 진행도 등으로 새 장착이 불가능할 때 표시할 사용자 안내. 해제는 항상 허용한다. */
+  disabledReason?: string;
   onEquip: () => void;
   onUnequip: () => void;
 };

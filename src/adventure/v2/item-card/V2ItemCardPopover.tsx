@@ -350,6 +350,12 @@ export function V2ItemCard({
           </p>
         )}
 
+        {equip && !equip.isEquipped && equip.disabledReason && (
+          <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            착용 조건: {equip.disabledReason}
+          </p>
+        )}
+
         {(compare || equip) && (
           <div
             className={`mt-3 grid gap-2 ${
@@ -368,7 +374,10 @@ export function V2ItemCard({
             {equip && (
               <Button
                 onClick={equip.isEquipped ? equip.onUnequip : equip.onEquip}
-                disabled={equip.busy}
+                disabled={
+                  equip.busy ||
+                  (!equip.isEquipped && Boolean(equip.disabledReason))
+                }
                 variant={equip.isEquipped ? "secondary" : "success"}
                 size="md"
               >
@@ -376,7 +385,9 @@ export function V2ItemCard({
                   ? "처리 중…"
                   : equip.isEquipped
                     ? "해제"
-                    : "장착하기"}
+                    : equip.disabledReason
+                      ? "착용 조건 미달"
+                      : "장착하기"}
               </Button>
             )}
           </div>

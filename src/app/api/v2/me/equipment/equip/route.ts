@@ -7,6 +7,10 @@ import {
   type EquipmentSave,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  equipmentProgressionLock,
+  normalizeEquipmentFrontierDepth,
+} from "@/adventure/data/v2/equipmentProgression";
 
 // POST /api/v2/me/equipment/equip — 한 슬롯의 장착 변경 (개체 모델, iid 기준).
 //
@@ -53,6 +57,14 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
+    // 공용 잠금 순서 character→equipment 유지. 진행도는 전투 승리로만 증가하므로 장착 판정과
+    // equipment 저장을 같은 트랜잭션에서 묶으면 우회·경합 없이 서버가 최종 권위를 가진다.
+    const charSave = await lockSaveForUpdate<{ frontierDepth?: unknown }>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
     const save = await lockSaveForUpdate<EquipmentSave>(
       tx,
       userId,
@@ -79,6 +91,24 @@ export async function POST(req: Request) {
             ok: false as const,
             error: "slot_mismatch" as const,
             expected: item.slot,
+          },
+        };
+      }
+      const progressionLock = equipmentProgressionLock(
+        item,
+        charSave.frontierDepth,
+      );
+      if (progressionLock) {
+        return {
+          status: 400,
+          body: {
+            ok: false as const,
+            error: "progression_locked" as const,
+            currentFrontierDepth: normalizeEquipmentFrontierDepth(
+              charSave.frontierDepth,
+            ),
+            requiredFrontierDepth: progressionLock.minFrontierDepth,
+            requirementLabel: progressionLock.label,
           },
         };
       }

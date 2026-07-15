@@ -4,14 +4,18 @@
 set -euo pipefail
 
 DEST="${DEST:-/etc/nginx/conf.d/msmsge.conf}"
+SUDO_CMD="${SUDO_CMD:-sudo}"
 TMP="$(mktemp)"
 
-sudo cp "$DEST" "$TMP"
+$SUDO_CMD cp "$DEST" "$TMP"
 
 perl -0pi -e '
   my $zones = "limit_req_zone \$binary_remote_addr zone=api_per_ip:10m rate=20r/s;\n"
-            . "limit_req_zone \$binary_remote_addr zone=page_per_ip:10m rate=60r/s;\n\n";
+            . "limit_req_zone \$binary_remote_addr zone=page_per_ip:10m rate=60r/s;\n"
+            . "limit_req_zone \$binary_remote_addr zone=life_per_ip:10m rate=5r/s;\n\n";
   $_ = $zones . $_ unless /zone=api_per_ip:10m/;
+  $_ = "limit_req_zone \$binary_remote_addr zone=life_per_ip:10m rate=5r/s;\n" . $_
+    unless /zone=life_per_ip:10m/;
 
   my $scanner = q{
     location ~* ^/(?:\.env(?:\..*)?|\.git(?:/|$)|wp-login\.php|xmlrpc\.php|phpmyadmin(?:/|$)|wp-admin(?:/|$)|wp-content(?:/|$)|vendor/phpunit(?:/|$)) {
@@ -48,6 +52,21 @@ perl -0pi -e '
         proxy_read_timeout 300s;
     }
 };
+  my $life = q{
+    location ~* ^/api/v2/(?:fishing|woodcutting|mining|farm)/ {
+        limit_req zone=life_per_ip burst=30 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 300s;
+    }
+};
+  s/(\n\s*location\s+\/api\/auth\/)/"\n$life$1"/e
+    unless /limit_req\s+zone=life_per_ip/;
   s/(\n\s*location\s+\/api\/auth\/\s*\{)/
     (index($`, "return 444;") >= 0) ? $1 : "\n$scanner$1"/se;
 
@@ -61,25 +80,25 @@ perl -0pi -e '
     $1 . "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n        proxy_set_header X-Real-IP \$remote_addr;\n"/ge;
 ' "$TMP"
 
-if sudo cmp -s "$TMP" "$DEST"; then
+if $SUDO_CMD cmp -s "$TMP" "$DEST"; then
   rm -f "$TMP"
   echo "nginx protection already applied"
   exit 0
 fi
 
 BACKUP="${DEST}.bak.$(date +%Y%m%d%H%M%S)"
-sudo cp "$DEST" "$BACKUP"
-sudo cp "$TMP" "$DEST"
+$SUDO_CMD cp "$DEST" "$BACKUP"
+$SUDO_CMD cp "$TMP" "$DEST"
 rm -f "$TMP"
 
-if ! sudo nginx -t; then
-  sudo cp "$BACKUP" "$DEST"
-  sudo nginx -t
+if ! $SUDO_CMD nginx -t; then
+  $SUDO_CMD cp "$BACKUP" "$DEST"
+  $SUDO_CMD nginx -t
   echo "nginx config test failed; restored backup: $BACKUP" >&2
   exit 1
 fi
 
-sudo systemctl reload nginx
+$SUDO_CMD systemctl reload nginx
 
 echo "nginx protection applied"
 echo "backup: $BACKUP"

@@ -4,6 +4,7 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
+  activityRewardMultiplier,
   parseActivityGuardState,
   recordActivityCompletion,
   recordActivityStrongSignal,
@@ -132,20 +133,24 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
-    const byproductDrops = rollMiningByproducts(node);
+    const rewardMultiplier = activityRewardMultiplier(guardUpdate.state);
+    const rewardGranted =
+      rewardMultiplier >= 1 || Math.random() < rewardMultiplier;
+    const byproductDrops = rewardGranted ? rollMiningByproducts(node) : {};
+    const materialGained = rewardGranted ? MINING_ORE_REWARD : 0;
     const byproductTotal = Object.values(byproductDrops).reduce(
       (sum, count) => sum + (count ?? 0),
       0,
     );
     const materials = mergeDrops(charSave.materials, {
-      [node.materialId]: MINING_ORE_REWARD,
+      [node.materialId]: materialGained,
       ...byproductDrops,
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
     const log = recordMiningSuccess(currentLog, {
       nodeId: session.nodeId,
-      ore: MINING_ORE_REWARD,
+      ore: materialGained,
       byproducts: byproductTotal,
       xp: node.xp,
     });
@@ -156,7 +161,9 @@ export async function POST(req: Request) {
       node,
       materialId: node.materialId,
       materialName: MINING_MATERIALS[node.materialId].name,
-      materialGained: MINING_ORE_REWARD,
+      materialGained,
+      rewardMultiplier,
+      yieldReduced: !rewardGranted,
       failureRate,
       byproducts: (
         Object.entries(byproductDrops) as [MiningMaterialId, number][]

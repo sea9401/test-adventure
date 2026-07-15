@@ -34,6 +34,7 @@ import {
 } from "@/adventure/v2/miningSession";
 import { ACTIVITY_GUARD_KEY } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
 const NOW = 1_700_000_000_000;
 
@@ -164,6 +165,49 @@ describe("mining routes", () => {
       oreEarned: 1,
       byproductsEarned: 3,
       nodes: { gold: 1 },
+    });
+  });
+
+  it("strike — 일일 과다 생산 구간에서는 성공 기록과 XP를 유지하고 재료만 감쇠한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "mine-volume-limited",
+      spotId: "iron_quarry",
+      nodeId: "iron",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0.1,
+    });
+    store.set("character.v2", { materials: {} });
+    store.set(ACTIVITY_GUARD_KEY, {
+      version: 2,
+      activities: {},
+      risk: {
+        score: 0,
+        updatedAt: NOW,
+        dailyKey: kstDailyKey(new Date(NOW + 4_100)),
+        dailyCompleted: 1_499,
+        dailyVolumeStage: 2,
+      },
+    });
+
+    const json = await (
+      await STRIKE(request("strike", { sessionId: "mine-volume-limited" }))
+    ).json();
+
+    expect(json).toMatchObject({
+      success: true,
+      materialGained: 0,
+      xpGained: 5,
+      rewardMultiplier: 0.75,
+      yieldReduced: true,
+    });
+    expect(json.byproducts).toEqual([]);
+    expect(store.get("character.v2")).toMatchObject({ materials: {} });
+    expect(store.get(MINING_LOG_KEY)).toMatchObject({
+      successes: 1,
+      xp: 5,
+      oreEarned: 0,
     });
   });
 

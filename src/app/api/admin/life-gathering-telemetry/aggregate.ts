@@ -23,14 +23,23 @@ type MutableActivity = {
   primaryQuantity: number;
   bonusQuantity: number;
   sources: Map<string, { name: string; attempts: number; successes: number }>;
-  materials: Map<string, { quantity: number; primary: boolean }>;
+  materials: Map<
+    string,
+    { quantity: number; primary: boolean; name?: string }
+  >;
   daily: Map<
     string,
     { attempts: number; successes: number; primaryQuantity: number; bonusQuantity: number }
   >;
   usersById: Map<
     string,
-    { gameName: string | null; attempts: number; successes: number; quantity: number }
+    {
+      gameName: string | null;
+      attempts: number;
+      successes: number;
+      quantity: number;
+      timestamps: number[];
+    }
   >;
 };
 
@@ -49,8 +58,10 @@ function emptyActivity(): MutableActivity {
 }
 
 function activityOf(eventType: string): LifeGatheringActivity | null {
+  if (eventType.startsWith("life.fishing.")) return "fishing";
   if (eventType.startsWith("life.woodcutting.")) return "woodcutting";
   if (eventType.startsWith("life.mining.")) return "mining";
+  if (eventType.startsWith("life.farming.")) return "farming";
   return null;
 }
 
@@ -69,8 +80,10 @@ export function aggregateLifeGatheringTelemetry(
   rows: LifeGatheringTelemetryRow[],
 ) {
   const activityMap: Record<LifeGatheringActivity, MutableActivity> = {
+    fishing: emptyActivity(),
     woodcutting: emptyActivity(),
     mining: emptyActivity(),
+    farming: emptyActivity(),
   };
 
   for (const row of rows) {
@@ -111,10 +124,12 @@ export function aggregateLifeGatheringTelemetry(
           attempts: 0,
           successes: 0,
           quantity: 0,
+          timestamps: [],
         };
         user.gameName = row.gameName ?? user.gameName;
         user.attempts += 1;
         if (success) user.successes += 1;
+        user.timestamps.push(row.createdAt.getTime());
         target.usersById.set(row.userId, user);
       }
     } else if (row.eventType === LIFE_GATHERING_REWARD_EVENT[activity]) {
@@ -131,6 +146,10 @@ export function aggregateLifeGatheringTelemetry(
         const material = target.materials.get(row.itemId) ?? {
           quantity: 0,
           primary,
+          name:
+            typeof detail.materialName === "string" && detail.materialName
+              ? detail.materialName
+              : undefined,
         };
         material.quantity += quantity;
         material.primary = material.primary && primary;
@@ -142,6 +161,7 @@ export function aggregateLifeGatheringTelemetry(
           attempts: 0,
           successes: 0,
           quantity: 0,
+          timestamps: [],
         };
         user.gameName = row.gameName ?? user.gameName;
         user.quantity += quantity;
@@ -151,7 +171,7 @@ export function aggregateLifeGatheringTelemetry(
     target.daily.set(day, daily);
   }
 
-  const activities = (["woodcutting", "mining"] as const).map((activity) => {
+  const activities = (["fishing", "woodcutting", "mining", "farming"] as const).map((activity) => {
     const data = activityMap[activity];
     return {
       activity,
@@ -177,8 +197,8 @@ export function aggregateLifeGatheringTelemetry(
       materials: [...data.materials.entries()]
         .map(([materialId, value]) => ({
           materialId,
-          name: V2_MATERIALS[materialId]?.name ?? materialId,
           ...value,
+          name: value.name ?? V2_MATERIALS[materialId]?.name ?? materialId,
         }))
         .sort(
           (a, b) =>
@@ -190,7 +210,14 @@ export function aggregateLifeGatheringTelemetry(
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([day, value]) => ({ day, ...value })),
       topUsers: [...data.usersById.entries()]
-        .map(([userId, value]) => ({ userId, ...value }))
+        .map(([userId, value]) => ({
+          userId,
+          gameName: value.gameName,
+          attempts: value.attempts,
+          successes: value.successes,
+          quantity: value.quantity,
+          ...activityTiming(value.timestamps),
+        }))
         .sort(
           (a, b) =>
             b.quantity - a.quantity || b.successes - a.successes || b.attempts - a.attempts,
@@ -214,5 +241,30 @@ export function aggregateLifeGatheringTelemetry(
       ),
     },
     activities,
+  };
+}
+
+function activityTiming(timestamps: number[]) {
+  const sorted = [...timestamps].sort((a, b) => a - b);
+  const intervals = sorted
+    .slice(1)
+    .map((value, index) => value - sorted[index])
+    .filter((value) => value >= 0);
+  const averageMs =
+    intervals.length > 0
+      ? intervals.reduce((sum, value) => sum + value, 0) / intervals.length
+      : 0;
+  const variance =
+    intervals.length > 1
+      ? intervals.reduce((sum, value) => sum + (value - averageMs) ** 2, 0) /
+        intervals.length
+      : 0;
+  return {
+    activeMinutes:
+      sorted.length > 1
+        ? Math.round(((sorted.at(-1) ?? 0) - sorted[0]) / 60_000)
+        : 0,
+    avgIntervalSec: Math.round((averageMs / 1000) * 10) / 10,
+    intervalStddevSec: Math.round((Math.sqrt(variance) / 1000) * 10) / 10,
   };
 }

@@ -58,6 +58,7 @@ export type MiningOutcome =
       node: MiningNodeView;
       materialName: string;
       materialGained: number;
+      yieldReduced: boolean;
       byproducts: MiningByproductView[];
       xpGained: number;
       log: MiningLogView;
@@ -641,6 +642,11 @@ export function MiningView({
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
+                  {result.yieldReduced ? (
+                    <div className="text-xs font-semibold text-rose-600 dark:text-rose-300">
+                      오늘의 과도한 생산량으로 재료 획득률이 감소했습니다.
+                    </div>
+                  ) : null}
                   {result.byproducts.map((item) => (
                     <div
                       key={item.materialId}

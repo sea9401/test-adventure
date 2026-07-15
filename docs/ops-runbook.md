@@ -189,9 +189,9 @@ bash deploy/maintenance.sh status   # 현재 상태
 - Cloudflare Turnstile 위젯에 `msmsge.com`을 등록하고 `TURNSTILE_SITE_KEY`,
   `TURNSTILE_SECRET_KEY`, `TURNSTILE_EXPECTED_HOSTNAMES=msmsge.com,www.msmsge.com`을
   EC2 `.env.production.local`에 설정한다. 세 값 중 하나라도 비어 있으면 배포 사전 검사가 실패한다.
-- 둘 중 하나라도 없으면 이용자를 차단하지 않고 요청 강신호·일일 극단 수급 감시만 동작한다.
-- 키를 설정하면 벌목·낚시가 연속 100회 또는 60분에 도달했을 때 다음 시작 요청에서
-  사람 확인을 요구한다. 토큰은 서버 Siteverify에서 action 일치까지 검증한 뒤 즉시 소비한다.
+- 키를 설정하면 낚시·벌목·채광·농장이 적응형 완료 횟수 또는 연속 60분에
+  도달했을 때 다음 변경 요청에서 사람 확인을 요구한다. 토큰은 서버 Siteverify에서
+  action과 hostname 일치를 검증한 뒤 즉시 소비한다.
 
 인증: **카카오 OAuth만**(구글은 베타 동안 제외 #1216). NextAuth/Auth.js + Drizzle 어댑터.
 
@@ -214,11 +214,24 @@ bash deploy/maintenance.sh status   # 현재 상태
 5. 운영 현황의 `보상 실패 보정 후보`에서 원본 event id를 확인한 뒤 보정 지급에 남긴다.
 
 ### 매크로/부하 의심
+0. Turnstile 상태를 먼저 확인한다. 배포 스모크의 `turnstileConfigured: true`가
+   아니면 활동 체크포인트가 강제되지 않는다.
 1. `운영 현황` 알림 카드에서 요청 제한 급증 여부 확인.
 2. `이상 행동` 탭에서 action/IP/userId/reason 필터 적용.
 3. 동일 IP 다계정 반복이면 IP 제한 또는 제재 검토. 단일 유저 반복이면 유저 제재 또는 API limit/window 조정 검토.
 4. 차단 중인 유저는 제재 패널에서 1일/3일 연장 또는 해제를 처리한다.
 5. 정상 유저가 반복적으로 걸리면 해당 콘텐츠의 정상 클릭 속도를 다시 측정하고 제한값을 조정.
+
+자동 방어 기준(낚시·벌목·채광·농장 공통):
+- 다음 사람 확인은 정상 80~140회, 관찰 50~80회, 고위험 25~50회,
+  임계 10~25회 사이에서 무작위로 잡힌다.
+- 조기 완료·인간 불가능 반응 강신호는 공통 위험도 +18. 고위험은 30초,
+  임계 위험은 2분 대기 후 Turnstile을 요구한다.
+- 하루 전체 생활 완료 1,500회부터 벌목·채광 거래 재료 획득 기대값은
+  75%, 2,500회부터 50%, 4,000회부터 25%다. XP·숙련도는 유지한다.
+- 10분 내 동일 IP에서 6번째 계정이 생활 API를 쓰면 429로 제한하고
+  이상 행동 이벤트를 남긴다.
+- nginx는 생활 API 전체를 IP당 5r/s, burst 30으로 제한한다.
 
 ### 배포 후 점검
 1. GitHub Actions `CI`와 `Deploy to EC2` 성공 확인.

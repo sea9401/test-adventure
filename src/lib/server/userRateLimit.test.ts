@@ -171,4 +171,38 @@ describe("userRateLimit", () => {
       warn.mockRestore();
     }
   });
+
+  it("동일 IP의 생활 콘텐츠 6번째 계정부터 제한한다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const req = new Request("https://example.test", {
+        headers: { "x-forwarded-for": "203.0.113.20" },
+      });
+      for (let index = 1; index <= 5; index += 1) {
+        expect(
+          enforceUserAndIpRateLimit(req, {
+            userId: `u${index}`,
+            action: "v2:farming:mutation",
+            userLimit: 30,
+            ipLimit: 180,
+            windowMs: 60_000,
+            now: 1_000 + index,
+          }),
+        ).toBeNull();
+      }
+      expect(
+        enforceUserAndIpRateLimit(req, {
+          userId: "u6",
+          action: "v2:farming:mutation",
+          userLimit: 30,
+          ipLimit: 180,
+          windowMs: 60_000,
+          now: 2_000,
+        })?.status,
+      ).toBe(429);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

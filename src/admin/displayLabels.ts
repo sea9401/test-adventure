@@ -52,6 +52,11 @@ export const ABUSE_ACTION_LABELS: Record<string, string> = {
   "v2:dungeon:hunt": "던전 사냥",
   "v2:fishing:cast": "낚시 던지기",
   "v2:fishing:reel": "낚시 감아올리기",
+  "v2:fishing:activity-guard": "낚시 자동화 방어",
+  "v2:woodcutting:activity-guard": "벌목 자동화 방어",
+  "v2:mining:activity-guard": "채광 자동화 방어",
+  "v2:farming:activity-guard": "농장 자동화 방어",
+  "v2:farming:mutation": "농장 활동",
   "v2:guild:combat-supply:upgrade": "길드 전투 보급 강화",
   "v2:guild:training-ground:claim": "길드 훈련장 수령",
   "v2:marketplace:browse": "거래소 둘러보기",
@@ -80,6 +85,11 @@ export const ABUSE_ACTION_LABELS: Record<string, string> = {
 
 export const ABUSE_REASON_LABELS: Record<string, string> = {
   rate_limited: "요청 제한",
+  extreme_daily_activity: "비정상적인 일일 활동량",
+  fishing_macro_pattern: "낚시 매크로 패턴",
+  human_verification_failed: "사람 확인 실패",
+  multi_account_ip_fanout: "동일 IP 다계정 활동",
+  strong_activity_signal: "반복 자동화 강신호",
 };
 
 const LOG_LABELS: Record<string, string> = {

@@ -13,6 +13,18 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceFarmingMutation } from "@/lib/server/farmingActivityGuard";
+import {
+  ACTIVITY_GUARD_KEY,
+  parseActivityGuardState,
+  recordActivityCompletion,
+  recordActivityStrongSignal,
+} from "@/lib/server/activityGuard";
+import {
+  recordExtremeActivityAlertSoon,
+  recordStrongActivitySignalSoon,
+} from "@/lib/server/activityGuardServer";
+import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
@@ -38,6 +50,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const guarded = await enforceFarmingMutation(req, userId);
+  if (guarded) return guarded;
 
   const body = (await req.json().catch(() => null)) as { plotId?: unknown } | null;
   const plotId = typeof body?.plotId === "string" ? body.plotId : "";
@@ -47,7 +61,7 @@ export async function POST(req: Request) {
 
   try {
     const now = Date.now();
-    const { farm, result, farmJobId, masteryGained, masteryAfter } =
+    const { farm, result, farmJobId, masteryGained, masteryAfter, guardUpdate } =
       await db.transaction(async (tx) => {
         const charSave = await lockSaveForUpdate<Record<string, unknown>>(
           tx,
@@ -78,6 +92,14 @@ export async function POST(req: Request) {
           Math.random,
           farmBonuses,
         );
+        const guardUpdate = recordActivityCompletion(
+          parseActivityGuardState(
+            await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+          ),
+          "farming",
+          now,
+        );
+        await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
         await upsertSave(tx, userId, FARM_SAVE_KEY, harvested.state);
 
         let masteryGained = 0;
@@ -110,8 +132,43 @@ export async function POST(req: Request) {
           farmJobId,
           masteryGained,
           masteryAfter,
+          guardUpdate,
         };
       });
+    if (guardUpdate.extremeVolumeAlert) {
+      recordExtremeActivityAlertSoon({
+        req,
+        userId,
+        activity: "farming",
+        state: guardUpdate.state,
+      });
+    }
+    recordLifeGatheringTelemetrySoon({
+      userId,
+      activity: "farming",
+      sourceId: result.cropId,
+      sourceName: result.itemName,
+      grade: 1,
+      success: true,
+      failureRate: 0,
+      xpGained: result.farmingXpGained,
+      drops: [
+        {
+          materialId: result.itemId,
+          materialName: result.itemName,
+          quantity: result.quantity,
+          primary: true,
+        },
+        ...(result.rareItemId && result.rareQuantity > 0
+          ? [{
+              materialId: result.rareItemId,
+              materialName: result.rareItemName ?? result.rareItemId,
+              quantity: result.rareQuantity,
+              primary: false,
+            }]
+          : []),
+      ],
+    });
     return Response.json({
       ok: true,
       now,
@@ -131,6 +188,27 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     if (e instanceof FarmError) {
+      if (e.code === "not_ready") {
+        const now = Date.now();
+        const guardUpdate = await db.transaction(async (tx) => {
+          const update = recordActivityStrongSignal(
+            parseActivityGuardState(
+              await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
+            ),
+            "farming",
+            now,
+          );
+          await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, update.state);
+          return update;
+        });
+        recordStrongActivitySignalSoon({
+          req,
+          userId,
+          activity: "farming",
+          signal: "early_harvest",
+          state: guardUpdate.state,
+        });
+      }
       return Response.json({ ok: false, error: e.code }, { status: 409 });
     }
     throw e;

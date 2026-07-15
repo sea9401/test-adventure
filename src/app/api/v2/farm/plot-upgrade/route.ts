@@ -13,14 +13,17 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { enforceFarmingMutation } from "@/lib/server/farmingActivityGuard";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 
 // POST /api/v2/farm/plot-upgrade — 농장 증표를 사용해 밭을 확장한다.
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const guarded = await enforceFarmingMutation(req, userId);
+  if (guarded) return guarded;
 
   try {
     const now = Date.now();

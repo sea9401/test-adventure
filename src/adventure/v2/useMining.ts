@@ -139,6 +139,7 @@ export function useMining(): MiningHandlers {
           node: parseNode(json.node),
           materialName: String(json.materialName ?? "광석"),
           materialGained: Math.max(0, Math.floor(Number(json.materialGained) || 0)),
+          yieldReduced: json.yieldReduced === true,
           byproducts: Array.isArray(json.byproducts)
             ? json.byproducts.map((item: unknown) => {
                 const entry = (item ?? {}) as Record<string, unknown>;

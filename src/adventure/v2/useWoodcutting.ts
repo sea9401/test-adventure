@@ -138,6 +138,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
           0,
           Math.floor(Number(json.bonusMaterialGained) || 0),
         ),
+        yieldReduced: json.yieldReduced === true,
         recovered: json.recovered === true,
         xpGained: Math.max(0, Math.floor(Number(json.xpGained) || 0)),
         jobName: typeof json.jobName === "string" ? json.jobName : null,

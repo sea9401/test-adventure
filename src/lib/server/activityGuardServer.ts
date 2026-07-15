@@ -13,6 +13,27 @@ export function activityVerificationGateResponse(
   activity: GuardedActivity,
 ): Response | null {
   const config = turnstileConfig();
+  const view = activityGuardView(state, activity);
+  const now = Date.now();
+  if (view.cooldownUntil !== null && view.cooldownUntil > now) {
+    const retryAfterSec = Math.max(
+      1,
+      Math.ceil((view.cooldownUntil - now) / 1000),
+    );
+    return Response.json(
+      {
+        ok: false,
+        error: "activity_cooldown",
+        activity,
+        riskLevel: view.riskLevel,
+        retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfterSec) },
+      },
+    );
+  }
   if (
     !config.siteKey ||
     !activityVerificationRequired(state, activity, config.configured)
@@ -26,6 +47,7 @@ export function activityVerificationGateResponse(
       activity,
       siteKey: config.siteKey,
       reason: activityVerificationReason(state, activity),
+      riskLevel: view.riskLevel,
     },
     { status: 403 },
   );
@@ -46,6 +68,9 @@ export function recordExtremeActivityAlertSoon(args: {
     detail: {
       dailyCompleted: view.dailyCompleted,
       completedSinceVerification: view.completedSinceVerification,
+      globalDailyCompleted: view.globalDailyCompleted,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
     },
   });
   recordOpsSignal({
@@ -58,6 +83,9 @@ export function recordExtremeActivityAlertSoon(args: {
       userId: args.userId,
       activity: args.activity,
       dailyCompleted: view.dailyCompleted,
+      globalDailyCompleted: view.globalDailyCompleted,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
     },
   });
 }
@@ -79,6 +107,8 @@ export function recordStrongActivitySignalSoon(args: {
       signal: args.signal,
       strongSignals: view.strongSignals,
       verificationRequired: view.verificationRequiredAt !== null,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
     },
   });
   recordOpsSignal({
@@ -92,6 +122,8 @@ export function recordStrongActivitySignalSoon(args: {
       activity: args.activity,
       signal: args.signal,
       strongSignals: view.strongSignals,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
     },
   });
 }

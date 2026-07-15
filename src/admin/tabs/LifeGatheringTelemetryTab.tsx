@@ -8,7 +8,7 @@ import { adminGet } from "../api";
 import { Button } from "../ui/Field";
 
 type Activity = {
-  activity: "woodcutting" | "mining";
+  activity: "fishing" | "woodcutting" | "mining" | "farming";
   attempts: number;
   successes: number;
   failures: number;
@@ -43,6 +43,9 @@ type Activity = {
     attempts: number;
     successes: number;
     quantity: number;
+    activeMinutes: number;
+    avgIntervalSec: number;
+    intervalStddevSec: number;
   }>;
 };
 
@@ -148,7 +151,14 @@ export function LifeGatheringTelemetryTab() {
 }
 
 function ActivitySection({ data }: { data: Activity }) {
-  const label = data.activity === "woodcutting" ? "벌목" : "채광";
+  const label =
+    data.activity === "fishing"
+      ? "낚시"
+      : data.activity === "woodcutting"
+        ? "벌목"
+        : data.activity === "mining"
+          ? "채광"
+          : "농장";
   const maxDaily = Math.max(
     1,
     ...data.daily.map((row) => row.primaryQuantity + row.bonusQuantity),
@@ -217,12 +227,19 @@ function ActivitySection({ data }: { data: Activity }) {
           )}
         </Panel>
         <Panel title="유저별 수급량 상위 10명">
-          <DataTable headers={["유저", "시도", "성공", "획득량"]} empty={data.topUsers.length === 0}>
+          <DataTable
+            headers={["유저", "시도", "성공", "획득량", "활동 분", "평균/편차"]}
+            empty={data.topUsers.length === 0}
+          >
             {data.topUsers.map((row) => (
               <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
                 <Cell>{row.gameName ? <Link className="underline decoration-zinc-300 underline-offset-2" href={`/character/${encodeURIComponent(row.gameName)}`}>{row.gameName}</Link> : row.userId.slice(0, 8)}</Cell>
                 <NumberCell>{row.attempts}</NumberCell><NumberCell>{row.successes}</NumberCell>
                 <NumberCell>{number.format(row.quantity)}</NumberCell>
+                <NumberCell>{number.format(row.activeMinutes)}</NumberCell>
+                <NumberCell>
+                  {row.avgIntervalSec.toFixed(1)}s/{row.intervalStddevSec.toFixed(1)}s
+                </NumberCell>
               </tr>
             ))}
           </DataTable>

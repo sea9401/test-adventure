@@ -1,21 +1,29 @@
 import { recordEconomyEventSoon } from "./economyLog";
 
-export type LifeGatheringActivity = "woodcutting" | "mining";
+export type LifeGatheringActivity =
+  | "fishing"
+  | "woodcutting"
+  | "mining"
+  | "farming";
 
 export const LIFE_GATHERING_ATTEMPT_EVENT: Record<
   LifeGatheringActivity,
   string
 > = {
+  fishing: "life.fishing.attempt",
   woodcutting: "life.woodcutting.attempt",
   mining: "life.mining.attempt",
+  farming: "life.farming.attempt",
 };
 
 export const LIFE_GATHERING_REWARD_EVENT: Record<
   LifeGatheringActivity,
   string
 > = {
+  fishing: "life.fishing.gather",
   woodcutting: "life.woodcutting.gather",
   mining: "life.mining.gather",
+  farming: "life.farming.gather",
 };
 
 export const LIFE_GATHERING_EVENT_TYPES = [
@@ -25,6 +33,7 @@ export const LIFE_GATHERING_EVENT_TYPES = [
 
 export type LifeGatheringDrop = {
   materialId: string;
+  materialName?: string;
   quantity: number;
   primary: boolean;
 };
@@ -68,7 +77,11 @@ export function recordLifeGatheringTelemetrySoon(args: {
       itemKind: "material",
       itemId: drop.materialId,
       quantity,
-      detail: { ...detail, primary: drop.primary },
+      detail: {
+        ...detail,
+        primary: drop.primary,
+        ...(drop.materialName ? { materialName: drop.materialName } : {}),
+      },
     });
   }
 }

@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
+import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
@@ -455,9 +456,50 @@ export async function POST(req: Request) {
   }
 
   if (!result.caught) {
+    if ("guardState" in result) {
+      recordLifeGatheringTelemetrySoon({
+        userId,
+        activity: "fishing",
+        sourceId: result.reason,
+        sourceName: "놓친 입질",
+        grade: 1,
+        success: false,
+        failureRate: 0,
+        xpGained: 0,
+        drops: [],
+      });
+    }
     return Response.json({ ok: true, caught: false, reason: result.reason });
   }
   const fish = FISH[result.fishId];
+  const fishGrade =
+    fish.tier === "legendary"
+      ? 5
+      : fish.tier === "epic"
+        ? 4
+        : fish.tier === "rare"
+          ? 3
+          : fish.tier === "uncommon"
+            ? 2
+            : 1;
+  recordLifeGatheringTelemetrySoon({
+    userId,
+    activity: "fishing",
+    sourceId: result.fishId,
+    sourceName: fish.name,
+    grade: fishGrade,
+    success: true,
+    failureRate: 0,
+    xpGained: result.fishingXpGained,
+    drops: [
+      {
+        materialId: result.fishId,
+        materialName: fish.name,
+        quantity: 1,
+        primary: true,
+      },
+    ],
+  });
   // 낚시 대물 — 종 크기 상위 구간 + 개인 신기록이면 전광판/소식 피드에 알린다.
   //   디바운스(같은 유저+type 60s)·보관 trim 은 insertFeedEntry 가 자동 처리(도배 방지).
   if (result.isPersonalBest && isBigCatch(result.fishId, result.size)) {

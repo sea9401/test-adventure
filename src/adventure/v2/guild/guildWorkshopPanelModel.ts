@@ -250,15 +250,15 @@ export const WORKSHOP_MODE_STORAGE_KEY = "v2-guild-workshop-mode";
 export const ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요합니다.",
   no_guild: "길드에 가입해야 사용할 수 있습니다.",
-  smithy_required: "길드 대장간이 필요합니다.",
+  smithy_required: "제작소가 필요합니다.",
   invalid_recipe: "제작할 수 없는 의뢰입니다.",
   insufficient_artisan_level: "대장장이 숙련도가 부족합니다.",
-  insufficient_smithy_level: "대장간 레벨이 부족합니다.",
+  insufficient_smithy_level: "제작소 레벨이 부족합니다.",
   masterwork_locked: "명장 제작은 대장장이 Lv 8부터 사용할 수 있습니다.",
   insufficient_resources: "제작 재료가 부족합니다.",
   insufficient_materials: "제작 재료가 부족합니다.",
   insufficient_gold: "외부 이용료를 낼 골드가 부족합니다.",
-  policy_blocked: "점령 길드가 길드원 전용으로 설정한 대장간입니다.",
+  policy_blocked: "점령 길드가 길드원 전용으로 설정한 제작소입니다.",
 };
 
 export const WEEKLY_ERROR_TEXT: Record<string, string> = {
@@ -272,7 +272,7 @@ export const WEEKLY_ERROR_TEXT: Record<string, string> = {
 export const DISMANTLE_ERROR_TEXT: Record<string, string> = {
   unauthorized: "로그인이 필요합니다.",
   no_guild: "길드에 가입해야 사용할 수 있습니다.",
-  smithy_required: "길드 대장간이 필요합니다.",
+  smithy_required: "제작소가 필요합니다.",
   insufficient_artisan_level: "대장장이 Lv 6부터 해체술을 사용할 수 있습니다.",
   not_owned: "보유 중인 장비가 아닙니다.",
   equipped: "장착 중인 장비는 해체할 수 없습니다.",
@@ -365,7 +365,7 @@ export function nextWorkshopGoal(state: WorkshopState | null): string {
       recipe.craftOnly && (!recipe.levelOk || !recipe.smithyLevelOk),
   );
   if (locked) {
-    return `${locked.itemName} 해금까지 대장장이 Lv ${locked.requiredArtisanLevel} · 대장간 Lv ${locked.requiredSmithyLevel}`;
+    return `${locked.itemName} 해금까지 대장장이 Lv ${locked.requiredArtisanLevel} · 제작소 Lv ${locked.requiredSmithyLevel}`;
   }
   return "장인의 길 기본 목표를 모두 달성했습니다.";
 }
@@ -446,7 +446,7 @@ export function buildWorkshopRecommendation(
   }
   if (!state) {
     return {
-      title: "대장간 정보 로딩",
+      title: "제작소 정보 로딩",
       detail: "제작 정보를 불러오는 중입니다.",
       tone: "goal",
     };
@@ -697,7 +697,7 @@ export function masterworkBlockedText(recipe: WorkshopRecipeView): string | null
   if (!masterwork.levelOk) {
     return `대장장이 Lv ${masterwork.requiredArtisanLevel}에 명장 제작 해금`;
   }
-  if (!recipe.smithyLevelOk) return `대장간 Lv ${recipe.requiredSmithyLevel} 필요`;
+  if (!recipe.smithyLevelOk) return `제작소 Lv ${recipe.requiredSmithyLevel} 필요`;
   if (!masterwork.resourceOk || !masterwork.materialOk) {
     return masterworkCanPayText(recipe);
   }
@@ -711,7 +711,7 @@ export function masterworkButtonText(recipe: WorkshopRecipeView): string {
   if (!masterwork) return "명장 정보 없음";
   if (!recipe.levelOk) return `Lv ${recipe.requiredArtisanLevel}`;
   if (!masterwork.levelOk) return `명장 Lv ${masterwork.requiredArtisanLevel}`;
-  if (!recipe.smithyLevelOk) return `대장간 Lv ${recipe.requiredSmithyLevel}`;
+  if (!recipe.smithyLevelOk) return `제작소 Lv ${recipe.requiredSmithyLevel}`;
   return blocked;
 }
 

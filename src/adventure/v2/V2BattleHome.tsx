@@ -12,7 +12,7 @@ import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
-// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/아레나/훈련장 진입.
+// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/아레나/대련장 진입.
 
 export type BattleAction =
   | { kind: "open-dungeons" }
@@ -54,7 +54,8 @@ export function V2BattleHome({ onAction }: {
           icon={
             <Barbell size={28} weight="duotone" className="text-sky-500" />
           }
-          title="훈련장"
+          title="대련장"
+          description="허수아비를 상대로 빌드와 피해량 시험"
           onClick={() => onAction({ kind: "open-sparring" })}
         />
         <EntryCard

@@ -556,7 +556,7 @@ export function CodexEquipmentPanel({
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-bold">제작 장비 목표</h2>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                대장간 제작 기록 + 장비 도감 등록 기준
+                제작소 제작 기록 + 장비 도감 등록 기준
               </span>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">

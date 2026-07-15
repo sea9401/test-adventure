@@ -65,7 +65,7 @@ export function V2ItemCard({
   enhance?: V2EnhanceState;
   // 제작 품질 — 별 표시 + 위력 보너스 반영.
   craftQuality?: V2CraftQualityState;
-  // 제작자 표식 — 길드 대장간 제작품에만 표시.
+  // 제작자 표식 — 길드 제작소 제작품에만 표시.
   craftedBy?: V2CraftedBy;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
@@ -171,7 +171,7 @@ export function V2ItemCard({
             ) : null}
             {item.craftOnly ? (
               <div className="text-xs text-emerald-700 dark:text-emerald-300">
-                획득: 길드 영지 → 대장간 → 레시피 제작
+                획득: 길드 영지 → 제작소 → 레시피 제작
               </div>
             ) : null}
           </div>

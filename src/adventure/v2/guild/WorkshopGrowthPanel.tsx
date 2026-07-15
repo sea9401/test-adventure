@@ -309,11 +309,11 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
         </div>
 
         <div>
-          <div className="mb-2 font-semibold">대장간 보너스</div>
+          <div className="mb-2 font-semibold">제작소 보너스</div>
           <div className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>
-                대장간 Lv {(state.smithyLevel ?? 1).toLocaleString()} ·{" "}
+                제작소 Lv {(state.smithyLevel ?? 1).toLocaleString()} ·{" "}
                 {state.smithyBonus?.label ?? "기본 제작"}
               </span>
               <span className="font-semibold">
@@ -468,11 +468,11 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
 
       <details className="rounded border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
         <summary className="cursor-pointer text-sm font-semibold">
-          대장간 Lv 해금
+          제작소 Lv 해금
         </summary>
         <div className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
           ★ 품질 확률은 Lv1 3%, 이후 레벨당 +2%p, 길드 보너스 합산 최대
-          25%입니다. 대장장이 효과는 현재 전투 직업과 무관하게 대장간
+          25%입니다. 대장장이 효과는 현재 전투 직업과 무관하게 제작소
           제작 시 적용됩니다.
         </div>
         {nextSmithyUnlockRecipes.length > 0 ? (
@@ -485,7 +485,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{recipe.itemName}</span>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                    대장간 Lv {recipe.requiredSmithyLevel}
+                    제작소 Lv {recipe.requiredSmithyLevel}
                   </span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -502,7 +502,7 @@ export function WorkshopGrowthPanel({ state }: { state: WorkshopState }) {
           </div>
         ) : (
           <div className="mt-2 text-zinc-600 dark:text-zinc-400">
-            다음 대장간 레벨에 새 제작품이 없습니다.
+            다음 제작소 레벨에 새 제작품이 없습니다.
           </div>
         )}
       </details>

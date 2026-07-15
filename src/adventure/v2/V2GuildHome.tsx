@@ -24,7 +24,7 @@ import { useSystemToast } from "./RewardToastProvider";
 
 // 길드 탭 — sub-tab nav 분리 (info / members / facilities / manage).
 // 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·길드 연구·직책.
-// 훈련장·대장간 등 길드 시설은 상위 탭을 늘리지 않고 facilities 내부에서 진입한다.
+// 훈련장·제작소 등 길드 시설은 상위 탭을 늘리지 않고 facilities 내부에서 진입한다.
 // 각 탭의 렌더·로컬 상태/핸들러는 ./guild/*Panel 로 추출. 이 파일 = 공유 상태 + 탭 전환 조정자.
 
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [

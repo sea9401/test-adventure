@@ -34,7 +34,7 @@ export const GUILD_WORKSHOP_DELIVERIES: Record<
   daily_crafted_any: {
     id: "daily_crafted_any",
     title: "장인 제작품 납품",
-    description: "길드 대장간에서 만든 장비 1개 납품",
+    description: "길드 제작소에서 만든 장비 1개 납품",
     rewardArtisanXp: 25,
     rewardGold: 100_000,
     accepts: (inst) => inst.craftedBy?.profession === "blacksmith",

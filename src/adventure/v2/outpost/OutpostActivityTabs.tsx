@@ -13,7 +13,7 @@ import { OutpostAttackLog } from "../OutpostAttackLog";
 import { V2VillagePanel } from "../V2VillagePanel";
 import DefendPanel from "../DefendPanel";
 
-// 내 거점 활동 탭 — 마을 / 대장간 / (수비) / 최근 공격 기록.
+// 내 거점 활동 탭 — 마을 / 제작소 / (수비) / 최근 공격 기록.
 export type ActivityTab =
   | "smithy"
   | "training"
@@ -106,7 +106,7 @@ export function OutpostActivityTabs({
     () => [
       ...(showManageTab ? [{ key: "manage" as const, label: "마을" }] : []),
       ...(hasLocalSmithy
-        ? [{ key: "smithy" as const, label: "대장간" }]
+        ? [{ key: "smithy" as const, label: "제작소" }]
         : []),
       ...(hasLocalTrainingGround
         ? [

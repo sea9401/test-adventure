@@ -979,7 +979,7 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// 길드 대장간 주간 의뢰 진행도. 주차가 바뀌면 lazy reset 으로 같은 row 를 새 weekKey 로 덮는다.
+// 길드 제작소 주간 의뢰 진행도. 주차가 바뀌면 lazy reset 으로 같은 row 를 새 weekKey 로 덮는다.
 export const guildWorkshopWeekly = pgTable("guild_workshop_weekly", {
   guildId: integer("guild_id")
     .primaryKey()

@@ -98,7 +98,7 @@ function describe(a: GuildActivity): string {
         a.meta?.rewardFame ? ` · 명성 +${a.meta.rewardFame.toLocaleString()}` : ""
       }`;
     case "smithy_upgrade":
-      return `${actor} 님이 길드 대장간을 Lv ${a.meta?.smithyLevel ?? "?"}로 업그레이드했어요`;
+      return `${actor} 님이 제작소를 Lv ${a.meta?.smithyLevel ?? "?"}로 업그레이드했어요`;
     case "building_upgrade":
       return `${actor} 님이 ${a.meta?.buildingName ?? "영지 건물"}을 Lv ${a.meta?.buildingLevel ?? "?"}로 업그레이드했어요`;
     case "combat_supply_upgrade":

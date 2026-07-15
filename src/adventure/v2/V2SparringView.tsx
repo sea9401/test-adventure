@@ -35,7 +35,7 @@ function draftFromConfig(
   };
 }
 
-// 훈련장 허수아비치기 — 라이브 SparringView 의 v2 화면. 보상도 손실도 없는 모의전이고,
+// 대련장 허수아비치기 — 라이브 SparringView 의 v2 화면. 보상도 손실도 없는 모의전이고,
 // 전투 결과는 사냥과 동일하게 ReplayBattleScene(리플레이 로그)으로 표시한다.
 export function V2SparringView({
   playerName,
@@ -82,7 +82,7 @@ export function V2SparringView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="훈련장" onBack={onBack} />
+      <SubViewHeader title="대련장" onBack={onBack} />
       <Card padding="md">
         <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
           {SPARRING_DUMMY_PRESETS.map((p) => (

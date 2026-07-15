@@ -106,9 +106,9 @@ export type QuestCtx = {
   hasShopped: boolean;
   /** 지도에서 한 번이라도 이동했는가. character.v2.tilePos.at(이동 시각)이 찍혔으면 true(신규는 미설정). */
   hasMoved: boolean;
-  /** 길드 대장간 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
+  /** 길드 제작소 제작 완료 횟수. crafting.v2.workshopStats.totalCrafts. */
   workshopCrafts: number;
-  /** 길드 대장간 ★ 품질 제작 성공 횟수. crafting.v2.workshopStats.qualityCrafts. */
+  /** 길드 제작소 ★ 품질 제작 성공 횟수. crafting.v2.workshopStats.qualityCrafts. */
   workshopQualityCrafts: number;
   /** 대장장이 장인 레벨. crafting.v2.artisan.blacksmith. */
   blacksmithLevel: number;
@@ -681,13 +681,13 @@ const ENHANCE: QuestDef[] = [
   },
 ];
 
-// ── 장인의 길 — 길드 대장간 제작/대장장이 성장 마일스톤(독립) ────────────────
+// ── 장인의 길 — 길드 제작소 제작/대장장이 성장 마일스톤(독립) ────────────────
 const ARTISAN: QuestDef[] = [
   {
     id: "a_first_craft",
     line: "artisan",
     title: "첫 제작 의뢰",
-    desc: "길드 대장간에서 장비를 1회 제작하세요.",
+    desc: "길드 제작소에서 장비를 1회 제작하세요.",
     reward: { gold: 300 },
     check: (c) => c.workshopCrafts >= 1,
   },
@@ -703,7 +703,7 @@ const ARTISAN: QuestDef[] = [
     id: "a_quality_plus1",
     line: "artisan",
     title: "고품질 단조",
-    desc: "길드 대장간에서 ★ 품질 장비를 제작하세요.",
+    desc: "길드 제작소에서 ★ 품질 장비를 제작하세요.",
     reward: { gold: 800 },
     check: (c) => c.workshopQualityCrafts >= 1,
   },
@@ -777,7 +777,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "artisan",
     name: "장인의 길",
-    subtitle: "길드 대장간 제작과 대장장이 숙련도를 쌓으세요.",
+    subtitle: "길드 제작소 제작과 대장장이 숙련도를 쌓으세요.",
     sequential: false,
   },
 ];

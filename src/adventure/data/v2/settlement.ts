@@ -96,7 +96,7 @@ export const SETTLEMENT_BUILDINGS: Record<
 > = {
   guild_smithy: {
     id: "guild_smithy",
-    name: "길드 대장간",
+    name: "제작소",
     icon: "⚒️",
     desc: "장비 제작과 대장장이 성장을 위한 영지 시설입니다.",
   },

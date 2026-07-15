@@ -1295,7 +1295,7 @@ export type V2EquipInstance = {
   enhance?: V2EnhanceState;
   /** 제작 품질(★/★★) — 강화와 별도 표시·보너스 축. */
   craftQuality?: V2CraftQualityState;
-  /** 제작자 표식 — 길드 대장간 제작품에만 붙는 표시용 메타. */
+  /** 제작자 표식 — 길드 제작소 제작품에만 붙는 표시용 메타. */
   craftedBy?: V2CraftedBy;
 };
 

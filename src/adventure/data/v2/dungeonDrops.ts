@@ -95,15 +95,15 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   //   카탈로그 등재로 인벤 재료 탭·거래소 거래가 살아나고, NPC 판매는 비등재(유저 거래 전용).
   ...SETTLEMENT_MATERIALS,
   // 벌목 수종별 원목 — 소나무 원목(v2_timber)은 기존 정착지 재료 ID를 그대로 사용하고,
-  // 나머지 5종은 각 숲에서만 획득한다. 향후 길드 대장간 제작식에서 독립 재료로 사용한다.
+  // 나머지 5종은 각 숲에서만 획득한다. 향후 길드 제작소 제작식에서 독립 재료로 사용한다.
   ...WOODCUTTING_MATERIALS,
   // 채광 광석·부산물 — 생활 지도 채광지에서 획득하며 인벤토리와 거래소에 노출한다.
-  // 등급별 주 광석 6종은 같은 등급대 길드 대장간 제작식의 금속 재료로 사용한다.
+  // 등급별 주 광석 6종은 같은 등급대 길드 제작소 제작식의 금속 재료로 사용한다.
   ...MINING_MATERIALS,
   // 성벽 수리 키트(settlementMaterials) — 통나무3+철광석3 조합 소모품. 카탈로그 등재로 인벤/거래소
   //   노출 + 키트 보유수가 거점 수리 UI 로 surface 된다. 드랍 아님(조합 전용).
   ...WALL_REPAIR_KIT_MATERIAL,
-  // 길드 대장간 제작 재료(guildWorkshopMaterials) — 사냥 독립 드랍. 제작 전용 장비의 개인 병목
+  // 길드 제작소 제작 재료(guildWorkshopMaterials) — 사냥 독립 드랍. 제작 전용 장비의 개인 병목
   //   재료로 쓰이며, 카탈로그 등재로 인벤 재료 탭·거래소 재료 거래가 동작한다.
   ...GUILD_WORKSHOP_MATERIALS,
   // SP 열매 3종(spFruit) — 협동 보스 드랍. 카탈로그 등재로 인벤 소모품·거래소 거래(NPC 비매).

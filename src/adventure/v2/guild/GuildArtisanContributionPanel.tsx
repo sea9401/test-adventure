@@ -69,7 +69,7 @@ export function GuildArtisanContributionPanel({
         </div>
       ) : (
         <div className="rounded-md border border-dashed border-zinc-200 px-3 py-3 text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-          아직 길드 대장간 제작 기록이 없어요.
+          아직 제작소 제작 기록이 없어요.
         </div>
       )}
     </div>

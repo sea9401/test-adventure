@@ -177,7 +177,7 @@ describe("aggregateBalanceTelemetry", () => {
     );
   });
 
-  it("대장간 경제 스냅샷을 누적 제작과 재료 재고로 집계한다", () => {
+  it("제작소 경제 스냅샷을 누적 제작과 재료 재고로 집계한다", () => {
     const users = [
       user({
         blacksmithLevel: 8,

@@ -76,6 +76,9 @@ beforeEach(() => {
     if (key === "farm.v2") {
       return { ...emptyFarmState(), inventory: { wheat: 30 } };
     }
+    if (key === "fishing-stock.v1") {
+      return { version: 1, items: { catch_common: 12 } };
+    }
     if (key === "inventory.v2") {
       return { hpCharges: 10_000, mpCharges: 20_000 };
     }
@@ -89,7 +92,7 @@ beforeEach(() => {
 });
 
 describe("길드 식당", () => {
-  it("등록된 농장 식재료만 소비해 공동 준비와 개인 식권 진척을 함께 올린다", async () => {
+  it("등록된 농장 식재료를 소비해 공동 준비와 개인 식권 진척을 함께 올린다", async () => {
     const response = await POST(
       request({ action: "donate", ingredientId: "farm:wheat", quantity: 10 }),
     );
@@ -105,6 +108,43 @@ describe("길드 식당", () => {
       "farm.v2",
       expect.objectContaining({ inventory: { wheat: 20 } }),
     );
+  });
+
+  it("일반 어획물은 5개 단위로 공동 식재료에 기부한다", async () => {
+    const response = await POST(
+      request({
+        action: "donate",
+        ingredientId: "fishing_item:catch_common",
+        quantity: 10,
+      }),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.donated).toEqual({
+      ingredientName: "일반 어획물",
+      quantity: 10,
+      points: 2,
+    });
+    expect(upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-diner",
+      "fishing-stock.v1",
+      { version: 1, items: { catch_common: 2 } },
+    );
+  });
+
+  it("어획물 묶음 단위에 맞지 않는 기부를 거부한다", async () => {
+    const response = await POST(
+      request({
+        action: "donate",
+        ingredientId: "fishing_item:catch_common",
+        quantity: 6,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error).toBe("invalid_donation");
   });
 
   it("공동 준비가 끝나고 식권이 있으면 회복식을 주문한다", async () => {

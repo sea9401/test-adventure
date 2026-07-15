@@ -102,7 +102,6 @@ export function GuildDiningHallPanel() {
         return;
       }
       applyState(json);
-      setQuantity(1);
       setNotice({ kind: "ok", text: successText(json) });
     } catch {
       setNotice({ kind: "err", text: "길드 식당 요청에 실패했습니다." });
@@ -115,19 +114,31 @@ export function GuildDiningHallPanel() {
     () => state?.ingredients.find((item) => item.id === ingredientId) ?? null,
     [ingredientId, state],
   );
+  const selectedBatchSize = selectedIngredient?.batchSize ?? 1;
   const maxDonation = useMemo(() => {
     if (!state || !selectedIngredient) return 0;
     const personalRoom = state.tickets.contributionCap - state.contributionPoints;
-    return Math.max(
+    const maxBatches = Math.max(
       0,
       Math.min(
-        selectedIngredient.owned,
+        Math.floor(selectedIngredient.owned / selectedIngredient.batchSize),
         Math.floor(personalRoom / selectedIngredient.pointValue),
         Math.floor(state.pantry.remaining / selectedIngredient.pointValue),
-        999,
+        Math.floor(999 / selectedIngredient.batchSize),
       ),
     );
+    return maxBatches * selectedIngredient.batchSize;
   }, [selectedIngredient, state]);
+  const donationQuantity =
+    maxDonation > 0
+      ? Math.max(
+          selectedBatchSize,
+          Math.min(
+            maxDonation,
+            Math.floor(quantity / selectedBatchSize) * selectedBatchSize,
+          ),
+        )
+      : selectedBatchSize;
 
   if (loading && !state) {
     return <p className="text-sm text-zinc-500 dark:text-zinc-400">길드 식당 확인 중…</p>;
@@ -219,26 +230,49 @@ export function GuildDiningHallPanel() {
             value={ingredientId}
             onChange={(event) => {
               setIngredientId(event.target.value);
-              setQuantity(1);
+              setQuantity(
+                state.ingredients.find((item) => item.id === event.target.value)
+                  ?.batchSize ?? 1,
+              );
             }}
             disabled={busy || !state.eligible || state.pantry.ready}
             className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm dark:border-zinc-700 dark:bg-zinc-950"
           >
-            {state.ingredients.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.icon} {item.name} · {item.pointValue}점 · {item.owned}개
-              </option>
+            {(["farm", "fishing_item"] as const).map((source) => (
+              <optgroup
+                key={source}
+                label={source === "farm" ? "농장 식재료" : "낚시 어획물"}
+              >
+                {state.ingredients
+                  .filter((item) => item.source === source)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.icon} {item.name} · {item.batchSize}개당{" "}
+                      {item.pointValue}점 · 보유 {item.owned}개
+                    </option>
+                  ))}
+              </optgroup>
             ))}
           </select>
           <input
             type="number"
             inputMode="numeric"
-            min={1}
-            max={Math.max(1, maxDonation)}
-            value={Math.min(quantity, Math.max(1, maxDonation))}
+            min={selectedBatchSize}
+            step={selectedBatchSize}
+            max={Math.max(selectedBatchSize, maxDonation)}
+            value={donationQuantity}
             onChange={(event) =>
               setQuantity(
-                Math.max(1, Math.min(maxDonation || 1, Math.floor(Number(event.target.value) || 1))),
+                Math.max(
+                  selectedBatchSize,
+                  Math.min(
+                    maxDonation || selectedBatchSize,
+                    Math.floor(
+                      (Number(event.target.value) || selectedBatchSize) /
+                        selectedBatchSize,
+                    ) * selectedBatchSize,
+                  ),
+                ),
               )
             }
             disabled={busy || maxDonation <= 0}
@@ -253,7 +287,7 @@ export function GuildDiningHallPanel() {
                 {
                   action: "donate",
                   ingredientId,
-                  quantity: Math.min(quantity, maxDonation),
+                  quantity: donationQuantity,
                 },
                 (json) =>
                   `${json.donated?.ingredientName ?? "식재료"} ${json.donated?.quantity ?? 0}개 기부 · +${json.donated?.points ?? 0}점`,

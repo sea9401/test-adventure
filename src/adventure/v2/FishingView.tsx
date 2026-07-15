@@ -62,6 +62,14 @@ export type ReelOutcome =
       codexCount: number;
       /** 이번 챔질로 받은 낚시 코인(티어 소량·일일 상한 도달 시 0). */
       coinsGained?: number;
+      /** 어종과 별도로 공동 식재료 보관함에 적립된 티어별 어획물. */
+      catchItem?: {
+        id: string;
+        name: string;
+        icon: string;
+        quantity: number;
+        balance: number;
+      };
       /** 오늘 챔질로 획득한 낚시 코인 진행도. */
       dailyCatchCoins?: FishingDailyCatchCoins;
       /** 낚시 레벨 상승으로 받은 별도 낚시 코인 보상. */
@@ -1337,6 +1345,11 @@ function levelBonusLabels(progression: FishingProgressionView): string[] {
 
 function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
   const labels: string[] = [];
+  if (result.catchItem && result.catchItem.quantity > 0) {
+    labels.push(
+      `${result.catchItem.icon} ${result.catchItem.name} +${result.catchItem.quantity} · 보유 ${result.catchItem.balance}`,
+    );
+  }
   if (result.coinsGained != null && result.coinsGained > 0) {
     labels.push(`코인 +${result.coinsGained}`);
   } else if (

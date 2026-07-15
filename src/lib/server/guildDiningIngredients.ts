@@ -12,6 +12,13 @@ import {
   type GuildDiningIngredientSource,
 } from "@/adventure/data/v2/guildDining";
 import {
+  FISHING_STOCK_KEY,
+  emptyFishingStock,
+  isFishingCatchItemId,
+  parseFishingStock,
+  spendFishingCatchItem,
+} from "@/adventure/v2/fishingStock";
+import {
   lockSaveForUpdate,
   readSave,
   upsertSave,
@@ -79,10 +86,47 @@ const farmSource: SourceReader = {
   },
 };
 
-// 물고기 아이템화 시 fishing_item 구현을 이 표에 추가한다. 라우트·화면·메뉴 규칙은
-// 공급원의 실제 세이브 키나 인벤토리 모양을 전혀 알 필요가 없다.
+const fishingSource: SourceReader = {
+  async readBalances(tx, userId, ingredients) {
+    const stock = parseFishingStock(
+      await readSave(tx, userId, FISHING_STOCK_KEY, emptyFishingStock()),
+    );
+    return Object.fromEntries(
+      ingredients.map((ingredient) => [
+        ingredient.id,
+        isFishingCatchItemId(ingredient.sourceItemId)
+          ? stock.items[ingredient.sourceItemId] ?? 0
+          : 0,
+      ]),
+    );
+  },
+
+  async lockIngredient(tx, userId, ingredient) {
+    if (!isFishingCatchItemId(ingredient.sourceItemId)) return null;
+    const stock = parseFishingStock(
+      await lockSaveForUpdate(
+        tx,
+        userId,
+        FISHING_STOCK_KEY,
+        emptyFishingStock(),
+      ),
+    );
+    const itemId = ingredient.sourceItemId;
+    return {
+      owned: stock.items[itemId] ?? 0,
+      async consume(quantity) {
+        const next = spendFishingCatchItem(stock, itemId, quantity);
+        if (!next) return;
+        await upsertSave(tx, userId, FISHING_STOCK_KEY, next);
+      },
+    };
+  },
+};
+
+// 라우트·화면·메뉴 규칙은 공급원의 실제 세이브 키나 인벤토리 모양을 알지 않는다.
 const SOURCE_READERS: Partial<Record<GuildDiningIngredientSource, SourceReader>> = {
   farm: farmSource,
+  fishing_item: fishingSource,
 };
 
 export async function readGuildDiningIngredientBalances(

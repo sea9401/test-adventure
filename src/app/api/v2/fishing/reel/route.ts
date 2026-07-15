@@ -84,6 +84,12 @@ import {
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
 import {
+  FISHING_STOCK_KEY,
+  addFishingCatchToStock,
+  emptyFishingStock,
+  parseFishingStock,
+} from "@/adventure/v2/fishingStock";
+import {
   countClaimableFishingTasks,
   fishingProgressNotices,
 } from "@/adventure/v2/fishingChallengeProgress";
@@ -219,8 +225,24 @@ export async function POST(req: Request) {
     const streakBuff = fishingStreakBuff(streak.current);
     const multtaeEffect = multtaeAt(now).condition.effect;
 
+    // 어종·크기는 도감/기록에 남기고, 공동 식재료는 티어별 5종으로만 적립한다.
+    // 길드 식당 기부도 어획물 → 식사 효과 순서로 잠그므로 같은 순서를 지킨다.
+    const stockBefore = parseFishingStock(
+      await lockSaveForUpdate(
+        tx,
+        userId,
+        FISHING_STOCK_KEY,
+        emptyFishingStock(),
+      ),
+    );
+    const catchStock = addFishingCatchToStock(
+      stockBefore,
+      FISH[session.fishId].tier,
+    );
+    await upsertSave(tx, userId, FISHING_STOCK_KEY, catchStock.stock);
+
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
-    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
+    // 락 순서: 세션 → streak → 어획물 → 낚시진행도 → 식사 효과 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
     const progressBefore = parseFishingProgression(
       await lockSaveForUpdate(
         tx,
@@ -404,6 +426,13 @@ export async function POST(req: Request) {
       coinsGained: coinResult.awarded,
       levelRewardCoins,
       coins: walletAfterCoins.coins,
+      catchItem: {
+        id: catchStock.item.id,
+        name: catchStock.item.name,
+        icon: catchStock.item.icon,
+        quantity: 1,
+        balance: catchStock.balance,
+      },
       dailyCatchCoins: fishingCatchCoinProgress(walletAfterCoins, dayKey),
       fishingXpGained: progressResult.xpGained,
       fishingLevel: progressView.level,
@@ -527,9 +556,9 @@ export async function POST(req: Request) {
     xpGained: result.fishingXpGained,
     drops: [
       {
-        materialId: result.fishId,
-        materialName: fish.name,
-        quantity: 1,
+        materialId: result.catchItem.id,
+        materialName: result.catchItem.name,
+        quantity: result.catchItem.quantity,
         primary: true,
       },
     ],
@@ -595,6 +624,7 @@ export async function POST(req: Request) {
     coinsGained: result.coinsGained,
     levelRewardCoins: result.levelRewardCoins,
     coins: result.coins,
+    catchItem: result.catchItem,
     dailyCatchCoins: result.dailyCatchCoins,
     fishingXpGained: result.fishingXpGained,
     fishingLevel: result.fishingLevel,

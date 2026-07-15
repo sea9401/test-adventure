@@ -153,6 +153,16 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
             isPersonalBest: Boolean(j.isPersonalBest),
             prevBest: Number(j.prevBest ?? 0),
             codexCount: Number(j.codexCount ?? 0),
+            catchItem:
+              j.catchItem && typeof j.catchItem === "object"
+                ? {
+                    id: String(j.catchItem.id),
+                    name: String(j.catchItem.name),
+                    icon: String(j.catchItem.icon),
+                    quantity: Math.max(0, Math.floor(Number(j.catchItem.quantity) || 0)),
+                    balance: Math.max(0, Math.floor(Number(j.catchItem.balance) || 0)),
+                  }
+                : undefined,
             coinsGained: Number(j.coinsGained ?? 0),
             dailyCatchCoins: nextDailyCatchCoins,
             levelRewardCoins: Number(j.levelRewardCoins ?? 0),

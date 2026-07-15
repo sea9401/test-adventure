@@ -1,4 +1,5 @@
 import { FARM_ITEMS, type FarmItemId } from "@/adventure/v2/farm";
+import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 
 export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
 export const GUILD_DINING_POINTS_PER_TICKET = 15;
@@ -12,11 +13,14 @@ export type GuildDiningIngredient = {
   sourceItemId: string;
   name: string;
   icon: string;
+  /** 이 수량 단위로만 기부한다. */
+  batchSize: number;
+  /** batchSize 하나가 올리는 공동 준비·개인 기여 점수. */
   pointValue: number;
 };
 
-// 식당은 공급원의 인벤토리 구조를 알지 않는다. 새 작물은 이 목록에 한 줄을 더하고,
-// 물고기가 아이템화되면 fishing_item 공급원 등록부를 추가하면 된다.
+// 식당은 공급원의 인벤토리 구조를 알지 않는다. 새 식재료는 공급원별 등록부에만
+// 추가하고, 실제 저장소 접근은 서버 어댑터가 맡는다.
 const FARM_DINING_ITEMS: ReadonlyArray<{
   itemId: FarmItemId;
   pointValue: number;
@@ -43,21 +47,56 @@ const FARM_DINING_ITEMS: ReadonlyArray<{
   { itemId: "royal_cacao", pointValue: 3 },
 ];
 
-export const GUILD_DINING_INGREDIENTS: readonly GuildDiningIngredient[] =
-  FARM_DINING_ITEMS.map(({ itemId, pointValue }) => ({
+const FISHING_DINING_VALUES = {
+  catch_common: { batchSize: 5, pointValue: 1 },
+  catch_fresh: { batchSize: 3, pointValue: 1 },
+  catch_quality: { batchSize: 1, pointValue: 1 },
+  catch_special: { batchSize: 1, pointValue: 3 },
+  catch_legendary: { batchSize: 1, pointValue: 8 },
+} as const;
+
+const FISHING_DINING_ITEMS: readonly GuildDiningIngredient[] =
+  FISHING_CATCH_ITEM_LIST.map((item) => ({
+    id: `fishing_item:${item.id}`,
+    source: "fishing_item" as const,
+    sourceItemId: item.id,
+    name: item.name,
+    icon: item.icon,
+    ...FISHING_DINING_VALUES[item.id],
+  }));
+
+export const GUILD_DINING_INGREDIENTS: readonly GuildDiningIngredient[] = [
+  ...FARM_DINING_ITEMS.map(({ itemId, pointValue }) => ({
     id: `farm:${itemId}`,
     source: "farm" as const,
     sourceItemId: itemId,
     name: FARM_ITEMS[itemId].name,
     icon: FARM_ITEMS[itemId].icon,
+    batchSize: 1,
     pointValue,
-  }));
+  })),
+  ...FISHING_DINING_ITEMS,
+];
 
 export function guildDiningIngredient(
   raw: unknown,
 ): GuildDiningIngredient | null {
   if (typeof raw !== "string") return null;
   return GUILD_DINING_INGREDIENTS.find((item) => item.id === raw) ?? null;
+}
+
+export function guildDiningDonationPoints(
+  ingredient: GuildDiningIngredient,
+  quantity: number,
+): number | null {
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < ingredient.batchSize ||
+    quantity % ingredient.batchSize !== 0
+  ) {
+    return null;
+  }
+  return (quantity / ingredient.batchSize) * ingredient.pointValue;
 }
 
 export type GuildDiningEffectKind = "hunt_exp" | "life_xp";
@@ -85,7 +124,7 @@ export type GuildDiningMenu = {
 export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
   {
     id: "hearty_stew",
-    name: "든든한 채소 스튜",
+    name: "든든한 길드 스튜",
     icon: "🍲",
     description: "HP·MP 충전량을 각각 100,000 즉시 채웁니다.",
     minFacilityLevel: 1,

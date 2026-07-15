@@ -50,6 +50,7 @@ import { POST } from "@/app/api/v2/fishing/reel/route";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
 import { FISHING_STREAK_KEY } from "@/adventure/v2/fishingStreak";
+import { FISHING_STOCK_KEY } from "@/adventure/v2/fishingStock";
 import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
 import {
   FISHING_PROGRESS_KEY,
@@ -142,6 +143,7 @@ describe("POST /api/v2/fishing/reel", () => {
       fishingXpGained: number;
       fishingLevel: number;
       fishingCatches: number;
+      catchItem: { id: string; name: string; quantity: number; balance: number };
     };
     expect(json.ok).toBe(true);
     expect(json.caught).toBe(true);
@@ -150,6 +152,13 @@ describe("POST /api/v2/fishing/reel", () => {
     expect(json.fishingCatches).toBe(1);
     expect(json.masteryGained).toBe(1);
     expect(json.masteryAfter).toBe(6);
+    expect(json.catchItem).toEqual({
+      id: "catch_fresh",
+      name: "신선한 어획물",
+      icon: "🐠",
+      quantity: 1,
+      balance: 1,
+    });
 
     const prof = store.get("proficiency.v2") as {
       points: number;
@@ -166,6 +175,10 @@ describe("POST /api/v2/fishing/reel", () => {
       equippedLureId: "dough_lure",
     });
     expect(store.get(FISHING_SESSION_KEY)).toEqual({});
+    expect(store.get(FISHING_STOCK_KEY)).toEqual({
+      version: 1,
+      items: { catch_fresh: 1 },
+    });
     expect(upsertFishingRecord).toHaveBeenCalledOnce();
     expect(
       activityGuardView(

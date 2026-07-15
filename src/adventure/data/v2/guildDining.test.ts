@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   consumeGuildDiningEffectState,
   GUILD_DINING_INGREDIENTS,
+  guildDiningDonationPoints,
   guildDiningPantryTarget,
   guildDiningTicketProgress,
   parseGuildDiningUserState,
@@ -10,8 +11,27 @@ import {
 describe("guild dining", () => {
   it("식재료 ID는 공급원과 원본 아이템 ID를 분리한다", () => {
     const wheat = GUILD_DINING_INGREDIENTS.find((item) => item.id === "farm:wheat");
-    expect(wheat).toMatchObject({ source: "farm", sourceItemId: "wheat", pointValue: 1 });
+    expect(wheat).toMatchObject({
+      source: "farm",
+      sourceItemId: "wheat",
+      batchSize: 1,
+      pointValue: 1,
+    });
     expect(GUILD_DINING_INGREDIENTS.some((item) => item.sourceItemId === "herb")).toBe(false);
+  });
+
+  it("낚시 어획물은 등급별 묶음 단위로 공동 준비 점수를 계산한다", () => {
+    const common = GUILD_DINING_INGREDIENTS.find(
+      (item) => item.id === "fishing_item:catch_common",
+    );
+    const legendary = GUILD_DINING_INGREDIENTS.find(
+      (item) => item.id === "fishing_item:catch_legendary",
+    );
+    expect(common).toMatchObject({ batchSize: 5, pointValue: 1 });
+    expect(legendary).toMatchObject({ batchSize: 1, pointValue: 8 });
+    expect(guildDiningDonationPoints(common!, 10)).toBe(2);
+    expect(guildDiningDonationPoints(common!, 6)).toBeNull();
+    expect(guildDiningDonationPoints(legendary!, 1)).toBe(8);
   });
 
   it("길드를 옮겨도 같은 주의 사용 식권과 음식 효과는 유지한다", () => {

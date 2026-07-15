@@ -25,6 +25,7 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
 import {
+  GUILD_DINING_INGREDIENTS,
   GUILD_DINING_MENUS,
   GUILD_DINING_POINTS_PER_TICKET,
 } from "@/adventure/data/v2/guildDining";
@@ -232,8 +233,9 @@ export function GuildContent() {
       <H2>길드 식당</H2>
       <P>
         길드 식당은 농장과 낚시에서 얻은 식재료를 길드원이 함께 준비하고 주간
-        식권으로 식사하는 시설입니다. 현재는 농장 작물을 받으며, 물고기가
-        아이템으로 보관되는 시점에 같은 식재료 등록부로 낚시 재료가 추가됩니다.
+        식권으로 식사하는 시설입니다. 낚은 어종과 크기는 어보·기록에 남고,
+        식재료 보관함에는 물고기 등급에 맞는 어획물 한 종류가 자동으로 쌓입니다.
+        어획물은 현재 공동 식재료 기부에만 사용합니다.
       </P>
       <UL>
         <li>
@@ -250,6 +252,17 @@ export function GuildContent() {
           같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
         </li>
       </UL>
+      <Table
+        head={["낚시 식재료", "기부 단위", "공동 준비"]}
+        rows={GUILD_DINING_INGREDIENTS.filter(
+          (ingredient) => ingredient.source === "fishing_item",
+        ).map((ingredient) => [
+          <Em key={ingredient.id}>{ingredient.name}</Em>,
+          `${ingredient.batchSize}개`,
+          `${ingredient.pointValue}점`,
+        ])}
+        caption="어획물은 정해진 묶음 단위로 기부합니다. 어종별 물고기 아이템이나 개인 요리 재료로는 아직 분리하지 않습니다."
+      />
       <Table
         head={["메뉴", "시설", "효과"]}
         rows={GUILD_DINING_MENUS.map((menu) => [

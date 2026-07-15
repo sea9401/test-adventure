@@ -6,6 +6,7 @@ import {
   GUILD_DINING_MENUS,
   GUILD_DINING_USER_SAVE_KEY,
   activeEffectForMenu,
+  guildDiningDonationPoints,
   guildDiningIngredient,
   guildDiningMenu,
   guildDiningTicketProgress,
@@ -253,7 +254,10 @@ export async function POST(req: Request) {
     if (body.action === "donate") {
       const ingredient = guildDiningIngredient(body.ingredientId);
       const quantity = Number(body.quantity);
-      if (!ingredient || !Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+      const points = ingredient
+        ? guildDiningDonationPoints(ingredient, quantity)
+        : null;
+      if (!ingredient || points == null || quantity > 999) {
         return { status: 400, body: { ok: false as const, error: "invalid_donation" } };
       }
       const sourceInventory = await lockGuildDiningIngredient(
@@ -273,7 +277,6 @@ export async function POST(req: Request) {
       );
       const userState = parseGuildDiningUserState(diningRaw, { weekKey, guildId });
       const tickets = guildDiningTicketProgress(userState, upgrade.weeklyMealTickets);
-      const points = ingredient.pointValue * quantity;
       if (
         userState.contributionPoints + points > tickets.contributionCap ||
         weekly.pantryPoints + points > weekly.targetPoints

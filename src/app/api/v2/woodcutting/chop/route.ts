@@ -46,6 +46,7 @@ import {
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 
 type CharSave = {
   class?: unknown;
@@ -172,10 +173,18 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
+    const diningXp = await consumeGuildDiningEffect(
+      tx,
+      userId,
+      "life_xp",
+      tree.xp,
+      new Date(now),
+    );
+    const xpGained = tree.xp + diningXp.bonus;
     const log = recordWoodcuttingSuccess(currentLog, {
       treeId: session.treeId,
       timber: materialGained,
-      xp: tree.xp,
+      xp: xpGained,
     });
     await upsertSave(tx, userId, WOODCUTTING_LOG_KEY, log);
 
@@ -217,7 +226,7 @@ export async function POST(req: Request) {
       yieldReduced: !rewardGranted,
       recovered,
       failureRate,
-      xpGained: tree.xp,
+      xpGained,
       jobId: isWoodcuttingJobId(jobId) ? jobId : null,
       jobName: isWoodcuttingJobId(jobId)
         ? V2_JOB_CATALOG[jobId]?.name ?? jobId

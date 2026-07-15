@@ -7,6 +7,7 @@ import { battleCountOf } from "@/lib/server/battleCount";
 import { v2LevelGrowthHpMp } from "@/lib/server/derivePlayerCombatV2";
 import { prepareV2BattleActor } from "@/lib/server/v2BattlePrep";
 import { readGuildCombatSupplyLevels } from "@/lib/server/guildCombatSupply";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
@@ -635,13 +636,21 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     baseRewards.goldGross,
     guildCombatSupply.goldPct,
   );
-  const expGained = hotTime.active
+  const expBeforeDining = hotTime.active
     ? applyPctBonus(expAfterGuild, hotTime.bonuses.expPct)
     : expAfterGuild;
+  const diningExp = await consumeGuildDiningEffect(
+    tx,
+    userId,
+    "hunt_exp",
+    expBeforeDining,
+    new Date(now),
+  );
+  const expGained = expBeforeDining + diningExp.bonus;
   const goldGross = hotTime.active
     ? applyPctBonus(goldAfterGuild, hotTime.bonuses.goldPct)
     : goldAfterGuild;
-  const hotTimeExpBonus = bonusDelta(expAfterGuild, expGained);
+  const hotTimeExpBonus = bonusDelta(expAfterGuild, expBeforeDining);
   const hotTimeGoldBonus = bonusDelta(goldAfterGuild, goldGross);
   // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
   //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.

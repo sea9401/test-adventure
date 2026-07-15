@@ -799,6 +799,13 @@
       "when": 1784139399358,
       "tag": "0113_player-sanction-notices",
       "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1784141950878,
+      "tag": "0114_gifted_professor_monster",
+      "breakpoints": true
     }
   ]
 }

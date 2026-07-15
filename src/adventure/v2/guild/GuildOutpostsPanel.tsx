@@ -15,12 +15,14 @@ import { GuildTrainingGroundPanel } from "./GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "./GuildWorkshopPanel";
 import { GuildFacilityUpgradeFund } from "./GuildFacilityUpgradeFund";
 import { GuildAlchemyWorkshopPanel } from "./GuildAlchemyWorkshopPanel";
+import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 
 const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_smithy: "장비 제작과 대장장이 성장을 지원하는 길드 공용 시설입니다.",
   training_ground: "길드원이 매일 직업 숙련도 훈련을 받을 수 있는 시설입니다.",
   exploration_hq: "주간 길드 탐사 의뢰와 원정 진척을 관리하는 시설입니다.",
   alchemy_workshop: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 시설입니다.",
+  dining_hall: "농장과 낚시 식재료를 함께 준비해 주간 식사를 제공하는 시설입니다.",
 };
 
 const VISIBLE_GUILD_FACILITY_IDS = [
@@ -28,7 +30,7 @@ const VISIBLE_GUILD_FACILITY_IDS = [
   "training_ground",
   "exploration_hq",
   "alchemy_workshop",
-  "woodworks",
+  "dining_hall",
 ] satisfies SettlementBuildingId[];
 
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
@@ -103,6 +105,15 @@ export function GuildFacilitiesPanel({
       <div className="space-y-3">
         <FacilityBackButton onClick={() => setActiveFacility(null)} />
         <GuildAlchemyWorkshopPanel />
+      </div>
+    );
+  }
+
+  if (activeFacility === "dining_hall") {
+    return (
+      <div className="space-y-3">
+        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <GuildDiningHallPanel />
       </div>
     );
   }
@@ -409,7 +420,8 @@ function isOpenableFacility(id: SettlementBuildingId): boolean {
     id === "guild_smithy" ||
     id === "training_ground" ||
     id === "exploration_hq" ||
-    id === "alchemy_workshop"
+    id === "alchemy_workshop" ||
+    id === "dining_hall"
   );
 }
 

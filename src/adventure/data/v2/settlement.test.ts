@@ -22,10 +22,12 @@ import {
   TRAINING_GROUND_UPGRADES,
   EXPLORATION_HQ_UPGRADES,
   ALCHEMY_WORKSHOP_UPGRADES,
+  DINING_HALL_UPGRADES,
   SETTLEMENT_RESOURCE_KEYS,
   canAffordSettlementBuildingUpgrade,
   explorationHqUpgradeForLevel,
   alchemyWorkshopUpgradeForLevel,
+  diningHallUpgradeForLevel,
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
@@ -120,12 +122,33 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 연성력 15 · 조제법 Lv.5");
   });
 
+  it("길드 식당은 배치 가능 건물이며 Lv5에서 주간 식권 4장과 메뉴 2종을 연다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("dining_hall");
+    expect(nextSettlementBuildingUpgrade("dining_hall", 1)).toMatchObject({
+      level: 2,
+      cost: { crop: 250, ore: 250, gold: 20_000_000, fame: 0 },
+      weeklyMealTickets: 2,
+    });
+    expect(diningHallUpgradeForLevel(5)).toMatchObject({
+      weeklyMealTickets: 4,
+      weeklyMenuSlots: 2,
+      label: "길드 대연회장",
+    });
+    expect(
+      settlementBuildingUpgradeSummary(
+        "dining_hall",
+        diningHallUpgradeForLevel(5),
+      ),
+    ).toBe("주간 식권 4장 · 메뉴 2종");
+  });
+
   it("시설 비용은 상위 생활 재료를 단계적으로 요구하고 Lv2 명성은 무료다", () => {
     for (const upgrades of [
       GUILD_SMITHY_UPGRADES,
       TRAINING_GROUND_UPGRADES,
       EXPLORATION_HQ_UPGRADES,
       ALCHEMY_WORKSHOP_UPGRADES,
+      DINING_HALL_UPGRADES,
     ]) {
       expect(upgrades[1].cost.fame).toBe(0);
       expect(upgrades[2].cost).toMatchObject({
@@ -153,6 +176,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       TRAINING_GROUND_UPGRADES,
       EXPLORATION_HQ_UPGRADES,
       ALCHEMY_WORKSHOP_UPGRADES,
+      DINING_HALL_UPGRADES,
     ].map((upgrades) => ({
       materials: upgrades
         .slice(1)
@@ -176,6 +200,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       { materials: 5_000, gold: 315_000_000, fame: 4_350 },
       { materials: 5_000, gold: 380_000_000, fame: 5_350 },
       { materials: 5_000, gold: 347_000_000, fame: 5_000 },
+      { materials: 5_000, gold: 315_000_000, fame: 4_350 },
       { materials: 5_000, gold: 315_000_000, fame: 4_350 },
     ]);
   });

@@ -8,6 +8,7 @@ import {
   getFarmShopItems,
   getFarmSpecialDeliveryRequests,
   getFarmWeeklyDeliveryRequests,
+  farmingLevelForXp,
   harvestPlot,
   normalizeFarmForDay,
   parseFarmState,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/server/activityGuardServer";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { incrementGuildExplorationProgressForUser } from "@/lib/server/guildExplorationWeekly";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -94,6 +96,32 @@ export async function POST(req: Request) {
           Math.random,
           farmBonuses,
         );
+        const diningXp = await consumeGuildDiningEffect(
+          tx,
+          userId,
+          "life_xp",
+          harvested.result.farmingXpGained,
+          new Date(now),
+        );
+        const farmingXp = harvested.result.farmingXp + diningXp.bonus;
+        const farmingXpGained =
+          harvested.result.farmingXpGained + diningXp.bonus;
+        const harvestedState =
+          diningXp.bonus > 0
+            ? {
+                ...harvested.state,
+                stats: { ...harvested.state.stats, farmingXp },
+              }
+            : harvested.state;
+        const harvestResult =
+          diningXp.bonus > 0
+            ? {
+                ...harvested.result,
+                farmingXp,
+                farmingXpGained,
+                farmingLevel: farmingLevelForXp(farmingXp),
+              }
+            : harvested.result;
         const guardUpdate = recordActivityCompletion(
           parseActivityGuardState(
             await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
@@ -102,7 +130,7 @@ export async function POST(req: Request) {
           now,
         );
         await upsertSave(tx, userId, ACTIVITY_GUARD_KEY, guardUpdate.state);
-        await upsertSave(tx, userId, FARM_SAVE_KEY, harvested.state);
+        await upsertSave(tx, userId, FARM_SAVE_KEY, harvestedState);
 
         let masteryGained = 0;
         let masteryAfter: number | null = null;
@@ -113,7 +141,7 @@ export async function POST(req: Request) {
             await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
             charSave,
           );
-          masteryGained = harvested.result.farmingXpGained;
+          masteryGained = harvestResult.farmingXpGained;
           prof = addCumLevel(prof, group, masteryGained);
           prof = addJobCumLevel(prof, farmJobId ?? "", masteryGained);
           masteryAfter = prof.jobCumLevel?.[farmJobId ?? ""] ?? 0;
@@ -129,8 +157,8 @@ export async function POST(req: Request) {
         );
 
         return {
-          farm: harvested.state,
-          result: harvested.result,
+          farm: harvestedState,
+          result: harvestResult,
           farmJobId,
           masteryGained,
           masteryAfter,

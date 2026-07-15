@@ -603,13 +603,14 @@ describe("POST /api/v2/outpost/village/building/place", () => {
     expect(((await res.json()) as AnyJson).error).toBe("building_unavailable");
   });
 
-  it("아직 미개방 건물 id → 409 building_unavailable", async () => {
+  it("길드 식당을 배치할 수 있다", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
     const res = await placeBuildingPOST(
-      jreq({ outpostId: FARM_OUTPOST, slot: 0, buildingId: "woodworks" }),
+      jreq({ outpostId: FARM_OUTPOST, slot: 0, buildingId: "dining_hall" }),
     );
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as AnyJson).error).toBe("building_unavailable");
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as AnyJson & { buildingId: string };
+    expect(json.buildingId).toBe("dining_hall");
   });
 
   it("보관된 같은 길드 건축물 레벨이 있으면 재배치 때 복구한다", async () => {

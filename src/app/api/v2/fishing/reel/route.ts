@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
@@ -79,8 +80,15 @@ import {
   emptyFishingProgression,
   fishingLevelRewardCoins,
   fishingProgressionView,
+  fishingXpForCatch,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
+import {
+  FISHING_STOCK_KEY,
+  emptyFishingStock,
+  parseFishingStock,
+  rollFishingCatchToStock,
+} from "@/adventure/v2/fishingStock";
 import {
   countClaimableFishingTasks,
   fishingProgressNotices,
@@ -216,9 +224,29 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, FISHING_STREAK_KEY, streak);
     const streakBuff = fishingStreakBuff(streak.current);
     const multtaeEffect = multtaeAt(now).condition.effect;
+    const dayKey = kstDailyKey(new Date(now));
+
+    // 어종·크기는 도감/기록에 남기고, 공동 식재료는 티어별 5종으로만 적립한다.
+    // 길드 식당 기부도 어획물 → 식사 효과 순서로 잠그므로 같은 순서를 지킨다.
+    const stockBefore = parseFishingStock(
+      await lockSaveForUpdate(
+        tx,
+        userId,
+        FISHING_STOCK_KEY,
+        emptyFishingStock(),
+      ),
+    );
+    const catchStock = rollFishingCatchToStock(
+      stockBefore,
+      FISH[session.fishId].tier,
+      dayKey,
+    );
+    if (catchStock.awarded) {
+      await upsertSave(tx, userId, FISHING_STOCK_KEY, catchStock.stock);
+    }
 
     // 낚시 진행도 — 성공한 챔질에만 경험치/누적 어획을 지급한다.
-    // 락 순서: 세션 → streak → 낚시진행도 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
+    // 락 순서: 세션 → streak → 어획물 → 낚시진행도 → 식사 효과 → character → proficiency → 반복퀘스트 → 코덱스 → 일일트래커 → 지갑.
     const progressBefore = parseFishingProgression(
       await lockSaveForUpdate(
         tx,
@@ -228,9 +256,17 @@ export async function POST(req: Request) {
       ),
     );
     const progressGoalViewsBefore = deriveFishingGoalViews(progressBefore);
+    const diningXp = await consumeGuildDiningEffect(
+      tx,
+      userId,
+      "life_xp",
+      fishingXpForCatch(session.fishId),
+      new Date(now),
+    );
     const progressResult = addFishingCatchXp(
       progressBefore,
       session.fishId,
+      diningXp.bonus,
     );
     await upsertSave(
       tx,
@@ -292,7 +328,6 @@ export async function POST(req: Request) {
 
     // 일일 낚시 도전과제 — 그날 카운터를 올린다(일 경계 롤오버는 applyDailyCatch 내부). 같은 tx.
     //   락 순서: 세션 → 코덱스 → 일일트래커 → (조각). claim 라우트는 일일트래커 → 지갑이라 순환 없음.
-    const dayKey = kstDailyKey(new Date(now));
     const dailyBefore = rolloverFishingDaily(
       parseFishingDaily(
         await lockSaveForUpdate(tx, userId, FISHING_DAILY_KEY, {}),
@@ -394,6 +429,24 @@ export async function POST(req: Request) {
       coinsGained: coinResult.awarded,
       levelRewardCoins,
       coins: walletAfterCoins.coins,
+      catchItem: catchStock.awarded
+        ? {
+            id: catchStock.item.id,
+            name: catchStock.item.name,
+            icon: catchStock.item.icon,
+            quantity: 1,
+            balance: catchStock.balance,
+            dailyAwarded: catchStock.dailyAwarded,
+            dailyCap: catchStock.dailyCap,
+          }
+        : null,
+      catchItemStatus: catchStock.reason,
+      catchItemDaily: {
+        itemId: catchStock.item.id,
+        name: catchStock.item.name,
+        awarded: catchStock.dailyAwarded,
+        cap: catchStock.dailyCap,
+      },
       dailyCatchCoins: fishingCatchCoinProgress(walletAfterCoins, dayKey),
       fishingXpGained: progressResult.xpGained,
       fishingLevel: progressView.level,
@@ -515,14 +568,16 @@ export async function POST(req: Request) {
     success: true,
     failureRate: 0,
     xpGained: result.fishingXpGained,
-    drops: [
-      {
-        materialId: result.fishId,
-        materialName: fish.name,
-        quantity: 1,
-        primary: true,
-      },
-    ],
+    drops: result.catchItem
+      ? [
+          {
+            materialId: result.catchItem.id,
+            materialName: result.catchItem.name,
+            quantity: result.catchItem.quantity,
+            primary: true,
+          },
+        ]
+      : [],
   });
   // 낚시 대물 — 종 크기 상위 구간 + 개인 신기록이면 전광판/소식 피드에 알린다.
   //   디바운스(같은 유저+type 60s)·보관 trim 은 insertFeedEntry 가 자동 처리(도배 방지).
@@ -585,6 +640,9 @@ export async function POST(req: Request) {
     coinsGained: result.coinsGained,
     levelRewardCoins: result.levelRewardCoins,
     coins: result.coins,
+    catchItem: result.catchItem,
+    catchItemStatus: result.catchItemStatus,
+    catchItemDaily: result.catchItemDaily,
     dailyCatchCoins: result.dailyCatchCoins,
     fishingXpGained: result.fishingXpGained,
     fishingLevel: result.fishingLevel,

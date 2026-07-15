@@ -153,6 +153,45 @@ export function useFishing(spotId?: FishingSpotId): FishingHandlers {
             isPersonalBest: Boolean(j.isPersonalBest),
             prevBest: Number(j.prevBest ?? 0),
             codexCount: Number(j.codexCount ?? 0),
+            catchItem:
+              j.catchItem && typeof j.catchItem === "object"
+                ? {
+                    id: String(j.catchItem.id),
+                    name: String(j.catchItem.name),
+                    icon: String(j.catchItem.icon),
+                    quantity: Math.max(0, Math.floor(Number(j.catchItem.quantity) || 0)),
+                    balance: Math.max(0, Math.floor(Number(j.catchItem.balance) || 0)),
+                    dailyAwarded: Math.max(
+                      0,
+                      Math.floor(Number(j.catchItem.dailyAwarded) || 0),
+                    ),
+                    dailyCap: Math.max(
+                      0,
+                      Math.floor(Number(j.catchItem.dailyCap) || 0),
+                    ),
+                  }
+                : undefined,
+            catchItemStatus:
+              j.catchItemStatus === "awarded" ||
+              j.catchItemStatus === "roll_miss" ||
+              j.catchItemStatus === "daily_cap"
+                ? j.catchItemStatus
+                : undefined,
+            catchItemDaily:
+              j.catchItemDaily && typeof j.catchItemDaily === "object"
+                ? {
+                    itemId: String(j.catchItemDaily.itemId),
+                    name: String(j.catchItemDaily.name),
+                    awarded: Math.max(
+                      0,
+                      Math.floor(Number(j.catchItemDaily.awarded) || 0),
+                    ),
+                    cap: Math.max(
+                      0,
+                      Math.floor(Number(j.catchItemDaily.cap) || 0),
+                    ),
+                  }
+                : undefined,
             coinsGained: Number(j.coinsGained ?? 0),
             dailyCatchCoins: nextDailyCatchCoins,
             levelRewardCoins: Number(j.levelRewardCoins ?? 0),

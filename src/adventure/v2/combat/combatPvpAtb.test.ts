@@ -9,6 +9,7 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
 });
 
 import { resolveBattlePvP, type PvPBattleResolution } from "./engine-pvp";
+import { PVP_ATB_TICK_CAP } from "./engine.pvp-atb";
 import type { PlayerCombat } from "./engine";
 import { actionInterval } from "./combatTimeline";
 
@@ -132,6 +133,7 @@ describe("resolveBattlePvP ATB invariants", () => {
     const result = run(p1, p2, 11);
     expect(result.outcome).toBe("p1_win");
     expect(result.finalState.phase).toBe("ended");
+    expect(PVP_ATB_TICK_CAP).toBe(2_600);
     expect(result.finalState.log.some((entry) => entry.text.includes("틱 경과"))).toBe(true);
   });
 

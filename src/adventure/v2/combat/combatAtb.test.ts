@@ -18,6 +18,7 @@ import {
   actionInterval,
   effectiveMonsterSpd,
 } from "@/adventure/v2/combat/combatTimeline";
+import { ATB_TICK_CAP } from "@/adventure/v2/combat/engine.atb";
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -162,6 +163,17 @@ describe("resolveBattle ATB invariants", () => {
     const result = run(player, enemy, 11);
     expect(result.outcome).toBe("lose");
     expect(result.finalState.outcome).toBe("lose");
+    expect(ATB_TICK_CAP).toBe(3_000);
+    expect(
+      result.finalState.log.some(
+        (entry) => typeof entry.t === "number" && entry.t > 2_000,
+      ),
+    ).toBe(true);
+    expect(
+      result.finalState.log.some((entry) =>
+        entry.text.includes(`${ATB_TICK_CAP}틱 경과`),
+      ),
+    ).toBe(true);
   });
 
   it("maxTurns caps player action bundles, not player+enemy phase pairs", () => {

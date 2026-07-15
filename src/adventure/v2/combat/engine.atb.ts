@@ -31,7 +31,9 @@ import {
 } from "./combatShared";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
-export const ATB_TICK_CAP = 50 * 40;
+// PvE 장기전 상한. 기준 속도(actionInterval≈100)에서 플레이어 행동 약 30회분으로,
+// 최대 MP·회복·DoT 같은 지속형 빌드가 작동할 여지를 준다. 일찍 끝나는 전투에는 영향 없음.
+export const ATB_TICK_CAP = 50 * 60;
 export const ATB_ACTION_GUARD = 1000;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {

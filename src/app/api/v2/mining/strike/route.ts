@@ -37,6 +37,7 @@ import {
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 
 type CharSave = {
   materials?: unknown;
@@ -153,11 +154,19 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
+    const diningXp = await consumeGuildDiningEffect(
+      tx,
+      userId,
+      "life_xp",
+      node.xp,
+      new Date(now),
+    );
+    const xpGained = node.xp + diningXp.bonus;
     const log = recordMiningSuccess(currentLog, {
       nodeId: session.nodeId,
       ore: materialGained,
       byproducts: byproductTotal,
-      xp: node.xp,
+      xp: xpGained,
     });
     await upsertSave(tx, userId, MINING_LOG_KEY, log);
 
@@ -177,7 +186,7 @@ export async function POST(req: Request) {
         name: MINING_MATERIALS[materialId].name,
         amount,
       })),
-      xpGained: node.xp,
+      xpGained,
       materials: miningMaterialBalances(materials),
       log,
       guardState: guardUpdate.state,

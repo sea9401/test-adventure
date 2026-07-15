@@ -119,6 +119,8 @@ function describe(a: GuildActivity): string {
       return a.meta?.amount
         ? `${actor} 님이 길드 엠블럼을 변경했어요 · 길드 자금 -${a.meta.amount.toLocaleString()} G`
         : `${actor} 님이 길드 엠블럼을 제거했어요`;
+    case "dining_meal":
+      return `${actor} 님이 길드 식당에서 ${a.meta?.itemName ?? "식사"}을 주문했어요`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -136,6 +138,7 @@ function alchemyTargetLabel(target?: "hp" | "mp" | "balanced"): string {
 const DOT_CLASS: Record<string, string> = {
   guild_create: "bg-amber-500",
   alchemy_craft: "bg-violet-500",
+  dining_meal: "bg-amber-500",
   member_join: "bg-emerald-500",
   role_change: "bg-sky-500",
   gold_deposit: "bg-yellow-500",

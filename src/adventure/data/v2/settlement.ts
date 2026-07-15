@@ -180,7 +180,7 @@ export type SettlementBuildingId =
   | "exploration_hq"
   | "map_workshop"
   | "alchemy_workshop"
-  | "woodworks";
+  | "dining_hall";
 
 export type SettlementBuildingDef = {
   id: SettlementBuildingId;
@@ -230,11 +230,11 @@ export const SETTLEMENT_BUILDINGS: Record<
     icon: "⚗️",
     desc: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 길드 공용 시설입니다.",
   },
-  woodworks: {
-    id: "woodworks",
-    name: "목공소",
-    icon: "🪚",
-    desc: "건축과 슬롯 확장을 위한 영지 시설입니다. 아직 배치할 수 없습니다.",
+  dining_hall: {
+    id: "dining_hall",
+    name: "길드 식당",
+    icon: "🍲",
+    desc: "농장과 낚시 식재료로 주간 식사를 준비하는 길드 공용 시설입니다.",
   },
 };
 export const SETTLEMENT_BUILDING_IDS = Object.keys(
@@ -245,6 +245,7 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "training_ground",
   "exploration_hq",
   "alchemy_workshop",
+  "dining_hall",
 ];
 
 export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
@@ -255,6 +256,7 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
   exploration_hq: 65_000_000,
   map_workshop: 15_000_000,
   alchemy_workshop: 60_000_000,
+  dining_hall: 50_000_000,
 };
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
@@ -424,6 +426,14 @@ export type AlchemyWorkshopUpgradeDef = {
   label: string;
 };
 
+export type DiningHallUpgradeDef = {
+  level: number;
+  cost: SettlementBuildingUpgradeCost;
+  weeklyMealTickets: number;
+  weeklyMenuSlots: number;
+  label: string;
+};
+
 export const MAP_WORKSHOP_UPGRADES: readonly MapWorkshopUpgradeDef[] = [
   {
     level: 1,
@@ -528,12 +538,51 @@ export const ALCHEMY_WORKSHOP_UPGRADES: readonly AlchemyWorkshopUpgradeDef[] = [
   },
 ];
 
+export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    weeklyMealTickets: 2,
+    weeklyMenuSlots: 1,
+    label: "공동 취사장",
+  },
+  {
+    level: 2,
+    cost: facilityUpgradeCost(2, 20_000_000, 0),
+    weeklyMealTickets: 2,
+    weeklyMenuSlots: 1,
+    label: "식재료 저장고",
+  },
+  {
+    level: 3,
+    cost: facilityUpgradeCost(3, 45_000_000, 600),
+    weeklyMealTickets: 3,
+    weeklyMenuSlots: 2,
+    label: "전문 조리실",
+  },
+  {
+    level: 4,
+    cost: facilityUpgradeCost(4, 90_000_000, 1250),
+    weeklyMealTickets: 3,
+    weeklyMenuSlots: 2,
+    label: "연회 준비실",
+  },
+  {
+    level: 5,
+    cost: facilityUpgradeCost(5, 160_000_000, 2500),
+    weeklyMealTickets: 4,
+    weeklyMenuSlots: 2,
+    label: "길드 대연회장",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
   | TrainingGroundUpgradeDef
   | MapWorkshopUpgradeDef
   | ExplorationHqUpgradeDef
-  | AlchemyWorkshopUpgradeDef;
+  | AlchemyWorkshopUpgradeDef
+  | DiningHallUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -639,6 +688,25 @@ export function nextAlchemyWorkshopUpgrade(
   );
 }
 
+export function diningHallUpgradeForLevel(
+  level: number,
+): DiningHallUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    DINING_HALL_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    DINING_HALL_UPGRADES[0]
+  );
+}
+
+export function nextDiningHallUpgrade(
+  level: number,
+): DiningHallUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    DINING_HALL_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ?? null
+  );
+}
+
 export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
   const safe = clampSettlementBuildingLevel(level);
   return (
@@ -672,6 +740,9 @@ export function nextSettlementBuildingUpgrade(
   if (buildingId === "alchemy_workshop") {
     return nextAlchemyWorkshopUpgrade(level);
   }
+  if (buildingId === "dining_hall") {
+    return nextDiningHallUpgrade(level);
+  }
   if (buildingId === "guild_smithy") {
     return nextGuildSmithyUpgrade(level);
   }
@@ -697,6 +768,10 @@ export function settlementBuildingUpgradeSummary(
   if (buildingId === "alchemy_workshop") {
     const alchemy = upgrade as AlchemyWorkshopUpgradeDef;
     return `주간 연성력 ${alchemy.weeklyEnergy} · 조제법 Lv.${alchemy.level}`;
+  }
+  if (buildingId === "dining_hall") {
+    const dining = upgrade as DiningHallUpgradeDef;
+    return `주간 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p`;

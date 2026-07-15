@@ -16,6 +16,7 @@ import {
 } from "@/adventure/data/v2/guildExploration";
 import {
   ALCHEMY_WORKSHOP_UPGRADES,
+  DINING_HALL_UPGRADES,
   EXPLORATION_HQ_UPGRADES,
   GUILD_SMITHY_UPGRADES,
   TRAINING_GROUND_UPGRADES,
@@ -23,6 +24,10 @@ import {
   settlementBuildingUpgradeCostText,
 } from "@/adventure/data/v2/settlement";
 import { GUILD_ALCHEMY_RECIPES } from "@/adventure/data/v2/guildAlchemy";
+import {
+  GUILD_DINING_MENUS,
+  GUILD_DINING_POINTS_PER_TICKET,
+} from "@/adventure/data/v2/guildDining";
 import {
   GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_DRILL_IDS,
@@ -99,7 +104,7 @@ export function GuildContent() {
             fame: 0,
           }),
         ])}
-        caption="제작소·훈련장·탐사 본부·연금 공방이 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
+        caption="제작소·훈련장·탐사 본부·연금 공방·길드 식당이 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
       />
       <Table
         head={["시설", "Lv2", "Lv3", "Lv4", "Lv5"]}
@@ -108,6 +113,7 @@ export function GuildContent() {
           ["훈련장", TRAINING_GROUND_UPGRADES],
           ["탐사 본부", EXPLORATION_HQ_UPGRADES],
           ["연금 공방", ALCHEMY_WORKSHOP_UPGRADES],
+          ["길드 식당", DINING_HALL_UPGRADES],
         ].map(([name, upgrades]) => [
           <Em key={String(name)}>{String(name)}</Em>,
           ...(upgrades as typeof GUILD_SMITHY_UPGRADES).slice(1).map(
@@ -221,6 +227,37 @@ export function GuildContent() {
           `+${recipe.chargeAmount.toLocaleString("ko-KR")}`,
         ])}
         caption="조제할 때 HP·MP·반반 충전 중 하나를 선택합니다. HP와 MP 충전량은 각각 최대 10,000,000을 넘을 수 없습니다."
+      />
+
+      <H2>길드 식당</H2>
+      <P>
+        길드 식당은 농장과 낚시에서 얻은 식재료를 길드원이 함께 준비하고 주간
+        식권으로 식사하는 시설입니다. 현재는 농장 작물을 받으며, 물고기가
+        아이템으로 보관되는 시점에 같은 식재료 등록부로 낚시 재료가 추가됩니다.
+      </P>
+      <UL>
+        <li>
+          식재료 <Em>{GUILD_DINING_POINTS_PER_TICKET}점</Em>을 기부할 때마다
+          식권 1장을 받습니다. 개인 기여와 공동 준비는 시설 레벨별 주간 한도를
+          넘길 수 없습니다.
+        </li>
+        <li>
+          관리자는 식재료 기부가 시작되기 전에 이번 주 메뉴를 정합니다. Lv.3부터
+          메뉴 두 종류를 함께 운영할 수 있습니다.
+        </li>
+        <li>
+          식권·기여도·메뉴는 월요일 00:00 KST에 초기화됩니다. 길드를 옮겨도
+          같은 주에 이미 사용한 식권과 적용 중인 음식 효과는 유지됩니다.
+        </li>
+      </UL>
+      <Table
+        head={["메뉴", "시설", "효과"]}
+        rows={GUILD_DINING_MENUS.map((menu) => [
+          <Em key={menu.id}>{menu.name}</Em>,
+          `Lv.${menu.minFacilityLevel}`,
+          menu.description,
+        ])}
+        caption="모험가 정식과 일꾼 도시락은 각각 20회의 제한된 활동에만 적용됩니다. 새 효과식을 주문하면 기존 식사 효과는 교체됩니다."
       />
 
       <H2>길드 제작소</H2>

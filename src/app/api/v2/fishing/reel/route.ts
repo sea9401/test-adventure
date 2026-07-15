@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
+import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
@@ -79,6 +80,7 @@ import {
   emptyFishingProgression,
   fishingLevelRewardCoins,
   fishingProgressionView,
+  fishingXpForCatch,
   parseFishingProgression,
 } from "@/adventure/v2/fishingProgression";
 import {
@@ -228,9 +230,17 @@ export async function POST(req: Request) {
       ),
     );
     const progressGoalViewsBefore = deriveFishingGoalViews(progressBefore);
+    const diningXp = await consumeGuildDiningEffect(
+      tx,
+      userId,
+      "life_xp",
+      fishingXpForCatch(session.fishId),
+      new Date(now),
+    );
     const progressResult = addFishingCatchXp(
       progressBefore,
       session.fishId,
+      diningXp.bonus,
     );
     await upsertSave(
       tx,

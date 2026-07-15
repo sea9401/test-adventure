@@ -483,9 +483,10 @@ export function fishingXpForCatch(fishId: FishId): number {
 export function addFishingCatchXp(
   state: FishingProgressionState,
   fishId: FishId,
+  bonusXp = 0,
 ): { state: FishingProgressionState; xpGained: number; leveledUp: boolean } {
   const before = fishingLevelForXp(state.xp);
-  const xpGained = fishingXpForCatch(fishId);
+  const xpGained = fishingXpForCatch(fishId) + Math.max(0, Math.floor(bonusXp));
   const nextFishCounts = {
     ...state.fishCounts,
     [fishId]: (state.fishCounts[fishId] ?? 0) + 1,

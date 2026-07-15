@@ -1012,6 +1012,26 @@ export const guildExplorationWeekly = pgTable("guild_exploration_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 길드 식당의 주간 공동 준비 상태. 식재료 종류와 메뉴는 애플리케이션 등록부가 관리하고,
+// DB는 확장 가능한 ID 배열과 점수만 보관한다. 주차가 바뀌면 첫 조회에서 lazy reset 한다.
+export const guildDiningWeekly = pgTable("guild_dining_weekly", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  weekKey: text("week_key").notNull(),
+  selectedMenuIds: jsonb("selected_menu_ids")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'["hearty_stew"]'::jsonb`),
+  pantryPoints: integer("pantry_points").notNull().default(0),
+  targetPoints: integer("target_points").notNull().default(20),
+  eligibleUserIds: jsonb("eligible_user_ids")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 길드 영지 건축물 보관 레벨 — 슬롯 압박/전쟁 점령으로 건물이 사라져도 같은 길드가 같은 건물을
 // 다시 배치하면 최고 보관 레벨로 복구한다. 길드 해산 시에는 cascade 로 함께 제거된다.
 export const guildSettlementBuildingLevels = pgTable(

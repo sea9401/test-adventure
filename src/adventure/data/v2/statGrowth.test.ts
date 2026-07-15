@@ -8,7 +8,11 @@ import {
   masteryGrowthBonus,
   V2_POST_CAP_GROWTH_BATTLES_PER_POINT,
 } from "./statGrowth";
-import { emptyProficiency, parseProficiency } from "./proficiency";
+import {
+  effectiveStatCap,
+  emptyProficiency,
+  parseProficiency,
+} from "./proficiency";
 import { V2_BASE_STATS } from "./v2Stats";
 
 describe("v2 랜덤 레벨 성장", () => {
@@ -143,20 +147,20 @@ describe("v2 랜덤 레벨 성장", () => {
 
 describe("v2 스탯 floor", () => {
   it("computeStatFloors — 총(전 스탯) + 직군 숙련도(프로필·차수 가중)", () => {
-    // 전사(warrior {str:2,vit:1,dex:1}) 숙련도 1800(밸런스 입력 200), tier1. 총=200×0.015=3.
-    // 프로필 값 비례: str(2/2=1.0)·vit/dex(1/2=0.5). FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
+    // 전사(warrior {str:2,vit:1,dex:1}) 숙련도 1800(밸런스 입력 200), tier1. 총=200×0.005=1.
+    // 프로필 값 비례: str(2/2=1.0)·vit/dex(1/2=0.5). FLOOR_GLOBAL 0.005·FLOOR_PER_PROF 0.02.
     const prof = parseProficiency({
       groups: {
         warrior: { points: 10, cultivations: 0, tier: 1, cumLevel: 1800 },
       },
     });
     const f = computeStatFloors(prof);
-    // str = base + 3(총) + 200×0.05×1×1.0 = base + 3 + 10
-    expect(f.str).toBe(V2_BASE_STATS.str + 3 + 10);
-    // dex = base + 3(총) + 200×0.05×1×0.5 = base + 3 + 5
-    expect(f.dex).toBe(V2_BASE_STATS.dex + 3 + 5);
-    // int(프로필 외) = base + 3(총만)
-    expect(f.int).toBe(V2_BASE_STATS.int + 3);
+    // str = base + 1(총) + 200×0.02×1×1.0 = base + 1 + 4
+    expect(f.str).toBe(V2_BASE_STATS.str + 1 + 4);
+    // dex = base + 1(총) + 200×0.02×1×0.5 = base + 1 + 2
+    expect(f.dex).toBe(V2_BASE_STATS.dex + 1 + 2);
+    // int(프로필 외) = base + 1(총만)
+    expect(f.int).toBe(V2_BASE_STATS.int + 1);
   });
 
   it("computeStatFloors — 프로필 값 비례: 마법사 spi=int·도적 luk=dex (값2 동급)", () => {
@@ -166,8 +170,8 @@ describe("v2 스탯 floor", () => {
         groups: { mage: { points: 0, cultivations: 0, tier: 1, cumLevel: 1800 } },
       }),
     );
-    // mage {int:2, spi:2} — 둘 다 최댓값 → floor 1.0 동급 = base + 3 + 10.
-    expect(mage.int).toBe(V2_BASE_STATS.int + 3 + 10);
+    // mage {int:2, spi:2} — 둘 다 최댓값 → floor 1.0 동급 = base + 1 + 4.
+    expect(mage.int).toBe(V2_BASE_STATS.int + 1 + 4);
     expect(mage.spi).toBe(mage.int);
     const rogue = computeStatFloors(
       parseProficiency({
@@ -189,6 +193,21 @@ describe("v2 스탯 floor", () => {
       );
     expect(mk(3).str).toBeGreaterThan(mk(1).str);
     expect(computeStatFloors(emptyProficiency()).str).toBe(V2_BASE_STATS.str);
+  });
+
+  it("표준 4단계 계보 진행에서도 주력 저점이 수행 한계치 절반을 넘지 않는다", () => {
+    // sim-v2-proficiency 표준 4단계 누적 숙련도 14,253, 주력 수행 이득 60 기준.
+    // 이전 계수는 str 저점 117 / 한계 120(98%)로 랜덤 성장 여유를 사실상 없앴다.
+    const floor = computeStatFloors(
+      parseProficiency({
+        groups: { warrior: { cultivations: 30, tier: 1, cumLevel: 14_253 } },
+        caps: { str: 60 },
+      }),
+    ).str;
+    const cap = effectiveStatCap(60);
+
+    expect(floor).toBe(54);
+    expect(floor / cap).toBeLessThanOrEqual(0.5);
   });
 
   it("computeStatFloors — cumLevel 0(미적립)이면 직군 가중 없음, base + 총만", () => {

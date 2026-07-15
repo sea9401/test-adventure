@@ -264,7 +264,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //     강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 246 = 정규 29 + 유니크 48 + 제작전용 28 + 전문화 스타터 3 + noDrop 138.
+    //     총 247 = 정규 29 + 유니크 48 + 제작전용 29 + 전문화 스타터 3 + noDrop 138.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -273,7 +273,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(28);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(29);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
@@ -353,6 +353,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_spark_gloves",
       "v2_crafted_stormlance",
       "v2_crafted_sunforge_blade",
+      "v2_crafted_venom_gland_dagger",
       "v2_crafted_ward_plate",
       "v2_crafted_windstep_boots",
     ]);
@@ -422,9 +423,13 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
   it("제작 전용 장비는 전용 태그 세트 여러 종류로 구성한다", () => {
     const crafted = Object.values(V2_EQUIPMENT).filter((item) => item.craftOnly);
     const craftedSetIds = new Set<string>(CRAFTED_EQUIP_TAG_SET_IDS);
-    expect(crafted).toHaveLength(28);
+    const craftedSetPieces = crafted.filter((item) =>
+      item.setTags?.some((tag) => craftedSetIds.has(tag)),
+    );
+    expect(crafted).toHaveLength(29);
+    expect(craftedSetPieces).toHaveLength(28);
     expect(
-      crafted.every((item) =>
+      craftedSetPieces.every((item) =>
         item.setTags?.some((tag) => craftedSetIds.has(tag)),
       ),
     ).toBe(true);
@@ -540,6 +545,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       v2_crafted_pursuit_ring: 6,
       v2_crafted_aether_necklace: 6,
       v2_crafted_focus_ring: 6,
+      v2_crafted_venom_gland_dagger: 6,
       v2_crafted_fury_necklace: 8,
       v2_crafted_pursuit_necklace: 8,
       v2_crafted_focus_robe: 8,
@@ -558,6 +564,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_ward_plate.power).toBe(64);
     expect(V2_EQUIPMENT.v2_crafted_master_ring.power).toBe(22);
     expect(V2_EQUIPMENT.v2_crafted_aether_necklace.power).toBe(22);
+    expect(V2_EQUIPMENT.v2_crafted_venom_gland_dagger.power).toBe(95);
     expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
     expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(73);
   });

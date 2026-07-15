@@ -34,6 +34,7 @@ import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
 import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "./miningSpots";
 import { V2_EQUIPMENT } from "./v2Equipment";
+import { MONSTER_CRAFT_MATERIAL_ID } from "./monsterCraftMaterials";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
   ...Object.fromEntries(
@@ -46,6 +47,7 @@ const ENOUGH_WORKSHOP_MATERIALS = {
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 99,
+  [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 99,
 };
 
 describe("guild workshop recipes", () => {
@@ -156,7 +158,7 @@ describe("guild workshop recipes", () => {
 
   it("exposes only craft-only equipment recipes", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(28);
+    expect(recipes).toHaveLength(29);
     expect(recipes.every((recipe) => recipe.id.startsWith("crafted_"))).toBe(
       true,
     );
@@ -179,6 +181,11 @@ describe("guild workshop recipes", () => {
     expect(GUILD_WORKSHOP_RECIPES.crafted_ward_plate).toMatchObject({
       equipmentId: "v2_crafted_ward_plate",
       requiredSmithyLevel: 2,
+    });
+    expect(GUILD_WORKSHOP_RECIPES.crafted_venom_gland_dagger).toMatchObject({
+      equipmentId: "v2_crafted_venom_gland_dagger",
+      requiredSmithyLevel: 2,
+      requiredArtisanLevel: 5,
     });
     expect(GUILD_WORKSHOP_RECIPES.crafted_fury_necklace).toMatchObject({
       equipmentId: "v2_crafted_fury_necklace",
@@ -303,6 +310,26 @@ describe("guild workshop recipes", () => {
         ENOUGH_WORKSHOP_MATERIALS,
       ),
     ).toMatchObject({ resourceOk: true, materialOk: true, canCraft: true });
+  });
+
+  it("requires the cave-spider material for the venom dagger", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_venom_gland_dagger;
+    const withoutVenom: Record<string, number> = {
+      ...ENOUGH_WORKSHOP_MATERIALS,
+    };
+    delete withoutVenom[MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland];
+
+    expect(guildWorkshopRecipeMaterialCost(recipe)).toMatchObject({
+      [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2,
+      [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 12,
+    });
+    expect(hasGuildWorkshopRecipeMaterials(withoutVenom, recipe)).toBe(false);
+    expect(hasGuildWorkshopRecipeMaterials(ENOUGH_WORKSHOP_MATERIALS, recipe)).toBe(
+      true,
+    );
+    expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject({
+      [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 24,
+    });
   });
 
   it("aligns every recipe to the tier total and set resource profile", () => {

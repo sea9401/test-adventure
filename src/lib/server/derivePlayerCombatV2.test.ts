@@ -1063,6 +1063,18 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     expect(sigs[0].label).toBe("봉인");
   });
 
+  it("제작 독샘 단검 장착 → 적중 시 중독 시그니처", () => {
+    const sigs = collectEquipSignatures({
+      weapon: "v2_crafted_venom_gland_dagger",
+    } as never);
+    expect(sigs).toContainEqual({
+      trigger: "on_hit",
+      label: "독샘",
+      poisonChancePct: 25,
+      poisonStacks: 1,
+    });
+  });
+
   it("세트(성물) 전 조각 장착 → low_hp 시그니처, 부분 장착 → 없음", () => {
     const full = collectEquipSignatures({
       armor: "v2_sanctum_sig_priest_armor",

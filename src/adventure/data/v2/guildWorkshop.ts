@@ -34,6 +34,10 @@ import {
   MINING_MATERIALS,
   type MiningMaterialId,
 } from "./miningSpots";
+import {
+  MONSTER_CRAFT_MATERIAL_ID,
+  MONSTER_CRAFT_MATERIALS,
+} from "./monsterCraftMaterials";
 
 export type GuildWorkshopRecipeId =
   | "crafted_oathblade"
@@ -55,6 +59,7 @@ export type GuildWorkshopRecipeId =
   | "crafted_pursuit_coat"
   | "crafted_pursuit_ring"
   | "crafted_focus_ring"
+  | "crafted_venom_gland_dagger"
   | "crafted_fury_necklace"
   | "crafted_pursuit_necklace"
   | "crafted_focus_robe"
@@ -71,6 +76,8 @@ export type GuildWorkshopRecipe = {
   resourceProfile: GuildWorkshopResourceProfile;
   cost: Partial<Record<ProductionKind, number>>;
   materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
+  /** 보스·일반 몬스터 등 특정 콘텐츠에서 얻는 테마 제작 재료. */
+  specialMaterialCost?: Partial<Record<string, number>>;
   profession: ArtisanProfessionId;
   requiredArtisanLevel: number;
   requiredSmithyLevel?: number;
@@ -440,6 +447,21 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredSmithyLevel: 2,
     artisanXp: 58,
     note: "룬 세트 반지",
+  },
+  crafted_venom_gland_dagger: {
+    id: "crafted_venom_gland_dagger",
+    equipmentId: "v2_crafted_venom_gland_dagger",
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(6, "pursuit"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 75,
+    note: "몬스터 소재 특수 장비 · 적중 시 중독",
   },
   crafted_fury_necklace: {
     id: "crafted_fury_necklace",
@@ -928,6 +950,9 @@ export function guildWorkshopRecipeMaterialCost(
   for (const [id, amount] of Object.entries(recipe.materialCost ?? {})) {
     out[id] = (out[id] ?? 0) + Math.max(0, Math.ceil((amount ?? 0) * mult));
   }
+  for (const [id, amount] of Object.entries(recipe.specialMaterialCost ?? {})) {
+    out[id] = (out[id] ?? 0) + Math.max(0, Math.ceil((amount ?? 0) * mult));
+  }
   return out;
 }
 
@@ -955,6 +980,7 @@ function guildWorkshopMaterialName(id: string): string {
     (WOODCUTTING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (MINING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (GUILD_WORKSHOP_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
+    (MONSTER_CRAFT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     id
   );
 }

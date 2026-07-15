@@ -56,6 +56,10 @@ describe("v2 build tags", () => {
     expect(equipmentHasBuildTag(V2_EQUIPMENT.v2_boss_canyon_fang, "poison")).toBe(
       true,
     );
+    expectTags(
+      buildTagsForEquipment(V2_EQUIPMENT.v2_crafted_venom_gland_dagger),
+      ["physical", "crit", "speed", "poison", "dot", "signature"],
+    );
   });
 
   it("세트 정의 태그는 조각 장비에 상속된다", () => {

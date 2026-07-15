@@ -28,6 +28,7 @@ import {
   WALL_REPAIR_KIT_MATERIAL,
 } from "./settlementMaterials";
 import { GUILD_WORKSHOP_MATERIALS } from "./guildWorkshopMaterials";
+import { MONSTER_CRAFT_MATERIALS } from "./monsterCraftMaterials";
 import { COOP_REWARD_MATERIALS } from "./coopRewards";
 import { WOODCUTTING_MATERIALS } from "./woodcuttingSpots";
 import { MINING_MATERIALS } from "./miningSpots";
@@ -106,6 +107,8 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 길드 제작소 제작 재료(guildWorkshopMaterials) — 사냥 독립 드랍. 제작 전용 장비의 개인 병목
   //   재료로 쓰이며, 카탈로그 등재로 인벤 재료 탭·거래소 재료 거래가 동작한다.
   ...GUILD_WORKSHOP_MATERIALS,
+  // 일반 몬스터 전용 제작 재료 — 실제 처치 몬스터 기준 독립 드랍. 길드 제작소 특수 장비에 사용.
+  ...MONSTER_CRAFT_MATERIALS,
   // SP 열매 3종(spFruit) — 협동 보스 드랍. 카탈로그 등재로 인벤 소모품·거래소 거래(NPC 비매).
   //   사용 시 SP 최대치 +1(/me/use-sp-fruit). 거래용으로도 가치(사용 캡 도달분 판매).
   ...SP_FRUIT_MATERIALS,

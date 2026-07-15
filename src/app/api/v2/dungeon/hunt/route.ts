@@ -649,6 +649,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     won,
     dropFloor,
     depth,
+    monsterKey: enemy.key,
     ownedEquip,
     mapDropMult,
     mapUniqueMult,

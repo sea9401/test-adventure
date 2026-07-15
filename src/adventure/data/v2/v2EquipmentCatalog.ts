@@ -599,6 +599,26 @@ const V2_EQUIPMENT_BASE = {
     craftOnly: true,
     setTags: ["artisan_arcane"],
   },
+  v2_crafted_venom_gland_dagger: {
+    id: "v2_crafted_venom_gland_dagger",
+    slot: "weapon",
+    concept: "dex",
+    tier: 6,
+    name: "독샘 단검",
+    description:
+      "동굴 거미의 맹독샘을 칼날 홈에 굳혀 넣은 장인표 단검. 스친 상처에도 독이 번진다.",
+    power: 125,
+    weight: 1,
+    options: { crit: 4, spd: 4 },
+    weaponType: "dagger",
+    craftOnly: true,
+    signature: {
+      trigger: "on_hit",
+      label: "독샘",
+      poisonChancePct: 25,
+      poisonStacks: 1,
+    },
+  },
   v2_crafted_fury_necklace: {
     id: "v2_crafted_fury_necklace",
     slot: "necklace",

@@ -17,6 +17,7 @@ import { rollEnhanceStoneDrops } from "@/adventure/data/v2/v2Enhance";
 import { rollReforgeStoneDrops } from "@/adventure/data/v2/v2EquipVariance";
 import { rollSettlementMaterialDrops } from "@/adventure/data/v2/settlementMaterials";
 import { rollGuildWorkshopMaterialDrops } from "@/adventure/data/v2/guildWorkshopMaterials";
+import { rollMonsterCraftMaterialDrops } from "@/adventure/data/v2/monsterCraftMaterials";
 import {
   type V2EquipInstance,
   type V2EquipmentId,
@@ -40,6 +41,7 @@ export function rollHuntDrops(params: {
   won: boolean;
   dropFloor: DungeonFloorId;
   depth: number;
+  monsterKey: string;
   ownedEquip: V2EquipInstance[];
   mapDropMult: number;
   mapUniqueMult: number;
@@ -49,6 +51,7 @@ export function rollHuntDrops(params: {
     won,
     dropFloor,
     depth,
+    monsterKey,
     ownedEquip,
     mapDropMult,
     mapUniqueMult,
@@ -94,6 +97,12 @@ export function rollHuntDrops(params: {
     // 제작소 제작 시 소모된다.
     for (const [id, n] of Object.entries(
       rollGuildWorkshopMaterialDrops(depth, Math.random),
+    )) {
+      drops[id] = (drops[id] ?? 0) + n;
+    }
+    // 일반 몬스터 전용 제작 재료 — 실제로 처치한 몬스터만 자기 재료를 굴린다.
+    for (const [id, n] of Object.entries(
+      rollMonsterCraftMaterialDrops(monsterKey, Math.random, mapDropMult),
     )) {
       drops[id] = (drops[id] ?? 0) + n;
     }

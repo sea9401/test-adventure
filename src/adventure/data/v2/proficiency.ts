@@ -138,8 +138,9 @@ export function effectiveCultivateProfile(
 // 과잉 → cap 인플레(t4 245). 비용계수 상향으로 diminishing 강화 → t4 cap ~169(옛 총cap 복귀).
 // PER_CAP 5→10(2026-07): 주간·고난도 루프 확장 후 수행 체감 비용이 낮아져 장기 sink 를 보강.
 // PER_CAP 10→15(2026-07): 초회 비용은 유지하되 반복 수행의 증가 폭을 50% 높여 후반 cap 팽창을 억제.
+// PER_CAP 15→6(2026-07): 반복 수행의 비용 부담을 완화.
 export const V2_CULT_COST_BASE = 8;
-export const V2_CULT_COST_PER_CAP = 15;
+export const V2_CULT_COST_PER_CAP = 6;
 export function cultivationCost(totalCapGains: number): number {
   return Math.round(
     V2_CULT_COST_BASE + Math.max(0, totalCapGains) * V2_CULT_COST_PER_CAP,

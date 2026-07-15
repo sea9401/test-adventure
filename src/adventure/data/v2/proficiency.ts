@@ -372,8 +372,11 @@ export function flattenGroupTiers(
 
 // floor(저점) 다이얼 — docs §5. 입력은 직군 숙련도(cumLevel). 해금용 원본 숙련도는
 // 승리 기반 스케일이고, floor 는 balanceCumLevel 로 정규화한 값을 사용한다.
-export const V2_FLOOR_GLOBAL = 0.015; // 총 밸런스 숙련도 → 전 스탯 베이스.
-export const V2_FLOOR_PER_PROF = 0.05; // 직군 밸런스 숙련도 → 프로필 스탯 floor.
+// 승리 기반 숙련도 전환 뒤 한 계보 4단계만 진행해도 옛 계수에서는 주력 저점이 수행 한계치의
+// 약 98%까지 차올랐다. 저점은 환생 안전망이지 별도 한계치가 아니므로, 4단계 표준 진행에서
+// 수행 한계치의 30~50%에 머물도록 영구 성장 기울기를 낮춘다.
+export const V2_FLOOR_GLOBAL = 0.005; // 총 밸런스 숙련도 → 전 스탯 베이스.
+export const V2_FLOOR_PER_PROF = 0.02; // 직군 밸런스 숙련도 → 프로필 스탯 floor.
 // 숙련도는 해금 보존을 위해 기존 cumLevel 대비 9배 스케일로 마이그레이션했다.
 // 해금 조건은 원본 값을 쓰지만, 스탯 floor·SP 같은 성장 보너스는 기존 체감을 유지하도록 1/9 정규화한다.
 export const V2_MASTERY_BALANCE_SCALE = 9;

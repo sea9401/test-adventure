@@ -7,6 +7,10 @@ import {
   GUILD_WORKSHOP_MATERIAL_DROP_PCT,
   GUILD_WORKSHOP_MATERIAL_SOURCES,
 } from "@/adventure/data/v2/guildWorkshopMaterials";
+import {
+  MONSTER_CRAFT_MATERIAL_DROP_RULES,
+  MONSTER_CRAFT_MATERIALS,
+} from "@/adventure/data/v2/monsterCraftMaterials";
 import { TITLES } from "@/adventure/data/titles";
 import type {
   GuildWorkshopCraftMode,
@@ -512,6 +516,32 @@ export function WorkshopCraftPanel({
                             1,
                           )}
                           %
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {MONSTER_CRAFT_MATERIAL_DROP_RULES.map((rule) => {
+                    const mat = MONSTER_CRAFT_MATERIALS[rule.materialId];
+                    const amount = Math.max(
+                      0,
+                      Math.floor(Number(materials[rule.materialId]) || 0),
+                    );
+                    return (
+                      <div
+                        key={rule.materialId}
+                        className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 dark:border-emerald-900 dark:bg-emerald-950/20"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                            {mat.name}
+                          </span>
+                          <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-300">
+                            {amount.toLocaleString()}개
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+                          {rule.sourceArea} · {rule.monsterKey} · 드랍{" "}
+                          {(rule.chance * 100).toFixed(1)}%
                         </div>
                       </div>
                     );

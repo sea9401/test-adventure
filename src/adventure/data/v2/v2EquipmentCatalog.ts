@@ -837,17 +837,21 @@ const V2_EQUIPMENT_BASE = {
     id: "v2_boss_canyon_fang",
     slot: "weapon",
     concept: "dex",
-    tier: 3,
+    tier: 6,
     name: "전갈왕의 독침",
     description:
-      "스콜피온 킹의 꼬리침으로 벼린 단검. 급소를 찌르면 맹독이 스며든다.",
-    power: 84,
+      "독샘 단검에 스콜피온 킹의 꼬리침을 덧벼린 단검. 스친 상처마다 왕독이 깊게 스며든다.",
+    power: 135,
     weight: 1,
-    options: { crit: 6, hp: 60 }, // 개성: 단검에 hp(글캐인데 단단)
+    options: { crit: 6, spd: 6 },
     weaponType: "dagger",
     rarity: "unique",
-    // 맹독 — 치명타 시 대상 중독(독니 아키타입 재사용).
-    signature: { trigger: "on_crit", label: "맹독", poisonOnCrit: true },
+    signature: {
+      trigger: "on_hit",
+      label: "왕독",
+      poisonChancePct: 35,
+      poisonStacks: 1,
+    },
   },
   v2_boss_lake_maul: {
     id: "v2_boss_lake_maul",

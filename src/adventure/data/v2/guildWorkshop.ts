@@ -38,6 +38,10 @@ import {
   MONSTER_CRAFT_MATERIAL_ID,
   MONSTER_CRAFT_MATERIALS,
 } from "./monsterCraftMaterials";
+import {
+  COOP_BOSS_MATERIAL_ID,
+  COOP_REWARD_MATERIALS,
+} from "./coopRewards";
 
 export type GuildWorkshopRecipeId =
   | "crafted_oathblade"
@@ -60,6 +64,7 @@ export type GuildWorkshopRecipeId =
   | "crafted_pursuit_ring"
   | "crafted_focus_ring"
   | "crafted_venom_gland_dagger"
+  | "crafted_scorpion_king_stinger"
   | "crafted_fury_necklace"
   | "crafted_pursuit_necklace"
   | "crafted_focus_robe"
@@ -78,6 +83,8 @@ export type GuildWorkshopRecipe = {
   materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
   /** 보스·일반 몬스터 등 특정 콘텐츠에서 얻는 테마 제작 재료. */
   specialMaterialCost?: Partial<Record<string, number>>;
+  /** 개량 제작에 1개 소모하는 하위 장비. 명장 제작에서도 수량은 늘지 않는다. */
+  baseEquipmentId?: V2EquipmentId;
   profession: ArtisanProfessionId;
   requiredArtisanLevel: number;
   requiredSmithyLevel?: number;
@@ -462,6 +469,22 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredSmithyLevel: 2,
     artisanXp: 75,
     note: "몬스터 소재 특수 장비 · 적중 시 중독",
+  },
+  crafted_scorpion_king_stinger: {
+    id: "crafted_scorpion_king_stinger",
+    equipmentId: "v2_boss_canyon_fang",
+    baseEquipmentId: "v2_crafted_venom_gland_dagger",
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(6, "pursuit"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    specialMaterialCost: {
+      [COOP_BOSS_MATERIAL_ID.canyon_predator]: 8,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 2,
+    artisanXp: 90,
+    note: "보스 소재 개량 · 독샘 단검의 강화·품질·개체 옵션 미승계",
   },
   crafted_fury_necklace: {
     id: "crafted_fury_necklace",
@@ -924,6 +947,48 @@ export function isGuildWorkshopCraftMode(
   return v === "normal" || v === "masterwork";
 }
 
+/** 개량 재료로 쓸 수 있는 미장착·미잠금 장비. 낮은 강화/품질/굴림부터 자동 소모한다. */
+export function guildWorkshopBaseEquipmentCandidates(
+  owned: readonly V2EquipInstance[],
+  equipped: Partial<Record<V2EquipSlot, string>>,
+  recipe: GuildWorkshopRecipe,
+): V2EquipInstance[] {
+  if (!recipe.baseEquipmentId) return [];
+  const equippedIids = new Set(Object.values(equipped));
+  return owned
+    .filter(
+      (instance) =>
+        instance.id === recipe.baseEquipmentId &&
+        instance.locked !== true &&
+        !equippedIids.has(instance.iid),
+    )
+    .sort((a, b) => {
+      const enhanceDiff = (a.enhance?.level ?? 0) - (b.enhance?.level ?? 0);
+      if (enhanceDiff !== 0) return enhanceDiff;
+      const qualityDiff =
+        (a.craftQuality?.level ?? 0) - (b.craftQuality?.level ?? 0);
+      if (qualityDiff !== 0) return qualityDiff;
+      const catalogPower = V2_EQUIPMENT[recipe.baseEquipmentId!].power;
+      const powerDiff = (a.roll?.power ?? catalogPower) - (b.roll?.power ?? catalogPower);
+      if (powerDiff !== 0) return powerDiff;
+      return a.iid.localeCompare(b.iid);
+    });
+}
+
+export function spendGuildWorkshopBaseEquipment(
+  owned: readonly V2EquipInstance[],
+  equipped: Partial<Record<V2EquipSlot, string>>,
+  recipe: GuildWorkshopRecipe,
+): { owned: V2EquipInstance[]; consumed: V2EquipInstance | null } | null {
+  if (!recipe.baseEquipmentId) return { owned: [...owned], consumed: null };
+  const consumed = guildWorkshopBaseEquipmentCandidates(owned, equipped, recipe)[0];
+  if (!consumed) return null;
+  return {
+    owned: owned.filter((instance) => instance.iid !== consumed.iid),
+    consumed,
+  };
+}
+
 export function guildWorkshopRecipeResourceCost(
   recipe: GuildWorkshopRecipe,
   mode: GuildWorkshopCraftMode = "normal",
@@ -981,6 +1046,7 @@ function guildWorkshopMaterialName(id: string): string {
     (MINING_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (GUILD_WORKSHOP_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     (MONSTER_CRAFT_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
+    (COOP_REWARD_MATERIALS as Record<string, { name?: string }>)[id]?.name ??
     id
   );
 }
@@ -1223,12 +1289,15 @@ export function guildWorkshopRecipeView(
   guildBonus: GuildWorkshopBonus | number = 0,
   smithyLevel = 1,
   materials: Record<string, number> = {},
+  baseEquipmentEligibleCount = 0,
 ) {
   const item = V2_EQUIPMENT[recipe.equipmentId];
   const levelOk = meetsGuildWorkshopRecipeLevel(artisan, recipe);
   const artisanProfessionLevel = artisanLevel(artisan[recipe.profession]);
   const smithyLevelOk =
     smithyLevel >= Math.max(1, recipe.requiredSmithyLevel ?? 1);
+  const baseEquipmentOk =
+    !recipe.baseEquipmentId || baseEquipmentEligibleCount >= 1;
   const resourceOk = hasGuildWorkshopRecipeResourceMaterials(materials, recipe);
   const materialOk = hasGuildWorkshopRecipeMaterials(materials, recipe);
   const masterworkResourceOk = hasGuildWorkshopRecipeResourceMaterials(
@@ -1267,6 +1336,15 @@ export function guildWorkshopRecipeView(
     slot: item.slot,
     tier: item.tier,
     craftOnly: item.craftOnly === true,
+    baseEquipment: recipe.baseEquipmentId
+      ? {
+          equipmentId: recipe.baseEquipmentId,
+          itemName: V2_EQUIPMENT[recipe.baseEquipmentId].name,
+          requiredCount: 1,
+          eligibleCount: Math.max(0, Math.floor(baseEquipmentEligibleCount)),
+          resetOnCraft: true,
+        }
+      : null,
     note: recipe.note,
     cost: normalCost,
     materialCost: normalMaterialCost,
@@ -1280,7 +1358,7 @@ export function guildWorkshopRecipeView(
     smithyLevelOk,
     materialOk,
     resourceOk,
-    canCraft: levelOk && smithyLevelOk && materialOk,
+    canCraft: levelOk && smithyLevelOk && materialOk && baseEquipmentOk,
     masterwork: {
       requiredArtisanLevel: BLACKSMITH_MASTERWORK_LEVEL,
       levelOk: masterworkLevelOk,
@@ -1291,7 +1369,8 @@ export function guildWorkshopRecipeView(
         masterworkLevelOk &&
         smithyLevelOk &&
         masterworkResourceOk &&
-        masterworkMaterialOk,
+        masterworkMaterialOk &&
+        baseEquipmentOk,
       qualityChancePct: masterworkQualityChancePct,
       cost: masterworkCost,
       materialCost: masterworkMaterialCost,

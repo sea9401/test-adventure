@@ -26,6 +26,7 @@ import {
   addGuildWorkshopCraftStat,
   guildWorkshopCraftRecordTitleIds,
   guildWorkshopBonusFromTotalCrafts,
+  guildWorkshopBaseEquipmentCandidates,
   guildWorkshopRecipeView,
   hasGuildWorkshopRecipeMaterials,
   isGuildWorkshopCraftMode,
@@ -35,6 +36,7 @@ import {
   parseGuildWorkshopCraftRecords,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
+  spendGuildWorkshopBaseEquipment,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
 } from "@/adventure/data/v2/guildWorkshop";
@@ -221,6 +223,7 @@ export async function GET(req: Request) {
   const {
     resources,
     materials,
+    equipment,
     artisan,
     artisanState,
     workshopStats,
@@ -239,9 +242,16 @@ export async function GET(req: Request) {
       "crafting.v2",
       {},
     );
+    const equipmentRaw = await readSave<Record<string, unknown>>(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
     return {
       resources,
       materials: parseGuildWorkshopMaterialInventory(charRaw.materials),
+      equipment: parseEquipmentSave(equipmentRaw),
       artisan: artisanView(craftingRaw),
       artisanState: parseArtisanState(craftingRaw.artisan),
       workshopStats: workshopStatsView(craftingRaw),
@@ -268,6 +278,11 @@ export async function GET(req: Request) {
         guildBonus,
         smithyLevel,
         materials,
+        guildWorkshopBaseEquipmentCandidates(
+          equipment.owned,
+          equipment.equipped,
+          GUILD_WORKSHOP_RECIPES[id],
+        ).length,
       ),
     ),
   });
@@ -386,6 +401,38 @@ export async function POST(req: Request) {
         },
       };
     }
+    const baseEquipmentSpend = spendGuildWorkshopBaseEquipment(
+      parsed.owned,
+      parsed.equipped,
+      recipe,
+    );
+    if (!baseEquipmentSpend) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "insufficient_base_equipment" as const,
+          resources,
+          materials,
+          artisan: artisanView(craftingRaw),
+          recipes: GUILD_WORKSHOP_RECIPE_IDS.map((id) =>
+            guildWorkshopRecipeView(
+              GUILD_WORKSHOP_RECIPES[id],
+              resources,
+              currentArtisan,
+              guildBonus,
+              smithyLevel,
+              materials,
+              guildWorkshopBaseEquipmentCandidates(
+                parsed.owned,
+                parsed.equipped,
+                GUILD_WORKSHOP_RECIPES[id],
+              ).length,
+            ),
+          ),
+        },
+      };
+    }
     if (!hasGuildWorkshopRecipeMaterials(materials, recipe, craftMode)) {
       return {
         status: 409,
@@ -403,6 +450,11 @@ export async function POST(req: Request) {
               guildBonus,
               smithyLevel,
               materials,
+              guildWorkshopBaseEquipmentCandidates(
+                parsed.owned,
+                parsed.equipped,
+                GUILD_WORKSHOP_RECIPES[id],
+              ).length,
             ),
           ),
         },
@@ -472,7 +524,7 @@ export async function POST(req: Request) {
         ...(craftMode === "masterwork" ? { masterwork: true } : {}),
       },
     };
-    const nextOwned = [...parsed.owned, craftedItem];
+    const nextOwned = [...baseEquipmentSpend.owned, craftedItem];
 
     await upsertSave(tx, userId, "character.v2", {
       ...paidCharRaw,
@@ -591,6 +643,11 @@ export async function POST(req: Request) {
             nextGuildBonus,
             smithyLevel,
             nextMaterials,
+            guildWorkshopBaseEquipmentCandidates(
+              nextOwned,
+              parsed.equipped,
+              GUILD_WORKSHOP_RECIPES[id],
+            ).length,
           ),
         ),
         grantedTitles,

@@ -9,6 +9,7 @@ import {
   guildWorkshopEquipmentRecordViews,
   addGuildWorkshopMaterials,
   guildWorkshopBonusFromTotalCrafts,
+  guildWorkshopBaseEquipmentCandidates,
   guildWorkshopDismantleArtisanXpForTier,
   guildWorkshopDismantleMaterialForTier,
   guildWorkshopDismantlePlan,
@@ -26,6 +27,7 @@ import {
   parseGuildWorkshopCraftRecords,
   rollGuildWorkshopEnhance,
   spendGuildWorkshopRecipeCost,
+  spendGuildWorkshopBaseEquipment,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopResourceTier,
 } from "./guildWorkshop";
@@ -35,6 +37,7 @@ import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
 import { MINING_MATERIAL_ID } from "./miningSpots";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { MONSTER_CRAFT_MATERIAL_ID } from "./monsterCraftMaterials";
+import { COOP_BOSS_MATERIAL_ID } from "./coopRewards";
 
 const ENOUGH_WORKSHOP_MATERIALS = {
   ...Object.fromEntries(
@@ -48,6 +51,7 @@ const ENOUGH_WORKSHOP_MATERIALS = {
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 99,
   [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 99,
+  [COOP_BOSS_MATERIAL_ID.canyon_predator]: 99,
 };
 
 describe("guild workshop recipes", () => {
@@ -156,15 +160,15 @@ describe("guild workshop recipes", () => {
     ).toBe(true);
   });
 
-  it("exposes only craft-only equipment recipes", () => {
+  it("exposes craft-only equipment and one boss upgrade recipe", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(29);
+    expect(recipes).toHaveLength(30);
     expect(recipes.every((recipe) => recipe.id.startsWith("crafted_"))).toBe(
       true,
     );
     expect(
-      recipes.every((recipe) => V2_EQUIPMENT[recipe.equipmentId].craftOnly),
-    ).toBe(true);
+      recipes.filter((recipe) => !V2_EQUIPMENT[recipe.equipmentId].craftOnly),
+    ).toEqual([GUILD_WORKSHOP_RECIPES.crafted_scorpion_king_stinger]);
   });
 
   it("exposes craft-only set recipes across smithy levels", () => {
@@ -330,6 +334,88 @@ describe("guild workshop recipes", () => {
     expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject({
       [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 24,
     });
+  });
+
+  it("uses one venom dagger and boss materials for the scorpion upgrade", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_scorpion_king_stinger;
+    const artisan = { blacksmith: { xp: 9300, crafts: 80 } };
+    expect(recipe).toMatchObject({
+      equipmentId: "v2_boss_canyon_fang",
+      baseEquipmentId: "v2_crafted_venom_gland_dagger",
+      requiredSmithyLevel: 2,
+    });
+    expect(guildWorkshopRecipeMaterialCost(recipe)).toMatchObject({
+      [COOP_BOSS_MATERIAL_ID.canyon_predator]: 8,
+    });
+    expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")).toMatchObject({
+      [COOP_BOSS_MATERIAL_ID.canyon_predator]: 16,
+    });
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 9999, ore: 9999 },
+        artisan,
+        0,
+        2,
+        ENOUGH_WORKSHOP_MATERIALS,
+        0,
+      ),
+    ).toMatchObject({ canCraft: false, baseEquipment: { eligibleCount: 0 } });
+    expect(
+      guildWorkshopRecipeView(
+        recipe,
+        { crop: 9999, ore: 9999 },
+        artisan,
+        0,
+        2,
+        ENOUGH_WORKSHOP_MATERIALS,
+        1,
+      ),
+    ).toMatchObject({
+      canCraft: true,
+      baseEquipment: { requiredCount: 1, eligibleCount: 1, resetOnCraft: true },
+    });
+  });
+
+  it("consumes the lowest-value unlocked and unequipped venom dagger", () => {
+    const recipe = GUILD_WORKSHOP_RECIPES.crafted_scorpion_king_stinger;
+    const owned = [
+      { iid: "equipped", id: "v2_crafted_venom_gland_dagger" as const },
+      {
+        iid: "locked",
+        id: "v2_crafted_venom_gland_dagger" as const,
+        locked: true,
+      },
+      {
+        iid: "enhanced",
+        id: "v2_crafted_venom_gland_dagger" as const,
+        enhance: { level: 2, bonusPct: 2 },
+      },
+      {
+        iid: "quality",
+        id: "v2_crafted_venom_gland_dagger" as const,
+        craftQuality: { level: 1 as const, bonusPct: 5 as const },
+      },
+      {
+        iid: "plain-low-roll",
+        id: "v2_crafted_venom_gland_dagger" as const,
+        roll: { power: 118, weight: 1 },
+      },
+    ];
+    const equipped = { weapon: "equipped" } as const;
+    expect(
+      guildWorkshopBaseEquipmentCandidates(owned, equipped, recipe).map(
+        (instance) => instance.iid,
+      ),
+    ).toEqual(["plain-low-roll", "quality", "enhanced"]);
+    const spent = spendGuildWorkshopBaseEquipment(owned, equipped, recipe);
+    expect(spent?.consumed?.iid).toBe("plain-low-roll");
+    expect(spent?.owned.map((instance) => instance.iid)).toEqual([
+      "equipped",
+      "locked",
+      "enhanced",
+      "quality",
+    ]);
   });
 
   it("aligns every recipe to the tier total and set resource profile", () => {

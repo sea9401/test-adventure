@@ -517,7 +517,8 @@ export const guilds = pgTable(
     fameAvailable: integer("fame_available").notNull().default(0),
     // 마스터가 자유롭게 적는 짧은 소개글. 최대 120자(앱단 검증). NULL = 미설정.
     description: text("description"),
-    // 길드 엠블럼 — 프리셋 아이콘 키(guildEmblems 카탈로그). NULL = 미설정(지도에 기본 엠블럼).
+    // 길드 엠블럼 — 검증된 i.imgur.com 직접 이미지 URL. 옛 행은 프리셋 키일 수 있음.
+    // NULL/옛 프리셋 = 커스텀 이미지 미설정(화면에 안전한 기본 엠블럼 표시).
     emblem: text("emblem"),
     // 길드 고유색 — 팔레트 키(guildColors 카탈로그). 활성 길드끼리 유니크(선착순). NULL = 미설정.
     color: text("color"),

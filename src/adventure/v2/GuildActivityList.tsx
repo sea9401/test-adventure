@@ -115,6 +115,10 @@ function describe(a: GuildActivity): string {
       }`;
     case "alchemy_craft":
       return `${actor} 님이 ${a.meta?.itemName ?? "충전액"}을 조제했어요 · ${alchemyTargetLabel(a.meta?.chargeTarget)} +${(a.meta?.chargeAmount ?? 0).toLocaleString()}`;
+    case "emblem_change":
+      return a.meta?.amount
+        ? `${actor} 님이 길드 엠블럼을 변경했어요 · 길드 자금 -${a.meta.amount.toLocaleString()} G`
+        : `${actor} 님이 길드 엠블럼을 제거했어요`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -147,6 +151,7 @@ const DOT_CLASS: Record<string, string> = {
   building_upgrade: "bg-orange-500",
   combat_supply_upgrade: "bg-rose-500",
   training_drill_claim: "bg-emerald-500",
+  emblem_change: "bg-fuchsia-500",
   nation_declare: "bg-indigo-500",
 };
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildJoinRequests,
@@ -383,21 +383,6 @@ export async function GET() {
     guildId,
   );
 
-  // 이미 쓰인 색(다른 활성 길드) — 관리탭 색 picker 에서 비활성. 내 색은 제외(선택 가능).
-  const takenColorRows = await db
-    .select({ color: guilds.color })
-    .from(guilds)
-    .where(
-      and(
-        isNotNull(guilds.color),
-        isNull(guilds.disbandedAt),
-        ne(guilds.id, guildId),
-      ),
-    );
-  const takenColors = takenColorRows
-    .map((r) => r.color)
-    .filter((c): c is string => c != null);
-
   return Response.json({
     ok: true,
     guild: guildRow,
@@ -416,6 +401,5 @@ export async function GET() {
     hasTrainingGround,
     hasMapWorkshop,
     guildGold,
-    takenColors,
   });
 }

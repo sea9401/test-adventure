@@ -44,3 +44,41 @@ const GUILD_EMBLEM_KEYS: ReadonlySet<string> = new Set(
 export function isValidGuildEmblem(key: unknown): key is string {
   return typeof key === "string" && GUILD_EMBLEM_KEYS.has(key);
 }
+
+// 커스텀 길드 엠블럼. 임의 외부 호스트를 허용하면 추적 픽셀·SSRF·깨진 이미지 문제가
+// 생기므로 Imgur 의 이미지 전용 호스트와 일반적인 정적 이미지 확장자만 받는다.
+export const GUILD_EMBLEM_CHANGE_COST = 50_000_000;
+export const GUILD_EMBLEM_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+export const GUILD_EMBLEM_IMAGE_MAX_URL_LENGTH = 300;
+
+const GUILD_EMBLEM_IMAGE_PATH = /^\/[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*\.(?:jpe?g|png|webp)$/i;
+
+export function normalizeGuildEmblemImageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > GUILD_EMBLEM_IMAGE_MAX_URL_LENGTH) {
+    return null;
+  }
+  try {
+    const url = new URL(trimmed);
+    if (
+      url.protocol !== "https:" ||
+      url.hostname !== "i.imgur.com" ||
+      url.port !== "" ||
+      url.username !== "" ||
+      url.password !== "" ||
+      url.search !== "" ||
+      url.hash !== "" ||
+      !GUILD_EMBLEM_IMAGE_PATH.test(url.pathname)
+    ) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+export function isGuildEmblemImageUrl(value: unknown): value is string {
+  return normalizeGuildEmblemImageUrl(value) !== null;
+}

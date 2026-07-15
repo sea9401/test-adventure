@@ -9,11 +9,14 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
-import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems-icons";
-import { GUILD_COLORS } from "@/adventure/data/guild-colors";
+import {
+  GUILD_EMBLEM_CHANGE_COST,
+  normalizeGuildEmblemImageUrl,
+} from "@/adventure/data/guild-emblems";
 import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
 import { GuildFacilitiesManagePanel } from "./GuildOutpostsPanel";
+import { GuildEmblemImage } from "./GuildEmblemImage";
 import {
   fmtDate,
   type GuildInfoResponse,
@@ -55,6 +58,8 @@ export function GuildManagePanel({
   // 관리 탭 내부 하위 탭 선택.
   const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [inviteName, setInviteName] = useState("");
+  // null 은 서버의 현재 값을 그대로 표시, 문자열은 사용자가 편집 중인 값.
+  const [emblemDraft, setEmblemDraft] = useState<string | null>(null);
   // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
   const [disbandConfirm, setDisbandConfirm] = useState("");
 
@@ -113,79 +118,56 @@ export function GuildManagePanel({
     }
   }, [inviteName, guildId, acting, setActing, setNotice]);
 
-  // 마스터가 길드 엠블럼 설정.
+  // 마스터가 외부 이미지 URL로 길드 엠블럼 등록·교체·제거.
   const handleSetEmblem = useCallback(
-    async (key: string) => {
+    async (emblem: string | null) => {
       if (acting) return;
+      if (
+        emblem !== null &&
+        !window.confirm(
+          `길드 엠블럼을 변경할까요? 길드 자금 ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됩니다.`,
+        )
+      ) {
+        return;
+      }
       setActing(true);
       setNotice(null);
       try {
         const res = await fetch("/api/v2/guild/emblem", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ emblem: key }),
+          body: JSON.stringify({ emblem }),
         });
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
+          gold?: number;
         } | null;
         if (j?.ok) {
           setNotice({
             kind: "ok",
-            text: "길드 엠블럼을 바꿨어요. 길드 정보에 반영됩니다.",
+            text:
+              emblem === null
+                ? "길드 엠블럼을 제거했어요."
+                : `길드 엠블럼을 바꿨어요. 길드 자금 ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됐습니다.`,
           });
+          setEmblemDraft(null);
           await onRefresh();
         } else {
+          const errorText: Record<string, string> = {
+            not_master: "마스터만 엠블럼을 바꿀 수 있어요.",
+            bad_emblem: "https://i.imgur.com/으로 시작하는 직접 이미지 주소를 입력해 주세요.",
+            image_unreachable: "이미지를 확인할 수 없어요. 공개된 직접 이미지 주소인지 확인해 주세요.",
+            not_image: "JPG, PNG, WebP 이미지 주소만 등록할 수 있어요.",
+            image_too_large: "이미지는 2MB 이하여야 해요.",
+            insufficient_gold: `길드 자금이 부족해요. ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 필요합니다.`,
+          };
           setNotice({
             kind: "err",
-            text:
-              j?.error === "not_master"
-                ? "마스터만 엠블럼을 바꿀 수 있어요."
-                : `변경에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+            text: j?.error
+              ? (errorText[j.error] ?? `변경에 실패했어요 (${j.error}).`)
+              : `변경에 실패했어요 (http ${res.status}).`,
           });
-        }
-      } catch {
-        setNotice({
-          kind: "err",
-          text: "변경에 실패했어요. 잠시 후 다시 시도해 주세요.",
-        });
-      } finally {
-        setActing(false);
-      }
-    },
-    [acting, onRefresh, setActing, setNotice],
-  );
-
-  // 마스터가 길드 고유색 설정 — 선착순 유니크. 이미 쓰인 색은 거부(color_taken).
-  const handleSetColor = useCallback(
-    async (key: string) => {
-      if (acting) return;
-      setActing(true);
-      setNotice(null);
-      try {
-        const res = await fetch("/api/v2/guild/color", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ color: key }),
-        });
-        const j = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-        } | null;
-        if (j?.ok) {
-          setNotice({ kind: "ok", text: "길드 색을 바꿨어요. 길드 정보에 반영됩니다." });
-          await onRefresh();
-        } else {
-          setNotice({
-            kind: "err",
-            text:
-              j?.error === "color_taken"
-                ? "다른 길드가 방금 그 색을 가져갔어요. 다른 색을 골라주세요."
-                : j?.error === "not_master"
-                  ? "마스터만 색을 바꿀 수 있어요."
-                  : `변경에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
-          });
-          if (j?.error === "color_taken") await onRefresh();
         }
       } catch {
         setNotice({
@@ -439,7 +421,7 @@ export function GuildManagePanel({
         </div>
       )}
 
-      {/* ── 길드 설정: 엠블럼 · 색 · 위험 구역(해산) ── */}
+      {/* ── 길드 설정: 엠블럼 · 위험 구역(해산) ── */}
       {/* 길드 엠블럼 — 마스터 전용. */}
       {activeManageTab === "settings" && isMaster && (
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
@@ -447,67 +429,65 @@ export function GuildManagePanel({
             길드 엠블럼
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            길드 프로필과 길드원 화면에 이 아이콘이 표시돼요.
+            Imgur의 직접 이미지 주소를 등록할 수 있어요. 변경할 때마다 길드 자금{" "}
+            {GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됩니다.
           </p>
-          <div className="mt-2 grid grid-cols-6 gap-1.5">
-            {GUILD_EMBLEMS.map((em) => {
-              const selected = info?.guild?.emblem === em.key;
-              const Icon = em.Icon;
-              return (
+          <div className="mt-3 flex items-start gap-3">
+            <GuildEmblemImage
+              emblem={
+                normalizeGuildEmblemImageUrl(
+                  emblemDraft ?? info?.guild?.emblem,
+                ) ?? info?.guild?.emblem
+              }
+              guildName={info?.guild?.name ?? stateGuildName ?? "길드"}
+              className="h-20 w-20"
+            />
+            <div className="min-w-0 flex-1">
+              <input
+                type="url"
+                value={
+                  emblemDraft ??
+                  normalizeGuildEmblemImageUrl(info?.guild?.emblem) ??
+                  ""
+                }
+                onChange={(event) => setEmblemDraft(event.target.value)}
+                placeholder="https://i.imgur.com/이미지.jpg"
+                disabled={acting}
+                maxLength={300}
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+              />
+              <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                JPG·PNG·WebP, 2MB 이하 · 현재 길드 자금{" "}
+                {(info?.guildGold ?? 0).toLocaleString()} G
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
                 <button
-                  key={em.key}
                   type="button"
-                  onClick={() => handleSetEmblem(em.key)}
-                  disabled={acting}
-                  title={em.label}
-                  aria-label={em.label}
-                  aria-pressed={selected}
-                  className={`ui-guild-swatch flex aspect-square items-center justify-center rounded-md border transition disabled:opacity-50 ${
-                    selected
-                      ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                  }`}
+                  onClick={() => {
+                    const url = normalizeGuildEmblemImageUrl(emblemDraft);
+                    if (url) void handleSetEmblem(url);
+                  }}
+                  disabled={
+                    acting ||
+                    !normalizeGuildEmblemImageUrl(emblemDraft) ||
+                    normalizeGuildEmblemImageUrl(emblemDraft) ===
+                      normalizeGuildEmblemImageUrl(info?.guild?.emblem) ||
+                    (info?.guildGold ?? 0) < GUILD_EMBLEM_CHANGE_COST
+                  }
+                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                 >
-                  <Icon size={18} weight="fill" />
+                  엠블럼 변경
                 </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). */}
-      {activeManageTab === "settings" && isMaster && (
-        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-            길드 색
-          </div>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            길드 프로필 색상이에요. 다른 길드가 쓰는 색은 고를 수 없어요(선착순).
-          </p>
-          <div className="mt-2 grid grid-cols-8 gap-1.5">
-            {GUILD_COLORS.map((c) => {
-              const selected = info?.guild?.color === c.key;
-              const taken =
-                !selected && (info?.takenColors ?? []).includes(c.key);
-              return (
                 <button
-                  key={c.key}
                   type="button"
-                  onClick={() => handleSetColor(c.key)}
-                  disabled={acting || taken}
-                  title={taken ? `${c.label} (사용 중)` : c.label}
-                  aria-label={c.label}
-                  aria-pressed={selected}
-                  className={`ui-guild-swatch aspect-square rounded-md border-2 transition disabled:cursor-not-allowed ${
-                    selected
-                      ? "border-zinc-900 ring-2 ring-zinc-900 dark:border-white dark:ring-white"
-                      : "border-transparent hover:border-zinc-400"
-                  } ${taken ? "opacity-25" : ""}`}
-                  style={{ background: c.hex }}
-                />
-              );
-            })}
+                  onClick={() => void handleSetEmblem(null)}
+                  disabled={acting || !info?.guild?.emblem}
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
+                >
+                  엠블럼 제거 (무료)
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

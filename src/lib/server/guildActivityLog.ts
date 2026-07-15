@@ -28,11 +28,12 @@ export type GuildActivityType =
   | "combat_supply_upgrade"
   | "training_drill_claim"
   | "alchemy_craft"
+  | "emblem_change"
   | "nation_declare"
   | "guild_create";
 
 export type GuildActivityMeta = {
-  amount?: number; // gold_deposit
+  amount?: number; // gold_deposit | emblem_change
   role?: string; // role_change ("manager" | "member")
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim

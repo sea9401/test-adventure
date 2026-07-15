@@ -73,8 +73,6 @@ export type GuildInfoResponse = {
   hasGuildSmithy?: boolean;
   hasTrainingGround?: boolean;
   hasMapWorkshop?: boolean;
-  // 다른 활성 길드가 이미 쓰는 색(선착순) — 색 picker 비활성용.
-  takenColors?: string[];
   // 무소속일 때만 — 재가입 쿨다운 만료 시각(ISO). 활성 아니면 null/부재.
   leaveCooldownUntil?: string | null;
 };

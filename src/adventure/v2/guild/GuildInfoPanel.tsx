@@ -9,6 +9,7 @@ import {
   type GuildActivity,
 } from "../GuildActivityList";
 import { GuildCombatSupplySummary } from "./GuildCombatSupplyPanel";
+import { GuildEmblemImage } from "./GuildEmblemImage";
 import { fmtDate, type GuildInfoResponse } from "./guildShared";
 
 // 길드 정보 탭 — 정보 카드 · 금고 입금 · 활동 내역. (V2GuildHome 에서 추출, 거동 불변)
@@ -34,6 +35,19 @@ export function GuildInfoPanel({
   return info?.guild ? (
     <div className="space-y-3">
       <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex items-center gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
+          <GuildEmblemImage
+            emblem={info.guild.emblem}
+            guildName={info.guild.name}
+            className="h-16 w-16"
+          />
+          <div className="min-w-0">
+            <div className="truncate text-base font-semibold">{info.guild.name}</div>
+            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              {info.guild.nationName ? `${info.guild.nationName} 소속 길드` : "모험가 길드"}
+            </div>
+          </div>
+        </div>
         <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-zinc-500 dark:text-zinc-400">길드마스터</dt>

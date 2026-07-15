@@ -514,7 +514,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     });
   });
 
-  it("제작 전용 장비는 대장간 진행용 짝수 티어에 배치된다", () => {
+  it("제작 전용 장비는 제작소 진행용 짝수 티어에 배치된다", () => {
     const tiers = Object.fromEntries(
       Object.values(V2_EQUIPMENT)
         .filter((item) => item.craftOnly)

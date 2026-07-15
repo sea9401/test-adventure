@@ -783,7 +783,7 @@ const ERR_MESSAGES: Record<string, string> = {
   already_occupied: "이미 건축물이 배치된 슬롯이에요.",
   building_unavailable: "아직 배치할 수 없는 건축물이에요.",
   building_required: "건축물이 필요해요.",
-  smithy_required: "길드 대장간이 필요해요.",
+  smithy_required: "제작소가 필요해요.",
   max_level: "이미 최고 레벨이에요.",
   insufficient_resources: "정착지 재화가 부족해요.",
   insufficient_fame: "길드 명성이 부족해요.",

@@ -855,7 +855,7 @@ export const TITLES: Record<TitleId, Title> = {
   artisan_blacksmith_apprentice: {
     id: "artisan_blacksmith_apprentice",
     name: "견습 대장장이",
-    description: "길드 대장간에서 손맛을 익히기 시작한 자.",
+    description: "길드 제작소에서 손맛을 익히기 시작한 자.",
     condition: "대장장이 Lv 2 달성",
     category: "guild",
   },
@@ -863,7 +863,7 @@ export const TITLES: Record<TitleId, Title> = {
     id: "artisan_guild_crafter",
     name: "길드 장인",
     description: "길드의 재료를 장비로 바꾸는 데 익숙해진 자.",
-    condition: "길드 대장간 제작 30회",
+    condition: "길드 제작소 제작 30회",
     category: "guild",
   },
   artisan_masterwork: {
@@ -904,7 +904,7 @@ export const TITLES: Record<TitleId, Title> = {
   artisan_rank_participant: {
     id: "artisan_rank_participant",
     name: "시즌 장인",
-    description: "한 시즌의 대장간 경쟁에 이름을 올린 자.",
+    description: "한 시즌의 제작 경쟁에 이름을 올린 자.",
     condition: "대장장이 시즌 랭킹 보상 수령",
     category: "guild",
   },
@@ -918,7 +918,7 @@ export const TITLES: Record<TitleId, Title> = {
   artisan_rank_top3: {
     id: "artisan_rank_top3",
     name: "명문 장인",
-    description: "길드 대장간의 작업대 위에 자기 이름을 깊게 새긴 자.",
+    description: "길드 제작소의 작업대 위에 자기 이름을 깊게 새긴 자.",
     condition: "대장장이 랭킹 3위 이내 보상 수령",
     category: "guild",
   },
@@ -939,14 +939,14 @@ export const TITLES: Record<TitleId, Title> = {
   artisan_codex_curator: {
     id: "artisan_codex_curator",
     name: "장인표 감정가",
-    description: "대장간의 작품을 체계적으로 기록한 자.",
+    description: "제작소의 작품을 체계적으로 기록한 자.",
     condition: "제작 전용 장비 도감 8종 등록",
     category: "guild",
   },
   artisan_codex_master: {
     id: "artisan_codex_master",
     name: "장인표 전승자",
-    description: "길드 대장간의 장비 계보를 완성한 자.",
+    description: "길드 제작소의 장비 계보를 완성한 자.",
     condition: "제작 전용 장비 도감 10종 등록",
     category: "guild",
   },

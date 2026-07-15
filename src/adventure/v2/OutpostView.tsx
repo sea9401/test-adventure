@@ -80,7 +80,7 @@ export function OutpostView({
     useGameState();
   const nowMs = useClientNowMs();
   const [busy, setBusy] = useState(false);
-  // 내 거점 활동 탭 — 마을 / 대장간 / 수비 / 최근 공격 기록.
+  // 내 거점 활동 탭 — 마을 / 제작소 / 수비 / 최근 공격 기록.
   const [activityTab, setActivityTab] = useState<ActivityTab>("manage");
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
@@ -110,7 +110,7 @@ export function OutpostView({
   // 성벽 수동 수리 — 진행 상태 + 결과 메시지(성공/실패). 점령 길드 멤버 전용.
   const [repairing, setRepairing] = useState(false);
   const [repairResult, setRepairResult] = useState<string | null>(null);
-  // 성벽 수리 키트 보유수 — /me/inventory 로 초기화, 수리 응답으로 갱신. 키트 조합은 대장간(조합소).
+  // 성벽 수리 키트 보유수 — /me/inventory 로 초기화, 수리 응답으로 갱신. 키트 조합은 제작소.
   const [repairKits, setRepairKits] = useState(0);
   const [warVigor, setWarVigor] = useState<WarVigor | null>(null);
   useEffect(() => {
@@ -625,7 +625,7 @@ export function OutpostView({
                   {repairing
                     ? "수리 중…"
                     : repairKits <= 0
-                      ? "성벽 수리 — 수리 키트 없음 (대장간 조합소에서 제작)"
+                      ? "성벽 수리 — 수리 키트 없음 (제작소에서 제작)"
                       : `성벽 수리 — 수리 키트 사용 (1개당 +${FORT_HP_PER_REPAIR_KIT} HP · 보유 ${repairKits}개)`}
                 </button>
               )}
@@ -666,7 +666,7 @@ export function OutpostView({
         )}
 
         {ownSettlement || externalOpenSettlement ? (
-          // 내 거점/정착지 또는 공개 거점 — 마을 / 대장간 / 최근 공격 기록 탭.
+          // 내 거점/정착지 또는 공개 거점 — 마을 / 제작소 / 최근 공격 기록 탭.
           <OutpostActivityTabs
             outpostId={outpost.id}
             activityTab={activityTab}

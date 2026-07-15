@@ -86,7 +86,7 @@ export const BLACKSMITH_ARTISAN_JOBS: readonly ArtisanJobDefinition[] = [
     name: "견습 대장장이",
     requiredLevel: 1,
     role: "제작자 각인과 기본 품질 제작",
-    unlockText: "길드 대장간에서 첫 제작 시작",
+    unlockText: "길드 제작소에서 첫 제작 시작",
   },
   {
     id: "blacksmith",

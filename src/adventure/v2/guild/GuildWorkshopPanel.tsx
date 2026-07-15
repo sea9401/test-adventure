@@ -58,7 +58,7 @@ import {
   type WeeklyState,
 } from "./guildWorkshopPanelModel";
 
-// 대장간 제작 패널 — 길드 대장간을 실제 제작 기능 게이트로 사용한다.
+// 제작소 패널 — 길드 제작소를 실제 제작 기능 게이트로 사용한다.
 export function GuildWorkshopPanel({
   info,
   localSmithy = false,
@@ -622,7 +622,7 @@ export function GuildWorkshopPanel({
             일일 제작 납품
           </h3>
           <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            대장간 Lv, ★ 품질, 명장 각인에 따라 보상이 증가합니다.
+            제작소 Lv, ★ 품질, 명장 각인에 따라 보상이 증가합니다.
           </div>
         </div>
         {deliveryLoading ? (
@@ -956,7 +956,7 @@ export function GuildWorkshopPanel({
               />
               <div className="min-w-0">
                 <h3 className="font-semibold text-zinc-800 dark:text-zinc-100">
-                  길드 대장간 필요
+                  제작소 필요
                 </h3>
                 <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                   보유 마을의 건축물 슬롯에 {smithy.name}을 배치하면 제작을
@@ -992,9 +992,9 @@ export function GuildWorkshopPanel({
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
             {externalAccess
-              ? `이 거점의 대장간을 외부 이용 중입니다. 제작 성공 시 이용료 ${externalAccess.useFeeGold.toLocaleString()} G가 점령 길드 금고로 들어갑니다.`
+              ? `이 거점의 제작소를 외부 이용 중입니다. 제작 성공 시 이용료 ${externalAccess.useFeeGold.toLocaleString()} G가 점령 길드 금고로 들어갑니다.`
               : localSmithy
-              ? "이 거점의 대장간에서 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다."
+              ? "이 거점의 제작소에서 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다."
               : `보유 수 ${smithyCount.toLocaleString()}개. 개인 재료를 사용해 장비를 제작합니다. 마을에 전환한 길드 자원은 제작 재료로 쓰지 않습니다.`}
           </p>
         </div>
@@ -1071,7 +1071,7 @@ export function GuildWorkshopPanel({
 
       {!hasApiSmithy ? (
         <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-          서버 기준으로는 아직 길드 대장간이 확인되지 않았습니다.
+          서버 기준으로는 아직 제작소가 확인되지 않았습니다.
         </div>
       ) : null}
 

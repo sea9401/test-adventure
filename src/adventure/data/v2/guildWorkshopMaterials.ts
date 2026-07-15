@@ -17,7 +17,7 @@ export const GUILD_WORKSHOP_MATERIALS = {
     id: GUILD_WORKSHOP_MATERIAL_ID.refinedIron,
     name: "정제 철괴",
     description:
-      "철광석을 여러 번 정련한 대장간 전용 주괴. 2T 제작 장비의 기본 병목 재료다.",
+      "철광석을 여러 번 정련한 제작소 전용 주괴. 2T 제작 장비의 기본 병목 재료다.",
   },
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: {
     id: GUILD_WORKSHOP_MATERIAL_ID.mithrilShard,

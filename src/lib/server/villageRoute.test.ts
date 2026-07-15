@@ -531,7 +531,7 @@ describe("POST /api/v2/outpost/village/building/place", () => {
     expect(((await res.json()) as AnyJson).error).toBe("slot_locked");
   });
 
-  it("happy — 길드 대장간을 0번 건축물 슬롯에 배치", async () => {
+  it("happy — 길드 제작소를 0번 건축물 슬롯에 배치", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
     const res = await placeBuildingPOST(
       jreq({ outpostId: FARM_OUTPOST, slot: 0, buildingId: "guild_smithy" }),
@@ -683,7 +683,7 @@ describe("POST /api/v2/outpost/village/building/discard", () => {
 
 // ── building/upgrade (건축물 업그레이드) ─────────────────────────────────────
 describe("POST /api/v2/outpost/village/building/upgrade", () => {
-  it("대장간 Lv1 → Lv2 업그레이드 비용을 정착지 재화에서 차감", async () => {
+  it("제작소 Lv1 → Lv2 업그레이드 비용을 정착지 재화에서 차감", async () => {
     seedBuiltVillage(FARM_OUTPOST, {
       unlockedSlots: 1,
       buildings: { "0": { id: "guild_smithy", level: 1 } },
@@ -758,7 +758,7 @@ describe("POST /api/v2/outpost/village/building/upgrade", () => {
     );
   });
 
-  it("대장간은 Lv5까지 장기 업그레이드된다", async () => {
+  it("제작소는 Lv5까지 장기 업그레이드된다", async () => {
     seedBuiltVillage(FARM_OUTPOST, {
       unlockedSlots: 1,
       buildings: { "0": { id: "guild_smithy", level: 4 } },

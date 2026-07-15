@@ -626,7 +626,7 @@ export function BalanceTelemetryTab() {
           </Card>
 
           <Card
-            title="대장간 경제"
+            title="제작소 경제"
             hint="현재 세이브 스냅샷 기준 누적 제작, 일일 납품 진행, 제작 재료 재고입니다."
           >
             <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">

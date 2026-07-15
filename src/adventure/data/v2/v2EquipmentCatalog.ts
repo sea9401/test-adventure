@@ -346,8 +346,8 @@ const V2_EQUIPMENT_BASE = {
     options: { mp: 48, eva: 3, healPowerPct: 8 },
   },
 
-  // ── 길드 대장간 제작 전용 고유 장비(craftOnly) ─────────────────────────
-  // 드랍·상점 제외. 대장간 레벨별 짝수 티어(T4/T6/T8/T10)에서 시작해 Lv5 명장 구간은 T12까지 확장.
+  // ── 길드 제작소 제작 전용 고유 장비(craftOnly) ─────────────────────────
+  // 드랍·상점 제외. 제작소 레벨별 짝수 티어(T4/T6/T8/T10)에서 시작해 Lv5 명장 구간은 T12까지 확장.
   // 제작 장비는 드랍 세트와 다른 태그 세트(수호/격노/질풍/룬 각인)로 목표를 분리한다.
   v2_crafted_oathblade: {
     id: "v2_crafted_oathblade",
@@ -356,7 +356,7 @@ const V2_EQUIPMENT_BASE = {
     concept: "str",
     tier: 4,
     name: "맹세의 장검",
-    description: "길드 대장간에서 맹세의 문양을 새겨 넣은 장인표 장검.",
+    description: "길드 제작소에서 맹세의 문양을 새겨 넣은 장인표 장검.",
     power: 90,
     weight: 5,
     options: { hp: 100, critResist: 5 },
@@ -462,7 +462,7 @@ const V2_EQUIPMENT_BASE = {
     concept: "luck",
     tier: 6,
     name: "명장의 인장",
-    description: "제작자의 각인이 안쪽에 남아 있는 길드 대장간 전용 반지.",
+    description: "제작자의 각인이 안쪽에 남아 있는 길드 제작소 전용 반지.",
     power: 22,
     weight: 0,
     options: { critMult: 60, crit: 6 },
@@ -475,7 +475,7 @@ const V2_EQUIPMENT_BASE = {
     concept: "heavy",
     tier: 6,
     name: "수호각인 갑주",
-    description: "대장간 화로에서 수호 문양을 반복 담금질한 장인표 갑주.",
+    description: "제작소 화로에서 수호 문양을 반복 담금질한 장인표 갑주.",
     power: 64,
     weight: 6,
     options: { hp: 160, critResist: 7 },
@@ -579,7 +579,7 @@ const V2_EQUIPMENT_BASE = {
     concept: "mana",
     tier: 6,
     name: "에테르 목걸이",
-    description: "마력 흐름을 가늘게 압축해 안정시킨 길드 대장간 전용 목걸이.",
+    description: "마력 흐름을 가늘게 압축해 안정시킨 길드 제작소 전용 목걸이.",
     power: 22,
     weight: 0,
     options: { mp: 85, magicDef: 12, healPowerPct: 9 },
@@ -658,7 +658,7 @@ const V2_EQUIPMENT_BASE = {
     concept: "mana",
     tier: 10,
     name: "오로라 관장식",
-    description: "대장간 Lv5 설비로 금속과 마력을 얇게 겹쳐 만든 명장 장신구.",
+    description: "제작소 Lv5 설비로 금속과 마력을 얇게 겹쳐 만든 명장 장신구.",
     power: 81,
     weight: 0,
     options: { hp: 220, magicDef: 28, critResist: 12 },

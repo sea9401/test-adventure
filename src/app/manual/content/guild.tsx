@@ -212,7 +212,7 @@ export function GuildContent() {
           `${GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER[tier as keyof typeof GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER]}개`,
           catalyst,
         ])}
-        caption="대장간 Lv4의 T8 특별 제작은 촉매 4개를 사용합니다. 명장 제작은 표의 모든 비용이 2배입니다."
+        caption="제작소 Lv4의 T8 특별 제작은 촉매 4개를 사용합니다. 명장 제작은 표의 모든 비용이 2배입니다."
       />
       <Table
         head={["누적 제작", "품질 확률 보너스"]}

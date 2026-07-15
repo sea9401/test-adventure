@@ -52,7 +52,7 @@ function spendCost(
 }
 
 // POST /api/v2/guild/facilities/smithy/upgrade
-// 현재 길드의 전역 대장간 시설을 다음 레벨로 업그레이드한다.
+// 현재 길드의 전역 제작소 시설을 다음 레벨로 업그레이드한다.
 export async function POST() {
   const userId = await ensureUser();
   if (!userId) {

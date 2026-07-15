@@ -248,7 +248,7 @@ export function WorkshopCraftPanel({
               ))}
             </div>
             <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-              대장장이 Lv {recipe.requiredArtisanLevel} · 대장간 Lv{" "}
+              대장장이 Lv {recipe.requiredArtisanLevel} · 제작소 Lv{" "}
               {recipe.requiredSmithyLevel} · 숙련도 +{recipe.artisanXp}
             </div>
           </div>
@@ -271,7 +271,7 @@ export function WorkshopCraftPanel({
                 ) : !recipe.levelOk ? (
                   `Lv ${recipe.requiredArtisanLevel}`
                 ) : !recipe.smithyLevelOk ? (
-                  `대장간 Lv ${recipe.requiredSmithyLevel}`
+                  `제작소 Lv ${recipe.requiredSmithyLevel}`
                 ) : recipe.canCraft ? (
                   "제작"
                 ) : (

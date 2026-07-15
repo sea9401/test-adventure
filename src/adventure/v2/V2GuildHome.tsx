@@ -217,6 +217,7 @@ export function V2GuildHome({
           info={info}
           canManage={canManage}
           onChanged={refresh}
+          onNotice={setNotice}
         />
       )}
     </main>

@@ -120,49 +120,12 @@ export function V2CoopBossListView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="협동 보스"
-        onBack={onBack}
-        right={
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            보스 소환서 {scrolls}장 보유
-          </span>
-        }
-      />
+      <SubViewHeader title="협동 보스" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
       </p>
 
       <V2CoopTabs active="bosses" onOpenShop={onOpenShop} />
-
-      {/* 코어루프 — 소환 공개 범위. flag off 면 미표시(항상 공개). */}
-      {V2_CORE_LOOP_V2 && (
-        <Card padding="sm">
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-            소환 공개 범위
-          </p>
-          <div className="mt-1.5 flex gap-2">
-            {COOP_VISIBILITY_OPTIONS.map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setVisibility(v)}
-                aria-pressed={visibility === v}
-                className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors ${
-                  visibility === v
-                    ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
-                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-            소환권이 비용이라, 공개 범위 안의 모험가는 무료로 함께 칠 수 있어요.
-          </p>
-        </Card>
-      )}
 
       {notice && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
@@ -243,13 +206,13 @@ export function V2CoopBossListView({
       {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
       <div className="space-y-1.5">
         <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          소환된 보스{loaded && ` (${sessions.length})`}
+          진행 중인 협동 보스{loaded && ` (${sessions.length})`}
         </div>
         {loaded && sessions.length === 0 && (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              지금 소환된 보스가 없습니다 — 아래에서 소환서를 사용해 깨워
-              보세요.
+              지금 진행 중인 보스가 없습니다. 아래의 새 보스 소환에서
+              소환서를 사용할 수 있습니다.
             </p>
           </Card>
         )}
@@ -352,10 +315,51 @@ export function V2CoopBossListView({
       </div>
 
       {/* 소환하기 — 보스별 카드, 난이도 변형은 카드 안에서 선택 */}
-      <div className="space-y-1.5">
-        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          소환하기
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              새 보스 소환
+            </div>
+            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              소환 설정을 선택한 뒤 원하는 보스의 소환 버튼을 누르세요.
+            </p>
+          </div>
+          <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            보스 소환서 {scrolls.toLocaleString()}장 보유
+          </span>
         </div>
+
+        {/* 코어루프 — 아래 소환 버튼에 적용되는 공개 범위. flag off 면 항상 공개. */}
+        {V2_CORE_LOOP_V2 && (
+          <Card padding="sm" className="border-amber-200 dark:border-amber-900/70">
+            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-200">
+              소환 후 공개 범위
+            </p>
+            <div className="mt-1.5 flex gap-2">
+              {COOP_VISIBILITY_OPTIONS.map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVisibility(v)}
+                  aria-pressed={visibility === v}
+                  className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                    visibility === v
+                      ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              이 설정은 아래에서 새로 소환하는 보스에 적용됩니다. 공개 범위 안의
+              모험가는 무료로 함께 공격할 수 있습니다.
+            </p>
+          </Card>
+        )}
+
         {COOP_SUMMON_GROUPS.map((group) => {
           const selectedKind =
             selectedKindByGroup[group.id] ?? group.variants[0]?.kind;

@@ -19,6 +19,12 @@ const optionalCaptcha = {
   HCAPTCHA_EXPECTED_HOSTNAMES:
     process.env.HCAPTCHA_EXPECTED_HOSTNAMES?.trim(),
 };
+const optionalR2 = {
+  R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID?.trim(),
+  R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID?.trim(),
+  R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY?.trim(),
+  R2_BUCKET_NAME: process.env.R2_BUCKET_NAME?.trim(),
+};
 
 for (const [key, value] of Object.entries(required)) {
   if (!value) {
@@ -45,6 +51,17 @@ for (const [key, value] of Object.entries(optionalCaptcha)) {
     process.exit(1);
   }
 }
+const suppliedR2Values = Object.values(optionalR2).filter(Boolean);
+if (suppliedR2Values.length > 0 && suppliedR2Values.length !== 4) {
+  console.error("✗ R2 deployment secrets must be supplied together");
+  process.exit(1);
+}
+for (const [key, value] of Object.entries(optionalR2)) {
+  if (value && /[\r\n\0]/.test(value)) {
+    console.error(`✗ deployment secret contains invalid characters: ${key}`);
+    process.exit(1);
+  }
+}
 
 const synchronized = {
   ...required,
@@ -60,6 +77,7 @@ const synchronized = {
           : {}),
       }
     : {}),
+  ...(suppliedR2Values.length === 4 ? optionalR2 : {}),
 };
 
 const original = readFileSync(envPath, "utf8");
@@ -88,7 +106,7 @@ chmodSync(temporaryPath, mode);
 renameSync(temporaryPath, envPath);
 
 console.log(
-  suppliedCaptchaCredentials.length > 0
-    ? "✓ production Turnstile and hCaptcha environment synchronized"
-    : "✓ production Turnstile environment synchronized",
+  `✓ production Turnstile${
+    suppliedCaptchaCredentials.length > 0 ? ", hCaptcha" : ""
+  }${suppliedR2Values.length > 0 ? ", and R2" : ""} environment synchronized`,
 );

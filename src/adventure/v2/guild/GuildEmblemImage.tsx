@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { FlagBanner } from "@phosphor-icons/react";
-import { isGuildEmblemImageUrl } from "@/adventure/data/guild-emblems";
+import { guildEmblemImageSrc } from "@/adventure/data/guild-emblems";
 
 export function GuildEmblemImage({
   emblem,
@@ -15,7 +15,7 @@ export function GuildEmblemImage({
   className?: string;
 }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const imageUrl = isGuildEmblemImageUrl(emblem) ? emblem : null;
+  const imageUrl = guildEmblemImageSrc(emblem);
   const showImage = imageUrl !== null && failedUrl !== imageUrl;
 
   return (

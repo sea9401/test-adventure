@@ -1,6 +1,10 @@
+import "server-only";
+
+import sharp from "sharp";
 import {
   GUILD_EMBLEM_IMAGE_MAX_BYTES,
-  normalizeGuildEmblemImageUrl,
+  GUILD_EMBLEM_IMAGE_MAX_DIMENSION,
+  GUILD_EMBLEM_IMAGE_SIZE,
 } from "@/adventure/data/guild-emblems";
 
 const ALLOWED_CONTENT_TYPES = new Set([
@@ -8,47 +12,71 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
 
 export type GuildEmblemImageCheckError =
-  | "bad_emblem"
-  | "image_unreachable"
+  | "invalid_file"
   | "not_image"
-  | "image_too_large";
+  | "image_too_large"
+  | "image_dimensions";
 
-export async function verifyGuildEmblemImage(
+export async function processGuildEmblemImage(
   value: unknown,
-): Promise<{ ok: true; url: string } | { ok: false; error: GuildEmblemImageCheckError }> {
-  const url = normalizeGuildEmblemImageUrl(value);
-  if (!url) return { ok: false, error: "bad_emblem" };
+): Promise<
+  | { ok: true; bytes: Uint8Array }
+  | { ok: false; error: GuildEmblemImageCheckError }
+> {
+  if (!(value instanceof File) || value.size <= 0) {
+    return { ok: false, error: "invalid_file" };
+  }
+  if (value.size > GUILD_EMBLEM_IMAGE_MAX_BYTES) {
+    return { ok: false, error: "image_too_large" };
+  }
+  if (!ALLOWED_CONTENT_TYPES.has(value.type.toLowerCase())) {
+    return { ok: false, error: "not_image" };
+  }
 
+  const input = Buffer.from(await value.arrayBuffer());
   try {
-    const response = await fetch(url, {
-      method: "HEAD",
-      redirect: "error",
-      cache: "no-store",
-      signal: AbortSignal.timeout(5_000),
+    const probe = sharp(input, {
+      failOn: "error",
+      limitInputPixels:
+        GUILD_EMBLEM_IMAGE_MAX_DIMENSION * GUILD_EMBLEM_IMAGE_MAX_DIMENSION,
+      sequentialRead: true,
     });
-    if (!response.ok) return { ok: false, error: "image_unreachable" };
-
-    const contentType = response.headers.get("content-type")
-      ?.split(";", 1)[0]
-      ?.trim()
-      .toLowerCase();
-    if (!contentType || !ALLOWED_CONTENT_TYPES.has(contentType)) {
+    const metadata = await probe.metadata();
+    if (
+      !metadata.format ||
+      !ALLOWED_FORMATS.has(metadata.format) ||
+      !metadata.width ||
+      !metadata.height
+    ) {
       return { ok: false, error: "not_image" };
     }
-
-    const rawLength = response.headers.get("content-length");
-    const contentLength = rawLength == null ? Number.NaN : Number(rawLength);
-    if (!Number.isFinite(contentLength) || contentLength <= 0) {
-      return { ok: false, error: "image_unreachable" };
-    }
-    if (contentLength > GUILD_EMBLEM_IMAGE_MAX_BYTES) {
-      return { ok: false, error: "image_too_large" };
+    if (
+      metadata.width > GUILD_EMBLEM_IMAGE_MAX_DIMENSION ||
+      metadata.height > GUILD_EMBLEM_IMAGE_MAX_DIMENSION ||
+      (metadata.pages ?? 1) > 1
+    ) {
+      return { ok: false, error: "image_dimensions" };
     }
 
-    return { ok: true, url };
+    const bytes = await sharp(input, {
+      failOn: "error",
+      limitInputPixels:
+        GUILD_EMBLEM_IMAGE_MAX_DIMENSION * GUILD_EMBLEM_IMAGE_MAX_DIMENSION,
+      sequentialRead: true,
+    })
+      .rotate()
+      .resize(GUILD_EMBLEM_IMAGE_SIZE, GUILD_EMBLEM_IMAGE_SIZE, {
+        fit: "cover",
+        position: "centre",
+      })
+      .webp({ quality: 82, effort: 4 })
+      .toBuffer();
+
+    return { ok: true, bytes };
   } catch {
-    return { ok: false, error: "image_unreachable" };
+    return { ok: false, error: "not_image" };
   }
 }

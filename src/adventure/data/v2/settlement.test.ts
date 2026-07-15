@@ -21,9 +21,11 @@ import {
   GUILD_SMITHY_UPGRADES,
   TRAINING_GROUND_UPGRADES,
   EXPLORATION_HQ_UPGRADES,
+  ALCHEMY_WORKSHOP_UPGRADES,
   SETTLEMENT_RESOURCE_KEYS,
   canAffordSettlementBuildingUpgrade,
   explorationHqUpgradeForLevel,
+  alchemyWorkshopUpgradeForLevel,
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
@@ -99,11 +101,31 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 탐사 6건 · 진척 +35%");
   });
 
+  it("연금 공방은 배치 가능 건물이며 Lv5에서 주간 연성력 15를 연다", () => {
+    expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("alchemy_workshop");
+    expect(nextSettlementBuildingUpgrade("alchemy_workshop", 1)).toMatchObject({
+      level: 2,
+      cost: { crop: 250, ore: 250, gold: 20_000_000, fame: 0 },
+      weeklyEnergy: 8,
+    });
+    expect(alchemyWorkshopUpgradeForLevel(5)).toMatchObject({
+      weeklyEnergy: 15,
+      label: "대연금 연구소",
+    });
+    expect(
+      settlementBuildingUpgradeSummary(
+        "alchemy_workshop",
+        alchemyWorkshopUpgradeForLevel(5),
+      ),
+    ).toBe("주간 연성력 15 · 조제법 Lv.5");
+  });
+
   it("시설 비용은 상위 생활 재료를 단계적으로 요구하고 Lv2 명성은 무료다", () => {
     for (const upgrades of [
       GUILD_SMITHY_UPGRADES,
       TRAINING_GROUND_UPGRADES,
       EXPLORATION_HQ_UPGRADES,
+      ALCHEMY_WORKSHOP_UPGRADES,
     ]) {
       expect(upgrades[1].cost.fame).toBe(0);
       expect(upgrades[2].cost).toMatchObject({
@@ -130,6 +152,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       GUILD_SMITHY_UPGRADES,
       TRAINING_GROUND_UPGRADES,
       EXPLORATION_HQ_UPGRADES,
+      ALCHEMY_WORKSHOP_UPGRADES,
     ].map((upgrades) => ({
       materials: upgrades
         .slice(1)
@@ -153,6 +176,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
       { materials: 5_000, gold: 315_000_000, fame: 4_350 },
       { materials: 5_000, gold: 380_000_000, fame: 5_350 },
       { materials: 5_000, gold: 347_000_000, fame: 5_000 },
+      { materials: 5_000, gold: 315_000_000, fame: 4_350 },
     ]);
   });
 

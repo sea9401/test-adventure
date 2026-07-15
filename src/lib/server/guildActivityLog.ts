@@ -1,5 +1,6 @@
 import type { db as dbType } from "@/db";
 import { guildActivityLog } from "@/db/schema";
+import type { GuildAlchemyChargeTarget } from "@/adventure/data/v2/guildAlchemy";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
@@ -26,6 +27,7 @@ export type GuildActivityType =
   | "building_upgrade"
   | "combat_supply_upgrade"
   | "training_drill_claim"
+  | "alchemy_craft"
   | "nation_declare"
   | "guild_create";
 
@@ -35,7 +37,7 @@ export type GuildActivityMeta = {
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
-  itemName?: string; // workshop_delivery | workshop_craft_only
+  itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade
@@ -44,6 +46,8 @@ export type GuildActivityMeta = {
   fameCost?: number; // combat_supply_upgrade
   drillTitle?: string; // training_drill_claim
   rewardMastery?: number; // training_drill_claim
+  chargeTarget?: GuildAlchemyChargeTarget; // alchemy_craft
+  chargeAmount?: number; // alchemy_craft
   artisanXp?: number; // workshop_delivery
   artisanRank?: number; // artisan_rank_reward
   titleName?: string; // artisan_rank_reward

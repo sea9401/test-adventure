@@ -228,7 +228,7 @@ export const SETTLEMENT_BUILDINGS: Record<
     id: "alchemy_workshop",
     name: "연금 공방",
     icon: "⚗️",
-    desc: "포션과 특수 소모품 제작을 위한 영지 시설입니다. 아직 배치할 수 없습니다.",
+    desc: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 길드 공용 시설입니다.",
   },
   woodworks: {
     id: "woodworks",
@@ -244,6 +244,7 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "guild_smithy",
   "training_ground",
   "exploration_hq",
+  "alchemy_workshop",
 ];
 
 export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
@@ -253,6 +254,7 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
   training_ground: 80_000_000,
   exploration_hq: 65_000_000,
   map_workshop: 15_000_000,
+  alchemy_workshop: 60_000_000,
 };
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
@@ -415,6 +417,13 @@ export type ExplorationHqUpgradeDef = {
   label: string;
 };
 
+export type AlchemyWorkshopUpgradeDef = {
+  level: number;
+  cost: SettlementBuildingUpgradeCost;
+  weeklyEnergy: number;
+  label: string;
+};
+
 export const MAP_WORKSHOP_UPGRADES: readonly MapWorkshopUpgradeDef[] = [
   {
     level: 1,
@@ -486,11 +495,45 @@ export const EXPLORATION_HQ_UPGRADES: readonly ExplorationHqUpgradeDef[] = [
   },
 ];
 
+export const ALCHEMY_WORKSHOP_UPGRADES: readonly AlchemyWorkshopUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    weeklyEnergy: 6,
+    label: "약초 분쇄대",
+  },
+  {
+    level: 2,
+    cost: facilityUpgradeCost(2, 20_000_000, 0),
+    weeklyEnergy: 8,
+    label: "추출 조제실",
+  },
+  {
+    level: 3,
+    cost: facilityUpgradeCost(3, 45_000_000, 600),
+    weeklyEnergy: 10,
+    label: "정밀 증류기",
+  },
+  {
+    level: 4,
+    cost: facilityUpgradeCost(4, 90_000_000, 1250),
+    weeklyEnergy: 12,
+    label: "마력 촉매실",
+  },
+  {
+    level: 5,
+    cost: facilityUpgradeCost(5, 160_000_000, 2500),
+    weeklyEnergy: 15,
+    label: "대연금 연구소",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
   | TrainingGroundUpgradeDef
   | MapWorkshopUpgradeDef
-  | ExplorationHqUpgradeDef;
+  | ExplorationHqUpgradeDef
+  | AlchemyWorkshopUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -577,6 +620,25 @@ export function nextExplorationHqUpgrade(
   );
 }
 
+export function alchemyWorkshopUpgradeForLevel(
+  level: number,
+): AlchemyWorkshopUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    ALCHEMY_WORKSHOP_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    ALCHEMY_WORKSHOP_UPGRADES[0]
+  );
+}
+
+export function nextAlchemyWorkshopUpgrade(
+  level: number,
+): AlchemyWorkshopUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    ALCHEMY_WORKSHOP_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ?? null
+  );
+}
+
 export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
   const safe = clampSettlementBuildingLevel(level);
   return (
@@ -607,6 +669,9 @@ export function nextSettlementBuildingUpgrade(
   if (buildingId === "map_workshop") {
     return nextMapWorkshopUpgrade(level);
   }
+  if (buildingId === "alchemy_workshop") {
+    return nextAlchemyWorkshopUpgrade(level);
+  }
   if (buildingId === "guild_smithy") {
     return nextGuildSmithyUpgrade(level);
   }
@@ -628,6 +693,10 @@ export function settlementBuildingUpgradeSummary(
   if (buildingId === "map_workshop") {
     const map = upgrade as MapWorkshopUpgradeDef;
     return `지도 조각 비용 -${map.fragmentDiscountPct}%`;
+  }
+  if (buildingId === "alchemy_workshop") {
+    const alchemy = upgrade as AlchemyWorkshopUpgradeDef;
+    return `주간 연성력 ${alchemy.weeklyEnergy} · 조제법 Lv.${alchemy.level}`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p`;

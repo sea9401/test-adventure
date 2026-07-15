@@ -11,6 +11,10 @@ import {
   MONSTER_CRAFT_MATERIAL_IDS,
 } from "@/adventure/data/v2/monsterCraftMaterials";
 import {
+  COOP_BOSS_MATERIAL_ID,
+  COOP_REWARD_MATERIALS,
+} from "@/adventure/data/v2/coopRewards";
+import {
   SETTLEMENT_MATERIAL_ID,
   SETTLEMENT_MATERIALS,
 } from "@/adventure/data/v2/settlementMaterials";
@@ -325,12 +329,14 @@ export function GuildWorkshopPanel({
         SETTLEMENT_MATERIAL_ID.ironOre,
         ...GUILD_WORKSHOP_MATERIAL_IDS,
         ...MONSTER_CRAFT_MATERIAL_IDS,
+        COOP_BOSS_MATERIAL_ID.canyon_predator,
       ].map((id) => {
         const mat =
           (SETTLEMENT_MATERIALS as Record<string, { name: string }>)[id] ??
           (WOODCUTTING_MATERIALS as Record<string, { name: string }>)[id] ??
           (GUILD_WORKSHOP_MATERIALS as Record<string, { name: string }>)[id] ??
-          (MONSTER_CRAFT_MATERIALS as Record<string, { name: string }>)[id];
+          (MONSTER_CRAFT_MATERIALS as Record<string, { name: string }>)[id] ??
+          (COOP_REWARD_MATERIALS as Record<string, { name: string }>)[id];
         const amount = Math.max(0, Math.floor(materials[id] ?? 0));
         return {
           key: id,

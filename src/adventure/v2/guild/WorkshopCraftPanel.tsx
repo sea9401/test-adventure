@@ -11,6 +11,10 @@ import {
   MONSTER_CRAFT_MATERIAL_DROP_RULES,
   MONSTER_CRAFT_MATERIALS,
 } from "@/adventure/data/v2/monsterCraftMaterials";
+import {
+  COOP_BOSS_MATERIAL,
+  COOP_BOSS_MATERIAL_ID,
+} from "@/adventure/data/v2/coopRewards";
 import { TITLES } from "@/adventure/data/titles";
 import type {
   GuildWorkshopCraftMode,
@@ -161,8 +165,12 @@ export function WorkshopCraftPanel({
           a.itemName.localeCompare(b.itemName, "ko")
         );
       });
-    const allCraftedRecipes = allRecipes.filter((recipe) => recipe.craftOnly);
-    const allTrainingRecipes = allRecipes.filter((recipe) => !recipe.craftOnly);
+    const allCraftedRecipes = allRecipes.filter(
+      (recipe) => recipe.craftOnly || recipe.baseEquipment,
+    );
+    const allTrainingRecipes = allRecipes.filter(
+      (recipe) => !recipe.craftOnly && !recipe.baseEquipment,
+    );
     return {
       craftedRecipes: sortRecipes(
         allCraftedRecipes.filter(matchesSharedFilter),
@@ -242,6 +250,11 @@ export function WorkshopCraftPanel({
                 {V2_SLOT_LABEL[recipe.slot]}
               </span>
               {recipe.craftOnly ? <CraftOnlyBadge /> : null}
+              {recipe.baseEquipment ? (
+                <span className="rounded bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+                  장비 개량
+                </span>
+              ) : null}
               {weeklyHints.slice(0, 2).map((hint) => (
                 <span
                   key={hint}
@@ -255,8 +268,25 @@ export function WorkshopCraftPanel({
               대장장이 Lv {recipe.requiredArtisanLevel} · 제작소 Lv{" "}
               {recipe.requiredSmithyLevel} · 숙련도 +{recipe.artisanXp}
             </div>
+            <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              {recipe.note}
+            </div>
           </div>
         </div>
+
+        {recipe.baseEquipment ? (
+          <div className="rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <span className="font-semibold">
+              개량 재료: {recipe.baseEquipment.itemName} {recipe.baseEquipment.requiredCount}개
+            </span>{" "}
+            · 사용 가능 {recipe.baseEquipment.eligibleCount}개
+            {recipe.baseEquipment.resetOnCraft ? (
+              <div className="mt-0.5">
+                장착·잠금 장비는 제외되며, 소모한 장비의 강화·품질·개체 옵션은 결과물에 이전되지 않습니다.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="grid gap-2 md:grid-cols-2">
           <div className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-[11px] dark:border-zinc-700 dark:bg-zinc-900">
@@ -546,6 +576,32 @@ export function WorkshopCraftPanel({
                       </div>
                     );
                   })}
+                  {(() => {
+                    const id = COOP_BOSS_MATERIAL_ID.canyon_predator;
+                    const mat = COOP_BOSS_MATERIAL.canyon_predator;
+                    const amount = Math.max(
+                      0,
+                      Math.floor(Number(materials[id]) || 0),
+                    );
+                    return (
+                      <div
+                        key={id}
+                        className="rounded border border-violet-200 bg-violet-50 px-2 py-1 dark:border-violet-900 dark:bg-violet-950/20"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                            {mat.name}
+                          </span>
+                          <span className="font-mono text-[11px] text-violet-700 dark:text-violet-300">
+                            {amount.toLocaleString()}개
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-zinc-600 dark:text-zinc-400">
+                          협동 보스 · 스콜피온 킹 기여 보상
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               <div>

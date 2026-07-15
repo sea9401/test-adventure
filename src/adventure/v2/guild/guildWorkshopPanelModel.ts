@@ -34,6 +34,13 @@ export type WorkshopRecipeView = {
   slot: V2EquipSlot;
   tier: number;
   craftOnly?: boolean;
+  baseEquipment?: {
+    equipmentId: string;
+    itemName: string;
+    requiredCount: number;
+    eligibleCount: number;
+    resetOnCraft: boolean;
+  } | null;
   note: string;
   cost: Partial<Record<ProductionKind, number>>;
   materialCost?: Partial<Record<string, number>>;
@@ -256,6 +263,8 @@ export const ERROR_TEXT: Record<string, string> = {
   masterwork_locked: "명장 제작은 대장장이 Lv 8부터 사용할 수 있습니다.",
   insufficient_resources: "제작 재료가 부족합니다.",
   insufficient_materials: "제작 재료가 부족합니다.",
+  insufficient_base_equipment:
+    "장착·잠금되지 않은 하위 장비가 필요합니다.",
   insufficient_gold: "외부 이용료를 낼 골드가 부족합니다.",
   policy_blocked: "점령 길드가 길드원 전용으로 설정한 제작소입니다.",
 };

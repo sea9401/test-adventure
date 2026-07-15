@@ -157,9 +157,9 @@ export const COOP_BOSS_MATERIAL: Record<
   },
   canyon_predator: {
     id: COOP_BOSS_MATERIAL_ID.canyon_predator,
-    name: "전갈왕의 갑각",
+    name: "전갈왕의 꼬리침",
     description:
-      "스콜피온 킹 토벌 기여 보상으로 얻는 재료. 협동 보스 교환 보상에 쓰일 수 있다.",
+      "스콜피온 킹 토벌 기여 보상으로 얻는 재료. 독샘 단검을 전갈왕의 독침으로 개량하는 데 쓰인다.",
   },
   lake_sovereign: {
     id: COOP_BOSS_MATERIAL_ID.lake_sovereign,

@@ -244,7 +244,6 @@ export type CraftResultView = {
   grantedTitleNames: string[];
 };
 
-export const RESOURCE_KINDS: ProductionKind[] = ["crop", "ore"];
 export const WORKSHOP_MODE_STORAGE_KEY = "v2-guild-workshop-mode";
 
 export const ERROR_TEXT: Record<string, string> = {

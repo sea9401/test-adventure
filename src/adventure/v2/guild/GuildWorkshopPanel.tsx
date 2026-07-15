@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Hammer, LockKey, SpinnerGap } from "@phosphor-icons/react";
-import {
-  PRODUCTION_KIND_ICON,
-  SETTLEMENT_RESOURCE_NAME,
-  SETTLEMENT_BUILDINGS,
-} from "@/adventure/data/v2/settlement";
+import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import { blacksmithJobForLevel } from "@/adventure/data/v2/artisan";
 import {
   GUILD_WORKSHOP_MATERIALS,
@@ -47,7 +43,6 @@ import {
 
 import {
   ERROR_TEXT,
-  RESOURCE_KINDS,
   WEEKLY_ERROR_TEXT,
   WORKSHOP_MODE_STORAGE_KEY,
   buildWorkshopRecommendation,
@@ -306,7 +301,6 @@ export function GuildWorkshopPanel({
     };
   }, [hasSmithy, workshopEndpoint, setMessage]);
 
-  const resources = useMemo(() => state?.resources ?? {}, [state?.resources]);
   const materials = useMemo(() => state?.materials ?? {}, [state?.materials]);
   // 해체 패널 → 워크숍 상태 동기화(재료/대장장이 숙련도). 자식에 안정 참조로 전달.
   const applyWorkshopSync = useCallback(
@@ -324,18 +318,6 @@ export function GuildWorkshopPanel({
     [],
   );
   const hasApiSmithy = state?.hasGuildSmithy ?? hasSmithy;
-  const resourceEntries = useMemo(
-    () =>
-      RESOURCE_KINDS.map((kind) => {
-        const amount = Math.max(0, Math.floor(resources[kind] ?? 0));
-        return {
-          key: kind,
-          label: `${PRODUCTION_KIND_ICON[kind]} ${SETTLEMENT_RESOURCE_NAME[kind]}`,
-          amount,
-        };
-      }),
-    [resources],
-  );
   const materialEntries = useMemo(
     () =>
       [
@@ -890,55 +872,30 @@ export function GuildWorkshopPanel({
         ) : null}
       </div>
 
-      <div className="grid gap-2 md:grid-cols-[0.85fr_1.15fr]">
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-            길드 영지 자원
-          </div>
-          <div className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-            마을 승급·건축물 업그레이드용
-          </div>
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            {resourceEntries.map((entry) => (
-              <div
-                key={entry.key}
-                className="rounded border border-amber-200 bg-white/85 px-2 py-1 dark:border-stone-700 dark:bg-stone-800/80"
-              >
-                <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
-                  {entry.label}
-                </div>
-                <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
-                  {entry.amount.toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+          개인 보유 제작 재료
         </div>
-        <div className="min-w-0">
-          <div className="text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-            개인 보유 제작 재료
-          </div>
-          <div className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-            제작 시 이 목록에서 차감
-          </div>
-          <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-4">
-            {materialEntries.map((entry) => (
-              <div
-                key={entry.key}
-                className="rounded border border-amber-200 bg-white/85 px-2 py-1 dark:border-stone-700 dark:bg-stone-800/80"
-              >
-                <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
-                  {entry.label}
-                </div>
-                <div className="mt-0.5 text-[10px] text-stone-400 dark:text-stone-500">
-                  {entry.source}
-                </div>
-                <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
-                  {entry.amount.toLocaleString()}
-                </div>
+        <div className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
+          제작 시 이 목록에서 차감
+        </div>
+        <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-4">
+          {materialEntries.map((entry) => (
+            <div
+              key={entry.key}
+              className="rounded border border-amber-200 bg-white/85 px-2 py-1 dark:border-stone-700 dark:bg-stone-800/80"
+            >
+              <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
+                {entry.label}
               </div>
-            ))}
-          </div>
+              <div className="mt-0.5 text-[10px] text-stone-400 dark:text-stone-500">
+                {entry.source}
+              </div>
+              <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
+                {entry.amount.toLocaleString()}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

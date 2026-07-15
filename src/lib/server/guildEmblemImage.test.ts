@@ -1,79 +1,73 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import sharp from "sharp";
 import {
   GUILD_EMBLEM_IMAGE_MAX_BYTES,
-  normalizeGuildEmblemImageUrl,
+  GUILD_EMBLEM_IMAGE_SIZE,
+  guildEmblemImageSrc,
+  normalizeGuildEmblemObjectKey,
 } from "@/adventure/data/guild-emblems";
-import { verifyGuildEmblemImage } from "./guildEmblemImage";
+import { processGuildEmblemImage } from "./guildEmblemImage";
 
-describe("길드 엠블럼 이미지 URL", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+const EMBLEM_KEY =
+  "guild-emblems/7/123e4567-e89b-42d3-a456-426614174000.webp";
+
+describe("길드 엠블럼 R2 객체 키", () => {
+  it("서버가 생성하는 guild-emblems 키만 허용하고 앱 이미지 경로로 바꾼다", () => {
+    expect(normalizeGuildEmblemObjectKey(` ${EMBLEM_KEY} `)).toBe(EMBLEM_KEY);
+    expect(guildEmblemImageSrc(EMBLEM_KEY)).toBe(
+      "/api/v2/guild/emblem/image/7/123e4567-e89b-42d3-a456-426614174000.webp",
+    );
+    expect(normalizeGuildEmblemObjectKey("https://i.imgur.com/a.jpg")).toBeNull();
+    expect(normalizeGuildEmblemObjectKey("guild-emblems/0/a.webp")).toBeNull();
+    expect(
+      normalizeGuildEmblemObjectKey(
+        "guild-emblems/7/123e4567-e89b-12d3-a456-426614174000.webp",
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("길드 엠블럼 이미지 처리", () => {
+  it("허용된 이미지를 256x256 WebP로 정규화한다", async () => {
+    const png = await sharp({
+      create: {
+        width: 320,
+        height: 180,
+        channels: 4,
+        background: { r: 20, g: 120, b: 200, alpha: 0.8 },
+      },
+    })
+      .png()
+      .toBuffer();
+    const result = await processGuildEmblemImage(
+      new File([Uint8Array.from(png)], "emblem.png", { type: "image/png" }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const metadata = await sharp(result.bytes).metadata();
+    expect(metadata).toMatchObject({
+      format: "webp",
+      width: GUILD_EMBLEM_IMAGE_SIZE,
+      height: GUILD_EMBLEM_IMAGE_SIZE,
+    });
   });
 
-  it("i.imgur.com 직접 이미지 주소만 정규화한다", () => {
-    expect(normalizeGuildEmblemImageUrl(" https://i.imgur.com/bC2okTl.jpg ")).toBe(
-      "https://i.imgur.com/bC2okTl.jpg",
-    );
-    expect(normalizeGuildEmblemImageUrl("https://i.imgur.com/bC2okTl.jpg.png")).toBe(
-      "https://i.imgur.com/bC2okTl.jpg.png",
-    );
-    expect(normalizeGuildEmblemImageUrl("http://i.imgur.com/a.jpg")).toBeNull();
-    expect(normalizeGuildEmblemImageUrl("https://imgur.com/a.jpg")).toBeNull();
-    expect(normalizeGuildEmblemImageUrl("https://i.imgur.com/a.svg")).toBeNull();
-    expect(normalizeGuildEmblemImageUrl("https://i.imgur.com/a.jpg?x=1")).toBeNull();
-  });
-
-  it("원격 응답이 허용 이미지이고 2MB 이하면 승인한다", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(null, {
-        status: 200,
-        headers: {
-          "content-type": "image/jpeg",
-          "content-length": "1234",
-        },
-      }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(verifyGuildEmblemImage("https://i.imgur.com/a.jpg")).resolves.toEqual({
-      ok: true,
-      url: "https://i.imgur.com/a.jpg",
-    });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://i.imgur.com/a.jpg",
-      expect.objectContaining({ method: "HEAD", redirect: "error" }),
-    );
-  });
-
-  it("이미지가 아니거나 2MB를 넘으면 거부한다", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          new Response(null, {
-            status: 200,
-            headers: { "content-type": "text/html", "content-length": "100" },
-          }),
-        )
-        .mockResolvedValueOnce(
-          new Response(null, {
-            status: 200,
-            headers: {
-              "content-type": "image/png",
-              "content-length": String(GUILD_EMBLEM_IMAGE_MAX_BYTES + 1),
-            },
-          }),
-        ),
-    );
-
-    await expect(verifyGuildEmblemImage("https://i.imgur.com/a.jpg")).resolves.toEqual({
-      ok: false,
-      error: "not_image",
-    });
-    await expect(verifyGuildEmblemImage("https://i.imgur.com/a.png")).resolves.toEqual({
-      ok: false,
-      error: "image_too_large",
-    });
+  it("빈 파일, MIME 위장, 2MB 초과 파일을 거부한다", async () => {
+    await expect(
+      processGuildEmblemImage(new File([], "empty.png", { type: "image/png" })),
+    ).resolves.toEqual({ ok: false, error: "invalid_file" });
+    await expect(
+      processGuildEmblemImage(
+        new File(["not an image"], "fake.png", { type: "image/png" }),
+      ),
+    ).resolves.toEqual({ ok: false, error: "not_image" });
+    await expect(
+      processGuildEmblemImage(
+        new File([new Uint8Array(GUILD_EMBLEM_IMAGE_MAX_BYTES + 1)], "large.png", {
+          type: "image/png",
+        }),
+      ),
+    ).resolves.toEqual({ ok: false, error: "image_too_large" });
   });
 });

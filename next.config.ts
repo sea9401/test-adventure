@@ -31,17 +31,6 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "i.imgur.com",
-        port: "",
-        pathname: "/**",
-        search: "",
-      },
-    ],
-  },
   // 서비스 워커는 항상 최신 버전을 받아야 — 캐싱하면 옛 SW 가 활성화된 채로 남는다.
   // /public/sw.js 는 Next.js 가 자동 정적 서빙 — 헤더만 보강.
   async headers() {

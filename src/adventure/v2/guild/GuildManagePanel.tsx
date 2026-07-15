@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
@@ -11,7 +11,7 @@ import {
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
 import {
   GUILD_EMBLEM_CHANGE_COST,
-  normalizeGuildEmblemImageUrl,
+  GUILD_EMBLEM_IMAGE_MAX_BYTES,
 } from "@/adventure/data/guild-emblems";
 import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
@@ -57,8 +57,8 @@ export function GuildManagePanel({
   // 관리 탭 내부 하위 탭 선택.
   const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [inviteName, setInviteName] = useState("");
-  // null 은 서버의 현재 값을 그대로 표시, 문자열은 사용자가 편집 중인 값.
-  const [emblemDraft, setEmblemDraft] = useState<string | null>(null);
+  const [emblemFile, setEmblemFile] = useState<File | null>(null);
+  const emblemInputRef = useRef<HTMLInputElement>(null);
   // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
   const [disbandConfirm, setDisbandConfirm] = useState("");
 
@@ -117,12 +117,12 @@ export function GuildManagePanel({
     }
   }, [inviteName, guildId, acting, setActing, setNotice]);
 
-  // 마스터가 외부 이미지 URL로 길드 엠블럼 등록·교체·제거.
+  // 마스터가 로컬 이미지를 R2 엠블럼으로 등록·교체·제거.
   const handleSetEmblem = useCallback(
-    async (emblem: string | null) => {
+    async (file: File | null) => {
       if (acting) return;
       if (
-        emblem !== null &&
+        file !== null &&
         !window.confirm(
           `길드 엠블럼을 변경할까요? 길드 자금 ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됩니다.`,
         )
@@ -132,10 +132,11 @@ export function GuildManagePanel({
       setActing(true);
       setNotice(null);
       try {
+        const formData = file ? new FormData() : null;
+        if (file && formData) formData.set("image", file);
         const res = await fetch("/api/v2/guild/emblem", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ emblem }),
+          method: file ? "POST" : "DELETE",
+          body: formData,
         });
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
@@ -146,20 +147,23 @@ export function GuildManagePanel({
           setNotice({
             kind: "ok",
             text:
-              emblem === null
+              file === null
                 ? "길드 엠블럼을 제거했어요."
                 : `길드 엠블럼을 바꿨어요. 길드 자금 ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됐습니다.`,
           });
-          setEmblemDraft(null);
+          setEmblemFile(null);
+          if (emblemInputRef.current) emblemInputRef.current.value = "";
           await onRefresh();
         } else {
           const errorText: Record<string, string> = {
             not_master: "마스터만 엠블럼을 바꿀 수 있어요.",
-            bad_emblem: "https://i.imgur.com/으로 시작하는 직접 이미지 주소를 입력해 주세요.",
-            image_unreachable: "이미지를 확인할 수 없어요. 공개된 직접 이미지 주소인지 확인해 주세요.",
-            not_image: "JPG, PNG, WebP 이미지 주소만 등록할 수 있어요.",
+            invalid_file: "등록할 이미지 파일을 선택해 주세요.",
+            not_image: "올바른 JPG, PNG, WebP 이미지 파일만 등록할 수 있어요.",
             image_too_large: "이미지는 2MB 이하여야 해요.",
+            image_dimensions: "이미지는 가로·세로 4096px 이하여야 해요.",
             insufficient_gold: `길드 자금이 부족해요. ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 필요합니다.`,
+            storage_unavailable: "이미지 저장소를 준비 중이에요. 잠시 후 다시 시도해 주세요.",
+            storage_error: "이미지 저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
           };
           setNotice({
             kind: "err",
@@ -418,49 +422,59 @@ export function GuildManagePanel({
             길드 엠블럼
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            Imgur의 직접 이미지 주소를 등록할 수 있어요. 변경할 때마다 길드 자금{" "}
+            이미지 파일을 직접 등록할 수 있어요. 변경할 때마다 길드 자금{" "}
             {GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됩니다.
           </p>
           <div className="mt-3 flex items-start gap-3">
             <GuildEmblemImage
-              emblem={
-                normalizeGuildEmblemImageUrl(
-                  emblemDraft ?? info?.guild?.emblem,
-                ) ?? info?.guild?.emblem
-              }
+              emblem={info?.guild?.emblem}
               guildName={info?.guild?.name ?? stateGuildName ?? "길드"}
               className="h-20 w-20"
             />
             <div className="min-w-0 flex-1">
               <input
-                type="url"
-                value={
-                  emblemDraft ??
-                  normalizeGuildEmblemImageUrl(info?.guild?.emblem) ??
-                  ""
-                }
-                onChange={(event) => setEmblemDraft(event.target.value)}
-                placeholder="https://i.imgur.com/이미지.jpg"
+                ref={emblemInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (
+                    file &&
+                    !["image/jpeg", "image/png", "image/webp"].includes(file.type)
+                  ) {
+                    setEmblemFile(null);
+                    event.target.value = "";
+                    setNotice({
+                      kind: "err",
+                      text: "JPG, PNG, WebP 이미지 파일만 선택할 수 있어요.",
+                    });
+                    return;
+                  }
+                  if (file && file.size > GUILD_EMBLEM_IMAGE_MAX_BYTES) {
+                    setEmblemFile(null);
+                    event.target.value = "";
+                    setNotice({ kind: "err", text: "이미지는 2MB 이하여야 해요." });
+                    return;
+                  }
+                  setEmblemFile(file);
+                  setNotice(null);
+                }}
                 disabled={acting}
-                maxLength={300}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+                className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700 file:mr-3 file:rounded file:border-0 file:bg-emerald-600 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-white disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
               />
               <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                JPG·PNG·WebP, 2MB 이하 · 현재 길드 자금{" "}
+                JPG·PNG·WebP, 2MB 이하 · 256px WebP로 안전하게 변환 · 현재 길드 자금{" "}
                 {(info?.guildGold ?? 0).toLocaleString()} G
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    const url = normalizeGuildEmblemImageUrl(emblemDraft);
-                    if (url) void handleSetEmblem(url);
+                    if (emblemFile) void handleSetEmblem(emblemFile);
                   }}
                   disabled={
                     acting ||
-                    !normalizeGuildEmblemImageUrl(emblemDraft) ||
-                    normalizeGuildEmblemImageUrl(emblemDraft) ===
-                      normalizeGuildEmblemImageUrl(info?.guild?.emblem) ||
+                    !emblemFile ||
                     (info?.guildGold ?? 0) < GUILD_EMBLEM_CHANGE_COST
                   }
                   className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"

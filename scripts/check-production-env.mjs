@@ -2,6 +2,10 @@ const required = [
   "TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "TURNSTILE_EXPECTED_HOSTNAMES",
+  "R2_ACCOUNT_ID",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_BUCKET_NAME",
 ];
 
 const missing = required.filter((key) => !process.env[key]?.trim());

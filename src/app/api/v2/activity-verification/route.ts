@@ -5,7 +5,7 @@ import { clientIpFromRequest, recordAbuseEventSoon } from "@/lib/server/abuseLog
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
-  activityGuardView,
+  activityVerificationRequired,
   clearActivityVerification,
   parseActivityGuardState,
   type GuardedActivity,
@@ -13,7 +13,12 @@ import {
 import { turnstileConfig, verifyTurnstileToken } from "@/lib/server/turnstile";
 
 function isGuardedActivity(value: unknown): value is GuardedActivity {
-  return value === "fishing" || value === "woodcutting" || value === "mining";
+  return (
+    value === "fishing" ||
+    value === "woodcutting" ||
+    value === "mining" ||
+    value === "farming"
+  );
 }
 
 export async function POST(req: Request) {
@@ -76,7 +81,7 @@ export async function POST(req: Request) {
     const state = parseActivityGuardState(
       await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
     );
-    if (activityGuardView(state, activity).verificationRequiredAt === null) {
+    if (!activityVerificationRequired(state, activity, true)) {
       return false;
     }
     await upsertSave(

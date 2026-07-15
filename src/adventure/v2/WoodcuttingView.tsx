@@ -55,6 +55,7 @@ export type WoodcuttingOutcome =
       materialName: string;
       materialGained: number;
       bonusMaterialGained: number;
+      yieldReduced: boolean;
       recovered: boolean;
       xpGained: number;
       jobName: string | null;
@@ -1203,6 +1204,11 @@ export function WoodcuttingView({
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
+                  {result.yieldReduced ? (
+                    <div className="text-xs font-semibold text-rose-600 dark:text-rose-300">
+                      오늘의 과도한 생산량으로 재료 획득률이 감소했습니다.
+                    </div>
+                  ) : null}
                   {result.bonusMaterialGained > 0 && (
                     <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                       전설의 벌목 추가 원목 +{result.bonusMaterialGained}

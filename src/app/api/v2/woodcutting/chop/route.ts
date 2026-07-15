@@ -4,6 +4,7 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
+  activityRewardMultiplier,
   parseActivityGuardState,
   recordActivityCompletion,
   recordActivityStrongSignal,
@@ -150,11 +151,17 @@ export async function POST(req: Request) {
       {},
     );
     const materialId = tree.materialId;
+    const rewardMultiplier = activityRewardMultiplier(guardUpdate.state);
+    const rewardGranted =
+      rewardMultiplier >= 1 || Math.random() < rewardMultiplier;
     const bonusMaterialGained =
-      (session.bonusLogRate ?? 0) > 0 && Math.random() < (session.bonusLogRate ?? 0)
+      rewardGranted &&
+      (session.bonusLogRate ?? 0) > 0 &&
+      Math.random() < (session.bonusLogRate ?? 0)
         ? 1
         : 0;
-    const materialGained = WOODCUTTING_MATERIAL_REWARD + bonusMaterialGained;
+    const materialGained =
+      (rewardGranted ? WOODCUTTING_MATERIAL_REWARD : 0) + bonusMaterialGained;
     const materials = mergeDrops(charSave.materials, {
       [materialId]: materialGained,
     });
@@ -201,6 +208,8 @@ export async function POST(req: Request) {
       materialName: WOODCUTTING_MATERIALS[materialId].name,
       materialGained,
       bonusMaterialGained,
+      rewardMultiplier,
+      yieldReduced: !rewardGranted,
       recovered,
       failureRate,
       xpGained: tree.xp,

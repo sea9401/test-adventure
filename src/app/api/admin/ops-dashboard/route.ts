@@ -958,6 +958,7 @@ function scoreSuspiciousUsers(
     {
       events: number;
       rateLimited: number;
+      reasonScore: number;
       actions: Set<string>;
       ips: Set<string>;
       recentEvents: Array<{ action: string; reason: string; ip: string | null; createdAt: number }>;
@@ -970,6 +971,7 @@ function scoreSuspiciousUsers(
       users.get(row.userId) ?? {
         events: 0,
         rateLimited: 0,
+        reasonScore: 0,
         actions: new Set<string>(),
         ips: new Set<string>(),
         recentEvents: [],
@@ -977,6 +979,7 @@ function scoreSuspiciousUsers(
       };
     value.events += 1;
     if (row.reason === "rate_limited") value.rateLimited += 1;
+    value.reasonScore += abuseReasonWeight(row.reason);
     value.actions.add(row.action);
     if (row.ip) value.ips.add(row.ip);
     value.recentEvents.push({
@@ -1001,6 +1004,7 @@ function scoreSuspiciousUsers(
       const rewardFailures = rewardFailuresByUser.get(userId) ?? 0;
       const score =
         value.rateLimited * 5 +
+        value.reasonScore +
         value.events * 2 +
         Math.max(0, value.actions.size - 1) * 3 +
         Math.max(0, value.ips.size - 1) * 4 +
@@ -1039,6 +1043,15 @@ function scoreSuspiciousUsers(
     .filter((row) => row.score > 0)
     .sort((a, b) => b.score - a.score || b.rateLimited - a.rateLimited)
     .slice(0, 12);
+}
+
+function abuseReasonWeight(reason: string): number {
+  if (reason === "multi_account_ip_fanout") return 30;
+  if (reason === "fishing_macro_pattern") return 24;
+  if (reason === "strong_activity_signal") return 18;
+  if (reason === "extreme_daily_activity") return 15;
+  if (reason === "human_verification_failed") return 12;
+  return 0;
 }
 
 function averageIntervalSec(timestamps: number[]) {

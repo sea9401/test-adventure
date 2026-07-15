@@ -93,7 +93,12 @@ describe("aggregateLifeGatheringTelemetry", () => {
       expect.objectContaining({ name: "소나무", attempts: 2, successes: 1 }),
     ]);
     expect(woodcutting.materials).toEqual([
-      expect.objectContaining({ materialId: "v2_timber", quantity: 3, primary: true }),
+      expect.objectContaining({
+        materialId: "v2_timber",
+        name: expect.any(String),
+        quantity: 3,
+        primary: true,
+      }),
     ]);
     expect(woodcutting.topUsers[0]).toMatchObject({ userId: "u1", quantity: 3 });
 
@@ -118,5 +123,54 @@ describe("aggregateLifeGatheringTelemetry", () => {
       primaryQuantity: 2,
       bonusQuantity: 1,
     });
+  });
+
+  it("낚시·농장 이름과 유저별 활동 간격을 집계한다", () => {
+    const result = aggregateLifeGatheringTelemetry([
+      row({
+        eventType: "life.fishing.attempt",
+        itemId: "carp",
+        quantity: 1,
+        detail: { sourceName: "잉어" },
+      }),
+      row({
+        eventType: "life.fishing.attempt",
+        itemId: "carp",
+        quantity: 1,
+        detail: { sourceName: "잉어" },
+        createdAt: new Date("2026-07-11T01:00:10.000Z"),
+      }),
+      row({
+        eventType: "life.fishing.gather",
+        itemId: "carp",
+        quantity: 1,
+        detail: { primary: true, materialName: "잉어" },
+      }),
+      row({
+        eventType: "life.farming.attempt",
+        itemId: "carrot",
+        quantity: 1,
+        detail: { sourceName: "당근" },
+      }),
+      row({
+        eventType: "life.farming.gather",
+        itemId: "farm_carrot",
+        quantity: 3,
+        detail: { primary: true, materialName: "당근" },
+      }),
+    ]);
+
+    const fishing = result.activities.find((item) => item.activity === "fishing")!;
+    expect(fishing.materials[0]).toMatchObject({ name: "잉어", quantity: 1 });
+    expect(fishing.topUsers[0]).toMatchObject({
+      attempts: 2,
+      activeMinutes: 0,
+      avgIntervalSec: 10,
+      intervalStddevSec: 0,
+    });
+
+    const farming = result.activities.find((item) => item.activity === "farming")!;
+    expect(farming).toMatchObject({ attempts: 1, successes: 1 });
+    expect(farming.materials[0]).toMatchObject({ name: "당근", quantity: 3 });
   });
 });

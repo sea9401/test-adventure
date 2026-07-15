@@ -28,6 +28,16 @@ type UserAndIpRateLimitOptions = {
 
 const lastLimitedLogAt = new Map<string, number>();
 const LIMITED_LOG_INTERVAL_MS = 60_000;
+const LIFE_IP_FANOUT_WINDOW_MS = 10 * 60_000;
+const LIFE_IP_FANOUT_ACCOUNT_LIMIT = 5;
+
+type LifeIpFanoutBucket = {
+  users: Set<string>;
+  resetAt: number;
+  alerted: boolean;
+};
+
+const lifeIpFanout = new Map<string, LifeIpFanoutBucket>();
 
 function keyOf(userId: string, action: string) {
   return `${action}:${userId}`;
@@ -109,6 +119,8 @@ function rateLimitAlertGroup(action: string): string {
   if (action.includes(":shop:")) return "shop";
   if (action.includes(":fishing:")) return "fishing";
   if (action.includes(":woodcutting:")) return "woodcutting";
+  if (action.includes(":mining:")) return "mining";
+  if (action.includes(":farming:") || action.includes(":farm:")) return "farming";
   if (action.includes(":dungeon:") || action.includes(":coop:")) return "battle";
   if (action.includes(":me:state")) return "state";
   return "general";
@@ -120,6 +132,65 @@ function rateLimitAlertThreshold(action: string): number {
   if (group === "state") return 40;
   if (group === "battle") return 30;
   return 20;
+}
+
+function lifeIpFanoutResponse(args: {
+  userId: string;
+  action: string;
+  ip: string;
+  now: number;
+}): Response | null {
+  const group = rateLimitAlertGroup(args.action);
+  if (!["fishing", "woodcutting", "mining", "farming"].includes(group)) {
+    return null;
+  }
+  const current = lifeIpFanout.get(args.ip);
+  const bucket =
+    current && current.resetAt > args.now
+      ? current
+      : {
+          users: new Set<string>(),
+          resetAt: args.now + LIFE_IP_FANOUT_WINDOW_MS,
+          alerted: false,
+        };
+  bucket.users.add(args.userId);
+  lifeIpFanout.set(args.ip, bucket);
+  if (bucket.users.size <= LIFE_IP_FANOUT_ACCOUNT_LIMIT) return null;
+
+  if (!bucket.alerted) {
+    bucket.alerted = true;
+    console.warn("[abuse-monitor] life activity multi-account IP fanout", {
+      userId: args.userId,
+      action: args.action,
+      ip: args.ip,
+      accountCount: bucket.users.size,
+      windowMs: LIFE_IP_FANOUT_WINDOW_MS,
+    });
+    recordAbuseEventSoon({
+      userId: args.userId,
+      ip: args.ip,
+      action: args.action,
+      reason: "multi_account_ip_fanout",
+      detail: {
+        accountCount: bucket.users.size,
+        windowMs: LIFE_IP_FANOUT_WINDOW_MS,
+      },
+    });
+    recordOpsSignal({
+      key: `abuse:life-ip-fanout:${args.ip}`,
+      label: "life activity multi-account IP fanout",
+      threshold: 1,
+      windowMs: LIFE_IP_FANOUT_WINDOW_MS,
+      detail: {
+        channel: "abuse",
+        ip: args.ip,
+        accountCount: bucket.users.size,
+      },
+    });
+  }
+  return userRateLimitResponse(
+    Math.max(1, Math.ceil((bucket.resetAt - args.now) / 1000)),
+  );
 }
 
 export function enforceUserRateLimit(
@@ -159,6 +230,13 @@ export function enforceUserAndIpRateLimit(
 
   const ip = clientIpFromRequest(req);
   if (!ip) return null;
+  const fanout = lifeIpFanoutResponse({
+    userId: options.userId,
+    action: options.action,
+    ip,
+    now: options.now ?? Date.now(),
+  });
+  if (fanout) return fanout;
   const ipKey = `ip:${ip}`;
   const ipLimit = checkUserRateLimit({
     userId: ipKey,
@@ -187,4 +265,5 @@ export function enforceUserAndIpRateLimit(
 export function resetUserRateLimitForTests() {
   resetRateLimitStoreForTests();
   lastLimitedLogAt.clear();
+  lifeIpFanout.clear();
 }

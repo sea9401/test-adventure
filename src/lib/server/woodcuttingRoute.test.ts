@@ -40,6 +40,7 @@ import {
 } from "@/adventure/v2/woodcuttingSession";
 import { ACTIVITY_GUARD_KEY } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -81,6 +82,7 @@ describe("woodcutting routes", () => {
   it("start — 체크포인트가 걸리면 관리형 사람 확인을 요구한다", async () => {
     vi.stubEnv("TURNSTILE_SITE_KEY", "site");
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+    vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
     store.set(ACTIVITY_GUARD_KEY, {
       version: 1,
       activities: {
@@ -233,6 +235,47 @@ describe("woodcutting routes", () => {
       1,
       new Date(NOW + 4_600),
     );
+  });
+
+  it("chop — 일일 과다 생산 구간에서는 성공 진척과 XP를 유지하고 원목만 감쇠한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "cut-volume-limited",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+      failureRate: 0.1,
+    });
+    store.set("character.v2", { materials: {} });
+    store.set(ACTIVITY_GUARD_KEY, {
+      version: 2,
+      activities: {},
+      risk: {
+        score: 0,
+        updatedAt: NOW,
+        dailyKey: kstDailyKey(new Date(NOW + 4_600)),
+        dailyCompleted: 1_499,
+        dailyVolumeStage: 2,
+      },
+    });
+
+    const json = await (await CHOP(chopReq("cut-volume-limited"))).json();
+
+    expect(json).toMatchObject({
+      success: true,
+      materialGained: 0,
+      xpGained: 10,
+      rewardMultiplier: 0.75,
+      yieldReduced: true,
+    });
+    expect(charOf().materials).toEqual({});
+    expect(store.get(WOODCUTTING_LOG_KEY)).toMatchObject({
+      cuts: 1,
+      xp: 10,
+      timberEarned: 0,
+    });
+    expect(incrementGuildExplorationProgressForUser).toHaveBeenCalledTimes(1);
   });
 
   it("chop — 실패 판정이면 원목·XP·주간 의뢰 진척을 지급하지 않는다", async () => {

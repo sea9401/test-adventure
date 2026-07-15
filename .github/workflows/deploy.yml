@@ -7,6 +7,7 @@ name: Deploy to EC2
 # 필요한 GitHub Secrets (Settings → Secrets and variables → Actions):
 #   EC2_HOST    — EC2 의 고정 IP 또는 도메인 (예: 54.180.28.29)
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
+#   TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY — Cloudflare Turnstile 위젯 키
 on:
   push:
     branches: [main]
@@ -19,6 +20,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: msmsge.com
     # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
     permissions:
       contents: read
@@ -32,11 +34,14 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          TURNSTILE_EXPECTED_HOSTNAMES: msmsge.com,www.msmsge.com
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: GH_TOKEN
+          envs: GH_TOKEN,TURNSTILE_SITE_KEY,TURNSTILE_SECRET_KEY,TURNSTILE_EXPECTED_HOSTNAMES
           script_stop: true
           command_timeout: 30m
           script: |
@@ -48,6 +53,10 @@ jobs:
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout main
             git reset --hard origin/main
+            echo "▶ [prod] sync anti-macro environment"
+            node scripts/sync-production-turnstile-env.mjs .env.production.local
+            echo "▶ [prod] anti-macro env preflight"
+            node --env-file=.env.production.local scripts/check-production-env.mjs
             echo "▶ [prod] nginx rate limit"
             bash deploy/apply-nginx-rate-limit.sh
             echo "▶ [prod] deps"

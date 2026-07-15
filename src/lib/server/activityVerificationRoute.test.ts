@@ -33,7 +33,9 @@ import { POST } from "@/app/api/v2/activity-verification/route";
 import {
   ACTIVITY_GUARD_KEY,
   activityGuardView,
+  emptyActivityGuardState,
   parseActivityGuardState,
+  recordActivityStrongSignal,
 } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 
@@ -48,6 +50,7 @@ function request(activity = "fishing", token = "token") {
 beforeEach(() => {
   vi.stubEnv("TURNSTILE_SITE_KEY", "site");
   vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
+  vi.stubEnv("TURNSTILE_EXPECTED_HOSTNAMES", "test.local");
   store.set(ACTIVITY_GUARD_KEY, {
     version: 1,
     activities: {
@@ -108,5 +111,24 @@ describe("POST /api/v2/activity-verification", () => {
       parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
       "fishing",
     ).completedSinceVerification).toBe(0);
+  });
+
+  it("다른 생활 활동에서 쌓인 공통 위험도도 농장 확인으로 해제할 수 있다", async () => {
+    let state = emptyActivityGuardState();
+    state = recordActivityStrongSignal(state, "fishing", 1_000).state;
+    state = recordActivityStrongSignal(state, "woodcutting", 2_000).state;
+    state = recordActivityStrongSignal(state, "mining", 3_000).state;
+    store.set(ACTIVITY_GUARD_KEY, state);
+    verifyTurnstileToken.mockResolvedValue({ ok: true, hostname: "test.local" });
+
+    const response = await POST(request("farming"));
+
+    expect(response.status).toBe(200);
+    expect(
+      activityGuardView(
+        parseActivityGuardState(store.get(ACTIVITY_GUARD_KEY)),
+        "farming",
+      ).riskScore,
+    ).toBeLessThan(50);
   });
 });

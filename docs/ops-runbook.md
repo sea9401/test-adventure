@@ -174,8 +174,8 @@ bash deploy/maintenance.sh status   # 현재 상태
 ## 7. 시크릿 · 설정 위치
 | 항목 | 위치 |
 |---|---|
-| `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET`, Turnstile 키 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
-| 배포 SSH | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` |
+| `DATABASE_URL`, OAuth(Kakao) 키, `CRON_SECRET` 등 | EC2 `~/adventure-rpg/.env.production.local` (레포·개발박스엔 없음) |
+| 배포 SSH·Turnstile | GitHub 시크릿 `EC2_HOST` · `EC2_SSH_KEY` · `TURNSTILE_SITE_KEY` · `TURNSTILE_SECRET_KEY` (Turnstile 키는 배포 시 EC2 env로 동기화) |
 | SSH 키 .pem | 로컬 `~/.ssh/msmsge-key.pem` |
 | 빌드타임 플래그 | tracked `.env.production` (예: `NEXT_PUBLIC_*` 운영 플래그) |
 

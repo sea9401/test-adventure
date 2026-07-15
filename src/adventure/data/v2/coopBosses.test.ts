@@ -436,7 +436,13 @@ describe("coopBosses 카탈로그", () => {
 
 describe("coopTierForRatio", () => {
   it("임계 경계 — 미달 null·각 임계 도달 시 그 티어", () => {
-    expect(COOP_TIER_THRESHOLDS.legend).toBe(0.45);
+    expect(COOP_TIER_THRESHOLDS).toEqual({
+      bronze: 0.03,
+      silver: 0.1,
+      gold: 0.2,
+      epic: 0.3,
+      legend: 0.35,
+    });
     expect(coopTierForRatio(0)).toBeNull();
     expect(
       coopTierForRatio(COOP_TIER_THRESHOLDS.bronze - 0.0001),
@@ -450,6 +456,13 @@ describe("coopTierForRatio", () => {
   });
 
   it("하드 보스는 별도 기여 기준을 사용", () => {
+    expect(COOP_HARD_TIER_THRESHOLDS).toEqual({
+      bronze: 0.05,
+      silver: 0.1,
+      gold: 0.18,
+      epic: 0.3,
+      legend: 0.35,
+    });
     expect(coopTierThresholdFor("bronze", "mountain_chief_hard")).toBe(
       COOP_HARD_TIER_THRESHOLDS.bronze,
     );

@@ -80,6 +80,64 @@ describe("activityGuard", () => {
     expect(activityCheckpointTarget(80, () => 0)).toBe(10);
   });
 
+  it("당일 인증 통과와 누적 활동량이 늘수록 다음 확인 간격을 줄인다", () => {
+    expect(
+      activityCheckpointTarget(0, () => 0, { dailyVerifications: 1 }),
+    ).toBe(60);
+    expect(
+      activityCheckpointTarget(0, () => 0.999, { dailyVerifications: 2 }),
+    ).toBe(70);
+    expect(
+      activityCheckpointTarget(0, () => 0.999, { dailyCompleted: 1_000 }),
+    ).toBe(50);
+    expect(
+      activityCheckpointTarget(0, () => 0.999, { dailyVerifications: 7 }),
+    ).toBe(25);
+  });
+
+  it("완벽 성공과 균일 반응 조합은 약한 행동 위험도로만 누적한다", () => {
+    let state = emptyActivityGuardState();
+    let signal: string | null = null;
+    for (let i = 0; i < 30; i += 1) {
+      const update = recordActivityCompletion(
+        state,
+        "fishing",
+        10_000 + i * 5_000,
+        {
+          patternSignals: [
+            "near_perfect_success_rate",
+            "uniform_client_reaction",
+          ],
+        },
+      );
+      state = update.state;
+      signal = update.behaviorSignal ?? signal;
+    }
+    expect(signal).toBe("near_perfect_uniform_fishing");
+    expect(activityGuardView(state, "fishing")).toMatchObject({
+      behaviorSignals: 1,
+      riskScore: 6,
+      riskLevel: "normal",
+    });
+    expect(activityVerificationRequired(state, "fishing", true)).toBe(false);
+  });
+
+  it("오랜 시간 오차 없이 반복되는 완료 간격을 약한 신호로 기록한다", () => {
+    let state = emptyActivityGuardState();
+    let lastSignal: string | null = null;
+    for (let i = 0; i < 30; i += 1) {
+      const update = recordActivityCompletion(
+        state,
+        "woodcutting",
+        20_000 + i * 5_000,
+      );
+      state = update.state;
+      lastSignal = update.behaviorSignal ?? lastSignal;
+    }
+    expect(lastSignal).toBe("highly_regular_intervals");
+    expect(activityGuardView(state, "woodcutting").intervalStddevMs).toBe(0);
+  });
+
   it("운영 상단을 크게 넘는 일일 생산량만 거래 재료 기대값을 줄인다", () => {
     expect(activityRewardMultiplier(parseActivityGuardState({}))).toBe(1);
     expect(
@@ -131,7 +189,10 @@ describe("activityGuard", () => {
       completedSinceVerification: 0,
       verificationRequiredAt: null,
       strongSignals: 0,
+      dailyVerifications: 1,
     });
+    expect(activityGuardView(state, "fishing").checkpointTarget).toBeGreaterThanOrEqual(60);
+    expect(activityGuardView(state, "fishing").checkpointTarget).toBeLessThanOrEqual(100);
   });
 
   it("일일 500회 도달 순간에 운영 알림을 한 번만 만든다", () => {
@@ -148,7 +209,7 @@ describe("activityGuard", () => {
   it("손상된 저장값은 안전하게 파싱한다", () => {
     expect(parseActivityGuardState({ activities: { fishing: { strongSignals: -2 } } }))
       .toMatchObject({
-        version: 2,
+        version: 3,
         activities: {
           fishing: { strongSignals: 0 },
           farming: { strongSignals: 0 },

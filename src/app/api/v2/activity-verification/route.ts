@@ -5,6 +5,7 @@ import { clientIpFromRequest, recordAbuseEventSoon } from "@/lib/server/abuseLog
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   ACTIVITY_GUARD_KEY,
+  activityGuardView,
   activityVerificationRequired,
   clearActivityVerification,
   parseActivityGuardState,
@@ -77,26 +78,42 @@ export async function POST(req: Request) {
   }
 
   const now = Date.now();
-  const cleared = await db.transaction(async (tx) => {
+  const clearedState = await db.transaction(async (tx) => {
     const state = parseActivityGuardState(
       await lockSaveForUpdate(tx, userId, ACTIVITY_GUARD_KEY, {}),
     );
     if (!activityVerificationRequired(state, activity, true)) {
-      return false;
+      return null;
     }
+    const nextState = clearActivityVerification(state, activity, now);
     await upsertSave(
       tx,
       userId,
       ACTIVITY_GUARD_KEY,
-      clearActivityVerification(state, activity, now),
+      nextState,
     );
-    return true;
+    return nextState;
   });
-  if (!cleared) {
+  if (!clearedState) {
     return Response.json(
       { ok: false, error: "verification_not_required" },
       { status: 409 },
     );
   }
+  const view = activityGuardView(clearedState, activity);
+  recordAbuseEventSoon({
+    userId,
+    ip: clientIpFromRequest(req),
+    action: `v2:${activity}:human-check`,
+    reason: "human_verification_succeeded",
+    detail: {
+      nextCheckpointTarget: view.checkpointTarget,
+      dailyCompleted: view.dailyCompleted,
+      globalDailyCompleted: view.globalDailyCompleted,
+      dailyVerifications: view.dailyVerifications,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
+    },
+  });
   return Response.json({ ok: true, activity });
 }

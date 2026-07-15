@@ -127,3 +127,68 @@ export function recordStrongActivitySignalSoon(args: {
     },
   });
 }
+
+export function recordActivityVerificationRequiredSoon(args: {
+  req: Request;
+  userId: string;
+  activity: GuardedActivity;
+  state: ActivityGuardState;
+}) {
+  const view = activityGuardView(args.state, args.activity);
+  recordAbuseEventSoon({
+    userId: args.userId,
+    ip: clientIpFromRequest(args.req),
+    action: `v2:${args.activity}:human-check`,
+    reason: "human_verification_required",
+    detail: {
+      completedSinceVerification: view.completedSinceVerification,
+      checkpointTarget: view.checkpointTarget,
+      dailyCompleted: view.dailyCompleted,
+      globalDailyCompleted: view.globalDailyCompleted,
+      dailyVerifications: view.dailyVerifications,
+      behaviorSignals: view.behaviorSignals,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
+    },
+  });
+}
+
+export function recordBehaviorActivitySignalSoon(args: {
+  req: Request;
+  userId: string;
+  activity: GuardedActivity;
+  signal: string;
+  state: ActivityGuardState;
+}) {
+  const view = activityGuardView(args.state, args.activity);
+  recordAbuseEventSoon({
+    userId: args.userId,
+    ip: clientIpFromRequest(args.req),
+    action: `v2:${args.activity}:activity-guard`,
+    reason: "activity_behavior_pattern",
+    detail: {
+      signal: args.signal,
+      intervalSamples: view.intervalSamples,
+      intervalMeanMs: view.intervalMeanMs,
+      intervalStddevMs: view.intervalStddevMs,
+      behaviorSignals: view.behaviorSignals,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
+    },
+  });
+  recordOpsSignal({
+    key: `abuse:behavior-pattern:${args.activity}:${args.userId}`,
+    label: `repeated ${args.activity} behavior pattern`,
+    threshold: 3,
+    windowMs: 60 * 60_000,
+    detail: {
+      channel: "abuse",
+      userId: args.userId,
+      activity: args.activity,
+      signal: args.signal,
+      behaviorSignals: view.behaviorSignals,
+      riskScore: view.riskScore,
+      riskLevel: view.riskLevel,
+    },
+  });
+}

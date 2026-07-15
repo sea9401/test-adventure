@@ -21,6 +21,8 @@ import {
   recordActivityStrongSignal,
 } from "@/lib/server/activityGuard";
 import {
+  recordActivityVerificationRequiredSoon,
+  recordBehaviorActivitySignalSoon,
   recordExtremeActivityAlertSoon,
   recordStrongActivitySignalSoon,
 } from "@/lib/server/activityGuardServer";
@@ -143,6 +145,23 @@ export async function POST(req: Request) {
         state: guardUpdate.state,
       });
     }
+    if (guardUpdate.checkpointNewlyRequired) {
+      recordActivityVerificationRequiredSoon({
+        req,
+        userId,
+        activity: "farming",
+        state: guardUpdate.state,
+      });
+    }
+    if (guardUpdate.behaviorSignal) {
+      recordBehaviorActivitySignalSoon({
+        req,
+        userId,
+        activity: "farming",
+        signal: guardUpdate.behaviorSignal,
+        state: guardUpdate.state,
+      });
+    }
     recordLifeGatheringTelemetrySoon({
       userId,
       activity: "farming",
@@ -208,6 +227,14 @@ export async function POST(req: Request) {
           signal: "early_harvest",
           state: guardUpdate.state,
         });
+        if (guardUpdate.checkpointNewlyRequired) {
+          recordActivityVerificationRequiredSoon({
+            req,
+            userId,
+            activity: "farming",
+            state: guardUpdate.state,
+          });
+        }
       }
       return Response.json({ ok: false, error: e.code }, { status: 409 });
     }

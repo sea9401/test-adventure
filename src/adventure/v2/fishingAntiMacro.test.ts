@@ -44,16 +44,28 @@ describe("fishing anti macro", () => {
   });
 
   it("perfect success and uniform but human-range reactions are observation-only", () => {
-    const state = recordMany(
-      emptyFishingAntiMacroState(),
-      Array.from({ length: 30 }, () => ({
-        client: 360,
-        server: 420,
-      })),
-    );
+    let state = emptyFishingAntiMacroState();
+    let signals: string[] = [];
+    for (let i = 0; i < 30; i += 1) {
+      const result = recordFishingAntiMacroSample(
+        state,
+        {
+          at: 1_000 + i,
+          caught: true,
+          reason: "ok",
+          clientReactionMs: 340 + (i % 5) * 8,
+          serverReactionMs: 360 + (i % 7) * 20,
+        },
+        1_000 + i,
+      );
+      state = result.state;
+      signals = result.signals;
+    }
 
     expect(state.suspicion).toBe(0);
     expect(fishingAntiMacroFriction(state, 10_000).active).toBe(false);
+    expect(signals).toContain("near_perfect_success_rate");
+    expect(signals).toContain("uniform_client_reaction");
   });
 
   it("uniform impossible-fast patterns trigger temporary friction", () => {

@@ -14,6 +14,11 @@ export const ACTIVITY_RISK_HIGH_THRESHOLD = 50;
 export const ACTIVITY_RISK_CRITICAL_THRESHOLD = 75;
 export const ACTIVITY_RISK_HIGH_COOLDOWN_MS = 30_000;
 export const ACTIVITY_RISK_CRITICAL_COOLDOWN_MS = 2 * 60_000;
+export const ACTIVITY_BEHAVIOR_STAGE_COMPLETIONS = 30;
+export const ACTIVITY_BEHAVIOR_SIGNAL_SCORE = 6;
+export const ACTIVITY_REGULARITY_MIN_INTERVALS = 24;
+export const ACTIVITY_REGULARITY_MAX_CV = 0.015;
+export const ACTIVITY_REGULARITY_MIN_ACTIVE_MS = 2 * 60_000;
 
 const ACTIVITY_GLOBAL_VOLUME_STAGES = [
   { completions: 500, score: 5 },
@@ -37,6 +42,11 @@ type ActivityGuardEntry = {
   dailyCompleted: number;
   dailyAlerted: boolean;
   checkpointTarget: number;
+  intervalSamples: number;
+  intervalMeanMs: number;
+  intervalM2Ms: number;
+  behaviorStage: number;
+  behaviorSignals: number;
 };
 
 type ActivityRiskState = {
@@ -46,10 +56,11 @@ type ActivityRiskState = {
   dailyKey: string;
   dailyCompleted: number;
   dailyVolumeStage: number;
+  dailyVerifications: number;
 };
 
 export type ActivityGuardState = {
-  version: 2;
+  version: 3;
   activities: Record<GuardedActivity, ActivityGuardEntry>;
   risk: ActivityRiskState;
 };
@@ -58,6 +69,11 @@ export type ActivityGuardUpdate = {
   state: ActivityGuardState;
   checkpointNewlyRequired: boolean;
   extremeVolumeAlert: boolean;
+  behaviorSignal: string | null;
+};
+
+export type ActivityCompletionObservation = {
+  patternSignals?: string[];
 };
 
 function emptyEntry(): ActivityGuardEntry {
@@ -72,6 +88,11 @@ function emptyEntry(): ActivityGuardEntry {
     dailyCompleted: 0,
     dailyAlerted: false,
     checkpointTarget: ACTIVITY_CHECKPOINT_COMPLETIONS,
+    intervalSamples: 0,
+    intervalMeanMs: 0,
+    intervalM2Ms: 0,
+    behaviorStage: 0,
+    behaviorSignals: 0,
   };
 }
 
@@ -83,12 +104,13 @@ function emptyRisk(): ActivityRiskState {
     dailyKey: "",
     dailyCompleted: 0,
     dailyVolumeStage: 0,
+    dailyVerifications: 0,
   };
 }
 
 export function emptyActivityGuardState(): ActivityGuardState {
   return {
-    version: 2,
+    version: 3,
     activities: {
       fishing: emptyEntry(),
       woodcutting: emptyEntry(),
@@ -102,6 +124,11 @@ export function emptyActivityGuardState(): ActivityGuardState {
 function nonNegativeInt(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+}
+
+function nonNegativeNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
 function nullableTimestamp(value: unknown): number | null {
@@ -126,6 +153,11 @@ function parseEntry(raw: unknown): ActivityGuardEntry {
       1,
       nonNegativeInt(value.checkpointTarget) || ACTIVITY_CHECKPOINT_COMPLETIONS,
     ),
+    intervalSamples: nonNegativeInt(value.intervalSamples),
+    intervalMeanMs: nonNegativeNumber(value.intervalMeanMs),
+    intervalM2Ms: nonNegativeNumber(value.intervalM2Ms),
+    behaviorStage: nonNegativeInt(value.behaviorStage),
+    behaviorSignals: nonNegativeInt(value.behaviorSignals),
   };
 }
 
@@ -142,6 +174,7 @@ function parseRisk(raw: unknown): ActivityRiskState {
       ACTIVITY_GLOBAL_VOLUME_STAGES.length,
       nonNegativeInt(value.dailyVolumeStage),
     ),
+    dailyVerifications: nonNegativeInt(value.dailyVerifications),
   };
 }
 
@@ -153,7 +186,7 @@ export function parseActivityGuardState(raw: unknown): ActivityGuardState {
       ? (activities as Record<string, unknown>)
       : {};
   return {
-    version: 2,
+    version: 3,
     activities: {
       fishing: parseEntry(source.fishing),
       woodcutting: parseEntry(source.woodcutting),
@@ -189,21 +222,76 @@ function decayedRisk(risk: ActivityRiskState, now: number): ActivityRiskState {
 export function activityCheckpointTarget(
   riskScore: number,
   rng: () => number = Math.random,
+  context: {
+    dailyCompleted?: number;
+    dailyVerifications?: number;
+    behaviorSignals?: number;
+  } = {},
 ): number {
-  const [min, max] = activityCheckpointRange(riskScore);
+  const [min, max] = activityCheckpointRange(riskScore, context);
   const roll = Math.min(0.999999, Math.max(0, Number(rng()) || 0));
   return min + Math.floor(roll * (max - min + 1));
 }
 
-function activityCheckpointRange(riskScore: number): [number, number] {
+function activityCheckpointRange(
+  riskScore: number,
+  context: {
+    dailyCompleted?: number;
+    dailyVerifications?: number;
+    behaviorSignals?: number;
+  } = {},
+): [number, number] {
   const level = activityRiskLevel(riskScore);
-  return level === "critical"
+  const riskRange: [number, number] = level === "critical"
     ? [10, 25]
     : level === "high"
       ? [25, 50]
       : level === "watch"
         ? [50, 80]
         : [80, 140];
+  const dailyCompleted = nonNegativeInt(context.dailyCompleted);
+  const dailyVerifications = nonNegativeInt(context.dailyVerifications);
+  const behaviorSignals = nonNegativeInt(context.behaviorSignals);
+  const pressure = Math.max(
+    dailyCompleted >= 2_500
+      ? 4
+      : dailyCompleted >= 1_000
+        ? 3
+        : dailyCompleted >= 500
+          ? 2
+          : dailyCompleted >= 150
+            ? 1
+            : 0,
+    dailyVerifications >= 7
+      ? 4
+      : dailyVerifications >= 4
+        ? 3
+        : dailyVerifications >= 2
+          ? 2
+          : dailyVerifications >= 1
+            ? 1
+            : 0,
+    behaviorSignals >= 4
+      ? 4
+      : behaviorSignals >= 3
+        ? 3
+        : behaviorSignals >= 2
+          ? 2
+          : behaviorSignals >= 1
+            ? 1
+            : 0,
+  );
+  const pressureRange: [number, number] =
+    pressure >= 4
+      ? [10, 25]
+      : pressure === 3
+        ? [25, 50]
+        : pressure === 2
+          ? [40, 70]
+          : pressure === 1
+            ? [60, 100]
+            : [80, 140];
+  return pressureRange[1] < riskRange[1] ? pressureRange : riskRange;
 }
 
 export function activityVerificationRequired(
@@ -224,14 +312,14 @@ function withEntry(
   entry: ActivityGuardEntry,
 ): ActivityGuardState {
   return {
-    version: 2,
+    version: 3,
     activities: { ...state.activities, [activity]: entry },
     risk: state.risk,
   };
 }
 
 function withRisk(state: ActivityGuardState, risk: ActivityRiskState): ActivityGuardState {
-  return { ...state, version: 2, risk };
+  return { ...state, version: 3, risk };
 }
 
 function volumeRiskUpdate(
@@ -257,6 +345,73 @@ function volumeRiskUpdate(
     dailyKey,
     dailyCompleted,
     dailyVolumeStage: nextStage,
+    dailyVerifications: sameDay ? risk.dailyVerifications : 0,
+  };
+}
+
+function intervalStats(
+  previous: ActivityGuardEntry,
+  now: number,
+  sequenceExpired: boolean,
+) {
+  if (sequenceExpired || previous.lastCompletedAt === null) {
+    return { intervalSamples: 0, intervalMeanMs: 0, intervalM2Ms: 0 };
+  }
+  const intervalMs = now - previous.lastCompletedAt;
+  if (intervalMs <= 0 || intervalMs > ACTIVITY_SEQUENCE_RESET_MS) {
+    return { intervalSamples: 0, intervalMeanMs: 0, intervalM2Ms: 0 };
+  }
+  const intervalSamples = previous.intervalSamples + 1;
+  const delta = intervalMs - previous.intervalMeanMs;
+  const intervalMeanMs = previous.intervalMeanMs + delta / intervalSamples;
+  const intervalM2Ms =
+    previous.intervalM2Ms + delta * (intervalMs - intervalMeanMs);
+  return { intervalSamples, intervalMeanMs, intervalM2Ms };
+}
+
+function observedBehaviorSignal(args: {
+  previous: ActivityGuardEntry;
+  completedSinceVerification: number;
+  sequenceStartedAt: number;
+  now: number;
+  stats: ReturnType<typeof intervalStats>;
+  observation: ActivityCompletionObservation;
+}): { stage: number; signal: string | null } {
+  const stage = Math.floor(
+    args.completedSinceVerification / ACTIVITY_BEHAVIOR_STAGE_COMPLETIONS,
+  );
+  if (stage <= args.previous.behaviorStage) {
+    return { stage: args.previous.behaviorStage, signal: null };
+  }
+  const patterns = new Set(
+    (args.observation.patternSignals ?? []).filter(
+      (value): value is string => typeof value === "string",
+    ),
+  );
+  const fishingPattern =
+    patterns.has("near_perfect_success_rate") &&
+    (patterns.has("uniform_client_reaction") ||
+      patterns.has("uniform_server_reaction"));
+  const variance =
+    args.stats.intervalSamples > 1
+      ? args.stats.intervalM2Ms / args.stats.intervalSamples
+      : Number.POSITIVE_INFINITY;
+  const coefficientOfVariation =
+    args.stats.intervalMeanMs > 0
+      ? Math.sqrt(Math.max(0, variance)) / args.stats.intervalMeanMs
+      : Number.POSITIVE_INFINITY;
+  const highlyRegular =
+    args.stats.intervalSamples >= ACTIVITY_REGULARITY_MIN_INTERVALS &&
+    args.now - args.sequenceStartedAt >= ACTIVITY_REGULARITY_MIN_ACTIVE_MS &&
+    coefficientOfVariation <= ACTIVITY_REGULARITY_MAX_CV;
+  if (!fishingPattern && !highlyRegular) {
+    return { stage: args.previous.behaviorStage, signal: null };
+  }
+  return {
+    stage,
+    signal: fishingPattern
+      ? "near_perfect_uniform_fishing"
+      : "highly_regular_intervals",
   };
 }
 
@@ -264,9 +419,10 @@ export function recordActivityCompletion(
   state: ActivityGuardState,
   activity: GuardedActivity,
   now: number,
+  observation: ActivityCompletionObservation = {},
 ): ActivityGuardUpdate {
   const previous = state.activities[activity];
-  const risk = volumeRiskUpdate(state.risk, now);
+  let risk = volumeRiskUpdate(state.risk, now);
   const sequenceExpired =
     previous.lastCompletedAt === null ||
     now < previous.lastCompletedAt ||
@@ -275,9 +431,29 @@ export function recordActivityCompletion(
     ? now
     : (previous.sequenceStartedAt ?? now);
   const completedSinceVerification = previous.completedSinceVerification + 1;
+  const stats = intervalStats(previous, now, sequenceExpired);
+  const behavior = observedBehaviorSignal({
+    previous,
+    completedSinceVerification,
+    sequenceStartedAt,
+    now,
+    stats,
+    observation,
+  });
+  if (behavior.signal) {
+    risk = {
+      ...risk,
+      score: Math.min(100, risk.score + ACTIVITY_BEHAVIOR_SIGNAL_SCORE),
+    };
+  }
   const checkpointTarget = Math.min(
     previous.checkpointTarget,
-    activityCheckpointRange(risk.score)[1],
+    activityCheckpointRange(risk.score, {
+      dailyCompleted: risk.dailyCompleted,
+      dailyVerifications: risk.dailyVerifications,
+      behaviorSignals:
+        previous.behaviorSignals + (behavior.signal ? 1 : 0),
+    })[1],
   );
   const checkpointDue =
     completedSinceVerification >= checkpointTarget ||
@@ -305,12 +481,17 @@ export function recordActivityCompletion(
     dailyCompleted,
     dailyAlerted: wasDailyAlerted || extremeVolumeAlert,
     checkpointTarget,
+    ...stats,
+    behaviorStage: behavior.stage,
+    behaviorSignals:
+      previous.behaviorSignals + (behavior.signal ? 1 : 0),
   };
   const nextState = withRisk(withEntry(state, activity, entry), risk);
   return {
     state: nextState,
     checkpointNewlyRequired,
     extremeVolumeAlert,
+    behaviorSignal: behavior.signal,
   };
 }
 
@@ -362,6 +543,7 @@ export function recordActivityStrongSignal(
     state: withRisk(withEntry(state, activity, entry), risk),
     checkpointNewlyRequired,
     extremeVolumeAlert: false,
+    behaviorSignal: null,
   };
 }
 
@@ -372,10 +554,16 @@ export function clearActivityVerification(
 ): ActivityGuardState {
   const previous = state.activities[activity];
   const decayed = decayedRisk(state.risk, now);
+  const dailyKey = kstDailyKey(new Date(now));
+  const sameDay = decayed.dailyKey === dailyKey;
   const risk = {
     ...decayed,
     score: Math.max(0, decayed.score - 30),
     cooldownUntil: null,
+    dailyKey,
+    dailyCompleted: sameDay ? decayed.dailyCompleted : 0,
+    dailyVolumeStage: sameDay ? decayed.dailyVolumeStage : 0,
+    dailyVerifications: (sameDay ? decayed.dailyVerifications : 0) + 1,
   };
   return withRisk(withEntry(state, activity, {
     ...previous,
@@ -385,7 +573,15 @@ export function clearActivityVerification(
     verificationRequiredAt: null,
     strongSignalWindowStartedAt: null,
     strongSignals: 0,
-    checkpointTarget: activityCheckpointTarget(risk.score),
+    checkpointTarget: activityCheckpointTarget(risk.score, Math.random, {
+      dailyCompleted: risk.dailyCompleted,
+      dailyVerifications: risk.dailyVerifications,
+    }),
+    intervalSamples: 0,
+    intervalMeanMs: 0,
+    intervalM2Ms: 0,
+    behaviorStage: 0,
+    behaviorSignals: 0,
   }), risk);
 }
 
@@ -404,6 +600,14 @@ export function activityGuardView(
     riskLevel: activityRiskLevel(state.risk.score),
     cooldownUntil: state.risk.cooldownUntil,
     globalDailyCompleted: state.risk.dailyCompleted,
+    dailyVerifications: state.risk.dailyVerifications,
+    behaviorSignals: entry.behaviorSignals,
+    intervalSamples: entry.intervalSamples,
+    intervalMeanMs: Math.round(entry.intervalMeanMs),
+    intervalStddevMs:
+      entry.intervalSamples > 1
+        ? Math.round(Math.sqrt(entry.intervalM2Ms / entry.intervalSamples))
+        : 0,
   };
 }
 

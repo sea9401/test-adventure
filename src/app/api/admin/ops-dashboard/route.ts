@@ -1051,6 +1051,7 @@ function abuseReasonWeight(reason: string): number {
   if (reason === "strong_activity_signal") return 18;
   if (reason === "extreme_daily_activity") return 15;
   if (reason === "human_verification_failed") return 12;
+  if (reason === "activity_behavior_pattern") return 8;
   return 0;
 }
 

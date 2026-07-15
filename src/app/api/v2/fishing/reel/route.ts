@@ -10,6 +10,8 @@ import {
   recordActivityStrongSignal,
 } from "@/lib/server/activityGuard";
 import {
+  recordActivityVerificationRequiredSoon,
+  recordBehaviorActivitySignalSoon,
   recordExtremeActivityAlertSoon,
   recordStrongActivitySignalSoon,
 } from "@/lib/server/activityGuardServer";
@@ -164,6 +166,7 @@ export async function POST(req: Request) {
       ),
       "fishing",
       now,
+      { patternSignals: antiMacro.signals },
     );
     const strongSignal = antiMacro.signals.find(
       (signal) =>
@@ -201,6 +204,8 @@ export async function POST(req: Request) {
         },
         guardState: guardUpdate.state,
         guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+        guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
+        guardBehaviorSignal: guardUpdate.behaviorSignal,
         guardStrongSignal,
       };
     }
@@ -419,6 +424,8 @@ export async function POST(req: Request) {
       },
       guardState: guardUpdate.state,
       guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+      guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
+      guardBehaviorSignal: guardUpdate.behaviorSignal,
       guardStrongSignal,
     };
   });
@@ -437,6 +444,23 @@ export async function POST(req: Request) {
       req,
       userId,
       activity: "fishing",
+      state: result.guardState,
+    });
+  }
+  if (result.guardCheckpointNewlyRequired) {
+    recordActivityVerificationRequiredSoon({
+      req,
+      userId,
+      activity: "fishing",
+      state: result.guardState,
+    });
+  }
+  if (result.guardBehaviorSignal) {
+    recordBehaviorActivitySignalSoon({
+      req,
+      userId,
+      activity: "fishing",
+      signal: result.guardBehaviorSignal,
       state: result.guardState,
     });
   }

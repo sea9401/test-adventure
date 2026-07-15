@@ -55,6 +55,7 @@ type TelemetryResponse = {
   since: string;
   until: string;
   truncated: boolean;
+  guardTruncated: boolean;
   totals: {
     attempts: number;
     successes: number;
@@ -63,6 +64,35 @@ type TelemetryResponse = {
     bonusQuantity: number;
   };
   activities: Activity[];
+  guard: {
+    totals: {
+      required: number;
+      succeeded: number;
+      failed: number;
+      behaviorPatterns: number;
+    };
+    topUsers: Array<{
+      userId: string;
+      gameName: string | null;
+      required: number;
+      succeeded: number;
+      failed: number;
+      behaviorPatterns: number;
+      lastAt: string;
+    }>;
+    recent: Array<{
+      userId: string | null;
+      gameName: string | null;
+      activity: "fishing" | "woodcutting" | "mining" | "farming";
+      reason:
+        | "human_verification_required"
+        | "human_verification_succeeded"
+        | "human_verification_failed"
+        | "activity_behavior_pattern";
+      detail: Record<string, unknown> | null;
+      createdAt: string;
+    }>;
+  };
 };
 
 const PERIODS = [
@@ -126,6 +156,11 @@ export function LifeGatheringTelemetryTab() {
           조회 결과가 10만 건을 넘어 일부만 집계했습니다. 기간을 줄여 확인해 주세요.
         </p>
       ) : null}
+      {data?.guardTruncated ? (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          사람 확인·행동 패턴 기록이 2만 건을 넘어 최신 기록만 표시합니다.
+        </p>
+      ) : null}
 
       {data ? (
         <>
@@ -139,6 +174,7 @@ export function LifeGatheringTelemetryTab() {
           <p className="text-[11px] text-zinc-400">
             조회 범위 {new Date(data.since).toLocaleString("ko-KR")} ~ {new Date(data.until).toLocaleString("ko-KR")}
           </p>
+          <GuardTelemetrySection data={data.guard} />
           {data.activities.map((activity) => (
             <ActivitySection key={activity.activity} data={activity} />
           ))}
@@ -148,6 +184,97 @@ export function LifeGatheringTelemetryTab() {
       )}
     </section>
   );
+}
+
+function GuardTelemetrySection({ data }: { data: TelemetryResponse["guard"] }) {
+  return (
+    <section className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3 dark:border-amber-900 dark:bg-amber-950/10">
+      <div>
+        <h4 className="font-semibold">매크로 방어·사람 확인 이력</h4>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          인증 요구·성공·실패와 약한 행동 패턴 신호입니다. 행동 패턴만으로 자동 제재하지 않습니다.
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <SmallMetric label="인증 요구" value={data.totals.required} />
+        <SmallMetric label="인증 성공" value={data.totals.succeeded} />
+        <SmallMetric label="인증 실패" value={data.totals.failed} />
+        <SmallMetric label="행동 패턴 신호" value={data.totals.behaviorPatterns} />
+      </div>
+      <div className="grid gap-3 xl:grid-cols-2">
+        <Panel title="확인 대상 상위 계정">
+          <DataTable
+            headers={["유저", "요구", "성공", "실패", "패턴", "최근"]}
+            empty={data.topUsers.length === 0}
+          >
+            {data.topUsers.map((row) => (
+              <tr key={row.userId} className="border-t border-zinc-100 dark:border-zinc-800">
+                <Cell>
+                  {row.gameName ? (
+                    <Link className="underline decoration-zinc-300 underline-offset-2" href={`/character/${encodeURIComponent(row.gameName)}`}>
+                      {row.gameName}
+                    </Link>
+                  ) : row.userId.slice(0, 8)}
+                </Cell>
+                <NumberCell>{row.required}</NumberCell>
+                <NumberCell>{row.succeeded}</NumberCell>
+                <NumberCell>{row.failed}</NumberCell>
+                <NumberCell>{row.behaviorPatterns}</NumberCell>
+                <NumberCell>{new Date(row.lastAt).toLocaleString("ko-KR")}</NumberCell>
+              </tr>
+            ))}
+          </DataTable>
+        </Panel>
+        <Panel title="최근 인증·패턴 기록">
+          <DataTable
+            headers={["시각", "유저", "활동", "결과", "상세"]}
+            empty={data.recent.length === 0}
+          >
+            {data.recent.slice(0, 20).map((row, index) => (
+              <tr key={`${row.createdAt}-${row.userId ?? "anonymous"}-${index}`} className="border-t border-zinc-100 dark:border-zinc-800">
+                <Cell>{new Date(row.createdAt).toLocaleString("ko-KR")}</Cell>
+                <Cell>{row.gameName ?? row.userId?.slice(0, 8) ?? "-"}</Cell>
+                <Cell>{activityLabel(row.activity)}</Cell>
+                <Cell>{guardReasonLabel(row.reason)}</Cell>
+                <Cell>{guardDetail(row.detail)}</Cell>
+              </tr>
+            ))}
+          </DataTable>
+        </Panel>
+      </div>
+    </section>
+  );
+}
+
+function activityLabel(activity: Activity["activity"]): string {
+  return activity === "fishing"
+    ? "낚시"
+    : activity === "woodcutting"
+      ? "벌목"
+      : activity === "mining"
+        ? "채광"
+        : "농장";
+}
+
+function guardReasonLabel(reason: TelemetryResponse["guard"]["recent"][number]["reason"]): string {
+  if (reason === "human_verification_required") return "인증 요구";
+  if (reason === "human_verification_succeeded") return "인증 성공";
+  if (reason === "human_verification_failed") return "인증 실패";
+  return "행동 패턴";
+}
+
+function guardDetail(detail: Record<string, unknown> | null): string {
+  if (!detail) return "-";
+  const signal = typeof detail.signal === "string" ? detail.signal : null;
+  const risk = Number(detail.riskScore);
+  const target = Number(detail.nextCheckpointTarget ?? detail.checkpointTarget);
+  const passes = Number(detail.dailyVerifications);
+  return [
+    signal ? `신호 ${signal}` : null,
+    Number.isFinite(risk) ? `위험 ${risk}` : null,
+    Number.isFinite(target) ? `다음 ${target}회` : null,
+    Number.isFinite(passes) ? `오늘 인증 ${passes}회` : null,
+  ].filter(Boolean).join(" · ") || "-";
 }
 
 function ActivitySection({ data }: { data: Activity }) {

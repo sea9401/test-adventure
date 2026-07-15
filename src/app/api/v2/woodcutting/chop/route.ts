@@ -10,6 +10,8 @@ import {
   recordActivityStrongSignal,
 } from "@/lib/server/activityGuard";
 import {
+  recordActivityVerificationRequiredSoon,
+  recordBehaviorActivitySignalSoon,
   recordExtremeActivityAlertSoon,
   recordStrongActivitySignalSoon,
 } from "@/lib/server/activityGuardServer";
@@ -99,6 +101,7 @@ export async function POST(req: Request) {
           retryAfterMs,
           guardStrongSignal: "early_finish" as const,
           guardState: guardUpdate.state,
+          guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
         };
       }
       return {
@@ -141,6 +144,8 @@ export async function POST(req: Request) {
         failureRate,
         guardState: guardUpdate.state,
         guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+        guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
+        guardBehaviorSignal: guardUpdate.behaviorSignal,
       };
     }
 
@@ -226,6 +231,8 @@ export async function POST(req: Request) {
       log,
       guardState: guardUpdate.state,
       guardExtremeVolumeAlert: guardUpdate.extremeVolumeAlert,
+      guardCheckpointNewlyRequired: guardUpdate.checkpointNewlyRequired,
+      guardBehaviorSignal: guardUpdate.behaviorSignal,
     };
   });
 
@@ -247,6 +254,31 @@ export async function POST(req: Request) {
       req,
       userId,
       activity: "woodcutting",
+      state: result.guardState,
+    });
+  }
+  if (
+    "guardCheckpointNewlyRequired" in result &&
+    result.guardCheckpointNewlyRequired &&
+    "guardState" in result
+  ) {
+    recordActivityVerificationRequiredSoon({
+      req,
+      userId,
+      activity: "woodcutting",
+      state: result.guardState,
+    });
+  }
+  if (
+    "guardBehaviorSignal" in result &&
+    result.guardBehaviorSignal &&
+    "guardState" in result
+  ) {
+    recordBehaviorActivitySignalSoon({
+      req,
+      userId,
+      activity: "woodcutting",
+      signal: result.guardBehaviorSignal,
       state: result.guardState,
     });
   }

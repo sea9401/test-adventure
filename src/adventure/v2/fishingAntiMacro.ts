@@ -5,6 +5,7 @@ export const FISHING_ANTI_MACRO_FLAG_THRESHOLD = 12;
 export const FISHING_ANTI_MACRO_HIGH_THRESHOLD = 20;
 export const FISHING_ANTI_MACRO_FRICTION_MS = 30_000;
 export const FISHING_ANTI_MACRO_HIGH_FRICTION_MS = 90_000;
+export const FISHING_ANTI_MACRO_UNIFORM_CLIENT_STDDEV_MS = 25;
 
 export type FishingAntiMacroReason =
   | "ok"
@@ -128,7 +129,9 @@ function suspiciousSignals(recent: FishingAntiMacroSample[]): string[] {
     const veryFastServerRatio =
       caught.filter((sample) => sample.serverReactionMs <= 120).length /
       caught.length;
-    if (clientStddev <= 8) signals.push("uniform_client_reaction");
+    if (clientStddev <= FISHING_ANTI_MACRO_UNIFORM_CLIENT_STDDEV_MS) {
+      signals.push("uniform_client_reaction");
+    }
     if (serverStddev <= 35) signals.push("uniform_server_reaction");
     if (veryFastServerRatio >= 0.75) signals.push("impossibly_fast_server_reel");
   }

@@ -20,6 +20,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: msmsge.com
     # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
     permissions:
       contents: read

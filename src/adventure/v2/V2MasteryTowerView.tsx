@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowClockwise, CastleTurret, Certificate, CheckCircle } from "@phosphor-icons/react";
+import {
+  ArrowClockwise,
+  CastleTurret,
+  Certificate,
+  CheckCircle,
+  HandFist,
+  Heartbeat,
+  Knife,
+  MagicWand,
+  Sword,
+  type Icon,
+} from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import {
   formatThousands,
@@ -10,6 +21,7 @@ import {
 } from "@/components/ui/NumberInput";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { TabBar } from "@/components/ui/TabBar";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import {
   useSystemMessageState,
@@ -73,6 +85,14 @@ type TowerStatus = {
   jobs: TowerJob[];
 };
 
+const JOB_GROUP_META: Record<string, { label: string; icon: Icon }> = {
+  warrior: { label: "전사", icon: Sword },
+  martial: { label: "무도가", icon: HandFist },
+  mage: { label: "마법사", icon: MagicWand },
+  rogue: { label: "도적", icon: Knife },
+  survivor: { label: "생존자", icon: Heartbeat },
+};
+
 export function V2MasteryTowerView({
   onBack,
   onEnterBattle,
@@ -87,6 +107,7 @@ export function V2MasteryTowerView({
   const [busy, setBusy] = useState<"claim" | "use" | null>(null);
   const [msg, setMsg] = useSystemMessageState();
   const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState("");
   const [amount, setAmount] = useState("");
   const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -102,7 +123,14 @@ export function V2MasteryTowerView({
         return;
       }
       setStatus(j);
-      setSelectedJobId((prev) => prev || j.jobs[0]?.id || "");
+      setSelectedJobId((prev) =>
+        j.jobs.some((job) => job.id === prev) ? prev : (j.jobs[0]?.id ?? ""),
+      );
+      setSelectedGroup((prev) =>
+        j.jobs.some((job) => job.group === prev)
+          ? prev
+          : (j.jobs[0]?.group ?? ""),
+      );
       setAmount((prev) => prev || formatThousands(String(j.certificates || 0)));
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -121,6 +149,23 @@ export function V2MasteryTowerView({
   const selectedJob = useMemo(
     () => status?.jobs.find((job) => job.id === selectedJobId) ?? null,
     [selectedJobId, status?.jobs],
+  );
+  const jobGroups = useMemo(() => {
+    const groups = new Map<string, TowerJob[]>();
+    for (const job of status?.jobs ?? []) {
+      const groupJobs = groups.get(job.group) ?? [];
+      groupJobs.push(job);
+      groups.set(job.group, groupJobs);
+    }
+    return [...groups.entries()].map(([group, jobs]) => ({
+      group,
+      jobs,
+      label: JOB_GROUP_META[group]?.label ?? group,
+    }));
+  }, [status?.jobs]);
+  const visibleJobs = useMemo(
+    () => jobGroups.find((entry) => entry.group === selectedGroup)?.jobs ?? [],
+    [jobGroups, selectedGroup],
   );
   const cooldownUntil =
     typeof status?.tower.cooldownUntil === "number"
@@ -205,9 +250,25 @@ export function V2MasteryTowerView({
   const canAttempt = Boolean(
     status && status.nextFloor != null && cooldownSeconds <= 0,
   );
+  const certificateUseAmount = Math.min(
+    status?.certificates ?? 0,
+    Math.max(0, Math.floor(parseAmount(amount))),
+  );
   const canUse =
     Boolean(status && status.certificates > 0 && selectedJobId) &&
-    Math.floor(parseAmount(amount)) > 0;
+    certificateUseAmount > 0;
+
+  function selectGroup(group: string) {
+    setSelectedGroup(group);
+    const currentJobIsVisible = status?.jobs.some(
+      (job) => job.id === selectedJobId && job.group === group,
+    );
+    if (!currentJobIsVisible) {
+      setSelectedJobId(
+        status?.jobs.find((job) => job.group === group)?.id ?? "",
+      );
+    }
+  }
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -442,42 +503,108 @@ export function V2MasteryTowerView({
 
       {status && (
         <Card padding="md" className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Certificate size={18} weight="duotone" className="text-amber-500" />
-            <h2 className="text-base font-semibold">숙련 증서 사용</h2>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Certificate size={18} weight="duotone" className="text-amber-500" />
+              <h2 className="text-base font-semibold">숙련 증서 사용</h2>
+            </div>
+            <p className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+              보유 {status.certificates.toLocaleString("ko-KR")}개
+            </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-[1fr_120px_auto]">
-            <select
-              value={selectedJobId}
-              onChange={(e) => setSelectedJobId(e.currentTarget.value)}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              {status.jobs.map((job) => (
-                <option key={job.id} value={job.id}>
-                  {job.name} · 현재 {job.mastery.toLocaleString("ko-KR")}
-                </option>
-              ))}
-            </select>
-            <NumberInput
-              min={1}
-              max={status.certificates}
-              value={amount}
-              onValueChange={setAmount}
-              aria-label="사용할 숙련 증서 수량"
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-sky-400 dark:border-zinc-700 dark:bg-zinc-900"
-            />
+
+          {jobGroups.length > 0 ? (
+            <>
+              <TabBar
+                tabs={jobGroups.map(({ group, label, jobs }) => {
+                  const GroupIcon = JOB_GROUP_META[group]?.icon;
+                  return {
+                    key: group,
+                    label,
+                    badge: jobs.length,
+                    icon: GroupIcon ? (
+                      <GroupIcon size={15} weight="duotone" />
+                    ) : undefined,
+                  };
+                })}
+                active={selectedGroup}
+                onChange={selectGroup}
+                ariaLabel="숙련 증서를 사용할 직업군"
+                scrollable
+              />
+
+              <div
+                role="tabpanel"
+                aria-label={`${JOB_GROUP_META[selectedGroup]?.label ?? selectedGroup} 직업 목록`}
+                className="grid grid-cols-2 gap-2"
+              >
+                {visibleJobs.map((job) => {
+                  const selected = job.id === selectedJobId;
+                  return (
+                    <button
+                      key={job.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setSelectedJobId(job.id)}
+                      className={`min-h-16 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
+                        selected
+                          ? "border-amber-500 bg-amber-50 text-amber-950 shadow-sm dark:border-amber-400 dark:bg-amber-950/30 dark:text-amber-100"
+                          : "border-zinc-200 bg-white text-zinc-800 hover:border-amber-300 hover:bg-amber-50/50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-100 dark:hover:border-amber-700 dark:hover:bg-amber-950/20"
+                      }`}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="min-w-0 text-sm font-semibold leading-snug">
+                          {job.name}
+                        </span>
+                        <span className="shrink-0 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                          {job.tier > 0 ? `${job.tier}차` : "기본"}
+                        </span>
+                      </span>
+                      <span className="mt-1 block text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        숙련도 {job.mastery.toLocaleString("ko-KR")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <p className="rounded-md bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+              숙련 증서를 사용할 수 있는 직업이 없습니다.
+            </p>
+          )}
+
+          <div className="grid items-end gap-2 sm:grid-cols-[1fr_auto]">
+            <label className="grid gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              사용할 증서
+              <NumberInput
+                min={1}
+                max={status.certificates}
+                value={amount}
+                onValueChange={setAmount}
+                aria-label="사용할 숙련 증서 수량"
+                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-normal text-zinc-900 outline-none focus:border-amber-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+            </label>
             <button
               type="button"
               onClick={() => void spendCertificates()}
               disabled={busy != null || !canUse}
               className="h-10 rounded-md bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {busy === "use" ? "사용 중…" : "사용"}
+              {busy === "use"
+                ? "사용 중…"
+                : certificateUseAmount > 0
+                  ? `${certificateUseAmount.toLocaleString("ko-KR")}개 사용`
+                  : "사용"}
             </button>
           </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
             {selectedJob
-              ? `${selectedJob.name}에 증서를 투자합니다. 낚시 계열과 잠긴 직업에는 사용할 수 없습니다.`
+              ? `${selectedJob.name}에 증서를 투자합니다. 사용 후 예상 숙련도 ${(
+                  selectedJob.mastery +
+                  certificateUseAmount
+                ).toLocaleString("ko-KR")}`
               : "사용할 직업을 선택하세요."}
           </p>
         </Card>

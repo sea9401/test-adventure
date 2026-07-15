@@ -85,6 +85,8 @@ type TowerStatus = {
   jobs: TowerJob[];
 };
 
+type CertificateUseMode = "mastery" | "proficiency";
+
 const JOB_GROUP_META: Record<string, { label: string; icon: Icon }> = {
   warrior: { label: "전사", icon: Sword },
   martial: { label: "무도가", icon: HandFist },
@@ -108,6 +110,8 @@ export function V2MasteryTowerView({
   const [msg, setMsg] = useSystemMessageState();
   const [selectedJobId, setSelectedJobId] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [certificateUseMode, setCertificateUseMode] =
+    useState<CertificateUseMode>("mastery");
   const [amount, setAmount] = useState("");
   const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -211,32 +215,47 @@ export function V2MasteryTowerView({
   }
 
   async function spendCertificates() {
-    if (!selectedJobId) return;
+    if (certificateUseMode === "mastery" && !selectedJobId) return;
     const useAmount = Math.max(0, Math.floor(parseAmount(amount)));
     setBusy("use");
     try {
       const res = await fetch("/api/v2/mastery-tower/use-certificate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jobId: selectedJobId, amount: useAmount }),
+        body: JSON.stringify({
+          mode: certificateUseMode,
+          ...(certificateUseMode === "mastery" ? { jobId: selectedJobId } : {}),
+          amount: useAmount,
+        }),
       });
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        mode?: CertificateUseMode;
         jobName?: string;
         used?: number;
         jobMastery?: number;
+        proficiencyAfter?: number;
       } | null;
       if (!j?.ok) {
         notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
-      notifySystem(
-        `✓ ${j.jobName ?? "직업"} 숙련도 +${(j.used ?? 0).toLocaleString("ko-KR")}` +
-          (typeof j.jobMastery === "number"
-            ? ` (현재 ${j.jobMastery.toLocaleString("ko-KR")})`
-            : ""),
-      );
+      if (j.mode === "proficiency") {
+        notifySystem(
+          `✓ 숙달 포인트 +${(j.used ?? 0).toLocaleString("ko-KR")}` +
+            (typeof j.proficiencyAfter === "number"
+              ? ` (보유 ${j.proficiencyAfter.toLocaleString("ko-KR")})`
+              : ""),
+        );
+      } else {
+        notifySystem(
+          `✓ ${j.jobName ?? "직업"} 숙련도 +${(j.used ?? 0).toLocaleString("ko-KR")}` +
+            (typeof j.jobMastery === "number"
+              ? ` (현재 ${j.jobMastery.toLocaleString("ko-KR")})`
+              : ""),
+        );
+      }
       await refresh();
       await onRefreshGameState?.();
     } catch (err) {
@@ -255,7 +274,11 @@ export function V2MasteryTowerView({
     Math.max(0, Math.floor(parseAmount(amount))),
   );
   const canUse =
-    Boolean(status && status.certificates > 0 && selectedJobId) &&
+    Boolean(
+      status &&
+        status.certificates > 0 &&
+        (certificateUseMode === "proficiency" || selectedJobId),
+    ) &&
     certificateUseAmount > 0;
 
   function selectGroup(group: string) {
@@ -513,64 +536,116 @@ export function V2MasteryTowerView({
             </p>
           </div>
 
-          {jobGroups.length > 0 ? (
-            <>
-              <TabBar
-                tabs={jobGroups.map(({ group, label, jobs }) => {
-                  const GroupIcon = JOB_GROUP_META[group]?.icon;
-                  return {
-                    key: group,
-                    label,
-                    badge: jobs.length,
-                    icon: GroupIcon ? (
-                      <GroupIcon size={15} weight="duotone" />
-                    ) : undefined,
-                  };
-                })}
-                active={selectedGroup}
-                onChange={selectGroup}
-                ariaLabel="숙련 증서를 사용할 직업군"
-                scrollable
-              />
+          <div
+            className="grid grid-cols-2 gap-2"
+            role="group"
+            aria-label="숙련 증서 사용 용도"
+          >
+            {(
+              [
+                {
+                  mode: "mastery" as const,
+                  label: "직업 숙련도",
+                  description: "선택한 직업을 성장시킵니다.",
+                },
+                {
+                  mode: "proficiency" as const,
+                  label: "숙달 포인트",
+                  description: "공용 잔액으로 1:1 전환합니다.",
+                },
+              ] satisfies readonly {
+                mode: CertificateUseMode;
+                label: string;
+                description: string;
+              }[]
+            ).map((option) => {
+              const selected = certificateUseMode === option.mode;
+              return (
+                <button
+                  key={option.mode}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => setCertificateUseMode(option.mode)}
+                  className={`rounded-md border px-3 py-2 text-left transition ${
+                    selected
+                      ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-400 dark:bg-amber-950/30 dark:text-amber-100"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-amber-300 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:border-amber-700"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{option.label}</span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    {option.description}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-              <div
-                role="tabpanel"
-                aria-label={`${JOB_GROUP_META[selectedGroup]?.label ?? selectedGroup} 직업 목록`}
-                className="grid grid-cols-2 gap-2"
-              >
-                {visibleJobs.map((job) => {
-                  const selected = job.id === selectedJobId;
-                  return (
-                    <button
-                      key={job.id}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => setSelectedJobId(job.id)}
-                      className={`min-h-16 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
-                        selected
-                          ? "border-amber-500 bg-amber-50 text-amber-950 shadow-sm dark:border-amber-400 dark:bg-amber-950/30 dark:text-amber-100"
-                          : "border-zinc-200 bg-white text-zinc-800 hover:border-amber-300 hover:bg-amber-50/50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-100 dark:hover:border-amber-700 dark:hover:bg-amber-950/20"
-                      }`}
-                    >
-                      <span className="flex items-start justify-between gap-2">
-                        <span className="min-w-0 text-sm font-semibold leading-snug">
-                          {job.name}
+          {certificateUseMode === "mastery" ? (
+            jobGroups.length > 0 ? (
+              <>
+                <TabBar
+                  tabs={jobGroups.map(({ group, label, jobs }) => {
+                    const GroupIcon = JOB_GROUP_META[group]?.icon;
+                    return {
+                      key: group,
+                      label,
+                      badge: jobs.length,
+                      icon: GroupIcon ? (
+                        <GroupIcon size={15} weight="duotone" />
+                      ) : undefined,
+                    };
+                  })}
+                  active={selectedGroup}
+                  onChange={selectGroup}
+                  ariaLabel="숙련 증서를 사용할 직업군"
+                  scrollable
+                />
+
+                <div
+                  role="tabpanel"
+                  aria-label={`${JOB_GROUP_META[selectedGroup]?.label ?? selectedGroup} 직업 목록`}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {visibleJobs.map((job) => {
+                    const selected = job.id === selectedJobId;
+                    return (
+                      <button
+                        key={job.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setSelectedJobId(job.id)}
+                        className={`min-h-16 rounded-md border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
+                          selected
+                            ? "border-amber-500 bg-amber-50 text-amber-950 shadow-sm dark:border-amber-400 dark:bg-amber-950/30 dark:text-amber-100"
+                            : "border-zinc-200 bg-white text-zinc-800 hover:border-amber-300 hover:bg-amber-50/50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-100 dark:hover:border-amber-700 dark:hover:bg-amber-950/20"
+                        }`}
+                      >
+                        <span className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 text-sm font-semibold leading-snug">
+                            {job.name}
+                          </span>
+                          <span className="shrink-0 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                            {job.tier > 0 ? `${job.tier}차` : "기본"}
+                          </span>
                         </span>
-                        <span className="shrink-0 text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                          {job.tier > 0 ? `${job.tier}차` : "기본"}
+                        <span className="mt-1 block text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                          숙련도 {job.mastery.toLocaleString("ko-KR")}
                         </span>
-                      </span>
-                      <span className="mt-1 block text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                        숙련도 {job.mastery.toLocaleString("ko-KR")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="rounded-md bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                숙련 증서를 사용할 수 있는 직업이 없습니다.
+              </p>
+            )
           ) : (
-            <p className="rounded-md bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-              숙련 증서를 사용할 수 있는 직업이 없습니다.
+            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm leading-relaxed text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200">
+              숙련 증서 1개를 숙달 포인트 1점으로 전환합니다. 전환한 포인트는
+              수행과 스킬 습득·강화에 사용할 수 있습니다.
             </p>
           )}
 
@@ -595,17 +670,20 @@ export function V2MasteryTowerView({
               {busy === "use"
                 ? "사용 중…"
                 : certificateUseAmount > 0
-                  ? `${certificateUseAmount.toLocaleString("ko-KR")}개 사용`
+                  ? `${certificateUseAmount.toLocaleString("ko-KR")}개 ${
+                      certificateUseMode === "proficiency" ? "전환" : "사용"
+                    }`
                   : "사용"}
             </button>
           </div>
           <p className="rounded-md bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-            {selectedJob
-              ? `${selectedJob.name}에 증서를 투자합니다. 사용 후 예상 숙련도 ${(
-                  selectedJob.mastery +
-                  certificateUseAmount
-                ).toLocaleString("ko-KR")}`
-              : "사용할 직업을 선택하세요."}
+            {certificateUseMode === "proficiency"
+              ? `숙달 포인트 +${certificateUseAmount.toLocaleString("ko-KR")} · 전환 후에는 증서로 되돌릴 수 없습니다.`
+              : selectedJob
+                ? `${selectedJob.name}에 증서를 투자합니다. 사용 후 예상 숙련도 ${(
+                    selectedJob.mastery + certificateUseAmount
+                  ).toLocaleString("ko-KR")}`
+                : "사용할 직업을 선택하세요."}
           </p>
         </Card>
       )}

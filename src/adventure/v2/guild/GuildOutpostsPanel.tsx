@@ -6,7 +6,6 @@ import {
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_BUILDINGS,
   nextSettlementBuildingUpgrade,
-  settlementBuildingUpgradeSummary,
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
 import type { GuildInfoResponse, Notice } from "./guildShared";
@@ -39,14 +38,22 @@ export function GuildFacilitiesPanel({
   info,
   canManage,
   onChanged,
+  onNotice,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
   canManage?: boolean;
   onChanged?: () => void;
+  onNotice?: (notice: Notice) => void;
 }) {
   const [activeFacility, setActiveFacility] =
     useState<SettlementBuildingId | null>(null);
+  const [unlockingId, setUnlockingId] = useState<SettlementBuildingId | null>(
+    null,
+  );
+  const [upgradingId, setUpgradingId] = useState<SettlementBuildingId | null>(
+    null,
+  );
 
   if (guildId == null) {
     return (
@@ -72,6 +79,68 @@ export function GuildFacilitiesPanel({
     };
   });
   const hasAny = rows.some((row) => row.count > 0);
+  const guildGold = info?.guildGold ?? 0;
+  const guildFame = info?.guild?.fameAvailable ?? 0;
+
+  async function unlockFacility(id: SettlementBuildingId) {
+    if (!canManage || unlockingId) return;
+    setUnlockingId(id);
+    try {
+      const res = await fetch("/api/v2/guild/facilities/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buildingId: id }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!res.ok || !json?.ok) {
+        onNotice?.({ kind: "err", text: facilityUnlockErrorText(json?.error) });
+        return;
+      }
+      onNotice?.({
+        kind: "ok",
+        text: `${SETTLEMENT_BUILDINGS[id].name} 개발 완료`,
+      });
+      onChanged?.();
+    } catch {
+      onNotice?.({ kind: "err", text: "시설 개발에 실패했습니다." });
+    } finally {
+      setUnlockingId(null);
+    }
+  }
+
+  async function upgradeFacility(id: SettlementBuildingId) {
+    if (!canManage || upgradingId) return;
+    setUpgradingId(id);
+    try {
+      const res = await fetch(`/api/v2/guild/facilities/${id}/upgrade`, {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        buildingLevel?: number;
+      } | null;
+      if (!res.ok || !json?.ok) {
+        onNotice?.({
+          kind: "err",
+          text: facilityUpgradeErrorText(json?.error),
+        });
+        return;
+      }
+      onNotice?.({
+        kind: "ok",
+        text: `${SETTLEMENT_BUILDINGS[id].name} Lv ${json.buildingLevel ?? ""} 업그레이드 완료`,
+      });
+      onChanged?.();
+    } catch {
+      onNotice?.({ kind: "err", text: "시설 업그레이드에 실패했습니다." });
+    } finally {
+      setUpgradingId(null);
+    }
+  }
 
   if (activeFacility === "guild_smithy") {
     return (
@@ -126,6 +195,7 @@ export function GuildFacilitiesPanel({
         </h3>
         <div className="grid gap-2 md:grid-cols-2">
           {rows.map((row) => {
+            const canUnlock = PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id);
             const next =
               row.count > 0
                 ? nextSettlementBuildingUpgrade(row.id, row.level)
@@ -174,8 +244,11 @@ export function GuildFacilitiesPanel({
                           buildingId={row.id}
                           next={next}
                           progress={info?.facilityUpgradeDonations?.[row.id]}
-                          guildGold={info?.guildGold ?? 0}
-                          guildFame={info?.guild?.fameAvailable ?? 0}
+                          guildGold={guildGold}
+                          guildFame={guildFame}
+                          canComplete={canManage}
+                          completing={upgradingId === row.id}
+                          onComplete={() => void upgradeFacility(row.id)}
                           onChanged={onChanged}
                         />
                       )}
@@ -203,10 +276,20 @@ export function GuildFacilitiesPanel({
                 {row.count <= 0 && (
                   <div className="mt-2 space-y-1.5 text-center">
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id)
-                        ? "관리 탭에서 개방할 수 있습니다."
+                      {canUnlock
+                        ? `길드 금고 ${guildGold.toLocaleString()}G`
                         : "아직 개방할 수 없는 시설입니다."}
                     </p>
+                    {canUnlock && row.cost > 0 && canManage && (
+                      <button
+                        type="button"
+                        onClick={() => void unlockFacility(row.id)}
+                        disabled={unlockingId != null || guildGold < row.cost}
+                        className="mx-auto block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {unlockingId === row.id ? "개발 중" : "새 시설 개발"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -220,197 +303,6 @@ export function GuildFacilitiesPanel({
           아직 개방된 길드 시설이 없습니다.
         </p>
       )}
-    </div>
-  );
-}
-
-export function GuildFacilitiesManagePanel({
-  info,
-  canManage,
-  onChanged,
-  onNotice,
-}: {
-  info: GuildInfoResponse | null;
-  canManage: boolean;
-  onChanged?: () => void;
-  onNotice?: (notice: Notice) => void;
-}) {
-  const [unlockingId, setUnlockingId] = useState<SettlementBuildingId | null>(
-    null,
-  );
-  const [upgradingId, setUpgradingId] = useState<SettlementBuildingId | null>(
-    null,
-  );
-  const guildGold = info?.guildGold ?? 0;
-  const guildFame = info?.guild?.fameAvailable ?? 0;
-  const rows = VISIBLE_GUILD_FACILITY_IDS.map((id) => {
-    const def = SETTLEMENT_BUILDINGS[id];
-    const count = info?.settlementBuildings?.[id] ?? 0;
-    const level = info?.settlementBuildingLevels?.[id] ?? (count > 0 ? 1 : 0);
-    return {
-      id,
-      count,
-      level,
-      icon: def.icon,
-      name: def.name,
-      desc: FACILITY_DESC[id] ?? def.desc.replaceAll("영지 ", ""),
-      cost: GUILD_FACILITY_UNLOCK_GOLD_COST[id] ?? 0,
-    };
-  });
-
-  async function unlockFacility(id: SettlementBuildingId) {
-    if (unlockingId) return;
-    setUnlockingId(id);
-    try {
-      const res = await fetch("/api/v2/guild/facilities/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ buildingId: id }),
-      });
-      const json = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-      } | null;
-      if (!res.ok || !json?.ok) {
-        onNotice?.({ kind: "err", text: facilityUnlockErrorText(json?.error) });
-        return;
-      }
-      const def = SETTLEMENT_BUILDINGS[id];
-      onNotice?.({ kind: "ok", text: `${def.name} 개방 완료` });
-      onChanged?.();
-    } catch {
-      onNotice?.({ kind: "err", text: "시설 개방에 실패했습니다." });
-    } finally {
-      setUnlockingId(null);
-    }
-  }
-
-  async function upgradeFacility(id: SettlementBuildingId) {
-    if (upgradingId) return;
-    setUpgradingId(id);
-    try {
-      const res = await fetch(`/api/v2/guild/facilities/${id}/upgrade`, {
-        method: "POST",
-      });
-      const json = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        buildingId?: SettlementBuildingId;
-        buildingLevel?: number;
-      } | null;
-      if (!res.ok || !json?.ok) {
-        onNotice?.({
-          kind: "err",
-          text: facilityUpgradeErrorText(json?.error),
-        });
-        return;
-      }
-      const def = SETTLEMENT_BUILDINGS[id];
-      onNotice?.({
-        kind: "ok",
-        text: `${def.name} Lv ${json.buildingLevel ?? ""} 업그레이드 완료`,
-      });
-      onChanged?.();
-    } catch {
-      onNotice?.({ kind: "err", text: "시설 업그레이드에 실패했습니다." });
-    } finally {
-      setUpgradingId(null);
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-        시설 관리
-      </div>
-      <div className="grid gap-2 md:grid-cols-2">
-        {rows.map((row) => {
-          const canUnlock = PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id);
-          const next =
-            row.count > 0
-              ? nextSettlementBuildingUpgrade(row.id, row.level)
-              : null;
-          return (
-            <div
-              key={row.id}
-              className="flex min-h-[112px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span aria-hidden>{row.icon}</span>
-                    <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                      {row.name}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {row.desc}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded px-2 py-1 text-xs font-semibold tabular-nums ${
-                    row.count > 0
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                      : "bg-zinc-200 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                  }`}
-                >
-                  {row.count > 0 ? `Lv ${row.level}` : "미개방"}
-                </span>
-              </div>
-
-              {row.count <= 0 ? (
-                <div className="mt-2 space-y-1.5 text-center">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {canUnlock && row.cost > 0
-                      ? `비용 ${row.cost.toLocaleString()}G · 길드 금고 ${guildGold.toLocaleString()}G`
-                      : "준비 중"}
-                  </p>
-                  {canUnlock && row.cost > 0 && canManage && (
-                    <button
-                      type="button"
-                      onClick={() => void unlockFacility(row.id)}
-                      disabled={unlockingId != null || guildGold < row.cost}
-                      className="mx-auto block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {unlockingId === row.id ? "개방 중" : "개방"}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-2 rounded-md border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950">
-                  {next ? (
-                    <>
-                      <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                          다음: Lv {next.level} · {next.label}
-                        </span>
-                        <span className="text-[11px] text-emerald-600 dark:text-emerald-300">
-                          {settlementBuildingUpgradeSummary(row.id, next)}
-                        </span>
-                      </div>
-                      <GuildFacilityUpgradeFund
-                        buildingId={row.id}
-                        next={next}
-                        progress={info?.facilityUpgradeDonations?.[row.id]}
-                        guildGold={guildGold}
-                        guildFame={guildFame}
-                        canComplete={canManage}
-                        completing={upgradingId === row.id}
-                        onComplete={() => void upgradeFacility(row.id)}
-                        onChanged={onChanged}
-                      />
-                    </>
-                  ) : (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      최대 레벨에 도달했습니다.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

@@ -29,7 +29,7 @@ type UserAndIpRateLimitOptions = {
 const lastLimitedLogAt = new Map<string, number>();
 const LIMITED_LOG_INTERVAL_MS = 60_000;
 const LIFE_IP_FANOUT_WINDOW_MS = 10 * 60_000;
-const LIFE_IP_FANOUT_ACCOUNT_LIMIT = 5;
+const LIFE_IP_FANOUT_ACCOUNT_LIMIT = 3;
 
 type LifeIpFanoutBucket = {
   users: Set<string>;

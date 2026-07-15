@@ -44,6 +44,7 @@ export const ADMIN_ACTION_LABELS: Record<string, string> = {
 };
 
 export const ABUSE_ACTION_LABELS: Record<string, string> = {
+  "presence:heartbeat": "접속 상태 확인",
   cast: "낚시 던지기",
   enhance: "장비 강화",
   hunt: "사냥",
@@ -96,6 +97,7 @@ export const ABUSE_REASON_LABELS: Record<string, string> = {
   human_verification_succeeded: "사람 확인 성공",
   activity_behavior_pattern: "규칙적인 자동화 의심 패턴",
   multi_account_ip_fanout: "동일 IP 다계정 활동",
+  persistent_same_ip_accounts: "동일 IP 장시간 다계정 접속",
   strong_activity_signal: "반복 자동화 강신호",
 };
 
@@ -106,6 +108,8 @@ const LOG_LABELS: Record<string, string> = {
 };
 
 const DETAIL_KEY_LABELS: Record<string, string> = {
+  accountCount: "계정 수",
+  accounts: "계정 목록",
   action: "행동",
   adminMemo: "관리자 메모",
   amount: "수량",
@@ -113,6 +117,7 @@ const DETAIL_KEY_LABELS: Record<string, string> = {
   beforeBalance: "이전 잔액",
   classId: "직업",
   count: "개수",
+  continuousMinutes: "지속 시간(분)",
   days: "일수",
   error: "오류",
   eventId: "이벤트 ID",

@@ -172,13 +172,13 @@ describe("userRateLimit", () => {
     }
   });
 
-  it("동일 IP의 생활 콘텐츠 6번째 계정부터 제한한다", () => {
+  it("동일 IP의 생활 콘텐츠 4번째 계정부터 해당 IP 전체를 제한한다", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       const req = new Request("https://example.test", {
         headers: { "x-forwarded-for": "203.0.113.20" },
       });
-      for (let index = 1; index <= 5; index += 1) {
+      for (let index = 1; index <= 3; index += 1) {
         expect(
           enforceUserAndIpRateLimit(req, {
             userId: `u${index}`,
@@ -192,12 +192,22 @@ describe("userRateLimit", () => {
       }
       expect(
         enforceUserAndIpRateLimit(req, {
-          userId: "u6",
+          userId: "u4",
           action: "v2:farming:mutation",
           userLimit: 30,
           ipLimit: 180,
           windowMs: 60_000,
           now: 2_000,
+        })?.status,
+      ).toBe(429);
+      expect(
+        enforceUserAndIpRateLimit(req, {
+          userId: "u1",
+          action: "v2:farming:mutation",
+          userLimit: 30,
+          ipLimit: 180,
+          windowMs: 60_000,
+          now: 2_100,
         })?.status,
       ).toBe(429);
       expect(warn).toHaveBeenCalledTimes(1);

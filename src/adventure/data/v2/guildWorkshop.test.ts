@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   GUILD_WORKSHOP_RECIPES,
+  GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
   addGuildWorkshopCraftRecord,
   addGuildWorkshopCraftStat,
   guildWorkshopCraftRecordTitleIds,
@@ -15,6 +16,7 @@ import {
   guildWorkshopRecipeView,
   guildWorkshopRecipeResourceMaterialCost,
   guildWorkshopRecipeResourceCost,
+  guildWorkshopResourceCostForTier,
   guildWorkshopMiningMaterialForTier,
   guildWorkshopWoodMaterialForTier,
   guildWorkshopRecipeMaterialCost,
@@ -25,6 +27,7 @@ import {
   rollGuildWorkshopEnhance,
   spendGuildWorkshopRecipeCost,
   spendGuildWorkshopRecipeMaterials,
+  type GuildWorkshopResourceTier,
 } from "./guildWorkshop";
 import { GUILD_WORKSHOP_MATERIAL_ID } from "./guildWorkshopMaterials";
 import { SETTLEMENT_MATERIAL_ID } from "./settlementMaterials";
@@ -302,54 +305,45 @@ describe("guild workshop recipes", () => {
     ).toMatchObject({ resourceOk: true, materialOk: true, canCraft: true });
   });
 
-  it("keeps craft-only recipe costs and xp stepped by smithy tier", () => {
-    const craftOnly = Object.values(GUILD_WORKSHOP_RECIPES)
-      .filter((recipe) => recipe.id.startsWith("crafted_"))
-      .sort(
-        (a, b) =>
-          (a.requiredSmithyLevel ?? 1) - (b.requiredSmithyLevel ?? 1) ||
-          a.requiredArtisanLevel - b.requiredArtisanLevel,
+  it("aligns every recipe to the tier total and set resource profile", () => {
+    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES)) {
+      const tier = V2_EQUIPMENT[recipe.equipmentId]
+        .tier as GuildWorkshopResourceTier;
+      expect(recipe.cost, recipe.id).toEqual(
+        guildWorkshopResourceCostForTier(tier, recipe.resourceProfile),
       );
-    const totalsBySmithy = new Map<number, number[]>();
-    for (const recipe of craftOnly) {
-      const smithyLevel = recipe.requiredSmithyLevel ?? 1;
-      const totalCost = (recipe.cost.crop ?? 0) + (recipe.cost.ore ?? 0);
-      totalsBySmithy.set(smithyLevel, [
-        ...(totalsBySmithy.get(smithyLevel) ?? []),
-        totalCost,
-      ]);
+      expect(
+        (recipe.cost.crop ?? 0) + (recipe.cost.ore ?? 0),
+        recipe.id,
+      ).toBe(GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER[tier]);
       expect(recipe.artisanXp).toBeGreaterThanOrEqual(34);
     }
-    expect(Math.min(...(totalsBySmithy.get(1) ?? []))).toBeGreaterThanOrEqual(
-      100,
-    );
-    expect(Math.max(...(totalsBySmithy.get(1) ?? []))).toBeLessThanOrEqual(
-      110,
-    );
-    expect(Math.min(...(totalsBySmithy.get(2) ?? []))).toBeGreaterThanOrEqual(
-      135,
-    );
-    expect(Math.max(...(totalsBySmithy.get(2) ?? []))).toBeLessThanOrEqual(
-      150,
-    );
-    expect(Math.min(...(totalsBySmithy.get(3) ?? []))).toBeGreaterThanOrEqual(
-      255,
-    );
-    expect(Math.max(...(totalsBySmithy.get(3) ?? []))).toBeLessThanOrEqual(
-      260,
-    );
-    expect(Math.min(...(totalsBySmithy.get(4) ?? []))).toBeGreaterThanOrEqual(
-      240,
-    );
-    expect(Math.max(...(totalsBySmithy.get(4) ?? []))).toBeLessThanOrEqual(
-      240,
-    );
-    expect(Math.min(...(totalsBySmithy.get(5) ?? []))).toBeGreaterThanOrEqual(
-      250,
-    );
-    expect(Math.max(...(totalsBySmithy.get(5) ?? []))).toBeLessThanOrEqual(
-      400,
-    );
+  });
+
+  it("aligns catalyst totals by smithy level and equipment tier", () => {
+    for (const recipe of Object.values(GUILD_WORKSHOP_RECIPES)) {
+      const smithyLevel = recipe.requiredSmithyLevel ?? 1;
+      const equipmentTier = V2_EQUIPMENT[recipe.equipmentId].tier;
+      const catalystTotal = Object.values(recipe.materialCost ?? {}).reduce(
+        (sum, amount) => sum + (amount ?? 0),
+        0,
+      );
+      const expectedTotal =
+        smithyLevel === 1
+          ? 0
+          : smithyLevel === 2
+            ? 2
+            : smithyLevel === 3
+              ? 3
+              : smithyLevel === 4
+                ? 4
+                : equipmentTier === 10
+                  ? 4
+                  : equipmentTier === 11
+                    ? 6
+                    : 8;
+      expect(catalystTotal, recipe.id).toBe(expectedTotal);
+    }
   });
 
   it("craft-only equipment tiers follow smithy progression", () => {
@@ -824,7 +818,7 @@ describe("guild workshop recipes", () => {
       9,
     );
     expect(plan.materials).toEqual({
-      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 2,
     });
     expect(plan.artisanXp).toBe(2);
   });

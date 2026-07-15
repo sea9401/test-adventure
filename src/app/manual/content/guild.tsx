@@ -28,6 +28,7 @@ import {
   GUILD_WORKSHOP_MASTERWORK_PLUS2_CHANCE_PCT,
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT,
+  GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
 } from "@/adventure/data/v2/guildWorkshop";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
@@ -161,8 +162,9 @@ export function GuildContent() {
 
       <H2>길드 제작소</H2>
       <P>
-        제작소는 영지 자원과 제작 재료를 써 장비를 만드는 길드 시설입니다. 제작은
-        장인 성장과 연결되고, 누적 제작 기록이 쌓일수록 품질 확률 보너스가 붙습니다.
+        제작소는 개인이 채집한 원목·광석과 제작 촉매로 장비를 만드는 길드
+        시설입니다. 제작은 장인 성장과 연결되고, 누적 제작 기록이 쌓일수록 품질
+        확률 보너스가 붙습니다.
       </P>
       <UL>
         <li>
@@ -175,6 +177,10 @@ export function GuildContent() {
           기본 제작 목록은 <Em>수호각인 · 질풍각인 · 룬각인</Em> 제작 세트
           장비를 중심으로 표시됩니다. 드랍 장비와 같은 일반 레시피는 초반
           숙련도 보강용 수련 제작으로 분리됩니다.
+        </li>
+        <li>
+          같은 티어는 부위와 관계없이 원목·광석 총량이 같습니다. 수호는 광석
+          60%, 격노는 광석 55%, 질풍은 원목 60%, 룬은 원목 55%를 사용합니다.
         </li>
         <li>
           일반 제작의 품질 확률 상한은 <Em>{GUILD_WORKSHOP_NORMAL_QUALITY_CAP_PCT}%</Em>이고,
@@ -191,6 +197,23 @@ export function GuildContent() {
           <Em>{GUILD_WORKSHOP_DISMANTLE_MATERIAL_RECOVERY_PCT}%</Em>입니다.
         </li>
       </UL>
+      <Table
+        head={["장비 티어", "원목·광석", "기본 총량", "촉매 총량"]}
+        rows={[
+          [4, "소나무·철", "없음"],
+          [6, "자작나무·구리", "2개"],
+          [8, "버드나무·은", "3개"],
+          [10, "참나무·금", "4개"],
+          [11, "삼나무·미스릴", "6개"],
+          [12, "편백나무·아다만타이트", "8개"],
+        ].map(([tier, materials, catalyst]) => [
+          `T${tier}`,
+          materials,
+          `${GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER[tier as keyof typeof GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER]}개`,
+          catalyst,
+        ])}
+        caption="대장간 Lv4의 T8 특별 제작은 촉매 4개를 사용합니다. 명장 제작은 표의 모든 비용이 2배입니다."
+      />
       <Table
         head={["누적 제작", "품질 확률 보너스"]}
         rows={GUILD_WORKSHOP_BONUS_TIERS.filter((tier) => tier.tier > 0).map(

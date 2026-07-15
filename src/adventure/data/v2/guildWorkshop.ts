@@ -68,6 +68,7 @@ export type GuildWorkshopRecipeId =
 export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
   equipmentId: V2EquipmentId;
+  resourceProfile: GuildWorkshopResourceProfile;
   cost: Partial<Record<ProductionKind, number>>;
   materialCost?: Partial<Record<GuildWorkshopMaterialId, number>>;
   profession: ArtisanProfessionId;
@@ -76,6 +77,44 @@ export type GuildWorkshopRecipe = {
   artisanXp: number;
   note: string;
 };
+
+export type GuildWorkshopResourceProfile =
+  | "guard"
+  | "fury"
+  | "pursuit"
+  | "focus";
+
+export const GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER = {
+  4: 100,
+  6: 140,
+  8: 210,
+  10: 270,
+  11: 330,
+  12: 360,
+} as const;
+
+export type GuildWorkshopResourceTier =
+  keyof typeof GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER;
+
+export const GUILD_WORKSHOP_WOOD_SHARE_PCT_BY_PROFILE: Record<
+  GuildWorkshopResourceProfile,
+  number
+> = {
+  guard: 40,
+  fury: 45,
+  pursuit: 60,
+  focus: 55,
+};
+
+export function guildWorkshopResourceCostForTier(
+  tier: GuildWorkshopResourceTier,
+  profile: GuildWorkshopResourceProfile,
+): Partial<Record<ProductionKind, number>> {
+  const total = GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER[tier];
+  const woodSharePct = GUILD_WORKSHOP_WOOD_SHARE_PCT_BY_PROFILE[profile];
+  const wood = Math.round((total * woodSharePct) / 500) * 5;
+  return { crop: wood, ore: total - wood };
+}
 
 export function guildWorkshopWoodMaterialForTier(
   tierRaw: number,
@@ -188,7 +227,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_oathblade: {
     id: "crafted_oathblade",
     equipmentId: "v2_crafted_oathblade",
-    cost: { crop: 45, ore: 65 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(4, "guard"),
     profession: "blacksmith",
     requiredArtisanLevel: 1,
     requiredSmithyLevel: 1,
@@ -198,7 +238,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_gale_bow: {
     id: "crafted_gale_bow",
     equipmentId: "v2_crafted_gale_bow",
-    cost: { crop: 68, ore: 38 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(4, "pursuit"),
     profession: "blacksmith",
     requiredArtisanLevel: 1,
     requiredSmithyLevel: 1,
@@ -208,7 +249,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_runic_staff: {
     id: "crafted_runic_staff",
     equipmentId: "v2_crafted_runic_staff",
-    cost: { crop: 64, ore: 42 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(4, "focus"),
     profession: "blacksmith",
     requiredArtisanLevel: 1,
     requiredSmithyLevel: 1,
@@ -218,7 +260,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_guard_gauntlets: {
     id: "crafted_guard_gauntlets",
     equipmentId: "v2_crafted_guard_gauntlets",
-    cost: { crop: 45, ore: 60 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(4, "guard"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -228,7 +271,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_guard_greaves: {
     id: "crafted_guard_greaves",
     equipmentId: "v2_crafted_guard_greaves",
-    cost: { crop: 50, ore: 52 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(4, "guard"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -238,7 +282,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_fury_boots: {
     id: "crafted_fury_boots",
     equipmentId: "v2_crafted_fury_boots",
-    cost: { crop: 62, ore: 45 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(4, "fury"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -248,7 +293,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_pursuit_grips: {
     id: "crafted_pursuit_grips",
     equipmentId: "v2_crafted_pursuit_grips",
-    cost: { crop: 68, ore: 38 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(4, "pursuit"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -258,7 +304,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_focus_gloves: {
     id: "crafted_focus_gloves",
     equipmentId: "v2_crafted_focus_gloves",
-    cost: { crop: 55, ore: 45 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(4, "focus"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -268,7 +315,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_focus_boots: {
     id: "crafted_focus_boots",
     equipmentId: "v2_crafted_focus_boots",
-    cost: { crop: 58, ore: 42 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(4, "focus"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -278,7 +326,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_master_ring: {
     id: "crafted_master_ring",
     equipmentId: "v2_crafted_master_ring",
-    cost: { crop: 50, ore: 85 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(6, "fury"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
@@ -289,8 +338,9 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_ward_plate: {
     id: "crafted_ward_plate",
     equipmentId: "v2_crafted_ward_plate",
-    cost: { crop: 50, ore: 95 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(6, "guard"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     requiredSmithyLevel: 2,
@@ -300,7 +350,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_spark_gloves: {
     id: "crafted_spark_gloves",
     equipmentId: "v2_crafted_spark_gloves",
-    cost: { crop: 55, ore: 45 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(4, "fury"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -310,7 +361,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_windstep_boots: {
     id: "crafted_windstep_boots",
     equipmentId: "v2_crafted_windstep_boots",
-    cost: { crop: 62, ore: 38 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(4, "pursuit"),
     profession: "blacksmith",
     requiredArtisanLevel: 2,
     requiredSmithyLevel: 1,
@@ -320,7 +372,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_aether_necklace: {
     id: "crafted_aether_necklace",
     equipmentId: "v2_crafted_aether_necklace",
-    cost: { crop: 55, ore: 80 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(6, "focus"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
@@ -331,7 +384,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_guard_ring: {
     id: "crafted_guard_ring",
     equipmentId: "v2_crafted_guard_ring",
-    cost: { crop: 50, ore: 85 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(6, "guard"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
@@ -342,8 +396,9 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_fury_plate: {
     id: "crafted_fury_plate",
     equipmentId: "v2_crafted_fury_plate",
-    cost: { crop: 60, ore: 90 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(6, "fury"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     requiredSmithyLevel: 2,
@@ -353,8 +408,9 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_pursuit_coat: {
     id: "crafted_pursuit_coat",
     equipmentId: "v2_crafted_pursuit_coat",
-    cost: { crop: 90, ore: 55 },
-    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 3 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(6, "pursuit"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 5,
     requiredSmithyLevel: 2,
@@ -364,7 +420,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_pursuit_ring: {
     id: "crafted_pursuit_ring",
     equipmentId: "v2_crafted_pursuit_ring",
-    cost: { crop: 82, ore: 55 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(6, "pursuit"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
@@ -375,7 +432,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_focus_ring: {
     id: "crafted_focus_ring",
     equipmentId: "v2_crafted_focus_ring",
-    cost: { crop: 72, ore: 68 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(6, "focus"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
     profession: "blacksmith",
     requiredArtisanLevel: 4,
@@ -386,7 +444,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_fury_necklace: {
     id: "crafted_fury_necklace",
     equipmentId: "v2_crafted_fury_necklace",
-    cost: { crop: 105, ore: 150 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(8, "fury"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -397,7 +456,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_pursuit_necklace: {
     id: "crafted_pursuit_necklace",
     equipmentId: "v2_crafted_pursuit_necklace",
-    cost: { crop: 155, ore: 105 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(8, "pursuit"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -408,7 +468,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_focus_robe: {
     id: "crafted_focus_robe",
     equipmentId: "v2_crafted_focus_robe",
-    cost: { crop: 130, ore: 125 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(8, "focus"),
     materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
     profession: "blacksmith",
     requiredArtisanLevel: 6,
@@ -419,10 +480,11 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_sunforge_blade: {
     id: "crafted_sunforge_blade",
     equipmentId: "v2_crafted_sunforge_blade",
-    cost: { crop: 95, ore: 145 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(8, "fury"),
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 2,
-      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 2,
     },
     profession: "blacksmith",
     requiredArtisanLevel: 8,
@@ -433,7 +495,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_aurora_crown: {
     id: "crafted_aurora_crown",
     equipmentId: "v2_crafted_aurora_crown",
-    cost: { crop: 120, ore: 170 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(10, "guard"),
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 1,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 3,
@@ -447,7 +510,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_bulwark_shield: {
     id: "crafted_bulwark_shield",
     equipmentId: "v2_crafted_bulwark_shield",
-    cost: { crop: 140, ore: 210 },
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(11, "guard"),
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 2,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
@@ -461,7 +525,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_stormlance: {
     id: "crafted_stormlance",
     equipmentId: "v2_crafted_stormlance",
-    cost: { crop: 190, ore: 180 },
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(11, "pursuit"),
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 3,
@@ -475,7 +540,8 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_kingbreaker_axe: {
     id: "crafted_kingbreaker_axe",
     equipmentId: "v2_crafted_kingbreaker_axe",
-    cost: { crop: 160, ore: 220 },
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(12, "fury"),
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
       [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,
@@ -489,10 +555,11 @@ export const GUILD_WORKSHOP_RECIPES: Record<
   crafted_astral_grimoire: {
     id: "crafted_astral_grimoire",
     equipmentId: "v2_crafted_astral_grimoire",
-    cost: { crop: 210, ore: 180 },
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(12, "focus"),
     materialCost: {
       [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
-      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
     },
     profession: "blacksmith",
     requiredArtisanLevel: 11,

@@ -32,6 +32,7 @@ export function EquipmentTab({
   sellQualityPct,
   setSellQualityPct,
   pageSize,
+  frontierDepth,
   onBulkSell,
   onOpenCard,
 }: {
@@ -44,6 +45,7 @@ export function EquipmentTab({
   sellQualityPct: number;
   setSellQualityPct: Dispatch<SetStateAction<number>>;
   pageSize: number;
+  frontierDepth: number;
   onBulkSell: (opts: BulkSellOpts, label: string) => void;
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
 }) {
@@ -134,6 +136,7 @@ export function EquipmentTab({
           isEquipped: equippedIid === inst.iid,
         }))}
         onOpenCard={onOpenCard}
+        frontierDepth={frontierDepth}
       />
       <Pagination
         page={equipPager.page}

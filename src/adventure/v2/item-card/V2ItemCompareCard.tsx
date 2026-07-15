@@ -173,7 +173,7 @@ export function V2ItemCompareCard({
   // 같은 슬롯 장착 장비 — 좌측, 절대값 + 해제.
   equipped: V2CompareSide;
   onClose: () => void;
-  equip: { busy: boolean; onEquip: () => void };
+  equip: { busy: boolean; disabledReason?: string; onEquip: () => void };
   unequip: { busy: boolean; onUnequip: () => void };
   // 후보 즐겨찾기 잠금 토글.
   lock?: ItemCardLockAction;
@@ -304,15 +304,25 @@ export function V2ItemCompareCard({
           </p>
         )}
 
+        {equip.disabledReason && (
+          <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            착용 조건: {equip.disabledReason}
+          </p>
+        )}
+
         <Button
           onClick={equip.onEquip}
-          disabled={equip.busy || unequip.busy}
+          disabled={equip.busy || unequip.busy || Boolean(equip.disabledReason)}
           variant="success"
           size="md"
           fullWidth
           className="mt-3"
         >
-          {equip.busy ? "처리 중…" : "장착하기"}
+          {equip.busy
+            ? "처리 중…"
+            : equip.disabledReason
+              ? "착용 조건 미달"
+              : "장착하기"}
         </Button>
       </div>
     </>

@@ -31,6 +31,7 @@ import {
   selectBulkSell,
   type BulkSellOpts,
 } from "@/adventure/data/v2/v2EquipVariance";
+import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
   V2ItemCard,
   V2ItemCompareCard,
@@ -164,7 +165,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
-  const { refreshGameState, setGold } = useGameState();
+  const { frontierDepth, refreshGameState, setGold } = useGameState();
   const { notifySystem } = useSystemToast();
 
   const refresh = useCallback(async () => {
@@ -224,10 +225,15 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
+          requirementLabel?: string;
           equipped?: Partial<Record<V2EquipSlot, string>>;
         } | null;
         if (!j?.ok) {
-          notifySystem(`✗ ${j?.error ?? `http ${res.status}`}`);
+          const errorLabel =
+            j?.error === "progression_locked"
+              ? `착용 조건: ${j.requirementLabel ?? "사냥터 진행도 부족"}`
+              : (j?.error ?? `http ${res.status}`);
+          notifySystem(`✗ ${errorLabel}`);
           return false;
         }
         setEquipped(j.equipped ?? {});
@@ -607,6 +613,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             sellQualityPct={sellQualityPct}
             setSellQualityPct={setSellQualityPct}
             pageSize={INVENTORY_PAGE_SIZE}
+            frontierDepth={frontierDepth}
             onBulkSell={applyBulkSell}
             onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
           />
@@ -618,6 +625,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           const slot = candItem.slot;
           const equippedIid = equipped[slot] ?? null;
           const isCandidateEquipped = equippedIid === card.inst.iid;
+          const progressionLock = equipmentProgressionLock(
+            candItem,
+            frontierDepth,
+          );
           // 같은 슬롯에 다른 장비가 장착돼 있으면 상세 카드에 비교 버튼을 띄우고,
           // 사용자가 비교를 누른 경우에만 비교 카드를 연다.
           const equippedInst =
@@ -654,6 +665,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 onClose={() => setCard(null)}
                 equip={{
                   busy: busy === card.inst.iid,
+                  disabledReason: progressionLock?.label,
                   onEquip: async () => {
                     // 실패 시 모달 유지(에러 확인) — 성공해야 닫는다.
                     if (await applyEquip(slot, card.inst.iid, card.inst.iid)) {
@@ -687,6 +699,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               equip={{
                 isEquipped: isCandidateEquipped,
                 busy: busy === card.inst.iid,
+                disabledReason: isCandidateEquipped
+                  ? undefined
+                  : progressionLock?.label,
                 onEquip: () => applyEquip(slot, card.inst.iid, card.inst.iid),
                 onUnequip: () => applyEquip(slot, null, card.inst.iid),
               }}

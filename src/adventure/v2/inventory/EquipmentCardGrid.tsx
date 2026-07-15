@@ -28,6 +28,7 @@ import {
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { type V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
+import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
   anchorOf,
   CraftOnlyBadge,
@@ -82,6 +83,7 @@ export function EquipmentCardGrid({
   cards,
   onOpenCard,
   selectedIid,
+  frontierDepth,
 }: {
   cards: EquipmentCard[];
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
@@ -89,6 +91,8 @@ export function EquipmentCardGrid({
   // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
   // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
   selectedIid?: string | null;
+  // 인벤토리에서만 전달. 진행도 미달 장비는 보유·거래 가능하되 착용 잠금 배지를 표시한다.
+  frontierDepth?: number;
 }) {
   const selectable = selectedIid !== undefined;
   if (cards.length === 0) {
@@ -108,6 +112,10 @@ export function EquipmentCardGrid({
         const pct = rollQualityPct(item, inst.roll);
         const isSelected = selectable && inst.iid === selectedIid;
         const highlighted = selectable ? isSelected : isEquipped;
+        const progressionLock =
+          frontierDepth == null
+            ? null
+            : equipmentProgressionLock(item, frontierDepth);
         return (
           <button
             key={inst.iid}
@@ -169,6 +177,14 @@ export function EquipmentCardGrid({
               <CraftQualityBadge craftQuality={inst.craftQuality} />
               {inst.craftedBy?.masterwork ? <MasterworkBadge /> : null}
               {item.craftOnly ? <CraftOnlyBadge /> : null}
+              {progressionLock ? (
+                <span
+                  className="rounded border border-amber-300 bg-amber-50 px-1.5 py-px text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  title={`착용 조건: ${progressionLock.label}`}
+                >
+                  진행 잠금
+                </span>
+              ) : null}
             </div>
             <div className="line-clamp-2 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll, inst.enhance, inst.craftQuality)}

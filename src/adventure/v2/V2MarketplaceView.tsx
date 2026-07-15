@@ -25,6 +25,7 @@ import {
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { equipmentProgressionLock } from "@/adventure/data/v2/equipmentProgression";
 import {
   RARE_MAP_KINDS,
   parseRareMaps,
@@ -134,7 +135,8 @@ function actionErrorLabel(error: string | undefined, status: number, retryAfterS
 
 export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
-  const { coreLoopOn, bankedGold, refreshGameState } = useGameState();
+  const { coreLoopOn, bankedGold, frontierDepth, refreshGameState } =
+    useGameState();
   const [tab, setTab] = useState<Tab>("browse");
   // 둘러보기 — 인벤토리/판매 탭과 같은 6부위 + 재료 + 소모품 하위 탭.
   const [browseTab, setBrowseTab] = useState<V2ItemTabKey>("weapon");
@@ -644,6 +646,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               )
             }
             priceRef={priceRef}
+            frontierDepth={frontierDepth}
             onOpenCard={openCardFor}
           />
           {listings !== null && displayedListings.length > 0 && (
@@ -662,6 +665,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             rows={history === null ? null : historyPager.pageItems}
             emptyText="아직 체결된 거래가 없어요."
             priceRef={{}}
+            frontierDepth={frontierDepth}
             onOpenCard={openCardFor}
             action={(l) => (
               <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
@@ -687,6 +691,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             rows={mine === null ? null : minePager.pageItems}
             emptyText="등록한 매물이 없어요."
             priceRef={priceRef}
+            frontierDepth={frontierDepth}
             expiryDays={ttlDays ?? undefined}
             onOpenCard={openCardFor}
             action={(l) => (
@@ -772,6 +777,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           gold={gold}
           coreLoopOn={coreLoopOn}
           bankedGold={bankedGold}
+          frontierDepth={frontierDepth}
           busy={busy}
           onConfirm={confirmedBuy}
           onCancel={() => setConfirmBuy(null)}
@@ -799,6 +805,7 @@ function BuyConfirm({
   gold,
   coreLoopOn,
   bankedGold,
+  frontierDepth,
   busy,
   onConfirm,
   onCancel,
@@ -808,6 +815,7 @@ function BuyConfirm({
   // affordability 게이트 — flag on 이면 보유+은행. 표시되는 "구매 후 골드" 투영은 보유 기준 유지.
   coreLoopOn: boolean;
   bankedGold: number;
+  frontierDepth: number;
   busy: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -835,6 +843,9 @@ function BuyConfirm({
     gold === null ||
     (coreLoopOn ? gold + bankedGold : gold) >= listing.price;
   const after = gold === null ? null : gold - listing.price;
+  const progressionLock = item
+    ? equipmentProgressionLock(item, frontierDepth)
+    : null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
@@ -877,6 +888,11 @@ function BuyConfirm({
           </div>
           {detail && (
             <div className="text-[11px] text-zinc-600 dark:text-zinc-300">{detail.line}</div>
+          )}
+          {progressionLock && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-medium text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              구매·보관은 가능하지만 {progressionLock.label} 전에는 착용할 수 없습니다.
+            </div>
           )}
           {listing.kind === "consumable" &&
             (() => {
@@ -992,6 +1008,7 @@ function ListingList({
   emptyText,
   action,
   priceRef,
+  frontierDepth,
   expiryDays,
   onOpenCard,
 }: {
@@ -999,6 +1016,7 @@ function ListingList({
   emptyText: string;
   action: (l: Listing) => React.ReactNode;
   priceRef: Record<string, PriceStat>;
+  frontierDepth?: number;
   expiryDays?: number;
   // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
   onOpenCard?: (
@@ -1046,6 +1064,10 @@ function ListingList({
         const item =
           l.kind === "equip"
             ? V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]
+            : null;
+        const progressionLock =
+          item && frontierDepth != null
+            ? equipmentProgressionLock(item, frontierDepth)
             : null;
         const enhance =
           l.kind === "equip" ? listingEnhance(l.instancePayload) : undefined;
@@ -1112,6 +1134,11 @@ function ListingList({
             {detail && (
               <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
                 {detail.line}
+              </div>
+            )}
+            {progressionLock && (
+              <div className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                🔒 착용 조건: {progressionLock.label}
               </div>
             )}
             <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">

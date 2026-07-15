@@ -85,6 +85,18 @@ export function GuildFacilityUpgradeFund({
     );
   });
 
+  function setDonationAmount(
+    materialId: SettlementDonationMaterialId,
+    amount: number,
+    max: number,
+  ) {
+    const safe = Math.max(0, Math.min(Math.floor(max), Math.floor(amount)));
+    setDraft((current) => ({
+      ...current,
+      [materialId]: String(safe),
+    }));
+  }
+
   async function openDonation() {
     setNotice(null);
     setDonateOpen(true);
@@ -213,31 +225,95 @@ export function GuildFacilityUpgradeFund({
             .map((row) => {
               const owned = inventory[row.materialId] ?? 0;
               const max = Math.min(owned, row.remaining);
+              const selected = Math.max(
+                0,
+                Math.min(max, Math.floor(Number(draft[row.materialId]) || 0)),
+              );
               return (
-                <label
+                <div
                   key={row.materialId}
-                  className="flex flex-wrap items-center gap-2 text-[11px]"
+                  className="space-y-1.5 rounded border border-zinc-200 bg-zinc-50 p-2 text-[11px] dark:border-zinc-700 dark:bg-zinc-900"
                 >
-                  <span className="w-24 shrink-0">
-                    {settlementDonationMaterialName(row.materialId)}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={max}
-                    value={draft[row.materialId] ?? ""}
-                    onChange={(event) =>
-                      setDraft((current) => ({
-                        ...current,
-                        [row.materialId]: event.target.value,
-                      }))
-                    }
-                    className="w-20 rounded border border-zinc-300 bg-white px-1.5 py-0.5 tabular-nums dark:border-zinc-600 dark:bg-zinc-800"
-                  />
-                  <span className="text-zinc-400">
-                    보유 {owned.toLocaleString()} · 남음 {row.remaining.toLocaleString()}
-                  </span>
-                </label>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                      {settlementDonationMaterialName(row.materialId)}
+                    </span>
+                    <span className="font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                      {selected.toLocaleString()}개 선택
+                    </span>
+                  </div>
+                  <div className="text-zinc-400">
+                    보유 {owned.toLocaleString()} · 남음{" "}
+                    {row.remaining.toLocaleString()}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label={`${settlementDonationMaterialName(row.materialId)} 기부 수량 1 감소`}
+                      onClick={() =>
+                        setDonationAmount(row.materialId, selected - 1, max)
+                      }
+                      disabled={donating || selected <= 0}
+                      className="h-7 w-7 shrink-0 rounded border border-zinc-300 bg-white text-sm font-semibold text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="range"
+                      aria-label={`${settlementDonationMaterialName(row.materialId)} 기부 수량`}
+                      min={0}
+                      max={max}
+                      step={1}
+                      value={selected}
+                      onChange={(event) =>
+                        setDonationAmount(
+                          row.materialId,
+                          Number(event.target.value),
+                          max,
+                        )
+                      }
+                      disabled={donating || max <= 0}
+                      className="h-7 min-w-0 flex-1 cursor-pointer accent-amber-500 disabled:cursor-not-allowed disabled:opacity-40"
+                    />
+                    <button
+                      type="button"
+                      aria-label={`${settlementDonationMaterialName(row.materialId)} 기부 수량 1 증가`}
+                      onClick={() =>
+                        setDonationAmount(row.materialId, selected + 1, max)
+                      }
+                      disabled={donating || selected >= max}
+                      className="h-7 w-7 shrink-0 rounded border border-zinc-300 bg-white text-sm font-semibold text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <div className="flex justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDonationAmount(
+                          row.materialId,
+                          Math.ceil(max / 2),
+                          max,
+                        )
+                      }
+                      disabled={donating || max <= 0}
+                      className="rounded border border-zinc-300 bg-white px-2 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    >
+                      절반
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDonationAmount(row.materialId, max, max)
+                      }
+                      disabled={donating || max <= 0}
+                      className="rounded border border-amber-400 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                    >
+                      최대
+                    </button>
+                  </div>
+                </div>
               );
             })}
           <div className="flex justify-center gap-2">

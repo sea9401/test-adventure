@@ -17,13 +17,18 @@ import {
 import {
   addCumLevel,
   addJobCumLevel,
+  addPoints,
   parseProficiencyForChar,
 } from "@/adventure/data/v2/proficiency";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 
 type Body = {
   jobId?: unknown;
   amount?: unknown;
+  mode?: unknown;
 };
+
+type CertificateUseMode = "mastery" | "proficiency";
 
 function parseAmount(value: unknown, held: number): number {
   const n = Math.floor(Number(value));
@@ -38,6 +43,16 @@ export async function POST(req: Request) {
   }
   const body = (await req.json().catch(() => ({}))) as Body;
   const jobId = typeof body.jobId === "string" ? body.jobId : "";
+  const mode: CertificateUseMode | null =
+    body.mode == null
+      ? "mastery"
+      : body.mode === "mastery" || body.mode === "proficiency"
+        ? body.mode
+        : null;
+
+  if (!mode) {
+    return Response.json({ ok: false, error: "bad_mode" }, { status: 400 });
+  }
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<Record<string, unknown>>(
@@ -64,6 +79,37 @@ export async function POST(req: Request) {
       };
     }
 
+    const profRaw = await lockSaveForUpdate<unknown>(
+      tx,
+      userId,
+      "proficiency.v2",
+      {},
+    );
+    let prof = parseProficiencyForChar(profRaw, charSave);
+
+    if (mode === "proficiency") {
+      const group = tier1ClassOf(parseV2Class(charSave.class));
+      prof = addPoints(prof, group, amount);
+      const remaining = held - amount;
+
+      await upsertSave(tx, userId, "proficiency.v2", prof);
+      await upsertSave(tx, userId, "inventory.v2", {
+        ...inventory,
+        [MASTERY_CERTIFICATE_KEY]: remaining,
+      });
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          mode: "proficiency" as const,
+          used: amount,
+          remaining,
+          proficiencyAfter: prof.points,
+        },
+      };
+    }
+
     const job = V2_JOB_CATALOG[jobId];
     if (!job || job.id === "none" || !isRootJobSelectable(job)) {
       return { status: 400, body: { ok: false as const, error: "bad_job" } };
@@ -80,14 +126,6 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "farming_job" },
       };
     }
-
-    const profRaw = await lockSaveForUpdate<unknown>(
-      tx,
-      userId,
-      "proficiency.v2",
-      {},
-    );
-    let prof = parseProficiencyForChar(profRaw, charSave);
     if (!isJobUnlocked(job, prof)) {
       return { status: 400, body: { ok: false as const, error: "job_locked" } };
     }
@@ -107,6 +145,7 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
+        mode: "mastery" as const,
         jobId: job.id,
         jobName: job.name,
         group,
@@ -129,30 +168,46 @@ export async function POST(req: Request) {
       itemId: MASTERY_CERTIFICATE_KEY,
       quantity: -result.body.used,
       detail: {
-        jobId: result.body.jobId,
-        jobName: result.body.jobName,
-        group: result.body.group,
-        jobMastery: result.body.jobMastery,
-        groupMastery: result.body.groupMastery,
+        mode: result.body.mode,
+        ...(result.body.mode === "mastery"
+          ? {
+              jobId: result.body.jobId,
+              jobName: result.body.jobName,
+              group: result.body.group,
+              jobMastery: result.body.jobMastery,
+              groupMastery: result.body.groupMastery,
+            }
+          : { proficiencyAfter: result.body.proficiencyAfter }),
       },
     });
-    recordEconomyEventSoon({
-      userId,
-      eventType: "proficiency.certificate.gain",
-      itemKind: "mastery",
-      itemId: result.body.jobId,
-      quantity: result.body.used,
-      detail: {
-        jobName: result.body.jobName,
-        group: result.body.group,
-      },
-    });
+    if (result.body.mode === "mastery") {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "proficiency.certificate.gain",
+        itemKind: "mastery",
+        itemId: result.body.jobId,
+        quantity: result.body.used,
+        detail: {
+          jobName: result.body.jobName,
+          group: result.body.group,
+        },
+      });
+    } else {
+      recordEconomyEventSoon({
+        userId,
+        eventType: "proficiency.certificate.points",
+        itemKind: "proficiency",
+        itemId: "proficiency",
+        quantity: result.body.used,
+        detail: { proficiencyAfter: result.body.proficiencyAfter },
+      });
+    }
   } else if (result.status !== 200 && !result.body.ok) {
     recordRewardFailureSoon({
       userId,
       source: "mastery_certificate",
       error: result.body.error,
-      detail: { jobId, status: result.status },
+      detail: { mode, jobId, status: result.status },
     });
   }
 

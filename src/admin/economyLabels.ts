@@ -24,6 +24,7 @@ export const ECONOMY_EVENT_LABELS: Record<string, string> = {
   "marketplace.list": "거래소 등록",
   "marketplace.sell": "거래소 판매",
   "proficiency.certificate.gain": "숙련 증서 보너스",
+  "proficiency.certificate.points": "숙련 증서 숙달 포인트 전환",
   "proficiency.certificate.use": "숙련 증서 사용",
   "proficiency.guild_training": "길드 훈련장 숙련",
   "reward.claim": "보상 수령",

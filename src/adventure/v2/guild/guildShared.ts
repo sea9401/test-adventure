@@ -1,4 +1,5 @@
 import type {
+  GuildFacilityDonationProgressMap,
   SettlementBuildingId,
   SettlementResources,
 } from "@/adventure/data/v2/settlement";
@@ -67,6 +68,8 @@ export type GuildInfoResponse = {
   // 길드 소유 마을에 배치된 영지 건축물의 최고 레벨.
   settlementBuildingLevels?: Partial<Record<SettlementBuildingId, number>>;
   settlementResources?: SettlementResources;
+  // 다음 시설 레벨을 위해 길드원들이 함께 채운 재료.
+  facilityUpgradeDonations?: GuildFacilityDonationProgressMap;
   hasGuildSmithy?: boolean;
   hasTrainingGround?: boolean;
   hasMapWorkshop?: boolean;

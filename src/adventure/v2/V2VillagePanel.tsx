@@ -20,6 +20,9 @@ import {
   SETTLEMENT_RESOURCE_NAME,
   PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
+  SETTLEMENT_DONATION_MATERIAL_IDS,
+  SETTLEMENT_MATERIAL_TO_RESOURCE,
+  SETTLEMENT_RESOURCE_KEYS,
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
   VILLAGE_BUILD_GOLD_COST,
@@ -28,21 +31,21 @@ import {
   terrainTraitDesc,
   SETTLEMENT_BUILDINGS,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  canAffordSettlementBuildingUpgrade,
   nextSettlementBuildingUpgrade,
+  settlementDonationMaterialName,
   settlementBuildingIdOf,
   settlementBuildingLevelOf,
   settlementBuildingUpgradeSummary,
   settlementBuildingUpgradeCostText,
+  settlementResourceIcon,
+  settlementResourceName,
   type SettlementBuildingId,
   type SettlementBuildingSlot,
   type VillageTier,
-  type ProductionKind,
+  type SettlementResources,
   type TerrainTrait,
 } from "@/adventure/data/v2/settlement";
-import {
-  SETTLEMENT_MATERIAL_ID,
-  SETTLEMENT_MATERIALS,
-} from "@/adventure/data/v2/settlementMaterials";
 
 // 길드 마을 관리 패널 — 점령 거점 상세(OutpostView)에 노출.
 //   마스터/관리자: 마을 건설(이름)·이름 변경·건축물 슬롯 해금·배치·단계 업그레이드.
@@ -57,7 +60,7 @@ type Village = {
   maxSlots: number; // 이 단계 해금 상한. 현재 정책은 마을별 1칸.
   buildings?: Record<string, SettlementBuildingId | SettlementBuildingSlot>;
 };
-type Resources = Partial<Record<ProductionKind, number>>;
+type Resources = SettlementResources;
 
 // 큰 골드는 억/만 단위로 — 5,000만 → "5,000만", 1억 → "1억", 1억 5,000만 → "1억 5,000만".
 function fmtGold(n: number): string {
@@ -112,11 +115,10 @@ export function V2VillagePanel({
   const [buildName, setBuildName] = useState(""); // 건설 폼 이름 입력
   const [renaming, setRenaming] = useState(false); // 이름 변경 폼 토글
   const [renameName, setRenameName] = useState(""); // 이름 변경 입력
-  // 재료 기부 — 개인 인벤(통나무/철광석) → 정착지 풀(crop/ore). 길드원 전원 가능.
+  // 재료 기부 — 개인 인벤의 등급별 원목·광석 → 길드 정착지 풀. 길드원 전원 가능.
   const [inv, setInv] = useState<Record<string, number>>({}); // 개인 보유 재료
   const [donateOpen, setDonateOpen] = useState(false);
-  const [donateTimber, setDonateTimber] = useState("");
-  const [donateIronOre, setDonateIronOre] = useState("");
+  const [donationDraft, setDonationDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setErr(null);
@@ -153,7 +155,7 @@ export function V2VillagePanel({
     void load();
   }, [load]);
 
-  // 개인 보유 재료(통나무/철광석) — 기부 폼의 보유량/상한 표시용.
+  // 개인 보유 생활 재료 — 기부 폼의 보유량/상한 표시용.
   const loadInv = useCallback(async () => {
     try {
       const r = await fetch("/api/v2/me/inventory");
@@ -204,18 +206,17 @@ export function V2VillagePanel({
 
   // 재료 기부 제출 — 0 초과 입력만 추려 donate 호출 후 보유/풀 갱신.
   const submitDonate = useCallback(async () => {
-    const t = Math.floor(Number(donateTimber) || 0);
-    const o = Math.floor(Number(donateIronOre) || 0);
     const donations: Record<string, number> = {};
-    if (t > 0) donations[SETTLEMENT_MATERIAL_ID.timber] = t;
-    if (o > 0) donations[SETTLEMENT_MATERIAL_ID.ironOre] = o;
+    for (const id of SETTLEMENT_DONATION_MATERIAL_IDS) {
+      const amount = Math.floor(Number(donationDraft[id]) || 0);
+      if (amount > 0) donations[id] = amount;
+    }
     if (Object.keys(donations).length === 0) return;
     await act("donate", { donations });
-    setDonateTimber("");
-    setDonateIronOre("");
+    setDonationDraft({});
     setDonateOpen(false);
     await loadInv();
-  }, [donateTimber, donateIronOre, act, loadInv]);
+  }, [donationDraft, act, loadInv]);
 
   // 거점 지형 특성 — 마을 있으면 GET 값, 없으면(빈 공터) id 로 파생.
   const trait: TerrainTrait = village?.trait ?? terrainTraitOf(outpostId);
@@ -335,42 +336,35 @@ export function V2VillagePanel({
       <span className="font-medium text-zinc-700 dark:text-zinc-200">
         길드 자원
       </span>
-      {PRODUCTION_KINDS.map((k) => (
-        <span key={k} className="war-resource-pill tabular-nums">
-          {PRODUCTION_KIND_ICON[k]} {SETTLEMENT_RESOURCE_NAME[k]}{" "}
-          {resources[k] ?? 0}
+      {SETTLEMENT_RESOURCE_KEYS.filter(
+        (key) => key === "crop" || key === "ore" || (resources[key] ?? 0) > 0,
+      ).map((key) => (
+        <span key={key} className="war-resource-pill tabular-nums">
+          {settlementResourceIcon(key)} {settlementResourceName(key)}{" "}
+          {resources[key] ?? 0}
         </span>
       ))}
     </div>
   );
 
-  // ── 재료 전환 ── 개인 인벤(통나무/철광석)을 정착지 풀(crop/ore)에 적립. 길드원 전원. ──────
-  const ownTimber = inv[SETTLEMENT_MATERIAL_ID.timber] ?? 0;
-  const ownIronOre = inv[SETTLEMENT_MATERIAL_ID.ironOre] ?? 0;
-  const dT = Math.floor(Number(donateTimber) || 0);
-  const dO = Math.floor(Number(donateIronOre) || 0);
+  // ── 재료 전환 ── 모든 등급 원목·광석을 재료 종류를 보존해 길드 풀에 적립. ──────
+  const donateRows = SETTLEMENT_DONATION_MATERIAL_IDS.map((id) => {
+    const resourceKey = SETTLEMENT_MATERIAL_TO_RESOURCE[id];
+    return {
+      id,
+      label: settlementDonationMaterialName(id),
+      target: settlementResourceName(resourceKey),
+      icon: settlementResourceIcon(resourceKey),
+      own: inv[id] ?? 0,
+      val: donationDraft[id] ?? "",
+    };
+  });
   const donateValid =
-    (dT > 0 || dO > 0) && dT <= ownTimber && dO <= ownIronOre;
-  const donateRows = [
-    {
-      id: SETTLEMENT_MATERIAL_ID.timber,
-      label: SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.timber].name,
-      target: SETTLEMENT_RESOURCE_NAME.crop,
-      icon: PRODUCTION_KIND_ICON.crop,
-      own: ownTimber,
-      val: donateTimber,
-      set: setDonateTimber,
-    },
-    {
-      id: SETTLEMENT_MATERIAL_ID.ironOre,
-      label: SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.ironOre].name,
-      target: SETTLEMENT_RESOURCE_NAME.ore,
-      icon: PRODUCTION_KIND_ICON.ore,
-      own: ownIronOre,
-      val: donateIronOre,
-      set: setDonateIronOre,
-    },
-  ];
+    donateRows.some((row) => Math.floor(Number(row.val) || 0) > 0) &&
+    donateRows.every((row) => {
+      const amount = Math.floor(Number(row.val) || 0);
+      return amount >= 0 && amount <= row.own;
+    });
   const donateBox = built ? (
     <div className="text-xs">
       {!donateOpen ? (
@@ -385,12 +379,12 @@ export function V2VillagePanel({
       ) : (
         <div className="space-y-1.5 rounded border border-zinc-200 p-2 dark:border-zinc-700">
           <p className="text-zinc-500 dark:text-zinc-400">
-            개인 인벤의 재료를 길드 자원으로 전환합니다. 전환한 재료는
-            개인 제작 재료로 되돌릴 수 없습니다.
+            개인 인벤의 등급별 원목·광석을 길드 자원으로 전환합니다. 재료
+            종류는 그대로 보존되며 개인 제작 재료로 되돌릴 수 없습니다.
           </p>
           {donateRows.map((row) => (
             <label key={row.id} className="flex flex-wrap items-center gap-2">
-              <span className="w-12 shrink-0">{row.label}</span>
+              <span className="w-24 shrink-0">{row.label}</span>
               <span className="shrink-0 text-zinc-400">→</span>
               <span className="w-20 shrink-0 text-zinc-600 dark:text-zinc-300">
                 {row.icon} {row.target}
@@ -400,7 +394,12 @@ export function V2VillagePanel({
                 min={0}
                 max={row.own}
                 value={row.val}
-                onChange={(e) => row.set(e.target.value)}
+                onChange={(e) =>
+                  setDonationDraft((current) => ({
+                    ...current,
+                    [row.id]: e.target.value,
+                  }))
+                }
                 className="w-20 rounded border border-zinc-300 bg-white px-1.5 py-0.5 tabular-nums dark:border-zinc-600 dark:bg-zinc-800"
               />
               <span className="text-zinc-400">보유 {row.own}</span>
@@ -419,8 +418,7 @@ export function V2VillagePanel({
               type="button"
               onClick={() => {
                 setDonateOpen(false);
-                setDonateTimber("");
-                setDonateIronOre("");
+                setDonationDraft({});
               }}
               disabled={busy}
               className="rounded px-2 py-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -642,9 +640,9 @@ export function V2VillagePanel({
                     : null;
                 const canAffordBuildingUpgrade =
                   nextUpgrade != null &&
-                  PRODUCTION_KINDS.every(
-                    (kind) =>
-                      (resources[kind] ?? 0) >= (nextUpgrade.cost[kind] ?? 0),
+                  canAffordSettlementBuildingUpgrade(
+                    resources,
+                    nextUpgrade.cost,
                   );
                 return (
                   <div

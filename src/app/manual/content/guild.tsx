@@ -14,7 +14,13 @@ import {
   GUILD_EXPLORATION_WEEKLY_MISSION_IDS,
   GUILD_EXPLORATION_WEEKLY_MISSIONS,
 } from "@/adventure/data/v2/guildExploration";
-import { explorationHqUpgradeForLevel } from "@/adventure/data/v2/settlement";
+import {
+  EXPLORATION_HQ_UPGRADES,
+  GUILD_SMITHY_UPGRADES,
+  TRAINING_GROUND_UPGRADES,
+  explorationHqUpgradeForLevel,
+  settlementBuildingUpgradeCostText,
+} from "@/adventure/data/v2/settlement";
 import {
   GUILD_TRAINING_DRILLS,
   GUILD_TRAINING_DRILL_IDS,
@@ -73,6 +79,41 @@ export function GuildContent() {
         점령 거점에서 사냥하면 세금이 쌓이고, 길드원이 회수하면 일부는 회수자에게,
         나머지가 금고로 들어갑니다. 자세한 건 <Em>거점과 영토</Em> 페이지를 보세요.
       </P>
+
+      <H2>길드 시설 업그레이드</H2>
+      <P>
+        개방된 시설이 Lv.5 미만이면 다음 레벨의 재료 기부가 항상 열려 있습니다.
+        길드원 누구나 생활에서 얻은 <Em>모든 등급의 원목·광석</Em>을 원하는
+        만큼 보탤 수 있으며, 시설 단계가 오를수록 상위 원목과 광석도 함께
+        요구합니다.
+      </P>
+      <Table
+        head={["목표 레벨", "공통 생활 재료 요구량"]}
+        rows={GUILD_SMITHY_UPGRADES.slice(1).map((upgrade) => [
+          `Lv.${upgrade.level}`,
+          settlementBuildingUpgradeCostText({
+            ...upgrade.cost,
+            gold: 0,
+            fame: 0,
+          }),
+        ])}
+        caption="제작소·훈련장·탐사 본부가 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
+      />
+      <Table
+        head={["시설", "Lv2", "Lv3", "Lv4", "Lv5"]}
+        rows={[
+          ["제작소", GUILD_SMITHY_UPGRADES],
+          ["훈련장", TRAINING_GROUND_UPGRADES],
+          ["탐사 본부", EXPLORATION_HQ_UPGRADES],
+        ].map(([name, upgrades]) => [
+          <Em key={String(name)}>{String(name)}</Em>,
+          ...(upgrades as typeof GUILD_SMITHY_UPGRADES).slice(1).map(
+            (upgrade) =>
+              `${(upgrade.cost.gold ?? 0).toLocaleString("ko-KR")}G · 명성 ${(upgrade.cost.fame ?? 0).toLocaleString("ko-KR")}`,
+          ),
+        ])}
+        caption="재료가 모두 모이면 관리자만 업그레이드를 완료할 수 있습니다. 완료할 때 길드 금고 골드와 사용 가능한 길드 명성을 소비하고, 다음 레벨 기부가 자동으로 열립니다. Lv2는 명성을 요구하지 않습니다."
+      />
 
       <H2>전투보급 연구</H2>
       <P>

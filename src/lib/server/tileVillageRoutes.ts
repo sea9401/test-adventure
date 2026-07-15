@@ -35,12 +35,13 @@ import {
 import {
   INITIAL_UNLOCKED_SLOTS,
   MAX_SLOTS_BY_TIER,
+  SETTLEMENT_MATERIAL_TO_RESOURCE,
   VILLAGE_BUILD_GOLD_COST,
   canUpgrade,
   applyUpgradeCost,
+  type SettlementDonationMaterialId,
 } from "@/adventure/data/v2/settlement";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { SETTLEMENT_MATERIAL_TO_KIND } from "@/adventure/data/v2/settlementMaterials";
 
 // 기부로 차감할 개인 재료(통나무/철광석)는 character.v2 세이브의 materials 에 있다(강화/드랍과 동일).
 type CharSaveMaterials = { materials?: Record<string, number>; [k: string]: unknown };
@@ -276,8 +277,8 @@ export async function tileUpgrade(
   }
 }
 
-// donate — 개인 인벤(통나무/철광석)을 정착지 재화 풀(crop/ore)에 기부한다. 길드원 전원 가능
-//   (관리권 불요·requireAdmin=false). 통나무→crop / 철광석→ore (SETTLEMENT_MATERIAL_TO_KIND).
+// donate — 개인 인벤의 등급별 원목/광석을 정착지 재화 풀에 기부한다. 길드원 전원 가능
+//   (관리권 불요·requireAdmin=false). 기초 재료는 crop/ore, 상위 재료는 ID별로 보존한다.
 //   lock 순서: 점령행(resolve) → character.v2(개인 재료) → 정착지 풀. 단일 tx·중첩 트랜잭션 없음.
 export async function tileDonate(
   userId: string,
@@ -289,7 +290,7 @@ export async function tileDonate(
   // 검증(트랜잭션 전) — 키는 정착지 재료만·양수 정수·최소 1종. 알 수 없는 키는 거부.
   const entries: Array<[string, number]> = [];
   for (const [id, raw] of Object.entries(donations ?? {})) {
-    if (!(id in SETTLEMENT_MATERIAL_TO_KIND)) {
+    if (!(id in SETTLEMENT_MATERIAL_TO_RESOURCE)) {
       return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
     }
     const n = typeof raw === "number" ? Math.floor(raw) : NaN;
@@ -328,8 +329,9 @@ export async function tileDonate(
         const resources = await lockSettlementResources(tx, ctx.owner);
         for (const [id, n] of entries) {
           materials[id] = Math.max(0, Math.floor(Number(materials[id]) || 0) - n);
-          const kind = SETTLEMENT_MATERIAL_TO_KIND[id];
-          resources[kind] = (resources[kind] ?? 0) + n;
+          const resourceKey =
+            SETTLEMENT_MATERIAL_TO_RESOURCE[id as SettlementDonationMaterialId];
+          resources[resourceKey] = (resources[resourceKey] ?? 0) + n;
         }
         await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
         await upsertSettlementResources(tx, ctx.owner, resources);

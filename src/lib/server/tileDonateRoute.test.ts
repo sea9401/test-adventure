@@ -1,4 +1,4 @@
-// PR-2b — tileDonate(개인 인벤 통나무/철광석 → 정착지 재화 풀 crop/ore) 통합 검증.
+// tileDonate(개인 인벤 등급별 원목·광석 → 길드 정착지 재화 풀) 통합 검증.
 //   stateful @/db mock + savesKv mock(개인 character.v2 재료) + REAL v2Settlement.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,8 @@ import {
   v2GuildResources,
   userSettlementResources,
 } from "@/db/schema";
+import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
+import { MINING_MATERIAL_ID } from "@/adventure/data/v2/miningSpots";
 
 const ME = "u-me";
 const GUILD = 7;
@@ -126,6 +128,35 @@ describe("tileDonate — 개인 재료 → 정착지 풀 기부", () => {
     expect(store.get(v2GuildResources)![0].settlement).toEqual({
       crop: 15,
       ore: 7,
+    });
+  });
+
+  it("상위 원목·광석 기부 → 재료 종류를 보존해 길드 풀에 적립", async () => {
+    seedGuildOccupation();
+    store.set(v2GuildResources, [
+      { guildId: GUILD, gold: 0, settlement: { crop: 5, ore: 3 } },
+    ]);
+    soloSave.set(ME, {
+      materials: {
+        [WOODCUTTING_MATERIAL_ID.birch]: 20,
+        [MINING_MATERIAL_ID.copper]: 15,
+      },
+    });
+
+    const res = await tileDonate(ME, TILE, {
+      [WOODCUTTING_MATERIAL_ID.birch]: 7,
+      [MINING_MATERIAL_ID.copper]: 4,
+    });
+    expect(res.status).toBe(200);
+    expect((soloSave.get(ME)!.materials as Record<string, number>)).toEqual({
+      [WOODCUTTING_MATERIAL_ID.birch]: 13,
+      [MINING_MATERIAL_ID.copper]: 11,
+    });
+    expect(store.get(v2GuildResources)![0].settlement).toEqual({
+      crop: 5,
+      ore: 3,
+      [WOODCUTTING_MATERIAL_ID.birch]: 7,
+      [MINING_MATERIAL_ID.copper]: 4,
     });
   });
 

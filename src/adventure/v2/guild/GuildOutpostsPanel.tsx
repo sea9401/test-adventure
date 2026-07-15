@@ -4,10 +4,8 @@ import { useState } from "react";
 import {
   GUILD_FACILITY_UNLOCK_GOLD_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
-  PRODUCTION_KINDS,
   SETTLEMENT_BUILDINGS,
   nextSettlementBuildingUpgrade,
-  settlementBuildingUpgradeCostText,
   settlementBuildingUpgradeSummary,
   type SettlementBuildingId,
 } from "@/adventure/data/v2/settlement";
@@ -15,6 +13,7 @@ import type { GuildInfoResponse, Notice } from "./guildShared";
 import { GuildExplorationPanel } from "./GuildExplorationPanel";
 import { GuildTrainingGroundPanel } from "./GuildTrainingGroundPanel";
 import { GuildWorkshopPanel } from "./GuildWorkshopPanel";
+import { GuildFacilityUpgradeFund } from "./GuildFacilityUpgradeFund";
 
 const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_smithy: "장비 제작과 대장장이 성장을 지원하는 길드 공용 시설입니다.",
@@ -104,70 +103,93 @@ export function GuildFacilitiesPanel({
           길드 시설
         </h3>
         <div className="grid gap-2 md:grid-cols-2">
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="flex min-h-[96px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span aria-hidden>{row.icon}</span>
-                    <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                      {row.name}
-                    </span>
+          {rows.map((row) => {
+            const next =
+              row.count > 0
+                ? nextSettlementBuildingUpgrade(row.id, row.level)
+                : null;
+            return (
+              <div
+                key={row.id}
+                className="flex min-h-[96px] flex-col justify-between rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span aria-hidden>{row.icon}</span>
+                      <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                        {row.name}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      {row.desc}
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {row.desc}
-                  </p>
+                  {row.count > 0 ? (
+                    <div className="shrink-0 text-right">
+                      <span className="inline-flex rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                        Lv {row.level}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="shrink-0 text-right">
+                      <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                        미개방
+                      </span>
+                      {row.cost > 0 && (
+                        <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {row.cost.toLocaleString()}G
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {row.count > 0 ? (
-                  <div className="shrink-0 text-right">
-                    <span className="inline-flex rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                      Lv {row.level}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="shrink-0 text-right">
-                    <span className="inline-flex rounded bg-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                      미개방
-                    </span>
-                    {row.cost > 0 && (
-                      <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        {row.cost.toLocaleString()}G
-                      </div>
+                {row.count > 0 && (
+                  <div className="mt-2 space-y-2">
+                    {next &&
+                      PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id) && (
+                        <GuildFacilityUpgradeFund
+                          buildingId={row.id}
+                          next={next}
+                          progress={info?.facilityUpgradeDonations?.[row.id]}
+                          guildGold={info?.guildGold ?? 0}
+                          guildFame={info?.guild?.fameAvailable ?? 0}
+                          onChanged={onChanged}
+                        />
+                      )}
+                    {!next &&
+                      PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id) && (
+                        <p className="text-center text-xs font-medium text-emerald-600 dark:text-emerald-300">
+                          최대 레벨에 도달했습니다.
+                        </p>
+                      )}
+                    {isOpenableFacility(row.id) ? (
+                      <button
+                        type="button"
+                        onClick={() => setActiveFacility(row.id)}
+                        className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                      >
+                        {row.name} {row.actionLabel}
+                      </button>
+                    ) : (
+                      <p className="mx-auto w-[70%] rounded-md border border-zinc-200 bg-white px-3 py-2 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
+                        준비 중인 시설입니다.
+                      </p>
                     )}
                   </div>
                 )}
-              </div>
-              {row.count > 0 && (
-                <div className="mt-2 space-y-2">
-                  {isOpenableFacility(row.id) ? (
-                    <button
-                      type="button"
-                      onClick={() => setActiveFacility(row.id)}
-                      className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-                    >
-                      {row.name} {row.actionLabel}
-                    </button>
-                  ) : (
-                    <p className="mx-auto w-[70%] rounded-md border border-zinc-200 bg-white px-3 py-2 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
-                      준비 중인 시설입니다.
+                {row.count <= 0 && (
+                  <div className="mt-2 space-y-1.5 text-center">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id)
+                        ? "관리 탭에서 개방할 수 있습니다."
+                        : "아직 개방할 수 없는 시설입니다."}
                     </p>
-                  )}
-                </div>
-              )}
-              {row.count <= 0 && (
-                <div className="mt-2 space-y-1.5 text-center">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {PLACEABLE_SETTLEMENT_BUILDING_IDS.includes(row.id)
-                      ? "관리 탭에서 개방할 수 있습니다."
-                      : "아직 개방할 수 없는 시설입니다."}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -199,7 +221,6 @@ export function GuildFacilitiesManagePanel({
   );
   const guildGold = info?.guildGold ?? 0;
   const guildFame = info?.guild?.fameAvailable ?? 0;
-  const settlementResources = info?.settlementResources ?? {};
   const rows = VISIBLE_GUILD_FACILITY_IDS.map((id) => {
     const def = SETTLEMENT_BUILDINGS[id];
     const count = info?.settlementBuildings?.[id] ?? 0;
@@ -287,14 +308,6 @@ export function GuildFacilitiesManagePanel({
             row.count > 0
               ? nextSettlementBuildingUpgrade(row.id, row.level)
               : null;
-          const canAffordUpgrade =
-            next != null &&
-            PRODUCTION_KINDS.every(
-              (kind) =>
-                (settlementResources[kind] ?? 0) >= (next.cost[kind] ?? 0),
-            ) &&
-            guildGold >= (next.cost.gold ?? 0) &&
-            guildFame >= (next.cost.fame ?? 0);
           return (
             <div
               key={row.id}
@@ -353,25 +366,21 @@ export function GuildFacilitiesManagePanel({
                           {settlementBuildingUpgradeSummary(row.id, next)}
                         </span>
                       </div>
-                      <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                        비용 {settlementBuildingUpgradeCostText(next.cost)}
-                      </div>
-                      {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => void upgradeFacility(row.id)}
-                          disabled={upgradingId != null || !canAffordUpgrade}
-                          className="mx-auto mt-2 block w-[70%] rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {upgradingId === row.id
-                            ? "업그레이드 중"
-                            : `${row.name} 업그레이드`}
-                        </button>
-                      )}
+                      <GuildFacilityUpgradeFund
+                        buildingId={row.id}
+                        next={next}
+                        progress={info?.facilityUpgradeDonations?.[row.id]}
+                        guildGold={guildGold}
+                        guildFame={guildFame}
+                        canComplete={canManage}
+                        completing={upgradingId === row.id}
+                        onComplete={() => void upgradeFacility(row.id)}
+                        onChanged={onChanged}
+                      />
                     </>
                   ) : (
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      추가 업그레이드가 없습니다.
+                      최대 레벨에 도달했습니다.
                     </p>
                   )}
                 </div>

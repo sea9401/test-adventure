@@ -38,27 +38,27 @@ export const MINING_MATERIALS: Record<
   [MINING_MATERIAL_ID.copper]: {
     id: MINING_MATERIAL_ID.copper,
     name: "구리광석",
-    description: "붉은 구리 광맥에서 캐낸 다루기 쉬운 광석. 생활 도구와 금속 부품 재료다.",
+    description: "붉은 구리 광맥에서 캐낸 다루기 쉬운 광석. 생활 도구 제작과 길드 시설 발전에 쓰인다.",
   },
   [MINING_MATERIAL_ID.silver]: {
     id: MINING_MATERIAL_ID.silver,
     name: "은광석",
-    description: "서늘한 은빛 동굴에서 캐낸 광석. 정교한 장식과 마력 전도 재료로 쓰인다.",
+    description: "서늘한 은빛 동굴에서 캐낸 광석. 정교한 장식과 길드 시설 발전에 쓰인다.",
   },
   [MINING_MATERIAL_ID.gold]: {
     id: MINING_MATERIAL_ID.gold,
     name: "금광석",
-    description: "깊은 금빛 광산에서 캐낸 귀금속 광석. 상급 장비와 장식 제작에 알맞다.",
+    description: "깊은 금빛 광산에서 캐낸 귀금속 광석. 상급 장비 제작과 길드 시설 발전에 알맞다.",
   },
   [MINING_MATERIAL_ID.mythril]: {
     id: MINING_MATERIAL_ID.mythril,
     name: "미스릴 원석",
-    description: "푸른빛이 맺힌 심층 광맥의 원석. 가볍고 강한 상급 합금 재료다.",
+    description: "푸른빛이 맺힌 심층 광맥의 원석. 상급 합금 제작과 길드 시설 발전에 쓰인다.",
   },
   [MINING_MATERIAL_ID.adamantite]: {
     id: MINING_MATERIAL_ID.adamantite,
     name: "아다만타이트 원석",
-    description: "붉은 심연 광맥에서 드물게 얻는 최고급 원석. 전설급 제작 재료로 쓰인다.",
+    description: "붉은 심연 광맥에서 드물게 얻는 최고급 원석. 전설급 제작과 길드 시설 발전에 쓰인다.",
   },
   [MINING_MATERIAL_ID.stone]: {
     id: MINING_MATERIAL_ID.stone,

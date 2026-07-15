@@ -18,12 +18,19 @@ import {
   SLOT_UNLOCK_GOLD_STEP,
   UPGRADE_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
+  GUILD_SMITHY_UPGRADES,
+  TRAINING_GROUND_UPGRADES,
+  EXPLORATION_HQ_UPGRADES,
+  SETTLEMENT_RESOURCE_KEYS,
+  canAffordSettlementBuildingUpgrade,
   explorationHqUpgradeForLevel,
   mapWorkshopUpgradeForLevel,
   nextSettlementBuildingUpgrade,
   settlementBuildingUpgradeSummary,
   trainingGroundUpgradeForLevel,
 } from "./settlement";
+import { WOODCUTTING_MATERIAL_ID } from "./woodcuttingSpots";
+import { MINING_MATERIAL_ID } from "./miningSpots";
 import { terrainTraitOf } from "./outposts";
 
 // [PR-3] 슬롯 생산(produce/harvest) 폐지 — isHarvestReady/harvestYield/tryStartProduction 등
@@ -64,12 +71,23 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("exploration_hq");
     expect(nextSettlementBuildingUpgrade("exploration_hq", 1)).toMatchObject({
       level: 2,
-      cost: { crop: 60, ore: 60, gold: 12_000_000, fame: 600 },
+      cost: { crop: 250, ore: 250, gold: 22_000_000, fame: 0 },
       weeklyMissionCount: 2,
       missionProgressBonusPct: 10,
     });
     expect(explorationHqUpgradeForLevel(5)).toMatchObject({
-      cost: { crop: 600, ore: 600, gold: 80_000_000, fame: 5600 },
+      cost: {
+        [WOODCUTTING_MATERIAL_ID.willow]: 400,
+        [MINING_MATERIAL_ID.silver]: 400,
+        [WOODCUTTING_MATERIAL_ID.oak]: 300,
+        [MINING_MATERIAL_ID.gold]: 300,
+        [WOODCUTTING_MATERIAL_ID.cedar]: 200,
+        [MINING_MATERIAL_ID.mythril]: 200,
+        [WOODCUTTING_MATERIAL_ID.cypress]: 100,
+        [MINING_MATERIAL_ID.adamantite]: 100,
+        gold: 175_000_000,
+        fame: 2800,
+      },
       weeklyMissionCount: 6,
       missionProgressBonusPct: 35,
     });
@@ -79,6 +97,77 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         explorationHqUpgradeForLevel(5),
       ),
     ).toBe("주간 탐사 6건 · 진척 +35%");
+  });
+
+  it("시설 비용은 상위 생활 재료를 단계적으로 요구하고 Lv2 명성은 무료다", () => {
+    for (const upgrades of [
+      GUILD_SMITHY_UPGRADES,
+      TRAINING_GROUND_UPGRADES,
+      EXPLORATION_HQ_UPGRADES,
+    ]) {
+      expect(upgrades[1].cost.fame).toBe(0);
+      expect(upgrades[2].cost).toMatchObject({
+        [WOODCUTTING_MATERIAL_ID.birch]: 200,
+        [MINING_MATERIAL_ID.copper]: 200,
+      });
+      expect(upgrades[3].cost).toMatchObject({
+        [WOODCUTTING_MATERIAL_ID.willow]: 250,
+        [MINING_MATERIAL_ID.silver]: 250,
+        [WOODCUTTING_MATERIAL_ID.oak]: 150,
+        [MINING_MATERIAL_ID.gold]: 150,
+      });
+      expect(upgrades[4].cost).toMatchObject({
+        [WOODCUTTING_MATERIAL_ID.cedar]: 200,
+        [MINING_MATERIAL_ID.mythril]: 200,
+        [WOODCUTTING_MATERIAL_ID.cypress]: 100,
+        [MINING_MATERIAL_ID.adamantite]: 100,
+      });
+    }
+  });
+
+  it("시설별 Lv5 누적 비용은 재료 5천 개이며 골드 비중과 명성 절감치를 고정한다", () => {
+    const totals = [
+      GUILD_SMITHY_UPGRADES,
+      TRAINING_GROUND_UPGRADES,
+      EXPLORATION_HQ_UPGRADES,
+    ].map((upgrades) => ({
+      materials: upgrades
+        .slice(1)
+        .reduce(
+          (sum, upgrade) =>
+            sum +
+            SETTLEMENT_RESOURCE_KEYS.reduce(
+              (resourceSum, key) => resourceSum + (upgrade.cost[key] ?? 0),
+              0,
+            ),
+          0,
+        ),
+      gold: upgrades
+        .slice(1)
+        .reduce((sum, upgrade) => sum + (upgrade.cost.gold ?? 0), 0),
+      fame: upgrades
+        .slice(1)
+        .reduce((sum, upgrade) => sum + (upgrade.cost.fame ?? 0), 0),
+    }));
+    expect(totals).toEqual([
+      { materials: 5_000, gold: 315_000_000, fame: 4_350 },
+      { materials: 5_000, gold: 380_000_000, fame: 5_350 },
+      { materials: 5_000, gold: 347_000_000, fame: 5_000 },
+    ]);
+  });
+
+  it("시설 재료 검증은 비용에 포함된 모든 등급을 확인한다", () => {
+    const cost = GUILD_SMITHY_UPGRADES[2].cost;
+    const resources = Object.fromEntries(
+      SETTLEMENT_RESOURCE_KEYS.map((key) => [key, cost[key] ?? 0]),
+    );
+    expect(canAffordSettlementBuildingUpgrade(resources, cost)).toBe(true);
+    expect(
+      canAffordSettlementBuildingUpgrade(
+        { ...resources, [WOODCUTTING_MATERIAL_ID.birch]: 199 },
+        cost,
+      ),
+    ).toBe(false);
   });
 
   it("지도 제작소는 임시 비활성화되어 신규 배치 목록에서 제외된다", () => {

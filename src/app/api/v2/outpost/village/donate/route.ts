@@ -3,8 +3,8 @@ import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig"
 import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { tileDonate } from "@/lib/server/tileVillageRoutes";
 
-// POST /api/v2/outpost/village/donate — body { outpostId, donations: { v2_timber?, v2_iron_ore? } }
-// 개인 인벤의 통나무/철광석을 정착지 재화 풀(crop/ore)에 기부한다. 길드원 전원 가능(관리권 불요).
+// POST /api/v2/outpost/village/donate — body { outpostId, donations: { [생활 재료 ID]: 수량 } }
+// 개인 인벤의 등급별 원목·광석을 길드 정착지 재화 풀에 기부한다. 길드원 전원 가능(관리권 불요).
 //   라이브 = 타일 정착지 경로(tileDonate). 카탈로그 거점(옛 경로)은 미지원.
 export async function POST(req: Request) {
   const userId = await ensureUser();

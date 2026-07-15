@@ -8,6 +8,12 @@
 // 🔑 설계 가드(메모리): 재화→업그레이드 자기완결 sink 루프가 옛 stone 경제(sink 0으로 삭제)와의
 //   결정적 차이. 생명 = 업그레이드 깊이/지속성. 수치는 전부 다이얼(라이브 실측 후 조정).
 
+import {
+  WOODCUTTING_MATERIAL_ID,
+  WOODCUTTING_MATERIALS,
+} from "./woodcuttingSpots";
+import { MINING_MATERIAL_ID, MINING_MATERIALS } from "./miningSpots";
+
 // ── 정착지 단계 ──────────────────────────────────────────────────────────
 export type VillageTier = "village" | "city" | "metropolis";
 export const VILLAGE_TIERS: VillageTier[] = ["village", "city", "metropolis"];
@@ -65,6 +71,106 @@ export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
   ore: "🪨",
 };
 export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
+
+// 길드 정착지에 기부할 수 있는 생활 재료. 기초 소나무/철은 레거시 crop/ore 풀을
+// 그대로 사용하고, 상위 재료는 재료 ID 자체를 키로 보존해 시설 비용에서 구분한다.
+export const SETTLEMENT_WOOD_MATERIAL_IDS = [
+  WOODCUTTING_MATERIAL_ID.pine,
+  WOODCUTTING_MATERIAL_ID.birch,
+  WOODCUTTING_MATERIAL_ID.willow,
+  WOODCUTTING_MATERIAL_ID.oak,
+  WOODCUTTING_MATERIAL_ID.cedar,
+  WOODCUTTING_MATERIAL_ID.cypress,
+] as const;
+export const SETTLEMENT_ORE_MATERIAL_IDS = [
+  MINING_MATERIAL_ID.iron,
+  MINING_MATERIAL_ID.copper,
+  MINING_MATERIAL_ID.silver,
+  MINING_MATERIAL_ID.gold,
+  MINING_MATERIAL_ID.mythril,
+  MINING_MATERIAL_ID.adamantite,
+] as const;
+export const SETTLEMENT_DONATION_MATERIAL_IDS = [
+  ...SETTLEMENT_WOOD_MATERIAL_IDS,
+  ...SETTLEMENT_ORE_MATERIAL_IDS,
+] as const;
+
+export type SettlementDonationMaterialId =
+  (typeof SETTLEMENT_DONATION_MATERIAL_IDS)[number];
+export type SettlementResourceKey =
+  | ProductionKind
+  | Exclude<
+      SettlementDonationMaterialId,
+      typeof WOODCUTTING_MATERIAL_ID.pine | typeof MINING_MATERIAL_ID.iron
+    >;
+
+export const SETTLEMENT_MATERIAL_TO_RESOURCE: Record<
+  SettlementDonationMaterialId,
+  SettlementResourceKey
+> = {
+  [WOODCUTTING_MATERIAL_ID.pine]: "crop",
+  [WOODCUTTING_MATERIAL_ID.birch]: WOODCUTTING_MATERIAL_ID.birch,
+  [WOODCUTTING_MATERIAL_ID.willow]: WOODCUTTING_MATERIAL_ID.willow,
+  [WOODCUTTING_MATERIAL_ID.oak]: WOODCUTTING_MATERIAL_ID.oak,
+  [WOODCUTTING_MATERIAL_ID.cedar]: WOODCUTTING_MATERIAL_ID.cedar,
+  [WOODCUTTING_MATERIAL_ID.cypress]: WOODCUTTING_MATERIAL_ID.cypress,
+  [MINING_MATERIAL_ID.iron]: "ore",
+  [MINING_MATERIAL_ID.copper]: MINING_MATERIAL_ID.copper,
+  [MINING_MATERIAL_ID.silver]: MINING_MATERIAL_ID.silver,
+  [MINING_MATERIAL_ID.gold]: MINING_MATERIAL_ID.gold,
+  [MINING_MATERIAL_ID.mythril]: MINING_MATERIAL_ID.mythril,
+  [MINING_MATERIAL_ID.adamantite]: MINING_MATERIAL_ID.adamantite,
+};
+
+export const SETTLEMENT_RESOURCE_TO_MATERIAL = Object.fromEntries(
+  Object.entries(SETTLEMENT_MATERIAL_TO_RESOURCE).map(([materialId, resourceKey]) => [
+    resourceKey,
+    materialId,
+  ]),
+) as Record<SettlementResourceKey, SettlementDonationMaterialId>;
+
+export const SETTLEMENT_RESOURCE_KEYS = [
+  "crop",
+  "ore",
+  WOODCUTTING_MATERIAL_ID.birch,
+  MINING_MATERIAL_ID.copper,
+  WOODCUTTING_MATERIAL_ID.willow,
+  MINING_MATERIAL_ID.silver,
+  WOODCUTTING_MATERIAL_ID.oak,
+  MINING_MATERIAL_ID.gold,
+  WOODCUTTING_MATERIAL_ID.cedar,
+  MINING_MATERIAL_ID.mythril,
+  WOODCUTTING_MATERIAL_ID.cypress,
+  MINING_MATERIAL_ID.adamantite,
+] satisfies SettlementResourceKey[];
+
+export function settlementDonationMaterialName(
+  id: SettlementDonationMaterialId,
+): string {
+  return (
+    (WOODCUTTING_MATERIALS as Record<string, { name: string }>)[id]?.name ??
+    (MINING_MATERIALS as Record<string, { name: string }>)[id]?.name ??
+    id
+  );
+}
+
+export function settlementResourceName(key: SettlementResourceKey): string {
+  if (key === "crop") {
+    return settlementDonationMaterialName(WOODCUTTING_MATERIAL_ID.pine);
+  }
+  if (key === "ore") {
+    return settlementDonationMaterialName(MINING_MATERIAL_ID.iron);
+  }
+  return settlementDonationMaterialName(key);
+}
+
+export function settlementResourceIcon(key: SettlementResourceKey): string {
+  return key === "crop" || SETTLEMENT_WOOD_MATERIAL_IDS.includes(
+    key as (typeof SETTLEMENT_WOOD_MATERIAL_IDS)[number],
+  )
+    ? PRODUCTION_KIND_ICON.crop
+    : PRODUCTION_KIND_ICON.ore;
+}
 
 // ── 영지 건축물 ───────────────────────────────────────────────────────────
 // 현재는 "마을별 1슬롯에 무엇을 둘지"를 저장/표시하는 골격만 둔다. 실제 제작/연구 효과는 후속 PR.
@@ -152,7 +258,7 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
 
 export type SettlementBuildingUpgradeCost = Partial<
-  Record<ProductionKind, number>
+  Record<SettlementResourceKey, number>
 > & {
   gold?: number;
   fame?: number;
@@ -166,6 +272,50 @@ export type SettlementBuildingUpgradeDef = {
   label: string;
 };
 
+function facilityResourceCostForLevel(
+  level: 2 | 3 | 4 | 5,
+): Partial<Record<SettlementResourceKey, number>> {
+  if (level === 2) {
+    return { crop: 250, ore: 250 };
+  }
+  if (level === 3) {
+    return {
+      crop: 300,
+      ore: 300,
+      [WOODCUTTING_MATERIAL_ID.birch]: 200,
+      [MINING_MATERIAL_ID.copper]: 200,
+    };
+  }
+  if (level === 4) {
+    return {
+      [WOODCUTTING_MATERIAL_ID.birch]: 350,
+      [MINING_MATERIAL_ID.copper]: 350,
+      [WOODCUTTING_MATERIAL_ID.willow]: 250,
+      [MINING_MATERIAL_ID.silver]: 250,
+      [WOODCUTTING_MATERIAL_ID.oak]: 150,
+      [MINING_MATERIAL_ID.gold]: 150,
+    };
+  }
+  return {
+    [WOODCUTTING_MATERIAL_ID.willow]: 400,
+    [MINING_MATERIAL_ID.silver]: 400,
+    [WOODCUTTING_MATERIAL_ID.oak]: 300,
+    [MINING_MATERIAL_ID.gold]: 300,
+    [WOODCUTTING_MATERIAL_ID.cedar]: 200,
+    [MINING_MATERIAL_ID.mythril]: 200,
+    [WOODCUTTING_MATERIAL_ID.cypress]: 100,
+    [MINING_MATERIAL_ID.adamantite]: 100,
+  };
+}
+
+function facilityUpgradeCost(
+  level: 2 | 3 | 4 | 5,
+  gold: number,
+  fame: number,
+): SettlementBuildingUpgradeCost {
+  return { ...facilityResourceCostForLevel(level), gold, fame };
+}
+
 export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
   {
     level: 1,
@@ -176,28 +326,28 @@ export const GUILD_SMITHY_UPGRADES: readonly SettlementBuildingUpgradeDef[] = [
   },
   {
     level: 2,
-    cost: { crop: 50, ore: 50, gold: 10_000_000, fame: 500 },
+    cost: facilityUpgradeCost(2, 20_000_000, 0),
     qualityChanceBonusPct: 1,
     weeklyProgressBonusPct: 10,
     label: "담금질 설비",
   },
   {
     level: 3,
-    cost: { crop: 120, ore: 120, gold: 20_000_000, fame: 1200 },
+    cost: facilityUpgradeCost(3, 45_000_000, 600),
     qualityChanceBonusPct: 2,
     weeklyProgressBonusPct: 20,
     label: "명장 화로",
   },
   {
     level: 4,
-    cost: { crop: 250, ore: 250, gold: 40_000_000, fame: 2500 },
+    cost: facilityUpgradeCost(4, 90_000_000, 1250),
     qualityChanceBonusPct: 4,
     weeklyProgressBonusPct: 30,
     label: "장인 조합 설비",
   },
   {
     level: 5,
-    cost: { crop: 500, ore: 500, gold: 70_000_000, fame: 5000 },
+    cost: facilityUpgradeCost(5, 160_000_000, 2500),
     qualityChanceBonusPct: 6,
     weeklyProgressBonusPct: 40,
     label: "대장장이 전당",
@@ -222,28 +372,28 @@ export const TRAINING_GROUND_UPGRADES: readonly TrainingGroundUpgradeDef[] = [
   },
   {
     level: 2,
-    cost: { crop: 60, ore: 60, gold: 15_000_000, fame: 700 },
+    cost: facilityUpgradeCost(2, 25_000_000, 0),
     trainingRewardBonusPct: 10,
     unlockedDrillCount: 1,
     label: "장비 훈련 구역",
   },
   {
     level: 3,
-    cost: { crop: 150, ore: 150, gold: 30_000_000, fame: 1500 },
+    cost: facilityUpgradeCost(3, 55_000_000, 750),
     trainingRewardBonusPct: 20,
     unlockedDrillCount: 2,
     label: "실전 교관 배치",
   },
   {
     level: 4,
-    cost: { crop: 300, ore: 300, gold: 55_000_000, fame: 3200 },
+    cost: facilityUpgradeCost(4, 110_000_000, 1600),
     trainingRewardBonusPct: 35,
     unlockedDrillCount: 2,
     label: "전술 훈련장",
   },
   {
     level: 5,
-    cost: { crop: 600, ore: 600, gold: 90_000_000, fame: 6000 },
+    cost: facilityUpgradeCost(5, 190_000_000, 3000),
     trainingRewardBonusPct: 50,
     unlockedDrillCount: 3,
     label: "정예 훈련소",
@@ -308,28 +458,28 @@ export const EXPLORATION_HQ_UPGRADES: readonly ExplorationHqUpgradeDef[] = [
   },
   {
     level: 2,
-    cost: { crop: 60, ore: 60, gold: 12_000_000, fame: 600 },
+    cost: facilityUpgradeCost(2, 22_000_000, 0),
     weeklyMissionCount: 2,
     missionProgressBonusPct: 10,
     label: "정찰 기록실",
   },
   {
     level: 3,
-    cost: { crop: 150, ore: 150, gold: 24_000_000, fame: 1400 },
+    cost: facilityUpgradeCost(3, 50_000_000, 700),
     weeklyMissionCount: 3,
     missionProgressBonusPct: 15,
     label: "원정 지휘소",
   },
   {
     level: 4,
-    cost: { crop: 300, ore: 300, gold: 48_000_000, fame: 3000 },
+    cost: facilityUpgradeCost(4, 100_000_000, 1500),
     weeklyMissionCount: 4,
     missionProgressBonusPct: 25,
     label: "길잡이 회의실",
   },
   {
     level: 5,
-    cost: { crop: 600, ore: 600, gold: 80_000_000, fame: 5600 },
+    cost: facilityUpgradeCost(5, 175_000_000, 2800),
     weeklyMissionCount: 6,
     missionProgressBonusPct: 35,
     label: "대륙 탐사 본부",
@@ -486,10 +636,12 @@ export function settlementBuildingUpgradeSummary(
 export function settlementBuildingUpgradeCostText(
   cost: SettlementBuildingUpgradeCost,
 ): string {
-  const parts = PRODUCTION_KINDS.filter((kind) => (cost[kind] ?? 0) > 0).map(
-    (kind) =>
-      `${PRODUCTION_KIND_ICON[kind]} ${SETTLEMENT_RESOURCE_NAME[kind]} ${(
-        cost[kind] ?? 0
+  const parts = SETTLEMENT_RESOURCE_KEYS.filter(
+    (key) => (cost[key] ?? 0) > 0,
+  ).map(
+    (key) =>
+      `${settlementResourceIcon(key)} ${settlementResourceName(key)} ${(
+        cost[key] ?? 0
       ).toLocaleString()}`,
   );
   if ((cost.gold ?? 0) > 0) {
@@ -499,6 +651,40 @@ export function settlementBuildingUpgradeCostText(
     parts.push(`길드 명성 ${(cost.fame ?? 0).toLocaleString()}`);
   }
   return parts.length > 0 ? parts.join(" · ") : "무료";
+}
+
+export function canAffordSettlementBuildingUpgrade(
+  resources: SettlementResources,
+  cost: SettlementBuildingUpgradeCost,
+): boolean {
+  return SETTLEMENT_RESOURCE_KEYS.every(
+    (key) =>
+      Math.max(0, resources[key] ?? 0) >= Math.max(0, cost[key] ?? 0),
+  );
+}
+
+export function settlementBuildingMaterialsComplete(
+  donated: SettlementResources,
+  cost: SettlementBuildingUpgradeCost,
+): boolean {
+  return SETTLEMENT_RESOURCE_KEYS.every(
+    (key) =>
+      Math.max(0, donated[key] ?? 0) >= Math.max(0, cost[key] ?? 0),
+  );
+}
+
+export function spendSettlementBuildingUpgradeCost(
+  resources: SettlementResources,
+  cost: SettlementBuildingUpgradeCost,
+): SettlementResources {
+  const next: SettlementResources = { ...resources };
+  for (const key of SETTLEMENT_RESOURCE_KEYS) {
+    const amount = Math.max(0, cost[key] ?? 0);
+    if (amount > 0) {
+      next[key] = Math.max(0, Math.floor((next[key] ?? 0) - amount));
+    }
+  }
+  return next;
 }
 
 export function isSettlementBuildingId(v: unknown): v is SettlementBuildingId {
@@ -575,8 +761,18 @@ export type ProductionJob = {
   startedAt: number;
 };
 
-// 길드 재화 풀(기부 적립·업그레이드 소비). 종류별 정수 누적.
-export type SettlementResources = Partial<Record<ProductionKind, number>>;
+// 정착지 재화 풀(전환 적립·마을/영지 건축물 업그레이드 소비). 중앙 길드 시설의
+// 공동 기부 진행도는 별도 guild_facility_upgrade_donations 에 저장한다.
+export type SettlementResources = Partial<Record<SettlementResourceKey, number>>;
+
+export type GuildFacilityDonationProgress = {
+  targetLevel: number;
+  materials: SettlementResources;
+};
+
+export type GuildFacilityDonationProgressMap = Partial<
+  Record<SettlementBuildingId, GuildFacilityDonationProgress>
+>;
 
 // 업그레이드 가능?(다음 단계 존재 + 현 건축물 슬롯 모두 해금 + 재화 충분). 부족 종류 목록도 함께.
 //   needSlots = 현 단계 슬롯을 다 안 열었음.

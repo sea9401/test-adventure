@@ -13,8 +13,8 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildMemberCap } from "@/adventure/data/guild";
 import {
-  PRODUCTION_KINDS,
   SETTLEMENT_BUILDING_IDS,
+  SETTLEMENT_RESOURCE_KEYS,
   tierMeetsNation,
   isSettlementBuildingId,
   settlementBuildingIdOf,
@@ -23,6 +23,7 @@ import {
   type SettlementBuildingId,
   type VillageTier,
 } from "@/adventure/data/v2/settlement";
+import { readGuildFacilityDonationProgress } from "@/lib/server/guildFacilityUpgradeDonations";
 import {
   parseV2Class,
   jobDisplayName,
@@ -41,7 +42,7 @@ import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
 function parseSettlementResources(raw: unknown): SettlementResources {
   if (typeof raw !== "object" || raw === null) return {};
   const out: SettlementResources = {};
-  for (const kind of PRODUCTION_KINDS) {
+  for (const kind of SETTLEMENT_RESOURCE_KEYS) {
     const value = (raw as Record<string, unknown>)[kind];
     if (typeof value === "number" && Number.isFinite(value) && value > 0) {
       out[kind] = Math.floor(value);
@@ -377,6 +378,10 @@ export async function GET() {
   )[0];
   const guildGold = Math.max(0, resRow?.gold ?? 0);
   const settlementResources = parseSettlementResources(resRow?.settlement);
+  const facilityUpgradeDonations = await readGuildFacilityDonationProgress(
+    db,
+    guildId,
+  );
 
   // 이미 쓰인 색(다른 활성 길드) — 관리탭 색 picker 에서 비활성. 내 색은 제외(선택 가능).
   const takenColorRows = await db
@@ -406,6 +411,7 @@ export async function GET() {
     settlementBuildings,
     settlementBuildingLevels,
     settlementResources,
+    facilityUpgradeDonations,
     hasGuildSmithy,
     hasTrainingGround,
     hasMapWorkshop,

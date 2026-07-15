@@ -973,8 +973,8 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
     .references(() => guilds.id, { onDelete: "cascade" }),
   // 거점 세금 회수 시 90% 가 누적되는 길드 공용 골드 풀. 회수자 본인 10% 와 별개.
   gold: integer("gold").notNull().default(0),
-  // 정착지 생산 재화 풀 — { crop, ore, fish } (data/v2/settlement SettlementResources).
-  // 마을 생산 수확물이 누적되고 마을 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
+  // 길드 정착지 재화 풀 — 기초 목재/광석은 crop/ore, 상위 생활 재료는 재료 ID 키로 저장한다.
+  // 길드원이 전환한 재료가 누적되고 마을·영지 건축물 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
   settlement: jsonb("settlement").notNull().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1021,6 +1021,23 @@ export const guildSettlementBuildingLevels = pgTable(
       .references(() => guilds.id, { onDelete: "cascade" }),
     buildingId: text("building_id").notNull(),
     level: integer("level").notNull().default(1),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],
+);
+
+// 길드 시설의 다음 레벨 재료 기부 진행도. 시설이 Lv.1~4인 동안 항상 열려 있으며,
+// 길드원들이 개인 생활 재료를 함께 채운다. targetLevel 로 레벨 변경 뒤 남은 진행도를
+// 잘못 재사용하지 않도록 하고, materials 는 재료 종류 추가 시 마이그 없이 확장한다.
+export const guildFacilityUpgradeDonations = pgTable(
+  "guild_facility_upgrade_donations",
+  {
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    buildingId: text("building_id").notNull(),
+    targetLevel: integer("target_level").notNull(),
+    materials: jsonb("materials").notNull().default({}),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.guildId, t.buildingId] })],

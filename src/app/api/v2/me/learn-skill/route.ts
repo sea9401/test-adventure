@@ -28,6 +28,7 @@ import {
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 
 // POST /api/v2/me/learn-skill — 현재 직업 시그니처 1종 학습. 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
@@ -133,6 +134,9 @@ export async function POST(req: Request) {
     const codexBonus = V2_CORE_LOOP_V2
       ? await readCodexSpBonus(tx, userId)
       : null;
+    const jobUnlockCtx = V2_CORE_LOOP_V2
+      ? await readJobUnlockContext(tx, userId)
+      : undefined;
     const nextEquipped = V2_CORE_LOOP_V2
       ? sanitizeLoadout(
           [...skills.equipped, sig],
@@ -141,7 +145,7 @@ export async function POST(req: Request) {
             spent.groups,
             spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
             codexBonus?.total ?? 0,
-            jobUnlockSpBonus(spent),
+            jobUnlockSpBonus(spent, jobUnlockCtx),
           ),
         )
       : nextLearned.filter((s) => elementalPool.includes(s));

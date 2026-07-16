@@ -13,6 +13,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import {
   derivePlayerCombatV2,
   type DerivedPlayerCombatV2,
@@ -70,12 +71,16 @@ export async function prepareV2BattleActor({
   );
   const storedSkills = parseV2SkillsState(skillsRaw);
   const codexBonus = V2_CORE_LOOP_V2 ? await readCodexSpBonus(tx, userId) : null;
+  const jobUnlockCtx = V2_CORE_LOOP_V2
+    ? await readJobUnlockContext(tx, userId)
+    : undefined;
   const skills = V2_CORE_LOOP_V2
     ? sanitizeCombatLoadout(
         storedSkills,
         charSave,
         proficiencyRaw,
         codexBonus?.total ?? 0,
+        jobUnlockCtx,
       )
     : storedSkills;
   const deriveSkillsRaw =

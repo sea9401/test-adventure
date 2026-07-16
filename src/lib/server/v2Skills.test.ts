@@ -41,6 +41,11 @@ const OVER_BUDGET_LOADOUT = [
   "v2c_rogue_poison",
 ] as const;
 
+const FARMING_UNLOCK_LOADOUT = [
+  ...OVER_BUDGET_LOADOUT,
+  "v2c_warrior_warcry",
+] as const;
+
 describe("v2Skills — SP 열매 보너스 예산", () => {
   it("state reconcile 이 spFruitUsed 보너스를 반영해 수동 로드아웃을 보존한다", async () => {
     store.clear();
@@ -125,5 +130,54 @@ describe("v2Skills — SP 열매 보너스 예산", () => {
     );
 
     expect(next.equipped).toEqual([...FRUIT_BUDGET_LOADOUT]);
+  });
+
+  it("농사 레벨로 해금한 직업의 SP까지 state reconcile 과 전투 검증에 반영한다", async () => {
+    store.clear();
+    store.set("character.v2", {
+      class: "survivor",
+      level: 100,
+    });
+    store.set("skills.v2", {
+      learned: [...FARMING_UNLOCK_LOADOUT],
+      equipped: [...FARMING_UNLOCK_LOADOUT],
+    });
+    const proficiency = {
+      points: 0,
+      groups: {
+        survivor: { tier: 1, cultivations: 0, cumLevel: 900 },
+      },
+      caps: {},
+      grown: {},
+    };
+    store.set("proficiency.v2", proficiency);
+    store.set("farm.v2", {
+      stats: {
+        harvests: 0,
+        rareHarvests: 0,
+        deliveries: 0,
+        reputation: 0,
+        reputationSpent: 0,
+        farmingXp: 810,
+      },
+    });
+
+    const reconciled = await reconcileV2EquippedSkills(
+      {} as DbExecutor,
+      "u-farmer",
+    );
+    expect(reconciled.equipped).toEqual([...FARMING_UNLOCK_LOADOUT]);
+
+    const combat = sanitizeCombatLoadout(
+      {
+        learned: [...FARMING_UNLOCK_LOADOUT],
+        equipped: [...FARMING_UNLOCK_LOADOUT],
+      },
+      { class: "survivor", level: 100 },
+      proficiency,
+      0,
+      { farmingLevel: 10 },
+    );
+    expect(combat.equipped).toEqual([...FARMING_UNLOCK_LOADOUT]);
   });
 });

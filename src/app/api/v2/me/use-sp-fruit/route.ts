@@ -20,6 +20,7 @@ import {
   type SpFruitTier,
 } from "@/adventure/data/v2/spFruit";
 import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 
 // POST /api/v2/me/use-sp-fruit — SP 열매(협동 보스 드랍 소모품) 1개 사용 → SP 최대치 +1(영구).
@@ -125,11 +126,12 @@ export async function POST(req: Request) {
       charSave,
     );
     const capBonus = spCapBonusFromFruits(nextUsed);
+    const jobUnlockCtx = await readJobUnlockContext(tx, userId);
     const spBudget = calcSpBudget(
       prof.groups,
       capBonus,
       (await readCodexSpBonus(tx, userId)).total,
-      jobUnlockSpBonus(prof),
+      jobUnlockSpBonus(prof, jobUnlockCtx),
     );
 
     return {

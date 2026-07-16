@@ -16,10 +16,14 @@ import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
-import { jobUnlockSpBonus } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  jobUnlockSpBonus,
+  type JobUnlockContext,
+} from "@/adventure/data/v2/v2JobCatalog";
 import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import { readCodexSpBonus } from "./codexSpBonus";
+import { readJobUnlockContext } from "./jobUnlockContext";
 import { lockSaveForUpdate, upsertSave, type DbExecutor } from "./savesKv";
 
 // 전투 입력용 — 저장된 equipped 를 SP 예산/학습 상태에 맞게 in-memory sanitize(코어루프). DB 미기록.
@@ -31,6 +35,7 @@ export function sanitizeCombatLoadout(
   charSave: unknown,
   proficiencyRaw: unknown,
   collectionBonusSp = 0,
+  jobUnlockCtx?: JobUnlockContext,
 ): V2SkillsState {
   if (!V2_CORE_LOOP_V2) return skills;
   const cs = (charSave ?? {}) as {
@@ -49,7 +54,7 @@ export function sanitizeCombatLoadout(
         prof.groups,
         spCapBonusFromRaw(cs.spFruitUsed),
         collectionBonusSp,
-        jobUnlockSpBonus(prof),
+        jobUnlockSpBonus(prof, jobUnlockCtx),
       ),
     ),
   };
@@ -94,6 +99,7 @@ export async function reconcileV2EquippedSkills(
   const equipped = V2_CORE_LOOP_V2
     ? await (async () => {
         const codexBonus = await readCodexSpBonus(executor, userId);
+        const jobUnlockCtx = await readJobUnlockContext(executor, userId);
         return sanitizeLoadout(
           current.equipped,
           current.learned,
@@ -101,7 +107,7 @@ export async function reconcileV2EquippedSkills(
             prof.groups,
             spCapBonusFromRaw(charSave.spFruitUsed),
             codexBonus.total,
-            jobUnlockSpBonus(prof),
+            jobUnlockSpBonus(prof, jobUnlockCtx),
           ),
         );
       })()

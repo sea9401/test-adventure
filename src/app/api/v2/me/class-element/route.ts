@@ -26,6 +26,7 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import {
   RESPEC_COOLDOWN_MS,
   elementChangeGoldCost,
@@ -295,6 +296,9 @@ export async function POST(req: Request) {
     const codexBonus = V2_CORE_LOOP_V2
       ? await readCodexSpBonus(tx, userId)
       : null;
+    const jobUnlockCtx = V2_CORE_LOOP_V2
+      ? await readJobUnlockContext(tx, userId)
+      : undefined;
     const equipped = V2_CORE_LOOP_V2
       ? sanitizeLoadout(
           skills.equipped,
@@ -305,7 +309,7 @@ export async function POST(req: Request) {
               (charSave as { spFruitUsed?: unknown }).spFruitUsed,
             ),
             codexBonus?.total ?? 0,
-            jobUnlockSpBonus(prof),
+            jobUnlockSpBonus(prof, jobUnlockCtx),
           ),
         )
       : (() => {

@@ -11,9 +11,10 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
-import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { sanitizeSparringDummyConfig } from "@/adventure/data/v2/sparringDummy";
 
 // POST /api/v2/training/spar — 훈련장 허수아비 모의전 (스파링).
@@ -62,7 +63,6 @@ export async function POST(req: Request) {
         "skills.v2",
         "character.v2",
         "proficiency.v2",
-        "fishing-codex.v1",
       ]
     : ["character-profile.v2", "skills.v2"];
   const rows = await db
@@ -73,7 +73,6 @@ export async function POST(req: Request) {
   let skillsRaw: unknown = emptyV2SkillsState();
   let charSave: unknown = {};
   let proficiencyRaw: unknown = undefined;
-  let fishingCodexRaw: unknown = undefined;
   for (const r of rows) {
     if (r.key === "character-profile.v2") {
       profile = (r.value ?? null) as { name?: string } | null;
@@ -83,18 +82,23 @@ export async function POST(req: Request) {
       charSave = r.value ?? {};
     } else if (r.key === "proficiency.v2") {
       proficiencyRaw = r.value;
-    } else if (r.key === "fishing-codex.v1") {
-      fishingCodexRaw = r.value;
     }
   }
   const playerName = profile?.name?.trim() || "모험가";
+  const [codexBonus, jobUnlockCtx] = V2_CORE_LOOP_V2
+    ? await Promise.all([
+        readCodexSpBonus(db, userId),
+        readJobUnlockContext(db, userId),
+      ])
+    : [null, undefined];
   // 코어루프 — 연습전도 실제 로드아웃(예산 클램프·직업고정)으로 굴려 DPS 표시 일관성 유지. flag off=원본.
   const v2Skills = V2_CORE_LOOP_V2
     ? sanitizeCombatLoadout(
         parseV2SkillsState(skillsRaw),
         charSave,
         proficiencyRaw,
-        codexSpBonusFromRaw(fishingCodexRaw).total,
+        codexBonus?.total ?? 0,
+        jobUnlockCtx,
       )
     : parseV2SkillsState(skillsRaw);
 

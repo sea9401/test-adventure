@@ -9,10 +9,8 @@ import {
   type SavedCharacterV2,
 } from "@/lib/server/derivePlayerCombatV2";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
-import {
-  codexSpBonusFromRaw,
-  readCodexSpBonus,
-} from "@/lib/server/codexSpBonus";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   emptyProficiency,
@@ -239,6 +237,7 @@ export async function POST() {
         charSave,
         myProfRaw,
         (await readCodexSpBonus(tx, userId)).total,
+        await readJobUnlockContext(tx, userId),
       );
     }
 
@@ -403,7 +402,8 @@ export async function POST() {
           oppSkills,
           oppCharSave ?? {},
           oppRow("proficiency.v2"),
-          codexSpBonusFromRaw(oppRow("fishing-codex.v1")).total,
+          (await readCodexSpBonus(tx, pickedUserId)).total,
+          await readJobUnlockContext(tx, pickedUserId),
         );
       }
       opponentCombat = await derivePlayerCombatV2(pickedUserId, tx, {

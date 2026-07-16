@@ -8,7 +8,8 @@ import {
   type SavedCharacterV2,
 } from "@/lib/server/derivePlayerCombatV2";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
-import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
+import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
+import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -40,7 +41,6 @@ const PREVIEW_KEYS = [
   "equipment.v2",
   "proficiency.v2",
   "skills.v2",
-  "fishing-codex.v1",
 ] as const;
 
 type PreviewCharacter = SavedCharacterV2 & {
@@ -135,7 +135,8 @@ export async function POST(req: Request) {
     storedSkills,
     character,
     proficiencyRaw,
-    codexSpBonusFromRaw(saves.get("fishing-codex.v1")).total,
+    (await readCodexSpBonus(db, userId)).total,
+    await readJobUnlockContext(db, userId),
   );
   const profile = readProfileValue(saves.get("character-profile.v2"));
   const playerName = profile?.name ?? "모험가";

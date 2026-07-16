@@ -287,7 +287,9 @@ export async function POST(req: Request) {
     );
     const progressView = fishingProgressionView(progressResult.state);
 
-    // 낚시 계열 직업 숙련도 — 성공한 챔질 1회당 +1. 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
+    // 낚시 숙련도 — 성공한 챔질 1회당 생존자 직군 +1. 현재 직업과 관계없이
+    // 낚시꾼 전직 조건을 쌓되, 상위 낚시 직업 숙련도는 해당 직업일 때만 올린다.
+    // 스태미나 없는 루프라 숙달 포인트(points)는 주지 않는다.
     const charSave = await lockSaveForUpdate<{
       class?: unknown;
       specChoice?: unknown;
@@ -298,19 +300,18 @@ export async function POST(req: Request) {
       playerClass,
       typeof charSave.specChoice === "string" ? charSave.specChoice : null,
     );
-    let masteryGained = 0;
-    let masteryAfter: number | null = null;
+    let prof = parseProficiencyForChar(
+      await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
+      charSave,
+    );
+    prof = addCumLevel(prof, "survivor", 1);
+    const masteryGained = 1;
+    let masteryAfter = prof.groups.survivor?.cumLevel ?? 0;
     if (group !== "none" && isFishingJobId(jobId)) {
-      let prof = parseProficiencyForChar(
-        await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
-        charSave,
-      );
-      prof = addCumLevel(prof, group, 1);
       prof = addJobCumLevel(prof, jobId, 1);
-      masteryGained = 1;
       masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
-      await upsertSave(tx, userId, "proficiency.v2", prof);
     }
+    await upsertSave(tx, userId, "proficiency.v2", prof);
 
     // 자정/주간 경계 뒤 첫 낚시도 반복 퀘스트에 포함되도록, 누적 어획 신호를
     // 변경하기 전에 새 주기의 baseline 을 확정한다. repeat → codex 순서는 번들 수령과 동일하다.

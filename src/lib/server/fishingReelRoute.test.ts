@@ -196,6 +196,52 @@ describe("POST /api/v2/fishing/reel", () => {
     ).toBe(1);
   });
 
+  it("다른 직업으로 낚시해도 낚시꾼 전직용 생존자 숙련도가 오른다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set("character.v2", {
+      class: "mage",
+      specChoice: null,
+    });
+    store.set("proficiency.v2", {
+      points: 123,
+      groups: {
+        mage: { tier: 1, cumLevel: 20, cultivations: 0 },
+        survivor: { tier: 1, cumLevel: 10, cultivations: 0 },
+      },
+      grown: {},
+      jobCumLevel: { fisher: 5 },
+    });
+
+    const res = await POST(reelReq({ castId: "cast-1", reactionMs: 200 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      caught: boolean;
+      masteryGained: number;
+      masteryAfter: number | null;
+    };
+    expect(json).toMatchObject({
+      ok: true,
+      caught: true,
+      masteryGained: 1,
+      masteryAfter: 11,
+    });
+
+    const prof = store.get("proficiency.v2") as {
+      points: number;
+      groups: {
+        mage?: { cumLevel?: number };
+        survivor?: { cumLevel?: number };
+      };
+      jobCumLevel?: Record<string, number>;
+    };
+    expect(prof.points).toBe(123);
+    expect(prof.groups.mage?.cumLevel).toBe(20);
+    expect(prof.groups.survivor?.cumLevel).toBe(11);
+    expect(prof.jobCumLevel?.fisher).toBe(5);
+  });
+
   it("자정 뒤 첫 낚시 전에 일일 퀘스트 기준값을 갱신한다", async () => {
     const now = Date.now();
     seedFisherSession(now);

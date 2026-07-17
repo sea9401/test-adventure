@@ -7,6 +7,7 @@ import {
 } from "./V2CharacterCard";
 import { V2AnnouncementsPanel } from "./V2AnnouncementsPanel";
 import { GuideQuestBanner } from "./GuideQuestBanner";
+import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
@@ -74,6 +75,8 @@ export function V2AdventureHome() {
         <GuideQuestBanner />
 
         <V2AnnouncementsPanel />
+
+        <AdventureRankingPreview />
       </div>
     </main>
   );

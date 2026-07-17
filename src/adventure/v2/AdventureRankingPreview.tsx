@@ -22,7 +22,7 @@ const PREVIEW_METRICS: Array<{
   title: string;
 }> = [
   { key: "level", title: "총 숙련도" },
-  { key: "battleCount", title: "전투 횟수" },
+  { key: "combatPower", title: "전투력" },
   { key: "fishingScore", title: "낚시 점수" },
 ];
 
@@ -231,8 +231,8 @@ function RankingPreviewSkeleton() {
 
 function rankingValue(entry: RankingEntry, metric: PreviewMetric): string {
   if (metric === "level") return `숙련 ${entry.cumLevel.toLocaleString("ko-KR")}`;
-  if (metric === "battleCount") {
-    return `전투 ${entry.battleCount.toLocaleString("ko-KR")}회`;
+  if (metric === "combatPower") {
+    return `전투력 ${entry.combatPower.toLocaleString("ko-KR")}`;
   }
   return `낚시 ${entry.fishingScore.toLocaleString("ko-KR")}점`;
 }

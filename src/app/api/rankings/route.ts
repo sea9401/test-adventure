@@ -4,10 +4,15 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { getAdminEmailsList } from "@/lib/server/isAdmin";
 import { kstWeekStartKey } from "@/adventure/tower/weeklyTypes";
 import { pointsFromExp } from "@/lib/paragon";
+import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
   isValidAvatarId,
   type Avatar,
 } from "@/adventure/profile/avatars";
+import {
+  derivePlayerCombatV2FromSaves,
+  type SavedCharacterV2,
+} from "@/lib/server/derivePlayerCombatV2";
 import {
   FISHING_CODEX_KEY,
   fishCodexScore,
@@ -29,7 +34,7 @@ function excludeAdminEmails(): SQL {
 const VALID_METRICS = [
   "level",
   "fame",
-  "battleCount",
+  "combatPower",
   "fishingScore",
   "towerWeek",
   "towerChallenge",
@@ -39,9 +44,8 @@ const isMetric = (v: string): v is Metric =>
   (VALID_METRICS as readonly string[]).includes(v);
 
 const LIST_LIMIT = 100;
-// 메모리 캐시 TTL — 리더보드는 약간 stale 해도 무방. 매 요청마다 saves_kv 의
-// adventure-log.v2 jsonb 를 jsonb_each 로 풀스캔(모든 유저 × 모든 몬스터 kills
-// 합산)하던 핫경로를 30초 캐시로 막는다. 단일 EC2 라 in-process 캐시면 충분.
+// 메모리 캐시 TTL — 리더보드는 약간 stale 해도 무방. 전투력은 여러 세이브를 조합해
+// 산출하므로 30초 캐시로 반복 계산을 막는다. 단일 EC2 라 in-process 캐시면 충분.
 // 캐시 미스만 SQL — 같은 metric 의 동시 cold-miss 는 inFlight promise 로 dedup.
 const CACHE_TTL_MS = 30_000;
 
@@ -55,7 +59,8 @@ type RankRow = {
   /** 파라곤 레벨 = 적립 EXP 로 획득한 총 포인트(0~150). 만렙 미만은 0. level 탭 표시·정렬용. */
   paragonLevel: number;
   fame: number;
-  battleCount: number;
+  /** 캐릭터 화면과 같은 derivePowerScore 합성 전투력. */
+  combatPower: number;
   /** 낚시 도감 누적 어획 점수. fishingScore 탭 정렬·표시. */
   fishingScore: number;
   /** towerWeek 한정 — 이번 주 최고층. 다른 metric 에서는 0. */
@@ -80,6 +85,7 @@ function rankingAvatar(raw: unknown): Avatar {
 }
 
 async function fetchRows(metric: Metric): Promise<RankRow[]> {
+  if (metric === "combatPower") return fetchCombatPowerRows();
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   if (metric === "fishingScore") return fetchFishingScoreRows();
@@ -90,9 +96,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   const orderBy =
     metric === "level"
       ? sql`cum_level DESC, level DESC, updated_at ASC`
-      : metric === "fame"
-        ? sql`fame DESC, updated_at ASC`
-        : sql`battle_count DESC, updated_at ASC`;
+      : sql`fame DESC, updated_at ASC`;
 
   // 닉네임은 users.game_name 우선, 없으면 character-profile.v2 의 name fallback.
   const result = await db.execute(sql`
@@ -115,18 +119,9 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         ) AS cum_level,
         -- 파라곤 적립 EXP. 큰 값(만렙 후 누적)이라 bigint. 포인트 환산은 JS(pointsFromExp).
         COALESCE((pg.value->>'paragonExp')::bigint, 0) AS paragon_exp,
-        (
-          COALESCE((
-            SELECT SUM((m.value->>'kills')::bigint)
-            FROM jsonb_each(l.value->'monsters') AS m
-            WHERE (m.value->>'kills') IS NOT NULL
-          ), 0)
-          + COALESCE((l.value->>'battleLosses')::bigint, 0)
-        ) AS battle_count,
         COALESCE(c.updated_at, u.created_at) AS updated_at
       FROM users u
       LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
-      LEFT JOIN saves_kv l ON l.user_id = u.id AND l.key = 'adventure-log.v2'
       LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
       LEFT JOIN saves_kv pg ON pg.user_id = u.id AND pg.key = 'paragon.v1'
       LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
@@ -137,7 +132,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY ${orderBy})::int AS rank
       FROM stats
     )
-    SELECT user_id, name, avatar, level, cum_level, paragon_exp, fame, battle_count, rank
+    SELECT user_id, name, avatar, level, cum_level, paragon_exp, fame, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -151,7 +146,6 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     // node-postgres 는 bigint(int8) 를 문자열로 반환할 수 있어 number|string 모두 수용.
     paragon_exp: number | string;
     fame: number;
-    battle_count: number;
     rank: number;
   };
   return (result.rows as unknown as DbRow[]).map((r) => ({
@@ -162,7 +156,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     cumLevel: Number(r.cum_level),
     paragonLevel: pointsFromExp(Number(r.paragon_exp)),
     fame: Number(r.fame),
-    battleCount: Number(r.battle_count),
+    combatPower: 0,
     fishingScore: 0,
     weekHighest: 0,
     challengeHighest: 0,
@@ -205,7 +199,7 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
       cumLevel: 0,
       paragonLevel: 0,
       fame: Number(r.fame),
-      battleCount: 0,
+      combatPower: 0,
       fishingScore: fishCodexScore(parseFishCodex(r.fishing_codex)),
       weekHighest: 0,
       challengeHighest: 0,
@@ -222,7 +216,98 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
       cumLevel: r.cumLevel,
       paragonLevel: r.paragonLevel,
       fame: r.fame,
-      battleCount: r.battleCount,
+      combatPower: r.combatPower,
+      fishingScore: r.fishingScore,
+      weekHighest: r.weekHighest,
+      challengeHighest: r.challengeHighest,
+      rank: index + 1,
+    }));
+}
+
+async function fetchCombatPowerRows(): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      u.id AS user_id,
+      COALESCE(u.game_name, p.value->>'name') AS name,
+      p.value->>'gender' AS avatar,
+      c.value AS character_save,
+      e.value AS equipment_save,
+      pr.value AS proficiency_save,
+      sk.value AS skills_save,
+      GREATEST(
+        COALESCE(c.updated_at, u.created_at),
+        COALESCE(e.updated_at, u.created_at),
+        COALESCE(pr.updated_at, u.created_at),
+        COALESCE(sk.updated_at, u.created_at)
+      ) AS updated_at
+    FROM users u
+    LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
+    LEFT JOIN saves_kv e ON e.user_id = u.id AND e.key = 'equipment.v2'
+    LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
+    LEFT JOIN saves_kv sk ON sk.user_id = u.id AND sk.key = 'skills.v2'
+    WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string;
+    name: string;
+    avatar: string | null;
+    character_save: unknown;
+    equipment_save: unknown;
+    proficiency_save: unknown;
+    skills_save: unknown;
+    updated_at: Date | string;
+  };
+  return (result.rows as unknown as DbRow[])
+    .flatMap((r) => {
+      const combat = derivePlayerCombatV2FromSaves({
+        character: r.character_save as SavedCharacterV2 | undefined,
+        equipmentSave: r.equipment_save,
+        proficiencyRaw: r.proficiency_save,
+        skillsRaw: r.skills_save,
+      });
+      if (!combat) return [];
+      const combatPower = derivePowerScore({
+        atk: combat.player.atk,
+        magicAtk: combat.player.magicAtk ?? 0,
+        def: combat.player.def,
+        spd: combat.player.spd,
+        maxHp: combat.maxHp,
+        maxMp: combat.player.maxMp ?? 0,
+      });
+      const character = r.character_save as SavedCharacterV2;
+      return [{
+        userId: String(r.user_id),
+        name: String(r.name),
+        avatar: rankingAvatar(r.avatar),
+        level: Math.max(1, Number(character.level) || 1),
+        cumLevel: 0,
+        paragonLevel: 0,
+        fame: 0,
+        combatPower,
+        fishingScore: 0,
+        weekHighest: 0,
+        challengeHighest: 0,
+        rank: 0,
+        updatedAtMs: new Date(r.updated_at).getTime(),
+      }];
+    })
+    .sort(
+      (a, b) =>
+        b.combatPower - a.combatPower ||
+        a.updatedAtMs - b.updatedAtMs ||
+        a.userId.localeCompare(b.userId),
+    )
+    .map((r, index) => ({
+      userId: r.userId,
+      name: r.name,
+      avatar: r.avatar,
+      level: r.level,
+      cumLevel: r.cumLevel,
+      paragonLevel: r.paragonLevel,
+      fame: r.fame,
+      combatPower: r.combatPower,
       fishingScore: r.fishingScore,
       weekHighest: r.weekHighest,
       challengeHighest: r.challengeHighest,
@@ -278,7 +363,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     cumLevel: 0, // 고탑 탭은 숙련도 미사용.
     paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
-    battleCount: 0,
+    combatPower: 0,
     fishingScore: 0,
     weekHighest: Number(r.week_highest),
     challengeHighest: 0,
@@ -332,7 +417,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     cumLevel: 0, // 고탑 탭은 숙련도 미사용.
     paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
-    battleCount: 0,
+    combatPower: 0,
     fishingScore: 0,
     weekHighest: 0,
     challengeHighest: Number(r.challenge_highest),
@@ -370,7 +455,7 @@ async function getRows(metric: Metric): Promise<RankRow[]> {
   return promise;
 }
 
-// GET /api/rankings?metric=level|fame|battleCount|fishingScore
+// GET /api/rankings?metric=level|combatPower|fame|fishingScore
 // 응답: { list: 상위 LIST_LIMIT, me: 본인 row+rank | null }.
 // 본인 row 도 캐시 스냅샷에서 찾으므로 갓 레벨업한 직후엔 다음 캐시 갱신까지
 // 갱신값이 안 보일 수 있음 (의도된 trade-off — 부하 대비 30초 staleness).
@@ -394,7 +479,7 @@ export async function GET(req: Request) {
     cumLevel: r.cumLevel,
     paragonLevel: r.paragonLevel,
     fame: r.fame,
-    battleCount: r.battleCount,
+    combatPower: r.combatPower,
     fishingScore: r.fishingScore,
     weekHighest: r.weekHighest,
     challengeHighest: r.challengeHighest,
@@ -411,7 +496,7 @@ export async function GET(req: Request) {
         cumLevel: myRow.cumLevel,
         paragonLevel: myRow.paragonLevel,
         fame: myRow.fame,
-        battleCount: myRow.battleCount,
+        combatPower: myRow.combatPower,
         fishingScore: myRow.fishingScore,
         weekHighest: myRow.weekHighest,
         challengeHighest: myRow.challengeHighest,

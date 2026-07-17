@@ -5,7 +5,7 @@ import type { Avatar } from "@/adventure/profile/avatars";
 
 // 개인 metric 3종(레벨/전투/낚시) + 길드 누적 명성 1종.
 // (명성·고탑(주간/도전) 탭은 v2 에서 제거 — API 는 여전히 지원하나 UI 노출 안 함.)
-export type RankingMetric = "level" | "battleCount" | "fishingScore" | "guild";
+export type RankingMetric = "level" | "combatPower" | "fishingScore" | "guild";
 
 export type RankingEntry = {
   rank: number;
@@ -17,7 +17,7 @@ export type RankingEntry = {
   /** 파라곤 레벨(획득 총 포인트 0~150). 만렙 미만은 0. */
   paragonLevel: number;
   fame: number;
-  battleCount: number;
+  combatPower: number;
   fishingScore: number;
   weekHighest: number;
   /** 도전 모드 영구 최고층 (tower-challenge.v1.progress.highestFloor). */
@@ -33,7 +33,7 @@ export type RankingMe = {
   cumLevel: number;
   paragonLevel: number;
   fame: number;
-  battleCount: number;
+  combatPower: number;
   fishingScore: number;
   weekHighest: number;
   challengeHighest: number;

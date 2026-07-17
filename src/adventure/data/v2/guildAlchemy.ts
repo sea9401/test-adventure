@@ -30,7 +30,7 @@ export const GUILD_ALCHEMY_RECIPES: readonly GuildAlchemyRecipe[] = [
     minFacilityLevel: 1,
     energyCost: 1,
     ingredients: { herb: 2, silverleaf: 0 },
-    chargeAmount: 20_000,
+    chargeAmount: 25_000,
   },
   {
     id: "refined_solution",
@@ -39,7 +39,7 @@ export const GUILD_ALCHEMY_RECIPES: readonly GuildAlchemyRecipe[] = [
     minFacilityLevel: 2,
     energyCost: 2,
     ingredients: { herb: 5, silverleaf: 0 },
-    chargeAmount: 60_000,
+    chargeAmount: 75_000,
   },
   {
     id: "concentrated_solution",
@@ -48,7 +48,7 @@ export const GUILD_ALCHEMY_RECIPES: readonly GuildAlchemyRecipe[] = [
     minFacilityLevel: 3,
     energyCost: 3,
     ingredients: { herb: 10, silverleaf: 1 },
-    chargeAmount: 180_000,
+    chargeAmount: 225_000,
   },
   {
     id: "high_purity_solution",
@@ -57,7 +57,7 @@ export const GUILD_ALCHEMY_RECIPES: readonly GuildAlchemyRecipe[] = [
     minFacilityLevel: 4,
     energyCost: 4,
     ingredients: { herb: 15, silverleaf: 1 },
-    chargeAmount: 320_000,
+    chargeAmount: 400_000,
   },
   {
     id: "grand_solution",
@@ -66,7 +66,7 @@ export const GUILD_ALCHEMY_RECIPES: readonly GuildAlchemyRecipe[] = [
     minFacilityLevel: 5,
     energyCost: 5,
     ingredients: { herb: 24, silverleaf: 2 },
-    chargeAmount: 700_000,
+    chargeAmount: 900_000,
   },
 ];
 

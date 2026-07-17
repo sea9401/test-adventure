@@ -11,26 +11,32 @@ describe("guild alchemy", () => {
     expect(GUILD_ALCHEMY_RECIPES.map((recipe) => recipe.minFacilityLevel)).toEqual([
       1, 2, 3, 4, 5,
     ]);
-    expect(guildAlchemyRecipe("grand_solution")?.chargeAmount).toBe(700_000);
+    expect(GUILD_ALCHEMY_RECIPES.map((recipe) => recipe.chargeAmount)).toEqual([
+      25_000,
+      75_000,
+      225_000,
+      400_000,
+      900_000,
+    ]);
     expect(guildAlchemyRecipe("missing")).toBeNull();
   });
 
   it("HP·MP·반반 충전은 총 충전량을 보존한다", () => {
     const recipe = guildAlchemyRecipe("concentrated_solution")!;
     expect(guildAlchemyChargeGain(recipe, "hp", 2)).toEqual({
-      hp: 360_000,
+      hp: 450_000,
       mp: 0,
-      total: 360_000,
+      total: 450_000,
     });
     expect(guildAlchemyChargeGain(recipe, "mp", 2)).toEqual({
       hp: 0,
-      mp: 360_000,
-      total: 360_000,
+      mp: 450_000,
+      total: 450_000,
     });
     expect(guildAlchemyChargeGain(recipe, "balanced", 1)).toEqual({
-      hp: 90_000,
-      mp: 90_000,
-      total: 180_000,
+      hp: 112_500,
+      mp: 112_500,
+      total: 225_000,
     });
   });
 

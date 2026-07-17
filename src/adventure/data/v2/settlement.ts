@@ -509,31 +509,31 @@ export const ALCHEMY_WORKSHOP_UPGRADES: readonly AlchemyWorkshopUpgradeDef[] = [
   {
     level: 1,
     cost: {},
-    weeklyEnergy: 6,
+    weeklyEnergy: 12,
     label: "약초 분쇄대",
   },
   {
     level: 2,
     cost: facilityUpgradeCost(2, 20_000_000, 0),
-    weeklyEnergy: 8,
+    weeklyEnergy: 16,
     label: "추출 조제실",
   },
   {
     level: 3,
     cost: facilityUpgradeCost(3, 45_000_000, 600),
-    weeklyEnergy: 10,
+    weeklyEnergy: 20,
     label: "정밀 증류기",
   },
   {
     level: 4,
     cost: facilityUpgradeCost(4, 90_000_000, 1250),
-    weeklyEnergy: 12,
+    weeklyEnergy: 24,
     label: "마력 촉매실",
   },
   {
     level: 5,
     cost: facilityUpgradeCost(5, 160_000_000, 2500),
-    weeklyEnergy: 15,
+    weeklyEnergy: 30,
     label: "대연금 연구소",
   },
 ];

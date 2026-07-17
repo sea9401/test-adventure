@@ -11,6 +11,7 @@ const CACHE_TTL_MS = 30_000;
 type GuildRow = {
   guildId: number;
   name: string;
+  emblem: string | null;
   fameTotal: number;
   memberCount: number;
   rank: number;
@@ -26,6 +27,7 @@ async function fetchRows(): Promise<GuildRow[]> {
       SELECT
         g.id AS guild_id,
         g.name AS name,
+        g.emblem AS emblem,
         g.fame_total AS fame_total,
         g.created_at AS created_at,
         (
@@ -41,7 +43,7 @@ async function fetchRows(): Promise<GuildRow[]> {
         ROW_NUMBER() OVER (ORDER BY fame_total DESC, created_at ASC)::int AS rank
       FROM stats
     )
-    SELECT guild_id, name, fame_total, member_count, rank
+    SELECT guild_id, name, emblem, fame_total, member_count, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -49,6 +51,7 @@ async function fetchRows(): Promise<GuildRow[]> {
   type DbRow = {
     guild_id: number;
     name: string;
+    emblem: string | null;
     fame_total: number;
     member_count: number;
     rank: number;
@@ -56,6 +59,7 @@ async function fetchRows(): Promise<GuildRow[]> {
   return (result.rows as unknown as DbRow[]).map((r) => ({
     guildId: Number(r.guild_id),
     name: String(r.name),
+    emblem: typeof r.emblem === "string" ? r.emblem : null,
     fameTotal: Number(r.fame_total),
     memberCount: Number(r.member_count),
     rank: Number(r.rank),
@@ -106,6 +110,7 @@ export async function GET() {
   const list = rows.slice(0, LIST_LIMIT).map((r) => ({
     rank: r.rank,
     name: r.name,
+    emblem: r.emblem,
     fameTotal: r.fameTotal,
     memberCount: r.memberCount,
     grade: gradeForFame(r.fameTotal),
@@ -118,6 +123,7 @@ export async function GET() {
     ? {
         rank: myRow.rank,
         name: myRow.name,
+        emblem: myRow.emblem,
         fameTotal: myRow.fameTotal,
         memberCount: myRow.memberCount,
         grade: gradeForFame(myRow.fameTotal),

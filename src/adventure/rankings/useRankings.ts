@@ -1,6 +1,7 @@
 "use client";
 
 import { useAsyncData } from "@/lib/useAsyncData";
+import type { Avatar } from "@/adventure/profile/avatars";
 
 // 개인 metric 3종(레벨/전투/낚시) + 길드 누적 명성 1종.
 // (명성·고탑(주간/도전) 탭은 v2 에서 제거 — API 는 여전히 지원하나 UI 노출 안 함.)
@@ -9,6 +10,7 @@ export type RankingMetric = "level" | "battleCount" | "fishingScore" | "guild";
 export type RankingEntry = {
   rank: number;
   name: string;
+  avatar: Avatar;
   level: number;
   /** 총 직업 숙련도(모든 직군 cumLevel 합, 환생/전직 누적). level 탭 표시·정렬. */
   cumLevel: number;
@@ -26,6 +28,7 @@ export type RankingEntry = {
 export type RankingMe = {
   rank: number;
   name: string;
+  avatar: Avatar;
   level: number;
   cumLevel: number;
   paragonLevel: number;
@@ -39,6 +42,7 @@ export type RankingMe = {
 export type GuildRankingEntry = {
   rank: number;
   name: string;
+  emblem: string | null;
   fameTotal: number;
   memberCount: number;
   grade: string;
@@ -48,6 +52,7 @@ export type GuildRankingEntry = {
 export type GuildRankingMe = {
   rank: number;
   name: string;
+  emblem: string | null;
   fameTotal: number;
   memberCount: number;
   grade: string;

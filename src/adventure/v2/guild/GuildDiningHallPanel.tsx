@@ -7,6 +7,13 @@ import type {
   GuildDiningMenuId,
 } from "@/adventure/data/v2/guildDining";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
+
+const DINING_PANEL_CLASS = `${SURFACE_CARD} space-y-3 p-3 text-sm text-zinc-900 dark:text-zinc-100`;
 
 type DiningState = {
   level: number;
@@ -141,12 +148,16 @@ export function GuildDiningHallPanel() {
       : selectedBatchSize;
 
   if (loading && !state) {
-    return <p className="text-sm text-zinc-500 dark:text-zinc-400">길드 식당 확인 중…</p>;
+    return (
+      <section className={DINING_PANEL_CLASS}>
+        <p className="text-zinc-500 dark:text-zinc-400">길드 식당 확인 중…</p>
+      </section>
+    );
   }
   if (!state) {
     return (
-      <div className="space-y-2">
-        <p className="text-sm text-red-600 dark:text-red-300">
+      <section className={DINING_PANEL_CLASS}>
+        <p className="text-red-600 dark:text-red-300">
           {notice?.text ?? "길드 식당을 이용할 수 없습니다."}
         </p>
         <button
@@ -159,15 +170,15 @@ export function GuildDiningHallPanel() {
         >
           다시 시도
         </button>
-      </div>
+      </section>
     );
   }
 
   const menuEditable = state.canManage && state.pantry.points === 0;
 
   return (
-    <div className="space-y-3">
-      <section className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+    <section className={DINING_PANEL_CLASS}>
+      <section className={`${SURFACE_ACCENT} p-4`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -188,12 +199,12 @@ export function GuildDiningHallPanel() {
       </section>
 
       {!state.eligible && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
           이번 주 준비가 시작된 뒤 가입했습니다. 다음 주부터 기부와 식사가 가능합니다.
         </p>
       )}
 
-      <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+      <section className={`${SURFACE_INSET} p-3`}>
         <div className="flex items-center justify-between gap-3 text-xs">
           <span className="font-semibold">공동 식재료 준비</span>
           <span className="tabular-nums text-zinc-500">
@@ -215,15 +226,15 @@ export function GuildDiningHallPanel() {
         <p
           className={`rounded-md border px-3 py-2 text-sm ${
             notice.kind === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300"
-              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
           }`}
         >
           {notice.text}
         </p>
       )}
 
-      <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+      <section className={`${SURFACE_INSET} p-3`}>
         <h4 className="text-sm font-bold">식재료 기부</h4>
         <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_80px_auto]">
           <select
@@ -300,7 +311,7 @@ export function GuildDiningHallPanel() {
         </div>
       </section>
 
-      <section className="space-y-2">
+      <section className={`${SURFACE_INSET} space-y-2 p-3`}>
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-sm font-bold">이번 주 메뉴</h4>
           {menuEditable && (
@@ -322,14 +333,17 @@ export function GuildDiningHallPanel() {
         <div className="grid gap-2 md:grid-cols-2">
           {state.menus.map((menu) => {
             const checked = selectedMenuIds.includes(menu.id);
+            const menuSurface = !menu.unlocked
+              ? SURFACE_INSET
+              : checked
+                ? SURFACE_ACCENT
+                : SURFACE_CARD;
             return (
               <article
                 key={menu.id}
-                className={`rounded-lg border p-3 ${
-                  checked
-                    ? "border-amber-300 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/20"
-                    : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
-                } ${menu.unlocked ? "" : "opacity-60"}`}
+                className={`${menuSurface} p-3 ${
+                  menu.unlocked ? "" : "text-zinc-500 dark:text-zinc-400"
+                }`}
               >
                 <div className="flex items-start gap-2">
                   {menuEditable && menu.unlocked && (
@@ -383,14 +397,14 @@ export function GuildDiningHallPanel() {
       </section>
 
       {state.activeEffect && (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300">
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
           적용 중: {state.activeEffect.name} · +{state.activeEffect.bonusPct}% · 남은 횟수 {state.activeEffect.remainingUses}회
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         식재료·식권·메뉴는 매주 월요일 00:00 KST에 초기화됩니다. 새 효과식 주문 시 기존 식사 효과는 교체됩니다.
       </p>
-    </div>
+    </section>
   );
 }
 

@@ -69,7 +69,7 @@ function seedStrongWarrior(lastBattleAt: number, offlineSession = true) {
     gold: 1000,
     hp: 999999,
     frontierDepth: 2,
-    lastHuntDepth: 1, // 오프라인 farm 깊이
+    lastHuntDepth: 1, // 레거시 입구 깊이 → 대표 깊이 2로 정규화
     lastBattleAt,
     // 오프라인 사냥 세션 활성(시작=lastBattleAt) — 정산은 세션 켜진 동안만. 창=시작+2h.
     ...(offlineSession ? { offlineHuntStartedAt: lastBattleAt } : {}),
@@ -126,10 +126,10 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     expect(json.accrued).toBe(12); // offlineBattlesAccrued(60s) — 응답에 누적치 노출
     expect(json.battles).toBe(12); // 60s / 5s
     expect(json.wins).toBe(12); // 강한 전사 → 전승
-    expect(json.depth).toBe(1);
+    expect(json.depth).toBe(2);
     expect(json.totalGold).toBeGreaterThan(0);
     expect(json.totalExp).toBeGreaterThan(0);
-    expect(json.totalProficiency).toBe(12 * proficiencyPerKillAtDepth(1));
+    expect(json.totalProficiency).toBe(12 * proficiencyPerKillAtDepth(2));
     expect(json.totalMastery).toBe(12);
 
     // 세이브 권위 — 골드/EXP/숙련도 실제 누적.

@@ -3,6 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 import {
   RARE_MAP_KINDS,
   type RareMapInstance,
@@ -53,7 +54,7 @@ export function MarketplaceRareMapTab({
               <span className="min-w-0 text-sm font-medium">
                 {icon} {def?.name ?? m.kind}
                 <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  깊이 {m.depth} · 남은 {m.runsLeft}판
+                  {huntStageName(m.depth)} · 남은 {m.runsLeft}판
                 </span>
                 <span className="ml-1.5">
                   <PriceRefLine stat={priceRef[m.kind]} />

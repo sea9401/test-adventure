@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseHiddenThemeStarts, toggleHiddenTheme } from "./V2DungeonList";
+import {
+  parseHiddenThemeStarts,
+  stageRangeLabel,
+  toggleHiddenTheme,
+} from "./V2DungeonList";
 
 describe("toggleHiddenTheme", () => {
   it("adds a visible theme start to the hidden set without mutating input", () => {
@@ -24,5 +28,12 @@ describe("parseHiddenThemeStarts", () => {
 
   it("falls back to an empty set for invalid storage", () => {
     expect([...parseHiddenThemeStarts("not json")]).toEqual([]);
+  });
+});
+
+describe("stageRangeLabel", () => {
+  it("내부 대표 깊이를 플레이어용 단계명으로 표시", () => {
+    expect(stageRangeLabel([2, 4, 6])).toBe("입구 · 심부 · 최심부");
+    expect(stageRangeLabel([8])).toBe("입구");
   });
 });

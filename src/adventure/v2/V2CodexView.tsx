@@ -19,6 +19,7 @@ import {
 import {
   MAIN_DUNGEON,
   dungeonThemeCatalog,
+  huntStageLabel,
 } from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
@@ -528,13 +529,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
                     <h2 className="text-sm font-bold">{theme.name}</h2>
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      깊이 {theme.depthStart}~{theme.depthEnd}
+                      진행: {huntStageLabel(theme.depthEnd)}
                     </span>
                   </div>
 
                   {/* 몬스터 — 처리한(최고 도달) 깊이 기준 스탯. */}
                   <p className="mb-1 text-[10px] text-zinc-400 dark:text-zinc-500">
-                    몬스터 스탯 = 도달한 깊이 {theme.depthEnd} 기준 (속성 상성 전)
+                    몬스터 스탯 = 도달한 {huntStageLabel(theme.depthEnd)} 기준 (속성 상성 전)
                   </p>
                   <div className="space-y-1.5">
                     {theme.enemies.map((e) => {

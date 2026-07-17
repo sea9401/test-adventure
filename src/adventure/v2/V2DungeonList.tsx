@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
-  depthName,
-  dungeonThemeGroups,
+  dungeonHuntStageGroups,
+  huntStageLabel,
+  huntStageName,
+  nextHuntStageDepth,
   themeElementSummary,
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
@@ -16,9 +18,8 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 
-// 프론티어 사냥터 목록 — 2단. 테마(들판·마른 협곡·…) 카드 → 누르면 그 안에서 깊이 카드 6개.
-// 뒤로 갈수록 깊이가 한 화면에 너무 많아지는 걸 테마별로 접어 해소. frontierDepth = 최고 도달
-// 깊이(기본 2). 그 이상은 "도전(미정복)" 구역(= maxDepth+1). 단 MAX_FRONTIER_DEPTH(마지막 테마 끝)에서 캡.
+// 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
+// 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
 
 export const DUNGEON_THEME_VISIBILITY_STORAGE_KEY =
   "adventure.v2.dungeonThemeHiddenStarts";
@@ -41,12 +42,13 @@ export function V2DungeonList({
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
   initialOpenDepth?: number | null;
 }) {
-  const maxDepth = Math.max(2, frontierDepth);
-  // 도전(미정복) = 최고도달+1, 단 마지막 테마 끝(MAX_FRONTIER_DEPTH)에서 캡(그 너머 콘텐츠 없음).
-  const challengeDepth = Math.min(maxDepth + 1, MAX_FRONTIER_DEPTH);
-  // 깊이 1 ~ 도전까지를 테마 블록(≤6깊이)으로 묶는다.
-  const groups = dungeonThemeGroups(challengeDepth);
-  // 열린 테마 — 블록의 첫 깊이로 식별(배열 인덱스보다 안정적, frontierDepth 변동에도 견고).
+  const maxDepth = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(2, frontierDepth),
+  );
+  const challengeDepth = nextHuntStageDepth(maxDepth);
+  const groups = dungeonHuntStageGroups(challengeDepth ?? maxDepth);
+  // 열린 테마 — 기존 블록 첫 깊이(1·7·13)로 식별해 저장 설정과 돌아가기 링크를 보존한다.
   //   사냥터에서 "뒤로"로 진입 시(initialOpenDepth) 그 테마를 펼친 상태로 시작.
   const [openDepth, setOpenDepth] = useState<number | null>(initialOpenDepth);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -55,9 +57,11 @@ export function V2DungeonList({
   );
   const openGroup =
     openDepth != null
-      ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
+      ? (groups.find((g) => g.themeStartDepth === openDepth) ?? null)
       : null;
-  const visibleGroups = groups.filter((g) => !hiddenThemeStarts.has(g.depths[0]));
+  const visibleGroups = groups.filter(
+    (g) => !hiddenThemeStarts.has(g.themeStartDepth),
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -118,7 +122,7 @@ export function V2DungeonList({
       />
 
       {openGroup ? (
-        // 이너 — 선택한 테마의 깊이 카드 6개.
+        // 이너 — 선택한 테마의 입구·심부·최심부 카드.
         <div className="space-y-3">
           <PowerSummary playerPower={playerPower} />
           <ThemeElementLine depth={openGroup.depths[0]} />
@@ -154,12 +158,11 @@ export function V2DungeonList({
             <Card padding="sm" className="space-y-2">
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {groups.map((g) => {
-                  const from = g.depths[0];
-                  const to = g.depths[g.depths.length - 1];
-                  const checked = !hiddenThemeStarts.has(from);
+                  const startDepth = g.themeStartDepth;
+                  const checked = !hiddenThemeStarts.has(startDepth);
                   return (
                     <label
-                      key={from}
+                      key={startDepth}
                       className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
                     >
                       <span className="min-w-0">
@@ -167,13 +170,13 @@ export function V2DungeonList({
                           {g.name}
                         </span>
                         <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                          {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
+                          {stageRangeLabel(g.depths)}
                         </span>
                       </span>
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleThemeVisibility(from)}
+                        onChange={() => toggleThemeVisibility(startDepth)}
                         className="h-4 w-4 shrink-0 accent-rose-600"
                       />
                     </label>
@@ -205,8 +208,8 @@ export function V2DungeonList({
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-sky-800 dark:text-sky-200">
-                      ✨ {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} — 깊이{" "}
-                      {m.depth}
+                      ✨ {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} —{" "}
+                      {huntStageName(m.depth)}
                     </span>
                     <span className="mt-0.5 block text-[11px] text-sky-700/80 dark:text-sky-400/80">
                       남은 {m.runsLeft}판
@@ -237,14 +240,14 @@ export function V2DungeonList({
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {visibleGroups.map((g) => {
-                const hasChallenge = g.depths.includes(challengeDepth);
-                const from = g.depths[0];
-                const to = g.depths[g.depths.length - 1];
+                const hasChallenge =
+                  challengeDepth != null && g.depths.includes(challengeDepth);
+                const startDepth = g.themeStartDepth;
                 return (
                   <button
-                    key={from}
+                    key={startDepth}
                     type="button"
-                    onClick={() => setOpenDepth(from)}
+                    onClick={() => setOpenDepth(startDepth)}
                     className="group block h-full text-left"
                   >
                     <Card
@@ -265,9 +268,9 @@ export function V2DungeonList({
                         {g.name}
                       </div>
                       <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
+                        {stageRangeLabel(g.depths)}
                       </div>
-                      <ThemeElementLine depth={from} compact />
+                      <ThemeElementLine depth={g.depths[0]} compact />
                       {hasChallenge && (
                         <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                           도전 구역 포함
@@ -319,7 +322,11 @@ export function parseHiddenThemeStarts(raw: string | null): Set<number> {
   }
 }
 
-// 깊이 1개 카드 — 입장. (이너 뷰에서 테마의 각 깊이.)
+export function stageRangeLabel(depths: readonly number[]): string {
+  return depths.map(huntStageLabel).join(" · ");
+}
+
+// 사냥 단계 카드 — 내부 대표 깊이로 입장하지만 플레이어에게는 단계명만 보여준다.
 function DepthCard({
   depth,
   isChallenge,
@@ -355,7 +362,7 @@ function DepthCard({
               : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
           }`}
         >
-          {depthName(depth)}
+          {huntStageLabel(depth)}
         </div>
         <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
           {playerPower != null

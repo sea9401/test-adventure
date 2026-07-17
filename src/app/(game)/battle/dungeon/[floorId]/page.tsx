@@ -9,11 +9,16 @@ import {
 } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
-import { MAX_FRONTIER_DEPTH, themeFirstDepth } from "@/adventure/data/v2/dungeon";
+import {
+  isHuntStageDepth,
+  nextHuntStageDepth,
+  MAX_FRONTIER_DEPTH,
+  themeFirstDepth,
+} from "@/adventure/data/v2/dungeon";
 
 // /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
-// floorId 는 depth 숫자(1~6→들판, 7+→프론티어 밴드). 들판만 authored, 7+ 는 데이터 도출.
-// 최고 도달 깊이(frontierDepth)+1 까지 입장 가능 — 서버에서 depth_locked 로 최종 차단.
+// floorId 는 내부 depth 숫자. 일반 사냥은 테마당 대표 깊이 2·4·6만 사용하며,
+// 레거시 희귀 지도는 기존 깊이를 그대로 허용한다. 서버가 최종 소유·해금 검증한다.
 export default function DungeonFloorPage() {
   const router = useRouter();
   const params = useParams<{ floorId: string }>();
@@ -54,8 +59,14 @@ export default function DungeonFloorPage() {
   // 새로고침 직후 기본값(2)으로 깊은 사냥터를 404 처리하는 레이스를 막는다.
   const validDepthShape =
     Number.isInteger(n) && n >= 1 && n <= MAX_FRONTIER_DEPTH;
-  const unlockedDepthLimit = Math.min(MAX_FRONTIER_DEPTH, frontierDepth + 1);
-  const valid = validDepthShape && n <= unlockedDepthLimit;
+  const nextStageDepth = nextHuntStageDepth(frontierDepth);
+  const normalStageUnlocked =
+    isHuntStageDepth(n) &&
+    (n <= frontierDepth || n === nextStageDepth);
+  const rareMapDepthUnlocked =
+    rareMapIid != null && n <= Math.min(MAX_FRONTIER_DEPTH, frontierDepth + 1);
+  const valid =
+    validDepthShape && (normalStageUnlocked || rareMapDepthUnlocked);
   const waitingForGameState =
     validDepthShape && !valid && !gameStateLoaded;
 

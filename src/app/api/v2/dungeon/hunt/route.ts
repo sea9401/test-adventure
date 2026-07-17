@@ -23,7 +23,12 @@ function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { enemiesForDepth, MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
+import {
+  enemiesForDepth,
+  isHuntStageDepth,
+  nextHuntStageDepth,
+  MAX_FRONTIER_DEPTH,
+} from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
@@ -313,12 +318,23 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const { owned: ownedEquip, equipped: equippedEquip } =
     parseEquipmentSave(equipmentSave);
 
-  // 프론티어 깊이 게이트(수동 푸시) — 깊이 1~최고도달+1 만. 도달은 character.v2.frontierDepth.
-  // 들판 초반(min 2 → 깊이 3까지)은 기본 해금. 잠긴 깊이는 stamina 소모 전 거부.
+  // 프론티어 단계 게이트(수동 푸시) — 일반 사냥은 테마당 입구·심부·최심부의 대표 깊이
+  // (2·4·6)만 허용한다. 희귀 지도는 레거시 깊이를 보존하므로 이 제한을 건너뛴다.
   const frontierDepth = Math.max(
     2,
     Math.floor(Number(charSave.frontierDepth) || 2),
   );
+  if (!rareMapIid && !isHuntStageDepth(depth)) {
+    return {
+      ok: false as const,
+      status: 400,
+      body: {
+        ok: false as const,
+        error: "hunt_stage_only" as const,
+        maxDepth: Math.min(frontierDepth, MAX_FRONTIER_DEPTH),
+      },
+    };
+  }
   // 프론티어 끝 게이트 — 마지막 테마(MAX_FRONTIER_DEPTH) 너머는 콘텐츠 없음(새 테마 추가 전까지).
   if (depth > MAX_FRONTIER_DEPTH) {
     return {
@@ -331,8 +347,13 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       },
     };
   }
-  // 깊이 1~최고도달+1 게이트.
-  if (depth > frontierDepth + 1) {
+  // 일반 사냥은 정복한 대표 단계 또는 바로 다음 대표 단계만 허용한다. 희귀 지도는 기존
+  // 최고도달+1 규칙을 유지하고, 아래 소유·깊이 일치 검증까지 통과해야 한다.
+  const nextStageDepth = nextHuntStageDepth(frontierDepth);
+  const depthLocked = rareMapIid
+    ? depth > frontierDepth + 1
+    : depth > frontierDepth && depth !== nextStageDepth;
+  if (depthLocked) {
     return {
       ok: false as const,
       status: 403,
@@ -1075,6 +1096,14 @@ export async function POST(req: Request) {
     typeof body.rareMap === "string" && body.rareMap.length > 0
       ? body.rareMap
       : null;
+  // 잠금/보상 로직에 들어가기 전 형식적으로 불가능한 일반 사냥 깊이를 빠르게 거부한다.
+  // 희귀 지도는 레거시 홀수 깊이를 그대로 보유할 수 있어 save lock 후 별도 검증한다.
+  if (!rareMapIid && !isHuntStageDepth(depth)) {
+    return Response.json(
+      { ok: false, error: "hunt_stage_only" },
+      { status: 400 },
+    );
+  }
 
   const result = await db.transaction(async (tx) => {
     const ctx: RunOneHuntCtx = {

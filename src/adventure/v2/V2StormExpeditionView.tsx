@@ -53,7 +53,7 @@ type ExpeditionStatus = {
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  locked: "심해 폐허 6을 돌파하면 원정이 열립니다.",
+  locked: "심해 폐허 최심부를 돌파하면 원정이 열립니다.",
   no_attempts: "오늘의 원정 입장 횟수를 모두 사용했습니다.",
   already_active: "이미 진행 중인 원정이 있습니다.",
   no_active: "진행 중인 원정이 없습니다.",
@@ -164,7 +164,7 @@ export function V2StormExpeditionView() {
 
       {status && !status.unlocked && (
         <StatusBanner tone="warning">
-          심해 폐허 6 돌파 후 개방 · 현재 깊이 {status.frontierDepth ?? 2}/{status.unlockDepth ?? 72}
+          심해 폐허 최심부 돌파 후 개방 · 현재 진행 {Math.floor((status.frontierDepth ?? 2) / 2)}/{Math.floor((status.unlockDepth ?? 72) / 2)}단계
         </StatusBanner>
       )}
 

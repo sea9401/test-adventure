@@ -171,6 +171,12 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
 // DUNGEON_THEMES 에 추가 → 이 캡이 자동으로 늘어난다. 깊이 게이트(hunt route)·UI 가 이 값으로 캡.
 export const MAX_FRONTIER_DEPTH = DUNGEON_THEMES.length * THEME_DEPTH_SPAN;
 
+// 플레이어가 선택하는 사냥 단계. 내부 깊이 1~72와 난이도·보상 테이블은 그대로 두고,
+// 각 테마의 두 깊이를 한 단계로 묶어 뒤쪽 깊이(2·4·6)를 대표 전투 깊이로 사용한다.
+// 레거시 깊이와 희귀 지도는 같은 쌍의 단계명으로 표시할 수 있다.
+export const HUNT_STAGE_LABELS = ["입구", "심부", "최심부"] as const;
+export type HuntStageLabel = (typeof HUNT_STAGE_LABELS)[number];
+
 // 깊이(1+) → 0-based 테마 인덱스(DUNGEON_THEMES). 캡(MAX_FRONTIER_DEPTH) 밖은 방어적으로 마지막
 // 테마로 클램프(게이트가 이미 막아 실제로는 도달 불가). 깊이→테마 해석의 공용 단일 소스.
 export function themeIndexForDepth(depth: number): number {
@@ -228,6 +234,100 @@ export function themeElementSummary(depth: number): {
 export function depthName(depth: number): string {
   const { name, localIndex } = themeForDepth(depth);
   return `${name} ${localIndex}`;
+}
+
+// 레거시 로컬 깊이 1~2 / 3~4 / 5~6 을 각각 입구 / 심부 / 최심부로 해석한다.
+export function huntStageLabel(depth: number): HuntStageLabel {
+  const { localIndex } = themeForDepth(depth);
+  const stageIndex = Math.min(
+    HUNT_STAGE_LABELS.length - 1,
+    Math.floor((Math.max(1, localIndex) - 1) / 2),
+  );
+  return HUNT_STAGE_LABELS[stageIndex];
+}
+
+export function huntStageName(depth: number): string {
+  const { name } = themeForDepth(depth);
+  return `${name} · ${huntStageLabel(depth)}`;
+}
+
+// 일반 사냥 대표 깊이인지 확인한다. 테마 폭이 6이라 전체 프론티어에서 짝수 깊이가
+// 곧 각 테마의 2·4·6(입구·심부·최심부)이다.
+export function isHuntStageDepth(depth: number): boolean {
+  return (
+    Number.isInteger(depth) &&
+    depth >= 1 &&
+    depth <= MAX_FRONTIER_DEPTH &&
+    depth % 2 === 0
+  );
+}
+
+// 최고 도달 깊이 다음의 일반 사냥 단계. 레거시 홀수 저장값도 바로 다음 대표 단계로 이어진다.
+// 마지막 단계까지 정복했으면 null.
+export function nextHuntStageDepth(frontierDepth: number): number | null {
+  const frontier = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(0, Math.floor(Number(frontierDepth) || 0)),
+  );
+  const next = frontier % 2 === 0 ? frontier + 2 : frontier + 1;
+  return next <= MAX_FRONTIER_DEPTH ? Math.max(2, next) : null;
+}
+
+// 자동 사냥은 도전 단계가 아니라 이미 정복한 가장 깊은 대표 단계에서 돈다.
+export function latestUnlockedHuntStageDepth(frontierDepth: number): number {
+  const frontier = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(2, Math.floor(Number(frontierDepth) || 2)),
+  );
+  return frontier % 2 === 0 ? frontier : frontier - 1;
+}
+
+// 레거시 깊이를 같은 표시 단계의 대표 깊이로 변환한다. 단, frontierDepth가 주어지면
+// 정복하지 않은 대표 단계로 올라가지 않도록 가장 깊은 정복 단계에서 클램프한다.
+export function huntStageDepthForLegacyDepth(
+  depth: number,
+  frontierDepth: number = MAX_FRONTIER_DEPTH,
+): number {
+  const d = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(1, Math.floor(Number(depth) || 1)),
+  );
+  const representative = d % 2 === 0 ? d : d + 1;
+  return Math.min(
+    representative,
+    latestUnlockedHuntStageDepth(frontierDepth),
+  );
+}
+
+// 일반 사냥 목록용 — 정복 단계와 다음 도전 단계까지만, 테마당 대표 깊이 3개로 묶는다.
+// themeStartDepth는 기존 표시 설정(localStorage)과 ?openDepth 링크의 1·7·13 키를 보존한다.
+export function dungeonHuntStageGroups(
+  maxDepth: number,
+): { name: string; themeStartDepth: number; depths: number[] }[] {
+  const end = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(2, Math.floor(Number(maxDepth) || 2)),
+  );
+  const groups: {
+    name: string;
+    themeStartDepth: number;
+    depths: number[];
+  }[] = [];
+  for (let block = 0; block < DUNGEON_THEMES.length; block++) {
+    const themeStartDepth = block * THEME_DEPTH_SPAN + 1;
+    const depths = [
+      themeStartDepth + 1,
+      themeStartDepth + 3,
+      themeStartDepth + 5,
+    ].filter((depth) => depth <= end);
+    if (depths.length === 0) break;
+    groups.push({
+      name: DUNGEON_THEMES[block].name,
+      themeStartDepth,
+      depths,
+    });
+  }
+  return groups;
 }
 
 // 표시용 — 깊이 1..maxDepth 를 THEME_DEPTH_SPAN(6) 깊이 블록(=사냥터 카드)으로 묶는다. 사냥터

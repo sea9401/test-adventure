@@ -116,7 +116,7 @@ describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () =
 
   it("첫 사냥 = 200 + lastBattleAt 기록, 스태미나 미차감(쿨다운이 throttle)", async () => {
     const before = Date.now();
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const c = char();
     expect(typeof c.lastBattleAt).toBe("number");
@@ -126,11 +126,11 @@ describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () =
   });
 
   it("쿨다운 중 재요청 = 429 on_cooldown(nextBattleAt/cooldownMs)", async () => {
-    const first = await POST(huntReq({ floor: 1 }));
+    const first = await POST(huntReq({ floor: 2 }));
     expect(first.status).toBe(200);
     const lastBattleAt = char().lastBattleAt!;
 
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(429);
     const json = (await res.json()) as {
       ok: boolean;
@@ -145,26 +145,26 @@ describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () =
   });
 
   it("쿨다운 경과 후 = 다시 200", async () => {
-    const first = await POST(huntReq({ floor: 1 }));
+    const first = await POST(huntReq({ floor: 2 }));
     expect(first.status).toBe(200);
     // lastBattleAt 을 쿨다운 한참 전으로 되돌림 → 다음 요청 통과.
     const c = char();
     c.lastBattleAt = Date.now() - HUNT_COOLDOWN_MS - 1000;
     store.set("character.v2", c);
 
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
   });
 
   it("count>1 요청도 단판 — 일괄 폐지(batch 필드 없음)", async () => {
-    const res = await POST(huntReq({ floor: 1, count: 5 }));
+    const res = await POST(huntReq({ floor: 2, count: 5 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { batch?: unknown; result?: unknown };
     // 코어루프는 항상 단판 → batch 집계 없이 단일 result.
     expect(json.batch).toBeUndefined();
     expect(json.result).toBeDefined();
     // 단판 1회만 실행 → 즉시 재요청은 쿨다운.
-    const again = await POST(huntReq({ floor: 1, count: 5 }));
+    const again = await POST(huntReq({ floor: 2, count: 5 }));
     expect(again.status).toBe(429);
   });
 });

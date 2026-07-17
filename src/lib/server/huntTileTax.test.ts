@@ -121,7 +121,7 @@ describe("POST /api/v2/dungeon/hunt — 타일 전쟁 사냥세(마커 위치 �
   });
 
   it("길드 점령 타일 위에서 승리 → 사냥세가 그 타일 금고(tile:2,3)로 누적", async () => {
-    const res = await POST(huntReq({ floor: 1 })); // base outpostId 없음 — tilePos 가 행선지.
+    const res = await POST(huntReq({ floor: 2 })); // base outpostId 없음 — tilePos 가 행선지.
     expect(res.status).toBe(200);
     const tileTreasury = inserts.find((v) => v.outpostId === "tile:2,3");
     expect(tileTreasury).toBeDefined();

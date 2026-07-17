@@ -66,7 +66,7 @@ import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 function seedStrongWarrior() {
   store.clear();
-  // 강한 전사 — depth 1(들판) 몹을 확정 처치하도록 grown.str 크게 + cap 넉넉히(클램프 회피).
+  // 강한 전사 — 입구 대표 depth 2(들판) 몹을 확정 처치하도록 grown.str 크게 + cap 넉넉히.
   store.set("character.v2", {
     class: "warrior",
     // 30 = tier1 레벨캡(50) 한참 아래 → EXP 가 캡에 안 막히고 누적된다.
@@ -110,7 +110,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
   });
 
   it("단판(count=1) 승리 — 200 + EXP/골드/숙련도/킬로그 갱신, 스태미나 1 차감", async () => {
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -124,11 +124,11 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       };
     };
     expect(json.ok).toBe(true);
-    expect(json.result.floor).toBe(1);
+    expect(json.result.floor).toBe(2);
     // 강한 전사 + 우호 RNG → 확정 승리.
     expect(json.result.won).toBe(true);
     expect(json.result.expGained).toBeGreaterThan(0);
-    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(1));
+    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(2));
     expect(json.result.masteryGained).toBe(1);
 
     // 세이브 권위 반영 확인.
@@ -140,7 +140,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       groups: { warrior?: { cumLevel?: number } };
       jobCumLevel?: Record<string, number>;
     };
-    expect(prof.points).toBe(proficiencyPerKillAtDepth(1)); // 전역 잔액
+    expect(prof.points).toBe(proficiencyPerKillAtDepth(2)); // 전역 잔액
     expect(prof.groups.warrior?.cumLevel).toBe(31); // 기존 30 + 승리 숙련도 1
     expect(prof.jobCumLevel?.warrior).toBe(1);
     const log = store.get("adventure-log.v2") as {
@@ -157,7 +157,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       // 30 은 만렙 미만이라 requiredExpToNext 는 항상 숫자(null 폴백은 타입 안전용).
       exp: (requiredExpToNext(30) ?? 1) - 1,
     });
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const char = store.get("character.v2") as {
       level: number;
@@ -186,7 +186,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       jobCumLevel: { fisher: 7 },
     });
 
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -199,7 +199,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     };
     expect(json.ok).toBe(true);
     expect(json.result.won).toBe(true);
-    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(1));
+    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(2));
     expect(json.result.masteryGained).toBe(0);
     expect(json.result.masteryAfter).toBe(7);
 
@@ -208,7 +208,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       groups: { survivor?: { cumLevel?: number } };
       jobCumLevel?: Record<string, number>;
     };
-    expect(prof.points).toBe(proficiencyPerKillAtDepth(1));
+    expect(prof.points).toBe(proficiencyPerKillAtDepth(2));
     expect(prof.groups.survivor?.cumLevel).toBe(30);
     expect(prof.jobCumLevel?.fisher).toBe(7);
   });
@@ -231,7 +231,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       jobCumLevel: { farmer: 11 },
     });
 
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -244,7 +244,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     };
     expect(json.ok).toBe(true);
     expect(json.result.won).toBe(true);
-    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(1));
+    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(2));
     expect(json.result.masteryGained).toBe(0);
     expect(json.result.masteryAfter).toBe(11);
 
@@ -253,13 +253,13 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       groups: { survivor?: { cumLevel?: number } };
       jobCumLevel?: Record<string, number>;
     };
-    expect(prof.points).toBe(proficiencyPerKillAtDepth(1));
+    expect(prof.points).toBe(proficiencyPerKillAtDepth(2));
     expect(prof.groups.survivor?.cumLevel).toBe(30);
     expect(prof.jobCumLevel?.farmer).toBe(11);
   });
 
   it("배치(count=5) — 5회 완료 + 판간 read-your-writes 이월(스태미나·EXP 누적)", async () => {
-    const res = await POST(huntReq({ floor: 1, count: 5 }));
+    const res = await POST(huntReq({ floor: 2, count: 5 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -285,7 +285,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.wins).toBe(5);
     expect(json.batch.losses).toBe(0);
     expect(json.batch.stoppedReason).toBeNull();
-    expect(json.batch.totalProficiency).toBe(5 * proficiencyPerKillAtDepth(1));
+    expect(json.batch.totalProficiency).toBe(5 * proficiencyPerKillAtDepth(2));
     expect(json.batch.totalMastery).toBe(5);
     expect(json.batch.replays).toHaveLength(5);
     expect(json.batch.replays[0]?.index).toBe(1);
@@ -307,13 +307,13 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       groups: { warrior?: { cumLevel?: number } };
       jobCumLevel?: Record<string, number>;
     };
-    expect(prof.points).toBe(5 * proficiencyPerKillAtDepth(1)); // 전역 잔액 5판 누적
+    expect(prof.points).toBe(5 * proficiencyPerKillAtDepth(2)); // 전역 잔액 5판 누적
     expect(prof.groups.warrior?.cumLevel).toBe(35); // 기존 30 + 5승
     expect(prof.jobCumLevel?.warrior).toBe(5);
   });
 
   it("거점(미점령) 사냥 — NPC 세금 차감 + 수취 라벨 '거점 금고'", async () => {
-    const res = await POST(huntReq({ floor: 1, outpostId: OUTPOSTS[0].id }));
+    const res = await POST(huntReq({ floor: 2, outpostId: OUTPOSTS[0].id }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -338,7 +338,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
 
   it("배치 + 거점 — totalGoldGross/totalGoldTaxed 합산 + 수취 라벨", async () => {
     const res = await POST(
-      huntReq({ floor: 1, count: 3, outpostId: OUTPOSTS[0].id }),
+      huntReq({ floor: 2, count: 3, outpostId: OUTPOSTS[0].id }),
     );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -366,7 +366,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       // lastUpdatedAt 을 현재로 — 과거값이면 라우트의 Date.now() 까지 재생되어 풀충된다.
       stamina: { current: 0, lastUpdatedAt: Date.now() },
     });
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(409);
     const json = (await res.json()) as { ok: boolean; error: string };
     expect(json.ok).toBe(false);
@@ -381,7 +381,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     });
     store.set("inventory.v2", { hpCharges: 999_999, mpCharges: 0 });
 
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       ok: boolean;
@@ -402,12 +402,29 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(inv.hpCharges).toBe(json.result.hpCharges);
   });
 
-  it("깊이 잠금 — frontierDepth+1 초과 깊이는 403", async () => {
-    // frontierDepth 2 → 최대 진입 3. depth 5 는 잠김.
-    const res = await POST(huntReq({ floor: 5 }));
+  it("단계 잠금 — 다음 대표 단계보다 깊은 곳은 403", async () => {
+    // frontierDepth 2 → 다음 도전은 4. 대표 depth 6은 잠김.
+    const res = await POST(huntReq({ floor: 6 }));
     expect(res.status).toBe(403);
     const json = (await res.json()) as { ok: boolean; error: string };
     expect(json.ok).toBe(false);
     expect(json.error).toBe("depth_locked");
+  });
+
+  it("일반 사냥은 대표 깊이가 아닌 레거시 깊이를 거부", async () => {
+    const res = await POST(huntReq({ floor: 3 }));
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error?: string };
+    expect(json.error).toBe("hunt_stage_only");
+  });
+
+  it("다음 대표 단계는 +2여도 도전 가능하고 승리하면 frontier가 갱신", async () => {
+    const res = await POST(huntReq({ floor: 4 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      result: { won: boolean; maxDepth: number };
+    };
+    expect(json.result.won).toBe(true);
+    expect(json.result.maxDepth).toBe(4);
   });
 });

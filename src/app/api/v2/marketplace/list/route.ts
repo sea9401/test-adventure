@@ -6,6 +6,7 @@ import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
+import { huntStageName } from "@/adventure/data/v2/dungeon";
 import {
   RARE_MAP_KINDS,
   parseRareMaps,
@@ -172,8 +173,8 @@ export async function POST(req: Request) {
           sellerName,
           kind: "consumable",
           itemId: inst.kind,
-          // 깊이가 가치의 핵심이라 이름에 박는다(둘러보기에서 바로 보이게).
-          itemName: `${kindName} (깊이 ${inst.depth})`,
+          // 내부 깊이는 payload에 보존하고, 둘러보기에는 3단계 사냥터명을 보여준다.
+          itemName: `${kindName} (${huntStageName(inst.depth)})`,
           quantity: 1,
           price,
           instancePayload: inst,

@@ -128,21 +128,21 @@ describe("offlineBattlesAccrued — 오프라인 누적 판수 (순수)", () => 
   });
 });
 
-describe("offlineFarmDepth — 자동 사냥 farm 깊이 (순수, 잠긴 깊이 클램프)", () => {
-  it("lastHuntDepth 있으면 그 값(프론티어 내 클램프)", () => {
-    expect(offlineFarmDepth(3, 5)).toBe(3);
-    expect(offlineFarmDepth(5, 5)).toBe(5); // 프론티어와 동일 허용
-    expect(offlineFarmDepth(9, 5)).toBe(5); // 프론티어 초과 → 클램프
-    expect(offlineFarmDepth(0, 5)).toBe(4); // <1 → 폴백(frontier−1)
+describe("offlineFarmDepth — 자동 사냥 3단계 대표 깊이", () => {
+  it("레거시 lastHuntDepth를 같은 단계 대표 깊이로 바꾸고 정복 범위에서 클램프", () => {
+    expect(offlineFarmDepth(3, 5)).toBe(4);
+    expect(offlineFarmDepth(5, 5)).toBe(4); // 대표 6은 아직 미정복 → 심부 4
+    expect(offlineFarmDepth(9, 5)).toBe(4); // 프론티어 초과 → 가장 깊은 정복 단계
+    expect(offlineFarmDepth(1, 2)).toBe(2);
   });
-  it("없으면 frontier−1 (단 최소 1)", () => {
+  it("없거나 비정상이면 가장 깊은 정복 대표 단계", () => {
     expect(offlineFarmDepth(null, 5)).toBe(4);
-    expect(offlineFarmDepth(undefined, 2)).toBe(1);
-    expect(offlineFarmDepth(NaN, 2)).toBe(1);
+    expect(offlineFarmDepth(undefined, 2)).toBe(2);
+    expect(offlineFarmDepth(NaN, 2)).toBe(2);
   });
-  it("프론티어 손상값이어도 최소 2로 보정 → 깊이 ≥1", () => {
-    expect(offlineFarmDepth(undefined, 0)).toBe(1); // frontier→2, 2−1=1
-    expect(offlineFarmDepth(1, 0)).toBe(1);
+  it("프론티어 손상값이어도 기본 입구 단계로 보정", () => {
+    expect(offlineFarmDepth(undefined, 0)).toBe(2);
+    expect(offlineFarmDepth(1, 0)).toBe(2);
   });
 });
 

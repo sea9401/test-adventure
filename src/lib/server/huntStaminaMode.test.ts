@@ -111,7 +111,7 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
   });
 
   it("첫 사냥 = 200 + 스태미나 HUNT_COST 차감, lastBattleAt 기록", async () => {
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const c = char();
     // 스태미나가 throttle — HUNT_COST 만큼 차감.
@@ -121,17 +121,17 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
   });
 
   it("즉시 재요청도 200(쿨다운 없음) — 스태미나가 throttle(lastBattleAt 무시)", async () => {
-    const first = await POST(huntReq({ floor: 1 }));
+    const first = await POST(huntReq({ floor: 2 }));
     expect(first.status).toBe(200);
     // lastBattleAt 이 방금 기록됐어도 사냥은 스태미나로 게이트라 즉시 재사냥 가능(429 아님).
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     // 두 판 차감.
     expect(char().stamina.current).toBe(5000 - HUNT_COST * 2);
   });
 
   it("count>1 = 일괄 허용(batch 집계 존재)", async () => {
-    const res = await POST(huntReq({ floor: 1, count: 5 }));
+    const res = await POST(huntReq({ floor: 2, count: 5 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as { batch?: unknown };
     expect(json.batch).toBeDefined();
@@ -139,7 +139,7 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
 
   it("스태미나 부족 = 409 out_of_stamina", async () => {
     seedStrongWarrior(0);
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(409);
     const json = (await res.json()) as { ok: boolean; error: string };
     expect(json.ok).toBe(false);

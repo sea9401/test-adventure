@@ -65,6 +65,9 @@ export type GuildWorkshopRecipeId =
   | "crafted_focus_ring"
   | "crafted_venom_gland_dagger"
   | "crafted_scorpion_king_stinger"
+  | "crafted_pulsestone_guard"
+  | "crafted_thundercoil_gloves"
+  | "crafted_veinbreaker_bow"
   | "crafted_fury_necklace"
   | "crafted_pursuit_necklace"
   | "crafted_focus_robe"
@@ -73,7 +76,10 @@ export type GuildWorkshopRecipeId =
   | "crafted_bulwark_shield"
   | "crafted_stormlance"
   | "crafted_kingbreaker_axe"
-  | "crafted_astral_grimoire";
+  | "crafted_astral_grimoire"
+  | "crafted_fracture_blade"
+  | "crafted_thunder_oracle_grimoire"
+  | "crafted_trench_hymn_necklace";
 
 export type GuildWorkshopRecipe = {
   id: GuildWorkshopRecipeId;
@@ -486,6 +492,54 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     artisanXp: 90,
     note: "보스 소재 개량 · 독샘 단검의 강화·품질·개체 옵션 미승계",
   },
+  crafted_pulsestone_guard: {
+    id: "crafted_pulsestone_guard",
+    equipmentId: "v2_crafted_pulsestone_guard",
+    baseEquipmentId: "v2_crafted_ward_plate",
+    resourceProfile: "guard",
+    cost: guildWorkshopResourceCostForTier(6, "guard"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.rockGolemResonantCore]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 2,
+    artisanXp: 90,
+    note: "몬스터 소재 개량 · 피격 시 방어력 누적",
+  },
+  crafted_thundercoil_gloves: {
+    id: "crafted_thundercoil_gloves",
+    equipmentId: "v2_crafted_thundercoil_gloves",
+    baseEquipmentId: "v2_crafted_spark_gloves",
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(6, "fury"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.sparkScorpionConductiveSac]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 2,
+    artisanXp: 90,
+    note: "몬스터 소재 개량 · 적중 시 감전",
+  },
+  crafted_veinbreaker_bow: {
+    id: "crafted_veinbreaker_bow",
+    equipmentId: "v2_crafted_veinbreaker_bow",
+    baseEquipmentId: "v2_crafted_gale_bow",
+    resourceProfile: "pursuit",
+    cost: guildWorkshopResourceCostForTier(6, "pursuit"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.abyssWormBurrowingJaw]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 2,
+    artisanXp: 90,
+    note: "몬스터 소재 개량 · 치명타 시 대상 방어력 감소",
+  },
   crafted_fury_necklace: {
     id: "crafted_fury_necklace",
     equipmentId: "v2_crafted_fury_necklace",
@@ -611,6 +665,63 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredSmithyLevel: 5,
     artisanXp: 215,
     note: "룬 세트 무기",
+  },
+  crafted_fracture_blade: {
+    id: "crafted_fracture_blade",
+    equipmentId: "v2_crafted_fracture_blade",
+    baseEquipmentId: "v2_crafted_kingbreaker_axe",
+    resourceProfile: "fury",
+    cost: guildWorkshopResourceCostForTier(12, "fury"),
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 3,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 5,
+    },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 12,
+    requiredSmithyLevel: 5,
+    artisanXp: 240,
+    note: "몬스터 소재 개량 · 적중 시 출혈",
+  },
+  crafted_thunder_oracle_grimoire: {
+    id: "crafted_thunder_oracle_grimoire",
+    equipmentId: "v2_crafted_thunder_oracle_grimoire",
+    baseEquipmentId: "v2_crafted_astral_grimoire",
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(12, "focus"),
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
+    },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 12,
+    requiredSmithyLevel: 5,
+    artisanXp: 245,
+    note: "몬스터 소재 개량 · 스킬 사용 시 MP 환급",
+  },
+  crafted_trench_hymn_necklace: {
+    id: "crafted_trench_hymn_necklace",
+    equipmentId: "v2_crafted_trench_hymn_necklace",
+    baseEquipmentId: "v2_crafted_aurora_crown",
+    resourceProfile: "focus",
+    cost: guildWorkshopResourceCostForTier(12, "focus"),
+    materialCost: {
+      [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 4,
+      [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 4,
+    },
+    specialMaterialCost: {
+      [MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore]: 12,
+    },
+    profession: "blacksmith",
+    requiredArtisanLevel: 12,
+    requiredSmithyLevel: 5,
+    artisanXp: 235,
+    note: "몬스터 소재 개량 · 회복량 일부를 보호막으로 전환",
   },
 };
 

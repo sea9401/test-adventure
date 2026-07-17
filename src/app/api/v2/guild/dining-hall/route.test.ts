@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { GuildDiningMenuId } from "@/adventure/data/v2/guildDining";
 import { emptyFarmState } from "@/adventure/v2/farm";
 import { kstWeekMondayKey } from "@/lib/kst";
 
@@ -58,11 +59,14 @@ function request(body: Record<string, unknown>) {
   });
 }
 
-function weekly(pantryPoints = 0) {
+function weekly(
+  pantryPoints = 0,
+  selectedMenuIds: GuildDiningMenuId[] = ["hearty_stew"],
+) {
   return {
     guildId: 7,
     weekKey: kstWeekMondayKey(),
-    selectedMenuIds: ["hearty_stew" as const],
+    selectedMenuIds,
     pantryPoints,
     targetPoints: 60,
     eligibleUserIds: ["u-diner"],
@@ -163,6 +167,88 @@ describe("길드 식당", () => {
       expect.anything(),
       expect.objectContaining({ type: "dining_meal", actorUserId: "u-diner" }),
     );
+  });
+
+  it("같은 효과식을 다시 주문하면 기존 만료 시각에 12시간을 더한다", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
+    const currentExpiresAt = Date.now() + 60 * 60 * 1000;
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(
+      weekly(60, ["adventurer_meal" as const]),
+    );
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === "inventory.v2") {
+        return { hpCharges: 10_000, mpCharges: 20_000 };
+      }
+      return {
+        weekKey: kstWeekMondayKey(),
+        guildId: 7,
+        contributionPoints: 30,
+        mealsUsed: 0,
+        activeEffect: {
+          menuId: "adventurer_meal",
+          kind: "hunt_exp",
+          bonusPct: 5,
+          expiresAt: currentExpiresAt,
+          roundingRemainder: 0,
+        },
+      };
+    });
+
+    try {
+      const response = await POST(
+        request({ action: "order", menuId: "adventurer_meal" }),
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.activeEffect).toMatchObject({
+        menuId: "adventurer_meal",
+        expiresAt: currentExpiresAt + 12 * 60 * 60 * 1000,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("즉시 회복식은 적용 중인 경험치 효과를 제거하지 않는다", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
+    const currentExpiresAt = Date.now() + 60 * 60 * 1000;
+    vi.mocked(lockGuildDiningWeekly).mockResolvedValue(weekly(60));
+    vi.mocked(lockSaveForUpdate).mockImplementation(async (_tx, _userId, key) => {
+      if (key === "inventory.v2") {
+        return { hpCharges: 10_000, mpCharges: 20_000 };
+      }
+      return {
+        weekKey: kstWeekMondayKey(),
+        guildId: 7,
+        contributionPoints: 30,
+        mealsUsed: 0,
+        activeEffect: {
+          menuId: "adventurer_meal",
+          kind: "hunt_exp",
+          bonusPct: 5,
+          expiresAt: currentExpiresAt,
+          roundingRemainder: 0,
+        },
+      };
+    });
+
+    try {
+      const response = await POST(
+        request({ action: "order", menuId: "hearty_stew" }),
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.activeEffect).toMatchObject({
+        menuId: "adventurer_meal",
+        expiresAt: currentExpiresAt,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("기부가 시작된 뒤에는 관리자의 메뉴 변경도 거부한다", async () => {

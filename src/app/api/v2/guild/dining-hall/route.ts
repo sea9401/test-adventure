@@ -72,6 +72,7 @@ async function diningView(args: {
   guildId: number;
   level: number;
   weekly: GuildDiningWeeklyRow;
+  now: Date;
   userState?: GuildDiningUserState;
   inventory?: InventorySave;
 }) {
@@ -97,6 +98,7 @@ async function diningView(args: {
     parseGuildDiningUserState(diningRaw, {
       weekKey: weekly.weekKey,
       guildId,
+      now: args.now,
     });
   const upgrade = diningHallUpgradeForLevel(level);
   const tickets = guildDiningTicketProgress(
@@ -169,7 +171,7 @@ export async function GET() {
       status: 200,
       body: {
         ok: true as const,
-        ...(await diningView({ tx, userId, guildId, level, weekly })),
+        ...(await diningView({ tx, userId, guildId, level, weekly, now })),
       },
     };
   });
@@ -242,7 +244,14 @@ export async function POST(req: Request) {
         status: 200,
         body: {
           ok: true as const,
-          ...(await diningView({ tx, userId, guildId, level, weekly: nextWeekly })),
+          ...(await diningView({
+            tx,
+            userId,
+            guildId,
+            level,
+            weekly: nextWeekly,
+            now,
+          })),
         },
       };
     }
@@ -275,7 +284,11 @@ export async function POST(req: Request) {
         GUILD_DINING_USER_SAVE_KEY,
         {},
       );
-      const userState = parseGuildDiningUserState(diningRaw, { weekKey, guildId });
+      const userState = parseGuildDiningUserState(diningRaw, {
+        weekKey,
+        guildId,
+        now,
+      });
       const tickets = guildDiningTicketProgress(userState, upgrade.weeklyMealTickets);
       if (
         userState.contributionPoints + points > tickets.contributionCap ||
@@ -308,6 +321,7 @@ export async function POST(req: Request) {
             guildId,
             level,
             weekly: nextWeekly,
+            now,
             userState: nextUserState,
           })),
         },
@@ -334,7 +348,11 @@ export async function POST(req: Request) {
       GUILD_DINING_USER_SAVE_KEY,
       {},
     );
-    const userState = parseGuildDiningUserState(diningRaw, { weekKey, guildId });
+    const userState = parseGuildDiningUserState(diningRaw, {
+      weekKey,
+      guildId,
+      now,
+    });
     const tickets = guildDiningTicketProgress(userState, upgrade.weeklyMealTickets);
     if (tickets.available <= 0) {
       return { status: 409, body: { ok: false as const, error: "no_meal_ticket" } };
@@ -358,7 +376,14 @@ export async function POST(req: Request) {
     const nextUserState: GuildDiningUserState = {
       ...userState,
       mealsUsed: userState.mealsUsed + 1,
-      activeEffect: activeEffectForMenu(menu),
+      activeEffect:
+        menu.effect.kind === "recovery"
+          ? userState.activeEffect
+          : activeEffectForMenu(menu, {
+              currentEffect: userState.activeEffect,
+              now,
+              weekKey,
+            }),
     };
     if (menu.effect.kind === "recovery") {
       await upsertSave(tx, userId, "inventory.v2", nextInventory);
@@ -381,6 +406,7 @@ export async function POST(req: Request) {
           guildId,
           level,
           weekly,
+          now,
           userState: nextUserState,
           inventory: nextInventory,
         })),

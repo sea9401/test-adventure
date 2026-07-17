@@ -83,12 +83,12 @@ describe("길드 연금 공방", () => {
     expect(json.crafted).toMatchObject({
       recipeId: "concentrated_solution",
       quantity: 2,
-      hpCharged: 360_000,
+      hpCharged: 450_000,
       mpCharged: 0,
     });
     expect(json.materials).toEqual({ herb: 10, silverleaf: 1 });
-    expect(json.weeklyEnergy).toEqual({ used: 6, limit: 10, remaining: 4 });
-    expect(json.charges).toMatchObject({ hp: 460_000, mp: 200_000 });
+    expect(json.weeklyEnergy).toEqual({ used: 6, limit: 20, remaining: 14 });
+    expect(json.charges).toMatchObject({ hp: 550_000, mp: 200_000 });
     expect(upsertSave).toHaveBeenCalledWith(
       expect.anything(),
       "u-alchemist",
@@ -114,7 +114,7 @@ describe("길드 연금 공방", () => {
 
   it("주간 연성력보다 많은 조제는 거부한다", async () => {
     const response = await POST(
-      request({ recipeId: "concentrated_solution", target: "balanced", quantity: 4 }),
+      request({ recipeId: "concentrated_solution", target: "balanced", quantity: 7 }),
     );
 
     expect(response.status).toBe(409);

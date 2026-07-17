@@ -103,15 +103,15 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
     ).toBe("주간 탐사 6건 · 진척 +35%");
   });
 
-  it("연금 공방은 배치 가능 건물이며 Lv5에서 주간 연성력 15를 연다", () => {
+  it("연금 공방은 배치 가능 건물이며 레벨별 주간 연성력을 12~30 제공한다", () => {
     expect(PLACEABLE_SETTLEMENT_BUILDING_IDS).toContain("alchemy_workshop");
     expect(nextSettlementBuildingUpgrade("alchemy_workshop", 1)).toMatchObject({
       level: 2,
       cost: { crop: 250, ore: 250, gold: 20_000_000, fame: 0 },
-      weeklyEnergy: 8,
+      weeklyEnergy: 16,
     });
     expect(alchemyWorkshopUpgradeForLevel(5)).toMatchObject({
-      weeklyEnergy: 15,
+      weeklyEnergy: 30,
       label: "대연금 연구소",
     });
     expect(
@@ -119,7 +119,7 @@ describe("settlement — 정착지(업그레이드·칸 해금)", () => {
         "alchemy_workshop",
         alchemyWorkshopUpgradeForLevel(5),
       ),
-    ).toBe("주간 연성력 15 · 조제법 Lv.5");
+    ).toBe("주간 연성력 30 · 조제법 Lv.5");
   });
 
   it("길드 식당은 배치 가능 건물이며 Lv5에서 주간 식권 4장과 메뉴 2종을 연다", () => {

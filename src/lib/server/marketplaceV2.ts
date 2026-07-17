@@ -5,7 +5,11 @@
 import { and, eq } from "drizzle-orm";
 import { savesKv, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
-import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_EQUIPMENT,
+  type V2EquipInstance,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import {
@@ -70,6 +74,25 @@ export function isMarketKind(s: unknown): s is MarketKind {
 export function isTradableEquip(id: string): id is V2EquipmentId {
   return Object.prototype.hasOwnProperty.call(V2_EQUIPMENT, id);
 }
+
+export type MarketplaceEquipListError =
+  | "not_tradable"
+  | "enhanced"
+  | "locked"
+  | "equipped";
+
+// 장비 등록 정책의 서버 권위 판정. 강화에 투자한 개체는 캐릭터에 귀속되어 거래할 수 없다.
+export function marketplaceEquipListError(
+  inst: Pick<V2EquipInstance, "id" | "enhance" | "locked">,
+  isEquipped: boolean,
+): MarketplaceEquipListError | null {
+  if (!isTradableEquip(inst.id)) return "not_tradable";
+  if (inst.enhance) return "enhanced";
+  if (inst.locked) return "locked";
+  if (isEquipped) return "equipped";
+  return null;
+}
+
 export function isTradableMaterial(id: string): id is V2MaterialId {
   return (
     Object.prototype.hasOwnProperty.call(V2_MATERIALS, id) &&

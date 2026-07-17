@@ -30,6 +30,25 @@ export function mintRolledEquipInstance(
   return mintEquipInstance(id, rollItemStats(V2_EQUIPMENT[id], rng));
 }
 
+/** 거래소의 옛 매물 payload 에 실제 강화 상태가 있는지 판정한다. */
+export function listedEquipEnhance(payload: unknown) {
+  const payloadRaw = payload as
+    | (Record<string, unknown> & {
+        craftedBy?: unknown;
+        craftQuality?: unknown;
+        enhance?: unknown;
+      })
+    | null
+    | undefined;
+  const craftedBy = parseCraftedBy(payloadRaw?.craftedBy);
+  const craftQuality = parseInstanceCraftQuality(
+    payloadRaw?.craftQuality,
+    payloadRaw?.enhance,
+    craftedBy,
+  );
+  return craftQuality ? undefined : parseEnhance(payloadRaw?.enhance);
+}
+
 /**
  * 거래소 매물 payload(굴림+강화+제작품질+제작자) → 새 iid 개체 복원 — buy/cancel/expire 공용.
  * 옛 행은 raw roll 만 저장돼 있어 방어 파스로 양형을 흡수한다.
@@ -54,7 +73,7 @@ export function mintListedEquipInstance(
     payloadRaw?.enhance,
     craftedBy,
   );
-  const enhance = craftQuality ? undefined : parseEnhance(payloadRaw?.enhance);
+  const enhance = listedEquipEnhance(payloadRaw);
   return {
     ...mintEquipInstance(id, roll),
     ...(enhance ? { enhance } : {}),

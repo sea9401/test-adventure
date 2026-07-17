@@ -72,7 +72,7 @@ export function MarketplaceEquipmentTab({
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          팔 수 있는 장비가 없어요. (장착·잠금 장비는 제외)
+          팔 수 있는 장비가 없어요. (강화·장착·잠금 장비는 제외)
         </div>
       </Card>
     );

@@ -115,6 +115,7 @@ const ERR_LABEL: Record<string, string> = {
   slot_full: "활성 매물이 가득 찼어요 (최대 10개).",
   not_owned: "보유하지 않은 장비예요.",
   not_tradable: "거래할 수 없는 품목이에요.",
+  enhanced: "강화한 장비는 거래할 수 없어요.",
   locked: "잠긴 장비는 등록할 수 없어요.",
   equipped: "장착 중인 장비는 등록할 수 없어요.",
   insufficient_material: "재료 수량이 부족해요.",
@@ -150,7 +151,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [mine, setMine] = useState<Listing[] | null>(null);
   // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
   const [history, setHistory] = useState<Listing[] | null>(null);
-  // 팔기 — 내 인벤(미장착·미잠금 장비 + 재료).
+  // 팔기 — 내 인벤(미강화·미장착·미잠금 장비 + 재료).
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
   const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
@@ -382,7 +383,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   };
 
   const equippedIids = new Set(Object.values(equipped));
-  const sellableEquip = owned.filter((i) => !i.locked && !equippedIids.has(i.iid));
+  const sellableEquip = owned.filter(
+    (i) => !i.enhance && !i.locked && !equippedIids.has(i.iid),
+  );
   const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
     (id) => (materials[id] ?? 0) > 0,
   );

@@ -8,7 +8,10 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import {
+  listedEquipEnhance,
+  mintListedEquipInstance,
+} from "@/adventure/data/v2/v2EquipMint";
 import {
   isTradableMaterial,
   resolvePlayerName,
@@ -82,6 +85,11 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_available" },
       };
     }
+    // 정책 변경 전에 등록된 강화 매물도 새 구매는 막는다. 판매자는 취소하거나 만료 시
+    // 원형 그대로 돌려받을 수 있으므로 여기서 매물을 소멸시키지는 않는다.
+    if (listing.kind === "equip" && listedEquipEnhance(listing.instancePayload)) {
+      return { status: 409, body: { ok: false as const, error: "enhanced" } };
+    }
 
     // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량
     //   스냅샷만 죽은 매물). 죽었으면 매물 자체를 expired 처리(대금 이동 0, 그대로 소멸).
@@ -111,7 +119,7 @@ export async function POST(req: Request) {
 
     // 3) 아이템을 구매자에게 지급.
     if (listing.kind === "equip") {
-      // payload = 굴림(+강화+제작품질) — 옛 행은 raw roll. 방어 파스는 mintListedEquipInstance 공용.
+      // payload = 굴림(+제작품질) — 옛 행은 raw roll. 방어 파스는 mintListedEquipInstance 공용.
       await appendEquipInstances(tx, userId, [
         mintListedEquipInstance(
           listing.itemId as V2EquipmentId,

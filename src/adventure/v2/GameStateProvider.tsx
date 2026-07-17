@@ -180,7 +180,7 @@ type GameStateValue = {
     React.SetStateAction<{ id: string; name: string } | null>
   >;
   stamina: StaminaState;
-  // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
+  // per-user 스태미나 최대치 — 기본 + 레거시 영구 보너스(me/state 가 권위).
   staminaMax: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템). me/state 에서 초기화.

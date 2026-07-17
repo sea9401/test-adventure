@@ -27,7 +27,7 @@ export function StaminaBar({
   onUsePotion,
 }: {
   state: StaminaState;
-  // per-user 최대치(한계의 비약 보너스 반영) — 미전달이면 기본 캡.
+  // per-user 최대치(레거시 영구 보너스 반영) — 미전달이면 기본 캡.
   max?: number;
   // 보유 스태미나 포션 수 + 사용 핸들러(사용 개수 지정). 0이거나 미전달이면 + 버튼 숨김.
   //   인벤토리 사용과 별개로, 바 끝 + 버튼 → 모달에서 개수 선택 사용.

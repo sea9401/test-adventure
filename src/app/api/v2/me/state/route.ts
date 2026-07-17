@@ -244,7 +244,7 @@ export async function GET(req: Request) {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
-  // per-user 스태미나 최대치 — 기본 + 한계의 비약(비밀 상점) 보너스.
+  // per-user 스태미나 최대치 — 기본 + 기존 구매자 레거시 영구 보너스.
   const staminaMax =
     MAX_STAMINA +
     staminaCapBonusOf((charSave as { staminaCapBonus?: unknown }).staminaCapBonus);

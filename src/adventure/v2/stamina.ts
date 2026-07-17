@@ -27,7 +27,7 @@ export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·
 //   포션으로는 이 상한까지 미리 비축 가능(밸런스 다이얼·한 줄로 조정).
 export const STAMINA_OVERCHARGE_CAP = 10000;
 
-// 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프. 한계의 비약으로 per-user 최대치가
+// 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프. 레거시 per-user 최대치가
 //   이 상한을 넘는 예외 케이스만 그 max 까지 허용(상한이 max 아래로 내려가 만피 자체가 불가해지는 것 방지).
 export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
   return Math.max(STAMINA_OVERCHARGE_CAP, Math.floor(maxStamina));
@@ -55,8 +55,8 @@ export function initialStamina(nowMs: number): StaminaState {
 
 // 마지막 업데이트 이후 흐른 시간만큼 회복 적용. 만피면 그냥 lastUpdatedAt 만 갱신.
 // lastUpdatedAt 은 회복 1포인트 단위로만 진행 — 나머지 시간(잔여 ms)은 다음 회복에 누적되어 손실 없음.
-// maxStamina — per-user 최대치(기본 MAX_STAMINA). 비밀 상점 "한계의 비약"
-// (character.v2.staminaCapBonus) 이 올린다. max 를 안 넘긴 경로는 기본 캡 위로
+// maxStamina — per-user 최대치(기본 MAX_STAMINA). 과거 비밀 상점 구매로 저장된
+// character.v2.staminaCapBonus를 하위 호환한다. max 를 안 넘긴 경로는 기본 캡 위로
 // 회복만 안 될 뿐 보유분을 깎지 않는다(current > max 여도 그대로 반환).
 export function applyRegen(
   state: StaminaState,
@@ -152,7 +152,7 @@ export function parseStaminaFromSave(
     ) {
       return {
         // 상한 클램프 없음 — 포션으로 최대치를 넘겨 비축(overcharge)한 분을 보존.
-        //   max 는 per-user(한계의 비약)라 여기선 모름. 만피 위 회복은 applyRegen 이
+        //   max 는 레거시 per-user 보너스를 포함할 수 있어 여기선 모름. 만피 위 회복은 applyRegen 이
         //   막고(초과분은 깎지 않음), 저장값은 서버 권위라 그대로 신뢰. 음수만 0 으로.
         current: Math.max(0, s.current),
         lastUpdatedAt: s.lastUpdatedAt,
@@ -162,7 +162,7 @@ export function parseStaminaFromSave(
   return initialStamina(nowMs);
 }
 
-// character.v2.staminaCapBonus — 비밀 상점 "한계의 비약"으로 영구 누적되는 최대치 보너스.
+// character.v2.staminaCapBonus — 과거 비밀 상점 구매로 누적된 최대치 보너스 하위 호환.
 export function staminaCapBonusOf(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v)
     ? Math.max(0, Math.floor(v))

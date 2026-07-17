@@ -24,6 +24,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
+import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import { codexSpBonusFromRaw } from "@/lib/server/codexSpBonus";
 
 export type AdminStatsRow = {
@@ -132,7 +133,7 @@ export async function GET() {
     ).total;
     const spBudget = calcSpBudget(
       prof.groups,
-      Number(character.spCapBonus) || 0,
+      spCapBonusFromRaw(character.spFruitUsed),
       collectionSp,
       jobUnlockSpBonus(prof),
     );

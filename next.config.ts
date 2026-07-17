@@ -31,6 +31,11 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_BUILD_ID: BUILD_ID,
   },
+  // PR 필수 CI가 tsc --noEmit 을 별도로 통과시킨다. 저메모리 EC2에서 next build 의
+  // 중복 타입 검사가 장시간 swap 에 빠지는 것을 막고, 컴파일·프리렌더만 수행한다.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   // 서비스 워커는 항상 최신 버전을 받아야 — 캐싱하면 옛 SW 가 활성화된 채로 남는다.
   // /public/sw.js 는 Next.js 가 자동 정적 서빙 — 헤더만 보강.
   async headers() {

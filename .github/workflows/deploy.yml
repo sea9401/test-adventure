@@ -61,6 +61,9 @@ jobs:
             git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout main
             git reset --hard origin/main
+            echo "▶ [prod] cleanup stale Next builds"
+            # SSH command timeout 뒤 원격에 남은 빌드가 다음 배포와 메모리를 다투지 않게 한다.
+            pkill -f '[n]ext build' || true
             echo "▶ [prod] sync anti-macro environment"
             node scripts/sync-production-turnstile-env.mjs .env.production.local
             echo "▶ [prod] anti-macro env preflight"

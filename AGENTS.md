@@ -21,3 +21,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 2. **있지만 참조 없는 고아 파일** → 경고 (CI 에서 엄격히 막으려면 `--strict`).
 
 수동으로도 `npm run check-images` 로 언제든 점검 가능.
+
+# UI 표면과 가독성
+
+- 장면·지역 배경 이미지 위에 놓이는 **콘텐츠 본문, 감싸는 패널, 카드에는 불투명 배경을 기본값**으로 사용한다. 배경 그림이 텍스트나 컨트롤 뒤로 비치면 안 된다.
+- 패널과 카드는 직접 `bg-*/40`, `bg-*/70`, `dark:bg-*/20` 같은 반투명 색을 만들지 말고 `src/components/ui/surfaces.ts`의 `SURFACE_CARD`, `SURFACE_INSET`, `SURFACE_ACCENT`를 사용한다.
+- 반투명 표면은 `SURFACE_FROSTED`처럼 `backdrop-blur`가 함께 적용된 의도적인 프로스티드 헤더에만 허용한다.
+- 잠긴 카드나 비활성 카드에 컨테이너 전체 `opacity-*`를 적용하지 않는다. 카드 배경은 불투명하게 유지하고 텍스트·아이콘 색으로 비활성 상태를 표현한다. 버튼의 `disabled:opacity-*`는 허용한다.
+- 새 화면을 만들거나 기존 화면을 손볼 때 라이트·다크 모드 모두에서 최상위 콘텐츠 래퍼와 중첩 카드 사이로 배경 이미지가 새지 않는지 확인한다.

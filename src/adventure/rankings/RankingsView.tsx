@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, UsersThree } from "@phosphor-icons/react";
@@ -9,6 +10,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
+import { avatarImageSrc } from "@/adventure/profile/avatars";
+import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
 import {
   useGuildRankings,
   useRankings,
@@ -253,6 +256,14 @@ function RankingRow({
     >
       <span className="flex items-center gap-3 min-w-0">
         <RankBadge rank={entry.rank} />
+        <Image
+          src={avatarImageSrc(entry.avatar)}
+          alt={`${entry.name} 프로필`}
+          width={36}
+          height={36}
+          sizes="36px"
+          className="h-9 w-9 shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
+        />
         <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
           {entry.name}
           {entry.mine && (
@@ -288,6 +299,11 @@ function GuildRankingRow({
     >
       <span className="flex items-center gap-3 min-w-0">
         <RankBadge rank={entry.rank} />
+        <GuildEmblemImage
+          emblem={entry.emblem}
+          guildName={entry.name}
+          className="h-9 w-9"
+        />
         <span className="min-w-0 truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
           {entry.name}
           <span

@@ -5,6 +5,10 @@ import { getAdminEmailsList } from "@/lib/server/isAdmin";
 import { kstWeekStartKey } from "@/adventure/tower/weeklyTypes";
 import { pointsFromExp } from "@/lib/paragon";
 import {
+  isValidAvatarId,
+  type Avatar,
+} from "@/adventure/profile/avatars";
+import {
   FISHING_CODEX_KEY,
   fishCodexScore,
   parseFishCodex,
@@ -44,6 +48,7 @@ const CACHE_TTL_MS = 30_000;
 type RankRow = {
   userId: string;
   name: string;
+  avatar: Avatar;
   level: number;
   /** 총 직업 숙련도 = 모든 직군 cumLevel 합(환생/전직 리셋 안 됨). level 탭 정렬·표시. */
   cumLevel: number;
@@ -68,6 +73,12 @@ type CacheEntry = {
 
 const cache: Map<Metric, CacheEntry> = new Map();
 
+function rankingAvatar(raw: unknown): Avatar {
+  if (raw === "male") return "male1";
+  if (raw === "female") return "female1";
+  return isValidAvatarId(raw) ? raw : "male1";
+}
+
 async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
@@ -89,6 +100,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       SELECT
         u.id AS user_id,
         COALESCE(u.game_name, p.value->>'name') AS name,
+        p.value->>'gender' AS avatar,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::bigint, 0) AS fame,
         -- 총 직업 숙련도 — proficiency.v2.groups[*].cumLevel 합. 저장 필드명은 호환상 cumLevel 이지만
@@ -125,7 +137,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY ${orderBy})::int AS rank
       FROM stats
     )
-    SELECT user_id, name, level, cum_level, paragon_exp, fame, battle_count, rank
+    SELECT user_id, name, avatar, level, cum_level, paragon_exp, fame, battle_count, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -133,6 +145,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   type DbRow = {
     user_id: string;
     name: string;
+    avatar: string | null;
     level: number;
     cum_level: number;
     // node-postgres 는 bigint(int8) 를 문자열로 반환할 수 있어 number|string 모두 수용.
@@ -144,6 +157,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   return (result.rows as unknown as DbRow[]).map((r) => ({
     userId: String(r.user_id),
     name: String(r.name),
+    avatar: rankingAvatar(r.avatar),
     level: Number(r.level),
     cumLevel: Number(r.cum_level),
     paragonLevel: pointsFromExp(Number(r.paragon_exp)),
@@ -161,6 +175,7 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
     SELECT
       u.id AS user_id,
       COALESCE(u.game_name, p.value->>'name') AS name,
+      p.value->>'gender' AS avatar,
       COALESCE((c.value->>'level')::int, 1) AS level,
       COALESCE((c.value->>'fame')::bigint, 0) AS fame,
       f.value AS fishing_codex,
@@ -175,6 +190,7 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
   type DbRow = {
     user_id: string;
     name: string;
+    avatar: string | null;
     level: number;
     fame: number;
     fishing_codex: unknown;
@@ -184,6 +200,7 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
     .map((r) => ({
       userId: String(r.user_id),
       name: String(r.name),
+      avatar: rankingAvatar(r.avatar),
       level: Number(r.level),
       cumLevel: 0,
       paragonLevel: 0,
@@ -200,6 +217,7 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
     .map((r, index) => ({
       userId: r.userId,
       name: r.name,
+      avatar: r.avatar,
       level: r.level,
       cumLevel: r.cumLevel,
       paragonLevel: r.paragonLevel,
@@ -221,6 +239,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
       SELECT
         u.id AS user_id,
         COALESCE(u.game_name, p.value->>'name') AS name,
+        p.value->>'gender' AS avatar,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::bigint, 0) AS fame,
         COALESCE((w.value->>'weekHighest')::int, 0) AS week_highest,
@@ -238,13 +257,14 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY week_highest DESC, updated_at ASC)::int AS rank
       FROM stats
     )
-    SELECT user_id, name, level, fame, week_highest, rank
+    SELECT user_id, name, avatar, level, fame, week_highest, rank
     FROM ranked
     ORDER BY rank
   `);
   type DbRow = {
     user_id: string;
     name: string;
+    avatar: string | null;
     level: number;
     fame: number;
     week_highest: number;
@@ -253,6 +273,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
   return (result.rows as unknown as DbRow[]).map((r) => ({
     userId: String(r.user_id),
     name: String(r.name),
+    avatar: rankingAvatar(r.avatar),
     level: Number(r.level),
     cumLevel: 0, // 고탑 탭은 숙련도 미사용.
     paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
@@ -273,6 +294,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
       SELECT
         u.id AS user_id,
         COALESCE(u.game_name, p.value->>'name') AS name,
+        p.value->>'gender' AS avatar,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::bigint, 0) AS fame,
         COALESCE((ch.value->'progress'->>'highestFloor')::int, 0) AS challenge_highest,
@@ -289,13 +311,14 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY challenge_highest DESC, updated_at ASC)::int AS rank
       FROM stats
     )
-    SELECT user_id, name, level, fame, challenge_highest, rank
+    SELECT user_id, name, avatar, level, fame, challenge_highest, rank
     FROM ranked
     ORDER BY rank
   `);
   type DbRow = {
     user_id: string;
     name: string;
+    avatar: string | null;
     level: number;
     fame: number;
     challenge_highest: number;
@@ -304,6 +327,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
   return (result.rows as unknown as DbRow[]).map((r) => ({
     userId: String(r.user_id),
     name: String(r.name),
+    avatar: rankingAvatar(r.avatar),
     level: Number(r.level),
     cumLevel: 0, // 고탑 탭은 숙련도 미사용.
     paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
@@ -365,6 +389,7 @@ export async function GET(req: Request) {
   const list = rows.slice(0, LIST_LIMIT).map((r) => ({
     rank: r.rank,
     name: r.name,
+    avatar: r.avatar,
     level: r.level,
     cumLevel: r.cumLevel,
     paragonLevel: r.paragonLevel,
@@ -381,6 +406,7 @@ export async function GET(req: Request) {
     ? {
         rank: myRow.rank,
         name: myRow.name,
+        avatar: myRow.avatar,
         level: myRow.level,
         cumLevel: myRow.cumLevel,
         paragonLevel: myRow.paragonLevel,

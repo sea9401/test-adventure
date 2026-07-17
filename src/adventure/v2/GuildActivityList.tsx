@@ -121,6 +121,16 @@ function describe(a: GuildActivity): string {
         : `${actor} 님이 길드 엠블럼을 제거했어요`;
     case "dining_meal":
       return `${actor} 님이 길드 식당에서 ${a.meta?.itemName ?? "식사"}을 주문했어요`;
+    case "trade_contract_complete":
+      return `${actor} 님의 납품으로 ${a.meta?.itemName ?? "교역 계약"}을 완료했어요${
+        a.meta?.rewardGold
+          ? ` · 길드 자금 +${a.meta.rewardGold.toLocaleString()} G`
+          : ""
+      }${
+        a.meta?.rewardFame
+          ? ` · 명성 +${a.meta.rewardFame.toLocaleString()}`
+          : ""
+      }`;
     case "nation_declare":
       return `${actor} 님이 ${a.meta?.nationName ?? "국가"} 국가를 선포했어요`;
     default:
@@ -139,6 +149,7 @@ const DOT_CLASS: Record<string, string> = {
   guild_create: "bg-amber-500",
   alchemy_craft: "bg-violet-500",
   dining_meal: "bg-amber-500",
+  trade_contract_complete: "bg-cyan-500",
   member_join: "bg-emerald-500",
   role_change: "bg-sky-500",
   gold_deposit: "bg-yellow-500",

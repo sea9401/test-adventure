@@ -1032,6 +1032,32 @@ export const guildDiningWeekly = pgTable("guild_dining_weekly", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 길드 교역소 주간 공동 계약 상태. 주차가 바뀌면 첫 조회에서 계약 품목·진척·완료 목록과
+// 참여 가능 길드원 스냅샷을 함께 교체한다. 품목 추가에 마이그레이션이 필요 없도록 JSONB로 보관한다.
+export const guildTradeWeekly = pgTable("guild_trade_weekly", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  weekKey: text("week_key").notNull(),
+  contractIds: jsonb("contract_ids")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  progress: jsonb("progress")
+    .$type<Record<string, number>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  completedIds: jsonb("completed_ids")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  eligibleUserIds: jsonb("eligible_user_ids")
+    .$type<string[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 길드 영지 건축물 보관 레벨 — 슬롯 압박/전쟁 점령으로 건물이 사라져도 같은 길드가 같은 건물을
 // 다시 배치하면 최고 보관 레벨로 복구한다. 길드 해산 시에는 cascade 로 함께 제거된다.
 export const guildSettlementBuildingLevels = pgTable(

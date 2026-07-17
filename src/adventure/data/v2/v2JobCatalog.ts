@@ -79,7 +79,7 @@ export const TIER3_UNLOCK_CUMLEVEL = 2500;
 
 /**
  * 심화(Tier 4) 해금 임계 — 계보 게이팅(위 참조): "그 직업의 바로 아래 3차 직업"의 jobCumLevel
- *   (예: 정예 기사 ← 기사 숙련도 4500, 대마법사·원소술사 ← 마도사 숙련도 4500). prereq 키 = tier-3 부모 직업
+ *   (예: 정예 기사 ← 기사 숙련도 4500, 대마법사·원소 마법사 ← 마도사 숙련도 4500). prereq 키 = tier-3 부모 직업
  *   id. 4차부터는 장기 성장 궤도라 요구치를 확실히 올리고, 부가 콘텐츠 보조 수급으로 완화한다.
  */
 export const TIER4_UNLOCK_CUMLEVEL = 4500;
@@ -543,7 +543,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL ───
-  //   (기사→정예 기사·마도사→대마법사/원소술사·궁사→신궁 …). 직군당 1종(마법만 2종, 둘 다 마도사 계보).
+  //   (기사→정예 기사·마도사→대마법사/원소별 마법사·궁사→신궁 …).
   //   이중 내장 보너스 + 액티브 1(강) + 패시브. 새 derive 배선 없음 — 기존 효과 어휘 재사용.
   veteran: {
     id: "veteran",
@@ -569,15 +569,46 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(마도사 라인 정점)
     unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
   },
-  // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 마도사 계보(magus jobCumLevel TIER4). 속성 마법 특화.
-  //   액티브가 캐릭터 속성에 따라 효과 분기(속성 마법)·패시브=원소 통달(상성 양방향 강화).
-  elementalist: {
-    id: "elementalist",
-    name: "원소술사",
+  // 마법 직군 4차 원소 계통 — 캐릭터 속성 상성이 아니라 각 직업의 스킬 기믹으로 정체성을 분리한다.
+  firemage: {
+    id: "firemage",
+    name: "화염 마법사",
     tier: 4,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 15, spi: 7 }, // 마법 심화(속성 라인) — 대마법사와 동급
-    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } }, // 마도사 계보
+    jobBonus: { int: 17, spi: 5 },
+    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  frostmage: {
+    id: "frostmage",
+    name: "냉기 마법사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 13, spi: 9 },
+    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  lightningmage: {
+    id: "lightningmage",
+    name: "전격 마법사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 18, spi: 4 },
+    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  windmage: {
+    id: "windmage",
+    name: "바람 마법사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 14, spi: 8 },
+    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  earthmage: {
+    id: "earthmage",
+    name: "대지 마법사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 12, spi: 10 },
+    unlock: { prereqs: { magus: TIER4_UNLOCK_CUMLEVEL } },
   },
   runecaster: {
     id: "runecaster",
@@ -790,8 +821,16 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "원소군주",
     tier: 5,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 18, spi: 8 },
-    unlock: { prereqs: { elementalist: TIER5_UNLOCK_CUMLEVEL } },
+    jobBonus: { int: 22, spi: 10 },
+    unlock: {
+      prereqs: {
+        firemage: TIER5_UNLOCK_CUMLEVEL,
+        frostmage: TIER5_UNLOCK_CUMLEVEL,
+        lightningmage: TIER5_UNLOCK_CUMLEVEL,
+        windmage: TIER5_UNLOCK_CUMLEVEL,
+        earthmage: TIER5_UNLOCK_CUMLEVEL,
+      },
+    },
   },
   inscriber: {
     id: "inscriber",
@@ -969,7 +1008,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "태초술사",
     tier: 6,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 28, spi: 12 },
+    jobBonus: { int: 32, spi: 14 },
     unlock: { prereqs: { elementallord: TIER6_UNLOCK_CUMLEVEL } },
   },
   savior: {
@@ -1364,7 +1403,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },
   sage: { class: "mage", spec: "sage" },
-  elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
+  firemage: { class: "mage", spec: "firemage" },
+  frostmage: { class: "mage", spec: "frostmage" },
+  lightningmage: { class: "mage", spec: "lightningmage" },
+  windmage: { class: "mage", spec: "windmage" },
+  earthmage: { class: "mage", spec: "earthmage" },
   runecaster: { class: "mage", spec: "runecaster" }, // 마법 4차 세 번째 갈래(문장 시너지)
   archshaman: { class: "mage", spec: "archshaman" }, // 마법 4차 네 번째 갈래(주술사 계승·마법취약)
   archbishop: { class: "mage", spec: "archbishop" }, // 마법 4차 다섯 번째 갈래(대사제 계승·성직자)
@@ -1437,6 +1480,7 @@ export const DROPPED_SPEC_TO_SURVIVING: Record<string, string> = {
   yeonhwan: "gigong", // 연환 → 권사
   battlemage: "arcane", // 워메이지 → 술사
   venom: "assassin", // 독사 → 자객
+  elementalist: "firemage", // 옛 원소술사 → 화염 마법사(숙련도도 parse 시 이관)
 };
 
 /**

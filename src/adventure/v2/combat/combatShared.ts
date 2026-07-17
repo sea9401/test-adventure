@@ -655,6 +655,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 패턴 경로도 "장착 스킬만 발동"(옛 pickAutoCastV2Skill 의 equipped 풀 의미 유지) — 커스텀 패턴이
   //   미장착/미학습 스킬 id 를 참조해도 발동 안 함. + 효과 있음·쿨다운·MP 게이트.
   const equippedSet = new Set<string>(input.skills.equipped);
+  const learnedSet = new Set<string>(input.skills.learned);
   const isUsable = (sid: string) => {
     if (!equippedSet.has(sid)) return false;
     const d = V2_SKILLS[sid as V2SkillId];
@@ -870,9 +871,22 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     return Math.floor((base * statCoef + baseFlat) * (input.attacker.healMult ?? 1));
   };
 
+  // 조합형 주문식 — 보유 스킬로 변형을 해금하고 장착 스킬로 실제 발현한다. 데이터 선언 순서상
+  // 가장 구체적인 조합이 먼저 오며, 첫 일치 변형만 선택해 조합 효과가 중복 누적되지 않게 한다.
+  const castVariant = def.castVariants?.find(
+    (variant) =>
+      (variant.requiredLearnedSkillIds ?? []).every((sid) =>
+        learnedSet.has(sid),
+      ) &&
+      (variant.requiredEquippedSkillIds ?? []).every((sid) =>
+        equippedSet.has(sid),
+      ),
+  );
+
   // 속성 분기(원소술사) — def.elementEffects 가 있으면 시전자 캐릭 속성의 효과 배열을 쓴다(매칭
   //   없으면 effects 폴백=무속성). 기존 스킬은 elementEffects 미정의 → def.effects 그대로(byte-identical).
-  let baseCastEffects = def.elementEffects?.[charEl] ?? def.effects;
+  let baseCastEffects =
+    castVariant?.effects ?? def.elementEffects?.[charEl] ?? def.effects;
   for (const synergy of def.elementEffectSynergies ?? []) {
     if (!equippedSet.has(synergy.requiredSkillId)) continue;
     baseCastEffects =
@@ -1121,9 +1135,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     },
     castSkillId: id,
     // 원소술사 "속성 마법" → 로그에 시전자 속성으로 동적 표기("불 마법" 등). 그 외=정적 def.name.
-    castSkillName: def.elementNamed
-      ? `${V2_ELEMENT_LABEL[charEl]} 마법`
-      : def.name,
+    castSkillName:
+      castVariant?.name ??
+      (def.elementNamed ? `${V2_ELEMENT_LABEL[charEl]} 마법` : def.name),
     enemyDamage: applyRitualPower(scaledEnemyDamage),
     magicEnemyDamage: applyRitualPower(scaledMagicEnemyDamage),
     hitDamages,

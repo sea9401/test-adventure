@@ -164,6 +164,17 @@ export type V2CommonSkillId =
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
+  // ── 마법 4차 원소별 직업 — 원소술사 통합 직업을 다섯 독립 계통으로 분리 ──
+  | "v2c_firemage_inferno" // 화염 마법사: 홍련술
+  | "v2c_firemage_ember" // 화염 마법사: 불씨의 지배
+  | "v2c_frostmage_glacier" // 냉기 마법사: 빙하진
+  | "v2c_frostmage_frozenheart" // 냉기 마법사: 얼어붙은 심장
+  | "v2c_lightningmage_thunderbolt" // 전격 마법사: 천뢰격
+  | "v2c_lightningmage_overcharge" // 전격 마법사: 과충전
+  | "v2c_windmage_tempest" // 바람 마법사: 질풍술
+  | "v2c_windmage_flow" // 바람 마법사: 바람의 흐름
+  | "v2c_earthmage_tectonic" // 대지 마법사: 지각진
+  | "v2c_earthmage_bedrock" // 대지 마법사: 기반암
   // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) ──
   | "v2c_archshaman_rite" // 금단 의식 (마법취약 폭발)
   | "v2c_archshaman_curse" // 흉조 II (마법취약 심화)
@@ -1279,6 +1290,83 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { elementAdvPctBonus: 15, elementDisPctBonus: 15 },
   },
 
+  // ── 마법 4차 원소별 직업 — 캐릭터 속성 상성이 아니라 스킬 자체의 전투 기믹으로 정체성을 만든다. ──
+  v2c_firemage_inferno: {
+    id: "v2c_firemage_inferno", name: "홍련술", stat: "int", category: "attack", tier: 3,
+    description: "홍련의 불길을 터뜨려 적을 태우고 회복의 흐름을 끊는다.",
+    mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(1.65, 320, "magic"),
+      { kind: "dot", ...V2_DOT_PRESETS.연소 },
+      { kind: "enemyHealReduce", pct: 50, turns: 3 },
+    ],
+  },
+  v2c_firemage_ember: {
+    id: "v2c_firemage_ember", name: "불씨의 지배", stat: "int", category: "passive", tier: 3,
+    description: "꺼지지 않는 불씨로 지능과 공격 주문의 위력을 끌어올린다.",
+    mpCost: 0, cooldown: 0, effects: [],
+    passive: { statPct: { int: 12 }, magicSkillDamagePct: 6 },
+  },
+  v2c_frostmage_glacier: {
+    id: "v2c_frostmage_glacier", name: "빙하진", stat: "int", category: "attack", tier: 3,
+    description: "빙하의 마력을 폭발시켜 적의 행동을 늦추고 자신을 얼음 장벽으로 감싼다.",
+    mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(1.5, 290, "magic"),
+      { kind: "shield", pctMaxHp: 8, pctMaxMp: 4, turns: 3 },
+      { kind: "enemyDelay", pct: 25 },
+    ],
+  },
+  v2c_frostmage_frozenheart: {
+    id: "v2c_frostmage_frozenheart", name: "얼어붙은 심장", stat: "int", category: "passive", tier: 3,
+    description: "차가운 정신으로 마나의 그릇과 마법 방어를 단단히 굳힌다.",
+    mpCost: 0, cooldown: 0, effects: [],
+    passive: { maxMpPct: 12, magicDefPct: 12 },
+  },
+  v2c_lightningmage_thunderbolt: {
+    id: "v2c_lightningmage_thunderbolt", name: "천뢰격", stat: "int", category: "attack", tier: 3,
+    description: "벼락을 한 점에 내리꽂아 큰 피해를 주고 적의 방어 흐름을 노출한다.",
+    mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(1.8, 350, "magic"),
+      { kind: "enemyVuln", pct: 18, turns: 3 },
+    ],
+  },
+  v2c_lightningmage_overcharge: {
+    id: "v2c_lightningmage_overcharge", name: "과충전", stat: "int", category: "passive", tier: 3,
+    description: "마력 회로를 과충전해 치명적인 순간 화력을 높인다.",
+    mpCost: 0, cooldown: 0, effects: [],
+    passive: { critPct: 8, magicSkillDamagePct: 5 },
+  },
+  v2c_windmage_tempest: {
+    id: "v2c_windmage_tempest", name: "질풍술", stat: "int", category: "attack", tier: 3,
+    description: "압축한 바람을 쏘아 보내고 그 반동으로 다음 행동을 크게 앞당긴다.",
+    mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
+    effects: [dmg(1.55, 300, "magic"), { kind: "selfHaste", pct: 50 }],
+  },
+  v2c_windmage_flow: {
+    id: "v2c_windmage_flow", name: "바람의 흐름", stat: "int", category: "passive", tier: 3,
+    description: "전장의 기류를 읽어 공격을 흘리고 주문의 궤도를 바로잡는다.",
+    mpCost: 0, cooldown: 0, effects: [],
+    passive: { evasionPct: 10, accuracyPct: 8 },
+  },
+  v2c_earthmage_tectonic: {
+    id: "v2c_earthmage_tectonic", name: "지각진", stat: "int", category: "attack", tier: 3,
+    description: "대지를 뒤틀어 적의 행동을 늦추고 솟아난 암반으로 자신을 보호한다.",
+    mpCost: 46, fixedMpCost: 120, cooldown: 0, procChance: 30,
+    effects: [
+      dmg(1.55, 300, "magic"),
+      { kind: "enemyDelay", pct: 35 },
+      { kind: "shield", pctMaxHp: 6, turns: 3 },
+    ],
+  },
+  v2c_earthmage_bedrock: {
+    id: "v2c_earthmage_bedrock", name: "기반암", stat: "int", category: "passive", tier: 3,
+    description: "기반암처럼 흔들리지 않는 몸과 방어를 갖춘다.",
+    mpCost: 0, cooldown: 0, effects: [],
+    passive: { maxHpPct: 10, defPct: 14 },
+  },
+
   // ── 마법 4차 세 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──
   v2c_archshaman_rite: {
     id: "v2c_archshaman_rite", name: "금단 의식", stat: "int", category: "attack", tier: 3,
@@ -1492,63 +1580,96 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { int: 18 }, critPct: 8 },
   },
   v2c_elementallord_surge: {
-    id: "v2c_elementallord_surge", name: "원소 폭주", stat: "int", category: "attack", tier: 3,
-    description: "선택한 원소를 폭주시켜 강한 마법 피해와 속성별 권능을 함께 발현한다.",
-    mpCost: 54, fixedMpCost: 165, cooldown: 0, procChance: 30, learnCost: 8000,
-    effects: [dmg(2.05, 500, "magic")],
-    elementEffects: {
-      fire: [
-        dmg(2.05, 500, "magic"),
-        { kind: "dot", ...V2_DOT_PRESETS.연소 },
-        { kind: "enemyHealReduce", pct: 55, turns: 3 },
-      ],
-      water: [
-        dmg(2.05, 500, "magic"),
-        { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
-      ],
-      wind: [dmg(2.05, 500, "magic"), { kind: "selfHaste", pct: 55 }],
-      earth: [dmg(2.05, 500, "magic"), { kind: "enemyDelay", pct: 55 }],
-      lightning: [dmg(2.05, 500, "magic"), { kind: "enemyVuln", pct: 22, turns: 3 }],
-      starlight: [
-        dmg(2.05, 500, "magic"),
-        { kind: "enemyEvasionDown", pct: 24, turns: 3 },
-      ],
-      void: [
-        dmg(2.05, 500, "magic"),
-        { kind: "enemyAccuracyDown", pct: 24, turns: 3 },
-      ],
-    },
-    elementEffectSynergies: [
+    id: "v2c_elementallord_surge", name: "오원소 폭주", stat: "int", category: "attack", tier: 3,
+    description: "보유한 하위 원소 주문으로 술식을 해금하고, 함께 장착한 주문을 공명시켜 폭주의 이름과 효과를 바꾼다.",
+    mpCost: 54, fixedMpCost: 155, cooldown: 0, procChance: 30, learnCost: 8000,
+    effects: [dmg(2.2, 540, "magic")],
+    castVariants: [
+      {
+        name: "개벽·오원소 폭주",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
+        requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
+        effects: [
+          dmg(2.75, 700, "magic"),
+          { kind: "dot", ...V2_DOT_PRESETS.연소 },
+          { kind: "enemyHealReduce", pct: 55, turns: 3 },
+          { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
+          { kind: "selfHaste", pct: 40 },
+          { kind: "enemyDelay", pct: 40 },
+          { kind: "enemyVuln", pct: 18, turns: 3 },
+        ],
+      },
+      {
+        name: "화염폭풍",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_windmage_tempest"],
+        requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_windmage_tempest"],
+        effects: [dmg(2.45, 620, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyHealReduce", pct: 50, turns: 3 }, { kind: "selfHaste", pct: 35 }],
+      },
+      {
+        name: "영구빙벽",
+        requiredLearnedSkillIds: ["v2c_frostmage_glacier", "v2c_earthmage_tectonic"],
+        requiredEquippedSkillIds: ["v2c_frostmage_glacier", "v2c_earthmage_tectonic"],
+        effects: [dmg(2.35, 590, "magic"), { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 }, { kind: "enemyDelay", pct: 40 }],
+      },
+      {
+        name: "뇌풍천격",
+        requiredLearnedSkillIds: ["v2c_lightningmage_thunderbolt", "v2c_windmage_tempest"],
+        requiredEquippedSkillIds: ["v2c_lightningmage_thunderbolt", "v2c_windmage_tempest"],
+        effects: [dmg(2.55, 650, "magic"), { kind: "enemyVuln", pct: 18, turns: 3 }, { kind: "selfHaste", pct: 30 }],
+      },
+      {
+        name: "용암대지",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_earthmage_tectonic"],
+        requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_earthmage_tectonic"],
+        effects: [dmg(2.45, 620, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyDelay", pct: 30 }],
+      },
+      {
+        name: "빙뢰결계",
+        requiredLearnedSkillIds: ["v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt"],
+        requiredEquippedSkillIds: ["v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt"],
+        effects: [dmg(2.4, 610, "magic"), { kind: "shield", pctMaxHp: 8, pctMaxMp: 4, turns: 3 }, { kind: "enemyVuln", pct: 14, turns: 3 }],
+      },
+      {
+        name: "홍련 폭주",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno"], requiredEquippedSkillIds: ["v2c_firemage_inferno"],
+        effects: [dmg(2.3, 570, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyHealReduce", pct: 55, turns: 3 }],
+      },
+      {
+        name: "빙하 폭주",
+        requiredLearnedSkillIds: ["v2c_frostmage_glacier"], requiredEquippedSkillIds: ["v2c_frostmage_glacier"],
+        effects: [dmg(2.2, 550, "magic"), { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 }, { kind: "enemyDelay", pct: 25 }],
+      },
+      {
+        name: "천뢰 폭주",
+        requiredLearnedSkillIds: ["v2c_lightningmage_thunderbolt"], requiredEquippedSkillIds: ["v2c_lightningmage_thunderbolt"],
+        effects: [dmg(2.4, 610, "magic"), { kind: "enemyVuln", pct: 20, turns: 3 }],
+      },
+      {
+        name: "질풍 폭주",
+        requiredLearnedSkillIds: ["v2c_windmage_tempest"], requiredEquippedSkillIds: ["v2c_windmage_tempest"],
+        effects: [dmg(2.25, 560, "magic"), { kind: "selfHaste", pct: 50 }],
+      },
+      {
+        name: "지각 폭주",
+        requiredLearnedSkillIds: ["v2c_earthmage_tectonic"], requiredEquippedSkillIds: ["v2c_earthmage_tectonic"],
+        effects: [dmg(2.25, 560, "magic"), { kind: "enemyDelay", pct: 50 }, { kind: "shield", pctMaxHp: 6, turns: 3 }],
+      },
+      {
+        name: "오원소 대폭주",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
+        effects: [dmg(2.45, 620, "magic"), { kind: "enemyVuln", pct: 12, turns: 3 }],
+      },
+    ],
+    equippedSynergies: [
       {
         requiredSkillId: "v2c_elementallord_resonance",
-        elementEffects: {
-          fire: [
-            dmg(2.05, 500, "magic"),
-            { kind: "dot", ...V2_DOT_PRESETS.연소 },
-            { kind: "enemyHealReduce", pct: 65, turns: 3 },
-          ],
-          water: [
-            dmg(2.05, 500, "magic"),
-            { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },
-          ],
-          wind: [dmg(2.05, 500, "magic"), { kind: "selfHaste", pct: 65 }],
-          earth: [dmg(2.05, 500, "magic"), { kind: "enemyDelay", pct: 65 }],
-          lightning: [dmg(2.05, 500, "magic"), { kind: "enemyVuln", pct: 28, turns: 3 }],
-          starlight: [
-            dmg(2.05, 500, "magic"),
-            { kind: "enemyEvasionDown", pct: 30, turns: 3 },
-          ],
-          void: [
-            dmg(2.05, 500, "magic"),
-            { kind: "enemyAccuracyDown", pct: 30, turns: 3 },
-          ],
-        },
+        effects: [dmg(0.22, 80, "magic"), { kind: "manaRestore", pctMaxMp: 5 }],
       },
     ],
   },
   v2c_elementallord_resonance: {
     id: "v2c_elementallord_resonance", name: "원소 공명", stat: "int", category: "passive", tier: 3,
-    description: "현재 원소와 깊게 공명한다. 원소 폭주의 속성별 보조 효과가 강화된다.",
+    description: "여러 원소의 주문식을 한 회로에 연결한다. 오원소 폭주에 추가 피해와 마나 환류가 더해진다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { elementResonance: true },
@@ -1816,13 +1937,85 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_primordialmage_return: {
     id: "v2c_primordialmage_return", name: "태초회귀", stat: "int", category: "attack", tier: 3,
-    description: "원소가 갈라지기 전의 근원 마력을 되감아 적의 방어 흐름과 회복을 함께 무너뜨린다.",
-    mpCost: 82, fixedMpCost: 190, cooldown: 0, procChance: 32, learnCost: 12000,
-    effects: [
-      dmg(2.05, 560, "magic"),
-      { kind: "enemyVuln", pct: 14, turns: 3 },
-      { kind: "enemyDelay", pct: 35 },
-      { kind: "enemyHealReduce", pct: 45, turns: 3 },
+    description: "하위 원소 주문의 보유·장착 조합을 태초의 술식으로 승격시켜 이름과 권능을 다시 쓴다.",
+    mpCost: 82, fixedMpCost: 180, cooldown: 0, procChance: 32, learnCost: 12000,
+    effects: [dmg(2.45, 650, "magic"), { kind: "enemyVuln", pct: 14, turns: 3 }, { kind: "enemyDelay", pct: 30 }],
+    castVariants: [
+      {
+        name: "개벽·오원소 회귀",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
+        requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
+        effects: [
+          dmg(3.05, 820, "magic"),
+          { kind: "dot", ...V2_DOT_PRESETS.연소 },
+          { kind: "enemyHealReduce", pct: 65, turns: 3 },
+          { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 },
+          { kind: "selfHaste", pct: 50 },
+          { kind: "enemyDelay", pct: 50 },
+          { kind: "enemyVuln", pct: 24, turns: 3 },
+        ],
+      },
+      {
+        name: "태초의 화염폭풍",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_windmage_tempest"],
+        requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_windmage_tempest"],
+        effects: [dmg(2.8, 740, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyHealReduce", pct: 60, turns: 3 }, { kind: "selfHaste", pct: 45 }],
+      },
+      {
+        name: "태초의 영구빙벽",
+        requiredLearnedSkillIds: ["v2c_frostmage_glacier", "v2c_earthmage_tectonic"],
+        requiredEquippedSkillIds: ["v2c_frostmage_glacier", "v2c_earthmage_tectonic"],
+        effects: [dmg(2.7, 710, "magic"), { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 }, { kind: "enemyDelay", pct: 50 }],
+      },
+      {
+        name: "태초의 천뢰폭풍",
+        requiredLearnedSkillIds: ["v2c_lightningmage_thunderbolt", "v2c_windmage_tempest"],
+        requiredEquippedSkillIds: ["v2c_lightningmage_thunderbolt", "v2c_windmage_tempest"],
+        effects: [dmg(2.9, 770, "magic"), { kind: "enemyVuln", pct: 24, turns: 3 }, { kind: "selfHaste", pct: 40 }],
+      },
+      {
+        name: "태초의 용암대지",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_earthmage_tectonic"],
+        requiredEquippedSkillIds: ["v2c_firemage_inferno", "v2c_earthmage_tectonic"],
+        effects: [dmg(2.8, 740, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyDelay", pct: 40 }],
+      },
+      {
+        name: "태초의 빙뢰결계",
+        requiredLearnedSkillIds: ["v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt"],
+        requiredEquippedSkillIds: ["v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt"],
+        effects: [dmg(2.75, 730, "magic"), { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 }, { kind: "enemyVuln", pct: 20, turns: 3 }],
+      },
+      {
+        name: "태초의 홍련", requiredLearnedSkillIds: ["v2c_firemage_inferno"], requiredEquippedSkillIds: ["v2c_firemage_inferno"],
+        effects: [dmg(2.65, 690, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }, { kind: "enemyHealReduce", pct: 65, turns: 3 }],
+      },
+      {
+        name: "태초의 빙하", requiredLearnedSkillIds: ["v2c_frostmage_glacier"], requiredEquippedSkillIds: ["v2c_frostmage_glacier"],
+        effects: [dmg(2.55, 670, "magic"), { kind: "shield", pctMaxHp: 16, pctMaxMp: 8, turns: 3 }, { kind: "enemyDelay", pct: 35 }],
+      },
+      {
+        name: "태초의 천뢰", requiredLearnedSkillIds: ["v2c_lightningmage_thunderbolt"], requiredEquippedSkillIds: ["v2c_lightningmage_thunderbolt"],
+        effects: [dmg(2.75, 730, "magic"), { kind: "enemyVuln", pct: 24, turns: 3 }],
+      },
+      {
+        name: "태초의 질풍", requiredLearnedSkillIds: ["v2c_windmage_tempest"], requiredEquippedSkillIds: ["v2c_windmage_tempest"],
+        effects: [dmg(2.6, 680, "magic"), { kind: "selfHaste", pct: 60 }],
+      },
+      {
+        name: "태초의 지각", requiredLearnedSkillIds: ["v2c_earthmage_tectonic"], requiredEquippedSkillIds: ["v2c_earthmage_tectonic"],
+        effects: [dmg(2.6, 680, "magic"), { kind: "enemyDelay", pct: 60 }, { kind: "shield", pctMaxHp: 8, turns: 3 }],
+      },
+      {
+        name: "태초 오원소 회귀",
+        requiredLearnedSkillIds: ["v2c_firemage_inferno", "v2c_frostmage_glacier", "v2c_lightningmage_thunderbolt", "v2c_windmage_tempest", "v2c_earthmage_tectonic"],
+        effects: [dmg(2.75, 730, "magic"), { kind: "enemyVuln", pct: 18, turns: 3 }, { kind: "enemyDelay", pct: 35 }],
+      },
+    ],
+    equippedSynergies: [
+      {
+        requiredSkillId: "v2c_primordialmage_resonance",
+        effects: [dmg(0.28, 110, "magic"), { kind: "manaRestore", pctMaxMp: 8 }],
+      },
     ],
   },
   v2c_primordialmage_resonance: {

@@ -50,7 +50,9 @@ const ENOUGH_WORKSHOP_MATERIALS = {
   [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.sunstone]: 99,
   [GUILD_WORKSHOP_MATERIAL_ID.auroraCrystal]: 99,
-  [MONSTER_CRAFT_MATERIAL_ID.caveSpiderVenomGland]: 99,
+  ...Object.fromEntries(
+    Object.values(MONSTER_CRAFT_MATERIAL_ID).map((id) => [id, 99]),
+  ),
   [COOP_BOSS_MATERIAL_ID.canyon_predator]: 99,
 };
 
@@ -160,9 +162,9 @@ describe("guild workshop recipes", () => {
     ).toBe(true);
   });
 
-  it("exposes craft-only equipment and one boss upgrade recipe", () => {
+  it("exposes craft-only equipment, monster upgrades, and one boss upgrade recipe", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(30);
+    expect(recipes).toHaveLength(36);
     expect(recipes.every((recipe) => recipe.id.startsWith("crafted_"))).toBe(
       true,
     );
@@ -375,6 +377,73 @@ describe("guild workshop recipes", () => {
       canCraft: true,
       baseEquipment: { requiredCount: 1, eligibleCount: 1, resetOnCraft: true },
     });
+  });
+
+  it("uses matching monster materials and one base item for all six special upgrades", () => {
+    const cases = [
+      [
+        "crafted_pulsestone_guard",
+        "v2_crafted_pulsestone_guard",
+        "v2_crafted_ward_plate",
+        MONSTER_CRAFT_MATERIAL_ID.rockGolemResonantCore,
+        6,
+        2,
+      ],
+      [
+        "crafted_thundercoil_gloves",
+        "v2_crafted_thundercoil_gloves",
+        "v2_crafted_spark_gloves",
+        MONSTER_CRAFT_MATERIAL_ID.sparkScorpionConductiveSac,
+        6,
+        2,
+      ],
+      [
+        "crafted_veinbreaker_bow",
+        "v2_crafted_veinbreaker_bow",
+        "v2_crafted_gale_bow",
+        MONSTER_CRAFT_MATERIAL_ID.abyssWormBurrowingJaw,
+        6,
+        2,
+      ],
+      [
+        "crafted_fracture_blade",
+        "v2_crafted_fracture_blade",
+        "v2_crafted_kingbreaker_axe",
+        MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
+        12,
+        5,
+      ],
+      [
+        "crafted_thunder_oracle_grimoire",
+        "v2_crafted_thunder_oracle_grimoire",
+        "v2_crafted_astral_grimoire",
+        MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone,
+        12,
+        5,
+      ],
+      [
+        "crafted_trench_hymn_necklace",
+        "v2_crafted_trench_hymn_necklace",
+        "v2_crafted_aurora_crown",
+        MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
+        12,
+        5,
+      ],
+    ] as const;
+
+    for (const [recipeId, equipmentId, baseEquipmentId, materialId, level, smithy] of cases) {
+      const recipe = GUILD_WORKSHOP_RECIPES[recipeId];
+      expect(recipe).toMatchObject({
+        equipmentId,
+        baseEquipmentId,
+        requiredArtisanLevel: level,
+        requiredSmithyLevel: smithy,
+      });
+      expect(guildWorkshopRecipeMaterialCost(recipe)[materialId]).toBe(12);
+      expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")[materialId]).toBe(
+        24,
+      );
+    }
   });
 
   it("consumes the lowest-value unlocked and unequipped venom dagger", () => {

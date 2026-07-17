@@ -2,7 +2,7 @@
 // 공개 타입·로직은 v2Equipment.ts 에서 re-export 한다(import 경로 불변).
 import type { V2EquipmentBase } from "./v2EquipmentTypes";
 
-// V2_EQUIPMENT — 229종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
+// V2_EQUIPMENT — 253종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
 //   (경갑 단일·중갑은 armor 만). 제거분은 LEGACY_ID_REMAP 비파괴 마이그. 무기종류는 직업 늘면 재추가 가능.
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (마방 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
@@ -736,6 +736,125 @@ const V2_EQUIPMENT_BASE = {
     options: { mp: 240, magicDef: 28, healPowerPct: 12 },
     craftOnly: true,
     setTags: ["artisan_arcane"],
+  },
+
+  // ── 몬스터 소재 개량 장비 ───────────────────────────────────────────────
+  // 기존 제작 장비 1개 + 해당 몬스터 전용 소재를 소모하는 특수 제작품. 세트 조각을 상위 세트로
+  // 키우는 경로가 아니라, 세트 보너스를 포기하고 발동형 시그니처를 얻는 빌드 사이드그레이드다.
+  v2_crafted_fracture_blade: {
+    id: "v2_crafted_fracture_blade",
+    slot: "weapon",
+    concept: "str",
+    tier: 12,
+    name: "처형자의 골절검",
+    description:
+      "왕파쇄 도끼의 날을 고원 학살자의 톱날뼈로 다시 세운 대검. 상처가 벌어질 때마다 피가 깊게 밴다.",
+    power: 660,
+    weight: 10,
+    options: { hp: 180, crit: 8, critMult: 105 },
+    weaponType: "greatsword",
+    craftOnly: true,
+    signature: {
+      trigger: "on_hit",
+      label: "골절",
+      bleedChancePct: 25,
+      bleedStacks: 1,
+    },
+  },
+  v2_crafted_pulsestone_guard: {
+    id: "v2_crafted_pulsestone_guard",
+    slot: "armor",
+    concept: "heavy",
+    tier: 6,
+    name: "맥동석 수호갑",
+    description:
+      "수호각인 갑주 안쪽에 암반 골렘의 공명핵을 고정했다. 충격을 받을수록 돌결이 맞물려 단단해진다.",
+    power: 60,
+    weight: 7,
+    options: { hp: 190, def: 12, critResist: 8 },
+    craftOnly: true,
+    signature: {
+      trigger: "on_hit_taken",
+      label: "맥동석",
+      defGainOnHitPct: 30,
+    },
+  },
+  v2_crafted_thundercoil_gloves: {
+    id: "v2_crafted_thundercoil_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 6,
+    name: "뇌침 전도장갑",
+    description:
+      "불꽃매듭 장갑의 금속사에 스파크 전갈의 전도낭을 엮었다. 손끝을 떠난 충격이 적의 움직임을 굳힌다.",
+    power: 15,
+    weight: 0,
+    options: { crit: 9, critMult: 40, spd: 6 },
+    craftOnly: true,
+    signature: {
+      trigger: "on_hit",
+      label: "뇌침",
+      shockChancePct: 20,
+      shockSlowPct: 25,
+      buffActions: 2,
+    },
+  },
+  v2_crafted_thunder_oracle_grimoire: {
+    id: "v2_crafted_thunder_oracle_grimoire",
+    slot: "weapon",
+    concept: "int",
+    tier: 12,
+    name: "천뢰 예언서",
+    description:
+      "성도 마도서에 낙뢰 예언자의 뇌문석을 끼워 넣었다. 주문이 끝날 때 흩어진 마력이 문양을 따라 되돌아온다.",
+    power: 640,
+    weight: 2,
+    options: { mp: 280, magicDef: 26, healPowerPct: 12 },
+    weaponType: "staff",
+    craftOnly: true,
+    signature: {
+      trigger: "on_skill_cast",
+      label: "천뢰예언",
+      mpRefundPctOfCost: 22,
+    },
+  },
+  v2_crafted_trench_hymn_necklace: {
+    id: "v2_crafted_trench_hymn_necklace",
+    slot: "necklace",
+    concept: "mana",
+    tier: 12,
+    name: "해구 성가목걸이",
+    description:
+      "오로라 관장식에 해구의 사도 기도핵을 봉했다. 치유 뒤에 남은 빛이 물결처럼 겹쳐 보호막이 된다.",
+    power: 110,
+    weight: 0,
+    options: { hp: 260, mp: 190, magicDef: 40, healPowerPct: 18 },
+    craftOnly: true,
+    signature: {
+      trigger: "on_heal",
+      label: "해구성가",
+      healToShieldPct: 24,
+    },
+  },
+  v2_crafted_veinbreaker_bow: {
+    id: "v2_crafted_veinbreaker_bow",
+    slot: "weapon",
+    concept: "dex",
+    tier: 6,
+    name: "심맥 파쇄궁",
+    description:
+      "질풍궁의 화살받이에 심연 벌레의 굴착턱을 갈아 붙였다. 정확한 한 발이 갑주의 결을 따라 균열을 낸다.",
+    power: 115,
+    weight: 1,
+    options: { crit: 7, critMult: 35, spd: 12 },
+    weaponType: "bow",
+    craftOnly: true,
+    signature: {
+      trigger: "on_crit",
+      label: "심맥파쇄",
+      enemyDefDebuffPct: 16,
+      buffActions: 2,
+    },
   },
 
   // ── 유니크 (드랍 전용) ────────────────────────────────────────────

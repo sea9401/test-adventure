@@ -256,7 +256,7 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 48 + 제작전용 14 + 전문화 스타터 3", () => {
+  it("정규 그리드 29종 + 유니크 48 + 제작전용 35 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
@@ -264,7 +264,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //     강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 247 = 정규 29 + 유니크 48 + 제작전용 29 + 전문화 스타터 3 + noDrop 138.
+    //     총 253 = 정규 29 + 유니크 48 + 제작전용 35 + 전문화 스타터 3 + noDrop 138.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -273,7 +273,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(29);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(35);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
@@ -335,6 +335,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_focus_gloves",
       "v2_crafted_focus_ring",
       "v2_crafted_focus_robe",
+      "v2_crafted_fracture_blade",
       "v2_crafted_fury_boots",
       "v2_crafted_fury_necklace",
       "v2_crafted_fury_plate",
@@ -345,6 +346,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_kingbreaker_axe",
       "v2_crafted_master_ring",
       "v2_crafted_oathblade",
+      "v2_crafted_pulsestone_guard",
       "v2_crafted_pursuit_coat",
       "v2_crafted_pursuit_grips",
       "v2_crafted_pursuit_necklace",
@@ -353,6 +355,10 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_spark_gloves",
       "v2_crafted_stormlance",
       "v2_crafted_sunforge_blade",
+      "v2_crafted_thunder_oracle_grimoire",
+      "v2_crafted_thundercoil_gloves",
+      "v2_crafted_trench_hymn_necklace",
+      "v2_crafted_veinbreaker_bow",
       "v2_crafted_venom_gland_dagger",
       "v2_crafted_ward_plate",
       "v2_crafted_windstep_boots",
@@ -426,7 +432,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     const craftedSetPieces = crafted.filter((item) =>
       item.setTags?.some((tag) => craftedSetIds.has(tag)),
     );
-    expect(crafted).toHaveLength(29);
+    expect(crafted).toHaveLength(35);
     expect(craftedSetPieces).toHaveLength(28);
     expect(
       craftedSetPieces.every((item) =>
@@ -546,11 +552,17 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       v2_crafted_aether_necklace: 6,
       v2_crafted_focus_ring: 6,
       v2_crafted_venom_gland_dagger: 6,
+      v2_crafted_pulsestone_guard: 6,
+      v2_crafted_thundercoil_gloves: 6,
+      v2_crafted_veinbreaker_bow: 6,
       v2_crafted_fury_necklace: 8,
       v2_crafted_pursuit_necklace: 8,
       v2_crafted_focus_robe: 8,
       v2_crafted_sunforge_blade: 8,
       v2_crafted_aurora_crown: 10,
+      v2_crafted_fracture_blade: 12,
+      v2_crafted_thunder_oracle_grimoire: 12,
+      v2_crafted_trench_hymn_necklace: 12,
     });
   });
 
@@ -567,6 +579,38 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     expect(V2_EQUIPMENT.v2_crafted_venom_gland_dagger.power).toBe(95);
     expect(V2_EQUIPMENT.v2_crafted_sunforge_blade.power).toBe(224);
     expect(V2_EQUIPMENT.v2_crafted_aurora_crown.power).toBe(73);
+    expect(V2_EQUIPMENT.v2_crafted_pulsestone_guard.power).toBe(60);
+    expect(V2_EQUIPMENT.v2_crafted_thundercoil_gloves.power).toBe(15);
+    expect(V2_EQUIPMENT.v2_crafted_veinbreaker_bow.power).toBe(87);
+    expect(V2_EQUIPMENT.v2_crafted_fracture_blade.power).toBe(475);
+    expect(V2_EQUIPMENT.v2_crafted_thunder_oracle_grimoire.power).toBe(461);
+    expect(V2_EQUIPMENT.v2_crafted_trench_hymn_necklace.power).toBe(99);
+  });
+
+  it("몬스터 소재 개량 장비 6종은 서로 다른 빌드 시그니처를 제공한다", () => {
+    expect(V2_EQUIPMENT.v2_crafted_pulsestone_guard.signature).toMatchObject({
+      trigger: "on_hit_taken",
+      defGainOnHitPct: 30,
+    });
+    expect(V2_EQUIPMENT.v2_crafted_thundercoil_gloves.signature).toMatchObject({
+      trigger: "on_hit",
+      shockChancePct: 20,
+    });
+    expect(V2_EQUIPMENT.v2_crafted_veinbreaker_bow.signature).toMatchObject({
+      trigger: "on_crit",
+      enemyDefDebuffPct: 16,
+    });
+    expect(V2_EQUIPMENT.v2_crafted_fracture_blade.signature).toMatchObject({
+      trigger: "on_hit",
+      bleedChancePct: 25,
+    });
+    expect(
+      V2_EQUIPMENT.v2_crafted_thunder_oracle_grimoire.signature,
+    ).toMatchObject({ trigger: "on_skill_cast", mpRefundPctOfCost: 22 });
+    expect(V2_EQUIPMENT.v2_crafted_trench_hymn_necklace.signature).toMatchObject({
+      trigger: "on_heal",
+      healToShieldPct: 24,
+    });
   });
 
   it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T3, 무기는 weaponType별 T1~T3", () => {

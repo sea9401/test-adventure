@@ -1075,6 +1075,69 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     });
   });
 
+  it("몬스터 소재 개량 장비 6종 장착 → 각 장비의 고유 시그니처", () => {
+    const cases = [
+      {
+        equipped: { weapon: "v2_crafted_fracture_blade" },
+        signature: {
+          trigger: "on_hit",
+          label: "골절",
+          bleedChancePct: 25,
+          bleedStacks: 1,
+        },
+      },
+      {
+        equipped: { armor: "v2_crafted_pulsestone_guard" },
+        signature: {
+          trigger: "on_hit_taken",
+          label: "맥동석",
+          defGainOnHitPct: 30,
+        },
+      },
+      {
+        equipped: { gloves: "v2_crafted_thundercoil_gloves" },
+        signature: {
+          trigger: "on_hit",
+          label: "뇌침",
+          shockChancePct: 20,
+          shockSlowPct: 25,
+          buffActions: 2,
+        },
+      },
+      {
+        equipped: { weapon: "v2_crafted_thunder_oracle_grimoire" },
+        signature: {
+          trigger: "on_skill_cast",
+          label: "천뢰예언",
+          mpRefundPctOfCost: 22,
+        },
+      },
+      {
+        equipped: { necklace: "v2_crafted_trench_hymn_necklace" },
+        signature: {
+          trigger: "on_heal",
+          label: "해구성가",
+          healToShieldPct: 24,
+        },
+      },
+      {
+        equipped: { weapon: "v2_crafted_veinbreaker_bow" },
+        signature: {
+          trigger: "on_crit",
+          label: "심맥파쇄",
+          enemyDefDebuffPct: 16,
+          buffActions: 2,
+        },
+      },
+    ] as const;
+
+    for (const { equipped, signature } of cases) {
+      expect(collectEquipSignatures(equipped as never)).toContainEqual(
+        signature,
+      );
+    }
+  });
+
   it("세트(성물) 전 조각 장착 → low_hp 시그니처, 부분 장착 → 없음", () => {
     const full = collectEquipSignatures({
       armor: "v2_sanctum_sig_priest_armor",

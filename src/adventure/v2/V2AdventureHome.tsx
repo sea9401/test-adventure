@@ -9,6 +9,7 @@ import { V2AnnouncementsPanel } from "./V2AnnouncementsPanel";
 import { GuideQuestBanner } from "./GuideQuestBanner";
 import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
+import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -30,6 +31,10 @@ type StateResponse = {
   proficiency?: {
     groups?: Record<string, { tier?: number }>;
     current?: { group?: string };
+  };
+  skills?: {
+    equipped?: string[];
+    loadoutPresets?: { name: string; skills: string[] }[];
   };
 };
 
@@ -57,6 +62,10 @@ export function V2AdventureHome() {
       ? null
       : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
   const levelCap = currentTier == null ? null : effectiveLevelCap(currentTier);
+  const activePresetName = activeLoadoutPresetName(
+    state?.skills?.loadoutPresets,
+    state?.skills?.equipped,
+  );
 
   return (
     <main className="text-zinc-900 dark:text-zinc-100">
@@ -67,6 +76,7 @@ export function V2AdventureHome() {
             guild={state.guild ?? null}
             levelCap={levelCap}
             showGold={true}
+            activePresetName={activePresetName}
           />
         )}
 

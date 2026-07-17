@@ -4,6 +4,9 @@ import { FISHING_CATCH_ITEM_LIST } from "@/adventure/v2/fishingStock";
 export const GUILD_DINING_USER_SAVE_KEY = "guild-dining-user.v1";
 export const GUILD_DINING_POINTS_PER_TICKET = 15;
 export const GUILD_DINING_POINTS_PER_MEMBER_TARGET = 20;
+export const GUILD_DINING_EFFECT_DURATION_HOURS = 12;
+export const GUILD_DINING_EFFECT_DURATION_MS =
+  GUILD_DINING_EFFECT_DURATION_HOURS * 60 * 60 * 1000;
 
 export type GuildDiningIngredientSource = "farm" | "fishing_item";
 
@@ -117,7 +120,7 @@ export type GuildDiningMenu = {
     | {
         kind: GuildDiningEffectKind;
         bonusPct: number;
-        uses: number;
+        durationHours: number;
       };
 };
 
@@ -134,17 +137,25 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     id: "adventurer_meal",
     name: "모험가 정식",
     icon: "🍛",
-    description: "다음 사냥 승리 20회의 경험치가 5% 증가합니다.",
+    description: "12시간 동안 사냥 경험치가 5% 증가합니다.",
     minFacilityLevel: 1,
-    effect: { kind: "hunt_exp", bonusPct: 5, uses: 20 },
+    effect: {
+      kind: "hunt_exp",
+      bonusPct: 5,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
   },
   {
     id: "worker_lunch",
     name: "일꾼 도시락",
     icon: "🍱",
-    description: "다음 생활 활동 20회의 생활 경험치가 5% 증가합니다.",
+    description: "12시간 동안 생활 경험치가 5% 증가합니다.",
     minFacilityLevel: 2,
-    effect: { kind: "life_xp", bonusPct: 5, uses: 20 },
+    effect: {
+      kind: "life_xp",
+      bonusPct: 5,
+      durationHours: GUILD_DINING_EFFECT_DURATION_HOURS,
+    },
   },
 ];
 
@@ -157,7 +168,7 @@ export type GuildDiningActiveEffect = {
   menuId: GuildDiningMenuId;
   kind: GuildDiningEffectKind;
   bonusPct: number;
-  remainingUses: number;
+  expiresAt: number;
   roundingRemainder: number;
 };
 
@@ -174,29 +185,46 @@ function nonNegativeInt(raw: unknown): number {
   return Math.max(0, Math.floor(Number(raw) || 0));
 }
 
-function parseActiveEffect(raw: unknown): GuildDiningActiveEffect | null {
+function guildDiningWeekEndsAt(weekKey: string): number {
+  const startsAt = Date.parse(`${weekKey}T00:00:00+09:00`);
+  return Number.isFinite(startsAt) ? startsAt + 7 * 24 * 60 * 60 * 1000 : 0;
+}
+
+function parseActiveEffect(
+  raw: unknown,
+  args: { now: Date; weekKey: string },
+): GuildDiningActiveEffect | null {
   if (!raw || typeof raw !== "object") return null;
   const value = raw as Record<string, unknown>;
   const menu = guildDiningMenu(value.menuId);
   if (!menu || menu.effect.kind === "recovery") return null;
   if (value.kind !== menu.effect.kind) return null;
-  const remainingUses = Math.min(
-    menu.effect.uses,
-    nonNegativeInt(value.remainingUses),
+  const weekEndsAt = guildDiningWeekEndsAt(args.weekKey);
+  const storedExpiresAt = Number(value.expiresAt);
+  // 횟수형 효과를 보유한 기존 세이브는 남은 식권을 잃지 않도록 최초 사용 시 12시간제로 승계한다.
+  const legacyExpiresAt =
+    nonNegativeInt(value.remainingUses) > 0
+      ? args.now.getTime() + GUILD_DINING_EFFECT_DURATION_MS
+      : 0;
+  const expiresAt = Math.min(
+    Number.isFinite(storedExpiresAt) && storedExpiresAt > 0
+      ? storedExpiresAt
+      : legacyExpiresAt,
+    weekEndsAt,
   );
-  if (remainingUses <= 0) return null;
+  if (!Number.isFinite(expiresAt) || expiresAt <= args.now.getTime()) return null;
   return {
     menuId: menu.id,
     kind: menu.effect.kind,
     bonusPct: menu.effect.bonusPct,
-    remainingUses,
+    expiresAt,
     roundingRemainder: Math.min(99, nonNegativeInt(value.roundingRemainder)),
   };
 }
 
 export function parseGuildDiningUserState(
   raw: unknown,
-  args: { weekKey: string; guildId: number },
+  args: { weekKey: string; guildId: number; now?: Date },
 ): GuildDiningUserState {
   const value =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -218,7 +246,10 @@ export function parseGuildDiningUserState(
     contributionPoints: sameGuild ? nonNegativeInt(value.contributionPoints) : 0,
     // 길드 이동으로 식권을 다시 받지 못하게 사용량과 이미 먹은 음식 효과는 주차 단위로 유지한다.
     mealsUsed: nonNegativeInt(value.mealsUsed),
-    activeEffect: parseActiveEffect(value.activeEffect),
+    activeEffect: parseActiveEffect(value.activeEffect, {
+      weekKey: args.weekKey,
+      now: args.now ?? new Date(),
+    }),
   };
 }
 
@@ -252,14 +283,28 @@ export function guildDiningPantryTarget(memberCount: number): number {
 
 export function activeEffectForMenu(
   menu: GuildDiningMenu,
+  args: {
+    currentEffect: GuildDiningActiveEffect | null;
+    now: Date;
+    weekKey: string;
+  },
 ): GuildDiningActiveEffect | null {
   if (menu.effect.kind === "recovery") return null;
+  const now = args.now.getTime();
+  const currentEffect =
+    args.currentEffect?.menuId === menu.id && args.currentEffect.expiresAt > now
+      ? args.currentEffect
+      : null;
+  const startsAt = currentEffect?.expiresAt ?? now;
   return {
     menuId: menu.id,
     kind: menu.effect.kind,
     bonusPct: menu.effect.bonusPct,
-    remainingUses: menu.effect.uses,
-    roundingRemainder: 0,
+    expiresAt: Math.min(
+      startsAt + menu.effect.durationHours * 60 * 60 * 1000,
+      guildDiningWeekEndsAt(args.weekKey),
+    ),
+    roundingRemainder: currentEffect?.roundingRemainder ?? 0,
   };
 }
 
@@ -267,26 +312,22 @@ export function consumeGuildDiningEffectState(
   state: GuildDiningUserState,
   kind: GuildDiningEffectKind,
   baseAmount: number,
+  now: Date = new Date(),
 ): { state: GuildDiningUserState; bonus: number; consumed: boolean } {
   const active = state.activeEffect;
   const base = Math.max(0, Math.floor(baseAmount));
-  if (!active || active.kind !== kind || active.remainingUses <= 0 || base <= 0) {
+  if (!active || active.kind !== kind || active.expiresAt <= now.getTime() || base <= 0) {
     return { state, bonus: 0, consumed: false };
   }
   const rawBonus = base * active.bonusPct + active.roundingRemainder;
   const bonus = Math.floor(rawBonus / 100);
-  const remainingUses = active.remainingUses - 1;
   return {
     state: {
       ...state,
-      activeEffect:
-        remainingUses > 0
-          ? {
-              ...active,
-              remainingUses,
-              roundingRemainder: rawBonus % 100,
-            }
-          : null,
+      activeEffect: {
+        ...active,
+        roundingRemainder: rawBonus % 100,
+      },
     },
     bonus,
     consumed: true,

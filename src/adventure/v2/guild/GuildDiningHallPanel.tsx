@@ -31,7 +31,7 @@ type DiningState = {
     menuId: GuildDiningMenuId;
     name: string;
     bonusPct: number;
-    remainingUses: number;
+    expiresAt: number;
   } | null;
   charges: { hp: number; mp: number; max: number };
 };
@@ -54,6 +54,7 @@ export function GuildDiningHallPanel() {
   const [ingredientId, setIngredientId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [selectedMenuIds, setSelectedMenuIds] = useState<GuildDiningMenuId[]>([]);
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const [notice, setNotice] = useState<{ kind: "ok" | "err"; text: string } | null>(
     null,
   );
@@ -92,6 +93,11 @@ export function GuildDiningHallPanel() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function submit(body: Record<string, unknown>, successText: (json: DiningResponse) => string) {
     if (busy) return;
@@ -175,6 +181,10 @@ export function GuildDiningHallPanel() {
   }
 
   const menuEditable = state.canManage && state.pantry.points === 0;
+  const activeEffect =
+    state.activeEffect && state.activeEffect.expiresAt > clockNow
+      ? state.activeEffect
+      : null;
 
   return (
     <section className={DINING_PANEL_CLASS}>
@@ -377,12 +387,22 @@ export function GuildDiningHallPanel() {
                   <button
                     type="button"
                     disabled={busy || !state.eligible || !state.pantry.ready || state.tickets.available <= 0}
-                    onClick={() =>
+                    onClick={() => {
+                      if (
+                        menu.effect.kind !== "recovery" &&
+                        activeEffect &&
+                        activeEffect.menuId !== menu.id &&
+                        !window.confirm(
+                          `현재 적용 중인 ${activeEffect.name} 효과와 남은 시간이 사라집니다. ${menu.name} 메뉴로 교체할까요?`,
+                        )
+                      ) {
+                        return;
+                      }
                       void submit(
                         { action: "order", menuId: menu.id },
                         (json) => `${json.ordered?.menuName ?? menu.name} 식사를 마쳤습니다.`,
-                      )
-                    }
+                      );
+                    }}
                     className="mt-3 h-9 w-full rounded-md bg-amber-600 px-3 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
                   >
                     식권 1장으로 주문
@@ -396,16 +416,25 @@ export function GuildDiningHallPanel() {
         </div>
       </section>
 
-      {state.activeEffect && (
+      {activeEffect && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-          적용 중: {state.activeEffect.name} · +{state.activeEffect.bonusPct}% · 남은 횟수 {state.activeEffect.remainingUses}회
+          적용 중: {activeEffect.name} · +{activeEffect.bonusPct}% · 남은 시간 {formatDiningRemaining(activeEffect.expiresAt - clockNow)}
         </p>
       )}
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        식재료·식권·메뉴는 매주 월요일 00:00 KST에 초기화됩니다. 새 효과식 주문 시 기존 식사 효과는 교체됩니다.
+        효과식은 한 번에 하나만 적용됩니다. 같은 메뉴를 다시 주문하면 12시간이 추가되고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 식재료·식권·메뉴·효과는 매주 월요일 00:00 KST에 초기화됩니다.
       </p>
     </section>
   );
+}
+
+function formatDiningRemaining(remainingMs: number): string {
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours <= 0) return `${minutes}분`;
+  if (minutes <= 0) return `${hours}시간`;
+  return `${hours}시간 ${minutes}분`;
 }
 
 function diningErrorText(error?: string): string {

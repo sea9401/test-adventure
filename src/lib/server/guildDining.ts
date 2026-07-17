@@ -120,7 +120,7 @@ export async function consumeGuildDiningEffect(
   kind: GuildDiningEffectKind,
   baseAmount: number,
   now: Date = new Date(),
-): Promise<{ bonus: number; remainingUses: number; menuId: GuildDiningMenuId | null }> {
+): Promise<{ bonus: number; expiresAt: number; menuId: GuildDiningMenuId | null }> {
   const weekKey = kstWeekMondayKey(now);
   const snapshot = await readSave<Record<string, unknown>>(
     tx,
@@ -132,9 +132,10 @@ export async function consumeGuildDiningEffect(
   const snapshotState = parseGuildDiningUserState(snapshot, {
     weekKey,
     guildId: snapshotGuildId,
+    now,
   });
   if (snapshotState.activeEffect?.kind !== kind) {
-    return { bonus: 0, remainingUses: 0, menuId: null };
+    return { bonus: 0, expiresAt: 0, menuId: null };
   }
 
   const raw = await lockSaveForUpdate<Record<string, unknown>>(
@@ -147,14 +148,15 @@ export async function consumeGuildDiningEffect(
   const state = parseGuildDiningUserState(raw, {
     weekKey,
     guildId: storedGuildId,
+    now,
   });
-  const result = consumeGuildDiningEffectState(state, kind, baseAmount);
+  const result = consumeGuildDiningEffectState(state, kind, baseAmount, now);
   if (result.consumed) {
     await upsertSave(tx, userId, GUILD_DINING_USER_SAVE_KEY, result.state);
   }
   return {
     bonus: result.bonus,
-    remainingUses: result.state.activeEffect?.remainingUses ?? 0,
+    expiresAt: result.state.activeEffect?.expiresAt ?? 0,
     menuId: result.state.activeEffect?.menuId ?? null,
   };
 }

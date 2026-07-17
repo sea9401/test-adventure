@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeEffectForMenu,
   consumeGuildDiningEffectState,
+  GUILD_DINING_EFFECT_DURATION_MS,
   GUILD_DINING_INGREDIENTS,
   guildDiningDonationPoints,
+  guildDiningMenu,
   guildDiningPantryTarget,
   guildDiningTicketProgress,
   parseGuildDiningUserState,
 } from "./guildDining";
 
 describe("guild dining", () => {
+  const now = new Date("2026-07-15T00:00:00.000Z");
+
   it("식재료 ID는 공급원과 원본 아이템 ID를 분리한다", () => {
     const wheat = GUILD_DINING_INGREDIENTS.find((item) => item.id === "farm:wheat");
     expect(wheat).toMatchObject({
@@ -44,15 +49,15 @@ describe("guild dining", () => {
         activeEffect: {
           menuId: "adventurer_meal",
           kind: "hunt_exp",
-          remainingUses: 5,
+          expiresAt: now.getTime() + 60_000,
           roundingRemainder: 20,
         },
       },
-      { weekKey: "2026-07-13", guildId: 2 },
+      { weekKey: "2026-07-13", guildId: 2, now },
     );
     expect(state.contributionPoints).toBe(0);
     expect(state.mealsUsed).toBe(1);
-    expect(state.activeEffect?.remainingUses).toBe(5);
+    expect(state.activeEffect?.expiresAt).toBe(now.getTime() + 60_000);
   });
 
   it("기여 15점마다 식권을 주되 시설 한도를 넘지 않는다", () => {
@@ -68,7 +73,7 @@ describe("guild dining", () => {
     });
   });
 
-  it("소수 보너스를 누적해 1점 활동 20회에도 정확히 5%를 지급한다", () => {
+  it("12시간 동안 횟수 제한 없이 소수 보너스를 정확히 누적한다", () => {
     let state = parseGuildDiningUserState(
       {
         weekKey: "2026-07-13",
@@ -76,19 +81,86 @@ describe("guild dining", () => {
         activeEffect: {
           menuId: "worker_lunch",
           kind: "life_xp",
-          remainingUses: 20,
+          expiresAt: now.getTime() + GUILD_DINING_EFFECT_DURATION_MS,
         },
       },
-      { weekKey: "2026-07-13", guildId: 1 },
+      { weekKey: "2026-07-13", guildId: 1, now },
     );
     let bonus = 0;
     for (let i = 0; i < 20; i += 1) {
-      const consumed = consumeGuildDiningEffectState(state, "life_xp", 1);
+      const consumed = consumeGuildDiningEffectState(state, "life_xp", 1, now);
       state = consumed.state;
       bonus += consumed.bonus;
     }
     expect(bonus).toBe(1);
+    expect(state.activeEffect?.expiresAt).toBe(
+      now.getTime() + GUILD_DINING_EFFECT_DURATION_MS,
+    );
+  });
+
+  it("같은 메뉴는 남은 시간에 12시간을 더하고 다른 메뉴는 교체한다", () => {
+    const adventurerMeal = guildDiningMenu("adventurer_meal")!;
+    const workerLunch = guildDiningMenu("worker_lunch")!;
+    const currentEffect = activeEffectForMenu(adventurerMeal, {
+      currentEffect: null,
+      now,
+      weekKey: "2026-07-13",
+    });
+    const extended = activeEffectForMenu(adventurerMeal, {
+      currentEffect,
+      now,
+      weekKey: "2026-07-13",
+    });
+    const replaced = activeEffectForMenu(workerLunch, {
+      currentEffect,
+      now,
+      weekKey: "2026-07-13",
+    });
+
+    expect(extended?.expiresAt).toBe(
+      now.getTime() + GUILD_DINING_EFFECT_DURATION_MS * 2,
+    );
+    expect(replaced).toMatchObject({
+      menuId: "worker_lunch",
+      kind: "life_xp",
+      expiresAt: now.getTime() + GUILD_DINING_EFFECT_DURATION_MS,
+    });
+  });
+
+  it("만료된 효과는 적용하지 않는다", () => {
+    const state = parseGuildDiningUserState(
+      {
+        weekKey: "2026-07-13",
+        guildId: 1,
+        activeEffect: {
+          menuId: "adventurer_meal",
+          kind: "hunt_exp",
+          expiresAt: now.getTime(),
+        },
+      },
+      { weekKey: "2026-07-13", guildId: 1, now },
+    );
+
     expect(state.activeEffect).toBeNull();
+  });
+
+  it("기존 횟수형 효과는 남은 식권 손실 없이 12시간제로 승계한다", () => {
+    const state = parseGuildDiningUserState(
+      {
+        weekKey: "2026-07-13",
+        guildId: 1,
+        activeEffect: {
+          menuId: "adventurer_meal",
+          kind: "hunt_exp",
+          remainingUses: 5,
+        },
+      },
+      { weekKey: "2026-07-13", guildId: 1, now },
+    );
+
+    expect(state.activeEffect?.expiresAt).toBe(
+      now.getTime() + GUILD_DINING_EFFECT_DURATION_MS,
+    );
   });
 
   it("공동 준비 목표는 인원에 비례하며 상한이 있다", () => {

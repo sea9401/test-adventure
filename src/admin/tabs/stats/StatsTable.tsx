@@ -164,9 +164,9 @@ export function StatsTable({
                     {r.reincarnations}
                   </td>
                   <td className="py-1 text-right tabular-nums">
-                    {r.spUsed}/{r.spBudget}
+                    사용 {r.spUsed} / 한도 {r.spBudget}
                     <div className="text-[10px] text-zinc-500">
-                      학습 {r.skillsLearned}
+                      학습 스킬 {r.skillsLearned}개
                     </div>
                   </td>
                   <td className="py-1 text-right tabular-nums">

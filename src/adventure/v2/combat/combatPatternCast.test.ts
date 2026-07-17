@@ -546,28 +546,59 @@ describe("resolveV2SkillCast — 주술사 고차 디버프", () => {
   });
 });
 
-describe("resolveV2SkillCast — 원소군주 원소 공명", () => {
-  it("원소 공명을 함께 장착하면 원소 폭주의 현재 속성 보조 효과가 강화된다", () => {
+describe("resolveV2SkillCast — 원소군주·태초술사 주문식", () => {
+  const elemental = [
+    "v2c_firemage_inferno",
+    "v2c_frostmage_glacier",
+    "v2c_lightningmage_thunderbolt",
+    "v2c_windmage_tempest",
+    "v2c_earthmage_tectonic",
+  ] as const;
+
+  it("다섯 대표 주문 보유만으로 오원소 주문식의 이름과 기본 성능이 바뀐다", () => {
     const skill = "v2c_elementallord_surge";
-    const base = resolveV2SkillCast(
+    const base = resolveV2SkillCast(castInput([skill]));
+    const owned = resolveV2SkillCast(
       castInput([skill], {
-        attacker: {
-          ...castInput([skill]).attacker,
-          characterElement: "wind",
-        },
-      }),
-    );
-    const resonant = resolveV2SkillCast(
-      castInput([skill, "v2c_elementallord_resonance"], {
-        attacker: {
-          ...castInput([skill]).attacker,
-          characterElement: "wind",
-        },
+        skills: {
+          learned: [skill, ...elemental],
+          equipped: [skill],
+        } as V2SkillCastInput["skills"],
       }),
     );
 
-    expect(base.selfHasteToApply).toEqual({ pct: 55 });
-    expect(resonant.selfHasteToApply).toEqual({ pct: 65 });
-    expect(resonant.enemyDamage).toBe(base.enemyDamage);
+    expect(base.castSkillName).toBe("오원소 폭주");
+    expect(owned.castSkillName).toBe("오원소 대폭주");
+    expect(owned.enemyDamage).toBeGreaterThan(base.enemyDamage);
+    expect(owned.enemyVulnToApply).toEqual({ pct: 12, turns: 3 });
+  });
+
+  it("화염과 바람을 함께 장착하면 화염폭풍 효과가 발현되고 공명이 추가 출력을 더한다", () => {
+    const skill = "v2c_elementallord_surge";
+    const materials = [skill, "v2c_firemage_inferno", "v2c_windmage_tempest"];
+    const storm = resolveV2SkillCast(castInput(materials));
+    const resonant = resolveV2SkillCast(
+      castInput([...materials, "v2c_elementallord_resonance"]),
+    );
+
+    expect(storm.castSkillName).toBe("화염폭풍");
+    expect(storm.selfHasteToApply).toEqual({ pct: 35 });
+    expect(storm.dotsToApplyToTarget.some((dot) => dot.tag === "burn")).toBe(true);
+    expect(resonant.castSkillName).toBe("화염폭풍");
+    expect(resonant.enemyDamage).toBeGreaterThan(storm.enemyDamage);
+    expect(resonant.manaRestored).toBeGreaterThan(0);
+  });
+
+  it("태초술사는 같은 조합을 상위 주문명과 더 강한 효과로 승격한다", () => {
+    const lord = resolveV2SkillCast(
+      castInput(["v2c_elementallord_surge", "v2c_firemage_inferno", "v2c_windmage_tempest"]),
+    );
+    const primordial = resolveV2SkillCast(
+      castInput(["v2c_primordialmage_return", "v2c_firemage_inferno", "v2c_windmage_tempest"]),
+    );
+
+    expect(primordial.castSkillName).toBe("태초의 화염폭풍");
+    expect(primordial.enemyDamage).toBeGreaterThan(lord.enemyDamage);
+    expect(primordial.selfHasteToApply).toEqual({ pct: 45 });
   });
 });

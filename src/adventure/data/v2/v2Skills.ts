@@ -385,6 +385,16 @@ export type V2SkillDefinition = {
     requiredSkillIds?: readonly V2SkillId[];
     effects: readonly V2SkillEffect[];
   }[];
+  /** 주문식 변형 — 보유·장착한 하위 스킬 조합에 따라 액티브의 이름과 전체 효과를 교체한다.
+   *  위에서부터 첫 번째로 조건을 만족한 변형을 사용하므로, 오원소→복합→단일→보유 전용처럼
+   *  구체적인 조합을 먼저 선언한다. equipped 는 learned 의 부분집합이지만 두 조건을 분리해
+   *  "보유로 주문식 해금, 장착으로 전투 효과 활성" 규칙을 데이터에서 명시할 수 있다. */
+  castVariants?: readonly {
+    name: string;
+    requiredLearnedSkillIds?: readonly V2SkillId[];
+    requiredEquippedSkillIds?: readonly V2SkillId[];
+    effects: readonly V2SkillEffect[];
+  }[];
   /** PoB식 빌드 탐색 태그. 생략 시 스탯·효과·패시브 기반 태그를 자동 추론한다. */
   buildTags?: readonly V2BuildTagId[];
   /** 속성 장착 시너지 — 특정 패시브를 함께 장착하면 현재 캐릭터 속성의 효과 배열을 강화판으로 교체한다. */
@@ -552,6 +562,12 @@ export function skillPowerScore(def: V2SkillDefinition): number {
       if (variant) raw = Math.max(raw, sumEffects(variant));
     }
   }
+  // 주문식은 한 번에 하나만 선택되므로 합산하지 않고 가장 강한 변형을 기준으로 과소평가를 막는다.
+  if (def.castVariants) {
+    for (const variant of def.castVariants) {
+      raw = Math.max(raw, sumEffects(variant.effects));
+    }
+  }
   if (def.equippedSynergies) {
     for (const synergy of def.equippedSynergies) {
       raw += sumEffects(synergy.effects);
@@ -581,7 +597,12 @@ export function rubricSpCost(skill: V2SkillDefinition): number {
   const power = skillPowerScore(skill) * (skill.passive ? SP_PASSIVE_DISCOUNT : 1);
   const rawSp = Math.max(1, Math.round(0.7 + 3.0 * power));
   if (rawSp <= 5) return rawSp;
-  return 5 + Math.ceil((rawSp - 5) * 0.6);
+  const compressed = 5 + Math.ceil((rawSp - 5) * 0.6);
+  // 조합형 액티브는 표시된 최대 효과를 혼자 내는 스킬이 아니다. 강한 주문식을 쓰려면 하위 재료
+  // 스킬도 각각 SP를 지불해 함께 장착해야 하므로, 본체까지 최대 효과 전액으로 청구하면 조합 자체가
+  // 성립하지 않는다. 재료 비용을 감안해 본체는 현 카탈로그 고성능 상한(16 SP)에서 제한한다.
+  // 원소군주 최대 변형 기준 22→16으로 약 27% 할인되어, 오원소 선행 조건의 실전 보상이 된다.
+  return skill.castVariants?.length ? Math.min(16, compressed) : compressed;
 }
 
 // 스킬 1종의 SP 코스트 — 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).
@@ -1037,6 +1058,7 @@ const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
 // 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
 const MP_CASTER_JOBS = new Set([
   "mage", "caster", "acolyte", "warder", "magus", "bishop", "sage", "elementalist", "archbishop",
+  "firemage", "frostmage", "lightningmage", "windmage", "earthmage",
   "elementallord", "inscriber", "archmage", "primordialmage",
 ]);
 // 무인 ×0.85 — 기 기반·작은 풀.
@@ -1075,6 +1097,9 @@ export function describeV2Skill(skill: V2SkillDefinition): string[] {
   //   실패 시 평타로 폴백(MP·쿨다운 미소모). 패시브는 발동 개념이 없어 제외.
   const proc = skill.procChance ?? 100;
   if (!skill.passive) chips.push(`발동 ${proc}%`);
+  if (skill.castVariants?.length) {
+    chips.push(`보유·장착 주문식 ${skill.castVariants.length}종`);
+  }
   // MP 비용 = 고정 절대값(기준 풀 기반) → 인게임·매뉴얼 동일 숫자. 무료/몬스터(0)는 칩 생략.
   const mp = v2SkillMpCostValue(skill);
   if (mp > 0) chips.push(`MP ${mp}`);
@@ -1094,6 +1119,7 @@ export function v2SkillSearchText(skill: V2SkillDefinition): string {
     skill.stat,
     skill.category,
     skill.element ? V2_ELEMENT_LABEL[skill.element] : "",
+    ...(skill.castVariants?.map((variant) => variant.name) ?? []),
     ...describeV2Skill(skill),
   ]
     .filter(Boolean)

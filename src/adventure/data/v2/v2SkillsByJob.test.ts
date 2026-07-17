@@ -400,6 +400,11 @@ describe("직업 킷 — 스킬셋", () => {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
       warlord: ["v2c_warlord_bloodbath", "v2c_warlord_slaughter"],
       sage: ["v2c_sage_bolt", "v2c_sage_insight"],
+      firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
+      frostmage: ["v2c_frostmage_glacier", "v2c_frostmage_frozenheart"],
+      lightningmage: ["v2c_lightningmage_thunderbolt", "v2c_lightningmage_overcharge"],
+      windmage: ["v2c_windmage_tempest", "v2c_windmage_flow"],
+      earthmage: ["v2c_earthmage_tectonic", "v2c_earthmage_bedrock"],
       runecaster: ["v2c_runecaster_grandsigil", "v2c_runecaster_circuit"],
       archshaman: ["v2c_archshaman_rite", "v2c_archshaman_curse"],
       archbishop: ["v2c_archbishop_sanctuary", "v2c_archbishop_grace"],
@@ -594,29 +599,27 @@ describe("직업 킷 — 스킬셋", () => {
     });
     expect(V2_SKILLS.v2c_elementallord_surge.category).toBe("attack");
     expect(V2_SKILLS.v2c_elementallord_surge.effects).toEqual([
-      { kind: "damage", statCoef: 2.05, baseFlat: 500, scaling: "magic" },
+      { kind: "damage", statCoef: 2.2, baseFlat: 540, scaling: "magic" },
     ]);
-    expect(V2_SKILLS.v2c_elementallord_surge.elementEffects?.fire?.map((e) => e.kind)).toEqual([
-      "damage",
-      "dot",
-      "enemyHealReduce",
-    ]);
-    expect(V2_SKILLS.v2c_elementallord_surge.elementEffects?.water).toEqual([
-      { kind: "damage", statCoef: 2.05, baseFlat: 500, scaling: "magic" },
-      { kind: "shield", pctMaxHp: 12, pctMaxMp: 6, turns: 3 },
-    ]);
-    expect(
-      V2_SKILLS.v2c_elementallord_surge.elementEffectSynergies?.[0],
-    ).toMatchObject({
-      requiredSkillId: "v2c_elementallord_resonance",
+    expect(V2_SKILLS.v2c_elementallord_surge.castVariants).toHaveLength(12);
+    expect(V2_SKILLS.v2c_elementallord_surge.castVariants?.[0]).toMatchObject({
+      name: "개벽·오원소 폭주",
+      requiredLearnedSkillIds: expect.arrayContaining([
+        "v2c_firemage_inferno",
+        "v2c_frostmage_glacier",
+        "v2c_lightningmage_thunderbolt",
+        "v2c_windmage_tempest",
+        "v2c_earthmage_tectonic",
+      ]),
     });
     expect(
-      V2_SKILLS.v2c_elementallord_surge.elementEffectSynergies?.[0].elementEffects
-        .wind,
-    ).toEqual([
-      { kind: "damage", statCoef: 2.05, baseFlat: 500, scaling: "magic" },
-      { kind: "selfHaste", pct: 65 },
-    ]);
+      V2_SKILLS.v2c_elementallord_surge.castVariants?.find(
+        (variant) => variant.name === "화염폭풍",
+      )?.effects.map((effect) => effect.kind),
+    ).toEqual(["damage", "dot", "enemyHealReduce", "selfHaste"]);
+    expect(V2_SKILLS.v2c_elementallord_surge.equippedSynergies?.[0]).toMatchObject({
+      requiredSkillId: "v2c_elementallord_resonance",
+    });
     expect(V2_SKILLS.v2c_elementallord_resonance.passive).toMatchObject({
       elementResonance: true,
     });
@@ -812,11 +815,17 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_primordialmage_return.name).toBe("태초회귀");
     expect(V2_SKILLS.v2c_primordialmage_return.category).toBe("attack");
     expect(V2_SKILLS.v2c_primordialmage_return.effects).toEqual([
-      { kind: "damage", statCoef: 2.05, baseFlat: 560, scaling: "magic" },
+      { kind: "damage", statCoef: 2.45, baseFlat: 650, scaling: "magic" },
       { kind: "enemyVuln", pct: 14, turns: 3 },
-      { kind: "enemyDelay", pct: 35 },
-      { kind: "enemyHealReduce", pct: 45, turns: 3 },
+      { kind: "enemyDelay", pct: 30 },
     ]);
+    expect(V2_SKILLS.v2c_primordialmage_return.castVariants).toHaveLength(12);
+    expect(V2_SKILLS.v2c_primordialmage_return.castVariants?.[0].name).toBe(
+      "개벽·오원소 회귀",
+    );
+    expect(V2_SKILLS.v2c_primordialmage_return.equippedSynergies?.[0]).toMatchObject({
+      requiredSkillId: "v2c_primordialmage_resonance",
+    });
     expect(V2_SKILLS.v2c_primordialmage_resonance.name).toBe("근원공명");
     expect(V2_SKILLS.v2c_primordialmage_resonance.category).toBe("passive");
     expect(V2_SKILLS.v2c_primordialmage_resonance.passive).toMatchObject({

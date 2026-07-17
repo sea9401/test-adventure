@@ -81,7 +81,11 @@ const TIER4_LINEAGE: Record<string, string> = {
   warlord: "berserker",
   sensei: "brawler",
   sage: "magus",
-  elementalist: "magus",
+  firemage: "magus",
+  frostmage: "magus",
+  lightningmage: "magus",
+  windmage: "magus",
+  earthmage: "magus",
   runecaster: "magus",
   archshaman: "shaman",
   archbishop: "bishop",
@@ -104,7 +108,6 @@ const TIER5_LINEAGE: Record<string, string> = {
   ironknight: "warden",
   overlord: "warlord",
   arcanist: "sage",
-  elementallord: "elementalist",
   inscriber: "runecaster",
   marksman: "chief",
   nightshade: "phantom",
@@ -165,14 +168,14 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("106개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 23 + 5차 20 + 6차 19)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(106);
+  it("110개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 27 + 5차 20 + 6차 19)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(110);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(16);
     expect(byTier(3)).toBe(22);
-    expect(byTier(4)).toBe(23);
+    expect(byTier(4)).toBe(27);
     expect(byTier(5)).toBe(20);
     expect(byTier(6)).toBe(19);
   });
@@ -459,6 +462,25 @@ describe("해금 트리", () => {
       );
       expect(isJobUnlocked(job, profJobs({ [parent]: required }))).toBe(true);
     }
+    const elementalPrereqs = {
+      firemage: TIER5_UNLOCK_CUMLEVEL,
+      frostmage: TIER5_UNLOCK_CUMLEVEL,
+      lightningmage: TIER5_UNLOCK_CUMLEVEL,
+      windmage: TIER5_UNLOCK_CUMLEVEL,
+      earthmage: TIER5_UNLOCK_CUMLEVEL,
+    };
+    expect(V2_JOB_CATALOG.elementallord.unlock.prereqs).toEqual(
+      elementalPrereqs,
+    );
+    expect(
+      isJobUnlocked(
+        V2_JOB_CATALOG.elementallord,
+        profJobs({ ...elementalPrereqs, earthmage: TIER5_UNLOCK_CUMLEVEL - 1 }),
+      ),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.elementallord, profJobs(elementalPrereqs)),
+    ).toBe(true);
     expect(TIER4_UNLOCK_CUMLEVEL).toBeLessThan(TIER5_UNLOCK_CUMLEVEL);
   });
 
@@ -1057,6 +1079,11 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(displayName("survivor", "masterfarmer")).toBe("숙련 농부");
     expect(displayName("survivor", "harvestking")).toBe("농업 장인");
     expect(displayName("survivor", "earthartisan")).toBe("전설의 농부");
+    expect(displayName("mage", "firemage")).toBe("화염 마법사");
+    expect(displayName("mage", "frostmage")).toBe("냉기 마법사");
+    expect(displayName("mage", "lightningmage")).toBe("전격 마법사");
+    expect(displayName("mage", "windmage")).toBe("바람 마법사");
+    expect(displayName("mage", "earthmage")).toBe("대지 마법사");
     expect(displayName("mage", "elementallord")).toBe("원소군주");
     expect(displayName("mage", "primordialmage")).toBe("태초술사");
     expect(displayName("mage", "inscriber")).toBe("각인술사");
@@ -1101,10 +1128,11 @@ describe("DROPPED_SPEC_TO_SURVIVING 정규화 (PR-5)", () => {
     expect(jobIdFromLegacy("rogue", "venom")).toBe("assassin"); // 독사 → 자객
   });
 
-  it("정규화 대상은 사라진 4계파뿐(생존 계파는 그대로)", () => {
+  it("사라진 4계파와 옛 원소술사를 새 생존 직업으로 정규화한다", () => {
     expect(Object.keys(DROPPED_SPEC_TO_SURVIVING).sort()).toEqual(
-      ["battlemage", "gladiator", "venom", "yeonhwan"].sort(),
+      ["battlemage", "elementalist", "gladiator", "venom", "yeonhwan"].sort(),
     );
+    expect(jobIdFromLegacy("mage", "elementalist")).toBe("firemage");
     // 흡수처(생존 계파)는 LEGACY 역브리지에 실재해 base 폴백이 아니다.
     for (const surviving of Object.values(DROPPED_SPEC_TO_SURVIVING)) {
       const found = Object.values(LEGACY_CLASS_SPEC_BY_JOB).some(

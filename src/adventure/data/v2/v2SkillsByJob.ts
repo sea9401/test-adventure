@@ -68,7 +68,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"], // 기습(풀피 오프너·LUK) + 은신(회피+16%)
   venomlord: ["v2c_venomlord_plague", "v2c_venomlord_sovereign"], // 독왕진(중독 폭발) + 부식 III
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
-  elementalist: ["v2c_elementalist_magic", "v2c_elementalist_mastery"], // 속성 마법(캐릭속성 분기) + 원소 통달(상성 양방향↑)
+  firemage: ["v2c_firemage_inferno", "v2c_firemage_ember"],
+  frostmage: ["v2c_frostmage_glacier", "v2c_frostmage_frozenheart"],
+  lightningmage: ["v2c_lightningmage_thunderbolt", "v2c_lightningmage_overcharge"],
+  windmage: ["v2c_windmage_tempest", "v2c_windmage_flow"],
+  earthmage: ["v2c_earthmage_tectonic", "v2c_earthmage_bedrock"],
   // ── 마법 4차 세 번째 갈래(문장술사) — 저차 총명 패시브 장착 시 액티브 추가 효과 ──
   runecaster: ["v2c_runecaster_grandsigil", "v2c_runecaster_circuit"], // 대문장 해방 + 문장 회로
   // ── 마법 4차 네 번째 갈래(대주술사·주술사 계승) — 마법취약 누적과 폭발 ──

@@ -299,6 +299,11 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       if (n > 0 && k && k !== "none") jobCumLevel[k] = n;
     }
   }
+  // 원소술사 분화 마이그레이션 — 기존 원소술사 숙련도는 대표 계통인 화염 마법사로 1회성 해석
+  // 이관한다. 다른 네 계통은 새로 수련해야 하므로 원소군주의 오원소 AND 조건을 우회하지 않는다.
+  if ((jobCumLevel.elementalist ?? 0) > (jobCumLevel.firemage ?? 0)) {
+    jobCumLevel.firemage = jobCumLevel.elementalist;
+  }
   const parsedGrown = parseStatMap(obj.grown);
   const grown =
     growthScaleVersion >= 1

@@ -224,6 +224,9 @@ export function buildTagsForSkill(skill: V2SkillDefinition): V2BuildTagId[] {
   for (const synergy of skill.equippedSynergies ?? []) {
     for (const effect of synergy.effects) addEffectTags(tags, effect);
   }
+  for (const variant of skill.castVariants ?? []) {
+    for (const effect of variant.effects) addEffectTags(tags, effect);
+  }
   return orderedBuildTags(tags);
 }
 

@@ -12,6 +12,7 @@ import {
   isValidPrice,
   currentMarketplaceItemName,
   itemDisplayName,
+  marketplaceEquipListError,
   saleProceeds,
   saleTax,
 } from "./marketplaceV2";
@@ -85,6 +86,21 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     // prototype 오염 방지 — hasOwnProperty 사용.
     expect(isTradableEquip("toString")).toBe(false);
     expect(isTradableEquip("constructor")).toBe(false);
+  });
+
+  it("장비 등록은 미강화·미잠금·미장착 개체만 허용한다", () => {
+    const id = Object.keys(V2_EQUIPMENT)[0] as keyof typeof V2_EQUIPMENT;
+    expect(marketplaceEquipListError({ id }, false)).toBeNull();
+    expect(
+      marketplaceEquipListError(
+        { id, enhance: { level: 1, bonusPct: 1 } },
+        false,
+      ),
+    ).toBe("enhanced");
+    expect(marketplaceEquipListError({ id, locked: true }, false)).toBe(
+      "locked",
+    );
+    expect(marketplaceEquipListError({ id }, true)).toBe("equipped");
   });
 
   it("채광 재료를 포함한 등재 재료 중 비활성 재련석을 제외해 tradable", () => {

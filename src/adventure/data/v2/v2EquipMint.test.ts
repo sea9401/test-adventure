@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  listedEquipEnhance,
   mintEquipInstance,
   mintListedEquipInstance,
   mintRolledEquipInstance,
@@ -60,6 +61,7 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     // parseEnhance 는 bonusPct 를 레벨에서 재파생(payload 값 신뢰 안 함) — 파서 결과와 동일해야.
     expect(inst.enhance).toEqual(parseEnhance(payloadEnhance));
     expect(inst.enhance?.level).toBe(7);
+    expect(listedEquipEnhance({ ...roll, enhance: payloadEnhance })?.level).toBe(7);
   });
 
   it("craftQuality 가 있으면 enhance 는 무시(동시 부착 금지 규약)", () => {
@@ -72,5 +74,13 @@ describe("mintListedEquipInstance (거래소 payload 복원)", () => {
     expect(inst.craftQuality).toBeDefined();
     expect("enhance" in inst).toBe(false);
     expect(inst.craftedBy).toMatchObject({ userId: "u1" });
+    expect(
+      listedEquipEnhance({
+        ...roll,
+        craftQuality: { level: 1, bonusPct: 6 },
+        enhance: { level: 3, bonusPct: 9 },
+        craftedBy: { userId: "u1", profession: "blacksmith" },
+      }),
+    ).toBeUndefined();
   });
 });

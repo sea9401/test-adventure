@@ -13,11 +13,11 @@ import {
 import {
   MARKETPLACE_V2_SLOT_LIMIT,
   isMarketKind,
-  isTradableEquip,
   isTradableMaterial,
   isValidMaterialQty,
   isValidPrice,
   itemDisplayName,
+  marketplaceEquipListError,
   resolvePlayerName,
   type MarketKind,
 } from "@/lib/server/marketplaceV2";
@@ -26,7 +26,7 @@ import {
 //   body(장비):   { kind:"equip", iid:string, price:int }
 //   body(재료):   { kind:"material", itemId:string, quantity:int, price:int }
 //   body(소모품): { kind:"consumable", iid:string, price:int } — 레어맵 개체(판수/만료 스냅샷)
-// 활성 매물 슬롯 상한 체크. 장비=미장착·미잠금 개체만. 가격은 정수 [1, 999,999,999].
+// 활성 매물 슬롯 상한 체크. 장비=미강화·미장착·미잠금 개체만. 가격은 정수 [1, 999,999,999].
 
 type CharSave = {
   gold?: number;
@@ -103,10 +103,11 @@ export async function POST(req: Request) {
       const { owned, equipped } = parseEquipmentSave(equipSave);
       const inst = owned.find((i) => i.iid === iid);
       if (!inst) return { status: 400, body: { ok: false as const, error: "not_owned" } };
-      if (!isTradableEquip(inst.id)) return { status: 400, body: { ok: false as const, error: "not_tradable" } };
-      if (inst.locked) return { status: 400, body: { ok: false as const, error: "locked" } };
       const isEquipped = Object.values(equipped).includes(iid);
-      if (isEquipped) return { status: 400, body: { ok: false as const, error: "equipped" } };
+      const listError = marketplaceEquipListError(inst, isEquipped);
+      if (listError) {
+        return { status: 400, body: { ok: false as const, error: listError } };
+      }
 
       // 에스크로 — owned 에서 제거.
       const nextOwned = owned.filter((i) => i.iid !== iid);
@@ -123,12 +124,11 @@ export async function POST(req: Request) {
           quantity: 1,
           price,
           // roll 스냅샷(iid 제외) — 구매 시 새 개체로 복원. roll 없으면 null.
-          // 굴림 + 강화 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
+          // 굴림 + 제작품질 + 제작자 표식을 한 payload 에 — 옛 행은 raw roll 객체(권위 파스가 양형 흡수).
           instancePayload:
-            inst.roll || inst.enhance || inst.craftQuality || inst.craftedBy
+            inst.roll || inst.craftQuality || inst.craftedBy
               ? {
                   ...(inst.roll ?? {}),
-                  ...(inst.enhance ? { enhance: inst.enhance } : {}),
                   ...(inst.craftQuality ? { craftQuality: inst.craftQuality } : {}),
                   ...(inst.craftedBy ? { craftedBy: inst.craftedBy } : {}),
                 }

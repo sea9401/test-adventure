@@ -55,7 +55,6 @@ export function V2BattleHome({ onAction }: {
             <Barbell size={28} weight="duotone" className="text-sky-500" />
           }
           title="대련장"
-          description="허수아비를 상대로 빌드와 피해량 시험"
           onClick={() => onAction({ kind: "open-sparring" })}
         />
         <EntryCard
@@ -70,7 +69,6 @@ export function V2BattleHome({ onAction }: {
             <CloudLightning size={28} weight="duotone" className="text-sky-500" />
           }
           title="원정"
-          description="항로를 골라 연속 전투와 중도 귀환에 도전"
           onClick={() => onAction({ kind: "open-storm-expedition" })}
         />
       </div>

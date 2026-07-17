@@ -28,7 +28,6 @@ describe("개인 랭킹", () => {
           cum_level: 1200,
           paragon_exp: 0,
           fame: 100,
-          battle_count: 500,
           rank: 1,
         },
         {
@@ -39,7 +38,6 @@ describe("개인 랭킹", () => {
           cum_level: 900,
           paragon_exp: 0,
           fame: 80,
-          battle_count: 400,
           rank: 2,
         },
       ],
@@ -58,5 +56,59 @@ describe("개인 랭킹", () => {
     expect(json.me).toEqual(
       expect.objectContaining({ name: "내모험가", avatar: "female1" }),
     );
+  });
+
+  it("캐릭터 화면과 같은 공식으로 전투력을 계산해 내림차순 정렬한다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-me",
+          name: "초보모험가",
+          avatar: "female1",
+          character_save: { level: 1 },
+          equipment_save: {},
+          proficiency_save: {},
+          skills_save: {},
+          updated_at: "2026-07-17T00:00:00.000Z",
+        },
+        {
+          user_id: "u-strong",
+          name: "강한모험가",
+          avatar: "male1",
+          character_save: { level: 30 },
+          equipment_save: {},
+          proficiency_save: {},
+          skills_save: {},
+          updated_at: "2026-07-17T00:00:01.000Z",
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=combatPower"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.list.map((entry: { name: string }) => entry.name)).toEqual([
+      "강한모험가",
+      "초보모험가",
+    ]);
+    expect(json.list[0].combatPower).toBeGreaterThan(json.list[1].combatPower);
+    expect(json.me).toEqual(
+      expect.objectContaining({
+        name: "초보모험가",
+        combatPower: json.list[1].combatPower,
+      }),
+    );
+  });
+
+  it("제거된 전투 횟수 지표는 더 이상 제공하지 않는다", async () => {
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=battleCount"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(execute).not.toHaveBeenCalled();
   });
 });

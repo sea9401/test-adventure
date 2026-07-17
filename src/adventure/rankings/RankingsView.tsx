@@ -24,7 +24,7 @@ import {
 
 const TABS: { key: RankingMetric; label: string }[] = [
   { key: "level", label: "총 숙련도" },
-  { key: "battleCount", label: "전투 횟수" },
+  { key: "combatPower", label: "전투력" },
   { key: "fishingScore", label: "낚시 점수" },
   { key: "guild", label: "길드 랭킹" },
 ];
@@ -279,7 +279,7 @@ function RankingRow({
         ) : metric === "fishingScore" ? (
           <>낚시 {entry.fishingScore.toLocaleString()}점</>
         ) : (
-          <>전투 {entry.battleCount.toLocaleString()}</>
+          <>전투력 {entry.combatPower.toLocaleString()}</>
         )}
       </span>
     </button>

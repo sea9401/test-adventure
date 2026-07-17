@@ -19,6 +19,7 @@ import {
   DINING_HALL_UPGRADES,
   EXPLORATION_HQ_UPGRADES,
   GUILD_SMITHY_UPGRADES,
+  TRADE_POST_UPGRADES,
   TRAINING_GROUND_UPGRADES,
   explorationHqUpgradeForLevel,
   settlementBuildingUpgradeCostText,
@@ -29,6 +30,13 @@ import {
   GUILD_DINING_MENUS,
   GUILD_DINING_POINTS_PER_TICKET,
 } from "@/adventure/data/v2/guildDining";
+import {
+  GUILD_TRADE_BASE_REWARD_FAME,
+  GUILD_TRADE_BASE_REWARD_GOLD,
+  GUILD_TRADE_BASE_TARGET,
+  GUILD_TRADE_SHOP_ITEMS,
+  GUILD_TRADE_TARGET_PER_EXTRA_MEMBER,
+} from "@/adventure/data/v2/guildTrade";
 import {
   FISHING_CATCH_ITEM_CHANCE_PCT,
   FISHING_CATCH_ITEM_DAILY_CAP,
@@ -110,7 +118,7 @@ export function GuildContent() {
             fame: 0,
           }),
         ])}
-        caption="제작소·훈련장·탐사 본부·연금 공방·길드 식당이 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
+        caption="제작소·훈련장·탐사 본부·연금 공방·길드 식당·길드 교역소가 같은 단계별 생활 재료 구성을 사용합니다. 요구량을 넘겨 기부할 수 없으며, 기부한 재료는 개인 인벤토리로 되돌릴 수 없습니다."
       />
       <Table
         head={["시설", "Lv2", "Lv3", "Lv4", "Lv5"]}
@@ -120,6 +128,7 @@ export function GuildContent() {
           ["탐사 본부", EXPLORATION_HQ_UPGRADES],
           ["연금 공방", ALCHEMY_WORKSHOP_UPGRADES],
           ["길드 식당", DINING_HALL_UPGRADES],
+          ["길드 교역소", TRADE_POST_UPGRADES],
         ].map(([name, upgrades]) => [
           <Em key={String(name)}>{String(name)}</Em>,
           ...(upgrades as typeof GUILD_SMITHY_UPGRADES).slice(1).map(
@@ -282,6 +291,38 @@ export function GuildContent() {
           menu.description,
         ])}
         caption="모험가 정식과 일꾼 도시락은 식권 1장당 12시간 적용됩니다. 같은 메뉴는 남은 시간에 12시간을 더하고, 다른 효과식은 기존 효과와 남은 시간을 교체합니다. 효과식은 한 번에 하나만 적용되며 월요일 00:00 KST에 초기화됩니다."
+      />
+
+      <H2>길드 교역소</H2>
+      <P>
+        길드 교역소는 벌목·채광·농장·낚시에서 모은 생활 재료를 주간 계약에
+        함께 납품하는 시설입니다. 개인은 납품 점수만큼 <Em>교역 토큰</Em>을
+        받고, 공동 목표를 채우면 길드 금고 골드와 명성을 획득합니다.
+      </P>
+      <UL>
+        <li>
+          계약 하나의 기본 목표는 <Em>{GUILD_TRADE_BASE_TARGET}점</Em>이며,
+          주간 계약 시작 시점의 길드원 1명 초과마다 {GUILD_TRADE_TARGET_PER_EXTRA_MEMBER}점씩
+          늘어납니다. 참여 대상도 이 시점에 함께 확정됩니다.
+        </li>
+        <li>
+          시설 레벨이 오르면 주간 계약 수가 3건에서 5건으로 늘고, 개인 납품
+          한도와 계약 완료 보너스도 증가합니다.
+        </li>
+        <li>
+          계약·개인 납품·상점 구매 횟수는 월요일 00:00 KST에 초기화됩니다.
+          남은 교역 토큰은 같은 길드에 있는 동안 다음 주에도 유지됩니다.
+        </li>
+      </UL>
+      <Table
+        head={["교환 품목", "필요 시설", "비용", "주간 한도"]}
+        rows={GUILD_TRADE_SHOP_ITEMS.map((item) => [
+          <Em key={item.id}>{item.name}</Em>,
+          `Lv.${item.minFacilityLevel}`,
+          `${item.tokenCost} 토큰`,
+          `${item.weeklyLimit}회`,
+        ])}
+        caption={`계약 기본 완료 보상은 길드 금고 ${GUILD_TRADE_BASE_REWARD_GOLD.toLocaleString("ko-KR")}G와 명성 ${GUILD_TRADE_BASE_REWARD_FAME.toLocaleString("ko-KR")}이며, 교역소 레벨 보너스가 적용됩니다.`}
       />
 
       <H2>길드 제작소</H2>

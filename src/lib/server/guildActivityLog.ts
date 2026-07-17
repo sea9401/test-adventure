@@ -30,6 +30,7 @@ export type GuildActivityType =
   | "alchemy_craft"
   | "emblem_change"
   | "dining_meal"
+  | "trade_contract_complete"
   | "nation_declare"
   | "guild_create";
 
@@ -39,7 +40,7 @@ export type GuildActivityMeta = {
   nationName?: string; // nation_declare
   questTitle?: string; // workshop_weekly_claim | exploration_weekly_claim
   deliveryTitle?: string; // workshop_delivery
-  itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal
+  itemName?: string; // workshop_delivery | workshop_craft_only | alchemy_craft | dining_meal | trade_contract_complete
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade

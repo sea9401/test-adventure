@@ -180,7 +180,8 @@ export type SettlementBuildingId =
   | "exploration_hq"
   | "map_workshop"
   | "alchemy_workshop"
-  | "dining_hall";
+  | "dining_hall"
+  | "trade_post";
 
 export type SettlementBuildingDef = {
   id: SettlementBuildingId;
@@ -236,6 +237,12 @@ export const SETTLEMENT_BUILDINGS: Record<
     icon: "🍲",
     desc: "농장과 낚시 식재료로 주간 식사를 준비하는 길드 공용 시설입니다.",
   },
+  trade_post: {
+    id: "trade_post",
+    name: "길드 교역소",
+    icon: "⚖️",
+    desc: "생활 재료를 주간 계약에 공동 납품하고 교역 토큰을 얻는 길드 공용 시설입니다.",
+  },
 };
 export const SETTLEMENT_BUILDING_IDS = Object.keys(
   SETTLEMENT_BUILDINGS,
@@ -246,6 +253,7 @@ export const PLACEABLE_SETTLEMENT_BUILDING_IDS: SettlementBuildingId[] = [
   "exploration_hq",
   "alchemy_workshop",
   "dining_hall",
+  "trade_post",
 ];
 
 export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
@@ -257,6 +265,7 @@ export const GUILD_FACILITY_UNLOCK_GOLD_COST: Partial<
   map_workshop: 15_000_000,
   alchemy_workshop: 60_000_000,
   dining_hall: 50_000_000,
+  trade_post: 70_000_000,
 };
 
 export const MAX_SETTLEMENT_BUILDING_LEVEL = 5;
@@ -434,6 +443,15 @@ export type DiningHallUpgradeDef = {
   label: string;
 };
 
+export type TradePostUpgradeDef = {
+  level: number;
+  cost: SettlementBuildingUpgradeCost;
+  weeklyContractCount: number;
+  personalContributionCap: number;
+  completionRewardBonusPct: number;
+  label: string;
+};
+
 export const MAP_WORKSHOP_UPGRADES: readonly MapWorkshopUpgradeDef[] = [
   {
     level: 1,
@@ -576,13 +594,57 @@ export const DINING_HALL_UPGRADES: readonly DiningHallUpgradeDef[] = [
   },
 ];
 
+export const TRADE_POST_UPGRADES: readonly TradePostUpgradeDef[] = [
+  {
+    level: 1,
+    cost: {},
+    weeklyContractCount: 3,
+    personalContributionCap: 120,
+    completionRewardBonusPct: 0,
+    label: "임시 교역 천막",
+  },
+  {
+    level: 2,
+    cost: facilityUpgradeCost(2, 25_000_000, 0),
+    weeklyContractCount: 3,
+    personalContributionCap: 140,
+    completionRewardBonusPct: 10,
+    label: "상단 접수대",
+  },
+  {
+    level: 3,
+    cost: facilityUpgradeCost(3, 55_000_000, 750),
+    weeklyContractCount: 4,
+    personalContributionCap: 160,
+    completionRewardBonusPct: 20,
+    label: "광역 물류창고",
+  },
+  {
+    level: 4,
+    cost: facilityUpgradeCost(4, 110_000_000, 1600),
+    weeklyContractCount: 4,
+    personalContributionCap: 180,
+    completionRewardBonusPct: 30,
+    label: "대륙 상단 지부",
+  },
+  {
+    level: 5,
+    cost: facilityUpgradeCost(5, 190_000_000, 3000),
+    weeklyContractCount: 5,
+    personalContributionCap: 220,
+    completionRewardBonusPct: 40,
+    label: "왕립 교역 연합소",
+  },
+];
+
 export type AnySettlementBuildingUpgradeDef =
   | SettlementBuildingUpgradeDef
   | TrainingGroundUpgradeDef
   | MapWorkshopUpgradeDef
   | ExplorationHqUpgradeDef
   | AlchemyWorkshopUpgradeDef
-  | DiningHallUpgradeDef;
+  | DiningHallUpgradeDef
+  | TradePostUpgradeDef;
 
 export function clampSettlementBuildingLevel(level: unknown): number {
   const n = Math.floor(Number(level) || 1);
@@ -707,6 +769,23 @@ export function nextDiningHallUpgrade(
   );
 }
 
+export function tradePostUpgradeForLevel(level: number): TradePostUpgradeDef {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    TRADE_POST_UPGRADES.find((upgrade) => upgrade.level === safe) ??
+    TRADE_POST_UPGRADES[0]
+  );
+}
+
+export function nextTradePostUpgrade(
+  level: number,
+): TradePostUpgradeDef | null {
+  const safe = clampSettlementBuildingLevel(level);
+  return (
+    TRADE_POST_UPGRADES.find((upgrade) => upgrade.level === safe + 1) ?? null
+  );
+}
+
 export function mapWorkshopUpgradeForLevel(level: number): MapWorkshopUpgradeDef {
   const safe = clampSettlementBuildingLevel(level);
   return (
@@ -743,6 +822,9 @@ export function nextSettlementBuildingUpgrade(
   if (buildingId === "dining_hall") {
     return nextDiningHallUpgrade(level);
   }
+  if (buildingId === "trade_post") {
+    return nextTradePostUpgrade(level);
+  }
   if (buildingId === "guild_smithy") {
     return nextGuildSmithyUpgrade(level);
   }
@@ -772,6 +854,10 @@ export function settlementBuildingUpgradeSummary(
   if (buildingId === "dining_hall") {
     const dining = upgrade as DiningHallUpgradeDef;
     return `주간 식권 ${dining.weeklyMealTickets}장 · 메뉴 ${dining.weeklyMenuSlots}종`;
+  }
+  if (buildingId === "trade_post") {
+    const trade = upgrade as TradePostUpgradeDef;
+    return `주간 계약 ${trade.weeklyContractCount}건 · 개인 납품 ${trade.personalContributionCap}점 · 완료 보상 +${trade.completionRewardBonusPct}%`;
   }
   const smithy = upgrade as SettlementBuildingUpgradeDef;
   return `품질 +${smithy.qualityChanceBonusPct}%p`;

@@ -141,6 +141,13 @@ describe("POST /api/v2/dungeon/hunt — 레어맵 판수 차감 영속(회귀)",
     expect(savedMaps().find((x) => x.iid === "rm1")).toBeUndefined();
   });
 
+  it("레거시 홀수 깊이 지도는 같은 정확한 깊이로 계속 입장 가능", async () => {
+    seedWithMap(2, 3);
+    const res = await POST(huntReq({ floor: 3, rareMap: "rm1" }));
+    expect(res.status).toBe(200);
+    expect(savedMaps().find((x) => x.iid === "rm1")?.runsLeft).toBe(1);
+  });
+
   it("깊이 불일치 레어맵은 입장 거부(400)이고 차감되지 않는다", async () => {
     seedWithMap(3, 2);
     const res = await POST(huntReq({ floor: 3, rareMap: "rm1" }));

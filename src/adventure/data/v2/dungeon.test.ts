@@ -3,8 +3,15 @@ import {
   MAIN_DUNGEON,
   enemiesForDepth,
   depthName,
+  dungeonHuntStageGroups,
   dungeonThemeGroups,
   dungeonThemeCatalog,
+  huntStageDepthForLegacyDepth,
+  huntStageLabel,
+  huntStageName,
+  isHuntStageDepth,
+  latestUnlockedHuntStageDepth,
+  nextHuntStageDepth,
   MAX_FRONTIER_DEPTH,
 } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
@@ -58,6 +65,48 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
     const storm = groups.filter((g) => g.name === "폭풍 산맥");
     expect(storm.length).toBe(1);
     expect(storm[0].depths).toEqual([61, 62]);
+  });
+});
+
+describe("3단계 일반 사냥 진행", () => {
+  it("레거시 두 깊이를 입구·심부·최심부로 묶고 2·4·6을 대표 깊이로 사용", () => {
+    expect([1, 2, 3, 4, 5, 6].map(huntStageLabel)).toEqual([
+      "입구",
+      "입구",
+      "심부",
+      "심부",
+      "최심부",
+      "최심부",
+    ]);
+    expect(huntStageName(7)).toBe("마른 협곡 · 입구");
+    expect(huntStageName(12)).toBe("마른 협곡 · 최심부");
+    expect([1, 2, 3, 4, 5, 6, 7, 8].filter(isHuntStageDepth)).toEqual([
+      2, 4, 6, 8,
+    ]);
+  });
+
+  it("레거시 홀수 frontier도 다음 대표 단계로 이어지고 끝에서는 멈춤", () => {
+    expect(nextHuntStageDepth(0)).toBe(2);
+    expect(nextHuntStageDepth(2)).toBe(4);
+    expect(nextHuntStageDepth(3)).toBe(4);
+    expect(nextHuntStageDepth(7)).toBe(8);
+    expect(nextHuntStageDepth(71)).toBe(72);
+    expect(nextHuntStageDepth(72)).toBeNull();
+    expect(latestUnlockedHuntStageDepth(7)).toBe(6);
+  });
+
+  it("자동 사냥용 레거시 깊이를 같은 단계 대표 깊이로 변환하되 해금을 넘지 않음", () => {
+    expect(huntStageDepthForLegacyDepth(1, 2)).toBe(2);
+    expect(huntStageDepthForLegacyDepth(3, 4)).toBe(4);
+    expect(huntStageDepthForLegacyDepth(5, 5)).toBe(4);
+    expect(huntStageDepthForLegacyDepth(71, 72)).toBe(72);
+  });
+
+  it("목록은 기존 테마 키를 보존하며 테마당 대표 단계만 묶음", () => {
+    expect(dungeonHuntStageGroups(8)).toEqual([
+      { name: "들판", themeStartDepth: 1, depths: [2, 4, 6] },
+      { name: "마른 협곡", themeStartDepth: 7, depths: [8] },
+    ]);
   });
 });
 

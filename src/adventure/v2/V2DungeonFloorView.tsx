@@ -26,7 +26,7 @@ import {
   type StaminaState,
 } from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
-import { MAIN_DUNGEON, depthName } from "@/adventure/data/v2/dungeon";
+import { MAIN_DUNGEON, huntStageName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
@@ -197,12 +197,12 @@ export function V2DungeonFloorView({
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
 }) {
-  // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). authored 층은 깊이 1(들판)
+  // 이름은 테마명 + 3단계명(예 "들판 · 입구"). authored 층은 깊이 1(들판)
   // 하나뿐 — 그 객체(floor)는 권장 파워 조회용이고, 없으면 floorPowerGate(depth) 로 폴백한다.
   // ⚠️ floor 존재 ≠ 깊이 유효성(깊이 2~6 도 들판이지만 authored 층 없음). 유효성은 page 가 검증.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const depth = Number(floorId);
-  const displayName = depthName(depth);
+  const displayName = huntStageName(depth);
   const powerGate = floor
     ? floor.requirement.kind === "power"
       ? floor.requirement.min
@@ -212,7 +212,7 @@ export function V2DungeonFloorView({
   //   없으면(미로딩) 표시 생략. 권장 미만이면 amber 로 "버거울 수 있음" 신호(권장이라 하드 차단 아님).
   const myPower = playerCombat?.power ?? null;
   const powerBelowGate = myPower != null && myPower < powerGate;
-  // 도전(미정복) 여부 — 최고 도달 깊이+1 이 현재 깊이.
+  // 도전(미정복) 여부 — 최고 도달보다 다음 대표 단계가 깊다.
   const isChallenge = depth > frontierDepth;
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
     outpostId,

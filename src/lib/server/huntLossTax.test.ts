@@ -145,7 +145,7 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
   });
 
   it("승리 시 atRiskGold 가 goldGained 만큼 누적 + 결과에 lossTax 0 노출", async () => {
-    const res = await POST(huntReq({ floor: 1 }));
+    const res = await POST(huntReq({ floor: 2 }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
       result: { goldGained: number; lossTax: number; atRiskGold: number };
@@ -158,7 +158,7 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
   });
 
   it("두 번째 승리에서 atRiskGold 가 합산(누적 카운터)", async () => {
-    const first = await POST(huntReq({ floor: 1 }));
+    const first = await POST(huntReq({ floor: 2 }));
     const j1 = (await first.json()) as { result: { goldGained: number } };
     const after1 = char().atRiskGold!;
     expect(after1).toBe(j1.result.goldGained);
@@ -168,7 +168,7 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
     c.lastBattleAt = Date.now() - HUNT_COOLDOWN_MS - 1000;
     store.set("character.v2", c);
 
-    const second = await POST(huntReq({ floor: 1 }));
+    const second = await POST(huntReq({ floor: 2 }));
     const j2 = (await second.json()) as { result: { goldGained: number } };
     expect(char().atRiskGold).toBe(after1 + j2.result.goldGained);
   });
@@ -183,7 +183,7 @@ describe("POST /api/v2/dungeon/hunt — 패배 페널티 카운터(코어루프 
     battleOutcome.value = "lose";
 
     const res = await POST(
-      huntReq({ floor: 1, outpostId: "neutral_north_outpost" }),
+      huntReq({ floor: 2, outpostId: "neutral_north_outpost" }),
     );
     expect(res.status).toBe(200);
     const json = (await res.json()) as {

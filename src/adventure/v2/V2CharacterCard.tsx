@@ -105,6 +105,8 @@ export function V2CharacterCard({
   titleName = null,
   // 카드 하단에 골드 한 줄 노출 여부.
   showGold = true,
+  // 메인 간략 정보에서 현재 장착 스킬과 일치하는 로드아웃 프리셋 이름.
+  activePresetName = null,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -115,6 +117,7 @@ export function V2CharacterCard({
   levelCap?: number | null;
   titleName?: string | null;
   showGold?: boolean;
+  activePresetName?: string | null;
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -195,6 +198,16 @@ export function V2CharacterCard({
               · {guild ? guild.name : "무소속"}
             </span>
           </div>
+          {activePresetName && (
+            <div className="flex min-w-0 items-center gap-2 text-xs">
+              <span className="shrink-0 rounded bg-teal-50 px-1.5 py-0.5 font-medium text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                활성 프리셋
+              </span>
+              <span className="min-w-0 truncate font-medium text-zinc-700 dark:text-zinc-300">
+                {activePresetName}
+              </span>
+            </div>
+          )}
           {isAtCap && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
               레벨이 한계에 도달했어요. 성장의 신전에서 환생하고 사냥으로 직업 숙련도를 쌓으면 새 직업이 열려요.

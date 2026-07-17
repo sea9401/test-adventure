@@ -1,11 +1,38 @@
 import { describe, it, expect } from "vitest";
-import { PRESET_SLOTS, totalPresetSlots } from "./v2LoadoutPresets";
+import {
+  PRESET_SLOTS,
+  activeLoadoutPresetName,
+  totalPresetSlots,
+} from "./v2LoadoutPresets";
 import { parseV2SkillsState } from "./v2Skills";
 
 describe("로드아웃 프리셋 슬롯(무료 고정)", () => {
   it("총 슬롯 = PRESET_SLOTS 고정(구매 폐지·인자 없음)", () => {
     expect(totalPresetSlots()).toBe(PRESET_SLOTS);
     expect(PRESET_SLOTS).toBe(10);
+  });
+});
+
+describe("activeLoadoutPresetName", () => {
+  const presets = [
+    { name: "사냥", skills: ["strike", "heal"] },
+    { name: "회복", skills: ["heal", "strike"] },
+  ];
+
+  it("스킬과 우선순위가 정확히 같은 프리셋 이름을 반환", () => {
+    expect(activeLoadoutPresetName(presets, ["strike", "heal"])).toBe(
+      "사냥",
+    );
+    expect(activeLoadoutPresetName(presets, ["heal", "strike"])).toBe(
+      "회복",
+    );
+  });
+
+  it("구성이 다르거나 장착 스킬이 없으면 활성 프리셋 없음", () => {
+    expect(activeLoadoutPresetName(presets, ["strike"])).toBeNull();
+    expect(
+      activeLoadoutPresetName([{ name: "빈 프리셋", skills: [] }], []),
+    ).toBeNull();
   });
 });
 

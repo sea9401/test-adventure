@@ -23,3 +23,24 @@ export const PRESET_NAME_MAX = 24;
 export function totalPresetSlots(): number {
   return PRESET_SLOTS;
 }
+
+/**
+ * 현재 장착 스킬(우선순위 포함)과 정확히 같은 첫 프리셋의 이름.
+ * 빈 로드아웃은 프리셋을 적용한 상태로 보지 않는다.
+ */
+export function activeLoadoutPresetName(
+  presets:
+    | readonly { name: string; skills: readonly string[] }[]
+    | null
+    | undefined,
+  equipped: readonly string[] | null | undefined,
+): string | null {
+  if (!presets?.length || !equipped?.length) return null;
+
+  const active = presets.find(
+    (preset) =>
+      preset.skills.length === equipped.length &&
+      preset.skills.every((skillId, index) => skillId === equipped[index]),
+  );
+  return active?.name || null;
+}

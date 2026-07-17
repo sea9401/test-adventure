@@ -1,16 +1,14 @@
 // 비밀 상점 — 「비밀 상점 초대장」으로만 입장하는 숨겨진 상점.
 // 품목당 1회 구매(지도 인스턴스 bought[] 게이트), 지도 발견 후 30분 안에서 자유 방문.
 // 전 품목 구매 시 지도 소진. 가격은 전부 다이얼(2026-06-12 사용자 스펙):
-//   강화석 2종 + HP/MP 충전약 묶음(치료소 1G=1충전보다 싸게) + 스태미나 회복약 +
-//   한계의 비약(스태미나 최대치 영구 +).
+//   강화석 2종 + HP/MP 충전약 묶음(치료소 1G=1충전보다 싸게) + 스태미나 회복약.
 
 export type SecretShopItemId =
   | "stone_red"
   | "stone_blue"
   | "hp_charge_pack"
   | "mp_charge_pack"
-  | "stamina_potion"
-  | "stamina_cap_tonic";
+  | "stamina_potion";
 
 export type SecretShopItem = {
   id: SecretShopItemId;
@@ -21,8 +19,6 @@ export type SecretShopItem = {
 
 // 스태미나 회복약 즉시 회복량. 2026-06-12 사용자 조정: 1000→200.
 export const STAMINA_POTION_AMOUNT = 200;
-// 한계의 비약 — 스태미나 최대치 영구 증가폭(구매마다 누적, 지도당 1회). 250→10.
-export const STAMINA_CAP_TONIC_BONUS = 10;
 
 export const SECRET_SHOP_STOCK: SecretShopItem[] = [
   {
@@ -54,12 +50,6 @@ export const SECRET_SHOP_STOCK: SecretShopItem[] = [
     name: `스태미나 회복약 (+${STAMINA_POTION_AMOUNT.toLocaleString()})`,
     desc: "마시는 즉시 스태미나를 회복한다.",
     price: 100_000,
-  },
-  {
-    id: "stamina_cap_tonic",
-    name: `한계의 비약 (스태미나 최대치 +${STAMINA_CAP_TONIC_BONUS})`,
-    desc: "스태미나의 한계를 영구히 끌어올린다.",
-    price: 1_000_000,
   },
 ];
 

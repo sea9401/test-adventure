@@ -106,7 +106,7 @@ export function V2SecretShopView({
             typeof j.bankedGold === "number" ? j.bankedGold : undefined,
         });
         await refresh();
-        if (item.id === "stamina_potion" || item.id === "stamina_cap_tonic") {
+        if (item.id === "stamina_potion") {
           await refreshGameState();
         }
       } else {

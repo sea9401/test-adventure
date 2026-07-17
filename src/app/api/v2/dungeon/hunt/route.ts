@@ -396,12 +396,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const mapStoneMult = mapDef?.enhanceStoneMult ?? 1;
 
   const stamina = parseStaminaFromSave(charSave.stamina, now);
-  // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스.
+  // per-user 스태미나 최대치 — 기본 + 기존 구매자 레거시 영구 보너스.
   const staminaMax =
     MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
   // 쿨다운 모드 — 스태미나 폐지·전투 쿨다운(마지막 전투 후 HUNT_COOLDOWN_MS 경과해야 다음 판).
   //   V1식 한판한판 throttle. 그 외(스태미나 모드·코어루프 off) — 스태미나 차감. afterStamina 는
-  //   쿨다운 모드일 때 회복만(스태미나 미사용이라 표시·한계의 비약 보존용).
+  //   쿨다운 모드일 때 회복만(스태미나 미사용이라 표시·레거시 보너스 보존용).
   let afterStamina = applyRegen(stamina, now, staminaMax);
   if (HUNT_COOLDOWN_MODE) {
     // 오프라인 정산은 쿨다운 게이트 건너뜀(과거 누적 판수를 정산 — 미래 throttle 아님).

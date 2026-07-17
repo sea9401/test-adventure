@@ -9,7 +9,6 @@ import {
 import {
   SECRET_SHOP_ITEM_BY_ID,
   SECRET_SHOP_STOCK,
-  STAMINA_CAP_TONIC_BONUS,
   STAMINA_POTION_AMOUNT,
 } from "@/adventure/data/v2/secretShop";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
@@ -31,7 +30,7 @@ import {
 // 스태미나가 실제로 폐지된 모드(쿨다운 모드)일 때만 스태미나 상품을 목록/구매에서 제외한다.
 //   라이브처럼 스태미나를 쓰는 모드면 정상 판매. HUNT_COOLDOWN_MODE = V2_CORE_LOOP_V2 &&
 //   !V2_HUNT_USE_STAMINA (옛 V2_CORE_LOOP_V2 단독 게이트는 스태미나 모드서도 잘못 숨겼음).
-const STAMINA_SHOP_ITEMS = new Set(["stamina_potion", "stamina_cap_tonic"]);
+const STAMINA_SHOP_ITEMS = new Set(["stamina_potion"]);
 
 // 비밀 상점 — 「비밀 상점 초대장」 보유자만. 품목당 1회(초대장 bought[]), 전 품목
 // 구매 시 초대장 소진(runsLeft 0 → parse purge).
@@ -41,8 +40,7 @@ const STAMINA_SHOP_ITEMS = new Set(["stamina_potion", "stamina_cap_tonic"]);
 // DELETE { map }             → 남은 품목 포기 + 초대장 소진.
 //
 // 효과 적용처: 강화석=character.v2.materials / 충전약=inventory.v2 /
-// 스태미나 회복약=character.v2.stamina(즉시, per-user 최대치 캡) /
-// 한계의 비약=character.v2.staminaCapBonus(영구 누적).
+// 스태미나 회복약=character.v2.stamina(즉시, per-user 최대치 캡).
 
 type CharSave = {
   gold?: number;
@@ -201,12 +199,6 @@ export async function POST(req: Request) {
           ),
           lastUpdatedAt: cur.lastUpdatedAt,
         },
-      };
-    } else if (item.id === "stamina_cap_tonic") {
-      nextChar = {
-        ...nextChar,
-        staminaCapBonus:
-          staminaCapBonusOf(charSave.staminaCapBonus) + STAMINA_CAP_TONIC_BONUS,
       };
     }
     await upsertSave(tx, userId, "character.v2", nextChar);

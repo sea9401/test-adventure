@@ -2,26 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Hammer, LockKey, SpinnerGap } from "@phosphor-icons/react";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import { blacksmithJobForLevel } from "@/adventure/data/v2/artisan";
-import {
-  GUILD_WORKSHOP_MATERIALS,
-  GUILD_WORKSHOP_MATERIAL_IDS,
-} from "@/adventure/data/v2/guildWorkshopMaterials";
-import {
-  MONSTER_CRAFT_MATERIALS,
-  MONSTER_CRAFT_MATERIAL_IDS,
-} from "@/adventure/data/v2/monsterCraftMaterials";
-import {
-  COOP_BOSS_MATERIAL_ID,
-  COOP_REWARD_MATERIALS,
-} from "@/adventure/data/v2/coopRewards";
-import {
-  SETTLEMENT_MATERIAL_ID,
-  SETTLEMENT_MATERIALS,
-} from "@/adventure/data/v2/settlementMaterials";
-import {
-  WOODCUTTING_MATERIALS,
-  WOODCUTTING_MATERIAL_ID,
-} from "@/adventure/data/v2/woodcuttingSpots";
+import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   useRewardToast,
   useSystemMessageState,
@@ -39,6 +20,7 @@ import {
   WorkshopCraftPanel,
   type CraftServerSync,
 } from "./WorkshopCraftPanel";
+import { workshopBasicMaterialGroups } from "./workshopBasicMaterials";
 import {
   CraftOnlyBadge,
   CraftQualityBadge,
@@ -322,29 +304,8 @@ export function GuildWorkshopPanel({
     [],
   );
   const hasApiSmithy = state?.hasGuildSmithy ?? hasSmithy;
-  const materialEntries = useMemo(
-    () =>
-      [
-        ...Object.values(WOODCUTTING_MATERIAL_ID),
-        SETTLEMENT_MATERIAL_ID.ironOre,
-        ...GUILD_WORKSHOP_MATERIAL_IDS,
-        ...MONSTER_CRAFT_MATERIAL_IDS,
-        COOP_BOSS_MATERIAL_ID.canyon_predator,
-      ].map((id) => {
-        const mat =
-          (SETTLEMENT_MATERIALS as Record<string, { name: string }>)[id] ??
-          (WOODCUTTING_MATERIALS as Record<string, { name: string }>)[id] ??
-          (GUILD_WORKSHOP_MATERIALS as Record<string, { name: string }>)[id] ??
-          (MONSTER_CRAFT_MATERIALS as Record<string, { name: string }>)[id] ??
-          (COOP_REWARD_MATERIALS as Record<string, { name: string }>)[id];
-        const amount = Math.max(0, Math.floor(materials[id] ?? 0));
-        return {
-          key: id,
-          label: mat.name,
-          source: "개인 보유",
-          amount,
-        };
-      }),
+  const basicMaterialGroups = useMemo(
+    () => workshopBasicMaterialGroups(materials),
     [materials],
   );
   const blacksmithLevel = state?.artisan.blacksmith.level ?? 1;
@@ -819,7 +780,7 @@ export function GuildWorkshopPanel({
   );
 
   const workshopStatusPanel = (
-    <div className="grid gap-3 rounded-md border border-amber-200 bg-amber-50/90 p-3 text-xs text-stone-900 shadow-sm dark:border-amber-800/60 dark:bg-stone-900/95 dark:text-stone-100 lg:grid-cols-[1.05fr_1.4fr]">
+    <div className={`${SURFACE_ACCENT} grid gap-3 p-3 text-xs text-stone-900 dark:text-stone-100 lg:grid-cols-[1.05fr_1.4fr]`}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
@@ -883,24 +844,30 @@ export function GuildWorkshopPanel({
           개인 보유 제작 재료
         </div>
         <div className="mt-0.5 text-[10px] text-stone-500 dark:text-stone-400">
-          제작 시 이 목록에서 차감
+          벌목·채광 기본 재료 · 제작 시 이 목록에서 차감
         </div>
-        <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-4">
-          {materialEntries.map((entry) => (
-            <div
-              key={entry.key}
-              className="rounded border border-amber-200 bg-white/85 px-2 py-1 dark:border-stone-700 dark:bg-stone-800/80"
-            >
-              <div className="truncate text-[11px] text-stone-500 dark:text-stone-400">
-                {entry.label}
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {basicMaterialGroups.map((group) => (
+            <section key={group.key} className={`${SURFACE_INSET} p-2`}>
+              <div className="text-[11px] font-semibold text-stone-700 dark:text-stone-200">
+                {group.label}
               </div>
-              <div className="mt-0.5 text-[10px] text-stone-400 dark:text-stone-500">
-                {entry.source}
+              <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                {group.entries.map((entry) => (
+                  <div
+                    key={entry.key}
+                    className="flex min-w-0 items-center justify-between gap-2 py-0.5"
+                  >
+                    <span className="truncate text-[11px] text-stone-500 dark:text-stone-400">
+                      {entry.label}
+                    </span>
+                    <strong className="shrink-0 tabular-nums text-stone-950 dark:text-stone-50">
+                      {entry.amount.toLocaleString()}
+                    </strong>
+                  </div>
+                ))}
               </div>
-              <div className="mt-0.5 font-semibold tabular-nums text-stone-950 dark:text-stone-50">
-                {entry.amount.toLocaleString()}
-              </div>
-            </div>
+            </section>
           ))}
         </div>
       </div>

@@ -13,7 +13,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 
 type PreviewMetric = Exclude<RankingMetric, "guild">;
 
@@ -41,7 +41,7 @@ export function AdventureRankingPreview() {
     <Card as="section" padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 p-4 pb-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-amber-600 dark:bg-zinc-800 dark:text-amber-400">
             <Trophy size={19} weight="duotone" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -75,7 +75,7 @@ export function AdventureRankingPreview() {
             aria-selected={index === metricIndex}
             className={`relative px-2 py-2.5 text-xs font-semibold transition ${
               index === metricIndex
-                ? "bg-white text-violet-700 after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-violet-600 dark:bg-zinc-900 dark:text-violet-300 dark:after:bg-violet-400"
+                ? "bg-white text-zinc-900 after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-amber-500 dark:bg-zinc-900 dark:text-zinc-100 dark:after:bg-amber-400"
                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
             }`}
           >
@@ -121,7 +121,7 @@ function RankingLeader({
 }) {
   return (
     <article
-      className={`flex min-w-0 items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950 ${
+      className={`${SURFACE_ACCENT} flex min-w-0 items-center gap-3 p-4 ${
         entry.mine ? "ring-2 ring-emerald-500" : ""
       }`}
     >
@@ -140,7 +140,7 @@ function RankingLeader({
         </span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-[10px] font-bold tracking-[0.16em] text-violet-600 dark:text-violet-300">
+        <div className="mb-0.5 text-[10px] font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">
           TOP ADVENTURER
         </div>
         <PlayerNameLink
@@ -148,11 +148,11 @@ function RankingLeader({
           className="block truncate text-base font-bold text-zinc-900 dark:text-zinc-100"
         />
       </div>
-      <div className="shrink-0 rounded-md border border-violet-200 bg-white px-3 py-2 text-right dark:border-violet-900 dark:bg-zinc-900">
+      <div className={`${SURFACE_INSET} shrink-0 px-3 py-2 text-right`}>
         <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">
           1위 기록
         </div>
-        <div className="mt-0.5 text-sm font-bold tabular-nums text-violet-700 dark:text-violet-300">
+        <div className="mt-0.5 text-sm font-bold tabular-nums text-amber-700 dark:text-amber-300">
           {rankingValue(entry, metric)}
         </div>
       </div>
@@ -205,7 +205,7 @@ function RankingRow({
 function RankingPreviewSkeleton() {
   return (
     <div className="space-y-2">
-      <div className="rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950">
+      <div className={`${SURFACE_ACCENT} p-4`}>
         <div className="flex items-center gap-3">
           <Skeleton className="h-14 w-14" />
           <div className="min-w-0 flex-1">

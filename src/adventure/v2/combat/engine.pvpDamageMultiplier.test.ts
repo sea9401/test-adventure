@@ -1,0 +1,250 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ARENA_DAMAGE_MULTIPLIER } from "@/lib/server/arena";
+import type { V2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { makeBleedDot } from "./combatShared";
+import {
+  applyOnHitReflect,
+  applyPerAttackDodge,
+  castV2SkillOnAttackerTurnPvP,
+  endAttackerPhase,
+  initialBattleStatePvP,
+  maybeApplyMartialCounter,
+  maybeApplyRuneCounter,
+} from "./engine-pvp";
+import { advanceTurnPvP } from "./engine.pvpPhase";
+import type { PlayerCombat } from "./engine";
+
+const BASE: PlayerCombat = {
+  hp: 1_000,
+  maxHp: 1_000,
+  mp: 1_000,
+  maxMp: 1_000,
+  atk: 120,
+  def: 20,
+  spd: 50,
+  evasionPct: 0,
+  accuracyPct: 100,
+  attackCount: 1,
+  classTier: 3,
+};
+
+const EMPTY_SKILLS: V2SkillsState = { learned: [], equipped: [] };
+
+function stateWith(
+  multiplier?: number,
+  p1: PlayerCombat = BASE,
+  p2: PlayerCombat = BASE,
+) {
+  return initialBattleStatePvP(
+    p1,
+    p2,
+    "P1",
+    "P2",
+    EMPTY_SKILLS,
+    EMPTY_SKILLS,
+    multiplier,
+  );
+}
+
+afterEach(() => vi.restoreAllMocks());
+
+describe("PvP 호출 표면별 최종 피해 배율", () => {
+  it("아레나 배율은 0.65이고 기본 PvP 상태에는 배율이 주입되지 않는다", () => {
+    expect(ARENA_DAMAGE_MULTIPLIER).toBe(0.65);
+    expect(stateWith().damageMultiplier).toBeUndefined();
+    expect(stateWith(ARENA_DAMAGE_MULTIPLIER).damageMultiplier).toBe(0.65);
+  });
+
+  it("평타 최종 피해를 35% 줄인다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const normal = advanceTurnPvP(stateWith(), { kind: "attack" });
+    const arena = advanceTurnPvP(stateWith(ARENA_DAMAGE_MULTIPLIER), {
+      kind: "attack",
+    });
+    const normalDamage = BASE.hp - normal.p2.hp;
+    const arenaDamage = BASE.hp - arena.p2.hp;
+
+    expect(normalDamage).toBeGreaterThan(0);
+    expect(arenaDamage).toBe(Math.floor(normalDamage * 0.65));
+  });
+
+  it("다단 스킬의 각 타격과 실제 HP 피해를 각각 35% 줄인다", () => {
+    const skills: V2SkillsState = {
+      learned: ["v2c_warrior_flurry"],
+      equipped: ["v2c_warrior_flurry"],
+    };
+    const makeSkillState = (multiplier?: number) =>
+      initialBattleStatePvP(
+        BASE,
+        { ...BASE, hp: 10_000, maxHp: 10_000 },
+        "P1",
+        "P2",
+        skills,
+        EMPTY_SKILLS,
+        multiplier,
+      );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normal = castV2SkillOnAttackerTurnPvP(makeSkillState(), "p1").state;
+    const arena = castV2SkillOnAttackerTurnPvP(
+      makeSkillState(ARENA_DAMAGE_MULTIPLIER),
+      "p1",
+    ).state;
+    const hitDamages = (log: typeof normal.log) =>
+      log
+        .filter((entry) => entry.kind === "player_attack" && entry.text.includes("난격!"))
+        .map((entry) => Number(entry.text.match(/(\d+) 피해/)?.[1] ?? 0));
+    const normalHits = hitDamages(normal.log);
+    const arenaHits = hitDamages(arena.log);
+
+    expect(normalHits.length).toBeGreaterThan(1);
+    expect(arenaHits).toEqual(
+      normalHits.map((damage) => Math.max(1, Math.floor(damage * 0.65))),
+    );
+    expect(10_000 - arena.p2.hp).toBe(
+      arenaHits.reduce((sum, damage) => sum + damage, 0),
+    );
+  });
+
+  it("지속 피해에도 배율을 적용한다", () => {
+    const tick = (multiplier?: number) => {
+      const initial = stateWith(multiplier);
+      const withDot = {
+        ...initial,
+        p2: {
+          ...initial.p2,
+          v2Dots: [
+            makeBleedDot({ stacks: 1, flatPerStack: 100, sourceAtk: 0 }),
+          ],
+        },
+      };
+      return endAttackerPhase(withDot, "p1", "p2");
+    };
+    const normal = tick();
+    const arena = tick(ARENA_DAMAGE_MULTIPLIER);
+    const normalDamage = BASE.hp - normal.p2.hp;
+    const arenaDamage = BASE.hp - arena.p2.hp;
+
+    expect(normalDamage).toBeGreaterThan(0);
+    expect(arenaDamage).toBe(Math.floor(normalDamage * 0.65));
+  });
+
+  it("반사와 반격 피해에도 배율을 적용한다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normalReflect = applyOnHitReflect(
+      stateWith(undefined, BASE, { ...BASE, thornsPct: 100 }),
+      "p1",
+      "p2",
+      100,
+    ).state;
+    const arenaReflect = applyOnHitReflect(
+      stateWith(ARENA_DAMAGE_MULTIPLIER, BASE, { ...BASE, thornsPct: 100 }),
+      "p1",
+      "p2",
+      100,
+    ).state;
+    const normalCounter = maybeApplyMartialCounter(
+      stateWith(undefined, BASE, { ...BASE, passiveCounterChancePct: 100 }),
+      "p1",
+      "p2",
+    ).state;
+    const arenaCounter = maybeApplyMartialCounter(
+      stateWith(ARENA_DAMAGE_MULTIPLIER, BASE, {
+        ...BASE,
+        passiveCounterChancePct: 100,
+      }),
+      "p1",
+      "p2",
+    ).state;
+    const normalRune = maybeApplyRuneCounter(
+      stateWith(undefined, BASE, { ...BASE, runeCounterChancePct: 100 }),
+      "p1",
+      "p2",
+    ).state;
+    const arenaRune = maybeApplyRuneCounter(
+      stateWith(ARENA_DAMAGE_MULTIPLIER, BASE, {
+        ...BASE,
+        runeCounterChancePct: 100,
+      }),
+      "p1",
+      "p2",
+    ).state;
+    const normalDodgeReflect = applyPerAttackDodge(
+      stateWith(undefined, BASE, { ...BASE, infiniteThornsAtkPct: 100 }),
+      "p1",
+      "p2",
+      "회피",
+      false,
+    );
+    const arenaDodgeReflect = applyPerAttackDodge(
+      stateWith(ARENA_DAMAGE_MULTIPLIER, BASE, {
+        ...BASE,
+        infiniteThornsAtkPct: 100,
+      }),
+      "p1",
+      "p2",
+      "회피",
+      false,
+    );
+
+    for (const [normal, arena] of [
+      [normalReflect, arenaReflect],
+      [normalCounter, arenaCounter],
+      [normalRune, arenaRune],
+      [normalDodgeReflect, arenaDodgeReflect],
+    ]) {
+      const normalDamage = BASE.hp - normal.p1.hp;
+      const arenaDamage = BASE.hp - arena.p1.hp;
+      expect(normalDamage).toBeGreaterThan(0);
+      expect(arenaDamage).toBe(Math.floor(normalDamage * 0.65));
+    }
+  });
+
+  it("분신 같은 턴 종료 추가타에도 배율을 적용한다", () => {
+    const attacker = { ...BASE, shadowCloneAtkPct: 100 };
+    const target = { ...BASE, hp: 10_000, maxHp: 10_000 };
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const normal = endAttackerPhase(
+      stateWith(undefined, attacker, target),
+      "p1",
+      "p2",
+    );
+    const arena = endAttackerPhase(
+      stateWith(ARENA_DAMAGE_MULTIPLIER, attacker, target),
+      "p1",
+      "p2",
+    );
+    const normalDamage = target.hp - normal.p2.hp;
+    const arenaDamage = target.hp - arena.p2.hp;
+
+    expect(normalDamage).toBeGreaterThan(0);
+    expect(arenaDamage).toBe(Math.floor(normalDamage * 0.65));
+  });
+
+  it("HP 소모형 스킬의 자해 비용은 줄이지 않는다", () => {
+    const skills: V2SkillsState = {
+      learned: ["v2c_berserker_bloodslash"],
+      equipped: ["v2c_berserker_bloodslash"],
+    };
+    const makeSkillState = (multiplier?: number) =>
+      initialBattleStatePvP(
+        BASE,
+        { ...BASE, hp: 10_000, maxHp: 10_000 },
+        "P1",
+        "P2",
+        skills,
+        EMPTY_SKILLS,
+        multiplier,
+      );
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const normal = castV2SkillOnAttackerTurnPvP(makeSkillState(), "p1").state;
+    const arena = castV2SkillOnAttackerTurnPvP(
+      makeSkillState(ARENA_DAMAGE_MULTIPLIER),
+      "p1",
+    ).state;
+
+    expect(normal.p1.hp).toBeLessThan(BASE.hp);
+    expect(arena.p1.hp).toBe(normal.p1.hp);
+    expect(arena.p2.hp).toBeGreaterThan(normal.p2.hp);
+  });
+});

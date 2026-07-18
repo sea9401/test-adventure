@@ -11,7 +11,7 @@ import { LandingContent } from "./LandingContent";
 export const metadata: Metadata = {
   title: "무슨무슨게임 — 웹 어드벤처 RPG",
   description:
-    "전투는 자동, 전략은 내 마음대로. 직업·빌드·낚시·협동 보스·길드 거점전까지, 키우는 재미가 끝없는 웹 어드벤처 RPG. 3초 만에 시작하세요.",
+    "전투 패턴을 설계하고 모험가에서 다양한 직업으로 성장하세요. 사냥·전직·환생·생활·협동 보스·길드 영토전까지 즐기는 웹 어드벤처 RPG.",
 };
 
 // 대문(랜딩) 통계 — 총 모험가 수 + 최근 접속자 수.

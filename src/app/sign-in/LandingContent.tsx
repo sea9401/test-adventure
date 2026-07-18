@@ -9,23 +9,23 @@ import { SignInButtons } from "./SignInButtons";
 const FEATURES = [
   {
     no: "01",
-    title: "자동 전투, 전략은 설계",
-    body: "스킬을 직접 누르지 않습니다. 전투 순서와 발동 조건을 미리 짜두면 전투는 알아서 굴러갑니다.",
+    title: "자동 전투, 패턴은 직접",
+    body: "HP·MP·턴·상태에 맞춰 스킬 우선순위를 짜두면, 캐릭터가 설계한 패턴대로 싸웁니다.",
   },
   {
     no: "02",
-    title: "깊은 빌드 — 직업·전직·환생",
-    body: "다양한 직업으로 전직하고 환생하며, 스탯·스킬·속성으로 나만의 캐릭터를 빚습니다.",
+    title: "모험가에서 시작하는 직업 성장",
+    body: "사냥으로 스탯과 숙련도를 쌓아 직업을 열고, 전직과 환생을 거듭하며 배운 스킬과 성장을 이어갑니다.",
   },
   {
     no: "03",
-    title: "다양한 즐길거리",
-    body: "낚시, 협동 보스, 길드 활동까지. 사냥 외에도 즐길 거리가 가득합니다.",
+    title: "사냥 밖에서도 이어지는 성장",
+    body: "낚시·벌목·채광·농장부터 숙련의 탑과 협동 보스까지, 저마다의 보상과 성장 목표가 있습니다.",
   },
   {
     no: "04",
-    title: "길드 · 거점 전쟁",
-    body: "길드를 세워 지도 위 거점을 점령하고, 영토를 두고 다른 길드와 겨룹니다.",
+    title: "길드가 만드는 마을과 영토",
+    body: "길드 시설을 키우고 장비를 제작하며, 지도 위 정착지와 거점을 두고 다른 길드와 겨룹니다.",
   },
 ];
 
@@ -68,7 +68,7 @@ export function LandingContent({
           <p className="mt-7 max-w-md text-base leading-loose text-zinc-400 sm:text-lg">
             전투는 자동, <span className="text-zinc-200">전략은 내 마음대로</span>.
             <br />
-            키우는 재미가 끝이 없는 RPG.
+            모험가에서 시작해 수많은 직업을 열어 가는 RPG.
           </p>
 
           <div className="mt-10 flex w-full flex-col items-center gap-3">
@@ -85,7 +85,7 @@ export function LandingContent({
             <p className="text-xs text-zinc-600">
               {authed
                 ? "캐릭터를 만들면 바로 모험이 시작됩니다"
-                : "소셜 계정으로 3초 만에 시작 · 별도 설치 없음"}
+                : "소셜 계정으로 간편하게 시작 · 별도 설치 없음"}
             </p>
           </div>
 

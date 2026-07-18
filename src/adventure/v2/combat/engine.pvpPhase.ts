@@ -11,6 +11,7 @@ import {
   maybeApplyRuneCounter,
   maybeApplyMartialCounter,
   rollPvPAttackCount,
+  scalePvPDamage,
   setSide,
   type PvPAttackDamageResult,
   type PvPBattleState,
@@ -545,8 +546,9 @@ export function advanceTurnPvP(
   const afterSteadfast =
     steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
   const steadfastApplied = afterSteadfast < guarded;
-  const shieldAbsorbed = Math.min(defender.stacks.playerShield, afterSteadfast);
-  const dmgToHp = afterSteadfast - shieldAbsorbed;
+  const arenaAdjustedDmg = scalePvPDamage(state, afterSteadfast);
+  const shieldAbsorbed = Math.min(defender.stacks.playerShield, arenaAdjustedDmg);
+  const dmgToHp = arenaAdjustedDmg - shieldAbsorbed;
   const newShield = defender.stacks.playerShield - shieldAbsorbed;
   // 불굴 — HP 0 직전 1 로 막아준다 (전투당 1회).
   const wouldKill = defender.hp - dmgToHp <= 0;

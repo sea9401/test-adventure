@@ -182,6 +182,7 @@ export function resolveBattlePvPAtb(
     p2Name,
     ctx.v2Skills?.p1,
     ctx.v2Skills?.p2,
+    ctx.damageMultiplier,
   );
   state = withAtbPlayers(state);
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {

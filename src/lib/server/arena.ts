@@ -16,6 +16,8 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 // 매치 재도전 쿨타임(ms). 일일 횟수 제한 대신 이 쿨타임으로 페이스 조절(2026-06-08).
 // 서버 권위(lastMatchAt 체크) + 클라 버튼 카운트다운 양쪽에서 사용.
 export const ARENA_MATCH_COOLDOWN_MS = 10_000;
+// 아레나 한정 최종 피해 배율. 다른 resolveBattlePvP 호출부(전초기지 등)는 기본값 1을 유지한다.
+export const ARENA_DAMAGE_MULTIPLIER = 0.65;
 export const RECENT_OPPONENT_TRACK = 5;
 // 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
 export const ARENA_HISTORY_MAX = 50;

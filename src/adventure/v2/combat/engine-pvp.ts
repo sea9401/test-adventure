@@ -219,9 +219,22 @@ export type PvPBattleState = {
   phase: PvPPhase;
   outcome: PvPOutcome | null;
   log: BattleLogEntry[];
+  // 호출 표면별 최종 피해 배율. 미지정(일반 PvP)은 1, 아레나는 라우트에서 0.65를 주입한다.
+  // HP 비용·자해·회복에는 사용하지 않고 상대에게 가하는 피해 경로에서만 읽는다.
+  damageMultiplier?: number;
 };
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────
+
+export function scalePvPDamage(
+  state: PvPBattleState,
+  damage: number,
+): number {
+  if (damage <= 0) return damage;
+  const multiplier = state.damageMultiplier ?? 1;
+  if (multiplier === 1) return damage;
+  return Math.max(1, Math.floor(damage * multiplier));
+}
 
 // 공격자가 마주하는 방어자의 effective DEF — analysis 누적 페널티(자기 측 buffs 에 기록) 차감.
 // armorPierceFraction 비례 관통 적용. 분쇄/암살/약점은 호출 측에서 별도 처리.
@@ -502,6 +515,7 @@ export function initialBattleStatePvP(
   p2Name: string,
   p1Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
   p2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  damageMultiplier?: number,
 ): PvPBattleState {
   const p1Side = buildSide(p1Player, p1Name, p1Skills);
   const p2Side = buildSide(p2Player, p2Name, p2Skills);
@@ -539,13 +553,22 @@ export function initialBattleStatePvP(
       text: `[철벽] ${p2Side.name} 보호막 ${p2Side.stacks.playerShield} 전개`,
     });
   }
-  return {
+  const state: PvPBattleState = {
     p1: p1First ? attackerWithCount : otherSide,
     p2: p1First ? otherSide : attackerWithCount,
     phase,
     outcome: null,
     log,
   };
+  const normalizedMultiplier =
+    typeof damageMultiplier === "number" &&
+    Number.isFinite(damageMultiplier) &&
+    damageMultiplier > 0
+      ? damageMultiplier
+      : 1;
+  return normalizedMultiplier === 1
+    ? state
+    : { ...state, damageMultiplier: normalizedMultiplier };
 }
 
 // ── 헬퍼 — 사이드 mutate 패턴들 ────────────────────────────────────────────
@@ -621,21 +644,22 @@ function dealExtraDamage(
   const decreeDmg = decreeFires
     ? Math.floor((defender.hp * HEAVEN_DECREE_HP_PCT) / 100)
     : 0;
-  const totalDmg = dmgAfterLuckyStar + decreeDmg;
+  const rawTotalDmg = dmgAfterLuckyStar + decreeDmg;
+  const totalDmg = scalePvPDamage(state, rawTotalDmg);
   const newDefHp = Math.max(0, defender.hp - totalDmg);
   // 흡혈류 — 비크리 기반만 (luckyLifesteal / runeLifesteal / 흡령).
   const luckyLifestealHeal =
     (player.luckyLifestealPct ?? 0) > 0
-      ? Math.floor((totalDmg * player.luckyLifestealPct!) / 100)
+      ? Math.floor((rawTotalDmg * player.luckyLifestealPct!) / 100)
       : 0;
   const runeLifestealHeal =
     (player.runeLifestealPct ?? 0) > 0
-      ? Math.floor((totalDmg * player.runeLifestealPct!) / 100)
+      ? Math.floor((rawTotalDmg * player.runeLifestealPct!) / 100)
       : 0;
   const apLifestealHeal =
     attacker.buffs.playerLifestealTurnsLeft > 0 &&
     attacker.buffs.playerLifestealPct > 0
-      ? Math.floor((totalDmg * attacker.buffs.playerLifestealPct) / 100)
+      ? Math.floor((rawTotalDmg * attacker.buffs.playerLifestealPct) / 100)
       : 0;
   const totalHeal = luckyLifestealHeal + runeLifestealHeal + apLifestealHeal;
   const newAtkHp =
@@ -807,9 +831,12 @@ function applyDodgeEffects(
       attackerNow.v2SelfDebuffs,
     );
     const reflectDef = attackerFacingDef(defenderNow, attackerNow);
-    const totalReflect = damageBetween(
-      rawReflect,
-      reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
+    const totalReflect = scalePvPDamage(
+      st,
+      damageBetween(
+        rawReflect,
+        reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
+      ),
     );
     const newAtkHp = Math.max(0, attackerNow.hp - totalReflect);
     st = setSide(st, atkKey, { ...attackerNow, hp: newAtkHp });
@@ -846,11 +873,14 @@ function applyDodgeEffects(
       attackerAfterReflect.v2SelfDebuffs,
     );
     const counterRawAtk = defenderNow.player.atk + counterBonus;
-    const counterDmg = damageBetween(
-      v2AtkMultCt !== 1 ? Math.floor(counterRawAtk * v2AtkMultCt) : counterRawAtk,
-      v2DefMultCt !== 1
-        ? Math.floor(attackerAfterReflect.player.def * v2DefMultCt)
-        : attackerAfterReflect.player.def,
+    const counterDmg = scalePvPDamage(
+      st,
+      damageBetween(
+        v2AtkMultCt !== 1 ? Math.floor(counterRawAtk * v2AtkMultCt) : counterRawAtk,
+        v2DefMultCt !== 1
+          ? Math.floor(attackerAfterReflect.player.def * v2DefMultCt)
+          : attackerAfterReflect.player.def,
+      ),
     );
     const newAtkHp = Math.max(0, attackerAfterReflect.hp - counterDmg);
     st = setSide(st, atkKey, { ...attackerAfterReflect, hp: newAtkHp });
@@ -975,9 +1005,12 @@ export function applyOnHitReflect(
     attacker.v2SelfDebuffs,
   );
   const reflectDef = attackerFacingDef(defender, attacker);
-  const total = damageBetween(
-    rawTotal,
-    reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
+  const total = scalePvPDamage(
+    state,
+    damageBetween(
+      rawTotal,
+      reflectDefMult !== 1 ? Math.floor(reflectDef * reflectDefMult) : reflectDef,
+    ),
   );
   const newAtkHp = Math.max(0, attacker.hp - total);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
@@ -1026,9 +1059,12 @@ export function maybeApplyRuneCounter(
   const v2DefMultRC = v2DefBuffMult(attacker.v2SelfBuffs, attacker.v2SelfDebuffs);
   const rcAtk = effectiveAttackerAtk(defender, attacker);
   const rcDef = attackerFacingDef(defender, attacker);
-  const dmg = damageBetween(
-    v2AtkMultRC !== 1 ? Math.floor(rcAtk * v2AtkMultRC) : rcAtk,
-    v2DefMultRC !== 1 ? Math.floor(rcDef * v2DefMultRC) : rcDef,
+  const dmg = scalePvPDamage(
+    state,
+    damageBetween(
+      v2AtkMultRC !== 1 ? Math.floor(rcAtk * v2AtkMultRC) : rcAtk,
+      v2DefMultRC !== 1 ? Math.floor(rcDef * v2DefMultRC) : rcDef,
+    ),
   );
   const newAtkHp = Math.max(0, attacker.hp - dmg);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
@@ -1082,9 +1118,12 @@ export function maybeApplyMartialCounter(
     counterBoostPct > 0
       ? Math.floor(counterAtk * (1 + counterBoostPct / 100))
       : counterAtk;
-  const dmg = damageBetween(
-    boostedCounterAtk,
-    v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef,
+  const dmg = scalePvPDamage(
+    state,
+    damageBetween(
+      boostedCounterAtk,
+      v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef,
+    ),
   );
   const newAtkHp = Math.max(0, attacker.hp - dmg);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
@@ -1287,10 +1326,11 @@ export function endAttackerPhase(
   // 방어자 페이즈 시작 — 방어자가 받는 tagged DoT 를 한 번 tick.
   const defenderBeforeDot = next[defKey];
   const dotTick = tickV2Dots(defenderBeforeDot.v2Dots, defenderBeforeDot.maxHp);
-  const dotDamage =
+  const rawDotDamage =
     dotTick.totalDmg > 0 && defenderBeforeDot.stacks.dotVulnTurns > 0
       ? Math.floor(dotTick.totalDmg * (1 + defenderBeforeDot.stacks.dotVulnPct / 100))
       : dotTick.totalDmg;
+  const dotDamage = scalePvPDamage(next, rawDotDamage);
   if (dotDamage > 0) {
     const newHp = Math.max(0, defenderBeforeDot.hp - dotDamage);
     next = setSide(next, defKey, {
@@ -1416,6 +1456,8 @@ export type PvPResolveContext = {
   // 전투 시작 로그에 박을 전술 안내 한 줄(양측 전술 라벨). 호출부가 문자열로 빌드해 넘긴다
   // (엔진은 stance 를 모름 — 순환 의존 회피). 미지정이면 추가 안 함.
   openingNote?: string;
+  // 상대에게 가하는 최종 피해 배율. 기본 1이며 아레나처럼 특정 호출 표면만 조정할 때 사용한다.
+  damageMultiplier?: number;
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped, 양 side 별도. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
   v2Skills?: {
@@ -1646,7 +1688,9 @@ export function castV2SkillOnAttackerTurnPvP(
       side.stacks.comboHitCount,
       side.player.comboFinisherBonusPct,
     );
-    const perHit = comboResult.hitDamages;
+    const perHit = comboResult.hitDamages.map((hit) =>
+      scalePvPDamage(st, hit),
+    );
     nextComboHitCount = comboResult.nextComboHitCount;
     const skillDamage = perHit.reduce((sum, hit) => sum + hit, 0);
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
@@ -1980,6 +2024,7 @@ function resolveBattlePvPLegacy(
     p2Name,
     ctx.v2Skills?.p1,
     ctx.v2Skills?.p2,
+    ctx.damageMultiplier,
   );
   // PR-7a — 옛 spell 시스템 폐기. start-of-battle one-shot 도 제거됐고, v2 스킬 cast hook
   // 이 각 side 의 첫 turn 진입 시 1회 발동 (resolveBattlePvP main loop).

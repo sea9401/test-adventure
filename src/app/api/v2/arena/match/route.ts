@@ -44,6 +44,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   ARENA_INITIAL_RATING,
+  ARENA_DAMAGE_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
   computeGoldReward,
@@ -86,7 +87,7 @@ import {
 //   5. 실유저 우선 매칭 — 후보가 없거나 상대 derive 실패 시 비랭크 봇으로 폴백.
 //   6. weightForCandidate 가중 랜덤 추첨.
 //   7. 선정된 상대만 derive (real user snapshot) 또는 봇 snapshot 사용.
-//   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
+//   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동, 아레나 피해 ×0.65.
 //   9. outcome → 실유저전은 양쪽 Elo 정산(K=32), 봇전은 비랭크.
 //  10. 공격자/방어자 pvp_ratings(Elo/전적) + arena-state.v2(쿨타임/최근 상대) 저장.
 //  11. 양쪽 전투 로그(각자 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX).
@@ -509,6 +510,7 @@ export async function POST() {
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
       ...autoDuelContext(),
+      damageMultiplier: ARENA_DAMAGE_MULTIPLIER,
       v2Skills: { p1: mySkills, p2: oppSkills },
     });
 

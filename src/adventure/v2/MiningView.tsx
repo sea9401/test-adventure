@@ -637,14 +637,6 @@ export function MiningView({
                   <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
-                  {result.byproducts.map((item) => (
-                    <div
-                      key={item.materialId}
-                      className="text-xs font-semibold text-violet-700 dark:text-violet-300"
-                    >
-                      부산물 발견 · {item.name} +{item.amount}
-                    </div>
-                  ))}
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
                     채광 XP +{result.xpGained}
                   </div>
@@ -663,11 +655,6 @@ export function MiningView({
           <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             성공 시 {selectedMaterial.name} 1개 · 보유 {selectedMaterialCount}개 · XP +
             {selectedNode.xp}
-          </div>
-          <div className="mt-1 text-[10px] text-violet-600 dark:text-violet-300">
-            부산물: {selectedNode.byproducts
-              .map((rule) => MINING_MATERIALS[rule.materialId].name)
-              .join(", ")}
           </div>
         </Card>
       )}

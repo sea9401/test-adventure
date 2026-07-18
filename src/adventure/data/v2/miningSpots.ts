@@ -26,6 +26,10 @@ export const MINING_MATERIAL_ID = {
 export type MiningMaterialId =
   (typeof MINING_MATERIAL_ID)[keyof typeof MINING_MATERIAL_ID];
 
+// 채광 부산물은 소비처가 마련될 때까지 비활성화한다. 기존 보유분/거래소 호환을 위해
+// 재료 카탈로그와 광맥별 확률 데이터는 유지하고, 실제 드롭과 UI 노출만 이 플래그로 막는다.
+export const MINING_BYPRODUCTS_ENABLED = false;
+
 export const MINING_MATERIALS: Record<
   MiningMaterialId,
   { id: MiningMaterialId; name: string; description: string }
@@ -267,6 +271,7 @@ export function rollMiningByproducts(
   node: MiningNode,
   rng: () => number = Math.random,
 ): Partial<Record<MiningMaterialId, number>> {
+  if (!MINING_BYPRODUCTS_ENABLED) return {};
   const drops: Partial<Record<MiningMaterialId, number>> = {};
   for (const rule of node.byproducts) {
     if (rng() < rule.chance) drops[rule.materialId] = 1;

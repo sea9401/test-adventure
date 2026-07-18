@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  MINING_BYPRODUCTS_ENABLED,
   MINING_MATERIALS,
   MINING_NODES,
   MINING_SPOTS,
@@ -44,10 +45,11 @@ describe("채광 장소 카탈로그", () => {
     ).toEqual([90, 80, 65, 50, 40, 30]);
   });
 
-  it("부산물은 규칙별 독립 확률로 굴린다", () => {
+  it("소비처가 마련될 때까지 부산물 드롭을 비활성화한다", () => {
     const rng = vi.fn().mockReturnValueOnce(0.01).mockReturnValueOnce(0.99);
     const drops = rollMiningByproducts(MINING_NODES.iron, rng);
-    expect(drops).toEqual({ v2_mining_stone: 1 });
-    expect(rng).toHaveBeenCalledTimes(2);
+    expect(MINING_BYPRODUCTS_ENABLED).toBe(false);
+    expect(drops).toEqual({});
+    expect(rng).not.toHaveBeenCalled();
   });
 });

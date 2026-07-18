@@ -3,6 +3,7 @@ import {
   JOB_TAG_FILTERS,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
+  jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
   type JobExplorerJob,
@@ -65,6 +66,16 @@ describe("jobExplorer tags", () => {
         intTag,
       ),
     ).toBe(false);
+  });
+
+  it("stat filters only represent stats that cultivation can raise", () => {
+    const strTag = new Set(["str"]);
+    const dexTag = new Set(["dex"]);
+
+    // 궁수는 힘 직업 보너스가 있지만 수행으로는 민첩과 행운만 올린다.
+    expect(matchesJobExplorerFilters(job("archer"), "", strTag)).toBe(false);
+    expect(matchesJobExplorerFilters(job("archer"), "", dexTag)).toBe(true);
+    expect(jobCultivationSummary("archer")).toBe("민첩 +2 · 행운 +2");
   });
 
   it("생활 matches explicit non-combat job lines", () => {

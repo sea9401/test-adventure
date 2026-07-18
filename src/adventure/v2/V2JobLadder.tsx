@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { useSystemMessageState } from "./RewardToastProvider";
 import {
@@ -16,6 +17,7 @@ import {
   JOB_TAG_FILTERS,
   compareJobExplorerLineOrder,
   isJobVisibleInShrine,
+  jobCultivationSummary,
   jobTags,
   matchesJobExplorerFilters,
 } from "./jobExplorer";
@@ -191,6 +193,16 @@ export function V2JobLadder({
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
             {filteredJobs.length}/{visibleJobs.length}
           </span>
+        </div>
+        <div className={`${SURFACE_INSET} px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300`}>
+          <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
+            스탯 안내
+          </strong>
+          <p className="mt-1 leading-relaxed">
+            직업 보너스는 해당 직업일 때 적용되는 능력치입니다. 수행 스탯은 그
+            직업으로 수행할 때 한계치가 오르는 능력치이며, 서로 다를 수 있습니다.
+            아래 수치는 기본 수행 1회 기준입니다.
+          </p>
         </div>
         <div className="relative">
           <MagnifyingGlass
@@ -430,13 +442,10 @@ function JobRow({
 }) {
   const unlocked = job.unlocked !== false;
   const tags = jobTags(job, { currentJobId }).slice(0, 4);
+  const cultivation = jobCultivationSummary(job.id);
   return (
     <li
-      className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${
-        unlocked
-          ? "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
-          : "border-zinc-200/70 bg-zinc-50/50 dark:border-zinc-700/70 dark:bg-zinc-900/50"
-      }`}
+      className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-2 px-3 py-2`}
     >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex items-center gap-2">
@@ -474,6 +483,11 @@ function JobRow({
         {job.bonus && (
           <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
             직업 보너스 · {job.bonus}
+          </span>
+        )}
+        {cultivation && (
+          <span className="text-[11px] font-medium text-violet-700 dark:text-violet-300">
+            수행 스탯 · {cultivation}
           </span>
         )}
         {job.conditionRevealed !== false && (

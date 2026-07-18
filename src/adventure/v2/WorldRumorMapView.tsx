@@ -24,7 +24,6 @@ import {
   woodcuttingTreeForSpot,
 } from "@/adventure/data/v2/woodcuttingSpots";
 import {
-  MINING_MATERIALS,
   MINING_SPOTS,
   isMiningSpotId,
   miningNodeForSpot,
@@ -182,9 +181,6 @@ function MiningSpotMeta({ id }: { id: string }) {
   if (!isMiningSpotId(id)) return null;
   const spot = MINING_SPOTS[id];
   const node = miningNodeForSpot(spot);
-  const byproductNames = node.byproducts.map(
-    (rule) => MINING_MATERIALS[rule.materialId].name,
-  );
   return (
     <div className={`${SURFACE_INSET} space-y-1.5 p-2`}>
       <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
@@ -199,9 +195,6 @@ function MiningSpotMeta({ id }: { id: string }) {
         {node.grade}등급 · Lv.1 성공률{" "}
         {((1 - miningFailureRate(node.baseFailureRate, 1)) * 100).toFixed(1)}%
         {" · "}기본 {(node.durationMs / 1_000).toFixed(1)}초 · XP +{node.xp}
-      </div>
-      <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-        발견 가능 부산물: {byproductNames.join(", ")}
       </div>
     </div>
   );

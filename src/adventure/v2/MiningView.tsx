@@ -570,25 +570,6 @@ export function MiningView({
         <ActivityVerificationGate challenge={verification} onVerify={verifyHuman} />
       ) : null}
 
-      <div className="grid grid-cols-3 gap-2 text-center text-xs">
-        <Card padding="sm">
-          <div className="truncate text-zinc-500 dark:text-zinc-400">
-            {selectedMaterial.name}
-          </div>
-          <div className="mt-1 text-lg font-bold tabular-nums">{selectedMaterialCount}</div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-zinc-500 dark:text-zinc-400">채광 성공</div>
-          <div className="mt-1 text-lg font-bold tabular-nums">{log.successes}</div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-zinc-500 dark:text-zinc-400">부산물 발견</div>
-          <div className="mt-1 text-lg font-bold tabular-nums">
-            {log.byproductsEarned}
-          </div>
-        </Card>
-      </div>
-
       <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-900/70 dark:bg-amber-950/30">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -680,7 +661,8 @@ export function MiningView({
             {formatDuration(expectedDurationMs)}
           </div>
           <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            성공 시 {selectedMaterial.name} 1개 · XP +{selectedNode.xp}
+            성공 시 {selectedMaterial.name} 1개 · 보유 {selectedMaterialCount}개 · XP +
+            {selectedNode.xp}
           </div>
           <div className="mt-1 text-[10px] text-violet-600 dark:text-violet-300">
             부산물: {selectedNode.byproducts

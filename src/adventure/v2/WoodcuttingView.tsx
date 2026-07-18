@@ -1130,23 +1130,6 @@ export function WoodcuttingView({
         />
       ) : null}
 
-      <div className="grid grid-cols-3 gap-2 text-center text-xs">
-        <Card padding="sm">
-          <div className="truncate text-zinc-500 dark:text-zinc-400">
-            {selectedMaterial.name}
-          </div>
-          <div className="mt-1 text-lg font-bold tabular-nums">{selectedMaterialCount}</div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-zinc-500 dark:text-zinc-400">벌목 완료</div>
-          <div className="mt-1 text-lg font-bold tabular-nums">{log.cuts}</div>
-        </Card>
-        <Card padding="sm">
-          <div className="text-zinc-500 dark:text-zinc-400">누적 획득</div>
-          <div className="mt-1 text-lg font-bold tabular-nums">{log.timberEarned}</div>
-        </Card>
-      </div>
-
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 dark:border-emerald-900/70 dark:bg-emerald-950/30">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1246,7 +1229,8 @@ export function WoodcuttingView({
             {formatDuration(expectedDurationMs)}
           </div>
           <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            성공 시 {selectedMaterial.name} 1개 · XP +{selectedTree.xp}
+            성공 시 {selectedMaterial.name} 1개 · 보유 {selectedMaterialCount}개 · XP +
+            {selectedTree.xp}
           </div>
         </Card>
       )}

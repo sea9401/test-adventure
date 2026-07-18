@@ -23,8 +23,8 @@ export const GUILD_TRADE_USER_SAVE_KEY = "guild-trade-user.v1";
 export const GUILD_TRADE_BASE_TARGET = 40;
 export const GUILD_TRADE_TARGET_PER_EXTRA_MEMBER = 10;
 export const GUILD_TRADE_MAX_TARGET_MEMBERS = 20;
-export const GUILD_TRADE_BASE_REWARD_GOLD = 2_000_000;
-export const GUILD_TRADE_BASE_REWARD_FAME = 150;
+export const GUILD_TRADE_BASE_REWARD_GOLD = 1_500_000;
+export const GUILD_TRADE_BASE_REWARD_FAME = 100;
 
 export type GuildTradeItemSource = "material" | "farm" | "fishing_item";
 export type GuildTradeItemCategory = "wood" | "ore" | "farm" | "fish";

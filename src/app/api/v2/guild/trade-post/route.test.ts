@@ -140,11 +140,11 @@ describe("길드 교역소", () => {
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    expect(json.guildReward).toEqual({ gold: 2_400_000, fame: 180 });
+    expect(json.guildReward).toEqual({ gold: 1_800_000, fame: 120 });
     expect(upsertGuildResources).toHaveBeenCalledWith(expect.anything(), 7, {
-      gold: 7_400_000,
+      gold: 6_800_000,
     });
-    expect(addGuildFame).toHaveBeenCalledWith(expect.anything(), 7, 180);
+    expect(addGuildFame).toHaveBeenCalledWith(expect.anything(), 7, 120);
     expect(logGuildActivity).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({

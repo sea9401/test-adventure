@@ -43,12 +43,12 @@ describe("guildTrade", () => {
 
   it("시설 보상 보너스를 길드 골드·명성에 같은 비율로 적용한다", () => {
     expect(guildTradeCompletionReward(0)).toEqual({
-      gold: 2_000_000,
-      fame: 150,
+      gold: 1_500_000,
+      fame: 100,
     });
     expect(guildTradeCompletionReward(40)).toEqual({
-      gold: 2_800_000,
-      fame: 210,
+      gold: 2_100_000,
+      fame: 140,
     });
   });
 

@@ -725,7 +725,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
       { label: "공격력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
-      { label: "치명", value: "+2%" },
+      { label: "치명타", value: "+2%" },
       { label: "속도", value: "-4" },
     ]);
   });
@@ -738,12 +738,12 @@ describe("v2EquipStatRows (표시 행)", () => {
     });
   });
 
-  it("반지 critMult 옵션 — 마법 방어력 + 치명피해 배수 표기(+0.12×)", () => {
+  it("반지 critMult 옵션 — 마법 방어력 + 치명타 피해 배수 표기(+0.12×)", () => {
     // 은가락지 T1: 위력 4, weight 0, critMult 12(백분의일) → "+0.12×".
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
     expect(rows).toEqual([
       { label: "마법 방어력", value: "+4" },
-      { label: "치명피해", value: "+0.12×" },
+      { label: "치명타 피해", value: "+0.12×" },
     ]);
   });
 
@@ -778,7 +778,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     });
     expect(rows).toEqual([
       { label: "공격력", value: "+16" },
-      { label: "치명", value: "+3%" },
+      { label: "치명타", value: "+3%" },
       { label: "속도", value: "-4" },
     ]);
   });

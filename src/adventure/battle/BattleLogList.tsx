@@ -257,7 +257,10 @@ function AttackBubble({
 }) {
   const isPlayer = side === "left";
   const { labels, body } = parseLabel(text);
-  const isCrit = labels.some((l) => l === "크리" || l === "크리티컬");
+  // 저장된 전투 리플레이의 예전 표기도 계속 강조하되, 새 로그는 "치명타"만 생성한다.
+  const isCrit = labels.some(
+    (l) => l === "치명타" || l === "크리" || l === "크리티컬",
+  );
   const displayBody = body || labels.join(" + ");
   // 색 박스(초록=아군/빨강=적) 폐지 — 좌우 정렬로만 아군(좌)·적(우) 구분, 글씨는 흰/기본(유저 요청).
   // 피해량 숫자만 빨강 강조 유지(emphasizeNumbers). 상태 라벨 pill 은 v2StatusPillColor, 그 외 중립.

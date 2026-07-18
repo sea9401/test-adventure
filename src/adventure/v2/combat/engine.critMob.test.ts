@@ -75,14 +75,14 @@ describe("치명형 몬스터(critPct) — 정신(critResist)이 카운터", () 
     expect(damageTaken(noResist, undefMob)).toBe(damageTaken(noResist, zeroMob));
   });
 
-  it("치명 발동 시 로그에 [치명] 표기, 일반은 미표기", () => {
+  it("치명타 발동 시 로그에 [치명타] 표기, 일반은 미표기", () => {
     const critMob: Monster = { ...baseMob, critPct: 100 };
     const normalMob: Monster = { ...baseMob, critPct: 0 };
     let sc = initialBattleState(noResist, critMob, "용사");
     sc = advanceTurn(sc, noResist, "용사");
-    expect(sc.log.some((e) => (e.text ?? "").includes("[치명]"))).toBe(true);
+    expect(sc.log.some((e) => (e.text ?? "").includes("[치명타]"))).toBe(true);
     let sn = initialBattleState(noResist, normalMob, "용사");
     sn = advanceTurn(sn, noResist, "용사");
-    expect(sn.log.some((e) => (e.text ?? "").includes("[치명]"))).toBe(false);
+    expect(sn.log.some((e) => (e.text ?? "").includes("[치명타]"))).toBe(false);
   });
 });

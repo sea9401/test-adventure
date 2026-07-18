@@ -704,7 +704,7 @@ const V2_EQUIPMENT_BASE = {
     concept: "dex",
     tier: 11,
     name: "폭풍창",
-    description: "찌르는 궤적을 얇게 줄여 속도와 치명을 함께 살린 장인표 창.",
+    description: "찌르는 궤적을 얇게 줄여 속도와 치명타를 함께 살린 장인표 창.",
     power: 575,
     weight: 6,
     options: { crit: 9, spd: 12, critMult: 55 },

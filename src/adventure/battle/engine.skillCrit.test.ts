@@ -73,7 +73,7 @@ afterEach(() => {
 });
 
 describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
-  it("크리 발동 시 스킬 데미지 ×SKILL_CRIT_MULT (평타 critMult 비연동)", () => {
+  it("치명타 발동 시 스킬 데미지 ×SKILL_CRIT_MULT (평타 critMult 비연동)", () => {
     const noCrit = battle(0); // 크리 확률 0 → 발동 안 함(게이트)
     const crit = battle(100); // 캡 75% < mock(0) → 매 캐스트 크리
     expect(noCrit.firstCastDamage).toBeGreaterThan(0);
@@ -82,20 +82,20 @@ describe("스킬 치명타 (SKILL_CRIT_MULT)", () => {
     );
   });
 
-  it("크리 발동 시 로그에 [크리티컬] 표기", () => {
+  it("치명타 발동 시 로그에 [치명타] 표기", () => {
     const crit = battle(100);
-    expect(crit.firstCastTexts.every((t) => t.includes("[크리티컬]"))).toBe(true);
+    expect(crit.firstCastTexts.every((t) => t.includes("[치명타]"))).toBe(true);
     const noCrit = battle(0);
-    expect(noCrit.firstCastTexts.some((t) => t.includes("[크리티컬]"))).toBe(false);
+    expect(noCrit.firstCastTexts.some((t) => t.includes("[치명타]"))).toBe(false);
   });
 
-  it("크리 확률 0 이면 스킬 크리 미발동 (mock 0 이어도)", () => {
+  it("치명타 확률 0 이면 스킬 치명타 미발동 (mock 0 이어도)", () => {
     // critChancePct 0 → (player.critChancePct ?? 0) > 0 게이트에서 차단.
     const noCrit = battle(0);
-    expect(noCrit.firstCastTexts.some((t) => t.includes("[크리티컬]"))).toBe(false);
+    expect(noCrit.firstCastTexts.some((t) => t.includes("[치명타]"))).toBe(false);
   });
 
-  it("크리 빌드가 더 빨리 처치 (같은 RNG, 크리 확률만 차이)", () => {
+  it("치명타 빌드가 더 빨리 처치 (같은 RNG, 치명타 확률만 차이)", () => {
     expect(battle(100).turns).toBeLessThan(battle(0).turns);
   });
 });

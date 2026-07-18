@@ -105,7 +105,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     group: "도적",
     anchorStat: "dex",
     description:
-      "민첩(DEX)·행운(LUK) 기반. 원거리 궁술(DEX)과 치명 암살(LUK) 갈래로 나뉜다.",
+      "민첩(DEX)·행운(LUK) 기반. 원거리 궁술(DEX)과 치명타 암살(LUK) 갈래로 나뉜다.",
   },
   survivor: {
     id: "survivor",

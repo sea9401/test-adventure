@@ -619,7 +619,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_assassin_fortune: {
     // 크리 폭발(자객) — 옛 행운%에서 치명 확률로 리스킨.
-    id: "v2c_assassin_fortune", name: "치명", stat: "luk", category: "passive", tier: 2,
+    id: "v2c_assassin_fortune", name: "치명타", stat: "luk", category: "passive", tier: 2,
     description: "급소를 노린다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { critPct: 8 },
@@ -1164,7 +1164,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_sage_insight: {
     // 마법 심화 — 치명 확률(술사 치명피해와 시너지). int 라인에 crit 확률 추가.
-    id: "v2c_sage_insight", name: "치명 II", stat: "int", category: "passive", tier: 3,
+    id: "v2c_sage_insight", name: "치명타 II", stat: "int", category: "passive", tier: 3,
     description: "흐름을 꿰뚫는다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     // 크리축 차수 단조(2026-06-22): 치명확률 4차 대마법사 > 2차 자객(8). 자객(크리 테마)은 8 유지·sage 8→10.
@@ -1529,7 +1529,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_swordmaster_focus: {
     id: "v2c_swordmaster_focus", name: "검의 집중", stat: "str", category: "passive", tier: 3,
-    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명 피해가 오르고, 한계를 넘어선 속도가 공격력이 된다.",
+    description: "칼끝을 흐트러뜨리지 않는다. 힘과 치명타 피해가 오르고, 한계를 넘어선 속도가 공격력이 된다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { statPct: { str: 18 }, critDmgPct: 25, spdOverflowToAtkPct: 25 },
@@ -1748,7 +1748,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_nightshade_cloak: {
     id: "v2c_nightshade_cloak", name: "은신 II", stat: "luk", category: "passive", tier: 3,
-    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다. 치명 한계 초과분이 스킬에도 실린다.",
+    description: "어둠 속에서 몸을 숨기고 급소를 더 깊게 찌른다. 치명타 한계 초과분이 스킬에도 실린다.",
     mpCost: 0, cooldown: 0, learnCost: 8000,
     effects: [],
     passive: { evasionPct: 18, critDmgPct: 20, skillCritOverflow: true },
@@ -1900,7 +1900,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_swordsaint_transcendence: {
     id: "v2c_swordsaint_transcendence", name: "검성의 경지", stat: "str", category: "passive", tier: 3,
-    description: "검로가 완성된다. 힘과 치명 피해가 오르고, 한계를 넘어선 속도가 더 큰 공격력으로 돌아온다.",
+    description: "검로가 완성된다. 힘과 치명타 피해가 오르고, 한계를 넘어선 속도가 더 큰 공격력으로 돌아온다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { str: 24 }, critDmgPct: 35, accuracyPct: 10, spdOverflowToAtkPct: 35 },
@@ -1917,7 +1917,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_hegemon_dominion: {
     id: "v2c_hegemon_dominion", name: "패황의 지배", stat: "str", category: "passive", tier: 3,
-    description: "상처가 깊을수록 지배력이 강해진다. 잃은 체력에 따른 공격력과 치명 피해가 오른다.",
+    description: "상처가 깊을수록 지배력이 강해진다. 잃은 체력에 따른 공격력과 치명타 피해가 오른다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { berserkAtkPctPerLostHpPct: 1.0, critDmgPct: 40, maxHpPct: 12 },
@@ -2071,7 +2071,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_heavenlybow_starpath: {
     id: "v2c_heavenlybow_starpath", name: "성도 조준", stat: "dex", category: "passive", tier: 3,
-    description: "화살이 별자리처럼 이어진다. 민첩과 명중이 오르고, 치명 한계를 넘긴 조준이 스킬에도 실린다.",
+    description: "화살이 별자리처럼 이어진다. 민첩과 명중이 오르고, 치명타 한계를 넘긴 조준이 스킬에도 실린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { dex: 22, luk: 8 }, accuracyPct: 20, critPct: 8, skillCritOverflow: true },
@@ -2090,7 +2090,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_blackmoon_dominion: {
     id: "v2c_blackmoon_dominion", name: "흑월지배", stat: "luk", category: "passive", tier: 3,
-    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 치명 한계를 넘긴 감각이 스킬에도 실린다.",
+    description: "달빛조차 숨기는 보법. 행운과 민첩, 회피가 오르고 치명타 한계를 넘긴 감각이 스킬에도 실린다.",
     mpCost: 0, cooldown: 0, learnCost: 12000,
     effects: [],
     passive: { statPct: { luk: 22, dex: 8 }, evasionPct: 18, critDmgPct: 24, skillCritOverflow: true },

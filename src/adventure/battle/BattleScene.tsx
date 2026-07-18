@@ -198,7 +198,7 @@ export type BattleStats = {
 const DETAIL_COLOR: Record<string, string> = {
   명중: "text-sky-600 dark:text-sky-400",
   회피: "text-cyan-600 dark:text-cyan-400",
-  치명: "text-amber-600 dark:text-amber-400",
+  치명타: "text-amber-600 dark:text-amber-400",
   마공: "text-violet-600 dark:text-violet-400",
   "내 명중": "text-sky-600 dark:text-sky-400",
   "적 명중": "text-rose-600 dark:text-rose-400",
@@ -251,7 +251,7 @@ export function BattleStatStrip({
             ),
           },
           ...(stats.critChancePct && stats.critChancePct > 0
-            ? [{ label: "치명", value: pct(stats.critChancePct) }]
+            ? [{ label: "치명타", value: pct(stats.critChancePct) }]
             : []),
           ...(stats.magicAtk && stats.magicAtk > 0
             ? [{ label: "마공", value: String(Math.round(stats.magicAtk)) }]
@@ -269,7 +269,7 @@ export function BattleStatStrip({
           { label: "명중", value: String(Math.round(stats.accuracy ?? 0)) },
           { label: "회피", value: pct(stats.evasionPct ?? 0) },
           ...(stats.critChancePct && stats.critChancePct > 0
-            ? [{ label: "치명", value: pct(stats.critChancePct) }]
+            ? [{ label: "치명타", value: pct(stats.critChancePct) }]
             : []),
           ...(usesMagicAttack
             ? [{ label: "공", value: String(Math.round(stats.atk ?? 0)) }]

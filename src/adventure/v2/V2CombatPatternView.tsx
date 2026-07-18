@@ -711,7 +711,7 @@ function ConditionParams({
           <select className={sel} value={c.target}
             onChange={(e) => onChange({ ...c, target: e.target.value as "evasion" | "crit" | "damageReduction" | "reflectDamage" })}>
             <option value="evasion">회피</option>
-            <option value="crit">치명</option>
+            <option value="crit">치명타</option>
             <option value="damageReduction">받피감</option>
             <option value="reflectDamage">반사</option>
           </select>

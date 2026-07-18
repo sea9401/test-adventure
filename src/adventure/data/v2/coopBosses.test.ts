@@ -320,7 +320,7 @@ describe("coopBosses 카탈로그", () => {
     );
     expect(
       coopCriticalDamageFromLog([
-        { kind: "player_attack", text: "공격! [크리티컬] 100 피해를 입혔다." },
+        { kind: "player_attack", text: "공격! [치명타] 100 피해를 입혔다." },
         { kind: "player_attack", text: "공격! 80 피해를 입혔다." },
         { kind: "info", text: "z" },
       ]),
@@ -421,6 +421,7 @@ describe("coopBosses 카탈로그", () => {
     const damage = coopBossMpPressureDamage(
       [
         { kind: "player_attack", text: "공격! 10 피해를 입혔다." },
+        // 저장된 과거 리플레이의 이전 표기도 치명타로 판독한다.
         { kind: "player_attack", text: "공격! [크리티컬] 20 피해를 입혔다." },
         { kind: "enemy_attack", text: "반격! 5 피해를 입혔다." },
       ],

@@ -871,7 +871,7 @@ export function resolveEnemyPhase(
   const atkPrefix =
     (heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "") +
     (magicAttack ? "[마법] " : "") +
-    (monsterCritFired ? "[치명] " : "") +
+    (monsterCritFired ? "[치명타] " : "") +
     (curseDamageTakenPct > 0 ? `[저주 +${curseDamageTakenPct}%] ` : "");
   // 항상 "공격! " 접두 → 라벨([강타]·[마법]·[치명] 등)을 인라인(플레이어 공격·스킬과 통일).
   log = appendLog(log, {

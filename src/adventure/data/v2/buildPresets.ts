@@ -127,7 +127,7 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
   {
     id: "arcane_breaker",
     name: "비전 파쇄",
-    summary: "마법 공격, 치명, MP 환급을 묶어 마법취약/마력 폭발 축을 밀어주는 빌드.",
+    summary: "마법 공격, 치명타, MP 환급을 묶어 마법취약/마력 폭발 축을 밀어주는 빌드.",
     tags: ["int", "magic", "crit", "resource", "vulnerability", "signature"],
     equipmentIds: [
       "v2_throne_sig_eclipse_staff",
@@ -142,12 +142,12 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
       "v2c_inscriber_release",
     ],
     strengths: ["마법 버스트", "MP 운용 안정", "취약/지연 연계"],
-    weaknesses: ["MP와 치명 조건 의존", "마법 방어 높은 적에게 둔화"],
+    weaknesses: ["MP와 치명타 조건 의존", "마법 방어 높은 적에게 둔화"],
   },
   {
     id: "duelist_sword",
     name: "결투 검성",
-    summary: "대검·추가타·치명 보너스로 단일 적을 안정적으로 밀어붙이는 빌드.",
+    summary: "대검·추가타·치명타 보너스로 단일 적을 안정적으로 밀어붙이는 빌드.",
     tags: ["str", "physical", "crit", "pierce", "signature"],
     equipmentIds: [
       "v2_den_sig_alpha_greatsword",
@@ -181,7 +181,7 @@ export const V2_BUILD_PRESETS: readonly V2BuildPreset[] = [
       "v2c_chief_strike",
       "v2c_chief_afterimage",
     ],
-    strengths: ["선제권과 회피", "치명 기반 속도 상승", "명중 보조"],
+    strengths: ["선제권과 회피", "치명타 기반 속도 상승", "명중 보조"],
     weaknesses: ["튼튼한 적에게 장기화", "폭딜 실패 시 효율 하락"],
   },
   {

@@ -973,16 +973,16 @@ export function v2ItemTypeLabel(item: V2Equipment): string {
 }
 
 const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
-  crit: "치명",
+  crit: "치명타",
   eva: "회피",
   mp: "MP",
   hp: "HP",
-  critMult: "치명피해",
+  critMult: "치명타 피해",
   spd: "속도",
   def: "방어",
   magicDef: "마법방어",
   healPowerPct: "회복",
-  critResist: "치명저항",
+  critResist: "치명타 저항",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.

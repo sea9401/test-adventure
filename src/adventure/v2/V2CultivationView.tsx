@@ -284,7 +284,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setMsg(`✗ ${label}`);
         return;
       }
-      const crit = (j.mult ?? 1) > 1 ? ` ⭐크리티컬 ×${j.mult}!` : "";
+      const crit = (j.mult ?? 1) > 1 ? ` ⭐치명타 ×${j.mult}!` : "";
       setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${crit}`);
       setCaps(j.caps ?? caps);
       setCultivations(j.cultivations ?? cultivations + 1);

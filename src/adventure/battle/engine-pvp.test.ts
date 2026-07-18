@@ -280,7 +280,7 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     expect(s1.log.some((e) => e.text.includes("그림자 분신"))).toBe(true);
   });
 
-  it("크리티컬 (critChancePct) — 강제 발동 시 데미지 ×critMult", () => {
+  it("치명타 (critChancePct) — 강제 발동 시 데미지 ×critMult", () => {
     // Math.random 0 으로 모든 확률 항상 발동.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const s0 = initialBattleStatePvP(
@@ -293,7 +293,7 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     // 기본 100 데미지 × CRIT_MULT_BASE = 100 × 2 = 200 (CRIT_MULT_BASE 가 2 라 가정 — 다르면 그 값).
     const dealt = s0.p2.hp - s1.p2.hp;
     expect(dealt).toBe(Math.floor(100 * CRIT_MULT_BASE));
-    expect(s1.log.some((e) => e.text.includes("크리티컬"))).toBe(true);
+    expect(s1.log.some((e) => e.text.includes("치명타"))).toBe(true);
   });
 
   it("처형 (executionDamageMult) — defender HP 비율이 임계 미만이면 데미지 배수", () => {

@@ -12,7 +12,6 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
-import { fetchGuildTrainingClaimableCount } from "./guild/trainingGroundClient";
 import {
   type GuildInfoResponse,
   type GuildSubTab,
@@ -50,9 +49,6 @@ export function V2GuildHome({
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
-  const [trainingClaimableCount, setTrainingClaimableCount] = useState<
-    number | null
-  >(null);
   const { notifySystem } = useSystemToast();
 
   useEffect(() => {
@@ -72,13 +68,6 @@ export function V2GuildHome({
       setInfo(infoRes as GuildInfoResponse | null);
       setActivity(
         (actRes as { activity?: GuildActivity[] } | null)?.activity ?? [],
-      );
-      const infoJson = infoRes as GuildInfoResponse | null;
-      const hasTraining =
-        infoJson?.hasTrainingGround ||
-        (infoJson?.settlementBuildings?.training_ground ?? 0) > 0;
-      setTrainingClaimableCount(
-        hasTraining ? await fetchGuildTrainingClaimableCount() : null,
       );
     } catch {}
     setLoading(false);
@@ -128,19 +117,10 @@ export function V2GuildHome({
   const isManager = info?.isManager ?? false;
   const canManage = isMaster || isManager;
   const pendingRequests: PendingRequest[] = info?.pendingRequests ?? [];
-  const trainingBadge =
-    trainingClaimableCount != null && trainingClaimableCount > 0
-      ? trainingClaimableCount
-      : undefined;
-  const baseSubTabs: GuildSubTabDef[] = BASE_SUB_TABS.map((tab) =>
-    tab.key === "facilities" && trainingBadge != null
-      ? { ...tab, badge: trainingBadge }
-      : tab,
-  );
   // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
   const subTabs: GuildSubTabDef[] = canManage
     ? [
-        ...baseSubTabs,
+        ...BASE_SUB_TABS,
         {
           key: "manage",
           label:
@@ -149,7 +129,7 @@ export function V2GuildHome({
               : "관리",
         },
       ]
-    : baseSubTabs;
+    : BASE_SUB_TABS;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab

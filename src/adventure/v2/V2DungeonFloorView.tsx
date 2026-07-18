@@ -35,6 +35,15 @@ import {
 } from "@/adventure/tutorial/flags";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import type { Gender } from "@/adventure/profile/avatars";
+import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import { StatusBanner } from "@/components/ui/StatusBanner";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  AUTO_HUNT_LEVEL_TARGET,
+  getAutoHuntStopReason,
+  type AutoHuntStopReason,
+  useAutoHuntStopConfig,
+} from "@/adventure/v2/autoHuntStopConditions";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
@@ -113,6 +122,7 @@ export function V2DungeonFloorView({
   outpostName,
   playerName,
   playerGender,
+  currentLevel = 1,
   initialExp = 0,
   initialMaxExp = 1,
   initialHpCharges = 0,
@@ -148,6 +158,7 @@ export function V2DungeonFloorView({
   outpostName: string;
   playerName: string;
   playerGender: Gender;
+  currentLevel?: number;
   // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
   initialExp?: number;
   initialMaxExp?: number;
@@ -324,10 +335,17 @@ export function V2DungeonFloorView({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 자동 사냥 루프 — 사냥 버튼을 길게 누르면 켜진다(두 모드 공용). 켜져 있으면 1.2초마다 발동.
+  // 자동 사냥 루프 — 사냥 버튼을 길게 누르면 켜진다(두 모드 공용). 켜져 있으면 1.5초마다 발동.
   //   쿨다운/처리중 가드는 triggerHunt 내부라 일시 조건이면 no-op(풀리면 재개). 스태미나·체력
   //   소진이면 triggerHunt 가 자동 정지. 서버 거부·언마운트도 정지.
   const [autoHunt, setAutoHunt] = useState(false);
+  const [autoStopReason, setAutoStopReason] =
+    useState<AutoHuntStopReason | null>(null);
+  const {
+    config: autoStopConfig,
+    configRef: autoStopConfigRef,
+    updateConfig: updateAutoStopConfig,
+  } = useAutoHuntStopConfig();
   useEffect(() => {
     if (!autoHunt) return;
     const id = setInterval(() => triggerHuntRef.current(), 1500);
@@ -573,9 +591,24 @@ export function V2DungeonFloorView({
   // 메인 사냥 버튼 발동(클릭·스페이스바 공용). 비활성 조건에선 무발동.
   //   레벨업 모달이 열렸으면 무발동 — 스페이스바 전역 리스너가 모달 오버레이를 우회해 뒤에서
   //   사냥이 돌지 않게(클릭은 오버레이가 막지만 키는 막지 못함).
-  const triggerHunt = () => {
+  const triggerHunt = (autoRun = false) => {
     // 일시적 차단(처리 중·쿨다운·레벨업 모달)은 자동 사냥을 유지 — 풀리면 다음 틱에 재개.
     if (oneActionDisabled || onCooldown || showLevelupModal) return;
+    // 설정을 켠 시점에 이미 포션/레벨 조건을 만족했다면 다음 판을 시작하지 않는다.
+    if (autoRun) {
+      const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
+        hpCharges: statusHpCharges,
+        mpCharges: statusMpCharges,
+        hasMp: (mp?.maxMp ?? 0) > 0,
+        rareMapFound: false,
+        level: currentLevel,
+      });
+      if (stopReason) {
+        setAutoHunt(false);
+        setAutoStopReason(stopReason);
+        return;
+      }
+    }
     // 스태미나·체력 소진은 더 못 싸우는 상태 → 자동 사냥 정지(빈 인터벌 무한 반복 방지).
     if (lowStamina || needsRecovery) {
       setAutoHunt(false);
@@ -584,7 +617,7 @@ export function V2DungeonFloorView({
     setBatchSummary(null);
     setSelectedBatchReplay(null);
     // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). off = huntCount 반영.
-    if (coreLoopOn || huntCount === 1) {
+    if (coreLoopOn || autoRun || huntCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
       if (huntInFlightRef.current) return;
       huntInFlightRef.current = true;
@@ -633,9 +666,27 @@ export function V2DungeonFloorView({
             });
             if (r.atRiskGold != null) setAtRiskGold?.(r.atRiskGold);
           }
+          if (autoRun) {
+            const stopReason = getAutoHuntStopReason(
+              autoStopConfigRef.current,
+              {
+                hpCharges: r.hpCharges ?? statusHpCharges,
+                mpCharges: r.mpCharges ?? statusMpCharges,
+                hasMp: (r.maxMp ?? mp?.maxMp ?? 0) > 0,
+                rareMapFound:
+                  !!r.rareMapDrop &&
+                  RARE_MAP_KINDS[r.rareMapDrop]?.category === "hunt",
+                level: currentLevel + r.levelsGained,
+              },
+            );
+            if (stopReason) {
+              setAutoHunt(false);
+              setAutoStopReason(stopReason);
+            }
+          }
         } else {
           // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시
-          // 쿨다운이 안 잡혀 자동 사냥이 1.2초마다 무한 재시도할 수 있으니 즉시 정지.
+          // 쿨다운이 안 잡혀 자동 사냥이 1.5초마다 무한 재시도할 수 있으니 즉시 정지.
           // (성공 흐름은 낙관적 쿨다운으로 자연히 간격을 둔다.)
           setAutoHunt(false);
         }
@@ -667,8 +718,20 @@ export function V2DungeonFloorView({
     // 스태미나 모드에서도 자동 사냥 허용(coreLoopOn 게이트 제거). 능동적 길게누르기라 방치
     //   자동전투(#840 우려)와 무관하고, 스태미나·체력으로 자연 제한된다(소진 시 triggerHunt 정지).
     if (offlineLocked || autoHunt) return;
+    const stopReason = getAutoHuntStopReason(autoStopConfigRef.current, {
+      hpCharges: statusHpCharges,
+      mpCharges: statusMpCharges,
+      hasMp: (mp?.maxMp ?? 0) > 0,
+      rareMapFound: false,
+      level: currentLevel,
+    });
+    if (stopReason) {
+      setAutoStopReason(stopReason);
+      return;
+    }
+    setAutoStopReason(null);
     setAutoHunt(true);
-    triggerHunt(); // 1.5초 인터벌을 기다리지 않고 첫 판 즉시.
+    triggerHunt(true); // 1.5초 인터벌을 기다리지 않고 첫 판 즉시.
   };
   // 탭(짧게) — 자동 중이면 정지, 아니면 단판/일괄(huntCount). 두 모드 공용.
   const tapHunt = () => {
@@ -701,7 +764,7 @@ export function V2DungeonFloorView({
   //   keydown/인터벌 리스너는 stable 클로저([],[autoHunt])라 ref.current 로 항상 최신
   //   triggerHunt/onHuntPress 를 호출한다. dep array 없음 = 매 렌더 후 동기화(의도).
   useEffect(() => {
-    triggerHuntRef.current = triggerHunt;
+    triggerHuntRef.current = () => triggerHunt(true);
     // 스페이스바 = 탭(단판). 자동은 버튼 길게 누르기로(키보드는 길게 개념 없음).
     huntButtonRef.current = tapHunt;
   });
@@ -766,6 +829,17 @@ export function V2DungeonFloorView({
           {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
           {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
         </div>
+      )}
+
+      {autoStopReason && (
+        <StatusBanner tone="warning" role="status" className="py-2.5">
+          <span className="font-semibold">자동 사냥이 정지되었습니다.</span>{" "}
+          {autoStopReason === "potion"
+            ? `HP/MP 충전약 중 하나가 ${autoStopConfig.potionThreshold.toLocaleString()} 이하입니다.`
+            : autoStopReason === "rare_map"
+              ? "희귀 탐사맵을 발견했습니다."
+              : `레벨 ${AUTO_HUNT_LEVEL_TARGET}에 도달했습니다.`}
+        </StatusBanner>
       )}
 
       {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. 첫 사냥 전에도 EXP/회복약 행을 유지해 버튼
@@ -855,47 +929,119 @@ export function V2DungeonFloorView({
                           ? "사냥 (길게 눌러 자동 · 스태미너 1)"
                           : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
-          {/* 코어루프 on = 항상 단판(일괄 폐지) → 사냥 횟수 설정 숨김. */}
-          {!coreLoopOn && (
-            <button
-              type="button"
-              onClick={() => setSettingsOpen((o) => !o)}
-              disabled={batchRunning}
-              aria-label="전투 설정"
-              className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-            >
-              <Gear size={16} weight="duotone" />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((o) => !o)}
+            disabled={batchRunning}
+            aria-label="전투 설정"
+            aria-expanded={settingsOpen}
+            className="ui-game-button flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 sm:w-auto dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <Gear size={16} weight="duotone" />
+          </button>
         </div>
-        {settingsOpen && !coreLoopOn && (
-          <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              사냥 횟수 — 고른 만큼 사냥 버튼이 한 번에 처리합니다.
-            </p>
-            <div className="flex gap-2">
-              {HUNT_COUNTS.map((n) => {
-                const selected = huntCount === n;
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => {
-                      setHuntCount(n);
-                      saveHuntCount(n);
-                    }}
-                    aria-pressed={selected}
-                    disabled={batchRunning}
-                    className={`ui-game-button flex-1 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-50 ${
-                      selected
-                        ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
-                        : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    {n}회
-                  </button>
-                );
-              })}
+        {settingsOpen && (
+          <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            {!coreLoopOn && (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  사냥 횟수 — 고른 만큼 사냥 버튼이 한 번에 처리합니다.
+                </p>
+                <div className="flex gap-2">
+                  {HUNT_COUNTS.map((n) => {
+                    const selected = huntCount === n;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => {
+                          setHuntCount(n);
+                          saveHuntCount(n);
+                        }}
+                        aria-pressed={selected}
+                        disabled={batchRunning}
+                        className={`ui-game-button flex-1 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-50 ${
+                          selected
+                            ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {n}회
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className={`${SURFACE_INSET} space-y-3 p-3`}>
+              <div>
+                <p className="text-sm font-medium">자동 사냥 정지 조건</p>
+                <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  선택한 조건을 만족한 전투가 끝나면 자동 사냥을 멈춥니다.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="flex min-w-0 items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={autoStopConfig.potionEnabled}
+                      onChange={(e) =>
+                        updateAutoStopConfig({ potionEnabled: e.target.checked })
+                      }
+                      className="size-4 accent-emerald-600"
+                    />
+                    <span>충전약 잔량</span>
+                  </label>
+                  <span className="flex items-center gap-1 text-sm">
+                    <input
+                      type="number"
+                      min={0}
+                      max={9_999_999}
+                      step={1}
+                      value={autoStopConfig.potionThreshold}
+                      disabled={!autoStopConfig.potionEnabled}
+                      onChange={(e) =>
+                        updateAutoStopConfig({
+                          potionThreshold: Number(e.target.value),
+                        })
+                      }
+                      aria-label="자동 사냥 정지 충전약 잔량"
+                      className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-right tabular-nums disabled:cursor-not-allowed disabled:text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950"
+                    />
+                    이하
+                  </span>
+                </div>
+                <p className="pl-6 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  HP/MP 충전약 중 사용하는 종류 하나라도 기준 이하이면 정지합니다.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoStopConfig.rareMapEnabled}
+                  onChange={(e) =>
+                    updateAutoStopConfig({ rareMapEnabled: e.target.checked })
+                  }
+                  className="size-4 accent-emerald-600"
+                />
+                <span>희귀 탐사맵 발견 시</span>
+              </label>
+
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={autoStopConfig.level100Enabled}
+                  onChange={(e) =>
+                    updateAutoStopConfig({ level100Enabled: e.target.checked })
+                  }
+                  className="size-4 accent-emerald-600"
+                />
+                <span>레벨 {AUTO_HUNT_LEVEL_TARGET} 도달 시</span>
+              </label>
             </div>
           </div>
         )}

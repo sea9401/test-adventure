@@ -29,6 +29,7 @@ export default function DungeonFloorPage() {
     currentOutpost,
     viewerName,
     viewerGender,
+    viewerLevel,
     viewerClass,
     viewerExp,
     viewerExpToNext,
@@ -89,6 +90,7 @@ export default function DungeonFloorPage() {
       outpostName={currentOutpost.name}
       playerName={viewerName}
       playerGender={viewerGender}
+      currentLevel={viewerLevel}
       initialExp={viewerExp}
       initialMaxExp={viewerExpToNext}
       initialHpCharges={hpCharges}

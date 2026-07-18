@@ -58,7 +58,7 @@ export const V2_BUILD_TAGS: readonly V2BuildTagDef[] = [
   { id: "spi", label: "SPI", group: "stat" },
   { id: "physical", label: "물리", group: "combat" },
   { id: "magic", label: "마법", group: "combat", showInEquipmentCodex: true },
-  { id: "crit", label: "치명", group: "combat", showInEquipmentCodex: true },
+  { id: "crit", label: "치명타", group: "combat", showInEquipmentCodex: true },
   { id: "evasion", label: "회피", group: "combat", showInEquipmentCodex: true },
   { id: "speed", label: "속도", group: "combat", showInEquipmentCodex: true },
   { id: "tank", label: "탱커", group: "combat", showInEquipmentCodex: true },

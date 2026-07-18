@@ -36,8 +36,8 @@ export const SPARRING_DUMMY_FIELD_LIMITS: Record<
   spd: { label: "속도", min: 1, max: 300, step: 1 },
   accuracy: { label: "명중", min: 0, max: 1_000, step: 1 },
   evasionPct: { label: "회피", min: 0, max: 300, step: 1 },
-  critPct: { label: "치명률", min: 0, max: 100, step: 1 },
-  critMult: { label: "치명 배율", min: 1, max: 5, step: 0.1 },
+  critPct: { label: "치명타 확률", min: 0, max: 100, step: 1 },
+  critMult: { label: "치명타 배율", min: 1, max: 5, step: 0.1 },
   maxTurns: { label: "턴 수", min: 1, max: 100, step: 1 },
 };
 

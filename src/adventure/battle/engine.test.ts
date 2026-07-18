@@ -1036,8 +1036,8 @@ describe("연타 (extraAttackEveryNTurns)", () => {
   });
 });
 
-describe("크리티컬 (critChancePct)", () => {
-  it("Math.random 모킹 시 크리티컬 발동 → 데미지 ×critMult (기본)", () => {
+describe("치명타 (critChancePct)", () => {
+  it("Math.random 모킹 시 치명타 발동 → 데미지 ×critMult (기본)", () => {
     vi.spyOn(Math, "random").mockReturnValue(0); // 항상 발동
     const lucky: PlayerCombat = { ...PLAYER, critChancePct: 5 };
     const enemy = makeEnemy({ hp: 9999 });
@@ -1045,7 +1045,7 @@ describe("크리티컬 (critChancePct)", () => {
     const s1 = advanceTurn(s0, lucky, "P");
     const dmg = enemy.hp - s1.enemyHp;
     expect(dmg).toBe(Math.floor(damageBetween(PLAYER.atk, 3) * CRIT_MULT_BASE));
-    expect(s1.log.some((e) => e.text.includes("[크리티컬]"))).toBe(true);
+    expect(s1.log.some((e) => e.text.includes("[치명타]"))).toBe(true);
   });
 
   it("critMult 명시 시 그 값으로 곱해짐 (luk 비례 가정)", () => {
@@ -1058,7 +1058,7 @@ describe("크리티컬 (critChancePct)", () => {
     expect(dmg).toBe(Math.floor(damageBetween(PLAYER.atk, 3) * 3.0));
   });
 
-  it("Math.random=0.99 면 크리티컬 미발동 → 일반 데미지", () => {
+  it("Math.random=0.99 면 치명타 미발동 → 일반 데미지", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const lucky: PlayerCombat = { ...PLAYER, critChancePct: 5 };
     const enemy = makeEnemy({ hp: 9999 });
@@ -1264,7 +1264,7 @@ describe("광속 (lightspeedExtraAttackPct)", () => {
 });
 
 describe("만개 (critMult / critChance) 누적", () => {
-  it("크리티컬 발동 시 critMult 그대로 적용 (만개 보너스 호출 측 사전 계산)", () => {
+  it("치명타 발동 시 critMult 그대로 적용 (만개 보너스 호출 측 사전 계산)", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 0 });
     // 만개 슬롯 시 호출 측이 critMult 에 base + bloom 보너스 합산해서 넘긴다.
     // 여기서는 엔진이 그 값을 그대로 사용함을 확인.

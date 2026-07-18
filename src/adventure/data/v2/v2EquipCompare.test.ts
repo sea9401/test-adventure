@@ -33,9 +33,9 @@ describe("v2EquipCompareRows", () => {
     expect(spd.better).toBe(-1);
   });
 
-  it("후보만 가진 옵션은 이득으로 +값 노출(치명 +1%)", () => {
+  it("후보만 가진 옵션은 이득으로 +값 노출(치명타 +1%)", () => {
     const rows = v2EquipCompareRows(hornBow, woodenBow);
-    const crit = row(rows, "치명");
+    const crit = row(rows, "치명타");
     expect(crit.value).toBe("+1%");
     expect(crit.deltaText).toBe("+1%");
     expect(crit.better).toBe(1);
@@ -53,7 +53,7 @@ describe("v2EquipCompareRows", () => {
 
   it("후보엔 없고 장착엔 있는 옵션은 '—' + 손해(better=-1)", () => {
     const rows = v2EquipCompareRows(woodenBow, hornBow);
-    const crit = row(rows, "치명");
+    const crit = row(rows, "치명타");
     expect(crit.value).toBe("—");
     expect(crit.deltaText).toBe("-1%");
     expect(crit.better).toBe(-1);

@@ -519,7 +519,7 @@ export function resolvePlayerPhase(
   if (enchantExeActive) labels.push("별빛 처형");
   if (enchantBerserkActive) labels.push("폭주");
   if (breakerActive) labels.push("파괴");
-  if (critRoll) labels.push("크리티컬");
+  if (critRoll) labels.push("치명타");
   if (luckyStarFires) labels.push("행운의 별");
   if (assassinFires) labels.push("암살");
   if (decreeFires) labels.push("천명");
@@ -542,7 +542,7 @@ export function resolvePlayerPhase(
   if (shouldActivateLucky) {
     log = appendLog(log, {
       kind: "info",
-      text: `[이중 행운] 회피/크리티컬 +${player.doubleLuck!.crit}% 발동!`,
+      text: `[이중 행운] 회피/치명타 +${player.doubleLuck!.crit}% 발동!`,
     });
   }
   const luckyBuffActive = state.flags.luckyBuffActive || shouldActivateLucky;
@@ -617,7 +617,7 @@ export function resolvePlayerPhase(
   if (fatedChainFires) {
     log = appendLog(log, {
       kind: "info",
-      text: `[연쇄 운명] 별빛이 다음 결을 점지했다 — 다음 공격 크리 보장.`,
+      text: `[연쇄 운명] 별빛이 다음 결을 점지했다 — 다음 공격 치명타 보장.`,
     });
   }
   // 약점 큐 카운터: 이 공격에 사용된 경우 -1, 트리거 발화 시 +weakpointAdd.
@@ -674,7 +674,7 @@ export function resolvePlayerPhase(
       focusedBreathQueueBonusPct = effect.critDmgBonusPct;
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] 다음 공격 크리 보장 + 크리뎀 +${effect.critDmgBonusPct}%`,
+        text: `[${skill.name}] 다음 공격 치명타 보장 + 치명타 피해 +${effect.critDmgBonusPct}%`,
       });
     } else if (effect.kind === "cleanse_debuffs") {
       shouldCleanseDebuffs = true;

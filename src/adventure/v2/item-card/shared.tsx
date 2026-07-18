@@ -214,16 +214,16 @@ export function MasterworkBadge({
 
 // 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
 const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
-  crit: "치명",
+  crit: "치명타",
   eva: "회피",
   mp: "MP",
   hp: "HP",
-  critMult: "치명피해",
+  critMult: "치명타 피해",
   spd: "속도",
   def: "방어",
   magicDef: "마법방어",
   healPowerPct: "회복",
-  critResist: "치명저항",
+  critResist: "치명타 저항",
 };
 export function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
@@ -257,16 +257,16 @@ export function StatRow({ row }: { row: V2EquipStatRow }) {
 
 const RANGE_OPTION_LABEL_TO_KEY: Partial<Record<string, keyof V2EquipOptions>> =
   {
-    치명: "crit",
+    치명타: "crit",
     회피: "eva",
     MP: "mp",
     HP: "hp",
     속도: "spd",
-    치명피해: "critMult",
+    "치명타 피해": "critMult",
     방어: "def",
     마법방어: "magicDef",
     회복: "healPowerPct",
-    치명저항: "critResist",
+    "치명타 저항": "critResist",
   };
 
 function rollRange(
@@ -280,12 +280,12 @@ function rollRange(
 
 function formatRangeValue(label: string, value: number): string {
   if (label === "무게") return `${value}`;
-  if (label === "치명피해") return `+${(value / 100).toFixed(2)}×`;
+  if (label === "치명타 피해") return `+${(value / 100).toFixed(2)}×`;
   if (
-    label === "치명" ||
+    label === "치명타" ||
     label === "회피" ||
     label === "회복" ||
-    label === "치명저항"
+    label === "치명타 저항"
   ) {
     return `+${value}%`;
   }

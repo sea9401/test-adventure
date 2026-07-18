@@ -33,7 +33,7 @@ export const STAT_CONVERSIONS: Record<StatKey, string> = {
   dex: `1pt 당 회피 +0.5% (최대 ${EVASION_PCT_CAP}%, 초과분은 방어 무시로 전환) / 3pt 당 공격력 +1`,
   vit: "1pt 당 방어력 +1 / 1pt 당 최대 HP +3 / 방어력 5 당 공격력 +1 (방어구 합산)",
   spd: `1pt 당 추가 공격 확률 +${EXTRA_ATTACK_PCT_PER_SPD}% (100% 초과 시 추가타 1회 확정) / 5pt 당 공격력 +1`,
-  luk: `1pt 당 드랍률 +1% / 1pt 당 크리티컬 확률 +0.5% (최대 ${CRIT_PCT_CAP}%, 초과분은 크리 데미지로 전환) / 1pt 당 크리티컬 데미지 +0.025배 / 3pt 당 공격력 +1`,
+  luk: `1pt 당 드랍률 +1% / 1pt 당 치명타 확률 +0.5% (최대 ${CRIT_PCT_CAP}%, 초과분은 치명타 피해로 전환) / 1pt 당 치명타 피해 +0.025배 / 3pt 당 공격력 +1`,
   int: "현재 전투 효과 없음. 추후 마법 데미지와 MP 에 사용됩니다.",
 };
 

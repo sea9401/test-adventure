@@ -41,10 +41,19 @@ export function rollFishingCoopBossSpawn(rng: () => number): boolean {
   return rng() < FISHING_COOP_BOSS_SPAWN_CHANCE;
 }
 
+function isCriticalHitLog(text: string): boolean {
+  // 저장된 과거 리플레이는 이전 표기를 유지하므로 판독 호환성을 보존한다.
+  return (
+    text.includes("[치명타]") ||
+    text.includes("[크리티컬]") ||
+    text.includes("[크리]")
+  );
+}
+
 export function coopCriticalDamageFromLog(log: readonly BattleLogEntry[]): number {
   return log.reduce((sum, entry) => {
     if (entry.kind !== "player_attack") return sum;
-    if (!entry.text.includes("[크리티컬]")) return sum;
+    if (!isCriticalHitLog(entry.text)) return sum;
     const match = entry.text.match(/(\d+)\s*피해/);
     const damage = match ? Number(match[1]) : 0;
     return sum + (Number.isFinite(damage) ? Math.max(0, Math.floor(damage)) : 0);
@@ -388,7 +397,7 @@ export function coopBossMpPressureDamage(
     const damage = match ? Number(match[1]) : 0;
     if (!Number.isFinite(damage) || damage <= 0) continue;
     hits += 1;
-    if (entry.text.includes("[크리티컬]")) crits += 1;
+    if (isCriticalHitLog(entry.text)) crits += 1;
   }
   const damageRatioDrain = Math.floor(
     (Math.max(0, args.damageDealt) / bossMaxHp) *
@@ -742,7 +751,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     ],
     traits: [
       "공허의 저주 — 적중 시 저주 누적, 임계 도달 시 폭발 후 남은 저주는 받는 피해 증가",
-      "마법 치명 — 마법방어와 치명저항으로 대응",
+      "마법 치명타 — 마법 방어와 치명타 저항으로 대응",
       "발악 — HP 75%·50%·25% 단계로 점점 강해짐(방어력·공격력·회피)",
     ],
   },

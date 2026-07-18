@@ -1654,7 +1654,7 @@ export function castV2SkillOnAttackerTurnPvP(
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
-        text: `${result.castSkillName}!${skillCritFired ? " [크리티컬]" : ""} ${hit} 피해를 입혔다.`,
+        text: `${result.castSkillName}!${skillCritFired ? " [치명타]" : ""} ${hit} 피해를 입혔다.`,
         side: who,
       });
     }
@@ -1784,7 +1784,7 @@ export function castV2SkillOnAttackerTurnPvP(
   if (critBuff) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuff.pct}%p (${critBuff.turns}행동)`,
+      text: `[${result.castSkillName ?? "집중"}] 치명타 확률 +${critBuff.pct}%p (${critBuff.turns}행동)`,
       side: who,
     });
   }

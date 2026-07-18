@@ -493,7 +493,7 @@ export function advanceTurnPvP(
   if (powerBonus > 0) labels.push("강공격");
   if (powerBonus > 0 && crushReduction > 0) labels.push("분쇄");
   if (executionActive) labels.push("처형");
-  if (critRoll) labels.push("크리티컬");
+  if (critRoll) labels.push("치명타");
   if (luckyStarFires) labels.push("행운의 별");
   if (assassinFires) labels.push("암살");
   if (decreeFires) labels.push("천명");
@@ -658,7 +658,7 @@ export function advanceTurnPvP(
   if (shouldActivateLucky) {
     log = appendLog(log, {
       kind: "info",
-      text: `[이중 행운] ${attacker.name} 회피/크리티컬 +${attacker.player.doubleLuck!.crit}% 발동!`,
+      text: `[이중 행운] ${attacker.name} 회피/치명타 +${attacker.player.doubleLuck!.crit}% 발동!`,
     });
   }
   // 흡혈 / 행운의 흡혈 / 흡혈의 룬 — 가한 dmg (본타) 의 N% HP 회복.
@@ -743,7 +743,7 @@ export function advanceTurnPvP(
   if (fatedChainFires) {
     log = appendLog(log, {
       kind: "info",
-      text: `[연쇄 운명] ${attacker.name} — 별빛이 다음 결을 점지했다 (다음 공격 크리 보장).`,
+      text: `[연쇄 운명] ${attacker.name} — 별빛이 다음 결을 점지했다 (다음 공격 치명타 보장).`,
     });
   }
   const newWeakpointLeft =
@@ -812,7 +812,7 @@ export function advanceTurnPvP(
       focusedBreathQueueBonusPct = effect.critDmgBonusPct;
       log = appendLog(log, {
         kind: "info",
-        text: `[${skill.name}] 다음 공격 크리 보장 + 크리뎀 +${effect.critDmgBonusPct}%`,
+        text: `[${skill.name}] 다음 공격 치명타 보장 + 치명타 피해 +${effect.critDmgBonusPct}%`,
       });
     } else if (effect.kind === "cleanse_debuffs") {
       log = appendLog(log, {

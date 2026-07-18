@@ -870,7 +870,7 @@ export function equippedWoodcuttingBonuses(equipped: readonly V2SkillId[]): {
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
 const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction" | "reflectDamage", string> = {
   evasion: "회피",
-  crit: "치명률",
+  crit: "치명타 확률",
   damageReduction: "받는 피해 감소",
   reflectDamage: "반사 피해",
 };
@@ -1041,7 +1041,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
   if (p.skillCritOverflow)
-    chips.push(`치명 한계(75%) 초과 보너스를 스킬에도 적용`);
+    chips.push(`치명타 한계(75%) 초과 보너스를 스킬에도 적용`);
   if (p.comboFinisherBonusPct)
     chips.push(`4타마다 피해 +${p.comboFinisherBonusPct}%`);
   return chips;

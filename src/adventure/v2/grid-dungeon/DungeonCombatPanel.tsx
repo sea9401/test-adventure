@@ -197,26 +197,28 @@ function CombatLogList({
         </span>
         <span className="min-w-0 truncate text-zinc-300">{headline}</span>
       </div>
-      {expanded && (
-        <div className="space-y-1">
-          {visibleLines.map((line, idx) => {
-            const kind = classifyCombatLogLine(line, enemyName);
-            return (
-              <div
-                key={`${idx}:${line}`}
-                className="grid grid-cols-[42px_1fr] items-center gap-2"
-              >
-                <span
-                  className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
+      <div className="ui-expand-grid" data-open={expanded} aria-hidden={!expanded}>
+        <div className="ui-expand-content">
+          <div className="space-y-1 pt-1">
+            {visibleLines.map((line, idx) => {
+              const kind = classifyCombatLogLine(line, enemyName);
+              return (
+                <div
+                  key={`${idx}:${line}`}
+                  className="grid grid-cols-[42px_1fr] items-center gap-2"
                 >
-                  {combatLogLabel(kind)}
-                </span>
-                <span className="min-w-0 truncate text-zinc-400">{line}</span>
-              </div>
-            );
-          })}
+                  <span
+                    className={`rounded border px-1.5 py-0.5 text-center text-[10px] ${COMBAT_LOG_TONE[kind]}`}
+                  >
+                    {combatLogLabel(kind)}
+                  </span>
+                  <span className="min-w-0 truncate text-zinc-400">{line}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

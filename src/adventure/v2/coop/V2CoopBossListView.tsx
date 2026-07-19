@@ -442,21 +442,23 @@ export function V2CoopBossListView({
                   })}
                 </div>
               )}
-              {open && (
-                <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                  <div className="flex flex-wrap gap-1">
-                    {def.traits.map((t) => (
-                      <span
-                        key={t}
-                        className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                      >
-                        {t}
-                      </span>
-                    ))}
+              <div className="ui-expand-grid" data-open={open} aria-hidden={!open}>
+                <div className="ui-expand-content">
+                  <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+                    <div className="flex flex-wrap gap-1">
+                      {def.traits.map((t) => (
+                        <span
+                          key={t}
+                          className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                    <CoopRewardTable kind={def} />
                   </div>
-                  <CoopRewardTable kind={def} />
                 </div>
-              )}
+              </div>
             </Card>
           );
         })}

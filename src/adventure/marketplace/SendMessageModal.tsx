@@ -59,12 +59,12 @@ export function SendMessageModal({
       aria-modal="true"
       aria-labelledby="send-message-title"
       onClick={onClose}
-      className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="ui-modal-reveal fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-4 sm:items-center"
     >
       <div
         ref={contentRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="ui-modal-panel w-full max-w-md rounded-lg border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between">
           <h2

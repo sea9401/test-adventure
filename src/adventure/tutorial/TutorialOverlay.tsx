@@ -38,12 +38,12 @@ export function TutorialOverlayInner({
       aria-modal="true"
       aria-labelledby="tutorial-overlay-title"
       onClick={onDismiss}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="ui-modal-reveal fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
     >
       <div
         ref={contentRef}
         onClick={(e) => e.stopPropagation()}
-        className="no-scrollbar max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="ui-modal-panel no-scrollbar max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">

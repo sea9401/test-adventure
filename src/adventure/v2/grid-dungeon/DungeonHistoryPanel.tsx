@@ -209,42 +209,50 @@ export function DungeonHistory({
                   소요 {formatDuration(entry.durationMs)}
                 </div>
               )}
-              {expandedId === entry.id && (
-                <div className="mt-2 grid gap-1.5 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500 sm:grid-cols-2">
-                  <span>
-                    결과 메시지{" "}
-                    <span className="text-zinc-300">{entry.message}</span>
-                  </span>
-                  <span>
-                    보상 상태{" "}
-                    <span className="text-zinc-300">
-                      {entry.rewardLimited
-                        ? "골드만 정산"
-                        : entry.rewardGold > 0 || dropCount(entry.drops) > 0
-                          ? "정상 정산"
-                          : "정산 없음"}
+              <div
+                className="ui-expand-grid"
+                data-open={expandedId === entry.id}
+                aria-hidden={expandedId !== entry.id}
+              >
+                <div className="ui-expand-content">
+                  <div className="mt-2 grid gap-1.5 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500 sm:grid-cols-2">
+                    <span>
+                      결과 메시지{" "}
+                      <span className="text-zinc-300">{entry.message}</span>
                     </span>
-                  </span>
-                  <span>
-                    평균 전투 턴{" "}
-                    <span className="text-zinc-300">
-                      {entry.combatCount > 0
-                        ? Math.round(entry.totalCombatTurns / entry.combatCount)
-                        : 0}
+                    <span>
+                      보상 상태{" "}
+                      <span className="text-zinc-300">
+                        {entry.rewardLimited
+                          ? "골드만 정산"
+                          : entry.rewardGold > 0 || dropCount(entry.drops) > 0
+                            ? "정상 정산"
+                            : "정산 없음"}
+                      </span>
                     </span>
-                  </span>
-                  <span>
-                    생존 HP{" "}
-                    <span
-                      className={
-                        entry.hp > 0 ? "text-emerald-300" : "text-red-300"
-                      }
-                    >
-                      {entry.hp.toLocaleString()}
+                    <span>
+                      평균 전투 턴{" "}
+                      <span className="text-zinc-300">
+                        {entry.combatCount > 0
+                          ? Math.round(
+                              entry.totalCombatTurns / entry.combatCount,
+                            )
+                          : 0}
+                      </span>
                     </span>
-                  </span>
+                    <span>
+                      생존 HP{" "}
+                      <span
+                        className={
+                          entry.hp > 0 ? "text-emerald-300" : "text-red-300"
+                        }
+                      >
+                        {entry.hp.toLocaleString()}
+                      </span>
+                    </span>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>
@@ -252,4 +260,3 @@ export function DungeonHistory({
     </section>
   );
 }
-

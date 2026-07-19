@@ -266,18 +266,26 @@ export function onDodgeHealAmount(
   return amt;
 }
 
-// every_n_hits(포식자 세트) — 추가타 주기 N(가장 작은 N = 가장 자주). 없으면 0.
-//   "N타마다 추가타 1회". 0 이면 미발동.
+// every_n_hits — 추가타 주기 N(가장 작은 N = 가장 자주)과 발동 라벨.
+export function everyNHitsEffect(
+  signatures: SignatureEffect[] | undefined,
+): { hits: number; label: string } | null {
+  if (!signatures) return null;
+  let best: { hits: number; label: string } | null = null;
+  for (const s of signatures) {
+    if (s.trigger !== "every_n_hits" || !s.everyNHits || s.everyNHits < 1) continue;
+    if (!best || s.everyNHits < best.hits) {
+      best = { hits: s.everyNHits, label: s.label };
+    }
+  }
+  return best;
+}
+
+// 기존 수치 전용 호출부/테스트 호환. 0 이면 미발동.
 export function everyNHitsValue(
   signatures: SignatureEffect[] | undefined,
 ): number {
-  if (!signatures) return 0;
-  let best = 0;
-  for (const s of signatures) {
-    if (s.trigger !== "every_n_hits" || !s.everyNHits || s.everyNHits < 1) continue;
-    if (best === 0 || s.everyNHits < best) best = s.everyNHits;
-  }
-  return best;
+  return everyNHitsEffect(signatures)?.hits ?? 0;
 }
 
 // on_dodge 속도 버프(독왕 세트) — 회피 성공 시 발동할 속도 버프 {배수, 지속행동}(가장 강한).

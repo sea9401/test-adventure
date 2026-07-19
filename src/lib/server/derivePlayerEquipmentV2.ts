@@ -152,7 +152,7 @@ export function aggregateV2Equipment(
   return acc;
 }
 
-// 장착 발동형 시그니처 집계(Phase 2) — 마퀴 단품 + 활성 세트(전 조각 장착)의 시그니처를 모은다.
+// 장착 발동형 시그니처 집계(Phase 2) — 마퀴 단품 + 활성 세트/태그 세트의 시그니처를 모은다.
 //   엔진이 PlayerCombat.equipSignatures 로 읽어 전투 중 발동. 빈 배열 → derive 가 undefined 로
 //   내려 엔진 훅 미발화(골든 byte-identical). 순수 함수.
 export function collectEquipSignatures(
@@ -182,6 +182,20 @@ export function collectEquipSignatures(
       out.push(set.signature);
     }
   }
+  // 태그 세트 시그니처 — 현재 착용 수로 활성화된 모든 단계의 효과를 누적한다.
+  const tagCounts = new Map<string, number>();
+  for (const id of equippedIds) {
+    for (const tag of V2_EQUIPMENT[id]?.setTags ?? []) {
+      tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+    }
+  }
+  for (const set of V2_EQUIP_TAG_SETS) {
+    const count = tagCounts.get(set.id) ?? 0;
+    for (const threshold of set.thresholds) {
+      if (threshold.signature && count >= threshold.count) {
+        out.push(threshold.signature);
+      }
+    }
+  }
   return out;
 }
-

@@ -256,7 +256,7 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipCatalogTier[] {
 }
 
 describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 48 + 제작전용 35 + 전문화 스타터 3", () => {
+  it("정규 그리드 29종 + 유니크 48 + 제작전용 47 + 전문화 스타터 3", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 189:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
@@ -264,7 +264,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     //     강등된 옛 필드 유니크 포함) · 유니크 48
     //     (고유 아이템 30 + 보스 8). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
     //     신규 고유 아이템 30 → unique. 검은 왕도 이후 보스 유니크 2종 추가.
-    //     총 253 = 정규 29 + 유니크 48 + 제작전용 35 + 전문화 스타터 3 + noDrop 138.
+    //     총 265 = 정규 29 + 유니크 48 + 제작전용 47 + 전문화 스타터 3 + noDrop 138.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -273,7 +273,7 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "정규 그리드",
     ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(48);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(35);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(47);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(
       all.filter((i) => i.noDrop),
@@ -331,6 +331,18 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       "v2_crafted_astral_grimoire",
       "v2_crafted_aurora_crown",
       "v2_crafted_bulwark_shield",
+      "v2_crafted_combo_boots",
+      "v2_crafted_combo_bow",
+      "v2_crafted_combo_coat",
+      "v2_crafted_combo_gloves",
+      "v2_crafted_combo_necklace",
+      "v2_crafted_combo_ring",
+      "v2_crafted_corrosion_armor",
+      "v2_crafted_corrosion_boots",
+      "v2_crafted_corrosion_dagger",
+      "v2_crafted_corrosion_gloves",
+      "v2_crafted_corrosion_necklace",
+      "v2_crafted_corrosion_ring",
       "v2_crafted_focus_boots",
       "v2_crafted_focus_gloves",
       "v2_crafted_focus_ring",
@@ -432,8 +444,8 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
     const craftedSetPieces = crafted.filter((item) =>
       item.setTags?.some((tag) => craftedSetIds.has(tag)),
     );
-    expect(crafted).toHaveLength(35);
-    expect(craftedSetPieces).toHaveLength(28);
+    expect(crafted).toHaveLength(47);
+    expect(craftedSetPieces).toHaveLength(40);
     expect(
       craftedSetPieces.every((item) =>
         item.setTags?.some((tag) => craftedSetIds.has(tag)),
@@ -495,6 +507,26 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
         "v2_crafted_astral_grimoire",
       ]),
     );
+    expect(piecesBySet.get("artisan_combo")).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_combo_bow",
+        "v2_crafted_combo_coat",
+        "v2_crafted_combo_gloves",
+        "v2_crafted_combo_boots",
+        "v2_crafted_combo_ring",
+        "v2_crafted_combo_necklace",
+      ]),
+    );
+    expect(piecesBySet.get("artisan_corrosion")).toEqual(
+      expect.arrayContaining([
+        "v2_crafted_corrosion_dagger",
+        "v2_crafted_corrosion_armor",
+        "v2_crafted_corrosion_gloves",
+        "v2_crafted_corrosion_boots",
+        "v2_crafted_corrosion_ring",
+        "v2_crafted_corrosion_necklace",
+      ]),
+    );
     const allSlots = new Set([
       "weapon",
       "armor",
@@ -522,6 +554,8 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       artisan_fury: [2, 4, 6],
       artisan_gale: [2, 4, 6],
       artisan_arcane: [2, 4, 6],
+      artisan_combo: [2, 4, 6],
+      artisan_corrosion: [2, 4, 6],
     });
   });
 
@@ -543,6 +577,12 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       v2_crafted_fury_boots: 4,
       v2_crafted_pursuit_grips: 4,
       v2_crafted_windstep_boots: 4,
+      v2_crafted_combo_bow: 4,
+      v2_crafted_combo_gloves: 4,
+      v2_crafted_combo_boots: 4,
+      v2_crafted_corrosion_dagger: 4,
+      v2_crafted_corrosion_gloves: 4,
+      v2_crafted_corrosion_boots: 4,
       v2_crafted_master_ring: 6,
       v2_crafted_ward_plate: 6,
       v2_crafted_guard_ring: 6,
@@ -555,10 +595,16 @@ describe("V2_EQUIPMENT grid (제작 전용 포함 — 6슬롯)", () => {
       v2_crafted_pulsestone_guard: 6,
       v2_crafted_thundercoil_gloves: 6,
       v2_crafted_veinbreaker_bow: 6,
+      v2_crafted_combo_coat: 6,
+      v2_crafted_combo_ring: 6,
+      v2_crafted_corrosion_armor: 6,
+      v2_crafted_corrosion_ring: 6,
       v2_crafted_fury_necklace: 8,
       v2_crafted_pursuit_necklace: 8,
       v2_crafted_focus_robe: 8,
       v2_crafted_sunforge_blade: 8,
+      v2_crafted_combo_necklace: 8,
+      v2_crafted_corrosion_necklace: 8,
       v2_crafted_aurora_crown: 10,
       v2_crafted_fracture_blade: 12,
       v2_crafted_thunder_oracle_grimoire: 12,

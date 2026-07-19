@@ -1153,6 +1153,53 @@ describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 P
     expect(partial).toEqual([]);
   });
 
+  it("연격각인 6세트 → 4타마다 추가타 시그니처", () => {
+    const sigs = collectEquipSignatures({
+      weapon: "v2_crafted_combo_bow",
+      armor: "v2_crafted_combo_coat",
+      gloves: "v2_crafted_combo_gloves",
+      boots: "v2_crafted_combo_boots",
+      ring: "v2_crafted_combo_ring",
+      necklace: "v2_crafted_combo_necklace",
+    } as never);
+    expect(sigs).toContainEqual({
+      trigger: "every_n_hits",
+      label: "연격각인",
+      everyNHits: 4,
+    });
+  });
+
+  it("부식각인 4세트는 중독, 6세트는 방어 감소까지 활성화", () => {
+    const four = collectEquipSignatures({
+      weapon: "v2_crafted_corrosion_dagger",
+      armor: "v2_crafted_corrosion_armor",
+      gloves: "v2_crafted_corrosion_gloves",
+      boots: "v2_crafted_corrosion_boots",
+    } as never);
+    expect(four).toContainEqual({
+      trigger: "on_hit",
+      label: "부식독",
+      poisonChancePct: 15,
+      poisonStacks: 1,
+    });
+    expect(four.some((sig) => sig.label === "갑주부식")).toBe(false);
+
+    const full = collectEquipSignatures({
+      weapon: "v2_crafted_corrosion_dagger",
+      armor: "v2_crafted_corrosion_armor",
+      gloves: "v2_crafted_corrosion_gloves",
+      boots: "v2_crafted_corrosion_boots",
+      ring: "v2_crafted_corrosion_ring",
+      necklace: "v2_crafted_corrosion_necklace",
+    } as never);
+    expect(full).toContainEqual({
+      trigger: "on_crit",
+      label: "갑주부식",
+      enemyDefDebuffPct: 10,
+      buffActions: 2,
+    });
+  });
+
   it("derive → 시그니처 없으면 player.equipSignatures 미설정(byte-identical), 있으면 채움", () => {
     const none = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
     expect(none.equipSignatures).toBeUndefined();

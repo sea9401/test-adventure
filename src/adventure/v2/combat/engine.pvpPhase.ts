@@ -26,7 +26,7 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
-  everyNHitsValue,
+  everyNHitsEffect,
   formatDefDebuffLog,
   firesOnCritPoison,
   formatChillSlowLog,
@@ -865,8 +865,9 @@ export function advanceTurnPvP(
   // 고유 시그니처 on-crit(Phase 2·PvP 미러) — 군림=공격자 속도 버프, 독니=방어자 중독.
   //   미장착=null/false → byte-identical. critRoll + 피해 발생 게이트.
   const sigDealtDamage = totalDmg > 0;
-  // 포식자 every-N(Phase 2·PvP 미러) — N타마다 추가타. 미장착(N=0)=카운터 불변·추가타 0 → byte-identical.
-  const sigEveryN = everyNHitsValue(attacker.player.equipSignatures);
+  // every-N(PvP 미러) — N타마다 추가타. 미장착(N=0)=카운터 불변·추가타 0 → byte-identical.
+  const sigEvery = everyNHitsEffect(attacker.player.equipSignatures);
+  const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
     sigEveryN > 0 && sigDealtDamage
       ? attacker.stacks.signatureHitCount + 1
@@ -880,7 +881,7 @@ export function advanceTurnPvP(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[포식자] ${attacker.name} 연격 — 한 번 더!`,
+      text: `[${sigEvery?.label ?? "연격"}] ${attacker.name} 연격 — 한 번 더!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(

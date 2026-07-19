@@ -333,8 +333,15 @@ export function V2ItemCard({
                       }`}
                     >
                       <span>{threshold.count}세트</span>
-                      <span className="tabular-nums">
-                        {formatSetBonus(threshold.bonus)}
+                      <span className="text-right tabular-nums">
+                        <span className="block">
+                          {formatSetBonus(threshold.bonus)}
+                        </span>
+                        {threshold.signature ? (
+                          <span className="block">
+                            {signatureLabel(threshold.signature)}
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   );

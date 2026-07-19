@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER,
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
+  GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER,
   GUILD_WORKSHOP_RECIPES,
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
   addGuildWorkshopCraftRecord,
@@ -191,7 +191,7 @@ describe("guild workshop recipes", () => {
 
   it("exposes craft-only equipment, monster upgrades, and one boss upgrade recipe", () => {
     const recipes = Object.values(GUILD_WORKSHOP_RECIPES);
-    expect(recipes).toHaveLength(36);
+    expect(recipes).toHaveLength(48);
     expect(recipes.every((recipe) => recipe.id.startsWith("crafted_"))).toBe(
       true,
     );
@@ -222,6 +222,18 @@ describe("guild workshop recipes", () => {
     });
     expect(GUILD_WORKSHOP_RECIPES.crafted_fury_necklace).toMatchObject({
       equipmentId: "v2_crafted_fury_necklace",
+      requiredSmithyLevel: 3,
+      requiredArtisanLevel: 6,
+    });
+    expect(GUILD_WORKSHOP_RECIPES.crafted_combo_bow).toMatchObject({
+      equipmentId: "v2_crafted_combo_bow",
+      resourceProfile: "combo",
+      requiredSmithyLevel: 1,
+      requiredArtisanLevel: 1,
+    });
+    expect(GUILD_WORKSHOP_RECIPES.crafted_corrosion_necklace).toMatchObject({
+      equipmentId: "v2_crafted_corrosion_necklace",
+      resourceProfile: "corrosion",
       requiredSmithyLevel: 3,
       requiredArtisanLevel: 6,
     });

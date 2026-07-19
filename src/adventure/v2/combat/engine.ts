@@ -13,6 +13,7 @@ import {
   DAMAGE_FLOOR_FRACTION,
   defaultV2MaxMpFor,
   decrementTimedBuffs,
+  distributeV2DotTicks,
   makeBleedDot,
   makePoisonDot,
   potionHealAmount,
@@ -26,6 +27,7 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
+  v2DotLogCause,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -1004,17 +1006,23 @@ export function advanceTurn(
         : enemyDotTick.totalDmg;
     if (enemyDotDamage > 0) {
       const newHp = Math.max(0, state.enemyHp - enemyDotDamage);
+      const dotLog = distributeV2DotTicks(
+        enemyDotTick.ticks,
+        enemyDotDamage,
+      ).reduce(
+        (log, tick) =>
+          appendLog(log, {
+            kind: "info",
+            effect: "status_damage",
+            text: `${state.enemy.name}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+          }),
+        state.log,
+      );
       state = applyPhaseTriggerIfAny({
         ...state,
         enemyHp: newHp,
         enemyV2Dots: enemyDotTick.nextDots,
-        log: appendLog(state.log, {
-          kind: "player_attack",
-          text: `[${state.enemyV2Dots
-            .filter((d) => d.turns > 0)
-            .map((d) => d.label)
-            .join(" + ")}] ${enemyDotDamage} 피해를 입혔다.`,
-        }),
+        log: dotLog,
       });
       if (state.enemyHp <= 0) {
         return {
@@ -1798,24 +1806,28 @@ function resolveBattleLegacy(
       if (!v2CastedThisPlayerPhase) {
         v2CastedThisPlayerPhase = true;
         // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
-        // 적이 박은 dot 이므로 enemy_attack 로그 (오른쪽 적 레인).
+        // 일반 공격 레인과 섞이지 않도록 status_damage 효과 행으로 기록한다.
         const playerDotTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
         if (playerDotTick.totalDmg > 0) {
           const before = state.playerHp;
           const newHp = Math.max(0, before - playerDotTick.totalDmg);
-          const dotLabels = state.playerV2Dots
-            .filter((d) => d.turns > 0)
-            .map((d) => d.label)
-            .join(" + ");
+          const dotLog = distributeV2DotTicks(
+            playerDotTick.ticks,
+            playerDotTick.totalDmg,
+          ).reduce(
+            (log, tick) =>
+              appendLog(log, {
+                kind: "info",
+                effect: "status_damage",
+                text: `${playerName}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+              }),
+            state.log,
+          );
           state = {
             ...state,
             playerHp: newHp,
             playerV2Dots: playerDotTick.nextDots,
-            log: appendLog(state.log, {
-              kind: "enemy_attack",
-              // "입혔다" 로 통일 — 가한 쪽 관점(ATB tickPlayerBundleEntry 와 동일).
-              text: `[${dotLabels}] ${playerDotTick.totalDmg} 피해를 입혔다.`,
-            }),
+            log: dotLog,
           };
           if (state.playerHp <= 0) {
             state = {

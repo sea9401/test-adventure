@@ -9,6 +9,11 @@ export type BattleLogEntry =
       kind: "player_attack" | "enemy_attack" | "info" | "phase_trigger" | "turn_marker";
       text: string;
       /**
+       * 일반 공격과 다른 효과 행을 UI가 구분할 때 사용한다. 예전 리플레이는
+       * 이 필드가 없으며, BattleLogList가 대괄호 라벨로 폴백 판별한다.
+       */
+      effect?: "status" | "status_damage" | "extra_damage";
+      /**
        * 이 entry 가 발생한 페이즈. UI 가 좌/우 레인 분할에 사용 — info entry 의 사이드를
        * 결정. attack kind 는 그대로 좌(player)/우(enemy) 라 turn 보조 없이도 동작.
        * resolveBattle 이 advanceTurn 전후의 phase 차이를 보고 사후 태깅한다 (engine

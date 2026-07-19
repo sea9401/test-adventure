@@ -3,6 +3,7 @@ import type { BattleLogEntry } from "../v2/combat/engine";
 import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.
 // 라벨 pill + 데미지 강조 + 양쪽 레인 버블 + 턴 구분선 + 페이즈 트리거 배너.
@@ -76,6 +77,9 @@ export function BattleLogList({
       );
     }
     if (entry.kind === "player_attack" || entry.kind === "enemy_attack") {
+      if (isEffectBattleLogEntry(entry)) {
+        return <EffectLine key={i} text={entry.text} sizes={s} />;
+      }
       return (
         <AttackBubble
           key={i}
@@ -87,6 +91,9 @@ export function BattleLogList({
     }
     const side =
       entry.turn === "enemy" ? "right" : entry.turn === "player" ? "left" : null;
+    if (isEffectBattleLogEntry(entry)) {
+      return <EffectLine key={i} text={entry.text} sizes={s} />;
+    }
     return <InfoLine key={i} text={entry.text} side={side} sizes={s} />;
   };
 
@@ -99,7 +106,7 @@ export function BattleLogList({
         return (
           <div
             key={gi}
-            className={`${s.spacing} rounded-md border border-zinc-200 bg-white/50 p-2 dark:border-zinc-800 dark:bg-zinc-900/50`}
+            className={`${SURFACE_INSET} ${s.spacing} p-2`}
           >
             {group.map((entry, i) =>
               entry.kind === "hp_bar" && i !== lastHpIdx
@@ -227,12 +234,48 @@ function emphasizeNumbers(text: string): ReactNode[] {
   return parts.length > 0 ? parts : [text];
 }
 
-// "[라벨1 + 라벨2] 본문" → { labels: [...], body: "본문" }
-function parseLabel(text: string): { labels: string[]; body: string } {
-  const m = text.match(/^\[([^\]]+)\]\s*(.*)$/);
-  if (!m) return { labels: [], body: text };
-  const labels = m[1].split(/\s*\+\s*/).filter(Boolean);
-  return { labels, body: m[2] };
+// 예전 "[라벨] 본문"과 현재 "공격! [치명타] 본문" 형식을 모두 해석한다.
+// 연속된 라벨("공격! [강타] [마법] …")도 한 번에 분리해 본문을 읽기 쉽게 만든다.
+export function parseBattleLogText(text: string): {
+  labels: string[];
+  body: string;
+} {
+  const labels: string[] = [];
+  let body = text.trim();
+
+  const leading = body.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (leading) {
+    labels.push(...leading[1].split(/\s*\+\s*/).filter(Boolean));
+    body = leading[2];
+  }
+
+  const action = body.match(/^([^!]+!)\s*(.*)$/);
+  if (!action) return { labels, body };
+
+  let rest = action[2];
+  let foundInlineLabel = false;
+  while (true) {
+    const inline = rest.match(/^\[([^\]]+)\]\s*(.*)$/);
+    if (!inline) break;
+    labels.push(...inline[1].split(/\s*\+\s*/).filter(Boolean));
+    rest = inline[2];
+    foundInlineLabel = true;
+  }
+
+  return {
+    labels,
+    body: foundInlineLabel ? `${action[1]} ${rest}`.trim() : body,
+  };
+}
+
+// 새 로그는 effect 메타데이터로, 저장된 예전 리플레이는 선두 [라벨] 형식으로 효과 행을
+// 구분한다. 일반 공격과 독·화상·반격 등이 같은 말풍선으로 섞이지 않게 한다.
+export function isEffectBattleLogEntry(entry: BattleLogEntry): boolean {
+  if (entry.kind === "hp_bar" || entry.kind === "phase_trigger" || entry.kind === "turn_marker") {
+    return false;
+  }
+  if (entry.effect != null) return true;
+  return /^\s*\[[^\]]+\]/.test(entry.text);
 }
 
 function isClimaxInfo(text: string): boolean {
@@ -257,12 +300,20 @@ function AttackBubble({
   sizes: Sizes;
 }) {
   const isPlayer = side === "left";
-  const { labels, body } = parseLabel(text);
+  const { labels, body } = parseBattleLogText(text);
   // 저장된 전투 리플레이의 예전 표기도 계속 강조하되, 새 로그는 "치명타"만 생성한다.
   const isCrit = labels.some(
     (l) => l === "치명타" || l === "크리" || l === "크리티컬",
   );
-  const displayBody = body || labels.join(" + ");
+  const isBasicCrit = isCrit && body.startsWith("공격!");
+  const visibleLabels = isBasicCrit
+    ? labels.filter(
+        (label) => !["치명타", "크리", "크리티컬"].includes(label),
+      )
+    : labels;
+  const displayBody = isBasicCrit
+    ? body.replace(/^공격!/, "치명타!")
+    : body || labels.join(" + ");
   // 색 박스(초록=아군/빨강=적) 폐지 — 좌우 정렬로만 아군(좌)·적(우) 구분, 글씨는 흰/기본(유저 요청).
   // 피해량 숫자만 빨강 강조 유지(emphasizeNumbers). 상태 라벨 pill 은 v2StatusPillColor, 그 외 중립.
   return (
@@ -270,14 +321,14 @@ function AttackBubble({
       <div
         className={`max-w-[85%] ${sizes.bubble} leading-snug text-zinc-800 dark:text-zinc-100`}
       >
-        {(labels.length > 0 || isCrit) && (
+        {(visibleLabels.length > 0 || (isCrit && !isBasicCrit)) && (
           <div className="mb-0.5 flex flex-wrap gap-1">
-            {isCrit && (
+            {isCrit && !isBasicCrit && (
               <span className="text-xs leading-none text-amber-500 dark:text-amber-400">
                 ★
               </span>
             )}
-            {labels.map((l, idx) => (
+            {visibleLabels.map((l, idx) => (
               <span
                 key={idx}
                 className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
@@ -305,7 +356,7 @@ function InfoLine({
   side: "left" | "right" | null;
   sizes: Sizes;
 }) {
-  const { labels, body } = parseLabel(text);
+  const { labels, body } = parseBattleLogText(text);
   const climax = isClimaxInfo(text);
   const align =
     climax || side === null
@@ -335,6 +386,36 @@ function InfoLine({
       <span className={climax ? "" : "italic"}>
         {body ? emphasizeNumbers(body) : body}
       </span>
+    </div>
+  );
+}
+
+function EffectLine({ text, sizes }: { text: string; sizes: Sizes }) {
+  const { labels, body } = parseBattleLogText(text);
+  return (
+    <div
+      className={`flex items-start justify-center gap-1.5 px-1 py-0.5 text-center ${sizes.info} text-zinc-600 dark:text-zinc-300`}
+    >
+      <span
+        aria-hidden="true"
+        className="mt-px shrink-0 font-bold leading-none text-amber-500 dark:text-amber-400"
+      >
+        ✦
+      </span>
+      <div className="flex flex-wrap items-center justify-center gap-1">
+        {labels.map((label, index) => (
+          <span
+            key={`${label}-${index}`}
+            className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${
+              v2StatusPillColor(label) ??
+              "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            }`}
+          >
+            {label}
+          </span>
+        ))}
+        <span>{emphasizeNumbers(body)}</span>
+      </div>
     </div>
   );
 }

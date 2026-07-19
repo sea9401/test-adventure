@@ -205,16 +205,55 @@ export function v2DotPerStackDamage(dot: V2Dot, targetMaxHp: number): number {
 export function tickV2Dots(
   dots: V2DotList,
   targetMaxHp = 0,
-): { nextDots: V2Dot[]; totalDmg: number } {
+): { nextDots: V2Dot[]; totalDmg: number; ticks: V2DotTick[] } {
   const nextDots: V2Dot[] = [];
+  const ticks: V2DotTick[] = [];
   let totalDmg = 0;
   for (const d of dots) {
     if (d.turns <= 0) continue;
-    totalDmg += dotTickDamage(d.stacks, v2DotPerStackDamage(d, targetMaxHp));
+    const damage = dotTickDamage(
+      d.stacks,
+      v2DotPerStackDamage(d, targetMaxHp),
+    );
+    totalDmg += damage;
+    if (damage > 0) {
+      ticks.push({ tag: d.tag, label: d.label, damage });
+    }
     if (d.turns > 1) nextDots.push({ ...d, turns: d.turns - 1 });
     // turns === 1 → drop (이번 turn 이 마지막 적용).
   }
-  return { nextDots, totalDmg };
+  return { nextDots, totalDmg, ticks };
+}
+
+export type V2DotTick = Pick<V2Dot, "tag" | "label"> & {
+  damage: number;
+};
+
+// DoT 로그용 타격 분배. 엔진은 취약·PvP 보정을 여러 DoT의 총합에 한 번
+// 적용하므로, 표시할 때만 원본 피해 비율로 다시 나눈다. 반환 합은 반드시 totalDamage와
+// 같아 HP 차감값과 로그 합계가 어긋나지 않는다.
+export function distributeV2DotTicks(
+  ticks: readonly V2DotTick[],
+  totalDamage: number,
+): V2DotTick[] {
+  const distributed = distributeBoostedHits(
+    ticks.map((tick) => tick.damage),
+    totalDamage,
+  );
+  return ticks
+    .map((tick, index) => ({ ...tick, damage: distributed[index] ?? 0 }))
+    .filter((tick) => tick.damage > 0);
+}
+
+export function v2DotLogLabel(tick: Pick<V2DotTick, "tag" | "label">): string {
+  // 전투 문장에서는 효과명 "연소"보다 상태명 "화상"이 자연스럽다.
+  return tick.tag === "burn" ? "화상" : tick.label;
+}
+
+export function v2DotLogCause(tick: Pick<V2DotTick, "tag" | "label">): string {
+  const label = v2DotLogLabel(tick);
+  // 받침 ㄹ 뒤에는 "으로"가 아닌 "로"를 쓴다: 출혈로 / 중독으로 / 화상으로.
+  return `${label}${tick.tag === "bleed" ? "로" : "으로"}`;
 }
 
 export function makeBleedDot(args: {

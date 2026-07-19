@@ -346,8 +346,13 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
           },
         },
       );
-      const tick = result.finalState.log.find((e) => e.text.startsWith("[중독]"));
-      const amount = tick?.text.match(/\[중독\] (\d+) 피해/)?.[1];
+      const tick = result.finalState.log.find(
+        (e) =>
+          e.kind !== "hp_bar" &&
+          e.effect === "status_damage" &&
+          e.text.includes("중독으로"),
+      );
+      const amount = tick?.text.match(/중독으로 (\d+) 피해/)?.[1];
       return amount ? Number(amount) : 0;
     };
 

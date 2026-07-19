@@ -991,7 +991,7 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
   });
 
   it("tickV2Dots — 빈 배열 → 빈 결과", () => {
-    expect(tickV2Dots([])).toEqual({ nextDots: [], totalDmg: 0 });
+    expect(tickV2Dots([])).toEqual({ nextDots: [], totalDmg: 0, ticks: [] });
   });
 
   it("applyV2DotsToTarget — 같은 tag stack+refresh, 새 tag append", () => {

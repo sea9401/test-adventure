@@ -328,6 +328,15 @@ export function advanceTurnPvP(
   // 강공격 — POWER_ATTACK_TURN_INTERVAL 턴마다 첫 공격에 ATK + powerAttackBonus.
   const turnNumber = attacker.turn.completedPlayerTurns + 1;
   const isFirstAttackOfTurn = attacker.turn.firstAttackPending;
+  if (isFirstAttackOfTurn && attacker.attacksLeft > 1) {
+    state = {
+      ...state,
+      log: appendLog(state.log, {
+        kind: "info",
+        text: `${attacker.name}의 ${attacker.attacksLeft}회 공격!`,
+      }),
+    };
+  }
   const powerBonus =
     isFirstAttackOfTurn &&
     turnNumber % POWER_ATTACK_TURN_INTERVAL === 0 &&

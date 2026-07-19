@@ -10,7 +10,9 @@ import {
   makeBleedDot,
   makePoisonDot,
   tickV2Dots,
+  distributeV2DotTicks,
   applyV2DotsToTarget,
+  v2DotLogLabel,
   type V2Dot,
 } from "./combatShared";
 import { resolveBattle, type PlayerCombat } from "./engine";
@@ -79,6 +81,24 @@ describe("PR-2 DoT 피해 공식", () => {
     const poison = makePoisonDot({ stacks: 2, pctMaxHpPerStack: 0.005, sourceAtk: 100 }); // min(5,90)*2=10
     const r = tickV2Dots([bleed, poison], 1000);
     expect(r.totalDmg).toBe(66 + 10);
+    expect(r.ticks).toEqual([
+      { tag: "bleed", label: "출혈", damage: 66 },
+      { tag: "poison", label: "중독", damage: 10 },
+    ]);
+  });
+
+  it("취약 보정 후에도 상태별 로그 피해의 합은 최종 피해와 같다", () => {
+    const ticks = [
+      { tag: "bleed" as const, label: "출혈", damage: 66 },
+      { tag: "poison" as const, label: "중독", damage: 10 },
+    ];
+    const distributed = distributeV2DotTicks(ticks, 99);
+    expect(distributed.reduce((sum, tick) => sum + tick.damage, 0)).toBe(99);
+    expect(distributed.map((tick) => tick.damage)).toEqual([85, 14]);
+  });
+
+  it("전투 문장에서 burn은 화상으로 표시한다", () => {
+    expect(v2DotLogLabel({ tag: "burn", label: "연소" })).toBe("화상");
   });
 
   it("tick 피해는 정수로 내림 (소수점 누수 차단)", () => {
@@ -135,7 +155,7 @@ describe("PR-2 라이브 경로 — 적 DoT 가 resolveBattle 에서 실제로 �
       v2Skills: emptyV2SkillsState(),
     });
     const bleedTick = res.finalState.log.some(
-      (l) => l.text.includes("출혈") && l.text.includes("피해를 입혔다"),
+      (l) => l.text.includes("출혈") && l.text.includes("피해를 입었다"),
     );
     expect(bleedTick).toBe(true);
   });
@@ -149,7 +169,7 @@ describe("PR-2 라이브 경로 — 적 DoT 가 resolveBattle 에서 실제로 �
       v2Skills: emptyV2SkillsState(),
     });
     const bleedTick = res.finalState.log.some(
-      (l) => l.text.includes("출혈") && l.text.includes("피해를 입혔다"),
+      (l) => l.text.includes("출혈") && l.text.includes("피해를 입었다"),
     );
     expect(bleedTick).toBe(false);
   });

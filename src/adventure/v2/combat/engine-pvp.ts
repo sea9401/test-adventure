@@ -49,6 +49,7 @@ import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
   decrementTimedBuffs,
+  distributeV2DotTicks,
   makeBleedDot,
   makePoisonDot,
   potionHealAmount,
@@ -61,6 +62,7 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
+  v2DotLogCause,
 } from "./combatShared";
 import {
   battleStartShield,
@@ -1336,13 +1338,15 @@ export function endAttackerPhase(
     });
     next = {
       ...next,
-      log: appendLog(next.log, {
-        kind: "info",
-        text: `[${defenderBeforeDot.v2Dots
-          .filter((d) => d.turns > 0)
-          .map((d) => d.label)
-          .join(" + ")}] ${defenderBeforeDot.name}이(가) ${dotDamage} 피해를 입었다.`,
-      }),
+      log: distributeV2DotTicks(dotTick.ticks, dotDamage).reduce(
+        (log, tick) =>
+          appendLog(log, {
+            kind: "info",
+            effect: "status_damage",
+            text: `${defenderBeforeDot.name}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+          }),
+        next.log,
+      ),
     };
     if (newHp <= 0) {
       return {

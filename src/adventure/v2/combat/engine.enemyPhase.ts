@@ -179,6 +179,16 @@ export function resolveEnemyPhase(
     });
   }
 
+  if (enteringEnemyPhase && state.turn.enemyAttacksLeft > 1) {
+    state = {
+      ...state,
+      log: appendLog(state.log, {
+        kind: "info",
+        text: `${state.enemy.name}의 ${state.turn.enemyAttacksLeft}회 공격!`,
+      }),
+    };
+  }
+
   // 잔상 (AP) — 큐가 활성이면 적 공격 1회 무효. 데미지·반사 모두 스킵, count -1.
   // 회피·반사 우선순위보다 위에 둠 — "잔상" 은 적이 허를 쳐서 빈 자리만 후려치는 결.
   // 다대시 보스라도 잔상은 그 중 1대만 막음 (남은 추가타는 정상 진행).

@@ -42,6 +42,86 @@ body {
   overscroll-behavior-x: none;
 }
 
+/* ── 게임 드롭다운·도킹 패널 등장 모션 ────────────────────────────
+   메뉴는 즉시 조작할 수 있을 만큼 짧게 열되, 위에서 풀리며 항목이 연달아 보이는 감각을 준다.
+   채팅은 화면 아래에 붙으므로 같은 속도로 아래에서 살짝 올라온다. */
+@keyframes ui-dropdown-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -7px, 0) scaleY(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scaleY(1);
+  }
+}
+
+@keyframes ui-dropdown-item-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-popover-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.ui-dropdown-reveal {
+  transform-origin: top center;
+  animation: ui-dropdown-reveal 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.ui-dropdown-reveal > * {
+  animation: ui-dropdown-item-reveal 115ms ease-out both;
+}
+
+.ui-dropdown-reveal > :nth-child(2) {
+  animation-delay: 14ms;
+}
+
+.ui-dropdown-reveal > :nth-child(3) {
+  animation-delay: 28ms;
+}
+
+.ui-dropdown-reveal > :nth-child(4) {
+  animation-delay: 42ms;
+}
+
+.ui-dropdown-reveal > :nth-child(5) {
+  animation-delay: 56ms;
+}
+
+.ui-dropdown-reveal > :nth-child(n + 6) {
+  animation-delay: 70ms;
+}
+
+.ui-popover-reveal {
+  transform-origin: bottom right;
+  animation: ui-popover-reveal 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-dropdown-reveal,
+  .ui-dropdown-reveal > *,
+  .ui-popover-reveal {
+    animation: none !important;
+  }
+}
+
 /* 전역 — 페이지·내부 컨테이너 모두의 네이티브 스크롤바 막대 숨김. 스크롤 동작은 유지.
    no-scrollbar 유틸과 동일 효과를 모든 요소에 자동 적용 (앞으로 추가될 스크롤도 자동). */
 * {

@@ -160,7 +160,7 @@ export function NotificationBell() {
         <section
           role="dialog"
           aria-label="최근 알림 미리보기"
-          className={`${SURFACE_CARD} absolute right-0 top-full z-[70] mt-2 w-[min(22rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-xl`}
+          className={`${SURFACE_CARD} ui-dropdown-reveal absolute right-0 top-full z-[70] mt-2 w-[min(22rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-xl`}
         >
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">

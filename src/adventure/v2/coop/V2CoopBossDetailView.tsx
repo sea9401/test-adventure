@@ -30,6 +30,7 @@ import {
   CoopRewardTable,
 } from "@/adventure/v2/coop/CoopRewardTable";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 
 function fmtPreviewNumber(value: number): string {
   return Number.isInteger(value) ? value.toLocaleString() : value.toFixed(1);
@@ -208,7 +209,7 @@ export function V2CoopBossDetailView({
           )}
         </div>
 
-        {/* 발악 단계 트래커 — 현재 HP 기준 발동(🔥)/임박(⚠)/예정 단계를 라이브로. 토벌이
+        {/* 발악 단계 트래커 — 현재 HP 기준 발동/임박/예정 단계를 라이브로. 토벌이
             진행될수록 보스가 더 사나워지는 것을 미리 보여준다(예고). */}
         {enrage && enrage.totalStages > 0 && (
           <div className="space-y-1">
@@ -221,7 +222,7 @@ export function V2CoopBossDetailView({
                 return (
                   <span
                     key={stage.hpFraction}
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
                       on
                         ? "border border-rose-400/60 bg-rose-500/15 text-rose-700 dark:text-rose-300"
                         : isNext
@@ -229,7 +230,12 @@ export function V2CoopBossDetailView({
                           : "border border-zinc-200 text-zinc-400 dark:border-zinc-700"
                     }`}
                   >
-                    {on ? "🔥 " : isNext ? "⚠ " : ""}HP{" "}
+                    {on ? (
+                      <GameIcon name="Campfire" size={12} weight="fill" />
+                    ) : isNext ? (
+                      <GameIcon name="Warning" size={12} weight="fill" />
+                    ) : null}
+                    HP{" "}
                     {Math.round(stage.hpFraction * 100)}%
                   </span>
                 );

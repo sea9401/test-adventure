@@ -1,6 +1,8 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { CoinAmount } from "@/adventure/v2/CoinAmount";
 
 // 코인 상점 공용 리스트 — 칭호/소비품 목록의 li 마크업이 낚시/투기장 뷰에
 // 복붙되던 것의 단일화(2026-07). accent = 상점 테마 색.
@@ -60,7 +62,8 @@ export function CoinTitleShopList({
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  🏆 {e.name}
+                  <GameIcon name="Trophy" size={17} />
+                  {e.name}
                   {isOwned && (
                     <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                       보유
@@ -77,11 +80,15 @@ export function CoinTitleShopList({
                 onClick={() => onBuy(e.titleId)}
                 className={BUY_BTN[accent]}
               >
-                {isOwned
-                  ? "보유 중"
-                  : inFlight
-                    ? "구매 중…"
-                    : `🪙 ${e.price.toLocaleString()}`}
+                {isOwned ? (
+                  "보유 중"
+                ) : inFlight ? (
+                  "구매 중…"
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <CoinAmount amount={e.price} />
+                  </span>
+                )}
               </button>
             </li>
           );
@@ -122,7 +129,8 @@ export function CoinConsumableShopList({
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 text-sm font-semibold">
-                  🧪 {c.name}
+                  <GameIcon name="Flask" size={17} />
+                  {c.name}
                   {c.itemId === "stamina_potion" && staminaPotions > 0 && (
                     <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
                       보유 {staminaPotions}
@@ -144,9 +152,15 @@ export function CoinConsumableShopList({
                 onClick={() => onBuyConsumable(c.itemId)}
                 className={BUY_BTN[accent]}
               >
-                {inFlight
-                  ? "구매 중…"
-                  : c.buttonLabel ?? `🪙 ${c.price.toLocaleString()}`}
+                {inFlight ? (
+                  "구매 중…"
+                ) : c.buttonLabel ? (
+                  c.buttonLabel
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <CoinAmount amount={c.price} />
+                  </span>
+                )}
               </button>
             </li>
           );

@@ -6,6 +6,13 @@ import {
   type GuildAlchemyRecipe,
 } from "@/adventure/data/v2/guildAlchemy";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
+import {
+  SURFACE_ACCENT,
+  SURFACE_CARD,
+  SURFACE_INSET,
+} from "@/components/ui/surfaces";
 
 type WorkshopState = {
   level: number;
@@ -36,8 +43,7 @@ const TARGETS: Array<{ id: GuildAlchemyChargeTarget; label: string }> = [
   { id: "balanced", label: "반반 충전" },
 ];
 
-const ALCHEMY_PANEL_CLASS =
-  "space-y-3 rounded-md border border-violet-200 bg-white p-3 text-sm text-zinc-900 shadow-sm dark:border-violet-900/60 dark:bg-zinc-950 dark:text-zinc-100";
+const ALCHEMY_PANEL_CLASS = `${SURFACE_CARD} space-y-3 border-violet-200 p-3 text-sm text-zinc-900 dark:border-violet-900 dark:text-zinc-100`;
 
 export function GuildAlchemyWorkshopPanel() {
   const { applyResourcePatch } = useGameState();
@@ -143,11 +149,11 @@ export function GuildAlchemyWorkshopPanel() {
 
   return (
     <section className={ALCHEMY_PANEL_CLASS}>
-      <section className="rounded-lg border border-violet-200 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950">
+      <section className={`${SURFACE_ACCENT} border-violet-200 p-4 dark:border-violet-900`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span aria-hidden className="text-xl">⚗️</span>
+              <GameIcon name="Flask" size={22} />
               <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
                 연금 공방 Lv.{state.level}
               </h3>
@@ -170,11 +176,18 @@ export function GuildAlchemyWorkshopPanel() {
         <ChargeSummary label="MP 충전약" current={state.charges.mp} max={state.charges.max} color="bg-blue-500" />
       </section>
 
-      <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+      <section className={`${SURFACE_INSET} p-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs text-zinc-600 dark:text-zinc-300">
-            보유 재료 · 🌿 허브 <b>{state.materials.herb.toLocaleString()}</b> · 🍃 은빛잎{" "}
-            <b>{state.materials.silverleaf.toLocaleString()}</b>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-600 dark:text-zinc-300">
+            <span>보유 재료</span>
+            <span className="inline-flex items-center gap-1.5">
+              <FarmItemIcon itemId="herb" className="h-7 w-7" />
+              허브 <b>{state.materials.herb.toLocaleString()}</b>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <FarmItemIcon itemId="silverleaf" className="h-7 w-7" />
+              은빛잎 <b>{state.materials.silverleaf.toLocaleString()}</b>
+            </span>
           </div>
           <div className="flex rounded-md border border-zinc-200 p-0.5 dark:border-zinc-700">
             {TARGETS.map((option) => (
@@ -215,10 +228,8 @@ export function GuildAlchemyWorkshopPanel() {
           return (
             <article
               key={recipe.id}
-              className={`rounded-lg border p-3 ${
-                recipe.unlocked
-                  ? "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"
-                  : "border-zinc-200 bg-zinc-100 opacity-70 dark:border-zinc-800 dark:bg-zinc-900"
+              className={`${recipe.unlocked ? SURFACE_CARD : SURFACE_INSET} p-3 ${
+                recipe.unlocked ? "" : "text-zinc-500 dark:text-zinc-400"
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -232,9 +243,18 @@ export function GuildAlchemyWorkshopPanel() {
                   +{recipe.chargeAmount.toLocaleString()}
                 </span>
               </div>
-              <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
-                🌿 {recipe.ingredients.herb}
-                {recipe.ingredients.silverleaf > 0 && ` · 🍃 ${recipe.ingredients.silverleaf}`} · 연성력 {recipe.energyCost}
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                <span className="inline-flex items-center gap-1">
+                  <FarmItemIcon itemId="herb" className="h-6 w-6" />
+                  {recipe.ingredients.herb}
+                </span>
+                {recipe.ingredients.silverleaf > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <FarmItemIcon itemId="silverleaf" className="h-6 w-6" />
+                    {recipe.ingredients.silverleaf}
+                  </span>
+                )}
+                <span>· 연성력 {recipe.energyCost}</span>
               </div>
               {!recipe.unlocked ? (
                 <p className="mt-3 text-center text-xs font-semibold text-zinc-500">공방 Lv.{recipe.minFacilityLevel} 필요</p>

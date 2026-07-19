@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   isTileOutpostId,
@@ -273,7 +274,7 @@ export function V2VillagePanel({
                 key={slot}
                 className={`${base} border-dashed border-zinc-300 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500`}
               >
-                <span className="text-base leading-none">🔒</span>
+                <GameIcon name="Lock" size={18} />
                 <span className="mt-1 text-[10px]">잠김</span>
               </div>
             );
@@ -285,7 +286,7 @@ export function V2VillagePanel({
                 title={building.desc}
                 className={`${base} border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200`}
               >
-                <span className="text-base leading-none">{building.icon}</span>
+                <GameIcon name={building.iconName} size={18} />
                 <span className="mt-0.5 text-[10px]">{building.name}</span>
                 <span className="mt-0.5 text-[10px] font-semibold">
                   Lv {buildingSlot?.level ?? 1}
@@ -300,7 +301,7 @@ export function V2VillagePanel({
               title="비어 있는 건축물 슬롯"
               className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-500`}
             >
-              <span className="text-base leading-none opacity-60">🏗️</span>
+              <GameIcon name="CraneTower" size={18} className="text-zinc-400" />
               <span className="mt-0.5 text-[10px]">빈 부지</span>
             </div>
           );
@@ -312,7 +313,10 @@ export function V2VillagePanel({
   const header = (
     <div className="flex items-start justify-between gap-2">
       <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-        🏡 {village?.name ?? "빈 공터"}
+        <span className="inline-flex items-center gap-1.5">
+          <GameIcon name="House" size={18} />
+          {village?.name ?? "빈 공터"}
+        </span>
         {built && village ? (
           <span className="font-normal text-zinc-600 dark:text-zinc-300">
             {" · "}
@@ -658,7 +662,7 @@ export function V2VillagePanel({
                       className="flex w-full items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="text-base leading-none">{def.icon}</span>
+                        <GameIcon name={def.iconName} size={18} />
                         <span className="min-w-0">
                           <span className="block font-medium">
                             {def.name}

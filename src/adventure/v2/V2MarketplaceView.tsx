@@ -66,6 +66,7 @@ import { MarketplaceEquipmentTab } from "./marketplace/MarketplaceEquipmentTab";
 import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
 import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
 import { useSystemMessageState } from "./RewardToastProvider";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 
 // v2 거래소 — 장비 개체 + 재료 + 소모품(희귀 탐사/입장권) 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -554,8 +555,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       <SubViewHeader title="거래소" onBack={onBack} />
       {/* 보유 골드 — 헤더 우측에 두면 큰 숫자에서 가운데 타이틀과 겹쳐 별도 줄로(모바일 겹침 수정). */}
       {gold !== null && (
-        <div className="-mt-2 flex justify-end text-xs font-medium tabular-nums text-amber-700 dark:text-amber-400">
-          💰 보유 {gold.toLocaleString()}골드
+        <div className="-mt-2 flex items-center justify-end gap-1 text-xs font-medium tabular-nums text-amber-700 dark:text-amber-400">
+          <GameIcon name="Coins" size={15} />
+          보유 {gold.toLocaleString()}골드
         </div>
       )}
 
@@ -922,13 +924,14 @@ function BuyConfirm({
               const st = consumableStatusLine(listing.instancePayload);
               return st ? (
                 <div
-                  className={`text-[11px] ${
+                  className={`flex items-center gap-1 text-[11px] ${
                     st.expired
                       ? "text-rose-600 dark:text-rose-400"
                       : "text-sky-700 dark:text-sky-400"
                   }`}
                 >
-                  🗺 {st.text}
+                  <GameIcon name="MapTrifold" size={14} className="shrink-0" />
+                  {st.text}
                 </div>
               ) : null;
             })()}
@@ -1144,13 +1147,14 @@ function ListingList({
                 const st = consumableStatusLine(l.instancePayload);
                 return st ? (
                   <div
-                    className={`mt-0.5 text-[11px] ${
+                    className={`mt-0.5 flex items-center gap-1 text-[11px] ${
                       st.expired
                         ? "text-rose-600 dark:text-rose-400"
                         : "text-sky-700 dark:text-sky-400"
                     }`}
                   >
-                    🗺 {st.text}
+                    <GameIcon name="MapTrifold" size={14} className="shrink-0" />
+                    {st.text}
                   </div>
                 ) : null;
               })()}
@@ -1160,8 +1164,9 @@ function ListingList({
               </div>
             )}
             {progressionLock && (
-              <div className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                🔒 착용 조건: {progressionLock.label}
+              <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                <GameIcon name="Lock" size={13} className="shrink-0" />
+                착용 조건: {progressionLock.label}
               </div>
             )}
             <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">

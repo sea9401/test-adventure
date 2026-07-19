@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   GUILD_FACILITY_UNLOCK_GOLD_COST,
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
@@ -71,7 +72,7 @@ export function GuildFacilitiesPanel({
       id,
       count,
       level,
-      icon: def.icon,
+      iconName: def.iconName,
       name: def.name,
       desc: FACILITY_DESC[id] ?? def.desc.replaceAll("영지 ", ""),
       actionLabel: id === "exploration_hq" ? "현황" : "열기",
@@ -217,7 +218,7 @@ export function GuildFacilitiesPanel({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span aria-hidden>{row.icon}</span>
+                      <GameIcon name={row.iconName} size={18} />
                       <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                         {row.name}
                       </span>

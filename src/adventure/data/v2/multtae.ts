@@ -8,6 +8,7 @@
 
 import { WINDOW_2H_MS, hash32 } from "./hash";
 import type { FishId } from "./fish";
+import type { GameIconName } from "./gameIcon";
 
 // 물때 창 = 2시간(UTC epoch 정렬 → 전 유저 동시 전환). 클라가 직접 계산해 배지를 그린다.
 export const MULTTAE_WINDOW_MS = WINDOW_2H_MS;
@@ -38,6 +39,7 @@ export type MulttaeCondition = {
   id: MulttaeConditionId;
   label: string;
   emoji: string;
+  iconName: GameIconName;
   /** 한 줄 분위기 설명(유저 노출). */
   description: string;
   /** 이 물때에만 입질하는 특별 손님. 없으면 평범한 물때(흔한 손님들의 시간). */
@@ -51,6 +53,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "dawn",
     label: "여명 물때",
     emoji: "🌅",
+    iconName: "SunHorizon",
     description: "동이 트며 물낯이 금빛으로 물든다. 이 시간에만 비치는 손님이 있다.",
     specialFishId: "goldeye",
     effect: {
@@ -62,6 +65,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "starlit",
     label: "별빛 물때",
     emoji: "🌌",
+    iconName: "MoonStars",
     description: "별빛이 수면에 잠긴 깊은 밤. 어둠을 좋아하는 것이 올라온다.",
     specialFishId: "moonshadow_eel",
     effect: {
@@ -73,6 +77,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "mist",
     label: "물안개 물때",
     emoji: "🌫",
+    iconName: "CloudFog",
     description: "물안개가 자욱이 깔린다. 안개 속에서 비단결이 어른거린다.",
     specialFishId: "mist_koi",
     effect: {
@@ -84,6 +89,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "tempest",
     label: "폭풍 물때",
     emoji: "⛈",
+    iconName: "CloudLightning",
     description: "거센 물살이 인다. 파도를 가르며 날아오르는 것이 걸린다.",
     specialFishId: "stormrider",
     effect: {
@@ -96,6 +102,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "moonlit",
     label: "월광 물때",
     emoji: "🌕",
+    iconName: "Moon",
     description: "달빛이 길게 번진다. 은은한 빛을 따라 차가운 손님이 오른다.",
     specialFishId: "moonlit_trout",
     effect: {
@@ -108,6 +115,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "rapid",
     label: "여울 물때",
     emoji: "🏞",
+    iconName: "Mountains",
     description: "얕은 물살이 빠르게 흐른다. 거슬러 오르는 물고기가 힘차게 문다.",
     specialFishId: "waterfall_salmon",
     effect: {
@@ -119,6 +127,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "ebb",
     label: "썰물 물때",
     emoji: "🌊",
+    iconName: "Waves",
     description: "물이 빠지며 바닥의 길이 드러난다. 그림자처럼 숨어 있던 것이 움직인다.",
     specialFishId: "ghost_eel",
     effect: {
@@ -131,6 +140,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "deepcurrent",
     label: "심류 물때",
     emoji: "🌀",
+    iconName: "Wind",
     description: "깊은 물길이 조용히 뒤틀린다. 바닥의 거대한 수염이 미끼를 찾는다.",
     specialFishId: "abyss_catfish",
     effect: {
@@ -143,6 +153,7 @@ export const MULTTAE_CONDITIONS: readonly MulttaeCondition[] = [
     id: "still",
     label: "잔잔한 물때",
     emoji: "🪷",
+    iconName: "FlowerLotus",
     description: "물낯이 거울처럼 고요하다. 오늘은 흔한 손님들의 시간이다.",
     effect: {
       label: "입질 대기 -5%",

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { BattleLogEntry } from "../v2/combat/engine";
 import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.
 // 라벨 pill + 데미지 강조 + 양쪽 레인 버블 + 턴 구분선 + 페이즈 트리거 배너.
@@ -466,9 +467,9 @@ function InlineBar({
 function PhaseTriggerBanner({ text, sizes }: { text: string; sizes: Sizes }) {
   return (
     <div
-      className={`my-1 rounded border border-amber-400/60 bg-amber-100/70 px-2 py-1 ${sizes.banner} text-amber-900 shadow-sm dark:border-amber-500/40 dark:bg-amber-900/30 dark:text-amber-200`}
+      className={`my-1 flex items-center gap-1 rounded border border-amber-400 bg-amber-100 px-2 py-1 ${sizes.banner} text-amber-900 shadow-sm dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200`}
     >
-      <span className="mr-1">⚠</span>
+      <GameIcon name="Warning" size={16} weight="fill" className="shrink-0" />
       <span className="font-semibold">{text}</span>
     </div>
   );

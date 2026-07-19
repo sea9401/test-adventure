@@ -10,6 +10,7 @@ import {
   useRewardToast,
   useSystemMessageState,
 } from "@/adventure/v2/RewardToastProvider";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
 import {
   GUILD_EXPLORATION_EVENTS,
@@ -256,7 +257,10 @@ export function GuildExplorationPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span aria-hidden>{SETTLEMENT_BUILDINGS.exploration_hq.icon}</span>
+            <GameIcon
+              name={SETTLEMENT_BUILDINGS.exploration_hq.iconName}
+              size={18}
+            />
             <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">
               {SETTLEMENT_BUILDINGS.exploration_hq.name}
             </h3>

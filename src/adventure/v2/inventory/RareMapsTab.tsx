@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   RARE_MAP_KINDS,
   type RareMapInstance,
@@ -153,9 +154,10 @@ function MasteryTomeSection({
             }
             className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-violet-400"
           >
-            <span className="block truncate text-sm font-medium">
-              📘 {material?.name ?? "상급 숙련 교본"}
-              <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+              <GameIcon name="Scroll" size={17} className="shrink-0 text-violet-600" />
+              <span className="truncate">{material?.name ?? "상급 숙련 교본"}</span>
+              <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                 ×{held}
               </span>
             </span>
@@ -254,9 +256,10 @@ function SpFruitSection({
                   }
                   className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-amber-400"
                 >
-                  <span className="block truncate text-sm font-medium">
-                    🍂 {def.name}
-                    <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                    <GameIcon name="Plant" size={17} className="shrink-0 text-amber-600" />
+                    <span className="truncate">{def.name}</span>
+                    <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
                       ×{held}
                     </span>
                   </span>
@@ -461,8 +464,9 @@ function ConsumableList({
                   }
                   className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-sky-400"
                 >
-                  <span className="block truncate text-sm font-medium">
-                    🎟 {def?.name ?? m.kind}
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                    <GameIcon name="Ticket" size={17} className="shrink-0 text-sky-600" />
+                    <span className="truncate">{def?.name ?? m.kind}</span>
                   </span>
                 </button>
                 <Button

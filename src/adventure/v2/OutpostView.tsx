@@ -46,6 +46,7 @@ import {
 } from "@/adventure/data/v2/outpostGraph";
 import { areTilesAdjacent4 } from "@/adventure/data/v2/tileConfig";
 import { guildColorHex } from "@/adventure/data/guild-colors";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -640,8 +641,9 @@ export function OutpostView({
 
       <section className="space-y-2">
         {dungeonDisabled && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-            ⚠️ {dungeonDisabled.reason} — 사냥 불가
+          <div className="flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+            <GameIcon name="Warning" size={15} weight="fill" />
+            {dungeonDisabled.reason} — 사냥 불가
           </div>
         )}
 

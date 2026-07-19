@@ -11,11 +11,17 @@ import {
 import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
 import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
 import {
+  MULTTAE_BY_ID,
   multtaeAt,
   type MulttaeConditionId,
 } from "@/adventure/data/v2/multtae";
 import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 import { FishIcon } from "@/adventure/v2/FishIcon";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
+import {
+  isFishingCatchItemId,
+} from "@/adventure/v2/fishingStock";
 import {
   FISHING_LURES,
   FISHING_RODS,
@@ -1357,11 +1363,8 @@ function levelBonusLabels(progression: FishingProgressionView): string[] {
 
 function rewardSummaryLabels(result: CaughtReelOutcome): string[] {
   const labels: string[] = [];
-  if (result.catchItem && result.catchItem.quantity > 0) {
-    labels.push(
-      `${result.catchItem.icon} ${result.catchItem.name} +${result.catchItem.quantity} · 보유 ${result.catchItem.balance} · 오늘 ${result.catchItem.dailyAwarded}/${result.catchItem.dailyCap}`,
-    );
-  } else if (
+  if (
+    !result.catchItem &&
     result.catchItemStatus === "daily_cap" &&
     result.catchItemDaily
   ) {
@@ -1416,9 +1419,24 @@ function challengeProgressSummary(
 
 function CatchRewardSummary({ result }: { result: CaughtReelOutcome }) {
   const labels = rewardSummaryLabels(result);
-  if (labels.length === 0) return null;
+  const catchItem =
+    result.catchItem &&
+    result.catchItem.quantity > 0 &&
+    isFishingCatchItemId(result.catchItem.id)
+      ? result.catchItem
+      : null;
+  const catchItemId =
+    catchItem && isFishingCatchItemId(catchItem.id) ? catchItem.id : null;
+  if (!catchItem && labels.length === 0) return null;
   return (
     <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+      {catchItem && catchItemId && (
+        <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+          <FishingCatchItemIcon itemId={catchItemId} size={14} />
+          {catchItem.name} +{catchItem.quantity} · 보유 {catchItem.balance} · 오늘{" "}
+          {catchItem.dailyAwarded}/{catchItem.dailyCap}
+        </span>
+      )}
       {labels.map((label) => (
         <span
           key={label}
@@ -1810,8 +1828,16 @@ export function FishingView({
                 {FISH_TIERS[result.tier].label}
               </div>
               {result.special && (
-                <div className="text-[11px] font-medium text-sky-600 dark:text-sky-400">
-                  {result.special.emoji} {result.special.label}의 특별한 손님
+                <div className="inline-flex items-center justify-center gap-1 text-[11px] font-medium text-sky-600 dark:text-sky-400">
+                  <GameIcon
+                    name={
+                      MULTTAE_BY_ID.get(
+                        result.special.id as MulttaeConditionId,
+                      )?.iconName ?? "Fish"
+                    }
+                    size={14}
+                  />
+                  {result.special.label}의 특별한 손님
                 </div>
               )}
               <div className="flex flex-wrap justify-center gap-1.5 pt-1">

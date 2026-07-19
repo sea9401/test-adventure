@@ -10,6 +10,7 @@
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 
 export type ClaimResult = {
   ok?: boolean;
@@ -115,17 +116,22 @@ export function ClaimResultCard({
       >
         <div className="flex flex-col gap-3">
           {result.treasuryCaptured && result.treasuryCaptured.total > 0 && (
-            <div className="ui-reward-flash rounded-md border border-yellow-400/60 bg-yellow-400/10 px-3 py-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
-              🪙 거점 금고 {result.treasuryCaptured.total.toLocaleString()} G
-              획득! (내 몫 +
-              {result.treasuryCaptured.capturerShare.toLocaleString()} G · 길드
-              금고 +{result.treasuryCaptured.guildShare.toLocaleString()} G)
+            <div className="ui-reward-flash flex items-center gap-1.5 rounded-md border border-yellow-400 bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-700 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
+              <GameIcon name="Coins" size={15} className="shrink-0" />
+              <span>
+                거점 금고 {result.treasuryCaptured.total.toLocaleString()} G 획득!
+                (내 몫 +{result.treasuryCaptured.capturerShare.toLocaleString()} G ·
+                길드 금고 +{result.treasuryCaptured.guildShare.toLocaleString()} G)
+              </span>
             </div>
           )}
           {result.repairedHp != null && result.repairedHp > 0 && (
-            <div className="rounded-md bg-sky-500/10 px-3 py-1.5 text-xs text-sky-700 dark:text-sky-300">
-              🛡 수비 길드가 금고로 성벽 +{result.repairedHp} 수리 (−
-              {(result.repairGoldSpent ?? 0).toLocaleString()} 골드)
+            <div className="flex items-center gap-1.5 rounded-md bg-sky-50 px-3 py-1.5 text-xs text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+              <GameIcon name="Shield" size={15} className="shrink-0" />
+              <span>
+                수비 길드가 금고로 성벽 +{result.repairedHp} 수리 (−
+                {(result.repairGoldSpent ?? 0).toLocaleString()} 골드)
+              </span>
             </div>
           )}
           <DuelOnlySection

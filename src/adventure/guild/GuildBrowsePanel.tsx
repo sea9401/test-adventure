@@ -157,9 +157,6 @@ export function GuildBrowsePanel({
                         <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                           {g.name}
                         </span>
-                        <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                          {g.grade}급
-                        </span>
                         <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
                           Lv.{g.level}
                         </span>

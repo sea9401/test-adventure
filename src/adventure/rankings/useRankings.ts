@@ -46,7 +46,6 @@ export type GuildRankingEntry = {
   fameTotal: number;
   level: number;
   memberCount: number;
-  grade: string;
   mine: boolean;
 };
 
@@ -57,7 +56,6 @@ export type GuildRankingMe = {
   fameTotal: number;
   level: number;
   memberCount: number;
-  grade: string;
 };
 
 type RankingsResponse = {

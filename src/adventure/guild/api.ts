@@ -8,7 +8,6 @@ export type GuildBrowseEntry = {
   description: string | null;
   fameTotal: number;
   level: number;
-  grade: string;
   memberCount: number;
   acceptingRequests: boolean;
   // 국가명(미선포 null) + 레벨/국가 보너스를 반영한 길드별 정원.

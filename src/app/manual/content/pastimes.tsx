@@ -27,7 +27,7 @@ const CATCH_COIN_BY_TIER: Record<FishTier, number> = {
   legendary: 20,
 };
 
-const DAILY_CATCH_COIN_CAP = 3000;
+const DAILY_CATCH_COIN_CAP = 2000;
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
 const fishList = Object.values(FISH);
 const normalFishCount = fishList.filter((fish) => !fish.condition).length;

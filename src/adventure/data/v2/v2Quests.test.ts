@@ -102,6 +102,11 @@ describe("v2Quests 카탈로그 무결성", () => {
     expect(achievements.every((q) => (q.points ?? 0) > 0)).toBe(true);
   });
 
+  it("모든 영구 업적은 골드를 보상으로 지급하지 않는다", () => {
+    const achievements = V2_QUESTS.filter((q) => !isTutorialLine(q.line));
+    expect(achievements.every((q) => q.reward.gold == null)).toBe(true);
+  });
+
   it("업적 점수는 달성 조건과 과거 수령 기록을 함께 보존", () => {
     const summary = achievementSummary(
       { ...ZERO, battleCount: 100 },

@@ -309,7 +309,6 @@ type Milestone = {
   title: string;
   goal: number;
   points: number;
-  gold?: number;
   titleId?: TitleId;
 };
 
@@ -339,10 +338,7 @@ function milestones(
                 ? "층"
                 : "회"
     }를 달성하세요.`,
-    reward: {
-      gold: entry.gold ?? Math.max(200, entry.points * 50),
-      ...(entry.titleId ? { titleId: entry.titleId } : {}),
-    },
+    reward: entry.titleId ? { titleId: entry.titleId } : {},
     points: entry.points,
     progress: value,
     goal: entry.goal,
@@ -402,11 +398,11 @@ const GROWTH_ACHIEVEMENTS: QuestDef[] = [
     { id: "growth_rebirth10", title: "윤회하는 자", goal: 10, points: 30 },
     { id: "growth_rebirth25", title: "끝나지 않는 여정", goal: 25, points: 50 },
   ]),
-  { id: "a_apex", line: "growth_achievement", title: "직업의 정점", desc: "최종 단계인 4차 직업으로 전직하세요.", reward: { gold: 3_000 }, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
+  { id: "a_apex", line: "growth_achievement", title: "직업의 정점", desc: "최종 단계인 4차 직업으로 전직하세요.", reward: {}, points: 25, progress: (c) => c.tier, goal: 4, check: (c) => c.tier >= 4 },
 ];
 
 const EQUIPMENT: QuestDef[] = [
-  { id: "x_full_gear", line: "equipment", title: "완전 무장", desc: "장비 6부위를 모두 장착하세요.", reward: { gold: 400, titleId: "ach_full_gear" }, points: 10, progress: (c) => c.equippedCount, goal: 6, check: (c) => c.equippedCount >= 6 },
+  { id: "x_full_gear", line: "equipment", title: "완전 무장", desc: "장비 6부위를 모두 장착하세요.", reward: { titleId: "ach_full_gear" }, points: 10, progress: (c) => c.equippedCount, goal: 6, check: (c) => c.equippedCount >= 6 },
   ...milestones("equipment", "유니크 장비 보유", (c) => c.uniqueOwned, [
     { id: "a_unique", title: "첫 유니크", goal: 1, points: 10 },
     { id: "a_unique5", title: "유니크 컬렉터", goal: 5, points: 20 },
@@ -429,13 +425,13 @@ const EQUIPMENT: QuestDef[] = [
     { id: "e_plus10", title: "전설의 +10", goal: 10, points: 50, titleId: "ach_plus_ten" },
     { id: "equipment_plus12", title: "한계를 두드리다", goal: 12, points: 60 },
   ]),
-  { id: "e_stone", line: "equipment", title: "반짝이는 돌", desc: "강화석을 1개 이상 보유하세요.", reward: { gold: 300 }, points: 5, progress: (c) => c.enhanceStones, goal: 1, check: (c) => c.enhanceStones >= 1 },
+  { id: "e_stone", line: "equipment", title: "반짝이는 돌", desc: "강화석을 1개 이상 보유하세요.", reward: {}, points: 5, progress: (c) => c.enhanceStones, goal: 1, check: (c) => c.enhanceStones >= 1 },
 ];
 
 const ARENA: QuestDef[] = [
-  { id: "s_guild", line: "arena_social", title: "길드의 일원", desc: "길드에 가입하거나 길드를 창단하세요.", reward: { gold: 500 }, points: 5, check: (c) => c.hasGuild },
-  { id: "s_trade", line: "arena_social", title: "첫 거래", desc: "거래소에서 거래를 성사시키세요.", reward: { gold: 500 }, points: 5, check: (c) => c.hasTraded },
-  { id: "s_arena", line: "arena_social", title: "투기장 입문", desc: "투기장에서 한 판 겨뤄보세요.", reward: { gold: 500 }, points: 5, progress: (c) => (c.arenaPlayed ? 1 : 0), goal: 1, check: (c) => c.arenaPlayed },
+  { id: "s_guild", line: "arena_social", title: "길드의 일원", desc: "길드에 가입하거나 길드를 창단하세요.", reward: {}, points: 5, check: (c) => c.hasGuild },
+  { id: "s_trade", line: "arena_social", title: "첫 거래", desc: "거래소에서 거래를 성사시키세요.", reward: {}, points: 5, check: (c) => c.hasTraded },
+  { id: "s_arena", line: "arena_social", title: "투기장 입문", desc: "투기장에서 한 판 겨뤄보세요.", reward: {}, points: 5, progress: (c) => (c.arenaPlayed ? 1 : 0), goal: 1, check: (c) => c.arenaPlayed },
   ...milestones("arena_social", "투기장 승리", (c) => c.arenaWins, [
     { id: "s_arena_win", title: "투기장의 승자", goal: 1, points: 5 },
     { id: "arena_win5", title: "연승의 시작", goal: 5, points: 10 },
@@ -564,8 +560,8 @@ const CHALLENGE: QuestDef[] = [
 ];
 
 const WAR: QuestDef[] = [
-  { id: "w_first_claim", line: "war", title: "첫 출정", desc: "거점 점령을 1회 시도하세요.", reward: { gold: 300 }, points: 5, check: (c) => c.claimAttempted },
-  { id: "w_hold", line: "war", title: "깃발을 꽂다", desc: "길드가 거점을 점령하거나 직접 점령에 성공하세요.", reward: { gold: 500 }, points: 10, check: (c) => c.hasOutpost || c.warCaptures >= 1 },
+  { id: "w_first_claim", line: "war", title: "첫 출정", desc: "거점 점령을 1회 시도하세요.", reward: {}, points: 5, check: (c) => c.claimAttempted },
+  { id: "w_hold", line: "war", title: "깃발을 꽂다", desc: "길드가 거점을 점령하거나 직접 점령에 성공하세요.", reward: {}, points: 10, check: (c) => c.hasOutpost || c.warCaptures >= 1 },
   ...milestones("war", "점령전 승리", (c) => c.siegeWins, [
     { id: "w_siege5", title: "공성 전문가", goal: 5, points: 15 },
     { id: "war_siege25", title: "성문 파괴자", goal: 25, points: 30 },
@@ -586,12 +582,12 @@ const WAR: QuestDef[] = [
 
 const COLLECTION: QuestDef[] = [
   ...milestones("collection", "골드 보유", (c) => c.gold, [
-    { id: "x_rich", title: "재력가", goal: 10_000, points: 10, gold: 800, titleId: "ach_gold_keeper" },
+    { id: "x_rich", title: "재력가", goal: 10_000, points: 10, titleId: "ach_gold_keeper" },
     { id: "gold_100k", title: "두둑한 지갑", goal: 100_000, points: 20 },
     { id: "gold_1m", title: "백만장자", goal: 1_000_000, points: 40 },
   ]),
   ...milestones("collection", "칭호 획득", (c) => c.titleCount, [
-    { id: "x_titles", title: "칭호 수집가", goal: 3, points: 10, gold: 1_000 },
+    { id: "x_titles", title: "칭호 수집가", goal: 3, points: 10 },
     { id: "titles_10", title: "수많은 이름", goal: 10, points: 25 },
   ]),
 ];

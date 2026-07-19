@@ -1,11 +1,37 @@
-const DAY_MS = 24 * 60 * 60 * 1_000;
+const MINUTE_MS = 60 * 1_000;
+const MINUTES_PER_HOUR = 60;
+const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
 
-export function adventureSupportRemainingDays(
+export type AdventureSupportRemaining = {
+  days: number;
+  hours: number;
+  minutes: number;
+  expired: boolean;
+};
+
+export function adventureSupportRemaining(
   activeUntil: number,
   now: number,
-): number {
-  if (!Number.isFinite(activeUntil) || !Number.isFinite(now)) return 0;
-  return Math.max(0, Math.ceil((activeUntil - now) / DAY_MS));
+): AdventureSupportRemaining {
+  const totalMinutes =
+    Number.isFinite(activeUntil) && Number.isFinite(now)
+      ? Math.max(0, Math.ceil((activeUntil - now) / MINUTE_MS))
+      : 0;
+  const days = Math.floor(totalMinutes / MINUTES_PER_DAY);
+  const hours = Math.floor(
+    (totalMinutes % MINUTES_PER_DAY) / MINUTES_PER_HOUR,
+  );
+  const minutes = totalMinutes % MINUTES_PER_HOUR;
+  return { days, hours, minutes, expired: totalMinutes <= 0 };
+}
+
+export function formatAdventureSupportRemaining(
+  activeUntil: number,
+  now: number,
+): string {
+  const remaining = adventureSupportRemaining(activeUntil, now);
+  if (remaining.expired) return "만료됨";
+  return `${remaining.days}일 ${remaining.hours}시간 ${remaining.minutes}분 남음`;
 }
 
 export function formatAdventureSupportExpiry(activeUntil: number): string {

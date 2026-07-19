@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  CaretDown,
+  CaretRight,
   Circle,
   Diamond,
   HandFist,
@@ -11,6 +12,7 @@ import {
   Sword,
   Ticket,
   User as UserIcon,
+  X,
   type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -37,10 +39,14 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import { MAX_STAMINA } from "@/adventure/v2/stamina";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
-  adventureSupportRemainingDays,
   formatAdventureSupportExpiry,
+  formatAdventureSupportRemaining,
 } from "./adventureSupportDisplay";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
@@ -147,15 +153,6 @@ export function V2CharacterCard({
       ? adventureSupport.activeUntil
       : null;
   const [supportDetailsOpen, setSupportDetailsOpen] = useState(false);
-  const [supportCheckedAt, setSupportCheckedAt] = useState<number | null>(null);
-  const supportRegenBonusPct = Math.max(
-    0,
-    adventureSupport?.regenBonusPct ?? 0,
-  );
-  const supportRemainingDays =
-    supportActiveUntil != null && supportCheckedAt != null
-      ? adventureSupportRemainingDays(supportActiveUntil, supportCheckedAt)
-      : 0;
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -182,7 +179,8 @@ export function V2CharacterCard({
   } | null>(null);
 
   return (
-    <Card padding="md" className="ui-character-card">
+    <>
+      <Card padding="md" className="ui-character-card">
       <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
         <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
         <div className="min-w-0 flex-1 space-y-2">
@@ -204,43 +202,16 @@ export function V2CharacterCard({
             </span>
           </div>
           {supportActiveUntil != null && (
-            <div>
-              <button
-                type="button"
-                aria-expanded={supportDetailsOpen}
-                onClick={() => {
-                  const opening = !supportDetailsOpen;
-                  setSupportDetailsOpen(opening);
-                  if (opening) setSupportCheckedAt(Date.now());
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
-              >
-                <Ticket size={15} weight="duotone" aria-hidden="true" />
-                월간 모험 지원권 적용 중
-                <CaretDown
-                  size={13}
-                  weight="bold"
-                  aria-hidden="true"
-                  className={`transition-transform ${supportDetailsOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {supportDetailsOpen && supportCheckedAt != null && (
-                <div className={`${SURFACE_INSET} mt-2 px-3 py-2 text-xs`}>
-                  <div className="font-semibold text-violet-700 dark:text-violet-300">
-                    {supportRemainingDays > 0
-                      ? `${supportRemainingDays}일 남음`
-                      : "오늘 만료"}
-                  </div>
-                  <div className="mt-0.5 text-zinc-600 dark:text-zinc-300">
-                    {formatAdventureSupportExpiry(supportActiveUntil)}까지
-                  </div>
-                  <div className="mt-1 text-zinc-500 dark:text-zinc-400">
-                    최대 스태미나 +1,000 · 회복 속도 +
-                    {supportRegenBonusPct}% · 50회 전투
-                  </div>
-                </div>
-              )}
-            </div>
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              onClick={() => setSupportDetailsOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+            >
+              <Ticket size={15} weight="duotone" aria-hidden="true" />
+              월간 모험 지원권 적용 중
+              <CaretRight size={13} weight="bold" aria-hidden="true" />
+            </button>
           )}
           {activePresetName && (
             <div className="flex min-w-0 items-center gap-2 text-xs">
@@ -362,6 +333,117 @@ export function V2CharacterCard({
           equippedIds={equippedItemIds}
         />
       )}
-    </Card>
+      </Card>
+      {supportDetailsOpen && supportActiveUntil != null && (
+        <AdventureSupportModal
+          activeUntil={supportActiveUntil}
+          onClose={() => setSupportDetailsOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function AdventureSupportModal({
+  activeUntil,
+  onClose,
+}: {
+  activeUntil: number;
+  onClose: () => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEscapeKey(onClose);
+  useModalA11y(contentRef);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const maxEnergy = MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus;
+  const benefits = [
+    `에너지 회복량 ${ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}% 증가`,
+    `최대 에너지 ${maxEnergy.toLocaleString()}으로 변경`,
+    `거래소 등록 ${ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개 추가`,
+    `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
+  ];
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="adventure-support-title"
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center"
+    >
+      <div
+        ref={contentRef}
+        onClick={(event) => event.stopPropagation()}
+        className={`${SURFACE_CARD} w-full max-w-sm p-5 shadow-2xl`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300">
+              <Ticket size={24} weight="duotone" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-violet-600 dark:text-violet-300">
+                혜택 적용 중
+              </p>
+              <h2
+                id="adventure-support-title"
+                className="truncate text-lg font-bold text-zinc-900 dark:text-zinc-100"
+              >
+                월간 모험 지원권
+              </h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <X size={18} weight="bold" />
+          </button>
+        </div>
+
+        <ul className={`${SURFACE_INSET} mt-4 space-y-2.5 p-3 text-sm`}>
+          {benefits.map((benefit) => (
+            <li
+              key={benefit}
+              className="flex items-start gap-2 text-zinc-700 dark:text-zinc-200"
+            >
+              <span
+                aria-hidden="true"
+                className="font-bold text-violet-500 dark:text-violet-400"
+              >
+                •
+              </span>
+              <span>{benefit}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className={`${SURFACE_INSET} mt-3 px-3 py-3 text-center`}>
+          <p className="text-base font-bold tabular-nums text-violet-700 dark:text-violet-300">
+            {formatAdventureSupportRemaining(activeUntil, now)}
+          </p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {formatAdventureSupportExpiry(activeUntil)}까지
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-md bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
+        >
+          확인
+        </button>
+      </div>
+    </div>,
+    document.body,
   );
 }

@@ -112,7 +112,7 @@ const MARKETPLACE_PAGE_SIZE = 10;
 
 // 서버 에러 코드 → 사용자 안내.
 const ERR_LABEL: Record<string, string> = {
-  slot_full: "활성 매물이 가득 찼어요 (최대 10개).",
+  slot_full: "활성 매물이 가득 찼어요.",
   not_owned: "보유하지 않은 장비예요.",
   not_tradable: "거래할 수 없는 품목이에요.",
   enhanced: "강화한 장비는 거래할 수 없어요.",
@@ -127,9 +127,17 @@ const ERR_LABEL: Record<string, string> = {
   not_owner: "내 매물이 아니에요.",
 };
 
-function actionErrorLabel(error: string | undefined, status: number, retryAfterSec?: number) {
+function actionErrorLabel(
+  error: string | undefined,
+  status: number,
+  retryAfterSec?: number,
+  slotLimit?: number,
+) {
   if (error === "rate_limited") {
     return `요청이 많아요. ${Math.max(1, Math.floor(retryAfterSec ?? 1))}초 후 다시 시도하세요.`;
+  }
+  if (error === "slot_full" && typeof slotLimit === "number") {
+    return `활성 매물이 가득 찼어요 (최대 ${slotLimit}개).`;
   }
   return ERR_LABEL[error ?? ""] ?? error ?? `실패 (${status})`;
 }
@@ -308,10 +316,22 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           body: JSON.stringify(body),
         });
         const j = (await res.json().catch(() => null)) as
-          | { ok?: boolean; error?: string; retryAfterSec?: number }
+          | {
+              ok?: boolean;
+              error?: string;
+              retryAfterSec?: number;
+              slotLimit?: number;
+            }
           | null;
         if (!res.ok || !j?.ok) {
-          setError(actionErrorLabel(j?.error, res.status, j?.retryAfterSec));
+          setError(
+            actionErrorLabel(
+              j?.error,
+              res.status,
+              j?.retryAfterSec,
+              j?.slotLimit,
+            ),
+          );
           return;
         }
         setMsg(okMsg);

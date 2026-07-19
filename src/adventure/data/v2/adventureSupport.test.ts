@@ -27,6 +27,14 @@ describe("월간 모험 지원권", () => {
     expect(ADVENTURE_SUPPORT_PASS.durationDays).toBe(30);
   });
 
+  it("에너지와 거래소 혜택을 고정한다", () => {
+    expect(ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toBe(500);
+    expect(ADVENTURE_SUPPORT_PASS.staminaActivationGrant).toBe(500);
+    expect(ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct).toBe(20);
+    expect(ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus).toBe(10);
+    expect(ADVENTURE_SUPPORT_PASS.marketplaceTaxRate).toBe(0.05);
+  });
+
   it("수령 시점부터 기간을 시작하고 활성 기간 재지급은 뒤에 이어 붙인다", () => {
     const now = Date.UTC(2026, 6, 20);
     const first = grantAdventureSupport(null, 30, now);

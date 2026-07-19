@@ -16,11 +16,12 @@ import {
   V2_REFORGE_ENABLED,
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
+import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
 //   골드가 HP 회복 통화라 sink 없으면 거래소는 유저 간 골드 재분배만 됨 → 인플레 억제용. 단일 다이얼.
-export const MARKETPLACE_V2_TAX_RATE = 0.05;
+export const MARKETPLACE_V2_TAX_RATE = 0.1;
 // 판매자당 활성 매물 상한(슬롯).
 export const MARKETPLACE_V2_SLOT_LIMIT = 10;
 export const MARKETPLACE_V2_PRICE_MIN = 1;
@@ -39,13 +40,39 @@ export const MARKETPLACE_V2_LISTING_TTL_DAYS = 7;
 
 export type MarketKind = "equip" | "material" | "consumable";
 
+export function marketplaceSlotLimitForAdventureSupport(
+  active: boolean,
+): number {
+  return (
+    MARKETPLACE_V2_SLOT_LIMIT +
+    (active ? ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus : 0)
+  );
+}
+
+export function marketplaceTaxRateForAdventureSupport(
+  active: boolean,
+): number {
+  return active
+    ? ADVENTURE_SUPPORT_PASS.marketplaceTaxRate
+    : MARKETPLACE_V2_TAX_RATE;
+}
+
 // 판매자 수령 골드 — 대금 − 판매세(내림). proceeds + 소각분 = price (보존, 골드 신규생성 0).
-export function saleProceeds(price: number): number {
-  return Math.floor(price * (1 - MARKETPLACE_V2_TAX_RATE));
+export function saleProceeds(
+  price: number,
+  taxRate: number = MARKETPLACE_V2_TAX_RATE,
+): number {
+  const safeRate = Number.isFinite(taxRate)
+    ? Math.max(0, Math.min(1, taxRate))
+    : MARKETPLACE_V2_TAX_RATE;
+  return Math.floor(price * (1 - safeRate));
 }
 // 소각되는 판매세(표시·감사용) = price − proceeds.
-export function saleTax(price: number): number {
-  return price - saleProceeds(price);
+export function saleTax(
+  price: number,
+  taxRate: number = MARKETPLACE_V2_TAX_RATE,
+): number {
+  return price - saleProceeds(price, taxRate);
 }
 
 export function isValidPrice(p: unknown): p is number {

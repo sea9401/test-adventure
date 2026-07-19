@@ -4,7 +4,7 @@ import { marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { recordEconomyEventSoon } from "@/lib/server/economyLog";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
@@ -14,6 +14,7 @@ import {
 } from "@/adventure/data/v2/v2EquipMint";
 import {
   isTradableMaterial,
+  marketplaceTaxRateForAdventureSupport,
   resolvePlayerName,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
@@ -23,6 +24,7 @@ import {
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -90,6 +92,16 @@ export async function POST(req: Request) {
     if (listing.kind === "equip" && listedEquipEnhance(listing.instancePayload)) {
       return { status: 409, body: { ok: false as const, error: "enhanced" } };
     }
+
+    const sellerCharacter = await readSave<CharSave>(
+      tx,
+      listing.sellerId,
+      "character.v2",
+      {},
+    );
+    const sellerTaxRate = marketplaceTaxRateForAdventureSupport(
+      adventureSupportActive(sellerCharacter.adventureSupport),
+    );
 
     // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량
     //   스냅샷만 죽은 매물). 죽었으면 매물 자체를 expired 처리(대금 이동 0, 그대로 소멸).
@@ -162,7 +174,7 @@ export async function POST(req: Request) {
     //   FK 라 v2 리스팅 id 를 넣으면 FK 위반(23503)으로 구매 tx 전체가 롤백되던 라이브 버그
     //   (#577 부터 잠복 — v1 테이블에 우연히 같은 id 가 있을 때만 통과). 정산 우편은
     //   message/payload 로 충분, v2 리스팅 추적은 listings_v2.buyerId/closedAt 이 담당.
-    const proceeds = saleProceeds(listing.price);
+    const proceeds = saleProceeds(listing.price, sellerTaxRate);
     const buyerName = (await resolvePlayerName(tx, userId)) ?? "구매자";
     if (proceeds > 0) {
       await tx.insert(marketplaceInbox).values(
@@ -184,6 +196,8 @@ export async function POST(req: Request) {
         itemId: listing.itemId,
         quantity: listing.quantity,
         price: listing.price,
+        proceeds,
+        taxRate: sellerTaxRate,
         listingId,
       },
       body: {
@@ -212,13 +226,14 @@ export async function POST(req: Request) {
       userId: economyLog.sellerId,
       counterpartyUserId: userId,
       eventType: "marketplace.sell",
-      goldDelta: saleProceeds(economyLog.price),
+      goldDelta: economyLog.proceeds,
       itemKind: economyLog.itemKind,
       itemId: economyLog.itemId,
       quantity: economyLog.quantity,
       detail: {
         listingId: economyLog.listingId,
         grossGold: economyLog.price,
+        taxRate: economyLog.taxRate,
       },
     });
   }

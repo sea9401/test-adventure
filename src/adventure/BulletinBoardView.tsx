@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ChatsCircle,
   MagnifyingGlass,
   Megaphone,
   Note,
@@ -13,7 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
-import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { TabBar } from "@/components/ui/TabBar";
 import { usePagination } from "@/lib/usePagination";
 import {
   BULLETIN_CATEGORIES,
@@ -335,161 +334,108 @@ export function BulletinBoardView() {
   }
 
   return (
-    <div className={`${SURFACE_CARD} overflow-hidden`}>
-      <section className="border-b border-zinc-200 px-4 py-4 sm:px-5 dark:border-zinc-700">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <ChatsCircle
-                size={20}
-                weight="duotone"
-                className="shrink-0 text-emerald-600 dark:text-emerald-400"
-              />
-              <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                모험가 게시판
-              </h2>
-            </div>
-            <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-              {boardDescription}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setMode({ kind: "compose" })}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
-          >
-            <PaperPlaneTilt size={15} weight="fill" />
-            글쓰기
-          </button>
-        </div>
+    <div className="space-y-3">
+      <TabBar
+        tabs={tabs}
+        active={category}
+        onChange={setCategory}
+        ariaLabel="게시판 카테고리"
+        size="sm"
+        scrollable
+      />
 
-        <div className={`${SURFACE_INSET} mt-3 px-3 py-2.5`}>
-          <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-            게시판 안내
-          </p>
-          <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-400">
-            모험 이야기와 공략을 나누고 다른 모험가와 소통해 보세요. 글을
-            선택하면 본문과 댓글을 확인할 수 있습니다.
-          </p>
-        </div>
-      </section>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        {boardDescription}
+      </p>
 
-      <section className="space-y-3 border-b border-zinc-200 px-4 py-4 sm:px-5 dark:border-zinc-700">
-        <div className="relative">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
           <MagnifyingGlass
-            size={15}
+            size={14}
             weight="bold"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
           />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="제목 또는 내용 검색"
-            className="w-full rounded-md border border-zinc-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-zinc-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-emerald-500"
+            placeholder="제목·내용 검색"
+            className="w-full rounded-md border border-zinc-300 bg-white py-1.5 pl-7 pr-3 text-sm outline-none transition-colors focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
           />
         </div>
-
-        <div
-          role="tablist"
-          aria-label="게시판 카테고리"
-          className="flex flex-wrap gap-1.5"
+        <button
+          type="button"
+          onClick={() => setMode({ kind: "compose" })}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
-          {tabs.map((tab) => {
-            const active = category === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setCategory(tab.key)}
-                className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  active
-                    ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500 dark:text-zinc-950"
-                    : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-white"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+          <PaperPlaneTilt size={14} weight="fill" />
+          글쓰기
+        </button>
+      </div>
 
-      <section className="px-4 py-4 sm:px-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            게시글
-          </h3>
-          <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-            {posts === null ? "—" : posts.length}
-          </span>
-        </div>
+      {error ? (
+        <Card padding="sm">
+          <div className="text-sm text-rose-600 dark:text-rose-400">
+            {error}
+          </div>
+        </Card>
+      ) : null}
 
-        {error ? (
-          <Card padding="sm">
-            <div className="text-sm text-rose-600 dark:text-rose-400">
-              {error}
-            </div>
-          </Card>
-        ) : null}
-
-        {posts === null ? (
-          <ul className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <li key={i} className={`${SURFACE_INSET} px-3 py-3`}>
-                <Skeleton rows={2} />
-              </li>
+      {posts === null ? (
+        <ul className="space-y-1.5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li
+              key={i}
+              className="rounded-lg border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60"
+            >
+              <Skeleton rows={2} />
+            </li>
+          ))}
+        </ul>
+      ) : posts.length === 0 ? (
+        <EmptyState
+          icon={
+            category === "guild" ? (
+              <UsersThree size={40} weight="duotone" />
+            ) : category === "notice" ? (
+              <Megaphone size={40} weight="duotone" />
+            ) : (
+              <Note size={40} weight="duotone" />
+            )
+          }
+          title={
+            debouncedQ
+              ? "검색 결과가 없습니다"
+              : category === "guild"
+                ? "길드 게시판이 비어 있습니다"
+                : category === "notice"
+                ? "공지가 없습니다"
+                : "아직 글이 없습니다"
+          }
+          message={
+            debouncedQ
+              ? "다른 검색어를 시도해 보세요."
+              : category === "guild"
+                ? "길드원들과 첫 글을 남겨 보세요."
+                : category === "notice"
+                ? "운영자가 새 공지를 올리면 여기에 표시됩니다."
+                : "첫 글을 남겨 보세요."
+          }
+        />
+      ) : (
+        <>
+          <ul className="space-y-1.5">
+            {pager.pageItems.map((p) => (
+              <PostListRow key={p.id} post={p} onOpen={handleOpenDetail} />
             ))}
           </ul>
-        ) : posts.length === 0 ? (
-          <EmptyState
-            icon={
-              category === "guild" ? (
-                <UsersThree size={40} weight="duotone" />
-              ) : category === "notice" ? (
-                <Megaphone size={40} weight="duotone" />
-              ) : (
-                <Note size={40} weight="duotone" />
-              )
-            }
-            title={
-              debouncedQ
-                ? "검색 결과가 없습니다"
-                : category === "guild"
-                  ? "길드 게시판이 비어 있습니다"
-                  : category === "notice"
-                    ? "공지가 없습니다"
-                    : "아직 글이 없습니다"
-            }
-            message={
-              debouncedQ
-                ? "다른 검색어를 시도해 보세요."
-                : category === "guild"
-                  ? "길드원들과 첫 글을 남겨 보세요."
-                  : category === "notice"
-                    ? "운영자가 새 공지를 올리면 여기에 표시됩니다."
-                    : "첫 글을 남겨 보세요."
-            }
+          <Pagination
+            page={pager.page}
+            pageCount={pager.pageCount}
+            setPage={pager.setPage}
           />
-        ) : (
-          <>
-            <ul className="space-y-2">
-              {pager.pageItems.map((p) => (
-                <PostListRow key={p.id} post={p} onOpen={handleOpenDetail} />
-              ))}
-            </ul>
-            <div className="mt-4">
-              <Pagination
-                page={pager.page}
-                pageCount={pager.pageCount}
-                setPage={pager.setPage}
-              />
-            </div>
-          </>
-        )}
-      </section>
+        </>
+      )}
 
       {pmTarget && (
         <SendMessageModal

@@ -1,16 +1,9 @@
 "use client";
 
 import { memo } from "react";
-import {
-  CaretRight,
-  ChatCircle,
-  Eye,
-  Heart,
-  UsersThree,
-} from "@phosphor-icons/react";
+import { ChatCircle, Eye, Heart, UsersThree } from "@phosphor-icons/react";
 import { formatDate } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
 
 // 게시판 목록의 한 줄 — 제목/작성자/시간 + 좋아요·댓글 카운트(읽기 전용).
@@ -31,57 +24,55 @@ function PostListRowImpl({ post, onOpen }: Props) {
     post.title && post.title.trim().length > 0
       ? "font-medium text-zinc-900 dark:text-zinc-100"
       : "italic text-zinc-500 dark:text-zinc-400";
-  const excerpt = truncateOneLine(post.content, 90);
 
   return (
     <li>
       <button
         type="button"
         onClick={() => onOpen(post.id)}
-        className={`${SURFACE_INSET} group flex min-h-[76px] w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:border-emerald-400 hover:bg-white dark:hover:border-emerald-700 dark:hover:bg-zinc-800`}
+        className="flex w-full min-h-[44px] flex-col gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
       >
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_BADGE[post.category]}`}
-            >
-              {BULLETIN_CATEGORY_LABELS[post.category].name}
-            </span>
-            <span className={`min-w-0 flex-1 truncate text-sm ${titleClass}`}>
-              {displayTitle}
-            </span>
-            {post.scope === "guild" && (
-              <span
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                title={post.guildName ?? "길드 전용"}
-              >
-                <UsersThree size={11} weight="bold" />
-                길드
-              </span>
-            )}
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_BADGE[post.category]}`}
+          >
+            {BULLETIN_CATEGORY_LABELS[post.category].name}
           </span>
-          <span className="mt-1.5 block truncate text-xs leading-5 text-zinc-600 dark:text-zinc-400">
-            {excerpt}
+          <span className={`min-w-0 flex-1 truncate text-sm ${titleClass}`}>
+            {displayTitle}
           </span>
-          <span className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <span className="truncate font-medium text-zinc-700 dark:text-zinc-300">
-              {post.name}
-            </span>
-            <span className="shrink-0">{formatDate(post.createdAt)}</span>
+          {post.scope === "guild" && (
             <span
-              className="ml-auto inline-flex shrink-0 items-center gap-0.5"
-              aria-label={`조회 ${post.viewCount}회`}
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+              title={post.guildName ?? "길드 전용"}
             >
-              <Eye size={11} weight="regular" />
-              <span className="tabular-nums">{post.viewCount}</span>
+              <UsersThree size={11} weight="bold" />
+              길드
             </span>
+          )}
+          {post.commentCount > 0 && (
             <span
-              className="inline-flex shrink-0 items-center gap-0.5"
+              className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400"
               aria-label={`댓글 ${post.commentCount}개`}
             >
-              <ChatCircle size={11} weight="regular" />
+              <ChatCircle size={12} weight="regular" />
               <span className="tabular-nums">{post.commentCount}</span>
             </span>
+          )}
+        </div>
+        <div className="flex min-w-0 items-baseline gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="truncate font-medium text-zinc-700 dark:text-zinc-300">
+            {post.name}
+          </span>
+          <span className="shrink-0">{formatDate(post.createdAt)}</span>
+          <span
+            className="ml-auto inline-flex shrink-0 items-center gap-0.5"
+            aria-label={`조회 ${post.viewCount}회`}
+          >
+            <Eye size={11} weight="regular" />
+            <span className="tabular-nums">{post.viewCount}</span>
+          </span>
+          {post.likeCount > 0 && (
             <span
               className="inline-flex shrink-0 items-center gap-0.5"
               aria-label={`좋아요 ${post.likeCount}개`}
@@ -93,11 +84,8 @@ function PostListRowImpl({ post, onOpen }: Props) {
               />
               <span className="tabular-nums">{post.likeCount}</span>
             </span>
-          </span>
-        </span>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-zinc-300 text-zinc-400 transition-colors group-hover:border-emerald-500 group-hover:text-emerald-600 dark:border-zinc-700 dark:group-hover:border-emerald-600 dark:group-hover:text-emerald-400">
-          <CaretRight size={15} weight="bold" />
-        </span>
+          )}
+        </div>
       </button>
     </li>
   );

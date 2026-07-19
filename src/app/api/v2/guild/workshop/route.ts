@@ -36,6 +36,7 @@ import {
   parseGuildWorkshopCraftRecords,
   parseGuildWorkshopStats,
   rollGuildWorkshopEnhance,
+  shouldLogGuildWorkshopCraftActivity,
   spendGuildWorkshopBaseEquipment,
   spendGuildWorkshopRecipeMaterials,
   type GuildWorkshopBonus,
@@ -552,7 +553,7 @@ export async function POST(req: Request) {
       workshopRecords: nextWorkshopRecords,
       weeklyWorkshopStats: nextWeeklyWorkshopStats,
     });
-    if (item.craftOnly) {
+    if (shouldLogGuildWorkshopCraftActivity(item)) {
       await logGuildActivity(tx, {
         guildId,
         type: "workshop_craft_only",

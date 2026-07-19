@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER,
   GUILD_WORKSHOP_MASTERWORK_RESOURCE_COST_MULT,
   GUILD_WORKSHOP_RECIPES,
   GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER,
@@ -26,6 +27,7 @@ import {
   parseGuildWorkshopStats,
   parseGuildWorkshopCraftRecords,
   rollGuildWorkshopEnhance,
+  shouldLogGuildWorkshopCraftActivity,
   spendGuildWorkshopRecipeCost,
   spendGuildWorkshopBaseEquipment,
   spendGuildWorkshopRecipeMaterials,
@@ -55,6 +57,31 @@ const ENOUGH_WORKSHOP_MATERIALS = {
   ),
   [COOP_BOSS_MATERIAL_ID.canyon_predator]: 99,
 };
+
+describe("guild workshop activity log", () => {
+  it("records craft-only equipment from displayed 4T onwards", () => {
+    expect(GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER).toBe(4);
+    expect(
+      shouldLogGuildWorkshopCraftActivity(
+        V2_EQUIPMENT.v2_crafted_sunforge_blade,
+      ),
+    ).toBe(false);
+    expect(
+      shouldLogGuildWorkshopCraftActivity(V2_EQUIPMENT.v2_crafted_aurora_crown),
+    ).toBe(true);
+    expect(
+      shouldLogGuildWorkshopCraftActivity(
+        V2_EQUIPMENT.v2_crafted_kingbreaker_axe,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not record non-craft-only equipment even at displayed 4T", () => {
+    expect(
+      shouldLogGuildWorkshopCraftActivity({ tier: 12, craftOnly: false }),
+    ).toBe(false);
+  });
+});
 
 describe("guild workshop recipes", () => {
   it("uses one distinct wood material for each crafted equipment tier", () => {

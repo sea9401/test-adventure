@@ -9,6 +9,7 @@ import {
   type V2EquipSlot,
   type V2Equipment,
   type V2EquipmentId,
+  v2EquipCatalogTierToDisplayTier,
 } from "./v2Equipment";
 import {
   BLACKSMITH_DISMANTLE_LEVEL,
@@ -42,6 +43,19 @@ import {
   COOP_BOSS_MATERIAL_ID,
   COOP_REWARD_MATERIALS,
 } from "./coopRewards";
+
+// 활동 내역은 화면에 보이는 티어 기준으로 제한한다(표시 4T = 내부 카탈로그 10~12단계).
+export const GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER = 4;
+
+export function shouldLogGuildWorkshopCraftActivity(
+  item: Pick<V2Equipment, "craftOnly" | "tier">,
+): boolean {
+  return (
+    item.craftOnly === true &&
+    v2EquipCatalogTierToDisplayTier(item.tier) >=
+      GUILD_WORKSHOP_ACTIVITY_MIN_DISPLAY_TIER
+  );
+}
 
 export type GuildWorkshopRecipeId =
   | "crafted_oathblade"

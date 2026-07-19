@@ -1143,14 +1143,14 @@ describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
     expect(
       signatureLabel({
         trigger: "on_hit_taken",
-        label: "백왕좌",
+        label: "백골성벽",
         defGainOnHitPct: 35,
       }),
     ).toBe("피격 시 받은 HP 피해의 35%만큼 방어 상승");
     expect(
       signatureLabel({
         trigger: "on_skill_cast",
-        label: "왕릉성",
+        label: "망자의 별",
         mpRefundPctOfCost: 25,
       }),
     ).toBe("스킬 사용 시 소모 MP의 25% 환급");

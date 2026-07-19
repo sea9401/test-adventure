@@ -60,7 +60,7 @@ export function healToShield(
   return { amount, label: labels.join(" + ") };
 }
 
-// on_hit_taken 방어 누적(백왕좌) — 받은 HP 피해의 % 만큼 braceDefBonus 에 더할 비율.
+// on_hit_taken 방어 누적(백골성벽) — 받은 HP 피해의 % 만큼 braceDefBonus 에 더할 비율.
 //   실제 누적량/상한은 enemyPhase/pvpPhase 가 dmgToHp 와 기본 DEF 를 알고 계산한다.
 export function onHitTakenDefGain(
   signatures: SignatureEffect[] | undefined,

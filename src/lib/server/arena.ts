@@ -18,6 +18,7 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 export const ARENA_MATCH_COOLDOWN_MS = 10_000;
 // 아레나 한정 최종 피해 배율. 다른 resolveBattlePvP 호출부(전초기지 등)는 기본값 1을 유지한다.
 export const ARENA_DAMAGE_MULTIPLIER = 0.65;
+export const ARENA_STAMINA_MATCHES_PER_STEP = 10;
 export const RECENT_OPPONENT_TRACK = 5;
 // 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
 export const ARENA_HISTORY_MAX = 50;
@@ -58,6 +59,10 @@ export type ArenaState = {
   ratingVersion: number;
   /** 마지막 매치 시각(ISO). 이 시각 + ARENA_MATCH_COOLDOWN_MS 전까지 재도전 불가. */
   lastMatchAt: string;
+  /** KST 기준 일일 매치 횟수를 기록한 날짜(YYYY-MM-DD). */
+  dailyMatchDate: string;
+  /** dailyMatchDate 당 실제로 성립한 공격 매치 수. */
+  dailyMatchCount: number;
   recentOpponents: ArenaOpponentRef[];
   /** PR-8b 에서 활용. PR-8a 는 빈 배열로 두기만 함. */
   milestonesReached: number[];
@@ -125,6 +130,8 @@ export function defaultArenaState(): ArenaState {
     score: ARENA_INITIAL_RATING,
     ratingVersion: ARENA_RATING_VERSION,
     lastMatchAt: new Date(0).toISOString(), // 에폭 = 쿨타임 없음(즉시 도전 가능).
+    dailyMatchDate: "",
+    dailyMatchCount: 0,
     recentOpponents: [],
     milestonesReached: [],
   };
@@ -154,6 +161,12 @@ export function parseArenaState(value: unknown): ArenaState {
     typeof v.lastMatchAt === "string" && v.lastMatchAt.length > 0
       ? v.lastMatchAt
       : def.lastMatchAt;
+  const dailyMatchDate =
+    typeof v.dailyMatchDate === "string" ? v.dailyMatchDate : "";
+  const dailyMatchCount =
+    typeof v.dailyMatchCount === "number" && Number.isFinite(v.dailyMatchCount)
+      ? Math.max(0, Math.floor(v.dailyMatchCount))
+      : 0;
   const recentOpponents: ArenaOpponentRef[] = Array.isArray(v.recentOpponents)
     ? v.recentOpponents
         .filter((o): o is Record<string, unknown> => !!o && typeof o === "object")
@@ -176,8 +189,48 @@ export function parseArenaState(value: unknown): ArenaState {
     score,
     ratingVersion: ARENA_RATING_VERSION,
     lastMatchAt,
+    dailyMatchDate,
+    dailyMatchCount,
     recentOpponents,
     milestonesReached,
+  };
+}
+
+// ─── 일일 스태미나 비용 ───────────────────────────────────────────────────
+
+export function arenaKstDateKey(now: Date | number = Date.now()): string {
+  const time = now instanceof Date ? now.getTime() : now;
+  return new Date(time + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+export function arenaDailyMatchCount(
+  state: ArenaState,
+  now: Date | number = Date.now(),
+): number {
+  return state.dailyMatchDate === arenaKstDateKey(now)
+    ? state.dailyMatchCount
+    : 0;
+}
+
+/** 1~10회는 1, 11~20회는 2처럼 10회마다 다음 매치 비용이 1씩 오른다. */
+export function arenaNextStaminaCost(
+  state: ArenaState,
+  now: Date | number = Date.now(),
+): number {
+  return (
+    Math.floor(arenaDailyMatchCount(state, now) / ARENA_STAMINA_MATCHES_PER_STEP) +
+    1
+  );
+}
+
+export function recordArenaDailyMatch(
+  state: ArenaState,
+  now: Date | number = Date.now(),
+): ArenaState {
+  return {
+    ...state,
+    dailyMatchDate: arenaKstDateKey(now),
+    dailyMatchCount: arenaDailyMatchCount(state, now) + 1,
   };
 }
 

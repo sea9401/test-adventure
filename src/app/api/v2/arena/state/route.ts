@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { pvpRatings, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -7,8 +7,15 @@ import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
+  arenaDailyMatchCount,
+  arenaNextStaminaCost,
   parseArenaState,
 } from "@/lib/server/arena";
+import {
+  applyRegen,
+  parseStaminaFromSave,
+  staminaConfigForCharacter,
+} from "@/adventure/v2/stamina";
 
 // GET /api/v2/arena/state — 아레나 mount fetch.
 //
@@ -22,14 +29,26 @@ export async function GET() {
   }
 
   const now = new Date();
-  const row = await db
-    .select({ value: savesKv.value })
+  const rows = await db
+    .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
-    .where(and(eq(savesKv.userId, userId), eq(savesKv.key, ARENA_STATE_KEY)))
-    .limit(1)
-    .then((rows) => rows[0]);
+    .where(
+      and(
+        eq(savesKv.userId, userId),
+        inArray(savesKv.key, [ARENA_STATE_KEY, "character.v2"]),
+      ),
+    );
 
-  const state = parseArenaState(row?.value ?? null);
+  const row = (key: string) => rows.find((entry) => entry.key === key)?.value;
+  const state = parseArenaState(row(ARENA_STATE_KEY) ?? null);
+  const character = (row("character.v2") ?? {}) as Record<string, unknown>;
+  const staminaConfig = staminaConfigForCharacter(character, now.getTime());
+  const stamina = applyRegen(
+    parseStaminaFromSave(character.stamina, now.getTime()),
+    now.getTime(),
+    staminaConfig.max,
+    staminaConfig.regenBonusPct,
+  );
   const season = await getOrCreateCurrentSeason(now);
   const ratingRow = await db
     .select({
@@ -49,6 +68,9 @@ export async function GET() {
       // 순위표·매치 정산과 같은 현재 시즌 레이팅을 메인 점수로 표시한다.
       score: ratingRow?.rating ?? 1000,
       cooldownRemainingMs: arenaCooldownRemainingMs(state, now),
+      dailyMatchCount: arenaDailyMatchCount(state, now),
+      nextStaminaCost: arenaNextStaminaCost(state, now),
+      stamina,
       recentOpponents: state.recentOpponents,
       milestonesReached: state.milestonesReached,
       season: {

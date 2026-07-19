@@ -6,6 +6,7 @@ export const MASTERY_CERTIFICATE_KEY = "masteryCertificates";
 
 export const MASTERY_TOWER_MAX_FLOOR = 50;
 export const MASTERY_TOWER_REENTRY_COOLDOWN_MS = 30_000;
+export const MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST = 200;
 
 export const MASTERY_TOWER_MILESTONES = [
   { floor: 10, bonus: 100 },
@@ -22,6 +23,8 @@ export type MasteryTowerState = {
   claimed: boolean;
   lifetimeBestFloor: number;
   firstClearRewardsClaimed: number[];
+  /** 오늘 첫 실제 전투에서 입장 스태미나를 이미 지불했는지 여부. */
+  entryStaminaPaid?: boolean;
   cooldownUntil?: number;
 };
 
@@ -264,6 +267,7 @@ export function parseMasteryTowerState(
     claimed: obj.claimed === true,
     lifetimeBestFloor: clampFloor(obj.lifetimeBestFloor),
     firstClearRewardsClaimed: [...new Set(claimedFloors)].sort((a, b) => a - b),
+    entryStaminaPaid: obj.entryStaminaPaid === true,
     ...(typeof obj.cooldownUntil === "number" && Number.isFinite(obj.cooldownUntil)
       ? { cooldownUntil: Math.max(0, Math.floor(obj.cooldownUntil)) }
       : {}),
@@ -276,9 +280,22 @@ export function parseMasteryTowerState(
       claimed: false,
       lifetimeBestFloor: base.lifetimeBestFloor,
       firstClearRewardsClaimed: base.firstClearRewardsClaimed,
+      entryStaminaPaid: false,
     };
   }
   return base;
+}
+
+export function masteryTowerEntryStaminaCost(state: MasteryTowerState): number {
+  return state.entryStaminaPaid === true
+    ? 0
+    : MASTERY_TOWER_DAILY_ENTRY_STAMINA_COST;
+}
+
+export function markMasteryTowerEntryStaminaPaid(
+  state: MasteryTowerState,
+): MasteryTowerState {
+  return { ...state, entryStaminaPaid: true };
 }
 
 export function masteryTowerClaimPreview(
@@ -332,6 +349,7 @@ export function resetMasteryTowerDailyProgress(
     todayBestFloor: 0,
     runFloor: 0,
     claimed: false,
+    entryStaminaPaid: false,
   };
 }
 

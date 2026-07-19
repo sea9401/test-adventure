@@ -9,7 +9,7 @@ import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 게임 허브명 — 클릭 시 모험 탭(/)으로 이동.
-// 우측: 알림(미읽음 뱃지 → /notifications)·채팅·설정.
+// 우측: 우편·알림 미리보기·채팅·광장/설정 메뉴.
 
 export function V2TopBar({
   locationName,
@@ -32,7 +32,7 @@ export function V2TopBar({
 }) {
   const router = useRouter();
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90">
+    <header className="sticky top-0 z-[60] flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-700 dark:bg-zinc-900/90">
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
@@ -61,7 +61,7 @@ export function V2TopBar({
           )}
         </button>
       </div>
-      <nav className="flex shrink-0 items-center gap-1">
+      <nav className="relative z-[61] flex shrink-0 items-center gap-1">
         <MailboxBell />
         <NotificationBell />
         {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).

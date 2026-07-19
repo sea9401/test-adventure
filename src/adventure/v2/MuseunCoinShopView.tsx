@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   CheckCircle,
   CoinVertical,
@@ -9,6 +10,7 @@ import {
   Percent,
   Storefront,
   Sword,
+  X,
 } from "@phosphor-icons/react";
 import {
   ADVENTURE_SUPPORT_PASS,
@@ -16,7 +18,8 @@ import {
 } from "@/adventure/data/v2/adventureSupport";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 
 const SUPPORT_BENEFITS = [
@@ -59,6 +62,8 @@ function MuseunCoinMark({ size = "md" }: { size?: "sm" | "md" }) {
 }
 
 export function MuseunCoinShopView() {
+  const [chargeOpen, setChargeOpen] = useState(false);
+
   return (
     <PageShell spacing="loose">
       <Card padding="lg">
@@ -82,48 +87,20 @@ export function MuseunCoinShopView() {
             <p className="text-xs text-zinc-500 dark:text-zinc-400">보유 재화</p>
             <p className="mt-1 text-lg font-bold tabular-nums">무슨 코인 0개</p>
           </div>
-          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            미리보기 잔액
-          </span>
-        </div>
-      </Card>
-
-      <section className="space-y-3" aria-labelledby="coin-charge-heading">
-        <div className="flex items-end justify-between gap-3 px-1">
-          <div>
-            <h2 id="coin-charge-heading" className="text-base font-bold">
-              무슨 코인 충전
-            </h2>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              구매한 코인은 만료되지 않습니다.
-            </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              미리보기 잔액
+            </span>
+            <button
+              type="button"
+              onClick={() => setChargeOpen(true)}
+              className="ui-game-button rounded-md border border-amber-500 bg-amber-500 px-3 py-1.5 text-sm font-bold text-white transition hover:bg-amber-600"
+            >
+              충전
+            </button>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {MUSEUN_COIN_PACKAGES.map((item) => (
-            <Card key={item.id} padding="md" className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <MuseunCoinMark size="sm" />
-                <div>
-                  <p className="font-bold tabular-nums">
-                    {item.coins.toLocaleString()}개
-                  </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {item.priceKrw.toLocaleString()}원
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled
-                className="ui-game-button mt-4 w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-400 disabled:cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500"
-              >
-                결제 준비 중
-              </button>
-            </Card>
-          ))}
-        </div>
-      </section>
+      </Card>
 
       <Card padding="lg" className="border-amber-300 dark:border-amber-800">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -188,6 +165,74 @@ export function MuseunCoinShopView() {
           모험으로 돌아가기
         </Link>
       </div>
+
+      {chargeOpen && (
+        <MuseunCoinChargeDialog onClose={() => setChargeOpen(false)} />
+      )}
     </PageShell>
+  );
+}
+
+function MuseunCoinChargeDialog({ onClose }: { onClose: () => void }) {
+  useEscapeKey(onClose);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="museun-coin-charge-title"
+        className={`${SURFACE_CARD} w-full max-w-lg overflow-hidden`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700">
+          <MuseunCoinMark size="sm" />
+          <div className="min-w-0 flex-1">
+            <h2 id="museun-coin-charge-title" className="text-base font-bold">
+              무슨 코인 충전
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              구매한 코인은 만료되지 않습니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="충전창 닫기"
+            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <X size={18} aria-hidden />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 p-4">
+          {MUSEUN_COIN_PACKAGES.map((item) => (
+            <div key={item.id} className={`${SURFACE_INSET} flex flex-col p-3`}>
+              <div className="flex items-center gap-2">
+                <MuseunCoinMark size="sm" />
+                <div className="min-w-0">
+                  <p className="font-bold tabular-nums">
+                    {item.coins.toLocaleString()}코인
+                  </p>
+                  <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {item.priceKrw.toLocaleString()}원
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled
+                className="ui-game-button mt-3 w-full rounded-md border border-zinc-300 bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-400 disabled:cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500"
+              >
+                결제 준비 중
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADVENTURE_SUPPORT_PASS,
+  MUSEUN_COIN_PACKAGES,
   adventureSupportActive,
   grantAdventureSupport,
   huntCountsForAdventureSupport,
@@ -10,6 +11,15 @@ import {
 } from "./adventureSupport";
 
 describe("월간 모험 지원권", () => {
+  it("무슨 코인 충전권의 코인과 원화 금액을 고정한다", () => {
+    expect(MUSEUN_COIN_PACKAGES).toEqual([
+      { id: "coin_1000", coins: 1_000, priceKrw: 9_900 },
+      { id: "coin_2000", coins: 2_000, priceKrw: 19_900 },
+      { id: "coin_3000", coins: 3_000, priceKrw: 29_900 },
+      { id: "coin_5000", coins: 5_000, priceKrw: 49_900 },
+    ]);
+  });
+
   it("미가입자는 10회까지만 선택할 수 있다", () => {
     expect(huntCountsForAdventureSupport(false)).toEqual([1, 5, 10]);
     expect(maxHuntBatchForAdventureSupport(false)).toBe(10);

@@ -1,15 +1,19 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import {
   ArrowLeft,
   ChatCircle,
   Eye,
   Heart,
+  Megaphone,
   PencilSimple,
   Trash,
+  UserCircle,
   UsersThree,
 } from "@phosphor-icons/react";
+import { avatarImageSrc } from "@/adventure/profile/avatars";
 import { Card } from "@/components/ui/Card";
 import { formatDateTime } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
@@ -28,6 +32,51 @@ type Props = {
   onCommentCountChange: (postId: number, count: number) => void;
   onRequestSendMessage: (name: string) => void;
 };
+
+function AuthorPortrait({ post }: { post: BulletinPost }) {
+  const src = avatarImageSrc(post.avatar ?? "male1");
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const frameClass =
+    "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950";
+
+  if (post.category === "notice") {
+    return (
+      <div className={frameClass} aria-label="운영자 공지">
+        <Megaphone
+          size={28}
+          weight="duotone"
+          className="text-rose-500 dark:text-rose-400"
+        />
+      </div>
+    );
+  }
+
+  if (failedSrc === src) {
+    return (
+      <div className={frameClass} aria-label={`${post.name} 프로필`}>
+        <UserCircle
+          size={30}
+          weight="duotone"
+          className="text-zinc-400"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={frameClass}>
+      <Image
+        src={src}
+        alt={`${post.name} 프로필 이미지`}
+        width={56}
+        height={56}
+        sizes="56px"
+        className="h-full w-full object-contain"
+        onError={() => setFailedSrc(src)}
+      />
+    </div>
+  );
+}
 
 export function PostDetailPage({
   post,
@@ -73,68 +122,83 @@ export function PostDetailPage({
         >
           <ArrowLeft size={18} weight="bold" />
         </button>
-        <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
-          {post.title && post.title.trim().length > 0
-            ? post.title
-            : "(제목 없음)"}
-        </h2>
       </div>
 
-      <Card padding="md">
-        <div className="flex items-baseline justify-between gap-2">
-          <div className="flex flex-wrap items-baseline gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-            <span
-              className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_BADGE[post.category]}`}
-            >
-              {BULLETIN_CATEGORY_LABELS[post.category].name}
-            </span>
-            {post.scope === "guild" && (
-              <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-                <UsersThree size={11} weight="bold" />
-                {post.guildName == null ? "길드 전용" : `${post.guildName} 전용`}
+      <Card padding="md" className="-mx-2 sm:-mx-4">
+        <header className="border-b border-zinc-200 pb-4 dark:border-zinc-700">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_BADGE[post.category]}`}
+              >
+                {BULLETIN_CATEGORY_LABELS[post.category].name}
               </span>
-            )}
-            {post.mine || post.category === "notice" ? (
-              // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
-              <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                {post.name}
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onRequestSendMessage(post.name)}
-                title="쪽지 보내기"
-                className="rounded font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
-              >
-                {post.name}
-              </button>
-            )}
-            <span>{formatDateTime(post.createdAt)}</span>
-            {post.updatedAt != null && <span>(수정됨)</span>}
-          </div>
-          {post.mine && (
-            <div className="flex shrink-0 items-center gap-0.5">
-              <button
-                type="button"
-                onClick={() => onEdit(post.id)}
-                aria-label="글 수정"
-                className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-              >
-                <PencilSimple size={14} weight="bold" />
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                aria-label="글 삭제"
-                className="rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-              >
-                <Trash size={14} weight="bold" />
-              </button>
+              {post.scope === "guild" && (
+                <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  <UsersThree size={11} weight="bold" />
+                  {post.guildName == null
+                    ? "길드 전용"
+                    : `${post.guildName} 전용`}
+                </span>
+              )}
             </div>
-          )}
-        </div>
+            {post.mine && (
+              <div className="flex shrink-0 items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => onEdit(post.id)}
+                  aria-label="글 수정"
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                >
+                  <PencilSimple size={14} weight="bold" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  aria-label="글 삭제"
+                  className="rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                >
+                  <Trash size={14} weight="bold" />
+                </button>
+              </div>
+            )}
+          </div>
 
-        <p className="mt-3 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-200">
+          <h2 className="mt-3 break-words text-xl font-bold leading-snug text-zinc-950 dark:text-zinc-50 sm:text-2xl">
+            {post.title && post.title.trim().length > 0
+              ? post.title
+              : "(제목 없음)"}
+          </h2>
+
+          <div className="mt-4 flex items-center gap-3">
+            <AuthorPortrait post={post} />
+            <div className="min-w-0">
+              {post.mine || post.category === "notice" ? (
+                // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
+                <span className="block truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  {post.name}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onRequestSendMessage(post.name)}
+                  title="쪽지 보내기"
+                  className="block max-w-full truncate rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
+                >
+                  {post.name}
+                </button>
+              )}
+              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                <span>{post.className}</span>
+                <span aria-hidden="true">·</span>
+                <span>{formatDateTime(post.createdAt)}</span>
+                {post.updatedAt != null && <span>(수정됨)</span>}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <p className="mt-4 whitespace-pre-wrap break-words text-[15px] leading-7 text-zinc-800 dark:text-zinc-200">
           {post.content}
         </p>
 

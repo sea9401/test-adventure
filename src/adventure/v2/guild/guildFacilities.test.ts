@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GUILD_FACILITY_ICON_COLORS,
   GUILD_FACILITY_IDS,
   isGuildFacilityId,
   unlockedGuildFacilityIds,
@@ -22,5 +23,15 @@ describe("guildFacilities", () => {
     }
     expect(isGuildFacilityId("castle")).toBe(false);
     expect(isGuildFacilityId(null)).toBe(false);
+  });
+
+  it("모든 시설은 드롭다운과 목록이 공유할 아이콘 색상을 가진다", () => {
+    for (const id of GUILD_FACILITY_IDS) {
+      expect(GUILD_FACILITY_ICON_COLORS[id]).toMatch(/^text-/);
+      expect(GUILD_FACILITY_ICON_COLORS[id]).toContain("dark:text-");
+    }
+    expect(new Set(Object.values(GUILD_FACILITY_ICON_COLORS)).size).toBe(
+      GUILD_FACILITY_IDS.length,
+    );
   });
 });

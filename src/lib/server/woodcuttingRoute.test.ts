@@ -45,6 +45,11 @@ import {
 } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
+import {
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -256,6 +261,36 @@ describe("woodcutting routes", () => {
     );
   });
 
+  it("chop — 성공 시 매우 낮은 확률로 농장 씨앗 1개를 지급한다", async () => {
+    vi.mocked(Math.random).mockReturnValueOnce(0.99).mockReturnValueOnce(0);
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "cut-with-seed",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_500,
+      expiresAt: NOW + 34_500,
+      failureRate: 0.22,
+      bonusLogRate: 0,
+    });
+    store.set("character.v2", { materials: {} });
+    store.set(FARM_SAVE_KEY, {
+      ...emptyFarmState(NOW),
+      seeds: { herb: 2 },
+    });
+
+    const json = await (await CHOP(chopReq("cut-with-seed"))).json();
+
+    expect(json).toMatchObject({
+      success: true,
+      seedDrop: { cropId: "wheat", seedName: "밀 씨앗", quantity: 1 },
+    });
+    expect(parseFarmState(store.get(FARM_SAVE_KEY)).seeds).toEqual({
+      wheat: 1,
+      herb: 2,
+    });
+  });
+
   it("chop — 일일 활동량만 많으면 원목을 전량 지급하고 대기를 추가하지 않는다", async () => {
     vi.spyOn(Date, "now").mockReturnValue(NOW + 4_600);
     store.set(WOODCUTTING_SESSION_KEY, {
@@ -329,6 +364,7 @@ describe("woodcutting routes", () => {
     });
     expect(store.get(WOODCUTTING_SESSION_KEY)).toEqual({});
     expect(incrementGuildExplorationProgressForUser).not.toHaveBeenCalled();
+    expect(store.has(FARM_SAVE_KEY)).toBe(false);
   });
 
   it("chop — 나무꾼은 성공 시 생존자·직업 숙련도를 함께 얻는다", async () => {

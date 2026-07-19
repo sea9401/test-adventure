@@ -36,6 +36,7 @@ export type LifeGatheringDrop = {
   materialName?: string;
   quantity: number;
   primary: boolean;
+  itemKind?: string;
 };
 
 export function recordLifeGatheringTelemetrySoon(args: {
@@ -74,7 +75,7 @@ export function recordLifeGatheringTelemetrySoon(args: {
     recordEconomyEventSoon({
       userId: args.userId,
       eventType: LIFE_GATHERING_REWARD_EVENT[args.activity],
-      itemKind: "material",
+      itemKind: drop.itemKind ?? "material",
       itemId: drop.materialId,
       quantity,
       detail: {

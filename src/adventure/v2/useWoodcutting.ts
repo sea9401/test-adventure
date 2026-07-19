@@ -133,6 +133,20 @@ export function useWoodcutting(): WoodcuttingHandlers {
       }
       const nextMaterials = parseMaterials(json.materials);
       const nextLog = parseLog(json.log);
+      const seedDrop =
+        json.seedDrop &&
+        typeof json.seedDrop === "object" &&
+        typeof json.seedDrop.cropId === "string" &&
+        typeof json.seedDrop.seedName === "string"
+          ? {
+              cropId: json.seedDrop.cropId,
+              seedName: json.seedDrop.seedName,
+              quantity: Math.max(
+                1,
+                Math.floor(Number(json.seedDrop.quantity) || 1),
+              ),
+            }
+          : null;
       setMaterials(nextMaterials);
       setLog(nextLog);
       return {
@@ -153,6 +167,7 @@ export function useWoodcutting(): WoodcuttingHandlers {
           json.masteryAfter == null
             ? null
             : Math.max(0, Math.floor(Number(json.masteryAfter) || 0)),
+        seedDrop,
         log: nextLog,
       };
     }

@@ -11,11 +11,17 @@ import {
   MASTERY_TOWER_SAVE_KEY,
   kstDateKey,
   masteryTowerClaimPreview,
+  masteryTowerEntryStaminaCost,
   masteryTowerFloorReward,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
+import {
+  applyRegen,
+  parseStaminaFromSave,
+  staminaConfigForCharacter,
+} from "@/adventure/v2/stamina";
 import {
   LEGACY_CLASS_SPEC_BY_JOB,
   V2_JOB_LIST,
@@ -71,6 +77,13 @@ export async function GET() {
     Math.floor(Number(inventory[MASTERY_CERTIFICATE_KEY]) || 0),
   );
   const charSave = (map.get("character.v2") ?? {}) as Record<string, unknown>;
+  const staminaConfig = staminaConfigForCharacter(charSave, now);
+  const stamina = applyRegen(
+    parseStaminaFromSave(charSave.stamina, now),
+    now,
+    staminaConfig.max,
+    staminaConfig.regenBonusPct,
+  );
   const prof = parseProficiencyForChar(map.get("proficiency.v2"), charSave);
   const power = derivePowerScore({
     atk: derived.player.atk,
@@ -101,6 +114,8 @@ export async function GET() {
   return Response.json({
     ok: true,
     tower,
+    entryStaminaCost: masteryTowerEntryStaminaCost(tower),
+    stamina,
     certificates,
     claimPreview: preview,
     power,

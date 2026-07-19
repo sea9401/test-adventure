@@ -23,6 +23,8 @@ import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
   useSystemMessageState,
   useSystemToast,
@@ -66,6 +68,8 @@ type TowerStatus = {
   ok?: boolean;
   error?: string;
   tower: TowerState;
+  entryStaminaCost: number;
+  stamina: StaminaState;
   certificates: number;
   claimPreview: {
     base: number;
@@ -116,6 +120,12 @@ export function V2MasteryTowerView({
   const [confirmClaimOpen, setConfirmClaimOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const { notifySystem } = useSystemToast();
+  const {
+    stamina,
+    staminaMax,
+    staminaRegenBonusPct,
+    setStamina,
+  } = useGameState();
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -127,6 +137,7 @@ export function V2MasteryTowerView({
         return;
       }
       setStatus(j);
+      setStamina(j.stamina);
       setSelectedJobId((prev) =>
         j.jobs.some((job) => job.id === prev) ? prev : (j.jobs[0]?.id ?? ""),
       );
@@ -141,7 +152,7 @@ export function V2MasteryTowerView({
     } finally {
       setLoading(false);
     }
-  }, [setMsg]);
+  }, [setMsg, setStamina]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -183,10 +194,9 @@ export function V2MasteryTowerView({
         : Math.max(0, Math.ceil(status?.retryAfterSeconds ?? 0));
 
   useEffect(() => {
-    if (!cooldownUntil || cooldownUntil <= now) return;
-    const timer = window.setInterval(() => setNow(Date.now()), 250);
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [cooldownUntil, now]);
+  }, []);
 
   async function claim() {
     setBusy("claim");
@@ -266,8 +276,19 @@ export function V2MasteryTowerView({
   }
 
   const canClaim = Boolean(status && !status.tower.claimed && status.claimPreview.total > 0);
+  const entryStaminaCost = status?.entryStaminaCost ?? 0;
+  const liveStamina = applyRegen(
+    stamina,
+    now,
+    staminaMax,
+    staminaRegenBonusPct,
+  ).current;
+  const lowStamina = entryStaminaCost > 0 && liveStamina < entryStaminaCost;
   const canAttempt = Boolean(
-    status && status.nextFloor != null && cooldownSeconds <= 0,
+    status &&
+      status.nextFloor != null &&
+      cooldownSeconds <= 0 &&
+      !lowStamina,
   );
   const certificateUseAmount = Math.min(
     status?.certificates ?? 0,
@@ -345,6 +366,11 @@ export function V2MasteryTowerView({
                       {status.nextRequiredPower?.toLocaleString("ko-KR") ?? "-"}
                     </p>
                   )}
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {entryStaminaCost > 0
+                      ? `오늘 최초 입장 스태미나 ${entryStaminaCost}`
+                      : "오늘 입장료 지불 완료 · 재도전 무료"}
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm sm:text-right">
                   <CompactMetric
@@ -440,7 +466,13 @@ export function V2MasteryTowerView({
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-zinc-900 px-3 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-950 dark:hover:bg-white"
               >
                 <CastleTurret size={16} weight="duotone" />
-                {cooldownSeconds > 0 ? `${cooldownSeconds}초 대기` : "입장"}
+                {cooldownSeconds > 0
+                  ? `${cooldownSeconds}초 대기`
+                  : lowStamina
+                    ? `스태미나 부족 (${entryStaminaCost} 필요)`
+                    : entryStaminaCost > 0
+                      ? `입장 (스태미나 ${entryStaminaCost})`
+                      : "입장"}
               </button>
               <button
                 type="button"

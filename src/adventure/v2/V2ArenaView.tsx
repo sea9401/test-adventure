@@ -9,6 +9,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
 import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
 import { ArenaShopPanel } from "@/adventure/v2/ArenaShopPanel";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { usePagination } from "@/lib/usePagination";
 import { Sword, Trophy, FilmStrip } from "@phosphor-icons/react";
@@ -20,6 +22,9 @@ type StateResp = {
   state?: {
     score: number;
     cooldownRemainingMs: number;
+    dailyMatchCount: number;
+    nextStaminaCost: number;
+    stamina: StaminaState;
     season?: {
       id: string;
       startAt: string;
@@ -93,11 +98,17 @@ type MatchResp =
       };
       historyEntry: ArenaHistoryEntry;
       cooldownMs: number;
+      stamina: StaminaState;
+      staminaCost: number;
+      dailyMatchCount: number;
+      nextStaminaCost: number;
     }
   | {
       ok: false;
       error: string;
       cooldownMs?: number;
+      requiredStamina?: number;
+      stamina?: StaminaState;
     };
 
 type Tab = "main" | "history" | "ranking" | "loadout" | "shop";
@@ -325,6 +336,12 @@ function OpponentRecords({
 
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const router = useRouter();
+  const {
+    stamina,
+    staminaMax,
+    staminaRegenBonusPct,
+    setStamina,
+  } = useGameState();
   const [tab, setTab] = useState<Tab>("main");
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
@@ -350,6 +367,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       ]);
       const sj = (await stateRes.json().catch(() => null)) as StateResp | null;
       setState(sj);
+      if (sj?.state?.stamina) setStamina(sj.state.stamina);
       if (sj == null) setLoadError(true);
       // 새로고침 후에도 남은 쿨타임 이어서 표시.
       const rem = sj?.state?.cooldownRemainingMs ?? 0;
@@ -374,24 +392,26 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       setState(null);
       setLoadError(true);
     }
-  }, []);
+  }, [setStamina]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch
     loadState();
   }, [loadState]);
 
-  // 쿨타임 카운트다운 틱 + 종료 시 자동 해제. cooldownUntil 변경 시 재설정.
+  // 쿨타임과 스태미나 자동 회복을 화면에 반영한다.
   useEffect(() => {
-    if (cooldownUntil <= 0) return;
-    const interval = setInterval(() => setNowMs(Date.now()), 250);
-    const timeout = setTimeout(
-      () => setCooldownUntil(0),
-      Math.max(0, cooldownUntil - Date.now()) + 50,
-    );
+    const interval = setInterval(() => setNowMs(Date.now()), 1_000);
+    const timeout =
+      cooldownUntil > 0
+        ? setTimeout(
+            () => setCooldownUntil(0),
+            Math.max(0, cooldownUntil - Date.now()) + 50,
+          )
+        : null;
     return () => {
       clearInterval(interval);
-      clearTimeout(timeout);
+      if (timeout != null) clearTimeout(timeout);
     };
   }, [cooldownUntil]);
 
@@ -403,6 +423,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const res = await fetch("/api/v2/arena/match", { method: "POST" });
       const j = (await res.json().catch(() => null)) as MatchResp | null;
       if (j && j.ok) {
+        setStamina(j.stamina);
         setHistory((prev) =>
           [j.historyEntry, ...prev].slice(0, ARENA_HISTORY_CLIENT_MAX),
         );
@@ -413,6 +434,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 state: {
                   ...prev.state,
                   score: j.scoreAfter,
+                  dailyMatchCount: j.dailyMatchCount,
+                  nextStaminaCost: j.nextStaminaCost,
+                  stamina: j.stamina,
                   season: j.ranked && prev.state.season
                     ? {
                         ...prev.state.season,
@@ -446,6 +470,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           );
         } else if (j.error === "no_character") {
           setError("캐릭터가 없어 매치를 진행할 수 없습니다.");
+        } else if (j.error === "out_of_stamina") {
+          if (j.stamina) setStamina(j.stamina);
+          setError(`스태미나가 부족합니다. ${j.requiredStamina ?? 1}이 필요합니다.`);
         } else if (j.error === "unauthorized") {
           setError("로그인이 필요합니다.");
         } else {
@@ -459,12 +486,20 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [busy, router]);
+  }, [busy, router, setStamina]);
 
   const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
   const onCooldown = cooldownLeftMs > 0;
   const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
-  const canChallenge = !busy && !onCooldown;
+  const nextStaminaCost = state?.state?.nextStaminaCost ?? 1;
+  const liveStamina = applyRegen(
+    stamina,
+    nowMs,
+    staminaMax,
+    staminaRegenBonusPct,
+  ).current;
+  const lowStamina = liveStamina < nextStaminaCost;
+  const canChallenge = !busy && !onCooldown && !lowStamina;
   const season = state?.state?.season;
   const seasonMatches =
     (season?.wins ?? 0) + (season?.losses ?? 0) + (season?.draws ?? 0);
@@ -564,7 +599,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               ? "매치 진행 중..."
               : onCooldown
                 ? `재도전까지 ${cooldownLeftSec}초`
-                : "도전"}
+                : lowStamina
+                  ? `스태미나 부족 (${nextStaminaCost} 필요)`
+                  : `도전 (스태미나 ${nextStaminaCost})`}
           </button>
 
           {error && (
@@ -584,6 +621,12 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 <div className="flex justify-between gap-3">
                   <dt>쿨타임</dt>
                   <dd className="text-right">매치 후 10초</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>스태미나</dt>
+                  <dd className="text-right">
+                    오늘 {state?.state?.dailyMatchCount ?? 0}전 · 10전마다 비용 +1
+                  </dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>점수</dt>

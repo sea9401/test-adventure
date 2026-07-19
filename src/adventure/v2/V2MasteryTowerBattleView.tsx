@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
+import type { StaminaState } from "@/adventure/v2/stamina";
 
 type TowerLogEntry = {
   kind: "info" | "player" | "enemy" | "success" | "fail" | "reward";
@@ -33,6 +35,9 @@ type TowerAttemptResult = {
   startPlayerHp?: number;
   playerName?: string;
   gender?: string;
+  stamina?: StaminaState;
+  staminaCost?: number;
+  requiredStamina?: number;
 };
 
 function resultMessage(
@@ -53,11 +58,13 @@ function errorMessage(error: string | undefined): string {
   if (error === "unauthorized") return "로그인이 필요합니다.";
   if (error === "no_character") return "캐릭터가 없어 입장할 수 없습니다.";
   if (error === "fishing_job") return "낚시 계열 직업은 숙련의 탑에 입장할 수 없습니다.";
+  if (error === "out_of_stamina") return "스태미나가 부족해 오늘 첫 입장을 진행할 수 없습니다.";
   return "입장을 진행할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 }
 
 export function V2MasteryTowerBattleView() {
   const router = useRouter();
+  const { setStamina } = useGameState();
   const [result, setResult] = useState<TowerAttemptResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -76,6 +83,7 @@ export function V2MasteryTowerBattleView() {
         setLoadError(true);
         return;
       }
+      if (json.stamina) setStamina(json.stamina);
       setResult(json);
       setLoadError(!json.ok);
     } catch {
@@ -84,7 +92,7 @@ export function V2MasteryTowerBattleView() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [setStamina]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

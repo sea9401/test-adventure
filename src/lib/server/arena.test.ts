@@ -5,12 +5,15 @@ import {
   ARENA_MATCH_COOLDOWN_MS,
   RECENT_OPPONENT_TRACK,
   arenaCooldownRemainingMs,
+  arenaDailyMatchCount,
+  arenaNextStaminaCost,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
   defaultArenaState,
   oppositeArenaOutcome,
   parseArenaState,
+  recordArenaDailyMatch,
   pushRecentOpponent,
   settleArenaElo,
   weightForCandidate,
@@ -71,6 +74,8 @@ describe("parseArenaState", () => {
     expect(s.ratingVersion).toBe(2);
     expect(s.recentOpponents).toEqual([]);
     expect(s.milestonesReached).toEqual([]);
+    expect(s.dailyMatchDate).toBe("");
+    expect(s.dailyMatchCount).toBe(0);
     // 기본 lastMatchAt = 에폭 → 쿨타임 없음(즉시 도전 가능).
     expect(new Date(s.lastMatchAt).getTime()).toBe(0);
   });
@@ -78,6 +83,14 @@ describe("parseArenaState", () => {
   it("부분 필드만 있어도 안전 처리", () => {
     const s = parseArenaState({ score: 1042, ratingVersion: 2 });
     expect(s.score).toBe(1042);
+  });
+
+  it("일일 매치 필드는 음수·소수·잘못된 값을 안전하게 정규화한다", () => {
+    expect(
+      parseArenaState({ dailyMatchDate: "2026-07-20", dailyMatchCount: 12.9 }),
+    ).toMatchObject({ dailyMatchDate: "2026-07-20", dailyMatchCount: 12 });
+    expect(parseArenaState({ dailyMatchCount: -3 }).dailyMatchCount).toBe(0);
+    expect(parseArenaState({ dailyMatchCount: "10" }).dailyMatchCount).toBe(0);
   });
 
   it("버전 없는 옛 누적 점수는 Elo 기본값으로 정규화", () => {
@@ -130,6 +143,50 @@ describe("parseArenaState", () => {
   it("기타 모르는 필드는 무시", () => {
     const s = parseArenaState({ extraStuff: 1, score: 10, ratingVersion: 2 });
     expect(s.score).toBe(10);
+  });
+});
+
+describe("아레나 일일 스태미나 비용", () => {
+  const now = new Date("2026-07-20T12:00:00.000Z");
+
+  it.each([
+    [0, 1],
+    [9, 1],
+    [10, 2],
+    [19, 2],
+    [20, 3],
+    [99, 10],
+  ])("오늘 %i회 진행 후 다음 비용은 %i다", (dailyMatchCountValue, cost) => {
+    const state = {
+      ...defaultArenaState(),
+      dailyMatchDate: "2026-07-20",
+      dailyMatchCount: dailyMatchCountValue,
+    };
+    expect(arenaNextStaminaCost(state, now)).toBe(cost);
+  });
+
+  it("KST 날짜가 바뀌면 횟수와 비용을 0회·1로 초기화한다", () => {
+    const state = {
+      ...defaultArenaState(),
+      dailyMatchDate: "2026-07-19",
+      dailyMatchCount: 87,
+    };
+    expect(arenaDailyMatchCount(state, now)).toBe(0);
+    expect(arenaNextStaminaCost(state, now)).toBe(1);
+    expect(recordArenaDailyMatch(state, now)).toMatchObject({
+      dailyMatchDate: "2026-07-20",
+      dailyMatchCount: 1,
+    });
+  });
+
+  it("KST 자정 경계를 적용한다", () => {
+    const state = {
+      ...defaultArenaState(),
+      dailyMatchDate: "2026-07-20",
+      dailyMatchCount: 10,
+    };
+    expect(arenaNextStaminaCost(state, new Date("2026-07-20T14:59:59Z"))).toBe(2);
+    expect(arenaNextStaminaCost(state, new Date("2026-07-20T15:00:00Z"))).toBe(1);
   });
 });
 

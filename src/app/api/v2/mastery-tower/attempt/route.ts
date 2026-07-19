@@ -17,13 +17,21 @@ import {
   clearMasteryTowerFloor,
   failMasteryTowerRun,
   kstDateKey,
+  markMasteryTowerEntryStaminaPaid,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
+  masteryTowerEntryStaminaCost,
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
   masteryTowerRequiredPower,
   parseMasteryTowerState,
 } from "@/adventure/data/v2/masteryTower";
+import {
+  applyRegen,
+  parseStaminaFromSave,
+  staminaConfigForCharacter,
+  tryConsume,
+} from "@/adventure/v2/stamina";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -126,6 +134,45 @@ export async function POST(req: Request) {
       };
     }
 
+    // 하루 첫 실제 전투에만 200을 받고, 이후 층 진행·실패 후 재입장은 무료다.
+    const entryStaminaCost = masteryTowerEntryStaminaCost(tower);
+    const staminaConfig = staminaConfigForCharacter(charSave, now);
+    const stamina = parseStaminaFromSave(charSave.stamina, now);
+    const afterStamina =
+      entryStaminaCost > 0
+        ? tryConsume(
+            stamina,
+            entryStaminaCost,
+            now,
+            staminaConfig.max,
+            staminaConfig.regenBonusPct,
+          )
+        : applyRegen(
+            stamina,
+            now,
+            staminaConfig.max,
+            staminaConfig.regenBonusPct,
+          );
+    if (!afterStamina) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "out_of_stamina" as const,
+          requiredStamina: entryStaminaCost,
+          stamina: applyRegen(
+            stamina,
+            now,
+            staminaConfig.max,
+            staminaConfig.regenBonusPct,
+          ),
+        },
+      };
+    }
+    if (entryStaminaCost > 0) {
+      tower = markMasteryTowerEntryStaminaPaid(tower);
+    }
+
     const requiredPower = masteryTowerRequiredPower(floor);
     const guardian = masteryTowerGuardianForFloor(floor);
     const profile = await readSave<{ name?: string; gender?: string } | null>(
@@ -155,6 +202,12 @@ export async function POST(req: Request) {
       tower = failMasteryTowerRun(tower, now);
       await upsertSave(tx, userId, MASTERY_TOWER_SAVE_KEY, tower);
     }
+    if (entryStaminaCost > 0) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        stamina: afterStamina,
+      });
+    }
     const claimPreview = masteryTowerClaimPreview(tower);
     const retryAfterSeconds = success
       ? 0
@@ -165,6 +218,9 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         success,
+        stamina: afterStamina,
+        staminaCost: entryStaminaCost,
+        nextEntryStaminaCost: masteryTowerEntryStaminaCost(tower),
         tower,
         power,
         floor,

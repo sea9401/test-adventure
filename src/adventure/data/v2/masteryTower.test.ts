@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   clearMasteryTowerFloor,
   failMasteryTowerRun,
+  markMasteryTowerEntryStaminaPaid,
   masteryTowerAttemptLog,
   masteryTowerClaimPreview,
+  masteryTowerEntryStaminaCost,
   masteryTowerFloorReward,
   masteryTowerGuardianForFloor,
   masteryTowerGuardianPreview,
@@ -60,7 +62,27 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 22,
       firstClearRewardsClaimed: [10, 20],
+      entryStaminaPaid: false,
     });
+  });
+
+  it("당일 첫 입장만 스태미나 200을 받고 이후 재도전은 무료다", () => {
+    const state = parseMasteryTowerState(null, "2026-07-20");
+    expect(masteryTowerEntryStaminaCost(state)).toBe(200);
+    expect(
+      masteryTowerEntryStaminaCost(markMasteryTowerEntryStaminaPaid(state)),
+    ).toBe(0);
+  });
+
+  it("저장된 당일 입장료 납부 여부는 유지하고 날짜 변경 시 초기화한다", () => {
+    const paid = parseMasteryTowerState(
+      { date: "2026-07-20", entryStaminaPaid: true },
+      "2026-07-20",
+    );
+    expect(paid.entryStaminaPaid).toBe(true);
+    expect(
+      parseMasteryTowerState(paid, "2026-07-21").entryStaminaPaid,
+    ).toBe(false);
   });
 
   it("요구 전투력은 층이 오를수록 증가한다", () => {
@@ -145,6 +167,7 @@ describe("masteryTower", () => {
       claimed: false,
       lifetimeBestFloor: 24,
       firstClearRewardsClaimed: [10, 20],
+      entryStaminaPaid: false,
     });
   });
 

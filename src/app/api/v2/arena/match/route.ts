@@ -47,6 +47,8 @@ import {
   ARENA_DAMAGE_MULTIPLIER,
   ARENA_MATCH_COOLDOWN_MS,
   arenaCooldownRemainingMs,
+  arenaDailyMatchCount,
+  arenaNextStaminaCost,
   computeGoldReward,
   defaultArenaState,
   oppositeArenaOutcome,
@@ -54,6 +56,7 @@ import {
   parseArenaState,
   pushArenaHistory,
   pushRecentOpponent,
+  recordArenaDailyMatch,
   settleArenaElo,
   weightForCandidate,
   weightedPick,
@@ -67,6 +70,12 @@ import {
   parseV2SkillsState,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  applyRegen,
+  parseStaminaFromSave,
+  staminaConfigForCharacter,
+  tryConsume,
+} from "@/adventure/v2/stamina";
 
 // POST /api/v2/arena/match — 아레나 1:1 매치 한 판 실행.
 //
@@ -87,6 +96,8 @@ import {
 type CharSaveShape = {
   level?: number;
   gold?: number;
+  stamina?: unknown;
+  staminaCapBonus?: unknown;
   [k: string]: unknown;
 };
 
@@ -198,6 +209,36 @@ export async function POST() {
           ok: false as const,
           error: "cooldown" as const,
           cooldownMs,
+        },
+      };
+    }
+
+    // 오늘 성립한 공격 매치 수 기준으로 10회마다 다음 비용이 1씩 증가한다.
+    // 여기서는 가능 여부만 계산하고, 실제 매치가 성립한 뒤 같은 트랜잭션에서 저장한다.
+    const staminaCost = arenaNextStaminaCost(parsedArena, now);
+    const stamina = parseStaminaFromSave(charSave.stamina, now.getTime());
+    const staminaConfig = staminaConfigForCharacter(charSave, now.getTime());
+    const afterStamina = tryConsume(
+      stamina,
+      staminaCost,
+      now.getTime(),
+      staminaConfig.max,
+      staminaConfig.regenBonusPct,
+    );
+    if (!afterStamina) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "out_of_stamina" as const,
+          requiredStamina: staminaCost,
+          dailyMatchCount: arenaDailyMatchCount(parsedArena, now),
+          stamina: applyRegen(
+            stamina,
+            now.getTime(),
+            staminaConfig.max,
+            staminaConfig.regenBonusPct,
+          ),
         },
       };
     }
@@ -636,7 +677,7 @@ export async function POST() {
 
     // 12. 상태 저장.
     const nextArena = {
-      ...attackerArena,
+      ...recordArenaDailyMatch(attackerArena, now),
       score: newScore,
       lastMatchAt: now.toISOString(),
       recentOpponents: pushRecentOpponent(attackerArena.recentOpponents, oppRef),
@@ -678,6 +719,7 @@ export async function POST() {
     const nextChar = {
       ...charSave,
       gold: Math.max(0, (charSave.gold ?? 0) + goldGain),
+      stamina: afterStamina,
     };
     await upsertSave(tx, userId, CHARACTER_STATE_KEY, nextChar);
 
@@ -691,6 +733,10 @@ export async function POST() {
         scoreAfter: newScore,
         scoreDelta,
         goldGained: goldGain,
+        stamina: afterStamina,
+        staminaCost,
+        dailyMatchCount: nextArena.dailyMatchCount,
+        nextStaminaCost: arenaNextStaminaCost(nextArena, now),
         opponent: {
           name: oppName,
           level: oppLevel,

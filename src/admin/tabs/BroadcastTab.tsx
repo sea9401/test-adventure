@@ -15,6 +15,7 @@ import {
 } from "../ui/AttachmentPicker";
 import { DangerAction } from "../ui/DangerAction";
 import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
+import { ADVENTURE_SUPPORT_MAX_GRANT_DAYS } from "@/adventure/data/v2/adventureSupport";
 
 // 공지/방송 + 대량 우편.
 //   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 3000자.
@@ -31,6 +32,7 @@ export function BroadcastTab() {
   const [target, setTarget] = useState<"all" | "user">("user");
   const [userId, setUserId] = useState("");
   const [gold, setGold] = useState(1000);
+  const [adventureSupportDays, setAdventureSupportDays] = useState(0);
   const [mailMsg, setMailMsg] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -61,7 +63,8 @@ export function BroadcastTab() {
     gold > 0 ||
     attachMaterials.length > 0 ||
     attachItems.length > 0 ||
-    attachConsumables.length > 0;
+    attachConsumables.length > 0 ||
+    adventureSupportDays > 0;
 
   const postNotice = async () => {
     if (readOnly) {
@@ -95,6 +98,7 @@ export function BroadcastTab() {
         materials?: unknown[];
         items?: unknown[];
         staminaPotions?: number;
+        adventureSupportDays?: number;
       }>("/api/admin/mail", {
         target,
         userId,
@@ -106,6 +110,7 @@ export function BroadcastTab() {
         items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
         staminaPotions:
           attachConsumables.find((e) => e.id === "stamina_potion")?.count ?? 0,
+        adventureSupportDays,
         message: mailMsg,
       });
       const parts: string[] = [];
@@ -117,6 +122,9 @@ export function BroadcastTab() {
       if ((j.staminaPotions ?? 0) > 0) {
         parts.push(`스태미나 회복약 ${j.staminaPotions}개`);
       }
+      if ((j.adventureSupportDays ?? 0) > 0) {
+        parts.push(`월간 모험 지원권 ${j.adventureSupportDays}일`);
+      }
       showToast(
         `우편 발송 완료 — ${j.recipients ?? 0}명에게 ${parts.join(" · ") || "(빈 우편)"}`,
       );
@@ -124,6 +132,7 @@ export function BroadcastTab() {
       setAttachMaterials([]);
       setAttachItems([]);
       setAttachConsumables([]);
+      setAdventureSupportDays(0);
     } catch (e) {
       showToast(`우편 실패: ${e instanceof Error ? e.message : "오류"}`);
     } finally {
@@ -183,7 +192,9 @@ export function BroadcastTab() {
 
       {/* 대량 우편 */}
       <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-sm font-semibold">대량 우편 (골드·재료·장비·소비템)</h3>
+        <h3 className="text-sm font-semibold">
+          대량 우편 (골드·재료·장비·소비템·지원권)
+        </h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           골드 + 재료/장비/소비템 + 메시지를 우편함으로 발송합니다(수신자가 수령). 보정금·이벤트
           보상용. 장비는 기본 등급으로 지급됩니다.
@@ -217,6 +228,28 @@ export function BroadcastTab() {
               min={0}
               disabled={mailDisabled}
               onChange={(n) => setGold(Math.max(0, Math.floor(n)))}
+            />
+          </Field>
+          <Field
+            label="월간 모험 지원권"
+            hint="0이면 미첨부 · 수령 시점부터 시작 · 활성 이용자는 기간 연장"
+          >
+            <NumberInput
+              value={adventureSupportDays}
+              min={0}
+              max={ADVENTURE_SUPPORT_MAX_GRANT_DAYS}
+              disabled={mailDisabled}
+              onChange={(n) =>
+                setAdventureSupportDays(
+                  Math.max(
+                    0,
+                    Math.min(
+                      ADVENTURE_SUPPORT_MAX_GRANT_DAYS,
+                      Math.floor(n),
+                    ),
+                  ),
+                )
+              }
             />
           </Field>
         </div>
@@ -267,6 +300,10 @@ export function BroadcastTab() {
               }${
                 attachConsumables.length > 0
                   ? ` · 소비템 ${attachConsumables.length}종`
+                  : ""
+              }${
+                adventureSupportDays > 0
+                  ? ` · 월간 모험 지원권 ${adventureSupportDays}일`
                   : ""
               }을 우편으로 발송합니다. 되돌릴 수 없습니다(수령 전 우편 회수 불가).`}
               confirmText="SEND ALL"

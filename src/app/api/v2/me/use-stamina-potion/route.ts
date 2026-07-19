@@ -3,10 +3,9 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
-  staminaCapBonusOf,
+  staminaConfigForCharacter,
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
@@ -64,9 +63,15 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "no_potion" } };
     }
     const now = Date.now();
-    const max = MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+    const staminaConfig = staminaConfigForCharacter(charSave, now);
+    const max = staminaConfig.max;
     const cap = staminaOverchargeCap(max); // 포션 비축 상한(max × MULT)
-    const cur = applyRegen(parseStaminaFromSave(charSave.stamina, now), now, max);
+    const cur = applyRegen(
+      parseStaminaFromSave(charSave.stamina, now),
+      now,
+      max,
+      staminaConfig.regenBonusPct,
+    );
     const usefulCount = Math.max(
       0,
       Math.ceil((cap - cur.current) / STAMINA_POTION_RESTORE),

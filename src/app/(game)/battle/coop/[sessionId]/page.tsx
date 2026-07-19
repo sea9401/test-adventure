@@ -9,12 +9,14 @@ import { V2CoopBossDetailView } from "@/adventure/v2/coop/V2CoopBossDetailView";
 export default function CoopBossDetailPage() {
   const router = useRouter();
   const params = useParams<{ sessionId: string }>();
-  const { stamina, staminaMax, setStamina } = useGameState();
+  const { stamina, staminaMax, staminaRegenBonusPct, setStamina } =
+    useGameState();
   return (
     <V2CoopBossDetailView
       sessionId={params.sessionId}
       stamina={stamina}
       staminaMax={staminaMax}
+      staminaRegenBonusPct={staminaRegenBonusPct}
       setStamina={setStamina}
       onBack={() => router.push("/battle/coop")}
       onOpenAttackLog={(attackId) =>

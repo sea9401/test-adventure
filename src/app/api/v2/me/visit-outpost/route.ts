@@ -10,6 +10,7 @@ import {
   OUTPOST_MOVE_COST,
   applyRegen,
   parseStaminaFromSave,
+  staminaConfigForCharacter,
   tryConsume,
   type StaminaState,
 } from "@/adventure/v2/stamina";
@@ -83,6 +84,7 @@ export async function POST(req: Request) {
       const now = Date.now();
       const isMove = resolveCurrentOutpostId(savedId) !== outpostId;
       const stamina = parseStaminaFromSave(charSave.stamina, now);
+      const staminaConfig = staminaConfigForCharacter(charSave, now);
       const coreLoop = V2_CORE_LOOP_V2;
       const gold =
         typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
@@ -90,7 +92,12 @@ export async function POST(req: Request) {
           : 0;
       const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
       // 기본 = 회복만(재진입·코어루프 공통). 이동/워프는 아래에서 비용 부과.
-      let nextStamina: StaminaState = applyRegen(stamina, now);
+      let nextStamina: StaminaState = applyRegen(
+        stamina,
+        now,
+        staminaConfig.max,
+        staminaConfig.regenBonusPct,
+      );
       let nextGold = gold;
       let nextBankedGold = bankedGold;
 
@@ -109,9 +116,15 @@ export async function POST(req: Request) {
           nextBankedGold = spend.bankedGold;
           return null;
         }
-        const after = tryConsume(stamina, staminaCost, now);
+        const after = tryConsume(
+          stamina,
+          staminaCost,
+          now,
+          staminaConfig.max,
+          staminaConfig.regenBonusPct,
+        );
         if (!after) {
-          return { kind: "out_of_stamina", stamina: applyRegen(stamina, now) };
+          return { kind: "out_of_stamina", stamina: nextStamina };
         }
         nextStamina = after;
         return null;

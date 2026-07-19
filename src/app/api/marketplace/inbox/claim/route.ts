@@ -31,6 +31,17 @@ import {
 import { mintRolledEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import {
+  ADVENTURE_SUPPORT_PASS,
+  grantAdventureSupport,
+} from "@/adventure/data/v2/adventureSupport";
+import {
+  applyRegen,
+  parseStaminaFromSave,
+  staminaConfigForCharacter,
+  staminaOverchargeCap,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
 import { randomUUID } from "node:crypto";
 
 const SAVES_CHARACTER = "character.v2";
@@ -119,6 +130,7 @@ export async function POST(req: Request) {
       const v2MaterialsToAdd: { id: string; count: number }[] = [];
       const recipesToAdd: AddRecipe[] = [];
       let staminaPotionsTotal = 0;
+      let adventureSupportDaysTotal = 0;
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
       // 기존대로 inventory.v2 스택으로. base 등급 가정(등급 사본 보상 없음).
       const pushEquip = (itemId: string, count: number) => {
@@ -216,6 +228,9 @@ export async function POST(req: Request) {
             if (parsed.staminaPotions > 0) {
               staminaPotionsTotal += parsed.staminaPotions;
             }
+            if (parsed.adventureSupportDays > 0) {
+              adventureSupportDaysTotal += parsed.adventureSupportDays;
+            }
             break;
           }
         }
@@ -223,8 +238,17 @@ export async function POST(req: Request) {
 
       // 캐릭터 갱신 — 골드 + V2 재료(둘 다 character.v2 가 SSOT). 한 번만 잠그고 합쳐 upsert.
       let newGold: number | null = null;
+      let adventureSupportActiveUntil: number | null = null;
+      let adventureSupportDaysApplied = 0;
+      let adventureSupportFirstActivation = false;
+      let staminaAfterSupport: StaminaState | null = null;
+      let staminaMaxAfterSupport: number | null = null;
       const materialsV2Added: { id: string; count: number }[] = [];
-      if (goldTotal > 0 || v2MaterialsToAdd.length > 0) {
+      if (
+        goldTotal > 0 ||
+        v2MaterialsToAdd.length > 0 ||
+        adventureSupportDaysTotal > 0
+      ) {
         const charRows = await tx
           .select()
           .from(savesKv)
@@ -253,6 +277,41 @@ export async function POST(req: Request) {
             materialsV2Added.push({ id: m.id, count: m.count });
           }
           nextChar = { ...nextChar, materials: mats };
+        }
+        if (adventureSupportDaysTotal > 0) {
+          const nowMs = Date.now();
+          const grant = grantAdventureSupport(
+            character.adventureSupport,
+            adventureSupportDaysTotal,
+            nowMs,
+          );
+          if (grant) {
+            adventureSupportDaysApplied = grant.days;
+            adventureSupportActiveUntil = grant.state.activeUntil;
+            adventureSupportFirstActivation = grant.firstActivation;
+            nextChar = { ...nextChar, adventureSupport: grant.state };
+
+            const nextConfig = staminaConfigForCharacter(nextChar, nowMs);
+            staminaMaxAfterSupport = nextConfig.max;
+            if (grant.firstActivation) {
+              const previousConfig = staminaConfigForCharacter(character, nowMs);
+              const currentStamina = applyRegen(
+                parseStaminaFromSave(character.stamina, nowMs),
+                nowMs,
+                previousConfig.max,
+                previousConfig.regenBonusPct,
+              );
+              staminaAfterSupport = {
+                current: Math.min(
+                  staminaOverchargeCap(nextConfig.max),
+                  currentStamina.current +
+                    ADVENTURE_SUPPORT_PASS.staminaActivationGrant,
+                ),
+                lastUpdatedAt: currentStamina.lastUpdatedAt,
+              };
+              nextChar = { ...nextChar, stamina: staminaAfterSupport };
+            }
+          }
         }
         await upsertSave(tx, userId, SAVES_CHARACTER, nextChar);
       }
@@ -431,6 +490,11 @@ export async function POST(req: Request) {
         coinsAdded,
         staminaPotionsAdded: staminaPotionsTotal,
         staminaPotions,
+        adventureSupportDaysAdded: adventureSupportDaysApplied,
+        adventureSupportActiveUntil,
+        adventureSupportFirstActivation,
+        staminaAfterSupport,
+        staminaMaxAfterSupport,
         newGold,
         newInventory,
         newEquipmentOwned,

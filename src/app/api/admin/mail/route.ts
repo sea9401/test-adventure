@@ -10,6 +10,7 @@ import {
 } from "@/lib/server/inboxPayload";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { normalizeAdventureSupportGrantDays } from "@/adventure/data/v2/adventureSupport";
 
 // POST /api/admin/mail — 운영자 대량 우편(골드/재료/장비/스태미나 회복약 + 메시지)을 한 유저 또는
 // 전체 유저에게 발송.
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
     materials?: unknown;
     items?: unknown;
     staminaPotions?: unknown;
+    adventureSupportDays?: unknown;
     message?: unknown;
   };
   try {
@@ -94,18 +96,38 @@ export async function POST(req: Request) {
     typeof body.staminaPotions === "number" && Number.isFinite(body.staminaPotions)
       ? Math.max(0, Math.min(MAX_COUNT, Math.trunc(body.staminaPotions)))
       : 0;
+  const adventureSupportDays = normalizeAdventureSupportGrantDays(
+    body.adventureSupportDays,
+  );
   const message =
     typeof body.message === "string" ? body.message.trim().slice(0, MESSAGE_MAX) : "";
 
-  // 골드·재료·장비·스태미나 회복약 중 하나는 있어야 발송(빈 우편 차단).
-  if (gold <= 0 && materials.length === 0 && items.length === 0 && staminaPotions <= 0) {
+  // 골드·재료·장비·스태미나 회복약·지원권 중 하나는 있어야 발송(빈 우편 차단).
+  if (
+    gold <= 0 &&
+    materials.length === 0 &&
+    items.length === 0 &&
+    staminaPotions <= 0 &&
+    adventureSupportDays <= 0
+  ) {
     return Response.json(
-      { ok: false, error: "nothing to send (gold/materials/items/staminaPotions all empty)" },
+      {
+        ok: false,
+        error:
+          "nothing to send (gold/materials/items/staminaPotions/adventureSupportDays all empty)",
+      },
       { status: 400 },
     );
   }
 
-  const payload = { kind: "admin_gift" as const, gold, materials, items, staminaPotions };
+  const payload = {
+    kind: "admin_gift" as const,
+    gold,
+    materials,
+    items,
+    staminaPotions,
+    adventureSupportDays,
+  };
   const mkRow = (userId: string) =>
     inboxValues({
       userId,
@@ -138,7 +160,16 @@ export async function POST(req: Request) {
     // 전체 유저 — id 만 뽑아 일괄 insert.
     const all = await db.select({ id: users.id }).from(users);
     if (all.length === 0) {
-      return Response.json({ ok: true, target, recipients: 0, gold, materials, items, staminaPotions });
+      return Response.json({
+        ok: true,
+        target,
+        recipients: 0,
+        gold,
+        materials,
+        items,
+        staminaPotions,
+        adventureSupportDays,
+      });
     }
     await db.insert(marketplaceInbox).values(all.map((u) => mkRow(u.id)));
     recipients = all.length;
@@ -155,8 +186,19 @@ export async function POST(req: Request) {
       materials: materials.length > 0 ? materials : undefined,
       items: items.length > 0 ? items : undefined,
       staminaPotions: staminaPotions > 0 ? staminaPotions : undefined,
+      adventureSupportDays:
+        adventureSupportDays > 0 ? adventureSupportDays : undefined,
     },
   });
 
-  return Response.json({ ok: true, target, recipients, gold, materials, items, staminaPotions });
+  return Response.json({
+    ok: true,
+    target,
+    recipients,
+    gold,
+    materials,
+    items,
+    staminaPotions,
+    adventureSupportDays,
+  });
 }

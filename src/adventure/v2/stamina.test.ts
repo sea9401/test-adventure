@@ -10,6 +10,8 @@ import {
   msUntilStaminaAtLeast,
   initialStamina,
   parseStaminaFromSave,
+  staminaConfigForCharacter,
+  staminaRegenMsPerPoint,
   staminaOverchargeCap,
   type StaminaState,
 } from "./stamina";
@@ -21,8 +23,38 @@ function at(current: number, lastUpdatedAt: number): StaminaState {
 }
 
 describe("스태미너 — 기본 최대치", () => {
-  it("신규/기본 최대 스태미나는 5000", () => {
-    expect(MAX_STAMINA).toBe(5000);
+  it("신규/기본 최대 스태미나는 1500", () => {
+    expect(MAX_STAMINA).toBe(1500);
+  });
+
+  it("활성 지원권은 최대치 +1000과 회복 속도 +10%를 적용한다", () => {
+    const now = 1_000;
+    expect(
+      staminaConfigForCharacter(
+        {
+          staminaCapBonus: 200,
+          adventureSupport: { activatedAt: 1, activeUntil: now + 10_000 },
+        },
+        now,
+      ),
+    ).toEqual({
+      max: 2_700,
+      regenBonusPct: 10,
+      adventureSupportActive: true,
+    });
+  });
+
+  it("만료된 지원권은 최대치와 회복 속도에 영향을 주지 않는다", () => {
+    expect(
+      staminaConfigForCharacter(
+        { adventureSupport: { activatedAt: 1, activeUntil: 999 } },
+        1_000,
+      ),
+    ).toEqual({
+      max: MAX_STAMINA,
+      regenBonusPct: 0,
+      adventureSupportActive: false,
+    });
   });
 });
 
@@ -53,6 +85,12 @@ describe("스태미너 — 회복", () => {
     const r = applyRegen(s, REGEN_MS * 5);
     expect(r.current).toBe(15);
     expect(r.lastUpdatedAt).toBe(REGEN_MS * 5);
+  });
+
+  it("지원권 +10%는 더 짧은 회복 간격을 사용한다", () => {
+    const boostedMs = staminaRegenMsPerPoint(10);
+    expect(boostedMs).toBeLessThan(REGEN_MS);
+    expect(applyRegen(at(10, 0), boostedMs, MAX_STAMINA, 10).current).toBe(11);
   });
 
   it("회복하다 MAX 초과 안 됨", () => {
@@ -224,7 +262,7 @@ describe("스태미너 — 최대치 초과 비축(overcharge)", () => {
   });
 
   it("staminaOverchargeCap — 고정 상한(10,000), max 가 넘으면 max 까지", () => {
-    // 기본 max(5000) → 고정 상한 10,000.
+    // 기본 max(1500) → 고정 상한 10,000.
     expect(staminaOverchargeCap(MAX_STAMINA)).toBe(STAMINA_OVERCHARGE_CAP);
     // max 가 상한 아래면 여전히 고정 상한.
     expect(staminaOverchargeCap(6000)).toBe(STAMINA_OVERCHARGE_CAP);

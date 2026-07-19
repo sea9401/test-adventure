@@ -135,6 +135,11 @@ type GameStateSnapshot = {
     current?: { group?: string; cumLevel?: number };
   };
   coreLoopOn?: boolean;
+  adventureSupport?: {
+    active?: boolean;
+    activeUntil?: number | null;
+    regenBonusPct?: number;
+  };
   huntStaminaMode?: boolean;
   combatCooldown?: {
     nextBattleAt: number;
@@ -174,8 +179,11 @@ type GameStateValue = {
     React.SetStateAction<{ id: string; name: string } | null>
   >;
   stamina: StaminaState;
-  // per-user 스태미나 최대치 — 기본 + 레거시 영구 보너스(me/state 가 권위).
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
   staminaMax: number;
+  adventureSupportActive: boolean;
+  adventureSupportActiveUntil: number | null;
+  staminaRegenBonusPct: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템). me/state 에서 초기화.
   staminaPotions: number;
@@ -363,6 +371,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [tileActionError, setTileActionError] = useState<string | null>(null);
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
+  const [adventureSupportActive, setAdventureSupportActive] = useState(false);
+  const [adventureSupportActiveUntil, setAdventureSupportActiveUntil] =
+    useState<number | null>(null);
+  const [staminaRegenBonusPct, setStaminaRegenBonusPct] = useState(0);
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
@@ -494,6 +506,17 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         typeof j.character?.classDisplayName === "string"
           ? j.character.classDisplayName
           : null,
+      );
+      setAdventureSupportActive(j.adventureSupport?.active === true);
+      setAdventureSupportActiveUntil(
+        typeof j.adventureSupport?.activeUntil === "number"
+          ? j.adventureSupport.activeUntil
+          : null,
+      );
+      setStaminaRegenBonusPct(
+        typeof j.adventureSupport?.regenBonusPct === "number"
+          ? Math.max(0, j.adventureSupport.regenBonusPct)
+          : 0,
       );
 
       const currentGroup = j.proficiency?.current?.group ?? "none";
@@ -951,6 +974,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       setCurrentOutpost,
       stamina,
       staminaMax,
+      adventureSupportActive,
+      adventureSupportActiveUntil,
+      staminaRegenBonusPct,
       setStamina,
       staminaPotions,
       hpCharges,
@@ -1016,6 +1042,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setCurrentOutpost,
     stamina,
     staminaMax,
+    adventureSupportActive,
+    adventureSupportActiveUntil,
+    staminaRegenBonusPct,
     setStamina,
     staminaPotions,
     hpCharges,

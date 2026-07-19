@@ -159,6 +159,7 @@ function rewardLinesOf(it: InboxItem): string[] {
       pushMaterialRewards(lines, p.materials);
       pushEquipRewards(lines, p.items);
       pushReward(lines, "스태미나 회복약", asCount(p.staminaPotions));
+      pushReward(lines, "월간 모험 지원권", asCount(p.adventureSupportDays));
       break;
     case "user_message":
     case "guild_invite":
@@ -203,7 +204,7 @@ export function V2InboxView({
   embedded?: boolean;
 }) {
   // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
-  const { applyResourcePatch, refreshGuildId } = useGameState();
+  const { applyResourcePatch, refreshGameState, refreshGuildId } = useGameState();
   const { notifyReward } = useRewardToast();
   const [tab, setTab] = useState<Tab>("inbox");
   const [items, setItems] = useState<InboxItem[] | null>(null);
@@ -288,6 +289,8 @@ export function V2InboxView({
           coinsAdded?: { season: string; coins: number }[];
           staminaPotionsAdded?: number;
           staminaPotions?: number | null;
+          adventureSupportDaysAdded?: number;
+          adventureSupportActiveUntil?: number | null;
           itemsAdded?: { quantity: number }[];
           equipV2Added?: { count: number }[];
           materialsV2Added?: { count: number }[];
@@ -319,6 +322,18 @@ export function V2InboxView({
         if (typeof j.staminaPotions === "number") {
           applyResourcePatch({ staminaPotions: j.staminaPotions });
         }
+        if ((j.adventureSupportDaysAdded ?? 0) > 0) {
+          const until = j.adventureSupportActiveUntil;
+          parts.push(
+            `+월간 모험 지원권 ${j.adventureSupportDaysAdded}일${
+              typeof until === "number"
+                ? ` (${new Date(until).toLocaleDateString("ko-KR")}까지)`
+                : ""
+            }`,
+          );
+          // 최대 스태미나·회복 보너스·50회 전투 권한을 즉시 전역 상태에 반영한다.
+          await refreshGameState();
+        }
         // 재료/장비(운영자 우편·길드 보상 등) — 총 수량으로 요약.
         const itemQty = (j.itemsAdded ?? []).reduce(
           (s, it) => s + (it.quantity ?? 0),
@@ -348,7 +363,7 @@ export function V2InboxView({
         setBusy(false);
       }
     },
-    [applyResourcePatch, busy, load, notifyReward, setMsg],
+    [applyResourcePatch, busy, load, notifyReward, refreshGameState, setMsg],
   );
 
   const respondInvite = useCallback(

@@ -15,10 +15,9 @@ import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
-  MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
-  staminaCapBonusOf,
+  staminaConfigForCharacter,
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
@@ -184,10 +183,15 @@ export async function POST(req: Request) {
         materials: mergeDrops(charSave.materials, { [matId]: 1 }),
       };
     } else if (item.id === "stamina_potion") {
-      const max =
-        MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+      const staminaConfig = staminaConfigForCharacter(charSave, now);
+      const max = staminaConfig.max;
       const cap = staminaOverchargeCap(max);
-      const cur = applyRegen(parseStaminaFromSave(charSave.stamina, now), now, max);
+      const cur = applyRegen(
+        parseStaminaFromSave(charSave.stamina, now),
+        now,
+        max,
+        staminaConfig.regenBonusPct,
+      );
       nextChar = {
         ...nextChar,
         stamina: {

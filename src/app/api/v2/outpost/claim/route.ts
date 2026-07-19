@@ -54,6 +54,7 @@ import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
   applyRegen,
   parseStaminaFromSave,
+  staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
@@ -251,7 +252,16 @@ export async function POST(req: Request) {
       }
     } else {
       const staminaPre = parseStaminaFromSave(charPre.stamina, now);
-      if (!tryConsume(staminaPre, cost, now)) {
+      const staminaPreConfig = staminaConfigForCharacter(charPre, now);
+      if (
+        !tryConsume(
+          staminaPre,
+          cost,
+          now,
+          staminaPreConfig.max,
+          staminaPreConfig.regenBonusPct,
+        )
+      ) {
         return {
           ok: false as const,
           status: 409,
@@ -259,7 +269,12 @@ export async function POST(req: Request) {
             ok: false as const,
             error: "out_of_stamina" as const,
             requiredStamina: cost,
-            stamina: applyRegen(staminaPre, now),
+            stamina: applyRegen(
+              staminaPre,
+              now,
+              staminaPreConfig.max,
+              staminaPreConfig.regenBonusPct,
+            ),
           },
         };
       }
@@ -305,11 +320,23 @@ export async function POST(req: Request) {
     }
 
     const stamina = parseStaminaFromSave(charSave.stamina, now);
-    let afterStamina = applyRegen(stamina, now);
+    const staminaConfig = staminaConfigForCharacter(charSave, now);
+    let afterStamina = applyRegen(
+      stamina,
+      now,
+      staminaConfig.max,
+      staminaConfig.regenBonusPct,
+    );
     // 코어루프 on: 점령 비용은 길드 골드(tx 마지막 guild_resources 에서 차감/최종 검증) —
     //   여기선 스태미나·개인 골드 불변. off: 스태미나 차감(폐지 경로 유지).
     if (!V2_CORE_LOOP_V2) {
-      const after = tryConsume(stamina, cost, now);
+      const after = tryConsume(
+        stamina,
+        cost,
+        now,
+        staminaConfig.max,
+        staminaConfig.regenBonusPct,
+      );
       if (!after) {
         // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
         return {
@@ -319,7 +346,7 @@ export async function POST(req: Request) {
             ok: false as const,
             error: "out_of_stamina" as const,
             requiredStamina: cost,
-            stamina: applyRegen(stamina, now),
+            stamina: afterStamina,
           },
         };
       }
@@ -359,7 +386,7 @@ export async function POST(req: Request) {
         body: {
           ok: false as const,
           error: "hp_zero" as const,
-          stamina: applyRegen(stamina, now),
+          stamina: afterStamina,
         },
       };
     }
@@ -387,7 +414,7 @@ export async function POST(req: Request) {
             error: "insufficient_power" as const,
             requiredPower: outpostDefense,
             playerPower: myPower,
-            stamina: applyRegen(stamina, now),
+            stamina: afterStamina,
           },
         };
       }

@@ -87,6 +87,8 @@ export type InboxPayload =
       materials: GuildQuestRewardMaterial[];
       items: GuildQuestRewardItem[];
       staminaPotions: number;
+      /** 수령 시점부터 시작되는 월간 모험 지원권 기간. 활성 중이면 남은 기간 뒤에 이어 붙임. */
+      adventureSupportDays: number;
     };
 
 export type InboxPayloadKind = InboxPayload["kind"];
@@ -200,7 +202,15 @@ export function parseInboxPayload(
       const materials = parseRewardMaterials(p.materials);
       const items = parseRewardItems(p.items);
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
-      return { kind, gold, materials, items, staminaPotions };
+      const adventureSupportDays = asNonNegInt(p.adventureSupportDays) ?? 0;
+      return {
+        kind,
+        gold,
+        materials,
+        items,
+        staminaPotions,
+        adventureSupportDays,
+      };
     }
   }
 }

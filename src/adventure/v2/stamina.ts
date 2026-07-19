@@ -6,6 +6,11 @@
 // 이 파일은 순수 함수만 — DB/API/UI 분리. 저장 형태 (saves_kv 의 JSON 필드)
 // 는 다음 PR 에서 통합. 사냥 로직 통합도 후속.
 
+import {
+  ADVENTURE_SUPPORT_PASS,
+  adventureSupportActive,
+} from "@/adventure/data/v2/adventureSupport";
+
 // === 튜닝 다이얼 ====================================================
 // 사용자 결정 (2026-05-28) — 옛 200/5분 다이얼은 회복:소비 5:1 로 사냥 빈도 게이트가
 // 너무 빡빡 (만피 200 = STR Lv75 기준 3.3h 사냥, 회복 0→만피 16.7h). 일 1회 접속
@@ -17,7 +22,8 @@
 // 2026-06-27 사용자 결정 — 회복 30→5 초/1 (6× 가속). 옛 30초/1 은 만피(2000) 회복에 16.7h 라 너무
 //   길었다. 5초/1 = 분당 12 → 2000 회복 ~2h47m·시간당 720.
 // 2026-06-30 사용자 결정 — 모든 유저 기본 최대치 +3000, 신규 캐릭터 기본 만피 5000.
-export const MAX_STAMINA = 5000;
+// 2026-07-20 사용자 결정 — 기본 최대치를 1500 으로 하향. 지원권 활성 시 별도 +1000.
+export const MAX_STAMINA = 1500;
 export const REGEN_SECONDS_PER_POINT = 5; // 1 분 = 12 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·재진입은 무료)
@@ -27,7 +33,7 @@ export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·
 //   포션으로는 이 상한까지 미리 비축 가능(밸런스 다이얼·한 줄로 조정).
 export const STAMINA_OVERCHARGE_CAP = 10000;
 
-// 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프. 레거시 per-user 최대치가
+// 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프. 한계의 비약으로 per-user 최대치가
 //   이 상한을 넘는 예외 케이스만 그 max 까지 허용(상한이 max 아래로 내려가 만피 자체가 불가해지는 것 방지).
 export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
   return Math.max(STAMINA_OVERCHARGE_CAP, Math.floor(maxStamina));
@@ -46,6 +52,43 @@ export type StaminaState = {
   lastUpdatedAt: number;
 };
 
+export type CharacterStaminaConfig = {
+  max: number;
+  regenBonusPct: number;
+  adventureSupportActive: boolean;
+};
+
+export function staminaConfigForCharacter(
+  character: unknown,
+  now: number = Date.now(),
+): CharacterStaminaConfig {
+  const raw =
+    character && typeof character === "object"
+      ? (character as Record<string, unknown>)
+      : {};
+  const supportActive = adventureSupportActive(raw.adventureSupport, now);
+  return {
+    max:
+      MAX_STAMINA +
+      staminaCapBonusOf(raw.staminaCapBonus) +
+      (supportActive ? ADVENTURE_SUPPORT_PASS.staminaMaxBonus : 0),
+    regenBonusPct: supportActive
+      ? ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct
+      : 0,
+    adventureSupportActive: supportActive,
+  };
+}
+
+export function staminaRegenMsPerPoint(regenBonusPct: number = 0): number {
+  const safeBonus = Number.isFinite(regenBonusPct)
+    ? Math.max(0, regenBonusPct)
+    : 0;
+  return Math.max(
+    1,
+    Math.round((REGEN_SECONDS_PER_POINT * 1_000) / (1 + safeBonus / 100)),
+  );
+}
+
 // 새 캐릭의 초기 상태. 만피로 시작.
 export function initialStamina(nowMs: number): StaminaState {
   return { current: MAX_STAMINA, lastUpdatedAt: nowMs };
@@ -55,20 +98,21 @@ export function initialStamina(nowMs: number): StaminaState {
 
 // 마지막 업데이트 이후 흐른 시간만큼 회복 적용. 만피면 그냥 lastUpdatedAt 만 갱신.
 // lastUpdatedAt 은 회복 1포인트 단위로만 진행 — 나머지 시간(잔여 ms)은 다음 회복에 누적되어 손실 없음.
-// maxStamina — per-user 최대치(기본 MAX_STAMINA). 과거 비밀 상점 구매로 저장된
-// character.v2.staminaCapBonus를 하위 호환한다. max 를 안 넘긴 경로는 기본 캡 위로
+// maxStamina — per-user 최대치(기본 MAX_STAMINA). 비밀 상점 "한계의 비약"
+// (character.v2.staminaCapBonus) 이 올린다. max 를 안 넘긴 경로는 기본 캡 위로
 // 회복만 안 될 뿐 보유분을 깎지 않는다(current > max 여도 그대로 반환).
 export function applyRegen(
   state: StaminaState,
   nowMs: number,
   maxStamina: number = MAX_STAMINA,
+  regenBonusPct: number = 0,
 ): StaminaState {
   if (state.current >= maxStamina) {
     // 이미 만피라 회복 X. lastUpdatedAt 만 nowMs 로 (다음 소모 시 카운터 다시 시작).
     return { current: state.current, lastUpdatedAt: nowMs };
   }
   const elapsedMs = Math.max(0, nowMs - state.lastUpdatedAt);
-  const regenMs = REGEN_SECONDS_PER_POINT * 1000;
+  const regenMs = staminaRegenMsPerPoint(regenBonusPct);
   const regenPoints = Math.floor(elapsedMs / regenMs);
   if (regenPoints === 0) {
     // 아직 1 포인트도 못 채움. 상태 그대로.
@@ -92,8 +136,9 @@ export function tryConsume(
   cost: number,
   nowMs: number,
   maxStamina: number = MAX_STAMINA,
+  regenBonusPct: number = 0,
 ): StaminaState | null {
-  const regenned = applyRegen(state, nowMs, maxStamina);
+  const regenned = applyRegen(state, nowMs, maxStamina, regenBonusPct);
   if (regenned.current < cost) return null;
   return {
     current: regenned.current - cost,
@@ -108,9 +153,10 @@ export function msUntilNextRegen(
   state: StaminaState,
   nowMs: number,
   maxStamina: number = MAX_STAMINA,
+  regenBonusPct: number = 0,
 ): number {
   if (state.current >= maxStamina) return 0;
-  const regenMs = REGEN_SECONDS_PER_POINT * 1000;
+  const regenMs = staminaRegenMsPerPoint(regenBonusPct);
   const elapsedMs = Math.max(0, nowMs - state.lastUpdatedAt);
   const remainder = elapsedMs % regenMs;
   return Math.max(0, regenMs - remainder);
@@ -122,16 +168,30 @@ export function msUntilStaminaAtLeast(
   target: number,
   nowMs: number,
   maxStamina: number = MAX_STAMINA,
+  regenBonusPct: number = 0,
 ): number {
   const required = Math.max(0, Math.ceil(target));
   if (required <= 0) return 0;
-  const regenned = applyRegen(state, nowMs, maxStamina);
+  const regenned = applyRegen(
+    state,
+    nowMs,
+    maxStamina,
+    regenBonusPct,
+  );
   if (regenned.current >= required) return 0;
   if (maxStamina < required) return Number.POSITIVE_INFINITY;
 
-  const nextRegenMs = msUntilNextRegen(regenned, nowMs, maxStamina);
+  const nextRegenMs = msUntilNextRegen(
+    regenned,
+    nowMs,
+    maxStamina,
+    regenBonusPct,
+  );
   const missingAfterNextPoint = Math.max(0, required - regenned.current - 1);
-  return nextRegenMs + missingAfterNextPoint * REGEN_SECONDS_PER_POINT * 1000;
+  return (
+    nextRegenMs +
+    missingAfterNextPoint * staminaRegenMsPerPoint(regenBonusPct)
+  );
 }
 
 // === saves 파싱 ====================================================
@@ -152,7 +212,7 @@ export function parseStaminaFromSave(
     ) {
       return {
         // 상한 클램프 없음 — 포션으로 최대치를 넘겨 비축(overcharge)한 분을 보존.
-        //   max 는 레거시 per-user 보너스를 포함할 수 있어 여기선 모름. 만피 위 회복은 applyRegen 이
+        //   max 는 per-user(한계의 비약)라 여기선 모름. 만피 위 회복은 applyRegen 이
         //   막고(초과분은 깎지 않음), 저장값은 서버 권위라 그대로 신뢰. 음수만 0 으로.
         current: Math.max(0, s.current),
         lastUpdatedAt: s.lastUpdatedAt,
@@ -162,7 +222,7 @@ export function parseStaminaFromSave(
   return initialStamina(nowMs);
 }
 
-// character.v2.staminaCapBonus — 과거 비밀 상점 구매로 누적된 최대치 보너스 하위 호환.
+// character.v2.staminaCapBonus — 비밀 상점 "한계의 비약"으로 영구 누적되는 최대치 보너스.
 export function staminaCapBonusOf(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v)
     ? Math.max(0, Math.floor(v))

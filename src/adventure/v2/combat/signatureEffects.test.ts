@@ -89,7 +89,7 @@ const GALE_MARK: SignatureEffect = {
 
 const BONE_THRONE: SignatureEffect = {
   trigger: "on_hit_taken",
-  label: "백왕좌",
+  label: "백골성벽",
   defGainOnHitPct: 35,
 };
 
@@ -101,7 +101,7 @@ const BLACK_THRONE: SignatureEffect = {
 
 const CAIRN_STAR: SignatureEffect = {
   trigger: "on_skill_cast",
-  label: "왕릉성",
+  label: "망자의 별",
   mpRefundPctOfCost: 25,
 };
 
@@ -282,7 +282,7 @@ describe("healToShield (묵주 회복 보호막 전환)", () => {
   });
 });
 
-describe("onHitTakenDefGain (백왕좌 피격 방어 누적)", () => {
+describe("onHitTakenDefGain (백골성벽 피격 방어 누적)", () => {
   it("시그니처 없음/다른 트리거 → null", () => {
     expect(onHitTakenDefGain(undefined)).toBeNull();
     expect(onHitTakenDefGain([])).toBeNull();
@@ -297,7 +297,7 @@ describe("onHitTakenDefGain (백왕좌 피격 방어 누적)", () => {
     };
     expect(onHitTakenDefGain([BONE_THRONE, other])).toEqual({
       pct: 50,
-      label: "백왕좌 + 흑철",
+      label: "백골성벽 + 흑철",
     });
   });
 });
@@ -314,7 +314,7 @@ describe("statusBlockOnce (공허왕관 상태이상 1회 방어)", () => {
   });
 });
 
-describe("onSkillCastMpRefund (왕릉성 스킬 MP 환급)", () => {
+describe("onSkillCastMpRefund (망자의 별 스킬 MP 환급)", () => {
   it("시그니처 없음/다른 트리거 → null", () => {
     expect(onSkillCastMpRefund(undefined)).toBeNull();
     expect(onSkillCastMpRefund([])).toBeNull();
@@ -329,7 +329,7 @@ describe("onSkillCastMpRefund (왕릉성 스킬 MP 환급)", () => {
     };
     expect(onSkillCastMpRefund([CAIRN_STAR, other])).toEqual({
       pct: 35,
-      label: "왕릉성 + 순환",
+      label: "망자의 별 + 순환",
     });
   });
 });
@@ -616,7 +616,7 @@ describe("엔진 통합 — on-hit-taken 방어 누적이 피격 시 증가한�
     spd: 999,
   };
 
-  it("백왕좌 장착 → 피격 후 braceDefBonus 와 로그가 생긴다", () => {
+  it("백골성벽 장착 → 피격 후 braceDefBonus 와 로그가 생긴다", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
     const res = resolveBattle(dummyDefender([BONE_THRONE]), hardHitter, "용사", {
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
@@ -626,7 +626,7 @@ describe("엔진 통합 — on-hit-taken 방어 누적이 피격 시 증가한�
     expect(res.finalState.stacks.braceDefBonus).toBeGreaterThan(0);
     expect(
       res.finalState.log.some(
-        (e) => typeof e.text === "string" && e.text.includes("[백왕좌]"),
+        (e) => typeof e.text === "string" && e.text.includes("[백골성벽]"),
       ),
     ).toBe(true);
   });
@@ -679,14 +679,14 @@ describe("엔진 통합 — on-skill-cast MP 환급이 스킬 시전 후 적용�
     ).finalState;
   }
 
-  it("왕릉성 장착 → 같은 스킬 시전 후 MP 가 더 남고 환급 로그가 생긴다", () => {
+  it("망자의 별 장착 → 같은 스킬 시전 후 MP 가 더 남고 환급 로그가 생긴다", () => {
     const plain = runSkillRefund();
     vi.restoreAllMocks();
     const refunded = runSkillRefund([CAIRN_STAR]);
     expect(refunded.playerMp).toBeGreaterThan(plain.playerMp);
     expect(
       refunded.log.some(
-        (e) => typeof e.text === "string" && e.text.includes("[왕릉성]"),
+        (e) => typeof e.text === "string" && e.text.includes("[망자의 별]"),
       ),
     ).toBe(true);
   });

@@ -2,13 +2,17 @@ import { useCallback, useRef, useState } from "react";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   acceptJoinRequest,
   declineJoinRequest,
   inviteToGuild,
   GuildError,
 } from "@/adventure/guild/api";
-import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
+import {
+  GUILD_BASE_MEMBER_CAP,
+  GUILD_NAME_MAX,
+} from "@/adventure/data/guild";
 import {
   GUILD_EMBLEM_CHANGE_COST,
   GUILD_EMBLEM_IMAGE_MAX_BYTES,
@@ -384,13 +388,13 @@ export function GuildManagePanel({
       {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
       {/* 멤버 초대 — 길드원 탭에서 이동 */}
       {activeManageTab === "members" && guildId != null && (
-        <div className="ui-workshop-card rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className={`ui-workshop-card ${SURFACE_CARD} p-3`}>
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             멤버 초대
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
             닉네임으로 초대하면 상대 우편함에 도착해요. 상대가 수락하면 합류합니다 (정원{" "}
-            {info?.members?.length ?? 0}/{info?.memberCap ?? GUILD_MAX_MEMBERS}).
+            {info?.members?.length ?? 0}/{info?.memberCap ?? GUILD_BASE_MEMBER_CAP}).
           </p>
           <div className="mt-2 flex gap-2">
             <input

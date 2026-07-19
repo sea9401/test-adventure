@@ -2,7 +2,9 @@ import {
   GUILD_CREATE_MIN_LEVEL,
   GUILD_CREATE_GOLD_COST,
   GUILD_LEAVE_COOLDOWN_DAYS,
-  GUILD_MAX_MEMBERS,
+  GUILD_BASE_MEMBER_CAP,
+  GUILD_LEVEL_THRESHOLDS,
+  GUILD_MAX_LEVEL,
 } from "@/adventure/data/guild";
 import {
   GUILD_COMBAT_SUPPLY_DEFS,
@@ -77,8 +79,9 @@ export function GuildContent() {
             레벨 {GUILD_CREATE_MIN_LEVEL} +{" "}
             {GUILD_CREATE_GOLD_COST.toLocaleString()} 골드
           </Em>
-          이고, 창단하면 본인이 마스터가 됩니다. 정원은{" "}
-          <Em>{GUILD_MAX_MEMBERS} 명</Em>(국가 선포 시 증가).
+          이고, 창단하면 본인이 마스터가 됩니다. Lv.1 정원은{" "}
+          <Em>{GUILD_BASE_MEMBER_CAP}명</Em>이며 길드 레벨과 국가 선포로
+          늘어납니다.
         </li>
         <li>
           가입은 두 길 — 비소속이면 「둘러보기」에서 마음에 드는 길드에{" "}
@@ -86,6 +89,23 @@ export function GuildContent() {
           우편함에서 받아 수락합니다.
         </li>
       </UL>
+
+      <H2>길드 레벨</H2>
+      <P>
+        길드가 획득한 <Em>누적 명성</Em>이 길드 경험치가 됩니다. 사용 가능한
+        명성을 시설이나 연구에 소비해도 누적 명성은 줄지 않으므로 길드 레벨도
+        내려가지 않습니다. 최고 레벨은 <Em>Lv.{GUILD_MAX_LEVEL}</Em>이며,
+        레벨이 오를 때마다 길드원 정원이 1명씩 늘어납니다.
+      </P>
+      <P>
+        Lv.2부터 필요한 누적 명성은 각각{" "}
+        <Em>
+          {GUILD_LEVEL_THRESHOLDS.slice(1)
+            .map((threshold) => threshold.toLocaleString())
+            .join(" · ")}
+        </Em>
+        입니다.
+      </P>
 
       <H2>길드 운영</H2>
       <P>

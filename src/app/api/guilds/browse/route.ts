@@ -8,7 +8,11 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { gradeForFame } from "@/adventure/data/guildGrades";
-import { GUILD_MAX_MEMBERS, guildMemberCap } from "@/adventure/data/guild";
+import {
+  GUILD_BASE_MEMBER_CAP,
+  guildLevelForFame,
+  guildMemberCap,
+} from "@/adventure/data/guild";
 
 const BROWSE_LIMIT = 30;
 
@@ -79,8 +83,8 @@ export async function GET(req: Request) {
   }
 
   return Response.json({
-    // 기본 정원(국가 미선포). 길드별 한도는 각 항목 maxMembers 참조(국가=상향).
-    maxMembers: GUILD_MAX_MEMBERS,
+    // Lv.1 기본 정원. 길드별 실제 한도는 각 항목 maxMembers 참조.
+    maxMembers: GUILD_BASE_MEMBER_CAP,
     myPendingRequest: myPending[0]
       ? { requestId: myPending[0].id, guildId: myPending[0].guildId }
       : null,
@@ -90,11 +94,12 @@ export async function GET(req: Request) {
       masterName: g.masterId ? (masterNameByUser.get(g.masterId) ?? "모험가") : "—",
       description: g.description ?? null,
       fameTotal: g.fameTotal,
+      level: guildLevelForFame(g.fameTotal),
       grade: gradeForFame(g.fameTotal),
       memberCount: Number(g.memberCount ?? 0),
       acceptingRequests: g.acceptingRequests,
       nationName: g.nationName ?? null,
-      maxMembers: guildMemberCap(g.nationName != null),
+      maxMembers: guildMemberCap(g.fameTotal, g.nationName != null),
     })),
   });
 }

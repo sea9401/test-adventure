@@ -44,6 +44,7 @@ export type GuildRankingEntry = {
   name: string;
   emblem: string | null;
   fameTotal: number;
+  level: number;
   memberCount: number;
   grade: string;
   mine: boolean;
@@ -54,6 +55,7 @@ export type GuildRankingMe = {
   name: string;
   emblem: string | null;
   fameTotal: number;
+  level: number;
   memberCount: number;
   grade: string;
 };

@@ -11,7 +11,10 @@ import {
   v2GuildResources,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { guildMemberCap } from "@/adventure/data/guild";
+import {
+  guildLevelProgress,
+  guildMemberCap,
+} from "@/adventure/data/guild";
 import {
   SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_RESOURCE_KEYS,
@@ -323,8 +326,12 @@ export async function GET() {
     requestedAt: r.createdAt,
   }));
 
-  // 국가 선포 — 길드 정원(국가 시 상향) + 선포 게이트 충족 여부(대도시 마을 보유).
-  const memberCap = guildMemberCap(guildRow.nationName != null);
+  // 누적 명성 기반 길드 레벨 + 레벨/국가 보너스를 반영한 정원.
+  const levelProgress = guildLevelProgress(guildRow.fameTotal);
+  const memberCap = guildMemberCap(
+    guildRow.fameTotal,
+    guildRow.nationName != null,
+  );
   let villageRows: Array<{ tier: string; buildings: unknown }> = [];
   try {
     villageRows = await db
@@ -385,7 +392,7 @@ export async function GET() {
 
   return Response.json({
     ok: true,
-    guild: guildRow,
+    guild: { ...guildRow, ...levelProgress },
     members,
     isMaster,
     isManager,

@@ -27,6 +27,10 @@ export type GuildInfoResponse = {
     createdAt: string;
     fameTotal: number;
     fameAvailable: number;
+    level: number;
+    fameIntoLevel: number;
+    fameForNextLevel: number | null;
+    nextLevelFame: number | null;
     description: string | null;
     emblem: string | null;
     color: string | null;
@@ -57,7 +61,7 @@ export type GuildInfoResponse = {
   isMaster?: boolean;
   isManager?: boolean;
   pendingRequests?: PendingRequest[];
-  // 국가 선포 — 정원 한도(국가 시 상향)·대도시 보유·선포 가능 여부.
+  // 길드 레벨 + 국가 선포를 반영한 정원·선포 가능 여부.
   memberCap?: number;
   hasMetropolis?: boolean;
   canDeclareNation?: boolean;

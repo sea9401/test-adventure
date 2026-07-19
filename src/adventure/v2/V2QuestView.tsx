@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle, Lock, Circle, Gift } from "@phosphor-icons/react";
+import { CheckCircle, Lock, Circle, Gift, Trophy } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
@@ -17,6 +17,7 @@ import {
   type QuestView,
   type QuestReward,
   isTutorialLine,
+  type AchievementSummary,
 } from "@/adventure/data/v2/v2Quests";
 import { TITLES } from "@/adventure/data/titles";
 import type {
@@ -57,6 +58,7 @@ type QuestsResponse = {
   lines?: QuestLine[];
   quests?: QuestView[];
   repeat?: RepeatSection;
+  achievementSummary?: AchievementSummary;
 };
 
 type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
@@ -101,6 +103,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [lines, setLines] = useState<QuestLine[]>([]);
   const [quests, setQuests] = useState<QuestView[]>([]);
   const [repeat, setRepeat] = useState<RepeatSection | null>(null);
+  const [achievement, setAchievement] = useState<AchievementSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
@@ -124,6 +127,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         setLines(j.lines ?? []);
         setQuests(j.quests ?? []);
         setRepeat(j.repeat ?? null);
+        setAchievement(j.achievementSummary ?? null);
       }
     } catch {}
     setLoading(false);
@@ -279,6 +283,30 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 
     return (
       <>
+        {!forTutorial && achievement && (
+          <Card padding="md" className="space-y-2 border-amber-300 dark:border-amber-900/70">
+            <div className="flex items-center gap-3">
+              <Trophy size={24} weight="fill" className="shrink-0 text-amber-500" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="text-sm font-semibold">업적 점수</h2>
+                  <strong className="text-lg tabular-nums text-amber-600 dark:text-amber-400">
+                    {achievement.score.toLocaleString()}점
+                  </strong>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {achievement.completed}/{achievement.total}개 달성 · 전체 {achievement.maxScore.toLocaleString()}점
+                </p>
+              </div>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-amber-500"
+                style={{ width: `${Math.min(100, (achievement.score / Math.max(1, achievement.maxScore)) * 100)}%` }}
+              />
+            </div>
+          </Card>
+        )}
         <TabBar
           tabs={[
             { key: "active", label: `진행 중 (${activeCount})` },
@@ -453,7 +481,12 @@ function QuestRow({
       <Circle size={18} className="shrink-0 text-emerald-500" />
     );
 
-  const dim = status === "locked" || status === "claimed";
+  const mutedText = status === "locked" || status === "claimed";
+  const hasProgress = quest.progress != null && quest.goal != null;
+  const progress = hasProgress ? Math.min(quest.progress!, quest.goal!) : 0;
+  const progressPct = hasProgress
+    ? Math.min(100, (progress / Math.max(1, quest.goal!)) * 100)
+    : 0;
 
   return (
     <li
@@ -466,9 +499,14 @@ function QuestRow({
       }`}
     >
       {icon}
-      <div className={`min-w-0 flex-1 ${dim ? "opacity-60" : ""}`}>
+      <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="truncate text-sm font-semibold">{quest.title}</span>
+          <span className={`truncate text-sm font-semibold ${mutedText ? "text-zinc-500 dark:text-zinc-400" : ""}`}>{quest.title}</span>
+          {quest.points > 0 && (
+            <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+              +{quest.points}점
+            </span>
+          )}
           {status === "active" && (
             <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
               진행 중
@@ -479,6 +517,19 @@ function QuestRow({
           <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
             {status === "locked" ? "앞선 목표를 먼저 완료하세요" : quest.desc}
           </p>
+        )}
+        {status !== "claimed" && hasProgress && (
+          <>
+            <div className="mt-1 flex justify-end text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+              {progress.toLocaleString()}/{quest.goal!.toLocaleString()}
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className={`h-full rounded-full ${status === "claimable" ? "bg-amber-500" : "bg-emerald-500"}`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </>
         )}
         {reward && (
           <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">

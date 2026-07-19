@@ -15,6 +15,10 @@ const SIGNALS = {
   warTreasuryGold: 20000,
   fishCaught: 50,
   enhanceAttempts: 7,
+  farmHarvests: 20,
+  woodcuttingCuts: 50,
+  miningSuccesses: 50,
+  workshopCrafts: 10,
   arenaTimes: [] as number[],
 };
 
@@ -58,6 +62,10 @@ const BASE_ZERO = {
   warTreasuryGold: 0,
   fishCaught: 0,
   enhanceAttempts: 0,
+  farmHarvests: 0,
+  woodcuttingCuts: 0,
+  miningSuccesses: 0,
+  workshopCrafts: 0,
 };
 
 function req(body: unknown): Request {
@@ -132,6 +140,10 @@ describe("POST /api/v2/me/quests/claim-bundle", () => {
       ...SIGNALS,
       battleCount: 5,
       fishCaught: 0,
+      farmHarvests: 0,
+      woodcuttingCuts: 0,
+      miningSuccesses: 0,
+      workshopCrafts: 0,
     });
     seedDaily();
     const res = await POST(req({ scope: "daily" }));

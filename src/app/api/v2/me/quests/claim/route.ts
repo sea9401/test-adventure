@@ -23,6 +23,13 @@ import {
 } from "@/adventure/v2/staminaPotions";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import { backfillClaimedQuestTitleRewardsInTx } from "@/lib/server/questTitleBackfill";
+import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
+import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
+import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
+import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
+import { GRID_DUNGEON_HISTORY_KEY } from "@/adventure/data/v2/gridDungeon";
 
 // POST /api/v2/me/quests/claim  { questId } — 가이드 퀘스트 보상 수령.
 //   서버가 세이브에서 완료를 재판정(클라 신뢰 안 함) + 미수령 확인 → 보상 지급 + claimed 기록.
@@ -78,6 +85,13 @@ export async function POST(req: Request) {
     const advLogRaw = await readSave(tx, userId, "adventure-log.v2", {});
     const skillsRaw = await readSave(tx, userId, "skills.v2", {});
     const craftingRaw = await readSave(tx, userId, "crafting.v2", {});
+    const farmRaw = await readSave(tx, userId, FARM_SAVE_KEY, {});
+    const woodcuttingRaw = await readSave(tx, userId, WOODCUTTING_LOG_KEY, {});
+    const miningRaw = await readSave(tx, userId, MINING_LOG_KEY, {});
+    const fishingProgressRaw = await readSave(tx, userId, FISHING_PROGRESS_KEY, {});
+    const equipmentCodexRaw = await readSave(tx, userId, EQUIPMENT_CODEX_KEY, {});
+    const masteryTowerRaw = await readSave(tx, userId, MASTERY_TOWER_SAVE_KEY, {});
+    const gridDungeonHistoryRaw = await readSave(tx, userId, GRID_DUNGEON_HISTORY_KEY, []);
     const extras = await assembleQuestExtras(tx, userId);
 
     const ctx = buildQuestCtx({
@@ -87,6 +101,13 @@ export async function POST(req: Request) {
       equipmentRaw: equipSave,
       skillsRaw,
       craftingRaw,
+      farmRaw,
+      woodcuttingRaw,
+      miningRaw,
+      fishingProgressRaw,
+      equipmentCodexRaw,
+      masteryTowerRaw,
+      gridDungeonHistoryRaw,
       extras,
     });
     const claimed = parseClaimed(guideSave);

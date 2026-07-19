@@ -24,6 +24,13 @@ import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
 import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
 import { GUIDE_QUESTS_KEY } from "@/lib/server/v2QuestContext";
 import {
+  buildQuestCtx,
+  parseClaimed,
+} from "@/lib/server/v2QuestContext";
+import { achievementSummary } from "@/adventure/data/v2/v2Quests";
+import { parseFishCodex } from "@/adventure/v2/fishingCodex";
+import { GRID_DUNGEON_HISTORY_KEY } from "@/adventure/data/v2/gridDungeon";
+import {
   codexCompletionRankingFromSaves,
   lifeMasteryRankingFromSaves,
 } from "@/lib/server/rankingMetrics";
@@ -47,6 +54,7 @@ const VALID_METRICS = [
   "lifeMastery",
   "codexCompletion",
   "masteryTower",
+  "achievementScore",
   "towerWeek",
   "towerChallenge",
 ] as const;
@@ -79,6 +87,9 @@ type RankRow = {
   codexTotal: number;
   /** 새 숙련의 탑(mastery-tower.v1) 역대 최고층. */
   masteryTowerFloor: number;
+  /** 영구 업적에서 획득한 자동 합산 점수와 달성 개수. */
+  achievementScore?: number;
+  achievementCompleted?: number;
   /** towerWeek 한정 — 이번 주 최고층. 다른 metric 에서는 0. */
   weekHighest: number;
   /** towerChallenge 한정 — 도전 모드 영구 최고층. 다른 metric 에서는 0. */
@@ -91,6 +102,8 @@ const EMPTY_NEW_METRICS = {
   codexCollected: 0,
   codexTotal: 0,
   masteryTowerFloor: 0,
+  achievementScore: 0,
+  achievementCompleted: 0,
 } as const;
 
 type CacheEntry = {
@@ -112,6 +125,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "lifeMastery") return fetchLifeMasteryRows();
   if (metric === "codexCompletion") return fetchCodexCompletionRows();
   if (metric === "masteryTower") return fetchMasteryTowerRows();
+  if (metric === "achievementScore") return fetchAchievementRows();
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
@@ -378,6 +392,144 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
       challengeHighest: r.challengeHighest,
       rank: index + 1,
     }));
+}
+
+async function fetchAchievementRows(): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    WITH pvp AS (
+      SELECT user_id,
+        COALESCE(SUM(wins), 0)::bigint AS wins,
+        COALESCE(SUM(wins + losses + draws), 0)::bigint AS matches
+      FROM pvp_ratings GROUP BY user_id
+    ), claims AS (
+      SELECT attacker_user_id AS user_id,
+        COUNT(*)::bigint AS attempts,
+        COUNT(*) FILTER (WHERE won)::bigint AS wins
+      FROM outpost_claim_attempts
+      WHERE attacker_user_id IS NOT NULL
+      GROUP BY attacker_user_id
+    )
+    SELECT
+      u.id AS user_id,
+      COALESCE(u.game_name, profile.value->>'name') AS name,
+      profile.value->>'gender' AS avatar,
+      character.value AS character_save,
+      proficiency.value AS proficiency_save,
+      adventure.value AS adventure_save,
+      equipment.value AS equipment_save,
+      skills.value AS skills_save,
+      crafting.value AS crafting_save,
+      farm.value AS farm_save,
+      wood.value AS woodcutting_save,
+      mining.value AS mining_save,
+      fishing.value AS fishing_save,
+      equipment_codex.value AS equipment_codex_save,
+      tower.value AS tower_save,
+      grid_history.value AS grid_history_save,
+      quests.value AS quests_save,
+      fishing_codex.value AS fishing_codex_save,
+      COALESCE(pvp.wins, 0)::bigint AS arena_wins,
+      COALESCE(pvp.matches, 0)::bigint AS arena_matches,
+      COALESCE(claims.attempts, 0)::bigint AS siege_attempts,
+      COALESCE(claims.wins, 0)::bigint AS siege_wins,
+      EXISTS (SELECT 1 FROM guild_members gm WHERE gm.user_id = u.id) AS has_guild,
+      EXISTS (
+        SELECT 1 FROM marketplace_listings_v2 ml
+        WHERE ml.status = 'sold' AND (ml.seller_id = u.id OR ml.buyer_id = u.id)
+      ) AS has_traded,
+      EXISTS (
+        SELECT 1 FROM guild_members gm
+        JOIN outpost_occupations oo ON oo.occupied_by_guild_id = gm.guild_id
+        WHERE gm.user_id = u.id
+      ) AS has_outpost,
+      COALESCE(quests.updated_at, u.created_at) AS updated_at
+    FROM users u
+    LEFT JOIN saves_kv profile ON profile.user_id = u.id AND profile.key = 'character-profile.v2'
+    LEFT JOIN saves_kv character ON character.user_id = u.id AND character.key = 'character.v2'
+    LEFT JOIN saves_kv proficiency ON proficiency.user_id = u.id AND proficiency.key = 'proficiency.v2'
+    LEFT JOIN saves_kv adventure ON adventure.user_id = u.id AND adventure.key = 'adventure-log.v2'
+    LEFT JOIN saves_kv equipment ON equipment.user_id = u.id AND equipment.key = 'equipment.v2'
+    LEFT JOIN saves_kv skills ON skills.user_id = u.id AND skills.key = 'skills.v2'
+    LEFT JOIN saves_kv crafting ON crafting.user_id = u.id AND crafting.key = 'crafting.v2'
+    LEFT JOIN saves_kv farm ON farm.user_id = u.id AND farm.key = ${FARM_SAVE_KEY}
+    LEFT JOIN saves_kv wood ON wood.user_id = u.id AND wood.key = ${WOODCUTTING_LOG_KEY}
+    LEFT JOIN saves_kv mining ON mining.user_id = u.id AND mining.key = ${MINING_LOG_KEY}
+    LEFT JOIN saves_kv fishing ON fishing.user_id = u.id AND fishing.key = ${FISHING_PROGRESS_KEY}
+    LEFT JOIN saves_kv equipment_codex ON equipment_codex.user_id = u.id AND equipment_codex.key = ${EQUIPMENT_CODEX_KEY}
+    LEFT JOIN saves_kv tower ON tower.user_id = u.id AND tower.key = ${MASTERY_TOWER_SAVE_KEY}
+    LEFT JOIN saves_kv grid_history ON grid_history.user_id = u.id AND grid_history.key = ${GRID_DUNGEON_HISTORY_KEY}
+    LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
+    LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
+    LEFT JOIN pvp ON pvp.user_id = u.id
+    LEFT JOIN claims ON claims.user_id = u.id
+    WHERE COALESCE(u.game_name, profile.value->>'name') IS NOT NULL
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string; name: string; avatar: string | null;
+    character_save: unknown; proficiency_save: unknown; adventure_save: unknown;
+    equipment_save: unknown; skills_save: unknown; crafting_save: unknown;
+    farm_save: unknown; woodcutting_save: unknown; mining_save: unknown;
+    fishing_save: unknown; equipment_codex_save: unknown; tower_save: unknown;
+    grid_history_save: unknown; quests_save: unknown; fishing_codex_save: unknown;
+    arena_wins: number | string; arena_matches: number | string;
+    siege_attempts: number | string; siege_wins: number | string;
+    has_guild: boolean; has_traded: boolean; has_outpost: boolean;
+    updated_at: Date | string;
+  };
+  return (result.rows as unknown as DbRow[])
+    .map((r) => {
+      const fishCodex = parseFishCodex(r.fishing_codex_save);
+      const fishCaught = Object.values(fishCodex.fish).reduce(
+        (sum, entry) => sum + Math.max(0, entry.totalCaught ?? 0),
+        0,
+      );
+      const ctx = buildQuestCtx({
+        charRaw: r.character_save,
+        proficiencyRaw: r.proficiency_save,
+        advLogRaw: r.adventure_save,
+        equipmentRaw: r.equipment_save,
+        skillsRaw: r.skills_save,
+        craftingRaw: r.crafting_save,
+        farmRaw: r.farm_save,
+        woodcuttingRaw: r.woodcutting_save,
+        miningRaw: r.mining_save,
+        fishingProgressRaw: r.fishing_save,
+        equipmentCodexRaw: r.equipment_codex_save,
+        masteryTowerRaw: r.tower_save,
+        gridDungeonHistoryRaw: r.grid_history_save,
+        extras: {
+          hasGuild: r.has_guild,
+          hasTraded: r.has_traded,
+          arenaPlayed: Number(r.arena_matches) > 0,
+          arenaWins: Number(r.arena_wins),
+          claimAttempted: Number(r.siege_attempts) > 0,
+          hasOutpost: r.has_outpost,
+          siegeWins: Number(r.siege_wins),
+          fishSpecies: Object.keys(fishCodex.fish).length,
+          siegeAttempts: Number(r.siege_attempts),
+          fishCaught,
+          arenaTimes: [],
+        },
+      });
+      const summary = achievementSummary(ctx, parseClaimed(r.quests_save));
+      return {
+        userId: String(r.user_id), name: String(r.name), avatar: rankingAvatar(r.avatar),
+        level: 1, cumLevel: 0, paragonLevel: 0, fame: 0, combatPower: 0,
+        lifeMastery: 0, codexCollected: 0, codexTotal: 0, masteryTowerFloor: 0,
+        achievementScore: summary.score,
+        achievementCompleted: summary.completed,
+        weekHighest: 0, challengeHighest: 0, rank: 0,
+        updatedAtMs: new Date(r.updated_at).getTime(),
+      };
+    })
+    .sort((a, b) =>
+      b.achievementScore - a.achievementScore ||
+      b.achievementCompleted - a.achievementCompleted ||
+      a.updatedAtMs - b.updatedAtMs ||
+      a.userId.localeCompare(b.userId),
+    )
+    .map(({ updatedAtMs: _updatedAtMs, ...r }, index) => ({ ...r, rank: index + 1 }));
 }
 
 async function fetchMasteryTowerRows(): Promise<RankRow[]> {
@@ -690,7 +842,7 @@ async function getRows(metric: Metric): Promise<RankRow[]> {
   return promise;
 }
 
-// GET /api/rankings?metric=level|combatPower|lifeMastery|codexCompletion|masteryTower
+// GET /api/rankings?metric=level|combatPower|lifeMastery|codexCompletion|masteryTower|achievementScore
 // 응답: { list: 상위 LIST_LIMIT, me: 본인 row+rank | null }.
 // 본인 row 도 캐시 스냅샷에서 찾으므로 갓 레벨업한 직후엔 다음 캐시 갱신까지
 // 갱신값이 안 보일 수 있음 (의도된 trade-off — 부하 대비 30초 staleness).
@@ -719,6 +871,8 @@ export async function GET(req: Request) {
     codexCollected: r.codexCollected,
     codexTotal: r.codexTotal,
     masteryTowerFloor: r.masteryTowerFloor,
+    achievementScore: r.achievementScore ?? 0,
+    achievementCompleted: r.achievementCompleted ?? 0,
     weekHighest: r.weekHighest,
     challengeHighest: r.challengeHighest,
     mine: r.userId === userId,
@@ -739,6 +893,8 @@ export async function GET(req: Request) {
         codexCollected: myRow.codexCollected,
         codexTotal: myRow.codexTotal,
         masteryTowerFloor: myRow.masteryTowerFloor,
+        achievementScore: myRow.achievementScore ?? 0,
+        achievementCompleted: myRow.achievementCompleted ?? 0,
         weekHighest: myRow.weekHighest,
         challengeHighest: myRow.challengeHighest,
       }

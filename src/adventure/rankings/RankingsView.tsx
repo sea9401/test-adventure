@@ -31,6 +31,7 @@ const TABS: { key: RankingMetric; label: string }[] = [
   { key: "lifeMastery", label: "생활 숙련도" },
   { key: "codexCompletion", label: "도감 완성도" },
   { key: "masteryTower", label: "숙련의 탑" },
+  { key: "achievementScore", label: "업적 점수" },
   { key: "guild", label: "길드 랭킹" },
 ];
 
@@ -53,6 +54,7 @@ export function RankingsView() {
       {metric === "lifeMastery" && <LifeMasteryMetricPill />}
       {metric === "codexCompletion" && <CodexMetricPill />}
       {metric === "masteryTower" && <MasteryTowerMetricPill />}
+      {metric === "achievementScore" && <AchievementMetricPill />}
 
       {metric === "guild" ? (
         <GuildRankingsBody />
@@ -90,6 +92,21 @@ function LifeMasteryMetricPill() {
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
           농사·벌목·채광·낚시 레벨을 합산하며 각 생활은 Lv.50까지 반영합니다.
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function AchievementMetricPill() {
+  return (
+    <Card as="section" padding="sm">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
+          업적 점수
+        </span>
+        <span className="text-zinc-500 dark:text-zinc-400">
+          달성한 영구 업적의 점수를 합산하며, 보상 수령 전에도 즉시 반영됩니다.
         </span>
       </div>
     </Card>
@@ -326,6 +343,13 @@ function RankingRow({
             도감 {codexCompletionPercent(entry.codexCollected, entry.codexTotal)}%
             <span className="ml-1 text-[11px] text-zinc-500 dark:text-zinc-400">
               ({entry.codexCollected}/{entry.codexTotal})
+            </span>
+          </>
+        ) : metric === "achievementScore" ? (
+          <>
+            {entry.achievementScore.toLocaleString()}점
+            <span className="ml-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              ({entry.achievementCompleted}개)
             </span>
           </>
         ) : (

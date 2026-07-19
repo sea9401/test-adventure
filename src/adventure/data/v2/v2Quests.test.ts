@@ -8,6 +8,7 @@ import {
   deriveQuestViews,
   currentGuideQuest,
   isTutorialLine,
+  achievementSummary,
   type QuestCtx,
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
@@ -53,6 +54,26 @@ const ZERO: QuestCtx = {
   workshopCrafts: 0,
   workshopQualityCrafts: 0,
   blacksmithLevel: 1,
+  farmingLevel: 1,
+  farmHarvests: 0,
+  farmRareHarvests: 0,
+  farmDeliveries: 0,
+  farmReputationEarned: 0,
+  woodcuttingLevel: 1,
+  woodcuttingCuts: 0,
+  woodcuttingPerfectCuts: 0,
+  woodcuttingBestCombo: 0,
+  woodcuttingSpecies: 0,
+  miningLevel: 1,
+  miningSuccesses: 0,
+  miningByproducts: 0,
+  miningSpecies: 0,
+  fishingLevel: 1,
+  fishCaught: 0,
+  equipmentCodexRegistered: 0,
+  equipmentCodexTotal: 240,
+  masteryTowerFloor: 0,
+  gridDungeonClears: 0,
 };
 
 const none = new Set<string>();
@@ -73,6 +94,22 @@ describe("v2Quests 카탈로그 무결성", () => {
         expect(V2_EQUIPMENT[q.reward.equip], q.reward.equip).toBeDefined();
       }
     }
+  });
+
+  it("영구 업적 120개 이상 + 모든 업적에 점수", () => {
+    const achievements = V2_QUESTS.filter((q) => !isTutorialLine(q.line));
+    expect(achievements.length).toBeGreaterThanOrEqual(120);
+    expect(achievements.every((q) => (q.points ?? 0) > 0)).toBe(true);
+  });
+
+  it("업적 점수는 달성 조건과 과거 수령 기록을 함께 보존", () => {
+    const summary = achievementSummary(
+      { ...ZERO, battleCount: 100 },
+      new Set(["gold_1m"]),
+    );
+    expect(summary.score).toBe(60); // 전투 10·50·100 = 20점 + 과거 수령 40점
+    expect(summary.completed).toBe(4);
+    expect(summary.maxScore).toBeGreaterThan(summary.score);
   });
 
   it("보상 칭호는 카탈로그에 존재", () => {
@@ -323,14 +360,14 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(
       isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueOwned: 1 }, none),
     ).toBe(true);
-    // 깊이 체인 — a_depth25 수령 전엔 a_depth40 수령 불가, 수령 후 가능.
+    // 영구 업적은 이전 단계 보상 수령과 무관하게 달성할 수 있다.
     expect(
       isQuestClaimable(
         questById("a_depth40")!,
         { ...ZERO, frontierDepth: 40 },
         none,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       isQuestClaimable(
         questById("a_depth40")!,
@@ -390,11 +427,11 @@ describe("정점을 향해 (확장 마일스톤)", () => {
   });
 });
 
-describe("배치2 — 수집과 탐험 + 사회 추가", () => {
-  it("완전 무장 / 거점 / 골드 / 칭호", () => {
+describe("장비·수집·교류 업적", () => {
+  it("완전 무장 / 장비 도감 / 골드 / 칭호", () => {
     expect(isQuestClaimable(questById("x_full_gear")!, { ...ZERO, equippedCount: 6 }, none)).toBe(true);
     expect(questStatus(questById("x_full_gear")!, { ...ZERO, equippedCount: 5 }, none)).toBe("active");
-    expect(isQuestClaimable(questById("x_outposts")!, { ...ZERO, outpostsDiscovered: 10 }, none)).toBe(true);
+    expect(isQuestClaimable(questById("codex_10")!, { ...ZERO, equipmentCodexRegistered: 10 }, none)).toBe(true);
     expect(isQuestClaimable(questById("x_rich")!, { ...ZERO, gold: 10000 }, none)).toBe(true);
     expect(isQuestClaimable(questById("x_titles")!, { ...ZERO, titleCount: 3 }, none)).toBe(true);
   });
@@ -404,10 +441,10 @@ describe("배치2 — 수집과 탐험 + 사회 추가", () => {
     expect(questStatus(questById("s_arena_win")!, { ...ZERO, arenaPlayed: true }, none)).toBe("active");
   });
 
-  it("수집과 탐험은 전 직군 공통(직업 전용 아님)", () => {
+  it("장비 업적은 전 직군 공통(직업 전용 아님)", () => {
     const mage = { ...ZERO, class: "mage" as const };
     const lines = deriveQuestViews(mage, none).map((v) => v.line);
-    expect(lines).toContain("collect");
+    expect(lines).toContain("equipment");
   });
 });
 
@@ -433,8 +470,8 @@ describe("currentGuideQuest (홈 배너)", () => {
       V2_QUESTS.filter((q) => q.line === "growth").map((q) => q.id),
     );
     const cur = currentGuideQuest(ctx, growthClaimed);
-    expect(cur?.id).toBe("s_guild");
-    expect(cur?.line).toBe("social");
+    expect(cur?.id).toBe("combat_10");
+    expect(cur?.line).toBe("combat");
   });
 
   it("전부 수령 → null", () => {
@@ -476,6 +513,26 @@ describe("currentGuideQuest (홈 배너)", () => {
       workshopCrafts: 9,
       workshopQualityCrafts: 1,
       blacksmithLevel: 3,
+      farmingLevel: 50,
+      farmHarvests: 999,
+      farmRareHarvests: 999,
+      farmDeliveries: 999,
+      farmReputationEarned: 999,
+      woodcuttingLevel: 50,
+      woodcuttingCuts: 9999,
+      woodcuttingPerfectCuts: 999,
+      woodcuttingBestCombo: 999,
+      woodcuttingSpecies: 99,
+      miningLevel: 50,
+      miningSuccesses: 9999,
+      miningByproducts: 999,
+      miningSpecies: 99,
+      fishingLevel: 50,
+      fishCaught: 9999,
+      equipmentCodexRegistered: 240,
+      equipmentCodexTotal: 240,
+      masteryTowerFloor: 50,
+      gridDungeonClears: 10,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -497,11 +554,11 @@ describe("deriveQuestViews", () => {
     expect(views.every((v) => v.status)).toBe(true);
   });
 
-  it("체인 — 앞 단계 수령 시 다음 단계 등장, 수령분은 완료로 잔존", () => {
+  it("업적 마일스톤은 모든 단계가 보이며 수령분은 완료로 잔존", () => {
     // 미수령: l_fish10/25 숨김.
     const fresh = deriveQuestViews(ZERO, none).map((v) => v.id);
     expect(fresh).toContain("l_fish1");
-    expect(fresh).not.toContain("l_fish10");
+    expect(fresh).toContain("l_fish10");
     // l_fish1 수령 → l_fish10 등장(+수령분 완료 표시), l_fish25 는 여전히 숨김.
     const after = deriveQuestViews(
       { ...ZERO, fishSpecies: 12 },
@@ -509,7 +566,7 @@ describe("deriveQuestViews", () => {
     );
     const ids = after.map((v) => v.id);
     expect(ids).toContain("l_fish10");
-    expect(ids).not.toContain("l_fish25");
+    expect(ids).toContain("l_fish25");
     expect(after.find((v) => v.id === "l_fish1")!.status).toBe("claimed");
     expect(after.find((v) => v.id === "l_fish10")!.status).toBe("claimable");
   });
@@ -527,7 +584,7 @@ describe("deriveQuestViews", () => {
 });
 
 describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
-  it("전쟁의 길 — 순차 진행 + 신호별 충족", () => {
+  it("거점 전쟁 — 각 기록은 독립 업적", () => {
     expect(questById("w_first_claim")!.check(ZERO)).toBe(false);
     expect(questById("w_first_claim")!.check({ ...ZERO, claimAttempted: true })).toBe(true);
     // 보유 OR 함락 누적 어느 쪽이든 "깃발을 꽂다" 충족.
@@ -536,7 +593,7 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     expect(questById("w_treasury")!.check({ ...ZERO, warTreasuryGold: 2999 })).toBe(false);
     expect(questById("w_treasury")!.check({ ...ZERO, warTreasuryGold: 3000 })).toBe(true);
     // 순차 라인 — 앞(첫 출정) 미완료면 뒤는 locked.
-    expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("locked");
+    expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("claimable");
   });
 
   it("윤회의 길 — 첫 퀘스트는 환생 1회로 판정(숙련도 무관)", () => {

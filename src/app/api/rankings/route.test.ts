@@ -243,6 +243,86 @@ describe("개인 랭킹", () => {
     ]);
   });
 
+  it("달성 조건과 수령 기록을 합산해 업적 점수 순위를 매긴다", async () => {
+    execute.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: "u-me",
+          name: "전투업적가",
+          avatar: "female1",
+          character_save: {},
+          proficiency_save: {},
+          adventure_save: { monsters: { slime: { kills: 100 } } },
+          equipment_save: {},
+          skills_save: {},
+          crafting_save: {},
+          farm_save: {},
+          woodcutting_save: {},
+          mining_save: {},
+          fishing_save: {},
+          equipment_codex_save: {},
+          tower_save: {},
+          grid_history_save: [],
+          quests_save: {},
+          fishing_codex_save: {},
+          arena_wins: 0,
+          arena_matches: 0,
+          siege_attempts: 0,
+          siege_wins: 0,
+          has_guild: false,
+          has_traded: false,
+          has_outpost: false,
+          updated_at: "2026-07-20T00:00:00.000Z",
+        },
+        {
+          user_id: "u-achievement",
+          name: "업적수집가",
+          avatar: "male1",
+          character_save: {},
+          proficiency_save: {},
+          adventure_save: {},
+          equipment_save: {},
+          skills_save: {},
+          crafting_save: {},
+          farm_save: {},
+          woodcutting_save: {},
+          mining_save: {},
+          fishing_save: {},
+          equipment_codex_save: {},
+          tower_save: {},
+          grid_history_save: [],
+          quests_save: { claimed: ["gold_1m"] },
+          fishing_codex_save: {},
+          arena_wins: 0,
+          arena_matches: 0,
+          siege_attempts: 0,
+          siege_wins: 0,
+          has_guild: false,
+          has_traded: false,
+          has_outpost: false,
+          updated_at: "2026-07-20T00:00:01.000Z",
+        },
+      ],
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/rankings?metric=achievementScore"),
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.list.map((entry: { name: string }) => entry.name)).toEqual([
+      "업적수집가",
+      "전투업적가",
+    ]);
+    expect(json.list[0]).toEqual(
+      expect.objectContaining({ achievementScore: 40, achievementCompleted: 1 }),
+    );
+    expect(json.me).toEqual(
+      expect.objectContaining({ achievementScore: 20, achievementCompleted: 3 }),
+    );
+  });
+
   it("제거된 낚시 점수 지표는 더 이상 제공하지 않는다", async () => {
     const response = await GET(
       new Request("http://localhost/api/rankings?metric=fishingScore"),

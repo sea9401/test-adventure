@@ -12,16 +12,17 @@ import {
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
 import {
-  MARKETPLACE_V2_SLOT_LIMIT,
   isMarketKind,
   isTradableMaterial,
   isValidMaterialQty,
   isValidPrice,
   itemDisplayName,
   marketplaceEquipListError,
+  marketplaceSlotLimitForAdventureSupport,
   resolvePlayerName,
   type MarketKind,
 } from "@/lib/server/marketplaceV2";
+import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
 //   body(장비):   { kind:"equip", iid:string, price:int }
@@ -75,6 +76,9 @@ export async function POST(req: Request) {
     //   (같은 seller 의 모든 list 가 이 단일 행으로 순서화). 잠금 순서 character.v2 → equipment.v2
     //   는 buy·sell-bulk 와 일관(데드락 회피). material 경로는 이 charSave 를 그대로 씀.
     const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
+    const slotLimit = marketplaceSlotLimitForAdventureSupport(
+      adventureSupportActive(charSave.adventureSupport),
+    );
 
     // 슬롯 상한 — 활성 매물 수(seller 락 이후라 동시 요청 직렬화됨 = 엄격).
     const [{ c: activeCount }] = await tx
@@ -86,8 +90,11 @@ export async function POST(req: Request) {
           eq(marketplaceListingsV2.status, "active"),
         ),
       );
-    if (activeCount >= MARKETPLACE_V2_SLOT_LIMIT) {
-      return { status: 400, body: { ok: false as const, error: "slot_full" } };
+    if (activeCount >= slotLimit) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "slot_full", slotLimit },
+      };
     }
 
     const sellerName = (await resolvePlayerName(tx, userId)) ?? "이름없음";

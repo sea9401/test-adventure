@@ -13,6 +13,8 @@ import {
   currentMarketplaceItemName,
   itemDisplayName,
   marketplaceEquipListError,
+  marketplaceSlotLimitForAdventureSupport,
+  marketplaceTaxRateForAdventureSupport,
   saleProceeds,
   saleTax,
 } from "./marketplaceV2";
@@ -28,15 +30,25 @@ describe("판매세 (sink) — saleProceeds / saleTax", () => {
     }
   });
 
-  it("5% 세율 — price 100 → 판매자 95 / 소각 5", () => {
-    expect(MARKETPLACE_V2_TAX_RATE).toBe(0.05);
-    expect(saleProceeds(100)).toBe(95);
-    expect(saleTax(100)).toBe(5);
+  it("일반 10% 세율 — price 100 → 판매자 90 / 소각 10", () => {
+    expect(MARKETPLACE_V2_TAX_RATE).toBe(0.1);
+    expect(saleProceeds(100)).toBe(90);
+    expect(saleTax(100)).toBe(10);
   });
 
-  it("내림 처리 — price 19 → proceeds 18(floor 18.05) / 세금 1", () => {
-    expect(saleProceeds(19)).toBe(18);
-    expect(saleTax(19)).toBe(1);
+  it("지원권은 등록 10개를 추가하고 판매세를 5%로 낮춘다", () => {
+    expect(marketplaceSlotLimitForAdventureSupport(false)).toBe(10);
+    expect(marketplaceSlotLimitForAdventureSupport(true)).toBe(20);
+    expect(marketplaceTaxRateForAdventureSupport(false)).toBe(0.1);
+    expect(marketplaceTaxRateForAdventureSupport(true)).toBe(0.05);
+    const supportRate = marketplaceTaxRateForAdventureSupport(true);
+    expect(saleProceeds(100, supportRate)).toBe(95);
+    expect(saleTax(100, supportRate)).toBe(5);
+  });
+
+  it("내림 처리 — price 19 → proceeds 17(floor 17.1) / 세금 2", () => {
+    expect(saleProceeds(19)).toBe(17);
+    expect(saleTax(19)).toBe(2);
   });
 
   it("최소가(1) — proceeds 0 / 세금 1 (소액 매물은 순이익 0, spam 억제)", () => {

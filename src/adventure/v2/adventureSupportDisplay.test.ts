@@ -1,21 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
-  adventureSupportRemainingDays,
+  adventureSupportRemaining,
   formatAdventureSupportExpiry,
+  formatAdventureSupportRemaining,
 } from "./adventureSupportDisplay";
 
 describe("월간 모험 지원권 표시", () => {
-  it("남은 시간을 올림해 이용 가능한 일수로 표시한다", () => {
+  it("남은 시간을 일·시간·분으로 표시하고 분 미만은 올림한다", () => {
     const now = Date.UTC(2026, 6, 20, 0, 0, 0);
-    expect(adventureSupportRemainingDays(now + 30 * 86_400_000, now)).toBe(30);
-    expect(adventureSupportRemainingDays(now + 29 * 86_400_000 + 1, now)).toBe(
-      30,
+    const until = now + (7 * 24 * 60 + 17 * 60 + 8) * 60_000 + 1;
+    expect(adventureSupportRemaining(until, now)).toEqual({
+      days: 7,
+      hours: 17,
+      minutes: 9,
+      expired: false,
+    });
+    expect(formatAdventureSupportRemaining(until, now)).toBe(
+      "7일 17시간 9분 남음",
     );
   });
 
-  it("만료된 지원권은 0일로 표시한다", () => {
-    expect(adventureSupportRemainingDays(100, 100)).toBe(0);
-    expect(adventureSupportRemainingDays(99, 100)).toBe(0);
+  it("만료된 지원권은 만료로 표시한다", () => {
+    expect(adventureSupportRemaining(100, 100).expired).toBe(true);
+    expect(formatAdventureSupportRemaining(99, 100)).toBe("만료됨");
   });
 
   it("만료 일시는 한국 시간으로 표시한다", () => {

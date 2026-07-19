@@ -6,7 +6,8 @@ import {
   CoinVertical,
   Gauge,
   Lightning,
-  ShieldCheck,
+  Percent,
+  Storefront,
   Sword,
 } from "@phosphor-icons/react";
 import {
@@ -16,21 +17,29 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { MAX_STAMINA } from "@/adventure/v2/stamina";
 
 const SUPPORT_BENEFITS = [
   {
     Icon: Gauge,
-    label: `최대 스태미나 +${ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString()}`,
+    label: `최대 에너지 ${(MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toLocaleString()}으로 변경`,
   },
   {
     Icon: Lightning,
-    label: `스태미나 회복 속도 +${ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}%`,
+    label: `에너지 회복량 ${ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}% 증가`,
+  },
+  {
+    Icon: Storefront,
+    label: `거래소 등록 ${ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개 추가`,
+  },
+  {
+    Icon: Percent,
+    label: `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
   },
   {
     Icon: Sword,
     label: `일괄 전투 최대 ${ADVENTURE_SUPPORT_PASS.activeMaxHuntBatch}회`,
   },
-  { Icon: ShieldCheck, label: "전용 후원자 프로필 프레임" },
 ] as const;
 
 function MuseunCoinMark({ size = "md" }: { size?: "sm" | "md" }) {
@@ -126,7 +135,7 @@ export function MuseunCoinShopView() {
               {ADVENTURE_SUPPORT_PASS.name}
             </h2>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              더 넉넉한 스태미나와 일괄 전투 기능으로 모험을 지원합니다.
+              더 넉넉한 에너지와 거래소·일괄 전투 혜택으로 모험을 지원합니다.
             </p>
           </div>
           <div className="text-right">
@@ -159,7 +168,7 @@ export function MuseunCoinShopView() {
         <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
           지원권이 없으면 일괄 전투는 최대{" "}
           {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다. 최초
-          활성화 시 스태미나 {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이
+          활성화 시 에너지 {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이
           즉시 지급됩니다.
         </p>
         <button

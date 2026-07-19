@@ -25,6 +25,11 @@ const optionalR2 = {
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY?.trim(),
   R2_BUCKET_NAME: process.env.R2_BUCKET_NAME?.trim(),
 };
+const optionalReviewLogin = {
+  REVIEW_LOGIN_ID: process.env.REVIEW_LOGIN_ID?.trim(),
+  REVIEW_LOGIN_PASSWORD: process.env.REVIEW_LOGIN_PASSWORD,
+  REVIEW_LOGIN_USER_EMAIL: process.env.REVIEW_LOGIN_USER_EMAIL?.trim(),
+};
 
 for (const [key, value] of Object.entries(required)) {
   if (!value) {
@@ -62,6 +67,22 @@ for (const [key, value] of Object.entries(optionalR2)) {
     process.exit(1);
   }
 }
+const suppliedReviewLoginValues = Object.values(optionalReviewLogin).filter(
+  Boolean,
+);
+if (
+  suppliedReviewLoginValues.length > 0 &&
+  suppliedReviewLoginValues.length !== 3
+) {
+  console.error("✗ review login deployment secrets must be supplied together");
+  process.exit(1);
+}
+for (const [key, value] of Object.entries(optionalReviewLogin)) {
+  if (value && /[\r\n\0]/.test(value)) {
+    console.error(`✗ deployment secret contains invalid characters: ${key}`);
+    process.exit(1);
+  }
+}
 
 const synchronized = {
   ...required,
@@ -78,6 +99,7 @@ const synchronized = {
       }
     : {}),
   ...(suppliedR2Values.length === 4 ? optionalR2 : {}),
+  ...(suppliedReviewLoginValues.length === 3 ? optionalReviewLogin : {}),
 };
 
 const original = readFileSync(envPath, "utf8");
@@ -108,5 +130,7 @@ renameSync(temporaryPath, envPath);
 console.log(
   `✓ production Turnstile${
     suppliedCaptchaCredentials.length > 0 ? ", hCaptcha" : ""
-  }${suppliedR2Values.length > 0 ? ", and R2" : ""} environment synchronized`,
+  }${suppliedR2Values.length > 0 ? ", R2" : ""}${
+    suppliedReviewLoginValues.length > 0 ? ", and review login" : ""
+  } environment synchronized`,
 );

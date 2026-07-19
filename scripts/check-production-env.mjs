@@ -24,6 +24,38 @@ if (
   process.exit(1);
 }
 
+const reviewLoginKeys = [
+  "REVIEW_LOGIN_ID",
+  "REVIEW_LOGIN_PASSWORD",
+  "REVIEW_LOGIN_USER_EMAIL",
+];
+const configuredReviewLoginKeys = reviewLoginKeys.filter(
+  (key) => process.env[key]?.trim(),
+);
+if (
+  configuredReviewLoginKeys.length > 0 &&
+  configuredReviewLoginKeys.length !== reviewLoginKeys.length
+) {
+  console.error("✗ production review login env must be configured together");
+  process.exit(1);
+}
+if (configuredReviewLoginKeys.length === reviewLoginKeys.length) {
+  if (process.env.REVIEW_LOGIN_ID.trim().length < 3) {
+    console.error("✗ production REVIEW_LOGIN_ID must be at least 3 characters");
+    process.exit(1);
+  }
+  if (process.env.REVIEW_LOGIN_PASSWORD.length < 12) {
+    console.error(
+      "✗ production REVIEW_LOGIN_PASSWORD must be at least 12 characters",
+    );
+    process.exit(1);
+  }
+  if (!process.env.REVIEW_LOGIN_USER_EMAIL.includes("@")) {
+    console.error("✗ production REVIEW_LOGIN_USER_EMAIL is invalid");
+    process.exit(1);
+  }
+}
+
 const expectedHostnames = new Set(
   process.env.TURNSTILE_EXPECTED_HOSTNAMES.split(",")
     .map((value) => value.trim().toLowerCase())

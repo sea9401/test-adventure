@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
@@ -13,6 +14,11 @@ import {
 } from "@/db/schema";
 import { authConfig } from "@/auth.config";
 import { DEVICE_SESSION_TAKEOVER_COOKIE } from "@/lib/deviceSessionConfig";
+import {
+  matchesReviewLoginCredentials,
+  readReviewLoginConfig,
+  reviewLoginThrottle,
+} from "@/lib/server/reviewLogin";
 
 declare module "next-auth" {
   interface Session {
@@ -62,6 +68,65 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         };
       },
     }),
+    Credentials({
+      id: "review-credentials",
+      name: "아이디·비밀번호",
+      credentials: {
+        loginId: { label: "아이디", type: "text" },
+        password: { label: "비밀번호", type: "password" },
+      },
+      async authorize(credentials, request) {
+        const config = readReviewLoginConfig();
+        if (!config) return null;
+
+        const clientKey =
+          request.headers.get("x-real-ip") ??
+          request.headers.get("x-forwarded-for")?.split(",").at(-1) ??
+          "unknown";
+        if (!reviewLoginThrottle.canAttempt(clientKey)) return null;
+
+        if (
+          !matchesReviewLoginCredentials(
+            {
+              loginId: credentials.loginId,
+              password: credentials.password,
+            },
+            config,
+          )
+        ) {
+          reviewLoginThrottle.recordFailure(clientKey);
+          return null;
+        }
+
+        // 심사용 자격 증명은 사용자를 만들지 않는다. 카카오 계정이 이미 연결된 지정 사용자만
+        // 찾아 기존 JWT 세션을 발급한다.
+        const [reviewUser] = await rawDb()
+          .select({
+            id: users.id,
+            email: users.email,
+            name: users.name,
+            image: users.image,
+          })
+          .from(users)
+          .innerJoin(
+            accounts,
+            and(
+              eq(accounts.userId, users.id),
+              eq(accounts.provider, "kakao"),
+            ),
+          )
+          .where(eq(users.email, config.userEmail))
+          .limit(1);
+
+        if (!reviewUser) {
+          reviewLoginThrottle.recordFailure(clientKey);
+          return null;
+        }
+
+        reviewLoginThrottle.clear(clientKey);
+        return reviewUser;
+      },
+    }),
   ],
   callbacks: {
     async signIn({ account }) {
@@ -78,8 +143,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
         maxAge: 5 * 60,
         priority: "high",
       });
+
+      // Credentials provider 는 기존 카카오 사용자를 JWT 로만 인증한다. OAuth 계정 연동
+      // 테이블을 건드리면 안 되므로 아래 OAuth 전용 분기에는 진입시키지 않는다.
+      if (account.type === "credentials") {
+        cookieStore.set("link_user_id", "", { maxAge: 0, path: "/" });
+        return true;
+      }
+
       const linkUserId = cookieStore.get("link_user_id")?.value;
-      if (!linkUserId) return true;
+      if (!linkUserId) {
+        if (account.provider !== "google") return true;
+
+        // 신규 가입은 카카오만 허용한다. 이미 연결된 Google 계정의 로그인은 계속 지원한다.
+        const [existingGoogle] = await rawDb()
+          .select({ userId: accounts.userId })
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.provider, "google"),
+              eq(accounts.providerAccountId, account.providerAccountId),
+            ),
+          )
+          .limit(1);
+        return !!existingGoogle;
+      }
 
       // 연동 의도는 1회용 — 읽는 즉시 쿠키를 소비(만료)한다. 그대로 두면 maxAge(/api/auth/link
       // 에서 300s) 동안 이후의 모든 OAuth 콜백이 연동 모드로 빨려들어, 그 창에 다른 카카오 계정

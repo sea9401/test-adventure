@@ -1,11 +1,12 @@
 "use client";
 
-// 알림 종 — 미읽음 수는 경량 폴링하고, 버튼을 열 때만 최근 알림을 조회한다.
-// 미리보기에서는 읽음 처리하지 않으며 항목/전체 보기를 누르면 알림 페이지로 이동한다.
+// 통합 알림 종 — 일반 알림 미읽음 수와 미수령 우편 수를 합산한다.
+// 버튼을 열면 두 채널의 최근 항목을 시간순으로 섞어 보여주고 통합 알림 센터로 이동한다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CaretRight } from "@phosphor-icons/react";
+import { Bell, CaretRight, Envelope } from "@phosphor-icons/react";
+import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { formatRelative } from "@/lib/notifications";
 import {
@@ -14,6 +15,19 @@ import {
 } from "@/lib/v2-notification-config";
 
 const PREVIEW_LIMIT = 5;
+
+const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
+  user_message: "쪽지",
+  sale_proceeds: "판매 대금",
+  purchase_item: "구매 물품",
+  cancel_return: "취소 반환",
+  recipe_gift: "제작서 선물",
+  listing_expired: "매물 만료",
+  guild_invite: "길드 초대",
+  guild_quest_reward: "길드 의뢰 보상",
+  season_reward: "순위 보상",
+  admin_gift: "운영자 우편",
+};
 
 function previewText(notification: V2NotificationEntry): string {
   const payload = notification.payload;
@@ -53,23 +67,54 @@ function previewText(notification: V2NotificationEntry): string {
   }
 }
 
+function mailPreviewText(item: InboxItem): string {
+  if (item.kind === "user_message") {
+    const text = item.payload.text;
+    return typeof text === "string" && text.length > 0 ? text : "(내용 없음)";
+  }
+  if (item.kind === "guild_invite") {
+    const guildName = item.payload.guild_name;
+    if (typeof guildName === "string" && guildName.length > 0) {
+      return `${guildName} 길드에서 초대했어요.`;
+    }
+  }
+  return item.message ?? MAIL_KIND_LABEL[item.kind];
+}
+
+type PreviewEntry =
+  | { kind: "notification"; timestamp: number; item: V2NotificationEntry }
+  | { kind: "mail"; timestamp: number; item: InboxItem };
+
 export function NotificationBell() {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [unread, setUnread] = useState(0);
+  const [notificationUnread, setNotificationUnread] = useState(0);
+  const [mailUnread, setMailUnread] = useState(0);
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<V2NotificationEntry[] | null>(null);
+  const [items, setItems] = useState<PreviewEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   const fetchCount = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v2/notifications?count=1");
-      if (!res.ok) return;
-      const json = (await res.json()) as { ok?: boolean; unreadCount?: number };
-      if (json.ok) setUnread(json.unreadCount ?? 0);
-    } catch {
-      /* 폴링 — 조용히 무시 */
+    const [notificationResult, mailResult] = await Promise.allSettled([
+      fetch("/api/v2/notifications?count=1").then(async (res) => {
+        if (!res.ok) throw new Error("notification count failed");
+        return (await res.json()) as { ok?: boolean; unreadCount?: number };
+      }),
+      fetch("/api/marketplace/inbox?count=1").then(async (res) => {
+        if (!res.ok) throw new Error("mail count failed");
+        return (await res.json()) as { unclaimedCount?: number };
+      }),
+    ]);
+
+    if (
+      notificationResult.status === "fulfilled" &&
+      notificationResult.value.ok
+    ) {
+      setNotificationUnread(notificationResult.value.unreadCount ?? 0);
+    }
+    if (mailResult.status === "fulfilled") {
+      setMailUnread(mailResult.value.unclaimedCount ?? 0);
     }
   }, []);
 
@@ -77,16 +122,37 @@ export function NotificationBell() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch("/api/v2/notifications");
-      if (!res.ok) throw new Error("notification preview failed");
-      const json = (await res.json()) as {
+      const [notificationRes, inbox] = await Promise.all([
+        fetch("/api/v2/notifications"),
+        fetchInbox(),
+      ]);
+      if (!notificationRes.ok) throw new Error("notification preview failed");
+      const notificationJson = (await notificationRes.json()) as {
         ok?: boolean;
         notifications?: V2NotificationEntry[];
         unreadCount?: number;
       };
-      if (!json.ok) throw new Error("notification preview failed");
-      setItems((json.notifications ?? []).slice(0, PREVIEW_LIMIT));
-      setUnread(json.unreadCount ?? 0);
+      if (!notificationJson.ok) throw new Error("notification preview failed");
+
+      const combined: PreviewEntry[] = [
+        ...(notificationJson.notifications ?? []).map((item) => ({
+          kind: "notification" as const,
+          timestamp: item.createdAt,
+          item,
+        })),
+        ...inbox.items.map((item) => ({
+          kind: "mail" as const,
+          timestamp: Date.parse(item.createdAt),
+          item,
+        })),
+      ];
+      setItems(
+        combined
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, PREVIEW_LIMIT),
+      );
+      setNotificationUnread(notificationJson.unreadCount ?? 0);
+      setMailUnread(inbox.unclaimedCount);
     } catch {
       setError(true);
     } finally {
@@ -103,11 +169,13 @@ export function NotificationBell() {
       void fetchCount();
     };
     const id = setInterval(tick, NOTIF_POLL_MS);
-    const onRead = () => void fetchCount();
-    window.addEventListener("v2notif:read", onRead);
+    const onRefresh = () => void fetchCount();
+    window.addEventListener("v2notif:read", onRefresh);
+    window.addEventListener("v2inbox:refresh", onRefresh);
     return () => {
       clearInterval(id);
-      window.removeEventListener("v2notif:read", onRead);
+      window.removeEventListener("v2notif:read", onRefresh);
+      window.removeEventListener("v2inbox:refresh", onRefresh);
     };
   }, [fetchCount]);
 
@@ -138,20 +206,29 @@ export function NotificationBell() {
     router.push("/notifications");
   };
 
+  const openMail = () => {
+    setOpen(false);
+    router.push("/plaza/inbox");
+  };
+
+  const totalUnread = notificationUnread + mailUnread;
+
   return (
     <div ref={containerRef} className="relative">
       <button
         type="button"
         onClick={togglePreview}
-        aria-label={unread > 0 ? `알림 ${unread}개` : "알림"}
+        aria-label={
+          totalUnread > 0 ? `알림 및 우편 ${totalUnread}개` : "알림 및 우편"
+        }
         aria-haspopup="dialog"
         aria-expanded={open}
         className="relative rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
       >
         <Bell size={18} weight="duotone" />
-        {unread > 0 && (
+        {totalUnread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white">
-            {unread > 9 ? "9+" : unread}
+            {totalUnread > 9 ? "9+" : totalUnread}
           </span>
         )}
       </button>
@@ -159,16 +236,16 @@ export function NotificationBell() {
       {open && (
         <section
           role="dialog"
-          aria-label="최근 알림 미리보기"
+          aria-label="최근 알림 및 우편 미리보기"
           className={`${SURFACE_CARD} ui-dropdown-reveal absolute right-0 top-full z-[70] mt-2 w-[min(22rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-xl`}
         >
           <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              최근 알림
+              최근 알림 및 우편
             </h2>
-            {unread > 0 && (
+            {totalUnread > 0 && (
               <span className="text-xs font-medium text-rose-600 dark:text-rose-400">
-                읽지 않음 {unread}개
+                확인할 항목 {totalUnread}개
               </span>
             )}
           </div>
@@ -188,32 +265,60 @@ export function NotificationBell() {
               </button>
             ) : items?.length ? (
               <ul className="divide-y divide-zinc-200 dark:divide-zinc-700">
-                {items.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={openNotifications}
-                      className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.readAt === null ? "bg-rose-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 text-sm leading-5 text-zinc-800 dark:text-zinc-200">
-                          {previewText(item)}
+                {items.map((entry) =>
+                  entry.kind === "notification" ? (
+                    <li key={`notification-${entry.item.id}`}>
+                      <button
+                        type="button"
+                        onClick={openNotifications}
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${entry.item.readAt === null ? "bg-rose-500" : "bg-zinc-300 dark:bg-zinc-600"}`}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="line-clamp-2 text-sm leading-5 text-zinc-800 dark:text-zinc-200">
+                            {previewText(entry.item)}
+                          </span>
+                          <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                            {formatRelative(entry.timestamp)}
+                          </span>
                         </span>
-                        <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
-                          {formatRelative(item.createdAt)}
+                      </button>
+                    </li>
+                  ) : (
+                    <li key={`mail-${entry.item.id}`}>
+                      <button
+                        type="button"
+                        onClick={openMail}
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                          <Envelope size={16} weight="duotone" />
                         </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {MAIL_KIND_LABEL[entry.item.kind]}
+                            {entry.item.fromName
+                              ? ` · ${entry.item.fromName}`
+                              : ""}
+                          </span>
+                          <span className="mt-0.5 line-clamp-2 text-xs leading-5 text-zinc-600 dark:text-zinc-300">
+                            {mailPreviewText(entry.item)}
+                          </span>
+                          <span className="mt-1 block text-xs text-zinc-500 dark:text-zinc-400">
+                            {formatRelative(entry.timestamp)} · 미수령
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ),
+                )}
               </ul>
             ) : (
               <p className="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                도착한 알림이 없습니다.
+                도착한 알림과 우편이 없습니다.
               </p>
             )}
           </div>

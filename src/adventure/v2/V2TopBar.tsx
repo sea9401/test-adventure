@@ -3,13 +3,12 @@
 import { MapPin } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
-import { MailboxBell } from "./MailboxBell";
 import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 게임 허브명 — 클릭 시 모험 탭(/)으로 이동.
-// 우측: 우편·알림 미리보기·채팅·광장/설정 메뉴.
+// 우측: 통합 알림(일반 알림+우편) 미리보기·채팅·광장/설정 메뉴.
 
 export function V2TopBar({
   locationName,
@@ -62,7 +61,6 @@ export function V2TopBar({
         </button>
       </div>
       <nav className="relative z-[61] flex shrink-0 items-center gap-1">
-        <MailboxBell />
         <NotificationBell />
         {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).
             v2 는 인벤토리 미연결이라 아이템 링크 없이 텍스트 채팅만. */}

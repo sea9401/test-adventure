@@ -1,13 +1,14 @@
 "use client";
 
-// 알림 — Bell 클릭 착지점. 최근 NOTIF_FETCH_LIMIT 개 목록 + 진입 시 일괄 읽음 처리.
-// 읽고 끝 채널(첨부 없음) — 우편함과 분리.
+// 통합 알림 센터 — 읽고 끝나는 일반 알림과 수령/응답이 필요한 우편을 한 화면에서 제공한다.
+// 저장소와 API는 서로의 의미가 달라 분리 유지하고, 화면과 상단 배지만 합친다.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   ChatCenteredText,
   Crown,
+  Envelope,
   Flag,
   Handshake,
   ShieldWarning,
@@ -15,13 +16,17 @@ import {
   Sword,
   UsersThree,
 } from "@phosphor-icons/react";
-import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import { V2InboxView } from "@/adventure/v2/V2InboxView";
 import { Card } from "@/components/ui/Card";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatRelative } from "@/lib/notifications";
 import type {
   V2NotificationEntry,
   V2NotificationType,
 } from "@/lib/v2-notification-config";
+
+export type NotificationCenterTab = "all" | "notifications" | "mail";
 
 const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
   outpost_attacked: (
@@ -88,6 +93,33 @@ const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
     />
   ),
 };
+
+const MAIL_KIND_LABEL: Record<InboxItem["kind"], string> = {
+  user_message: "쪽지",
+  sale_proceeds: "판매 대금",
+  purchase_item: "구매 물품",
+  cancel_return: "취소 반환",
+  recipe_gift: "제작서 선물",
+  listing_expired: "매물 만료",
+  guild_invite: "길드 초대",
+  guild_quest_reward: "길드 의뢰 보상",
+  season_reward: "순위 보상",
+  admin_gift: "운영자 우편",
+};
+
+function mailBody(item: InboxItem): string {
+  if (item.kind === "user_message") {
+    const text = item.payload.text;
+    return typeof text === "string" && text.length > 0 ? text : "(내용 없음)";
+  }
+  if (item.kind === "guild_invite") {
+    const guildName = item.payload.guild_name;
+    if (typeof guildName === "string" && guildName.length > 0) {
+      return `${guildName} 길드에서 초대했어요.`;
+    }
+  }
+  return item.message ?? MAIL_KIND_LABEL[item.kind];
+}
 
 function entryText(n: V2NotificationEntry): React.ReactNode {
   if (n.type === "outpost_attacked") {
@@ -185,16 +217,95 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
   );
 }
 
+function NotificationRow({
+  item,
+  onOpenOutpost,
+  onOpenFeedback,
+}: {
+  item: V2NotificationEntry;
+  onOpenOutpost: (outpostId: string) => void;
+  onOpenFeedback: (feedbackId: number) => void;
+}) {
+  const outpostId = (item.payload as { outpostId?: string }).outpostId;
+  const feedbackId =
+    item.type === "feedback_replied"
+      ? (item.payload as { feedbackId: number }).feedbackId
+      : null;
+  const actionable = Boolean(outpostId || feedbackId);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (outpostId) onOpenOutpost(outpostId);
+        else if (feedbackId) onOpenFeedback(feedbackId);
+      }}
+      disabled={!actionable}
+      className="flex w-full items-start gap-2 px-3 py-2.5 text-left disabled:cursor-default"
+    >
+      <span className="mt-0.5">{TYPE_ICON[item.type]}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-zinc-700 dark:text-zinc-200">
+          {entryText(item)}
+        </span>
+        <span className="mt-0.5 block text-[11px] text-zinc-400 dark:text-zinc-500">
+          {formatRelative(item.createdAt)}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function PrimaryTabButton({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "border-amber-600 text-zinc-900 dark:border-amber-400 dark:text-zinc-100"
+          : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+      }`}
+    >
+      {label}
+      {count && count > 0 ? ` (${count})` : ""}
+    </button>
+  );
+}
+
+type CombinedEntry =
+  | { kind: "notification"; timestamp: number; item: V2NotificationEntry }
+  | { kind: "mail"; timestamp: number; item: InboxItem };
+
 export function V2NotificationsView({
   onBack,
   onOpenOutpost,
   onOpenFeedback,
+  initialTab = "all",
 }: {
   onBack: () => void;
   onOpenOutpost: (outpostId: string) => void;
   onOpenFeedback: (feedbackId: number) => void;
+  initialTab?: NotificationCenterTab;
 }) {
-  const [items, setItems] = useState<V2NotificationEntry[] | null>(null);
+  const [tab, setTab] = useState<NotificationCenterTab>(initialTab);
+  const [notifications, setNotifications] = useState<
+    V2NotificationEntry[] | null
+  >(null);
+  const [mail, setMail] = useState<InboxItem[] | null>(null);
+  const readMarkedRef = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -205,19 +316,77 @@ export function V2NotificationsView({
           ok?: boolean;
           notifications?: V2NotificationEntry[];
         };
-        if (!alive || !json.ok) return;
-        setItems(json.notifications ?? []);
-        // 진입 = 일괄 읽음 처리 → Bell 뱃지 즉시 갱신 이벤트.
-        await fetch("/api/v2/notifications/read", { method: "POST" });
-        window.dispatchEvent(new Event("v2notif:read"));
+        if (alive) setNotifications(json.ok ? (json.notifications ?? []) : []);
       } catch {
-        if (alive) setItems([]);
+        if (alive) setNotifications([]);
       }
     })();
     return () => {
       alive = false;
     };
   }, []);
+
+  const loadMail = useCallback(async () => {
+    try {
+      const result = await fetchInbox();
+      setMail(result.items);
+    } catch {
+      setMail([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 최초 우편 목록 로드
+    void loadMail();
+    const refresh = () => void loadMail();
+    window.addEventListener("v2inbox:refresh", refresh);
+    return () => window.removeEventListener("v2inbox:refresh", refresh);
+  }, [loadMail]);
+
+  useEffect(() => {
+    if (tab === "mail" || notifications === null || readMarkedRef.current) {
+      return;
+    }
+    readMarkedRef.current = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/v2/notifications/read", {
+          method: "POST",
+        });
+        if (!res.ok) throw new Error("notification read failed");
+        const readAt = Date.now();
+        setNotifications((current) =>
+          current?.map((item) =>
+            item.readAt === null ? { ...item, readAt } : item,
+          ) ?? [],
+        );
+        window.dispatchEvent(new Event("v2notif:read"));
+      } catch {
+        readMarkedRef.current = false;
+      }
+    })();
+  }, [notifications, tab]);
+
+  const combined = useMemo<CombinedEntry[]>(() => {
+    if (notifications === null || mail === null) return [];
+    return [
+      ...notifications.map((item) => ({
+        kind: "notification" as const,
+        timestamp: item.createdAt,
+        item,
+      })),
+      ...mail.map((item) => ({
+        kind: "mail" as const,
+        timestamp: Date.parse(item.createdAt),
+        item,
+      })),
+    ]
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 30);
+  }, [mail, notifications]);
+
+  const loading = notifications === null || mail === null;
+  const mailCount = mail?.length ?? 0;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -231,50 +400,99 @@ export function V2NotificationsView({
         onBack={onBack}
       />
 
-      {items === null && (
+      <div
+        role="tablist"
+        aria-label="알림 분류"
+        className="flex gap-1 border-b border-zinc-200 dark:border-zinc-700"
+      >
+        <PrimaryTabButton
+          active={tab === "all"}
+          label="전체"
+          onClick={() => setTab("all")}
+        />
+        <PrimaryTabButton
+          active={tab === "notifications"}
+          label="알림"
+          onClick={() => setTab("notifications")}
+        />
+        <PrimaryTabButton
+          active={tab === "mail"}
+          label="우편"
+          count={mailCount}
+          onClick={() => setTab("mail")}
+        />
+      </div>
+
+      {tab === "mail" ? (
+        <V2InboxView embedded />
+      ) : loading ? (
         <p className="text-center text-sm text-zinc-500">불러오는 중…</p>
-      )}
-      {items !== null && items.length === 0 && (
-        <p className="rounded-md border border-zinc-200 px-3 py-6 text-center text-xs text-zinc-500 dark:border-zinc-800">
-          알림이 없습니다
-        </p>
-      )}
-      {items !== null && items.length > 0 && (
+      ) : tab === "notifications" ? (
+        notifications.length === 0 ? (
+          <Card padding="md">
+            <p className="text-center text-xs text-zinc-500">알림이 없습니다</p>
+          </Card>
+        ) : (
+          <Card padding="none">
+            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              {notifications.map((item) => (
+                <li key={item.id}>
+                  <NotificationRow
+                    item={item}
+                    onOpenOutpost={onOpenOutpost}
+                    onOpenFeedback={onOpenFeedback}
+                  />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )
+      ) : combined.length === 0 ? (
+        <Card padding="md">
+          <p className="text-center text-xs text-zinc-500">
+            도착한 알림과 우편이 없습니다
+          </p>
+        </Card>
+      ) : (
         <Card padding="none">
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {items.map((n) => {
-              const outpostId = (n.payload as { outpostId?: string }).outpostId;
-              const feedbackId =
-                n.type === "feedback_replied"
-                  ? (n.payload as { feedbackId: number }).feedbackId
-                  : null;
-              return (
-                <li key={n.id}>
+            {combined.map((entry) =>
+              entry.kind === "notification" ? (
+                <li key={`notification-${entry.item.id}`}>
+                  <NotificationRow
+                    item={entry.item}
+                    onOpenOutpost={onOpenOutpost}
+                    onOpenFeedback={onOpenFeedback}
+                  />
+                </li>
+              ) : (
+                <li key={`mail-${entry.item.id}`}>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (outpostId) onOpenOutpost(outpostId);
-                      else if (feedbackId) onOpenFeedback(feedbackId);
-                    }}
-                    className={`flex w-full items-start gap-2 px-3 py-2.5 text-left ${
-                      n.readAt == null
-                        ? "bg-amber-50/60 dark:bg-amber-950/20"
-                        : ""
-                    }`}
+                    onClick={() => setTab("mail")}
+                    className="flex w-full items-start gap-2 px-3 py-2.5 text-left"
                   >
-                    <span className="mt-0.5">{TYPE_ICON[n.type]}</span>
+                    <Envelope
+                      size={16}
+                      weight="duotone"
+                      className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300"
+                    />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-zinc-700 dark:text-zinc-200">
-                        {entryText(n)}
+                      <span className="block text-xs font-medium text-amber-700 dark:text-amber-300">
+                        {MAIL_KIND_LABEL[entry.item.kind]}
+                        {entry.item.fromName ? ` · ${entry.item.fromName}` : ""}
+                      </span>
+                      <span className="mt-0.5 line-clamp-2 block text-sm text-zinc-700 dark:text-zinc-200">
+                        {mailBody(entry.item)}
                       </span>
                       <span className="mt-0.5 block text-[11px] text-zinc-400 dark:text-zinc-500">
-                        {formatRelative(n.createdAt)}
+                        {formatRelative(entry.timestamp)} · 미수령
                       </span>
                     </span>
                   </button>
                 </li>
-              );
-            })}
+              ),
+            )}
           </ul>
         </Card>
       )}

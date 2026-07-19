@@ -50,6 +50,7 @@ import {
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
 import { GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH } from "@/adventure/data/v2/guildExploration";
+import { maxHuntBatchForAdventureSupport } from "@/adventure/data/v2/adventureSupport";
 import {
   HUNT_COST,
   MAX_STAMINA,
@@ -124,10 +125,6 @@ import { applyHuntProficiency } from "./huntProficiency";
 // 단일 무한 프론티어 — 깊이(depth) 1→∞. 조기 검증은 정수·≥1 만, 실제 게이트(최고도달+1)는
 // character.v2 lock 후. 드랍 풀은 깊이를 DungeonFloorId(1~8)로 클램프해 조회(8 이상=8 풀).
 const DROP_FLOOR_CAP = 8 as DungeonFloorId;
-
-// 일괄(batch) 사냥 — 한 요청에서 서버가 N회 사냥을 한 트랜잭션으로 돌린다(클라 50회 왕복 폐기).
-// 클라 전투설정의 최대 횟수와 일치. 본문 count(없으면 1=단판).
-const MAX_HUNT_BATCH = 50;
 
 function pickRandomEnemy(
   enemies: readonly DungeonEnemy[],
@@ -1036,15 +1033,27 @@ export async function POST(req: Request) {
     }
   }
 
-  // 일괄 사냥 횟수 — 1~MAX. 미전달/비정상이면 1(단판, 기존 동작).
+  // 일괄 사냥 횟수 — 결제 연동 전에는 모든 계정이 미가입이므로 최대 10회. 추후 서버 권위
+  // 이용권 조회를 이 값에 연결하면 활성 계정만 50회가 열린다. 클라 숨김만으로 우회되지 않게
+  // API에서도 상한을 검증한다.
   // 쿨다운 모드 — 일괄 폐지(V1식 한판한판·전투 쿨다운이 throttle). 누적 판수는 오프라인 정산이 담당.
   //   스태미나 모드/off — 일괄 허용(스태미나가 throttle).
+  const adventureSupportActive = false;
+  const maxHuntBatch = maxHuntBatchForAdventureSupport(adventureSupportActive);
+  const requestedCount = Math.max(1, Math.floor(Number(body.count) || 1));
+  if (!HUNT_COOLDOWN_MODE && requestedCount > maxHuntBatch) {
+    return Response.json(
+      {
+        ok: false,
+        error: "adventure_support_required",
+        maxCount: maxHuntBatch,
+      },
+      { status: 403 },
+    );
+  }
   const count = HUNT_COOLDOWN_MODE
     ? 1
-    : Math.max(
-        1,
-        Math.min(MAX_HUNT_BATCH, Math.floor(Number(body.count) || 1)),
-      );
+    : Math.min(maxHuntBatch, requestedCount);
 
   const rareMapIid =
     typeof body.rareMap === "string" && body.rareMap.length > 0

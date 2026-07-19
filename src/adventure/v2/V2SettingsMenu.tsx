@@ -18,6 +18,7 @@ import {
   UserMinus,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 
 // v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 메뉴얼 +
 // 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
@@ -94,7 +95,9 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
         <List size={20} weight="bold" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <div
+          className={`${SURFACE_CARD} absolute right-0 top-full z-[70] mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-lg`}
+        >
           <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             광장
           </div>

@@ -247,7 +247,7 @@ export function MainTabNav({
             key={openTab.key}
             role="menu"
             aria-label={`${openTab.label} 메뉴`}
-            className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid grid-cols-2 gap-1 p-2 sm:mx-6`}
+            className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-1 overflow-y-auto overscroll-contain p-2 sm:mx-6 sm:grid-cols-3`}
           >
             {openSubItems.map((s) => (
               <button

@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import {
+  CaretDown,
   Circle,
   Diamond,
   HandFist,
   Shield,
   Sneaker,
   Sword,
+  Ticket,
   User as UserIcon,
   type Icon,
 } from "@phosphor-icons/react";
@@ -35,6 +37,11 @@ import {
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  adventureSupportRemainingDays,
+  formatAdventureSupportExpiry,
+} from "./adventureSupportDisplay";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -101,6 +108,7 @@ export function V2CharacterCard({
   showGold = true,
   // 메인 간략 정보에서 현재 장착 스킬과 일치하는 로드아웃 프리셋 이름.
   activePresetName = null,
+  adventureSupport,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -112,6 +120,11 @@ export function V2CharacterCard({
   titleName?: string | null;
   showGold?: boolean;
   activePresetName?: string | null;
+  adventureSupport?: {
+    active: boolean;
+    activeUntil: number | null;
+    regenBonusPct: number;
+  };
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -127,6 +140,22 @@ export function V2CharacterCard({
       ? Math.max(1, Math.floor(levelCap))
       : null;
   const isAtCap = cappedLevel != null && character.level >= cappedLevel;
+  const supportActiveUntil =
+    adventureSupport?.active &&
+    typeof adventureSupport.activeUntil === "number" &&
+    Number.isFinite(adventureSupport.activeUntil)
+      ? adventureSupport.activeUntil
+      : null;
+  const [supportDetailsOpen, setSupportDetailsOpen] = useState(false);
+  const [supportCheckedAt, setSupportCheckedAt] = useState<number | null>(null);
+  const supportRegenBonusPct = Math.max(
+    0,
+    adventureSupport?.regenBonusPct ?? 0,
+  );
+  const supportRemainingDays =
+    supportActiveUntil != null && supportCheckedAt != null
+      ? adventureSupportRemainingDays(supportActiveUntil, supportCheckedAt)
+      : 0;
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -174,6 +203,45 @@ export function V2CharacterCard({
               · {guild ? guild.name : "무소속"}
             </span>
           </div>
+          {supportActiveUntil != null && (
+            <div>
+              <button
+                type="button"
+                aria-expanded={supportDetailsOpen}
+                onClick={() => {
+                  const opening = !supportDetailsOpen;
+                  setSupportDetailsOpen(opening);
+                  if (opening) setSupportCheckedAt(Date.now());
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+              >
+                <Ticket size={15} weight="duotone" aria-hidden="true" />
+                월간 모험 지원권 적용 중
+                <CaretDown
+                  size={13}
+                  weight="bold"
+                  aria-hidden="true"
+                  className={`transition-transform ${supportDetailsOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {supportDetailsOpen && supportCheckedAt != null && (
+                <div className={`${SURFACE_INSET} mt-2 px-3 py-2 text-xs`}>
+                  <div className="font-semibold text-violet-700 dark:text-violet-300">
+                    {supportRemainingDays > 0
+                      ? `${supportRemainingDays}일 남음`
+                      : "오늘 만료"}
+                  </div>
+                  <div className="mt-0.5 text-zinc-600 dark:text-zinc-300">
+                    {formatAdventureSupportExpiry(supportActiveUntil)}까지
+                  </div>
+                  <div className="mt-1 text-zinc-500 dark:text-zinc-400">
+                    최대 스태미나 +1,000 · 회복 속도 +
+                    {supportRegenBonusPct}% · 50회 전투
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {activePresetName && (
             <div className="flex min-w-0 items-center gap-2 text-xs">
               <span className="shrink-0 rounded bg-teal-50 px-1.5 py-0.5 font-medium text-teal-700 dark:bg-teal-950 dark:text-teal-300">

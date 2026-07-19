@@ -8,8 +8,9 @@ import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { WarTicker } from "@/adventure/v2/WarTicker";
 import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { shouldShowStaminaBar } from "@/adventure/v2/staminaBarVisibility";
 
-// v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경·스태미나).
+// v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
 
 type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
@@ -96,10 +97,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   };
 
   const activeTab = tabOfPath(pathname);
-  // 스태미나 바 — 모험/전투 탭만. 생활 지도는 생활 지역 선택에 집중하도록 숨긴다.
-  const showStamina =
-    pathname !== "/map" &&
-    (activeTab === "adventure" || activeTab === "battle");
+  // 스태미나 바 — 스태미나를 직접 사용하는 지정 화면에서만 노출한다.
+  const showStamina = shouldShowStaminaBar(pathname);
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·은행·상점·대장간·낚시터·사냥터·숙련의 탑·아레나·대련장)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별

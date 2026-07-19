@@ -294,7 +294,7 @@ function GuildRankingRow({
   return (
     <div
       className={`flex items-center justify-between gap-3 px-4 py-2 ${
-        entry.mine ? "bg-emerald-50 dark:bg-emerald-950/40" : ""
+        entry.mine ? "bg-emerald-50 dark:bg-emerald-950" : ""
       }`}
     >
       <span className="flex items-center gap-3 min-w-0">
@@ -310,6 +310,9 @@ function GuildRankingRow({
             className={`ml-1.5 text-[11px] font-bold ${GRADE_COLOR[entry.grade] ?? ""}`}
           >
             [{entry.grade}]
+          </span>
+          <span className="ml-1 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+            Lv.{entry.level}
           </span>
           {entry.mine && (
             <span className="ml-1 text-[10px] font-normal text-emerald-700 dark:text-emerald-400">

@@ -1,4 +1,8 @@
-import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
+import {
+  GUILD_BASE_MEMBER_CAP,
+  GUILD_MAX_LEVEL,
+} from "@/adventure/data/guild";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   PLACEABLE_SETTLEMENT_BUILDING_IDS,
   SETTLEMENT_BUILDINGS,
@@ -31,10 +35,18 @@ export function GuildInfoPanel({
     const suffix = count > 1 ? ` Lv.${level} ×${count}` : ` Lv.${level}`;
     return count > 0 ? `${def.icon} ${def.name}${suffix}` : null;
   }).filter((label): label is string => Boolean(label));
+  const levelProgressPct = info?.guild?.fameForNextLevel
+    ? Math.min(
+        100,
+        Math.floor(
+          (info.guild.fameIntoLevel / info.guild.fameForNextLevel) * 100,
+        ),
+      )
+    : 100;
 
   return info?.guild ? (
     <div className="space-y-3">
-      <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className={`${SURFACE_CARD} overflow-hidden text-sm`}>
         <div className="flex items-center gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
           <GuildEmblemImage
             emblem={info.guild.emblem}
@@ -42,11 +54,48 @@ export function GuildInfoPanel({
             className="h-16 w-16"
           />
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold">{info.guild.name}</div>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="truncate text-base font-semibold">{info.guild.name}</div>
+              <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                Lv.{info.guild.level}
+              </span>
+            </div>
             <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               {info.guild.nationName ? `${info.guild.nationName} 소속 길드` : "모험가 길드"}
             </div>
           </div>
+        </div>
+        <div className="border-b border-zinc-200 px-3 py-3 dark:border-zinc-800">
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-medium text-zinc-700 dark:text-zinc-200">
+              길드 레벨 {info.guild.level} / {GUILD_MAX_LEVEL}
+            </span>
+            <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+              {info.guild.fameForNextLevel === null
+                ? "최고 레벨 달성"
+                : `${info.guild.fameIntoLevel.toLocaleString()} / ${info.guild.fameForNextLevel.toLocaleString()} EXP`}
+            </span>
+          </div>
+          <div
+            className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
+            role="progressbar"
+            aria-label="길드 레벨 경험치"
+            aria-valuemin={0}
+            aria-valuemax={info.guild.fameForNextLevel ?? 1}
+            aria-valuenow={
+              info.guild.fameForNextLevel === null
+                ? 1
+                : info.guild.fameIntoLevel
+            }
+          >
+            <div
+              className="h-full rounded-full bg-sky-500 transition-[width]"
+              style={{ width: `${levelProgressPct}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            누적 명성이 길드 경험치가 되며, 레벨이 오를 때마다 정원이 1명 늘어납니다.
+          </p>
         </div>
         <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -58,7 +107,7 @@ export function GuildInfoPanel({
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-zinc-500 dark:text-zinc-400">길드원 수</dt>
             <dd className="font-medium tabular-nums">
-              {info.members?.length ?? 0} / {info.memberCap ?? GUILD_MAX_MEMBERS}
+              {info.members?.length ?? 0} / {info.memberCap ?? GUILD_BASE_MEMBER_CAP}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">

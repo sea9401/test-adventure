@@ -90,7 +90,10 @@ export async function POST(
         .from(guildMembers)
         .where(eq(guildMembers.guildId, invite.guildId));
       const memberCount = Number(memberCountRows[0]?.count ?? 0);
-      if (memberCount >= guildMemberCap(guild.nationName != null)) {
+      if (
+        memberCount >=
+        guildMemberCap(guild.fameTotal, guild.nationName != null)
+      ) {
         return { error: "guild_full", status: 409 as const };
       }
 

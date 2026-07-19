@@ -5,6 +5,7 @@ import { MagnifyingGlass, UsersThree } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
 import {
   cancelJoinRequest,
   fetchGuildBrowse,
@@ -124,7 +125,7 @@ export function GuildBrowsePanel({
         </div>
 
         {cooldownActive ? (
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+          <div className={`${SURFACE_ACCENT} px-3 py-2 text-xs text-amber-800 dark:text-amber-300`}>
             탈퇴/추방 쿨다운 중에는 가입 신청을 보낼 수 없습니다.
           </div>
         ) : null}
@@ -140,7 +141,7 @@ export function GuildBrowsePanel({
         ) : (
           <ul className="space-y-2">
             {data!.guilds.map((g) => {
-              // 길드별 정원 — 국가 선포 시 상향(응답에 per-guild maxMembers). 없으면 기본값 폴백.
+              // 길드별 정원 — 레벨/국가 선포를 반영한 per-guild maxMembers.
               const cap = g.maxMembers ?? maxMembers;
               const isFull = g.memberCount >= cap;
               const requested = pendingGuildId === g.id;
@@ -148,7 +149,7 @@ export function GuildBrowsePanel({
               return (
                 <li
                   key={g.id}
-                  className="rounded-md border border-zinc-200 bg-zinc-50 p-2.5 dark:border-zinc-800 dark:bg-zinc-900/50"
+                  className={`${SURFACE_INSET} p-2.5`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -158,6 +159,9 @@ export function GuildBrowsePanel({
                         </span>
                         <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
                           {g.grade}급
+                        </span>
+                        <span className="shrink-0 rounded bg-sky-100 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                          Lv.{g.level}
                         </span>
                         {g.nationName ? (
                           <span className="shrink-0 truncate rounded bg-indigo-500/10 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:text-indigo-400">

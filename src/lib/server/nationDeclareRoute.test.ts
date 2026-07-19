@@ -78,7 +78,7 @@ vi.mock("@/db", () => {
 import { POST } from "@/app/api/v2/guild/nation/declare/route";
 import { guildMembers, guilds, outpostVillages } from "@/db/schema";
 import {
-  GUILD_MAX_MEMBERS,
+  GUILD_BASE_MEMBER_CAP,
   NATION_MEMBER_BONUS,
   guildMemberCap,
 } from "@/adventure/data/guild";
@@ -288,11 +288,15 @@ describe("settlement 등급 게이트 + 국가 정원 보너스 (순수)", () =>
     expect(nextTier("metropolis")).toBeNull(); // 대도시 = 최종(국가는 별도 게이트).
   });
 
-  it("국가 정원 보너스 = guildMemberCap(true) - guildMemberCap(false) === NATION_MEMBER_BONUS", () => {
+  it("국가 정원 보너스는 같은 길드 레벨 정원에 별도로 더해진다", () => {
     // 매직넘버 금지 — 실제 export 상수/함수로 델타 단언.
-    expect(guildMemberCap(true) - guildMemberCap(false)).toBe(NATION_MEMBER_BONUS);
+    expect(guildMemberCap(0, true) - guildMemberCap(0, false)).toBe(
+      NATION_MEMBER_BONUS,
+    );
     // 정원 = 기본 + (국가면 보너스).
-    expect(guildMemberCap(false)).toBe(GUILD_MAX_MEMBERS);
-    expect(guildMemberCap(true)).toBe(GUILD_MAX_MEMBERS + NATION_MEMBER_BONUS);
+    expect(guildMemberCap(0, false)).toBe(GUILD_BASE_MEMBER_CAP);
+    expect(guildMemberCap(0, true)).toBe(
+      GUILD_BASE_MEMBER_CAP + NATION_MEMBER_BONUS,
+    );
   });
 });

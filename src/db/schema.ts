@@ -499,7 +499,7 @@ export type GuildBuffSlotRow = {
   installedAt: string;
 };
 
-// 유저 자치 길드 — 정원 3명, 마스터 초대제, 자동 해체 정책.
+// 유저 자치 길드 — 누적 명성 기반 레벨별 정원, 마스터 초대제, 자동 해체 정책.
 // disbandedAt != NULL 이면 tombstone — 30일 후 cron 이 hard delete (이름 재사용 차단 기간).
 // 활성 + tombstone 모두 unique 이므로 자연스레 30일 cooldown 이 됨.
 export const guilds = pgTable(
@@ -512,7 +512,7 @@ export const guilds = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     disbandedAt: timestamp("disbanded_at"),
-    // 누적 명성 — 영구, 등급(G~S) 결정. 길드 의뢰 보상 + 멤버 개인 명성 적립분.
+    // 누적 명성 — 영구, 등급(G~S)·길드 레벨·멤버 정원 결정. 길드 활동으로 적립.
     fameTotal: integer("fame_total").notNull().default(0),
     // 사용 가능 명성 — 누적과 동일하게 시작, 길드 버프 업그레이드에 소비.
     fameAvailable: integer("fame_available").notNull().default(0),

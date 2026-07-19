@@ -7,10 +7,11 @@ export type GuildBrowseEntry = {
   masterName: string; // 길드마스터 닉네임(없으면 "모험가")
   description: string | null;
   fameTotal: number;
+  level: number;
   grade: string;
   memberCount: number;
   acceptingRequests: boolean;
-  // 국가명(미선포 null) + 그 길드의 정원(국가 선포 시 상향). 둘러보기 표시·정원 게이트용.
+  // 국가명(미선포 null) + 레벨/국가 보너스를 반영한 길드별 정원.
   nationName: string | null;
   maxMembers: number;
 };

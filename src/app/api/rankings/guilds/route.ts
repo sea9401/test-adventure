@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { guildLevelForFame } from "@/adventure/data/guild";
 import { gradeForFame } from "@/adventure/data/guildGrades";
 
 const LIST_LIMIT = 100;
@@ -112,6 +113,7 @@ export async function GET() {
     name: r.name,
     emblem: r.emblem,
     fameTotal: r.fameTotal,
+    level: guildLevelForFame(r.fameTotal),
     memberCount: r.memberCount,
     grade: gradeForFame(r.fameTotal),
     mine: r.guildId === myGuildId,
@@ -125,6 +127,7 @@ export async function GET() {
         name: myRow.name,
         emblem: myRow.emblem,
         fameTotal: myRow.fameTotal,
+        level: guildLevelForFame(myRow.fameTotal),
         memberCount: myRow.memberCount,
         grade: gradeForFame(myRow.fameTotal),
       }

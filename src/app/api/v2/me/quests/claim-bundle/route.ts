@@ -28,9 +28,11 @@ import {
   normalizeFarmForDay,
   parseFarmState,
 } from "@/adventure/v2/farm";
+import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
+import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
 
 // POST /api/v2/me/quests/claim-bundle { scope: "daily"|"weekly" } — 마일스톤 번들 보상 수령.
-//   일일 4개 / 주간 3개 "완료"(진행도≥목표) 달성 시 번들 지급. 주기당 1회(bundleClaimed).
+//   일일 4개 / 주간 5개 "완료"(진행도≥목표) 달성 시 번들 지급. 주기당 1회(bundleClaimed).
 //   서버가 완료 수를 세이브에서 재판정(클라 신뢰 안 함) + 미수령 확인. 락 순서: repeat-quests.v2
 //   → farm.v2(일일 씨앗 주머니) → stamina-potions.v1 (stamina-potions 는 leaf — 항상 마지막 잠금). 신호 무락 read.
 
@@ -58,10 +60,19 @@ export async function POST(req: Request) {
       {},
     );
     const advLogRaw = await readSave(tx, userId, "adventure-log.v2", {});
+    const farmSignalRaw = await readSave(tx, userId, FARM_SAVE_KEY, {});
+    const woodcuttingRaw = await readSave(tx, userId, WOODCUTTING_LOG_KEY, {});
+    const miningRaw = await readSave(tx, userId, MINING_LOG_KEY, {});
+    const craftingRaw = await readSave(tx, userId, "crafting.v2", {});
     const extras = await assembleQuestExtras(tx, userId);
     const now = new Date();
     const nowMs = now.getTime();
-    const signals = buildRepeatSignals(advLogRaw, extras);
+    const signals = buildRepeatSignals(advLogRaw, extras, {
+      farmRaw: farmSignalRaw,
+      woodcuttingRaw,
+      miningRaw,
+      craftingRaw,
+    });
     const rolled = rolloverRepeatSave(parseRepeatSave(repeatRaw), now, signals);
     const bundle = deriveRepeatBundle(rolled.save, signals, scope);
     if (bundle.claimed) {

@@ -11,6 +11,7 @@ export type RankingMetric =
   | "lifeMastery"
   | "codexCompletion"
   | "masteryTower"
+  | "achievementScore"
   | "guild";
 
 export type RankingEntry = {
@@ -28,6 +29,8 @@ export type RankingEntry = {
   codexCollected: number;
   codexTotal: number;
   masteryTowerFloor: number;
+  achievementScore: number;
+  achievementCompleted: number;
   weekHighest: number;
   /** 도전 모드 영구 최고층 (tower-challenge.v1.progress.highestFloor). */
   challengeHighest: number;
@@ -47,6 +50,8 @@ export type RankingMe = {
   codexCollected: number;
   codexTotal: number;
   masteryTowerFloor: number;
+  achievementScore: number;
+  achievementCompleted: number;
   weekHighest: number;
   challengeHighest: number;
 };

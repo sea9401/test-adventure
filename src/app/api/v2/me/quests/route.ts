@@ -13,6 +13,7 @@ import {
   deriveQuestViews,
   currentGuideQuest,
   questLinesFor,
+  achievementSummary,
 } from "@/adventure/data/v2/v2Quests";
 import {
   addTitlesToAdventureLog,
@@ -29,7 +30,14 @@ import {
 import {
   FARM_DAILY_QUEST_SEED_POUCH_NAME,
   FARM_DAILY_QUEST_SEED_REWARD,
+  FARM_SAVE_KEY,
 } from "@/adventure/v2/farm";
+import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
+import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
+import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
+import { GRID_DUNGEON_HISTORY_KEY } from "@/adventure/data/v2/gridDungeon";
 
 // GET /api/v2/me/quests — 가이드 퀘스트 현황. 완료 판정은 세이브/DB 파생(읽기 전용, 락 없음).
 //   현 직군에게 보이는 라인 + 각 퀘스트 status(claimed/claimable/active/locked) 반환.
@@ -48,6 +56,13 @@ export async function GET() {
     craftingRaw,
     guideRaw,
     repeatRaw,
+    farmRaw,
+    woodcuttingRaw,
+    miningRaw,
+    fishingProgressRaw,
+    equipmentCodexRaw,
+    masteryTowerRaw,
+    gridDungeonHistoryRaw,
     extras,
   ] = await Promise.all([
     readSave(db, userId, "character.v2", {}),
@@ -58,6 +73,13 @@ export async function GET() {
     readSave(db, userId, "crafting.v2", {}),
     readSave(db, userId, GUIDE_QUESTS_KEY, {}),
     readSave(db, userId, REPEAT_QUESTS_KEY, {}),
+    readSave(db, userId, FARM_SAVE_KEY, {}),
+    readSave(db, userId, WOODCUTTING_LOG_KEY, {}),
+    readSave(db, userId, MINING_LOG_KEY, {}),
+    readSave(db, userId, FISHING_PROGRESS_KEY, {}),
+    readSave(db, userId, EQUIPMENT_CODEX_KEY, {}),
+    readSave(db, userId, MASTERY_TOWER_SAVE_KEY, {}),
+    readSave(db, userId, GRID_DUNGEON_HISTORY_KEY, []),
     assembleQuestExtras(db, userId),
   ]);
 
@@ -85,6 +107,13 @@ export async function GET() {
     equipmentRaw,
     skillsRaw,
     craftingRaw,
+    farmRaw,
+    woodcuttingRaw,
+    miningRaw,
+    fishingProgressRaw,
+    equipmentCodexRaw,
+    masteryTowerRaw,
+    gridDungeonHistoryRaw,
     extras,
   });
   const quests = deriveQuestViews(ctx, claimed);
@@ -92,7 +121,12 @@ export async function GET() {
 
   // 반복 퀘스트 — lazy 롤오버(주기 키 변경 시 무락 upsert — 동시 호출도 같은 스냅샷이라 무해).
   const now = new Date();
-  const signals = buildRepeatSignals(effectiveAdvLogRaw, extras);
+  const signals = buildRepeatSignals(effectiveAdvLogRaw, extras, {
+    farmRaw,
+    woodcuttingRaw,
+    miningRaw,
+    craftingRaw,
+  });
   const rolled = rolloverRepeatSave(parseRepeatSave(repeatRaw), now, signals);
   if (rolled.changed) {
     await upsertSave(db, userId, REPEAT_QUESTS_KEY, rolled.save);
@@ -104,6 +138,7 @@ export async function GET() {
     lines: questLinesFor(ctx),
     quests,
     current,
+    achievementSummary: achievementSummary(ctx, claimed),
     repeat: {
       daily: repeatViews.filter((q) => q.scope === "daily"),
       weekly: repeatViews.filter((q) => q.scope === "weekly"),

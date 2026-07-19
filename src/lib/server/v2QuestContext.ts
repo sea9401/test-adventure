@@ -45,12 +45,41 @@ import {
   marketplaceListingsV2,
   outpostClaimAttempts,
   outpostOccupations,
+  pvpRatings,
 } from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
 import { parseFishCodex } from "@/adventure/v2/fishingCodex";
 import { artisanLevel, parseArtisanState } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
+import {
+  FARM_SAVE_KEY,
+  farmingLevelForState,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import {
+  WOODCUTTING_LOG_KEY,
+  parseWoodcuttingLog,
+} from "@/adventure/v2/woodcuttingSession";
+import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
+import {
+  MINING_LOG_KEY,
+  parseMiningLog,
+} from "@/adventure/v2/miningSession";
+import { miningProgressionView } from "@/adventure/v2/miningProgression";
+import {
+  fishingLevelForXp,
+  parseFishingProgression,
+} from "@/adventure/v2/fishingProgression";
+import {
+  equipmentCodexSummary,
+} from "@/adventure/data/v2/equipmentCodex";
+import {
+  parseMasteryTowerState,
+} from "@/adventure/data/v2/masteryTower";
+import {
+  parseGridDungeonHistory,
+} from "@/adventure/data/v2/gridDungeon";
 
 type CharSave = {
   class?: unknown;
@@ -102,6 +131,13 @@ export function buildQuestCtx(args: {
   equipmentRaw: unknown;
   skillsRaw: unknown;
   craftingRaw: unknown;
+  farmRaw?: unknown;
+  woodcuttingRaw?: unknown;
+  miningRaw?: unknown;
+  fishingProgressRaw?: unknown;
+  equipmentCodexRaw?: unknown;
+  masteryTowerRaw?: unknown;
+  gridDungeonHistoryRaw?: unknown;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -204,6 +240,21 @@ export function buildQuestCtx(args: {
     ? skillsSave.learned.filter((s) => typeof s === "string").length
     : 0;
 
+  const farm = parseFarmState(args.farmRaw);
+  const woodcutting = parseWoodcuttingLog(args.woodcuttingRaw);
+  const woodcuttingProgress = woodcuttingProgressionView(
+    woodcutting.cuts,
+    woodcutting.xp,
+  );
+  const mining = parseMiningLog(args.miningRaw);
+  const miningProgress = miningProgressionView(mining.successes, mining.xp);
+  const fishing = parseFishingProgression(args.fishingProgressRaw);
+  const equipmentCodex = equipmentCodexSummary(args.equipmentCodexRaw);
+  const masteryTower = parseMasteryTowerState(args.masteryTowerRaw);
+  const gridDungeonClears = parseGridDungeonHistory(
+    args.gridDungeonHistoryRaw,
+  ).filter((entry) => entry.outcome === "cleared").length;
+
   // 확장 신호(2026-06-11) — 직업 숙련도·몬스터 종 수·전쟁 카운터.
   const cumLevel = totalCumLevel(prof);
   // 환생(재전직) 횟수 — 윤회의 길 첫 퀘스트("다시 태어나다") 판정. cumLevel 임계 대신 행동 신호.
@@ -253,6 +304,27 @@ export function buildQuestCtx(args: {
     workshopCrafts: workshopStats.totalCrafts,
     workshopQualityCrafts: workshopStats.qualityCrafts,
     blacksmithLevel,
+    farmingLevel: farmingLevelForState(farm),
+    farmHarvests: farm.stats.harvests,
+    farmRareHarvests: farm.stats.rareHarvests,
+    farmDeliveries: farm.stats.deliveries,
+    farmReputationEarned:
+      farm.stats.reputation + farm.stats.reputationSpent,
+    woodcuttingLevel: woodcuttingProgress.level,
+    woodcuttingCuts: woodcutting.cuts,
+    woodcuttingPerfectCuts: woodcutting.perfectCuts,
+    woodcuttingBestCombo: woodcutting.bestCombo,
+    woodcuttingSpecies: Object.keys(woodcutting.trees).length,
+    miningLevel: miningProgress.level,
+    miningSuccesses: mining.successes,
+    miningByproducts: mining.byproductsEarned,
+    miningSpecies: Object.keys(mining.nodes).length,
+    fishingLevel: fishingLevelForXp(fishing.xp),
+    fishCaught: fishing.catches,
+    equipmentCodexRegistered: equipmentCodex.registeredCount,
+    equipmentCodexTotal: equipmentCodex.total,
+    masteryTowerFloor: masteryTower.lifetimeBestFloor,
+    gridDungeonClears,
   };
 }
 
@@ -262,7 +334,7 @@ export async function assembleQuestExtras(
   ex: DbExecutor,
   userId: string,
 ): Promise<QuestExtras> {
-  const [guildRows, tradeRows, arenaRaw, claimAgg, fishRaw] =
+  const [guildRows, tradeRows, arenaRaw, arenaAgg, claimAgg, fishRaw] =
     await Promise.all([
       ex
         .select({ id: guildMembers.guildId })
@@ -283,6 +355,13 @@ export async function assembleQuestExtras(
         )
         .limit(1),
       readSave(ex, userId, ARENA_HISTORY_KEY, {}),
+      ex
+        .select({
+          matches: sql<number>`coalesce(sum(${pvpRatings.wins} + ${pvpRatings.losses} + ${pvpRatings.draws}), 0)::bigint`,
+          wins: sql<number>`coalesce(sum(${pvpRatings.wins}), 0)::bigint`,
+        })
+        .from(pvpRatings)
+        .where(eq(pvpRatings.userId, userId)),
       // 점령 시도/승리 — (attackerUserId, createdAt) 인덱스 단일 집계.
       ex
         .select({
@@ -308,11 +387,16 @@ export async function assembleQuestExtras(
   }
 
   const fishCodex = parseFishCodex(fishRaw);
+  const lifetimeArenaMatches = Number(arenaAgg[0]?.matches ?? 0);
+  const lifetimeArenaWins = Number(arenaAgg[0]?.wins ?? 0);
   return {
     hasGuild: guildRows.length > 0,
     hasTraded: tradeRows.length > 0,
-    arenaPlayed: arenaHistory.length > 0,
-    arenaWins: arenaHistory.filter((e) => e.outcome === "win").length,
+    arenaPlayed: lifetimeArenaMatches > 0 || arenaHistory.length > 0,
+    arenaWins: Math.max(
+      lifetimeArenaWins,
+      arenaHistory.filter((e) => e.outcome === "win").length,
+    ),
     claimAttempted: Number(claimAgg[0]?.total ?? 0) > 0,
     hasOutpost,
     siegeWins: Number(claimAgg[0]?.wins ?? 0),
@@ -353,6 +437,12 @@ export async function loadCompletedQuestIds(
 export function buildRepeatSignals(
   advLogRaw: unknown,
   extras: QuestExtras,
+  raws: {
+    farmRaw?: unknown;
+    woodcuttingRaw?: unknown;
+    miningRaw?: unknown;
+    craftingRaw?: unknown;
+  } = {},
 ): RepeatSignals {
   const advLog = (advLogRaw ?? {}) as AdventureLog & {
     enhanceAttempts?: unknown;
@@ -366,6 +456,14 @@ export function buildRepeatSignals(
       (sum, m) => sum + n(m?.kills),
       0,
     ) + n(advLog.battleLosses);
+  const farm = parseFarmState(raws.farmRaw);
+  const woodcutting = parseWoodcuttingLog(raws.woodcuttingRaw);
+  const mining = parseMiningLog(raws.miningRaw);
+  const craftingSave =
+    raws.craftingRaw && typeof raws.craftingRaw === "object"
+      ? (raws.craftingRaw as Record<string, unknown>)
+      : {};
+  const workshop = parseGuildWorkshopStats(craftingSave.workshopStats);
   return {
     battleCount,
     siegeAttempts: extras.siegeAttempts,
@@ -373,6 +471,10 @@ export function buildRepeatSignals(
     warTreasuryGold: n(advLog.warTreasuryGold),
     fishCaught: extras.fishCaught,
     enhanceAttempts: n(advLog.enhanceAttempts),
+    farmHarvests: farm.stats.harvests,
+    woodcuttingCuts: woodcutting.cuts,
+    miningSuccesses: mining.successes,
+    workshopCrafts: workshop.totalCrafts,
     arenaTimes: extras.arenaTimes,
   };
 }
@@ -395,11 +497,20 @@ export async function rolloverRepeatQuestsBeforeProgress(
   );
   if (!repeatSaveNeedsRollover(locked, now)) return false;
 
-  const [advLogRaw, extras] = await Promise.all([
+  const [advLogRaw, farmRaw, woodcuttingRaw, miningRaw, craftingRaw, extras] = await Promise.all([
     readSave(ex, userId, "adventure-log.v2", {}),
+    readSave(ex, userId, FARM_SAVE_KEY, {}),
+    readSave(ex, userId, WOODCUTTING_LOG_KEY, {}),
+    readSave(ex, userId, MINING_LOG_KEY, {}),
+    readSave(ex, userId, "crafting.v2", {}),
     assembleQuestExtras(ex, userId),
   ]);
-  const signals = buildRepeatSignals(advLogRaw, extras);
+  const signals = buildRepeatSignals(advLogRaw, extras, {
+    farmRaw,
+    woodcuttingRaw,
+    miningRaw,
+    craftingRaw,
+  });
   const rolled = rolloverRepeatSave(locked, now, signals);
   if (rolled.changed) {
     await upsertSave(ex, userId, REPEAT_QUESTS_KEY, rolled.save);

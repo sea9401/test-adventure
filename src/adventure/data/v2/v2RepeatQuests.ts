@@ -35,6 +35,10 @@ export type RepeatSnapshot = {
   warTreasuryGold: number;
   fishCaught: number;
   enhanceAttempts: number;
+  farmHarvests: number;
+  woodcuttingCuts: number;
+  miningSuccesses: number;
+  workshopCrafts: number;
 };
 
 export type RepeatSignals = RepeatSnapshot & {
@@ -50,6 +54,10 @@ export function snapshotOf(s: RepeatSignals): RepeatSnapshot {
     warTreasuryGold: s.warTreasuryGold,
     fishCaught: s.fishCaught,
     enhanceAttempts: s.enhanceAttempts,
+    farmHarvests: s.farmHarvests,
+    woodcuttingCuts: s.woodcuttingCuts,
+    miningSuccesses: s.miningSuccesses,
+    workshopCrafts: s.workshopCrafts,
   };
 }
 
@@ -124,13 +132,40 @@ export const REPEAT_QUESTS: readonly RepeatQuestDef[] = [
     progress: (cur, _base, periodStart) =>
       cur.arenaTimes.some((t) => t >= periodStart) ? 1 : 0,
   },
+  {
+    id: "d_farm",
+    scope: "daily",
+    title: "오늘의 수확",
+    desc: "농장에서 작물을 2회 수확하세요.",
+    goal: 2,
+    reward: { gold: 600 },
+    progress: diff("farmHarvests"),
+  },
+  {
+    id: "d_wood",
+    scope: "daily",
+    title: "오늘의 벌목",
+    desc: "벌목에 3회 성공하세요.",
+    goal: 3,
+    reward: { gold: 600 },
+    progress: diff("woodcuttingCuts"),
+  },
+  {
+    id: "d_mine",
+    scope: "daily",
+    title: "오늘의 채광",
+    desc: "채광에 3회 성공하세요.",
+    goal: 3,
+    reward: { gold: 600 },
+    progress: diff("miningSuccesses"),
+  },
   // 주간 — 한 주 누적.
   {
     id: "w_battles",
     scope: "weekly",
     title: "주간 토벌",
-    desc: "이번 주 전투 500회를 달성하세요.",
-    goal: 500,
+    desc: "이번 주 전투 300회를 달성하세요.",
+    goal: 300,
     reward: { gold: 8000 },
     progress: diff("battleCount"),
   },
@@ -157,10 +192,46 @@ export const REPEAT_QUESTS: readonly RepeatQuestDef[] = [
     id: "w_fish",
     scope: "weekly",
     title: "주간 어획",
-    desc: "이번 주 물고기 30마리를 낚으세요.",
-    goal: 30,
+    desc: "이번 주 물고기 20마리를 낚으세요.",
+    goal: 20,
     reward: { gold: 6000 },
     progress: diff("fishCaught"),
+  },
+  {
+    id: "w_farm",
+    scope: "weekly",
+    title: "주간 풍작",
+    desc: "이번 주 작물을 12회 수확하세요.",
+    goal: 12,
+    reward: { gold: 6000 },
+    progress: diff("farmHarvests"),
+  },
+  {
+    id: "w_wood",
+    scope: "weekly",
+    title: "주간 벌목",
+    desc: "이번 주 벌목에 25회 성공하세요.",
+    goal: 25,
+    reward: { gold: 6000 },
+    progress: diff("woodcuttingCuts"),
+  },
+  {
+    id: "w_mine",
+    scope: "weekly",
+    title: "주간 채광",
+    desc: "이번 주 채광에 25회 성공하세요.",
+    goal: 25,
+    reward: { gold: 6000 },
+    progress: diff("miningSuccesses"),
+  },
+  {
+    id: "w_craft",
+    scope: "weekly",
+    title: "주간 제작",
+    desc: "이번 주 길드 제작소에서 장비를 5회 제작하세요.",
+    goal: 5,
+    reward: { gold: 8000 },
+    progress: diff("workshopCrafts"),
   },
 ];
 
@@ -201,6 +272,10 @@ function parsePeriod(raw: unknown): RepeatPeriodState | undefined {
       warTreasuryGold: num(b.warTreasuryGold),
       fishCaught: num(b.fishCaught),
       enhanceAttempts: num(b.enhanceAttempts),
+      farmHarvests: num(b.farmHarvests),
+      woodcuttingCuts: num(b.woodcuttingCuts),
+      miningSuccesses: num(b.miningSuccesses),
+      workshopCrafts: num(b.workshopCrafts),
     },
     claimed: Array.isArray(r.claimed)
       ? r.claimed.filter((x): x is string => typeof x === "string")
@@ -305,7 +380,7 @@ export function deriveRepeatViews(
 // ── 마일스톤 번들(일일/주간 완료 보너스) ────────────────────────────────────
 // 개별 퀘 보상은 폐지(2026-06-20) — 일일 4개 / 주간 3개 "완료"(진행도≥목표) 시 번들 보상 수령.
 //   보상 = 스태미나 포션(보관형 소비템, staminaPotions.ts). 주기당 1회(bundleClaimed).
-export const BUNDLE_GOAL: Record<RepeatScope, number> = { daily: 4, weekly: 3 };
+export const BUNDLE_GOAL: Record<RepeatScope, number> = { daily: 4, weekly: 5 };
 export const BUNDLE_POTIONS: Record<RepeatScope, number> = { daily: 2, weekly: 5 };
 
 export type RepeatBundleView = {

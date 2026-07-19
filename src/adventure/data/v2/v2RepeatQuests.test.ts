@@ -26,6 +26,10 @@ const SIG = (over?: Partial<RepeatSignals>): RepeatSignals => ({
   warTreasuryGold: 20000,
   fishCaught: 50,
   enhanceAttempts: 7,
+  farmHarvests: 20,
+  woodcuttingCuts: 50,
+  miningSuccesses: 50,
+  workshopCrafts: 10,
   arenaTimes: [],
   ...over,
 });
@@ -129,11 +133,11 @@ describe("차분 판정", () => {
 });
 
 describe("카탈로그 무결성", () => {
-  it("id 유일 + 가이드 퀘 id 와 충돌 없음 + 일일5·주간4", () => {
+  it("id 유일 + 일일8·주간8", () => {
     const ids = REPEAT_QUESTS.map((q) => q.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(REPEAT_QUESTS.filter((q) => q.scope === "daily")).toHaveLength(5);
-    expect(REPEAT_QUESTS.filter((q) => q.scope === "weekly")).toHaveLength(4);
+    expect(REPEAT_QUESTS.filter((q) => q.scope === "daily")).toHaveLength(8);
+    expect(REPEAT_QUESTS.filter((q) => q.scope === "weekly")).toHaveLength(8);
     expect(repeatQuestById("d_battles")).toBeDefined();
     expect(repeatQuestById("nope")).toBeUndefined();
   });
@@ -162,18 +166,22 @@ describe("마일스톤 번들", () => {
         warTreasuryGold: 0,
         fishCaught: 0,
         enhanceAttempts: 0,
+        farmHarvests: 0,
+        woodcuttingCuts: 0,
+        miningSuccesses: 0,
+        workshopCrafts: 0,
       }),
     ).save;
 
-  it("상수 — 일일 4개→2포션 / 주간 3개→5포션", () => {
-    expect(BUNDLE_GOAL).toEqual({ daily: 4, weekly: 3 });
+  it("상수 — 일일 4개→2포션 / 주간 5개→5포션", () => {
+    expect(BUNDLE_GOAL).toEqual({ daily: 4, weekly: 5 });
     expect(BUNDLE_POTIONS).toEqual({ daily: 2, weekly: 5 });
   });
 
   it("일일 4개 완료(아레나 제외) → claimable", () => {
     const b = deriveRepeatBundle(baseZero(), SIG(), "daily");
-    expect(b.completed).toBe(4); // battles·claim·fish·enhance (arena ✗: arenaTimes 빈)
-    expect(b.total).toBe(5);
+    expect(b.completed).toBe(7); // 기존 4개 + 농사·벌목·채광 (arena 제외)
+    expect(b.total).toBe(8);
     expect(b.goal).toBe(4);
     expect(b.potions).toBe(2);
     expect(b.claimed).toBe(false);
@@ -183,14 +191,20 @@ describe("마일스톤 번들", () => {
   it("완료 수 부족 → claimable=false", () => {
     const b = deriveRepeatBundle(
       baseZero(),
-      SIG({ battleCount: 5, fishCaught: 0 }), // d_battles·d_fish 미달
+      SIG({
+        battleCount: 5,
+        fishCaught: 0,
+        farmHarvests: 0,
+        woodcuttingCuts: 0,
+        miningSuccesses: 0,
+      }),
       "daily",
     );
     expect(b.completed).toBe(2); // claim·enhance만
     expect(b.claimable).toBe(false);
   });
 
-  it("주간 3개 이상 완료 → claimable·5포션", () => {
+  it("주간 5개 이상 완료 → claimable·5포션", () => {
     const start = periodStartMs("2026-06-08");
     const b = deriveRepeatBundle(
       baseZero(),
@@ -205,7 +219,7 @@ describe("마일스톤 번들", () => {
       }),
       "weekly",
     );
-    expect(b.completed).toBe(4); // battles·enhance·arena·fish
+    expect(b.completed).toBe(8);
     expect(b.potions).toBe(5);
     expect(b.claimable).toBe(true);
   });

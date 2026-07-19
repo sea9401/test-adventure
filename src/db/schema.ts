@@ -512,7 +512,7 @@ export const guilds = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     disbandedAt: timestamp("disbanded_at"),
-    // 누적 명성 — 영구, 등급(G~S)·길드 레벨·멤버 정원 결정. 길드 활동으로 적립.
+    // 누적 명성 — 영구, 길드 레벨·멤버 정원 결정. 길드 활동으로 적립.
     fameTotal: integer("fame_total").notNull().default(0),
     // 사용 가능 명성 — 누적과 동일하게 시작, 길드 버프 업그레이드에 소비.
     fameAvailable: integer("fame_available").notNull().default(0),

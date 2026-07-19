@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { gradeForFame } from "@/adventure/data/guildGrades";
+import { guildLevelForFame } from "@/adventure/data/guild";
 
 // GET /api/profile/by-name?name=Hero
 // 인증된 유저가 다른 모험가의 공개 프로필을 조회. 단일 EC2 / DB 라
@@ -86,7 +86,7 @@ export async function GET(req: Request) {
     row.guild_id !== null && row.guild_name && row.guild_fame_total !== null
       ? {
           name: row.guild_name,
-          grade: gradeForFame(row.guild_fame_total),
+          level: guildLevelForFame(row.guild_fame_total),
         }
       : null;
 

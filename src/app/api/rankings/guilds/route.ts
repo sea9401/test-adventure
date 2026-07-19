@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildLevelForFame } from "@/adventure/data/guild";
-import { gradeForFame } from "@/adventure/data/guildGrades";
 
 const LIST_LIMIT = 100;
 // 메모리 캐시 TTL — 길드 명성/멤버수는 매우 빨리 변하지 않으니 30초 staleness OK.
@@ -87,7 +86,7 @@ async function getRows(): Promise<GuildRow[]> {
 }
 
 // GET /api/rankings/guilds — 활성 길드를 누적 명성(fameTotal) 내림차순으로 정렬.
-// 동률은 createdAt 오래된 순. 응답에는 등급/멤버 수도 포함.
+// 동률은 createdAt 오래된 순. 응답에는 길드 레벨/멤버 수도 포함.
 // 정렬 결과는 30초 메모리 캐시 — 본인 길드 매칭만 매 요청 (요청 유저별 가변).
 export async function GET() {
   const userId = await ensureUser();
@@ -115,7 +114,6 @@ export async function GET() {
     fameTotal: r.fameTotal,
     level: guildLevelForFame(r.fameTotal),
     memberCount: r.memberCount,
-    grade: gradeForFame(r.fameTotal),
     mine: r.guildId === myGuildId,
   }));
 
@@ -129,7 +127,6 @@ export async function GET() {
         fameTotal: myRow.fameTotal,
         level: guildLevelForFame(myRow.fameTotal),
         memberCount: myRow.memberCount,
-        grade: gradeForFame(myRow.fameTotal),
       }
     : null;
 

@@ -7,7 +7,6 @@ import {
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { gradeForFame } from "@/adventure/data/guildGrades";
 import {
   GUILD_BASE_MEMBER_CAP,
   guildLevelForFame,
@@ -95,7 +94,6 @@ export async function GET(req: Request) {
       description: g.description ?? null,
       fameTotal: g.fameTotal,
       level: guildLevelForFame(g.fameTotal),
-      grade: gradeForFame(g.fameTotal),
       memberCount: Number(g.memberCount ?? 0),
       acceptingRequests: g.acceptingRequests,
       nationName: g.nationName ?? null,

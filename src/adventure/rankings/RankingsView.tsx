@@ -29,17 +29,6 @@ const TABS: { key: RankingMetric; label: string }[] = [
   { key: "guild", label: "길드 랭킹" },
 ];
 
-const GRADE_COLOR: Record<string, string> = {
-  G: "text-zinc-500 dark:text-zinc-400",
-  F: "text-zinc-600 dark:text-zinc-300",
-  E: "text-emerald-600 dark:text-emerald-400",
-  D: "text-sky-600 dark:text-sky-400",
-  C: "text-blue-600 dark:text-blue-400",
-  B: "text-violet-600 dark:text-violet-400",
-  A: "text-amber-600 dark:text-amber-400",
-  S: "text-rose-600 dark:text-rose-400",
-};
-
 export function RankingsView() {
   const router = useRouter();
   const [metric, setMetric] = useState<RankingMetric>("level");
@@ -306,12 +295,7 @@ function GuildRankingRow({
         />
         <span className="min-w-0 truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
           {entry.name}
-          <span
-            className={`ml-1.5 text-[11px] font-bold ${GRADE_COLOR[entry.grade] ?? ""}`}
-          >
-            [{entry.grade}]
-          </span>
-          <span className="ml-1 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+          <span className="ml-1.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">
             Lv.{entry.level}
           </span>
           {entry.mine && (

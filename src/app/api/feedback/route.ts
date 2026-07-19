@@ -2,12 +2,20 @@ import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { feedbackReports } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { FEEDBACK_IMAGE_MAX_BYTES } from "@/lib/feedbackImage";
+import { processFeedbackImage } from "@/lib/server/feedbackImage";
+import {
+  deleteFeedbackImage,
+  isFeedbackImageStorageConfigured,
+  uploadFeedbackImage,
+} from "@/lib/server/feedbackImageStorage";
 import { resolveActor } from "@/lib/server/resolveActor";
 
 const CONTENT_MIN = 5;
 const CONTENT_MAX = 1000;
 const PATH_MAX = 240;
 const RATE_LIMIT_MS = 60_000;
+const MAX_MULTIPART_BYTES = FEEDBACK_IMAGE_MAX_BYTES + 256 * 1024;
 const CATEGORIES = new Set(["suggestion", "bug", "balance", "ui", "other"]);
 
 function normalizeCategory(value: unknown) {
@@ -35,6 +43,7 @@ export async function GET() {
       id: feedbackReports.id,
       category: feedbackReports.category,
       content: feedbackReports.content,
+      imageKey: feedbackReports.imageKey,
       status: feedbackReports.status,
       adminReply: feedbackReports.adminReply,
       reviewedAt: feedbackReports.reviewedAt,
@@ -46,7 +55,13 @@ export async function GET() {
     .orderBy(desc(feedbackReports.id))
     .limit(50);
 
-  return Response.json({ ok: true, entries });
+  return Response.json({
+    ok: true,
+    entries: entries.map(({ imageKey, ...entry }) => ({
+      ...entry,
+      hasImage: Boolean(imageKey),
+    })),
+  });
 }
 
 // POST /api/feedback — 설정 메뉴의 건의사항 접수.
@@ -57,11 +72,37 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { category?: unknown; content?: unknown; path?: unknown };
+  const contentType = req.headers.get("content-type") ?? "";
+  let body: {
+    category?: unknown;
+    content?: unknown;
+    path?: unknown;
+    image?: unknown;
+  };
   try {
-    body = (await req.json()) as typeof body;
+    if (contentType.startsWith("multipart/form-data")) {
+      const contentLength = Number(req.headers.get("content-length"));
+      if (
+        Number.isFinite(contentLength) &&
+        contentLength > MAX_MULTIPART_BYTES
+      ) {
+        return Response.json(
+          { ok: false, error: "image_too_large" },
+          { status: 413 },
+        );
+      }
+      const formData = await req.formData();
+      body = {
+        category: formData.get("category"),
+        content: formData.get("content"),
+        path: formData.get("path"),
+        image: formData.get("image"),
+      };
+    } else {
+      body = (await req.json()) as typeof body;
+    }
   } catch {
-    return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
+    return Response.json({ ok: false, error: "invalid_request" }, { status: 400 });
   }
 
   const content =
@@ -83,17 +124,56 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "rate_limited" }, { status: 429 });
   }
 
+  let imageKey: string | null = null;
+  if (body.image instanceof File && body.image.size > 0) {
+    if (!isFeedbackImageStorageConfigured()) {
+      return Response.json(
+        { ok: false, error: "storage_unavailable" },
+        { status: 503 },
+      );
+    }
+    const processed = await processFeedbackImage(body.image);
+    if (!processed.ok) {
+      return Response.json(
+        { ok: false, error: processed.error },
+        { status: processed.error === "image_too_large" ? 413 : 400 },
+      );
+    }
+    try {
+      imageKey = await uploadFeedbackImage(processed.bytes);
+    } catch (error) {
+      console.error("feedback image R2 upload failed", error);
+      return Response.json(
+        { ok: false, error: "storage_error" },
+        { status: 502 },
+      );
+    }
+  }
+
   const actor = await resolveActor(userId);
-  const [inserted] = await db
-    .insert(feedbackReports)
-    .values({
-      userId,
-      actorName: actor.name,
-      category: normalizeCategory(body.category),
-      content,
-      path: normalizePath(body.path),
-    })
-    .returning({ id: feedbackReports.id });
+  let inserted: { id: number };
+  try {
+    [inserted] = await db
+      .insert(feedbackReports)
+      .values({
+        userId,
+        actorName: actor.name,
+        category: normalizeCategory(body.category),
+        content,
+        imageKey,
+        path: normalizePath(body.path),
+      })
+      .returning({ id: feedbackReports.id });
+  } catch (error) {
+    if (imageKey) {
+      try {
+        await deleteFeedbackImage(imageKey);
+      } catch (cleanupError) {
+        console.error("feedback image cleanup failed", cleanupError);
+      }
+    }
+    throw error;
+  }
 
   return Response.json({ ok: true, id: inserted.id });
 }

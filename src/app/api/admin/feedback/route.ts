@@ -32,6 +32,7 @@ export async function GET(req: Request) {
       email: users.email,
       category: feedbackReports.category,
       content: feedbackReports.content,
+      imageKey: feedbackReports.imageKey,
       path: feedbackReports.path,
       status: feedbackReports.status,
       adminReply: feedbackReports.adminReply,
@@ -44,7 +45,13 @@ export async function GET(req: Request) {
     .orderBy(desc(feedbackReports.id))
     .limit(limit);
 
-  return Response.json({ ok: true, entries });
+  return Response.json({
+    ok: true,
+    entries: entries.map(({ imageKey, ...entry }) => ({
+      ...entry,
+      hasImage: Boolean(imageKey),
+    })),
+  });
 }
 
 // PATCH /api/admin/feedback — 확인 체크와 유저에게 공개되는 답변을 저장한다.

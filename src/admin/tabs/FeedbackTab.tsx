@@ -1,9 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useAdmin } from "../AdminContext";
 import { Button } from "../ui/Field";
 import { useAsyncData } from "@/lib/useAsyncData";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 type FeedbackEntry = {
   id: number;
@@ -13,6 +15,7 @@ type FeedbackEntry = {
   email: string | null;
   category: string;
   content: string;
+  hasImage: boolean;
   path: string | null;
   status: string;
   adminReply: string | null;
@@ -157,13 +160,30 @@ function FeedbackEntryItem({
       <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-800 dark:text-zinc-100">
         {entry.content}
       </p>
+      {entry.hasImage && (
+        <a
+          href={`/api/admin/feedback/${entry.id}/image`}
+          target="_blank"
+          rel="noreferrer"
+          className="block w-fit"
+        >
+          <Image
+            src={`/api/admin/feedback/${entry.id}/image`}
+            alt={`건의 #${entry.id} 첨부 이미지`}
+            width={1200}
+            height={900}
+            unoptimized
+            className="max-h-96 w-auto max-w-full rounded-md border border-zinc-200 object-contain dark:border-zinc-700"
+          />
+        </a>
+      )}
       <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
         <span>{entry.email ?? entry.userId}</span>
         <span>#{entry.id}</span>
         <span>{STATUS_LABELS[entry.status] ?? entry.status}</span>
       </div>
 
-      <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50 p-2.5 dark:border-zinc-700 dark:bg-zinc-950/50">
+      <div className={`${SURFACE_INSET} space-y-2 p-2.5`}>
         <label className="inline-flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-200">
           <input
             type="checkbox"

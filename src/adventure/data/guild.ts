@@ -1,13 +1,18 @@
 // 유저 자치 길드 시스템의 상수 / 검증 유틸. 서버 + 클라이언트 양쪽에서 쓴다.
 // 정책 변경(정원, 쿨다운, 이름 길이 등) 은 여기서 한 곳에서.
 
-// 누적 명성은 소비되지 않는 길드 경험치 역할도 한다.
-// 과거 알파벳 등급 체계 대신 이 레벨 임계값 하나만 사용한다.
-// 특히 초반 레벨이 너무 빨리 오르지 않도록 낮은 레벨 구간의 인상 폭을 크게 잡는다.
-export const GUILD_LEVEL_THRESHOLDS: readonly number[] = [
-  0, 3_000, 8_000, 16_000, 30_000,
-];
-export const GUILD_MAX_LEVEL = GUILD_LEVEL_THRESHOLDS.length;
+// 길드 레벨 — 누적 명성 자동 달성이 아니라 관리자 수동 승급.
+// 명성은 fameAvailable 에서, 골드는 길드 공용 금고에서 실제 차감한다.
+// 명성 총비용(30,000)은 옛 자동 레벨 임계값과 같아 기존 성장 속도를 유지한다.
+export const GUILD_LEVEL_UPGRADE_COSTS = [
+  { currentLevel: 1, nextLevel: 2, fame: 3_000, gold: 10_000_000 },
+  { currentLevel: 2, nextLevel: 3, fame: 5_000, gold: 25_000_000 },
+  { currentLevel: 3, nextLevel: 4, fame: 8_000, gold: 50_000_000 },
+  { currentLevel: 4, nextLevel: 5, fame: 14_000, gold: 100_000_000 },
+] as const;
+export const GUILD_MAX_LEVEL = 5;
+export type GuildLevelUpgradeCost =
+  (typeof GUILD_LEVEL_UPGRADE_COSTS)[number];
 
 // Lv.1 기본 정원. 이후 레벨이 오를 때마다 1명씩 늘어난다.
 export const GUILD_BASE_MEMBER_CAP = 5;
@@ -16,49 +21,30 @@ export const GUILD_MEMBER_CAP_PER_LEVEL = 1;
 // 국가 선포 보상 — 레벨 정원과 별도로 더해지는 증가분.
 export const NATION_MEMBER_BONUS = 3;
 
-function normalizeGuildFame(fameTotal: number): number {
-  return Number.isFinite(fameTotal) ? Math.max(0, Math.floor(fameTotal)) : 0;
+export function normalizeGuildLevel(level: number): number {
+  if (!Number.isFinite(level)) return 1;
+  return Math.min(GUILD_MAX_LEVEL, Math.max(1, Math.floor(level)));
 }
 
-export function guildLevelForFame(fameTotal: number): number {
-  const fame = normalizeGuildFame(fameTotal);
-  for (let index = GUILD_LEVEL_THRESHOLDS.length - 1; index >= 0; index--) {
-    if (fame >= GUILD_LEVEL_THRESHOLDS[index]) return index + 1;
-  }
-  return 1;
-}
-
-export type GuildLevelProgress = {
-  level: number;
-  fameTotal: number;
-  fameIntoLevel: number;
-  fameForNextLevel: number | null;
-  nextLevelFame: number | null;
-};
-
-export function guildLevelProgress(fameTotal: number): GuildLevelProgress {
-  const fame = normalizeGuildFame(fameTotal);
-  const level = guildLevelForFame(fame);
-  const currentLevelFame = GUILD_LEVEL_THRESHOLDS[level - 1] ?? 0;
-  const nextLevelFame = GUILD_LEVEL_THRESHOLDS[level] ?? null;
-  return {
-    level,
-    fameTotal: fame,
-    fameIntoLevel: fame - currentLevelFame,
-    fameForNextLevel:
-      nextLevelFame === null ? null : nextLevelFame - currentLevelFame,
-    nextLevelFame,
-  };
+export function guildLevelUpgradeCost(
+  level: number,
+): GuildLevelUpgradeCost | null {
+  const currentLevel = normalizeGuildLevel(level);
+  return (
+    GUILD_LEVEL_UPGRADE_COSTS.find(
+      (cost) => cost.currentLevel === currentLevel,
+    ) ?? null
+  );
 }
 
 // 길드 정원 — Lv.1 기본 정원 + 레벨 성장분 + 국가 보너스.
 // 가입 수락/초대/신청·둘러보기·길드 정보가 모두 이 함수를 사용한다.
 export function guildMemberCap(
-  fameTotal: number,
+  level: number,
   hasNation: boolean,
 ): number {
   const levelBonus =
-    (guildLevelForFame(fameTotal) - 1) * GUILD_MEMBER_CAP_PER_LEVEL;
+    (normalizeGuildLevel(level) - 1) * GUILD_MEMBER_CAP_PER_LEVEL;
   return (
     GUILD_BASE_MEMBER_CAP +
     levelBonus +

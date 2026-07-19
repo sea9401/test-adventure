@@ -12,8 +12,9 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
-  guildLevelProgress,
+  guildLevelUpgradeCost,
   guildMemberCap,
+  normalizeGuildLevel,
 } from "@/adventure/data/guild";
 import {
   SETTLEMENT_BUILDING_IDS,
@@ -110,6 +111,7 @@ export async function GET() {
         name: guilds.name,
         masterId: guilds.masterId,
         createdAt: guilds.createdAt,
+        level: guilds.level,
         fameTotal: guilds.fameTotal,
         fameAvailable: guilds.fameAvailable,
         description: guilds.description,
@@ -326,10 +328,10 @@ export async function GET() {
     requestedAt: r.createdAt,
   }));
 
-  // 누적 명성 기반 길드 레벨 + 레벨/국가 보너스를 반영한 정원.
-  const levelProgress = guildLevelProgress(guildRow.fameTotal);
+  // 저장된 수동 승급 레벨 + 국가 보너스를 반영한 정원.
+  const level = normalizeGuildLevel(guildRow.level);
   const memberCap = guildMemberCap(
-    guildRow.fameTotal,
+    level,
     guildRow.nationName != null,
   );
   let villageRows: Array<{ tier: string; buildings: unknown }> = [];
@@ -392,7 +394,11 @@ export async function GET() {
 
   return Response.json({
     ok: true,
-    guild: { ...guildRow, ...levelProgress },
+    guild: {
+      ...guildRow,
+      level,
+      levelUpgradeCost: guildLevelUpgradeCost(level),
+    },
     members,
     isMaster,
     isManager,

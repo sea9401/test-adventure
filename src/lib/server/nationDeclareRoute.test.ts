@@ -290,12 +290,12 @@ describe("settlement 등급 게이트 + 국가 정원 보너스 (순수)", () =>
 
   it("국가 정원 보너스는 같은 길드 레벨 정원에 별도로 더해진다", () => {
     // 매직넘버 금지 — 실제 export 상수/함수로 델타 단언.
-    expect(guildMemberCap(0, true) - guildMemberCap(0, false)).toBe(
+    expect(guildMemberCap(1, true) - guildMemberCap(1, false)).toBe(
       NATION_MEMBER_BONUS,
     );
     // 정원 = 기본 + (국가면 보너스).
-    expect(guildMemberCap(0, false)).toBe(GUILD_BASE_MEMBER_CAP);
-    expect(guildMemberCap(0, true)).toBe(
+    expect(guildMemberCap(1, false)).toBe(GUILD_BASE_MEMBER_CAP);
+    expect(guildMemberCap(1, true)).toBe(
       GUILD_BASE_MEMBER_CAP + NATION_MEMBER_BONUS,
     );
   });

@@ -25,6 +25,7 @@ export type GuildActivityType =
   | "artisan_rank_reward"
   | "smithy_upgrade"
   | "building_upgrade"
+  | "guild_level_upgrade"
   | "combat_supply_upgrade"
   | "training_drill_claim"
   | "alchemy_craft"
@@ -44,6 +45,8 @@ export type GuildActivityMeta = {
   smithyLevel?: number; // smithy_upgrade
   buildingName?: string; // building_upgrade
   buildingLevel?: number; // building_upgrade
+  guildLevel?: number; // guild_level_upgrade
+  goldCost?: number; // guild_level_upgrade
   supplyName?: string; // combat_supply_upgrade
   supplyLevel?: number; // combat_supply_upgrade
   fameCost?: number; // combat_supply_upgrade

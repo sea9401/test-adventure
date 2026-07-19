@@ -80,6 +80,13 @@ type RecoveryChargesSnapshot = {
   mpCharges: number;
 };
 
+type ExpProgressSnapshot = {
+  baseExp: number;
+  baseMaxExp: number;
+  exp: number;
+  maxExp: number;
+};
+
 function nextRecoveryChargesSnapshot({
   prev,
   initialHpCharges,
@@ -250,6 +257,21 @@ export function V2DungeonFloorView({
     hasMp: boolean;
     proficiency?: number | null;
   } | null>(null);
+  // 결과 카드는 새 요청을 시작할 때 비워지므로 EXP 표시까지 lastResult/batchStatus 에만
+  // 의존하면 자동 사냥 요청 사이에 화면 진입 당시 값으로 잠깐 되돌아간다. 마지막으로 확인한
+  // 서버 EXP를 별도로 유지해 요청 중에도 진행 바가 뒤로 움직이지 않게 한다.
+  const [latestExpProgressState, setLatestExpProgressState] =
+    useState<ExpProgressSnapshot>(() => ({
+      baseExp: initialExp,
+      baseMaxExp: initialMaxExp,
+      exp: initialExp,
+      maxExp: initialMaxExp,
+    }));
+  const latestExpProgress =
+    latestExpProgressState.baseExp === initialExp &&
+    latestExpProgressState.baseMaxExp === initialMaxExp
+      ? latestExpProgressState
+      : { exp: initialExp, maxExp: initialMaxExp };
   const [latestProficiencyState, setLatestProficiencyState] = useState<{
     base: number | null;
     value: number | null;
@@ -275,9 +297,10 @@ export function V2DungeonFloorView({
     latestRecoveryChargesState.baseMpCharges === initialMpCharges
       ? latestRecoveryChargesState.mpCharges
       : initialMpCharges;
-  const statusExp = lastResult?.expAfter ?? batchStatus?.exp ?? initialExp;
+  const statusExp =
+    lastResult?.expAfter ?? batchStatus?.exp ?? latestExpProgress.exp;
   const statusMaxExp =
-    lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? initialMaxExp;
+    lastResult?.maxExpAfter ?? batchStatus?.maxExp ?? latestExpProgress.maxExp;
   const statusHpCharges =
     lastResult?.hpCharges ?? batchStatus?.hpCharges ?? latestHpCharges;
   const statusMpCharges =
@@ -504,6 +527,14 @@ export function V2DungeonFloorView({
         hasMp: (b.playerMaxMp ?? 0) > 0,
         proficiency: b.proficiencyAfter ?? null,
       });
+      if (typeof b.expAfter === "number" && typeof b.maxExpAfter === "number") {
+        setLatestExpProgressState({
+          baseExp: initialExp,
+          baseMaxExp: initialMaxExp,
+          exp: b.expAfter,
+          maxExp: b.maxExpAfter,
+        });
+      }
       // 부수효과 — 서버가 합산해 준 마지막 상태로 한 번만.
       if (b.finalHpAfter != null && b.finalMaxHp != null) {
         recordHp({ hpAfter: b.finalHpAfter, maxHp: b.finalMaxHp });
@@ -648,6 +679,17 @@ export function V2DungeonFloorView({
       void hunt(depth).then((r) => {
         huntInFlightRef.current = false;
         if (r) {
+          if (
+            typeof r.expAfter === "number" &&
+            typeof r.maxExpAfter === "number"
+          ) {
+            setLatestExpProgressState({
+              baseExp: initialExp,
+              baseMaxExp: initialMaxExp,
+              exp: r.expAfter,
+              maxExp: r.maxExpAfter,
+            });
+          }
           // 연패 추적 — 승리면 리셋, 패배면 누적(넛지 배너 격상용).
           setLossStreak((s) => (r.won ? 0 : s + 1));
           recordHp(r);

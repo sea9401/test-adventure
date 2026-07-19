@@ -20,6 +20,16 @@ export const GUILD_FACILITY_LABELS: Record<GuildFacilityId, string> = {
   trade_post: "교역소",
 };
 
+// 메인 길드 드롭다운과 길드 시설 목록이 공유하는 아이콘 색상.
+export const GUILD_FACILITY_ICON_COLORS: Record<GuildFacilityId, string> = {
+  guild_smithy: "text-orange-600 dark:text-orange-400",
+  training_ground: "text-rose-600 dark:text-rose-400",
+  exploration_hq: "text-sky-600 dark:text-sky-400",
+  alchemy_workshop: "text-violet-600 dark:text-violet-400",
+  dining_hall: "text-emerald-600 dark:text-emerald-400",
+  trade_post: "text-teal-600 dark:text-teal-400",
+};
+
 export function isGuildFacilityId(
   value: string | null | undefined,
 ): value is GuildFacilityId {

@@ -19,6 +19,7 @@ import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 import { GuildTradePostPanel } from "./GuildTradePostPanel";
 import {
   GUILD_FACILITY_IDS,
+  GUILD_FACILITY_ICON_COLORS,
   type GuildFacilityId,
 } from "./guildFacilities";
 
@@ -218,7 +219,11 @@ export function GuildFacilitiesPanel({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <GameIcon name={row.iconName} size={18} />
+                      <GameIcon
+                        name={row.iconName}
+                        size={18}
+                        className={GUILD_FACILITY_ICON_COLORS[row.id]}
+                      />
                       <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                         {row.name}
                       </span>

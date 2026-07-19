@@ -17,6 +17,11 @@ type StateResponse = {
   ok?: boolean;
   character?: V2CharacterCardData;
   guild?: { id: number; name: string } | null;
+  adventureSupport?: {
+    active: boolean;
+    activeUntil: number | null;
+    regenBonusPct: number;
+  };
   hotTime?: {
     title: string;
     endsAt: string;
@@ -77,6 +82,7 @@ export function V2AdventureHome() {
             levelCap={levelCap}
             showGold={true}
             activePresetName={activePresetName}
+            adventureSupport={state.adventureSupport}
           />
         )}
 

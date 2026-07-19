@@ -1,8 +1,4 @@
 import {
-  parseV2Element,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import {
   emptyProficiency,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
@@ -25,10 +21,7 @@ import {
 } from "@/lib/server/savesKv";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 
-type SavedCharacterForBattle = SavedCharacterV2 & {
-  element?: unknown;
-  [key: string]: unknown;
-};
+type SavedCharacterForBattle = SavedCharacterV2 & Record<string, unknown>;
 
 export type PreparedV2BattleActor = {
   player: DerivedPlayerCombatV2;
@@ -37,8 +30,6 @@ export type PreparedV2BattleActor = {
   skillsRaw: unknown;
   proficiencyRaw: V2ProficiencyState;
   equipmentSave: unknown;
-  playerElement: V2Element;
-  basicAttackElement: V2Element;
 };
 
 export async function prepareV2BattleActor({
@@ -95,10 +86,6 @@ export async function prepareV2BattleActor({
   });
   if (!player) return null;
 
-  const playerElement = parseV2Element(charSave.element);
-  const basicAttackElement =
-    player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
-
   return {
     player,
     skills,
@@ -106,7 +93,5 @@ export async function prepareV2BattleActor({
     skillsRaw,
     proficiencyRaw,
     equipmentSave,
-    playerElement,
-    basicAttackElement,
   };
 }

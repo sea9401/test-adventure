@@ -16,7 +16,6 @@ import {
   tier1ClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
-import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
 import { useGameState } from "./GameStateProvider";
@@ -27,7 +26,6 @@ import { useSystemMessageState } from "./RewardToastProvider";
 //  · 각 아이콘 = 직군. 레거시 도달 차수(N차) + 직업 숙련도(cumLevel) 표시, 현 직업은 하이라이트.
 //  · 현 직업 클릭 = 다음 차수 전직(무료, 게이트 충족 시 "전직" 배지). class 는 불변, 차수만 +1.
 //  · 다른 직업 클릭 = 갈아타기(무료·쿨다운 없음, 레벨1 리셋, "도달 차수로 복귀").
-//  · 속성은 여기서 변경하지 않음 — 읽기 전용 표기만(변경은 별도 경로).
 
 const ICON_BY_JOB: Record<string, Icon> = {
   warrior: Sword, // 전사
@@ -54,7 +52,6 @@ type GroupInfo = { tier?: number; cumLevel?: number };
 
 export function V2ClassGrid({
   currentClass,
-  currentElement,
   level,
   gold,
   groups,
@@ -62,7 +59,6 @@ export function V2ClassGrid({
   onChanged,
 }: {
   currentClass: V2Class;
-  currentElement: V2Element;
   level: number;
   // 부모가 넘기는 보유 골드(me/state 기준, 신선). 지불 게이트는 코어루프 on 이면 보유+은행.
   gold?: number;
@@ -142,8 +138,7 @@ export function V2ClassGrid({
         const res = await fetch("/api/v2/me/class-element", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          // 직군(job)만 보냄 — 속성은 현재 값 유지(여기선 안 바꿈). off 모드 서버가 레거시 차수로 해석.
-          body: JSON.stringify({ class: job, element: currentElement }),
+          body: JSON.stringify({ class: job }),
         });
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
@@ -179,7 +174,7 @@ export function V2ClassGrid({
         setBusy(false);
       }
     },
-    [currentElement, onChanged, setMsg],
+    [onChanged, setMsg],
   );
 
   // 선택된 직군 상세.
@@ -190,20 +185,13 @@ export function V2ClassGrid({
   const switchCost = respecGoldCost(
     currentClass,
     selected,
-    currentElement,
-    currentElement,
     level,
   );
   const cantAfford = switchCost > 0 && spendable < switchCost;
 
   return (
     <Card padding="md">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">직업</h2>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          속성 {V2_ELEMENT_LABEL[currentElement]}
-        </span>
-      </div>
+      <h2 className="text-sm font-semibold">직업</h2>
 
       {/* 4직군 아이콘 그리드 */}
       <div className="mt-3 grid grid-cols-2 gap-2">

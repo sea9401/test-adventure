@@ -180,8 +180,6 @@ function build(c: Case): PlayerCombat {
     passiveAccuracyPct: passive.accuracyPct,
     passiveHealPowerPct: passive.healPowerPct,
     passiveDamageTakenReductionPct: passive.damageTakenReductionPct,
-    passiveElementAdvPctBonus: passive.elementAdvPctBonus,
-    passiveElementDisPctBonus: passive.elementDisPctBonus,
     passivePoisonedEnemyDefReductionPct: passive.poisonedEnemyDefReductionPct,
     passiveBerserkAtkPctPerLostHpPct: passive.berserkAtkPctPerLostHpPct,
     passiveEnemyMagicVulnPctPerStack: passive.enemyMagicVulnPctPerStack,

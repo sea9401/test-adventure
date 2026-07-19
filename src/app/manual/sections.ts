@@ -34,7 +34,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "combat",
     title: "전투 시스템",
-    summary: "속도 타임라인, 데미지·방어, 속성, 치명타·회피, 상태이상.",
+    summary: "속도 타임라인, 데미지·방어, 치명타·회피, 상태이상.",
     group: "combat",
   },
   {

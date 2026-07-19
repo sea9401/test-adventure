@@ -7,7 +7,7 @@ import {
   readSave,
   upsertSave,
 } from "@/lib/server/savesKv";
-import { CHARACTER_STATE_KEY, ARENA_LOADOUTS_KEY } from "@/lib/storage-keys";
+import { ARENA_LOADOUTS_KEY } from "@/lib/storage-keys";
 import {
   ARENA_LOADOUT_NAME_MAX,
   ARENA_LOADOUT_TEMPLATE_ID,
@@ -27,10 +27,6 @@ import {
   parseV2SkillsState,
   V2_SKILLS,
 } from "@/adventure/data/v2/v2Skills";
-import {
-  parseV2Element,
-  V2_ELEMENT_LABEL,
-} from "@/adventure/data/v2/elements";
 
 const SLOT_LABEL: Record<V2EquipSlot, string> = {
   weapon: "무기",
@@ -52,7 +48,6 @@ const EQUIP_SLOTS: readonly V2EquipSlot[] = [
 
 type PresentedArenaLoadout = ArenaLoadout & {
   summary: {
-    elementLabel: string | null;
     skills: { id: string; name: string; passive: boolean }[];
     equipment: {
       slot: V2EquipSlot;
@@ -87,7 +82,6 @@ function presentLoadout(
   return {
     ...loadout,
     summary: {
-      elementLabel: loadout.element ? V2_ELEMENT_LABEL[loadout.element] : null,
       skills: loadout.skills.map((id) => ({
         id,
         name: V2_SKILLS[id]?.name ?? id,
@@ -101,7 +95,7 @@ function presentLoadout(
 
 // 아레나 설정 — 활성 템플릿 1개.
 // GET  → 현재 저장된 아레나 템플릿.
-// POST { action: "save", name? } → 현재 속성·장착 스킬·전투 패턴·장비를 아레나 템플릿으로 저장.
+// POST { action: "save", name? } → 현재 장착 스킬·전투 패턴·장비를 아레나 템플릿으로 저장.
 //      { action: "delete" } → 저장된 템플릿 삭제.
 //
 // 저장된 템플릿은 캐릭터의 현재 장착을 바꾸지 않는다. /arena/match 가 공격/수비 양쪽 전투 입력에
@@ -154,12 +148,6 @@ export async function POST(req: Request) {
         typeof body.name === "string" && body.name.trim().length > 0
           ? body.name.trim().slice(0, ARENA_LOADOUT_NAME_MAX)
           : "아레나 템플릿";
-      const charSave = await readSave<{ element?: unknown }>(
-        tx,
-        userId,
-        CHARACTER_STATE_KEY,
-        {},
-      );
       const skills = parseV2SkillsState(
         await readSave(tx, userId, "skills.v2", emptyV2SkillsState()),
       );
@@ -174,7 +162,6 @@ export async function POST(req: Request) {
         id: ARENA_LOADOUT_TEMPLATE_ID,
         name,
         savedAt: new Date().toISOString(),
-        element: parseV2Element(charSave.element),
         skills: skills.equipped,
         pattern: skills.pattern ?? null,
         equipment: equipped,

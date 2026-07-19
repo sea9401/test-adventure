@@ -101,7 +101,7 @@ function makePlayer(arch: Arch, level: number): PlayerCombat {
     v2Equipped: equipFor(arch, level),
     hp: undefined,
   });
-  return { ...d.player, hp: d.maxHp, attackElement: "neutral", characterElement: "neutral" };
+  return { ...d.player, hp: d.maxHp, characterElement: "neutral" };
 }
 
 const CTX = {

@@ -59,7 +59,6 @@ export default function CharacterBasicsPreview() {
             {c.title}
           </div>
           <V2CharacterBasics
-            element={c.element}
             guildName={c.guildName}
             points={c.points}
             battleCount={c.battleCount}

@@ -31,7 +31,6 @@ function build(extra: Partial<PassiveInput>): PlayerCombat {
   return {
     ...d.player,
     hp: d.maxHp,
-    attackElement: "neutral",
     characterElement: "neutral",
   };
 }

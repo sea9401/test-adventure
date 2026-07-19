@@ -15,14 +15,6 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import {
-  V2_ELEMENT_ADV_PCT,
-  V2_ELEMENT_DIS_PCT,
-  elementDamageMult,
-  elementMatchup,
-  parseV2Element,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import {
   MAX_FRONTIER_DEPTH,
   depthName,
   enemiesForDepth,
@@ -44,7 +36,6 @@ const PREVIEW_KEYS = [
 ] as const;
 
 type PreviewCharacter = SavedCharacterV2 & {
-  element?: unknown;
   frontierDepth?: number;
   specChoice?: unknown;
 };
@@ -140,12 +131,6 @@ export async function POST(req: Request) {
   );
   const profile = readProfileValue(saves.get("character-profile.v2"));
   const playerName = profile?.name ?? "모험가";
-  const playerElement = parseV2Element(character.element);
-  const basicAttackElement =
-    derived.weaponElement !== "neutral"
-      ? derived.weaponElement
-      : playerElement;
-  const monsterElement: V2Element = enemy.element ?? "neutral";
   const scaledEnemy = scaleMonsterForFloor(baseMonster, depth);
   const seededMonsterSkills = [enemy.statusSkill, enemy.castSkill].filter(
     (skill): skill is NonNullable<typeof skill> => skill != null,
@@ -154,7 +139,7 @@ export async function POST(req: Request) {
     ...scaledEnemy,
     name: enemy.name,
     image: enemy.image ?? baseMonster.image,
-    element: monsterElement,
+    element: "neutral",
     ...(seededMonsterSkills.length > 0
       ? {
           v2Skills: {
@@ -164,23 +149,10 @@ export async function POST(req: Request) {
         }
       : {}),
   };
-  const elementMult = elementDamageMult(
-    basicAttackElement,
-    monsterElement,
-    V2_ELEMENT_ADV_PCT + (derived.player.elementAdvPctBonus ?? 0),
-    V2_ELEMENT_DIS_PCT + (derived.player.elementDisPctBonus ?? 0),
-  );
   const playerForBattle = {
     ...derived.player,
     hp: derived.maxHp,
     mp: derived.player.maxMp ?? derived.player.mp ?? 0,
-    atk: Math.max(1, Math.round(derived.player.atk * elementMult)),
-    magicAtk: Math.max(
-      0,
-      Math.round((derived.player.magicAtk ?? 0) * elementMult),
-    ),
-    attackElement: basicAttackElement,
-    characterElement: playerElement,
   };
 
   const battle = resolveBattle(playerForBattle, enemyMonster, playerName, {
@@ -208,7 +180,6 @@ export async function POST(req: Request) {
       availableDepth,
       enemyName: enemy.name,
       enemyKey: enemy.key,
-      elementMatchup: elementMatchup(basicAttackElement, monsterElement),
       replay: toReplayPayload(battle.finalState, 200),
       startPlayerHp: derived.maxHp,
       profile: {

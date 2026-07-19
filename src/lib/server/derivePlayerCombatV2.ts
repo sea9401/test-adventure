@@ -144,8 +144,7 @@ export type DerivedPlayerCombatV2 = {
   baseAllocatedStats: Record<V2StatKey, number>;
   maxHp: number;
   selectedStance: StanceId | null;
-  /** PR-5b — 장착 무기의 속성(평타/공격 속성). 무기 없음·미부여면 neutral.
-   *  hunt·arena 가 basicAttackElement = weaponElement ?? characterElement 산출에 사용. */
+  /** 장착 무기의 연출용 속성 태그. 전투 배율에는 반영하지 않는다. */
   weaponElement: V2Element;
   /** 직업 차수(입력 classTier, 1~4; 미지정 1). 앵커 보정에 쓰인 값을 그대로 노출 —
    *  사냥 라우트가 레벨 캡(tierLevelCap) 산출 시 proficiency 재select 없이 재사용. */
@@ -279,9 +278,6 @@ export type DerivePlayerCombatV2PureInput = {
   passiveOpeningMagicDamageReductionPct?: number;
   /** 초반 마법 피해 감소가 적용되는 적 행동 횟수. */
   passiveOpeningMagicDamageReductionPhases?: number;
-  /** 속성 유리/불리 +%p(원소 통달 패시브) — player.elementAdvPctBonus/DisPctBonus 로 출력. */
-  passiveElementAdvPctBonus?: number;
-  passiveElementDisPctBonus?: number;
   /** 중독된 적 방어 -%(부식 패시브) — poisonedEnemyDefReductionPct 에 가산. */
   passivePoisonedEnemyDefReductionPct?: number;
   /** 광전 — 잃은 HP 비율만큼 공격력 가산. 엔진 computeBerserkBonus 로 소비. */
@@ -641,13 +637,6 @@ export function derivePlayerCombatV2Pure(
             input.passiveOpeningMagicDamageReductionPhases,
         }
       : {}),
-    // 원소 통달(원소술사) — 속성 상성 양방향 강화. 미보유=0 → 키 생략(inert·byte-identical).
-    ...((input.passiveElementAdvPctBonus ?? 0) > 0
-      ? { elementAdvPctBonus: input.passiveElementAdvPctBonus }
-      : {}),
-    ...((input.passiveElementDisPctBonus ?? 0) > 0
-      ? { elementDisPctBonus: input.passiveElementDisPctBonus }
-      : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
     ...(thornsFlatFromDef > 0 ? { thornsFlatFromDef } : {}),
     ...(totalBleedDmgPerStack > 0
@@ -855,8 +844,6 @@ export function derivePlayerCombatV2FromSaves(saves: {
       passiveAgg.openingMagicDamageReductionPct,
     passiveOpeningMagicDamageReductionPhases:
       passiveAgg.openingMagicDamageReductionPhases,
-    passiveElementAdvPctBonus: passiveAgg.elementAdvPctBonus,
-    passiveElementDisPctBonus: passiveAgg.elementDisPctBonus,
     passivePoisonedEnemyDefReductionPct:
       passiveAgg.poisonedEnemyDefReductionPct,
     passiveBerserkAtkPctPerLostHpPct:

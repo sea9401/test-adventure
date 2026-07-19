@@ -16,7 +16,6 @@ import {
 import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
 import { itemNameClass } from "@/adventure/v2/V2ItemCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import type { ElementMatchup } from "@/adventure/data/v2/elements";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
@@ -32,7 +31,6 @@ export type BatchReplayEntry = {
   maxExpForBar?: number;
   hpCharges?: number;
   mpCharges?: number;
-  elementMatchup?: ElementMatchup;
 };
 
 export type BatchSummary = {

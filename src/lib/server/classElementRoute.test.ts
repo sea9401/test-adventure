@@ -36,81 +36,15 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/me/class-element/route";
 
-function req(cls: string, element = "fire"): Request {
+function req(cls: string): Request {
   return new Request("http://t/api/v2/me/class-element", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ class: cls, element }),
+    body: JSON.stringify({ class: cls }),
   });
 }
 
 describe("class-element — 코어루프 수동 로드아웃 보존", () => {
-  it("모험가 속성 재조율은 비용을 지불하고 은행 골드를 우선 사용한다", async () => {
-    store.clear();
-    store.set("character.v2", {
-      class: "none",
-      element: "fire",
-      level: 10,
-      exp: 123,
-      gold: 500,
-      bankedGold: 500_000,
-      lastRespecAt: 0,
-    });
-
-    const res = await POST(req("none", "water"));
-    const json = (await res.json()) as {
-      ok?: boolean;
-      class?: string;
-      element?: string;
-      gold?: number;
-      bankedGold?: number;
-      spent?: number;
-    };
-
-    expect(res.status).toBe(200);
-    expect(json.ok).toBe(true);
-    expect(json.class).toBe("none");
-    expect(json.element).toBe("water");
-    expect(json.spent).toBe(500_000);
-    expect(json.gold).toBe(500);
-    expect(json.bankedGold).toBe(0);
-
-    const char = store.get("character.v2") as {
-      element?: string;
-      gold?: number;
-      bankedGold?: number;
-    };
-    expect(char.element).toBe("water");
-    expect(char.gold).toBe(500);
-    expect(char.bankedGold).toBe(0);
-  });
-
-  it("속성 재조율은 쿨타임 없이 다시 변경할 수 있다", async () => {
-    store.clear();
-    store.set("character.v2", {
-      class: "none",
-      element: "fire",
-      level: 10,
-      exp: 123,
-      gold: 500_000,
-      bankedGold: 0,
-      lastRespecAt: 0,
-      lastElementChangeAt: Date.now(),
-    });
-
-    const res = await POST(req("none", "water"));
-    const json = (await res.json()) as {
-      ok?: boolean;
-      element?: string;
-      spent?: number;
-    };
-
-    expect(res.status).toBe(200);
-    expect(json.ok).toBe(true);
-    expect(json.element).toBe("water");
-    expect(json.spent).toBe(500_000);
-  });
-
   it("직업군 변경 시 learned 는 보존하고 equipped 를 새 직업 체인으로 재산출하지 않는다", async () => {
     store.clear();
     store.set("character.v2", {

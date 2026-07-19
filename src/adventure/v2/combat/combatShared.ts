@@ -20,7 +20,6 @@ import {
   skillRitualPowerBonusFor,
 } from "@/adventure/data/v2/skillRitual";
 import {
-  elementDamageMult,
   V2_ELEMENT_LABEL,
   type V2Element,
 } from "@/adventure/data/v2/elements";
@@ -540,9 +539,6 @@ export type V2SkillCastInput = {
   applyProcInPattern?: boolean;
   /** 현재 턴(1-based) — combatPattern 의 turn 조건용. 미지정=1. */
   turn?: number;
-  /** 속성 상성 계수(%) — 스킬 속성 보정용. 미지정=PvE 기본(25/0). PvP(engine-pvp)는 PvP 계수(15/15) 전달. */
-  elementAdvPct?: number;
-  elementDisPct?: number;
   attacker: {
     mp: number;
     atk: number;
@@ -577,8 +573,7 @@ export type V2SkillCastInput = {
     };
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
-    // PR-5b — 평타 속성(무기 ?? 캐릭, atk 에 baked)·캐릭 속성(스킬 기본). 미지정=neutral.
-    attackElement?: V2Element;
+    // 기존 원소술사 스킬의 연출 분기용. 전투 상성에는 사용하지 않는다.
     characterElement?: V2Element;
   };
   target: {
@@ -597,8 +592,6 @@ export type V2SkillCastInput = {
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
-    // PR-5b — 피격 대상 속성(상성 계산). 미지정=neutral.
-    element?: V2Element;
   };
 };
 
@@ -739,24 +732,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     1 + skillRitualPowerBonusFor(input.skills.enhancements, id) / 100;
   const applyRitualPower = (amount: number): number =>
     ritualPowerMult === 1 ? amount : Math.floor(amount * ritualPowerMult);
-  // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
-  // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.
-  const attackEl = input.attacker.attackElement ?? "neutral";
   const charEl = input.attacker.characterElement ?? "neutral";
-  const targetEl = input.target.element ?? "neutral";
-  const mBasic = elementDamageMult(
-    attackEl,
-    targetEl,
-    input.elementAdvPct,
-    input.elementDisPct,
-  );
-  const mSkill = elementDamageMult(
-    def.element ?? charEl,
-    targetEl,
-    input.elementAdvPct,
-    input.elementDisPct,
-  );
-  const skillElementMult = mBasic > 0 ? mSkill / mBasic : 1;
+  const skillElementMult = 1;
   // 3) effect 별 결과 누산.
   let enemyDamage = 0;
   let magicEnemyDamage = 0;

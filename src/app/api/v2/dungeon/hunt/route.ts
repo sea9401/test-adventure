@@ -34,14 +34,6 @@ import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
-  elementDamageMult,
-  elementMatchup,
-  V2_ELEMENT_ADV_PCT,
-  V2_ELEMENT_DIS_PCT,
-  type ElementMatchup,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import {
   applyGuildCombatRewardBonus,
   guildCombatSupplyBonuses,
 } from "@/adventure/data/v2/guildCombatSupply";
@@ -461,18 +453,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       },
     };
   }
-  const {
-    player,
-    skills: v2Skills,
-    proficiencyRaw,
-    playerElement,
-    basicAttackElement,
-  } = preparedActor;
-
-  // PR-1/5b 속성 상성 — 양방향 데미지 ±%.
-  //   캐릭 속성(playerElement) = 방어(피격) 속성 + 스킬 기본 속성.
-  //   평타/공격 속성(basicAttackElement) = 무기 속성 ?? 캐릭 속성 (PR-5b 무기 속성 우선).
-  //   atk 엔 basicAttackElement 를 baked, 스킬은 combatShared 가 스킬속성으로 재정규화.
+  const { player, skills: v2Skills, proficiencyRaw } = preparedActor;
 
   // 적 — 깊이 풀에서 랜덤 픽 후 깊이 스케일(이름·초상화는 사냥터 고유 값으로 덮어씀).
   //   spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.
@@ -501,7 +482,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     };
   }
   const enemyName: string = enemy.name;
-  const monsterElement: V2Element = enemy.element ?? "neutral";
   const scaledEnemy = scaleMonsterForFloor(baseMonster, depth);
   // PR-9 + 마법몹 시전 — 사냥터 몹 v2 스킬 시드. statusSkill(DoT/디버프) + castSkill(마법 단일딜)을
   //   병합해 equipped 에 둔다(둘 다 monsterOnly·mpCost 0). 엔진 적 페이즈가 슬롯순+쿨다운+procChance 로
@@ -513,7 +493,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     ...scaledEnemy,
     name: enemyName,
     image: enemy.image ?? baseMonster.image,
-    element: monsterElement, // PR-5b — 스킬 cast 상성 계산용.
+    element: "neutral",
     ...(seededMonsterSkills.length
       ? {
           v2Skills: {
@@ -523,20 +503,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         }
       : {}),
   };
-  const playerElemMult = elementDamageMult(
-    basicAttackElement,
-    monsterElement,
-    // 원소 통달(원소술사) — 유리/불리 +%p 가산. 미보유=0 → 전역 상수(byte-identical). atk 에 baked 되어
-    //   평타·스킬(같은 속성) 데미지 모두 이 배수를 받는다(스킬은 combatShared 가 mSkill/mBasic=1 로 통과).
-    V2_ELEMENT_ADV_PCT + (player.player.elementAdvPctBonus ?? 0),
-    V2_ELEMENT_DIS_PCT + (player.player.elementDisPctBonus ?? 0),
-  );
-  // 약점 찌르기 = 공격 전용(2026-06-08): 몹→플레이어 속성 피해는 제거(중립). 페널티/피격↑ 없음.
-  const playerElemMatchup = elementMatchup(
-    basicAttackElement,
-    monsterElement,
-  );
-
   // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
   const profile = await readSave<{ name?: string } | null>(
     tx,
@@ -580,14 +546,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
     // MP 실자원화 — 보존된 MP 로 전투 시작(derive 가 character.v2.mp 시드). 전투 후 mpCharges 가
     // 부족분을 채우므로 충전약이 남는 한 사실상 풀로 시작하고, 떨어지면 줄어 마법 위력이 빠진다.
     mp: player.player.mp,
-    atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
-    magicAtk: Math.max(
-      0,
-      Math.round((player.player.magicAtk ?? 0) * playerElemMult),
-    ),
-    // PR-5b — 평타 속성(baked) + 캐릭 속성(스킬 기본·피격 방어). combatShared 가 스킬 보정에 사용.
-    attackElement: basicAttackElement,
-    characterElement: playerElement,
   };
 
   // 체력 부족(최대치 5% 미만) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로
@@ -978,10 +936,6 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         // 레어맵 — 이번 사냥에서 새 지도 발견(kind id) / 입장 중이면 남은 판수.
         rareMapDrop,
         rareMapRunsLeft,
-        // PR-1 속성 상성 — 결과 카드에 "유리/불리" 표기.
-        playerElement,
-        monsterElement,
-        elementMatchup: playerElemMatchup,
         // 충전식 회복약 잔량 — HP/MP 모두 전투 후 부족분 자동 소모 반영.
         hpCharges,
         mpCharges,
@@ -1172,7 +1126,6 @@ export async function POST(req: Request) {
       maxExpForBar: number;
       hpCharges: number;
       mpCharges: number;
-      elementMatchup: ElementMatchup;
     }> = [];
 
     for (let i = 0; i < count; i++) {
@@ -1228,7 +1181,6 @@ export async function POST(req: Request) {
         maxExpForBar: res.maxExpForBar,
         hpCharges: res.hpCharges,
         mpCharges: res.mpCharges,
-        elementMatchup: res.elementMatchup,
       });
       lastStamina = r.body.stamina;
       finalHpAfter = res.hpAfter;

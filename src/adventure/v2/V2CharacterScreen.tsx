@@ -36,7 +36,6 @@ type StateResponse = {
     maxMp?: number;
     gold: number;
     class?: string;
-    element?: string;
   };
   guild?: { name: string };
   stats?: {
@@ -200,7 +199,6 @@ export function V2CharacterScreen({
 
       {character && (
         <V2CharacterBasics
-          element={character.element}
           guildName={guild?.name}
           points={state?.proficiency?.current?.points ?? 0}
           battleCount={state?.battleCount ?? 0}

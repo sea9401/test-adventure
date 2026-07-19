@@ -39,7 +39,6 @@ import {
 } from "@/adventure/v2/woodcuttingSession";
 import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
-import { parseV2Element } from "@/adventure/data/v2/elements";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 import {
   derivePlayerCombatV2FromSaves,
@@ -244,7 +243,7 @@ export async function GET(req: Request) {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
-  // per-user 스태미나 최대치 — 기본 + 기존 구매자 레거시 영구 보너스.
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약(비밀 상점) 보너스.
   const staminaMax =
     MAX_STAMINA +
     staminaCapBonusOf((charSave as { staminaCapBonus?: unknown }).staminaCapBonus);
@@ -407,13 +406,12 @@ export async function GET(req: Request) {
       atRiskGold: V2_CORE_LOOP_V2
         ? Math.max(0, Number((charSave as { atRiskGold?: number }).atRiskGold) || 0)
         : null,
-      // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
+      // 현재 직업(캐릭터 화면 헤더 + 전직 화면).
       class: cls,
       // 코어루프 on 이면 none→"모험가" 표기. off 면 기존 직군명.
       classDisplayName,
       // 코어루프 직업 트리 — 현재 계파(재전직 화면 "현재" 표시용). off 면 null.
       spec: V2_CORE_LOOP_V2 ? classDisplaySpec : null,
-      element: parseV2Element((charSave as { element?: unknown }).element),
     },
     stats,
     combat: combatStats,

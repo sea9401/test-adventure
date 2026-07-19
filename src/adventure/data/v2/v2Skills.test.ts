@@ -124,11 +124,11 @@ describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 
   });
 });
 
-describe("원소 통달 패시브 칩 (속성 상성 양방향 — 로드아웃 간략 설명)", () => {
-  it("describeV2Skill 가 속성 유리/불리 칩을 낸다 (옛 0개 → 2개)", () => {
+describe("원소 통달 패시브 칩 (상성 폐지 후 일반 마법 강화)", () => {
+  it("describeV2Skill 가 지능·마법 피해 강화 칩을 낸다", () => {
     const chips = describeV2Skill(V2_SKILLS.v2c_elementalist_mastery);
-    expect(chips.some((c) => c.includes("속성 유리 피해 +15%"))).toBe(true);
-    expect(chips.some((c) => c.includes("속성 불리 받피 -15%"))).toBe(true);
+    expect(chips.some((c) => c.includes("지능 +12%"))).toBe(true);
+    expect(chips.some((c) => c.includes("마법 스킬 피해 +6%"))).toBe(true);
   });
 });
 

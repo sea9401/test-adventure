@@ -1,4 +1,4 @@
-import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
+import { H2, P, UL, Em, Note } from "./primitives";
 
 export function CombatContent() {
   return (
@@ -79,21 +79,6 @@ export function CombatContent() {
         <Em>최대 약 6배</Em>까지 행동 빈도 차이가 납니다. 무기는 무게가 갑옷류의
         2배 비중으로 잡혀, 무거운 무기는 속도 손해가 큽니다.
       </P>
-
-      <H2>속성 상성</H2>
-      <P>
-        무속성을 뺀 <Em>7원소</Em>가 하나의 먹이사슬 고리를 이룹니다 — 물 → 불 →
-        바람 → 빛 → 어둠 → 대지 → 번개 → (다시 물).
-      </P>
-      <Table
-        head={["관계", "사냥(PvE)", "투기장·대련(PvP)"]}
-        rows={[
-          ["상성 우위", <Code key="up">×1.25</Code>, <Code key="upp">×1.15</Code>],
-          ["상성 열위", <Code key="dn">×0.85</Code>, <Code key="dnp">×0.85</Code>],
-          ["무속성·무관", "×1.0", "×1.0"],
-        ]}
-        caption="무기의 속성이 기본 공격의 속성을 정하고, 스킬은 저마다 자기 속성을 가집니다."
-      />
 
       <H2>상태이상</H2>
       <P>기절·턴 스킵처럼 행동을 막는 디버프는 없고, 두 갈래로 나뉩니다.</P>

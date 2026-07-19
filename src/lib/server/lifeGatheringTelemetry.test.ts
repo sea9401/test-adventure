@@ -50,11 +50,18 @@ describe("recordLifeGatheringTelemetrySoon", () => {
       drops: [
         { materialId: "silver-ore", quantity: 2, primary: true },
         { materialId: "rough-gem", quantity: 1, primary: false },
+        {
+          materialId: "wheat",
+          materialName: "밀 씨앗",
+          quantity: 1,
+          primary: false,
+          itemKind: "farm_seed",
+        },
         { materialId: "ignored", quantity: 0, primary: false },
       ],
     });
 
-    expect(recordEconomyEventSoon).toHaveBeenCalledTimes(3);
+    expect(recordEconomyEventSoon).toHaveBeenCalledTimes(4);
     expect(recordEconomyEventSoon).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ eventType: "life.mining.attempt", quantity: 1 }),
@@ -75,6 +82,19 @@ describe("recordLifeGatheringTelemetrySoon", () => {
         itemId: "rough-gem",
         quantity: 1,
         detail: expect.objectContaining({ primary: false }),
+      }),
+    );
+    expect(recordEconomyEventSoon).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        eventType: "life.mining.gather",
+        itemKind: "farm_seed",
+        itemId: "wheat",
+        quantity: 1,
+        detail: expect.objectContaining({
+          primary: false,
+          materialName: "밀 씨앗",
+        }),
       }),
     );
   });

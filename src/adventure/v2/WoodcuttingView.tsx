@@ -63,6 +63,11 @@ export type WoodcuttingOutcome =
       jobName: string | null;
       masteryGained: number;
       masteryAfter: number | null;
+      seedDrop: {
+        cropId: string;
+        seedName: string;
+        quantity: number;
+      } | null;
       log: WoodcuttingLogView;
     }
   | {
@@ -1207,6 +1212,12 @@ export function WoodcuttingView({
                       전설의 벌목 추가 원목 +{result.bonusMaterialGained}
                     </div>
                   )}
+                  {result.seedDrop && (
+                    <div className="text-xs font-bold text-violet-700 dark:text-violet-300">
+                      숨은 씨앗 발견 · {result.seedDrop.seedName} +
+                      {result.seedDrop.quantity}
+                    </div>
+                  )}
                   <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     벌목 XP +{result.xpGained}
                   </div>
@@ -1231,6 +1242,9 @@ export function WoodcuttingView({
           <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
             성공 시 {selectedMaterial.name} 1개 · 보유 {selectedMaterialCount}개 · XP +
             {selectedTree.xp}
+          </div>
+          <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            아주 낮은 확률로 농장 씨앗을 발견하며, 고등급 작물일수록 더 희귀합니다.
           </div>
         </Card>
       )}

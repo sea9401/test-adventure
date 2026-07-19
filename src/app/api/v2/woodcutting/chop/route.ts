@@ -47,6 +47,13 @@ import {
 } from "@/adventure/data/v2/v2JobCatalog";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
+import {
+  FARM_SAVE_KEY,
+  emptyFarmState,
+  grantFarmSeeds,
+  parseFarmState,
+} from "@/adventure/v2/farm";
+import { rollWoodcuttingSeedDrop } from "@/adventure/v2/woodcuttingSeedDrops";
 
 type CharSave = {
   class?: unknown;
@@ -175,6 +182,24 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
 
+    const seedDrop = rollWoodcuttingSeedDrop();
+    if (seedDrop) {
+      const farm = parseFarmState(
+        await lockSaveForUpdate(
+          tx,
+          userId,
+          FARM_SAVE_KEY,
+          emptyFarmState(now),
+        ),
+      );
+      await upsertSave(
+        tx,
+        userId,
+        FARM_SAVE_KEY,
+        grantFarmSeeds(farm, { [seedDrop.cropId]: seedDrop.quantity }),
+      );
+    }
+
     const diningXp = await consumeGuildDiningEffect(
       tx,
       userId,
@@ -234,6 +259,7 @@ export async function POST(req: Request) {
         : null,
       masteryGained,
       masteryAfter,
+      seedDrop,
       materials: woodcuttingMaterialBalances(materials),
       // 구버전 클라이언트가 배포 중 응답을 받아도 깨지지 않도록 한동안 유지한다.
       timberGained: materialGained,
@@ -322,6 +348,17 @@ export async function POST(req: Request) {
           quantity: result.materialGained,
           primary: true,
         },
+        ...(result.seedDrop
+          ? [
+              {
+                materialId: result.seedDrop.cropId,
+                materialName: result.seedDrop.seedName,
+                quantity: result.seedDrop.quantity,
+                primary: false,
+                itemKind: "farm_seed",
+              },
+            ]
+          : []),
       ],
     });
   }

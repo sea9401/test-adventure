@@ -15,8 +15,6 @@ import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
 import {
-  CRAFTED_EQUIP_TAG_SET_IDS,
-  V2_EQUIP_TAG_SETS,
   V2_EQUIPMENT,
   type V2Equipment,
   type V2EquipInstance,
@@ -70,10 +68,6 @@ const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string
   { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
   { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
-
-const CRAFTED_TAG_SET_ID_SET: ReadonlySet<string> = new Set(
-  CRAFTED_EQUIP_TAG_SET_IDS,
-);
 
 function CharacterPortrait({ gender }: { gender: Gender }) {
   const [errored, setErrored] = useState(false);
@@ -148,24 +142,6 @@ export function V2CharacterCard({
     }
     return ids;
   }, [equipped, byIid]);
-  const craftedSetProgress = useMemo(() => {
-    return V2_EQUIP_TAG_SETS.filter((set) =>
-      CRAFTED_TAG_SET_ID_SET.has(set.id),
-    )
-      .map((set) => {
-        let count = 0;
-        for (const id of equippedItemIds) {
-          if (V2_EQUIPMENT[id]?.setTags?.includes(set.id)) count += 1;
-        }
-        const active = [...set.thresholds]
-          .reverse()
-          .find((threshold) => count >= threshold.count);
-        const next = set.thresholds.find((threshold) => count < threshold.count);
-        return { set, count, active, next };
-      })
-      .filter((progress) => progress.count > 0);
-  }, [equippedItemIds]);
-
   // 장착 슬롯 클릭 시 띄울 아이템 + 개체 굴림 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
   const [selected, setSelected] = useState<{
     item: V2Equipment;
@@ -304,50 +280,6 @@ export function V2CharacterCard({
               </div>
             );
           })}
-        </div>
-      )}
-      {equipped && craftedSetProgress.length > 0 && (
-        <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900 dark:bg-emerald-950/30">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold text-emerald-900 dark:text-emerald-100">
-              제작 세트
-            </span>
-            <span className="text-emerald-700 dark:text-emerald-300">
-              {craftedSetProgress.filter((progress) => progress.active).length}
-              종 발동
-            </span>
-          </div>
-          <div className="mt-1 grid gap-1">
-            {craftedSetProgress.map((progress) => (
-              <div
-                key={progress.set.id}
-                className="flex flex-wrap items-center gap-1"
-              >
-                <span className="font-medium text-emerald-900 dark:text-emerald-100">
-                  {progress.set.name} {progress.count}개
-                </span>
-                {progress.set.thresholds.map((threshold) => (
-                  <span
-                    key={threshold.count}
-                    className={`rounded px-1.5 py-px text-[10px] font-medium ${
-                      progress.count >= threshold.count
-                        ? "bg-emerald-700 text-white dark:bg-emerald-400 dark:text-emerald-950"
-                        : "bg-white/80 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                    }`}
-                  >
-                    {threshold.count}세트
-                  </span>
-                ))}
-                <span className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
-                  {progress.active
-                    ? `${progress.active.count}세트 발동`
-                    : progress.next
-                      ? `다음까지 ${progress.next.count - progress.count}개`
-                      : "목표 완료"}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       )}
       {selected && (

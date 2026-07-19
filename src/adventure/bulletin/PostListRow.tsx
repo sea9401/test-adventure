@@ -4,6 +4,7 @@ import { memo } from "react";
 import { ChatCircle, Eye, Heart, UsersThree } from "@phosphor-icons/react";
 import { formatDate } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
 
 // 게시판 목록의 한 줄 — 제목/작성자/시간 + 좋아요·댓글 카운트(읽기 전용).
@@ -30,7 +31,7 @@ function PostListRowImpl({ post, onOpen }: Props) {
       <button
         type="button"
         onClick={() => onOpen(post.id)}
-        className="flex w-full min-h-[44px] flex-col gap-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+        className={`${SURFACE_CARD} flex min-h-[44px] w-full flex-col gap-1 px-3 py-2 text-left shadow-none transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:hover:border-zinc-600 dark:hover:bg-zinc-900`}
       >
         <div className="flex min-w-0 items-center gap-2">
           <span

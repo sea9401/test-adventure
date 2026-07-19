@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
 import { TabBar } from "@/components/ui/TabBar";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import {
   BULLETIN_CATEGORIES,
@@ -386,7 +387,7 @@ export function BulletinBoardView() {
           {Array.from({ length: 6 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60"
+              className={`${SURFACE_CARD} px-3 py-2 shadow-none`}
             >
               <Skeleton rows={2} />
             </li>

@@ -48,8 +48,6 @@ export type JobLadderEntry = {
 type Pending = { id: string; name: string; current: boolean };
 
 export function V2JobLadder({
-  level,
-  currentJobName,
   currentJobId,
   atLevelCap,
   jobs,
@@ -165,27 +163,6 @@ export function V2JobLadder({
 
   return (
     <div className="space-y-3">
-      {/* 현재 직업 + 전직 안내 */}
-      <Card padding="md">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">현재 {currentJobName}</h2>
-          <span
-            className={`text-xs tabular-nums ${
-              atLevelCap
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-zinc-500 dark:text-zinc-400"
-            }`}
-          >
-            Lv {level} / {V2_LEVEL_CAP}
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {atLevelCap
-            ? "해금된 직업으로 전직할 수 있어요. 전직하면 레벨이 1로 돌아가고 다시 성장합니다."
-            : `Lv ${V2_LEVEL_CAP}에 도달하면 전직할 수 있어요. 사냥으로 직업 숙련도를 쌓으면 새 직업이 해금됩니다.`}
-        </p>
-      </Card>
-
       {/* 전직 가능 직업 — 검색/태그/목표 기반 탐색. 해금 조건이 공개된 직업만 표시. */}
       <Card padding="md" className="space-y-2">
         <div className="flex items-center justify-between gap-2">
@@ -193,16 +170,6 @@ export function V2JobLadder({
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
             {filteredJobs.length}/{visibleJobs.length}
           </span>
-        </div>
-        <div className={`${SURFACE_INSET} px-3 py-2 text-xs text-zinc-600 dark:text-zinc-300`}>
-          <strong className="font-semibold text-zinc-800 dark:text-zinc-100">
-            스탯 안내
-          </strong>
-          <p className="mt-1 leading-relaxed">
-            직업 보너스는 해당 직업일 때 적용되는 능력치입니다. 수행 스탯은 그
-            직업으로 수행할 때 한계치가 오르는 능력치이며, 서로 다를 수 있습니다.
-            아래 수치는 기본 수행 1회 기준입니다.
-          </p>
         </div>
         <div className="relative">
           <MagnifyingGlass
@@ -445,7 +412,12 @@ function JobRow({
   const cultivation = jobCultivationSummary(job.id);
   return (
     <li
-      className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-2 px-3 py-2`}
+      aria-current={isCurrent ? "true" : undefined}
+      className={`${SURFACE_INSET} flex flex-wrap items-center justify-between gap-2 px-3 py-2 ${
+        isCurrent
+          ? "border-emerald-500 ring-2 ring-emerald-500 ring-offset-1 ring-offset-white dark:border-emerald-400 dark:ring-emerald-400 dark:ring-offset-zinc-900"
+          : ""
+      }`}
     >
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex items-center gap-2">

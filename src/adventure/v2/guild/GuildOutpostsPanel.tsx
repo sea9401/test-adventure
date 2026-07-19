@@ -16,6 +16,10 @@ import { GuildFacilityUpgradeFund } from "./GuildFacilityUpgradeFund";
 import { GuildAlchemyWorkshopPanel } from "./GuildAlchemyWorkshopPanel";
 import { GuildDiningHallPanel } from "./GuildDiningHallPanel";
 import { GuildTradePostPanel } from "./GuildTradePostPanel";
+import {
+  GUILD_FACILITY_IDS,
+  type GuildFacilityId,
+} from "./guildFacilities";
 
 const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   guild_smithy: "장비 제작과 대장장이 성장을 지원하는 길드 공용 시설입니다.",
@@ -26,31 +30,24 @@ const FACILITY_DESC: Partial<Record<SettlementBuildingId, string>> = {
   trade_post: "채집품 주간 계약을 함께 완수하고 교역 토큰을 교환하는 시설입니다.",
 };
 
-const VISIBLE_GUILD_FACILITY_IDS = [
-  "guild_smithy",
-  "training_ground",
-  "exploration_hq",
-  "alchemy_workshop",
-  "dining_hall",
-  "trade_post",
-] satisfies SettlementBuildingId[];
-
 // 기존 영지 건축물 카운트를 길드 화면의 공용 시설로만 표시한다.
 export function GuildFacilitiesPanel({
   guildId,
   info,
   canManage,
+  activeFacility,
+  onFacilityChange,
   onChanged,
   onNotice,
 }: {
   guildId: number | null;
   info: GuildInfoResponse | null;
   canManage?: boolean;
+  activeFacility: GuildFacilityId | null;
+  onFacilityChange: (facility: GuildFacilityId | null) => void;
   onChanged?: () => void;
   onNotice?: (notice: Notice) => void;
 }) {
-  const [activeFacility, setActiveFacility] =
-    useState<SettlementBuildingId | null>(null);
   const [unlockingId, setUnlockingId] = useState<SettlementBuildingId | null>(
     null,
   );
@@ -66,7 +63,7 @@ export function GuildFacilitiesPanel({
     );
   }
 
-  const rows = VISIBLE_GUILD_FACILITY_IDS.map((id) => {
+  const rows = GUILD_FACILITY_IDS.map((id) => {
     const def = SETTLEMENT_BUILDINGS[id];
     const count = info?.settlementBuildings?.[id] ?? 0;
     const level = info?.settlementBuildingLevels?.[id] ?? (count > 0 ? 1 : 0);
@@ -148,7 +145,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "guild_smithy") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildWorkshopPanel info={info} />
       </div>
     );
@@ -157,7 +154,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "training_ground") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildTrainingGroundPanel info={info} onChanged={onChanged} />
       </div>
     );
@@ -166,7 +163,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "exploration_hq") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildExplorationPanel canManage={canManage} onChanged={onChanged} />
       </div>
     );
@@ -175,7 +172,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "alchemy_workshop") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildAlchemyWorkshopPanel />
       </div>
     );
@@ -184,7 +181,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "dining_hall") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildDiningHallPanel />
       </div>
     );
@@ -193,7 +190,7 @@ export function GuildFacilitiesPanel({
   if (activeFacility === "trade_post") {
     return (
       <div className="space-y-3">
-        <FacilityBackButton onClick={() => setActiveFacility(null)} />
+        <FacilityBackButton onClick={() => onFacilityChange(null)} />
         <GuildTradePostPanel />
       </div>
     );
@@ -270,19 +267,13 @@ export function GuildFacilitiesPanel({
                           최대 레벨에 도달했습니다.
                         </p>
                       )}
-                    {isOpenableFacility(row.id) ? (
-                      <button
-                        type="button"
-                        onClick={() => setActiveFacility(row.id)}
-                        className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-                      >
-                        {row.name} {row.actionLabel}
-                      </button>
-                    ) : (
-                      <p className="mx-auto w-[70%] rounded-md border border-zinc-200 bg-white px-3 py-2 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
-                        준비 중인 시설입니다.
-                      </p>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onFacilityChange(row.id)}
+                      className="mx-auto block w-[70%] rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                    >
+                      {row.name} {row.actionLabel}
+                    </button>
                   </div>
                 )}
                 {row.count <= 0 && (
@@ -316,17 +307,6 @@ export function GuildFacilitiesPanel({
         </p>
       )}
     </div>
-  );
-}
-
-function isOpenableFacility(id: SettlementBuildingId): boolean {
-  return (
-    id === "guild_smithy" ||
-    id === "training_ground" ||
-    id === "exploration_hq" ||
-    id === "alchemy_workshop" ||
-    id === "dining_hall" ||
-    id === "trade_post"
   );
 }
 

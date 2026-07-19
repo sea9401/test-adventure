@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -12,6 +13,7 @@ import { GuildInfoPanel } from "./guild/GuildInfoPanel";
 import { GuildMembersPanel } from "./guild/GuildMembersPanel";
 import { GuildManagePanel } from "./guild/GuildManagePanel";
 import { GuildFacilitiesPanel } from "./guild/GuildOutpostsPanel";
+import { isGuildFacilityId } from "./guild/guildFacilities";
 import {
   type GuildInfoResponse,
   type GuildSubTab,
@@ -42,7 +44,7 @@ export function V2GuildHome({
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
 }) {
-  const [subTab, setSubTab] = useState<GuildSubTab>("info");
+  const searchParams = useSearchParams();
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
   const [activity, setActivity] = useState<GuildActivity[]>([]);
@@ -50,6 +52,28 @@ export function V2GuildHome({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
   const { notifySystem } = useSystemToast();
+  const requestedTab = guildSubTabFromParam(searchParams.get("tab"));
+  const facilityParam = searchParams.get("facility");
+  const requestedFacility = isGuildFacilityId(facilityParam)
+    ? facilityParam
+    : null;
+  const activeFacility =
+    requestedFacility != null &&
+    (info?.settlementBuildings?.[requestedFacility] ?? 0) > 0
+      ? requestedFacility
+      : null;
+
+  const navigateGuild = useCallback(
+    (tab: GuildSubTab, facility?: string | null, replace = false) => {
+      const href = guildHref(tab, facility);
+      if (replace) {
+        window.history.replaceState(null, "", href);
+      } else {
+        window.history.pushState(null, "", href);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!notice) return;
@@ -77,6 +101,24 @@ export function V2GuildHome({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (loading || !info || facilityParam == null) return;
+    const isAvailable =
+      requestedTab === "facilities" &&
+      requestedFacility != null &&
+      (info.settlementBuildings?.[requestedFacility] ?? 0) > 0;
+    if (!isAvailable) {
+      navigateGuild("facilities", null, true);
+    }
+  }, [
+    facilityParam,
+    info,
+    loading,
+    navigateGuild,
+    requestedFacility,
+    requestedTab,
+  ]);
 
   // 길드 id — 방금 창단했으면 부모 prop(viewerGuildId)이 아직 stale 일 수 있어
   // 자체 fetch 한 state.guild.id 를 우선한다(없으면 prop 폴백).
@@ -131,8 +173,8 @@ export function V2GuildHome({
       ]
     : BASE_SUB_TABS;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
-  const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
-    ? subTab
+  const activeTab: GuildSubTab = subTabs.some((t) => t.key === requestedTab)
+    ? requestedTab
     : "info";
 
   return (
@@ -143,7 +185,7 @@ export function V2GuildHome({
         <TabBar
           tabs={subTabs}
           active={activeTab}
-          onChange={setSubTab}
+          onChange={(tab) => navigateGuild(tab)}
           ariaLabel="길드 하위 탭"
           size="sm"
           variant="highlight"
@@ -196,10 +238,33 @@ export function V2GuildHome({
           guildId={guildId}
           info={info}
           canManage={canManage}
+          activeFacility={activeFacility}
+          onFacilityChange={(facility) =>
+            navigateGuild("facilities", facility)
+          }
           onChanged={refresh}
           onNotice={setNotice}
         />
       )}
     </main>
   );
+}
+
+function guildSubTabFromParam(value: string | null): GuildSubTab {
+  if (
+    value === "members" ||
+    value === "facilities" ||
+    value === "manage"
+  ) {
+    return value;
+  }
+  return "info";
+}
+
+function guildHref(tab: GuildSubTab, facility?: string | null): string {
+  const params = new URLSearchParams();
+  if (tab !== "info") params.set("tab", tab);
+  if (tab === "facilities" && facility) params.set("facility", facility);
+  const query = params.toString();
+  return query ? `/guild?${query}` : "/guild";
 }

@@ -134,7 +134,7 @@ export function V2ItemCard({
         role="dialog"
         aria-label={`${item.name} 정보`}
         style={{ position: "fixed", width, left, ...pos }}
-        className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        className="ui-floating-reveal z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1">

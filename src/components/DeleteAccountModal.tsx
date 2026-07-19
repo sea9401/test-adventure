@@ -57,13 +57,13 @@ export function DeleteAccountModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="delete-account-title"
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      className="ui-modal-reveal fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
       onClick={submitting ? undefined : onClose}
     >
       <div
         ref={contentRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-lg border border-rose-200 bg-white p-5 shadow-2xl dark:border-rose-900/60 dark:bg-zinc-900"
+        className="ui-modal-panel w-full max-w-md rounded-lg border border-rose-200 bg-white p-5 shadow-2xl dark:border-rose-900/60 dark:bg-zinc-900"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-2">

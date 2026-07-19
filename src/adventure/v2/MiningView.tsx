@@ -628,13 +628,13 @@ export function MiningView({
           </div>
 
           {phase === "result" && (
-            <Card padding="md" className="text-center">
+            <Card padding="md" className="ui-action-result text-center">
               {error ? (
                 <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
               ) : result?.success ? (
                 <div className="space-y-1">
                   <div className="font-bold">{result.node.name} 채광 완료</div>
-                  <div className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                  <div className="ui-result-highlight text-sm font-bold text-amber-600 dark:text-amber-400">
                     {result.materialName} +{result.materialGained}
                   </div>
                   <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">

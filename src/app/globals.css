@@ -78,6 +78,50 @@ body {
   }
 }
 
+@keyframes ui-modal-backdrop-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-modal-panel-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ui-floating-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 5px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ui-tooltip-reveal {
+  from {
+    opacity: 0;
+    translate: 0 var(--ui-tooltip-offset, 3px);
+    scale: 0.985;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
 .ui-dropdown-reveal {
   transform-origin: top center;
   animation: ui-dropdown-reveal 170ms cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -114,11 +158,73 @@ body {
   will-change: transform, opacity;
 }
 
+.ui-modal-reveal {
+  animation: ui-modal-backdrop-reveal 150ms ease-out both;
+}
+
+.ui-modal-panel {
+  transform-origin: center;
+  animation: ui-modal-panel-reveal 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.ui-floating-reveal {
+  transform-origin: center;
+  animation: ui-floating-reveal 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.ui-expand-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    grid-template-rows 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 110ms ease-out,
+    visibility 0s linear 160ms;
+}
+
+.ui-expand-grid[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    grid-template-rows 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 130ms ease-out,
+    visibility 0s linear 0s;
+}
+
+.ui-expand-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ui-tooltip-reveal {
+  animation: ui-tooltip-reveal 110ms ease-out both;
+  will-change: opacity, translate, scale;
+}
+
+.ui-tooltip-reveal[data-placement="bottom"] {
+  --ui-tooltip-offset: -3px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ui-dropdown-reveal,
   .ui-dropdown-reveal > *,
-  .ui-popover-reveal {
+  .ui-popover-reveal,
+  .ui-modal-reveal,
+  .ui-modal-panel,
+  .ui-floating-reveal,
+  .ui-tooltip-reveal {
     animation: none !important;
+  }
+
+  .ui-expand-grid,
+  .ui-expand-grid[data-open="true"] {
+    transition: none !important;
   }
 }
 
@@ -565,6 +671,24 @@ body {
   }
 }
 
+@keyframes ui-result-highlight {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.985);
+    filter: brightness(1);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(0) scale(1.015);
+    filter: brightness(1.25);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
 .ui-game-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.62),
@@ -631,6 +755,14 @@ body {
 
 .ui-reward-toast {
   animation: ui-toast-slide-in 180ms ease-out both;
+}
+
+.ui-action-result {
+  animation: ui-catch-pop 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ui-result-highlight {
+  animation: ui-result-highlight 420ms ease-out 60ms both;
 }
 
 .ui-lift-card {
@@ -1242,6 +1374,8 @@ body {
   }
 
   .ui-fishing-result,
+  .ui-action-result,
+  .ui-result-highlight,
   .ui-quest-card.is-claimable,
   .ui-forge-outcome::after,
   .ui-treasure-cell.is-treasure,

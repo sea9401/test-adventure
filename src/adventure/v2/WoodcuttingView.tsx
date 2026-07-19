@@ -1193,7 +1193,7 @@ export function WoodcuttingView({
           </div>
 
           {phase === "result" && (
-            <Card padding="md" className="text-center">
+            <Card padding="md" className="ui-action-result text-center">
               {error ? (
                 <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
               ) : result?.success ? (
@@ -1208,12 +1208,12 @@ export function WoodcuttingView({
                     {result.materialName} +{result.materialGained}
                   </div>
                   {result.bonusMaterialGained > 0 && (
-                    <div className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                    <div className="ui-result-highlight text-xs font-semibold text-amber-700 dark:text-amber-300">
                       전설의 벌목 추가 원목 +{result.bonusMaterialGained}
                     </div>
                   )}
                   {result.seedDrop && (
-                    <div className="text-xs font-bold text-violet-700 dark:text-violet-300">
+                    <div className="ui-result-highlight text-xs font-bold text-violet-700 dark:text-violet-300">
                       숨은 씨앗 발견 · {result.seedDrop.seedName} +
                       {result.seedDrop.quantity}
                     </div>

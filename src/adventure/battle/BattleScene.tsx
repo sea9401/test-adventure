@@ -308,25 +308,29 @@ export function BattleStatStrip({
         </span>
         {hasDetails && <span className={dim}>{open ? "▴" : "▾"}</span>}
       </button>
-      {hasDetails && open && (
-        <div
-          className={`mt-1 flex flex-wrap gap-1 text-[10px] tabular-nums${align}`}
-        >
-          {details.map((d) => (
-            <span
-              key={d.label}
-              className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-md bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800/70"
+      {hasDetails && (
+        <div className="ui-expand-grid" data-open={open} aria-hidden={!open}>
+          <div className="ui-expand-content">
+            <div
+              className={`mt-1 flex flex-wrap gap-1 text-[10px] tabular-nums${align}`}
             >
-              <span className={dim}>{d.label}</span>
-              <span
-                className={`font-medium ${
-                  DETAIL_COLOR[d.label] ?? "text-zinc-700 dark:text-zinc-200"
-                }`}
-              >
-                {d.value}
-              </span>
-            </span>
-          ))}
+              {details.map((d) => (
+                <span
+                  key={d.label}
+                  className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-md bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800/70"
+                >
+                  <span className={dim}>{d.label}</span>
+                  <span
+                    className={`font-medium ${
+                      DETAIL_COLOR[d.label] ?? "text-zinc-700 dark:text-zinc-200"
+                    }`}
+                  >
+                    {d.value}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

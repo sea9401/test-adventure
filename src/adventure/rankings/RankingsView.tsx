@@ -26,18 +26,18 @@ import {
 } from "./useRankings";
 
 const TABS: { key: RankingMetric; label: string }[] = [
-  { key: "level", label: "총 숙련도" },
   { key: "combatPower", label: "전투력" },
-  { key: "lifeMastery", label: "생활 숙련도" },
-  { key: "codexCompletion", label: "도감 완성도" },
   { key: "masteryTower", label: "숙련의 탑" },
-  { key: "achievementScore", label: "업적 점수" },
-  { key: "guild", label: "길드 랭킹" },
+  { key: "achievementScore", label: "업적" },
+  { key: "level", label: "숙련도" },
+  { key: "lifeMastery", label: "생활 숙련도" },
+  { key: "codexCompletion", label: "도감" },
+  { key: "guild", label: "길드" },
 ];
 
 export function RankingsView() {
   const router = useRouter();
-  const [metric, setMetric] = useState<RankingMetric>("level");
+  const [metric, setMetric] = useState<RankingMetric>("combatPower");
   return (
     <div className="space-y-3">
       <Card as="section" padding="sm">
@@ -73,7 +73,7 @@ function LevelMetricPill() {
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-medium text-violet-700 dark:text-violet-300">
-          총 숙련도
+          숙련도
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
           환생·전직으로 리셋되지 않는 직업 숙련도 합계 순으로 매깁니다.
@@ -103,7 +103,7 @@ function AchievementMetricPill() {
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
-          업적 점수
+          업적
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
           달성한 영구 업적의 점수를 합산하며, 보상 수령 전에도 즉시 반영됩니다.
@@ -118,7 +118,7 @@ function CodexMetricPill() {
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-medium text-sky-700 dark:text-sky-300">
-          도감 완성도
+          도감
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
           직업 해금·장비 등록·어보 발견 수를 전체 수집 항목과 비교합니다.
@@ -347,7 +347,7 @@ function RankingRow({
           </>
         ) : metric === "achievementScore" ? (
           <>
-            {entry.achievementScore.toLocaleString()}점
+            업적 {entry.achievementScore.toLocaleString()}점
             <span className="ml-1 text-[11px] text-zinc-500 dark:text-zinc-400">
               ({entry.achievementCompleted}개)
             </span>

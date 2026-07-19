@@ -738,9 +738,9 @@ const V2_EQUIPMENT_BASE = {
     setTags: ["artisan_arcane"],
   },
 
-  // ── 몬스터 소재 개량 장비 ───────────────────────────────────────────────
-  // 기존 제작 장비 1개 + 해당 몬스터 전용 소재를 소모하는 특수 제작품. 세트 조각을 상위 세트로
-  // 키우는 경로가 아니라, 세트 보너스를 포기하고 발동형 시그니처를 얻는 빌드 사이드그레이드다.
+  // ── 몬스터 소재 특수 장비 ───────────────────────────────────────────────
+  // 해당 몬스터 전용 소재로 직접 만드는 특수 제작품. 세트 보너스 대신 발동형 시그니처를 얻는
+  // 빌드 사이드그레이드이며, 하위 제작 장비를 요구하는 개량식은 일부 기믹 레시피에만 둔다.
   v2_crafted_fracture_blade: {
     id: "v2_crafted_fracture_blade",
     slot: "weapon",
@@ -748,7 +748,7 @@ const V2_EQUIPMENT_BASE = {
     tier: 12,
     name: "처형자의 골절검",
     description:
-      "왕파쇄 도끼의 날을 고원 학살자의 톱날뼈로 다시 세운 대검. 상처가 벌어질 때마다 피가 깊게 밴다.",
+      "고원 학살자의 톱날뼈를 중심으로 다시 벼린 대검. 상처가 벌어질 때마다 피가 깊게 밴다.",
     power: 660,
     weight: 10,
     options: { hp: 180, crit: 8, critMult: 105 },
@@ -768,7 +768,7 @@ const V2_EQUIPMENT_BASE = {
     tier: 6,
     name: "맥동석 수호갑",
     description:
-      "수호각인 갑주 안쪽에 암반 골렘의 공명핵을 고정했다. 충격을 받을수록 돌결이 맞물려 단단해진다.",
+      "암반 골렘의 공명핵을 중심에 고정해 만든 갑주. 충격을 받을수록 돌결이 맞물려 단단해진다.",
     power: 60,
     weight: 7,
     options: { hp: 190, def: 12, critResist: 8 },
@@ -786,7 +786,7 @@ const V2_EQUIPMENT_BASE = {
     tier: 6,
     name: "뇌침 전도장갑",
     description:
-      "불꽃매듭 장갑의 금속사에 스파크 전갈의 전도낭을 엮었다. 손끝을 떠난 충격이 적의 움직임을 굳힌다.",
+      "스파크 전갈의 전도낭과 금속사를 엮어 만든 장갑. 손끝을 떠난 충격이 적의 움직임을 굳힌다.",
     power: 15,
     weight: 0,
     options: { crit: 9, critMult: 40, spd: 6 },
@@ -806,7 +806,7 @@ const V2_EQUIPMENT_BASE = {
     tier: 12,
     name: "천뢰 예언서",
     description:
-      "성도 마도서에 낙뢰 예언자의 뇌문석을 끼워 넣었다. 주문이 끝날 때 흩어진 마력이 문양을 따라 되돌아온다.",
+      "낙뢰 예언자의 뇌문석을 마력 회로로 엮은 마도서. 주문이 끝날 때 흩어진 마력이 문양을 따라 되돌아온다.",
     power: 640,
     weight: 2,
     options: { mp: 280, magicDef: 26, healPowerPct: 12 },
@@ -825,7 +825,7 @@ const V2_EQUIPMENT_BASE = {
     tier: 12,
     name: "해구 성가목걸이",
     description:
-      "오로라 관장식에 해구의 사도 기도핵을 봉했다. 치유 뒤에 남은 빛이 물결처럼 겹쳐 보호막이 된다.",
+      "해구의 사도 기도핵을 중심 장식에 봉한 목걸이. 치유 뒤에 남은 빛이 물결처럼 겹쳐 보호막이 된다.",
     power: 110,
     weight: 0,
     options: { hp: 260, mp: 190, magicDef: 40, healPowerPct: 18 },
@@ -843,7 +843,7 @@ const V2_EQUIPMENT_BASE = {
     tier: 6,
     name: "심맥 파쇄궁",
     description:
-      "질풍궁의 화살받이에 심연 벌레의 굴착턱을 갈아 붙였다. 정확한 한 발이 갑주의 결을 따라 균열을 낸다.",
+      "심연 벌레의 굴착턱을 갈아 화살받이에 붙인 활. 정확한 한 발이 갑주의 결을 따라 균열을 낸다.",
     power: 115,
     weight: 1,
     options: { crit: 7, critMult: 35, spd: 12 },

@@ -406,12 +406,11 @@ describe("guild workshop recipes", () => {
     });
   });
 
-  it("uses matching monster materials and one base item for all six special upgrades", () => {
+  it("crafts the six regular monster-material items directly without base equipment", () => {
     const cases = [
       [
         "crafted_pulsestone_guard",
         "v2_crafted_pulsestone_guard",
-        "v2_crafted_ward_plate",
         MONSTER_CRAFT_MATERIAL_ID.rockGolemResonantCore,
         6,
         2,
@@ -419,7 +418,6 @@ describe("guild workshop recipes", () => {
       [
         "crafted_thundercoil_gloves",
         "v2_crafted_thundercoil_gloves",
-        "v2_crafted_spark_gloves",
         MONSTER_CRAFT_MATERIAL_ID.sparkScorpionConductiveSac,
         6,
         2,
@@ -427,7 +425,6 @@ describe("guild workshop recipes", () => {
       [
         "crafted_veinbreaker_bow",
         "v2_crafted_veinbreaker_bow",
-        "v2_crafted_gale_bow",
         MONSTER_CRAFT_MATERIAL_ID.abyssWormBurrowingJaw,
         6,
         2,
@@ -435,7 +432,6 @@ describe("guild workshop recipes", () => {
       [
         "crafted_fracture_blade",
         "v2_crafted_fracture_blade",
-        "v2_crafted_kingbreaker_axe",
         MONSTER_CRAFT_MATERIAL_ID.plateauSlayerSerratedBone,
         12,
         5,
@@ -443,7 +439,6 @@ describe("guild workshop recipes", () => {
       [
         "crafted_thunder_oracle_grimoire",
         "v2_crafted_thunder_oracle_grimoire",
-        "v2_crafted_astral_grimoire",
         MONSTER_CRAFT_MATERIAL_ID.lightningOracleThunderRunestone,
         12,
         5,
@@ -451,25 +446,35 @@ describe("guild workshop recipes", () => {
       [
         "crafted_trench_hymn_necklace",
         "v2_crafted_trench_hymn_necklace",
-        "v2_crafted_aurora_crown",
         MONSTER_CRAFT_MATERIAL_ID.trenchApostlePrayerCore,
         12,
         5,
       ],
     ] as const;
 
-    for (const [recipeId, equipmentId, baseEquipmentId, materialId, level, smithy] of cases) {
+    for (const [recipeId, equipmentId, materialId, level, smithy] of cases) {
       const recipe = GUILD_WORKSHOP_RECIPES[recipeId];
       expect(recipe).toMatchObject({
         equipmentId,
-        baseEquipmentId,
         requiredArtisanLevel: level,
         requiredSmithyLevel: smithy,
       });
+      expect(recipe.baseEquipmentId).toBeUndefined();
       expect(guildWorkshopRecipeMaterialCost(recipe)[materialId]).toBe(12);
       expect(guildWorkshopRecipeMaterialCost(recipe, "masterwork")[materialId]).toBe(
         24,
       );
+      expect(
+        guildWorkshopRecipeView(
+          recipe,
+          { crop: 9999, ore: 9999 },
+          { blacksmith: { xp: 999999, crafts: 999 } },
+          0,
+          5,
+          ENOUGH_WORKSHOP_MATERIALS,
+          0,
+        ),
+      ).toMatchObject({ canCraft: true, baseEquipment: null });
     }
   });
 

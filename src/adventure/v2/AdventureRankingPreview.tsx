@@ -6,27 +6,33 @@ import { Crown, Trophy } from "@phosphor-icons/react";
 import { useState } from "react";
 import { avatarImageSrc } from "@/adventure/profile/avatars";
 import {
+  useGuildRankings,
   useRankings,
+  type GuildRankingEntry,
   type RankingEntry,
   type RankingMetric,
 } from "@/adventure/rankings/useRankings";
+import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
-type PreviewMetric = Extract<
+type UserPreviewMetric = Extract<
   RankingMetric,
-  "level" | "combatPower" | "lifeMastery"
+  "combatPower" | "masteryTower" | "achievementScore"
 >;
+type PreviewMetric = UserPreviewMetric | "guild";
+type PreviewEntry = RankingEntry | GuildRankingEntry;
 
 const PREVIEW_METRICS: Array<{
   key: PreviewMetric;
   title: string;
 }> = [
-  { key: "level", title: "총 숙련도" },
   { key: "combatPower", title: "전투력" },
-  { key: "lifeMastery", title: "생활 숙련도" },
+  { key: "masteryTower", title: "숙련의 탑" },
+  { key: "achievementScore", title: "업적" },
+  { key: "guild", title: "길드" },
 ];
 
 const RANK_TEXT: Record<number, string> = {
@@ -37,7 +43,13 @@ const RANK_TEXT: Record<number, string> = {
 export function AdventureRankingPreview() {
   const [metricIndex, setMetricIndex] = useState(0);
   const metric = PREVIEW_METRICS[metricIndex];
-  const { list, loading, error } = useRankings(metric.key);
+  const userRankings = useRankings(metric.key);
+  const guildRankings = useGuildRankings(metric.key === "guild");
+  const list: PreviewEntry[] | null =
+    metric.key === "guild" ? guildRankings.list : userRankings.list;
+  const loading =
+    metric.key === "guild" ? guildRankings.loading : userRankings.loading;
+  const error = metric.key === "guild" ? guildRankings.error : userRankings.error;
   const topThree = list?.slice(0, 3) ?? [];
 
   return (
@@ -52,7 +64,7 @@ export function AdventureRankingPreview() {
               모험가 명예 기록
             </h2>
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              상위 3명의 기록
+              상위 3개의 기록
             </p>
           </div>
         </div>
@@ -67,7 +79,7 @@ export function AdventureRankingPreview() {
       <div
         role="tablist"
         aria-label="랭킹 지표 선택"
-        className="grid grid-cols-3 border-y border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950"
+        className="grid grid-cols-4 border-y border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950"
       >
         {PREVIEW_METRICS.map((item, index) => (
           <button
@@ -119,7 +131,7 @@ function RankingLeader({
   entry,
   metric,
 }: {
-  entry: RankingEntry;
+  entry: PreviewEntry;
   metric: PreviewMetric;
 }) {
   return (
@@ -131,14 +143,22 @@ function RankingLeader({
       }`}
     >
       <div className="relative shrink-0">
-        <Image
-          src={avatarImageSrc(entry.avatar)}
-          alt={`${entry.name} 프로필`}
-          width={56}
-          height={56}
-          sizes="56px"
-          className="h-14 w-14 rounded-xl border-2 border-amber-400 object-cover dark:border-amber-500"
-        />
+        {isGuildRankingEntry(entry) ? (
+          <GuildEmblemImage
+            emblem={entry.emblem}
+            guildName={entry.name}
+            className="h-14 w-14 border-2 border-amber-400 dark:border-amber-500"
+          />
+        ) : (
+          <Image
+            src={avatarImageSrc(entry.avatar)}
+            alt={`${entry.name} 프로필`}
+            width={56}
+            height={56}
+            sizes="56px"
+            className="h-14 w-14 rounded-xl border-2 border-amber-400 object-cover dark:border-amber-500"
+          />
+        )}
         <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-sm dark:bg-amber-500">
           <Crown size={15} weight="fill" aria-hidden />
           <span className="sr-only">1위</span>
@@ -146,12 +166,9 @@ function RankingLeader({
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-0.5 text-[10px] font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">
-          TOP ADVENTURER
+          {metric === "guild" ? "TOP GUILD" : "TOP ADVENTURER"}
         </div>
-        <PlayerNameLink
-          name={entry.name}
-          className="block truncate text-base font-bold text-zinc-900 dark:text-zinc-100"
-        />
+        <PreviewRankingName entry={entry} className="text-base" />
       </div>
       <div className={`${SURFACE_INSET} shrink-0 px-3 py-2 text-right`}>
         <div className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500">
@@ -169,7 +186,7 @@ function RankingRow({
   entry,
   metric,
 }: {
-  entry: RankingEntry;
+  entry: PreviewEntry;
   metric: PreviewMetric;
 }) {
   return (
@@ -186,19 +203,24 @@ function RankingRow({
       >
         {entry.rank}
       </span>
-      <Image
-        src={avatarImageSrc(entry.avatar)}
-        alt={`${entry.name} 프로필`}
-        width={38}
-        height={38}
-        sizes="38px"
-        className="h-[38px] w-[38px] shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
-      />
-      <div className="min-w-0 flex-1">
-        <PlayerNameLink
-          name={entry.name}
-          className="block truncate text-sm font-bold text-zinc-900 dark:text-zinc-100"
+      {isGuildRankingEntry(entry) ? (
+        <GuildEmblemImage
+          emblem={entry.emblem}
+          guildName={entry.name}
+          className="h-[38px] w-[38px]"
         />
+      ) : (
+        <Image
+          src={avatarImageSrc(entry.avatar)}
+          alt={`${entry.name} 프로필`}
+          width={38}
+          height={38}
+          sizes="38px"
+          className="h-[38px] w-[38px] shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <PreviewRankingName entry={entry} className="text-sm" />
         <div className="mt-0.5 truncate text-xs font-medium tabular-nums text-zinc-500 dark:text-zinc-400">
           {rankingValue(entry, metric)}
         </div>
@@ -236,10 +258,35 @@ function RankingPreviewSkeleton() {
   );
 }
 
-function rankingValue(entry: RankingEntry, metric: PreviewMetric): string {
-  if (metric === "level") return `숙련 ${entry.cumLevel.toLocaleString("ko-KR")}`;
+function PreviewRankingName({
+  entry,
+  className,
+}: {
+  entry: PreviewEntry;
+  className: string;
+}) {
+  const classes = `block truncate font-bold text-zinc-900 dark:text-zinc-100 ${className}`;
+  return isGuildRankingEntry(entry) ? (
+    <span className={classes}>{entry.name}</span>
+  ) : (
+    <PlayerNameLink name={entry.name} className={classes} />
+  );
+}
+
+function isGuildRankingEntry(entry: PreviewEntry): entry is GuildRankingEntry {
+  return "guildId" in entry;
+}
+
+function rankingValue(entry: PreviewEntry, metric: PreviewMetric): string {
+  if (metric === "guild" && isGuildRankingEntry(entry)) {
+    return `명성 ${entry.fameTotal.toLocaleString("ko-KR")}`;
+  }
+  if (isGuildRankingEntry(entry)) return "—";
   if (metric === "combatPower") {
     return `전투력 ${entry.combatPower.toLocaleString("ko-KR")}`;
   }
-  return `생활 Lv.${entry.lifeMastery.toLocaleString("ko-KR")}`;
+  if (metric === "masteryTower") {
+    return `최고 ${entry.masteryTowerFloor.toLocaleString("ko-KR")}층`;
+  }
+  return `업적 ${entry.achievementScore.toLocaleString("ko-KR")}점`;
 }

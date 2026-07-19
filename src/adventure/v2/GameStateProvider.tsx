@@ -52,10 +52,6 @@ export type TileSettlement = {
 };
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
-import {
-  parseV2Element,
-  V2_ELEMENT_LABEL,
-} from "@/adventure/data/v2/elements";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -112,7 +108,6 @@ type GameStateSnapshot = {
     expToNext?: number;
     class?: string;
     classDisplayName?: string | null;
-    element?: string;
     hp?: number;
     maxHp?: number;
     mp?: number;
@@ -167,7 +162,6 @@ type GameStateValue = {
   viewerLevel: number;
   viewerLevelCap: number | null;
   viewerClass: string;
-  viewerElement: string;
   viewerExp: number;
   viewerExpToNext: number;
   playerSubtitle: string;
@@ -337,7 +331,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 회원 탈퇴 확인 문구용 권위 닉네임(users.gameName). 보통 null → 모달 "탈퇴" 폴백.
   const [accountName, setAccountName] = useState<string | null>(null);
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
-  // 전투 장면 부제(레벨·직업·속성) 표기용 — me/state 에서 초기화.
+  // 전투 장면 부제(레벨·직업) 표기용 — me/state 에서 초기화.
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
@@ -350,7 +344,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [viewerProficiency, setViewerProficiency] = useState<number | null>(
     null,
   );
-  const [viewerElement, setViewerElement] = useState<string>("neutral");
   // 기본값 = 시작 거점(중앙 자유 도시). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
   // null 로 두지 않아 인접 이동 게이트가 첫 화면부터 일관되게 동작한다.
   const [currentOutpost, setCurrentOutpost] = useState<
@@ -502,7 +495,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           ? j.character.classDisplayName
           : null,
       );
-      if (j.character?.element) setViewerElement(j.character.element);
 
       const currentGroup = j.proficiency?.current?.group ?? "none";
       const currentProficiency =
@@ -934,13 +926,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // ⚠️ 근본 개선(자주 바뀌는 자원 vs 정적 신원 컨텍스트 분리)은 소비처 32곳 수술이라
   //    실측 병목이 확인되면 후속 — 여기서는 참조 안정화까지만.
   const value: GameStateValue = useMemo(() => {
-    // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
+    // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사". 레벨·직업 간단 표기.
     const playerLevelText = viewerLevelCap
       ? `Lv ${viewerLevel} / ${viewerLevelCap}`
       : `Lv.${viewerLevel}`;
     const playerSubtitle = `${playerLevelText} · ${
       viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
-    } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
+    }`;
     return {
       viewerUserId,
       viewerGuildId,
@@ -950,7 +942,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       viewerLevel,
       viewerLevelCap,
       viewerClass,
-      viewerElement,
       viewerExp,
       viewerExpToNext,
       playerSubtitle,
@@ -1016,7 +1007,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     viewerLevel,
     viewerLevelCap,
     viewerClass,
-    viewerElement,
     viewerExp,
     viewerExpToNext,
     viewerJobName,

@@ -7,7 +7,6 @@ import {
   depthName,
   enemiesForDepth,
 } from "@/adventure/data/v2/dungeon";
-import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -19,7 +18,6 @@ type PreviewResult = {
   availableDepth: number;
   enemyName: string;
   enemyKey: string;
-  elementMatchup: "advantage" | "disadvantage" | "neutral";
   replay: ReplayPayload;
   startPlayerHp: number;
   profile: { name: string; gender: Gender; level: number; job: string };
@@ -149,7 +147,7 @@ export function CharacterPreviewSection({
           >
             {enemies.map((enemy) => (
               <option key={enemy.key} value={enemy.key}>
-                {enemy.name} · {V2_ELEMENT_LABEL[enemy.element ?? "neutral"]}
+                {enemy.name}
               </option>
             ))}
           </select>
@@ -210,7 +208,6 @@ export function CharacterPreviewSection({
               exp={0}
               maxExp={1}
               playerSubtitle={`Lv ${result.profile.level} · ${result.profile.job} · 체험 모드`}
-              elementMatchup={result.elementMatchup}
               playerCombat={{
                 atk: result.combat.atk,
                 def: result.combat.def,

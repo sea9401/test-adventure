@@ -50,7 +50,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { needsSetup } = useProfile();
   const char = useSavedValue("character.v2") as { class?: unknown } | null;
   // 코어루프 — 모든 유저가 모험가(none)로 시작하므로 class=none 은 미완료가 아니다. 완료 기준
-  //   = 프로필(이름)만(속성 선택은 /create 흐름이 처리). off — 기존(프로필 + 직업 선택).
+  //   = 프로필(이름)만. off — 기존(프로필 + 직업 선택).
   const needsOnboarding =
     needsSetup ||
     (!V2_CORE_LOOP_V2 && parseV2Class(char?.class) === "none");

@@ -12,7 +12,6 @@ import {
   jobDisplayName,
 } from "@/adventure/data/v2/classes";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
-import { parseV2Element } from "@/adventure/data/v2/elements";
 import {
   parseProficiencyForChar,
   capGain,
@@ -114,7 +113,6 @@ export async function GET(_req: Request, ctx: Ctx) {
   const maxHp = combat.maxHp;
   const maxMp = combat.player.maxMp ?? 0;
   const playerClass = parseV2Class(charSave.class);
-  const element = parseV2Element(charSave.element);
   // 공개 프로필 직업 표시명 — 캐릭터 카드가 옛 클래스명 대신 직업명(견습 병사·방패병 등)을
   //   쓰도록 동봉(me/state 와 동일 해석). core-loop off 면 null → 카드가 class 직군명 폴백.
   const playerSpec =
@@ -220,7 +218,6 @@ export async function GET(_req: Request, ctx: Ctx) {
       gold: 0,
       class: playerClass,
       classDisplayName,
-      element,
     },
     guild: guildId == null ? null : { name: guildName ?? "—" },
     stats: { base: combat.baseAllocatedStats, total: combat.totalStats },

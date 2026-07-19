@@ -7,11 +7,6 @@ import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import {
-  V2_ELEMENT_ADV_PCT,
-  V2_ELEMENT_DIS_PCT,
-  elementDamageMult,
-} from "@/adventure/data/v2/elements";
-import {
   emptyV2SkillsState,
   parseV2SkillsState,
   smartDefaultPatternFromEquipped,
@@ -654,20 +649,8 @@ async function resolveGridDungeonCombat({
     deriveSkills: "sanitized",
   });
   if (!preparedActor) return null;
-  const {
-    player,
-    skills: v2Skills,
-    playerElement,
-    basicAttackElement,
-  } = preparedActor;
+  const { player, skills: v2Skills } = preparedActor;
 
-  const monsterElement = picked.enemy.element ?? "neutral";
-  const elemMult = elementDamageMult(
-    basicAttackElement,
-    monsterElement,
-    V2_ELEMENT_ADV_PCT + (player.player.elementAdvPctBonus ?? 0),
-    V2_ELEMENT_DIS_PCT + (player.player.elementDisPctBonus ?? 0),
-  );
   const seededMonsterSkills = [
     picked.enemy.statusSkill,
     picked.enemy.castSkill,
@@ -682,7 +665,7 @@ async function resolveGridDungeonCombat({
           ? "정예 수문장"
           : picked.enemy.name,
     image: picked.enemy.image ?? baseMonster.image,
-    element: monsterElement,
+    element: "neutral",
     ...(seededMonsterSkills.length
       ? {
           v2Skills: {
@@ -702,13 +685,6 @@ async function resolveGridDungeonCombat({
     hp: playerHpBefore,
     maxHp: playerMaxHp,
     mp: player.player.maxMp ?? player.player.mp,
-    atk: Math.max(1, Math.round(player.player.atk * elemMult)),
-    magicAtk: Math.max(
-      0,
-      Math.round((player.player.magicAtk ?? 0) * elemMult),
-    ),
-    attackElement: basicAttackElement,
-    characterElement: playerElement,
   };
   const mainPattern =
     v2Skills.pattern && v2Skills.pattern.blocks.length > 0

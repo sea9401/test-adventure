@@ -1282,12 +1282,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     },
   },
   v2c_elementalist_mastery: {
-    // 원소 통달 — 속성 상성 양방향 강화(유리 +15%p·불리 받피 감소 +15%p). derive 가 player 의
-    //   elementAdvPctBonus/DisPctBonus 로 합산 → cast elementAdvPct/disPct 에 가산. 속성 빌드의 정점.
     id: "v2c_elementalist_mastery", name: "원소 통달", stat: "int", category: "passive", tier: 3,
-    description: "원소의 이치를 꿰뚫는다. 상성의 이점도, 저항도 한층 깊어진다.", mpCost: 0, cooldown: 0,
+    description: "원소의 이치를 꿰뚫어 지능과 공격 주문의 위력을 끌어올린다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { elementAdvPctBonus: 15, elementDisPctBonus: 15 },
+    passive: { statPct: { int: 12 }, magicSkillDamagePct: 6 },
   },
 
   // ── 마법 4차 원소별 직업 — 캐릭터 속성 상성이 아니라 스킬 자체의 전투 기믹으로 정체성을 만든다. ──

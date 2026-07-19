@@ -27,7 +27,6 @@ export function ReplayBattleScene({
   hpCharges,
   mpCharges,
   playerSubtitle,
-  elementMatchup,
   playerCombat,
   outcome,
   outcomeAction,
@@ -42,10 +41,8 @@ export function ReplayBattleScene({
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영). 캐릭터 정보에 충전량으로 표기.
   hpCharges?: number;
   mpCharges?: number;
-  // 플레이어 이름 아래 부제(레벨·직업·속성). BattleScene 으로 전달.
+  // 플레이어 이름 아래 부제(레벨·직업). BattleScene 으로 전달.
   playerSubtitle?: string;
-  // 약점찌르기 강조 — 적 속성 뱃지 "약점!" (BattleScene 으로 전달).
-  elementMatchup?: "advantage" | "disadvantage" | "neutral";
   // 플레이어 공/방/속(+상세) — 전투 패널 플레이어 칸에 적과 대칭 표기. BattleScene 으로 전달.
   playerCombat?: BattleStats;
   // 전투 결과(승/패) — BattleScene 상단 승패 배너용. 미전달 시 배너 미표시.
@@ -95,7 +92,6 @@ export function ReplayBattleScene({
       layout="split"
       playerSubtitle={playerSubtitle}
       logAnchor="top"
-      elementMatchup={elementMatchup}
       playerCombat={playerCombat}
       outcome={outcome}
       outcomeAction={outcomeAction}

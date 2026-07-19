@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   V2_ELEMENTS,
-  V2_ELEMENT_CYCLE,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
   V2_ELEMENT_ADV_PCT_PVP,
@@ -14,30 +13,8 @@ import {
 
 const NON_NEUTRAL = V2_ELEMENTS.filter((e) => e !== "neutral");
 
-describe("v2 속성 단일 순환 (PR-5 7-ring)", () => {
-  it("순환은 7원소, 전부 유효·non-neutral·중복 없음", () => {
-    expect(V2_ELEMENT_CYCLE).toHaveLength(7);
-    expect(new Set(V2_ELEMENT_CYCLE).size).toBe(7);
-    for (const e of V2_ELEMENT_CYCLE) {
-      expect(V2_ELEMENTS).toContain(e);
-      expect(e).not.toBe("neutral");
-    }
-    // V2_ELEMENTS = neutral + 순환 7.
-    expect(NON_NEUTRAL.slice().sort()).toEqual(
-      V2_ELEMENT_CYCLE.slice().sort(),
-    );
-  });
-
-  it("순환 인접쌍 — 각 원소가 다음을 카운터(우위), 역방향은 열세", () => {
-    for (let i = 0; i < V2_ELEMENT_CYCLE.length; i++) {
-      const a = V2_ELEMENT_CYCLE[i];
-      const next = V2_ELEMENT_CYCLE[(i + 1) % V2_ELEMENT_CYCLE.length];
-      expect(elementMatchup(a, next), `${a}>${next}`).toBe("advantage");
-      expect(elementMatchup(next, a), `${next}<${a}`).toBe("disadvantage");
-    }
-  });
-
-  it("대칭 — 각 원소는 정확히 1개를 이기고 1개에게 진다 (clean RPS)", () => {
+describe("v2 속성 메타데이터 (상성 폐지)", () => {
+  it("어떤 원소도 다른 원소를 이기거나 지지 않는다", () => {
     for (const a of NON_NEUTRAL) {
       let wins = 0;
       let losses = 0;
@@ -47,8 +24,8 @@ describe("v2 속성 단일 순환 (PR-5 7-ring)", () => {
         if (m === "advantage") wins++;
         else if (m === "disadvantage") losses++;
       }
-      expect(wins, `${a} wins`).toBe(1);
-      expect(losses, `${a} losses`).toBe(1);
+      expect(wins, `${a} wins`).toBe(0);
+      expect(losses, `${a} losses`).toBe(0);
     }
   });
 
@@ -67,27 +44,24 @@ describe("v2 속성 단일 순환 (PR-5 7-ring)", () => {
     }
   });
 
-  it("배율 — 양방향: 유리 +25% / 불리 −15% / 중립 1 (PvE, 2026-06-20)", () => {
-    expect(V2_ELEMENT_ADV_PCT).toBe(25);
-    expect(V2_ELEMENT_DIS_PCT).toBe(15);
-    // 물>불 유리 = +25%, 반대(불리)는 −15%(양방향 전환 — 옛 0 페널티 폐기).
-    expect(elementDamageMult("water", "fire")).toBeCloseTo(1.25);
-    expect(elementDamageMult("fire", "water")).toBeCloseTo(0.85);
-    // 별빛>공허 동일.
-    expect(elementDamageMult("starlight", "void")).toBeCloseTo(1.25);
-    expect(elementDamageMult("void", "starlight")).toBeCloseTo(0.85);
-    // 무속성은 양방향 모두 ×1(가드 — 골든 byte-identical 근거).
+  it("PvE 원소 조합은 모두 배율 1", () => {
+    expect(V2_ELEMENT_ADV_PCT).toBe(0);
+    expect(V2_ELEMENT_DIS_PCT).toBe(0);
+    expect(elementDamageMult("water", "fire")).toBe(1);
+    expect(elementDamageMult("fire", "water")).toBe(1);
+    expect(elementDamageMult("starlight", "void")).toBe(1);
+    expect(elementDamageMult("void", "starlight")).toBe(1);
     expect(elementDamageMult("neutral", "fire")).toBe(1);
     expect(elementDamageMult("fire", "neutral")).toBe(1);
   });
 
-  it("PvP 계수(±15) 명시 전달 — 양방향 대칭 유지(메타 불변)", () => {
-    expect(V2_ELEMENT_ADV_PCT_PVP).toBe(15);
-    expect(V2_ELEMENT_DIS_PCT_PVP).toBe(15);
+  it("PvP도 속성 배율 없이 동일 피해", () => {
+    expect(V2_ELEMENT_ADV_PCT_PVP).toBe(0);
+    expect(V2_ELEMENT_DIS_PCT_PVP).toBe(0);
     const adv = V2_ELEMENT_ADV_PCT_PVP;
     const dis = V2_ELEMENT_DIS_PCT_PVP;
-    expect(elementDamageMult("water", "fire", adv, dis)).toBeCloseTo(1.15);
-    expect(elementDamageMult("fire", "water", adv, dis)).toBeCloseTo(0.85);
+    expect(elementDamageMult("water", "fire", adv, dis)).toBe(1);
+    expect(elementDamageMult("fire", "water", adv, dis)).toBe(1);
   });
 
   it("빛/어둠 폐지 — V2_ELEMENTS 에 없음, 별빛/공허 로 대체", () => {

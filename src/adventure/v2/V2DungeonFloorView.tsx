@@ -1156,7 +1156,6 @@ export function V2DungeonFloorView({
           hpCharges={selectedBatchReplay.hpCharges}
           mpCharges={selectedBatchReplay.mpCharges}
           playerSubtitle={playerSubtitle}
-          elementMatchup={selectedBatchReplay.elementMatchup}
           outcome={selectedBatchReplay.won ? undefined : "lose"}
           playerCombat={
             playerCombat
@@ -1202,7 +1201,6 @@ export function V2DungeonFloorView({
           hpCharges={lastResult.hpCharges}
           mpCharges={lastResult.mpCharges}
           playerSubtitle={playerSubtitle}
-          elementMatchup={lastResult.elementMatchup}
           // 승리는 결과 카드의 "전투 결과 승리"와 중복이라 배너 생략 — 패배만 부각(코덱스 권고).
           outcome={lastResult.won ? undefined : "lose"}
           playerCombat={

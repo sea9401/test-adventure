@@ -42,11 +42,6 @@ import {
   staminaCapBonusOf,
   tryConsume,
 } from "@/adventure/v2/stamina";
-import {
-  elementDamageMult,
-  V2_ELEMENT_ADV_PCT,
-  V2_ELEMENT_DIS_PCT,
-} from "@/adventure/data/v2/elements";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
@@ -191,10 +186,9 @@ export async function POST(req: Request) {
       kind.base.v2MaxMp ?? bossStartMp,
     );
 
-    // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 전역 잔여
+    // 전투 시뮬. 보스 hp = 전역 잔여
     // (#715 — 막타 처치가 리플레이에 보이고 damageDealt 자연 클램프. 동시 공격의 stale
     // 스냅샷 잔여분은 아래 GREATEST + min(s.hp) 클램프가 흡수).
-    const { playerElement, basicAttackElement } = preparedActor;
     // 전역 잔여 HP 기준으로 발악 스테이지를 굽되, 전투 maxHp 는 공유 최대 HP로 유지한다.
     // 그래야 처형/HP비율 스킬이 "남은 HP를 최대 HP로 오인"하지 않는다.
     const { monster: bossMonsterForCurrentHp, enrageNotes } = coopBossForBattle(
@@ -213,13 +207,6 @@ export async function POST(req: Request) {
       ...bossMonsterForCurrentHp,
       hp: kind.sharedMaxHp,
     };
-    const playerElemMult = elementDamageMult(
-      basicAttackElement,
-      bossMonster.element ?? "neutral",
-      // 원소 통달(원소술사) — 유리/불리 +%p 가산. 미보유=0 → 전역 상수(기존 동작 동일). hunt 와 동일.
-      V2_ELEMENT_ADV_PCT + (player.player.elementAdvPctBonus ?? 0),
-      V2_ELEMENT_DIS_PCT + (player.player.elementDisPctBonus ?? 0),
-    );
     const profile = await readSave<{ name?: string } | null>(
       tx,
       userId,
@@ -233,13 +220,6 @@ export async function POST(req: Request) {
       ...player.player,
       hp: battleMaxHp,
       mp: battleMaxMp,
-      atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
-      magicAtk: Math.max(
-        0,
-        Math.round((player.player.magicAtk ?? 0) * playerElemMult),
-      ),
-      attackElement: basicAttackElement,
-      characterElement: playerElement,
     };
     const battleResult = resolveBattle(playerForBattle, bossMonster, playerName, {
       pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),

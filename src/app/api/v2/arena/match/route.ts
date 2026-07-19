@@ -63,14 +63,6 @@ import {
   type ArenaOpponentRef,
 } from "@/lib/server/arena";
 import {
-  elementDamageMult,
-  elementMatchup,
-  parseV2Element,
-  V2_ELEMENT_ADV_PCT_PVP,
-  V2_ELEMENT_DIS_PCT_PVP,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import {
   emptyV2SkillsState,
   parseV2SkillsState,
   type V2SkillsState,
@@ -276,18 +268,6 @@ export async function POST() {
         ),
       );
     const candidateIds = candidateChars.map((r) => r.userId);
-    // PR-5 — 상대(실유저) 속성 맵. character.v2.value 에서 element 추출 (상성 적용용).
-    const elementByUser = new Map<string, V2Element>(
-      candidateChars.map((r) => [
-        r.userId,
-        parseV2Element((r.value as { element?: unknown }).element),
-      ]),
-    );
-    // 본인 속성.
-    const viewerElement =
-      viewerArenaLoadout?.element ??
-      parseV2Element((charSave as { element?: unknown }).element);
-
     // 6a. 순위표와 동일한 현재 시즌 pvp_ratings를 일괄 조회. 미참가자는 1000점.
     // arena-state.v2.score는 이전 누적 레이팅 호환 필드이며 매칭 기준으로 쓰지 않는다.
     const scoreByUser = new Map<string, number>();
@@ -371,7 +351,6 @@ export async function POST() {
     const pickedUserId = picked.userId;
     let opponentCombat = pickedBot != null ? pickedBot.combat : null;
     let oppSkills: V2SkillsState = emptyV2SkillsState();
-    let oppLoadoutElement: V2Element | undefined;
     if (!opponentCombat && pickedUserId) {
       const oppRows = await tx
         .select({ key: savesKv.key, value: savesKv.value })
@@ -396,7 +375,6 @@ export async function POST() {
         (candidateChars.find((r) => r.userId === pickedUserId)?.value as
           | SavedCharacterV2
           | undefined);
-      oppLoadoutElement = oppLoadout?.element;
       oppSkills = skillsStateForArena(oppRow("skills.v2"), oppLoadout);
       if (V2_CORE_LOOP_V2) {
         oppSkills = sanitizeCombatLoadout(
@@ -420,7 +398,6 @@ export async function POST() {
       pickedBot = botPick?.bot ?? null;
       opponentCombat = botPick?.bot.combat ?? null;
       oppSkills = emptyV2SkillsState();
-      oppLoadoutElement = undefined;
     }
     if (!picked || !opponentCombat) {
       return {
@@ -444,7 +421,7 @@ export async function POST() {
           "모험가",
         )
       : picked.name;
-    let oppPlayer: import("@/adventure/v2/combat/engine").PlayerCombat = {
+    const oppPlayer: import("@/adventure/v2/combat/engine").PlayerCombat = {
       ...opponentCombat.player,
       hp: opponentCombat.maxHp,
     };
@@ -453,59 +430,8 @@ export async function POST() {
     const oppRef: ArenaOpponentRef = oppUserId
       ? { userId: oppUserId, at: now.toISOString() }
       : { botId: oppBotId, at: now.toISOString() };
-    const oppElement: V2Element =
-      pickedBot?.element ??
-      oppLoadoutElement ??
-      (oppUserId ? elementByUser.get(oppUserId) : undefined) ??
-      "neutral";
-    const oppWeaponElement: V2Element = opponentCombat.weaponElement; // PR-5b — 상대 무기 속성(평타).
-
-    // 본인 HP 도 풀충전 — 단판 모델.
-    // PR-5/5b — 속성 상성. 평타 속성 = 무기 ?? 캐릭(공격), 방어 = 캐릭. atk 에 평타속성 baked +
-    // attackElement/characterElement 실어 combatShared 가 스킬 속성 보정에 사용(hunt 와 동일).
-    const viewerAttackElement: V2Element =
-      viewerCombat.weaponElement !== "neutral"
-        ? viewerCombat.weaponElement
-        : viewerElement;
-    const oppAttackElement: V2Element =
-      oppWeaponElement !== "neutral" ? oppWeaponElement : oppElement;
-    const withElemMult = (
-      p: import("@/adventure/v2/combat/engine").PlayerCombat,
-      mult: number,
-      attackElement: V2Element,
-      characterElement: V2Element,
-    ) => ({
-      ...p,
-      atk: Math.max(1, Math.round(p.atk * mult)),
-      magicAtk: Math.max(0, Math.round((p.magicAtk ?? 0) * mult)),
-      attackElement,
-      characterElement,
-    });
-    // PvP 는 별도 계수(±15, 양방향) — PvE 약점찌르기(25/0)와 분리(속성이 장비/스탯 압도 방지).
-    const myElemMult = elementDamageMult(
-      viewerAttackElement,
-      oppElement,
-      V2_ELEMENT_ADV_PCT_PVP,
-      V2_ELEMENT_DIS_PCT_PVP,
-    );
-    const oppElemMult = elementDamageMult(
-      oppAttackElement,
-      viewerElement,
-      V2_ELEMENT_ADV_PCT_PVP,
-      V2_ELEMENT_DIS_PCT_PVP,
-    );
-    const myPlayer = withElemMult(
-      { ...viewerCombat.player, hp: viewerCombat.maxHp },
-      myElemMult,
-      viewerAttackElement,
-      viewerElement,
-    );
-    oppPlayer = withElemMult(
-      oppPlayer,
-      oppElemMult,
-      oppAttackElement,
-      oppElement,
-    );
+    // 본인 HP도 풀충전 — 단판 모델. 캐릭터·장비 속성은 전투에 사용하지 않는다.
+    const myPlayer = { ...viewerCombat.player, hp: viewerCombat.maxHp };
 
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
@@ -765,14 +691,10 @@ export async function POST() {
         scoreAfter: newScore,
         scoreDelta,
         goldGained: goldGain,
-        // PR-5 — 속성 상성 (클라가 유리/불리 표기). hunt 결과와 동일 형태.
-        playerElement: viewerAttackElement,
-        elementMatchup: elementMatchup(viewerAttackElement, oppElement),
         opponent: {
           name: oppName,
           level: oppLevel,
           score: elo.defenderScoreBefore,
-          element: oppElement,
           userId: oppUserId,
           botId: oppBotId,
         },

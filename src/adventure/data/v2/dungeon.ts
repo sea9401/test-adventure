@@ -8,7 +8,6 @@
 // 둘이 분리돼 있어 출처가 무엇이든 지형에 맞는 이름을 붙인다.
 
 import type { Dungeon, DungeonEnemy } from "./types";
-import { counterElementOf, type V2Element } from "./elements";
 import { floorPowerGate } from "./dungeonLadder";
 
 // === 1구역 — 들판 ====================================================
@@ -211,26 +210,6 @@ export function enemiesForDepth(depth: number): DungeonEnemy[] {
 }
 
 // 깊이 → 표시 이름. "테마명 + 테마 내 로컬 번호"(예: 들판 1·마른 협곡 3·짐승의 소굴 6).
-// 테마 속성 요약 — 몹 속성 분포(빈도순·무속성 제외)와 "추천 속성"(최빈 속성을
-// 카운터하는 픽, 최빈이 3종 이상일 때만 — 혼합 밴드는 정답 없음). 약점찌르기(+25%)
-// 가 "어느 속성을 들고 갈까"가 되도록 사냥터 목록이 노출한다.
-export function themeElementSummary(depth: number): {
-  elements: V2Element[];
-  recommended: V2Element | null;
-} {
-  const counts = new Map<V2Element, number>();
-  for (const e of enemiesForDepth(depth)) {
-    if (!e.element || e.element === "neutral") continue;
-    counts.set(e.element, (counts.get(e.element) ?? 0) + 1);
-  }
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const top = sorted[0];
-  return {
-    elements: sorted.map(([el]) => el),
-    recommended: top && top[1] >= 3 ? counterElementOf(top[0]) : null,
-  };
-}
-
 export function depthName(depth: number): string {
   const { name, localIndex } = themeForDepth(depth);
   return `${name} ${localIndex}`;

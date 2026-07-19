@@ -30,12 +30,10 @@ type Loadout = {
   id: string;
   name: string;
   savedAt: string;
-  element?: string;
   skills: string[];
   pattern: { blocks?: unknown[] } | null;
   equipment: Record<string, string>;
   summary?: {
-    elementLabel: string | null;
     skills: { id: string; name: string; passive: boolean }[];
     equipment: {
       slot: V2EquipSlot;

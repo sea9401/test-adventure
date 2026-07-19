@@ -11,7 +11,6 @@ import {
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
-import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   attackMissPct,
   dodgeChance,
@@ -448,7 +447,6 @@ export function BattleScene({
   layout = "stacked",
   playerSubtitle,
   logAnchor = "bottom",
-  elementMatchup,
   playerCombat,
   outcome,
   outcomeAction,
@@ -462,13 +460,11 @@ export function BattleScene({
   playerCombat?: BattleStats;
   // "stacked" = 라이브(v1) 적 위 / 플레이어 아래. "split" = v2 좌(플레이어)/우(적) 반폭.
   layout?: "stacked" | "split";
-  // 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성"). split 레이아웃(v2)에서만 표시.
+  // 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사"). split 레이아웃(v2)에서만 표시.
   // 미전달 시 미표시 — 라이브(stacked)는 그대로.
   playerSubtitle?: string;
   // 로그 스크롤 기준 — "bottom"=최신 추적(라이브 턴별), "top"=1턴부터(전투 후 전체 로그 리플레이).
   logAnchor?: "top" | "bottom";
-  // 약점찌르기(+25%) 표시 — "advantage" 면 적 속성 뱃지를 "약점!" 으로 강조 (v2 PvE).
-  elementMatchup?: "advantage" | "disadvantage" | "neutral";
   // 전투 종료 결과 — 전달되면 전투 패널 위에 큰 승/패 배너를 띄운다. 미전달(라이브 진행 중·
   //   PvP·코업 등)이면 배너 미표시 → 기존 호출부 렌더 byte-identical.
   outcome?: "win" | "lose";
@@ -591,17 +587,6 @@ export function BattleScene({
                 {/* 이름 — 플레이어와 동일하게 가운데 한 줄. */}
                 <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
                   {state.enemy.name}
-                </div>
-                {/* 속성 — 이름 아래 부제(플레이어 부제 위치와 맞춤). 약점이면 강조. */}
-                <div
-                  className={`-mt-1 truncate text-center text-[11px] ${
-                    elementMatchup === "advantage"
-                      ? "font-medium text-emerald-600 dark:text-emerald-400"
-                      : "text-zinc-500 dark:text-zinc-400"
-                  }`}
-                >
-                  {V2_ELEMENT_LABEL[state.enemy.element ?? "neutral"]}
-                  {elementMatchup === "advantage" && " · 약점!"}
                 </div>
                 <HpBar
                   compact

@@ -1,17 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  Circle,
-  Drop,
-  Fire,
-  Lightning,
-  Moon,
-  Mountains,
-  Sun,
-  Wind,
-  type Icon,
-} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -31,82 +20,13 @@ import {
   parseV2Class,
   type V2Class,
 } from "@/adventure/data/v2/classes";
-import {
-  V2_ELEMENT_LABEL,
-  V2_PLAYER_ELEMENTS,
-  parseV2Element,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import { elementChangeGoldCost } from "@/adventure/data/v2/respec";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
 
-// 성장의 신전 내부 탭 — 직업(전직), 속성 재조율, 수행(스탯 한계↑)을 분리.
-type ShrineTab = "job" | "element" | "cultivate";
-
-const ELEMENT_STYLE: Record<
-  V2Element,
-  { Icon: Icon; dot: string; active: string; icon: string }
-> = {
-  neutral: {
-    Icon: Circle,
-    dot: "bg-zinc-400",
-    active:
-      "border-zinc-500 bg-zinc-100 text-zinc-900 dark:border-zinc-400 dark:bg-zinc-800 dark:text-zinc-100",
-    icon: "text-zinc-500 dark:text-zinc-300",
-  },
-  water: {
-    Icon: Drop,
-    dot: "bg-sky-500",
-    active:
-      "border-sky-500 bg-sky-50 text-sky-900 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-100",
-    icon: "text-sky-500 dark:text-sky-300",
-  },
-  fire: {
-    Icon: Fire,
-    dot: "bg-rose-500",
-    active:
-      "border-rose-500 bg-rose-50 text-rose-900 dark:border-rose-400 dark:bg-rose-950/50 dark:text-rose-100",
-    icon: "text-rose-500 dark:text-rose-300",
-  },
-  wind: {
-    Icon: Wind,
-    dot: "bg-teal-500",
-    active:
-      "border-teal-500 bg-teal-50 text-teal-900 dark:border-teal-400 dark:bg-teal-950/50 dark:text-teal-100",
-    icon: "text-teal-500 dark:text-teal-300",
-  },
-  starlight: {
-    Icon: Sun,
-    dot: "bg-amber-400",
-    active:
-      "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-300 dark:bg-amber-950/50 dark:text-amber-100",
-    icon: "text-amber-500 dark:text-amber-300",
-  },
-  void: {
-    Icon: Moon,
-    dot: "bg-violet-500",
-    active:
-      "border-violet-500 bg-violet-50 text-violet-900 dark:border-violet-400 dark:bg-violet-950/50 dark:text-violet-100",
-    icon: "text-violet-500 dark:text-violet-300",
-  },
-  earth: {
-    Icon: Mountains,
-    dot: "bg-lime-600",
-    active:
-      "border-lime-600 bg-lime-50 text-lime-950 dark:border-lime-400 dark:bg-lime-950/50 dark:text-lime-100",
-    icon: "text-lime-600 dark:text-lime-300",
-  },
-  lightning: {
-    Icon: Lightning,
-    dot: "bg-yellow-400",
-    active:
-      "border-yellow-500 bg-yellow-50 text-yellow-950 dark:border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-100",
-    icon: "text-yellow-500 dark:text-yellow-300",
-  },
-};
+// 성장의 신전 내부 탭 — 직업(전직), 수행(스탯 한계↑).
+type ShrineTab = "job" | "cultivate";
 
 // v2 수행(修行) — 직업 전직/재전직 + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
 // 옛 "성장의 신전"(수동 스탯 분배) 대체. 분배는 레벨업 랜덤 성장이 담당하고, 여기서는
@@ -118,7 +38,6 @@ type StateShape = {
     level?: number;
     gold?: number;
     class?: string;
-    element?: string;
     // 코어루프 flag-on 전용(off=null).
     classDisplayName?: string | null;
     spec?: string | null;
@@ -153,7 +72,7 @@ type StateShape = {
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
-  const { refreshGameState, coreLoopOn, bankedGold } = useGameState();
+  const { refreshGameState } = useGameState();
   // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
@@ -166,13 +85,11 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   // 레거시 직업 그리드용 — 캐릭터 + 직군 요약(도달차수·숙련도) + 현 직업군 전직 가능 여부.
   const [picker, setPicker] = useState<{
     cls: V2Class;
-    elem: V2Element;
     level: number;
     gold: number;
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
   } | null>(null);
-  const [selectedElement, setSelectedElement] = useState<V2Element>("neutral");
   // 직업 시스템 v2(직업 숙련도 점진 공개) — null(코어루프 off)이면 V2ClassGrid 폴백.
   const [jobLadder, setJobLadder] = useState<{
     currentJobId: string;
@@ -200,16 +117,13 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
         if (j.character) {
-          const elem = parseV2Element(j.character.element);
           setPicker({
             cls: parseV2Class(j.character.class),
-            elem,
             level: j.character.level ?? 1,
             gold: j.character.gold ?? 0,
             groups: j.proficiency?.groups ?? {},
             advance: cur.advance ?? null,
           });
-          setSelectedElement(elem);
         }
         // 코어루프 on(jobsV2 비null)이면 점진 공개 사다리. off 면 null → 레거시 V2ClassGrid 폴백.
         setJobLadder(
@@ -244,18 +158,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       : "";
   const canCultivate =
     !!profile && !busy && usable >= nextCost && nextCost > 0;
-  const currentElement = picker?.elem ?? "neutral";
-  const elementChanged = selectedElement !== currentElement;
-  const elementCost =
-    picker && elementChanged ? elementChangeGoldCost(picker.level) : 0;
-  const spendableGold = picker
-    ? coreLoopOn
-      ? picker.gold + bankedGold
-      : picker.gold
-    : 0;
-  const canChangeElement =
-    !!picker && elementChanged && !busy && spendableGold >= elementCost;
-
   const cultivate = useCallback(async () => {
     setBusy(true);
     setMsg(null);
@@ -298,56 +200,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     }
   }, [capGains, caps, cultivations, usable, nextCost, setMsg]);
 
-  const changeElement = useCallback(async () => {
-    if (!picker || !elementChanged) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/class-element", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ class: picker.cls, element: selectedElement }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        spent?: number;
-        required?: number;
-        have?: number;
-      } | null;
-      if (!j?.ok) {
-        const label =
-          j?.error === "insufficient_gold"
-            ? `골드 부족 (필요 ${(j.required ?? elementCost).toLocaleString()}G, 보유 ${(j.have ?? spendableGold).toLocaleString()}G)`
-            : j?.error === "bad_class"
-              ? "현재 직업 상태를 확인하지 못했어요"
-              : (j?.error ?? `http ${res.status}`);
-        setMsg(`✗ ${label}`);
-        return;
-      }
-      const spent = j.spent ?? elementCost;
-      setMsg(
-        spent > 0
-          ? `✓ 속성 재조율 완료 (${spent.toLocaleString()}G 사용)`
-          : "✓ 속성 설정 완료",
-      );
-      await Promise.all([refresh(), refreshGameState()]);
-    } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    elementChanged,
-    elementCost,
-    picker,
-    refresh,
-    refreshGameState,
-    selectedElement,
-    setMsg,
-    spendableGold,
-  ]);
-
   // 프로필 스탯(앵커 + 관련 2) 을 상승치 큰 순으로.
   const profileStats: V2StatKey[] = profile
     ? (Object.keys(profile) as V2StatKey[]).sort(
@@ -363,7 +215,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         <TabBar
           tabs={[
             { key: "job", label: "직업" },
-            { key: "element", label: "속성" },
             { key: "cultivate", label: "수행" },
           ]}
           active={tab}
@@ -394,7 +245,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             // 코어루프 off 폴백 — 옛 4직군 그리드(코어루프 on 이면 위 사다리가 항상 렌더).
             <V2ClassGrid
               currentClass={picker.cls}
-              currentElement={picker.elem}
               level={picker.level}
               gold={picker.gold}
               groups={picker.groups}
@@ -411,107 +261,6 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             </p>
           </Card>
         ))}
-
-      {tab === "element" && (
-        <>
-          <Card padding="md">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold">속성 재조율</h2>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                  현재 속성{" "}
-                  <strong className="text-zinc-900 dark:text-zinc-100">
-                    {V2_ELEMENT_LABEL[currentElement]}
-                  </strong>
-                </p>
-              </div>
-              <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
-                <div>
-                  비용{" "}
-                  <strong
-                    className={
-                      spendableGold >= elementCost
-                        ? "tabular-nums text-emerald-700 dark:text-emerald-400"
-                        : "tabular-nums text-rose-600 dark:text-rose-400"
-                    }
-                  >
-                    {elementCost.toLocaleString()}G
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            {loading || !picker ? (
-              <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-                {loading ? "불러오는 중…" : "속성 정보를 불러오지 못했어요."}
-              </p>
-            ) : (
-              <>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {V2_PLAYER_ELEMENTS.map((elem) => {
-                    const active = selectedElement === elem;
-                    const style = ELEMENT_STYLE[elem];
-                    const Icon = style.Icon;
-                    return (
-                      <button
-                        key={elem}
-                        type="button"
-                        onClick={() => setSelectedElement(elem)}
-                        className={`flex min-h-14 items-center gap-2 rounded-md border px-3 py-2 text-left text-sm font-semibold transition ${
-                          active
-                            ? style.active
-                            : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-700"
-                        }`}
-                      >
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
-                            active
-                              ? "bg-white/70 dark:bg-black/20"
-                              : "bg-zinc-100 dark:bg-zinc-900"
-                          }`}
-                        >
-                          <Icon
-                            size={20}
-                            weight={active ? "fill" : "duotone"}
-                            className={style.icon}
-                          />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">
-                          {V2_ELEMENT_LABEL[elem]}
-                        </span>
-                        <span
-                          aria-hidden="true"
-                          className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    보유 가능 골드 {spendableGold.toLocaleString()}G
-                  </span>
-                  <Button
-                    onClick={changeElement}
-                    disabled={!canChangeElement}
-                    variant="success"
-                    size="md"
-                  >
-                    {busy ? "재조율 중…" : "속성 변경"}
-                  </Button>
-                </div>
-              </>
-            )}
-          </Card>
-
-          {msg && (
-            <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>
-              {msg}
-            </StatusBanner>
-          )}
-        </>
-      )}
 
       {/* === 수행 탭 — 숙달 포인트로 스탯 한계치↑ === */}
       {tab === "cultivate" && (

@@ -10,10 +10,6 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
-  parseV2Element,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
   spendGoldWith,
@@ -29,9 +25,7 @@ import { readCodexSpBonus } from "@/lib/server/codexSpBonus";
 import { readJobUnlockContext } from "@/lib/server/jobUnlockContext";
 import {
   RESPEC_COOLDOWN_MS,
-  elementChangeGoldCost,
   isClassChange,
-  isElementChange,
   isPaidRespec,
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
@@ -43,8 +37,8 @@ import {
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 
-// POST /api/v2/me/class-element — 직업·속성 선택/변경.
-// PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 골드 비용.
+// POST /api/v2/me/class-element — 레거시 경로명을 유지하는 직업 선택/변경 API.
+// 속성 선택·상성은 폐지되어 요청의 element 값은 더 이상 읽거나 저장하지 않는다.
 // 시그니처는 숙련도 학습(learn-skill)이라 여기선 자동 학습 안 함.
 // 코어루프에서는 수동 SP 로드아웃을 보존하고, 레거시만 새 직업 체인으로 equipped 를 재산출한다.
 
@@ -64,7 +58,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { class?: unknown; element?: unknown };
+  let body: { class?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -72,67 +66,6 @@ export async function POST(req: Request) {
   }
 
   const nextClass: V2Class = parseV2Class(body.class);
-  const nextElement: V2Element = parseV2Element(body.element);
-
-  // 코어루프 — 신규 캐릭은 모험가(none)로 시작. 캐릭 생성의 "첫 선택"은 직업이 아니라 속성만
-  //   고른다(직군은 인게임 직업 해금·재전직으로). class="none" 요청 = 속성만 설정,
-  //   직업은 none 유지(직업/스킬 로직 미실행).
-  if (V2_CORE_LOOP_V2 && nextClass === "none") {
-    const r = await db.transaction(async (tx) => {
-      const charSave = await lockSaveForUpdate<CharSaveShape>(
-        tx,
-        userId,
-        "character.v2",
-        {},
-      );
-      const curElement = parseV2Element(charSave.element);
-      const elementChanged = isElementChange(curElement, nextElement);
-      const gold = Math.max(0, charSave.gold ?? 0);
-      const bankedGold = Math.max(
-        0,
-        Math.floor(Number(charSave.bankedGold) || 0),
-      );
-      let spent = 0;
-      let nextGold = gold;
-      let nextBankedGold = bankedGold;
-      if (elementChanged) {
-        const cost = elementChangeGoldCost(charSave.level ?? 1);
-        const spend = spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
-        if (!spend.ok) {
-          return {
-            status: 400,
-            body: {
-              ok: false as const,
-              error: "insufficient_gold" as const,
-              required: cost,
-              have: gold + bankedGold,
-            },
-          };
-        }
-        spent = cost;
-        nextGold = spend.gold;
-        nextBankedGold = spend.bankedGold;
-      }
-      await upsertSave(tx, userId, "character.v2", {
-        ...charSave,
-        element: nextElement,
-        gold: nextGold,
-        bankedGold: nextBankedGold,
-      });
-      return {
-        status: 200,
-        body: {
-          ok: true as const,
-          class: "none" as const,
-          element: nextElement,
-          gold: nextGold,
-          bankedGold: nextBankedGold,
-          spent,
-        },
-      };
-    });
-    return Response.json(r.body, { status: r.status });
-  }
 
   if (!V2_SELECTABLE_CLASSES.includes(nextClass)) {
     return Response.json({ ok: false, error: "bad_class" }, { status: 400 });
@@ -166,7 +99,6 @@ export async function POST(req: Request) {
     );
 
     const curClass = parseV2Class(charSave.class);
-    const curElement = parseV2Element(charSave.element);
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
@@ -190,7 +122,7 @@ export async function POST(req: Request) {
     }
 
     // design A(§3.2·§6) — 직업군 변경(횡환생)은 5차 정점(만렙) 전용. 자유 respec 폐기로
-    // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군·속성변경은 면제.
+    // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군은 면제.
     // (잘못 고른 초반 캐릭의 탈출구는 신전 초기화 — respec 과 별개.)
     if (groupChanged && !isFirstPick) {
       const curGroupTier = prof.groups[tier1ClassOf(curClass)]?.tier ?? 1;
@@ -209,14 +141,14 @@ export async function POST(req: Request) {
       }
     }
     // 직업군 변경(다른 직업으로 재전직) = 레벨 1·exp 0·grown 리셋(advance 와 동일).
-    // 첫 선택·속성만 변경은 레벨 유지.
+    // 첫 선택은 레벨 유지.
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 코어루프는 learned 불변 + equipped 보존
     // sanitize 만 수행한다. flag off 레거시는 현 체인 유효분으로 자동 장착.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드 비용.
-    const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
+    const paid = isPaidRespec(curClass, nextClass);
     let spent = 0;
     let nextGold = gold;
     let nextBankedGold = bankedGold;
@@ -235,13 +167,7 @@ export async function POST(req: Request) {
           },
         };
       }
-      const cost = respecGoldCost(
-        curClass,
-        nextClass,
-        curElement,
-        nextElement,
-        level,
-      );
+      const cost = respecGoldCost(curClass, nextClass, level);
       const spend = spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
       if (!spend.ok) {
         return {
@@ -264,7 +190,6 @@ export async function POST(req: Request) {
     const charUpdate: Record<string, unknown> = {
       ...charSave,
       class: effectiveClass,
-      element: nextElement,
       gold: nextGold,
       bankedGold: nextBankedGold,
       lastRespecAt: nextLastRespecAt,
@@ -338,7 +263,6 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         class: effectiveClass,
-        element: nextElement,
         gold: nextGold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: nextBankedGold } : {}),
         spent,

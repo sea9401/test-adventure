@@ -19,12 +19,10 @@ import {
 import {
   MAIN_DUNGEON,
   dungeonThemeCatalog,
-  huntStageLabel,
 } from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
-import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import {
   dropPoolForDepth,
@@ -529,20 +527,19 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
                     <h2 className="text-sm font-bold">{theme.name}</h2>
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      진행: {huntStageLabel(theme.depthEnd)}
+                      깊이 {theme.depthStart}~{theme.depthEnd}
                     </span>
                   </div>
 
                   {/* 몬스터 — 처리한(최고 도달) 깊이 기준 스탯. */}
                   <p className="mb-1 text-[10px] text-zinc-400 dark:text-zinc-500">
-                    몬스터 스탯 = 도달한 {huntStageLabel(theme.depthEnd)} 기준 (속성 상성 전)
+                    몬스터 스탯 = 도달한 깊이 {theme.depthEnd} 기준
                   </p>
                   <div className="space-y-1.5">
                     {theme.enemies.map((e) => {
                       const base = V2_MONSTERS[e.key];
                       if (!base) return null;
                       const m = scaleMonsterForFloor(base, theme.depthEnd);
-                      const elem = e.element ? V2_ELEMENT_LABEL[e.element] : null;
                       const status = e.statusSkill
                         ? (V2_SKILLS[e.statusSkill as V2SkillId]?.name ?? null)
                         : null;
@@ -570,11 +567,6 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                               <span className="truncate text-sm font-medium">
                                 {e.name}
                               </span>
-                              {elem && elem !== "무" && (
-                                <span className="rounded bg-zinc-200 px-1 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                                  {elem}
-                                </span>
-                              )}
                               {status && (
                                 <span className="rounded bg-rose-100 px-1 text-[10px] text-rose-700 dark:bg-rose-950 dark:text-rose-300">
                                   {status}

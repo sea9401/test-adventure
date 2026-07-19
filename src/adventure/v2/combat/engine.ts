@@ -1132,8 +1132,6 @@ export function applyEnemyV2SkillCast(
       maxMp: state.enemyMaxMp,
       selfBuffs: state.enemyV2SelfBuffs,
       selfDebuffs: state.enemyV2Debuffs,
-      // 몬스터 평타·스킬 모두 자기 속성(atk 에 baked) — 보정 1(이중계산 방지).
-      attackElement: state.enemy.element,
       characterElement: state.enemy.element,
     },
     target: {
@@ -1141,7 +1139,6 @@ export function applyEnemyV2SkillCast(
       magicDef: player.magicDef,
       selfBuffs: state.v2SelfBuffs,
       selfDebuffs: state.v2SelfDebuffs,
-      element: player.characterElement,
       currentHp: state.playerHp,
       maxHp: state.playerMaxHp,
       bleedStacks: state.playerV2Dots
@@ -1357,8 +1354,6 @@ export function applyPlayerV2SkillCast(
       },
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
-      // PR-5b — 플레이어 평타 속성(baked) + 캐릭 속성(스킬 기본).
-      attackElement: player.attackElement,
       characterElement: player.characterElement,
     },
     target: {
@@ -1367,8 +1362,6 @@ export function applyPlayerV2SkillCast(
       // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
       selfBuffs: state.enemyV2SelfBuffs,
       selfDebuffs: tickedEnemyDebuffs,
-      // PR-5b — 피격 몬스터 속성(상성).
-      element: state.enemy.element,
       // PR2-B — 처단(처형 임계)·스택 payoff(참절/중독폭발/비전작렬).
       currentHp: state.enemyHp,
       maxHp: state.enemy.hp,
@@ -1933,8 +1926,6 @@ function resolveBattleLegacy(
             maxMp: state.enemyMaxMp,
             selfBuffs: tickedEnemySelfBuffs,
             selfDebuffs: tickedEnemyDebuffsLocal,
-            // PR-5b — 몬스터 평타·스킬 모두 자기 속성(atk 에 baked). 보정=1(이중계산 방지).
-            attackElement: state.enemy.element,
             characterElement: state.enemy.element,
           },
           target: {
@@ -1942,8 +1933,6 @@ function resolveBattleLegacy(
             magicDef: player.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tickedPlayerDebuffs,
-            // PR-5b — 피격 플레이어의 방어 속성(캐릭 속성).
-            element: player.characterElement,
             // PR2-B — 상대(플레이어)의 처단/스택 payoff 대상 = 시전자 player.
             currentHp: state.playerHp,
             maxHp: state.playerMaxHp,

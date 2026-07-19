@@ -8,10 +8,8 @@ import {
   huntStageLabel,
   huntStageName,
   nextHuntStageDepth,
-  themeElementSummary,
   MAX_FRONTIER_DEPTH,
 } from "@/adventure/data/v2/dungeon";
-import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   RARE_MAP_KINDS,
   type RareMapInstance,
@@ -125,7 +123,6 @@ export function V2DungeonList({
         // 이너 — 선택한 테마의 입구·심부·최심부 카드.
         <div className="space-y-3">
           <PowerSummary playerPower={playerPower} />
-          <ThemeElementLine depth={openGroup.depths[0]} />
           <div className="grid grid-cols-2 gap-2">
             {openGroup.depths.map((depth) => (
               <DepthCard
@@ -270,7 +267,6 @@ export function V2DungeonList({
                       <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                         {stageRangeLabel(g.depths)}
                       </div>
-                      <ThemeElementLine depth={g.depths[0]} compact />
                       {hasChallenge && (
                         <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                           도전 구역 포함
@@ -403,28 +399,6 @@ function PowerSummary({ playerPower }: { playerPower?: number | null }) {
           {Math.round(playerPower).toLocaleString()}
         </span>
       </div>
-    </div>
-  );
-}
-
-// 테마 속성 요약 한 줄 — 등장 속성만 노출(추천 속성 태그는 제거).
-//   약점찌르기 +25% 판단은 등장 속성을 보고 플레이어가 직접 한다.
-function ThemeElementLine({
-  depth,
-  compact,
-}: {
-  depth: number;
-  compact?: boolean;
-}) {
-  const { elements } = themeElementSummary(depth);
-  if (elements.length === 0) return null;
-  return (
-    <div
-      className={`flex flex-wrap items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400 ${
-        compact ? "mt-1" : ""
-      }`}
-    >
-      <span>속성 {elements.map((e) => V2_ELEMENT_LABEL[e]).join("·")}</span>
     </div>
   );
 }

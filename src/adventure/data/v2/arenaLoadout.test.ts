@@ -16,7 +16,6 @@ const mk = (id: string, over: Partial<ArenaLoadout> = {}): ArenaLoadout => ({
   savedAt: "2026-06-08T00:00:00.000Z",
   skills: ["a", "b"] as unknown as V2SkillId[],
   pattern: null,
-  element: "fire",
   equipment: { weapon: "w1", armor: "a1" },
   ...over,
 });
@@ -41,7 +40,6 @@ describe("parseArenaLoadouts (방어적 파싱)", () => {
     ]);
     expect(parsed).toHaveLength(2);
     expect(parsed[0]!.id).toBe("ok");
-    expect(parsed[0]!.element).toBe("fire");
     expect(parsed[1]!.skills).toEqual(["x", "y"]);
     expect(parsed[1]!.equipment).toEqual({ weapon: "w" }); // armor=5 거름·bogus 슬롯 거름
   });

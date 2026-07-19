@@ -170,8 +170,6 @@ function build(c: Case): PlayerCombat {
     passiveAccuracyPct: passive.accuracyPct,
     passiveHealPowerPct: passive.healPowerPct,
     passiveDamageTakenReductionPct: passive.damageTakenReductionPct,
-    passiveElementAdvPctBonus: passive.elementAdvPctBonus,
-    passiveElementDisPctBonus: passive.elementDisPctBonus,
     passivePoisonedEnemyDefReductionPct: passive.poisonedEnemyDefReductionPct,
   });
   return d.player;

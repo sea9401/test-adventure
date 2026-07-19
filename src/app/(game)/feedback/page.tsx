@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function FeedbackPage() {
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="game-content-readable mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ChatCenteredText

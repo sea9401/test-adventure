@@ -68,7 +68,7 @@ export function V2RenameView({
   }
 
   return (
-    <PageShell>
+    <PageShell className="game-content-readable">
       <SubViewHeader title="개명의 신전" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         새 이름으로 다시 태어납니다 — 입장권은 한 번 쓰면 사라집니다.

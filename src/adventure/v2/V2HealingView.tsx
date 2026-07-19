@@ -189,7 +189,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const allFull = isFull;
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="game-content-readable mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="치료소" onBack={onBack} />
       {loadError && <LoadErrorBanner onRetry={refresh} />}
       <Card padding="md">

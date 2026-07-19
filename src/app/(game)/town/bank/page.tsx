@@ -8,7 +8,7 @@ import { BankPanel } from "@/adventure/v2/BankPanel";
 export default function TownBankPage() {
   const router = useRouter();
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="game-content-readable mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="은행" onBack={() => router.push("/town")} />
       <BankPanel />
       <p className="px-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">

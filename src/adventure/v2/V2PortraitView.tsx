@@ -63,7 +63,7 @@ export function V2PortraitView({
   }
 
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="game-content-readable mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="화공의 공방" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         초상화를 새로 그립니다 — 입장권은 한 번 쓰면 사라집니다.

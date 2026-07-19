@@ -71,6 +71,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     accountName,
     stamina,
     staminaMax,
+    staminaRegenBonusPct,
     staminaPotions,
     viewerName,
     viewerGuildId,
@@ -161,7 +162,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         />
       )}
       <div>
-        {/* 메인 내비 — 5탭 유지, 전투/마을/캐릭터는 하위 메뉴 드롭다운(사용자 요청). */}
+        {/* 메인 내비 — 5탭 유지, 하위 화면은 드롭다운으로 진입. */}
         <MainTabNav
           activeKey={activeTab}
           viewerGuildId={viewerGuildId}
@@ -175,6 +176,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
             <StaminaBar
               state={stamina}
               max={staminaMax}
+              regenBonusPct={staminaRegenBonusPct}
               potions={staminaPotions}
               onUsePotion={usePotion}
             />

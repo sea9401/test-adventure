@@ -11,6 +11,7 @@ import {
   HUNT_COST,
   applyRegen,
   parseStaminaFromSave,
+  staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
@@ -162,16 +163,28 @@ export async function POST(req: Request) {
     // 코어루프 on — 토벌은 자기 영지 방어라 스태미나·전투 쿨다운 없이 즉시 가능.
     // off — 기존 스태미나 차감(무변경).
     const stamina = parseStaminaFromSave(attackerSave.stamina, now);
-    let afterStamina = applyRegen(stamina, now);
+    const staminaConfig = staminaConfigForCharacter(attackerSave, now);
+    let afterStamina = applyRegen(
+      stamina,
+      now,
+      staminaConfig.max,
+      staminaConfig.regenBonusPct,
+    );
     if (!V2_CORE_LOOP_V2) {
-      const after = tryConsume(stamina, EJECT_STAMINA_COST, now);
+      const after = tryConsume(
+        stamina,
+        EJECT_STAMINA_COST,
+        now,
+        staminaConfig.max,
+        staminaConfig.regenBonusPct,
+      );
       if (!after) {
         return {
           status: 409,
           body: {
             ok: false as const,
             error: "out_of_stamina" as const,
-            stamina: applyRegen(stamina, now),
+            stamina: afterStamina,
             requiredStamina: EJECT_STAMINA_COST,
           },
         };

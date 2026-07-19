@@ -148,6 +148,49 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(savesStore.get("u1::stamina-potions.v1")).toEqual({ count: 3 });
   });
 
+  it("admin_gift 지원권은 수령 시 활성화되고 최초 스태미나 1000을 지급한다", async () => {
+    const before = Date.now();
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: {
+        gold: 0,
+        materials: [],
+        items: [],
+        staminaPotions: 0,
+        adventureSupportDays: 30,
+      },
+      claimedAt: null,
+    });
+    const res = await POST(req([1]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      adventureSupportDaysAdded: number;
+      adventureSupportActiveUntil: number;
+      adventureSupportFirstActivation: boolean;
+      staminaAfterSupport: { current: number };
+      staminaMaxAfterSupport: number;
+    };
+    expect(res.status).toBe(200);
+    expect(j.ok).toBe(true);
+    expect(j.adventureSupportDaysAdded).toBe(30);
+    expect(j.adventureSupportFirstActivation).toBe(true);
+    expect(j.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
+      before + 30 * 86_400_000,
+    );
+    expect(j.staminaAfterSupport.current).toBe(2500);
+    expect(j.staminaMaxAfterSupport).toBe(2500);
+
+    const character = savesStore.get("u1::character.v2") as {
+      adventureSupport: { activeUntil: number };
+      stamina: { current: number };
+    };
+    expect(character.adventureSupport.activeUntil).toBe(
+      j.adventureSupportActiveUntil,
+    );
+    expect(character.stamina.current).toBe(2500);
+  });
+
   it("admin_gift 장비는 inventory.v2 가 아니라 equipment.v2 개체로 들어간다", async () => {
     inboxRows.push({
       id: 1,

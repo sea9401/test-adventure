@@ -43,6 +43,7 @@ export function V2CoopBossDetailView({
   sessionId,
   stamina,
   staminaMax,
+  staminaRegenBonusPct,
   setStamina,
   onBack,
   onOpenAttackLog,
@@ -50,6 +51,7 @@ export function V2CoopBossDetailView({
   sessionId: string;
   stamina: StaminaState;
   staminaMax: number;
+  staminaRegenBonusPct: number;
   setStamina: (s: StaminaState) => void;
   onBack: () => void;
   onOpenAttackLog: (attackId: number) => void;
@@ -124,7 +126,12 @@ export function V2CoopBossDetailView({
       ? my.lastAttackAt + coopAttackCooldownMs() - now
       : 0;
   const onCooldown = active && cooldownLeft > 0;
-  const liveStamina = applyRegen(stamina, now, staminaMax);
+  const liveStamina = applyRegen(
+    stamina,
+    now,
+    staminaMax,
+    staminaRegenBonusPct,
+  );
   const lowStamina = liveStamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.damage > 0;
   // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.

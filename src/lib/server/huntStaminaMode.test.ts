@@ -63,7 +63,10 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import { HUNT_COST } from "@/adventure/v2/stamina";
 
-function seedStrongWarrior(staminaCurrent: number) {
+function seedStrongWarrior(
+  staminaCurrent: number,
+  adventureSupportActive = false,
+) {
   store.clear();
   store.set("character.v2", {
     class: "warrior",
@@ -73,6 +76,14 @@ function seedStrongWarrior(staminaCurrent: number) {
     hp: 999999,
     stamina: { current: staminaCurrent, lastUpdatedAt: Date.now() },
     frontierDepth: 2,
+    ...(adventureSupportActive
+      ? {
+          adventureSupport: {
+            activatedAt: Date.now() - 1_000,
+            activeUntil: Date.now() + 86_400_000,
+          },
+        }
+      : {}),
   });
   store.set("equipment.v2", {
     owned: [{ iid: "w1", id: "v2_cave_greatsword" }],
@@ -135,6 +146,24 @@ describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", (
     expect(res.status).toBe(200);
     const json = (await res.json()) as { batch?: unknown };
     expect(json.batch).toBeDefined();
+  });
+
+  it("지원권이 없으면 50회 요청을 서버에서 거부한다", async () => {
+    const res = await POST(huntReq({ floor: 2, count: 50 }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "adventure_support_required",
+      maxCount: 10,
+    });
+  });
+
+  it("활성 지원권 이용자는 50회 일괄 사냥을 실행할 수 있다", async () => {
+    seedStrongWarrior(5000, true);
+    const res = await POST(huntReq({ floor: 2, count: 50 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { batch?: { attempted?: number } };
+    expect(json.batch?.attempted).toBe(50);
   });
 
   it("스태미나 부족 = 409 out_of_stamina", async () => {

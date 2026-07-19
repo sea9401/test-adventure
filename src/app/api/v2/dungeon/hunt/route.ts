@@ -50,13 +50,15 @@ import {
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
 import { GUILD_EXPLORATION_DEEP_HUNT_MIN_DEPTH } from "@/adventure/data/v2/guildExploration";
-import { maxHuntBatchForAdventureSupport } from "@/adventure/data/v2/adventureSupport";
+import {
+  adventureSupportActive,
+  maxHuntBatchForAdventureSupport,
+} from "@/adventure/data/v2/adventureSupport";
 import {
   HUNT_COST,
-  MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
-  staminaCapBonusOf,
+  staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
@@ -385,13 +387,17 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   const mapStoneMult = mapDef?.enhanceStoneMult ?? 1;
 
   const stamina = parseStaminaFromSave(charSave.stamina, now);
-  // per-user 스태미나 최대치 — 기본 + 기존 구매자 레거시 영구 보너스.
-  const staminaMax =
-    MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+  const staminaConfig = staminaConfigForCharacter(charSave, now);
+  const staminaMax = staminaConfig.max;
   // 쿨다운 모드 — 스태미나 폐지·전투 쿨다운(마지막 전투 후 HUNT_COOLDOWN_MS 경과해야 다음 판).
   //   V1식 한판한판 throttle. 그 외(스태미나 모드·코어루프 off) — 스태미나 차감. afterStamina 는
-  //   쿨다운 모드일 때 회복만(스태미나 미사용이라 표시·레거시 보너스 보존용).
-  let afterStamina = applyRegen(stamina, now, staminaMax);
+  //   쿨다운 모드일 때 회복만(스태미나 미사용이라 표시·한계의 비약 보존용).
+  let afterStamina = applyRegen(
+    stamina,
+    now,
+    staminaMax,
+    staminaConfig.regenBonusPct,
+  );
   if (HUNT_COOLDOWN_MODE) {
     // 오프라인 정산은 쿨다운 게이트 건너뜀(과거 누적 판수를 정산 — 미래 throttle 아님).
     const lastBattleAt = Number(charSave.lastBattleAt) || 0;
@@ -408,7 +414,13 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       };
     }
   } else {
-    const after = tryConsume(stamina, HUNT_COST, now, staminaMax);
+    const after = tryConsume(
+      stamina,
+      HUNT_COST,
+      now,
+      staminaMax,
+      staminaConfig.regenBonusPct,
+    );
     if (!after) {
       return {
         ok: false as const,
@@ -416,7 +428,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
         body: {
           ok: false as const,
           error: "out_of_stamina" as const,
-          stamina: applyRegen(stamina, now, staminaMax),
+          stamina: applyRegen(
+            stamina,
+            now,
+            staminaMax,
+            staminaConfig.regenBonusPct,
+          ),
         },
       };
     }
@@ -567,7 +584,12 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
       body: {
         ok: false as const,
         error: "hp_zero" as const,
-        stamina: applyRegen(stamina, now, staminaMax),
+        stamina: applyRegen(
+          stamina,
+          now,
+          staminaMax,
+          staminaConfig.regenBonusPct,
+        ),
       },
     };
   }
@@ -1033,13 +1055,20 @@ export async function POST(req: Request) {
     }
   }
 
-  // 일괄 사냥 횟수 — 결제 연동 전에는 모든 계정이 미가입이므로 최대 10회. 추후 서버 권위
-  // 이용권 조회를 이 값에 연결하면 활성 계정만 50회가 열린다. 클라 숨김만으로 우회되지 않게
-  // API에서도 상한을 검증한다.
+  // 일괄 사냥 횟수 — character.v2 지원권 만료 시각을 서버에서 읽어 활성 계정만 50회.
+  // 클라이언트 옵션 숨김만으로 우회되지 않도록 API에서도 상한을 검증한다.
   // 쿨다운 모드 — 일괄 폐지(V1식 한판한판·전투 쿨다운이 throttle). 누적 판수는 오프라인 정산이 담당.
   //   스태미나 모드/off — 일괄 허용(스태미나가 throttle).
-  const adventureSupportActive = false;
-  const maxHuntBatch = maxHuntBatchForAdventureSupport(adventureSupportActive);
+  const supportCharacter = await readSave<CharSave>(
+    db,
+    userId,
+    "character.v2",
+    {},
+  );
+  const hasAdventureSupport = adventureSupportActive(
+    supportCharacter.adventureSupport,
+  );
+  const maxHuntBatch = maxHuntBatchForAdventureSupport(hasAdventureSupport);
   const requestedCount = Math.max(1, Math.floor(Number(body.count) || 1));
   if (!HUNT_COOLDOWN_MODE && requestedCount > maxHuntBatch) {
     return Response.json(

@@ -45,6 +45,7 @@ import {
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
 import {
+  ADVENTURE_SUPPORT_PASS,
   huntCountsForAdventureSupport,
   normalizeHuntCount,
   type HuntCount,
@@ -172,7 +173,7 @@ export function V2DungeonFloorView({
   // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
   initialExp?: number;
   initialMaxExp?: number;
-  // 월간 모험 지원권 활성 여부. 결제 연동 전에는 false이며, 활성 이용자만 50회 일괄 전투 허용.
+  // 월간 모험 지원권 활성 여부. 서버 만료 시각이 유효한 이용자만 50회 일괄 전투 허용.
   adventureSupportActive?: boolean;
   initialHpCharges?: number;
   initialMpCharges?: number;
@@ -587,6 +588,9 @@ export function V2DungeonFloorView({
     : 0;
   const staminaCurrent = stamina.current;
   const staminaLastUpdatedAt = stamina.lastUpdatedAt;
+  const staminaRegenBonusPct = adventureSupportActive
+    ? ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct
+    : 0;
   const lowStamina = !coreLoopOn && staminaCurrent < HUNT_COST;
   useEffect(() => {
     if (coreLoopOn || !onRefresh || staminaCurrent >= HUNT_COST) {
@@ -599,11 +603,12 @@ export function V2DungeonFloorView({
       HUNT_COST,
       Date.now(),
       staminaMax,
+      staminaRegenBonusPct,
     );
     if (!Number.isFinite(waitMs)) return;
 
     const id = window.setTimeout(() => {
-      const refreshKey = `${staminaCurrent}:${staminaLastUpdatedAt}:${staminaMax}`;
+      const refreshKey = `${staminaCurrent}:${staminaLastUpdatedAt}:${staminaMax}:${staminaRegenBonusPct}`;
       if (
         staminaReadyRefreshInFlightRef.current ||
         staminaReadyRefreshKeyRef.current === refreshKey
@@ -624,6 +629,7 @@ export function V2DungeonFloorView({
     staminaCurrent,
     staminaLastUpdatedAt,
     staminaMax,
+    staminaRegenBonusPct,
   ]);
   const oneActionDisabled = busy || batchRunning;
   // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).

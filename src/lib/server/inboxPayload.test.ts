@@ -154,6 +154,7 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      adventureSupportDays: 0,
     });
   });
 
@@ -171,6 +172,7 @@ describe("parseInboxPayload — happy path", () => {
       materials: [{ materialId: "iron_ore", count: 3 }],
       items: [{ itemId: "iron_sword", count: 2 }],
       staminaPotions: 4,
+      adventureSupportDays: 0,
     });
   });
 
@@ -185,6 +187,7 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [{ itemId: "iron_sword", count: 1 }],
       staminaPotions: 0,
+      adventureSupportDays: 0,
     });
   });
 
@@ -196,6 +199,7 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      adventureSupportDays: 0,
     });
     expect(parseInboxPayload("admin_gift", {})).toEqual({
       kind: "admin_gift",
@@ -203,6 +207,7 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      adventureSupportDays: 0,
     });
     // count 0/음수, id 누락은 parseRewardMaterials/Items 가 걸러냄.
     expect(
@@ -216,6 +221,20 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      adventureSupportDays: 0,
+    });
+  });
+
+  it("admin_gift (월간 모험 지원권 기간)", () => {
+    expect(
+      parseInboxPayload("admin_gift", { adventureSupportDays: 30 }),
+    ).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      items: [],
+      staminaPotions: 0,
+      adventureSupportDays: 30,
     });
   });
 });

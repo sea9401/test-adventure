@@ -5,6 +5,7 @@ import {
   OUTPOST_MOVE_COST,
   applyRegen,
   parseStaminaFromSave,
+  staminaConfigForCharacter,
   tryConsume,
   type StaminaState,
 } from "@/adventure/v2/stamina";
@@ -108,12 +109,18 @@ export async function POST(req: Request) {
         ? charSave.tilePos.at
         : now;
     const stamina = parseStaminaFromSave(charSave.stamina, now);
+    const staminaConfig = staminaConfigForCharacter(charSave, now);
     const gold =
       typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
         ? Math.max(0, Math.floor(charSave.gold))
         : 0;
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
-    let nextStamina: StaminaState = applyRegen(stamina, now);
+    let nextStamina: StaminaState = applyRegen(
+      stamina,
+      now,
+      staminaConfig.max,
+      staminaConfig.regenBonusPct,
+    );
     let nextGold = gold;
     let nextBankedGold = bankedGold;
 
@@ -126,9 +133,15 @@ export async function POST(req: Request) {
         nextGold = spend.gold;
         nextBankedGold = spend.bankedGold;
       } else {
-        const after = tryConsume(stamina, OUTPOST_MOVE_COST, now);
+        const after = tryConsume(
+          stamina,
+          OUTPOST_MOVE_COST,
+          now,
+          staminaConfig.max,
+          staminaConfig.regenBonusPct,
+        );
         if (!after) {
-          return { kind: "out_of_stamina", stamina: applyRegen(stamina, now) };
+          return { kind: "out_of_stamina", stamina: nextStamina };
         }
         nextStamina = after;
       }

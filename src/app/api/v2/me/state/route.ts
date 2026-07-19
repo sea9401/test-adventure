@@ -52,11 +52,11 @@ import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { readActiveHotTime } from "@/lib/server/opsSettings";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
-  MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
-  staminaCapBonusOf,
+  staminaConfigForCharacter,
 } from "@/adventure/v2/stamina";
+import { parseAdventureSupportState } from "@/adventure/data/v2/adventureSupport";
 import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
@@ -243,14 +243,17 @@ export async function GET(req: Request) {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
-  // per-user 스태미나 최대치 — 기본 + 한계의 비약(비밀 상점) 보너스.
-  const staminaMax =
-    MAX_STAMINA +
-    staminaCapBonusOf((charSave as { staminaCapBonus?: unknown }).staminaCapBonus);
+  // 기본 + 한계의 비약 + 월간 모험 지원권(+1000, 회복 +10%)을 한 번에 산출.
+  const staminaConfig = staminaConfigForCharacter(charSave, now);
+  const staminaMax = staminaConfig.max;
   const stamina = applyRegen(
     parseStaminaFromSave(charSave.stamina, now),
     now,
     staminaMax,
+    staminaConfig.regenBonusPct,
+  );
+  const adventureSupportState = parseAdventureSupportState(
+    (charSave as { adventureSupport?: unknown }).adventureSupport,
   );
 
   const hpStored = Math.max(0, charSave.hp ?? maxHp);
@@ -363,6 +366,11 @@ export async function GET(req: Request) {
     // 코어루프 활성(은행/골드 모델·직업 시스템 등) — 사냥 throttle 과 독립. 클라는 이 값으로
     //   coreLoopOn 을 판정(combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운이 null 이라).
     coreLoopOn: V2_CORE_LOOP_V2,
+    adventureSupport: {
+      active: staminaConfig.adventureSupportActive,
+      activeUntil: adventureSupportState?.activeUntil ?? null,
+      regenBonusPct: staminaConfig.regenBonusPct,
+    },
     hotTime: hotTime.active
       ? {
           title: hotTime.title,

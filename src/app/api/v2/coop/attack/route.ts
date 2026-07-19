@@ -36,10 +36,9 @@ import {
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
-  MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
-  staminaCapBonusOf,
+  staminaConfigForCharacter,
   tryConsume,
 } from "@/adventure/v2/stamina";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
@@ -106,13 +105,14 @@ export async function POST(req: Request) {
       {},
     );
     const stamina = parseStaminaFromSave(charSave.stamina, now);
-    const staminaMax =
-      MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+    const staminaConfig = staminaConfigForCharacter(charSave, now);
+    const staminaMax = staminaConfig.max;
     const afterStamina = tryConsume(
       stamina,
       COOP_ATTACK_STAMINA_COST,
       now,
       staminaMax,
+      staminaConfig.regenBonusPct,
     );
     if (!afterStamina) {
       return {
@@ -120,7 +120,12 @@ export async function POST(req: Request) {
         body: {
           ok: false as const,
           error: "out_of_stamina" as const,
-          stamina: applyRegen(stamina, now, staminaMax),
+          stamina: applyRegen(
+            stamina,
+            now,
+            staminaMax,
+            staminaConfig.regenBonusPct,
+          ),
         },
       };
     }

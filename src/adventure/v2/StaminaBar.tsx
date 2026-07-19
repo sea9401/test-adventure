@@ -9,10 +9,10 @@ import {
 } from "@/components/ui/NumberInput";
 import {
   MAX_STAMINA,
-  REGEN_SECONDS_PER_POINT,
   applyRegen,
   msUntilNextRegen,
   staminaOverchargeCap,
+  staminaRegenMsPerPoint,
   type StaminaState,
 } from "./stamina";
 import { STAMINA_POTION_RESTORE } from "./staminaPotions";
@@ -23,12 +23,14 @@ import { STAMINA_POTION_RESTORE } from "./staminaPotions";
 export function StaminaBar({
   state,
   max = MAX_STAMINA,
+  regenBonusPct = 0,
   potions = 0,
   onUsePotion,
 }: {
   state: StaminaState;
-  // per-user 최대치(레거시 영구 보너스 반영) — 미전달이면 기본 캡.
+  // per-user 최대치(한계의 비약 보너스 반영) — 미전달이면 기본 캡.
   max?: number;
+  regenBonusPct?: number;
   // 보유 스태미나 포션 수 + 사용 핸들러(사용 개수 지정). 0이거나 미전달이면 + 버튼 숨김.
   //   인벤토리 사용과 별개로, 바 끝 + 버튼 → 모달에서 개수 선택 사용.
   potions?: number;
@@ -41,17 +43,17 @@ export function StaminaBar({
     return () => clearInterval(id);
   }, []);
 
-  const display = applyRegen(state, now, max);
+  const display = applyRegen(state, now, max, regenBonusPct);
   const pct = Math.max(0, Math.min(100, (display.current / max) * 100));
   const overcharged = display.current > max; // 포션 초과 비축 상태
-  const nextRegenMs = msUntilNextRegen(display, now, max);
+  const nextRegenMs = msUntilNextRegen(display, now, max, regenBonusPct);
+  const regenMsPerPoint = staminaRegenMsPerPoint(regenBonusPct);
   const fullRegenMs =
     display.current >= max
       ? 0
       : nextRegenMs +
         Math.max(0, max - display.current - 1) *
-          REGEN_SECONDS_PER_POINT *
-          1000;
+          regenMsPerPoint;
 
   const showPotionButton = potions > 0 && !!onUsePotion;
 
@@ -93,7 +95,13 @@ export function StaminaBar({
         )}
       </div>
       <div className="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-        <span>{REGEN_SECONDS_PER_POINT}초 마다 1 회복</span>
+        <span>
+          {(regenMsPerPoint / 1000).toLocaleString("ko-KR", {
+            maximumFractionDigits: 1,
+          })}
+          초 마다 1 회복
+          {regenBonusPct > 0 ? ` · 지원권 +${regenBonusPct}%` : ""}
+        </span>
         <span className="tabular-nums">
           {overcharged
             ? "초과 비축 중"

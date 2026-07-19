@@ -24,7 +24,8 @@ describe("길드 랭킹", () => {
             guild_id: 3,
             name: "테스트길드",
             emblem,
-            fame_total: 8000,
+            level: 2,
+            fame_total: 50_000,
             member_count: 3,
             rank: 1,
           },
@@ -40,13 +41,13 @@ describe("길드 랭킹", () => {
       expect.objectContaining({
         name: "테스트길드",
         emblem,
-        level: 3,
+        level: 2,
         mine: true,
       }),
     ]);
     expect(json.list[0]).not.toHaveProperty("grade");
     expect(json.me).toEqual(
-      expect.objectContaining({ name: "테스트길드", emblem, level: 3 }),
+      expect.objectContaining({ name: "테스트길드", emblem, level: 2 }),
     );
     expect(json.me).not.toHaveProperty("grade");
   });

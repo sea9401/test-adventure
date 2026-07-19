@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { guildLevelForFame } from "@/adventure/data/guild";
+import { normalizeGuildLevel } from "@/adventure/data/guild";
 
 const LIST_LIMIT = 100;
 // 메모리 캐시 TTL — 길드 명성/멤버수는 매우 빨리 변하지 않으니 30초 staleness OK.
@@ -12,6 +12,7 @@ type GuildRow = {
   guildId: number;
   name: string;
   emblem: string | null;
+  level: number;
   fameTotal: number;
   memberCount: number;
   rank: number;
@@ -28,6 +29,7 @@ async function fetchRows(): Promise<GuildRow[]> {
         g.id AS guild_id,
         g.name AS name,
         g.emblem AS emblem,
+        g.level AS level,
         g.fame_total AS fame_total,
         g.created_at AS created_at,
         (
@@ -43,7 +45,7 @@ async function fetchRows(): Promise<GuildRow[]> {
         ROW_NUMBER() OVER (ORDER BY fame_total DESC, created_at ASC)::int AS rank
       FROM stats
     )
-    SELECT guild_id, name, emblem, fame_total, member_count, rank
+    SELECT guild_id, name, emblem, level, fame_total, member_count, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -52,6 +54,7 @@ async function fetchRows(): Promise<GuildRow[]> {
     guild_id: number;
     name: string;
     emblem: string | null;
+    level: number;
     fame_total: number;
     member_count: number;
     rank: number;
@@ -60,6 +63,7 @@ async function fetchRows(): Promise<GuildRow[]> {
     guildId: Number(r.guild_id),
     name: String(r.name),
     emblem: typeof r.emblem === "string" ? r.emblem : null,
+    level: normalizeGuildLevel(Number(r.level)),
     fameTotal: Number(r.fame_total),
     memberCount: Number(r.member_count),
     rank: Number(r.rank),
@@ -112,7 +116,7 @@ export async function GET() {
     name: r.name,
     emblem: r.emblem,
     fameTotal: r.fameTotal,
-    level: guildLevelForFame(r.fameTotal),
+    level: r.level,
     memberCount: r.memberCount,
     mine: r.guildId === myGuildId,
   }));
@@ -125,7 +129,7 @@ export async function GET() {
         name: myRow.name,
         emblem: myRow.emblem,
         fameTotal: myRow.fameTotal,
-        level: guildLevelForFame(myRow.fameTotal),
+        level: myRow.level,
         memberCount: myRow.memberCount,
       }
     : null;

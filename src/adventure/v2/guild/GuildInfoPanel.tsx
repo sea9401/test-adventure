@@ -35,15 +35,6 @@ export function GuildInfoPanel({
     const suffix = count > 1 ? ` Lv.${level} ×${count}` : ` Lv.${level}`;
     return count > 0 ? `${def.icon} ${def.name}${suffix}` : null;
   }).filter((label): label is string => Boolean(label));
-  const levelProgressPct = info?.guild?.fameForNextLevel
-    ? Math.min(
-        100,
-        Math.floor(
-          (info.guild.fameIntoLevel / info.guild.fameForNextLevel) * 100,
-        ),
-      )
-    : 100;
-
   return info?.guild ? (
     <div className="space-y-3">
       <div className={`${SURFACE_CARD} overflow-hidden text-sm`}>
@@ -71,30 +62,14 @@ export function GuildInfoPanel({
               길드 레벨 {info.guild.level} / {GUILD_MAX_LEVEL}
             </span>
             <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-              {info.guild.fameForNextLevel === null
+              {info.guild.levelUpgradeCost === null
                 ? "최고 레벨 달성"
-                : `${info.guild.fameIntoLevel.toLocaleString()} / ${info.guild.fameForNextLevel.toLocaleString()} EXP`}
+                : `다음 승급: 명성 ${info.guild.levelUpgradeCost.fame.toLocaleString()} · ${info.guild.levelUpgradeCost.gold.toLocaleString()} G`}
             </span>
           </div>
-          <div
-            className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
-            role="progressbar"
-            aria-label="길드 레벨 경험치"
-            aria-valuemin={0}
-            aria-valuemax={info.guild.fameForNextLevel ?? 1}
-            aria-valuenow={
-              info.guild.fameForNextLevel === null
-                ? 1
-                : info.guild.fameIntoLevel
-            }
-          >
-            <div
-              className="h-full rounded-full bg-sky-500 transition-[width]"
-              style={{ width: `${levelProgressPct}%` }}
-            />
-          </div>
           <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-            누적 명성이 길드 경험치가 되며, 레벨이 오를 때마다 정원이 1명 늘어납니다.
+            관리자가 길드 연구에서 사용 가능 명성과 길드 자금을 소비해 승급하며,
+            레벨마다 정원이 1명 늘어납니다.
           </p>
         </div>
         <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">

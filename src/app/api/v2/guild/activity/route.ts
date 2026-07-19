@@ -87,6 +87,8 @@ export async function GET() {
         smithyLevel?: number;
         buildingName?: string;
         buildingLevel?: number;
+        guildLevel?: number;
+        goldCost?: number;
         supplyName?: string;
         supplyLevel?: number;
         fameCost?: number;

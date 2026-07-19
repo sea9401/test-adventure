@@ -9,8 +9,8 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   GUILD_BASE_MEMBER_CAP,
-  guildLevelForFame,
   guildMemberCap,
+  normalizeGuildLevel,
 } from "@/adventure/data/guild";
 
 const BROWSE_LIMIT = 30;
@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       name: guilds.name,
       masterId: guilds.masterId,
       description: guilds.description,
+      level: guilds.level,
       fameTotal: guilds.fameTotal,
       acceptingRequests: guilds.acceptingRequests,
       nationName: guilds.nationName,
@@ -93,11 +94,11 @@ export async function GET(req: Request) {
       masterName: g.masterId ? (masterNameByUser.get(g.masterId) ?? "모험가") : "—",
       description: g.description ?? null,
       fameTotal: g.fameTotal,
-      level: guildLevelForFame(g.fameTotal),
+      level: normalizeGuildLevel(g.level),
       memberCount: Number(g.memberCount ?? 0),
       acceptingRequests: g.acceptingRequests,
       nationName: g.nationName ?? null,
-      maxMembers: guildMemberCap(g.fameTotal, g.nationName != null),
+      maxMembers: guildMemberCap(g.level, g.nationName != null),
     })),
   });
 }

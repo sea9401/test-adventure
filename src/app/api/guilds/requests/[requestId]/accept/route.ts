@@ -99,7 +99,7 @@ export async function POST(
         .where(eq(guildMembers.guildId, guild.id));
       if (
         Number(memberCountRows[0]?.count ?? 0) >=
-        guildMemberCap(guild.fameTotal, guild.nationName != null)
+        guildMemberCap(guild.level, guild.nationName != null)
       ) {
         return { error: "guild_full", status: 409 as const };
       }

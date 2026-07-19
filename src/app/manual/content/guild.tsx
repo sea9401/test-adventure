@@ -3,7 +3,7 @@ import {
   GUILD_CREATE_GOLD_COST,
   GUILD_LEAVE_COOLDOWN_DAYS,
   GUILD_BASE_MEMBER_CAP,
-  GUILD_LEVEL_THRESHOLDS,
+  GUILD_LEVEL_UPGRADE_COSTS,
   GUILD_MAX_LEVEL,
 } from "@/adventure/data/guild";
 import {
@@ -92,20 +92,21 @@ export function GuildContent() {
 
       <H2>길드 레벨</H2>
       <P>
-        길드가 획득한 <Em>누적 명성</Em>이 길드 경험치가 됩니다. 사용 가능한
-        명성을 시설이나 연구에 소비해도 누적 명성은 줄지 않으므로 길드 레벨도
-        내려가지 않습니다. 최고 레벨은 <Em>Lv.{GUILD_MAX_LEVEL}</Em>이며,
-        레벨이 오를 때마다 길드원 정원이 1명씩 늘어납니다.
+        길드 레벨은 누적 명성에 따라 자동으로 오르지 않습니다. 마스터·관리자가
+        길드 관리의 <Em>길드 연구</Em>에서 <Em>사용 가능 명성과 길드 금고 골드</Em>를
+        함께 소비해 한 단계씩 올립니다. 누적 명성은 순위와 활동 기록용으로만
+        남습니다. 최고 레벨은 <Em>Lv.{GUILD_MAX_LEVEL}</Em>이며, 레벨이 오를
+        때마다 길드원 정원이 1명씩 늘어납니다.
       </P>
-      <P>
-        Lv.2부터 필요한 누적 명성은 각각{" "}
-        <Em>
-          {GUILD_LEVEL_THRESHOLDS.slice(1)
-            .map((threshold) => threshold.toLocaleString())
-            .join(" · ")}
-        </Em>
-        입니다.
-      </P>
+      <Table
+        head={["승급", "사용 가능 명성", "길드 금고 골드"]}
+        rows={GUILD_LEVEL_UPGRADE_COSTS.map((cost) => [
+          `Lv.${cost.currentLevel} → Lv.${cost.nextLevel}`,
+          cost.fame.toLocaleString("ko-KR"),
+          `${cost.gold.toLocaleString("ko-KR")} G`,
+        ])}
+        caption="승급을 확정하면 명성과 골드가 즉시 차감되며, 길드 레벨은 내려가지 않습니다."
+      />
 
       <H2>길드 운영</H2>
       <P>

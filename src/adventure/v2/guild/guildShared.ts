@@ -28,9 +28,12 @@ export type GuildInfoResponse = {
     fameTotal: number;
     fameAvailable: number;
     level: number;
-    fameIntoLevel: number;
-    fameForNextLevel: number | null;
-    nextLevelFame: number | null;
+    levelUpgradeCost: {
+      currentLevel: number;
+      nextLevel: number;
+      fame: number;
+      gold: number;
+    } | null;
     description: string | null;
     emblem: string | null;
     color: string | null;

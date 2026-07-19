@@ -499,7 +499,7 @@ export type GuildBuffSlotRow = {
   installedAt: string;
 };
 
-// 유저 자치 길드 — 누적 명성 기반 레벨별 정원, 마스터 초대제, 자동 해체 정책.
+// 유저 자치 길드 — 명성·금고를 소비하는 수동 레벨별 정원, 마스터 초대제, 자동 해체 정책.
 // disbandedAt != NULL 이면 tombstone — 30일 후 cron 이 hard delete (이름 재사용 차단 기간).
 // 활성 + tombstone 모두 unique 이므로 자연스레 30일 cooldown 이 됨.
 export const guilds = pgTable(
@@ -512,7 +512,9 @@ export const guilds = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     disbandedAt: timestamp("disbanded_at"),
-    // 누적 명성 — 영구, 길드 레벨·멤버 정원 결정. 길드 활동으로 적립.
+    // 길드 레벨 — 관리자가 사용 가능 명성+길드 금고 골드를 소비해 수동 승급.
+    level: integer("level").notNull().default(1),
+    // 누적 명성 — 영구 활동 지표. 길드 레벨과 무관하며 소비되지 않는다.
     fameTotal: integer("fame_total").notNull().default(0),
     // 사용 가능 명성 — 누적과 동일하게 시작, 길드 버프 업그레이드에 소비.
     fameAvailable: integer("fame_available").notNull().default(0),
@@ -541,6 +543,7 @@ export const guilds = pgTable(
     nationDeclaredAt: timestamp("nation_declared_at"),
   },
   (t) => [
+    check("guilds_level_check", sql`${t.level} between 1 and 5`),
     uniqueIndex("guilds_name_lower_idx").on(sql`lower(${t.name})`),
     // 활성 길드끼리 색 중복 금지(선착순). 해산/미설정(NULL)은 제외 — 부분 유니크 인덱스.
     uniqueIndex("guilds_color_active_idx")

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { guildLevelForFame } from "@/adventure/data/guild";
+import { normalizeGuildLevel } from "@/adventure/data/guild";
 
 // GET /api/profile/by-name?name=Hero
 // 인증된 유저가 다른 모험가의 공개 프로필을 조회. 단일 EC2 / DB 라
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
       l.value AS adventure_log,
       g.id AS guild_id,
       g.name AS guild_name,
-      g.fame_total AS guild_fame_total
+      g.level AS guild_level
     FROM target t
     LEFT JOIN saves_kv c ON c.user_id = t.user_id AND c.key = 'character.v2'
     LEFT JOIN saves_kv l ON l.user_id = t.user_id AND l.key = 'adventure-log.v2'
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
     adventure_log: unknown;
     guild_id: number | null;
     guild_name: string | null;
-    guild_fame_total: number | null;
+    guild_level: number | null;
   };
   const row = result.rows[0] as unknown as Row;
 
@@ -83,10 +83,10 @@ export async function GET(req: Request) {
   const obtainedTitles = Object.keys(titlesObj);
 
   const guild =
-    row.guild_id !== null && row.guild_name && row.guild_fame_total !== null
+    row.guild_id !== null && row.guild_name && row.guild_level !== null
       ? {
           name: row.guild_name,
-          level: guildLevelForFame(row.guild_fame_total),
+          level: normalizeGuildLevel(row.guild_level),
         }
       : null;
 

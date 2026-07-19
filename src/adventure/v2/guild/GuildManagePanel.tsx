@@ -19,6 +19,7 @@ import {
 } from "@/adventure/data/guild-emblems";
 import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
+import { GuildLevelUpgradePanel } from "./GuildLevelUpgradePanel";
 import { GuildEmblemImage } from "./GuildEmblemImage";
 import {
   fmtDate,
@@ -383,7 +384,18 @@ export function GuildManagePanel({
         />
       </HeaderPanel>
 
-      {activeManageTab === "research" && <GuildCombatSupplyPanel />}
+      {activeManageTab === "research" && (
+        <div className="space-y-3">
+          <GuildLevelUpgradePanel
+            info={info}
+            acting={acting}
+            setActing={setActing}
+            setNotice={setNotice}
+            onRefresh={onRefresh}
+          />
+          <GuildCombatSupplyPanel />
+        </div>
+      )}
 
       {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
       {/* 멤버 초대 — 길드원 탭에서 이동 */}

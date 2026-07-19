@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { formatRemainingMinutesFloor } from "@/lib/timeFormat";
 import { multtaeForecast } from "@/adventure/data/v2/multtae";
 import { FISH } from "@/adventure/data/v2/fish";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 const fmtRemain = (ms: number) => `${formatRemainingMinutesFloor(ms)} 뒤`;
 
@@ -24,27 +26,31 @@ export function MulttaeBadge({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
       <div className="flex min-w-0 items-center gap-1.5">
-        <span className="shrink-0 font-medium">
-          {c.emoji} {c.label}
+        <span className="inline-flex shrink-0 items-center gap-1 font-medium">
+          <GameIcon name={c.iconName} size={14} />
+          {c.label}
         </span>
         <span className="min-w-0 truncate text-[11px] text-sky-700 dark:text-sky-300">
           {special ? `특별한 손님 · ${special.name}` : c.effect.label}
         </span>
-        <span className="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
-          {next.condition.emoji} {fmtRemain(cur.endsAt - now)}
+        <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+          <GameIcon name={next.condition.iconName} size={12} />
+          {fmtRemain(cur.endsAt - now)}
         </span>
       </div>
     );
   }
 
   return (
-    <div className="rounded-md border border-sky-200 bg-sky-50/60 px-2.5 py-1.5 text-xs dark:border-sky-900/60 dark:bg-sky-950/30">
+    <div className={`${SURFACE_INSET} border-sky-200 px-2.5 py-1.5 text-xs dark:border-sky-900`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium">
-          {c.emoji} {c.label}
+        <span className="inline-flex items-center gap-1 font-medium">
+          <GameIcon name={c.iconName} size={14} />
+          {c.label}
         </span>
-        <span className="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
-          {next.condition.emoji} {fmtRemain(cur.endsAt - now)}
+        <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+          <GameIcon name={next.condition.iconName} size={12} />
+          {fmtRemain(cur.endsAt - now)}
         </span>
       </div>
       {special ? (

@@ -14,6 +14,7 @@ import {
 } from "../GuildActivityList";
 import { GuildCombatSupplySummary } from "./GuildCombatSupplyPanel";
 import { GuildEmblemImage } from "./GuildEmblemImage";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import { fmtDate, type GuildInfoResponse } from "./guildShared";
 
 // 길드 정보 탭 — 정보 카드 · 금고 입금 · 활동 내역. (V2GuildHome 에서 추출, 거동 불변)
@@ -33,8 +34,10 @@ export function GuildInfoPanel({
     const def = SETTLEMENT_BUILDINGS[id];
     const level = info?.settlementBuildingLevels?.[id] ?? 1;
     const suffix = count > 1 ? ` Lv.${level} ×${count}` : ` Lv.${level}`;
-    return count > 0 ? `${def.icon} ${def.name}${suffix}` : null;
-  }).filter((label): label is string => Boolean(label));
+    return count > 0
+      ? { id, iconName: def.iconName, label: `${def.name}${suffix}` }
+      : null;
+  }).filter((label): label is NonNullable<typeof label> => Boolean(label));
   return info?.guild ? (
     <div className="space-y-3">
       <div className={`${SURFACE_CARD} overflow-hidden text-sm`}>
@@ -102,8 +105,18 @@ export function GuildInfoPanel({
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <dt className="text-zinc-500 dark:text-zinc-400">길드 시설</dt>
-            <dd className="truncate font-medium">
-              {facilityLabels.length > 0 ? facilityLabels.join(" · ") : "없음"}
+            <dd className="flex flex-wrap justify-end gap-x-2 gap-y-1 font-medium">
+              {facilityLabels.length > 0
+                ? facilityLabels.map((facility) => (
+                    <span
+                      key={facility.id}
+                      className="inline-flex items-center gap-1 whitespace-nowrap"
+                    >
+                      <GameIcon name={facility.iconName} size={15} />
+                      {facility.label}
+                    </span>
+                  ))
+                : "없음"}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">

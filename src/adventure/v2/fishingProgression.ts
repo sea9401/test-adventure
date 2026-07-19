@@ -38,6 +38,7 @@ export type FishingGearBonuses = {
 export type FishingRod = {
   id: FishingRodId;
   name: string;
+  imageSrc: string;
   description: string;
   price: number;
   bonuses: Partial<FishingGearBonuses>;
@@ -46,6 +47,7 @@ export type FishingRod = {
 export type FishingLure = {
   id: FishingLureId;
   name: string;
+  imageSrc: string;
   description: string;
   price: number;
   bonuses: Partial<FishingGearBonuses>;
@@ -55,6 +57,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   reed_rod: {
     id: "reed_rod",
     name: "갈대 낚싯대",
+    imageSrc: "/images/items/fishing/reed_rod.webp",
     description: "기본 낚싯대. 특별한 추가 효과는 없지만 언제든 쓸 수 있다.",
     price: 0,
     bonuses: {},
@@ -62,6 +65,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   lacquered_rod: {
     id: "lacquered_rod",
     name: "옻칠 낚싯대",
+    imageSrc: "/images/items/fishing/lacquered_rod.webp",
     description: "입질 대기시간을 조금 줄이고 물고기가 조금 더 크게 잡히게 한다.",
     price: 1200,
     bonuses: { waitReductionPct: 8, sizeBonusPct: 2 },
@@ -69,6 +73,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   deepcurrent_rod: {
     id: "deepcurrent_rod",
     name: "깊은물 낚싯대",
+    imageSrc: "/images/items/fishing/deepcurrent_rod.webp",
     description: "희귀 이상 어종이 조금 더 크게 잡히게 한다.",
     price: 3000,
     bonuses: { waitReductionPct: 12, rareSizeBonusPct: 4 },
@@ -76,6 +81,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   master_rod: {
     id: "master_rod",
     name: "장인의 낚싯대",
+    imageSrc: "/images/items/fishing/master_rod.webp",
     description: "대기시간을 줄이고 물고기와 희귀 어종이 조금 더 크게 잡히게 한다.",
     price: 6500,
     bonuses: {
@@ -88,6 +94,7 @@ export const FISHING_RODS: Record<FishingRodId, FishingRod> = {
   storm_rod: {
     id: "storm_rod",
     name: "폭풍 낚싯대",
+    imageSrc: "/images/items/fishing/storm_rod.webp",
     description: "긴 대기시간을 크게 줄이고 대물권 어획을 노린다.",
     price: 9000,
     bonuses: {
@@ -102,6 +109,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   dough_lure: {
     id: "dough_lure",
     name: "반죽 미끼",
+    imageSrc: "/images/items/fishing/dough_lure.webp",
     description: "기본 미끼. 안정적인 입질을 노린다.",
     price: 0,
     bonuses: {},
@@ -109,6 +117,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   daily_bait: {
     id: "daily_bait",
     name: "과제용 떡밥",
+    imageSrc: "/images/items/fishing/daily_bait.webp",
     description: "흔함·보통·희귀 어종 쪽으로 입질을 당겨 일일 과제를 맞추기 쉽다.",
     price: 900,
     bonuses: {
@@ -124,6 +133,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   tide_lure: {
     id: "tide_lure",
     name: "물때 미끼",
+    imageSrc: "/images/items/fishing/tide_lure.webp",
     description: "물때 한정 특별 손님이 더 잘 나오게 하고 물고기가 조금 더 크게 잡히게 한다.",
     price: 1200,
     bonuses: { specialWeightPct: 20, sizeBonusPct: 1 },
@@ -131,6 +141,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   rare_lure: {
     id: "rare_lure",
     name: "희귀 미끼",
+    imageSrc: "/images/items/fishing/rare_lure.webp",
     description: "희귀 어종 중심으로 입질을 당기고 영웅 어종도 조금 더 노린다.",
     price: 2200,
     bonuses: {
@@ -145,6 +156,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   trophy_lure: {
     id: "trophy_lure",
     name: "대물 미끼",
+    imageSrc: "/images/items/fishing/trophy_lure.webp",
     description: "희귀 이상과 대물급 어획이 조금 더 크게 잡히게 한다.",
     price: 1800,
     bonuses: { rareSizeBonusPct: 2, bigCatchSizeBonusPct: 3 },
@@ -152,6 +164,7 @@ export const FISHING_LURES: Record<FishingLureId, FishingLure> = {
   prism_lure: {
     id: "prism_lure",
     name: "프리즘 미끼",
+    imageSrc: "/images/items/fishing/prism_lure.webp",
     description: "물때 손님이 더 자주 나오고 희귀 어종이 조금 더 크게 잡히게 한다.",
     price: 5000,
     bonuses: { specialWeightPct: 30, rareSizeBonusPct: 4, bigCatchSizeBonusPct: 2 },

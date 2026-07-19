@@ -15,6 +15,9 @@ import {
   attackMissPct,
   dodgeChance,
 } from "@/adventure/data/v2/v2CombatConstants";
+import type { GameIconName } from "@/adventure/data/v2/gameIcon";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -105,14 +108,14 @@ export function HpBar({
   );
 }
 
-// v2 충전식 회복약 한 줄 표기 (🧪 HP 충전약 123). 잔량 0 이면 회색.
+// v2 충전식 회복약 한 줄 표기. 잔량 0 이면 회색.
 export function ChargeReadout({
-  emoji,
+  iconName,
   label,
   value,
   activeText,
 }: {
-  emoji: string;
+  iconName: GameIconName;
   label: string;
   value: number;
   activeText: string;
@@ -120,9 +123,11 @@ export function ChargeReadout({
   const dim = "text-zinc-400 dark:text-zinc-600";
   return (
     <span className="inline-flex items-baseline gap-1">
-      <span aria-hidden className={value > 0 ? activeText : dim}>
-        {emoji}
-      </span>
+      <GameIcon
+        name={iconName}
+        size={14}
+        className={value > 0 ? activeText : dim}
+      />
       <span className={value > 0 ? "text-zinc-700 dark:text-zinc-300" : dim}>
         {label} {value.toLocaleString()}
       </span>
@@ -148,14 +153,14 @@ export function RecoveryReadout({
         className={`flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] tabular-nums${justify}`}
       >
         <ChargeReadout
-          emoji="🧪"
+          iconName="Flask"
           label="HP 충전약"
           value={playerStatus.recoveryCharges.hp}
           activeText="text-rose-500"
         />
         {hasMp && (
           <ChargeReadout
-            emoji="🔷"
+            iconName="Diamond"
             label="MP 충전약"
             value={playerStatus.recoveryCharges.mp}
             activeText="text-blue-500"
@@ -168,9 +173,11 @@ export function RecoveryReadout({
   const on = playerStatus.hpPotionCount > 0;
   return (
     <div className={`flex items-baseline gap-1 text-[11px] tabular-nums${justify}`}>
-      <span aria-hidden className={on ? "text-rose-500" : dim}>
-        🧪
-      </span>
+      <GameIcon
+        name="Flask"
+        size={14}
+        className={on ? "text-rose-500" : dim}
+      />
       <span className={on ? "text-zinc-700 dark:text-zinc-300" : dim}>
         회복약 {playerStatus.hpPotionCount}
       </span>
@@ -498,15 +505,7 @@ export function BattleScene({
               : "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950"
           }`}
         >
-          <span
-            className={`text-xl font-bold tracking-wide ${
-              outcome === "lose"
-                ? "text-rose-700 dark:text-rose-300"
-                : "text-emerald-700 dark:text-emerald-300"
-            }`}
-          >
-            {outcome === "lose" ? "💀 패배" : "🏆 승리"}
-          </span>
+          <BattleOutcomeBadge outcome={outcome} size="lg" />
           {outcome === "lose" && (
             <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
               이번 전투에서 졌습니다 — 보상이 없습니다.

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   GuildDiningIngredient,
@@ -7,6 +8,11 @@ import type {
   GuildDiningMenuId,
 } from "@/adventure/data/v2/guildDining";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
+import type { FarmItemId } from "@/adventure/v2/farm";
+import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
+import type { FishingCatchItemId } from "@/adventure/v2/fishingStock";
 import {
   SURFACE_ACCENT,
   SURFACE_CARD,
@@ -192,7 +198,7 @@ export function GuildDiningHallPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span aria-hidden className="text-xl">🍲</span>
+              <GameIcon name="CookingPot" size={22} />
               <h3 className="text-base font-bold">길드 식당 Lv.{state.level}</h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -246,7 +252,20 @@ export function GuildDiningHallPanel() {
 
       <section className={`${SURFACE_INSET} p-3`}>
         <h4 className="text-sm font-bold">식재료 기부</h4>
-        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_80px_auto]">
+        <div className="mt-2 grid gap-2 sm:grid-cols-[auto_1fr_80px_auto]">
+          {selectedIngredient?.source === "farm" ? (
+            <FarmItemIcon
+              itemId={selectedIngredient.sourceItemId as FarmItemId}
+              className="h-9 w-9"
+            />
+          ) : (
+            <span className="grid h-9 w-9 place-items-center text-sky-600 dark:text-sky-400">
+              <FishingCatchItemIcon
+                itemId={selectedIngredient?.sourceItemId as FishingCatchItemId}
+                size={22}
+              />
+            </span>
+          )}
           <select
             value={ingredientId}
             onChange={(event) => {
@@ -268,7 +287,7 @@ export function GuildDiningHallPanel() {
                   .filter((item) => item.source === source)
                   .map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.icon} {item.name} · {item.batchSize}개당{" "}
+                      {item.name} · {item.batchSize}개당{" "}
                       {item.pointValue}점 · 보유 {item.owned}개
                     </option>
                   ))}
@@ -374,10 +393,16 @@ export function GuildDiningHallPanel() {
                       aria-label={`${menu.name} 선택`}
                     />
                   )}
+                  <Image
+                    src={menu.imageSrc}
+                    alt=""
+                    width={48}
+                    height={48}
+                    unoptimized
+                    className="h-12 w-12 shrink-0 object-contain"
+                  />
                   <div className="min-w-0 flex-1">
-                    <h5 className="text-sm font-bold">
-                      {menu.icon} {menu.name}
-                    </h5>
+                    <h5 className="text-sm font-bold">{menu.name}</h5>
                     <p className="mt-1 text-xs leading-relaxed text-zinc-500">{menu.description}</p>
                   </div>
                 </div>

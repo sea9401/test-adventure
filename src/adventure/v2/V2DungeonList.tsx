@@ -15,6 +15,7 @@ import {
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 
 // 프론티어 사냥터 목록 — 2단. 테마 카드 → 입구·심부·최심부의 3단계.
 // 내부 깊이와 밸런스는 유지하고 각 두 깊이의 뒤쪽 값(2·4·6)을 대표 전투 깊이로 사용한다.
@@ -204,9 +205,12 @@ export function V2DungeonList({
                   className="flex w-full items-center justify-between gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-left hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:hover:bg-sky-950/70"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-sky-800 dark:text-sky-200">
-                      ✨ {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} —{" "}
-                      {huntStageName(m.depth)}
+                    <span className="flex items-center gap-1.5 truncate text-sm font-medium text-sky-800 dark:text-sky-200">
+                      <GameIcon name="Sparkle" size={16} className="shrink-0" />
+                      <span className="truncate">
+                        {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} —{" "}
+                        {huntStageName(m.depth)}
+                      </span>
                     </span>
                     <span className="mt-0.5 block text-[11px] text-sky-700/80 dark:text-sky-400/80">
                       남은 {m.runsLeft}판

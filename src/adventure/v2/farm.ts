@@ -138,22 +138,86 @@ export const FARM_ITEMS: Record<FarmItemId, FarmItemDefinition> = {
     icon: "🌽",
     imageSrc: "/images/items/farm/sweet_corn.webp",
   },
-  tomato: { name: "토마토", icon: "🍅" },
-  heirloom_tomato: { name: "고대종 토마토", icon: "🍅" },
-  strawberry: { name: "딸기", icon: "🍓" },
-  white_strawberry: { name: "설향 딸기", icon: "🍓" },
-  potato: { name: "감자", icon: "🥔" },
-  golden_potato: { name: "황금 감자", icon: "🥔" },
-  onion: { name: "양파", icon: "🧅" },
-  pearl_onion: { name: "진주 양파", icon: "🧅" },
-  rice: { name: "쌀", icon: "🍚" },
-  golden_rice: { name: "황금 쌀", icon: "🌾" },
-  soybean: { name: "콩", icon: "🫘" },
-  black_soybean: { name: "검은콩", icon: "🫘" },
-  sugarcane: { name: "사탕수수", icon: "🎋" },
-  crystal_sugarcane: { name: "수정 사탕수수", icon: "💎" },
-  cacao: { name: "카카오", icon: "🍫" },
-  royal_cacao: { name: "왕실 카카오", icon: "🍫" },
+  tomato: {
+    name: "토마토",
+    icon: "🍅",
+    imageSrc: "/images/items/farm/tomato.webp",
+  },
+  heirloom_tomato: {
+    name: "고대종 토마토",
+    icon: "🍅",
+    imageSrc: "/images/items/farm/heirloom_tomato.webp",
+  },
+  strawberry: {
+    name: "딸기",
+    icon: "🍓",
+    imageSrc: "/images/items/farm/strawberry.webp",
+  },
+  white_strawberry: {
+    name: "설향 딸기",
+    icon: "🍓",
+    imageSrc: "/images/items/farm/white_strawberry.webp",
+  },
+  potato: {
+    name: "감자",
+    icon: "🥔",
+    imageSrc: "/images/items/farm/potato.webp",
+  },
+  golden_potato: {
+    name: "황금 감자",
+    icon: "🥔",
+    imageSrc: "/images/items/farm/golden_potato.webp",
+  },
+  onion: {
+    name: "양파",
+    icon: "🧅",
+    imageSrc: "/images/items/farm/onion.webp",
+  },
+  pearl_onion: {
+    name: "진주 양파",
+    icon: "🧅",
+    imageSrc: "/images/items/farm/pearl_onion.webp",
+  },
+  rice: {
+    name: "쌀",
+    icon: "🍚",
+    imageSrc: "/images/items/farm/rice.webp",
+  },
+  golden_rice: {
+    name: "황금 쌀",
+    icon: "🌾",
+    imageSrc: "/images/items/farm/golden_rice.webp",
+  },
+  soybean: {
+    name: "콩",
+    icon: "🫘",
+    imageSrc: "/images/items/farm/soybean.webp",
+  },
+  black_soybean: {
+    name: "검은콩",
+    icon: "🫘",
+    imageSrc: "/images/items/farm/black_soybean.webp",
+  },
+  sugarcane: {
+    name: "사탕수수",
+    icon: "🎋",
+    imageSrc: "/images/items/farm/sugarcane.webp",
+  },
+  crystal_sugarcane: {
+    name: "수정 사탕수수",
+    icon: "💎",
+    imageSrc: "/images/items/farm/crystal_sugarcane.webp",
+  },
+  cacao: {
+    name: "카카오",
+    icon: "🍫",
+    imageSrc: "/images/items/farm/cacao.webp",
+  },
+  royal_cacao: {
+    name: "왕실 카카오",
+    icon: "🍫",
+    imageSrc: "/images/items/farm/royal_cacao.webp",
+  },
 };
 
 export type FarmCrop = {

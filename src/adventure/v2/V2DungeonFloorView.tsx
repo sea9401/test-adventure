@@ -38,6 +38,7 @@ import type { Gender } from "@/adventure/profile/avatars";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
 import {
   AUTO_HUNT_LEVEL_TARGET,
   getAutoHuntStopReason,
@@ -901,11 +902,11 @@ export function V2DungeonFloorView({
         <span className="tabular-nums">{powerGate.toLocaleString()}</span>
       </p>
       {rareMapIid && (
-        <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
-          ✨ 희귀 탐사 진행 중
+        <DiscoveryNotice kind="hunt" align="start">
+          희귀 탐사 진행 중
           {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
           {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
-        </div>
+        </DiscoveryNotice>
       )}
 
       {autoStopReason && (

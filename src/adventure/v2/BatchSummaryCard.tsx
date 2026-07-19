@@ -17,6 +17,9 @@ import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard"
 import { itemNameClass } from "@/adventure/v2/V2ItemCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { RewardNotice } from "@/adventure/v2/RewardNotice";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
 
@@ -97,32 +100,35 @@ export function BatchSummaryCard({
   return (
     <Card padding="sm">
       {huntRareMapNames.length > 0 && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
-          ✨ 희귀 탐사 {huntRareMapNames.join(", ")} 개방! — 전투 탭 &gt;
+        <DiscoveryNotice kind="hunt" className="mb-2">
+          희귀 탐사 {huntRareMapNames.join(", ")} 개방! — 전투 탭 &gt;
           사냥터에서 입장
-        </div>
+        </DiscoveryNotice>
       )}
       {utilityMapNames.length > 0 && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
-          🎟 {utilityMapNames.join(", ")} 발견! — 가방 소모품에서 사용
-        </div>
+        <DiscoveryNotice kind="utility" className="mb-2">
+          {utilityMapNames.join(", ")} 발견! — 가방 소모품에서 사용
+        </DiscoveryNotice>
       )}
       {uniqueItems.length > 0 && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
-          ✨ 유니크{" "}
-          {uniqueItems.map((item, idx) => (
-            <span key={`${item.id}-${idx}`}>
-              {idx > 0 ? ", " : ""}
-              <span className={itemNameClass(item)}>{item.name}</span>
-            </span>
-          ))}{" "}
-          획득!
+        <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
+          <GameIcon name="Sparkle" size={15} className="shrink-0" />
+          <span>
+            유니크{" "}
+            {uniqueItems.map((item, idx) => (
+              <span key={`${item.id}-${idx}`}>
+                {idx > 0 ? ", " : ""}
+                <span className={itemNameClass(item)}>{item.name}</span>
+              </span>
+            ))}{" "}
+            획득!
+          </span>
         </div>
       )}
       {dropParts.length > 0 && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-          ⭐ {dropParts.join(", ")}을(를) 획득했다!
-        </div>
+        <RewardNotice className="mb-2">
+          {dropParts.join(", ")}을(를) 획득했다!
+        </RewardNotice>
       )}
       <div className="flex items-baseline justify-center gap-2">
         <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

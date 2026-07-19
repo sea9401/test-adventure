@@ -12,6 +12,7 @@ import {
   Sparkle,
 } from "@phosphor-icons/react";
 import { PageShell } from "@/components/ui/PageShell";
+import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import {
@@ -509,32 +510,7 @@ function FarmItemImage({
   alt: string;
   className?: string;
 }) {
-  const item = FARM_ITEMS[itemId];
-  return (
-    <span
-      role="img"
-      aria-label={alt}
-      className={`relative block shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${className}`}
-    >
-      {item.imageSrc ? (
-        <Image
-          src={item.imageSrc}
-          alt=""
-          fill
-          sizes="64px"
-          unoptimized
-          className="object-cover"
-        />
-      ) : (
-        <span
-          aria-hidden="true"
-          className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50 to-amber-50 text-[1.75rem] dark:from-emerald-950 dark:to-amber-950"
-        >
-          {item.icon}
-        </span>
-      )}
-    </span>
-  );
+  return <FarmItemIcon itemId={itemId} label={alt} className={className} />;
 }
 
 function RareDeliveryBoard({

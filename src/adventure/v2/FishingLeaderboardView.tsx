@@ -17,6 +17,7 @@ import {
   type FishTier,
 } from "@/adventure/data/v2/fish";
 import type { FishingLeaderboardData } from "./fishingLeaderboard";
+import { CoinAmount } from "./CoinAmount";
 
 // 주간 종별 리더보드 표시. 데이터는 주입(useFishingLeaderboard 실 API / dev mock).
 // 설계: docs/fishing-content-plan.md §5
@@ -71,9 +72,11 @@ export function FishingLeaderboardView({
         onBack={onBack}
         right={
           data ? (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
-              🪙 {data.myCoins.toLocaleString()} 낚시 코인
-            </span>
+            <CoinAmount
+              amount={data.myCoins}
+              label="낚시 코인"
+              className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+            />
           ) : undefined
         }
       />

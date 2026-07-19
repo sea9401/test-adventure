@@ -3,7 +3,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Card } from "@/components/ui/Card";
 import { Pagination } from "@/components/ui/Pagination";
-import { huntStageName } from "@/adventure/data/v2/dungeon";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   RARE_MAP_KINDS,
   type RareMapInstance,
@@ -47,17 +47,23 @@ export function MarketplaceRareMapTab({
     <div className="space-y-2">
       {pager.pageItems.map((m) => {
         const def = RARE_MAP_KINDS[m.kind];
-        const icon = def?.category === "hunt" ? "✨" : "🎟";
         return (
           <Card key={m.iid} padding="sm">
             <div className="flex items-center justify-between gap-2">
-              <span className="min-w-0 text-sm font-medium">
-                {icon} {def?.name ?? m.kind}
-                <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {huntStageName(m.depth)} · 남은 {m.runsLeft}판
-                </span>
-                <span className="ml-1.5">
-                  <PriceRefLine stat={priceRef[m.kind]} />
+              <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                <GameIcon
+                  name={def?.category === "hunt" ? "Sparkle" : "Ticket"}
+                  size={16}
+                  className="shrink-0 text-sky-600 dark:text-sky-400"
+                />
+                <span className="min-w-0">
+                  {def?.name ?? m.kind}
+                  <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    깊이 {m.depth} · 남은 {m.runsLeft}판
+                  </span>
+                  <span className="ml-1.5">
+                    <PriceRefLine stat={priceRef[m.kind]} />
+                  </span>
                 </span>
               </span>
               <div className="flex shrink-0 items-center gap-1.5">

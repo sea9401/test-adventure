@@ -187,6 +187,7 @@ export type SettlementBuildingDef = {
   id: SettlementBuildingId;
   name: string;
   icon: string;
+  iconName: import("./gameIcon").GameIconName;
   desc: string;
 };
 
@@ -205,42 +206,49 @@ export const SETTLEMENT_BUILDINGS: Record<
     id: "guild_smithy",
     name: "제작소",
     icon: "⚒️",
+    iconName: "Hammer",
     desc: "장비 제작과 대장장이 성장을 위한 영지 시설입니다.",
   },
   training_ground: {
     id: "training_ground",
     name: "훈련장",
     icon: "🎯",
+    iconName: "Target",
     desc: "길드원이 매일 현재 직업 숙련도 훈련을 받을 수 있는 영지 시설입니다.",
   },
   exploration_hq: {
     id: "exploration_hq",
     name: "탐사 본부",
     icon: "🧭",
+    iconName: "Compass",
     desc: "길드 단위 주간 탐사 의뢰와 원정 진척 보너스를 위한 영지 시설입니다.",
   },
   map_workshop: {
     id: "map_workshop",
     name: "지도 제작소",
     icon: "🗺️",
+    iconName: "MapTrifold",
     desc: "길드 탐사 지도를 복원하는 데 필요한 지도 조각을 줄여주는 영지 시설입니다.",
   },
   alchemy_workshop: {
     id: "alchemy_workshop",
     name: "연금 공방",
     icon: "⚗️",
+    iconName: "Flask",
     desc: "허브와 은빛잎으로 HP·MP 충전액을 조제하는 길드 공용 시설입니다.",
   },
   dining_hall: {
     id: "dining_hall",
     name: "길드 식당",
     icon: "🍲",
+    iconName: "CookingPot",
     desc: "농장과 낚시 식재료로 주간 식사를 준비하는 길드 공용 시설입니다.",
   },
   trade_post: {
     id: "trade_post",
     name: "길드 교역소",
     icon: "⚖️",
+    iconName: "Scales",
     desc: "생활 재료를 주간 계약에 공동 납품하고 교역 토큰을 얻는 길드 공용 시설입니다.",
   },
 };

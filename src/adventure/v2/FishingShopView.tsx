@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
@@ -29,6 +30,7 @@ import type {
   FishingShopState,
 } from "./useFishingShop";
 import { useSystemToast } from "./RewardToastProvider";
+import { CoinAmount } from "./CoinAmount";
 
 // 낚시 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useFishingShop 실 API / dev mock).
 // 설계: docs/fishing-content-plan.md §6
@@ -147,7 +149,7 @@ export function FishingShopView({
       badge: `오늘 ${seedPouch.boughtToday}/${seedPouch.dailyLimit}`,
       disabled: nextPrice === null,
       buttonLabel:
-        nextPrice === null ? "오늘 한도" : `🪙 ${nextPrice.toLocaleString()}`,
+        nextPrice === null ? "오늘 한도" : undefined,
     };
   });
   const ownedRods = new Set(progression?.ownedRods ?? []);
@@ -160,9 +162,10 @@ export function FishingShopView({
         title="낚시 코인 상점"
         onBack={onBack}
         right={
-          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
-            🪙 {coins.toLocaleString()}
-          </span>
+          <CoinAmount
+            amount={coins}
+            className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+          />
         }
       />
 
@@ -259,31 +262,41 @@ export function FishingShopView({
                         key={id}
                         className="flex items-center justify-between gap-3 px-3 py-3"
                       >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 text-sm font-semibold">
-                            🎣 {rod.name}
-                            {isEquipped ? (
-                              <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                                장착
-                              </span>
-                            ) : isOwned ? (
-                              <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
-                                보유
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                            {rod.description}
-                          </p>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {bonusLabels(rod.bonuses).map((label) => (
-                              <span
-                                key={label}
-                                className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                              >
-                                {label}
-                              </span>
-                            ))}
+                        <div className="flex min-w-0 items-start gap-2">
+                          <Image
+                            src={rod.imageSrc}
+                            alt=""
+                            width={48}
+                            height={48}
+                            unoptimized
+                            className="h-12 w-12 shrink-0 object-contain"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 text-sm font-semibold">
+                              {rod.name}
+                              {isEquipped ? (
+                                <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                                  장착
+                                </span>
+                              ) : isOwned ? (
+                                <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
+                                  보유
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                              {rod.description}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {bonusLabels(rod.bonuses).map((label) => (
+                                <span
+                                  key={label}
+                                  className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <button
@@ -306,7 +319,7 @@ export function FishingShopView({
                                 : "구매 중…"
                               : isOwned
                                 ? "장착"
-                                : `🪙 ${rod.price.toLocaleString()}`}
+                                : <CoinAmount amount={rod.price} />}
                         </button>
                       </li>
                     );
@@ -334,31 +347,41 @@ export function FishingShopView({
                         key={id}
                         className="flex items-center justify-between gap-3 px-3 py-3"
                       >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 text-sm font-semibold">
-                            🪱 {lure.name}
-                            {isEquipped ? (
-                              <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
-                                장착
-                              </span>
-                            ) : isOwned ? (
-                              <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
-                                보유
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                            {lure.description}
-                          </p>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {bonusLabels(lure.bonuses).map((label) => (
-                              <span
-                                key={label}
-                                className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                              >
-                                {label}
-                              </span>
-                            ))}
+                        <div className="flex min-w-0 items-start gap-2">
+                          <Image
+                            src={lure.imageSrc}
+                            alt=""
+                            width={48}
+                            height={48}
+                            unoptimized
+                            className="h-12 w-12 shrink-0 object-contain"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 text-sm font-semibold">
+                              {lure.name}
+                              {isEquipped ? (
+                                <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                                  장착
+                                </span>
+                              ) : isOwned ? (
+                                <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
+                                  보유
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                              {lure.description}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {bonusLabels(lure.bonuses).map((label) => (
+                                <span
+                                  key={label}
+                                  className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                                >
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <button
@@ -381,7 +404,7 @@ export function FishingShopView({
                                 : "구매 중…"
                               : isOwned
                                 ? "장착"
-                                : `🪙 ${lure.price.toLocaleString()}`}
+                                : <CoinAmount amount={lure.price} />}
                         </button>
                       </li>
                     );

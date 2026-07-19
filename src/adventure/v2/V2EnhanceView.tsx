@@ -15,6 +15,7 @@ import { ChoiceButton } from "@/components/ui/ChoiceButton";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
 import {
@@ -289,17 +290,17 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       if (json.outcome === "success") {
         setMsg({
           kind: "success",
-          text: `✨ 강화 성공! +${json.enhance?.level} (위력 +${json.enhance?.bonusPct}%)`,
+          text: `강화 성공! +${json.enhance?.level} (위력 +${json.enhance?.bonusPct}%)`,
         });
       } else if (json.outcome === "demote") {
         setMsg({
           kind: "fail",
-          text: `📉 강화 실패 — 한 단계 하락… +${json.enhance?.level ?? 0}`,
+          text: `강화 실패 — 한 단계 하락… +${json.enhance?.level ?? 0}`,
         });
       } else if (json.outcome === "destroy") {
         setMsg({
           kind: "fail",
-          text: "💥 장비가 산산조각 났습니다… (파괴)",
+          text: "장비가 산산조각 났습니다… (파괴)",
         });
         setSelectedIid(null);
       } else {
@@ -351,14 +352,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       const oldP = json.oldRoll ? effectiveStats(item, json.oldRoll).power : 0;
       const newP = json.newRoll ? effectiveStats(item, json.newRoll).power : 0;
-      const arrow = json.improved
-        ? "📈"
+      const resultLabel = json.improved
+        ? "상승"
         : (json.newQuality ?? 0) < (json.oldQuality ?? 0)
-          ? "📉"
-          : "➖";
+          ? "하락"
+          : "유지";
       setMsg({
         kind: json.improved ? "success" : "fail",
-        text: `${arrow} 재련 — 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
+        text: `재련 ${resultLabel} — 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
       });
       // 재련은 장착 장비의 옵션(위력)을 바꾸므로 전역 상태(전투력)도 갱신.
       await Promise.all([refresh(), refreshGameState()]);
@@ -393,7 +394,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       setMsg({
         kind: "success",
-        text: `✨ 재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -427,7 +428,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       }
       setMsg({
         kind: "success",
-        text: `🛡️ 소나무 원목 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
+        text: `소나무 원목 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -444,7 +445,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const enhanceCostLabel =
     stone === "none"
       ? `${goldCost.toLocaleString()} G`
-      : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "🔴" : "🔵"} ×${stoneCost}`} + ${goldCost.toLocaleString()} G`;
+      : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "붉은" : "푸른"} 강화석 ×${stoneCost}`} + ${goldCost.toLocaleString()} G`;
   const enhanceActionDisabled = busy || stoneShort || goldOnlyBlocked;
   const enhanceActionLabel = busy
     ? "강화 중…"
@@ -500,15 +501,25 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           <div className="flex items-center gap-3 text-sm tabular-nums">
             {mode === "enhance" ? (
               <>
-                <span className="text-rose-500">🔴 {stones.red}</span>
-                <span className="text-sky-500">🔵 {stones.blue}</span>
+                <span className="inline-flex items-center gap-1 text-rose-500">
+                  <GameIcon name="Circle" size={12} weight="fill" />
+                  {stones.red}
+                </span>
+                <span className="inline-flex items-center gap-1 text-sky-500">
+                  <GameIcon name="Circle" size={12} weight="fill" />
+                  {stones.blue}
+                </span>
               </>
             ) : mode === "reforge" && V2_REFORGE_ENABLED ? (
               <>
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  🔧 {reforgeStones.basic}
+                <span className="inline-flex items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                  <GameIcon name="Wrench" size={15} />
+                  {reforgeStones.basic}
                 </span>
-                <span className="text-indigo-500">✨ {reforgeStones.high}</span>
+                <span className="inline-flex items-center gap-1 text-indigo-500">
+                  <GameIcon name="Sparkle" size={15} />
+                  {reforgeStones.high}
+                </span>
               </>
             ) : null}
           </div>
@@ -517,8 +528,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
       {/* 보유 골드 — 강화/재련/조합 결제 통화. 헤더 우측은 타이틀과 겹쳐서 별도 줄로(모바일 겹침 수정). */}
       {gold != null && (
-        <div className="-mt-2 flex justify-end text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
-          💰 보유 골드 {spendable.toLocaleString()} G
+        <div className="-mt-2 flex items-center justify-end gap-1 text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
+          <GameIcon name="Coins" size={15} />
+          보유 골드 {spendable.toLocaleString()} G
         </div>
       )}
 
@@ -624,14 +636,24 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                         }
                         className="ui-forge-choice flex-1"
                       >
-                        <div className="font-medium">
+                        <div className="inline-flex items-center gap-1 font-medium">
+                          {s === "none" ? (
+                            <GameIcon name="Coins" size={15} />
+                          ) : (
+                            <GameIcon
+                              name="Circle"
+                              size={12}
+                              weight="fill"
+                              className={s === "red" ? "text-rose-500" : "text-sky-500"}
+                            />
+                          )}
                           {s === "none"
                             ? disabled
-                              ? "💰 골드 (+7까지)"
-                              : "💰 골드"
+                              ? "골드 (+7까지)"
+                              : "골드"
                             : s === "red"
-                              ? "🔴 붉은 강화석"
-                              : "🔵 푸른 강화석"}
+                              ? "붉은 강화석"
+                              : "푸른 강화석"}
                         </div>
                         <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
                           성공 {row[0]}%
@@ -692,13 +714,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
                   {outcomeRow[3] > 0 && stone !== "blue" && (
-                    <span className="ui-quest-card is-claimable font-semibold text-rose-500">
-                      ⚠️ 파괴 위험
+                    <span className="ui-quest-card is-claimable inline-flex items-center gap-1 font-semibold text-rose-500">
+                      <GameIcon name="Warning" size={14} weight="fill" />
+                      파괴 위험
                     </span>
                   )}
                   {outcomeRow[3] > 0 && stone === "blue" && (
-                    <span className="ui-quest-card is-claimable font-semibold text-rose-500">
-                      ⚠️ 푸른 돌: 파괴 완화
+                    <span className="ui-quest-card is-claimable inline-flex items-center gap-1 font-semibold text-rose-500">
+                      <GameIcon name="Warning" size={14} weight="fill" />
+                      푸른 돌: 파괴 완화
                     </span>
                   )}
                 </div>
@@ -808,8 +832,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       tone={s === "high" ? "primary" : "neutral"}
                       className="ui-forge-choice flex-1"
                     >
-                      <div className="font-medium">
-                        {s === "high" ? "✨ 상급 재련석" : "🔧 재련석"}
+                      <div className="inline-flex items-center gap-1 font-medium">
+                        <GameIcon
+                          name={s === "high" ? "Sparkle" : "Wrench"}
+                          size={14}
+                        />
+                        {s === "high" ? "상급 재련석" : "재련석"}
                       </div>
                       <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
                         {s === "high" ? "고품질 확률↑" : "기본"} · 보유{" "}
@@ -822,8 +850,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   <span className="tabular-nums">
                     비용: {reforgeCostLabel}
                   </span>
-                  <span className="font-semibold text-amber-500">
-                    ⚠️ 더 나빠질 수 있음
+                  <span className="inline-flex items-center gap-1 font-semibold text-amber-500">
+                    <GameIcon name="Warning" size={14} weight="fill" />
+                    더 나빠질 수 있음
                   </span>
                 </div>
                 <Button
@@ -855,12 +884,13 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               ? [
                   {
                     key: "reforge-stone",
-                    icon: "✨",
+                    icon: <GameIcon name="Sparkle" size={24} />,
                     output: "상급 재련석",
                     cost: COMBINE_GOLD_COST,
                     mats: [
                       {
-                        label: "🔧 재련석",
+                        label: "재련석",
+                        iconName: "Wrench" as const,
                         have: reforgeStones.basic,
                         need: REFORGE_COMBINE_COST,
                       },
@@ -873,17 +903,19 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               ? [
                   {
                     key: "repair-kit",
-                    icon: "🛡️",
+                    icon: <GameIcon name="Shield" size={24} />,
                     output: "성벽 수리 키트",
                     cost: COMBINE_GOLD_COST,
                     mats: [
                       {
-                        label: "🪵 소나무 원목",
+                        label: "소나무 원목",
+                        iconName: "Tree" as const,
                         have: kitMats.timber,
                         need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber],
                       },
                       {
-                        label: "🪨 철광석",
+                        label: "철광석",
+                        iconName: "Cube" as const,
                         have: kitMats.ore,
                         need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre],
                       },
@@ -918,7 +950,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                               : "text-zinc-400 dark:text-zinc-500"
                           }
                         >
-                          {ok ? "✓" : "✗"} {m.label} {m.have}/{m.need}
+                          <span className="inline-flex items-center gap-1">
+                            {ok ? "✓" : "✗"}
+                            <GameIcon name={m.iconName} size={13} />
+                            {m.label} {m.have}/{m.need}
+                          </span>
                         </div>
                       );
                     })}

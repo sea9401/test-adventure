@@ -8,6 +8,7 @@ import {
   SpinnerGap,
 } from "@phosphor-icons/react";
 import { SETTLEMENT_BUILDINGS } from "@/adventure/data/v2/settlement";
+import { GameIcon } from "@/adventure/v2/GameIcon";
 import type { GuildTrainingDrillId } from "@/adventure/data/v2/guildTrainingGround";
 import {
   useRewardToast,
@@ -175,7 +176,7 @@ export function GuildTrainingGroundPanel({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-lg leading-none">{training.icon}</span>
+            <GameIcon name={training.iconName} size={20} />
             <h3 className="text-sm font-semibold">{training.name}</h3>
             {hasTrainingGround && !loading && (
               <span

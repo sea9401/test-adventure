@@ -10,6 +10,11 @@ import {
   SURFACE_CARD,
   SURFACE_INSET,
 } from "@/components/ui/surfaces";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { FarmItemIcon } from "@/adventure/v2/FarmItemIcon";
+import type { FarmItemId } from "@/adventure/v2/farm";
+import { FishingCatchItemIcon } from "@/adventure/v2/FishingCatchItemIcon";
+import type { FishingCatchItemId } from "@/adventure/v2/fishingStock";
 
 type TradeContract = GuildTradeItem & {
   progress: number;
@@ -147,7 +152,7 @@ export function GuildTradePostPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span aria-hidden className="text-xl">⚖️</span>
+              <GameIcon name="Scales" size={22} />
               <h3 className="text-base font-bold">길드 교역소 Lv.{state.level}</h3>
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -222,11 +227,23 @@ export function GuildTradePostPanel() {
             return (
               <article
                 key={contract.id}
-                className={`${SURFACE_INSET} space-y-2 p-3 ${contract.completed ? "opacity-75" : ""}`}
+                className={`${SURFACE_INSET} space-y-2 p-3 ${contract.completed ? "border-emerald-300 dark:border-emerald-800" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span aria-hidden className="text-lg">{contract.icon}</span>
+                    {contract.source === "farm" ? (
+                      <FarmItemIcon
+                        itemId={contract.sourceItemId as FarmItemId}
+                        className="h-9 w-9"
+                      />
+                    ) : contract.source === "fishing_item" ? (
+                      <FishingCatchItemIcon
+                        itemId={contract.sourceItemId as FishingCatchItemId}
+                        size={22}
+                      />
+                    ) : (
+                      <GameIcon name={contract.iconName} size={20} />
+                    )}
                     <div>
                       <h5 className="font-semibold">{contract.name}</h5>
                       <p className="text-[11px] text-zinc-500">
@@ -310,7 +327,7 @@ export function GuildTradePostPanel() {
             return (
               <article key={item.id} className={`${SURFACE_INSET} flex flex-col p-3`}>
                 <div className="flex items-start gap-2">
-                  <span aria-hidden className="text-lg">{item.icon}</span>
+                  <GameIcon name={item.iconName} size={20} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <h5 className="font-semibold">{item.name}</h5>

@@ -18,6 +18,7 @@ import {
   FISHING_CATCH_ITEMS,
   type FishingCatchItemId,
 } from "@/adventure/v2/fishingStock";
+import type { GameIconName } from "./gameIcon";
 
 export const GUILD_TRADE_USER_SAVE_KEY = "guild-trade-user.v1";
 export const GUILD_TRADE_BASE_TARGET = 40;
@@ -36,6 +37,7 @@ export type GuildTradeItem = {
   category: GuildTradeItemCategory;
   name: string;
   icon: string;
+  iconName: GameIconName;
   batchSize: number;
   pointValue: number;
 };
@@ -100,6 +102,7 @@ const woodItems = Object.entries(WOODCUTTING_MATERIAL_ID).map(
       category: "wood" as const,
       name: material.name,
       icon: "🪵",
+      iconName: "Tree" as const,
       ...batch,
     };
   },
@@ -122,6 +125,7 @@ const oreItems = oreKeys.map((key) => {
     category: "ore" as const,
     name: MINING_MATERIALS[materialId].name,
     icon: "⛏️",
+    iconName: "Shovel" as const,
     ...ORE_TRADE_BATCH[key],
   };
 });
@@ -133,6 +137,7 @@ const farmItems = FARM_TRADE_ITEM_IDS.map((itemId) => ({
   category: "farm" as const,
   name: FARM_ITEMS[itemId].name,
   icon: FARM_ITEMS[itemId].icon,
+  iconName: "Plant" as const,
   batchSize: 5,
   pointValue: 1,
 }));
@@ -144,6 +149,7 @@ const fishItems = Object.values(FISHING_CATCH_ITEMS).map((item) => ({
   category: "fish" as const,
   name: item.name,
   icon: item.icon,
+  iconName: "Fish" as const,
   ...FISH_TRADE_BATCH[item.id],
 }));
 
@@ -240,6 +246,7 @@ export type GuildTradeShopItem = {
   name: string;
   description: string;
   icon: string;
+  iconName: GameIconName;
   tokenCost: number;
   weeklyLimit: number;
   minFacilityLevel: number;
@@ -255,6 +262,7 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     name: "정제 철괴",
     description: "제작소의 초반 장비 제작에 쓰는 정제 재료입니다.",
     icon: "🔩",
+    iconName: "Gear",
     tokenCost: 20,
     weeklyLimit: 3,
     minFacilityLevel: 1,
@@ -269,6 +277,7 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     name: "스태미나 포션",
     description: "보관했다가 스태미나 200을 회복할 수 있습니다.",
     icon: "🧪",
+    iconName: "Flask",
     tokenCost: 40,
     weeklyLimit: 2,
     minFacilityLevel: 2,
@@ -279,6 +288,7 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     name: "숙련 증서 묶음",
     description: "직업 숙련도나 공용 숙달 포인트로 바꿀 수 있는 증서 10개입니다.",
     icon: "📜",
+    iconName: "Scroll",
     tokenCost: 30,
     weeklyLimit: 3,
     minFacilityLevel: 3,
@@ -293,6 +303,7 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     name: "미스릴 조각",
     description: "중상급 제작 장비에 필요한 희귀 금속 조각입니다.",
     icon: "🔹",
+    iconName: "Diamond",
     tokenCost: 60,
     weeklyLimit: 2,
     minFacilityLevel: 4,
@@ -307,6 +318,7 @@ export const GUILD_TRADE_SHOP_ITEMS: readonly GuildTradeShopItem[] = [
     name: "태양석",
     description: "상급 제작 장비에 쓰는 뜨거운 고급 광석입니다.",
     icon: "☀️",
+    iconName: "Sun",
     tokenCost: 100,
     weeklyLimit: 1,
     minFacilityLevel: 5,

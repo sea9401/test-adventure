@@ -113,6 +113,7 @@ export type GuildDiningMenu = {
   id: GuildDiningMenuId;
   name: string;
   icon: string;
+  imageSrc: string;
   description: string;
   minFacilityLevel: number;
   effect:
@@ -129,6 +130,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     id: "hearty_stew",
     name: "든든한 길드 스튜",
     icon: "🍲",
+    imageSrc: "/images/items/dining/hearty_stew.webp",
     description: "HP·MP 충전량을 각각 100,000 즉시 채웁니다.",
     minFacilityLevel: 1,
     effect: { kind: "recovery", hp: 100_000, mp: 100_000 },
@@ -137,6 +139,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     id: "adventurer_meal",
     name: "모험가 정식",
     icon: "🍛",
+    imageSrc: "/images/items/dining/adventurer_meal.webp",
     description: "12시간 동안 사냥 경험치가 5% 증가합니다.",
     minFacilityLevel: 1,
     effect: {
@@ -149,6 +152,7 @@ export const GUILD_DINING_MENUS: readonly GuildDiningMenu[] = [
     id: "worker_lunch",
     name: "일꾼 도시락",
     icon: "🍱",
+    imageSrc: "/images/items/dining/worker_lunch.webp",
     description: "12시간 동안 생활 경험치가 5% 증가합니다.",
     minFacilityLevel: 2,
     effect: {

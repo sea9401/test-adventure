@@ -24,6 +24,10 @@ import {
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
 import { itemNameClass } from "@/adventure/v2/V2ItemCard";
+import { DiscoveryNotice } from "@/adventure/v2/DiscoveryNotice";
+import { GameIcon } from "@/adventure/v2/GameIcon";
+import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
+import { RewardNotice } from "@/adventure/v2/RewardNotice";
 
 export type HuntResult = {
   floor: number;
@@ -80,7 +84,7 @@ function formatDropBanner(
   }
   if (equipName) parts.push(equipName);
   if (parts.length === 0) return null;
-  return `⭐ ${parts.join(", ")}을(를) 획득했다!`;
+  return `${parts.join(", ")}을(를) 획득했다!`;
 }
 
 // 레벨업 스탯 성장 — "힘 +3 · 행운 +2" 식으로 1차 스탯 순서대로 합친다.
@@ -146,28 +150,26 @@ export function HuntResultCard({
       className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
     >
       {rareMapDropDef && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
-          {rareMapDropDef.category === "hunt" ? (
-            <>
-              ✨ 희귀 탐사 「{rareMapDropDef.name}」 개방! — 전투 탭 &gt;
-              사냥터에서 입장
-            </>
-          ) : (
-            <>🎟 「{rareMapDropDef.name}」 발견! — 가방 소모품에서 사용</>
-          )}
-        </div>
+        <DiscoveryNotice kind={rareMapDropDef.category} className="mb-2">
+          {rareMapDropDef.category === "hunt"
+            ? `희귀 탐사 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
+            : `「${rareMapDropDef.name}」 발견! — 가방 소모품에서 사용`}
+        </DiscoveryNotice>
       )}
       {droppedUniq && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
-          ✨ 유니크 「
-          <span className={itemNameClass(droppedUniq)}>{droppedUniq.name}</span>
-          」 획득!
+        <div className="ui-reward-flash mb-2 flex items-center justify-center gap-1.5 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
+          <GameIcon name="Sparkle" size={15} className="shrink-0" />
+          <span>
+            유니크 「
+            <span className={itemNameClass(droppedUniq)}>{droppedUniq.name}</span>
+            」 획득!
+          </span>
         </div>
       )}
       {dropBannerText && (
-        <div className="ui-reward-flash mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+        <RewardNotice className="mb-2">
           {dropBannerText}
-        </div>
+        </RewardNotice>
       )}
       {won ? (
         <div className="flex items-baseline justify-center gap-2">
@@ -181,9 +183,7 @@ export function HuntResultCard({
       ) : (
         // 패배는 작은 글씨 대신 눈에 띄는 배지로 — 승리 카드와 한눈에 구분되게.
         <div className="rounded-md bg-rose-100 py-1.5 text-center dark:bg-rose-900/50">
-          <span className="text-base font-bold tracking-wide text-rose-700 dark:text-rose-300">
-            💀 패배
-          </span>
+          <BattleOutcomeBadge outcome="lose" />
         </div>
       )}
 
@@ -264,14 +264,14 @@ export function HuntResultCard({
       {hpCharges != null && (
         <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
           <ChargeReadout
-            emoji="🧪"
+            iconName="Flask"
             label="HP 충전약"
             value={hpCharges}
             activeText="text-rose-500"
           />
           {hasMp && (
             <ChargeReadout
-              emoji="🔷"
+              iconName="Diamond"
               label="MP 충전약"
               value={mpCharges ?? 0}
               activeText="text-blue-500"

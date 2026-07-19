@@ -5,6 +5,7 @@ import { CoinTitleShopList } from "./CoinShopLists";
 import { arenaShopEntries } from "./arenaShop";
 import type { BuyResult, ArenaShopState } from "./useArenaShop";
 import { useSystemToast } from "./RewardToastProvider";
+import { CoinAmount } from "./CoinAmount";
 
 // 투기장 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useArenaShop).
 // V2ArenaView 의 "상점" 탭 안에 임베드되므로 자체 헤더(SubViewHeader)는 두지 않고
@@ -44,9 +45,10 @@ export function ArenaShopView({
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           주간 시즌 순위 보상으로 받은 투기장 코인으로 칭호를 구매하세요.
         </p>
-        <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
-          🪙 {coins.toLocaleString()}
-        </span>
+        <CoinAmount
+          amount={coins}
+          className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+        />
       </div>
 
       {message && (

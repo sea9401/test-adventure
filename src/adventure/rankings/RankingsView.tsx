@@ -25,7 +25,9 @@ import {
 const TABS: { key: RankingMetric; label: string }[] = [
   { key: "level", label: "총 숙련도" },
   { key: "combatPower", label: "전투력" },
-  { key: "fishingScore", label: "낚시 점수" },
+  { key: "lifeMastery", label: "생활 숙련도" },
+  { key: "codexCompletion", label: "도감 완성도" },
+  { key: "masteryTower", label: "숙련의 탑" },
   { key: "guild", label: "길드 랭킹" },
 ];
 
@@ -45,7 +47,9 @@ export function RankingsView() {
       </Card>
 
       {metric === "level" && <LevelMetricPill />}
-      {metric === "fishingScore" && <FishingMetricPill />}
+      {metric === "lifeMastery" && <LifeMasteryMetricPill />}
+      {metric === "codexCompletion" && <CodexMetricPill />}
+      {metric === "masteryTower" && <MasteryTowerMetricPill />}
 
       {metric === "guild" ? (
         <GuildRankingsBody />
@@ -74,15 +78,45 @@ function LevelMetricPill() {
   );
 }
 
-function FishingMetricPill() {
+function LifeMasteryMetricPill() {
+  return (
+    <Card as="section" padding="sm">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-300">
+          생활 숙련도
+        </span>
+        <span className="text-zinc-500 dark:text-zinc-400">
+          농사·벌목·채광·낚시 레벨을 합산하며 각 생활은 Lv.50까지 반영합니다.
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function CodexMetricPill() {
   return (
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-medium text-sky-700 dark:text-sky-300">
-          낚시 점수
+          도감 완성도
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
-          어종 등급별 누적 어획과 개인 최대어 보너스를 합산합니다.
+          직업 해금·장비 등록·어보 발견 수를 전체 수집 항목과 비교합니다.
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function MasteryTowerMetricPill() {
+  return (
+    <Card as="section" padding="sm">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-300">
+          숙련의 탑
+        </span>
+        <span className="text-zinc-500 dark:text-zinc-400">
+          매일 초기화되지 않는 역대 최고 도달 층을 기준으로 합니다.
         </span>
       </div>
     </Card>
@@ -265,14 +299,28 @@ function RankingRow({
       <span className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
         {metric === "level" ? (
           <>숙련도 {entry.cumLevel.toLocaleString()}</>
-        ) : metric === "fishingScore" ? (
-          <>낚시 {entry.fishingScore.toLocaleString()}점</>
-        ) : (
+        ) : metric === "combatPower" ? (
           <>전투력 {entry.combatPower.toLocaleString()}</>
+        ) : metric === "lifeMastery" ? (
+          <>생활 Lv.{entry.lifeMastery.toLocaleString()}</>
+        ) : metric === "codexCompletion" ? (
+          <>
+            도감 {codexCompletionPercent(entry.codexCollected, entry.codexTotal)}%
+            <span className="ml-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              ({entry.codexCollected}/{entry.codexTotal})
+            </span>
+          </>
+        ) : (
+          <>최고 {entry.masteryTowerFloor.toLocaleString()}층</>
         )}
       </span>
     </button>
   );
+}
+
+function codexCompletionPercent(collected: number, total: number): string {
+  if (total <= 0) return "0.0";
+  return ((collected / total) * 100).toFixed(1);
 }
 
 function GuildRankingRow({

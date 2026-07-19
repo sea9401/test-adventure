@@ -15,9 +15,18 @@ import {
 } from "@/lib/server/derivePlayerCombatV2";
 import {
   FISHING_CODEX_KEY,
-  fishCodexScore,
-  parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
+import { FARM_SAVE_KEY } from "@/adventure/v2/farm";
+import { FISHING_PROGRESS_KEY } from "@/adventure/v2/fishingProgression";
+import { MINING_LOG_KEY } from "@/adventure/v2/miningSession";
+import { WOODCUTTING_LOG_KEY } from "@/adventure/v2/woodcuttingSession";
+import { EQUIPMENT_CODEX_KEY } from "@/adventure/data/v2/equipmentCodex";
+import { MASTERY_TOWER_SAVE_KEY } from "@/adventure/data/v2/masteryTower";
+import { GUIDE_QUESTS_KEY } from "@/lib/server/v2QuestContext";
+import {
+  codexCompletionRankingFromSaves,
+  lifeMasteryRankingFromSaves,
+} from "@/lib/server/rankingMetrics";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
 // 호출처는 stats CTE 의 WHERE 절에 그대로 합성한다.
@@ -35,7 +44,9 @@ const VALID_METRICS = [
   "level",
   "fame",
   "combatPower",
-  "fishingScore",
+  "lifeMastery",
+  "codexCompletion",
+  "masteryTower",
   "towerWeek",
   "towerChallenge",
 ] as const;
@@ -61,14 +72,26 @@ type RankRow = {
   fame: number;
   /** 캐릭터 화면과 같은 derivePowerScore 합성 전투력. */
   combatPower: number;
-  /** 낚시 도감 누적 어획 점수. fishingScore 탭 정렬·표시. */
-  fishingScore: number;
+  /** 농사·벌목·채광·낚시 레벨 합계(각 50 상한). */
+  lifeMastery: number;
+  /** 직업 해금 + 장비 등록 + 어보 발견 수 / 전체 수집 가능 수. */
+  codexCollected: number;
+  codexTotal: number;
+  /** 새 숙련의 탑(mastery-tower.v1) 역대 최고층. */
+  masteryTowerFloor: number;
   /** towerWeek 한정 — 이번 주 최고층. 다른 metric 에서는 0. */
   weekHighest: number;
   /** towerChallenge 한정 — 도전 모드 영구 최고층. 다른 metric 에서는 0. */
   challengeHighest: number;
   rank: number;
 };
+
+const EMPTY_NEW_METRICS = {
+  lifeMastery: 0,
+  codexCollected: 0,
+  codexTotal: 0,
+  masteryTowerFloor: 0,
+} as const;
 
 type CacheEntry = {
   rows: RankRow[];
@@ -86,9 +109,11 @@ function rankingAvatar(raw: unknown): Avatar {
 
 async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "combatPower") return fetchCombatPowerRows();
+  if (metric === "lifeMastery") return fetchLifeMasteryRows();
+  if (metric === "codexCompletion") return fetchCodexCompletionRows();
+  if (metric === "masteryTower") return fetchMasteryTowerRows();
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
-  if (metric === "fishingScore") return fetchFishingScoreRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
   // level 탭 = "총 직업 숙련도"(cum_level) 순. API metric 키는 호환을 위해 level 유지.
   // cumLevel 은 환생으로 리셋되지 않는 직군 숙련도라 차수 환생/전직 진행이 그대로 반영된다.
@@ -157,27 +182,35 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     paragonLevel: pointsFromExp(Number(r.paragon_exp)),
     fame: Number(r.fame),
     combatPower: 0,
-    fishingScore: 0,
+    ...EMPTY_NEW_METRICS,
     weekHighest: 0,
     challengeHighest: 0,
     rank: Number(r.rank),
   }));
 }
 
-async function fetchFishingScoreRows(): Promise<RankRow[]> {
+async function fetchLifeMasteryRows(): Promise<RankRow[]> {
   const result = await db.execute(sql`
     SELECT
       u.id AS user_id,
       COALESCE(u.game_name, p.value->>'name') AS name,
       p.value->>'gender' AS avatar,
-      COALESCE((c.value->>'level')::int, 1) AS level,
-      COALESCE((c.value->>'fame')::bigint, 0) AS fame,
-      f.value AS fishing_codex,
-      COALESCE(f.updated_at, u.created_at) AS updated_at
+      farm.value AS farm_save,
+      wood.value AS woodcutting_save,
+      mining.value AS mining_save,
+      fishing.value AS fishing_save,
+      GREATEST(
+        COALESCE(farm.updated_at, u.created_at),
+        COALESCE(wood.updated_at, u.created_at),
+        COALESCE(mining.updated_at, u.created_at),
+        COALESCE(fishing.updated_at, u.created_at)
+      ) AS updated_at
     FROM users u
-    INNER JOIN saves_kv f ON f.user_id = u.id AND f.key = ${FISHING_CODEX_KEY}
-    LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
     LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    LEFT JOIN saves_kv farm ON farm.user_id = u.id AND farm.key = ${FARM_SAVE_KEY}
+    LEFT JOIN saves_kv wood ON wood.user_id = u.id AND wood.key = ${WOODCUTTING_LOG_KEY}
+    LEFT JOIN saves_kv mining ON mining.user_id = u.id AND mining.key = ${MINING_LOG_KEY}
+    LEFT JOIN saves_kv fishing ON fishing.user_id = u.id AND fishing.key = ${FISHING_PROGRESS_KEY}
     WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
       ${excludeAdminEmails()}
   `);
@@ -185,29 +218,47 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
     user_id: string;
     name: string;
     avatar: string | null;
-    level: number;
-    fame: number;
-    fishing_codex: unknown;
+    farm_save: unknown;
+    woodcutting_save: unknown;
+    mining_save: unknown;
+    fishing_save: unknown;
     updated_at: Date | string;
   };
   return (result.rows as unknown as DbRow[])
-    .map((r) => ({
-      userId: String(r.user_id),
-      name: String(r.name),
-      avatar: rankingAvatar(r.avatar),
-      level: Number(r.level),
-      cumLevel: 0,
-      paragonLevel: 0,
-      fame: Number(r.fame),
-      combatPower: 0,
-      fishingScore: fishCodexScore(parseFishCodex(r.fishing_codex)),
-      weekHighest: 0,
-      challengeHighest: 0,
-      rank: 0,
-      updatedAtMs: new Date(r.updated_at).getTime(),
-    }))
-    .filter((r) => r.fishingScore > 0)
-    .sort((a, b) => b.fishingScore - a.fishingScore || a.updatedAtMs - b.updatedAtMs)
+    .map((r) => {
+      const mastery = lifeMasteryRankingFromSaves({
+        farmRaw: r.farm_save,
+        woodcuttingRaw: r.woodcutting_save,
+        miningRaw: r.mining_save,
+        fishingRaw: r.fishing_save,
+      });
+      return {
+        userId: String(r.user_id),
+        name: String(r.name),
+        avatar: rankingAvatar(r.avatar),
+        level: 1,
+        cumLevel: 0,
+        paragonLevel: 0,
+        fame: 0,
+        combatPower: 0,
+        lifeMastery: mastery.totalLevel,
+        codexCollected: 0,
+        codexTotal: 0,
+        masteryTowerFloor: 0,
+        weekHighest: 0,
+        challengeHighest: 0,
+        rank: 0,
+        totalXp: mastery.totalXp,
+        updatedAtMs: new Date(r.updated_at).getTime(),
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.lifeMastery - a.lifeMastery ||
+        b.totalXp - a.totalXp ||
+        a.updatedAtMs - b.updatedAtMs ||
+        a.userId.localeCompare(b.userId),
+    )
     .map((r, index) => ({
       userId: r.userId,
       name: r.name,
@@ -217,7 +268,188 @@ async function fetchFishingScoreRows(): Promise<RankRow[]> {
       paragonLevel: r.paragonLevel,
       fame: r.fame,
       combatPower: r.combatPower,
-      fishingScore: r.fishingScore,
+      lifeMastery: r.lifeMastery,
+      codexCollected: r.codexCollected,
+      codexTotal: r.codexTotal,
+      masteryTowerFloor: r.masteryTowerFloor,
+      weekHighest: r.weekHighest,
+      challengeHighest: r.challengeHighest,
+      rank: index + 1,
+    }));
+}
+
+async function fetchCodexCompletionRows(): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      u.id AS user_id,
+      COALESCE(u.game_name, p.value->>'name') AS name,
+      p.value->>'gender' AS avatar,
+      c.value AS character_save,
+      pr.value AS proficiency_save,
+      farm.value AS farm_save,
+      wood.value AS woodcutting_save,
+      quests.value AS quests_save,
+      equipment_codex.value AS equipment_codex_save,
+      fishing_codex.value AS fishing_codex_save,
+      GREATEST(
+        COALESCE(c.updated_at, u.created_at),
+        COALESCE(pr.updated_at, u.created_at),
+        COALESCE(farm.updated_at, u.created_at),
+        COALESCE(wood.updated_at, u.created_at),
+        COALESCE(quests.updated_at, u.created_at),
+        COALESCE(equipment_codex.updated_at, u.created_at),
+        COALESCE(fishing_codex.updated_at, u.created_at)
+      ) AS updated_at
+    FROM users u
+    LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
+    LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
+    LEFT JOIN saves_kv farm ON farm.user_id = u.id AND farm.key = ${FARM_SAVE_KEY}
+    LEFT JOIN saves_kv wood ON wood.user_id = u.id AND wood.key = ${WOODCUTTING_LOG_KEY}
+    LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
+    LEFT JOIN saves_kv equipment_codex ON equipment_codex.user_id = u.id AND equipment_codex.key = ${EQUIPMENT_CODEX_KEY}
+    LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
+    WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string;
+    name: string;
+    avatar: string | null;
+    character_save: unknown;
+    proficiency_save: unknown;
+    farm_save: unknown;
+    woodcutting_save: unknown;
+    quests_save: unknown;
+    equipment_codex_save: unknown;
+    fishing_codex_save: unknown;
+    updated_at: Date | string;
+  };
+  return (result.rows as unknown as DbRow[])
+    .map((r) => {
+      const codex = codexCompletionRankingFromSaves({
+        characterRaw: r.character_save,
+        proficiencyRaw: r.proficiency_save,
+        farmRaw: r.farm_save,
+        woodcuttingRaw: r.woodcutting_save,
+        questsRaw: r.quests_save,
+        equipmentCodexRaw: r.equipment_codex_save,
+        fishingCodexRaw: r.fishing_codex_save,
+      });
+      return {
+        userId: String(r.user_id),
+        name: String(r.name),
+        avatar: rankingAvatar(r.avatar),
+        level: 1,
+        cumLevel: 0,
+        paragonLevel: 0,
+        fame: 0,
+        combatPower: 0,
+        lifeMastery: 0,
+        codexCollected: codex.collected,
+        codexTotal: codex.total,
+        masteryTowerFloor: 0,
+        weekHighest: 0,
+        challengeHighest: 0,
+        rank: 0,
+        updatedAtMs: new Date(r.updated_at).getTime(),
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.codexCollected - a.codexCollected ||
+        a.updatedAtMs - b.updatedAtMs ||
+        a.userId.localeCompare(b.userId),
+    )
+    .map((r, index) => ({
+      userId: r.userId,
+      name: r.name,
+      avatar: r.avatar,
+      level: r.level,
+      cumLevel: r.cumLevel,
+      paragonLevel: r.paragonLevel,
+      fame: r.fame,
+      combatPower: r.combatPower,
+      lifeMastery: r.lifeMastery,
+      codexCollected: r.codexCollected,
+      codexTotal: r.codexTotal,
+      masteryTowerFloor: r.masteryTowerFloor,
+      weekHighest: r.weekHighest,
+      challengeHighest: r.challengeHighest,
+      rank: index + 1,
+    }));
+}
+
+async function fetchMasteryTowerRows(): Promise<RankRow[]> {
+  const result = await db.execute(sql`
+    SELECT
+      u.id AS user_id,
+      COALESCE(u.game_name, p.value->>'name') AS name,
+      p.value->>'gender' AS avatar,
+      tower.value AS tower_save,
+      COALESCE(tower.updated_at, u.created_at) AS updated_at
+    FROM users u
+    INNER JOIN saves_kv tower ON tower.user_id = u.id AND tower.key = ${MASTERY_TOWER_SAVE_KEY}
+    LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+    WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
+      ${excludeAdminEmails()}
+  `);
+  type DbRow = {
+    user_id: string;
+    name: string;
+    avatar: string | null;
+    tower_save: unknown;
+    updated_at: Date | string;
+  };
+  return (result.rows as unknown as DbRow[])
+    .map((r) => {
+      const raw =
+        r.tower_save && typeof r.tower_save === "object"
+          ? (r.tower_save as Record<string, unknown>)
+          : {};
+      const masteryTowerFloor = Math.max(
+        0,
+        Math.min(50, Math.floor(Number(raw.lifetimeBestFloor) || 0)),
+      );
+      return {
+        userId: String(r.user_id),
+        name: String(r.name),
+        avatar: rankingAvatar(r.avatar),
+        level: 1,
+        cumLevel: 0,
+        paragonLevel: 0,
+        fame: 0,
+        combatPower: 0,
+        lifeMastery: 0,
+        codexCollected: 0,
+        codexTotal: 0,
+        masteryTowerFloor,
+        weekHighest: 0,
+        challengeHighest: 0,
+        rank: 0,
+        updatedAtMs: new Date(r.updated_at).getTime(),
+      };
+    })
+    .filter((r) => r.masteryTowerFloor > 0)
+    .sort(
+      (a, b) =>
+        b.masteryTowerFloor - a.masteryTowerFloor ||
+        a.updatedAtMs - b.updatedAtMs ||
+        a.userId.localeCompare(b.userId),
+    )
+    .map((r, index) => ({
+      userId: r.userId,
+      name: r.name,
+      avatar: r.avatar,
+      level: r.level,
+      cumLevel: r.cumLevel,
+      paragonLevel: r.paragonLevel,
+      fame: r.fame,
+      combatPower: r.combatPower,
+      lifeMastery: r.lifeMastery,
+      codexCollected: r.codexCollected,
+      codexTotal: r.codexTotal,
+      masteryTowerFloor: r.masteryTowerFloor,
       weekHighest: r.weekHighest,
       challengeHighest: r.challengeHighest,
       rank: index + 1,
@@ -286,7 +518,7 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
         paragonLevel: 0,
         fame: 0,
         combatPower,
-        fishingScore: 0,
+        ...EMPTY_NEW_METRICS,
         weekHighest: 0,
         challengeHighest: 0,
         rank: 0,
@@ -308,7 +540,10 @@ async function fetchCombatPowerRows(): Promise<RankRow[]> {
       paragonLevel: r.paragonLevel,
       fame: r.fame,
       combatPower: r.combatPower,
-      fishingScore: r.fishingScore,
+      lifeMastery: r.lifeMastery,
+      codexCollected: r.codexCollected,
+      codexTotal: r.codexTotal,
+      masteryTowerFloor: r.masteryTowerFloor,
       weekHighest: r.weekHighest,
       challengeHighest: r.challengeHighest,
       rank: index + 1,
@@ -364,7 +599,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     combatPower: 0,
-    fishingScore: 0,
+    ...EMPTY_NEW_METRICS,
     weekHighest: Number(r.week_highest),
     challengeHighest: 0,
     rank: Number(r.rank),
@@ -418,7 +653,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     combatPower: 0,
-    fishingScore: 0,
+    ...EMPTY_NEW_METRICS,
     weekHighest: 0,
     challengeHighest: Number(r.challenge_highest),
     rank: Number(r.rank),
@@ -455,7 +690,7 @@ async function getRows(metric: Metric): Promise<RankRow[]> {
   return promise;
 }
 
-// GET /api/rankings?metric=level|combatPower|fame|fishingScore
+// GET /api/rankings?metric=level|combatPower|lifeMastery|codexCompletion|masteryTower
 // 응답: { list: 상위 LIST_LIMIT, me: 본인 row+rank | null }.
 // 본인 row 도 캐시 스냅샷에서 찾으므로 갓 레벨업한 직후엔 다음 캐시 갱신까지
 // 갱신값이 안 보일 수 있음 (의도된 trade-off — 부하 대비 30초 staleness).
@@ -480,7 +715,10 @@ export async function GET(req: Request) {
     paragonLevel: r.paragonLevel,
     fame: r.fame,
     combatPower: r.combatPower,
-    fishingScore: r.fishingScore,
+    lifeMastery: r.lifeMastery,
+    codexCollected: r.codexCollected,
+    codexTotal: r.codexTotal,
+    masteryTowerFloor: r.masteryTowerFloor,
     weekHighest: r.weekHighest,
     challengeHighest: r.challengeHighest,
     mine: r.userId === userId,
@@ -497,7 +735,10 @@ export async function GET(req: Request) {
         paragonLevel: myRow.paragonLevel,
         fame: myRow.fame,
         combatPower: myRow.combatPower,
-        fishingScore: myRow.fishingScore,
+        lifeMastery: myRow.lifeMastery,
+        codexCollected: myRow.codexCollected,
+        codexTotal: myRow.codexTotal,
+        masteryTowerFloor: myRow.masteryTowerFloor,
         weekHighest: myRow.weekHighest,
         challengeHighest: myRow.challengeHighest,
       }

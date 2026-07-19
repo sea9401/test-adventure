@@ -3,9 +3,15 @@
 import { useAsyncData } from "@/lib/useAsyncData";
 import type { Avatar } from "@/adventure/profile/avatars";
 
-// 개인 metric 3종(레벨/전투/낚시) + 길드 누적 명성 1종.
-// (명성·고탑(주간/도전) 탭은 v2 에서 제거 — API 는 여전히 지원하나 UI 노출 안 함.)
-export type RankingMetric = "level" | "combatPower" | "fishingScore" | "guild";
+// 개인 metric 5종(숙련/전투/생활/도감/숙련의 탑) + 길드 누적 명성 1종.
+// 명성·옛 고탑(주간/도전) API 는 호환용으로 남지만 UI 에서는 노출하지 않는다.
+export type RankingMetric =
+  | "level"
+  | "combatPower"
+  | "lifeMastery"
+  | "codexCompletion"
+  | "masteryTower"
+  | "guild";
 
 export type RankingEntry = {
   rank: number;
@@ -18,7 +24,10 @@ export type RankingEntry = {
   paragonLevel: number;
   fame: number;
   combatPower: number;
-  fishingScore: number;
+  lifeMastery: number;
+  codexCollected: number;
+  codexTotal: number;
+  masteryTowerFloor: number;
   weekHighest: number;
   /** 도전 모드 영구 최고층 (tower-challenge.v1.progress.highestFloor). */
   challengeHighest: number;
@@ -34,7 +43,10 @@ export type RankingMe = {
   paragonLevel: number;
   fame: number;
   combatPower: number;
-  fishingScore: number;
+  lifeMastery: number;
+  codexCollected: number;
+  codexTotal: number;
+  masteryTowerFloor: number;
   weekHighest: number;
   challengeHighest: number;
 };

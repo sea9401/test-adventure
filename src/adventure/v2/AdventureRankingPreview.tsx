@@ -15,7 +15,10 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
 
-type PreviewMetric = Exclude<RankingMetric, "guild">;
+type PreviewMetric = Extract<
+  RankingMetric,
+  "level" | "combatPower" | "lifeMastery"
+>;
 
 const PREVIEW_METRICS: Array<{
   key: PreviewMetric;
@@ -23,7 +26,7 @@ const PREVIEW_METRICS: Array<{
 }> = [
   { key: "level", title: "총 숙련도" },
   { key: "combatPower", title: "전투력" },
-  { key: "fishingScore", title: "낚시 점수" },
+  { key: "lifeMastery", title: "생활 숙련도" },
 ];
 
 const RANK_TEXT: Record<number, string> = {
@@ -238,5 +241,5 @@ function rankingValue(entry: RankingEntry, metric: PreviewMetric): string {
   if (metric === "combatPower") {
     return `전투력 ${entry.combatPower.toLocaleString("ko-KR")}`;
   }
-  return `낚시 ${entry.fishingScore.toLocaleString("ko-KR")}점`;
+  return `생활 Lv.${entry.lifeMastery.toLocaleString("ko-KR")}`;
 }

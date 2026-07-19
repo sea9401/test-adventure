@@ -590,6 +590,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                   <dd className="text-right">Elo K=32 · 승패 양쪽 정산</dd>
                 </div>
                 <div className="flex justify-between gap-3">
+                  <dt>피해 보정</dt>
+                  <dd className="text-right">최종 피해 35% 감소</dd>
+                </div>
+                <div className="flex justify-between gap-3">
                   <dt>방어 기록</dt>
                   <dd className="text-right">상대가 나를 공격해도 점수/전적 반영</dd>
                 </div>

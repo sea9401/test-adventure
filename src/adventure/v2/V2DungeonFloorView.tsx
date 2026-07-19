@@ -443,7 +443,7 @@ export function V2DungeonFloorView({
 
   // 일괄 사냥 — 서버가 count 회를 한 트랜잭션으로 처리(한 왕복, 딸깍). 합산 결과만 받아 표시 +
   //   최종 HP/깊이/레벨을 한 번만 반영(옛 클라 50회 루프·드르륵 카운터 폐기).
-  const runBatch = async (count: number) => {
+  const runBatch = async (count: number, autoRun = false) => {
     setSettingsOpen(false);
     setBatchSummary(null);
     setSelectedBatchReplay(null);
@@ -451,7 +451,11 @@ export function V2DungeonFloorView({
     setBatchRunning(true);
     try {
       const b = await huntBatch(depth, count);
-      if (!b) return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
+      if (!b) {
+        // 자동 사냥 중 실패하면 같은 요청을 무한 반복하지 않는다(단판과 동일 동작).
+        if (autoRun) setAutoHunt(false);
+        return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
+      }
       setBatchSummary({
         attempted: b.attempted,
         completed: b.completed,
@@ -515,6 +519,24 @@ export function V2DungeonFloorView({
         onFrontierUnlocked?.(b.finalMaxDepth);
       }
       if (b.levelsGained > 0) onLevelUp?.();
+      if (autoRun) {
+        const stopReason = getAutoHuntStopReason(
+          autoStopConfigRef.current,
+          {
+            hpCharges: b.hpCharges ?? statusHpCharges,
+            mpCharges: b.mpCharges ?? statusMpCharges,
+            hasMp: (b.playerMaxMp ?? mp?.maxMp ?? 0) > 0,
+            rareMapFound: (b.rareMapDrops ?? []).some(
+              (kind) => RARE_MAP_KINDS[kind]?.category === "hunt",
+            ),
+            level: currentLevel + b.levelsGained,
+          },
+        );
+        if (stopReason) {
+          setAutoHunt(false);
+          setAutoStopReason(stopReason);
+        }
+      }
     } finally {
       setBatchRunning(false);
     }
@@ -616,8 +638,9 @@ export function V2DungeonFloorView({
     }
     setBatchSummary(null);
     setSelectedBatchReplay(null);
-    // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). off = huntCount 반영.
-    if (coreLoopOn || autoRun || huntCount === 1) {
+    // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). 스태미나 모드는
+    // 수동/자동 모두 설정한 huntCount 를 반영한다.
+    if (coreLoopOn || huntCount === 1) {
       // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
       if (huntInFlightRef.current) return;
       huntInFlightRef.current = true;
@@ -692,7 +715,7 @@ export function V2DungeonFloorView({
         }
       });
     } else {
-      void runBatch(huntCount);
+      void runBatch(huntCount, autoRun);
     }
   };
 

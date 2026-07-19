@@ -37,7 +37,7 @@ function AuthorPortrait({ post }: { post: BulletinPost }) {
   const src = avatarImageSrc(post.avatar ?? "male1");
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const frameClass =
-    "flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50 sm:h-[120px] sm:w-40 dark:border-zinc-700 dark:bg-zinc-950";
+    "flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl sm:h-[120px] sm:w-40";
 
   if (post.category === "notice") {
     return (
@@ -124,7 +124,7 @@ export function PostDetailPage({
         </button>
       </div>
 
-      <Card padding="md" className="-mx-2 sm:-mx-4">
+      <Card padding="none" className="-mx-2 px-5 py-4 sm:-mx-4 sm:px-6">
         <header className="border-b border-zinc-200 pb-4 dark:border-zinc-700">
           <div className="flex items-start gap-4">
             <div className="min-w-0 flex-1">
@@ -166,16 +166,16 @@ export function PostDetailPage({
                 )}
               </div>
 
-              <h2 className="mt-3 break-words text-xl font-bold leading-snug text-zinc-950 dark:text-zinc-50 sm:text-2xl">
+              <h2 className="mt-3 break-words text-2xl font-bold leading-snug text-zinc-950 dark:text-zinc-50 sm:text-3xl">
                 {post.title && post.title.trim().length > 0
                   ? post.title
                   : "(제목 없음)"}
               </h2>
 
-              <div className="mt-4 min-w-0">
+              <div className="mt-4 flex min-w-0 items-center gap-x-1.5 overflow-hidden whitespace-nowrap">
                 {post.mine || post.category === "notice" ? (
                   // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
-                  <span className="block truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                  <span className="min-w-0 truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                     {post.name}
                   </span>
                 ) : (
@@ -183,17 +183,34 @@ export function PostDetailPage({
                     type="button"
                     onClick={() => onRequestSendMessage(post.name)}
                     title="쪽지 보내기"
-                    className="block max-w-full truncate rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
+                    className="min-w-0 truncate rounded text-sm font-semibold text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-100"
                   >
                     {post.name}
                   </button>
                 )}
-                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  <span>{post.className}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatDateTime(post.createdAt)}</span>
-                  {post.updatedAt != null && <span>(수정됨)</span>}
-                </div>
+                <span
+                  className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"
+                  aria-hidden="true"
+                >
+                  ·
+                </span>
+                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {post.className}
+                </span>
+                <span
+                  className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400"
+                  aria-hidden="true"
+                >
+                  ·
+                </span>
+                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {formatDateTime(post.createdAt)}
+                </span>
+                {post.updatedAt != null && (
+                  <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    (수정됨)
+                  </span>
+                )}
               </div>
             </div>
 

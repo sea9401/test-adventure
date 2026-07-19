@@ -164,6 +164,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         {/* 메인 내비 — 5탭 유지, 전투/마을/캐릭터는 하위 메뉴 드롭다운(사용자 요청). */}
         <MainTabNav
           activeKey={activeTab}
+          viewerGuildId={viewerGuildId}
           onNavigate={(href) => router.push(href)}
         />
         {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}

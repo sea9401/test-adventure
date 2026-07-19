@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 
@@ -10,9 +11,11 @@ export default function GuildPage() {
     refreshGuildId,
   } = useGameState();
   return (
-    <V2GuildHome
-      viewerGuildId={viewerGuildId}
-      onGuildChanged={refreshGuildId}
-    />
+    <Suspense fallback={null}>
+      <V2GuildHome
+        viewerGuildId={viewerGuildId}
+        onGuildChanged={refreshGuildId}
+      />
+    </Suspense>
   );
 }

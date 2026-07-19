@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Backpack,
   Bank,
@@ -10,9 +10,13 @@ import {
   CastleTurret,
   CloudLightning,
   Compass,
+  CookingPot,
   FirstAid,
+  Flask,
   Hammer,
+  Handshake,
   Lightning,
+  MapTrifold,
   PottedPlant,
   Skull,
   Sparkle,
@@ -20,14 +24,20 @@ import {
   Sword,
   Trophy,
   UserCircle,
+  UsersThree,
   type Icon,
 } from "@phosphor-icons/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
+import {
+  GUILD_FACILITY_LABELS,
+  type GuildFacilityId,
+  unlockedGuildFacilityIds,
+} from "./guild/guildFacilities";
 
-// 메인 내비 — 가로 5탭(모험/전투/마을/캐릭터/길드). 하위 메뉴가 있는 탭(전투·마을·캐릭터)은
-// 누르면 그 탭의 하위 화면이 드롭다운으로 내려온다(사용자 요청). 모험·길드는 하위 메뉴 없이
-// 바로 이동(모험=상태 대시보드, 길드=가입상태/권한별 화면이라 단순 메뉴화 부적합).
+// 메인 내비 — 가로 5탭(모험/전투/마을/캐릭터/길드). 하위 메뉴가 있는 탭은 누르면
+// 드롭다운으로 내려온다. 길드는 기존 길드 화면 + 실제 개방된 시설만 동적으로 노출한다.
 // 색·활성 표기는 기존 탭바(highlight)와 동일한 인디고 언어. 드롭다운 항목은 각 탭 홈 카드와
 // 같은 아이콘·색을 재사용해 일관·깔끔하게 보이도록 한다.
 
@@ -38,6 +48,31 @@ type SubItem = {
   color: string;
 };
 type TabDef = { key: string; label: string; href: string; sub?: SubItem[] };
+
+const GUILD_ROOT_ITEM: SubItem = {
+  label: "길드",
+  href: "/guild",
+  Icon: UsersThree,
+  color: "text-indigo-500",
+};
+
+const GUILD_FACILITY_ICONS: Record<GuildFacilityId, Icon> = {
+  guild_smithy: Hammer,
+  training_ground: Barbell,
+  exploration_hq: MapTrifold,
+  alchemy_workshop: Flask,
+  dining_hall: CookingPot,
+  trade_post: Handshake,
+};
+
+function guildFacilityMenuItem(id: GuildFacilityId): SubItem {
+  return {
+    label: GUILD_FACILITY_LABELS[id],
+    href: `/guild?tab=facilities&facility=${id}`,
+    Icon: GUILD_FACILITY_ICONS[id],
+    color: "text-emerald-600 dark:text-emerald-400",
+  };
+}
 
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.
 const TABS: TabDef[] = [
@@ -81,24 +116,60 @@ const TABS: TabDef[] = [
       { label: "모험의 서", href: "/character/codex", Icon: BookOpen, color: "text-sky-500" },
     ],
   },
-  { key: "guild", label: "길드", href: "/guild" },
+  { key: "guild", label: "길드", href: "/guild", sub: [GUILD_ROOT_ITEM] },
 ];
 
 export function MainTabNav({
   activeKey,
   onNavigate,
+  viewerGuildId,
 }: {
   // 현재 활성 탭 key(경로 파생). TABS 에 없는 값(예: plaza)이면 아무 탭도 강조 안 함.
   activeKey: string;
   onNavigate: (href: string) => void;
+  viewerGuildId: number | null;
 }) {
   // 열린 드롭다운 탭 key — 한 번에 하나만. null=닫힘.
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [guildFacilityCache, setGuildFacilityCache] = useState<{
+    guildId: number;
+    ids: GuildFacilityId[];
+  } | null>(null);
+  const guildFacilityRequest = useRef<number | null>(null);
   useEscapeKey(() => setOpenKey(null));
   const close = () => setOpenKey(null);
 
+  async function refreshGuildFacilities(guildId: number) {
+    if (guildFacilityRequest.current === guildId) return;
+    guildFacilityRequest.current = guildId;
+    try {
+      const res = await fetch("/api/v2/me/guild/info");
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        settlementBuildings?: Partial<Record<SettlementBuildingId, number>>;
+      };
+      setGuildFacilityCache({
+        guildId,
+        ids: unlockedGuildFacilityIds(json.settlementBuildings),
+      });
+    } catch {
+      // 조회 실패 시 기존 캐시(또는 길드 기본 항목)만 유지한다.
+    } finally {
+      if (guildFacilityRequest.current === guildId) {
+        guildFacilityRequest.current = null;
+      }
+    }
+  }
+
   const openTab = TABS.find((t) => t.key === openKey && t.sub);
-  const openSubItems = openTab?.sub ?? [];
+  const cachedGuildFacilityIds =
+    guildFacilityCache?.guildId === viewerGuildId
+      ? guildFacilityCache.ids
+      : [];
+  const openSubItems =
+    openTab?.key === "guild"
+      ? [GUILD_ROOT_ITEM, ...cachedGuildFacilityIds.map(guildFacilityMenuItem)]
+      : (openTab?.sub ?? []);
 
   return (
     <nav className="relative mx-auto w-full max-w-[720px]" aria-label="메인 메뉴">
@@ -115,7 +186,11 @@ export function MainTabNav({
               aria-expanded={hasSub ? isOpen : undefined}
               onClick={() => {
                 if (hasSub) {
-                  setOpenKey(isOpen ? null : t.key);
+                  const nextOpen = isOpen ? null : t.key;
+                  setOpenKey(nextOpen);
+                  if (nextOpen === "guild" && viewerGuildId != null) {
+                    void refreshGuildFacilities(viewerGuildId);
+                  }
                 } else {
                   close();
                   onNavigate(t.href);

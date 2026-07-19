@@ -44,25 +44,27 @@ import {
   type AutoHuntStopReason,
   useAutoHuntStopConfig,
 } from "@/adventure/v2/autoHuntStopConditions";
+import {
+  huntCountsForAdventureSupport,
+  normalizeHuntCount,
+  type HuntCount,
+} from "@/adventure/data/v2/adventureSupport";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
 
 // 사냥 버튼이 한 번에 처리할 횟수. 전투 설정에서 고르면 메인 사냥 버튼이 이 값을 반영한다.
 // 1 이면 단판(hunt), 5/10/50 이면 일괄(runBatch).
-const HUNT_COUNTS = [1, 5, 10, 50] as const;
-type HuntCount = (typeof HUNT_COUNTS)[number];
-
 // 사냥 횟수 기본값을 localStorage 에 영속 — 사냥터 재진입마다 1 로 리셋되는 번거로움 제거.
-// 유효 옵션(HUNT_COUNTS) 외 저장값(옵션 변경·손상)은 1 로 폴백.
+// 지원권 권한에 없는 저장값(미가입자의 옛 50회 포함)·손상값은 1 로 폴백.
 const HUNT_COUNT_STORAGE_KEY = "v2-hunt-count.v1";
-function loadHuntCount(): HuntCount {
+function loadHuntCount(adventureSupportActive: boolean): HuntCount {
   if (typeof window === "undefined") return 1;
   try {
-    const n = Number(localStorage.getItem(HUNT_COUNT_STORAGE_KEY));
-    return (HUNT_COUNTS as readonly number[]).includes(n)
-      ? (n as HuntCount)
-      : 1;
+    return normalizeHuntCount(
+      localStorage.getItem(HUNT_COUNT_STORAGE_KEY),
+      adventureSupportActive,
+    );
   } catch {
     return 1;
   }
@@ -132,6 +134,7 @@ export function V2DungeonFloorView({
   currentLevel = 1,
   initialExp = 0,
   initialMaxExp = 1,
+  adventureSupportActive = false,
   initialHpCharges = 0,
   initialMpCharges = 0,
   stamina,
@@ -169,6 +172,8 @@ export function V2DungeonFloorView({
   // 첫 사냥 전 카드 높이 고정용 현재 상태. 이후에는 사냥 응답의 최신값이 우선한다.
   initialExp?: number;
   initialMaxExp?: number;
+  // 월간 모험 지원권 활성 여부. 결제 연동 전에는 false이며, 활성 이용자만 50회 일괄 전투 허용.
+  adventureSupportActive?: boolean;
   initialHpCharges?: number;
   initialMpCharges?: number;
   // 전역 stamina + setter — V2GameFlow.
@@ -311,12 +316,13 @@ export function V2DungeonFloorView({
     lastResult?.masteryAfter ?? batchStatus?.proficiency ?? latestProficiency;
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
+  const huntCounts = huntCountsForAdventureSupport(adventureSupportActive);
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
   // (useAutoPotionConfig 와 동일 패턴 — 클라 전용 localStorage 하이드레이션).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHuntCount(loadHuntCount());
-  }, []);
+    setHuntCount(loadHuntCount(adventureSupportActive));
+  }, [adventureSupportActive]);
 
   // HP 게이트용 1초 틱 — 시간 재생으로 회복되면 사냥 버튼이 자동 재활성된다. (HpBar 와 같은 패턴)
   const [now, setNow] = useState(() => Date.now());
@@ -1013,7 +1019,7 @@ export function V2DungeonFloorView({
                   사냥 횟수 — 고른 만큼 사냥 버튼이 한 번에 처리합니다.
                 </p>
                 <div className="flex gap-2">
-                  {HUNT_COUNTS.map((n) => {
+                  {huntCounts.map((n) => {
                     const selected = huntCount === n;
                     return (
                       <button

@@ -96,7 +96,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
       </button>
       {open && (
         <div
-          className={`${SURFACE_CARD} absolute right-0 top-full z-[70] mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-lg`}
+          className={`${SURFACE_CARD} ui-dropdown-reveal absolute right-0 top-full z-[70] mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden shadow-lg`}
         >
           <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
             광장

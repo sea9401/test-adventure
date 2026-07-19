@@ -145,9 +145,10 @@ export function MainTabNav({
           {/* 바깥 클릭 닫기 — 투명 캐처. */}
           <div className="fixed inset-0 z-40" onClick={close} aria-hidden />
           <div
+            key={openTab.key}
             role="menu"
             aria-label={`${openTab.label} 메뉴`}
-            className={`${SURFACE_CARD} absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid grid-cols-2 gap-1 p-2 sm:mx-6`}
+            className={`${SURFACE_CARD} ui-dropdown-reveal absolute left-0 right-0 top-full z-50 mx-2 mt-2 grid grid-cols-2 gap-1 p-2 sm:mx-6`}
           >
             {openSubItems.map((s) => (
               <button

@@ -310,7 +310,7 @@ export function ChatPanel({
       className="pointer-events-none fixed inset-0 z-[45] flex items-end justify-end sm:p-4"
     >
       <div
-        className="pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        className="ui-popover-reveal pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
         // 데스크톱만 크기 조절(인라인이 sm:max-w-md/sm:h-[600px] 보다 우선). 모바일은 전체폭 유지.
         style={
           isDesktop
@@ -376,7 +376,7 @@ export function ChatPanel({
         </header>
 
         {presenceOpen && (
-          <div className="no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60">
+          <div className="ui-dropdown-reveal no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60">
             {presence.length === 0 ? (
               <div className="text-xs text-zinc-500 dark:text-zinc-400">
                 접속 중인 유저가 없습니다.

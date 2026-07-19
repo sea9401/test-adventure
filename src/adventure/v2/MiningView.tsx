@@ -594,6 +594,24 @@ export function MiningView({
         </div>
       </div>
 
+      <Card padding="sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="inline-flex shrink-0 items-center gap-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <span
+              aria-hidden="true"
+              className="h-2 w-2 rounded-full bg-amber-500"
+            />
+            보유 재료
+          </span>
+          <span className="min-w-0 truncate text-right text-sm font-bold text-zinc-800 dark:text-zinc-100">
+            {selectedMaterial.name}
+            <span className="ml-2 tabular-nums text-amber-700 dark:text-amber-300">
+              {selectedMaterialCount.toLocaleString()}개
+            </span>
+          </span>
+        </div>
+      </Card>
+
       {run ? (
         <div className="space-y-2">
           <div className="relative h-80 w-full overflow-hidden rounded-xl border-2 border-amber-300 bg-stone-900 dark:border-amber-800">
@@ -653,8 +671,7 @@ export function MiningView({
             {formatDuration(expectedDurationMs)}
           </div>
           <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            성공 시 {selectedMaterial.name} 1개 · 보유 {selectedMaterialCount}개 · XP +
-            {selectedNode.xp}
+            성공 시 {selectedMaterial.name} 1개 · XP +{selectedNode.xp}
           </div>
         </Card>
       )}

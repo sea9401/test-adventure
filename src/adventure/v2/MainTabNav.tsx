@@ -5,26 +5,28 @@ import {
   Backpack,
   Bank,
   Barbell,
+  Binoculars,
   BookOpen,
+  BowlFood,
   CaretDown,
   CastleTurret,
   CloudLightning,
   Compass,
-  CookingPot,
   FirstAid,
-  Flask,
   Hammer,
-  Handshake,
   Lightning,
-  MapTrifold,
+  PersonSimpleTaiChi,
   PottedPlant,
+  ShieldStar,
   Skull,
   Sparkle,
   Storefront,
   Sword,
+  TestTube,
+  Toolbox,
   Trophy,
   UserCircle,
-  UsersThree,
+  Warehouse,
   type Icon,
 } from "@phosphor-icons/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -52,25 +54,47 @@ type TabDef = { key: string; label: string; href: string; sub?: SubItem[] };
 const GUILD_ROOT_ITEM: SubItem = {
   label: "길드",
   href: "/guild",
-  Icon: UsersThree,
-  color: "text-indigo-500",
+  Icon: ShieldStar,
+  color: "text-indigo-600 dark:text-indigo-400",
 };
 
-const GUILD_FACILITY_ICONS: Record<GuildFacilityId, Icon> = {
-  guild_smithy: Hammer,
-  training_ground: Barbell,
-  exploration_hq: MapTrifold,
-  alchemy_workshop: Flask,
-  dining_hall: CookingPot,
-  trade_post: Handshake,
+// 길드 메뉴 전용 아이콘·색. 다른 메인 드롭다운 항목과 아이콘을 공유하지 않으며,
+// 시설끼리도 색이 겹치지 않아 작은 화면에서도 형태와 색으로 함께 구분된다.
+const GUILD_FACILITY_VISUALS: Record<
+  GuildFacilityId,
+  Pick<SubItem, "Icon" | "color">
+> = {
+  guild_smithy: {
+    Icon: Toolbox,
+    color: "text-orange-600 dark:text-orange-400",
+  },
+  training_ground: {
+    Icon: PersonSimpleTaiChi,
+    color: "text-rose-600 dark:text-rose-400",
+  },
+  exploration_hq: {
+    Icon: Binoculars,
+    color: "text-sky-600 dark:text-sky-400",
+  },
+  alchemy_workshop: {
+    Icon: TestTube,
+    color: "text-violet-600 dark:text-violet-400",
+  },
+  dining_hall: {
+    Icon: BowlFood,
+    color: "text-emerald-600 dark:text-emerald-400",
+  },
+  trade_post: {
+    Icon: Warehouse,
+    color: "text-teal-600 dark:text-teal-400",
+  },
 };
 
 function guildFacilityMenuItem(id: GuildFacilityId): SubItem {
   return {
     label: GUILD_FACILITY_LABELS[id],
     href: `/guild?tab=facilities&facility=${id}`,
-    Icon: GUILD_FACILITY_ICONS[id],
-    color: "text-emerald-600 dark:text-emerald-400",
+    ...GUILD_FACILITY_VISUALS[id],
   };
 }
 

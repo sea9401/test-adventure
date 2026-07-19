@@ -16,7 +16,9 @@ import {
   bulletinPosts,
   bulletinViews,
   guilds,
+  savesKv,
 } from "@/db/schema";
+import { readProfileValue } from "@/adventure/profile/profileValue";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
@@ -96,10 +98,18 @@ export async function GET(req: Request) {
       updatedAt: bulletinPosts.updatedAt,
       guildId: bulletinPosts.guildId,
       guildName: guilds.name,
+      profile: savesKv.value,
       mine: bulletinPosts.userId,
     })
     .from(bulletinPosts)
     .leftJoin(guilds, eq(guilds.id, bulletinPosts.guildId))
+    .leftJoin(
+      savesKv,
+      and(
+        eq(savesKv.userId, bulletinPosts.userId),
+        eq(savesKv.key, "character-profile.v2"),
+      ),
+    )
     .where(where)
     .orderBy(desc(bulletinPosts.createdAt))
     .limit(BULLETIN_FETCH_LIMIT);
@@ -157,6 +167,10 @@ export async function GET(req: Request) {
     id: r.id,
     // 공지(notice)는 작성자를 항상 "운영자" 로 노출 — 실제 작성 admin 닉을 가린다.
     name: r.category === "notice" ? "운영자" : r.name,
+    avatar:
+      r.category === "notice"
+        ? null
+        : (readProfileValue(r.profile)?.gender ?? "male1"),
     className: r.className,
     category: r.category as BulletinCategory,
     title: r.title,
@@ -230,7 +244,7 @@ export async function POST(req: Request) {
   }
   const title = rawTitle;
 
-  const { name, className } = await resolveActor(userId);
+  const { name, avatar, className } = await resolveActor(userId);
   const viewerGuild = scope === "guild" ? await getViewerGuild(db, userId) : null;
   if (scope === "guild" && viewerGuild == null) {
     return new Response("not in guild", { status: 403 });
@@ -267,6 +281,7 @@ export async function POST(req: Request) {
   return Response.json({
     id: inserted.id,
     name,
+    avatar: category === "notice" ? null : avatar,
     className,
     category,
     title,

@@ -752,12 +752,13 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
       (e) => e.kind === "info" && e.text.includes("스택") && e.text.includes("(3회)"),
     );
     expect(dotApplyLog).toBeDefined();
-    // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격 패턴 (player_attack + "[출혈]").
+    // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격과 분리된 상태 피해 행.
     const dotTickLogs = r.finalState.log.filter(
       (e) =>
-        e.kind === "player_attack" &&
-        e.text.includes("출혈") &&
-        e.text.includes("피해를 입혔다"),
+        e.kind !== "hp_bar" &&
+        e.effect === "status_damage" &&
+        e.text.includes("출혈로") &&
+        e.text.includes("피해를 입었다"),
     );
     expect(dotTickLogs.length).toBeGreaterThan(0);
   });
@@ -1564,7 +1565,14 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     const after1 = advanceTurn(primed, bleeder, "P");
     const after2 = advanceTurn(after1, bleeder, "P");
     expect(after2.enemyHp).toBe(988);
-    expect(after2.log.filter((e) => e.text.startsWith("[출혈]")).length).toBe(1);
+    expect(
+      after2.log.filter(
+        (e) =>
+          e.kind !== "hp_bar" &&
+          e.effect === "status_damage" &&
+          e.text.includes("출혈로"),
+      ).length,
+    ).toBe(1);
   });
 
   it("출혈(기본 DoT)은 STR 기반 고정 — 적 HP 와 무관", () => {

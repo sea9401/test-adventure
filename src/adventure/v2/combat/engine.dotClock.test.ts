@@ -43,7 +43,7 @@ const m = (k: string): Monster => V2_MONSTERS[k];
 
 function bleedTicks(log: { text: string; t?: number; turn?: "player" | "enemy" }[]) {
   return log.filter(
-    (l) => l.text.includes("출혈") && l.text.includes("피해를 입혔다"),
+    (l) => l.text.includes("출혈로") && l.text.includes("피해를 입었다"),
   );
 }
 

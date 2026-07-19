@@ -238,6 +238,10 @@ describe("6티어 — 만물 행운", () => {
     const p: PlayerCombat = { ...PLAYER, extraAttackChancePct: 200 };
     const s = initialBattleState(p, enemy(100), "용사");
     expect(s.playerAttacksLeft).toBe(3);
+    const after = advanceTurn(s, p, "용사");
+    expect(after.log.some((entry) => entry.text === "용사의 3회 공격!")).toBe(
+      true,
+    );
   });
 
   it("추가타 확률 350% — 본타 + 3대 확정 + 50% 확률 (정수확정 + 소수확률)", () => {
@@ -264,6 +268,7 @@ describe("몬스터 다대시 — bonusAttackChancePct", () => {
     expect(s.phase).toBe("player");
     // 보스 3대 = damageBetween(8,5)×3 = 3×3 = 9 피해
     expect(s.playerHp).toBe(9999 - 9);
+    expect(s.log.some((entry) => entry.text === "적의 3회 공격!")).toBe(true);
   });
 
   it("그림자 보법 발동 시 다대시 남은 공격까지 모두 무효", () => {

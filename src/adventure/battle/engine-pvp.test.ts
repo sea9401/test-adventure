@@ -585,6 +585,7 @@ describe("방어자 측 dodge cascade", () => {
     // p2 의 hp 그대로 (모든 공격 회피), 페이즈는 p2 로 토글.
     expect(s1.p2.hp).toBe(500);
     expect(s1.phase).toBe("p2");
+    expect(s1.log.some((e) => e.text === "P1의 3회 공격!")).toBe(true);
     expect(s1.log.some((e) => e.text.includes("그림자 보법"))).toBe(true);
   });
 

@@ -26,8 +26,10 @@ import { resolveEnemyPhase } from "./engine.enemyPhase";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import {
   decrementTimedBuffs,
+  distributeV2DotTicks,
   tickV2BuffMap,
   tickV2Dots,
+  v2DotLogCause,
 } from "./combatShared";
 import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -137,22 +139,27 @@ function tickEnemyBundleEntry(state: BattleState): BattleState {
 }
 
 // 플레이어 행동 시작 — 플레이어에게 걸린 DoT 가 먼저 틱한다. 로그는 플레이어 행동 묶음(tick)에 붙인다.
-function tickPlayerDotsOnAction(state: BattleState): BattleState {
+function tickPlayerDotsOnAction(
+  state: BattleState,
+  playerName: string,
+): BattleState {
   const pTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
   if (pTick.totalDmg <= 0) return { ...state, playerV2Dots: pTick.nextDots };
-  const labels = state.playerV2Dots
-    .filter((d) => d.turns > 0)
-    .map((d) => d.label)
-    .join(" + ");
+  const dotLog = distributeV2DotTicks(pTick.ticks, pTick.totalDmg).reduce(
+    (log, tick) =>
+      appendLog(log, {
+        kind: "info",
+        effect: "status_damage",
+        text: `${playerName}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+        turn: "player",
+      }),
+    state.log,
+  );
   const next: BattleState = {
     ...state,
     playerV2Dots: pTick.nextDots,
     playerHp: Math.max(0, state.playerHp - pTick.totalDmg),
-    log: appendLog(state.log, {
-      kind: "enemy_attack",
-      text: `[${labels}] ${pTick.totalDmg} 피해를 입혔다.`,
-      turn: "player",
-    }),
+    log: dotLog,
   };
   if (next.playerHp > 0) return next;
   return {
@@ -171,19 +178,21 @@ function tickPlayerDotsOnAction(state: BattleState): BattleState {
 function tickEnemyDotsOnAction(state: BattleState): BattleState {
   const eTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
   if (eTick.totalDmg <= 0) return { ...state, enemyV2Dots: eTick.nextDots };
-  const labels = state.enemyV2Dots
-    .filter((d) => d.turns > 0)
-    .map((d) => d.label)
-    .join(" + ");
+  const dotLog = distributeV2DotTicks(eTick.ticks, eTick.totalDmg).reduce(
+    (log, tick) =>
+      appendLog(log, {
+        kind: "info",
+        effect: "status_damage",
+        text: `${state.enemy.name}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+        turn: "enemy",
+      }),
+    state.log,
+  );
   const next = applyPhaseTriggerIfAny({
     ...state,
     enemyV2Dots: eTick.nextDots,
     enemyHp: Math.max(0, state.enemyHp - eTick.totalDmg),
-    log: appendLog(state.log, {
-      kind: "player_attack",
-      text: `[${labels}] ${eTick.totalDmg} 피해를 입혔다.`,
-      turn: "enemy",
-    }),
+    log: dotLog,
   });
   if (next.enemyHp > 0) return next;
   return {
@@ -285,7 +294,7 @@ export function resolveBattleAtb(
             : state.playerAttacksLeft,
       };
       const playerBundleStart = state.log.length;
-      state = tickPlayerDotsOnAction(state);
+      state = tickPlayerDotsOnAction(state, playerName);
       state = tagNewLogEntries(state, playerBundleStart, "player", nextTick);
       if (state.phase === "ended") break;
       state = tickPlayerBundleEntry(state);

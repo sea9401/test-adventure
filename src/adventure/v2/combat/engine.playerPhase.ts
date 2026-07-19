@@ -409,6 +409,15 @@ export function resolvePlayerPhase(
   // (확률 기반 추가 공격 / 기습 보너스로 attackCount 비교가 신뢰할 수 없음).
   const turnNumber = state.turn.completedPlayerTurns + 1;
   const isFirstAttackOfTurn = state.turn.firstAttackPending;
+  if (isFirstAttackOfTurn && state.playerAttacksLeft > 1) {
+    state = {
+      ...state,
+      log: appendLog(state.log, {
+        kind: "info",
+        text: `${playerName}의 ${state.playerAttacksLeft}회 공격!`,
+      }),
+    };
+  }
   const bonus =
     isFirstAttackOfTurn &&
     turnNumber % POWER_ATTACK_TURN_INTERVAL === 0 &&

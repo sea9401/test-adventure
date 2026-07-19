@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { groupBattleLogEntries, lastHpBarIndex } from "./BattleLogList";
+import {
+  groupBattleLogEntries,
+  isEffectBattleLogEntry,
+  lastHpBarIndex,
+  parseBattleLogText,
+} from "./BattleLogList";
 import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import type { BattleLogEntry } from "../v2/combat/engine";
 
@@ -162,5 +167,38 @@ describe("lastHpBarIndex — 박스당 마지막 HP 바만 렌더", () => {
 describe("groupBattleLogEntries — 빈/단일", () => {
   it("빈 배열 → 빈 그룹", () => {
     expect(groupBattleLogEntries([])).toEqual([]);
+  });
+});
+
+describe("전투 로그 표시 분류", () => {
+  it("공격명 뒤의 치명타·보정 라벨을 본문에서 분리한다", () => {
+    expect(
+      parseBattleLogText("공격! [강타] [치명타] 432 피해를 입혔다."),
+    ).toEqual({
+      labels: ["강타", "치명타"],
+      body: "공격! 432 피해를 입혔다.",
+    });
+  });
+
+  it("상태이상·추가 피해는 일반 공격과 다른 효과 행으로 분류한다", () => {
+    expect(
+      isEffectBattleLogEntry({
+        kind: "player_attack",
+        text: "[중독] 125 피해를 입혔다.",
+      }),
+    ).toBe(true);
+    expect(
+      isEffectBattleLogEntry({
+        kind: "info",
+        effect: "status_damage",
+        text: "선인이(가) 화상으로 207 피해를 입었다.",
+      }),
+    ).toBe(true);
+    expect(
+      isEffectBattleLogEntry({
+        kind: "player_attack",
+        text: "공격! [치명타] 432 피해를 입혔다.",
+      }),
+    ).toBe(false);
   });
 });

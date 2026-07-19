@@ -13,7 +13,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { SURFACE_ACCENT, SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
 type PreviewMetric = Exclude<RankingMetric, "guild">;
 
@@ -121,8 +121,10 @@ function RankingLeader({
 }) {
   return (
     <article
-      className={`${SURFACE_ACCENT} flex min-w-0 items-center gap-3 p-4 ${
-        entry.mine ? "ring-2 ring-emerald-500" : ""
+      className={`${SURFACE_INSET} flex min-w-0 items-center gap-3 p-4 ring-2 ring-inset ring-amber-500 dark:ring-amber-400 ${
+        entry.mine
+          ? "outline outline-2 outline-offset-2 outline-emerald-500"
+          : ""
       }`}
     >
       <div className="relative shrink-0">
@@ -205,7 +207,9 @@ function RankingRow({
 function RankingPreviewSkeleton() {
   return (
     <div className="space-y-2">
-      <div className={`${SURFACE_ACCENT} p-4`}>
+      <div
+        className={`${SURFACE_INSET} p-4 ring-2 ring-inset ring-amber-500 dark:ring-amber-400`}
+      >
         <div className="flex items-center gap-3">
           <Skeleton className="h-14 w-14" />
           <div className="min-w-0 flex-1">

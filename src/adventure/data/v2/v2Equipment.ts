@@ -690,6 +690,8 @@ export const CRAFTED_EQUIP_TAG_SET_IDS = [
   "artisan_fury",
   "artisan_gale",
   "artisan_arcane",
+  "artisan_combo",
+  "artisan_corrosion",
 ] as const;
 
 export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
@@ -731,6 +733,52 @@ export const V2_EQUIP_TAG_SETS: readonly V2EquipTagSet[] = [
       { count: 2, bonus: { mp: 180, magicDef: 20, healPowerPct: 8 } },
       { count: 4, bonus: { mp: 320, magicDef: 34, healPowerPct: 14 } },
       { count: 6, bonus: { mp: 520, magicDef: 54, healPowerPct: 22, spd: 6 } },
+    ],
+  },
+  {
+    id: "artisan_combo",
+    name: "연격각인 장비",
+    buildTags: ["physical", "speed"],
+    thresholds: [
+      { count: 2, bonus: { crit: 2, spd: 4 } },
+      { count: 4, bonus: { crit: 3, eva: 3, spd: 8 } },
+      {
+        count: 6,
+        bonus: { crit: 4, critMult: 35, spd: 12 },
+        signature: {
+          trigger: "every_n_hits",
+          label: "연격각인",
+          everyNHits: 4,
+        },
+      },
+    ],
+  },
+  {
+    id: "artisan_corrosion",
+    name: "부식각인 장비",
+    buildTags: ["physical", "poison", "dot", "vulnerability"],
+    thresholds: [
+      { count: 2, bonus: { crit: 2, hp: 80 } },
+      {
+        count: 4,
+        bonus: { crit: 3, eva: 3, hp: 140 },
+        signature: {
+          trigger: "on_hit",
+          label: "부식독",
+          poisonChancePct: 15,
+          poisonStacks: 1,
+        },
+      },
+      {
+        count: 6,
+        bonus: { crit: 4, critMult: 30, hp: 200, spd: 6 },
+        signature: {
+          trigger: "on_crit",
+          label: "갑주부식",
+          enemyDefDebuffPct: 10,
+          buffActions: 2,
+        },
+      },
     ],
   },
   {

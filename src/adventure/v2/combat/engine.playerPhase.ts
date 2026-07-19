@@ -31,7 +31,7 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
-  everyNHitsValue,
+  everyNHitsEffect,
   formatDefDebuffLog,
   firesOnCritPoison,
   formatChillSlowLog,
@@ -743,8 +743,9 @@ export function resolvePlayerPhase(
   // 고유 시그니처 on-crit(Phase 2) — 크리 + 피해 발생 시 발동. 미장착=null/false → byte-identical.
   //   군림목걸이=속도 버프(playerSpdMult), 독니 단검=대상 중독 DoT. 둘 다 아래 afterDamage 에 합류.
   const sigDealtDamage = totalDmg > 0;
-  // 포식자 every-N(Phase 2) — N타마다 추가타 1회. 미장착(N=0)이면 카운터 불변·추가타 0 → byte-identical.
-  const sigEveryN = everyNHitsValue(player.equipSignatures);
+  // every-N — N타마다 추가타 1회. 미장착(N=0)이면 카운터 불변·추가타 0 → byte-identical.
+  const sigEvery = everyNHitsEffect(player.equipSignatures);
+  const sigEveryN = sigEvery?.hits ?? 0;
   const nextSigHitCount =
     sigEveryN > 0 && sigDealtDamage
       ? state.stacks.signatureHitCount + 1
@@ -758,7 +759,7 @@ export function resolvePlayerPhase(
   if (sigExtraAttack > 0) {
     log = appendLog(log, {
       kind: "info",
-      text: `[포식자] 연격 — 한 번 더!`,
+      text: `[${sigEvery?.label ?? "연격"}] 연격 — 한 번 더!`,
     });
   }
   const sigCritSpeedBuff = onCritSpeedBuff(

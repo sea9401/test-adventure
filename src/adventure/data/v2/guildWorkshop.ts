@@ -67,6 +67,12 @@ export type GuildWorkshopRecipeId =
   | "crafted_pursuit_grips"
   | "crafted_focus_gloves"
   | "crafted_focus_boots"
+  | "crafted_combo_bow"
+  | "crafted_combo_gloves"
+  | "crafted_combo_boots"
+  | "crafted_corrosion_dagger"
+  | "crafted_corrosion_gloves"
+  | "crafted_corrosion_boots"
   | "crafted_master_ring"
   | "crafted_ward_plate"
   | "crafted_spark_gloves"
@@ -77,6 +83,10 @@ export type GuildWorkshopRecipeId =
   | "crafted_pursuit_coat"
   | "crafted_pursuit_ring"
   | "crafted_focus_ring"
+  | "crafted_combo_coat"
+  | "crafted_combo_ring"
+  | "crafted_corrosion_armor"
+  | "crafted_corrosion_ring"
   | "crafted_venom_gland_dagger"
   | "crafted_scorpion_king_stinger"
   | "crafted_pulsestone_guard"
@@ -85,6 +95,8 @@ export type GuildWorkshopRecipeId =
   | "crafted_fury_necklace"
   | "crafted_pursuit_necklace"
   | "crafted_focus_robe"
+  | "crafted_combo_necklace"
+  | "crafted_corrosion_necklace"
   | "crafted_sunforge_blade"
   | "crafted_aurora_crown"
   | "crafted_bulwark_shield"
@@ -116,7 +128,9 @@ export type GuildWorkshopResourceProfile =
   | "guard"
   | "fury"
   | "pursuit"
-  | "focus";
+  | "focus"
+  | "combo"
+  | "corrosion";
 
 export const GUILD_WORKSHOP_RESOURCE_TOTAL_BY_TIER = {
   4: 100,
@@ -138,6 +152,8 @@ export const GUILD_WORKSHOP_WOOD_SHARE_PCT_BY_PROFILE: Record<
   fury: 45,
   pursuit: 60,
   focus: 55,
+  combo: 65,
+  corrosion: 50,
 };
 
 export function guildWorkshopResourceCostForTier(
@@ -357,6 +373,72 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     artisanXp: 38,
     note: "룬 세트 장화",
   },
+  crafted_combo_bow: {
+    id: "crafted_combo_bow",
+    equipmentId: "v2_crafted_combo_bow",
+    resourceProfile: "combo",
+    cost: guildWorkshopResourceCostForTier(4, "combo"),
+    profession: "blacksmith",
+    requiredArtisanLevel: 1,
+    requiredSmithyLevel: 1,
+    artisanXp: 34,
+    note: "연격 세트 무기",
+  },
+  crafted_combo_gloves: {
+    id: "crafted_combo_gloves",
+    equipmentId: "v2_crafted_combo_gloves",
+    resourceProfile: "combo",
+    cost: guildWorkshopResourceCostForTier(4, "combo"),
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "연격 세트 장갑",
+  },
+  crafted_combo_boots: {
+    id: "crafted_combo_boots",
+    equipmentId: "v2_crafted_combo_boots",
+    resourceProfile: "combo",
+    cost: guildWorkshopResourceCostForTier(4, "combo"),
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "연격 세트 장화",
+  },
+  crafted_corrosion_dagger: {
+    id: "crafted_corrosion_dagger",
+    equipmentId: "v2_crafted_corrosion_dagger",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(4, "corrosion"),
+    profession: "blacksmith",
+    requiredArtisanLevel: 1,
+    requiredSmithyLevel: 1,
+    artisanXp: 34,
+    note: "부식 세트 무기",
+  },
+  crafted_corrosion_gloves: {
+    id: "crafted_corrosion_gloves",
+    equipmentId: "v2_crafted_corrosion_gloves",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(4, "corrosion"),
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "부식 세트 장갑",
+  },
+  crafted_corrosion_boots: {
+    id: "crafted_corrosion_boots",
+    equipmentId: "v2_crafted_corrosion_boots",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(4, "corrosion"),
+    profession: "blacksmith",
+    requiredArtisanLevel: 2,
+    requiredSmithyLevel: 1,
+    artisanXp: 38,
+    note: "부식 세트 장화",
+  },
   crafted_master_ring: {
     id: "crafted_master_ring",
     equipmentId: "v2_crafted_master_ring",
@@ -475,6 +557,54 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     artisanXp: 58,
     note: "룬 세트 반지",
   },
+  crafted_combo_coat: {
+    id: "crafted_combo_coat",
+    equipmentId: "v2_crafted_combo_coat",
+    resourceProfile: "combo",
+    cost: guildWorkshopResourceCostForTier(6, "combo"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 68,
+    note: "연격 세트 갑옷",
+  },
+  crafted_combo_ring: {
+    id: "crafted_combo_ring",
+    equipmentId: "v2_crafted_combo_ring",
+    resourceProfile: "combo",
+    cost: guildWorkshopResourceCostForTier(6, "combo"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 4,
+    requiredSmithyLevel: 2,
+    artisanXp: 58,
+    note: "연격 세트 반지",
+  },
+  crafted_corrosion_armor: {
+    id: "crafted_corrosion_armor",
+    equipmentId: "v2_crafted_corrosion_armor",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(6, "corrosion"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 5,
+    requiredSmithyLevel: 2,
+    artisanXp: 68,
+    note: "부식 세트 갑옷",
+  },
+  crafted_corrosion_ring: {
+    id: "crafted_corrosion_ring",
+    equipmentId: "v2_crafted_corrosion_ring",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(6, "corrosion"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.refinedIron]: 2 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 4,
+    requiredSmithyLevel: 2,
+    artisanXp: 58,
+    note: "부식 세트 반지",
+  },
   crafted_venom_gland_dagger: {
     id: "crafted_venom_gland_dagger",
     equipmentId: "v2_crafted_venom_gland_dagger",
@@ -586,6 +716,30 @@ export const GUILD_WORKSHOP_RECIPES: Record<
     requiredSmithyLevel: 3,
     artisanXp: 92,
     note: "룬 세트 갑옷",
+  },
+  crafted_combo_necklace: {
+    id: "crafted_combo_necklace",
+    equipmentId: "v2_crafted_combo_necklace",
+    resourceProfile: "combo",
+    cost: guildWorkshopResourceCostForTier(8, "combo"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 3,
+    artisanXp: 92,
+    note: "연격 세트 목걸이",
+  },
+  crafted_corrosion_necklace: {
+    id: "crafted_corrosion_necklace",
+    equipmentId: "v2_crafted_corrosion_necklace",
+    resourceProfile: "corrosion",
+    cost: guildWorkshopResourceCostForTier(8, "corrosion"),
+    materialCost: { [GUILD_WORKSHOP_MATERIAL_ID.mithrilShard]: 3 },
+    profession: "blacksmith",
+    requiredArtisanLevel: 6,
+    requiredSmithyLevel: 3,
+    artisanXp: 92,
+    note: "부식 세트 목걸이",
   },
   crafted_sunforge_blade: {
     id: "crafted_sunforge_blade",

@@ -34,7 +34,6 @@ import {
 // 입장권 사용 — 종류별 전용 화면으로 이동(iid 동봉, 서버가 소유 재검증).
 const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
   rename_map: "/hidden/rename",
-  portrait_map: "/hidden/portrait",
 };
 
 // 소모품 탭 — SP 열매 섹션 + 보유 입장권 목록. SP 열매 보유/사용수·일괄 새로고침 등
@@ -395,7 +394,7 @@ function CoopEquipmentBoxSection({
 }
 
 // 소모품 탭 — 보유 입장권 목록. hunt 계열 희귀 탐사는 사냥터 목록의 "열린 희귀 탐사",
-// utility 계열(비밀 상점/개명/화공)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
+// utility 계열(비밀 상점/개명)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
 function ConsumableList({
   maps,
   onUse,

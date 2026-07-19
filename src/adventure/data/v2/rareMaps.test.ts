@@ -85,6 +85,24 @@ describe("rareMaps", () => {
     expect(parseRareMaps([], NOW)).toEqual([]);
   });
 
+  it("삭제된 화공 공방 입장권은 기존 저장 데이터에서도 제거한다", () => {
+    expect(RARE_MAP_KIND_IDS).not.toContain("portrait_map");
+    expect(
+      parseRareMaps(
+        [
+          {
+            iid: "rm_legacy_portrait",
+            kind: "portrait_map",
+            depth: 5,
+            runsLeft: 1,
+            foundAt: NOW,
+          },
+        ],
+        NOW,
+      ),
+    ).toEqual([]);
+  });
+
   it("rollRareMapDrop — rand 0 이면 첫 종류 당첨, rand 1 이면 null", () => {
     expect(rollRareMapDrop(() => 0)).toBe(RARE_MAP_KIND_IDS[0]);
     expect(rollRareMapDrop(() => 0.9999)).toBeNull();

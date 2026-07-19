@@ -365,7 +365,7 @@ export async function runOneHunt(fullReplay: boolean, ctx: RunOneHuntCtx) {
   let activeRareMap: RareMapInstance | null = null;
   if (rareMapIid) {
     activeRareMap = rareMaps.find((m) => m.iid === rareMapIid) ?? null;
-    // utility 계열(비밀 상점/개명/화공)은 사냥 입장 불가 — 전용 화면에서 사용.
+    // utility 계열(비밀 상점/개명)은 사냥 입장 불가 — 전용 화면에서 사용.
     if (
       !activeRareMap ||
       activeRareMap.depth !== depth ||

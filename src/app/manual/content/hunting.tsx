@@ -19,7 +19,6 @@ const HUNT_RARE_MAP_IDS = [
 const UTILITY_RARE_MAP_IDS = [
   "secret_shop_map",
   "rename_map",
-  "portrait_map",
 ] satisfies RareMapKindId[];
 const RARE_MAP_TTL_MINUTES = Math.floor(RARE_MAP_TTL_MS / 60_000);
 
@@ -107,8 +106,8 @@ export function HuntingContent() {
         </li>
         <li>
           <Em>희귀 탐사</Em> — 아주 낮은 확률로 열리는 특별 사냥. 발견된
-          깊이에서 보상이 크게 불어난 농축 사냥을 진행합니다. 비밀 상점·개명·초상화
-          변경 같은 기능은 별도 초대장/입장권으로 발견되며, 모두 거래소에서
+          깊이에서 보상이 크게 불어난 농축 사냥을 진행합니다. 비밀 상점·개명
+          같은 기능은 별도 초대장/입장권으로 발견되며, 모두 거래소에서
           거래됩니다.
         </li>
       </UL>
@@ -118,7 +117,7 @@ export function HuntingContent() {
         희귀 탐사와 입장권은 <Em>일반 사냥 승리</Em> 때 낮은 확률로 열리거나
         발견됩니다. 희귀 탐사는 {RARE_MAP_TTL_MINUTES}분 동안 전투 탭 → 사냥터의{" "}
         <Em>열린 희귀 탐사</Em>에서 입장합니다. 비밀 상점 초대장은 보유 중이면
-        비밀 상점 화면에서 자동으로 인식되고, 개명·초상화 입장권은 가방의 소모품
+        비밀 상점 화면에서 자동으로 인식되고, 개명 입장권은 가방의 소모품
         탭에서 해당 화면으로 이동해 사용합니다.
       </P>
       <Table
@@ -141,11 +140,7 @@ export function HuntingContent() {
           const def = RARE_MAP_KINDS[id];
           return [
             <Em key={id}>{def.name}</Em>,
-            id === "secret_shop_map"
-              ? "비밀 상점"
-              : id === "rename_map"
-                ? "개명의 신전"
-                : "화공의 공방",
+            id === "secret_shop_map" ? "비밀 상점" : "개명의 신전",
             `${def.runs}회`,
             def.desc,
             percentText(def.dropPct),

@@ -1,9 +1,9 @@
 // 레어 탐사 — 사냥 승리 시 극히 낮은 확률로 열리는 희귀 콘텐츠(2026-06-12).
 // hunt 계열은 "발견된 깊이" 기준의 농축 사냥을 제한 판수만큼, utility 계열은 숨겨진
-// 장소(비밀 상점/개명의 신전/화공의 공방) 기능을 제한 횟수만큼 쓸 수 있다.
+// 장소(비밀 상점/개명의 신전) 기능을 제한 횟수만큼 쓸 수 있다.
 // 거래소 판매 가능(consumable kind). hunt 계열은 사냥터 목록에, utility 계열은 인벤토리에 표시.
 //
-// 카탈로그 확정(2026-06-12 사용자 승인): 희귀 탐사 5종(판수 30·유적 10) + 입장권 3종.
+// 카탈로그 확정(2026-06-12 사용자 승인): 희귀 탐사 5종(판수 30·유적 10) + 입장권 2종.
 // 수치(드랍률·배수)는 다이얼 — 라이브 실측 후 조정 여지.
 
 export type RareMapKindId =
@@ -14,7 +14,6 @@ export type RareMapKindId =
   | "relic_map"
   | "secret_shop_map"
   | "rename_map"
-  | "portrait_map"
   | "exp_tome";
 
 export type RareMapKind = {
@@ -131,12 +130,6 @@ export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
     "rename_map",
     "개명 신전 입장권",
     "이름을 갈아입는 옛 신전의 입장권. 새 이름으로 다시 태어난다 (1회).",
-    { uses: 1, dropPct: 0.003 },
-  ),
-  portrait_map: utilityKind(
-    "portrait_map",
-    "화공 공방 입장권",
-    "은둔한 화공 공방의 입장권. 초상화를 새로 그려준다 (1회).",
     { uses: 1, dropPct: 0.003 },
   ),
   // 테스트 전용 — 사냥 드랍 안 됨(dropPct 0 → 관리자 지급 전용). 사용 시 EXP 100만을

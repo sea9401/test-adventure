@@ -44,17 +44,11 @@ body {
 
 /* ── 게임 콘텐츠 공통 폭 ─────────────────────────────────────────
    기존 화면들이 공유하는 720px 제한은 모바일·작은 태블릿에서 그대로 유지한다.
-   화면 여유가 생기는 md 이상에서만 넓혀 PC 웹 게임의 가로 공간을 활용하며,
+   md 이상은 864px까지만 넓혀 PC에서도 지나치게 퍼지지 않게 하며,
    각 화면의 기존 padding·grid·overflow 규칙은 건드리지 않는다. */
 @media (min-width: 48rem) {
   .max-w-\[720px\]:not(.game-content-readable) {
     max-width: 54rem;
-  }
-}
-
-@media (min-width: 64rem) {
-  .max-w-\[720px\]:not(.game-content-readable) {
-    max-width: 60rem;
   }
 }
 

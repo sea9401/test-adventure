@@ -195,7 +195,13 @@ function formatFull(iso: string): string {
 
 type Tab = "inbox" | "history" | "sent";
 
-export function V2InboxView({ onBack }: { onBack: () => void }) {
+export function V2InboxView({
+  onBack,
+  embedded = false,
+}: {
+  onBack?: () => void;
+  embedded?: boolean;
+}) {
   // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
   const { applyResourcePatch, refreshGuildId } = useGameState();
   const { notifyReward } = useRewardToast();
@@ -217,7 +223,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
     try {
       const r = await fetchInbox();
       setItems(r.items);
-      // 상단 우편 배지(MailboxBell) 재동기화 — 우편함 (재)로드 시(수령/초대 후) 60s 폴링 안 기다림.
+      // 상단 통합 알림 배지 재동기화 — 우편함 (재)로드 시(수령/초대 후) 60s 폴링 안 기다림.
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("v2inbox:refresh"));
       }
@@ -394,12 +400,35 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
 
   const unreadCount = items?.length ?? 0;
 
+  const Root = embedded ? "section" : "main";
+
   return (
-    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="우편함"
-        onBack={onBack}
-        right={
+    <Root
+      className={
+        embedded
+          ? "space-y-4 text-zinc-900 dark:text-zinc-100"
+          : "mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
+      {!embedded && (
+        <SubViewHeader
+          title="우편함"
+          onBack={() => onBack?.()}
+          right={
+            <button
+              type="button"
+              onClick={() => setComposeOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+            >
+              <PaperPlaneTilt size={16} weight="fill" />
+              쪽지 쓰기
+            </button>
+          }
+        />
+      )}
+
+      {embedded && (
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => setComposeOpen(true)}
@@ -408,8 +437,8 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
             <PaperPlaneTilt size={16} weight="fill" />
             쪽지 쓰기
           </button>
-        }
-      />
+        </div>
+      )}
 
       {/* 받은 우편 / 지난 우편(기록) / 보낸 우편 탭 */}
       <div className="flex gap-1 border-b border-zinc-200 dark:border-zinc-700">
@@ -565,7 +594,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           }}
         />
       )}
-    </main>
+    </Root>
   );
 }
 

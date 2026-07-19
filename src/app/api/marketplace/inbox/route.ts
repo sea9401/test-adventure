@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
   const params = new URL(req.url).searchParams;
 
-  // 경량 카운트 모드 — 배지 폴링(MailboxBell).
+  // 경량 카운트 모드 — 통합 알림 배지 폴링(NotificationBell).
   if (params.get("count") === "1") {
     const [row] = await db
       .select({ n: sql<number>`count(*)::int` })

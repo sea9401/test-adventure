@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, UsersThree, X } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -9,6 +9,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -391,6 +392,17 @@ function GuildRankingRow({
 
 type GuildRankingLike = GuildRankingEntry | (GuildRankingMe & { mine: true });
 
+type PublicGuildDetail = {
+  guild: {
+    description: string | null;
+  };
+  members: Array<{
+    name: string | null;
+    level: number;
+    role: "master" | "manager" | "member";
+  }>;
+};
+
 function GuildRankingInfoDialog({
   guild,
   onClose,
@@ -398,7 +410,28 @@ function GuildRankingInfoDialog({
   guild: GuildRankingLike;
   onClose: () => void;
 }) {
+  const [detail, setDetail] = useState<PublicGuildDetail | null>(null);
+  const [detailError, setDetailError] = useState(false);
   useEscapeKey(onClose);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/guilds/${guild.guildId}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return (await response.json()) as PublicGuildDetail;
+      })
+      .then((data) => setDetail(data))
+      .catch((error: unknown) => {
+        if ((error as { name?: string })?.name !== "AbortError") {
+          setDetailError(true);
+        }
+      });
+    return () => controller.abort();
+  }, [guild.guildId]);
+
+  const members = detail?.members ?? null;
+  const description = detail?.guild.description ?? guild.description;
 
   return (
     <div
@@ -409,7 +442,7 @@ function GuildRankingInfoDialog({
         role="dialog"
         aria-modal="true"
         aria-label={`${guild.name} 길드 정보`}
-        className={`${SURFACE_CARD} w-full max-w-sm overflow-hidden`}
+        className={`${SURFACE_CARD} flex max-h-[min(85vh,720px)] w-full max-w-lg flex-col overflow-hidden`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700">
@@ -441,20 +474,93 @@ function GuildRankingInfoDialog({
           </button>
         </div>
 
-        <dl className="grid grid-cols-3 gap-2 p-4">
-          <GuildInfoStat label="순위" value={`${guild.rank.toLocaleString()}위`} />
-          <GuildInfoStat label="누적 명성" value={guild.fameTotal.toLocaleString()} />
-          <GuildInfoStat label="길드원" value={`${guild.memberCount.toLocaleString()}명`} />
-        </dl>
+        <div className="min-h-0 overflow-y-auto">
+          <dl className="grid grid-cols-3 gap-2 p-4">
+            <GuildInfoStat label="순위" value={`${guild.rank.toLocaleString()}위`} />
+            <GuildInfoStat label="누적 명성" value={guild.fameTotal.toLocaleString()} />
+            <GuildInfoStat
+              label="길드원"
+              value={`${(members?.length ?? guild.memberCount).toLocaleString()}명`}
+            />
+          </dl>
 
-        <div className={`${SURFACE_INSET} mx-4 mb-4 p-3`}>
-          <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">길드 소개</p>
-          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">
-            {guild.description?.trim() || "등록된 길드 소개가 없습니다."}
-          </p>
+          <div className={`${SURFACE_INSET} mx-4 p-3`}>
+            <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              길드 소개
+            </p>
+            <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">
+              {description?.trim() || "등록된 길드 소개가 없습니다."}
+            </p>
+          </div>
+
+          <section className="p-4" aria-labelledby="guild-member-list-title">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3
+                id="guild-member-list-title"
+                className="text-xs font-semibold text-zinc-700 dark:text-zinc-200"
+              >
+                길드원 목록
+              </h3>
+              {members && (
+                <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                  {members.length}명
+                </span>
+              )}
+            </div>
+            {!members && !detailError ? (
+              <div className={`${SURFACE_INSET} p-3`} aria-live="polite">
+                <Skeleton rows={2} />
+              </div>
+            ) : detailError ? (
+              <div className={`${SURFACE_INSET} px-3 py-4 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
+                길드원 목록을 불러오지 못했습니다.
+              </div>
+            ) : members && members.length > 0 ? (
+              <ul className="grid gap-1.5 sm:grid-cols-2">
+                {members.map((member, index) => (
+                  <li
+                    key={`${member.role}-${member.name ?? "unknown"}-${index}`}
+                    className={`${SURFACE_INSET} flex items-center justify-between gap-2 px-3 py-2`}
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <GuildMemberRoleBadge role={member.role} />
+                      <PlayerNameLink
+                        name={member.name}
+                        className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100"
+                      />
+                    </span>
+                    <span className="shrink-0 text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      Lv.{member.level.toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className={`${SURFACE_INSET} px-3 py-4 text-center text-sm text-zinc-500 dark:text-zinc-400`}>
+                표시할 길드원이 없습니다.
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
+  );
+}
+
+function GuildMemberRoleBadge({
+  role,
+}: {
+  role: "master" | "manager" | "member";
+}) {
+  if (role === "member") return null;
+  return (
+    <span
+      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-white ${
+        role === "master" ? "bg-amber-600" : "bg-sky-600"
+      }`}
+    >
+      {role === "master" ? "마스터" : "관리자"}
+    </span>
   );
 }
 

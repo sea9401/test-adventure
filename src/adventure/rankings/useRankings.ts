@@ -52,9 +52,12 @@ export type RankingMe = {
 };
 
 export type GuildRankingEntry = {
+  guildId: number;
   rank: number;
   name: string;
   emblem: string | null;
+  description: string | null;
+  nationName: string | null;
   fameTotal: number;
   level: number;
   memberCount: number;
@@ -62,9 +65,12 @@ export type GuildRankingEntry = {
 };
 
 export type GuildRankingMe = {
+  guildId: number;
   rank: number;
   name: string;
   emblem: string | null;
+  description: string | null;
+  nationName: string | null;
   fameTotal: number;
   level: number;
   memberCount: number;

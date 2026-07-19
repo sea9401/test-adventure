@@ -157,7 +157,8 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           return;
         }
         const text = rewardText(q.reward);
-        notifyReward("보상 수령", text);
+        if (text) notifyReward("보상 수령", text);
+        else notifySystem("업적 완료로 기록했어요.");
         await Promise.all([refresh(), refreshGameState()]);
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
@@ -545,7 +546,7 @@ function QuestRow({
           size="xs"
           className="shrink-0"
         >
-          {busy ? "수령 중…" : "받기"}
+          {busy ? "처리 중…" : reward ? "받기" : "완료"}
         </Button>
       )}
     </li>

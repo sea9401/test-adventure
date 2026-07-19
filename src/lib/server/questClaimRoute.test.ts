@@ -114,7 +114,7 @@ describe("POST /api/v2/me/quests/claim", () => {
     vi.restoreAllMocks();
   });
 
-  it("가이드 퀘스트 골드 보상은 보유 골드가 아니라 은행으로 입금한다", async () => {
+  it("업적을 수령해도 골드를 지급하지 않는다", async () => {
     const res = await POST(claimReq("x_rich"));
     expect(res.status).toBe(200);
 
@@ -125,16 +125,16 @@ describe("POST /api/v2/me/quests/claim", () => {
       bankedGold: number;
     };
     expect(json.ok).toBe(true);
-    expect(json.reward.gold).toBe(800);
+    expect(json.reward.gold).toBe(0);
     expect(json.gold).toBe(10_000);
-    expect(json.bankedGold).toBe(1_050);
+    expect(json.bankedGold).toBe(250);
 
     const char = store.get("character.v2") as {
       gold: number;
       bankedGold: number;
     };
     expect(char.gold).toBe(10_000);
-    expect(char.bankedGold).toBe(1_050);
+    expect(char.bankedGold).toBe(250);
   });
 
   it("이미 수령한 퀘스트에 나중에 붙은 칭호는 칭호만 소급 지급한다", async () => {

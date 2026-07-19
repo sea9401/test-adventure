@@ -269,6 +269,7 @@ export const feedbackReports = pgTable(
     actorName: text("actor_name").notNull(),
     category: text("category").notNull().default("suggestion"),
     content: text("content").notNull(),
+    imageKey: text("image_key"),
     path: text("path"),
     status: text("status").notNull().default("open"),
     adminNote: text("admin_note"),

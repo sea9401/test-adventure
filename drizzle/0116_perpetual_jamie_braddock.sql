@@ -1,0 +1,1 @@
+ALTER TABLE "feedback_reports" ADD COLUMN "image_key" text;

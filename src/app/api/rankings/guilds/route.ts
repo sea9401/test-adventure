@@ -12,6 +12,8 @@ type GuildRow = {
   guildId: number;
   name: string;
   emblem: string | null;
+  description: string | null;
+  nationName: string | null;
   level: number;
   fameTotal: number;
   memberCount: number;
@@ -29,6 +31,8 @@ async function fetchRows(): Promise<GuildRow[]> {
         g.id AS guild_id,
         g.name AS name,
         g.emblem AS emblem,
+        g.description AS description,
+        g.nation_name AS nation_name,
         g.level AS level,
         g.fame_total AS fame_total,
         g.created_at AS created_at,
@@ -45,7 +49,7 @@ async function fetchRows(): Promise<GuildRow[]> {
         ROW_NUMBER() OVER (ORDER BY fame_total DESC, created_at ASC)::int AS rank
       FROM stats
     )
-    SELECT guild_id, name, emblem, level, fame_total, member_count, rank
+    SELECT guild_id, name, emblem, description, nation_name, level, fame_total, member_count, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -54,6 +58,8 @@ async function fetchRows(): Promise<GuildRow[]> {
     guild_id: number;
     name: string;
     emblem: string | null;
+    description: string | null;
+    nation_name: string | null;
     level: number;
     fame_total: number;
     member_count: number;
@@ -63,6 +69,8 @@ async function fetchRows(): Promise<GuildRow[]> {
     guildId: Number(r.guild_id),
     name: String(r.name),
     emblem: typeof r.emblem === "string" ? r.emblem : null,
+    description: typeof r.description === "string" ? r.description : null,
+    nationName: typeof r.nation_name === "string" ? r.nation_name : null,
     level: normalizeGuildLevel(Number(r.level)),
     fameTotal: Number(r.fame_total),
     memberCount: Number(r.member_count),
@@ -112,9 +120,12 @@ export async function GET() {
       : null;
 
   const list = rows.slice(0, LIST_LIMIT).map((r) => ({
+    guildId: r.guildId,
     rank: r.rank,
     name: r.name,
     emblem: r.emblem,
+    description: r.description,
+    nationName: r.nationName,
     fameTotal: r.fameTotal,
     level: r.level,
     memberCount: r.memberCount,
@@ -125,9 +136,12 @@ export async function GET() {
     myGuildId !== null ? rows.find((r) => r.guildId === myGuildId) : undefined;
   const me = myRow
     ? {
+        guildId: myRow.guildId,
         rank: myRow.rank,
         name: myRow.name,
         emblem: myRow.emblem,
+        description: myRow.description,
+        nationName: myRow.nationName,
         fameTotal: myRow.fameTotal,
         level: myRow.level,
         memberCount: myRow.memberCount,

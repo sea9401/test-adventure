@@ -3,13 +3,15 @@
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trophy, UsersThree } from "@phosphor-icons/react";
+import { Trophy, UsersThree, X } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Pagination } from "@/components/ui/Pagination";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import { avatarImageSrc } from "@/adventure/profile/avatars";
 import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
 import {
@@ -201,6 +203,7 @@ function UserRankingsBody({
 
 function GuildRankingsBody() {
   const { list, me, loading, error } = useGuildRankings(true);
+  const [selectedGuild, setSelectedGuild] = useState<GuildRankingLike | null>(null);
   const meInList = !!me && !!list?.some((e) => e.mine);
   const pager = usePagination(list ?? [], 10);
 
@@ -234,7 +237,11 @@ function GuildRankingsBody() {
           <Card as="section" padding="none">
             <ol className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {pager.pageItems.map((e) => (
-                <GuildRankingRow key={`${e.rank}-${e.name}`} entry={e} />
+                <GuildRankingRow
+                  key={e.guildId}
+                  entry={e}
+                  onSelect={setSelectedGuild}
+                />
               ))}
             </ol>
           </Card>
@@ -252,9 +259,19 @@ function GuildRankingsBody() {
             내 길드
           </div>
           <div className="border-t border-zinc-200 dark:border-zinc-700">
-            <GuildRankingRow entry={{ ...me, mine: true }} />
+            <GuildRankingRow
+              entry={{ ...me, mine: true }}
+              onSelect={setSelectedGuild}
+            />
           </div>
         </Card>
+      )}
+
+      {selectedGuild && (
+        <GuildRankingInfoDialog
+          guild={selectedGuild}
+          onClose={() => setSelectedGuild(null)}
+        />
       )}
     </>
   );
@@ -325,8 +342,10 @@ function codexCompletionPercent(collected: number, total: number): string {
 
 function GuildRankingRow({
   entry,
+  onSelect,
 }: {
-  entry: GuildRankingEntry | (GuildRankingMe & { mine: true });
+  entry: GuildRankingLike;
+  onSelect: (guild: GuildRankingLike) => void;
 }) {
   return (
     <div
@@ -341,8 +360,15 @@ function GuildRankingRow({
           guildName={entry.name}
           className="h-9 w-9"
         />
-        <span className="min-w-0 truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
-          {entry.name}
+        <span className="flex min-w-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onSelect(entry)}
+            className="min-w-0 truncate rounded-sm text-left text-sm font-medium text-zinc-800 underline-offset-2 hover:text-sky-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:text-zinc-100 dark:hover:text-sky-300"
+            aria-label={`${entry.name} 길드 정보 보기`}
+          >
+            {entry.name}
+          </button>
           <span className="ml-1.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">
             Lv.{entry.level}
           </span>
@@ -359,6 +385,86 @@ function GuildRankingRow({
           {entry.memberCount}명
         </span>
       </span>
+    </div>
+  );
+}
+
+type GuildRankingLike = GuildRankingEntry | (GuildRankingMe & { mine: true });
+
+function GuildRankingInfoDialog({
+  guild,
+  onClose,
+}: {
+  guild: GuildRankingLike;
+  onClose: () => void;
+}) {
+  useEscapeKey(onClose);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${guild.name} 길드 정보`}
+        className={`${SURFACE_CARD} w-full max-w-sm overflow-hidden`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700">
+          <GuildEmblemImage
+            emblem={guild.emblem}
+            guildName={guild.name}
+            className="h-14 w-14"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <h2 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                {guild.name}
+              </h2>
+              <span className="text-xs font-medium text-sky-700 dark:text-sky-300">
+                Lv.{guild.level}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              {guild.nationName ? `소속 국가 · ${guild.nationName}` : "소속 국가 없음"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="길드 정보 닫기"
+            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <X size={18} aria-hidden />
+          </button>
+        </div>
+
+        <dl className="grid grid-cols-3 gap-2 p-4">
+          <GuildInfoStat label="순위" value={`${guild.rank.toLocaleString()}위`} />
+          <GuildInfoStat label="누적 명성" value={guild.fameTotal.toLocaleString()} />
+          <GuildInfoStat label="길드원" value={`${guild.memberCount.toLocaleString()}명`} />
+        </dl>
+
+        <div className={`${SURFACE_INSET} mx-4 mb-4 p-3`}>
+          <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">길드 소개</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">
+            {guild.description?.trim() || "등록된 길드 소개가 없습니다."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GuildInfoStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={`${SURFACE_INSET} min-w-0 px-2 py-2.5 text-center`}>
+      <dt className="text-[10px] text-zinc-500 dark:text-zinc-400">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+        {value}
+      </dd>
     </div>
   );
 }

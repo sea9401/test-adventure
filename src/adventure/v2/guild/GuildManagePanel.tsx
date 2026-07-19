@@ -11,6 +11,7 @@ import {
 } from "@/adventure/guild/api";
 import {
   GUILD_BASE_MEMBER_CAP,
+  GUILD_DESCRIPTION_MAX,
   GUILD_NAME_MAX,
 } from "@/adventure/data/guild";
 import {
@@ -64,8 +65,10 @@ export function GuildManagePanel({
   const [inviteName, setInviteName] = useState("");
   const [emblemFile, setEmblemFile] = useState<File | null>(null);
   const emblemInputRef = useRef<HTMLInputElement>(null);
+  const [descriptionDraft, setDescriptionDraft] = useState<string | null>(null);
   // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
   const [disbandConfirm, setDisbandConfirm] = useState("");
+  const descriptionValue = descriptionDraft ?? info?.guild?.description ?? "";
 
   // 마스터가 가입 신청 수락/거절. 처리 후 info 를 다시 받아 신청 목록·길드원에 반영.
   const handleRequest = useCallback(
@@ -188,6 +191,47 @@ export function GuildManagePanel({
     },
     [acting, onRefresh, setActing, setNotice],
   );
+
+  const handleDescriptionSave = useCallback(async () => {
+    const description = descriptionValue.trim();
+    if (acting || description.length > GUILD_DESCRIPTION_MAX) return;
+    setActing(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v2/guild/description", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ description }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (json?.ok) {
+        setNotice({
+          kind: "ok",
+          text: description ? "길드 소개를 저장했어요." : "길드 소개를 지웠어요.",
+        });
+        await onRefresh();
+        setDescriptionDraft(null);
+      } else {
+        const message =
+          json?.error === "not_master"
+            ? "길드 마스터만 소개를 바꿀 수 있어요."
+            : json?.error === "description_too_long"
+              ? `길드 소개는 ${GUILD_DESCRIPTION_MAX}자까지 쓸 수 있어요.`
+              : `저장에 실패했어요 (${json?.error ?? `http ${res.status}`}).`;
+        setNotice({ kind: "err", text: message });
+      }
+    } catch {
+      setNotice({
+        kind: "err",
+        text: "저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
+      });
+    } finally {
+      setActing(false);
+    }
+  }, [acting, descriptionValue, onRefresh, setActing, setNotice]);
 
   // 마스터가 직책 변경 — guild_members.role (관리자/일반).
   const handleRole = useCallback(
@@ -430,10 +474,46 @@ export function GuildManagePanel({
         </div>
       )}
 
-      {/* ── 길드 설정: 엠블럼 · 위험 구역(해산) ── */}
+      {/* ── 길드 설정: 소개 · 엠블럼 · 위험 구역(해산) ── */}
+      {activeManageTab === "settings" && isMaster && (
+        <div className={`${SURFACE_CARD} p-3`}>
+          <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+            길드 소개
+          </div>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            길드 둘러보기와 랭킹 정보창에 표시되는 짧은 소개입니다.
+          </p>
+          <textarea
+            value={descriptionValue}
+            onChange={(event) => setDescriptionDraft(event.target.value)}
+            disabled={acting}
+            maxLength={GUILD_DESCRIPTION_MAX}
+            rows={3}
+            placeholder="우리 길드를 간단히 소개해 주세요."
+            className="mt-3 block w-full resize-none rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-800 outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+          />
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+              {descriptionValue.length}/{GUILD_DESCRIPTION_MAX}자
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleDescriptionSave()}
+              disabled={
+                acting ||
+                descriptionValue.trim() === (info?.guild?.description ?? "").trim()
+              }
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              소개 저장
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 길드 엠블럼 — 마스터 전용. */}
       {activeManageTab === "settings" && isMaster && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className={`${SURFACE_CARD} p-3`}>
           <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
             길드 엠블럼
           </div>

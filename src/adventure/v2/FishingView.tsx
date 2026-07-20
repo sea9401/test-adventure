@@ -185,7 +185,7 @@ function FishingStatusStrip({
   return (
     <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-2.5 py-2 text-xs text-zinc-700 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-zinc-200">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
           <MulttaeBadge compact />
         </div>
         {fishingSpot && (

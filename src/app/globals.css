@@ -1574,7 +1574,10 @@ body {
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: profile-frame-prismatic-flow 5s linear infinite;
+  animation: var(
+    --profile-frame-animation,
+    profile-frame-prismatic-flow 5s linear infinite
+  );
 }
 
 .ui-profile-frame-infernal {
@@ -1620,6 +1623,64 @@ body {
 .ui-profile-frame-royal {
   --profile-frame-rgb: 126 34 206;
   --profile-frame-gradient: linear-gradient(110deg, #581c87, #7e22ce, #facc15, #fde68a, #9333ea, #581c87);
+}
+
+.ui-profile-frame-iron {
+  --profile-frame-rgb: 71 85 105;
+  --profile-frame-gradient: linear-gradient(#64748b, #64748b);
+}
+
+.ui-profile-frame-bronze {
+  --profile-frame-rgb: 180 83 9;
+  --profile-frame-gradient: linear-gradient(#b45309, #b45309);
+}
+
+.ui-profile-frame-sapphire {
+  --profile-frame-rgb: 37 99 235;
+  --profile-frame-gradient: linear-gradient(#2563eb, #2563eb);
+}
+
+.ui-profile-frame-amethyst {
+  --profile-frame-rgb: 124 58 237;
+  --profile-frame-gradient: linear-gradient(#7c3aed, #7c3aed);
+}
+
+.ui-profile-frame-jade {
+  --profile-frame-rgb: 5 150 105;
+  --profile-frame-gradient: linear-gradient(#059669, #059669);
+}
+
+.ui-profile-frame-static {
+  --profile-frame-animation: none;
+  background-size: 100% 100%;
+  box-shadow:
+    0 0 0 1px rgb(var(--profile-frame-rgb) / 0.22),
+    0 4px 12px rgb(var(--profile-frame-rgb) / 0.12);
+}
+
+.dark .ui-profile-frame-iron {
+  --profile-frame-rgb: 148 163 184;
+  --profile-frame-gradient: linear-gradient(#94a3b8, #94a3b8);
+}
+
+.dark .ui-profile-frame-bronze {
+  --profile-frame-rgb: 217 119 6;
+  --profile-frame-gradient: linear-gradient(#d97706, #d97706);
+}
+
+.dark .ui-profile-frame-sapphire {
+  --profile-frame-rgb: 96 165 250;
+  --profile-frame-gradient: linear-gradient(#60a5fa, #60a5fa);
+}
+
+.dark .ui-profile-frame-amethyst {
+  --profile-frame-rgb: 167 139 250;
+  --profile-frame-gradient: linear-gradient(#a78bfa, #a78bfa);
+}
+
+.dark .ui-profile-frame-jade {
+  --profile-frame-rgb: 52 211 153;
+  --profile-frame-gradient: linear-gradient(#34d399, #34d399);
 }
 
 .dark .ui-profile-frame-cosmetic {
@@ -1668,13 +1729,22 @@ body {
   box-shadow:
     0 0 0 1px rgb(var(--profile-frame-rgb) / 0.2),
     0 0 10px rgb(var(--profile-frame-rgb) / 0.26);
-  animation: profile-frame-prismatic-flow 5s linear infinite;
+  animation: var(
+    --profile-frame-animation,
+    profile-frame-prismatic-flow 5s linear infinite
+  );
 }
 
 .dark .ui-profile-avatar-frame-cosmetic {
   box-shadow:
     0 0 0 1px rgb(var(--profile-frame-rgb) / 0.32),
     0 0 12px rgb(var(--profile-frame-rgb) / 0.32);
+}
+
+.dark .ui-profile-frame-static {
+  box-shadow:
+    0 0 0 1px rgb(var(--profile-frame-rgb) / 0.28),
+    0 4px 12px rgb(var(--profile-frame-rgb) / 0.14);
 }
 
 .ui-profile-avatar-image,
@@ -1827,6 +1897,54 @@ body {
   --chat-badge-color: #a16207;
 }
 
+.ui-chat-badge--vein {
+  --chat-badge-rgb: 100 116 139;
+  --chat-badge-background: linear-gradient(135deg, #f1f5f9, #cbd5e1, #d6d3d1);
+  --chat-badge-color: #475569;
+}
+
+.ui-chat-badge--fish {
+  --chat-badge-rgb: 2 132 199;
+  --chat-badge-background: linear-gradient(135deg, #e0f2fe, #bae6fd, #cffafe);
+  --chat-badge-color: #0369a1;
+}
+
+.ui-chat-badge--axe {
+  --chat-badge-rgb: 146 64 14;
+  --chat-badge-background: linear-gradient(135deg, #ffedd5, #fed7aa, #e7e5e4);
+  --chat-badge-color: #7c2d12;
+}
+
+.ui-chat-badge--hammer {
+  --chat-badge-rgb: 71 85 105;
+  --chat-badge-background: linear-gradient(135deg, #f8fafc, #d6d3d1, #cbd5e1);
+  --chat-badge-color: #334155;
+}
+
+.ui-chat-badge--alchemy {
+  --chat-badge-rgb: 5 150 105;
+  --chat-badge-background: linear-gradient(135deg, #d1fae5, #ccfbf1, #ede9fe);
+  --chat-badge-color: #047857;
+}
+
+.ui-chat-badge--compass {
+  --chat-badge-rgb: 217 119 6;
+  --chat-badge-background: linear-gradient(135deg, #fef3c7, #fed7aa, #fee2e2);
+  --chat-badge-color: #b45309;
+}
+
+.ui-chat-badge--dragon_eye {
+  --chat-badge-rgb: 220 38 38;
+  --chat-badge-background: linear-gradient(135deg, #fef2f2, #fecaca, #fef08a);
+  --chat-badge-color: #b91c1c;
+}
+
+.ui-chat-badge--five_elements {
+  --chat-badge-rgb: 124 58 237;
+  --chat-badge-background: conic-gradient(from 30deg, #fecaca, #fef08a, #bbf7d0, #bae6fd, #ddd6fe, #fecaca);
+  --chat-badge-color: #6d28d9;
+}
+
 .dark .ui-chat-badge {
   --chat-badge-background: linear-gradient(135deg, #172554, #3b0764 52%, #500724);
   --chat-badge-color: #e9d5ff;
@@ -1925,6 +2043,46 @@ body {
 .dark .ui-chat-badge--star {
   --chat-badge-background: linear-gradient(135deg, #422006, #713f12, #2e1065);
   --chat-badge-color: #fde68a;
+}
+
+.dark .ui-chat-badge--vein {
+  --chat-badge-background: linear-gradient(135deg, #18181b, #334155, #292524);
+  --chat-badge-color: #cbd5e1;
+}
+
+.dark .ui-chat-badge--fish {
+  --chat-badge-background: linear-gradient(135deg, #082f49, #0c4a6e, #164e63);
+  --chat-badge-color: #bae6fd;
+}
+
+.dark .ui-chat-badge--axe {
+  --chat-badge-background: linear-gradient(135deg, #431407, #7c2d12, #292524);
+  --chat-badge-color: #fed7aa;
+}
+
+.dark .ui-chat-badge--hammer {
+  --chat-badge-background: linear-gradient(135deg, #18181b, #292524, #334155);
+  --chat-badge-color: #e2e8f0;
+}
+
+.dark .ui-chat-badge--alchemy {
+  --chat-badge-background: linear-gradient(135deg, #022c22, #134e4a, #2e1065);
+  --chat-badge-color: #a7f3d0;
+}
+
+.dark .ui-chat-badge--compass {
+  --chat-badge-background: linear-gradient(135deg, #422006, #7c2d12, #450a0a);
+  --chat-badge-color: #fde68a;
+}
+
+.dark .ui-chat-badge--dragon_eye {
+  --chat-badge-background: linear-gradient(135deg, #450a0a, #7f1d1d, #713f12);
+  --chat-badge-color: #fecaca;
+}
+
+.dark .ui-chat-badge--five_elements {
+  --chat-badge-background: conic-gradient(from 30deg, #7f1d1d, #713f12, #14532d, #164e63, #4c1d95, #7f1d1d);
+  --chat-badge-color: #f5f3ff;
 }
 
 .ui-chat-name-chroma {

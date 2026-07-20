@@ -136,6 +136,56 @@ export const MUSEUN_CASH_ITEMS = {
     tradeable: false,
     effect: { kind: "cosmetic", slot: "profile_border", style: "royal" },
   },
+  iron_profile_border: {
+    id: "iron_profile_border",
+    name: "철제 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 무광 철제 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "iron" },
+  },
+  bronze_profile_border: {
+    id: "bronze_profile_border",
+    name: "청동 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 무광 청동 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "bronze" },
+  },
+  sapphire_profile_border: {
+    id: "sapphire_profile_border",
+    name: "사파이어 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 무광 사파이어 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "sapphire" },
+  },
+  amethyst_profile_border: {
+    id: "amethyst_profile_border",
+    name: "자수정 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 무광 자수정 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "amethyst" },
+  },
+  jade_profile_border: {
+    id: "jade_profile_border",
+    name: "비취 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 무광 비취 단색 테두리를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "jade" },
+  },
   starlight_chat_badge: {
     id: "starlight_chat_badge",
     name: "별빛 채팅 배지",
@@ -335,6 +385,86 @@ export const MUSEUN_CASH_ITEMS = {
     delivery: "entitlement",
     tradeable: false,
     effect: { kind: "cosmetic", slot: "chat_badge", style: "star" },
+  },
+  vein_chat_badge: {
+    id: "vein_chat_badge",
+    name: "광맥 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 광맥 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "vein" },
+  },
+  fish_chat_badge: {
+    id: "fish_chat_badge",
+    name: "물고기 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 물고기 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "fish" },
+  },
+  axe_chat_badge: {
+    id: "axe_chat_badge",
+    name: "도끼 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 도끼 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "axe" },
+  },
+  hammer_chat_badge: {
+    id: "hammer_chat_badge",
+    name: "망치 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 망치 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "hammer" },
+  },
+  alchemy_chat_badge: {
+    id: "alchemy_chat_badge",
+    name: "연금술 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 연금술 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "alchemy" },
+  },
+  compass_chat_badge: {
+    id: "compass_chat_badge",
+    name: "나침반 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 나침반 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "compass" },
+  },
+  dragon_eye_chat_badge: {
+    id: "dragon_eye_chat_badge",
+    name: "용안 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 용안 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "dragon_eye" },
+  },
+  five_elements_chat_badge: {
+    id: "five_elements_chat_badge",
+    name: "오원소 문장 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 오원소 문장 배지를 해금하고 30일간 사용할 수 있습니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "five_elements" },
   },
   cosmetic_extension_30d: {
     id: "cosmetic_extension_30d",

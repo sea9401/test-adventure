@@ -7,7 +7,10 @@ import {
   avatarImageSrc,
   type Avatar,
 } from "@/adventure/profile/avatars";
-import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import {
+  getProfileBorderVariant,
+  type ProfileBorderId,
+} from "@/adventure/data/v2/museunCosmetics";
 
 export function CosmeticAvatar({
   avatar,
@@ -31,7 +34,7 @@ export function CosmeticAvatar({
   const src = avatarImageSrc(avatar);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const cosmeticClass = profileBorder
-    ? `ui-profile-avatar-frame-cosmetic ui-profile-frame-${profileBorder}`
+    ? `ui-profile-avatar-frame-cosmetic ui-profile-frame-${profileBorder} ${getProfileBorderVariant(profileBorder).motion === "static" ? "ui-profile-frame-static" : ""}`
     : "";
 
   return (

@@ -103,10 +103,10 @@ export function V2ArenaRankingTab() {
                     avatar={e.avatar}
                     name={e.name}
                     profileBorder={e.profileBorder}
-                    width={36}
-                    height={36}
-                    sizes="36px"
-                    className="h-9 w-9 rounded-lg"
+                    width={44}
+                    height={44}
+                    sizes="44px"
+                    className="h-11 w-11 rounded-xl"
                   />
                   {e.rank === 1 && (
                     <Crown

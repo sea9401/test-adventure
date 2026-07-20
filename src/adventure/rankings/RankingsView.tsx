@@ -319,10 +319,10 @@ function RankingRow({
           avatar={entry.avatar}
           name={entry.name}
           profileBorder={entry.profileBorder}
-          width={36}
-          height={36}
-          sizes="36px"
-          className="h-9 w-9 rounded-lg"
+          width={44}
+          height={44}
+          sizes="44px"
+          className="h-11 w-11 rounded-xl"
         />
         <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
           {entry.name}
@@ -385,7 +385,7 @@ function GuildRankingRow({
         <GuildEmblemImage
           emblem={entry.emblem}
           guildName={entry.name}
-          className="h-9 w-9"
+          className="h-11 w-11"
         />
         <span className="flex min-w-0 items-center gap-1">
           <button

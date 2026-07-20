@@ -188,6 +188,42 @@ describe("POST /api/v2/me/enhance", () => {
     expect(json.enhance.level).toBe(8);
   });
 
+  it("+10 체크포인트 — 붉은 돌의 하락 구간이 유지로 바뀐다", async () => {
+    store.set("equipment.v2", {
+      owned: [{ iid: "w1", id: WEAPON, enhance: { level: 10, bonusPct: 24 } }],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.7); // +10 붉은 [24,53,0,23] → keep
+    const res = await POST(req({ iid: "w1", stone: "red" }));
+    const json = (await res.json()) as {
+      outcome: string;
+      enhance: { level: number };
+    };
+    expect(json.outcome).toBe("keep");
+    expect(json.enhance.level).toBe(10);
+  });
+
+  it("푸른 돌은 +12 도전까지 파괴를 완전히 막는다", async () => {
+    store.set("character.v2", {
+      gold: 10_000_000,
+      materials: { [RED]: 50, [BLUE]: 50 },
+    });
+    store.set("equipment.v2", {
+      owned: [{ iid: "w1", id: WEAPON, enhance: { level: 11, bonusPct: 29 } }],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.999); // +11 푸른 [12,44,44,0] → demote
+    const res = await POST(req({ iid: "w1", stone: "blue" }));
+    const json = (await res.json()) as {
+      outcome: string;
+      destroyed: boolean;
+      enhance: { level: number };
+    };
+    expect(json.outcome).toBe("demote");
+    expect(json.destroyed).toBe(false);
+    expect(json.enhance.level).toBe(10);
+  });
+
   it("먹이기 — 같은 id 개체 소모·강화석 면제(골드만)", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const res = await POST(req({ iid: "w1", stone: "blue", feedIid: "w2" }));
@@ -301,7 +337,7 @@ describe("POST /api/v2/me/enhance", () => {
     };
     expect(json.outcome).toBe("success");
     expect(json.enhance).toEqual({ level: 11, bonusPct: 29 });
-    expect(json.stoneCost).toBe(5);
+    expect(json.stoneCost).toBe(2);
     expect(json.goldCost).toBe(
       enhanceGoldCostForEquipment(V2_EQUIPMENT[WEAPON], 300, 10),
     );

@@ -391,6 +391,7 @@ export function V2CosmeticsView() {
               onChange={setTab}
               ariaLabel="꾸미기 도감 분류"
               variant="highlight"
+              badgeVariant="subtle"
               scrollable
             />
             {tab === "chroma" ? (

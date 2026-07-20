@@ -1,8 +1,8 @@
 export const MUSEUN_COIN_PACKAGES = [
-  { id: "coin_1000", coins: 1_000, priceKrw: 9_900 },
-  { id: "coin_2000", coins: 2_000, priceKrw: 19_900 },
-  { id: "coin_3000", coins: 3_000, priceKrw: 29_900 },
-  { id: "coin_5000", coins: 5_000, priceKrw: 49_900 },
+  { id: "coin_1000", coins: 1_000, priceKrw: 10_000 },
+  { id: "coin_2000", coins: 2_000, priceKrw: 20_000 },
+  { id: "coin_3000", coins: 3_000, priceKrw: 30_000 },
+  { id: "coin_5000", coins: 5_000, priceKrw: 50_000 },
 ] as const;
 
 export const ADVENTURE_SUPPORT_PASS = {

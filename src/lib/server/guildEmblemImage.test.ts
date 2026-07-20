@@ -3,6 +3,7 @@ import sharp from "sharp";
 import {
   GUILD_EMBLEM_IMAGE_MAX_BYTES,
   GUILD_EMBLEM_IMAGE_SIZE,
+  guildGameImageValue,
   guildEmblemImageSrc,
   normalizeGuildEmblemObjectKey,
 } from "@/adventure/data/guild-emblems";
@@ -24,6 +25,13 @@ describe("길드 엠블럼 R2 객체 키", () => {
         "guild-emblems/7/123e4567-e89b-12d3-a456-426614174000.webp",
       ),
     ).toBeNull();
+  });
+
+  it("게임 내 아바타를 무료 엠블럼 값과 정적 이미지 경로로 바꾼다", () => {
+    const value = guildGameImageValue("monster:슬라임");
+    expect(value).toBe("game-avatar:monster:슬라임");
+    expect(guildEmblemImageSrc(value)).toMatch(/^\/images\/monster\//);
+    expect(guildEmblemImageSrc("game-avatar:unknown")).toBeNull();
   });
 });
 

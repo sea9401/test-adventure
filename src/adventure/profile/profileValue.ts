@@ -1,4 +1,4 @@
-import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
+import { isStoredAvatarId, type Avatar } from "@/adventure/profile/avatars";
 
 // character-profile.v2 저장값의 순수 파서/검증 — 클라(useProfile)와 서버(/sign-in·/create
 // 게이트)가 "온보딩 완료" 기준을 정확히 공유하기 위한 단일 출처. 두 곳의 기준이 어긋나면
@@ -11,7 +11,7 @@ export type Profile = { name: string; gender: Avatar };
 // npc:/monster: 접두 id 도 isValidAvatarId 가 동시에 받아낸다.
 function normalizeAvatar(raw: unknown): Avatar | null {
   if (typeof raw !== "string") return null;
-  if (isValidAvatarId(raw)) return raw;
+  if (isStoredAvatarId(raw)) return raw;
   if (raw === "male") return "male1";
   if (raw === "female") return "female1";
   return null;

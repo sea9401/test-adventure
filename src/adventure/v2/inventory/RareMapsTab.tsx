@@ -40,6 +40,7 @@ import {
 
 function cashItemUseLabel(itemId: MuseunCashItemId): string {
   const effect = MUSEUN_CASH_ITEMS[itemId].effect;
+  if (effect.kind === "profile_image") return "프로필 이미지 1회 변경";
   if (effect.kind === "rename") return "캐릭터 이름 1회 변경";
   if (effect.kind === "adventure_support") {
     return `모험 지원 혜택 ${effect.days}일`;
@@ -90,6 +91,10 @@ export function RareMapsTab({
         onUse={(itemId) => {
           if (itemId === "rename_permit") {
             router.push("/hidden/rename?cashItem=rename_permit");
+            return;
+          }
+          if (itemId === "profile_image_permit") {
+            router.push("/settings/profile-image");
             return;
           }
           onUseCashItem(itemId);

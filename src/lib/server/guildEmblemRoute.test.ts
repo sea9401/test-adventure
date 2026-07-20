@@ -10,8 +10,8 @@ const mocks = vi.hoisted(() => ({
   storageConfigured: vi.fn(() => true),
   uploadImage: vi.fn(),
   deleteImage: vi.fn(),
-  lockResources: vi.fn(),
-  upsertResources: vi.fn(),
+  lockSave: vi.fn(),
+  upsertSave: vi.fn(),
   logActivity: vi.fn(),
   memberRows: [] as Array<Record<string, unknown>>,
   guildRows: [] as Array<Record<string, unknown>>,
@@ -30,9 +30,9 @@ vi.mock("@/lib/server/guildEmblemStorage", () => ({
   uploadGuildEmblemImage: mocks.uploadImage,
   deleteGuildEmblemImage: mocks.deleteImage,
 }));
-vi.mock("@/lib/server/v2GuildResources", () => ({
-  lockGuildResources: mocks.lockResources,
-  upsertGuildResources: mocks.upsertResources,
+vi.mock("@/lib/server/savesKv", () => ({
+  lockSaveForUpdate: mocks.lockSave,
+  upsertSave: mocks.upsertSave,
 }));
 vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: mocks.logActivity,
@@ -73,8 +73,8 @@ vi.mock("@/db", async () => {
   };
 });
 
-import { GUILD_EMBLEM_CHANGE_COST } from "@/adventure/data/guild-emblems";
-import { DELETE, POST } from "@/app/api/v2/guild/emblem/route";
+import { GUILD_CUSTOM_EMBLEM_COIN_COST } from "@/adventure/data/guild-emblems";
+import { DELETE, POST, PUT } from "@/app/api/v2/guild/emblem/route";
 
 function uploadRequest(): Request {
   const form = new FormData();
@@ -89,6 +89,14 @@ function deleteRequest(): Request {
   return new Request("http://test/api/v2/guild/emblem", { method: "DELETE" });
 }
 
+function gameImageRequest(): Request {
+  return new Request("http://test/api/v2/guild/emblem", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ avatar: "male1" }),
+  });
+}
+
 describe("/api/v2/guild/emblem", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -100,13 +108,13 @@ describe("/api/v2/guild/emblem", () => {
     });
     mocks.uploadImage.mockResolvedValue(EMBLEM_KEY);
     mocks.deleteImage.mockResolvedValue(undefined);
-    mocks.lockResources.mockResolvedValue({ gold: 100_000_000 });
+    mocks.lockSave.mockResolvedValue({ coins: 2_000 });
     mocks.memberRows = [{ guildId: 7 }];
     mocks.guildRows = [{ masterId: "u-master", emblem: null }];
     mocks.updatedGuild = null;
   });
 
-  it("파일을 R2에 저장하고 길드 자금 5천만 G를 차감한다", async () => {
+  it("파일을 R2에 저장하고 길드장의 개인 무슨 코인을 차감한다", async () => {
     const response = await POST(uploadRequest());
     const body = await response.json();
 
@@ -114,27 +122,32 @@ describe("/api/v2/guild/emblem", () => {
     expect(body).toMatchObject({
       ok: true,
       emblem: EMBLEM_KEY,
-      cost: GUILD_EMBLEM_CHANGE_COST,
-      guildGold: 50_000_000,
+      cost: GUILD_CUSTOM_EMBLEM_COIN_COST,
+      coins: 1_500,
     });
     expect(mocks.uploadImage).toHaveBeenCalledWith({
       guildId: 7,
       bytes: new Uint8Array([1, 2, 3]),
     });
-    expect(mocks.upsertResources).toHaveBeenCalledWith(expect.anything(), 7, {
-      gold: 50_000_000,
-    });
+    expect(mocks.upsertSave).toHaveBeenCalledWith(
+      expect.anything(),
+      "u-master",
+      "museun-coin-wallet.v1",
+      {
+        coins: 1_500,
+      },
+    );
     expect(mocks.updatedGuild).toEqual({ emblem: EMBLEM_KEY });
   });
 
-  it("길드 자금이 부족하면 새 R2 객체를 지우고 DB를 변경하지 않는다", async () => {
-    mocks.lockResources.mockResolvedValue({ gold: 49_999_999 });
+  it("개인 무슨 코인이 부족하면 새 R2 객체를 지우고 DB를 변경하지 않는다", async () => {
+    mocks.lockSave.mockResolvedValue({ coins: 499 });
 
     const response = await POST(uploadRequest());
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
       ok: false,
-      error: "insufficient_gold",
+      error: "insufficient_coins",
     });
     expect(mocks.deleteImage).toHaveBeenCalledWith(EMBLEM_KEY);
     expect(mocks.updatedGuild).toBeNull();
@@ -159,8 +172,23 @@ describe("/api/v2/guild/emblem", () => {
       emblem: null,
       cost: 0,
     });
-    expect(mocks.lockResources).not.toHaveBeenCalled();
+    expect(mocks.lockSave).not.toHaveBeenCalled();
     expect(mocks.updatedGuild).toEqual({ emblem: null });
+    expect(mocks.deleteImage).toHaveBeenCalledWith(EMBLEM_KEY);
+  });
+
+  it("게임 내 이미지는 무슨 코인을 쓰지 않고 적용한다", async () => {
+    mocks.guildRows = [{ masterId: "u-master", emblem: EMBLEM_KEY }];
+
+    const response = await PUT(gameImageRequest());
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      emblem: "game-avatar:male1",
+      cost: 0,
+    });
+    expect(mocks.lockSave).not.toHaveBeenCalled();
+    expect(mocks.upsertSave).not.toHaveBeenCalled();
+    expect(mocks.updatedGuild).toEqual({ emblem: "game-avatar:male1" });
     expect(mocks.deleteImage).toHaveBeenCalledWith(EMBLEM_KEY);
   });
 

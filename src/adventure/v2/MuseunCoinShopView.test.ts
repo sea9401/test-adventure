@@ -13,6 +13,7 @@ describe("무슨 코인 상점 상품 그룹", () => {
     expect(group?.itemIds).toEqual([
       "adventure_support_30d",
       "rename_permit",
+      "profile_image_permit",
     ]);
   });
 

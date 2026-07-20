@@ -40,7 +40,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
-  const [adminAccess, setAdminAccess] = useState<boolean | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,23 +63,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open]);
-
-  // 무슨 코인 상점은 결제 UI 검토 단계라 관리자에게만 노출한다. 메뉴에서 숨기는 것과
-  // 별개로 실제 페이지도 서버에서 관리자 권한을 다시 검사한다.
-  useEffect(() => {
-    if (!open || adminAccess !== null) return;
-    let cancelled = false;
-    void fetch("/api/admin/me", { cache: "no-store" })
-      .then((res) => {
-        if (!cancelled) setAdminAccess(res.ok);
-      })
-      .catch(() => {
-        if (!cancelled) setAdminAccess(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, adminAccess]);
 
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
@@ -168,18 +150,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 꾸미기
               </Link>
             </li>
-            {adminAccess && (
-              <li>
-                <Link
-                  href="/settings/coin-shop"
-                  onClick={() => setOpen(false)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
-                >
-                  <CoinVertical size={18} weight="duotone" />
-                  무슨 코인 상점
-                </Link>
-              </li>
-            )}
+            <li>
+              <Link
+                href="/settings/coin-shop"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 transition-colors hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950"
+              >
+                <CoinVertical size={18} weight="duotone" />
+                무슨 코인 상점
+              </Link>
+            </li>
             <li>
               <button
                 type="button"

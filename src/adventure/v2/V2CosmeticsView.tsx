@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   FrameCorners,
   Gift,
+  ImageSquare,
   Palette,
   Sparkle,
   X,
@@ -49,9 +50,10 @@ import {
   type ProfileBorderItemId,
 } from "@/adventure/data/v2/museunCosmetics";
 import { useGameState } from "./GameStateProvider";
+import { ProfileImagePanel } from "./V2ProfileImageView";
 import { useSystemToast } from "./RewardToastProvider";
 
-type CosmeticTab = "chroma" | "border" | "badge";
+export type CosmeticTab = "chroma" | "border" | "badge" | "profile_image";
 type CosmeticSlot = "chroma_name" | "profile_border" | "chat_badge";
 type CosmeticExtensionTarget = {
   id: MuseunCosmeticAccessId;
@@ -134,11 +136,15 @@ function accessPeriodLabel(activeUntil: number | null, now: number): string {
   return `${days}일 남음 · ${date}까지`;
 }
 
-export function V2CosmeticsView() {
+export function V2CosmeticsView({
+  initialTab = "chroma",
+}: {
+  initialTab?: CosmeticTab;
+}) {
   const router = useRouter();
   const { refreshGameState } = useGameState();
   const { notifySystem } = useSystemToast();
-  const [tab, setTab] = useState<CosmeticTab>("chroma");
+  const [tab, setTab] = useState<CosmeticTab>(initialTab);
   const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
     parseMuseunCosmetics(null),
   );
@@ -345,6 +351,11 @@ export function V2CosmeticsView() {
         icon: <Sparkle size={16} weight="duotone" />,
         badge: `${CHAT_BADGE_VARIANTS.filter((item) => cosmetics.owned.includes(item.itemId)).length}/${CHAT_BADGE_VARIANTS.length}`,
       },
+      {
+        key: "profile_image" as const,
+        label: "프로필 이미지",
+        icon: <ImageSquare size={16} weight="duotone" />,
+      },
     ],
     [cosmetics],
   );
@@ -364,7 +375,7 @@ export function V2CosmeticsView() {
           </span>
         </div>
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          크로마 닉네임, 프로필 테두리와 채팅 배지를 한곳에서 수집하고 착용합니다.
+          프로필 이미지 변경과 크로마 닉네임, 프로필 테두리, 채팅 배지를 한곳에서 관리합니다.
           상자에서 획득하면 도감에 영구 기록되고 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
         </p>
       </Card>
@@ -378,12 +389,14 @@ export function V2CosmeticsView() {
         </Card>
       ) : (
         <>
-          <CosmeticBoxes
-            cashItems={cashItems}
-            cosmetics={cosmetics}
-            busy={busy}
-            onOpen={openBox}
-          />
+          {tab !== "profile_image" && (
+            <CosmeticBoxes
+              cashItems={cashItems}
+              cosmetics={cosmetics}
+              busy={busy}
+              onOpen={openBox}
+            />
+          )}
           <Card padding="md" className="space-y-3">
             <TabBar
               tabs={tabs}
@@ -410,7 +423,7 @@ export function V2CosmeticsView() {
                 onEquip={equip}
                 onRequestExtension={setExtensionTarget}
               />
-            ) : (
+            ) : tab === "badge" ? (
               <BadgeCodex
                 cosmetics={cosmetics}
                 busy={busy}
@@ -418,8 +431,9 @@ export function V2CosmeticsView() {
                 onEquip={equip}
                 onRequestExtension={setExtensionTarget}
               />
-            )}
+            ) : null}
           </Card>
+          {tab === "profile_image" && <ProfileImagePanel />}
         </>
       )}
       {extensionTarget && (

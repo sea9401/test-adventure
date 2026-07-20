@@ -1,4 +1,4 @@
-import { V2ProfileImageView } from "@/adventure/v2/V2ProfileImageView";
+import { V2CosmeticsView } from "@/adventure/v2/V2CosmeticsView";
 
 export const metadata = {
   title: "프로필 이미지 — 무슨무슨게임",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function ProfileImagePage() {
-  return <V2ProfileImageView />;
+  return <V2CosmeticsView initialTab="profile_image" />;
 }

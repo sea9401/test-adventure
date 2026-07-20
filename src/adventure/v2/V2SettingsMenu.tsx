@@ -18,7 +18,6 @@ import {
   Storefront,
   Sun,
   UserMinus,
-  UserCircle,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -130,16 +129,6 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
             설정
           </div>
           <ul className="py-1">
-            <li>
-              <Link
-                href="/settings/profile-image"
-                onClick={() => setOpen(false)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                <UserCircle size={18} weight="duotone" />
-                프로필 이미지
-              </Link>
-            </li>
             <li>
               <Link
                 href="/settings/cosmetics"

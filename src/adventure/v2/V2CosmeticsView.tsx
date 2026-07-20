@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   FrameCorners,
   Gift,
   Palette,
   Sparkle,
+  X,
 } from "@phosphor-icons/react";
 import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { Button } from "@/components/ui/Button";
@@ -16,7 +18,9 @@ import { PageShell } from "@/components/ui/PageShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
-import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_COSMETIC_BOX_ITEM_IDS,
@@ -29,6 +33,7 @@ import {
   CHROMA_NAME_RARITIES,
   CHROMA_NAME_VARIANTS,
   MUSEUN_COSMETIC_ACCESS_DAYS,
+  MUSEUN_COSMETIC_ACCESS_MS,
   PROFILE_BORDER_RARITIES,
   PROFILE_BORDER_VARIANTS,
   chatBadgeOdds,
@@ -48,6 +53,11 @@ import { useSystemToast } from "./RewardToastProvider";
 
 type CosmeticTab = "chroma" | "border" | "badge";
 type CosmeticSlot = "chroma_name" | "profile_border" | "chat_badge";
+type CosmeticExtensionTarget = {
+  id: MuseunCosmeticAccessId;
+  label: string;
+  activeUntil: number | null;
+};
 const COSMETIC_EXTENSION_ITEM_ID = "cosmetic_extension_30d" as const;
 
 const RARITY_TEXT_CLASS: Record<ChromaNameRarity, string> = {
@@ -136,7 +146,8 @@ export function V2CosmeticsView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [extensionTarget, setExtensionTarget] = useState("");
+  const [extensionTarget, setExtensionTarget] =
+    useState<CosmeticExtensionTarget | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -271,8 +282,7 @@ export function V2CosmeticsView() {
     [notifySystem, refreshGameState],
   );
 
-  const extendCosmetic = useCallback(async () => {
-    if (!extensionTarget) return;
+  const extendCosmetic = useCallback(async (target: CosmeticExtensionTarget) => {
     setBusy("cosmetic_extension");
     try {
       const res = await fetch("/api/v2/me/use-cash-item", {
@@ -280,7 +290,7 @@ export function V2CosmeticsView() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           itemId: COSMETIC_EXTENSION_ITEM_ID,
-          targetId: extensionTarget,
+          targetId: target.id,
         }),
       });
       const data = (await res.json().catch(() => null)) as {
@@ -304,33 +314,16 @@ export function V2CosmeticsView() {
       setCosmetics(parseMuseunCosmetics(data.cosmetics));
       setCurrentTime(Date.now());
       await refreshGameState();
-      notifySystem(`✓ 선택한 꾸미기의 사용 기간을 ${data.daysAdded ?? 30}일 연장했습니다`);
+      setExtensionTarget(null);
+      notifySystem(
+        `✓ ${target.label} 사용 기간을 ${data.daysAdded ?? 30}일 연장했습니다`,
+      );
     } catch (error) {
       notifySystem(`✗ ${(error as Error).message}`);
     } finally {
       setBusy(null);
     }
-  }, [extensionTarget, notifySystem, refreshGameState]);
-
-  const extensionOptions = useMemo(() => {
-    const options: Array<{ id: MuseunCosmeticAccessId; label: string }> = [];
-    for (const variant of CHROMA_NAME_VARIANTS) {
-      if (cosmetics.chromaNames.includes(variant.id)) {
-        options.push({ id: variant.id, label: `크로마 · ${variant.name}` });
-      }
-    }
-    for (const variant of PROFILE_BORDER_VARIANTS) {
-      if (cosmetics.owned.includes(variant.itemId)) {
-        options.push({ id: variant.itemId, label: `테두리 · ${variant.name}` });
-      }
-    }
-    for (const variant of CHAT_BADGE_VARIANTS) {
-      if (cosmetics.owned.includes(variant.itemId)) {
-        options.push({ id: variant.itemId, label: `배지 · ${variant.name}` });
-      }
-    }
-    return options;
-  }, [cosmetics]);
+  }, [notifySystem, refreshGameState]);
 
   const tabs = useMemo(
     () => [
@@ -361,12 +354,17 @@ export function V2CosmeticsView() {
       <SubViewHeader title="꾸미기" onBack={() => router.push("/")} />
 
       <Card padding="md" className="space-y-1">
-        <div className="flex items-center gap-2 text-sm font-bold text-violet-700 dark:text-violet-300">
-          <Palette size={20} weight="duotone" />
-          꾸미기 보관함
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm font-bold text-violet-700 dark:text-violet-300">
+            <Palette size={20} weight="duotone" />
+            꾸미기 보관함
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            연장권 {cashItems[COSMETIC_EXTENSION_ITEM_ID] ?? 0}개
+          </span>
         </div>
         <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          크로마 닉네임, 프로필 테두리와 채팅 배지를 한곳에서 수집하고 적용합니다.
+          크로마 닉네임, 프로필 테두리와 채팅 배지를 한곳에서 수집하고 착용합니다.
           상자에서 획득하면 도감에 영구 기록되고 {MUSEUN_COSMETIC_ACCESS_DAYS}일간 사용할 수 있습니다.
         </p>
       </Card>
@@ -386,17 +384,6 @@ export function V2CosmeticsView() {
             busy={busy}
             onOpen={openBox}
           />
-          <CosmeticExtensionPanel
-            count={cashItems[COSMETIC_EXTENSION_ITEM_ID] ?? 0}
-            cosmetics={cosmetics}
-            options={extensionOptions}
-            target={extensionTarget}
-            now={currentTime}
-            busy={busy}
-            onTargetChange={setExtensionTarget}
-            onExtend={extendCosmetic}
-          />
-
           <Card padding="md" className="space-y-3">
             <TabBar
               tabs={tabs}
@@ -407,14 +394,42 @@ export function V2CosmeticsView() {
               scrollable
             />
             {tab === "chroma" ? (
-              <ChromaCodex cosmetics={cosmetics} busy={busy} now={currentTime} onEquip={equip} />
+              <ChromaCodex
+                cosmetics={cosmetics}
+                busy={busy}
+                now={currentTime}
+                onEquip={equip}
+                onRequestExtension={setExtensionTarget}
+              />
             ) : tab === "border" ? (
-              <BorderCodex cosmetics={cosmetics} busy={busy} now={currentTime} onEquip={equip} />
+              <BorderCodex
+                cosmetics={cosmetics}
+                busy={busy}
+                now={currentTime}
+                onEquip={equip}
+                onRequestExtension={setExtensionTarget}
+              />
             ) : (
-              <BadgeCodex cosmetics={cosmetics} busy={busy} now={currentTime} onEquip={equip} />
+              <BadgeCodex
+                cosmetics={cosmetics}
+                busy={busy}
+                now={currentTime}
+                onEquip={equip}
+                onRequestExtension={setExtensionTarget}
+              />
             )}
           </Card>
         </>
+      )}
+      {extensionTarget && (
+        <CosmeticExtensionConfirmModal
+          target={extensionTarget}
+          count={cashItems[COSMETIC_EXTENSION_ITEM_ID] ?? 0}
+          now={currentTime}
+          busy={busy === "cosmetic_extension"}
+          onConfirm={() => void extendCosmetic(extensionTarget)}
+          onClose={() => setExtensionTarget(null)}
+        />
       )}
     </PageShell>
   );
@@ -504,87 +519,12 @@ function CosmeticBoxes({
   );
 }
 
-function CosmeticExtensionPanel({
-  count,
-  cosmetics,
-  options,
-  target,
-  now,
-  busy,
-  onTargetChange,
-  onExtend,
-}: {
-  count: number;
-  cosmetics: MuseunCosmeticsState;
-  options: Array<{ id: MuseunCosmeticAccessId; label: string }>;
-  target: string;
-  now: number;
-  busy: string | null;
-  onTargetChange: (value: string) => void;
-  onExtend: () => void;
-}) {
-  return (
-    <Card padding="md" className="space-y-3">
-      <div>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 text-sm font-bold text-violet-700 dark:text-violet-300">
-            <Gift size={18} weight="duotone" />
-            꾸미기 30일 연장권
-          </div>
-          <span className="text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-300">
-            보유 {count}개
-          </span>
-        </div>
-        <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          도감에 해금된 꾸미기 하나를 골라 남은 기간 뒤에 30일을 더합니다.
-          만료된 꾸미기는 사용 시점부터 다시 30일간 활성화됩니다.
-        </p>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <select
-          aria-label="연장할 꾸미기 선택"
-          value={target}
-          onChange={(event) => onTargetChange(event.target.value)}
-          disabled={options.length === 0 || busy !== null}
-          className="min-h-9 min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2.5 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-        >
-          <option value="">연장할 꾸미기를 선택하세요</option>
-          {options.map((option) => {
-            const activeUntil = cosmetics.accessUntil[option.id] ?? null;
-            return (
-              <option key={option.id} value={option.id}>
-                {option.label} · {accessPeriodLabel(activeUntil, now)}
-              </option>
-            );
-          })}
-        </select>
-        <Button
-          variant="primary"
-          disabled={count <= 0 || !target || busy !== null}
-          onClick={onExtend}
-          className="shrink-0"
-        >
-          {busy === "cosmetic_extension" ? "연장 중…" : "30일 연장"}
-        </Button>
-      </div>
-      {options.length === 0 ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          먼저 꾸미기 상자에서 항목을 해금해야 연장권을 사용할 수 있습니다.
-        </p>
-      ) : count <= 0 ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          연장권은 무슨 코인 상점 또는 거래소에서 구할 수 있습니다.
-        </p>
-      ) : null}
-    </Card>
-  );
-}
-
 function ChromaCodex({
   cosmetics,
   busy,
   now,
   onEquip,
+  onRequestExtension,
 }: {
   cosmetics: MuseunCosmeticsState;
   busy: string | null;
@@ -594,21 +534,12 @@ function ChromaCodex({
     itemId: ChromaNameId | null,
     label: string,
   ) => void;
+  onRequestExtension: (target: CosmeticExtensionTarget) => void;
 }) {
-  const equippedActive =
-    cosmetics.equippedChromaName !== null &&
-    museunCosmeticAccessActive(
-      cosmetics,
-      cosmetics.equippedChromaName,
-      now,
-    );
   return (
     <CollectionLayout
       title="크로마 닉네임 도감"
       description="채팅과 캐릭터 닉네임에 표시할 색상 효과입니다."
-      equipped={equippedActive}
-      busy={busy}
-      onClear={() => onEquip("chroma_name", null, "크로마 닉네임을 해제했습니다")}
     >
       {CHROMA_NAME_VARIANTS.map((variant) => {
         const owned = cosmetics.chromaNames.includes(variant.id);
@@ -628,8 +559,21 @@ function ChromaCodex({
             now={now}
             active={active}
             busy={busy !== null}
-            onApply={() =>
-              onEquip("chroma_name", variant.id, "크로마 닉네임을 변경했습니다")
+            onToggle={() =>
+              onEquip(
+                "chroma_name",
+                active ? null : variant.id,
+                active
+                  ? "크로마 닉네임을 해제했습니다"
+                  : "크로마 닉네임을 착용했습니다",
+              )
+            }
+            onExtend={() =>
+              onRequestExtension({
+                id: variant.id,
+                label: `크로마 · ${variant.name}`,
+                activeUntil: cosmetics.accessUntil[variant.id] ?? null,
+              })
             }
             title={
               <span
@@ -652,6 +596,7 @@ function BorderCodex({
   busy,
   now,
   onEquip,
+  onRequestExtension,
 }: {
   cosmetics: MuseunCosmeticsState;
   busy: string | null;
@@ -661,21 +606,12 @@ function BorderCodex({
     itemId: ProfileBorderItemId | null,
     label: string,
   ) => void;
+  onRequestExtension: (target: CosmeticExtensionTarget) => void;
 }) {
-  const equippedActive =
-    cosmetics.equippedProfileBorder !== null &&
-    museunCosmeticAccessActive(
-      cosmetics,
-      cosmetics.equippedProfileBorder,
-      now,
-    );
   return (
     <CollectionLayout
       title="프로필 테두리 도감"
       description="캐릭터 프로필 카드 바깥쪽에 표시할 테두리입니다."
-      equipped={equippedActive}
-      busy={busy}
-      onClear={() => onEquip("profile_border", null, "프로필 테두리를 해제했습니다")}
     >
       {PROFILE_BORDER_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
@@ -695,8 +631,21 @@ function BorderCodex({
             now={now}
             active={active}
             busy={busy !== null}
-            onApply={() =>
-              onEquip("profile_border", variant.itemId, "프로필 테두리를 변경했습니다")
+            onToggle={() =>
+              onEquip(
+                "profile_border",
+                active ? null : variant.itemId,
+                active
+                  ? "프로필 테두리를 해제했습니다"
+                  : "프로필 테두리를 착용했습니다",
+              )
+            }
+            onExtend={() =>
+              onRequestExtension({
+                id: variant.itemId,
+                label: `테두리 · ${variant.name}`,
+                activeUntil: cosmetics.accessUntil[variant.itemId] ?? null,
+              })
             }
             className={`ui-profile-frame-cosmetic ui-profile-frame-${variant.id}`}
             title={`${variant.name} 테두리`}
@@ -714,6 +663,7 @@ function BadgeCodex({
   busy,
   now,
   onEquip,
+  onRequestExtension,
 }: {
   cosmetics: MuseunCosmeticsState;
   busy: string | null;
@@ -723,21 +673,12 @@ function BadgeCodex({
     itemId: ChatBadgeItemId | null,
     label: string,
   ) => void;
+  onRequestExtension: (target: CosmeticExtensionTarget) => void;
 }) {
-  const equippedActive =
-    cosmetics.equippedChatBadge !== null &&
-    museunCosmeticAccessActive(
-      cosmetics,
-      cosmetics.equippedChatBadge,
-      now,
-    );
   return (
     <CollectionLayout
       title="채팅 배지 도감"
       description="채팅과 접속자 목록에서 닉네임 앞에 표시할 배지입니다."
-      equipped={equippedActive}
-      busy={busy}
-      onClear={() => onEquip("chat_badge", null, "채팅 배지를 해제했습니다")}
     >
       {CHAT_BADGE_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
@@ -757,8 +698,21 @@ function BadgeCodex({
             now={now}
             active={active}
             busy={busy !== null}
-            onApply={() =>
-              onEquip("chat_badge", variant.itemId, "채팅 배지를 변경했습니다")
+            onToggle={() =>
+              onEquip(
+                "chat_badge",
+                active ? null : variant.itemId,
+                active
+                  ? "채팅 배지를 해제했습니다"
+                  : "채팅 배지를 착용했습니다",
+              )
+            }
+            onExtend={() =>
+              onRequestExtension({
+                id: variant.itemId,
+                label: `배지 · ${variant.name}`,
+                activeUntil: cosmetics.accessUntil[variant.itemId] ?? null,
+              })
             }
             title={
               <span className="inline-flex items-center gap-1">
@@ -778,38 +732,19 @@ function BadgeCodex({
 function CollectionLayout({
   title,
   description,
-  equipped,
-  busy,
-  onClear,
   children,
 }: {
   title: string;
   description: string;
-  equipped: boolean;
-  busy: string | null;
-  onClear: () => void;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold">{title}</h2>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            {description}
-          </p>
-        </div>
-        {equipped && (
-          <Button
-            size="xs"
-            variant="ghost"
-            disabled={busy !== null}
-            onClick={onClear}
-            className="shrink-0"
-          >
-            해제
-          </Button>
-        )}
+      <div>
+        <h2 className="text-sm font-bold">{title}</h2>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          {description}
+        </p>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">{children}</div>
     </section>
@@ -823,7 +758,8 @@ function CosmeticCard({
   now,
   active,
   busy,
-  onApply,
+  onToggle,
+  onExtend,
   title,
   rarity,
   detail,
@@ -835,7 +771,8 @@ function CosmeticCard({
   now: number;
   active: boolean;
   busy: boolean;
-  onApply: () => void;
+  onToggle: () => void;
+  onExtend: () => void;
   title: React.ReactNode;
   rarity: ChromaNameRarity;
   detail: string;
@@ -870,21 +807,144 @@ function CosmeticCard({
           </div>
         )}
       </div>
-      <Button
-        size="xs"
-        variant={active ? "secondary" : "info"}
-        disabled={!owned || !accessActive || active || busy}
-        onClick={onApply}
-        className="shrink-0"
-      >
-        {!owned
-          ? "미획득"
-          : !accessActive
-            ? "기간 만료"
-            : active
-              ? "적용 중"
-              : "적용"}
-      </Button>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {owned && (
+          <Button
+            size="xs"
+            variant="warning"
+            disabled={busy}
+            onClick={onExtend}
+          >
+            연장
+          </Button>
+        )}
+        <Button
+          size="xs"
+          variant={active ? "secondary" : "info"}
+          disabled={!owned || !accessActive || busy}
+          onClick={onToggle}
+        >
+          {!owned
+            ? "미획득"
+            : !accessActive
+              ? "기간 만료"
+              : active
+                ? "해제"
+                : "착용"}
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function CosmeticExtensionConfirmModal({
+  target,
+  count,
+  now,
+  busy,
+  onConfirm,
+  onClose,
+}: {
+  target: CosmeticExtensionTarget;
+  count: number;
+  now: number;
+  busy: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const closeIfIdle = useCallback(() => {
+    if (!busy) onClose();
+  }, [busy, onClose]);
+  useEscapeKey(closeIfIdle);
+  useModalA11y(contentRef);
+
+  const nextActiveUntil =
+    Math.max(now, target.activeUntil ?? 0) + MUSEUN_COSMETIC_ACCESS_MS;
+  const hasTicket = count > 0;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cosmetic-extension-title"
+      className="ui-modal-reveal fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+      onClick={closeIfIdle}
+    >
+      <div
+        ref={contentRef}
+        className={`${SURFACE_CARD} ui-modal-panel w-full max-w-sm p-5 shadow-2xl`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300">
+              <Gift size={23} weight="duotone" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                연장권 보유 {count}개
+              </p>
+              <h2
+                id="cosmetic-extension-title"
+                className="truncate text-lg font-bold"
+              >
+                꾸미기 30일 연장
+              </h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="닫기"
+            disabled={busy}
+            onClick={onClose}
+            className="shrink-0 rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          >
+            <X size={18} weight="bold" aria-hidden />
+          </button>
+        </div>
+
+        <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
+          <p className="font-bold text-zinc-900 dark:text-zinc-100">
+            {target.label}
+          </p>
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-zinc-500 dark:text-zinc-400">현재</span>
+            <span className="text-right font-medium">
+              {accessPeriodLabel(target.activeUntil, now)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-zinc-500 dark:text-zinc-400">연장 후</span>
+            <span className="text-right font-semibold text-emerald-700 dark:text-emerald-300">
+              {accessPeriodLabel(nextActiveUntil, now)}
+            </span>
+          </div>
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          연장권 1개를 사용합니다. 남은 기간이 있으면 만료일 뒤에 30일이 더해집니다.
+        </p>
+        {!hasTicket && (
+          <p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
+            보유한 연장권이 없습니다. 무슨 코인 상점 또는 거래소에서 구할 수 있습니다.
+          </p>
+        )}
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Button variant="secondary" disabled={busy} onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            variant="warning"
+            disabled={!hasTicket || busy}
+            onClick={onConfirm}
+          >
+            {busy ? "연장 중…" : "연장권 사용"}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

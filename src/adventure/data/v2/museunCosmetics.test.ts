@@ -16,13 +16,19 @@ import {
   equipChatBadge,
   equipChromaName,
   equipProfileBorder,
+  extendMuseunCosmeticAccess,
   grantChromaName,
+  LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL,
+  MUSEUN_COSMETIC_ACCESS_MS,
+  museunCosmeticAccessActive,
   parseMuseunCosmetics,
   profileBorderOdds,
   unlockMuseunCosmetic,
 } from "./museunCosmetics";
 
-describe("무슨 코인 영구 꾸미기", () => {
+const NOW = Date.UTC(2026, 6, 20, 12);
+
+describe("무슨 코인 기간제 꾸미기", () => {
   it("알려진 꾸미기 권리만 중복 없이 보존한다", () => {
     expect(
       parseMuseunCosmetics({
@@ -36,6 +42,10 @@ describe("무슨 코인 영구 꾸미기", () => {
     ).toEqual({
       owned: ["starlight_chat_badge"],
       chromaNames: ["spectrum"],
+      accessUntil: {
+        spectrum: LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL,
+        starlight_chat_badge: LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL,
+      },
       equippedChromaName: "spectrum",
       equippedProfileBorder: null,
       equippedChatBadge: "starlight_chat_badge",
@@ -45,11 +55,18 @@ describe("무슨 코인 영구 꾸미기", () => {
   });
 
   it("구매 권리를 한 번만 해금한다", () => {
-    const first = unlockMuseunCosmetic({}, "prismatic_profile_border");
+    const first = unlockMuseunCosmetic(
+      {},
+      "prismatic_profile_border",
+      NOW,
+    );
     expect(first.alreadyOwned).toBe(false);
     expect(first.state.owned).toEqual(["prismatic_profile_border"]);
     expect(first.state.equippedProfileBorder).toBe(
       "prismatic_profile_border",
+    );
+    expect(first.state.accessUntil.prismatic_profile_border).toBe(
+      NOW + MUSEUN_COSMETIC_ACCESS_MS,
     );
     const second = unlockMuseunCosmetic(
       first.state,
@@ -162,18 +179,49 @@ describe("무슨 코인 영구 꾸미기", () => {
     expect(drawChatBadgeByRoll(null, 0)).toBe("starlight_chat_badge");
   });
 
-  it("각 상품을 서로 독립된 표시 효과로 해석한다", () => {
+  it("각 상품을 사용 기간 안에서 서로 독립된 표시 효과로 해석한다", () => {
     expect(
       museunCosmeticAppearance({
         owned: ["starlight_chat_badge"],
         chromaNames: ["aurora"],
         equippedChromaName: "aurora",
-      }),
+      }, NOW),
     ).toEqual({
       profileBorder: null,
       chatBadge: "starlight",
       chatNameEffect: "aurora",
     });
+  });
+
+  it("만료되면 표시·장착을 막고 연장권은 남은 기간 뒤에 30일을 더한다", () => {
+    const active = grantChromaName({}, "aurora", NOW);
+    expect(museunCosmeticAccessActive(active, "aurora", NOW)).toBe(true);
+    expect(
+      museunCosmeticAppearance(active, NOW + MUSEUN_COSMETIC_ACCESS_MS),
+    ).toEqual({
+      profileBorder: null,
+      chatBadge: null,
+      chatNameEffect: null,
+    });
+    expect(
+      equipChromaName(active, "aurora", NOW + MUSEUN_COSMETIC_ACCESS_MS),
+    ).toBeNull();
+
+    const stacked = extendMuseunCosmeticAccess(active, "aurora", 30, NOW);
+    expect(stacked?.activeUntil).toBe(NOW + MUSEUN_COSMETIC_ACCESS_MS * 2);
+
+    const renewed = extendMuseunCosmeticAccess(
+      active,
+      "aurora",
+      30,
+      NOW + MUSEUN_COSMETIC_ACCESS_MS,
+    );
+    expect(renewed?.activeUntil).toBe(
+      NOW + MUSEUN_COSMETIC_ACCESS_MS * 2,
+    );
+    expect(
+      extendMuseunCosmeticAccess({}, "aurora", 30, NOW),
+    ).toBeNull();
   });
 
   it("미보유 종류만 등급 가중치 확률로 남기고 획득 즉시 장착한다", () => {

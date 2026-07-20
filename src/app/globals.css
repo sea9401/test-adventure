@@ -1050,20 +1050,6 @@ body {
   overflow: hidden;
 }
 
-.ui-character-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    rgba(168, 85, 247, 0.55),
-    rgba(14, 165, 233, 0.55),
-    rgba(34, 197, 94, 0.55)
-  );
-  pointer-events: none;
-}
-
 .ui-character-slot {
   transition:
     transform 140ms ease,

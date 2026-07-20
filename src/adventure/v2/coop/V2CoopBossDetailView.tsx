@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { FilmStrip } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -523,16 +524,27 @@ export function V2CoopBossDetailView({
                       : ""
                 }`}
               >
-                <span className="min-w-0 truncate">
-                  <span className="mr-1.5 inline-block w-6 text-right text-xs text-zinc-400">
+                <span className="flex min-w-0 items-center gap-2 truncate">
+                  <span className="inline-block w-6 shrink-0 text-right text-xs text-zinc-400">
                     {i + 1}
                   </span>
-                  {t.name}
-                  {t.isMe && (
-                    <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
-                      나
-                    </span>
-                  )}
+                  <CosmeticAvatar
+                    avatar={t.avatar}
+                    name={t.name}
+                    profileBorder={t.profileBorder}
+                    width={28}
+                    height={28}
+                    sizes="28px"
+                    className="h-7 w-7 rounded-md"
+                  />
+                  <span className="min-w-0 truncate">
+                    {t.name}
+                    {t.isMe && (
+                      <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
+                        나
+                      </span>
+                    )}
+                  </span>
                 </span>
                 <span className="shrink-0 font-mono text-xs text-zinc-600 dark:text-zinc-300">
                   {t.damage.toLocaleString()}
@@ -564,18 +576,29 @@ export function V2CoopBossDetailView({
                   : "cursor-default text-zinc-400 dark:text-zinc-500"
               }`}
             >
-              <span className="min-w-0 truncate">
-                {a.name}
-                {a.isMe && (
-                  <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
-                    나
-                  </span>
-                )}
-                {a.diedEarly && (
-                  <span className="ml-1 text-[10px] text-rose-500">
-                    전투불능
-                  </span>
-                )}
+              <span className="flex min-w-0 items-center gap-2 truncate">
+                <CosmeticAvatar
+                  avatar={a.avatar}
+                  name={a.name}
+                  profileBorder={a.profileBorder}
+                  width={26}
+                  height={26}
+                  sizes="26px"
+                  className="h-[26px] w-[26px] rounded-md"
+                />
+                <span className="min-w-0 truncate">
+                  {a.name}
+                  {a.isMe && (
+                    <span className="ml-1 text-[10px] text-amber-600 dark:text-amber-400">
+                      나
+                    </span>
+                  )}
+                  {a.diedEarly && (
+                    <span className="ml-1 text-[10px] text-rose-500">
+                      전투불능
+                    </span>
+                  )}
+                </span>
               </span>
               <span className="flex shrink-0 items-center gap-2">
                 <span className="font-mono">

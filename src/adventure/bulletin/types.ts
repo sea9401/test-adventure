@@ -1,5 +1,6 @@
 import type { BulletinCategory } from "@/lib/bulletin-config";
 import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
 // 게시판 글 — 서버 응답 + 클라 표시용 공용 모델.
 // likeCount/commentCount/likedByMe 는 GET /api/bulletin 의 서브쿼리로 함께 옴.
@@ -7,6 +8,7 @@ export type BulletinPost = {
   id: number;
   name: string;
   avatar: Avatar | null;
+  profileBorder: ProfileBorderId | null;
   className: string;
   category: BulletinCategory;
   title: string | null;

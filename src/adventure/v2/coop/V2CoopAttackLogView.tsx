@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { FilmStrip, Sword } from "@phosphor-icons/react";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-import type { Gender } from "@/adventure/profile/avatars";
+import type { Avatar, Gender } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import { COOP_BOSSES, type CoopBossKindId } from "@/adventure/data/v2/coopBosses";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 
 type CoopAttackLog = {
   id: number;
@@ -17,6 +19,8 @@ type CoopAttackLog = {
   damageTaken: number;
   diedEarly: boolean;
   isMe: boolean;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
   replay: ReplayPayload;
   at: number;
 };
@@ -128,16 +132,27 @@ export function V2CoopAttackLogView({
         <>
           <Card padding="md" className="ui-coop-card space-y-3">
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="flex min-w-0 items-center gap-3">
+                <CosmeticAvatar
+                  avatar={attack.avatar}
+                  name={attack.name}
+                  profileBorder={attack.profileBorder}
+                  width={48}
+                  height={48}
+                  sizes="48px"
+                  className="h-12 w-12 rounded-xl"
+                />
+                <div className="min-w-0">
                 <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                   <FilmStrip size={14} /> {bossName} 공격 기록
                 </div>
-                <div className="mt-1 text-lg font-bold">{attack.name}</div>
+                <div className="mt-1 truncate text-lg font-bold">{attack.name}</div>
                 {attack.isMe && (
                   <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
                     내 공격
                   </span>
                 )}
+                </div>
               </div>
               <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
                 {formatKst(attack.at)}
@@ -168,7 +183,8 @@ export function V2CoopAttackLogView({
           <ReplayBattleScene
             payload={attack.replay}
             playerName={attack.name}
-            gender={attack.isMe ? viewerGender : "male1"}
+            gender={attack.avatar ?? (attack.isMe ? viewerGender : "male1")}
+            profileBorder={attack.profileBorder}
             exp={0}
             maxExp={1}
             playerSubtitle={attack.isMe ? playerSubtitle : undefined}

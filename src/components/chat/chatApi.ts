@@ -1,11 +1,13 @@
 import type { ChatChannel, ChatMessage } from "../ChatPanel";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import type { Avatar } from "@/adventure/profile/avatars";
 
 export type PresenceUser = {
   name: string;
   className: string;
   title: string | null;
   mine: boolean;
+  avatar: Avatar;
   cosmetics?: MuseunCosmeticAppearance | null;
 };
 

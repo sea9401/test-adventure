@@ -5,6 +5,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import { ARENA_INITIAL_RATING } from "@/lib/server/arena";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 
 // GET /api/v2/arena/ranking — 현재 주간 Elo 순위표.
 //   실유저 랭크전으로 적립된 pvp_ratings 만 정렬해 상위 N + 본인 순위를 돌려준다.
@@ -78,6 +82,10 @@ export async function GET() {
       }
     }
   }
+  const [avatarByUser, cosmeticByUser] = await Promise.all([
+    readProfileAvatarMap(topIds),
+    readMuseunCosmeticAppearanceMap(topIds),
+  ]);
 
   const entries = top.map((t, i) => ({
     rank: i + 1,
@@ -87,6 +95,9 @@ export async function GET() {
     level: levelByUser.get(t.userId) ?? 1,
     score: t.score,
     isMe: t.userId === userId,
+    avatar: avatarByUser.get(t.userId) ?? "male1",
+    profileBorder:
+      cosmeticByUser.get(t.userId)?.profileBorder ?? null,
   }));
 
   return Response.json({

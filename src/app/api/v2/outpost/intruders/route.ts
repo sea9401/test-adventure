@@ -15,6 +15,10 @@ import {
   parseTileOutpostId,
 } from "@/adventure/data/v2/tileWarfare";
 import { parseWarVigor } from "@/adventure/data/v2/warVigor";
+import { readProfileValue } from "@/adventure/profile/profileValue";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
 
 // GET /api/v2/outpost/intruders?outpostId=...
 //
@@ -29,6 +33,8 @@ import { parseWarVigor } from "@/adventure/data/v2/warVigor";
 type IntruderRow = {
   userId: string;
   name: string;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
   level: number;
   huntedAt: number;
   source: "tile" | "hunt";
@@ -152,20 +158,27 @@ export async function GET(req: Request) {
   }
 
   // 이름은 character-profile.v2.name. 다중 조회.
-  const profileRows = await db
-    .select({ userId: savesKv.userId, value: savesKv.value })
-    .from(savesKv)
-    .where(
-      and(
-        eq(savesKv.key, "character-profile.v2"),
-        inArray(savesKv.userId, candidateUserIds),
+  const [profileRows, cosmeticByUser] = await Promise.all([
+    db
+      .select({ userId: savesKv.userId, value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(
+          eq(savesKv.key, "character-profile.v2"),
+          inArray(savesKv.userId, candidateUserIds),
+        ),
       ),
-    );
+    readMuseunCosmeticAppearanceMap(candidateUserIds),
+  ]);
   const nameByUser = new Map<string, string>();
+  const avatarByUser = new Map<string, Avatar>();
   for (const row of profileRows) {
-    const v = row.value as { name?: string } | null;
-    const name = v?.name?.trim();
+    const rawProfile = row.value as { name?: unknown } | null;
+    const profile = readProfileValue(row.value);
+    const name =
+      typeof rawProfile?.name === "string" ? rawProfile.name.trim() : "";
     if (name) nameByUser.set(row.userId, name);
+    avatarByUser.set(row.userId, profile?.gender ?? "male1");
   }
 
   const intruders: IntruderRow[] = candidateUserIds.map((uid) => {
@@ -173,6 +186,8 @@ export async function GET(req: Request) {
     return {
       userId: uid,
       name: nameByUser.get(uid) ?? "모험가",
+      avatar: avatarByUser.get(uid) ?? "male1",
+      profileBorder: cosmeticByUser.get(uid)?.profileBorder ?? null,
       level: meta.level,
       huntedAt: meta.huntedAt,
       source: meta.source,

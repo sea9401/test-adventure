@@ -13,6 +13,7 @@ import {
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
 // v2 던전 사냥 결과 — 라이브 BattleScene 으로 한 컷 표시.
 // 옛 step-through(한 줄씩 노출) 폐기. 모든 log 즉시 (사용자 요청).
@@ -30,6 +31,7 @@ export function ReplayBattleScene({
   playerCombat,
   outcome,
   outcomeAction,
+  profileBorder,
 }: {
   payload: ReplayPayload;
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
@@ -48,6 +50,7 @@ export function ReplayBattleScene({
   // 전투 결과(승/패) — BattleScene 상단 승패 배너용. 미전달 시 배너 미표시.
   outcome?: "win" | "lose";
   outcomeAction?: BattleOutcomeAction;
+  profileBorder?: ProfileBorderId | null;
 }) {
   const derivedState = useMemo<BattleState>(() => {
     // finalState — 마지막 hp_bar entry 의 HP 가 최종.
@@ -95,6 +98,7 @@ export function ReplayBattleScene({
       playerCombat={playerCombat}
       outcome={outcome}
       outcomeAction={outcomeAction}
+      profileBorder={profileBorder}
     />
   );
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -10,11 +9,10 @@ import {
   Megaphone,
   PencilSimple,
   Trash,
-  UserCircle,
   UsersThree,
 } from "@phosphor-icons/react";
-import { avatarImageSrc } from "@/adventure/profile/avatars";
 import { Card } from "@/components/ui/Card";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { formatDateTime } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { toggleLike } from "./api";
@@ -34,14 +32,15 @@ type Props = {
 };
 
 function AuthorPortrait({ post }: { post: BulletinPost }) {
-  const src = avatarImageSrc(post.avatar ?? "male1");
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const frameClass =
-    "flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl sm:h-[120px] sm:w-40";
+    "h-24 w-24 rounded-xl sm:h-[120px] sm:w-40";
 
   if (post.category === "notice") {
     return (
-      <div className={frameClass} aria-label="운영자 공지">
+      <div
+        className={`flex shrink-0 items-center justify-center overflow-hidden ${frameClass}`}
+        aria-label="운영자 공지"
+      >
         <Megaphone
           size={28}
           weight="duotone"
@@ -51,30 +50,17 @@ function AuthorPortrait({ post }: { post: BulletinPost }) {
     );
   }
 
-  if (failedSrc === src) {
-    return (
-      <div className={frameClass} aria-label={`${post.name} 프로필`}>
-        <UserCircle
-          size={30}
-          weight="duotone"
-          className="text-zinc-400"
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className={frameClass}>
-      <Image
-        src={src}
-        alt={`${post.name} 프로필 이미지`}
-        width={160}
-        height={120}
-        sizes="(min-width: 640px) 160px, 96px"
-        className="h-full w-full object-contain"
-        onError={() => setFailedSrc(src)}
-      />
-    </div>
+    <CosmeticAvatar
+      avatar={post.avatar ?? "male1"}
+      name={post.name}
+      profileBorder={post.profileBorder}
+      width={160}
+      height={120}
+      sizes="(min-width: 640px) 160px, 96px"
+      className={frameClass}
+      imageClassName="object-contain"
+    />
   );
 }
 

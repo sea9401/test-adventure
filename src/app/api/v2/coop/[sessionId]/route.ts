@@ -27,6 +27,10 @@ import {
 import { effectiveMonsterSpd } from "@/adventure/v2/combat/combatTimeline";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 
 // GET /api/v2/coop/[sessionId] — 협동 보스 인스턴스 상세(상세 화면 폴링용).
 // 활성/처치/만료 무관 조회 가능 — 끝난 세션도 결과·내 보상 상태를 보여준다.
@@ -194,6 +198,14 @@ export async function GET(_req: Request, { params }: Ctx) {
     .where(eq(coopBossAttackLog.sessionId, sessionId))
     .orderBy(desc(coopBossAttackLog.createdAt))
     .limit(10);
+  const presentationUserIds = [
+    ...contribs.slice(0, 30).map((r) => r.userId),
+    ...recentAttacks.map((a) => a.userId),
+  ];
+  const [avatarByUser, cosmeticByUser] = await Promise.all([
+    readProfileAvatarMap(presentationUserIds),
+    readMuseunCosmeticAppearanceMap(presentationUserIds),
+  ]);
 
   return Response.json({
     ok: true,
@@ -227,6 +239,9 @@ export async function GET(_req: Request, { params }: Ctx) {
       damage: r.damage,
       attackCount: r.attackCount,
       isMe: r.userId === userId,
+      avatar: avatarByUser.get(r.userId) ?? "male1",
+      profileBorder:
+        cosmeticByUser.get(r.userId)?.profileBorder ?? null,
     })),
     recentAttacks: recentAttacks.map((a) => ({
       id: a.id,
@@ -235,6 +250,9 @@ export async function GET(_req: Request, { params }: Ctx) {
       damageTaken: a.damageTaken,
       diedEarly: a.diedEarly,
       isMe: a.userId === userId,
+      avatar: avatarByUser.get(a.userId) ?? "male1",
+      profileBorder:
+        cosmeticByUser.get(a.userId)?.profileBorder ?? null,
       replay: parseReplayPayload(a.log),
       at: a.createdAt.getTime(),
     })),

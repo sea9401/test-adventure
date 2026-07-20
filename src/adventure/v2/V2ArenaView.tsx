@@ -14,6 +14,9 @@ import { applyRegen, type StaminaState } from "@/adventure/v2/stamina";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { usePagination } from "@/lib/usePagination";
 import { Sword, Trophy, FilmStrip } from "@phosphor-icons/react";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
 // v2 1:1 아레나 — 5탭: 메인(도전·요약) / 전투 기록 / 순위표 / 세팅(로드아웃) / 상점.
 
@@ -42,7 +45,14 @@ type ArenaHistoryEntry = {
   id: string;
   at: string;
   outcome: "win" | "loss" | "draw";
-  opponent: { name: string; level: number; userId?: string; botId?: string };
+  opponent: {
+    name: string;
+    level: number;
+    userId?: string;
+    botId?: string;
+    avatar?: Avatar | null;
+    profileBorder?: ProfileBorderId | null;
+  };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;
@@ -74,6 +84,8 @@ type ArenaOpponentRecord = {
   losses: number;
   draws: number;
   lastAt: string;
+  avatar?: Avatar | null;
+  profileBorder?: ProfileBorderId | null;
 };
 
 type MatchResp =
@@ -219,6 +231,17 @@ function RecentBattleList({
               <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
                 {OUTCOME_LABEL[h.outcome]}
               </span>
+              {h.opponent.avatar && (
+                <CosmeticAvatar
+                  avatar={h.opponent.avatar}
+                  name={h.opponent.name || "상대"}
+                  profileBorder={h.opponent.profileBorder}
+                  width={32}
+                  height={32}
+                  sizes="32px"
+                  className="h-8 w-8 rounded-lg"
+                />
+              )}
               <span className="min-w-0 flex-1 truncate">
                 {h.opponent?.name || "상대"}
                 <span className="ml-1 text-xs text-zinc-500">
@@ -316,7 +339,18 @@ function OpponentRecords({
               key={r.key}
               className="flex items-center justify-between gap-3 rounded-md bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/70"
             >
-              <span className="min-w-0">
+              {r.avatar && (
+                <CosmeticAvatar
+                  avatar={r.avatar}
+                  name={r.name}
+                  profileBorder={r.profileBorder}
+                  width={36}
+                  height={36}
+                  sizes="36px"
+                  className="h-9 w-9 rounded-lg"
+                />
+              )}
+              <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{r.name}</span>
                 <span className="text-xs text-zinc-500">
                   Lv.{r.level} · {r.matches}전 · 최근 {timeAgo(r.lastAt)}

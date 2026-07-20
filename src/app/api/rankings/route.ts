@@ -31,6 +31,7 @@ import {
   codexCompletionRankingFromSaves,
   lifeMasteryRankingFromSaves,
 } from "@/lib/server/rankingMetrics";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
 // 호출처는 stats CTE 의 WHERE 절에 그대로 합성한다.
@@ -859,8 +860,14 @@ export async function GET(req: Request) {
   }
 
   const rows = await getRows(metric);
+  const visibleRows = rows.slice(0, LIST_LIMIT);
+  const myRow = rows.find((r) => r.userId === userId);
+  const cosmeticByUser = await readMuseunCosmeticAppearanceMap([
+    ...visibleRows.map((r) => r.userId),
+    ...(myRow ? [myRow.userId] : []),
+  ]);
 
-  const list = rows.slice(0, LIST_LIMIT).map((r) => ({
+  const list = visibleRows.map((r) => ({
     rank: r.rank,
     name: r.name,
     avatar: r.avatar,
@@ -878,9 +885,9 @@ export async function GET(req: Request) {
     weekHighest: r.weekHighest,
     challengeHighest: r.challengeHighest,
     mine: r.userId === userId,
+    profileBorder: cosmeticByUser.get(r.userId)?.profileBorder ?? null,
   }));
 
-  const myRow = rows.find((r) => r.userId === userId);
   const me = myRow
     ? {
         rank: myRow.rank,
@@ -899,6 +906,8 @@ export async function GET(req: Request) {
         achievementCompleted: myRow.achievementCompleted ?? 0,
         weekHighest: myRow.weekHighest,
         challengeHighest: myRow.challengeHighest,
+        profileBorder:
+          cosmeticByUser.get(myRow.userId)?.profileBorder ?? null,
       }
     : null;
 

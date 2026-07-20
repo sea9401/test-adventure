@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { Trophy, Crown, CaretRight } from "@phosphor-icons/react";
+import { Crown, CaretRight } from "@phosphor-icons/react";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
 type RankEntry = {
   rank: number;
@@ -12,6 +15,8 @@ type RankEntry = {
   level: number;
   score: number;
   isMe: boolean;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
 };
 type RankingResp = {
   ok?: boolean;
@@ -93,11 +98,24 @@ export function V2ArenaRankingTab() {
                 >
                   {e.rank}
                 </span>
-                {e.rank === 1 ? (
-                  <Crown size={16} weight="fill" className="shrink-0 text-amber-500" />
-                ) : (
-                  <Trophy size={14} className="shrink-0 text-zinc-300 dark:text-zinc-600" />
-                )}
+                <span className="relative shrink-0">
+                  <CosmeticAvatar
+                    avatar={e.avatar}
+                    name={e.name}
+                    profileBorder={e.profileBorder}
+                    width={36}
+                    height={36}
+                    sizes="36px"
+                    className="h-9 w-9 rounded-lg"
+                  />
+                  {e.rank === 1 && (
+                    <Crown
+                      size={13}
+                      weight="fill"
+                      className="absolute -right-1 -top-1 z-10 rounded-full bg-amber-100 p-0.5 text-amber-600 dark:bg-amber-950"
+                    />
+                  )}
+                </span>
                 <span className="min-w-0 flex-1 truncate">
                   {e.name}
                   <span className="ml-1 text-xs text-zinc-500">Lv.{e.level}</span>

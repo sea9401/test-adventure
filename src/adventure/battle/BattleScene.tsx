@@ -10,7 +10,8 @@ import {
   type NotificationKind,
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
-import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import type { Gender } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
   attackMissPct,
   dodgeChance,
@@ -18,6 +19,7 @@ import {
 import type { GameIconName } from "@/adventure/data/v2/gameIcon";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import { BattleOutcomeBadge } from "@/adventure/v2/BattleOutcomeBadge";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -416,37 +418,26 @@ export function PlayerAvatar({
   name,
   hp,
   size = "md",
+  profileBorder = null,
 }: {
   gender: Gender;
   name: string;
   hp: number;
   size?: AvatarSize;
+  profileBorder?: ProfileBorderId | null;
 }) {
-  const [errored, setErrored] = useState(false);
   const flash = useDamageFlash(hp);
   const ringClass = flash ? ` ${FLASH_CLASS}` : "";
-  if (errored) {
-    return (
-      <div
-        aria-hidden
-        className={`flex ${AVATAR_BOX[size]} shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 ${AVATAR_FALLBACK_TEXT[size]} text-zinc-400 transition-all dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500${ringClass}`}
-      >
-        ?
-      </div>
-    );
-  }
   return (
-    <div
-      className={`${AVATAR_BOX[size]} shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-zinc-100 transition-all dark:border-zinc-700 dark:bg-zinc-800${ringClass}`}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={avatarImageSrc(gender)}
-        alt={name}
-        onError={() => setErrored(true)}
-        className="h-full w-full object-cover"
-      />
-    </div>
+    <CosmeticAvatar
+      avatar={gender}
+      name={name}
+      profileBorder={profileBorder}
+      width={size === "md" ? 64 : 48}
+      height={size === "md" ? 64 : 48}
+      sizes={size === "md" ? "64px" : "48px"}
+      className={`${AVATAR_BOX[size]} rounded-md transition-all${ringClass}`}
+    />
   );
 }
 
@@ -461,6 +452,7 @@ export function BattleScene({
   playerCombat,
   outcome,
   outcomeAction,
+  profileBorder,
 }: {
   state: BattleState;
   playerName: string;
@@ -481,6 +473,7 @@ export function BattleScene({
   outcome?: "win" | "lose";
   // 결과 배너 안에 붙일 후속 액션. 아레나처럼 결과 직후 다음 전투로 이어지는 화면에서만 사용.
   outcomeAction?: BattleOutcomeAction;
+  profileBorder?: ProfileBorderId | null;
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
@@ -547,6 +540,7 @@ export function BattleScene({
                 name={playerName}
                 hp={state.playerHp}
                 size="sm"
+                profileBorder={profileBorder}
               />
               <div className="w-full space-y-1.5">
                 <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
@@ -665,6 +659,7 @@ export function BattleScene({
                 gender={playerStatus.gender}
                 name={playerName}
                 hp={state.playerHp}
+                profileBorder={profileBorder}
               />
               <div className="flex-1 space-y-2.5">
                 <HpBar

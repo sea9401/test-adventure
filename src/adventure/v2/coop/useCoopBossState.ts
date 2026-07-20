@@ -7,6 +7,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import type { StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_ATTACK_STAMINA_COST,
@@ -83,6 +85,8 @@ export type CoopRecentAttack = {
   damageTaken: number;
   diedEarly: boolean;
   isMe?: boolean;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
   replay?: ReplayPayload | null;
   at: number;
 };
@@ -129,7 +133,14 @@ export type CoopSessionDetail = {
     };
   } | null;
   participantCount: number;
-  top: { name: string; damage: number; attackCount: number; isMe?: boolean }[];
+  top: {
+    name: string;
+    damage: number;
+    attackCount: number;
+    isMe?: boolean;
+    avatar: Avatar;
+    profileBorder: ProfileBorderId | null;
+  }[];
   recentAttacks: CoopRecentAttack[];
 };
 

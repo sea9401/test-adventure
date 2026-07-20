@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-import type { Gender } from "@/adventure/profile/avatars";
+import type { Avatar, Gender } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 import { outpostDisplayName } from "@/adventure/data/v2/tileWarfare";
 
 // 점령 길드 전용 — 거점에 침입한 다른 길드 캐릭 목록 + 토벌 버튼.
@@ -14,6 +16,8 @@ import { outpostDisplayName } from "@/adventure/data/v2/tileWarfare";
 type Intruder = {
   userId: string;
   name: string;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
   level: number;
   huntedAt: number;
   source?: "tile" | "hunt";
@@ -185,7 +189,17 @@ export function IntruderPanel({
                   : "border-zinc-200 dark:border-zinc-800"
               }`}
             >
-              <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <CosmeticAvatar
+                  avatar={it.avatar}
+                  name={it.name}
+                  profileBorder={it.profileBorder}
+                  width={38}
+                  height={38}
+                  sizes="38px"
+                  className="h-[38px] w-[38px] rounded-lg"
+                />
+                <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <span className="truncate text-sm text-zinc-700 dark:text-zinc-200">
                     {it.name}
@@ -213,6 +227,7 @@ export function IntruderPanel({
                     : fmtElapsed(it.huntedAt, nowMs)}
                   {" · "}건강도 HP {pct(it.warVigorHp)}% / MP{" "}
                   {pct(it.warVigorMp)}%
+                </div>
                 </div>
               </div>
               <button

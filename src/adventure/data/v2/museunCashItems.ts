@@ -376,6 +376,30 @@ export const MUSEUN_INVENTORY_ITEM_IDS = MUSEUN_CASH_ITEM_IDS.filter(
     MUSEUN_CASH_ITEMS[id].delivery === "inventory",
 );
 
+export const MUSEUN_COSMETIC_BOX_ITEM_IDS = [
+  "chroma_name_box",
+  "profile_border_box",
+  "chat_badge_box",
+] as const satisfies readonly MuseunInventoryItemId[];
+
+export type MuseunCosmeticBoxItemId =
+  (typeof MUSEUN_COSMETIC_BOX_ITEM_IDS)[number];
+
+export function isMuseunCosmeticBoxItemId(
+  value: unknown,
+): value is MuseunCosmeticBoxItemId {
+  return (
+    typeof value === "string" &&
+    (MUSEUN_COSMETIC_BOX_ITEM_IDS as readonly string[]).includes(value)
+  );
+}
+
+// 인벤토리 소모품 화면에는 실제 소비성 편의 아이템만 남긴다. 꾸미기 상자는
+// 설정 > 꾸미기에서 개봉·관리하고, 거래소에서는 기존처럼 판매할 수 있다.
+export const MUSEUN_UTILITY_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
+  (id) => !isMuseunCosmeticBoxItemId(id),
+);
+
 // 상점에서는 사용 가능한 아이템만 직접 판매한다. 영구 꾸미기는 각 전용 상자에서 해금된다.
 export const MUSEUN_SHOP_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS;
 export type MuseunShopItemId = MuseunInventoryItemId;

@@ -1,7 +1,12 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+} from "@/lib/server/savesKv";
+import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
 import {
   equipChatBadge,
   equipChromaName,
@@ -9,12 +14,32 @@ import {
   isChatBadgeItemId,
   isChromaNameId,
   isProfileBorderItemId,
+  parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
 
 type CharacterSave = {
+  cashItems?: unknown;
   museunCosmetics?: unknown;
   [key: string]: unknown;
 };
+
+export async function GET() {
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const character = await readSave<CharacterSave>(
+    db,
+    userId,
+    "character.v2",
+    {},
+  );
+  return Response.json({
+    ok: true,
+    cosmetics: parseMuseunCosmetics(character.museunCosmetics),
+    cashItems: parseMuseunCashItems(character.cashItems),
+  });
+}
 
 export async function POST(req: Request) {
   const userId = await ensureUser();

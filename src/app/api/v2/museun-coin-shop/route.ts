@@ -17,7 +17,6 @@ import {
 import {
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
-  unownedChromaNames,
   unlockMuseunCosmetic,
 } from "@/adventure/data/v2/museunCosmetics";
 
@@ -98,33 +97,6 @@ export async function POST(req: Request) {
       };
     }
     const currentCashItems = parseMuseunCashItems(character.cashItems);
-    if (item.effect.kind === "chroma_name_box") {
-      const remaining = unownedChromaNames(character.museunCosmetics).length;
-      if (remaining === 0) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "collection_complete",
-            coins: parseMuseunCoinBalance(wallet),
-            cashItems: currentCashItems,
-            cosmetics: parseMuseunCosmetics(character.museunCosmetics),
-          },
-        };
-      }
-      if ((currentCashItems[itemId] ?? 0) >= remaining) {
-        return {
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "enough_boxes",
-            coins: parseMuseunCoinBalance(wallet),
-            cashItems: currentCashItems,
-            cosmetics: parseMuseunCosmetics(character.museunCosmetics),
-          },
-        };
-      }
-    }
     const coins = parseMuseunCoinBalance(wallet);
     if (coins < item.coinPrice) {
       return {

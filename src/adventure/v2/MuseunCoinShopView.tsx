@@ -26,6 +26,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
   MUSEUN_CASH_ITEMS,
@@ -51,13 +52,48 @@ const CHROMA_RARITY_BADGE_CLASS: Record<ChromaNameRarity, string> = {
     "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
 };
 
-const ITEM_SUMMARIES: Record<MuseunCashItemId, string> = {
-  adventure_support_30d: "30일간 모험 편의 혜택을 활성화합니다.",
-  rename_permit: "캐릭터 이름을 한 번 변경합니다.",
-  prismatic_profile_border: "프로필 카드에 흐르는 프리즘 테두리를 적용합니다.",
-  starlight_chat_badge: "채팅 닉네임 앞에 별빛 배지를 표시합니다.",
-  chroma_name_box: "미보유 크로마 닉네임 한 종류를 중복 없이 획득합니다.",
-};
+function itemSummary(itemId: MuseunCashItemId): string {
+  const item = MUSEUN_CASH_ITEMS[itemId];
+  if (item.effect.kind === "adventure_support") {
+    return `${item.effect.days}일간 모험 편의 혜택을 활성화합니다.`;
+  }
+  if (item.effect.kind === "rename") return "캐릭터 이름을 한 번 변경합니다.";
+  if (item.effect.kind === "chroma_name_box") {
+    return "미보유 크로마 닉네임 한 종류를 중복 없이 획득합니다.";
+  }
+  return item.effect.slot === "profile_border"
+    ? "프로필 카드에 적용할 영구 테두리를 해금합니다."
+    : "채팅 닉네임 앞에 표시할 영구 배지를 해금합니다.";
+}
+
+const SHOP_ITEM_GROUPS = [
+  {
+    id: "consumable",
+    title: "이용권·소모품",
+    description: "구매 후 가방에 보관되며 사용할 수 있는 상품입니다.",
+    itemIds: MUSEUN_CASH_ITEM_IDS.filter(
+      (itemId) => MUSEUN_CASH_ITEMS[itemId].delivery === "inventory",
+    ),
+  },
+  {
+    id: "profile_border",
+    title: "프로필 테두리",
+    description: "캐릭터 프로필 카드에 적용할 영구 테두리입니다.",
+    itemIds: MUSEUN_CASH_ITEM_IDS.filter((itemId) => {
+      const effect = MUSEUN_CASH_ITEMS[itemId].effect;
+      return effect.kind === "cosmetic" && effect.slot === "profile_border";
+    }),
+  },
+  {
+    id: "chat_badge",
+    title: "채팅 배지",
+    description: "채팅과 접속자 목록의 닉네임 앞에 표시되는 영구 배지입니다.",
+    itemIds: MUSEUN_CASH_ITEM_IDS.filter((itemId) => {
+      const effect = MUSEUN_CASH_ITEMS[itemId].effect;
+      return effect.kind === "cosmetic" && effect.slot === "chat_badge";
+    }),
+  },
+] as const;
 
 const SUPPORT_BENEFITS = [
   {
@@ -157,11 +193,7 @@ export function MuseunCoinShopView() {
             ? "무슨 코인이 부족합니다."
             : data?.error === "already_owned"
               ? "이미 보유한 영구 꾸미기 상품입니다."
-              : data?.error === "collection_complete"
-                ? "모든 크로마 닉네임을 보유하고 있습니다."
-                : data?.error === "enough_boxes"
-                  ? "남은 크로마 수만큼 상자를 이미 보유하고 있습니다."
-            : "상품을 구매하지 못했습니다.",
+              : "상품을 구매하지 못했습니다.",
         );
         return;
       }
@@ -239,21 +271,33 @@ export function MuseunCoinShopView() {
             아이템을 누르면 효과와 이용 방법을 확인할 수 있습니다.
           </p>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {MUSEUN_CASH_ITEM_IDS.map((itemId) => (
-            <CashItemCard
-              key={itemId}
-              itemId={itemId}
-              owned={
-                MUSEUN_CASH_ITEMS[itemId].delivery === "entitlement"
-                  ? Number(
-                      isMuseunCosmeticItemId(itemId) &&
-                        cosmetics.owned.includes(itemId),
-                    )
-                  : (cashItems[itemId] ?? 0)
-              }
-              onClick={() => setDetailItemId(itemId)}
-            />
+        <div className="mt-5 space-y-6">
+          {SHOP_ITEM_GROUPS.map((group) => (
+            <section key={group.id}>
+              <div className="mb-2">
+                <h3 className="text-sm font-bold">{group.title}</h3>
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  {group.description}
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {group.itemIds.map((itemId) => (
+                  <CashItemCard
+                    key={itemId}
+                    itemId={itemId}
+                    owned={
+                      MUSEUN_CASH_ITEMS[itemId].delivery === "entitlement"
+                        ? Number(
+                            isMuseunCosmeticItemId(itemId) &&
+                              cosmetics.owned.includes(itemId),
+                          )
+                        : (cashItems[itemId] ?? 0)
+                    }
+                    onClick={() => setDetailItemId(itemId)}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </Card>
@@ -297,33 +341,30 @@ function CashItemIcon({
   itemId: MuseunCashItemId;
   size?: number;
 }) {
-  const iconClass = {
-    adventure_support_30d:
-      "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
-    rename_permit:
-      "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300",
-    prismatic_profile_border:
-      "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300",
-    starlight_chat_badge:
-      "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-950 dark:text-fuchsia-300",
-    chroma_name_box:
-      "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
-  }[itemId];
+  const effect = MUSEUN_CASH_ITEMS[itemId].effect;
+  const iconClass =
+    effect.kind === "adventure_support"
+      ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
+      : effect.kind === "rename"
+        ? "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
+        : effect.kind === "chroma_name_box"
+          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
+          : effect.slot === "profile_border"
+            ? "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300"
+            : "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-950 dark:text-fuchsia-300";
   return (
     <span className={`inline-flex shrink-0 rounded-full p-2 ${iconClass}`}>
-      {{
-        adventure_support_30d: <Sword size={size} weight="duotone" aria-hidden />,
-        rename_permit: (
-          <IdentificationCard size={size} weight="duotone" aria-hidden />
-        ),
-        prismatic_profile_border: (
-          <FrameCorners size={size} weight="duotone" aria-hidden />
-        ),
-        starlight_chat_badge: (
-          <Sparkle size={size} weight="duotone" aria-hidden />
-        ),
-        chroma_name_box: <Palette size={size} weight="duotone" aria-hidden />,
-      }[itemId]}
+      {effect.kind === "adventure_support" ? (
+        <Sword size={size} weight="duotone" aria-hidden />
+      ) : effect.kind === "rename" ? (
+        <IdentificationCard size={size} weight="duotone" aria-hidden />
+      ) : effect.kind === "chroma_name_box" ? (
+        <Palette size={size} weight="duotone" aria-hidden />
+      ) : effect.slot === "profile_border" ? (
+        <FrameCorners size={size} weight="duotone" aria-hidden />
+      ) : (
+        <Sparkle size={size} weight="duotone" aria-hidden />
+      )}
     </span>
   );
 }
@@ -338,7 +379,7 @@ function CashItemCard({
   onClick: () => void;
 }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
-  const summary = ITEM_SUMMARIES[itemId];
+  const summary = itemSummary(itemId);
   return (
     <Card
       as="button"
@@ -364,7 +405,7 @@ function CashItemCard({
           {owned > 0 && (
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {item.delivery === "entitlement"
-                ? "영구 보유 · 적용 중"
+                ? "영구 보유 · 장착 가능"
                 : `가방에 ${owned}개 보유`}
             </p>
           )}
@@ -402,10 +443,6 @@ function CashItemDetailDialog({
   useEscapeKey(onClose);
   const item = MUSEUN_CASH_ITEMS[itemId];
   const insufficient = coins < item.coinPrice;
-  const remainingChromaCount = chromaNameOdds(cosmetics).length;
-  const boxPurchaseBlocked =
-    itemId === "chroma_name_box" &&
-    (remainingChromaCount === 0 || owned >= remainingChromaCount);
 
   return (
     <div
@@ -487,7 +524,7 @@ function CashItemDetailDialog({
             <span>
               {item.delivery === "entitlement"
                 ? permanentOwned
-                  ? "영구 보유 · 적용 중"
+                  ? "영구 보유 · 가방에서 장착"
                   : "계정 귀속 · 영구 적용"
                 : `가방에 ${owned}개 보유`}
             </span>
@@ -495,22 +532,13 @@ function CashItemDetailDialog({
           <button
             type="button"
             onClick={onPurchase}
-            disabled={
-              purchaseBlocked ||
-              insufficient ||
-              permanentOwned ||
-              boxPurchaseBlocked
-            }
+            disabled={purchaseBlocked || insufficient || permanentOwned}
             className="ui-game-button mt-3 w-full rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-300 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
           >
             {buying
               ? "구매 중…"
               : permanentOwned
                 ? "보유 중"
-                : boxPurchaseBlocked
-                  ? remainingChromaCount === 0
-                    ? "컬렉션 완성"
-                    : "필요한 상자 보유 중"
                 : insufficient
                   ? "코인 부족"
                   : "구매"}
@@ -532,7 +560,8 @@ function ChromaNameBoxPreview({
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
         미보유 닉네임 색상 중 한 종류를 등급별 확률로 획득합니다. 중복은 나오지
-        않으며, 획득한 색상은 가방에서 자유롭게 바꿔 적용할 수 있습니다.
+        않으며, 획득한 색상은 가방에서 자유롭게 바꿔 적용할 수 있습니다. 사용 전
+        상자는 거래소에 등록할 수 있습니다.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(Object.keys(CHROMA_NAME_RARITIES) as ChromaNameRarity[]).map(
@@ -626,13 +655,16 @@ function ChromaNameBoxPreview({
 
 function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
+  if (item.effect.kind !== "cosmetic") return null;
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
         {item.description}
       </p>
-      {itemId === "prismatic_profile_border" ? (
-        <div className={`${SURFACE_CARD} ui-profile-frame-prismatic p-4`}>
+      {item.effect.slot === "profile_border" ? (
+        <div
+          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${item.effect.style} p-4`}
+        >
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
             프로필 미리보기
           </div>
@@ -642,11 +674,7 @@ function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
         </div>
       ) : (
         <div className={`${SURFACE_INSET} p-3 text-sm`}>
-          {itemId === "starlight_chat_badge" && (
-            <span className="ui-chat-badge-starlight mr-1 inline-flex align-[-0.12em]">
-              <Sparkle size={12} weight="fill" aria-hidden />
-            </span>
-          )}
+          <ChatCosmeticBadge badge={item.effect.style} />
           <span className="font-bold text-zinc-800 dark:text-zinc-100">
             별을 걷는 모험가
           </span>

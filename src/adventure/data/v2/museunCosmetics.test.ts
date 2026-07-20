@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
+import { MUSEUN_CASH_ITEMS } from "./museunCashItems";
 import {
   CHROMA_NAME_VARIANTS,
+  CHAT_BADGE_VARIANTS,
+  PROFILE_BORDER_VARIANTS,
   isMuseunCosmeticItemId,
   museunCosmeticAppearance,
   chromaNameOdds,
   drawChromaNameByRoll,
+  equipChatBadge,
   equipChromaName,
+  equipProfileBorder,
   grantChromaName,
   parseMuseunCosmetics,
   unlockMuseunCosmetic,
@@ -26,6 +31,8 @@ describe("무슨 코인 영구 꾸미기", () => {
       owned: ["starlight_chat_badge"],
       chromaNames: ["spectrum"],
       equippedChromaName: "spectrum",
+      equippedProfileBorder: null,
+      equippedChatBadge: "starlight_chat_badge",
     });
     expect(isMuseunCosmeticItemId("prismatic_profile_border")).toBe(true);
     expect(isMuseunCosmeticItemId("rename_permit")).toBe(false);
@@ -35,12 +42,48 @@ describe("무슨 코인 영구 꾸미기", () => {
     const first = unlockMuseunCosmetic({}, "prismatic_profile_border");
     expect(first.alreadyOwned).toBe(false);
     expect(first.state.owned).toEqual(["prismatic_profile_border"]);
+    expect(first.state.equippedProfileBorder).toBe(
+      "prismatic_profile_border",
+    );
     const second = unlockMuseunCosmetic(
       first.state,
       "prismatic_profile_border",
     );
     expect(second.alreadyOwned).toBe(true);
     expect(second.state).toEqual(first.state);
+  });
+
+  it("프로필 테두리 10종과 채팅 배지 20종을 독립 장착한다", () => {
+    expect(PROFILE_BORDER_VARIANTS).toHaveLength(10);
+    expect(CHAT_BADGE_VARIANTS).toHaveLength(20);
+    for (const variant of PROFILE_BORDER_VARIANTS) {
+      expect(MUSEUN_CASH_ITEMS[variant.itemId].effect).toEqual({
+        kind: "cosmetic",
+        slot: "profile_border",
+        style: variant.id,
+      });
+    }
+    for (const variant of CHAT_BADGE_VARIANTS) {
+      expect(MUSEUN_CASH_ITEMS[variant.itemId].effect).toEqual({
+        kind: "cosmetic",
+        slot: "chat_badge",
+        style: variant.id,
+      });
+    }
+    const borders = unlockMuseunCosmetic(
+      unlockMuseunCosmetic({}, "prismatic_profile_border").state,
+      "oceanic_profile_border",
+    ).state;
+    expect(borders.equippedProfileBorder).toBe("oceanic_profile_border");
+    expect(
+      equipProfileBorder(borders, "prismatic_profile_border")
+        ?.equippedProfileBorder,
+    ).toBe("prismatic_profile_border");
+    expect(equipProfileBorder(borders, "celestial_profile_border")).toBeNull();
+
+    const badges = unlockMuseunCosmetic(borders, "crown_chat_badge").state;
+    expect(badges.equippedChatBadge).toBe("crown_chat_badge");
+    expect(equipChatBadge(badges, null)?.equippedChatBadge).toBeNull();
   });
 
   it("각 상품을 서로 독립된 표시 효과로 해석한다", () => {
@@ -76,6 +119,17 @@ describe("무슨 코인 영구 꾸미기", () => {
   });
 
   it("최초 상자는 일반 72%·희귀 20%·영웅 6%·전설 2%로 추첨한다", () => {
+    expect(CHROMA_NAME_VARIANTS).toHaveLength(50);
+    expect(
+      Object.fromEntries(
+        ["common", "rare", "epic", "legendary"].map((rarity) => [
+          rarity,
+          CHROMA_NAME_VARIANTS.filter(
+            (variant) => variant.rarity === rarity,
+          ).length,
+        ]),
+      ),
+    ).toEqual({ common: 22, rare: 14, epic: 9, legendary: 5 });
     const odds = chromaNameOdds(null);
     const probabilityByRarity = Object.fromEntries(
       ["common", "rare", "epic", "legendary"].map((rarity) => [
@@ -95,9 +149,9 @@ describe("무슨 코인 영구 꾸미기", () => {
     expect(probabilityByRarity.legendary).toBeCloseTo(2);
 
     expect(drawChromaNameByRoll(null, 0)).toBe("crimson");
-    expect(drawChromaNameByRoll(null, 11)).toBe("crimson");
-    expect(drawChromaNameByRoll(null, 12)).toBe("coral");
-    expect(drawChromaNameByRoll(null, 199)).toBe("eclipse");
+    expect(drawChromaNameByRoll(null, 1_889)).toBe("crimson");
+    expect(drawChromaNameByRoll(null, 1_890)).toBe("coral");
+    expect(drawChromaNameByRoll(null, 57_749)).toBe("genesis");
   });
 
   it("등급과 관계없이 마지막 미보유 항목은 100%가 되고 완성 후 추첨하지 않는다", () => {

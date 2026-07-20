@@ -3,8 +3,12 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
+  equipChatBadge,
   equipChromaName,
+  equipProfileBorder,
+  isChatBadgeItemId,
   isChromaNameId,
+  isProfileBorderItemId,
 } from "@/adventure/data/v2/museunCosmetics";
 
 type CharacterSave = {
@@ -26,15 +30,21 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { chromaNameId?: unknown };
+  let body: { slot?: unknown; itemId?: unknown; chromaNameId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  const chromaNameId = body.chromaNameId;
-  if (chromaNameId !== null && !isChromaNameId(chromaNameId)) {
-    return Response.json({ ok: false, error: "invalid_chroma" }, { status: 400 });
+  const slot = body.slot ?? "chroma_name";
+  const itemId = body.slot ? body.itemId : body.chromaNameId;
+  if (
+    !["chroma_name", "profile_border", "chat_badge"].includes(String(slot))
+  ) {
+    return Response.json(
+      { ok: false, error: "invalid_cosmetic" },
+      { status: 400 },
+    );
   }
 
   const result = await db.transaction(async (tx) => {
@@ -44,10 +54,17 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
-    const cosmetics = equipChromaName(
-      character.museunCosmetics,
-      chromaNameId,
-    );
+    let cosmetics;
+    if (slot === "profile_border") {
+      if (itemId !== null && !isProfileBorderItemId(itemId)) return null;
+      cosmetics = equipProfileBorder(character.museunCosmetics, itemId);
+    } else if (slot === "chat_badge") {
+      if (itemId !== null && !isChatBadgeItemId(itemId)) return null;
+      cosmetics = equipChatBadge(character.museunCosmetics, itemId);
+    } else {
+      if (itemId !== null && !isChromaNameId(itemId)) return null;
+      cosmetics = equipChromaName(character.museunCosmetics, itemId);
+    }
     if (!cosmetics) {
       return {
         status: 403,
@@ -60,6 +77,13 @@ export async function POST(req: Request) {
     });
     return { status: 200, body: { ok: true as const, cosmetics } };
   });
+
+  if (!result) {
+    return Response.json(
+      { ok: false, error: "invalid_cosmetic" },
+      { status: 400 },
+    );
+  }
 
   return Response.json(result.body, { status: result.status });
 }

@@ -34,7 +34,97 @@ export const MUSEUN_CASH_ITEMS = {
     coinPrice: 400,
     delivery: "entitlement",
     tradeable: false,
-    effect: { kind: "cosmetic", slot: "profile_border" },
+    effect: { kind: "cosmetic", slot: "profile_border", style: "prismatic" },
+  },
+  infernal_profile_border: {
+    id: "infernal_profile_border",
+    name: "업화 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 붉은 불꽃이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "infernal" },
+  },
+  oceanic_profile_border: {
+    id: "oceanic_profile_border",
+    name: "심해 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 푸른 물결이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "oceanic" },
+  },
+  verdant_profile_border: {
+    id: "verdant_profile_border",
+    name: "세계수 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 초록빛 생명이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "verdant" },
+  },
+  celestial_profile_border: {
+    id: "celestial_profile_border",
+    name: "천상 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 금빛과 성운이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 500,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "celestial" },
+  },
+  obsidian_profile_border: {
+    id: "obsidian_profile_border",
+    name: "흑요석 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 검붉은 흑요석이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "obsidian" },
+  },
+  frozen_profile_border: {
+    id: "frozen_profile_border",
+    name: "빙결 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 차가운 서리가 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "frozen" },
+  },
+  storm_profile_border: {
+    id: "storm_profile_border",
+    name: "폭풍 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 번개와 먹구름이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "storm" },
+  },
+  rose_profile_border: {
+    id: "rose_profile_border",
+    name: "장미 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 장미와 금빛이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 400,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "rose" },
+  },
+  royal_profile_border: {
+    id: "royal_profile_border",
+    name: "황실 프로필 테두리",
+    description:
+      "캐릭터 프로필 카드에 황금과 자색이 흐르는 테두리를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 500,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "profile_border", style: "royal" },
   },
   starlight_chat_badge: {
     id: "starlight_chat_badge",
@@ -44,16 +134,206 @@ export const MUSEUN_CASH_ITEMS = {
     coinPrice: 300,
     delivery: "entitlement",
     tradeable: false,
-    effect: { kind: "cosmetic", slot: "chat_badge" },
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "starlight" },
+  },
+  crown_chat_badge: {
+    id: "crown_chat_badge",
+    name: "왕관 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 왕관 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "crown" },
+  },
+  flame_chat_badge: {
+    id: "flame_chat_badge",
+    name: "불꽃 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 불꽃 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "flame" },
+  },
+  crystal_chat_badge: {
+    id: "crystal_chat_badge",
+    name: "수정 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 수정 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "crystal" },
+  },
+  leaf_chat_badge: {
+    id: "leaf_chat_badge",
+    name: "새싹 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 새싹 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "leaf" },
+  },
+  sword_chat_badge: {
+    id: "sword_chat_badge",
+    name: "검 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 검 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "sword" },
+  },
+  shield_chat_badge: {
+    id: "shield_chat_badge",
+    name: "방패 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 방패 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "shield" },
+  },
+  trophy_chat_badge: {
+    id: "trophy_chat_badge",
+    name: "트로피 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 트로피 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "trophy" },
+  },
+  moon_chat_badge: {
+    id: "moon_chat_badge",
+    name: "달빛 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 달빛 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "moon" },
+  },
+  sun_chat_badge: {
+    id: "sun_chat_badge",
+    name: "태양 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 태양 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "sun" },
+  },
+  heart_chat_badge: {
+    id: "heart_chat_badge",
+    name: "하트 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 하트 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "heart" },
+  },
+  skull_chat_badge: {
+    id: "skull_chat_badge",
+    name: "해골 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 해골 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "skull" },
+  },
+  lightning_chat_badge: {
+    id: "lightning_chat_badge",
+    name: "번개 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 번개 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "lightning" },
+  },
+  snowflake_chat_badge: {
+    id: "snowflake_chat_badge",
+    name: "눈꽃 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 눈꽃 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "snowflake" },
+  },
+  paw_chat_badge: {
+    id: "paw_chat_badge",
+    name: "발자국 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 발자국 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "paw" },
+  },
+  feather_chat_badge: {
+    id: "feather_chat_badge",
+    name: "깃털 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 깃털 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "feather" },
+  },
+  anchor_chat_badge: {
+    id: "anchor_chat_badge",
+    name: "닻 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 닻 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "anchor" },
+  },
+  music_chat_badge: {
+    id: "music_chat_badge",
+    name: "음표 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 음표 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "music" },
+  },
+  clover_chat_badge: {
+    id: "clover_chat_badge",
+    name: "네잎클로버 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 네잎클로버 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "clover" },
+  },
+  star_chat_badge: {
+    id: "star_chat_badge",
+    name: "별 채팅 배지",
+    description:
+      "채팅과 접속자 목록의 닉네임 앞에 별 배지를 영구 해금합니다. 계정에 귀속되며 거래할 수 없습니다.",
+    coinPrice: 300,
+    delivery: "entitlement",
+    tradeable: false,
+    effect: { kind: "cosmetic", slot: "chat_badge", style: "star" },
   },
   chroma_name_box: {
     id: "chroma_name_box",
     name: "크로마 닉네임 상자",
     description:
-      "미보유 닉네임 색상 한 종류를 등급별 확률로 획득합니다. 중복은 나오지 않으며, 모든 종류를 보유하면 더 이상 열 수 없습니다.",
+      "미보유 닉네임 색상 한 종류를 등급별 확률로 획득합니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
     coinPrice: 300,
     delivery: "inventory",
-    tradeable: false,
+    tradeable: true,
     effect: { kind: "chroma_name_box" },
   },
 } as const;

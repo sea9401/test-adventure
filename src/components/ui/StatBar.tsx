@@ -19,7 +19,7 @@ export function StatBar({
           style={{ width: `${pct * 100}%` }}
         />
       </div>
-      <span className="shrink-0 text-right text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+      <span className="w-24 shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-zinc-500 sm:w-[7.5rem] dark:text-zinc-400">
         {value}/{max}
       </span>
     </div>

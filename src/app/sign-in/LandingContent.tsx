@@ -73,18 +73,26 @@ export function LandingContent({
 
           <div className="mt-10 flex w-full flex-col items-center gap-3">
             {authed ? (
-              <Link
-                href="/create"
-                className="flex w-full max-w-xs items-center justify-center rounded-lg bg-amber-300 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition-colors hover:bg-amber-200"
-              >
-                캐릭터 만들고 시작하기
-              </Link>
+              <>
+                <Link
+                  href="/create"
+                  className="flex w-full max-w-xs items-center justify-center rounded-lg bg-amber-300 px-4 py-3 text-sm font-semibold text-zinc-900 shadow-sm transition-colors hover:bg-amber-200"
+                >
+                  캐릭터 만들고 시작하기
+                </Link>
+                <div className="flex w-full max-w-xs items-center gap-3 py-1 text-[11px] text-zinc-600">
+                  <span className="h-px flex-1 bg-white/10" />
+                  기존 계정으로 로그인
+                  <span className="h-px flex-1 bg-white/10" />
+                </div>
+                <SignInButtons />
+              </>
             ) : (
               <SignInButtons />
             )}
             <p className="text-xs text-zinc-600">
               {authed
-                ? "캐릭터를 만들면 바로 모험이 시작됩니다"
+                ? "새 캐릭터를 만들거나 기존 계정으로 로그인할 수 있습니다"
                 : "소셜 계정으로 간편하게 시작 · 별도 설치 없음"}
             </p>
           </div>

@@ -38,9 +38,17 @@ export default function DungeonListPage() {
       frontierDepth={frontierDepth}
       playerPower={playerCombat?.power ?? null}
       initialOpenDepth={initialOpenDepth}
-      onSelectRareMap={(m) =>
-        router.push(`/battle/dungeon/${m.depth}?rareMap=${m.iid}`)
-      }
+      onSelectRareMap={(m) => {
+        if (m.kind === "secret_shop_map") {
+          router.push(`/hidden/shop?map=${encodeURIComponent(m.iid)}`);
+          return;
+        }
+        if (m.kind === "rename_map") {
+          router.push(`/hidden/rename?map=${encodeURIComponent(m.iid)}`);
+          return;
+        }
+        router.push(`/battle/dungeon/${m.depth}?rareMap=${m.iid}`);
+      }}
     />
   );
 }

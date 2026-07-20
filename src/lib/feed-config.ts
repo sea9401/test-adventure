@@ -128,7 +128,7 @@ export type FeedPayload =
   // enhance_high — 고강(ENHANCE_FEED_MIN_LEVEL 이상) 강화 성공 / enhance_destroy — 같은 레벨대
   //   파괴(개체 소멸). level = 성공=달성 레벨·파괴=잃은 개체 레벨. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
-  // rare_map_drop — 레거시: 과거 희귀 탐사/입장권 발견 소식. 현재는 전체 소식에 발행하지 않음.
+  // rare_map_drop — 레거시: 과거 레어맵 발견 소식. 현재는 전체 소식에 발행하지 않음.
   // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
   | { kind: string }
   // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.

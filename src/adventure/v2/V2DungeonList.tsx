@@ -36,7 +36,7 @@ export function V2DungeonList({
   onBack: () => void;
   frontierDepth?: number;
   playerPower?: number | null;
-  // 희귀 탐사 입장 — 열린 탐사(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
+  // 레어맵 입장 — 농축 사냥 또는 희귀 장소로 이동. 미전달이면 섹션 숨김.
   onSelectRareMap?: (map: RareMapInstance) => void;
   // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
   initialOpenDepth?: number | null;
@@ -90,7 +90,7 @@ export function V2DungeonList({
     setHiddenThemes(toggleHiddenTheme(hiddenThemeStarts, startDepth));
   }
 
-  // 열린 희귀 탐사 — 마운트 1회 조회(판수 소모와 30분 만료는 서버 권위).
+  // 열린 레어맵 — 마운트 1회 조회(판수/장소 완료와 30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
   useEffect(() => {
     if (!onSelectRareMap) return;
@@ -99,10 +99,10 @@ export function V2DungeonList({
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
         if (alive && j?.ok) {
-          // hunt 계열만 — 입장권(비밀 상점/개명)은 인벤토리 소모품 탭에서 사용.
+          // 테스트 전용 즉시 사용 항목만 제외. 희귀 탐사와 희귀 장소는 모두 여기서 입장.
           setRareMaps(
             (j.rareMaps ?? []).filter(
-              (m) => RARE_MAP_KINDS[m.kind]?.category === "hunt",
+              (m) => RARE_MAP_KINDS[m.kind]?.category !== "utility",
             ),
           );
         }
@@ -195,31 +195,10 @@ export function V2DungeonList({
           {onSelectRareMap && rareMaps.length > 0 && (
             <div className="space-y-1.5">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                열린 희귀 탐사
+                열린 레어맵
               </div>
               {rareMaps.map((m) => (
-                <button
-                  key={m.iid}
-                  type="button"
-                  onClick={() => onSelectRareMap(m)}
-                  className="flex w-full items-center justify-between gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-left hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:hover:bg-sky-950/70"
-                >
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5 truncate text-sm font-medium text-sky-800 dark:text-sky-200">
-                      <GameIcon name="Sparkle" size={16} className="shrink-0" />
-                      <span className="truncate">
-                        {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} —{" "}
-                        {huntStageName(m.depth)}
-                      </span>
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-sky-700/80 dark:text-sky-400/80">
-                      남은 {m.runsLeft}판
-                    </span>
-                  </span>
-                  <span className="shrink-0 rounded bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
-                    입장
-                  </span>
-                </button>
+                <RareMapButton key={m.iid} map={m} onSelect={onSelectRareMap} />
               ))}
             </div>
           )}
@@ -294,6 +273,46 @@ export function V2DungeonList({
         </div>
       )}
     </main>
+  );
+}
+
+function RareMapButton({
+  map,
+  onSelect,
+}: {
+  map: RareMapInstance;
+  onSelect: (map: RareMapInstance) => void;
+}) {
+  const def = RARE_MAP_KINDS[map.kind];
+  const isLocation = def?.category === "location";
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(map)}
+      className="flex w-full items-center justify-between gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-left hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950 dark:hover:bg-sky-900"
+    >
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5 truncate text-sm font-medium text-sky-800 dark:text-sky-200">
+          <GameIcon
+            name={isLocation ? "MapTrifold" : "Sparkle"}
+            size={16}
+            className="shrink-0"
+          />
+          <span className="truncate">
+            {def?.name ?? map.kind}
+            {!isLocation ? ` — ${huntStageName(map.depth)}` : ""}
+          </span>
+        </span>
+        <span className="mt-0.5 block text-[11px] text-sky-700 dark:text-sky-400">
+          {isLocation
+            ? "희귀 장소 · 발견 후 30분 동안 개방"
+            : `남은 ${map.runsLeft}판`}
+        </span>
+      </span>
+      <span className="shrink-0 rounded bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
+        입장
+      </span>
+    </button>
   );
 }
 

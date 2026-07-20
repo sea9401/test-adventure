@@ -31,12 +31,11 @@ import {
 //   !V2_HUNT_USE_STAMINA (옛 V2_CORE_LOOP_V2 단독 게이트는 스태미나 모드서도 잘못 숨겼음).
 const STAMINA_SHOP_ITEMS = new Set(["stamina_potion"]);
 
-// 비밀 상점 — 「비밀 상점 초대장」 보유자만. 품목당 1회(초대장 bought[]), 전 품목
-// 구매 시 초대장 소진(runsLeft 0 → parse purge).
+// 비밀 상점 — 사냥터에 열린 「비밀 상점 지도」 보유자만. 품목당 1회(map bought[]),
+// 전 품목 구매 시 희귀 장소 완료(runsLeft 0 → parse purge).
 //
 // GET  ?map=<iid>            → { ok, stock:[{..., bought}], gold }
 // POST { map, itemId }       → 구매. 골드 차감 + 효과 적용 + bought 마킹.
-// DELETE { map }             → 남은 품목 포기 + 초대장 소진.
 //
 // 효과 적용처: 강화석=character.v2.materials / 충전약=inventory.v2 /
 // 스태미나 회복약=character.v2.stamina(즉시, per-user 최대치 캡).
@@ -150,7 +149,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 구매 마킹 — 전 품목 구매 시 초대장 소진(runsLeft 0 → parse 가 purge).
+    // 구매 마킹 — 전 품목 구매 시 희귀 장소 완료(runsLeft 0 → parse 가 purge).
     //   쿨다운 모드면 스태미나 상품은 구매 불가라 "전 품목"에서 제외(아니면 영영 소진 안 됨).
     const nextBought = [...bought, item.id];
     const buyableStock = SECRET_SHOP_STOCK.filter(
@@ -231,58 +230,8 @@ export async function POST(req: Request) {
         ...(V2_CORE_LOOP_V2
           ? { bankedGold: nextChar.bankedGold as number }
           : {}),
-        mapConsumed: allBought,
+        mapCompleted: allBought,
       },
-    };
-  });
-
-  return Response.json(result.body, { status: result.status });
-}
-
-export async function DELETE(req: Request) {
-  const userId = await ensureUser();
-  if (!userId) {
-    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
-  const limited = enforceUserAndIpRateLimit(req, {
-    userId,
-    action: "v2:secret-shop:delete",
-    userLimit: 30,
-    ipLimit: 180,
-    windowMs: 60_000,
-  });
-  if (limited) return limited;
-  let body: { map?: unknown };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-  const iid = typeof body.map === "string" ? body.map : "";
-  if (!iid) {
-    return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
-  }
-
-  const result = await db.transaction(async (tx) => {
-    const now = Date.now();
-    const charSave = await lockSaveForUpdate<CharSave>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
-    const maps = parseRareMaps(charSave.rareMaps, now);
-    const map = findShopMap(maps, iid);
-    if (!map) {
-      return { status: 403, body: { ok: false as const, error: "no_map" } };
-    }
-    await upsertSave(tx, userId, "character.v2", {
-      ...charSave,
-      rareMaps: maps.filter((m) => m.iid !== map.iid),
-    });
-    return {
-      status: 200,
-      body: { ok: true as const, map: map.iid, mapConsumed: true },
     };
   });
 

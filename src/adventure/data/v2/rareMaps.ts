@@ -1,9 +1,9 @@
 // 레어 탐사 — 사냥 승리 시 극히 낮은 확률로 열리는 희귀 콘텐츠(2026-06-12).
-// hunt 계열은 "발견된 깊이" 기준의 농축 사냥을 제한 판수만큼, utility 계열은 숨겨진
-// 장소(비밀 상점/개명의 신전) 기능을 제한 횟수만큼 쓸 수 있다.
-// 거래소 판매 가능(consumable kind). hunt 계열은 사냥터 목록에, utility 계열은 인벤토리에 표시.
+// hunt 계열은 "발견된 깊이" 기준의 농축 사냥을 제한 판수만큼, location 계열은 숨겨진
+// 장소(비밀 상점/개명의 신전)를 연다. utility 계열은 테스트용 즉시 사용 항목이다.
+// 거래소에서는 레어맵 개체로 판매 가능하며, hunt/location 계열은 사냥터 목록에 표시한다.
 //
-// 카탈로그 확정(2026-06-12 사용자 승인): 희귀 탐사 5종(판수 30·유적 10) + 입장권 2종.
+// 카탈로그 확정(2026-06-12 사용자 승인): 희귀 탐사 5종(판수 30·유적 10) + 희귀 장소 2종.
 // 수치(드랍률·배수)는 다이얼 — 라이브 실측 후 조정 여지.
 
 export type RareMapKindId =
@@ -20,9 +20,9 @@ export type RareMapKind = {
   id: RareMapKindId;
   name: string;
   desc: string;
-  /** hunt = 농축 사냥 입장(판수 소모) / utility = 기능 사용(사용 횟수 소모, 사냥 입장 불가). */
-  category: "hunt" | "utility";
-  /** hunt: 사냥 가능 판수(승패 무관 소모) / utility: 사용 가능 횟수. */
+  /** hunt = 농축 사냥 / location = 숨겨진 장소 / utility = 테스트용 즉시 사용 항목. */
+  category: "hunt" | "location" | "utility";
+  /** hunt: 사냥 가능 판수 / location: 장소 완료 전 활성 표식 / utility: 사용 가능 횟수. */
   runs: number;
   /** 사냥 승리당 드랍 확률(%). */
   dropPct: number;
@@ -87,6 +87,27 @@ function utilityKind(
   };
 }
 
+function locationKind(
+  id: RareMapKindId,
+  name: string,
+  desc: string,
+  dropPct: number,
+): RareMapKind {
+  return {
+    id,
+    name,
+    desc,
+    category: "location",
+    runs: 1,
+    dropPct,
+    expMult: 1,
+    goldMult: 1,
+    equipDropMult: 1,
+    uniqueDropMult: 1,
+    enhanceStoneMult: 1,
+  };
+}
+
 export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
   // === 희귀 탐사 — 발견 깊이로 농축 사냥 ===
   worn_map: huntKind(
@@ -119,18 +140,18 @@ export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
     "거의 지워진 옛 유적 단서. 전설이 잠든 자리를 가리킨다.",
     { runs: 10, dropPct: 0.006, equipDropMult: 3, uniqueDropMult: 5 },
   ),
-  // === 입장권 — 숨겨진 장소로 이동(사냥 입장 불가) ===
-  secret_shop_map: utilityKind(
+  // === 희귀 장소 — 사냥터의 열린 레어맵에서 이동(사냥 입장 불가) ===
+  secret_shop_map: locationKind(
     "secret_shop_map",
-    "비밀 상점 초대장",
-    "뒷골목 상인의 초대장. 아무에게나 팔지 않는 물건을 살 수 있다 (품목당 1회 구매).",
-    { uses: 6, dropPct: 0.006 },
+    "비밀 상점 지도",
+    "뒷골목 상인의 은신처가 표시된 희귀 지도. 아무에게나 팔지 않는 물건을 살 수 있다 (품목당 1회 구매).",
+    0.006,
   ),
-  rename_map: utilityKind(
+  rename_map: locationKind(
     "rename_map",
-    "개명 신전 입장권",
-    "이름을 갈아입는 옛 신전의 입장권. 새 이름으로 다시 태어난다 (1회).",
-    { uses: 1, dropPct: 0.003 },
+    "개명 신전 지도",
+    "이름을 갈아입는 옛 신전이 표시된 희귀 지도. 새 이름으로 다시 태어난다 (1회).",
+    0.003,
   ),
   // 테스트 전용 — 사냥 드랍 안 됨(dropPct 0 → 관리자 지급 전용). 사용 시 EXP 100만을
   //   EXP 레벨업과 스탯 성장을 적용한다. 직업 숙련도는 사냥 승리 보상이라 오르지 않는다.
@@ -154,7 +175,7 @@ export const RARE_MAP_TTL_MS = 30 * 60 * 1000;
 export type RareMapInstance = {
   iid: string;
   kind: RareMapKindId;
-  /** 발견된 깊이 — hunt 계열 입장 시 이 깊이로만 사냥 가능(utility 는 무관·기록용). */
+  /** 발견된 깊이 — hunt 계열 입장 시 이 깊이로만 사냥 가능(그 외에는 기록용). */
   depth: number;
   runsLeft: number;
   foundAt: number;
@@ -186,7 +207,7 @@ export function newRareMapInstance(
 
 // save 값 파싱 — 형식 불량/소진/만료 항목을 비파괴로 걸러낸 새 배열.
 // (소진/만료 purge 는 read 시 lazy — hunt/secret-shop 이 파싱 결과를 다시 저장하면 자연 정리.)
-// 희귀 탐사와 입장권은 발견 후 30분 동안 유효하다.
+// 희귀 탐사와 희귀 장소는 발견 후 30분 동안 유효하다.
 export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
   if (!Array.isArray(v)) return [];
   const out: RareMapInstance[] = [];

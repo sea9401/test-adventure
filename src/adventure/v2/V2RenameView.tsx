@@ -10,8 +10,8 @@ import { TextInput } from "@/components/ui/TextInput";
 import { useSystemMessageState } from "./RewardToastProvider";
 import type { MuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 
-// 개명 신전 — 「개명 신전 입장권」 또는 캐시 「개명 허가증」으로 닉네임 변경 1회.
-// 서버(/api/v2/me/rename)가 사용권 소유/이름 중복을 권위 검증.
+// 개명 신전 — 열린 「개명 신전 지도」 또는 캐시 「개명 허가증」으로 닉네임 변경 1회.
+// 서버(/api/v2/me/rename)가 지도/사용권 소유와 이름 중복을 권위 검증.
 
 export function V2RenameView({
   mapIid,
@@ -77,7 +77,9 @@ export function V2RenameView({
     <PageShell className="game-content-readable">
       <SubViewHeader title="개명의 신전" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        새 이름으로 다시 태어납니다 — 사용권은 한 번 쓰면 사라집니다.
+        {cashItemId
+          ? "새 이름으로 다시 태어납니다 — 개명 허가증은 한 번 쓰면 사라집니다."
+          : "새 이름으로 다시 태어납니다 — 개명을 마치면 이 희귀 장소는 닫힙니다."}
       </p>
 
       <Card padding="md" className="space-y-3">

@@ -145,11 +145,16 @@ function entryText(e: FeedEntry): React.ReactNode {
     const kindName = def?.name ?? p.kind;
     return (
       <>
-        {name} 님이 {def?.category === "utility" ? "희귀 입장권" : "희귀 탐사"}{" "}
+        {name} 님이{" "}
+        {def?.category === "location"
+          ? "희귀 장소"
+          : def?.category === "utility"
+            ? "희귀 물품"
+            : "희귀 탐사"}{" "}
         <span className="font-medium text-sky-600 dark:text-sky-400">
           「{kindName}」
         </span>{" "}
-        {def?.category === "utility" ? "발견!" : "개방!"}
+        {def?.category === "utility" ? "획득!" : "개방!"}
       </>
     );
   }

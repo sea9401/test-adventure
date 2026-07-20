@@ -38,13 +38,7 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 
-// 입장권 사용 — 종류별 전용 화면으로 이동(iid 동봉, 서버가 소유 재검증).
-const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
-  rename_map: "/hidden/rename",
-};
-
-// 소모품 탭 — SP 열매 섹션 + 보유 입장권 목록. SP 열매 보유/사용수·일괄 새로고침 등
-// 데이터는 코디네이터(부모)가 보유하고, 여기서는 표시 + 입장권 이동만 담당(거동 불변).
+// 소모품 탭 — SP 열매 섹션 + 실제 소모품 목록. 레어맵은 사냥터 목록에서 표시한다.
 export function RareMapsTab({
   materials,
   spFruitUsed,
@@ -126,12 +120,6 @@ export function RareMapsTab({
               .catch(() => {});
             return;
           }
-          if (m.kind === "secret_shop_map") {
-            router.push(`/hidden/shop?map=${encodeURIComponent(m.iid)}`);
-            return;
-          }
-          const base = UTILITY_MAP_ROUTE[m.kind];
-          if (base) router.push(`${base}?map=${m.iid}`);
         }}
       />
     </div>
@@ -514,8 +502,7 @@ function CoopEquipmentBoxSection({
   );
 }
 
-// 소모품 탭 — 보유 입장권 목록. hunt 계열 희귀 탐사는 사냥터 목록의 "열린 희귀 탐사",
-// utility 계열(비밀 상점/개명)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
+// 소모품 탭 — 테스트용 utility 항목만 표시. hunt/location 레어맵은 사냥터 목록에서 입장.
 function ConsumableList({
   maps,
   onUse,
@@ -551,7 +538,7 @@ function ConsumableList({
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
         title="보유한 소모품이 없습니다"
-        message="비밀 상점 초대장과 입장권은 사냥 중 낮은 확률로 발견됩니다."
+        message="사용할 수 있는 소모품을 획득하면 여기에 표시됩니다."
       />
     );
   }

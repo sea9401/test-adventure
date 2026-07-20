@@ -16,7 +16,7 @@ const HUNT_RARE_MAP_IDS = [
   "relic_map",
 ] satisfies RareMapKindId[];
 
-const UTILITY_RARE_MAP_IDS = [
+const LOCATION_RARE_MAP_IDS = [
   "secret_shop_map",
   "rename_map",
 ] satisfies RareMapKindId[];
@@ -107,18 +107,16 @@ export function HuntingContent() {
         <li>
           <Em>희귀 탐사</Em> — 아주 낮은 확률로 열리는 특별 사냥. 발견된
           깊이에서 보상이 크게 불어난 농축 사냥을 진행합니다. 비밀 상점·개명
-          같은 기능은 별도 초대장/입장권으로 발견되며, 모두 거래소에서
-          거래됩니다.
+          신전도 별도의 희귀 장소 레어맵으로 열리며, 모두 거래소에서 거래됩니다.
         </li>
       </UL>
 
-      <H2>희귀 탐사와 입장권</H2>
+      <H2>희귀 탐사와 희귀 장소</H2>
       <P>
-        희귀 탐사와 입장권은 <Em>일반 사냥 승리</Em> 때 낮은 확률로 열리거나
-        발견됩니다. 희귀 탐사는 {RARE_MAP_TTL_MINUTES}분 동안 전투 탭 → 사냥터의{" "}
-        <Em>열린 희귀 탐사</Em>에서 입장합니다. 비밀 상점 초대장은 보유 중이면
-        비밀 상점 화면에서 자동으로 인식되고, 개명 입장권은 가방의 소모품
-        탭에서 해당 화면으로 이동해 사용합니다.
+        모든 레어맵은 <Em>일반 사냥 승리</Em> 때 낮은 확률로 열립니다. 발견 후{" "}
+        {RARE_MAP_TTL_MINUTES}분 동안 전투 탭 → 사냥터의 <Em>열린 레어맵</Em>에서
+        입장합니다. 비밀 상점과 개명 신전도 소모품이 아니라 이 목록에 열린
+        희귀 장소로 표시됩니다.
       </P>
       <Table
         head={["희귀 탐사", "열리는 곳", "횟수", "보너스", "승리당 개방률"]}
@@ -135,18 +133,18 @@ export function HuntingContent() {
         caption={`희귀 탐사는 열린 깊이로만 진행됩니다. 개방 후 ${RARE_MAP_TTL_MINUTES}분 동안 유효하고, 판수는 승패와 무관하게 소모되며, 희귀 탐사 안에서는 또 다른 희귀 탐사가 열리지 않습니다.`}
       />
       <Table
-        head={["입장권", "열리는 곳", "횟수", "용도", "승리당 발견률"]}
-        rows={UTILITY_RARE_MAP_IDS.map((id) => {
+        head={["희귀 장소", "열리는 곳", "완료 조건", "용도", "승리당 개방률"]}
+        rows={LOCATION_RARE_MAP_IDS.map((id) => {
           const def = RARE_MAP_KINDS[id];
           return [
             <Em key={id}>{def.name}</Em>,
             id === "secret_shop_map" ? "비밀 상점" : "개명의 신전",
-            `${def.runs}회`,
+            id === "secret_shop_map" ? "모든 품목 구매" : "개명 1회",
             def.desc,
             percentText(def.dropPct),
           ];
         })}
-        caption={`초대장/입장권은 사냥터가 아니라 숨겨진 기능으로 들어가는 소모품입니다. 발견 후 ${RARE_MAP_TTL_MINUTES}분 동안 유효하며, 보유 희귀 탐사와 입장권은 합쳐서 최대 ${RARE_MAP_CAP}장까지 들 수 있습니다.`}
+        caption={`희귀 장소는 인벤토리 소모품이 아니며, 사냥터의 열린 레어맵 목록에서 입장합니다. 발견 후 ${RARE_MAP_TTL_MINUTES}분 동안 유효하며, 보유한 모든 레어맵은 합쳐서 최대 ${RARE_MAP_CAP}장까지 유지됩니다.`}
       />
 
       <Note>

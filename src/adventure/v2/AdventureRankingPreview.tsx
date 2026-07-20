@@ -146,17 +146,17 @@ function RankingLeader({
           <GuildEmblemImage
             emblem={entry.emblem}
             guildName={entry.name}
-            className="h-14 w-14 border-2 border-amber-400 dark:border-amber-500"
+            className="h-16 w-16 border-2 border-amber-400 dark:border-amber-500"
           />
         ) : (
           <CosmeticAvatar
             avatar={entry.avatar}
             name={entry.name}
             profileBorder={entry.profileBorder}
-            width={56}
-            height={56}
-            sizes="56px"
-            className="h-14 w-14 rounded-xl"
+            width={64}
+            height={64}
+            sizes="64px"
+            className="h-16 w-16 rounded-2xl"
           />
         )}
         <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-sm dark:bg-amber-500">
@@ -207,17 +207,17 @@ function RankingRow({
         <GuildEmblemImage
           emblem={entry.emblem}
           guildName={entry.name}
-          className="h-[38px] w-[38px]"
+          className="h-11 w-11"
         />
       ) : (
         <CosmeticAvatar
           avatar={entry.avatar}
           name={entry.name}
           profileBorder={entry.profileBorder}
-          width={38}
-          height={38}
-          sizes="38px"
-          className="h-[38px] w-[38px] rounded-lg"
+          width={44}
+          height={44}
+          sizes="44px"
+          className="h-11 w-11 rounded-xl"
         />
       )}
       <div className="min-w-0 flex-1">
@@ -237,7 +237,7 @@ function RankingPreviewSkeleton() {
         className={`${SURFACE_INSET} p-4 ring-2 ring-inset ring-amber-500 dark:ring-amber-400`}
       >
         <div className="flex items-center gap-3">
-          <Skeleton className="h-14 w-14" />
+          <Skeleton className="h-16 w-16" />
           <div className="min-w-0 flex-1">
             <Skeleton rows={2} />
           </div>
@@ -247,7 +247,7 @@ function RankingPreviewSkeleton() {
         {Array.from({ length: 2 }).map((_, index) => (
           <div key={index} className={`${SURFACE_INSET} p-3`}>
             <div className="flex items-center gap-2.5">
-              <Skeleton className="h-[38px] w-[38px]" />
+              <Skeleton className="h-11 w-11" />
               <div className="min-w-0 flex-1">
                 <Skeleton rows={2} />
               </div>

@@ -22,9 +22,13 @@ import {
 import {
   CHROMA_NAME_RARITIES,
   CHROMA_NAME_VARIANTS,
+  CHAT_BADGE_RARITIES,
   CHAT_BADGE_VARIANTS,
+  PROFILE_BORDER_RARITIES,
   PROFILE_BORDER_VARIANTS,
+  chatBadgeOdds,
   chromaNameOdds,
+  profileBorderOdds,
   type ChatBadgeItemId,
   type ChromaNameId,
   type ChromaNameRarity,
@@ -57,6 +61,72 @@ const CHROMA_RARITY_TEXT_CLASS: Record<ChromaNameRarity, string> = {
   epic: "text-violet-700 dark:text-violet-300",
   legendary: "text-amber-700 dark:text-amber-300",
 };
+
+function cashBoxInfo(
+  itemId: MuseunCashItemId,
+  cosmetics: MuseunCosmeticsState,
+): {
+  odds: Array<{ name: string; rarityName: string; probabilityPct: number }>;
+  total: number;
+} | null {
+  if (itemId === "chroma_name_box") {
+    return {
+      odds: chromaNameOdds(cosmetics).map((entry) => {
+        const variant = CHROMA_NAME_VARIANTS.find(
+          (candidate) => candidate.id === entry.id,
+        )!;
+        return {
+          name: variant.name,
+          rarityName: CHROMA_NAME_RARITIES[variant.rarity].name,
+          probabilityPct: entry.probabilityPct,
+        };
+      }),
+      total: CHROMA_NAME_VARIANTS.length,
+    };
+  }
+  if (itemId === "profile_border_box") {
+    return {
+      odds: profileBorderOdds(cosmetics).map((entry) => {
+        const variant = PROFILE_BORDER_VARIANTS.find(
+          (candidate) => candidate.itemId === entry.itemId,
+        )!;
+        return {
+          name: variant.name,
+          rarityName: PROFILE_BORDER_RARITIES[variant.rarity].name,
+          probabilityPct: entry.probabilityPct,
+        };
+      }),
+      total: PROFILE_BORDER_VARIANTS.length,
+    };
+  }
+  if (itemId === "chat_badge_box") {
+    return {
+      odds: chatBadgeOdds(cosmetics).map((entry) => {
+        const variant = CHAT_BADGE_VARIANTS.find(
+          (candidate) => candidate.itemId === entry.itemId,
+        )!;
+        return {
+          name: variant.name,
+          rarityName: CHAT_BADGE_RARITIES[variant.rarity].name,
+          probabilityPct: entry.probabilityPct,
+        };
+      }),
+      total: CHAT_BADGE_VARIANTS.length,
+    };
+  }
+  return null;
+}
+
+function cashItemUseLabel(itemId: MuseunCashItemId): string {
+  const effect = MUSEUN_CASH_ITEMS[itemId].effect;
+  if (effect.kind === "rename") return "캐릭터 이름 1회 변경";
+  if (effect.kind === "adventure_support") {
+    return `모험 지원 혜택 ${effect.days}일`;
+  }
+  if (effect.kind === "profile_border_box") return "미보유 프로필 테두리 1종 확정";
+  if (effect.kind === "chat_badge_box") return "미보유 채팅 배지 1종 확정";
+  return "미보유 크로마 닉네임 1종 확정";
+}
 
 // 소모품 탭 — SP 열매 섹션 + 실제 소모품 목록. 레어맵은 사냥터 목록에서 표시한다.
 export function RareMapsTab({
@@ -202,7 +272,13 @@ function ProfileBorderCollectionSection({
               <div className="min-w-0">
                 <div className="text-sm font-bold">{variant.name} 테두리</div>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  프로필 카드 영구 꾸미기
+                  <span
+                    className={`font-semibold ${CHROMA_RARITY_TEXT_CLASS[variant.rarity]}`}
+                  >
+                    {PROFILE_BORDER_RARITIES[variant.rarity].name}
+                  </span>
+                  <span aria-hidden> · </span>
+                  {PROFILE_BORDER_RARITIES[variant.rarity].effect}
                 </div>
               </div>
               <Button
@@ -266,7 +342,13 @@ function ChatBadgeCollectionSection({
                 <div>
                   <div className="text-sm font-bold">{variant.name} 배지</div>
                   <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    채팅·접속자 목록 영구 꾸미기
+                    <span
+                      className={`font-semibold ${CHROMA_RARITY_TEXT_CLASS[variant.rarity]}`}
+                    >
+                      {CHAT_BADGE_RARITIES[variant.rarity].name}
+                    </span>
+                    <span aria-hidden> · </span>
+                    {CHAT_BADGE_RARITIES[variant.rarity].effect}
                   </div>
                 </div>
               </div>
@@ -315,7 +397,6 @@ function CashItemSection({
   const heldItems = MUSEUN_INVENTORY_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
   );
-  const currentChromaOdds = chromaNameOdds(cosmetics);
   if (heldItems.length === 0) return null;
 
   return (
@@ -328,8 +409,8 @@ function CashItemSection({
           const item = MUSEUN_CASH_ITEMS[itemId];
           const held = cashItems[itemId] ?? 0;
           const isBusy = busy === `cash_${itemId}`;
-          const collectionComplete =
-            itemId === "chroma_name_box" && currentChromaOdds.length === 0;
+          const boxInfo = cashBoxInfo(itemId, cosmetics);
+          const collectionComplete = boxInfo !== null && boxInfo.odds.length === 0;
           return (
             <li key={itemId} className={`${SURFACE_CARD} px-3 py-2`}>
               <div className="flex items-center justify-between gap-2">
@@ -355,11 +436,7 @@ function CashItemSection({
                     </span>
                   </span>
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {item.effect.kind === "rename"
-                      ? "캐릭터 이름 1회 변경"
-                      : item.effect.kind === "adventure_support"
-                        ? `모험 지원 혜택 ${item.effect.days}일`
-                        : "미보유 크로마 닉네임 1종 확정"}
+                    {cashItemUseLabel(itemId)}
                   </span>
                 </button>
                 <Button
@@ -381,52 +458,55 @@ function CashItemSection({
         })}
       </ul>
       {infoCard ? (
-        <V2SimpleItemInfoCard
-          title={MUSEUN_CASH_ITEMS[infoCard.itemId].name}
-          subtitle={
-            MUSEUN_CASH_ITEMS[infoCard.itemId].tradeable
-              ? "거래 가능한 캐시 소모품"
-              : "계정 귀속 캐시 소모품"
-          }
-          description={
-            infoCard.itemId === "chroma_name_box" && currentChromaOdds.length > 0
-              ? `${MUSEUN_CASH_ITEMS[infoCard.itemId].description} 현재 획득 대상: ${currentChromaOdds
-                  .map((entry) => {
-                    const name = CHROMA_NAME_VARIANTS.find(
-                      (variant) => variant.id === entry.id,
-                    )!.name;
-                    const probability = entry.probabilityPct.toLocaleString(
-                      "ko-KR",
-                      { maximumFractionDigits: 2 },
-                    );
-                    return `${name} ${probability}%`;
-                  })
-                  .join(", ")}`
-              : MUSEUN_CASH_ITEMS[infoCard.itemId].description
-          }
-          anchor={infoCard.anchor}
-          onClose={() => setInfoCard(null)}
-          lines={[
-            {
-              label: "보유",
-              value: `×${cashItems[infoCard.itemId] ?? 0}`,
-            },
-            {
-              label: "거래",
-              value: MUSEUN_CASH_ITEMS[infoCard.itemId].tradeable
-                ? "거래소 등록 가능"
-                : "계정 귀속 · 거래 불가",
-            },
-            ...(infoCard.itemId === "chroma_name_box"
-              ? [
-                  {
-                    label: "남은 종류",
-                    value: `${currentChromaOdds.length}/${CHROMA_NAME_VARIANTS.length}`,
-                  },
-                ]
-              : []),
-          ]}
-        />
+        (() => {
+          const item = MUSEUN_CASH_ITEMS[infoCard.itemId];
+          const boxInfo = cashBoxInfo(infoCard.itemId, cosmetics);
+          return (
+            <V2SimpleItemInfoCard
+              title={item.name}
+              subtitle={
+                item.tradeable
+                  ? "거래 가능한 캐시 소모품"
+                  : "계정 귀속 캐시 소모품"
+              }
+              description={
+                boxInfo && boxInfo.odds.length > 0
+                  ? `${item.description} 현재 획득 대상: ${boxInfo.odds
+                      .map((entry) => {
+                        const probability = entry.probabilityPct.toLocaleString(
+                          "ko-KR",
+                          { maximumFractionDigits: 2 },
+                        );
+                        return `[${entry.rarityName}] ${entry.name} ${probability}%`;
+                      })
+                      .join(", ")}`
+                  : item.description
+              }
+              anchor={infoCard.anchor}
+              onClose={() => setInfoCard(null)}
+              lines={[
+                {
+                  label: "보유",
+                  value: `×${cashItems[infoCard.itemId] ?? 0}`,
+                },
+                {
+                  label: "거래",
+                  value: item.tradeable
+                    ? "거래소 등록 가능"
+                    : "계정 귀속 · 거래 불가",
+                },
+                ...(boxInfo
+                  ? [
+                      {
+                        label: "남은 종류",
+                        value: `${boxInfo.odds.length}/${boxInfo.total}`,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          );
+        })()
       ) : null}
     </div>
   );

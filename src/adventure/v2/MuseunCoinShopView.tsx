@@ -30,21 +30,31 @@ import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
   MUSEUN_CASH_ITEMS,
-  MUSEUN_CASH_ITEM_IDS,
+  MUSEUN_SHOP_ITEM_IDS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
 import {
   CHROMA_NAME_RARITIES,
   CHROMA_NAME_VARIANTS,
+  CHAT_BADGE_RARITIES,
+  CHAT_BADGE_VARIANTS,
+  PROFILE_BORDER_RARITIES,
+  PROFILE_BORDER_VARIANTS,
+  chatBadgeOdds,
   chromaNameOdds,
+  profileBorderOdds,
   type ChromaNameRarity,
+  type CosmeticItemRarity,
   type MuseunCosmeticsState,
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
 
-const CHROMA_RARITY_BADGE_CLASS: Record<ChromaNameRarity, string> = {
+const COSMETIC_RARITY_BADGE_CLASS: Record<
+  ChromaNameRarity | CosmeticItemRarity,
+  string
+> = {
   common: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
   rare: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
   epic: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
@@ -61,6 +71,12 @@ function itemSummary(itemId: MuseunCashItemId): string {
   if (item.effect.kind === "chroma_name_box") {
     return "미보유 크로마 닉네임 한 종류를 중복 없이 획득합니다.";
   }
+  if (item.effect.kind === "profile_border_box") {
+    return "미보유 프로필 테두리 한 종류를 중복 없이 획득합니다.";
+  }
+  if (item.effect.kind === "chat_badge_box") {
+    return "미보유 채팅 배지 한 종류를 중복 없이 획득합니다.";
+  }
   return item.effect.slot === "profile_border"
     ? "프로필 카드에 적용할 영구 테두리를 해금합니다."
     : "채팅 닉네임 앞에 표시할 영구 배지를 해금합니다.";
@@ -70,28 +86,19 @@ const SHOP_ITEM_GROUPS = [
   {
     id: "consumable",
     title: "이용권·소모품",
-    description: "구매 후 가방에 보관되며 사용할 수 있는 상품입니다.",
-    itemIds: MUSEUN_CASH_ITEM_IDS.filter(
-      (itemId) => MUSEUN_CASH_ITEMS[itemId].delivery === "inventory",
+    description: "구매 후 가방에서 사용하는 기능성 상품입니다.",
+    itemIds: MUSEUN_SHOP_ITEM_IDS.filter((itemId) => {
+      const kind = MUSEUN_CASH_ITEMS[itemId].effect.kind;
+      return kind === "rename" || kind === "adventure_support";
+    }),
+  },
+  {
+    id: "cosmetic_box",
+    title: "꾸미기 상자",
+    description: "중복 없이 영구 꾸미기 한 종류를 획득하며 미개봉 상태로 거래할 수 있습니다.",
+    itemIds: MUSEUN_SHOP_ITEM_IDS.filter((itemId) =>
+      MUSEUN_CASH_ITEMS[itemId].effect.kind.endsWith("_box"),
     ),
-  },
-  {
-    id: "profile_border",
-    title: "프로필 테두리",
-    description: "캐릭터 프로필 카드에 적용할 영구 테두리입니다.",
-    itemIds: MUSEUN_CASH_ITEM_IDS.filter((itemId) => {
-      const effect = MUSEUN_CASH_ITEMS[itemId].effect;
-      return effect.kind === "cosmetic" && effect.slot === "profile_border";
-    }),
-  },
-  {
-    id: "chat_badge",
-    title: "채팅 배지",
-    description: "채팅과 접속자 목록의 닉네임 앞에 표시되는 영구 배지입니다.",
-    itemIds: MUSEUN_CASH_ITEM_IDS.filter((itemId) => {
-      const effect = MUSEUN_CASH_ITEMS[itemId].effect;
-      return effect.kind === "cosmetic" && effect.slot === "chat_badge";
-    }),
   },
 ] as const;
 
@@ -285,14 +292,7 @@ export function MuseunCoinShopView() {
                   <CashItemCard
                     key={itemId}
                     itemId={itemId}
-                    owned={
-                      MUSEUN_CASH_ITEMS[itemId].delivery === "entitlement"
-                        ? Number(
-                            isMuseunCosmeticItemId(itemId) &&
-                              cosmetics.owned.includes(itemId),
-                          )
-                        : (cashItems[itemId] ?? 0)
-                    }
+                    owned={cashItems[itemId] ?? 0}
                     onClick={() => setDetailItemId(itemId)}
                   />
                 ))}
@@ -349,7 +349,8 @@ function CashItemIcon({
         ? "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
         : effect.kind === "chroma_name_box"
           ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
-          : effect.slot === "profile_border"
+          : effect.kind === "profile_border_box" ||
+              (effect.kind === "cosmetic" && effect.slot === "profile_border")
             ? "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300"
             : "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-950 dark:text-fuchsia-300";
   return (
@@ -360,7 +361,8 @@ function CashItemIcon({
         <IdentificationCard size={size} weight="duotone" aria-hidden />
       ) : effect.kind === "chroma_name_box" ? (
         <Palette size={size} weight="duotone" aria-hidden />
-      ) : effect.slot === "profile_border" ? (
+      ) : effect.kind === "profile_border_box" ||
+        (effect.kind === "cosmetic" && effect.slot === "profile_border") ? (
         <FrameCorners size={size} weight="duotone" aria-hidden />
       ) : (
         <Sparkle size={size} weight="duotone" aria-hidden />
@@ -515,6 +517,16 @@ function CashItemDetailDialog({
             </p>
           ) : itemId === "chroma_name_box" ? (
             <ChromaNameBoxPreview cosmetics={cosmetics} />
+          ) : itemId === "profile_border_box" ? (
+            <CosmeticCollectionBoxPreview
+              kind="profile_border"
+              cosmetics={cosmetics}
+            />
+          ) : itemId === "chat_badge_box" ? (
+            <CosmeticCollectionBoxPreview
+              kind="chat_badge"
+              cosmetics={cosmetics}
+            />
           ) : (
             <CosmeticItemPreview itemId={itemId} />
           )}
@@ -578,7 +590,7 @@ function ChromaNameBoxPreview({
             return (
               <div key={rarity} className={`${SURFACE_CARD} p-2 text-center`}>
                 <span
-                  className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${CHROMA_RARITY_BADGE_CLASS[rarity]}`}
+                  className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[rarity]}`}
                 >
                   {config.name}
                 </span>
@@ -619,7 +631,7 @@ function ChromaNameBoxPreview({
                 >
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span
-                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${CHROMA_RARITY_BADGE_CLASS[variant.rarity]}`}
+                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[variant.rarity]}`}
                     >
                       {CHROMA_NAME_RARITIES[variant.rarity].name}
                     </span>
@@ -649,6 +661,114 @@ function ChromaNameBoxPreview({
         표시된 확률은 현재 미보유 종류 기준입니다. 상자를 열어 한 종류를 얻을 때마다
         다음 상자의 대상과 확률이 갱신됩니다.
       </p>
+    </div>
+  );
+}
+
+function CosmeticCollectionBoxPreview({
+  kind,
+  cosmetics,
+}: {
+  kind: "profile_border" | "chat_badge";
+  cosmetics: MuseunCosmeticsState;
+}) {
+  const isProfileBorder = kind === "profile_border";
+  const variants = isProfileBorder
+    ? PROFILE_BORDER_VARIANTS
+    : CHAT_BADGE_VARIANTS;
+  const rarities = isProfileBorder
+    ? PROFILE_BORDER_RARITIES
+    : CHAT_BADGE_RARITIES;
+  const odds = isProfileBorder
+    ? profileBorderOdds(cosmetics)
+    : chatBadgeOdds(cosmetics);
+  const initialOdds = isProfileBorder
+    ? profileBorderOdds(null)
+    : chatBadgeOdds(null);
+  const itemLabel = isProfileBorder ? "프로필 테두리" : "채팅 배지";
+  return (
+    <div className="space-y-3">
+      <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+        미보유 {itemLabel} 중 한 종류를 등급별 확률로 획득합니다. 중복은 나오지
+        않으며 획득 즉시 적용됩니다. 사용 전 상자는 거래소에 등록할 수 있습니다.
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(Object.keys(rarities) as CosmeticItemRarity[]).map((rarity) => {
+          const probability = initialOdds
+            .filter((entry) =>
+              variants.some(
+                (variant) =>
+                  variant.itemId === entry.itemId &&
+                  variant.rarity === rarity,
+              ),
+            )
+            .reduce((sum, entry) => sum + entry.probabilityPct, 0);
+          return (
+            <div key={rarity} className={`${SURFACE_CARD} p-2 text-center`}>
+              <span
+                className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[rarity]}`}
+              >
+                {rarities[rarity].name}
+              </span>
+              <div className="mt-1 text-sm font-bold tabular-nums">
+                {probability.toLocaleString("ko-KR", {
+                  maximumFractionDigits: 2,
+                })}
+                %
+              </div>
+              <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                {rarities[rarity].effect}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        최초 등급 확률이며, 보유한 종류가 늘어나면 남은 아이템 기준으로 확률이
+        다시 계산됩니다.
+      </p>
+      <div className={`${SURFACE_INSET} p-3`}>
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="font-semibold">현재 획득 확률</span>
+          <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+            보유 {variants.length - odds.length}/{variants.length}
+          </span>
+        </div>
+        {odds.length > 0 ? (
+          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            {odds.map((entry) => {
+              const variant = variants.find(
+                (candidate) => candidate.itemId === entry.itemId,
+              )!;
+              return (
+                <li
+                  key={variant.itemId}
+                  className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs dark:bg-zinc-900"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[variant.rarity]}`}
+                    >
+                      {rarities[variant.rarity].name}
+                    </span>
+                    <span className="truncate font-bold">{variant.name}</span>
+                  </span>
+                  <span className="tabular-nums text-zinc-600 dark:text-zinc-300">
+                    {entry.probabilityPct.toLocaleString("ko-KR", {
+                      maximumFractionDigits: 2,
+                    })}
+                    %
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            모든 {itemLabel}를 보유하고 있습니다.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

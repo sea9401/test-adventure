@@ -2,17 +2,23 @@ import { describe, expect, it } from "vitest";
 import { MUSEUN_CASH_ITEMS } from "./museunCashItems";
 import {
   CHROMA_NAME_VARIANTS,
+  CHAT_BADGE_RARITIES,
   CHAT_BADGE_VARIANTS,
+  PROFILE_BORDER_RARITIES,
   PROFILE_BORDER_VARIANTS,
+  chatBadgeOdds,
   isMuseunCosmeticItemId,
   museunCosmeticAppearance,
   chromaNameOdds,
   drawChromaNameByRoll,
+  drawChatBadgeByRoll,
+  drawProfileBorderByRoll,
   equipChatBadge,
   equipChromaName,
   equipProfileBorder,
   grantChromaName,
   parseMuseunCosmetics,
+  profileBorderOdds,
   unlockMuseunCosmetic,
 } from "./museunCosmetics";
 
@@ -84,6 +90,76 @@ describe("무슨 코인 영구 꾸미기", () => {
     const badges = unlockMuseunCosmetic(borders, "crown_chat_badge").state;
     expect(badges.equippedChatBadge).toBe("crown_chat_badge");
     expect(equipChatBadge(badges, null)?.equippedChatBadge).toBeNull();
+  });
+
+  it("테두리 상자는 일반 60%·희귀 27%·영웅 10%·전설 3%로 추첨한다", () => {
+    expect(
+      Object.fromEntries(
+        ["common", "rare", "epic", "legendary"].map((rarity) => [
+          rarity,
+          PROFILE_BORDER_VARIANTS.filter(
+            (variant) => variant.rarity === rarity,
+          ).length,
+        ]),
+      ),
+    ).toEqual({ common: 4, rare: 3, epic: 2, legendary: 1 });
+    const odds = profileBorderOdds(null);
+    const probabilityByRarity = Object.fromEntries(
+      (Object.keys(PROFILE_BORDER_RARITIES) as Array<
+        keyof typeof PROFILE_BORDER_RARITIES
+      >).map((rarity) => [
+        rarity,
+        odds
+          .filter((entry) =>
+            PROFILE_BORDER_VARIANTS.some(
+              (variant) =>
+                variant.itemId === entry.itemId && variant.rarity === rarity,
+            ),
+          )
+          .reduce((sum, entry) => sum + entry.probabilityPct, 0),
+      ]),
+    );
+    expect(probabilityByRarity.common).toBeCloseTo(60);
+    expect(probabilityByRarity.rare).toBeCloseTo(27);
+    expect(probabilityByRarity.epic).toBeCloseTo(10);
+    expect(probabilityByRarity.legendary).toBeCloseTo(3);
+    expect(drawProfileBorderByRoll(null, 0)).toBe(
+      "prismatic_profile_border",
+    );
+  });
+
+  it("배지 상자는 일반 70%·희귀 22%·영웅 7%·전설 1%로 추첨한다", () => {
+    expect(
+      Object.fromEntries(
+        ["common", "rare", "epic", "legendary"].map((rarity) => [
+          rarity,
+          CHAT_BADGE_VARIANTS.filter(
+            (variant) => variant.rarity === rarity,
+          ).length,
+        ]),
+      ),
+    ).toEqual({ common: 10, rare: 5, epic: 4, legendary: 1 });
+    const odds = chatBadgeOdds(null);
+    const probabilityByRarity = Object.fromEntries(
+      (Object.keys(CHAT_BADGE_RARITIES) as Array<
+        keyof typeof CHAT_BADGE_RARITIES
+      >).map((rarity) => [
+        rarity,
+        odds
+          .filter((entry) =>
+            CHAT_BADGE_VARIANTS.some(
+              (variant) =>
+                variant.itemId === entry.itemId && variant.rarity === rarity,
+            ),
+          )
+          .reduce((sum, entry) => sum + entry.probabilityPct, 0),
+      ]),
+    );
+    expect(probabilityByRarity.common).toBeCloseTo(70);
+    expect(probabilityByRarity.rare).toBeCloseTo(22);
+    expect(probabilityByRarity.epic).toBeCloseTo(7);
+    expect(probabilityByRarity.legendary).toBeCloseTo(1);
+    expect(drawChatBadgeByRoll(null, 0)).toBe("starlight_chat_badge");
   });
 
   it("각 상품을 서로 독립된 표시 효과로 해석한다", () => {
@@ -170,5 +246,23 @@ describe("무슨 코인 영구 꾸미기", () => {
     };
     expect(chromaNameOdds(complete)).toEqual([]);
     expect(drawChromaNameByRoll(complete, 0)).toBeNull();
+
+    const allButCelestial = {
+      owned: PROFILE_BORDER_VARIANTS.filter(
+        (variant) => variant.itemId !== "celestial_profile_border",
+      ).map((variant) => variant.itemId),
+    };
+    expect(profileBorderOdds(allButCelestial)).toEqual([
+      { itemId: "celestial_profile_border", probabilityPct: 100 },
+    ]);
+    expect(drawProfileBorderByRoll(allButCelestial, 0)).toBe(
+      "celestial_profile_border",
+    );
+
+    const allBadges = {
+      owned: CHAT_BADGE_VARIANTS.map((variant) => variant.itemId),
+    };
+    expect(chatBadgeOdds(allBadges)).toEqual([]);
+    expect(drawChatBadgeByRoll(allBadges, 0)).toBeNull();
   });
 });

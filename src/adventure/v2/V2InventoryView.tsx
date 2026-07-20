@@ -19,6 +19,10 @@ import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { TabBar } from "@/components/ui/TabBar";
 import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
+import {
+  type MuseunCashItemCounts,
+  type MuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
@@ -100,14 +104,20 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
+  const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
     fetch("/api/v2/me/rare-maps")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
+      .then((j: {
+        ok?: boolean;
+        rareMaps?: RareMapInstance[];
+        cashItems?: MuseunCashItemCounts;
+      } | null) => {
         if (!alive) return;
         setRareMaps(j?.ok ? (j.rareMaps ?? []) : []);
+        setCashItems(j?.ok ? (j.cashItems ?? {}) : {});
       })
       .catch(() => {
         if (alive) setRareMaps([]);
@@ -362,6 +372,39 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     }
   }, [notifySystem, refresh, refreshGameState]);
 
+  const useCashItem = useCallback(
+    async (itemId: MuseunCashItemId) => {
+      setBusy(`cash_${itemId}`);
+      try {
+        const res = await fetch("/api/v2/me/use-cash-item", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ itemId }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          cashItems?: MuseunCashItemCounts;
+          daysAdded?: number;
+        } | null;
+        if (!res.ok || !data?.ok) {
+          notifySystem(
+            `✗ ${data?.error === "not_owned" ? "보유한 아이템이 없습니다" : (data?.error ?? `http ${res.status}`)}`,
+          );
+          return;
+        }
+        setCashItems(data.cashItems ?? {});
+        await refreshGameState();
+        notifySystem(`✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`);
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem, refreshGameState],
+  );
+
   // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
   const applyLock = useCallback(
     async (iid: string, locked: boolean) => {
@@ -599,6 +642,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseEquipmentBox={useCoopEquipmentBox}
             onUseMasteryTome={useCoopMasteryTome}
             rareMaps={rareMaps}
+            cashItems={cashItems}
+            onUseCashItem={useCashItem}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

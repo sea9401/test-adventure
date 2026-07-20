@@ -8,6 +8,10 @@ import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { MARKETPLACE_V2_LISTING_TTL_DAYS } from "@/lib/server/marketplaceV2";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { requireCronAuth } from "@/lib/server/cronAuth";
+import {
+  addMuseunCashItem,
+  isMuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
 
 // POST /api/v2/cron/marketplace-expire — 만료 매물 sweep (cron 주기 호출, 예: 매시간). CRON_SECRET.
 //   등록 후 TTL(MARKETPLACE_V2_LISTING_TTL_DAYS) 지난 active 매물을 판매자에게 반환(장비=새 개체,
@@ -18,6 +22,7 @@ import { requireCronAuth } from "@/lib/server/cronAuth";
 type CharSave = {
   materials?: Record<string, number>;
   rareMaps?: unknown;
+  cashItems?: unknown;
   [k: string]: unknown;
 };
 const BATCH = 200; // 1회 처리 상한(폭주/장기 tx 방지 — 다음 cron 이 나머지 처리).
@@ -58,14 +63,24 @@ export async function POST(req: Request) {
           mintListedEquipInstance(l.itemId as V2EquipmentId, l.instancePayload),
         ]);
       } else if (l.kind === "consumable") {
-        // 레어맵 — 실물이 살아 있으면 판매자 반환(캡 무관 — 회수), 만료면 자연 소멸.
         const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});
-        const inst = parseRareMaps([l.instancePayload], Date.now())[0];
-        if (inst) {
+        if (isMuseunCashItemId(l.itemId)) {
           await upsertSave(tx, l.sellerId, "character.v2", {
             ...charSave,
-            rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
+            cashItems: addMuseunCashItem(
+              charSave.cashItems,
+              l.itemId,
+              l.quantity,
+            ),
           });
+        } else {
+          const inst = parseRareMaps([l.instancePayload], Date.now())[0];
+          if (inst) {
+            await upsertSave(tx, l.sellerId, "character.v2", {
+              ...charSave,
+              rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
+            });
+          }
         }
       } else {
         const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});

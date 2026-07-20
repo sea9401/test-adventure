@@ -361,10 +361,9 @@ function AdventureSupportModal({
     return () => window.clearInterval(id);
   }, []);
 
-  const maxEnergy = MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus;
   const benefits = [
     `에너지 회복량 ${ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct}% 증가`,
-    `최대 에너지 ${maxEnergy.toLocaleString()}으로 변경`,
+    `최대 에너지 ${ADVENTURE_SUPPORT_PASS.staminaMaxBonus.toLocaleString()} 증가 (기본 ${MAX_STAMINA.toLocaleString()} → ${(MAX_STAMINA + ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toLocaleString()})`,
     `거래소 등록 ${ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus}개 추가`,
     `거래소 수수료 ${ADVENTURE_SUPPORT_PASS.marketplaceTaxRate * 100}%로 감소`,
   ];

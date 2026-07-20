@@ -5,9 +5,13 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import {
+  isMuseunCashItemId,
+  removeMuseunCashItem,
+} from "@/adventure/data/v2/museunCashItems";
 
-// POST /api/v2/me/rename — 닉네임 변경. 「개명 신전 입장권」(utility) 1장 소모.
-//   body: { map: <iid>, name: string }
+// POST /api/v2/me/rename — 닉네임 변경. 「개명 신전 입장권」 또는 캐시 「개명 허가증」 1장 소모.
+//   body: { map: <iid>, name: string } | { cashItemId: "rename_permit", name: string }
 // 게임 내 유일한 개명 수단(생성 후 이름은 고정). 검증/쓰기는 /api/profile/setup 의
 // 신규 경로와 동일 규약: legacy savesKv 이름 + users.gameName UNIQUE(23505) 이중 검사,
 // users.gameName(권위) + character-profile.v2 를 한 트랜잭션에 함께 쓴다.
@@ -22,7 +26,11 @@ class TakenError extends Error {
   }
 }
 
-type CharSave = { rareMaps?: unknown; [k: string]: unknown };
+type CharSave = {
+  rareMaps?: unknown;
+  cashItems?: unknown;
+  [k: string]: unknown;
+};
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -30,15 +38,18 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { map?: unknown; name?: unknown };
+  let body: { map?: unknown; cashItemId?: unknown; name?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
   const iid = typeof body.map === "string" ? body.map : "";
+  const usesCashPermit =
+    isMuseunCashItemId(body.cashItemId) &&
+    body.cashItemId === "rename_permit";
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (!iid || name.length < NAME_MIN || name.length > NAME_MAX) {
+  if ((!iid && !usesCashPermit) || name.length < NAME_MIN || name.length > NAME_MAX) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
   }
 
@@ -53,9 +64,17 @@ export async function POST(req: Request) {
         {},
       );
       const maps = parseRareMaps(charSave.rareMaps, now);
-      const map = maps.find((m) => m.iid === iid && m.kind === "rename_map");
-      if (!map) {
-        return { status: 403, body: { ok: false as const, error: "no_map" } };
+      const map = usesCashPermit
+        ? undefined
+        : maps.find((m) => m.iid === iid && m.kind === "rename_map");
+      const nextCashItems = usesCashPermit
+        ? removeMuseunCashItem(charSave.cashItems, "rename_permit", 1)
+        : null;
+      if (!map && !nextCashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "no_ticket" },
+        };
       }
 
       // 현재 프로필 — 같은 이름으로의 "변경"은 입장권 낭비라 거부.
@@ -109,7 +128,8 @@ export async function POST(req: Request) {
       });
       await upsertSave(tx, userId, "character.v2", {
         ...charSave,
-        rareMaps: maps.filter((m) => m.iid !== iid),
+        ...(map ? { rareMaps: maps.filter((m) => m.iid !== iid) } : {}),
+        ...(nextCashItems ? { cashItems: nextCashItems } : {}),
       });
 
       return { status: 200, body: { ok: true as const, name } };

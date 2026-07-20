@@ -9,6 +9,10 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { appendEquipInstances } from "@/lib/server/equipGrant";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
+import {
+  addMuseunCashItem,
+  isMuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
 
 // POST /api/v2/marketplace/cancel — 내 활성 매물 취소(에스크로 반환).
 //   body: { listingId:int }
@@ -17,6 +21,7 @@ import { mintListedEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 
 type CharSave = {
   rareMaps?: unknown;
+  cashItems?: unknown;
   materials?: Record<string, number>;
   [k: string]: unknown;
 };
@@ -71,15 +76,24 @@ export async function POST(req: Request) {
         ),
       ]);
     } else if (listing.kind === "consumable") {
-      // 레어맵 반환 — 판수 소진/불량 스냅샷이면 parse 가 걸러 자연 소멸(반환 무의미,
-      //   시간 만료는 폐지). 캡 초과 반환 허용(캡은 신규 드랍 롤만 게이트 — 회수는 안 막음).
       const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
-      const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
-      if (inst) {
+      if (isMuseunCashItemId(listing.itemId)) {
         await upsertSave(tx, userId, "character.v2", {
           ...charSave,
-          rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
+          cashItems: addMuseunCashItem(
+            charSave.cashItems,
+            listing.itemId,
+            listing.quantity,
+          ),
         });
+      } else {
+        const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
+        if (inst) {
+          await upsertSave(tx, userId, "character.v2", {
+            ...charSave,
+            rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
+          });
+        }
       }
     } else {
       const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});

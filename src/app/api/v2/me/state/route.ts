@@ -243,7 +243,7 @@ export async function GET(req: Request) {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
-  // 기본 + 한계의 비약 + 월간 모험 지원권(+500, 회복 +20%)을 한 번에 산출.
+  // 기본 + 한계의 비약 + 월간 모험 지원권(+1000, 회복 +20%)을 한 번에 산출.
   const staminaConfig = staminaConfigForCharacter(charSave, now);
   const staminaMax = staminaConfig.max;
   const stamina = applyRegen(

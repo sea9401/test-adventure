@@ -179,7 +179,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
       before + 30 * 86_400_000,
     );
     expect(j.staminaAfterSupport.current).toBe(2000);
-    expect(j.staminaMaxAfterSupport).toBe(2000);
+    expect(j.staminaMaxAfterSupport).toBe(2500);
 
     const character = savesStore.get("u1::character.v2") as {
       adventureSupport: { activeUntil: number };

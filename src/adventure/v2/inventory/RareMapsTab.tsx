@@ -13,6 +13,12 @@ import {
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
 import {
+  MUSEUN_CASH_ITEMS,
+  MUSEUN_CASH_ITEM_IDS,
+  type MuseunCashItemCounts,
+  type MuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
+import {
   SP_FRUIT,
   SP_FRUIT_TIERS,
   type SpFruitTier,
@@ -47,6 +53,8 @@ export function RareMapsTab({
   onUseEquipmentBox,
   onUseMasteryTome,
   rareMaps,
+  cashItems,
+  onUseCashItem,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -55,6 +63,8 @@ export function RareMapsTab({
   onUseEquipmentBox: (boxId: string) => void;
   onUseMasteryTome: () => void;
   rareMaps: RareMapInstance[] | null;
+  cashItems: MuseunCashItemCounts;
+  onUseCashItem: (itemId: MuseunCashItemId) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -64,8 +74,22 @@ export function RareMapsTab({
     (box) => (materials[box.id] ?? 0) > 0,
   );
   const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
+  const hasCashItem = MUSEUN_CASH_ITEM_IDS.some(
+    (id) => (cashItems[id] ?? 0) > 0,
+  );
   return (
     <div className="space-y-4">
+      <CashItemSection
+        cashItems={cashItems}
+        busy={busy}
+        onUse={(itemId) => {
+          if (itemId === "rename_permit") {
+            router.push("/hidden/rename?cashItem=rename_permit");
+            return;
+          }
+          onUseCashItem(itemId);
+        }}
+      />
       <SpFruitSection
         materials={materials}
         used={spFruitUsed}
@@ -84,7 +108,9 @@ export function RareMapsTab({
       />
       <ConsumableList
         maps={rareMaps}
-        suppressEmpty={hasSpFruit || hasEquipmentBox || hasMasteryTome}
+        suppressEmpty={
+          hasCashItem || hasSpFruit || hasEquipmentBox || hasMasteryTome
+        }
         onUse={(m) => {
           // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
           //   (레벨·스탯이 전역에 반영되도록).
@@ -108,6 +134,98 @@ export function RareMapsTab({
           if (base) router.push(`${base}?map=${m.iid}`);
         }}
       />
+    </div>
+  );
+}
+
+function CashItemSection({
+  cashItems,
+  busy,
+  onUse,
+}: {
+  cashItems: MuseunCashItemCounts;
+  busy: string | null;
+  onUse: (itemId: MuseunCashItemId) => void;
+}) {
+  const [infoCard, setInfoCard] = useState<{
+    itemId: MuseunCashItemId;
+    anchor: ItemCardAnchor;
+  } | null>(null);
+  const heldItems = MUSEUN_CASH_ITEM_IDS.filter(
+    (itemId) => (cashItems[itemId] ?? 0) > 0,
+  );
+  if (heldItems.length === 0) return null;
+
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+        캐시 아이템 · 사용 전 거래 가능
+      </div>
+      <ul className="space-y-1.5">
+        {heldItems.map((itemId) => {
+          const item = MUSEUN_CASH_ITEMS[itemId];
+          const held = cashItems[itemId] ?? 0;
+          const isBusy = busy === `cash_${itemId}`;
+          return (
+            <li key={itemId} className={`${SURFACE_CARD} px-3 py-2`}>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={(event) =>
+                    setInfoCard({
+                      itemId,
+                      anchor: anchorOf(event.currentTarget),
+                    })
+                  }
+                  className="min-w-0 text-left focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
+                    <GameIcon
+                      name="Ticket"
+                      size={17}
+                      className="shrink-0 text-amber-600"
+                    />
+                    <span className="truncate">{item.name}</span>
+                    <span className="shrink-0 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                      ×{held}
+                    </span>
+                  </span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {item.effect.kind === "rename"
+                      ? "캐릭터 이름 1회 변경"
+                      : `모험 지원 혜택 ${item.effect.days}일`}
+                  </span>
+                </button>
+                <Button
+                  disabled={isBusy}
+                  onClick={() => onUse(itemId)}
+                  variant="warning"
+                  size="xs"
+                  className="shrink-0"
+                >
+                  {isBusy ? "사용 중…" : "사용"}
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {infoCard ? (
+        <V2SimpleItemInfoCard
+          title={MUSEUN_CASH_ITEMS[infoCard.itemId].name}
+          subtitle="거래 가능한 캐시 소모품"
+          description={MUSEUN_CASH_ITEMS[infoCard.itemId].description}
+          anchor={infoCard.anchor}
+          onClose={() => setInfoCard(null)}
+          lines={[
+            {
+              label: "보유",
+              value: `×${cashItems[infoCard.itemId] ?? 0}`,
+            },
+            { label: "거래", value: "거래소 등록 가능" },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }

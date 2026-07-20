@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { MUSEUN_CASH_ITEMS } from "@/adventure/data/v2/museunCashItems";
 import {
   MARKETPLACE_V2_MATERIAL_QTY_MAX,
   MARKETPLACE_V2_PRICE_MAX,
@@ -133,6 +134,10 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     const matId = Object.keys(V2_MATERIALS)[0];
     expect(itemDisplayName("material", matId)).toBe(V2_MATERIALS[matId].name);
     expect(itemDisplayName("material", "nope")).toBeNull();
+    expect(itemDisplayName("consumable", "rename_permit")).toBe(
+      MUSEUN_CASH_ITEMS.rename_permit.name,
+    );
+    expect(itemDisplayName("consumable", "nope")).toBeNull();
   });
 
   it("currentMarketplaceItemName — 장비/재료는 현재 카탈로그명, 소모품은 스냅샷명 유지", () => {
@@ -147,6 +152,13 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(
       currentMarketplaceItemName("consumable", "rare_map", "희귀 지도 (깊이 12)"),
     ).toBe("희귀 지도 (깊이 12)");
+    expect(
+      currentMarketplaceItemName(
+        "consumable",
+        "rename_permit",
+        "옛 개명권 이름",
+      ),
+    ).toBe(MUSEUN_CASH_ITEMS.rename_permit.name);
     expect(currentMarketplaceItemName("gold", "coin", "골드")).toBe("골드");
   });
 });

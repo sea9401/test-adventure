@@ -17,6 +17,10 @@ import {
   isReforgeStoneMaterialId,
 } from "@/adventure/data/v2/v2EquipVariance";
 import { ADVENTURE_SUPPORT_PASS } from "@/adventure/data/v2/adventureSupport";
+import {
+  MUSEUN_CASH_ITEMS,
+  isMuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -131,6 +135,7 @@ export function isTradableMaterial(id: string): id is V2MaterialId {
 export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "equip") return isTradableEquip(id) ? V2_EQUIPMENT[id].name : null;
   if (kind === "consumable") {
+    if (isMuseunCashItemId(id)) return MUSEUN_CASH_ITEMS[id].name;
     return id in RARE_MAP_KINDS
       ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
       : null;
@@ -146,7 +151,9 @@ export function currentMarketplaceItemName(
   storedName: string,
 ): string {
   if (!isMarketKind(kind)) return storedName;
-  if (kind === "consumable") return storedName;
+  if (kind === "consumable") {
+    return isMuseunCashItemId(id) ? MUSEUN_CASH_ITEMS[id].name : storedName;
+  }
   return itemDisplayName(kind, id) ?? storedName;
 }
 

@@ -23,17 +23,23 @@ import {
   type MarketKind,
 } from "@/lib/server/marketplaceV2";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
+import {
+  isMuseunCashItemId,
+  removeMuseunCashItem,
+} from "@/adventure/data/v2/museunCashItems";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
 //   body(장비):   { kind:"equip", iid:string, price:int }
 //   body(재료):   { kind:"material", itemId:string, quantity:int, price:int }
-//   body(소모품): { kind:"consumable", iid:string, price:int } — 레어맵 개체(판수/만료 스냅샷)
+//   body(소모품): { kind:"consumable", iid:string, price:int } — 레어맵 개체
+//                 { kind:"consumable", itemId:string, quantity:int, price:int } — 캐시 소모품 스택
 // 활성 매물 슬롯 상한 체크. 장비=미강화·미장착·미잠금 개체만. 가격은 정수 [1, 999,999,999].
 
 type CharSave = {
   gold?: number;
   materials?: Record<string, number>;
   rareMaps?: unknown;
+  cashItems?: unknown;
   [k: string]: unknown;
 };
 
@@ -157,6 +163,56 @@ export async function POST(req: Request) {
     }
 
     if (kind === "consumable") {
+      if (isMuseunCashItemId(body.itemId)) {
+        if (!isValidMaterialQty(body.quantity)) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "bad_quantity" },
+          };
+        }
+        const itemId = body.itemId;
+        const quantity = body.quantity;
+        const cashItems = removeMuseunCashItem(
+          charSave.cashItems,
+          itemId,
+          quantity,
+        );
+        if (!cashItems) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "not_owned" },
+          };
+        }
+        await upsertSave(tx, userId, "character.v2", {
+          ...charSave,
+          cashItems,
+        });
+        const [row] = await tx
+          .insert(marketplaceListingsV2)
+          .values({
+            sellerId: userId,
+            sellerName,
+            kind: "consumable",
+            itemId,
+            itemName: itemDisplayName("consumable", itemId) ?? itemId,
+            quantity,
+            price,
+            instancePayload: { kind: "museun_cash_item" },
+          })
+          .returning({ id: marketplaceListingsV2.id });
+        return {
+          status: 200,
+          log: {
+            listingId: row.id,
+            itemKind: "consumable",
+            itemId,
+            quantity,
+            price,
+          },
+          body: { ok: true as const, listingId: row.id },
+        };
+      }
+
       // 레어맵 개체 — character.v2.rareMaps 에서 에스크로(판수 소진/불량은 parse 가 걸러
       // not_owned 처리, 시간 만료는 폐지). payload 에 개체 통째 스냅샷(판수 유지).
       if (typeof body.iid !== "string") {

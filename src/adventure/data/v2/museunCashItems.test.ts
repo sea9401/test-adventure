@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   MUSEUN_CASH_ITEMS,
+  MUSEUN_COSMETIC_BOX_ITEM_IDS,
   MUSEUN_SHOP_ITEM_IDS,
+  MUSEUN_UTILITY_ITEM_IDS,
   addMuseunCashItem,
   isMuseunCashItemId,
+  isMuseunCosmeticBoxItemId,
   parseMuseunCashItems,
   parseMuseunCoinBalance,
   removeMuseunCashItem,
@@ -57,6 +60,19 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("starlight_chat_badge");
     expect(isMuseunCashItemId("toString")).toBe(false);
     expect(isMuseunCashItemId("unknown")).toBe(false);
+  });
+
+  it("꾸미기 상자와 일반 소모품의 화면 분류를 구분한다", () => {
+    expect(MUSEUN_COSMETIC_BOX_ITEM_IDS).toEqual([
+      "chroma_name_box",
+      "profile_border_box",
+      "chat_badge_box",
+    ]);
+    expect(isMuseunCosmeticBoxItemId("chroma_name_box")).toBe(true);
+    expect(isMuseunCosmeticBoxItemId("rename_permit")).toBe(false);
+    expect(MUSEUN_UTILITY_ITEM_IDS).toContain("rename_permit");
+    expect(MUSEUN_UTILITY_ITEM_IDS).toContain("adventure_support_30d");
+    expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("profile_border_box");
   });
 
   it("꾸미기 권리는 계정 귀속이고 인벤토리 아이템만 거래 가능하다", () => {

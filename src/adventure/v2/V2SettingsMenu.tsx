@@ -13,6 +13,7 @@ import {
   List,
   Megaphone,
   Moon,
+  Palette,
   SignOut,
   Storefront,
   Sun,
@@ -146,6 +147,16 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
             설정
           </div>
           <ul className="py-1">
+            <li>
+              <Link
+                href="/settings/cosmetics"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-violet-700 transition-colors hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-950"
+              >
+                <Palette size={18} weight="duotone" />
+                꾸미기
+              </Link>
+            </li>
             {adminAccess && (
               <li>
                 <Link

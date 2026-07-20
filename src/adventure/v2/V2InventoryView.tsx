@@ -23,15 +23,6 @@ import {
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
-import {
-  CHROMA_NAME_RARITIES,
-  type ChatBadgeItemId,
-  type ChromaNameId,
-  type ChromaNameRarity,
-  type MuseunCosmeticsState,
-  type ProfileBorderItemId,
-  parseMuseunCosmetics,
-} from "@/adventure/data/v2/museunCosmetics";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
@@ -114,9 +105,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
-  const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
-    parseMuseunCosmetics(null),
-  );
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
@@ -126,12 +114,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         ok?: boolean;
         rareMaps?: RareMapInstance[];
         cashItems?: MuseunCashItemCounts;
-        cosmetics?: MuseunCosmeticsState;
       } | null) => {
         if (!alive) return;
         setRareMaps(j?.ok ? (j.rareMaps ?? []) : []);
         setCashItems(j?.ok ? (j.cashItems ?? {}) : {});
-        setCosmetics(parseMuseunCosmetics(j?.cosmetics));
       })
       .catch(() => {
         if (alive) setRareMaps([]);
@@ -400,44 +386,20 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           error?: string;
           cashItems?: MuseunCashItemCounts;
           daysAdded?: number;
-          cosmetics?: MuseunCosmeticsState;
-          chroma?: {
-            id: ChromaNameId;
-            name: string;
-            rarity: ChromaNameRarity;
-          };
-          cosmetic?: {
-            name: string;
-            rarity: ChromaNameRarity;
-            slot: "profile_border" | "chat_badge";
-          };
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
             `✗ ${
               data?.error === "not_owned"
                 ? "보유한 아이템이 없습니다"
-                : data?.error === "collection_complete"
-                  ? itemId === "profile_border_box"
-                    ? "모든 프로필 테두리를 보유하고 있습니다"
-                    : itemId === "chat_badge_box"
-                      ? "모든 채팅 배지를 보유하고 있습니다"
-                      : "모든 크로마 닉네임을 보유하고 있습니다"
-                  : (data?.error ?? `http ${res.status}`)
+                : (data?.error ?? `http ${res.status}`)
             }`,
           );
           return;
         }
         setCashItems(data.cashItems ?? {});
-        setCosmetics(parseMuseunCosmetics(data.cosmetics));
         await refreshGameState();
-        notifySystem(
-          data.chroma
-            ? `✓ [${CHROMA_NAME_RARITIES[data.chroma.rarity].name}] ${data.chroma.name} 닉네임 획득 · 바로 적용했습니다`
-            : data.cosmetic
-              ? `✓ [${CHROMA_NAME_RARITIES[data.cosmetic.rarity].name}] ${data.cosmetic.name} ${data.cosmetic.slot === "profile_border" ? "테두리" : "배지"} 획득 · 바로 적용했습니다`
-            : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
-        );
+        notifySystem(`✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`);
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
@@ -445,71 +407,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       }
     },
     [notifySystem, refreshGameState],
-  );
-
-  const equipCosmetic = useCallback(
-    async (
-      slot: "chroma_name" | "profile_border" | "chat_badge",
-      itemId: ChromaNameId | ProfileBorderItemId | ChatBadgeItemId | null,
-      successLabel: string,
-    ) => {
-      setBusy(`${slot}_${itemId ?? "off"}`);
-      try {
-        const res = await fetch("/api/v2/me/cosmetics", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ slot, itemId }),
-        });
-        const data = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          cosmetics?: MuseunCosmeticsState;
-        } | null;
-        if (!res.ok || !data?.ok) {
-          notifySystem(`✗ ${data?.error ?? `http ${res.status}`}`);
-          return;
-        }
-        setCosmetics(parseMuseunCosmetics(data.cosmetics));
-        notifySystem(`✓ ${successLabel}`);
-      } catch (err) {
-        notifySystem(`✗ ${(err as Error).message}`);
-      } finally {
-        setBusy(null);
-      }
-    },
-    [notifySystem],
-  );
-
-  const equipChromaName = useCallback(
-    (chromaNameId: ChromaNameId | null) =>
-      equipCosmetic(
-        "chroma_name",
-        chromaNameId,
-        chromaNameId
-          ? "크로마 닉네임을 변경했습니다"
-          : "크로마 닉네임을 해제했습니다",
-      ),
-    [equipCosmetic],
-  );
-
-  const equipProfileBorder = useCallback(
-    (itemId: ProfileBorderItemId | null) =>
-      equipCosmetic(
-        "profile_border",
-        itemId,
-        itemId ? "프로필 테두리를 변경했습니다" : "프로필 테두리를 해제했습니다",
-      ),
-    [equipCosmetic],
-  );
-
-  const equipChatBadge = useCallback(
-    (itemId: ChatBadgeItemId | null) =>
-      equipCosmetic(
-        "chat_badge",
-        itemId,
-        itemId ? "채팅 배지를 변경했습니다" : "채팅 배지를 해제했습니다",
-      ),
-    [equipCosmetic],
   );
 
   // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
@@ -750,11 +647,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseMasteryTome={useCoopMasteryTome}
             rareMaps={rareMaps}
             cashItems={cashItems}
-            cosmetics={cosmetics}
             onUseCashItem={useCashItem}
-            onEquipChroma={equipChromaName}
-            onEquipProfileBorder={equipProfileBorder}
-            onEquipChatBadge={equipChatBadge}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

@@ -8,7 +8,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "프로필 이미지 변경권",
     description:
       "JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수 있습니다. 게임 내 이미지는 변경권 없이 24시간마다 선택할 수 있으며, 변경권은 거래소에서 거래할 수 있습니다.",
-    coinPrice: 300,
+    coinPrice: 500,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "profile_image" },
@@ -18,7 +18,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "개명 허가증",
     description:
       "캐릭터 이름을 한 번 변경할 수 있습니다. 구매 후 가방에 보관되며 거래소에서 거래할 수 있습니다.",
-    coinPrice: 300,
+    coinPrice: 400,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "rename" },
@@ -341,7 +341,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "꾸미기 30일 연장권",
     description:
       "도감에 해금된 크로마 닉네임, 프로필 테두리 또는 채팅 배지 한 종류의 사용 기간을 30일 연장합니다. 사용 전에는 거래소에 등록할 수 있습니다.",
-    coinPrice: 200,
+    coinPrice: 400,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "cosmetic_extension", days: 30 },

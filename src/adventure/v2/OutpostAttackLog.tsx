@@ -5,8 +5,10 @@ import { timeAgoKo as fmtAgo } from "@/lib/timeFormat";
 import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { StoredReplayEnvelope } from "@/adventure/data/v2/replayPayload";
-import type { Gender } from "@/adventure/profile/avatars";
+import type { Avatar, Gender } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import { ShieldCheck, Skull, Sword } from "@phosphor-icons/react";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 
 // 이 거점에 행해진 최근 공격 기록 (공성/NPC 정기 공격, 승패 포함).
 // 소유 탭과 비-소유(공격자 정찰) 탭 양쪽에서 렌더 — API 는 읽기 전용·인증만 게이트.
@@ -21,6 +23,8 @@ type AttackRow = {
   turns: number;
   at: string;
   hasReplay: boolean;
+  avatar: Avatar | null;
+  profileBorder: ProfileBorderId | null;
 };
 
 // 페이지당 노출 행 수 — 카드가 너무 길어지지 않게 클라 페이지네이션(서버는 최신 20건 캡).
@@ -178,11 +182,23 @@ export function OutpostAttackLog({
               >
               <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded ${iconClass}`}
-                  >
-                    <Icon size={15} weight="fill" />
-                  </span>
+                  {a.avatar ? (
+                    <CosmeticAvatar
+                      avatar={a.avatar}
+                      name={a.attackerName ?? "모험가"}
+                      profileBorder={a.profileBorder}
+                      width={34}
+                      height={34}
+                      sizes="34px"
+                      className="h-[34px] w-[34px] rounded-lg"
+                    />
+                  ) : (
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded ${iconClass}`}
+                    >
+                      <Icon size={15} weight="fill" />
+                    </span>
+                  )}
                   <div className="min-w-0">
                     <div className="truncate text-sm text-zinc-700 dark:text-zinc-200">
                       {a.npc ? (
@@ -252,6 +268,7 @@ export function OutpostAttackLog({
                         }
                         exp={0}
                         maxExp={1}
+                        profileBorder={a.npc ? null : a.profileBorder}
                       />
                     </>
                   ) : (

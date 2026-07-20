@@ -8,12 +8,22 @@ import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 
 type ArenaHistoryEntry = {
   id: string;
   at: string;
   outcome: "win" | "loss" | "draw";
-  opponent: { name: string; level: number; userId?: string; botId?: string };
+  opponent: {
+    name: string;
+    level: number;
+    userId?: string;
+    botId?: string;
+    avatar?: Avatar | null;
+    profileBorder?: ProfileBorderId | null;
+  };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;
@@ -230,7 +240,19 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
         <>
           <section className="ui-arena-card rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+              <div className="flex min-w-0 items-center gap-3">
+                {entry.opponent.avatar && (
+                  <CosmeticAvatar
+                    avatar={entry.opponent.avatar}
+                    name={entry.opponent.name || "상대"}
+                    profileBorder={entry.opponent.profileBorder}
+                    width={52}
+                    height={52}
+                    sizes="52px"
+                    className="h-[52px] w-[52px] rounded-xl"
+                  />
+                )}
+                <div className="min-w-0">
                 <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                   <FilmStrip size={14} /> 전투 상세
                 </div>
@@ -257,6 +279,7 @@ export function V2ArenaReplayView({ entryId }: { entryId: string }) {
                   <span className="ml-1 text-zinc-500">
                     Lv.{entry.opponent.level ?? "?"}
                   </span>
+                </div>
                 </div>
               </div>
               <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">

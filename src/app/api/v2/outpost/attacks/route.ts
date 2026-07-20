@@ -5,6 +5,12 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 
 // GET /api/v2/outpost/attacks?outpostId=...
 //
@@ -32,6 +38,8 @@ type AttackRow = {
   // 전투 리플레이 존재 여부 — 본문은 attacks/replay GET 으로 단건 조회 (목록
   // 응답에 jsonb 통째 동봉하면 20건 × 수십 KB 비대).
   hasReplay: boolean;
+  avatar: Avatar | null;
+  profileBorder: ProfileBorderId | null;
 };
 
 export async function GET(req: Request) {
@@ -97,6 +105,10 @@ export async function GET(req: Request) {
   for (const id of attackerIds) {
     nameByUserId.set(id, await resolveUserDisplayName(id));
   }
+  const [avatarByUser, cosmeticByUser] = await Promise.all([
+    readProfileAvatarMap(attackerIds),
+    readMuseunCosmeticAppearanceMap(attackerIds),
+  ]);
 
   const attacks: AttackRow[] = rows.map((r) => {
     const npc = r.attackerUserId == null;
@@ -115,6 +127,12 @@ export async function GET(req: Request) {
       turns: r.turns,
       at: r.createdAt.toISOString(),
       hasReplay: r.hasReplay,
+      avatar: npc
+        ? null
+        : (avatarByUser.get(r.attackerUserId!) ?? "male1"),
+      profileBorder: npc
+        ? null
+        : (cosmeticByUser.get(r.attackerUserId!)?.profileBorder ?? null),
     };
   });
 

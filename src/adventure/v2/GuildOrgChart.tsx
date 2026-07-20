@@ -1,11 +1,16 @@
 "use client";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
 export type OrgMember = {
   userId: string;
   role: string; // "master" | "manager" | "member"
   joinedAt: string; // ISO date
   name: string;
+  avatar: Avatar;
+  profileBorder: ProfileBorderId | null;
   level: number;
   job: string; // 직업 표시명(jobDisplayName) — 예: "견습 병사", "방패병"
   lastSeenAt: string | null; // presence.lastSeenAt(ISO). 미접속 = null
@@ -82,24 +87,32 @@ function MemberCard({
       </div>
       <div
         className={[
-          "flex min-w-0 items-center gap-2 text-zinc-900 dark:text-zinc-100",
+          "flex min-w-0 items-center gap-2.5 text-zinc-900 dark:text-zinc-100",
           isMaster
             ? "justify-center text-base font-semibold"
             : "text-sm font-medium",
         ].join(" ")}
       >
-        <PlayerNameLink name={member.name} />
-        <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
-          Lv.{member.level}
+        <CosmeticAvatar
+          avatar={member.avatar}
+          name={member.name}
+          profileBorder={member.profileBorder}
+          width={isMaster ? 48 : 40}
+          height={isMaster ? 48 : 40}
+          sizes={isMaster ? "48px" : "40px"}
+          className={isMaster ? "h-12 w-12 rounded-xl" : "h-10 w-10 rounded-lg"}
+        />
+        <span className={isMaster ? "min-w-0 text-left" : "min-w-0"}>
+          <span className="flex min-w-0 items-center gap-1.5">
+            <PlayerNameLink name={member.name} />
+            <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
+              Lv.{member.level}
+            </span>
+          </span>
+          <span className="mt-0.5 block text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            {member.job}
+          </span>
         </span>
-      </div>
-      <div
-        className={[
-          "mt-1 text-xs text-zinc-500 dark:text-zinc-400",
-          isMaster ? "text-center" : "text-left",
-        ].join(" ")}
-      >
-        {member.job}
       </div>
       {showHonor && typeof member.honorEarned === "number" ? (
         <div

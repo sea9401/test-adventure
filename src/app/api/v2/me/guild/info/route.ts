@@ -42,6 +42,11 @@ import {
   parseArtisanState,
 } from "@/adventure/data/v2/artisan";
 import { parseGuildWorkshopStats } from "@/adventure/data/v2/guildWorkshop";
+import { readProfileValue } from "@/adventure/profile/profileValue";
+import {
+  museunCosmeticAppearance,
+  type MuseunCosmeticAppearance,
+} from "@/adventure/data/v2/museunCosmetics";
 
 function parseSettlementResources(raw: unknown): SettlementResources {
   if (typeof raw !== "object" || raw === null) return {};
@@ -208,6 +213,12 @@ export async function GET() {
           ),
   ]);
   const nameByUser = new Map<string, string>();
+  const avatarByUser = new Map(
+    profileRows.map((r) => [
+      r.userId,
+      readProfileValue(r.value)?.gender ?? "male1",
+    ] as const),
+  );
   for (const r of profileRows) {
     const v = (r.value ?? null) as { name?: string } | null;
     const n = v?.name?.trim();
@@ -219,6 +230,7 @@ export async function GET() {
   const jobByUser = new Map<string, string>();
   // 누적 명성(honorEarned) — 정착지 전쟁 명성 획득 누계(소비와 무관). 길드원 리스트 표기용.
   const honorEarnedByUser = new Map<string, number>();
+  const cosmeticsByUser = new Map<string, MuseunCosmeticAppearance>();
   for (const r of charRows) {
     const v = (r.value ?? null) as {
       level?: number;
@@ -226,6 +238,7 @@ export async function GET() {
       specChoice?: unknown;
       honor?: unknown;
       honorEarned?: unknown;
+      museunCosmetics?: unknown;
     } | null;
     if (typeof v?.level === "number") levelByUser.set(r.userId, v.level);
     const cls = parseV2Class(v?.class);
@@ -239,6 +252,10 @@ export async function GET() {
     honorEarnedByUser.set(
       r.userId,
       parseHonorEarned(v?.honorEarned, parseHonor(v?.honor)),
+    );
+    cosmeticsByUser.set(
+      r.userId,
+      museunCosmeticAppearance(v?.museunCosmetics),
     );
   }
   const artisanByUser = new Map<
@@ -295,6 +312,8 @@ export async function GET() {
     role: m.role === "vice_master" ? "manager" : m.role,
     joinedAt: m.joinedAt,
     name: nameByUser.get(m.userId) ?? "모험가",
+    avatar: avatarByUser.get(m.userId) ?? "male1",
+    profileBorder: cosmeticsByUser.get(m.userId)?.profileBorder ?? null,
     level: levelByUser.get(m.userId) ?? 1,
     job: jobByUser.get(m.userId) ?? "모험가",
     lastSeenAt: lastSeenByUser.get(m.userId) ?? null,

@@ -1,10 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Crown, Trophy } from "@phosphor-icons/react";
 import { useState } from "react";
-import { avatarImageSrc } from "@/adventure/profile/avatars";
 import {
   useGuildRankings,
   useRankings,
@@ -17,6 +15,7 @@ import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 
 type UserPreviewMetric = Extract<
   RankingMetric,
@@ -56,7 +55,7 @@ export function AdventureRankingPreview() {
     <Card as="section" padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 p-4 pb-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-amber-600 dark:bg-zinc-800 dark:text-amber-400">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300">
             <Trophy size={19} weight="duotone" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -90,7 +89,7 @@ export function AdventureRankingPreview() {
             aria-selected={index === metricIndex}
             className={`relative px-2 py-2.5 text-xs font-semibold transition ${
               index === metricIndex
-                ? "bg-white text-zinc-900 after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-amber-500 dark:bg-zinc-900 dark:text-zinc-100 dark:after:bg-amber-400"
+                ? "bg-white text-violet-700 after:absolute after:inset-x-4 after:bottom-0 after:h-0.5 after:rounded-full after:bg-violet-600 dark:bg-zinc-900 dark:text-violet-300 dark:after:bg-violet-400"
                 : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
             }`}
           >
@@ -150,13 +149,14 @@ function RankingLeader({
             className="h-14 w-14 border-2 border-amber-400 dark:border-amber-500"
           />
         ) : (
-          <Image
-            src={avatarImageSrc(entry.avatar)}
-            alt={`${entry.name} 프로필`}
+          <CosmeticAvatar
+            avatar={entry.avatar}
+            name={entry.name}
+            profileBorder={entry.profileBorder}
             width={56}
             height={56}
             sizes="56px"
-            className="h-14 w-14 rounded-xl border-2 border-amber-400 object-cover dark:border-amber-500"
+            className="h-14 w-14 rounded-xl"
           />
         )}
         <span className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-amber-400 text-amber-950 shadow-sm dark:bg-amber-500">
@@ -210,13 +210,14 @@ function RankingRow({
           className="h-[38px] w-[38px]"
         />
       ) : (
-        <Image
-          src={avatarImageSrc(entry.avatar)}
-          alt={`${entry.name} 프로필`}
+        <CosmeticAvatar
+          avatar={entry.avatar}
+          name={entry.name}
+          profileBorder={entry.profileBorder}
           width={38}
           height={38}
           sizes="38px"
-          className="h-[38px] w-[38px] shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
+          className="h-[38px] w-[38px] rounded-lg"
         />
       )}
       <div className="min-w-0 flex-1">

@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { guildMembers, guilds, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { normalizeGuildLevel } from "@/adventure/data/guild";
+import { readProfileValue } from "@/adventure/profile/profileValue";
+import {
+  museunCosmeticAppearance,
+  type MuseunCosmeticAppearance,
+} from "@/adventure/data/v2/museunCosmetics";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -75,14 +80,24 @@ export async function GET(_req: Request, { params }: Ctx) {
         ]);
 
   const nameByUser = new Map<string, string>();
+  const avatarByUser = new Map(
+    profileRows.map((row) => [
+      row.userId,
+      readProfileValue(row.value)?.gender ?? "male1",
+    ] as const),
+  );
   for (const row of profileRows) {
     const value = (row.value ?? null) as { name?: unknown } | null;
     const name = typeof value?.name === "string" ? value.name.trim() : "";
     if (name) nameByUser.set(row.userId, name);
   }
   const levelByUser = new Map<string, number>();
+  const cosmeticsByUser = new Map<string, MuseunCosmeticAppearance>();
   for (const row of characterRows) {
-    const value = (row.value ?? null) as { level?: unknown } | null;
+    const value = (row.value ?? null) as {
+      level?: unknown;
+      museunCosmetics?: unknown;
+    } | null;
     if (
       typeof value?.level === "number" &&
       Number.isFinite(value.level) &&
@@ -90,6 +105,10 @@ export async function GET(_req: Request, { params }: Ctx) {
     ) {
       levelByUser.set(row.userId, Math.floor(value.level));
     }
+    cosmeticsByUser.set(
+      row.userId,
+      museunCosmeticAppearance(value?.museunCosmetics),
+    );
   }
 
   const roleOrder: Record<string, number> = { master: 0, manager: 1, member: 2 };
@@ -103,6 +122,9 @@ export async function GET(_req: Request, { params }: Ctx) {
             : "member";
       return {
         name: nameByUser.get(member.userId) ?? null,
+        avatar: avatarByUser.get(member.userId) ?? "male1",
+        profileBorder:
+          cosmeticsByUser.get(member.userId)?.profileBorder ?? null,
         level: levelByUser.get(member.userId) ?? 1,
         role,
         joinedAt: member.joinedAt,

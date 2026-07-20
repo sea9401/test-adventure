@@ -27,6 +27,7 @@ import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import { ChatCosmeticBadge, chatNameClass } from "./chat/ChatCosmetics";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
 
 export type ChatChannel = "global" | "guild";
 type ChatRoomKey = "chat" | "guild" | "notice";
@@ -607,7 +608,18 @@ export function ChatPanel({
                     key={u.name}
                     className="flex items-center gap-1.5 text-xs"
                   >
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                    <span className="relative shrink-0">
+                      <CosmeticAvatar
+                        avatar={u.avatar}
+                        name={u.name}
+                        profileBorder={u.cosmetics?.profileBorder}
+                        width={24}
+                        height={24}
+                        sizes="24px"
+                        className="h-6 w-6 rounded-md"
+                      />
+                      <span className="absolute -bottom-0.5 -right-0.5 z-10 h-2 w-2 rounded-full border border-zinc-50 bg-emerald-500 dark:border-zinc-900" />
+                    </span>
                     {u.title && (
                       <span className="font-medium text-amber-600 dark:text-amber-400">
                         {u.title}

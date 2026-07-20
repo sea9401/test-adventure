@@ -1627,6 +1627,78 @@ body {
     0 12px 30px rgb(var(--profile-frame-rgb) / 0.2);
 }
 
+/* 랭킹·게시판·길드 명단처럼 조밀한 공개 화면용 축소 프로필 프레임.
+   미착용 상태는 중립색 1px 테두리만 두어 유료 테두리와 혼동되지 않게 한다. */
+.ui-profile-avatar-frame {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: none;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  border-radius: 0.75rem;
+  background: rgb(212 212 216);
+  box-shadow: 0 1px 2px rgb(24 24 27 / 0.08);
+  vertical-align: middle;
+}
+
+.dark .ui-profile-avatar-frame {
+  background: rgb(63 63 70);
+}
+
+.ui-profile-avatar-frame-cosmetic {
+  --profile-frame-rgb: 124 58 237;
+  --profile-frame-gradient: linear-gradient(
+    110deg,
+    #38bdf8,
+    #818cf8,
+    #c084fc,
+    #f472b6,
+    #fbbf24,
+    #34d399,
+    #38bdf8
+  );
+  padding: 2px;
+  background: var(--profile-frame-gradient);
+  background-size: 200% 100%;
+  box-shadow:
+    0 0 0 1px rgb(var(--profile-frame-rgb) / 0.2),
+    0 0 10px rgb(var(--profile-frame-rgb) / 0.26);
+  animation: profile-frame-prismatic-flow 5s linear infinite;
+}
+
+.dark .ui-profile-avatar-frame-cosmetic {
+  box-shadow:
+    0 0 0 1px rgb(var(--profile-frame-rgb) / 0.32),
+    0 0 12px rgb(var(--profile-frame-rgb) / 0.32);
+}
+
+.ui-profile-avatar-image,
+.ui-profile-avatar-fallback {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: calc(0.75rem - 2px);
+  background: rgb(250 250 250);
+}
+
+.ui-profile-avatar-fallback {
+  align-items: center;
+  justify-content: center;
+  color: rgb(161 161 170);
+}
+
+.dark .ui-profile-avatar-image,
+.dark .ui-profile-avatar-fallback {
+  background: rgb(24 24 27);
+}
+
 .ui-chat-badge {
   align-items: center;
   justify-content: center;
@@ -2053,6 +2125,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .ui-profile-frame-cosmetic::before,
+  .ui-profile-avatar-frame-cosmetic,
   .ui-chat-name-chroma {
     animation: none;
     background-position: 50% 50%;
@@ -2062,6 +2135,11 @@ body {
 @media (forced-colors: active) {
   .ui-profile-frame-cosmetic {
     border-color: Highlight;
+  }
+
+  .ui-profile-avatar-frame-cosmetic {
+    outline: 2px solid Highlight;
+    background: Canvas;
   }
 
   .ui-profile-frame-cosmetic::before {

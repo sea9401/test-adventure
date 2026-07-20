@@ -37,6 +37,7 @@ import {
   visibleBulletinWhere,
   type BulletinScope,
 } from "@/lib/server/bulletinAccess";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
 
 // GET /api/bulletin?category=<cat>&q=<search>
 //   category 미지정 — 전체 (탭 "전체" 용도, 클라가 안 쓰면 그대로 둠)
@@ -119,7 +120,13 @@ export async function GET(req: Request) {
   const postIds = posts.map((p) => p.id);
   // 인덱스: bulletin_likes 는 PK(postId,userId), bulletin_comments 는
   // (postId, createdAt) — 셋 다 postId 가 선행 컬럼이라 GROUP/IN 모두 인덱스 스캔.
-  const [likeCountRows, commentCountRows, viewCountRows, likedByMeRows] =
+  const [
+    likeCountRows,
+    commentCountRows,
+    viewCountRows,
+    likedByMeRows,
+    cosmeticByUser,
+  ] =
     await Promise.all([
       db
         .select({
@@ -154,6 +161,7 @@ export async function GET(req: Request) {
             inArray(bulletinLikes.postId, postIds),
           ),
         ),
+      readMuseunCosmeticAppearanceMap(posts.map((post) => post.mine)),
     ]);
 
   const likeCountMap = new Map(likeCountRows.map((r) => [r.postId, r.count]));
@@ -171,6 +179,10 @@ export async function GET(req: Request) {
       r.category === "notice"
         ? null
         : (readProfileValue(r.profile)?.gender ?? "male1"),
+    profileBorder:
+      r.category === "notice"
+        ? null
+        : (cosmeticByUser.get(r.mine)?.profileBorder ?? null),
     className: r.className,
     category: r.category as BulletinCategory,
     title: r.title,
@@ -244,7 +256,7 @@ export async function POST(req: Request) {
   }
   const title = rawTitle;
 
-  const { name, avatar, className } = await resolveActor(userId);
+  const { name, avatar, className, cosmetics } = await resolveActor(userId);
   const viewerGuild = scope === "guild" ? await getViewerGuild(db, userId) : null;
   if (scope === "guild" && viewerGuild == null) {
     return new Response("not in guild", { status: 403 });
@@ -282,6 +294,8 @@ export async function POST(req: Request) {
     id: inserted.id,
     name,
     avatar: category === "notice" ? null : avatar,
+    profileBorder:
+      category === "notice" ? null : cosmetics.profileBorder,
     className,
     category,
     title,

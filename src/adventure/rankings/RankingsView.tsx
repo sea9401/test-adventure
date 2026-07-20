@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trophy, UsersThree, X } from "@phosphor-icons/react";
@@ -13,8 +12,10 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { usePagination } from "@/lib/usePagination";
 import { useEscapeKey } from "@/lib/useEscapeKey";
-import { avatarImageSrc } from "@/adventure/profile/avatars";
 import { GuildEmblemImage } from "@/adventure/v2/guild/GuildEmblemImage";
+import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 import {
   useGuildRankings,
   useRankings,
@@ -314,13 +315,14 @@ function RankingRow({
     >
       <span className="flex items-center gap-3 min-w-0">
         <RankBadge rank={entry.rank} />
-        <Image
-          src={avatarImageSrc(entry.avatar)}
-          alt={`${entry.name} 프로필`}
+        <CosmeticAvatar
+          avatar={entry.avatar}
+          name={entry.name}
+          profileBorder={entry.profileBorder}
           width={36}
           height={36}
           sizes="36px"
-          className="h-9 w-9 shrink-0 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700"
+          className="h-9 w-9 rounded-lg"
         />
         <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
           {entry.name}
@@ -422,6 +424,8 @@ type PublicGuildDetail = {
   };
   members: Array<{
     name: string | null;
+    avatar: Avatar;
+    profileBorder: ProfileBorderId | null;
     level: number;
     role: "master" | "manager" | "member";
   }>;
@@ -546,7 +550,16 @@ function GuildRankingInfoDialog({
                     key={`${member.role}-${member.name ?? "unknown"}-${index}`}
                     className={`${SURFACE_INSET} flex items-center justify-between gap-2 px-3 py-2`}
                   >
-                    <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <CosmeticAvatar
+                        avatar={member.avatar}
+                        name={member.name ?? "모험가"}
+                        profileBorder={member.profileBorder}
+                        width={32}
+                        height={32}
+                        sizes="32px"
+                        className="h-8 w-8 rounded-lg"
+                      />
                       <GuildMemberRoleBadge role={member.role} />
                       <PlayerNameLink
                         name={member.name}

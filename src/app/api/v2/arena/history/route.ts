@@ -8,6 +8,10 @@ import {
   type ArenaHistoryEntry,
   type ArenaMatchOutcome,
 } from "@/lib/server/arena";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 
 const SEASON_HISTORY_LIMIT = 8;
 const OPPONENT_RECORD_LIMIT = 5;
@@ -86,6 +90,28 @@ export async function GET() {
     .limit(1)
     .then((rows) => rows[0]);
   const history = parseArenaHistory(row?.value ?? null);
+  const opponentUserIds = history
+    .map((entry) => entry.opponent.userId)
+    .filter((id): id is string => typeof id === "string");
+  const [avatarByUser, cosmeticByUser] = await Promise.all([
+    readProfileAvatarMap(opponentUserIds),
+    readMuseunCosmeticAppearanceMap(opponentUserIds),
+  ]);
+  const presentedHistory = history.map((entry) => {
+    const opponentUserId = entry.opponent.userId;
+    return {
+      ...entry,
+      opponent: {
+        ...entry.opponent,
+        avatar: opponentUserId
+          ? (avatarByUser.get(opponentUserId) ?? "male1")
+          : null,
+        profileBorder: opponentUserId
+          ? (cosmeticByUser.get(opponentUserId)?.profileBorder ?? null)
+          : null,
+      },
+    };
+  });
 
   const now = new Date();
   const seasons = await db
@@ -148,8 +174,16 @@ export async function GET() {
 
   return Response.json({
     ok: true,
-    history,
+    history: presentedHistory,
     seasons: seasonsSummary,
-    opponentRecords: opponentRecords(history),
+    opponentRecords: opponentRecords(history).map((record) => ({
+      ...record,
+      avatar: record.userId
+        ? (avatarByUser.get(record.userId) ?? "male1")
+        : null,
+      profileBorder: record.userId
+        ? (cosmeticByUser.get(record.userId)?.profileBorder ?? null)
+        : null,
+    })),
   });
 }

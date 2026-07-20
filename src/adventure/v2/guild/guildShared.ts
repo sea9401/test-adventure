@@ -3,6 +3,8 @@ import type {
   SettlementBuildingId,
   SettlementResources,
 } from "@/adventure/data/v2/settlement";
+import type { Avatar } from "@/adventure/profile/avatars";
+import type { ProfileBorderId } from "@/adventure/data/v2/museunCosmetics";
 
 // V2GuildHome 탭 분리 — 탭 패널들이 공유하는 타입·순수 헬퍼.
 
@@ -45,6 +47,8 @@ export type GuildInfoResponse = {
     role: string;
     joinedAt: string;
     name: string;
+    avatar: Avatar;
+    profileBorder: ProfileBorderId | null;
     level: number;
     job: string;
     lastSeenAt: string | null;

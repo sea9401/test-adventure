@@ -13,6 +13,10 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import {
+  readMuseunCosmeticAppearanceMap,
+  readProfileAvatarMap,
+} from "@/lib/server/museunCosmetics";
 
 type Ctx = {
   params: Promise<{ sessionId: string; attackId: string }>;
@@ -107,6 +111,10 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!attack || !replay) {
     return Response.json({ ok: false, error: "no_attack" }, { status: 404 });
   }
+  const [avatarByUser, cosmeticByUser] = await Promise.all([
+    readProfileAvatarMap([attack.userId]),
+    readMuseunCosmeticAppearanceMap([attack.userId]),
+  ]);
 
   return Response.json({
     ok: true,
@@ -118,6 +126,9 @@ export async function GET(_req: Request, { params }: Ctx) {
       damageTaken: attack.damageTaken,
       diedEarly: attack.diedEarly,
       isMe: attack.userId === userId,
+      avatar: avatarByUser.get(attack.userId) ?? "male1",
+      profileBorder:
+        cosmeticByUser.get(attack.userId)?.profileBorder ?? null,
       replay,
       at: attack.createdAt.getTime(),
     },

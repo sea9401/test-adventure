@@ -331,7 +331,7 @@ export async function PATCH(req: Request) {
     return new Response("invalid id", { status: 400 });
   }
 
-  // 본문 길이 제한은 카테고리별로 다름(공지 3000·그 외 2000) — 소유 + 카테고리를 먼저 확인.
+  // 본문 길이 제한은 카테고리별로 다름 — 소유 + 카테고리를 먼저 확인.
   const [existing] = await db
     .select({ category: bulletinPosts.category })
     .from(bulletinPosts)

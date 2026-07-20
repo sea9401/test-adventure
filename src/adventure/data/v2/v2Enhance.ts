@@ -4,7 +4,8 @@
 // 굴림(옵션 편차)과 직교하는 별도 진척 축. 매 강화마다 강화석 색을 선택:
 //   붉은(맹렬) = 성공률을 끌어올리는 도박 / 푸른(단단) = 파괴 위험 완화.
 //
-// 결과 = 성공 / 유지 / 하락 / 파괴. +10 이후부터는 보상도 비용·리스크도 확실히 커진다.
+// 결과 = 성공 / 유지 / 하락 / 파괴. +10은 하락 방지 체크포인트이며, +13 도전부터
+// 다시 비용·리스크가 확실히 커진다.
 // 수급 = 사냥 드랍 전용(PR-2) — 초보자도 줍고 거래소에서 환금(베테랑 수요).
 
 // ── 다이얼 (라이브 실측 후 캘리브) ──────────────────────────────────────────
@@ -69,7 +70,9 @@ function baseEnhanceOutcomeRow(level: number): [number, number, number, number] 
 //     🔵 푸른: 파괴 → 하락으로 완전 전환 + 하락 −10%p(유지로)
 //   +10부터:
 //     🔴 붉은: 성공 +10%p, 파괴 +5%p (유지에서 차감, 부족분은 하락에서)
-//     🔵 푸른: 파괴 −10%p, 하락 +5%p, 유지 +5%p. 완전 방어가 아니라 완화.
+//     🔵 푸른: +12 도전까지 파괴 완전 방어. +13 도전부터 파괴 −10%p,
+//       하락 +5%p, 유지 +5%p로 완화.
+//   +10 체크포인트: +10→+11 시도의 하락은 유지로 바뀌어 +9로 내려가지 않는다.
 export function enhanceOutcomeRow(
   level: number,
   choice: EnhanceChoice,
@@ -87,18 +90,30 @@ export function enhanceOutcomeRow(
     s += takeRiskPool(safeLevel >= 10 ? 10 : 15);
     if (safeLevel >= 10) x += takeRiskPool(5);
   } else if (choice === "blue") {
-    if (safeLevel >= 10) {
-      const guarded = Math.min(10, x);
-      x -= guarded;
-      k += Math.floor(guarded / 2);
-      d += guarded - Math.floor(guarded / 2);
-    } else {
+    if (safeLevel <= 9) {
       d += x;
       x = 0;
       const calmed = Math.min(10, d);
       d -= calmed;
       k += calmed;
+    } else if (safeLevel <= 11) {
+      // +10→+11, +11→+12는 푸른 돌의 안전 성장 구간: 파괴를 전부
+      // 유지/하락으로 옮긴다. +10 체크포인트는 아래에서 하락도 유지로 바꾼다.
+      const guarded = x;
+      x = 0;
+      k += Math.floor(guarded / 2);
+      d += guarded - Math.floor(guarded / 2);
+    } else {
+      const guarded = Math.min(10, x);
+      x -= guarded;
+      k += Math.floor(guarded / 2);
+      d += guarded - Math.floor(guarded / 2);
     }
+  }
+  if (safeLevel === 10) {
+    // +10 안전 체크포인트: 이 단계에서 나온 하락은 실제 단계 손실 없는 유지다.
+    k += d;
+    d = 0;
   }
   return [s, k, d, x];
 }
@@ -117,13 +132,18 @@ export function rollEnhanceOutcome(
   return "destroy";
 }
 
-// 회당 강화석 비용(개) — +10 이후는 직접 지정, +20 이후는 +3개씩 증가.
+// 회당 강화석 비용(개) — +12까지는 현실적인 장기 목표가 되도록 완화하고,
+// +13 도전(level 12)부터 다시 고비용 엔드게임 구간으로 진입한다.
 const ENHANCE_STONE_COST_HIGH: readonly number[] = [
-  5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 23,
+  2, 3, 7, 8, 10, 12, 14, 16, 18, 20, 23,
 ];
 export function enhanceStoneCost(level: number): number {
   const safeLevel = Math.max(0, Math.floor(level));
-  if (safeLevel < 10) return 1 + Math.floor(safeLevel / 3);
+  // +7 전에는 돌이 선택 사항이므로 기존 비용을 보존한다. 필수 구간(+7 시도)부터
+  // 별도 완화 곡선을 적용한다.
+  if (safeLevel < 7) return 1 + Math.floor(safeLevel / 3);
+  if (safeLevel <= 8) return 1;
+  if (safeLevel === 9) return 2;
   const high = ENHANCE_STONE_COST_HIGH[safeLevel - 10];
   if (high != null) return high;
   return 23 + (safeLevel - 20) * 3;

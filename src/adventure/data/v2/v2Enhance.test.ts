@@ -64,13 +64,15 @@ describe("4결과 표 + 돌 변환", () => {
       }
     }
   });
-  it("붉은/푸른 변환 — +9까지는 푸른 완전 방어, +10부터는 완화", () => {
+  it("붉은/푸른 변환 — +10 체크포인트, 푸른은 +12 도전까지 완전 방어", () => {
     expect(enhanceOutcomeRow(9, "none")).toEqual([18, 42, 27, 13]);
     expect(enhanceOutcomeRow(9, "red")).toEqual([33, 27, 27, 13]);
     expect(enhanceOutcomeRow(9, "blue")).toEqual([18, 52, 30, 0]);
-    expect(enhanceOutcomeRow(10, "none")).toEqual([14, 36, 32, 18]);
-    expect(enhanceOutcomeRow(10, "red")).toEqual([24, 21, 32, 23]);
-    expect(enhanceOutcomeRow(10, "blue")).toEqual([14, 41, 37, 8]);
+    expect(enhanceOutcomeRow(10, "none")).toEqual([14, 68, 0, 18]);
+    expect(enhanceOutcomeRow(10, "red")).toEqual([24, 53, 0, 23]);
+    expect(enhanceOutcomeRow(10, "blue")).toEqual([14, 86, 0, 0]);
+    expect(enhanceOutcomeRow(11, "blue")).toEqual([12, 44, 44, 0]);
+    expect(enhanceOutcomeRow(12, "blue")).toEqual([10, 37, 41, 12]);
     expect(enhanceOutcomeRow(19, "red")).toEqual([13, 5, 50, 32]);
     expect(enhanceOutcomeRow(19, "blue")).toEqual([3, 25, 55, 17]);
     // 저강(+0) — 파괴·하락 0이라 푸른 무의미, 붉은은 성공 100 캡 합 보존
@@ -87,14 +89,19 @@ describe("4결과 표 + 돌 변환", () => {
 });
 
 describe("비용 다이얼 (제곱 램프)", () => {
-  it("골드 = +9까지 제곱, +10부터 지수 램프 · 돌 고강 누진", () => {
+  it("골드 = +9까지 제곱, +10부터 지수 램프 · 돌은 +12까지 완화", () => {
     expect(enhanceGoldCost(322, 0)).toBe(4830);
     expect(enhanceGoldCost(322, 9)).toBe(483000);
     expect(enhanceGoldCost(322, 10)).toBe(847423);
     expect(enhanceGoldCost(322, 19)).toBe(79375622);
     expect(enhanceStoneCost(0)).toBe(1);
-    expect(enhanceStoneCost(9)).toBe(4);
-    expect(enhanceStoneCost(10)).toBe(5);
+    expect(enhanceStoneCost(6)).toBe(3); // +7 전 선택 구간은 기존 비용 유지
+    expect(enhanceStoneCost(7)).toBe(1);
+    expect(enhanceStoneCost(8)).toBe(1);
+    expect(enhanceStoneCost(9)).toBe(2);
+    expect(enhanceStoneCost(10)).toBe(2);
+    expect(enhanceStoneCost(11)).toBe(3);
+    expect(enhanceStoneCost(12)).toBe(7);
     expect(enhanceStoneCost(20)).toBe(23);
     expect(enhanceStoneCost(21)).toBe(26);
   });

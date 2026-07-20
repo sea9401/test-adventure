@@ -7,6 +7,12 @@ import { Card } from "@/components/ui/Card";
 import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TextInput } from "@/components/ui/TextInput";
+import {
+  CHARACTER_NAME_MAX,
+  CHARACTER_NAME_RULE_TEXT,
+  characterNameInvalidMessage,
+  validateCharacterName,
+} from "@/adventure/profile/characterNamePolicy";
 import { useSystemMessageState } from "./RewardToastProvider";
 import type { MuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 
@@ -30,10 +36,15 @@ export function V2RenameView({
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useSystemMessageState();
+  const nameCheck = validateCharacterName(name);
+  const nameGuide =
+    name.trim().length > 0 && !nameCheck.ok
+      ? characterNameInvalidMessage(nameCheck.reason)
+      : CHARACTER_NAME_RULE_TEXT;
 
   async function submit() {
-    const next = name.trim();
-    if (next.length === 0 || busy) return;
+    if (!nameCheck.ok || busy) return;
+    const next = nameCheck.name;
     setBusy(true);
     setMsg(null);
     try {
@@ -59,10 +70,10 @@ export function V2RenameView({
             ? "이미 사용 중인 이름입니다"
             : j?.error === "same_name"
               ? "지금 이름과 같습니다"
-            : j?.error === "no_ticket"
+              : j?.error === "no_ticket"
                 ? "유효한 개명 사용권이 필요합니다"
                 : j?.error === "invalid"
-                  ? "이름은 1~16자입니다"
+                  ? "한글, 영문, 숫자로 된 1~16자 이름만 사용할 수 있습니다"
                   : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
       }
@@ -87,24 +98,36 @@ export function V2RenameView({
           현재 이름{" "}
           <span className="font-medium">{currentName || "모험가"}</span>
         </div>
-        <div className="flex gap-2">
-          <TextInput
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="새 이름 (1~16자)"
-            maxLength={16}
-            disabled={busy}
-            className="flex-1"
-          />
-          <Button
-            onClick={submit}
-            disabled={busy || name.trim().length === 0}
-            variant="primary"
-            size="sm"
-            className="shrink-0"
+        <div>
+          <div className="flex gap-2">
+            <TextInput
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="새 이름 (1~16자)"
+              maxLength={CHARACTER_NAME_MAX}
+              autoComplete="off"
+              disabled={busy}
+              className="flex-1"
+            />
+            <Button
+              onClick={submit}
+              disabled={busy || !nameCheck.ok}
+              variant="primary"
+              size="sm"
+              className="shrink-0"
+            >
+              {busy ? "변경 중…" : "개명"}
+            </Button>
+          </div>
+          <p
+            className={`mt-1.5 text-xs ${
+              name.trim().length > 0 && !nameCheck.ok
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-zinc-500 dark:text-zinc-400"
+            }`}
           >
-            {busy ? "변경 중…" : "개명"}
-          </Button>
+            {nameGuide}
+          </p>
         </div>
         {msg && (
           <StatusBanner tone={msg.startsWith("✓") ? "success" : "error"}>

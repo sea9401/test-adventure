@@ -3,9 +3,7 @@ import { db } from "@/db";
 import { users, savesKv } from "@/db/schema";
 import { ensureOriginalUser } from "@/lib/server/ensureUser";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
-
-const NAME_MIN = 1;
-const NAME_MAX = 16;
+import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
 
 // GET /api/profile/check-name?name=Hero
 // 닉네임이 다른 유저에 의해 이미 등록되어 있는지 검사 (case-insensitive).
@@ -16,11 +14,11 @@ export async function GET(req: Request) {
   if (!userId) return new Response("unauthorized", { status: 401 });
 
   const url = new URL(req.url);
-  const raw = url.searchParams.get("name") ?? "";
-  const name = raw.trim();
-  if (name.length < NAME_MIN || name.length > NAME_MAX) {
-    return Response.json({ available: false, reason: "length" });
+  const nameCheck = validateCharacterName(url.searchParams.get("name"));
+  if (!nameCheck.ok) {
+    return Response.json({ available: false, reason: nameCheck.reason });
   }
+  const name = nameCheck.name;
 
   // 1) users.gameName (authoritative) 에서 본인 제외 case-insensitive 검색
   const usersHit = await db

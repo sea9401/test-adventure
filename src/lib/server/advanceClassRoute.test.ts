@@ -62,6 +62,8 @@ import {
   TIER5_UNLOCK_CUMLEVEL,
   TIER6_UNLOCK_CUMLEVEL,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { miningXpForLevel } from "@/adventure/v2/miningProgression";
+import { woodcuttingXpForLevel } from "@/adventure/v2/woodcuttingProgression";
 
 function advanceReq(targetJobId: string): Request {
   return new Request("http://t/api/v2/me/advance-class", {
@@ -177,6 +179,74 @@ describe("advance-class — 모험가(none) 전직 허용(킷 재학습 경로)"
     const json = (await res.json()) as { ok?: boolean; error?: string };
     expect(res.status).toBe(400);
     expect(json.error).toBe("bad_target");
+  });
+});
+
+describe("advance-class — 생활 직업 레벨 조건", () => {
+  function seedLifestyleCandidate(specChoice: "miner" | "lumberjack"): void {
+    store.clear();
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice,
+      level: 100,
+    });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: {
+        survivor: { cultivations: 0, tier: 1, cumLevel: 900 },
+      },
+      caps: {},
+      grown: {},
+    });
+    store.set("skills.v2", { learned: [], equipped: [] });
+  }
+
+  it("광부가 채광 Lv.10이면 광산 기술자로 전직된다", async () => {
+    seedLifestyleCandidate("miner");
+    store.set("mining-log.v1", {
+      successes: 324,
+      xp: miningXpForLevel(10),
+      oreEarned: 324,
+      byproductsEarned: 0,
+      nodes: {},
+    });
+
+    const res = await POST(advanceReq("miningtechnician"));
+    const json = (await res.json()) as { ok?: boolean; spec?: string | null };
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, spec: "miningtechnician" });
+  });
+
+  it("광부라도 채광 Lv.10 미만이면 광산 기술자 전직을 거절한다", async () => {
+    seedLifestyleCandidate("miner");
+    store.set("mining-log.v1", {
+      successes: 323,
+      xp: miningXpForLevel(10) - 1,
+      oreEarned: 323,
+      byproductsEarned: 0,
+      nodes: {},
+    });
+
+    const res = await POST(advanceReq("miningtechnician"));
+    const json = (await res.json()) as { ok?: boolean; error?: string };
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({ ok: false, error: "job_locked" });
+  });
+
+  it("나무꾼의 기존 벌목 Lv.10 산림 기술자 전직도 유지된다", async () => {
+    seedLifestyleCandidate("lumberjack");
+    store.set("woodcutting-log.v1", {
+      cuts: 324,
+      xp: woodcuttingXpForLevel(10),
+      timberEarned: 324,
+      byproductsEarned: 0,
+      trees: {},
+    });
+
+    const res = await POST(advanceReq("foresttechnician"));
+    const json = (await res.json()) as { ok?: boolean; spec?: string | null };
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, spec: "foresttechnician" });
   });
 });
 

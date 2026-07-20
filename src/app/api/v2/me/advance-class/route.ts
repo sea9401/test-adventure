@@ -41,6 +41,7 @@ import {
   jobIdFromLegacy,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   LEGACY_CLASS_SPEC_BY_JOB,
   type JobUnlockContext,
@@ -57,6 +58,11 @@ import {
   parseWoodcuttingLog,
 } from "@/adventure/v2/woodcuttingSession";
 import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
+import {
+  MINING_LOG_KEY,
+  parseMiningLog,
+} from "@/adventure/v2/miningSession";
+import { miningProgressionView } from "@/adventure/v2/miningProgression";
 
 // POST /api/v2/me/advance-class.
 // 코어루프 on: targetJobId 로 직업을 선택해 재전직한다. 게이트는 V2_LEVEL_CAP + v2JobCatalog
@@ -117,7 +123,16 @@ export async function POST(req: Request) {
     const woodcuttingLevel = woodcuttingLog
       ? woodcuttingProgressionView(woodcuttingLog.cuts, woodcuttingLog.xp).level
       : undefined;
-    // 게이트(누적 숙련도)에 쓰므로 락 순서(character→skills→farm→proficiency)대로 미리 잠가 읽는다.
+    const miningLog = CATALOG_USES_MINING_LEVEL_CONDITION
+      ? parseMiningLog(
+          await lockSaveForUpdate(tx, userId, MINING_LOG_KEY, {}),
+        )
+      : null;
+    const miningLevel = miningLog
+      ? miningProgressionView(miningLog.successes, miningLog.xp).level
+      : undefined;
+    // 게이트(누적 숙련도)에 쓰므로 락 순서
+    // character→skills→farm→woodcutting→mining→proficiency 로 미리 잠가 읽는다.
     const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
         tx,
@@ -174,6 +189,7 @@ export async function POST(req: Request) {
           : {}),
         ...(farmingLevel != null ? { farmingLevel } : {}),
         ...(woodcuttingLevel != null ? { woodcuttingLevel } : {}),
+        ...(miningLevel != null ? { miningLevel } : {}),
       };
       if (!isReJobToCurrent && !isJobUnlocked(jobDef, prof, jobCtx)) {
         return {

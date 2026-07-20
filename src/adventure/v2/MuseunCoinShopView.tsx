@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  ArrowRight,
   CheckCircle,
   CoinVertical,
   Gauge,
@@ -70,6 +71,8 @@ function MuseunCoinMark({ size = "md" }: { size?: "sm" | "md" }) {
 
 export function MuseunCoinShopView() {
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [detailItemId, setDetailItemId] =
+    useState<MuseunCashItemId | null>(null);
   const [coins, setCoins] = useState(0);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [buying, setBuying] = useState<MuseunCashItemId | null>(null);
@@ -178,119 +181,25 @@ export function MuseunCoinShopView() {
         </StatusBanner>
       )}
 
-      <Card padding="lg" className="border-amber-300 dark:border-amber-800">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
-              거래 가능한 30일 이용권
-            </p>
-            <h2 className="mt-1 text-lg font-bold">
-              {MUSEUN_CASH_ITEMS.adventure_support_30d.name}
-            </h2>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-              더 넉넉한 에너지와 거래소·일괄 전투 혜택으로 모험을 지원합니다.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-bold tabular-nums text-amber-600 dark:text-amber-300">
-              무슨 코인 {MUSEUN_CASH_ITEMS.adventure_support_30d.coinPrice.toLocaleString()}개
-            </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              약 7,900원 상당
-            </p>
-          </div>
-        </div>
-
-        <div className={`${SURFACE_INSET} mt-4 grid gap-2 p-3 sm:grid-cols-2`}>
-          {SUPPORT_BENEFITS.map(({ Icon, label }) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200"
-            >
-              <CheckCircle
-                size={17}
-                weight="fill"
-                className="shrink-0 text-emerald-500"
-              />
-              <Icon size={17} weight="duotone" className="shrink-0 text-amber-500" />
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          구매하면 가방에 들어오며, 사용한 시점부터 30일이 적용됩니다. 거래소에서
-          다른 모험가와 거래할 수도 있습니다. 지원권이 없으면 일괄 전투는 최대{" "}
-          {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다. 최초
-          활성화 시 에너지 {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이
-          즉시 지급됩니다.
-        </p>
-        <button
-          type="button"
-          onClick={() => void purchase("adventure_support_30d")}
-          disabled={
-            buying !== null ||
-            coins < MUSEUN_CASH_ITEMS.adventure_support_30d.coinPrice
-          }
-          className="ui-game-button mt-4 w-full rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-300 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
-        >
-          {buying === "adventure_support_30d"
-            ? "구매 중…"
-            : coins < MUSEUN_CASH_ITEMS.adventure_support_30d.coinPrice
-              ? "무슨 코인 부족"
-              : "지원권 구매"}
-        </button>
-        {(cashItems.adventure_support_30d ?? 0) > 0 && (
-          <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-            가방에 {cashItems.adventure_support_30d}개 보유
-          </p>
-        )}
-      </Card>
-
       <Card padding="lg">
-        <div className="flex items-start gap-3">
-          <span className="rounded-full bg-sky-100 p-2 text-sky-600 dark:bg-sky-950 dark:text-sky-300">
-            <IdentificationCard size={26} weight="duotone" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold text-sky-600 dark:text-sky-400">
-                  거래 가능한 이름 변경권
-                </p>
-                <h2 className="mt-1 text-lg font-bold">
-                  {MUSEUN_CASH_ITEMS.rename_permit.name}
-                </h2>
-              </div>
-              <p className="font-bold tabular-nums text-amber-600 dark:text-amber-300">
-                무슨 코인 {MUSEUN_CASH_ITEMS.rename_permit.coinPrice.toLocaleString()}개
-              </p>
-            </div>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-              구매 후 가방에서 사용하면 캐릭터 이름을 한 번 변경할 수 있습니다.
-              사용하기 전에는 거래소에 등록할 수 있습니다.
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => void purchase("rename_permit")}
-          disabled={
-            buying !== null || coins < MUSEUN_CASH_ITEMS.rename_permit.coinPrice
-          }
-          className="ui-game-button mt-4 w-full rounded-md border border-sky-600 bg-sky-600 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-300 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
-        >
-          {buying === "rename_permit"
-            ? "구매 중…"
-            : coins < MUSEUN_CASH_ITEMS.rename_permit.coinPrice
-              ? "무슨 코인 부족"
-              : "개명 허가증 구매"}
-        </button>
-        {(cashItems.rename_permit ?? 0) > 0 && (
-          <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-            가방에 {cashItems.rename_permit}개 보유
+        <div>
+          <h2 className="text-base font-bold">아이템 목록</h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            아이템을 누르면 효과와 이용 방법을 확인할 수 있습니다.
           </p>
-        )}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <CashItemCard
+            itemId="adventure_support_30d"
+            owned={cashItems.adventure_support_30d ?? 0}
+            onClick={() => setDetailItemId("adventure_support_30d")}
+          />
+          <CashItemCard
+            itemId="rename_permit"
+            owned={cashItems.rename_permit ?? 0}
+            onClick={() => setDetailItemId("rename_permit")}
+          />
+        </div>
       </Card>
 
       <div className="text-center">
@@ -305,7 +214,201 @@ export function MuseunCoinShopView() {
       {chargeOpen && (
         <MuseunCoinChargeDialog onClose={() => setChargeOpen(false)} />
       )}
+      {detailItemId && (
+        <CashItemDetailDialog
+          itemId={detailItemId}
+          coins={coins}
+          owned={cashItems[detailItemId] ?? 0}
+          buying={buying === detailItemId}
+          purchaseBlocked={buying !== null}
+          onPurchase={() => void purchase(detailItemId)}
+          onClose={() => setDetailItemId(null)}
+        />
+      )}
     </PageShell>
+  );
+}
+
+function CashItemIcon({
+  itemId,
+  size = 28,
+}: {
+  itemId: MuseunCashItemId;
+  size?: number;
+}) {
+  const iconClass =
+    itemId === "adventure_support_30d"
+      ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
+      : "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300";
+  return (
+    <span className={`inline-flex shrink-0 rounded-full p-2 ${iconClass}`}>
+      {itemId === "adventure_support_30d" ? (
+        <Sword size={size} weight="duotone" aria-hidden />
+      ) : (
+        <IdentificationCard size={size} weight="duotone" aria-hidden />
+      )}
+    </span>
+  );
+}
+
+function CashItemCard({
+  itemId,
+  owned,
+  onClick,
+}: {
+  itemId: MuseunCashItemId;
+  owned: number;
+  onClick: () => void;
+}) {
+  const item = MUSEUN_CASH_ITEMS[itemId];
+  const summary =
+    itemId === "adventure_support_30d"
+      ? "30일간 모험 편의 혜택을 활성화합니다."
+      : "캐릭터 이름을 한 번 변경합니다.";
+  return (
+    <Card
+      as="button"
+      type="button"
+      padding="md"
+      onClick={onClick}
+      className="group text-left transition hover:border-amber-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:hover:border-amber-700"
+    >
+      <div className="flex items-start gap-3">
+        <CashItemIcon itemId={itemId} />
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold">{item.name}</h3>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            {summary}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex items-end justify-between gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+        <div>
+          <p className="font-bold tabular-nums text-amber-600 dark:text-amber-300">
+            {item.coinPrice.toLocaleString()}코인
+          </p>
+          {owned > 0 && (
+            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              가방에 {owned}개 보유
+            </p>
+          )}
+        </div>
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-500 group-hover:text-amber-600 dark:text-zinc-400 dark:group-hover:text-amber-300">
+          자세히
+          <ArrowRight size={14} aria-hidden />
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+function CashItemDetailDialog({
+  itemId,
+  coins,
+  owned,
+  buying,
+  purchaseBlocked,
+  onPurchase,
+  onClose,
+}: {
+  itemId: MuseunCashItemId;
+  coins: number;
+  owned: number;
+  buying: boolean;
+  purchaseBlocked: boolean;
+  onPurchase: () => void;
+  onClose: () => void;
+}) {
+  useEscapeKey(onClose);
+  const item = MUSEUN_CASH_ITEMS[itemId];
+  const insufficient = coins < item.coinPrice;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onMouseDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cash-item-detail-title"
+        className={`${SURFACE_CARD} w-full max-w-xl overflow-hidden`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700">
+          <CashItemIcon itemId={itemId} size={30} />
+          <div className="min-w-0 flex-1">
+            <h2 id="cash-item-detail-title" className="font-bold">
+              {item.name}
+            </h2>
+            <p className="mt-0.5 font-bold tabular-nums text-amber-600 dark:text-amber-300">
+              {item.coinPrice.toLocaleString()}코인
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="상품 상세 닫기"
+            className="rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          >
+            <X size={18} aria-hidden />
+          </button>
+        </div>
+
+        <div className="p-4">
+          {itemId === "adventure_support_30d" ? (
+            <>
+              <div className={`${SURFACE_INSET} grid gap-2 p-3 sm:grid-cols-2`}>
+                {SUPPORT_BENEFITS.map(({ Icon, label }) => (
+                  <div
+                    key={label}
+                    className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200"
+                  >
+                    <CheckCircle
+                      size={17}
+                      weight="fill"
+                      className="shrink-0 text-emerald-500"
+                    />
+                    <Icon
+                      size={17}
+                      weight="duotone"
+                      className="shrink-0 text-amber-500"
+                    />
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+                구매하면 가방에 들어오며, 사용한 시점부터 30일이 적용됩니다. 거래소에서
+                다른 모험가와 거래할 수도 있습니다. 지원권이 없으면 일괄 전투는 최대{" "}
+                {ADVENTURE_SUPPORT_PASS.freeMaxHuntBatch}회까지 이용할 수 있습니다. 최초
+                활성화 시 에너지{" "}
+                {ADVENTURE_SUPPORT_PASS.staminaActivationGrant.toLocaleString()}이 즉시
+                지급됩니다.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              구매 후 가방에서 사용하면 캐릭터 이름을 한 번 변경할 수 있습니다. 사용하기
+              전에는 거래소에 등록해 다른 모험가와 거래할 수 있습니다.
+            </p>
+          )}
+
+          <div className="mt-4 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+            <span>보유 코인 {coins.toLocaleString()}</span>
+            <span>가방에 {owned}개 보유</span>
+          </div>
+          <button
+            type="button"
+            onClick={onPurchase}
+            disabled={purchaseBlocked || insufficient}
+            className="ui-game-button mt-3 w-full rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-300 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
+          >
+            {buying ? "구매 중…" : insufficient ? "코인 부족" : "구매"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

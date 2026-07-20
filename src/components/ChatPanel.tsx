@@ -38,9 +38,9 @@ export type ChatMessage = {
 };
 
 // 데스크톱 채팅창 크기 영속 + 최소 크기(드래그 리사이즈).
-const CHAT_SIZE_KEY = "chat-panel-size.v1";
-const CHAT_MIN_W = 320;
-const CHAT_MIN_H = 320;
+const CHAT_SIZE_KEY = "chat-panel-size.v2";
+const CHAT_MIN_W = 400;
+const CHAT_MIN_H = 420;
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
 
@@ -87,8 +87,8 @@ export function ChatPanel({
   const tempIdRef = useRef(0);
 
   // 데스크톱 채팅창 크기 조절 — 좌상단 모서리 드래그(우하단 고정 패널이라 좌/위로 키운다).
-  //   localStorage 영속. 모바일(<sm)은 전체폭이라 미적용. 기본 = max-w-md(448) × 600(현행).
-  const [size, setSize] = useState<{ w: number; h: number }>({ w: 448, h: 600 });
+  //   localStorage 영속. 모바일(<sm)은 전체폭이라 미적용. 기본 = 560 × 680.
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 560, h: 680 });
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 640px)");
@@ -313,8 +313,8 @@ export function ChatPanel({
       className="pointer-events-none fixed inset-0 z-[45] flex items-end justify-end sm:p-4"
     >
       <div
-        className="ui-popover-reveal pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-900 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
-        // 데스크톱만 크기 조절(인라인이 sm:max-w-md/sm:h-[600px] 보다 우선). 모바일은 전체폭 유지.
+        className="ui-chat-panel ui-popover-reveal pointer-events-auto relative flex h-[88dvh] max-h-full w-full max-w-xl flex-col rounded-t-xl bg-white shadow-2xl dark:bg-zinc-900 sm:h-[680px] sm:max-h-[90vh] sm:rounded-xl"
+        // 데스크톱만 크기 조절(인라인이 기본 크기보다 우선). 모바일은 전체폭 유지.
         style={
           isDesktop
             ? {
@@ -333,7 +333,7 @@ export function ChatPanel({
             role="separator"
             aria-label="채팅창 크기 조절"
             title="드래그해서 크기 조절"
-            className="absolute left-0 top-0 z-20 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-lg p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
+            className="absolute left-0 top-0 z-20 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-xl p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
               <path
@@ -346,9 +346,9 @@ export function ChatPanel({
             </svg>
           </div>
         )}
-        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
-          <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            <ChatCircle size={20} weight="duotone" />
+        <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-3.5 dark:border-zinc-700">
+          <div className="flex items-center gap-2 text-base font-semibold text-zinc-800 dark:text-zinc-100">
+            <ChatCircle size={22} weight="duotone" />
             채팅
           </div>
           <div className="flex items-center gap-1">
@@ -357,9 +357,9 @@ export function ChatPanel({
               onClick={() => setPresenceOpen((v) => !v)}
               aria-expanded={presenceOpen}
               aria-label="접속자 목록"
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
-              <Users size={14} weight="duotone" />
+              <Users size={16} weight="duotone" />
               <span className="tabular-nums">접속 {presence.length}명</span>
               <CaretDown
                 size={12}
@@ -445,7 +445,7 @@ export function ChatPanel({
               type="button"
               onClick={() => setTab(key)}
               aria-current={tab === key}
-              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-semibold transition-colors ${
                 tab === key
                   ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                   : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -456,7 +456,7 @@ export function ChatPanel({
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-rose-500" />
               )}
               {count > 0 && (
-                <span className="rounded-full bg-zinc-200 px-1.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                <span className="rounded-full bg-zinc-200 px-1.5 text-[11px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                   {count}
                 </span>
               )}

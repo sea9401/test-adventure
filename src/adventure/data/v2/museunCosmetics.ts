@@ -92,16 +92,16 @@ export const CHROMA_NAME_IDS = CHROMA_NAME_VARIANTS.map(
 ) as ChromaNameId[];
 
 export const PROFILE_BORDER_VARIANTS = [
-  { id: "prismatic", itemId: "prismatic_profile_border", name: "프리즘" },
-  { id: "infernal", itemId: "infernal_profile_border", name: "업화" },
-  { id: "oceanic", itemId: "oceanic_profile_border", name: "심해" },
-  { id: "verdant", itemId: "verdant_profile_border", name: "세계수" },
-  { id: "celestial", itemId: "celestial_profile_border", name: "천상" },
-  { id: "obsidian", itemId: "obsidian_profile_border", name: "흑요석" },
-  { id: "frozen", itemId: "frozen_profile_border", name: "빙결" },
-  { id: "storm", itemId: "storm_profile_border", name: "폭풍" },
-  { id: "rose", itemId: "rose_profile_border", name: "장미" },
-  { id: "royal", itemId: "royal_profile_border", name: "황실" },
+  { id: "prismatic", itemId: "prismatic_profile_border", name: "프리즘", rarity: "epic" },
+  { id: "infernal", itemId: "infernal_profile_border", name: "업화", rarity: "common" },
+  { id: "oceanic", itemId: "oceanic_profile_border", name: "심해", rarity: "common" },
+  { id: "verdant", itemId: "verdant_profile_border", name: "세계수", rarity: "common" },
+  { id: "celestial", itemId: "celestial_profile_border", name: "천상", rarity: "legendary" },
+  { id: "obsidian", itemId: "obsidian_profile_border", name: "흑요석", rarity: "rare" },
+  { id: "frozen", itemId: "frozen_profile_border", name: "빙결", rarity: "rare" },
+  { id: "storm", itemId: "storm_profile_border", name: "폭풍", rarity: "rare" },
+  { id: "rose", itemId: "rose_profile_border", name: "장미", rarity: "common" },
+  { id: "royal", itemId: "royal_profile_border", name: "황실", rarity: "epic" },
 ] as const;
 
 export type ProfileBorderId = (typeof PROFILE_BORDER_VARIANTS)[number]["id"];
@@ -109,30 +109,46 @@ export type ProfileBorderItemId =
   (typeof PROFILE_BORDER_VARIANTS)[number]["itemId"];
 
 export const CHAT_BADGE_VARIANTS = [
-  { id: "starlight", itemId: "starlight_chat_badge", name: "별빛" },
-  { id: "crown", itemId: "crown_chat_badge", name: "왕관" },
-  { id: "flame", itemId: "flame_chat_badge", name: "불꽃" },
-  { id: "crystal", itemId: "crystal_chat_badge", name: "수정" },
-  { id: "leaf", itemId: "leaf_chat_badge", name: "새싹" },
-  { id: "sword", itemId: "sword_chat_badge", name: "검" },
-  { id: "shield", itemId: "shield_chat_badge", name: "방패" },
-  { id: "trophy", itemId: "trophy_chat_badge", name: "트로피" },
-  { id: "moon", itemId: "moon_chat_badge", name: "달빛" },
-  { id: "sun", itemId: "sun_chat_badge", name: "태양" },
-  { id: "heart", itemId: "heart_chat_badge", name: "하트" },
-  { id: "skull", itemId: "skull_chat_badge", name: "해골" },
-  { id: "lightning", itemId: "lightning_chat_badge", name: "번개" },
-  { id: "snowflake", itemId: "snowflake_chat_badge", name: "눈꽃" },
-  { id: "paw", itemId: "paw_chat_badge", name: "발자국" },
-  { id: "feather", itemId: "feather_chat_badge", name: "깃털" },
-  { id: "anchor", itemId: "anchor_chat_badge", name: "닻" },
-  { id: "music", itemId: "music_chat_badge", name: "음표" },
-  { id: "clover", itemId: "clover_chat_badge", name: "네잎클로버" },
-  { id: "star", itemId: "star_chat_badge", name: "별" },
+  { id: "starlight", itemId: "starlight_chat_badge", name: "별빛", rarity: "legendary" },
+  { id: "crown", itemId: "crown_chat_badge", name: "왕관", rarity: "epic" },
+  { id: "flame", itemId: "flame_chat_badge", name: "불꽃", rarity: "rare" },
+  { id: "crystal", itemId: "crystal_chat_badge", name: "수정", rarity: "rare" },
+  { id: "leaf", itemId: "leaf_chat_badge", name: "새싹", rarity: "common" },
+  { id: "sword", itemId: "sword_chat_badge", name: "검", rarity: "common" },
+  { id: "shield", itemId: "shield_chat_badge", name: "방패", rarity: "common" },
+  { id: "trophy", itemId: "trophy_chat_badge", name: "트로피", rarity: "epic" },
+  { id: "moon", itemId: "moon_chat_badge", name: "달빛", rarity: "rare" },
+  { id: "sun", itemId: "sun_chat_badge", name: "태양", rarity: "rare" },
+  { id: "heart", itemId: "heart_chat_badge", name: "하트", rarity: "common" },
+  { id: "skull", itemId: "skull_chat_badge", name: "해골", rarity: "epic" },
+  { id: "lightning", itemId: "lightning_chat_badge", name: "번개", rarity: "epic" },
+  { id: "snowflake", itemId: "snowflake_chat_badge", name: "눈꽃", rarity: "rare" },
+  { id: "paw", itemId: "paw_chat_badge", name: "발자국", rarity: "common" },
+  { id: "feather", itemId: "feather_chat_badge", name: "깃털", rarity: "common" },
+  { id: "anchor", itemId: "anchor_chat_badge", name: "닻", rarity: "common" },
+  { id: "music", itemId: "music_chat_badge", name: "음표", rarity: "common" },
+  { id: "clover", itemId: "clover_chat_badge", name: "네잎클로버", rarity: "common" },
+  { id: "star", itemId: "star_chat_badge", name: "별", rarity: "common" },
 ] as const;
 
 export type ChatBadgeId = (typeof CHAT_BADGE_VARIANTS)[number]["id"];
 export type ChatBadgeItemId = (typeof CHAT_BADGE_VARIANTS)[number]["itemId"];
+
+export const PROFILE_BORDER_RARITIES = {
+  common: { name: "일반", effect: "단일 테마", weight: 1500 },
+  rare: { name: "희귀", effect: "복합 테마", weight: 900 },
+  epic: { name: "영웅", effect: "환상 테마", weight: 500 },
+  legendary: { name: "전설", effect: "천상 테마", weight: 300 },
+} as const;
+
+export const CHAT_BADGE_RARITIES = {
+  common: { name: "일반", effect: "일반 배지", weight: 700 },
+  rare: { name: "희귀", effect: "희귀 배지", weight: 440 },
+  epic: { name: "영웅", effect: "영웅 배지", weight: 175 },
+  legendary: { name: "전설", effect: "전설 배지", weight: 100 },
+} as const;
+
+export type CosmeticItemRarity = keyof typeof PROFILE_BORDER_RARITIES;
 
 export type MuseunCosmeticAppearance = {
   profileBorder: ProfileBorderId | null;
@@ -278,6 +294,108 @@ export function isProfileBorderItemId(
 
 export function isChatBadgeItemId(value: unknown): value is ChatBadgeItemId {
   return CHAT_BADGE_VARIANTS.some((variant) => variant.itemId === value);
+}
+
+export function unownedProfileBorders(value: unknown): ProfileBorderItemId[] {
+  const owned = new Set(parseMuseunCosmetics(value).owned);
+  return PROFILE_BORDER_VARIANTS.filter(
+    (variant) => !owned.has(variant.itemId),
+  ).map((variant) => variant.itemId);
+}
+
+export function unownedChatBadges(value: unknown): ChatBadgeItemId[] {
+  const owned = new Set(parseMuseunCosmetics(value).owned);
+  return CHAT_BADGE_VARIANTS.filter(
+    (variant) => !owned.has(variant.itemId),
+  ).map((variant) => variant.itemId);
+}
+
+function weightedItemOdds<T extends string>(
+  available: readonly T[],
+  weightOf: (itemId: T) => number,
+): Array<{ itemId: T; probabilityPct: number }> {
+  const totalWeight = available.reduce(
+    (sum, itemId) => sum + weightOf(itemId),
+    0,
+  );
+  if (totalWeight === 0) return [];
+  return available.map((itemId) => ({
+    itemId,
+    probabilityPct: (weightOf(itemId) / totalWeight) * 100,
+  }));
+}
+
+function drawWeightedItem<T extends string>(
+  available: readonly T[],
+  weightOf: (itemId: T) => number,
+  roll: number,
+): T | null {
+  const totalWeight = available.reduce(
+    (sum, itemId) => sum + weightOf(itemId),
+    0,
+  );
+  if (totalWeight === 0) return null;
+  let cursor = Math.max(0, Math.min(totalWeight - 1, Math.floor(roll)));
+  for (const itemId of available) {
+    const weight = weightOf(itemId);
+    if (cursor < weight) return itemId;
+    cursor -= weight;
+  }
+  return available.at(-1) ?? null;
+}
+
+export function profileBorderWeight(itemId: ProfileBorderItemId): number {
+  const variant = PROFILE_BORDER_VARIANTS.find(
+    (candidate) => candidate.itemId === itemId,
+  )!;
+  return PROFILE_BORDER_RARITIES[variant.rarity].weight;
+}
+
+export function chatBadgeWeight(itemId: ChatBadgeItemId): number {
+  const variant = CHAT_BADGE_VARIANTS.find(
+    (candidate) => candidate.itemId === itemId,
+  )!;
+  return CHAT_BADGE_RARITIES[variant.rarity].weight;
+}
+
+export function profileBorderOdds(value: unknown) {
+  return weightedItemOdds(unownedProfileBorders(value), profileBorderWeight);
+}
+
+export function chatBadgeOdds(value: unknown) {
+  return weightedItemOdds(unownedChatBadges(value), chatBadgeWeight);
+}
+
+export function profileBorderDrawWeight(value: unknown): number {
+  return unownedProfileBorders(value).reduce(
+    (sum, itemId) => sum + profileBorderWeight(itemId),
+    0,
+  );
+}
+
+export function chatBadgeDrawWeight(value: unknown): number {
+  return unownedChatBadges(value).reduce(
+    (sum, itemId) => sum + chatBadgeWeight(itemId),
+    0,
+  );
+}
+
+export function drawProfileBorderByRoll(
+  value: unknown,
+  roll: number,
+): ProfileBorderItemId | null {
+  return drawWeightedItem(
+    unownedProfileBorders(value),
+    profileBorderWeight,
+    roll,
+  );
+}
+
+export function drawChatBadgeByRoll(
+  value: unknown,
+  roll: number,
+): ChatBadgeItemId | null {
+  return drawWeightedItem(unownedChatBadges(value), chatBadgeWeight, roll);
 }
 
 export function equipProfileBorder(

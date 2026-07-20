@@ -19,11 +19,20 @@ import {
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
+  CHAT_BADGE_VARIANTS,
   CHROMA_NAME_VARIANTS,
+  PROFILE_BORDER_VARIANTS,
+  chatBadgeDrawWeight,
   chromaNameDrawWeight,
+  drawChatBadgeByRoll,
   drawChromaNameByRoll,
+  drawProfileBorderByRoll,
   grantChromaName,
+  profileBorderDrawWeight,
+  unlockMuseunCosmetic,
+  unownedChatBadges,
   unownedChromaNames,
+  unownedProfileBorders,
 } from "@/adventure/data/v2/museunCosmetics";
 
 type CharacterSave = {
@@ -102,6 +111,110 @@ export async function POST(req: Request) {
           cashItems,
           cosmetics,
           chroma,
+          remaining: available.length - 1,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
+  if (item.effect.kind === "profile_border_box") {
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const available = unownedProfileBorders(character.museunCosmetics);
+      if (available.length === 0) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "collection_complete" },
+        };
+      }
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" },
+        };
+      }
+      const cosmeticItemId = drawProfileBorderByRoll(
+        character.museunCosmetics,
+        randomInt(profileBorderDrawWeight(character.museunCosmetics)),
+      )!;
+      const cosmetics = unlockMuseunCosmetic(
+        character.museunCosmetics,
+        cosmeticItemId,
+      ).state;
+      const variant = PROFILE_BORDER_VARIANTS.find(
+        (candidate) => candidate.itemId === cosmeticItemId,
+      )!;
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        museunCosmetics: cosmetics,
+      });
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          cosmetics,
+          cosmetic: { ...variant, slot: "profile_border" as const },
+          remaining: available.length - 1,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
+  if (item.effect.kind === "chat_badge_box") {
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const available = unownedChatBadges(character.museunCosmetics);
+      if (available.length === 0) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "collection_complete" },
+        };
+      }
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" },
+        };
+      }
+      const cosmeticItemId = drawChatBadgeByRoll(
+        character.museunCosmetics,
+        randomInt(chatBadgeDrawWeight(character.museunCosmetics)),
+      )!;
+      const cosmetics = unlockMuseunCosmetic(
+        character.museunCosmetics,
+        cosmeticItemId,
+      ).state;
+      const variant = CHAT_BADGE_VARIANTS.find(
+        (candidate) => candidate.itemId === cosmeticItemId,
+      )!;
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        museunCosmetics: cosmetics,
+      });
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          cosmetics,
+          cosmetic: { ...variant, slot: "chat_badge" as const },
           remaining: available.length - 1,
         },
       };

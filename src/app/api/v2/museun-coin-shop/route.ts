@@ -10,15 +10,11 @@ import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_COIN_WALLET_KEY,
   addMuseunCashItem,
-  isMuseunCashItemId,
+  isMuseunShopItemId,
   parseMuseunCashItems,
   parseMuseunCoinBalance,
 } from "@/adventure/data/v2/museunCashItems";
-import {
-  isMuseunCosmeticItemId,
-  parseMuseunCosmetics,
-  unlockMuseunCosmetic,
-} from "@/adventure/data/v2/museunCosmetics";
+import { parseMuseunCosmetics } from "@/adventure/data/v2/museunCosmetics";
 
 type CharacterSave = {
   cashItems?: unknown;
@@ -64,7 +60,7 @@ export async function POST(req: Request) {
   } catch {
     return bad("invalid_json");
   }
-  if (!isMuseunCashItemId(body.itemId)) return bad("invalid_item");
+  if (!isMuseunShopItemId(body.itemId)) return bad("invalid_item");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
 
@@ -82,20 +78,6 @@ export async function POST(req: Request) {
       MUSEUN_COIN_WALLET_KEY,
       {},
     );
-    const cosmeticUnlock = isMuseunCosmeticItemId(itemId)
-      ? unlockMuseunCosmetic(character.museunCosmetics, itemId)
-      : null;
-    if (cosmeticUnlock?.alreadyOwned) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "already_owned",
-          coins: parseMuseunCoinBalance(wallet),
-          cosmetics: cosmeticUnlock.state,
-        },
-      };
-    }
     const currentCashItems = parseMuseunCashItems(character.cashItems);
     const coins = parseMuseunCoinBalance(wallet);
     if (coins < item.coinPrice) {
@@ -110,8 +92,7 @@ export async function POST(req: Request) {
       item.delivery === "inventory"
         ? addMuseunCashItem(currentCashItems, itemId, 1)
         : currentCashItems;
-    const cosmetics = cosmeticUnlock?.state ??
-      parseMuseunCosmetics(character.museunCosmetics);
+    const cosmetics = parseMuseunCosmetics(character.museunCosmetics);
     await upsertSave(tx, userId, "character.v2", {
       ...character,
       cashItems,

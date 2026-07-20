@@ -326,6 +326,26 @@ export const MUSEUN_CASH_ITEMS = {
     tradeable: false,
     effect: { kind: "cosmetic", slot: "chat_badge", style: "star" },
   },
+  profile_border_box: {
+    id: "profile_border_box",
+    name: "프로필 테두리 상자",
+    description:
+      "미보유 프로필 테두리 한 종류를 등급별 확률로 획득합니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
+    coinPrice: 400,
+    delivery: "inventory",
+    tradeable: true,
+    effect: { kind: "profile_border_box" },
+  },
+  chat_badge_box: {
+    id: "chat_badge_box",
+    name: "채팅 배지 상자",
+    description:
+      "미보유 채팅 배지 한 종류를 등급별 확률로 획득합니다. 중복은 나오지 않으며, 사용 전에는 거래소에 등록할 수 있습니다.",
+    coinPrice: 300,
+    delivery: "inventory",
+    tradeable: true,
+    effect: { kind: "chat_badge_box" },
+  },
   chroma_name_box: {
     id: "chroma_name_box",
     name: "크로마 닉네임 상자",
@@ -355,6 +375,17 @@ export const MUSEUN_INVENTORY_ITEM_IDS = MUSEUN_CASH_ITEM_IDS.filter(
   (id): id is MuseunInventoryItemId =>
     MUSEUN_CASH_ITEMS[id].delivery === "inventory",
 );
+
+// 상점에서는 사용 가능한 아이템만 직접 판매한다. 영구 꾸미기는 각 전용 상자에서 해금된다.
+export const MUSEUN_SHOP_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS;
+export type MuseunShopItemId = MuseunInventoryItemId;
+
+export function isMuseunShopItemId(value: unknown): value is MuseunShopItemId {
+  return (
+    typeof value === "string" &&
+    (MUSEUN_SHOP_ITEM_IDS as readonly string[]).includes(value)
+  );
+}
 
 export const MUSEUN_TRADEABLE_ITEM_IDS = MUSEUN_INVENTORY_ITEM_IDS.filter(
   (id) => MUSEUN_CASH_ITEMS[id].tradeable === true,

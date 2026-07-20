@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   MUSEUN_CASH_ITEMS,
+  MUSEUN_SHOP_ITEM_IDS,
   addMuseunCashItem,
   isMuseunCashItemId,
   parseMuseunCashItems,
   parseMuseunCoinBalance,
   removeMuseunCashItem,
   isTradeableMuseunCashItemId,
+  isMuseunShopItemId,
 } from "./museunCashItems";
 
 describe("무슨 코인 캐시 소모품", () => {
@@ -31,12 +33,28 @@ describe("무슨 코인 캐시 소모품", () => {
       tradeable: true,
       effect: { kind: "chroma_name_box" },
     });
+    expect(MUSEUN_CASH_ITEMS.profile_border_box).toMatchObject({
+      coinPrice: 400,
+      delivery: "inventory",
+      tradeable: true,
+      effect: { kind: "profile_border_box" },
+    });
+    expect(MUSEUN_CASH_ITEMS.chat_badge_box).toMatchObject({
+      coinPrice: 300,
+      delivery: "inventory",
+      tradeable: true,
+      effect: { kind: "chat_badge_box" },
+    });
   });
 
   it("카탈로그 id만 캐시 아이템으로 인정한다", () => {
     expect(isMuseunCashItemId("rename_permit")).toBe(true);
     expect(isMuseunCashItemId("adventure_support_30d")).toBe(true);
     expect(isMuseunCashItemId("chroma_name_box")).toBe(true);
+    expect(isMuseunShopItemId("profile_border_box")).toBe(true);
+    expect(isMuseunShopItemId("chat_badge_box")).toBe(true);
+    expect(isMuseunShopItemId("prismatic_profile_border")).toBe(false);
+    expect(MUSEUN_SHOP_ITEM_IDS).not.toContain("starlight_chat_badge");
     expect(isMuseunCashItemId("toString")).toBe(false);
     expect(isMuseunCashItemId("unknown")).toBe(false);
   });
@@ -45,6 +63,8 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);
     expect(isTradeableMuseunCashItemId("chroma_name_box")).toBe(true);
+    expect(isTradeableMuseunCashItemId("profile_border_box")).toBe(true);
+    expect(isTradeableMuseunCashItemId("chat_badge_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("prismatic_profile_border")).toBe(
       false,
     );
@@ -52,8 +72,15 @@ describe("무슨 코인 캐시 소모품", () => {
       parseMuseunCashItems({
         rename_permit: 1,
         chroma_name_box: 2,
+        profile_border_box: 1,
+        chat_badge_box: 3,
       }),
-    ).toEqual({ rename_permit: 1, chroma_name_box: 2 });
+    ).toEqual({
+      rename_permit: 1,
+      profile_border_box: 1,
+      chat_badge_box: 3,
+      chroma_name_box: 2,
+    });
     expect(addMuseunCashItem({}, "chroma_name_box", 1)).toEqual({
       chroma_name_box: 1,
     });

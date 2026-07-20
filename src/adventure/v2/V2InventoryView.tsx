@@ -406,6 +406,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             name: string;
             rarity: ChromaNameRarity;
           };
+          cosmetic?: {
+            name: string;
+            rarity: ChromaNameRarity;
+            slot: "profile_border" | "chat_badge";
+          };
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
@@ -413,7 +418,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               data?.error === "not_owned"
                 ? "보유한 아이템이 없습니다"
                 : data?.error === "collection_complete"
-                  ? "모든 크로마 닉네임을 보유하고 있습니다"
+                  ? itemId === "profile_border_box"
+                    ? "모든 프로필 테두리를 보유하고 있습니다"
+                    : itemId === "chat_badge_box"
+                      ? "모든 채팅 배지를 보유하고 있습니다"
+                      : "모든 크로마 닉네임을 보유하고 있습니다"
                   : (data?.error ?? `http ${res.status}`)
             }`,
           );
@@ -425,6 +434,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         notifySystem(
           data.chroma
             ? `✓ [${CHROMA_NAME_RARITIES[data.chroma.rarity].name}] ${data.chroma.name} 닉네임 획득 · 바로 적용했습니다`
+            : data.cosmetic
+              ? `✓ [${CHROMA_NAME_RARITIES[data.cosmetic.rarity].name}] ${data.cosmetic.name} ${data.cosmetic.slot === "profile_border" ? "테두리" : "배지"} 획득 · 바로 적용했습니다`
             : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
         );
       } catch (err) {

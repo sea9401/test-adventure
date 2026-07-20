@@ -48,6 +48,7 @@ import {
   formatAdventureSupportExpiry,
   formatAdventureSupportRemaining,
 } from "./adventureSupportDisplay";
+import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -115,6 +116,7 @@ export function V2CharacterCard({
   // 메인 간략 정보에서 현재 장착 스킬과 일치하는 로드아웃 프리셋 이름.
   activePresetName = null,
   adventureSupport,
+  profileBorder = null,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
@@ -131,6 +133,7 @@ export function V2CharacterCard({
     activeUntil: number | null;
     regenBonusPct: number;
   };
+  profileBorder?: MuseunCosmeticAppearance["profileBorder"];
   equipped?: Partial<Record<V2EquipSlot, string>>;
   owned?: V2EquipInstance[];
 }) {
@@ -180,7 +183,12 @@ export function V2CharacterCard({
 
   return (
     <>
-      <Card padding="md" className="ui-character-card">
+      <Card
+        padding="md"
+        className={`ui-character-card ${
+          profileBorder === "prismatic" ? "ui-profile-frame-prismatic" : ""
+        }`}
+      >
       <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">
         <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
         <div className="min-w-0 flex-1 space-y-2">

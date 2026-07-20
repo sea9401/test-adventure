@@ -19,12 +19,17 @@ import { TITLES } from "@/adventure/data/titles";
 import type { Avatar } from "@/adventure/profile/avatars";
 import { readProfileValue } from "@/adventure/profile/profileValue";
 import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
+import {
+  museunCosmeticAppearance,
+  type MuseunCosmeticAppearance,
+} from "@/adventure/data/v2/museunCosmetics";
 
 export type ResolvedActor = {
   name: string;
   avatar: Avatar;
   className: string;
   title: string | null;
+  cosmetics: MuseunCosmeticAppearance;
 };
 
 const DEFAULT_NAME = "이름 없는 모험가";
@@ -53,7 +58,11 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
   const byKey: Record<string, unknown> = {};
   for (const r of saveRows) byKey[r.key] = r.value;
   const character = byKey["character.v2"] as
-    | { className?: unknown; equippedTitleId?: unknown }
+    | {
+        className?: unknown;
+        equippedTitleId?: unknown;
+        museunCosmetics?: unknown;
+      }
     | undefined;
   const profile = byKey["character-profile.v2"] as
     | { name?: unknown }
@@ -81,5 +90,11 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
       ? TITLES[titleId].name
       : null;
 
-  return { name, avatar, className, title };
+  return {
+    name,
+    avatar,
+    className,
+    title,
+    cosmetics: museunCosmeticAppearance(character?.museunCosmetics),
+  };
 }

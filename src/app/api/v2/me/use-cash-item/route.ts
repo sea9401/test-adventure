@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { randomInt } from "node:crypto";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -17,11 +18,19 @@ import {
   staminaConfigForCharacter,
   staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
+import {
+  CHROMA_NAME_VARIANTS,
+  chromaNameDrawWeight,
+  drawChromaNameByRoll,
+  grantChromaName,
+  unownedChromaNames,
+} from "@/adventure/data/v2/museunCosmetics";
 
 type CharacterSave = {
   cashItems?: unknown;
   adventureSupport?: unknown;
   stamina?: unknown;
+  museunCosmetics?: unknown;
   [key: string]: unknown;
 };
 
@@ -50,6 +59,55 @@ export async function POST(req: Request) {
   if (!isMuseunCashItemId(body.itemId)) return bad("invalid_item");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
+  if (item.effect.kind === "chroma_name_box") {
+    const result = await db.transaction(async (tx) => {
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const available = unownedChromaNames(character.museunCosmetics);
+      if (available.length === 0) {
+        return {
+          status: 409,
+          body: { ok: false as const, error: "collection_complete" },
+        };
+      }
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" },
+        };
+      }
+      const chromaId = drawChromaNameByRoll(
+        character.museunCosmetics,
+        randomInt(chromaNameDrawWeight(character.museunCosmetics)),
+      )!;
+      const cosmetics = grantChromaName(character.museunCosmetics, chromaId);
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        museunCosmetics: cosmetics,
+      });
+      const chroma = CHROMA_NAME_VARIANTS.find(
+        (variant) => variant.id === chromaId,
+      )!;
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          cashItems,
+          cosmetics,
+          chroma,
+          remaining: available.length - 1,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
   if (item.effect.kind !== "adventure_support") {
     return bad("use_elsewhere");
   }

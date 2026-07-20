@@ -11,7 +11,7 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   MUSEUN_CASH_ITEMS,
-  MUSEUN_CASH_ITEM_IDS,
+  MUSEUN_TRADEABLE_ITEM_IDS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
@@ -48,7 +48,7 @@ export function MarketplaceRareMapTab({
   onListConsumable: (iid: string) => void;
   onListCashItem: (itemId: MuseunCashItemId) => void;
 }) {
-  const heldCashItems = MUSEUN_CASH_ITEM_IDS.filter(
+  const heldCashItems = MUSEUN_TRADEABLE_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
   );
   if (rareMaps.length === 0 && heldCashItems.length === 0) {

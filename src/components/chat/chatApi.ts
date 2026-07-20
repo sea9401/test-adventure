@@ -1,10 +1,12 @@
 import type { ChatChannel, ChatMessage } from "../ChatPanel";
+import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 
 export type PresenceUser = {
   name: string;
   className: string;
   title: string | null;
   mine: boolean;
+  cosmetics?: MuseunCosmeticAppearance | null;
 };
 
 // 서버 (api/chat/route.ts) 가 반환하는 에러 문자열 → 사용자용 한글 메시지.

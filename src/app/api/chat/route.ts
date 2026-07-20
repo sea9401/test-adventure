@@ -10,6 +10,7 @@ import {
   CHAT_MAX_LENGTH,
   CHAT_RATE_LIMIT_MS,
 } from "@/lib/chat-config";
+import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
 
 type ChatChannel = "global" | "guild";
 
@@ -60,10 +61,20 @@ export async function GET(req: Request) {
       content: r.content,
       createdAt: r.createdAt.getTime(),
       mine: r.mine === userId,
+      userId: r.mine,
     }))
     .reverse();
 
-  return Response.json(result);
+  const cosmeticByUser = await readMuseunCosmeticAppearanceMap(
+    result.map((message) => message.userId),
+  );
+
+  return Response.json(
+    result.map(({ userId: messageUserId, ...message }) => ({
+      ...message,
+      cosmetics: cosmeticByUser.get(messageUserId) ?? null,
+    })),
+  );
 }
 
 export async function POST(req: Request) {
@@ -92,7 +103,7 @@ export async function POST(req: Request) {
     return new Response(`too long (max ${CHAT_MAX_LENGTH})`, { status: 400 });
   }
 
-  const { name, className, title } = await resolveActor(userId);
+  const { name, className, title, cosmetics } = await resolveActor(userId);
 
   const since = new Date(Date.now() - CHAT_RATE_LIMIT_MS);
   const [lastRow] = await db
@@ -133,6 +144,7 @@ export async function POST(req: Request) {
     name,
     className,
     title,
+    cosmetics,
     content,
     createdAt: inserted.createdAt.getTime(),
     mine: true,

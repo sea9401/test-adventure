@@ -6,6 +6,7 @@ import {
   parseMuseunCashItems,
   parseMuseunCoinBalance,
   removeMuseunCashItem,
+  isTradeableMuseunCashItemId,
 } from "./museunCashItems";
 
 describe("무슨 코인 캐시 소모품", () => {
@@ -18,13 +19,44 @@ describe("무슨 코인 캐시 소모품", () => {
       coinPrice: 800,
       effect: { kind: "adventure_support", days: 30 },
     });
+    expect(MUSEUN_CASH_ITEMS.prismatic_profile_border).toMatchObject({
+      coinPrice: 400,
+      delivery: "entitlement",
+      effect: { kind: "cosmetic", slot: "profile_border" },
+    });
+    expect(MUSEUN_CASH_ITEMS.starlight_chat_badge.coinPrice).toBe(300);
+    expect(MUSEUN_CASH_ITEMS.chroma_name_box).toMatchObject({
+      coinPrice: 300,
+      delivery: "inventory",
+      tradeable: false,
+      effect: { kind: "chroma_name_box" },
+    });
   });
 
   it("카탈로그 id만 캐시 아이템으로 인정한다", () => {
     expect(isMuseunCashItemId("rename_permit")).toBe(true);
     expect(isMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(isMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isMuseunCashItemId("toString")).toBe(false);
     expect(isMuseunCashItemId("unknown")).toBe(false);
+  });
+
+  it("꾸미기 권리는 계정 귀속이고 인벤토리 아이템만 거래 가능하다", () => {
+    expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
+    expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(isTradeableMuseunCashItemId("prismatic_profile_border")).toBe(
+      false,
+    );
+    expect(
+      parseMuseunCashItems({
+        rename_permit: 1,
+        chroma_name_box: 2,
+      }),
+    ).toEqual({ rename_permit: 1, chroma_name_box: 2 });
+    expect(addMuseunCashItem({}, "chroma_name_box", 1)).toEqual({
+      chroma_name_box: 1,
+    });
+    expect(removeMuseunCashItem({}, "prismatic_profile_border", 1)).toBeNull();
   });
 
   it("보유 수량을 양의 정수로 정규화하고 안전하게 가감한다", () => {

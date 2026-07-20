@@ -23,6 +23,13 @@ import {
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  CHROMA_NAME_RARITIES,
+  type ChromaNameId,
+  type ChromaNameRarity,
+  type MuseunCosmeticsState,
+  parseMuseunCosmetics,
+} from "@/adventure/data/v2/museunCosmetics";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
 import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
@@ -105,6 +112,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모/30분 만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
+  const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
+    parseMuseunCosmetics(null),
+  );
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
@@ -114,10 +124,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         ok?: boolean;
         rareMaps?: RareMapInstance[];
         cashItems?: MuseunCashItemCounts;
+        cosmetics?: MuseunCosmeticsState;
       } | null) => {
         if (!alive) return;
         setRareMaps(j?.ok ? (j.rareMaps ?? []) : []);
         setCashItems(j?.ok ? (j.cashItems ?? {}) : {});
+        setCosmetics(parseMuseunCosmetics(j?.cosmetics));
       })
       .catch(() => {
         if (alive) setRareMaps([]);
@@ -386,16 +398,33 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           error?: string;
           cashItems?: MuseunCashItemCounts;
           daysAdded?: number;
+          cosmetics?: MuseunCosmeticsState;
+          chroma?: {
+            id: ChromaNameId;
+            name: string;
+            rarity: ChromaNameRarity;
+          };
         } | null;
         if (!res.ok || !data?.ok) {
           notifySystem(
-            `✗ ${data?.error === "not_owned" ? "보유한 아이템이 없습니다" : (data?.error ?? `http ${res.status}`)}`,
+            `✗ ${
+              data?.error === "not_owned"
+                ? "보유한 아이템이 없습니다"
+                : data?.error === "collection_complete"
+                  ? "모든 크로마 닉네임을 보유하고 있습니다"
+                  : (data?.error ?? `http ${res.status}`)
+            }`,
           );
           return;
         }
         setCashItems(data.cashItems ?? {});
+        setCosmetics(parseMuseunCosmetics(data.cosmetics));
         await refreshGameState();
-        notifySystem(`✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`);
+        notifySystem(
+          data.chroma
+            ? `✓ [${CHROMA_NAME_RARITIES[data.chroma.rarity].name}] ${data.chroma.name} 닉네임 획득 · 바로 적용했습니다`
+            : `✓ 월간 모험 지원권 ${data.daysAdded ?? 30}일 적용`,
+        );
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
@@ -403,6 +432,35 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       }
     },
     [notifySystem, refreshGameState],
+  );
+
+  const equipChromaName = useCallback(
+    async (chromaNameId: ChromaNameId | null) => {
+      setBusy(`chroma_${chromaNameId ?? "off"}`);
+      try {
+        const res = await fetch("/api/v2/me/cosmetics", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chromaNameId }),
+        });
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          cosmetics?: MuseunCosmeticsState;
+        } | null;
+        if (!res.ok || !data?.ok) {
+          notifySystem(`✗ ${data?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        setCosmetics(parseMuseunCosmetics(data.cosmetics));
+        notifySystem(chromaNameId ? "✓ 크로마 닉네임을 변경했습니다" : "✓ 크로마 닉네임을 해제했습니다");
+      } catch (err) {
+        notifySystem(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [notifySystem],
   );
 
   // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
@@ -643,7 +701,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUseMasteryTome={useCoopMasteryTome}
             rareMaps={rareMaps}
             cashItems={cashItems}
+            cosmetics={cosmetics}
             onUseCashItem={useCashItem}
+            onEquipChroma={equipChromaName}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

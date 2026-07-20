@@ -1,10 +1,7 @@
 import { db } from "@/db";
 import { isValidAvatarId, isProfileImageObjectKey } from "@/adventure/profile/avatars";
 import { readProfileValue } from "@/adventure/profile/profileValue";
-import {
-  parseMuseunCashItems,
-  removeMuseunCashItem,
-} from "@/adventure/data/v2/museunCashItems";
+import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { enforceUserAndIpRateLimit } from "@/lib/server/userRateLimit";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
@@ -15,6 +12,17 @@ import {
 } from "@/lib/server/profileImageStorage";
 
 const PERMIT_ID = "profile_image_permit" as const;
+export const GAME_AVATAR_CHANGE_COOLDOWN_MS = 24 * 60 * 60 * 1_000;
+const LAST_GAME_AVATAR_CHANGE_KEY = "lastGameProfileImageChangeAt" as const;
+
+function gameAvatarCooldownUntil(value: unknown, now: number): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const until = Math.floor(value) + GAME_AVATAR_CHANGE_COOLDOWN_MS;
+  // 손상되거나 미래로 밀린 저장값 때문에 영구 잠기지 않도록 정상적인 한 주기만 인정한다.
+  return until > now && until <= now + GAME_AVATAR_CHANGE_COOLDOWN_MS
+    ? until
+    : null;
+}
 
 async function removeStoredProfileImage(value: unknown): Promise<void> {
   if (!isProfileImageObjectKey(value) || !isProfileImageStorageConfigured()) return;
@@ -43,10 +51,14 @@ export async function GET() {
     ok: true,
     avatar: profile.gender,
     permits: cashItems[PERMIT_ID] ?? 0,
+    gameAvatarCooldownUntil: gameAvatarCooldownUntil(
+      character[LAST_GAME_AVATAR_CHANGE_KEY],
+      Date.now(),
+    ),
   });
 }
 
-// 게임 내 이미지를 프로필로 선택한다. 성공한 변경에만 변경권 1개를 소모한다.
+// 게임 내 이미지는 변경권 없이 선택할 수 있으며, 성공한 변경 후 24시간 쿨타임을 적용한다.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -73,6 +85,7 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
+    const now = Date.now();
     const character = await lockSaveForUpdate<Record<string, unknown>>(
       tx,
       userId,
@@ -92,11 +105,26 @@ export async function POST(req: Request) {
     if (profile.gender === avatar) {
       return { status: 409, body: { ok: false as const, error: "unchanged" } };
     }
-    const cashItems = removeMuseunCashItem(character.cashItems, PERMIT_ID, 1);
-    if (!cashItems) {
-      return { status: 409, body: { ok: false as const, error: "permit_not_owned" } };
+    const cooldownUntil = gameAvatarCooldownUntil(
+      character[LAST_GAME_AVATAR_CHANGE_KEY],
+      now,
+    );
+    if (cooldownUntil !== null) {
+      return {
+        status: 429,
+        body: {
+          ok: false as const,
+          error: "game_avatar_cooldown",
+          gameAvatarCooldownUntil: cooldownUntil,
+        },
+      };
     }
-    await upsertSave(tx, userId, "character.v2", { ...character, cashItems });
+    const cashItems = parseMuseunCashItems(character.cashItems);
+    const nextCooldownUntil = now + GAME_AVATAR_CHANGE_COOLDOWN_MS;
+    await upsertSave(tx, userId, "character.v2", {
+      ...character,
+      [LAST_GAME_AVATAR_CHANGE_KEY]: now,
+    });
     await upsertSave(tx, userId, PROFILE_STORAGE_KEY, { ...profile, gender: avatar });
     return {
       status: 200,
@@ -104,6 +132,7 @@ export async function POST(req: Request) {
         ok: true as const,
         avatar,
         permits: cashItems[PERMIT_ID] ?? 0,
+        gameAvatarCooldownUntil: nextCooldownUntil,
       },
       previousAvatar: profile.gender,
     };

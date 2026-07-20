@@ -541,9 +541,9 @@ function CashItemDetailDialog({
             </p>
           ) : itemId === "profile_image_permit" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-              구매 후 가방에서 사용하면 게임에 포함된 캐릭터·NPC·몬스터 이미지 중 하나를
-              고르거나 JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수
-              있습니다. 변경 전에는 거래소에 등록할 수 있습니다.
+              구매 후 JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수
+              있습니다. 게임에 포함된 캐릭터·NPC·몬스터 이미지는 변경권 없이 24시간마다
+              선택할 수 있으며, 변경권은 사용하기 전에 거래소에 등록할 수 있습니다.
             </p>
           ) : itemId === "cosmetic_extension_30d" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">

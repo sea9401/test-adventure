@@ -13,10 +13,12 @@ import { useGameState } from "./GameStateProvider";
 type LoadState = {
   avatar: Avatar;
   permits: number;
+  gameAvatarCooldownUntil: number | null;
 };
 
 const ERROR_TEXT: Record<string, string> = {
-  permit_not_owned: "프로필 이미지 변경권이 필요합니다. 무슨 코인 상점에서 구매해 주세요.",
+  permit_not_owned: "직접 이미지 등록에는 프로필 이미지 변경권이 필요합니다. 무슨 코인 상점에서 구매해 주세요.",
+  game_avatar_cooldown: "게임 내 이미지는 24시간에 한 번 변경할 수 있습니다.",
   unchanged: "현재 사용 중인 이미지입니다.",
   invalid_avatar: "선택할 수 없는 이미지입니다.",
   invalid_file: "등록할 이미지 파일을 선택해 주세요.",
@@ -36,6 +38,7 @@ export function ProfileImagePanel() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   useEffect(() => {
@@ -44,7 +47,13 @@ export function ProfileImagePanel() {
       .then(async (res) => {
         const json = (await res.json()) as LoadState & { ok?: boolean };
         if (!res.ok || !json.ok) throw new Error("load_failed");
-        if (!cancelled) setState({ avatar: json.avatar, permits: json.permits });
+        if (!cancelled) {
+          setState({
+            avatar: json.avatar,
+            permits: json.permits,
+            gameAvatarCooldownUntil: json.gameAvatarCooldownUntil ?? null,
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setNotice({ kind: "error", text: "프로필 정보를 불러오지 못했습니다." });
@@ -52,6 +61,11 @@ export function ProfileImagePanel() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -71,14 +85,37 @@ export function ProfileImagePanel() {
         body: JSON.stringify({ avatar: selected }),
       });
       const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; avatar?: Avatar; permits?: number }
+        | {
+            ok?: boolean;
+            error?: string;
+            avatar?: Avatar;
+            permits?: number;
+            gameAvatarCooldownUntil?: number | null;
+          }
         | null;
       if (!res.ok || !json?.ok || !json.avatar) {
+        if (typeof json?.gameAvatarCooldownUntil === "number") {
+          setState((current) =>
+            current
+              ? {
+                  ...current,
+                  gameAvatarCooldownUntil: json.gameAvatarCooldownUntil ?? null,
+                }
+              : current,
+          );
+        }
         throw new Error(json?.error ?? "change_failed");
       }
-      setState({ avatar: json.avatar, permits: json.permits ?? 0 });
+      setState({
+        avatar: json.avatar,
+        permits: json.permits ?? state?.permits ?? 0,
+        gameAvatarCooldownUntil: json.gameAvatarCooldownUntil ?? null,
+      });
       setSelected(null);
-      setNotice({ kind: "ok", text: "프로필 이미지를 변경했습니다. 변경권 1개가 사용되었습니다." });
+      setNotice({
+        kind: "ok",
+        text: "게임 내 프로필 이미지로 변경했습니다. 24시간 후 다시 변경할 수 있습니다.",
+      });
       await refreshGameState().catch(() => undefined);
     } catch (error) {
       const code = error instanceof Error ? error.message : "change_failed";
@@ -102,7 +139,11 @@ export function ProfileImagePanel() {
       if (!res.ok || !json?.ok || !json.avatar) {
         throw new Error(json?.error ?? "upload_failed");
       }
-      setState({ avatar: json.avatar, permits: json.permits ?? 0 });
+      setState((current) => ({
+        avatar: json.avatar!,
+        permits: json.permits ?? 0,
+        gameAvatarCooldownUntil: current?.gameAvatarCooldownUntil ?? null,
+      }));
       setFile(null);
       setPreviewUrl(null);
       if (inputRef.current) inputRef.current.value = "";
@@ -115,6 +156,19 @@ export function ProfileImagePanel() {
       setBusy(false);
     }
   };
+
+  const gameAvatarCooldownMs = Math.max(
+    0,
+    (state?.gameAvatarCooldownUntil ?? 0) - now,
+  );
+  const gameAvatarCooldownActive = gameAvatarCooldownMs > 0;
+  const cooldownTotalMinutes = Math.ceil(gameAvatarCooldownMs / (60 * 1_000));
+  const cooldownHours = Math.floor(cooldownTotalMinutes / 60);
+  const cooldownMinutes = cooldownTotalMinutes % 60;
+  const gameAvatarCooldownLabel =
+    cooldownHours > 0
+      ? `${cooldownHours}시간${cooldownMinutes > 0 ? ` ${cooldownMinutes}분` : ""}`
+      : `${Math.max(1, cooldownMinutes)}분`;
 
   return (
     <div className="space-y-3">
@@ -132,22 +186,8 @@ export function ProfileImagePanel() {
           <div className="mt-1 flex items-center gap-1 text-sm text-amber-700 dark:text-amber-300">
             <Ticket size={17} weight="duotone" /> 변경권 {state?.permits ?? 0}개
           </div>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">변경이 완료될 때마다 변경권 1개가 사용됩니다.</p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">변경권은 직접 이미지를 등록할 때만 1개가 사용됩니다.</p>
         </div>
-      </Card>
-
-      <Card>
-        <h2 className="font-semibold">게임 내 이미지</h2>
-        <p className="mb-3 mt-1 text-xs text-zinc-500 dark:text-zinc-400">캐릭터·NPC·몬스터 이미지 중에서 선택할 수 있습니다.</p>
-        <AvatarPicker category={category} onCategoryChange={setCategory} selected={selected} onSelect={setSelected} />
-        <button
-          type="button"
-          onClick={() => void applyGameImage()}
-          disabled={busy || !selected || (state?.permits ?? 0) < 1}
-          className="mt-3 w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          {busy ? "변경 중…" : "선택한 이미지로 변경"}
-        </button>
       </Card>
 
       <Card>
@@ -188,6 +228,32 @@ export function ProfileImagePanel() {
           className="mt-3 w-full rounded-md bg-violet-600 px-3 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50"
         >
           {busy ? "등록 중…" : "직접 등록 이미지로 변경"}
+        </button>
+      </Card>
+
+      <Card>
+        <h2 className="font-semibold">게임 내 이미지</h2>
+        <p className="mb-3 mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          변경권 없이 캐릭터·NPC·몬스터 이미지 중에서 선택할 수 있습니다. 변경 후 24시간의
+          대기 시간이 적용됩니다.
+        </p>
+        <AvatarPicker category={category} onCategoryChange={setCategory} selected={selected} onSelect={setSelected} />
+        {gameAvatarCooldownActive ? (
+          <p className="mt-3 text-center text-xs font-medium text-amber-700 dark:text-amber-300">
+            다시 변경할 수 있을 때까지 {gameAvatarCooldownLabel}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void applyGameImage()}
+          disabled={busy || !selected || gameAvatarCooldownActive}
+          className="mt-3 w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {busy
+            ? "변경 중…"
+            : gameAvatarCooldownActive
+              ? `${gameAvatarCooldownLabel} 후 변경 가능`
+              : "선택한 이미지로 변경"}
         </button>
       </Card>
     </div>

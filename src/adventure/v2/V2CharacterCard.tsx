@@ -186,7 +186,9 @@ export function V2CharacterCard({
       <Card
         padding="md"
         className={`ui-character-card ${
-          profileBorder === "prismatic" ? "ui-profile-frame-prismatic" : ""
+          profileBorder
+            ? `ui-profile-frame-cosmetic ui-profile-frame-${profileBorder}`
+            : ""
         }`}
       >
       <div className="flex items-start gap-3 sm:items-stretch sm:gap-4">

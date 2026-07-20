@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
+import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 import {
   RARE_MAP_KINDS,
@@ -21,10 +22,14 @@ import {
 import {
   CHROMA_NAME_RARITIES,
   CHROMA_NAME_VARIANTS,
+  CHAT_BADGE_VARIANTS,
+  PROFILE_BORDER_VARIANTS,
   chromaNameOdds,
+  type ChatBadgeItemId,
   type ChromaNameId,
   type ChromaNameRarity,
   type MuseunCosmeticsState,
+  type ProfileBorderItemId,
 } from "@/adventure/data/v2/museunCosmetics";
 import {
   SP_FRUIT,
@@ -66,6 +71,8 @@ export function RareMapsTab({
   cosmetics,
   onUseCashItem,
   onEquipChroma,
+  onEquipProfileBorder,
+  onEquipChatBadge,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -78,6 +85,8 @@ export function RareMapsTab({
   cosmetics: MuseunCosmeticsState;
   onUseCashItem: (itemId: MuseunCashItemId) => void;
   onEquipChroma: (chromaNameId: ChromaNameId | null) => void;
+  onEquipProfileBorder: (itemId: ProfileBorderItemId | null) => void;
+  onEquipChatBadge: (itemId: ChatBadgeItemId | null) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -92,6 +101,16 @@ export function RareMapsTab({
   );
   return (
     <div className="space-y-4">
+      <ProfileBorderCollectionSection
+        cosmetics={cosmetics}
+        busy={busy}
+        onEquip={onEquipProfileBorder}
+      />
+      <ChatBadgeCollectionSection
+        cosmetics={cosmetics}
+        busy={busy}
+        onEquip={onEquipChatBadge}
+      />
       <ChromaCollectionSection
         cosmetics={cosmetics}
         busy={busy}
@@ -147,6 +166,133 @@ export function RareMapsTab({
           }
         }}
       />
+    </div>
+  );
+}
+
+function ProfileBorderCollectionSection({
+  cosmetics,
+  busy,
+  onEquip,
+}: {
+  cosmetics: MuseunCosmeticsState;
+  busy: string | null;
+  onEquip: (itemId: ProfileBorderItemId | null) => void;
+}) {
+  const owned = PROFILE_BORDER_VARIANTS.filter((variant) =>
+    cosmetics.owned.includes(variant.itemId),
+  );
+  if (owned.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
+        <span>프로필 테두리 컬렉션</span>
+        <span className="font-normal tabular-nums text-zinc-500 dark:text-zinc-400">
+          {owned.length}/{PROFILE_BORDER_VARIANTS.length}
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {owned.map((variant) => {
+          const active = cosmetics.equippedProfileBorder === variant.itemId;
+          return (
+            <div
+              key={variant.itemId}
+              className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${variant.id} flex items-center justify-between gap-3 px-3 py-3`}
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-bold">{variant.name} 테두리</div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  프로필 카드 영구 꾸미기
+                </div>
+              </div>
+              <Button
+                disabled={active || busy !== null}
+                onClick={() => onEquip(variant.itemId)}
+                variant={active ? "secondary" : "info"}
+                size="xs"
+                className="shrink-0"
+              >
+                {active ? "적용 중" : "적용"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      {cosmetics.equippedProfileBorder && (
+        <button
+          type="button"
+          onClick={() => onEquip(null)}
+          disabled={busy !== null}
+          className="mt-2 text-xs text-zinc-500 underline-offset-2 hover:underline disabled:opacity-50 dark:text-zinc-400"
+        >
+          프로필 테두리 해제
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ChatBadgeCollectionSection({
+  cosmetics,
+  busy,
+  onEquip,
+}: {
+  cosmetics: MuseunCosmeticsState;
+  busy: string | null;
+  onEquip: (itemId: ChatBadgeItemId | null) => void;
+}) {
+  const owned = CHAT_BADGE_VARIANTS.filter((variant) =>
+    cosmetics.owned.includes(variant.itemId),
+  );
+  if (owned.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+        <span>채팅 배지 컬렉션</span>
+        <span className="font-normal tabular-nums text-zinc-500 dark:text-zinc-400">
+          {owned.length}/{CHAT_BADGE_VARIANTS.length}
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {owned.map((variant) => {
+          const active = cosmetics.equippedChatBadge === variant.itemId;
+          return (
+            <div
+              key={variant.itemId}
+              className={`${SURFACE_CARD} flex items-center justify-between gap-3 px-3 py-2`}
+            >
+              <div className="flex min-w-0 items-center gap-1.5">
+                <ChatCosmeticBadge badge={variant.id} />
+                <div>
+                  <div className="text-sm font-bold">{variant.name} 배지</div>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    채팅·접속자 목록 영구 꾸미기
+                  </div>
+                </div>
+              </div>
+              <Button
+                disabled={active || busy !== null}
+                onClick={() => onEquip(variant.itemId)}
+                variant={active ? "secondary" : "info"}
+                size="xs"
+                className="shrink-0"
+              >
+                {active ? "적용 중" : "적용"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      {cosmetics.equippedChatBadge && (
+        <button
+          type="button"
+          onClick={() => onEquip(null)}
+          disabled={busy !== null}
+          className="mt-2 text-xs text-zinc-500 underline-offset-2 hover:underline disabled:opacity-50 dark:text-zinc-400"
+        >
+          채팅 배지 해제
+        </button>
+      )}
     </div>
   );
 }

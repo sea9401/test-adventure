@@ -25,9 +25,11 @@ import {
 } from "@/adventure/data/v2/museunCashItems";
 import {
   CHROMA_NAME_RARITIES,
+  type ChatBadgeItemId,
   type ChromaNameId,
   type ChromaNameRarity,
   type MuseunCosmeticsState,
+  type ProfileBorderItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
 import { COOP_MASTERY_TOME_GAIN } from "@/adventure/data/v2/coopRewards";
@@ -434,14 +436,18 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [notifySystem, refreshGameState],
   );
 
-  const equipChromaName = useCallback(
-    async (chromaNameId: ChromaNameId | null) => {
-      setBusy(`chroma_${chromaNameId ?? "off"}`);
+  const equipCosmetic = useCallback(
+    async (
+      slot: "chroma_name" | "profile_border" | "chat_badge",
+      itemId: ChromaNameId | ProfileBorderItemId | ChatBadgeItemId | null,
+      successLabel: string,
+    ) => {
+      setBusy(`${slot}_${itemId ?? "off"}`);
       try {
         const res = await fetch("/api/v2/me/cosmetics", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ chromaNameId }),
+          body: JSON.stringify({ slot, itemId }),
         });
         const data = (await res.json().catch(() => null)) as {
           ok?: boolean;
@@ -453,7 +459,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           return;
         }
         setCosmetics(parseMuseunCosmetics(data.cosmetics));
-        notifySystem(chromaNameId ? "✓ 크로마 닉네임을 변경했습니다" : "✓ 크로마 닉네임을 해제했습니다");
+        notifySystem(`✓ ${successLabel}`);
       } catch (err) {
         notifySystem(`✗ ${(err as Error).message}`);
       } finally {
@@ -461,6 +467,38 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       }
     },
     [notifySystem],
+  );
+
+  const equipChromaName = useCallback(
+    (chromaNameId: ChromaNameId | null) =>
+      equipCosmetic(
+        "chroma_name",
+        chromaNameId,
+        chromaNameId
+          ? "크로마 닉네임을 변경했습니다"
+          : "크로마 닉네임을 해제했습니다",
+      ),
+    [equipCosmetic],
+  );
+
+  const equipProfileBorder = useCallback(
+    (itemId: ProfileBorderItemId | null) =>
+      equipCosmetic(
+        "profile_border",
+        itemId,
+        itemId ? "프로필 테두리를 변경했습니다" : "프로필 테두리를 해제했습니다",
+      ),
+    [equipCosmetic],
+  );
+
+  const equipChatBadge = useCallback(
+    (itemId: ChatBadgeItemId | null) =>
+      equipCosmetic(
+        "chat_badge",
+        itemId,
+        itemId ? "채팅 배지를 변경했습니다" : "채팅 배지를 해제했습니다",
+      ),
+    [equipCosmetic],
   );
 
   // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
@@ -704,6 +742,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             cosmetics={cosmetics}
             onUseCashItem={useCashItem}
             onEquipChroma={equipChromaName}
+            onEquipProfileBorder={equipProfileBorder}
+            onEquipChatBadge={equipChatBadge}
           />
         ) : tab === "material" ? (
           <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />

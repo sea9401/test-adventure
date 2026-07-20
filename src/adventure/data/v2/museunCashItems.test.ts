@@ -28,7 +28,7 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(MUSEUN_CASH_ITEMS.chroma_name_box).toMatchObject({
       coinPrice: 300,
       delivery: "inventory",
-      tradeable: false,
+      tradeable: true,
       effect: { kind: "chroma_name_box" },
     });
   });
@@ -44,6 +44,7 @@ describe("무슨 코인 캐시 소모품", () => {
   it("꾸미기 권리는 계정 귀속이고 인벤토리 아이템만 거래 가능하다", () => {
     expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);
+    expect(isTradeableMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("prismatic_profile_border")).toBe(
       false,
     );

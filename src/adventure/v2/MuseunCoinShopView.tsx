@@ -44,9 +44,11 @@ import {
   chatBadgeOdds,
   chromaNameOdds,
   profileBorderOdds,
+  type ChatBadgeId,
   type ChromaNameRarity,
   type CosmeticItemRarity,
   type MuseunCosmeticsState,
+  type ProfileBorderId,
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
@@ -61,6 +63,27 @@ const COSMETIC_RARITY_BADGE_CLASS: Record<
   legendary:
     "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
 };
+
+export const COSMETIC_RARITY_DISPLAY_ORDER = [
+  "legendary",
+  "epic",
+  "rare",
+  "common",
+] as const satisfies readonly CosmeticItemRarity[];
+
+const COSMETIC_RARITY_DISPLAY_RANK = Object.fromEntries(
+  COSMETIC_RARITY_DISPLAY_ORDER.map((rarity, index) => [rarity, index]),
+) as Record<CosmeticItemRarity, number>;
+
+export function sortCosmeticPreviewEntries<
+  T extends { rarity: CosmeticItemRarity },
+>(entries: readonly T[]): T[] {
+  return [...entries].sort(
+    (left, right) =>
+      COSMETIC_RARITY_DISPLAY_RANK[left.rarity] -
+      COSMETIC_RARITY_DISPLAY_RANK[right.rarity],
+  );
+}
 
 function itemSummary(itemId: MuseunCashItemId): string {
   const item = MUSEUN_CASH_ITEMS[itemId];
@@ -691,6 +714,25 @@ function CosmeticCollectionBoxPreview({
     ? profileBorderOdds(null)
     : chatBadgeOdds(null);
   const itemLabel = isProfileBorder ? "프로필 테두리" : "채팅 배지";
+  const previewEntries = sortCosmeticPreviewEntries(
+    odds.map((entry) => {
+      const variant = variants.find(
+        (candidate) => candidate.itemId === entry.itemId,
+      )!;
+      return {
+        itemId: variant.itemId,
+        style: variant.id,
+        name: variant.name,
+        rarity: variant.rarity,
+        probabilityPct: entry.probabilityPct,
+      };
+    }),
+  );
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const selectedPreview =
+    previewEntries.find((entry) => entry.itemId === selectedItemId) ??
+    previewEntries[0] ??
+    null;
   return (
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
@@ -699,7 +741,7 @@ function CosmeticCollectionBoxPreview({
         적용할 수 있고, 사용 전 상자는 거래소에 등록할 수 있습니다.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {(Object.keys(rarities) as CosmeticItemRarity[]).map((rarity) => {
+        {COSMETIC_RARITY_DISPLAY_ORDER.map((rarity) => {
           const probability = initialOdds
             .filter((entry) =>
               variants.some(
@@ -734,47 +776,141 @@ function CosmeticCollectionBoxPreview({
         다시 계산됩니다.
       </p>
       <div className={`${SURFACE_INSET} p-3`}>
-        <div className="flex items-center justify-between gap-3 text-xs">
-          <span className="font-semibold">현재 획득 확률</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div>
+            <span className="font-semibold">현재 획득 확률</span>
+            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              항목을 누르면 실제 표시 모습을 미리 볼 수 있습니다.
+            </p>
+          </div>
           <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
             보유 {variants.length - odds.length}/{variants.length}
           </span>
         </div>
-        {odds.length > 0 ? (
-          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
-            {odds.map((entry) => {
-              const variant = variants.find(
-                (candidate) => candidate.itemId === entry.itemId,
-              )!;
-              return (
-                <li
-                  key={variant.itemId}
-                  className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs dark:bg-zinc-900"
-                >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span
-                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[variant.rarity]}`}
+        {selectedPreview ? (
+          <>
+            <CosmeticCollectionItemPreview
+              kind={kind}
+              name={selectedPreview.name}
+              rarity={selectedPreview.rarity}
+              probabilityPct={selectedPreview.probabilityPct}
+              style={selectedPreview.style}
+            />
+            <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+              {previewEntries.map((entry) => {
+                const selected = entry.itemId === selectedPreview.itemId;
+                return (
+                  <li key={entry.itemId}>
+                    <button
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setSelectedItemId(entry.itemId)}
+                      className={`${SURFACE_CARD} flex w-full items-center justify-between gap-2 px-2.5 py-2 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${
+                        selected
+                          ? "border-amber-400 ring-1 ring-amber-300 dark:border-amber-600 dark:ring-amber-800"
+                          : "hover:border-amber-300 dark:hover:border-amber-700"
+                      }`}
                     >
-                      {rarities[variant.rarity].name}
-                    </span>
-                    <span className="truncate font-bold">{variant.name}</span>
-                  </span>
-                  <span className="tabular-nums text-zinc-600 dark:text-zinc-300">
-                    {entry.probabilityPct.toLocaleString("ko-KR", {
-                      maximumFractionDigits: 2,
-                    })}
-                    %
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span
+                          className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[entry.rarity]}`}
+                        >
+                          {rarities[entry.rarity].name}
+                        </span>
+                        <span className="truncate font-bold">{entry.name}</span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-300">
+                        {entry.probabilityPct.toLocaleString("ko-KR", {
+                          maximumFractionDigits: 2,
+                        })}
+                        %
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         ) : (
           <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
             모든 {itemLabel}를 보유하고 있습니다.
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function CosmeticCollectionItemPreview({
+  kind,
+  name,
+  rarity,
+  probabilityPct,
+  style,
+}: {
+  kind: "profile_border" | "chat_badge";
+  name: string;
+  rarity: CosmeticItemRarity;
+  probabilityPct: number;
+  style: string;
+}) {
+  const rarityName =
+    kind === "profile_border"
+      ? PROFILE_BORDER_RARITIES[rarity].name
+      : CHAT_BADGE_RARITIES[rarity].name;
+  return (
+    <div className="mt-3" aria-live="polite">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs">
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${COSMETIC_RARITY_BADGE_CLASS[rarity]}`}
+          >
+            {rarityName}
+          </span>
+          <strong className="truncate">{name} 미리보기</strong>
+        </span>
+        <span className="shrink-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          현재 {probabilityPct.toLocaleString("ko-KR", {
+            maximumFractionDigits: 2,
+          })}
+          %
+        </span>
+      </div>
+      {kind === "profile_border" ? (
+        <div
+          className={`${SURFACE_CARD} ui-profile-frame-cosmetic ui-profile-frame-${style as ProfileBorderId} p-4`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-100 text-sm font-black text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+              모
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                프로필 카드
+              </div>
+              <div className="truncate font-bold text-zinc-900 dark:text-zinc-100">
+                별을 걷는 모험가{" "}
+                <span className="text-xs font-normal">Lv.42</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className={`${SURFACE_CARD} p-3`}>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            전체 채팅
+          </div>
+          <div className={`${SURFACE_INSET} mt-2 p-3 text-sm`}>
+            <ChatCosmeticBadge badge={style as ChatBadgeId} />
+            <span className="font-bold text-zinc-800 dark:text-zinc-100">
+              별을 걷는 모험가
+            </span>
+            <span className="ml-2 text-zinc-600 dark:text-zinc-300">
+              오늘도 좋은 모험 되세요!
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  effectBattleLogSide,
   groupBattleLogEntries,
   isEffectBattleLogEntry,
   lastHpBarIndex,
@@ -200,5 +201,45 @@ describe("전투 로그 표시 분류", () => {
         text: "공격! [치명타] 432 피해를 입혔다.",
       }),
     ).toBe(false);
+  });
+
+  it("버프·중독 스택은 사용한 측, 지속 피해는 피해를 받는 측 레인에 둔다", () => {
+    expect(
+      effectBattleLogSide({
+        kind: "info",
+        text: "[망자의 별] 마나 8 환급",
+        turn: "player",
+      }),
+    ).toBe("left");
+    expect(
+      effectBattleLogSide({
+        kind: "info",
+        text: "[독무 + 중독] +3스택 (6회)",
+        turn: "enemy",
+      }),
+    ).toBe("right");
+    expect(
+      effectBattleLogSide({
+        kind: "info",
+        effect: "status_damage",
+        text: "선인이(가) 중독으로 125 피해를 입었다.",
+        turn: "enemy",
+      }),
+    ).toBe("right");
+    expect(
+      effectBattleLogSide({
+        kind: "player_attack",
+        text: "[추가 피해] 80 피해를 입혔다.",
+      }),
+    ).toBe("left");
+  });
+
+  it("예전 지속 피해 로그도 공격 주체의 반대편 피해 레인으로 보정한다", () => {
+    expect(
+      effectBattleLogSide({
+        kind: "enemy_attack",
+        text: "[중독] 125 피해를 입었다.",
+      }),
+    ).toBe("left");
   });
 });

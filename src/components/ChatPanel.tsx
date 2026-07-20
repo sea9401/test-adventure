@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -15,8 +16,13 @@ import {
   CaretDown,
   CaretRight,
   ChatCircle,
+  ChatsCircle,
   GlobeHemisphereWest,
+  LockSimple,
+  Plus,
   ShieldChevron,
+  SignOut,
+  UserPlus,
   Users,
   X,
 } from "@phosphor-icons/react";
@@ -28,13 +34,24 @@ import { ChatComposer } from "./chat/ChatComposer";
 import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import { ChatCosmeticBadge, chatNameClass } from "./chat/ChatCosmetics";
 import { CosmeticAvatar } from "@/components/ui/CosmeticAvatar";
+import { ChatRoomManager } from "./chat/ChatRoomManager";
+import {
+  fetchCustomRoomMessages,
+  fetchJoinedChatRooms,
+  inviteToChatRoom,
+  translateChatRoomError,
+  updateChatRoomMembership,
+  type CustomChatRoom,
+  type CustomChatRoomInvite,
+} from "./chat/chatRoomsApi";
 
-export type ChatChannel = "global" | "guild";
+export type ChatChannel = "global" | "guild" | "room";
 type ChatRoomKey = "chat" | "guild" | "notice";
 
 export type ChatMessage = {
   id: number;
   channel: ChatChannel;
+  roomId?: number | null;
   name: string;
   className: string;
   title: string | null;
@@ -48,8 +65,11 @@ export type ChatMessage = {
 const CHAT_SIZE_KEY = "chat-panel-size.v2";
 const CHAT_MIN_W = 400;
 const CHAT_MIN_H = 420;
+const CUSTOM_ROOM_LIST_POLL_MS = 5000;
+const CUSTOM_ROOM_MESSAGE_POLL_MS = 1500;
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
+const customRoomSeenKey = (roomId: number) => `chat:lastSeenRoom:${roomId}`;
 
 const CHAT_ROOM_LABELS: Record<ChatRoomKey, string> = {
   chat: "전체 채팅방",
@@ -92,43 +112,68 @@ function ChatRoomList({
   onEnter,
 }: {
   rooms: Array<{
-    key: ChatRoomKey;
-    messages: ChatMessage[];
+    id: string;
+    builtin: ChatRoomKey | null;
+    custom: CustomChatRoom | null;
+    label: string;
+    latest: ChatMessage | null;
     unread: boolean;
     available: boolean;
   }>;
-  onEnter: (room: ChatRoomKey) => void;
+  onEnter: (room: {
+    builtin: ChatRoomKey | null;
+    custom: CustomChatRoom | null;
+  }) => void;
 }) {
   return (
     <div className="no-scrollbar flex-1 overflow-y-auto py-2">
       {rooms.map((room) => {
-        const latest = room.messages.at(-1);
+        const latest = room.latest;
         const iconClass = !room.available
           ? "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
-          : room.key === "chat"
+          : room.custom
+            ? "bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
+            : room.builtin === "chat"
             ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
-            : room.key === "guild"
+            : room.builtin === "guild"
               ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
               : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
 
         return (
           <button
-            key={room.key}
+            key={room.id}
             type="button"
             disabled={!room.available}
-            onClick={() => onEnter(room.key)}
+            onClick={() => onEnter(room)}
             className="group flex w-full items-center gap-3 border-b border-zinc-100 px-5 py-4 text-left transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed dark:border-zinc-800 dark:hover:bg-zinc-800"
           >
             <span
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
             >
-              <ChatRoomIcon room={room.key} />
+              {room.custom ? (
+                <ChatsCircle size={22} weight="duotone" />
+              ) : (
+                <ChatRoomIcon room={room.builtin ?? "chat"} />
+              )}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
                 <span className="truncate text-sm font-semibold text-zinc-800 group-disabled:text-zinc-400 dark:text-zinc-100 dark:group-disabled:text-zinc-500">
-                  {CHAT_ROOM_LABELS[room.key]}
+                  {room.label}
                 </span>
+                {room.custom && (
+                  <span
+                    title={room.custom.visibility === "private" ? "비공개" : "공개"}
+                    className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-zinc-400 dark:text-zinc-500"
+                  >
+                    {room.custom.visibility === "private" ? (
+                      <LockSimple size={11} weight="bold" />
+                    ) : (
+                      <GlobeHemisphereWest size={11} weight="bold" />
+                    )}
+                    {room.custom.memberCount}명
+                  </span>
+                )}
                 {room.unread && room.available && (
                   <span
                     aria-label="읽지 않은 메시지"
@@ -140,7 +185,7 @@ function ChatRoomList({
                 {!room.available ? (
                   "길드에 가입하면 이용할 수 있습니다."
                 ) : latest ? (
-                  room.key === "notice" ? (
+                  room.builtin === "notice" ? (
                     latest.content.replace(/\s+/g, " ")
                   ) : (
                     <>
@@ -218,10 +263,99 @@ export function ChatPanel({
   const [error, setError] = useState<string | null>(null);
   // 채팅방 목록에서 방을 선택한 뒤 메시지 화면으로 진입한다.
   const [activeRoom, setActiveRoom] = useState<ChatRoomKey | null>(null);
+  const [activeCustomRoom, setActiveCustomRoom] =
+    useState<CustomChatRoom | null>(null);
+  const [roomManagerOpen, setRoomManagerOpen] = useState(false);
+  const [customRooms, setCustomRooms] = useState<CustomChatRoom[]>([]);
+  const [roomInvites, setRoomInvites] = useState<CustomChatRoomInvite[]>([]);
+  const [customMessages, setCustomMessages] = useState<ChatMessage[]>([]);
+  const [customLastSeen, setCustomLastSeen] = useState<Record<number, number>>({});
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteFeedback, setInviteFeedback] = useState<string | null>(null);
+  const [roomActionBusy, setRoomActionBusy] = useState(false);
   const tab = activeRoom ?? "chat";
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
+
+  const refreshCustomRooms = useCallback(async () => {
+    const result = await fetchJoinedChatRooms();
+    setCustomRooms(result.rooms);
+    setRoomInvites(result.invites);
+    setCustomLastSeen((previous) => {
+      const next = { ...previous };
+      for (const room of result.rooms) {
+        if (next[room.id] != null) continue;
+        const stored = Number(window.localStorage.getItem(customRoomSeenKey(room.id)));
+        const latestId = room.latestMessage?.id ?? 0;
+        next[room.id] = Number.isFinite(stored) && stored > 0 ? stored : latestId;
+        if (!(Number.isFinite(stored) && stored > 0) && latestId > 0) {
+          window.localStorage.setItem(customRoomSeenKey(room.id), String(latestId));
+        }
+      }
+      return next;
+    });
+    setActiveCustomRoom((current) =>
+      current
+        ? (result.rooms.find((room) => room.id === current.id) ?? current)
+        : null,
+    );
+    return result.rooms;
+  }, []);
+
+  const markCustomRoomSeen = useCallback((roomId: number, lastId: number) => {
+    if (lastId <= 0) return;
+    setCustomLastSeen((previous) => {
+      if (lastId <= (previous[roomId] ?? 0)) return previous;
+      window.localStorage.setItem(customRoomSeenKey(roomId), String(lastId));
+      return { ...previous, [roomId]: lastId };
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        if (!cancelled) await refreshCustomRooms();
+      } catch {
+        // 일시적인 네트워크 오류는 다음 폴링에서 재시도한다.
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, CUSTOM_ROOM_LIST_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [open, refreshCustomRooms]);
+
+  useEffect(() => {
+    if (!open || !activeCustomRoom) return;
+    let cancelled = false;
+    const roomId = activeCustomRoom.id;
+    const tick = async () => {
+      try {
+        const next = await fetchCustomRoomMessages(roomId);
+        if (!cancelled) {
+          setCustomMessages(next);
+          markCustomRoomSeen(
+            roomId,
+            next.reduce((latest, message) => Math.max(latest, message.id), 0),
+          );
+        }
+      } catch {
+        // 방을 나갔거나 네트워크가 끊긴 경우 목록 새로고침에서 상태를 복구한다.
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, CUSTOM_ROOM_MESSAGE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [open, activeCustomRoom, markCustomRoomSeen]);
 
   // 데스크톱 채팅창 크기 조절 — 좌상단 모서리 드래그(우하단 고정 패널이라 좌/위로 키운다).
   //   localStorage 영속. 모바일(<sm)은 전체폭이라 미적용. 기본 = 560 × 680.
@@ -305,8 +439,16 @@ export function ChatPanel({
   // 서버 echo 와 임시 메시지가 일시적으로 겹쳐 보이지 않도록, 본인이 보낸
   // 권위적 메시지가 들어오면 같은 content 의 가장 오래된 pending 을 숨긴다.
   const visibleMessagesFor = useMemo(() => {
-    return (baseMessages: ChatMessage[], channel: ChatChannel) => {
-      const channelPending = pending.filter((m) => m.channel === channel);
+    return (
+      baseMessages: ChatMessage[],
+      channel: ChatChannel,
+      roomId?: number,
+    ) => {
+      const channelPending = pending.filter(
+        (message) =>
+          message.channel === channel &&
+          (channel !== "room" || message.roomId === roomId),
+      );
       if (channelPending.length === 0) return baseMessages;
       const remainingPending = [...channelPending];
       for (const m of baseMessages) {
@@ -325,6 +467,13 @@ export function ChatPanel({
     () => visibleMessagesFor(guildMessages, "guild"),
     [guildMessages, visibleMessagesFor],
   );
+  const visibleCustomMessages = useMemo(
+    () =>
+      activeCustomRoom
+        ? visibleMessagesFor(customMessages, "room", activeCustomRoom.id)
+        : [],
+    [activeCustomRoom, customMessages, visibleMessagesFor],
+  );
 
   // 일반 채팅 / 시스템 알림(협동 보스 스폰·토벌 등) 을 className 으로 갈라낸다.
   const chatMessages = useMemo(
@@ -335,8 +484,9 @@ export function ChatPanel({
     () => visibleGlobalMessages.filter((m) => isNoticeMessage(m)),
     [visibleGlobalMessages],
   );
-  const shownMessages =
-    tab === "chat"
+  const shownMessages = activeCustomRoom
+    ? visibleCustomMessages
+    : tab === "chat"
       ? chatMessages
       : tab === "guild"
         ? visibleGuildMessages
@@ -355,27 +505,47 @@ export function ChatPanel({
     () => guildMessages.reduce((mx, m) => (m.id > mx ? m.id : mx), 0),
     [guildMessages],
   );
-
-  const rooms = useMemo(
+  const roomEntries = useMemo(
     () => [
       {
-        key: "chat" as const,
-        messages: chatMessages,
+        id: "chat",
+        builtin: "chat" as const,
+        custom: null,
+        label: CHAT_ROOM_LABELS.chat,
+        latest: chatMessages.at(-1) ?? null,
         unread: unreadChat,
         available: true,
       },
       {
-        key: "guild" as const,
-        messages: visibleGuildMessages,
+        id: "guild",
+        builtin: "guild" as const,
+        custom: null,
+        label: CHAT_ROOM_LABELS.guild,
+        latest: visibleGuildMessages.at(-1) ?? null,
         unread: unreadGuild,
         available: guildAvailable,
       },
       {
-        key: "notice" as const,
-        messages: noticeMessages,
+        id: "notice",
+        builtin: "notice" as const,
+        custom: null,
+        label: CHAT_ROOM_LABELS.notice,
+        latest: noticeMessages.at(-1) ?? null,
         unread: unreadNotice,
         available: true,
       },
+      ...customRooms.map((room) => ({
+        id: `room:${room.id}`,
+        builtin: null,
+        custom: room,
+        label: room.name,
+        latest: room.latestMessage,
+        unread:
+          !!room.latestMessage &&
+          !room.latestMessage.mine &&
+          room.latestMessage.id > (customLastSeen[room.id] ?? 0),
+        available: true,
+      })),
     ],
     [
       chatMessages,
@@ -385,6 +555,8 @@ export function ChatPanel({
       unreadGuild,
       unreadNotice,
       visibleGuildMessages,
+      customRooms,
+      customLastSeen,
     ],
   );
 
@@ -396,25 +568,88 @@ export function ChatPanel({
     if (activeRoom === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
   }, [open, activeRoom, lastChatId, lastGuildId, lastNoticeId, onSeen]);
 
-  const enterRoom = (room: ChatRoomKey) => {
-    if (room === "guild" && !guildAvailable) return;
-    setActiveRoom(room);
+  const enterRoom = (room: {
+    builtin: ChatRoomKey | null;
+    custom: CustomChatRoom | null;
+  }) => {
+    if (room.builtin === "guild" && !guildAvailable) return;
+    setActiveRoom(room.builtin);
+    setActiveCustomRoom(room.custom);
+    setCustomMessages([]);
+    setRoomManagerOpen(false);
     setPresenceOpen(false);
+    setInviteOpen(false);
+    setInviteFeedback(null);
     setDraft("");
     setError(null);
   };
 
+  const enterCustomRoom = (room: CustomChatRoom) =>
+    enterRoom({ builtin: null, custom: room });
+
   const returnToRooms = () => {
     setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setRoomManagerOpen(false);
     setPresenceOpen(false);
+    setInviteOpen(false);
+    setInviteFeedback(null);
     setError(null);
   };
 
   const closePanel = () => {
     setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setRoomManagerOpen(false);
     setPresenceOpen(false);
+    setInviteOpen(false);
+    setInviteName("");
+    setInviteFeedback(null);
     setError(null);
     onClose();
+  };
+
+  const openRoomManager = () => {
+    setRoomManagerOpen(true);
+    setActiveRoom(null);
+    setActiveCustomRoom(null);
+    setPresenceOpen(false);
+    setError(null);
+  };
+
+  const sendRoomInvite = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!activeCustomRoom || !inviteName.trim() || roomActionBusy) return;
+    setRoomActionBusy(true);
+    setInviteFeedback(null);
+    try {
+      const result = await inviteToChatRoom(activeCustomRoom.id, inviteName);
+      setInviteName("");
+      setInviteFeedback(`${result.targetName}님에게 초대장을 보냈습니다.`);
+    } catch (err) {
+      setInviteFeedback(
+        translateChatRoomError(err instanceof Error ? err.message : ""),
+      );
+    } finally {
+      setRoomActionBusy(false);
+    }
+  };
+
+  const leaveCustomRoom = async () => {
+    if (!activeCustomRoom || activeCustomRoom.role === "owner" || roomActionBusy) {
+      return;
+    }
+    if (!window.confirm(`${activeCustomRoom.name} 채팅방에서 나갈까요?`)) return;
+    setRoomActionBusy(true);
+    try {
+      await updateChatRoomMembership(activeCustomRoom.id, "leave");
+      returnToRooms();
+      await refreshCustomRooms();
+    } catch (err) {
+      setError(translateChatRoomError(err instanceof Error ? err.message : ""));
+    } finally {
+      setRoomActionBusy(false);
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -423,9 +658,15 @@ export function ChatPanel({
     if (!trimmed) return;
     // 임시 id 는 음수 — 서버 id (양수) 와 절대 충돌하지 않음.
     const tempId = --tempIdRef.current;
+    const targetChannel: ChatChannel = activeCustomRoom
+      ? "room"
+      : tab === "guild"
+        ? "guild"
+        : "global";
     const temp: ChatMessage = {
       id: tempId,
-      channel: tab === "guild" ? "guild" : "global",
+      channel: targetChannel,
+      roomId: activeCustomRoom?.id ?? null,
       name,
       className,
       title,
@@ -441,14 +682,24 @@ export function ChatPanel({
         name,
         className,
         title,
-        channel: tab === "guild" ? "guild" : "global",
+        channel: targetChannel,
+        roomId: activeCustomRoom?.id ?? null,
         content: trimmed,
       });
       // 서버 응답 도착 — 부모 messages 에 합류. visibleMessages 가 content 매칭으로
       // pending 의 임시 항목을 자동 숨겨주므로 setPending 정리는 다음 폴링 후에 해도 OK.
       // 다만 명시적으로 제거해 메모리/길이 누적을 막는다.
       setPending((prev) => prev.filter((m) => m.id !== tempId));
-      onMessageSent(sent);
+      if (sent.channel === "room") {
+        setCustomMessages((previous) =>
+          previous.some((message) => message.id === sent.id)
+            ? previous
+            : [...previous, sent],
+        );
+        void refreshCustomRooms();
+      } else {
+        onMessageSent(sent);
+      }
     } catch (err) {
       // 실패 — 임시 메시지 회수 + 본문 복원해 재시도 유도.
       setPending((prev) => prev.filter((m) => m.id !== tempId));
@@ -537,7 +788,7 @@ export function ChatPanel({
           </div>
         )}
         <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3.5 dark:border-zinc-700">
-          {activeRoom ? (
+          {activeRoom || activeCustomRoom || roomManagerOpen ? (
             <div className="flex min-w-0 items-center gap-1.5">
               <button
                 type="button"
@@ -547,19 +798,30 @@ export function ChatPanel({
               >
                 <ArrowLeft size={20} weight="bold" />
               </button>
-              <span
-                className={`shrink-0 ${
-                  activeRoom === "chat"
-                    ? "text-blue-600 dark:text-blue-300"
-                    : activeRoom === "guild"
-                      ? "text-emerald-600 dark:text-emerald-300"
-                      : "text-violet-600 dark:text-violet-300"
-                }`}
-              >
-                <ChatRoomIcon room={activeRoom} size={20} />
-              </span>
+              {!roomManagerOpen && (
+                <span
+                  className={`shrink-0 ${
+                    activeCustomRoom
+                      ? "text-amber-600 dark:text-amber-300"
+                      : activeRoom === "chat"
+                        ? "text-blue-600 dark:text-blue-300"
+                        : activeRoom === "guild"
+                          ? "text-emerald-600 dark:text-emerald-300"
+                          : "text-violet-600 dark:text-violet-300"
+                  }`}
+                >
+                  {activeCustomRoom ? (
+                    <ChatsCircle size={20} weight="duotone" />
+                  ) : (
+                    <ChatRoomIcon room={activeRoom ?? "chat"} size={20} />
+                  )}
+                </span>
+              )}
               <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                {CHAT_ROOM_LABELS[activeRoom]}
+                {roomManagerOpen
+                  ? "채팅방 추가"
+                  : activeCustomRoom?.name ??
+                    CHAT_ROOM_LABELS[activeRoom ?? "chat"]}
               </span>
             </div>
           ) : (
@@ -569,21 +831,67 @@ export function ChatPanel({
             </div>
           )}
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setPresenceOpen((v) => !v)}
-              aria-expanded={presenceOpen}
-              aria-label="접속자 목록"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              <Users size={16} weight="duotone" />
-              <span className="tabular-nums">접속 {presence.length}명</span>
-              <CaretDown
-                size={12}
-                weight="bold"
-                className={`transition-transform ${presenceOpen ? "rotate-180" : ""}`}
-              />
-            </button>
+            {!activeCustomRoom && !roomManagerOpen && (
+              <button
+                type="button"
+                onClick={() => setPresenceOpen((v) => !v)}
+                aria-expanded={presenceOpen}
+                aria-label="접속자 목록"
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <Users size={16} weight="duotone" />
+                <span className="hidden tabular-nums sm:inline">
+                  접속 {presence.length}명
+                </span>
+                <span className="tabular-nums sm:hidden">{presence.length}</span>
+                <CaretDown
+                  size={12}
+                  weight="bold"
+                  className={`transition-transform ${presenceOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            )}
+            {!activeRoom && !activeCustomRoom && !roomManagerOpen && (
+              <button
+                type="button"
+                onClick={openRoomManager}
+                aria-label="채팅방 추가"
+                title="채팅방 추가"
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <Plus size={20} weight="bold" />
+                {roomInvites.length > 0 && (
+                  <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-500" />
+                )}
+              </button>
+            )}
+            {activeCustomRoom?.role === "owner" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteOpen((value) => !value);
+                  setInviteFeedback(null);
+                }}
+                aria-expanded={inviteOpen}
+                aria-label="사용자 초대"
+                title="사용자 초대"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <UserPlus size={19} weight="duotone" />
+              </button>
+            )}
+            {activeCustomRoom?.role === "member" && (
+              <button
+                type="button"
+                disabled={roomActionBusy}
+                onClick={leaveCustomRoom}
+                aria-label="채팅방 나가기"
+                title="채팅방 나가기"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed dark:text-zinc-300 dark:hover:bg-rose-950 dark:hover:text-rose-300"
+              >
+                <SignOut size={19} weight="duotone" />
+              </button>
+            )}
             <button
               type="button"
               onClick={closePanel}
@@ -660,11 +968,46 @@ export function ChatPanel({
           </div>
         )}
 
-        {activeRoom ? (
+        {inviteOpen && activeCustomRoom?.role === "owner" && (
+          <form
+            onSubmit={sendRoomInvite}
+            className="border-b border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            <div className="flex items-center gap-2">
+              <input
+                value={inviteName}
+                onChange={(event) => setInviteName(event.target.value)}
+                maxLength={24}
+                placeholder="초대할 캐릭터 이름"
+                className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              />
+              <button
+                type="submit"
+                disabled={!inviteName.trim() || roomActionBusy}
+                className="shrink-0 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:disabled:bg-zinc-700"
+              >
+                초대
+              </button>
+            </div>
+            {inviteFeedback && (
+              <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-300">
+                {inviteFeedback}
+              </div>
+            )}
+          </form>
+        )}
+
+        {roomManagerOpen ? (
+          <ChatRoomManager
+            invites={roomInvites}
+            refreshRooms={refreshCustomRooms}
+            onOpenRoom={enterCustomRoom}
+          />
+        ) : activeRoom || activeCustomRoom ? (
           <>
             <MessageList
               open={open}
-              tab={activeRoom}
+              tab={activeRoom ?? "chat"}
               messages={shownMessages}
               onSelectName={(n) =>
                 router.push(`/profile/${encodeURIComponent(n)}`)
@@ -690,7 +1033,7 @@ export function ChatPanel({
             )}
           </>
         ) : (
-          <ChatRoomList rooms={rooms} onEnter={enterRoom} />
+          <ChatRoomList rooms={roomEntries} onEnter={enterRoom} />
         )}
       </div>
     </div>,

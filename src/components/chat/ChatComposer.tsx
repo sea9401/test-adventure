@@ -16,7 +16,7 @@ export function ChatComposer({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex items-center gap-2 border-t border-zinc-200 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-zinc-800"
+      className="flex items-center gap-2.5 border-t border-zinc-200 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-zinc-800"
     >
       <input
         type="text"
@@ -28,15 +28,15 @@ export function ChatComposer({
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-blue-400"
+        className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-base outline-none transition-colors focus:border-blue-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-blue-400"
       />
       <button
         type="submit"
         disabled={!draft.trim()}
         aria-label="전송"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:disabled:bg-zinc-700"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-zinc-300 dark:disabled:bg-zinc-700"
       >
-        <PaperPlaneTilt size={18} weight="fill" />
+        <PaperPlaneTilt size={20} weight="fill" />
       </button>
     </form>
   );

@@ -54,7 +54,7 @@ export function MessageList({
   return (
     <div
       ref={listRef}
-      className="no-scrollbar flex-1 space-y-1 overflow-y-auto px-3 py-2"
+      className="no-scrollbar flex-1 space-y-1.5 overflow-y-auto px-4 py-3"
     >
       {messages.length === 0 ? (
         <div className="flex h-full items-center justify-center text-sm text-zinc-500 dark:text-zinc-400">
@@ -67,10 +67,10 @@ export function MessageList({
         messages.map((m) => (
           <div
             key={m.id}
-            className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-800 dark:text-zinc-100"
+            className="whitespace-pre-wrap break-words text-[15px] leading-6 text-zinc-800 dark:text-zinc-100"
           >
             {m.title && (
-              <span className="mr-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+              <span className="mr-1 text-[13px] font-medium text-amber-600 dark:text-amber-400">
                 {m.title}
               </span>
             )}
@@ -102,7 +102,7 @@ export function MessageList({
                 </button>
               </>
             )}
-            <span className="mx-1.5 align-baseline text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+            <span className="mx-1.5 align-baseline text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
               {formatRelative(m.createdAt)}
             </span>
             <MessageBody content={m.content} />

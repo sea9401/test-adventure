@@ -263,7 +263,10 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     const s1 = advanceTurnPvP(s0);
     expect(s1.phase).toBe("p2");
     expect(s1.p2.hp).toBe(500 - 20 - Math.floor(5 + 20 * 0.12)); // 출혈 floor(7.4)=7
-    expect(s1.log.some((e) => e.text.includes("출혈"))).toBe(true);
+    expect(s1.log.find((e) => e.text.includes("출혈"))).toMatchObject({
+      effect: "status_damage",
+      side: "p2",
+    });
   });
 
   it("그림자 분신 (shadowClone) — p1 턴 종료 시 분신 추가 데미지", () => {

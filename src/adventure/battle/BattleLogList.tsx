@@ -78,7 +78,14 @@ export function BattleLogList({
     }
     if (entry.kind === "player_attack" || entry.kind === "enemy_attack") {
       if (isEffectBattleLogEntry(entry)) {
-        return <EffectLine key={i} text={entry.text} sizes={s} />;
+        return (
+          <EffectLine
+            key={i}
+            text={entry.text}
+            side={effectBattleLogSide(entry)}
+            sizes={s}
+          />
+        );
       }
       return (
         <AttackBubble
@@ -92,7 +99,14 @@ export function BattleLogList({
     const side =
       entry.turn === "enemy" ? "right" : entry.turn === "player" ? "left" : null;
     if (isEffectBattleLogEntry(entry)) {
-      return <EffectLine key={i} text={entry.text} sizes={s} />;
+      return (
+        <EffectLine
+          key={i}
+          text={entry.text}
+          side={effectBattleLogSide(entry)}
+          sizes={s}
+        />
+      );
     }
     return <InfoLine key={i} text={entry.text} side={side} sizes={s} />;
   };
@@ -122,13 +136,36 @@ export function BattleLogList({
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
-// 로그 항목이 어느 쪽(player/enemy) 턴인지. 공격은 kind 로, info/페이즈는 turn 필드로.
-// hp_bar 등 턴 정보 없는 항목은 null → 현재 박스에 흡수된다.
+function isReceivedDamageEffect(entry: BattleLogEntry): boolean {
+  return (
+    ("effect" in entry && entry.effect === "status_damage") ||
+    /피해를\s*입(?:었다|는다|고|어)/.test(entry.text)
+  );
+}
+
+// 로그 항목이 실제로 붙을 쪽(player/enemy). 일반 공격·효과는 사용 주체를 따르되,
+// 행동 시작 지속 피해는 피해를 받은 주체를 따른다. hp_bar 등 주체 없는 항목은 null.
 function entryTurnSide(e: BattleLogEntry): "player" | "enemy" | null {
+  if (isReceivedDamageEffect(e)) {
+    if (e.turn) return e.turn;
+    if (e.kind === "player_attack") return "enemy";
+    if (e.kind === "enemy_attack") return "player";
+    return null;
+  }
   if (e.kind === "player_attack") return "player";
   if (e.kind === "enemy_attack") return "enemy";
   if (e.kind === "hp_bar") return null;
   return e.turn ?? null; // info / phase_trigger / turn_marker
+}
+
+// 효과 로그가 붙을 전투 레인. 버프·스택·추가 피해는 사용한 측에, 행동 시작에
+// 발생하는 지속 피해는 피해를 받은(=현재 행동하는) 측에 붙인다. 최신 로그의 turn
+// 메타데이터를 우선하고, 예전 저장 리플레이는 attack kind를 반대로 읽어 보정한다.
+export function effectBattleLogSide(
+  entry: BattleLogEntry,
+): "left" | "right" | null {
+  const source = entryTurnSide(entry);
+  return source === "player" ? "left" : source === "enemy" ? "right" : null;
 }
 
 // 전투 로그를 박스(그룹) 단위로 묶는다.
@@ -390,31 +427,61 @@ function InfoLine({
   );
 }
 
-function EffectLine({ text, sizes }: { text: string; sizes: Sizes }) {
+function EffectLine({
+  text,
+  side,
+  sizes,
+}: {
+  text: string;
+  side: "left" | "right" | null;
+  sizes: Sizes;
+}) {
   const { labels, body } = parseBattleLogText(text);
+  const outerAlign =
+    side === "left"
+      ? "justify-start"
+      : side === "right"
+        ? "justify-end"
+        : "justify-center";
+  const innerAlign =
+    side === "left"
+      ? "justify-start text-left"
+      : side === "right"
+        ? "flex-row-reverse justify-end text-right"
+        : "justify-center text-center";
+  const contentAlign =
+    side === "left"
+      ? "justify-start"
+      : side === "right"
+        ? "justify-end"
+        : "justify-center";
   return (
     <div
-      className={`flex items-start justify-center gap-1.5 px-1 py-0.5 text-center ${sizes.info} text-zinc-600 dark:text-zinc-300`}
+      className={`flex px-1 py-0.5 ${outerAlign} ${sizes.info} text-zinc-600 dark:text-zinc-300`}
     >
-      <span
-        aria-hidden="true"
-        className="mt-px shrink-0 font-bold leading-none text-amber-500 dark:text-amber-400"
-      >
-        ✦
-      </span>
-      <div className="flex flex-wrap items-center justify-center gap-1">
-        {labels.map((label, index) => (
-          <span
-            key={`${label}-${index}`}
-            className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${
-              v2StatusPillColor(label) ??
-              "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-            }`}
-          >
-            {label}
+      <div className={`flex max-w-[85%] items-start gap-1.5 ${innerAlign}`}>
+        <span
+          aria-hidden="true"
+          className="mt-px shrink-0 font-bold leading-none text-amber-500 dark:text-amber-400"
+        >
+          ✦
+        </span>
+        <div className={`flex flex-wrap items-center gap-1 ${contentAlign}`}>
+          {labels.map((label, index) => (
+            <span
+              key={`${label}-${index}`}
+              className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold tracking-wide ${
+                v2StatusPillColor(label) ??
+                "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+              }`}
+            >
+              {label}
+            </span>
+          ))}
+          <span>
+            {emphasizeNumbers(body)}
           </span>
-        ))}
-        <span>{emphasizeNumbers(body)}</span>
+        </div>
       </div>
     </div>
   );

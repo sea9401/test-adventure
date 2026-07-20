@@ -1344,6 +1344,7 @@ export function endAttackerPhase(
             kind: "info",
             effect: "status_damage",
             text: `${defenderBeforeDot.name}이(가) ${v2DotLogCause(tick)} ${tick.damage} 피해를 입었다.`,
+            side: defKey,
           }),
         next.log,
       ),

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildBattleStateFromReplay,
   toReplayPayload,
   toReplayPayloadLite,
   toPvpReplayPayload,
@@ -102,8 +103,46 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(lite.playerMaxHp).toBe(full.playerMaxHp);
     expect(lite.playerMaxMp).toBe(full.playerMaxMp);
     expect(lite.playerMp).toBe(full.playerMp);
+    expect(lite.enemyMaxMp).toBe(full.enemyMaxMp);
+    expect(lite.enemyMp).toBe(full.enemyMp);
     expect(full.log).toHaveLength(10); // full 은 로그 보존
     expect(lite.log).toHaveLength(0); // lite 는 생략
+  });
+
+  it("적 현재 MP/최대 MP를 저장하고 다시보기 상태로 복원한다", () => {
+    const fs = {
+      ...fixture(1),
+      enemyMp: 20,
+      enemyMaxMp: 75,
+    } as BattleState;
+    const payload = toReplayPayload(fs, 200);
+    const restored = buildBattleStateFromReplay(payload, 500, 300);
+
+    expect(payload).toMatchObject({ enemyMp: 20, enemyMaxMp: 75 });
+    expect(restored).toMatchObject({ enemyMp: 20, enemyMaxMp: 75 });
+  });
+
+  it("예전 리플레이는 마지막 hp_bar의 적 MP로 복원한다", () => {
+    const payload = {
+      enemy: { name: "산군", hp: 30_000 },
+      playerMaxHp: 500,
+      playerMaxMp: 100,
+      log: [
+        {
+          kind: "hp_bar" as const,
+          text: "",
+          playerHp: 400,
+          playerMaxHp: 500,
+          enemyHp: 25_000,
+          enemyMaxHp: 30_000,
+          enemyMp: 25,
+          enemyMaxMp: 75,
+        },
+      ],
+    };
+    const restored = buildBattleStateFromReplay(payload, 400, 25_000);
+
+    expect(restored).toMatchObject({ enemyMp: 25, enemyMaxMp: 75 });
   });
 });
 
@@ -184,6 +223,8 @@ describe("toPvpReplayPayload (PvP → 나=p1 관점 ReplayPayload)", () => {
     expect(p.playerMaxHp).toBe(450);
     expect(p.playerMaxMp).toBe(80);
     expect(p.playerMp).toBe(25);
+    expect(p.enemyMaxMp).toBe(100);
+    expect(p.enemyMp).toBe(40);
   });
 
   it("메타 — enemy.hp=상대 maxHp, playerMax*/playerMp=p1 사이드", () => {

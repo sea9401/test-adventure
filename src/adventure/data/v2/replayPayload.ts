@@ -42,6 +42,10 @@ export type ReplayPayload = {
   // 전투 종료 시점 잔여 MP — 마법 스킬 소비 반영. HP 와 마찬가지로 "끝난 상태" 표시.
   // 옛 payload(이전 배포본의 열어 둔 탭)엔 없을 수 있어 optional.
   playerMp?: number;
+  // 전투 종료 시점 적 MP. 예전 저장 리플레이에는 없을 수 있으므로 optional이며,
+  // 복원할 때는 로그의 마지막 HP/MP 스냅샷으로 폴백한다.
+  enemyMp?: number;
+  enemyMaxMp?: number;
   log: BattleLogEntry[];
 };
 
@@ -109,6 +113,8 @@ export function toReplayPayload(
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
+    enemyMp: finalState.enemyMp,
+    enemyMaxMp: finalState.enemyMaxMp,
     log: clampReplayLog(finalState.log, logCap),
   };
 }
@@ -169,6 +175,8 @@ export function toPvpReplayPayloadForSide(
     playerMaxHp: me.maxHp,
     playerMaxMp: me.maxMp,
     playerMp: me.mp,
+    enemyMp: opponent.mp,
+    enemyMaxMp: opponent.maxMp,
     log: clampReplayLog(remapped, logCap),
   };
 }
@@ -197,6 +205,8 @@ export function toReplayPayloadLite(
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
+    enemyMp: finalState.enemyMp,
+    enemyMaxMp: finalState.enemyMaxMp,
     log: [],
   };
 }
@@ -210,6 +220,19 @@ export function buildBattleStateFromReplay(
   playerHp: number,
   enemyHp: number,
 ): BattleState {
+  // 현재 payload 메타를 우선 사용한다. 배포 전에 저장된 리플레이는 적 MP 메타가 없지만
+  // hp_bar에는 스냅샷이 남아 있으므로 마지막 값으로 복구해 0/0 오표시를 피한다.
+  let enemyMp = payload.enemyMp;
+  let enemyMaxMp = payload.enemyMaxMp;
+  if (enemyMp == null || enemyMaxMp == null) {
+    for (let i = payload.log.length - 1; i >= 0; i -= 1) {
+      const entry = payload.log[i];
+      if (entry.kind !== "hp_bar") continue;
+      enemyMp ??= entry.enemyMp;
+      enemyMaxMp ??= entry.enemyMaxMp;
+      if (enemyMp != null && enemyMaxMp != null) break;
+    }
+  }
   return {
     enemy: payload.enemy as Monster,
     enemyHp,
@@ -235,8 +258,8 @@ export function buildBattleStateFromReplay(
     enemyV2Debuffs: {},
     enemyV2Skills: { learned: [], equipped: [] },
     enemyV2SkillCooldowns: {},
-    enemyMp: 0,
-    enemyMaxMp: 0,
+    enemyMp: enemyMp ?? 0,
+    enemyMaxMp: enemyMaxMp ?? 0,
     playerV2Dots: [],
     enemyV2Dots: [],
   };

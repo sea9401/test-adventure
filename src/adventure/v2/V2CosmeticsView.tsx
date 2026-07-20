@@ -42,6 +42,7 @@ import {
   museunCosmeticAccessActive,
   parseMuseunCosmetics,
   profileBorderOdds,
+  sortCosmeticVariantsByRarity,
   type ChatBadgeItemId,
   type ChromaNameId,
   type ChromaNameRarity,
@@ -61,6 +62,12 @@ type CosmeticExtensionTarget = {
   activeUntil: number | null;
 };
 const COSMETIC_EXTENSION_ITEM_ID = "cosmetic_extension_30d" as const;
+const SORTED_PROFILE_BORDER_VARIANTS = sortCosmeticVariantsByRarity(
+  PROFILE_BORDER_VARIANTS,
+);
+const SORTED_CHAT_BADGE_VARIANTS = sortCosmeticVariantsByRarity(
+  CHAT_BADGE_VARIANTS,
+);
 
 const RARITY_TEXT_CLASS: Record<ChromaNameRarity, string> = {
   common: "text-zinc-600 dark:text-zinc-300",
@@ -628,7 +635,7 @@ function BorderCodex({
       title="프로필 테두리 도감"
       description="캐릭터 프로필 카드 바깥쪽에 표시할 테두리입니다."
     >
-      {PROFILE_BORDER_VARIANTS.map((variant) => {
+      {SORTED_PROFILE_BORDER_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
         const accessActive = museunCosmeticAccessActive(
           cosmetics,
@@ -695,7 +702,7 @@ function BadgeCodex({
       title="채팅 배지 도감"
       description="채팅과 접속자 목록에서 닉네임 앞에 표시할 배지입니다."
     >
-      {CHAT_BADGE_VARIANTS.map((variant) => {
+      {SORTED_CHAT_BADGE_VARIANTS.map((variant) => {
         const owned = cosmetics.owned.includes(variant.itemId);
         const accessActive = museunCosmeticAccessActive(
           cosmetics,

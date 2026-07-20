@@ -4,6 +4,7 @@ import {
   CHROMA_NAME_VARIANTS,
   CHAT_BADGE_RARITIES,
   CHAT_BADGE_VARIANTS,
+  COSMETIC_RARITY_DISPLAY_ORDER,
   PROFILE_BORDER_RARITIES,
   PROFILE_BORDER_VARIANTS,
   chatBadgeOdds,
@@ -23,6 +24,8 @@ import {
   museunCosmeticAccessActive,
   parseMuseunCosmetics,
   profileBorderOdds,
+  sortCosmeticVariantsByRarity,
+  type CosmeticItemRarity,
   unlockMuseunCosmetic,
 } from "./museunCosmetics";
 
@@ -107,6 +110,40 @@ describe("무슨 코인 기간제 꾸미기", () => {
     const badges = unlockMuseunCosmetic(borders, "crown_chat_badge").state;
     expect(badges.equippedChatBadge).toBe("crown_chat_badge");
     expect(equipChatBadge(badges, null)?.equippedChatBadge).toBeNull();
+  });
+
+  it("테두리와 배지를 전설부터 일반까지 정렬하고 동급 순서를 유지한다", () => {
+    expect(COSMETIC_RARITY_DISPLAY_ORDER).toEqual([
+      "legendary",
+      "epic",
+      "rare",
+      "common",
+    ]);
+
+    const expectRarityOrder = (
+      variants: readonly { itemId: string; rarity: CosmeticItemRarity }[],
+    ) => {
+      const originalItemIds = variants.map((variant) => variant.itemId);
+      const sorted = sortCosmeticVariantsByRarity(variants);
+      expect([...new Set(sorted.map((variant) => variant.rarity))]).toEqual(
+        COSMETIC_RARITY_DISPLAY_ORDER,
+      );
+      expect(variants.map((variant) => variant.itemId)).toEqual(originalItemIds);
+      for (const rarity of COSMETIC_RARITY_DISPLAY_ORDER) {
+        expect(
+          sorted
+            .filter((variant) => variant.rarity === rarity)
+            .map((variant) => variant.itemId),
+        ).toEqual(
+          variants
+            .filter((variant) => variant.rarity === rarity)
+            .map((variant) => variant.itemId),
+        );
+      }
+    };
+
+    expectRarityOrder(PROFILE_BORDER_VARIANTS);
+    expectRarityOrder(CHAT_BADGE_VARIANTS);
   });
 
   it("테두리 상자는 일반 60%·희귀 27%·영웅 10%·전설 3%로 추첨한다", () => {

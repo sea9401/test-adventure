@@ -39,11 +39,13 @@ import {
   CHROMA_NAME_VARIANTS,
   CHAT_BADGE_RARITIES,
   CHAT_BADGE_VARIANTS,
+  COSMETIC_RARITY_DISPLAY_ORDER,
   PROFILE_BORDER_RARITIES,
   PROFILE_BORDER_VARIANTS,
   chatBadgeOdds,
   chromaNameOdds,
   profileBorderOdds,
+  sortCosmeticVariantsByRarity,
   type ChatBadgeId,
   type ChromaNameRarity,
   type CosmeticItemRarity,
@@ -64,25 +66,12 @@ const COSMETIC_RARITY_BADGE_CLASS: Record<
     "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
 };
 
-export const COSMETIC_RARITY_DISPLAY_ORDER = [
-  "legendary",
-  "epic",
-  "rare",
-  "common",
-] as const satisfies readonly CosmeticItemRarity[];
-
-const COSMETIC_RARITY_DISPLAY_RANK = Object.fromEntries(
-  COSMETIC_RARITY_DISPLAY_ORDER.map((rarity, index) => [rarity, index]),
-) as Record<CosmeticItemRarity, number>;
+export { COSMETIC_RARITY_DISPLAY_ORDER };
 
 export function sortCosmeticPreviewEntries<
   T extends { rarity: CosmeticItemRarity },
 >(entries: readonly T[]): T[] {
-  return [...entries].sort(
-    (left, right) =>
-      COSMETIC_RARITY_DISPLAY_RANK[left.rarity] -
-      COSMETIC_RARITY_DISPLAY_RANK[right.rarity],
-  );
+  return sortCosmeticVariantsByRarity(entries);
 }
 
 function itemSummary(itemId: MuseunCashItemId): string {

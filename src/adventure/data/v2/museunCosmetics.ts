@@ -160,6 +160,28 @@ export const CHAT_BADGE_RARITIES = {
 
 export type CosmeticItemRarity = keyof typeof PROFILE_BORDER_RARITIES;
 
+export const COSMETIC_RARITY_DISPLAY_ORDER = [
+  "legendary",
+  "epic",
+  "rare",
+  "common",
+] as const satisfies readonly CosmeticItemRarity[];
+
+const COSMETIC_RARITY_DISPLAY_RANK = Object.fromEntries(
+  COSMETIC_RARITY_DISPLAY_ORDER.map((rarity, index) => [rarity, index]),
+) as Record<CosmeticItemRarity, number>;
+
+/** 꾸미기 도감·미리보기 공용: 전설 → 영웅 → 희귀 → 일반, 동급은 카탈로그 순서 유지. */
+export function sortCosmeticVariantsByRarity<
+  T extends { rarity: CosmeticItemRarity },
+>(variants: readonly T[]): T[] {
+  return [...variants].sort(
+    (left, right) =>
+      COSMETIC_RARITY_DISPLAY_RANK[left.rarity] -
+      COSMETIC_RARITY_DISPLAY_RANK[right.rarity],
+  );
+}
+
 export type MuseunCosmeticAppearance = {
   profileBorder: ProfileBorderId | null;
   chatBadge: ChatBadgeId | null;

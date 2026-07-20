@@ -5,9 +5,9 @@ import { ArrowLeft, Globe, UsersThree } from "@phosphor-icons/react";
 import {
   BULLETIN_CATEGORIES,
   BULLETIN_CATEGORY_LABELS,
-  BULLETIN_MAX_LENGTH,
   BULLETIN_TITLE_MAX_LENGTH,
   USER_WRITABLE_CATEGORIES,
+  bulletinMaxLength,
   type BulletinCategory,
 } from "@/lib/bulletin-config";
 
@@ -46,11 +46,12 @@ export function ComposePage({
   const [err, setErr] = useState<string | null>(null);
   const trimmed = draft.trim();
   const trimmedTitle = titleDraft.trim();
+  const contentMaxLength = bulletinMaxLength(category);
   const canSubmit =
     trimmedTitle.length > 0 &&
     trimmedTitle.length <= BULLETIN_TITLE_MAX_LENGTH &&
     trimmed.length > 0 &&
-    trimmed.length <= BULLETIN_MAX_LENGTH &&
+    trimmed.length <= contentMaxLength &&
     !submitting;
 
   // 작성 가능 카테고리 — admin 은 전체, 일반 유저는 USER_WRITABLE_CATEGORIES.
@@ -181,7 +182,7 @@ export function ComposePage({
         onChange={(e) => setDraft(e.target.value)}
         rows={14}
         autoFocus
-        maxLength={BULLETIN_MAX_LENGTH + 100}
+        maxLength={contentMaxLength + 100}
         placeholder="게시판에 남길 글을 입력하세요"
         disabled={submitting}
         className="w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
@@ -189,12 +190,12 @@ export function ComposePage({
       <div className="flex items-center justify-between text-xs">
         <span
           className={
-            trimmed.length > BULLETIN_MAX_LENGTH
+            trimmed.length > contentMaxLength
               ? "text-rose-600"
               : "text-zinc-500 dark:text-zinc-400"
           }
         >
-          {trimmed.length} / {BULLETIN_MAX_LENGTH}
+          {trimmed.length} / {contentMaxLength}
         </span>
         {err && <span className="text-rose-600">{err}</span>}
       </div>

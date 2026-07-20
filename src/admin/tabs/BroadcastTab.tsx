@@ -22,7 +22,7 @@ import {
 } from "@/adventure/data/v2/museunCashItems";
 
 // 공지/방송 + 대량 우편.
-//   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 3000자.
+//   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 9000자.
 //   우편: POST /api/admin/mail — 골드 + 재료/장비/소비템/무슨 코인 + 메시지를 발송.
 export function BroadcastTab() {
   const { readOnly, showToast } = useAdmin();

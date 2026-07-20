@@ -262,6 +262,26 @@ describe("직업 킷 — 스킬셋", () => {
     });
   });
 
+  it("광부 계열은 차수별 장착형 채광 패시브를 배운다", () => {
+    expect(skillsForJob("miner")).toEqual(["v2c_miner_veinreading"]);
+    expect(skillsForJob("miningtechnician")).toEqual([
+      "v2c_miningtechnician_toolcare",
+    ]);
+    expect(skillsForJob("masterminer")).toEqual([
+      "v2c_masterminer_recoverystroke",
+    ]);
+    expect(skillsForJob("minemaster")).toEqual([
+      "v2c_minemaster_efficientmining",
+    ]);
+    expect(skillsForJob("legendaryminer")).toEqual([
+      "v2c_legendaryminer_richvein",
+    ]);
+    expect(V2_SKILLS.v2c_miner_veinreading).toMatchObject({
+      category: "passive",
+      passive: { miningFailureReductionPct: 20 },
+    });
+  });
+
   it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {
     // 도적 정체성 — 데미지가 str-atk 가 아니라 행운/민첩 직접 비례(scaling). 원시스탯이 커서 계수 작음.
     const assassin = V2_SKILLS.v2c_assassin_ambush.effects[0];

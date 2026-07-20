@@ -60,6 +60,11 @@ export type V2CommonSkillId =
   | "v2c_masterlumberjack_recoverycut" // 위기 수습 (실패 구제)
   | "v2c_forestmaster_efficientwork" // 능숙한 벌목 (추가 시간 단축)
   | "v2c_legendarylumberjack_bountifulcut" // 전설의 벌목 (추가 원목)
+  | "v2c_miner_veinreading" // 광맥 읽기 (채광 실패율 감소)
+  | "v2c_miningtechnician_toolcare" // 곡괭이 손질 (채광 시간 단축)
+  | "v2c_masterminer_recoverystroke" // 타격 교정 (실패 구제)
+  | "v2c_minemaster_efficientmining" // 능숙한 채광 (추가 시간 단축)
+  | "v2c_legendaryminer_richvein" // 풍부한 광맥 (추가 광석)
   | "v2c_horticulturist_soilreading" // 토양 읽기 (희귀 수확)
   | "v2c_masterfarmer_composting" // 퇴비 배합 (수확량 + 희귀 수확)
   | "v2c_harvestking_abundance" // 풍작 감각 (수확량 + 희귀 수확)
@@ -731,6 +736,38 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "나무를 온전히 쓰러뜨려 성공 시 추가 원목을 얻을 가능성을 만든다.",
     mpCost: 0, cooldown: 0, effects: [], spCost: 1,
     passive: { woodcuttingBonusLogChancePct: 30 },
+  },
+  v2c_miner_veinreading: {
+    id: "v2c_miner_veinreading", name: "광맥 읽기", stat: "vit", category: "passive", tier: 2,
+    description: "광맥의 결이나 균열을 미리 읽어 채광에 실패할 가능성을 낮춘다.",
+    mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 1,
+    passive: { miningFailureReductionPct: 20 },
+  },
+  v2c_miningtechnician_toolcare: {
+    id: "v2c_miningtechnician_toolcare", name: "곡괭이 손질", stat: "dex", category: "passive", tier: 3,
+    description: "곡괭이와 타격 각도를 정교하게 다듬어 채광 시간을 줄인다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { miningDurationReductionPct: 8 },
+  },
+  v2c_masterminer_recoverystroke: {
+    id: "v2c_masterminer_recoverystroke", name: "타격 교정", stat: "str", category: "passive", tier: 3,
+    description: "빗나간 곡괭이질을 바로잡아 실패한 채광을 성공으로 되돌릴 기회를 얻는다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { miningFailureRecoveryPct: 20 },
+  },
+  v2c_minemaster_efficientmining: {
+    id: "v2c_minemaster_efficientmining", name: "능숙한 채광", stat: "dex", category: "passive", tier: 3,
+    description: "불필요한 동작을 없애 채광 시간을 한 번 더 단축한다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { miningDurationReductionPct: 10 },
+  },
+  v2c_legendaryminer_richvein: {
+    id: "v2c_legendaryminer_richvein", name: "풍부한 광맥", stat: "luk", category: "passive", tier: 3,
+    description: "광맥의 핵심을 정확히 캐내 성공 시 추가 광석을 얻을 가능성을 만든다.",
+    mpCost: 0, cooldown: 0, effects: [], spCost: 1,
+    passive: { miningBonusOreChancePct: 30 },
   },
   v2c_horticulturist_soilreading: {
     id: "v2c_horticulturist_soilreading", name: "토양 읽기", stat: "luk", category: "passive", tier: 3,

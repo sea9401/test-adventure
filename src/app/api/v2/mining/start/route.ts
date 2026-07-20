@@ -24,10 +24,14 @@ import {
   type MiningSession,
 } from "@/adventure/v2/miningSession";
 import {
-  miningDurationForLevel,
+  miningDurationWithPassive,
   miningFailureRate,
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
+import {
+  equippedMiningBonuses,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -51,7 +55,7 @@ export async function POST(req: Request) {
   const spotId = body.spotId;
   const nodeId = pickMiningNodeId(spotId);
   const node = MINING_NODES[nodeId];
-  const [charSave, logRaw, guardRaw] = await Promise.all([
+  const [charSave, logRaw, skillsRaw, guardRaw] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(
       db,
       userId,
@@ -59,6 +63,7 @@ export async function POST(req: Request) {
       {},
     ),
     readSave(db, userId, MINING_LOG_KEY, {}),
+    readSave(db, userId, "skills.v2", {}),
     readSave(db, userId, ACTIVITY_GUARD_KEY, {}),
   ]);
   const verificationRequired = activityVerificationGateResponse(
@@ -69,11 +74,15 @@ export async function POST(req: Request) {
 
   const log = parseMiningLog(logRaw);
   const progression = miningProgressionView(log.successes, log.xp);
-  const durationMs = miningDurationForLevel(node.durationMs, progression.level);
-  const failureRate = miningFailureRate(
-    node.baseFailureRate,
+  const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
+  const durationMs = miningDurationWithPassive(
+    node.durationMs,
     progression.level,
+    bonuses.durationReductionPct,
   );
+  const failureRate =
+    miningFailureRate(node.baseFailureRate, progression.level) *
+    (1 - bonuses.failureReductionPct / 100);
   const session: MiningSession = createMiningSession({
     sessionId: randomUUID(),
     spotId,
@@ -81,6 +90,8 @@ export async function POST(req: Request) {
     now: Date.now(),
     durationMs,
     failureRate,
+    failureRecoveryRate: bonuses.failureRecoveryPct / 100,
+    bonusOreRate: bonuses.bonusOreChancePct / 100,
   });
 
   await db.transaction(async (tx) => {
@@ -98,6 +109,10 @@ export async function POST(req: Request) {
     durationMs,
     failureRate,
     successRate: 1 - failureRate,
+    failureReductionPct: bonuses.failureReductionPct,
+    durationReductionPct: bonuses.durationReductionPct,
+    failureRecoveryPct: bonuses.failureRecoveryPct,
+    bonusOreChancePct: bonuses.bonusOreChancePct,
     strikes: node.strikes,
     materials: miningMaterialBalances(charSave.materials),
     log,

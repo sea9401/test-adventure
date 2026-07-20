@@ -35,6 +35,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   farmer: ["v2c_farmer_seedselection"], // 농부 — 씨앗 선별
   lumberjack: ["v2c_lumberjack_woodreading"], // 나무꾼 — 나무결 읽기
   foresttechnician: ["v2c_foresttechnician_axecare"], // 산림 기술자 — 도끼날 세우기
+  miner: ["v2c_miner_veinreading"], // 광부 — 광맥 읽기
+  miningtechnician: ["v2c_miningtechnician_toolcare"], // 광산 기술자 — 곡괭이 손질
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 심판(단일+무력) + 기사도(힘10%·방어10%)
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 벽력연권(연격+취약) + 보법 II(회피+12%)
@@ -55,6 +57,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   physicalcoach: ["v2c_physicalcoach_conditioning"], // 피지컬 코치 — 컨디셔닝 프로그램
   horticulturist: ["v2c_horticulturist_soilreading"], // 원예가 — 토양 읽기
   masterlumberjack: ["v2c_masterlumberjack_recoverycut"], // 벌목 명인 — 위기 수습
+  masterminer: ["v2c_masterminer_recoverystroke"], // 채광 명인 — 타격 교정
   // ── 하이브리드(tier 3·전사×마법) ──
   templar: ["v2c_templar_smite", "v2c_templar_aegis"], // 성기사: 심판의 빛(타격+자힐) + 신성한 가호(방어10%·회복강화10%)
   spellblade: ["v2c_spellblade_strike", "v2c_spellblade_unity"], // 마검사: 마검 일섬(검+마법 이중타) + 마검 합일(힘8%·지능8%)
@@ -91,6 +94,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   mastertrainer: ["v2c_mastertrainer_elitetraining"], // 마스터 트레이너 — 엘리트 트레이닝
   masterfarmer: ["v2c_masterfarmer_composting"], // 숙련 농부 — 퇴비 배합
   forestmaster: ["v2c_forestmaster_efficientwork"], // 산림 대가 — 능숙한 벌목
+  minemaster: ["v2c_minemaster_efficientmining"], // 광산 대가 — 능숙한 채광
   crusader: ["v2c_crusader_judgment", "v2c_crusader_oath"], // 성전사: 성전의 심판 + 불굴의 맹세
   runeknight: ["v2c_runeknight_carve", "v2c_runeknight_inscription"], // 룬 기사: 룬 검격 + 룬 각인
   crimsontemplar: ["v2c_crimsontemplar_judgment", "v2c_crimsontemplar_oath"], // 진홍성기사: 진홍 심판(방어비례/회복억제) + 피의 서약
@@ -132,6 +136,7 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   seagod: ["v2c_seagod_deepcurrent"], // 해신 — 심해 해류
   earthartisan: ["v2c_earthartisan_landcare"], // 전설의 농부 — 대지 돌보기
   legendarylumberjack: ["v2c_legendarylumberjack_bountifulcut"], // 전설의 나무꾼 — 전설의 벌목
+  legendaryminer: ["v2c_legendaryminer_richvein"], // 전설의 광부 — 풍부한 광맥
   blooddemon: ["v2c_blooddemon_reign", "v2c_blooddemon_immortalblood"], // 혈마: 혈마군림 + 불사마혈
   absolute: ["v2c_absolute_unity", "v2c_absolute_harmony"], // 절대자: 만상귀일 + 절대 조화
 };

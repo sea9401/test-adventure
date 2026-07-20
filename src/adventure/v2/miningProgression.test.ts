@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   miningDurationForLevel,
+  miningDurationWithPassive,
   miningFailureRate,
   miningLevelForXp,
   miningProgressionView,
@@ -20,6 +21,7 @@ describe("채광 성장", () => {
     expect(miningTimeReduction(1)).toBe(0);
     expect(miningTimeReduction(50)).toBeCloseTo(0.098);
     expect(miningDurationForLevel(10_000, 50)).toBe(9_000);
+    expect(miningDurationWithPassive(10_000, 50, 18)).toBe(7_400);
   });
 
   it("레벨이 실패율을 곱연산으로 낮춘다", () => {

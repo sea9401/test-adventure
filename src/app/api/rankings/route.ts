@@ -302,6 +302,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
       pr.value AS proficiency_save,
       farm.value AS farm_save,
       wood.value AS woodcutting_save,
+      mining.value AS mining_save,
       quests.value AS quests_save,
       equipment_codex.value AS equipment_codex_save,
       fishing_codex.value AS fishing_codex_save,
@@ -310,6 +311,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
         COALESCE(pr.updated_at, u.created_at),
         COALESCE(farm.updated_at, u.created_at),
         COALESCE(wood.updated_at, u.created_at),
+        COALESCE(mining.updated_at, u.created_at),
         COALESCE(quests.updated_at, u.created_at),
         COALESCE(equipment_codex.updated_at, u.created_at),
         COALESCE(fishing_codex.updated_at, u.created_at)
@@ -320,6 +322,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
     LEFT JOIN saves_kv farm ON farm.user_id = u.id AND farm.key = ${FARM_SAVE_KEY}
     LEFT JOIN saves_kv wood ON wood.user_id = u.id AND wood.key = ${WOODCUTTING_LOG_KEY}
+    LEFT JOIN saves_kv mining ON mining.user_id = u.id AND mining.key = ${MINING_LOG_KEY}
     LEFT JOIN saves_kv quests ON quests.user_id = u.id AND quests.key = ${GUIDE_QUESTS_KEY}
     LEFT JOIN saves_kv equipment_codex ON equipment_codex.user_id = u.id AND equipment_codex.key = ${EQUIPMENT_CODEX_KEY}
     LEFT JOIN saves_kv fishing_codex ON fishing_codex.user_id = u.id AND fishing_codex.key = ${FISHING_CODEX_KEY}
@@ -334,6 +337,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
     proficiency_save: unknown;
     farm_save: unknown;
     woodcutting_save: unknown;
+    mining_save: unknown;
     quests_save: unknown;
     equipment_codex_save: unknown;
     fishing_codex_save: unknown;
@@ -346,6 +350,7 @@ async function fetchCodexCompletionRows(): Promise<RankRow[]> {
         proficiencyRaw: r.proficiency_save,
         farmRaw: r.farm_save,
         woodcuttingRaw: r.woodcutting_save,
+        miningRaw: r.mining_save,
         questsRaw: r.quests_save,
         equipmentCodexRaw: r.equipment_codex_save,
         fishingCodexRaw: r.fishing_codex_save,

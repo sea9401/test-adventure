@@ -21,6 +21,8 @@ export type MiningSession = {
   readyAt: number;
   expiresAt: number;
   failureRate?: number;
+  failureRecoveryRate?: number;
+  bonusOreRate?: number;
 };
 
 export type MiningLog = {
@@ -58,6 +60,8 @@ export function createMiningSession(args: {
   now: number;
   durationMs?: number;
   failureRate?: number;
+  failureRecoveryRate?: number;
+  bonusOreRate?: number;
 }): MiningSession {
   const durationMs = Math.max(
     1_000,
@@ -73,6 +77,11 @@ export function createMiningSession(args: {
     failureRate:
       args.failureRate ??
       miningFailureRate(MINING_NODES[args.nodeId].baseFailureRate, 1),
+    failureRecoveryRate: Math.min(
+      1,
+      Math.max(0, Number(args.failureRecoveryRate) || 0),
+    ),
+    bonusOreRate: Math.min(1, Math.max(0, Number(args.bonusOreRate) || 0)),
   };
 }
 
@@ -85,6 +94,8 @@ export function parseMiningSession(raw: unknown): MiningSession | null {
   if (typeof value.readyAt !== "number" || !Number.isFinite(value.readyAt)) return null;
   if (typeof value.expiresAt !== "number" || !Number.isFinite(value.expiresAt)) return null;
   const storedFailureRate = Number(value.failureRate);
+  const storedFailureRecoveryRate = Number(value.failureRecoveryRate);
+  const storedBonusOreRate = Number(value.bonusOreRate);
   return {
     sessionId: value.sessionId,
     spotId: value.spotId,
@@ -93,6 +104,12 @@ export function parseMiningSession(raw: unknown): MiningSession | null {
     expiresAt: value.expiresAt,
     failureRate: Number.isFinite(storedFailureRate)
       ? Math.min(1, Math.max(0, storedFailureRate))
+      : undefined,
+    failureRecoveryRate: Number.isFinite(storedFailureRecoveryRate)
+      ? Math.min(1, Math.max(0, storedFailureRecoveryRate))
+      : undefined,
+    bonusOreRate: Number.isFinite(storedBonusOreRate)
+      ? Math.min(1, Math.max(0, storedBonusOreRate))
       : undefined,
   };
 }

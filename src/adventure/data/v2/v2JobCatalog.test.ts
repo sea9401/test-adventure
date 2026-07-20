@@ -15,12 +15,15 @@ import {
   FARMING_TIER2_UNLOCK_CUMLEVEL,
   WOODCUTTING_TIER2_UNLOCK_CUMLEVEL,
   WOODCUTTING_LEVEL_REQUIREMENTS,
+  MINING_TIER2_UNLOCK_CUMLEVEL,
+  MINING_LEVEL_REQUIREMENTS,
   FARMING_LEVEL_REQUIREMENTS,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_FARMING_LEVEL_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
+  CATALOG_USES_MINING_LEVEL_CONDITION,
   jobIdFromLegacy,
   isJobUnlocked,
   isDirectNextJob,
@@ -32,6 +35,7 @@ import {
   isFarmingJobId,
   isFishingJobId,
   isWoodcuttingJobId,
+  isMiningJobId,
   isLifestyleMasteryJobId,
   type V2JobDefinition,
   type ExtraJobCondition,
@@ -53,7 +57,7 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   martial: ["boxer", "monk"],
   mage: ["caster", "acolyte", "warder"],
   rogue: ["assassin", "archer", "venomist"],
-  survivor: ["camper", "ironman", "fisher", "healthtrainer", "farmer", "lumberjack"],
+  survivor: ["camper", "ironman", "fisher", "healthtrainer", "farmer", "lumberjack", "miner"],
 };
 // 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
 const TIER3_LINEAGE: Record<string, string> = {
@@ -75,6 +79,7 @@ const TIER3_LINEAGE: Record<string, string> = {
   physicalcoach: "healthtrainer",
   horticulturist: "farmer",
   foresttechnician: "lumberjack",
+  miningtechnician: "miner",
 };
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
@@ -99,6 +104,7 @@ const TIER4_LINEAGE: Record<string, string> = {
   mastertrainer: "physicalcoach",
   masterfarmer: "horticulturist",
   masterlumberjack: "foresttechnician",
+  masterminer: "miningtechnician",
   crusader: "templar",
   runeknight: "spellblade",
   crimsontemplar: "bloodtemplar",
@@ -120,6 +126,7 @@ const TIER5_LINEAGE: Record<string, string> = {
   fullcatchking: "masterangler",
   harvestking: "masterfarmer",
   forestmaster: "masterlumberjack",
+  minemaster: "masterminer",
   bloodlord: "crimsontemplar",
   calamitycaller: "archshaman",
 };
@@ -141,6 +148,7 @@ const TIER6_LINEAGE: Record<string, string> = {
   seagod: "fullcatchking",
   earthartisan: "harvestking",
   legendarylumberjack: "forestmaster",
+  legendaryminer: "minemaster",
   blooddemon: "bloodlord",
   absolute: "transcendent",
 };
@@ -168,16 +176,16 @@ describe("jobUnlockSpBonus", () => {
 });
 
 describe("v2JobCatalog 구조", () => {
-  it("110개 직업(루트 2 + 기본 4 + 상위 16 + 고차 22 + 심화 27 + 5차 20 + 6차 19)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(110);
+  it("115개 직업(루트 2 + 기본 4 + 상위 17 + 고차 23 + 심화 28 + 5차 21 + 6차 20)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(115);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(2);
     expect(byTier(1)).toBe(4);
-    expect(byTier(2)).toBe(16);
-    expect(byTier(3)).toBe(22);
-    expect(byTier(4)).toBe(27);
-    expect(byTier(5)).toBe(20);
-    expect(byTier(6)).toBe(19);
+    expect(byTier(2)).toBe(17);
+    expect(byTier(3)).toBe(23);
+    expect(byTier(4)).toBe(28);
+    expect(byTier(5)).toBe(21);
+    expect(byTier(6)).toBe(20);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -289,6 +297,8 @@ describe("해금 트리", () => {
               ? FARMING_TIER2_UNLOCK_CUMLEVEL
               : childId === "lumberjack"
                 ? WOODCUTTING_TIER2_UNLOCK_CUMLEVEL
+                : childId === "miner"
+                  ? MINING_TIER2_UNLOCK_CUMLEVEL
                 : TIER2_UNLOCK_CUMLEVEL;
         expect(job.unlock.prereqs).toEqual({ [parent]: required });
       }
@@ -299,7 +309,7 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER3_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(3);
-      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId)) {
+      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId) || isMiningJobId(childId)) {
         expect(job.unlock.prereqs).toEqual({});
         expect(job.unlock.extraConditions).toContainEqual({
           type: "jobUnlocked",
@@ -322,7 +332,7 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(4);
-      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId)) {
+      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId) || isMiningJobId(childId)) {
         expect(job.unlock.prereqs).toEqual({});
         expect(job.unlock.extraConditions).toContainEqual({
           type: "jobUnlocked",
@@ -400,6 +410,42 @@ describe("해금 트리", () => {
     }
   });
 
+  it("광부 계열은 생존자 숙련도 900과 채광 레벨로 차례대로 해금된다", () => {
+    expect(V2_JOB_CATALOG.miner).toMatchObject({
+      name: "광부",
+      tier: 2,
+      unlock: { prereqs: { survivor: 900 } },
+    });
+    for (const [jobId, parentId, level] of [
+      ["miningtechnician", "miner", MINING_LEVEL_REQUIREMENTS.miningtechnician],
+      ["masterminer", "miningtechnician", MINING_LEVEL_REQUIREMENTS.masterminer],
+      ["minemaster", "masterminer", MINING_LEVEL_REQUIREMENTS.minemaster],
+      ["legendaryminer", "minemaster", MINING_LEVEL_REQUIREMENTS.legendaryminer],
+    ] as const) {
+      expect(V2_JOB_CATALOG[jobId].unlock).toEqual({
+        prereqs: {},
+        extraConditions: [
+          { type: "jobUnlocked", jobId: parentId },
+          { type: "miningLevel", min: level },
+        ],
+      });
+      expect(
+        isJobUnlocked(
+          V2_JOB_CATALOG[jobId],
+          profWith({ survivor: MINING_TIER2_UNLOCK_CUMLEVEL }),
+          { miningLevel: level - 1 },
+        ),
+      ).toBe(false);
+      expect(
+        isJobUnlocked(
+          V2_JOB_CATALOG[jobId],
+          profWith({ survivor: MINING_TIER2_UNLOCK_CUMLEVEL }),
+          { miningLevel: level },
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("농부 상위 직업은 숙련도 숫자 없이 선행 직업 해금과 농사 레벨만 요구한다", () => {
     expect(V2_JOB_CATALOG.farmer.unlock.prereqs).toEqual({
       survivor: 900,
@@ -430,7 +476,7 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER5_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(5);
-      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId)) {
+      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId) || isMiningJobId(childId)) {
         expect(job.unlock.prereqs).toEqual({});
         expect(job.unlock.extraConditions).toContainEqual({
           type: "jobUnlocked",
@@ -488,7 +534,7 @@ describe("해금 트리", () => {
     for (const [childId, parent] of Object.entries(TIER6_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(6);
-      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId)) {
+      if (isFarmingJobId(childId) || isWoodcuttingJobId(childId) || isMiningJobId(childId)) {
         expect(job.unlock.prereqs).toEqual({});
         expect(job.unlock.extraConditions).toContainEqual({
           type: "jobUnlocked",
@@ -914,10 +960,11 @@ describe("extraConditions 추가 해금 조건 (#818)", () => {
     expect(isJobUnlocked(job, profWithCaps({ str: 49 }), ctx)).toBe(false);
   });
 
-  it("현 카탈로그는 농부·나무꾼 상위 직업에 생활 레벨 조건을 쓴다", () => {
+  it("현 카탈로그는 농부·나무꾼·광부 상위 직업에 생활 레벨 조건을 쓴다", () => {
     expect(CATALOG_USES_QUEST_CONDITION).toBe(false);
     expect(CATALOG_USES_FARMING_LEVEL_CONDITION).toBe(true);
     expect(CATALOG_USES_WOODCUTTING_LEVEL_CONDITION).toBe(true);
+    expect(CATALOG_USES_MINING_LEVEL_CONDITION).toBe(true);
     for (const job of V2_JOB_LIST) {
       const extra = job.unlock.extraConditions ?? [];
       if (isFarmingJobId(job.id) && job.id !== "farmer") {
@@ -932,6 +979,13 @@ describe("extraConditions 추가 해금 조건 (#818)", () => {
           expect.arrayContaining([
             expect.objectContaining({ type: "jobUnlocked" }),
             expect.objectContaining({ type: "woodcuttingLevel" }),
+          ]),
+        );
+      } else if (isMiningJobId(job.id) && job.id !== "miner") {
+        expect(extra, `${job.id} 는 채광 레벨 조건을 사용`).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ type: "jobUnlocked" }),
+            expect.objectContaining({ type: "miningLevel" }),
           ]),
         );
       } else {
@@ -1097,7 +1151,7 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
 });
 
 describe("생활 직업 숙련도 획득 분기", () => {
-  it("낚시·농부·나무꾼 계열은 생활 루프에서만 직업 숙련도를 얻는다", () => {
+  it("낚시·농부·나무꾼·광부 계열은 생활 루프에서만 직업 숙련도를 얻는다", () => {
     expect(isFishingJobId("fisher")).toBe(true);
     expect(isFishingJobId("angler")).toBe(true);
     expect(isFishingJobId("masterangler")).toBe(true);
@@ -1112,6 +1166,9 @@ describe("생활 직업 숙련도 획득 분기", () => {
     expect(isLifestyleMasteryJobId("farmer")).toBe(true);
     expect(isWoodcuttingJobId("lumberjack")).toBe(true);
     expect(isLifestyleMasteryJobId("lumberjack")).toBe(true);
+    expect(isMiningJobId("miner")).toBe(true);
+    expect(isMiningJobId("legendaryminer")).toBe(true);
+    expect(isLifestyleMasteryJobId("miner")).toBe(true);
     expect(isFishingJobId("healthtrainer")).toBe(false);
     expect(isFarmingJobId("healthtrainer")).toBe(false);
     expect(isLifestyleMasteryJobId("healthtrainer")).toBe(false);

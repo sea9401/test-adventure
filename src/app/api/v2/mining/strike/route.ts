@@ -38,8 +38,21 @@ import {
 } from "@/adventure/v2/miningProgression";
 import { recordLifeGatheringTelemetrySoon } from "@/lib/server/lifeGatheringTelemetry";
 import { consumeGuildDiningEffect } from "@/lib/server/guildDining";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  addCumLevel,
+  addJobCumLevel,
+  parseProficiencyForChar,
+} from "@/adventure/data/v2/proficiency";
+import {
+  V2_JOB_CATALOG,
+  isMiningJobId,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 type CharSave = {
+  class?: unknown;
+  specChoice?: unknown;
   materials?: unknown;
   [key: string]: unknown;
 };
@@ -126,7 +139,12 @@ export async function POST(req: Request) {
     const failureRate =
       session.failureRate ??
       miningFailureRate(node.baseFailureRate, progression.level);
-    if (!miningAttemptSucceeds(failureRate)) {
+    const initiallySucceeded = miningAttemptSucceeds(failureRate);
+    const recovered =
+      !initiallySucceeded &&
+      (session.failureRecoveryRate ?? 0) > 0 &&
+      Math.random() < (session.failureRecoveryRate ?? 0);
+    if (!initiallySucceeded && !recovered) {
       return {
         success: false as const,
         reason: "failed" as const,
@@ -146,8 +164,13 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    const bonusMaterialGained =
+      (session.bonusOreRate ?? 0) > 0 &&
+      Math.random() < (session.bonusOreRate ?? 0)
+        ? 1
+        : 0;
     const byproductDrops = rollMiningByproducts(node);
-    const materialGained = MINING_ORE_REWARD;
+    const materialGained = MINING_ORE_REWARD + bonusMaterialGained;
     const byproductTotal = Object.values(byproductDrops).reduce(
       (sum, count) => sum + (count ?? 0),
       0,
@@ -174,13 +197,35 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, MINING_LOG_KEY, log);
 
+    const playerClass = parseV2Class(charSave.class);
+    const group = tier1ClassOf(playerClass);
+    const jobId = jobIdFromLegacy(
+      playerClass,
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+    );
+    let masteryGained = 0;
+    let masteryAfter: number | null = null;
+    if (group !== "none" && isMiningJobId(jobId)) {
+      let prof = parseProficiencyForChar(
+        await lockSaveForUpdate(tx, userId, "proficiency.v2", {}),
+        charSave,
+      );
+      prof = addCumLevel(prof, group, 1);
+      prof = addJobCumLevel(prof, jobId, 1);
+      masteryGained = 1;
+      masteryAfter = prof.jobCumLevel?.[jobId] ?? 0;
+      await upsertSave(tx, userId, "proficiency.v2", prof);
+    }
+
     return {
       success: true as const,
       node,
       materialId: node.materialId,
       materialName: MINING_MATERIALS[node.materialId].name,
       materialGained,
+      bonusMaterialGained,
       nextActionAt,
+      recovered,
       failureRate,
       byproducts: (
         Object.entries(byproductDrops) as [MiningMaterialId, number][]
@@ -190,6 +235,12 @@ export async function POST(req: Request) {
         amount,
       })),
       xpGained,
+      jobId: isMiningJobId(jobId) ? jobId : null,
+      jobName: isMiningJobId(jobId)
+        ? V2_JOB_CATALOG[jobId]?.name ?? jobId
+        : null,
+      masteryGained,
+      masteryAfter,
       materials: miningMaterialBalances(materials),
       log,
       guardState: guardUpdate.state,

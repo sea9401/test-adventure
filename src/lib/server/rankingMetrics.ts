@@ -87,6 +87,7 @@ export function codexCompletionRankingFromSaves(input: {
   proficiencyRaw?: unknown;
   farmRaw?: unknown;
   woodcuttingRaw?: unknown;
+  miningRaw?: unknown;
   questsRaw?: unknown;
   equipmentCodexRaw?: unknown;
   fishingCodexRaw?: unknown;
@@ -110,6 +111,7 @@ export function codexCompletionRankingFromSaves(input: {
     jobUnlockContextFromSaves({
       farmRaw: input.farmRaw,
       woodcuttingRaw: input.woodcuttingRaw,
+      miningRaw: input.miningRaw,
       completedQuestIds: parseClaimed(input.questsRaw),
     }),
   );

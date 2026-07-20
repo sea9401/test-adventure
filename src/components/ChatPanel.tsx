@@ -10,8 +10,13 @@ import {
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
+  BellRinging,
   CaretDown,
+  CaretRight,
   ChatCircle,
+  GlobeHemisphereWest,
+  ShieldChevron,
   Users,
   X,
 } from "@phosphor-icons/react";
@@ -24,6 +29,7 @@ import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmeti
 import { ChatCosmeticBadge, chatNameClass } from "./chat/ChatCosmetics";
 
 export type ChatChannel = "global" | "guild";
+type ChatRoomKey = "chat" | "guild" | "notice";
 
 export type ChatMessage = {
   id: number;
@@ -43,6 +49,135 @@ const CHAT_MIN_W = 400;
 const CHAT_MIN_H = 420;
 const clampInt = (v: number, min: number, max: number) =>
   Math.round(Math.max(min, Math.min(max, v)));
+
+const CHAT_ROOM_LABELS: Record<ChatRoomKey, string> = {
+  chat: "전체 채팅방",
+  guild: "길드 채팅방",
+  notice: "시스템 알림",
+};
+
+function ChatRoomIcon({ room, size = 22 }: { room: ChatRoomKey; size?: number }) {
+  if (room === "guild") {
+    return <ShieldChevron size={size} weight="duotone" />;
+  }
+  if (room === "notice") {
+    return <BellRinging size={size} weight="duotone" />;
+  }
+  return <GlobeHemisphereWest size={size} weight="duotone" />;
+}
+
+function formatRoomTime(createdAt: number) {
+  const date = new Date(createdAt);
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (sameDay) {
+    return new Intl.DateTimeFormat("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(date);
+  }
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "numeric",
+    day: "numeric",
+  }).format(date);
+}
+
+function ChatRoomList({
+  rooms,
+  onEnter,
+}: {
+  rooms: Array<{
+    key: ChatRoomKey;
+    messages: ChatMessage[];
+    unread: boolean;
+    available: boolean;
+  }>;
+  onEnter: (room: ChatRoomKey) => void;
+}) {
+  return (
+    <div className="no-scrollbar flex-1 overflow-y-auto py-2">
+      {rooms.map((room) => {
+        const latest = room.messages.at(-1);
+        const iconClass = !room.available
+          ? "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
+          : room.key === "chat"
+            ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
+            : room.key === "guild"
+              ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
+              : "bg-violet-50 text-violet-600 dark:bg-violet-950 dark:text-violet-300";
+
+        return (
+          <button
+            key={room.key}
+            type="button"
+            disabled={!room.available}
+            onClick={() => onEnter(room.key)}
+            className="group flex w-full items-center gap-3 border-b border-zinc-100 px-5 py-4 text-left transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed dark:border-zinc-800 dark:hover:bg-zinc-800"
+          >
+            <span
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}
+            >
+              <ChatRoomIcon room={room.key} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-[15px] font-semibold text-zinc-800 group-disabled:text-zinc-400 dark:text-zinc-100 dark:group-disabled:text-zinc-500">
+                  {CHAT_ROOM_LABELS[room.key]}
+                </span>
+                {room.unread && room.available && (
+                  <span
+                    aria-label="읽지 않은 메시지"
+                    className="h-2 w-2 shrink-0 rounded-full bg-rose-500"
+                  />
+                )}
+              </span>
+              <span className="mt-1 block truncate text-sm text-zinc-500 dark:text-zinc-400">
+                {!room.available ? (
+                  "길드에 가입하면 이용할 수 있습니다."
+                ) : latest ? (
+                  room.key === "notice" ? (
+                    latest.content.replace(/\s+/g, " ")
+                  ) : (
+                    <>
+                      <ChatCosmeticBadge badge={latest.cosmetics?.chatBadge} />
+                      <span
+                        className={chatNameClass(
+                          latest.cosmetics?.chatNameEffect,
+                          "font-medium text-zinc-600 dark:text-zinc-300",
+                        )}
+                      >
+                        {latest.name}
+                      </span>
+                      {`: ${latest.content.replace(/\s+/g, " ")}`}
+                    </>
+                  )
+                ) : (
+                  "메시지가 없습니다."
+                )}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2 self-start pt-0.5">
+              {latest && room.available && (
+                <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                  {formatRoomTime(latest.createdAt)}
+                </span>
+              )}
+              <CaretRight
+                size={16}
+                weight="bold"
+                className="mt-0.5 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-disabled:hidden dark:text-zinc-600"
+              />
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function ChatPanel({
   open,
@@ -68,11 +203,11 @@ export function ChatPanel({
   guildMessages: ChatMessage[];
   guildAvailable: boolean;
   onMessageSent: (m: ChatMessage) => void;
-  /** 채팅/알림 탭별 안 읽은 메시지 유무 — 탭에 점 표시. */
+  /** 채팅방별 안 읽은 메시지 유무 — 목록에 점 표시. */
   unreadChat?: boolean;
   unreadGuild?: boolean;
   unreadNotice?: boolean;
-  /** 해당 탭의 최신 메시지를 본 것으로 처리. */
+  /** 해당 채팅방의 최신 메시지를 본 것으로 처리. */
   onSeen?: (kind: "chat" | "guild" | "notice", lastId: number) => void;
 }) {
   const router = useRouter();
@@ -80,8 +215,9 @@ export function ChatPanel({
   const [presenceOpen, setPresenceOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  // 전체 채팅 / 길드 채팅 / 알림(협동 보스 등 시스템 메시지) 탭 분리.
-  const [tab, setTab] = useState<"chat" | "guild" | "notice">("chat");
+  // 채팅방 목록에서 방을 선택한 뒤 메시지 화면으로 진입한다.
+  const [activeRoom, setActiveRoom] = useState<ChatRoomKey | null>(null);
+  const tab = activeRoom ?? "chat";
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
@@ -219,13 +355,66 @@ export function ChatPanel({
     [guildMessages],
   );
 
-  // 패널이 열려 있는 동안 보고 있는 탭의 최신 메시지는 읽은 것으로 보고.
+  const rooms = useMemo(
+    () => [
+      {
+        key: "chat" as const,
+        messages: chatMessages,
+        unread: unreadChat,
+        available: true,
+      },
+      {
+        key: "guild" as const,
+        messages: visibleGuildMessages,
+        unread: unreadGuild,
+        available: guildAvailable,
+      },
+      {
+        key: "notice" as const,
+        messages: noticeMessages,
+        unread: unreadNotice,
+        available: true,
+      },
+    ],
+    [
+      chatMessages,
+      guildAvailable,
+      noticeMessages,
+      unreadChat,
+      unreadGuild,
+      unreadNotice,
+      visibleGuildMessages,
+    ],
+  );
+
+  // 실제로 들어간 채팅방의 최신 메시지만 읽은 것으로 보고한다.
   useEffect(() => {
-    if (!open || !onSeen) return;
-    if (tab === "chat" && lastChatId > 0) onSeen("chat", lastChatId);
-    if (tab === "guild" && lastGuildId > 0) onSeen("guild", lastGuildId);
-    if (tab === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
-  }, [open, tab, lastChatId, lastGuildId, lastNoticeId, onSeen]);
+    if (!open || !activeRoom || !onSeen) return;
+    if (activeRoom === "chat" && lastChatId > 0) onSeen("chat", lastChatId);
+    if (activeRoom === "guild" && lastGuildId > 0) onSeen("guild", lastGuildId);
+    if (activeRoom === "notice" && lastNoticeId > 0) onSeen("notice", lastNoticeId);
+  }, [open, activeRoom, lastChatId, lastGuildId, lastNoticeId, onSeen]);
+
+  const enterRoom = (room: ChatRoomKey) => {
+    if (room === "guild" && !guildAvailable) return;
+    setActiveRoom(room);
+    setPresenceOpen(false);
+    setDraft("");
+    setError(null);
+  };
+
+  const returnToRooms = () => {
+    setActiveRoom(null);
+    setPresenceOpen(false);
+    setError(null);
+  };
+
+  const closePanel = () => {
+    setActiveRoom(null);
+    setPresenceOpen(false);
+    setError(null);
+    onClose();
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,11 +535,38 @@ export function ChatPanel({
             </svg>
           </div>
         )}
-        <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-3.5 dark:border-zinc-700">
-          <div className="flex items-center gap-2 text-base font-semibold text-zinc-800 dark:text-zinc-100">
-            <ChatCircle size={22} weight="duotone" />
-            채팅
-          </div>
+        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3.5 dark:border-zinc-700">
+          {activeRoom ? (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={returnToRooms}
+                aria-label="채팅방 목록으로 돌아가기"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                <ArrowLeft size={20} weight="bold" />
+              </button>
+              <span
+                className={`shrink-0 ${
+                  activeRoom === "chat"
+                    ? "text-blue-600 dark:text-blue-300"
+                    : activeRoom === "guild"
+                      ? "text-emerald-600 dark:text-emerald-300"
+                      : "text-violet-600 dark:text-violet-300"
+                }`}
+              >
+                <ChatRoomIcon room={activeRoom} size={20} />
+              </span>
+              <span className="truncate text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                {CHAT_ROOM_LABELS[activeRoom]}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-1 text-base font-semibold text-zinc-800 dark:text-zinc-100">
+              <ChatCircle size={22} weight="duotone" />
+              채팅
+            </div>
+          )}
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -369,7 +585,7 @@ export function ChatPanel({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={closePanel}
               aria-label="채팅 닫기"
               className="inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
             >
@@ -379,7 +595,7 @@ export function ChatPanel({
         </header>
 
         {presenceOpen && (
-          <div className="ui-dropdown-reveal no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/60">
+          <div className="ui-dropdown-reveal no-scrollbar max-h-40 overflow-y-auto border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900">
             {presence.length === 0 ? (
               <div className="text-xs text-zinc-500 dark:text-zinc-400">
                 접속 중인 유저가 없습니다.
@@ -432,67 +648,37 @@ export function ChatPanel({
           </div>
         )}
 
-        <div className="flex border-b border-zinc-200 dark:border-zinc-700">
-          {(
-            [
-              ["chat", "전체", chatMessages.length, unreadChat],
-              ["guild", "길드", visibleGuildMessages.length, unreadGuild],
-              ["notice", "알림", noticeMessages.length, unreadNotice],
-            ] as const
-          ).map(([key, label, count, unread]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              aria-current={tab === key}
-              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2.5 text-sm font-semibold transition-colors ${
-                tab === key
-                  ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                  : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-              }`}
-            >
-              {label}
-              {unread && tab !== key && (
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-              )}
-              {count > 0 && (
-                <span className="rounded-full bg-zinc-200 px-1.5 text-[11px] tabular-nums text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                  {count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        {activeRoom ? (
+          <>
+            <MessageList
+              open={open}
+              tab={activeRoom}
+              messages={shownMessages}
+              onSelectName={(n) =>
+                router.push(`/profile/${encodeURIComponent(n)}`)
+              }
+            />
 
-        <MessageList
-          open={open}
-          tab={tab}
-          messages={shownMessages}
-          onSelectName={(n) =>
-            router.push(`/profile/${encodeURIComponent(n)}`)
-          }
-        />
+            {error && (
+              <div className="border-t border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300">
+                {error}
+              </div>
+            )}
 
-        {error && (
-          <div className="border-t border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
-            {error}
-          </div>
-        )}
-
-        {tab === "notice" ? (
-          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
-            협동 보스 알림. 공개 채팅은 전체 탭에서 사용할 수 있습니다.
-          </div>
-        ) : tab === "guild" && !guildAvailable ? (
-          <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
-            길드에 가입하면 길드원 채팅을 사용할 수 있습니다.
-          </div>
+            {activeRoom === "notice" ? (
+              <div className="border-t border-zinc-200 px-3 py-2.5 text-center text-xs text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
+                시스템 알림은 읽기 전용입니다.
+              </div>
+            ) : (
+              <ChatComposer
+                draft={draft}
+                onDraftChange={setDraft}
+                onSubmit={submit}
+              />
+            )}
+          </>
         ) : (
-          <ChatComposer
-            draft={draft}
-            onDraftChange={setDraft}
-            onSubmit={submit}
-          />
+          <ChatRoomList rooms={rooms} onEnter={enterRoom} />
         )}
       </div>
     </div>,

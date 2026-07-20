@@ -25,15 +25,15 @@ export function MulttaeBadge({ compact = false }: { compact?: boolean }) {
 
   if (compact) {
     return (
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className="inline-flex shrink-0 items-center gap-1 font-medium">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 sm:flex sm:gap-1.5">
+        <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium">
           <GameIcon name={c.iconName} size={14} />
           {c.label}
         </span>
-        <span className="min-w-0 truncate text-[11px] text-sky-700 dark:text-sky-300">
+        <span className="col-span-2 row-start-2 whitespace-normal text-[11px] leading-tight text-sky-700 sm:col-auto sm:row-auto sm:min-w-0 sm:truncate dark:text-sky-300">
           {special ? `특별한 손님 · ${special.name}` : c.effect.label}
         </span>
-        <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+        <span className="col-start-2 row-start-1 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[10px] text-zinc-500 sm:col-auto sm:row-auto dark:text-zinc-400">
           <GameIcon name={next.condition.iconName} size={12} />
           {fmtRemain(cur.endsAt - now)}
         </span>

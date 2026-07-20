@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { formatRelative } from "@/lib/notifications";
 import type { ChatMessage } from "../ChatPanel";
 import { MessageBody } from "./MessageBody";
+import { ChatCosmeticBadge, chatNameClass } from "./ChatCosmetics";
 
 // 스크롤 가능한 메시지 리스트 — 채팅/길드/알림 탭의 메시지를 렌더하고 자동 스크롤을 처리.
 export function MessageList({
@@ -74,18 +75,32 @@ export function MessageList({
               </span>
             )}
             {m.mine ? (
-              <span className="font-semibold text-blue-600 dark:text-blue-400">
+              <span>
+                <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+                <span
+                  className={chatNameClass(
+                    m.cosmetics?.chatNameEffect,
+                    "font-semibold text-blue-600 dark:text-blue-400",
+                  )}
+                >
                 {m.name}
+                </span>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={() => onSelectName(m.name)}
-                title="프로필 보기"
-                className="font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
-              >
-                {m.name}
-              </button>
+              <>
+                <ChatCosmeticBadge badge={m.cosmetics?.chatBadge} />
+                <button
+                  type="button"
+                  onClick={() => onSelectName(m.name)}
+                  title="프로필 보기"
+                  className={chatNameClass(
+                    m.cosmetics?.chatNameEffect,
+                    "font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
+                  )}
+                >
+                  {m.name}
+                </button>
+              </>
             )}
             <span className="mx-1.5 align-baseline text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
               {formatRelative(m.createdAt)}

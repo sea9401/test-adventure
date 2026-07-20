@@ -19,6 +19,7 @@ import type {
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2CharacterBasics } from "./V2CharacterBasics";
+import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -38,6 +39,7 @@ type StateResponse = {
     class?: string;
   };
   guild?: { name: string };
+  cosmetics?: MuseunCosmeticAppearance;
   stats?: {
     base: Record<V2StatKey, number>;
     total: Record<V2StatKey, number>;
@@ -182,6 +184,7 @@ export function V2CharacterScreen({
           owned={equipment?.owned ?? []}
           // 공개 보기엔 골드 숨김(사적 정보).
           showGold={!playerName}
+          profileBorder={state?.cosmetics?.profileBorder ?? null}
         />
       ) : loading ? (
         <Card padding="md">

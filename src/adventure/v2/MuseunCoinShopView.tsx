@@ -6,10 +6,13 @@ import {
   ArrowRight,
   CheckCircle,
   CoinVertical,
+  FrameCorners,
   Gauge,
   IdentificationCard,
   Lightning,
   Percent,
+  Palette,
+  Sparkle,
   Storefront,
   Sword,
   X,
@@ -26,9 +29,35 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
   MUSEUN_CASH_ITEMS,
+  MUSEUN_CASH_ITEM_IDS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  CHROMA_NAME_RARITIES,
+  CHROMA_NAME_VARIANTS,
+  chromaNameOdds,
+  type ChromaNameRarity,
+  type MuseunCosmeticsState,
+  isMuseunCosmeticItemId,
+  parseMuseunCosmetics,
+} from "@/adventure/data/v2/museunCosmetics";
+
+const CHROMA_RARITY_BADGE_CLASS: Record<ChromaNameRarity, string> = {
+  common: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
+  rare: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  epic: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  legendary:
+    "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+};
+
+const ITEM_SUMMARIES: Record<MuseunCashItemId, string> = {
+  adventure_support_30d: "30일간 모험 편의 혜택을 활성화합니다.",
+  rename_permit: "캐릭터 이름을 한 번 변경합니다.",
+  prismatic_profile_border: "프로필 카드에 흐르는 프리즘 테두리를 적용합니다.",
+  starlight_chat_badge: "채팅 닉네임 앞에 별빛 배지를 표시합니다.",
+  chroma_name_box: "미보유 크로마 닉네임 한 종류를 중복 없이 획득합니다.",
+};
 
 const SUPPORT_BENEFITS = [
   {
@@ -75,6 +104,9 @@ export function MuseunCoinShopView() {
     useState<MuseunCashItemId | null>(null);
   const [coins, setCoins] = useState(0);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
+  const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
+    parseMuseunCosmetics(null),
+  );
   const [buying, setBuying] = useState<MuseunCashItemId | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -86,10 +118,12 @@ export function MuseunCoinShopView() {
         (data: {
           coins?: number;
           cashItems?: MuseunCashItemCounts;
+          cosmetics?: MuseunCosmeticsState;
         } | null) => {
           if (!alive || !data) return;
           setCoins(Math.max(0, Math.floor(data.coins ?? 0)));
           setCashItems(data.cashItems ?? {});
+          setCosmetics(parseMuseunCosmetics(data.cosmetics));
         },
       )
       .catch(() => {});
@@ -114,18 +148,31 @@ export function MuseunCoinShopView() {
         itemName?: string;
         coins?: number;
         cashItems?: MuseunCashItemCounts;
+        cosmetics?: MuseunCosmeticsState;
+        delivery?: "inventory" | "entitlement";
       } | null;
       if (!res.ok || !data?.ok) {
         setMessage(
           data?.error === "insufficient_coins"
             ? "무슨 코인이 부족합니다."
+            : data?.error === "already_owned"
+              ? "이미 보유한 영구 꾸미기 상품입니다."
+              : data?.error === "collection_complete"
+                ? "모든 크로마 닉네임을 보유하고 있습니다."
+                : data?.error === "enough_boxes"
+                  ? "남은 크로마 수만큼 상자를 이미 보유하고 있습니다."
             : "상품을 구매하지 못했습니다.",
         );
         return;
       }
       setCoins(data.coins ?? 0);
       setCashItems(data.cashItems ?? {});
-      setMessage(`${data.itemName ?? "캐시 아이템"}을 가방에 넣었습니다.`);
+      setCosmetics(parseMuseunCosmetics(data.cosmetics));
+      setMessage(
+        data.delivery === "entitlement"
+          ? `${data.itemName ?? "꾸미기 상품"}을 영구 적용했습니다.`
+          : `${data.itemName ?? "캐시 아이템"}을 가방에 넣었습니다.`,
+      );
     } catch {
       setMessage("상품을 구매하지 못했습니다.");
     } finally {
@@ -175,7 +222,11 @@ export function MuseunCoinShopView() {
 
       {message && (
         <StatusBanner
-          tone={message.includes("넣었습니다") ? "success" : "error"}
+          tone={
+            message.includes("넣었습니다") || message.includes("적용했습니다")
+              ? "success"
+              : "error"
+          }
         >
           {message}
         </StatusBanner>
@@ -189,16 +240,21 @@ export function MuseunCoinShopView() {
           </p>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <CashItemCard
-            itemId="adventure_support_30d"
-            owned={cashItems.adventure_support_30d ?? 0}
-            onClick={() => setDetailItemId("adventure_support_30d")}
-          />
-          <CashItemCard
-            itemId="rename_permit"
-            owned={cashItems.rename_permit ?? 0}
-            onClick={() => setDetailItemId("rename_permit")}
-          />
+          {MUSEUN_CASH_ITEM_IDS.map((itemId) => (
+            <CashItemCard
+              key={itemId}
+              itemId={itemId}
+              owned={
+                MUSEUN_CASH_ITEMS[itemId].delivery === "entitlement"
+                  ? Number(
+                      isMuseunCosmeticItemId(itemId) &&
+                        cosmetics.owned.includes(itemId),
+                    )
+                  : (cashItems[itemId] ?? 0)
+              }
+              onClick={() => setDetailItemId(itemId)}
+            />
+          ))}
         </div>
       </Card>
 
@@ -219,6 +275,11 @@ export function MuseunCoinShopView() {
           itemId={detailItemId}
           coins={coins}
           owned={cashItems[detailItemId] ?? 0}
+          permanentOwned={
+            isMuseunCosmeticItemId(detailItemId) &&
+            cosmetics.owned.includes(detailItemId)
+          }
+          cosmetics={cosmetics}
           buying={buying === detailItemId}
           purchaseBlocked={buying !== null}
           onPurchase={() => void purchase(detailItemId)}
@@ -236,17 +297,33 @@ function CashItemIcon({
   itemId: MuseunCashItemId;
   size?: number;
 }) {
-  const iconClass =
-    itemId === "adventure_support_30d"
-      ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
-      : "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300";
+  const iconClass = {
+    adventure_support_30d:
+      "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300",
+    rename_permit:
+      "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300",
+    prismatic_profile_border:
+      "bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300",
+    starlight_chat_badge:
+      "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-950 dark:text-fuchsia-300",
+    chroma_name_box:
+      "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300",
+  }[itemId];
   return (
     <span className={`inline-flex shrink-0 rounded-full p-2 ${iconClass}`}>
-      {itemId === "adventure_support_30d" ? (
-        <Sword size={size} weight="duotone" aria-hidden />
-      ) : (
-        <IdentificationCard size={size} weight="duotone" aria-hidden />
-      )}
+      {{
+        adventure_support_30d: <Sword size={size} weight="duotone" aria-hidden />,
+        rename_permit: (
+          <IdentificationCard size={size} weight="duotone" aria-hidden />
+        ),
+        prismatic_profile_border: (
+          <FrameCorners size={size} weight="duotone" aria-hidden />
+        ),
+        starlight_chat_badge: (
+          <Sparkle size={size} weight="duotone" aria-hidden />
+        ),
+        chroma_name_box: <Palette size={size} weight="duotone" aria-hidden />,
+      }[itemId]}
     </span>
   );
 }
@@ -261,10 +338,7 @@ function CashItemCard({
   onClick: () => void;
 }) {
   const item = MUSEUN_CASH_ITEMS[itemId];
-  const summary =
-    itemId === "adventure_support_30d"
-      ? "30일간 모험 편의 혜택을 활성화합니다."
-      : "캐릭터 이름을 한 번 변경합니다.";
+  const summary = ITEM_SUMMARIES[itemId];
   return (
     <Card
       as="button"
@@ -289,7 +363,9 @@ function CashItemCard({
           </p>
           {owned > 0 && (
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-              가방에 {owned}개 보유
+              {item.delivery === "entitlement"
+                ? "영구 보유 · 적용 중"
+                : `가방에 ${owned}개 보유`}
             </p>
           )}
         </div>
@@ -306,6 +382,8 @@ function CashItemDetailDialog({
   itemId,
   coins,
   owned,
+  permanentOwned,
+  cosmetics,
   buying,
   purchaseBlocked,
   onPurchase,
@@ -314,6 +392,8 @@ function CashItemDetailDialog({
   itemId: MuseunCashItemId;
   coins: number;
   owned: number;
+  permanentOwned: boolean;
+  cosmetics: MuseunCosmeticsState;
   buying: boolean;
   purchaseBlocked: boolean;
   onPurchase: () => void;
@@ -322,6 +402,10 @@ function CashItemDetailDialog({
   useEscapeKey(onClose);
   const item = MUSEUN_CASH_ITEMS[itemId];
   const insufficient = coins < item.coinPrice;
+  const remainingChromaCount = chromaNameOdds(cosmetics).length;
+  const boxPurchaseBlocked =
+    itemId === "chroma_name_box" &&
+    (remainingChromaCount === 0 || owned >= remainingChromaCount);
 
   return (
     <div
@@ -332,7 +416,7 @@ function CashItemDetailDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="cash-item-detail-title"
-        className={`${SURFACE_CARD} w-full max-w-xl overflow-hidden`}
+        className={`${SURFACE_CARD} max-h-[90vh] w-full max-w-xl overflow-y-auto`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700">
@@ -387,27 +471,190 @@ function CashItemDetailDialog({
                 지급됩니다.
               </p>
             </>
-          ) : (
+          ) : itemId === "rename_permit" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               구매 후 가방에서 사용하면 캐릭터 이름을 한 번 변경할 수 있습니다. 사용하기
               전에는 거래소에 등록해 다른 모험가와 거래할 수 있습니다.
             </p>
+          ) : itemId === "chroma_name_box" ? (
+            <ChromaNameBoxPreview cosmetics={cosmetics} />
+          ) : (
+            <CosmeticItemPreview itemId={itemId} />
           )}
 
           <div className="mt-4 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
             <span>보유 코인 {coins.toLocaleString()}</span>
-            <span>가방에 {owned}개 보유</span>
+            <span>
+              {item.delivery === "entitlement"
+                ? permanentOwned
+                  ? "영구 보유 · 적용 중"
+                  : "계정 귀속 · 영구 적용"
+                : `가방에 ${owned}개 보유`}
+            </span>
           </div>
           <button
             type="button"
             onClick={onPurchase}
-            disabled={purchaseBlocked || insufficient}
+            disabled={
+              purchaseBlocked ||
+              insufficient ||
+              permanentOwned ||
+              boxPurchaseBlocked
+            }
             className="ui-game-button mt-3 w-full rounded-md border border-amber-500 bg-amber-500 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-300 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
           >
-            {buying ? "구매 중…" : insufficient ? "코인 부족" : "구매"}
+            {buying
+              ? "구매 중…"
+              : permanentOwned
+                ? "보유 중"
+                : boxPurchaseBlocked
+                  ? remainingChromaCount === 0
+                    ? "컬렉션 완성"
+                    : "필요한 상자 보유 중"
+                : insufficient
+                  ? "코인 부족"
+                  : "구매"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ChromaNameBoxPreview({
+  cosmetics,
+}: {
+  cosmetics: MuseunCosmeticsState;
+}) {
+  const odds = chromaNameOdds(cosmetics);
+  const initialOdds = chromaNameOdds(null);
+  return (
+    <div className="space-y-3">
+      <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+        미보유 닉네임 색상 중 한 종류를 등급별 확률로 획득합니다. 중복은 나오지
+        않으며, 획득한 색상은 가방에서 자유롭게 바꿔 적용할 수 있습니다.
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(Object.keys(CHROMA_NAME_RARITIES) as ChromaNameRarity[]).map(
+          (rarity) => {
+            const config = CHROMA_NAME_RARITIES[rarity];
+            const probability = initialOdds
+              .filter((entry) => {
+                const variant = CHROMA_NAME_VARIANTS.find(
+                  (candidate) => candidate.id === entry.id,
+                )!;
+                return variant.rarity === rarity;
+              })
+              .reduce((sum, entry) => sum + entry.probabilityPct, 0);
+            return (
+              <div key={rarity} className={`${SURFACE_CARD} p-2 text-center`}>
+                <span
+                  className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${CHROMA_RARITY_BADGE_CLASS[rarity]}`}
+                >
+                  {config.name}
+                </span>
+                <div className="mt-1 text-sm font-bold tabular-nums">
+                  {probability.toLocaleString("ko-KR", {
+                    maximumFractionDigits: 2,
+                  })}
+                  %
+                </div>
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {config.effect}
+                </div>
+              </div>
+            );
+          },
+        )}
+      </div>
+      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        위 수치는 아무 색상도 보유하지 않았을 때의 최초 등급 확률입니다.
+      </p>
+      <div className={`${SURFACE_INSET} p-3`}>
+        <div className="flex items-center justify-between gap-3 text-xs">
+          <span className="font-semibold">현재 획득 확률</span>
+          <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+            보유 {cosmetics.chromaNames.length}/{CHROMA_NAME_VARIANTS.length}
+          </span>
+        </div>
+        {odds.length > 0 ? (
+          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            {odds.map((entry) => {
+              const variant = CHROMA_NAME_VARIANTS.find(
+                (candidate) => candidate.id === entry.id,
+              )!;
+              return (
+                <li
+                  key={variant.id}
+                  className="flex items-center justify-between gap-2 rounded-md bg-white px-2.5 py-1.5 text-xs dark:bg-zinc-900"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className={`shrink-0 rounded px-1 py-0.5 text-[9px] font-bold ${CHROMA_RARITY_BADGE_CLASS[variant.rarity]}`}
+                    >
+                      {CHROMA_NAME_RARITIES[variant.rarity].name}
+                    </span>
+                    <span
+                      className={`ui-chat-name-chroma ui-chat-name-chroma--${variant.rarity} ui-chat-name-chroma--${variant.id} truncate font-bold`}
+                    >
+                      {variant.name}
+                    </span>
+                  </span>
+                  <span className="tabular-nums text-zinc-600 dark:text-zinc-300">
+                    {entry.probabilityPct.toLocaleString("ko-KR", {
+                      maximumFractionDigits: 2,
+                    })}
+                    %
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            모든 크로마 닉네임을 보유하고 있습니다.
+          </p>
+        )}
+      </div>
+      <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+        표시된 확률은 현재 미보유 종류 기준입니다. 상자를 열어 한 종류를 얻을 때마다
+        다음 상자의 대상과 확률이 갱신됩니다.
+      </p>
+    </div>
+  );
+}
+
+function CosmeticItemPreview({ itemId }: { itemId: MuseunCashItemId }) {
+  const item = MUSEUN_CASH_ITEMS[itemId];
+  return (
+    <div className="space-y-3">
+      <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+        {item.description}
+      </p>
+      {itemId === "prismatic_profile_border" ? (
+        <div className={`${SURFACE_CARD} ui-profile-frame-prismatic p-4`}>
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            프로필 미리보기
+          </div>
+          <div className="mt-1 font-bold text-zinc-900 dark:text-zinc-100">
+            별을 걷는 모험가 <span className="text-xs font-normal">Lv.42</span>
+          </div>
+        </div>
+      ) : (
+        <div className={`${SURFACE_INSET} p-3 text-sm`}>
+          {itemId === "starlight_chat_badge" && (
+            <span className="ui-chat-badge-starlight mr-1 inline-flex align-[-0.12em]">
+              <Sparkle size={12} weight="fill" aria-hidden />
+            </span>
+          )}
+          <span className="font-bold text-zinc-800 dark:text-zinc-100">
+            별을 걷는 모험가
+          </span>
+          <span className="ml-2 text-zinc-600 dark:text-zinc-300">
+            오늘도 좋은 모험 되세요!
+          </span>
+        </div>
+      )}
     </div>
   );
 }

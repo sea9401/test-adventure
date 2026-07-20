@@ -1524,3 +1524,227 @@ body {
     animation: none;
   }
 }
+
+/* ── 계정 귀속 꾸미기 상품 ────────────────────────────────────────
+   프로필 본문은 기존 불투명 surface 를 유지하고 테두리만 바깥에서 흐른다. */
+@keyframes profile-frame-prismatic-flow {
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+@keyframes chat-name-chroma-flow {
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+.ui-profile-frame-prismatic {
+  position: relative;
+  isolation: isolate;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.12),
+    0 8px 24px rgba(37, 99, 235, 0.12);
+}
+
+.ui-profile-frame-prismatic::before {
+  position: absolute;
+  z-index: -1;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    #38bdf8,
+    #818cf8,
+    #c084fc,
+    #f472b6,
+    #fbbf24,
+    #34d399,
+    #38bdf8
+  );
+  background-size: 200% 100%;
+  content: "";
+  animation: profile-frame-prismatic-flow 5s linear infinite;
+}
+
+.ui-chat-badge-starlight {
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1px solid rgba(167, 139, 250, 0.55);
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #e0f2fe, #ede9fe 52%, #fce7f3);
+  color: #7c3aed;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.22);
+}
+
+.dark .ui-chat-badge-starlight {
+  border-color: rgba(196, 181, 253, 0.5);
+  background: linear-gradient(135deg, #172554, #3b0764 52%, #500724);
+  color: #e9d5ff;
+}
+
+.ui-chat-name-chroma {
+  background: var(
+    --chat-name-chroma,
+    linear-gradient(
+      90deg,
+      #0284c7,
+      #7c3aed,
+      #db2777,
+      #d97706,
+      #059669,
+      #0284c7
+    )
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: chat-name-chroma-flow 3.5s linear infinite;
+}
+
+.ui-chat-name-chroma--common,
+.ui-chat-name-chroma--rare {
+  background-size: 100% 100%;
+  animation: none;
+}
+
+.ui-chat-name-chroma--legendary {
+  animation-duration: 2.4s;
+  filter: drop-shadow(0 0 0.2rem rgba(245, 158, 11, 0.32));
+}
+
+.ui-chat-name-chroma--crimson { --chat-name-chroma: #be123c; }
+.ui-chat-name-chroma--coral { --chat-name-chroma: #c2410c; }
+.ui-chat-name-chroma--amber { --chat-name-chroma: #a16207; }
+.ui-chat-name-chroma--lime { --chat-name-chroma: #4d7c0f; }
+.ui-chat-name-chroma--emerald { --chat-name-chroma: #047857; }
+.ui-chat-name-chroma--teal { --chat-name-chroma: #0f766e; }
+.ui-chat-name-chroma--sky { --chat-name-chroma: #0369a1; }
+.ui-chat-name-chroma--cobalt { --chat-name-chroma: #1d4ed8; }
+.ui-chat-name-chroma--indigo { --chat-name-chroma: #4338ca; }
+.ui-chat-name-chroma--violet { --chat-name-chroma: #7c3aed; }
+.ui-chat-name-chroma--magenta { --chat-name-chroma: #a21caf; }
+.ui-chat-name-chroma--rose { --chat-name-chroma: #be185d; }
+
+.dark .ui-chat-name-chroma--crimson { --chat-name-chroma: #fb7185; }
+.dark .ui-chat-name-chroma--coral { --chat-name-chroma: #fb923c; }
+.dark .ui-chat-name-chroma--amber { --chat-name-chroma: #fbbf24; }
+.dark .ui-chat-name-chroma--lime { --chat-name-chroma: #a3e635; }
+.dark .ui-chat-name-chroma--emerald { --chat-name-chroma: #34d399; }
+.dark .ui-chat-name-chroma--teal { --chat-name-chroma: #2dd4bf; }
+.dark .ui-chat-name-chroma--sky { --chat-name-chroma: #38bdf8; }
+.dark .ui-chat-name-chroma--cobalt { --chat-name-chroma: #60a5fa; }
+.dark .ui-chat-name-chroma--indigo { --chat-name-chroma: #818cf8; }
+.dark .ui-chat-name-chroma--violet { --chat-name-chroma: #c084fc; }
+.dark .ui-chat-name-chroma--magenta { --chat-name-chroma: #e879f9; }
+.dark .ui-chat-name-chroma--rose { --chat-name-chroma: #f472b6; }
+
+.ui-chat-name-chroma--spectrum {
+  --chat-name-chroma: linear-gradient(
+    90deg,
+    #0284c7,
+    #7c3aed,
+    #db2777,
+    #d97706,
+    #059669,
+    #0284c7
+  );
+}
+
+.ui-chat-name-chroma--aurora {
+  --chat-name-chroma: linear-gradient(90deg, #0891b2, #2dd4bf, #8b5cf6, #c084fc, #0891b2);
+}
+
+.ui-chat-name-chroma--inferno {
+  --chat-name-chroma: linear-gradient(90deg, #be123c, #ef4444, #f59e0b, #fde047, #be123c);
+}
+
+.ui-chat-name-chroma--abyss {
+  --chat-name-chroma: linear-gradient(90deg, #0f766e, #06b6d4, #1d4ed8, #312e81, #0f766e);
+}
+
+.ui-chat-name-chroma--starlight {
+  --chat-name-chroma: linear-gradient(90deg, #3730a3, #818cf8, #e879f9, #f472b6, #3730a3);
+}
+
+.ui-chat-name-chroma--blossom {
+  --chat-name-chroma: linear-gradient(90deg, #db2777, #f9a8d4, #fb7185, #fdba74, #db2777);
+}
+
+.ui-chat-name-chroma--venom {
+  --chat-name-chroma: linear-gradient(90deg, #3f6212, #84cc16, #22c55e, #059669, #3f6212);
+}
+
+.ui-chat-name-chroma--ocean {
+  --chat-name-chroma: linear-gradient(90deg, #0284c7, #38bdf8, #2563eb);
+}
+
+.ui-chat-name-chroma--sunset {
+  --chat-name-chroma: linear-gradient(90deg, #ea580c, #f43f5e, #9333ea);
+}
+
+.ui-chat-name-chroma--glacier {
+  --chat-name-chroma: linear-gradient(90deg, #64748b, #67e8f9, #0ea5e9);
+}
+
+.ui-chat-name-chroma--mintrose {
+  --chat-name-chroma: linear-gradient(90deg, #0d9488, #5eead4, #f472b6);
+}
+
+.ui-chat-name-chroma--cyber {
+  --chat-name-chroma: linear-gradient(90deg, #06b6d4, #22d3ee, #ec4899, #f0abfc, #06b6d4);
+}
+
+.ui-chat-name-chroma--twilight {
+  --chat-name-chroma: linear-gradient(90deg, #6d28d9, #a855f7, #f97316, #fb7185, #6d28d9);
+}
+
+.ui-chat-name-chroma--solar {
+  --chat-name-chroma: linear-gradient(90deg, #b45309, #facc15, #f97316, #dc2626, #b45309);
+}
+
+.ui-chat-name-chroma--royal {
+  --chat-name-chroma: linear-gradient(90deg, #a16207, #facc15, #7c3aed, #c084fc, #a16207);
+}
+
+.ui-chat-name-chroma--celestial {
+  --chat-name-chroma: linear-gradient(90deg, #e2e8f0, #38bdf8, #a78bfa, #f0abfc, #f8fafc, #38bdf8);
+}
+
+.ui-chat-name-chroma--hologram {
+  --chat-name-chroma: linear-gradient(90deg, #67e8f9, #f0abfc, #fef08a, #86efac, #93c5fd, #67e8f9);
+}
+
+.ui-chat-name-chroma--eclipse {
+  --chat-name-chroma: linear-gradient(90deg, #18181b, #7c2d12, #f59e0b, #fef3c7, #7c2d12, #18181b);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-profile-frame-prismatic::before,
+  .ui-chat-name-chroma {
+    animation: none;
+    background-position: 50% 50%;
+  }
+}
+
+@media (forced-colors: active) {
+  .ui-profile-frame-prismatic {
+    border-color: Highlight;
+  }
+
+  .ui-profile-frame-prismatic::before {
+    display: none;
+  }
+
+  .ui-chat-name-chroma {
+    background: none;
+    color: LinkText;
+    -webkit-text-fill-color: currentColor;
+  }
+}

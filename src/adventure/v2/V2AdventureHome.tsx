@@ -10,6 +10,7 @@ import { GuideQuestBanner } from "./GuideQuestBanner";
 import { AdventureRankingPreview } from "./AdventureRankingPreview";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { activeLoadoutPresetName } from "@/adventure/data/v2/v2LoadoutPresets";
+import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 
 // 모험 탭 — 캐릭터 상태 + 안내/공지.
 
@@ -22,6 +23,7 @@ type StateResponse = {
     activeUntil: number | null;
     regenBonusPct: number;
   };
+  cosmetics?: MuseunCosmeticAppearance;
   hotTime?: {
     title: string;
     endsAt: string;
@@ -83,6 +85,7 @@ export function V2AdventureHome() {
             showGold={true}
             activePresetName={activePresetName}
             adventureSupport={state.adventureSupport}
+            profileBorder={state.cosmetics?.profileBorder ?? null}
           />
         )}
 

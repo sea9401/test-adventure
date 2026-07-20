@@ -14,10 +14,18 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   MUSEUN_CASH_ITEMS,
-  MUSEUN_CASH_ITEM_IDS,
+  MUSEUN_INVENTORY_ITEM_IDS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
+import {
+  CHROMA_NAME_RARITIES,
+  CHROMA_NAME_VARIANTS,
+  chromaNameOdds,
+  type ChromaNameId,
+  type ChromaNameRarity,
+  type MuseunCosmeticsState,
+} from "@/adventure/data/v2/museunCosmetics";
 import {
   SP_FRUIT,
   SP_FRUIT_TIERS,
@@ -38,6 +46,13 @@ import {
   type ItemCardAnchor,
 } from "../V2ItemCard";
 
+const CHROMA_RARITY_TEXT_CLASS: Record<ChromaNameRarity, string> = {
+  common: "text-zinc-600 dark:text-zinc-300",
+  rare: "text-sky-700 dark:text-sky-300",
+  epic: "text-violet-700 dark:text-violet-300",
+  legendary: "text-amber-700 dark:text-amber-300",
+};
+
 // 소모품 탭 — SP 열매 섹션 + 실제 소모품 목록. 레어맵은 사냥터 목록에서 표시한다.
 export function RareMapsTab({
   materials,
@@ -48,7 +63,9 @@ export function RareMapsTab({
   onUseMasteryTome,
   rareMaps,
   cashItems,
+  cosmetics,
   onUseCashItem,
+  onEquipChroma,
 }: {
   materials: Partial<Record<V2MaterialId, number>>;
   spFruitUsed: Record<SpFruitTier, number>;
@@ -58,7 +75,9 @@ export function RareMapsTab({
   onUseMasteryTome: () => void;
   rareMaps: RareMapInstance[] | null;
   cashItems: MuseunCashItemCounts;
+  cosmetics: MuseunCosmeticsState;
   onUseCashItem: (itemId: MuseunCashItemId) => void;
+  onEquipChroma: (chromaNameId: ChromaNameId | null) => void;
 }) {
   const router = useRouter();
   const hasSpFruit = SP_FRUIT_TIERS.some(
@@ -68,13 +87,19 @@ export function RareMapsTab({
     (box) => (materials[box.id] ?? 0) > 0,
   );
   const hasMasteryTome = (materials[COOP_MASTERY_TOME_MATERIAL_ID] ?? 0) > 0;
-  const hasCashItem = MUSEUN_CASH_ITEM_IDS.some(
+  const hasCashItem = MUSEUN_INVENTORY_ITEM_IDS.some(
     (id) => (cashItems[id] ?? 0) > 0,
   );
   return (
     <div className="space-y-4">
+      <ChromaCollectionSection
+        cosmetics={cosmetics}
+        busy={busy}
+        onEquip={onEquipChroma}
+      />
       <CashItemSection
         cashItems={cashItems}
+        cosmetics={cosmetics}
         busy={busy}
         onUse={(itemId) => {
           if (itemId === "rename_permit") {
@@ -128,10 +153,12 @@ export function RareMapsTab({
 
 function CashItemSection({
   cashItems,
+  cosmetics,
   busy,
   onUse,
 }: {
   cashItems: MuseunCashItemCounts;
+  cosmetics: MuseunCosmeticsState;
   busy: string | null;
   onUse: (itemId: MuseunCashItemId) => void;
 }) {
@@ -139,21 +166,24 @@ function CashItemSection({
     itemId: MuseunCashItemId;
     anchor: ItemCardAnchor;
   } | null>(null);
-  const heldItems = MUSEUN_CASH_ITEM_IDS.filter(
+  const heldItems = MUSEUN_INVENTORY_ITEM_IDS.filter(
     (itemId) => (cashItems[itemId] ?? 0) > 0,
   );
+  const currentChromaOdds = chromaNameOdds(cosmetics);
   if (heldItems.length === 0) return null;
 
   return (
     <div>
       <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-        캐시 아이템 · 사용 전 거래 가능
+        캐시 아이템
       </div>
       <ul className="space-y-1.5">
         {heldItems.map((itemId) => {
           const item = MUSEUN_CASH_ITEMS[itemId];
           const held = cashItems[itemId] ?? 0;
           const isBusy = busy === `cash_${itemId}`;
+          const collectionComplete =
+            itemId === "chroma_name_box" && currentChromaOdds.length === 0;
           return (
             <li key={itemId} className={`${SURFACE_CARD} px-3 py-2`}>
               <div className="flex items-center justify-between gap-2">
@@ -181,17 +211,23 @@ function CashItemSection({
                   <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {item.effect.kind === "rename"
                       ? "캐릭터 이름 1회 변경"
-                      : `모험 지원 혜택 ${item.effect.days}일`}
+                      : item.effect.kind === "adventure_support"
+                        ? `모험 지원 혜택 ${item.effect.days}일`
+                        : "미보유 크로마 닉네임 1종 확정"}
                   </span>
                 </button>
                 <Button
-                  disabled={isBusy}
+                  disabled={isBusy || collectionComplete}
                   onClick={() => onUse(itemId)}
                   variant="warning"
                   size="xs"
                   className="shrink-0"
                 >
-                  {isBusy ? "사용 중…" : "사용"}
+                  {isBusy
+                    ? "사용 중…"
+                    : collectionComplete
+                      ? "수집 완료"
+                      : "사용"}
                 </Button>
               </div>
             </li>
@@ -201,8 +237,27 @@ function CashItemSection({
       {infoCard ? (
         <V2SimpleItemInfoCard
           title={MUSEUN_CASH_ITEMS[infoCard.itemId].name}
-          subtitle="거래 가능한 캐시 소모품"
-          description={MUSEUN_CASH_ITEMS[infoCard.itemId].description}
+          subtitle={
+            MUSEUN_CASH_ITEMS[infoCard.itemId].tradeable
+              ? "거래 가능한 캐시 소모품"
+              : "계정 귀속 캐시 소모품"
+          }
+          description={
+            infoCard.itemId === "chroma_name_box" && currentChromaOdds.length > 0
+              ? `${MUSEUN_CASH_ITEMS[infoCard.itemId].description} 현재 획득 대상: ${currentChromaOdds
+                  .map((entry) => {
+                    const name = CHROMA_NAME_VARIANTS.find(
+                      (variant) => variant.id === entry.id,
+                    )!.name;
+                    const probability = entry.probabilityPct.toLocaleString(
+                      "ko-KR",
+                      { maximumFractionDigits: 2 },
+                    );
+                    return `${name} ${probability}%`;
+                  })
+                  .join(", ")}`
+              : MUSEUN_CASH_ITEMS[infoCard.itemId].description
+          }
           anchor={infoCard.anchor}
           onClose={() => setInfoCard(null)}
           lines={[
@@ -210,10 +265,94 @@ function CashItemSection({
               label: "보유",
               value: `×${cashItems[infoCard.itemId] ?? 0}`,
             },
-            { label: "거래", value: "거래소 등록 가능" },
+            {
+              label: "거래",
+              value: MUSEUN_CASH_ITEMS[infoCard.itemId].tradeable
+                ? "거래소 등록 가능"
+                : "계정 귀속 · 거래 불가",
+            },
+            ...(infoCard.itemId === "chroma_name_box"
+              ? [
+                  {
+                    label: "남은 종류",
+                    value: `${currentChromaOdds.length}/${CHROMA_NAME_VARIANTS.length}`,
+                  },
+                ]
+              : []),
           ]}
         />
       ) : null}
+    </div>
+  );
+}
+
+function ChromaCollectionSection({
+  cosmetics,
+  busy,
+  onEquip,
+}: {
+  cosmetics: MuseunCosmeticsState;
+  busy: string | null;
+  onEquip: (chromaNameId: ChromaNameId | null) => void;
+}) {
+  if (cosmetics.chromaNames.length === 0) return null;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
+        <span>크로마 닉네임 컬렉션</span>
+        <span className="font-normal tabular-nums text-zinc-500 dark:text-zinc-400">
+          {cosmetics.chromaNames.length}/{CHROMA_NAME_VARIANTS.length}
+        </span>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {CHROMA_NAME_VARIANTS.filter((variant) =>
+          cosmetics.chromaNames.includes(variant.id),
+        ).map((variant) => {
+          const active = cosmetics.equippedChromaName === variant.id;
+          return (
+            <div
+              key={variant.id}
+              className={`${SURFACE_CARD} flex items-center justify-between gap-3 px-3 py-2`}
+            >
+              <div className="min-w-0">
+                <div
+                  className={`ui-chat-name-chroma ui-chat-name-chroma--${variant.rarity} ui-chat-name-chroma--${variant.id} truncate text-sm font-bold`}
+                >
+                  {variant.name}
+                </div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span
+                    className={`font-semibold ${CHROMA_RARITY_TEXT_CLASS[variant.rarity]}`}
+                  >
+                    {CHROMA_NAME_RARITIES[variant.rarity].name}
+                  </span>
+                  <span aria-hidden> · </span>
+                  {CHROMA_NAME_RARITIES[variant.rarity].effect} · {variant.theme}
+                </div>
+              </div>
+              <Button
+                disabled={active || busy !== null}
+                onClick={() => onEquip(variant.id)}
+                variant={active ? "secondary" : "info"}
+                size="xs"
+                className="shrink-0"
+              >
+                {active ? "적용 중" : "적용"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      {cosmetics.equippedChromaName && (
+        <button
+          type="button"
+          onClick={() => onEquip(null)}
+          disabled={busy !== null}
+          className="mt-2 text-xs text-zinc-500 underline-offset-2 hover:underline disabled:opacity-50 dark:text-zinc-400"
+        >
+          크로마 닉네임 해제
+        </button>
+      )}
     </div>
   );
 }

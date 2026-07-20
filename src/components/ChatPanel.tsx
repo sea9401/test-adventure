@@ -20,6 +20,8 @@ import { postMessage, translateChatError } from "./chat/chatApi";
 import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
 import { ChatComposer } from "./chat/ChatComposer";
+import type { MuseunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
+import { ChatCosmeticBadge, chatNameClass } from "./chat/ChatCosmetics";
 
 export type ChatChannel = "global" | "guild";
 
@@ -32,6 +34,7 @@ export type ChatMessage = {
   content: string;
   createdAt: number;
   mine: boolean;
+  cosmetics?: MuseunCosmeticAppearance | null;
 };
 
 // 데스크톱 채팅창 크기 영속 + 최소 크기(드래그 리사이즈).
@@ -394,8 +397,14 @@ export function ChatPanel({
                         {u.title}
                       </span>
                     )}
+                    <ChatCosmeticBadge badge={u.cosmetics?.chatBadge} />
                     {u.mine ? (
-                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      <span
+                        className={chatNameClass(
+                          u.cosmetics?.chatNameEffect,
+                          "font-semibold text-emerald-700 dark:text-emerald-400",
+                        )}
+                      >
                         {u.name}
                         <span className="ml-1 text-[10px] font-normal text-zinc-500 dark:text-zinc-400">
                           (나)
@@ -408,7 +417,10 @@ export function ChatPanel({
                           router.push(`/profile/${encodeURIComponent(u.name)}`)
                         }
                         title="프로필 보기"
-                        className="rounded font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200"
+                        className={chatNameClass(
+                          u.cosmetics?.chatNameEffect,
+                          "rounded font-semibold text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-200",
+                        )}
                       >
                         {u.name}
                       </button>

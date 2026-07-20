@@ -24,7 +24,7 @@ import {
 } from "@/lib/server/marketplaceV2";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 import {
-  isMuseunCashItemId,
+  isTradeableMuseunCashItemId,
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
 
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
     }
 
     if (kind === "consumable") {
-      if (isMuseunCashItemId(body.itemId)) {
+      if (isTradeableMuseunCashItemId(body.itemId)) {
         if (!isValidMaterialQty(body.quantity)) {
           return {
             status: 400,

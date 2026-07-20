@@ -3,6 +3,7 @@ import { readSave } from "@/lib/server/savesKv";
 import { db } from "@/db";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
+import { parseMuseunCosmetics } from "@/adventure/data/v2/museunCosmetics";
 
 // GET /api/v2/me/rare-maps — 보유 레어맵/테스트용 utility 목록.
 // 사냥터 목록 "열린 레어맵" 섹션 + 인벤토리 테스트 소모품 탭이 읽는 스냅샷
@@ -14,7 +15,7 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   const save = await readSave<
-    { rareMaps?: unknown; cashItems?: unknown } | null
+    { rareMaps?: unknown; cashItems?: unknown; museunCosmetics?: unknown } | null
   >(
     db,
     userId,
@@ -25,5 +26,6 @@ export async function GET() {
     ok: true,
     rareMaps: parseRareMaps(save?.rareMaps, Date.now()),
     cashItems: parseMuseunCashItems(save?.cashItems),
+    cosmetics: parseMuseunCosmetics(save?.museunCosmetics),
   });
 }

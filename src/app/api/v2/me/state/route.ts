@@ -63,6 +63,7 @@ import {
   staminaConfigForCharacter,
 } from "@/adventure/v2/stamina";
 import { parseAdventureSupportState } from "@/adventure/data/v2/adventureSupport";
+import { museunCosmeticAppearance } from "@/adventure/data/v2/museunCosmetics";
 import {
   STAMINA_POTIONS_KEY,
   staminaPotionCount,
@@ -210,6 +211,7 @@ export async function GET(req: Request) {
     lastHuntedOutpost?: unknown;
     equippedTitleId?: unknown;
     spFruitUsed?: unknown;
+    museunCosmetics?: unknown;
   };
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
@@ -387,6 +389,7 @@ export async function GET(req: Request) {
       activeUntil: adventureSupportState?.activeUntil ?? null,
       regenBonusPct: staminaConfig.regenBonusPct,
     },
+    cosmetics: museunCosmeticAppearance(charSave.museunCosmetics),
     hotTime: hotTime.active
       ? {
           title: hotTime.title,

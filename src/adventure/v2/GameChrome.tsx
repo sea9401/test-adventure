@@ -141,7 +141,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
                                   : null;
 
   return (
-    <div>
+    <div className="game-desktop-compact">
       <V2TopBar
         locationName={currentLocationName}
         gameName={accountName}

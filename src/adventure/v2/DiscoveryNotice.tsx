@@ -1,7 +1,7 @@
 import type { ComponentPropsWithoutRef } from "react";
 import { GameIcon } from "@/adventure/v2/GameIcon";
 
-type DiscoveryKind = "hunt" | "utility";
+type DiscoveryKind = "hunt" | "location" | "utility";
 
 export function DiscoveryNotice({
   kind,
@@ -21,7 +21,13 @@ export function DiscoveryNotice({
       {...props}
     >
       <GameIcon
-        name={kind === "hunt" ? "Sparkle" : "Ticket"}
+        name={
+          kind === "utility"
+            ? "Ticket"
+            : kind === "location"
+              ? "MapTrifold"
+              : "Sparkle"
+        }
         size={15}
         className="shrink-0"
       />

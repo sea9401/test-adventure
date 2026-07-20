@@ -4,9 +4,9 @@ import { db } from "@/db";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
 
-// GET /api/v2/me/rare-maps — 보유 희귀 탐사/입장권 목록.
-// 사냥터 목록 "열린 희귀 탐사" 섹션 + 인벤토리 소모품 탭이 소비. 읽기 전용 스냅샷
-// (만료/소진 purge 는 파싱 단계 lazy — 영속 정리는 hunt 가 기록할 때).
+// GET /api/v2/me/rare-maps — 보유 레어맵/테스트용 utility 목록.
+// 사냥터 목록 "열린 레어맵" 섹션 + 인벤토리 테스트 소모품 탭이 읽는 스냅샷
+// (만료/완료 purge 는 파싱 단계 lazy — 영속 정리는 hunt 가 기록할 때).
 
 export async function GET() {
   const userId = await ensureUser();

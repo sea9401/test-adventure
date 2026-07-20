@@ -153,7 +153,9 @@ export function HuntResultCard({
         <DiscoveryNotice kind={rareMapDropDef.category} className="mb-2">
           {rareMapDropDef.category === "hunt"
             ? `희귀 탐사 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
-            : `「${rareMapDropDef.name}」 발견! — 가방 소모품에서 사용`}
+            : rareMapDropDef.category === "location"
+              ? `희귀 장소 「${rareMapDropDef.name}」 개방! — 전투 탭 > 사냥터에서 입장`
+              : `「${rareMapDropDef.name}」 획득! — 가방 소모품에서 사용`}
         </DiscoveryNotice>
       )}
       {droppedUniq && (

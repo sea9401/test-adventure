@@ -12,8 +12,8 @@ import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
 import { useSystemMessageState } from "./RewardToastProvider";
 
-// 비밀 상점 — 「비밀 상점 초대장」으로 입장. map 생략 시 서버가 유효한 초대장을 자동 선택한다.
-// 서버(/api/v2/secret-shop)가 초대장 소유/품목 중복을 권위 검증.
+// 비밀 상점 — 사냥터에 열린 「비밀 상점 지도」로 입장.
+// 서버(/api/v2/secret-shop)가 지도 소유/품목 중복을 권위 검증.
 
 type StockRow = SecretShopItem & { bought: boolean };
 
@@ -89,12 +89,12 @@ export function V2SecretShopView({
         map?: string;
         gold?: number;
         bankedGold?: number;
-        mapConsumed?: boolean;
+        mapCompleted?: boolean;
       } | null;
       if (j?.ok) {
         if (typeof j.map === "string") setActiveMapIid(j.map);
         setMsg(
-          `✓ ${item.name} 구매${j.mapConsumed ? " — 모든 품목을 구매해 초대장을 다 썼다" : ""}`,
+          `✓ ${item.name} 구매${j.mapCompleted ? " — 모든 품목을 구매해 비밀 상점을 완료했다" : ""}`,
         );
         if (typeof j.gold === "number") setGold(j.gold);
         if (typeof j.bankedGold === "number") {
@@ -105,6 +105,11 @@ export function V2SecretShopView({
           bankedGold:
             typeof j.bankedGold === "number" ? j.bankedGold : undefined,
         });
+        if (j.mapCompleted) {
+          await refreshGameState();
+          onBack();
+          return;
+        }
         await refresh();
         if (item.id === "stamina_potion") {
           await refreshGameState();
@@ -116,42 +121,6 @@ export function V2SecretShopView({
             : j?.error === "already_bought"
               ? "이미 구매한 품목입니다"
               : (j?.error ?? `http ${res.status}`);
-        setMsg(`✗ ${label}`);
-      }
-    } catch (err) {
-      setMsg(`✗ network: ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function leaveShop() {
-    if (busy) return;
-    if (
-      !window.confirm("남은 물품을 포기하고 비밀 상점 초대장을 소진할까요?")
-    ) {
-      return;
-    }
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/secret-shop", {
-        method: "DELETE",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ map: activeMapIid }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-      } | null;
-      if (j?.ok) {
-        await refreshGameState();
-        onBack();
-      } else {
-        const label =
-          j?.error === "no_map"
-            ? "이미 닫혔거나 만료된 초대장입니다"
-            : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
       }
     } catch (err) {
@@ -181,15 +150,14 @@ export function V2SecretShopView({
       />
       {gold != null && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          품목당 1회 구매 · 초대장은 발견 후 30분 동안 유효
+          품목당 1회 구매 · 비밀 상점 지도는 발견 후 30분 동안 개방
         </p>
       )}
 
       {denied ? (
         <Card padding="md">
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            상인이 초대장을 확인하지 못했다 — 유효한 「비밀 상점 초대장」이
-            필요합니다.
+            비밀 상점으로 이어지는 유효한 지도를 찾지 못했습니다.
           </p>
         </Card>
       ) : stock === null ? (
@@ -229,7 +197,7 @@ export function V2SecretShopView({
             </Card>
           ))}
           <Button
-            onClick={leaveShop}
+            onClick={onBack}
             disabled={busy}
             variant="danger"
             size="sm"

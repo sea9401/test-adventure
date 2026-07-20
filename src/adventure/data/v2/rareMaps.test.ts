@@ -21,6 +21,17 @@ describe("rareMaps", () => {
     }
   });
 
+  it("비밀 상점과 개명 신전은 소모품이 아닌 희귀 장소 레어맵이다", () => {
+    expect(RARE_MAP_KINDS.secret_shop_map).toMatchObject({
+      name: "비밀 상점 지도",
+      category: "location",
+    });
+    expect(RARE_MAP_KINDS.rename_map).toMatchObject({
+      name: "개명 신전 지도",
+      category: "location",
+    });
+  });
+
   it("newRareMapInstance — 종류 정의대로 판수 세팅", () => {
     const m = newRareMapInstance("worn_map", 17, NOW, "rm_test");
     expect(m).toMatchObject({

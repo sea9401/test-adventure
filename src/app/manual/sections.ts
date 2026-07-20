@@ -40,7 +40,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "hunting",
     title: "사냥과 사냥터",
-    summary: "프론티어 깊이 밴드, 스태미나, 전리품, 희귀 탐사·입장권.",
+    summary: "프론티어 깊이 밴드, 스태미나, 전리품, 희귀 탐사·장소.",
     group: "combat",
   },
   {

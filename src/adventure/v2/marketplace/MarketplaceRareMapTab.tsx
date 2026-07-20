@@ -22,7 +22,7 @@ import {
   type PriceStat,
 } from "./marketplaceShared";
 
-// 판매 탭 — 희귀 탐사/입장권. 빈 목록 안내 / 개체 단위 가격 입력 카드 목록.
+// 판매 탭 — 레어맵/희귀 장소. 빈 목록 안내 / 개체 단위 가격 입력 카드 목록.
 export function MarketplaceRareMapTab({
   rareMaps,
   cashItems,
@@ -55,7 +55,7 @@ export function MarketplaceRareMapTab({
     return (
       <Card padding="sm">
         <div className="text-xs text-zinc-500 dark:text-zinc-400">
-          팔 수 있는 캐시 소모품이나 희귀 탐사·입장권이 없어요.
+          팔 수 있는 캐시 소모품이나 레어맵이 없어요.
         </div>
       </Card>
     );
@@ -124,7 +124,13 @@ export function MarketplaceRareMapTab({
             <div className="flex items-center justify-between gap-2">
               <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
                 <GameIcon
-                  name={def?.category === "hunt" ? "Sparkle" : "Ticket"}
+                  name={
+                    def?.category === "location"
+                      ? "MapTrifold"
+                      : def?.category === "hunt"
+                        ? "Sparkle"
+                        : "Ticket"
+                  }
                   size={16}
                   className="shrink-0 text-sky-600 dark:text-sky-400"
                 />

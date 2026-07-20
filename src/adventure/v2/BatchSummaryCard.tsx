@@ -81,6 +81,9 @@ export function BatchSummaryCard({
   const huntRareMapNames = rareMapDrops
     .filter((k) => RARE_MAP_KINDS[k]?.category === "hunt")
     .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
+  const locationMapNames = rareMapDrops
+    .filter((k) => RARE_MAP_KINDS[k]?.category === "location")
+    .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
   const utilityMapNames = rareMapDrops
     .filter((k) => RARE_MAP_KINDS[k]?.category === "utility")
     .map((k) => RARE_MAP_KINDS[k]?.name ?? k);
@@ -105,9 +108,15 @@ export function BatchSummaryCard({
           사냥터에서 입장
         </DiscoveryNotice>
       )}
+      {locationMapNames.length > 0 && (
+        <DiscoveryNotice kind="location" className="mb-2">
+          희귀 장소 {locationMapNames.join(", ")} 개방! — 전투 탭 &gt;
+          사냥터에서 입장
+        </DiscoveryNotice>
+      )}
       {utilityMapNames.length > 0 && (
         <DiscoveryNotice kind="utility" className="mb-2">
-          {utilityMapNames.join(", ")} 발견! — 가방 소모품에서 사용
+          {utilityMapNames.join(", ")} 획득! — 가방 소모품에서 사용
         </DiscoveryNotice>
       )}
       {uniqueItems.length > 0 && (

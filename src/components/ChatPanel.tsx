@@ -126,7 +126,7 @@ function ChatRoomList({
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-2">
-                <span className="truncate text-[15px] font-semibold text-zinc-800 group-disabled:text-zinc-400 dark:text-zinc-100 dark:group-disabled:text-zinc-500">
+                <span className="truncate text-sm font-semibold text-zinc-800 group-disabled:text-zinc-400 dark:text-zinc-100 dark:group-disabled:text-zinc-500">
                   {CHAT_ROOM_LABELS[room.key]}
                 </span>
                 {room.unread && room.available && (
@@ -136,7 +136,7 @@ function ChatRoomList({
                   />
                 )}
               </span>
-              <span className="mt-1 block truncate text-sm text-zinc-500 dark:text-zinc-400">
+              <span className="mt-1 block truncate text-xs text-zinc-500 dark:text-zinc-400">
                 {!room.available ? (
                   "길드에 가입하면 이용할 수 있습니다."
                 ) : latest ? (
@@ -163,7 +163,7 @@ function ChatRoomList({
             </span>
             <span className="flex shrink-0 items-center gap-2 self-start pt-0.5">
               {latest && room.available && (
-                <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
                   {formatRoomTime(latest.createdAt)}
                 </span>
               )}
@@ -558,12 +558,12 @@ export function ChatPanel({
               >
                 <ChatRoomIcon room={activeRoom} size={20} />
               </span>
-              <span className="truncate text-base font-semibold text-zinc-800 dark:text-zinc-100">
+              <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
                 {CHAT_ROOM_LABELS[activeRoom]}
               </span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-1 text-base font-semibold text-zinc-800 dark:text-zinc-100">
+            <div className="flex items-center gap-2 px-1 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
               <ChatCircle size={22} weight="duotone" />
               채팅
             </div>
@@ -574,7 +574,7 @@ export function ChatPanel({
               onClick={() => setPresenceOpen((v) => !v)}
               aria-expanded={presenceOpen}
               aria-label="접속자 목록"
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               <Users size={16} weight="duotone" />
               <span className="tabular-nums">접속 {presence.length}명</span>

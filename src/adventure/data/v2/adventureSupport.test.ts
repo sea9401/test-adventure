@@ -38,7 +38,7 @@ describe("월간 모험 지원권", () => {
   });
 
   it("에너지와 거래소 혜택을 고정한다", () => {
-    expect(ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toBe(500);
+    expect(ADVENTURE_SUPPORT_PASS.staminaMaxBonus).toBe(1_000);
     expect(ADVENTURE_SUPPORT_PASS.staminaActivationGrant).toBe(500);
     expect(ADVENTURE_SUPPORT_PASS.staminaRegenBonusPct).toBe(20);
     expect(ADVENTURE_SUPPORT_PASS.marketplaceSlotBonus).toBe(10);

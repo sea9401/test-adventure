@@ -2,6 +2,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
 import { db } from "@/db";
 import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
+import { parseMuseunCashItems } from "@/adventure/data/v2/museunCashItems";
 
 // GET /api/v2/me/rare-maps — 보유 희귀 탐사/입장권 목록.
 // 사냥터 목록 "열린 희귀 탐사" 섹션 + 인벤토리 소모품 탭이 소비. 읽기 전용 스냅샷
@@ -12,7 +13,9 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const save = await readSave<{ rareMaps?: unknown } | null>(
+  const save = await readSave<
+    { rareMaps?: unknown; cashItems?: unknown } | null
+  >(
     db,
     userId,
     "character.v2",
@@ -21,5 +24,6 @@ export async function GET() {
   return Response.json({
     ok: true,
     rareMaps: parseRareMaps(save?.rareMaps, Date.now()),
+    cashItems: parseMuseunCashItems(save?.cashItems),
   });
 }

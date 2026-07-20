@@ -27,7 +27,13 @@ describe("스태미너 — 기본 최대치", () => {
     expect(MAX_STAMINA).toBe(1500);
   });
 
-  it("활성 지원권은 기본 최대치를 2000으로 올리고 회복 속도 +20%를 적용한다", () => {
+  it("일반은 2분당 10, 지원권은 2분당 12를 회복한다", () => {
+    expect(REGEN_SECONDS_PER_POINT).toBe(12);
+    expect(staminaRegenMsPerPoint(0)).toBe(12_000);
+    expect(staminaRegenMsPerPoint(20)).toBe(10_000);
+  });
+
+  it("활성 지원권은 최대치를 1000 올리고 회복 속도 +20%를 적용한다", () => {
     const now = 1_000;
     expect(
       staminaConfigForCharacter(
@@ -38,7 +44,7 @@ describe("스태미너 — 기본 최대치", () => {
         now,
       ),
     ).toEqual({
-      max: 2_200,
+      max: 2_700,
       regenBonusPct: 20,
       adventureSupportActive: true,
     });

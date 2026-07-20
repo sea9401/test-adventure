@@ -8,17 +8,20 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { TextInput } from "@/components/ui/TextInput";
 import { useSystemMessageState } from "./RewardToastProvider";
+import type { MuseunCashItemId } from "@/adventure/data/v2/museunCashItems";
 
-// 개명 신전 — 「개명 신전 입장권」으로 입장. 닉네임 변경 1회(성공 시 입장권 소모).
-// 서버(/api/v2/me/rename)가 입장권 소유/이름 중복을 권위 검증.
+// 개명 신전 — 「개명 신전 입장권」 또는 캐시 「개명 허가증」으로 닉네임 변경 1회.
+// 서버(/api/v2/me/rename)가 사용권 소유/이름 중복을 권위 검증.
 
 export function V2RenameView({
   mapIid,
+  cashItemId,
   currentName,
   onBack,
   onRenamed,
 }: {
-  mapIid: string;
+  mapIid?: string;
+  cashItemId?: MuseunCashItemId;
   currentName: string;
   onBack: () => void;
   // 성공 시 전역 상태 재조회 + 복귀.
@@ -37,7 +40,10 @@ export function V2RenameView({
       const res = await fetch("/api/v2/me/rename", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ map: mapIid, name: next }),
+        body: JSON.stringify({
+          ...(cashItemId ? { cashItemId } : { map: mapIid }),
+          name: next,
+        }),
       });
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
@@ -53,8 +59,8 @@ export function V2RenameView({
             ? "이미 사용 중인 이름입니다"
             : j?.error === "same_name"
               ? "지금 이름과 같습니다"
-            : j?.error === "no_map"
-                ? "유효한 「개명 신전 입장권」이 필요합니다"
+            : j?.error === "no_ticket"
+                ? "유효한 개명 사용권이 필요합니다"
                 : j?.error === "invalid"
                   ? "이름은 1~16자입니다"
                   : (j?.error ?? `http ${res.status}`);
@@ -71,7 +77,7 @@ export function V2RenameView({
     <PageShell className="game-content-readable">
       <SubViewHeader title="개명의 신전" onBack={onBack} />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        새 이름으로 다시 태어납니다 — 입장권은 한 번 쓰면 사라집니다.
+        새 이름으로 다시 태어납니다 — 사용권은 한 번 쓰면 사라집니다.
       </p>
 
       <Card padding="md" className="space-y-3">

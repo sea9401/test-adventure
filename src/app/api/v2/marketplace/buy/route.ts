@@ -24,6 +24,10 @@ import {
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  addMuseunCashItem,
+  isMuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
 import { adventureSupportActive } from "@/adventure/data/v2/adventureSupport";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
@@ -37,6 +41,7 @@ type CharSave = {
   gold?: number;
   materials?: Record<string, number>;
   rareMaps?: unknown;
+  cashItems?: unknown;
   [k: string]: unknown;
 };
 
@@ -105,7 +110,10 @@ export async function POST(req: Request) {
 
     // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량
     //   스냅샷만 죽은 매물). 죽었으면 매물 자체를 expired 처리(대금 이동 0, 그대로 소멸).
-    if (listing.kind === "consumable") {
+    if (
+      listing.kind === "consumable" &&
+      !isMuseunCashItemId(listing.itemId)
+    ) {
       const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
       if (!inst) {
         await tx
@@ -140,20 +148,29 @@ export async function POST(req: Request) {
       ]);
       await upsertSave(tx, userId, "character.v2", nextChar);
     } else if (listing.kind === "consumable") {
-      // 레어맵 — 구매자 rareMaps 합류(새 iid — 교차 유저 충돌 방지). 보유 캡 초과 거부
-      //   (골드 차감 전 검증이 아니라 차감 후 같은 분기지만 tx 라 원자적 — 거부 시 전체 롤백).
-      const myMaps = parseRareMaps(charSave.rareMaps, Date.now());
-      if (myMaps.length >= RARE_MAP_CAP) {
-        return {
-          status: 400,
-          body: { ok: false as const, error: "rare_map_cap" },
+      if (isMuseunCashItemId(listing.itemId)) {
+        nextChar = {
+          ...nextChar,
+          cashItems: addMuseunCashItem(
+            charSave.cashItems,
+            listing.itemId,
+            listing.quantity,
+          ),
+        };
+      } else {
+        const myMaps = parseRareMaps(charSave.rareMaps, Date.now());
+        if (myMaps.length >= RARE_MAP_CAP) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "rare_map_cap" },
+          };
+        }
+        const inst = parseRareMaps([listing.instancePayload], Date.now())[0]!;
+        nextChar = {
+          ...nextChar,
+          rareMaps: [...myMaps, { ...inst, iid: genRareMapIid() }],
         };
       }
-      const inst = parseRareMaps([listing.instancePayload], Date.now())[0]!;
-      nextChar = {
-        ...nextChar,
-        rareMaps: [...myMaps, { ...inst, iid: genRareMapIid() }],
-      };
       await upsertSave(tx, userId, "character.v2", nextChar);
     } else {
       // material — 구매자 재료 수량 가산(character.v2 에 누적).

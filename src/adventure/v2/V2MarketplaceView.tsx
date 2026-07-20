@@ -67,6 +67,11 @@ import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
 import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
 import { useSystemMessageState } from "./RewardToastProvider";
 import { GameIcon } from "@/adventure/v2/GameIcon";
+import {
+  MUSEUN_CASH_ITEMS,
+  type MuseunCashItemCounts,
+  type MuseunCashItemId,
+} from "@/adventure/data/v2/museunCashItems";
 
 // v2 거래소 — 장비 개체 + 재료 + 소모품(희귀 탐사/입장권) 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
@@ -165,6 +170,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
   const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
+  const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -236,8 +242,12 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       setMaterials(j.materials ?? {});
     }
     if (rm.ok) {
-      const j = (await rm.json()) as { rareMaps?: RareMapInstance[] };
+      const j = (await rm.json()) as {
+        rareMaps?: RareMapInstance[];
+        cashItems?: MuseunCashItemCounts;
+      };
       setRareMaps(j.rareMaps ?? []);
+      setCashItems(j.cashItems ?? {});
     }
   }, []);
 
@@ -399,6 +409,25 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       "/api/v2/marketplace/list",
       { kind: "consumable", iid, price },
       "✓ 소모품 등록",
+      loadInventory,
+    );
+  };
+
+  const listCashItem = (itemId: MuseunCashItemId) => {
+    const price = parseAmount(prices[itemId]);
+    const quantity = parseAmount(qtys[itemId] ?? "1");
+    if (!Number.isInteger(price) || price < 1) {
+      setError("가격은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setError("수량은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    return act(
+      "/api/v2/marketplace/list",
+      { kind: "consumable", itemId, quantity, price },
+      `✓ ${MUSEUN_CASH_ITEMS[itemId].name} ${quantity}개 등록`,
       loadInventory,
     );
   };
@@ -757,12 +786,16 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           {sellTab === "consumable" ? (
             <MarketplaceRareMapTab
               rareMaps={rareMaps}
+              cashItems={cashItems}
               pager={sellRareMapPager}
               prices={prices}
               setPrices={setPrices}
+              qtys={qtys}
+              setQtys={setQtys}
               priceRef={priceRef}
               busy={busy}
               onListConsumable={listConsumable}
+              onListCashItem={listCashItem}
             />
           ) : sellTab === "material" ? (
             <MarketplaceMaterialTab

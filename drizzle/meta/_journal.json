@@ -834,6 +834,13 @@
       "when": 1784494276112,
       "tag": "0118_remove_portrait_map",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1784552192059,
+      "tag": "0119_custom_chat_rooms",
+      "breakpoints": true
     }
   ]
 }

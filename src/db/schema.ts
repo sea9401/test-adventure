@@ -223,7 +223,89 @@ export const bulletinComments = pgTable(
   ],
 );
 
-// 채팅 메시지. channel='global' 은 전체 채팅, channel='guild' 는 guildId 길드원 전용.
+// 사용자 채팅방. visibility='private' 가 기본이며 공개방만 둘러보기에서 노출된다.
+// ownerId 삭제 시 방과 멤버·초대·메시지가 모두 cascade 로 정리된다.
+export const chatRooms = pgTable(
+  "chat_rooms",
+  {
+    id: serial("id").primaryKey(),
+    ownerId: text("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    visibility: text("visibility").notNull().default("private"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("chat_rooms_visibility_created_idx").on(t.visibility, t.createdAt),
+    index("chat_rooms_owner_idx").on(t.ownerId),
+    check(
+      "chat_rooms_visibility_check",
+      sql`${t.visibility} in ('public', 'private')`,
+    ),
+    check(
+      "chat_rooms_name_length_check",
+      sql`char_length(${t.name}) between 2 and 24`,
+    ),
+  ],
+);
+
+// 채팅방 참여자. owner/member 역할은 방 관리 권한과 나가기 정책에 사용한다.
+export const chatRoomMembers = pgTable(
+  "chat_room_members",
+  {
+    roomId: integer("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("member"),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.roomId, t.userId] }),
+    index("chat_room_members_user_joined_idx").on(t.userId, t.joinedAt),
+    check("chat_room_members_role_check", sql`${t.role} in ('owner', 'member')`),
+  ],
+);
+
+// 비공개 채팅방 초대. 공개방도 소유자가 직접 초대할 수 있으나 참여는 초대 없이 가능하다.
+// 동일 방·수신자의 pending 초대는 하나만 유지하며 7일 뒤 만료로 취급한다.
+export const chatRoomInvites = pgTable(
+  "chat_room_invites",
+  {
+    id: serial("id").primaryKey(),
+    roomId: integer("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    fromUserId: text("from_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    toUserId: text("to_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("chat_room_invites_pending_unique_idx")
+      .on(t.roomId, t.toUserId)
+      .where(sql`${t.status} = 'pending'`),
+    index("chat_room_invites_recipient_idx")
+      .on(t.toUserId, t.createdAt)
+      .where(sql`${t.status} = 'pending'`),
+    check(
+      "chat_room_invites_status_check",
+      sql`${t.status} in ('pending', 'accepted', 'declined', 'expired')`,
+    ),
+  ],
+);
+
+// 채팅 메시지. channel='global' 은 전체 채팅, channel='guild' 는 guildId 길드원 전용,
+// channel='room' 은 roomId 채팅방 참여자 전용이다.
 // 3일 후 cron 으로 일괄 삭제.
 // name/className/title 은 전송 시점 스냅샷 — 이후 사용자가 바뀌어도 과거 메시지는 그대로.
 // title 은 미장착 시 NULL.
@@ -238,6 +320,9 @@ export const messages = pgTable(
     guildId: integer("guild_id").references(() => guilds.id, {
       onDelete: "cascade",
     }),
+    roomId: integer("room_id").references(() => chatRooms.id, {
+      onDelete: "cascade",
+    }),
     name: text("name").notNull(),
     className: text("class_name").notNull(),
     title: text("title"),
@@ -248,11 +333,12 @@ export const messages = pgTable(
     index("messages_created_at_idx").on(t.createdAt),
     index("messages_channel_created_at_idx").on(t.channel, t.createdAt),
     index("messages_guild_created_at_idx").on(t.guildId, t.createdAt),
+    index("messages_room_created_at_idx").on(t.roomId, t.createdAt),
     // POST 의 rate-limit 조회용 — userId 로 본인 마지막 메시지 시각.
     index("messages_user_created_at_idx").on(t.userId, t.createdAt),
     check(
       "messages_channel_scope_check",
-      sql`(${t.channel} = 'global' AND ${t.guildId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL)`,
+      sql`(${t.channel} = 'global' AND ${t.guildId} IS NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'guild' AND ${t.guildId} IS NOT NULL AND ${t.roomId} IS NULL) OR (${t.channel} = 'room' AND ${t.guildId} IS NULL AND ${t.roomId} IS NOT NULL)`,
     ),
   ],
 );

@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { ImageSquare, Ticket } from "@phosphor-icons/react";
 import { AvatarPicker, type AvatarCategory } from "@/adventure/profile/AvatarPicker";
 import { avatarImageSrc, type Avatar } from "@/adventure/profile/avatars";
 import { GUILD_EMBLEM_IMAGE_MAX_BYTES } from "@/adventure/data/guild-emblems";
 import { Card } from "@/components/ui/Card";
-import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
-import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import { useGameState } from "./GameStateProvider";
 
 type LoadState = {
   avatar: Avatar;
@@ -29,8 +27,8 @@ const ERROR_TEXT: Record<string, string> = {
   storage_error: "이미지 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
 };
 
-export function V2ProfileImageView() {
-  const router = useRouter();
+export function ProfileImagePanel() {
+  const { refreshGameState } = useGameState();
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<LoadState | null>(null);
   const [category, setCategory] = useState<AvatarCategory>("character");
@@ -81,7 +79,7 @@ export function V2ProfileImageView() {
       setState({ avatar: json.avatar, permits: json.permits ?? 0 });
       setSelected(null);
       setNotice({ kind: "ok", text: "프로필 이미지를 변경했습니다. 변경권 1개가 사용되었습니다." });
-      window.setTimeout(() => window.location.reload(), 500);
+      await refreshGameState().catch(() => undefined);
     } catch (error) {
       const code = error instanceof Error ? error.message : "change_failed";
       setNotice({ kind: "error", text: ERROR_TEXT[code] ?? "변경에 실패했습니다. 잠시 후 다시 시도해 주세요." });
@@ -109,7 +107,7 @@ export function V2ProfileImageView() {
       setPreviewUrl(null);
       if (inputRef.current) inputRef.current.value = "";
       setNotice({ kind: "ok", text: "직접 등록한 이미지로 변경했습니다. 변경권 1개가 사용되었습니다." });
-      window.setTimeout(() => window.location.reload(), 500);
+      await refreshGameState().catch(() => undefined);
     } catch (error) {
       const code = error instanceof Error ? error.message : "upload_failed";
       setNotice({ kind: "error", text: ERROR_TEXT[code] ?? "등록에 실패했습니다. 잠시 후 다시 시도해 주세요." });
@@ -119,8 +117,7 @@ export function V2ProfileImageView() {
   };
 
   return (
-    <PageShell>
-      <SubViewHeader title="프로필 이미지" onBack={() => router.back()} />
+    <div className="space-y-3">
       {notice ? <StatusBanner tone={notice.kind === "ok" ? "success" : "error"}>{notice.text}</StatusBanner> : null}
 
       <Card className="flex items-center gap-4">
@@ -193,6 +190,6 @@ export function V2ProfileImageView() {
           {busy ? "등록 중…" : "직접 등록 이미지로 변경"}
         </button>
       </Card>
-    </PageShell>
+    </div>
   );
 }

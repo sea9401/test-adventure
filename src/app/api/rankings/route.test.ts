@@ -9,6 +9,9 @@ vi.mock("@/lib/server/ensureUser", () => ({
 vi.mock("@/lib/server/isAdmin", () => ({
   getAdminEmailsList: vi.fn(() => []),
 }));
+vi.mock("@/lib/server/museunCosmetics", () => ({
+  readMuseunCosmeticAppearanceMap: vi.fn(async () => new Map()),
+}));
 
 import { GET } from "./route";
 

@@ -173,8 +173,10 @@ export async function GET(req: Request) {
   const nameByUser = new Map<string, string>();
   const avatarByUser = new Map<string, Avatar>();
   for (const row of profileRows) {
+    const rawProfile = row.value as { name?: unknown } | null;
     const profile = readProfileValue(row.value);
-    const name = profile?.name?.trim();
+    const name =
+      typeof rawProfile?.name === "string" ? rawProfile.name.trim() : "";
     if (name) nameByUser.set(row.userId, name);
     avatarByUser.set(row.userId, profile?.gender ?? "male1");
   }

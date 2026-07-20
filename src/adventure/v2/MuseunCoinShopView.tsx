@@ -30,7 +30,7 @@ import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
   MUSEUN_CASH_ITEMS,
-  MUSEUN_SHOP_ITEM_IDS,
+  MUSEUN_COSMETIC_BOX_ITEM_IDS,
   type MuseunCashItemCounts,
   type MuseunCashItemId,
 } from "@/adventure/data/v2/museunCashItems";
@@ -85,32 +85,18 @@ function itemSummary(itemId: MuseunCashItemId): string {
     : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";
 }
 
-const SHOP_ITEM_GROUPS = [
+export const SHOP_ITEM_GROUPS = [
   {
     id: "consumable",
     title: "이용권·소모품",
     description: "구매 후 가방에서 사용하는 기능성 상품입니다.",
-    itemIds: MUSEUN_SHOP_ITEM_IDS.filter((itemId) => {
-      const kind = MUSEUN_CASH_ITEMS[itemId].effect.kind;
-      return kind === "rename" || kind === "adventure_support";
-    }),
+    itemIds: ["adventure_support_30d", "rename_permit"],
   },
   {
-    id: "cosmetic_box",
-    title: "꾸미기 상자",
-    description: "중복 없이 꾸미기 한 종류를 해금하고 30일 사용 기간을 받습니다.",
-    itemIds: MUSEUN_SHOP_ITEM_IDS.filter((itemId) =>
-      MUSEUN_CASH_ITEMS[itemId].effect.kind.endsWith("_box"),
-    ),
-  },
-  {
-    id: "cosmetic_extension",
-    title: "꾸미기 연장권",
-    description: "도감에 해금된 꾸미기 한 종류의 사용 기간을 30일 연장합니다.",
-    itemIds: MUSEUN_SHOP_ITEM_IDS.filter(
-      (itemId) =>
-        MUSEUN_CASH_ITEMS[itemId].effect.kind === "cosmetic_extension",
-    ),
+    id: "cosmetic",
+    title: "꾸미기",
+    description: "꾸미기 상자와 해금된 꾸미기에 사용하는 30일 연장권입니다.",
+    itemIds: [...MUSEUN_COSMETIC_BOX_ITEM_IDS, "cosmetic_extension_30d"],
   },
 ] as const;
 

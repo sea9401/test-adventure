@@ -13,7 +13,9 @@ import {
   equipProfileBorder,
   isChatBadgeItemId,
   isChromaNameId,
+  isMuseunCosmeticAccessId,
   isProfileBorderItemId,
+  museunCosmeticAccessActive,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
 
@@ -73,22 +75,39 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
+    const now = Date.now();
     const character = await lockSaveForUpdate<CharacterSave>(
       tx,
       userId,
       "character.v2",
       {},
     );
+    const current = parseMuseunCosmetics(character.museunCosmetics);
+    if (
+      itemId !== null &&
+      isMuseunCosmeticAccessId(itemId) &&
+      !museunCosmeticAccessActive(current, itemId, now)
+    ) {
+      const unlocked =
+        (isChromaNameId(itemId) && current.chromaNames.includes(itemId)) ||
+        ((!isChromaNameId(itemId)) && current.owned.includes(itemId));
+      if (unlocked) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "expired" },
+        };
+      }
+    }
     let cosmetics;
     if (slot === "profile_border") {
       if (itemId !== null && !isProfileBorderItemId(itemId)) return null;
-      cosmetics = equipProfileBorder(character.museunCosmetics, itemId);
+      cosmetics = equipProfileBorder(current, itemId, now);
     } else if (slot === "chat_badge") {
       if (itemId !== null && !isChatBadgeItemId(itemId)) return null;
-      cosmetics = equipChatBadge(character.museunCosmetics, itemId);
+      cosmetics = equipChatBadge(current, itemId, now);
     } else {
       if (itemId !== null && !isChromaNameId(itemId)) return null;
-      cosmetics = equipChromaName(character.museunCosmetics, itemId);
+      cosmetics = equipChromaName(current, itemId, now);
     }
     if (!cosmetics) {
       return {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MUSEUN_CASH_ITEMS,
   MUSEUN_COSMETIC_BOX_ITEM_IDS,
+  MUSEUN_COSMETIC_INVENTORY_ITEM_IDS,
   MUSEUN_SHOP_ITEM_IDS,
   MUSEUN_UTILITY_ITEM_IDS,
   addMuseunCashItem,
@@ -48,6 +49,12 @@ describe("무슨 코인 캐시 소모품", () => {
       tradeable: true,
       effect: { kind: "chat_badge_box" },
     });
+    expect(MUSEUN_CASH_ITEMS.cosmetic_extension_30d).toMatchObject({
+      coinPrice: 200,
+      delivery: "inventory",
+      tradeable: true,
+      effect: { kind: "cosmetic_extension", days: 30 },
+    });
   });
 
   it("카탈로그 id만 캐시 아이템으로 인정한다", () => {
@@ -68,11 +75,18 @@ describe("무슨 코인 캐시 소모품", () => {
       "profile_border_box",
       "chat_badge_box",
     ]);
+    expect(MUSEUN_COSMETIC_INVENTORY_ITEM_IDS).toEqual([
+      "cosmetic_extension_30d",
+      "chroma_name_box",
+      "profile_border_box",
+      "chat_badge_box",
+    ]);
     expect(isMuseunCosmeticBoxItemId("chroma_name_box")).toBe(true);
     expect(isMuseunCosmeticBoxItemId("rename_permit")).toBe(false);
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("rename_permit");
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("adventure_support_30d");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("profile_border_box");
+    expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("cosmetic_extension_30d");
   });
 
   it("꾸미기 권리는 계정 귀속이고 인벤토리 아이템만 거래 가능하다", () => {
@@ -81,6 +95,7 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isTradeableMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("profile_border_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("chat_badge_box")).toBe(true);
+    expect(isTradeableMuseunCashItemId("cosmetic_extension_30d")).toBe(true);
     expect(isTradeableMuseunCashItemId("prismatic_profile_border")).toBe(
       false,
     );

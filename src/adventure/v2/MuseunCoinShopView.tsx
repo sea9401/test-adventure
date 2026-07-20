@@ -77,9 +77,12 @@ function itemSummary(itemId: MuseunCashItemId): string {
   if (item.effect.kind === "chat_badge_box") {
     return "미보유 채팅 배지 한 종류를 중복 없이 획득합니다.";
   }
+  if (item.effect.kind === "cosmetic_extension") {
+    return `해금된 꾸미기 한 종류의 사용 기간을 ${item.effect.days}일 연장합니다.`;
+  }
   return item.effect.slot === "profile_border"
-    ? "프로필 카드에 적용할 영구 테두리를 해금합니다."
-    : "채팅 닉네임 앞에 표시할 영구 배지를 해금합니다.";
+    ? "프로필 카드에 적용할 테두리를 해금하고 30일간 사용합니다."
+    : "채팅 닉네임 앞에 표시할 배지를 해금하고 30일간 사용합니다.";
 }
 
 const SHOP_ITEM_GROUPS = [
@@ -95,9 +98,18 @@ const SHOP_ITEM_GROUPS = [
   {
     id: "cosmetic_box",
     title: "꾸미기 상자",
-    description: "중복 없이 영구 꾸미기 한 종류를 획득하며 미개봉 상태로 거래할 수 있습니다.",
+    description: "중복 없이 꾸미기 한 종류를 해금하고 30일 사용 기간을 받습니다.",
     itemIds: MUSEUN_SHOP_ITEM_IDS.filter((itemId) =>
       MUSEUN_CASH_ITEMS[itemId].effect.kind.endsWith("_box"),
+    ),
+  },
+  {
+    id: "cosmetic_extension",
+    title: "꾸미기 연장권",
+    description: "도감에 해금된 꾸미기 한 종류의 사용 기간을 30일 연장합니다.",
+    itemIds: MUSEUN_SHOP_ITEM_IDS.filter(
+      (itemId) =>
+        MUSEUN_CASH_ITEMS[itemId].effect.kind === "cosmetic_extension",
     ),
   },
 ] as const;
@@ -199,7 +211,7 @@ export function MuseunCoinShopView() {
           data?.error === "insufficient_coins"
             ? "무슨 코인이 부족합니다."
             : data?.error === "already_owned"
-              ? "이미 보유한 영구 꾸미기 상품입니다."
+              ? "이미 해금한 꾸미기 상품입니다."
               : "상품을 구매하지 못했습니다.",
         );
         return;
@@ -209,7 +221,7 @@ export function MuseunCoinShopView() {
       setCosmetics(parseMuseunCosmetics(data.cosmetics));
       setMessage(
         data.delivery === "entitlement"
-          ? `${data.itemName ?? "꾸미기 상품"}을 영구 적용했습니다.`
+          ? `${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
           : `${data.itemName ?? "캐시 아이템"}을 가방에 넣었습니다.`,
       );
     } catch {
@@ -407,7 +419,7 @@ function CashItemCard({
           {owned > 0 && (
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {item.delivery === "entitlement"
-                ? "영구 보유 · 장착 가능"
+                ? "도감 해금 · 기간 중 장착 가능"
                 : `가방에 ${owned}개 보유`}
             </p>
           )}
@@ -515,6 +527,13 @@ function CashItemDetailDialog({
               구매 후 가방에서 사용하면 캐릭터 이름을 한 번 변경할 수 있습니다. 사용하기
               전에는 거래소에 등록해 다른 모험가와 거래할 수 있습니다.
             </p>
+          ) : itemId === "cosmetic_extension_30d" ? (
+            <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              구매 후 설정의 꾸미기 화면에서 도감에 해금된 크로마 닉네임, 프로필
+              테두리 또는 채팅 배지 한 종류를 골라 사용 기간을 30일 연장할 수
+              있습니다. 남은 기간이 있으면 그 뒤에 30일이 더해지며, 사용 전에는
+              거래소에 등록할 수 있습니다.
+            </p>
           ) : itemId === "chroma_name_box" ? (
             <ChromaNameBoxPreview cosmetics={cosmetics} />
           ) : itemId === "profile_border_box" ? (
@@ -536,8 +555,8 @@ function CashItemDetailDialog({
             <span>
               {item.delivery === "entitlement"
                 ? permanentOwned
-                  ? "영구 보유 · 가방에서 장착"
-                  : "계정 귀속 · 영구 적용"
+                  ? "도감 해금 · 기간 중 장착"
+                  : "계정 귀속 · 30일 사용"
                 : `가방에 ${owned}개 보유`}
             </span>
           </div>
@@ -572,8 +591,8 @@ function ChromaNameBoxPreview({
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
         미보유 닉네임 색상 중 한 종류를 등급별 확률로 획득합니다. 중복은 나오지
-        않으며, 획득한 색상은 가방에서 자유롭게 바꿔 적용할 수 있습니다. 사용 전
-        상자는 거래소에 등록할 수 있습니다.
+        않으며, 획득 즉시 30일 사용 기간이 시작됩니다. 기간 중 설정에서 자유롭게
+        바꿔 적용할 수 있고, 사용 전 상자는 거래소에 등록할 수 있습니다.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(Object.keys(CHROMA_NAME_RARITIES) as ChromaNameRarity[]).map(
@@ -690,7 +709,8 @@ function CosmeticCollectionBoxPreview({
     <div className="space-y-3">
       <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
         미보유 {itemLabel} 중 한 종류를 등급별 확률로 획득합니다. 중복은 나오지
-        않으며 획득 즉시 적용됩니다. 사용 전 상자는 거래소에 등록할 수 있습니다.
+        않으며 획득 즉시 30일 사용 기간이 시작됩니다. 기간 중 설정에서 자유롭게
+        적용할 수 있고, 사용 전 상자는 거래소에 등록할 수 있습니다.
       </p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(Object.keys(rarities) as CosmeticItemRarity[]).map((rarity) => {

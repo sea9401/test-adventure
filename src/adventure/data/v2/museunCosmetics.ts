@@ -10,9 +10,19 @@ export type MuseunCosmeticItemId = {
     : never;
 }[MuseunCashItemId];
 
+export type MuseunCosmeticAccessId = MuseunCosmeticItemId | ChromaNameId;
+
+export const MUSEUN_COSMETIC_ACCESS_DAYS = 30;
+export const MUSEUN_COSMETIC_ACCESS_MS =
+  MUSEUN_COSMETIC_ACCESS_DAYS * 24 * 60 * 60 * 1_000;
+// 기간제 도입 전에 획득한 꾸미기는 전환일부터 30일의 유예 사용 기간을 갖는다.
+// 저장값에 accessUntil 이 생기면 이후에는 각 항목의 실제 만료 시각만 사용한다.
+export const LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL = Date.UTC(2026, 7, 20);
+
 export type MuseunCosmeticsState = {
   owned: MuseunCosmeticItemId[];
   chromaNames: ChromaNameId[];
+  accessUntil: Partial<Record<MuseunCosmeticAccessId, number>>;
   equippedChromaName: ChromaNameId | null;
   equippedProfileBorder: ProfileBorderItemId | null;
   equippedChatBadge: ChatBadgeItemId | null;
@@ -175,6 +185,7 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     return {
       owned: [],
       chromaNames: [],
+      accessUntil: {},
       equippedChromaName: null,
       equippedProfileBorder: null,
       equippedChatBadge: null,
@@ -184,6 +195,7 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     [key: string]: unknown;
     owned?: unknown;
     chromaNames?: unknown;
+    accessUntil?: unknown;
     equippedChromaName?: unknown;
     equippedProfileBorder?: unknown;
     equippedChatBadge?: unknown;
@@ -240,9 +252,24 @@ export function parseMuseunCosmetics(value: unknown): MuseunCosmeticsState {
     "equippedChatBadge",
     ownedChatBadges,
   );
+  const accessUntil: Partial<Record<MuseunCosmeticAccessId, number>> = {};
+  const rawAccessUntil =
+    raw.accessUntil &&
+    typeof raw.accessUntil === "object" &&
+    !Array.isArray(raw.accessUntil)
+      ? (raw.accessUntil as Record<string, unknown>)
+      : {};
+  for (const itemId of [...owned, ...chromaNames]) {
+    const expiration = Number(rawAccessUntil[itemId]);
+    accessUntil[itemId] =
+      Number.isFinite(expiration) && expiration > 0
+        ? Math.floor(expiration)
+        : LEGACY_MUSEUN_COSMETIC_ACCESS_UNTIL;
+  }
   return {
     owned,
     chromaNames,
+    accessUntil,
     equippedChromaName,
     equippedProfileBorder,
     equippedChatBadge,
@@ -267,12 +294,17 @@ function parseEquippedOwnedItem<T extends string>(
 export function unlockMuseunCosmetic(
   value: unknown,
   itemId: MuseunCosmeticItemId,
+  now: number = Date.now(),
 ): { state: MuseunCosmeticsState; alreadyOwned: boolean } {
   const state = parseMuseunCosmetics(value);
   if (state.owned.includes(itemId)) return { state, alreadyOwned: true };
   const nextState: MuseunCosmeticsState = {
     ...state,
     owned: [...state.owned, itemId],
+    accessUntil: {
+      ...state.accessUntil,
+      [itemId]: now + MUSEUN_COSMETIC_ACCESS_MS,
+    },
   };
   if (isProfileBorderItemId(itemId)) {
     nextState.equippedProfileBorder = itemId;
@@ -294,6 +326,67 @@ export function isProfileBorderItemId(
 
 export function isChatBadgeItemId(value: unknown): value is ChatBadgeItemId {
   return CHAT_BADGE_VARIANTS.some((variant) => variant.itemId === value);
+}
+
+export function isMuseunCosmeticAccessId(
+  value: unknown,
+): value is MuseunCosmeticAccessId {
+  return isMuseunCosmeticItemId(value) || isChromaNameId(value);
+}
+
+export function isMuseunCosmeticUnlocked(
+  value: unknown,
+  itemId: MuseunCosmeticAccessId,
+): boolean {
+  const state = parseMuseunCosmetics(value);
+  return isChromaNameId(itemId)
+    ? state.chromaNames.includes(itemId)
+    : state.owned.includes(itemId);
+}
+
+export function museunCosmeticAccessUntil(
+  value: unknown,
+  itemId: MuseunCosmeticAccessId,
+): number | null {
+  if (!isMuseunCosmeticUnlocked(value, itemId)) return null;
+  return parseMuseunCosmetics(value).accessUntil[itemId] ?? null;
+}
+
+export function museunCosmeticAccessActive(
+  value: unknown,
+  itemId: MuseunCosmeticAccessId,
+  now: number = Date.now(),
+): boolean {
+  const activeUntil = museunCosmeticAccessUntil(value, itemId);
+  return activeUntil !== null && activeUntil > now;
+}
+
+export function extendMuseunCosmeticAccess(
+  value: unknown,
+  itemId: MuseunCosmeticAccessId,
+  requestedDays: unknown,
+  now: number = Date.now(),
+): {
+  state: MuseunCosmeticsState;
+  days: number;
+  previousUntil: number;
+  activeUntil: number;
+} | null {
+  const days = Math.floor(Number(requestedDays));
+  if (!Number.isFinite(days) || days <= 0 || days > 3_650) return null;
+  const state = parseMuseunCosmetics(value);
+  if (!isMuseunCosmeticUnlocked(state, itemId)) return null;
+  const previousUntil = state.accessUntil[itemId] ?? 0;
+  const activeUntil = Math.max(now, previousUntil) + days * 24 * 60 * 60 * 1_000;
+  return {
+    state: {
+      ...state,
+      accessUntil: { ...state.accessUntil, [itemId]: activeUntil },
+    },
+    days,
+    previousUntil,
+    activeUntil,
+  };
 }
 
 export function unownedProfileBorders(value: unknown): ProfileBorderItemId[] {
@@ -401,18 +494,32 @@ export function drawChatBadgeByRoll(
 export function equipProfileBorder(
   value: unknown,
   itemId: ProfileBorderItemId | null,
+  now: number = Date.now(),
 ): MuseunCosmeticsState | null {
   const state = parseMuseunCosmetics(value);
-  if (itemId !== null && !state.owned.includes(itemId)) return null;
+  if (
+    itemId !== null &&
+    (!state.owned.includes(itemId) ||
+      !museunCosmeticAccessActive(state, itemId, now))
+  ) {
+    return null;
+  }
   return { ...state, equippedProfileBorder: itemId };
 }
 
 export function equipChatBadge(
   value: unknown,
   itemId: ChatBadgeItemId | null,
+  now: number = Date.now(),
 ): MuseunCosmeticsState | null {
   const state = parseMuseunCosmetics(value);
-  if (itemId !== null && !state.owned.includes(itemId)) return null;
+  if (
+    itemId !== null &&
+    (!state.owned.includes(itemId) ||
+      !museunCosmeticAccessActive(state, itemId, now))
+  ) {
+    return null;
+  }
   return { ...state, equippedChatBadge: itemId };
 }
 
@@ -435,12 +542,17 @@ export function unownedChromaNames(value: unknown): ChromaNameId[] {
 export function grantChromaName(
   value: unknown,
   chromaId: ChromaNameId,
+  now: number = Date.now(),
 ): MuseunCosmeticsState {
   const state = parseMuseunCosmetics(value);
   if (state.chromaNames.includes(chromaId)) return state;
   return {
     ...state,
     chromaNames: [...state.chromaNames, chromaId],
+    accessUntil: {
+      ...state.accessUntil,
+      [chromaId]: now + MUSEUN_COSMETIC_ACCESS_MS,
+    },
     equippedChromaName: chromaId,
   };
 }
@@ -448,9 +560,16 @@ export function grantChromaName(
 export function equipChromaName(
   value: unknown,
   chromaId: ChromaNameId | null,
+  now: number = Date.now(),
 ): MuseunCosmeticsState | null {
   const state = parseMuseunCosmetics(value);
-  if (chromaId !== null && !state.chromaNames.includes(chromaId)) return null;
+  if (
+    chromaId !== null &&
+    (!state.chromaNames.includes(chromaId) ||
+      !museunCosmeticAccessActive(state, chromaId, now))
+  ) {
+    return null;
+  }
   return { ...state, equippedChromaName: chromaId };
 }
 
@@ -503,6 +622,7 @@ export function drawChromaNameByRoll(
 
 export function museunCosmeticAppearance(
   value: unknown,
+  now: number = Date.now(),
 ): MuseunCosmeticAppearance {
   const cosmetics = parseMuseunCosmetics(value);
   const profileBorder = PROFILE_BORDER_VARIANTS.find(
@@ -512,8 +632,23 @@ export function museunCosmeticAppearance(
     (variant) => variant.itemId === cosmetics.equippedChatBadge,
   );
   return {
-    profileBorder: profileBorder?.id ?? null,
-    chatBadge: chatBadge?.id ?? null,
-    chatNameEffect: cosmetics.equippedChromaName,
+    profileBorder:
+      profileBorder &&
+      museunCosmeticAccessActive(cosmetics, profileBorder.itemId, now)
+        ? profileBorder.id
+        : null,
+    chatBadge:
+      chatBadge && museunCosmeticAccessActive(cosmetics, chatBadge.itemId, now)
+        ? chatBadge.id
+        : null,
+    chatNameEffect:
+      cosmetics.equippedChromaName &&
+      museunCosmeticAccessActive(
+        cosmetics,
+        cosmetics.equippedChromaName,
+        now,
+      )
+        ? cosmetics.equippedChromaName
+        : null,
   };
 }

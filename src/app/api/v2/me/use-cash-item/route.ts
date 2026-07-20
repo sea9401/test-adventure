@@ -27,7 +27,9 @@ import {
   drawChatBadgeByRoll,
   drawChromaNameByRoll,
   drawProfileBorderByRoll,
+  extendMuseunCosmeticAccess,
   grantChromaName,
+  isMuseunCosmeticAccessId,
   profileBorderDrawWeight,
   unlockMuseunCosmetic,
   unownedChatBadges,
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
   });
   if (limited) return limited;
 
-  let body: { itemId?: unknown };
+  let body: { itemId?: unknown; targetId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -68,6 +70,59 @@ export async function POST(req: Request) {
   if (!isMuseunCashItemId(body.itemId)) return bad("invalid_item");
   const itemId = body.itemId;
   const item = MUSEUN_CASH_ITEMS[itemId];
+  if (item.effect.kind === "cosmetic_extension") {
+    const extensionDays = item.effect.days;
+    if (!isMuseunCosmeticAccessId(body.targetId)) {
+      return bad("invalid_cosmetic_target");
+    }
+    const targetId = body.targetId;
+    const result = await db.transaction(async (tx) => {
+      const now = Date.now();
+      const character = await lockSaveForUpdate<CharacterSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const extension = extendMuseunCosmeticAccess(
+        character.museunCosmetics,
+        targetId,
+        extensionDays,
+        now,
+      );
+      if (!extension) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "cosmetic_not_unlocked" },
+        };
+      }
+      const cashItems = removeMuseunCashItem(character.cashItems, itemId, 1);
+      if (!cashItems) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owned" },
+        };
+      }
+      await upsertSave(tx, userId, "character.v2", {
+        ...character,
+        cashItems,
+        museunCosmetics: extension.state,
+      });
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          itemId,
+          targetId,
+          cashItems,
+          cosmetics: extension.state,
+          daysAdded: extension.days,
+          activeUntil: extension.activeUntil,
+        },
+      };
+    });
+    return Response.json(result.body, { status: result.status });
+  }
   if (item.effect.kind === "chroma_name_box") {
     const result = await db.transaction(async (tx) => {
       const character = await lockSaveForUpdate<CharacterSave>(
@@ -94,7 +149,11 @@ export async function POST(req: Request) {
         character.museunCosmetics,
         randomInt(chromaNameDrawWeight(character.museunCosmetics)),
       )!;
-      const cosmetics = grantChromaName(character.museunCosmetics, chromaId);
+      const cosmetics = grantChromaName(
+        character.museunCosmetics,
+        chromaId,
+        Date.now(),
+      );
       await upsertSave(tx, userId, "character.v2", {
         ...character,
         cashItems,
@@ -146,6 +205,7 @@ export async function POST(req: Request) {
       const cosmetics = unlockMuseunCosmetic(
         character.museunCosmetics,
         cosmeticItemId,
+        Date.now(),
       ).state;
       const variant = PROFILE_BORDER_VARIANTS.find(
         (candidate) => candidate.itemId === cosmeticItemId,
@@ -198,6 +258,7 @@ export async function POST(req: Request) {
       const cosmetics = unlockMuseunCosmetic(
         character.museunCosmetics,
         cosmeticItemId,
+        Date.now(),
       ).state;
       const variant = CHAT_BADGE_VARIANTS.find(
         (candidate) => candidate.itemId === cosmeticItemId,

@@ -9,7 +9,11 @@ import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
-import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
+import {
+  isStoredAvatarId,
+  isValidAvatarId,
+  type Avatar,
+} from "@/adventure/profile/avatars";
 import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
 
 // 트랜잭션 안에서 "이름 중복" 신호용 — Postgres 23505 또는 legacy hit 양쪽을 한곳에서 처리.
@@ -97,7 +101,7 @@ export async function POST(req: Request) {
       // ── 멱등 경로 — gameName 이 이미 박혀 있다 = 신규가 아님. 절대 덮어쓰지 않음.
       // savesKv 가 비었거나 name 이 어긋났으면 권위값으로 동기화(자가 치유).
       if (existingGameName) {
-        const healedGender = isValidAvatarId(existingProfile?.gender ?? "")
+        const healedGender = isStoredAvatarId(existingProfile?.gender ?? "")
           ? (existingProfile!.gender as Avatar)
           : submittedGender;
         const healedProfile = {

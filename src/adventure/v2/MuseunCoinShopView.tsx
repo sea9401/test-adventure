@@ -91,6 +91,9 @@ function itemSummary(itemId: MuseunCashItemId): string {
     return `${item.effect.days}일간 모험 편의 혜택을 활성화합니다.`;
   }
   if (item.effect.kind === "rename") return "캐릭터 이름을 한 번 변경합니다.";
+  if (item.effect.kind === "profile_image") {
+    return "게임 내 이미지 선택 또는 직접 등록으로 프로필 이미지를 한 번 변경합니다.";
+  }
   if (item.effect.kind === "chroma_name_box") {
     return "미보유 크로마 닉네임 한 종류를 중복 없이 획득합니다.";
   }
@@ -113,7 +116,7 @@ export const SHOP_ITEM_GROUPS = [
     id: "consumable",
     title: "이용권·소모품",
     description: "구매 후 가방에서 사용하는 기능성 상품입니다.",
-    itemIds: ["adventure_support_30d", "rename_permit"],
+    itemIds: ["adventure_support_30d", "rename_permit", "profile_image_permit"],
   },
   {
     id: "cosmetic",
@@ -366,7 +369,7 @@ function CashItemIcon({
   const iconClass =
     effect.kind === "adventure_support"
       ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"
-      : effect.kind === "rename"
+      : effect.kind === "rename" || effect.kind === "profile_image"
         ? "bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-300"
         : effect.kind === "chroma_name_box"
           ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300"
@@ -378,7 +381,7 @@ function CashItemIcon({
     <span className={`inline-flex shrink-0 rounded-full p-2 ${iconClass}`}>
       {effect.kind === "adventure_support" ? (
         <Sword size={size} weight="duotone" aria-hidden />
-      ) : effect.kind === "rename" ? (
+      ) : effect.kind === "rename" || effect.kind === "profile_image" ? (
         <IdentificationCard size={size} weight="duotone" aria-hidden />
       ) : effect.kind === "chroma_name_box" ? (
         <Palette size={size} weight="duotone" aria-hidden />
@@ -535,6 +538,12 @@ function CashItemDetailDialog({
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
               구매 후 가방에서 사용하면 캐릭터 이름을 한 번 변경할 수 있습니다. 사용하기
               전에는 거래소에 등록해 다른 모험가와 거래할 수 있습니다.
+            </p>
+          ) : itemId === "profile_image_permit" ? (
+            <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              구매 후 가방에서 사용하면 게임에 포함된 캐릭터·NPC·몬스터 이미지 중 하나를
+              고르거나 JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수
+              있습니다. 변경 전에는 거래소에 등록할 수 있습니다.
             </p>
           ) : itemId === "cosmetic_extension_30d" ? (
             <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">

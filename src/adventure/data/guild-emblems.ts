@@ -6,6 +6,12 @@
 
 export type GuildEmblemMeta = { key: string; label: string };
 
+import {
+  avatarImageSrc,
+  isValidAvatarId,
+  type Avatar,
+} from "@/adventure/profile/avatars";
+
 // 표시 순서 = 선택 그리드 순서. 아이콘 매핑은 guild-emblems-icons.ts 가 같은 key 로 보강.
 export const GUILD_EMBLEM_LIST: readonly GuildEmblemMeta[] = [
   { key: "sword", label: "검" },
@@ -47,11 +53,12 @@ export function isValidGuildEmblem(key: unknown): key is string {
 
 // 커스텀 길드 엠블럼 — 원본은 서버에서 256px WebP 로 정규화한 뒤 Cloudflare R2 에 저장한다.
 // DB 에는 외부 URL 대신 이 앱이 생성한 불변 객체 키만 저장한다.
-export const GUILD_EMBLEM_CHANGE_COST = 50_000_000;
+export const GUILD_CUSTOM_EMBLEM_COIN_COST = 500;
 export const GUILD_EMBLEM_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
 export const GUILD_EMBLEM_IMAGE_SIZE = 256;
 export const GUILD_EMBLEM_IMAGE_MAX_DIMENSION = 4096;
 export const GUILD_EMBLEM_STORAGE_PREFIX = "guild-emblems";
+export const GUILD_GAME_IMAGE_PREFIX = "game-avatar:";
 
 const GUILD_EMBLEM_OBJECT_KEY =
   /^guild-emblems\/([1-9][0-9]*)\/([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.webp$/;
@@ -66,7 +73,21 @@ export function isGuildEmblemObjectKey(value: unknown): value is string {
   return normalizeGuildEmblemObjectKey(value) !== null;
 }
 
+export function guildGameImageValue(avatar: Avatar): string {
+  return `${GUILD_GAME_IMAGE_PREFIX}${avatar}`;
+}
+
+export function normalizeGuildGameImage(value: unknown): Avatar | null {
+  if (typeof value !== "string" || !value.startsWith(GUILD_GAME_IMAGE_PREFIX)) {
+    return null;
+  }
+  const avatar = value.slice(GUILD_GAME_IMAGE_PREFIX.length);
+  return isValidAvatarId(avatar) ? avatar : null;
+}
+
 export function guildEmblemImageSrc(value: unknown): string | null {
+  const gameAvatar = normalizeGuildGameImage(value);
+  if (gameAvatar) return avatarImageSrc(gameAvatar);
   const key = normalizeGuildEmblemObjectKey(value);
   if (!key) return null;
   const match = GUILD_EMBLEM_OBJECT_KEY.exec(key);

@@ -38,6 +38,7 @@ import {
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { guildColorHex } from "@/adventure/data/guild-colors";
 import { guildEmblemIcon } from "@/adventure/data/guild-emblems-icons";
+import { guildEmblemImageSrc } from "@/adventure/data/guild-emblems";
 import {
   TILE_BOARD_SIZE,
   TILE_OUTPOST_AT,
@@ -447,6 +448,10 @@ export function TileMap({
                   occ?.occupiedByGuildId != null
                     ? guildEmblemIcon(occ.occupiedByGuildEmblem)
                     : House;
+                const emblemImage =
+                  occ?.occupiedByGuildId != null
+                    ? guildEmblemImageSrc(occ.occupiedByGuildEmblem)
+                    : null;
                 return (
                   <button
                     key={k}
@@ -460,7 +465,16 @@ export function TileMap({
                       className="flex h-[82%] w-[82%] items-center justify-center rounded-md"
                       style={{ background: fill }}
                     >
-                      <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
+                      {emblemImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={emblemImage}
+                          alt=""
+                          className="h-3/4 w-3/4 rounded object-cover"
+                        />
+                      ) : (
+                        <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
+                      )}
                     </span>
                     {raidBadge}
                   </button>

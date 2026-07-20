@@ -5,10 +5,7 @@ import { getAdminEmailsList } from "@/lib/server/isAdmin";
 import { kstWeekStartKey } from "@/adventure/tower/weeklyTypes";
 import { pointsFromExp } from "@/lib/paragon";
 import { derivePowerScore } from "@/adventure/data/v2/power";
-import {
-  isValidAvatarId,
-  type Avatar,
-} from "@/adventure/profile/avatars";
+import { isStoredAvatarId, type Avatar } from "@/adventure/profile/avatars";
 import {
   derivePlayerCombatV2FromSaves,
   type SavedCharacterV2,
@@ -117,7 +114,7 @@ const cache: Map<Metric, CacheEntry> = new Map();
 function rankingAvatar(raw: unknown): Avatar {
   if (raw === "male") return "male1";
   if (raw === "female") return "female1";
-  return isValidAvatarId(raw) ? raw : "male1";
+  return isStoredAvatarId(raw) ? raw : "male1";
 }
 
 async function fetchRows(metric: Metric): Promise<RankRow[]> {

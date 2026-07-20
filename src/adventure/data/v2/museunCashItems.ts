@@ -3,6 +3,16 @@ import { ADVENTURE_SUPPORT_PASS } from "./adventureSupport";
 export const MUSEUN_COIN_WALLET_KEY = "museun-coin-wallet.v1";
 
 export const MUSEUN_CASH_ITEMS = {
+  profile_image_permit: {
+    id: "profile_image_permit",
+    name: "프로필 이미지 변경권",
+    description:
+      "게임 내 이미지 선택 또는 직접 등록으로 프로필 이미지를 한 번 변경할 수 있습니다. 변경 완료 시 1개가 소모되며 거래소에서 거래할 수 있습니다.",
+    coinPrice: 300,
+    delivery: "inventory",
+    tradeable: true,
+    effect: { kind: "profile_image" },
+  },
   rename_permit: {
     id: "rename_permit",
     name: "개명 허가증",

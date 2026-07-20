@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
@@ -15,9 +15,14 @@ import {
   GUILD_NAME_MAX,
 } from "@/adventure/data/guild";
 import {
-  GUILD_EMBLEM_CHANGE_COST,
+  GUILD_CUSTOM_EMBLEM_COIN_COST,
   GUILD_EMBLEM_IMAGE_MAX_BYTES,
 } from "@/adventure/data/guild-emblems";
+import {
+  AvatarPicker,
+  type AvatarCategory,
+} from "@/adventure/profile/AvatarPicker";
+import type { Avatar } from "@/adventure/profile/avatars";
 import { NoticeBanner } from "./NoticeBanner";
 import { GuildCombatSupplyPanel } from "./GuildCombatSupplyPanel";
 import { GuildLevelUpgradePanel } from "./GuildLevelUpgradePanel";
@@ -64,11 +69,28 @@ export function GuildManagePanel({
   const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [inviteName, setInviteName] = useState("");
   const [emblemFile, setEmblemFile] = useState<File | null>(null);
+  const [emblemCategory, setEmblemCategory] = useState<AvatarCategory>("character");
+  const [selectedGameEmblem, setSelectedGameEmblem] = useState<Avatar | null>(null);
+  const [museunCoins, setMuseunCoins] = useState<number | null>(null);
   const emblemInputRef = useRef<HTMLInputElement>(null);
   const [descriptionDraft, setDescriptionDraft] = useState<string | null>(null);
   // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
   const [disbandConfirm, setDisbandConfirm] = useState("");
   const descriptionValue = descriptionDraft ?? info?.guild?.description ?? "";
+
+  useEffect(() => {
+    if (!isMaster || manageTab !== "settings") return;
+    let cancelled = false;
+    void fetch("/api/v2/museun-coin-shop", { cache: "no-store" })
+      .then(async (res) => {
+        const json = (await res.json()) as { ok?: boolean; coins?: number };
+        if (!cancelled && res.ok && json.ok) setMuseunCoins(json.coins ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isMaster, manageTab]);
 
   // 마스터가 가입 신청 수락/거절. 처리 후 info 를 다시 받아 신청 목록·길드원에 반영.
   const handleRequest = useCallback(
@@ -132,7 +154,7 @@ export function GuildManagePanel({
       if (
         file !== null &&
         !window.confirm(
-          `길드 엠블럼을 변경할까요? 길드 자금 ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됩니다.`,
+          `직접 등록한 이미지로 변경할까요? 개인 무슨 코인 ${GUILD_CUSTOM_EMBLEM_COIN_COST.toLocaleString()}개가 사용됩니다.`,
         )
       ) {
         return;
@@ -149,7 +171,7 @@ export function GuildManagePanel({
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
-          gold?: number;
+          coins?: number;
         } | null;
         if (j?.ok) {
           setNotice({
@@ -157,8 +179,9 @@ export function GuildManagePanel({
             text:
               file === null
                 ? "길드 엠블럼을 제거했어요."
-                : `길드 엠블럼을 바꿨어요. 길드 자금 ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됐습니다.`,
+                : `길드 엠블럼을 바꿨어요. 개인 무슨 코인 ${GUILD_CUSTOM_EMBLEM_COIN_COST.toLocaleString()}개가 사용됐습니다.`,
           });
+          if (typeof j.coins === "number") setMuseunCoins(j.coins);
           setEmblemFile(null);
           if (emblemInputRef.current) emblemInputRef.current.value = "";
           await onRefresh();
@@ -169,7 +192,7 @@ export function GuildManagePanel({
             not_image: "올바른 JPG, PNG, WebP 이미지 파일만 등록할 수 있어요.",
             image_too_large: "이미지는 2MB 이하여야 해요.",
             image_dimensions: "이미지는 가로·세로 4096px 이하여야 해요.",
-            insufficient_gold: `길드 자금이 부족해요. ${GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 필요합니다.`,
+            insufficient_coins: `무슨 코인이 부족해요. ${GUILD_CUSTOM_EMBLEM_COIN_COST.toLocaleString()}개가 필요합니다.`,
             storage_unavailable: "이미지 저장소를 준비 중이에요. 잠시 후 다시 시도해 주세요.",
             storage_error: "이미지 저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
           };
@@ -191,6 +214,39 @@ export function GuildManagePanel({
     },
     [acting, onRefresh, setActing, setNotice],
   );
+
+  const handleSetGameEmblem = useCallback(async () => {
+    if (acting || !selectedGameEmblem) return;
+    setActing(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v2/guild/emblem", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ avatar: selectedGameEmblem }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string }
+        | null;
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error ?? `http_${res.status}`);
+      }
+      setSelectedGameEmblem(null);
+      setNotice({ kind: "ok", text: "게임 내 이미지로 길드 엠블럼을 변경했어요." });
+      await onRefresh();
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "change_failed";
+      setNotice({
+        kind: "err",
+        text:
+          code === "not_master"
+            ? "마스터만 엠블럼을 바꿀 수 있어요."
+            : "엠블럼 변경에 실패했어요. 잠시 후 다시 시도해 주세요.",
+      });
+    } finally {
+      setActing(false);
+    }
+  }, [acting, onRefresh, selectedGameEmblem, setActing, setNotice]);
 
   const handleDescriptionSave = useCallback(async () => {
     const description = descriptionValue.trim();
@@ -518,16 +574,48 @@ export function GuildManagePanel({
             길드 엠블럼
           </div>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            이미지 파일을 직접 등록할 수 있어요. 변경할 때마다 길드 자금{" "}
-            {GUILD_EMBLEM_CHANGE_COST.toLocaleString()} G가 사용됩니다.
+            게임 내 이미지는 무료로 선택할 수 있고, 직접 이미지를 등록할 때만 길드장의
+            개인 무슨 코인이 사용됩니다.
           </p>
-          <div className="mt-3 flex items-start gap-3">
+          <div className="mt-3 flex items-center gap-3">
             <GuildEmblemImage
               emblem={info?.guild?.emblem}
               guildName={info?.guild?.name ?? stateGuildName ?? "길드"}
               className="h-20 w-20"
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 text-xs text-zinc-500 dark:text-zinc-400">
+              현재 길드 엠블럼
+              <div className="mt-1 font-medium text-amber-700 dark:text-amber-300">
+                내 무슨 코인 {museunCoins == null ? "확인 중…" : `${museunCoins.toLocaleString()}개`}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+            <div className="mb-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+              게임 내 이미지 · 무료
+            </div>
+            <AvatarPicker
+              category={emblemCategory}
+              onCategoryChange={setEmblemCategory}
+              selected={selectedGameEmblem}
+              onSelect={setSelectedGameEmblem}
+            />
+            <button
+              type="button"
+              onClick={() => void handleSetGameEmblem()}
+              disabled={acting || !selectedGameEmblem}
+              className="mt-2 w-full rounded-md bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              선택한 게임 이미지 적용 (무료)
+            </button>
+          </div>
+
+          <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+            <div className="mb-2 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+              직접 이미지 등록 · 무슨 코인 {GUILD_CUSTOM_EMBLEM_COIN_COST.toLocaleString()}개
+            </div>
+            <div className="min-w-0">
               <input
                 ref={emblemInputRef}
                 type="file"
@@ -559,8 +647,7 @@ export function GuildManagePanel({
                 className="block w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs text-zinc-700 file:mr-3 file:rounded file:border-0 file:bg-emerald-600 file:px-2.5 file:py-1 file:text-xs file:font-medium file:text-white disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
               />
               <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                JPG·PNG·WebP, 2MB 이하 · 256px WebP로 안전하게 변환 · 현재 길드 자금{" "}
-                {(info?.guildGold ?? 0).toLocaleString()} G
+                JPG·PNG·WebP, 2MB 이하 · 256px WebP로 안전하게 변환
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -571,11 +658,11 @@ export function GuildManagePanel({
                   disabled={
                     acting ||
                     !emblemFile ||
-                    (info?.guildGold ?? 0) < GUILD_EMBLEM_CHANGE_COST
+                    (museunCoins ?? 0) < GUILD_CUSTOM_EMBLEM_COIN_COST
                   }
                   className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                 >
-                  엠블럼 변경
+                  직접 등록 이미지 적용
                 </button>
                 <button
                   type="button"
@@ -583,7 +670,7 @@ export function GuildManagePanel({
                   disabled={acting || !info?.guild?.emblem}
                   className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200"
                 >
-                  엠블럼 제거 (무료)
+                  엠블럼 제거
                 </button>
               </div>
             </div>

@@ -16,7 +16,13 @@ import {
 } from "./museunCashItems";
 
 describe("무슨 코인 캐시 소모품", () => {
-  it("개명 허가증과 30일 지원권의 가격·효과를 고정한다", () => {
+  it("프로필·개명 변경권과 30일 지원권의 가격·효과를 고정한다", () => {
+    expect(MUSEUN_CASH_ITEMS.profile_image_permit).toMatchObject({
+      coinPrice: 300,
+      delivery: "inventory",
+      tradeable: true,
+      effect: { kind: "profile_image" },
+    });
     expect(MUSEUN_CASH_ITEMS.rename_permit).toMatchObject({
       coinPrice: 300,
       effect: { kind: "rename" },
@@ -59,6 +65,7 @@ describe("무슨 코인 캐시 소모품", () => {
 
   it("카탈로그 id만 캐시 아이템으로 인정한다", () => {
     expect(isMuseunCashItemId("rename_permit")).toBe(true);
+    expect(isMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isMuseunCashItemId("adventure_support_30d")).toBe(true);
     expect(isMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isMuseunShopItemId("profile_border_box")).toBe(true);
@@ -84,6 +91,7 @@ describe("무슨 코인 캐시 소모품", () => {
     expect(isMuseunCosmeticBoxItemId("chroma_name_box")).toBe(true);
     expect(isMuseunCosmeticBoxItemId("rename_permit")).toBe(false);
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("rename_permit");
+    expect(MUSEUN_UTILITY_ITEM_IDS).toContain("profile_image_permit");
     expect(MUSEUN_UTILITY_ITEM_IDS).toContain("adventure_support_30d");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("profile_border_box");
     expect(MUSEUN_UTILITY_ITEM_IDS).not.toContain("cosmetic_extension_30d");
@@ -91,6 +99,7 @@ describe("무슨 코인 캐시 소모품", () => {
 
   it("꾸미기 권리는 계정 귀속이고 인벤토리 아이템만 거래 가능하다", () => {
     expect(isTradeableMuseunCashItemId("rename_permit")).toBe(true);
+    expect(isTradeableMuseunCashItemId("profile_image_permit")).toBe(true);
     expect(isTradeableMuseunCashItemId("adventure_support_30d")).toBe(true);
     expect(isTradeableMuseunCashItemId("chroma_name_box")).toBe(true);
     expect(isTradeableMuseunCashItemId("profile_border_box")).toBe(true);

@@ -18,13 +18,13 @@ import {
 describe("무슨 코인 캐시 소모품", () => {
   it("프로필·개명 변경권과 30일 지원권의 가격·효과를 고정한다", () => {
     expect(MUSEUN_CASH_ITEMS.profile_image_permit).toMatchObject({
-      coinPrice: 300,
+      coinPrice: 500,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "profile_image" },
     });
     expect(MUSEUN_CASH_ITEMS.rename_permit).toMatchObject({
-      coinPrice: 300,
+      coinPrice: 400,
       effect: { kind: "rename" },
     });
     expect(MUSEUN_CASH_ITEMS.adventure_support_30d).toMatchObject({
@@ -56,7 +56,7 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "chat_badge_box" },
     });
     expect(MUSEUN_CASH_ITEMS.cosmetic_extension_30d).toMatchObject({
-      coinPrice: 200,
+      coinPrice: 400,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "cosmetic_extension", days: 30 },

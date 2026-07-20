@@ -15,9 +15,17 @@ import {
   normalizeInstance,
   type EquipmentInstance,
 } from "@/adventure/inventory/equipmentInstances";
+import {
+  isMuseunShopItemId,
+  type MuseunShopItemId,
+} from "@/adventure/data/v2/museunCashItems";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
+export type AdminGiftCashItem = {
+  itemId: MuseunShopItemId;
+  count: number;
+};
 
 // 주간 시즌 순위 보상이 적립될 지갑 종류. claim 시 이 값으로 해당 코인 지갑에 적립.
 export type SeasonRewardSeason = "pvp" | "fishing";
@@ -80,13 +88,15 @@ export type InboxPayload =
       rank?: number;
     }
   | {
-      // 운영자 대량 우편(이벤트 보상·보정금). claim 시 골드 + 재료/장비/스태미나 회복약 지급.
+      // 운영자 대량 우편(이벤트 보상·보정금). claim 시 골드 + 재료/장비/소비템/무슨 코인 지급.
       // 메시지는 message 컬럼. 장비는 길드 의뢰 보상과 동일하게 base 등급으로 지급.
       kind: "admin_gift";
       gold: number;
       materials: GuildQuestRewardMaterial[];
       items: GuildQuestRewardItem[];
       staminaPotions: number;
+      museunCoins: number;
+      cashItems: AdminGiftCashItem[];
       /** 수령 시점부터 시작되는 월간 모험 지원권 기간. 활성 중이면 남은 기간 뒤에 이어 붙임. */
       adventureSupportDays: number;
     };
@@ -197,11 +207,13 @@ export function parseInboxPayload(
         : { kind, season, coins };
     }
     case "admin_gift": {
-      // 골드/재료/장비/스태미나 회복약 모두 선택 — 구 페이로드(골드만) 호환 위해 누락은 0/빈배열.
+      // 모든 첨부는 선택 — 구 페이로드 호환을 위해 누락은 0/빈배열로 정규화한다.
       const gold = asNonNegInt(p.gold) ?? 0;
       const materials = parseRewardMaterials(p.materials);
       const items = parseRewardItems(p.items);
       const staminaPotions = asNonNegInt(p.staminaPotions) ?? 0;
+      const museunCoins = asNonNegInt(p.museunCoins) ?? 0;
+      const cashItems = parseRewardCashItems(p.cashItems);
       const adventureSupportDays = asNonNegInt(p.adventureSupportDays) ?? 0;
       return {
         kind,
@@ -209,6 +221,8 @@ export function parseInboxPayload(
         materials,
         items,
         staminaPotions,
+        museunCoins,
+        cashItems,
         adventureSupportDays,
       };
     }
@@ -276,6 +290,21 @@ function parseRewardItems(v: unknown): GuildQuestRewardItem[] {
     const itemId = asString(r.itemId);
     const count = asNonNegInt(r.count);
     if (itemId && count != null && count > 0) {
+      out.push({ itemId, count });
+    }
+  }
+  return out;
+}
+
+function parseRewardCashItems(v: unknown): AdminGiftCashItem[] {
+  if (!Array.isArray(v)) return [];
+  const out: AdminGiftCashItem[] = [];
+  for (const item of v) {
+    if (typeof item !== "object" || item === null) continue;
+    const row = item as Record<string, unknown>;
+    const itemId = asString(row.itemId);
+    const count = asNonNegInt(row.count);
+    if (itemId && isMuseunShopItemId(itemId) && count != null && count > 0) {
       out.push({ itemId, count });
     }
   }

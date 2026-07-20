@@ -12,6 +12,10 @@ import { useModalA11y } from "@/lib/useModalA11y";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
+  MUSEUN_CASH_ITEMS,
+  isMuseunShopItemId,
+} from "@/adventure/data/v2/museunCashItems";
+import {
   fetchInbox,
   fetchInboxHistory,
   fetchInboxSent,
@@ -82,6 +86,10 @@ function equipName(id: string): string {
   return EQUIPMENT_BY_ID[id]?.name ?? id;
 }
 
+function cashItemName(id: string): string {
+  return isMuseunShopItemId(id) ? MUSEUN_CASH_ITEMS[id].name : id;
+}
+
 function pushReward(lines: string[], label: string, count: number) {
   if (count > 0) lines.push(`${label} x${count.toLocaleString()}`);
 }
@@ -105,6 +113,17 @@ function pushEquipRewards(lines: string[], raw: unknown) {
     const id = asId(row.itemId);
     const count = asCount(row.count);
     if (id && count > 0) pushReward(lines, equipName(id), count);
+  }
+}
+
+function pushCashItemRewards(lines: string[], raw: unknown) {
+  if (!Array.isArray(raw)) return;
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const row = item as { itemId?: unknown; count?: unknown };
+    const id = asId(row.itemId);
+    const count = asCount(row.count);
+    if (id && count > 0) pushReward(lines, cashItemName(id), count);
   }
 }
 
@@ -156,8 +175,10 @@ function rewardLinesOf(it: InboxItem): string[] {
     }
     case "admin_gift":
       pushReward(lines, "골드", asCount(p.gold));
+      pushReward(lines, "무슨 코인", asCount(p.museunCoins));
       pushMaterialRewards(lines, p.materials);
       pushEquipRewards(lines, p.items);
+      pushCashItemRewards(lines, p.cashItems);
       pushReward(lines, "스태미나 회복약", asCount(p.staminaPotions));
       pushReward(lines, "월간 모험 지원권", asCount(p.adventureSupportDays));
       break;
@@ -287,6 +308,9 @@ export function V2InboxView({
           ok?: boolean;
           goldAdded?: number;
           coinsAdded?: { season: string; coins: number }[];
+          museunCoinsAdded?: number;
+          museunCoins?: number | null;
+          cashItemsAdded?: { itemId: string; count: number }[];
           staminaPotionsAdded?: number;
           staminaPotions?: number | null;
           adventureSupportDaysAdded?: number;
@@ -314,6 +338,14 @@ export function V2InboxView({
             parts.push(
               `+${c.coins.toLocaleString()} ${coinLabel[c.season] ?? "코인"}`,
             );
+          }
+        }
+        if ((j.museunCoinsAdded ?? 0) > 0) {
+          parts.push(`+${(j.museunCoinsAdded ?? 0).toLocaleString()} 무슨 코인`);
+        }
+        for (const item of j.cashItemsAdded ?? []) {
+          if (item.count > 0) {
+            parts.push(`+${cashItemName(item.itemId)} ${item.count}개`);
           }
         }
         if ((j.staminaPotionsAdded ?? 0) > 0) {

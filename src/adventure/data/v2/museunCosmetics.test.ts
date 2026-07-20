@@ -79,9 +79,9 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(second.state).toEqual(first.state);
   });
 
-  it("프로필 테두리 10종과 채팅 배지 20종을 독립 장착한다", () => {
-    expect(PROFILE_BORDER_VARIANTS).toHaveLength(10);
-    expect(CHAT_BADGE_VARIANTS).toHaveLength(20);
+  it("프로필 테두리 15종과 채팅 배지 28종을 독립 장착한다", () => {
+    expect(PROFILE_BORDER_VARIANTS).toHaveLength(15);
+    expect(CHAT_BADGE_VARIANTS).toHaveLength(28);
     for (const variant of PROFILE_BORDER_VARIANTS) {
       expect(MUSEUN_CASH_ITEMS[variant.itemId].effect).toEqual({
         kind: "cosmetic",
@@ -156,7 +156,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
           ).length,
         ]),
       ),
-    ).toEqual({ common: 4, rare: 3, epic: 2, legendary: 1 });
+    ).toEqual({ common: 9, rare: 3, epic: 2, legendary: 1 });
     const odds = profileBorderOdds(null);
     const probabilityByRarity = Object.fromEntries(
       (Object.keys(PROFILE_BORDER_RARITIES) as Array<
@@ -192,7 +192,7 @@ describe("무슨 코인 기간제 꾸미기", () => {
           ).length,
         ]),
       ),
-    ).toEqual({ common: 10, rare: 5, epic: 4, legendary: 1 });
+    ).toEqual({ common: 14, rare: 7, epic: 5, legendary: 2 });
     const odds = chatBadgeOdds(null);
     const probabilityByRarity = Object.fromEntries(
       (Object.keys(CHAT_BADGE_RARITIES) as Array<
@@ -214,6 +214,54 @@ describe("무슨 코인 기간제 꾸미기", () => {
     expect(probabilityByRarity.epic).toBeCloseTo(7);
     expect(probabilityByRarity.legendary).toBeCloseTo(1);
     expect(drawChatBadgeByRoll(null, 0)).toBe("starlight_chat_badge");
+  });
+
+  it("각 등급이 남아 있는 동안 보유 개수와 무관하게 등급 확률을 유지한다", () => {
+    const cosmetics = {
+      owned: [
+        "infernal_profile_border",
+        "oceanic_profile_border",
+        "prismatic_profile_border",
+        "leaf_chat_badge",
+        "sword_chat_badge",
+        "flame_chat_badge",
+        "crown_chat_badge",
+      ],
+    };
+    const borderOdds = profileBorderOdds(cosmetics);
+    const badgeOdds = chatBadgeOdds(cosmetics);
+    const sumByRarity = <T extends { itemId: string; rarity: string }>(
+      odds: Array<{ itemId: string; probabilityPct: number }>,
+      variants: readonly T[],
+    ) =>
+      Object.fromEntries(
+        ["common", "rare", "epic", "legendary"].map((rarity) => [
+          rarity,
+          odds
+            .filter((entry) =>
+              variants.some(
+                (variant) =>
+                  variant.itemId === entry.itemId && variant.rarity === rarity,
+              ),
+            )
+            .reduce((sum, entry) => sum + entry.probabilityPct, 0),
+        ]),
+      );
+
+    const borderProbability = sumByRarity(
+      borderOdds,
+      PROFILE_BORDER_VARIANTS,
+    );
+    expect(borderProbability.common).toBeCloseTo(60);
+    expect(borderProbability.rare).toBeCloseTo(27);
+    expect(borderProbability.epic).toBeCloseTo(10);
+    expect(borderProbability.legendary).toBeCloseTo(3);
+
+    const badgeProbability = sumByRarity(badgeOdds, CHAT_BADGE_VARIANTS);
+    expect(badgeProbability.common).toBeCloseTo(70);
+    expect(badgeProbability.rare).toBeCloseTo(22);
+    expect(badgeProbability.epic).toBeCloseTo(7);
+    expect(badgeProbability.legendary).toBeCloseTo(1);
   });
 
   it("각 상품을 사용 기간 안에서 서로 독립된 표시 효과로 해석한다", () => {

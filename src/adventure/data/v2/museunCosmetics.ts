@@ -102,16 +102,21 @@ export const CHROMA_NAME_IDS = CHROMA_NAME_VARIANTS.map(
 ) as ChromaNameId[];
 
 export const PROFILE_BORDER_VARIANTS = [
-  { id: "prismatic", itemId: "prismatic_profile_border", name: "프리즘", rarity: "epic" },
-  { id: "infernal", itemId: "infernal_profile_border", name: "업화", rarity: "common" },
-  { id: "oceanic", itemId: "oceanic_profile_border", name: "심해", rarity: "common" },
-  { id: "verdant", itemId: "verdant_profile_border", name: "세계수", rarity: "common" },
-  { id: "celestial", itemId: "celestial_profile_border", name: "천상", rarity: "legendary" },
-  { id: "obsidian", itemId: "obsidian_profile_border", name: "흑요석", rarity: "rare" },
-  { id: "frozen", itemId: "frozen_profile_border", name: "빙결", rarity: "rare" },
-  { id: "storm", itemId: "storm_profile_border", name: "폭풍", rarity: "rare" },
-  { id: "rose", itemId: "rose_profile_border", name: "장미", rarity: "common" },
-  { id: "royal", itemId: "royal_profile_border", name: "황실", rarity: "epic" },
+  { id: "prismatic", itemId: "prismatic_profile_border", name: "프리즘", rarity: "epic", motion: "animated" },
+  { id: "infernal", itemId: "infernal_profile_border", name: "업화", rarity: "common", motion: "animated" },
+  { id: "oceanic", itemId: "oceanic_profile_border", name: "심해", rarity: "common", motion: "animated" },
+  { id: "verdant", itemId: "verdant_profile_border", name: "세계수", rarity: "common", motion: "animated" },
+  { id: "celestial", itemId: "celestial_profile_border", name: "천상", rarity: "legendary", motion: "animated" },
+  { id: "obsidian", itemId: "obsidian_profile_border", name: "흑요석", rarity: "rare", motion: "animated" },
+  { id: "frozen", itemId: "frozen_profile_border", name: "빙결", rarity: "rare", motion: "animated" },
+  { id: "storm", itemId: "storm_profile_border", name: "폭풍", rarity: "rare", motion: "animated" },
+  { id: "rose", itemId: "rose_profile_border", name: "장미", rarity: "common", motion: "animated" },
+  { id: "royal", itemId: "royal_profile_border", name: "황실", rarity: "epic", motion: "animated" },
+  { id: "iron", itemId: "iron_profile_border", name: "철제", rarity: "common", motion: "static" },
+  { id: "bronze", itemId: "bronze_profile_border", name: "청동", rarity: "common", motion: "static" },
+  { id: "sapphire", itemId: "sapphire_profile_border", name: "사파이어", rarity: "common", motion: "static" },
+  { id: "amethyst", itemId: "amethyst_profile_border", name: "자수정", rarity: "common", motion: "static" },
+  { id: "jade", itemId: "jade_profile_border", name: "비취", rarity: "common", motion: "static" },
 ] as const;
 
 export type ProfileBorderId = (typeof PROFILE_BORDER_VARIANTS)[number]["id"];
@@ -139,23 +144,31 @@ export const CHAT_BADGE_VARIANTS = [
   { id: "music", itemId: "music_chat_badge", name: "음표", rarity: "common" },
   { id: "clover", itemId: "clover_chat_badge", name: "네잎클로버", rarity: "common" },
   { id: "star", itemId: "star_chat_badge", name: "별", rarity: "common" },
+  { id: "vein", itemId: "vein_chat_badge", name: "광맥", rarity: "common" },
+  { id: "fish", itemId: "fish_chat_badge", name: "물고기", rarity: "common" },
+  { id: "axe", itemId: "axe_chat_badge", name: "도끼", rarity: "common" },
+  { id: "hammer", itemId: "hammer_chat_badge", name: "망치", rarity: "common" },
+  { id: "alchemy", itemId: "alchemy_chat_badge", name: "연금술", rarity: "rare" },
+  { id: "compass", itemId: "compass_chat_badge", name: "나침반", rarity: "rare" },
+  { id: "dragon_eye", itemId: "dragon_eye_chat_badge", name: "용안", rarity: "epic" },
+  { id: "five_elements", itemId: "five_elements_chat_badge", name: "오원소 문장", rarity: "legendary" },
 ] as const;
 
 export type ChatBadgeId = (typeof CHAT_BADGE_VARIANTS)[number]["id"];
 export type ChatBadgeItemId = (typeof CHAT_BADGE_VARIANTS)[number]["itemId"];
 
 export const PROFILE_BORDER_RARITIES = {
-  common: { name: "일반", effect: "단일 테마", weight: 1500 },
-  rare: { name: "희귀", effect: "복합 테마", weight: 900 },
-  epic: { name: "영웅", effect: "환상 테마", weight: 500 },
-  legendary: { name: "전설", effect: "천상 테마", weight: 300 },
+  common: { name: "일반", effect: "단일 테마", weight: 60 },
+  rare: { name: "희귀", effect: "복합 테마", weight: 27 },
+  epic: { name: "영웅", effect: "환상 테마", weight: 10 },
+  legendary: { name: "전설", effect: "천상 테마", weight: 3 },
 } as const;
 
 export const CHAT_BADGE_RARITIES = {
-  common: { name: "일반", effect: "일반 배지", weight: 700 },
-  rare: { name: "희귀", effect: "희귀 배지", weight: 440 },
-  epic: { name: "영웅", effect: "영웅 배지", weight: 175 },
-  legendary: { name: "전설", effect: "전설 배지", weight: 100 },
+  common: { name: "일반", effect: "일반 배지", weight: 70 },
+  rare: { name: "희귀", effect: "희귀 배지", weight: 22 },
+  epic: { name: "영웅", effect: "영웅 배지", weight: 7 },
+  legendary: { name: "전설", effect: "전설 배지", weight: 1 },
 } as const;
 
 export type CosmeticItemRarity = keyof typeof PROFILE_BORDER_RARITIES;
@@ -459,6 +472,48 @@ function drawWeightedItem<T extends string>(
   return available.at(-1) ?? null;
 }
 
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(left);
+  let b = Math.abs(right);
+  while (b !== 0) {
+    [a, b] = [b, a % b];
+  }
+  return a;
+}
+
+function leastCommonMultiple(left: number, right: number): number {
+  if (left === 0 || right === 0) return 0;
+  return Math.abs(left * right) / greatestCommonDivisor(left, right);
+}
+
+function rarityFirstItemWeights<T extends string>(
+  available: readonly T[],
+  variants: readonly {
+    itemId: T;
+    rarity: CosmeticItemRarity;
+  }[],
+  rarities: Record<CosmeticItemRarity, { weight: number }>,
+): Map<T, number> {
+  const availableSet = new Set(available);
+  const availableByRarity = new Map<CosmeticItemRarity, T[]>();
+  for (const variant of variants) {
+    if (!availableSet.has(variant.itemId)) continue;
+    const items = availableByRarity.get(variant.rarity) ?? [];
+    items.push(variant.itemId);
+    availableByRarity.set(variant.rarity, items);
+  }
+  const commonMultiple = [...availableByRarity.values()].reduce(
+    (multiple, items) => leastCommonMultiple(multiple, items.length),
+    1,
+  );
+  const weights = new Map<T, number>();
+  for (const [rarity, items] of availableByRarity) {
+    const itemWeight = (rarities[rarity].weight * commonMultiple) / items.length;
+    for (const itemId of items) weights.set(itemId, itemWeight);
+  }
+  return weights;
+}
+
 export function profileBorderWeight(itemId: ProfileBorderItemId): number {
   const variant = PROFILE_BORDER_VARIANTS.find(
     (candidate) => candidate.itemId === itemId,
@@ -474,23 +529,47 @@ export function chatBadgeWeight(itemId: ChatBadgeItemId): number {
 }
 
 export function profileBorderOdds(value: unknown) {
-  return weightedItemOdds(unownedProfileBorders(value), profileBorderWeight);
+  const available = unownedProfileBorders(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    PROFILE_BORDER_VARIANTS,
+    PROFILE_BORDER_RARITIES,
+  );
+  return weightedItemOdds(available, (itemId) => weights.get(itemId) ?? 0);
 }
 
 export function chatBadgeOdds(value: unknown) {
-  return weightedItemOdds(unownedChatBadges(value), chatBadgeWeight);
+  const available = unownedChatBadges(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    CHAT_BADGE_VARIANTS,
+    CHAT_BADGE_RARITIES,
+  );
+  return weightedItemOdds(available, (itemId) => weights.get(itemId) ?? 0);
 }
 
 export function profileBorderDrawWeight(value: unknown): number {
-  return unownedProfileBorders(value).reduce(
-    (sum, itemId) => sum + profileBorderWeight(itemId),
+  const available = unownedProfileBorders(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    PROFILE_BORDER_VARIANTS,
+    PROFILE_BORDER_RARITIES,
+  );
+  return available.reduce(
+    (sum, itemId) => sum + (weights.get(itemId) ?? 0),
     0,
   );
 }
 
 export function chatBadgeDrawWeight(value: unknown): number {
-  return unownedChatBadges(value).reduce(
-    (sum, itemId) => sum + chatBadgeWeight(itemId),
+  const available = unownedChatBadges(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    CHAT_BADGE_VARIANTS,
+    CHAT_BADGE_RARITIES,
+  );
+  return available.reduce(
+    (sum, itemId) => sum + (weights.get(itemId) ?? 0),
     0,
   );
 }
@@ -499,9 +578,15 @@ export function drawProfileBorderByRoll(
   value: unknown,
   roll: number,
 ): ProfileBorderItemId | null {
+  const available = unownedProfileBorders(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    PROFILE_BORDER_VARIANTS,
+    PROFILE_BORDER_RARITIES,
+  );
   return drawWeightedItem(
-    unownedProfileBorders(value),
-    profileBorderWeight,
+    available,
+    (itemId) => weights.get(itemId) ?? 0,
     roll,
   );
 }
@@ -510,7 +595,17 @@ export function drawChatBadgeByRoll(
   value: unknown,
   roll: number,
 ): ChatBadgeItemId | null {
-  return drawWeightedItem(unownedChatBadges(value), chatBadgeWeight, roll);
+  const available = unownedChatBadges(value);
+  const weights = rarityFirstItemWeights(
+    available,
+    CHAT_BADGE_VARIANTS,
+    CHAT_BADGE_RARITIES,
+  );
+  return drawWeightedItem(
+    available,
+    (itemId) => weights.get(itemId) ?? 0,
+    roll,
+  );
 }
 
 export function equipProfileBorder(
@@ -554,6 +649,10 @@ export function isChromaNameId(value: unknown): value is ChromaNameId {
 
 export function getChromaNameVariant(chromaId: ChromaNameId) {
   return CHROMA_NAME_VARIANTS.find(({ id }) => id === chromaId)!;
+}
+
+export function getProfileBorderVariant(profileBorderId: ProfileBorderId) {
+  return PROFILE_BORDER_VARIANTS.find(({ id }) => id === profileBorderId)!;
 }
 
 export function unownedChromaNames(value: unknown): ChromaNameId[] {

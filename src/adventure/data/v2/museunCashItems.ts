@@ -7,7 +7,7 @@ export const MUSEUN_CASH_ITEMS = {
     id: "profile_image_permit",
     name: "프로필 이미지 변경권",
     description:
-      "게임 내 이미지 선택 또는 직접 등록으로 프로필 이미지를 한 번 변경할 수 있습니다. 변경 완료 시 1개가 소모되며 거래소에서 거래할 수 있습니다.",
+      "JPG·PNG·WebP 이미지를 직접 등록해 프로필 이미지를 한 번 변경할 수 있습니다. 게임 내 이미지는 변경권 없이 24시간마다 선택할 수 있으며, 변경권은 거래소에서 거래할 수 있습니다.",
     coinPrice: 300,
     delivery: "inventory",
     tradeable: true,

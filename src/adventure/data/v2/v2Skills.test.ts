@@ -11,6 +11,7 @@ import {
   smartDefaultPatternFromEquipped,
   aggregateEquippedPassives,
   equippedFarmBonuses,
+  equippedMiningBonuses,
   equippedWoodcuttingBonuses,
   equippedWoodcuttingFailureReductionPct,
   equippedFishingBonuses,
@@ -248,6 +249,37 @@ describe("나무꾼 생활 패시브", () => {
     expect(
       describeV2Skill(V2_SKILLS.v2c_legendarylumberjack_bountifulcut),
     ).toContain("추가 원목 확률 30%");
+  });
+});
+
+describe("광부 생활 패시브", () => {
+  it("광부 계열 패시브는 실패율·시간·실패 구제·추가 광석으로 합산된다", () => {
+    expect(
+      equippedMiningBonuses([
+        "v2c_miner_veinreading",
+        "v2c_miningtechnician_toolcare",
+        "v2c_masterminer_recoverystroke",
+        "v2c_minemaster_efficientmining",
+        "v2c_legendaryminer_richvein",
+      ]),
+    ).toEqual({
+      failureReductionPct: 20,
+      durationReductionPct: 18,
+      failureRecoveryPct: 20,
+      bonusOreChancePct: 30,
+    });
+    expect(describeV2Skill(V2_SKILLS.v2c_miner_veinreading)).toContain(
+      "채광 실패율 -20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_miningtechnician_toolcare)).toContain(
+      "채광 시간 -8%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_masterminer_recoverystroke)).toContain(
+      "채광 실패 구제 20%",
+    );
+    expect(describeV2Skill(V2_SKILLS.v2c_legendaryminer_richvein)).toContain(
+      "추가 광석 확률 30%",
+    );
   });
 });
 

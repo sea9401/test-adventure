@@ -322,6 +322,9 @@ function prereqText(job: V2JobDefinition): string {
       case "woodcuttingLevel":
         parts.push(`벌목 Lv.${condition.min}`);
         break;
+      case "miningLevel":
+        parts.push(`채광 Lv.${condition.min}`);
+        break;
       case "statThreshold":
         parts.push(`${condition.stat.toUpperCase()} 한계 ${condition.min}`);
         break;

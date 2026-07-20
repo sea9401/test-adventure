@@ -17,9 +17,15 @@ describe("채광 세션", () => {
       now: 1_000,
       durationMs: 12_000,
       failureRate: 0.5,
+      failureRecoveryRate: 0.2,
+      bonusOreRate: 0.3,
     });
     expect(session.readyAt).toBe(13_000);
     expect(session.expiresAt).toBe(13_000 + MINING_CLAIM_GRACE_MS);
+    expect(session).toMatchObject({
+      failureRecoveryRate: 0.2,
+      bonusOreRate: 0.3,
+    });
     expect(parseMiningSession(session)).toEqual(session);
   });
 

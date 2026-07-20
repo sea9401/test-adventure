@@ -49,6 +49,26 @@ export function miningDurationForLevel(baseDurationMs: number, level: number): n
   );
 }
 
+function miningPassiveTimeReduction(durationReductionPct: number): number {
+  const safePct = Number(durationReductionPct) || 0;
+  return Math.min(0.5, Math.max(0, safePct / 100));
+}
+
+export function miningDurationWithPassive(
+  baseDurationMs: number,
+  level: number,
+  durationReductionPct: number,
+): number {
+  const levelDurationMs = miningDurationForLevel(baseDurationMs, level);
+  return Math.max(
+    1_000,
+    Math.round(
+      (levelDurationMs * (1 - miningPassiveTimeReduction(durationReductionPct))) /
+        100,
+    ) * 100,
+  );
+}
+
 export function miningFailureRate(baseFailureRate: number, level: number): number {
   const safeBase = Math.min(1, Math.max(0, Number(baseFailureRate) || 0));
   const safeLevel = Math.max(1, Math.min(MINING_LEVEL_CAP, Math.floor(level) || 1));

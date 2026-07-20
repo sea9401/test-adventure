@@ -1,5 +1,6 @@
 import {
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   type JobUnlockContext,
@@ -10,6 +11,11 @@ import {
   parseFarmState,
 } from "@/adventure/v2/farm";
 import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
+import { miningProgressionView } from "@/adventure/v2/miningProgression";
+import {
+  MINING_LOG_KEY,
+  parseMiningLog,
+} from "@/adventure/v2/miningSession";
 import {
   WOODCUTTING_LOG_KEY,
   parseWoodcuttingLog,
@@ -20,10 +26,14 @@ import { readSave, type DbExecutor } from "@/lib/server/savesKv";
 export function jobUnlockContextFromSaves(input: {
   farmRaw?: unknown;
   woodcuttingRaw?: unknown;
+  miningRaw?: unknown;
   completedQuestIds?: ReadonlySet<string>;
 }): JobUnlockContext {
   const woodcuttingLog = CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
     ? parseWoodcuttingLog(input.woodcuttingRaw)
+    : null;
+  const miningLog = CATALOG_USES_MINING_LEVEL_CONDITION
+    ? parseMiningLog(input.miningRaw)
     : null;
   return {
     ...(CATALOG_USES_QUEST_CONDITION && input.completedQuestIds
@@ -42,6 +52,14 @@ export function jobUnlockContextFromSaves(input: {
           ).level,
         }
       : {}),
+    ...(miningLog
+      ? {
+          miningLevel: miningProgressionView(
+            miningLog.successes,
+            miningLog.xp,
+          ).level,
+        }
+      : {}),
   };
 }
 
@@ -51,7 +69,7 @@ export async function readJobUnlockContext(
   executor: DbExecutor,
   userId: string,
 ): Promise<JobUnlockContext> {
-  const [completedQuestIds, farmRaw, woodcuttingRaw] = await Promise.all([
+  const [completedQuestIds, farmRaw, woodcuttingRaw, miningRaw] = await Promise.all([
     CATALOG_USES_QUEST_CONDITION
       ? loadCompletedQuestIds(executor, userId)
       : Promise.resolve(undefined),
@@ -61,10 +79,14 @@ export async function readJobUnlockContext(
     CATALOG_USES_WOODCUTTING_LEVEL_CONDITION
       ? readSave(executor, userId, WOODCUTTING_LOG_KEY, {})
       : Promise.resolve(undefined),
+    CATALOG_USES_MINING_LEVEL_CONDITION
+      ? readSave(executor, userId, MINING_LOG_KEY, {})
+      : Promise.resolve(undefined),
   ]);
   return jobUnlockContextFromSaves({
     farmRaw,
     woodcuttingRaw,
+    miningRaw,
     completedQuestIds,
   });
 }

@@ -11,6 +11,7 @@ import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
 import {
   CATALOG_USES_FARMING_LEVEL_CONDITION,
+  CATALOG_USES_MINING_LEVEL_CONDITION,
   CATALOG_USES_QUEST_CONDITION,
   CATALOG_USES_WOODCUTTING_LEVEL_CONDITION,
   type JobUnlockContext,
@@ -25,6 +26,11 @@ import {
   parseWoodcuttingLog,
 } from "@/adventure/v2/woodcuttingSession";
 import { woodcuttingProgressionView } from "@/adventure/v2/woodcuttingProgression";
+import {
+  MINING_LOG_KEY,
+  parseMiningLog,
+} from "@/adventure/v2/miningSession";
+import { miningProgressionView } from "@/adventure/v2/miningProgression";
 import {
   GUIDE_QUESTS_KEY,
   parseClaimed,
@@ -44,6 +50,7 @@ export async function GET() {
   if (CATALOG_USES_WOODCUTTING_LEVEL_CONDITION) {
     saveKeys.push(WOODCUTTING_LOG_KEY);
   }
+  if (CATALOG_USES_MINING_LEVEL_CONDITION) saveKeys.push(MINING_LOG_KEY);
   const rows = await db
     .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
@@ -70,6 +77,7 @@ export async function GET() {
 
   // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋을 ctx 로 — 해금 표시 일치.
   const woodcuttingLog = parseWoodcuttingLog(byKey.get(WOODCUTTING_LOG_KEY));
+  const miningLog = parseMiningLog(byKey.get(MINING_LOG_KEY));
   const unlockCtx: JobUnlockContext = {
     ...(CATALOG_USES_QUEST_CONDITION
       ? { completedQuestIds: parseClaimed(byKey.get(GUIDE_QUESTS_KEY)) }
@@ -86,6 +94,14 @@ export async function GET() {
           woodcuttingLevel: woodcuttingProgressionView(
             woodcuttingLog.cuts,
             woodcuttingLog.xp,
+          ).level,
+        }
+      : {}),
+    ...(CATALOG_USES_MINING_LEVEL_CONDITION
+      ? {
+          miningLevel: miningProgressionView(
+            miningLog.successes,
+            miningLog.xp,
           ).level,
         }
       : {}),

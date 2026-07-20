@@ -90,6 +90,36 @@ describe("mining routes", () => {
     });
   });
 
+  it("start — 장착한 광부 패시브를 채광 세션에 고정한다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const equipped = [
+      "v2c_miner_veinreading",
+      "v2c_miningtechnician_toolcare",
+      "v2c_masterminer_recoverystroke",
+      "v2c_minemaster_efficientmining",
+      "v2c_legendaryminer_richvein",
+    ];
+    store.set("skills.v2", { learned: equipped, equipped });
+
+    const response = await START(
+      request("start", { spotId: "adamantite_chasm" }),
+    );
+    const json = await response.json();
+
+    expect(json).toMatchObject({
+      failureReductionPct: 20,
+      durationReductionPct: 18,
+      failureRecoveryPct: 20,
+      bonusOreChancePct: 30,
+      durationMs: 14_800,
+    });
+    expect(json.failureRate).toBeCloseTo(0.56);
+    expect(store.get(MINING_SESSION_KEY)).toMatchObject({
+      failureRecoveryRate: 0.2,
+      bonusOreRate: 0.3,
+    });
+  });
+
   it("start — 채광 사람 확인 체크포인트를 적용한다", async () => {
     vi.stubEnv("TURNSTILE_SITE_KEY", "site");
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");
@@ -256,13 +286,109 @@ describe("mining routes", () => {
     expect(store.has(MINING_LOG_KEY)).toBe(false);
   });
 
+  it("strike — 광부는 성공 시 생존자·직업 숙련도를 함께 얻는다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "miner-done",
+      spotId: "iron_quarry",
+      nodeId: "iron",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0.05,
+    });
+    store.set("character.v2", {
+      class: "survivor",
+      specChoice: "miner",
+      materials: {},
+    });
+    store.set("proficiency.v2", {
+      points: 0,
+      groups: { survivor: { tier: 1, cumLevel: 900, runs: 0 } },
+      jobCumLevel: { miner: 12 },
+    });
+
+    const json = await (
+      await STRIKE(request("strike", { sessionId: "miner-done" }))
+    ).json();
+
+    expect(json).toMatchObject({
+      success: true,
+      jobId: "miner",
+      jobName: "광부",
+      masteryGained: 1,
+      masteryAfter: 13,
+    });
+    expect(store.get("proficiency.v2")).toMatchObject({
+      groups: { survivor: { cumLevel: 901 } },
+      jobCumLevel: { miner: 13 },
+    });
+  });
+
+  it("strike — 채광 명인은 실패를 구제하고 전설의 광부는 광석을 하나 더 얻는다", async () => {
+    vi.mocked(Math.random)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValue(0.99);
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 4_100);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "recovered-mine",
+      spotId: "gold_mine",
+      nodeId: "gold",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0.5,
+      failureRecoveryRate: 0.2,
+      bonusOreRate: 0,
+    });
+    store.set("character.v2", { materials: {} });
+
+    const recovered = await (
+      await STRIKE(request("strike", { sessionId: "recovered-mine" }))
+    ).json();
+    expect(recovered).toMatchObject({
+      success: true,
+      recovered: true,
+      materialGained: 1,
+    });
+
+    vi.mocked(Math.random)
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValue(0.99);
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "legendary-mine",
+      spotId: "gold_mine",
+      nodeId: "gold",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+      failureRate: 0.5,
+      failureRecoveryRate: 0,
+      bonusOreRate: 0.3,
+    });
+
+    const bonus = await (
+      await STRIKE(request("strike", { sessionId: "legendary-mine" }))
+    ).json();
+    expect(bonus).toMatchObject({
+      success: true,
+      recovered: false,
+      materialGained: 2,
+      bonusMaterialGained: 1,
+    });
+  });
+
   it("status — 채광 재료와 누적 기록을 반환한다", async () => {
     store.set("character.v2", {
       materials: { [MINING_MATERIAL_ID.silver]: 4 },
     });
     store.set(MINING_LOG_KEY, { successes: 3, oreEarned: 3 });
+    store.set("skills.v2", {
+      learned: ["v2c_miningtechnician_toolcare"],
+      equipped: ["v2c_miningtechnician_toolcare"],
+    });
     const json = await (await STATUS()).json();
     expect(json.materials[MINING_MATERIAL_ID.silver]).toBe(4);
     expect(json.log).toMatchObject({ successes: 3, xp: 30, oreEarned: 3 });
+    expect(json.durationReductionPct).toBe(8);
   });
 });

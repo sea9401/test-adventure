@@ -134,6 +134,14 @@ export type V2PassiveSkillEffect = {
   woodcuttingFailureRecoveryPct?: number;
   /** 성공 시 같은 수종의 원목을 1개 더 얻을 확률 +%p. */
   woodcuttingBonusLogChancePct?: number;
+  /** 현재 채광 실패율을 상대적으로 줄이는 비율. 20 = 실패율 ×0.8. */
+  miningFailureReductionPct?: number;
+  /** 채광 소요 시간을 상대적으로 줄이는 비율. */
+  miningDurationReductionPct?: number;
+  /** 실패 판정 뒤 성공으로 구제할 확률 +%p. */
+  miningFailureRecoveryPct?: number;
+  /** 성공 시 같은 광석을 1개 더 얻을 확률 +%p. */
+  miningBonusOreChancePct?: number;
   /** 검의 집중(검호) — 행동 속도 한계(SPD_OVERFLOW_THRESHOLD≈292) 초과분을 공격력 %로 환원(점근, 값=상한%). */
   spdOverflowToAtkPct?: number;
   /** 밤의 장막(밤그림자) — 치명 오버플로(75% 초과 크리뎀)를 평타뿐 아니라 스킬에도 적용. */
@@ -851,6 +859,32 @@ export function equippedWoodcuttingBonuses(equipped: readonly V2SkillId[]): {
   };
 }
 
+// 장착 패시브의 채광 보너스 합산. 채광 시작 시 서버가 세션 판정에 고정한다.
+export function equippedMiningBonuses(equipped: readonly V2SkillId[]): {
+  failureReductionPct: number;
+  durationReductionPct: number;
+  failureRecoveryPct: number;
+  bonusOreChancePct: number;
+} {
+  let failureReductionPct = 0;
+  let durationReductionPct = 0;
+  let failureRecoveryPct = 0;
+  let bonusOreChancePct = 0;
+  for (const id of equipped) {
+    const passive = V2_SKILLS[id]?.passive;
+    failureReductionPct += passive?.miningFailureReductionPct ?? 0;
+    durationReductionPct += passive?.miningDurationReductionPct ?? 0;
+    failureRecoveryPct += passive?.miningFailureRecoveryPct ?? 0;
+    bonusOreChancePct += passive?.miningBonusOreChancePct ?? 0;
+  }
+  return {
+    failureReductionPct: Math.min(90, Math.max(0, failureReductionPct)),
+    durationReductionPct: Math.min(50, Math.max(0, durationReductionPct)),
+    failureRecoveryPct: Math.min(100, Math.max(0, failureRecoveryPct)),
+    bonusOreChancePct: Math.min(100, Math.max(0, bonusOreChancePct)),
+  };
+}
+
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
 const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction" | "reflectDamage", string> = {
   evasion: "회피",
@@ -1017,6 +1051,14 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
     chips.push(`벌목 실패 구제 ${p.woodcuttingFailureRecoveryPct}%`);
   if (p.woodcuttingBonusLogChancePct)
     chips.push(`추가 원목 확률 ${p.woodcuttingBonusLogChancePct}%`);
+  if (p.miningFailureReductionPct)
+    chips.push(`채광 실패율 -${p.miningFailureReductionPct}%`);
+  if (p.miningDurationReductionPct)
+    chips.push(`채광 시간 -${p.miningDurationReductionPct}%`);
+  if (p.miningFailureRecoveryPct)
+    chips.push(`채광 실패 구제 ${p.miningFailureRecoveryPct}%`);
+  if (p.miningBonusOreChancePct)
+    chips.push(`추가 광석 확률 ${p.miningBonusOreChancePct}%`);
   if (p.spdOverflowToAtkPct)
     chips.push(`속도 한계 초과분을 공격력으로 (최대 +${p.spdOverflowToAtkPct}%에 가까워짐)`);
   if (p.skillCritOverflow)

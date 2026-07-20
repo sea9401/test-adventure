@@ -9,6 +9,7 @@ import {
   isMuseunCashItemId,
   removeMuseunCashItem,
 } from "@/adventure/data/v2/museunCashItems";
+import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
 
 // POST /api/v2/me/rename — 닉네임 변경. 열린 「개명 신전 지도」를 완료하거나
 // 캐시 「개명 허가증」 1장을 소모한다.
@@ -17,9 +18,6 @@ import {
 // 신규 경로와 동일 규약: legacy savesKv 이름 + users.gameName UNIQUE(23505) 이중 검사,
 // users.gameName(권위) + character-profile.v2 를 한 트랜잭션에 함께 쓴다.
 // 옛 피드/우편의 이름은 시점 스냅샷이라 그대로 둔다(의도).
-
-const NAME_MIN = 1;
-const NAME_MAX = 16;
 
 class TakenError extends Error {
   constructor() {
@@ -49,10 +47,17 @@ export async function POST(req: Request) {
   const usesCashPermit =
     isMuseunCashItemId(body.cashItemId) &&
     body.cashItemId === "rename_permit";
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  if ((!iid && !usesCashPermit) || name.length < NAME_MIN || name.length > NAME_MAX) {
+  const nameCheck = validateCharacterName(body.name);
+  if (!iid && !usesCashPermit) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
   }
+  if (!nameCheck.ok) {
+    return Response.json(
+      { ok: false, error: "invalid", reason: nameCheck.reason },
+      { status: 400 },
+    );
+  }
+  const name = nameCheck.name;
 
   try {
     const result = await db.transaction(async (tx) => {

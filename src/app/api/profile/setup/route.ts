@@ -10,9 +10,7 @@ import { type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { mintEquipInstance } from "@/adventure/data/v2/v2EquipMint";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
-
-const NAME_MIN = 1;
-const NAME_MAX = 16;
+import { validateCharacterName } from "@/adventure/profile/characterNamePolicy";
 
 // 트랜잭션 안에서 "이름 중복" 신호용 — Postgres 23505 또는 legacy hit 양쪽을 한곳에서 처리.
 class TakenError extends Error {
@@ -34,7 +32,7 @@ class TakenError extends Error {
 // 응답:
 // 200 { ok: true, profile: { name, gender } } — 성공(신규) 또는 자가 치유. 클라가 이 값으로
 //      React state 갱신해야 모달 사라짐 (사용자 입력이 아니라 권위 닉네임을 채택).
-// 400 { error: "invalid" } — 유효성 실패
+// 400 { error: "invalid", reason } — 유효성 실패
 // 409 { error: "taken" } — 다른 유저가 이미 사용 중
 export async function POST(req: Request) {
   let userId: string | null;
@@ -61,10 +59,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "invalid" }, { status: 400 });
   }
 
-  const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (name.length < NAME_MIN || name.length > NAME_MAX) {
-    return Response.json({ error: "invalid" }, { status: 400 });
+  const nameCheck = validateCharacterName(body.name);
+  if (!nameCheck.ok) {
+    return Response.json(
+      { error: "invalid", reason: nameCheck.reason },
+      { status: 400 },
+    );
   }
+  const name = nameCheck.name;
   const gender = typeof body.gender === "string" ? body.gender : "";
   if (!isValidAvatarId(gender)) {
     return Response.json({ error: "invalid" }, { status: 400 });

@@ -148,6 +148,42 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(savesStore.get("u1::stamina-potions.v1")).toEqual({ count: 3 });
   });
 
+  it("admin_gift 무슨 코인과 코인샵 아이템이 각 전용 세이브에 적립된다", async () => {
+    inboxRows.push({
+      id: 1,
+      kind: "admin_gift",
+      payload: {
+        museunCoins: 800,
+        cashItems: [
+          { itemId: "rename_permit", count: 2 },
+          { itemId: "adventure_support_30d", count: 1 },
+        ],
+      },
+      claimedAt: null,
+    });
+    const res = await POST(req([1]));
+    const j = (await res.json()) as {
+      ok: boolean;
+      claimed: number[];
+      museunCoinsAdded: number;
+      museunCoins: number;
+      cashItemsAdded: { itemId: string; count: number }[];
+    };
+    expect(res.status).toBe(200);
+    expect(j.ok).toBe(true);
+    expect(j.claimed).toEqual([1]);
+    expect(j.museunCoinsAdded).toBe(800);
+    expect(j.museunCoins).toBe(800);
+    expect(j.cashItemsAdded).toEqual([
+      { itemId: "rename_permit", count: 2 },
+      { itemId: "adventure_support_30d", count: 1 },
+    ]);
+    expect(savesStore.get("u1::museun-coin-wallet.v1")).toEqual({ coins: 800 });
+    expect(savesStore.get("u1::character.v2")).toEqual({
+      cashItems: { rename_permit: 2, adventure_support_30d: 1 },
+    });
+  });
+
   it("admin_gift 지원권은 수령 시 활성화되고 최초 에너지 500을 지급한다", async () => {
     const before = Date.now();
     inboxRows.push({

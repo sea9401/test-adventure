@@ -42,6 +42,12 @@ import {
   staminaOverchargeCap,
   type StaminaState,
 } from "@/adventure/v2/stamina";
+import {
+  MUSEUN_COIN_WALLET_KEY,
+  addMuseunCashItem,
+  parseMuseunCoinBalance,
+  type MuseunShopItemId,
+} from "@/adventure/data/v2/museunCashItems";
 import { randomUUID } from "node:crypto";
 
 const SAVES_CHARACTER = "character.v2";
@@ -130,6 +136,8 @@ export async function POST(req: Request) {
       const v2MaterialsToAdd: { id: string; count: number }[] = [];
       const recipesToAdd: AddRecipe[] = [];
       let staminaPotionsTotal = 0;
+      let museunCoinsTotal = 0;
+      const museunCashItemTotals = new Map<MuseunShopItemId, number>();
       let adventureSupportDaysTotal = 0;
       // 장비 보상 라우팅 — id 가 V2 장비면 equipment.v2 개체로, 그 외(레거시 v1 매물 등)는
       // 기존대로 inventory.v2 스택으로. base 등급 가정(등급 사본 보상 없음).
@@ -228,6 +236,15 @@ export async function POST(req: Request) {
             if (parsed.staminaPotions > 0) {
               staminaPotionsTotal += parsed.staminaPotions;
             }
+            if (parsed.museunCoins > 0) {
+              museunCoinsTotal += parsed.museunCoins;
+            }
+            for (const item of parsed.cashItems) {
+              museunCashItemTotals.set(
+                item.itemId,
+                (museunCashItemTotals.get(item.itemId) ?? 0) + item.count,
+              );
+            }
             if (parsed.adventureSupportDays > 0) {
               adventureSupportDaysTotal += parsed.adventureSupportDays;
             }
@@ -247,6 +264,7 @@ export async function POST(req: Request) {
       if (
         goldTotal > 0 ||
         v2MaterialsToAdd.length > 0 ||
+        museunCashItemTotals.size > 0 ||
         adventureSupportDaysTotal > 0
       ) {
         const charRows = await tx
@@ -277,6 +295,13 @@ export async function POST(req: Request) {
             materialsV2Added.push({ id: m.id, count: m.count });
           }
           nextChar = { ...nextChar, materials: mats };
+        }
+        if (museunCashItemTotals.size > 0) {
+          let cashItems: unknown = character.cashItems;
+          for (const [itemId, count] of museunCashItemTotals) {
+            cashItems = addMuseunCashItem(cashItems, itemId, count);
+          }
+          nextChar = { ...nextChar, cashItems };
         }
         if (adventureSupportDaysTotal > 0) {
           const nowMs = Date.now();
@@ -436,6 +461,27 @@ export async function POST(req: Request) {
         coinsAdded.push({ season, coins: add });
       }
 
+      // 무슨 코인 — 전용 지갑에 적립. 캐릭터/인벤토리/시즌 지갑 처리 뒤 leaf 로 잠근다.
+      let museunCoins: number | null = null;
+      if (museunCoinsTotal > 0) {
+        const walletRows = await tx
+          .select()
+          .from(savesKv)
+          .where(
+            and(
+              eq(savesKv.userId, userId),
+              eq(savesKv.key, MUSEUN_COIN_WALLET_KEY),
+            ),
+          )
+          .for("update");
+        const wallet = (walletRows[0]?.value ?? {}) as Record<string, unknown>;
+        museunCoins = parseMuseunCoinBalance(wallet) + museunCoinsTotal;
+        await upsertSave(tx, userId, MUSEUN_COIN_WALLET_KEY, {
+          ...wallet,
+          coins: museunCoins,
+        });
+      }
+
       // 스태미나 회복약 — 전용 키(stamina-potions.v1). 다른 세이브 처리 뒤 leaf 로 잠근다.
       let staminaPotions: number | null = null;
       if (staminaPotionsTotal > 0) {
@@ -488,6 +534,12 @@ export async function POST(req: Request) {
         recipesAdded,
         recipesSkipped,
         coinsAdded,
+        museunCoinsAdded: museunCoinsTotal,
+        museunCoins,
+        cashItemsAdded: Array.from(museunCashItemTotals, ([itemId, count]) => ({
+          itemId,
+          count,
+        })),
         staminaPotionsAdded: staminaPotionsTotal,
         staminaPotions,
         adventureSupportDaysAdded: adventureSupportDaysApplied,

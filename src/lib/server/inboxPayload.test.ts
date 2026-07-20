@@ -154,6 +154,8 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
       adventureSupportDays: 0,
     });
   });
@@ -172,6 +174,8 @@ describe("parseInboxPayload — happy path", () => {
       materials: [{ materialId: "iron_ore", count: 3 }],
       items: [{ itemId: "iron_sword", count: 2 }],
       staminaPotions: 4,
+      museunCoins: 0,
+      cashItems: [],
       adventureSupportDays: 0,
     });
   });
@@ -187,6 +191,8 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [{ itemId: "iron_sword", count: 1 }],
       staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
       adventureSupportDays: 0,
     });
   });
@@ -199,6 +205,8 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
       adventureSupportDays: 0,
     });
     expect(parseInboxPayload("admin_gift", {})).toEqual({
@@ -207,6 +215,8 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
       adventureSupportDays: 0,
     });
     // count 0/음수, id 누락은 parseRewardMaterials/Items 가 걸러냄.
@@ -221,6 +231,33 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
+      adventureSupportDays: 0,
+    });
+  });
+
+  it("admin_gift (무슨 코인 + 코인샵 아이템)", () => {
+    expect(
+      parseInboxPayload("admin_gift", {
+        museunCoins: 800,
+        cashItems: [
+          { itemId: "rename_permit", count: 2 },
+          { itemId: "adventure_support_30d", count: 1 },
+          { itemId: "not_a_shop_item", count: 99 },
+        ],
+      }),
+    ).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      items: [],
+      staminaPotions: 0,
+      museunCoins: 800,
+      cashItems: [
+        { itemId: "rename_permit", count: 2 },
+        { itemId: "adventure_support_30d", count: 1 },
+      ],
       adventureSupportDays: 0,
     });
   });
@@ -234,6 +271,8 @@ describe("parseInboxPayload — happy path", () => {
       materials: [],
       items: [],
       staminaPotions: 0,
+      museunCoins: 0,
+      cashItems: [],
       adventureSupportDays: 30,
     });
   });

@@ -16,10 +16,14 @@ import {
 import { DangerAction } from "../ui/DangerAction";
 import { BULLETIN_NOTICE_MAX_LENGTH } from "@/lib/bulletin-config";
 import { ADVENTURE_SUPPORT_MAX_GRANT_DAYS } from "@/adventure/data/v2/adventureSupport";
+import {
+  MUSEUN_CASH_ITEMS,
+  MUSEUN_SHOP_ITEM_IDS,
+} from "@/adventure/data/v2/museunCashItems";
 
 // 공지/방송 + 대량 우편.
 //   공지: 기존 게시판 notice 카테고리(admin 전용) 재사용 — POST /api/bulletin. 본문 최대 3000자.
-//   우편: POST /api/admin/mail — 골드 + 재료/장비/소비템 + 메시지를 한 유저/전체 유저에게 우편함으로 발송.
+//   우편: POST /api/admin/mail — 골드 + 재료/장비/소비템/무슨 코인 + 메시지를 발송.
 export function BroadcastTab() {
   const { readOnly, showToast } = useAdmin();
 
@@ -32,16 +36,18 @@ export function BroadcastTab() {
   const [target, setTarget] = useState<"all" | "user">("user");
   const [userId, setUserId] = useState("");
   const [gold, setGold] = useState(1000);
+  const [museunCoins, setMuseunCoins] = useState(0);
   const [adventureSupportDays, setAdventureSupportDays] = useState(0);
   const [mailMsg, setMailMsg] = useState("");
   const [sending, setSending] = useState(false);
 
-  // 우편 첨부 — 재료/장비/소비템 목록(선택·수량 UI 는 AttachmentPicker 내부 상태).
+  // 우편 첨부 — 재료/장비/소비템/코인샵 아이템 목록.
   const [attachMaterials, setAttachMaterials] = useState<AttachmentEntry[]>([]);
   const [attachItems, setAttachItems] = useState<AttachmentEntry[]>([]);
   const [attachConsumables, setAttachConsumables] = useState<AttachmentEntry[]>(
     [],
   );
+  const [attachCashItems, setAttachCashItems] = useState<AttachmentEntry[]>([]);
 
   // 카탈로그 옵션 (V2GrantSection 과 공용 — adminCatalogOptions).
   const materialOptions = useMemo(() => v2MaterialOptions(), []);
@@ -56,14 +62,25 @@ export function BroadcastTab() {
     ],
     [],
   );
+  const cashItemOptions = useMemo<CatalogOption[]>(
+    () =>
+      MUSEUN_SHOP_ITEM_IDS.map((id) => ({
+        id,
+        name: MUSEUN_CASH_ITEMS[id].name,
+        label: `${MUSEUN_CASH_ITEMS[id].name} (${MUSEUN_CASH_ITEMS[id].coinPrice.toLocaleString()}코인 상품)`,
+      })),
+    [],
+  );
 
   const noticeDisabled = readOnly || posting;
   const mailDisabled = readOnly || sending;
   const hasReward =
     gold > 0 ||
+    museunCoins > 0 ||
     attachMaterials.length > 0 ||
     attachItems.length > 0 ||
     attachConsumables.length > 0 ||
+    attachCashItems.length > 0 ||
     adventureSupportDays > 0;
 
   const postNotice = async () => {
@@ -98,6 +115,8 @@ export function BroadcastTab() {
         materials?: unknown[];
         items?: unknown[];
         staminaPotions?: number;
+        museunCoins?: number;
+        cashItems?: { itemId: string; count: number }[];
         adventureSupportDays?: number;
       }>("/api/admin/mail", {
         target,
@@ -110,6 +129,11 @@ export function BroadcastTab() {
         items: attachItems.map((e) => ({ itemId: e.id, count: e.count })),
         staminaPotions:
           attachConsumables.find((e) => e.id === "stamina_potion")?.count ?? 0,
+        museunCoins,
+        cashItems: attachCashItems.map((e) => ({
+          itemId: e.id,
+          count: e.count,
+        })),
         adventureSupportDays,
         message: mailMsg,
       });
@@ -122,6 +146,12 @@ export function BroadcastTab() {
       if ((j.staminaPotions ?? 0) > 0) {
         parts.push(`스태미나 회복약 ${j.staminaPotions}개`);
       }
+      if ((j.museunCoins ?? 0) > 0) {
+        parts.push(`무슨 코인 ${(j.museunCoins ?? 0).toLocaleString()}개`);
+      }
+      if ((j.cashItems?.length ?? 0) > 0) {
+        parts.push(`무슨 코인샵 아이템 ${j.cashItems?.length ?? 0}종`);
+      }
       if ((j.adventureSupportDays ?? 0) > 0) {
         parts.push(`월간 모험 지원권 ${j.adventureSupportDays}일`);
       }
@@ -132,6 +162,8 @@ export function BroadcastTab() {
       setAttachMaterials([]);
       setAttachItems([]);
       setAttachConsumables([]);
+      setAttachCashItems([]);
+      setMuseunCoins(0);
       setAdventureSupportDays(0);
     } catch (e) {
       showToast(`우편 실패: ${e instanceof Error ? e.message : "오류"}`);
@@ -193,11 +225,11 @@ export function BroadcastTab() {
       {/* 대량 우편 */}
       <div className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
         <h3 className="text-sm font-semibold">
-          대량 우편 (골드·재료·장비·소비템·지원권)
+          대량 우편 (골드·재료·장비·소비템·무슨 코인·지원권)
         </h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          골드 + 재료/장비/소비템 + 메시지를 우편함으로 발송합니다(수신자가 수령). 보정금·이벤트
-          보상용. 장비는 기본 등급으로 지급됩니다.
+          골드 + 재료/장비/소비템/무슨 코인 + 메시지를 우편함으로 발송합니다(수신자가 수령).
+          보정금·이벤트 보상용. 장비는 기본 등급으로 지급됩니다.
           <strong> 전체 발송</strong>은 모든 유저에게 자원을 지급하는 강력한 작업입니다.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -222,12 +254,20 @@ export function BroadcastTab() {
               />
             </Field>
           )}
-          <Field label="골드" hint="0 이면 골드 없이 재료/장비만 발송">
+          <Field label="골드" hint="0이면 미첨부">
             <NumberInput
               value={gold}
               min={0}
               disabled={mailDisabled}
               onChange={(n) => setGold(Math.max(0, Math.floor(n)))}
+            />
+          </Field>
+          <Field label="무슨 코인" hint="0이면 미첨부 · 수령 시 코인 지갑에 적립">
+            <NumberInput
+              value={museunCoins}
+              min={0}
+              disabled={mailDisabled}
+              onChange={(n) => setMuseunCoins(Math.max(0, Math.floor(n)))}
             />
           </Field>
           <Field
@@ -275,6 +315,13 @@ export function BroadcastTab() {
           onChange={setAttachConsumables}
           disabled={mailDisabled}
         />
+        <AttachmentPicker
+          label="무슨 코인샵 아이템 첨부"
+          options={cashItemOptions}
+          entries={attachCashItems}
+          onChange={setAttachCashItems}
+          disabled={mailDisabled}
+        />
 
         <div className="mt-3">
           <Field label="메시지 (선택)">
@@ -300,6 +347,10 @@ export function BroadcastTab() {
               }${
                 attachConsumables.length > 0
                   ? ` · 소비템 ${attachConsumables.length}종`
+                  : ""
+              }${museunCoins > 0 ? ` · 무슨 코인 ${museunCoins.toLocaleString()}개` : ""}${
+                attachCashItems.length > 0
+                  ? ` · 무슨 코인샵 아이템 ${attachCashItems.length}종`
                   : ""
               }${
                 adventureSupportDays > 0

@@ -11,7 +11,7 @@ export const ADVENTURE_SUPPORT_PASS = {
   durationDays: 30,
   coinPrice: 800,
   staminaMaxBonus: 1_000,
-  staminaActivationGrant: 500,
+  staminaActivationGrant: 1_000,
   staminaRegenBonusPct: 20,
   marketplaceSlotBonus: 10,
   marketplaceTaxRate: 0.05,

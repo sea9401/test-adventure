@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight,
@@ -23,8 +23,8 @@ import {
   MUSEUN_COIN_PACKAGES,
 } from "@/adventure/data/v2/adventureSupport";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { PageShell } from "@/components/ui/PageShell";
-import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
@@ -56,6 +56,7 @@ import {
   isMuseunCosmeticItemId,
   parseMuseunCosmetics,
 } from "@/adventure/data/v2/museunCosmetics";
+import { useSystemToast } from "./RewardToastProvider";
 
 const COSMETIC_RARITY_BADGE_CLASS: Record<
   ChromaNameRarity | CosmeticItemRarity,
@@ -84,6 +85,8 @@ export const CASH_ITEM_DETAIL_HEADER_CLASS =
   "flex shrink-0 items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700";
 export const CASH_ITEM_DETAIL_BODY_CLASS =
   "min-h-0 flex-1 overflow-y-auto overscroll-contain p-4";
+export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
+  "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
 
 function itemSummary(itemId: MuseunCashItemId): string {
   const item = MUSEUN_CASH_ITEMS[itemId];
@@ -169,13 +172,15 @@ export function MuseunCoinShopView() {
   const [chargeOpen, setChargeOpen] = useState(false);
   const [detailItemId, setDetailItemId] =
     useState<MuseunCashItemId | null>(null);
+  const [confirmItemId, setConfirmItemId] =
+    useState<MuseunCashItemId | null>(null);
   const [coins, setCoins] = useState(0);
   const [cashItems, setCashItems] = useState<MuseunCashItemCounts>({});
   const [cosmetics, setCosmetics] = useState<MuseunCosmeticsState>(() =>
     parseMuseunCosmetics(null),
   );
   const [buying, setBuying] = useState<MuseunCashItemId | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const { notifySystem } = useSystemToast();
 
   useEffect(() => {
     let alive = true;
@@ -202,7 +207,6 @@ export function MuseunCoinShopView() {
   async function purchase(itemId: MuseunCashItemId) {
     if (buying) return;
     setBuying(itemId);
-    setMessage(null);
     try {
       const res = await fetch("/api/v2/museun-coin-shop", {
         method: "POST",
@@ -219,27 +223,29 @@ export function MuseunCoinShopView() {
         delivery?: "inventory" | "entitlement";
       } | null;
       if (!res.ok || !data?.ok) {
-        setMessage(
+        const errorMessage =
           data?.error === "insufficient_coins"
             ? "무슨 코인이 부족합니다."
             : data?.error === "already_owned"
               ? "이미 해금한 꾸미기 상품입니다."
-              : "상품을 구매하지 못했습니다.",
-        );
+              : "상품을 구매하지 못했습니다.";
+        notifySystem(`✗ ${errorMessage}`);
         return;
       }
       setCoins(data.coins ?? 0);
       setCashItems(data.cashItems ?? {});
       setCosmetics(parseMuseunCosmetics(data.cosmetics));
-      setMessage(
+      notifySystem(
         data.delivery === "entitlement"
-          ? `${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
-          : `${data.itemName ?? "캐시 아이템"}을 가방에 넣었습니다.`,
+          ? `✓ 구매 완료 — ${data.itemName ?? "꾸미기 상품"}을 해금하고 30일 사용 기간을 적용했습니다.`
+          : `✓ 구매 완료 — ${data.itemName ?? "캐시 아이템"}을 가방에 넣었습니다.`,
       );
+      setDetailItemId(null);
     } catch {
-      setMessage("상품을 구매하지 못했습니다.");
+      notifySystem("✗ 상품을 구매하지 못했습니다.");
     } finally {
       setBuying(null);
+      setConfirmItemId(null);
     }
   }
 
@@ -282,18 +288,6 @@ export function MuseunCoinShopView() {
           </div>
         </div>
       </Card>
-
-      {message && (
-        <StatusBanner
-          tone={
-            message.includes("넣었습니다") || message.includes("적용했습니다")
-              ? "success"
-              : "error"
-          }
-        >
-          {message}
-        </StatusBanner>
-      )}
 
       <Card padding="lg">
         <div>
@@ -338,7 +332,7 @@ export function MuseunCoinShopView() {
       {chargeOpen && (
         <MuseunCoinChargeDialog onClose={() => setChargeOpen(false)} />
       )}
-      {detailItemId && (
+      {detailItemId && !confirmItemId && (
         <CashItemDetailDialog
           itemId={detailItemId}
           coins={coins}
@@ -350,11 +344,129 @@ export function MuseunCoinShopView() {
           cosmetics={cosmetics}
           buying={buying === detailItemId}
           purchaseBlocked={buying !== null}
-          onPurchase={() => void purchase(detailItemId)}
+          onPurchase={() => setConfirmItemId(detailItemId)}
           onClose={() => setDetailItemId(null)}
         />
       )}
+      {confirmItemId && (
+        <CashItemPurchaseConfirmDialog
+          itemId={confirmItemId}
+          coins={coins}
+          buying={buying === confirmItemId}
+          onConfirm={() => void purchase(confirmItemId)}
+          onClose={() => setConfirmItemId(null)}
+        />
+      )}
     </PageShell>
+  );
+}
+
+function CashItemPurchaseConfirmDialog({
+  itemId,
+  coins,
+  buying,
+  onConfirm,
+  onClose,
+}: {
+  itemId: MuseunCashItemId;
+  coins: number;
+  buying: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const closeIfIdle = useCallback(() => {
+    if (!buying) onClose();
+  }, [buying, onClose]);
+  useEscapeKey(closeIfIdle);
+  useModalA11y(contentRef);
+
+  const item = MUSEUN_CASH_ITEMS[itemId];
+  const balanceAfterPurchase = Math.max(0, coins - item.coinPrice);
+
+  return createPortal(
+    <div
+      className={CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS}
+      style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) closeIfIdle();
+      }}
+    >
+      <div
+        ref={contentRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cash-item-purchase-confirm-title"
+        aria-describedby="cash-item-purchase-confirm-description"
+        className={`${SURFACE_CARD} ui-modal-panel w-full max-w-sm p-5 shadow-2xl`}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <CashItemIcon itemId={itemId} size={26} />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+              무슨 코인 상품
+            </p>
+            <h2
+              id="cash-item-purchase-confirm-title"
+              className="truncate text-lg font-bold"
+            >
+              구매하시겠습니까?
+            </h2>
+          </div>
+        </div>
+
+        <p
+          id="cash-item-purchase-confirm-description"
+          className="mt-4 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300"
+        >
+          <strong className="text-zinc-900 dark:text-zinc-100">
+            {item.name}
+          </strong>
+          의 구매를 확정하면 무슨 코인이 즉시 차감됩니다.
+        </p>
+
+        <div className={`${SURFACE_INSET} mt-4 space-y-2 p-3 text-sm`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">상품 가격</span>
+            <strong className="tabular-nums text-amber-700 dark:text-amber-300">
+              {item.coinPrice.toLocaleString()}코인
+            </strong>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-zinc-500 dark:text-zinc-400">현재 보유</span>
+            <span className="font-medium tabular-nums">
+              {coins.toLocaleString()}코인
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-2 dark:border-zinc-700">
+            <span className="font-semibold">구매 후 잔액</span>
+            <strong className="tabular-nums">
+              {balanceAfterPurchase.toLocaleString()}코인
+            </strong>
+          </div>
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          캐시 재화를 사용하는 구매입니다. 상품과 가격을 다시 확인해 주세요.
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <Button size="md" disabled={buying} onClick={onClose}>
+            취소
+          </Button>
+          <Button
+            size="md"
+            variant="warning"
+            disabled={buying}
+            onClick={onConfirm}
+          >
+            {buying ? "구매 중…" : `${item.coinPrice.toLocaleString()}코인 구매`}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

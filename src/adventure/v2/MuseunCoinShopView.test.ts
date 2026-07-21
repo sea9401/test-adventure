@@ -4,6 +4,7 @@ import {
   CASH_ITEM_DETAIL_HEADER_CLASS,
   CASH_ITEM_DETAIL_OVERLAY_CLASS,
   CASH_ITEM_DETAIL_PANEL_CLASS,
+  CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS,
   COSMETIC_RARITY_DISPLAY_ORDER,
   SHOP_ITEM_GROUPS,
   sortCosmeticPreviewEntries,
@@ -67,5 +68,11 @@ describe("무슨 코인 상점 상품 그룹", () => {
     expect(CASH_ITEM_DETAIL_PANEL_CLASS).toContain("overflow-hidden");
     expect(CASH_ITEM_DETAIL_HEADER_CLASS).toContain("shrink-0");
     expect(CASH_ITEM_DETAIL_BODY_CLASS).toContain("overflow-y-auto");
+  });
+
+  it("구매 확인 창은 모바일 바텀시트로 표시하고 상품 상세보다 위에 둔다", () => {
+    expect(CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS).toContain("items-end");
+    expect(CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS).toContain("sm:items-center");
+    expect(CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS).toContain("z-[110]");
   });
 });

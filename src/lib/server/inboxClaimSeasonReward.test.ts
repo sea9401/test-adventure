@@ -184,7 +184,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     });
   });
 
-  it("admin_gift 지원권은 수령 시 활성화되고 최초 에너지 500을 지급한다", async () => {
+  it("admin_gift 지원권은 수령 시 활성화되고 최초 에너지 1000을 지급한다", async () => {
     const before = Date.now();
     inboxRows.push({
       id: 1,
@@ -214,7 +214,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(j.adventureSupportActiveUntil).toBeGreaterThanOrEqual(
       before + 30 * 86_400_000,
     );
-    expect(j.staminaAfterSupport.current).toBe(2000);
+    expect(j.staminaAfterSupport.current).toBe(2500);
     expect(j.staminaMaxAfterSupport).toBe(2500);
 
     const character = savesStore.get("u1::character.v2") as {
@@ -224,7 +224,7 @@ describe("inbox claim — season_reward → 코인 지갑", () => {
     expect(character.adventureSupport.activeUntil).toBe(
       j.adventureSupportActiveUntil,
     );
-    expect(character.stamina.current).toBe(2000);
+    expect(character.stamina.current).toBe(2500);
   });
 
   it("admin_gift 장비는 inventory.v2 가 아니라 equipment.v2 개체로 들어간다", async () => {

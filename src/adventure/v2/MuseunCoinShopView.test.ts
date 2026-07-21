@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  CASH_ITEM_DETAIL_BODY_CLASS,
+  CASH_ITEM_DETAIL_HEADER_CLASS,
+  CASH_ITEM_DETAIL_OVERLAY_CLASS,
+  CASH_ITEM_DETAIL_PANEL_CLASS,
   COSMETIC_RARITY_DISPLAY_ORDER,
   SHOP_ITEM_GROUPS,
   sortCosmeticPreviewEntries,
@@ -54,5 +58,14 @@ describe("무슨 코인 상점 상품 그룹", () => {
       "legendary",
       "epic",
     ]);
+  });
+
+  it("모바일 상품 상세는 화면 안에 머물고 헤더를 고정한 채 본문만 스크롤한다", () => {
+    expect(CASH_ITEM_DETAIL_OVERLAY_CLASS).toContain("items-start");
+    expect(CASH_ITEM_DETAIL_OVERLAY_CLASS).toContain("overflow-y-auto");
+    expect(CASH_ITEM_DETAIL_PANEL_CLASS).toContain("100dvh");
+    expect(CASH_ITEM_DETAIL_PANEL_CLASS).toContain("overflow-hidden");
+    expect(CASH_ITEM_DETAIL_HEADER_CLASS).toContain("shrink-0");
+    expect(CASH_ITEM_DETAIL_BODY_CLASS).toContain("overflow-y-auto");
   });
 });

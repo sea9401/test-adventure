@@ -471,7 +471,7 @@ export const MUSEUN_CASH_ITEMS = {
     name: "꾸미기 30일 연장권",
     description:
       "도감에 해금된 크로마 닉네임, 프로필 테두리 또는 채팅 배지 한 종류의 사용 기간을 30일 연장합니다. 사용 전에는 거래소에 등록할 수 있습니다.",
-    coinPrice: 400,
+    coinPrice: 300,
     delivery: "inventory",
     tradeable: true,
     effect: { kind: "cosmetic_extension", days: 30 },

@@ -18,6 +18,7 @@ import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
 import { CharacterPreviewSection } from "./CharacterPreviewSection";
 import { UserImpersonationSection } from "./UserImpersonationSection";
+import { Warning } from "@phosphor-icons/react";
 
 export function SelectedUserPanel({
   user,
@@ -80,9 +81,12 @@ export function SelectedUserPanel({
         {loading ? (
           <div className="mt-2 text-xs text-zinc-500">로딩…</div>
         ) : !saves ? null : !saves["character.v2"] ? (
-          <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            ⚠️ 이 유저는 아직 캐릭터 데이터가 서버에 없습니다. 편집 시 새 행이
-            생성됩니다.
+          <div className="mt-2 flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+            <Warning size={14} weight="fill" className="mt-0.5 shrink-0" />
+            <span>
+              이 유저는 아직 캐릭터 데이터가 서버에 없습니다. 편집 시 새 행이
+              생성됩니다.
+            </span>
           </div>
         ) : null}
       </div>

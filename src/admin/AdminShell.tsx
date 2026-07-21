@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Lock, PencilSimple } from "@phosphor-icons/react";
 import { AdminProvider, useAdmin } from "./AdminContext";
 import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
@@ -133,7 +134,14 @@ function ShellInner() {
               onChange={(e) => setReadOnly(e.target.checked)}
               className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900"
             />
-            <span>{readOnly ? "🔒 보기 전용" : "✏️ 편집 가능"}</span>
+            <span className="inline-flex items-center gap-1">
+              {readOnly ? (
+                <Lock size={15} weight="duotone" />
+              ) : (
+                <PencilSimple size={15} weight="duotone" />
+              )}
+              {readOnly ? "보기 전용" : "편집 가능"}
+            </span>
           </label>
         </div>
       </header>

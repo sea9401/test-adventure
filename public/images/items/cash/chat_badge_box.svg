@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">채팅 배지 상자</title>
+  <desc id="desc">보라색 타일 위 별 배지가 달린 말풍선이 솟아나는 꾸미기 상자</desc>
+
+  <rect width="256" height="256" rx="54" fill="#4c158f"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+
+  <path d="M63 40h130c13 0 23 10 23 23v48c0 13-10 23-23 23h-59l-31 25 6-25H63c-13 0-23-10-23-23V63c0-13 10-23 23-23Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="79" cy="88" r="9" fill="#52d3c4"/>
+  <circle cx="111" cy="88" r="9" fill="#c6a6f4"/>
+  <circle cx="143" cy="88" r="9" fill="#5ba7ff"/>
+  <path d="m181 57 9 18 20 3-14 14 3 20-18-9-18 9 3-20-14-14 20-3Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="6" stroke-linejoin="round"/>
+
+  <path d="M50 153 82 126h92l32 27-18 21H68Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M68 168h120v47H68Z" fill="#ef5c5c" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M118 168h20v47h-20Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="7"/>
+  <path d="M64 168h128" stroke="#2a0a5e" stroke-width="9" stroke-linecap="round"/>
+</svg>

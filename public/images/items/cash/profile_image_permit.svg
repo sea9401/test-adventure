@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">프로필 이미지 변경권</title>
+  <desc id="desc">보라색 타일 위 초상 사진 카드와 반짝임으로 표현한 변경권</desc>
+
+  <rect width="256" height="256" rx="54" fill="#4c158f"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+
+  <rect x="35" y="55" width="186" height="150" rx="27" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>
+  <rect x="54" y="76" width="83" height="104" rx="18" fill="#5ba7ff" stroke="#2a0a5e" stroke-width="7"/>
+  <circle cx="96" cy="109" r="22" fill="#fff8e8" stroke="#2a0a5e" stroke-width="7"/>
+  <path d="M64 170c4-27 17-41 32-41s28 14 32 41Z" fill="#52d3c4" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M157 97h40M157 120h31M157 160h25" stroke="#6f35b3" stroke-width="10" stroke-linecap="round"/>
+
+  <path d="M185 24c5 17 14 27 31 32-17 5-26 15-31 32-5-17-14-27-31-32 17-5 26-15 31-32Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="m184 43 1 25M173 56h25" stroke="#fff8e8" stroke-width="5" stroke-linecap="round"/>
+</svg>

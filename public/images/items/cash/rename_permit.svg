@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">개명 허가증</title>
+  <desc id="desc">보라색 타일 위 문서와 깃펜으로 표현한 개명 허가증</desc>
+
+  <rect width="256" height="256" rx="54" fill="#4c158f"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+
+  <path d="M48 39h122l38 38v140H48Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M170 39v39h38" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="86" cy="96" r="22" fill="#5ba7ff" stroke="#2a0a5e" stroke-width="7"/>
+  <path d="M65 137c5-17 14-25 21-25s16 8 21 25Z" fill="#52d3c4" stroke="#2a0a5e" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M126 101h54M126 124h42M71 166h93M71 188h68" stroke="#6f35b3" stroke-width="10" stroke-linecap="round"/>
+
+  <path d="M200 120c-31 15-47 35-60 70l-20 22 28-12c31-17 46-36 60-68Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="m141 190 39-39" stroke="#fff8e8" stroke-width="6" stroke-linecap="round"/>
+  <path d="m120 212 20-22" stroke="#2a0a5e" stroke-width="8" stroke-linecap="round"/>
+</svg>

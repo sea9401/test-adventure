@@ -89,8 +89,13 @@ export const CASH_ITEM_DETAIL_BODY_CLASS =
 export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
   "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
 export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
-  cosmetic_extension_30d:
-    "/images/items/cash/cosmetic_extension_30d.svg",
+  adventure_support_30d: "/images/items/cash/adventure_support_30d.svg",
+  rename_permit: "/images/items/cash/rename_permit.svg",
+  profile_image_permit: "/images/items/cash/profile_image_permit.svg",
+  chroma_name_box: "/images/items/cash/chroma_name_box.svg",
+  profile_border_box: "/images/items/cash/profile_border_box.svg",
+  chat_badge_box: "/images/items/cash/chat_badge_box.svg",
+  cosmetic_extension_30d: "/images/items/cash/cosmetic_extension_30d.svg",
 };
 
 function itemSummary(itemId: MuseunCashItemId): string {

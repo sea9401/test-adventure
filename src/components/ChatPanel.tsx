@@ -636,10 +636,16 @@ export function ChatPanel({
   };
 
   const leaveCustomRoom = async () => {
-    if (!activeCustomRoom || activeCustomRoom.role === "owner" || roomActionBusy) {
+    if (!activeCustomRoom || roomActionBusy) {
       return;
     }
-    if (!window.confirm(`${activeCustomRoom.name} 채팅방에서 나갈까요?`)) return;
+    const confirmation =
+      activeCustomRoom.role === "owner"
+        ? activeCustomRoom.memberCount > 1
+          ? `${activeCustomRoom.name} 채팅방에서 나갈까요?\n\n방장 권한은 가장 먼저 참여한 멤버에게 넘어갑니다.`
+          : `${activeCustomRoom.name} 채팅방에서 나갈까요?\n\n마지막 참여자이므로 채팅방과 대화 내용이 삭제됩니다.`
+        : `${activeCustomRoom.name} 채팅방에서 나갈까요?`;
+    if (!window.confirm(confirmation)) return;
     setRoomActionBusy(true);
     try {
       await updateChatRoomMembership(activeCustomRoom.id, "leave");
@@ -880,7 +886,7 @@ export function ChatPanel({
                 <UserPlus size={19} weight="duotone" />
               </button>
             )}
-            {activeCustomRoom?.role === "member" && (
+            {activeCustomRoom && (
               <button
                 type="button"
                 disabled={roomActionBusy}

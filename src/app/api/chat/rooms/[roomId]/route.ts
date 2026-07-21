@@ -1,4 +1,4 @@
-import { and, eq, lte, sql } from "drizzle-orm";
+import { and, asc, eq, lte, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   chatRoomInvites,
@@ -88,8 +88,16 @@ export async function POST(
 
   if (body.action === "leave") {
     const result = await db.transaction(async (tx) => {
+      // 방을 먼저 잠가 입장과 방장 나가기가 동시에 처리되지 않게 한다.
+      const [room] = await tx
+        .select({ ownerId: chatRooms.ownerId })
+        .from(chatRooms)
+        .where(eq(chatRooms.id, roomId))
+        .for("update");
+      if (!room) return { ok: true as const };
+
       const [membership] = await tx
-        .select({ role: chatRoomMembers.role })
+        .select({ userId: chatRoomMembers.userId })
         .from(chatRoomMembers)
         .where(
           and(
@@ -99,9 +107,45 @@ export async function POST(
         )
         .for("update");
       if (!membership) return { ok: true as const };
-      if (membership.role === "owner") {
-        return { error: "owner cannot leave", status: 409 as const };
+
+      if (room.ownerId === userId) {
+        const [successor] = await tx
+          .select({ userId: chatRoomMembers.userId })
+          .from(chatRoomMembers)
+          .where(
+            and(
+              eq(chatRoomMembers.roomId, roomId),
+              ne(chatRoomMembers.userId, userId),
+            ),
+          )
+          .orderBy(
+            asc(chatRoomMembers.joinedAt),
+            asc(chatRoomMembers.userId),
+          )
+          .limit(1)
+          .for("update");
+
+        if (!successor) {
+          // 마지막 참여자인 방장이 나가면 연관 데이터는 FK cascade 로 정리된다.
+          await tx.delete(chatRooms).where(eq(chatRooms.id, roomId));
+          return { ok: true as const };
+        }
+
+        await tx
+          .update(chatRooms)
+          .set({ ownerId: successor.userId, updatedAt: new Date() })
+          .where(eq(chatRooms.id, roomId));
+        await tx
+          .update(chatRoomMembers)
+          .set({ role: "owner" })
+          .where(
+            and(
+              eq(chatRoomMembers.roomId, roomId),
+              eq(chatRoomMembers.userId, successor.userId),
+            ),
+          );
       }
+
       await tx
         .delete(chatRoomMembers)
         .where(
@@ -112,9 +156,6 @@ export async function POST(
         );
       return { ok: true as const };
     });
-    if ("error" in result) {
-      return new Response(result.error, { status: result.status });
-    }
     return Response.json(result);
   }
 

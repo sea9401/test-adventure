@@ -23,5 +23,8 @@ describe("게임 안내서 구성", () => {
       title: "퀘스트와 업적",
       group: "growth",
     });
+    expect(
+      MANUAL_SECTIONS.some((section) => section.slug === "outpost"),
+    ).toBe(false);
   });
 });

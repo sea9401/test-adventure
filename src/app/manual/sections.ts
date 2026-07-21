@@ -110,12 +110,6 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     group: "world",
   },
   {
-    slug: "outpost",
-    title: "지도 · 거점 · 정착지",
-    summary: "지도 이동과 거점 정착, 점령·세금·수비 규칙을 설명합니다.",
-    group: "world",
-  },
-  {
     slug: "plaza",
     title: "광장과 소통",
     summary: "게시판·거래소·우편함·랭킹·채팅의 이용 방법을 안내합니다.",

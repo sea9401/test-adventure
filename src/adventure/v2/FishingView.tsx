@@ -1092,8 +1092,6 @@ function FishingSceneCanvas({
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
         canvas.width = Math.round(width * dpr);
         canvas.height = Math.round(height * dpr);
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
       }
       const ctx = canvas.getContext("2d");
       if (ctx) {
@@ -1286,8 +1284,6 @@ function FishingResultScene({
       if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
         canvas.width = Math.round(width * dpr);
         canvas.height = Math.round(height * dpr);
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
       }
       const ctx = canvas.getContext("2d");
       if (ctx) {

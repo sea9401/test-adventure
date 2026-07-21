@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import {
   Backpack,
+  Bank,
   Binoculars,
   BookOpen,
   BoxingGlove,
@@ -11,10 +12,14 @@ import {
   CastleTurret,
   CloudLightning,
   Compass,
+  FirstAid,
+  Hammer,
   Lightning,
+  PottedPlant,
   ShieldStar,
   Skull,
   Sparkle,
+  Storefront,
   Sword,
   Target,
   TestTube,
@@ -24,10 +29,6 @@ import {
   Warehouse,
   type Icon,
 } from "@phosphor-icons/react";
-import {
-  CustomGameIconTile,
-  type CustomGameIconName,
-} from "@/components/icons/CustomGameIcon";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import type { SettlementBuildingId } from "@/adventure/data/v2/settlement";
@@ -43,12 +44,11 @@ import {
 // 색·활성 표기는 기존 탭바(highlight)와 동일한 인디고 언어. 드롭다운 항목은 각 탭 홈 카드와
 // 같은 아이콘·색을 재사용해 일관·깔끔하게 보이도록 한다.
 
-export type SubItem = {
+type SubItem = {
   label: string;
   href: string;
-  Icon?: Icon;
-  color?: string;
-  customIcon?: CustomGameIconName;
+  Icon: Icon;
+  color: string;
 };
 type TabDef = { key: string; label: string; href: string; sub?: SubItem[] };
 
@@ -63,7 +63,7 @@ const GUILD_ROOT_ITEM: SubItem = {
 // 시설끼리도 색이 겹치지 않아 작은 화면에서도 형태와 색으로 함께 구분된다.
 const GUILD_FACILITY_VISUALS: Record<
   GuildFacilityId,
-  Required<Pick<SubItem, "Icon">>
+  Pick<SubItem, "Icon">
 > = {
   guild_smithy: {
     Icon: Toolbox,
@@ -94,15 +94,6 @@ function guildFacilityMenuItem(id: GuildFacilityId): SubItem {
   };
 }
 
-export const TOWN_SUB_ITEMS = [
-  { label: "치료소", href: "/town/healing", customIcon: "FirstAid" },
-  { label: "은행", href: "/town/bank", customIcon: "Bank" },
-  { label: "상점", href: "/town/shop", customIcon: "Storefront" },
-  { label: "대장간", href: "/town/smithy", customIcon: "Hammer" },
-  { label: "생활 지도", href: "/map", customIcon: "Compass" },
-  { label: "모험가 농장", href: "/town/farm", customIcon: "Plant" },
-] satisfies SubItem[];
-
 // 하위 항목·아이콘은 각 탭 홈(card 메뉴)에서 그대로 가져온 라우트/아이콘. 새 하위화면 추가 시 여기 한 줄.
 const TABS: TabDef[] = [
   { key: "adventure", label: "모험", href: "/" },
@@ -123,7 +114,14 @@ const TABS: TabDef[] = [
     key: "town",
     label: "마을",
     href: "/town",
-    sub: TOWN_SUB_ITEMS,
+    sub: [
+      { label: "치료소", href: "/town/healing", Icon: FirstAid, color: "text-rose-500" },
+      { label: "은행", href: "/town/bank", Icon: Bank, color: "text-yellow-600" },
+      { label: "상점", href: "/town/shop", Icon: Storefront, color: "text-orange-600" },
+      { label: "대장간", href: "/town/smithy", Icon: Hammer, color: "text-amber-600" },
+      { label: "생활 지도", href: "/map", Icon: Compass, color: "text-sky-600" },
+      { label: "모험가 농장", href: "/town/farm", Icon: PottedPlant, color: "text-emerald-500" },
+    ],
   },
   {
     key: "character",
@@ -140,29 +138,6 @@ const TABS: TabDef[] = [
   },
   { key: "guild", label: "길드", href: "/guild", sub: [GUILD_ROOT_ITEM] },
 ];
-
-export function MainTabSubItemIcon({ item }: { item: SubItem }) {
-  if (item.customIcon) {
-    return (
-      <CustomGameIconTile
-        name={item.customIcon}
-        tileSize={34}
-        iconSize={23}
-      />
-    );
-  }
-
-  if (!item.Icon) return null;
-  const Icon = item.Icon;
-  return (
-    <Icon
-      size={20}
-      weight="duotone"
-      aria-hidden
-      className={`shrink-0 ${item.color ?? ""}`}
-    />
-  );
-}
 
 export function MainTabNav({
   activeKey,
@@ -281,7 +256,12 @@ export function MainTabNav({
                 }}
                 className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-zinc-100 active:bg-zinc-200 dark:hover:bg-zinc-800/70 dark:active:bg-zinc-800"
               >
-                <MainTabSubItemIcon item={s} />
+                <s.Icon
+                  size={20}
+                  weight="duotone"
+                  aria-hidden
+                  className={`shrink-0 ${s.color}`}
+                />
                 <span className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">
                   {s.label}
                 </span>

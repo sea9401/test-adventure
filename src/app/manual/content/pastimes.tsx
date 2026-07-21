@@ -17,6 +17,19 @@ import {
   FISHING_LURES,
   FISHING_RODS,
 } from "@/adventure/v2/fishingProgression";
+import {
+  FARM_CROP_LIST,
+  FARM_DAILY_DELIVERY_LIMIT,
+  FARM_MAX_PLOT_COUNT,
+  FARM_PLOT_COUNT,
+} from "@/adventure/v2/farm";
+import {
+  AUTO_GATHERING_DURATION_MS,
+  AUTO_GATHERING_MATERIAL_EFFICIENCY,
+  AUTO_GATHERING_XP_EFFICIENCY,
+} from "@/adventure/v2/autoGathering";
+import { WOODCUTTING_SPOT_IDS } from "@/adventure/data/v2/woodcuttingSpots";
+import { MINING_SPOT_IDS } from "@/adventure/data/v2/miningSpots";
 import { H2, P, UL, Em, Note, Table } from "./primitives";
 
 const CATCH_COIN_BY_TIER: Record<FishTier, number> = {
@@ -29,6 +42,7 @@ const CATCH_COIN_BY_TIER: Record<FishTier, number> = {
 
 const DAILY_CATCH_COIN_CAP = 2000;
 const TIDE_HOURS = MULTTAE_WINDOW_MS / 3_600_000;
+const AUTO_GATHERING_MINUTES = AUTO_GATHERING_DURATION_MS / 60_000;
 const fishList = Object.values(FISH);
 const normalFishCount = fishList.filter((fish) => !fish.condition).length;
 const specialFishCount = fishList.length - normalFishCount;
@@ -40,18 +54,68 @@ function fishName(id: string | undefined) {
 export function PastimesContent() {
   return (
     <>
-      <H2>전투력 밖의 여가</H2>
+      <H2>생활 콘텐츠 한눈에 보기</H2>
       <P>
-        낚시는 전투·성장 경제와 분리된 곁가지 콘텐츠입니다. 스탯이나
-        전투력으로 결과가 갈리지 않고, 독립된 보상(코인·칭호·주간 랭킹)이
-        있습니다. 마을 탭에서 들어갑니다.
+        생활 콘텐츠에는 <Em>농장·벌목·채광·낚시</Em>가 있습니다. 각 콘텐츠는
+        별도의 레벨과 기록을 쌓으며, 얻은 작물·원목·광석은 길드 시설과 제작,
+        거래소에서 사용합니다. 낚시는 별도 코인과 어보, 주간 최대어 기록을
+        중심으로 진행됩니다.
       </P>
+
+      <H2>농장</H2>
+      <UL>
+        <li>
+          밭에 씨앗을 심고 성장 시간이 지나면 수확합니다. 농장은 처음{" "}
+          <Em>{FARM_PLOT_COUNT}칸</Em>으로 시작하며, 농장 증표를 사용해 최대{" "}
+          <Em>{FARM_MAX_PLOT_COUNT}칸</Em>까지 넓힐 수 있습니다.
+        </li>
+        <li>
+          현재 작물은 <Em>{FARM_CROP_LIST.length}종</Em>입니다. 일부 작물은 농부
+          계열 스킬을 배워야 심을 수 있습니다.
+        </li>
+        <li>
+          기본 납품은 하루 <Em>{FARM_DAILY_DELIVERY_LIMIT}회</Em>까지 가능하며,
+          납품으로 받은 농장 증표는 씨앗과 밭 확장에 사용합니다.
+        </li>
+        <li>
+          수확할 때 농사 경험치를 얻습니다. 낮은 확률로 희귀 작물이 함께 나오며,
+          장착한 농장 패시브가 수확량과 희귀 수확 확률을 높입니다.
+        </li>
+      </UL>
+
+      <H2>벌목과 채광</H2>
+      <P>
+        마을의 생활 지도에서 벌목지나 채광지를 고른 뒤 해당 작업장으로 이동합니다.
+        벌목지는 <Em>{WOODCUTTING_SPOT_IDS.length}곳</Em>, 채광지는{" "}
+        <Em>{MINING_SPOT_IDS.length}곳</Em>입니다. 장소에 따라 얻는 원목과 광석,
+        작업 시간, 성공률이 달라집니다.
+      </P>
+      <UL>
+        <li>
+          수동 작업은 진행 표시가 끝날 때까지 버튼이나 Space·Enter를 사용합니다.
+          성공하면 재료와 생활 경험치, 현재 직업 숙련도를 얻습니다.
+        </li>
+        <li>
+          생활 레벨과 장착 패시브는 작업 시간과 실패율을 줄이거나 추가 재료 획득에
+          영향을 줍니다.
+        </li>
+        <li>
+          자동 작업은 <Em>{AUTO_GATHERING_MINUTES}분</Em> 동안 진행됩니다. 재료
+          효율은 <Em>{AUTO_GATHERING_MATERIAL_EFFICIENCY * 100}%</Em>, 경험치와
+          숙련도 효율은 <Em>{AUTO_GATHERING_XP_EFFICIENCY * 100}%</Em>입니다.
+        </li>
+        <li>
+          자동 벌목과 자동 채광은 동시에 실행할 수 없습니다. 둘 중 하나가 진행
+          중이면 낚시와 수동 벌목·채광도 잠깁니다. 중간에 취소할 수 있지만 진행
+          중이던 보상은 받지 못합니다.
+        </li>
+      </UL>
 
       <H2>낚시</H2>
       <UL>
         <li>
           <Em>완전 수동 반응형 미니게임</Em>입니다 — 찌의 움직임에 맞춰 직접
-          반응해 낚습니다(스태미나는 들지 않아요).
+          반응해 낚습니다. 스태미나는 소모하지 않습니다.
         </li>
         <li>
           물고기를 낚을 때마다 <Em>낚시 숙련도</Em> 경험치가 오릅니다. 숙련도는
@@ -71,7 +135,7 @@ export function PastimesContent() {
         <li>
           주간 종별 최대어 대회, 오늘의 의뢰, 일일 과제, 누적 목표로{" "}
           <Em>낚시 코인</Em>을 모아 낚시터 상점에서 씁니다. 잡은 물고기는 모험의
-          서 <Em>어보</Em>에 기록돼요.
+          서 <Em>어보</Em>에 기록됩니다.
         </li>
       </UL>
       <P>
@@ -140,8 +204,8 @@ export function PastimesContent() {
       />
 
       <Note>
-        낚시는 사냥에 지쳤을 때 결이 다른 재미를 주려는 콘텐츠입니다.
-        캐릭터 전투력에 직접 영향을 주지 않으니 부담 없이 즐기세요.
+        생활 콘텐츠의 레벨과 보상 구조는 서로 다릅니다. 자동 벌목·채광을 시작하기
+        전에는 다른 생활 작업을 마쳤는지 확인해 주세요.
       </Note>
     </>
   );

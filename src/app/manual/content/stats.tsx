@@ -34,7 +34,7 @@ export function StatsContent() {
           <Em>최대 HP</Em> 는 레벨과 VIT 로, <Em>최대 MP</Em> 는 레벨과 INT 로
           늘어납니다.
         </li>
-        <li>MP 는 전투 후 잔여분이 유지되고, 부족분은 MP 충전약으로 채웁니다.</li>
+        <li>MP는 전투 후 잔여분이 유지되고, 부족분은 MP 충전약으로 채웁니다.</li>
       </UL>
 
       <H2>스탯은 자동으로 자랍니다</H2>

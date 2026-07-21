@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowLeft, BookOpen, CaretRight } from "@phosphor-icons/react";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import {
   MANUAL_GROUP_LABEL,
   MANUAL_SECTIONS,
@@ -11,16 +12,18 @@ import {
   type ManualSection,
 } from "./sections";
 
-// 메뉴얼 공용 셸 — 데스크탑은 좌측 사이드바 + 본문, 모바일은 본문 위에 select.
+// 게임 안내서 공용 셸 — 데스크탑은 좌측 사이드바 + 본문, 모바일은 본문 위에 select.
 // 셸 자체는 클라이언트 컴포넌트 (라우터 push 사용). 본문은 정적 — 안에 어떤 컴포넌트도 들어갈 수 있다.
 
 export function ManualLayout({
   currentSlug,
   title,
+  summary,
   children,
 }: {
   currentSlug: string | null;
   title: string;
+  summary: string;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -45,7 +48,7 @@ export function ManualLayout({
         </Link>
         <div className="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">
           <BookOpen size={18} weight="duotone" className="text-amber-500" />
-          메뉴얼
+          게임 안내서
         </div>
       </div>
 
@@ -72,7 +75,7 @@ export function ManualLayout({
           className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
           <option value="" disabled>
-            메뉴얼 목차
+            게임 안내서 목차
           </option>
           {grouped.map(({ group, sections }) => (
             <optgroup key={group} label={MANUAL_GROUP_LABEL[group]}>
@@ -89,7 +92,9 @@ export function ManualLayout({
       <div className="flex gap-4 md:flex-row flex-col">
         {/* 데스크탑 — 사이드바 */}
         <aside className="hidden md:block md:w-60 md:shrink-0">
-          <nav className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-3 dark:border-zinc-700 dark:bg-zinc-900/90">
+          <nav
+            className={`${SURFACE_CARD} sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto p-3`}
+          >
             {grouped.map(({ group, sections }) => (
               <div key={group} className="mb-3 last:mb-0">
                 <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -104,7 +109,7 @@ export function ManualLayout({
                           href={`/manual/${s.slug}`}
                           className={`flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
                             active
-                              ? "bg-amber-500/15 font-medium text-amber-700 dark:text-amber-300"
+                              ? "bg-amber-100 font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200"
                               : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
                           }`}
                         >
@@ -128,12 +133,17 @@ export function ManualLayout({
 
         {/* 본문 */}
         <main className="min-w-0 flex-1">
-          <div className="rounded-lg border border-zinc-200 bg-white/90 p-5 dark:border-zinc-700 dark:bg-zinc-900/90 md:p-6">
-            <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+          <article className={`${SURFACE_CARD} p-5 md:p-7`}>
+            <h1 className="text-pretty text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
               {title}
             </h1>
-            <div className="mt-4">{children}</div>
-          </div>
+            <p className="mt-2 break-keep text-pretty text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+              {summary}
+            </p>
+            <div className="mt-7 border-t border-zinc-200 pt-7 dark:border-zinc-700">
+              {children}
+            </div>
+          </article>
         </main>
       </div>
     </div>

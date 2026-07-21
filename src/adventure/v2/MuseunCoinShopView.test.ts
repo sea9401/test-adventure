@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CASH_ITEM_ART_PATHS,
   CASH_ITEM_DETAIL_BODY_CLASS,
   CASH_ITEM_DETAIL_HEADER_CLASS,
   CASH_ITEM_DETAIL_OVERLAY_CLASS,
@@ -11,6 +12,12 @@ import {
 } from "./MuseunCoinShopView";
 
 describe("무슨 코인 상점 상품 그룹", () => {
+  it("꾸미기 연장권에 전용 아이템 이미지를 연결한다", () => {
+    expect(CASH_ITEM_ART_PATHS.cosmetic_extension_30d).toBe(
+      "/images/items/cash/cosmetic_extension_30d.webp",
+    );
+  });
+
   it("이용권·소모품은 월간 모험 지원권을 먼저 표시한다", () => {
     const group = SHOP_ITEM_GROUPS.find(
       (candidate) => candidate.id === "consumable",

@@ -918,8 +918,6 @@ function AutoWoodcuttingCanvas({
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
         canvas.width = pixelWidth;
         canvas.height = pixelHeight;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`;
       }
       const ctx = canvas.getContext("2d");
       if (ctx) {

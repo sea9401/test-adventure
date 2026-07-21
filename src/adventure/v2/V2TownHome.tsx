@@ -1,6 +1,13 @@
 "use client";
 
-import { CustomGameIconTile } from "@/components/icons/CustomGameIcon";
+import {
+  Bank,
+  Compass,
+  FirstAid,
+  Hammer,
+  PottedPlant,
+  Storefront,
+} from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { PageShell } from "@/components/ui/PageShell";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -28,55 +35,39 @@ export function V2TownHome({
       <SubViewHeader title="마을" />
       <div className="space-y-2">
         <EntryCard
-          icon={
-            <CustomGameIconTile
-              name="Compass"
-              tileSize={44}
-              iconSize={30}
-            />
-          }
+          icon={<Compass size={28} weight="duotone" className="text-sky-600" />}
           title="생활 지도"
           onClick={() => onAction({ kind: "open-map" })}
         />
         <EntryCard
-          icon={
-            <CustomGameIconTile
-              name="FirstAid"
-              tileSize={44}
-              iconSize={30}
-            />
-          }
+          icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
           title="치료소"
           onClick={() => onAction({ kind: "open-healing" })}
         />
         <EntryCard
-          icon={
-            <CustomGameIconTile name="Bank" tileSize={44} iconSize={30} />
-          }
+          icon={<Bank size={28} weight="duotone" className="text-yellow-600" />}
           title="은행"
           onClick={() => onAction({ kind: "open-bank" })}
         />
         <EntryCard
           icon={
-            <CustomGameIconTile
-              name="Storefront"
-              tileSize={44}
-              iconSize={30}
-            />
+            <Storefront size={28} weight="duotone" className="text-orange-600" />
           }
           title="상점"
           onClick={() => onAction({ kind: "open-shop" })}
         />
         <EntryCard
-          icon={
-            <CustomGameIconTile name="Hammer" tileSize={44} iconSize={30} />
-          }
+          icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
           title="대장간"
           onClick={() => onAction({ kind: "open-smithy" })}
         />
         <EntryCard
           icon={
-            <CustomGameIconTile name="Plant" tileSize={44} iconSize={30} />
+            <PottedPlant
+              size={28}
+              weight="duotone"
+              className="text-emerald-500"
+            />
           }
           title="모험가 농장"
           onClick={() => onAction({ kind: "open-farm" })}

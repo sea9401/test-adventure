@@ -56,7 +56,7 @@ describe("무슨 코인 캐시 소모품", () => {
       effect: { kind: "chat_badge_box" },
     });
     expect(MUSEUN_CASH_ITEMS.cosmetic_extension_30d).toMatchObject({
-      coinPrice: 400,
+      coinPrice: 300,
       delivery: "inventory",
       tradeable: true,
       effect: { kind: "cosmetic_extension", days: 30 },

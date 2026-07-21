@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   CheckCircle,
@@ -26,6 +27,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { StatusBanner } from "@/components/ui/StatusBanner";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { ChatCosmeticBadge } from "@/components/chat/ChatCosmetics";
 import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
@@ -73,6 +75,15 @@ export function sortCosmeticPreviewEntries<
 >(entries: readonly T[]): T[] {
   return sortCosmeticVariantsByRarity(entries);
 }
+
+export const CASH_ITEM_DETAIL_OVERLAY_CLASS =
+  "fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/50 px-4 sm:items-center sm:p-4";
+export const CASH_ITEM_DETAIL_PANEL_CLASS =
+  "flex max-h-[calc(100dvh-2rem)] w-full max-w-xl flex-col overflow-hidden";
+export const CASH_ITEM_DETAIL_HEADER_CLASS =
+  "flex shrink-0 items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700";
+export const CASH_ITEM_DETAIL_BODY_CLASS =
+  "min-h-0 flex-1 overflow-y-auto overscroll-contain p-4";
 
 function itemSummary(itemId: MuseunCashItemId): string {
   const item = MUSEUN_CASH_ITEMS[itemId];
@@ -455,23 +466,30 @@ function CashItemDetailDialog({
   onPurchase: () => void;
   onClose: () => void;
 }) {
+  const contentRef = useRef<HTMLDivElement>(null);
   useEscapeKey(onClose);
+  useModalA11y(contentRef);
   const item = MUSEUN_CASH_ITEMS[itemId];
   const insufficient = coins < item.coinPrice;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className={CASH_ITEM_DETAIL_OVERLAY_CLASS}
+      style={{
+        paddingTop: "max(1rem, env(safe-area-inset-top))",
+        paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+      }}
       onMouseDown={onClose}
     >
       <div
+        ref={contentRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="cash-item-detail-title"
-        className={`${SURFACE_CARD} max-h-[90vh] w-full max-w-xl overflow-y-auto`}
+        className={`${SURFACE_CARD} ${CASH_ITEM_DETAIL_PANEL_CLASS}`}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-zinc-200 p-4 dark:border-zinc-700">
+        <div className={CASH_ITEM_DETAIL_HEADER_CLASS}>
           <CashItemIcon itemId={itemId} size={30} />
           <div className="min-w-0 flex-1">
             <h2 id="cash-item-detail-title" className="font-bold">
@@ -491,7 +509,7 @@ function CashItemDetailDialog({
           </button>
         </div>
 
-        <div className="p-4">
+        <div className={CASH_ITEM_DETAIL_BODY_CLASS}>
           {itemId === "adventure_support_30d" ? (
             <>
               <div className={`${SURFACE_INSET} grid gap-2 p-3 sm:grid-cols-2`}>
@@ -583,7 +601,8 @@ function CashItemDetailDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

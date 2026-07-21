@@ -12,10 +12,18 @@ import {
 } from "./MuseunCoinShopView";
 
 describe("무슨 코인 상점 상품 그룹", () => {
-  it("꾸미기 연장권에 전용 아이템 이미지를 연결한다", () => {
-    expect(CASH_ITEM_ART_PATHS.cosmetic_extension_30d).toBe(
-      "/images/items/cash/cosmetic_extension_30d.svg",
+  it("상점에 노출되는 일곱 상품 모두 전용 SVG 이미지를 연결한다", () => {
+    const shopItemIds = SHOP_ITEM_GROUPS.flatMap((group) => group.itemIds);
+
+    expect(shopItemIds).toHaveLength(7);
+    expect(Object.keys(CASH_ITEM_ART_PATHS)).toEqual(
+      expect.arrayContaining(shopItemIds),
     );
+    for (const itemId of shopItemIds) {
+      expect(CASH_ITEM_ART_PATHS[itemId]).toBe(
+        `/images/items/cash/${itemId}.svg`,
+      );
+    }
   });
 
   it("이용권·소모품은 월간 모험 지원권을 먼저 표시한다", () => {

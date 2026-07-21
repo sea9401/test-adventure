@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -87,6 +88,10 @@ export const CASH_ITEM_DETAIL_BODY_CLASS =
   "min-h-0 flex-1 overflow-y-auto overscroll-contain p-4";
 export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
   "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
+export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
+  cosmetic_extension_30d:
+    "/images/items/cash/cosmetic_extension_30d.webp",
+};
 
 function itemSummary(itemId: MuseunCashItemId): string {
   const item = MUSEUN_CASH_ITEMS[itemId];
@@ -478,6 +483,26 @@ function CashItemIcon({
   size?: number;
 }) {
   const effect = MUSEUN_CASH_ITEMS[itemId].effect;
+  const artPath = CASH_ITEM_ART_PATHS[itemId];
+  if (artPath) {
+    const dimension = size + 16;
+    return (
+      <span
+        aria-hidden
+        className="relative inline-flex shrink-0 overflow-hidden rounded-xl border border-violet-300 bg-white shadow-sm dark:border-violet-700 dark:bg-zinc-950"
+        style={{ width: dimension, height: dimension }}
+      >
+        <Image
+          src={artPath}
+          alt=""
+          fill
+          sizes={`${dimension}px`}
+          unoptimized
+          className="object-cover"
+        />
+      </span>
+    );
+  }
   const iconClass =
     effect.kind === "adventure_support"
       ? "bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300"

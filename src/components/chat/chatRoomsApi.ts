@@ -42,7 +42,6 @@ export function translateChatRoomError(message: string) {
     "room not found": "채팅방을 찾을 수 없습니다.",
     "invite required": "비공개 채팅방은 초대를 받아야 입장할 수 있습니다.",
     "room full": "채팅방 정원이 가득 찼습니다.",
-    "owner cannot leave": "방장은 채팅방을 나갈 수 없습니다.",
     "owner only": "방장만 초대할 수 있습니다.",
     "player not found": "해당 캐릭터를 찾을 수 없습니다.",
     "cannot invite self": "자기 자신은 초대할 수 없습니다.",

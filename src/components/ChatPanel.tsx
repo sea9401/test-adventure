@@ -27,6 +27,10 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
+import {
+  CHAT_INAPPROPRIATE_CONTENT_MESSAGE,
+  isChatContentAllowed,
+} from "@/lib/chat-moderation";
 import { postMessage, translateChatError } from "./chat/chatApi";
 import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
@@ -662,6 +666,10 @@ export function ChatPanel({
     e.preventDefault();
     const trimmed = draft.trim();
     if (!trimmed) return;
+    if (!isChatContentAllowed(trimmed)) {
+      setError(CHAT_INAPPROPRIATE_CONTENT_MESSAGE);
+      return;
+    }
     // 임시 id 는 음수 — 서버 id (양수) 와 절대 충돌하지 않음.
     const tempId = --tempIdRef.current;
     const targetChannel: ChatChannel = activeCustomRoom

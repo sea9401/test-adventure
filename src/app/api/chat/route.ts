@@ -11,6 +11,14 @@ import {
   CHAT_RATE_LIMIT_MS,
 } from "@/lib/chat-config";
 import { readMuseunCosmeticAppearanceMap } from "@/lib/server/museunCosmetics";
+import {
+  CHAT_INAPPROPRIATE_CONTENT_ERROR,
+  moderateChatContent,
+} from "@/lib/chat-moderation";
+import {
+  clientIpFromRequest,
+  recordAbuseEventSoon,
+} from "@/lib/server/abuseLog";
 
 type ChatChannel = "global" | "guild" | "room";
 
@@ -137,6 +145,18 @@ export async function POST(req: Request) {
   if (!content) return new Response("empty content", { status: 400 });
   if (content.length > CHAT_MAX_LENGTH) {
     return new Response(`too long (max ${CHAT_MAX_LENGTH})`, { status: 400 });
+  }
+  const moderation = moderateChatContent(content);
+  if (!moderation.allowed) {
+    recordAbuseEventSoon({
+      userId,
+      ip: clientIpFromRequest(req),
+      action: "chat.message",
+      reason: "inappropriate_content",
+      // 원문은 운영 로그에 남기지 않는다.
+      detail: { channel, rule: moderation.rule },
+    });
+    return new Response(CHAT_INAPPROPRIATE_CONTENT_ERROR, { status: 400 });
   }
 
   const { name, className, title, cosmetics } = await resolveActor(userId);

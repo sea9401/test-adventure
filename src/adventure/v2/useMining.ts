@@ -10,6 +10,10 @@ import type {
 } from "./MiningView";
 import type { MiningSpotId } from "@/adventure/data/v2/miningSpots";
 import { useActivityVerification } from "./useActivityVerification";
+import type {
+  AutoGatheringResultView,
+  AutoGatheringSessionView,
+} from "./AutoGatheringCard";
 
 function parseLog(value: unknown): MiningLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -54,6 +58,35 @@ function parseNextActionAt(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
 }
 
+function parseAutoSession(value: unknown): AutoGatheringSessionView | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (typeof item.sessionId !== "string" || typeof item.sourceId !== "string") return null;
+  const readyAt = Number(item.readyAt);
+  const startedAt = Number(item.startedAt);
+  if (!Number.isFinite(readyAt) || !Number.isFinite(startedAt)) return null;
+  return {
+    sessionId: item.sessionId,
+    sourceId: item.sourceId,
+    sourceName: String(item.sourceName ?? "광맥"),
+    materialId: String(item.materialId ?? ""),
+    startedAt: Math.floor(startedAt),
+    readyAt: Math.floor(readyAt),
+    attempts: Math.max(1, Math.floor(Number(item.attempts) || 1)),
+  };
+}
+
+function parseAutoResult(value: unknown): AutoGatheringResultView {
+  const item = (value ?? {}) as Record<string, unknown>;
+  return {
+    attempts: Math.max(0, Math.floor(Number(item.attempts) || 0)),
+    successes: Math.max(0, Math.floor(Number(item.successes) || 0)),
+    materialName: String(item.materialName ?? "광석"),
+    materialsGained: Math.max(0, Math.floor(Number(item.materialsGained) || 0)),
+    xpGained: Math.max(0, Math.floor(Number(item.xpGained) || 0)),
+  };
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -67,6 +100,9 @@ export function useMining(): MiningHandlers {
     oreEarned: 0,
     byproductsEarned: 0,
   });
+  const [autoSession, setAutoSession] = useState<AutoGatheringSessionView | null>(null);
+  const [autoResult, setAutoResult] = useState<AutoGatheringResultView | null>(null);
+  const [autoLoading, setAutoLoading] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +114,7 @@ export function useMining(): MiningHandlers {
         if (!alive || !json?.ok) return;
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
+        setAutoSession(parseAutoSession(json.autoSession));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -165,5 +202,53 @@ export function useMining(): MiningHandlers {
     [readJson],
   );
 
-  return { start, finish, materials, log, verification, verifyHuman };
+  const startAuto = useCallback(async (spotId: MiningSpotId): Promise<void> => {
+    setAutoLoading(true);
+    try {
+      const response = await fetch("/api/v2/mining/auto", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "start", spotId }),
+      });
+      const json = await readJson(response);
+      if (!response.ok || !json?.ok) throw new Error("mining_auto_start_failed");
+      setAutoSession(parseAutoSession(json.autoSession));
+      setAutoResult(null);
+    } finally {
+      setAutoLoading(false);
+    }
+  }, [readJson]);
+
+  const claimAuto = useCallback(async (): Promise<void> => {
+    setAutoLoading(true);
+    try {
+      const response = await fetch("/api/v2/mining/auto", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "claim" }),
+      });
+      const json = await readJson(response);
+      if (!response.ok || !json?.ok) throw new Error("mining_auto_claim_failed");
+      setMaterials(parseMaterials(json.materials));
+      setLog(parseLog(json.log));
+      setAutoSession(null);
+      setAutoResult(parseAutoResult(json));
+    } finally {
+      setAutoLoading(false);
+    }
+  }, [readJson]);
+
+  return {
+    start,
+    finish,
+    materials,
+    log,
+    autoSession,
+    autoResult,
+    autoLoading,
+    startAuto,
+    claimAuto,
+    verification,
+    verifyHuman,
+  };
 }

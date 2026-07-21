@@ -29,6 +29,10 @@ import {
   miningProgressionView,
 } from "@/adventure/v2/miningProgression";
 import {
+  MINING_AUTO_KEY,
+  parseAutoGatheringState,
+} from "@/adventure/v2/autoGathering";
+import {
   equippedMiningBonuses,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
@@ -94,10 +98,18 @@ export async function POST(req: Request) {
     bonusOreRate: bonuses.bonusOreChancePct / 100,
   });
 
-  await db.transaction(async (tx) => {
+  const started = await db.transaction(async (tx) => {
+    const autoState = parseAutoGatheringState(
+      await lockSaveForUpdate(tx, userId, MINING_AUTO_KEY, {}),
+    );
+    if (autoState.session) return false;
     await lockSaveForUpdate(tx, userId, MINING_SESSION_KEY, {});
     await upsertSave(tx, userId, MINING_SESSION_KEY, session);
+    return true;
   });
+  if (!started) {
+    return Response.json({ ok: false, error: "auto_active" }, { status: 409 });
+  }
 
   return Response.json({
     ok: true,

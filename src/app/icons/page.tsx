@@ -104,6 +104,12 @@ import {
 } from "@phosphor-icons/react";
 import { TextInput } from "@/components/ui/TextInput";
 import { SURFACE_CARD, SURFACE_INSET } from "@/components/ui/surfaces";
+import {
+  CUSTOM_GAME_ICON_META,
+  CUSTOM_GAME_ICON_NAMES,
+  CustomGameIcon,
+  CustomGameIconTile,
+} from "@/components/icons/CustomGameIcon";
 
 const WEIGHTS = ["thin", "light", "regular", "bold", "fill", "duotone"] as const;
 type Weight = (typeof WEIGHTS)[number];
@@ -276,10 +282,10 @@ export default function IconsPage() {
     <main className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
       <section className={`${SURFACE_CARD} space-y-4 p-4 sm:p-5`}>
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">Phosphor 게임 아이콘 갤러리</h1>
+          <h1 className="text-2xl font-semibold">게임 아이콘 갤러리</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            실제 게임 화면에 쓰기 좋은 후보를 분야별로 모았습니다. 이름으로 검색하고
-            weight를 바꿔 비교할 수 있습니다.
+            자체 제작 SVG 파일럿과 기존 Phosphor 아이콘을 한 화면에서 비교합니다.
+            SVG 배경은 투명하며 타일 색은 용도별 UI가 정합니다.
           </p>
         </header>
 
@@ -318,6 +324,43 @@ export default function IconsPage() {
               {candidate}
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className={`${SURFACE_CARD} p-4 sm:p-5`}>
+        <div className="mb-4">
+          <h2 className="font-semibold">자체 제작 SVG 파일럿</h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            대표 12종 · 왼쪽은 카테고리 타일, 오른쪽은 배경 없는 실제 SVG
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {CUSTOM_GAME_ICON_NAMES.map((name) => {
+            const meta = CUSTOM_GAME_ICON_META[name];
+            return (
+              <div
+                key={name}
+                className={`${SURFACE_INSET} flex min-w-0 items-center gap-3 p-3`}
+              >
+                <CustomGameIconTile
+                  name={name}
+                  tileSize={52}
+                  iconSize={34}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <CustomGameIcon name={name} size={24} />
+                    <span className="truncate text-sm font-semibold">
+                      {meta.label}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {meta.category} · {name}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

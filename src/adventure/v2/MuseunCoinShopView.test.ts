@@ -14,7 +14,7 @@ import {
 describe("무슨 코인 상점 상품 그룹", () => {
   it("꾸미기 연장권에 전용 아이템 이미지를 연결한다", () => {
     expect(CASH_ITEM_ART_PATHS.cosmetic_extension_30d).toBe(
-      "/images/items/cash/cosmetic_extension_30d.webp",
+      "/images/items/cash/cosmetic_extension_30d.svg",
     );
   });
 

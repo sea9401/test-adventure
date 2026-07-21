@@ -90,7 +90,7 @@ export const CASH_ITEM_PURCHASE_CONFIRM_OVERLAY_CLASS =
   "fixed inset-0 z-[110] flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center";
 export const CASH_ITEM_ART_PATHS: Partial<Record<MuseunCashItemId, string>> = {
   cosmetic_extension_30d:
-    "/images/items/cash/cosmetic_extension_30d.webp",
+    "/images/items/cash/cosmetic_extension_30d.svg",
 };
 
 function itemSummary(itemId: MuseunCashItemId): string {
@@ -489,7 +489,7 @@ function CashItemIcon({
     return (
       <span
         aria-hidden
-        className="relative inline-flex shrink-0 overflow-hidden rounded-xl border border-violet-300 bg-white shadow-sm dark:border-violet-700 dark:bg-zinc-950"
+        className="relative inline-flex shrink-0 overflow-hidden rounded-xl"
         style={{ width: dimension, height: dimension }}
       >
         <Image
@@ -498,7 +498,7 @@ function CashItemIcon({
           fill
           sizes={`${dimension}px`}
           unoptimized
-          className="object-cover"
+          className="object-contain"
         />
       </span>
     );

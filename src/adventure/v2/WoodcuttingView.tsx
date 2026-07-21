@@ -26,6 +26,7 @@ import {
   type AutoGatheringResultView,
   type AutoGatheringSessionView,
 } from "./AutoGatheringCard";
+import type { AutoGatheringActivity } from "./autoGathering";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
@@ -90,8 +91,10 @@ export type WoodcuttingHandlers = {
   autoSession: AutoGatheringSessionView | null;
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
+  activeAutoActivity: AutoGatheringActivity | null;
   startAuto: (spotId: WoodcuttingSpotId) => Promise<void>;
   claimAuto: () => Promise<void>;
+  cancelAuto: () => Promise<void>;
   verification?: ActivityVerificationChallenge | null;
   verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
@@ -1008,8 +1011,10 @@ export function WoodcuttingView({
   autoSession,
   autoResult,
   autoLoading,
+  activeAutoActivity,
   startAuto,
   claimAuto,
+  cancelAuto,
   verification,
   verifyHuman,
   onBack,
@@ -1031,7 +1036,7 @@ export function WoodcuttingView({
   } = useActivityCooldown();
 
   const startCut = useCallback(async () => {
-    if (cooldownRemainingSec > 0 || autoSession) return;
+    if (cooldownRemainingSec > 0 || activeAutoActivity) return;
     setPhase("loading");
     setError(null);
     setResult(null);
@@ -1055,7 +1060,7 @@ export function WoodcuttingView({
       setError("벌목을 시작하지 못했습니다.");
       setPhase("idle");
     }
-  }, [autoSession, cooldownRemainingSec, handleCooldownError, spotId, start]);
+  }, [activeAutoActivity, cooldownRemainingSec, handleCooldownError, spotId, start]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1063,7 +1068,7 @@ export function WoodcuttingView({
       if (event.key !== " " && event.key !== "Enter") return;
       if (phase !== "idle" && phase !== "result") return;
       if (cooldownRemainingSec > 0) return;
-      if (autoSession) return;
+      if (activeAutoActivity) return;
 
       event.preventDefault();
       void startCut();
@@ -1071,7 +1076,7 @@ export function WoodcuttingView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [autoSession, cooldownRemainingSec, phase, startCut]);
+  }, [activeAutoActivity, cooldownRemainingSec, phase, startCut]);
 
   useEffect(() => {
     if (!run) return;
@@ -1198,9 +1203,15 @@ export function WoodcuttingView({
           session={autoSession}
           result={autoResult}
           loading={autoLoading}
+          blockedByActivity={
+            activeAutoActivity && activeAutoActivity !== "woodcutting"
+              ? activeAutoActivity
+              : null
+          }
           buttonVariant="success"
           onStart={(selectedSpotId) => startAuto(selectedSpotId as WoodcuttingSpotId)}
           onClaim={claimAuto}
+          onCancel={cancelAuto}
         />
       ) : null}
 
@@ -1295,14 +1306,14 @@ export function WoodcuttingView({
 
       {(phase === "idle" || phase === "result") && !verification && (
         <Button
-          disabled={cooldownRemainingSec > 0 || Boolean(autoSession)}
+          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
           onClick={() => void startCut()}
           variant="success"
           size="md"
           fullWidth
         >
-          {autoSession
-            ? "자동 벌목 진행 중"
+          {activeAutoActivity
+            ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
             : cooldownRemainingSec > 0
             ? `다음 벌목까지 ${cooldownRemainingSec}초`
             : phase === "result"

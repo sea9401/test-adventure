@@ -23,6 +23,7 @@ import {
   type AutoGatheringResultView,
   type AutoGatheringSessionView,
 } from "./AutoGatheringCard";
+import type { AutoGatheringActivity } from "./autoGathering";
 import {
   ActivityVerificationRequiredError,
   type ActivityVerificationChallenge,
@@ -80,8 +81,10 @@ export type MiningHandlers = {
   autoSession: AutoGatheringSessionView | null;
   autoResult: AutoGatheringResultView | null;
   autoLoading: boolean;
+  activeAutoActivity: AutoGatheringActivity | null;
   startAuto: (spotId: MiningSpotId) => Promise<void>;
   claimAuto: () => Promise<void>;
+  cancelAuto: () => Promise<void>;
   verification?: ActivityVerificationChallenge | null;
   verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
@@ -455,8 +458,10 @@ export function MiningView({
   autoSession,
   autoResult,
   autoLoading,
+  activeAutoActivity,
   startAuto,
   claimAuto,
+  cancelAuto,
   verification,
   verifyHuman,
   onBack,
@@ -475,7 +480,7 @@ export function MiningView({
   } = useActivityCooldown();
 
   const startMining = useCallback(async () => {
-    if (cooldownRemainingSec > 0 || autoSession) return;
+    if (cooldownRemainingSec > 0 || activeAutoActivity) return;
     setPhase("loading");
     setError(null);
     setResult(null);
@@ -499,7 +504,7 @@ export function MiningView({
       setError("채광을 시작하지 못했습니다.");
       setPhase("idle");
     }
-  }, [autoSession, cooldownRemainingSec, handleCooldownError, spotId, start]);
+  }, [activeAutoActivity, cooldownRemainingSec, handleCooldownError, spotId, start]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -507,13 +512,13 @@ export function MiningView({
       if (event.key !== " " && event.key !== "Enter") return;
       if (phase !== "idle" && phase !== "result") return;
       if (cooldownRemainingSec > 0) return;
-      if (autoSession) return;
+      if (activeAutoActivity) return;
       event.preventDefault();
       void startMining();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [autoSession, cooldownRemainingSec, phase, startMining]);
+  }, [activeAutoActivity, cooldownRemainingSec, phase, startMining]);
 
   useEffect(() => {
     if (!run) return;
@@ -635,9 +640,15 @@ export function MiningView({
           session={autoSession}
           result={autoResult}
           loading={autoLoading}
+          blockedByActivity={
+            activeAutoActivity && activeAutoActivity !== "mining"
+              ? activeAutoActivity
+              : null
+          }
           buttonVariant="warning"
           onStart={(selectedSpotId) => startAuto(selectedSpotId as MiningSpotId)}
           onClaim={claimAuto}
+          onCancel={cancelAuto}
         />
       ) : null}
 
@@ -707,14 +718,14 @@ export function MiningView({
 
       {(phase === "idle" || phase === "result") && !verification && (
         <Button
-          disabled={cooldownRemainingSec > 0 || Boolean(autoSession)}
+          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
           onClick={() => void startMining()}
           variant="warning"
           size="md"
           fullWidth
         >
-          {autoSession
-            ? "자동 채광 진행 중"
+          {activeAutoActivity
+            ? `자동 ${activeAutoActivity === "woodcutting" ? "벌목" : "채광"} 진행 중`
             : cooldownRemainingSec > 0
             ? `다음 채광까지 ${cooldownRemainingSec}초`
             : phase === "result"

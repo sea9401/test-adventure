@@ -14,7 +14,16 @@ vi.mock("@/lib/server/guildExplorationWeekly", () => ({
   incrementGuildExplorationProgressForUser,
 }));
 vi.mock("@/db", () => ({
-  db: { transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})) },
+  db: {
+    transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
+      const query: Record<string, unknown> = {};
+      query.from = () => query;
+      query.where = () => query;
+      query.for = () => query;
+      query.limit = async () => [{ id: "u-test" }];
+      return callback({ select: vi.fn(() => query) });
+    }),
+  },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async (_tx, _uid, key: string, fallback: unknown) =>
@@ -30,6 +39,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST as START } from "@/app/api/v2/woodcutting/start/route";
 import { POST as CHOP } from "@/app/api/v2/woodcutting/chop/route";
+import { POST as AUTO } from "@/app/api/v2/woodcutting/auto/route";
 import { GET as STATUS } from "@/app/api/v2/woodcutting/status/route";
 import { SETTLEMENT_MATERIAL_ID } from "@/adventure/data/v2/settlementMaterials";
 import { WOODCUTTING_MATERIAL_ID } from "@/adventure/data/v2/woodcuttingSpots";
@@ -50,6 +60,11 @@ import {
   emptyFarmState,
   parseFarmState,
 } from "@/adventure/v2/farm";
+import {
+  MINING_AUTO_KEY,
+  WOODCUTTING_AUTO_KEY,
+} from "@/adventure/v2/autoGathering";
+import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 
 const NOW = 1_700_000_000_000;
 const TIMBER = SETTLEMENT_MATERIAL_ID.timber;
@@ -88,6 +103,143 @@ afterEach(() => {
 });
 
 describe("woodcutting routes", () => {
+  it("다른 자동 생활 작업 중에는 벌목과 자동 벌목을 시작할 수 없다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-auto",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: "v2_iron_ore",
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 7_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+
+    const manualResponse = await START(startReq("oak_grove"));
+    expect(manualResponse.status).toBe(409);
+    await expect(manualResponse.json()).resolves.toMatchObject({
+      error: "auto_active",
+      activeAutoActivity: "mining",
+    });
+
+    const autoResponse = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "start", spotId: "oak_grove" }),
+      }),
+    );
+    expect(autoResponse.status).toBe(409);
+    await expect(autoResponse.json()).resolves.toMatchObject({
+      error: "auto_active",
+      activeAutoActivity: "mining",
+    });
+  });
+
+  it("자동 벌목을 중간 취소하면 보상 없이 세션만 제거한다", async () => {
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-auto",
+        sourceId: "oak",
+        sourceName: "참나무",
+        materialId: OAK,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 7_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+      remainders: {
+        successes: { oak: 0.25 },
+        materials: { [OAK]: 0.5 },
+        xp: 0.75,
+        mastery: 0.4,
+      },
+    });
+    store.set("character.v2", { materials: { [OAK]: 3 } });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "cancel" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(store.get(WOODCUTTING_AUTO_KEY)).toMatchObject({
+      session: null,
+      remainders: {
+        successes: { oak: 0.25 },
+        materials: { [OAK]: 0.5 },
+        xp: 0.75,
+        mastery: 0.4,
+      },
+    });
+    expect(charOf().materials?.[OAK]).toBe(3);
+  });
+
+  it("수동 낚시 중에는 자동 벌목을 시작할 수 없다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set(FISHING_SESSION_KEY, {
+      castId: "cast-active",
+      biteAt: NOW + 3_000,
+      expiresAt: NOW + 20_000,
+      fishId: "carp",
+      size: 42,
+    });
+
+    const response = await AUTO(
+      new Request("http://test.local/api/v2/woodcutting/auto", {
+        method: "POST",
+        body: JSON.stringify({ action: "start", spotId: "oak_grove" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "manual_active",
+      activeManualActivity: "fishing",
+    });
+  });
+
+  it("자동 벌목 중에는 기존 수동 벌목 세션도 정산할 수 없다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 5_000);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-auto",
+        sourceId: "oak",
+        sourceName: "참나무",
+        materialId: OAK,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 7_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set(WOODCUTTING_SESSION_KEY, {
+      sessionId: "manual-cut",
+      spotId: "oak_grove",
+      treeId: "oak",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+    });
+
+    const response = await CHOP(chopReq("manual-cut"));
+    expect(response.status).toBe(409);
+    expect(store.get(WOODCUTTING_SESSION_KEY)).toMatchObject({
+      sessionId: "manual-cut",
+    });
+  });
   it("start — 체크포인트가 걸리면 관리형 사람 확인을 요구한다", async () => {
     vi.stubEnv("TURNSTILE_SITE_KEY", "site");
     vi.stubEnv("TURNSTILE_SECRET_KEY", "secret");

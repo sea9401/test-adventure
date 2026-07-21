@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SURFACE_INSET } from "@/components/ui/surfaces";
+import type { AutoGatheringActivity } from "./autoGathering";
 
 export type AutoGatheringSessionView = {
   sessionId: string;
@@ -36,22 +37,32 @@ export function AutoGatheringCard({
   session,
   result,
   loading,
+  blockedByActivity,
   buttonVariant,
   onStart,
   onClaim,
+  onCancel,
 }: {
   activityName: "벌목" | "채광";
   spotId: string;
   session: AutoGatheringSessionView | null;
   result: AutoGatheringResultView | null;
   loading: boolean;
+  blockedByActivity: AutoGatheringActivity | null;
   buttonVariant: "success" | "warning";
   onStart: (spotId: string) => Promise<void>;
   onClaim: () => Promise<void>;
+  onCancel: () => Promise<void>;
 }) {
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const ready = Boolean(session && now >= session.readyAt);
+  const blockedActivityName =
+    blockedByActivity === "woodcutting"
+      ? "벌목"
+      : blockedByActivity === "mining"
+        ? "채광"
+        : null;
 
   useEffect(() => {
     if (!session || ready) return;
@@ -104,26 +115,70 @@ export function AutoGatheringCard({
         </p>
       ) : null}
 
-      <Button
-        disabled={loading || Boolean(session && !ready)}
-        onClick={() => {
-          setError(null);
-          void (session ? onClaim() : onStart(spotId)).catch(() => {
-            setError(`자동 ${activityName}을 처리하지 못했습니다.`);
-          });
-        }}
-        variant={buttonVariant}
-        size="md"
-        fullWidth
-      >
-        {loading
-          ? "처리 중…"
-          : session
-            ? ready
-              ? "자동 작업 보상 받기"
-              : `자동 ${activityName} 진행 중`
-            : `30분 자동 ${activityName} 시작`}
-      </Button>
+      {!session && blockedActivityName ? (
+        <p className="text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+          자동 {blockedActivityName} 진행 중에는 다른 생활 활동을 시작할 수 없습니다.
+        </p>
+      ) : null}
+
+      {session ? (
+        <div className={ready ? "grid gap-2 sm:grid-cols-2" : "space-y-2"}>
+          <Button
+            disabled={loading || !ready}
+            onClick={() => {
+              setError(null);
+              void onClaim().catch(() => {
+                setError(`자동 ${activityName} 보상을 받지 못했습니다.`);
+              });
+            }}
+            variant={buttonVariant}
+            size="md"
+            fullWidth
+          >
+            {loading
+              ? "처리 중…"
+              : ready
+                ? "자동 작업 보상 받기"
+                : `자동 ${activityName} 진행 중`}
+          </Button>
+          <Button
+            disabled={loading}
+            onClick={() => {
+              setError(null);
+              if (
+                !window.confirm(
+                  `자동 ${activityName}을 취소할까요? 진행 중인 보상은 받을 수 없습니다.`,
+                )
+              ) {
+                return;
+              }
+              void onCancel().catch(() => {
+                setError(`자동 ${activityName}을 취소하지 못했습니다.`);
+              });
+            }}
+            variant="danger"
+            size="md"
+            fullWidth
+          >
+            자동 {activityName} 취소
+          </Button>
+        </div>
+      ) : (
+        <Button
+          disabled={loading || Boolean(blockedActivityName)}
+          onClick={() => {
+            setError(null);
+            void onStart(spotId).catch(() => {
+              setError(`자동 ${activityName}을 시작하지 못했습니다.`);
+            });
+          }}
+          variant={buttonVariant}
+          size="md"
+          fullWidth
+        >
+          {loading ? "처리 중…" : `30분 자동 ${activityName} 시작`}
+        </Button>
+      )}
     </Card>
   );
 }

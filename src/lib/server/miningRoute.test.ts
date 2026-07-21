@@ -9,7 +9,14 @@ vi.mock("@/lib/server/ensureUser", () => ({
 }));
 vi.mock("@/db", () => ({
   db: {
-    transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({})),
+    transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
+      const query: Record<string, unknown> = {};
+      query.from = () => query;
+      query.where = () => query;
+      query.for = () => query;
+      query.limit = async () => [{ id: "u-test" }];
+      return callback({ select: vi.fn(() => query) });
+    }),
   },
 }));
 vi.mock("@/lib/server/savesKv", () => ({
@@ -39,6 +46,10 @@ import {
 } from "@/lib/server/activityGuard";
 import { resetUserRateLimitForTests } from "@/lib/server/userRateLimit";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
+import {
+  MINING_AUTO_KEY,
+  WOODCUTTING_AUTO_KEY,
+} from "@/adventure/v2/autoGathering";
 
 const NOW = 1_700_000_000_000;
 
@@ -62,6 +73,65 @@ afterEach(() => {
 });
 
 describe("mining routes", () => {
+  it("자동 벌목 중에는 수동 채광을 시작할 수 없다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    store.set(WOODCUTTING_AUTO_KEY, {
+      session: {
+        sessionId: "wood-auto",
+        sourceId: "oak",
+        sourceName: "참나무",
+        materialId: "v2_oak_log",
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 7_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+
+    const response = await START(request("start", { spotId: "iron_quarry" }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "auto_active",
+      activeAutoActivity: "woodcutting",
+    });
+  });
+
+  it("자동 채광 중에는 기존 수동 채광 세션도 정산할 수 없다", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW + 5_000);
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-auto",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: MINING_MATERIAL_ID.iron,
+        startedAt: NOW,
+        readyAt: NOW + 30 * 60_000,
+        cycleDurationMs: 7_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+    store.set(MINING_SESSION_KEY, {
+      sessionId: "manual-mine",
+      spotId: "iron_quarry",
+      nodeId: "iron",
+      readyAt: NOW + 4_000,
+      expiresAt: NOW + 34_000,
+    });
+
+    const response = await STRIKE(
+      request("strike", { sessionId: "manual-mine" }),
+    );
+    expect(response.status).toBe(409);
+    expect(store.get(MINING_SESSION_KEY)).toMatchObject({
+      sessionId: "manual-mine",
+    });
+  });
   it("start — 등록되지 않은 채광지는 거부한다", async () => {
     const response = await START(request("start", { spotId: "unknown" }));
     expect(response.status).toBe(400);

@@ -27,6 +27,7 @@ vi.mock("@/db", () => ({
       const query: Record<string, unknown> = {};
       query.from = () => query;
       query.where = () => query;
+      query.for = () => query;
       query.limit = async () => [];
       query.then = (resolve: (rows: unknown[]) => unknown) =>
         Promise.resolve([]).then(resolve);
@@ -47,6 +48,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/fishing/reel/route";
+import { POST as CAST } from "@/app/api/v2/fishing/cast/route";
 import { FISHING_SESSION_KEY } from "@/adventure/v2/fishingSession";
 import { FISHING_ANTI_MACRO_KEY } from "@/adventure/v2/fishingAntiMacro";
 import { FISHING_CODEX_KEY } from "@/adventure/v2/fishingCodex";
@@ -67,6 +69,7 @@ import {
   kstWeeklyKey,
 } from "@/adventure/data/v2/v2RepeatQuests";
 import { REPEAT_QUESTS_KEY } from "@/lib/server/v2QuestContext";
+import { MINING_AUTO_KEY } from "@/adventure/v2/autoGathering";
 
 function reelReq(body: Record<string, unknown>): Request {
   return new Request("http://t/api/v2/fishing/reel", {
@@ -128,6 +131,48 @@ describe("POST /api/v2/fishing/reel", () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("자동 채광 중에는 캐스팅과 챔질을 모두 거부한다", async () => {
+    const now = Date.now();
+    seedFisherSession(now);
+    store.set(MINING_AUTO_KEY, {
+      session: {
+        sessionId: "mining-auto",
+        sourceId: "iron",
+        sourceName: "철 광맥",
+        materialId: "v2_iron_ore",
+        startedAt: now,
+        readyAt: now + 30 * 60_000,
+        cycleDurationMs: 7_000,
+        attempts: 200,
+        successRate: 0.9,
+        bonusMaterialRate: 0,
+        baseXp: 10,
+      },
+    });
+
+    const castResponse = await CAST(
+      new Request("http://t/api/v2/fishing/cast", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+    expect(castResponse.status).toBe(409);
+    await expect(castResponse.json()).resolves.toMatchObject({
+      error: "auto_active",
+      activeAutoActivity: "mining",
+    });
+
+    const reelResponse = await POST(
+      reelReq({ castId: "cast-1", reactionMs: 200 }),
+    );
+    expect(reelResponse.status).toBe(409);
+    await expect(reelResponse.json()).resolves.toMatchObject({
+      error: "auto_active",
+      activeAutoActivity: "mining",
+    });
+    expect(store.get(FISHING_SESSION_KEY)).toMatchObject({ castId: "cast-1" });
   });
 
   it("낚시 계열 직업은 성공한 챔질로 직업 숙련도가 오른다", async () => {

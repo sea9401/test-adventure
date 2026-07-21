@@ -16,11 +16,9 @@ import {
 } from "@/adventure/data/v2/miningSpots";
 import {
   MINING_LOG_KEY,
-  MINING_SESSION_KEY,
   isMiningNodeId,
   miningMaterialBalances,
   parseMiningLog,
-  parseMiningSession,
   pickMiningNodeId,
 } from "@/adventure/v2/miningSession";
 import {
@@ -31,10 +29,15 @@ import {
 import {
   MINING_AUTO_KEY,
   beginAutoGathering,
+  cancelAutoGathering,
   createAutoGatheringSession,
-  parseAutoGatheringState,
   settleAutoGathering,
 } from "@/adventure/v2/autoGathering";
+import {
+  activeAutoGatheringActivity,
+  lockActiveManualLifeActivity,
+  lockAutoGatheringStatesForUpdate,
+} from "@/lib/server/lifeActivityLock";
 import {
   equippedMiningBonuses,
   parseV2SkillsState,
@@ -120,31 +123,64 @@ export async function POST(req: Request) {
       baseXp: node.xp,
     });
     const startResult = await db.transaction(async (tx) => {
-      const autoState = parseAutoGatheringState(
-        await lockSaveForUpdate(tx, userId, MINING_AUTO_KEY, {}),
+      const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+      const activeAutoActivity = activeAutoGatheringActivity(autoStates);
+      if (activeAutoActivity) {
+        return { error: "auto_active" as const, activeAutoActivity };
+      }
+      const activeManualActivity = await lockActiveManualLifeActivity(
+        tx,
+        userId,
+        now,
       );
-      if (autoState.session) return { error: "auto_active" as const };
-      const manualSession = parseMiningSession(
-        await lockSaveForUpdate(tx, userId, MINING_SESSION_KEY, {}),
-      );
-      if (manualSession && now <= manualSession.expiresAt) {
-        return { error: "manual_active" as const };
+      if (activeManualActivity) {
+        return { error: "manual_active" as const, activeManualActivity };
       }
       await upsertSave(
         tx,
         userId,
         MINING_AUTO_KEY,
-        beginAutoGathering(autoState, session),
+        beginAutoGathering(autoStates.mining, session),
       );
       return { session };
     });
     if ("error" in startResult) {
-      return Response.json({ ok: false, error: startResult.error }, { status: 409 });
+      return Response.json({ ok: false, ...startResult }, { status: 409 });
     }
     return Response.json({
       ok: true,
       autoSession: startResult.session,
       materialName: MINING_MATERIALS[node.materialId].name,
+    });
+  }
+
+  if (body?.action === "cancel") {
+    const canceled = await db.transaction(async (tx) => {
+      const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+      if (!autoStates.mining.session) return null;
+      await upsertSave(
+        tx,
+        userId,
+        MINING_AUTO_KEY,
+        cancelAutoGathering(autoStates.mining),
+      );
+      return {
+        activeAutoActivity: autoStates.woodcutting.session
+          ? "woodcutting" as const
+          : null,
+      };
+    });
+    if (!canceled) {
+      return Response.json(
+        { ok: false, error: "no_session" },
+        { status: 404 },
+      );
+    }
+    return Response.json({
+      ok: true,
+      canceled: true,
+      autoSession: null,
+      activeAutoActivity: canceled.activeAutoActivity,
     });
   }
 
@@ -154,19 +190,20 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
-    const autoState = parseAutoGatheringState(
-      await lockSaveForUpdate(tx, userId, MINING_AUTO_KEY, {}),
-    );
+    const autoStates = await lockAutoGatheringStatesForUpdate(tx, userId);
+    const autoState = autoStates.mining;
     const session = autoState.session;
     if (!session) return { error: "no_session" as const };
     if (now < session.readyAt) {
       return { error: "not_ready" as const, retryAfterMs: session.readyAt - now };
     }
     if (!isMiningNodeId(session.sourceId)) {
-      await upsertSave(tx, userId, MINING_AUTO_KEY, {
-        ...autoState,
-        session: null,
-      });
+      await upsertSave(
+        tx,
+        userId,
+        MINING_AUTO_KEY,
+        cancelAutoGathering(autoState),
+      );
       return { error: "invalid_session" as const };
     }
     const settlement = settleAutoGathering(autoState);
@@ -236,6 +273,9 @@ export async function POST(req: Request) {
       jobName: isMiningJobId(jobId) ? V2_JOB_CATALOG[jobId]?.name ?? jobId : null,
       materials: miningMaterialBalances(materials),
       log,
+      activeAutoActivity: autoStates.woodcutting.session
+        ? "woodcutting" as const
+        : null,
     };
   });
 
@@ -273,5 +313,6 @@ export async function POST(req: Request) {
     materials: result.materials,
     log: result.log,
     autoSession: null,
+    activeAutoActivity: result.activeAutoActivity,
   });
 }

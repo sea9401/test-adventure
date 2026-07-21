@@ -39,6 +39,7 @@ import {
   type ActivityVerificationSubmission,
   useActivityCooldown,
 } from "./useActivityVerification";
+import type { AutoGatheringActivity } from "./autoGathering";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -134,6 +135,7 @@ export type FishingHandlers = {
   progressionLoading?: boolean;
   challengeBadgeCount?: number;
   fishingSpot?: FishingSpot;
+  activeAutoActivity?: AutoGatheringActivity | null;
   verification?: ActivityVerificationChallenge | null;
   verifyHuman?: (submission: ActivityVerificationSubmission) => Promise<boolean>;
 };
@@ -1482,6 +1484,7 @@ export function FishingView({
   progressionLoading,
   challengeBadgeCount,
   fishingSpot,
+  activeAutoActivity,
   verification,
   verifyHuman,
 }: FishingHandlers & {
@@ -1509,6 +1512,12 @@ export function FishingView({
     cooldownRemainingSec,
   } = useActivityCooldown();
   const currentTideId = useCurrentMulttaeConditionId();
+  const activeAutoActivityName =
+    activeAutoActivity === "woodcutting"
+      ? "벌목"
+      : activeAutoActivity === "mining"
+        ? "채광"
+        : null;
 
   const biteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preBiteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1582,7 +1591,7 @@ export function FishingView({
   }, [resolveReel]);
 
   const startCast = useCallback(async () => {
-    if (cooldownRemainingSec > 0) return;
+    if (cooldownRemainingSec > 0 || activeAutoActivity) return;
     setError(null);
     setResult(null);
     setLastReactionMs(null);
@@ -1614,7 +1623,7 @@ export function FishingView({
       setError("찌를 던지지 못했다. 잠시 후 다시 시도해 보자.");
       setPhase("idle");
     }
-  }, [cast, cooldownRemainingSec, handleCooldownError, onBite]);
+  }, [activeAutoActivity, cast, cooldownRemainingSec, handleCooldownError, onBite]);
 
   // 큰 탭 존 클릭 — 단계에 따라 의미가 다르다.
   const onTapZone = useCallback(() => {
@@ -1635,7 +1644,11 @@ export function FishingView({
       if (event.repeat || isTextEntryTarget(event.target)) return;
       if (event.key !== " " && event.key !== "Enter") return;
 
-      if ((phase === "idle" || phase === "result") && cooldownRemainingSec <= 0) {
+      if (
+        (phase === "idle" || phase === "result") &&
+        cooldownRemainingSec <= 0 &&
+        !activeAutoActivity
+      ) {
         event.preventDefault();
         startCast();
       } else if (phase === "waiting" || phase === "biting") {
@@ -1646,7 +1659,7 @@ export function FishingView({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [cooldownRemainingSec, onTapZone, phase, startCast, verification]);
+  }, [activeAutoActivity, cooldownRemainingSec, onTapZone, phase, startCast, verification]);
 
   const tapActive = phase === "waiting" || phase === "biting";
   const biting = phase === "biting";
@@ -1911,11 +1924,13 @@ export function FishingView({
         {phase === "idle" && !verification && (
           <button
             type="button"
-            disabled={cooldownRemainingSec > 0}
+            disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
             onClick={startCast}
             className={`${idleActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            {cooldownRemainingSec > 0
+            {activeAutoActivityName
+              ? `자동 ${activeAutoActivityName} 진행 중`
+              : cooldownRemainingSec > 0
               ? `다음 낚시까지 ${cooldownRemainingSec}초`
               : "찌 던지기"}
           </button>
@@ -1926,11 +1941,13 @@ export function FishingView({
       {phase === "result" && !verification && (
         <button
           type="button"
-          disabled={cooldownRemainingSec > 0}
+          disabled={cooldownRemainingSec > 0 || Boolean(activeAutoActivity)}
           onClick={startCast}
           className={`${resultActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
         >
-          {cooldownRemainingSec > 0
+          {activeAutoActivityName
+            ? `자동 ${activeAutoActivityName} 진행 중`
+            : cooldownRemainingSec > 0
             ? `다음 낚시까지 ${cooldownRemainingSec}초`
             : "다시 던지기"}
         </button>

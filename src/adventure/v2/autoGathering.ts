@@ -4,6 +4,8 @@ export const AUTO_GATHERING_XP_EFFICIENCY = 0.7;
 export const WOODCUTTING_AUTO_KEY = "woodcutting-auto.v1";
 export const MINING_AUTO_KEY = "mining-auto.v1";
 
+export type AutoGatheringActivity = "woodcutting" | "mining";
+
 export type AutoGatheringSession = {
   sessionId: string;
   sourceId: string;
@@ -160,6 +162,12 @@ export function beginAutoGathering(
   session: AutoGatheringSession,
 ): AutoGatheringState {
   return { session, remainders: state.remainders };
+}
+
+export function cancelAutoGathering(
+  state: AutoGatheringState,
+): AutoGatheringState {
+  return { session: null, remainders: state.remainders };
 }
 
 export type AutoGatheringSettlement = {

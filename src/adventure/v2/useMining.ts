@@ -14,6 +14,11 @@ import type {
   AutoGatheringResultView,
   AutoGatheringSessionView,
 } from "./AutoGatheringCard";
+import type { AutoGatheringActivity } from "./autoGathering";
+
+function parseAutoActivity(value: unknown): AutoGatheringActivity | null {
+  return value === "woodcutting" || value === "mining" ? value : null;
+}
 
 function parseLog(value: unknown): MiningLogView {
   const item = (value ?? {}) as Record<string, unknown>;
@@ -103,6 +108,8 @@ export function useMining(): MiningHandlers {
   const [autoSession, setAutoSession] = useState<AutoGatheringSessionView | null>(null);
   const [autoResult, setAutoResult] = useState<AutoGatheringResultView | null>(null);
   const [autoLoading, setAutoLoading] = useState(false);
+  const [activeAutoActivity, setActiveAutoActivity] =
+    useState<AutoGatheringActivity | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -115,6 +122,7 @@ export function useMining(): MiningHandlers {
         setMaterials(parseMaterials(json.materials));
         setLog(parseLog(json.log));
         setAutoSession(parseAutoSession(json.autoSession));
+        setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       } catch {
         // 표시용 상태라 실패해도 화면 진입은 유지한다.
       }
@@ -132,7 +140,11 @@ export function useMining(): MiningHandlers {
         body: JSON.stringify({ spotId }),
       });
       const json = await readJson(response);
-      if (!response.ok) throw new Error("mining_start_failed");
+      if (!response.ok) {
+        const active = parseAutoActivity(json?.activeAutoActivity);
+        if (active) setActiveAutoActivity(active);
+        throw new Error("mining_start_failed");
+      }
       const durationMs = Math.max(1, Math.floor(Number(json?.durationMs) || 0));
       const strikes = Math.max(1, Math.floor(Number(json?.strikes) || 0));
       if (!json?.ok || typeof json.sessionId !== "string" || !durationMs || !strikes) {
@@ -161,7 +173,11 @@ export function useMining(): MiningHandlers {
           body: JSON.stringify({ sessionId }),
         });
         const json = await readJson(response);
-        if (!response.ok || !json?.ok) throw new Error("mining_finish_failed");
+        if (!response.ok || !json?.ok) {
+          const active = parseAutoActivity(json?.activeAutoActivity);
+          if (active) setActiveAutoActivity(active);
+          throw new Error("mining_finish_failed");
+        }
         if (!json.success && json.reason === "not_ready" && attempt === 0) {
           await wait(Math.max(25, Math.floor(Number(json.retryAfterMs) || 0) + 25));
           continue;
@@ -211,8 +227,13 @@ export function useMining(): MiningHandlers {
         body: JSON.stringify({ action: "start", spotId }),
       });
       const json = await readJson(response);
-      if (!response.ok || !json?.ok) throw new Error("mining_auto_start_failed");
+      if (!response.ok || !json?.ok) {
+        const active = parseAutoActivity(json?.activeAutoActivity);
+        if (active) setActiveAutoActivity(active);
+        throw new Error("mining_auto_start_failed");
+      }
       setAutoSession(parseAutoSession(json.autoSession));
+      setActiveAutoActivity("mining");
       setAutoResult(null);
     } finally {
       setAutoLoading(false);
@@ -232,7 +253,26 @@ export function useMining(): MiningHandlers {
       setMaterials(parseMaterials(json.materials));
       setLog(parseLog(json.log));
       setAutoSession(null);
+      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
       setAutoResult(parseAutoResult(json));
+    } finally {
+      setAutoLoading(false);
+    }
+  }, [readJson]);
+
+  const cancelAuto = useCallback(async (): Promise<void> => {
+    setAutoLoading(true);
+    try {
+      const response = await fetch("/api/v2/mining/auto", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
+      });
+      const json = await readJson(response);
+      if (!response.ok || !json?.ok) throw new Error("mining_auto_cancel_failed");
+      setAutoSession(null);
+      setActiveAutoActivity(parseAutoActivity(json.activeAutoActivity));
+      setAutoResult(null);
     } finally {
       setAutoLoading(false);
     }
@@ -246,8 +286,10 @@ export function useMining(): MiningHandlers {
     autoSession,
     autoResult,
     autoLoading,
+    activeAutoActivity,
     startAuto,
     claimAuto,
+    cancelAuto,
     verification,
     verifyHuman,
   };

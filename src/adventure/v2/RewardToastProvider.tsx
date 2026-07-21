@@ -117,7 +117,7 @@ export function RewardToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         aria-atomic="false"
-        className="pointer-events-none fixed inset-x-3 bottom-4 z-[70] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:left-5 sm:bottom-5 sm:w-[23rem]"
+        className="pointer-events-none fixed inset-x-3 bottom-4 z-[120] flex flex-col items-stretch gap-2 sm:inset-x-auto sm:left-5 sm:bottom-5 sm:w-[23rem]"
       >
         {toasts.map((toast) => (
           <div

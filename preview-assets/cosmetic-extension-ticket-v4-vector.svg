@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">꾸미기 30일 연장권</title>
+  <desc id="desc">보라색 타일 위 달력과 노란색 연장 화살표 아이콘</desc>
+
+  <rect width="256" height="256" rx="54" fill="#4c158f"/>
+  <rect x="4" y="4" width="248" height="248" rx="50" fill="none" stroke="#6f35b3" stroke-width="4"/>
+
+  <!-- 연장 화살표: 달력 뒤에서 아래와 오른쪽을 감싸도록 배치 -->
+  <path
+    d="M51 130c-4 48 31 86 78 86 52 0 88-37 88-88 0-28-11-51-31-67"
+    fill="none"
+    stroke="#2a0a5e"
+    stroke-width="28"
+    stroke-linecap="round"
+  />
+  <path
+    d="M51 130c-4 48 31 86 78 86 52 0 88-37 88-88 0-28-11-51-31-67"
+    fill="none"
+    stroke="#ffca28"
+    stroke-width="16"
+    stroke-linecap="round"
+  />
+  <path
+    d="M178 42l42 28c6 4 5 10-1 13l-45 17c-7 3-11-1-9-8l10-44c1-6 3-7 3-6Z"
+    fill="#ffca28"
+    stroke="#2a0a5e"
+    stroke-width="8"
+    stroke-linejoin="round"
+  />
+
+  <!-- 달력 -->
+  <rect x="48" y="57" width="136" height="132" rx="24" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>
+  <path d="M49 97h134" fill="none" stroke="#2a0a5e" stroke-width="8"/>
+
+  <rect x="70" y="38" width="25" height="43" rx="12.5" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>
+  <rect x="137" y="38" width="25" height="43" rx="12.5" fill="#fff8e8" stroke="#2a0a5e" stroke-width="8"/>
+
+  <g fill="#5b1aa6">
+    <rect x="68" y="113" width="27" height="25" rx="6"/>
+    <rect x="103" y="113" width="27" height="25" rx="6"/>
+    <rect x="138" y="113" width="27" height="25" rx="6"/>
+    <rect x="68" y="147" width="27" height="25" rx="6"/>
+    <rect x="103" y="147" width="27" height="25" rx="6"/>
+    <rect x="138" y="147" width="27" height="25" rx="6"/>
+  </g>
+
+  <!-- 연장 효과를 나타내는 반짝임 -->
+  <path
+    d="M188 158c5 17 14 27 31 32-17 5-26 15-31 32-5-17-14-27-31-32 17-5 26-15 31-32Z"
+    fill="#c6a6f4"
+    stroke="#2a0a5e"
+    stroke-width="8"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -2,6 +2,10 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
 import {
+  MINING_AUTO_KEY,
+  parseAutoGatheringState,
+} from "@/adventure/v2/autoGathering";
+import {
   MINING_LOG_KEY,
   miningMaterialBalances,
   parseMiningLog,
@@ -16,7 +20,7 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const [charSave, logRaw, skillsRaw] = await Promise.all([
+  const [charSave, logRaw, skillsRaw, autoRaw] = await Promise.all([
     readSave<{ materials?: Record<string, unknown> }>(
       db,
       userId,
@@ -25,6 +29,7 @@ export async function GET() {
     ),
     readSave(db, userId, MINING_LOG_KEY, {}),
     readSave(db, userId, "skills.v2", {}),
+    readSave(db, userId, MINING_AUTO_KEY, {}),
   ]);
   const bonuses = equippedMiningBonuses(parseV2SkillsState(skillsRaw).equipped);
   return Response.json({
@@ -32,5 +37,6 @@ export async function GET() {
     materials: miningMaterialBalances(charSave.materials),
     log: parseMiningLog(logRaw),
     durationReductionPct: bonuses.durationReductionPct,
+    autoSession: parseAutoGatheringState(autoRaw).session,
   });
 }

@@ -22,7 +22,7 @@ import {
 import { signOut } from "next-auth/react";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 
-// v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 메뉴얼 +
+// v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 게임 안내서 +
 // 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
 // 이 메뉴로 통째 이관(사용자 결정 2026-06-13) — /plaza/* 라우트는 그대로.
 // 테마 토글 패턴: documentElement.classList + localStorage("theme").
@@ -180,7 +180,7 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
                 <BookOpen size={18} weight="duotone" />
-                메뉴얼
+                게임 안내서
               </Link>
             </li>
           </ul>

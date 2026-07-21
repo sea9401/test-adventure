@@ -6,7 +6,19 @@ import {
   type RareMapKind,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
+import {
+  STORM_EXPEDITION_DAILY_ATTEMPTS,
+  STORM_EXPEDITION_STAGE_COUNT,
+  STORM_EXPEDITION_UNLOCK_DEPTH,
+} from "@/adventure/data/v2/stormExpedition";
+import {
+  MAX_FRONTIER_DEPTH,
+  dungeonThemeCatalog,
+} from "@/adventure/data/v2/dungeon";
 import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
+
+const HUNTING_THEMES = dungeonThemeCatalog(MAX_FRONTIER_DEPTH);
+const LAST_HUNTING_THEME = HUNTING_THEMES.at(-1);
 
 const HUNT_RARE_MAP_IDS = [
   "worn_map",
@@ -45,32 +57,26 @@ function rareMapRewardText(def: RareMapKind) {
 export function HuntingContent() {
   return (
     <>
-      <H2>사냥터 — 프론티어</H2>
+      <H2>사냥터와 프론티어</H2>
       <P>
         사냥은 <Em>사냥터</Em>를 고르는 것으로 시작합니다(전투 탭 → 사냥터).
-        사냥터는 <Em>깊이 1 에서 이어지는 단일 프론티어</Em>로, 깊을수록 몬스터가
+        사냥터는 <Em>깊이 1에서 이어지는 단일 프론티어</Em>로, 깊을수록 몬스터가
         강해지고 보상도 커집니다.
       </P>
       <Table
         head={["테마", "깊이"]}
-        rows={[
-          [<Em key="t1">들판</Em>, "1 ~ 6"],
-          [<Em key="t2">마른 협곡</Em>, "7 ~ 12"],
-          [<Em key="t3">얼음 호수</Em>, "13 ~ 18"],
-          [<Em key="t4">심층 동굴</Em>, "19 ~ 24"],
-          [<Em key="t5">잊힌 성소</Em>, "25 ~ 30"],
-          [<Em key="t6">리자드 늪지</Em>, "31 ~ 36"],
-          [<Em key="t7">짐승의 소굴</Em>, "37 ~ 42"],
-          [<Em key="t8">검은 왕도</Em>, "43 ~ 48"],
-        ]}
-        caption="6깊이마다 테마가 바뀌고, 테마마다 몬스터·속성 구성이 다릅니다. 입장은 내 최고 도달 깊이 +1 까지 — 도전 깊이에서 승리하면 다음 깊이가 열립니다(수동 푸시). 현재 가장 깊은 테마(검은 왕도)가 프론티어의 끝입니다."
+        rows={HUNTING_THEMES.map((theme) => [
+          <Em key={theme.name}>{theme.name}</Em>,
+          `${theme.depthStart}~${theme.depthEnd}`,
+        ])}
+        caption={`6깊이마다 테마와 몬스터·속성 구성이 바뀝니다. 현재 최고 도달 깊이보다 한 단계 높은 곳까지 도전할 수 있으며, 승리하면 다음 깊이가 열립니다. ${LAST_HUNTING_THEME?.name ?? "마지막 사냥터"}가 현재 프론티어의 끝입니다.`}
       />
 
       <H2>사냥과 스태미나</H2>
       <P>
-        사냥 1회는 <Em>스태미나 1</Em> 을 쓰고 몬스터 한 마리와 자동 단판으로
-        붙습니다. 여러 회를 한 번에 몰아 돌릴 수도 있어요. 패배해도 잃는 건
-        없습니다(보상 0).
+        사냥 1회에는 <Em>스태미나 1</Em>을 사용하며 몬스터 한 마리와 자동으로
+        전투합니다. 일괄 사냥으로 여러 전투를 묶어 진행할 수도 있습니다. 패배하면
+        보상을 받지 못하지만 추가 손실은 없습니다.
       </P>
       <Table
         head={["요소", "값"]}
@@ -79,19 +85,39 @@ export function HuntingContent() {
           ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복 속도", <Code key="r">{REGEN_SECONDS_PER_POINT}초당 1</Code>],
         ]}
-        caption="스태미나는 사냥 페이스를 조절하는 장치이고, 쓰는 것은 사냥뿐입니다. 스태미나 포션으로 최대치 위로 더 비축해 둘 수 있어요."
+        caption="스태미나는 사냥과 거점 점령 일기토에 사용합니다. 스태미나 포션으로 최대치를 넘겨 비축할 수 있습니다."
       />
 
       <H2>HP</H2>
       <P>
-        HP 가 너무 낮으면 사냥이 잠깁니다. 시간이 지나면 저절로 회복되고, 마을
-        치료소에서 즉시 가득 채울 수 있어요.
+        HP가 너무 낮으면 사냥할 수 없습니다. HP는 시간이 지나면 회복되며 마을
+        치료소에서 즉시 모두 채울 수 있습니다.
       </P>
 
       <Note>
-        오프라인으로 시간만 흘려 보상을 받는 자동 사냥은 없습니다 — 사냥은 전부
-        직접 돌리는 능동 플레이이고, 자리비움 동안은 스태미나와 HP 만 차오릅니다.
+        자동 사냥은 지원하지 않습니다. 사냥은 화면에서 직접 시작해야 하며,
+        접속하지 않은 동안에는 스태미나와 HP만 회복됩니다.
       </Note>
+
+      <H2>원정</H2>
+      <P>
+        프론티어 깊이 <Em>{STORM_EXPEDITION_UNLOCK_DEPTH}</Em>를 돌파하면 전투 탭의
+        원정이 열립니다. 원정은 하루{" "}
+        <Em>{STORM_EXPEDITION_DAILY_ATTEMPTS}회</Em> 입장할 수 있으며, 한 번의
+        원정은 연속된 <Em>{STORM_EXPEDITION_STAGE_COUNT}개 구간</Em>으로
+        구성됩니다.
+      </P>
+      <UL>
+        <li>항로를 고르면 HP와 MP를 유지한 채 다음 구간으로 이어서 싸웁니다.</li>
+        <li>
+          구간을 돌파할 때마다 미확정 골드가 쌓입니다. 중간에 귀환하면 지금까지
+          모은 골드를 확보합니다.
+        </li>
+        <li>
+          다음 구간에서 패배하면 해당 원정의 미확정 골드를 모두 잃습니다. 남은
+          상태와 보상을 보고 계속 진행할지 결정해야 합니다.
+        </li>
+      </UL>
 
       <H2>전리품</H2>
       <UL>

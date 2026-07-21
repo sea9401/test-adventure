@@ -85,7 +85,7 @@ export function HuntingContent() {
           ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복 속도", <Code key="r">{REGEN_SECONDS_PER_POINT}초당 1</Code>],
         ]}
-        caption="스태미나는 사냥과 거점 점령 일기토에 사용합니다. 스태미나 포션으로 최대치를 넘겨 비축할 수 있습니다."
+        caption="스태미나는 사냥할 때 사용합니다. 스태미나 포션으로 최대치를 넘겨 비축할 수 있습니다."
       />
 
       <H2>HP</H2>
@@ -172,12 +172,6 @@ export function HuntingContent() {
         })}
         caption={`희귀 장소는 인벤토리 소모품이 아니며, 사냥터의 열린 레어맵 목록에서 입장합니다. 발견 후 ${RARE_MAP_TTL_MINUTES}분 동안 유효하며, 보유한 모든 레어맵은 합쳐서 최대 ${RARE_MAP_CAP}장까지 유지됩니다.`}
       />
-
-      <Note>
-        어느 길드가 점령한 영토에서 사냥하면 골드 일부가 <Em>세금</Em>으로 그
-        길드에 넘어갑니다(내 길드면 면제). 자세한 건 <Em>지도·거점·정착지</Em>{" "}
-        페이지를 참고하세요.
-      </Note>
     </>
   );
 }

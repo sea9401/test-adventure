@@ -14,7 +14,6 @@ import { EnhanceContent } from "./enhance";
 import { EconomyContent } from "./economy";
 import { TownContent } from "./town";
 import { GuildContent } from "./guild";
-import { OutpostContent } from "./outpost";
 import { PlazaContent } from "./plaza";
 import { CompendiumContent } from "./compendium";
 import { ArenaContent } from "./arena";
@@ -37,7 +36,6 @@ export const MANUAL_CONTENT: Record<string, () => ReactNode> = {
   economy: EconomyContent,
   town: TownContent,
   guild: GuildContent,
-  outpost: OutpostContent,
   plaza: PlazaContent,
   compendium: CompendiumContent,
   arena: ArenaContent,

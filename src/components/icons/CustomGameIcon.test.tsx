@@ -9,10 +9,19 @@ import {
 } from "./CustomGameIcon";
 
 describe("자체 제작 게임 SVG 아이콘", () => {
-  it("대표 아이콘 12종을 제공한다", () => {
-    expect(CUSTOM_GAME_ICON_NAMES).toHaveLength(12);
+  it("대표 아이콘과 마을 전용 아이콘 15종을 제공한다", () => {
+    expect(CUSTOM_GAME_ICON_NAMES).toHaveLength(15);
     expect(CUSTOM_GAME_ICON_NAMES).toEqual(
-      expect.arrayContaining(["Sword", "Coins", "Plant", "Bell", "Gear"]),
+      expect.arrayContaining([
+        "Sword",
+        "Coins",
+        "Plant",
+        "Bell",
+        "Gear",
+        "FirstAid",
+        "Bank",
+        "Storefront",
+      ]),
     );
   });
 

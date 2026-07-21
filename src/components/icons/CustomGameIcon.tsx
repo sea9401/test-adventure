@@ -13,6 +13,9 @@ export const CUSTOM_GAME_ICON_NAMES = [
   "Trophy",
   "Bell",
   "Gear",
+  "FirstAid",
+  "Bank",
+  "Storefront",
 ] as const;
 
 export type CustomGameIconName = (typeof CUSTOM_GAME_ICON_NAMES)[number];
@@ -89,6 +92,24 @@ export const CUSTOM_GAME_ICON_META = {
     category: "시스템",
     tileClass:
       "border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900",
+  },
+  FirstAid: {
+    label: "치료소",
+    category: "회복",
+    tileClass:
+      "border-rose-300 bg-rose-100 dark:border-rose-800 dark:bg-rose-950",
+  },
+  Bank: {
+    label: "은행",
+    category: "경제",
+    tileClass:
+      "border-yellow-300 bg-yellow-100 dark:border-yellow-800 dark:bg-yellow-950",
+  },
+  Storefront: {
+    label: "상점",
+    category: "경제",
+    tileClass:
+      "border-orange-300 bg-orange-100 dark:border-orange-800 dark:bg-orange-950",
   },
 } as const satisfies Record<
   CustomGameIconName,
@@ -272,6 +293,33 @@ function CustomGameIconArtwork({ name }: { name: CustomGameIconName }) {
           </g>
           <circle cx="32" cy="32" r="20" fill="#a98bea" stroke="#2a0a5e" strokeWidth="4" />
           <circle cx="32" cy="32" r="8" fill="#fff8e8" stroke="#2a0a5e" strokeWidth="4" />
+        </>
+      );
+    case "FirstAid":
+      return (
+        <>
+          <path d="M23 17v-5c0-3 2-5 5-5h8c3 0 5 2 5 5v5" stroke="#2a0a5e" strokeWidth="4" strokeLinecap="round" />
+          <rect x="7" y="16" width="50" height="41" rx="9" fill="#fff8e8" stroke="#2a0a5e" strokeWidth="4" />
+          <path d="M27 24h10v8h8v10h-8v8H27v-8h-8V32h8Z" fill="#ef5c5c" stroke="#2a0a5e" strokeWidth="3" strokeLinejoin="round" />
+        </>
+      );
+    case "Bank":
+      return (
+        <>
+          <path d="M7 22 32 7l25 15v8H7Z" fill="#ffca28" stroke="#2a0a5e" strokeWidth="4" strokeLinejoin="round" />
+          <path d="M12 30h40v24H12Z" fill="#fff8e8" stroke="#2a0a5e" strokeWidth="4" />
+          <path d="M20 33v18M32 33v18M44 33v18" stroke="#2a0a5e" strokeWidth="5" />
+          <path d="M7 54h50v6H7Z" fill="#ffca28" stroke="#2a0a5e" strokeWidth="4" strokeLinejoin="round" />
+        </>
+      );
+    case "Storefront":
+      return (
+        <>
+          <path d="M11 23h42v34H11Z" fill="#fff8e8" stroke="#2a0a5e" strokeWidth="4" strokeLinejoin="round" />
+          <path d="M8 22 13 8h38l5 14c0 6-5 9-10 5-4 4-9 4-14 0-5 4-10 4-14 0-5 4-10 1-10-5Z" fill="#ff9f43" stroke="#2a0a5e" strokeWidth="4" strokeLinejoin="round" />
+          <path d="M23 9 20 25M41 9l3 16" stroke="#fff8e8" strokeWidth="6" />
+          <path d="M17 36h14v11H17Z" fill="#52d3c4" stroke="#2a0a5e" strokeWidth="3" />
+          <path d="M39 36h9v21h-9Z" fill="#c6a6f4" stroke="#2a0a5e" strokeWidth="3" />
         </>
       );
   }

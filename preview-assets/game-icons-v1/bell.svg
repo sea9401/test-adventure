@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">알림</title>
+  <path d="M14 47h36l-5-8V27c0-9-5-16-13-16s-13 7-13 16v12Z" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M27 10c0-4 2-6 5-6s5 2 5 6" fill="#ffca28" stroke="#2a0a5e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M24 48c1 8 4 11 8 11s7-3 8-11" fill="#ffca28" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M23 28c0-5 3-9 7-11" stroke="#fff8e8" stroke-width="4" stroke-linecap="round"/>
+</svg>

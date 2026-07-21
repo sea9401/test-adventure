@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">업적</title>
+  <path d="M17 9h30v12c0 12-6 20-15 20s-15-8-15-20Z" fill="#ffca28" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M17 15H8v7c0 8 5 13 14 13M47 15h9v7c0 8-5 13-14 13" fill="none" stroke="#2a0a5e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 41v9M21 56h22" stroke="#2a0a5e" stroke-width="6" stroke-linecap="round"/>
+  <path d="m32 16 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z" fill="#fff8e8"/>
+</svg>

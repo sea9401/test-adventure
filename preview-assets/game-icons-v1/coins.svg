@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">코인</title>
+  <ellipse cx="39" cy="23" rx="17" ry="15" fill="#ffca28" stroke="#2a0a5e" stroke-width="4"/>
+  <path d="M26 23c0 6 6 10 13 10s13-4 13-10" fill="none" stroke="#2a0a5e" stroke-width="3"/>
+  <ellipse cx="25" cy="41" rx="17" ry="15" fill="#ffca28" stroke="#2a0a5e" stroke-width="4"/>
+  <path d="M12 41c0 6 6 10 13 10s13-4 13-10" fill="none" stroke="#2a0a5e" stroke-width="3"/>
+  <path d="M21 33h8" stroke="#fff8e8" stroke-width="4" stroke-linecap="round"/>
+  <path d="M35 15h8" stroke="#fff8e8" stroke-width="4" stroke-linecap="round"/>
+</svg>

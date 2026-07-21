@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">마을</title>
+  <path d="M14 29v27h36V29L32 15Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M7 31 32 9l25 22-7 8-18-16-18 16Z" fill="#ff9f43" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M26 56V39h12v17" fill="#c6a6f4" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+</svg>

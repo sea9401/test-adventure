@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">지도</title>
+  <path d="m7 14 16-6 18 6 16-6v42l-16 6-18-6-16 6Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M23 8v42M41 14v42" stroke="#2a0a5e" stroke-width="4"/>
+  <path d="M12 39c8-3 9-14 18-14 8 0 8 11 17 11 3 0 5-1 7-3" fill="none" stroke="#52d3c4" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="30" cy="25" r="4" fill="#ffca28" stroke="#2a0a5e" stroke-width="3"/>
+</svg>

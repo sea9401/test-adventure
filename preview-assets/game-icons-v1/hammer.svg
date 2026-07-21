@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">제작</title>
+  <path d="M16 9h25l13 12-10 10-8-8-8 8-15-15Z" fill="#ef7c5e" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m36 28-21 27" stroke="#2a0a5e" stroke-width="12" stroke-linecap="round"/>
+  <path d="m36 28-21 27" stroke="#fff8e8" stroke-width="6" stroke-linecap="round"/>
+</svg>

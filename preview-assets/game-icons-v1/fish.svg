@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">낚시</title>
+  <path d="M47 26 57 17v30L47 38Z" fill="#5cc8ff" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M7 32c9-14 27-18 42-5v10C34 50 16 46 7 32Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m28 25 8-9 5 13M28 39l8 9 5-13" fill="#5cc8ff" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="19" cy="29" r="3" fill="#2a0a5e"/>
+</svg>

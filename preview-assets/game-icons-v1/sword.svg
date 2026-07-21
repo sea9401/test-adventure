@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">검</title>
+  <path d="M16 47 42 21l2-12 12-2-2 12-26 26Z" fill="#fff8e8" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m13 39 13 13" stroke="#2a0a5e" stroke-width="8" stroke-linecap="round"/>
+  <path d="m13 39 13 13" stroke="#ef5c5c" stroke-width="4" stroke-linecap="round"/>
+  <path d="m15 49-7 7" stroke="#2a0a5e" stroke-width="9" stroke-linecap="round"/>
+  <path d="m15 49-7 7" stroke="#ef5c5c" stroke-width="4" stroke-linecap="round"/>
+</svg>

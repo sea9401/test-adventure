@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">설정</title>
+  <g fill="#a98bea" stroke="#2a0a5e" stroke-width="3">
+    <rect x="27" y="4" width="10" height="14" rx="3"/>
+    <rect x="27" y="46" width="10" height="14" rx="3"/>
+    <rect x="46" y="25" width="14" height="10" rx="3"/>
+    <rect x="4" y="25" width="14" height="10" rx="3"/>
+    <rect x="43" y="8" width="10" height="14" rx="3" transform="rotate(45 48 15)"/>
+    <rect x="11" y="42" width="10" height="14" rx="3" transform="rotate(45 16 49)"/>
+    <rect x="42" y="43" width="14" height="10" rx="3" transform="rotate(45 49 48)"/>
+    <rect x="8" y="11" width="14" height="10" rx="3" transform="rotate(45 15 16)"/>
+  </g>
+  <circle cx="32" cy="32" r="20" fill="#a98bea" stroke="#2a0a5e" stroke-width="4"/>
+  <circle cx="32" cy="32" r="8" fill="#fff8e8" stroke="#2a0a5e" stroke-width="4"/>
+</svg>

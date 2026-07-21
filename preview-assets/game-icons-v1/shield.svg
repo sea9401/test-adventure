@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">방패</title>
+  <path d="M32 7c7 4 14 6 22 6v17c0 13-8 23-22 28C18 53 10 43 10 30V13c8 0 15-2 22-6Z" fill="#fff8e8"/>
+  <path d="M32 14c5 2 10 3 15 4v12c0 9-5 15-15 20Z" fill="#5ba7ff"/>
+  <path d="M32 7c7 4 14 6 22 6v17c0 13-8 23-22 28C18 53 10 43 10 30V13c8 0 15-2 22-6Z" fill="none" stroke="#2a0a5e" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32 15v34" stroke="#2a0a5e" stroke-width="4" stroke-linecap="round"/>
+</svg>

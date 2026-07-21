@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
+  Mountains,
   Package,
   Sword,
 } from "@phosphor-icons/react";
@@ -850,7 +851,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   >
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        📦 {material.name}
+                        <Package size={16} weight="duotone" />
+                        {material.name}
                         {found ? (
                           <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                             등재
@@ -877,9 +879,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                           className="flex items-center justify-between gap-2 py-0.5"
                         >
                           <span className="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
-                            <span className="text-zinc-400 dark:text-zinc-500">
-                              ⛰️
-                            </span>
+                            <Mountains
+                              size={15}
+                              weight="duotone"
+                              className="text-zinc-400 dark:text-zinc-500"
+                            />
                             {FLOOR_LABEL[s.floorId]}
                             <span className="text-zinc-500 dark:text-zinc-400">
                               {formatAmount(s)}
